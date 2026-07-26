@@ -6,6 +6,7 @@ import { requirePermission, sessionHasPermission } from "@/lib/auth/authorizatio
 import { createCommandRequest } from "@/lib/command/service";
 import { ForbiddenError } from "@/lib/errors";
 import { getServerLocale, t } from "@/lib/i18n/translations";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 export type CommandActionState = {
   error?: string;
@@ -50,6 +51,6 @@ export async function createCommandRequestAction(_prev: CommandActionState | nul
           : tr("serversPage.command.actionUserSuccess"),
     } satisfies CommandActionState;
   } catch (error) {
-    return { error: error instanceof Error ? error.message : tr("serversPage.command.actionFailed") } satisfies CommandActionState;
+    return { error: getErrorMessage(error, tr("serversPage.command.actionFailed")) } satisfies CommandActionState;
   }
 }

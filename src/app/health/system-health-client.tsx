@@ -16,6 +16,7 @@ import {
 } from "./health-dashboard-helpers";
 import type { SystemHealthReport } from "./health-types";
 import { useHealthData } from "./use-health-data";
+import { ActionButton } from "@/components/action-button";
 
 type Props = { initialSystemHealth?: SystemHealthReport | null };
 
@@ -54,16 +55,14 @@ export function SystemHealthClient({ initialSystemHealth }: Props) {
 					className="rounded-xl border border-[var(--danger-border)] p-3 text-sm text-[var(--danger)]"
 				>
 					{loadError}
-					<button
-						type="button"
+					<ActionButton variant="danger"
 						onClick={() => void fetchSystemHealth()}
 						disabled={isRefreshing}
-						data-action-button
-						data-variant="danger"
+					
 						className="!mt-3 !px-3 !py-1.5 !text-xs disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						{isRefreshing ? t("healthPage.ui.retrying") : t("healthPage.ui.retryLoad")}
-					</button>
+					</ActionButton>
 				</div>
 			) : null}
 

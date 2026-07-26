@@ -7,6 +7,7 @@ import { formatBytes as formatBytesShared } from "@/lib/format/bytes";
 import { toDateLocale } from "@/lib/i18n/locale-format";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { EmptyState } from "@/components/page-shell";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 type ServerMetricPoint = {
   time: string;
@@ -79,7 +80,7 @@ export function DashboardAnalyticsPanel() {
         const result = await csrfFetch<DashboardAnalytics>("/api/dashboard/analytics?type=all");
         if (active) setData(result);
       } catch (err) {
-        if (active) setError(err instanceof Error ? err.message : t("dashboard.analytics.load-error"));
+        if (active) setError(getErrorMessage(err, t("dashboard.analytics.load-error")));
       } finally {
         if (active) setLoading(false);
       }

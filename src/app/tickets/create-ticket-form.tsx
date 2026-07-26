@@ -8,6 +8,8 @@ import { useToast } from "@/components/toast-provider";
 import type { Locale } from "@/lib/i18n/translations";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
+import { getErrorMessage } from "@/lib/http/error-message";
+import { ActionButton } from "@/components/action-button";
 
 type Props = { locale?: Locale; servers?: { id: string; name: string; host: string }[] };
 
@@ -30,7 +32,7 @@ export function CreateTicketForm({ locale: _locale, servers = [] }: Props = {}) 
 			router.refresh();
 			return { success: true };
 		} catch (err) {
-			return { error: err instanceof Error ? err.message : t("ticketsPage.form.error.createFailed") };
+			return { error: getErrorMessage(err, t("ticketsPage.form.error.createFailed")) };
 		}
 	}, null);
 
@@ -119,13 +121,12 @@ export function CreateTicketForm({ locale: _locale, servers = [] }: Props = {}) 
 					className={cn(UI_INPUT,"min-h-[6rem] resize-y")}
 				/>
 			</label>
-			<button
+			<ActionButton type="submit" variant="primary"
 				disabled={pending}
-				data-primary
-				data-action-button data-variant="primary" className="w-fit px-4 py-2.5 text-sm"
+				data-primary className="w-fit px-4 py-2.5 text-sm"
 			>
 				{pending ? t("ticketsPage.form.submitting") : t("ticketsPage.form.submit")}
-			</button>
+			</ActionButton>
 		</form>
 	);
 }

@@ -5,6 +5,7 @@ type TFunction = (key: string) => string;
 import { useI18n } from "@/lib/i18n/use-locale";
 import type { DirEntry, UploadProgress } from "./ssh-file-manager-parts";
 import { formatSshFileDate, formatSshFileSize } from "./ssh-file-manager-parts";
+import { ActionButton } from "@/components/action-button";
 
 type UploadsProps = {
   uploads: UploadProgress[];
@@ -93,15 +94,13 @@ export function SshFileList({
         <div className="flex h-full flex-col items-center justify-center gap-3 px-3 text-center text-xs text-[var(--text-muted)]">
           <p>{t("sshFileManager.empty")}</p>
           {onGoUp ? (
-            <button
-              type="button"
+            <ActionButton variant="secondary"
               onClick={onGoUp}
               data-testid="ssh-files-up-level"
-              aria-label={t("sshFileManager.upLevelAria")}
-             data-action-button data-variant="secondary" className="inline-flex items-center gap-1 !px-3 !py-1.5 !text-xs">
+              aria-label={t("sshFileManager.upLevelAria")} className="inline-flex items-center gap-1 !px-3 !py-1.5 !text-xs">
               <span aria-hidden="true">↑</span>
               {t("sshFileManager.upLevel")}
-            </button>
+            </ActionButton>
           ) : null}
         </div>
       )}
@@ -123,9 +122,9 @@ export function SshFileList({
             <>
               <span className="shrink-0 text-[10px] text-[var(--text-muted)]">{entry.isFile ? formatSshFileSize(entry.size) :""}</span>
               <span className="hidden shrink-0 text-[10px] text-[var(--text-muted)] lg:block">{formatSshFileDate(entry.modifyTime, locale)}</span>
-              {entry.isFile && <button onClick={(e) => { e.stopPropagation(); onDownload(entry); }} data-action-button data-variant="ghost" className="!min-h-11 !min-w-11 !shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100" aria-label={t("sshFileManager.download")} title={t("sshFileManager.download")}>⬇</button>}
-              <button onClick={(e) => { e.stopPropagation(); setRenameTarget(entry.name); setRenameValue(entry.name); }} data-action-button data-variant="ghost" className="!min-h-11 !min-w-11 !shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100" aria-label={t("sshFileManager.rename")} title={t("sshFileManager.rename")}>✎</button>
-              {entry.isFile && <button onClick={(e) => { e.stopPropagation(); onDelete(entry); }} data-action-button data-variant="ghost" className="!min-h-11 !min-w-11 !shrink-0 text-[var(--danger)] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100" aria-label={t("sshFileManager.delete")} title={t("sshFileManager.delete")}>🗑</button>}
+              {entry.isFile && <ActionButton type="submit" variant="ghost" onClick={(e) => { e.stopPropagation(); onDownload(entry); }} className="!min-h-11 !min-w-11 !shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100" aria-label={t("sshFileManager.download")} title={t("sshFileManager.download")}>⬇</ActionButton>}
+              <ActionButton type="submit" variant="ghost" onClick={(e) => { e.stopPropagation(); setRenameTarget(entry.name); setRenameValue(entry.name); }} className="!min-h-11 !min-w-11 !shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100" aria-label={t("sshFileManager.rename")} title={t("sshFileManager.rename")}>✎</ActionButton>
+              {entry.isFile && <ActionButton type="submit" variant="ghost" onClick={(e) => { e.stopPropagation(); onDelete(entry); }} className="!min-h-11 !min-w-11 !shrink-0 text-[var(--danger)] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100" aria-label={t("sshFileManager.delete")} title={t("sshFileManager.delete")}>🗑</ActionButton>}
             </>
           )}
         </div>

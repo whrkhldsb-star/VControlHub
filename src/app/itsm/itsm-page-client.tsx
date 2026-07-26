@@ -8,6 +8,7 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import type { ItsmConnectionRecord, ItsmDirection, ItsmEventRecord, ItsmProvider } from "@/lib/itsm/types";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useToast } from "@/components/toast-provider";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 const PROVIDERS: ItsmProvider[] = ["generic_webhook", "slack", "telegram", "dingtalk", "feishu"];
 const DIRECTIONS: ItsmDirection[] = ["bidirectional", "outbound", "inbound"];
@@ -58,7 +59,7 @@ export function ItsmPageClient({
 			if (Array.isArray(connData.connections)) setConnections(connData.connections);
 			if (Array.isArray(eventData.events)) setEvents(eventData.events);
 		} catch (error) {
-			addToast("error", error instanceof Error ? error.message : t("itsmPage.toast.error"));
+			addToast("error", getErrorMessage(error, t("itsmPage.toast.error")));
 		}
 	}, [addToast, t]);
 
@@ -97,7 +98,7 @@ export function ItsmPageClient({
 			await reload();
 			addToast("success", t("itsmPage.toast.created"));
 		} catch (error) {
-			addToast("error", error instanceof Error ? error.message : t("itsmPage.toast.error"));
+			addToast("error", getErrorMessage(error, t("itsmPage.toast.error")));
 		} finally {
 			setBusy(false);
 		}
@@ -111,7 +112,7 @@ export function ItsmPageClient({
 			await reload();
 			addToast("success", t("itsmPage.toast.deleted"));
 		} catch (error) {
-			addToast("error", error instanceof Error ? error.message : t("itsmPage.toast.error"));
+			addToast("error", getErrorMessage(error, t("itsmPage.toast.error")));
 		} finally {
 			setBusy(false);
 		}
@@ -129,7 +130,7 @@ export function ItsmPageClient({
 			if (result.ok) addToast("success", t("itsmPage.toast.testOk"));
 			else addToast("error", result.error || t("itsmPage.toast.testFail"));
 		} catch (error) {
-			addToast("error", error instanceof Error ? error.message : t("itsmPage.toast.testFail"));
+			addToast("error", getErrorMessage(error, t("itsmPage.toast.testFail")));
 		} finally {
 			setTestingId(null);
 		}
@@ -145,7 +146,7 @@ export function ItsmPageClient({
 			});
 			await reload();
 		} catch (error) {
-			addToast("error", error instanceof Error ? error.message : t("itsmPage.toast.error"));
+			addToast("error", getErrorMessage(error, t("itsmPage.toast.error")));
 		} finally {
 			setBusy(false);
 		}
@@ -302,24 +303,20 @@ export function ItsmPageClient({
 									</div>
 									{canManage && (
 										<div className="flex flex-wrap gap-2">
-											<button
-												type="button"
-												data-action-button data-variant="secondary" className="!rounded-md !px-2 !py-1 !text-xs"
+											<ActionButton variant="secondary" className="!rounded-md !px-2 !py-1 !text-xs"
 												disabled={busy}
 												onClick={() => void toggleEnabled(row)}
 											>
 												{row.enabled ? t("itsmPage.action.disable") : t("itsmPage.action.enable")}
-											</button>
-											<button
-												type="button"
-												data-action-button data-variant="secondary" className="!rounded-md !px-2 !py-1 !text-xs"
+											</ActionButton>
+											<ActionButton variant="secondary" className="!rounded-md !px-2 !py-1 !text-xs"
 												disabled={testingId === row.id}
 												onClick={() => void test(row.id)}
 											>
 												{testingId === row.id
 													? t("itsmPage.action.testing")
 													: t("itsmPage.action.test")}
-											</button>
+											</ActionButton>
 											<button
 												type="button"
 												className="rounded-md border border-rose-500/40 px-2 py-1 text-xs text-rose-500"

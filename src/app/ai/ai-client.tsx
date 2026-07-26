@@ -45,6 +45,7 @@ import { useConvSettingsForm } from "./hooks/use-conv-settings-form";
 import { useFileAttachments } from "./hooks/use-file-attachments";
 import { useModelCapabilities } from "./hooks/use-model-capabilities";
 import { useProviderForm } from "./hooks/use-provider-form";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 export function AiClient({
   initialProviders,
@@ -246,7 +247,7 @@ export function AiClient({
     }).catch((err) => {
       addToast(
         "error",
-        err instanceof Error ? err.message : t("aiPage.exportFailed"),
+        getErrorMessage(err, t("aiPage.exportFailed")),
       );
     });
   };

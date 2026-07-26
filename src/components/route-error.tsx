@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { PermissionDenied } from "@/components/page-shell";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { createLogger } from "@/lib/logging";
+import { ActionButton } from "@/components/action-button";
 
 const logger = createLogger("route-error");
 
@@ -65,13 +66,12 @@ export function RouteError({
 					) : null}
 				</div>
 				<div className="mt-6 flex flex-wrap justify-center gap-2">
-					<button
+					<ActionButton type="submit" variant="primary"
 						onClick={reset}
-						data-primary
-						data-action-button data-variant="primary" className="px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40"
+						data-primary className="px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40"
 					>
 						{t("common.retry")}
-					</button>
+					</ActionButton>
 					<button
 						onClick={() => {
 							if (typeof window !== "undefined") {

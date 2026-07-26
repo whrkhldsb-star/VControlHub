@@ -3,6 +3,7 @@
 import type { ConvItem } from "./ai-types";
 import { EmptyState } from "@/components/page-shell";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { ActionButton } from "@/components/action-button";
 
 interface SidebarProps {
   showSidebar: boolean;
@@ -43,14 +44,12 @@ export function AiSidebar({
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--accent)]">AI</p>
               <h1 className="text-sm font-semibold text-[var(--text-primary)]">{t("aiPage.sidebarTitle")}</h1>
             </div>
-            <button
-              type="button"
+            <ActionButton variant="primary"
               onClick={onNewConv}
-              data-primary
-              data-action-button data-variant="primary" className="h-8 px-3 text-xs"
+              data-primary className="h-8 px-3 text-xs"
             >
               {t("aiPage.newConversation")}
-            </button>
+            </ActionButton>
           </div>
 
           {/* Conversation list */}

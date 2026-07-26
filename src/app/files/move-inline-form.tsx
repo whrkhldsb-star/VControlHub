@@ -8,6 +8,7 @@ import { type MoveFileActionState, moveFileAction } from "./move-file-action";
 
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
+import { ActionButton } from "@/components/action-button";
 const initialState: MoveFileActionState = {};
 
 export function MoveInlineForm({
@@ -119,19 +120,16 @@ export function MoveInlineForm({
       <span className="text-xs text-[var(--text-secondary)]">
         → /{previewPath}
       </span>
-      <button
+      <ActionButton variant="outline"
         type="submit"
-        disabled={pending || !targetDir.trim() || targetDir.trim() === currentDir}
-       data-action-button data-variant="outline" className="!px-3 !py-1.5 !text-xs disabled:cursor-not-allowed disabled:opacity-50">
+        disabled={pending || !targetDir.trim() || targetDir.trim() === currentDir} className="!px-3 !py-1.5 !text-xs disabled:cursor-not-allowed disabled:opacity-50">
         {pending ? t("common.executing") : t("common.confirm")}
-      </button>
-      <button
-        type="button"
+      </ActionButton>
+      <ActionButton variant="secondary"
         onClick={handleCancel}
-        disabled={pending}
-       data-action-button data-variant="secondary" className="!px-3 !py-1.5 !text-xs disabled:cursor-not-allowed disabled:opacity-50">
+        disabled={pending} className="!px-3 !py-1.5 !text-xs disabled:cursor-not-allowed disabled:opacity-50">
         {t("common.cancel")}
-      </button>
+      </ActionButton>
     </form>
   );
 }

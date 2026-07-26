@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { logError } from "@/lib/logging";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 /**
  * Minimal shape of the `/api/files/list` response that the listing
@@ -135,7 +136,7 @@ export function useFileBrowserListing<TData extends ListingFilesApiResponse>({
         if (abortRef.current !== controller) return;
         logError("Failed to fetch files:", err);
         setListError(
-          err instanceof Error ? err.message : t("filesPage.listRefreshFailed"),
+          getErrorMessage(err, t("filesPage.listRefreshFailed")),
         );
       } finally {
         // Only the latest in-flight request may clear loading; aborted

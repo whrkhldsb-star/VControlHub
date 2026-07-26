@@ -13,6 +13,7 @@ import { restoreFileEntry } from "@/lib/storage/service";
 import { deleteBackingObject } from "@/lib/storage/fs-backend";
 
 import type { StorageActionState, StorageDeleteActionState } from "./actions-helpers";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 const logger = createLogger("storage-file-entries");
 
@@ -126,7 +127,7 @@ export async function deleteFileEntryAction(
     } satisfies StorageDeleteActionState;
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : t("storagePage.action.fileDeleteFailed"),
+      error: getErrorMessage(error, t("storagePage.action.fileDeleteFailed")),
     } satisfies StorageDeleteActionState;
   }
 }
@@ -202,7 +203,7 @@ export async function restoreFileEntryAction(
     return { success: t("storagePage.action.fileRestored").replace("{name}", entry.name) } satisfies StorageActionState;
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : t("storagePage.action.fileRestoreFailed"),
+      error: getErrorMessage(error, t("storagePage.action.fileRestoreFailed")),
     } satisfies StorageActionState;
   }
 }
@@ -301,7 +302,7 @@ export async function permanentDeleteFileEntryAction(
         tolerateMissing: true,
       });
     } catch (error) {
-      const reason = error instanceof Error ? error.message : String(error);
+      const reason = getErrorMessage(error, String(error));
       logger.warn("permanent delete: backing object cleanup failed after index removal", {
         entryId: entry.id,
         relativePath: entry.relativePath,
@@ -320,7 +321,7 @@ export async function permanentDeleteFileEntryAction(
       }).catch((err) => {
         logger.warn("audit write failed after permanent backing delete failure", {
           entryId: entry.id,
-          error: err instanceof Error ? err.message : String(err),
+          error: getErrorMessage(err, String(err)),
         });
       });
     }
@@ -339,7 +340,7 @@ export async function permanentDeleteFileEntryAction(
     return { success: t("storagePage.action.filePermanentlyDeleted").replace("{name}", entry.name) } satisfies StorageActionState;
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : t("storagePage.action.filePermanentlyDeleteFailed"),
+      error: getErrorMessage(error, t("storagePage.action.filePermanentlyDeleteFailed")),
     } satisfies StorageActionState;
   }
 }

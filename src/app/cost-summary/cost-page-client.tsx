@@ -26,6 +26,7 @@ import type {
 	DailySnapshot,
 	CostBudgetRecord,
 } from "@/lib/cost/types";
+import { ActionButton } from "@/components/action-button";
 // csrfFetch kept in hook
 
 type Props = {
@@ -205,14 +206,14 @@ export function CostPageClient({
 				count={entries.length}
 				actions={
 					<div className="flex flex-wrap gap-2">
-						<button type="button" data-action-button data-variant="secondary" className={buttonGhost} onClick={() => void refreshAll()}>{t("costPage.actions.refresh")}</button>
+						<ActionButton variant="secondary" className={buttonGhost} onClick={() => void refreshAll()}>{t("costPage.actions.refresh")}</ActionButton>
 						{canManage ? (
-							<button type="button" data-action-button data-variant="secondary" className={buttonGhost} onClick={() => void syncServerCosts()} disabled={syncingSources}>
+							<ActionButton variant="secondary" className={buttonGhost} onClick={() => void syncServerCosts()} disabled={syncingSources}>
 								{syncingSources ? t("costPage.actions.syncingSources") : t("costPage.actions.syncSources")}
-							</button>
+							</ActionButton>
 						) : null}
 						{canManage ? (
-							<button type="button" data-action-button data-variant="primary" className={buttonPrimary} onClick={openCreate}>{t("costPage.actions.newEntry")}</button>
+							<ActionButton variant="primary" className={buttonPrimary} onClick={openCreate}>{t("costPage.actions.newEntry")}</ActionButton>
 						) : null}
 					</div>
 				}
@@ -250,10 +251,10 @@ export function CostPageClient({
 										{canManage ? (
 											<td className="px-3 py-2 text-right">
 												<div className="flex justify-end gap-2">
-													<button type="button" data-action-button data-variant="secondary" className={buttonGhost} onClick={() => openEdit(e)}>{t("costPage.actions.edit")}</button>
-													<button type="button" data-action-button data-variant="danger" className={buttonDanger} onClick={() => requestDelete(e)} disabled={deletingId === e.id}>
+													<ActionButton variant="secondary" className={buttonGhost} onClick={() => openEdit(e)}>{t("costPage.actions.edit")}</ActionButton>
+													<ActionButton variant="danger" className={buttonDanger} onClick={() => requestDelete(e)} disabled={deletingId === e.id}>
 														{deletingId === e.id ? t("costPage.actions.deleting") : t("costPage.actions.delete")}
-													</button>
+													</ActionButton>
 												</div>
 											</td>
 										) : null}

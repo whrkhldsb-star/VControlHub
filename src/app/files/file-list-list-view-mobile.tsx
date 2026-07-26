@@ -16,6 +16,7 @@ import {
 } from "./file-entry-utils";
 import type { FolderProp } from "./file-list-model";
 import { FileListEmptyState } from "./file-list-empty-state";
+import { ActionButton } from "@/components/action-button";
 
 type ToastFn = (type: "success" | "error" | "info", message: string) => void;
 type EntryGuard = (entry: { capabilities?: FileProp["capabilities"] }) => boolean;
@@ -91,14 +92,12 @@ export function FileListListViewMobile(props: FileListListViewMobileProps) {
                 )}
               </div>
             </div>
-            <button
-              type="button"
+            <ActionButton variant="secondary"
               onClick={() => navigateToFolder(folder.path)}
-              data-tone="cyan"
-              data-action-button data-variant="secondary" className="shrink-0 !inline-flex !items-center !gap-1.5 !px-3 !py-1.5 !text-xs"
+              data-tone="cyan" className="shrink-0 !inline-flex !items-center !gap-1.5 !px-3 !py-1.5 !text-xs"
             >
               {t("fileListClient.open")}
-            </button>
+            </ActionButton>
           </div>
           {entryCanRead(folder) || folderCanWrite(folder) ? (
             <div className="mt-2 flex flex-wrap gap-1 pl-9">

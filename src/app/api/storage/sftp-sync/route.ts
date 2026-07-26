@@ -22,6 +22,7 @@ import {
   sftpSyncBodySchema,
   sftpWaitQuerySchema,
 } from "@/lib/storage/schema";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 export const dynamic = "force-dynamic";
 
@@ -99,7 +100,7 @@ export async function POST(request: Request) {
           }, { status });
         } catch (error) {
           return NextResponse.json(
-            { error: error instanceof Error ? error.message : "SyncFailed" },
+            { error: getErrorMessage(error, "SyncFailed") },
             { status: 400 },
           );
         }

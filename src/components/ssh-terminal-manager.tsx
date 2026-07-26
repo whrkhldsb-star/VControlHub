@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { SshTerminalPanel, type TerminalStatus } from "@/components/ssh-terminal-panel";
+import { ActionButton } from "@/components/action-button";
 
 /* ------------------------------------------------------------------ */
 /* SshTerminalManager — multi-tab SSH terminal floating workbench     */
@@ -166,17 +167,15 @@ export function SshTerminalManager({
 						>
 							▬
 						</button>
-						<button
-							type="button"
+						<ActionButton variant="secondary"
 							onClick={onClose}
 							aria-label={t("sshTerminalModal.ariaClose")}
 							title={t("sshTerminalModal.close")}
-							data-action-button
-							data-variant="secondary"
+						
 							className="min-h-9 min-w-9 !px-3 !py-1.5 !text-xs"
 						>
 							✕
-						</button>
+						</ActionButton>
 					</div>
 				</div>
 

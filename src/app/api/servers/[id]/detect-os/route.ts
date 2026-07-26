@@ -27,6 +27,7 @@ import {
   type OsDialect,
 } from "@/lib/ssh/os-dialect";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 export const dynamic = "force-dynamic";
 const logger = createLogger("api:servers:detect-os");
@@ -136,7 +137,7 @@ export async function POST(
           fallback,
         });
       } catch (error) {
-        const message = error instanceof Error ? error.message : "SSH connection failed";
+        const message = getErrorMessage(error, "SSH connection failed");
         logger.warn("OS dialect detection failed", { serverId: id, error: message });
         await auditUserAction(
           session.userId,

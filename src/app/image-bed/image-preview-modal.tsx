@@ -19,6 +19,7 @@ import Image from "next/image";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import type { ImageItem } from "./image-bed-types";
+import { ActionButton } from "@/components/action-button";
 
 export interface ImagePreviewModalProps {
 	image: ImageItem | null;
@@ -76,39 +77,35 @@ export function ImagePreviewModal({
 						</div>
 					</div>
 					<div className="flex flex-wrap items-center justify-end gap-2">
-						<button
+						<ActionButton type="submit" variant="outline"
 							onClick={() => onCopyLink(image.publicUrl)}
-							data-action-button
-							data-variant="outline"
+						
 							className="!min-h-11 !px-3 !py-1.5 !text-xs"
 						>
 							{t("imageBed.preview.copyLink")}
-						</button>
-						<button
+						</ActionButton>
+						<ActionButton type="submit" variant="success"
 							onClick={() => onCopyMarkdown(image)}
-							data-action-button
-							data-variant="success"
+						
 							className="!min-h-11 !px-3 !py-1.5 !text-xs"
 						>
 							Markdown
-						</button>
-						<button
+						</ActionButton>
+						<ActionButton type="submit" variant="outline"
 							onClick={() => onCopyHTML(image)}
-							data-action-button
-							data-variant="outline"
+						
 							className="!min-h-11 !px-3 !py-1.5 !text-xs"
 						>
 							HTML
-						</button>
+						</ActionButton>
 						{canDelete && (
-							<button
+							<ActionButton type="submit" variant="danger"
 								onClick={() => onRequestDelete(image)}
-								data-action-button
-								data-variant="danger"
+							
 								className="!min-h-11 !px-3 !py-1.5 !text-xs"
 							>
 								{t("common.delete")}
-							</button>
+							</ActionButton>
 						)}
 					</div>
 				</div>

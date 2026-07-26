@@ -5,6 +5,7 @@ import { useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { getDirectGatewayHealthyNote } from "./direct-gateway-advice";
+import { ActionButton } from "@/components/action-button";
 
 export function InfoRow({ label, value }: { label: string; value: string }) {
 	return (
@@ -82,13 +83,11 @@ export function OsDialectSection({
 						{displayInfo || t("serverOverviewDetails.osNotDetected")}
 					</p>
 				</div>
-				<button
-					type="button"
+				<ActionButton variant="outline"
 					onClick={handleDetect}
-					disabled={detecting}
-				 data-action-button data-variant="outline" className="shrink-0 !px-2.5 !py-1 !text-[11px] disabled:opacity-50">
+					disabled={detecting} className="shrink-0 !px-2.5 !py-1 !text-[11px] disabled:opacity-50">
 					{detecting ? t("serverOverviewDetails.detecting") : t("serverOverviewDetails.detectOs")}
-				</button>
+				</ActionButton>
 			</div>
 			{error ? (
 				<p className="mt-1.5 text-[11px] text-[var(--danger)]">{error}</p>

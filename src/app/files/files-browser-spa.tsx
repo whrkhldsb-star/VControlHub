@@ -16,6 +16,7 @@ import {
 } from "./files-browser-helpers";
 import { BreadcrumbsClient } from "./breadcrumbs-client";
 import { FilesBrowserSidebar } from "./files-browser-sidebar";
+import { ActionButton } from "@/components/action-button";
 
 /* ── Navigation hook ────────────────────────────────────────────── */
 
@@ -195,16 +196,14 @@ export function FilesBrowserSpa({
             </p>
           ) : null}
           {data.searchQuery ? (
-            <button
-              type="button"
+            <ActionButton variant="secondary"
               onClick={() => {
                 setSearchInput("");
                 fetchFiles(data.currentPath);
-              }}
-              data-action-button data-variant="secondary" className="mt-2 !text-xs"
+              }} className="mt-2 !text-xs"
             >
               {t("filesBrowserSpa.clear")}
-            </button>
+            </ActionButton>
           ) : null}
 
           <div data-tone="cyan" className="mt-6 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)]">
@@ -223,8 +222,7 @@ export function FilesBrowserSpa({
                 </p>
               </div>
               <div className="flex flex-wrap gap-3">
-                <button
-                  type="button"
+                <ActionButton variant="success"
                   onClick={() =>
                     fetchFiles(
                       data.currentPath,
@@ -233,11 +231,10 @@ export function FilesBrowserSpa({
                       data.nodeIdFilter,
                     )
                   }
-                  disabled={loading}
-                  data-action-button data-variant="success" className="disabled:opacity-60"
+                  disabled={loading} className="disabled:opacity-60"
                 >
                   {loading ? t("filesBrowserSpa.refreshing") : `↻ ${refreshLabel}`}
-                </button>
+                </ActionButton>
                 {data.permissions.canEditLocalFiles ? (
                   <a
                     href="#upload-section"
@@ -262,19 +259,17 @@ export function FilesBrowserSpa({
                     }
                   />
                 ) : (
-                  <button
-                    type="button"
+                  <ActionButton variant="secondary"
                     disabled
                     aria-disabled="true"
                     title={
                       !data.permissions.canEditLocalFiles
                         ? t("filesBrowserSpa.cannotCreateFolderNoPermission")
                         : t("filesBrowserSpa.cannotCreateFolderNoNode")
-                    }
-                    data-action-button data-variant="secondary" className="cursor-not-allowed opacity-60"
+                    } className="cursor-not-allowed opacity-60"
                   >
                     {t("filesBrowserSpa.createFolder")}
-                  </button>
+                  </ActionButton>
                 )}
               </div>
             </div>

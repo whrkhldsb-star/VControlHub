@@ -4,6 +4,7 @@ import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
 
 import type { TerminalStatus } from "@/components/ssh-terminal-types";
+import { ActionButton } from "@/components/action-button";
 
 type TFn = (key: string) => string;
 
@@ -81,14 +82,12 @@ export function SshTerminalToolbar({
 					{t("sshFileManager.toggle")}
 				</button>
 				{(status ==="error" || status ==="closed") && (
-					<button
-						type="button"
+					<ActionButton variant="outline"
 						onClick={onReconnect}
-						data-tone="cyan"
-						data-action-button data-variant="outline" className="min-h-9 !rounded-full !px-3 !py-1 !text-xs"
+						data-tone="cyan" className="min-h-9 !rounded-full !px-3 !py-1 !text-xs"
 					>
 						{t("sshTerminalModal.reconnect")}
-					</button>
+					</ActionButton>
 				)}
 				<button
 					type="button"
@@ -143,20 +142,16 @@ export function SshTerminalSearchBar({
 			>
 				{t("sshTerminalModal.searchPrevious")}
 			</button>
-			<button
-				type="button"
+			<ActionButton variant="outline"
 				onClick={() => onSearch("next")}
-				data-tone="cyan"
-				data-action-button data-variant="outline" className="min-h-10 !px-3 !text-xs"
+				data-tone="cyan" className="min-h-10 !px-3 !text-xs"
 			>
 				{t("sshTerminalModal.searchNext")}
-			</button>
-			<button
-				type="button"
-				onClick={onClear}
-			 data-action-button data-variant="secondary" className="min-h-10 !px-3 !text-xs">
+			</ActionButton>
+			<ActionButton variant="secondary"
+				onClick={onClear} className="min-h-10 !px-3 !text-xs">
 				{t("sshTerminalModal.searchClear")}
-			</button>
+			</ActionButton>
 		</div>
 	);
 }

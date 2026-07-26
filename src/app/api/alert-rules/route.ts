@@ -18,6 +18,7 @@ import { idQuerySchema, parseSearchParams } from "@/lib/http/parse-search-params
 import { validateWebhookUrlSyntax } from "@/lib/security/webhook-url";
 
 import { AuthError, ValidationError } from "@/lib/errors";
+import { getErrorMessage } from "@/lib/http/error-message";
 export const dynamic = "force-dynamic";
 
 const metrics = [
@@ -290,7 +291,7 @@ export async function DELETE(request: Request) {
         await auditUserAction(session.userId, "alert_rule.delete", { ruleId: alertRuleId }, undefined, session?.currentTeamId);
         return NextResponse.json({ success: true });
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Failed to delete";
+        const message = getErrorMessage(err, "Failed to delete");
         throw new ValidationError(message);
       }
     },
@@ -311,7 +312,7 @@ export async function PUT(request: Request) {
         }, undefined, session?.currentTeamId);
         return NextResponse.json({ success: true });
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Detection failed";
+        const message = getErrorMessage(err, "Detection failed");
         throw new ValidationError(message);
       }
     },

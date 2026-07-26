@@ -10,6 +10,7 @@ import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
 
 import type { PlaybookOption, ServerOption } from "./alert-rule-types";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 const selectClass = cn(UI_INPUT, "py-2.5");
 const chipActive =
@@ -115,7 +116,7 @@ export function CreateRuleForm({
 			});
 			onClose();
 		} catch (err) {
-			setError(err instanceof Error ? err.message : t("alertRulesPage.createForm.error"));
+			setError(getErrorMessage(err, t("alertRulesPage.createForm.error")));
 		} finally {
 			setSubmitting(false);
 		}
@@ -381,17 +382,16 @@ export function CreateRuleForm({
 			</FormField>
 
 			<div className="flex gap-3 pt-2">
-				<button
+				<ActionButton variant="primary"
 					type="submit"
 					disabled={submitting}
-					data-action-button
-					data-variant="primary"
+				
 					className="px-5 text-sm"
 				>
 					{submitting
 						? t("alertRulesPage.createForm.submitting")
 						: t("alertRulesPage.createForm.submit")}
-				</button>
+				</ActionButton>
 				<ActionButton type="button" variant="secondary" onClick={onClose} className="px-5 text-sm">
 					{t("alertRulesPage.createForm.cancel")}
 				</ActionButton>

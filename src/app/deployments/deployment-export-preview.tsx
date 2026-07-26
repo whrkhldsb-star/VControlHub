@@ -1,6 +1,7 @@
 "use client";
 
 import { useI18n } from "@/lib/i18n/use-locale";
+import { ActionButton } from "@/components/action-button";
 
 type PreviewProps = {
   fileNames: string[];
@@ -52,14 +53,12 @@ export function DeploymentFilePreview({
             </option>
           ))}
         </select>
-        <button
-          type="button"
+        <ActionButton variant="outline"
           data-testid="deploy-export-rollback"
-          onClick={() => onCopy(content, activePath)}
-          data-action-button data-variant="outline" className="!px-2 !py-1 !text-xs"
+          onClick={() => onCopy(content, activePath)} className="!px-2 !py-1 !text-xs"
         >
           {justCopied ? t("deploymentsPage.export.copied") : t("deploymentsPage.export.copyRollback")}
-        </button>
+        </ActionButton>
         <button
           type="button"
           data-testid="deploy-export-download-active"

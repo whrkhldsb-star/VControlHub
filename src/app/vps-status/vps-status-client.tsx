@@ -29,6 +29,7 @@ import { FleetResourceSummary, SummaryCard } from "@/app/health/health-dashboard
 import type { ServerHealth } from "@/app/health/health-types";
 import { SparklineChartLazy } from "@/app/health/sparkline-chart-lazy";
 import { useHealthData } from "@/app/health/use-health-data";
+import { ActionButton } from "@/components/action-button";
 
 type Props = { serverCount: number };
 
@@ -339,16 +340,14 @@ export function VpsStatusClient({ serverCount }: Props) {
 				role="alert"
 			>
 				<div>{loadError}</div>
-				<button
-					type="button"
+				<ActionButton variant="danger"
 					onClick={() => void fetchHealth()}
 					disabled={isRefreshing}
-					data-action-button
-					data-variant="danger"
+				
 					className="!mt-3 !px-3 !py-1.5 !text-xs disabled:cursor-not-allowed disabled:opacity-50"
 				>
 					{isRefreshing ? t("healthPage.ui.retrying") : t("healthPage.ui.retryLoad")}
-				</button>
+				</ActionButton>
 			</div>
 		);
 	}
@@ -448,17 +447,15 @@ export function VpsStatusClient({ serverCount }: Props) {
 					>
 						{t("vpsStatusPage.gotoSystemHealth")}
 					</Link>
-					<button
-						type="button"
+					<ActionButton variant="secondary"
 						onClick={() => void fetchHealth()}
 						disabled={isRefreshing || loading}
 						aria-label={t("healthPage.ui.refreshAria")}
-						data-action-button
-						data-variant="secondary"
+					
 						className="inline-flex min-h-11 items-center !px-3 !text-xs disabled:cursor-not-allowed disabled:opacity-60"
 					>
 						{isRefreshing || loading ? t("healthPage.ui.refreshing") : t("healthPage.ui.refresh")}
-					</button>
+					</ActionButton>
 				</div>
 			</div>
 

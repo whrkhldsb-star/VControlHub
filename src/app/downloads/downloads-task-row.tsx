@@ -6,6 +6,7 @@ import { getStatusLabel, formatSpeed } from "./downloads-shared";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
 import { formatBytes } from "@/lib/format/bytes";
+import { ActionButton } from "@/components/action-button";
 
 const statusBadge: Record<string, string> = {
 	PENDING: "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)]",
@@ -102,11 +103,10 @@ export const DownloadTaskRow = memo(function DownloadTaskRow({
 			{/* Actions */}
 			<div className="mt-3 flex gap-2">
 				{task.status === "RUNNING" && task.aria2Gid && canManage && (
-					<button type="button" onClick={() => onAction(task.id, "pause")}
-						data-action-button data-variant="outline" className="!px-3 !py-1.5 !text-xs"
+					<ActionButton variant="outline" onClick={() => onAction(task.id, "pause")} className="!px-3 !py-1.5 !text-xs"
 					>
 						{t("downloadsPage.action.pause")}
-					</button>
+					</ActionButton>
 				)}
 				{task.status === "RUNNING" && task.aria2Gid && canManage && (
 					<span className="flex items-center gap-1 text-xs text-[var(--text-muted)]">
@@ -119,25 +119,22 @@ export const DownloadTaskRow = memo(function DownloadTaskRow({
 					</span>
 				)}
 				{task.status === "PENDING" && task.aria2Gid && canManage && (
-					<button type="button" onClick={() => onAction(task.id, "resume")}
-						data-action-button data-variant="success" className="!px-3 !py-1.5 !text-xs"
+					<ActionButton variant="success" onClick={() => onAction(task.id, "resume")} className="!px-3 !py-1.5 !text-xs"
 					>
 						{t("downloadsPage.action.resume")}
-					</button>
+					</ActionButton>
 				)}
 				{(task.status === "RUNNING" || task.status === "PENDING") && canManage && (
-					<button type="button" onClick={() => onAction(task.id, "cancel")}
-						data-action-button data-variant="danger" className="!px-3 !py-1.5 !text-xs"
+					<ActionButton variant="danger" onClick={() => onAction(task.id, "cancel")} className="!px-3 !py-1.5 !text-xs"
 					>
 						{t("downloadsPage.action.cancel")}
-					</button>
+					</ActionButton>
 				)}
 				{canManage && (
-					<button type="button" onClick={() => onAction(task.id, "refresh")}
-						data-action-button data-variant="secondary" className="!px-3 !py-1.5 !text-xs"
+					<ActionButton variant="secondary" onClick={() => onAction(task.id, "refresh")} className="!px-3 !py-1.5 !text-xs"
 					>
 						{busyActions[`${task.id}:refresh`] ? t("downloadsPage.action.refreshing") : t("downloadsPage.action.refresh")}
-					</button>
+					</ActionButton>
 				)}
 				{task.downloadAccess && (
 					<a href={task.downloadAccess.href}
@@ -166,19 +163,17 @@ export const DownloadTaskRow = memo(function DownloadTaskRow({
 					);
 				})()}
 				{(task.status === "FAILED" || task.status === "CANCELLED") && canManage && (
-					<button type="button" onClick={() => onAction(task.id, "retry")} disabled={Boolean(busyActions[`${task.id}:retry`])}
-						data-action-button data-variant="primary" className="!px-3 !py-1.5 !text-xs"
+					<ActionButton variant="primary" onClick={() => onAction(task.id, "retry")} disabled={Boolean(busyActions[`${task.id}:retry`])} className="!px-3 !py-1.5 !text-xs"
 						title={t("downloadsPage.action.retryTitle")}
 					>
 						{busyActions[`${task.id}:retry`] ? t("downloadsPage.action.retrying") : t("downloadsPage.action.retry")}
-					</button>
+					</ActionButton>
 				)}
 				{(task.status === "COMPLETED" || task.status === "FAILED" || task.status === "CANCELLED") && canManage && (
-					<button type="button" onClick={() => onPendingPurge(task.id)}
-						data-action-button data-variant="danger" className="!px-3 !py-1.5 !text-xs"
+					<ActionButton variant="danger" onClick={() => onPendingPurge(task.id)} className="!px-3 !py-1.5 !text-xs"
 					>
 						{t("downloadsPage.action.delete")}
-					</button>
+					</ActionButton>
 				)}
 			</div>
 		</article>

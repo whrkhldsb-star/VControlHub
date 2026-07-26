@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { ActionButton } from "@/components/action-button";
 
 const LINKS = [
   { href: "/files/search", titleKey: "filesPage.subPage.search", descKey: "filesPage.subPage.searchDesc" },
@@ -44,21 +45,19 @@ export function FilesMoreNav() {
 
   return (
     <div ref={rootRef} className="relative">
-      <button
-        type="button"
+      <ActionButton variant="secondary"
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={menuId}
         onClick={() => setOpen((value) => !value)}
-        data-action-button
-        data-variant="secondary"
+       
         className="!px-3 !py-1.5 !text-xs"
       >
         {t("filesPage.moreFeatures")}
         <span aria-hidden className="ml-1.5 text-[10px] opacity-70">
           {open ? "▴" : "▾"}
         </span>
-      </button>
+      </ActionButton>
       {open ? (
         <div
           id={menuId}

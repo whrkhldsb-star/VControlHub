@@ -218,14 +218,12 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 						<div className="text-[10px] text-[var(--danger)] bg-[var(--danger-bg)] rounded px-2 py-1">{src.lastSyncError}</div>
 					)}
 					<div className="flex items-center gap-2 pt-1">
-						<button
-							type="button"
+						<ActionButton variant="secondary"
 							onClick={() => actions.doSync(src.id)}
-							disabled={actions.syncing !== null}
-							data-action-button data-variant="secondary" className="!px-3 !py-1.5 !text-xs disabled:opacity-50"
+							disabled={actions.syncing !== null} className="!px-3 !py-1.5 !text-xs disabled:opacity-50"
 						>
 							{actions.syncing === src.id ? t("quickServicesPage.sources.syncing") : t("quickServicesPage.sources.syncNow")}
-						</button>
+						</ActionButton>
 						<button
 							type="button"
 							onClick={() => actions.doToggleSource(src.id, !src.enabled)}
@@ -233,13 +231,11 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 						>
 							{src.enabled ? t("quickServicesPage.sources.disable") : t("quickServicesPage.sources.enable")}
 						</button>
-						<button
-							type="button"
-							onClick={() => onRequestDeleteSource(src)}
-							data-action-button data-variant="danger" className="!ml-auto !px-3 !py-1.5 !text-xs disabled:opacity-50"
+						<ActionButton variant="danger"
+							onClick={() => onRequestDeleteSource(src)} className="!ml-auto !px-3 !py-1.5 !text-xs disabled:opacity-50"
 						>
 							{t("common.delete")}
-						</button>
+						</ActionButton>
 					</div>
 				</div>
 			))}

@@ -30,6 +30,7 @@ import { buildSshParamsFromServer, execRemoteCommand } from "@/lib/ssh/client";
 import { deserializeDialect, serviceCommand, type OsDialect } from "@/lib/ssh/os-dialect";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 export const dynamic = "force-dynamic";
 const logger = createLogger("api:servers:reload");
@@ -179,7 +180,7 @@ export async function POST(
           command,
         });
       } catch (error) {
-        const message = error instanceof Error ? error.message : t("apiServersReload.remoteExecutionFailed", locale);
+        const message = getErrorMessage(error, t("apiServersReload.remoteExecutionFailed", locale));
         logger.warn("server reload raised", { serverId: id, error: message });
         await auditUserAction(
           session.userId,

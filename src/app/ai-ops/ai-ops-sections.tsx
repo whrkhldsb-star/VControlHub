@@ -12,6 +12,7 @@ import type {
 } from "@/lib/ai/ops/types";
 import type { AiOpsSummary } from "@/lib/ai/ops/service";
 import { UI_INPUT } from "@/lib/ui/classes";
+import { ActionButton } from "@/components/action-button";
 
 export type AiOpsSettings = {
 	mode: AiOpsMode;
@@ -116,11 +117,11 @@ export function AiOpsActionsToolbar({
 	return (
 		<section aria-label="ai-ops-actions" className={`${cardClass} flex flex-wrap items-center gap-3`}>
 			{canManage && (
-				<button type="button" data-action-button data-variant="primary" className={buttonPrimary} disabled={scanning} onClick={onTriggerScan}>
+				<ActionButton variant="primary" className={buttonPrimary} disabled={scanning} onClick={onTriggerScan}>
 					{scanning ? t("aiOpsPage.actions.scanning") : t("aiOpsPage.actions.triggerScan")}
-				</button>
+				</ActionButton>
 			)}
-			<button type="button" data-action-button data-variant="secondary" className={buttonGhost} onClick={onReload}>{t("aiOpsPage.actions.refresh")}</button>
+			<ActionButton variant="secondary" className={buttonGhost} onClick={onReload}>{t("aiOpsPage.actions.refresh")}</ActionButton>
 			<label className={`${labelClass} flex items-center gap-2`}>
 				<span>{t("aiOpsPage.filter.mode")}</span>
 				<select className={selectClass} value={modeFilter} onChange={(e) => setModeFilter(e.target.value as "all" | AiOpsMode)}>
@@ -198,9 +199,9 @@ export function AiOpsSettingsSection({
 			</div>
 			{canManage && (
 				<div className="mt-4 flex justify-end">
-					<button type="button" data-action-button data-variant="primary" className={buttonPrimary} disabled={savingSettings} onClick={onSaveSettings}>
+					<ActionButton variant="primary" className={buttonPrimary} disabled={savingSettings} onClick={onSaveSettings}>
 						{savingSettings ? t("aiOpsPage.actions.saving") : t("aiOpsPage.settings.save")}
-					</button>
+					</ActionButton>
 				</div>
 			)}
 		</section>
@@ -239,7 +240,7 @@ export function AiOpsLogsSection({ logs, selectedLogId, setSelectedLogId, t }: {
 									<td className="py-2 pr-3">{log.findings.length}</td>
 									<td className="py-2 pr-3">{log.actions.length}</td>
 									<td className="py-2 pr-3 font-mono text-xs">{log.durationMs !== null ? t("aiOpsPage.detail.durationMs").replace("{ms}", String(log.durationMs)) : "—"}</td>
-									<td className="py-2"><button type="button" data-action-button data-variant="secondary" className={buttonGhost} onClick={() => setSelectedLogId(log.id)}>{t("aiOpsPage.table.viewDetail")}</button></td>
+									<td className="py-2"><ActionButton variant="secondary" className={buttonGhost} onClick={() => setSelectedLogId(log.id)}>{t("aiOpsPage.table.viewDetail")}</ActionButton></td>
 								</tr>
 							))}
 						</tbody>
@@ -307,13 +308,13 @@ export function AiOpsDetailSection({
 										{recommendation && canManage && (
 											<div className="flex flex-col gap-1">
 												{recommendation.requiresApproval && !recommendation.approved ? (
-													<button type="button" data-action-button data-variant="primary" className={buttonPrimary} disabled={executing === action.id} onClick={() => onApproveAction(selectedLog.id, action.id)}>{t("aiOpsPage.actions.approve")}</button>
+													<ActionButton variant="primary" className={buttonPrimary} disabled={executing === action.id} onClick={() => onApproveAction(selectedLog.id, action.id)}>{t("aiOpsPage.actions.approve")}</ActionButton>
 												) : recommendation.requiresApproval && recommendation.approved ? (
-													<button type="button" data-action-button data-variant="primary" className={buttonPrimary} disabled={executing === action.id} onClick={() => onExecuteAction(selectedLog.id, action.id, false)}>{t("aiOpsPage.actions.execute")}</button>
+													<ActionButton variant="primary" className={buttonPrimary} disabled={executing === action.id} onClick={() => onExecuteAction(selectedLog.id, action.id, false)}>{t("aiOpsPage.actions.execute")}</ActionButton>
 												) : (
-													<button type="button" data-action-button data-variant="secondary" className={buttonGhost} disabled={executing === action.id} onClick={() => onExecuteAction(selectedLog.id, action.id, false)}>{t("aiOpsPage.actions.execute")}</button>
+													<ActionButton variant="secondary" className={buttonGhost} disabled={executing === action.id} onClick={() => onExecuteAction(selectedLog.id, action.id, false)}>{t("aiOpsPage.actions.execute")}</ActionButton>
 												)}
-												{canAutonomous && <button type="button" data-action-button data-variant="danger" className={buttonDanger} disabled={executing === action.id} onClick={() => onExecuteAction(selectedLog.id, action.id, true)}>{t("aiOpsPage.actions.forceAutonomous")}</button>}
+												{canAutonomous && <ActionButton variant="danger" className={buttonDanger} disabled={executing === action.id} onClick={() => onExecuteAction(selectedLog.id, action.id, true)}>{t("aiOpsPage.actions.forceAutonomous")}</ActionButton>}
 											</div>
 										)}
 									</li>

@@ -12,6 +12,7 @@ import { createLogger } from "@/lib/logging";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { deleteVpsBackupRecord } from "@/lib/backup/vps-backup-service";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 export const dynamic = "force-dynamic";
 const logger = createLogger("api:servers:vps-backup:record");
@@ -43,7 +44,7 @@ export async function DELETE(
 				await auditUserAction(session!.userId, "vps-backup.record.delete", { serverId, recordId }, undefined, session?.currentTeamId);
 				return Response.json({ success: true });
 			} catch (err) {
-				const message = err instanceof Error ? err.message : String(err);
+				const message = getErrorMessage(err, String(err));
 				// RUNNING delete is a conflict/business rule, not an internal failure.
 				if (/RUNNING/i.test(message)) {
 					return Response.json({ error: message }, { status: 409 });

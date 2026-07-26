@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useToast } from "@/components/toast-provider";
+import { getErrorMessage } from "@/lib/http/error-message";
+import { ActionButton } from "@/components/action-button";
 
 type Props = {
   runId: string;
@@ -40,7 +42,7 @@ export function RollbackDeployButton({ runId, templateName, disabled = false }: 
       addToast("success", t("deploymentsPage.rollback.toast.success"));
       router.refresh();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : t("deploymentsPage.rollback.toast.failed");
+      const msg = getErrorMessage(err, t("deploymentsPage.rollback.toast.failed"));
       setError(msg);
       addToast("error", msg);
     } finally {
@@ -55,28 +57,24 @@ export function RollbackDeployButton({ runId, templateName, disabled = false }: 
           {t("deploymentsPage.rollback.confirmWarning")}
         </span>
       ) : null}
-      <button
-        type="button"
+      <ActionButton variant="success"
         onClick={handleRollback}
         disabled={pending || disabled}
-        aria-describedby={confirming ? `rollback-deploy-${runId}-warning` : undefined}
-       data-action-button data-variant="success" className="!px-3 !py-1.5 !text-xs disabled:cursor-not-allowed disabled:opacity-60">
+        aria-describedby={confirming ? `rollback-deploy-${runId}-warning` : undefined} className="!px-3 !py-1.5 !text-xs disabled:cursor-not-allowed disabled:opacity-60">
         {pending ? t("deploymentsPage.rollback.submitting") : confirming ? t("deploymentsPage.rollback.confirmBtn") : t("deploymentsPage.rollback.triggerBtn")}
-      </button>
+      </ActionButton>
       {confirming ? (
-        <button
-          type="button"
+        <ActionButton variant="secondary"
           onClick={() => {
             setConfirming(false);
             setError(null);
           }}
           disabled={pending}
-          data-action-button
-          data-variant="secondary"
+         
           className="!px-3 !py-1.5 !text-xs !font-medium disabled:cursor-not-allowed disabled:opacity-60"
         >
           {t("common.cancel")}
-        </button>
+        </ActionButton>
       ) : null}
       {error && <span role="alert" className="text-xs text-[var(--danger)]">{error}</span>}
     </div>

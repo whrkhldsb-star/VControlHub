@@ -19,6 +19,7 @@ import {
   STORAGE_CHUNKED_THRESHOLD_BYTES,
   uploadStorageFileChunked,
 } from "./storage-chunked-upload";
+import { ActionButton } from "@/components/action-button";
 
 export function FileUploadDropzone({
   nodes,
@@ -396,17 +397,15 @@ export function FileUploadDropzone({
       </button>
       <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-[var(--text-secondary)]">
         
-        <button
-          type="button"
+        <ActionButton variant="outline"
           onClick={() => directoryInputRef.current?.click()}
           disabled={!uploadEnabled || submitting}
-          data-action-button
-          data-variant="outline"
+         
           className="rounded-full px-3 py-1.5 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-50"
         >
           
           {tr("fileUploadDropzone.selectFolder")}
-        </button>
+        </ActionButton>
         <span className="text-[var(--text-secondary)]">{tr("fileUploadDropzone.folderHelpText")}</span>
       </div>
       {message ? (

@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { UI_INPUT } from "@/lib/ui/classes";
+import { getErrorMessage } from "@/lib/http/error-message";
+import { ActionButton } from "@/components/action-button";
 
 type Props = {
   completedBackups: Array<{ id: string; type: string; filePath: string; label: string }>;
@@ -126,7 +128,7 @@ export function MigrationWizardPanel({ completedBackups, canCreate }: Props) {
         // Parent BackupsPage is an RSC list — refresh so the new imported record appears.
         router.refresh();
       } catch (cause) {
-        setError(cause instanceof Error ? cause.message : t("backupsPage.migration.error"));
+        setError(getErrorMessage(cause, t("backupsPage.migration.error")));
       } finally {
         setBusy(null);
       }
@@ -178,14 +180,12 @@ export function MigrationWizardPanel({ completedBackups, canCreate }: Props) {
               placeholder={t("backupsPage.migration.notePlaceholder")}
             />
           </label>
-          <button
-            type="button"
+          <ActionButton variant="outline"
             disabled={!backupId || busy !== null}
-            onClick={() => void run("export")}
-            data-action-button data-variant="outline" className="!min-h-11 !px-3 !text-xs !font-semibold disabled:opacity-50"
+            onClick={() => void run("export")} className="!min-h-11 !px-3 !text-xs !font-semibold disabled:opacity-50"
           >
             {busy === "export" ? t("backupsPage.migration.working") : t("backupsPage.migration.export")}
-          </button>
+          </ActionButton>
           {lastExport && (
             <p className="text-[11px] text-[var(--text-secondary)]">
               {t("backupsPage.migration.exportHint")
@@ -209,30 +209,24 @@ export function MigrationWizardPanel({ completedBackups, canCreate }: Props) {
             />
           </label>
           <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
+            <ActionButton variant="secondary"
               disabled={!packageRef.trim() || busy !== null}
-              onClick={() => void run("validate")}
-              data-action-button data-variant="secondary" className="!min-h-11 !px-3 !text-xs !font-medium disabled:opacity-50"
+              onClick={() => void run("validate")} className="!min-h-11 !px-3 !text-xs !font-medium disabled:opacity-50"
             >
               {busy === "validate" ? t("backupsPage.migration.working") : t("backupsPage.migration.validate")}
-            </button>
-            <button
-              type="button"
+            </ActionButton>
+            <ActionButton variant="success"
               disabled={!packageRef.trim() || busy !== null}
-              onClick={() => void run("import")}
-              data-action-button data-variant="success" className="!min-h-11 !px-3 !text-xs !font-semibold disabled:opacity-50"
+              onClick={() => void run("import")} className="!min-h-11 !px-3 !text-xs !font-semibold disabled:opacity-50"
             >
               {busy === "import" ? t("backupsPage.migration.working") : t("backupsPage.migration.import")}
-            </button>
-            <button
-              type="button"
+            </ActionButton>
+            <ActionButton variant="ghost"
               disabled={busy !== null}
-              onClick={() => void run("list")}
-              data-action-button data-variant="ghost" className="!min-h-11 !px-3 !text-xs disabled:opacity-50"
+              onClick={() => void run("list")} className="!min-h-11 !px-3 !text-xs disabled:opacity-50"
             >
               {busy === "list" ? t("backupsPage.migration.working") : t("backupsPage.migration.list")}
-            </button>
+            </ActionButton>
           </div>
           {packages.length > 0 && (
             <ul className="max-h-40 space-y-1 overflow-auto text-[11px] text-[var(--text-secondary)]">

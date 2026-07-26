@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { getErrorMessage } from "@/lib/http/error-message";
+import { ActionButton } from "@/components/action-button";
 
 type AiHostedApprovalCardProps = {
   action: {
@@ -62,7 +64,7 @@ export function AiHostedApprovalCard({ action }: AiHostedApprovalCardProps) {
       router.refresh();
     } catch (err) {
       setStatus("pending");
-      setError(err instanceof Error ? err.message : t("aiHostedApproval.reviewFailed"));
+      setError(getErrorMessage(err, t("aiHostedApproval.reviewFailed")));
     }
   }
 
@@ -80,7 +82,7 @@ export function AiHostedApprovalCard({ action }: AiHostedApprovalCardProps) {
       router.refresh();
     } catch (err) {
       setStatus("pending");
-      setError(err instanceof Error ? err.message : t("aiHostedApproval.reviewFailed"));
+      setError(getErrorMessage(err, t("aiHostedApproval.reviewFailed")));
     }
   }
 
@@ -124,12 +126,10 @@ export function AiHostedApprovalCard({ action }: AiHostedApprovalCardProps) {
           {error ? <p role="alert" className="mt-2 text-xs text-[var(--danger)]">{error}</p> : null}
         </div>
         <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
-          <button
-            type="button"
+          <ActionButton variant="success"
             disabled={disabled}
             onClick={() => void confirm()}
-            data-action-button
-            data-variant="success"
+           
             className="!px-3 !py-2 !text-xs disabled:opacity-60"
           >
             {status === "confirming"
@@ -137,7 +137,7 @@ export function AiHostedApprovalCard({ action }: AiHostedApprovalCardProps) {
               : status === "confirmed"
                 ? t("aiHostedApproval.confirmed")
                 : t("aiHostedApproval.confirmAction")}
-          </button>
+          </ActionButton>
           <button
             type="button"
             disabled={disabled}

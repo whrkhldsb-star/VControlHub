@@ -5,6 +5,7 @@ import { useActionState, useEffect, useMemo, useState } from "react";
 import { SubmitButton } from "@/components/submit-button";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { batchToggleServerAction, type ServerActionState } from "./actions";
+import { ActionButton } from "@/components/action-button";
 
 const initialState: ServerActionState = {};
 
@@ -83,13 +84,11 @@ export function BatchServerActionPanel({
       ) : null}
 
       <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-[var(--text-muted)]">
-        <button
-          type="button"
+        <ActionButton variant="secondary"
           onClick={toggleAll}
-          aria-pressed={allSelected}
-         data-action-button data-variant="secondary" className="!px-3 !py-1.5">
+          aria-pressed={allSelected} className="!px-3 !py-1.5">
           {allSelected ? t("serversPage.batchPanel.clear") : t("serversPage.batchPanel.selectAll")}
-        </button>
+        </ActionButton>
         {someSelected ? <span aria-hidden="true">·</span> : null}
         <span>{t("serversPage.batchPanel.enabled")}: {enabledSelectedCount}</span>
         <span>{t("serversPage.batchPanel.disabled")}: {disabledSelectedCount}</span>

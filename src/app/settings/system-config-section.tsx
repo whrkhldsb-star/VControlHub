@@ -13,6 +13,8 @@ import { useEffect, useRef, useState } from "react";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { EXPORT_SCHEMA_VERSION, type ExportFile, type ImportPreview } from "@/lib/system/config-schema";
+import { getErrorMessage } from "@/lib/http/error-message";
+import { ActionButton } from "@/components/action-button";
 
 export function SystemConfigSection() {
   const { t } = useI18n();
@@ -58,7 +60,7 @@ export function SystemConfigSection() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (err) {
-      setExportError(err instanceof Error ? err.message : t("systemConfig.export.error"));
+      setExportError(getErrorMessage(err, t("systemConfig.export.error")));
     } finally {
       setExporting(false);
     }
@@ -128,7 +130,7 @@ async function handlePreview() {
       if (!data.preview) throw new Error(data.error || t("systemConfig.import.previewFailed"));
       setPreview(data.preview);
     } catch (err) {
-      setImportError(err instanceof Error ? err.message : t("systemConfig.import.result.error"));
+      setImportError(getErrorMessage(err, t("systemConfig.import.result.error")));
     } finally {
       setPreviewing(false);
     }
@@ -162,7 +164,7 @@ async function handlePreview() {
         setImportError(data.error || t("systemConfig.import.result.error"));
       }
     } catch (err) {
-      setImportError(err instanceof Error ? err.message : t("systemConfig.import.result.error"));
+      setImportError(getErrorMessage(err, t("systemConfig.import.result.error")));
     } finally {
       setExecuting(false);
     }
@@ -254,13 +256,12 @@ async function handlePreview() {
           </div>
         )}
 
-        <button
+        <ActionButton type="submit" variant="primary"
           onClick={handleExport}
-          disabled={exporting}
-          data-action-button data-variant="primary" className="disabled:opacity-50"
+          disabled={exporting} className="disabled:opacity-50"
         >
           {exporting ? t("systemConfig.export.exporting") : t("systemConfig.export.button")}
-        </button>
+        </ActionButton>
         {exportError && (
           <p className="text-sm text-[var(--danger)] light:text-[var(--danger)]">{exportError}</p>
         )}
@@ -318,12 +319,11 @@ async function handlePreview() {
             </label>
 
             {/* Preview button */}
-            <button
+            <ActionButton type="submit" variant="secondary"
               onClick={handlePreview}
-              disabled={previewing}
-             data-action-button data-variant="secondary" className="!px-4 !py-2 !text-sm disabled:opacity-50">
+              disabled={previewing} className="!px-4 !py-2 !text-sm disabled:opacity-50">
               {previewing ? t("systemConfig.import.previewing") : t("systemConfig.import.previewButton")}
-            </button>
+            </ActionButton>
           </div>
         )}
 
@@ -360,13 +360,12 @@ async function handlePreview() {
             )}
 
             {/* Confirm import button */}
-            <button
+            <ActionButton type="submit" variant="primary"
               onClick={handleExecute}
-              disabled={executing || preview.totalRecords === 0}
-              data-action-button data-variant="primary" className="mt-2 disabled:opacity-50"
+              disabled={executing || preview.totalRecords === 0} className="mt-2 disabled:opacity-50"
             >
               {executing ? t("systemConfig.import.executing") : t("systemConfig.import.executeButton")}
-            </button>
+            </ActionButton>
           </div>
         )}
 

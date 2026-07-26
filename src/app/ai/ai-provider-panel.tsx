@@ -9,6 +9,7 @@ import { useMemo, useState } from "react";
 import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 
 import { ActionButton } from "@/components/action-button";
+import { getErrorMessage } from "@/lib/http/error-message";
 export interface ProviderFormState {
   name: string;
   type: string;
@@ -82,7 +83,7 @@ export function AiProviderPanel({
       }));
       addToast("success", ids.length > 0 ? t("aiPage.modelsFetched").replace("{count}", String(ids.length)) : t("aiPage.modelsFetchedEmpty"));
     } catch (e: unknown) {
-      addToast("error", e instanceof Error ? e.message : t("aiPage.modelsFetchFailed"));
+      addToast("error", getErrorMessage(e, t("aiPage.modelsFetchFailed")));
     } finally {
       setModelsLoading(false);
     }
@@ -131,7 +132,7 @@ export function AiProviderPanel({
       cancelEditing();
       onRefreshProviders();
     } catch (e: unknown) {
-      addToast("error", e instanceof Error ? e.message : t("aiPage.providerUpdateFailed"));
+      addToast("error", getErrorMessage(e, t("aiPage.providerUpdateFailed")));
     }
   };
 
@@ -192,7 +193,7 @@ export function AiProviderPanel({
                           });
                           onRefreshProviders();
                         } catch (e: unknown) {
-                          addToast("error", e instanceof Error ? e.message : t("aiPage.providerUpdateFailed"));
+                          addToast("error", getErrorMessage(e, t("aiPage.providerUpdateFailed")));
                         }
                       }}
                       className={`text-xs transition ${p.enabled ? "text-[var(--warning)]/60 hover:text-[var(--warning)]" : "text-[var(--success)]/60 hover:text-[var(--success)]"}`}

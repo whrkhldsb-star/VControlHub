@@ -3,6 +3,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { ActionButton } from "@/components/action-button";
 type ScanResult = { scanned: number; upserted: number; removed?: number };
 export function MediaScanButton() {
   const { t } = useI18n();
@@ -46,16 +47,14 @@ export function MediaScanButton() {
   return (
     <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
       {" "}
-      <button
-        type="button"
+      <ActionButton variant="outline"
         onClick={handleScan}
-        disabled={disabled}
-       data-action-button data-variant="outline" className="!px-4 !py-2 !text-sm disabled:cursor-not-allowed disabled:opacity-60">
+        disabled={disabled} className="!px-4 !py-2 !text-sm disabled:cursor-not-allowed disabled:opacity-60">
         {" "}
         {isScanning
           ? t("mediaScanButton.scanning")
           : t("mediaScanButton.idle")}{" "}
-      </button>{" "}
+      </ActionButton>{" "}
       {message && (
         <p role="status" className="text-sm text-[var(--success)]">
           {" "}

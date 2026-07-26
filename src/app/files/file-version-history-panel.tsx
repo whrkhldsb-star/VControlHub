@@ -7,6 +7,7 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { formatDate } from "@/app/files/file-entry-utils";
 import { formatBytes } from "@/lib/format/bytes";
+import { ActionButton } from "@/components/action-button";
 
 type VersionItem = {
   id: string;
@@ -172,17 +173,15 @@ export function FileVersionHistoryPanel({
             placeholder={t("fileVersionHistory.notePlaceholder")}
             className="min-w-0 flex-1 rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-xs text-[var(--text-primary)]"
           />
-          <button
-            type="button"
+          <ActionButton variant="outline"
             disabled={busyId === "manual"}
             onClick={() => void createManual()}
-            data-tone="cyan"
-            data-action-button data-variant="outline" className="!px-3 !py-2 !text-xs disabled:opacity-50"
+            data-tone="cyan" className="!px-3 !py-2 !text-xs disabled:opacity-50"
           >
             {busyId === "manual"
               ? t("fileVersionHistory.snapshotPending")
               : t("fileVersionHistory.snapshotNow")}
-          </button>
+          </ActionButton>
         </div>
       ) : null}
 

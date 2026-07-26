@@ -18,6 +18,7 @@
 
 import { useI18n } from "@/lib/i18n/use-locale";
 import { UI_INPUT } from "@/lib/ui/classes";
+import { ActionButton } from "@/components/action-button";
 
 export interface DownloadFormState {
 	url: string;
@@ -253,19 +254,17 @@ export function CreateDownloadForm({
 			</div>
 
 			<div className="flex gap-3 pt-2">
-				<button
-					type="button"
+				<ActionButton variant="primary"
 					onClick={onSubmit}
 					disabled={
 						submitting
 						|| Boolean(batchModeError)
 						|| !form.serverId
 						|| (form.batchMode ? !form.batchText.trim() : !form.url.trim())
-					}
-					data-action-button data-variant="primary" className="px-5 text-sm disabled:opacity-60"
+					} className="px-5 text-sm disabled:opacity-60"
 				>
 					{submitting ? t("downloadsPage.form.submitting") : t("downloadsPage.form.submit")}
-				</button>
+				</ActionButton>
 			</div>
 		</div>
 	);

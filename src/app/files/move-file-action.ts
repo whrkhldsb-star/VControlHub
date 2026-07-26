@@ -13,6 +13,7 @@ import {
   normalizeStorageRelativePath,
   normalizeStorageTargetDirectory,
 } from "@/lib/storage/path-utils";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 export type MoveFileActionState = { error?: string; success?: string };
 
@@ -155,7 +156,7 @@ export async function moveFileAction(
       const driverLabel =
         entry.storageNode.driver === "LOCAL" ? tr("filesPage.move.driverLocal") : tr("filesPage.move.driverRemote");
       return {
-        error: tr("filesPage.move.errorBackingMoveFailed").replace("{driver}", driverLabel).replace("{message}", error instanceof Error ? error.message : tr("filesPage.move.errorUnknown")),
+        error: tr("filesPage.move.errorBackingMoveFailed").replace("{driver}", driverLabel).replace("{message}", getErrorMessage(error, tr("filesPage.move.errorUnknown"))),
       } satisfies MoveFileActionState;
     }
 
@@ -207,7 +208,7 @@ export async function moveFileAction(
         });
       } catch (compensationError) {
         throw new Error(
-          `Database update failed and backing move rollback also failed: ${databaseError instanceof Error ? databaseError.message : String(databaseError)}; rollback: ${compensationError instanceof Error ? compensationError.message : String(compensationError)}`,
+          `Database update failed and backing move rollback also failed: ${getErrorMessage(databaseError, String(databaseError))}; rollback: ${getErrorMessage(compensationError, String(compensationError))}`,
         );
       }
       throw databaseError;
@@ -222,7 +223,7 @@ export async function moveFileAction(
     } satisfies MoveFileActionState;
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : tr("filesPage.move.errorMoveFailed"),
+      error: getErrorMessage(error, tr("filesPage.move.errorMoveFailed")),
     } satisfies MoveFileActionState;
   }
 }

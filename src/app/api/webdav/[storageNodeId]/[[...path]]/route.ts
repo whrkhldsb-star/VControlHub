@@ -24,6 +24,7 @@ import {
   type WebDavContext,
 } from "@/lib/webdav/handler";
 import { createLogger } from "@/lib/logging";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 const logger = createLogger("webdav:route");
 
@@ -92,7 +93,7 @@ async function dispatch(request: Request, params: RouteParams): Promise<Response
         });
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : "WebDAV error";
+    const message = getErrorMessage(error, "WebDAV error");
     const name = error instanceof Error ? error.name : "";
     let status = 500;
     // Prefer typed AppError.status over English message matching.

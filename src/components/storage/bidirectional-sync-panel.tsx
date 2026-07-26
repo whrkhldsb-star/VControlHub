@@ -7,6 +7,8 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { normalizeSyncEndpointPath } from "@/lib/sync/bidirectional";
 import { UI_INPUT } from "@/lib/ui/classes";
+import { getErrorMessage } from "@/lib/http/error-message";
+import { ActionButton } from "@/components/action-button";
 
 type ServerOption = { id: string; name: string; host: string | null };
 
@@ -80,7 +82,7 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
       if (!res.ok) throw new Error(data.error || t("filesPage.syncJobs.loadFailed"));
       setJobs(data.jobs ?? []);
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("filesPage.syncJobs.loadFailed"));
+      setError(getErrorMessage(e, t("filesPage.syncJobs.loadFailed")));
     } finally {
       setLoading(false);
     }
@@ -96,7 +98,7 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
         if (!res.ok) setError(data.error || t("filesPage.syncJobs.loadFailed"));
         else setJobs(data.jobs ?? []);
       } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : t("filesPage.syncJobs.loadFailed"));
+        if (!cancelled) setError(getErrorMessage(e, t("filesPage.syncJobs.loadFailed")));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -139,7 +141,7 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
       setName("");
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("filesPage.syncJobs.createFailed"));
+      setError(getErrorMessage(e, t("filesPage.syncJobs.createFailed")));
     } finally {
       setBusyId(null);
     }
@@ -152,7 +154,7 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
       await csrfFetch(`/api/sync-jobs/${id}/run`, { method: "POST" });
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("filesPage.syncJobs.runFailed"));
+      setError(getErrorMessage(e, t("filesPage.syncJobs.runFailed")));
     } finally {
       setBusyId(null);
     }
@@ -169,7 +171,7 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
       });
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("filesPage.syncJobs.scheduleFailed"));
+      setError(getErrorMessage(e, t("filesPage.syncJobs.scheduleFailed")));
     } finally {
       setBusyId(null);
     }
@@ -185,7 +187,7 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
       setReportJobId(id);
       setReport(data.report);
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("filesPage.syncJobs.reportFailed"));
+      setError(getErrorMessage(e, t("filesPage.syncJobs.reportFailed")));
     } finally {
       setBusyId(null);
     }
@@ -202,7 +204,7 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
       }
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("filesPage.syncJobs.deleteFailed"));
+      setError(getErrorMessage(e, t("filesPage.syncJobs.deleteFailed")));
     } finally {
       setBusyId(null);
       setPendingDelete(null);
@@ -274,8 +276,7 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
           placeholder={t("filesPage.syncJobs.targetPath")}
         />
       </div>
-      <button
-        type="button"
+      <ActionButton variant="secondary"
         disabled={
           !sourceServerId ||
           !targetServerId ||
@@ -284,12 +285,11 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
           servers.length === 0
         }
         onClick={() => void createJob()}
-        data-action-button
-        data-variant="secondary"
+       
         className="!px-3 !py-1.5 !text-xs disabled:opacity-50"
       >
         {busyId === "create" ? t("filesPage.syncJobs.creating") : t("filesPage.syncJobs.create")}
-      </button>
+      </ActionButton>
       {sameEndpoint ? (
         <p className="text-xs text-[var(--warning)]">{t("filesPage.syncJobs.sameEndpoint")}</p>
       ) : null}
@@ -328,30 +328,24 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
                       </option>
                     ))}
                   </select>
-                  <button
-                    type="button"
-                    data-action-button data-variant="secondary" className="!rounded-md !px-2 !py-1 !text-xs disabled:opacity-50"
+                  <ActionButton variant="secondary" className="!rounded-md !px-2 !py-1 !text-xs disabled:opacity-50"
                     disabled={busyId === `rep-${job.id}`}
                     onClick={() => void openReport(job.id)}
                   >
                     {t("filesPage.syncJobs.report")}
-                  </button>
-                  <button
-                    type="button"
-                    data-action-button data-variant="secondary" className="!rounded-md !px-2 !py-1 !text-xs disabled:opacity-50"
+                  </ActionButton>
+                  <ActionButton variant="secondary" className="!rounded-md !px-2 !py-1 !text-xs disabled:opacity-50"
                     disabled={busyId === job.id || job.status === "RUNNING"}
                     onClick={() => void runJob(job.id)}
                   >
                     {t("filesPage.syncJobs.run")}
-                  </button>
-                  <button
-                    type="button"
-                    data-action-button data-variant="secondary" className="!rounded-md !px-2 !py-1 !text-xs disabled:opacity-50"
+                  </ActionButton>
+                  <ActionButton variant="secondary" className="!rounded-md !px-2 !py-1 !text-xs disabled:opacity-50"
                     disabled={busyId === job.id}
                     onClick={() => setPendingDelete({ id: job.id, label: job.name?.trim() || job.id })}
                   >
                     {t("filesPage.syncJobs.delete")}
-                  </button>
+                  </ActionButton>
                 </div>
               </div>
               <p className="mt-1 text-[var(--text-muted)]">

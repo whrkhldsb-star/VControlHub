@@ -7,6 +7,7 @@ import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
 import { toDateLocale } from "@/lib/i18n/locale-format";
 import { t, type Locale } from "@/lib/i18n/translations";
 import { UI_INPUT } from "@/lib/ui/classes";
+import { ActionButton } from "@/components/action-button";
 
 export type TicketWorkspaceTicket = {
   id: string;
@@ -181,7 +182,7 @@ export function TicketWorkspace({ initialTickets, canManage, locale, now }: Prop
           </div>
           <div className="inline-flex w-fit rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-1">
             {(["list","board"] as const).map((mode) => (
-              <button key={mode} type="button" onClick={() => setView(mode)} aria-pressed={view === mode} data-action-button={view === mode ?"" : undefined} data-variant={view === mode ?"primary" : undefined} className={`rounded-lg px-3 py-2 text-xs font-semibold ${view === mode ?"" :"text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"}`}>
+              <button type="button" data-action-button={view === mode ? "" : undefined} data-variant={view === mode ? "primary" : undefined} key={mode} onClick={() => setView(mode)} aria-pressed={view === mode} className={`rounded-lg px-3 py-2 text-xs font-semibold ${view === mode ? "" : "text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"}`}>
                 {t(mode ==="list" ?"ticketsPage.kanban.list" :"ticketsPage.kanban.toggle", locale)}
               </button>
             ))}

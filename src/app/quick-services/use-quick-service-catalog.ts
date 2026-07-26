@@ -10,6 +10,7 @@ import {
   type CatalogItem,
   type DockerEnvironmentStatus,
 } from "./quick-services-shared";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 export type QuickServiceServerOption = {
   id: string;
@@ -61,7 +62,7 @@ export function useQuickServiceCatalog(t: TFn) {
       if (typeof data.publicHost === "string") setQuickServicePublicHost(data.publicHost);
     } catch (err) {
       if (catalogServerRef.current !== serverAtFetch) return;
-      setError(err instanceof Error ? err.message : t("qsPage.loadFailedFallback"));
+      setError(getErrorMessage(err, t("qsPage.loadFailedFallback")));
     } finally {
       if (catalogServerRef.current === serverAtFetch) setLoading(false);
     }

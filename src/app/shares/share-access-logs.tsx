@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { getErrorMessage } from "@/lib/http/error-message";
+import { ActionButton } from "@/components/action-button";
 
 interface AccessLog {
   id: string;
@@ -31,7 +33,7 @@ export function ShareAccessLogsButton({ shareId }: { shareId: string }) {
       const data = await csrfFetch<{ logs: AccessLog[] }>(`/api/shares/${encodeURIComponent(shareId)}/access-logs`);
       setLogs(data.logs);
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("sharesPage.accessLogs.error"));
+      setError(getErrorMessage(e, t("sharesPage.accessLogs.error")));
     } finally {
       setLoading(false);
     }
@@ -39,13 +41,11 @@ export function ShareAccessLogsButton({ shareId }: { shareId: string }) {
 
   return (
     <div>
-      <button
-        type="button"
-        onClick={toggle}
-        data-action-button data-variant="secondary" className="!px-2.5 !py-1 !text-xs"
+      <ActionButton variant="secondary"
+        onClick={toggle} className="!px-2.5 !py-1 !text-xs"
       >
         {t("sharesPage.accessLogs.view")}
-      </button>
+      </ActionButton>
       {open && (
         <div className="mt-2 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-3">
           {loading ? (

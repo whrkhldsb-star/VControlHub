@@ -14,6 +14,7 @@ import { prisma } from "@/lib/db";
 import { archiveListQuerySchema } from "@/lib/files/schema";
 
 import { AppError, AuthError, NotFoundError, ValidationError } from "@/lib/errors";
+import { getErrorMessage } from "@/lib/http/error-message";
 const execFileAsync = promisify(execFile);
 
 export const dynamic = "force-dynamic";
@@ -91,7 +92,7 @@ export async function GET(request: NextRequest) {
         );
         return NextResponse.json({ entries });
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Failed to read archive";
+        const message = getErrorMessage(err, "Failed to read archive");
         throw new AppError({ code: "INTERNAL_ERROR", message: message, status: 500 });
       }
     },

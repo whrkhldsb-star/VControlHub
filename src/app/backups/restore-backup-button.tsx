@@ -7,6 +7,8 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { toDateLocale } from "@/lib/i18n/locale-format";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
+import { getErrorMessage } from "@/lib/http/error-message";
+import { ActionButton } from "@/components/action-button";
 
 type Props = {
   backupId: string;
@@ -85,7 +87,7 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
       setConfirmText("");
       router.refresh();
     } catch (restoreError) {
-      setError(restoreError instanceof Error ? restoreError.message : t("backupsPage.restore.errorFallback"));
+      setError(getErrorMessage(restoreError, t("backupsPage.restore.errorFallback")));
     } finally {
       setPending(false);
     }
@@ -93,13 +95,11 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
 
   return (
     <div className="grid gap-1">
-      <button
-        type="button"
+      <ActionButton variant="danger"
         disabled={disabled || pending}
-        onClick={openConfirm}
-       data-action-button data-variant="danger" className="w-fit !px-3 !py-1.5 !text-xs disabled:cursor-not-allowed disabled:opacity-50">
+        onClick={openConfirm} className="w-fit !px-3 !py-1.5 !text-xs disabled:cursor-not-allowed disabled:opacity-50">
         {pending ? t("backupsPage.restore.pending") : t("common.restore")}
-      </button>
+      </ActionButton>
       {message && (
         <p className="text-xs text-[var(--success)]">
           {message}{" "}
@@ -154,25 +154,21 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
             </label>
             {error && <p role="alert" className="mt-3 text-xs text-[var(--danger)]">{error}</p>}
             <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <button
-                type="button"
+              <ActionButton variant="secondary"
                 disabled={pending}
                 onClick={() => {
                   setConfirmOpen(false);
                   setConfirmText("");
                   setError(null);
-                }}
-                data-action-button data-variant="secondary" className="!min-h-11 !rounded-xl !px-4 !py-2 !text-sm disabled:opacity-50"
+                }} className="!min-h-11 !rounded-xl !px-4 !py-2 !text-sm disabled:opacity-50"
               >
                 {t("common.cancel")}
-              </button>
-              <button
-                type="button"
+              </ActionButton>
+              <ActionButton variant="danger"
                 disabled={pending || confirmText !== CONFIRM_TEXT}
-                onClick={handleRestore}
-               data-action-button data-variant="danger" className="min-h-11 !px-4 !py-2 !text-sm disabled:cursor-not-allowed disabled:opacity-50">
+                onClick={handleRestore} className="min-h-11 !px-4 !py-2 !text-sm disabled:cursor-not-allowed disabled:opacity-50">
                 {pending ? t("backupsPage.restore.pending") : t("backupsPage.restore.confirm")}
-              </button>
+              </ActionButton>
             </div>
           </div>
         </div>

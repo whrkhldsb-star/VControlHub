@@ -16,6 +16,8 @@ import {
 import { DeploymentExportTree } from "./deployment-export-tree";
 import { DeploymentFilePreview } from "./deployment-export-preview";
 import { UI_INPUT } from "@/lib/ui/classes";
+import { getErrorMessage } from "@/lib/http/error-message";
+import { ActionButton } from "@/components/action-button";
 
 export function DeploymentExportPanel() {
   const { t } = useI18n();
@@ -72,7 +74,7 @@ export function DeploymentExportPanel() {
       })) as DeploymentExportResponse;
       setResult(response.export ?? null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("deploymentsPage.export.generateError"));
+      setError(getErrorMessage(err, t("deploymentsPage.export.generateError")));
     } finally {
       setPending(false);
     }
@@ -105,7 +107,7 @@ export function DeploymentExportPanel() {
       link.remove();
       URL.revokeObjectURL(url);
     } catch (err) {
-      setZipError(err instanceof Error ? err.message : t("deploymentsPage.export.downloadZipError"));
+      setZipError(getErrorMessage(err, t("deploymentsPage.export.downloadZipError")));
     } finally {
       setZipPending(false);
     }
@@ -161,12 +163,11 @@ export function DeploymentExportPanel() {
             className={UI_INPUT}
           />
         </label>
-        <button
-          disabled={pending}
-          data-action-button data-variant="primary" className="disabled:opacity-60"
+        <ActionButton type="submit" variant="primary"
+          disabled={pending} className="disabled:opacity-60"
         >
           {pending ? t("deploymentsPage.export.generating") : t("deploymentsPage.export.generate")}
-        </button>
+        </ActionButton>
       </form>
 
       {error && (
@@ -192,15 +193,13 @@ export function DeploymentExportPanel() {
                   .replace("{size}", (totalSize / 1024).toFixed(1))}
               </p>
             </div>
-            <button
-              type="button"
+            <ActionButton variant="outline"
               onClick={() => void handleZipDownload()}
               disabled={zipPending || !result.id}
-              data-testid="deploy-export-zip"
-              data-action-button data-variant="outline" className="!px-3 !py-1.5 !text-xs disabled:opacity-60"
+              data-testid="deploy-export-zip" className="!px-3 !py-1.5 !text-xs disabled:opacity-60"
             >
               {zipPending ? t("deploymentsPage.export.packaging") : t("deploymentsPage.export.downloadZip")}
-            </button>
+            </ActionButton>
           </div>
 
           {zipError && (

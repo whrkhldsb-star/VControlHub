@@ -3,6 +3,7 @@
 import { SurfacePanel } from "@/components/page-shell";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
+import { ActionButton } from "@/components/action-button";
 
 export const ROLE_KEYS = ["admin","operator","storage_manager","viewer"] as const;
 export type RoleKey = (typeof ROLE_KEYS)[number];
@@ -179,12 +180,10 @@ export function UsersResetPasswordDialog({
           autoFocus
         />
         <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-          <button
-            type="button"
-            onClick={onCancel}
-           data-action-button data-variant="secondary" className="!px-4 !py-2 !text-sm">
+          <ActionButton variant="secondary"
+            onClick={onCancel} className="!px-4 !py-2 !text-sm">
             {t("usersPage.action.cancel")}
-          </button>
+          </ActionButton>
           <button
             type="button"
             onClick={onConfirm}

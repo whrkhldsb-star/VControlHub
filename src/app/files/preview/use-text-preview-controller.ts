@@ -24,6 +24,7 @@ import type {
 } from "./text-preview-types";
 import { INITIAL_EDITOR_FIND, INITIAL_PREVIEW_META } from "./text-preview-types";
 import { countMatches, TAB_INDENT } from "./text-preview-helpers";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 type TFn = (key: string) => string;
 
@@ -159,7 +160,7 @@ export function useTextPreviewController(options: {
           setState({
             loading: false,
             content: null,
-            error: err instanceof Error ? err.message : t("textPreview.error.loadFailed"),
+            error: getErrorMessage(err, t("textPreview.error.loadFailed")),
           });
         }
       }
@@ -374,7 +375,7 @@ export function useTextPreviewController(options: {
       return response.file.byteSize;
     } catch (err) {
       setSaveStatus("error");
-      setSaveMessage(err instanceof Error ? err.message : t("textPreview.error.saveFailed"));
+      setSaveMessage(getErrorMessage(err, t("textPreview.error.saveFailed")));
       return null;
     }
   }, [
@@ -439,7 +440,7 @@ export function useTextPreviewController(options: {
     } catch (err) {
       setSaveStatus("error");
       setSaveMessage(t("textPreview.saved.reloadFailed").replace("{bytes}", String(bytes)));
-      setReloadMessage(err instanceof Error ? err.message : t("textPreview.error.reloadFailed"));
+      setReloadMessage(getErrorMessage(err, t("textPreview.error.reloadFailed")));
     }
   }, [
     performSave,

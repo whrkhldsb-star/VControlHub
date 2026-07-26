@@ -20,6 +20,7 @@ import { AuthError, NotFoundError } from "@/lib/errors";
 import { teamCreateData } from "@/lib/auth/team-scope";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
 import { getServerLocale, t } from "@/lib/i18n/translations";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 /* ── POST: Create download task ───────────────────────────── */
 
@@ -123,7 +124,7 @@ export async function POST(request: Request) {
       } catch (error) {
         return NextResponse.json(
           {
-            error: error instanceof Error ? error.message : t("apiDownloads.invalidTargetPath", locale),
+            error: getErrorMessage(error, t("apiDownloads.invalidTargetPath", locale)),
           },
           { status: 400 },
         );
@@ -147,7 +148,7 @@ export async function POST(request: Request) {
         safeFileName = normalizeDownloadFileName(fileName);
       } catch (error) {
         return NextResponse.json(
-          { error: error instanceof Error ? error.message : t("apiDownloads.invalidFileName", locale) },
+          { error: getErrorMessage(error, t("apiDownloads.invalidFileName", locale)) },
           { status: 400 },
         );
       }

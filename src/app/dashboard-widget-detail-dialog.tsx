@@ -9,6 +9,7 @@ import {
 	DASHBOARD_WIDGET_LABELS,
 	type DashboardWidgetId,
 } from "@/lib/preferences/user-preferences";
+import { ActionButton } from "@/components/action-button";
 
 /**
  * TR-020: Widget detail dialog.
@@ -89,15 +90,13 @@ export function DashboardWidgetDetailDialog({
 					>
 						{t(DASHBOARD_WIDGET_LABELS[openId])}
 					</h2>
-					<button
+					<ActionButton variant="secondary"
 						ref={closeRef}
-						type="button"
 						onClick={onClose}
-						aria-label={t("dashboard.widget-detail-close")}
-						data-action-button data-variant="secondary" className="!px-3 !py-1.5 !text-sm"
+						aria-label={t("dashboard.widget-detail-close")} className="!px-3 !py-1.5 !text-sm"
 					>
 						{t("dashboard.widget-detail-close")}
-					</button>
+					</ActionButton>
 				</div>
 				<div className="dashboard-widget-detail-body text-sm text-[var(--text-primary)]">
 					{widgetEl ? (

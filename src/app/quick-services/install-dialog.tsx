@@ -19,6 +19,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 type InstallDialogItem = {
 	slug: string;
@@ -74,7 +75,7 @@ export function InstallDialog({
 			if (gen !== portCheckGenRef.current) return;
 			setPortCheck({
 				available: false,
-				usedBy: err instanceof Error ? err.message : t("qsPage.checkFailed"),
+				usedBy: getErrorMessage(err, t("qsPage.checkFailed")),
 				checking: false,
 			});
 		}

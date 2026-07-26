@@ -6,6 +6,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 
 import { createBackupAction, type BackupActionState } from "./actions";
 import { UI_INPUT } from "@/lib/ui/classes";
+import { ActionButton } from "@/components/action-button";
 
 const initialState: BackupActionState = { success: false };
 const backupTypeSelectId ="create-backup-type";
@@ -41,9 +42,9 @@ export function CreateBackupForm() {
         <label htmlFor={backupNoteInputId} className="text-xs font-medium text-[var(--text-secondary)]">{t("common.backupNote")}</label>
         <input id={backupNoteInputId} name="note" maxLength={500} placeholder={t("common.backupNotePlaceholder")} className={UI_INPUT} />
       </div>
-      <button disabled={pending} data-action-button data-variant="primary" className="disabled:opacity-60">
+      <ActionButton type="submit" variant="primary" disabled={pending} className="disabled:opacity-60">
         {pending ? t("common.executing") : t("common.createAndExecute")}
-      </button>
+      </ActionButton>
       {state.error && <p className="md:col-span-3 text-xs text-[var(--danger)]">{state.error}</p>}
     </form>
   );

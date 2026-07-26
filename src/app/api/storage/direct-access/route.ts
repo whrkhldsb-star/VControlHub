@@ -22,6 +22,7 @@ import {
   directAccessDownloadQuerySchema,
   directAccessInputSchema,
 } from "@/lib/storage/schema";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 export const dynamic = "force-dynamic";
 
@@ -213,7 +214,7 @@ async function resolveDirectAccessPayload(input: {
       } catch (error) {
         if (node.directAccessMode === "DIRECT") {
           const message =
-            error instanceof Error ? error.message : "failed to generate direct access link";
+            getErrorMessage(error, "failed to generate direct access link");
           return NextResponse.json(
             { error: message, mode: "managed-download", fallbackUrl: fallback },
             { status: 500 },

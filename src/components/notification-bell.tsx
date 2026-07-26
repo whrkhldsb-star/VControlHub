@@ -9,6 +9,7 @@ import { getSafeNotificationActionUrl } from "@/lib/notification/action-url";
 import { getRefreshIntervalFromStorage, getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useVisibilityInterval } from "@/lib/hooks/use-visibility-interval";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 /* ── Notification bell with real-time WebSocket push ──────── */
 
@@ -69,7 +70,7 @@ export function NotificationBell() {
 			if (!wsConnected) setPolledUnread(data.unreadCount ?? 0);
 		} catch (err) {
 			setNotifications([]);
-			setFeedback({ type: "error", message: err instanceof Error ? err.message : t("notificationBell.error.load") });
+			setFeedback({ type: "error", message: getErrorMessage(err, t("notificationBell.error.load")) });
 		}
 	}, [t, wsConnected]);
 
@@ -178,7 +179,7 @@ export function NotificationBell() {
 			else { setPolledUnread(0); }
 			setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
 		} catch (err) {
-			setFeedback({ type: "error", message: err instanceof Error ? err.message : t("notificationBell.error.markAll") });
+			setFeedback({ type: "error", message: getErrorMessage(err, t("notificationBell.error.markAll")) });
 		}
 	};
 

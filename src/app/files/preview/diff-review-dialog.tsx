@@ -3,6 +3,7 @@
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import type { DiffRow } from "./text-preview-types";
+import { ActionButton } from "@/components/action-button";
 
 type DiffReviewDialogProps = {
 	diffRows: DiffRow[];
@@ -51,13 +52,11 @@ export function DiffReviewDialog({
 					>
 						{t("textPreview.button.backToEdit")}
 					</button>
-					<button
-						type="button"
+					<ActionButton variant="success"
 						onClick={onSave}
-						disabled={busy || diffRows.length === 0}
-					 data-action-button data-variant="success" className="!px-3 !py-1.5 !text-xs disabled:opacity-50">
+						disabled={busy || diffRows.length === 0} className="!px-3 !py-1.5 !text-xs disabled:opacity-50">
 						{saveStatus === "saving" ? t("textPreview.button.saving") : t("textPreview.button.confirmSave")}
-					</button>
+					</ActionButton>
 					{canReloadAfterSave ? (
 						<button
 							type="button"

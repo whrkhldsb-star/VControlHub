@@ -26,6 +26,7 @@ import { HUB_HOST_INSTANCE_KEY, getDockerEnvironmentStatusFor } from "@/lib/quic
 import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 export const dynamic = "force-dynamic";
 
@@ -123,7 +124,7 @@ export async function POST(request: Request) {
 		rateLimit: GENERAL_WRITE_LIMIT,
 		bodySchema: installSchema,
 		onError(error: unknown) {
-			const message = error instanceof Error ? error.message : "installedFailed";
+			const message = getErrorMessage(error, "installedFailed");
 			const isPortError =
 				error instanceof ConflictError ||
 				(message.includes("port") && message.includes("in use"));

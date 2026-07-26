@@ -18,6 +18,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { copyToClipboard, renderContent } from "./ai-markdown-renderer";
 import type { Message, ModelCapabilities, ToolApprovalNeeded } from "./ai-types";
 import { formatAllowedTypes } from "./ai-file-helpers";
+import { ActionButton } from "@/components/action-button";
 
 type Props = {
   messages: Message[];
@@ -294,9 +295,7 @@ export function AiMessageList({
                   </div>
                 </div>
                 <div className="flex gap-2 ml-3">
-                  <button
-                    type="button"
-                    data-action-button data-variant="danger-solid" className="!px-3 !py-1 !text-xs disabled:opacity-50"
+                  <ActionButton variant="danger-solid" className="!px-3 !py-1 !text-xs disabled:opacity-50"
                     disabled={approvalBusyById[approval.actionId]}
                     aria-busy={
                       approvalBusyById[approval.actionId] ? "true" : undefined
@@ -304,10 +303,8 @@ export function AiMessageList({
                     onClick={() => void onApproval(approval, "reject")}
                   >
                     {t("aiPage.reject")}
-                  </button>
-                  <button
-                    type="button"
-                    data-action-button data-variant="success-solid" className="!px-3 !py-1 !text-xs disabled:opacity-50"
+                  </ActionButton>
+                  <ActionButton variant="success-solid" className="!px-3 !py-1 !text-xs disabled:opacity-50"
                     disabled={approvalBusyById[approval.actionId]}
                     aria-busy={
                       approvalBusyById[approval.actionId] ? "true" : undefined
@@ -315,7 +312,7 @@ export function AiMessageList({
                     onClick={() => void onApproval(approval, "confirm")}
                   >
                     {t("aiPage.approve")}
-                  </button>
+                  </ActionButton>
                 </div>
               </div>
             ))}

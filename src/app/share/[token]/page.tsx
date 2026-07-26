@@ -5,6 +5,7 @@ import { getServerLocale, t } from "@/lib/i18n/translations";
 import { toDateLocale } from "@/lib/i18n/locale-format";
 import { headers } from "next/headers";
 import { SharePasswordGate } from "./share-password-gate";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 export const dynamic = "force-dynamic";
 
@@ -48,7 +49,7 @@ export default async function SharePage({
       files = await listShareDirectoryFiles(share as { entryType: string; path: string; storageNodeId: string; storageNode?: { basePath?: string; driver?: string } | null });
     }
   } catch (err) {
-    errorMessage = err instanceof Error ? err.message : t("sharePage.invalidToken", locale);
+    errorMessage = getErrorMessage(err, t("sharePage.invalidToken", locale));
   }
 
   const isPreviewOnly = share?.permissionLevel === "preview";

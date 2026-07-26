@@ -25,6 +25,7 @@ import type {
   BatchAction,
   BatchProgress,
 } from "./use-file-selection";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 type ToastFn = (type: "success" | "error" | "info", message: string) => void;
 
@@ -324,7 +325,7 @@ export function useBatchCompress(input: UseBatchCompressInput) {
           }
           return;
         }
-        const message = error instanceof Error ? error.message : t("filesPage.batch.compressFailed");
+        const message = getErrorMessage(error, t("filesPage.batch.compressFailed"));
         setProgress({
           done: 0,
           total: selectedFiles.length,

@@ -6,6 +6,7 @@ import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { checkPort, allocatePort, getUsedPorts } from "@/lib/quick-service/service";
 
 import { AppError, ValidationError } from "@/lib/errors";
+import { getErrorMessage } from "@/lib/http/error-message";
 export const dynamic = "force-dynamic";
 
 const checkPortQuerySchema = z
@@ -31,7 +32,7 @@ export async function GET(request: Request) {
 				const port = allocatePort(preferred);
 				return NextResponse.json({ port, available: true });
 			} catch (err) {
-				const msg = err instanceof Error ? err.message : "Configuration check failed";
+				const msg = getErrorMessage(err, "Configuration check failed");
 				throw new AppError({ code: "INTERNAL_ERROR", message: msg, status: 500 });
 			}
 		}

@@ -21,6 +21,8 @@ import {
 	stateColors,
 	stateLabel,
 } from "./docker-helpers";
+import { getErrorMessage } from "@/lib/http/error-message";
+import { ActionButton } from "@/components/action-button";
 
 
 export default function DockerPage({ initialServers }: { initialServers: { id: string; name: string; host: string }[] }) {
@@ -139,7 +141,7 @@ const handleAction = async (container: Container, action:"start" |"stop" |"resta
 			}
 			await fetchContainers();
 		} catch (err) {
-			setError(err instanceof Error ? err.message : t("dockerPage.error.action"));
+			setError(getErrorMessage(err, t("dockerPage.error.action")));
 		} finally {
 			setActionLoading(null);
 		}
@@ -201,7 +203,7 @@ const handleAction = async (container: Container, action:"start" |"stop" |"resta
 				await fetchContainers();
 			}
 		} catch (err) {
-			setError(err instanceof Error ? err.message : t("dockerPage.project.failed"));
+			setError(getErrorMessage(err, t("dockerPage.project.failed")));
 		} finally {
 			setProjectActionLoading(null);
 		}
@@ -308,16 +310,16 @@ const handleAction = async (container: Container, action:"start" |"stop" |"resta
 				)}
 				<div className="flex flex-wrap items-center gap-2">
 					{c.State !=="running" && (
-						<button onClick={() => handleAction(c,"start")} disabled={actionLoading === c.Id} data-action-button data-variant="success" className="!min-h-11 !px-2.5 !py-1 !text-[10px] disabled:opacity-50">{t("dockerPage.action.start")}</button>
+						<ActionButton type="submit" variant="success" onClick={() => handleAction(c,"start")} disabled={actionLoading === c.Id} className="!min-h-11 !px-2.5 !py-1 !text-[10px] disabled:opacity-50">{t("dockerPage.action.start")}</ActionButton>
 					)}
 					{c.State ==="running" && (
 						<>
-							<button onClick={() => handleAction(c,"stop")} disabled={actionLoading === c.Id} data-action-button data-variant="outline" className="!min-h-11 !px-2.5 !py-1 !text-[10px] disabled:opacity-50">{t("dockerPage.action.stop")}</button>
-							<button onClick={() => handleAction(c,"restart")} disabled={actionLoading === c.Id} data-action-button data-variant="outline" className="!min-h-11 !px-2.5 !py-1 !text-[10px] disabled:opacity-50">{t("dockerPage.action.restart")}</button>
+							<ActionButton type="submit" variant="outline" onClick={() => handleAction(c,"stop")} disabled={actionLoading === c.Id} className="!min-h-11 !px-2.5 !py-1 !text-[10px] disabled:opacity-50">{t("dockerPage.action.stop")}</ActionButton>
+							<ActionButton type="submit" variant="outline" onClick={() => handleAction(c,"restart")} disabled={actionLoading === c.Id} className="!min-h-11 !px-2.5 !py-1 !text-[10px] disabled:opacity-50">{t("dockerPage.action.restart")}</ActionButton>
 						</>
 					)}
-					<button onClick={() => fetchLogs(c.Id)} data-action-button data-variant="secondary" className="!min-h-11 !px-2.5 !py-1 !text-[10px]">{t("dockerPage.action.logs")}</button>
-					<button onClick={() => requestRemoval(c)} disabled={actionLoading === c.Id} data-action-button data-variant="danger" className="!min-h-11 !px-2.5 !py-1 !text-[10px] disabled:opacity-50">{t("dockerPage.action.remove")}</button>
+					<ActionButton type="submit" variant="secondary" onClick={() => fetchLogs(c.Id)} className="!min-h-11 !px-2.5 !py-1 !text-[10px]">{t("dockerPage.action.logs")}</ActionButton>
+					<ActionButton type="submit" variant="danger" onClick={() => requestRemoval(c)} disabled={actionLoading === c.Id} className="!min-h-11 !px-2.5 !py-1 !text-[10px] disabled:opacity-50">{t("dockerPage.action.remove")}</ActionButton>
 				</div>
 			</div>
 		);
@@ -376,27 +378,24 @@ const handleAction = async (container: Container, action:"start" |"stop" |"resta
 				<span className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface)] px-2.5 py-1">{t("dockerPage.toolbar.ungroupedCount").replace("{count}", String(ungrouped.length))}</span>
 			</div>
 			<div className="mb-6 flex flex-wrap items-center gap-2">
-				<button
+				<ActionButton type="submit" variant="primary"
 					onClick={() => {
 						setLoading(true);
 						void fetchContainers();
-					}}
-					data-action-button data-variant="primary" className="!min-h-11 !rounded-xl !px-3 !py-1.5 !text-xs !font-semibold"
+					}} className="!min-h-11 !rounded-xl !px-3 !py-1.5 !text-xs !font-semibold"
 				>
 					{t("dockerPage.refresh.list")}
-				</button>
-				<button
+				</ActionButton>
+				<ActionButton type="submit" variant="secondary"
 					onClick={() => {
 						for (const container of runningContainers) void fetchStats(container.Id);
-					}}
-					data-action-button data-variant="secondary" className="!min-h-11 !rounded-xl !px-3 !py-1.5 !text-xs !font-medium"
+					}} className="!min-h-11 !rounded-xl !px-3 !py-1.5 !text-xs !font-medium"
 				>
 					{t("dockerPage.refresh.stats")}
-				</button>
-				<button
+				</ActionButton>
+				<ActionButton type="submit" variant={statsAutoRefresh ? "success" : "secondary"}
 					onClick={() => setStatsAutoRefresh((v) => !v)}
 					disabled={refreshIntervalSeconds <= 0 || runningContainers.length === 0}
-					data-action-button data-variant={statsAutoRefresh ? "success" : "secondary"}
 					className="!min-h-11 !rounded-xl !px-3 !py-1.5 !text-xs !font-medium disabled:cursor-not-allowed disabled:opacity-50"
 				>
 					{statsAutoRefresh
@@ -404,7 +403,7 @@ const handleAction = async (container: Container, action:"start" |"stop" |"resta
 						: refreshIntervalSeconds <= 0
 							? t("dockerPage.autoRefreshOff")
 							: t("dockerPage.autoRefreshPaused").replace("{label}", refreshLabel)}
-				</button>
+				</ActionButton>
 			</div>
 
 			{error && <div className="mb-4 rounded-xl border border-[var(--danger-border)] bg-[var(--danger-bg)] px-4 py-3 text-sm text-[var(--danger)]">{error}</div>}
@@ -445,17 +444,15 @@ const handleAction = async (container: Container, action:"start" |"stop" |"resta
 										const busyKey = `${group.project}:${action}`;
 										const busy = projectActionLoading === busyKey;
 										return (
-											<button
+											<ActionButton variant={variant}
 												key={action}
-												type="button"
 												onClick={() => void handleProjectAction(group.project, action)}
 												disabled={projectActionLoading !== null}
-												data-action-button
-												data-variant={variant}
+											
 												className="!min-h-11 !rounded-lg !px-2.5 !py-1 !text-[10px] !font-medium disabled:opacity-50"
 											>
 												{busy ? t("dockerPage.project.busy") : t(labelKey)}
-											</button>
+											</ActionButton>
 										);
 									})}
 								</div>
@@ -492,21 +489,17 @@ const handleAction = async (container: Container, action:"start" |"stop" |"resta
 							{t("dockerPage.removeDialog.confirm").replace("{name}", getContainerName(t, pendingRemoval))}
 						</p>
 						<div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-							<button
+							<ActionButton variant="secondary"
 								ref={removeCancelButtonRef}
-								type="button"
-								onClick={closeRemovalDialog}
-							 data-action-button data-variant="secondary" className="min-h-11 !px-3 !py-1.5 !text-xs">
+								onClick={closeRemovalDialog} className="min-h-11 !px-3 !py-1.5 !text-xs">
 								{t("dockerPage.removeDialog.cancel")}
-							</button>
-							<button
-								type="button"
+							</ActionButton>
+							<ActionButton variant="danger-solid"
 								onClick={() => void confirmRemoval()}
-								disabled={actionLoading === pendingRemoval.Id}
-								data-action-button data-variant="danger-solid" className="!min-h-11 !px-3 !py-1.5 !text-xs !font-medium disabled:cursor-not-allowed disabled:opacity-50"
+								disabled={actionLoading === pendingRemoval.Id} className="!min-h-11 !px-3 !py-1.5 !text-xs !font-medium disabled:cursor-not-allowed disabled:opacity-50"
 							>
 								{t("dockerPage.removeDialog.confirmBtn")}
-							</button>
+							</ActionButton>
 						</div>
 					</div>
 				</div>
@@ -538,15 +531,13 @@ const handleAction = async (container: Container, action:"start" |"stop" |"resta
 					>
 						<div className="flex items-center justify-between mb-3">
 							<h3 id="docker-logs-dialog-title" className="text-sm font-medium text-[var(--text-primary)]">{t("dockerPage.logsDialog.title").replace("{id}", logsId.slice(0, 12))}</h3>
-							<button
+							<ActionButton variant="ghost"
 								ref={logsCloseButtonRef}
-								type="button"
 								onClick={closeLogsDialog}
-								aria-label={t("dockerPage.logsDialog.closeAria")}
-								data-action-button data-variant="ghost" className="!min-h-11 !min-w-11 !p-1"
+								aria-label={t("dockerPage.logsDialog.closeAria")} className="!min-h-11 !min-w-11 !p-1"
 							>
 								<svg className="w-5 h-5" aria-hidden="true" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-							</button>
+							</ActionButton>
 						</div>
 						<pre className="flex-1 overflow-auto text-[11px] text-[var(--text-secondary)] bg-[color-mix(in_srgb,var(--surface-subtle)_85%,#000)] rounded-lg p-3 font-mono whitespace-pre-wrap">{logs}</pre>
 					</div>

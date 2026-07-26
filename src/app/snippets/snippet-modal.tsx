@@ -8,6 +8,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { useToast } from "@/components/toast-provider";
 
 import { ActionButton } from "@/components/action-button";
+import { getErrorMessage } from "@/lib/http/error-message";
 export interface SnippetFormValue {
 	id: string;
 	title: string;
@@ -88,7 +89,7 @@ export function SnippetModal({
 			onClose();
 		} catch (cause) {
 			const fallback = mode === "create" ? "snippetsPage.toast.createFailed" : "snippetsPage.toast.saveFailed";
-			setError(cause instanceof Error ? cause.message : t(fallback));
+			setError(getErrorMessage(cause, t(fallback)));
 			savingRef.current = false;
 			setSaving(false);
 		}

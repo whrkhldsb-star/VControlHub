@@ -11,6 +11,7 @@ import type { RoleKey } from "@/lib/auth/rbac";
 import { prisma } from "@/lib/db";
 
 import { apiError } from "@/lib/http/api-error";
+import { getErrorMessage } from "@/lib/http/error-message";
 export const dynamic = "force-dynamic";
 
 function parseHistoryHours(value: string | null) {
@@ -98,7 +99,7 @@ async function handleHealthRequest(request: Request, session: SessionPayload | n
         samplingIntervalSeconds: 300,
       });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Unknown error";
+      const message = getErrorMessage(err, "Unknown error");
       return apiError({
         code: "INTERNAL_ERROR",
         message: `Failed to fetch health history: ${message}`,
@@ -115,7 +116,7 @@ async function handleHealthRequest(request: Request, session: SessionPayload | n
   try {
     overview = await collectAllHealth(session);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
+    const message = getErrorMessage(err, "Unknown error");
     return apiError({
       code: "INTERNAL_ERROR",
       message: `Failed to collect health data: ${message}`,

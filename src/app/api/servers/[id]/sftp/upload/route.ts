@@ -18,6 +18,7 @@ import { uploadFile, sanitizeRemotePath, sanitizeFileName } from "@/lib/ssh/sftp
 import { assertSftpPathAccess } from "@/lib/ssh/sftp-access-control";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
 import { auditUserAction } from "@/lib/audit/service";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 export const dynamic = "force-dynamic";
 // guardMode: manual
@@ -89,7 +90,7 @@ export async function POST(
       size: bytesWritten,
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Upload failed";
+    const message = getErrorMessage(error, "Upload failed");
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

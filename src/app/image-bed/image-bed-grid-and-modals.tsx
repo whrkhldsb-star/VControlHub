@@ -107,39 +107,35 @@ export function ImageGrid({
                 }}
                 className="absolute inset-0 flex items-center justify-center gap-1 bg-[var(--overlay)] p-2 md:bg-[var(--overlay)] md:p-0 md:opacity-0 md:group-hover:opacity-100"
               >
-                <button
-                  onClick={() => copyLink(img.publicUrl)}
-                  data-action-button data-variant="ghost" className="min-h-11 min-w-11 px-2 text-xs"
+                <ActionButton type="submit" variant="ghost"
+                  onClick={() => copyLink(img.publicUrl)} className="min-h-11 min-w-11 px-2 text-xs"
                   title={t("imageBedPage.copy.title.url")}
                   aria-label={t("imageBedPage.copy.title.url")}
                 >
                   🔗
-                </button>
-                <button
-                  onClick={() => copyMarkdown(img)}
-                  data-action-button data-variant="success" className="!min-h-11 !min-w-11 !px-2 !text-xs"
+                </ActionButton>
+                <ActionButton type="submit" variant="success"
+                  onClick={() => copyMarkdown(img)} className="!min-h-11 !min-w-11 !px-2 !text-xs"
                   title={t("imageBedPage.copy.title.markdown")}
                   aria-label={t("imageBedPage.copy.title.markdown")}
                 >
                   M↓
-                </button>
-                <button
-                  onClick={() => copyHTML(img)}
-                  data-action-button data-variant="outline" className="!min-h-11 !min-w-11 !px-2 !text-xs"
+                </ActionButton>
+                <ActionButton type="submit" variant="outline"
+                  onClick={() => copyHTML(img)} className="!min-h-11 !min-w-11 !px-2 !text-xs"
                   title={t("imageBedPage.copy.title.html")}
                   aria-label={t("imageBedPage.copy.title.html")}
                 >
                   H
-                </button>
+                </ActionButton>
                 {canDelete && (
-                  <button
-                    onClick={() => requestDelete(img)}
-                    data-action-button data-variant="danger" className="!min-h-11 !min-w-11 !px-2 !text-xs"
+                  <ActionButton type="submit" variant="danger"
+                    onClick={() => requestDelete(img)} className="!min-h-11 !min-w-11 !px-2 !text-xs"
                     title={t("imageBedPage.image.delete.aria")}
                     aria-label={t("imageBedPage.image.delete.aria")}
                   >
                     🗑
-                  </button>
+                  </ActionButton>
                 )}
               </div>
             )}
@@ -304,14 +300,12 @@ export function PublishFromStorageModal({
           </div>
         </div>
         <div className="mt-5 flex items-center justify-end gap-2">
-          <button
-            type="button"
+          <ActionButton variant="ghost"
             onClick={onClose}
-            disabled={publishing}
-            data-action-button data-variant="ghost" className="!text-sm"
+            disabled={publishing} className="!text-sm"
           >
             {t("imageBedPage.publishFromStorage.cancel")}
-          </button>
+          </ActionButton>
           <ActionButton
             type="button"
             onClick={handlePublishFromStorage}
@@ -378,24 +372,20 @@ return (
               )}
         </p>
         <div className="mt-6 flex items-center justify-end gap-2">
-          <button
-            type="button"
+          <ActionButton variant="ghost"
             onClick={handleClose}
-            disabled={deleting}
-            data-action-button data-variant="ghost" className="!text-sm disabled:opacity-50"
+            disabled={deleting} className="!text-sm disabled:opacity-50"
           >
             {t("imageBedPage.delete.cancel")}
-          </button>
-          <button
-            type="button"
+          </ActionButton>
+          <ActionButton variant="danger-solid"
             onClick={confirmDelete}
-            disabled={deleting}
-            data-action-button data-variant="danger-solid" className="!px-4 !py-2 !text-sm disabled:opacity-50"
+            disabled={deleting} className="!px-4 !py-2 !text-sm disabled:opacity-50"
           >
             {deleting
               ? t("imageBedPage.delete.deleting")
               : t("common.confirmDelete")}
-          </button>
+          </ActionButton>
         </div>
       </div>
     </div>

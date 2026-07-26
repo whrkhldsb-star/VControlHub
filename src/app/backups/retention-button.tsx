@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { getErrorMessage } from "@/lib/http/error-message";
+import { ActionButton } from "@/components/action-button";
 
 type Props = {
   /** 当前已超过 30 天的记录数。0 时按钮 disabled。 */
@@ -49,7 +51,7 @@ export function RetentionButton({ olderThan30Days, totalRecords }: Props) {
       setTaskId(result?.taskId ?? null);
       router.refresh();
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : t("backupsPage.retention.error"));
+      setError(getErrorMessage(submitError, t("backupsPage.retention.error")));
     } finally {
       setPending(false);
     }
@@ -82,13 +84,12 @@ export function RetentionButton({ olderThan30Days, totalRecords }: Props) {
             disabled={pending}
           />
         </label>
-        <button
+        <ActionButton variant="outline"
           type="submit"
-          disabled={disabled}
-          data-action-button data-variant="outline" className="!px-3 !py-1.5 !text-xs !font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={disabled} className="!px-3 !py-1.5 !text-xs !font-semibold disabled:cursor-not-allowed disabled:opacity-50"
         >
           {pending ? t("backupsPage.retention.pending") : t("backupsPage.retention.submit")}
-        </button>
+        </ActionButton>
       </div>
       <p className="text-xs text-[var(--text-muted)]">
         {t("backupsPage.retention.matchInfo")

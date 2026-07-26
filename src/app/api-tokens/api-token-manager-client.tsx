@@ -7,6 +7,8 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { formatDateTime } from "@/lib/datetime/format";
 import type { Locale } from "@/lib/i18n/translations";
 import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
+import { getErrorMessage } from "@/lib/http/error-message";
+import { ActionButton } from "@/components/action-button";
 
 export type SafeApiToken = {
   id: string;
@@ -92,7 +94,7 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
       setSelectedScopes(["read"]);
       setExpiresAt("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("apiTokensPage.create.failed"));
+      setError(getErrorMessage(err, t("apiTokensPage.create.failed")));
     } finally {
       setSubmitting(false);
     }
@@ -106,7 +108,7 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
       setTokens((current) => current.map((item) => (item.id === token.id ? { ...item, revokedAt: data.token?.revokedAt ?? new Date().toISOString() } : item)));
       setTokenPendingRevoke(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("apiTokensPage.revoke.failed"));
+      setError(getErrorMessage(err, t("apiTokensPage.revoke.failed")));
     } finally {
       setRevokingId(null);
     }
@@ -128,12 +130,12 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
               <p className="mt-1 text-sm text-[var(--warning)]/75">{t("apiTokensPage.plaintext.copyHint")}</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={() => navigator.clipboard?.writeText(createdPlaintext)} data-action-button data-variant="outline" className="!px-3 !py-2 !text-xs !font-medium">
+              <ActionButton variant="outline" onClick={() => navigator.clipboard?.writeText(createdPlaintext)} className="!px-3 !py-2 !text-xs !font-medium">
                 {t("apiTokensPage.plaintext.copy")}
-              </button>
-              <button type="button" onClick={() => setCreatedPlaintext(null)} data-action-button data-variant="secondary" className="!px-3 !py-2 !text-xs !font-medium">
+              </ActionButton>
+              <ActionButton variant="secondary" onClick={() => setCreatedPlaintext(null)} className="!px-3 !py-2 !text-xs !font-medium">
                 {t("apiTokensPage.plaintext.dismiss")}
-              </button>
+              </ActionButton>
             </div>
           </div>
           <code className="mt-4 block overflow-x-auto rounded-xl border border-[var(--warning-border)] bg-[var(--surface-subtle)] p-3 font-mono text-xs text-[var(--warning)] dark:text-[var(--warning)]">{createdPlaintext}</code>
@@ -171,9 +173,9 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
           </div>
 
           <div>
-            <button type="submit" disabled={submitting} data-action-button data-variant="primary" className="px-5 py-2.5 text-sm">
+            <ActionButton variant="primary" type="submit" disabled={submitting} className="px-5 py-2.5 text-sm">
               {submitting ? t("apiTokensPage.create.submitting") : t("apiTokensPage.create.submit")}
-            </button>
+            </ActionButton>
           </div>
         </form>
       </section>
@@ -208,9 +210,9 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
                       </dl>
                     </div>
                     {!token.revokedAt && (
-                      <button type="button" aria-label={t("apiTokensPage.revoke.aria").replace("{name}", token.name)} disabled={revokingId === token.id} onClick={() => setTokenPendingRevoke(token)} data-action-button data-variant="danger" className="!px-4 !py-2 !text-xs !font-medium disabled:opacity-60">
+                      <ActionButton variant="danger" aria-label={t("apiTokensPage.revoke.aria").replace("{name}", token.name)} disabled={revokingId === token.id} onClick={() => setTokenPendingRevoke(token)} className="!px-4 !py-2 !text-xs !font-medium disabled:opacity-60">
                         {revokingId === token.id ? t("apiTokensPage.revoke.revoking") : t("apiTokensPage.revoke.button")}
-                      </button>
+                      </ActionButton>
                     )}
                   </div>
                 </article>
@@ -229,12 +231,12 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
               {t("apiTokensPage.revoke.confirmBody").replace("{name}", tokenPendingRevoke.name)}
             </p>
             <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-              <button type="button" onClick={() => setTokenPendingRevoke(null)} data-action-button data-variant="secondary" className="!px-4 !py-2 !text-sm">
+              <ActionButton variant="secondary" onClick={() => setTokenPendingRevoke(null)} className="!px-4 !py-2 !text-sm">
                 {t("apiTokensPage.revoke.cancel")}
-              </button>
-              <button type="button" onClick={() => revokeToken(tokenPendingRevoke)} data-action-button data-variant="danger-solid" className="!px-4 !py-2 !text-sm">
+              </ActionButton>
+              <ActionButton variant="danger-solid" onClick={() => revokeToken(tokenPendingRevoke)} className="!px-4 !py-2 !text-sm">
                 {t("apiTokensPage.revoke.confirm")}
-              </button>
+              </ActionButton>
             </div>
           </section>
         </div>

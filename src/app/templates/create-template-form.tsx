@@ -8,6 +8,7 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 export function CreateTemplateForm({ onClose }: { onClose: () => void }) {
 	const { t } = useI18n();
@@ -41,7 +42,7 @@ export function CreateTemplateForm({ onClose }: { onClose: () => void }) {
 			});
 			onClose();
 		} catch (err) {
-			setError(err instanceof Error ? err.message : t("templatesPage.error.createFailed"));
+			setError(getErrorMessage(err, t("templatesPage.error.createFailed")));
 		} finally {
 			setSubmitting(false);
 		}
@@ -122,15 +123,14 @@ export function CreateTemplateForm({ onClose }: { onClose: () => void }) {
 				/>
 			</FormField>
 			<div className="flex gap-3 pt-2">
-				<button
+				<ActionButton variant="primary"
 					type="submit"
 					disabled={submitting}
-					data-action-button
-					data-variant="primary"
+				
 					className="min-h-11 px-5 text-sm"
 				>
 					{submitting ? t("templatesPage.create.submitting") : t("templatesPage.create.submit")}
-				</button>
+				</ActionButton>
 				<ActionButton type="button" variant="secondary" onClick={onClose} className="min-h-11 px-5 text-sm">
 					{t("templatesPage.action.cancel")}
 				</ActionButton>

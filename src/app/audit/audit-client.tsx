@@ -9,6 +9,7 @@ import { getErrorMessage } from "@/lib/http/error-message";
 import { useResourcePolling } from "@/lib/http/use-resource-polling";
 import { toDateLocale } from "@/lib/i18n/locale-format";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { ActionButton } from "@/components/action-button";
 
 type AuditLog = {
   id: string;
@@ -112,14 +113,12 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
             placeholder={t("audit.search-placeholder")}
             className={`${CONTROL_CLASS} min-w-[240px] flex-1`}
           />
-          <button
-            type="button"
+          <ActionButton variant="secondary"
             onClick={fetchLogs}
-            data-tone="accent"
-            data-action-button data-variant="secondary" className="!rounded-full"
+            data-tone="accent" className="!rounded-full"
           >
             {t("audit.search")}
-          </button>
+          </ActionButton>
           <button
             type="button"
             onClick={() => {
@@ -164,14 +163,12 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
             <option value="command.execute">{t("audit.action.command.execute")}</option>
             <option value="download.create">{t("audit.action.download.create")}</option>
           </select>
-          <button
-            type="button"
+          <ActionButton variant="secondary"
             onClick={fetchLogs}
-            data-tone="accent"
-            data-action-button data-variant="secondary" className="!rounded-full"
+            data-tone="accent" className="!rounded-full"
           >
             {t("audit.refresh")}
-          </button>
+          </ActionButton>
           <button
             type="button"
             onClick={() => {
@@ -207,9 +204,9 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
       {error && (
         <div role="alert" data-tone="rose" className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-[var(--danger-border)] px-4 py-3 text-sm text-[var(--danger)]">
           <span>{error}</span>
-          <button type="button" onClick={fetchLogs} data-action-button data-variant="danger" className="shrink-0 !px-3 !py-1 !text-xs">
+          <ActionButton variant="danger" onClick={fetchLogs} className="shrink-0 !px-3 !py-1 !text-xs">
             {t("common.retry")}
-          </button>
+          </ActionButton>
         </div>
       )}
 

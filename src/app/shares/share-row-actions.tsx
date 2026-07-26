@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { getErrorMessage } from "@/lib/http/error-message";
+import { ActionButton } from "@/components/action-button";
 
 export function ShareRowActions({
 	id,
@@ -34,7 +36,7 @@ export function ShareRowActions({
 			setConfirming(false);
 			router.refresh();
 		} catch (err) {
-			setError(err instanceof Error ? err.message : t("sharesPage.rowActions.fallback"));
+			setError(getErrorMessage(err, t("sharesPage.rowActions.fallback")));
 		} finally {
 			setBusy(false);
 		}
@@ -49,15 +51,14 @@ export function ShareRowActions({
 			{confirming ? (
 				<span className="text-xs text-[var(--danger)]">{t("sharesPage.rowActions.warning")}</span>
 			) : null}
-			<button
-				type="button"
+			<ActionButton variant="danger"
 				onClick={handleRevoke}
 				disabled={busy}
 				aria-describedby={confirming ? `revoke-share-${id}-warning` : undefined}
-				data-tone="rose" data-action-button data-variant="danger" className="min-h-11 min-w-11 !px-2.5 !py-1 !text-xs disabled:opacity-50"
+				data-tone="rose" className="min-h-11 min-w-11 !px-2.5 !py-1 !text-xs disabled:opacity-50"
 			>
 				{busy ? t("sharesPage.rowActions.submitting") : confirming ? t("sharesPage.rowActions.confirm") : t("sharesPage.rowActions.revoke")}
-			</button>
+			</ActionButton>
 			{confirming ? (
 				<button
 					type="button"

@@ -11,6 +11,8 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { toDateLocale } from "@/lib/i18n/locale-format";
 
 import { JobEventsDialog } from "./job-events-dialog";
+import { getErrorMessage } from "@/lib/http/error-message";
+import { ActionButton } from "@/components/action-button";
 
 function getSourceLabels(t: (k: string) => string): Record<string, string> {
   return {
@@ -134,7 +136,7 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
       setSourceSummary(data.sourceSummary ?? []);
       setFailureSummary(data.failureSummary ?? []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("operationTasks.refreshFailed"));
+      setError(getErrorMessage(err, t("operationTasks.refreshFailed")));
     } finally { setRefreshing(false); }
   }, [statusFilter, taskTypeFilter, sort, t]);
   // Apply URL deep-link / non-default filter changes without requiring Apply.
@@ -213,7 +215,7 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
               {sortOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </select>
           </label>
-          <button type="button" onClick={refresh} disabled={refreshing} data-action-button data-variant="secondary" className="!px-3 !py-2 !text-xs disabled:opacity-50">{refreshing ? t("operationTasks.action.refreshing") : t("operationTasks.action.applyFilter")}</button>
+          <ActionButton variant="secondary" onClick={refresh} disabled={refreshing} className="!px-3 !py-2 !text-xs disabled:opacity-50">{refreshing ? t("operationTasks.action.refreshing") : t("operationTasks.action.applyFilter")}</ActionButton>
           <a href={getExportPath(statusFilter, taskTypeFilter, sort)} data-action-button data-variant="primary" className="px-3 py-2 text-xs">{t("operationTasksPage.export.csv")}</a>
         </Toolbar>
       }

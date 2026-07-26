@@ -1,6 +1,6 @@
 "use client";
 
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import type { ButtonHTMLAttributes, ReactNode, Ref } from "react";
 
 import { cn } from "@/lib/ui/cn";
 
@@ -30,6 +30,8 @@ export type ActionButtonVariant =
 type ActionButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children"> & {
 	children: ReactNode;
 	variant?: ActionButtonVariant;
+	/** React 19 style ref prop (dialog focus management etc.). */
+	ref?: Ref<HTMLButtonElement>;
 };
 
 export function ActionButton({

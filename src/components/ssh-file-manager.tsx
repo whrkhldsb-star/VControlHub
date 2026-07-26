@@ -16,6 +16,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { SshDeleteDialog } from "./ssh-file-manager-dialogs";
 import { SshFileList, SshUploadProgressList } from "./ssh-file-manager-list";
 import { DirEntry, getCsrfToken, SshFileManagerHeader, UploadProgress } from "./ssh-file-manager-parts";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 export type SshFileManagerProps = {
   serverId: string;
@@ -157,7 +158,7 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
       setPendingDeleteEntry(null);
       loadDir(currentPath);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("sshFileManager.deleteFailed"));
+      setError(getErrorMessage(err, t("sshFileManager.deleteFailed")));
     }
   }
 
@@ -171,7 +172,7 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
       setMkdirName("");
       loadDir(currentPath);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("sshFileManager.mkdirFailed"));
+      setError(getErrorMessage(err, t("sshFileManager.mkdirFailed")));
     }
   }
 
@@ -185,7 +186,7 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
       setRenameValue("");
       loadDir(currentPath);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("sshFileManager.renameFailed"));
+      setError(getErrorMessage(err, t("sshFileManager.renameFailed")));
     }
   }
 

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireSession } from "@/lib/auth/require-session";
 import { changePassword } from "@/lib/auth/service";
 import { getServerLocale, t } from "@/lib/i18n/translations";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 export type AccountPasswordActionState = {
   error?: string;
@@ -41,7 +42,7 @@ export async function changePasswordAction(
     } satisfies AccountPasswordActionState;
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : tr("accountPasswordPage.action.errorFallback"),
+      error: getErrorMessage(error, tr("accountPasswordPage.action.errorFallback")),
     } satisfies AccountPasswordActionState;
   }
 }

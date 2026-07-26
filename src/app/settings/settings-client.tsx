@@ -49,6 +49,8 @@ import {
   latestSectionMetadata,
 } from "./settings-section";
 import { TOC_SUBTITLE_KEYS } from "./settings-toc";
+import { getErrorMessage } from "@/lib/http/error-message";
+import { ActionButton } from "@/components/action-button";
 
 // Re-export so test files importing from `settings-client` keep working.
 export { FieldRiskBadge, FieldRollbackButton } from "./settings-field-risk";
@@ -327,7 +329,7 @@ export function SettingsClient({
           }, 5000);
         } catch (err) {
           setError(
-            err instanceof Error ? err.message : t("settingsClient.saveFailed"),
+            getErrorMessage(err, t("settingsClient.saveFailed")),
           );
         } finally {
           setSaving(false);
@@ -397,18 +399,14 @@ export function SettingsClient({
               </p>
             </div>
             <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={expandAll}
-               data-action-button data-variant="secondary" className="!px-3 !py-1.5 !text-xs">
+              <ActionButton variant="secondary"
+                onClick={expandAll} className="!px-3 !py-1.5 !text-xs">
                 {t("settingsClient.expandAll")}
-              </button>
-              <button
-                type="button"
-                onClick={collapseAll}
-               data-action-button data-variant="secondary" className="!px-3 !py-1.5 !text-xs">
+              </ActionButton>
+              <ActionButton variant="secondary"
+                onClick={collapseAll} className="!px-3 !py-1.5 !text-xs">
                 {t("settingsClient.collapseAll")}
-              </button>
+              </ActionButton>
             </div>
           </div>
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">

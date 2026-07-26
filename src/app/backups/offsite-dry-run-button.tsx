@@ -8,6 +8,8 @@ import { useState, useTransition } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { getErrorMessage } from "@/lib/http/error-message";
+import { ActionButton } from "@/components/action-button";
 
 type DryRunState =
 	| { kind: "idle" }
@@ -59,7 +61,7 @@ export function OffsiteDryRunButton() {
 				const body = (await res.json()) as { probeKey?: string; latencyMs?: number };
 				setState({ kind: "ok", latencyMs: body.latencyMs ?? 0, probeKey: body.probeKey ?? "" });
 			} catch (err) {
-				setState({ kind: "error", message: err instanceof Error ? err.message : String(err) });
+				setState({ kind: "error", message: getErrorMessage(err, String(err)) });
 			}
 		});
 	};
@@ -68,17 +70,15 @@ export function OffsiteDryRunButton() {
 
 	return (
 		<div className="flex flex-col gap-2" data-component="offsite-dry-run">
-			<button
-				type="button"
+			<ActionButton variant="outline"
 				onClick={run}
 				disabled={isRunning}
 				data-action="offsite-dry-run"
-				data-action-button
-				data-variant="outline"
+			
 				className="!px-3 !py-1.5 !text-xs !font-medium disabled:cursor-not-allowed disabled:opacity-50"
 			>
 				{isRunning ? t("backupsPage.offsite.dryRunning") : t("backupsPage.offsite.dryRunButton")}
-			</button>
+			</ActionButton>
 			<StateView state={state} t={t} />
 		</div>
 	);

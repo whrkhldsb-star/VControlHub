@@ -14,6 +14,7 @@ import { compressFilesBodySchema } from "@/lib/files/schema";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { createFileEntry } from "@/lib/storage/service";
 import { resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 const execFileAsync = promisify(execFile);
 
@@ -96,7 +97,7 @@ export async function POST(request: NextRequest) {
         });
       } catch (error) {
         await fs.rm(outputResolved.path, { force: true });
-        const message = error instanceof Error ? error.message : "tar command failed";
+        const message = getErrorMessage(error, "tar command failed");
         return NextResponse.json({ error: `Compression failed: ${message}` }, { status: 500 });
       } finally {
         await fs.rm(tempDir, { recursive: true, force: true });

@@ -8,6 +8,8 @@ import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import { formatDate, formatDateTime } from "@/lib/datetime/format";
 import { AnnouncementEditModal } from "./announcement-edit-modal";
 import { Pencil, Trash2, Search } from "@/components/icons";
+import { getErrorMessage } from "@/lib/http/error-message";
+import { ActionButton } from "@/components/action-button";
 
 interface Announcement {
   id: string;
@@ -53,12 +55,12 @@ const AnnouncementCard = memo(function AnnouncementCard({ announcement: a, t, lo
           <span className="text-xs text-[var(--text-muted)] whitespace-nowrap">{formatDate(a.startsAt, locale as"zh" |"en")}</span>
           {canManage && (
             <div className="flex items-center gap-1 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
-              <button onClick={() => onEdit(a)} title={t("announcementsPage.action.edit")} aria-label={t("announcementsPage.action.edit")} data-action-button data-variant="ghost" className="!min-h-11 !min-w-11 !rounded-lg !p-1.5">
+              <ActionButton type="submit" variant="ghost" onClick={() => onEdit(a)} title={t("announcementsPage.action.edit")} aria-label={t("announcementsPage.action.edit")} className="!min-h-11 !min-w-11 !rounded-lg !p-1.5">
                 <Pencil size={14} />
-              </button>
-              <button onClick={() => onDelete(a)} title={t("announcementsPage.action.delete")} aria-label={t("announcementsPage.action.deleteAria").replace("{title}", a.title)} data-action-button data-variant="ghost" className="!min-h-11 !min-w-11 !rounded-lg !p-1.5 text-[var(--danger)]">
+              </ActionButton>
+              <ActionButton type="submit" variant="ghost" onClick={() => onDelete(a)} title={t("announcementsPage.action.delete")} aria-label={t("announcementsPage.action.deleteAria").replace("{title}", a.title)} className="!min-h-11 !min-w-11 !rounded-lg !p-1.5 text-[var(--danger)]">
                 <Trash2 size={14} />
-              </button>
+              </ActionButton>
             </div>
           )}
         </div>
@@ -118,7 +120,7 @@ export function AnnouncementList({
       setPendingDelete(null);
       addToast("success", t("announcementsPage.toast.deleted"));
     } catch (error) {
-      setDeleteError(error instanceof Error ? error.message : t("announcementsPage.toast.deleteFailed"));
+      setDeleteError(getErrorMessage(error, t("announcementsPage.toast.deleteFailed")));
     } finally {
       setDeleteBusy(false);
     }
@@ -194,9 +196,9 @@ export function AnnouncementList({
               <button type="button" disabled={deleteBusy} onClick={() => { setPendingDelete(null); setDeleteError(null); }} data-card className="px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-50">
                 {t("announcementsPage.delete.cancel")}
               </button>
-              <button type="button" disabled={deleteBusy} onClick={handleDelete} data-action-button data-variant="danger" className="!px-4 !py-2 !text-sm disabled:opacity-50">
+              <ActionButton variant="danger" disabled={deleteBusy} onClick={handleDelete} className="!px-4 !py-2 !text-sm disabled:opacity-50">
                 {deleteBusy ? t("announcementsPage.delete.deleting") : t("announcementsPage.delete.confirmBtn")}
-              </button>
+              </ActionButton>
             </div>
           </div>
         </div>

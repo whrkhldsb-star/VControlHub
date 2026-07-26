@@ -8,6 +8,7 @@ import { createFolderAction, type StorageActionState } from "../storage/actions"
 
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
+import { ActionButton } from "@/components/action-button";
 const initialState: StorageActionState = {};
 
 type StorageNodeOption = {
@@ -133,20 +134,17 @@ export function CreateFolderForm({
       {folderName.trim() ? (
         <span className="text-xs text-[var(--text-secondary)]">{t("common.pathPrefix")}{fullPath}</span>
       ) : null}
-      <button
+      <ActionButton variant="primary"
         type="submit"
         disabled={!folderName.trim() || isPending}
-        data-tone="accent"
-        data-action-button data-variant="primary" className="disabled:opacity-50"
+        data-tone="accent" className="disabled:opacity-50"
       >
         {isPending ? t("common.submitting") : t("common.create")}
-      </button>
-      <button
-        type="button"
-        onClick={handleCancel}
-       data-action-button data-variant="secondary" className="!px-4 !py-2 !text-sm">
+      </ActionButton>
+      <ActionButton variant="secondary"
+        onClick={handleCancel} className="!px-4 !py-2 !text-sm">
         {t("common.cancel")}
-      </button>
+      </ActionButton>
       {state.error ? (
         <span className="text-xs text-[var(--danger)]">{state.error}</span>
       ) : null}

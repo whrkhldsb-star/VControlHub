@@ -9,6 +9,8 @@ import { SnippetEditModal } from "./snippet-edit-modal";
 import { CreateSnippetModal } from "./create-snippet-modal";
 import { Pencil, Trash2, Copy, Check, Search, Plus } from "@/components/icons";
 import { EmptyState, Toolbar, ListPanel } from "@/components/page-shell";
+import { getErrorMessage } from "@/lib/http/error-message";
+import { ActionButton } from "@/components/action-button";
 
 interface Snippet {
   id: string;
@@ -50,15 +52,15 @@ const SnippetCard = memo(function SnippetCard({ snippet: s, t, copied, onCopy, o
           )}
         </div>
         <div className="flex items-center gap-1 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
-          <button onClick={() => onCopy(s)} title={t("snippetsPage.action.copy")} aria-label={t("snippetsPage.action.copy")} data-action-button data-variant="ghost" className="!min-h-11 !min-w-11 !rounded-lg !p-1.5">
+          <ActionButton type="submit" variant="ghost" onClick={() => onCopy(s)} title={t("snippetsPage.action.copy")} aria-label={t("snippetsPage.action.copy")} className="!min-h-11 !min-w-11 !rounded-lg !p-1.5">
             {copied ? <Check size={14} /> : <Copy size={14} />}
-          </button>
-          <button onClick={() => onEdit(s)} title={t("snippetsPage.action.edit")} aria-label={t("snippetsPage.action.edit")} data-action-button data-variant="ghost" className="!min-h-11 !min-w-11 !rounded-lg !p-1.5">
+          </ActionButton>
+          <ActionButton type="submit" variant="ghost" onClick={() => onEdit(s)} title={t("snippetsPage.action.edit")} aria-label={t("snippetsPage.action.edit")} className="!min-h-11 !min-w-11 !rounded-lg !p-1.5">
             <Pencil size={14} />
-          </button>
-          <button onClick={() => onDelete(s)} title={t("snippetsPage.action.delete")} aria-label={`${t("snippetsPage.deleteDialog.title")} ${s.title}`} data-action-button data-variant="ghost" className="!min-h-11 !min-w-11 !rounded-lg !p-1.5 text-[var(--danger)]">
+          </ActionButton>
+          <ActionButton type="submit" variant="ghost" onClick={() => onDelete(s)} title={t("snippetsPage.action.delete")} aria-label={`${t("snippetsPage.deleteDialog.title")} ${s.title}`} className="!min-h-11 !min-w-11 !rounded-lg !p-1.5 text-[var(--danger)]">
             <Trash2 size={14} />
-          </button>
+          </ActionButton>
         </div>
       </div>
       {s.description && <p className="mt-1 text-xs text-[var(--text-muted)]">{s.description}</p>}
@@ -107,7 +109,7 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
       setPendingDelete(null);
       addToast("success", t("snippetsPage.toast.deleted"));
     } catch (error) {
-      setDeleteError(error instanceof Error ? error.message : t("snippetsPage.toast.deleteFailed"));
+      setDeleteError(getErrorMessage(error, t("snippetsPage.toast.deleteFailed")));
     } finally {
       setDeleteBusy(false);
     }
@@ -182,14 +184,12 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
           ))}
         </select>
         <span className="px-1 text-xs text-[var(--text-muted)]">{t("snippetsPage.count").replace("{count}", String(filtered.length))}</span>
-        <button
-          type="button"
+        <ActionButton variant="primary"
           onClick={() => setCreating(true)}
-          data-primary
-          data-action-button data-variant="primary" className="inline-flex min-h-11 items-center gap-1.5 px-3 py-2 text-sm"
+          data-primary className="inline-flex min-h-11 items-center gap-1.5 px-3 py-2 text-sm"
         >
           <Plus size={14} /> {t("snippetsPage.new")}
-        </button>
+        </ActionButton>
       </Toolbar>
 
       <ListPanel
@@ -243,9 +243,9 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
               <button type="button" disabled={deleteBusy} onClick={() => { setPendingDelete(null); setDeleteError(null); }} data-card className="min-h-11 px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-50">
                 {t("snippetsPage.deleteDialog.cancel")}
               </button>
-              <button type="button" disabled={deleteBusy} onClick={handleDelete} data-tone="rose" data-action-button data-variant="danger" className="min-h-11 disabled:opacity-50">
+              <ActionButton variant="danger" disabled={deleteBusy} onClick={handleDelete} data-tone="rose" className="min-h-11 disabled:opacity-50">
                 {deleteBusy ? t("snippetsPage.deleteDialog.deleting") : t("snippetsPage.deleteDialog.confirm")}
-              </button>
+              </ActionButton>
             </div>
           </div>
         </div>

@@ -17,6 +17,7 @@ import { useId } from "react";
 
 import { useI18n } from "@/lib/i18n/use-locale";
 import type { BatchAction, BatchProgress } from "./use-file-selection";
+import { ActionButton } from "@/components/action-button";
 
 export type FileBatchToolbarProps = {
   selectedCount: number;
@@ -128,13 +129,11 @@ export function FileBatchToolbar({
               <span className="text-sm text-[var(--danger)]">
                 {formatCopy(copy.confirmDeletePrompt, { count: selectedCount })}
               </span>
-              <button
-                type="button"
+              <ActionButton variant="danger"
                 onClick={onConfirmDelete}
-                disabled={isPending}
-               data-action-button data-variant="danger" className="!px-4 !py-2 !text-sm disabled:opacity-50">
+                disabled={isPending} className="!px-4 !py-2 !text-sm disabled:opacity-50">
                 {copy.confirmDelete}
-              </button>
+              </ActionButton>
               <button
                 type="button"
                 onClick={() => setBatchAction("none")}
@@ -200,17 +199,15 @@ export function FileBatchToolbar({
                     :""}
                 </span>
               ) : null}
-              <button
-                type="button"
+              <ActionButton variant="primary"
                 onClick={onSubmitMove}
                 disabled={
                   !moveTargetDir.trim() || isPending || moveProgress.done > 0
                 }
-                data-tone="accent"
-                data-action-button data-variant="primary" className="disabled:opacity-50"
+                data-tone="accent" className="disabled:opacity-50"
               >
                 {copy.confirmMove}
-              </button>
+              </ActionButton>
               <button
                 type="button"
                 onClick={() => {
@@ -229,28 +226,23 @@ export function FileBatchToolbar({
               <span className="text-sm text-[var(--text-secondary)]">
                 {formatCopy(copy.selectedCount, { count: selectedCount })}
               </span>
-              <button
-                type="button"
-                onClick={onClearSelection}
-               data-action-button data-variant="secondary" className="!px-4 !py-2 !text-sm">
+              <ActionButton variant="secondary"
+                onClick={onClearSelection} className="!px-4 !py-2 !text-sm">
                 {copy.clearSelection}
-              </button>
+              </ActionButton>
               {selectedEntriesCanCompress ? (
-                <button
-                  type="button"
-                  onClick={onCompressSelected}
-                 data-action-button data-variant="outline" className="!px-4 !py-2 !text-sm">
+                <ActionButton variant="outline"
+                  onClick={onCompressSelected} className="!px-4 !py-2 !text-sm">
                   {copy.compressSelected}
-                </button>
+                </ActionButton>
               ) : null}
               {canDelete && selectedEntriesCanDelete ? (
-                <button
-                  type="button"
+                <ActionButton variant="danger"
                   onClick={() => setBatchAction("confirm-delete")}
-                  data-tone="rose" data-action-button data-variant="danger"
+                  data-tone="rose"
                 >
                   {copy.deleteSelected}
-                </button>
+                </ActionButton>
               ) : null}
               {selectedEntriesCanMove ? (
                 <button

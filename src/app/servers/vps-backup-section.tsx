@@ -9,6 +9,7 @@ import { formatBytes } from "@/lib/format/bytes";
 
 import { ActionButton } from "@/components/action-button";
 import { UI_INPUT } from "@/lib/ui/classes";
+import { getErrorMessage } from "@/lib/http/error-message";
 type BackupSchedule = {
 	id: string;
 	name: string;
@@ -95,7 +96,7 @@ export function VpsBackupSection({
 			setRecords(recData.records ?? []);
 		} catch (err) {
 			if (controller.signal.aborted) return;
-			setError(err instanceof Error ? err.message : t("vpsBackup.error.unknown"));
+			setError(getErrorMessage(err, t("vpsBackup.error.unknown")));
 		} finally {
 			if (!controller.signal.aborted) setLoading(false);
 		}
@@ -131,7 +132,7 @@ export function VpsBackupSection({
 				await fetchAll();
 			}
 		} catch (err) {
-			setError(err instanceof Error ? err.message : t("vpsBackup.error.trigger"));
+			setError(getErrorMessage(err, t("vpsBackup.error.trigger")));
 		} finally {
 			setTriggering(null);
 		}
@@ -170,7 +171,7 @@ export function VpsBackupSection({
 				await fetchAll();
 			}
 		} catch (err) {
-			setError(err instanceof Error ? err.message : t("vpsBackup.error.create"));
+			setError(getErrorMessage(err, t("vpsBackup.error.create")));
 		} finally {
 			setCreating(false);
 		}
@@ -184,7 +185,7 @@ export function VpsBackupSection({
 			});
 			await fetchAll();
 		} catch (err) {
-			setError(err instanceof Error ? err.message : t("vpsBackup.error.delete"));
+			setError(getErrorMessage(err, t("vpsBackup.error.delete")));
 		}
 	};
 
@@ -196,7 +197,7 @@ export function VpsBackupSection({
 			});
 			await fetchAll();
 		} catch (err) {
-			setError(err instanceof Error ? err.message : t("vpsBackup.error.delete"));
+			setError(getErrorMessage(err, t("vpsBackup.error.delete")));
 		}
 	};
 
@@ -259,13 +260,11 @@ export function VpsBackupSection({
 				</div>
 				<div className="flex flex-wrap gap-2">
 					{PRESET_OPTIONS.map((preset) => (
-						<button
+						<ActionButton variant="secondary"
 							key={preset}
-							type="button"
 							disabled={triggering !== null}
 							onClick={() => handleTrigger(preset)}
-							data-action-button
-							data-variant="secondary"
+						
 							className="!px-3 !py-1.5 !text-xs disabled:cursor-not-allowed disabled:opacity-50"
 						>
 							{triggering === preset ? (
@@ -273,7 +272,7 @@ export function VpsBackupSection({
 							) : (
 								`▶ ${presetLabel(preset)}`
 							)}
-						</button>
+						</ActionButton>
 					))}
 				</div>
 			</div>
@@ -286,16 +285,14 @@ export function VpsBackupSection({
 						<span className="ml-1.5 text-xs text-[var(--text-muted)]">({schedules.length})</span>
 					</div>
 					{canManage ? (
-						<button
-							type="button"
+						<ActionButton variant="outline"
 							onClick={() => setShowCreate(!showCreate)}
 							aria-label={showCreate ? t("common.close") : t("vpsBackup.addSchedule")}
-							data-action-button
-							data-variant="outline"
+						
 							className="!px-2.5 !py-1 !text-xs"
 						>
 							{showCreate ? "✕" : `+ ${t("vpsBackup.addSchedule")}`}
-						</button>
+						</ActionButton>
 					) : null}
 				</div>
 
@@ -374,8 +371,7 @@ export function VpsBackupSection({
 						</p>
 						{canManage ? (
 							<div className="flex flex-wrap gap-2">
-								<button
-									type="button"
+								<ActionButton variant="primary"
 									onClick={() => {
 										setCreateForm({
 											name: t("vpsBackup.quick.nginxName"),
@@ -386,14 +382,12 @@ export function VpsBackupSection({
 										});
 										setShowCreate(true);
 									}}
-									data-action-button
-									data-variant="primary"
+								
 									className="!px-3 !py-1.5 !text-xs"
 								>
 									{t("vpsBackup.quick.nginx")}
-								</button>
-								<button
-									type="button"
+								</ActionButton>
+								<ActionButton variant="secondary"
 									onClick={() => {
 										setCreateForm({
 											name: t("vpsBackup.quick.websiteName"),
@@ -404,21 +398,18 @@ export function VpsBackupSection({
 										});
 										setShowCreate(true);
 									}}
-									data-action-button
-									data-variant="secondary"
+								
 									className="!px-3 !py-1.5 !text-xs"
 								>
 									{t("vpsBackup.quick.website")}
-								</button>
-								<button
-									type="button"
+								</ActionButton>
+								<ActionButton variant="outline"
 									onClick={() => setShowCreate(true)}
-									data-action-button
-									data-variant="outline"
+								
 									className="!px-3 !py-1.5 !text-xs"
 								>
 									{t("vpsBackup.addSchedule")}
-								</button>
+								</ActionButton>
 							</div>
 						) : null}
 					</div>

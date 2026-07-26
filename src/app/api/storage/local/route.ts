@@ -32,6 +32,7 @@ import { parseStorageRange, storageStreamResponse } from "@/lib/storage/streamin
 
 import { AuthError, ValidationError } from "@/lib/errors";
 import { isUniqueViolation } from "@/lib/db";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 type UploadLike = {
   arrayBuffer(): Promise<ArrayBuffer>;
@@ -146,7 +147,7 @@ async function handleGet(request: Request, session: SessionPayload) {
     ));
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Invalid path" },
+      { error: getErrorMessage(error, "Invalid path") },
       { status: 400 },
     );
   }
@@ -280,7 +281,7 @@ async function handlePost(request: Request, session: SessionPayload) {
     }
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Invalid path" },
+      { error: getErrorMessage(error, "Invalid path") },
       { status: 400 },
     );
   }
@@ -362,7 +363,7 @@ async function handlePost(request: Request, session: SessionPayload) {
       sftpCredentials = resolveStorageSshCredentials(storageNode);
     } catch (error) {
       return NextResponse.json(
-        { error: error instanceof Error ? error.message : "connectioncredentialsCannotavailable" },
+        { error: getErrorMessage(error, "connectioncredentialsCannotavailable") },
         { status: 400 },
       );
     }
@@ -382,7 +383,7 @@ async function handlePost(request: Request, session: SessionPayload) {
     } catch (error) {
       logError("[/api/storage/local] sftp upload error:", error);
       return NextResponse.json(
-        { error: error instanceof Error ? error.message : "Remote upload failed" },
+        { error: getErrorMessage(error, "Remote upload failed") },
         { status: 502 },
       );
     }
@@ -460,7 +461,7 @@ async function handlePost(request: Request, session: SessionPayload) {
         }
       }
     }
-    const message = error instanceof Error ? error.message : "Unknown error";
+    const message = getErrorMessage(error, "Unknown error");
     return NextResponse.json(
       { error: `Failed to write upload index: ${message}` },
       { status: 500 },

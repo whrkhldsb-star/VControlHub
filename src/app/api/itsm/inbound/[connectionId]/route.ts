@@ -12,6 +12,7 @@ import { handleInboundWebhook } from "@/lib/itsm/service";
 import { apiCatch } from "@/lib/http/api-error";
 import { createLogger } from "@/lib/logging";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 export const dynamic = "force-dynamic";
 
@@ -101,7 +102,7 @@ export async function POST(request: Request, context: RouteContext) {
 			status: result.event.status,
 		});
 	} catch (err) {
-		const message = err instanceof Error ? err.message : "Inbound webhook failed";
+		const message = getErrorMessage(err, "Inbound webhook failed");
 		logger.warn("inbound rejected", { connectionId, message });
 		// Typed AppError (NotFound/Forbidden/Validation) maps status correctly.
 		return apiCatch(err);

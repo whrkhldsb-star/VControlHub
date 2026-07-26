@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { getErrorMessage } from "@/lib/http/error-message";
+import { ActionButton } from "@/components/action-button";
 
 type TeamMemberDto = {
 	role: string;
@@ -58,7 +60,7 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 			setCurrentTeamId(data.currentTeamId ?? null);
 			setTargetTeamId((prev) => prev || data.teams?.[0]?.id || "");
 		} catch (err) {
-			setError(err instanceof Error ? err.message : t("settingsTeam.error.load"));
+			setError(getErrorMessage(err, t("settingsTeam.error.load")));
 		} finally {
 			setLoading(false);
 		}
@@ -86,7 +88,7 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 			setMessage(t("settingsTeam.message.created"));
 			await refresh();
 		} catch (err) {
-			setError(err instanceof Error ? err.message : t("settingsTeam.error.create"));
+			setError(getErrorMessage(err, t("settingsTeam.error.create")));
 		} finally {
 			setBusy(false);
 		}
@@ -107,7 +109,7 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 			await refresh();
 			router.refresh();
 		} catch (err) {
-			setError(err instanceof Error ? err.message : t("settingsTeam.error.switch"));
+			setError(getErrorMessage(err, t("settingsTeam.error.switch")));
 		} finally {
 			setBusy(false);
 		}
@@ -128,7 +130,7 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 			setMessage(t("settingsTeam.message.memberUpdated"));
 			await refresh();
 		} catch (err) {
-			setError(err instanceof Error ? err.message : t("settingsTeam.error.addMember"));
+			setError(getErrorMessage(err, t("settingsTeam.error.addMember")));
 		} finally {
 			setBusy(false);
 		}
@@ -158,7 +160,7 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 			setMessage(t("settingsTeam.message.updated"));
 			await refresh();
 		} catch (err) {
-			setError(err instanceof Error ? err.message : t("settingsTeam.error.update"));
+			setError(getErrorMessage(err, t("settingsTeam.error.update")));
 		} finally {
 			setBusy(false);
 		}
@@ -184,7 +186,7 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 			setPendingConfirm(null);
 			await refresh();
 		} catch (err) {
-			setError(err instanceof Error ? err.message : t(pendingConfirm.kind === "removeMember" ? "settingsTeam.error.removeMember" : "settingsTeam.error.delete"));
+			setError(getErrorMessage(err, t(pendingConfirm.kind === "removeMember" ? "settingsTeam.error.removeMember" : "settingsTeam.error.delete")));
 		} finally {
 			setBusy(false);
 		}
@@ -230,23 +232,23 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 									)}
 								</div>
 								<div className="flex flex-col gap-1">
-									<button type="button" disabled={busy || currentTeamId === team.id} onClick={() => switchTeam(team.id)} data-action-button data-variant="secondary" className="!min-h-9 !px-3 !py-1 !text-xs disabled:opacity-60">
+									<ActionButton variant="secondary" disabled={busy || currentTeamId === team.id} onClick={() => switchTeam(team.id)} className="!min-h-9 !px-3 !py-1 !text-xs disabled:opacity-60">
 										{currentTeamId === team.id ? t("settingsTeam.current") : t("settingsTeam.switch")}
-									</button>
+									</ActionButton>
 									{canManage && editingTeamId !== team.id && (
-										<button type="button" disabled={busy} onClick={() => startEditTeam(team)} data-action-button data-variant="secondary" className="!min-h-9 !px-3 !py-1 !text-xs disabled:opacity-60">
+										<ActionButton variant="secondary" disabled={busy} onClick={() => startEditTeam(team)} className="!min-h-9 !px-3 !py-1 !text-xs disabled:opacity-60">
 											{t("settingsTeam.edit")}
-										</button>
+										</ActionButton>
 									)}
 									{canManage && editingTeamId === team.id && (
-										<button type="button" disabled={busy} onClick={() => saveEditTeam(team.id)} data-action-button data-variant="success" className="!min-h-9 !px-3 !py-1 !text-xs disabled:opacity-60">
+										<ActionButton variant="success" disabled={busy} onClick={() => saveEditTeam(team.id)} className="!min-h-9 !px-3 !py-1 !text-xs disabled:opacity-60">
 											{t("settingsTeam.save")}
-										</button>
+										</ActionButton>
 									)}
 									{canManage && (
-										<button type="button" disabled={busy} onClick={() => deleteTeamSpace(team.id, team.name)} data-action-button data-variant="danger" className="!min-h-9 !px-3 !py-1 !text-xs disabled:opacity-60">
+										<ActionButton variant="danger" disabled={busy} onClick={() => deleteTeamSpace(team.id, team.name)} className="!min-h-9 !px-3 !py-1 !text-xs disabled:opacity-60">
 											{t("settingsTeam.delete")}
-										</button>
+										</ActionButton>
 									)}
 								</div>
 							</div>
@@ -279,7 +281,7 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 						<h3 className="text-sm font-semibold text-[var(--text-primary)]">{t("settingsTeam.createTitle")}</h3>
 						<input value={name} aria-label={t("settingsTeam.namePlaceholder")} onChange={(e) => setName(e.target.value)} placeholder={t("settingsTeam.namePlaceholder")} className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm" />
 						<input value={slug} aria-label={t("settingsTeam.slugPlaceholder")} onChange={(e) => setSlug(e.target.value)} placeholder={t("settingsTeam.slugPlaceholder")} className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm" />
-						<button type="button" disabled={busy || !name.trim()} onClick={createTeam} data-tone="accent" data-action-button data-variant="primary" className="min-h-10 disabled:opacity-60">{t("settingsTeam.createButton")}</button>
+						<ActionButton variant="primary" disabled={busy || !name.trim()} onClick={createTeam} data-tone="accent" className="min-h-10 disabled:opacity-60">{t("settingsTeam.createButton")}</ActionButton>
 					</div>
 					<div className="space-y-2">
 						<h3 className="text-sm font-semibold text-[var(--text-primary)]">{t("settingsTeam.addMemberTitle")}</h3>
@@ -291,7 +293,7 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 							<option value="member">{t("settingsTeam.role.member")}</option>
 							<option value="admin">{t("settingsTeam.role.admin")}</option>
 						</select>
-						<button type="button" disabled={busy || !targetTeamId || !memberUsername.trim()} onClick={addMember} data-tone="accent" data-action-button data-variant="primary" className="min-h-10 disabled:opacity-60">{t("settingsTeam.addMemberButton")}</button>
+						<ActionButton variant="primary" disabled={busy || !targetTeamId || !memberUsername.trim()} onClick={addMember} data-tone="accent" className="min-h-10 disabled:opacity-60">{t("settingsTeam.addMemberButton")}</ActionButton>
 					</div>
 				</div>
 			)}

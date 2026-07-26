@@ -6,6 +6,8 @@ import Link from "next/link";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { toDateLocale } from "@/lib/i18n/locale-format";
+import { getErrorMessage } from "@/lib/http/error-message";
+import { ActionButton } from "@/components/action-button";
 
 export interface TicketUser { id: string; username: string; displayName: string | null; }
 export interface TicketComment { id: string; body: string; createdAt: string; author: TicketUser; }
@@ -88,7 +90,7 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
       if (data.related.server) setServerIdInput(data.related.server.id);
     } catch (e: unknown) {
       if (opts?.isStale?.()) return;
-      setError(e instanceof Error ? e.message : t("ticketsDetail.error.timelineFailed"));
+      setError(getErrorMessage(e, t("ticketsDetail.error.timelineFailed")));
     } finally {
       if (!opts?.isStale?.()) setTimelineLoading(false);
     }
@@ -117,7 +119,7 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
       setAssigneeId(data.ticket.assigneeId ?? "");
     } catch (e: unknown) {
       setAssigneeId(previousAssigneeId);
-      setError(e instanceof Error ? e.message : t("ticketsDetail.error.assignFailed"));
+      setError(getErrorMessage(e, t("ticketsDetail.error.assignFailed")));
     }
     finally { setSaving(false); }
   };
@@ -133,7 +135,7 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
       });
       setTicket((prev) => ({ ...prev, ...data.ticket }));
       await loadTimeline();
-    } catch (e: unknown) { setError(e instanceof Error ? e.message : t("ticketsDetail.error.updateFailed")); }
+    } catch (e: unknown) { setError(getErrorMessage(e, t("ticketsDetail.error.updateFailed"))); }
     finally { setSaving(false); }
   };
 
@@ -154,7 +156,7 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
       }));
       setComment("");
       await loadTimeline();
-    } catch (e: unknown) { setError(e instanceof Error ? e.message : t("ticketsDetail.error.replyFailed")); }
+    } catch (e: unknown) { setError(getErrorMessage(e, t("ticketsDetail.error.replyFailed"))); }
     finally { setSaving(false); }
   };
 
@@ -174,7 +176,7 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
         relatedServerId: data.related.server?.id ?? null,
       }));
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : t("ticketsDetail.error.linkFailed"));
+      setError(getErrorMessage(e, t("ticketsDetail.error.linkFailed")));
     } finally {
       setSaving(false);
     }
@@ -266,22 +268,18 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
                   onChange={(e) => setCommandIdInput(e.target.value)}
                   placeholder={t("ticketsDetail.commandIdPlaceholder")}
                 />
-                <button
-                  type="button"
+                <ActionButton variant="outline"
                   disabled={saving || !commandIdInput.trim()}
-                  onClick={() => void runLink({ action: "link_command", commandRequestId: commandIdInput.trim() })}
-                  data-action-button data-variant="outline" className="!px-2 !py-1 !text-[11px] !font-semibold disabled:opacity-50"
+                  onClick={() => void runLink({ action: "link_command", commandRequestId: commandIdInput.trim() })} className="!px-2 !py-1 !text-[11px] !font-semibold disabled:opacity-50"
                 >
                   {t("ticketsDetail.linkCommand")}
-                </button>
-                <button
-                  type="button"
+                </ActionButton>
+                <ActionButton variant="secondary"
                   disabled={saving || !timeline?.related.command}
-                  onClick={() => void runLink({ action: "unlink_command" })}
-                  data-action-button data-variant="secondary" className="!px-2 !py-1 !text-[11px] disabled:opacity-50"
+                  onClick={() => void runLink({ action: "unlink_command" })} className="!px-2 !py-1 !text-[11px] disabled:opacity-50"
                 >
                   {t("ticketsDetail.unlinkCommand")}
-                </button>
+                </ActionButton>
               </div>
             )}
           </div>
@@ -305,22 +303,18 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
                   onChange={(e) => setServerIdInput(e.target.value)}
                   placeholder={t("ticketsDetail.serverIdPlaceholder")}
                 />
-                <button
-                  type="button"
+                <ActionButton variant="outline"
                   disabled={saving || !serverIdInput.trim()}
-                  onClick={() => void runLink({ action: "link_server", serverId: serverIdInput.trim() })}
-                  data-action-button data-variant="outline" className="!px-2 !py-1 !text-[11px] !font-semibold disabled:opacity-50"
+                  onClick={() => void runLink({ action: "link_server", serverId: serverIdInput.trim() })} className="!px-2 !py-1 !text-[11px] !font-semibold disabled:opacity-50"
                 >
                   {t("ticketsDetail.linkServer")}
-                </button>
-                <button
-                  type="button"
+                </ActionButton>
+                <ActionButton variant="secondary"
                   disabled={saving || !timeline?.related.server}
-                  onClick={() => void runLink({ action: "unlink_server" })}
-                  data-action-button data-variant="secondary" className="!px-2 !py-1 !text-[11px] disabled:opacity-50"
+                  onClick={() => void runLink({ action: "unlink_server" })} className="!px-2 !py-1 !text-[11px] disabled:opacity-50"
                 >
                   {t("ticketsDetail.unlinkServer")}
-                </button>
+                </ActionButton>
               </div>
             )}
           </div>
@@ -409,10 +403,9 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
           <textarea id="ticketComment" value={comment} onChange={(e) => setComment(e.target.value)} placeholder={t("ticketsDetail.commentPlaceholder")}
             rows={3}
             className="w-full resize-none rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]" />
-          <button onClick={addComment} disabled={saving || !comment.trim()} data-primary
-            data-action-button data-variant="primary" className="mt-2 px-4 py-2 text-sm">
+          <ActionButton type="submit" variant="primary" onClick={addComment} disabled={saving || !comment.trim()} data-primary className="mt-2 px-4 py-2 text-sm">
             {saving ? t("ticketsDetail.commentSubmitting") : t("ticketsDetail.commentSubmit")}
-          </button>
+          </ActionButton>
         </div>
       </div>
     </div>

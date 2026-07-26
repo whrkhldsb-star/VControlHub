@@ -6,6 +6,7 @@
  */
 import type { ReactNode } from "react";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { ActionButton } from "@/components/action-button";
 
 export type FileListEmptyStateProps = {
   emptyMessage: string;
@@ -32,17 +33,15 @@ export function FileListEmptyState({
       <p className={messageClassName}>{emptyMessage}</p>
       {onGoUp ? (
         <>
-          <button
-            type="button"
+          <ActionButton variant="secondary"
             onClick={onGoUp}
             data-testid="files-empty-up-level"
-            data-action-button
-            data-variant="secondary"
+           
             className="mt-4 inline-flex items-center gap-1.5 !px-4 !py-2 !text-sm"
           >
             <span aria-hidden="true">↑</span>
             {t("fileListClient.upLevel")}
-          </button>
+          </ActionButton>
           <p className="mt-2 text-xs text-[var(--text-muted)]">{t("fileListClient.upLevelHint")}</p>
         </>
       ) : null}

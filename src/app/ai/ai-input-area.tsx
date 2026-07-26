@@ -18,6 +18,7 @@ import type { ConvItem, ModelCapabilities } from "./ai-types";
 import type { UseFileAttachmentsReturn } from "./hooks/use-file-attachments";
 import { buildAcceptString, formatAllowedTypes } from "./ai-file-helpers";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { ActionButton } from "@/components/action-button";
 
 export interface AiInputAreaProps {
   input: string;
@@ -123,28 +124,24 @@ export function AiInputArea({
             el.style.height = Math.min(el.scrollHeight, 120) + "px";
           }}
         />
-        <button
-          type="button"
+        <ActionButton variant="primary"
           onClick={handleSend}
-          disabled={streaming || (!input.trim() && fileAttachments.length === 0 && imageUrls.length === 0)}
-          data-action-button data-variant="primary" className="flex h-10 w-10 items-center justify-center p-0"
+          disabled={streaming || (!input.trim() && fileAttachments.length === 0 && imageUrls.length === 0)} className="flex h-10 w-10 items-center justify-center p-0"
           aria-label={t("aiPage.sendAria")}
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19V5m0 0l-7 7m7-7l7 7" />
           </svg>
-        </button>
+        </ActionButton>
         {streaming && (
-          <button
-            type="button"
+          <ActionButton variant="danger"
             onClick={handleStopGeneration}
             aria-label={t("aiPage.stopGenTitle")}
-            title={t("aiPage.stopGenTitle")}
-           data-action-button data-variant="danger" className="flex h-10 w-10 items-center justify-center">
+            title={t("aiPage.stopGenTitle")} className="flex h-10 w-10 items-center justify-center">
             <svg className="w-5 h-5" fill="currentColor" width="24" height="24" viewBox="0 0 24 24">
               <rect x="6" y="6" width="12" height="12" rx="2" />
             </svg>
-          </button>
+          </ActionButton>
         )}
       </div>
     </div>

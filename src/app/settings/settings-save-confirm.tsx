@@ -18,6 +18,7 @@ import { useEffect, useRef, useState } from "react";
 import { useI18n } from "@/lib/i18n/use-locale";
 import type { FieldType, SectionDef } from "./field-schema";
 import { FieldRiskBadge } from "./settings-field-risk";
+import { ActionButton } from "@/components/action-button";
 
 // TR-014 M01b
 export type PendingChange = {
@@ -143,17 +144,15 @@ export function SaveButtonWithDiff({
             </span>
           </button>
         )}
-        <button
-          type="button"
+        <ActionButton variant={highCount > 0 ? "danger" : "primary"}
           onClick={onClick}
           disabled={saving}
           data-component="save-button"
-          data-action-button
-          data-variant={highCount > 0 ? "danger" : "primary"}
+         
           className="px-5 text-sm"
         >
           {saving ? t("settingsClient.saving") : t("settingsClient.save")}
-        </button>
+        </ActionButton>
       </div>
       {expanded && count > 0 && (
         <div
@@ -278,16 +277,13 @@ export function HighRiskConfirmModal({
           ))}
         </ul>
         <div className="mt-4 flex justify-end gap-2">
-          <button
-            type="button"
+          <ActionButton variant="secondary"
             onClick={onCancel}
             disabled={busy}
-            data-action="cancel"
-           data-action-button data-variant="secondary" className="!px-4 !py-1.5 !text-xs disabled:opacity-50">
+            data-action="cancel" className="!px-4 !py-1.5 !text-xs disabled:opacity-50">
             {t("settingsClient.confirmCancel")}
-          </button>
-          <button
-            type="button"
+          </ActionButton>
+          <ActionButton variant="danger-solid"
             onClick={async () => {
               setBusy(true);
               try {
@@ -298,12 +294,11 @@ export function HighRiskConfirmModal({
             }}
             disabled={busy}
             data-action="confirm"
-            data-action-button
-            data-variant="danger-solid"
+           
             className="!px-4 !py-1.5 !text-xs disabled:opacity-50"
           >
             {busy ? t("settingsClient.saving") : t("settingsClient.confirmSaveAction")}
-          </button>
+          </ActionButton>
         </div>
       </div>
     </dialog>

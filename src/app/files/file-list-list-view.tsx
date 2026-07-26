@@ -27,6 +27,7 @@ import {
 import type { FolderProp } from "./file-list-model";
 import { FileListEmptyState } from "./file-list-empty-state";
 import { FileListListViewMobile } from "./file-list-list-view-mobile";
+import { ActionButton } from "@/components/action-button";
 
 type ToastFn = (type:"success" |"error" |"info", message: string) => void;
 type EntryGuard = (entry: { capabilities?: FileProp["capabilities"] }) => boolean;
@@ -194,11 +195,9 @@ export function FileListListView(props: FileListListViewProps) {
                 </div>
                 <div className="text-xs text-[var(--text-muted)]">—</div>
                 <div className="flex flex-wrap gap-1">
-                  <button
-                    type="button"
+                  <ActionButton variant="secondary"
                     onClick={() => navigateToFolder(folder.path)}
-                    data-tone="cyan"
-                    data-action-button data-variant="secondary" className="!inline-flex !items-center !gap-1.5 !px-3 !py-1.5 !text-xs"
+                    data-tone="cyan" className="!inline-flex !items-center !gap-1.5 !px-3 !py-1.5 !text-xs"
                   >
                     <svg
                       width="12"
@@ -211,7 +210,7 @@ export function FileListListView(props: FileListListViewProps) {
                       <path d="M5 12h14M12 5l7 7-7 7" />
                     </svg>
                     {t("fileListClient.open")}
-                  </button>
+                  </ActionButton>
                   {folderCanWrite(folder) && folder.entryId ? (
                     <RenameInlineForm
                       fileEntryId={folder.entryId}

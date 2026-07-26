@@ -5,6 +5,7 @@ import { FindBarLazy } from "./find-bar-lazy";
 import { EditorFindBar } from "./editor-find-bar";
 import type { EditorFindState, PreviewMetaState } from "./text-preview-types";
 import { langLabel } from "./text-preview-helpers";
+import { ActionButton } from "@/components/action-button";
 
 type T = (key: string) => string;
 
@@ -44,11 +45,11 @@ export function TextPreviewToolbar(props: ToolbarProps) {
 			{saveMessage ? <span role={saveStatus === "error" ? "alert" : "status"} className={`text-xs ${saveStatus === "error" ? "text-[var(--danger)]" : "text-[var(--success)]"}`}>{saveMessage}{reloadMessage ? <span className="ml-2 text-[var(--text-secondary)]">· {reloadMessage}</span> : null}</span> : null}
 			<div className="flex-1" />
 			{canEdit ? <div className="flex items-center gap-1">{editMode ? <>
-				<button type="button" onClick={onPreviewSave} disabled={busy || !hasUnsavedChanges} data-action-button data-variant="success" className="!px-3 !py-1.5 !text-xs disabled:opacity-50">{saveStatus === "saving" ? t("textPreview.button.saving") : t("textPreview.button.previewSave")}</button>
+				<ActionButton variant="success" onClick={onPreviewSave} disabled={busy || !hasUnsavedChanges} className="!px-3 !py-1.5 !text-xs disabled:opacity-50">{saveStatus === "saving" ? t("textPreview.button.saving") : t("textPreview.button.previewSave")}</ActionButton>
 				{canReloadAfterSave ? <button type="button" onClick={onSaveAndReload} disabled={busy || !hasUnsavedChanges} data-tone="amber" className="rounded-lg border border-[var(--warning-border)] px-3 py-1.5 text-xs text-[var(--warning)] hover:bg-[var(--warning-bg)] disabled:opacity-50" title={reloadKind === "systemd" ? t("textPreview.reloadHint.systemd").replace("{unit}", reloadUnit ?? "") : t("textPreview.reloadHint.docker").replace("{unit}", reloadUnit ?? "")}>{saveStatus === "saving" ? t("textPreview.button.saving") : saveStatus === "reloading" ? t("textPreview.button.reloading") : t("textPreview.button.saveAndReload").replace("{unit}", reloadUnit ?? "")}</button> : null}
-				<button type="button" onClick={onCancelEdit} disabled={busy} data-action-button data-variant="secondary" className="!px-3 !py-1.5 !text-xs disabled:opacity-50">{t("textPreview.button.cancel")}</button>
-				<button type="button" onClick={onOpenEditorFind} aria-label={t("textPreview.editor.findToggle")} title={t("textPreview.editor.findToggle")} data-action-button data-variant="secondary" className="!px-3 !py-1.5 !text-xs">🔍</button>
-			</> : <button type="button" onClick={onEnterEditMode} data-action-button data-variant="outline" className="!px-3 !py-1.5 !text-xs">{t("textPreview.button.edit")}</button>}</div> : null}
+				<ActionButton variant="secondary" onClick={onCancelEdit} disabled={busy} className="!px-3 !py-1.5 !text-xs disabled:opacity-50">{t("textPreview.button.cancel")}</ActionButton>
+				<ActionButton variant="secondary" onClick={onOpenEditorFind} aria-label={t("textPreview.editor.findToggle")} title={t("textPreview.editor.findToggle")} className="!px-3 !py-1.5 !text-xs">🔍</ActionButton>
+			</> : <ActionButton variant="outline" onClick={onEnterEditMode} className="!px-3 !py-1.5 !text-xs">{t("textPreview.button.edit")}</ActionButton>}</div> : null}
 			{!editMode ? <FindBarLazy searchQuery={searchQuery} onSearchQueryChange={setSearchQuery} jumpLine={jumpLine} onJumpLineChange={setJumpLine} onJumpToLine={onJumpToLine} /> : null}
 		</div>
 	);

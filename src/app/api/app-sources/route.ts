@@ -17,6 +17,7 @@ import { normalizePublicHttpUrl } from "@/lib/storage/direct-access-url";
 
 import { AppError, ConflictError } from "@/lib/errors";
 import { auditUserAction } from "@/lib/audit/service";
+import { getErrorMessage } from "@/lib/http/error-message";
 export const dynamic = "force-dynamic";
 
 /* ── GET /api/app-sources — list sources + remote apps ────────── */
@@ -123,7 +124,7 @@ export async function POST(request: Request) {
       rateLimit: GENERAL_WRITE_LIMIT,
       bodySchema: addSourceSchema,
       onError: (error) => {
-        const msg = error instanceof Error ? error.message : "Failed to add source";
+        const msg = getErrorMessage(error, "Failed to add source");
         if (msg.includes("Unique")) {
           throw new ConflictError("Source name already exists");
         }

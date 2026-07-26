@@ -10,6 +10,7 @@ import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import { useVisibilityInterval } from "@/lib/hooks/use-visibility-interval";
 import { ServerCardActions } from "./server-card-actions";
 import { useAutoProbeSettings } from "./auto-probe-context";
+import { ActionButton } from "@/components/action-button";
 
 // TR-036: defer ServerCardActions/form wiring until the details portal expands.
 const ServerOverviewDetails = dynamic(
@@ -303,18 +304,16 @@ export function ServerOverviewCard({
             canUseSshTerminal={canUseSshTerminal}
           />
         ) : null}
-        <button
-          type="button"
+        <ActionButton variant="secondary"
           onClick={() => (expanded ? closeDialog() : openDialog())}
           aria-expanded={expanded}
           aria-controls={detailsId}
           aria-haspopup="dialog"
-          data-action-button
-          data-variant="secondary"
+         
           className="!px-3 !py-1.5 !text-xs"
         >
           {expanded ? t("serverOverviewCard.collapseDetails") : t("serverOverviewCard.viewDetails")}
-        </button>
+        </ActionButton>
       </div>
       </div>
 
@@ -340,15 +339,13 @@ export function ServerOverviewCard({
                       {server.name}
                     </h3>
                   </div>
-                  <button
-                    type="button"
+                  <ActionButton variant="secondary"
                     onClick={closeDialog}
-                    data-action-button
-                    data-variant="secondary"
+                   
                     className="shrink-0 !px-3 !py-1.5 !text-xs"
                   >
                     {t("serverOverviewCard.collapseDetails")}
-                  </button>
+                  </ActionButton>
                 </div>
                 <div className="max-h-[78vh] overflow-y-auto pr-1">
                   <ServerOverviewDetails

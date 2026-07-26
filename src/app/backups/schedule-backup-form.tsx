@@ -6,6 +6,8 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import type { BackupType } from "@/lib/backup/service";
 import { formatZhDateTime } from "@/lib/datetime/format";
+import { getErrorMessage } from "@/lib/http/error-message";
+import { ActionButton } from "@/components/action-button";
 
 /* ── Types ────────────────────────────────────────────────── */
 
@@ -89,7 +91,7 @@ export function ScheduleBackupForm() {
 			setListError(null);
 		} catch (error) {
 			setListError(
-				error instanceof Error ? error.message : t("backupsPage.scheduleList.loadFailed"),
+				getErrorMessage(error, t("backupsPage.scheduleList.loadFailed")),
 			);
 		} finally {
 			setLoadingList(false);
@@ -127,7 +129,7 @@ export function ScheduleBackupForm() {
 			setRetentionDays("");
 			await fetchSchedules();
 		} catch (error) {
-			setMessage({ type:"error", text: error instanceof Error ? error.message : t("backupsPage.schedule.failFallback") });
+			setMessage({ type:"error", text: getErrorMessage(error, t("backupsPage.schedule.failFallback")) });
 		} finally {
 			setSubmitting(false);
 		}
@@ -145,7 +147,7 @@ export function ScheduleBackupForm() {
 			});
 			await fetchSchedules();
 		} catch (error) {
-			setMessage({ type:"error", text: error instanceof Error ? error.message : t("backupsPage.schedule.failFallback") });
+			setMessage({ type:"error", text: getErrorMessage(error, t("backupsPage.schedule.failFallback")) });
 		} finally {
 			setRowActionId(null);
 		}
@@ -160,7 +162,7 @@ export function ScheduleBackupForm() {
 			setPendingDeleteId(null);
 			await fetchSchedules();
 		} catch (error) {
-			setMessage({ type:"error", text: error instanceof Error ? error.message : t("backupsPage.schedule.failFallback") });
+			setMessage({ type:"error", text: getErrorMessage(error, t("backupsPage.schedule.failFallback")) });
 		} finally {
 			setRowActionId(null);
 		}
@@ -202,9 +204,9 @@ export function ScheduleBackupForm() {
 				{retentionDays && (
 					<p className="text-xs text-[var(--text-muted)]">{t("backupsPage.schedule.retentionHint")}</p>
 				)}
-				<button type="submit" disabled={submitting} data-action-button data-variant="primary" className="disabled:opacity-60">
+				<ActionButton variant="primary" type="submit" disabled={submitting} className="disabled:opacity-60">
 					{submitting ? t("backupsPage.schedule.submitting") : t("backupsPage.schedule.submit")}
-				</button>
+				</ActionButton>
 				{message && <p role="status" className={`text-xs ${message.type ==="ok" ?"text-[var(--success)]" :"text-[var(--danger)]"}`}>{message.text}</p>}
 			</form>
 

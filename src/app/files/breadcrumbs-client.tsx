@@ -6,6 +6,7 @@ import {
   getDisplaySegment,
   getParentPath,
 } from "./files-browser-helpers";
+import { ActionButton } from "@/components/action-button";
 
 /* ── Breadcrumbs (client-side, SPA) ─────────────────────────────── */
 
@@ -29,28 +30,24 @@ export function BreadcrumbsClient({
       className="flex flex-wrap items-center gap-2 text-sm text-[var(--text-secondary)]"
     >
       {parentPath !== null ? (
-        <button
-          type="button"
+        <ActionButton variant="secondary"
           onClick={() => onNavigate(parentPath)}
           data-testid="files-up-level"
-          data-action-button
-          data-variant="secondary"
+         
           className="!inline-flex !items-center !gap-1.5 !px-3 !py-1.5 !text-sm !font-medium"
           title={t("filesBrowserSpa.upLevel")}
         >
           <span aria-hidden="true">↑</span>
           {t("filesBrowserSpa.upLevel")}
-        </button>
+        </ActionButton>
       ) : null}
-      <button
-        type="button"
+      <ActionButton variant="ghost"
         onClick={() => onNavigate("")}
-        data-action-button
-        data-variant="ghost"
+       
         className="!px-3 !py-1.5 !text-sm"
       >
         {t("filesBrowserSpa.allFiles")}
-      </button>
+      </ActionButton>
       {segments.map((segment, index) => {
         const nextPath = segments.slice(0, index + 1).join("/");
         const isLast = index === segments.length - 1;
@@ -66,15 +63,13 @@ export function BreadcrumbsClient({
                 {displaySegment}
               </span>
             ) : (
-              <button
-                type="button"
+              <ActionButton variant="ghost"
                 onClick={() => onNavigate(nextPath)}
-                data-action-button
-                data-variant="ghost"
+               
                 className="!px-3 !py-1.5 !text-sm"
               >
                 {displaySegment}
-              </button>
+              </ActionButton>
             )}
           </span>
         );

@@ -8,6 +8,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { useToast } from "@/components/toast-provider";
 import type { CostBudgetRecord, CostCategory, CostCurrency } from "@/lib/cost/types";
 import { CATEGORIES, cardClass, inputClass } from "./cost-page-shared";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 export function CostBudgetPanel({
   initialBudgets,
@@ -54,7 +55,7 @@ export function CostBudgetPanel({
       await reload();
       addToast("success", t("costPage.budget.created"));
     } catch (error) {
-      addToast("error", error instanceof Error ? error.message : t("costPage.error.save"));
+      addToast("error", getErrorMessage(error, t("costPage.error.save")));
     } finally {
       setBusy(false);
     }
@@ -69,7 +70,7 @@ export function CostBudgetPanel({
       await reload();
       addToast("success", t("costPage.budget.deleted"));
     } catch (error) {
-      addToast("error", error instanceof Error ? error.message : t("costPage.error.delete"));
+      addToast("error", getErrorMessage(error, t("costPage.error.delete")));
     } finally {
       setBusy(false);
     }
@@ -87,7 +88,7 @@ export function CostBudgetPanel({
         t("costPage.budget.checkDone").replace("{count}", String(data.result.notificationsSent)),
       );
     } catch (error) {
-      addToast("error", error instanceof Error ? error.message : t("costPage.error.load"));
+      addToast("error", getErrorMessage(error, t("costPage.error.load")));
     } finally {
       setBusy(false);
     }

@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { getErrorMessage } from "@/lib/http/error-message";
+import { ActionButton } from "@/components/action-button";
 
 interface StorageNode {
   id: string;
@@ -62,7 +64,7 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
       setPassword("");
       router.refresh();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : t("sharesPage.create.errorFallback"));
+      setError(getErrorMessage(e, t("sharesPage.create.errorFallback")));
     } finally {
       setSaving(false);
     }
@@ -71,12 +73,11 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
   return (
     <div>
       {!open ? (
-        <button
-          onClick={() => setOpen(true)}
-          data-action-button data-variant="primary" className="px-4 py-2.5 text-sm"
+        <ActionButton type="submit" variant="primary"
+          onClick={() => setOpen(true)} className="px-4 py-2.5 text-sm"
         >
           {t("sharesPage.create.title")}
-        </button>
+        </ActionButton>
       ) : (
  <div data-card className="p-5">
           <div className="flex items-center justify-between mb-4">
@@ -133,25 +134,23 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
               <p className="text-xs text-[var(--success)] font-medium">{t("sharesPage.create.success")}</p>
               <div className="mt-2 flex items-center gap-2">
                 <code className="block flex-1 break-all text-xs text-[var(--success)]">{shareUrl || `/share/${result.token}`}</code>
-                <button
-                  type="button"
+                <ActionButton variant="success"
                   onClick={handleCopy}
-                  data-tone="emerald" data-action-button data-variant="success" className="shrink-0 !px-3 !py-1.5 !text-xs"
+                  data-tone="emerald" className="shrink-0 !px-3 !py-1.5 !text-xs"
                 >
                   {copied ? t("sharesPage.create.copied") : t("sharesPage.create.copy")}
-                </button>
+                </ActionButton>
               </div>
               <p className="mt-1 text-[10px] text-[var(--text-muted)]">{t("sharesPage.create.tokenWarning")}</p>
             </div>
           )}
 
-          <button
+          <ActionButton type="submit" variant="primary"
             onClick={handleCreate}
-            disabled={saving || !nodeId || !path.trim()}
-            data-action-button data-variant="primary" className="mt-4 px-4 py-2.5 text-sm"
+            disabled={saving || !nodeId || !path.trim()} className="mt-4 px-4 py-2.5 text-sm"
           >
             {saving ? t("sharesPage.create.submitting") : t("sharesPage.create.submit")}
-          </button>
+          </ActionButton>
         </div>
       )}
     </div>

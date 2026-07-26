@@ -15,6 +15,7 @@ import { type ReactNode, useCallback, useState } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 export type AiConfirmAction =
   | { type: "delete-conversation"; id: string; title: string }
@@ -116,7 +117,7 @@ export function useAiConfirmAction({
         action.type === "clear-messages"
           ? t("aiPage.clearFailedFallback")
           : t("aiPage.deleteFailedFallback");
-      setError(e instanceof Error ? e.message : fallback);
+      setError(getErrorMessage(e, fallback));
     } finally {
       setBusy(false);
     }

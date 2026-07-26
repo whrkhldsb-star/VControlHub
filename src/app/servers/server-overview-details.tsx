@@ -24,6 +24,7 @@ import { ServerCardActions } from "./server-card-actions";
 import { VpsBackupSection } from "./vps-backup-section";
 import { getDirectGatewayRepairAdvice } from "./direct-gateway-advice";
 import { DirectGatewayAdviceList, DirectGatewayHealthyDetail, InfoRow, OsDialectSection, statusToneClass } from "./server-overview-detail-sections";
+import { ActionButton } from "@/components/action-button";
 
 export type ServerOverviewDetailsServer = {
 	id: string;
@@ -291,13 +292,11 @@ export function ServerOverviewDetails({
 								{t("serverOverviewDetails.realtimeProbeDescription")}
 							</p>
 						</div>
-						<button
-							type="button"
+						<ActionButton variant="success"
 							onClick={onRunRealtimeDiagnostics}
-							disabled={diagnosticRun.status === "loading" || !server.enabled}
-						 data-action-button data-variant="success" className="inline-flex shrink-0 items-center justify-center !px-3 !py-1.5 !text-xs disabled:cursor-not-allowed disabled:opacity-60">
+							disabled={diagnosticRun.status === "loading" || !server.enabled} className="inline-flex shrink-0 items-center justify-center !px-3 !py-1.5 !text-xs disabled:cursor-not-allowed disabled:opacity-60">
 							{diagnosticRun.status === "loading" ? t("serverOverviewDetails.diagnosing") : t("serverOverviewDetails.runRealtimeDiagnostics")}
-						</button>
+						</ActionButton>
 					</div>
 					{diagnosticRun.status === "success" ? (
 						<div

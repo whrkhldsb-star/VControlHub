@@ -13,6 +13,7 @@ import type {
 } from "@/lib/cost/types";
 
 import { emptyForm, formatAmount, isValidDate } from "./cost-page-shared";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 type ToastFn = (type: "success" | "error" | "info" | "warning", message: string) => void;
 type TFn = (key: string) => string;
@@ -77,7 +78,7 @@ export function useCostPageState(options: {
         if (seq !== summaryReqSeq.current) return;
         addToast(
           "error",
-          `${t("costPage.error.load")}: ${err instanceof Error ? err.message : String(err)}`,
+          `${t("costPage.error.load")}: ${getErrorMessage(err, String(err))}`,
         );
       }
     },
@@ -99,7 +100,7 @@ export function useCostPageState(options: {
       if (seq !== entriesReqSeq.current) return;
       addToast(
         "error",
-        `${t("costPage.error.load")}: ${err instanceof Error ? err.message : String(err)}`,
+        `${t("costPage.error.load")}: ${getErrorMessage(err, String(err))}`,
       );
     }
   }, [addToast, t, month]);
@@ -120,7 +121,7 @@ export function useCostPageState(options: {
       // but surface the failure so operators are not left with a silent empty chart.
       addToast(
         "error",
-        `${t("costPage.error.loadSnapshots")}: ${err instanceof Error ? err.message : String(err)}`,
+        `${t("costPage.error.loadSnapshots")}: ${getErrorMessage(err, String(err))}`,
       );
     }
   }, [addToast, t, currency]);
@@ -154,7 +155,7 @@ export function useCostPageState(options: {
     } catch (err) {
       addToast(
         "error",
-        `${t("costPage.actions.syncSourcesError")}: ${err instanceof Error ? err.message : String(err)}`,
+        `${t("costPage.actions.syncSourcesError")}: ${getErrorMessage(err, String(err))}`,
       );
     } finally {
       setSyncingSources(false);
@@ -239,7 +240,7 @@ export function useCostPageState(options: {
     } catch (err) {
       addToast(
         "error",
-        `${t("costPage.error.save")}: ${err instanceof Error ? err.message : String(err)}`,
+        `${t("costPage.error.save")}: ${getErrorMessage(err, String(err))}`,
       );
     } finally {
       setSaving(false);
@@ -261,7 +262,7 @@ export function useCostPageState(options: {
     } catch (err) {
       addToast(
         "error",
-        `${t("costPage.error.delete")}: ${err instanceof Error ? err.message : String(err)}`,
+        `${t("costPage.error.delete")}: ${getErrorMessage(err, String(err))}`,
       );
     } finally {
       setDeletingId(null);

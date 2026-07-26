@@ -20,6 +20,7 @@ import { InstallDialog } from "./install-dialog";
 import { SourcesPanel } from "./quick-services-sources-panel";
 import { CATEGORY_ORDER, buildCategoryLabels, buildQuickServiceViewModel, getEnvCount, getPrimaryContainerPort, getVolumeMounts, type AppSource, type CatalogItem, type Tab } from "./quick-services-shared";
 import { useQuickServiceCatalog } from "./use-quick-service-catalog";
+import { ActionButton } from "@/components/action-button";
 
 /* ── Main Component ─────────────────────────────────────────────── */
 
@@ -239,9 +240,9 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 					<p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">{t("qsPage.sourcesLabel")}</p>
 					<h3 className="mt-1 text-base font-semibold text-[var(--text-primary)]">{t("qsPage.sourcesEnabledCount").replace("{enabled}", String(sources.filter((s) => s.enabled).length)).replace("{total}", String(sources.length))}</h3>
 					<p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{lastSyncedSource ? t("qsPage.lastSynced").replace("{name}", lastSyncedSource.displayName) : t("qsPage.noSyncRecord")}</p>
-					<button type="button" onClick={() => setTab("sources")} data-action-button data-variant={staleSources.length > 0 ? "outline" : "secondary"} className="!mt-3 !px-3 !py-1.5 !text-xs">
+					<ActionButton variant={staleSources.length > 0 ? "outline" : "secondary"} onClick={() => setTab("sources")} className="!mt-3 !px-3 !py-1.5 !text-xs">
 						{staleSources.length > 0 ? t("qsPage.handleStaleSources").replace("{count}", String(staleSources.length)) : t("qsPage.manageSources")}
-					</button>
+					</ActionButton>
 				</div>
 			</section>
 

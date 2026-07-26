@@ -27,6 +27,7 @@ import {
 } from "@/lib/storage/schema";
 
 import { AuthError, ForbiddenError, ValidationError } from "@/lib/errors";
+import { getErrorMessage } from "@/lib/http/error-message";
 const logger = createLogger("api:storage:sftp-ops");
 
 function guessMimeType(relativePath: string) {
@@ -283,7 +284,7 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
         } catch (physicalError) {
           physicalDeleted = false;
           physicalErrorMessage =
-            physicalError instanceof Error ? physicalError.message : String(physicalError);
+            getErrorMessage(physicalError, String(physicalError));
           logger.warn("physical delete failed after index soft-delete; file may remain on disk", physicalError, { nodeId, relativePath: normalizedRelativePath });
         }
         // Index is soft-deleted either way; surface partial success so clients/ops don't assume disk is clean.

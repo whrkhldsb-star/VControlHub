@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createLogger } from "@/lib/logging";
+import { ActionButton } from "@/components/action-button";
 
 const logger = createLogger("global-error");
 
@@ -87,10 +88,9 @@ export default function GlobalError({
 							{c.digestLabel}: {error.digest}
 						</p>
 					)}
-					<button
+					<ActionButton type="submit" variant="primary"
 						onClick={reset}
-						data-action-button
-						data-variant="primary"
+					
 						className="px-7 py-2.5 text-sm"
 						style={{
 							backgroundColor: "#22d3ee",
@@ -102,7 +102,7 @@ export default function GlobalError({
 						}}
 					>
 						{c.retry}
-					</button>
+					</ActionButton>
 				</div>
 			</body>
 		</html>

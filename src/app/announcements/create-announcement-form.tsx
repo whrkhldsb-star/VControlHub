@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { UI_INPUT } from "@/lib/ui/classes";
+import { getErrorMessage } from "@/lib/http/error-message";
+import { ActionButton } from "@/components/action-button";
 
 export function CreateAnnouncementForm() {
 	const { t } = useI18n();
@@ -47,7 +49,7 @@ export function CreateAnnouncementForm() {
 			form.reset();
 			router.refresh();
 		} catch (err) {
-			setError(err instanceof Error ? err.message : t("announcementsPage.create.error"));
+			setError(getErrorMessage(err, t("announcementsPage.create.error")));
 		} finally {
 			setLoading(false);
 		}
@@ -90,9 +92,9 @@ export function CreateAnnouncementForm() {
 					<p id={`${expiresAtId}-hint`} className="text-[11px] text-[var(--text-muted)]">{t("announcementsPage.create.expiresAtHint")}</p>
 				</div>
 			</div>
-			<button disabled={loading} data-action-button data-variant="primary" className="w-fit disabled:opacity-60">
+			<ActionButton type="submit" variant="primary" disabled={loading} className="w-fit disabled:opacity-60">
 				{loading ? t("announcementsPage.create.submitting") : t("announcementsPage.create.submit")}
-			</button>
+			</ActionButton>
 		</form>
 	);
 }

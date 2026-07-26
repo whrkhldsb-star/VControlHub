@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { SubmitButton } from "@/components/submit-button";
 import { useI18n } from "@/lib/i18n/use-locale";
 import type { ServerActionState } from "./actions";
+import { ActionButton } from "@/components/action-button";
 
 type Props = {
   serverId: string;
@@ -79,15 +80,13 @@ export function ServerCardDeleteForm({
             >
               {t("common.confirmDelete")}
             </SubmitButton>
-            <button
-              type="button"
+            <ActionButton variant="secondary"
               onClick={() => router.refresh()}
-              data-action-button
-              data-variant="secondary"
+             
               className="flex-1"
             >
               {t("serverCardActions.delete.cancel")}
-            </button>
+            </ActionButton>
           </div>
         </div>
       ) : (

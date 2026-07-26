@@ -14,6 +14,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { useToast } from "@/components/toast-provider";
 
 import { cardClass, inputClass } from "./cost-page-shared";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 const PROVIDERS: CloudBillingProvider[] = ["aws", "aliyun", "tencent", "generic_csv"];
 
@@ -100,7 +101,7 @@ export function CostCloudBillingPanel({
 			await reload();
 			addToast("success", t("costPage.billing.created"));
 		} catch (error) {
-			addToast("error", error instanceof Error ? error.message : t("costPage.billing.error"));
+			addToast("error", getErrorMessage(error, t("costPage.billing.error")));
 		} finally {
 			setBusy(false);
 		}
@@ -115,7 +116,7 @@ export function CostCloudBillingPanel({
 			await reload();
 			addToast("success", t("costPage.billing.deleted"));
 		} catch (error) {
-			addToast("error", error instanceof Error ? error.message : t("costPage.billing.error"));
+			addToast("error", getErrorMessage(error, t("costPage.billing.error")));
 		} finally {
 			setBusy(false);
 		}
@@ -142,7 +143,7 @@ export function CostCloudBillingPanel({
 		} catch (error) {
 			addToast(
 				"error",
-				`${t("costPage.billing.syncError")}: ${error instanceof Error ? error.message : String(error)}`,
+				`${t("costPage.billing.syncError")}: ${getErrorMessage(error, String(error))}`,
 			);
 			await reload();
 		} finally {
@@ -276,15 +277,13 @@ export function CostCloudBillingPanel({
 									</p>
 								</div>
 								{canManage ? (
-									<button
-										type="button"
+									<ActionButton variant="ghost"
 										onClick={() => setPendingDelete(account)}
-										data-action-button data-variant="ghost"
 										className="!text-xs text-[var(--danger)]"
 										disabled={busy}
 									>
 										{t("costPage.billing.delete")}
-									</button>
+									</ActionButton>
 								) : null}
 							</div>
 							<p className="mt-2 text-xs text-[var(--text-secondary)]">
@@ -299,16 +298,14 @@ export function CostCloudBillingPanel({
 								<p className="mt-1 text-xs text-[var(--danger)]">{account.lastSyncError}</p>
 							) : null}
 							{canManage ? (
-								<button
-									type="button"
-									data-action-button data-variant="secondary" className="!mt-3 !px-3 !py-1.5 !text-xs"
+								<ActionButton variant="secondary" className="!mt-3 !px-3 !py-1.5 !text-xs"
 									disabled={syncingId === account.id || !account.enabled}
 									onClick={() => void sync(account.id)}
 								>
 									{syncingId === account.id
 										? t("costPage.billing.syncing")
 										: t("costPage.billing.sync").replace("{month}", month)}
-								</button>
+								</ActionButton>
 							) : null}
 						</article>
 					))

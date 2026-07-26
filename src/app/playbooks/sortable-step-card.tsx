@@ -6,6 +6,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { fieldInputClass, stepTypeLabel, defaultConfigFor } from "./playbook-types";
 import type { SerializedStep, StepType, ServerOption } from "./playbook-types";
 import { StepConfigEditor } from "./step-config-editor";
+import { ActionButton } from "@/components/action-button";
 
 export function SortableStepCard({
 	step,
@@ -40,14 +41,12 @@ export function SortableStepCard({
 			className={`p-3 space-y-2 ${isDragging ? "relative z-10 opacity-80 ring-2 ring-[var(--color-action-ring)]" : ""}`}
 		>
 			<div className="flex items-center gap-2">
-				<button
-					type="button"
+				<ActionButton variant="secondary"
 					aria-label={t("playbooksPage.createForm.dragHandleAria").replace("{index}", String(index + 1))}
 					{...attributes}
-					{...listeners}
-				 data-action-button data-variant="secondary" className="min-h-9 cursor-grab !px-2 !py-1 !text-xs">
+					{...listeners} className="min-h-9 cursor-grab !px-2 !py-1 !text-xs">
 					☰ #{index + 1}
-				</button>
+				</ActionButton>
 				<input
 					aria-label={t("playbooksPage.createForm.stepName")}
 					value={step.name}

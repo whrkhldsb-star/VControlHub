@@ -21,6 +21,8 @@ import { useToast } from "@/components/toast-provider";
 import { fieldLabelClass, fieldInputClass, monoFieldInputClass, makeNewStep, reorderSteps } from "./playbook-types";
 import type { TriggerType, SerializedStep, ServerOption } from "./playbook-types";
 import { SortableStepCard } from "./sortable-step-card";
+import { getErrorMessage } from "@/lib/http/error-message";
+import { ActionButton } from "@/components/action-button";
 
 export function CreatePlaybookForm({
 	onClose,
@@ -104,7 +106,7 @@ export function CreatePlaybookForm({
 			addToast("success", t("playbooksPage.toast.created"));
 			onClose();
 		} catch (err) {
-			setError(err instanceof Error ? err.message : t("playbooksPage.createForm.error"));
+			setError(getErrorMessage(err, t("playbooksPage.createForm.error")));
 		} finally {
 			setSubmitting(false);
 		}
@@ -297,19 +299,16 @@ export function CreatePlaybookForm({
 			</label>
 
 			<div className="flex gap-3 pt-2">
-				<button
+				<ActionButton variant="primary"
 					type="submit"
-					disabled={submitting}
-					data-action-button data-variant="primary" className="min-h-11 px-5 py-2 text-sm"
+					disabled={submitting} className="min-h-11 px-5 py-2 text-sm"
 				>
 					{submitting ? t("playbooksPage.createForm.submitting") : t("playbooksPage.createForm.submit")}
-				</button>
-				<button
-					type="button"
-					onClick={onClose}
-				 data-action-button data-variant="secondary" className="min-h-11 !px-5 !py-2 !text-sm">
+				</ActionButton>
+				<ActionButton variant="secondary"
+					onClick={onClose} className="min-h-11 !px-5 !py-2 !text-sm">
 					{t("playbooksPage.createForm.cancel")}
-				</button>
+				</ActionButton>
 			</div>
 		</form>
 	);

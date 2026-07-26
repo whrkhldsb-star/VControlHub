@@ -6,6 +6,8 @@ import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import { useRouter } from "next/navigation";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { getErrorMessage } from "@/lib/http/error-message";
+import { ActionButton } from "@/components/action-button";
 
 type Props = {
   commandRequestId: string;
@@ -46,7 +48,7 @@ export function CancelCommandButton({ commandRequestId, commandTitle }: Props) {
       setReason("");
       router.refresh();
     } catch (cancelError) {
-      setError(cancelError instanceof Error ? cancelError.message : t("requestsPage.cancel.errorFallback"));
+      setError(getErrorMessage(cancelError, t("requestsPage.cancel.errorFallback")));
     } finally {
       setPending(false);
     }
@@ -54,14 +56,12 @@ export function CancelCommandButton({ commandRequestId, commandTitle }: Props) {
 
   return (
     <div className="mt-3 space-y-2">
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        data-action-button data-variant="danger" className="!px-3 !py-1.5 !text-xs !font-medium"
+      <ActionButton variant="danger"
+        onClick={() => setOpen(true)} className="!px-3 !py-1.5 !text-xs !font-medium"
         aria-label={`${t("requestsPage.cancel.ariaLabel")}: ${commandTitle}`}
       >
         {t("requestsPage.cancel.title")}
-      </button>
+      </ActionButton>
       {message && <p role="status" className="text-xs text-[var(--success)]">{message}</p>}
       {error && <p role="alert" className="text-xs text-[var(--danger)]">{error}</p>}
 
@@ -94,14 +94,12 @@ export function CancelCommandButton({ commandRequestId, commandTitle }: Props) {
               >
                 {t("requestsPage.cancel.keep")}
               </button>
-              <button
-                type="button"
+              <ActionButton variant="danger-solid"
                 disabled={pending}
-                onClick={submit}
-                data-action-button data-variant="danger-solid" className="!px-4 !py-2 !text-sm disabled:opacity-50"
+                onClick={submit} className="!px-4 !py-2 !text-sm disabled:opacity-50"
               >
                 {pending ? t("requestsPage.cancel.pending") : t("requestsPage.cancel.confirm")}
-              </button>
+              </ActionButton>
             </div>
           </div>
         </div>

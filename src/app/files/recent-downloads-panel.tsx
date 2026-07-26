@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useI18n } from "@/lib/i18n/use-locale";
+import { getErrorMessage } from "@/lib/http/error-message";
+import { ActionButton } from "@/components/action-button";
 
 type RecentDownload = {
   id: string;
@@ -36,7 +38,7 @@ export function RecentDownloadsPanel({
       setDownloads(Array.isArray(body.downloads) ? body.downloads : []);
     } catch (cause) {
       if (gen !== loadGenRef.current) return;
-      setError(cause instanceof Error ? cause.message : t("filesPage.recentDownloads.error"));
+      setError(getErrorMessage(cause, t("filesPage.recentDownloads.error")));
     } finally {
       if (gen === loadGenRef.current) setLoading(false);
     }
@@ -60,31 +62,27 @@ export function RecentDownloadsPanel({
           </h2>
           <p className="mt-1 text-sm text-[var(--text-secondary)]">{t("filesPage.recentDownloads.description")}</p>
         </div>
-        <button
-          type="button"
+        <ActionButton variant="secondary"
           aria-label={t("filesPage.recentDownloads.refreshAria")}
           onClick={() => void load()}
           disabled={loading}
-          data-action-button
-          data-variant="secondary"
+         
           className="!px-3 !py-1.5 !text-xs !font-medium disabled:opacity-60"
         >
           {t("filesPage.recentDownloads.refresh")}
-        </button>
+        </ActionButton>
       </div>
 
       {loading ? <p className="mt-4 text-sm text-[var(--text-muted)]">{t("filesPage.recentDownloads.loading")}</p> : null}
       {!loading && error ? (
         <div role="alert" className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--danger-border)] bg-[var(--danger-bg)] px-4 py-3 text-sm text-[var(--danger)]">
           <span>{error}</span>
-          <button
-          	type="button"
+          <ActionButton variant="danger"
           	onClick={() => void load()}
-          	data-action-button
-          	data-variant="danger"
+          
           	className="!px-3 !py-1.5 !text-xs !font-medium"
           >            {t("filesPage.recentDownloads.retry")}
-          </button>
+          </ActionButton>
         </div>
       ) : null}
       {!loading && !error && downloads.length === 0 ? (

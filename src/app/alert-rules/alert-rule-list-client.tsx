@@ -9,6 +9,7 @@ import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { toDateLocale } from "@/lib/i18n/locale-format";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 import {
 	channelLabel,
@@ -69,9 +70,9 @@ export function AlertRuleListClient({
 		setBusyAction(null);
 	}, []);
 
-	const getErrorMessage = useCallback(
+	const errorText = useCallback(
 		(error: unknown, fallbackKey: string) =>
-			error instanceof Error ? error.message : t(fallbackKey),
+			getErrorMessage(error, t(fallbackKey)),
 		[t],
 	);
 
@@ -111,7 +112,7 @@ export function AlertRuleListClient({
 				addToast("success", t("alertRulesPage.incidents.acked"));
 				await loadIncidents();
 			} catch (error) {
-				setActionError(error instanceof Error ? error.message : t("alertRulesPage.error.ack"));
+				setActionError(getErrorMessage(error, t("alertRulesPage.error.ack")));
 			} finally {
 				endBusy();
 			}
@@ -132,12 +133,12 @@ export function AlertRuleListClient({
 				});
 				await refresh();
 			} catch (error) {
-				setActionError(getErrorMessage(error, "alertRulesPage.error.toggle"));
+				setActionError(errorText(error, "alertRulesPage.error.toggle"));
 			} finally {
 				endBusy();
 			}
 		},
-		[beginBusy, endBusy, refresh, getErrorMessage],
+		[beginBusy, endBusy, refresh, errorText],
 	);
 
 	const deleteRule = useCallback(
@@ -150,12 +151,12 @@ export function AlertRuleListClient({
 				setRulePendingDelete(null);
 				await refresh();
 			} catch (error) {
-				setActionError(getErrorMessage(error, "alertRulesPage.error.delete"));
+				setActionError(errorText(error, "alertRulesPage.error.delete"));
 			} finally {
 				endBusy();
 			}
 		},
-		[beginBusy, endBusy, refresh, getErrorMessage],
+		[beginBusy, endBusy, refresh, errorText],
 	);
 
 	const triggerNow = useCallback(async () => {
@@ -167,11 +168,11 @@ export function AlertRuleListClient({
 			addToast("success", t("alertRulesPage.toast.triggered"));
 			await refresh();
 		} catch (error) {
-			setActionError(getErrorMessage(error, "alertRulesPage.error.trigger"));
+			setActionError(errorText(error, "alertRulesPage.error.trigger"));
 		} finally {
 			endBusy();
 		}
-	}, [addToast, beginBusy, endBusy, refresh, t, getErrorMessage]);
+	}, [addToast, beginBusy, endBusy, refresh, t, errorText]);
 
 	const ensureDefaults = useCallback(async () => {
 		if (!beginBusy("defaults")) return;
@@ -196,11 +197,11 @@ export function AlertRuleListClient({
 					: t("alertRulesPage.toast.defaultsExists"),
 			);
 		} catch (error) {
-			setActionError(getErrorMessage(error, "alertRulesPage.error.defaults"));
+			setActionError(errorText(error, "alertRulesPage.error.defaults"));
 		} finally {
 			endBusy();
 		}
-	}, [addToast, beginBusy, endBusy, refresh, t, getErrorMessage]);
+	}, [addToast, beginBusy, endBusy, refresh, t, errorText]);
 
 	const testRule = useCallback(
 		async (rule: AlertRule) => {
@@ -225,12 +226,12 @@ export function AlertRuleListClient({
 						: t("alertRulesPage.toast.testSucceeded"),
 				);
 			} catch (error) {
-				setActionError(getErrorMessage(error, "alertRulesPage.error.test"));
+				setActionError(errorText(error, "alertRulesPage.error.test"));
 			} finally {
 				endBusy();
 			}
 		},
-		[addToast, beginBusy, endBusy, t, getErrorMessage],
+		[addToast, beginBusy, endBusy, t, errorText],
 	);
 
 	return (
@@ -283,13 +284,11 @@ export function AlertRuleListClient({
 			<section className="mb-6 space-y-3" aria-label={t("alertRulesPage.incidents.title")}>
 				<div className="flex items-center justify-between gap-2">
 					<h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("alertRulesPage.incidents.title")}</h2>
-					<button
-						type="button"
-						onClick={() => void loadIncidents()}
-						data-action-button data-variant="secondary" className="!min-h-11 !px-3 !text-xs"
+					<ActionButton variant="secondary"
+						onClick={() => void loadIncidents()} className="!min-h-11 !px-3 !text-xs"
 					>
 						{incidentsLoading ? "…" : t("alertRulesPage.incidents.refresh")}
-					</button>
+					</ActionButton>
 				</div>
 				{incidents.filter((i) => i.status !== "RESOLVED").length === 0 ? (
 					<p className="text-xs text-[var(--text-muted)]">{t("alertRulesPage.incidents.empty")} ({incidents.filter((i) => i.status === "RESOLVED").length} {t("alertRulesPage.incidents.resolved")})</p>
@@ -318,14 +317,12 @@ export function AlertRuleListClient({
 										<p className="mt-1 truncate text-xs text-[var(--text-secondary)]">{incident.message}</p>
 									</div>
 									{incident.status === "OPEN" && (
-										<button
-											type="button"
+										<ActionButton variant="primary"
 											disabled={busyAction === `ack:${incident.id}`}
-											onClick={() => void ackIncident(incident.id)}
-											data-action-button data-variant="primary" className="!min-h-11 !px-3 !text-xs !font-semibold disabled:opacity-50"
+											onClick={() => void ackIncident(incident.id)} className="!min-h-11 !px-3 !text-xs !font-semibold disabled:opacity-50"
 										>
 											{t("alertRulesPage.incidents.ack")}
-										</button>
+										</ActionButton>
 									)}
 								</div>
 							))}

@@ -18,6 +18,7 @@ import {
 } from "@/lib/ai/hosted-service";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { buildAiChatMessagePayload } from "./message-payload";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 export const dynamic = "force-dynamic";
 
@@ -131,7 +132,7 @@ export async function POST(request: Request) {
             session.userId,
           );
         } catch (e: unknown) {
-          const msg = e instanceof Error ? e.message : t("apiAiChat.requestFailedFallback", locale);
+          const msg = getErrorMessage(e, t("apiAiChat.requestFailedFallback", locale));
           throw new AppError({ code: "INTERNAL_ERROR", message: msg, status: 500 });
         }
 
@@ -299,7 +300,7 @@ export async function POST(request: Request) {
                 }
               } catch (err) {
                 const errMsg =
-                  err instanceof Error ? err.message : t("apiAiChat.streamErrorFallback", locale);
+                  getErrorMessage(err, t("apiAiChat.streamErrorFallback", locale));
                 controller.enqueue(
                   encoder.encode(
                     `data: ${JSON.stringify({ type: "error", error: errMsg })}\n\n`,

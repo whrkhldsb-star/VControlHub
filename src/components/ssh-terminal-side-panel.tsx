@@ -2,6 +2,7 @@
 
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
+import { ActionButton } from "@/components/action-button";
 
 const QUICK_COMMANDS = ["ls -la","df -h","free -m","top -bn1 | head -20","uptime","whoami","cat /etc/os-release","ps aux --sort=-%mem | head -10",
 ] as const;
@@ -49,15 +50,13 @@ export function SshTerminalSidePanel({
 							UI_INPUT,"min-h-11 min-w-0 flex-1 py-1 font-mono text-[13px] placeholder:text-[var(--text-muted)]/20",
 						)}
 					/>
-					<button
-						type="button"
+					<ActionButton variant="outline"
 						onClick={addFavorite}
 						aria-label={t("sshTerminalModal.favoritesAdd")}
-						data-tone="cyan"
-						data-action-button data-variant="outline" className="min-h-11 min-w-11 shrink-0 !px-2 !py-1 !text-[13px]"
+						data-tone="cyan" className="min-h-11 min-w-11 shrink-0 !px-2 !py-1 !text-[13px]"
 					>
 						+
-					</button>
+					</ActionButton>
 				</div>
 				{favoriteCommands.length === 0 ? (
 					<p className="text-[10px] text-[var(--text-muted)]">
@@ -67,22 +66,18 @@ export function SshTerminalSidePanel({
 					<div className="space-y-1">
 						{favoriteCommands.map((cmd) => (
 							<div key={cmd} className="group flex items-center gap-1">
-								<button
-									type="button"
-									onClick={() => sendCommand(cmd)}
-									data-action-button data-variant="ghost" className="!min-h-11 !min-w-0 !flex-1 !truncate !rounded-lg !px-3 !py-1 !text-left !text-[12px] !font-mono"
+								<ActionButton variant="ghost"
+									onClick={() => sendCommand(cmd)} className="!min-h-11 !min-w-0 !flex-1 !truncate !rounded-lg !px-3 !py-1 !text-left !text-[12px] !font-mono"
 									title={cmd}
 								>
 									{cmd}
-								</button>
-								<button
-									type="button"
+								</ActionButton>
+								<ActionButton variant="ghost"
 									onClick={() => removeFavorite(cmd)}
-									aria-label={t("sshTerminalModal.favoritesRemove").replace("{cmd}", cmd)}
-									data-action-button data-variant="ghost" className="!min-h-11 !min-w-11 !shrink-0 !rounded-lg !px-1 !text-[12px] text-[var(--danger)] group-hover:opacity-100"
+									aria-label={t("sshTerminalModal.favoritesRemove").replace("{cmd}", cmd)} className="!min-h-11 !min-w-11 !shrink-0 !rounded-lg !px-1 !text-[12px] text-[var(--danger)] group-hover:opacity-100"
 								>
 									✕
-								</button>
+								</ActionButton>
 							</div>
 						))}
 					</div>
@@ -99,15 +94,13 @@ export function SshTerminalSidePanel({
 				) : (
 					<div className="max-h-[200px] space-y-1 overflow-y-auto">
 						{commandHistory.map((cmd, i) => (
-							<button
+							<ActionButton variant="ghost"
 								key={`${cmd}-${i}`}
-								type="button"
-								onClick={() => sendCommand(cmd)}
-								data-action-button data-variant="ghost" className="!min-h-11 !block !w-full !truncate !rounded-lg !px-3 !py-1 !text-left !text-[12px] !font-mono"
+								onClick={() => sendCommand(cmd)} className="!min-h-11 !block !w-full !truncate !rounded-lg !px-3 !py-1 !text-left !text-[12px] !font-mono"
 								title={cmd}
 							>
 								{cmd}
-							</button>
+							</ActionButton>
 						))}
 					</div>
 				)}
@@ -118,15 +111,13 @@ export function SshTerminalSidePanel({
 				</h4>
 				<div className="space-y-1">
 					{QUICK_COMMANDS.map((cmd) => (
-						<button
+						<ActionButton variant="ghost"
 							key={cmd}
-							type="button"
-							onClick={() => sendCommand(cmd)}
-							data-action-button data-variant="ghost" className="!min-h-11 !block !w-full !truncate !rounded-lg !px-3 !py-1 !text-left !text-[12px] !font-mono text-[var(--text-muted)]"
+							onClick={() => sendCommand(cmd)} className="!min-h-11 !block !w-full !truncate !rounded-lg !px-3 !py-1 !text-left !text-[12px] !font-mono text-[var(--text-muted)]"
 							title={cmd}
 						>
 							{cmd}
-						</button>
+						</ActionButton>
 					))}
 				</div>
 			</section>

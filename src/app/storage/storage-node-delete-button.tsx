@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 
 import { useI18n } from "@/lib/i18n/use-locale";
 import { deleteStorageNodeAction, type StorageActionState } from "./actions";
+import { ActionButton } from "@/components/action-button";
 
 const initialState: StorageActionState = {};
 
@@ -41,18 +42,16 @@ export function StorageNodeDeleteButton({
 			<span className="text-sm text-[var(--danger)]">
 				{t("storagePage.delete.confirmNode").replace("{name}", nodeName)}
 			</span>
-			<button
+			<ActionButton variant="danger"
 				type="submit"
-				data-tone="rose" data-action-button data-variant="danger"
+				data-tone="rose"
 			>
 				{t("common.confirm")}
-			</button>
-			<button
-				type="button"
-				onClick={handleCancel}
-			 data-action-button data-variant="secondary" className="!px-4 !py-2 !text-sm">
+			</ActionButton>
+			<ActionButton variant="secondary"
+				onClick={handleCancel} className="!px-4 !py-2 !text-sm">
 				{t("common.cancel")}
-			</button>
+			</ActionButton>
 			{state.error ? (
 				<span className="text-xs text-[var(--danger)]">{state.error}</span>
 			) : null}

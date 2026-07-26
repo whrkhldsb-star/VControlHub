@@ -7,6 +7,7 @@ import {
 	getObservabilitySnapshot,
 	setWsActive,
 } from "@/lib/monitoring/runtime-metrics";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 export const dynamic = "force-dynamic";
 
@@ -42,7 +43,7 @@ async function mergeSshWsMetrics(snapshot: ReturnType<typeof getObservabilitySna
 		}
 	} catch (error) {
 		logger.debug("ssh-ws metrics scrape skipped", {
-			error: error instanceof Error ? error.message : String(error),
+			error: getErrorMessage(error, String(error)),
 		});
 	}
 	return snapshot;

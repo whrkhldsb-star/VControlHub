@@ -25,6 +25,7 @@ import {
   type MediaFilterState,
 } from "./media-filter-links";
 import { getServerLocale, t, type Locale } from "@/lib/i18n/translations";
+import { ActionButton } from "@/components/action-button";
 export const dynamic ="force-dynamic";
 type MediaSearchParams = {
   type?: string;
@@ -331,12 +332,11 @@ export default async function Page({
             className={UI_INPUT}
           />
         </div>
-        <button
-          type="submit"
-          data-action-button data-variant="primary" className="px-4 py-2 text-sm"
+        <ActionButton variant="primary"
+          type="submit" className="px-4 py-2 text-sm"
         >
           {t("mediaPage.search.submit", locale)}
-        </button>
+        </ActionButton>
         {(q || tag || mediaType || favorite) && (
           <FilterLink
             href="/media"

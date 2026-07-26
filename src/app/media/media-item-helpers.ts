@@ -85,9 +85,7 @@ export function containingFolderPath(relativePath: string) {
   return segments.join("/");
 }
 
-export function getErrorMessage(error: unknown, fallback: string) {
-  return error instanceof Error && error.message ? error.message : fallback;
-}
+export { getErrorMessage } from "@/lib/http/error-message";
 
 export function mediaTypeLabel(mediaType: string, t: MediaTFn) {
   if (mediaType === "image") return t("mediaItemCard.type.image");

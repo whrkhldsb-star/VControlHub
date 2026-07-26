@@ -8,6 +8,7 @@ import {
   type StorageActionState,
 } from "../storage/actions";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { ActionButton } from "@/components/action-button";
 
 const initialState: StorageActionState = {};
 
@@ -134,20 +135,17 @@ export function RenameInlineForm({
           {t("renameInlineForm.pathPrefix")}/{previewPath}
         </span>
       ) : null}
-      <button
+      <ActionButton variant="primary"
         type="submit"
         disabled={!newName.trim() || newName === currentName}
-        data-tone="accent"
-        data-action-button data-variant="primary" className="disabled:opacity-50"
+        data-tone="accent" className="disabled:opacity-50"
       >
         {t("renameInlineForm.confirm")}
-      </button>
-      <button
-        type="button"
-        onClick={handleCancel}
-       data-action-button data-variant="secondary" className="!px-4 !py-2 !text-sm">
+      </ActionButton>
+      <ActionButton variant="secondary"
+        onClick={handleCancel} className="!px-4 !py-2 !text-sm">
         {t("renameInlineForm.cancel")}
-      </button>
+      </ActionButton>
     </form>
   );
 }

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useToast } from "@/components/toast-provider";
 import { createLogger } from "@/lib/logging";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { ActionButton } from "@/components/action-button";
 
 const logger = createLogger("pwa-register");
 
@@ -162,14 +163,12 @@ export function PwaRegister() {
               {" "}
               {t("pwa.update.dismiss")}{" "}
             </button>{" "}
-            <button
-              type="button"
-              data-action-button data-variant="primary" className="px-3 py-1.5 text-xs"
+            <ActionButton variant="primary" className="px-3 py-1.5 text-xs"
               onClick={refreshToUpdate}
             >
               {" "}
               {t("pwa.update.refresh")}{" "}
-            </button>{" "}
+            </ActionButton>{" "}
           </div>{" "}
         </div>
       )}{" "}

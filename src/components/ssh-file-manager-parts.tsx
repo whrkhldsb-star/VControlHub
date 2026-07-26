@@ -4,6 +4,7 @@ import type { RefObject } from "react";
 import { getCsrfTokenFromCookie } from "@/lib/auth/csrf-client";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
+import { ActionButton } from "@/components/action-button";
 
 type TFunction = (key: string) => string;
 
@@ -79,9 +80,9 @@ export function SshFileManagerHeader({
         <button type="button" onClick={() => setShowMkdir(!showMkdir)} className="ml-auto min-h-9 rounded-full border border-[var(--border-subtle)] light:border-[var(--border)] px-2 py-0.5 text-xs text-[var(--text-secondary)] light:text-[var(--text-muted)] transition hover:bg-[var(--surface-elevated)] light:hover:bg-[var(--surface-hover)]/50" aria-label={t("sshFileManager.newFolder")} title={t("sshFileManager.newFolder")}>
           📂+
         </button>
-        <button type="button" onClick={() => fileInputRef.current?.click()} data-action-button data-variant="outline" className="min-h-9 !rounded-full !px-2 !py-0.5 !text-xs">
+        <ActionButton variant="outline" onClick={() => fileInputRef.current?.click()} className="min-h-9 !rounded-full !px-2 !py-0.5 !text-xs">
           {t("sshFileManager.upload")}
-        </button>
+        </ActionButton>
         <input ref={fileInputRef} type="file" multiple className="hidden" onChange={(e) => {
           if (e.target.files && e.target.files.length > 0) {
             onSelectFiles(e.target.files);
@@ -92,15 +93,13 @@ export function SshFileManagerHeader({
 
       <div className="flex flex-wrap items-center gap-0.5 text-xs">
         {onGoUp ? (
-          <button
-            type="button"
+          <ActionButton variant="secondary"
             onClick={onGoUp}
             data-testid="ssh-files-header-up"
             aria-label={t("sshFileManager.upLevelAria")}
-            title={t("sshFileManager.upLevel")}
-           data-action-button data-variant="secondary" className="mr-1 !px-1.5 !py-0.5">
+            title={t("sshFileManager.upLevel")} className="mr-1 !px-1.5 !py-0.5">
             ↑ {t("sshFileManager.upLevel")}
-          </button>
+          </ActionButton>
         ) : null}
         <button type="button" onClick={() => onNavigateToBreadcrumb(-1)} className="rounded px-1.5 py-0.5 text-[var(--text-muted)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--color-action)]">/</button>
         {breadcrumbs.map((crumb, i) => (
@@ -114,7 +113,7 @@ export function SshFileManagerHeader({
       {showMkdir && (
         <div className="mt-2 flex gap-1.5">
           <input value={mkdirName} aria-label={t("sshFileManager.folderName")} onChange={(e) => setMkdirName(e.target.value)} onKeyDown={(e) => e.key ==="Enter" && onMkdir()} placeholder={t("sshFileManager.folderName")} className={cn(UI_INPUT,"min-h-9 min-w-0 flex-1 py-1 text-xs")} autoFocus />
-          <button onClick={onMkdir} aria-label={t("common.confirm")} data-tone="cyan" data-action-button data-variant="outline" className="min-h-9 min-w-9 shrink-0 !px-2 !text-xs">✓</button>
+          <ActionButton type="submit" variant="outline" onClick={onMkdir} aria-label={t("common.confirm")} data-tone="cyan" className="min-h-9 min-w-9 shrink-0 !px-2 !text-xs">✓</ActionButton>
           <button onClick={() => { setShowMkdir(false); setMkdirName(""); }} aria-label={t("common.cancel")} className="min-h-9 min-w-9 shrink-0 rounded-lg border border-[var(--border)] px-2 text-xs text-[var(--text-muted)] transition hover:bg-[var(--surface-hover)]">✕</button>
         </div>
       )}

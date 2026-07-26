@@ -5,6 +5,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { LinkIcon } from "@/components/icons";
 import type { StorageEntry } from "./file-entry-utils";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 type ShareFileButtonProps = {
   entry: StorageEntry;
@@ -56,7 +57,7 @@ export function ShareFileButton({
       await copy(url);
       onNotify?.("success", t("sharesPage.button.copiedNotify"));
     } catch (err) {
-      const message = err instanceof Error ? err.message : t("sharesPage.button.errorFallback");
+      const message = getErrorMessage(err, t("sharesPage.button.errorFallback"));
       setError(message);
       onNotify?.("error", message);
     } finally {

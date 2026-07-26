@@ -21,6 +21,7 @@ import { GENERAL_READ_LIMIT } from "@/lib/http/rate-limit-presets";
 import { AuthError, ValidationError } from "@/lib/errors";
 
 import { apiError } from "@/lib/http/api-error";
+import { getErrorMessage } from "@/lib/http/error-message";
 export const dynamic = "force-dynamic";
 
 const logger = createLogger("api:media:thumbnail");
@@ -307,7 +308,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 			return placeholderResponse("unsupported");
 		}
 	} catch (error) {
-		const message = error instanceof Error ? error.message : "Unknown error";
+		const message = getErrorMessage(error, "Unknown error");
 		if (message === "THUMBNAIL_SOURCE_TOO_LARGE") {
 			return apiError({ code: "REQUEST_ENTITY_TOO_LARGE", message: "Original image is too large, cannot generate thumbnail", status: 413 });
 		}

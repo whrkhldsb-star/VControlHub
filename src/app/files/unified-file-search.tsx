@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { ActionButton } from "@/components/action-button";
 
 export type ContentSearchHit = {
 	filePath: string;
@@ -176,17 +177,16 @@ export function UnifiedFileSearch({
 						className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--input-border-focus)] focus:shadow-[0_0_0_3px_var(--input-ring)] focus:outline-none"
 					/>
 				</div>
-				<button
+				<ActionButton variant="primary"
 					type="submit"
-					data-action-button
-					data-variant="primary"
+				
 					className="px-5 py-2.5 text-sm"
 					disabled={!searchInput.trim() || contentLoading}
 				>
 					{contentLoading && mode === "content"
 						? t("filesBrowserSpa.contentSearching")
 						: t("filesBrowserSpa.searchLabel")}
-				</button>
+				</ActionButton>
 			</form>
 
 			{/* Content search results */}

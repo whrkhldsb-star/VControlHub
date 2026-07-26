@@ -16,6 +16,7 @@ import {
 import { listServerProfiles } from "@/lib/server/service";
 
 import type { StorageActionState } from "./actions-helpers";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 export async function getStorageFormOptions() {
   // Called from files page for users with storage:write OR storage:manage-node.
@@ -58,7 +59,7 @@ export async function checkStorageNodeHealthAction(storageNodeId: string) {
     };
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : t("storagePage.action.healthCheckFailed"),
+      error: getErrorMessage(error, t("storagePage.action.healthCheckFailed")),
     } satisfies StorageActionState;
   }
 }
@@ -117,7 +118,7 @@ export async function createStorageNodeAction(
     return { success: t("storagePage.action.createNodeSuccess") } satisfies StorageActionState;
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : t("storagePage.action.createNodeFailed"),
+      error: getErrorMessage(error, t("storagePage.action.createNodeFailed")),
     } satisfies StorageActionState;
   }
 }
@@ -195,7 +196,7 @@ export async function updateStorageNodeAction(
     return { success: t("storagePage.action.updateNodeSuccess") } satisfies StorageActionState;
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : t("storagePage.action.updateNodeFailed"),
+      error: getErrorMessage(error, t("storagePage.action.updateNodeFailed")),
     } satisfies StorageActionState;
   }
 }
@@ -226,7 +227,7 @@ export async function deleteStorageNodeAction(
     return { success: t("storagePage.action.deleteNodeSuccess") } satisfies StorageActionState;
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : t("storagePage.action.deleteNodeFailed"),
+      error: getErrorMessage(error, t("storagePage.action.deleteNodeFailed")),
     } satisfies StorageActionState;
   }
 }

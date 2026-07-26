@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { PermissionDenied } from "@/components/page-shell";
 import { createLogger } from "@/lib/logging";
+import { ActionButton } from "@/components/action-button";
 
 const logger = createLogger("root-error");
 
@@ -62,13 +63,12 @@ export default function RootError({
 					</p>
 				)}
 				<div className="mt-5 flex justify-center gap-3">
-					<button
+					<ActionButton type="submit" variant="primary"
 						onClick={reset}
-						data-primary
-						data-action-button data-variant="primary" className="cursor-pointer border-none px-6 py-2.5 text-sm"
+						data-primary className="cursor-pointer border-none px-6 py-2.5 text-sm"
 					>
 						{t("common.retry")}
-					</button>
+					</ActionButton>
 					<NextLink
 						href="/"
 						className="inline-flex items-center rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] px-6 py-2.5 text-sm text-[var(--text-secondary)] no-underline hover:bg-[var(--surface-hover)]"

@@ -3,6 +3,7 @@
 import { useI18n } from "@/lib/i18n/use-locale";
 
 import type { ConvItem, Provider, ModelCapabilities } from "./ai-types";
+import { ActionButton } from "@/components/action-button";
 
 interface ChatHeaderProps {
 	activeConv: ConvItem;
@@ -49,28 +50,24 @@ export function AiChatHeader({
         </p>
       </div>
       <div className="flex items-center gap-1.5">
-        <button
-          onClick={onToggleSettings}
-         data-action-button data-variant="secondary" className="h-8 !px-2.5 !text-xs">
+        <ActionButton type="submit" variant="secondary"
+          onClick={onToggleSettings} className="h-8 !px-2.5 !text-xs">
           {t("aiPage.settings")}
-        </button>
-        <button
+        </ActionButton>
+        <ActionButton type="submit" variant="danger"
           onClick={onClearMessages}
-          title={t("aiPage.clearMessagesTitle")}
-         data-action-button data-variant="danger" className="h-8 !px-2.5 !text-xs">
+          title={t("aiPage.clearMessagesTitle")} className="h-8 !px-2.5 !text-xs">
           {t("aiPage.clear")}
-        </button>
-        <button
-          onClick={onRenameConv}
-         data-action-button data-variant="secondary" className="h-8 !px-2.5 !text-xs">
+        </ActionButton>
+        <ActionButton type="submit" variant="secondary"
+          onClick={onRenameConv} className="h-8 !px-2.5 !text-xs">
           {t("aiPage.rename")}
-        </button>
-        <button
+        </ActionButton>
+        <ActionButton type="submit" variant="secondary"
           onClick={onExportConv}
-          title={t("aiPage.exportTitle")}
-         data-action-button data-variant="secondary" className="h-8 !px-2.5 !text-xs">
+          title={t("aiPage.exportTitle")} className="h-8 !px-2.5 !text-xs">
           {t("aiPage.export")}
-        </button>
+        </ActionButton>
       </div>
     </div>
   );

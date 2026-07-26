@@ -4,6 +4,7 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import { ActionButton } from "@/components/action-button";
+import { getErrorMessage } from "@/lib/http/error-message";
 type ResourceType = "networks" | "volumes";
 type DockerNetwork = {
   Id?: string;
@@ -96,7 +97,7 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
       if (err instanceof DOMException && err.name === "AbortError") return;
       if (err instanceof Error && err.name === "AbortError") return;
       setError(
-        err instanceof Error ? err.message : t("dockerResources.error.load"),
+        getErrorMessage(err, t("dockerResources.error.load")),
       );
     } finally {
       if (gen === fetchGenRef.current) setLoading(false);
@@ -140,7 +141,7 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
       await fetchResources();
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : t("dockerResources.error.create"),
+        getErrorMessage(err, t("dockerResources.error.create")),
       );
     } finally {
       setBusyKey(null);
@@ -163,7 +164,7 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
       });
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : t("dockerResources.error.inspect"),
+        getErrorMessage(err, t("dockerResources.error.inspect")),
       );
     } finally {
       setBusyKey(null);
@@ -192,7 +193,7 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
       await fetchResources();
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : t("dockerResources.error.delete"),
+        getErrorMessage(err, t("dockerResources.error.delete")),
       );
     } finally {
       setBusyKey(null);
@@ -285,16 +286,14 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
             {t("dockerResources.desc")}
           </p>{" "}
         </div>{" "}
-        <button
-          type="button"
+        <ActionButton variant="secondary"
           onClick={() => void fetchResources()}
-          disabled={loading}
-          data-action-button data-variant="secondary" className="!min-h-11 !px-3 !py-1.5 !text-xs disabled:opacity-50"
+          disabled={loading} className="!min-h-11 !px-3 !py-1.5 !text-xs disabled:opacity-50"
         >
           {loading
             ? t("dockerResources.refreshBusy")
             : t("dockerResources.refresh")}
-        </button>{" "}
+        </ActionButton>{" "}
       </div>{" "}
       {error ? (
         <div
@@ -331,15 +330,13 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
           placeholder={t("dockerResources.field.driver")}
           className="min-h-11 w-28 rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
         />{" "}
-        <button
-          type="button"
+        <ActionButton variant="primary"
           onClick={() => void createResource()}
           disabled={!name.trim() || Boolean(busyKey)}
-          data-action-button data-variant="primary"
           className="!min-h-11 !px-4 !py-2 !text-sm disabled:opacity-50"
         >
           {t("dockerResources.create")}
-        </button>{" "}
+        </ActionButton>{" "}
       </div>{" "}
       <div className="grid gap-4 lg:grid-cols-2">
         {" "}
@@ -385,24 +382,20 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
             </h3>{" "}
             <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               {" "}
-              <button
-                type="button"
-                onClick={() => setPendingDelete(null)}
-                data-action-button data-variant="secondary" className="min-h-11 !px-4 !py-2 !text-sm"
+              <ActionButton variant="secondary"
+                onClick={() => setPendingDelete(null)} className="min-h-11 !px-4 !py-2 !text-sm"
               >
                 {t("dockerResources.cancel")}
-              </button>{" "}
-              <button
-                type="button"
+              </ActionButton>{" "}
+              <ActionButton variant="danger-solid"
                 onClick={() => void confirmDeleteResource()}
                 disabled={
                   busyKey ===
                   `delete:${pendingDelete.type}:${pendingDelete.name}`
-                }
-                data-action-button data-variant="danger-solid" className="min-h-11 !px-4 !py-2 !text-sm disabled:opacity-60"
+                } className="min-h-11 !px-4 !py-2 !text-sm disabled:opacity-60"
               >
                 {t("dockerResources.confirm")}
-              </button>{" "}
+              </ActionButton>{" "}
             </div>{" "}
           </section>{" "}
         </div>

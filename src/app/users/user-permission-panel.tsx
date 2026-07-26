@@ -6,6 +6,8 @@ import { formatBytes as formatBytesShared } from "@/lib/format/bytes";
 import { EmptyState } from "@/components/page-shell";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
+import { getErrorMessage } from "@/lib/http/error-message";
+import { ActionButton } from "@/components/action-button";
 
 type RoleInfo = { key: string; name: string; description?: string | null };
 type PermissionInfo = { key: string; name: string; description?: string | null };
@@ -103,7 +105,7 @@ return data as PermissionsPayload;
         setPermissionKeys(data.user.directPermissionKeys ?? []);
         setGrants(data.user.storageAccess.map((grant) => ({ ...grant })));
       })
-      .catch((error) => !cancelled && setMessage({ type: "error", text: error instanceof Error ? error.message : t("usersPerm.error.loadFailed") }))
+      .catch((error) => !cancelled && setMessage({ type: "error", text: getErrorMessage(error, t("usersPerm.error.loadFailed")) }))
       .finally(() => !cancelled && setLoading(false));
     return () => { cancelled = true; };
   }, [userId, t]);
@@ -162,7 +164,7 @@ return data as PermissionsPayload;
       setTemplateNameDraft("");
       setMessage({ type: "success", text: t("usersPerm.template.saved") });
     } catch (error) {
-      setMessage({ type: "error", text: error instanceof Error ? error.message : t("usersPerm.error.saveFailed") });
+      setMessage({ type: "error", text: getErrorMessage(error, t("usersPerm.error.saveFailed")) });
     } finally {
       setSavingTemplate(false);
     }
@@ -210,7 +212,7 @@ const _data = await csrfFetch("/api/users/permissions", {
       setMessage({ type: "success", text: t("usersPerm.success.saved") });
       onSaved();
     } catch (error) {
-      setMessage({ type: "error", text: error instanceof Error ? error.message : t("usersPerm.error.saveFailed") });
+      setMessage({ type: "error", text: getErrorMessage(error, t("usersPerm.error.saveFailed")) });
     } finally {
       setSaving(false);
     }
@@ -225,7 +227,7 @@ const _data = await csrfFetch("/api/users/permissions", {
             <h3 className="mt-1 text-xl font-semibold text-[var(--text-primary)]">{payload?.user.displayName ?? username}</h3>
             <p className="mt-1 text-sm text-[var(--text-muted)]">{t("usersPerm.desc")}</p>
           </div>
-          <button type="button" onClick={onClose} data-action-button data-variant="secondary" className="!px-3 !py-1.5 !text-sm">{t("usersPerm.action.close")}</button>
+          <ActionButton variant="secondary" onClick={onClose} className="!px-3 !py-1.5 !text-sm">{t("usersPerm.action.close")}</ActionButton>
         </div>
 
         {message && <div className={`mb-4 rounded-2xl border px-4 py-3 text-sm ${message.type === "success" ? "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]" : "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)]"}`}>{message.text}</div>}
@@ -239,7 +241,7 @@ const _data = await csrfFetch("/api/users/permissions", {
                   <option value="">{t("usersPerm.template.select")}</option>
                   {templates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}
                 </select>
-                <button type="button" onClick={applyTemplate} disabled={!selectedTemplateId} data-action-button data-variant="outline" className="!px-3 !py-2 !text-xs disabled:opacity-40">{t("usersPerm.template.apply")}</button>
+                <ActionButton variant="outline" onClick={applyTemplate} disabled={!selectedTemplateId} className="!px-3 !py-2 !text-xs disabled:opacity-40">{t("usersPerm.template.apply")}</ActionButton>
                 <div className="flex flex-wrap items-center gap-2">
                   <input
                     type="text"
@@ -249,16 +251,14 @@ const _data = await csrfFetch("/api/users/permissions", {
                     aria-label={t("usersPerm.template.namePrompt")}
                     className="min-w-[10rem] flex-1 rounded-md border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1.5 text-sm text-[var(--text-primary)]"
                   />
-                  <button
-                    type="button"
+                  <ActionButton variant="secondary"
                     onClick={saveTemplate}
                     disabled={savingTemplate || !templateNameDraft.trim()}
-                    data-action-button
-                    data-variant="secondary"
+                   
                     className="!px-3 !py-2 !text-xs disabled:opacity-50"
                   >
                     {savingTemplate ? "…" : t("usersPerm.template.saveCurrent")}
-                  </button>
+                  </ActionButton>
                 </div>
               </div>
             </section>
@@ -297,7 +297,7 @@ const _data = await csrfFetch("/api/users/permissions", {
                   <h4 className="font-medium text-[var(--text-primary)]">{t("usersPerm.section.grants")}</h4>
                   <p className="mt-1 text-xs text-[var(--text-muted)]">{t("usersPerm.grants.hint")}</p>
                 </div>
-                <button type="button" onClick={addGrant} data-action-button data-variant="success" className="!px-3 !py-1.5 !text-xs">{t("usersPerm.action.addGrant")}</button>
+                <ActionButton variant="success" onClick={addGrant} className="!px-3 !py-1.5 !text-xs">{t("usersPerm.action.addGrant")}</ActionButton>
               </div>
               <div className="mt-4 space-y-3">
                 {grants.length === 0 ? <EmptyState>{t("usersPerm.grants.empty")}</EmptyState> : grants.map((grant, index) => {
@@ -331,8 +331,8 @@ const _data = await csrfFetch("/api/users/permissions", {
             </section>
 
             <div className="flex justify-end gap-3">
-              <button type="button" onClick={onClose} data-action-button data-variant="secondary" className="!px-5 !py-2 !text-sm">{t("usersPerm.action.cancel")}</button>
-              <button type="button" onClick={save} disabled={saving} data-action-button data-variant="outline" className="!px-5 !py-2 !text-sm disabled:opacity-50">{saving ? t("usersPerm.action.saving") : t("usersPerm.action.save")}</button>
+              <ActionButton variant="secondary" onClick={onClose} className="!px-5 !py-2 !text-sm">{t("usersPerm.action.cancel")}</ActionButton>
+              <ActionButton variant="outline" onClick={save} disabled={saving} className="!px-5 !py-2 !text-sm disabled:opacity-50">{saving ? t("usersPerm.action.saving") : t("usersPerm.action.save")}</ActionButton>
             </div>
           </div>
         )}

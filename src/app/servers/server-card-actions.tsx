@@ -16,6 +16,7 @@ import { ServerCardDirectGatewayForm } from "./server-card-actions-direct-gatewa
 import { ServerCardDeleteForm } from "./server-card-delete-form";
 import { ServerCardEditForm } from "./server-card-edit-form";
 import { useSshTerminal } from "./ssh-terminal-context";
+import { ActionButton } from "@/components/action-button";
 
 const initialState: ServerActionState = {
 	error: undefined,
@@ -108,18 +109,16 @@ export function ServerCardActions({
 	return (
 		<div className="space-y-3">
 			{enabled && canUseSshTerminal ? (
-				<button
-					type="button"
+				<ActionButton variant="ghost"
 					onClick={handleOpenTerminal}
 					aria-label={t("serverCardActions.sshTerminalAria").replace("{name}", serverName)}
-					data-action-button
-					data-variant="ghost"
+				
 					data-tone="cyan"
 					className="flex w-full items-center justify-center gap-2"
 				>
 					<span aria-hidden="true">💻</span>
 					<span>{t("serverCardActions.sshTerminalButton")}</span>
-				</button>
+				</ActionButton>
 			) : null}
 
 			{canManageServers && directGateway ? (
@@ -127,17 +126,15 @@ export function ServerCardActions({
 			) : null}
 
 			{canManageServers ? (
-				<button
-					type="button"
+				<ActionButton variant="secondary"
 					onClick={() => setShowEdit((value) => !value)}
-					data-action-button
-					data-variant="secondary"
+				
 					className="w-full"
 				>
 					{showEdit
 						? t("serverCardActions.edit.toggleHide")
 						: t("serverCardActions.edit.toggleShow")}
-				</button>
+				</ActionButton>
 			) : null}
 
 			{canManageServers && showEdit ? (

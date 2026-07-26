@@ -31,6 +31,7 @@ import { createVerifiedSshConfig } from "@/lib/ssh/client";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
 import { auditUserAction } from "@/lib/audit/service";
+import { getErrorMessage } from "@/lib/http/error-message";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 
 export const dynamic = "force-dynamic";
@@ -403,7 +404,7 @@ export async function POST(
           },
         });
       } catch (error) {
-        const msg = error instanceof Error ? error.message : t("apiServersFileProxy.operationFailed", locale);
+        const msg = getErrorMessage(error, t("apiServersFileProxy.operationFailed", locale));
         throw new AppError({ code: "INTERNAL_ERROR", message: msg, status: 500 });
       }
     },
@@ -483,7 +484,7 @@ export async function DELETE(
 
         return NextResponse.json({ status: "stopped" });
       } catch (error) {
-        const msg = error instanceof Error ? error.message : t("apiServersFileProxy.operationFailed", locale);
+        const msg = getErrorMessage(error, t("apiServersFileProxy.operationFailed", locale));
         throw new AppError({ code: "INTERNAL_ERROR", message: msg, status: 500 });
       }
     },

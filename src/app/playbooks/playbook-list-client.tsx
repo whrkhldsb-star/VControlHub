@@ -11,6 +11,8 @@ import type { SerializedPlaybook, RunSummary, ServerOption } from "./playbook-ty
 import { CreatePlaybookForm } from "./create-playbook-form";
 import { PlaybookCard } from "./playbook-card";
 import { PlaybookDeleteDialog } from "./playbook-delete-dialog";
+import { getErrorMessage } from "@/lib/http/error-message";
+import { ActionButton } from "@/components/action-button";
 
 const RUN_POLL_DELAYS_MS = [2_000, 5_000, 10_000, 20_000, 30_000, 45_000, 60_000, 90_000, 120_000, 180_000, 240_000, 300_000] as const;
 
@@ -150,7 +152,7 @@ export function PlaybookListClient({
           );
         }
       } catch (err) {
-        setActionError(err instanceof Error ? err.message : t("playbooksPage.error.load"));
+        setActionError(getErrorMessage(err, t("playbooksPage.error.load")));
       } finally {
         setBusyAction((prev) => (prev === actionKey ? null : prev));
       }
@@ -172,7 +174,7 @@ export function PlaybookListClient({
         addToast("success", t("playbooksPage.toast.toggled"));
         void refresh();
       } catch (err) {
-        setActionError(err instanceof Error ? err.message : t("playbooksPage.error.toggle"));
+        setActionError(getErrorMessage(err, t("playbooksPage.error.toggle")));
       } finally {
         setBusyAction((prev) => (prev === actionKey ? null : prev));
       }
@@ -191,7 +193,7 @@ export function PlaybookListClient({
         addToast("success", t("playbooksPage.toast.deleted"));
         void refresh();
       } catch (err) {
-        setActionError(err instanceof Error ? err.message : t("playbooksPage.error.delete"));
+        setActionError(getErrorMessage(err, t("playbooksPage.error.delete")));
       } finally {
         setBusyAction((prev) => (prev === actionKey ? null : prev));
       }
@@ -208,14 +210,12 @@ export function PlaybookListClient({
       )}
       <Toolbar className="justify-end">
         {canManage && !showCreate && (
-          <button
-            type="button"
+          <ActionButton variant="primary"
             onClick={() => setShowCreate(true)}
-            data-primary
-            data-action-button data-variant="primary" className="min-h-11 px-5 py-2.5 text-sm"
+            data-primary className="min-h-11 px-5 py-2.5 text-sm"
           >
             {t("playbooksPage.action.create")}
-          </button>
+          </ActionButton>
         )}
       </Toolbar>
 
@@ -235,15 +235,13 @@ export function PlaybookListClient({
                 <p>{t("playbooksPage.empty")}</p>
                 <p className="text-xs text-[var(--text-muted)]">{t("playbooksPage.emptyHint")}</p>
                 {canManage && !showCreate && (
-                  <button
-                    type="button"
+                  <ActionButton variant="primary"
                     onClick={() => setShowCreate(true)}
-                    data-action-button
-                    data-variant="primary"
+                   
                     className="!mt-2 !min-h-9 !px-4 !py-2 !text-sm"
                   >
                     {t("playbooksPage.action.create")}
-                  </button>
+                  </ActionButton>
                 )}
               </div>
             </EmptyState>

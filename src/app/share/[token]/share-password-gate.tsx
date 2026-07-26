@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { getErrorMessage } from "@/lib/http/error-message";
+import { ActionButton } from "@/components/action-button";
 
 interface SharePasswordGateProps {
   token: string;
@@ -58,7 +60,7 @@ export function SharePasswordGate({ token, label, placeholder, submitLabel, entr
       a.remove();
       URL.revokeObjectURL(objectUrl);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Download failed");
+      setError(getErrorMessage(err, "Download failed"));
     } finally {
       setBusy(false);
     }
@@ -81,13 +83,12 @@ export function SharePasswordGate({ token, label, placeholder, submitLabel, entr
           data-input
           className="flex-1 rounded-lg border px-3 py-2 text-sm outline-none"
         />
-        <button
+        <ActionButton variant="primary"
           type="submit"
-          disabled={!pw || busy}
-          data-action-button data-variant="primary" className="shrink-0 px-4 py-2 text-sm"
+          disabled={!pw || busy} className="shrink-0 px-4 py-2 text-sm"
         >
           {submitLabel}
-        </button>
+        </ActionButton>
       </div>
       {error ? (
         <p className="text-xs text-[var(--danger)]" role="alert">

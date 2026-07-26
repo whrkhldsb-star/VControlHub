@@ -9,6 +9,8 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { toDateLocale } from "@/lib/i18n/locale-format";
 import type { Locale } from "@/lib/i18n/translations";
 import { Check, X, AlertTriangle, ClipboardList, Download, Server, Bell } from "@/components/icons";
+import { getErrorMessage } from "@/lib/http/error-message";
+import { ActionButton } from "@/components/action-button";
 
 type NotificationItem = {
 	id: string;
@@ -123,7 +125,7 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 	const [hasMore, setHasMore] = useState(initialNotifications.length >= 50);
 	const [loadingMore, setLoadingMore] = useState(false);
 
-	const messageFromError = (err: unknown, fallback: string) => (err instanceof Error ? err.message : fallback);
+	const messageFromError = (err: unknown, fallback: string) => (getErrorMessage(err, fallback));
 
 	const markAllRead = useCallback(async () => {
 		setError(null);
@@ -230,16 +232,14 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 			))}
 			{hasMore ? (
 				<div className="flex justify-center pt-2">
-					<button
-						type="button"
+					<ActionButton variant="secondary"
 						onClick={() => void loadMore()}
 						disabled={loadingMore}
-						data-action-button
-						data-variant="secondary"
+					
 						className="!px-3 !py-1.5 !text-xs disabled:opacity-50"
 					>
 						{loadingMore ? t("notificationsPage.loadingMore") : t("notificationsPage.loadMore")}
-					</button>
+					</ActionButton>
 				</div>
 			) : null}
 		</div>

@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { ActionButton } from "@/components/action-button";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 type Props = {
 	backupId: string;
@@ -32,7 +33,7 @@ export function RetryBackupRecordButton({ backupId, status }: Props) {
 			router.refresh();
 		} catch (retryError) {
 			setError(
-				retryError instanceof Error ? retryError.message : t("backupsPage.retry.errorFallback"),
+				getErrorMessage(retryError, t("backupsPage.retry.errorFallback")),
 			);
 		} finally {
 			setPending(false);

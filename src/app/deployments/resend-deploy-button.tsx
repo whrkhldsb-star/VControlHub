@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useToast } from "@/components/toast-provider";
+import { getErrorMessage } from "@/lib/http/error-message";
+import { ActionButton } from "@/components/action-button";
 
 type Props = {
 	templateId: string;
@@ -47,7 +49,7 @@ export function ResendDeployButton({ templateId, variables, serverIds, reason, l
 			addToast("success", t("deploymentsPage.resend.toast.success"));
 			router.refresh();
 		} catch (err) {
-			const msg = err instanceof Error ? err.message : t("deploymentsPage.resend.toast.failed");
+			const msg = getErrorMessage(err, t("deploymentsPage.resend.toast.failed"));
 			setError(msg);
 			addToast("error", msg);
 		} finally {
@@ -62,33 +64,30 @@ export function ResendDeployButton({ templateId, variables, serverIds, reason, l
 					{t("deploymentsPage.resend.confirmWarning")}
 				</span>
 			) : null}
-			<button
-				type="button"
+			<ActionButton variant="outline"
 				onClick={handleResend}
 				disabled={pending}
 				aria-describedby={confirming ? `resend-deploy-${templateId}-warning` : undefined}
-				data-tone="cyan" data-action-button data-variant="outline" className="!px-3 !py-1.5 !text-xs disabled:opacity-60"
+				data-tone="cyan" className="!px-3 !py-1.5 !text-xs disabled:opacity-60"
 			>
 				{pending
 					? t("deploymentsPage.resend.submitting")
 					: confirming
 						? t("deploymentsPage.resend.confirmBtn")
 						: (label || t("deploymentsPage.resend.triggerBtn"))}
-			</button>
+			</ActionButton>
 			{confirming ? (
-				<button
-					type="button"
+				<ActionButton variant="secondary"
 					onClick={() => {
 						setConfirming(false);
 						setError(null);
 					}}
 					disabled={pending}
-					data-action-button
-					data-variant="secondary"
+				
 					className="!px-3 !py-1.5 !text-xs !font-medium disabled:cursor-not-allowed disabled:opacity-60"
 				>
 					{t("common.cancel")}
-				</button>
+				</ActionButton>
 			) : null}
 			{error && <span role="alert" className="text-xs text-[var(--danger)]">{error}</span>}
 		</div>

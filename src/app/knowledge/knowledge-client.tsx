@@ -7,6 +7,8 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { useToast } from "@/components/toast-provider";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { PageShell, PageHeader, SurfacePanel, EmptyState } from "@/components/page-shell";
+import { getErrorMessage } from "@/lib/http/error-message";
+import { ActionButton } from "@/components/action-button";
 
 type KnowledgeBase = {
   id: string;
@@ -80,7 +82,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
           setSelectedId((prev) => prev || data.knowledgeBases[0]!.id);
         }
       } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : t("knowledgePage.error"));
+        if (!cancelled) setError(getErrorMessage(e, t("knowledgePage.error")));
       }
     })();
     return () => {
@@ -99,7 +101,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
         }>(`/api/knowledge/${encodeURIComponent(selectedId)}`);
         if (!cancelled) setDocuments(data.knowledgeBase?.documents ?? []);
       } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : t("knowledgePage.error"));
+        if (!cancelled) setError(getErrorMessage(e, t("knowledgePage.error")));
       }
     })();
     return () => {
@@ -125,7 +127,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
       addToast("success", t("knowledgePage.created"));
       await loadBases();
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("knowledgePage.error"));
+      setError(getErrorMessage(e, t("knowledgePage.error")));
     } finally {
       setBusy(null);
     }
@@ -156,7 +158,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
       await loadBases();
       await loadDetail(selectedId);
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("knowledgePage.error"));
+      setError(getErrorMessage(e, t("knowledgePage.error")));
     } finally {
       setBusy(null);
     }
@@ -179,7 +181,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
       setHits(data.hits ?? []);
       addToast("success", t("knowledgePage.searchOk").replace("{count}", String(data.hits?.length ?? 0)));
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("knowledgePage.error"));
+      setError(getErrorMessage(e, t("knowledgePage.error")));
     } finally {
       setBusy(null);
     }
@@ -196,7 +198,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
       await loadDetail(selectedId);
       await loadBases();
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("knowledgePage.error"));
+      setError(getErrorMessage(e, t("knowledgePage.error")));
     } finally {
       setBusy(null);
     }
@@ -223,14 +225,12 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
                 onChange={(e) => setName(e.target.value)}
                 placeholder={t("knowledgePage.namePlaceholder")}
               />
-              <button
-                type="button"
+              <ActionButton variant="outline"
                 disabled={!name.trim() || busy !== null}
-                onClick={() => void createBase()}
-                data-action-button data-variant="outline" className="!min-h-11 !px-3 !text-xs !font-semibold disabled:opacity-50"
+                onClick={() => void createBase()} className="!min-h-11 !px-3 !text-xs !font-semibold disabled:opacity-50"
               >
                 {busy === "create" ? t("knowledgePage.working") : t("knowledgePage.create")}
-              </button>
+              </ActionButton>
             </div>
             <input
               className={UI_INPUT}
@@ -286,14 +286,12 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
               placeholder={t("knowledgePage.docContentPlaceholder")}
               disabled={!selectedId}
             />
-            <button
-              type="button"
+            <ActionButton variant="success"
               disabled={!selectedId || !docTitle.trim() || !docContent.trim() || busy !== null}
-              onClick={() => void ingest()}
-              data-action-button data-variant="success" className="!min-h-11 !px-3 !text-xs !font-semibold disabled:opacity-50"
+              onClick={() => void ingest()} className="!min-h-11 !px-3 !text-xs !font-semibold disabled:opacity-50"
             >
               {busy === "ingest" ? t("knowledgePage.working") : t("knowledgePage.ingest")}
-            </button>
+            </ActionButton>
             <div className="max-h-48 space-y-2 overflow-auto">
               {documents.map((d) => (
                 <div
@@ -307,14 +305,12 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
                     </div>
                   </div>
                   {canManage && (
-                    <button
-                      type="button"
-                      data-action-button data-variant="danger" className="!px-2 !py-1 !text-[11px]"
+                    <ActionButton variant="danger" className="!px-2 !py-1 !text-[11px]"
                       disabled={busy !== null}
                       onClick={() => void removeDoc(d.id)}
                     >
                       {t("knowledgePage.delete")}
-                    </button>
+                    </ActionButton>
                   )}
                 </div>
               ))}
@@ -331,14 +327,12 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t("knowledgePage.queryPlaceholder")}
           />
-          <button
-            type="button"
+          <ActionButton variant="outline"
             disabled={!query.trim() || busy !== null}
-            onClick={() => void search()}
-            data-action-button data-variant="outline" className="!min-h-11 !px-3 !text-xs !font-semibold disabled:opacity-50"
+            onClick={() => void search()} className="!min-h-11 !px-3 !text-xs !font-semibold disabled:opacity-50"
           >
             {busy === "search" ? t("knowledgePage.working") : t("knowledgePage.search")}
-          </button>
+          </ActionButton>
         </div>
         <div className="mt-4 space-y-3">
           {hits.map((hit, idx) => (

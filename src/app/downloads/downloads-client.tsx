@@ -13,6 +13,7 @@ import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
 import { CreateDownloadFormLazy } from "./create-download-form-lazy";
 import { DownloadTaskRow } from "./downloads-task-row";
 import { getCategories, getErrorMessage, getStatusLabel, formatSpeed, type DownloadTask, type GlobalStat, type ServerOption } from "./downloads-shared";
+import { ActionButton } from "@/components/action-button";
 export type { ServerOption } from "./downloads-shared";
 export function DownloadsClient({ servers, canManage, canManageNode }: { servers: ServerOption[]; canManage: boolean; canManageNode: boolean }) {
 	const { t } = useI18n();
@@ -342,12 +343,11 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 					))}
 				</div>
 				{canManage && servers.length > 0 ? (
-					<button type="button" onClick={() => setShowForm(!showForm)}
-						data-primary
-						data-action-button data-variant="primary" className="px-5 py-2 text-sm"
+					<ActionButton variant="primary" onClick={() => setShowForm(!showForm)}
+						data-primary className="px-5 py-2 text-sm"
 					>
 						{showForm ? t("downloadsPage.form.cancelLabel") : t("downloadsPage.form.createLabel")}
-					</button>
+					</ActionButton>
 				) : canManage ? (
 					<div className="rounded-2xl border border-[var(--warning-border)] bg-[var(--warning-bg)] px-4 py-2 text-xs text-[var(--warning)]">
 						{t("downloadsPage.form.noTarget")}
@@ -405,7 +405,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 						<h3 id="download-purge-title" className="text-lg font-semibold text-[var(--text-primary)]">{t("common.confirmDelete")}</h3>
 						<p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">{t("downloadsPage.confirm.purge").replace("{name}", pendingPurgeName)}</p>
 						<div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-							<button type="button" onClick={() => setPendingPurgeTaskId(null)} data-action-button data-variant="secondary" className="min-h-11 !px-4 !py-2 !text-sm">{t("common.cancel")}</button>
+							<ActionButton variant="secondary" onClick={() => setPendingPurgeTaskId(null)} className="min-h-11 !px-4 !py-2 !text-sm">{t("common.cancel")}</ActionButton>
 							<button type="button" onClick={() => handleAction(pendingPurgeTaskId, "purge")} className="min-h-11 rounded-xl bg-[var(--danger-bg)] px-4 py-2 text-sm font-semibold text-[var(--danger)] hover:bg-[var(--danger-bg)] hover:text-[var(--danger)]">{t("common.confirmDelete")}</button>
 						</div>
 					</section>

@@ -5,6 +5,7 @@ import type { EditorFindState } from "./text-preview-types";
 
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
+import { ActionButton } from "@/components/action-button";
 /**
  * In-editor find toolbar shown above the textarea while editing.
  *
@@ -56,34 +57,28 @@ export function EditorFindBar({ inputRef, find, onQueryChange, onMove, onClose }
 							.replace("{total}", String(find.total))}
 			</span>
 			<div className="flex-1" />
-			<button
-				type="button"
+			<ActionButton variant="secondary"
 				onClick={() => onMove(-1)}
 				disabled={find.total === 0}
 				aria-label={t("textPreview.editor.findPrev")}
-				title={t("textPreview.editor.findPrev")}
-				data-action-button data-variant="secondary" className="!px-2 !py-1 !text-xs disabled:opacity-40"
+				title={t("textPreview.editor.findPrev")} className="!px-2 !py-1 !text-xs disabled:opacity-40"
 			>
 				↑
-			</button>
-			<button
-				type="button"
+			</ActionButton>
+			<ActionButton variant="secondary"
 				onClick={() => onMove(1)}
 				disabled={find.total === 0}
 				aria-label={t("textPreview.editor.findNext")}
-				title={t("textPreview.editor.findNext")}
-				data-action-button data-variant="secondary" className="!px-2 !py-1 !text-xs disabled:opacity-40"
+				title={t("textPreview.editor.findNext")} className="!px-2 !py-1 !text-xs disabled:opacity-40"
 			>
 				↓
-			</button>
-			<button
-				type="button"
+			</ActionButton>
+			<ActionButton variant="secondary"
 				onClick={onClose}
 				aria-label={t("textPreview.editor.findClose")}
-				title={t("textPreview.editor.findClose")}
-			 data-action-button data-variant="secondary" className="!px-2 !py-1 !text-xs">
+				title={t("textPreview.editor.findClose")} className="!px-2 !py-1 !text-xs">
 				✕
-			</button>
+			</ActionButton>
 		</div>
 	);
 }

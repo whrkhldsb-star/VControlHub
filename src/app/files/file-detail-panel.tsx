@@ -29,6 +29,7 @@ import {
   type StorageEntry,
 } from "./file-entry-utils";
 import { FileVersionHistoryPanel } from "./file-version-history-panel";
+import { ActionButton } from "@/components/action-button";
 
 export type FileDetailPanelProps = {
   detailEntry: StorageEntry;
@@ -86,12 +87,10 @@ export function FileDetailPanel({
               {detailEntry.relativePath}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-           data-action-button data-variant="secondary" className="!px-3 !py-1.5 !text-xs">
+          <ActionButton variant="secondary"
+            onClick={onClose} className="!px-3 !py-1.5 !text-xs">
             {t("fileDetailPanel.close")}
-          </button>
+          </ActionButton>
         </div>
         <div className="flex-1 space-y-5 overflow-y-auto px-5 py-5">
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-elevated)] p-4">

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 export type QuickServiceMessage = {
   type: "ok" | "err";
@@ -134,7 +135,7 @@ export function useQuickServiceActions({
       } catch (err) {
         setMessage({
           type: "err",
-          text: err instanceof Error ? err.message : t("qsActions.installFailed"),
+          text: getErrorMessage(err, t("qsActions.installFailed")),
         });
       } finally {
         setActionSlug(null);
@@ -191,7 +192,7 @@ export function useQuickServiceActions({
       } catch (err) {
         setMessage({
           type: "err",
-          text: err instanceof Error ? err.message : t("qsActions.opFailed"),
+          text: getErrorMessage(err, t("qsActions.opFailed")),
         });
       } finally {
         setActionSlug(null);
@@ -228,7 +229,7 @@ export function useQuickServiceActions({
       } catch (err) {
         setMessage({
           type: "err",
-          text: err instanceof Error ? err.message : t("qsActions.uninstallFailed"),
+          text: getErrorMessage(err, t("qsActions.uninstallFailed")),
         });
       } finally {
         setActionSlug(null);
@@ -252,7 +253,7 @@ export function useQuickServiceActions({
       } catch (err) {
         setMessage({
           type: "err",
-          text: err instanceof Error ? err.message : t("qsActions.syncFailed"),
+          text: getErrorMessage(err, t("qsActions.syncFailed")),
         });
       } finally {
         setSyncing(null);
@@ -289,7 +290,7 @@ export function useQuickServiceActions({
       } catch (err) {
         setMessage({
           type: "err",
-          text: err instanceof Error ? err.message : t("qsActions.deleteFailed"),
+          text: getErrorMessage(err, t("qsActions.deleteFailed")),
         });
       }
     },
@@ -319,7 +320,7 @@ export function useQuickServiceActions({
       } catch (err) {
         setMessage({
           type: "err",
-          text: err instanceof Error ? err.message : t("qsActions.addSourceFailed"),
+          text: getErrorMessage(err, t("qsActions.addSourceFailed")),
         });
         return false;
       }

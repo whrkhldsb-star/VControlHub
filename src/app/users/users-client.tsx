@@ -17,6 +17,8 @@ import {
   statusTone,
   type CreateUserFormState,
 } from "./users-forms";
+import { getErrorMessage } from "@/lib/http/error-message";
+import { ActionButton } from "@/components/action-button";
 
 type RoleInfo = { key: string; name: string };
 type UserInfo = {
@@ -46,7 +48,7 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
 	const [loadFailed, setLoadFailed] = useState(false);
 	const fetchGenRef = useRef(0);
 
-	const messageFromError = (err: unknown, fallback: string) => (err instanceof Error ? err.message : fallback);
+	const messageFromError = (err: unknown, fallback: string) => (getErrorMessage(err, fallback));
 
 	const fetchUsers = useCallback(async () => {
 		const gen = ++fetchGenRef.current;
@@ -97,7 +99,7 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
 			setShowCreateForm(false);
 			fetchUsers();
 		} catch (err) {
-			addToast("error", err instanceof Error ? err.message : t("usersPage.error.createFailed") );
+			addToast("error", getErrorMessage(err, t("usersPage.error.createFailed")) );
 		} finally {
 			setCreating(false);
 		}
@@ -158,14 +160,13 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
       <Toolbar className="mb-5 justify-between">
         <h2 className="px-1 text-sm font-semibold text-[var(--text-primary)] sm:text-base">{t("usersPage.title2")}</h2>
         {canManage ? (
-          <button
-            type="button"
+          <ActionButton variant="primary"
             onClick={() => setShowCreateForm(!showCreateForm)}
             data-primary
-            className="px-4 py-2 text-sm" data-action-button data-variant="primary"
+            className="px-4 py-2 text-sm"
           >
             {showCreateForm ? t("usersPage.action.cancel") : t("usersPage.action.create")}
-          </button>
+          </ActionButton>
         ) : null}
       </Toolbar>
       {showCreateForm && (
@@ -268,8 +269,8 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
             <div className="flex items-center justify-between gap-3 border-t border-[var(--border)] px-4 py-3 text-xs text-[var(--text-secondary)]">
               <span>{t("usersPage.pagination").replace("{page}", String(page)).replace("{totalPages}", String(totalPages)).replace("{total}", String(total))}</span>
               <div className="flex gap-2">
-                <button type="button" disabled={page <= 1} onClick={() => setPage(page - 1)} data-action-button data-variant="secondary" className="!px-2 !py-1 !text-xs disabled:opacity-50">{t("usersPage.prev")}</button>
-                <button type="button" disabled={page >= totalPages} onClick={() => setPage(page + 1)} data-action-button data-variant="secondary" className="!px-2 !py-1 !text-xs disabled:opacity-50">{t("usersPage.next")}</button>
+                <ActionButton variant="secondary" disabled={page <= 1} onClick={() => setPage(page - 1)} className="!px-2 !py-1 !text-xs disabled:opacity-50">{t("usersPage.prev")}</ActionButton>
+                <ActionButton variant="secondary" disabled={page >= totalPages} onClick={() => setPage(page + 1)} className="!px-2 !py-1 !text-xs disabled:opacity-50">{t("usersPage.next")}</ActionButton>
               </div>
             </div>
           )}

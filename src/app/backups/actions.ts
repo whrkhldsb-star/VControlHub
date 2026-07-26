@@ -10,6 +10,7 @@ import { BACKUP_CREATE_JOB_TYPE } from "@/lib/backup/job-worker";
 import { createBackupSchema } from "@/lib/backup/schema";
 import { createBackupRecord } from "@/lib/backup/service";
 import { getServerLocale, t } from "@/lib/i18n/translations";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 export type BackupActionState = {
   success: boolean;
@@ -53,12 +54,12 @@ export async function createBackupAction(_prev: BackupActionState, formData: For
     await updateBackupRecordStatus(backup.id, {
       status: "FAILED",
       errorMessage:
-        enqueueErr instanceof Error ? enqueueErr.message : "Failed to enqueue backup job",
+        getErrorMessage(enqueueErr, "Failed to enqueue backup job"),
       completedAt: new Date(),
     }).catch(() => undefined);
     return {
       success: false,
-      error: enqueueErr instanceof Error ? enqueueErr.message : tr("backupsPage.action.enqueueFailed"),
+      error: getErrorMessage(enqueueErr, tr("backupsPage.action.enqueueFailed")),
     };
   }
   await auditUserAction(session.userId, "backup.create", {

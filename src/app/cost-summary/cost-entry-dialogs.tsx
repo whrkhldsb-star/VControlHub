@@ -4,6 +4,7 @@ import type { Dispatch, SetStateAction } from "react";
 import type { CostCategory, CostCurrency } from "@/lib/cost/types";
 import { CATEGORIES, buttonGhost, buttonPrimary, cardClass, inputClass, labelClass } from "./cost-page-shared";
 import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
+import { ActionButton } from "@/components/action-button";
 
 type T = (key: string) => string;
 type CostForm = { category: CostCategory; provider: string; amount: string; currency: CostCurrency; effectiveDate: string; notes: string };
@@ -107,9 +108,7 @@ export function CostEntryFormModal({ open, editingId, form, availableCurrencies,
 							/>
 						</div>
 						<div className="flex justify-end gap-2 pt-2">
-							<button
-								type="button"
-								data-action-button data-variant="secondary" className={buttonGhost}
+							<ActionButton variant="secondary" className={buttonGhost}
 								onClick={() => {
 									setShowForm(false);
 									setEditingId(null);
@@ -117,15 +116,13 @@ export function CostEntryFormModal({ open, editingId, form, availableCurrencies,
 								disabled={saving}
 							>
 								{t("costPage.form.cancel")}
-							</button>
-							<button
-								type="button"
-								data-action-button data-variant="primary" className={buttonPrimary}
+							</ActionButton>
+							<ActionButton variant="primary" className={buttonPrimary}
 								onClick={submitForm}
 								disabled={saving}
 							>
 								{saving ? t("costPage.actions.saving") : t("costPage.form.submit")}
-							</button>
+							</ActionButton>
 						</div>
 					</div>
 				</div>
@@ -151,24 +148,20 @@ export function CostDeleteDialog({ confirmDelete, deletingId, setConfirmDelete, 
 								.replace("{amount}", confirmDelete.amount)}
 						</p>
 						<div className="flex justify-end gap-2">
-							<button
-								type="button"
-								data-action-button data-variant="secondary" className={buttonGhost}
+							<ActionButton variant="secondary" className={buttonGhost}
 								onClick={() => setConfirmDelete(null)}
 								disabled={deletingId === confirmDelete.id}
 							>
 								{t("costPage.delete.cancel")}
-							</button>
-							<button
-								type="button"
-								data-action-button data-variant="primary" className={buttonPrimary}
+							</ActionButton>
+							<ActionButton variant="primary" className={buttonPrimary}
 								onClick={onConfirmDelete}
 								disabled={deletingId === confirmDelete.id}
 							>
 								{deletingId === confirmDelete.id
 									? t("costPage.actions.deleting")
 									: t("costPage.delete.confirmBtn")}
-							</button>
+							</ActionButton>
 						</div>
 					</div>
 				</div>

@@ -25,6 +25,7 @@ import {
   MediaUploadError,
 } from "@/lib/upload/service";
 import { ForbiddenError, ValidationError } from "@/lib/errors";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 export const dynamic = "force-dynamic";
 
@@ -52,7 +53,7 @@ export async function PUT(
         buffer = Buffer.from(ab);
       } catch (err) {
         throw new ValidationError("Failed to read chunk content", {
-          reason: err instanceof Error ? err.message : String(err),
+          reason: getErrorMessage(err, String(err)),
         });
       }
       try {

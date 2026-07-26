@@ -21,6 +21,7 @@ import {
 } from "@/lib/storage/path-utils";
 
 import type { StorageActionState } from "./actions-helpers";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 export async function createFolderAction(
   _prev: StorageActionState | null,
@@ -132,7 +133,7 @@ export async function createFolderAction(
       folderCreated = true;
     } catch (error) {
       return {
-        error: error instanceof Error ? error.message : t("storagePage.action.folderCreateFailed"),
+        error: getErrorMessage(error, t("storagePage.action.folderCreateFailed")),
       } satisfies StorageActionState;
     }
 
@@ -175,7 +176,7 @@ export async function createFolderAction(
     } satisfies StorageActionState;
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : t("storagePage.action.folderCreateFailed"),
+      error: getErrorMessage(error, t("storagePage.action.folderCreateFailed")),
     } satisfies StorageActionState;
   }
 }
@@ -357,11 +358,11 @@ export async function renameFileEntryAction(
         });
       } catch (compensationError) {
         return {
-          error: `Database rename failed and physical rollback also failed: ${databaseError instanceof Error ? databaseError.message : String(databaseError)}; rollback: ${compensationError instanceof Error ? compensationError.message : String(compensationError)}`,
+          error: `Database rename failed and physical rollback also failed: ${getErrorMessage(databaseError, String(databaseError))}; rollback: ${getErrorMessage(compensationError, String(compensationError))}`,
         } satisfies StorageActionState;
       }
       return {
-        error: databaseError instanceof Error ? databaseError.message : t("storagePage.action.renameFailed"),
+        error: getErrorMessage(databaseError, t("storagePage.action.renameFailed")),
       } satisfies StorageActionState;
     }
 
@@ -380,7 +381,7 @@ export async function renameFileEntryAction(
     return { success: t("storagePage.action.fileRenamed").replace("{name}", normalizedNewName) } satisfies StorageActionState;
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : t("storagePage.action.fileRenameFailed"),
+      error: getErrorMessage(error, t("storagePage.action.fileRenameFailed")),
     } satisfies StorageActionState;
   }
 }

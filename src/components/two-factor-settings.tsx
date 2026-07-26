@@ -9,6 +9,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { ActionButton } from "@/components/action-button";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
+import { getErrorMessage } from "@/lib/http/error-message";
 type Step = "idle" | "setup" | "verify" | "disable";
 
 export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
@@ -21,7 +22,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState("");
 
-	const messageFromError = (err: unknown, fallback: string) => err instanceof Error ? err.message : fallback;
+	const messageFromError = (err: unknown, fallback: string) => getErrorMessage(err, fallback);
 
 	const handleSetup = async () => {
 		setLoading(true);

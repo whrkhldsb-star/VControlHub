@@ -11,6 +11,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
 import { AppError, isAppError, ValidationError } from "@/lib/errors";
+import { getErrorMessage } from "@/lib/http/error-message";
 export const dynamic = "force-dynamic";
 
 const createDeploymentSchema = z.object({
@@ -122,7 +123,7 @@ export async function POST(request: Request) {
         // Only opaque errors (plain Error / unknown) get wrapped into a
         // generic INTERNAL_ERROR 500. TR-034 R2.
         if (isAppError(error)) throw error;
-        const message = error instanceof Error ? error.message : "Operation failed";
+        const message = getErrorMessage(error, "Operation failed");
         if (wantsHtmlResponse(request))
           return redirectToDeployments(request, { error: message });
         throw new AppError({ code: "INTERNAL_ERROR", message: message, status: 500 });

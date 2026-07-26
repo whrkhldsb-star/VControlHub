@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { getErrorMessage } from "@/lib/http/error-message";
+import { ActionButton } from "@/components/action-button";
 
 type Props = {
   backupId: string;
@@ -43,7 +45,7 @@ export function VoidBackupRecordButton({ backupId, status }: Props) {
       setConfirming(false);
       router.refresh();
     } catch (voidError) {
-      setError(voidError instanceof Error ? voidError.message : t("backupsPage.void.errorFallback"));
+      setError(getErrorMessage(voidError, t("backupsPage.void.errorFallback")));
     } finally {
       setPending(false);
     }
@@ -57,28 +59,24 @@ export function VoidBackupRecordButton({ backupId, status }: Props) {
         </p>
       ) : null}
       <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
+        <ActionButton variant="outline"
           disabled={disabled}
           onClick={handleVoid}
           aria-describedby={confirming ? `void-backup-${backupId}-warning` : undefined}
-          data-action-button
-          data-variant="outline"
+         
           className="!w-fit !px-3 !py-1.5 !text-xs !font-semibold disabled:cursor-not-allowed disabled:opacity-50"
         >
           {pending ? t("backupsPage.void.pending") : confirming ? t("backupsPage.void.confirmSubmit") : t("backupsPage.void.submit")}
-        </button>
+        </ActionButton>
         {confirming ? (
-          <button
-            type="button"
+          <ActionButton variant="secondary"
             disabled={pending}
             onClick={() => setConfirming(false)}
-            data-action-button
-            data-variant="secondary"
+           
             className="!w-fit !px-3 !py-1.5 !text-xs !font-semibold disabled:cursor-not-allowed disabled:opacity-50"
           >
             {t("common.cancel")}
-          </button>
+          </ActionButton>
         ) : null}
       </div>
       {message && <p className="text-xs text-[var(--success)]">{message}</p>}

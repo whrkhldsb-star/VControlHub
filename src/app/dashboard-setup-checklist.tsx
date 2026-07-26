@@ -6,6 +6,7 @@ import { useState } from "react";
 import { useI18n } from "@/lib/i18n/use-locale";
 import type { SetupChecklistItem } from "@/lib/dashboard/setup-checklist";
 import { countPendingSetupItems } from "@/lib/dashboard/setup-checklist";
+import { ActionButton } from "@/components/action-button";
 
 const DISMISS_KEY = "vch.setupChecklist.dismissed";
 
@@ -69,15 +70,13 @@ export function DashboardSetupChecklist({ items }: Props) {
 						{t("dashboard.setup.description").replace("{count}", String(pending))}
 					</p>
 				</div>
-				<button
-					type="button"
+				<ActionButton variant="ghost"
 					onClick={dismiss}
-					data-action-button
-					data-variant="ghost"
+				
 					className="!min-h-11 !px-3 !text-xs"
 				>
 					{t("dashboard.setup.dismiss")}
-				</button>
+				</ActionButton>
 			</div>
 
 			<ul className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">

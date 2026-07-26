@@ -9,6 +9,7 @@
  */
 import { useI18n } from "@/lib/i18n/use-locale";
 import type { ViewMode } from "./use-view-mode";
+import { ActionButton } from "@/components/action-button";
 
 export type FileListToolbarProps = {
   itemCount: number;
@@ -65,15 +66,13 @@ export function FileListToolbar({
     >
       <div className="flex flex-wrap items-center gap-2 text-sm text-[var(--text-muted)]">
         {onGoUp ? (
-          <button
-            type="button"
+          <ActionButton variant="secondary"
             onClick={onGoUp}
             data-testid="files-list-up-level"
-            title={t("fileListClient.upLevel")}
-           data-action-button data-variant="secondary" className="inline-flex items-center gap-1.5 !px-2.5 !py-1 !text-xs">
+            title={t("fileListClient.upLevel")} className="inline-flex items-center gap-1.5 !px-2.5 !py-1 !text-xs">
             <span aria-hidden="true">↑</span>
             {t("fileListClient.upLevel")}
-          </button>
+          </ActionButton>
         ) : null}
         <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-2.5 py-0.5 text-xs font-medium text-[var(--text-secondary)]">
           {t("filesPage.list.itemCount").replace("{count}", String(itemCount))}

@@ -10,6 +10,7 @@ import { useCallback, useState } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 type ToastFn = (kind: "success" | "error" | "info", message: string) => void;
 
@@ -59,7 +60,7 @@ export function useConvRename({
       setOpen(false);
       addToast("success", t("aiPage.titleUpdated"));
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("aiPage.renameFailed"));
+      setError(getErrorMessage(err, t("aiPage.renameFailed")));
     } finally {
       setBusy(false);
     }

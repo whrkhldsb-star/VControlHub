@@ -16,6 +16,8 @@ import type {
 	QaReportsListResult,
 	QaReportSummary,
 } from "@/lib/qa-reports/dto";
+import { getErrorMessage } from "@/lib/http/error-message";
+import { ActionButton } from "@/components/action-button";
 
 type KindFilter = "all" | "slice" | "blocker" | "qa_run";
 
@@ -255,7 +257,7 @@ export function QaReportsListClient({
 			setUpdatedAt(data.lastUpdatedAt ?? null);
 			setTrends(data.trends ?? emptyTrends());
 		} catch (err) {
-			setError(err instanceof Error ? err.message : t("qaReportsPage.refreshError"));
+			setError(getErrorMessage(err, t("qaReportsPage.refreshError")));
 		} finally {
 			setRefreshing(false);
 		}
@@ -286,14 +288,12 @@ export function QaReportsListClient({
 									? t("qaReportsPage.summaryUpdatedAt").replace("{time}", formatTime(updatedAt))
 									: t("qaReportsPage.summaryUpdatedAtEmpty")}
 							</div>
-							<button
-								type="button"
+							<ActionButton variant="secondary"
 								onClick={refresh}
-								disabled={refreshing}
-								data-action-button data-variant="secondary" className="!px-3 !py-1.5 !text-xs disabled:opacity-50"
+								disabled={refreshing} className="!px-3 !py-1.5 !text-xs disabled:opacity-50"
 							>
 								{refreshing ? t("qaReportsPage.refreshing") : t("qaReportsPage.refreshReadHermes")}
-							</button>
+							</ActionButton>
 						</div>
 					}
 				>

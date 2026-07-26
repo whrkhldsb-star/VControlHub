@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 type Report = {
   range: { days: number; action: string };
@@ -32,7 +33,7 @@ export function ShareAccessReport() {
       setReport(data.report);
     } catch (cause) {
       if (gen !== loadGenRef.current) return;
-      setError(cause instanceof Error ? cause.message : tRef.current("sharesPage.report.error"));
+      setError(getErrorMessage(cause, tRef.current("sharesPage.report.error")));
     } finally {
       if (gen === loadGenRef.current) setLoading(false);
     }

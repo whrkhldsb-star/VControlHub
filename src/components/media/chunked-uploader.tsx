@@ -24,6 +24,7 @@ import {
 	DEFAULT_CHUNK_SIZE,
 	type MediaUploadSessionView,
 } from "@/lib/upload/types";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 /** Files ≥ this threshold route through the chunked pipeline. */
 export const CHUNKED_THRESHOLD_BYTES = DEFAULT_CHUNK_SIZE;
@@ -376,7 +377,7 @@ export function useChunkedMediaUpload(
 				// the next upload of the same file can resume server-side chunks.
 				// Only clear on success (above) or when init intentionally discards
 				// an unusable persisted session.
-				const message = err instanceof Error ? err.message : String(err);
+				const message = getErrorMessage(err, String(err));
 				emit({
 					status: "error",
 					progress: progressRef.current,

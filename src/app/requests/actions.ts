@@ -6,6 +6,7 @@ import { requirePermission } from "@/lib/auth/authorization";
 import { auditUserAction } from "@/lib/audit/service";
 import { reviewCommandRequest } from "@/lib/command/service";
 import { getServerLocale, t } from "@/lib/i18n/translations";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 export type ReviewActionState = {
   error?: string;
@@ -51,7 +52,7 @@ export async function reviewCommandAction(_prevState: ReviewActionState | null, 
       success: approved ? tr("requestsPage.action.approved") : tr("requestsPage.action.rejected"),
     } satisfies ReviewActionState;
   } catch (error) {
-    return { error: error instanceof Error ? error.message : tr("requestsPage.action.reviewFailed") } satisfies ReviewActionState;
+    return { error: getErrorMessage(error, tr("requestsPage.action.reviewFailed")) } satisfies ReviewActionState;
   }
 }
 
@@ -113,7 +114,7 @@ export async function batchReviewCommandAction(
       results[commandRequestId] = "ok";
       okCount++;
     } catch (error) {
-      results[commandRequestId] = error instanceof Error ? error.message : tr("requestsPage.batch.errorReviewFailed");
+      results[commandRequestId] = getErrorMessage(error, tr("requestsPage.batch.errorReviewFailed"));
       failCount++;
     }
   }

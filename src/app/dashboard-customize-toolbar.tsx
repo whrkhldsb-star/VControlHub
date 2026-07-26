@@ -8,6 +8,7 @@ import {
 	DASHBOARD_WIDGET_LABELS,
 	type DashboardWidgetId,
 } from "@/lib/preferences/user-preferences";
+import { ActionButton } from "@/components/action-button";
 
 /**
  * TR-020 dashboard customize toolbar.
@@ -51,13 +52,11 @@ export function DashboardCustomizeToolbar({
 	if (!isEditing) {
 		return (
 			<div className="mb-3 flex items-center justify-end gap-2">
-				<button
-					type="button"
+				<ActionButton variant="secondary"
 					onClick={onEnterEdit}
-					aria-label={t("dashboard.customize-edit")}
-				 data-action-button data-variant="secondary" className="!px-3 !py-1.5 !text-xs">
+					aria-label={t("dashboard.customize-edit")} className="!px-3 !py-1.5 !text-xs">
 					{t("dashboard.customize-edit")}
-				</button>
+				</ActionButton>
 			</div>
 		);
 	}
@@ -94,21 +93,17 @@ export function DashboardCustomizeToolbar({
 				})}
 			</div>
 			<div className="flex items-center gap-2">
-				<button
-					type="button"
-					onClick={onReset}
-					data-action-button data-variant="secondary" className="!px-3 !py-1.5 !text-xs"
+				<ActionButton variant="secondary"
+					onClick={onReset} className="!px-3 !py-1.5 !text-xs"
 				>
 					{t("dashboard.customize-reset")}
-				</button>
-				<button
-					type="button"
+				</ActionButton>
+				<ActionButton variant="primary"
 					onClick={onExitEdit}
-					data-testid="customize-done"
-					data-action-button data-variant="primary" className="px-3 py-1.5 text-xs"
+					data-testid="customize-done" className="px-3 py-1.5 text-xs"
 				>
 					{t("dashboard.customize-done")}
-				</button>
+				</ActionButton>
 			</div>
 		</div>
 	);

@@ -14,6 +14,7 @@ import {
 } from "@/lib/server/service";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { SshHostKeyApprovalRequiredError } from "@/lib/ssh/host-key";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 export type ServerActionState = {
   error?: string;
@@ -104,7 +105,7 @@ export async function createServerAction(
     } as ServerActionState;
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : tr("serversPage.action.createFailed"),
+      error: getErrorMessage(error, tr("serversPage.action.createFailed")),
       ...(error instanceof SshHostKeyApprovalRequiredError ? { hostKeySha256: error.hostKeySha256 } : {}),
     } as ServerActionState;
   }
@@ -173,7 +174,7 @@ export async function updateServerAction(
     } as ServerActionState;
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : tr("serversPage.action.updateFailed"),
+      error: getErrorMessage(error, tr("serversPage.action.updateFailed")),
       ...(error instanceof SshHostKeyApprovalRequiredError ? { hostKeySha256: error.hostKeySha256 } : {}),
     } as ServerActionState;
   }
@@ -222,7 +223,7 @@ export async function createSshKeyAction(
     } as ServerActionState;
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : tr("serversPage.action.sshKeyCreateFailed"),
+      error: getErrorMessage(error, tr("serversPage.action.sshKeyCreateFailed")),
     } as ServerActionState;
   }
 }
@@ -247,7 +248,7 @@ export async function toggleServerAction(
     return { success: tr("serversPage.action.toggleSuccess") } as ServerActionState;
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : tr("serversPage.action.toggleFailed"),
+      error: getErrorMessage(error, tr("serversPage.action.toggleFailed")),
     } as ServerActionState;
   }
 }
@@ -288,7 +289,7 @@ export async function toggleDirectGatewayAction(
     } as ServerActionState;
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : tr("serversPage.action.directGatewayFailed"),
+      error: getErrorMessage(error, tr("serversPage.action.directGatewayFailed")),
     } as ServerActionState;
   }
 }
@@ -331,7 +332,7 @@ export async function batchToggleServerAction(
     } as ServerActionState;
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : tr("serversPage.action.batchFailed"),
+      error: getErrorMessage(error, tr("serversPage.action.batchFailed")),
     } as ServerActionState;
   }
 }
@@ -388,7 +389,7 @@ export async function deleteServerAction(
     return { success: tr("serversPage.action.deleteSuccess") } as ServerActionState;
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : tr("serversPage.action.deleteFailed"),
+      error: getErrorMessage(error, tr("serversPage.action.deleteFailed")),
     } as ServerActionState;
   }
 }

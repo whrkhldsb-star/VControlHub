@@ -13,6 +13,7 @@ import {
 } from "@/components/media/chunked-uploader";
 
 import { getErrorMessage } from "./media-item-helpers";
+import { ActionButton } from "@/components/action-button";
 
 type StorageNodeOption = {
 	id: string;
@@ -242,12 +243,12 @@ export function MediaImageUploadPanel() {
 					<p className="mt-1 text-xs text-[var(--success)]/70">{t("mediaUploadPanel.subheading")}</p>
 				</div>
 				<div className="flex flex-wrap items-center gap-2 text-xs">
-					<button type="button" onClick={loadNodes} disabled={loadingNodes} data-action-button data-variant="success" className="!px-3 !py-2 disabled:opacity-60">
+					<ActionButton variant="success" onClick={loadNodes} disabled={loadingNodes} className="!px-3 !py-2 disabled:opacity-60">
 						{loadingNodes ? t("mediaUploadPanel.loadingNodes") : nodesLoaded ? t("mediaUploadPanel.refreshNodes") : t("mediaUploadPanel.loadNodes")}
-					</button>
-					<button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading} data-action-button data-variant="success-solid" className="!px-4 !py-2 disabled:opacity-60">
+					</ActionButton>
+					<ActionButton variant="success-solid" onClick={() => fileInputRef.current?.click()} disabled={uploading} className="!px-4 !py-2 disabled:opacity-60">
 						{uploading ? t("mediaUploadPanel.uploading") : t("mediaUploadPanel.chooseFiles")}
-					</button>
+					</ActionButton>
 				</div>
 			</div>
 

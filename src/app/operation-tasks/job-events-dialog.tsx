@@ -7,6 +7,8 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import { toDateLocale } from "@/lib/i18n/locale-format";
 import type { Locale } from "@/lib/i18n/translations";
+import { getErrorMessage } from "@/lib/http/error-message";
+import { ActionButton } from "@/components/action-button";
 
 type JobEventLevel = "info" | "warn" | "error";
 
@@ -104,7 +106,7 @@ export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) 
         }
         setHasMore(next.length >= 100);
       } catch (err) {
-        setError(err instanceof Error ? err.message : t("jobEventsDialog.loadError"));
+        setError(getErrorMessage(err, t("jobEventsDialog.loadError")));
       } finally {
         setLoading(false);
       }
@@ -149,15 +151,13 @@ export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) 
               {t("jobEventsDialog.subtitle").replace("{id}", jobId)}
             </p>
           </div>
-          <button
+          <ActionButton variant="secondary"
             ref={closeButtonRef}
-            type="button"
             onClick={onClose}
-            aria-label={t("jobEventsDialog.closeAria")}
-            data-action-button data-variant="secondary" className="!px-3 !py-1.5 !text-xs"
+            aria-label={t("jobEventsDialog.closeAria")} className="!px-3 !py-1.5 !text-xs"
           >
             {t("jobEventsDialog.close")}
-          </button>
+          </ActionButton>
         </div>
         <div className="max-h-[60vh] overflow-y-auto px-5 py-4">
           {error ? (
@@ -210,27 +210,23 @@ export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) 
         <div className="flex items-center justify-between border-t border-[var(--border)]/[0.10] px-5 py-3 text-xs text-[var(--text-muted)]">
           <span>{t("jobEventsDialog.totalCount").replace("{count}", String(events.length)).replace("{more}", hasMore ? t("jobEventsDialog.moreSuffix") : "")}</span>
           <div className="flex gap-2">
-            <button
-              type="button"
+            <ActionButton variant="secondary"
               onClick={() => void load(false)}
               disabled={loading}
-              data-action-button
-              data-variant="secondary"
+             
               className="!px-3 !py-1.5 !text-xs disabled:opacity-50"
             >
               {t("jobEventsDialog.refresh")}
-            </button>
+            </ActionButton>
             {hasMore ? (
-              <button
-                type="button"
+              <ActionButton variant="secondary"
                 onClick={() => void load(true)}
                 disabled={loading}
-                data-action-button
-                data-variant="secondary"
+               
                 className="!px-3 !py-1.5 !text-xs disabled:opacity-50"
               >
                 {t("jobEventsDialog.loadMore")}
-              </button>
+              </ActionButton>
             ) : null}
           </div>
         </div>

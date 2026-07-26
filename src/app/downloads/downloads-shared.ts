@@ -59,6 +59,4 @@ export function formatSpeed(b: string | number | null): string {
 	return `${(n / Math.pow(1024, i)).toFixed(i > 0 ? 1 : 0)} ${units[i]}`;
 }
 
-export function getErrorMessage(error: unknown, fallback: string): string {
-	return error instanceof Error && error.message ? error.message : fallback;
-}
+export { getErrorMessage } from "@/lib/http/error-message";

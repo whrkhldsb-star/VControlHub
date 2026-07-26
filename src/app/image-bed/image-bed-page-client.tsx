@@ -126,7 +126,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 							<h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("imageBedPage.manage.title")}</h2>
 							<p className="mt-1 text-xs text-[var(--text-muted)]">{t("imageBedPage.manage.desc")}</p>
 						</div>
-						<button type="button" onClick={fetchStats} data-action-button data-variant="outline" className="!px-3 !py-1.5 !text-xs">{t("imageBedPage.manage.stats")}</button>
+						<ActionButton variant="outline" onClick={fetchStats} className="!px-3 !py-1.5 !text-xs">{t("imageBedPage.manage.stats")}</ActionButton>
 					</div>
 					<div className="mt-3 flex flex-wrap gap-2 text-xs">
 						<ToggleChip active={showAll} onClick={() => { setShowAll(!showAll); }} ariaLabel={t("imageBedPage.toggle.toggleScope")}>
@@ -155,17 +155,17 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 					className="sticky bottom-16 z-30 -mx-4 mt-3 flex flex-wrap items-center gap-2 border-y border-[var(--border)] bg-[var(--modal-bg)] p-3 backdrop-blur-sm md:static md:bottom-auto md:z-auto md:mx-0 md:gap-3 md:rounded-xl md:border md:bg-[var(--surface)] md:p-3 md:backdrop-blur-0"
 					>
 					<span className="text-xs text-[var(--text-muted)]">{t("imageBedPage.batch.selected").replace("{count}", String(selectedIds.size))}</span>
-					<button onClick={selectAll} data-action-button data-variant="secondary" className="!min-h-11 !px-3 !text-xs">
+					<ActionButton type="submit" variant="secondary" onClick={selectAll} className="!min-h-11 !px-3 !text-xs">
 						{selectedIds.size === images.length ? t("imageBedPage.batch.deselectAll") : t("imageBedPage.batch.selectAll")}
-					</button>
+					</ActionButton>
 					{canDelete && (
-						<button onClick={requestBatchDelete} disabled={batchBusy || selectedIds.size === 0} data-action-button data-variant="danger" className="!min-h-11 !px-3 !text-xs disabled:opacity-30">{t("imageBedPage.batch.delete")}</button>
+						<ActionButton type="submit" variant="danger" onClick={requestBatchDelete} disabled={batchBusy || selectedIds.size === 0} className="!min-h-11 !px-3 !text-xs disabled:opacity-30">{t("imageBedPage.batch.delete")}</ActionButton>
 					)}
 					<div className="flex items-center gap-1">
 						<input type="text" value={batchAlbum} aria-label={t("imageBedPage.batch.albumLabel")} onChange={(e) => setBatchAlbum(e.target.value)} placeholder={t("imageBedPage.batch.albumPlaceholder")} disabled={batchBusy} className={cn(UI_INPUT, "min-h-11 w-28 px-2 py-1 text-xs")} />
 						<ActionButton type="button" variant="ghost" onClick={() => runBatchAction("moveAlbum")} disabled={batchBusy || selectedIds.size === 0 || !batchAlbum} className="min-h-11 px-3 text-xs">{t("imageBedPage.batch.move")}</ActionButton>
 					</div>
-					<button onClick={() => runBatchAction("togglePublic")} disabled={batchBusy || selectedIds.size === 0} data-action-button data-variant="success" className="!min-h-11 !px-3 !text-xs disabled:opacity-30">{t("imageBedPage.batch.togglePublic")}</button>
+					<ActionButton type="submit" variant="success" onClick={() => runBatchAction("togglePublic")} disabled={batchBusy || selectedIds.size === 0} className="!min-h-11 !px-3 !text-xs disabled:opacity-30">{t("imageBedPage.batch.togglePublic")}</ActionButton>
 				</div>
 			)}
 
@@ -235,7 +235,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 					/>
 				</label>
 				<ActionButton type="button" variant="ghost" onClick={() => fetchImages(1)} className="min-h-11 px-4 text-sm">{t("imageBedPage.search.submit")}</ActionButton>
-				<button onClick={() => { setSearch(""); fetchImages(1); }} data-action-button data-variant="ghost" className="!min-h-11 !px-4 !py-2 !text-sm">{t("imageBedPage.search.reset")}</button>
+				<ActionButton type="submit" variant="ghost" onClick={() => { setSearch(""); fetchImages(1); }} className="!min-h-11 !px-4 !py-2 !text-sm">{t("imageBedPage.search.reset")}</ActionButton>
 			</div>
 
 			{/* Image Grid */}
@@ -266,9 +266,9 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 			{/* Pagination */}
 			{totalPages > 1 && (
 				<div className="mt-6 flex items-center justify-center gap-2">
-					<button onClick={() => fetchImages(page - 1)} disabled={page <= 1} data-action-button data-variant="secondary" className="!px-3 !py-1.5 !text-sm disabled:opacity-30">{t("imageBedPage.pagination.prev")}</button>
+					<ActionButton type="submit" variant="secondary" onClick={() => fetchImages(page - 1)} disabled={page <= 1} className="!px-3 !py-1.5 !text-sm disabled:opacity-30">{t("imageBedPage.pagination.prev")}</ActionButton>
 					<span className="text-sm text-[var(--text-secondary)]">{page} / {totalPages}</span>
-					<button onClick={() => fetchImages(page + 1)} disabled={page >= totalPages} data-action-button data-variant="secondary" className="!px-3 !py-1.5 !text-sm disabled:opacity-30">{t("imageBedPage.pagination.next")}</button>
+					<ActionButton type="submit" variant="secondary" onClick={() => fetchImages(page + 1)} disabled={page >= totalPages} className="!px-3 !py-1.5 !text-sm disabled:opacity-30">{t("imageBedPage.pagination.next")}</ActionButton>
 				</div>
 			)}
 

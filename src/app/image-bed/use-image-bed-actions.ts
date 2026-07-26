@@ -102,7 +102,7 @@ export function useImageBedActions({
 			if (nodes.length === 0) showToast(t("imageBed.toast.noPublishNodes"));
 			else setStorageNodes(nodes);
 		} catch (err) {
-			showToast(err instanceof Error ? err.message : t("imageBed.toast.fetchNodesFailed"));
+			showToast(getErrorMessage(err, t("imageBed.toast.fetchNodesFailed")));
 		}
 	}, [showToast, t]);
 
@@ -347,7 +347,7 @@ export function useImageBedActions({
 			setPublishForm(EMPTY_PUBLISH_FORM);
 			void fetchImages(1);
 		} catch (err) {
-			showToast(err instanceof Error ? err.message : t("imageBed.toast.publishError"));
+			showToast(getErrorMessage(err, t("imageBed.toast.publishError")));
 		} finally {
 			publishingRef.current = false;
 			setPublishing(false);

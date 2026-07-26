@@ -13,6 +13,7 @@ import { prisma } from "@/lib/db";
 import { createFileEntry } from "@/lib/storage/service";
 
 import { AuthError, NotFoundError, ValidationError } from "@/lib/errors";
+import { getErrorMessage } from "@/lib/http/error-message";
 const execFileAsync = promisify(execFile);
 
 export const dynamic = "force-dynamic";
@@ -254,7 +255,7 @@ export async function POST(request: NextRequest) {
           message: `Extracted ${name} to the current directory, please refresh the file list to view`,
         });
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Extraction failed";
+        const message = getErrorMessage(err, "Extraction failed");
         return NextResponse.json(
           { error: `Extraction failed: ${message}` },
           { status: 500 },

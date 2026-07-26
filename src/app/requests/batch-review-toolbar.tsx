@@ -32,6 +32,7 @@ import {
 	batchReviewCommandAction,
 	type BatchReviewActionState,
 } from "./actions";
+import { ActionButton } from "@/components/action-button";
 
 type BatchReviewToolbarProps = {
 	pendingIds: string[];
@@ -176,28 +177,26 @@ export function BatchReviewToolbar({
 						placeholder={t("requestsPage.batch.commentPlaceholder")}
 						className={cn(UI_INPUT, "flex-1")}
 					/>
-					<button
+					<ActionButton variant="success"
 						type="submit"
 						name="decision"
 						value="approve"
 						disabled={isPending}
-						data-action-button
-						data-variant="success"
+					
 						className="px-4 py-2 text-sm"
 					>
 						{isPending ? t("requestsPage.batch.pending") : t("requestsPage.batch.approve").replace("{count}", String(selected.size))}
-					</button>
-					<button
+					</ActionButton>
+					<ActionButton variant="danger"
 						type="submit"
 						name="decision"
 						value="reject"
 						disabled={isPending}
-						data-action-button
-						data-variant="danger"
+					
 						className="px-4 py-2 text-sm"
 					>
 						{isPending ? t("requestsPage.batch.pending") : t("requestsPage.batch.reject").replace("{count}", String(selected.size))}
-					</button>
+					</ActionButton>
 				</form>
 			)}
 		</div>

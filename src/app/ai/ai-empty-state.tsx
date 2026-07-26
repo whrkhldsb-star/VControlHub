@@ -8,6 +8,7 @@
  *   - providers exist         → CTA creates a new conversation.
  */
 import { useI18n } from "@/lib/i18n/use-locale";
+import { ActionButton } from "@/components/action-button";
 
 type Props = {
   hasProviders: boolean;
@@ -48,26 +49,22 @@ export function AiEmptyState({
             <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">
               {t("aiPage.emptyNoProviderHint")}
             </p>
-            <button
-              type="button"
+            <ActionButton variant="primary"
               onClick={onOpenProviders}
-              data-primary
-              data-action-button data-variant="primary" className="mt-5 h-9 px-4 text-sm"
+              data-primary className="mt-5 h-9 px-4 text-sm"
             >
               {t("aiPage.configProviders")}
-            </button>
+            </ActionButton>
           </>
         ) : (
           <>
             <p className="mb-3 text-sm font-semibold text-[var(--text-primary)]">{t("aiPage.emptySelectConv")}</p>
-            <button
-              type="button"
+            <ActionButton variant="primary"
               onClick={onNewConv}
-              data-primary
-              data-action-button data-variant="primary" className="h-9 px-4 text-sm"
+              data-primary className="h-9 px-4 text-sm"
             >
               {t("aiPage.newConversation")}
-            </button>
+            </ActionButton>
           </>
         )}
       </div>

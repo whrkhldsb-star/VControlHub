@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { PageShell, PageHeader, Toolbar } from "@/components/page-shell";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 type OpenApiOperation = {
 	tags?: string[];
@@ -67,7 +68,7 @@ export default function ApiDocsPage() {
 				if (!cancelled) setSpec(data);
 			})
 			.catch((err: unknown) => {
-				if (!cancelled) setError(err instanceof Error ? err.message : t("apiDocsPage.loadFailed"));
+				if (!cancelled) setError(getErrorMessage(err, t("apiDocsPage.loadFailed")));
 			});
 		return () => {
 			cancelled = true;

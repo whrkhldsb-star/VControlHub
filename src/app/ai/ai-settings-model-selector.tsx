@@ -9,6 +9,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 
 import type { ModelInfo } from "./ai-types";
 import type { SettingsFormState } from "./ai-settings-types";
+import { ActionButton } from "@/components/action-button";
 
 type Props = {
   settingsForm: SettingsFormState;
@@ -191,8 +192,7 @@ export function AiSettingsModelSelector({
                   placeholder={settingsForm.model || t("aiPage.manualModelIdPlaceholder")}
                   className="flex-1 bg-[var(--input-bg)] border border-[var(--border-subtle)] rounded-lg px-2 py-1 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none"
                 />
-                <button
-                  type="button"
+                <ActionButton variant="ghost"
                   onClick={() => {
                     if (modelSearch.trim()) {
                       setSettingsForm((f) => ({
@@ -204,11 +204,10 @@ export function AiSettingsModelSelector({
                     }
                   }}
                   className="px-2 py-1 text-[10px]"
-                  data-action-button
-                  data-variant="ghost"
+                 
                 >
                   {t("aiPage.apply")}
-                </button>
+                </ActionButton>
               </div>
             </div>
           </div>

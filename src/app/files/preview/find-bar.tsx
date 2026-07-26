@@ -11,6 +11,7 @@
 import { useI18n } from "@/lib/i18n/use-locale";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
+import { ActionButton } from "@/components/action-button";
 
 export interface FindBarProps {
 	searchQuery: string;
@@ -65,12 +66,10 @@ export function FindBar({
 						className={cn(UI_INPUT, "w-24 px-2 py-1 text-xs text-[var(--text-secondary)]")}
 					/>
 				</div>
-				<button
-					type="button"
-					onClick={onJumpToLine}
-				 data-action-button data-variant="secondary" className="!px-2 !py-1 !text-xs">
+				<ActionButton variant="secondary"
+					onClick={onJumpToLine} className="!px-2 !py-1 !text-xs">
 					{t("textPreview.find.jumpButton")}
-				</button>
+				</ActionButton>
 			</div>
 		</>
 	);

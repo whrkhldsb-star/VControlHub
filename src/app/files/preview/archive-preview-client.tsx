@@ -3,6 +3,8 @@
 import { useState, useTransition } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { getErrorMessage } from "@/lib/http/error-message";
+import { ActionButton } from "@/components/action-button";
 
 type ArchiveEntry = {
 	name: string;
@@ -42,7 +44,7 @@ export function ArchivePreviewClient({
 			const data = await csrfFetch(`/api/files/archive-list?${params.toString()}`);
 			setEntries(data.entries ?? []);
 		} catch (err) {
-			setError(err instanceof Error ? err.message : t("archivePreview.unknownError"));
+			setError(getErrorMessage(err, t("archivePreview.unknownError")));
 		} finally {
 			setLoading(false);
 		}
@@ -62,7 +64,7 @@ export function ArchivePreviewClient({
 			} catch (err) {
 				setExtractResult({
 					tone: "error",
-					text: err instanceof Error ? err.message : t("archivePreview.extractFailed"),
+					text: getErrorMessage(err, t("archivePreview.extractFailed")),
 				});
 			}
 		});
@@ -80,21 +82,17 @@ export function ArchivePreviewClient({
 	return (
 		<div className="space-y-4">
 			<div className="flex flex-wrap items-center gap-3">
-				<button
-					type="button"
+				<ActionButton variant="outline"
 					onClick={loadArchiveContents}
-					disabled={loading}
-				 data-action-button data-variant="outline" className="!px-4 !py-2 !text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+					disabled={loading} className="!px-4 !py-2 !text-sm disabled:opacity-50 disabled:cursor-not-allowed">
 					{loading ? t("archivePreview.loading") : entries ? t("archivePreview.refreshList") : t("archivePreview.title")}
-				</button>
+				</ActionButton>
 				{entries && entries.length > 0 && driver ==="LOCAL" ? (
-					<button
-						type="button"
+					<ActionButton variant="success"
 						onClick={handleExtract}
-						disabled={extracting}
-					 data-action-button data-variant="success" className="!px-4 !py-2 !text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+						disabled={extracting} className="!px-4 !py-2 !text-sm disabled:opacity-50 disabled:cursor-not-allowed">
 						{extracting ? t("archivePreview.extracting") : t("archivePreview.extract")}
-					</button>
+					</ActionButton>
 				) : null}
 			</div>
 

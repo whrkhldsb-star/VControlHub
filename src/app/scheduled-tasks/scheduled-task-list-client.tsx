@@ -7,6 +7,8 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { toDateLocale } from "@/lib/i18n/locale-format";
 import type { Locale } from "@/lib/i18n/translations";
+import { getErrorMessage } from "@/lib/http/error-message";
+import { ActionButton } from "@/components/action-button";
 
 type Task = {
 	id: string; name: string; cronExpression: string; cronDescription: string;
@@ -83,7 +85,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 			const data = await csrfFetch("/api/scheduled-tasks");
 			setTasks(data.tasks ?? []);
 		} catch (err) {
-			setActionError(err instanceof Error ? err.message : t("scheduledTasks.refreshFailed"));
+			setActionError(getErrorMessage(err, t("scheduledTasks.refreshFailed")));
 		}
 	}, [t]);
 
@@ -99,7 +101,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 			});
 			void refresh();
 		} catch (err) {
-			setActionError(err instanceof Error ? err.message : t("scheduledTasks.toggleFailed"));
+			setActionError(getErrorMessage(err, t("scheduledTasks.toggleFailed")));
 		}
 	}, [refresh, t]);
 
@@ -113,7 +115,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 			});
 			void refresh();
 		} catch (err) {
-			setActionError(err instanceof Error ? err.message : t("scheduledTasks.retryFailed"));
+			setActionError(getErrorMessage(err, t("scheduledTasks.retryFailed")));
 		}
 	}, [refresh, t]);
 
@@ -124,7 +126,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 			await csrfFetch(`/api/scheduled-tasks?id=${encodeURIComponent(task.id)}`, { method: "DELETE" });
 			void refresh();
 		} catch (err) {
-			setActionError(err instanceof Error ? err.message : t("scheduledTasks.deleteFailed"));
+			setActionError(getErrorMessage(err, t("scheduledTasks.deleteFailed")));
 		}
 	}, [refresh, t]);
 
@@ -144,14 +146,12 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 					/>
 				</div>
 				{canCreate && !showCreate && (
-					<button
-						type="button"
+					<ActionButton variant="primary"
 						onClick={() => setShowCreate(true)}
-						data-primary
-						data-action-button data-variant="primary" className="min-h-11 px-5 py-2.5 text-sm"
+						data-primary className="min-h-11 px-5 py-2.5 text-sm"
 					>
 						{t("scheduledTasksPage.create")}
-						</button>
+						</ActionButton>
 				)}
 			</Toolbar>
 
@@ -202,34 +202,31 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 								</div>
 								<div className="flex flex-col gap-2 shrink-0">
 									{canManage && (
-										<button
+										<ActionButton type="submit" variant="outline"
 											onClick={() => retryTask(task.id)}
-											data-action-button
-											data-variant="outline"
+										
 											className="!min-h-11 !rounded-2xl !px-4 !py-2 !text-xs"
 										>
 											{t("scheduledTasksPage.retry")}
-										</button>
+										</ActionButton>
 									)}
 									{canManage && (
-										<button
+										<ActionButton type="submit" variant={task.status === "ACTIVE" ? "outline" : "success"}
 											onClick={() => toggleTask(task.id)}
-											data-action-button
-											data-variant={task.status === "ACTIVE" ? "outline" : "success"}
+										
 											className="!min-h-11 !rounded-2xl !px-4 !py-2 !text-xs"
 										>
 											{task.status === "ACTIVE" ? t("scheduledTasks.pause") : t("scheduledTasks.resume")}
-										</button>
+										</ActionButton>
 									)}
 									{canManage && (
-										<button
+										<ActionButton type="submit" variant="danger"
 											onClick={() => setTaskPendingDelete(task)}
-											data-action-button
-											data-variant="danger"
+										
 											className="!min-h-11 !rounded-2xl !px-4 !py-2 !text-xs"
 										>
 											{t("scheduledTasksPage.delete")}
-										</button>
+										</ActionButton>
 									)}
 								</div>
 							</div>
@@ -285,7 +282,7 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 			});
 			onClose();
 		} catch (err) {
-			setError(err instanceof Error ? err.message : t("scheduledTasks.createFailed"));
+			setError(getErrorMessage(err, t("scheduledTasks.createFailed")));
 		} finally {
 			setSubmitting(false);
 		}
@@ -358,12 +355,12 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 			)}
 
 			<div className="flex gap-3 pt-2">
-				<button type="submit" disabled={submitting} data-action-button data-variant="primary" className="min-h-11 px-5 py-2.5 text-sm">
+				<ActionButton variant="primary" type="submit" disabled={submitting} className="min-h-11 px-5 py-2.5 text-sm">
 					{submitting ? t("scheduledTasks.submit.creating") : t("scheduledTasks.submit.create")}
-				</button>
-				<button type="button" onClick={onClose} data-action-button data-variant="secondary" className="min-h-11">
+				</ActionButton>
+				<ActionButton variant="secondary" onClick={onClose} className="min-h-11">
 					{t("scheduledTasksPage.cancel")}
-				</button>
+				</ActionButton>
 			</div>
 		</form>
 	);

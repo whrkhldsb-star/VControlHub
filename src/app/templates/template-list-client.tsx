@@ -13,6 +13,7 @@ import type { Locale } from "@/lib/i18n/translations";
 import { CreateTemplateForm } from "./create-template-form";
 import { DeployButton } from "./template-deploy-button";
 import type { ServerOption, Template } from "./template-types";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 type Props = {
 	templates: Template[];
@@ -63,7 +64,7 @@ export function TemplateListClient({
 			} catch (err) {
 				addToast(
 					"error",
-					err instanceof Error ? err.message : t("templatesPage.toast.deleteFailed"),
+					getErrorMessage(err, t("templatesPage.toast.deleteFailed")),
 				);
 			}
 		},
@@ -96,7 +97,7 @@ export function TemplateListClient({
 			} catch (err) {
 				addToast(
 					"error",
-					err instanceof Error ? err.message : t("templatesPage.toast.submitFailed"),
+					getErrorMessage(err, t("templatesPage.toast.submitFailed")),
 				);
 			}
 			setDeploying(null);
@@ -285,13 +286,11 @@ export function TemplateListClient({
 									/>
 								)}
 								{canCreate && !tmpl.isBuiltin && (
-									<button
-										type="button"
-										onClick={() => setTemplatePendingDelete(tmpl)}
-										data-action-button data-variant="ghost" className="!min-h-11 !min-w-11 !text-[11px] text-[var(--danger)]"
+									<ActionButton variant="ghost"
+										onClick={() => setTemplatePendingDelete(tmpl)} className="!min-h-11 !min-w-11 !text-[11px] text-[var(--danger)]"
 									>
 										{t("templatesPage.delete.action")}
-									</button>
+									</ActionButton>
 								)}
 							</div>
 						</article>

@@ -26,6 +26,7 @@ import { ForbiddenError } from "@/lib/errors";
 import { getClientIp } from "@/lib/rate-limit";
 import { rateLimitResponse, withRateLimit, type RateLimitConfig } from "@/lib/http/rate-limit-presets";
 import { getServerLocale, t } from "@/lib/i18n/translations";
+import { getErrorMessage } from "@/lib/http/error-message";
 export const dynamic = "force-dynamic";
 // guardMode: public
 
@@ -90,7 +91,7 @@ export async function GET(
 		}
 		share = await resolveShareToken(token, password, { ip: clientIp ?? undefined, userAgent: request.headers.get("user-agent") ?? undefined });
 	} catch (err) {
-		const message = err instanceof Error ? err.message : t("apiShareToken.invalidToken", locale);
+		const message = getErrorMessage(err, t("apiShareToken.invalidToken", locale));
 		return apiError({ code: err instanceof ForbiddenError ? "FORBIDDEN" : "NOT_FOUND", message, status: err instanceof ForbiddenError ? 403 : 404 });
 	}
 
@@ -168,7 +169,7 @@ export async function GET(
 		try {
 			credentials = resolveStorageSshCredentials(node);
 		} catch (err) {
-			return denyAfterClaim(apiError({ code: "VALIDATION_FAILED", message: err instanceof Error ? err.message : t("apiShareToken.missingRemoteCredentials", locale), status: 400 }));
+			return denyAfterClaim(apiError({ code: "VALIDATION_FAILED", message: getErrorMessage(err, t("apiShareToken.missingRemoteCredentials", locale)), status: 400 }));
 		}
 		let client: Client | null = null;
 		try {

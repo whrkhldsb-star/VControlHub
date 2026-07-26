@@ -5,6 +5,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
 import { AiSettingsModelSelector } from "./ai-settings-model-selector";
+import { ActionButton } from "@/components/action-button";
 
 export function AiSettingsPanel({
   show,
@@ -238,14 +239,13 @@ export function AiSettingsPanel({
 
         {/* Save button */}
         <div className="flex items-end gap-2">
-          <button
+          <ActionButton type="submit" variant="ghost"
             onClick={onSaveSettings}
-            data-action-button
-            data-variant="ghost"
+           
             className="h-7 px-3 text-xs"
           >
             {t("aiPage.saveSettings")}
-          </button>
+          </ActionButton>
         </div>
       </div>
 

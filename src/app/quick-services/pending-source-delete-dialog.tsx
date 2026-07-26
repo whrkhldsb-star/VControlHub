@@ -2,6 +2,7 @@
 
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
+import { ActionButton } from "@/components/action-button";
 
 /**
  * `pendingSourceDelete` confirmation modal — extracted from
@@ -42,20 +43,16 @@ export function PendingSourceDeleteDialog({
 					{t("qsPage.deleteSourceBody").replace("{name}", pending.displayName)}
 				</p>
 				<div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-					<button
-						type="button"
-						onClick={onCancel}
-						data-action-button data-variant="secondary" className="min-h-11 !text-xs"
+					<ActionButton variant="secondary"
+						onClick={onCancel} className="min-h-11 !text-xs"
 					>
 						{t("qsPage.cancel")}
-					</button>
-					<button
-						type="button"
-						onClick={onConfirm}
-						data-action-button data-variant="danger" className="min-h-11 !text-xs"
+					</ActionButton>
+					<ActionButton variant="danger"
+						onClick={onConfirm} className="min-h-11 !text-xs"
 					>
 						{t("qsPage.confirmDelete")}
-					</button>
+					</ActionButton>
 				</div>
 			</div>
 		</div>
