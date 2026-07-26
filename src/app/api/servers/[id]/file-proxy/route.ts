@@ -31,6 +31,7 @@ import { createVerifiedSshConfig } from "@/lib/ssh/client";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
 import { auditUserAction } from "@/lib/audit/service";
+import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 
 export const dynamic = "force-dynamic";
 const FILE_PROXY_TTL_MS = 2 * 60 * 60 * 1000;
@@ -230,6 +231,7 @@ export async function POST(
       const { id } = await params;
       const teamAccessPost = await assertServerTeamAccess(session, id);
       if (!teamAccessPost.ok) return teamAccessPost.response;
+      let releaseStartLock: (() => Promise<void>) | null = null;
       try {
         const server = await prisma.server.findUnique({
           where: { id },
@@ -254,6 +256,8 @@ export async function POST(
             { status: 400 },
           );
         }
+
+        releaseStartLock = await acquireAdvisoryLock("server-file-proxy-start", id);
 
         // 检查是否已有代理在运行
         const existing = await prisma.serverFileProxy.findUnique({

@@ -107,6 +107,7 @@ export async function POST(
 					serverId,
 					backupType: body.backupType,
 					createdBy: session.userId,
+					...(body.paths?.length ? { paths: body.paths } : {}),
 				});
 
 				try {

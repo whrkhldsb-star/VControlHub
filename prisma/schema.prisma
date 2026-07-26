@@ -1109,6 +1109,8 @@ model VpsBackupRecord {
   scheduleId        String?
   serverId          String
   backupType        String
+  // Persist ad-hoc custom backup paths so retries/manual re-runs do not lose intent.
+  paths             String[]  @default([])
   // PENDING | RUNNING | COMPLETED | FAILED — plain string convention
   status            String    @default("PENDING")
   // Path on remote VPS where the backup archive was created (before SFTP download)

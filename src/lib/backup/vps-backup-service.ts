@@ -160,6 +160,7 @@ export async function runVpsBackupRecord(
 	// Prefer explicit job/manual paths; fall back to schedule paths for cron runs.
 	const customPaths =
 		(options?.paths && options.paths.length > 0 ? options.paths : null) ??
+		(record.paths && record.paths.length > 0 ? record.paths : null) ??
 		record.schedule?.paths ??
 		[];
 
@@ -398,11 +399,13 @@ export async function createVpsBackupRecord(input: {
 	backupType: string;
 	scheduleId?: string;
 	createdBy?: string | null;
+	paths?: string[];
 }): Promise<{ id: string }> {
 	const record = await prisma.vpsBackupRecord.create({
 		data: {
 			serverId: input.serverId,
 			backupType: input.backupType,
+			paths: input.paths ?? [],
 			scheduleId: input.scheduleId ?? null,
 			createdBy: input.createdBy ?? null,
 			status: "PENDING",
@@ -427,6 +430,7 @@ export async function listVpsBackupRecords(
 			fileSize: true,
 			checksumSha256: true,
 			localPath: true,
+			paths: true,
 			errorMessage: true,
 			createdAt: true,
 			completedAt: true,

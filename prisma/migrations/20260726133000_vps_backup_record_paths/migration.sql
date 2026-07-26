@@ -1,0 +1,1 @@
+ALTER TABLE "vps_backup_records" ADD COLUMN IF NOT EXISTS "paths" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];
