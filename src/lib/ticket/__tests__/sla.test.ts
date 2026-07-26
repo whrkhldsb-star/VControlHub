@@ -112,7 +112,19 @@ describe("ticket SLA service", () => {
 	});
 
 	describe("escalateBreachedTickets", () => {
-		it("keeps an empty sweep out of production info logs", async () => {
+	it("scopes manual sweeps to the current team when requested", async () => {
+		prismaMocks.findMany.mockResolvedValue([]);
+
+		await expect(escalateBreachedTickets({ teamId: "team-1" })).resolves.toBe(0);
+
+		expect(prismaMocks.findMany).toHaveBeenCalledWith(
+			expect.objectContaining({
+				where: expect.objectContaining({ teamId: "team-1" }),
+			}),
+		);
+	});
+
+	it("keeps an empty sweep out of production info logs", async () => {
 			prismaMocks.findMany.mockResolvedValue([]);
 
 			await expect(escalateBreachedTickets()).resolves.toBe(0);

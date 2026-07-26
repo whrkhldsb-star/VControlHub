@@ -24,6 +24,8 @@ export async function createSnippet(input: { title: string; content: string; lan
   return prisma.snippet.create({ data: { title: input.title.trim(), content: input.content, language: input.language?.trim() || "text", description: input.description?.trim() || null, tags: tags(input.tags), isPrivate: input.isPrivate ?? false, createdBy: input.createdBy ?? null } });
 }
 
+const SNIPPET_LIST_PREVIEW_CHARS = 240;
+
 export async function listSnippets(input: { userId?: string; q?: string; language?: string } = {}) {
   const q = input.q?.trim();
   // Empty Prisma `{}` matches every row — never use it as the private-owner branch.
@@ -31,7 +33,7 @@ export async function listSnippets(input: { userId?: string; q?: string; languag
   const privacyFilter = input.userId
     ? { OR: [{ isPrivate: false }, { createdBy: input.userId }] }
     : { isPrivate: false };
-  return prisma.snippet.findMany({
+  const rows = await prisma.snippet.findMany({
     take: 500,
     where: {
       AND: [
@@ -62,6 +64,30 @@ export async function listSnippets(input: { userId?: string; q?: string; languag
       updatedAt: true,
     },
   });
+  // List payload keeps a short preview only — full body is fetched on demand.
+  return rows.map(({ content, ...rest }) => ({
+    ...rest,
+    contentPreview:
+      content.length > SNIPPET_LIST_PREVIEW_CHARS
+        ? `${content.slice(0, SNIPPET_LIST_PREVIEW_CHARS)}…`
+        : content,
+    contentLength: content.length,
+  }));
+}
+
+export async function getSnippet(
+  id: string,
+  actor?: { userId?: string | null; canManageAll?: boolean },
+) {
+  const existing = await prisma.snippet.findUnique({ where: { id } });
+  if (!existing) throw new NotFoundError(t("backend.snippet.snippetNotFound"));
+  if (existing.isPrivate) {
+    const canRead =
+      actor?.canManageAll ||
+      (Boolean(actor?.userId) && existing.createdBy === actor?.userId);
+    if (!canRead) throw new ForbiddenError(t("backend.snippet.noPermissionToModifyOthersSnippets"));
+  }
+  return existing;
 }
 
 export async function updateSnippet(

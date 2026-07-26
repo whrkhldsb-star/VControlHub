@@ -21,7 +21,7 @@ export const dynamic = "force-dynamic";
 
 async function handleGet(request: Request, session: SessionPayload) {
   const _url = new URL(request.url);
-  const { nodeId, path: remotePath } = parseSearchParams(
+  const { nodeId, path: remotePath, limit } = parseSearchParams(
     request,
     sftpListQuerySchema,
   );
@@ -67,12 +67,16 @@ async function handleGet(request: Request, session: SessionPayload) {
       password: connectionCredentials.password,
       hostKeySha256: connectionCredentials.hostKeySha256,
       remotePath: normalizedRemotePath,
+      maxEntries: limit + 1,
     });
+    const truncated = entries.length > limit;
     return NextResponse.json({
       nodeId: node.id,
       nodeName: node.name,
       remotePath: remotePath.startsWith("/") ? remotePath : `/${remotePath}`,
-      entries,
+      entries: truncated ? entries.slice(0, limit) : entries,
+      truncated,
+      limit,
     });
   } catch (error) {
     logger.error("list remote directory failed", error);

@@ -52,7 +52,7 @@ function isUniqueViolation(error: unknown): boolean {
 }
 
 async function upsertRemoteEntry(nodeId: string, entry: SftpListEntry, relativePath: string) {
-  const entryType = entry.type === "directory" ? "DIRECTORY" : "FILE";
+  const entryType: "DIRECTORY" | "FILE" = entry.type === "directory" ? "DIRECTORY" : "FILE";
   const mimeType = entryType === "FILE" ? guessMimeType(entry.name) : "inode/directory";
   const size = entryType === "FILE" ? BigInt(entry.size) : null;
   const data = { name: entry.name, entryType, mimeType, size, isDeleted: false as const };

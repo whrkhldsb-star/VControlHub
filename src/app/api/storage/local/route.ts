@@ -88,6 +88,9 @@ async function handleGet(request: Request, session: SessionPayload) {
   if (!relativePath) {
     throw new ValidationError("Missing path parameter");
   }
+  if (!storageNodeId) {
+    throw new ValidationError("Missing nodeId parameter");
+  }
 
   const normalizedDownloadPath = normalizeStorageRelativePath(relativePath);
   if (!normalizedDownloadPath.ok) {
@@ -100,15 +103,12 @@ async function handleGet(request: Request, session: SessionPayload) {
   const entryWhere: Record<string, unknown> = {
     relativePath: normalizedDownloadPath.path,
     isDeleted: false,
+    storageNodeId,
     storageNode: {
       driver: "LOCAL",
       ...teamWhere(session),
     },
   };
-  // If nodeId specified, scope to that specific node to avoid cross-node path collisions
-  if (storageNodeId) {
-    entryWhere.storageNodeId = storageNodeId;
-  }
 
   const entry = await prisma.fileEntry.findFirst({
     where: entryWhere,

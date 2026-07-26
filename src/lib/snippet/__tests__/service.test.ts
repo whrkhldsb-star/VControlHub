@@ -103,7 +103,7 @@ describe("snippet service", () => {
       state.snippet = { id: "snippet-1", createdBy: "user-1" };
       await expect(
         updateSnippet("snippet-1", { title: "new" }, { userId: "user-2" }),
-      ).rejects.toThrow(/No permission to modify/);
+      ).rejects.toThrow(/No permission to modify|无权修改/);
     });
 
     it("allows when actor is owner", async () => {
@@ -138,7 +138,7 @@ describe("snippet service", () => {
       state.snippet = { id: "snippet-1", createdBy: "user-1" };
       await expect(
         deleteSnippet("snippet-1", { userId: "user-2" }),
-      ).rejects.toThrow(/No permission to delete/);
+      ).rejects.toThrow(/No permission to delete|无权删除/);
     });
 
     it("deletes when actor is owner", async () => {

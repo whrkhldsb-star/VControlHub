@@ -340,7 +340,7 @@ describe("useChunkedMediaUpload", () => {
 
 		const err = await uploadPromise;
 		expect(err).toBeInstanceOf(Error);
-		expect((err as Error).message).toBe("cancelled");
+		expect((err as unknown as Error).message).toBe("cancelled");
 		expect(result.current.status).toBe("error");
 		expect(result.current.error).toBe("cancelled");
 		expect(result.current.progress?.percent).toBe(100);

@@ -93,6 +93,7 @@ export const storageFileQuerySchema = z.object({
 export const sftpListQuerySchema = z.object({
   nodeId: z.string().trim().min(1).optional(),
   path: z.string().trim().min(1).default("/"),
+  limit: z.coerce.number().int().min(1).max(5000).optional().default(2000),
 });
 
 // Content download query schema. Shared by sftp-download and local

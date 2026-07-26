@@ -45,6 +45,7 @@ export async function POST(request: Request) {
           filename: body.filename,
           mimeType: body.mimeType,
           totalSize: body.totalSize,
+          session,
           ...(body.chunkSize !== undefined ? { chunkSize: body.chunkSize } : {}),
           ...(body.storageNodeId ? { storageNodeId: body.storageNodeId } : {}),
           ...(body.relativePath ? { relativePath: body.relativePath } : {}),

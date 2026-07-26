@@ -22,7 +22,19 @@ import { collectMonitoringStats } from "@/lib/monitoring/collector";
 
 const MAX_SSE_CONNECTIONS_PER_USER = 3;
 const MAX_SSE_CONNECTION_AGE_MS = 30 * 60_000;
+const MIN_COLLECT_INTERVAL_MS = 5_000;
 const activeConnectionsByUser = new Map<string, number>();
+let cachedStats: ReturnType<typeof collectMonitoringStats> | null = null;
+let cachedStatsAt = 0;
+
+function getSharedMonitoringStats() {
+  const now = Date.now();
+  if (!cachedStats || now - cachedStatsAt >= MIN_COLLECT_INTERVAL_MS) {
+    cachedStats = collectMonitoringStats();
+    cachedStatsAt = now;
+  }
+  return cachedStats;
+}
 
 // ---- SSE Route ----
 
@@ -74,10 +86,10 @@ export async function GET(request: Request) {
           }
 
           // Send initial snapshot immediately.
-          sendEvent("stats", collectMonitoringStats());
+          sendEvent("stats", getSharedMonitoringStats());
 
 				timer = setInterval(() => {
-            sendEvent("stats", collectMonitoringStats());
+            sendEvent("stats", getSharedMonitoringStats());
           }, intervalSeconds * 1000);
 
           // Keep-alive comment every 15s to prevent idle proxy close.

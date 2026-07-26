@@ -13,18 +13,22 @@ import { EmptyState, Toolbar, ListPanel } from "@/components/page-shell";
 interface Snippet {
   id: string;
   title: string;
-  content: string;
+  content?: string;
+  contentPreview?: string;
+  contentLength?: number;
   language: string;
   description: string | null;
   tags: string[];
   isPrivate: boolean;
 }
 
+type FullSnippet = Snippet & { content: string };
+
 type SnippetCardProps = {
   snippet: Snippet;
   t: (k: string) => string;
   copied: boolean;
-  onCopy: (content: string, id: string) => void;
+  onCopy: (snippet: Snippet) => void;
   onEdit: (snippet: Snippet) => void;
   onDelete: (snippet: Snippet) => void;
 };
@@ -46,7 +50,7 @@ const SnippetCard = memo(function SnippetCard({ snippet: s, t, copied, onCopy, o
           )}
         </div>
         <div className="flex items-center gap-1 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
-          <button onClick={() => onCopy(s.content, s.id)} title={t("snippetsPage.action.copy")} aria-label={t("snippetsPage.action.copy")} data-action-button data-variant="ghost" className="!min-h-11 !min-w-11 !rounded-lg !p-1.5">
+          <button onClick={() => onCopy(s)} title={t("snippetsPage.action.copy")} aria-label={t("snippetsPage.action.copy")} data-action-button data-variant="ghost" className="!min-h-11 !min-w-11 !rounded-lg !p-1.5">
             {copied ? <Check size={14} /> : <Copy size={14} />}
           </button>
           <button onClick={() => onEdit(s)} title={t("snippetsPage.action.edit")} aria-label={t("snippetsPage.action.edit")} data-action-button data-variant="ghost" className="!min-h-11 !min-w-11 !rounded-lg !p-1.5">
@@ -58,7 +62,7 @@ const SnippetCard = memo(function SnippetCard({ snippet: s, t, copied, onCopy, o
         </div>
       </div>
       {s.description && <p className="mt-1 text-xs text-[var(--text-muted)]">{s.description}</p>}
-      <pre className="mt-3 max-h-48 overflow-auto rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-3 font-mono text-xs text-[var(--text-secondary)]">{s.content}</pre>
+      <pre className="mt-3 max-h-48 overflow-auto rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-3 font-mono text-xs text-[var(--text-secondary)]">{s.content ?? s.contentPreview ?? ""}</pre>
     </div>
   );
 }, (prev, next) => prev.snippet === next.snippet && prev.t === next.t && prev.copied === next.copied && prev.onCopy === next.onCopy && prev.onEdit === next.onEdit && prev.onDelete === next.onDelete);
@@ -68,7 +72,7 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
 
   const { addToast } = useToast();
   const [items, setItems] = useState(initial);
-  const [editing, setEditing] = useState<Snippet | null>(null);
+  const [editing, setEditing] = useState<FullSnippet | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Snippet | null>(null);
   const dialogRef = useDialogFocus<HTMLDivElement>({ open: pendingDelete !== null, onClose: () => setPendingDelete(null) });
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -87,7 +91,8 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
     const q = search.toLowerCase();
     return items.filter((s) => {
       if (langFilter !=="ALL" && s.language !== langFilter) return false;
-      if (q && !s.title.toLowerCase().includes(q) && !s.content.toLowerCase().includes(q) && !s.description?.toLowerCase().includes(q) && !s.tags.some((t) => t.toLowerCase().includes(q))) return false;
+      const searchableContent = (s.content ?? s.contentPreview ?? "").toLowerCase();
+      if (q && !s.title.toLowerCase().includes(q) && !searchableContent.includes(q) && !s.description?.toLowerCase().includes(q) && !s.tags.some((t) => t.toLowerCase().includes(q))) return false;
       return true;
     });
   }, [items, search, langFilter]);
@@ -108,18 +113,36 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
     }
   };
 
-  const handleCopy = useCallback(async (content: string, id: string) => {
+  const fetchFullSnippet = useCallback(async (snippet: Snippet): Promise<FullSnippet> => {
+    if (snippet.content !== undefined) return snippet as FullSnippet;
+    const data = await csrfFetch<{ snippet: FullSnippet }>(`/api/snippets?id=${encodeURIComponent(snippet.id)}`);
+    setItems((prev) => prev.map((s) => (s.id === snippet.id ? { ...s, ...data.snippet } : s)));
+    return { ...snippet, ...data.snippet };
+  }, []);
+
+  const handleCopy = useCallback(async (snippet: Snippet) => {
     try {
-      await navigator.clipboard.writeText(content);
-      setCopiedId(id);
+      const full = await fetchFullSnippet(snippet);
+      await navigator.clipboard.writeText(full.content ?? "");
+      setCopiedId(full.id);
       setTimeout(() => setCopiedId(null), 2000);
     } catch {
       // Clipboard write failed (permissions, non-secure context) — notify the user.
       addToast("error", t("snippetsPage.toast.copyFailed"));
     }
-  }, [t, addToast]);
+  }, [fetchFullSnippet, t, addToast]);
 
-  const handleEdit = useCallback((snippet: Snippet) => setEditing(snippet), []);
+  const handleEdit = useCallback((snippet: Snippet) => {
+    void fetchFullSnippet(snippet)
+      .then((full) => {
+        if (!full.content) {
+          addToast("error", t("snippetsPage.toast.loadFailed"));
+          return;
+        }
+        setEditing(full);
+      })
+      .catch(() => addToast("error", t("snippetsPage.toast.loadFailed")));
+  }, [fetchFullSnippet, addToast, t]);
   const handleDeleteClick = useCallback((snippet: Snippet) => { setPendingDelete(snippet); setDeleteError(null); }, []);
 
   const handleSaved = (updated: Snippet) => {

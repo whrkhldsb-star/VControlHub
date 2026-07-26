@@ -27,9 +27,7 @@ describe("getAllUptimeDataInternal team scope", () => {
     await getAllUptimeDataInternal({
       session: {
         userId: "u1",
-        username: "op",
         roles: ["operator"],
-        mustChangePassword: false,
         currentTeamId: "team_a",
       },
     });

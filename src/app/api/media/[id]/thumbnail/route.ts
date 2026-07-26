@@ -33,6 +33,7 @@ const BREAKER_FAILURE_THRESHOLD = 1;
 const BREAKER_COOLDOWN_MS = 120_000;
 type BreakerState = { failures: number; openedAt: number };
 const nodeBreaker = new Map<string, BreakerState>();
+const thumbnailGenerationInFlight = new Map<string, Promise<Buffer | NextResponse>>();
 
 function isBreakerOpen(nodeId: string): boolean {
 	const state = nodeBreaker.get(nodeId);
@@ -125,6 +126,16 @@ async function generateThumbnailFromBuffer(buffer: Buffer): Promise<Buffer> {
 		})
 		.jpeg({ quality: 78, progressive: true, mozjpeg: false })
 		.toBuffer();
+}
+
+function runSingleFlight<T>(map: Map<string, Promise<T>>, key: string, task: () => Promise<T>): Promise<T> {
+	const existing = map.get(key);
+	if (existing) return existing;
+	const promise = task().finally(() => {
+		map.delete(key);
+	});
+	map.set(key, promise);
+	return promise;
 }
 
 function resolveManagedLocalPath(basePath: string, relativePath: string) {
@@ -242,7 +253,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 	// /thumbnail of a non-image (defense-in-depth — we already guarded by mime).
 	const MAX_SOURCE_BYTES = 32 * 1024 * 1024;
 
-	let sourceBuffer: Buffer;
+	let sourceBuffer!: Buffer;
+	const generate = async () => {
 	try {
 		if (node.driver === "LOCAL") {
 			const absolutePath = resolveManagedLocalPath(node.basePath, item.relativePath);
@@ -316,7 +328,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 		thumbnail = await generateThumbnailFromBuffer(sourceBuffer);
 	} catch (error) {
 		logger.error("media thumbnail generate failed", error, { id });
-		return apiError({ code: "INTERNAL_ERROR", message: "Failed to generate thumbnail", status: 500 });
+		throw new Error("THUMBNAIL_GENERATION_FAILED");
 	}
 
 	try {
@@ -324,6 +336,20 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 		await writeFile(cacheFile, thumbnail);
 	} catch (error) {
 		logger.warn("media thumbnail cache write failed", { error, id, cacheFile });
+	}
+	return thumbnail;
+	};
+
+	let thumbnail: Buffer;
+	try {
+		const result = await runSingleFlight(thumbnailGenerationInFlight, cacheFile, generate);
+		if (result instanceof NextResponse) return result;
+		thumbnail = result;
+	} catch (error) {
+		if (error instanceof Error && error.message === "THUMBNAIL_GENERATION_FAILED") {
+			return apiError({ code: "INTERNAL_ERROR", message: "Failed to generate thumbnail", status: 500 });
+		}
+		throw error;
 	}
 
 	return new NextResponse(new Uint8Array(thumbnail), {

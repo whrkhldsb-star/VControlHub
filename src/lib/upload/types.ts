@@ -80,4 +80,6 @@ export interface InitMediaUploadInput {
 	storageNodeId?: string;
 	relativePath?: string;
 	ttlMs?: number;
+	/** Optional session for storage ACL when targeting a node/path. */
+	session?: import("@/lib/auth/session").SessionPayload;
 }

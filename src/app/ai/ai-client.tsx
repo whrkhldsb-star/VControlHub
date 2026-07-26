@@ -50,6 +50,8 @@ export function AiClient({
   initialProviders,
   initialConversations,
 }: {
+  /** Kept optional for older tests/call-sites; auth is session/API-backed. */
+  userId?: string;
   initialProviders: Provider[];
   initialConversations: ConvItem[];
 }) {

@@ -58,7 +58,7 @@ export async function PATCH(
 
 			try {
 				const updated = await updateVpsBackupSchedule(scheduleId, body);
-				await auditUserAction(session.userId, "vps-backup.schedule.update", { serverId, scheduleId }, undefined, session?.currentTeamId);
+				await auditUserAction(session!.userId, "vps-backup.schedule.update", { serverId, scheduleId }, undefined, session?.currentTeamId);
 				return Response.json({ schedule: updated });
 			} catch (err) {
 				if (isAppError(err)) throw err;
@@ -96,7 +96,7 @@ export async function DELETE(
 
 			try {
 				await deleteVpsBackupSchedule(scheduleId);
-				await auditUserAction(session.userId, "vps-backup.schedule.delete", { serverId, scheduleId }, undefined, session?.currentTeamId);
+				await auditUserAction(session!.userId, "vps-backup.schedule.delete", { serverId, scheduleId }, undefined, session?.currentTeamId);
 				return Response.json({ success: true });
 			} catch (err) {
 				logger.error("Failed to delete VPS backup schedule", { error: err, scheduleId });

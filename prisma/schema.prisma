@@ -67,109 +67,108 @@ enum AiHostedActionStatus {
 }
 
 model User {
-  id                     String                  @id @default(cuid())
-  username               String                  @unique
-  displayName            String?
-  passwordHash           String
-  status                 UserStatus              @default(PENDING_PASSWORD_RESET)
-  mustChangePassword     Boolean                 @default(true)
-  createdAt              DateTime                @default(now())
-  updatedAt              DateTime                @updatedAt
-  roles                  UserRole[]
-  storageAccess          UserStorageAccess[]
-  commandRequests        CommandRequest[]        @relation("requester")
-  jobs                   Job[]                   @relation("jobCreator")
-  approvals              CommandApproval[]
-  auditLogs              AuditLog[]
-  sshKeys                SshKey[]                @relation("SshKeyCreator")
-  notifications          Notification[]
-  scheduledTasks         ScheduledTask[]
-  playbooks              Playbook[]
-  playbookRuns           PlaybookRun[]
-  commandTemplates       CommandTemplate[]
-  downloadTasks          DownloadTask[]
-  syncJobs               SyncJob[]
-  shareLinks             ShareLink[]
-  backupRecords          BackupRecord[]
-  backupSchedules        BackupSchedule[]
-  vpsBackupSchedules     VpsBackupSchedule[]
-  vpsBackupRecords       VpsBackupRecord[]
-  deploymentRuns         DeploymentRun[]
-  deploymentRollbackRuns DeploymentRollbackRun[]
-  snippets               Snippet[]
-  apiTokens              ApiToken[]
-  announcements          Announcement[]
-  mediaItems             MediaItem[]
-  tickets                Ticket[]                @relation("TicketCreator")
-  alertIncidentsAcknowledged AlertIncident[]       @relation("AlertIncidentAcknowledger")
-  assignedTickets        Ticket[]                @relation("TicketAssignee")
-  ticketComments         TicketComment[]
-  imageUploads           ImageUpload[]
-  deploymentExports      DeploymentExport[]
-  aiProviders            AiProvider[]
-  aiConversations        AiConversation[]
-  knowledgeBasesCreated  KnowledgeBase[]     @relation("KnowledgeBaseCreator")
-  knowledgeDocsCreated   KnowledgeDocument[] @relation("KnowledgeDocumentCreator")
-  aiHostedRequests       AiHostedAction[]        @relation("AiHostedRequester")
-  aiHostedApprovals      AiHostedAction[]        @relation("AiHostedApprover")
-  costEntries            CostEntry[]             @relation("CostEntryCreatedBy")
-  cloudBillingAccounts   CloudBillingAccount[]   @relation("CloudBillingAccountCreatedBy")
-  itsmConnections        ItsmConnection[]         @relation("ItsmConnectionCreatedBy")
-  aiOpsLogs              AiOpsLog[]              @relation("AiOpsLogTriggeredBy")
-  mediaUploadSessions    MediaUploadSession[]
-  fileVersions           FileVersion[]
-  ownedTeams             Team[]                  @relation("TeamOwner")
-  teamMemberships        TeamMember[]
-  currentTeamId          String?
-  currentTeam            Team?                   @relation("UserCurrentTeam", fields: [currentTeamId], references: [id], onDelete: SetNull)
-  twoFactorEnabled       Boolean                 @default(false)
-  twoFactorSecret        String?
-  preferences            Json?
-  roleTemplates          RoleTemplate[]          @relation("RoleTemplateCreator")
+  id                         String                  @id @default(cuid())
+  username                   String                  @unique
+  displayName                String?
+  passwordHash               String
+  status                     UserStatus              @default(PENDING_PASSWORD_RESET)
+  mustChangePassword         Boolean                 @default(true)
+  createdAt                  DateTime                @default(now())
+  updatedAt                  DateTime                @updatedAt
+  roles                      UserRole[]
+  storageAccess              UserStorageAccess[]
+  commandRequests            CommandRequest[]        @relation("requester")
+  jobs                       Job[]                   @relation("jobCreator")
+  approvals                  CommandApproval[]
+  auditLogs                  AuditLog[]
+  sshKeys                    SshKey[]                @relation("SshKeyCreator")
+  notifications              Notification[]
+  scheduledTasks             ScheduledTask[]
+  playbooks                  Playbook[]
+  playbookRuns               PlaybookRun[]
+  commandTemplates           CommandTemplate[]
+  downloadTasks              DownloadTask[]
+  syncJobs                   SyncJob[]
+  shareLinks                 ShareLink[]
+  backupRecords              BackupRecord[]
+  backupSchedules            BackupSchedule[]
+  vpsBackupSchedules         VpsBackupSchedule[]
+  vpsBackupRecords           VpsBackupRecord[]
+  deploymentRuns             DeploymentRun[]
+  deploymentRollbackRuns     DeploymentRollbackRun[]
+  snippets                   Snippet[]
+  apiTokens                  ApiToken[]
+  announcements              Announcement[]
+  mediaItems                 MediaItem[]
+  tickets                    Ticket[]                @relation("TicketCreator")
+  alertIncidentsAcknowledged AlertIncident[]         @relation("AlertIncidentAcknowledger")
+  assignedTickets            Ticket[]                @relation("TicketAssignee")
+  ticketComments             TicketComment[]
+  imageUploads               ImageUpload[]
+  deploymentExports          DeploymentExport[]
+  aiProviders                AiProvider[]
+  aiConversations            AiConversation[]
+  knowledgeBasesCreated      KnowledgeBase[]         @relation("KnowledgeBaseCreator")
+  knowledgeDocsCreated       KnowledgeDocument[]     @relation("KnowledgeDocumentCreator")
+  aiHostedRequests           AiHostedAction[]        @relation("AiHostedRequester")
+  aiHostedApprovals          AiHostedAction[]        @relation("AiHostedApprover")
+  costEntries                CostEntry[]             @relation("CostEntryCreatedBy")
+  cloudBillingAccounts       CloudBillingAccount[]   @relation("CloudBillingAccountCreatedBy")
+  itsmConnections            ItsmConnection[]        @relation("ItsmConnectionCreatedBy")
+  aiOpsLogs                  AiOpsLog[]              @relation("AiOpsLogTriggeredBy")
+  mediaUploadSessions        MediaUploadSession[]
+  fileVersions               FileVersion[]
+  ownedTeams                 Team[]                  @relation("TeamOwner")
+  teamMemberships            TeamMember[]
+  currentTeamId              String?
+  currentTeam                Team?                   @relation("UserCurrentTeam", fields: [currentTeamId], references: [id], onDelete: SetNull)
+  twoFactorEnabled           Boolean                 @default(false)
+  twoFactorSecret            String?
+  preferences                Json?
+  roleTemplates              RoleTemplate[]          @relation("RoleTemplateCreator")
 
   @@map("User")
 }
 
 model Team {
-  id              String           @id @default(cuid())
-  slug            String           @unique
-  name            String
-  description     String?
-  ownerId         String?
-  owner           User?            @relation("TeamOwner", fields: [ownerId], references: [id], onDelete: SetNull)
-  members         TeamMember[]
-  currentFor      User[]           @relation("UserCurrentTeam")
-  servers         Server[]         @relation("TeamServers")
-  storageNodes    StorageNode[]    @relation("TeamStorageNodes")
-  commandRequests CommandRequest[] @relation("TeamCommandRequests")
-  downloadTasks   DownloadTask[]   @relation("TeamDownloadTasks")
-  syncJobs        SyncJob[]        @relation("TeamSyncJobs")
-  backupRecords   BackupRecord[]   @relation("TeamBackupRecords")
-  backupSchedules BackupSchedule[] @relation("TeamBackupSchedules")
-  deploymentRuns  DeploymentRun[]  @relation("TeamDeploymentRuns")
-  jobs            Job[]            @relation("TeamJobs")
-  scheduledTasks  ScheduledTask[]  @relation("TeamScheduledTasks")
-  shareLinks      ShareLink[]      @relation("TeamShareLinks")
-  tickets         Ticket[]         @relation("TeamTickets")
-  playbooks       Playbook[]       @relation("TeamPlaybooks")
-  playbookRuns    PlaybookRun[]    @relation("TeamPlaybookRuns")
-  notifications   Notification[]   @relation("TeamNotifications")
-  auditLogs       AuditLog[]       @relation("TeamAuditLogs")
-  knowledgeBases  KnowledgeBase[]  @relation("TeamKnowledgeBases")
+  id                   String                @id @default(cuid())
+  slug                 String                @unique
+  name                 String
+  description          String?
+  ownerId              String?
+  owner                User?                 @relation("TeamOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  members              TeamMember[]
+  currentFor           User[]                @relation("UserCurrentTeam")
+  servers              Server[]              @relation("TeamServers")
+  storageNodes         StorageNode[]         @relation("TeamStorageNodes")
+  commandRequests      CommandRequest[]      @relation("TeamCommandRequests")
+  downloadTasks        DownloadTask[]        @relation("TeamDownloadTasks")
+  syncJobs             SyncJob[]             @relation("TeamSyncJobs")
+  backupRecords        BackupRecord[]        @relation("TeamBackupRecords")
+  backupSchedules      BackupSchedule[]      @relation("TeamBackupSchedules")
+  deploymentRuns       DeploymentRun[]       @relation("TeamDeploymentRuns")
+  jobs                 Job[]                 @relation("TeamJobs")
+  scheduledTasks       ScheduledTask[]       @relation("TeamScheduledTasks")
+  shareLinks           ShareLink[]           @relation("TeamShareLinks")
+  tickets              Ticket[]              @relation("TeamTickets")
+  playbooks            Playbook[]            @relation("TeamPlaybooks")
+  playbookRuns         PlaybookRun[]         @relation("TeamPlaybookRuns")
+  notifications        Notification[]        @relation("TeamNotifications")
+  auditLogs            AuditLog[]            @relation("TeamAuditLogs")
+  knowledgeBases       KnowledgeBase[]       @relation("TeamKnowledgeBases")
   cloudBillingAccounts CloudBillingAccount[] @relation("TeamCloudBillingAccounts")
-  alertRules          AlertRule[]         @relation("TeamAlertRules")
-  costEntries         CostEntry[]         @relation("TeamCostEntries")
-  costBudgets         CostBudget[]        @relation("TeamCostBudgets")
-  sshKeys             SshKey[]           @relation("TeamSshKeys")
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  alertRules           AlertRule[]           @relation("TeamAlertRules")
+  costEntries          CostEntry[]           @relation("TeamCostEntries")
+  costBudgets          CostBudget[]          @relation("TeamCostBudgets")
+  sshKeys              SshKey[]              @relation("TeamSshKeys")
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  metricSnapshots      MetricSnapshot[]      @relation("TeamMetricSnapshots")
+  imageUploads         ImageUpload[]         @relation("TeamImageUploads")
 
   @@index([ownerId])
   @@map("teams")
-  metricSnapshots MetricSnapshot[] @relation("TeamMetricSnapshots")
-  imageUploads    ImageUpload[]    @relation("TeamImageUploads")
 }
-
 
 model TeamMember {
   teamId   String
@@ -465,21 +464,21 @@ enum FileVersionReason {
 /// Snapshots are taken before overwrite (upload/edit/restore) so users can
 /// download or restore previous content. Blobs live under FILE_VERSION_DIR.
 model FileVersion {
-  id              String            @id @default(cuid())
-  fileEntryId     String
-  storageNodeId   String
-  versionNumber   Int
-  name            String
-  relativePath    String
-  mimeType        String?
-  sizeBytes       BigInt
-  checksumSha256  String
+  id               String            @id @default(cuid())
+  fileEntryId      String
+  storageNodeId    String
+  versionNumber    Int
+  name             String
+  relativePath     String
+  mimeType         String?
+  sizeBytes        BigInt
+  checksumSha256   String
   /// Absolute-or-managed relative blob path under FILE_VERSION_DIR
   blobRelativePath String
-  reason          FileVersionReason @default(UPLOAD)
-  note            String?
-  createdByUserId String?
-  createdAt       DateTime          @default(now())
+  reason           FileVersionReason @default(UPLOAD)
+  note             String?
+  createdByUserId  String?
+  createdAt        DateTime          @default(now())
 
   fileEntry   FileEntry   @relation(fields: [fileEntryId], references: [id], onDelete: Cascade)
   storageNode StorageNode @relation(fields: [storageNodeId], references: [id], onDelete: Cascade)
@@ -704,7 +703,9 @@ model PlaybookRun {
 model MetricSnapshot {
   id        String   @id @default(cuid())
   serverId  String
-  /** Denormalized from Server.teamId at write time for cheap team-scoped queries. */
+  /**
+   * Denormalized from Server.teamId at write time for cheap team-scoped queries.
+   */
   teamId    String?
   cpuUsage  Float
   memUsage  Float
@@ -743,35 +744,35 @@ model TrafficSnapshot {
 }
 
 model AlertRule {
-  id                 String    @id @default(cuid())
-  name               String
-  metric             String // cpu_usage | mem_usage | disk_usage | server_offline
-  operator           String // gt | gte | lt | lte | eq
-  threshold          Float
-  durationSeconds    Int       @default(0) // 0 = instant alert
-  serverIds          String[] // empty = all servers
-  notifyChannels     String[] // ["in_app", "email", "webhook"]
-  webhookUrl         String?
-  playbookIds        String[]  @default([]) // TR-023: playbooks to run when this alert triggers
-  cooldownMinutes    Int       @default(30)
-  silenceWindows     String[]  @default([]) // HH:mm-HH:mm windows, local server time
+  id                String          @id @default(cuid())
+  name              String
+  metric            String // cpu_usage | mem_usage | disk_usage | server_offline
+  operator          String // gt | gte | lt | lte | eq
+  threshold         Float
+  durationSeconds   Int             @default(0) // 0 = instant alert
+  serverIds         String[] // empty = all servers
+  notifyChannels    String[] // ["in_app", "email", "webhook"]
+  webhookUrl        String?
+  playbookIds       String[]        @default([]) // TR-023: playbooks to run when this alert triggers
+  cooldownMinutes   Int             @default(30)
+  silenceWindows    String[]        @default([]) // HH:mm-HH:mm windows, local server time
   /// Minutes without acknowledgement before escalating to on-call / L2 notify
-  escalationMinutes  Int       @default(30)
+  escalationMinutes Int             @default(30)
   /// Preferred on-call user IDs (routed first for in-app / ack ownership)
-  onCallUserIds      String[]  @default([])
-  enabled            Boolean   @default(true)
+  onCallUserIds     String[]        @default([])
+  enabled           Boolean         @default(true)
   /// Legacy single-rule match stamp (kept for API/UI). Prefer matchState.
-  lastMatchedAt      DateTime?
+  lastMatchedAt     DateTime?
   /// Per-server duration match map: { [serverId]: ISO timestamp }.
   /// durationSeconds must be evaluated per host — a global lastMatchedAt
   /// incorrectly skips duration or clears state across unrelated servers.
-  matchState         Json?
-  lastTriggeredAt    DateTime?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
-  incidents          AlertIncident[]
-  teamId             String?
-  team               Team?     @relation("TeamAlertRules", fields: [teamId], references: [id], onDelete: SetNull)
+  matchState        Json?
+  lastTriggeredAt   DateTime?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  incidents         AlertIncident[]
+  teamId            String?
+  team              Team?           @relation("TeamAlertRules", fields: [teamId], references: [id], onDelete: SetNull)
 
   @@index([teamId])
   @@map("alert_rules")
@@ -802,8 +803,8 @@ model AlertIncident {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
-  rule             AlertRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
-  acknowledgedBy   User?     @relation("AlertIncidentAcknowledger", fields: [acknowledgedById], references: [id], onDelete: SetNull)
+  rule           AlertRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  acknowledgedBy User?     @relation("AlertIncidentAcknowledger", fields: [acknowledgedById], references: [id], onDelete: SetNull)
 
   @@index([status, level, createdAt])
   @@index([ruleId, status])
@@ -1507,7 +1508,9 @@ model ImageUpload {
   storageNodeId String? // optional: link to cloud storage node
   relativePath  String? // path within the storage node
   userId        String
-  /** Team scope for multi-tenant image-bed queries (null = legacy/unassigned). */
+  /**
+   * Team scope for multi-tenant image-bed queries (null = legacy/unassigned).
+   */
   teamId        String?
   createdAt     DateTime @default(now())
 
@@ -1644,24 +1647,24 @@ model CostBudget {
 // Stores encrypted credentials for cloud providers and tracks import runs.
 // Imported line items land in CostEntry with sourceType=cloud_billing.
 model CloudBillingAccount {
-  id                 String    @id @default(cuid())
-  name               String
-  provider           String // aws | aliyun | tencent | generic_csv
+  id               String    @id @default(cuid())
+  name             String
+  provider         String // aws | aliyun | tencent | generic_csv
   // JSON credentials encrypted via AES-256-GCM (never returned raw to clients).
-  credentialsEnc     String
+  credentialsEnc   String
   // Optional path/region/accountId hints for the adapter (plain JSON, no secrets).
-  config             Json      @default("{}")
-  currency           String    @default("USD")
-  enabled            Boolean   @default(true)
-  teamId             String? // multi-tenant scope (null = shared/legacy)
-  lastSyncAt         DateTime?
-  lastSyncStatus     String? // ok | error | partial
-  lastSyncError      String?
-  lastSyncImported   Int       @default(0)
-  lastSyncSkipped    Int       @default(0)
-  createdById        String?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  config           Json      @default("{}")
+  currency         String    @default("USD")
+  enabled          Boolean   @default(true)
+  teamId           String? // multi-tenant scope (null = shared/legacy)
+  lastSyncAt       DateTime?
+  lastSyncStatus   String? // ok | error | partial
+  lastSyncError    String?
+  lastSyncImported Int       @default(0)
+  lastSyncSkipped  Int       @default(0)
+  createdById      String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   team      Team?                 @relation("TeamCloudBillingAccounts", fields: [teamId], references: [id], onDelete: SetNull)
   createdBy User?                 @relation("CloudBillingAccountCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
@@ -1674,15 +1677,15 @@ model CloudBillingAccount {
 }
 
 model CloudBillingSyncRun {
-  id          String   @id @default(cuid())
-  accountId   String
-  month       String // YYYY-MM
-  status      String // running | ok | error | partial
-  imported    Int      @default(0)
-  skipped     Int      @default(0)
+  id           String    @id @default(cuid())
+  accountId    String
+  month        String // YYYY-MM
+  status       String // running | ok | error | partial
+  imported     Int       @default(0)
+  skipped      Int       @default(0)
   errorMessage String?
-  startedAt   DateTime @default(now())
-  finishedAt  DateTime?
+  startedAt    DateTime  @default(now())
+  finishedAt   DateTime?
 
   account CloudBillingAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
@@ -1902,21 +1905,21 @@ model KnowledgeBase {
 }
 
 model KnowledgeDocument {
-  id             String           @id @default(cuid())
+  id              String           @id @default(cuid())
   knowledgeBaseId String
-  knowledgeBase  KnowledgeBase    @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
-  title          String
-  sourceType     String           @default("TEXT") // TEXT | MARKDOWN | NOTE
-  content        String
-  contentHash    String
-  status         String           @default("READY") // PENDING | READY | FAILED
-  errorMessage   String?
-  chunkCount     Int              @default(0)
-  createdBy      String?
-  creator        User?            @relation("KnowledgeDocumentCreator", fields: [createdBy], references: [id], onDelete: SetNull)
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
-  chunks         KnowledgeChunk[]
+  knowledgeBase   KnowledgeBase    @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+  title           String
+  sourceType      String           @default("TEXT") // TEXT | MARKDOWN | NOTE
+  content         String
+  contentHash     String
+  status          String           @default("READY") // PENDING | READY | FAILED
+  errorMessage    String?
+  chunkCount      Int              @default(0)
+  createdBy       String?
+  creator         User?            @relation("KnowledgeDocumentCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  chunks          KnowledgeChunk[]
 
   @@index([knowledgeBaseId, updatedAt])
   @@index([contentHash])
@@ -1943,22 +1946,22 @@ model KnowledgeChunk {
 
 // FEAT-ITSM-IM-BIDI: ITSM/IM bidirectional integration (ticket <-> external webhook/IM)
 model ItsmConnection {
-  id             String   @id @default(cuid())
+  id             String    @id @default(cuid())
   name           String
   provider       String // generic_webhook | slack | telegram | dingtalk | feishu
-  direction      String   @default("bidirectional") // outbound | inbound | bidirectional
-  enabled        Boolean  @default(true)
+  direction      String    @default("bidirectional") // outbound | inbound | bidirectional
+  enabled        Boolean   @default(true)
   // Encrypted secrets JSON: webhookSecret, botToken, signingSecret (never returned raw)
-  credentialsEnc String   @default("")
+  credentialsEnc String    @default("")
   // Plain config: webhookUrl, chatId, defaultPriority, defaultCategory, createOnInbound
-  config         Json     @default("{}")
+  config         Json      @default("{}")
   teamId         String?
   lastOutboundAt DateTime?
   lastInboundAt  DateTime?
   lastError      String?
   createdById    String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   createdBy User?       @relation("ItsmConnectionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   events    ItsmEvent[]
@@ -1989,4 +1992,3 @@ model ItsmEvent {
   @@index([status, createdAt])
   @@map("itsm_events")
 }
-

@@ -26,6 +26,7 @@ import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
 import { logError } from "@/lib/logging";
+import { assertStorageAccess } from "@/lib/storage/access-control";
 
 import {
 	DEFAULT_CHUNK_SIZE,
@@ -121,6 +122,32 @@ export async function initMediaUploadSession(
 	}
 	const totalChunks = Math.max(1, Math.ceil(input.totalSize / chunkSize));
 	const expiresAt = ttlExpiry(input.ttlMs ?? DEFAULT_SESSION_TTL_MS);
+
+	if (input.storageNodeId) {
+		if (!input.session) {
+			throw new MediaUploadError(
+				"storage_acl_required",
+				"storageNodeId requires an authenticated session for ACL checks",
+			);
+		}
+		const access = await assertStorageAccess({
+			session: input.session,
+			storageNodeId: input.storageNodeId,
+			relativePath: input.relativePath ?? "",
+			operation: "write",
+			writeBytes: input.totalSize,
+		});
+		if (!access.allowed) {
+			throw new MediaUploadError(
+				"storage_access_denied",
+				access.reason ?? "Missing storage access authorization",
+			);
+		}
+		// No FileEntry yet — release any quota advisory lock immediately.
+		if (access.releaseQuotaGuard) {
+			await access.releaseQuotaGuard().catch(() => undefined);
+		}
+	}
 
 	const row = await prisma.mediaUploadSession.create({
 		data: {

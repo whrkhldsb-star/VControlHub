@@ -3,23 +3,40 @@ import { NextResponse } from "next/server";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
-import { createSnippet, deleteSnippet, listSnippets, updateSnippet } from "@/lib/snippet/service";
+import { createSnippet, deleteSnippet, getSnippet, listSnippets, updateSnippet } from "@/lib/snippet/service";
 import {
   createSnippetSchema,
   deleteSnippetQuerySchema,
   listSnippetsQuerySchema,
   updateSnippetSchema,
 } from "@/lib/snippet/schema";
+import { z } from "zod";
 import { auditUserAction } from "@/lib/audit/service";
 import { apiCatch } from "@/lib/http/api-error";
 
 export const dynamic = "force-dynamic";
 
+const snippetsGetQuerySchema = listSnippetsQuerySchema.extend({
+  id: z.string().trim().min(1).optional(),
+});
+
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { permission: "snippet:manage", querySchema: listSnippetsQuerySchema },
+    { permission: "snippet:manage", querySchema: snippetsGetQuerySchema },
     async ({ session, query }) => {
+      if (query.id) {
+        const actor = {
+          userId: session?.userId,
+          canManageAll: session ? sessionHasPermission(session, "role:manage") : false,
+        };
+        try {
+          const snippet = await getSnippet(query.id, actor);
+          return NextResponse.json({ snippet });
+        } catch (err) {
+          return apiCatch(err);
+        }
+      }
       return NextResponse.json({
         snippets: await listSnippets({
           userId: session?.userId,

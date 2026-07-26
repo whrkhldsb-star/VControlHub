@@ -108,13 +108,14 @@ function sftpReaddir(client: Client, remotePath: string): Promise<SftpListEntry[
   });
 }
 
-export async function listRemoteDirectory(input: SshConnectionParams & { remotePath: string }): Promise<SftpListEntry[]> {
+export async function listRemoteDirectory(input: SshConnectionParams & { remotePath: string; maxEntries?: number }): Promise<SftpListEntry[]> {
   const config = createSshConfig(input);
   const client = await connectSsh(config);
   try {
     const entries = await sftpReaddir(client, input.remotePath);
     // 过滤掉 . 和 ..
-    return entries.filter((e) => e.name !== "." && e.name !== "..");
+    const visible = entries.filter((e) => e.name !== "." && e.name !== "..");
+    return input.maxEntries ? visible.slice(0, input.maxEntries) : visible;
   } finally {
     client.end();
   }

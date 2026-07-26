@@ -20,7 +20,7 @@ import {
 import { createLogger } from "@/lib/logging";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { withApiRoute } from "@/lib/http/api-guard";
-import { MAX_INLINE_REMOTE_READ_BYTES } from "@/lib/storage/mime-constants";
+import { MAX_EDITABLE_FILE_SIZE_BYTES, MAX_INLINE_REMOTE_READ_BYTES } from "@/lib/storage/mime-constants";
 import {
   sftpOpsBodySchema,
   type SftpOpsBody,
@@ -86,6 +86,23 @@ async function softDeleteSftpIndex(storageNodeId: string, relativePath: string, 
   const normalizedPrefix = relativePath.endsWith("/")
     ? relativePath
     : `${relativePath}/`;
+  if (isDirectory) {
+    // Fail closed for huge trees — same limit as rename rewrites.
+    const childCount = await prisma.fileEntry.count({
+      where: {
+        storageNodeId,
+        OR: [
+          { relativePath },
+          { relativePath: { startsWith: normalizedPrefix } },
+        ],
+      },
+    });
+    if (childCount > DIRECTORY_CHILD_REWRITE_LIMIT) {
+      throw new ValidationError(
+        `Directory has too many indexed children to soft-delete safely (limit ${DIRECTORY_CHILD_REWRITE_LIMIT}); reindex or split first`,
+      );
+    }
+  }
   await prisma.fileEntry.updateMany({
     where: isDirectory
       ? {
@@ -424,6 +441,17 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
           return NextResponse.json(
             { error: "Missing content Parameter" },
             { status: 400 },
+          );
+        }
+        const writeBytes = Buffer.byteLength(body.content);
+        if (writeBytes > MAX_EDITABLE_FILE_SIZE_BYTES) {
+          return NextResponse.json(
+            {
+              error: `File exceeds ${MAX_EDITABLE_FILE_SIZE_BYTES} bytes, online editing is temporarily unsupported`,
+              maxInlineBytes: MAX_EDITABLE_FILE_SIZE_BYTES,
+              size: writeBytes,
+            },
+            { status: 413 },
           );
         }
         // If an index row already exists this is an overwrite — never delete the

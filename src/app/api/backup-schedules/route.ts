@@ -63,7 +63,7 @@ export async function PATCH(request: Request) {
           {
             scheduleId: body.toggleId,
             mode: "toggle",
-            enabled: result.enabled,
+            status: result.status,
           },
           undefined,
           session?.currentTeamId,
