@@ -85,7 +85,7 @@ export function CostBudgetPanel({
       await reload();
       addToast(
         "success",
-        t("costPage.budget.checkDone").replace("{count}", String(data.result.notificationsSent)),
+        t("costPage.budget.checkDone", { count: data.result.notificationsSent }),
       );
     } catch (error) {
       addToast("error", getErrorMessage(error, t("costPage.error.load")));

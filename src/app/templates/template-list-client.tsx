@@ -77,7 +77,7 @@ export function TemplateListClient({
 			if (missingVariable) {
 				addToast(
 					"error",
-					t("templatesPage.toast.missingVar").replace("{name}", missingVariable),
+					t("templatesPage.toast.missingVar", { name: missingVariable }),
 				);
 				return;
 			}
@@ -90,7 +90,7 @@ export function TemplateListClient({
 						templateId: template.id,
 						serverIds,
 						variables: vars,
-						reason: t("templatesPage.deployReason").replace("{name}", template.name),
+						reason: t("templatesPage.deployReason", { name: template.name }),
 					}),
 				});
 				addToast("success", t("templatesPage.toast.submitted"));

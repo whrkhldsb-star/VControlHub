@@ -27,7 +27,7 @@ function formatParams(params: unknown) {
   }
 }
 
-function riskLabel(t: (k: string) => string, riskLevel: string) {
+function riskLabel(t: (k: string, vars?: Record<string, string | number>) => string, riskLevel: string) {
   const normalized = riskLevel.toLowerCase();
   if (normalized === "critical") return t("aiHostedApproval.riskCritical");
   if (normalized === "high") return t("aiHostedApproval.riskHigh");

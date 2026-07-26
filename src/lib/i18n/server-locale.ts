@@ -7,7 +7,7 @@
  * convenience wrappers for server actions.
  */
 
-import { t as translate, type Locale, getServerLocale } from "./translations";
+import { t as translate, type Locale, type TFn, getServerLocale } from "./translations";
 
 export { getServerLocale };
 export type { Locale };
@@ -16,8 +16,8 @@ export type { Locale };
  * Convenience: produce a `t(key)` function bound to the request locale.
  * Use inside a server action: `const t = await serverT(); return { success: t("storagePage.action.success") }`.
  */
-export async function serverT(): Promise<(key: string) => string> {
+export async function serverT(): Promise<TFn> {
 	const locale = await getServerLocale();
-	return (key: string) => translate(key, locale);
+	return (key: string, vars?: Record<string, string | number>) => translate(key, locale, vars);
 }
 

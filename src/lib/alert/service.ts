@@ -172,8 +172,8 @@ export async function testAlertRule(id: string, session?: TeamSession | null): P
 	if (!rule) throw new NotFoundError(t("backend.alert.ruleNotFound"));
 
 	const deliveries: AlertRuleTestDelivery[] = [];
-	const title = t("backend.alert.testTitle").replace("{name}", rule.name);
-	const message = t("backend.alert.testMessage").replace("{name}", rule.name);
+	const title = t("backend.alert.testTitle", { name: rule.name });
+	const message = t("backend.alert.testMessage", { name: rule.name });
 
 	if (rule.notifyChannels.includes("in_app")) {
 		const admins = await prisma.user.findMany({
@@ -225,10 +225,8 @@ export async function testAlertRule(id: string, session?: TeamSession | null): P
 			status: failed === 0 ? "sent" : "failed",
 			message:
 				failed === 0
-					? t("backend.alert.testInAppSent").replace("{count}", String(admins.length))
-					: t("backend.alert.testInAppPartialFail")
-							.replace("{failed}", String(failed))
-							.replace("{total}", String(admins.length)),
+					? t("backend.alert.testInAppSent", { count: admins.length })
+					: t("backend.alert.testInAppPartialFail", { failed, total: admins.length }),
 		});
 	}
 

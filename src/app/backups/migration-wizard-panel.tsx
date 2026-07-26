@@ -52,7 +52,7 @@ export function MigrationWizardPanel({ completedBackups, canCreate }: Props) {
             body: JSON.stringify({ action: "list" }),
           });
           setPackages(data.packages ?? []);
-          setMessage(t("backupsPage.migration.listOk").replace("{count}", String(data.packages?.length ?? 0)));
+          setMessage(t("backupsPage.migration.listOk", { count: data.packages?.length ?? 0 }));
           return;
         }
         if (action === "export") {
@@ -73,9 +73,7 @@ export function MigrationWizardPanel({ completedBackups, canCreate }: Props) {
           });
           setPackageRef(data.packageRelativeDir);
           setMessage(
-            t("backupsPage.migration.exportOk")
-              .replace("{packageId}", data.packageId)
-              .replace("{path}", data.packageRelativeDir),
+            t("backupsPage.migration.exportOk", { packageId: data.packageId, path: data.packageRelativeDir }),
           );
           return;
         }
@@ -99,9 +97,7 @@ export function MigrationWizardPanel({ completedBackups, canCreate }: Props) {
             );
           }
           setMessage(
-            t("backupsPage.migration.validateOk")
-              .replace("{packageId}", data.packageId ?? "")
-              .replace("{type}", data.type ?? ""),
+            t("backupsPage.migration.validateOk", { packageId: data.packageId ?? "", type: data.type ?? "" }),
           );
           return;
         }
@@ -120,10 +116,7 @@ export function MigrationWizardPanel({ completedBackups, canCreate }: Props) {
           }),
         });
         setMessage(
-          t("backupsPage.migration.importOk")
-            .replace("{backupId}", data.backupId)
-            .replace("{type}", data.type)
-            .replace("{path}", data.filePath),
+          t("backupsPage.migration.importOk", { backupId: data.backupId, type: data.type, path: data.filePath }),
         );
         // Parent BackupsPage is an RSC list — refresh so the new imported record appears.
         router.refresh();
@@ -188,9 +181,7 @@ export function MigrationWizardPanel({ completedBackups, canCreate }: Props) {
           </ActionButton>
           {lastExport && (
             <p className="text-[11px] text-[var(--text-secondary)]">
-              {t("backupsPage.migration.exportHint")
-                .replace("{dir}", lastExport.packageRelativeDir)
-                .replace("{tar}", lastExport.tarballRelativePath ?? `${lastExport.packageRelativeDir}.tar.gz`)}
+              {t("backupsPage.migration.exportHint", { dir: lastExport.packageRelativeDir, tar: lastExport.tarballRelativePath ?? `${lastExport.packageRelativeDir}.tar.gz` })}
             </p>
           )}
         </div>

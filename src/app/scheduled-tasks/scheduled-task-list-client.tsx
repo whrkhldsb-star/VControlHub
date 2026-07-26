@@ -33,7 +33,7 @@ const statusTone: Record<string, "success" | "warning" | "neutral"> = {
 	DISABLED: "neutral",
 };
 
-function statusLabelFor(status: string, t: (key: string) => string): string {
+function statusLabelFor(status: string, t: (key: string, vars?: Record<string, string | number>) => string): string {
 	if (status === "ACTIVE") return t("scheduledTasks.status.active");
 	if (status === "PAUSED") return t("scheduledTasks.status.paused");
 	if (status === "DISABLED") return t("scheduledTasks.status.disabled");
@@ -57,7 +57,7 @@ const fieldLabelClass = "text-xs font-medium text-[var(--text-secondary)] tracki
 const fieldInputClass = "w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--input-border-focus)] focus:shadow-[0_0_0_3px_var(--input-ring)]";
 const monoFieldInputClass = `${fieldInputClass} font-mono`;
 
-function describeCronPreview(expr: string, t: (key: string) => string) {
+function describeCronPreview(expr: string, t: (key: string, vars?: Record<string, string | number>) => string) {
 	const parts = expr.trim().split(/\s+/);
 	if (parts.length !== 5) return t("scheduledTasks.cron.invalid");
 	const [min, hour, day, month, dow] = parts;
@@ -171,7 +171,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 					</div>
 				</EmptyState>
 			) : filteredTasks.length === 0 ? (
-				<EmptyState text={`${t("scheduledTasksPage.search.empty").replace("{query}", searchQuery)}`} variant="boxed" />
+				<EmptyState text={`${t("scheduledTasksPage.search.empty", { query: searchQuery })}`} variant="boxed" />
 			) : (
 				<div className="space-y-3">
 					{filteredTasks.map((task) => (
@@ -188,12 +188,12 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 									<div className="mt-2.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-3 py-1.5 font-mono text-xs text-[var(--accent)]">
 										{task.command}
 									</div>
-									{task.reason && <p className="mt-1.5 text-xs text-[var(--text-muted)]">{t("scheduledTasksPage.reason").replace("{reason}", task.reason)}</p>}
+									{task.reason && <p className="mt-1.5 text-xs text-[var(--text-muted)]">{t("scheduledTasksPage.reason", { reason: task.reason })}</p>}
 									<div className="mt-3 grid grid-cols-2 gap-2 text-xs text-[var(--text-muted)]">
-										<div>{t("scheduledTasksPage.targetNodes").replace("{count}", String(task.serverIds.length))}</div>
-										<div>{t("scheduledTasksPage.runCount").replace("{count}", String(task.runCount))}</div>
-										<div>{t("scheduledTasksPage.lastRun").replace("{time}", formatTime(task.lastRunAt, locale))}</div>
-										<div>{t("scheduledTasksPage.nextRun").replace("{time}", formatTime(task.nextRunAt, locale))}</div>
+										<div>{t("scheduledTasksPage.targetNodes", { count: task.serverIds.length })}</div>
+										<div>{t("scheduledTasksPage.runCount", { count: task.runCount })}</div>
+										<div>{t("scheduledTasksPage.lastRun", { time: formatTime(task.lastRunAt, locale) })}</div>
+										<div>{t("scheduledTasksPage.nextRun", { time: formatTime(task.nextRunAt, locale) })}</div>
 									</div>
 									<div className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-3 py-2 text-[11px] text-[var(--text-muted)]">
 										<div className="mb-1 font-medium text-[var(--text-secondary)]">{t("scheduledTasksPage.recentLogs")}</div>
@@ -312,7 +312,7 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 			<div className="space-y-1.5">
 				<label htmlFor="scheduled-task-cron" className={fieldLabelClass}>{t("scheduledTasksPage.cron")}</label>
 				<input id="scheduled-task-cron" value={cronExpression} onChange={(e) => setCron(e.target.value)} required placeholder="0 3 * * *" className={monoFieldInputClass} />
-				<p className="rounded-xl border border-[var(--accent-border)] bg-[var(--accent-bg)] px-3 py-2 text-xs text-[var(--text-primary)]">{t("scheduledTasksPage.preview.label").replace("{value}", cronPreview)}</p>
+				<p className="rounded-xl border border-[var(--accent-border)] bg-[var(--accent-bg)] px-3 py-2 text-xs text-[var(--text-primary)]">{t("scheduledTasksPage.preview.label", { value: cronPreview })}</p>
 				<div className="flex flex-wrap gap-1.5">
 					{presetCrons.map((p) => (
 						<button key={p.expr} type="button" onClick={() => setCron(p.expr)}

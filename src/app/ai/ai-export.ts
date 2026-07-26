@@ -17,7 +17,7 @@ export async function exportConversationToMarkdown({
 }: {
   conversationId: string;
   providerName: string;
-  t: (key: string) => string;
+  t: (key: string, vars?: Record<string, string | number>) => string;
 }): Promise<void> {
   try {
     const data = await csrfFetch(`/api/ai/conversations/${conversationId}`);
@@ -27,10 +27,8 @@ export async function exportConversationToMarkdown({
     }
     const exportText = [
       `# ${conv.title}`,
-      t("aiPage.modelMeta")
-        .replace("{model}", conv.model)
-        .replace("{provider}", providerName || t("aiPage.modelUnknown")),
-      t("aiPage.createdMeta").replace("{date}", conv.createdAt),
+      t("aiPage.modelMeta", { model: conv.model, provider: providerName || t("aiPage.modelUnknown") }),
+      t("aiPage.createdMeta", { date: conv.createdAt }),
       "",
       ...conv.messages.map((m: Message) => {
         const role =

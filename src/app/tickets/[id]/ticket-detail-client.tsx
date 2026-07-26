@@ -54,10 +54,10 @@ const PRIORITY_TONE: Record<string, string> = {
   LOW: "text-[var(--text-secondary)]", NORMAL: "text-[var(--text-secondary)]", HIGH: "text-[var(--warning)]", URGENT: "text-[var(--danger)]",
 };
 
-function statusLabel(t: (k: string) => string, status: string): string {
+function statusLabel(t: (k: string, vars?: Record<string, string | number>) => string, status: string): string {
   return t(`ticketsDetail.status.${status}`);
 }
-function priorityLabel(t: (k: string) => string, priority: string): string {
+function priorityLabel(t: (k: string, vars?: Record<string, string | number>) => string, priority: string): string {
   return t(`ticketsDetail.priority.${priority}`);
 }
 
@@ -208,9 +208,9 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
             </div>
           </div>
           <div className="text-left text-xs text-[var(--text-muted)] sm:text-right">
-            <p>{t("ticketsDetail.createdAt").replace("{time}", new Date(ticket.createdAt).toLocaleString(toDateLocale(locale)))}</p>
-            <p>{t("ticketsDetail.updatedAt").replace("{time}", new Date(ticket.updatedAt).toLocaleString(toDateLocale(locale)))}</p>
-            {ticket.closedAt && <p>{t("ticketsDetail.closedAt").replace("{time}", new Date(ticket.closedAt).toLocaleString(toDateLocale(locale)))}</p>}
+            <p>{t("ticketsDetail.createdAt", { time: new Date(ticket.createdAt).toLocaleString(toDateLocale(locale)) })}</p>
+            <p>{t("ticketsDetail.updatedAt", { time: new Date(ticket.updatedAt).toLocaleString(toDateLocale(locale)) })}</p>
+            {ticket.closedAt && <p>{t("ticketsDetail.closedAt", { time: new Date(ticket.closedAt).toLocaleString(toDateLocale(locale)) })}</p>}
           </div>
         </div>
 
@@ -219,8 +219,8 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
         </div>
 
         <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--text-muted)]">
-          <span>{t("ticketsDetail.creator").replace("{name}", ticket.creator.displayName || ticket.creator.username)}</span>
-          {ticket.assignee && <span>{t("ticketsDetail.assignee").replace("{name}", ticket.assignee.displayName || ticket.assignee.username)}</span>}
+          <span>{t("ticketsDetail.creator", { name: ticket.creator.displayName || ticket.creator.username })}</span>
+          {ticket.assignee && <span>{t("ticketsDetail.assignee", { name: ticket.assignee.displayName || ticket.assignee.username })}</span>}
         </div>
 
         {canManage && (
@@ -371,7 +371,7 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
             {TRANSITIONS[ticket.status]!.map((s) => (
               <button key={s} onClick={() => updateStatus(s)} disabled={saving}
                 className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-hover)] disabled:opacity-40">
-                {t("ticketsDetail.transitionTo").replace("{status}", statusLabel(t, s))}
+                {t("ticketsDetail.transitionTo", { status: statusLabel(t, s) })}
               </button>
             ))}
           </div>
@@ -381,7 +381,7 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
       {error && <p role="alert" className="rounded-xl border border-[var(--danger-border)] bg-[var(--danger-bg)] px-3 py-2 text-sm text-[var(--danger)]">{error}</p>}
 
       <div data-card className="p-5">
-        <h3 className="mb-4 text-sm font-semibold text-[var(--text-primary)]">{t("ticketsDetail.commentsTitle").replace("{count}", String(ticket.comments.length))}</h3>
+        <h3 className="mb-4 text-sm font-semibold text-[var(--text-primary)]">{t("ticketsDetail.commentsTitle", { count: ticket.comments.length })}</h3>
         {ticket.comments.length === 0 ? (
           <p className="text-sm text-[var(--text-muted)]">{t("ticketsDetail.commentsEmpty")}</p>
         ) : (

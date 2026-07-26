@@ -60,7 +60,7 @@ const RISK_TONE: Record<CapacityRisk, string> = {
   insufficient_data: "border-[var(--border)] bg-[var(--surface)] text-[var(--text-muted)]",
 };
 
-function formatDays(value: number | null, t: (k: string) => string): string {
+function formatDays(value: number | null, t: (k: string, vars?: Record<string, string | number>) => string): string {
   if (value === null) return t("healthPage.capacity.na");
   if (value === 0) return t("healthPage.capacity.now");
   if (value < 1) return t("healthPage.capacity.ltOneDay");
@@ -68,13 +68,13 @@ function formatDays(value: number | null, t: (k: string) => string): string {
   return applyTemplate(t, "healthPage.capacity.days", { n: Math.round(value * 10) / 10 });
 }
 
-function metricLabel(metric: MetricForecast["metric"], t: (k: string) => string): string {
+function metricLabel(metric: MetricForecast["metric"], t: (k: string, vars?: Record<string, string | number>) => string): string {
   if (metric === "cpu") return t("healthPage.capacity.metric.cpu");
   if (metric === "mem") return t("healthPage.capacity.metric.mem");
   return t("healthPage.capacity.metric.disk");
 }
 
-function riskLabel(risk: CapacityRisk, t: (k: string) => string): string {
+function riskLabel(risk: CapacityRisk, t: (k: string, vars?: Record<string, string | number>) => string): string {
   return t(`healthPage.capacity.risk.${risk}`);
 }
 

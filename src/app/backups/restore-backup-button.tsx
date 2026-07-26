@@ -39,7 +39,7 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
 
   const handleRestore = async () => {
     if (confirmText !== CONFIRM_TEXT) {
-      setError(t("backupsPage.restore.errorInput").replace("{confirmText}", CONFIRM_TEXT));
+      setError(t("backupsPage.restore.errorInput", { confirmText: CONFIRM_TEXT }));
       return;
     }
 
@@ -67,10 +67,7 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
       const restoredAt = result.restore?.restoredAt ?? result.restoredAt;
       if (restoredAt) {
         setMessage(
-          t("backupsPage.restore.successWithTime").replace(
-            "{time}",
-            new Date(restoredAt).toLocaleString(toDateLocale(locale)),
-          ),
+          t("backupsPage.restore.successWithTime", { time: new Date(restoredAt).toLocaleString(toDateLocale(locale)) }),
         );
         setQueuedTaskLink(false);
       } else if (result.taskId || result.jobId) {
@@ -143,7 +140,7 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
             </div>
             ) : null}
             <label className="mt-4 grid gap-1 text-sm text-[var(--text-secondary)]">
-              {t("backupsPage.restore.inputLabel").replace("{confirmText}", CONFIRM_TEXT)}
+              {t("backupsPage.restore.inputLabel", { confirmText: CONFIRM_TEXT })}
               <input
                 value={confirmText}
                 onChange={(event) => setConfirmText(event.target.value)}

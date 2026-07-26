@@ -153,7 +153,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
       setDocContent("");
       addToast(
         "success",
-        t("knowledgePage.ingested").replace("{count}", String(data.chunkCount ?? 0)),
+        t("knowledgePage.ingested", { count: data.chunkCount ?? 0 }),
       );
       await loadBases();
       await loadDetail(selectedId);
@@ -179,7 +179,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
         }),
       });
       setHits(data.hits ?? []);
-      addToast("success", t("knowledgePage.searchOk").replace("{count}", String(data.hits?.length ?? 0)));
+      addToast("success", t("knowledgePage.searchOk", { count: data.hits?.length ?? 0 }));
     } catch (e) {
       setError(getErrorMessage(e, t("knowledgePage.error")));
     } finally {
@@ -255,9 +255,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
                     >
                       <div className="font-semibold">{b.name}</div>
                       <div className="mt-0.5 text-[11px] opacity-80">
-                        {t("knowledgePage.baseMeta")
-                          .replace("{docs}", String(b.documentCount))
-                          .replace("{chunks}", String(b.chunkCount))}
+                        {t("knowledgePage.baseMeta", { docs: b.documentCount, chunks: b.chunkCount })}
                       </div>
                     </button>
                   </li>

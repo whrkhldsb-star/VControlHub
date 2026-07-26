@@ -136,11 +136,11 @@ export function BatchReviewToolbar({
 						aria-label={t("requestsPage.batch.selectAllAria")}
 					/>
 					<span className="text-[var(--text-secondary)]">
-						{t("requestsPage.batch.selectAll").replace("{count}", String(pendingIds.length))}
+						{t("requestsPage.batch.selectAll", { count: pendingIds.length })}
 					</span>
 				</label>
 				{someSelected && (
-					<span className="text-[var(--color-action)]">{t("requestsPage.batch.selectedCount").replace("{count}", String(selected.size))}</span>
+					<span className="text-[var(--color-action)]">{t("requestsPage.batch.selectedCount", { count: selected.size })}</span>
 				)}
 				{state.success && (
 					<span data-tone="emerald" className="text-[var(--success)]">
@@ -185,7 +185,7 @@ export function BatchReviewToolbar({
 					
 						className="px-4 py-2 text-sm"
 					>
-						{isPending ? t("requestsPage.batch.pending") : t("requestsPage.batch.approve").replace("{count}", String(selected.size))}
+						{isPending ? t("requestsPage.batch.pending") : t("requestsPage.batch.approve", { count: selected.size })}
 					</ActionButton>
 					<ActionButton variant="danger"
 						type="submit"
@@ -195,7 +195,7 @@ export function BatchReviewToolbar({
 					
 						className="px-4 py-2 text-sm"
 					>
-						{isPending ? t("requestsPage.batch.pending") : t("requestsPage.batch.reject").replace("{count}", String(selected.size))}
+						{isPending ? t("requestsPage.batch.pending") : t("requestsPage.batch.reject", { count: selected.size })}
 					</ActionButton>
 				</form>
 			)}

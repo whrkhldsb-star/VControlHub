@@ -52,11 +52,11 @@ const WIDGET_KEYS: Record<DashboardWidgetId, string> = {
 	"audit-log": "preferencesPage.widget.auditLog",
 };
 
-function pageLabel(t: (key: string) => string, value: DefaultPageOption): string {
+function pageLabel(t: (key: string, vars?: Record<string, string | number>) => string, value: DefaultPageOption): string {
 	return t(PAGE_KEYS[value] ?? "preferencesPage.page.dashboard");
 }
 
-function widgetLabel(t: (key: string) => string, value: DashboardWidgetId): string {
+function widgetLabel(t: (key: string, vars?: Record<string, string | number>) => string, value: DashboardWidgetId): string {
 	return t(WIDGET_KEYS[value] ?? "preferencesPage.widget.serverStatus");
 }
 

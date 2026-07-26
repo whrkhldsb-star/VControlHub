@@ -15,7 +15,7 @@ export function formatImageDate(iso: string, locale: string): string {
 
 export function formatPublishSource(
 	img: ImageItem,
-	t: (key: string) => string,
+	t: (key: string, vars?: Record<string, string | number>) => string,
 ): string {
 	if (!img.storageNodeId || !img.relativePath) {
 		return t("imageBedPage.source.directUpload");

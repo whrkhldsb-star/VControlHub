@@ -21,7 +21,7 @@ export function DockerContainerCard({
 }: {
 	c: Container;
 	options?: { showComposeLabels?: boolean };
-	t: (key: string) => string;
+	t: (key: string, vars?: Record<string, string | number>) => string;
 	stats: Record<string, ContainerStats>;
 	actionLoading: string | null;
 	handleAction: (container: Container, action: "start" | "stop" | "restart" | "remove") => Promise<void>;
@@ -43,15 +43,15 @@ export function DockerContainerCard({
 			</div>
 			<div className="mb-3 flex flex-wrap items-center gap-2 text-[11px] text-[var(--text-muted)]">
 				<span>{c.Status}</span>
-				{showComposeLabels && c.Labels?.["com.docker.compose.service"] ? <span>{t("dockerPage.label.service").replace("{name}", c.Labels["com.docker.compose.service"])}</span> : null}
-				{showComposeLabels && c.Labels?.["com.docker.compose.version"] ? <span>{t("dockerPage.label.version").replace("{version}", c.Labels["com.docker.compose.version"])}</span> : null}
+				{showComposeLabels && c.Labels?.["com.docker.compose.service"] ? <span>{t("dockerPage.label.service", { name: c.Labels["com.docker.compose.service"] })}</span> : null}
+				{showComposeLabels && c.Labels?.["com.docker.compose.version"] ? <span>{t("dockerPage.label.version", { version: c.Labels["com.docker.compose.version"] })}</span> : null}
 			</div>
 			{stat && (
 				<div className="mb-3 grid grid-cols-2 gap-2 text-[11px] md:grid-cols-4">
-					<div className="rounded-lg bg-[var(--accent-bg)] px-2 py-1.5 text-[var(--accent)]">{t("dockerPage.stat.cpu").replace("{percent}", stat.cpuPercent.toFixed(1))}</div>
-					<div className="rounded-lg bg-[var(--accent-bg)] px-2 py-1.5 text-[var(--accent)]">{t("dockerPage.stat.memory").replace("{used}", formatBytes(stat.memoryUsageBytes)).replace("{percent}", stat.memoryPercent.toFixed(1))}</div>
-					<div className="rounded-lg bg-[var(--success-bg)] px-2 py-1.5 text-[var(--success)]">{t("dockerPage.stat.netRx").replace("{bytes}", formatBytes(stat.networkRxBytes))}</div>
-					<div className="rounded-lg bg-[var(--warning-bg)] px-2 py-1.5 text-[var(--warning)]">{t("dockerPage.stat.netTx").replace("{bytes}", formatBytes(stat.networkTxBytes))}</div>
+					<div className="rounded-lg bg-[var(--accent-bg)] px-2 py-1.5 text-[var(--accent)]">{t("dockerPage.stat.cpu", { percent: stat.cpuPercent.toFixed(1) })}</div>
+					<div className="rounded-lg bg-[var(--accent-bg)] px-2 py-1.5 text-[var(--accent)]">{t("dockerPage.stat.memory", { used: formatBytes(stat.memoryUsageBytes), percent: stat.memoryPercent.toFixed(1) })}</div>
+					<div className="rounded-lg bg-[var(--success-bg)] px-2 py-1.5 text-[var(--success)]">{t("dockerPage.stat.netRx", { bytes: formatBytes(stat.networkRxBytes) })}</div>
+					<div className="rounded-lg bg-[var(--warning-bg)] px-2 py-1.5 text-[var(--warning)]">{t("dockerPage.stat.netTx", { bytes: formatBytes(stat.networkTxBytes) })}</div>
 				</div>
 			)}
 			<div className="flex flex-wrap items-center gap-2">

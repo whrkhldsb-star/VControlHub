@@ -51,7 +51,7 @@ export function StorageNodeList({
 	);
 }
 
-function getHealthPresentation(status: string | null | undefined, t: (k: string) => string) {
+function getHealthPresentation(status: string | null | undefined, t: (k: string, vars?: Record<string, string | number>) => string) {
 	switch (status) {
 		case"HEALTHY":
 			return { label: t("storagePage.list.health"), className:"border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]" };
@@ -136,9 +136,9 @@ function StorageNodeCard({
 			<div className="mt-4 rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4 text-sm text-[var(--text-secondary)]">
 				<div className="flex flex-wrap items-center justify-between gap-3">
 					<div className="flex flex-wrap items-center gap-2">
-						<span className={`rounded-full border px-3 py-1 text-xs ${health.className}`}>{health.label}</span> <span>{t("storagePage.list.lastChecked")}{t("common.colon")}{formatHealthTime(node.lastHealthCheckAt, locale)}</span> {node.lastHealthLatencyMs != null ? <span>{t("storagePage.list.latencyMs").replace("{latency}", String(node.lastHealthLatencyMs))}</span> : null} </div> {canManageNodes ? ( <button type="button" onClick={handleHealthCheck} disabled={isPending} className="rounded-lg border border-[var(--info-border)] bg-[var(--info-bg)] px-3 py-1 text-xs font-medium text-[var(--accent)] transition hover:bg-[var(--info-bg)] disabled:cursor-not-allowed disabled:opacity-60" > {isPending ? t("storagePage.list.checking") : t("storagePage.list.checkNow")} </button> ) : null} </div> {node.lastHealthError ? <p className="mt-2 text-xs text-[var(--warning)]">{node.lastHealthError}</p> : null} {message ? <p className={`mt-2 text-xs ${message.ok ?"text-[var(--success)]" :"text-[var(--danger)]"}`}>{message.text}</p> : null}
+						<span className={`rounded-full border px-3 py-1 text-xs ${health.className}`}>{health.label}</span> <span>{t("storagePage.list.lastChecked")}{t("common.colon")}{formatHealthTime(node.lastHealthCheckAt, locale)}</span> {node.lastHealthLatencyMs != null ? <span>{t("storagePage.list.latencyMs", { latency: node.lastHealthLatencyMs })}</span> : null} </div> {canManageNodes ? ( <button type="button" onClick={handleHealthCheck} disabled={isPending} className="rounded-lg border border-[var(--info-border)] bg-[var(--info-bg)] px-3 py-1 text-xs font-medium text-[var(--accent)] transition hover:bg-[var(--info-bg)] disabled:cursor-not-allowed disabled:opacity-60" > {isPending ? t("storagePage.list.checking") : t("storagePage.list.checkNow")} </button> ) : null} </div> {node.lastHealthError ? <p className="mt-2 text-xs text-[var(--warning)]">{node.lastHealthError}</p> : null} {message ? <p className={`mt-2 text-xs ${message.ok ?"text-[var(--success)]" :"text-[var(--danger)]"}`}>{message.text}</p> : null}
 			</div>
-			<p className="mt-2 text-xs text-[var(--text-muted)]">{t("storagePage.list.registeredFiles").replace("{count}", String(node.fileCount))}</p>
+			<p className="mt-2 text-xs text-[var(--text-muted)]">{t("storagePage.list.registeredFiles", { count: node.fileCount })}</p>
 
 		{editing ? (
 			<div className="mt-4">

@@ -132,11 +132,8 @@ function describeStorageTrafficSource(node: {
   if (node.server) {
     return {
       trafficSource: t("backend.traffic.source.bound"),
-      trafficSourceLabel: t("backend.traffic.source.boundLabel").replace("{name}", node.server.name),
-      trafficSourceDetail: t("backend.traffic.source.boundDetail")
-        .replace("{name}", node.server.name)
-        .replace("{host}", node.server.host)
-        .replace("{port}", String(node.server.port)),
+      trafficSourceLabel: t("backend.traffic.source.boundLabel", { name: node.server.name }),
+      trafficSourceDetail: t("backend.traffic.source.boundDetail", { name: node.server.name, host: node.server.host, port: node.server.port }),
       remoteServerId: node.server.id,
     };
   }
@@ -145,12 +142,10 @@ function describeStorageTrafficSource(node: {
   return {
     trafficSource: t("backend.traffic.source.remoteSftp"),
     trafficSourceLabel: host
-      ? t("backend.traffic.source.remoteSftpLabel").replace("{host}", host)
+      ? t("backend.traffic.source.remoteSftpLabel", { host })
       : t("backend.traffic.source.remoteSftpUnconfigured"),
     trafficSourceDetail: host
-      ? t("backend.traffic.source.remoteSftpDetail")
-          .replace("{host}", host)
-          .replace("{port}", String(node.port ?? 22))
+      ? t("backend.traffic.source.remoteSftpDetail", { host, port: node.port ?? 22 })
       : t("backend.traffic.source.remoteSftpNoHost"),
     remoteServerId: null,
   };

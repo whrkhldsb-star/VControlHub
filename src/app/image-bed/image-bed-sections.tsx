@@ -5,7 +5,7 @@ import type {
   UploadProgress,
 } from "./image-bed-types";
 
-export type ImageBedT = (key: string) => string;
+export type ImageBedT = (key: string, vars?: Record<string, string | number>) => string;
 
 export function formatImageSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
@@ -68,9 +68,7 @@ export function ImageBedStatsPanel({
               <div
                 key={trend.date}
                 className="flex flex-1 flex-col items-center gap-0.5"
-                title={t("imageBedPage.stats.imageCountTitle")
-                  .replace("{date}", trend.date)
-                  .replace("{count}", String(trend.count))}
+                title={t("imageBedPage.stats.imageCountTitle", { date: trend.date, count: trend.count })}
               >
                 <div className="text-[9px] text-[var(--text-muted)]">
                   {trend.count}
@@ -102,9 +100,7 @@ export function ImageBedStatsPanel({
               >
                 <span className="text-[var(--text-secondary)]">{a.album}</span>
                 <span className="text-[var(--text-muted)]">
-                  {t("imageBedPage.stats.albumCountSize")
-                    .replace("{count}", String(a.count))
-                    .replace("{size}", formatImageSize(a.sizeBytes))}
+                  {t("imageBedPage.stats.albumCountSize", { count: a.count, size: formatImageSize(a.sizeBytes) })}
                 </span>
               </div>
             ))}
@@ -135,17 +131,11 @@ export function UploadProgressPanel({
       <div className="flex items-center justify-between gap-3">
         <span>
           {uploading
-            ? t("imageBedPage.progress.current")
-                .replace("{current}", String(uploadProgress.current))
-                .replace("{total}", String(uploadProgress.total))
-            : t("imageBedPage.progress.completed")
-                .replace("{success}", String(uploadProgress.success))
-                .replace("{total}", String(uploadProgress.total))}
+            ? t("imageBedPage.progress.current", { current: uploadProgress.current, total: uploadProgress.total })
+            : t("imageBedPage.progress.completed", { success: uploadProgress.success, total: uploadProgress.total })}
         </span>
         <span className="text-xs text-[var(--text-muted)]">
-          {t("imageBedPage.progress.success")
-            .replace("{success}", String(uploadProgress.success))
-            .replace("{failure}", String(uploadProgress.failure))}
+          {t("imageBedPage.progress.success", { success: uploadProgress.success, failure: uploadProgress.failure })}
         </span>
       </div>
       <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--surface-elevated)]">

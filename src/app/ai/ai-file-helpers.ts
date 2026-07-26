@@ -68,7 +68,7 @@ export function categorizeFile(file: File): FileCategory {
 }
 
 /** Format allowed types for the current model (for error messages) */
-export function formatAllowedTypes(caps: ModelCapabilities, t: (key: string) => string): string {
+export function formatAllowedTypes(caps: ModelCapabilities, t: (key: string, vars?: Record<string, string | number>) => string): string {
   const parts: string[] = [t("aiPage.allowedType.text")];
   if (caps.vision) parts.push(t("aiPage.allowedType.image"));
   if (caps.video) parts.push(t("aiPage.allowedType.video"));

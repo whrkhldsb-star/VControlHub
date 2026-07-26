@@ -94,7 +94,7 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(createForm),
 			});
-			addToast("success", t("usersPage.success.created").replace("{name}", createForm.username));
+			addToast("success", t("usersPage.success.created", { name: createForm.username }));
 			setCreateForm({ username: "", displayName: "", password: "", roleKeys: ["viewer"] });
 			setShowCreateForm(false);
 			fetchUsers();
@@ -136,11 +136,11 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: resetPasswordUser.id, action: "reset_password", newPassword: resetPasswordValue }),
       });
-      addToast("success", t("usersPage.success.passwordReset").replace("{name}", resetPasswordUser.username));
+      addToast("success", t("usersPage.success.passwordReset", { name: resetPasswordUser.username }));
       setResetPasswordUser(null);
       setResetPasswordValue("");
     } catch (err) {
-      addToast("error", messageFromError(err, t("usersPage.error.resetFailed").replace("{name}", resetPasswordUser.username)));
+      addToast("error", messageFromError(err, t("usersPage.error.resetFailed", { name: resetPasswordUser.username })));
     } finally {
       setResetting(false);
     }
@@ -267,7 +267,7 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
       
           {!loading && !loadFailed && totalPages > 1 && (
             <div className="flex items-center justify-between gap-3 border-t border-[var(--border)] px-4 py-3 text-xs text-[var(--text-secondary)]">
-              <span>{t("usersPage.pagination").replace("{page}", String(page)).replace("{totalPages}", String(totalPages)).replace("{total}", String(total))}</span>
+              <span>{t("usersPage.pagination", { page, totalPages, total })}</span>
               <div className="flex gap-2">
                 <ActionButton variant="secondary" disabled={page <= 1} onClick={() => setPage(page - 1)} className="!px-2 !py-1 !text-xs disabled:opacity-50">{t("usersPage.prev")}</ActionButton>
                 <ActionButton variant="secondary" disabled={page >= totalPages} onClick={() => setPage(page + 1)} className="!px-2 !py-1 !text-xs disabled:opacity-50">{t("usersPage.next")}</ActionButton>

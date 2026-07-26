@@ -67,7 +67,7 @@ export function DashboardSetupChecklist({ items }: Props) {
 						{t("dashboard.setup.title")}
 					</h2>
 					<p className="mt-1 text-xs text-[var(--text-muted)]">
-						{t("dashboard.setup.description").replace("{count}", String(pending))}
+						{t("dashboard.setup.description", { count: pending })}
 					</p>
 				</div>
 				<ActionButton variant="ghost"

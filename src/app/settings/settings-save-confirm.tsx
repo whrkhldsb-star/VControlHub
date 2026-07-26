@@ -63,7 +63,7 @@ export function getPendingChanges(
  * Password fields are redacted so secrets never paint into the DOM. */
 export function renderDiffValue(
   value: string,
-  t: (key: string) => string,
+  t: (key: string, vars?: Record<string, string | number>) => string,
   max = 60,
   fieldType?: FieldType,
 ): string {
@@ -108,12 +108,7 @@ export function SaveButtonWithDiff({
             type="button"
             onClick={onToggleExpand}
             aria-expanded={expanded}
-            aria-label={t("settingsClient.expandAria")
-              .replace("{count}", String(count))
-              .replace(
-                "{expanded}",
-                expanded ? t("settingsClient.collapsed") : t("settingsClient.expanded"),
-              )}
+            aria-label={t("settingsClient.expandAria", { count, expanded: expanded ? t("settingsClient.collapsed") : t("settingsClient.expanded") })}
             data-pending-count={count}
             className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition ${
               highCount > 0
@@ -128,17 +123,10 @@ export function SaveButtonWithDiff({
               {count > 0
                 ? (() => {
                     if (highCount > 0)
-                      return t("settingsClient.changesCountHighRisk")
-                        .replace("{count}", String(count))
-                        .replace("{high}", String(highCount));
+                      return t("settingsClient.changesCountHighRisk", { count, high: highCount });
                     if (mediumCount > 0)
-                      return t("settingsClient.changesCountMediumRisk")
-                        .replace("{count}", String(count))
-                        .replace("{medium}", String(mediumCount));
-                    return t("settingsClient.changesCount").replace(
-                      "{count}",
-                      String(count),
-                    );
+                      return t("settingsClient.changesCountMediumRisk", { count, medium: mediumCount });
+                    return t("settingsClient.changesCount", { count });
                   })()
                 : ""}
             </span>
@@ -244,10 +232,7 @@ export function HighRiskConfirmModal({
           {t("settingsClient.confirmHighRiskTitle")}
         </h2>
         <p className="mt-1 text-xs text-[var(--text-muted)]">
-          {t("settingsClient.confirmHighRiskDescription").replace(
-            "{count}",
-            String(changes.length),
-          )}
+          {t("settingsClient.confirmHighRiskDescription", { count: changes.length })}
         </p>
         <ul className="mt-3 max-h-64 space-y-2 overflow-auto pr-1">
           {changes.map((change) => (

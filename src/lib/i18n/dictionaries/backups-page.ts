@@ -16,7 +16,7 @@
  * the live `zh` ↔ `en` switch via localStorage).
  *
  * Template strings use `{name}` placeholders and should be consumed with
- * `t("...").replace("{name}", value)` for parametric values.
+ * `t("...", { name: value })` for parametric values.
  */
 export const zh: Record<string, string> = {
 	"backupsPage.eyebrow": "备份",

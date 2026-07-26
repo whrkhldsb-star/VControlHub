@@ -74,13 +74,13 @@ export function ActiveIncidentsBanner() {
 							</div>
 							<p className="mt-1.5 line-clamp-3 text-sm leading-6 text-[var(--text-secondary)]">{item.body}</p>
 							<p className="mt-1 text-xs text-[var(--text-muted)]">
-								{t("healthPage.incident.started").replace("{time}", new Date(item.startsAt).toLocaleString(toDateLocale(locale)))}
-								{item.expiresAt ? ` · ${t("healthPage.incident.expectedEnd").replace("{time}", new Date(item.expiresAt).toLocaleString(toDateLocale(locale)))}` : ""}
+								{t("healthPage.incident.started", { time: new Date(item.startsAt).toLocaleString(toDateLocale(locale)) })}
+								{item.expiresAt ? ` · ${t("healthPage.incident.expectedEnd", { time: new Date(item.expiresAt).toLocaleString(toDateLocale(locale)) })}` : ""}
 							</p>
 						</div>
 						<button
 							type="button"
-							aria-label={t("healthPage.incident.dismissAria").replace("{title}", item.title)}
+							aria-label={t("healthPage.incident.dismissAria", { title: item.title })}
 							onClick={() => setDismissed((prev) => new Set(prev).add(item.id))}
 							className="shrink-0 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]"
 						>

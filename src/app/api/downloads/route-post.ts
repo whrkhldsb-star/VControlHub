@@ -276,7 +276,7 @@ export async function POST(request: Request) {
         }, undefined, session?.currentTeamId);
         return NextResponse.json(
           {
-            error: t("apiDownloads.createFailedWithMessage", locale).replace("{message}", dispatchError.message),
+            error: t("apiDownloads.createFailedWithMessage", locale, { message: dispatchError.message }),
             code: "DOWNLOAD_DISPATCH_FAILED",
             taskIds: onlyFailedIds,
             succeededTaskIds: succeededIds,

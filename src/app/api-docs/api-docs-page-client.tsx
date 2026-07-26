@@ -134,9 +134,7 @@ export default function ApiDocsPage() {
 					</label>
 					<div className="px-2 text-sm text-[var(--text-muted)]">
 						{spec
-							? t("apiDocsPage.summaryCount")
-									.replace("{count}", String(filtered.length))
-									.replace("{total}", String(entries.length))
+							? t("apiDocsPage.summaryCount", { count: filtered.length, total: entries.length })
 							: t("apiDocsPage.loadingInline")}
 					</div>
 				</Toolbar>
@@ -164,7 +162,7 @@ export default function ApiDocsPage() {
 									) : null}
 								</div>
 								<span className="rounded-lg border border-[var(--border)] bg-[var(--surface-hover)] px-2.5 py-1 text-xs text-[var(--text-muted)]">
-									{t("apiDocsPage.tagCount").replace("{count}", String(tagEntries.length))}
+									{t("apiDocsPage.tagCount", { count: tagEntries.length })}
 								</span>
 							</div>
 						</div>
@@ -197,7 +195,7 @@ export default function ApiDocsPage() {
 											<div className="flex flex-wrap gap-2 text-xs text-[var(--text-muted)] lg:justify-end">
 												{entry.operation.parameters?.length ? (
 													<span className="rounded-full bg-[var(--surface-hover)] px-2 py-1">
-														{t("apiDocsPage.paramCount").replace("{count}", String(entry.operation.parameters.length))}
+														{t("apiDocsPage.paramCount", { count: entry.operation.parameters.length })}
 													</span>
 												) : null}
 												{entry.operation.requestBody ? (

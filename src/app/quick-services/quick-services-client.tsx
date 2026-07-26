@@ -62,7 +62,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 			actions.showMessage({
 				type:"err",
 				text: dockerStatus.installHint
-					? t("qsPage.dockerMessage").replace("{message}", dockerStatus.message ?? "").replace("{hint}", dockerStatus.installHint)
+					? t("qsPage.dockerMessage", { message: dockerStatus.message ?? "", hint: dockerStatus.installHint })
 					: (dockerStatus.message ?? t("qsPage.dockerUnavailable")),
 			});
 			return;
@@ -190,7 +190,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 					<div className="flex items-start justify-between gap-3">
 						<div>
 							<p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">{t("qsPage.runningOverview")}</p>
-							<h2 className="mt-1 text-base font-semibold text-[var(--text-primary)]">{runningItems.length > 0 ? t("qsPage.runningOnlineCount").replace("{count}", String(runningItems.length)) : t("qsPage.noRunningServicesYet")}</h2>
+							<h2 className="mt-1 text-base font-semibold text-[var(--text-primary)]">{runningItems.length > 0 ? t("qsPage.runningOnlineCount", { count: runningItems.length }) : t("qsPage.noRunningServicesYet")}</h2>
 							</div>
 							<button type="button" onClick={() => setTab(nextAction.tab)}
 							data-tone={nextAction.tone ==="rose" ?"rose" : nextAction.tone ==="emerald" ?"emerald" :"cyan"}
@@ -209,18 +209,18 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 										<span className="text-[10px] text-[var(--success)]">:{item.port ?? item.defaultPort}</span>
 									</div>
 									<p className="mt-1 truncate text-[11px] text-[var(--text-muted)]">{access?.url ?? `${accessHostLabel}:${item.port ?? item.defaultPort}`}</p>
-									{access ? <p className="mt-2 text-[10px] font-medium text-[var(--warning)]">{access.label}</p> : <p className="mt-2 text-[10px] font-medium text-[var(--text-muted)]">{t("qsPage.accessEntryUnconfigured").replace("{name}", item.name)}</p>}
+									{access ? <p className="mt-2 text-[10px] font-medium text-[var(--warning)]">{access.label}</p> : <p className="mt-2 text-[10px] font-medium text-[var(--text-muted)]">{t("qsPage.accessEntryUnconfigured", { name: item.name })}</p>}
 								</>
 							);
 							if (!access) {
 								return (
-									<div key={item.slug} aria-label={t("qsPage.accessEntryUnconfigured").replace("{name}", item.name)} data-tone="neutral" className="rounded-xl border border-[var(--border)] p-3 opacity-80">
+									<div key={item.slug} aria-label={t("qsPage.accessEntryUnconfigured", { name: item.name })} data-tone="neutral" className="rounded-xl border border-[var(--border)] p-3 opacity-80">
 										{cardBody}
 									</div>
 								);
 							}
 							return (
-								<a key={item.slug} href={access.url} target="_blank" rel="noreferrer" aria-label={t("qsPage.accessEntry").replace("{name}", item.name).replace("{label}", access.label)} data-tone="emerald" className="rounded-xl border border-[var(--success-border)] p-3 transition hover:bg-[var(--success-bg)] hover:text-[var(--success)]/[0.1]">
+								<a key={item.slug} href={access.url} target="_blank" rel="noreferrer" aria-label={t("qsPage.accessEntry", { name: item.name, label: access.label })} data-tone="emerald" className="rounded-xl border border-[var(--success-border)] p-3 transition hover:bg-[var(--success-bg)] hover:text-[var(--success)]/[0.1]">
 									{cardBody}
 								</a>
 							);
@@ -230,7 +230,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 				</div>
 				<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-elevated)] p-4">
 					<p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">{t("qsPage.portsLabel")}</p>
-					<h3 className="mt-1 text-base font-semibold text-[var(--text-primary)]">{t("qsPage.listeningPortsCount").replace("{count}", String(usedPorts.length))}</h3>
+					<h3 className="mt-1 text-base font-semibold text-[var(--text-primary)]">{t("qsPage.listeningPortsCount", { count: usedPorts.length })}</h3>
 					<p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{t("qsPage.portsHint")}</p>
 					<div className="mt-3 flex flex-wrap gap-1.5">
 						{usedPorts.slice(0, 8).map((port) => <span key={port} className="rounded-lg border border-[var(--border)] px-2 py-0.5 text-[10px] text-[var(--text-muted)]">{port}</span>)}
@@ -238,10 +238,10 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 				</div>
 				<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-elevated)] p-4">
 					<p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">{t("qsPage.sourcesLabel")}</p>
-					<h3 className="mt-1 text-base font-semibold text-[var(--text-primary)]">{t("qsPage.sourcesEnabledCount").replace("{enabled}", String(sources.filter((s) => s.enabled).length)).replace("{total}", String(sources.length))}</h3>
-					<p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{lastSyncedSource ? t("qsPage.lastSynced").replace("{name}", lastSyncedSource.displayName) : t("qsPage.noSyncRecord")}</p>
+					<h3 className="mt-1 text-base font-semibold text-[var(--text-primary)]">{t("qsPage.sourcesEnabledCount", { enabled: sources.filter((s) => s.enabled).length, total: sources.length })}</h3>
+					<p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{lastSyncedSource ? t("qsPage.lastSynced", { name: lastSyncedSource.displayName }) : t("qsPage.noSyncRecord")}</p>
 					<ActionButton variant={staleSources.length > 0 ? "outline" : "secondary"} onClick={() => setTab("sources")} className="!mt-3 !px-3 !py-1.5 !text-xs">
-						{staleSources.length > 0 ? t("qsPage.handleStaleSources").replace("{count}", String(staleSources.length)) : t("qsPage.manageSources")}
+						{staleSources.length > 0 ? t("qsPage.handleStaleSources", { count: staleSources.length }) : t("qsPage.manageSources")}
 					</ActionButton>
 				</div>
 			</section>
@@ -330,10 +330,10 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 				value={tab}
 				onChange={(value) => setTab(value as Tab)}
 				items={[
-					{ id:"store", label: t("qsPage.tabStore").replace("{count}", String(localAvailable.length)) },
-					{ id:"community", label: t("qsPage.tabCommunity").replace("{count}", String(remoteAvailable.length)) },
-					{ id:"installed", label: t("qsPage.tabInstalled").replace("{count}", String(installed.length)) },
-					{ id:"sources", label: t("qsPage.tabSources").replace("{count}", String(sources.length)) },
+					{ id:"store", label: t("qsPage.tabStore", { count: localAvailable.length }) },
+					{ id:"community", label: t("qsPage.tabCommunity", { count: remoteAvailable.length }) },
+					{ id:"installed", label: t("qsPage.tabInstalled", { count: installed.length }) },
+					{ id:"sources", label: t("qsPage.tabSources", { count: sources.length }) },
 				]}
 			/>
 			{/* Sources management tab (extracted to <SourcesPanel /> in TR-036 T37) */}

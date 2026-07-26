@@ -377,7 +377,7 @@ export function ItsmPageClient({
 				title={t("common.confirmDelete")}
 				description={
 					pendingDelete
-						? t("itsmPage.confirm.delete").replace("{name}", pendingDelete.name)
+						? t("itsmPage.confirm.delete", { name: pendingDelete.name })
 						: ""
 				}
 				cancelLabel={t("common.cancel")}

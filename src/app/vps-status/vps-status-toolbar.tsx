@@ -26,7 +26,7 @@ export function VpsStatusToolbar({
 	isRefreshing,
 	loading,
 }: {
-	t: (key: string) => string;
+	t: (key: string, vars?: Record<string, string | number>) => string;
 	tt: (key: string, vars?: Record<string, string | number>) => string;
 	filter: VpsStatusFilter;
 	setFilter: (filter: VpsStatusFilter) => void;

@@ -104,7 +104,7 @@ export function FileListDetailsView({
             </button>
             <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--text-muted)]">
               <span>{t("fileListClient.directory")}</span>
-              <span>{t("fileListClient.folderItemCount").replace("{count}", String(folder.fileCount + folder.folderCount))}</span>
+              <span>{t("fileListClient.folderItemCount", { count: folder.fileCount + folder.folderCount })}</span>
             </div>
           </div>
           <div className="shrink-0 flex items-center gap-1">
@@ -173,7 +173,7 @@ export function FileListDetailsView({
                 <input
                   type="checkbox"
                   checked={effectiveSelectedIdSet.has(entry.id)}
-                  aria-label={t("fileListClient.selectFileAria").replace("{name}", entry.name)}
+                  aria-label={t("fileListClient.selectFileAria", { name: entry.name })}
                   onChange={() => toggleOne(entry.id)}
                   className="h-4 w-4 rounded-lg border-[var(--border)] bg-[var(--surface)] text-[var(--color-action)] focus:ring-[var(--color-action-ring)]"
                 />

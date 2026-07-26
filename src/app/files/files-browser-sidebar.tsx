@@ -4,7 +4,7 @@ import type { FilesApiResponse } from "./files-browser-helpers";
 import { NodeFilterSelect } from "./node-filter-select";
 import { FolderTreeClient } from "./folder-tree-client";
 
-type TFn = (key: string) => string;
+type TFn = (key: string, vars?: Record<string, string | number>) => string;
 
 export function FilesBrowserSidebar({
   t,

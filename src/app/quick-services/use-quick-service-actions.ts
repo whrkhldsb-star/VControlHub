@@ -127,8 +127,8 @@ export function useQuickServiceActions({
         setMessage({
           type: "ok",
           text: data.taskId
-            ? t("qsActions.queued").replace("{name}", preview.item.name).replace("{taskId}", data.taskId)
-            : t("qsActions.submitted").replace("{name}", preview.item.name),
+            ? t("qsActions.queued", { name: preview.item.name, taskId: data.taskId })
+            : t("qsActions.submitted", { name: preview.item.name }),
           taskId: data.taskId,
         });
         setTimeout(fetchCatalog, 1500);
@@ -157,20 +157,20 @@ export function useQuickServiceActions({
           },
         );
         const updateDetails = [
-          data.health ? t("qsActions.healthDetail").replace("{health}", data.health) : null,
+          data.health ? t("qsActions.healthDetail", { health: data.health }) : null,
           data.logTail
-            ? t("qsActions.logTailDetail").replace("{tail}", data.logTail.split("\n").slice(-2).join(" / "))
+            ? t("qsActions.logTailDetail", { tail: data.logTail.split("\n").slice(-2).join(" / ") })
             : null,
         ]
           .filter(Boolean)
           .join("; ");
-        const queuedSuffix = data.taskId ? t("qsActions.taskSuffix").replace("{id}", data.taskId) : "";
+        const queuedSuffix = data.taskId ? t("qsActions.taskSuffix", { id: data.taskId }) : "";
         const actionMessages: Record<string, string> = data.queued
           ? {
-              start: t("qsActions.queuedStart").replace("{task}", queuedSuffix),
-              stop: t("qsActions.queuedStop").replace("{task}", queuedSuffix),
-              sync: t("qsActions.queuedSync").replace("{task}", queuedSuffix),
-              update: t("qsActions.queuedUpdate").replace("{task}", queuedSuffix),
+              start: t("qsActions.queuedStart", { task: queuedSuffix }),
+              stop: t("qsActions.queuedStop", { task: queuedSuffix }),
+              sync: t("qsActions.queuedSync", { task: queuedSuffix }),
+              update: t("qsActions.queuedUpdate", { task: queuedSuffix }),
             }
           : {
               start: t("qsActions.started"),
@@ -180,7 +180,7 @@ export function useQuickServiceActions({
                   ? t("qsActions.syncRunning")
                   : t("qsActions.syncStopped"),
               update: updateDetails
-                ? t("qsActions.updateDetails").replace("{details}", updateDetails)
+                ? t("qsActions.updateDetails", { details: updateDetails })
                 : t("qsActions.updateSimple"),
             };
         setMessage({
@@ -213,13 +213,13 @@ export function useQuickServiceActions({
             body: JSON.stringify({ deleteVolumes: target.deleteVolumes, serverId: selectedServerId || null }),
           },
         );
-        const taskLabel = data.taskId ? t("qsActions.taskSuffix").replace("{id}", data.taskId) : "";
+        const taskLabel = data.taskId ? t("qsActions.taskSuffix", { id: data.taskId }) : "";
         setMessage({
           type: "ok",
           text: data.queued
             ? target.deleteVolumes
-              ? t("qsActions.uninstallAndDeleteQueued").replace("{task}", taskLabel)
-              : t("qsActions.uninstallKeepQueued").replace("{task}", taskLabel)
+              ? t("qsActions.uninstallAndDeleteQueued", { task: taskLabel })
+              : t("qsActions.uninstallKeepQueued", { task: taskLabel })
             : target.deleteVolumes
               ? t("qsActions.uninstallAndDeleteDone")
               : t("qsActions.uninstallKeepDone"),

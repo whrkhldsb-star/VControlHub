@@ -93,7 +93,7 @@ export async function POST(request: Request) {
         const foundRoleKeys = new Set(roles.map((role) => role.key));
         const missingRoleKeys = roleKeys.filter((key) => !foundRoleKeys.has(key));
         if (missingRoleKeys.length > 0) {
-          throw new ValidationError(t("backend.user.roleNotFound").replace("{roles}", missingRoleKeys.join(", ")));
+          throw new ValidationError(t("backend.user.roleNotFound", { roles: missingRoleKeys.join(", ") }));
         }
 
         const passwordHash = await hashPassword(body.password);

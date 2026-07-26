@@ -40,7 +40,7 @@ export function PendingSourceDeleteDialog({
 			>
 				<h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">{t("qsPage.deleteSourceTitle")}</h3>
 				<p className="text-sm leading-6 text-[var(--text-secondary)]">
-					{t("qsPage.deleteSourceBody").replace("{name}", pending.displayName)}
+					{t("qsPage.deleteSourceBody", { name: pending.displayName })}
 				</p>
 				<div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
 					<ActionButton variant="secondary"

@@ -13,5 +13,5 @@ type PlaybookDeleteDialogProps = {
 
 export function PlaybookDeleteDialog({ playbook, busy, onCancel, onConfirm }: PlaybookDeleteDialogProps) {
   const { t } = useI18n();
-  return <ConfirmDialog open={playbook !== null} title={t("playbooksPage.delete.title")} description={playbook ? t("playbooksPage.delete.confirm").replace("{name}", playbook.name) : ""} cancelLabel={t("playbooksPage.delete.cancel")} confirmLabel={busy ? t("playbooksPage.action.deleting") : t("playbooksPage.delete.confirmBtn")} onCancel={onCancel} onConfirm={onConfirm} busy={busy} />;
+  return <ConfirmDialog open={playbook !== null} title={t("playbooksPage.delete.title")} description={playbook ? t("playbooksPage.delete.confirm", { name: playbook.name }) : ""} cancelLabel={t("playbooksPage.delete.cancel")} confirmLabel={busy ? t("playbooksPage.action.deleting") : t("playbooksPage.delete.confirmBtn")} onCancel={onCancel} onConfirm={onConfirm} busy={busy} />;
 }

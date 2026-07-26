@@ -20,7 +20,7 @@ function resolveErrorMessage(locale: Locale, error?: string, minutes?: string) {
 	}
 	if (error === "locked") {
 		const min = minutes ? `${minutes} ${t("login.error.minutesUnit", locale)}` : t("login.error.lockedDefault", locale);
-		return t("login.error.locked", locale).replace("{min}", min);
+		return t("login.error.locked", locale, { min });
 	}
 	return undefined;
 }

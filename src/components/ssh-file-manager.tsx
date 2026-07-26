@@ -125,7 +125,7 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
 
         try {
           await uploadViaXhr(serverId, formData, files.length, i, setUploads, {
-            uploadFailed: (status) => t("sshFileManager.uploadFailed").replace("{status}", String(status)),
+            uploadFailed: (status) => t("sshFileManager.uploadFailed", { status }),
             networkError: t("sshFileManager.networkError"),
           });
         } catch {

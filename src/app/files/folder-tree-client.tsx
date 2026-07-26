@@ -14,7 +14,7 @@ export function FolderTreeClient({
   onToggle,
   depth = 0,
 }: {
-  t: (k: string) => string;
+  t: (k: string, vars?: Record<string, string | number>) => string;
   node: TreeRootNode;
   currentPath: string;
   onNavigate: (path: string) => void;
@@ -55,7 +55,7 @@ export function FolderTreeClient({
                 aria-label={
                   hasChildren
                     ? `${isExpanded ? t("filesBrowserSpa.collapseNode") : t("filesBrowserSpa.expandNode")} ${child.displayName ?? child.name}`
-                    : t("filesBrowserSpa.openChild").replace("{name}", child.displayName ?? child.name)
+                    : t("filesBrowserSpa.openChild", { name: child.displayName ?? child.name })
                 }
                 aria-expanded={hasChildren ? isExpanded : undefined}
                 className="grid h-8 w-8 flex-none place-items-center rounded-lg text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-elevated)] hover:text-[var(--text-primary)]"

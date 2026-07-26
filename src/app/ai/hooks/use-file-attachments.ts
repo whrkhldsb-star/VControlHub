@@ -28,7 +28,7 @@ export interface UseFileAttachmentsOptions {
   modelName: string | null | undefined;
   enableVision?: boolean;
   onReject?: (message: string) => void;
-  t?: (key: string) => string;
+  t?: (key: string, vars?: Record<string, string | number>) => string;
 }
 
 export interface UseFileAttachmentsReturn {

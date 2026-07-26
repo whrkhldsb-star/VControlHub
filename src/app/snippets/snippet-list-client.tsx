@@ -28,7 +28,7 @@ type FullSnippet = Snippet & { content: string };
 
 type SnippetCardProps = {
   snippet: Snippet;
-  t: (k: string) => string;
+  t: (k: string, vars?: Record<string, string | number>) => string;
   copied: boolean;
   onCopy: (snippet: Snippet) => void;
   onEdit: (snippet: Snippet) => void;
@@ -183,7 +183,7 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
             <option key={l} value={l}>{l ==="ALL" ? t("snippetsPage.filter.allLanguages") : l}</option>
           ))}
         </select>
-        <span className="px-1 text-xs text-[var(--text-muted)]">{t("snippetsPage.count").replace("{count}", String(filtered.length))}</span>
+        <span className="px-1 text-xs text-[var(--text-muted)]">{t("snippetsPage.count", { count: filtered.length })}</span>
         <ActionButton variant="primary"
           onClick={() => setCreating(true)}
           data-primary className="inline-flex min-h-11 items-center gap-1.5 px-3 py-2 text-sm"
@@ -236,7 +236,7 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
           <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="delete-snippet-title" className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-5 shadow-2xl shadow-black/30">
             <h3 id="delete-snippet-title" className="text-base font-semibold text-[var(--text-primary)]">{t("snippetsPage.deleteDialog.title")}</h3>
             <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
-              {t("snippetsPage.deleteDialog.body").replace("{title}", pendingDelete.title)}
+              {t("snippetsPage.deleteDialog.body", { title: pendingDelete.title })}
             </p>
             {deleteError && <p role="alert" className="mt-3 text-xs text-[var(--danger)]">{deleteError}</p>}
             <div className="mt-5 flex justify-end gap-2">

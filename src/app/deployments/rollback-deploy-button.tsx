@@ -36,7 +36,7 @@ export function RollbackDeployButton({ runId, templateName, disabled = false }: 
     try {
       await csrfFetch(`/api/deployments/${runId}/rollback`, {
         method:"POST",
-        body: JSON.stringify({ reason: t("deploymentsPage.rollback.reason").replace("{name}", templateName) }),
+        body: JSON.stringify({ reason: t("deploymentsPage.rollback.reason", { name: templateName }) }),
       });
       setConfirming(false);
       addToast("success", t("deploymentsPage.rollback.toast.success"));

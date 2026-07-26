@@ -148,7 +148,7 @@ export function CostPageClient({
 							<div className="text-xs uppercase tracking-wide text-[var(--text-primary)]/70">{t("costPage.summary.total")}</div>
 							<div className="mt-1 text-3xl font-semibold text-[var(--text-primary)]">{formatAmount(summary.totalAmount, summary.currency, localeTag)}</div>
 							<div className="mt-1 text-xs text-[var(--text-primary)]/70">
-								{t("costPage.summary.range").replace("{start}", summary.rangeStart).replace("{end}", summary.rangeEnd)}
+								{t("costPage.summary.range", { start: summary.rangeStart, end: summary.rangeEnd })}
 							</div>
 						</div>
 						<div>

@@ -47,7 +47,7 @@ export function PermanentDeleteButton({
     <form action={formAction} className="flex flex-wrap items-center gap-3">
       <input type="hidden" name="fileEntryId" value={fileEntryId} />
       <span className="text-sm text-[var(--danger)]">
-        {t("filesPage.actions.permanentDeleteWarning").replace("{name}", entryName)}
+        {t("filesPage.actions.permanentDeleteWarning", { name: entryName })}
       </span>
       <ActionButton variant="danger"
         type="submit"

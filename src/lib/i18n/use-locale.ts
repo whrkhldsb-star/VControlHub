@@ -13,14 +13,14 @@ const COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 interface I18nContextValue {
 	locale: Locale;
 	setLocale: (locale: Locale) => void;
-	t: (key: string) => string;
+	t: (key: string, vars?: Record<string, string | number>) => string;
 	translations: Record<string, string>;
 }
 
 const I18nContext = createContext<I18nContextValue>({
 	locale: "zh",
 	setLocale: () => {},
-	t: (key) => key,
+	t: (key, vars) => (vars ? Object.entries(vars).reduce((s, [k, v]) => s.split(`{${k}}`).join(String(v)), key) : key),
 	translations: {},
 });
 
@@ -80,7 +80,7 @@ export function useLocale(initialLocale: Locale = "zh") {
 	}, []);
 
 	const translate = useCallback(
-		(key: string) => t(key, locale),
+		(key: string, vars?: Record<string, string | number>) => t(key, locale, vars),
 		[locale]
 	);
 

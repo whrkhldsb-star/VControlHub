@@ -31,7 +31,7 @@ function formatDate(value: Date | string | null, locale?: Locale) {
   return formatDateTime(value, locale ?? "zh");
 }
 
-function tokenStatus(t: (k: string) => string, token: SafeApiToken) {
+function tokenStatus(t: (k: string, vars?: Record<string, string | number>) => string, token: SafeApiToken) {
   if (token.revokedAt) return { label: t("apiTokensPage.status.revoked"), className: "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)]" };
   if (token.expiresAt && new Date(token.expiresAt).getTime() <= Date.now()) {
     return { label: t("apiTokensPage.status.expired"), className: "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)]" };
@@ -39,7 +39,7 @@ function tokenStatus(t: (k: string) => string, token: SafeApiToken) {
   return { label: t("apiTokensPage.status.active"), className: "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]" };
 }
 
-function scopeLabel(t: (k: string) => string, scope: string): string {
+function scopeLabel(t: (k: string, vars?: Record<string, string | number>) => string, scope: string): string {
   const translated = t(`apiTokensPage.scope.${scope}`);
   return translated === `apiTokensPage.scope.${scope}` ? scope : translated;
 }
@@ -210,7 +210,7 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
                       </dl>
                     </div>
                     {!token.revokedAt && (
-                      <ActionButton variant="danger" aria-label={t("apiTokensPage.revoke.aria").replace("{name}", token.name)} disabled={revokingId === token.id} onClick={() => setTokenPendingRevoke(token)} className="!px-4 !py-2 !text-xs !font-medium disabled:opacity-60">
+                      <ActionButton variant="danger" aria-label={t("apiTokensPage.revoke.aria", { name: token.name })} disabled={revokingId === token.id} onClick={() => setTokenPendingRevoke(token)} className="!px-4 !py-2 !text-xs !font-medium disabled:opacity-60">
                         {revokingId === token.id ? t("apiTokensPage.revoke.revoking") : t("apiTokensPage.revoke.button")}
                       </ActionButton>
                     )}
@@ -228,7 +228,7 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
           <section ref={revokeDialogRef} role="dialog" aria-modal="true" aria-labelledby="revoke-api-token-title" className="w-full max-w-md rounded-2xl border border-[var(--danger-border)] bg-[var(--modal-bg)] p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]">
             <h2 id="revoke-api-token-title" className="text-lg font-semibold text-[var(--text-primary)]">{t("apiTokensPage.revoke.confirmTitle")}</h2>
             <p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">
-              {t("apiTokensPage.revoke.confirmBody").replace("{name}", tokenPendingRevoke.name)}
+              {t("apiTokensPage.revoke.confirmBody", { name: tokenPendingRevoke.name })}
             </p>
             <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <ActionButton variant="secondary" onClick={() => setTokenPendingRevoke(null)} className="!px-4 !py-2 !text-sm">

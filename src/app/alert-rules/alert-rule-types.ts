@@ -46,26 +46,26 @@ export type TestDelivery = {
 export type ServerOption = { id: string; name: string };
 export type PlaybookOption = { id: string; name: string; enabled: boolean };
 
-export function metricLabel(t: (key: string) => string, metric: string): string {
+export function metricLabel(t: (key: string, vars?: Record<string, string | number>) => string, metric: string): string {
 	const key = `alertRulesPage.metric.${metric}`;
 	const value = t(key);
 	return value === key ? metric : value;
 }
 
-export function operatorLabel(t: (key: string) => string, op: string): string {
+export function operatorLabel(t: (key: string, vars?: Record<string, string | number>) => string, op: string): string {
 	const key = `alertRulesPage.operator.${op}`;
 	const value = t(key);
 	return value === key ? op : value;
 }
 
-export function channelLabel(t: (key: string) => string, ch: string): string {
+export function channelLabel(t: (key: string, vars?: Record<string, string | number>) => string, ch: string): string {
 	const key = `alertRulesPage.channel.${ch}`;
 	const value = t(key);
 	return value === key ? ch : value;
 }
 
 export function deliveryStatusLabel(
-	t: (key: string) => string,
+	t: (key: string, vars?: Record<string, string | number>) => string,
 	status: TestDelivery["status"],
 ): string {
 	return t(`alertRulesPage.delivery.${status}`);

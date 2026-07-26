@@ -141,7 +141,7 @@ export function getDisplaySegment(segment: string, nodes: NodeOption[] = []) {
   return node ? node.name : group.label;
 }
 
-export function getCurrentPathDisplay(t: (k: string) => string, path: string, nodes: NodeOption[], nodeIdFilter: string) {
+export function getCurrentPathDisplay(t: (k: string, vars?: Record<string, string | number>) => string, path: string, nodes: NodeOption[], nodeIdFilter: string) {
   const selectedNode = getNodeById(nodes, nodeIdFilter);
   const segments = splitPath(path);
   const groupSegment = segments.find(isNodeGroupSegment);
@@ -164,7 +164,7 @@ export function getCurrentPathDisplay(t: (k: string) => string, path: string, no
   };
 }
 
-export function getNodeLabel(t: (k: string) => string, node?: NodeOption) {
+export function getNodeLabel(t: (k: string, vars?: Record<string, string | number>) => string, node?: NodeOption) {
   if (!node) return t("filesBrowserSpa.allNodes");
   return `${node.name} (${node.driver})`;
 }

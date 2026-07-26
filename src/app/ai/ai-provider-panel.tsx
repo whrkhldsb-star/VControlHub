@@ -81,7 +81,7 @@ export function AiProviderPanel({
         availableModels: ids.join(","),
         defaultModel: ids.includes(f.defaultModel) ? f.defaultModel : ids[0] || f.defaultModel,
       }));
-      addToast("success", ids.length > 0 ? t("aiPage.modelsFetched").replace("{count}", String(ids.length)) : t("aiPage.modelsFetchedEmpty"));
+      addToast("success", ids.length > 0 ? t("aiPage.modelsFetched", { count: ids.length }) : t("aiPage.modelsFetchedEmpty"));
     } catch (e: unknown) {
       addToast("error", getErrorMessage(e, t("aiPage.modelsFetchFailed")));
     } finally {
@@ -203,14 +203,14 @@ export function AiProviderPanel({
                     <button
                       onClick={() => startEditing(p)}
                       className="text-xs text-[var(--color-action)]/60 hover:text-[var(--color-action)] transition"
-                      aria-label={t("aiPage.editProviderAria").replace("{name}", p.name)}
+                      aria-label={t("aiPage.editProviderAria", { name: p.name })}
                     >
                       {t("aiPage.editAction")}
                     </button>
                     <button
                       onClick={() => onDeleteProvider(p.id)}
                       className="text-xs text-[var(--danger)]/60 hover:text-[var(--danger)] transition"
-                      aria-label={t("aiPage.deleteProviderAria2").replace("{name}", p.name)}
+                      aria-label={t("aiPage.deleteProviderAria2", { name: p.name })}
                     >
                       {t("aiPage.deleteAction")}
                     </button>
@@ -302,7 +302,7 @@ export function AiProviderPanel({
                       {modelsLoading ? t("aiPage.fetchingModels") : t("aiPage.fetchModels")}
                     </ActionButton>
                   </div>
-                  {modelOptions.length > 0 && <div className="max-h-24 overflow-y-auto rounded-lg bg-[var(--input-bg)] p-2 text-[11px] text-[var(--text-secondary)]">{modelOptions.slice(0, 20).join("、")}{modelOptions.length > 20 ? t("aiPage.modelsMore").replace("{count}", String(modelOptions.length)) : ""}</div>}
+                  {modelOptions.length > 0 && <div className="max-h-24 overflow-y-auto rounded-lg bg-[var(--input-bg)] p-2 text-[11px] text-[var(--text-secondary)]">{modelOptions.slice(0, 20).join("、")}{modelOptions.length > 20 ? t("aiPage.modelsMore", { count: modelOptions.length }) : ""}</div>}
                 </div>
                 <label className="flex items-center gap-2 col-span-2 max-sm:col-span-1 cursor-pointer">
                   <input type="checkbox" checked={provForm.isDefault} onChange={(e) => setProvForm((f) => ({ ...f, isDefault: e.target.checked }))} className="rounded-lg border-[var(--border)] bg-[var(--input-bg)] text-[var(--color-action)] focus:ring-[var(--color-action-ring)]" />

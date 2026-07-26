@@ -21,7 +21,7 @@ import { ActionButton } from "@/components/action-button";
 
 type KindFilter = "all" | "slice" | "blocker" | "qa_run";
 
-function kindLabel(t: (key: string) => string, kind: Exclude<KindFilter, "all">): string {
+function kindLabel(t: (key: string, vars?: Record<string, string | number>) => string, kind: Exclude<KindFilter, "all">): string {
 	if (kind === "qa_run") return t("qaReportsPage.kind.qaRun");
 	if (kind === "slice") return t("qaReportsPage.kind.slice");
 	return t("qaReportsPage.kind.blocker");
@@ -126,7 +126,7 @@ function TrendSection({ trends }: TrendSectionProps) {
 				<div className="mt-5">
 					<div className="mb-2 flex items-center justify-between text-xs text-[var(--text-muted)]">
 						<span>{t("qaReportsPage.dailyTickHeader")}</span>
-						<span>{t("qaReportsPage.dailyTickPeak").replace("{n}", String(dailyMax))}</span>
+						<span>{t("qaReportsPage.dailyTickPeak", { n: dailyMax })}</span>
 					</div>
 					<div className="flex items-end gap-2" role="img" aria-label={t("qaReportsPage.tickChartAria")}>
 						{trends.dailyBuckets.map((bucket) => {
@@ -143,11 +143,7 @@ function TrendSection({ trends }: TrendSectionProps) {
 									<div
 										className="flex w-full max-w-[40px] flex-col-reverse overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)]"
 										style={{ height: `${MAX_DAILY_BAR_HEIGHT}px` }}
-										title={t("qaReportsPage.dailyTickTitle")
-											.replace("{day}", bucket.day)
-											.replace("{n}", String(bucket.total))
-											.replace("{ok}", String(bucket.success))
-											.replace("{fail}", String(bucket.failed))}
+										title={t("qaReportsPage.dailyTickTitle", { day: bucket.day, n: bucket.total, ok: bucket.success, fail: bucket.failed })}
 									>
 										<div className="w-full bg-[var(--success-bg)]" style={{ height: `${successHeight}px` }} />
 										<div
@@ -174,12 +170,7 @@ function TrendSection({ trends }: TrendSectionProps) {
 							>
 								<span className="truncate text-[var(--text-secondary)]">{row.module}</span>
 								<span className="ml-2 shrink-0 text-[var(--text-muted)]">
-									{t("qaReportsPage.moduleCoverageItem")
-										.replace("{n}", String(row.visitCount))
-										.replace(
-											"{time}",
-											row.lastVisitedAt ? formatTime(row.lastVisitedAt) : t("qaReportsPage.uninspected"),
-										)}
+									{t("qaReportsPage.moduleCoverageItem", { n: row.visitCount, time: row.lastVisitedAt ? formatTime(row.lastVisitedAt) : t("qaReportsPage.uninspected") })}
 								</span>
 							</li>
 						))}
@@ -189,7 +180,7 @@ function TrendSection({ trends }: TrendSectionProps) {
 			{recentRuns.length > 0 ? (
 				<div className="mt-5">
 					<div className="mb-2 text-xs text-[var(--text-muted)]">
-						{t("qaReportsPage.recentRunsHeader").replace("{n}", String(recentRuns.length))}
+						{t("qaReportsPage.recentRunsHeader", { n: recentRuns.length })}
 					</div>
 					<ul className="divide-y divide-[var(--border)] rounded-lg border border-[var(--border)]">
 						{recentRuns.map((run, index) => (
@@ -264,10 +255,10 @@ export function QaReportsListClient({
 	};
 
 	const kindFilters: { label: string; value: KindFilter }[] = [
-		{ label: t("qaReportsPage.filterAll").replace("{n}", String(totals.total)), value: "all" },
-		{ label: t("qaReportsPage.filterSlice").replace("{n}", String(totals.slices)), value: "slice" },
-		{ label: t("qaReportsPage.filterBlocker").replace("{n}", String(totals.blockers)), value: "blocker" },
-		{ label: t("qaReportsPage.filterQaRun").replace("{n}", String(totals.qaRuns)), value: "qa_run" },
+		{ label: t("qaReportsPage.filterAll", { n: totals.total }), value: "all" },
+		{ label: t("qaReportsPage.filterSlice", { n: totals.slices }), value: "slice" },
+		{ label: t("qaReportsPage.filterBlocker", { n: totals.blockers }), value: "blocker" },
+		{ label: t("qaReportsPage.filterQaRun", { n: totals.qaRuns }), value: "qa_run" },
 	];
 
 	return (
@@ -285,7 +276,7 @@ export function QaReportsListClient({
 						<div className="flex flex-col items-end gap-1 text-xs text-[var(--text-muted)]">
 							<div>
 								{updatedAt
-									? t("qaReportsPage.summaryUpdatedAt").replace("{time}", formatTime(updatedAt))
+									? t("qaReportsPage.summaryUpdatedAt", { time: formatTime(updatedAt) })
 									: t("qaReportsPage.summaryUpdatedAtEmpty")}
 							</div>
 							<ActionButton variant="secondary"
@@ -322,7 +313,7 @@ export function QaReportsListClient({
 									key={filter.value}
 									active={kindFilter === filter.value}
 									onClick={() => setKindFilter(filter.value)}
-									ariaLabel={t("qaReportsPage.filterChipAria").replace("{label}", filter.label)}
+									ariaLabel={t("qaReportsPage.filterChipAria", { label: filter.label })}
 								>
 									{filter.label}
 								</ToggleChip>
@@ -340,12 +331,9 @@ export function QaReportsListClient({
 								</EmptyState>
 							) : (
 								<EmptyState
-									text={t("qaReportsPage.emptyFiltered").replace(
-										"{kind}",
-										kindFilter === "all"
+									text={t("qaReportsPage.emptyFiltered", { kind: kindFilter === "all"
 											? ""
-											: (kindLabel(t, kindFilter as Exclude<KindFilter, "all">) ?? kindFilter),
-									)}
+											: (kindLabel(t, kindFilter as Exclude<KindFilter, "all">) ?? kindFilter) })}
 									variant="boxed"
 								/>
 							)
@@ -372,7 +360,7 @@ export function QaReportsListClient({
 											</span>
 											{report.evidenceCount > 0 ? (
 												<span className="rounded-lg border border-[var(--border)] px-2 py-1 text-xs text-[var(--text-muted)]">
-													{t("qaReportsPage.evidenceCount").replace("{n}", String(report.evidenceCount))}
+													{t("qaReportsPage.evidenceCount", { n: report.evidenceCount })}
 												</span>
 											) : null}
 										</div>

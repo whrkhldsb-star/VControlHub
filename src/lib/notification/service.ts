@@ -172,7 +172,7 @@ export async function notifyCommandPending(
 					userId: admin.id,
 					type: "command_pending",
 					title: t("backend.notification.commandPendingTitle"),
-					message: t("backend.notification.commandPendingMessage").replace("{title}", commandTitle),
+					message: t("backend.notification.commandPendingMessage", { title: commandTitle }),
 					actionUrl: `/requests`,
 					teamId: teamId ?? null,
 				}),

@@ -29,7 +29,7 @@ export type GlobalStat = { downloadSpeed: string; uploadSpeed: string; numActive
 
 /* ── Status helpers ───────────────────────────────────────── */
 
-export function getStatusLabel(t: (k: string) => string): Record<string, string> {
+export function getStatusLabel(t: (k: string, vars?: Record<string, string | number>) => string): Record<string, string> {
 	return {
 		PENDING: t("downloadsPage.status.PENDING"),
 		RUNNING: t("downloadsPage.status.RUNNING"),
@@ -39,7 +39,7 @@ export function getStatusLabel(t: (k: string) => string): Record<string, string>
 	};
 }
 
-export function getCategories(t: (k: string) => string) {
+export function getCategories(t: (k: string, vars?: Record<string, string | number>) => string) {
 	return [
 		{ value: "", label: t("downloadsPage.form.category.uncategorized"), icon: "📦" },
 		{ value: "video", label: t("downloadsPage.form.category.video"), icon: "🎬" },

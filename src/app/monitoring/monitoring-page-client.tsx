@@ -193,10 +193,10 @@ export default function MonitoringPage() {
 
   const intervalLabel = getRefreshIntervalLabel(refreshIntervalSeconds);
   const autoRefreshLabel = autoRefresh
-    ? t("monitoringPage.autoRefreshActive").replace("{interval}", intervalLabel)
+    ? t("monitoringPage.autoRefreshActive", { interval: intervalLabel })
     : refreshIntervalSeconds <= 0
       ? t("monitoringPage.autoRefreshOff")
-      : t("monitoringPage.autoRefreshIdle").replace("{interval}", intervalLabel);
+      : t("monitoringPage.autoRefreshIdle", { interval: intervalLabel });
 
   return (
     <PageShell>
@@ -209,7 +209,7 @@ export default function MonitoringPage() {
 
       {errorMessage ? (
         <div className="mb-4 rounded-xl border border-[var(--warning-border)] bg-[var(--warning-bg)] px-4 py-3 text-xs text-[var(--warning)]">
-          {t("monitoringPage.lastRefreshFailed").replace("{message}", errorMessage)}
+          {t("monitoringPage.lastRefreshFailed", { message: errorMessage })}
         </div>
       ) : null}
 
@@ -316,7 +316,7 @@ export default function MonitoringPage() {
       </div>
 
       <p className="mt-4 text-[10px] text-[var(--text-muted)]">
-        {t("monitoringPage.lastUpdated").replace("{timestamp}", formatTimestamp(stats.timestamp, locale))}
+        {t("monitoringPage.lastUpdated", { timestamp: formatTimestamp(stats.timestamp, locale) })}
       </p>
     </PageShell>
   );

@@ -123,10 +123,7 @@ export async function escalateBreachedTickets(input: { teamId?: string | null } 
                 userId: manager.id,
                 teamId: ticket.teamId,
                 title: t("backend.ticket.slaEscalationTitle"),
-                message: t("backend.ticket.slaEscalationMessage")
-                  .replace("{title}", ticket.title)
-                  .replace("{from}", ticket.priority)
-                  .replace("{to}", newPriority),
+                message: t("backend.ticket.slaEscalationMessage", { title: ticket.title, from: ticket.priority, to: newPriority }),
                 type: "ticket_escalation",
                 actionUrl: `/tickets/${ticket.id}`,
               })),

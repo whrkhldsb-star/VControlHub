@@ -160,9 +160,7 @@ export default async function Page({
                 data-tone="cyan"
                 className="inline-flex items-center rounded-lg border border-[var(--accent-border)] px-3 py-1.5 text-[var(--text-secondary)]"
               >
-                {t("mediaPage.viewCount", locale).replace("{count}",
-                  String(media.length),
-                )}
+                {t("mediaPage.viewCount", locale, { count: media.length })}
               </span>
             </div>
           </div>
@@ -184,9 +182,7 @@ export default async function Page({
                 {t("mediaPage.filter.allTab", locale)}
               </span>
               <span className="text-xs opacity-70">
-                {t("mediaPage.filter.allCount", locale).replace("{count}",
-                  String(totalCount),
-                )}
+                {t("mediaPage.filter.allCount", locale, { count: totalCount })}
               </span>
             </FilterLink>
             <FilterLink
@@ -197,12 +193,8 @@ export default async function Page({
               className="rounded-2xl border px-4 py-3 transition"
               title={
                 mediaType ==="image"
-                  ? t("mediaPage.filter.titleToggleOffType", locale).replace("{type}",
-                      typeLabel(locale,"image"),
-                    )
-                  : t("mediaPage.filter.titleOnlyType", locale).replace("{type}",
-                      typeLabel(locale,"image"),
-                    )
+                  ? t("mediaPage.filter.titleToggleOffType", locale, { type: typeLabel(locale,"image") })
+                  : t("mediaPage.filter.titleOnlyType", locale, { type: typeLabel(locale,"image") })
               }
             >
 
@@ -225,12 +217,8 @@ export default async function Page({
               className="rounded-2xl border px-4 py-3 transition"
               title={
                 mediaType ==="video"
-                  ? t("mediaPage.filter.titleToggleOffType", locale).replace("{type}",
-                      typeLabel(locale,"video"),
-                    )
-                  : t("mediaPage.filter.titleOnlyType", locale).replace("{type}",
-                      typeLabel(locale,"video"),
-                    )
+                  ? t("mediaPage.filter.titleToggleOffType", locale, { type: typeLabel(locale,"video") })
+                  : t("mediaPage.filter.titleOnlyType", locale, { type: typeLabel(locale,"video") })
               }
             >
 
@@ -253,12 +241,8 @@ export default async function Page({
               className="rounded-2xl border px-4 py-3 transition"
               title={
                 mediaType ==="audio"
-                  ? t("mediaPage.filter.titleToggleOffType", locale).replace("{type}",
-                      typeLabel(locale,"audio"),
-                    )
-                  : t("mediaPage.filter.titleOnlyType", locale).replace("{type}",
-                      typeLabel(locale,"audio"),
-                    )
+                  ? t("mediaPage.filter.titleToggleOffType", locale, { type: typeLabel(locale,"audio") })
+                  : t("mediaPage.filter.titleOnlyType", locale, { type: typeLabel(locale,"audio") })
               }
             >
 
@@ -364,9 +348,7 @@ export default async function Page({
           }
         >
 
-          {t("mediaPage.favoriteFilter", locale).replace("{count}",
-            String(favCount),
-          )}
+          {t("mediaPage.favoriteFilter", locale, { count: favCount })}
         </FilterLink>
       </div>
       {tagCloud.length > 0 && (
@@ -387,12 +369,8 @@ export default async function Page({
                 className="rounded-full border px-2.5 py-1 transition"
                 title={
                   tag === entry.tag
-                    ? t("mediaPage.tagFilter.titleToggleOff", locale).replace("{tag}",
-                        entry.tag,
-                      )
-                    : t("mediaPage.tagFilter.titleApply", locale).replace("{tag}",
-                        entry.tag,
-                      )
+                    ? t("mediaPage.tagFilter.titleToggleOff", locale, { tag: entry.tag })
+                    : t("mediaPage.tagFilter.titleApply", locale, { tag: entry.tag })
                 }
               >
 
@@ -451,9 +429,7 @@ export default async function Page({
               {serverName}
             </h2>
             <span className="rounded-lg border border-[var(--border)] px-2 py-0.5 text-[10px] text-[var(--text-muted)]">
-              {t("mediaPage.itemCount", locale).replace("{count}",
-                String(items.length),
-              )}
+              {t("mediaPage.itemCount", locale, { count: items.length })}
             </span>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

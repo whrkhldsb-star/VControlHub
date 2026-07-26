@@ -304,7 +304,7 @@ export function ServerOverviewDetails({
 							data-tone="emerald"
 							className="mt-3 rounded-lg border border-[var(--success-border)] p-2 text-[11px] leading-5 text-[var(--success)] light:border-[var(--success-border)]"
 						>
-							{t("serverOverviewDetails.diagnosticSuccess").replace("{summary}", diagnosticRun.summary).replace("{checkedAt}", diagnosticRun.checkedAt)}
+							{t("serverOverviewDetails.diagnosticSuccess", { summary: diagnosticRun.summary, checkedAt: diagnosticRun.checkedAt })}
 						</div>
 					) : null}
 					{diagnosticRun.status === "error" ? (
@@ -313,7 +313,7 @@ export function ServerOverviewDetails({
 							data-tone="rose"
 							className="mt-3 rounded-lg border border-[var(--danger-border)] p-2 text-[11px] leading-5 text-[var(--danger)] light:border-[var(--danger-border)]"
 						>
-							{t("serverOverviewDetails.diagnosticFailure").replace("{message}", diagnosticRun.message).replace("{checkedAt}", diagnosticRun.checkedAt)}
+							{t("serverOverviewDetails.diagnosticFailure", { message: diagnosticRun.message, checkedAt: diagnosticRun.checkedAt })}
 						</div>
 					) : null}
 				</div>

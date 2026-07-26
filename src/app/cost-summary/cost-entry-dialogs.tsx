@@ -6,7 +6,7 @@ import { CATEGORIES, buttonGhost, buttonPrimary, cardClass, inputClass, labelCla
 import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import { ActionButton } from "@/components/action-button";
 
-type T = (key: string) => string;
+type T = (key: string, vars?: Record<string, string | number>) => string;
 type CostForm = { category: CostCategory; provider: string; amount: string; currency: CostCurrency; effectiveDate: string; notes: string };
 
 export function CostEntryFormModal({ open, editingId, form, availableCurrencies, saving, setForm, setShowForm, setEditingId, submitForm, t }: { open: boolean; editingId: string | null; form: CostForm; availableCurrencies: CostCurrency[]; saving: boolean; setForm: Dispatch<SetStateAction<CostForm>>; setShowForm: Dispatch<SetStateAction<boolean>>; setEditingId: Dispatch<SetStateAction<string | null>>; submitForm: () => void; t: T }) {
@@ -143,9 +143,7 @@ export function CostDeleteDialog({ confirmDelete, deletingId, setConfirmDelete, 
 							{t("costPage.delete.title")}
 						</h3>
 						<p className="text-sm text-[var(--text-primary)]/70">
-							{t("costPage.delete.confirm")
-								.replace("{provider}", confirmDelete.provider)
-								.replace("{amount}", confirmDelete.amount)}
+							{t("costPage.delete.confirm", { provider: confirmDelete.provider, amount: confirmDelete.amount })}
 						</p>
 						<div className="flex justify-end gap-2">
 							<ActionButton variant="secondary" className={buttonGhost}

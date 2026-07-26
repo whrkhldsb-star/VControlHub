@@ -61,7 +61,7 @@ export function DeleteConfirmButton({
         type="button"
         onClick={() => setConfirming(true)}
         title={t("common.delete")}
-        aria-label={t("filesPage.actions.deleteAria").replace("{name}", entryName)}
+        aria-label={t("filesPage.actions.deleteAria", { name: entryName })}
         className={
           variant === "menu"
             ? "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-[var(--danger)] transition hover:bg-[var(--danger-bg)]"
@@ -93,7 +93,7 @@ export function DeleteConfirmButton({
     <form action={formAction} className="flex flex-wrap items-center gap-3">
       <input type="hidden" name="fileEntryId" value={fileEntryId} />
       <span className="text-sm text-[var(--danger)]">
-        {t("filesPage.actions.confirmDelete").replace("{name}", entryName).replace("{contents}", entryType === "DIRECTORY" ? t("filesPage.actions.directoryContents") : "")}
+        {t("filesPage.actions.confirmDelete", { name: entryName, contents: entryType === "DIRECTORY" ? t("filesPage.actions.directoryContents") : "" })}
       </span>
       <SubmitButton
         pendingLabel={t("common.confirm")}

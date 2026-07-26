@@ -34,7 +34,7 @@ interface QuickServiceLink {
 const filterByPermissions = filterByHrefPermissions;
 
 function navLabel(
-	t: (key: string) => string,
+	t: (key: string, vars?: Record<string, string | number>) => string,
 	item: { labelKey: string; fallbackLabel: string },
 ) {
 	const translated = t(item.labelKey);

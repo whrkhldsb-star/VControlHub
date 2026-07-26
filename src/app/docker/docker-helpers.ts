@@ -45,7 +45,7 @@ export type ServerOption = {
 export { formatBytes } from "@/lib/format/bytes";
 
 export function getContainerName(
-	t: (key: string) => string,
+	t: (key: string, vars?: Record<string, string | number>) => string,
 	container: Pick<Container, "Id" | "Names">,
 ) {
 	return (container.Names?.[0] || container.Id?.slice(0, 12) || t("dockerPage.state.unknown")).replace(
@@ -69,7 +69,7 @@ export function isKnownDockerState(state: string): state is KnownDockerState {
 	return (KNOWN_DOCKER_STATES as readonly string[]).includes(state);
 }
 
-export function stateLabel(t: (key: string) => string, state: string): string {
+export function stateLabel(t: (key: string, vars?: Record<string, string | number>) => string, state: string): string {
 	if (isKnownDockerState(state)) return t(`dockerPage.state.${state}`);
 	return state;
 }

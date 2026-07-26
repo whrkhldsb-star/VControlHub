@@ -43,7 +43,7 @@ export function ServerCardDeleteForm({
           <input type="hidden" name="confirmDelete" value="true" />
           <div className="space-y-1 text-sm text-[var(--danger)]">
             <p id={`delete-server-title-${serverId}`} className="font-semibold">
-              {t("serversPage.delete.confirmTitle").replace("{name}", serverName)}
+              {t("serversPage.delete.confirmTitle", { name: serverName })}
             </p>
             <div id={`delete-server-description-${serverId}`}>
               {relatedStorageCount > 0 ? (
@@ -63,7 +63,7 @@ export function ServerCardDeleteForm({
             htmlFor={`delete-confirm-name-${serverId}`}
             className="block text-xs font-medium text-[var(--danger)]"
           >
-            {t("serversPage.delete.confirmNameInput").replace("{name}", serverName)}
+            {t("serversPage.delete.confirmNameInput", { name: serverName })}
           </label>
           <input
             id={`delete-confirm-name-${serverId}`}

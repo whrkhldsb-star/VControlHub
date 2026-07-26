@@ -42,7 +42,7 @@ export function PendingUninstallDialog({
 			>
 				<h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">{t("qsPage.uninstallTitle")}</h3>
 				<p className="text-sm leading-6 text-[var(--text-secondary)]">
-					{t("qsPage.uninstallBody").replace("{name}", pending.name)}
+					{t("qsPage.uninstallBody", { name: pending.name })}
 				</p>
 				<label
 					data-tone="rose"

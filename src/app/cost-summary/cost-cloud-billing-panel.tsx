@@ -135,9 +135,7 @@ export function CostCloudBillingPanel({
 			await reload();
 			addToast(
 				"success",
-				t("costPage.billing.syncDone")
-					.replace("{imported}", String(data.result.imported))
-					.replace("{skipped}", String(data.result.skipped)),
+				t("costPage.billing.syncDone", { imported: data.result.imported, skipped: data.result.skipped }),
 			);
 			onImported?.();
 		} catch (error) {
@@ -288,10 +286,7 @@ export function CostCloudBillingPanel({
 							</div>
 							<p className="mt-2 text-xs text-[var(--text-secondary)]">
 								{account.lastSyncAt
-									? t("costPage.billing.lastSync")
-											.replace("{status}", account.lastSyncStatus ?? "—")
-											.replace("{at}", account.lastSyncAt.slice(0, 19).replace("T", " "))
-											.replace("{imported}", String(account.lastSyncImported))
+									? t("costPage.billing.lastSync", { status: account.lastSyncStatus ?? "—", at: account.lastSyncAt.slice(0, 19).replace("T", " "), imported: account.lastSyncImported })
 									: t("costPage.billing.neverSynced")}
 							</p>
 							{account.lastSyncError ? (
@@ -304,7 +299,7 @@ export function CostCloudBillingPanel({
 								>
 									{syncingId === account.id
 										? t("costPage.billing.syncing")
-										: t("costPage.billing.sync").replace("{month}", month)}
+										: t("costPage.billing.sync", { month })}
 								</ActionButton>
 							) : null}
 						</article>

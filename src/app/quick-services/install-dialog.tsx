@@ -156,7 +156,7 @@ export function InstallDialog({
 				className="w-full max-w-md mx-4 rounded-2xl border border-[var(--border)] bg-[var(--surface-root)] p-6 shadow-2xl"
 				onClick={(e) => e.stopPropagation()}
 			>
-				<h3 className="text-lg font-semibold text-[var(--text-primary)] mb-1">{t("qsPage.installTitle").replace("{name}", open.name)}</h3>
+				<h3 className="text-lg font-semibold text-[var(--text-primary)] mb-1">{t("qsPage.installTitle", { name: open.name })}</h3>
 				<p className="text-xs text-[var(--text-muted)] mb-4">{t("qsPage.installSubtitle")}</p>
 
 				<div className="space-y-3">
@@ -197,24 +197,24 @@ export function InstallDialog({
 
 					{portCheck && !portCheck.available && portCheck.usedBy && (
 						<div className="text-xs text-[var(--danger)]/80 bg-[var(--danger-bg)] rounded-lg px-3 py-2 border border-[var(--danger-border)]">
-							{t("qsPage.portInUseDetail").replace("{usedBy}", portCheck.usedBy)}
+							{t("qsPage.portInUseDetail", { usedBy: portCheck.usedBy })}
 						</div>
 					)}
 
 					<div data-tone="cyan" className="rounded-xl border border-[var(--color-action-border)]/15 p-3 text-xs text-[var(--text-primary)]">
 						<div className="font-semibold">{t("qsPage.configPreviewTitle")}</div>
 						<div className="mt-2 grid gap-1.5 text-[var(--text-primary)]">
-							<span>{t("qsPage.imageLabel").replace("{image}", open.image ?? t("qsPage.imagePending"))}</span>
+							<span>{t("qsPage.imageLabel", { image: open.image ?? t("qsPage.imagePending") })}</span>
 							<span>
-								{t("qsPage.containerPortLabel").replace("{container}", String(containerPort ?? t("qsPage.containerPortDash"))).replace("{host}", customPort || String(open.defaultPort))}
+								{t("qsPage.containerPortLabel", { container: containerPort ?? t("qsPage.containerPortDash"), host: customPort || String(open.defaultPort) })}
 							</span>
-							<span>{t("qsPage.envVarsLabel").replace("{count}", String(envCount))}</span>
-							<span>{t("qsPage.volumesLabel").replace("{count}", String(volumeCount))}</span>
+							<span>{t("qsPage.envVarsLabel", { count: envCount })}</span>
+							<span>{t("qsPage.volumesLabel", { count: volumeCount })}</span>
 						</div>
 					</div>
 
 					<div className="flex items-center gap-2 text-[10px] text-[var(--text-muted)]">
-						<span>{t("qsPage.recommendedPort").replace("{port}", String(open.defaultPort))}</span>
+						<span>{t("qsPage.recommendedPort", { port: open.defaultPort })}</span>
 						<button
 							type="button"
 							onClick={handleAutoAllocate}

@@ -42,7 +42,7 @@ export function AiChatHeader({
       <div className="min-w-0 flex-1">
         <h3 className="truncate text-sm font-semibold text-[var(--text-primary)]">{activeConv.title}</h3>
         <p className="mt-0.5 text-[10px] text-[var(--text-muted)]">
-          {t("aiPage.modelCaps").replace("{provider}", activeProvider?.name || t("aiPage.unknown")).replace("{model}", activeConv.model)}
+          {t("aiPage.modelCaps", { provider: activeProvider?.name || t("aiPage.unknown"), model: activeConv.model })}
           {activeConv.enableVision && t("aiPage.vision")}
           {currentModelCaps.video && t("aiPage.videoCap")}
           {currentModelCaps.audio && t("aiPage.audioCap")}

@@ -43,7 +43,7 @@ function severityTone(severity: string):"accent" |"warning" |"danger" {
   return tones[severity] ?? tones.INFO!;
 }
 
-function formatAction(action: string, t: (k: string) => string): string {
+function formatAction(action: string, t: (k: string, vars?: Record<string, string | number>) => string): string {
   // Historical action aliases that do not match audit.action.<action> keys 1:1.
   const aliases: Record<string, string> = {
     "user.login": "auth.login",
@@ -294,10 +294,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
             {t("audit.pagination.prev")}
           </button>
           <span className="text-sm text-[var(--text-muted)]">
-            {t("audit.pagination.info")
-              .replace("{page}", String(data.page))
-              .replace("{totalPages}", String(data.totalPages))
-              .replace("{total}", String(data.total))}
+            {t("audit.pagination.info", { page: data.page, totalPages: data.totalPages, total: data.total })}
           </span>
           <button
             type="button"

@@ -52,7 +52,7 @@ export async function checkStorageNodeHealthAction(storageNodeId: string) {
       ? t("storagePage.action.healthCheckCompletedHealthy")
       : t("storagePage.action.healthCheckCompletedError");
     return {
-      success: t("storagePage.action.healthCheckCompleted").replace("{status}", statusLabel),
+      success: t("storagePage.action.healthCheckCompleted", { status: statusLabel }),
       health: result,
     } satisfies StorageActionState & {
       health: Awaited<ReturnType<typeof checkStorageNodeHealth>>;

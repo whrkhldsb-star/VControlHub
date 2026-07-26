@@ -111,7 +111,7 @@ export function ServerCardActions({
 			{enabled && canUseSshTerminal ? (
 				<ActionButton variant="ghost"
 					onClick={handleOpenTerminal}
-					aria-label={t("serverCardActions.sshTerminalAria").replace("{name}", serverName)}
+					aria-label={t("serverCardActions.sshTerminalAria", { name: serverName })}
 				
 					data-tone="cyan"
 					className="flex w-full items-center justify-center gap-2"

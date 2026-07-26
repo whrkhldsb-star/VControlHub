@@ -62,7 +62,7 @@ export default async function DownloadsPage() {
 				? t(s.storageNode?.directAccessMode === "AUTO" ? "downloadsPage.access.directAutoDesc" : "downloadsPage.access.directModeDesc", locale)
 					.replace("{host}", host)
 					.replace("{port}", String(port))
-				: t("downloadsPage.access.relayDesc", locale).replace("{host}", host).replace("{port}", String(port));
+				: t("downloadsPage.access.relayDesc", locale, { host, port });
 		void strategy;
 		return {
 			id: s.id,

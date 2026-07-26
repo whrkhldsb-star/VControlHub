@@ -97,15 +97,15 @@ function TicketCard({ ticket, locale, nowMs, compact = false }: { ticket: Ticket
               {t(`ticketsPage.sla.${slaStatus}`, locale)}
             </span>
             {ticket.slaDueAt && (
-              <span>{t("ticketsPage.sla.due", locale).replace("{time}", new Date(ticket.slaDueAt).toLocaleString(dateLocale))}</span>
+              <span>{t("ticketsPage.sla.due", locale, { time: new Date(ticket.slaDueAt).toLocaleString(dateLocale) })}</span>
             )}
             {!compact && ticket.creator && (
-              <span>{t("ticketsPage.creator", locale).replace("{name}", ticket.creator.displayName || ticket.creator.username)}</span>
+              <span>{t("ticketsPage.creator", locale, { name: ticket.creator.displayName || ticket.creator.username })}</span>
             )}
             {!compact && ticket.assignee && (
-              <span>{t("ticketsPage.assignee", locale).replace("{name}", ticket.assignee.displayName || ticket.assignee.username)}</span>
+              <span>{t("ticketsPage.assignee", locale, { name: ticket.assignee.displayName || ticket.assignee.username })}</span>
             )}
-            {!compact && <span>{t("ticketsPage.createdAt", locale).replace("{time}", new Date(ticket.createdAt).toLocaleString(dateLocale))}</span>}
+            {!compact && <span>{t("ticketsPage.createdAt", locale, { time: new Date(ticket.createdAt).toLocaleString(dateLocale) })}</span>}
           </div>
         </div>
         {!compact && (
@@ -174,7 +174,7 @@ export function TicketWorkspace({ initialTickets, canManage, locale, now }: Prop
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <div className="text-sm font-semibold text-[var(--text-primary)]">
-              {t("ticketsPage.listHeader", locale).replace("{count}", String(filteredTickets.length))}
+              {t("ticketsPage.listHeader", locale, { count: filteredTickets.length })}
             </div>
             <p className="mt-0.5 text-xs text-[var(--text-muted)]">
               {canManage ? t("ticketsPage.workspace.manageHint", locale) : t("ticketsPage.workspace.personalHint", locale)}
@@ -213,10 +213,7 @@ export function TicketWorkspace({ initialTickets, canManage, locale, now }: Prop
           {filteredTickets.length > PAGE_SIZE ? (
             <div className="flex items-center justify-between gap-3 border-t border-[var(--border)] px-4 py-3 text-xs text-[var(--text-secondary)]">
               <span>
-                {t("ticketsPage.pagination", locale)
-                  .replace("{page}", String(Math.min(page, totalPages)))
-                  .replace("{totalPages}", String(totalPages))
-                  .replace("{total}", String(filteredTickets.length))}
+                {t("ticketsPage.pagination", locale, { page: Math.min(page, totalPages), totalPages, total: filteredTickets.length })}
               </span>
               <div className="flex gap-2">
                 <button type="button" disabled={page <= 1} onClick={() => setPage(page - 1)} className="rounded-lg border border-[var(--border)] px-2 py-1 disabled:opacity-50">{t("ticketsPage.prev", locale)}</button>

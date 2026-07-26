@@ -52,7 +52,7 @@ function isRecommendationAction(
 	return "requiresApproval" in action;
 }
 
-type T = (key: string) => string;
+type T = (key: string, vars?: Record<string, string | number>) => string;
 
 export function AiOpsSummarySection({ summary, t }: { summary: AiOpsSummary; t: T }) {
 	const { locale } = useI18n();
@@ -239,7 +239,7 @@ export function AiOpsLogsSection({ logs, selectedLogId, setSelectedLogId, t }: {
 									<td className="py-2 pr-3">{t(`aiOpsPage.status.${log.status}`)}</td>
 									<td className="py-2 pr-3">{log.findings.length}</td>
 									<td className="py-2 pr-3">{log.actions.length}</td>
-									<td className="py-2 pr-3 font-mono text-xs">{log.durationMs !== null ? t("aiOpsPage.detail.durationMs").replace("{ms}", String(log.durationMs)) : "—"}</td>
+									<td className="py-2 pr-3 font-mono text-xs">{log.durationMs !== null ? t("aiOpsPage.detail.durationMs", { ms: log.durationMs }) : "—"}</td>
 									<td className="py-2"><ActionButton variant="secondary" className={buttonGhost} onClick={() => setSelectedLogId(log.id)}>{t("aiOpsPage.table.viewDetail")}</ActionButton></td>
 								</tr>
 							))}

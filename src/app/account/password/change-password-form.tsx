@@ -81,7 +81,7 @@ export function ChangePasswordForm() {
 					{state.success}
 					{countdown !== null && countdown > 0 ? (
 						<span className="ml-2 text-[var(--success)]/80">
-							{t("accountPasswordPage.redirectCountdown").replace("{seconds}", String(countdown))}
+							{t("accountPasswordPage.redirectCountdown", { seconds: countdown })}
 						</span>
 					) : null}
 				</div>

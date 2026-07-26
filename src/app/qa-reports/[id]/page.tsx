@@ -56,7 +56,7 @@ export default async function QaReportDetailPage({ params }: Params) {
 				<PageHeader
 					eyebrow={t("qaReportsPage.eyebrow", locale)}
 					title={t("qaReportsPage.detail.notFound")}
-					description={t("qaReportsPage.detail.notFoundDesc").replace("{id}", id)}
+					description={t("qaReportsPage.detail.notFoundDesc", { id })}
 				>
 					<Link href="/qa-reports" className="text-xs text-[var(--color-action)] hover:text-[var(--text-secondary)]">
 						{t("qaReportsPage.detail.backToList")}
@@ -71,9 +71,7 @@ export default async function QaReportDetailPage({ params }: Params) {
 			<PageHeader
 				eyebrow={kindLabel(detail.kind)}
 				title={detail.title}
-				description={t("qaReportsPage.detail.sourceIdAndStatus")
-					.replace("{sourceId}", detail.sourceId)
-					.replace("{status}", detail.status)}
+				description={t("qaReportsPage.detail.sourceIdAndStatus", { sourceId: detail.sourceId, status: detail.status })}
 			>
 				<Link href="/qa-reports" className="text-xs text-[var(--color-action)] hover:text-[var(--text-secondary)]">
 					{t("qaReportsPage.detail.backToList")}
@@ -139,7 +137,7 @@ export default async function QaReportDetailPage({ params }: Params) {
 							{detail.changeContract.files && detail.changeContract.files.length > 0 ? (
 								<div>
 									<div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">
-										{t("qaReportsPage.detail.filesCount").replace("{n}", String(detail.changeContract.files.length))}
+										{t("qaReportsPage.detail.filesCount", { n: detail.changeContract.files.length })}
 									</div>
 									<ul className="mt-1 space-y-1 font-mono text-xs text-[var(--text-secondary)]">
 										{detail.changeContract.files.map((file) => (

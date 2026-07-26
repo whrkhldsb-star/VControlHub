@@ -37,7 +37,7 @@ export function DiffReviewDialog({
 				<div>
 					<h3 className="text-sm font-semibold text-[var(--warning)]">{t("textPreview.diffDialog.title")}</h3>
 					<p className="mt-1 text-xs text-[var(--warning)]/80">
-						{t("textPreview.diffDialog.summary").replace("{added}", String(diffSummary.added)).replace("{removed}", String(diffSummary.removed)).replace("{changed}", String(diffSummary.changed))}
+						{t("textPreview.diffDialog.summary", { added: diffSummary.added, removed: diffSummary.removed, changed: diffSummary.changed })}
 					</p>
 					<p className="mt-1 text-xs text-[var(--warning)]/70">
 						{t("textPreview.diffDialog.note")}
@@ -64,14 +64,14 @@ export function DiffReviewDialog({
 							disabled={busy || diffRows.length === 0}
 							data-tone="amber" className="rounded-lg border border-[var(--warning-border)] px-3 py-1.5 text-xs font-medium text-[var(--warning)] disabled:opacity-50"
 							title={reloadKind === "systemd"
-								? t("textPreview.reloadHint.systemdConfirm").replace("{unit}", reloadUnit ?? "")
-								: t("textPreview.reloadHint.dockerConfirm").replace("{unit}", reloadUnit ?? "")}
+								? t("textPreview.reloadHint.systemdConfirm", { unit: reloadUnit ?? "" })
+								: t("textPreview.reloadHint.dockerConfirm", { unit: reloadUnit ?? "" })}
 						>
 							{saveStatus === "saving"
 								? t("textPreview.button.saving")
 								: saveStatus === "reloading"
 									? t("textPreview.button.reloading")
-									: t("textPreview.button.saveAndReload").replace("{unit}", reloadUnit ?? "")}
+									: t("textPreview.button.saveAndReload", { unit: reloadUnit ?? "" })}
 						</button>
 					) : null}
 				</div>
@@ -88,7 +88,7 @@ export function DiffReviewDialog({
 								<code className="min-h-5 whitespace-pre-wrap break-all rounded-lg bg-[var(--success-bg)] px-2 py-1 text-[var(--success)]">+ {row.after}</code>
 							</li>
 						))}
-						{diffRows.length > 80 ? <li className="px-3 py-2 text-xs text-[var(--text-muted)]">{t("textPreview.diffMore").replace("{count}", String(diffRows.length - 80))}</li> : null}
+						{diffRows.length > 80 ? <li className="px-3 py-2 text-xs text-[var(--text-muted)]">{t("textPreview.diffMore", { count: diffRows.length - 80 })}</li> : null}
 					</ul>
 				)}
 			</div>

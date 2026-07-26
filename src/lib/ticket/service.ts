@@ -272,9 +272,7 @@ export async function updateTicketStatus(input: {
     const allowed = TRANSITIONS[current.status] ?? new Set<string>();
     if (!allowed.has(input.status)) {
       throw new ValidationError(
-        t("backend.ticket.ticketStatusTransitionInvalid")
-          .replace("{from}", current.status)
-          .replace("{to}", input.status),
+        t("backend.ticket.ticketStatusTransitionInvalid", { from: current.status, to: input.status }),
       );
     }
     data.status = input.status;

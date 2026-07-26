@@ -1,6 +1,6 @@
 "use client";
 
-type TFunction = (key: string) => string;
+type TFunction = (key: string, vars?: Record<string, string | number>) => string;
 
 import type { DirEntry } from "./ssh-file-manager-parts";
 import { ConfirmDialog } from "./confirm-dialog";
@@ -13,5 +13,5 @@ type DeleteDialogProps = {
 };
 
 export function SshDeleteDialog({ entry, onCancel, onConfirm, t }: DeleteDialogProps) {
-  return <ConfirmDialog open={entry !== null} title={t("common.confirmDelete")} description={entry ? t("sshFileManager.confirmDelete").replace("{name}", entry.name) : ""} cancelLabel={t("common.cancel")} confirmLabel={t("common.confirmDelete")} onCancel={onCancel} onConfirm={() => entry && onConfirm(entry)} closeOnBackdrop={false} />;
+  return <ConfirmDialog open={entry !== null} title={t("common.confirmDelete")} description={entry ? t("sshFileManager.confirmDelete", { name: entry.name }) : ""} cancelLabel={t("common.cancel")} confirmLabel={t("common.confirmDelete")} onCancel={onCancel} onConfirm={() => entry && onConfirm(entry)} closeOnBackdrop={false} />;
 }

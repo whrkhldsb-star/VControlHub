@@ -171,7 +171,7 @@ function summarizeOperationTaskSources(tasks: OperationTask[]): OperationTaskSou
   return Array.from(summary.values()).sort((a, b) => b.attention - a.attention || b.total - a.total || a.source.localeCompare(b.source));
 }
 
-function normalizeFailureReason(task: OperationTask, t: (key: string) => string) {
+function normalizeFailureReason(task: OperationTask, t: (key: string, vars?: Record<string, string | number>) => string) {
   const text = `${task.title} ${task.progress ?? ""}`.toLowerCase();
   if (/permission|denied|forbidden|unauthorized|401|403|权限|拒绝/.test(text)) return t("backend.operationTask.failure.authOrPermission");
   if (/timeout|timed out|超时|deadline/.test(text)) return t("backend.operationTask.failure.timeout");
@@ -179,10 +179,10 @@ function normalizeFailureReason(task: OperationTask, t: (key: string) => string)
   if (/connect|network|econn|dns|socket|网络|连接/.test(text)) return t("backend.operationTask.failure.networkOrConnection");
   if (/smtp|email|mail|webhook|telegram|通知/.test(text)) return t("backend.operationTask.failure.notification");
   if (/backup|restore|备份|恢复/.test(text)) return t("backend.operationTask.failure.backupOrRestore");
-  return task.taskType ? t("backend.operationTask.failure.taskTypeFailed").replace("{taskType}", task.taskType) : t("backend.operationTask.failure.sourceFailed").replace("{source}", task.source);
+  return task.taskType ? t("backend.operationTask.failure.taskTypeFailed", { taskType: task.taskType }) : t("backend.operationTask.failure.sourceFailed", { source: task.source });
 }
 
-function summarizeOperationTaskFailures(tasks: OperationTask[], t: (key: string) => string): OperationTaskFailureSummary[] {
+function summarizeOperationTaskFailures(tasks: OperationTask[], t: (key: string, vars?: Record<string, string | number>) => string): OperationTaskFailureSummary[] {
   const summary = new Map<string, OperationTaskFailureSummary & { sourceSet: Set<OperationTaskSource> }>();
   for (const task of tasks) {
     if (task.status !== "failed") continue;

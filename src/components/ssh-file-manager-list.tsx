@@ -1,6 +1,6 @@
 "use client";
 
-type TFunction = (key: string) => string;
+type TFunction = (key: string, vars?: Record<string, string | number>) => string;
 
 import { useI18n } from "@/lib/i18n/use-locale";
 import type { DirEntry, UploadProgress } from "./ssh-file-manager-parts";

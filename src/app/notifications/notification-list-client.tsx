@@ -39,15 +39,15 @@ const typeIcon: Record<string, ReactNode> = {
 	system: <Bell size={18} aria-hidden="true" />,
 };
 
-function timeAgo(dateStr: string, t: (k: string) => string, locale: Locale): string {
+function timeAgo(dateStr: string, t: (k: string, vars?: Record<string, string | number>) => string, locale: Locale): string {
 	const diff = Date.now() - new Date(dateStr).getTime();
 	const mins = Math.floor(diff / 60_000);
 	if (mins < 1) return t("notificationsPage.time.justNow");
-	if (mins < 60) return t("notificationsPage.time.minutesAgo").replace("{count}", String(mins));
+	if (mins < 60) return t("notificationsPage.time.minutesAgo", { count: mins });
 	const hours = Math.floor(mins / 60);
-	if (hours < 24) return t("notificationsPage.time.hoursAgo").replace("{count}", String(hours));
+	if (hours < 24) return t("notificationsPage.time.hoursAgo", { count: hours });
 	const days = Math.floor(hours / 24);
-	if (days < 30) return t("notificationsPage.time.daysAgo").replace("{count}", String(days));
+	if (days < 30) return t("notificationsPage.time.daysAgo", { count: days });
 	return new Date(dateStr).toLocaleDateString(toDateLocale(locale));
 }
 
@@ -59,7 +59,7 @@ const NotificationRow = memo(function NotificationRow({
 	onDelete,
 }: {
 	notification: NotificationItem;
-	t: (k: string) => string;
+	t: (k: string, vars?: Record<string, string | number>) => string;
 	locale: Locale;
 	onMarkRead: (id: string) => void;
 	onDelete: (id: string) => void;

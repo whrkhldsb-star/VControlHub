@@ -166,7 +166,7 @@ export function useAlertRuleActions({
 			addToast(
 				"success",
 				created > 0
-					? t("alertRulesPage.toast.defaultsCreated").replace("{count}", String(created))
+					? t("alertRulesPage.toast.defaultsCreated", { count: created })
 					: t("alertRulesPage.toast.defaultsExists"),
 			);
 		} catch (error) {

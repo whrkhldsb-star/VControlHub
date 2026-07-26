@@ -147,7 +147,7 @@ export async function POST(
           session.currentTeamId,
         );
         return Response.json(
-          { error: t("apiServersDetectOs.detectionFailed", locale).replace("{message}", message) },
+          { error: t("apiServersDetectOs.detectionFailed", locale, { message }) },
           { status: 502 },
         );
       }

@@ -120,13 +120,13 @@ export function ServerOverviewCard({
       "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)] light:border-[var(--success-border)]";
     listHealthDescription =
       diagnosticRun.summary
-        ? t("serverOverviewCard.lastProbeSuccessWithSummary").replace("{summary}", diagnosticRun.summary).replace("{checkedAt}", diagnosticRun.checkedAt)
-        : t("serverOverviewCard.lastProbeSuccess").replace("{checkedAt}", diagnosticRun.checkedAt);
+        ? t("serverOverviewCard.lastProbeSuccessWithSummary", { summary: diagnosticRun.summary, checkedAt: diagnosticRun.checkedAt })
+        : t("serverOverviewCard.lastProbeSuccess", { checkedAt: diagnosticRun.checkedAt });
   } else if (diagnosticRun.status === "error") {
     listHealthLabel = t("serverOverviewCard.offline");
     listHealthToneClass =
       "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)] light:border-[var(--danger-border)]";
-    listHealthDescription = t("serverOverviewCard.lastProbeFailed").replace("{message}", diagnosticRun.message).replace("{checkedAt}", diagnosticRun.checkedAt);
+    listHealthDescription = t("serverOverviewCard.lastProbeFailed", { message: diagnosticRun.message, checkedAt: diagnosticRun.checkedAt });
   } else {
     listHealthLabel = t("serverOverviewCard.enabledPendingProbe");
     listHealthToneClass =
@@ -150,7 +150,7 @@ export function ServerOverviewCard({
       if (!response.ok) {
         setDiagnosticRun({
           status: "error",
-          message: payload?.error ?? t("serverOverviewCard.monitorStatusReturned").replace("{status}", String(response.status)),
+          message: payload?.error ?? t("serverOverviewCard.monitorStatusReturned", { status: response.status }),
           checkedAt,
         });
         return;
@@ -161,11 +161,11 @@ export function ServerOverviewCard({
       }
 
       const diskText = Array.isArray(payload?.disk) && payload.disk.length > 0
-        ? t("serverOverviewCard.diskSummary").replace("{mount}", String(payload.disk[0].mount)).replace("{usage}", String(payload.disk[0].usagePercent))
+        ? t("serverOverviewCard.diskSummary", { mount: payload.disk[0].mount, usage: payload.disk[0].usagePercent })
         : "";
       setDiagnosticRun({
         status: "success",
-        summary: t("serverOverviewCard.resourceSummary").replace("{cpu}", String(payload?.cpu?.usagePercent ?? "--")).replace("{memory}", String(payload?.memory?.usagePercent ?? "--")).replace("{disk}", diskText),
+        summary: t("serverOverviewCard.resourceSummary", { cpu: payload?.cpu?.usagePercent ?? "--", memory: payload?.memory?.usagePercent ?? "--", disk: diskText }),
         checkedAt,
       });
     } catch (error) {
@@ -256,7 +256,7 @@ export function ServerOverviewCard({
         </div>
         <span
           role="status"
-          aria-label={t("serverOverviewCard.realtimeStatusAria").replace("{status}", listHealthLabel)}
+          aria-label={t("serverOverviewCard.realtimeStatusAria", { status: listHealthLabel })}
           title={listHealthDescription}
           className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[10px] font-semibold tracking-wide ${listHealthToneClass} ${diagnosticRun.status === "loading" ? "animate-pulse" : ""}`}
         >

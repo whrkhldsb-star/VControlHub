@@ -12,7 +12,7 @@ import {
 	type UploadProgress,
 } from "./image-bed-types";
 
-type TFn = (key: string) => string;
+type TFn = (key: string, vars?: Record<string, string | number>) => string;
 type ToastTone = "status" | "alert";
 
 export type PublishForm = {
@@ -138,9 +138,7 @@ export function useImageBedActions({
 										? {
 												...item,
 												status: "uploading",
-												message: t("imageBedPage.queue.uploadingItem")
-													.replace("{current}", String(index + 1))
-													.replace("{total}", String(uploadItems.length)),
+												message: t("imageBedPage.queue.uploadingItem", { current: index + 1, total: uploadItems.length }),
 											}
 										: item,
 								),
@@ -233,22 +231,17 @@ export function useImageBedActions({
 			setUploading(false);
 			if (fileInputRef.current) fileInputRef.current.value = "";
 			if (success > 0 && failure === 0) {
-				showToast(t("imageBedPage.summary.successAll").replace("{count}", String(success)));
+				showToast(t("imageBedPage.summary.successAll", { count: success }));
 				void fetchImages(1);
 			} else if (success > 0) {
 				showToast(
-					t("imageBedPage.summary.partial")
-						.replace("{success}", String(success))
-						.replace("{total}", String(uploadItems.length))
-						.replace("{failure}", String(failure)),
+					t("imageBedPage.summary.partial", { success, total: uploadItems.length, failure }),
 					"alert",
 				);
 				void fetchImages(1);
 			} else {
 				showToast(
-					t("imageBedPage.summary.allFailed")
-						.replace("{failure}", String(failure))
-						.replace("{total}", String(uploadItems.length)),
+					t("imageBedPage.summary.allFailed", { failure, total: uploadItems.length }),
 					"alert",
 				);
 			}

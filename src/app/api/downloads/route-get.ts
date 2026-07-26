@@ -100,7 +100,7 @@ export async function GET(request: Request) {
                     ? {
                         status: "FAILED",
                         progress,
-                        errorMessage: t("apiDownloads.aria2ErrorWithStatus", locale).replace("{status}", a.status),
+                        errorMessage: t("apiDownloads.aria2ErrorWithStatus", locale, { status: a.status }),
                         completedBytes,
                         totalBytes,
                         downloadSpeed,

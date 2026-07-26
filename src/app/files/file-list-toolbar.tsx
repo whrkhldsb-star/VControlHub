@@ -75,11 +75,11 @@ export function FileListToolbar({
           </ActionButton>
         ) : null}
         <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-2.5 py-0.5 text-xs font-medium text-[var(--text-secondary)]">
-          {t("filesPage.list.itemCount").replace("{count}", String(itemCount))}
+          {t("filesPage.list.itemCount", { count: itemCount })}
         </span>
         {selectedCount > 0 ? (
           <span className="inline-flex items-center rounded-full border border-[var(--accent-border)] bg-[var(--accent-bg)] px-2.5 py-0.5 text-xs font-semibold text-[var(--accent)]">
-            {t("filesPage.list.selectedCount").replace("{count}", String(selectedCount))}
+            {t("filesPage.list.selectedCount", { count: selectedCount })}
           </span>
         ) : null}
       </div>

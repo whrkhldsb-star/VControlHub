@@ -37,7 +37,7 @@ const LANG_LABELS: Record<string, string> = {
  * i18n translation key (`textPreview.type.<lang>`); falls back to the
  * static `LANG_LABELS` map, then the raw language id.
  */
-export function langLabel(t: (k: string) => string, lang: string): string {
+export function langLabel(t: (k: string, vars?: Record<string, string | number>) => string, lang: string): string {
 	const translated = t(`textPreview.type.${lang}`);
 	return translated === `textPreview.type.${lang}` ? (LANG_LABELS[lang] ?? lang) : translated;
 }

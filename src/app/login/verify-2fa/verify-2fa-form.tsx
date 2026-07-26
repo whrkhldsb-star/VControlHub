@@ -104,7 +104,7 @@ if (data.success) {
 				{digits.map((digit, i) => (
 					<input
 						key={i}
-						aria-label={t("login.verify2faDigitAria").replace("{n}", String(i + 1))}
+						aria-label={t("login.verify2faDigitAria", { n: i + 1 })}
 						ref={(el) => { inputRefs.current[i] = el; }}
 						type="text"
 						inputMode="numeric"

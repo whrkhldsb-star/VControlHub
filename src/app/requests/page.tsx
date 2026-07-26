@@ -130,7 +130,7 @@ export default async function RequestsPage() {
 										<p className="mt-1 text-[11px] text-[var(--text-muted)]">{t("requestsPage.card.requester", locale)}{request.requester.displayName || request.requester.username}</p>
 										</div>
 										<div className="shrink-0 rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2 text-xs text-[var(--text-secondary)]">
-										{t("requestsPage.card.targetCount", locale).replace("{count}", String(request.targets.length))}
+										{t("requestsPage.card.targetCount", locale, { count: request.targets.length })}
 										</div>
 								</div>
 

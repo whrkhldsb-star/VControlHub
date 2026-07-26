@@ -39,7 +39,7 @@ import { TwoFactorSettingsLazy } from "./two-factor-settings-lazy";
 
 export function formatMetadataDate(
   value: Date | string | null,
-  t: (key: string, locale?: string) => string,
+  t: (key: string, vars?: Record<string, string | number>) => string,
   locale: Locale = "zh",
 ) {
   if (!value) return t("settingsClient.metadataNoRecord");

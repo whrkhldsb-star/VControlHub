@@ -199,9 +199,7 @@ export function UnifiedFileSearch({
 			{mode === "content" && contentResults.length > 0 && (
 				<div className="space-y-2">
 					<p className="text-xs text-[var(--text-secondary)]">
-						{t("filesBrowserSpa.contentSearchResults")
-							.replace("{query}", lastQuery)
-							.replace("{count}", String(contentResults.length))}
+						{t("filesBrowserSpa.contentSearchResults", { query: lastQuery, count: contentResults.length })}
 						{contentTruncated ? t("filesBrowserSpa.contentSearchTruncated") : ""}
 					</p>
 					{contentResults.map((hit, idx) => (
@@ -234,7 +232,7 @@ export function UnifiedFileSearch({
 
 			{mode === "content" && !contentLoading && contentResults.length === 0 && lastQuery && !contentError && (
 				<p className="text-xs text-[var(--text-muted)]">
-					{t("filesBrowserSpa.contentSearchNoResults").replace("{query}", lastQuery)}
+					{t("filesBrowserSpa.contentSearchNoResults", { query: lastQuery })}
 				</p>
 			)}
 		</div>

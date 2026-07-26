@@ -92,13 +92,11 @@ export function RetentionButton({ olderThan30Days, totalRecords }: Props) {
         </ActionButton>
       </div>
       <p className="text-xs text-[var(--text-muted)]">
-        {t("backupsPage.retention.matchInfo")
-          .replace("{total}", String(totalRecords))
-          .replace("{older}", String(olderThan30Days))}
+        {t("backupsPage.retention.matchInfo", { total: totalRecords, older: olderThan30Days })}
       </p>
       {taskId && (
         <p role="status" className="text-xs text-[var(--success)]">
-          {t("backupsPage.retention.queuedPrefix")} <Link href="/operation-tasks" className="underline">{t("backupsPage.retry.taskCenter")}</Link> {t("backupsPage.retention.queuedSuffix").replace("{taskId}", taskId)}
+          {t("backupsPage.retention.queuedPrefix")} <Link href="/operation-tasks" className="underline">{t("backupsPage.retry.taskCenter")}</Link> {t("backupsPage.retention.queuedSuffix", { taskId })}
         </p>
       )}
       {error && (

@@ -263,8 +263,27 @@ export const translations: Record<Locale, Record<string, string>> = {
 };
 
 
-export function t(key: string, locale: Locale = "zh"): string {
-	return translations[locale]?.[key] || key;
+/** Client-side translate function shape (accepts optional interpolation vars). */
+export type TFn = (key: string, vars?: Record<string, string | number>) => string;
+
+/** Interpolate `{name}` placeholders. Shared by both server t() and the client hook. */
+export function interpolate(text: string, vars?: Record<string, string | number>): string {
+	if (!vars) return text;
+	let out = text;
+	for (const [k, v] of Object.entries(vars)) {
+		out = out.split(`{${k}}`).join(String(v));
+	}
+	return out;
+}
+
+export function t(
+	key: string,
+	localeOrVars?: Locale | Record<string, string | number>,
+	maybeVars?: Record<string, string | number>,
+): string {
+	const locale: Locale = typeof localeOrVars === "string" ? localeOrVars : "zh";
+	const vars = typeof localeOrVars === "object" ? localeOrVars : maybeVars;
+	return interpolate(translations[locale]?.[key] || key, vars);
 }
 
 export function getAllTranslations(locale: Locale): Record<string, string> {

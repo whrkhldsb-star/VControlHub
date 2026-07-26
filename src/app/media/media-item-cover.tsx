@@ -50,7 +50,7 @@ export function MediaCover({
     item.mediaType ==="image" && fileHref ? (
       <Image
         src={thumbHref}
-        alt={t("mediaItemCard.thumbnailAlt").replace("{name}", item.name)}
+        alt={t("mediaItemCard.thumbnailAlt", { name: item.name })}
         fill
         sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw"
         unoptimized
@@ -74,9 +74,7 @@ export function MediaCover({
       </div>
     </>
   );
-  const ariaLabel = t("mediaItemCard.previewAriaLabel")
-    .replace("{name}", item.name)
-    .replace("{type}", mediaTypeLabel(item.mediaType, t));
+  const ariaLabel = t("mediaItemCard.previewAriaLabel", { name: item.name, type: mediaTypeLabel(item.mediaType, t) });
   const className ="relative block aspect-[4/3] overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface-subtle)]";
 
   if (!previewHref) {

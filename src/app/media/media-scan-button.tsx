@@ -28,10 +28,7 @@ export function MediaScanButton() {
           )
         : "";
       setMessage(
-        t("mediaScanButton.summary")
-          .replace("{scanned}", String(result.scanned))
-          .replace("{upserted}", String(result.upserted))
-          .replace("{removedText}", removedText),
+        t("mediaScanButton.summary", { scanned: result.scanned, upserted: result.upserted, removedText }),
       );
       startTransition(() => router.refresh());
     } catch (scanError) {

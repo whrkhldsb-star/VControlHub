@@ -89,7 +89,7 @@ function StateView({
 	t,
 }: {
 	state: DryRunState;
-	t: (key: string) => string;
+	t: (key: string, vars?: Record<string, string | number>) => string;
 }) {
 	if (state.kind === "idle") return null;
 	if (state.kind === "running") {
@@ -101,7 +101,7 @@ function StateView({
 				data-tone="emerald"
 				className="rounded-lg border border-[var(--success-border)] px-2 py-1.5 text-xs text-[var(--success)]"
 			>
-				{t("backupsPage.offsite.dryRunOk").replace("{latencyMs}", String(state.latencyMs))}
+				{t("backupsPage.offsite.dryRunOk", { latencyMs: state.latencyMs })}
 			</p>
 		);
 	}
@@ -136,8 +136,7 @@ function StateView({
 				data-tone="rose"
 				className="rounded-lg border border-[var(--danger-border)] px-2 py-1.5 text-xs text-[var(--danger)]"
 			>
-				{t("backupsPage.offsite.dryRunFailed")
-					.replace("{message}", `[${state.code} / HTTP ${state.status}] ${state.message}`)}
+				{t("backupsPage.offsite.dryRunFailed", { message: `[${state.code} / HTTP ${state.status}] ${state.message}` })}
 			</p>
 		);
 	}
@@ -146,7 +145,7 @@ function StateView({
 			data-tone="rose"
 			className="rounded-lg border border-[var(--danger-border)] px-2 py-1.5 text-xs text-[var(--danger)]"
 		>
-			{t("backupsPage.offsite.dryRunFailed").replace("{message}", state.message)}
+			{t("backupsPage.offsite.dryRunFailed", { message: state.message })}
 		</p>
 	);
 }

@@ -247,7 +247,7 @@ export function FileListClient({
   });
 
   const emptyMessage = searchQuery
-    ? t("fileListClient.searchEmpty").replace("{query}", searchQuery)
+    ? t("fileListClient.searchEmpty", { query: searchQuery })
     : t("fileListClient.emptyFolder");
   const parentPath = useMemo(() => getParentPath(currentPath), [currentPath]);
   const goToParent = useCallback(() => {

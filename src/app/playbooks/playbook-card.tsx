@@ -8,7 +8,7 @@ import { ActionButton } from "@/components/action-button";
 
 type PlaybookRunHistoryProps = {
   runs: RunSummary[];
-  t: (k: string) => string;
+  t: (k: string, vars?: Record<string, string | number>) => string;
 };
 
 export function PlaybookRunHistory({ runs, t }: PlaybookRunHistoryProps) {
@@ -16,7 +16,7 @@ export function PlaybookRunHistory({ runs, t }: PlaybookRunHistoryProps) {
   return (
     <details className="mt-3">
       <summary className="cursor-pointer text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
-        {t("playbooksPage.runHistory").replace("{count}", String(runs.length))}
+        {t("playbooksPage.runHistory", { count: runs.length })}
       </summary>
       <div className="mt-2 space-y-1.5">
         {runs.length === 0 ? (
@@ -96,7 +96,7 @@ export const PlaybookCard = memo(function PlaybookCard({
             <p className="mt-1 text-xs text-[var(--text-secondary)]">{playbook.description}</p>
           )}
           <div className="mt-2 text-xs text-[var(--text-muted)]">
-            {t("playbooksPage.stepsAndCreatedAt").replace("{count}", String(playbook.steps.length)).replace("{time}", formatTime(playbook.createdAt, locale))}
+            {t("playbooksPage.stepsAndCreatedAt", { count: playbook.steps.length, time: formatTime(playbook.createdAt, locale) })}
           </div>
           <PlaybookRunHistory runs={playbookRuns} t={t} />
         </div>

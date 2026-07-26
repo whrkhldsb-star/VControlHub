@@ -20,7 +20,7 @@ const categoryIcon: Record<string, string> = {
 	video: "🎬", music: "🎵", software: "💿", document: "📄", image: "🖼️", other: "📦",
 };
 
-function urlTypeLabel(url: string, t: (k: string) => string) {
+function urlTypeLabel(url: string, t: (k: string, vars?: Record<string, string | number>) => string) {
 	if (url.startsWith("magnet:?")) return t("downloadsPage.linkType.magnet");
 	if (url.startsWith("https://")) return "🔒 HTTPS";
 	if (url.startsWith("http://")) return "🔓 HTTP";
@@ -45,7 +45,7 @@ export const DownloadTaskRow = memo(function DownloadTaskRow({
 	onPendingPurge,
 }: {
 	task: DownloadTask;
-	t: (k: string) => string;
+	t: (k: string, vars?: Record<string, string | number>) => string;
 	canManage: boolean;
 	busyActions: Record<string, string>;
 	downloadingIds: Record<string, boolean>;

@@ -82,9 +82,7 @@ export function SystemConfigSection() {
       try {
         const json = JSON.parse(reader.result as string);
         if (json.schemaVersion !== EXPORT_SCHEMA_VERSION) {
-          setFileError(t("systemConfig.import.schemaVersionMismatch")
-            .replace("{fileVersion}", String(json.schemaVersion ?? "?"))
-            .replace("{currentVersion}", String(EXPORT_SCHEMA_VERSION)));
+          setFileError(t("systemConfig.import.schemaVersionMismatch", { fileVersion: json.schemaVersion ?? "?", currentVersion: EXPORT_SCHEMA_VERSION }));
           // Drop any previously selected valid payload so Preview/Execute
           // cannot run against the old file under the new (invalid) filename.
           setSelectedFile(null);
@@ -332,7 +330,7 @@ async function handlePreview() {
           <div className="space-y-2 p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)]">
             <h5 className="text-sm font-medium text-[var(--text-primary)]">{t("systemConfig.import.preview.title")}</h5>
             <p className="text-sm text-[var(--text-secondary)]">
-              {t("systemConfig.import.preview.totalRecords").replace("{count}", String(preview.totalRecords))}
+              {t("systemConfig.import.preview.totalRecords", { count: preview.totalRecords })}
             </p>
 
             {/* Table as a compact list */}
@@ -373,10 +371,7 @@ async function handlePreview() {
         {result && (
           <div className="p-3 rounded-lg bg-[var(--success-bg)] border border-[var(--success-border)]">
             <p className="text-sm text-[var(--success)] light:text-[var(--success)]">
-              {t("systemConfig.import.result.success")
-                .replace("{created}", String(result.created))
-                .replace("{updated}", String(result.updated))
-                .replace("{skipped}", String(result.skipped))}
+              {t("systemConfig.import.result.success", { created: result.created, updated: result.updated, skipped: result.skipped })}
             </p>
           </div>
         )}

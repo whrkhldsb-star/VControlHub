@@ -66,9 +66,7 @@ export function BatchServerActionPanel({
           </p>
         </div>
         <div className="text-xs text-[var(--text-muted)]">
-          {t("serversPage.batchPanel.summary")
-            .replace("{enabledCount}", String(enabledCount))
-            .replace("{selectedCount}", String(selectedServers.length))}
+          {t("serversPage.batchPanel.summary", { enabledCount, selectedCount: selectedServers.length })}
         </div>
       </div>
 

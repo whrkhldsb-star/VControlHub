@@ -188,9 +188,7 @@ export function useDockerPage(initialServers: { id: string; name: string; host: 
 					: t("dockerPage.project.modeFallback");
 			const actionLabelKey = `dockerPage.project.${action}` as const;
 			const actionLabel = t(actionLabelKey) !== actionLabelKey ? t(actionLabelKey) : action;
-			const msg = typeof data.message ==="string" ? data.message : t("dockerPage.project.success")
-				.replace("{project}", project)
-				.replace("{message}", actionLabel);
+			const msg = typeof data.message ==="string" ? data.message : t("dockerPage.project.success", { project, message: actionLabel });
 			setProjectMessage(`${msg} (${modeLabel})`);
 			if (action !=="ps") {
 				await fetchContainers();

@@ -190,7 +190,7 @@ export async function POST(
           session.currentTeamId,
         );
         return Response.json(
-          { error: t("apiServersReload.reloadFailedWithMessage", locale).replace("{message}", message), command },
+          { error: t("apiServersReload.reloadFailedWithMessage", locale, { message }), command },
           { status: 502 },
         );
       }

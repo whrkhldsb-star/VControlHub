@@ -70,7 +70,7 @@ export function CancelCommandButton({ commandRequestId, commandTitle }: Props) {
           <div className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-5 shadow-2xl">
             <h3 id={`cancel-command-${commandRequestId}-title`} className="text-lg font-semibold text-[var(--text-primary)]">{t("requestsPage.cancel.confirmTitle")}</h3>
             <p className="mt-2 text-sm text-[var(--text-secondary)]">
-              {t("requestsPage.cancel.confirmBody").replace("{title}", commandTitle)}
+              {t("requestsPage.cancel.confirmBody", { title: commandTitle })}
             </p>
             <label htmlFor={`cancel-command-${commandRequestId}-reason`} className="mt-4 block text-sm font-medium text-[var(--text-secondary)]">
               {t("requestsPage.cancel.reasonLabel")}

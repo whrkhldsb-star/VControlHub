@@ -75,7 +75,7 @@ export function TestResultPanel({
 			className="rounded-xl border border-[var(--color-action-border)]/20 px-4 py-3 text-sm text-[var(--text-primary)]"
 		>
 			<p className="font-medium">
-				{t("alertRulesPage.testResult").replace("{ruleName}", testResult.ruleName)}
+				{t("alertRulesPage.testResult", { ruleName: testResult.ruleName })}
 			</p>
 			<ul className="mt-2 space-y-1">
 				{testResult.deliveries.map((delivery, index) => (

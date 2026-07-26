@@ -37,7 +37,7 @@ export default async function VpsStatusPage() {
 				className="mb-6"
 			>
 				<div className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)]">
-					{t("vpsStatusPage.serverCount", locale).replace("{count}", String(servers.length))}
+					{t("vpsStatusPage.serverCount", locale, { count: servers.length })}
 				</div>
 			</PageHeader>
 			<VpsStatusClient serverCount={servers.length} />

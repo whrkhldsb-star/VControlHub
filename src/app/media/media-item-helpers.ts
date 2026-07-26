@@ -28,7 +28,7 @@ export interface MediaItem {
   } | null;
 }
 
-export type MediaTFn = (key: string) => string;
+export type MediaTFn = (key: string, vars?: Record<string, string | number>) => string;
 
 export function formatSize(bytes: bigint | number | null, t: MediaTFn) {
   if (bytes == null) return t("mediaItemCard.unknown");

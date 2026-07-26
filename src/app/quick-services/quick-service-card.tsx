@@ -114,9 +114,9 @@ export function ServiceCard({
 
 			{/* Meta */}
 			<div className="flex items-center gap-3 text-[10px] text-[var(--text-muted)]">
-				<span>{t("qsPage.portLabel").replace("{port}", String(displayPort))}</span>
-				{item.path && <span>{t("qsPage.pathLabel").replace("{path}", item.path)}</span>}
-				{item.monthlyPulls != null && <span>{t("qsPage.monthlyPulls").replace("{pulls}", (item.monthlyPulls / 1000).toFixed(0))}</span>}
+				<span>{t("qsPage.portLabel", { port: displayPort })}</span>
+				{item.path && <span>{t("qsPage.pathLabel", { path: item.path })}</span>}
+				{item.monthlyPulls != null && <span>{t("qsPage.monthlyPulls", { pulls: (item.monthlyPulls / 1000).toFixed(0) })}</span>}
 				{item.stars != null && <span>⭐ {item.stars}</span>}
 			</div>
 
@@ -139,7 +139,7 @@ export function ServiceCard({
 								href={access.url}
 								target="_blank"
 								rel="noreferrer"
-								aria-label={t("qsPage.accessAria").replace("{name}", item.name).replace("{label}", access.label)}
+								aria-label={t("qsPage.accessAria", { name: item.name, label: access.label })}
 								title={access.description}
 								data-action-button
 								data-variant="success-solid"

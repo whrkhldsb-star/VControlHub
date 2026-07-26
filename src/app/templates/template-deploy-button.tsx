@@ -40,7 +40,7 @@ export function DeployButton({
 		<div className="w-full space-y-2.5">
 			{template.variables.map((v) => {
 				const variableInputId = `${deployFormId}-${v}`;
-				const variableLabel = t("templatesPage.variable").replace("{name}", v);
+				const variableLabel = t("templatesPage.variable", { name: v });
 				return (
 					<div key={v} className="flex items-center gap-2">
 						<label

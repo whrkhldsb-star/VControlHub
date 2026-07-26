@@ -16,7 +16,7 @@ import { emptyForm, formatAmount, isValidDate } from "./cost-page-shared";
 import { getErrorMessage } from "@/lib/http/error-message";
 
 type ToastFn = (type: "success" | "error" | "info" | "warning", message: string) => void;
-type TFn = (key: string) => string;
+type TFn = (key: string, vars?: Record<string, string | number>) => string;
 
 export function useCostPageState(options: {
   initialMonth: string;
@@ -147,9 +147,7 @@ export function useCostPageState(options: {
       const data = (await res.json()) as { result: { synced: number; skipped: number } };
       addToast(
         "success",
-        t("costPage.actions.syncSourcesDone")
-          .replace("{synced}", String(data.result.synced))
-          .replace("{skipped}", String(data.result.skipped)),
+        t("costPage.actions.syncSourcesDone", { synced: data.result.synced, skipped: data.result.skipped }),
       );
       await refreshAll();
     } catch (err) {

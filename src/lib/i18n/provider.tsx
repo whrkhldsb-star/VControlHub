@@ -10,7 +10,7 @@ export function I18nProvider({ children, initialLocale = "zh" }: { children: Rea
 	const value = useMemo(() => ({
 		locale,
 		setLocale,
-		t: (key: string) => translate(key, locale),
+		t: (key: string, vars?: Record<string, string | number>) => translate(key, locale, vars),
 		translations: getAllTranslations(locale),
 	}), [locale, setLocale]);
 

@@ -29,7 +29,7 @@ type JobEventsDialogProps = {
   onClose: () => void;
 };
 
-function buildLevelLabels(t: (key: string) => string): Record<JobEventLevel, string> {
+function buildLevelLabels(t: (key: string, vars?: Record<string, string | number>) => string): Record<JobEventLevel, string> {
 	return {
 		info: t("jobEventsDialog.level.info"),
 		warn: t("jobEventsDialog.level.warn"),
@@ -37,7 +37,7 @@ function buildLevelLabels(t: (key: string) => string): Record<JobEventLevel, str
 	};
 }
 
-function buildTypeLabels(t: (key: string) => string): Record<string, string> {
+function buildTypeLabels(t: (key: string, vars?: Record<string, string | number>) => string): Record<string, string> {
 	return {
 		claimed: t("jobEventsDialog.type.claimed"),
 		heartbeat: t("jobEventsDialog.type.heartbeat"),
@@ -148,7 +148,7 @@ export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) 
               {t("jobEventsDialog.title")}
             </h2>
             <p className="mt-1 text-xs text-[var(--text-muted)]">
-              {t("jobEventsDialog.subtitle").replace("{id}", jobId)}
+              {t("jobEventsDialog.subtitle", { id: jobId })}
             </p>
           </div>
           <ActionButton variant="secondary"
@@ -208,7 +208,7 @@ export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) 
           ) : null}
         </div>
         <div className="flex items-center justify-between border-t border-[var(--border)]/[0.10] px-5 py-3 text-xs text-[var(--text-muted)]">
-          <span>{t("jobEventsDialog.totalCount").replace("{count}", String(events.length)).replace("{more}", hasMore ? t("jobEventsDialog.moreSuffix") : "")}</span>
+          <span>{t("jobEventsDialog.totalCount", { count: events.length, more: hasMore ? t("jobEventsDialog.moreSuffix") : "" })}</span>
           <div className="flex gap-2">
             <ActionButton variant="secondary"
               onClick={() => void load(false)}

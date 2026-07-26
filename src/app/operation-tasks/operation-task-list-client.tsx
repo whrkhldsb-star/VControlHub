@@ -14,7 +14,7 @@ import { JobEventsDialog } from "./job-events-dialog";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 
-function getSourceLabels(t: (k: string) => string): Record<string, string> {
+function getSourceLabels(t: (k: string, vars?: Record<string, string | number>) => string): Record<string, string> {
   return {
     job: t("operationTasksPage.source.job"),
     command: t("operationTasksPage.source.command"),
@@ -51,7 +51,7 @@ function getExportPath(statusFilter: string, taskTypeFilter: string, sort: strin
 
 type TaskRowProps = {
   task: OperationTask;
-  t: (k: string) => string;
+  t: (k: string, vars?: Record<string, string | number>) => string;
   dateLocale: string;
   sourceLabels: Record<string, string>;
   onViewEvents: (sourceId: string) => void;
@@ -65,8 +65,8 @@ const TaskRow = memo(function TaskRow({ task, t, dateLocale, sourceLabels, onVie
           <span className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-2 py-1 text-xs text-[var(--text-muted)]">{sourceLabels[task.source] ?? task.source}</span>
           <span data-tone={statusTone[task.status] ?? "neutral"} className="rounded-lg border px-2 py-1 text-xs font-semibold">{task.status}</span>
           {task.taskType && <span className="rounded-lg border border-[var(--border)] px-2 py-1 text-xs text-[var(--text-muted)]">{task.taskType}</span>}
-          {task.foldedCount && task.foldedCount > 1 && <span className="rounded-lg border border-[var(--accent-border)] bg-[var(--accent-bg)] px-2 py-1 text-xs text-[var(--accent)]">{t("operationTasksPage.folded").replace("{count}", String(task.foldedCount))}</span>}
-          {task.workerId && <span title={task.workerHeartbeatAt ? t("operationTasksPage.worker.heartbeat").replace("{time}", new Date(task.workerHeartbeatAt).toLocaleString(dateLocale)) : t("operationTasksPage.worker.noHeartbeat")} data-tone="accent" className="rounded-lg border px-2 py-1 text-xs font-medium">worker {task.workerId}</span>}
+          {task.foldedCount && task.foldedCount > 1 && <span className="rounded-lg border border-[var(--accent-border)] bg-[var(--accent-bg)] px-2 py-1 text-xs text-[var(--accent)]">{t("operationTasksPage.folded", { count: task.foldedCount })}</span>}
+          {task.workerId && <span title={task.workerHeartbeatAt ? t("operationTasksPage.worker.heartbeat", { time: new Date(task.workerHeartbeatAt).toLocaleString(dateLocale) }) : t("operationTasksPage.worker.noHeartbeat")} data-tone="accent" className="rounded-lg border px-2 py-1 text-xs font-medium">worker {task.workerId}</span>}
         </div>
         <h3 className="mt-2 truncate text-sm font-semibold text-[var(--text-primary)]">{task.title}</h3>
         <p className="mt-1 text-xs text-[var(--text-muted)]">{new Date(task.createdAt).toLocaleString(dateLocale)} {task.actor ? ` · ${task.actor}` : ""} {task.progress ? ` · ${task.progress}` : ""}</p>
@@ -82,7 +82,7 @@ const TaskRow = memo(function TaskRow({ task, t, dateLocale, sourceLabels, onVie
       <div className="flex flex-col items-end gap-2">
         {task.source === "job" && task.eventCount && task.eventCount > 0 ? (
           <button type="button" onClick={() => onViewEvents(task.sourceId)} className="text-xs font-medium text-[var(--accent)] hover:opacity-80">
-            {t("operationTasksPage.task.viewEvents").replace("{count}", String(task.eventCount))}
+            {t("operationTasksPage.task.viewEvents", { count: task.eventCount })}
           </button>
         ) : null}
         {task.href && <Link href={task.href} className="text-xs font-medium text-[var(--accent)] hover:text-[var(--text-secondary)]">{t("operationTasksPage.task.viewSource")}</Link>}
@@ -165,12 +165,12 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
     <SurfacePanel
       title={t("operationTasks.summary.sourceGroup")}
       description={t("operationTasks.summary.sourceGroupDesc")}
-      actions={<span className="text-xs text-[var(--text-muted)]">{t("operationTasksPage.summary.totalCount").replace("{count}", String(tasks.length))}</span>}
+      actions={<span className="text-xs text-[var(--text-muted)]">{t("operationTasksPage.summary.totalCount", { count: tasks.length })}</span>}
     >
       {sourceSummary.length === 0 ? <p className="mt-3 text-sm text-[var(--text-muted)]">{t("operationTasks.summary.noSources")}</p> : <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {sourceSummary.map((item) => <div key={item.source} className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-3 py-3">
-          <div className="flex items-center justify-between gap-3"><span className="text-sm font-medium text-[var(--text-primary)]">{sourceLabels[item.source] ?? item.source}</span><span className="text-xs text-[var(--text-muted)]">{t("operationTasksPage.summary.grandTotal").replace("{count}", String(item.total))}</span></div>
-          <div className="mt-2 flex flex-wrap gap-2 text-xs text-[var(--text-secondary)]"><span>{t("operationTasksPage.summary.needProcess").replace("{count}", String(item.attention))}</span><span>{t("operationTasksPage.summary.failed").replace("{count}", String(item.failed))}</span><span>{t("operationTasksPage.summary.running").replace("{count}", String(item.running))}</span><span>{t("operationTasksPage.summary.pending").replace("{count}", String(item.pending))}</span></div>
+          <div className="flex items-center justify-between gap-3"><span className="text-sm font-medium text-[var(--text-primary)]">{sourceLabels[item.source] ?? item.source}</span><span className="text-xs text-[var(--text-muted)]">{t("operationTasksPage.summary.grandTotal", { count: item.total })}</span></div>
+          <div className="mt-2 flex flex-wrap gap-2 text-xs text-[var(--text-secondary)]"><span>{t("operationTasksPage.summary.needProcess", { count: item.attention })}</span><span>{t("operationTasksPage.summary.failed", { count: item.failed })}</span><span>{t("operationTasksPage.summary.running", { count: item.running })}</span><span>{t("operationTasksPage.summary.pending", { count: item.pending })}</span></div>
         </div>)}
       </div>}
     </SurfacePanel>
@@ -181,12 +181,12 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
           <h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("operationTasks.summary.failureGroup")}</h2>
           <p className="mt-1 text-xs text-[var(--text-muted)]">{t("operationTasksPage.failures.desc")}</p>
         </div>
-        <div className="text-xs text-[var(--text-muted)]">{t("operationTasksPage.failures.totalCount").replace("{count}", String(failureSummary.reduce((total, item) => total + item.total, 0)))}</div>
+        <div className="text-xs text-[var(--text-muted)]">{t("operationTasksPage.failures.totalCount", { count: failureSummary.reduce((total, item) => total + item.total, 0) })}</div>
       </div>
       {failureSummary.length === 0 ? <p className="mt-3 text-sm text-[var(--text-muted)]">{t("operationTasks.summary.noFailures")}</p> : <div className="mt-4 grid gap-3 lg:grid-cols-2">
         {failureSummary.map((item) => <div key={item.reason} className="rounded-xl border border-[var(--danger-border)] bg-[var(--surface)] px-3 py-3">
-          <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-sm font-medium text-[var(--text-primary)]">{item.reason}</span><span className="rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] px-2 py-1 text-xs font-medium text-[var(--danger)]">{t("operationTasksPage.failures.itemCount").replace("{count}", String(item.total))}</span></div>
-          <p className="mt-2 text-xs text-[var(--text-muted)]">{t("operationTasksPage.failures.sourceAndLatest").replace("{sources}", item.sources.map((source) => sourceLabels[source] ?? source).join("、")).replace("{title}", item.latestTitle)}</p>
+          <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-sm font-medium text-[var(--text-primary)]">{item.reason}</span><span className="rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] px-2 py-1 text-xs font-medium text-[var(--danger)]">{t("operationTasksPage.failures.itemCount", { count: item.total })}</span></div>
+          <p className="mt-2 text-xs text-[var(--text-muted)]">{t("operationTasksPage.failures.sourceAndLatest", { sources: item.sources.map((source) => sourceLabels[source] ?? source).join("、"), title: item.latestTitle })}</p>
         </div>)}
       </div>}
     </section>

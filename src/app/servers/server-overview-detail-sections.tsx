@@ -147,7 +147,7 @@ export function DirectGatewayHealthyDetail({
 	statusLabel: dgLabel,
 	publicUrl,
 }: {
-	t: (k: string) => string;
+	t: (k: string, vars?: Record<string, string | number>) => string;
 	statusLabel: string;
 	publicUrl: string | null;
 }) {
@@ -162,7 +162,7 @@ export function DirectGatewayAdviceList({
 	t,
 	advice,
 }: {
-	t: (k: string) => string;
+	t: (k: string, vars?: Record<string, string | number>) => string;
 	advice: Array<{
 		title: string;
 		detail: string;

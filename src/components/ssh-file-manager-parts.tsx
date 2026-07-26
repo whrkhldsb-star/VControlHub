@@ -6,7 +6,7 @@ import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
 import { ActionButton } from "@/components/action-button";
 
-type TFunction = (key: string) => string;
+type TFunction = (key: string, vars?: Record<string, string | number>) => string;
 
 export type DirEntry = {
   name: string;

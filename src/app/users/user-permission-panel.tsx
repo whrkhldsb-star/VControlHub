@@ -57,7 +57,7 @@ type Props = {
   onSaved: () => void;
 };
 
-function formatBytes(value: string | null | undefined, t: (k: string) => string) {
+function formatBytes(value: string | null | undefined, t: (k: string, vars?: Record<string, string | number>) => string) {
   if (!value) return t("usersPerm.bytes.unlimited");
   const bytes = Number(value);
   if (!Number.isFinite(bytes) || bytes <= 0) return t("usersPerm.bytes.unlimited");
@@ -321,8 +321,8 @@ const _data = await csrfFetch("/api/users/permissions", {
                         <label><input type="checkbox" checked={grant.canRead} onChange={(e) => updateGrant(index, { canRead: e.target.checked })} /> {t("usersPerm.grants.read")}</label>
                         <label><input type="checkbox" checked={grant.canWrite} onChange={(e) => updateGrant(index, { canWrite: e.target.checked })} /> {t("usersPerm.grants.write")}</label>
                         <label><input type="checkbox" checked={grant.canDelete} onChange={(e) => updateGrant(index, { canDelete: e.target.checked })} /> {t("usersPerm.grants.delete")}</label>
-                        <span>{t("usersPerm.grants.used").replace("{value}", formatBytes(grant.usedBytes, t))}</span>
-                        {node && <span className="text-[var(--text-muted)]">{t("usersPerm.grants.basePath").replace("{path}", node.basePath)}</span>}
+                        <span>{t("usersPerm.grants.used", { value: formatBytes(grant.usedBytes, t) })}</span>
+                        {node && <span className="text-[var(--text-muted)]">{t("usersPerm.grants.basePath", { path: node.basePath })}</span>}
                       </div>
                     </div>
                   );

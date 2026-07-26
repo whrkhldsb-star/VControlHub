@@ -8,7 +8,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { t } from "@/lib/i18n/translations";
 import { getServerLocale } from "@/lib/i18n/server-locale";
 
-type TFunction = (key: string) => string;
+type TFunction = (key: string, vars?: Record<string, string | number>) => string;
 
 function buildOpenApiSpec(t: TFunction) {
   return {

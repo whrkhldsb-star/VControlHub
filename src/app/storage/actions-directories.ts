@@ -75,7 +75,7 @@ export async function createFolderAction(
 
     if (existing) {
       return {
-        error: t("storagePage.action.folderAlreadyExists").replace("{path}", relativePath),
+        error: t("storagePage.action.folderAlreadyExists", { path: relativePath }),
       } satisfies StorageActionState;
     }
 
@@ -172,7 +172,7 @@ export async function createFolderAction(
     });
 
     return {
-      success: t("storagePage.action.folderCreated").replace("{path}", relativePath),
+      success: t("storagePage.action.folderCreated", { path: relativePath }),
     } satisfies StorageActionState;
   } catch (error) {
     return {
@@ -291,7 +291,7 @@ export async function renameFileEntryAction(
 
     if (existing) {
       return {
-        error: t("storagePage.action.pathAlreadyExists").replace("{path}", newRelativePath),
+        error: t("storagePage.action.pathAlreadyExists", { path: newRelativePath }),
       } satisfies StorageActionState;
     }
 
@@ -378,7 +378,7 @@ export async function renameFileEntryAction(
     revalidatePath("/storage");
     revalidatePath("/files");
 
-    return { success: t("storagePage.action.fileRenamed").replace("{name}", normalizedNewName) } satisfies StorageActionState;
+    return { success: t("storagePage.action.fileRenamed", { name: normalizedNewName }) } satisfies StorageActionState;
   } catch (error) {
     return {
       error: getErrorMessage(error, t("storagePage.action.fileRenameFailed")),

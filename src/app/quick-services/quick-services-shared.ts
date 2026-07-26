@@ -45,7 +45,7 @@ export interface AppSource {
 export const CATEGORY_ORDER = ["storage", "media", "devtools", "notes", "network", "blog", "other"];
 export const RECOMMENDED_SERVICE_SLUGS = ["alist", "uptime-kuma", "portainer", "vaultwarden", "gitea"];
 
-export function buildCategoryLabels(t: (key: string) => string): Record<string, string> {
+export function buildCategoryLabels(t: (key: string, vars?: Record<string, string | number>) => string): Record<string, string> {
 	return {
 		storage: t("qsPage.category.storage"),
 		media: t("qsPage.category.media"),

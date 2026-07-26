@@ -240,7 +240,7 @@ export function ServerCardEditForm({
         />
         {costLastSyncedAt ? (
           <p className="text-[11px] text-[var(--text-muted)]">
-            {t("serverCardActions.edit.costLastSynced").replace("{time}", costLastSyncedAt)}
+            {t("serverCardActions.edit.costLastSynced", { time: costLastSyncedAt })}
           </p>
         ) : null}
       </div>

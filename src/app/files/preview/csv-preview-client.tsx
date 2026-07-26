@@ -74,7 +74,7 @@ export function CsvPreviewClient({ href }: { href: string }) {
 		let cancelled = false;
 		fetch(href)
 			.then(async (res) => {
-				if (!res.ok) throw new Error(t("csvPreview.loadFailedWithStatus").replace("{status}", String(res.status)));
+				if (!res.ok) throw new Error(t("csvPreview.loadFailedWithStatus", { status: res.status }));
 				const text = await res.text();
 				if (!cancelled) {
 					try {
@@ -130,7 +130,7 @@ export function CsvPreviewClient({ href }: { href: string }) {
 		<div className="space-y-4">
 			<div className="flex items-center gap-3">
 				<span className="rounded-full bg-[var(--success-bg)] px-3 py-1 text-xs font-medium text-[var(--success)] border border-[var(--success-border)]">{t("csvPreview.tableBadge")}</span>
-				<span className="text-xs text-[var(--text-secondary)]">{t("csvPreview.rowCol").replace("{rows}", String(dataRows.length)).replace("{cols}", String(colCount))}</span>
+				<span className="text-xs text-[var(--text-secondary)]">{t("csvPreview.rowCol", { rows: dataRows.length, cols: colCount })}</span>
 			</div>
 			<div className="overflow-auto rounded-2xl border border-[var(--border)]">
 				<table className="w-full text-sm">
@@ -138,7 +138,7 @@ export function CsvPreviewClient({ href }: { href: string }) {
 						<tr className="bg-[var(--surface)] light:bg-[var(--surface)]/80">
 							<th className="px-3 py-2 text-left text-xs font-medium text-[var(--text-secondary)] border-b border-[var(--border)] w-12">#</th>
 							{header.map((col, i) => (
-								<th key={i} className="px-3 py-2 text-left text-xs font-medium text-[var(--color-action)] border-b border-[var(--border)] whitespace-nowrap">{col || t("csvPreview.colIndex").replace("{index}", String(i + 1))}</th>
+								<th key={i} className="px-3 py-2 text-left text-xs font-medium text-[var(--color-action)] border-b border-[var(--border)] whitespace-nowrap">{col || t("csvPreview.colIndex", { index: i + 1 })}</th>
 							))}
 						</tr>
 					</thead>
@@ -156,7 +156,7 @@ export function CsvPreviewClient({ href }: { href: string }) {
 			</div>
 			{truncated ? (
 				<div data-tone="amber" className="rounded-2xl border border-[var(--warning-border)] px-4 py-3 text-sm text-[var(--warning)]">
-					{t("csvPreview.largeWarning").replace("{max}", String(maxRows)).replace("{total}", String(dataRows.length))}
+					{t("csvPreview.largeWarning", { max: maxRows, total: dataRows.length })}
 				</div>
 			) : null}
 		</div>

@@ -6,7 +6,7 @@ import { cn } from "@/lib/ui/cn";
 import type { TerminalStatus } from "@/components/ssh-terminal-types";
 import { ActionButton } from "@/components/action-button";
 
-type TFn = (key: string) => string;
+type TFn = (key: string, vars?: Record<string, string | number>) => string;
 
 const chipBase ="min-h-9 rounded-full border px-3 py-1 text-xs transition";
 const chipIdle ="border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface-subtle)] light:bg-[var(--surface)] text-[var(--text-secondary)] light:text-[var(--text-muted)] hover:bg-[var(--surface-elevated)] light:hover:bg-[var(--surface-hover)]/50";

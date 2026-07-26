@@ -123,7 +123,7 @@ export async function sampleRemoteServerTraffic(
 			timeout: SAMPLE_TIMEOUT_MS,
 		});
 		if (exitCode !== 0) {
-			return { ...base, error: t("backend.traffic.remote.commandFailed").replace("{code}", String(exitCode)).replace("{stderr}", stderr.trim().slice(0, 120)) };
+			return { ...base, error: t("backend.traffic.remote.commandFailed", { code: exitCode ?? -1, stderr: stderr.trim().slice(0, 120) }) };
 		}
 		const interfaces = parseNetworkDeviceStats(stdout);
 		if (interfaces.length === 0) {
@@ -137,7 +137,7 @@ export async function sampleRemoteServerTraffic(
 		return { ...base, primaryInterface: primary, interfaces: summarized, error: null };
 	} catch (error) {
 		const message = error instanceof Error ? error.message : "Unknown error";
-		return { ...base, error: t("backend.traffic.remote.connectionFailed").replace("{message}", message.slice(0, 200)) };
+		return { ...base, error: t("backend.traffic.remote.connectionFailed", { message: message.slice(0, 200) }) };
 	}
 }
 

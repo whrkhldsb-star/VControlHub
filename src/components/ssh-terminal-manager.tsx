@@ -213,7 +213,7 @@ export function SshTerminalManager({
 										e.stopPropagation();
 										onTabClose(i);
 									}}
-									aria-label={t("sshTerminalManager.closeTab").replace("{serverName}", tab.serverName)}
+									aria-label={t("sshTerminalManager.closeTab", { serverName: tab.serverName })}
 									className="ml-1 shrink-0 rounded p-1.5 min-h-11 min-w-11 text-[var(--text-muted)] opacity-100 transition hover:bg-[var(--surface-elevated)] light:hover:bg-[var(--surface-hover)] hover:text-[var(--danger)] sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
 								>
 									✕

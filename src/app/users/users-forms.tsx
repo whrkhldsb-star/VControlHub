@@ -26,7 +26,7 @@ export function statusTone(status: string): Tone {
   return"warning";
 }
 
-export function statusLabel(status: string, t: (k: string) => string) {
+export function statusLabel(status: string, t: (k: string, vars?: Record<string, string | number>) => string) {
   if (status ==="ACTIVE") return t("usersPage.status.active");
   if (status ==="DISABLED") return t("usersPage.status.disabled");
   if (status ==="PENDING_PASSWORD_RESET") return t("usersPage.status.pending");
@@ -48,7 +48,7 @@ export function UsersCreateForm({
   onSubmit,
   onToggleRole,
 }: {
-  t: (k: string) => string;
+  t: (k: string, vars?: Record<string, string | number>) => string;
   createForm: CreateUserFormState;
   setCreateForm: React.Dispatch<React.SetStateAction<CreateUserFormState>>;
   creating: boolean;
@@ -142,7 +142,7 @@ export function UsersResetPasswordDialog({
   onCancel,
   onConfirm,
 }: {
-  t: (k: string) => string;
+  t: (k: string, vars?: Record<string, string | number>) => string;
   username: string;
   dialogRef: React.RefObject<HTMLDivElement | null>;
   password: string;
@@ -166,7 +166,7 @@ export function UsersResetPasswordDialog({
         className="w-full max-w-md rounded-2xl border border-[var(--warning-border)] bg-[var(--modal-bg)] p-6 shadow-lg"
       >
         <h2 id="reset-password-title" className="text-lg font-semibold text-[var(--text-primary)]">
-          {t("usersPage.resetPassword.title").replace("{name}", username)}
+          {t("usersPage.resetPassword.title", { name: username })}
         </h2>
         <p className="mt-2 text-sm text-[var(--text-secondary)]">{t("usersPage.resetPassword.desc")}</p>
         <input

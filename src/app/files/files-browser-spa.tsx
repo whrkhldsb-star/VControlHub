@@ -189,10 +189,7 @@ export function FilesBrowserSpa({
 
           {data.searchQuery ? (
             <p className="mt-2 text-xs text-[var(--text-secondary)]">
-              {t("filesBrowserSpa.searchResults")
-                .replace("{query}", data.searchQuery)
-                .replace("{scope}", data.searchScope === "all" ? t("filesBrowserSpa.searchInAllFiles") : t("filesBrowserSpa.searchInCurrentFolder"))
-                .replace("{count}", String(data.stats.totalItems))}
+              {t("filesBrowserSpa.searchResults", { query: data.searchQuery, scope: data.searchScope === "all" ? t("filesBrowserSpa.searchInAllFiles") : t("filesBrowserSpa.searchInCurrentFolder"), count: data.stats.totalItems })}
             </p>
           ) : null}
           {data.searchQuery ? (
@@ -216,9 +213,7 @@ export function FilesBrowserSpa({
                   {t("filesBrowserSpa.currentPathPrefix")}{currentPathDisplay.label}
                 </p>
                 <p className="mt-1 text-sm text-[var(--text-secondary)]">
-                  {t("filesBrowserSpa.itemCountWithSource")
-                    .replace("{count}", String(data.stats.totalItems))
-                    .replace("{sources}", data.sourceSummary.join(t("filesBrowserSpa.sourceListSeparator")))}
+                  {t("filesBrowserSpa.itemCountWithSource", { count: data.stats.totalItems, sources: data.sourceSummary.join(t("filesBrowserSpa.sourceListSeparator")) })}
                 </p>
               </div>
               <div className="flex flex-wrap gap-3">
@@ -316,7 +311,7 @@ export function FilesBrowserSpa({
               initialNodeId={preferredUploadNode}
               initialRelativeDir={data.currentPath}
               uploadDir={data.currentPath}
-              title={t("filesBrowserSpa.uploadToPath").replace("{path}", currentPathDisplay.uploadPathLabel)}
+              title={t("filesBrowserSpa.uploadToPath", { path: currentPathDisplay.uploadPathLabel })}
               description={t("filesBrowserSpa.uploadDescription")}
               submitLabel={t("filesBrowserSpa.uploadSubmitLabel")}
               pathLabel={t("filesBrowserSpa.uploadPathLabel")}

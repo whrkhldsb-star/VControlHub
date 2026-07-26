@@ -32,7 +32,7 @@ function uniqueVariables(template?: DeploymentTemplateOption) {
 	return Array.from(new Set([...explicit, ...fromCommand])).filter(Boolean);
 }
 
-function previewCommand(template: DeploymentTemplateOption | undefined, variables: string[], t: (k: string) => string) {
+function previewCommand(template: DeploymentTemplateOption | undefined, variables: string[], t: (k: string, vars?: Record<string, string | number>) => string) {
 	if (!template) return t("deploymentsPage.launch.noTemplate");
 	return variables.reduce((command, name) => command.replaceAll(`{{${name}}}`, `<${name}>`), template.command);
 }
@@ -138,7 +138,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 						{variables.map((name) => (
 							<label key={name} className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
 								{name}
-								<input name={`variables.${name}`} required placeholder={t("deploymentsPage.launch.variablePlaceholder").replace("{name}", name)} className={UI_INPUT} />
+								<input name={`variables.${name}`} required placeholder={t("deploymentsPage.launch.variablePlaceholder", { name })} className={UI_INPUT} />
 							</label>
 						))}
 					</div>

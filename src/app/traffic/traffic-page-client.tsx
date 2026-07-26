@@ -86,7 +86,7 @@ function RateBadge({ label, value, color }: { label: string; value: string; colo
   );
 }
 
-export function formatStorageHealthStatus(t: (key: string) => string, status: string) {
+export function formatStorageHealthStatus(t: (key: string, vars?: Record<string, string | number>) => string, status: string) {
   const normalized = status.trim().toUpperCase();
   if (normalized === "HEALTHY" || normalized === "ONLINE") return t("trafficPage.health.online");
   if (normalized === "WARNING") return t("trafficPage.health.attention");
@@ -228,10 +228,10 @@ export default function TrafficPage() {
           <ActionButton type="button" variant="ghost" onClick={() => fetchSummary()} className="text-xs">{t("trafficPage.refresh")}</ActionButton>
           <button onClick={() => setAutoRefresh((v) => !v)} disabled={refreshIntervalSeconds <= 0} className={`rounded-lg px-3 py-1.5 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-50 ${autoRefresh ? "bg-[var(--success-bg)] text-[var(--success)]" : "bg-[var(--surface-hover)]/60 text-[var(--text-secondary)]"}`}>
             {autoRefresh
-              ? t("trafficPage.autoRefreshOn").replace("{label}", refreshLabel)
+              ? t("trafficPage.autoRefreshOn", { label: refreshLabel })
               : refreshIntervalSeconds <= 0
                 ? t("trafficPage.autoRefreshOff")
-                : t("trafficPage.autoRefreshPaused").replace("{label}", refreshLabel)}
+                : t("trafficPage.autoRefreshPaused", { label: refreshLabel })}
           </button>
         </div>
       </div>
@@ -256,13 +256,13 @@ export default function TrafficPage() {
                   <option value="">{t("trafficPage.iface.auto")}</option>
                   {summary.currentServer.interfaces.map((item) => <option key={item.iface} value={item.iface}>{item.iface}</option>)}
                 </select>
-                <span className="text-[11px] text-[var(--text-muted)]">{t("trafficPage.lastUpdated").replace("{date}", new Date(summary.timestamp).toLocaleString(toDateLocale(locale)))}</span>
+                <span className="text-[11px] text-[var(--text-muted)]">{t("trafficPage.lastUpdated", { date: new Date(summary.timestamp).toLocaleString(toDateLocale(locale)) })}</span>
               </div>
               {primary ? (
                 <>
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                    <RateBadge label={t("trafficPage.rxRate").replace("{iface}", primary.iface)} value={primary.rxRateLabel} color="cyan" />
-                    <RateBadge label={t("trafficPage.txRate").replace("{iface}", primary.iface)} value={primary.txRateLabel} color="emerald" />
+                    <RateBadge label={t("trafficPage.rxRate", { iface: primary.iface })} value={primary.rxRateLabel} color="cyan" />
+                    <RateBadge label={t("trafficPage.txRate", { iface: primary.iface })} value={primary.txRateLabel} color="emerald" />
                   </div>
                   <div className="mt-4">
                     {historyScope === "24h" ? (
@@ -301,8 +301,8 @@ export default function TrafficPage() {
                     )}
                   </div>
                   <div className="mt-4 grid grid-cols-1 gap-3 text-xs text-[var(--text-secondary)] md:grid-cols-2">
-                    <div className="rounded-xl bg-[var(--input-bg)] p-3 light:ring-1 light:ring-[var(--border-strong)]">{t("trafficPage.rxTotal").replace("{value}", primary.rxLabel)}<span className="font-mono text-[var(--text-primary)]"> </span></div>
-                    <div className="rounded-xl bg-[var(--input-bg)] p-3 light:ring-1 light:ring-[var(--border-strong)]">{t("trafficPage.txTotal").replace("{value}", primary.txLabel)}<span className="font-mono text-[var(--text-primary)]"> </span></div>
+                    <div className="rounded-xl bg-[var(--input-bg)] p-3 light:ring-1 light:ring-[var(--border-strong)]">{t("trafficPage.rxTotal", { value: primary.rxLabel })}<span className="font-mono text-[var(--text-primary)]"> </span></div>
+                    <div className="rounded-xl bg-[var(--input-bg)] p-3 light:ring-1 light:ring-[var(--border-strong)]">{t("trafficPage.txTotal", { value: primary.txLabel })}<span className="font-mono text-[var(--text-primary)]"> </span></div>
                   </div>
                 </>
               ) : <div className="text-sm text-[var(--text-muted)]">{t("trafficPage.noIface")}</div>}
@@ -345,7 +345,7 @@ export default function TrafficPage() {
                     {node.error ? (
                       <span className="rounded-full bg-[var(--danger-bg)] px-2 py-0.5 text-[10px] text-[var(--danger)]">{t("trafficPage.badge.samplingFailed")}</span>
                     ) : node.primaryInterface ? (
-                      <span className="rounded-full bg-[var(--success-bg)] px-2 py-0.5 text-[10px] text-[var(--success)]">{t("trafficPage.badge.onlineIface").replace("{iface}", node.primaryInterface.iface)}</span>
+                      <span className="rounded-full bg-[var(--success-bg)] px-2 py-0.5 text-[10px] text-[var(--success)]">{t("trafficPage.badge.onlineIface", { iface: node.primaryInterface.iface })}</span>
                     ) : (
                       <span className="rounded-full bg-[var(--surface)] px-2 py-0.5 text-[10px] text-[var(--text-secondary)]">{t("trafficPage.badge.noIface")}</span>
                     )}
@@ -365,8 +365,8 @@ export default function TrafficPage() {
                         </div>
                       </div>
                       <div className="mt-2 grid grid-cols-2 gap-2 text-[11px] text-[var(--text-secondary)]">
-                        <div>{t("trafficPage.rxTotal").replace("{value}", node.primaryInterface.rxLabel)}<span className="font-mono text-[var(--text-secondary)]"> </span></div>
-                        <div>{t("trafficPage.txTotal").replace("{value}", node.primaryInterface.txLabel)}<span className="font-mono text-[var(--text-secondary)]"> </span></div>
+                        <div>{t("trafficPage.rxTotal", { value: node.primaryInterface.rxLabel })}<span className="font-mono text-[var(--text-secondary)]"> </span></div>
+                        <div>{t("trafficPage.txTotal", { value: node.primaryInterface.txLabel })}<span className="font-mono text-[var(--text-secondary)]"> </span></div>
                       </div>
                     </>
                   ) : (

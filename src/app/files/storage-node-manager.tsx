@@ -46,7 +46,7 @@ export function StorageNodeManager({
 				<div>
 					<h2 className="text-2xl font-semibold text-[var(--text-primary)]">{t("storagePage.nodes.title")}</h2>
 					<p className="mt-2 text-sm leading-7 text-[var(--text-secondary)]">
-						{t("storagePage.nodes.summary").replace("{total}", String(nodes.length)).replace("{local}", String(localCount)).replace("{sftp}", String(sftpCount))}
+						{t("storagePage.nodes.summary", { total: nodes.length, local: localCount, sftp: sftpCount })}
 					</p>
 				</div>
 				<button

@@ -35,8 +35,8 @@ export default async function BackupsPage() {
 			<PageHeader eyebrow={t("backupsPage.eyebrow")} title={t("backupsPage.title")} description={t("backupsPage.description")} />
 
 			<StatGrid cols={4}>
-				<StatCard label={t("backupsPage.summary.completed")} value={String(summary.completedRecords)} detail={t("backupsPage.summary.totalRecords").replace("{count}", String(summary.totalRecords))} accent={summary.completedRecords > 0} accentColor="emerald" />
-				<StatCard label={t("backupsPage.summary.usedSpace")} value={formatBackupSize(summary.totalCompletedSizeBytes)} detail={summary.largestCompleted ? t("backupsPage.summary.largestRecord").replace("{type}", summary.largestCompleted.type).replace("{size}", formatBackupSize(summary.largestCompleted.sizeBytes)) : t("backupsPage.summary.largestNone")} />
+				<StatCard label={t("backupsPage.summary.completed")} value={String(summary.completedRecords)} detail={t("backupsPage.summary.totalRecords", { count: summary.totalRecords })} accent={summary.completedRecords > 0} accentColor="emerald" />
+				<StatCard label={t("backupsPage.summary.usedSpace")} value={formatBackupSize(summary.totalCompletedSizeBytes)} detail={summary.largestCompleted ? t("backupsPage.summary.largestRecord", { type: summary.largestCompleted.type, size: formatBackupSize(summary.largestCompleted.sizeBytes) }) : t("backupsPage.summary.largestNone")} />
 				<StatCard label={t("backupsPage.summary.retentionNote")} value={String(summary.recordsOlderThan30Days)} detail={t("backupsPage.summary.retentionHint")} accent={summary.recordsOlderThan30Days > 0} accentColor="amber" />
 				<StatCard label={t("backupsPage.summary.exceptions")} value={`${summary.failedRecords} / ${summary.runningRecords}`} detail={t("backupsPage.summary.exceptionsHint")} accent={summary.failedRecords > 0} accentColor="rose" />
 			</StatGrid>
@@ -45,13 +45,13 @@ export default async function BackupsPage() {
 				<SurfacePanel
 					title={t("backupsPage.overview.title")}
 					description={t("backupsPage.overview.description")}
-					actions={<span className="text-xs text-[var(--text-muted)]">{t("backupsPage.overview.latestCompleted").replace("{date}", formatZhDateTime(summary.latestCompletedAt, t("backupsPage.overview.latestNone")))}</span>}
+					actions={<span className="text-xs text-[var(--text-muted)]">{t("backupsPage.overview.latestCompleted", { date: formatZhDateTime(summary.latestCompletedAt, t("backupsPage.overview.latestNone")) })}</span>}
 				>
 					<div className="grid gap-3 md:grid-cols-3">
 						{(["DATABASE", "FILES", "FULL"] as const).map((type) => (
 							<div key={type} className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-3">
 								<p className="text-xs font-semibold text-[var(--text-secondary)]">{type}</p>
-								<p className="mt-1 text-sm text-[var(--text-primary)]">{t("backupsPage.overview.typeSummary").replace("{count}", String(summary.byType[type].count)).replace("{size}", formatBackupSize(summary.byType[type].sizeBytes))}</p>
+								<p className="mt-1 text-sm text-[var(--text-primary)]">{t("backupsPage.overview.typeSummary", { count: summary.byType[type].count, size: formatBackupSize(summary.byType[type].sizeBytes) })}</p>
 							</div>
 						))}
 					</div>
@@ -62,7 +62,7 @@ export default async function BackupsPage() {
 			<SurfacePanel
 				title={t("backupsPage.failures.title")}
 				description={t("backupsPage.failures.description")}
-				actions={<span className="text-xs text-[var(--text-muted)]">{t("backupsPage.failures.count").replace("{count}", String(summary.failedRecords))}</span>}
+				actions={<span className="text-xs text-[var(--text-muted)]">{t("backupsPage.failures.count", { count: summary.failedRecords })}</span>}
 			>
 				{summary.failureSummary.length === 0 ? (
 					<p data-tone="emerald" className="mt-4 rounded-lg border border-[var(--success-border)] px-3 py-2 text-xs text-[var(--success)]">{t("backupsPage.failures.empty")}</p>
@@ -72,10 +72,10 @@ export default async function BackupsPage() {
 							<div key={item.category} className="rounded-xl border border-[var(--danger-border)] bg-[color-mix(in_srgb,var(--danger-bg)_40%,var(--surface))] p-3">
 								<div className="flex items-center justify-between gap-3">
 									<p className="text-xs font-semibold text-[var(--danger)]">{item.label}</p>
-									<span className="rounded-full bg-[var(--danger-bg)] px-2 py-0.5 text-xs text-[var(--danger)]">{t("backupsPage.failures.itemCount").replace("{count}", String(item.count))}</span>
+									<span className="rounded-full bg-[var(--danger-bg)] px-2 py-0.5 text-xs text-[var(--danger)]">{t("backupsPage.failures.itemCount", { count: item.count })}</span>
 								</div>
-								{item.latestRecordPath && <p className="mt-2 text-xs text-[var(--text-muted)]">{t("backupsPage.failures.latestRecord").replace("{path}", item.latestRecordPath)}</p>}
-								<p className="mt-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface)] px-2 py-1.5 text-xs text-[var(--text-secondary)]">{t("backupsPage.failures.remediation").replace("{remediation}", item.remediation)}</p>
+								{item.latestRecordPath && <p className="mt-2 text-xs text-[var(--text-muted)]">{t("backupsPage.failures.latestRecord", { path: item.latestRecordPath })}</p>}
+								<p className="mt-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface)] px-2 py-1.5 text-xs text-[var(--text-secondary)]">{t("backupsPage.failures.remediation", { remediation: item.remediation })}</p>
 								{item.latestMessage && <p className="mt-1 line-clamp-2 text-xs text-[var(--text-muted)]">{item.latestMessage}</p>}
 							</div>
 						))}
@@ -141,12 +141,12 @@ export default async function BackupsPage() {
 								>
 									{offsite.enabled ? t("backupsPage.offsite.status.enabled") : t("backupsPage.offsite.status.disabled")}
 								</span>
-								{t("backupsPage.offsite.provider").replace("{provider}", offsite.provider)}
+								{t("backupsPage.offsite.provider", { provider: offsite.provider })}
 							</p>
-							{offsite.bucket && <p>{t("backupsPage.offsite.bucket").replace("{bucket}", offsite.bucket)}</p>}
-							{offsite.region && <p>{t("backupsPage.offsite.region").replace("{region}", offsite.region)}</p>}
-							<p>{t("backupsPage.offsite.window").replace("{hour}", String(offsite.dailyWindowHour))}</p>
-							<p>{t("backupsPage.offsite.retention").replace("{days}", String(offsite.retentionDays))}</p>
+							{offsite.bucket && <p>{t("backupsPage.offsite.bucket", { bucket: offsite.bucket })}</p>}
+							{offsite.region && <p>{t("backupsPage.offsite.region", { region: offsite.region })}</p>}
+							<p>{t("backupsPage.offsite.window", { hour: offsite.dailyWindowHour })}</p>
+							<p>{t("backupsPage.offsite.retention", { days: offsite.retentionDays })}</p>
 						</div>
 					) : (
 						<p className="mt-4 text-xs text-[var(--text-muted)]">{t("backupsPage.offsite.dryRunNever")}</p>
@@ -168,22 +168,22 @@ export default async function BackupsPage() {
 
 			<ListPanel
 				title={t("backupsPage.records.title")}
-				count={t("backupsPage.records.count").replace("{count}", String(backups.length))}
+				count={t("backupsPage.records.count", { count: backups.length })}
 				empty={backups.length === 0 ? <EmptyState text={t("backupsPage.records.empty")} /> : undefined}
 			>
 					{backups.map((b) => (
 						<ListRow key={b.id}>
 							<div className="flex items-center justify-between gap-3">
 								<div>
-									<h3 className="text-sm font-medium text-[var(--text-primary)]">{t("backupsPage.records.typeStatus").replace("{type}", b.type).replace("{status}", b.status)}</h3>
-									<p className="mt-1 text-xs text-[var(--text-muted)]">{t("backupsPage.records.pathTime").replace("{path}", b.filePath).replace("{time}", formatZhDateTime(b.createdAt))}</p>
+									<h3 className="text-sm font-medium text-[var(--text-primary)]">{t("backupsPage.records.typeStatus", { type: b.type, status: b.status })}</h3>
+									<p className="mt-1 text-xs text-[var(--text-muted)]">{t("backupsPage.records.pathTime", { path: b.filePath, time: formatZhDateTime(b.createdAt) })}</p>
 								</div>
 								<span className="rounded-lg border border-[var(--border)] px-2 py-1 text-xs text-[var(--text-muted)]">{b.creator?.displayName || b.creator?.username || t("backupsPage.records.creatorSystem")}</span>
 							</div>
 							<div className="mt-2 flex flex-wrap gap-3 text-xs text-[var(--text-muted)]">
-								<span>{t("backupsPage.records.size").replace("{size}", formatBackupSize(b.fileSize))}</span>
-								<span>{b.completedAt ? t("backupsPage.records.completedAt").replace("{time}", formatZhDateTime(b.completedAt)) : t("backupsPage.records.notCompleted")}</span>
-								{b.errorMessage && <span className="text-[var(--danger)]">{t("backupsPage.records.error").replace("{message}", b.errorMessage)}</span>}
+								<span>{t("backupsPage.records.size", { size: formatBackupSize(b.fileSize) })}</span>
+								<span>{b.completedAt ? t("backupsPage.records.completedAt", { time: formatZhDateTime(b.completedAt) }) : t("backupsPage.records.notCompleted")}</span>
+								{b.errorMessage && <span className="text-[var(--danger)]">{t("backupsPage.records.error", { message: b.errorMessage })}</span>}
 							</div>
 							{b.note && <p className="mt-2 text-xs text-[var(--text-muted)]">{b.note}</p>}
 							{canRestore && (

@@ -108,7 +108,7 @@ export function FileListGridView({
             {folder.displayName ?? folder.name}
           </span>
           <span className="text-xs text-[var(--text-muted)]">
-            {t("fileListClient.folderItemCount").replace("{count}", String(folder.fileCount + folder.folderCount))}
+            {t("fileListClient.folderItemCount", { count: folder.fileCount + folder.folderCount })}
           </span>
         </button>
       ))}
@@ -132,7 +132,7 @@ export function FileListGridView({
                 <input
                   type="checkbox"
                   checked={effectiveSelectedIdSet.has(entry.id)}
-                  aria-label={t("fileListClient.selectFileAria").replace("{name}", entry.name)}
+                  aria-label={t("fileListClient.selectFileAria", { name: entry.name })}
                   onChange={() => toggleOne(entry.id)}
                   className="h-4 w-4 rounded-lg border-[var(--border)] bg-[var(--surface)] text-[var(--color-action)] focus:ring-[var(--color-action-ring)]"
                 />

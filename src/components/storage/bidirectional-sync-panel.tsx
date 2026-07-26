@@ -393,7 +393,7 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
       <ConfirmDialog
         open={Boolean(pendingDelete)}
         title={t("filesPage.syncJobs.delete")}
-        description={t("filesPage.syncJobs.deleteConfirm").replace("{name}", pendingDelete?.label ?? "")}
+        description={t("filesPage.syncJobs.deleteConfirm", { name: pendingDelete?.label ?? "" })}
         cancelLabel={t("common.cancel")}
         confirmLabel={t("filesPage.syncJobs.delete")}
         busy={Boolean(pendingDelete && busyId === pendingDelete.id)}

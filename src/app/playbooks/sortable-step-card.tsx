@@ -42,7 +42,7 @@ export function SortableStepCard({
 		>
 			<div className="flex items-center gap-2">
 				<ActionButton variant="secondary"
-					aria-label={t("playbooksPage.createForm.dragHandleAria").replace("{index}", String(index + 1))}
+					aria-label={t("playbooksPage.createForm.dragHandleAria", { index: index + 1 })}
 					{...attributes}
 					{...listeners} className="min-h-9 cursor-grab !px-2 !py-1 !text-xs">
 					☰ #{index + 1}

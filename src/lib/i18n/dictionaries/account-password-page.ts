@@ -14,7 +14,7 @@
  *   - Tests use `renderWithI18n as render` from `@/lib/i18n/__tests__/test-helpers`.
  *
  * Template strings use `{seconds}` placeholders consumed via
- * `t("accountPasswordPage.redirectCountdown").replace("{seconds}", value)`.
+ * `t("accountPasswordPage.redirectCountdown", { seconds: value })`.
  */
 export const zh: Record<string, string> = {
 	// page.tsx (RSC)

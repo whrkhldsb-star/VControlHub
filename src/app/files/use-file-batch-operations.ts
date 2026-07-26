@@ -40,7 +40,7 @@ type CommonInput = {
   onRefresh?: () => void;
   currentSelectionScopeKey: string;
   showToast: ToastFn;
-  t: (key: string) => string;
+  t: (key: string, vars?: Record<string, string | number>) => string;
   setBatchAction: Setter<BatchAction>;
   setSelectedIds: Setter<Set<string>>;
   setSelectedScopeKey: Setter<string>;
@@ -111,11 +111,11 @@ export function useBatchDelete(input: UseBatchDeleteInput) {
         router.refresh();
       }
       if (errors.length === 0) {
-        showToast("success", t("filesPage.batch.deleteSuccess").replace("{count}", String(ids.length)));
+        showToast("success", t("filesPage.batch.deleteSuccess", { count: ids.length }));
         clearSelection();
         return;
       }
-      showToast("error", t("filesPage.batch.deletePartialFailure").replace("{count}", String(errors.length)));
+      showToast("error", t("filesPage.batch.deletePartialFailure", { count: errors.length }));
       setBatchAction("none");
       setSelectedScopeKey(currentSelectionScopeKey);
       setSelectedIds(new Set(ids));
@@ -172,7 +172,7 @@ export function useBatchMove(input: UseBatchMoveInput) {
       for (const id of ids) {
         const file = files.find((f) => f.id === id);
         if (!file) {
-          errors.push(t("filesPage.batch.fileMissing").replace("{id}", id));
+          errors.push(t("filesPage.batch.fileMissing", { id }));
           completed++;
           setMoveProgress({
             done: completed,
@@ -201,11 +201,11 @@ export function useBatchMove(input: UseBatchMoveInput) {
         router.refresh();
       }
       if (errors.length === 0) {
-        showToast("success", t("filesPage.batch.moveSuccess").replace("{count}", String(ids.length)));
+        showToast("success", t("filesPage.batch.moveSuccess", { count: ids.length }));
         clearSelection();
         return;
       }
-      showToast("error", t("filesPage.batch.movePartialFailure").replace("{count}", String(errors.length)));
+      showToast("error", t("filesPage.batch.movePartialFailure", { count: errors.length }));
       setBatchAction("none");
       setSelectedScopeKey(currentSelectionScopeKey);
       setSelectedIds(new Set(ids));
@@ -307,7 +307,7 @@ export function useBatchCompress(input: UseBatchCompressInput) {
         });
         showToast(
           "success",
-          data.message ?? t("filesPage.batch.compressSuccess").replace("{count}", String(selectedFiles.length)),
+          data.message ?? t("filesPage.batch.compressSuccess", { count: selectedFiles.length }),
         );
         if (onRefresh) {
           onRefresh();

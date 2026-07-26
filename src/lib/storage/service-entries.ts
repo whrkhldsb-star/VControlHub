@@ -136,7 +136,7 @@ export async function createFileEntry(input: CreateFileEntryInput) {
   });
   if (existing && !existing.isDeleted) {
     const t = await serverT();
-    throw new ConflictError(t("backend.storage.pathAlreadyExists").replace("{path}", payload.relativePath));
+    throw new ConflictError(t("backend.storage.pathAlreadyExists", { path: payload.relativePath }));
   }
   if (existing?.isDeleted) {
     return prisma.fileEntry.update({
@@ -180,7 +180,7 @@ export async function createFileEntry(input: CreateFileEntryInput) {
       });
       if (raced && !raced.isDeleted) {
         const t = await serverT();
-        throw new ConflictError(t("backend.storage.pathAlreadyExists").replace("{path}", payload.relativePath));
+        throw new ConflictError(t("backend.storage.pathAlreadyExists", { path: payload.relativePath }));
       }
       if (raced?.isDeleted) {
         return prisma.fileEntry.update({

@@ -25,7 +25,7 @@ export function NodeFilterSelect({
   onChange,
   compact = false,
 }: {
-  t: (k: string) => string;
+  t: (k: string, vars?: Record<string, string | number>) => string;
   nodes: NodeOption[];
   value: string;
   onChange: (nodeId: string) => void;

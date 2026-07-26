@@ -54,7 +54,7 @@ export interface CreateDownloadFormProps {
 	onSubmit: () => void;
 }
 
-function getCategories(t: (k: string) => string) {
+function getCategories(t: (k: string, vars?: Record<string, string | number>) => string) {
 	return [
 		{ value: "", label: t("downloadsPage.form.category.uncategorized"), icon: "📦" },
 		{ value: "video", label: t("downloadsPage.form.category.video"), icon: "🎬" },
@@ -65,7 +65,7 @@ function getCategories(t: (k: string) => string) {
 	];
 }
 
-function urlTypeLabel(url: string, t: (k: string) => string) {
+function urlTypeLabel(url: string, t: (k: string, vars?: Record<string, string | number>) => string) {
 	if (url.startsWith("magnet:?")) return t("downloadsPage.form.linkType.magnet");
 	if (url.startsWith("https://")) return "🔒 HTTPS";
 	if (url.startsWith("http://")) return "🔓 HTTP";

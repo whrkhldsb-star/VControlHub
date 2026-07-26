@@ -154,7 +154,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 					data-testid="image-bed-batch-bar"
 					className="sticky bottom-16 z-30 -mx-4 mt-3 flex flex-wrap items-center gap-2 border-y border-[var(--border)] bg-[var(--modal-bg)] p-3 backdrop-blur-sm md:static md:bottom-auto md:z-auto md:mx-0 md:gap-3 md:rounded-xl md:border md:bg-[var(--surface)] md:p-3 md:backdrop-blur-0"
 					>
-					<span className="text-xs text-[var(--text-muted)]">{t("imageBedPage.batch.selected").replace("{count}", String(selectedIds.size))}</span>
+					<span className="text-xs text-[var(--text-muted)]">{t("imageBedPage.batch.selected", { count: selectedIds.size })}</span>
 					<ActionButton type="submit" variant="secondary" onClick={selectAll} className="!min-h-11 !px-3 !text-xs">
 						{selectedIds.size === images.length ? t("imageBedPage.batch.deselectAll") : t("imageBedPage.batch.selectAll")}
 					</ActionButton>

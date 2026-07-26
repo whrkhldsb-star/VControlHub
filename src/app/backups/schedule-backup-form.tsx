@@ -29,7 +29,7 @@ type BackupSchedule = {
 
 /* ── Helpers ──────────────────────────────────────────────── */
 
-function getTypeLabel(t: (k: string) => string, type: BackupType): string {
+function getTypeLabel(t: (k: string, vars?: Record<string, string | number>) => string, type: BackupType): string {
 	const map: Record<BackupType, string> = {
 		DATABASE: t("backupsPage.schedule.type.database"),
 		FILES: t("backupsPage.schedule.type.files"),
@@ -38,16 +38,16 @@ function getTypeLabel(t: (k: string) => string, type: BackupType): string {
 	return map[type];
 }
 
-function describeCronPreview(expr: string, t: (k: string) => string) {
+function describeCronPreview(expr: string, t: (k: string, vars?: Record<string, string | number>) => string) {
 	const parts = expr.trim().split(/\s+/);
 	if (parts.length !== 5) return t("backupsPage.schedule.cronError.5parts");
 	const [min, hour, day, month, dow] = parts;
 	if (min ==="0" && hour ==="*" && day ==="*" && month ==="*" && dow ==="*") return t("backupsPage.schedule.cronPreview.everyHour");
-	if (day ==="*" && month ==="*" && dow ==="*" && /^\d+$/.test(hour!) && /^\d+$/.test(min!)) return t("backupsPage.schedule.cronPreview.everyDay").replace("{hour}", hour!).replace("{min}", min!.padStart(2,"0"));
+	if (day ==="*" && month ==="*" && dow ==="*" && /^\d+$/.test(hour!) && /^\d+$/.test(min!)) return t("backupsPage.schedule.cronPreview.everyDay", { hour: hour!, min: min!.padStart(2,"0") });
 	if (day ==="*" && month ==="*" && /^\d+$/.test(dow!) && /^\d+$/.test(hour!) && /^\d+$/.test(min!)) {
 		const dowName = t(`backupsPage.schedule.cronPreview.dowName.${dow}`);
-		const safeName = dowName.startsWith("backupsPage.") ? t("backupsPage.schedule.cronPreview.dowFallback").replace("{dow}", dow!) : dowName;
-		return t("backupsPage.schedule.cronPreview.everyDow").replace("{dowName}", safeName).replace("{hour}", hour!).replace("{min}", min!.padStart(2,"0"));
+		const safeName = dowName.startsWith("backupsPage.") ? t("backupsPage.schedule.cronPreview.dowFallback", { dow: dow! }) : dowName;
+		return t("backupsPage.schedule.cronPreview.everyDow", { dowName: safeName, hour: hour!, min: min!.padStart(2,"0") });
 	}
 	return t("backupsPage.schedule.cronPreview.custom");
 }
@@ -58,7 +58,7 @@ function statusBadgeClass(status: string): string {
 	return"border-[var(--danger-border)] text-[var(--danger)]";
 }
 
-function statusLabel(t: (k: string) => string, status: string): string {
+function statusLabel(t: (k: string, vars?: Record<string, string | number>) => string, status: string): string {
 	if (status ==="ACTIVE") return t("backupsPage.schedule.status.active");
 	if (status ==="PAUSED") return t("backupsPage.schedule.status.paused");
 	return t("backupsPage.schedule.status.disabled");
@@ -109,7 +109,7 @@ export function ScheduleBackupForm() {
 		setMessage(null);
 		try {
 			const body: Record<string, unknown> = {
-				name: name.trim() || t("backupsPage.schedule.nameTemplate").replace("{type}", getTypeLabel(t, type)),
+				name: name.trim() || t("backupsPage.schedule.nameTemplate", { type: getTypeLabel(t, type) }),
 				cronExpression,
 				backupType: type,
 			};
@@ -175,7 +175,7 @@ export function ScheduleBackupForm() {
 				<div className="grid gap-3 md:grid-cols-[180px_1fr]">
 					<div className="space-y-1.5">
 						<label htmlFor="schedule-backup-name" className="block text-xs font-medium text-[var(--text-secondary)]">{t("backupsPage.records.title")}</label>
-						<input id="schedule-backup-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={t("backupsPage.schedule.nameTemplate").replace("{type}", getTypeLabel(t, type))} className="block w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)]" />
+						<input id="schedule-backup-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={t("backupsPage.schedule.nameTemplate", { type: getTypeLabel(t, type) })} className="block w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)]" />
 					</div>
 					<div className="space-y-1.5">
 						<label htmlFor="schedule-backup-type" className="block text-xs font-medium text-[var(--text-secondary)]">{t("common.backupType")}</label>
@@ -247,19 +247,19 @@ export function ScheduleBackupForm() {
 										<div className="mt-1 flex flex-wrap gap-3 text-xs text-[var(--text-muted)]">
 											<span className="font-mono">{s.cronExpression}</span>
 											<span>{getTypeLabel(t, s.backupType as BackupType)}</span>
-											<span>{t("backupsPage.schedule.runCount").replace("{count}", String(s.runCount))}</span>
+											<span>{t("backupsPage.schedule.runCount", { count: s.runCount })}</span>
 											{s.retentionDays && <span>{t("backupsPage.schedule.retentionLabel")}: {s.retentionDays}</span>}
 										</div>
 										<div className="mt-1 flex flex-wrap gap-3 text-xs text-[var(--text-muted)]">
 											{s.lastRunAt
-												? <span>{t("backupsPage.schedule.lastRun").replace("{time}", formatZhDateTime(s.lastRunAt))}</span>
+												? <span>{t("backupsPage.schedule.lastRun", { time: formatZhDateTime(s.lastRunAt) })}</span>
 												: <span>{t("backupsPage.schedule.lastRunNone")}</span>}
 											{s.status ==="ACTIVE" && s.nextRunAt
-												? <span>{t("backupsPage.schedule.nextRun").replace("{time}", formatZhDateTime(s.nextRunAt))}</span>
+												? <span>{t("backupsPage.schedule.nextRun", { time: formatZhDateTime(s.nextRunAt) })}</span>
 												: <span>{t("backupsPage.schedule.nextRunPaused")}</span>}
 										</div>
 										{s.lastResult && (
-											<p className="mt-1 line-clamp-2 text-xs text-[var(--text-muted)]">{t("backupsPage.schedule.lastResult").replace("{result}", s.lastResult)}</p>
+											<p className="mt-1 line-clamp-2 text-xs text-[var(--text-muted)]">{t("backupsPage.schedule.lastResult", { result: s.lastResult })}</p>
 										)}
 										{s.note && <p className="mt-1 text-xs text-[var(--text-muted)]">{s.note}</p>}
 									</div>
@@ -287,7 +287,7 @@ export function ScheduleBackupForm() {
 					</div>
 				)}
 			</div>
-			<ConfirmDialog open={pendingDeleteId !== null} title={t("common.confirmDelete")} description={t("backupsPage.schedule.deleteConfirm").replace("{name}", schedules.find((s) => s.id === pendingDeleteId)?.name ?? "")} cancelLabel={t("common.cancel")} confirmLabel={t("common.confirmDelete")} onCancel={() => setPendingDeleteId(null)} onConfirm={() => pendingDeleteId && void deleteSchedule(pendingDeleteId)} />
+			<ConfirmDialog open={pendingDeleteId !== null} title={t("common.confirmDelete")} description={t("backupsPage.schedule.deleteConfirm", { name: schedules.find((s) => s.id === pendingDeleteId)?.name ?? "" })} cancelLabel={t("common.cancel")} confirmLabel={t("common.confirmDelete")} onCancel={() => setPendingDeleteId(null)} onConfirm={() => pendingDeleteId && void deleteSchedule(pendingDeleteId)} />
 		</div>
 	);
 }

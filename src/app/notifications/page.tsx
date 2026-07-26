@@ -32,7 +32,7 @@ export default async function NotificationsPage() {
 				title={t("notificationsPage.title", locale)}
 				description={
 					unreadCount > 0
-						? t("notificationsPage.unread", locale).replace("{count}", String(unreadCount))
+						? t("notificationsPage.unread", locale, { count: unreadCount })
 						: t("notificationsPage.allRead", locale)
 				}
 			/>

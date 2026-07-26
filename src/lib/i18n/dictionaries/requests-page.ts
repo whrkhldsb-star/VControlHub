@@ -11,7 +11,7 @@
  *   - src/app/requests/ai-hosted-approval-card.tsx (client, `useI18n().t(key)`)
  *
  * Template strings use `{count}` / `{title}` placeholders consumed via
- * `t("…").replace("{count}", value)` / `replace("{title}", value)`.
+ * `t("…", { count: value })` / `replace("{title}", value)`.
  */
 
 export const zh: Record<string, string> = {

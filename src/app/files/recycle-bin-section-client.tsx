@@ -17,7 +17,7 @@ function formatFileSize(bytes: number | bigint | null | undefined): string {
 	return formatBytes(typeof bytes ==="bigint" ? Number(bytes) : bytes);
 }
 
-function entryTypeLabel(t: (key: string) => string, entryType: string): string {
+function entryTypeLabel(t: (key: string, vars?: Record<string, string | number>) => string, entryType: string): string {
 	return entryType ==="DIRECTORY"
 		? t("recycleBinSection.entryType.directory")
 		: t("recycleBinSection.entryType.file");
@@ -49,7 +49,7 @@ export function RecycleBinSectionClient({
 				<div>
 					<h3 className="text-xl font-semibold text-[var(--text-primary)]">{t("recycleBinSection.title")}</h3>
 					<p className="mt-2 text-sm text-[var(--text-secondary)]">
-						{t("recycleBinSection.summary").replace("{count}", String(deletedEntries.length))}
+						{t("recycleBinSection.summary", { count: deletedEntries.length })}
 					</p>
 				</div>
 			</div>

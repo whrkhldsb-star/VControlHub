@@ -24,7 +24,7 @@ export function DockerContainerList({
 	containers: Container[];
 	grouped: { project: string; containers: Container[] }[];
 	ungrouped: Container[];
-	t: (key: string) => string;
+	t: (key: string, vars?: Record<string, string | number>) => string;
 	stats: Record<string, ContainerStats>;
 	actionLoading: string | null;
 	projectActionLoading: string | null;
@@ -61,11 +61,9 @@ export function DockerContainerList({
 						<div>
 							<h2 className="text-sm font-medium text-[var(--text-primary)]">{group.project}</h2>
 							<p className="text-[11px] text-[var(--text-muted)]">
-								{t("dockerPage.group.subtitle").replace("{count}", String(group.containers.length))}
+								{t("dockerPage.group.subtitle", { count: group.containers.length })}
 								{" ·"}
-							{t("dockerPage.project.runningOf")
-								.replace("{running}", String(group.containers.filter((c) => c.State ==="running").length))
-								.replace("{total}", String(group.containers.length))}
+							{t("dockerPage.project.runningOf", { running: group.containers.filter((c) => c.State ==="running").length, total: group.containers.length })}
 							</p>
 						</div>
 						<div className="flex flex-wrap items-center gap-2" aria-label={t("dockerPage.project.actions")}>

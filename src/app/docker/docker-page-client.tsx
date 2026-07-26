@@ -68,7 +68,7 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 	const defaultWarning = t("dockerPage.scope.warning");
 	const socketPath = dockerScope?.socketPath ?? defaultSocket;
 	const scopeWarning = dockerScope?.warning ?? defaultWarning;
-	const scopeSocketText = t("dockerPage.scope.socket").replace("{path}", socketPath);
+	const scopeSocketText = t("dockerPage.scope.socket", { path: socketPath });
 
 	return (
 		<PageShell maxW="max-w-7xl">
@@ -111,8 +111,8 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 			</section>
 			<div data-toolbar className="mb-4 flex flex-wrap items-center gap-2 p-2.5 text-xs text-[var(--text-muted)]">
 				<span className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-2.5 py-1 font-medium text-[var(--text-secondary)]">{t("dockerPage.toolbar.compose")}</span>
-				<span className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface)] px-2.5 py-1">{t("dockerPage.toolbar.groupCount").replace("{count}", String(projectCount))}</span>
-				<span className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface)] px-2.5 py-1">{t("dockerPage.toolbar.ungroupedCount").replace("{count}", String(ungrouped.length))}</span>
+				<span className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface)] px-2.5 py-1">{t("dockerPage.toolbar.groupCount", { count: projectCount })}</span>
+				<span className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface)] px-2.5 py-1">{t("dockerPage.toolbar.ungroupedCount", { count: ungrouped.length })}</span>
 			</div>
 			<div className="mb-6 flex flex-wrap items-center gap-2">
 				<ActionButton type="submit" variant="primary"
@@ -136,10 +136,10 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 					className="!min-h-11 !rounded-xl !px-3 !py-1.5 !text-xs !font-medium disabled:cursor-not-allowed disabled:opacity-50"
 				>
 					{statsAutoRefresh
-						? t("dockerPage.autoRefreshOn").replace("{label}", refreshLabel)
+						? t("dockerPage.autoRefreshOn", { label: refreshLabel })
 						: refreshIntervalSeconds <= 0
 							? t("dockerPage.autoRefreshOff")
-							: t("dockerPage.autoRefreshPaused").replace("{label}", refreshLabel)}
+							: t("dockerPage.autoRefreshPaused", { label: refreshLabel })}
 				</ActionButton>
 			</div>
 
@@ -176,9 +176,7 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 			<ConfirmDialog
 				open={pendingProjectDown !== null}
 				title={t("dockerPage.project.downTitle")}
-				description={t("dockerPage.project.downConfirm").replace("{project}",
-					pendingProjectDown ?? "",
-				)}
+				description={t("dockerPage.project.downConfirm", { project: pendingProjectDown ?? "" })}
 				cancelLabel={t("common.cancel")}
 				confirmLabel={t("dockerPage.project.downConfirmBtn")}
 				onCancel={() => setPendingProjectDown(null)}

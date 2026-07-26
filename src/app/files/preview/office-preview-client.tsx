@@ -26,7 +26,7 @@ export function OfficePreviewClient({
 				{t("officePreview.download")}
 			</a>
 			<p className="text-xs text-[var(--text-muted)]" title={name}>
-				{t("officePreview.fileName").replace("{name}", name)}
+				{t("officePreview.fileName", { name })}
 			</p>
 		</div>
 	);

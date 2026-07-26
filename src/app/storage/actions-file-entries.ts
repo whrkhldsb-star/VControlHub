@@ -121,7 +121,7 @@ export async function deleteFileEntryAction(
     revalidatePath("/files/recycle-bin");
 
     return {
-      success: t("storagePage.action.fileMovedToRecycle").replace("{name}", entry.name),
+      success: t("storagePage.action.fileMovedToRecycle", { name: entry.name }),
       physicalDeleted: false,
       needsReconcile: false,
     } satisfies StorageDeleteActionState;
@@ -200,7 +200,7 @@ export async function restoreFileEntryAction(
     revalidatePath("/files");
     revalidatePath("/files/recycle-bin");
 
-    return { success: t("storagePage.action.fileRestored").replace("{name}", entry.name) } satisfies StorageActionState;
+    return { success: t("storagePage.action.fileRestored", { name: entry.name }) } satisfies StorageActionState;
   } catch (error) {
     return {
       error: getErrorMessage(error, t("storagePage.action.fileRestoreFailed")),
@@ -337,7 +337,7 @@ export async function permanentDeleteFileEntryAction(
     revalidatePath("/files");
     revalidatePath("/files/recycle-bin");
 
-    return { success: t("storagePage.action.filePermanentlyDeleted").replace("{name}", entry.name) } satisfies StorageActionState;
+    return { success: t("storagePage.action.filePermanentlyDeleted", { name: entry.name }) } satisfies StorageActionState;
   } catch (error) {
     return {
       error: getErrorMessage(error, t("storagePage.action.filePermanentlyDeleteFailed")),

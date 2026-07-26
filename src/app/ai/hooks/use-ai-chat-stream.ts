@@ -285,9 +285,7 @@ export function useAiChatStream({
                 setStreamContent(
                   (prev) =>
                     prev +
-                    t("aiPage.waitingApproval")
-                      .replace("{name}", approval.actionName)
-                      .replace("{risk}", approval.riskLevel),
+                    t("aiPage.waitingApproval", { name: approval.actionName, risk: approval.riskLevel }),
                 );
               }
             } catch {

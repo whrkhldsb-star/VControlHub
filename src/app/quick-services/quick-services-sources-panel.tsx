@@ -29,7 +29,7 @@ type SourcesPanelActions = {
 	syncing: string | null;
 };
 
-function getSourcePresets(t: (k: string) => string) {
+function getSourcePresets(t: (k: string, vars?: Record<string, string | number>) => string) {
   return [
 	{
 		key:"linuxserver",

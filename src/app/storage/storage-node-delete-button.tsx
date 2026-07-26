@@ -40,7 +40,7 @@ export function StorageNodeDeleteButton({
 		<form action={formAction} className="flex flex-wrap items-center gap-3">
 			<input type="hidden" name="storageNodeId" value={storageNodeId} />
 			<span className="text-sm text-[var(--danger)]">
-				{t("storagePage.delete.confirmNode").replace("{name}", nodeName)}
+				{t("storagePage.delete.confirmNode", { name: nodeName })}
 			</span>
 			<ActionButton variant="danger"
 				type="submit"

@@ -92,7 +92,7 @@ export function DeploymentExportPanel() {
       if (!response.ok) {
         const text = await response.text().catch(() =>"");
         throw new Error(
-          text || t("deploymentsPage.export.downloadHttpError").replace("{status}", String(response.status)),
+          text || t("deploymentsPage.export.downloadHttpError", { status: response.status }),
         );
       }
       const blob = await response.blob();
@@ -187,10 +187,7 @@ export function DeploymentExportPanel() {
                 {result.name ?? "portable deployment"}
               </h3>
               <p className="mt-1 text-xs text-[var(--text-muted)]">
-                {t("deploymentsPage.export.summary")
-                  .replace("{domain}", result.manifest?.domain ?? "example.com")
-                  .replace("{count}", String(fileCount))
-                  .replace("{size}", (totalSize / 1024).toFixed(1))}
+                {t("deploymentsPage.export.summary", { domain: result.manifest?.domain ?? "example.com", count: fileCount, size: (totalSize / 1024).toFixed(1) })}
               </p>
             </div>
             <ActionButton variant="outline"

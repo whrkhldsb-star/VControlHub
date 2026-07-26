@@ -194,24 +194,24 @@ export function getPreviewHref(entry: StorageEntry) {
     : buildDownloadHref(entry);
 }
 
-export function getPreviewActionCopy(entry: StorageEntry, t: (key: string) => string) {
+export function getPreviewActionCopy(entry: StorageEntry, t: (key: string, vars?: Record<string, string | number>) => string) {
   const mime = entry.mimeType ?? "";
   if (OFFICE_MIME_SET.has(mime)) {
     return {
-      label: t("filesPage.preview.officeAria").replace("{name}", entry.name),
+      label: t("filesPage.preview.officeAria", { name: entry.name }),
       title: t("filesPage.preview.officeTitle"),
     };
   }
   if (ARCHIVE_MIME_SET.has(mime)) {
     return {
-      label: t("filesPage.preview.archiveAria").replace("{name}", entry.name),
+      label: t("filesPage.preview.archiveAria", { name: entry.name }),
       title: entry.storageNode.driver === "LOCAL"
         ? t("filesPage.preview.archiveLocalTitle")
         : t("filesPage.preview.archiveRemoteTitle"),
     };
   }
   return {
-    label: t("filesPage.preview.defaultAria").replace("{name}", entry.name),
+    label: t("filesPage.preview.defaultAria", { name: entry.name }),
     title: t("filesPage.preview.defaultTitle"),
   };
 }

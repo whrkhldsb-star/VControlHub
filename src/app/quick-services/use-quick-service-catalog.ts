@@ -18,7 +18,7 @@ export type QuickServiceServerOption = {
   host: string;
 };
 
-type TFn = (key: string) => string;
+type TFn = (key: string, vars?: Record<string, string | number>) => string;
 
 export function useQuickServiceCatalog(t: TFn) {
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);

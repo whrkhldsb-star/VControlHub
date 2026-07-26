@@ -15,7 +15,7 @@ export type RepairSuggestion = {
 	href?: string;
 };
 
-export type TFunc = (key: string) => string;
+export type TFunc = (key: string, vars?: Record<string, string | number>) => string;
 
 export const repairSuggestions = (
 	summary: SystemHealthSummary | null | undefined,

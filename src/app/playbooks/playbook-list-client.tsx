@@ -129,26 +129,24 @@ export function PlaybookListClient({
             // Do not celebrate a failed/cancelled dry-run as success (false-success UX).
             addToast(
               "error",
-              t("playbooksPage.toast.run").replace("{status}", statusLabelFor(t, run.status)),
+              t("playbooksPage.toast.run", { status: statusLabelFor(t, run.status) }),
             );
           } else {
             const counts = dryRunStepCounts(run);
             addToast(
               "success",
-              t("playbooksPage.toast.dryRun")
-                .replace("{ok}", String(counts.ok))
-                .replace("{total}", String(counts.total)),
+              t("playbooksPage.toast.dryRun", { ok: counts.ok, total: counts.total }),
             );
           }
         } else if (run.status === "queued" || run.status === "running") {
           addToast(
             "success",
-            t("playbooksPage.toast.runQueued").replace("{status}", statusLabelFor(t, run.status)),
+            t("playbooksPage.toast.runQueued", { status: statusLabelFor(t, run.status) }),
           );
         } else {
           addToast(
             run.status === "failed" ? "error" : "success",
-            t("playbooksPage.toast.run").replace("{status}", statusLabelFor(t, run.status)),
+            t("playbooksPage.toast.run", { status: statusLabelFor(t, run.status) }),
           );
         }
       } catch (err) {

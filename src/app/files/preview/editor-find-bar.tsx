@@ -52,9 +52,7 @@ export function EditorFindBar({ inputRef, find, onQueryChange, onMove, onClose }
 					? ""
 					: find.total === 0
 						? t("textPreview.editor.findNoMatch")
-						: t("textPreview.editor.findMatchCount")
-							.replace("{current}", String(find.current))
-							.replace("{total}", String(find.total))}
+						: t("textPreview.editor.findMatchCount", { current: find.current, total: find.total })}
 			</span>
 			<div className="flex-1" />
 			<ActionButton variant="secondary"

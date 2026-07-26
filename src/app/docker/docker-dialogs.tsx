@@ -14,7 +14,7 @@ export function DockerRemovalDialog({
 	confirmRemoval,
 }: {
 	pendingRemoval: Container | null;
-	t: (key: string) => string;
+	t: (key: string, vars?: Record<string, string | number>) => string;
 	actionLoading: string | null;
 	removalDialogRef: RefObject<HTMLDivElement | null>;
 	removeCancelButtonRef: Ref<HTMLButtonElement>;
@@ -34,7 +34,7 @@ export function DockerRemovalDialog({
 			>
 				<h3 id="docker-remove-confirm-title" className="text-base font-semibold text-[var(--text-primary)]">{t("dockerPage.removeDialog.title")}</h3>
 				<p className="mt-3 text-sm text-[var(--text-secondary)]">
-					{t("dockerPage.removeDialog.confirm").replace("{name}", getContainerName(t, pendingRemoval))}
+					{t("dockerPage.removeDialog.confirm", { name: getContainerName(t, pendingRemoval) })}
 				</p>
 				<div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
 					<ActionButton variant="secondary"
@@ -64,7 +64,7 @@ export function DockerLogsDialog({
 }: {
 	logsId: string | null;
 	logs: string;
-	t: (key: string) => string;
+	t: (key: string, vars?: Record<string, string | number>) => string;
 	logsDialogRef: RefObject<HTMLDivElement | null>;
 	logsCloseButtonRef: Ref<HTMLButtonElement>;
 	closeLogsDialog: () => void;
@@ -82,7 +82,7 @@ export function DockerLogsDialog({
 				onClick={(e) => e.stopPropagation()}
 			>
 				<div className="flex items-center justify-between mb-3">
-					<h3 id="docker-logs-dialog-title" className="text-sm font-medium text-[var(--text-primary)]">{t("dockerPage.logsDialog.title").replace("{id}", logsId.slice(0, 12))}</h3>
+					<h3 id="docker-logs-dialog-title" className="text-sm font-medium text-[var(--text-primary)]">{t("dockerPage.logsDialog.title", { id: logsId.slice(0, 12) })}</h3>
 					<ActionButton variant="ghost"
 						ref={logsCloseButtonRef}
 						onClick={closeLogsDialog}

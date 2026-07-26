@@ -32,18 +32,18 @@ function normalizeIntegerSetting(
 ) {
 	const parsed = Number(value);
 	if (!Number.isFinite(parsed)) {
-		throw new Error(t("backend.settings.mustBeNumber").replace("{label}", label));
+		throw new Error(t("backend.settings.mustBeNumber", { label }));
 	}
 	const integer = Math.trunc(parsed);
 	if (integer < min || integer > max) {
-		throw new Error(t("backend.settings.mustBeBetween").replace("{label}", label).replace("{min}", String(min)).replace("{max}", String(max)));
+		throw new Error(t("backend.settings.mustBeBetween", { label, min, max }));
 	}
 	return { key, value: String(integer) };
 }
 
 function normalizeBooleanSetting(key: string, value: string) {
 	if (value !== "true" && value !== "false") {
-		throw new Error(t("backend.settings.mustBeBoolean").replace("{key}", key));
+		throw new Error(t("backend.settings.mustBeBoolean", { key }));
 	}
 	return { key, value };
 }
@@ -101,7 +101,7 @@ function normalizeSettingValue(key: string, value: string) {
 				.filter(Boolean);
 			const invalid = recipients.find((recipient) => !/^.+@.+\..+$/.test(recipient));
 			if (invalid) {
-				throw new Error(t("backend.settings.smtpRecipientInvalid").replace("{email}", invalid));
+				throw new Error(t("backend.settings.smtpRecipientInvalid", { email: invalid }));
 			}
 			return { key, value: recipients.join(",") };
 		}
@@ -125,7 +125,7 @@ function normalizeSettingValue(key: string, value: string) {
 			}
 			const invalid = tokens.find((token) => !/^-?\d+$/.test(token) && !/^@[A-Za-z0-9_]{4,}$/.test(token));
 			if (invalid) {
-				throw new Error(t("backend.settings.telegramChatIdInvalid").replace("{value}", invalid));
+				throw new Error(t("backend.settings.telegramChatIdInvalid", { value: invalid }));
 			}
 			return { key, value: tokens.join(",") };
 		}
@@ -182,7 +182,7 @@ export async function PATCH(request: Request) {
 			return NextResponse.json(
 				{
 					error: [
-						rejectedKeys.length > 0 ? t("backend.settings.rejectedKeys").replace("{keys}", rejectedKeys.join(", ")) : null,
+						rejectedKeys.length > 0 ? t("backend.settings.rejectedKeys", { keys: rejectedKeys.join(", ") }) : null,
 						...validationErrors,
 					].filter(Boolean).join("; "),
 					rejectedKeys,

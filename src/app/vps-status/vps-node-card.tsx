@@ -94,7 +94,7 @@ export function VpsNodeCard({
 	history?: { cpu: number; mem: number; disk: number; online: boolean; t: string }[];
 	historyError?: string;
 	locale: "zh" | "en";
-	t: (key: string) => string;
+	t: (key: string, vars?: Record<string, string | number>) => string;
 }) {
 	const sc = statusToneClasses[server.status] ?? unknownTone;
 	const isOffline = server.status === "offline" || server.status === "unknown";

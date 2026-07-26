@@ -27,13 +27,13 @@ const levelColors: Record<string, string> = {
   urgent:"border-[var(--danger-border)] bg-[var(--danger-bg)]",
 };
 
-function levelLabel(t: (k: string) => string, key: string): string {
+function levelLabel(t: (k: string, vars?: Record<string, string | number>) => string, key: string): string {
   return t(`announcementsPage.level.${key}`) !== `announcementsPage.level.${key}` ? t(`announcementsPage.level.${key}`) : key;
 }
 
 type AnnouncementCardProps = {
   announcement: Announcement;
-  t: (k: string) => string;
+  t: (k: string, vars?: Record<string, string | number>) => string;
   locale: string;
   canManage: boolean;
   onEdit: (a: Announcement) => void;
@@ -58,7 +58,7 @@ const AnnouncementCard = memo(function AnnouncementCard({ announcement: a, t, lo
               <ActionButton type="submit" variant="ghost" onClick={() => onEdit(a)} title={t("announcementsPage.action.edit")} aria-label={t("announcementsPage.action.edit")} className="!min-h-11 !min-w-11 !rounded-lg !p-1.5">
                 <Pencil size={14} />
               </ActionButton>
-              <ActionButton type="submit" variant="ghost" onClick={() => onDelete(a)} title={t("announcementsPage.action.delete")} aria-label={t("announcementsPage.action.deleteAria").replace("{title}", a.title)} className="!min-h-11 !min-w-11 !rounded-lg !p-1.5 text-[var(--danger)]">
+              <ActionButton type="submit" variant="ghost" onClick={() => onDelete(a)} title={t("announcementsPage.action.delete")} aria-label={t("announcementsPage.action.deleteAria", { title: a.title })} className="!min-h-11 !min-w-11 !rounded-lg !p-1.5 text-[var(--danger)]">
                 <Trash2 size={14} />
               </ActionButton>
             </div>
@@ -163,7 +163,7 @@ export function AnnouncementList({
             <option key={l} value={l}>{l ==="ALL" ? t("announcementsPage.filter.all") : levelLabel(t, l)}</option>
           ))}
         </select>
-        <span className="text-xs text-[var(--text-muted)]">{t("announcementsPage.count").replace("{count}", String(filtered.length))}</span>
+        <span className="text-xs text-[var(--text-muted)]">{t("announcementsPage.count", { count: filtered.length })}</span>
       </div>
 
       <div className="grid gap-4">
@@ -190,7 +190,7 @@ export function AnnouncementList({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]/70 p-4 backdrop-blur-sm" role="presentation">
           <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="delete-announcement-title" className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-5 shadow-2xl shadow-black/30">
             <h3 id="delete-announcement-title" className="text-base font-semibold text-[var(--text-primary)]">{t("announcementsPage.delete.title")}</h3>
-            <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{t("announcementsPage.delete.confirm").replace("{title}", pendingDelete.title)}</p>
+            <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{t("announcementsPage.delete.confirm", { title: pendingDelete.title })}</p>
             {deleteError && <p role="alert" className="mt-3 text-xs text-[var(--danger)]">{deleteError}</p>}
             <div className="mt-5 flex justify-end gap-2">
               <button type="button" disabled={deleteBusy} onClick={() => { setPendingDelete(null); setDeleteError(null); }} data-card className="px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-50">

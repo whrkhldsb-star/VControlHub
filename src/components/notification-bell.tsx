@@ -120,7 +120,7 @@ export function NotificationBell() {
 		setNotifications((prev) => [{
 			id: `alert-${lastServerAlert.serverId}-${createdAt}`,
 			type: "server_alert",
-			title: t("notificationBell.serverAlertTitle").replace("{name}", lastServerAlert.serverName),
+			title: t("notificationBell.serverAlertTitle", { name: lastServerAlert.serverName }),
 			message: lastServerAlert.message,
 			isRead: false,
 			actionUrl: "/servers",

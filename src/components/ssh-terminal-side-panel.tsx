@@ -7,7 +7,7 @@ import { ActionButton } from "@/components/action-button";
 const QUICK_COMMANDS = ["ls -la","df -h","free -m","top -bn1 | head -20","uptime","whoami","cat /etc/os-release","ps aux --sort=-%mem | head -10",
 ] as const;
 
-type TFn = (key: string) => string;
+type TFn = (key: string, vars?: Record<string, string | number>) => string;
 
 export function SshTerminalSidePanel({
 	serverId,
@@ -74,7 +74,7 @@ export function SshTerminalSidePanel({
 								</ActionButton>
 								<ActionButton variant="ghost"
 									onClick={() => removeFavorite(cmd)}
-									aria-label={t("sshTerminalModal.favoritesRemove").replace("{cmd}", cmd)} className="!min-h-11 !min-w-11 !shrink-0 !rounded-lg !px-1 !text-[12px] text-[var(--danger)] group-hover:opacity-100"
+									aria-label={t("sshTerminalModal.favoritesRemove", { cmd })} className="!min-h-11 !min-w-11 !shrink-0 !rounded-lg !px-1 !text-[12px] text-[var(--danger)] group-hover:opacity-100"
 								>
 									✕
 								</ActionButton>

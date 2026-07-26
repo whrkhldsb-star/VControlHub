@@ -16,7 +16,7 @@ export function BreadcrumbsClient({
   nodes,
   onNavigate,
 }: {
-  t: (k: string) => string;
+  t: (k: string, vars?: Record<string, string | number>) => string;
   path: string;
   nodes: NodeOption[];
   onNavigate: (path: string) => void;

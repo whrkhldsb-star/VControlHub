@@ -26,7 +26,7 @@ import { INITIAL_EDITOR_FIND, INITIAL_PREVIEW_META } from "./text-preview-types"
 import { countMatches, TAB_INDENT } from "./text-preview-helpers";
 import { getErrorMessage } from "@/lib/http/error-message";
 
-type TFn = (key: string) => string;
+type TFn = (key: string, vars?: Record<string, string | number>) => string;
 
 export function useTextPreviewController(options: {
   href: string;
@@ -145,7 +145,7 @@ export function useTextPreviewController(options: {
           const res = await fetch(href);
           if (!res.ok) {
             throw new Error(
-              t("textPreview.error.loadFailedStatus").replace("{status}", String(res.status)),
+              t("textPreview.error.loadFailedStatus", { status: res.status }),
             );
           }
           content = await res.text();
@@ -351,7 +351,7 @@ export function useTextPreviewController(options: {
         setEditMode(false);
         setShowDiffReview(false);
         setSaveStatus("saved");
-        setSaveMessage(t("textPreview.saved.success").replace("{bytes}", String(response.byteSize)));
+        setSaveMessage(t("textPreview.saved.success", { bytes: response.byteSize }));
         return response.byteSize;
       }
       const response = await csrfFetch<SaveResponse>(`/api/files/editable/${fileEntryId}`, {
@@ -371,7 +371,7 @@ export function useTextPreviewController(options: {
       setEditMode(false);
       setShowDiffReview(false);
       setSaveStatus("saved");
-      setSaveMessage(t("textPreview.saved.success").replace("{bytes}", String(response.file.byteSize)));
+      setSaveMessage(t("textPreview.saved.success", { bytes: response.file.byteSize }));
       return response.file.byteSize;
     } catch (err) {
       setSaveStatus("error");
@@ -428,18 +428,18 @@ export function useTextPreviewController(options: {
       });
       if (response.success) {
         setSaveStatus("reloaded");
-        setSaveMessage(t("textPreview.saved.reloaded").replace("{bytes}", String(bytes)));
+        setSaveMessage(t("textPreview.saved.reloaded", { bytes }));
         setReloadMessage(t("textPreview.reloaded.message"));
       } else {
         setSaveStatus("error");
-        setSaveMessage(t("textPreview.saved.reloadedFailed").replace("{bytes}", String(bytes)));
+        setSaveMessage(t("textPreview.saved.reloadedFailed", { bytes }));
         setReloadMessage(
           `exit=${response.exitCode ?? "?"}${response.stderr ? ` · ${response.stderr.split("\n")[0]?.slice(0, 200) ?? ""}` : ""}`,
         );
       }
     } catch (err) {
       setSaveStatus("error");
-      setSaveMessage(t("textPreview.saved.reloadFailed").replace("{bytes}", String(bytes)));
+      setSaveMessage(t("textPreview.saved.reloadFailed", { bytes }));
       setReloadMessage(getErrorMessage(err, t("textPreview.error.reloadFailed")));
     }
   }, [

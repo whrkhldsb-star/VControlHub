@@ -41,7 +41,7 @@ export type DirectGatewayAdviceItem = {
 
 
 export function getDirectGatewayRepairAdvice(
-	t: (key: string) => string,
+	t: (key: string, vars?: Record<string, string | number>) => string,
 	input: DirectGatewayInput,
 ): DirectGatewayAdviceItem[] {
   const result: DirectGatewayAdviceItem[] = [];
@@ -96,7 +96,7 @@ export function getDirectGatewayRepairAdvice(
         if (risk.level === "safe") {
           result.push({
             title: t("directGatewayAdvice.transportSafe.title"),
-            detail: t("directGatewayAdvice.transportSafe.detail").replace("{bind}", bindAddress),
+            detail: t("directGatewayAdvice.transportSafe.detail", { bind: bindAddress }),
             priority: "secondary",
             href: null,
             tone: "emerald",
@@ -104,9 +104,7 @@ export function getDirectGatewayRepairAdvice(
         } else if (risk.level === "warning") {
           result.push({
             title: t("directGatewayAdvice.transportWarning.title"),
-            detail: t("directGatewayAdvice.transportWarning.detail")
-              .replace("{reason}", risk.reasons[0] ?? "")
-              .replace("{recommendation}", risk.recommendations[0] ?? ""),
+            detail: t("directGatewayAdvice.transportWarning.detail", { reason: risk.reasons[0] ?? "", recommendation: risk.recommendations[0] ?? "" }),
             priority: "primary",
             href: input.canManageServers ? "/servers" : null,
             hrefLabel: t("directGatewayAdvice.hrefLabel.nodeList"),
@@ -116,9 +114,7 @@ export function getDirectGatewayRepairAdvice(
           
           result.push({
             title: t("directGatewayAdvice.transportDanger.title"),
-            detail: t("directGatewayAdvice.transportDanger.detail")
-              .replace("{reasons}", risk.reasons.join("; "))
-              .replace("{recommendation}", risk.recommendations[0] ?? t("directGatewayAdvice.transportDanger.fallbackRecommendation")),
+            detail: t("directGatewayAdvice.transportDanger.detail", { reasons: risk.reasons.join("; "), recommendation: risk.recommendations[0] ?? t("directGatewayAdvice.transportDanger.fallbackRecommendation") }),
             priority: "primary",
             href: input.canManageServers ? "/servers" : null,
             hrefLabel: t("directGatewayAdvice.hrefLabel.nodeList"),
@@ -160,7 +156,7 @@ export function getDirectGatewayRepairAdvice(
 
   if (input.pendingCommandCount > 0) {
     result.push({
-      title: t("directGatewayAdvice.pending.title").replace("{count}", String(input.pendingCommandCount)),
+      title: t("directGatewayAdvice.pending.title", { count: input.pendingCommandCount }),
       detail: t("directGatewayAdvice.pending.detail"),
       priority: "secondary",
       href: "/requests",
@@ -180,13 +176,11 @@ export function getDirectGatewayRepairAdvice(
 
 
 export function getDirectGatewayHealthyNote(
-	t: (key: string) => string,
+	t: (key: string, vars?: Record<string, string | number>) => string,
 	input: { statusLabel: string; publicUrl: string | null },
 ): string {
   if (input.publicUrl) {
-    return t("directGatewayHealthyNote.withPublicUrl")
-      .replace("{status}", input.statusLabel)
-      .replace("{url}", input.publicUrl);
+    return t("directGatewayHealthyNote.withPublicUrl", { status: input.statusLabel, url: input.publicUrl });
   }
-  return t("directGatewayHealthyNote.relayFallback").replace("{status}", input.statusLabel);
+  return t("directGatewayHealthyNote.relayFallback", { status: input.statusLabel });
 }

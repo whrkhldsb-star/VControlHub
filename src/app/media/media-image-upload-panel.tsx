@@ -46,7 +46,7 @@ type UploadProgress = {
 	queue: UploadQueueItem[];
 } | null;
 
-function statusBadgeLabel(t: (k: string) => string, status: UploadQueueItem["status"]): string {
+function statusBadgeLabel(t: (k: string, vars?: Record<string, string | number>) => string, status: UploadQueueItem["status"]): string {
 	if (status === "success") return t("mediaUploadPanel.statusSuccess");
 	if (status === "error" || status === "skipped") return t("mediaUploadPanel.statusFailed");
 	if (status === "uploading") return t("mediaUploadPanel.statusUploading");
@@ -161,7 +161,7 @@ export function MediaImageUploadPanel() {
 		let failure = 0;
 		for (let index = 0; index < uploadItems.length; index++) {
 			const file = uploadItems[index]!;
-			const itemUploadingMsg = t("mediaUploadPanel.itemUploading").replace("{current}", String(index + 1)).replace("{total}", String(uploadItems.length));
+			const itemUploadingMsg = t("mediaUploadPanel.itemUploading", { current: index + 1, total: uploadItems.length });
 			setProgress((prev) => prev ? {
 				...prev,
 				current: index + 1,
@@ -190,7 +190,7 @@ export function MediaImageUploadPanel() {
 				} catch (uploadError) {
 					failure++;
 					const uploadMessage = getErrorMessage(uploadError, t("mediaUploadPanel.chunkedError"));
-					const itemErrorMsg = t("mediaUploadPanel.itemError").replace("{message}", uploadMessage);
+					const itemErrorMsg = t("mediaUploadPanel.itemError", { message: uploadMessage });
 					setProgress((prev) => prev ? {
 						...prev,
 						failure,
@@ -215,7 +215,7 @@ export function MediaImageUploadPanel() {
 			} catch (uploadError) {
 				failure++;
 				const uploadMessage = getErrorMessage(uploadError, t("mediaUploadPanel.errorUpload"));
-				const itemErrorMsg = t("mediaUploadPanel.itemError").replace("{message}", uploadMessage);
+				const itemErrorMsg = t("mediaUploadPanel.itemError", { message: uploadMessage });
 				setProgress((prev) => prev ? {
 					...prev,
 					failure,
@@ -226,12 +226,12 @@ export function MediaImageUploadPanel() {
 		setUploading(false);
 		if (fileInputRef.current) fileInputRef.current.value = "";
 		if (success > 0) {
-			const failurePart = failure > 0 ? t("mediaUploadPanel.summaryFailedPart").replace("{failure}", String(failure)) : "";
-			setMessage(t("mediaUploadPanel.summarySuccess").replace("{success}", String(success)).replace("{failureMsg}", failurePart));
+			const failurePart = failure > 0 ? t("mediaUploadPanel.summaryFailedPart", { failure }) : "";
+			setMessage(t("mediaUploadPanel.summarySuccess", { success, failureMsg: failurePart }));
 			// Media page is RSC-fed; refresh so newly uploaded images appear without a full reload.
 			router.refresh();
 		} else {
-			setError(t("mediaUploadPanel.summaryFailed").replace("{failure}", String(failure)).replace("{total}", String(uploadItems.length)));
+			setError(t("mediaUploadPanel.summaryFailed", { failure, total: uploadItems.length }));
 		}
 	}
 
@@ -276,10 +276,10 @@ export function MediaImageUploadPanel() {
 				<div role="status" aria-label={t("mediaUploadPanel.progressAria")} className="mt-3 rounded-xl border border-[var(--success-border)] dark:border-[var(--success-border)] bg-[var(--surface-subtle)] p-3 text-xs text-[var(--text-secondary)]">
 					<div className="flex justify-between gap-3">
 						<span>{uploading
-							? t("mediaUploadPanel.progressCurrent").replace("{current}", String(progress.current)).replace("{total}", String(progress.total))
-							: t("mediaUploadPanel.progressDone").replace("{success}", String(progress.success)).replace("{total}", String(progress.total))}
+							? t("mediaUploadPanel.progressCurrent", { current: progress.current, total: progress.total })
+							: t("mediaUploadPanel.progressDone", { success: progress.success, total: progress.total })}
 						</span>
-						<span>{t("mediaUploadPanel.progressStats").replace("{success}", String(progress.success)).replace("{failure}", String(progress.failure))}</span>
+						<span>{t("mediaUploadPanel.progressStats", { success: progress.success, failure: progress.failure })}</span>
 					</div>
 					<div className="mt-2 space-y-1">
 						{progress.queue.map((item, index) => {
@@ -289,10 +289,7 @@ export function MediaImageUploadPanel() {
 							return (
 								<div key={`${item.name}-${index}`} className="flex flex-wrap items-center justify-between gap-2">
 									<span className="truncate">{item.name} · {showChunkedDetail
-										? t("mediaUploadPanel.chunkedProgress")
-											.replace("{current}", String(chunkedProgress.receivedChunks.length))
-											.replace("{total}", String(chunkedProgress.totalChunks))
-											.replace("{pct}", String(chunkedProgress.percent))
+										? t("mediaUploadPanel.chunkedProgress", { current: chunkedProgress.receivedChunks.length, total: chunkedProgress.totalChunks, pct: chunkedProgress.percent })
 										: item.message}
 										{isChunked ? <span data-tone="emerald" className="ml-2 inline-block rounded border border-[var(--success-border)] px-1.5 py-0.5 text-[10px] text-[var(--success)]">{t("mediaUploadPanel.chunkedBadge")}</span> : null}
 									</span>
@@ -302,7 +299,7 @@ export function MediaImageUploadPanel() {
 						})}
 					</div>
 					{chunked.progress && chunked.progress.resumed && chunked.progress.skipped > 0 ? (
-						<p className="mt-2 text-[11px] text-[var(--success)]/80">{t("mediaUploadPanel.chunkedResumeNotice").replace("{skipped}", String(chunked.progress.skipped))}</p>
+						<p className="mt-2 text-[11px] text-[var(--success)]/80">{t("mediaUploadPanel.chunkedResumeNotice", { skipped: chunked.progress.skipped })}</p>
 					) : null}
 				</div>
 			) : null}

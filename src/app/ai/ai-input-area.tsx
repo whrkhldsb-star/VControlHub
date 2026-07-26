@@ -78,8 +78,8 @@ export function AiInputArea({
           onClick={() => fileInputRef.current?.click()}
           disabled={streaming}
           className="flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] disabled:opacity-30"
-          aria-label={t("aiPage.uploadFileTitle").replace("{types}", allowedTypes)}
-          title={t("aiPage.uploadFileTitle").replace("{types}", allowedTypes)}
+          aria-label={t("aiPage.uploadFileTitle", { types: allowedTypes })}
+          title={t("aiPage.uploadFileTitle", { types: allowedTypes })}
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M18.364 5.636a9 9 0 11-12.728 0M12 3v12" />
@@ -110,8 +110,8 @@ export function AiInputArea({
           onPaste={handlePaste}
           placeholder={
             enableVision
-              ? t("aiPage.inputPlaceholderVision").replace("{types}", allowedTypes)
-              : t("aiPage.inputPlaceholder").replace("{types}", allowedTypes)
+              ? t("aiPage.inputPlaceholderVision", { types: allowedTypes })
+              : t("aiPage.inputPlaceholder", { types: allowedTypes })
           }
           rows={1}
           disabled={streaming}

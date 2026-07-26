@@ -53,7 +53,7 @@ const actions: {
 	},
 ];
 
-function tabLabel(t: (k: string) => string, key: string, fallback: string) {
+function tabLabel(t: (k: string, vars?: Record<string, string | number>) => string, key: string, fallback: string) {
 	const value = t(key);
 	return value === key ? fallback : value;
 }
