@@ -48,12 +48,14 @@ function writeToLocation(state: Record<string, string>, defaults: UrlQueryDefaul
 /** @param defaults keys that participate in the URL; empty/default values are omitted */
 export function useUrlQueryState<T extends UrlQueryDefaults>(defaults: T) {
   const defaultsRef = useRef(defaults);
-  defaultsRef.current = defaults;
   // Stable key list from first mount (callers pass a fixed key set).
-  const keysRef = useRef<string[]>(Object.keys(defaults));
-  const keys = keysRef.current;
+  const [keys] = useState<string[]>(() => Object.keys(defaults));
 
   const [state, setState] = useState<T>(() => readFromLocation(keys, defaults) as T);
+
+  useEffect(() => {
+    defaultsRef.current = defaults;
+  }, [defaults]);
 
   useEffect(() => {
     const onPop = () => {

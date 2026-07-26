@@ -246,7 +246,7 @@ export async function getContainerLogTailFor(
       return getContainerLogTail(containerName, timeoutMs);
     }
     // Remote path: dockerExec only returns stdout; append 2>&1 so stderr is captured.
-    const { server, ssh } = await loadRemoteSshParams(target.serverId);
+    const { ssh } = await loadRemoteSshParams(target.serverId);
     const command = `${buildDockerCommand(["logs", "--tail", "20", containerName])} 2>&1`;
     const result = await execRemoteCommand({
       ...(ssh as object),

@@ -1,5 +1,5 @@
 "use client";
-import { useActionState, useEffect, useId, useRef } from "react";
+import { useActionState, useEffect, useId, useState } from "react";
 import { ActionButton } from "@/components/action-button";
 import { SubmitButton } from "@/components/submit-button";
 import { ModalShell } from "@/components/modal-shell";
@@ -25,13 +25,13 @@ export function ChangePasswordModal({
   const titleId = useId();
   const descriptionId = useId();
   const { t } = useI18n();
-  const formKeyRef = useRef(0);
+  const [formKey, setFormKey] = useState(0);
 
   // Close after a short success flash so password fields are not left filled in an open modal.
   useEffect(() => {
     if (!open || !state.success) return;
     const timer = setTimeout(() => {
-      formKeyRef.current += 1;
+      setFormKey((value) => value + 1);
       onClose();
     }, POST_SUCCESS_CLOSE_DELAY_MS);
     return () => clearTimeout(timer);
@@ -89,7 +89,7 @@ export function ChangePasswordModal({
           {" "}
           {changePasswordDescription}{" "}
         </p>{" "}
-        <form key={formKeyRef.current} action={formAction} className="grid gap-4">
+        <form key={formKey} action={formAction} className="grid gap-4">
           {" "}
           <input
             type="text"

@@ -406,6 +406,8 @@ export async function POST(
       } catch (error) {
         const msg = getErrorMessage(error, t("apiServersFileProxy.operationFailed", locale));
         throw new AppError({ code: "INTERNAL_ERROR", message: msg, status: 500 });
+      } finally {
+        await releaseStartLock?.();
       }
     },
   );

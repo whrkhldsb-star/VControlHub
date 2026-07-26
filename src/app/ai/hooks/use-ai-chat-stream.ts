@@ -60,7 +60,6 @@ export function useAiChatStream({
 }: Args) {
   const { t } = useI18n();
   const activeConvIdRef = useRef(activeConvId);
-  activeConvIdRef.current = activeConvId;
   const [streaming, setStreaming] = useState(false);
   const [streamContent, setStreamContent] = useState("");
   const [streamReasoning, setStreamReasoning] = useState("");
@@ -74,10 +73,11 @@ export function useAiChatStream({
   const approvalBusyRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
+    activeConvIdRef.current = activeConvId;
     return () => {
       abortControllerRef.current?.abort();
     };
-  }, []);
+  }, [activeConvId]);
 
   // Abort in-flight SSE and clear ephemeral stream/approval UI when the
   // user switches conversations (prevents cross-chat content flash).

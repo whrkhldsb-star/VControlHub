@@ -8,7 +8,6 @@
  *   3. De-duplicates against the local SERVICE_CATALOG
  */
 
-import type { ServiceTemplate } from "./types";
 import { SERVICE_CATALOG } from "./catalog";
 import { createLogger } from "@/lib/logging";
 import { normalizePublicHttpUrl } from "@/lib/storage/direct-access-url";

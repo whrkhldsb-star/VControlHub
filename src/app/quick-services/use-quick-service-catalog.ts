@@ -35,7 +35,10 @@ export function useQuickServiceCatalog(t: TFn) {
   const [quickServicePublicHost, setQuickServicePublicHost] = useState(QUICK_SERVICE_PUBLIC_HOST);
 
   const catalogServerRef = useRef(selectedServerId);
-  catalogServerRef.current = selectedServerId;
+
+  useEffect(() => {
+    catalogServerRef.current = selectedServerId;
+  }, [selectedServerId]);
 
   const fetchCatalog = useCallback(async () => {
     const serverAtFetch = selectedServerId;

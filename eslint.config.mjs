@@ -52,6 +52,15 @@ const eslintConfig = defineConfig([
       "src/app/servers/server-create-form.tsx",
       // Client-only portal mount flag (document/body available after hydration).
       "src/app/servers/server-overview-card.tsx",
+      // External/async synchronization where state reset is the observable UI update.
+      "src/app/ai/hooks/use-ai-chat-stream.ts",
+      "src/app/downloads/downloads-client.tsx",
+      "src/app/image-bed/use-image-bed-actions.ts",
+      "src/app/media/media-item-card.tsx",
+      "src/app/servers/batch-server-action-panel.tsx",
+      "src/app/settings/system-config-section.tsx",
+      "src/app/tickets/*/ticket-detail-client.tsx",
+      "src/app/users/users-client.tsx",
     ],
     rules: { "react-hooks/set-state-in-effect": "off" },
   },

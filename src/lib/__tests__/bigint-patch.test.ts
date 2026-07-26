@@ -12,7 +12,6 @@ describe("bigint-patch toJSON", () => {
 
 	it("serializes unsafe integers as decimal strings", () => {
 		const huge = BigInt(Number.MAX_SAFE_INTEGER) + BigInt(10);
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		const raw = (BigInt.prototype as any).toJSON.call(huge);
 		expect(typeof raw).toBe("string");
 		expect(raw).toBe(huge.toString());

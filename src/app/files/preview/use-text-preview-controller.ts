@@ -72,7 +72,10 @@ export function useTextPreviewController(options: {
   const editorFindInputRef = useRef<HTMLInputElement>(null);
   const didMountRef = useRef(false);
   const loadVersionRef = useRef(0);
-  loadVersionRef.current = loadVersion;
+
+  useEffect(() => {
+    loadVersionRef.current = loadVersion;
+  }, [loadVersion]);
 
   const { editMode, showDiffReview, saveStatus, saveMessage, reloadMessage } = previewMeta;
   const setEditMode = useCallback((next: boolean) => {

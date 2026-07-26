@@ -88,7 +88,6 @@ describe("crypto service", () => {
     it("decrypts legacy 3-segment ciphertext sealed with the fixed salt", () => {
       // Seal with the historical fixed-salt derivation, then read via decrypt().
       const { createCipheriv, randomBytes, scryptSync } = require("crypto");
-      const passphrase = process.env.ENCRYPTION_KEY || "";
       // In test, ENCRYPTION_KEY is stubbed empty so getPassphrase auto-generates.
       // Force a stable passphrase for this case.
       const keyMaterial = "test-passphrase-for-legacy";

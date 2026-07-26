@@ -144,17 +144,14 @@ async function rpcCall(method: string, params: unknown[] = []): Promise<unknown>
 
 /* ── Daemon Management ────────────────────────────────────── */
 
-let daemonStarted = false;
-
 export async function ensureAria2Daemon(): Promise<void> {
 	// Always re-probe RPC health. A sticky daemonStarted flag would skip restart
 	// after aria2c dies/OOM, leaving downloads permanently broken until process restart.
 	try {
 		await rpcCall("aria2.getVersion");
-		daemonStarted = true;
+
 		return;
 	} catch {
-		daemonStarted = false;
 		// Not running — fall through to spawn
 	}
 
@@ -199,7 +196,7 @@ export async function ensureAria2Daemon(): Promise<void> {
 			await new Promise((r) => setTimeout(r, 500));
 			try {
 				await rpcCall("aria2.getVersion");
-				daemonStarted = true;
+
 				return;
 			} catch {
 				// Daemon not ready yet — retry after a short delay.
