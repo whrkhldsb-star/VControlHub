@@ -10,14 +10,13 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { formatDateTime } from "@/lib/datetime/format";
 import { useToast } from "@/components/toast-provider";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { CheckboxField } from "@/components/ui-primitives";
+import { UI_INPUT } from "@/lib/ui/classes";
 
 const PROVIDERS: ItsmProvider[] = ["generic_webhook", "slack", "telegram", "dingtalk", "feishu"];
 const DIRECTIONS: ItsmDirection[] = ["bidirectional", "outbound", "inbound"];
 
 const cardClass = "rounded-xl border border-border/60 bg-card/40 p-4 space-y-3";
-const inputClass =
-	"w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-cyan-500/40";
-
 type Props = {
 	initialConnections: ItsmConnectionRecord[];
 	initialEvents: ItsmEventRecord[];
@@ -163,7 +162,7 @@ export function ItsmPageClient({
 						<label className="space-y-1 text-sm">
 							<span>{t("itsmPage.field.name")}</span>
 							<input
-								className={inputClass}
+								className={UI_INPUT}
 								value={form.name}
 								onChange={(e) => setForm((c) => ({ ...c, name: e.target.value }))}
 								placeholder={t("itsmPage.field.namePlaceholder")}
@@ -172,7 +171,7 @@ export function ItsmPageClient({
 						<label className="space-y-1 text-sm">
 							<span>{t("itsmPage.field.provider")}</span>
 							<select
-								className={inputClass}
+								className={UI_INPUT}
 								value={form.provider}
 								onChange={(e) =>
 									setForm((c) => ({ ...c, provider: e.target.value as ItsmProvider }))
@@ -188,7 +187,7 @@ export function ItsmPageClient({
 						<label className="space-y-1 text-sm">
 							<span>{t("itsmPage.field.direction")}</span>
 							<select
-								className={inputClass}
+								className={UI_INPUT}
 								value={form.direction}
 								onChange={(e) =>
 									setForm((c) => ({ ...c, direction: e.target.value as ItsmDirection }))
@@ -204,7 +203,7 @@ export function ItsmPageClient({
 						<label className="space-y-1 text-sm">
 							<span>{t("itsmPage.field.workspace")}</span>
 							<input
-								className={inputClass}
+								className={UI_INPUT}
 								value={form.workspace}
 								onChange={(e) => setForm((c) => ({ ...c, workspace: e.target.value }))}
 							/>
@@ -213,7 +212,7 @@ export function ItsmPageClient({
 							<label className="space-y-1 text-sm md:col-span-2">
 								<span>{t("itsmPage.field.webhookUrl")}</span>
 								<input
-									className={inputClass}
+									className={UI_INPUT}
 									value={form.webhookUrl}
 									onChange={(e) => setForm((c) => ({ ...c, webhookUrl: e.target.value }))}
 									placeholder="https://hooks.example.com/..."
@@ -225,7 +224,7 @@ export function ItsmPageClient({
 								<label className="space-y-1 text-sm">
 									<span>{t("itsmPage.field.botToken")}</span>
 									<input
-										className={inputClass}
+										className={UI_INPUT}
 										value={form.botToken}
 										onChange={(e) => setForm((c) => ({ ...c, botToken: e.target.value }))}
 									/>
@@ -233,7 +232,7 @@ export function ItsmPageClient({
 								<label className="space-y-1 text-sm">
 									<span>{t("itsmPage.field.chatId")}</span>
 									<input
-										className={inputClass}
+										className={UI_INPUT}
 										value={form.chatId}
 										onChange={(e) => setForm((c) => ({ ...c, chatId: e.target.value }))}
 									/>
@@ -243,20 +242,13 @@ export function ItsmPageClient({
 						<label className="space-y-1 text-sm md:col-span-2">
 							<span>{t("itsmPage.field.webhookSecret")}</span>
 							<input
-								className={inputClass}
+								className={UI_INPUT}
 								value={form.webhookSecret}
 								onChange={(e) => setForm((c) => ({ ...c, webhookSecret: e.target.value }))}
 								placeholder={t("itsmPage.field.webhookSecretPlaceholder")}
 							/>
 						</label>
-						<label className="flex items-center gap-2 text-sm md:col-span-2">
-							<input
-								type="checkbox"
-								checked={form.createOnInbound}
-								onChange={(e) => setForm((c) => ({ ...c, createOnInbound: e.target.checked }))}
-							/>
-							<span>{t("itsmPage.field.createOnInbound")}</span>
-						</label>
+						<CheckboxField checked={form.createOnInbound} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm((c: typeof form) => ({ ...c, createOnInbound: e.target.checked }))} label={t("itsmPage.field.createOnInbound")} className="md:col-span-2" />
 					</div>
 					<div className="flex justify-end">
 						<ActionButton disabled={busy || !form.name.trim()} onClick={() => void create()}>
@@ -271,13 +263,12 @@ export function ItsmPageClient({
 					<h2 className="text-base font-semibold">
 						{t("itsmPage.list.title")} ({connections.length})
 					</h2>
-					<button
-						type="button"
-						className="text-xs text-cyan-500 hover:underline"
+					<ActionButton variant="ghost"
 						onClick={() => void reload()}
+						className="!px-2 !py-1 !text-xs"
 					>
 						{t("itsmPage.list.refresh")}
-					</button>
+					</ActionButton>
 				</div>
 				{connections.length === 0 ? (
 					<p className="text-sm text-muted-foreground">{t("itsmPage.list.empty")}</p>
@@ -318,14 +309,13 @@ export function ItsmPageClient({
 													? t("itsmPage.action.testing")
 													: t("itsmPage.action.test")}
 											</ActionButton>
-											<button
-												type="button"
-												className="rounded-md border border-rose-500/40 px-2 py-1 text-xs text-rose-500"
+											<ActionButton variant="danger"
 												disabled={busy}
 												onClick={() => setPendingDelete(row)}
+												className="!rounded-md !px-2 !py-1 !text-xs"
 											>
 												{t("itsmPage.action.delete")}
-											</button>
+											</ActionButton>
 										</div>
 									)}
 								</div>
