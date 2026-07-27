@@ -1,184 +1,23 @@
 import { randomUUID } from "node:crypto";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 
+import { auditSystemAction } from "@/lib/audit/service";
 import { prisma } from "@/lib/db";
-import {
-  decryptServerPassword,
-  decryptSshPrivateKey,
-} from "@/lib/ssh/ssh-key-crypto";
-import { getCommandRuntimeConfig } from "@/lib/runtime-settings/service";
+import { createLogger } from "@/lib/logging";
+import { notifyCommandResult } from "@/lib/notification/service";
+import { decryptServerPassword, decryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
 import {
   type SshExecutionResult,
   cancelRunningCommandChild,
   markCommandTargetCancelled,
-  runSshCommandProcess,
 } from "./ssh-executor";
 import { enqueueCommandExecutionJob } from "./execution-worker";
-import { createLogger } from "@/lib/logging";
-import { scanPinnedKnownHost } from "@/lib/ssh/known-hosts";
-import { auditSystemAction } from "@/lib/audit/service";
-import { notifyCommandResult } from "@/lib/notification/service";
+import { executeCommandOverSsh, getCommandRuntimeConfigValues } from "./service-ssh";
+
+export { executeCommandOverSsh, getCommandRuntimeConfigValues } from "./service-ssh";
 
 const cmdExecLogger = createLogger("command-execution");
 
 export const COMMAND_WORKER_ID = `${process.pid}-${randomUUID()}`;
-
-export async function getCommandRuntimeConfigValues() {
-  const config = await getCommandRuntimeConfig();
-  return {
-    executionTimeoutMs: config.executionTimeoutMs,
-    outputLimitBytes: config.outputLimitBytes,
-    staleRunningAfterMs: Math.max(config.staleRunningAfterMs, config.executionTimeoutMs),
-    executionHeartbeatMs: config.executionHeartbeatMs,
-  };
-}
-
-async function executeCommandOverSshWithKey(input: {
-  host: string;
-  port: number;
-  username: string;
-  privateKey: string;
-  command: string;
-  targetId?: string;
-  hostKeySha256?: string | null;
-}): Promise<SshExecutionResult> {
-  const tempDir = await mkdtemp(join(tmpdir(), "app-ssh-"));
-  const keyPath = join(tempDir, "id_key");
-  const knownHostsPath = join(tempDir, "known_hosts");
-
-  try {
-    await writeFile(keyPath, `${input.privateKey.trim()}\n`, { mode: 0o600 });
-    const pin = input.hostKeySha256?.trim();
-    if (pin) {
-      const knownHostLine = await scanPinnedKnownHost({ host: input.host, port: input.port, expectedFingerprint: pin });
-      await writeFile(knownHostsPath, `${knownHostLine}\n`, { mode: 0o600 });
-    }
-    const hostKeyMode = pin
-      ? (["-o", "StrictHostKeyChecking=yes"] as const)
-      : (["-o", "StrictHostKeyChecking=accept-new"] as const);
-
-    const args = [
-      "-i",
-      keyPath,
-      "-p",
-      String(input.port),
-      "-o",
-      "BatchMode=yes",
-      ...hostKeyMode,
-      "-o",
-      `UserKnownHostsFile=${pin ? knownHostsPath : "/dev/null"}`,
-      "-o",
-      "LogLevel=ERROR",
-      "-o",
-      "ConnectTimeout=15",
-      `${input.username}@${input.host}`,
-      input.command,
-    ];
-
-    return await runSshCommandProcess({
-      command: "ssh",
-      args,
-      env: process.env,
-      targetId: input.targetId,
-      runtimeConfig: await getCommandRuntimeConfigValues(),
-    });
-  } finally {
-    await rm(tempDir, { recursive: true, force: true });
-  }
-}
-
-async function executeCommandOverSshWithPassword(input: {
-  host: string;
-  port: number;
-  username: string;
-  password: string;
-  command: string;
-  targetId?: string;
-  hostKeySha256?: string | null;
-}): Promise<SshExecutionResult> {
-  const tempDir = await mkdtemp(join(tmpdir(), "app-ssh-known-hosts-"));
-  const knownHostsPath = join(tempDir, "known_hosts");
-  const pin = input.hostKeySha256?.trim();
-  try {
-    if (pin) {
-      const knownHostLine = await scanPinnedKnownHost({ host: input.host, port: input.port, expectedFingerprint: pin });
-      await writeFile(knownHostsPath, `${knownHostLine}\n`, { mode: 0o600 });
-    }
-    const hostKeyMode = pin
-      ? (["-o", "StrictHostKeyChecking=yes"] as const)
-      : (["-o", "StrictHostKeyChecking=accept-new"] as const);
-
-    const args = [
-    "-p",
-    String(input.port),
-    // Match key-auth path: never hang on interactive password/passphrase prompts.
-    "-o",
-    "BatchMode=yes",
-    ...hostKeyMode,
-    "-o",
-    `UserKnownHostsFile=${pin ? knownHostsPath : "/dev/null"}`,
-    "-o",
-    "LogLevel=ERROR",
-    "-o",
-    "ConnectTimeout=15",
-    `${input.username}@${input.host}`,
-    input.command,
-  ];
-
-  // Use SSHPASS env var instead of -p flag to avoid leaking password in /proc/cmdline
-  const env = { ...process.env, SSHPASS: input.password };
-
-    return await runSshCommandProcess({
-      command: "sshpass",
-      args: ["-e", "ssh", ...args],
-      env,
-      targetId: input.targetId,
-      runtimeConfig: await getCommandRuntimeConfigValues(),
-    });
-  } finally {
-    await rm(tempDir, { recursive: true, force: true });
-  }
-}
-
-export async function executeCommandOverSsh(input: {
-  host: string;
-  port: number;
-  username: string;
-  privateKey?: string;
-  password?: string;
-  command: string;
-  targetId?: string;
-  hostKeySha256?: string | null;
-}): Promise<SshExecutionResult> {
-  if (input.privateKey) {
-    return executeCommandOverSshWithKey(
-      input as {
-        host: string;
-        port: number;
-        username: string;
-        privateKey: string;
-        command: string;
-        targetId?: string;
-        hostKeySha256?: string | null;
-      },
-    );
-  } else if (input.password) {
-    return executeCommandOverSshWithPassword(
-      input as {
-        host: string;
-        port: number;
-        username: string;
-        password: string;
-        command: string;
-        targetId?: string;
-        hostKeySha256?: string | null;
-      },
-    );
-  }
-  throw new Error("Missing SSH credentials (private key or password)");
-}
 
 export function cancelActiveCommandChild(targetId: string) {
   markCommandTargetCancelled(targetId);
