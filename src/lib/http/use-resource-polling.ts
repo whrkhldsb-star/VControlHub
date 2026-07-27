@@ -14,7 +14,7 @@ export type ResourcePollingState<T> = {
 	/** Imperatively trigger a fetch now (e.g. a manual "refresh" button). */
 	refresh: () => Promise<void>;
 	/** Replace the data locally without a fetch (optimistic updates). */
-	setData: (next: T | null) => void;
+	setData: (next: T | null | ((current: T | null) => T | null)) => void;
 };
 
 export type UseResourcePollingOptions<T> = {
@@ -180,9 +180,14 @@ export function useResourcePolling<T>(options: UseResourcePollingOptions<T>): Re
 		return stop;
 	}, [enabled, intervalSeconds, pauseWhenHidden, refresh]);
 
-	const setDataPublic = useCallback((next: T | null) => {
-		setData(next);
-		hasDataRef.current = next !== null;
+	const setDataPublic = useCallback((next: T | null | ((current: T | null) => T | null)) => {
+		setData((current) => {
+			const resolved = typeof next === "function"
+				? (next as (value: T | null) => T | null)(current)
+				: next;
+			hasDataRef.current = resolved !== null;
+			return resolved;
+		});
 	}, []);
 
 	return { data, loading, refreshing, error, refresh, setData: setDataPublic };

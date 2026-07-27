@@ -194,4 +194,17 @@ describe("useResourcePolling — setData", () => {
 		expect(result.current.data).toEqual({ n: 99 });
 		expect(fetcher).toHaveBeenCalledTimes(1);
 	});
+
+	it("supports functional optimistic updates without stale snapshots", async () => {
+		const fetcher = vi.fn().mockResolvedValue({ count: 1 });
+		const { result } = renderHook(() => useResourcePolling<{ count: number }>({ fetcher, intervalSeconds: 0 }));
+		await waitFor(() => expect(result.current.data).toEqual({ count: 1 }));
+
+		act(() => {
+			result.current.setData((current) => ({ count: (current?.count ?? 0) + 1 }));
+			result.current.setData((current) => ({ count: (current?.count ?? 0) + 1 }));
+		});
+		expect(result.current.data).toEqual({ count: 3 });
+		expect(fetcher).toHaveBeenCalledTimes(1);
+	});
 });
