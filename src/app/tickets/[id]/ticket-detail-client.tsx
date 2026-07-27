@@ -8,6 +8,8 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { toDateLocale } from "@/lib/i18n/locale-format";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
+import { FormField, Notice } from "@/components/ui-primitives";
+import { UI_INPUT } from "@/lib/ui/classes";
 
 export interface TicketUser { id: string; username: string; displayName: string | null; }
 export interface TicketComment { id: string; body: string; createdAt: string; author: TicketUser; }
@@ -224,20 +226,22 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
         </div>
 
         {canManage && (
-          <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
-            <span className="shrink-0 text-[var(--text-muted)]">{t("ticketsDetail.assignTo")}</span>
+          <div className="mt-4 max-w-sm">
+            <FormField label={t("ticketsDetail.assignTo")} htmlFor="ticket-assignee">
             <select
+              id="ticket-assignee"
               value={assigneeId}
               onChange={(e) => { void updateAssignee(e.target.value); }}
               disabled={saving}
               aria-label={t("ticketsDetail.assignAria")}
-              className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-2.5 py-1.5 text-sm text-[var(--text-secondary)] outline-none disabled:opacity-50"
+              className={UI_INPUT}
             >
               <option value="">{t("ticketsDetail.unassigned")}</option>
               {users.map((u) => (
                 <option key={u.id} value={u.id}>{u.displayName || u.username}</option>
               ))}
             </select>
+            </FormField>
           </div>
         )}
       </div>
@@ -263,7 +267,8 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
             {canManage && (
               <div className="mt-2 flex flex-wrap gap-2">
                 <input
-                  className="min-w-0 flex-1 rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-2 py-1.5 text-[11px]"
+                  aria-label={t("ticketsDetail.commandIdPlaceholder")}
+                  className={`${UI_INPUT} min-w-0 flex-1 !py-1.5 !text-[11px]`}
                   value={commandIdInput}
                   onChange={(e) => setCommandIdInput(e.target.value)}
                   placeholder={t("ticketsDetail.commandIdPlaceholder")}
@@ -298,7 +303,8 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
             {canManage && (
               <div className="mt-2 flex flex-wrap gap-2">
                 <input
-                  className="min-w-0 flex-1 rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-2 py-1.5 text-[11px]"
+                  aria-label={t("ticketsDetail.serverIdPlaceholder")}
+                  className={`${UI_INPUT} min-w-0 flex-1 !py-1.5 !text-[11px]`}
                   value={serverIdInput}
                   onChange={(e) => setServerIdInput(e.target.value)}
                   placeholder={t("ticketsDetail.serverIdPlaceholder")}
@@ -369,16 +375,15 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
           <h3 className="mb-3 text-sm font-semibold text-[var(--text-primary)]">{t("ticketsDetail.transitionsTitle")}</h3>
           <div className="flex flex-wrap gap-2">
             {TRANSITIONS[ticket.status]!.map((s) => (
-              <button key={s} onClick={() => updateStatus(s)} disabled={saving}
-                className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-hover)] disabled:opacity-40">
+              <ActionButton key={s} variant="secondary" onClick={() => void updateStatus(s)} disabled={saving} className="px-4 py-2 text-sm disabled:opacity-40">
                 {t("ticketsDetail.transitionTo", { status: statusLabel(t, s) })}
-              </button>
+              </ActionButton>
             ))}
           </div>
         </div>
       )}
 
-      {error && <p role="alert" className="rounded-xl border border-[var(--danger-border)] bg-[var(--danger-bg)] px-3 py-2 text-sm text-[var(--danger)]">{error}</p>}
+      {error && <Notice tone="danger" onDismiss={() => setError("")} dismissLabel={t("common.close")}>{error}</Notice>}
 
       <div data-card className="p-5">
         <h3 className="mb-4 text-sm font-semibold text-[var(--text-primary)]">{t("ticketsDetail.commentsTitle", { count: ticket.comments.length })}</h3>
@@ -402,7 +407,7 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
           <label htmlFor="ticketComment" className="sr-only">{t("ticketsDetail.commentAria")}</label>
           <textarea id="ticketComment" value={comment} onChange={(e) => setComment(e.target.value)} placeholder={t("ticketsDetail.commentPlaceholder")}
             rows={3}
-            className="w-full resize-none rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]" />
+            className={`${UI_INPUT} resize-none px-4 py-3`} />
           <ActionButton type="submit" variant="primary" onClick={addComment} disabled={saving || !comment.trim()} data-primary className="mt-2 px-4 py-2 text-sm">
             {saving ? t("ticketsDetail.commentSubmitting") : t("ticketsDetail.commentSubmit")}
           </ActionButton>
