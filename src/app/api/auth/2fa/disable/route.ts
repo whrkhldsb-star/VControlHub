@@ -11,23 +11,25 @@ import { auditUserAction } from "@/lib/audit/service";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { getServerLocale, t } from "@/lib/i18n/translations";
 
 import { ValidationError } from "@/lib/errors";
 const disableSchema = z.object({ code: z.string().min(1) });
 
 export async function POST(request: Request) {
+  const locale = await getServerLocale();
   return withApiRoute(
     request,
     {
       requireAuth: true,
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "Failed to disable two-factor verification",
+      errorMessage: t("api.auth.twoFactor.disableFailed", locale),
       bodySchema: disableSchema,
     },
     async ({ session, body }) => {
       if (!session)
         return NextResponse.json(
-          { error: "Not authenticated or session expired" },
+          { error: t("api.auth.sessionExpired", locale) },
           { status: 401 },
         );
 
@@ -39,12 +41,12 @@ export async function POST(request: Request) {
       });
 
       if (!user?.twoFactorEnabled || !user.twoFactorSecret) {
-        throw new ValidationError("Two-factor verification is not enabled");
+        throw new ValidationError(t("api.auth.twoFactor.notEnabled", locale));
       }
 
       const valid = verifyTOTP({ token: code, secret: openTwoFactorSecret(user.twoFactorSecret) });
       if (!valid) {
-        throw new ValidationError("Invalid verification code");
+        throw new ValidationError(t("api.auth.twoFactor.invalidCode", locale));
       }
 
       await prisma.user.update({

@@ -120,7 +120,7 @@ describe("/api/storage/local", () => {
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toMatchObject({
-      error: "Missing path parameter",
+      error: expect.stringMatching(/缺少 path 参数|Missing path parameter/),
     });
   });
 
@@ -131,7 +131,7 @@ describe("/api/storage/local", () => {
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toMatchObject({
-      error: "Missing nodeId parameter",
+      error: expect.stringMatching(/缺少 nodeId 参数|Missing nodeId parameter/),
     });
     expect(prismaMock.fileEntry.findFirst).not.toHaveBeenCalled();
   });
@@ -170,7 +170,7 @@ describe("/api/storage/local", () => {
     );
     expect(response.status).toBe(404);
     await expect(response.json()).resolves.toMatchObject({
-      error: "file entry not found, or not registered as local storage file",
+      error: expect.stringMatching(/文件索引不存在|file entry not found/),
     });
   });
 
@@ -358,7 +358,7 @@ describe("/api/storage/local", () => {
 
     expect(response.status).toBe(413);
     await expect(response.json()).resolves.toMatchObject({
-      error: expect.stringContaining("upload file exceeds 100 MB"),
+      error: expect.stringMatching(/超过 100 MB|exceeds 100 MB/),
       maxUploadBytes: 100 * 1024 * 1024,
     });
     expect(file.arrayBuffer).not.toHaveBeenCalled();
@@ -417,7 +417,7 @@ describe("/api/storage/local", () => {
 
     expect(response.status).toBe(500);
     await expect(response.json()).resolves.toMatchObject({
-      error: expect.stringContaining("Failed to write upload index"),
+      error: expect.stringMatching(/写入上传索引失败|Failed to write upload index/),
     });
     expect(deleteRemoteFileMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -452,7 +452,7 @@ describe("/api/storage/local", () => {
 
     expect(response.status).toBe(500);
     await expect(response.json()).resolves.toMatchObject({
-      error: expect.stringContaining("Failed to write upload index"),
+      error: expect.stringMatching(/写入上传索引失败|Failed to write upload index/),
     });
     expect(unlinkMock).toHaveBeenCalledWith("/tmp/storage/docs/notes.txt");
   });

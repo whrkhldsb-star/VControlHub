@@ -19,6 +19,7 @@ import { contentDownloadQuerySchema } from "@/lib/storage/schema";
 import { parseStorageRange, storageStreamResponse, type StorageByteRange } from "@/lib/storage/streaming";
 
 import { AuthError, ValidationError } from "@/lib/errors";
+import { getServerLocale, t } from "@/lib/i18n/translations";
 const logger = createLogger("api:storage:sftp-download");
 
 export const dynamic = "force-dynamic";
@@ -51,12 +52,13 @@ function getSftpStream(
 }
 
 export async function GET(request: Request) {
+  const locale = await getServerLocale();
   return withApiRoute(
     request,
     { permission: "storage:read" },
     async ({ session }) => {
       if (!session)
-        throw new AuthError("Not authenticated");
+        throw new AuthError(t("api.auth.sessionExpired", locale));
 
       const _url = new URL(request.url);
       const { nodeId, path: remotePath, download } = parseSearchParams(
@@ -66,13 +68,13 @@ export async function GET(request: Request) {
 
       if (!nodeId) {
         return NextResponse.json(
-          { error: "Missing nodeId parameter" },
+          { error: t("api.storage.missingNodeId", locale) },
           { status: 400 },
         );
       }
 
       if (!remotePath) {
-        throw new ValidationError("Missing path parameter");
+        throw new ValidationError(t("api.storage.missingPath", locale));
       }
 
       const { node, credentials: connectionCredentials } = await getSftpNodeConnection(nodeId, session);
@@ -100,7 +102,7 @@ export async function GET(request: Request) {
       });
       if (!accessDecision.allowed) {
         return NextResponse.json(
-          { error: accessDecision.reason ?? "Missing storage access authorization" },
+          { error: accessDecision.reason ?? t("api.storage.accessDenied", locale) },
           { status: 403 },
         );
       }
@@ -155,7 +157,7 @@ export async function GET(request: Request) {
         logger.error("read remote file for download failed", error, { nodeId });
         return NextResponse.json(
           toClientStorageError(
-            "failed to fetch remote file, please check if the file exists or the node can be connected",
+            t("api.storage.sftp.downloadFailed", locale),
           ),
           { status: 502 },
         );

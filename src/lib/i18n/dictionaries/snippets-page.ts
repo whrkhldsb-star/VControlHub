@@ -36,6 +36,7 @@ export const zh: Record<string, string> = {
 	"snippetsPage.toast.deleteFailed": "删除代码片段失败",
 	"snippetsPage.toast.saveFailed": "保存失败",
 	"snippetsPage.toast.createFailed": "创建失败",
+	"snippetsPage.toast.loadFailed": "加载代码片段失败",
 	// Modal — shared between create + edit
 	"snippetsPage.modal.createTitle": "新建代码片段",
 	"snippetsPage.modal.editTitle": "编辑代码片段",
@@ -83,6 +84,7 @@ export const en: Record<string, string> = {
 	"snippetsPage.toast.deleteFailed": "Failed to delete snippet",
 	"snippetsPage.toast.saveFailed": "Save failed",
 	"snippetsPage.toast.createFailed": "Create failed",
+	"snippetsPage.toast.loadFailed": "Failed to load snippet",
 	"snippetsPage.modal.createTitle": "New snippet",
 	"snippetsPage.modal.editTitle": "Edit snippet",
 	"snippetsPage.modal.field.title": "Title",

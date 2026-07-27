@@ -11,6 +11,7 @@ import {
   revokeShareLink,
 } from "@/lib/share-link/service";
 import { auditUserAction } from "@/lib/audit/service";
+import { getServerLocale, t } from "@/lib/i18n/translations";
 
 const shareLinkPostSchema = z.object({
   fileEntryId: z.string().min(1).optional(),
@@ -24,35 +25,37 @@ const shareLinkPostSchema = z.object({
   password: z.string().min(1).max(128).optional(),
   permissionLevel: z.enum(["preview", "download"]).optional(),
 }).refine((data) => Boolean(data.fileEntryId || (data.storageNodeId && data.path)), {
-  message: "Must select a file from file manager, or provide storage node and path",
+  message: t("api.share.selectFileOrPath"),
 });
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
+  const locale = await getServerLocale();
   return withApiRoute(
     request,
-    { permission: "share:read", errorMessage: "Operation failed" },
+    { permission: "share:read", errorMessage: t("api.share.operationFailed", locale) },
     async ({ session }) => {
-      if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+      if (!session) return NextResponse.json({ error: t("api.auth.sessionExpired", locale) }, { status: 401 });
       return NextResponse.json({ shares: await listShareLinks(undefined, session) });
     },
   );
 }
 
 export async function POST(request: Request) {
+  const locale = await getServerLocale();
   return withApiRoute(
     request,
     {
       permission: "share:create",
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "Operation failed",
+      errorMessage: t("api.share.operationFailed", locale),
       bodySchema: shareLinkPostSchema,
     },
     async ({ session, body: data }) => {
       if (!session)
         return NextResponse.json(
-          { error: "Not authenticated or session expired" },
+          { error: t("api.auth.sessionExpired", locale) },
           { status: 401 },
         );
       const result = data.fileEntryId
@@ -86,15 +89,16 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  const locale = await getServerLocale();
   return withApiRoute(
     request,
     {
       permission: "share:manage",
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "Operation failed",
+      errorMessage: t("api.share.operationFailed", locale),
     },
     async ({ session }) => {
-      if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+      if (!session) return NextResponse.json({ error: t("api.auth.sessionExpired", locale) }, { status: 401 });
       const { id } = parseSearchParams(request, idQuerySchema);
       const share = await revokeShareLink(id, session.userId, session);
       await auditUserAction(session.userId, "share-link.delete", { shareId: id }, undefined, session?.currentTeamId);

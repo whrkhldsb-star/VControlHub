@@ -33,6 +33,7 @@ import { parseStorageRange, storageStreamResponse } from "@/lib/storage/streamin
 import { AuthError, ValidationError } from "@/lib/errors";
 import { isUniqueViolation } from "@/lib/db";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { getServerLocale, t, type Locale } from "@/lib/i18n/translations";
 
 type UploadLike = {
   arrayBuffer(): Promise<ArrayBuffer>;
@@ -73,17 +74,17 @@ function resolveManagedLocalPath(basePath: string, relativePath: string) {
   };
 }
 
-async function handleGet(request: Request, session: SessionPayload) {
+async function handleGet(request: Request, session: SessionPayload, locale: Locale) {
   const { path: relativePath, nodeId: storageNodeId, download } = parseSearchParams(
     request,
     contentDownloadQuerySchema,
   );
 
   if (!relativePath) {
-    throw new ValidationError("Missing path parameter");
+    throw new ValidationError(t("api.storage.missingPath", locale));
   }
   if (!storageNodeId) {
-    throw new ValidationError("Missing nodeId parameter");
+    throw new ValidationError(t("api.storage.missingNodeId", locale));
   }
 
   const normalizedDownloadPath = normalizeStorageRelativePath(relativePath);
@@ -121,7 +122,7 @@ async function handleGet(request: Request, session: SessionPayload) {
 
   if (!entry) {
     return NextResponse.json(
-      { error: "file entry not found, or not registered as local storage file" },
+      { error: t("api.storage.localEntryNotFound", locale) },
       { status: 404 },
     );
   }
@@ -134,7 +135,7 @@ async function handleGet(request: Request, session: SessionPayload) {
   });
   if (!accessDecision.allowed) {
     return NextResponse.json(
-      { error: accessDecision.reason ?? "Missing storage access authorization" },
+      { error: accessDecision.reason ?? t("api.storage.accessDenied", locale) },
       { status: 403 },
     );
   }
@@ -147,7 +148,7 @@ async function handleGet(request: Request, session: SessionPayload) {
     ));
   } catch (error) {
     return NextResponse.json(
-      { error: getErrorMessage(error, "Invalid path") },
+      { error: getErrorMessage(error, t("api.storage.invalidPath", locale)) },
       { status: 400 },
     );
   }
@@ -157,7 +158,7 @@ async function handleGet(request: Request, session: SessionPayload) {
     const fileStat = await stat(absolutePath);
     if (!fileStat.isFile()) {
       return NextResponse.json(
-        { error: "TargetnotiscanDownloadFile" },
+        { error: t("api.storage.notDownloadableFile", locale) },
         { status: 400 },
       );
     }
@@ -177,13 +178,13 @@ async function handleGet(request: Request, session: SessionPayload) {
   } catch (downloadError) {
     logError("[/api/storage/local] download error:", downloadError);
     return NextResponse.json(
-      { error: "File not found or temporarily cannot be read" },
+      { error: t("api.storage.fileUnavailable", locale) },
       { status: 404 },
     );
   }
 }
 
-async function handlePost(request: Request, session: SessionPayload) {
+async function handlePost(request: Request, session: SessionPayload, locale: Locale) {
   const formData = await request.formData();
   const storageNodeId = String(formData.get("storageNodeId") ?? "").trim();
   const relativePath = String(formData.get("relativePath") ?? "").trim();
@@ -191,14 +192,14 @@ async function handlePost(request: Request, session: SessionPayload) {
 
   if (!storageNodeId) {
     return NextResponse.json(
-      { error: "Missing storageNodeId Parameter" },
+      { error: t("api.storage.missingStorageNodeId", locale) },
       { status: 400 },
     );
   }
 
   if (!relativePath) {
     return NextResponse.json(
-      { error: "Missing relativePath Parameter" },
+      { error: t("api.storage.missingRelativePath", locale) },
       { status: 400 },
     );
   }
@@ -212,7 +213,7 @@ async function handlePost(request: Request, session: SessionPayload) {
   }
 
   if (!isUploadLike(file)) {
-    throw new ValidationError("Missing upload file");
+    throw new ValidationError(t("api.storage.missingUploadFile", locale));
   }
 
   const declaredFileSize =
@@ -222,7 +223,7 @@ async function handlePost(request: Request, session: SessionPayload) {
   if (declaredFileSize !== null && declaredFileSize > MAX_STORAGE_UPLOAD_BYTES) {
     return NextResponse.json(
       {
-        error: "upload file exceeds 100 MB, please use download task or SFTP tool for large files",
+        error: t("api.storage.uploadTooLarge", locale),
         maxUploadBytes: MAX_STORAGE_UPLOAD_BYTES,
         size: declaredFileSize,
       },
@@ -257,7 +258,7 @@ async function handlePost(request: Request, session: SessionPayload) {
 
   if (!storageNode || !["LOCAL", "SFTP"].includes(storageNode.driver)) {
     return NextResponse.json(
-      { error: "Only supports uploading to LOCAL or SFTP storage nodes" },
+      { error: t("api.storage.unsupportedUploadNode", locale) },
       { status: 400 },
     );
   }
@@ -281,7 +282,7 @@ async function handlePost(request: Request, session: SessionPayload) {
     }
   } catch (error) {
     return NextResponse.json(
-      { error: getErrorMessage(error, "Invalid path") },
+      { error: getErrorMessage(error, t("api.storage.invalidPath", locale)) },
       { status: 400 },
     );
   }
@@ -290,7 +291,7 @@ async function handlePost(request: Request, session: SessionPayload) {
   if (fileBuffer.byteLength > MAX_STORAGE_UPLOAD_BYTES) {
     return NextResponse.json(
       {
-        error: "upload file exceeds 100 MB, please use download task or SFTP tool for large files",
+        error: t("api.storage.uploadTooLarge", locale),
         maxUploadBytes: MAX_STORAGE_UPLOAD_BYTES,
         size: fileBuffer.byteLength,
       },
@@ -311,7 +312,7 @@ async function handlePost(request: Request, session: SessionPayload) {
   });
   if (!accessDecision.allowed) {
     return NextResponse.json(
-      { error: accessDecision.reason ?? "Missing storage write authorization" },
+      { error: accessDecision.reason ?? t("api.storage.writeDenied", locale) },
       { status: 403 },
     );
   }
@@ -344,7 +345,7 @@ async function handlePost(request: Request, session: SessionPayload) {
     if (storageNode.driver === "LOCAL") {
     if (!absolutePath) {
       return NextResponse.json(
-        { error: "failed to resolve local storage path" },
+        { error: t("api.storage.resolveLocalPathFailed", locale) },
         { status: 400 },
       );
     }
@@ -355,7 +356,7 @@ async function handlePost(request: Request, session: SessionPayload) {
   } else {
     if (!remotePath) {
       return NextResponse.json(
-        { error: "failed to resolve remote storage path" },
+        { error: t("api.storage.resolveRemotePathFailed", locale) },
         { status: 400 },
       );
     }
@@ -363,7 +364,7 @@ async function handlePost(request: Request, session: SessionPayload) {
       sftpCredentials = resolveStorageSshCredentials(storageNode);
     } catch (error) {
       return NextResponse.json(
-        { error: getErrorMessage(error, "connectioncredentialsCannotavailable") },
+        { error: getErrorMessage(error, t("api.storage.connectionCredentialsUnavailable", locale)) },
         { status: 400 },
       );
     }
@@ -383,7 +384,7 @@ async function handlePost(request: Request, session: SessionPayload) {
     } catch (error) {
       logError("[/api/storage/local] sftp upload error:", error);
       return NextResponse.json(
-        { error: getErrorMessage(error, "Remote upload failed") },
+        { error: getErrorMessage(error, t("api.storage.remoteUploadFailed", locale)) },
         { status: 502 },
       );
     }
@@ -463,7 +464,7 @@ async function handlePost(request: Request, session: SessionPayload) {
     }
     const message = getErrorMessage(error, "Unknown error");
     return NextResponse.json(
-      { error: `Failed to write upload index: ${message}` },
+      { error: t("api.storage.writeIndexFailed", locale, { message }) },
       { status: 500 },
     );
   }
@@ -480,29 +481,31 @@ async function handlePost(request: Request, session: SessionPayload) {
 }
 
 export async function GET(request: Request) {
+  const locale = await getServerLocale();
   return withApiRoute(
     request,
-    { permission: "storage:read", errorMessage: "Failed to read local file" },
+    { permission: "storage:read", errorMessage: t("api.storage.fileUnavailable", locale) },
     async ({ session }) => {
       if (!session)
-        throw new AuthError("Not authenticated");
-      return handleGet(request, session);
+        throw new AuthError(t("api.auth.sessionExpired", locale));
+      return handleGet(request, session, locale);
     },
   );
 }
 
 export async function POST(request: Request) {
+  const locale = await getServerLocale();
   return withApiRoute(
     request,
     {
       permission: "storage:write",
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "Failed to upload file",
+      errorMessage: t("api.image.uploadFailed", locale),
     },
     async ({ session }) => {
       if (!session)
-        throw new AuthError("Not authenticated");
-      return handlePost(request, session);
+        throw new AuthError(t("api.auth.sessionExpired", locale));
+      return handlePost(request, session, locale);
     },
   );
 }

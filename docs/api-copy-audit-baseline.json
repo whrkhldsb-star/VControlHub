@@ -1,0 +1,2633 @@
+{
+  "count": 438,
+  "findings": [
+    {
+      "file": "src/app/api/admin/qa-reports/[id]/route.ts",
+      "line": 27,
+      "pattern": "guard-error-message",
+      "text": "Failed to fetch QA report detail"
+    },
+    {
+      "file": "src/app/api/admin/qa-reports/[id]/route.ts",
+      "line": 31,
+      "pattern": "typed-error",
+      "text": "QA report not found: ${id}"
+    },
+    {
+      "file": "src/app/api/admin/qa-reports/route.ts",
+      "line": 25,
+      "pattern": "guard-error-message",
+      "text": "Failed to fetch QA report list"
+    },
+    {
+      "file": "src/app/api/admin/workers/route.ts",
+      "line": 26,
+      "pattern": "guard-error-message",
+      "text": "Fetch worker StatusFailed"
+    },
+    {
+      "file": "src/app/api/ai/conversations/[id]/route.ts",
+      "line": 24,
+      "pattern": "guard-error-message",
+      "text": "Not found"
+    },
+    {
+      "file": "src/app/api/ai/conversations/[id]/route.ts",
+      "line": 47,
+      "pattern": "guard-error-message",
+      "text": "Failed to update"
+    },
+    {
+      "file": "src/app/api/ai/conversations/[id]/route.ts",
+      "line": 67,
+      "pattern": "typed-error",
+      "text": "Conversation not found"
+    },
+    {
+      "file": "src/app/api/ai/conversations/[id]/route.ts",
+      "line": 89,
+      "pattern": "guard-error-message",
+      "text": "Failed to delete"
+    },
+    {
+      "file": "src/app/api/ai/conversations/route.ts",
+      "line": 17,
+      "pattern": "guard-error-message",
+      "text": "Server error"
+    },
+    {
+      "file": "src/app/api/ai/conversations/route.ts",
+      "line": 38,
+      "pattern": "guard-error-message",
+      "text": "Failed to create"
+    },
+    {
+      "file": "src/app/api/ai/hosted-actions/[id]/route.ts",
+      "line": 34,
+      "pattern": "guard-error-message",
+      "text": "Operation failed"
+    },
+    {
+      "file": "src/app/api/ai/hosted-actions/[id]/route.ts",
+      "line": 39,
+      "pattern": "typed-error",
+      "text": "Not authenticated"
+    },
+    {
+      "file": "src/app/api/ai/hosted-actions/route.ts",
+      "line": 17,
+      "pattern": "typed-error",
+      "text": "Not authenticated"
+    },
+    {
+      "file": "src/app/api/ai/models/probe/route.ts",
+      "line": 17,
+      "pattern": "guard-error-message",
+      "text": "Failed to fetch model list"
+    },
+    {
+      "file": "src/app/api/ai/models/route.ts",
+      "line": 16,
+      "pattern": "guard-error-message",
+      "text": "Failed to fetch model list"
+    },
+    {
+      "file": "src/app/api/ai/models/route.ts",
+      "line": 19,
+      "pattern": "typed-error",
+      "text": "Not authenticated"
+    },
+    {
+      "file": "src/app/api/ai/ops/logs/[id]/approve/route.ts",
+      "line": 37,
+      "pattern": "guard-error-message",
+      "text": "Failed to approve recommendation"
+    },
+    {
+      "file": "src/app/api/ai/ops/logs/[id]/approve/route.ts",
+      "line": 41,
+      "pattern": "typed-error",
+      "text": "Not authenticated or session expired"
+    },
+    {
+      "file": "src/app/api/ai/ops/logs/[id]/execute/route.ts",
+      "line": 38,
+      "pattern": "guard-error-message",
+      "text": "Failed to execute recommendation"
+    },
+    {
+      "file": "src/app/api/ai/ops/logs/[id]/execute/route.ts",
+      "line": 42,
+      "pattern": "typed-error",
+      "text": "Not authenticated or session expired"
+    },
+    {
+      "file": "src/app/api/ai/ops/logs/[id]/execute/route.ts",
+      "line": 45,
+      "pattern": "typed-error",
+      "text": "forceAutonomous Requires ai:ops:autonomous Permission"
+    },
+    {
+      "file": "src/app/api/ai/ops/logs/[id]/route.ts",
+      "line": 27,
+      "pattern": "guard-error-message",
+      "text": "Failed to load AI ops records"
+    },
+    {
+      "file": "src/app/api/ai/ops/logs/[id]/route.ts",
+      "line": 32,
+      "pattern": "typed-error",
+      "text": "AI ops record not found ${id}"
+    },
+    {
+      "file": "src/app/api/ai/ops/logs/route.ts",
+      "line": 39,
+      "pattern": "guard-error-message",
+      "text": "Failed to load AI ops records"
+    },
+    {
+      "file": "src/app/api/ai/ops/scan/route.ts",
+      "line": 32,
+      "pattern": "guard-error-message",
+      "text": "Failed to trigger scan"
+    },
+    {
+      "file": "src/app/api/ai/ops/settings/route.ts",
+      "line": 38,
+      "pattern": "guard-error-message",
+      "text": "Failed to load AI ops settings"
+    },
+    {
+      "file": "src/app/api/ai/ops/settings/route.ts",
+      "line": 60,
+      "pattern": "guard-error-message",
+      "text": "Failed to save AI ops settings"
+    },
+    {
+      "file": "src/app/api/ai/ops/summary/route.ts",
+      "line": 26,
+      "pattern": "guard-error-message",
+      "text": "Failed to load AI ops summary"
+    },
+    {
+      "file": "src/app/api/ai/providers/[id]/route.ts",
+      "line": 49,
+      "pattern": "guard-error-message",
+      "text": "Not found"
+    },
+    {
+      "file": "src/app/api/ai/providers/[id]/route.ts",
+      "line": 52,
+      "pattern": "typed-error",
+      "text": "Not authenticated"
+    },
+    {
+      "file": "src/app/api/ai/providers/[id]/route.ts",
+      "line": 70,
+      "pattern": "guard-error-message",
+      "text": "Failed to update"
+    },
+    {
+      "file": "src/app/api/ai/providers/[id]/route.ts",
+      "line": 75,
+      "pattern": "typed-error",
+      "text": "Not authenticated"
+    },
+    {
+      "file": "src/app/api/ai/providers/[id]/route.ts",
+      "line": 83,
+      "pattern": "typed-error",
+      "text": "Provider not found"
+    },
+    {
+      "file": "src/app/api/ai/providers/[id]/route.ts",
+      "line": 100,
+      "pattern": "guard-error-message",
+      "text": "Failed to delete"
+    },
+    {
+      "file": "src/app/api/ai/providers/[id]/route.ts",
+      "line": 104,
+      "pattern": "typed-error",
+      "text": "Not authenticated"
+    },
+    {
+      "file": "src/app/api/ai/providers/route.ts",
+      "line": 26,
+      "pattern": "typed-error",
+      "text": "Not authenticated"
+    },
+    {
+      "file": "src/app/api/ai/providers/route.ts",
+      "line": 38,
+      "pattern": "typed-error",
+      "text": "Not authenticated"
+    },
+    {
+      "file": "src/app/api/alert-incidents/route.ts",
+      "line": 31,
+      "pattern": "guard-error-message",
+      "text": "Failed to list alert incidents"
+    },
+    {
+      "file": "src/app/api/alert-incidents/route.ts",
+      "line": 79,
+      "pattern": "guard-error-message",
+      "text": "Failed to acknowledge alert incident"
+    },
+    {
+      "file": "src/app/api/alert-rules/route.ts",
+      "line": 202,
+      "pattern": "guard-error-message",
+      "text": "Failed to create"
+    },
+    {
+      "file": "src/app/api/alert-rules/route.ts",
+      "line": 210,
+      "pattern": "typed-error",
+      "text": "Not authenticated"
+    },
+    {
+      "file": "src/app/api/alert-rules/route.ts",
+      "line": 236,
+      "pattern": "guard-error-message",
+      "text": "Failed to update"
+    },
+    {
+      "file": "src/app/api/alert-rules/route.ts",
+      "line": 241,
+      "pattern": "typed-error",
+      "text": "Not authenticated"
+    },
+    {
+      "file": "src/app/api/alert-rules/route.ts",
+      "line": 285,
+      "pattern": "typed-error",
+      "text": "Not authenticated"
+    },
+    {
+      "file": "src/app/api/alert-rules/route.ts",
+      "line": 289,
+      "pattern": "typed-error",
+      "text": "Missing rule ID"
+    },
+    {
+      "file": "src/app/api/alert-rules/route.ts",
+      "line": 307,
+      "pattern": "typed-error",
+      "text": "Not authenticated"
+    },
+    {
+      "file": "src/app/api/api-tokens/route.ts",
+      "line": 83,
+      "pattern": "typed-error",
+      "text": "Unauthorized"
+    },
+    {
+      "file": "src/app/api/api-tokens/route.ts",
+      "line": 99,
+      "pattern": "guard-error-message",
+      "text": "Failed to create token"
+    },
+    {
+      "file": "src/app/api/api-tokens/route.ts",
+      "line": 107,
+      "pattern": "typed-error",
+      "text": "Unauthorized"
+    },
+    {
+      "file": "src/app/api/api-tokens/route.ts",
+      "line": 150,
+      "pattern": "guard-error-message",
+      "text": "Operation failed"
+    },
+    {
+      "file": "src/app/api/api-tokens/route.ts",
+      "line": 154,
+      "pattern": "typed-error",
+      "text": "Unauthorized"
+    },
+    {
+      "file": "src/app/api/app-sources/route.ts",
+      "line": 28,
+      "pattern": "guard-error-message",
+      "text": "Server error"
+    },
+    {
+      "file": "src/app/api/app-sources/route.ts",
+      "line": 129,
+      "pattern": "typed-error",
+      "text": "Source name already exists"
+    },
+    {
+      "file": "src/app/api/app-sources/route.ts",
+      "line": 171,
+      "pattern": "guard-error-message",
+      "text": "Operation failed"
+    },
+    {
+      "file": "src/app/api/app-sources/route.ts",
+      "line": 213,
+      "pattern": "guard-error-message",
+      "text": "Failed to delete"
+    },
+    {
+      "file": "src/app/api/auth/ws-token/route.ts",
+      "line": 41,
+      "pattern": "typed-error",
+      "text": "Not authenticated"
+    },
+    {
+      "file": "src/app/api/auth/ws-token/route.ts",
+      "line": 60,
+      "pattern": "json-error",
+      "text": "Missing session"
+    },
+    {
+      "file": "src/app/api/backup-schedules/[id]/route.ts",
+      "line": 21,
+      "pattern": "guard-error-message",
+      "text": "Failed to delete backup schedule"
+    },
+    {
+      "file": "src/app/api/backup-schedules/[id]/route.ts",
+      "line": 24,
+      "pattern": "json-error",
+      "text": "Missing schedule ID"
+    },
+    {
+      "file": "src/app/api/backup-schedules/route.ts",
+      "line": 29,
+      "pattern": "guard-error-message",
+      "text": "Failed to create backup schedule"
+    },
+    {
+      "file": "src/app/api/backup-schedules/route.ts",
+      "line": 54,
+      "pattern": "guard-error-message",
+      "text": "Failed to update backup schedule"
+    },
+    {
+      "file": "src/app/api/backups/[id]/drill/route.ts",
+      "line": 14,
+      "pattern": "guard-error-message",
+      "text": "Backup drill failed"
+    },
+    {
+      "file": "src/app/api/backups/[id]/restore/route.ts",
+      "line": 24,
+      "pattern": "guard-error-message",
+      "text": "Restore failed"
+    },
+    {
+      "file": "src/app/api/backups/[id]/retry/route.ts",
+      "line": 14,
+      "pattern": "guard-error-message",
+      "text": "Operation failed"
+    },
+    {
+      "file": "src/app/api/backups/[id]/void/route.ts",
+      "line": 18,
+      "pattern": "guard-error-message",
+      "text": "Operation failed"
+    },
+    {
+      "file": "src/app/api/backups/migration/route.ts",
+      "line": 51,
+      "pattern": "guard-error-message",
+      "text": "Migration wizard action failed"
+    },
+    {
+      "file": "src/app/api/backups/migration/route.ts",
+      "line": 128,
+      "pattern": "guard-error-message",
+      "text": "Failed to list migration packages"
+    },
+    {
+      "file": "src/app/api/backups/offsite/dry-run/route.ts",
+      "line": 26,
+      "pattern": "guard-error-message",
+      "text": "dry-run failed"
+    },
+    {
+      "file": "src/app/api/backups/offsite/route.ts",
+      "line": 62,
+      "pattern": "guard-error-message",
+      "text": "Failed to save offsite backup configuration"
+    },
+    {
+      "file": "src/app/api/backups/retention/route.ts",
+      "line": 31,
+      "pattern": "guard-error-message",
+      "text": "Operation failed"
+    },
+    {
+      "file": "src/app/api/backups/route.ts",
+      "line": 41,
+      "pattern": "guard-error-message",
+      "text": "Operation failed"
+    },
+    {
+      "file": "src/app/api/backups/route.ts",
+      "line": 46,
+      "pattern": "typed-error",
+      "text": "Invalid backup parameters"
+    },
+    {
+      "file": "src/app/api/backups/route.ts",
+      "line": 61,
+      "pattern": "typed-error",
+      "text": "Backup finished with status ${backup.status}"
+    },
+    {
+      "file": "src/app/api/command-templates/route.ts",
+      "line": 33,
+      "pattern": "guard-error-message",
+      "text": "Server error"
+    },
+    {
+      "file": "src/app/api/command-templates/route.ts",
+      "line": 47,
+      "pattern": "guard-error-message",
+      "text": "Creation failed"
+    },
+    {
+      "file": "src/app/api/command-templates/route.ts",
+      "line": 58,
+      "pattern": "guard-error-message",
+      "text": "Update failed"
+    },
+    {
+      "file": "src/app/api/command-templates/route.ts",
+      "line": 67,
+      "pattern": "guard-error-message",
+      "text": "Delete failed"
+    },
+    {
+      "file": "src/app/api/command-templates/route.ts",
+      "line": 69,
+      "pattern": "typed-error",
+      "text": "Missing template ID"
+    },
+    {
+      "file": "src/app/api/commands/[id]/tickets/route.ts",
+      "line": 19,
+      "pattern": "guard-error-message",
+      "text": "Failed to list linked tickets"
+    },
+    {
+      "file": "src/app/api/cost/billing-accounts/[id]/route.ts",
+      "line": 30,
+      "pattern": "guard-error-message",
+      "text": "Failed to load cloud billing account"
+    },
+    {
+      "file": "src/app/api/cost/billing-accounts/[id]/route.ts",
+      "line": 48,
+      "pattern": "guard-error-message",
+      "text": "Failed to update cloud billing account"
+    },
+    {
+      "file": "src/app/api/cost/billing-accounts/[id]/route.ts",
+      "line": 70,
+      "pattern": "guard-error-message",
+      "text": "Failed to delete cloud billing account"
+    },
+    {
+      "file": "src/app/api/cost/billing-accounts/[id]/sync/route.ts",
+      "line": 27,
+      "pattern": "guard-error-message",
+      "text": "Failed to sync cloud billing account"
+    },
+    {
+      "file": "src/app/api/cost/billing-accounts/route.ts",
+      "line": 25,
+      "pattern": "guard-error-message",
+      "text": "Failed to list cloud billing accounts"
+    },
+    {
+      "file": "src/app/api/cost/billing-accounts/route.ts",
+      "line": 42,
+      "pattern": "guard-error-message",
+      "text": "Failed to create cloud billing account"
+    },
+    {
+      "file": "src/app/api/cost/budgets/route.ts",
+      "line": 11,
+      "pattern": "guard-error-message",
+      "text": "Failed to load cost budgets"
+    },
+    {
+      "file": "src/app/api/cost/budgets/route.ts",
+      "line": 17,
+      "pattern": "guard-error-message",
+      "text": "Failed to create cost budget"
+    },
+    {
+      "file": "src/app/api/cost/entries/[id]/route.ts",
+      "line": 37,
+      "pattern": "guard-error-message",
+      "text": "Failed to load cost entry"
+    },
+    {
+      "file": "src/app/api/cost/entries/[id]/route.ts",
+      "line": 42,
+      "pattern": "typed-error",
+      "text": "Cost entry not found ${id}"
+    },
+    {
+      "file": "src/app/api/cost/entries/[id]/route.ts",
+      "line": 61,
+      "pattern": "guard-error-message",
+      "text": "Failed to update cost entry"
+    },
+    {
+      "file": "src/app/api/cost/entries/[id]/route.ts",
+      "line": 85,
+      "pattern": "guard-error-message",
+      "text": "Failed to delete cost entry"
+    },
+    {
+      "file": "src/app/api/cost/entries/route.ts",
+      "line": 41,
+      "pattern": "guard-error-message",
+      "text": "Failed to load cost entry"
+    },
+    {
+      "file": "src/app/api/cost/entries/route.ts",
+      "line": 63,
+      "pattern": "guard-error-message",
+      "text": "Failed to create cost entry"
+    },
+    {
+      "file": "src/app/api/cost/snapshots/route.ts",
+      "line": 36,
+      "pattern": "guard-error-message",
+      "text": "Failed to load historical snapshots"
+    },
+    {
+      "file": "src/app/api/cost/snapshots/route.ts",
+      "line": 57,
+      "pattern": "guard-error-message",
+      "text": "Failed to sync VPS monthly cost"
+    },
+    {
+      "file": "src/app/api/cost/summary/route.ts",
+      "line": 33,
+      "pattern": "guard-error-message",
+      "text": "Failed to load cost summary"
+    },
+    {
+      "file": "src/app/api/deploy-export/[id]/zip/route.ts",
+      "line": 58,
+      "pattern": "typed-error",
+      "text": "Deployment export package not found"
+    },
+    {
+      "file": "src/app/api/deploy-export/[id]/zip/route.ts",
+      "line": 63,
+      "pattern": "typed-error",
+      "text": "Invalid export id"
+    },
+    {
+      "file": "src/app/api/deploy-export/[id]/zip/route.ts",
+      "line": 67,
+      "pattern": "typed-error",
+      "text": "Deployment export package not found"
+    },
+    {
+      "file": "src/app/api/deploy-export/[id]/zip/route.ts",
+      "line": 74,
+      "pattern": "typed-error",
+      "text": "Deployment export package not found"
+    },
+    {
+      "file": "src/app/api/deploy-export/[id]/zip/route.ts",
+      "line": 79,
+      "pattern": "typed-error",
+      "text": "Deployment export package has no downloadable files"
+    },
+    {
+      "file": "src/app/api/deploy-export/route.ts",
+      "line": 40,
+      "pattern": "typed-error",
+      "text": "Unauthorized"
+    },
+    {
+      "file": "src/app/api/deployments/[id]/rollback/route.ts",
+      "line": 23,
+      "pattern": "guard-error-message",
+      "text": "Rollback failed"
+    },
+    {
+      "file": "src/app/api/deployments/[id]/rollback/route.ts",
+      "line": 27,
+      "pattern": "typed-error",
+      "text": "Not authenticated or session expired"
+    },
+    {
+      "file": "src/app/api/deployments/route.ts",
+      "line": 29,
+      "pattern": "guard-error-message",
+      "text": "Failed to fetch deployment list"
+    },
+    {
+      "file": "src/app/api/deployments/route.ts",
+      "line": 86,
+      "pattern": "guard-error-message",
+      "text": "Operation failed"
+    },
+    {
+      "file": "src/app/api/docker/compose/route.ts",
+      "line": 38,
+      "pattern": "guard-error-message",
+      "text": "Failed to list compose projects"
+    },
+    {
+      "file": "src/app/api/docker/compose/route.ts",
+      "line": 64,
+      "pattern": "guard-error-message",
+      "text": "Compose project action failed"
+    },
+    {
+      "file": "src/app/api/docker/containers/route.ts",
+      "line": 48,
+      "pattern": "guard-error-message",
+      "text": "Docker API RequestFailed"
+    },
+    {
+      "file": "src/app/api/docker/containers/route.ts",
+      "line": 145,
+      "pattern": "guard-error-message",
+      "text": "Docker operation failed"
+    },
+    {
+      "file": "src/app/api/docker/containers/route.ts",
+      "line": 150,
+      "pattern": "typed-error",
+      "text": "Not authenticated"
+    },
+    {
+      "file": "src/app/api/docker/resources/route.ts",
+      "line": 30,
+      "pattern": "guard-error-message",
+      "text": "Failed to fetch Docker resources"
+    },
+    {
+      "file": "src/app/api/docker/resources/route.ts",
+      "line": 53,
+      "pattern": "guard-error-message",
+      "text": "Docker resource operation failed"
+    },
+    {
+      "file": "src/app/api/docker/resources/route.ts",
+      "line": 55,
+      "pattern": "typed-error",
+      "text": "Not authenticated"
+    },
+    {
+      "file": "src/app/api/downloads/recent/route.ts",
+      "line": 15,
+      "pattern": "guard-error-message",
+      "text": "Failed to fetch recent downloads"
+    },
+    {
+      "file": "src/app/api/downloads/recent/route.ts",
+      "line": 17,
+      "pattern": "json-error",
+      "text": "Unauthorized"
+    },
+    {
+      "file": "src/app/api/files/[id]/versions/[versionId]/download/route.ts",
+      "line": 28,
+      "pattern": "guard-error-message",
+      "text": "Failed to download file version"
+    },
+    {
+      "file": "src/app/api/files/[id]/versions/[versionId]/download/route.ts",
+      "line": 31,
+      "pattern": "typed-error",
+      "text": "Unauthorized"
+    },
+    {
+      "file": "src/app/api/files/[id]/versions/[versionId]/restore/route.ts",
+      "line": 24,
+      "pattern": "guard-error-message",
+      "text": "Failed to restore file version"
+    },
+    {
+      "file": "src/app/api/files/[id]/versions/[versionId]/restore/route.ts",
+      "line": 27,
+      "pattern": "typed-error",
+      "text": "Unauthorized"
+    },
+    {
+      "file": "src/app/api/files/[id]/versions/route.ts",
+      "line": 31,
+      "pattern": "guard-error-message",
+      "text": "Failed to list file versions"
+    },
+    {
+      "file": "src/app/api/files/[id]/versions/route.ts",
+      "line": 34,
+      "pattern": "typed-error",
+      "text": "Unauthorized"
+    },
+    {
+      "file": "src/app/api/files/[id]/versions/route.ts",
+      "line": 56,
+      "pattern": "guard-error-message",
+      "text": "Failed to create file version"
+    },
+    {
+      "file": "src/app/api/files/[id]/versions/route.ts",
+      "line": 59,
+      "pattern": "typed-error",
+      "text": "Unauthorized"
+    },
+    {
+      "file": "src/app/api/files/archive-list/route.ts",
+      "line": 32,
+      "pattern": "guard-error-message",
+      "text": "Failed to read archive"
+    },
+    {
+      "file": "src/app/api/files/archive-list/route.ts",
+      "line": 35,
+      "pattern": "typed-error",
+      "text": "Unauthorized"
+    },
+    {
+      "file": "src/app/api/files/archive-list/route.ts",
+      "line": 50,
+      "pattern": "typed-error",
+      "text": "Missing file path"
+    },
+    {
+      "file": "src/app/api/files/archive-list/route.ts",
+      "line": 58,
+      "pattern": "typed-error",
+      "text": "Storage node not found"
+    },
+    {
+      "file": "src/app/api/files/compress/route.ts",
+      "line": 29,
+      "pattern": "guard-error-message",
+      "text": "Compression failed"
+    },
+    {
+      "file": "src/app/api/files/compress/route.ts",
+      "line": 33,
+      "pattern": "typed-error",
+      "text": "Unauthorized"
+    },
+    {
+      "file": "src/app/api/files/compress/route.ts",
+      "line": 44,
+      "pattern": "typed-error",
+      "text": "Storage node not found"
+    },
+    {
+      "file": "src/app/api/files/compress/route.ts",
+      "line": 46,
+      "pattern": "json-error",
+      "text": "Only local storage node batch compression is supported"
+    },
+    {
+      "file": "src/app/api/files/compress/route.ts",
+      "line": 67,
+      "pattern": "json-error",
+      "text": "Target archive /${outputRelativePath} already exists"
+    },
+    {
+      "file": "src/app/api/files/compress/route.ts",
+      "line": 74,
+      "pattern": "json-error",
+      "text": "Cannot include the target archive in itself"
+    },
+    {
+      "file": "src/app/api/files/compress/route.ts",
+      "line": 87,
+      "pattern": "typed-error",
+      "text": "File not found: /${relativePath}"
+    },
+    {
+      "file": "src/app/api/files/compress/route.ts",
+      "line": 101,
+      "pattern": "json-error",
+      "text": "Compression failed: ${message}"
+    },
+    {
+      "file": "src/app/api/files/editable/[id]/route.ts",
+      "line": 21,
+      "pattern": "guard-error-message",
+      "text": "Failed to fetch file draft"
+    },
+    {
+      "file": "src/app/api/files/editable/[id]/route.ts",
+      "line": 23,
+      "pattern": "typed-error",
+      "text": "Unauthorized"
+    },
+    {
+      "file": "src/app/api/files/editable/[id]/route.ts",
+      "line": 41,
+      "pattern": "guard-error-message",
+      "text": "Failed to save file"
+    },
+    {
+      "file": "src/app/api/files/editable/[id]/route.ts",
+      "line": 45,
+      "pattern": "typed-error",
+      "text": "Unauthorized"
+    },
+    {
+      "file": "src/app/api/files/extract/route.ts",
+      "line": 49,
+      "pattern": "guard-error-message",
+      "text": "Extraction failed"
+    },
+    {
+      "file": "src/app/api/files/extract/route.ts",
+      "line": 54,
+      "pattern": "typed-error",
+      "text": "Unauthorized"
+    },
+    {
+      "file": "src/app/api/files/extract/route.ts",
+      "line": 69,
+      "pattern": "typed-error",
+      "text": "Missing required parameters"
+    },
+    {
+      "file": "src/app/api/files/extract/route.ts",
+      "line": 77,
+      "pattern": "typed-error",
+      "text": "Storage node not found"
+    },
+    {
+      "file": "src/app/api/files/extract/route.ts",
+      "line": 129,
+      "pattern": "typed-error",
+      "text": "File not found"
+    },
+    {
+      "file": "src/app/api/files/list/route.ts",
+      "line": 33,
+      "pattern": "guard-error-message",
+      "text": "Failed to fetch file list"
+    },
+    {
+      "file": "src/app/api/files/list/route.ts",
+      "line": 36,
+      "pattern": "typed-error",
+      "text": "Unauthorized"
+    },
+    {
+      "file": "src/app/api/files/search-content/route.ts",
+      "line": 28,
+      "pattern": "guard-error-message",
+      "text": "Content search failed"
+    },
+    {
+      "file": "src/app/api/files/search-content/route.ts",
+      "line": 30,
+      "pattern": "typed-error",
+      "text": "Unauthorized"
+    },
+    {
+      "file": "src/app/api/health/capacity/route.ts",
+      "line": 47,
+      "pattern": "guard-error-message",
+      "text": "Failed to compute capacity forecast"
+    },
+    {
+      "file": "src/app/api/health/route.ts",
+      "line": 51,
+      "pattern": "api-error",
+      "text": "Unauthorized"
+    },
+    {
+      "file": "src/app/api/health/route.ts",
+      "line": 56,
+      "pattern": "api-error",
+      "text": "Unauthorized"
+    },
+    {
+      "file": "src/app/api/health/route.ts",
+      "line": 62,
+      "pattern": "guard-error-message",
+      "text": "Failed to fetch health data"
+    },
+    {
+      "file": "src/app/api/health/route.ts",
+      "line": 83,
+      "pattern": "api-error",
+      "text": "Unauthorized"
+    },
+    {
+      "file": "src/app/api/health/route.ts",
+      "line": 112,
+      "pattern": "api-error",
+      "text": "Unauthorized"
+    },
+    {
+      "file": "src/app/api/images/[id]/file/route.ts",
+      "line": 73,
+      "pattern": "api-error",
+      "text": "Invalid file path"
+    },
+    {
+      "file": "src/app/api/images/[id]/file/route.ts",
+      "line": 80,
+      "pattern": "api-error",
+      "text": "File is missing"
+    },
+    {
+      "file": "src/app/api/images/[id]/route.ts",
+      "line": 58,
+      "pattern": "guard-error-message",
+      "text": "Delete failed"
+    },
+    {
+      "file": "src/app/api/images/[id]/route.ts",
+      "line": 85,
+      "pattern": "typed-error",
+      "text": "No permission to delete"
+    },
+    {
+      "file": "src/app/api/images/batch/route.ts",
+      "line": 30,
+      "pattern": "guard-error-message",
+      "text": "Batch operation failed"
+    },
+    {
+      "file": "src/app/api/images/list/route.ts",
+      "line": 28,
+      "pattern": "guard-error-message",
+      "text": "Failed to fetch image list"
+    },
+    {
+      "file": "src/app/api/images/publish-from-storage/route.ts",
+      "line": 42,
+      "pattern": "guard-error-message",
+      "text": "Failed to publish from storage"
+    },
+    {
+      "file": "src/app/api/images/stats/route.ts",
+      "line": 18,
+      "pattern": "guard-error-message",
+      "text": "Failed to fetch statistics"
+    },
+    {
+      "file": "src/app/api/images/upload/[id]/chunk/route.ts",
+      "line": 44,
+      "pattern": "guard-error-message",
+      "text": "Failed to upload chunk"
+    },
+    {
+      "file": "src/app/api/images/upload/[id]/chunk/route.ts",
+      "line": 48,
+      "pattern": "typed-error",
+      "text": "Not authenticated or session expired"
+    },
+    {
+      "file": "src/app/api/images/upload/[id]/chunk/route.ts",
+      "line": 55,
+      "pattern": "typed-error",
+      "text": "Failed to read chunk content"
+    },
+    {
+      "file": "src/app/api/images/upload/[id]/complete/route.ts",
+      "line": 69,
+      "pattern": "guard-error-message",
+      "text": "Failed to complete upload session"
+    },
+    {
+      "file": "src/app/api/images/upload/[id]/complete/route.ts",
+      "line": 73,
+      "pattern": "typed-error",
+      "text": "Not authenticated or session expired"
+    },
+    {
+      "file": "src/app/api/images/upload/[id]/complete/route.ts",
+      "line": 91,
+      "pattern": "typed-error",
+      "text": "Upload session not found or does not belong to the current user"
+    },
+    {
+      "file": "src/app/api/images/upload/[id]/complete/route.ts",
+      "line": 180,
+      "pattern": "typed-error",
+      "text": "No permission to write to the storage path"
+    },
+    {
+      "file": "src/app/api/images/upload/[id]/complete/route.ts",
+      "line": 188,
+      "pattern": "typed-error",
+      "text": "Storage node does not support media uploads"
+    },
+    {
+      "file": "src/app/api/images/upload/[id]/route.ts",
+      "line": 37,
+      "pattern": "guard-error-message",
+      "text": "Failed to query upload session"
+    },
+    {
+      "file": "src/app/api/images/upload/[id]/route.ts",
+      "line": 41,
+      "pattern": "typed-error",
+      "text": "Not authenticated or session expired"
+    },
+    {
+      "file": "src/app/api/images/upload/[id]/route.ts",
+      "line": 45,
+      "pattern": "typed-error",
+      "text": "Upload session not found: ${sessionId}"
+    },
+    {
+      "file": "src/app/api/images/upload/[id]/route.ts",
+      "line": 63,
+      "pattern": "guard-error-message",
+      "text": "Failed to cancel upload session"
+    },
+    {
+      "file": "src/app/api/images/upload/[id]/route.ts",
+      "line": 67,
+      "pattern": "typed-error",
+      "text": "Not authenticated or session expired"
+    },
+    {
+      "file": "src/app/api/images/upload/init/route.ts",
+      "line": 36,
+      "pattern": "guard-error-message",
+      "text": "Failed to initialize upload session"
+    },
+    {
+      "file": "src/app/api/images/upload/init/route.ts",
+      "line": 40,
+      "pattern": "typed-error",
+      "text": "Not authenticated or session expired"
+    },
+    {
+      "file": "src/app/api/itsm/connections/[id]/route.ts",
+      "line": 28,
+      "pattern": "guard-error-message",
+      "text": "Failed to load ITSM connection"
+    },
+    {
+      "file": "src/app/api/itsm/connections/[id]/route.ts",
+      "line": 46,
+      "pattern": "guard-error-message",
+      "text": "Failed to update ITSM connection"
+    },
+    {
+      "file": "src/app/api/itsm/connections/[id]/route.ts",
+      "line": 67,
+      "pattern": "guard-error-message",
+      "text": "Failed to delete ITSM connection"
+    },
+    {
+      "file": "src/app/api/itsm/connections/[id]/test/route.ts",
+      "line": 33,
+      "pattern": "guard-error-message",
+      "text": "Failed to test ITSM connection"
+    },
+    {
+      "file": "src/app/api/itsm/connections/route.ts",
+      "line": 22,
+      "pattern": "guard-error-message",
+      "text": "Failed to list ITSM connections"
+    },
+    {
+      "file": "src/app/api/itsm/connections/route.ts",
+      "line": 39,
+      "pattern": "guard-error-message",
+      "text": "Failed to create ITSM connection"
+    },
+    {
+      "file": "src/app/api/itsm/events/route.ts",
+      "line": 19,
+      "pattern": "guard-error-message",
+      "text": "Failed to list ITSM events"
+    },
+    {
+      "file": "src/app/api/itsm/inbound/[connectionId]/route.ts",
+      "line": 41,
+      "pattern": "json-error",
+      "text": "Rate limit exceeded"
+    },
+    {
+      "file": "src/app/api/itsm/inbound/[connectionId]/route.ts",
+      "line": 48,
+      "pattern": "json-error",
+      "text": "Request body too large"
+    },
+    {
+      "file": "src/app/api/itsm/inbound/[connectionId]/route.ts",
+      "line": 54,
+      "pattern": "json-error",
+      "text": "Request body too large"
+    },
+    {
+      "file": "src/app/api/itsm/inbound/[connectionId]/route.ts",
+      "line": 61,
+      "pattern": "json-error",
+      "text": "Invalid JSON body"
+    },
+    {
+      "file": "src/app/api/jobs/[id]/events/route.ts",
+      "line": 30,
+      "pattern": "guard-error-message",
+      "text": "Failed to fetch task events"
+    },
+    {
+      "file": "src/app/api/jobs/[id]/events/route.ts",
+      "line": 35,
+      "pattern": "typed-error",
+      "text": "Missing task ID"
+    },
+    {
+      "file": "src/app/api/jobs/[id]/events/route.ts",
+      "line": 43,
+      "pattern": "typed-error",
+      "text": "Task not found"
+    },
+    {
+      "file": "src/app/api/knowledge/[id]/route.ts",
+      "line": 20,
+      "pattern": "guard-error-message",
+      "text": "Failed to load knowledge base"
+    },
+    {
+      "file": "src/app/api/knowledge/[id]/route.ts",
+      "line": 25,
+      "pattern": "typed-error",
+      "text": "Knowledge base not found"
+    },
+    {
+      "file": "src/app/api/knowledge/route.ts",
+      "line": 52,
+      "pattern": "guard-error-message",
+      "text": "Failed to list knowledge bases"
+    },
+    {
+      "file": "src/app/api/knowledge/route.ts",
+      "line": 80,
+      "pattern": "guard-error-message",
+      "text": "Knowledge action failed"
+    },
+    {
+      "file": "src/app/api/knowledge/route.ts",
+      "line": 145,
+      "pattern": "guard-error-message",
+      "text": "Knowledge delete failed"
+    },
+    {
+      "file": "src/app/api/knowledge/route.ts",
+      "line": 162,
+      "pattern": "typed-error",
+      "text": "id or documentId is required"
+    },
+    {
+      "file": "src/app/api/media/[id]/route.ts",
+      "line": 29,
+      "pattern": "guard-error-message",
+      "text": "Operation failed"
+    },
+    {
+      "file": "src/app/api/media/[id]/stream/route.ts",
+      "line": 33,
+      "pattern": "typed-error",
+      "text": "Invalid path"
+    },
+    {
+      "file": "src/app/api/media/[id]/stream/route.ts",
+      "line": 56,
+      "pattern": "guard-error-message",
+      "text": "Failed to read media"
+    },
+    {
+      "file": "src/app/api/media/[id]/stream/route.ts",
+      "line": 58,
+      "pattern": "typed-error",
+      "text": "Not authenticated"
+    },
+    {
+      "file": "src/app/api/media/[id]/stream/route.ts",
+      "line": 70,
+      "pattern": "api-error",
+      "text": "Media not found"
+    },
+    {
+      "file": "src/app/api/media/[id]/stream/route.ts",
+      "line": 80,
+      "pattern": "api-error",
+      "text": "Missing storage access authorization"
+    },
+    {
+      "file": "src/app/api/media/[id]/stream/route.ts",
+      "line": 88,
+      "pattern": "api-error",
+      "text": "Target is not a playable file"
+    },
+    {
+      "file": "src/app/api/media/[id]/stream/route.ts",
+      "line": 102,
+      "pattern": "api-error",
+      "text": "File not found or temporarily cannot be read"
+    },
+    {
+      "file": "src/app/api/media/[id]/stream/route.ts",
+      "line": 107,
+      "pattern": "api-error",
+      "text": "This storage node does not support media streaming"
+    },
+    {
+      "file": "src/app/api/media/[id]/stream/route.ts",
+      "line": 126,
+      "pattern": "api-error",
+      "text": "Missing storage access authorization"
+    },
+    {
+      "file": "src/app/api/media/[id]/thumbnail/route.ts",
+      "line": 148,
+      "pattern": "typed-error",
+      "text": "Invalid path"
+    },
+    {
+      "file": "src/app/api/media/[id]/thumbnail/route.ts",
+      "line": 204,
+      "pattern": "guard-error-message",
+      "text": "Failed to read media thumbnail"
+    },
+    {
+      "file": "src/app/api/media/[id]/thumbnail/route.ts",
+      "line": 206,
+      "pattern": "typed-error",
+      "text": "Not authenticated"
+    },
+    {
+      "file": "src/app/api/media/[id]/thumbnail/route.ts",
+      "line": 209,
+      "pattern": "api-error",
+      "text": "Media not found"
+    },
+    {
+      "file": "src/app/api/media/[id]/thumbnail/route.ts",
+      "line": 215,
+      "pattern": "api-error",
+      "text": "This media type does not support thumbnails"
+    },
+    {
+      "file": "src/app/api/media/[id]/thumbnail/route.ts",
+      "line": 225,
+      "pattern": "api-error",
+      "text": "Missing storage access authorization"
+    },
+    {
+      "file": "src/app/api/media/[id]/thumbnail/route.ts",
+      "line": 282,
+      "pattern": "api-error",
+      "text": "Missing storage access authorization"
+    },
+    {
+      "file": "src/app/api/media/[id]/thumbnail/route.ts",
+      "line": 313,
+      "pattern": "api-error",
+      "text": "Original image is too large, cannot generate thumbnail"
+    },
+    {
+      "file": "src/app/api/media/[id]/thumbnail/route.ts",
+      "line": 351,
+      "pattern": "api-error",
+      "text": "Failed to generate thumbnail"
+    },
+    {
+      "file": "src/app/api/media/route.ts",
+      "line": 17,
+      "pattern": "guard-error-message",
+      "text": "Failed to fetch media list"
+    },
+    {
+      "file": "src/app/api/media/route.ts",
+      "line": 51,
+      "pattern": "guard-error-message",
+      "text": "Operation failed"
+    },
+    {
+      "file": "src/app/api/media/route.ts",
+      "line": 55,
+      "pattern": "typed-error",
+      "text": "Not authenticated"
+    },
+    {
+      "file": "src/app/api/monitoring/observability/route.ts",
+      "line": 60,
+      "pattern": "guard-error-message",
+      "text": "Failed to fetch observability metrics"
+    },
+    {
+      "file": "src/app/api/monitoring/stats/route.ts",
+      "line": 9,
+      "pattern": "guard-error-message",
+      "text": "Failed to fetch monitoring data"
+    },
+    {
+      "file": "src/app/api/monitoring/stream/route.ts",
+      "line": 44,
+      "pattern": "guard-error-message",
+      "text": "Monitoring SSE authentication failed"
+    },
+    {
+      "file": "src/app/api/monitoring/web-vitals/route.ts",
+      "line": 29,
+      "pattern": "guard-error-message",
+      "text": "Failed to record web vital"
+    },
+    {
+      "file": "src/app/api/notifications/route.ts",
+      "line": 40,
+      "pattern": "guard-error-message",
+      "text": "Failed to fetch notifications"
+    },
+    {
+      "file": "src/app/api/notifications/route.ts",
+      "line": 43,
+      "pattern": "typed-error",
+      "text": "Not authenticated"
+    },
+    {
+      "file": "src/app/api/notifications/route.ts",
+      "line": 68,
+      "pattern": "guard-error-message",
+      "text": "Operation failed"
+    },
+    {
+      "file": "src/app/api/notifications/route.ts",
+      "line": 73,
+      "pattern": "typed-error",
+      "text": "Not authenticated"
+    },
+    {
+      "file": "src/app/api/notifications/route.ts",
+      "line": 131,
+      "pattern": "guard-error-message",
+      "text": "Batch operation failed"
+    },
+    {
+      "file": "src/app/api/notifications/route.ts",
+      "line": 135,
+      "pattern": "typed-error",
+      "text": "Not authenticated"
+    },
+    {
+      "file": "src/app/api/notifications/route.ts",
+      "line": 165,
+      "pattern": "guard-error-message",
+      "text": "Failed to delete notification"
+    },
+    {
+      "file": "src/app/api/notifications/route.ts",
+      "line": 169,
+      "pattern": "typed-error",
+      "text": "Not authenticated"
+    },
+    {
+      "file": "src/app/api/operation-tasks/route.ts",
+      "line": 93,
+      "pattern": "guard-error-message",
+      "text": "Failed to fetch task list"
+    },
+    {
+      "file": "src/app/api/playbooks/[id]/dry-run/route.ts",
+      "line": 21,
+      "pattern": "guard-error-message",
+      "text": "dry-run Failed"
+    },
+    {
+      "file": "src/app/api/playbooks/[id]/route.ts",
+      "line": 21,
+      "pattern": "guard-error-message",
+      "text": "Server error"
+    },
+    {
+      "file": "src/app/api/playbooks/[id]/route.ts",
+      "line": 26,
+      "pattern": "api-error",
+      "text": "Playbook not found"
+    },
+    {
+      "file": "src/app/api/playbooks/[id]/route.ts",
+      "line": 36,
+      "pattern": "guard-error-message",
+      "text": "Failed to update"
+    },
+    {
+      "file": "src/app/api/playbooks/[id]/route.ts",
+      "line": 50,
+      "pattern": "guard-error-message",
+      "text": "Failed to delete"
+    },
+    {
+      "file": "src/app/api/playbooks/[id]/run/route.ts",
+      "line": 21,
+      "pattern": "guard-error-message",
+      "text": "Failed to run"
+    },
+    {
+      "file": "src/app/api/playbooks/[id]/runs/route.ts",
+      "line": 15,
+      "pattern": "guard-error-message",
+      "text": "Failed to load playbook runs"
+    },
+    {
+      "file": "src/app/api/playbooks/route.ts",
+      "line": 16,
+      "pattern": "guard-error-message",
+      "text": "Server error"
+    },
+    {
+      "file": "src/app/api/playbooks/route.ts",
+      "line": 27,
+      "pattern": "guard-error-message",
+      "text": "Failed to create"
+    },
+    {
+      "file": "src/app/api/preferences/route.ts",
+      "line": 32,
+      "pattern": "guard-error-message",
+      "text": "Failed to fetch preferences"
+    },
+    {
+      "file": "src/app/api/preferences/route.ts",
+      "line": 35,
+      "pattern": "typed-error",
+      "text": "Unauthorized"
+    },
+    {
+      "file": "src/app/api/preferences/route.ts",
+      "line": 64,
+      "pattern": "guard-error-message",
+      "text": "Failed to save preferences"
+    },
+    {
+      "file": "src/app/api/preferences/route.ts",
+      "line": 68,
+      "pattern": "typed-error",
+      "text": "Unauthorized"
+    },
+    {
+      "file": "src/app/api/quick-services/[slug]/route.ts",
+      "line": 50,
+      "pattern": "guard-error-message",
+      "text": "Uninstall failed"
+    },
+    {
+      "file": "src/app/api/quick-services/check-port/route.ts",
+      "line": 26,
+      "pattern": "guard-error-message",
+      "text": "Server error"
+    },
+    {
+      "file": "src/app/api/quick-services/check-port/route.ts",
+      "line": 47,
+      "pattern": "typed-error",
+      "text": "Please provide the port parameter"
+    },
+    {
+      "file": "src/app/api/quick-services/route.ts",
+      "line": 35,
+      "pattern": "guard-error-message",
+      "text": "Server error"
+    },
+    {
+      "file": "src/app/api/quick-services/route.ts",
+      "line": 155,
+      "pattern": "typed-error",
+      "text": "Unknown service"
+    },
+    {
+      "file": "src/app/api/quick-services/route.ts",
+      "line": 160,
+      "pattern": "typed-error",
+      "text": "Invalid port, please enter a number between 1-65535"
+    },
+    {
+      "file": "src/app/api/quick-services/route.ts",
+      "line": 177,
+      "pattern": "typed-error",
+      "text": "Target VPS not found or disabled"
+    },
+    {
+      "file": "src/app/api/servers/[id]/sftp/delete/route.ts",
+      "line": 25,
+      "pattern": "guard-error-message",
+      "text": "SFTP delete failed"
+    },
+    {
+      "file": "src/app/api/servers/[id]/sftp/download/route.ts",
+      "line": 26,
+      "pattern": "guard-error-message",
+      "text": "SFTP download failed"
+    },
+    {
+      "file": "src/app/api/servers/[id]/sftp/list/route.ts",
+      "line": 25,
+      "pattern": "guard-error-message",
+      "text": "SFTP list failed"
+    },
+    {
+      "file": "src/app/api/servers/[id]/sftp/mkdir/route.ts",
+      "line": 25,
+      "pattern": "guard-error-message",
+      "text": "SFTP mkdir failed"
+    },
+    {
+      "file": "src/app/api/servers/[id]/sftp/rename/route.ts",
+      "line": 25,
+      "pattern": "guard-error-message",
+      "text": "SFTP rename failed"
+    },
+    {
+      "file": "src/app/api/servers/[id]/vps-backup/records/[recordId]/download/route.ts",
+      "line": 39,
+      "pattern": "json-error",
+      "text": "Record not found"
+    },
+    {
+      "file": "src/app/api/servers/[id]/vps-backup/records/[recordId]/route.ts",
+      "line": 39,
+      "pattern": "json-error",
+      "text": "Record not found"
+    },
+    {
+      "file": "src/app/api/servers/[id]/vps-backup/records/route.ts",
+      "line": 44,
+      "pattern": "json-error",
+      "text": "Forbidden"
+    },
+    {
+      "file": "src/app/api/servers/[id]/vps-backup/records/route.ts",
+      "line": 55,
+      "pattern": "json-error",
+      "text": "Server not found"
+    },
+    {
+      "file": "src/app/api/servers/[id]/vps-backup/records/route.ts",
+      "line": 89,
+      "pattern": "json-error",
+      "text": "Server not found"
+    },
+    {
+      "file": "src/app/api/servers/[id]/vps-backup/schedules/[scheduleId]/route.ts",
+      "line": 56,
+      "pattern": "json-error",
+      "text": "Schedule not found"
+    },
+    {
+      "file": "src/app/api/servers/[id]/vps-backup/schedules/[scheduleId]/route.ts",
+      "line": 94,
+      "pattern": "json-error",
+      "text": "Schedule not found"
+    },
+    {
+      "file": "src/app/api/servers/[id]/vps-backup/schedules/route.ts",
+      "line": 46,
+      "pattern": "json-error",
+      "text": "Forbidden"
+    },
+    {
+      "file": "src/app/api/servers/[id]/vps-backup/schedules/route.ts",
+      "line": 57,
+      "pattern": "json-error",
+      "text": "Server not found"
+    },
+    {
+      "file": "src/app/api/servers/[id]/vps-backup/schedules/route.ts",
+      "line": 95,
+      "pattern": "json-error",
+      "text": "Server not found"
+    },
+    {
+      "file": "src/app/api/servers/monitor/route.ts",
+      "line": 18,
+      "pattern": "guard-error-message",
+      "text": "Server error"
+    },
+    {
+      "file": "src/app/api/settings/route.ts",
+      "line": 140,
+      "pattern": "guard-error-message",
+      "text": "Server error"
+    },
+    {
+      "file": "src/app/api/settings/route.ts",
+      "line": 150,
+      "pattern": "guard-error-message",
+      "text": "Failed to save"
+    },
+    {
+      "file": "src/app/api/shares/[id]/access-logs/route.ts",
+      "line": 14,
+      "pattern": "guard-error-message",
+      "text": "Operation failed"
+    },
+    {
+      "file": "src/app/api/shares/access-report/route.ts",
+      "line": 22,
+      "pattern": "guard-error-message",
+      "text": "Failed to load share access report"
+    },
+    {
+      "file": "src/app/api/status/route.ts",
+      "line": 10,
+      "pattern": "guard-error-message",
+      "text": "Failed to fetch status"
+    },
+    {
+      "file": "src/app/api/storage/archive-download/route.ts",
+      "line": 105,
+      "pattern": "typed-error",
+      "text": "Not authenticated"
+    },
+    {
+      "file": "src/app/api/storage/archive-download/route.ts",
+      "line": 115,
+      "pattern": "typed-error",
+      "text": "Missing nodeId parameter"
+    },
+    {
+      "file": "src/app/api/storage/archive-download/route.ts",
+      "line": 118,
+      "pattern": "typed-error",
+      "text": "Missing path parameter"
+    },
+    {
+      "file": "src/app/api/storage/archive-download/route.ts",
+      "line": 128,
+      "pattern": "typed-error",
+      "text": "Directory entry not found"
+    },
+    {
+      "file": "src/app/api/storage/archive-download/route.ts",
+      "line": 131,
+      "pattern": "typed-error",
+      "text": "Target is not a directory"
+    },
+    {
+      "file": "src/app/api/storage/archive-download/route.ts",
+      "line": 156,
+      "pattern": "typed-error",
+      "text": "Local directory not found or cannot be read"
+    },
+    {
+      "file": "src/app/api/storage/archive-download/route.ts",
+      "line": 163,
+      "pattern": "typed-error",
+      "text": "This storage node does not support directory download"
+    },
+    {
+      "file": "src/app/api/storage/direct-access/route.ts",
+      "line": 162,
+      "pattern": "typed-error",
+      "text": "Storage node not found"
+    },
+    {
+      "file": "src/app/api/storage/direct-access/route.ts",
+      "line": 247,
+      "pattern": "typed-error",
+      "text": "Not authenticated"
+    },
+    {
+      "file": "src/app/api/storage/direct-access/route.ts",
+      "line": 283,
+      "pattern": "typed-error",
+      "text": "Not authenticated"
+    },
+    {
+      "file": "src/app/api/storage/local/route.ts",
+      "line": 67,
+      "pattern": "typed-error",
+      "text": "Invalid path"
+    },
+    {
+      "file": "src/app/api/storage/nodes/route.ts",
+      "line": 28,
+      "pattern": "guard-error-message",
+      "text": "Failed to read storage node"
+    },
+    {
+      "file": "src/app/api/storage/sftp-ops/route.ts",
+      "line": 206,
+      "pattern": "typed-error",
+      "text": "Missing nodeId parameter"
+    },
+    {
+      "file": "src/app/api/storage/sftp-ops/route.ts",
+      "line": 210,
+      "pattern": "typed-error",
+      "text": "Missing path parameter"
+    },
+    {
+      "file": "src/app/api/storage/sftp-ops/route.ts",
+      "line": 238,
+      "pattern": "typed-error",
+      "text": "Missing permission"
+    },
+    {
+      "file": "src/app/api/storage/sftp-ops/route.ts",
+      "line": 531,
+      "pattern": "guard-error-message",
+      "text": "Remote file operation failed"
+    },
+    {
+      "file": "src/app/api/storage/sftp-ops/route.ts",
+      "line": 536,
+      "pattern": "typed-error",
+      "text": "Not authenticated"
+    },
+    {
+      "file": "src/app/api/storage/sftp-stale-inventory/route.ts",
+      "line": 57,
+      "pattern": "typed-error",
+      "text": "Not authenticated"
+    },
+    {
+      "file": "src/app/api/storage/sftp-stale-inventory/route.ts",
+      "line": 60,
+      "pattern": "typed-error",
+      "text": "Invalid input parameter"
+    },
+    {
+      "file": "src/app/api/storage/sftp-stale-inventory/route.ts",
+      "line": 67,
+      "pattern": "typed-error",
+      "text": "Storage node not found"
+    },
+    {
+      "file": "src/app/api/storage/sftp-stale-inventory/route.ts",
+      "line": 133,
+      "pattern": "typed-error",
+      "text": "Storage node not found"
+    },
+    {
+      "file": "src/app/api/storage/sftp/route.ts",
+      "line": 31,
+      "pattern": "typed-error",
+      "text": "Missing nodeId parameter"
+    },
+    {
+      "file": "src/app/api/storage/sftp/route.ts",
+      "line": 93,
+      "pattern": "guard-error-message",
+      "text": "Failed to list remote directory"
+    },
+    {
+      "file": "src/app/api/storage/sftp/route.ts",
+      "line": 96,
+      "pattern": "typed-error",
+      "text": "Not authenticated"
+    },
+    {
+      "file": "src/app/api/storage/upload/[id]/complete/route.ts",
+      "line": 26,
+      "pattern": "guard-error-message",
+      "text": "Failed to complete storage upload session"
+    },
+    {
+      "file": "src/app/api/storage/upload/[id]/complete/route.ts",
+      "line": 30,
+      "pattern": "typed-error",
+      "text": "Not authenticated or session expired"
+    },
+    {
+      "file": "src/app/api/storage/upload/init/route.ts",
+      "line": 32,
+      "pattern": "guard-error-message",
+      "text": "Failed to initialize storage upload session"
+    },
+    {
+      "file": "src/app/api/storage/upload/init/route.ts",
+      "line": 36,
+      "pattern": "typed-error",
+      "text": "Not authenticated or session expired"
+    },
+    {
+      "file": "src/app/api/storage/upload/init/route.ts",
+      "line": 53,
+      "pattern": "typed-error",
+      "text": "No permission to write to the storage path"
+    },
+    {
+      "file": "src/app/api/sync-jobs/[id]/report/route.ts",
+      "line": 25,
+      "pattern": "guard-error-message",
+      "text": "Failed to load sync report"
+    },
+    {
+      "file": "src/app/api/sync-jobs/[id]/route.ts",
+      "line": 36,
+      "pattern": "guard-error-message",
+      "text": "Failed to update sync job"
+    },
+    {
+      "file": "src/app/api/sync-jobs/[id]/route.ts",
+      "line": 76,
+      "pattern": "guard-error-message",
+      "text": "Failed to delete sync job"
+    },
+    {
+      "file": "src/app/api/sync-jobs/route.ts",
+      "line": 39,
+      "pattern": "guard-error-message",
+      "text": "Failed to list sync jobs"
+    },
+    {
+      "file": "src/app/api/sync-jobs/route.ts",
+      "line": 76,
+      "pattern": "guard-error-message",
+      "text": "Failed to create sync job"
+    },
+    {
+      "file": "src/app/api/sync-jobs/route.ts",
+      "line": 80,
+      "pattern": "typed-error",
+      "text": "Invalid schedule (use manual, every:15m|1h|6h|24h, or 5-field cron)"
+    },
+    {
+      "file": "src/app/api/system/export/route.ts",
+      "line": 30,
+      "pattern": "json-error",
+      "text": "Not authenticated"
+    },
+    {
+      "file": "src/app/api/system/uptime/all/route.ts",
+      "line": 13,
+      "pattern": "json-error",
+      "text": "Unauthorized"
+    },
+    {
+      "file": "src/app/api/teams/[id]/members/[userId]/route.ts",
+      "line": 15,
+      "pattern": "guard-error-message",
+      "text": "Failed to remove team member"
+    },
+    {
+      "file": "src/app/api/teams/[id]/members/route.ts",
+      "line": 13,
+      "pattern": "guard-error-message",
+      "text": "Failed to add team member"
+    },
+    {
+      "file": "src/app/api/teams/[id]/route.ts",
+      "line": 13,
+      "pattern": "guard-error-message",
+      "text": "Failed to update team"
+    },
+    {
+      "file": "src/app/api/teams/[id]/route.ts",
+      "line": 26,
+      "pattern": "guard-error-message",
+      "text": "Failed to delete team"
+    },
+    {
+      "file": "src/app/api/teams/route.ts",
+      "line": 20,
+      "pattern": "guard-error-message",
+      "text": "Failed to create team workspace"
+    },
+    {
+      "file": "src/app/api/teams/switch/route.ts",
+      "line": 13,
+      "pattern": "guard-error-message",
+      "text": "Failed to switch team workspace"
+    },
+    {
+      "file": "src/app/api/tickets/[id]/route.ts",
+      "line": 39,
+      "pattern": "typed-error",
+      "text": "Missing permission"
+    },
+    {
+      "file": "src/app/api/tickets/[id]/route.ts",
+      "line": 42,
+      "pattern": "typed-error",
+      "text": "Ticket not found"
+    },
+    {
+      "file": "src/app/api/tickets/[id]/route.ts",
+      "line": 47,
+      "pattern": "typed-error",
+      "text": "Missing permission"
+    },
+    {
+      "file": "src/app/api/tickets/[id]/route.ts",
+      "line": 82,
+      "pattern": "typed-error",
+      "text": "Missing permission"
+    },
+    {
+      "file": "src/app/api/tickets/[id]/timeline/route.ts",
+      "line": 42,
+      "pattern": "typed-error",
+      "text": "You cannot access this ticket"
+    },
+    {
+      "file": "src/app/api/tickets/[id]/timeline/route.ts",
+      "line": 45,
+      "pattern": "typed-error",
+      "text": "You cannot access this ticket"
+    },
+    {
+      "file": "src/app/api/tickets/[id]/timeline/route.ts",
+      "line": 59,
+      "pattern": "guard-error-message",
+      "text": "Failed to load ticket timeline"
+    },
+    {
+      "file": "src/app/api/tickets/[id]/timeline/route.ts",
+      "line": 80,
+      "pattern": "guard-error-message",
+      "text": "Failed to update ticket links"
+    },
+    {
+      "file": "src/app/api/tickets/route.ts",
+      "line": 60,
+      "pattern": "json-error",
+      "text": "Not authenticated"
+    },
+    {
+      "file": "src/app/api/tickets/route.ts",
+      "line": 97,
+      "pattern": "typed-error",
+      "text": "Missing permission"
+    },
+    {
+      "file": "src/app/api/traffic/history/route.ts",
+      "line": 28,
+      "pattern": "guard-error-message",
+      "text": "Failed to fetch traffic history"
+    },
+    {
+      "file": "src/app/api/traffic/summary/route.ts",
+      "line": 157,
+      "pattern": "guard-error-message",
+      "text": "Failed to fetch traffic summary"
+    },
+    {
+      "file": "src/app/api/traffic/summary/route.ts",
+      "line": 160,
+      "pattern": "json-error",
+      "text": "Unauthorized"
+    },
+    {
+      "file": "src/app/api/users/permissions/route.ts",
+      "line": 98,
+      "pattern": "typed-error",
+      "text": "Unauthorized"
+    },
+    {
+      "file": "src/app/api/users/permissions/route.ts",
+      "line": 147,
+      "pattern": "typed-error",
+      "text": "User not found"
+    },
+    {
+      "file": "src/app/api/users/permissions/route.ts",
+      "line": 210,
+      "pattern": "guard-error-message",
+      "text": "Operation failed"
+    },
+    {
+      "file": "src/app/api/users/permissions/route.ts",
+      "line": 215,
+      "pattern": "typed-error",
+      "text": "Not authenticated"
+    },
+    {
+      "file": "src/app/api/users/permissions/route.ts",
+      "line": 232,
+      "pattern": "typed-error",
+      "text": "User not found"
+    },
+    {
+      "file": "src/app/api/users/route.ts",
+      "line": 69,
+      "pattern": "guard-error-message",
+      "text": "Failed to create user"
+    },
+    {
+      "file": "src/app/api/users/route.ts",
+      "line": 158,
+      "pattern": "guard-error-message",
+      "text": "Failed to update user"
+    },
+    {
+      "file": "src/lib/ai/knowledge.ts",
+      "line": 279,
+      "pattern": "typed-error",
+      "text": "Document exceeds ${MAX_DOCUMENT_CHARS} characters"
+    },
+    {
+      "file": "src/lib/ai/ops/service.ts",
+      "line": 235,
+      "pattern": "guard-error-message",
+      "text": "Log not found"
+    },
+    {
+      "file": "src/lib/ai/ops/service.ts",
+      "line": 242,
+      "pattern": "guard-error-message",
+      "text": "Recommendation not found"
+    },
+    {
+      "file": "src/lib/ai/ops/service.ts",
+      "line": 245,
+      "pattern": "guard-error-message",
+      "text": "This recommendation does not require approval"
+    },
+    {
+      "file": "src/lib/ai/ops/service.ts",
+      "line": 254,
+      "pattern": "guard-error-message",
+      "text": "This recommendation has already been approved"
+    },
+    {
+      "file": "src/lib/ai/ops/service.ts",
+      "line": 274,
+      "pattern": "guard-error-message",
+      "text": "This recommendation was just approved by another approver; please refresh and try again"
+    },
+    {
+      "file": "src/lib/ai/ops/service.ts",
+      "line": 286,
+      "pattern": "guard-error-message",
+      "text": "Log not found"
+    },
+    {
+      "file": "src/lib/ai/ops/service.ts",
+      "line": 293,
+      "pattern": "guard-error-message",
+      "text": "Recommendation not found"
+    },
+    {
+      "file": "src/lib/ai/ops/service.ts",
+      "line": 314,
+      "pattern": "guard-error-message",
+      "text": "Admin approval required; will not execute automatically"
+    },
+    {
+      "file": "src/lib/ai/ops/service.ts",
+      "line": 321,
+      "pattern": "guard-error-message",
+      "text": "Action ${match.action} is not in the autonomous safe set; manual execution required"
+    },
+    {
+      "file": "src/lib/ai/ops/service.ts",
+      "line": 353,
+      "pattern": "guard-error-message",
+      "text": "Recommendation is already being executed; refresh to view the latest result"
+    },
+    {
+      "file": "src/lib/alert/service.ts",
+      "line": 417,
+      "pattern": "typed-error",
+      "text": "onCallUserIds require a team context"
+    },
+    {
+      "file": "src/lib/alert/service.ts",
+      "line": 424,
+      "pattern": "typed-error",
+      "text": "onCallUserIds must be members of the current team"
+    },
+    {
+      "file": "src/lib/auth/api-session.ts",
+      "line": 49,
+      "pattern": "json-error",
+      "text": "Not authenticated or session expired"
+    },
+    {
+      "file": "src/lib/auth/authorization.ts",
+      "line": 18,
+      "pattern": "typed-error",
+      "text": "Missing permission: ${permission}"
+    },
+    {
+      "file": "src/lib/auth/page-guard.ts",
+      "line": 36,
+      "pattern": "typed-error",
+      "text": "Missing permission: ${permission}"
+    },
+    {
+      "file": "src/lib/auth/require-api-permission.ts",
+      "line": 22,
+      "pattern": "json-error",
+      "text": "Insufficient permissions"
+    },
+    {
+      "file": "src/lib/auth/role-template-service.ts",
+      "line": 85,
+      "pattern": "typed-error",
+      "text": "Unknown storage node: ${invalidNode.storageNodeId}"
+    },
+    {
+      "file": "src/lib/auth/session.ts",
+      "line": 148,
+      "pattern": "typed-error",
+      "text": "Invalid session token format"
+    },
+    {
+      "file": "src/lib/auth/session.ts",
+      "line": 156,
+      "pattern": "typed-error",
+      "text": "Invalid session token signature"
+    },
+    {
+      "file": "src/lib/auth/session.ts",
+      "line": 161,
+      "pattern": "typed-error",
+      "text": "Invalid session token signature"
+    },
+    {
+      "file": "src/lib/auth/session.ts",
+      "line": 169,
+      "pattern": "typed-error",
+      "text": "Invalid session token audience"
+    },
+    {
+      "file": "src/lib/auth/session.ts",
+      "line": 175,
+      "pattern": "typed-error",
+      "text": "Pending 2FA token is not a session"
+    },
+    {
+      "file": "src/lib/auth/session.ts",
+      "line": 179,
+      "pattern": "typed-error",
+      "text": "Session token expired"
+    },
+    {
+      "file": "src/lib/auth/session.ts",
+      "line": 195,
+      "pattern": "typed-error",
+      "text": "Session user is disabled or no longer exists"
+    },
+    {
+      "file": "src/lib/backup/migration-package.ts",
+      "line": 259,
+      "pattern": "typed-error",
+      "text": "Unsupported migration manifest version: ${String(m.version)}"
+    },
+    {
+      "file": "src/lib/backup/migration-package.ts",
+      "line": 265,
+      "pattern": "typed-error",
+      "text": "Invalid backup type in manifest: ${m.backup.type}"
+    },
+    {
+      "file": "src/lib/backup/migration-package.ts",
+      "line": 451,
+      "pattern": "typed-error",
+      "text": "Cannot import migration package from another team"
+    },
+    {
+      "file": "src/lib/backup/service-crud.ts",
+      "line": 148,
+      "pattern": "guard-error-message",
+      "text": "Voided: ${reason}"
+    },
+    {
+      "file": "src/lib/backup/vps-backup-schedule-service.ts",
+      "line": 57,
+      "pattern": "typed-error",
+      "text": "Invalid backupType: ${input.backupType}"
+    },
+    {
+      "file": "src/lib/backup/vps-backup-schedule-service.ts",
+      "line": 102,
+      "pattern": "typed-error",
+      "text": "Invalid backupType: ${input.backupType}"
+    },
+    {
+      "file": "src/lib/backup/vps-backup-schedule-service.ts",
+      "line": 188,
+      "pattern": "guard-error-message",
+      "text": "Dispatch enqueue failed: ${errMsg}"
+    },
+    {
+      "file": "src/lib/backup/vps-backup-schedule-worker.ts",
+      "line": 56,
+      "pattern": "guard-error-message",
+      "text": "Stale VPS backup schedule tick lease expired"
+    },
+    {
+      "file": "src/lib/backup/vps-backup-service.ts",
+      "line": 120,
+      "pattern": "guard-error-message",
+      "text": "VpsBackupRecord ${recordId} not found"
+    },
+    {
+      "file": "src/lib/backup/vps-backup-service.ts",
+      "line": 148,
+      "pattern": "guard-error-message",
+      "text": "VpsBackupRecord ${recordId} is already running or completed"
+    },
+    {
+      "file": "src/lib/cost/cloud-billing/adapters.ts",
+      "line": 41,
+      "pattern": "typed-error",
+      "text": "Invalid billing month: ${month}"
+    },
+    {
+      "file": "src/lib/cost/cloud-billing/adapters.ts",
+      "line": 247,
+      "pattern": "typed-error",
+      "text": "billingCsvUrl HTTP ${res.status}"
+    },
+    {
+      "file": "src/lib/cost/cloud-billing/adapters.ts",
+      "line": 264,
+      "pattern": "typed-error",
+      "text": "Failed to fetch billingCsvUrl: ${msg}"
+    },
+    {
+      "file": "src/lib/cost/cloud-billing/service.ts",
+      "line": 369,
+      "pattern": "typed-error",
+      "text": "Cloud billing sync failed"
+    },
+    {
+      "file": "src/lib/docker/compose-projects.ts",
+      "line": 322,
+      "pattern": "typed-error",
+      "text": "Unsupported compose action: ${action}"
+    },
+    {
+      "file": "src/lib/docker/compose-projects.ts",
+      "line": 411,
+      "pattern": "typed-error",
+      "text": "${project}"
+    },
+    {
+      "file": "src/lib/docker/compose-projects.ts",
+      "line": 445,
+      "pattern": "typed-error",
+      "text": "${msg} [${id.slice(0, 12)}]"
+    },
+    {
+      "file": "src/lib/docker/compose-projects.ts",
+      "line": 586,
+      "pattern": "typed-error",
+      "text": "Unsupported compose action: ${action}"
+    },
+    {
+      "file": "src/lib/downloads/execution.ts",
+      "line": 145,
+      "pattern": "guard-error-message",
+      "text": "aria2 download failed: ${st.status}"
+    },
+    {
+      "file": "src/lib/downloads/execution.ts",
+      "line": 164,
+      "pattern": "guard-error-message",
+      "text": "Download timed out (2 hour limit)"
+    },
+    {
+      "file": "src/lib/downloads/execution.ts",
+      "line": 176,
+      "pattern": "guard-error-message",
+      "text": "Download completed but file not found"
+    },
+    {
+      "file": "src/lib/http/api-guard.ts",
+      "line": 132,
+      "pattern": "api-error",
+      "text": "Not authenticated"
+    },
+    {
+      "file": "src/lib/http/api-guard.ts",
+      "line": 141,
+      "pattern": "api-error",
+      "text": "Insufficient permissions"
+    },
+    {
+      "file": "src/lib/http/api-guard.ts",
+      "line": 168,
+      "pattern": "typed-error",
+      "text": "Request body too large"
+    },
+    {
+      "file": "src/lib/http/api-guard.ts",
+      "line": 179,
+      "pattern": "typed-error",
+      "text": "Request body too large"
+    },
+    {
+      "file": "src/lib/job/service.ts",
+      "line": 481,
+      "pattern": "guard-error-message",
+      "text": "Backend executor heartbeat expired, re-queued"
+    },
+    {
+      "file": "src/lib/job/service.ts",
+      "line": 495,
+      "pattern": "guard-error-message",
+      "text": "Backend executor heartbeat expired, re-queued"
+    },
+    {
+      "file": "src/lib/job/service.ts",
+      "line": 548,
+      "pattern": "guard-error-message",
+      "text": "Backend executor heartbeat expired after exhausting attempts"
+    },
+    {
+      "file": "src/lib/job/service.ts",
+      "line": 559,
+      "pattern": "guard-error-message",
+      "text": "Backend executor heartbeat expired after exhausting attempts"
+    },
+    {
+      "file": "src/lib/job/service.ts",
+      "line": 610,
+      "pattern": "guard-error-message",
+      "text": "Parent durable job exhausted attempts after executor heartbeat expired"
+    },
+    {
+      "file": "src/lib/playbook/route-params.ts",
+      "line": 9,
+      "pattern": "typed-error",
+      "text": "Missing playbook id"
+    },
+    {
+      "file": "src/lib/playbook/service.ts",
+      "line": 344,
+      "pattern": "typed-error",
+      "text": "playbook not found: ${input.playbookId}"
+    },
+    {
+      "file": "src/lib/playbook/service.ts",
+      "line": 347,
+      "pattern": "typed-error",
+      "text": "playbook is disabled: ${input.playbookId}"
+    },
+    {
+      "file": "src/lib/quick-service/docker-cli.ts",
+      "line": 62,
+      "pattern": "typed-error",
+      "text": "Target VPS not found: ${serverId}"
+    },
+    {
+      "file": "src/lib/quick-service/docker-cli.ts",
+      "line": 63,
+      "pattern": "typed-error",
+      "text": "Target VPS is disabled: ${server.name}"
+    },
+    {
+      "file": "src/lib/quick-service/job-worker.ts",
+      "line": 181,
+      "pattern": "typed-error",
+      "text": "Service ${input.payload.slug} already has a different lifecycle task in progress"
+    },
+    {
+      "file": "src/lib/quick-service/job-worker.ts",
+      "line": 183,
+      "pattern": "typed-error",
+      "text": "Service ${input.payload.slug} lifecycle task is being scheduled; retry shortly"
+    },
+    {
+      "file": "src/lib/quick-service/job-worker.ts",
+      "line": 195,
+      "pattern": "typed-error",
+      "text": "Service ${input.payload.slug} already has a different lifecycle task in progress"
+    },
+    {
+      "file": "src/lib/quick-service/service-internals.ts",
+      "line": 38,
+      "pattern": "typed-error",
+      "text": "Service ${normalizedSlug} is busy with another operation, please retry shortly"
+    },
+    {
+      "file": "src/lib/quick-service/service-internals.ts",
+      "line": 58,
+      "pattern": "typed-error",
+      "text": "Service ${svc.slug} is installing, cannot ${operation}, please retry shortly"
+    },
+    {
+      "file": "src/lib/quick-service/service-internals.ts",
+      "line": 79,
+      "pattern": "typed-error",
+      "text": "${label} ${port} is invalid, please use a port in the range 1-65535."
+    },
+    {
+      "file": "src/lib/quick-service/service-internals.ts",
+      "line": 90,
+      "pattern": "typed-error",
+      "text": "${label} path is invalid"
+    },
+    {
+      "file": "src/lib/quick-service/service-internals.ts",
+      "line": 111,
+      "pattern": "typed-error",
+      "text": "Host mount path ${hostPath} is not within the allowed range"
+    },
+    {
+      "file": "src/lib/quick-service/service-internals.ts",
+      "line": 412,
+      "pattern": "typed-error",
+      "text": "${label} ${port} is already in use, please use a different port and retry."
+    },
+    {
+      "file": "src/lib/quick-service/service-internals.ts",
+      "line": 422,
+      "pattern": "typed-error",
+      "text": "Port ${hostPort} is already in use, please use a different port and retry."
+    },
+    {
+      "file": "src/lib/quick-service/service-internals.ts",
+      "line": 429,
+      "pattern": "typed-error",
+      "text": "Extra port ${ep.host} is already in use, please use a different port and retry."
+    },
+    {
+      "file": "src/lib/quick-service/service-lifecycle-install.ts",
+      "line": 104,
+      "pattern": "typed-error",
+      "text": "${dockerStatus.message}. ${dockerStatus.installHint}"
+    },
+    {
+      "file": "src/lib/quick-service/service-lifecycle-install.ts",
+      "line": 128,
+      "pattern": "typed-error",
+      "text": "Port ${customPort} is already in use on the target VPS, please choose another port."
+    },
+    {
+      "file": "src/lib/quick-service/service-lifecycle-install.ts",
+      "line": 141,
+      "pattern": "typed-error",
+      "text": "Extra port ${ep.host} is already in use on the target VPS."
+    },
+    {
+      "file": "src/lib/quick-service/service-lifecycle-install.ts",
+      "line": 147,
+      "pattern": "typed-error",
+      "text": "Unable to allocate an available port on the target VPS; please specify a free port."
+    },
+    {
+      "file": "src/lib/quick-service/service-lifecycle-install.ts",
+      "line": 218,
+      "pattern": "typed-error",
+      "text": "Installation failed: ${msg}"
+    },
+    {
+      "file": "src/lib/quick-service/service-lifecycle-install.ts",
+      "line": 246,
+      "pattern": "typed-error",
+      "text": "Installation failed: ${msg}"
+    },
+    {
+      "file": "src/lib/quick-service/service-lifecycle.ts",
+      "line": 132,
+      "pattern": "typed-error",
+      "text": "Uninstall failed: ${msg}"
+    },
+    {
+      "file": "src/lib/quick-service/service-lifecycle.ts",
+      "line": 174,
+      "pattern": "typed-error",
+      "text": "Uninstall rollback: container deleted but DB record retained, please retry uninstall: ${msg}"
+    },
+    {
+      "file": "src/lib/quick-service/service-lifecycle.ts",
+      "line": 247,
+      "pattern": "typed-error",
+      "text": "Start failed: ${msg}"
+    },
+    {
+      "file": "src/lib/quick-service/service-lifecycle.ts",
+      "line": 313,
+      "pattern": "typed-error",
+      "text": "Update failed: ${msg}"
+    },
+    {
+      "file": "src/lib/quick-service/service-lifecycle.ts",
+      "line": 352,
+      "pattern": "typed-error",
+      "text": "Stop failed: ${msg}"
+    },
+    {
+      "file": "src/lib/runtime-settings/service.ts",
+      "line": 147,
+      "pattern": "typed-error",
+      "text": "${definition.label} must be a number"
+    },
+    {
+      "file": "src/lib/runtime-settings/service.ts",
+      "line": 151,
+      "pattern": "typed-error",
+      "text": "${definition.label} must be between ${definition.min} and ${definition.max} ${definition.unit}"
+    },
+    {
+      "file": "src/lib/server/team-access.ts",
+      "line": 50,
+      "pattern": "json-error",
+      "text": "Unauthorized"
+    },
+    {
+      "file": "src/lib/server/team-access.ts",
+      "line": 62,
+      "pattern": "json-error",
+      "text": "Server not found"
+    },
+    {
+      "file": "src/lib/server/team-access.ts",
+      "line": 85,
+      "pattern": "json-error",
+      "text": "Server not found"
+    },
+    {
+      "file": "src/lib/ssh/sftp-access-control.ts",
+      "line": 47,
+      "pattern": "typed-error",
+      "text": "SFTP path is outside the allowed home directory: ${homeRoot}"
+    },
+    {
+      "file": "src/lib/storage/file-versions.ts",
+      "line": 160,
+      "pattern": "typed-error",
+      "text": "No permission for this file"
+    },
+    {
+      "file": "src/lib/storage/resumable-upload.ts",
+      "line": 61,
+      "pattern": "typed-error",
+      "text": "Upload session not found or does not belong to the current user"
+    },
+    {
+      "file": "src/lib/storage/resumable-upload.ts",
+      "line": 66,
+      "pattern": "typed-error",
+      "text": "Storage upload session is missing storageNodeId/relativePath"
+    },
+    {
+      "file": "src/lib/storage/resumable-upload.ts",
+      "line": 85,
+      "pattern": "typed-error",
+      "text": "No permission to write to the storage path"
+    },
+    {
+      "file": "src/lib/storage/sftp-node.ts",
+      "line": 58,
+      "pattern": "typed-error",
+      "text": "Missing remote host address or connection credentials, cannot connect"
+    },
+    {
+      "file": "src/lib/sync/service-runtime.ts",
+      "line": 447,
+      "pattern": "guard-error-message",
+      "text": "Reclaimed stale RUNNING sync after process loss"
+    },
+    {
+      "file": "src/lib/system/export-service.ts",
+      "line": 551,
+      "pattern": "typed-error",
+      "text": "teamId"
+    },
+    {
+      "file": "src/lib/webdav/auth.ts",
+      "line": 97,
+      "pattern": "typed-error",
+      "text": "Invalid or insufficient WebDAV token"
+    },
+    {
+      "file": "src/lib/webdav/auth.ts",
+      "line": 108,
+      "pattern": "typed-error",
+      "text": "Invalid or insufficient WebDAV credentials"
+    },
+    {
+      "file": "src/lib/webdav/auth.ts",
+      "line": 112,
+      "pattern": "typed-error",
+      "text": "Invalid Basic authorization"
+    },
+    {
+      "file": "src/lib/webdav/auth.ts",
+      "line": 116,
+      "pattern": "typed-error",
+      "text": "WebDAV requires Bearer or Basic authentication"
+    },
+    {
+      "file": "src/lib/webdav/handler.ts",
+      "line": 152,
+      "pattern": "typed-error",
+      "text": "Storage access denied"
+    },
+    {
+      "file": "src/lib/webdav/handler.ts",
+      "line": 226,
+      "pattern": "typed-error",
+      "text": "Path component is a file: ${built}"
+    }
+  ]
+}

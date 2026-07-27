@@ -11,6 +11,7 @@ import QRCode from "qrcode";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { getServerLocale, t } from "@/lib/i18n/translations";
 
 const setupSchema = z.object({
   code: z.string().min(1),
@@ -24,17 +25,18 @@ function buildOtpauthUrl(secret: string, username: string): string {
 }
 
 export async function POST(request: Request) {
+  const locale = await getServerLocale();
   return withApiRoute(
     request,
     {
       requireAuth: true,
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "Failed to set up two-factor authentication",
+      errorMessage: t("api.auth.twoFactor.setupFailed", locale),
     },
     async ({ session }) => {
       if (!session)
         return NextResponse.json(
-          { error: "Not authenticated or session expired" },
+          { error: t("api.auth.sessionExpired", locale) },
           { status: 401 },
         );
 
@@ -45,7 +47,7 @@ export async function POST(request: Request) {
 
       if (user?.twoFactorEnabled) {
         return NextResponse.json(
-          { error: "Two-factor authentication is already enabled, please disable it before re-setting up" },
+          { error: t("api.auth.twoFactor.alreadyEnabled", locale) },
           { status: 400 },
         );
       }
@@ -64,19 +66,20 @@ export async function POST(request: Request) {
   );
 }
 
-export function PUT(request: Request) {
+export async function PUT(request: Request) {
+  const locale = await getServerLocale();
   return withApiRoute(
     request,
     {
       requireAuth: true,
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "Verification failed",
+      errorMessage: t("api.auth.twoFactor.verifyFailed", locale),
       bodySchema: setupSchema,
     },
     async ({ session, body }) => {
       if (!session)
         return NextResponse.json(
-          { error: "Not authenticated or session expired" },
+          { error: t("api.auth.sessionExpired", locale) },
           { status: 401 },
         );
 

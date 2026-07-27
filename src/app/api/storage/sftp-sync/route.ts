@@ -23,6 +23,7 @@ import {
   sftpWaitQuerySchema,
 } from "@/lib/storage/schema";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { getServerLocale, t } from "@/lib/i18n/translations";
 
 export const dynamic = "force-dynamic";
 
@@ -32,12 +33,13 @@ export const dynamic = "force-dynamic";
 const sftpSyncSchema = sftpSyncBodySchema;
 
 export async function POST(request: Request) {
+  const locale = await getServerLocale();
   return withApiRoute(
     request,
     { permission: "storage:write", rateLimit: GENERAL_WRITE_LIMIT, bodySchema: sftpSyncSchema },
     async ({ session, body }) => {
       if (!session)
-        throw new AuthError("Not authenticated");
+        throw new AuthError(t("api.auth.sessionExpired", locale));
 
       const {
         nodeId,
@@ -48,11 +50,11 @@ export async function POST(request: Request) {
 
       const node = await getSftpSyncNode(nodeId, session);
       if (!node) {
-        throw new NotFoundError("Storage node not found");
+        throw new NotFoundError(t("api.storage.localEntryNotFound", locale));
       }
       if (node.driver !== "SFTP") {
         return NextResponse.json(
-          { error: "This node is not an SFTP storage node" },
+          { error: t("api.storage.sftp.notSftpNode", locale) },
           { status: 400 },
         );
       }
@@ -78,7 +80,7 @@ export async function POST(request: Request) {
       });
       if (!accessDecision.allowed) {
         return NextResponse.json(
-          { error: accessDecision.reason ?? "Missing storage access authorization" },
+          { error: accessDecision.reason ?? t("api.storage.accessDenied", locale) },
           { status: 403 },
         );
       }
@@ -100,7 +102,7 @@ export async function POST(request: Request) {
           }, { status });
         } catch (error) {
           return NextResponse.json(
-            { error: getErrorMessage(error, "SyncFailed") },
+            { error: getErrorMessage(error, t("api.storage.sftp.syncFailed", locale)) },
             { status: 400 },
           );
         }
@@ -127,7 +129,7 @@ export async function POST(request: Request) {
         jobId: job.id,
         taskId: `job:${job.id}`,
         status: job.status,
-        message: "SFTP sync has been added as a background task, you can check progress in the task center.",
+        message: t("api.storage.sftp.queued", locale),
       }, { status: 202 });
     },
   );

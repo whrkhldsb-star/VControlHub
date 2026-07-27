@@ -72,7 +72,7 @@ describe("/api/storage/sftp-sync", () => {
       queued: true,
       jobId: "job_1",
       taskId: "job:job_1",
-      message: expect.stringContaining("background task"),
+      message: expect.stringMatching(/后台任务|background task/),
     });
     expect(enqueueJobMock).toHaveBeenCalledWith({
       type: "storage.sftp-sync",

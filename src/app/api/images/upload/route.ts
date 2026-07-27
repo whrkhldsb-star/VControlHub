@@ -33,6 +33,7 @@ import {
 import type { SessionPayload } from "@/lib/auth/session";
 
 import { AppError, ForbiddenError, ValidationError, isAppError } from "@/lib/errors";
+import { getServerLocale, t, type Locale } from "@/lib/i18n/translations";
 export const dynamic = "force-dynamic";
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
 // image/* minus SVG: SVG served inline can execute script (stored XSS).
@@ -65,32 +66,33 @@ function isUploadFile(v: unknown): v is UploadFile {
 }
 
 export async function POST(request: Request) {
+  const locale = await getServerLocale();
   const rl = await withRateLimit(request, IMAGE_UPLOAD_LIMIT);
   if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
 
   const tokenAuth = await verifyBearerToken(request, "image:write");
   if (tokenAuth) {
-    return handleUpload(request, tokenAuth.userId);
+    return handleUpload(request, tokenAuth.userId, undefined, locale);
   }
 
   return withApiRoute(
     request,
-    { permission: "image:write", errorMessage: "Upload failed" },
+    { permission: "image:write", errorMessage: t("api.image.uploadFailed", locale) },
     async ({ session }) => {
       if (!session)
         return NextResponse.json(
-          { error: "Not authenticated or session expired" },
+          { error: t("api.auth.sessionExpired", locale) },
           { status: 401 },
         );
       if (!sessionHasPermission(session, "storage:write")) {
-        throw new ForbiddenError("Insufficient permissions");
+        throw new ForbiddenError(t("api.storage.writeDenied", locale));
       }
-      return handleUpload(request, session.userId, session);
+      return handleUpload(request, session.userId, session, locale);
     },
   );
 }
 
-async function handleUpload(request: Request, userId: string, session?: SessionPayload) {
+async function handleUpload(request: Request, userId: string, session: SessionPayload | undefined, locale: Locale) {
   try {
     const formData = await request.formData();
     const file = formData.get("file");
@@ -101,7 +103,7 @@ async function handleUpload(request: Request, userId: string, session?: SessionP
       String(formData.get("relativePath") ?? "").trim() || undefined;
 
     if (!isUploadFile(file)) {
-      throw new ValidationError("Missing upload file");
+      throw new ValidationError(t("api.storage.missingUploadFile", locale));
     }
 
     const mimeType = file.type || "application/octet-stream";
@@ -111,21 +113,15 @@ async function handleUpload(request: Request, userId: string, session?: SessionP
       BLOCKED_MIME_TYPES.has(mimeType.toLowerCase()) ||
       BLOCKED_EXTENSIONS.has(extEarly)
     ) {
-      throw new ValidationError("SVG uploads are not allowed");
+      throw new ValidationError(t("api.image.svgBlocked", locale));
     }
     if (!ALLOWED_MIME_PREFIXES.some((p) => mimeType.startsWith(p))) {
-      return NextResponse.json(
-        { error: "Only image files are supported" },
-        { status: 400 },
-      );
+      throw new ValidationError(t("api.image.onlyImages", locale));
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
     if (buffer.byteLength > MAX_FILE_SIZE) {
-      return NextResponse.json(
-        { error: "File size exceeds 20MB limit" },
-        { status: 400 },
-      );
+      throw new ValidationError(t("api.image.fileTooLarge", locale));
     }
 
     const originalName = file.name || "untitled.png";
@@ -204,7 +200,7 @@ async function handleUpload(request: Request, userId: string, session?: SessionP
     // If linked to a storage node, also copy there (cloud storage integration)
     if (storageNodeId && relativePath) {
       if (!session) {
-        throw new ForbiddenError("Bearer upload does not support writing to storage node copy");
+        throw new ForbiddenError(t("api.image.storageCopyForbidden", locale));
       }
       const access = await assertStorageAccess({
         session,
@@ -214,7 +210,7 @@ async function handleUpload(request: Request, userId: string, session?: SessionP
         writeBytes: buffer.byteLength,
       });
       if (!access.allowed) {
-        throw new ForbiddenError(access.reason ?? "No permission to write to the storage path");
+        throw new ForbiddenError(access.reason ?? t("api.image.storageWriteDenied", locale));
       }
       try {
         const storageNode = await prisma.storageNode.findFirst({
@@ -293,6 +289,6 @@ async function handleUpload(request: Request, userId: string, session?: SessionP
       throw error;
     }
     logError("image-bed:upload", error);
-    throw new AppError({ code: "INTERNAL_ERROR", message: "Upload failed", status: 500 });
+    throw new AppError({ code: "INTERNAL_ERROR", message: t("api.image.uploadFailed", locale), status: 500 });
   }
 }

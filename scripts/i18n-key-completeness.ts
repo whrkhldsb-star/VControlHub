@@ -57,9 +57,12 @@ const tSimple = /\b(?:t|tplT|trTpl)\(\s*['"]([a-zA-Z][a-zA-Z0-9_.]+)['"]/g;
 // scanning, so docstrings with example `t("...")` calls don't trigger
 // false positives.
 function stripComments(src: string): string {
+  // Remove line comments first. Otherwise prose such as `image/* minus SVG`
+  // inside a // comment is mistaken for the start of a block comment and can
+  // hide a large section of executable source from the key scan.
   return src
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/(^|[^:])\/\/.*$/gm, "$1");
+    .replace(/(^|[^:])\/\/.*$/gm, "$1")
+    .replace(/\/\*[\s\S]*?\*\//g, "");
 }
 
 for (const f of CODE_FILES) {
@@ -203,7 +206,10 @@ if (orphanInDict.length > 0) {
   if (orphanInDict.length > orphanPreview.length) console.warn(`  ... and ${orphanInDict.length - orphanPreview.length} more`);
 }
 
-if (missingInDict.length > 0 || zhEnMismatch.length > 0 || orphanInDict.length > 0) {
+// Orphan keys are useful diagnostics but not a correctness failure: dictionary
+// families may be consumed through wrappers/templates that static analysis cannot
+// prove. Missing keys and zh/en mismatch remain hard failures.
+if (missingInDict.length > 0 || zhEnMismatch.length > 0) {
   process.exit(1);
 }
-console.log("\n[OK] all t() keys resolved in zh+en dictionaries; no orphan keys");
+console.log(`\n[OK] all referenced t() keys resolve in zh+en dictionaries (${orphanInDict.length} potential orphan(s) reported)`);
