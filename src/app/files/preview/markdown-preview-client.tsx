@@ -2,10 +2,9 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { useAbortableTextResource } from "@/lib/http/use-abortable-text-resource";
+import { getErrorMessage } from "@/lib/http/error-message";
 import { escapeHtml } from "@/lib/sanitize/escape-html";
-type PreviewState =
-  | { loading: true }
-  | { loading: false; content: string | null; error: string | null };
 
 /**
  * Simple regex-based Markdown-to-HTML converter.
@@ -277,7 +276,11 @@ const MARKDOWN_PROSE_CLASS = [
 
 export function MarkdownPreviewClient({ href }: { href: string }) {
   const { t } = useI18n();
-  const [state, setState] = useState<PreviewState>({ loading: true });
+  const state = useAbortableTextResource({
+    href,
+    errorMessage: (status) => t("markdownPreview.loadFailedWithStatus", { status }),
+    getErrorMessage: (error) => getErrorMessage(error, t("markdownPreview.loadFailed")),
+  });
   const [sanitizeFn, setSanitizeFn] = useState<
     ((html: string) => string) | null
   >(null);
@@ -292,46 +295,11 @@ export function MarkdownPreviewClient({ href }: { href: string }) {
     };
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    fetch(href)
-      .then(async (res) => {
-        if (!res.ok)
-          throw new Error(
-            t("markdownPreview.loadFailedWithStatus").replace(
-              "{status}",
-              String(res.status),
-            ),
-          );
-        const text = await res.text();
-        if (!cancelled) {
-          setState({ loading: false, content: text, error: null });
-        }
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          setState({
-            loading: false,
-            content: null,
-            error:
-              err instanceof Error
-                ? err.message
-                : t("markdownPreview.loadFailed"),
-          });
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [href, t]);
-
   const html = useMemo(
     () =>
       sanitizeFn
         ? sanitizeFn(
-            renderMarkdown((state as { content?: string }).content ?? ""),
+            renderMarkdown(state.content ?? ""),
           )
         : "",
     [state, sanitizeFn],

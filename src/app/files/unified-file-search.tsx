@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { ActionButton } from "@/components/action-button";
@@ -54,6 +54,10 @@ export function UnifiedFileSearch({
 	const [contentError, setContentError] = useState("");
 	const [contentTruncated, setContentTruncated] = useState(false);
 	const [lastQuery, setLastQuery] = useState("");
+	const contentSearchAbortRef = useRef<AbortController | null>(null);
+	const contentSearchRequestRef = useRef(0);
+
+	useEffect(() => () => contentSearchAbortRef.current?.abort(), []);
 
 	const handleSearch = useCallback(
 		(e: React.FormEvent) => {
@@ -66,7 +70,12 @@ export function UnifiedFileSearch({
 				return;
 			}
 
-			// Content search
+			// Content search: cancel the previous request so rapid searches cannot
+			// let an older result overwrite the latest query.
+			contentSearchAbortRef.current?.abort();
+			const controller = new AbortController();
+			contentSearchAbortRef.current = controller;
+			const requestId = ++contentSearchRequestRef.current;
 			setContentLoading(true);
 			setContentError("");
 			setContentResults([]);
@@ -80,14 +89,19 @@ export function UnifiedFileSearch({
 
 					const data: ContentSearchResponse = await csrfFetch(
 						`/api/files/search-content?${params}`,
+						{ signal: controller.signal },
 					);
-
+					if (requestId !== contentSearchRequestRef.current) return;
 					setContentResults(data.results);
 					setContentTruncated(data.truncated);
-				} catch {
+				} catch (error) {
+					if (error instanceof Error && error.name === "AbortError") return;
+					if (requestId !== contentSearchRequestRef.current) return;
 					setContentError(t("filesBrowserSpa.contentSearchError"));
 				} finally {
-					setContentLoading(false);
+					if (requestId === contentSearchRequestRef.current) {
+						setContentLoading(false);
+					}
 				}
 			})();
 		},

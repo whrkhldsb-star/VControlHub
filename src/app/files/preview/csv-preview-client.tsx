@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { useAbortableTextResource } from "@/lib/http/use-abortable-text-resource";
 
-type CsvState = { loading: true } | { loading: false; rows: string[][] | null; error: string | null };
 
 function parseCsv(text: string): string[][] {
 	const rows: string[][] = [];
@@ -68,30 +67,21 @@ function parseCsv(text: string): string[][] {
 
 export function CsvPreviewClient({ href }: { href: string }) {
 	const { t } = useI18n();
-	const [state, setState] = useState<CsvState>({ loading: true });
-
-	useEffect(() => {
-		let cancelled = false;
-		fetch(href)
-			.then(async (res) => {
-				if (!res.ok) throw new Error(t("csvPreview.loadFailedWithStatus", { status: res.status }));
-				const text = await res.text();
-				if (!cancelled) {
-					try {
-						const rows = parseCsv(text);
-						setState({ loading: false, rows, error: null });
-					} catch (err) {
-						setState({ loading: false, rows: null, error: getErrorMessage(err, t("csvPreview.parseFailed")) });
-					}
-				}
-			})
-			.catch((err) => {
-				if (!cancelled) {
-					setState({ loading: false, rows: null, error: getErrorMessage(err, t("csvPreview.loadFailed")) });
-				}
-			});
-		return () => { cancelled = true; };
-	}, [href, t]);
+	const resource = useAbortableTextResource({
+		href,
+		errorMessage: (status) => t("csvPreview.loadFailedWithStatus", { status }),
+		getErrorMessage: (error) => getErrorMessage(error, t("csvPreview.loadFailed")),
+	});
+	let rows: string[][] | null = null;
+	let parseError: string | null = null;
+	if (resource.content !== null) {
+		try {
+			rows = parseCsv(resource.content);
+		} catch (error) {
+			parseError = getErrorMessage(error, t("csvPreview.parseFailed"));
+		}
+	}
+	const state = { loading: resource.loading, rows, error: resource.error ?? parseError };
 
 	const maxRows = 500;
 	const header = state.loading ? [] : (state.rows?.[0] ?? []);
