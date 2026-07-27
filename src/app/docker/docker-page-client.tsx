@@ -15,6 +15,8 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { ActionButton } from "@/components/action-button";
+import { FormField, Notice } from "@/components/ui-primitives";
+import { UI_INPUT } from "@/lib/ui/classes";
 import { DockerResourcesPanel } from "./docker-resources-panel";
 import { DockerContainerList } from "./docker-container-list";
 import { DockerRemovalDialog, DockerLogsDialog } from "./docker-dialogs";
@@ -27,11 +29,13 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 		loading,
 		setLoading,
 		error,
+		clearError,
 		logsId,
 		logs,
 		actionLoading,
 		projectActionLoading,
 		projectMessage,
+		clearProjectMessage,
 		stats,
 		statsAutoRefresh,
 		setStatsAutoRefresh,
@@ -74,20 +78,19 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 			{/* FEAT-P0-2: Server selector for remote Docker management */}
 			{serverList.length > 0 && (
 				<div className="mb-4 flex flex-wrap items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3">
-					<label className="text-xs font-medium text-[var(--text-secondary)]" htmlFor="docker-server-select">
-						{t("dockerPage.scope.serverSelect")}
-					</label>
+					<FormField label={t("dockerPage.scope.serverSelect")} htmlFor="docker-server-select" className="min-w-64">
 					<select
 						id="docker-server-select"
 						value={selectedServerId}
 						onChange={(e) => setSelectedServerId(e.target.value)}
-						data-input className="min-h-11 rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 text-sm text-[var(--text-primary)] focus:border-[var(--input-border-focus)] focus:shadow-[0_0_0_3px_var(--input-ring)] focus:outline-none"
+						className={UI_INPUT}
 					>
 						<option value="">{t("dockerPage.scope.hubHost")}</option>
 						{serverList.map((s) => (
 							<option key={s.id} value={s.id}>{s.name} ({s.host})</option>
 						))}
 					</select>
+					</FormField>
 					{selectedServerId && (
 						<span className="rounded-full border border-[var(--accent-border)] bg-[var(--accent-bg)] px-2.5 py-1 text-[10px] font-medium text-[var(--accent)]">
 							{t("dockerPage.scope.remoteActive")}
@@ -141,8 +144,8 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 				</ActionButton>
 			</div>
 
-			{error && <div className="mb-4 rounded-xl border border-[var(--danger-border)] bg-[var(--danger-bg)] px-4 py-3 text-sm text-[var(--danger)]">{error}</div>}
-			{projectMessage && <div className="mb-4 rounded-xl border border-[var(--success-border)] bg-[var(--success-bg)] px-4 py-3 text-sm text-[var(--success)]">{projectMessage}</div>}
+			{error && <Notice tone="danger" className="mb-4" onDismiss={clearError} dismissLabel={t("common.close")}>{error}</Notice>}
+			{projectMessage && <Notice tone="success" className="mb-4" onDismiss={clearProjectMessage} dismissLabel={t("common.close")}>{projectMessage}</Notice>}
 
 			<DockerResourcesPanel serverId={selectedServerId} />
 

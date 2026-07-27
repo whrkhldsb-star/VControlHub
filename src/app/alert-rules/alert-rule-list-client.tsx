@@ -1,6 +1,7 @@
 "use client";
 
 import { ActionButton } from "@/components/action-button";
+import { Notice } from "@/components/ui-primitives";
 import { EmptyState, SurfacePanel } from "@/components/page-shell";
 import { useI18n } from "@/lib/i18n/use-locale";
 
@@ -73,15 +74,7 @@ export function AlertRuleListClient({
 				triggerNow={triggerNow}
 			/>
 
-			{actionError && (
-				<div
-					role="alert"
-					data-tone="rose"
-					className="rounded-xl border border-[var(--danger-border)] px-4 py-3 text-sm text-[var(--danger)]"
-				>
-					{actionError}
-				</div>
-			)}
+			{actionError && <Notice tone="danger">{actionError}</Notice>}
 
 			<TestResultPanel testResult={testResult} />
 

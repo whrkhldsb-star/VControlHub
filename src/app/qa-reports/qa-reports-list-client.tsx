@@ -18,6 +18,7 @@ import type {
 } from "@/lib/qa-reports/dto";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
+import { Notice } from "@/components/ui-primitives";
 
 type KindFilter = "all" | "slice" | "blocker" | "qa_run";
 
@@ -263,11 +264,7 @@ export function QaReportsListClient({
 
 	return (
 		<div className="space-y-5">
-			{error ? (
-				<div role="alert" className="rounded-xl border border-[var(--danger-border)] bg-[var(--danger-bg)] px-4 py-3 text-sm text-[var(--danger)]">
-					{error}
-				</div>
-			) : null}
+			{error ? <Notice tone="danger" onDismiss={() => setError(null)} dismissLabel={t("common.close")}>{error}</Notice> : null}
 			<section aria-label={t("qaReportsPage.summaryAria")}>
 				<SurfacePanel
 					title={t("qaReportsPage.summaryTitle")}

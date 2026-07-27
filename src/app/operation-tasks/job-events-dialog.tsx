@@ -8,6 +8,7 @@ import { toDateLocale } from "@/lib/i18n/locale-format";
 import type { Locale } from "@/lib/i18n/translations";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
+import { Notice } from "@/components/ui-primitives";
 import { ModalShell } from "@/components/modal-shell";
 
 type JobEventLevel = "info" | "warn" | "error";
@@ -154,11 +155,7 @@ export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) 
           </ActionButton>
         </div>
         <div className="max-h-[60vh] overflow-y-auto px-5 py-4">
-          {error ? (
-            <div role="alert" data-tone="rose" className="rounded-lg border border-[var(--danger-border)] px-3 py-2 text-xs text-[var(--danger)]">
-              {error}
-            </div>
-          ) : null}
+          {error ? <Notice tone="danger" compact>{error}</Notice> : null}
           {loading && events.length === 0 ? (
             <p className="text-sm text-[var(--text-muted)]">{t("jobEventsDialog.loading")}</p>
           ) : null}
