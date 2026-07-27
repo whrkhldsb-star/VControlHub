@@ -11,6 +11,7 @@ import type { Locale } from "@/lib/i18n/translations";
 import { Check, X, AlertTriangle, ClipboardList, Download, Server, Bell } from "@/components/icons";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
+import { Notice } from "@/components/ui-primitives";
 
 type NotificationItem = {
 	id: string;
@@ -208,16 +209,12 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 
 	return (
 		<div className="space-y-3">
-			{error && (
-				<div role="alert" className="rounded-xl border border-[var(--danger-border)] bg-[var(--danger-bg)] px-3 py-2 text-xs text-[var(--danger)]">
-					{error}
-				</div>
-			)}
+			{error && <Notice tone="danger" compact onDismiss={() => setError(null)} dismissLabel={t("common.close")}>{error}</Notice>}
 			{unreadCount > 0 && (
 				<div className="flex justify-end">
-					<button onClick={markAllRead} className="rounded-lg px-1.5 py-1 text-xs font-medium text-[var(--accent)] transition hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40">
+					<ActionButton variant="ghost" onClick={markAllRead} className="!px-2 !py-1 !text-xs">
 						{t("notificationsPage.action.markAll")}
-					</button>
+					</ActionButton>
 				</div>
 			)}
 			{notifications.map((n) => (

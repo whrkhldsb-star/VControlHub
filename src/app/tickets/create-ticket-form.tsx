@@ -10,6 +10,7 @@ import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
+import { Notice } from "@/components/ui-primitives";
 
 type Props = { locale?: Locale; servers?: { id: string; name: string; host: string }[] };
 
@@ -54,11 +55,7 @@ export function CreateTicketForm({ locale: _locale, servers = [] }: Props = {}) 
 					<h2 className="mt-1 text-sm font-semibold text-[var(--text-primary)]">{t("ticketsPage.form.title")}</h2>
 				</div>
 			</div>
-			{state?.error && (
-				<p role="alert" className="rounded-xl border border-[var(--danger-border)] bg-[var(--danger-bg)] px-3 py-2 text-xs text-[var(--danger)]">
-					{state.error}
-				</p>
-			)}
+			{state?.error && <Notice tone="danger" compact>{state.error}</Notice>}
 			<div className="grid gap-3 md:grid-cols-3">
 				<label className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
 					{t("ticketsPage.form.label.title")}

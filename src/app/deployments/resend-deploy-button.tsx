@@ -7,6 +7,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { useToast } from "@/components/toast-provider";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
+import { Notice } from "@/components/ui-primitives";
 
 type Props = {
 	templateId: string;
@@ -89,7 +90,7 @@ export function ResendDeployButton({ templateId, variables, serverIds, reason, l
 					{t("common.cancel")}
 				</ActionButton>
 			) : null}
-			{error && <span role="alert" className="text-xs text-[var(--danger)]">{error}</span>}
+			{error && <Notice tone="danger" compact>{error}</Notice>}
 		</div>
 	);
 }

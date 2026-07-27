@@ -8,6 +8,7 @@ import { ActionButton } from "@/components/action-button";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { Notice } from "@/components/ui-primitives";
 
 type Props = {
 	backupId: string;
@@ -52,19 +53,15 @@ export function RetryBackupRecordButton({ backupId, status }: Props) {
 				{pending ? t("backupsPage.retry.pending") : t("backupsPage.retry.submit")}
 			</ActionButton>
 			{taskId && (
-				<p role="status" className="text-xs text-[var(--success)]">
+				<Notice tone="success" compact>
 					{t("backupsPage.retry.successPrefix")}{" "}
 					<Link href="/operation-tasks" className="underline">
 						{t("backupsPage.retry.taskCenter")}
 					</Link>{" "}
 					{t("backupsPage.retry.successSuffix", { taskId })}
-				</p>
+				</Notice>
 			)}
-			{error && (
-				<p role="alert" className="text-xs text-[var(--danger)]">
-					{error}
-				</p>
-			)}
+			{error && <Notice tone="danger" compact>{error}</Notice>}
 		</div>
 	);
 }
