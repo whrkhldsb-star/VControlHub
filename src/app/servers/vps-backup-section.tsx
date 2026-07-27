@@ -8,6 +8,8 @@ import { toDateLocale } from "@/lib/i18n/locale-format";
 import { formatBytes } from "@/lib/format/bytes";
 
 import { ActionButton } from "@/components/action-button";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { IconButton, Notice } from "@/components/ui-primitives";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { getErrorMessage } from "@/lib/http/error-message";
 type BackupSchedule = {
@@ -32,6 +34,11 @@ type BackupRecord = {
 	createdAt: string;
 	durationMs: string | null;
 };
+
+type DeleteTarget =
+	| { kind: "schedule"; id: string; name: string }
+	| { kind: "record"; id: string }
+	| null;
 
 const PRESET_OPTIONS = [
 	"nginx-config",
@@ -67,6 +74,8 @@ export function VpsBackupSection({
 	const [creating, setCreating] = useState(false);
 	const [showCreate, setShowCreate] = useState(false);
 	const [manualPaths, setManualPaths] = useState("");
+	const [deleteTarget, setDeleteTarget] = useState<DeleteTarget>(null);
+	const [deleting, setDeleting] = useState(false);
 
 	// Create form state
 	const [createForm, setCreateForm] = useState({
@@ -184,8 +193,10 @@ export function VpsBackupSection({
 				method: "DELETE",
 			});
 			await fetchAll();
+			return true;
 		} catch (err) {
 			setError(getErrorMessage(err, t("vpsBackup.error.delete")));
+			return false;
 		}
 	};
 
@@ -196,9 +207,21 @@ export function VpsBackupSection({
 				method: "DELETE",
 			});
 			await fetchAll();
+			return true;
 		} catch (err) {
 			setError(getErrorMessage(err, t("vpsBackup.error.delete")));
+			return false;
 		}
+	};
+
+	const confirmDelete = async () => {
+		if (!deleteTarget || deleting) return;
+		setDeleting(true);
+		const deleted = deleteTarget.kind === "schedule"
+			? await handleDeleteSchedule(deleteTarget.id)
+			: await handleDeleteRecord(deleteTarget.id);
+		if (deleted) setDeleteTarget(null);
+		setDeleting(false);
 	};
 
 	const presetLabel = (type: string) => {
@@ -219,29 +242,7 @@ export function VpsBackupSection({
 
 	return (
 		<div className="space-y-3">
-			{error ? (
-				<div className="rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] px-3 py-2 text-xs text-[var(--danger)]">
-					{error}
-					<button
-						type="button"
-						className="ml-2 text-[var(--danger)] underline"
-						onClick={() => {
-							setError(null);
-							void fetchAll();
-						}}
-					>
-						{t("common.retry")}
-					</button>
-					<button
-						type="button"
-						className="ml-2 text-[var(--danger)] underline"
-						aria-label={t("common.close")}
-						onClick={() => setError(null)}
-					>
-						✕
-					</button>
-				</div>
-			) : null}
+			{error ? <Notice tone="danger" compact action={{ label: t("common.retry"), onClick: () => { setError(null); void fetchAll(); } }} onDismiss={() => setError(null)} dismissLabel={t("common.close")}>{error}</Notice> : null}
 
 			{/* Manual trigger */}
 			<div className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-3">
@@ -429,13 +430,7 @@ export function VpsBackupSection({
 									</div>
 								</div>
 								{canManage ? (
-									<button
-										type="button"
-										onClick={() => handleDeleteSchedule(s.id)}
-										className="ml-2 shrink-0 text-xs text-[var(--danger)]/70 transition-colors hover:text-[var(--danger)]"
-									>
-										✕
-									</button>
+									<IconButton label={t("vpsBackup.deleteSchedule", { name: s.name })} tone="danger" onClick={() => setDeleteTarget({ kind: "schedule", id: s.id, name: s.name })} className="ml-2 h-8 w-8 shrink-0 text-xs">✕</IconButton>
 								) : null}
 							</div>
 						))}
@@ -495,19 +490,14 @@ export function VpsBackupSection({
 									{r.status === "COMPLETED" && r.localPath ? (
 										<a
 											href={`/api/servers/${serverId}/vps-backup/records/${r.id}/download`}
+											aria-label={t("vpsBackup.downloadRecord")}
 											className="rounded text-xs text-[var(--color-action)]/80 transition-colors hover:text-[var(--color-action)]"
 										>
 											⬇
 										</a>
 									) : null}
 									{canManage ? (
-										<button
-											type="button"
-											onClick={() => handleDeleteRecord(r.id)}
-											className="text-xs text-[var(--danger)]/60 transition-colors hover:text-[var(--danger)]"
-										>
-											✕
-										</button>
+										<IconButton label={t("vpsBackup.deleteRecord")} tone="danger" onClick={() => setDeleteTarget({ kind: "record", id: r.id })} className="h-8 w-8 text-xs">✕</IconButton>
 									) : null}
 								</div>
 							</div>
@@ -515,6 +505,17 @@ export function VpsBackupSection({
 					</div>
 				)}
 			</div>
+			<ConfirmDialog
+				open={deleteTarget !== null}
+				title={deleteTarget?.kind === "schedule" ? t("vpsBackup.deleteScheduleTitle") : t("vpsBackup.deleteRecord")}
+				description={deleteTarget?.kind === "schedule" ? t("vpsBackup.deleteScheduleConfirm", { name: deleteTarget.name }) : t("vpsBackup.deleteRecord")}
+				cancelLabel={t("common.cancel")}
+				confirmLabel={t("vpsBackup.confirmDelete")}
+				busy={deleting}
+				onCancel={() => setDeleteTarget(null)}
+				onConfirm={() => void confirmDelete()}
+				closeOnBackdrop={false}
+			/>
 		</div>
 	);
 }
