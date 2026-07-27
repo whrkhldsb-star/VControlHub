@@ -4,6 +4,9 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { ModalShell } from "@/components/modal-shell";
 import { ActionButton } from "@/components/action-button";
+import { FormField, FormGrid, IconButton, Notice } from "@/components/ui-primitives";
+import { cn } from "@/lib/ui/cn";
+import { UI_INPUT } from "@/lib/ui/classes";
 import { getErrorMessage } from "@/lib/http/error-message";
 type ResourceType = "networks" | "volumes";
 type DockerNetwork = {
@@ -53,6 +56,10 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
 
   const fetchGenRef = useRef(0);
   const fetchAbortRef = useRef<AbortController | null>(null);
+  const currentServerIdRef = useRef(serverId);
+  useEffect(() => {
+    currentServerIdRef.current = serverId;
+  }, [serverId]);
   const resourceKind = useCallback(
     (type: ResourceType) =>
       t(
@@ -138,7 +145,9 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
         );
       }
       setName("");
-      await fetchResources();
+      if (currentServerIdRef.current === serverId) {
+        await fetchResources();
+      }
     } catch (err) {
       setError(
         getErrorMessage(err, t("dockerResources.error.create")),
@@ -190,7 +199,9 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
         );
       }
       setPendingDelete(null);
-      await fetchResources();
+      if (currentServerIdRef.current === serverId) {
+        await fetchResources();
+      }
     } catch (err) {
       setError(
         getErrorMessage(err, t("dockerResources.error.delete")),
@@ -296,48 +307,55 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
         </ActionButton>{" "}
       </div>{" "}
       {error ? (
-        <div
-          role="alert"
-          className="mb-4 rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] px-3 py-2 text-sm text-[var(--danger)]"
+        <Notice
+          tone="danger"
+          className="mb-4"
+          action={{ label: t("dockerResources.refresh"), onClick: () => void fetchResources(), disabled: loading }}
         >
           {error}
-        </div>
+        </Notice>
       ) : null}{" "}
-      <div className="mb-4 flex flex-wrap items-end gap-2">
-        {" "}
-        <select
-          aria-label={t("dockerResources.title")}
-          value={activeType}
-          onChange={(event) =>
-            setActiveType(event.currentTarget.value as ResourceType)
-          }
-          className="min-h-11 rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 text-sm text-[var(--text-primary)]"
-        >
-          <option value="networks">{t("dockerResources.kind.network")}</option>
-          <option value="volumes">{t("dockerResources.kind.volume")}</option>
-        </select>{" "}
-        <input
-          value={name}
-          aria-label={t("dockerResources.field.name")}
-          onChange={(event) => setName(event.currentTarget.value)}
-          placeholder={t("dockerResources.field.name")}
-          className="min-h-11 rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
-        />{" "}
-        <input
-          value={driver}
-          aria-label={t("dockerResources.field.driver")}
-          onChange={(event) => setDriver(event.currentTarget.value)}
-          placeholder={t("dockerResources.field.driver")}
-          className="min-h-11 w-28 rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
-        />{" "}
+      <FormGrid columns={3} className="mb-4 items-end">
+        <FormField label={t("dockerResources.title")} htmlFor="docker-resource-type">
+          <select
+            id="docker-resource-type"
+            aria-label={t("dockerResources.title")}
+            value={activeType}
+            onChange={(event) =>
+              setActiveType(event.currentTarget.value as ResourceType)
+            }
+            className={UI_INPUT}
+          >
+            <option value="networks">{t("dockerResources.kind.network")}</option>
+            <option value="volumes">{t("dockerResources.kind.volume")}</option>
+          </select>
+        </FormField>
+        <FormField label={t("dockerResources.field.name")} htmlFor="docker-resource-name">
+          <input
+            id="docker-resource-name"
+            value={name}
+            onChange={(event) => setName(event.currentTarget.value)}
+            placeholder={t("dockerResources.field.name")}
+            className={UI_INPUT}
+          />
+        </FormField>
+        <FormField label={t("dockerResources.field.driver")} htmlFor="docker-resource-driver">
+          <input
+            id="docker-resource-driver"
+            value={driver}
+            onChange={(event) => setDriver(event.currentTarget.value)}
+            placeholder={t("dockerResources.field.driver")}
+            className={cn(UI_INPUT, "font-mono")}
+          />
+        </FormField>
         <ActionButton variant="primary"
           onClick={() => void createResource()}
           disabled={!name.trim() || Boolean(busyKey)}
-          className="!min-h-11 !px-4 !py-2 !text-sm disabled:opacity-50"
+          className="!min-h-11 !px-4 !py-2 !text-sm disabled:opacity-50 md:col-start-3"
         >
           {t("dockerResources.create")}
-        </ActionButton>{" "}
-      </div>{" "}
+        </ActionButton>
+      </FormGrid>{" "}
       <div className="grid gap-4 lg:grid-cols-2">
         {" "}
         <div>
@@ -402,13 +420,13 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
             <h3 className="text-sm font-medium text-[var(--text-primary)]">
               {detail.title}
             </h3>
-            <button
-              type="button"
+            <IconButton
+              label={t("dockerResources.close")}
               onClick={() => setDetail(null)}
-              className="text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+              className="h-8 w-8 text-base"
             >
-              {t("dockerResources.close")}
-            </button>
+              ×
+            </IconButton>
           </div>
           <pre className="max-h-72 overflow-auto whitespace-pre-wrap text-xs text-[var(--text-secondary)]">
             {detail.json}
