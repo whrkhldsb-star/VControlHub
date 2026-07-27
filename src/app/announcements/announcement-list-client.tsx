@@ -10,6 +10,7 @@ import { Pencil, Trash2, Search } from "@/components/icons";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 import { ModalShell } from "@/components/modal-shell";
+import { IconButton, Notice } from "@/components/ui-primitives";
 
 interface Announcement {
   id: string;
@@ -55,12 +56,12 @@ const AnnouncementCard = memo(function AnnouncementCard({ announcement: a, t, lo
           <span className="text-xs text-[var(--text-muted)] whitespace-nowrap">{formatDate(a.startsAt, locale as"zh" |"en")}</span>
           {canManage && (
             <div className="flex items-center gap-1 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
-              <ActionButton type="submit" variant="ghost" onClick={() => onEdit(a)} title={t("announcementsPage.action.edit")} aria-label={t("announcementsPage.action.edit")} className="!min-h-11 !min-w-11 !rounded-lg !p-1.5">
+              <IconButton label={t("announcementsPage.action.edit")} tone="accent" onClick={() => onEdit(a)} className="h-11 w-11">
                 <Pencil size={14} />
-              </ActionButton>
-              <ActionButton type="submit" variant="ghost" onClick={() => onDelete(a)} title={t("announcementsPage.action.delete")} aria-label={t("announcementsPage.action.deleteAria", { title: a.title })} className="!min-h-11 !min-w-11 !rounded-lg !p-1.5 text-[var(--danger)]">
+              </IconButton>
+              <IconButton label={t("announcementsPage.action.deleteAria", { title: a.title })} tone="danger" onClick={() => onDelete(a)} className="h-11 w-11">
                 <Trash2 size={14} />
-              </ActionButton>
+              </IconButton>
             </div>
           )}
         </div>
@@ -196,7 +197,7 @@ export function AnnouncementList({
         >
             <h3 id="delete-announcement-title" className="text-base font-semibold text-[var(--text-primary)]">{t("announcementsPage.delete.title")}</h3>
             <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{t("announcementsPage.delete.confirm", { title: pendingDelete.title })}</p>
-            {deleteError && <p role="alert" className="mt-3 text-xs text-[var(--danger)]">{deleteError}</p>}
+            {deleteError && <Notice tone="danger" compact className="mt-3">{deleteError}</Notice>}
             <div className="mt-5 flex justify-end gap-2">
               <button type="button" disabled={deleteBusy} onClick={() => { setPendingDelete(null); setDeleteError(null); }} data-card className="px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-50">
                 {t("announcementsPage.delete.cancel")}

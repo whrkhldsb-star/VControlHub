@@ -9,6 +9,8 @@ import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 import { ModalShell } from "@/components/modal-shell";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
+import { CheckboxField, FormField, FormGrid, Notice } from "@/components/ui-primitives";
+import { UI_INPUT } from "@/lib/ui/classes";
 
 export type SafeApiToken = {
   id: string;
@@ -137,32 +139,26 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
         </section>
       )}
 
-      {error && <div className="rounded-xl border border-[var(--danger-border)] bg-[var(--danger-bg)] px-4 py-3 text-sm text-[var(--danger)]">{error}</div>}
+      {error && <Notice tone="danger" onDismiss={() => setError(null)} dismissLabel={t("common.close")}>{error}</Notice>}
 
       <section data-card className="p-5">
         <h2 className="text-lg font-semibold text-[var(--text-primary)]">{t("apiTokensPage.create.heading")}</h2>
         <p className="mt-1 text-sm text-[var(--text-muted)]">{t("apiTokensPage.create.note")}</p>
         <form onSubmit={createToken} className="mt-5 grid gap-4">
-          <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-            <label className="space-y-1.5">
-              <span className="text-xs font-medium tracking-wide text-[var(--text-primary)]/70">{t("apiTokensPage.create.nameLabel")}</span>
-              <input value={name} onChange={(event) => setName(event.target.value)} required maxLength={80} placeholder={t("apiTokensPage.create.namePlaceholder")} data-input className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--input-border-focus)] focus:shadow-[0_0_0_3px_var(--input-ring)]" />
-            </label>
-            <label className="space-y-1.5">
-              <span className="text-xs font-medium tracking-wide text-[var(--text-primary)]/70">{t("apiTokensPage.create.expiresLabel")}</span>
-              <input type="datetime-local" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} data-input className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--input-border-focus)] focus:shadow-[0_0_0_3px_var(--input-ring)]" />
-            </label>
-          </div>
+          <FormGrid>
+            <FormField label={t("apiTokensPage.create.nameLabel")} htmlFor="api-token-name">
+              <input id="api-token-name" value={name} onChange={(event) => setName(event.target.value)} required maxLength={80} placeholder={t("apiTokensPage.create.namePlaceholder")} className={UI_INPUT} />
+            </FormField>
+            <FormField label={t("apiTokensPage.create.expiresLabel")} htmlFor="api-token-expires">
+              <input id="api-token-expires" type="datetime-local" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} className={UI_INPUT} />
+            </FormField>
+          </FormGrid>
 
           <div className="space-y-2">
             <div className="text-xs font-medium tracking-wide text-[var(--text-primary)]/70">{t("apiTokensPage.create.scopesLabel")}</div>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {allowedScopes.map((scope) => (
-                <label key={scope} aria-label={scope} className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm transition ${selectedScopes.includes(scope) ? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--text-primary)]" : "border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"}`}>
-                  <input type="checkbox" checked={selectedScopes.includes(scope)} onChange={() => toggleScope(scope)} className="h-4 w-4 accent-[var(--accent)]" />
-                  <span className="font-mono text-xs">{scope}</span>
-                  <span className="text-xs text-[var(--text-muted)]">{scopeLabel(t, scope)}</span>
-                </label>
+                <CheckboxField key={scope} aria-label={scope} checked={selectedScopes.includes(scope)} onChange={() => toggleScope(scope)} label={<span className="font-mono text-xs">{scope}</span>} hint={scopeLabel(t, scope)} className={`rounded-xl border px-3 py-2 transition ${selectedScopes.includes(scope) ? "border-[var(--accent-border)] bg-[var(--accent-bg)]" : "border-[var(--border)] bg-[var(--surface-elevated)] hover:bg-[var(--surface-hover)]"}`} />
               ))}
             </div>
           </div>

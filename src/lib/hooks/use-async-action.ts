@@ -59,5 +59,7 @@ export function useAsyncAction() {
 		[],
 	);
 
-	return { run, busyKey, error, setError };
+	const clearError = useCallback(() => setError(null), []);
+
+	return { run, busyKey, error, setError, clearError };
 }

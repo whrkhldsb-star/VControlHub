@@ -9,6 +9,8 @@ import { UI_INPUT } from "@/lib/ui/classes";
 import { PageShell, PageHeader, SurfacePanel, EmptyState } from "@/components/page-shell";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
+import { FormField, Notice } from "@/components/ui-primitives";
+import { useAsyncAction } from "@/lib/hooks/use-async-action";
 
 type KnowledgeBase = {
   id: string;
@@ -49,8 +51,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
   const [docContent, setDocContent] = useState("");
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<Hit[]>([]);
-  const [busy, setBusy] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { run, busyKey: busy, error, setError } = useAsyncAction();
 
   const loadBases = useCallback(async () => {
     const data = await csrfFetch<{ knowledgeBases: KnowledgeBase[] }>("/api/knowledge");
@@ -107,12 +108,10 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
     return () => {
       cancelled = true;
     };
-  }, [selectedId, t]);
+  }, [selectedId, setError, t]);
 
   async function createBase() {
-    setBusy("create");
-    setError(null);
-    try {
+    await run("create", async () => {
       await csrfFetch("/api/knowledge", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -126,18 +125,12 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
       setDescription("");
       addToast("success", t("knowledgePage.created"));
       await loadBases();
-    } catch (e) {
-      setError(getErrorMessage(e, t("knowledgePage.error")));
-    } finally {
-      setBusy(null);
-    }
+    }, { fallback: t("knowledgePage.error") });
   }
 
   async function ingest() {
     if (!selectedId) return;
-    setBusy("ingest");
-    setError(null);
-    try {
+    await run("ingest", async () => {
       const data = await csrfFetch<{ chunkCount: number }>("/api/knowledge", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -157,17 +150,11 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
       );
       await loadBases();
       await loadDetail(selectedId);
-    } catch (e) {
-      setError(getErrorMessage(e, t("knowledgePage.error")));
-    } finally {
-      setBusy(null);
-    }
+    }, { fallback: t("knowledgePage.error") });
   }
 
   async function search() {
-    setBusy("search");
-    setError(null);
-    try {
+    await run("search", async () => {
       const data = await csrfFetch<{ hits: Hit[] }>("/api/knowledge", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -180,28 +167,18 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
       });
       setHits(data.hits ?? []);
       addToast("success", t("knowledgePage.searchOk", { count: data.hits?.length ?? 0 }));
-    } catch (e) {
-      setError(getErrorMessage(e, t("knowledgePage.error")));
-    } finally {
-      setBusy(null);
-    }
+    }, { fallback: t("knowledgePage.error") });
   }
 
   async function removeDoc(documentId: string) {
     if (!canManage) return;
-    setBusy(`del-${documentId}`);
-    setError(null);
-    try {
+    await run(`del-${documentId}`, async () => {
       await csrfFetch(`/api/knowledge?documentId=${encodeURIComponent(documentId)}`, {
         method: "DELETE",
       });
       await loadDetail(selectedId);
       await loadBases();
-    } catch (e) {
-      setError(getErrorMessage(e, t("knowledgePage.error")));
-    } finally {
-      setBusy(null);
-    }
+    }, { fallback: t("knowledgePage.error") });
   }
 
   return (
@@ -219,12 +196,15 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
         >
           <div className="space-y-3">
             <div className="flex flex-wrap gap-2">
+              <FormField label={t("knowledgePage.namePlaceholder")} className="min-w-[10rem] flex-1">
               <input
-                className={`${UI_INPUT} min-w-[10rem] flex-1`}
+                aria-label={t("knowledgePage.namePlaceholder")}
+                className={UI_INPUT}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder={t("knowledgePage.namePlaceholder")}
               />
+              </FormField>
               <ActionButton variant="outline"
                 disabled={!name.trim() || busy !== null}
                 onClick={() => void createBase()} className="!min-h-11 !px-3 !text-xs !font-semibold disabled:opacity-50"
@@ -351,7 +331,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
           ))}
         </div>
       </SurfacePanel>
-      {error && <p className="mt-3 text-xs text-[var(--danger)]">{error}</p>}
+      {error && <Notice tone="danger" compact className="mt-3" onDismiss={() => setError(null)} dismissLabel={t("common.close")}>{error}</Notice>}
       <p className="mt-4 text-[11px] text-[var(--text-muted)]">{t("knowledgePage.aiHint")}</p>
     </PageShell>
   );
