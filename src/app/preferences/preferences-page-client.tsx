@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { PageShell, PageHeader } from "@/components/page-shell";
-import { Switch } from "@/components/ui-primitives";
+import { Notice, Switch } from "@/components/ui-primitives";
 import { Bell, Home, LayoutDashboard, Radio, RefreshCw, User } from "@/components/icons";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { REFRESH_INTERVAL_OPTIONS } from "@/lib/preferences/refresh-interval";
@@ -309,12 +309,8 @@ export function PreferencesSettingsContent({
 	const content = (
 		<>
 			{showHeader && <PageHeader eyebrow={t("preferencesPage.eyebrow")} title={t("preferencesPage.title")} description={t("preferencesPage.desc")} />}
-			{saved && (
-				<div role="status" className="mb-4 text-xs text-[var(--success)] bg-[var(--success-bg)] border border-[var(--success-border)] rounded-lg px-4 py-2">{t("preferencesPage.status.saved")}</div>
-			)}
-			{error && (
-				<div role="alert" className="mb-4 text-xs text-[var(--danger)] bg-[var(--danger-bg)] border border-[var(--danger-border)] rounded-lg px-4 py-2">{error}</div>
-			)}
+			{saved && <Notice tone="success" compact className="mb-4">{t("preferencesPage.status.saved")}</Notice>}
+			{error && <Notice tone="danger" compact className="mb-4">{error}</Notice>}
 
 			<div id="personal-preferences" className="space-y-4 max-w-2xl scroll-mt-24">
 				<Section summaryId="preferences-default-page">

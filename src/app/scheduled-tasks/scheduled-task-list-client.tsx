@@ -9,6 +9,7 @@ import { toDateLocale } from "@/lib/i18n/locale-format";
 import type { Locale } from "@/lib/i18n/translations";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
+import { Notice } from "@/components/ui-primitives";
 
 type Task = {
 	id: string; name: string; cronExpression: string; cronDescription: string;
@@ -132,7 +133,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 
 	return (
 		<div className="space-y-6">
-			{actionError && <div role="alert" className="rounded-lg bg-[var(--danger-bg)] border border-[var(--danger-border)] px-3.5 py-2.5 text-sm text-[var(--danger)]">{actionError}</div>}
+			{actionError && <Notice tone="danger">{actionError}</Notice>}
 			<Toolbar className="flex-col gap-3 md:flex-row md:items-center md:justify-between">
 				<div className="space-y-1">
 					<label htmlFor="scheduled-task-log-search" className="text-xs font-medium text-[var(--text-secondary)]">{t("scheduledTasksPage.search.label")}</label>
@@ -302,7 +303,7 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 	return (
 		<form onSubmit={handleSubmit} data-card className="space-y-4 p-5">
 			<h3 className="text-lg font-semibold text-[var(--text-primary)]">{t("scheduledTasksPage.createTitle")}</h3>
-			{error && <div role="alert" className="rounded-lg bg-[var(--danger-bg)] border border-[var(--danger-border)] px-3.5 py-2.5 text-sm text-[var(--danger)]">{error}</div>}
+			{error && <Notice tone="danger">{error}</Notice>}
 
 			<div className="space-y-1.5">
 				<label htmlFor="scheduled-task-name" className={fieldLabelClass}>{t("scheduledTasksPage.name")}</label>

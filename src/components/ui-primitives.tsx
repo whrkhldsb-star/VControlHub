@@ -1,6 +1,7 @@
 import { cn } from "@/lib/ui/cn";
 import { UI_INPUT } from "@/lib/ui/classes";
 import type {
+	ButtonHTMLAttributes,
 	HTMLAttributes,
 	InputHTMLAttributes,
 	ReactNode,
@@ -445,8 +446,62 @@ export function FormField({
 				{actions ? <div className="flex shrink-0 items-center gap-1.5">{actions}</div> : null}
 			</div>
 			{children}
-			{error ? <p className="text-xs text-[var(--danger)]">{error}</p> : null}
-			{!error && hint ? <p className="text-xs leading-5 text-[var(--text-muted)]">{hint}</p> : null}
+			{error ? <p id={htmlFor ? `${htmlFor}-error` : undefined} role="alert" className="text-xs text-[var(--danger)]">{error}</p> : null}
+			{!error && hint ? <p id={htmlFor ? `${htmlFor}-hint` : undefined} className="text-xs leading-5 text-[var(--text-muted)]">{hint}</p> : null}
 		</div>
 	);
+}
+
+export type NoticeTone = "info" | "success" | "warning" | "danger" | "neutral";
+
+const NOTICE_STYLES: Record<NoticeTone, string> = {
+	info: "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]",
+	success: "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]",
+	warning: "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)]",
+	danger: "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)]",
+	neutral: "border-[var(--border)] bg-[var(--surface-subtle)] text-[var(--text-secondary)]",
+};
+
+export function Notice({
+	tone = "info", title, children, action, onDismiss, dismissLabel = "Dismiss", compact = false, className,
+}: {
+	tone?: NoticeTone;
+	title?: ReactNode;
+	children?: ReactNode;
+	action?: { label: ReactNode; onClick: () => void; disabled?: boolean };
+	onDismiss?: () => void;
+	dismissLabel?: string;
+	compact?: boolean;
+	className?: string;
+}) {
+	return (
+		<div role={tone === "danger" ? "alert" : "status"} data-notice-tone={tone} className={cn("flex items-start justify-between gap-3 rounded-xl border", compact ? "px-3 py-2 text-xs" : "px-4 py-3 text-sm", NOTICE_STYLES[tone], className)}>
+			<div className="min-w-0 flex-1">
+				{title ? <div className="font-semibold text-current">{title}</div> : null}
+				{children ? <div className={title ? "mt-1 leading-5" : "leading-5"}>{children}</div> : null}
+			</div>
+			{action || onDismiss ? <div className="flex shrink-0 items-center gap-2">
+				{action ? <button type="button" onClick={action.onClick} disabled={action.disabled} className="font-semibold underline underline-offset-2 disabled:opacity-50">{action.label}</button> : null}
+				{onDismiss ? <IconButton label={dismissLabel} onClick={onDismiss} className="h-7 w-7">×</IconButton> : null}
+			</div> : null}
+		</div>
+	);
+}
+
+export function FormGrid({ children, columns = 2, className }: { children: ReactNode; columns?: 1 | 2 | 3; className?: string }) {
+	const columnsClass = columns === 1 ? "grid-cols-1" : columns === 3 ? "md:grid-cols-3" : "md:grid-cols-2";
+	return <div data-form-grid className={cn("grid gap-4", columnsClass, className)}>{children}</div>;
+}
+
+export function CheckboxField({ label, hint, className, ...inputProps }: { label: ReactNode; hint?: ReactNode; className?: string } & Omit<InputHTMLAttributes<HTMLInputElement>, "type">) {
+	const accessibleLabel = inputProps["aria-label"] ?? (typeof label === "string" ? label : undefined);
+	return <label className={cn("flex items-start gap-3 text-sm text-[var(--text-secondary)]", className)}>
+		<input type="checkbox" aria-label={accessibleLabel} className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--accent)]" {...inputProps} />
+		<span className="min-w-0"><span className="block font-medium text-[var(--text-primary)]">{label}</span>{hint ? <span className="mt-0.5 block text-xs leading-5 text-[var(--text-muted)]">{hint}</span> : null}</span>
+	</label>;
+}
+
+export function IconButton({ label, tone = "neutral", children, className, ...rest }: { label: string; tone?: "neutral" | "danger" | "accent"; children: ReactNode } & Omit<ButtonHTMLAttributes<HTMLButtonElement>, "aria-label">) {
+	const toneClass = tone === "danger" ? "text-[var(--danger)] hover:bg-[var(--danger-bg)]" : tone === "accent" ? "text-[var(--accent)] hover:bg-[var(--accent-bg)]" : "text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]";
+	return <button type="button" aria-label={label} title={label} className={cn("inline-flex h-9 w-9 items-center justify-center rounded-lg transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50", toneClass, className)} {...rest}>{children}</button>;
 }

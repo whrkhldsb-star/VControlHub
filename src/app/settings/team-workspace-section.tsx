@@ -7,6 +7,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
+import { IconButton, Notice } from "@/components/ui-primitives";
 
 type TeamMemberDto = {
 	role: string;
@@ -205,8 +206,8 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 				<p className="mt-1 text-sm text-[var(--text-secondary)]">{t("settingsTeam.desc")}</p>
 			</div>
 
-			{error && <div role="alert" className="rounded-xl border border-[var(--danger-border)] bg-[var(--danger-bg)] px-3 py-2 text-sm text-[var(--danger)] light:text-[var(--danger)]">{error}</div>}
-			{message && <div className="rounded-xl border border-[var(--success-border)] bg-[var(--success-bg)] px-3 py-2 text-sm text-[var(--success)] light:text-[var(--success)]">{message}</div>}
+			{error && <Notice tone="danger">{error}</Notice>}
+			{message && <Notice tone="success">{message}</Notice>}
 
 			{loading ? (
 				<p className="text-sm text-[var(--text-muted)]">{t("settingsTeam.loading")}</p>
@@ -259,9 +260,7 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 										<span className="flex items-center gap-2">
 											<span className="text-[var(--text-muted)]">{member.role}</span>
 											{canManage && member.role !== "owner" && (
-												<button type="button" disabled={busy} onClick={() => removeMember(team.id, member.user.id, member.user.displayName || member.user.username)} className="text-[var(--danger)]/70 hover:text-[var(--danger)] light:text-[var(--danger)] light:hover:text-[var(--danger)] disabled:opacity-60">
-													✕
-												</button>
+												<IconButton label={t("settingsTeam.confirm.removeMember.title")} tone="danger" disabled={busy} onClick={() => removeMember(team.id, member.user.id, member.user.displayName || member.user.username)} className="h-7 w-7 text-xs">✕</IconButton>
 											)}
 										</span>
 									</li>

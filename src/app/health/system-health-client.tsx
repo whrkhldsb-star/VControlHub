@@ -16,7 +16,7 @@ import {
 } from "./health-dashboard-helpers";
 import type { SystemHealthReport } from "./health-types";
 import { useHealthData } from "./use-health-data";
-import { ActionButton } from "@/components/action-button";
+import { Notice } from "@/components/ui-primitives";
 
 type Props = { initialSystemHealth?: SystemHealthReport | null };
 
@@ -48,23 +48,7 @@ export function SystemHealthClient({ initialSystemHealth }: Props) {
 		<div className="space-y-6">
 			<ActiveIncidentsBanner />
 
-			{loadError ? (
-				<div
-					role="alert"
-					data-tone="rose"
-					className="rounded-xl border border-[var(--danger-border)] p-3 text-sm text-[var(--danger)]"
-				>
-					{loadError}
-					<ActionButton variant="danger"
-						onClick={() => void fetchSystemHealth()}
-						disabled={isRefreshing}
-					
-						className="!mt-3 !px-3 !py-1.5 !text-xs disabled:cursor-not-allowed disabled:opacity-50"
-					>
-						{isRefreshing ? t("healthPage.ui.retrying") : t("healthPage.ui.retryLoad")}
-					</ActionButton>
-				</div>
-			) : null}
+			{loadError ? <Notice tone="danger" action={{ label: isRefreshing ? t("healthPage.ui.retrying") : t("healthPage.ui.retryLoad"), onClick: () => void fetchSystemHealth(), disabled: isRefreshing }}>{loadError}</Notice> : null}
 
 			<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 				<div className="text-xs text-[var(--text-muted)]">

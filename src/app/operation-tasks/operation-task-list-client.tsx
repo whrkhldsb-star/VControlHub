@@ -4,7 +4,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
 import Link from "next/link";
 import { EmptyState, ListPanel, ListRow, StatCard, StatGrid, SurfacePanel, Toolbar } from "@/components/page-shell";
-import { CONTROL_CLASS } from "@/components/ui-primitives";
+import { CONTROL_CLASS, Notice } from "@/components/ui-primitives";
 import type { OperationTask, OperationTaskFailureSummary, OperationTaskSourceSummary, OperationTaskStatus } from "@/lib/operation-task/dto";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -154,7 +154,7 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
   }, [refresh, statusFilter, taskTypeFilter, sort]);
   const counts = tasks.reduce<Record<OperationTaskStatus, number>>((acc, task) => { acc[task.status] = (acc[task.status] ?? 0) + 1; return acc; }, {} as Record<OperationTaskStatus, number>);
   return <div className="space-y-5">
-    {error && <div role="alert" className="rounded-xl border border-[var(--danger-border)] bg-[var(--danger-bg)] px-4 py-3 text-sm text-[var(--danger)]">{error}</div>}
+    {error && <Notice tone="danger">{error}</Notice>}
     <StatGrid cols={4} className="mb-0">
       <StatCard label={t("operationTasks.filter.running")} value={String(counts.running ?? 0)} accent={(counts.running ?? 0) > 0} accentColor="cyan" />
       <StatCard label={t("operationTasks.filter.pending")} value={String(counts.pending ?? 0)} accent={(counts.pending ?? 0) > 0} accentColor="amber" />

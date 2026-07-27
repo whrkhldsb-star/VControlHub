@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { PageShell, PageHeader, Toolbar } from "@/components/page-shell";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { Notice } from "@/components/ui-primitives";
 
 type OpenApiOperation = {
 	tags?: string[];
@@ -139,11 +140,7 @@ export default function ApiDocsPage() {
 					</div>
 				</Toolbar>
 
-				{error ? (
-					<div role="alert" className="rounded-2xl border border-[var(--danger-border)] bg-[var(--danger-bg)] p-4 text-sm text-[var(--danger)]">
-						{error}
-					</div>
-				) : null}
+				{error ? <Notice tone="danger">{error}</Notice> : null}
 
 				{!spec && !error ? (
 					<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] p-8 text-sm text-[var(--text-muted)]">

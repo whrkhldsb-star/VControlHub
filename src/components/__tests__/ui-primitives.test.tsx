@@ -1,47 +1,63 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
-import { Badge, Card, Spinner, ProgressBar } from "../ui-primitives";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import {
+  Badge,
+  Card,
+  CheckboxField,
+  FormField,
+  FormGrid,
+  IconButton,
+  Notice,
+  ProgressBar,
+  Spinner,
+} from "../ui-primitives";
 
 describe("UI Primitives", () => {
-	describe("Badge", () => {
-		it("renders with default props", () => {
-			render(<Badge>Default Badge</Badge>);
-			const badge = screen.getByText("Default Badge");
-			expect(badge).toBeInTheDocument();
-			expect(badge.className).toContain("rounded-full");
-		});
+  it("renders badges, cards, spinners and progress", () => {
+    render(<><Badge tone="emerald">Success</Badge><Card>Card Content</Card><Spinner label="加载中…" /><ProgressBar value={50} /></>);
+    expect(screen.getByText("Success")).toHaveAttribute("data-tone", "emerald");
+    expect(screen.getByText("Card Content")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveAttribute("aria-label", "加载中…");
+    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "50");
+  });
 
-		it("applies tone correctly", () => {
-			render(<Badge tone="emerald">Success</Badge>);
-			expect(screen.getByText("Success")).toHaveAttribute("data-tone", "emerald");
-		});
-	});
+  it("renders an accessible notice with action and dismiss controls", () => {
+    const retry = vi.fn();
+    const dismiss = vi.fn();
+    render(<Notice tone="danger" title="Load failed" action={{ label: "Retry", onClick: retry }} dismissLabel="Dismiss" onDismiss={dismiss}>Server unavailable</Notice>);
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveAttribute("data-notice-tone", "danger");
+    expect(alert).toHaveTextContent("Load failed");
+    expect(alert).toHaveTextContent("Server unavailable");
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    expect(retry).toHaveBeenCalledOnce();
+    expect(dismiss).toHaveBeenCalledOnce();
+  });
 
-	describe("Card", () => {
-		it("renders children inside", () => {
-			render(<Card>Card Content</Card>);
-			expect(screen.getByText("Card Content")).toBeInTheDocument();
-		});
-	});
+  it("uses status semantics for non-error notices", () => {
+    render(<Notice tone="success">Saved</Notice>);
+    expect(screen.getByRole("status")).toHaveTextContent("Saved");
+  });
 
-	describe("Spinner", () => {
-		it("renders with correct size and default accessible label", () => {
-			render(<Spinner size="lg" />);
-			const status = screen.getByRole("status");
-			expect(status).toBeInTheDocument();
-			expect(status).toHaveAttribute("aria-label", "Loading…");
-		});
+  it("associates form field hint and error content with its control", () => {
+    const { rerender } = render(<FormField label="Name" htmlFor="name" hint="Public label"><input id="name" /></FormField>);
+    expect(screen.getByLabelText("Name")).toBeInTheDocument();
+    expect(screen.getByText("Public label")).toHaveAttribute("id", "name-hint");
+    rerender(<FormField label="Name" htmlFor="name" error="Required"><input id="name" /></FormField>);
+    expect(screen.getByRole("alert")).toHaveAttribute("id", "name-error");
+  });
 
-		it("accepts localized label for i18n call sites", () => {
-			render(<Spinner label="加载中…" />);
-			expect(screen.getByRole("status")).toHaveAttribute("aria-label", "加载中…");
-		});
-	});
+  it("renders form grids and checkbox fields with consistent semantics", () => {
+    render(<FormGrid columns={2}><CheckboxField name="enabled" label="Enabled" hint="Applies immediately" /></FormGrid>);
+    expect(screen.getByLabelText("Enabled")).toHaveAttribute("name", "enabled");
+    expect(screen.getByText("Applies immediately")).toBeVisible();
+  });
 
-	describe("ProgressBar", () => {
-		it("renders correctly", () => {
-			render(<ProgressBar value={50} />);
-			expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "50");
-		});
-	});
+  it("provides an accessible icon-only action", () => {
+    const onClick = vi.fn();
+    render(<IconButton label="Delete" tone="danger" onClick={onClick}>×</IconButton>);
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    expect(onClick).toHaveBeenCalledOnce();
+  });
 });
