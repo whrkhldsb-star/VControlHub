@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import { ActionButton } from "@/components/action-button";
-import { FormField } from "@/components/ui-primitives";
+import { CheckboxField, FormField, Notice } from "@/components/ui-primitives";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { UI_INPUT } from "@/lib/ui/classes";
@@ -127,11 +127,7 @@ export function CreateRuleForm({
 			<h3 className="text-lg font-semibold text-[var(--text-primary)]">
 				{t("alertRulesPage.createForm.title")}
 			</h3>
-			{error && (
-				<div className="rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] px-3.5 py-2.5 text-sm text-[var(--danger)]">
-					{error}
-				</div>
-			)}
+			{error && <Notice tone="danger" compact onDismiss={() => setError(null)} dismissLabel={t("common.close")}>{error}</Notice>}
 
 			<FormField label={t("alertRulesPage.createForm.name")} htmlFor="alertRuleName">
 				<input
@@ -300,17 +296,13 @@ export function CreateRuleForm({
 						{ key: "telegram", i18nKey: "alertRulesPage.channel.telegram" },
 						{ key: "webhook", i18nKey: "alertRulesPage.channel.webhook" },
 					].map(({ key, i18nKey }) => (
-						<button
+						<CheckboxField
 							key={key}
-							type="button"
-							onClick={() => toggleChannel(key)}
-							className={cn(
-								"rounded-lg border px-3 py-1.5 text-xs font-medium transition",
-								channels.includes(key) ? chipActive : chipIdle,
-							)}
-						>
-							{t(i18nKey)}
-						</button>
+							checked={channels.includes(key)}
+							onChange={() => toggleChannel(key)}
+							label={t(i18nKey)}
+							className={cn("rounded-lg border px-3 py-2", channels.includes(key) ? chipActive : chipIdle)}
+						/>
 					))}
 				</div>
 			</div>
