@@ -7,6 +7,7 @@ import {
   toStorageEntry,
   type FileProp,
 } from "@/app/files/file-entry-utils";
+import { formatBytes } from "@/lib/format/bytes";
 
 export interface MediaItem {
   id: string;
@@ -31,12 +32,7 @@ export interface MediaItem {
 export type MediaTFn = (key: string, vars?: Record<string, string | number>) => string;
 
 export function formatSize(bytes: bigint | number | null, t: MediaTFn) {
-  if (bytes == null) return t("mediaItemCard.unknown");
-  const b = Number(bytes);
-  if (b < 1024) return `${b} B`;
-  if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
-  if (b < 1024 * 1024 * 1024) return `${(b / 1024 / 1024).toFixed(1)} MB`;
-  return `${(b / 1024 / 1024 / 1024).toFixed(2)} GB`;
+  return formatBytes(bytes, { fallback: t("mediaItemCard.unknown") });
 }
 
 export function storageLabel(m: MediaItem, t: MediaTFn) {

@@ -2,7 +2,8 @@ import Link from "next/link";
 
 import { listShareDirectoryFiles, peekShareToken } from "@/lib/share-link/service";
 import { getServerLocale, t } from "@/lib/i18n/translations";
-import { toDateLocale } from "@/lib/i18n/locale-format";
+import { formatDateTime } from "@/lib/datetime/format";
+import { formatBytes } from "@/lib/format/bytes";
 import { headers } from "next/headers";
 import { SharePasswordGate } from "./share-password-gate";
 import { getErrorMessage } from "@/lib/http/error-message";
@@ -10,12 +11,7 @@ import { getErrorMessage } from "@/lib/http/error-message";
 export const dynamic = "force-dynamic";
 
 function formatSize(locale: "zh" | "en", bytes: bigint | number | null) {
-  if (bytes == null) return t("sharePage.sizeUnknown", locale);
-  const b = Number(bytes);
-  if (b < 1024) return `${b} B`;
-  if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
-  if (b < 1024 * 1024 * 1024) return `${(b / 1024 / 1024).toFixed(1)} MB`;
-  return `${(b / 1024 / 1024 / 1024).toFixed(2)} GB`;
+  return formatBytes(bytes, { fallback: t("sharePage.sizeUnknown", locale) });
 }
 
 export default async function SharePage({
@@ -137,7 +133,7 @@ export default async function SharePage({
                   <div className="flex justify-between gap-3 sm:col-span-2">
                     <dt>{t("sharePage.expiresAt", locale)}</dt>
                     <dd className="text-[var(--text-secondary)]">
-                      {new Date(share.expiresAt).toLocaleString(toDateLocale(locale))}
+                      {formatDateTime(share.expiresAt, locale)}
                     </dd>
                   </div>
                 ) : (

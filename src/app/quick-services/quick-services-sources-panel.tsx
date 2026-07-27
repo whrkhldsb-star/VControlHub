@@ -1,6 +1,7 @@
 "use client";
 
 import { ActionButton } from "@/components/action-button";
+import { formatDateTime } from "@/lib/datetime/format";
 import { UI_INPUT } from "@/lib/ui/classes";
 /**
  * `SourcesPanel` — the"应用源" tab body. Renders the preset picker
@@ -67,7 +68,7 @@ type SourcesPanelProps = {
 };
 
 export function SourcesPanel({ sources, actions, onRequestDeleteSource }: SourcesPanelProps) {
-	const { t } = useI18n();
+	const { t, locale } = useI18n();
 	const [sourcePreset, setSourcePreset] = useState<SourcePresetKey | null>(null);
 	const [newSourceName, setNewSourceName] = useState("");
 	const [newSourceDisplayName, setNewSourceDisplayName] = useState("");
@@ -212,7 +213,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 					<div className="flex items-center gap-3 text-[10px] text-[var(--text-muted)]">
 						<span>{t("quickServicesPage.sources.type") +":" + src.type}</span>
 						<span>{t("quickServicesPage.sources.syncCount") +":" + String(src.syncCount)}</span>
-						{src.lastSyncAt && <span>{t("quickServicesPage.sources.lastSyncAt") +":" + new Date(src.lastSyncAt).toLocaleString()}</span>}
+						{src.lastSyncAt && <span>{t("quickServicesPage.sources.lastSyncAt") + ":" + formatDateTime(src.lastSyncAt, locale)}</span>}
 					</div>
 					{src.lastSyncError && (
 						<div className="text-[10px] text-[var(--danger)] bg-[var(--danger-bg)] rounded px-2 py-1">{src.lastSyncError}</div>

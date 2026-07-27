@@ -5,10 +5,10 @@ import { useMemo, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { formatDateTime } from "@/lib/datetime/format";
-import type { Locale } from "@/lib/i18n/translations";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 import { ModalShell } from "@/components/modal-shell";
+import { StatusBadge, type StatusTone } from "@/components/status-badge";
 
 export type SafeApiToken = {
   id: string;
@@ -27,16 +27,12 @@ type Props = {
   allowedScopes: readonly string[];
 };
 
-function formatDate(value: Date | string | null, locale?: Locale) {
-  return formatDateTime(value, locale ?? "zh");
-}
-
 function tokenStatus(t: (k: string, vars?: Record<string, string | number>) => string, token: SafeApiToken) {
-  if (token.revokedAt) return { label: t("apiTokensPage.status.revoked"), className: "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)]" };
+  if (token.revokedAt) return { label: t("apiTokensPage.status.revoked"), tone: "danger" as StatusTone };
   if (token.expiresAt && new Date(token.expiresAt).getTime() <= Date.now()) {
-    return { label: t("apiTokensPage.status.expired"), className: "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)]" };
+    return { label: t("apiTokensPage.status.expired"), tone: "warning" as StatusTone };
   }
-  return { label: t("apiTokensPage.status.active"), className: "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]" };
+  return { label: t("apiTokensPage.status.active"), tone: "success" as StatusTone };
 }
 
 function scopeLabel(t: (k: string, vars?: Record<string, string | number>) => string, scope: string): string {
@@ -196,16 +192,16 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className="text-base font-semibold text-[var(--text-primary)]">{token.name}</h3>
-                        <span className={`rounded-full border px-2 py-0.5 text-[11px] ${status.className}`}>{status.label}</span>
+                        <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
                       </div>
                       <p className="mt-2 font-mono text-xs text-[var(--text-secondary)]">{token.tokenPrefix}…{token.tokenSuffix}</p>
                       <div className="mt-3 flex flex-wrap gap-1.5">
                         {token.scopes.map((scope) => <span key={scope} className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-2 py-0.5 font-mono text-[11px] text-[var(--text-secondary)]">{scope}</span>)}
                       </div>
                       <dl className="mt-3 grid gap-2 text-xs text-[var(--text-muted)] sm:grid-cols-3">
-                        <div><dt className="text-[var(--text-muted)]">{t("apiTokensPage.list.createdAt")}</dt><dd>{formatDate(token.createdAt, locale)}</dd></div>
-                        <div><dt className="text-[var(--text-muted)]">{t("apiTokensPage.list.expiresAt")}</dt><dd>{formatDate(token.expiresAt, locale)}</dd></div>
-                        <div><dt className="text-[var(--text-muted)]">{t("apiTokensPage.list.lastUsedAt")}</dt><dd>{formatDate(token.lastUsedAt, locale)}</dd></div>
+                        <div><dt className="text-[var(--text-muted)]">{t("apiTokensPage.list.createdAt")}</dt><dd>{formatDateTime(token.createdAt, locale)}</dd></div>
+                        <div><dt className="text-[var(--text-muted)]">{t("apiTokensPage.list.expiresAt")}</dt><dd>{formatDateTime(token.expiresAt, locale)}</dd></div>
+                        <div><dt className="text-[var(--text-muted)]">{t("apiTokensPage.list.lastUsedAt")}</dt><dd>{formatDateTime(token.lastUsedAt, locale)}</dd></div>
                       </dl>
                     </div>
                     {!token.revokedAt && (

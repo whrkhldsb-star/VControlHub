@@ -5,7 +5,8 @@ import { listShareLinks } from "@/lib/share-link/service";
 import { listStorageNodes } from "@/lib/storage/service";
 import { PageShell, EmptyState, PageHeader, ListPanel, ListRow } from "@/components/page-shell";
 import { t } from "@/lib/i18n/translations";
-import { toDateLocale } from "@/lib/i18n/locale-format";
+import { formatDateTime } from "@/lib/datetime/format";
+import { StatusBadge } from "@/components/status-badge";
 import { CreateShareForm } from "./create-share-form";
 import { ShareFilePicker } from "./share-file-picker";
 import { ShareRowActions } from "./share-row-actions";
@@ -65,21 +66,16 @@ export default async function SharesPage() {
 								</p>
 							</div>
 							<div className="flex flex-wrap items-center gap-2 sm:gap-3">
-								<span
-									className={`rounded-full border px-2.5 py-1 text-xs font-medium ${
-										s.revokedAt
-											? "border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-muted)]"
-											: s.expiresAt && s.expiresAt < new Date()
-												? "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)]"
-												: "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]"
-									}`}
+								<StatusBadge
+									size="md"
+									tone={s.revokedAt ? "neutral" : s.expiresAt && s.expiresAt < new Date() ? "warning" : "success"}
 								>
 									{s.revokedAt
 										? t("shares.status.revoked")
 										: s.expiresAt && s.expiresAt < new Date()
 											? t("shares.status.expired")
 											: t("shares.status.active")}
-								</span>
+								</StatusBadge>
 								{(() => {
 									const level = (s as { permissionLevel?: "preview" | "download" }).permissionLevel ?? "download";
 									return (
@@ -101,9 +97,9 @@ export default async function SharesPage() {
 							</div>
 						</div>
 						<p className="mt-2 text-xs text-[var(--text-muted)]">
-							{t("shares.createdAt")}: {s.createdAt.toLocaleString(toDateLocale(locale))} ·{" "}
+							{t("shares.createdAt")}: {formatDateTime(s.createdAt, locale)} ·{" "}
 							{t("shares.expiresAt")}:{" "}
-							{s.expiresAt?.toLocaleString(toDateLocale(locale)) ?? t("shares.neverExpires")}
+							{s.expiresAt ? formatDateTime(s.expiresAt, locale) : t("shares.neverExpires")}
 						</p>
 					</ListRow>
 				))}

@@ -7,6 +7,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import type { ItsmConnectionRecord, ItsmDirection, ItsmEventRecord, ItsmProvider } from "@/lib/itsm/types";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { formatDateTime } from "@/lib/datetime/format";
 import { useToast } from "@/components/toast-provider";
 import { getErrorMessage } from "@/lib/http/error-message";
 
@@ -31,7 +32,7 @@ export function ItsmPageClient({
 	publicBaseUrl,
 }: Props) {
 	const baseUrlForInbound = publicBaseUrl || (typeof window !== "undefined" ? window.location.origin : "");
-	const { t } = useI18n();
+	const { t, locale } = useI18n();
 	const { addToast } = useToast();
 	const [connections, setConnections] = useState(initialConnections);
 	const [events, setEvents] = useState(initialEvents);
@@ -357,7 +358,7 @@ export function ItsmPageClient({
 										{ev.direction} · {ev.eventType} · {ev.status}
 									</span>
 									<span className="text-xs text-muted-foreground">
-										{new Date(ev.createdAt).toLocaleString()}
+										{formatDateTime(ev.createdAt, locale)}
 									</span>
 								</div>
 								{ev.ticketId && (

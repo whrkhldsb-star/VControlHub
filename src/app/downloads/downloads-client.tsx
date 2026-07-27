@@ -16,7 +16,7 @@ import { getCategories, getErrorMessage, getStatusLabel, formatSpeed, type Downl
 import { ActionButton } from "@/components/action-button";
 export type { ServerOption } from "./downloads-shared";
 export function DownloadsClient({ servers, canManage, canManageNode }: { servers: ServerOption[]; canManage: boolean; canManageNode: boolean }) {
-	const { t } = useI18n();
+	const { t, locale } = useI18n();
 	const { addToast } = useToast();
 	const { lastDownloadProgress } = useWsNotifications();
 
@@ -388,6 +388,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 						<DownloadTaskRow
 							task={task}
 							t={t}
+							locale={locale}
 							canManage={canManage}
 							busyActions={busyActions}
 							downloadingIds={downloadingIds}

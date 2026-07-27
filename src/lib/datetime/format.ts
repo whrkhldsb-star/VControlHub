@@ -30,7 +30,7 @@ const timeFormatter = new Intl.DateTimeFormat("zh-CN", {
 
 // Locale-aware formatter cache — fixed keys only (date/time/datetime × locale).
 // Avoids unbounded growth from ad-hoc option object literals.
-type FormatterKind = "date" | "time" | "datetime";
+type FormatterKind = "date" | "time" | "datetime" | "short-date" | "short-time" | "compact-datetime";
 const FORMATTER_OPTIONS: Record<FormatterKind, Intl.DateTimeFormatOptions> = {
   datetime: {
     year: "numeric",
@@ -50,6 +50,22 @@ const FORMATTER_OPTIONS: Record<FormatterKind, Intl.DateTimeFormatOptions> = {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
+    hour12: false,
+  },
+  "short-date": {
+    month: "2-digit",
+    day: "2-digit",
+  },
+  "short-time": {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  },
+  "compact-datetime": {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
     hour12: false,
   },
 };
@@ -108,4 +124,22 @@ export function formatTime(value: Date | string | number | null | undefined, loc
   const date = toDate(value);
   if (!date) return fallback;
   return getCachedFormatter(locale, "time").format(date);
+}
+
+/** Compact month/day label for charts and dense tables. */
+export function formatShortDate(value: Date | string | number | null | undefined, locale: Locale, fallback = "—") {
+  const date = toDate(value);
+  return date ? getCachedFormatter(locale, "short-date").format(date) : fallback;
+}
+
+/** Compact hour/minute label for charts and dense tables. */
+export function formatShortTime(value: Date | string | number | null | undefined, locale: Locale, fallback = "—") {
+  const date = toDate(value);
+  return date ? getCachedFormatter(locale, "short-time").format(date) : fallback;
+}
+
+/** Compact month/day + hour/minute label for audit-style rows. */
+export function formatCompactDateTime(value: Date | string | number | null | undefined, locale: Locale, fallback = "—") {
+  const date = toDate(value);
+  return date ? getCachedFormatter(locale, "compact-datetime").format(date) : fallback;
 }

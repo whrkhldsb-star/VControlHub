@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { formatBytes as formatBytesShared } from "@/lib/format/bytes";
-import { toDateLocale } from "@/lib/i18n/locale-format";
+import { formatShortTime } from "@/lib/datetime/format";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { EmptyState } from "@/components/page-shell";
 import { getErrorMessage } from "@/lib/http/error-message";
@@ -46,12 +46,6 @@ function formatShortDate(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return `${date.getMonth() + 1}/${date.getDate()}`;
-}
-
-function formatShortTime(value: string, locale: "zh" | "en" = "zh") {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleTimeString(toDateLocale(locale), { hour: "2-digit", minute: "2-digit" });
 }
 
 function formatBytes(value: number) {

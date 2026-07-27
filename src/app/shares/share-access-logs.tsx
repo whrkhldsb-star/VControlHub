@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { formatDateTime } from "@/lib/datetime/format";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
@@ -15,7 +16,7 @@ interface AccessLog {
 }
 
 export function ShareAccessLogsButton({ shareId }: { shareId: string }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [open, setOpen] = useState(false);
   const [logs, setLogs] = useState<AccessLog[]>([]);
   const [loading, setLoading] = useState(false);
@@ -77,7 +78,7 @@ export function ShareAccessLogsButton({ shareId }: { shareId: string }) {
                         </span>
                       </td>
                       <td className="py-1.5 pr-3 text-[var(--text-muted)]">{log.ip || "-"}</td>
-                      <td className="py-1.5 pr-3 text-[var(--text-muted)]">{new Date(log.accessedAt).toLocaleString()}</td>
+                      <td className="py-1.5 pr-3 text-[var(--text-muted)]">{formatDateTime(log.accessedAt, locale)}</td>
                     </tr>
                   ))}
                 </tbody>

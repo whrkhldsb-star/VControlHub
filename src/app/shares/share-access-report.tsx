@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { formatDateTime } from "@/lib/datetime/format";
 import { getErrorMessage } from "@/lib/http/error-message";
 
 type Report = {
@@ -13,7 +14,7 @@ type Report = {
 };
 
 export function ShareAccessReport() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const tRef = useRef(t);
   useEffect(() => { tRef.current = t; }, [t]);
   const [days, setDays] = useState("30");
@@ -67,7 +68,7 @@ export function ShareAccessReport() {
         {([ ["total", report.totals.total], ["view", report.totals.view], ["download", report.totals.download], ["passwordAttempt", report.totals.passwordAttempt], ["uniqueIps", report.totals.uniqueIps] ] as const).map(([key, value]) => <div key={key} className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-3"><p className="text-xs text-[var(--text-muted)]">{t(`sharesPage.report.${key}`)}</p><p className="mt-1 text-xl font-semibold">{value}</p></div>)}
       </div>
       <div className="mt-5 overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-[var(--border)] text-left text-xs text-[var(--text-muted)]"><th className="pb-2">{t("sharesPage.report.share")}</th><th>{t("sharesPage.report.total")}</th><th>{t("sharesPage.report.view")}</th><th>{t("sharesPage.report.download")}</th><th>{t("sharesPage.report.passwordAttempt")}</th></tr></thead><tbody>{report.byShare.slice(0, 20).map((row) => <tr key={row.shareId} className="border-b border-[var(--border-subtle)]"><td className="py-2 pr-4"><span className="font-medium">{row.name}</span><span className="ml-2 text-xs text-[var(--text-muted)]">/{row.path}</span></td><td>{row.total}</td><td>{row.view}</td><td>{row.download}</td><td>{row.passwordAttempt}</td></tr>)}</tbody></table>{report.byShare.length === 0 && <p className="py-4 text-sm text-[var(--text-muted)]">{t("sharesPage.report.empty")}</p>}</div>
-      {report.logs.length > 0 ? <div className="mt-6 overflow-x-auto"><h3 className="mb-2 text-sm font-semibold">{t("sharesPage.report.recent")}</h3><table className="w-full text-xs"><thead><tr className="border-b border-[var(--border)] text-left text-[var(--text-muted)]"><th className="pb-2">{t("sharesPage.accessLogs.time")}</th><th>{t("sharesPage.report.share")}</th><th>{t("sharesPage.accessLogs.action")}</th><th>{t("sharesPage.accessLogs.ip")}</th><th>{t("sharesPage.report.userAgent")}</th></tr></thead><tbody>{report.logs.slice(0, 50).map((log) => <tr key={log.id} className="border-b border-[var(--border-subtle)]"><td className="py-2 pr-3 whitespace-nowrap">{new Date(log.accessedAt).toLocaleString()}</td><td className="pr-3">{log.share.name || log.share.path}</td><td className="pr-3">{t(`sharesPage.accessLogs.action.${log.action}`)}</td><td className="pr-3">{log.ip || "-"}</td><td className="max-w-72 truncate" title={log.userAgent || ""}>{log.userAgent || "-"}</td></tr>)}</tbody></table></div> : null}
+      {report.logs.length > 0 ? <div className="mt-6 overflow-x-auto"><h3 className="mb-2 text-sm font-semibold">{t("sharesPage.report.recent")}</h3><table className="w-full text-xs"><thead><tr className="border-b border-[var(--border)] text-left text-[var(--text-muted)]"><th className="pb-2">{t("sharesPage.accessLogs.time")}</th><th>{t("sharesPage.report.share")}</th><th>{t("sharesPage.accessLogs.action")}</th><th>{t("sharesPage.accessLogs.ip")}</th><th>{t("sharesPage.report.userAgent")}</th></tr></thead><tbody>{report.logs.slice(0, 50).map((log) => <tr key={log.id} className="border-b border-[var(--border-subtle)]"><td className="py-2 pr-3 whitespace-nowrap">{formatDateTime(log.accessedAt, locale)}</td><td className="pr-3">{log.share.name || log.share.path}</td><td className="pr-3">{t(`sharesPage.accessLogs.action.${log.action}`)}</td><td className="pr-3">{log.ip || "-"}</td><td className="max-w-72 truncate" title={log.userAgent || ""}>{log.userAgent || "-"}</td></tr>)}</tbody></table></div> : null}
     </div> : null}
   </section>;
 }

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
+import { formatDateTime } from "@/lib/datetime/format";
 
 type RecentDownload = {
   id: string;
@@ -19,7 +20,7 @@ export function RecentDownloadsPanel({
 }: {
   onNavigate: (path: string, nodeId: string) => void;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [downloads, setDownloads] = useState<RecentDownload[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -103,7 +104,7 @@ export function RecentDownloadsPanel({
                 <span className="mt-1 block truncate text-xs text-[var(--text-muted)]">
                   {download.storageNode.name} · /{download.path}
                 </span>
-                <span className="mt-1 block text-xs text-[var(--text-muted)]">{new Date(download.completedAt).toLocaleString()}</span>
+                <span className="mt-1 block text-xs text-[var(--text-muted)]">{formatDateTime(download.completedAt, locale)}</span>
               </button>
             </li>
           ))}

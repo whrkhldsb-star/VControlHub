@@ -4,13 +4,12 @@ import type {
   ImageStats,
   UploadProgress,
 } from "./image-bed-types";
+import { formatBytes } from "@/lib/format/bytes";
 
 export type ImageBedT = (key: string, vars?: Record<string, string | number>) => string;
 
 export function formatImageSize(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return formatBytes(bytes);
 }
 
 export function ImageBedStatsPanel({
@@ -40,7 +39,7 @@ export function ImageBedStatsPanel({
       <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
           [t("imageBedPage.stats.totalCount"), stats.totalCount],
-          [t("imageBedPage.stats.totalSize"), `${stats.totalSizeMB} MB`],
+          [t("imageBedPage.stats.totalSize"), formatBytes(stats.totalSizeMB * 1024 * 1024)],
           [t("imageBedPage.stats.albumCount"), stats.albums.length],
           [
             t("imageBedPage.stats.recent7d"),

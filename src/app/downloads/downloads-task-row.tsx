@@ -7,13 +7,16 @@ import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
 import { formatBytes } from "@/lib/format/bytes";
 import { ActionButton } from "@/components/action-button";
+import { StatusBadge, type StatusTone } from "@/components/status-badge";
+import { formatDateTime } from "@/lib/datetime/format";
+import type { Locale } from "@/lib/i18n/translations";
 
-const statusBadge: Record<string, string> = {
-	PENDING: "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)]",
-	RUNNING: "border-[var(--color-action-border)]/30 bg-[var(--color-action-bg)]/10 text-[var(--text-primary)]",
-	COMPLETED: "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]",
-	FAILED: "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)]",
-	CANCELLED: "border-[var(--border)] bg-[var(--surface-hover)] text-[var(--text-primary)]",
+const statusBadge: Record<string, StatusTone> = {
+	PENDING: "warning",
+	RUNNING: "accent",
+	COMPLETED: "success",
+	FAILED: "danger",
+	CANCELLED: "neutral",
 };
 
 const categoryIcon: Record<string, string> = {
@@ -37,6 +40,7 @@ function computePct(completed: string | null, total: string | null): number {
 export const DownloadTaskRow = memo(function DownloadTaskRow({
 	task,
 	t,
+	locale = "zh",
 	canManage,
 	busyActions,
 	downloadingIds,
@@ -46,6 +50,7 @@ export const DownloadTaskRow = memo(function DownloadTaskRow({
 }: {
 	task: DownloadTask;
 	t: (k: string, vars?: Record<string, string | number>) => string;
+	locale?: Locale;
 	canManage: boolean;
 	busyActions: Record<string, string>;
 	downloadingIds: Record<string, boolean>;
@@ -58,9 +63,9 @@ export const DownloadTaskRow = memo(function DownloadTaskRow({
 		<article data-card className="p-4 hover:bg-[var(--surface-elevated)]">
 			{/* Header row */}
 			<div className="flex flex-wrap items-center gap-2 mb-2.5">
-				<span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${statusBadge[task.status] ?? ""}`}>
+				<StatusBadge tone={statusBadge[task.status] ?? "neutral"} className="text-[10px]">
 					{getStatusLabel(t)[task.status] ?? task.status}
-				</span>
+				</StatusBadge>
 				<span className="text-[11px] text-[var(--text-muted)]">{urlTypeLabel(task.url, t)}</span>
 				{task.relayMode && <span data-tone="amber" className="rounded-lg border border-[var(--warning-border)] px-2 py-0.5 text-[10px] text-[var(--warning)]">{t("downloadsPage.badge.relay")}</span>}
 				{task.category && <span className="text-[11px] text-[var(--text-muted)]">{categoryIcon[task.category] ?? "📦"} {task.category}</span>}
@@ -91,7 +96,7 @@ export const DownloadTaskRow = memo(function DownloadTaskRow({
 				<span>📂 {task.targetPath}</span>
 				{task.fileSize && <span>📦 {formatBytes(task.fileSize)}</span>}
 				{task.downloadAccess && <span title={task.downloadAccess.description}>🔁 {task.downloadAccess.statusLabel}</span>}
-				<span>🕒 {new Date(task.createdAt).toLocaleString()}</span>
+				<span>🕒 {formatDateTime(task.createdAt, locale)}</span>
 				{task.creator && <span>👤 {task.creator.displayName ?? task.creator.username}</span>}
 			</div>
 
