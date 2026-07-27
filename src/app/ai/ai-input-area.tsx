@@ -19,6 +19,8 @@ import type { UseFileAttachmentsReturn } from "./hooks/use-file-attachments";
 import { buildAcceptString, formatAllowedTypes } from "./ai-file-helpers";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { ActionButton } from "@/components/action-button";
+import { IconButton, Notice } from "@/components/ui-primitives";
+import { UI_INPUT } from "@/lib/ui/classes";
 
 export interface AiInputAreaProps {
   input: string;
@@ -63,13 +65,13 @@ export function AiInputArea({
     <div className="border-t border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_94%,transparent)] px-4 py-3 backdrop-blur">
       {/* File rejection toast */}
       {fileRejectionMsg && (
-        <div className="mb-2 px-3 py-2 rounded-lg bg-[var(--danger-bg)] border border-[var(--danger-border)] text-xs text-[var(--danger)] flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+        <Notice tone="danger" compact className="mb-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
           <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           <span>{fileRejectionMsg}</span>
-          <button type="button" onClick={clearRejection} aria-label={t("aiPage.fileRejectionDismissAria")} className="ml-auto text-[var(--danger)]/60 hover:text-[var(--danger)] flex-shrink-0">×</button>
-        </div>
+          <IconButton label={t("aiPage.fileRejectionDismissAria")} onClick={clearRejection} className="ml-auto h-7 w-7 flex-shrink-0">×</IconButton>
+        </Notice>
       )}
       <div className="flex gap-2 items-end">
         {/* File upload button */}
@@ -115,8 +117,7 @@ export function AiInputArea({
           }
           rows={1}
           disabled={streaming}
-          data-input
-          className="flex-1 resize-none rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] transition focus:border-[var(--input-border-focus)] focus:shadow-[0_0_0_3px_var(--input-ring)] focus:outline-none disabled:opacity-50"
+          className={`${UI_INPUT} flex-1 resize-none px-4 py-2.5`}
           style={{ maxHeight: "120px" }}
           onInput={(e) => {
             const el = e.currentTarget;

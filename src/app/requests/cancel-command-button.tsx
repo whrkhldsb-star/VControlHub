@@ -8,6 +8,8 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 import { ModalShell } from "@/components/modal-shell";
+import { FormField, Notice } from "@/components/ui-primitives";
+import { UI_INPUT } from "@/lib/ui/classes";
 
 type Props = {
   commandRequestId: string;
@@ -61,8 +63,8 @@ export function CancelCommandButton({ commandRequestId, commandTitle }: Props) {
       >
         {t("requestsPage.cancel.title")}
       </ActionButton>
-      {message && <p role="status" className="text-xs text-[var(--success)]">{message}</p>}
-      {error && <p role="alert" className="text-xs text-[var(--danger)]">{error}</p>}
+      {message && <Notice tone="success" compact>{message}</Notice>}
+      {error && <Notice tone="danger" compact>{error}</Notice>}
 
       <ModalShell
         open={open}
@@ -76,28 +78,26 @@ export function CancelCommandButton({ commandRequestId, commandTitle }: Props) {
             <p className="mt-2 text-sm text-[var(--text-secondary)]">
               {t("requestsPage.cancel.confirmBody", { title: commandTitle })}
             </p>
-            <label htmlFor={`cancel-command-${commandRequestId}-reason`} className="mt-4 block text-sm font-medium text-[var(--text-secondary)]">
-              {t("requestsPage.cancel.reasonLabel")}
-            </label>
+            <FormField label={t("requestsPage.cancel.reasonLabel")} htmlFor={`cancel-command-${commandRequestId}-reason`} className="mt-4">
             <textarea
               id={`cancel-command-${commandRequestId}-reason`}
               value={reason}
               onChange={(event) => setReason(event.target.value)}
-              className="mt-2 min-h-20 w-full rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--danger-border)]"
+              className={`${UI_INPUT} min-h-20`}
               placeholder={t("requestsPage.cancel.reasonPlaceholder")}
             />
+            </FormField>
             <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">
-              <button
-                type="button"
+              <ActionButton variant="secondary"
                 disabled={pending}
                 onClick={() => {
                   setOpen(false);
                   setError(null);
                 }}
-                className="rounded-xl border border-[var(--border)] px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface-subtle)] disabled:opacity-50"
+                className="!px-4 !py-2 !text-sm disabled:opacity-50"
               >
                 {t("requestsPage.cancel.keep")}
-              </button>
+              </ActionButton>
               <ActionButton variant="danger-solid"
                 disabled={pending}
                 onClick={submit} className="!px-4 !py-2 !text-sm disabled:opacity-50"

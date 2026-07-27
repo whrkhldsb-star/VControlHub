@@ -6,6 +6,8 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
+import { FormField, Notice } from "@/components/ui-primitives";
+import { UI_INPUT } from "@/lib/ui/classes";
 
 type AiHostedApprovalCardProps = {
   action: {
@@ -110,20 +112,18 @@ export function AiHostedApprovalCard({ action }: AiHostedApprovalCardProps) {
           </div>
           <pre className="mt-3 max-h-32 overflow-auto rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-3 text-[11px] text-[var(--text-secondary)]">{formatParams(action.params)}</pre>
           {!disabled ? (
-            <label className="mt-3 block text-xs text-[var(--text-secondary)]">
-              <span className="mb-1 block text-[10px] uppercase tracking-wider text-[var(--text-muted)]">{t("aiHostedApproval.rejectReasonLabel")}</span>
+            <FormField label={t("aiHostedApproval.rejectReasonLabel")} className="mt-3">
               <input
                 type="text"
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
                 placeholder={t("aiHostedApproval.rejectReasonPlaceholder")}
-                data-input
-                className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm outline-none"
+                className={UI_INPUT}
                 disabled={disabled}
               />
-            </label>
+            </FormField>
           ) : null}
-          {error ? <p role="alert" className="mt-2 text-xs text-[var(--danger)]">{error}</p> : null}
+          {error ? <Notice tone="danger" compact className="mt-2">{error}</Notice> : null}
         </div>
         <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
           <ActionButton variant="success"
@@ -138,18 +138,17 @@ export function AiHostedApprovalCard({ action }: AiHostedApprovalCardProps) {
                 ? t("aiHostedApproval.confirmed")
                 : t("aiHostedApproval.confirmAction")}
           </ActionButton>
-          <button
-            type="button"
+          <ActionButton variant="secondary"
             disabled={disabled}
             onClick={() => void reject()}
-            className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-60"
+            className="!px-3 !py-2 !text-xs disabled:cursor-not-allowed disabled:opacity-60"
           >
             {status === "rejecting"
               ? t("aiHostedApproval.rejecting")
               : status === "rejected"
                 ? t("aiHostedApproval.rejected")
                 : t("aiHostedApproval.reject")}
-          </button>
+          </ActionButton>
         </div>
       </div>
     </article>

@@ -11,6 +11,8 @@ import { Pencil, Trash2, Copy, Check, Search, Plus } from "@/components/icons";
 import { EmptyState, Toolbar, ListPanel } from "@/components/page-shell";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
+import { Notice } from "@/components/ui-primitives";
+import { UI_INPUT } from "@/lib/ui/classes";
 
 interface Snippet {
   id: string;
@@ -164,19 +166,19 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
           <input
             id="snippets-search"
             type="search"
-            data-input
+
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t("snippetsPage.titlePlaceholder")}
-            className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] py-2 pl-9 pr-4 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--input-border-focus)] focus:shadow-[0_0_0_3px_var(--input-ring)]"
+            className={`${UI_INPUT} py-2 pl-9 pr-4`}
           />
         </div>
         <select
-          data-input
+
           value={langFilter}
           onChange={(e) => setLangFilter(e.target.value)}
           aria-label={t("snippetsPage.filter.placeholder")}
-          className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--input-border-focus)] focus:shadow-[0_0_0_3px_var(--input-ring)]"
+          className={`${UI_INPUT} w-auto py-2`}
         >
           {languages.map((l) => (
             <option key={l} value={l}>{l ==="ALL" ? t("snippetsPage.filter.allLanguages") : l}</option>
@@ -240,11 +242,11 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
             <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
               {t("snippetsPage.deleteDialog.body", { title: pendingDelete.title })}
             </p>
-            {deleteError && <p role="alert" className="mt-3 text-xs text-[var(--danger)]">{deleteError}</p>}
+            {deleteError && <Notice tone="danger" compact className="mt-3">{deleteError}</Notice>}
             <div className="mt-5 flex justify-end gap-2">
-              <button type="button" disabled={deleteBusy} onClick={() => { setPendingDelete(null); setDeleteError(null); }} data-card className="min-h-11 px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-50">
+              <ActionButton variant="secondary" disabled={deleteBusy} onClick={() => { setPendingDelete(null); setDeleteError(null); }} className="min-h-11 !px-4 !py-2 !text-sm disabled:opacity-50">
                 {t("snippetsPage.deleteDialog.cancel")}
-              </button>
+              </ActionButton>
               <ActionButton variant="danger" disabled={deleteBusy} onClick={handleDelete} data-tone="rose" className="min-h-11 disabled:opacity-50">
                 {deleteBusy ? t("snippetsPage.deleteDialog.deleting") : t("snippetsPage.deleteDialog.confirm")}
               </ActionButton>
