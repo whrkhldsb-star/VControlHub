@@ -9,14 +9,11 @@ import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import {
   assertUserInActorScope,
-  isGlobalTeamManager,
   teamWhere,
 } from "@/lib/auth/team-scope";
-import { AuthError, NotFoundError, ValidationError } from "@/lib/errors";
-import {
-  getStorageAccessUsage,
-  parseNullableBigIntInput,
-} from "@/lib/storage/access-control";
+import { AuthError, NotFoundError } from "@/lib/errors";
+import { getStorageAccessUsage } from "@/lib/storage/access-control";
+import { applyUserPermissionPatch } from "./route-patch";
 
 export const dynamic = "force-dynamic";
 
@@ -38,14 +35,6 @@ const patchPermissionsSchema = z.object({
   storageAccess: z.array(storageAccessItemSchema).optional(),
 });
 
-function normalizePathPrefix(value: unknown) {
-  return String(value ?? "")
-    .replace(/\\/g, "/")
-    .split("/")
-    .map((segment) => segment.trim())
-    .filter(Boolean)
-    .join("/");
-}
 
 function isPermissionKey(value: string): value is Permission {
   return (ALL_PERMISSIONS as readonly string[]).includes(value);
@@ -254,141 +243,13 @@ export async function PATCH(request: Request) {
         ? parsedData.storageAccess
         : undefined;
 
-      await prisma.$transaction(async (tx) => {
-        if (roleKeys) {
-          const customRoleKey = `user:${parsedData.userId}:custom`;
-          const roles = await tx.role.findMany({
-            where: { key: { in: roleKeys } },
-            select: { id: true, key: true },
-            take: roleKeys.length,
-          });
-          // Preserve auto custom role (user:{id}:custom) so fine-grained permissionKeys survive role rewrites.
-          await tx.userRole.deleteMany({
-            where: {
-              userId: parsedData.userId,
-              role: { key: { not: customRoleKey } },
-            },
-          });
-          if (roles.length > 0) {
-            await tx.userRole.createMany({
-              data: roles.map((role) => ({
-                userId: parsedData.userId,
-                roleId: role.id,
-              })),
-              skipDuplicates: true,
-            });
-          }
-        }
-
-        if (permissionKeys) {
-          const customRoleKey = `user:${parsedData.userId}:custom`;
-          const customRole = await tx.role.upsert({
-            where: { key: customRoleKey },
-            update: {
-              name: `${targetUser.username} 's custom permissions`,
-              description: "Auto-maintained by user permission config page",
-            },
-            create: {
-              key: customRoleKey,
-              name: `${targetUser.username} 's custom permissions`,
-              description: "Auto-maintained by user permission config page",
-            },
-          });
-          const permissionRows = await tx.permission.findMany({
-            where: { key: { in: permissionKeys } },
-            select: { id: true },
-            take: permissionKeys.length,
-          });
-          await tx.rolePermission.deleteMany({
-            where: { roleId: customRole.id },
-          });
-          if (permissionRows.length > 0) {
-            await tx.rolePermission.createMany({
-              data: permissionRows.map((permission) => ({
-                roleId: customRole.id,
-                permissionId: permission.id,
-              })),
-              skipDuplicates: true,
-            });
-          }
-          await tx.userRole.upsert({
-            where: {
-              userId_roleId: {
-                userId: parsedData.userId,
-                roleId: customRole.id,
-              },
-            },
-            update: {},
-            create: { userId: parsedData.userId, roleId: customRole.id },
-          });
-        }
-
-        if (storageAccess) {
-          const nodeScope = teamWhere(session);
-          const validNodeIds = new Set(
-            (
-              await tx.storageNode.findMany({
-                where: nodeScope,
-                select: { id: true },
-                take: 500,
-              })
-            ).map((node) => node.id),
-          );
-          // Global managers may replace the full grant set; team-scoped
-          // managers only rewrite grants for nodes they can see so foreign-
-          // team ACLs are not silently wiped.
-          if (isGlobalTeamManager(session)) {
-            await tx.userStorageAccess.deleteMany({
-              where: { userId: parsedData.userId },
-            });
-          } else {
-            await tx.userStorageAccess.deleteMany({
-              where: {
-                userId: parsedData.userId,
-                storageNode: nodeScope,
-              },
-            });
-          }
-          const mapped = storageAccess.map((grant) => ({
-            userId: parsedData.userId,
-            storageNodeId: String(grant.storageNodeId ?? ""),
-            pathPrefix: normalizePathPrefix(grant.pathPrefix),
-            canRead: grant.canRead ?? true,
-            canWrite: grant.canWrite ?? false,
-            canDelete: grant.canDelete ?? false,
-            quotaBytes: parseNullableBigIntInput(grant.quotaBytes),
-            maxFileBytes: parseNullableBigIntInput(grant.maxFileBytes),
-          }));
-          const outOfTeam = mapped
-            .map((g) => g.storageNodeId)
-            .filter((id) => id && !validNodeIds.has(id));
-          if (outOfTeam.length > 0) {
-            throw new ValidationError(
-              "One or more storage nodes are outside the current team scope",
-            );
-          }
-          const rows = mapped.filter(
-            (grant) =>
-              grant.storageNodeId &&
-              validNodeIds.has(grant.storageNodeId) &&
-              (grant.canRead || grant.canWrite || grant.canDelete),
-          );
-
-          const seen = new Set<string>();
-          const uniqueRows = rows.filter((grant) => {
-            const key = `${grant.storageNodeId}\0${grant.pathPrefix}`;
-            if (seen.has(key)) return false;
-            seen.add(key);
-            return true;
-          });
-
-          if (uniqueRows.length > 0) {
-            await tx.userStorageAccess.createMany({
-              data: uniqueRows,
-              skipDuplicates: true,
-            });
-          }
-        }
+      await applyUserPermissionPatch({
+        session,
+        parsedData,
+        targetUsername: targetUser.username,
+        roleKeys,
+        permissionKeys,
+        storageAccess,
       });
 
       await auditUserAction(
