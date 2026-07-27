@@ -1,7 +1,13 @@
 import { JobStatus } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
+import { t } from "@/lib/i18n/translations";
 import { futureFrom, type PruneCompletedJobsByTypeOptions } from "./service-internals";
+
+// Persist stable English machine/audit strings while sourcing them from i18n.
+const REQUEUED_ERROR = t("backend.job.executorHeartbeatExpiredRequeued", "en");
+const EXHAUSTED_ERROR = t("backend.job.executorHeartbeatExpiredAttemptsExhausted", "en");
+const PLAYBOOK_EXHAUSTED_ERROR = t("backend.job.parentDurableJobAttemptsExhausted", "en");
 
 export async function recoverStaleRunningJobs(options: {
   staleBefore: Date;
@@ -54,7 +60,7 @@ export async function recoverStaleRunningJobs(options: {
         workerId: null,
         workerHeartbeatAt: null,
         leaseExpiresAt: null,
-        errorMessage: "Backend executor heartbeat expired, re-queued",
+        errorMessage: REQUEUED_ERROR,
       },
     });
     if (result.count >= retryable.length) recoveredIds.push(...retryable.map((j) => j.id));
@@ -63,7 +69,7 @@ export async function recoverStaleRunningJobs(options: {
         where: {
           id: { in: retryable.map((j) => j.id) },
           status: JobStatus.PENDING,
-          errorMessage: "Backend executor heartbeat expired, re-queued",
+          errorMessage: REQUEUED_ERROR,
         },
         select: { id: true },
         take: retryable.length,
@@ -107,7 +113,7 @@ export async function recoverStaleRunningJobs(options: {
         workerId: null,
         workerHeartbeatAt: null,
         leaseExpiresAt: null,
-        errorMessage: "Backend executor heartbeat expired after exhausting attempts",
+        errorMessage: EXHAUSTED_ERROR,
       },
     });
     if (result.count >= exhausted.length) failedIds.push(...exhausted.map((j) => j.id));
@@ -116,7 +122,7 @@ export async function recoverStaleRunningJobs(options: {
         where: {
           id: { in: exhausted.map((j) => j.id) },
           status: JobStatus.FAILED,
-          errorMessage: "Backend executor heartbeat expired after exhausting attempts",
+          errorMessage: EXHAUSTED_ERROR,
         },
         select: { id: true },
         take: exhausted.length,
@@ -156,7 +162,7 @@ export async function recoverStaleRunningJobs(options: {
           where: { id: { in: playbookRunIds }, status: { in: ["queued", "running"] } },
           data: {
             status: "failed",
-            errorMessage: "Parent durable job exhausted attempts after executor heartbeat expired",
+            errorMessage: PLAYBOOK_EXHAUSTED_ERROR,
             completedAt: now,
           },
         }).catch(() => undefined);

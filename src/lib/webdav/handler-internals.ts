@@ -108,7 +108,7 @@ export async function requireAccess(
     writeBytes,
   });
   if (!decision.allowed) {
-    throw new BusinessError(decision.reason ?? "Storage access denied");
+    throw new BusinessError(decision.reason ?? t("backend.webdav.storageAccessDenied"));
   }
   return decision;
 }
@@ -187,7 +187,7 @@ export async function ensureDirectoryIndexAndBacking(input: {
     const existing = await findEntry(input.storageNodeId, built);
     if (existing) {
       if (existing.entryType !== "DIRECTORY") {
-        throw new ConflictError(`Path component is a file: ${built}`);
+        throw new ConflictError(t("backend.webdav.pathComponentIsAFile", { path: built }));
       }
       continue;
     }

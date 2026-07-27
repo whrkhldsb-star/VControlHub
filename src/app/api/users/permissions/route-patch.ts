@@ -2,6 +2,7 @@ import type { SessionPayload } from "@/lib/auth/session";
 import { isGlobalTeamManager, teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { ValidationError } from "@/lib/errors";
+import { t } from "@/lib/i18n/translations";
 import { parseNullableBigIntInput } from "@/lib/storage/access-control";
 
 type PermissionPatch = {
@@ -124,7 +125,7 @@ export async function applyUserPermissionPatch(input: {
         .map((grant) => grant.storageNodeId)
         .filter((id) => id && !validNodeIds.has(id));
       if (outOfTeam.length > 0) {
-        throw new ValidationError("One or more storage nodes are outside the current team scope");
+        throw new ValidationError(t("backend.user.storageNodesOutsideCurrentTeamScope"));
       }
       const rows = mapped.filter(
         (grant) =>

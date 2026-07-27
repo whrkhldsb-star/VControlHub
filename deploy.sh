@@ -97,6 +97,9 @@ for secret in .env .env.local .env.runtime .env.production; do
 	fi
 done
 chown -R "$APP_USER:$APP_USER" "$APP_DIR/.next" 2>/dev/null || rm -rf "$APP_DIR/.next"
+# Local CI/test commands may create root-owned Vite/Vitest cache entries under
+# node_modules. npm ci runs as APP_USER and must be able to remove that tree.
+chown -R "$APP_USER:$APP_USER" "$APP_DIR/node_modules" 2>/dev/null || true
 
 echo "==> [2/6] 停止 Next 服务后 build（禁止覆盖运行中进程的 Client Manifest）"
 systemctl stop "$SERVICE_NAME"
