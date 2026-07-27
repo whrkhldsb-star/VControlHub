@@ -51,6 +51,7 @@ import {
 import { TOC_SUBTITLE_KEYS } from "./settings-toc";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
+import { Notice } from "@/components/ui-primitives";
 
 // Re-export so test files importing from `settings-client` keep working.
 export { FieldRiskBadge, FieldRollbackButton } from "./settings-field-risk";
@@ -364,23 +365,8 @@ export function SettingsClient({
 
   return (
     <div className="space-y-6">
-      {error && (
-        <div
-          role="alert"
-          className="rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] px-4 py-3 text-sm text-[var(--danger)]"
-        >
-          {error}
-        </div>
-      )}
-      {saved && (
-        <div
-          role="status"
-          className="rounded-lg border border-[var(--success-border)] bg-[var(--success-bg)] px-4 py-3 text-sm text-[var(--success)]"
-        >
-          {t("settingsClient.savedWithMessage")}
-          {savedMessage ? ` — ${savedMessage}` : ""}
-        </div>
-      )}
+      {error && <Notice tone="danger" onDismiss={() => setError(null)} dismissLabel={t("common.close")}>{error}</Notice>}
+      {saved && <Notice tone="success">{t("settingsClient.savedWithMessage")}{savedMessage ? ` — ${savedMessage}` : ""}</Notice>}
 
       {/* Quick-jump TOC + expand/collapse all */}
       {showCategoryNav && (
