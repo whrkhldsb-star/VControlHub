@@ -1,7 +1,6 @@
-import { createReadStream } from "node:fs";
-import { access, mkdir, stat, unlink, writeFile } from "node:fs/promises";
+import { mkdir, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { guessContentType } from "@/lib/http/mime-types";
+
 
 import { NextResponse } from "next/server";
 
@@ -25,15 +24,13 @@ import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 import { normalizeRemoteTargetPath } from "@/lib/storage/remote-path";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { withApiRoute } from "@/lib/http/api-guard";
-import { parseSearchParams } from "@/lib/http/parse-search-params";
-import { contentDownloadQuerySchema } from "@/lib/storage/schema";
 import { MAX_STORAGE_UPLOAD_BYTES } from "@/lib/storage/mime-constants";
-import { parseStorageRange, storageStreamResponse } from "@/lib/storage/streaming";
 
 import { AuthError, ValidationError } from "@/lib/errors";
 import { isUniqueViolation } from "@/lib/db";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { getServerLocale, t, type Locale } from "@/lib/i18n/translations";
+import { handleLocalStorageGet } from "./route-get";
 
 type UploadLike = {
   arrayBuffer(): Promise<ArrayBuffer>;
@@ -72,116 +69,6 @@ function resolveManagedLocalPath(basePath: string, relativePath: string) {
     absolutePath,
     allowedRoot,
   };
-}
-
-async function handleGet(request: Request, session: SessionPayload, locale: Locale) {
-  const { path: relativePath, nodeId: storageNodeId, download } = parseSearchParams(
-    request,
-    contentDownloadQuerySchema,
-  );
-
-  if (!relativePath) {
-    throw new ValidationError(t("api.storage.missingPath", locale));
-  }
-  if (!storageNodeId) {
-    throw new ValidationError(t("api.storage.missingNodeId", locale));
-  }
-
-  const normalizedDownloadPath = normalizeStorageRelativePath(relativePath);
-  if (!normalizedDownloadPath.ok) {
-    return NextResponse.json(
-      { error: normalizedDownloadPath.reason },
-      { status: 400 },
-    );
-  }
-
-  const entryWhere: Record<string, unknown> = {
-    relativePath: normalizedDownloadPath.path,
-    isDeleted: false,
-    storageNodeId,
-    storageNode: {
-      driver: "LOCAL",
-      ...teamWhere(session),
-    },
-  };
-
-  const entry = await prisma.fileEntry.findFirst({
-    where: entryWhere,
-    include: {
-      storageNode: {
-        select: {
-          id: true,
-          name: true,
-          basePath: true,
-          driver: true,
-          teamId: true,
-        },
-      },
-    },
-  });
-
-  if (!entry) {
-    return NextResponse.json(
-      { error: t("api.storage.localEntryNotFound", locale) },
-      { status: 404 },
-    );
-  }
-
-  const accessDecision = await assertStorageAccess({
-    session,
-    storageNodeId: entry.storageNode.id,
-    relativePath: entry.relativePath,
-    operation: "read",
-  });
-  if (!accessDecision.allowed) {
-    return NextResponse.json(
-      { error: accessDecision.reason ?? t("api.storage.accessDenied", locale) },
-      { status: 403 },
-    );
-  }
-
-  let absolutePath: string;
-  try {
-    ({ absolutePath } = resolveManagedLocalPath(
-      entry.storageNode.basePath,
-      normalizedDownloadPath.path,
-    ));
-  } catch (error) {
-    return NextResponse.json(
-      { error: getErrorMessage(error, t("api.storage.invalidPath", locale)) },
-      { status: 400 },
-    );
-  }
-
-  try {
-    await access(absolutePath);
-    const fileStat = await stat(absolutePath);
-    if (!fileStat.isFile()) {
-      return NextResponse.json(
-        { error: t("api.storage.notDownloadableFile", locale) },
-        { status: 400 },
-      );
-    }
-
-    const range = parseStorageRange(request.headers.get("range"), fileStat.size);
-    if (range instanceof Response) return range;
-    const streamOptions = range.status === 206 ? { start: range.start, end: range.end } : undefined;
-    const nodeStream = createReadStream(absolutePath, streamOptions);
-    return storageStreamResponse({
-      stream: nodeStream,
-      range,
-      fileName: entry.name,
-      fileSize: fileStat.size,
-      contentType: guessContentType(entry.name, entry.mimeType),
-      download,
-    });
-  } catch (downloadError) {
-    logError("[/api/storage/local] download error:", downloadError);
-    return NextResponse.json(
-      { error: t("api.storage.fileUnavailable", locale) },
-      { status: 404 },
-    );
-  }
 }
 
 async function handlePost(request: Request, session: SessionPayload, locale: Locale) {
@@ -488,7 +375,7 @@ export async function GET(request: Request) {
     async ({ session }) => {
       if (!session)
         throw new AuthError(t("api.auth.sessionExpired", locale));
-      return handleGet(request, session, locale);
+      return handleLocalStorageGet(request, session, locale);
     },
   );
 }
