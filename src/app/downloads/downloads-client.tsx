@@ -14,6 +14,7 @@ import { CreateDownloadFormLazy } from "./create-download-form-lazy";
 import { DownloadTaskRow } from "./downloads-task-row";
 import { getCategories, getErrorMessage, getStatusLabel, formatSpeed, type DownloadTask, type GlobalStat, type ServerOption } from "./downloads-shared";
 import { ActionButton } from "@/components/action-button";
+import { Notice } from "@/components/ui-primitives";
 export type { ServerOption } from "./downloads-shared";
 export function DownloadsClient({ servers, canManage, canManageNode }: { servers: ServerOption[]; canManage: boolean; canManageNode: boolean }) {
 	const { t, locale } = useI18n();
@@ -348,9 +349,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 						{showForm ? t("downloadsPage.form.cancelLabel") : t("downloadsPage.form.createLabel")}
 					</ActionButton>
 				) : canManage ? (
-					<div className="rounded-2xl border border-[var(--warning-border)] bg-[var(--warning-bg)] px-4 py-2 text-xs text-[var(--warning)]">
-						{t("downloadsPage.form.noTarget")}
-					</div>
+					<Notice tone="warning" compact>{t("downloadsPage.form.noTarget")}</Notice>
 				) : null}
 			</Toolbar>
 
@@ -412,7 +411,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 						<p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">{t("downloadsPage.confirm.purge", { name: pendingPurgeName })}</p>
 						<div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
 							<ActionButton variant="secondary" onClick={() => setPendingPurgeTaskId(null)} className="min-h-11 !px-4 !py-2 !text-sm">{t("common.cancel")}</ActionButton>
-							<button type="button" onClick={() => handleAction(pendingPurgeTaskId, "purge")} className="min-h-11 rounded-xl bg-[var(--danger-bg)] px-4 py-2 text-sm font-semibold text-[var(--danger)] hover:bg-[var(--danger-bg)] hover:text-[var(--danger)]">{t("common.confirmDelete")}</button>
+							<ActionButton variant="danger-solid" disabled={Boolean(busyActions[`${pendingPurgeTaskId}:purge`])} onClick={() => void handleAction(pendingPurgeTaskId, "purge")} className="min-h-11 !px-4 !py-2 !text-sm disabled:opacity-60">{t("common.confirmDelete")}</ActionButton>
 						</div>
 				</ModalShell>
 			) : null}
