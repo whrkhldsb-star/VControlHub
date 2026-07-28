@@ -2,10 +2,7 @@ import { prisma } from "@/lib/db";
 import { config } from "@/lib/config/env";
 import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
 import { serverT } from "@/lib/i18n/server-locale";
-import {
-  buildSshParamsFromServer,
-  execRemoteCommand,
-} from "@/lib/ssh/client";
+import { buildSshParamsFromServer, execRemoteCommand } from "@/lib/ssh/client";
 import {
   buildDirectGatewayPublicBaseUrl,
   buildInstallDirectGatewayCommand,
@@ -295,7 +292,9 @@ export async function applyServerDirectGatewayState(input: {
           port: DIRECT_GATEWAY_DEFAULT_PORT,
           bindAddress,
           autoReverseProxy,
-          publicPort: autoReverseProxy ? DIRECT_GATEWAY_HTTPS_PUBLIC_PORT : undefined,
+          publicPort: autoReverseProxy
+            ? DIRECT_GATEWAY_HTTPS_PUBLIC_PORT
+            : undefined,
           tlsHost: publicHost,
         })
       : buildUninstallDirectGatewayCommand();
@@ -317,7 +316,9 @@ export async function applyServerDirectGatewayState(input: {
       });
       if (result.exitCode && result.exitCode !== 0)
         throw new BusinessError(
-          result.stderr || result.stdout || "Target server direct connection service operation failed",
+          result.stderr ||
+            result.stdout ||
+            "Target server direct connection service operation failed",
         );
     } catch (error) {
       if (!input.bestEffort) throw error;
@@ -385,7 +386,7 @@ export async function applyServerDirectGatewayState(input: {
       serverId: input.serverId,
       publicBaseUrl,
     });
-  } else {
+  } else if (!cleanupSkipped) {
     await clearDirectGatewayDbState(input.serverId);
   }
 
@@ -393,8 +394,12 @@ export async function applyServerDirectGatewayState(input: {
   safeRevalidatePath("/storage");
   safeRevalidatePath("/files");
   return {
-    enabled: input.enabled,
-    publicBaseUrl: input.enabled ? publicBaseUrl : null,
+    enabled: input.enabled ? true : cleanupSkipped,
+    publicBaseUrl: input.enabled
+      ? publicBaseUrl
+      : cleanupSkipped
+        ? server.publicUrl
+        : null,
     cleanupSkipped,
     errorMessage,
     bindAddress: input.enabled ? bindAddress : undefined,

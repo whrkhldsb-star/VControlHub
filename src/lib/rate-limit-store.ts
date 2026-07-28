@@ -172,7 +172,9 @@ class RedisRateLimitStore implements RateLimitStore {
     const members: string[] = Array.isArray(results[2])
       ? (results[2] as string[])
       : [];
-    return members.map(Number);
+    return members
+      .map((member) => Number(member.split(":", 1)[0]))
+      .filter(Number.isFinite);
   }
 
   async getLockout(key: string): Promise<AccountLockoutState | null> {

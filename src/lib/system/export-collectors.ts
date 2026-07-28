@@ -47,7 +47,11 @@ export async function exportRolePermissions() {
   }));
 }
 
-export async function exportUsers(mode: ExportMode, scope: ExportScope, teamId: string | null) {
+export async function exportUsers(
+  mode: ExportMode,
+  scope: ExportScope,
+  teamId: string | null,
+) {
   if (scope === "team" && teamId) {
     const memberUserIds = (
       await prisma.teamMember.findMany({
@@ -135,7 +139,11 @@ export async function exportUserRoles(scope: ExportScope, userIds: string[]) {
   }));
 }
 
-export async function exportSshKeys(mode: ExportMode, scope: ExportScope, teamId: string | null) {
+export async function exportSshKeys(
+  mode: ExportMode,
+  scope: ExportScope,
+  teamId: string | null,
+) {
   const where = scope === "team" && teamId ? teamScopedWhere(teamId) : {};
   const rows = await prisma.sshKey.findMany({
     where,
@@ -167,7 +175,11 @@ export async function exportSshKeys(mode: ExportMode, scope: ExportScope, teamId
   }));
 }
 
-export async function exportServers(mode: ExportMode, scope: ExportScope, teamId: string | null) {
+export async function exportServers(
+  mode: ExportMode,
+  scope: ExportScope,
+  teamId: string | null,
+) {
   const where = scope === "team" && teamId ? teamScopedWhere(teamId) : {};
   const rows = await prisma.server.findMany({
     where,
@@ -213,7 +225,10 @@ export async function exportServers(mode: ExportMode, scope: ExportScope, teamId
   }));
 }
 
-export async function exportStorageNodes(scope: ExportScope, teamId: string | null) {
+export async function exportStorageNodes(
+  scope: ExportScope,
+  teamId: string | null,
+) {
   const where = scope === "team" && teamId ? teamScopedWhere(teamId) : {};
   const rows = await prisma.storageNode.findMany({
     where,
@@ -238,7 +253,10 @@ export async function exportStorageNodes(scope: ExportScope, teamId: string | nu
   }));
 }
 
-export async function exportUserStorageAccess(scope: ExportScope, storageNodeIds: string[]) {
+export async function exportUserStorageAccess(
+  scope: ExportScope,
+  storageNodeIds: string[],
+) {
   if (scope === "team") {
     if (storageNodeIds.length === 0) return [];
     const rows = await prisma.userStorageAccess.findMany({
@@ -273,7 +291,9 @@ export async function exportUserStorageAccess(scope: ExportScope, storageNodeIds
 }
 
 export async function exportCommandTemplates() {
-  const rows = await prisma.commandTemplate.findMany({ orderBy: { name: "asc" } });
+  const rows = await prisma.commandTemplate.findMany({
+    orderBy: { name: "asc" },
+  });
   return rows.map((r) => ({
     id: r.id,
     name: r.name,
@@ -288,7 +308,11 @@ export async function exportCommandTemplates() {
   }));
 }
 
-export async function exportQuickServices(mode: ExportMode, scope: ExportScope, teamId: string | null) {
+export async function exportQuickServices(
+  mode: ExportMode,
+  scope: ExportScope,
+  teamId: string | null,
+) {
   if (scope === "team" && teamId) {
     // Team scope: hub-host (serverId null) + remote services on this team's servers only.
     // Do NOT pull server.teamId==null remotes (cross-tenant leak).
@@ -350,9 +374,15 @@ function mapQuickService(
   };
 }
 
-export async function exportPlaybooks(scope: ExportScope, teamId: string | null) {
+export async function exportPlaybooks(
+  scope: ExportScope,
+  teamId: string | null,
+) {
   const where = scope === "team" && teamId ? teamScopedWhere(teamId) : {};
-  const rows = await prisma.playbook.findMany({ where, orderBy: { name: "asc" } });
+  const rows = await prisma.playbook.findMany({
+    where,
+    orderBy: { name: "asc" },
+  });
   return rows.map((r) => ({
     id: r.id,
     name: r.name,
@@ -368,9 +398,15 @@ export async function exportPlaybooks(scope: ExportScope, teamId: string | null)
   }));
 }
 
-export async function exportAlertRules(scope: ExportScope, teamId: string | null) {
+export async function exportAlertRules(
+  scope: ExportScope,
+  teamId: string | null,
+) {
   const where = scope === "team" && teamId ? teamScopedWhere(teamId) : {};
-  const rows = await prisma.alertRule.findMany({ where, orderBy: { name: "asc" } });
+  const rows = await prisma.alertRule.findMany({
+    where,
+    orderBy: { name: "asc" },
+  });
   return rows.map((r) => ({
     id: r.id,
     name: r.name,
@@ -380,9 +416,12 @@ export async function exportAlertRules(scope: ExportScope, teamId: string | null
     durationSeconds: r.durationSeconds,
     serverIds: r.serverIds,
     notifyChannels: r.notifyChannels,
+    playbookIds: r.playbookIds,
     webhookUrl: r.webhookUrl,
     cooldownMinutes: r.cooldownMinutes,
     silenceWindows: r.silenceWindows,
+    escalationMinutes: r.escalationMinutes,
+    onCallUserIds: r.onCallUserIds,
     enabled: r.enabled,
     teamId: r.teamId ?? null,
     createdAt: dateToISO(r.createdAt)!,
@@ -394,7 +433,8 @@ export async function exportSettings(mode: ExportMode, scope: ExportScope) {
   const rows = await prisma.setting.findMany({ orderBy: { key: "asc" } });
   return rows.map((r) => ({
     key: r.key,
-    value: mode === "full" ? r.value : isSensitiveSettingKey(r.key) ? "" : r.value,
+    value:
+      mode === "full" ? r.value : isSensitiveSettingKey(r.key) ? "" : r.value,
   }));
 }
 
@@ -435,7 +475,9 @@ export async function exportAiProviders(mode: ExportMode, scope: ExportScope) {
 
 export async function exportAnnouncements(scope: ExportScope) {
   if (scope === "team") return [];
-  const rows = await prisma.announcement.findMany({ orderBy: { createdAt: "desc" } });
+  const rows = await prisma.announcement.findMany({
+    orderBy: { createdAt: "desc" },
+  });
   return rows.map((r) => ({
     id: r.id,
     title: r.title,
@@ -450,7 +492,10 @@ export async function exportAnnouncements(scope: ExportScope) {
   }));
 }
 
-export async function exportSnippets(scope: ExportScope, memberUserIds: string[]) {
+export async function exportSnippets(
+  scope: ExportScope,
+  memberUserIds: string[],
+) {
   if (scope === "team") {
     if (memberUserIds.length === 0) return [];
     const rows = await prisma.snippet.findMany({
