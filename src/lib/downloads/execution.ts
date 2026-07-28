@@ -146,12 +146,14 @@ export async function executeAria2RelayDownload(
      }
    } catch (err) {
     logError("[DownloadAPI] aria2 status poll failed:", err);
-    try {
-     const files = await fs.readdir(tempDir);
-     if (files.some((f) => !f.endsWith(".aria2"))) done = true;
-    } catch (err2) {
-     logError("[DownloadAPI] Failed to read temp dir:", err2);
-    }
+    await prisma.downloadTask.updateMany({
+     where: { id: taskId, status: "RUNNING" },
+     data: { status: "FAILED", errorMessage: t("backend.downloads.relayStatusVerificationFailed") },
+    });
+    if (userId) notifyDownloadResult(userId, urls[0]!, "failed", t("backend.downloads.relayStatusVerificationFailed"), teamId).catch((notifyError) => { notifyLogger.warn("notifyDownloadResult failed", { error: notifyError instanceof Error ? notifyError.message : String(notifyError) }); });
+    try { await removeDownload(gid, true); } catch { /* best effort */ }
+    await cleanupTemp(tempDir);
+    return;
    }
   }
 
@@ -189,8 +191,9 @@ export async function executeAria2RelayDownload(
    await transferFileViaSsh2(server, localFilePath, remoteFilePath, taskId);
   }
 
-  if (filesToTransfer.length === 1) {
-   await indexDownloadedFileEntry({ storageNode: server.storageNode, targetPath, fileName: filesToTransfer[0]!, size: totalSize });
+  for (const file of filesToTransfer) {
+   const stat = await fs.stat(path.join(tempDir, file));
+   await indexDownloadedFileEntry({ storageNode: server.storageNode, targetPath, fileName: file, size: stat.size });
   }
 
   await prisma.downloadTask.updateMany({

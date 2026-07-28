@@ -53,8 +53,7 @@ export function computeNextRun(cronExpression: string): Date {
 		const interval = CronExpressionParser.parse(cronExpression, { currentDate: new Date() });
 		return interval.next().toDate();
 	} catch {
-		// 无效的 cron 表达式，默认1分钟后重试
-		return new Date(Date.now() + 60_000);
+		throw new ValidationError(t("backend.scheduled-task.invalidCronExpression"));
 	}
 }
 

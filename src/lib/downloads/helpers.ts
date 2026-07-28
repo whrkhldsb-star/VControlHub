@@ -88,7 +88,15 @@ export async function indexDownloadedFileEntry(input: {
    data: { name: data.name, entryType: data.entryType, size: data.size, isDeleted: false },
   });
  } else {
-  await prisma.fileEntry.create({ data });
+  try {
+   await prisma.fileEntry.create({ data });
+  } catch (error) {
+   const isUnique = error instanceof Error && "code" in error && error.code === "P2002";
+   if (!isUnique) throw error;
+   const winner = await prisma.fileEntry.findFirst({ where: { storageNodeId: data.storageNodeId, relativePath: data.relativePath }, select: { id: true } });
+   if (!winner) throw error;
+   await prisma.fileEntry.update({ where: { id: winner.id }, data: { name: data.name, entryType: data.entryType, size: data.size, isDeleted: false } });
+  }
  }
 }
 
