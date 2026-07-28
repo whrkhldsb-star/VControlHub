@@ -20,7 +20,9 @@ const {
       findFirst: vi.fn(),
       findMany: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
     },
+    $transaction: vi.fn(),
   },
   assertAccessMock: vi.fn(),
   readBufferMock: vi.fn(),
@@ -123,6 +125,10 @@ describe("webdav helpers", () => {
 describe("webdav handlers", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    prismaMock.$transaction.mockImplementation(
+      async (callback: (tx: typeof prismaMock) => unknown) =>
+        callback(prismaMock),
+    );
     assertAccessMock.mockResolvedValue({ allowed: true });
     const node = {
       id: "node1",
@@ -389,5 +395,53 @@ describe("webdav handlers", () => {
       message: expect.stringMatching(/same origin|同一来源/i),
     });
     expect(renameBackingMock).not.toHaveBeenCalled();
+  });
+
+  it("rolls back a physical MOVE when the index transaction fails", async () => {
+    const { handleWebDavMove } = await import("../handler");
+    prismaMock.fileEntry.findFirst
+      .mockResolvedValueOnce({
+        id: "src1",
+        name: "src.txt",
+        relativePath: "src.txt",
+        entryType: "FILE",
+        size: BigInt(5),
+        mimeType: "text/plain",
+        updatedAt: new Date(),
+      })
+      .mockResolvedValueOnce(null);
+    renameBackingMock.mockResolvedValue(undefined);
+    prismaMock.$transaction.mockRejectedValueOnce(
+      new Error("index unavailable"),
+    );
+    const req = new Request("http://localhost/api/webdav/node1/src.txt", {
+      method: "MOVE",
+      headers: { Destination: "http://localhost/api/webdav/node1/dst.txt" },
+    });
+    await expect(
+      handleWebDavMove(
+        {
+          session: session as never,
+          storageNodeId: "node1",
+          relativePath: "src.txt",
+          requestUrl: new URL(req.url),
+        },
+        req,
+      ),
+    ).rejects.toThrow("index unavailable");
+    expect(renameBackingMock).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        oldRelativePath: "src.txt",
+        newRelativePath: "dst.txt",
+      }),
+    );
+    expect(renameBackingMock).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        oldRelativePath: "dst.txt",
+        newRelativePath: "src.txt",
+      }),
+    );
   });
 });

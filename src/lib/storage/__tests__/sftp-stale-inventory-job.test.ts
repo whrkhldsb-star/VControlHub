@@ -22,6 +22,11 @@ vi.mock("@/lib/job/service", () => ({
   failJob: failJobMock,
   heartbeatJob: heartbeatJobMock,
 }));
+vi.mock("@/lib/job/heartbeat-runner", () => ({
+  runWithLeaseHeartbeat: vi.fn(async (input: { run: () => Promise<unknown> }) =>
+    input.run(),
+  ),
+}));
 
 vi.mock("../sftp-stale-inventory", () => ({
   detectAndPruneSftpStaleInventory: detectAndPruneSftpStaleInventoryMock,
@@ -66,15 +71,15 @@ describe("SFTP stale inventory durable job worker", () => {
     });
 
     it("clamps maxDepth to the [0, 10] range", () => {
-      expect(
-        parseSftpStaleInventoryJobPayload({ maxDepth: 99 }).maxDepth,
-      ).toBe(10);
-      expect(
-        parseSftpStaleInventoryJobPayload({ maxDepth: -3 }).maxDepth,
-      ).toBe(0);
-      expect(parseSftpStaleInventoryJobPayload({ maxDepth: 3.7 }).maxDepth).toBe(
-        3,
+      expect(parseSftpStaleInventoryJobPayload({ maxDepth: 99 }).maxDepth).toBe(
+        10,
       );
+      expect(parseSftpStaleInventoryJobPayload({ maxDepth: -3 }).maxDepth).toBe(
+        0,
+      );
+      expect(
+        parseSftpStaleInventoryJobPayload({ maxDepth: 3.7 }).maxDepth,
+      ).toBe(3);
     });
 
     it("parses optional nodeId, dryRun, reason", () => {
@@ -105,9 +110,9 @@ describe("SFTP stale inventory durable job worker", () => {
         dryRun: undefined,
         reason: undefined,
       });
-      expect(parseSftpStaleInventoryJobPayload({ nodeIds: [] }).nodeIds).toEqual(
-        [],
-      );
+      expect(
+        parseSftpStaleInventoryJobPayload({ nodeIds: [] }).nodeIds,
+      ).toEqual([]);
     });
   });
 
@@ -147,15 +152,35 @@ describe("SFTP stale inventory durable job worker", () => {
         expect.objectContaining({
           mode: "single",
           results: [sampleResult],
-          totals: { nodes: 1, scanned: 10, stale: 2, errors: 0, durationMs: 100 },
+          totals: {
+            nodes: 1,
+            scanned: 10,
+            stale: 2,
+            errors: 0,
+            durationMs: 100,
+          },
         }),
       );
     });
 
     it("scans all SFTP nodes when no nodeId is specified", async () => {
       const nodes = [
-        { id: "n1", name: "alpha", driver: "SFTP" as const, basePath: "/a", healthStatus: "HEALTHY" as const, lastHealthError: null },
-        { id: "n2", name: "beta", driver: "SFTP" as const, basePath: "/b", healthStatus: "HEALTHY" as const, lastHealthError: null },
+        {
+          id: "n1",
+          name: "alpha",
+          driver: "SFTP" as const,
+          basePath: "/a",
+          healthStatus: "HEALTHY" as const,
+          lastHealthError: null,
+        },
+        {
+          id: "n2",
+          name: "beta",
+          driver: "SFTP" as const,
+          basePath: "/b",
+          healthStatus: "HEALTHY" as const,
+          lastHealthError: null,
+        },
       ];
       listSftpNodesForStaleInventoryMock.mockResolvedValueOnce(nodes);
       claimNextJobMock.mockResolvedValueOnce({
@@ -219,7 +244,14 @@ describe("SFTP stale inventory durable job worker", () => {
 
     it("fails the job with retryAfterMs when execution throws", async () => {
       listSftpNodesForStaleInventoryMock.mockResolvedValueOnce([
-        { id: "n1", name: "x", driver: "SFTP" as const, basePath: "/", healthStatus: "HEALTHY" as const, lastHealthError: null },
+        {
+          id: "n1",
+          name: "x",
+          driver: "SFTP" as const,
+          basePath: "/",
+          healthStatus: "HEALTHY" as const,
+          lastHealthError: null,
+        },
       ]);
       claimNextJobMock.mockResolvedValueOnce({
         id: "job_4",
@@ -260,9 +292,30 @@ describe("SFTP stale inventory durable job worker", () => {
 
     it("filters to payload.nodeIds for team-scoped multi-node jobs", async () => {
       const nodes = [
-        { id: "n1", name: "alpha", driver: "SFTP" as const, basePath: "/a", healthStatus: "HEALTHY" as const, lastHealthError: null },
-        { id: "n2", name: "beta", driver: "SFTP" as const, basePath: "/b", healthStatus: "HEALTHY" as const, lastHealthError: null },
-        { id: "n3", name: "gamma", driver: "SFTP" as const, basePath: "/c", healthStatus: "HEALTHY" as const, lastHealthError: null },
+        {
+          id: "n1",
+          name: "alpha",
+          driver: "SFTP" as const,
+          basePath: "/a",
+          healthStatus: "HEALTHY" as const,
+          lastHealthError: null,
+        },
+        {
+          id: "n2",
+          name: "beta",
+          driver: "SFTP" as const,
+          basePath: "/b",
+          healthStatus: "HEALTHY" as const,
+          lastHealthError: null,
+        },
+        {
+          id: "n3",
+          name: "gamma",
+          driver: "SFTP" as const,
+          basePath: "/c",
+          healthStatus: "HEALTHY" as const,
+          lastHealthError: null,
+        },
       ];
       listSftpNodesForStaleInventoryMock.mockResolvedValueOnce(nodes);
       claimNextJobMock.mockResolvedValueOnce({
@@ -288,7 +341,14 @@ describe("SFTP stale inventory durable job worker", () => {
 
     it("does not widen empty nodeIds to all tenants", async () => {
       listSftpNodesForStaleInventoryMock.mockResolvedValueOnce([
-        { id: "n1", name: "alpha", driver: "SFTP" as const, basePath: "/a", healthStatus: "HEALTHY" as const, lastHealthError: null },
+        {
+          id: "n1",
+          name: "alpha",
+          driver: "SFTP" as const,
+          basePath: "/a",
+          healthStatus: "HEALTHY" as const,
+          lastHealthError: null,
+        },
       ]);
       claimNextJobMock.mockResolvedValueOnce({
         id: "job_empty_scope",

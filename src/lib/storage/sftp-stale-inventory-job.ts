@@ -17,8 +17,14 @@ import { Prisma } from "@prisma/client";
 
 import { config } from "@/lib/config/env";
 import { computeLeaseMs } from "@/lib/job/lease";
-import { claimNextJob, completeJob, failJob, heartbeatJob } from "@/lib/job/service";
+import {
+  claimNextJob,
+  completeJob,
+  failJob,
+  heartbeatJob,
+} from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
+import { runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
 
 import {
   detectAndPruneSftpStaleInventory,
@@ -29,7 +35,9 @@ import {
 const logger = createLogger("sftp-stale-inventory-job-worker");
 
 export const SFTP_STALE_INVENTORY_JOB_TYPE = "storage.sftp-stale-inventory";
-export const SFTP_STALE_INVENTORY_JOB_TYPES = [SFTP_STALE_INVENTORY_JOB_TYPE] as const;
+export const SFTP_STALE_INVENTORY_JOB_TYPES = [
+  SFTP_STALE_INVENTORY_JOB_TYPE,
+] as const;
 
 const SFTP_STALE_INVENTORY_INTERVAL_MS = 30 * 60_000; // 30 min
 // TR-002 R2: 跨 worker lease 公式统一。full-tree 扫描大目录可能要 1-2 min。
@@ -79,7 +87,9 @@ export function parseSftpStaleInventoryJobPayload(
   if (!isRecord(payload)) return {};
   const rawNodeIds = payload.nodeIds;
   const nodeIds = Array.isArray(rawNodeIds)
-    ? rawNodeIds.filter((id): id is string => typeof id === "string" && id.length > 0)
+    ? rawNodeIds.filter(
+        (id): id is string => typeof id === "string" && id.length > 0,
+      )
     : undefined;
   return {
     nodeId: typeof payload.nodeId === "string" ? payload.nodeId : undefined,
@@ -112,7 +122,9 @@ async function scanOneNode(input: {
       basePath: input.node.basePath,
       scanned: 0,
       stale: 0,
-      errors: [`Node health status is UNHEALTHY, skipped: ${input.node.lastHealthError ?? "unknown"}`],
+      errors: [
+        `Node health status is UNHEALTHY, skipped: ${input.node.lastHealthError ?? "unknown"}`,
+      ],
       durationMs: 0,
       dryRun: input.dryRun ?? false,
     };
@@ -122,7 +134,9 @@ async function scanOneNode(input: {
     // The list helper returns rows with extra healthStatus fields
     // (UNHEALTHY detection happens in scanOneNode, before this is
     // called), so the structural shape is compatible with SftpSyncNode.
-    node: input.node as unknown as Parameters<typeof detectAndPruneSftpStaleInventory>[0]["node"],
+    node: input.node as unknown as Parameters<
+      typeof detectAndPruneSftpStaleInventory
+    >[0]["node"],
     maxDepth: input.maxDepth,
     dryRun: input.dryRun,
   });
@@ -152,7 +166,16 @@ async function executeStaleInventoryJob(job: {
     if (!node) {
       throw new Error(`Storage node not found: ${payload.nodeId}`);
     }
-    const result = await scanOneNode({ node, maxDepth, dryRun });
+    const result = await runWithLeaseHeartbeat({
+      jobId: job.id,
+      leaseMs: SFTP_STALE_INVENTORY_LEASE_MS,
+      heartbeat: () =>
+        heartbeatJob(job.id, SFTP_STALE_INVENTORY_WORKER_ID, {
+          leaseMs: SFTP_STALE_INVENTORY_LEASE_MS,
+          progress: `Scanning ${node.name}`,
+        }),
+      run: () => scanOneNode({ node, maxDepth, dryRun }),
+    });
     await completeJob(job.id, SFTP_STALE_INVENTORY_WORKER_ID, {
       mode: "single",
       results: [result],
@@ -183,7 +206,16 @@ async function executeStaleInventoryJob(job: {
       leaseMs: SFTP_STALE_INVENTORY_LEASE_MS,
       progress: `Scanning ${node.name} (${nodes.indexOf(node) + 1}/${nodes.length})`,
     });
-    const result = await scanOneNode({ node, maxDepth, dryRun });
+    const result = await runWithLeaseHeartbeat({
+      jobId: job.id,
+      leaseMs: SFTP_STALE_INVENTORY_LEASE_MS,
+      heartbeat: () =>
+        heartbeatJob(job.id, SFTP_STALE_INVENTORY_WORKER_ID, {
+          leaseMs: SFTP_STALE_INVENTORY_LEASE_MS,
+          progress: `Scanning ${node.name}`,
+        }),
+      run: () => scanOneNode({ node, maxDepth, dryRun }),
+    });
     results.push(result);
   }
 

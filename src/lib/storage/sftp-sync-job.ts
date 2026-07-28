@@ -2,10 +2,16 @@ import { Prisma } from "@prisma/client";
 
 import { config } from "@/lib/config/env";
 import { computeLeaseMs } from "@/lib/job/lease";
-import { claimNextJob, completeJob, failJob, heartbeatJob } from "@/lib/job/service";
+import {
+  claimNextJob,
+  completeJob,
+  failJob,
+  heartbeatJob,
+} from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
 import { getSftpSyncNode, syncSftpDirectoryEntries } from "./sftp-sync";
 import { serverT } from "@/lib/i18n/server-locale";
+import { runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
 
 const logger = createLogger("sftp-sync-job-worker");
 
@@ -46,19 +52,30 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 
-export function parseSftpSyncJobPayload(payload: Prisma.JsonValue): SftpSyncJobPayload {
-  if (!isRecord(payload) || typeof payload.nodeId !== "string" || payload.nodeId.trim().length === 0) {
+export function parseSftpSyncJobPayload(
+  payload: Prisma.JsonValue,
+): SftpSyncJobPayload {
+  if (
+    !isRecord(payload) ||
+    typeof payload.nodeId !== "string" ||
+    payload.nodeId.trim().length === 0
+  ) {
     throw new Error("SFTP sync job missing storage node");
   }
   return {
     nodeId: payload.nodeId,
-    remotePath: typeof payload.remotePath === "string" ? payload.remotePath : undefined,
-    recursive: typeof payload.recursive === "boolean" ? payload.recursive : false,
+    remotePath:
+      typeof payload.remotePath === "string" ? payload.remotePath : undefined,
+    recursive:
+      typeof payload.recursive === "boolean" ? payload.recursive : false,
     maxDepth: typeof payload.maxDepth === "number" ? payload.maxDepth : 1,
   };
 }
 
-async function executeSftpSyncJob(job: { id: string; payload: Prisma.JsonValue }) {
+async function executeSftpSyncJob(job: {
+  id: string;
+  payload: Prisma.JsonValue;
+}) {
   const payload = parseSftpSyncJobPayload(job.payload);
   await heartbeatJob(job.id, SFTP_SYNC_WORKER_ID, {
     leaseMs: SFTP_SYNC_WORKER_LEASE_MS,
@@ -74,23 +91,49 @@ async function executeSftpSyncJob(job: { id: string; payload: Prisma.JsonValue }
     leaseMs: SFTP_SYNC_WORKER_LEASE_MS,
     progress: `Syncing ${node.name}`,
   });
-  const result = await syncSftpDirectoryEntries({
-    node,
-    remotePath: payload.remotePath,
-    recursive: payload.recursive,
-    maxDepth: payload.maxDepth,
+  const result = await runWithLeaseHeartbeat({
+    jobId: job.id,
+    leaseMs: SFTP_SYNC_WORKER_LEASE_MS,
+    heartbeat: () =>
+      heartbeatJob(job.id, SFTP_SYNC_WORKER_ID, {
+        leaseMs: SFTP_SYNC_WORKER_LEASE_MS,
+        progress: `Syncing ${node.name}`,
+      }),
+    run: () =>
+      syncSftpDirectoryEntries({
+        node,
+        remotePath: payload.remotePath,
+        recursive: payload.recursive,
+        maxDepth: payload.maxDepth,
+      }),
   });
 
-  if (result.errors.length > 0 && result.synced === 0 && result.created === 0 && result.updated === 0 && result.deleted === 0) {
+  if (
+    result.errors.length > 0 &&
+    result.synced === 0 &&
+    result.created === 0 &&
+    result.updated === 0 &&
+    result.deleted === 0
+  ) {
     throw new Error(result.errors.join("; "));
   }
 
-  await completeJob(job.id, SFTP_SYNC_WORKER_ID, result as unknown as Prisma.InputJsonValue);
+  await completeJob(
+    job.id,
+    SFTP_SYNC_WORKER_ID,
+    result as unknown as Prisma.InputJsonValue,
+  );
 }
 
-export async function runSftpSyncJobWorkerOnce(state = getWorkerState(), reason = "manual") {
+export async function runSftpSyncJobWorkerOnce(
+  state = getWorkerState(),
+  reason = "manual",
+) {
   if (state.running) {
-    logger.warn("Skipping SFTP sync job tick because a previous tick is still running", { reason });
+    logger.warn(
+      "Skipping SFTP sync job tick because a previous tick is still running",
+      { reason },
+    );
     return;
   }
 
@@ -107,8 +150,14 @@ export async function runSftpSyncJobWorkerOnce(state = getWorkerState(), reason 
       await executeSftpSyncJob(job);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      logger.error("SFTP sync job failed", { reason, jobId: job.id, error: message });
-      await failJob(job.id, SFTP_SYNC_WORKER_ID, message, { retryAfterMs: 60_000 });
+      logger.error("SFTP sync job failed", {
+        reason,
+        jobId: job.id,
+        error: message,
+      });
+      await failJob(job.id, SFTP_SYNC_WORKER_ID, message, {
+        retryAfterMs: 60_000,
+      });
     }
   } catch (error) {
     logger.error("SFTP sync job tick failed", {
@@ -133,7 +182,10 @@ export async function startSftpSyncJobWorker() {
   }, intervalMs);
   state.timer.unref?.();
 
-  logger.info("SFTP sync job worker started", { intervalMs, workerId: SFTP_SYNC_WORKER_ID });
+  logger.info("SFTP sync job worker started", {
+    intervalMs,
+    workerId: SFTP_SYNC_WORKER_ID,
+  });
   return state;
 }
 

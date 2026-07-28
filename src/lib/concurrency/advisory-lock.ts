@@ -52,6 +52,8 @@ const NAMESPACE_KEYS: Record<string, number> = {
   "storage-quota": 45072,
   /** Serialize editable file read/check/snapshot/write/index operations. */
   "storage-editable": 45073,
+  /** Serialize membership mutations that enforce team-owner invariants. */
+  "team-membership": 45074,
 };
 
 function connectionStringForPg() {

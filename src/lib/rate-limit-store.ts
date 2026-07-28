@@ -9,77 +9,99 @@ import { createLogger } from "@/lib/logging";
 const logger = createLogger("rate-limit-store");
 
 export type AccountLockoutState = {
-	failCount: number;
-	lockedUntil: number | null;
-	lastFailureAt: number;
+  failCount: number;
+  lockedUntil: number | null;
+  lastFailureAt: number;
 };
 
 export interface RateLimitStore {
-	/** Add a timestamp for the given key. Returns all timestamps in window. */
-	addAndGetWindow(_key: string, _timestamp: number, _windowMs: number): Promise<number[]>;
-	/** Shared account-lockout state (multi-instance when Redis is configured). */
-	getLockout(_key: string): Promise<AccountLockoutState | null>;
-	setLockout(_key: string, _state: AccountLockoutState, _ttlMs: number): Promise<void>;
-	deleteLockout(_key: string): Promise<void>;
+  /** Add a timestamp for the given key. Returns all timestamps in window. */
+  addAndGetWindow(
+    _key: string,
+    _timestamp: number,
+    _windowMs: number,
+  ): Promise<number[]>;
+  /** Shared account-lockout state (multi-instance when Redis is configured). */
+  getLockout(_key: string): Promise<AccountLockoutState | null>;
+  setLockout(
+    _key: string,
+    _state: AccountLockoutState,
+    _ttlMs: number,
+  ): Promise<void>;
+  deleteLockout(_key: string): Promise<void>;
 }
 
 // ── In-memory implementation ────────────────────────────────────
 class MemoryRateLimitStore implements RateLimitStore {
-	private timestamps = new Map<string, { entries: number[]; windowMs: number }>();
-	private lockouts = new Map<string, { state: AccountLockoutState; expiresAt: number }>();
+  private timestamps = new Map<
+    string,
+    { entries: number[]; windowMs: number }
+  >();
+  private lockouts = new Map<
+    string,
+    { state: AccountLockoutState; expiresAt: number }
+  >();
 
-	constructor() {
-		// Periodic cleanup
-		setInterval(() => this.cleanup(), 5 * 60 * 1000);
-	}
+  constructor() {
+    // Periodic cleanup
+    setInterval(() => this.cleanup(), 5 * 60 * 1000);
+  }
 
-	async addAndGetWindow(key: string, timestamp: number, windowMs: number): Promise<number[]> {
-		let entries = this.timestamps.get(key)?.entries ?? [];
-		const cutoff = timestamp - windowMs;
-		entries = entries.filter((t) => t > cutoff);
-		entries.push(timestamp);
-		this.timestamps.set(key, { entries, windowMs });
-		return entries;
-	}
+  async addAndGetWindow(
+    key: string,
+    timestamp: number,
+    windowMs: number,
+  ): Promise<number[]> {
+    let entries = this.timestamps.get(key)?.entries ?? [];
+    const cutoff = timestamp - windowMs;
+    entries = entries.filter((t) => t > cutoff);
+    entries.push(timestamp);
+    this.timestamps.set(key, { entries, windowMs });
+    return entries;
+  }
 
-	async getLockout(key: string): Promise<AccountLockoutState | null> {
-		const row = this.lockouts.get(key);
-		if (!row) return null;
-		if (row.expiresAt <= Date.now()) {
-			this.lockouts.delete(key);
-			return null;
-		}
-		return { ...row.state };
-	}
+  async getLockout(key: string): Promise<AccountLockoutState | null> {
+    const row = this.lockouts.get(key);
+    if (!row) return null;
+    if (row.expiresAt <= Date.now()) {
+      this.lockouts.delete(key);
+      return null;
+    }
+    return { ...row.state };
+  }
 
-	async setLockout(key: string, state: AccountLockoutState, ttlMs: number): Promise<void> {
-		this.lockouts.set(key, {
-			state: { ...state },
-			expiresAt: Date.now() + Math.max(1, ttlMs),
-		});
-	}
+  async setLockout(
+    key: string,
+    state: AccountLockoutState,
+    ttlMs: number,
+  ): Promise<void> {
+    this.lockouts.set(key, {
+      state: { ...state },
+      expiresAt: Date.now() + Math.max(1, ttlMs),
+    });
+  }
 
-	async deleteLockout(key: string): Promise<void> {
-		this.lockouts.delete(key);
-	}
+  async deleteLockout(key: string): Promise<void> {
+    this.lockouts.delete(key);
+  }
 
-	private cleanup() {
-		const now = Date.now();
-		const tsKeys = Array.from(this.timestamps.keys());
-		for (const key of tsKeys) {
-			const state = this.timestamps.get(key);
-			if (!state) continue;
-			const recent = state.entries.filter((t) => now - t < state.windowMs);
-			if (recent.length === 0) {
-				this.timestamps.delete(key);
-			} else {
-				this.timestamps.set(key, { ...state, entries: recent });
-			}
-		}
-		for (const [key, row] of this.lockouts) {
-			if (row.expiresAt <= now) this.lockouts.delete(key);
-		}
-	}
+  private cleanup() {
+    const now = Date.now();
+    const tsKeys = Array.from(this.timestamps.keys());
+    for (const key of tsKeys) {
+      const state = this.timestamps.get(key);
+      if (!state) continue;
+      const recent = state.entries.filter((t) => now - t < state.windowMs);
+      if (recent.length === 0) {
+        this.timestamps.delete(key);
+      } else {
+        this.timestamps.set(key, { ...state, entries: recent });
+      }
+    }
+    for (const [key, row] of this.lockouts) {
+      if (row.expiresAt <= now) this.lockouts.delete(key);
+    }
+  }
 }
 
 // ── Redis implementation ────────────────────────────────────────
@@ -88,105 +110,123 @@ class MemoryRateLimitStore implements RateLimitStore {
 // `redis` package types) so this module remains compatible with redis being
 // an optional peer dep — it can be absent at build time.
 interface RedisExecResult {
-	// `multi().execAsPipeline()` returns an array; element type is loose
-	// because ZRANGE yields string[] while INCR yields number.
-	[index: number]: unknown;
-	length: number;
+  // `multi().execAsPipeline()` returns an array; element type is loose
+  // because ZRANGE yields string[] while INCR yields number.
+  [index: number]: unknown;
+  length: number;
 }
 interface RedisClientLike {
-	readonly isOpen: boolean;
-	connect(): Promise<void>;
-	get(key: string): Promise<string | null>;
-	set(key: string, value: string, options?: { PX?: number }): Promise<unknown>;
-	del(key: string): Promise<unknown>;
-	multi(): {
-		zAdd(key: string, entry: { score: number; value: string }): unknown;
-		zRemRangeByScore(key: string, min: number, max: number): unknown;
-		zRange(key: string, start: number, stop: number): unknown;
-		pExpire(key: string, ms: number): unknown;
-		execAsPipeline(): Promise<RedisExecResult>;
-	};
+  readonly isOpen: boolean;
+  connect(): Promise<void>;
+  get(key: string): Promise<string | null>;
+  set(key: string, value: string, options?: { PX?: number }): Promise<unknown>;
+  del(key: string): Promise<unknown>;
+  multi(): {
+    zAdd(key: string, entry: { score: number; value: string }): unknown;
+    zRemRangeByScore(key: string, min: number, max: number): unknown;
+    zRange(key: string, start: number, stop: number): unknown;
+    pExpire(key: string, ms: number): unknown;
+    execAsPipeline(): Promise<RedisExecResult>;
+  };
 }
 class RedisRateLimitStore implements RateLimitStore {
-	private prefix = "rl:";
-	private _client: RedisClientLike | null = null;
+  private prefix = "rl:";
+  private _client: RedisClientLike | null = null;
 
-	constructor(private _url: string) {}
+  constructor(private _url: string) {}
 
-	private async getClient(): Promise<RedisClientLike> {
-		if (this._client && this._client.isOpen) return this._client;
-		// Dynamic require — redis is an optional peer dependency
-		let redisModule;
-		try {
-			redisModule = await import("redis");
-		} catch {
-			throw new Error("redis package is not installed. Run: npm install redis");
-		}
-		this._client = (redisModule as unknown as { createClient: (opts: { url: string }) => RedisClientLike }).createClient({ url: this._url }) as RedisClientLike;
-		await this._client.connect();
-		return this._client;
-	}
+  private async getClient(): Promise<RedisClientLike> {
+    if (this._client && this._client.isOpen) return this._client;
+    // Dynamic require — redis is an optional peer dependency
+    let redisModule;
+    try {
+      redisModule = await import("redis");
+    } catch {
+      throw new Error("redis package is not installed. Run: npm install redis");
+    }
+    this._client = (
+      redisModule as unknown as {
+        createClient: (opts: { url: string }) => RedisClientLike;
+      }
+    ).createClient({ url: this._url }) as RedisClientLike;
+    await this._client.connect();
+    return this._client;
+  }
 
-	async addAndGetWindow(key: string, timestamp: number, windowMs: number): Promise<number[]> {
-		const client = await this.getClient();
-		const k = `${this.prefix}ts:${key}`;
-		const pipeline = client.multi();
-		pipeline.zAdd(k, { score: timestamp, value: String(timestamp) });
-		pipeline.zRemRangeByScore(k, 0, timestamp - windowMs);
-		pipeline.zRange(k, 0, -1);
-		pipeline.pExpire(k, windowMs);
-		const results = await pipeline.execAsPipeline();
-		const members: string[] = Array.isArray(results[2]) ? (results[2] as string[]) : [];
-		return members.map(Number);
-	}
+  async addAndGetWindow(
+    key: string,
+    timestamp: number,
+    windowMs: number,
+  ): Promise<number[]> {
+    const client = await this.getClient();
+    const k = `${this.prefix}ts:${key}`;
+    const pipeline = client.multi();
+    pipeline.zAdd(k, {
+      score: timestamp,
+      value: `${timestamp}:${crypto.randomUUID()}`,
+    });
+    pipeline.zRemRangeByScore(k, 0, timestamp - windowMs);
+    pipeline.zRange(k, 0, -1);
+    pipeline.pExpire(k, windowMs);
+    const results = await pipeline.execAsPipeline();
+    const members: string[] = Array.isArray(results[2])
+      ? (results[2] as string[])
+      : [];
+    return members.map(Number);
+  }
 
-	async getLockout(key: string): Promise<AccountLockoutState | null> {
-		const client = await this.getClient();
-		const raw = await client.get(`${this.prefix}lockout:${key}`);
-		if (!raw) return null;
-		try {
-			const parsed = JSON.parse(raw) as AccountLockoutState;
-			if (
-				typeof parsed.failCount !== "number" ||
-				typeof parsed.lastFailureAt !== "number" ||
-				!(parsed.lockedUntil === null || typeof parsed.lockedUntil === "number")
-			) {
-				return null;
-			}
-			return parsed;
-		} catch {
-			return null;
-		}
-	}
+  async getLockout(key: string): Promise<AccountLockoutState | null> {
+    const client = await this.getClient();
+    const raw = await client.get(`${this.prefix}lockout:${key}`);
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw) as AccountLockoutState;
+      if (
+        typeof parsed.failCount !== "number" ||
+        typeof parsed.lastFailureAt !== "number" ||
+        !(parsed.lockedUntil === null || typeof parsed.lockedUntil === "number")
+      ) {
+        return null;
+      }
+      return parsed;
+    } catch {
+      return null;
+    }
+  }
 
-	async setLockout(key: string, state: AccountLockoutState, ttlMs: number): Promise<void> {
-		const client = await this.getClient();
-		await client.set(`${this.prefix}lockout:${key}`, JSON.stringify(state), {
-			PX: Math.max(1, ttlMs),
-		});
-	}
+  async setLockout(
+    key: string,
+    state: AccountLockoutState,
+    ttlMs: number,
+  ): Promise<void> {
+    const client = await this.getClient();
+    await client.set(`${this.prefix}lockout:${key}`, JSON.stringify(state), {
+      PX: Math.max(1, ttlMs),
+    });
+  }
 
-	async deleteLockout(key: string): Promise<void> {
-		const client = await this.getClient();
-		await client.del(`${this.prefix}lockout:${key}`);
-	}
-
+  async deleteLockout(key: string): Promise<void> {
+    const client = await this.getClient();
+    await client.del(`${this.prefix}lockout:${key}`);
+  }
 }
 
 // ── Factory ─────────────────────────────────────────────────────
 let _instance: RateLimitStore | null = null;
 
 export function getRateLimitStore(): RateLimitStore {
-	if (_instance) return _instance;
+  if (_instance) return _instance;
 
-	const redisUrl = config.redis.url;
-	if (redisUrl) {
-		logger.info("Using Redis backend", { url: redisUrl.replace(/\/\/.*@/, "//***@") });
-		_instance = new RedisRateLimitStore(redisUrl);
-	} else {
-		logger.info("Using in-memory backend (single-instance mode)");
-		_instance = new MemoryRateLimitStore();
-	}
+  const redisUrl = config.redis.url;
+  if (redisUrl) {
+    logger.info("Using Redis backend", {
+      url: redisUrl.replace(/\/\/.*@/, "//***@"),
+    });
+    _instance = new RedisRateLimitStore(redisUrl);
+  } else {
+    logger.info("Using in-memory backend (single-instance mode)");
+    _instance = new MemoryRateLimitStore();
+  }
 
-	return _instance;
+  return _instance;
 }

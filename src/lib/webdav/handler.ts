@@ -7,6 +7,7 @@
  * Supported methods: OPTIONS, PROPFIND, GET, HEAD, PUT, DELETE, MKCOL, MOVE, COPY
  * Auth: Bearer API token or Basic (password = API token) with storage scopes.
  */
+import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/db";
 import { createLogger } from "@/lib/logging";
 import {
@@ -191,7 +192,8 @@ export async function handleWebDavGetHead(
 
   if (method === "HEAD") {
     if (range.status === 206) {
-      headers["Content-Range"] = `bytes ${range.start}-${range.end}/${fileSize}`;
+      headers["Content-Range"] =
+        `bytes ${range.start}-${range.end}/${fileSize}`;
     }
     return new Response(null, { status: range.status, headers });
   }
@@ -531,60 +533,113 @@ export async function handleWebDavMove(
   }
 
   const node = await loadNode(ctx.storageNodeId, ctx.session);
-  if (existingDest) {
-    await deleteBackingObject({
+  const destParent = parentRelativePath(destPath);
+  const stagedDestPath = existingDest
+    ? `${destParent ? `${destParent}/` : ""}.vcontrolhub-webdav-${randomUUID()}.staged`
+    : null;
+  if (stagedDestPath) {
+    await renameBackingObject({
       storageNode: node,
-      relativePath: destPath,
-      isDirectory: existingDest.entryType === "DIRECTORY",
-      tolerateMissing: true,
-    }).catch(() => undefined);
-    await softDeleteFileEntry({ fileEntryId: existingDest.id });
+      oldRelativePath: destPath,
+      newRelativePath: stagedDestPath,
+    });
   }
 
-  await renameBackingObject({
-    storageNode: node,
-    oldRelativePath: ctx.relativePath,
-    newRelativePath: destPath,
-  });
+  try {
+    await renameBackingObject({
+      storageNode: node,
+      oldRelativePath: ctx.relativePath,
+      newRelativePath: destPath,
+    });
+  } catch (error) {
+    if (stagedDestPath) {
+      await renameBackingObject({
+        storageNode: node,
+        oldRelativePath: stagedDestPath,
+        newRelativePath: destPath,
+      }).catch(() => undefined);
+    }
+    throw error;
+  }
 
   // update index for entry + descendants
   const oldPrefix = entry.relativePath;
   const newPrefix = destPath;
-  await prisma.fileEntry.update({
-    where: { id: entry.id },
-    data: {
-      relativePath: destPath,
-      name: entryName(destPath),
-    },
-  });
-
-  if (entry.entryType === "DIRECTORY") {
-    // Paginate all descendants so MOVE cannot leave old relativePath prefixes.
-    await forEachFileEntryPage(
-      (cursorId) =>
-        prisma.fileEntry.findMany({
+  try {
+    await prisma.$transaction(async (tx) => {
+      if (existingDest) {
+        await tx.fileEntry.updateMany({
           where: {
             storageNodeId: ctx.storageNodeId,
-            isDeleted: false,
-            relativePath: { startsWith: `${oldPrefix}/` },
+            OR: [
+              { id: existingDest.id },
+              { relativePath: { startsWith: `${destPath}/` } },
+            ],
           },
-          select: { id: true, relativePath: true },
-          orderBy: { id: "asc" },
-          take: FILE_ENTRY_PAGE_SIZE,
-          ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {}),
-        }),
-      async (descendants) => {
-        for (const child of descendants) {
-          const nextPath = `${newPrefix}${child.relativePath.slice(oldPrefix.length)}`;
-          await prisma.fileEntry.update({
-            where: { id: child.id },
-            data: {
-              relativePath: nextPath,
-              name: entryName(nextPath),
+          data: { isDeleted: true },
+        });
+      }
+      await tx.fileEntry.update({
+        where: { id: entry.id },
+        data: { relativePath: destPath, name: entryName(destPath) },
+      });
+      if (entry.entryType !== "DIRECTORY") return;
+      await forEachFileEntryPage(
+        (cursorId) =>
+          tx.fileEntry.findMany({
+            where: {
+              storageNodeId: ctx.storageNodeId,
+              isDeleted: false,
+              relativePath: { startsWith: `${oldPrefix}/` },
             },
-          });
-        }
-      },
+            select: { id: true, relativePath: true },
+            orderBy: { id: "asc" },
+            take: FILE_ENTRY_PAGE_SIZE,
+            ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {}),
+          }),
+        async (descendants) => {
+          for (const child of descendants) {
+            const nextPath = `${newPrefix}${child.relativePath.slice(oldPrefix.length)}`;
+            await tx.fileEntry.update({
+              where: { id: child.id },
+              data: { relativePath: nextPath, name: entryName(nextPath) },
+            });
+          }
+        },
+      );
+    });
+  } catch (databaseError) {
+    const rollbackErrors: unknown[] = [];
+    await renameBackingObject({
+      storageNode: node,
+      oldRelativePath: destPath,
+      newRelativePath: ctx.relativePath,
+    }).catch((error) => rollbackErrors.push(error));
+    if (stagedDestPath) {
+      await renameBackingObject({
+        storageNode: node,
+        oldRelativePath: stagedDestPath,
+        newRelativePath: destPath,
+      }).catch((error) => rollbackErrors.push(error));
+    }
+    if (rollbackErrors.length)
+      webdavLogger.error("WebDAV MOVE rollback failed", {
+        databaseError,
+        rollbackErrors,
+      });
+    throw databaseError;
+  }
+  if (stagedDestPath) {
+    await deleteBackingObject({
+      storageNode: node,
+      relativePath: stagedDestPath,
+      isDirectory: existingDest!.entryType === "DIRECTORY",
+      tolerateMissing: true,
+    }).catch((error) =>
+      webdavLogger.warn("WebDAV MOVE staged cleanup failed", {
+        stagedDestPath,
+        error,
+      }),
     );
   }
 

@@ -82,31 +82,40 @@ async function persistMatchState(
 }
 
 export async function evaluateAlerts() {
-  const rules = await prisma.alertRule.findMany({
-    where: { enabled: true },
-    select: {
-      id: true,
-      name: true,
-      metric: true,
-      threshold: true,
-      operator: true,
-      durationSeconds: true,
-      enabled: true,
-      lastMatchedAt: true,
-      matchState: true,
-      lastTriggeredAt: true,
-      cooldownMinutes: true,
-      silenceWindows: true,
-      serverIds: true,
-      notifyChannels: true,
-      playbookIds: true,
-      webhookUrl: true,
-      escalationMinutes: true,
-      onCallUserIds: true,
-      teamId: true,
-    },
-    take: 200,
-  });
+  const rules = [];
+  let ruleCursorId: string | undefined;
+  for (;;) {
+    const page = await prisma.alertRule.findMany({
+      where: { enabled: true },
+      select: {
+        id: true,
+        name: true,
+        metric: true,
+        threshold: true,
+        operator: true,
+        durationSeconds: true,
+        enabled: true,
+        lastMatchedAt: true,
+        matchState: true,
+        lastTriggeredAt: true,
+        cooldownMinutes: true,
+        silenceWindows: true,
+        serverIds: true,
+        notifyChannels: true,
+        playbookIds: true,
+        webhookUrl: true,
+        escalationMinutes: true,
+        onCallUserIds: true,
+        teamId: true,
+      },
+      orderBy: { id: "asc" },
+      take: 200,
+      ...(ruleCursorId ? { cursor: { id: ruleCursorId }, skip: 1 } : {}),
+    });
+    rules.push(...page);
+    if (page.length < 200) break;
+    ruleCursorId = page[page.length - 1]!.id;
+  }
   if (rules.length === 0) {
     await escalateOverdueAlertIncidents();
     return;
@@ -321,7 +330,9 @@ export async function evaluateAlerts() {
       await persistMatchState(
         rule.id,
         matchState,
-        ruleFiredThisPass && latestFireAt ? { lastTriggeredAt: latestFireAt } : {},
+        ruleFiredThisPass && latestFireAt
+          ? { lastTriggeredAt: latestFireAt }
+          : {},
       );
     }
   }
