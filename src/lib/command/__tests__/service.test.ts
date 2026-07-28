@@ -1147,7 +1147,7 @@ describe("command service execution flow", () => {
       expect.objectContaining({
         where: expect.objectContaining({
           id: { in: ["srv_in_scope", "srv_other_team"] },
-          OR: [{ teamId: "team_a" }, { teamId: null }],
+          teamId: "team_a",
         }),
       }),
     );
@@ -1172,7 +1172,7 @@ describe("command service execution flow", () => {
       expect.objectContaining({
         where: expect.objectContaining({
           id: { in: ["srv_in_team", "srv_other_team"] },
-          OR: [{ teamId: "team_a" }, { teamId: null }],
+          teamId: "team_a",
         }),
       }),
     );

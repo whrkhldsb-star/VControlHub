@@ -1,6 +1,6 @@
 import type { RoleKey } from "@/lib/auth/rbac";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { teamCreateData, teamWhere } from "@/lib/auth/team-scope";
+import { serverTeamWhere, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 
@@ -19,7 +19,7 @@ async function assertServerIdsInTeam(serverIds: string[], session?: TeamSession 
   // Use permission, not role key string — custom roles may hold team:manage without key "admin".
   if (sessionHasPermission(session, "team:manage")) return;
   const allowed = await prisma.server.findMany({
-    where: { id: { in: serverIds }, ...teamWhere(session) },
+    where: { id: { in: serverIds }, ...serverTeamWhere(session) },
     select: { id: true },
   });
   if (allowed.length !== serverIds.length) {

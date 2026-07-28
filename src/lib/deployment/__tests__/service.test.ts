@@ -23,6 +23,12 @@ vi.mock("@/lib/command-template/service", async () => {
 });
 vi.mock("@/lib/auth/team-scope", () => ({
   teamWhere: mockTeamWhere,
+  serverTeamWhere: (session: { roles?: string[]; currentTeamId?: string | null }) => {
+    if (session.roles?.includes("admin")) return {};
+    return session.currentTeamId
+      ? { teamId: session.currentTeamId }
+      : { id: "__unassigned_servers_require_team_manage__" };
+  },
   teamCreateData: mockTeamCreateData,
 }));
 const commandService = await import("@/lib/command/service");

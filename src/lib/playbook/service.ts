@@ -8,7 +8,7 @@
  */
 
 import { Prisma } from "@prisma/client";
-import { assertUserInActorScope, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
+import { assertUserInActorScope, serverTeamWhere, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import type { SessionPayload } from "@/lib/auth/session";
 
 import { prisma } from "@/lib/db";
@@ -51,7 +51,7 @@ async function assertPlaybookCommandServersInScope(
   ];
   if (serverIds.length === 0) return;
 
-  const scope = session ? teamWhere(session) : {};
+  const scope = session ? serverTeamWhere(session) : {};
   const servers = await prisma.server.findMany({
     where: { id: { in: serverIds }, ...scope },
     select: { id: true },

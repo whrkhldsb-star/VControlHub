@@ -5,7 +5,7 @@ import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
 import { notifyTaskConsecutiveFailed } from "@/lib/notification/service";
 import { createLogger } from "@/lib/logging";
 import type { SessionPayload } from "@/lib/auth/session";
-import { teamCreateData, teamWhere } from "@/lib/auth/team-scope";
+import { serverTeamWhere, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import { t } from "@/lib/i18n/translations";
 
 const taskLogger = createLogger("scheduled-task");
@@ -65,7 +65,7 @@ function normalizeServerIds(serverIds: string[]) {
 
 /**
  * Prevent scheduling commands against servers outside the caller's team.
- * Mirrors alert-rule / command create target checks (legacy teamId=null still allowed via teamWhere).
+ * Server roots use strict scope: legacy teamId=null rows are quarantined.
  */
 async function assertScheduledTaskServersInScope(
 	serverIds: string[],
@@ -73,7 +73,7 @@ async function assertScheduledTaskServersInScope(
 ): Promise<void> {
 	const ids = normalizeServerIds(serverIds);
 	if (ids.length === 0 || !session) return;
-	const scope = teamWhere(session);
+	const scope = serverTeamWhere(session);
 	// team:manage → empty scope, still verify servers exist
 	const servers = await prisma.server.findMany({
 		where: { id: { in: ids }, ...scope },

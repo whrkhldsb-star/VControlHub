@@ -3,7 +3,7 @@ import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { createCommandRequest } from "@/lib/command/service";
 import { renderCommand, seedBuiltinTemplates } from "@/lib/command-template/service";
 import type { SessionPayload } from "@/lib/auth/session";
-import { teamCreateData, teamWhere } from "@/lib/auth/team-scope";
+import { serverTeamWhere, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import { ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 
 // TR-039: pure DTO types live in ./dto so client code can reach them
@@ -66,7 +66,7 @@ async function assertDeploymentServersInScope(
   if (serverIds.length === 0) return;
   // Prefer session teamWhere; when no session, skip (system/unscoped callers).
   if (!session) return;
-  const scope = teamWhere(session);
+  const scope = serverTeamWhere(session);
   const servers = await prisma.server.findMany({
     where: { id: { in: serverIds }, ...scope },
     select: { id: true },

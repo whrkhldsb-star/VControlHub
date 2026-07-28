@@ -2,7 +2,7 @@ import { constants as fsConstants } from "node:fs";
 import { access, stat } from "node:fs/promises";
 
 import type { SessionPayload } from "@/lib/auth/session";
-import { teamCreateData, teamWhere } from "@/lib/auth/team-scope";
+import { serverTeamWhere, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
 import { serverT } from "@/lib/i18n/server-locale";
@@ -78,7 +78,7 @@ async function assertServerInTeamScope(
 ) {
   if (!serverId || !session) return;
   const server = await prisma.server.findFirst({
-    where: { id: serverId, ...teamWhere(session) },
+    where: { id: serverId, ...serverTeamWhere(session) },
     select: { id: true },
   });
   if (!server) {

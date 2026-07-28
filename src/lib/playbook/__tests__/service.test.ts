@@ -131,7 +131,7 @@ describe("playbook service", () => {
       expect.objectContaining({
         where: expect.objectContaining({
           id: { in: ["srv1"] },
-          OR: [{ teamId: "team1" }, { teamId: null }],
+          teamId: "team1",
         }),
       }),
     );

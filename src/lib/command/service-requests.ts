@@ -1,7 +1,7 @@
 import { isProtectedByApproval } from "@/lib/auth/rbac";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import type { RoleKey } from "@/lib/auth/rbac";
-import { teamCreateData, teamWhere } from "@/lib/auth/team-scope";
+import { serverTeamWhere, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
 import {
@@ -52,8 +52,8 @@ function resolveCommandTeamId(
  * teams' VPS after Server list/CRUD became team-scoped.
  *
  * When there is no session but a stamped teamId (playbook worker, deployment,
- * scheduled-task), still enforce that targets belong to that team or are
- * shared (teamId=null). Fully unscoped system callers keep existence-only.
+ * scheduled-task), still enforce that targets belong to that team. Legacy
+ * null-team server roots are quarantined rather than treated as shared.
  */
 async function assertCommandTargetServersInScope(
   serverIds: string[],
@@ -62,10 +62,10 @@ async function assertCommandTargetServersInScope(
 ): Promise<void> {
   let scope: Record<string, unknown> = {};
   if (session) {
-    scope = teamWhere(session);
+    scope = serverTeamWhere(session);
   } else if (teamId) {
-    // Mirror non-admin teamWhere for a concrete team stamp (no admin bypass).
-    scope = { OR: [{ teamId }, { teamId: null }] };
+    // Concrete worker stamp has no admin bypass and must use strict server scope.
+    scope = { teamId };
   }
   const servers = await prisma.server.findMany({
     where: {
