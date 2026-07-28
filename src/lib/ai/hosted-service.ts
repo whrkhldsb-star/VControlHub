@@ -268,12 +268,17 @@ export async function createHostedAction(input: {
       currentTeamId: null,
     } satisfies HostedActionSession);
   const serverId = await resolveServerId(args, session);
+  const resolvedServer = serverId
+    ? await prisma.server.findUnique({ where: { id: serverId }, select: { teamId: true } })
+    : null;
+  const teamId = session.currentTeamId ?? resolvedServer?.teamId ?? null;
   const params = { ...args, ...(serverId ? { serverId } : {}) };
   return prisma.aiHostedAction.create({
     data: {
       conversationId,
       messageId,
       serverId,
+      teamId,
       actionType: tool.actionType,
       actionName: tool.actionName,
       params: JSON.stringify(params),
@@ -405,18 +410,68 @@ export async function executeSafeAction(
 export async function approveHostedAction(actionId: string, approver: HostedActionSession) {
   if (!sessionHasPermission(approver, "ai:action:approve")) throw new ForbiddenError(t("backend.ai.missingPermissionAiActionApprove"));
 
-  // Atomic compare-and-swap: only transition from PENDING_APPROVAL to APPROVED
+  // An approver acts inside the selected workspace. Platform managers with no
+  // selected workspace retain the explicit global recovery path for legacy rows.
+  const approvalScope = approver.currentTeamId
+    ? { teamId: approver.currentTeamId }
+    : teamWhere(sessionForTeamScope(approver)!);
+  const action = await prisma.aiHostedAction.findFirst({
+    where: { id: actionId, ...approvalScope },
+  });
+  if (!action) throw new NotFoundError(t("backend.ai.actionNotFoundOrNotAuthorizedToApprove"));
+  if (action.status !== "PENDING_APPROVAL") throw new BusinessError(t("backend.ai.actionIsNotPendingApproval"));
+  if (!isHostedActionType(action.actionType)) throw new BusinessError(t("backend.ai.unsupportedActionType"));
+  if (SERVERLESS_ACTION_TYPES.has(action.actionType)) {
+    throw new BusinessError(t("backend.ai.listQueryToolsDoNotRequireCreatingA"));
+  }
+  if (!sessionHasPermission(approver, "server:ssh")) throw new ForbiddenError(t("backend.ai.missingPermissionServerSsh"));
+  if (!action.serverId) throw new BusinessError(t("backend.ai.noTargetVpsBoundCannotCreateCommandRequest"));
+
+  const params = JSON.parse(action.params) as Record<string, unknown>;
+  const commandRequestPayload = await buildAssistantCommandRequestPayload({
+    tool: {
+      name: action.actionType,
+      description: "",
+      parameters: {},
+      riskLevel: action.riskLevel as HostedTool["riskLevel"],
+      autoApproved: action.autoApproved,
+      actionType: action.actionType,
+      actionName: action.actionName,
+    },
+    args: params,
+    userId: action.requesterId,
+    serverId: action.serverId,
+    teamId: action.teamId ?? approver.currentTeamId ?? null,
+  });
+
+  // Stable idempotency bridges retries/races to one durable CommandRequest.
+  const request = await createCommandRequest(
+    { ...commandRequestPayload, idempotencyKey: `ai-hosted-action:${actionId}` },
+    {
+      userId: approver.userId,
+      roles: approver.roles,
+      currentTeamId: approver.currentTeamId ?? null,
+    },
+  );
+
+  // Atomic compare-and-swap: only transition this workspace's pending action.
   const claimed = await prisma.aiHostedAction.updateMany({
-    where: { id: actionId, status: "PENDING_APPROVAL" },
+    where: { id: actionId, status: "PENDING_APPROVAL", ...approvalScope },
     data: { status: "APPROVED", approverId: approver.userId, approvedAt: new Date() },
   });
   if (claimed.count === 0) {
-    const action = await prisma.aiHostedAction.findFirst({ where: { id: actionId } });
-    if (!action) throw new NotFoundError(t("backend.ai.actionNotFoundOrNotAuthorizedToApprove"));
     throw new BusinessError(t("backend.ai.actionIsNotPendingApproval"));
   }
 
-  await executeApprovedAction(actionId, approver);
+  await prisma.aiHostedAction.update({
+    where: { id: actionId },
+    data: {
+      result: JSON.stringify({
+        commandRequestId: request.id,
+        requiresApproval: request.requiresApproval,
+      }),
+    },
+  });
 }
 
 export async function confirmHostedAction(actionId: string, requester: HostedActionSession) {
@@ -532,9 +587,12 @@ export async function confirmHostedAction(actionId: string, requester: HostedAct
 
 export async function rejectHostedAction(actionId: string, actor: HostedActionSession, reason?: string) {
   const canApprove = sessionHasPermission(actor, "ai:action:approve");
-  // Scope claim by ownership unless the actor can approve any pending action.
+  const approvalScope = actor.currentTeamId
+    ? { teamId: actor.currentTeamId }
+    : teamWhere(sessionForTeamScope(actor)!);
+  // Scope approvers to the selected workspace; requesters may only cancel self.
   const where = canApprove
-    ? { id: actionId, status: "PENDING_APPROVAL" as const }
+    ? { id: actionId, status: "PENDING_APPROVAL" as const, ...approvalScope }
     : { id: actionId, status: "PENDING_APPROVAL" as const, requesterId: actor.userId };
   const claimed = await prisma.aiHostedAction.updateMany({
     where,
@@ -546,7 +604,9 @@ export async function rejectHostedAction(actionId: string, actor: HostedActionSe
   });
   if (claimed.count === 0) {
     const action = await prisma.aiHostedAction.findFirst({
-      where: canApprove ? { id: actionId } : { id: actionId, requesterId: actor.userId },
+      where: canApprove
+        ? { id: actionId, ...approvalScope }
+        : { id: actionId, requesterId: actor.userId },
     });
     if (!action) {
       if (canApprove) throw new NotFoundError(t("backend.ai.actionNotFoundOrNotAuthorizedToApprove"));
@@ -555,38 +615,6 @@ export async function rejectHostedAction(actionId: string, actor: HostedActionSe
     throw new BusinessError(canApprove ? t("backend.ai.actionIsNotPendingApproval") : t("backend.ai.actionIsNotPendingConfirmation"));
   }
   return prisma.aiHostedAction.findUniqueOrThrow({ where: { id: actionId } });
-}
-
-// ── 执行已批准的操作 ──────────────────────────────────────
-
-async function executeApprovedAction(actionId: string, approver: HostedActionSession) {
-  const action = await prisma.aiHostedAction.findUnique({ where: { id: actionId } });
-  if (!action || action.status !== "APPROVED") return;
-
-  await prisma.aiHostedAction.update({
-    where: { id: actionId },
-    data: { status: "EXECUTING", executedAt: new Date() },
-  });
-
-  const params = JSON.parse(action.params) as Record<string, unknown>;
-  const result = await executeSafeAction(
-    {
-      actionType: action.actionType,
-      serverId: action.serverId,
-      params,
-    },
-    { session: approver },
-  );
-
-  await prisma.aiHostedAction.update({
-    where: { id: actionId },
-    data: {
-      status: result.success ? "COMPLETED" : "FAILED",
-      result: JSON.parse(JSON.stringify(result.data || {})),
-      errorMessage: result.error,
-      completedAt: new Date(),
-    },
-  });
 }
 
 // ── 获取待审批操作 ────────────────────────────────────────

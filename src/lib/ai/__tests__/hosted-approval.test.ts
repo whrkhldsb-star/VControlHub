@@ -52,37 +52,87 @@ describe("AI hosted action approvals", () => {
 		expect(prismaMock.aiHostedAction.update).not.toHaveBeenCalled();
 	});
 
-	it("checks server:ssh before executing approved SSH actions", async () => {
+	it("routes administrator approval through a scoped CommandRequest instead of direct SSH", async () => {
 		const { approveHostedAction } = await import("../hosted-service");
-		const approver: { userId: string; roles: RoleKey[] } = { userId: "admin_1", roles: ["admin"] };
+		const approver: { userId: string; roles: RoleKey[]; currentTeamId: string } = {
+			userId: "admin_1",
+			roles: ["admin"],
+			currentTeamId: "team_a",
+		};
 		const action = {
 			id: "action_1",
 			status: "PENDING_APPROVAL",
-			actionType: "get_status",
-			actionName: "Get server status",
-			riskLevel: "low",
-			autoApproved: true,
+			actionType: "execute_command",
+			actionName: "Execute command",
+			riskLevel: "high",
+			autoApproved: false,
 			requesterId: "user_a",
+			teamId: "team_a",
 			serverId: "srv_1",
-			params: JSON.stringify({ serverId: "srv_1" }),
+			params: JSON.stringify({ serverId: "srv_1", command: "systemctl restart nginx" }),
 		};
 		prismaMock.aiHostedAction.findFirst.mockResolvedValue(action);
-		prismaMock.aiHostedAction.findUnique.mockResolvedValue({ ...action, status: "APPROVED" });
-		prismaMock.server.findUnique.mockResolvedValue(null);
+		prismaMock.server.findUnique.mockResolvedValue({ osDialect: null, teamId: "team_a" });
+		commandServiceMock.createCommandRequest.mockResolvedValue({ id: "cmd_req_admin", requiresApproval: true });
 
 		await approveHostedAction("action_1", approver);
 
+		expect(prismaMock.aiHostedAction.findFirst).toHaveBeenCalledWith({
+			where: { id: "action_1", teamId: "team_a" },
+		});
 		expect(prismaMock.aiHostedAction.updateMany).toHaveBeenCalledWith({
-			where: { id: "action_1", status: "PENDING_APPROVAL" },
+			where: { id: "action_1", status: "PENDING_APPROVAL", teamId: "team_a" },
 			data: expect.objectContaining({ status: "APPROVED", approverId: "admin_1" }),
 		});
-		expect(prismaMock.server.findFirst).toHaveBeenCalledWith({
-			where: { id: "srv_1" },
-			include: { sshKey: true },
-		});
-		expect(prismaMock.aiHostedAction.update).toHaveBeenLastCalledWith({
+		expect(commandServiceMock.createCommandRequest).toHaveBeenCalledWith(
+			expect.objectContaining({
+				requesterId: "user_a",
+				serverIds: ["srv_1"],
+				teamId: "team_a",
+				idempotencyKey: "ai-hosted-action:action_1",
+			}),
+			expect.objectContaining({ userId: "admin_1", currentTeamId: "team_a" }),
+		);
+		expect(prismaMock.aiHostedAction.update).toHaveBeenCalledWith({
 			where: { id: "action_1" },
-			data: expect.objectContaining({ status: "FAILED", errorMessage: "Server not found" }),
+			data: { result: JSON.stringify({ commandRequestId: "cmd_req_admin", requiresApproval: true }) },
+		});
+		expect(prismaMock.server.findFirst).not.toHaveBeenCalledWith(expect.objectContaining({ include: { sshKey: true } }));
+	});
+
+	it("does not let a team approver approve another team's hosted action by id", async () => {
+		const { approveHostedAction } = await import("../hosted-service");
+		prismaMock.aiHostedAction.findFirst.mockResolvedValue(null);
+
+		await expect(
+			approveHostedAction("foreign_action", {
+				userId: "approver_a",
+				roles: ["admin"],
+				currentTeamId: "team_a",
+			}),
+		).rejects.toThrow(/not found|不存在|authorized|无权/i);
+
+		expect(prismaMock.aiHostedAction.findFirst).toHaveBeenCalledWith({
+			where: { id: "foreign_action", teamId: "team_a" },
+		});
+		expect(prismaMock.aiHostedAction.updateMany).not.toHaveBeenCalled();
+		expect(commandServiceMock.createCommandRequest).not.toHaveBeenCalled();
+	});
+
+	it("team-scopes administrator rejection of pending hosted actions", async () => {
+		const { rejectHostedAction } = await import("../hosted-service");
+		prismaMock.aiHostedAction.updateMany.mockResolvedValue({ count: 1 });
+		prismaMock.aiHostedAction.findUniqueOrThrow.mockResolvedValue({ id: "action_1", status: "REJECTED" });
+
+		await rejectHostedAction(
+			"action_1",
+			{ userId: "approver_a", roles: ["admin"], currentTeamId: "team_a" },
+			"Rejected by team approver",
+		);
+
+		expect(prismaMock.aiHostedAction.updateMany).toHaveBeenCalledWith({
+			where: { id: "action_1", status: "PENDING_APPROVAL", teamId: "team_a" },
+			data: expect.objectContaining({ status: "REJECTED", approverId: "approver_a" }),
 		});
 	});
 
@@ -157,6 +207,7 @@ describe("AI hosted action approvals", () => {
 		expect(prismaMock.aiHostedAction.create).toHaveBeenCalledWith({
 			data: expect.objectContaining({
 				serverId: "srv_prod",
+				teamId: "team_a",
 				status: "PENDING_APPROVAL",
 				params: JSON.stringify({ serverQuery: "prod", command: "systemctl restart nginx", reason: "AI requested restart", serverId: "srv_prod" }),
 			}),
