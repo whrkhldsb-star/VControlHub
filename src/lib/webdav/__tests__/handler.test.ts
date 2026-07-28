@@ -63,7 +63,7 @@ import {
   normalizeWebDavRelativePath,
 } from "../handler";
 import { buildPropFindMultistatus, parseDepth } from "../xml";
-import { webDavScopeForMethod } from "../auth";
+import { webDavScopeForMethod, webDavTokenAllows } from "../auth";
 
 const session = {
   userId: "u1",
@@ -101,6 +101,13 @@ describe("webdav helpers", () => {
     expect(webDavScopeForMethod("PROPFIND")).toBe("read");
     expect(webDavScopeForMethod("PUT")).toBe("write");
     expect(webDavScopeForMethod("DELETE")).toBe("delete");
+  });
+
+  it("does not let a delete-only token write or overwrite files", () => {
+    expect(webDavTokenAllows(["storage:delete"], "delete")).toBe(true);
+    expect(webDavTokenAllows(["storage:delete"], "read")).toBe(true);
+    expect(webDavTokenAllows(["storage:delete"], "write")).toBe(false);
+    expect(webDavTokenAllows(["storage:write"], "write")).toBe(true);
   });
 });
 

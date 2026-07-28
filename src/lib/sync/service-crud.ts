@@ -6,7 +6,7 @@
  * `./service-commands`.
  */
 import { prisma } from "@/lib/db";
-import { teamCreateData, teamWhere } from "@/lib/auth/team-scope";
+import { serverTeamWhere, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import type { SessionPayload } from "@/lib/auth/session";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { effectiveDeleteOrphans, normalizeSyncEndpointPath } from "./bidirectional";
@@ -50,7 +50,7 @@ async function assertSyncServersInScope(
 	if (unique.length === 0) {
 		throw new ValidationError(t("backend.sync.sourceAndTargetServersAreRequired"));
 	}
-	const scope = session ? teamWhere(session) : {};
+	const scope = session ? serverTeamWhere(session) : {};
 	const servers = await prisma.server.findMany({
 		where: { id: { in: unique }, ...scope },
 		select: { id: true },

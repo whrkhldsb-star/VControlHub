@@ -11,7 +11,7 @@ import { collectServerMetrics, type ServerMetrics } from "@/lib/server/monitor";
 import { tcpProbe } from "@/lib/server/connectivity";
 import type { HealthOverview, ServerHealth } from "./service-types";
 import { evaluateHealth } from "./service-types";
-import { teamWhere } from "@/lib/auth/team-scope";
+import { serverTeamWhere } from "@/lib/auth/team-scope";
 import type { SessionPayload } from "@/lib/auth/session";
 
 /** Default TCP probe deadline; tight enough to keep the health rollup snappy
@@ -56,7 +56,7 @@ export async function collectAllHealth(
 	session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">,
 ): Promise<HealthOverview> {
 	const servers = await prisma.server.findMany({
-		where: session ? teamWhere(session) : {},
+		where: session ? serverTeamWhere(session) : {},
 		select: { id: true, name: true, host: true, port: true, enabled: true },
 		orderBy: { name: "asc" },
 		take: 200,

@@ -2,7 +2,7 @@ import { Prisma } from "@prisma/client";
 import { mkdir } from "node:fs/promises";
 
 import type { SessionPayload } from "@/lib/auth/session";
-import { teamCreateData, teamWhere } from "@/lib/auth/team-scope";
+import { serverTeamWhere, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { serverT } from "@/lib/i18n/server-locale";
@@ -43,7 +43,7 @@ async function findServerProfileForSession(
 ) {
   if (session) {
     return prisma.server.findFirst({
-      where: { id: serverId, ...teamWhere(session) },
+      where: { id: serverId, ...serverTeamWhere(session) },
       include,
     });
   }
@@ -499,7 +499,7 @@ export async function toggleServerEnabled(
 ) {
   const current = session
     ? await prisma.server.findFirst({
-        where: { id: serverId, ...teamWhere(session) },
+        where: { id: serverId, ...serverTeamWhere(session) },
         select: { enabled: true },
       })
     : await prisma.server.findUnique({
@@ -522,7 +522,7 @@ export async function deleteServerProfile(
   try {
   const current = session
     ? await prisma.server.findFirst({
-        where: { id: serverId, ...teamWhere(session) },
+        where: { id: serverId, ...serverTeamWhere(session) },
         include: {
           sshKey: { select: { privateKey: true, passphrase: true } },
           storageNode: {
@@ -585,7 +585,7 @@ export async function listServerProfiles(
 ) {
   let where: Record<string, unknown> | undefined;
   if (sessionOrTeamId && typeof sessionOrTeamId === "object") {
-    where = teamWhere(sessionOrTeamId);
+    where = serverTeamWhere(sessionOrTeamId);
   } else if (sessionOrTeamId !== undefined) {
     // Backward-compat: listServerProfiles(teamId) still accepted by internal callers
     where = { teamId: sessionOrTeamId ?? null };

@@ -14,7 +14,10 @@ export type WebDavAuth = {
   scopes: string[];
 };
 
-function tokenAllows(scopes: string[], needed: "read" | "write" | "delete"): boolean {
+export function webDavTokenAllows(
+  scopes: string[],
+  needed: "read" | "write" | "delete",
+): boolean {
   if (scopes.includes("admin")) return true;
   if (needed === "read") {
     return (
@@ -25,7 +28,7 @@ function tokenAllows(scopes: string[], needed: "read" | "write" | "delete"): boo
     );
   }
   if (needed === "write") {
-    return scopes.includes("storage:write") || scopes.includes("storage:delete");
+    return scopes.includes("storage:write");
   }
   return scopes.includes("storage:delete");
 }
@@ -72,7 +75,7 @@ async function authFromToken(
 ): Promise<WebDavAuth | null> {
   const result = await verifyApiToken(token);
   if (!result) return null;
-  if (!tokenAllows(result.scopes, needed)) return null;
+  if (!webDavTokenAllows(result.scopes, needed)) return null;
   const session = await sessionFromUserId(result.userId);
   if (!session) return null;
   return { session, tokenId: result.tokenId, scopes: result.scopes };

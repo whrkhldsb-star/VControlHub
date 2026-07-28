@@ -491,13 +491,11 @@ async function exportAnnouncements(scope: ExportScope) {
 
 async function exportSnippets(scope: ExportScope, memberUserIds: string[]) {
   if (scope === "team") {
+    if (memberUserIds.length === 0) return [];
     const rows = await prisma.snippet.findMany({
-      where: {
-        OR: [
-          { isPrivate: false },
-          ...(memberUserIds.length ? [{ createdBy: { in: memberUserIds } }] : []),
-        ],
-      },
+      // Snippet has no teamId yet, so team exports must derive ownership from
+      // the creator directory. Public visibility is not export ownership.
+      where: { createdBy: { in: memberUserIds } },
       orderBy: { title: "asc" },
       take: 1000,
     });

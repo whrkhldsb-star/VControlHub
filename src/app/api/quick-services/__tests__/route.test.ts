@@ -129,7 +129,7 @@ describe("/api/quick-services routes", () => {
     expect(json.usedPorts).toEqual([{ port: 3000, usedBy: "vcontrolhub" }]);
   });
 
-  it("scopes the install-target server picker by teamWhere for non-admin operators", async () => {
+  it("excludes unassigned legacy servers from the non-admin install-target picker", async () => {
     mocks.requireApiPermission.mockResolvedValueOnce({
       session: {
         userId: "u2",
@@ -150,7 +150,7 @@ describe("/api/quick-services routes", () => {
     expect(mocks.serverFindMany).toHaveBeenCalledWith({
       where: {
         enabled: true,
-        OR: [{ teamId: "team_a" }, { teamId: null }],
+        teamId: "team_a",
       },
       orderBy: { name: "asc" },
       take: 200,

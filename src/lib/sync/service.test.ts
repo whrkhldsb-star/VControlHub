@@ -56,7 +56,7 @@ describe("createSyncJob team scope", () => {
     },
   };
 
-  it("rejects source/target servers outside the caller's teamWhere", async () => {
+  it("rejects source/target servers outside the caller's explicit team", async () => {
     prismaMock.server.findMany.mockResolvedValueOnce([{ id: "srv-a" }]); // missing srv-b
 
     await expect(createSyncJob(baseInput)).rejects.toThrow(
@@ -67,7 +67,7 @@ describe("createSyncJob team scope", () => {
       expect.objectContaining({
         where: expect.objectContaining({
           id: { in: ["srv-a", "srv-b"] },
-          OR: [{ teamId: "team-1" }, { teamId: null }],
+          teamId: "team-1",
         }),
       }),
     );

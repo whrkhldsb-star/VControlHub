@@ -1641,7 +1641,7 @@ describe("server service", () => {
     expect(result[0]?.connectionSummary).toContain("admin@10.0.0.1:22, using password connection");
   });
 
-  it("scopes listServerProfiles with teamWhere for non-admin sessions", async () => {
+  it("does not include unassigned servers in non-manager server lists", async () => {
     vi.mocked(prisma.server.findMany).mockResolvedValueOnce([]);
 
     await listServerProfiles({
@@ -1653,7 +1653,7 @@ describe("server service", () => {
     expect(prisma.server.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
-          OR: [{ teamId: "team_ops" }, { teamId: null }],
+          teamId: "team_ops",
         },
       }),
     );

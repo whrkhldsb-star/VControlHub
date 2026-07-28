@@ -197,6 +197,33 @@ describe("export-service sanitization", () => {
 });
 
 describe("export-service multi-tenant scope", () => {
+  it("team export only queries snippets created by current team members", async () => {
+    const { prisma } = await import("@/lib/db");
+    vi.mocked(prisma.teamMember.findMany).mockResolvedValueOnce([
+      { userId: "u1" },
+      { userId: "u2" },
+    ] as never);
+
+    await buildExportFile({
+      sourceDomain: "test.example.com",
+      mode: "standard",
+      scope: "team",
+      teamId: "team_a",
+      session: {
+        userId: "u1",
+        username: "operator",
+        roles: ["operator"],
+        currentTeamId: "team_a",
+      } as never,
+    });
+
+    expect(prisma.snippet.findMany).toHaveBeenLastCalledWith({
+      where: { createdBy: { in: ["u1"] } },
+      orderBy: { title: "asc" },
+      take: 1000,
+    });
+  });
+
   it("team scope only loads members and team-scoped resources", async () => {
     const { prisma } = await import("@/lib/db");
     const session = {

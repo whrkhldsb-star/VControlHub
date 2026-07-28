@@ -56,6 +56,15 @@ export function teamWhere(session: TeamSession): Record<string, unknown> {
 	return { teamId: null };
 }
 
+/** Server records are security roots (SSH, SFTP, backups and file proxy).
+ * A null teamId is quarantined legacy data, never an implicit shared VPS. */
+export function serverTeamWhere(session: TeamSession): Record<string, unknown> {
+	if (isGlobalTeamManager(session)) return {};
+	return session.currentTeamId
+		? { teamId: session.currentTeamId }
+		: { id: "__unassigned_servers_require_team_manage__" };
+}
+
 /**
  * Prisma `where` for listing users in the directory UI/API.
  *

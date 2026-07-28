@@ -1,5 +1,5 @@
 import { Prisma } from "@prisma/client";
-import { teamCreateData, teamWhere } from "@/lib/auth/team-scope";
+import { serverTeamWhere, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { NotFoundError } from "@/lib/errors";
 import { t } from "@/lib/i18n/translations";
@@ -101,7 +101,7 @@ export async function listRecentSnapshots(limit = 30, session?: TeamSession | nu
 export interface ServerMonthlyCostSyncResult { month: string; synced: number; skipped: number; entries: CostEntryRecord[]; }
 export async function syncServerMonthlyCosts(month = new Date().toISOString().slice(0, 7), session?: TeamSession | null): Promise<ServerMonthlyCostSyncResult> {
 	const effectiveDate = startOfMonthUtc(month);
-	const servers = await prisma.server.findMany({ where: { enabled: true, costAutoSync: true, costMonthlyAmount: { not: null }, ...(session ? teamWhere(session) : {}) }, select: { id: true, name: true, host: true, costMonthlyAmount: true, costCurrency: true, costProvider: true, teamId: true }, take: 1000 });
+	const servers = await prisma.server.findMany({ where: { enabled: true, costAutoSync: true, costMonthlyAmount: { not: null }, ...(session ? serverTeamWhere(session) : {}) }, select: { id: true, name: true, host: true, costMonthlyAmount: true, costCurrency: true, costProvider: true, teamId: true }, take: 1000 });
 	const entries: CostEntryRecord[] = []; let skipped = 0;
 	for (const server of servers) {
 		const amount = server.costMonthlyAmount?.toFixed(2); if (!amount || Number(amount) <= 0) { skipped += 1; continue; }

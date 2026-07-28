@@ -28,8 +28,8 @@ export type ServerTeamAccessResult =
 /**
  * Verify that the caller's session can access the given server under
  * team-scope rules. Admins (`team:manage`) bypass the check. Non-admins
- * must either share the server's teamId or the server must be unassigned
- * (teamId = null, visible to everyone as a legacy/shared resource).
+ * must share the server's teamId. Unassigned legacy servers are restricted
+ * to platform team managers; `teamId = null` is not an implicit public share.
  *
  * Returns a discriminated union so callers can early-return the 404
  * response without an extra conditional:
@@ -65,11 +65,6 @@ export async function assertServerTeamAccess(
 
   // Admins / team managers see all servers
   if (sessionHasPermission(session, "team:manage")) {
-    return { ok: true, server };
-  }
-
-  // Unassigned servers are visible to everyone (legacy/shared)
-  if (server.teamId === null) {
     return { ok: true, server };
   }
 
