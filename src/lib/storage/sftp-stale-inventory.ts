@@ -22,9 +22,14 @@ import { listRemoteDirectory, type SftpListEntry } from "@/lib/ssh/client";
 import { normalizeRemotePath } from "@/lib/storage/remote-path";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 import { getSftpSyncDirectoryTimeoutMs } from "@/lib/runtime-settings/service";
-import { computeDirectoryRelativePath, computeRelativePath, withDirectoryTimeout } from "@/lib/storage/sftp-walk-utils";
+import {
+  computeDirectoryRelativePath,
+  computeRelativePath,
+  withDirectoryTimeout,
+} from "@/lib/storage/sftp-walk-utils";
 
 const logger = createLogger("sftp-stale-inventory");
+const DB_ENTRY_PAGE_SIZE = 2_000;
 
 type TeamSession = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
 
@@ -183,15 +188,14 @@ export async function detectAndPruneSftpStaleInventory(input: {
       if (entry.type === "other") continue;
       const relative = computeRelativePath(basePath, dirPath, entry.name);
       if (!relative) {
-        result.errors.push(`Skipped entry outside basePath: ${dirPath}/${entry.name}`);
+        result.errors.push(
+          `Skipped entry outside basePath: ${dirPath}/${entry.name}`,
+        );
         continue;
       }
       expectedRelativePaths.add(relative);
       result.scanned += 1;
-      if (
-        entry.type === "directory" &&
-        currentDepth < maxDepth
-      ) {
+      if (entry.type === "directory" && currentDepth < maxDepth) {
         const subDir = `${dirPath.replace(/\/+$/, "")}/${entry.name}`;
         await walkDirectory(subDir, currentDepth + 1);
       }
@@ -203,34 +207,39 @@ export async function detectAndPruneSftpStaleInventory(input: {
   // 跟 DB 端 diff: 找本节点下 isDeleted=false 但不在 expectedRelativePaths 的条目
   const baseRelative = computeDirectoryRelativePath(basePath, basePath) ?? "";
   try {
-    // P2: take=10_000 上界。stale 检测需全集语义,单 node+目录前缀下 1w 行已是异常量级。
-    const dbEntries = await prisma.fileEntry.findMany({
-      where: {
-        storageNodeId: node.id,
-        isDeleted: false,
-        ...(baseRelative
-          ? { relativePath: { startsWith: `${baseRelative}/` } }
-          : {}),
-      },
-      select: { id: true, relativePath: true },
-      take: 10_000,
-    });
-
     // Only prune direct children of directories we successfully listed.
     // Paths under unvisited subtrees (maxDepth boundary, list timeout/failure)
     // are not authoritative absences — leave them active.
     const staleIds: string[] = [];
-    for (const dbEntry of dbEntries) {
-      if (expectedRelativePaths.has(dbEntry.relativePath)) continue;
+    let cursorId: string | undefined;
+    for (;;) {
+      const dbEntries = await prisma.fileEntry.findMany({
+        where: {
+          storageNodeId: node.id,
+          isDeleted: false,
+          ...(baseRelative
+            ? { relativePath: { startsWith: `${baseRelative}/` } }
+            : {}),
+        },
+        select: { id: true, relativePath: true },
+        orderBy: { id: "asc" },
+        take: DB_ENTRY_PAGE_SIZE,
+        ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {}),
+      });
+      for (const dbEntry of dbEntries) {
+        if (expectedRelativePaths.has(dbEntry.relativePath)) continue;
 
-      const segments = dbEntry.relativePath.split("/");
-      const parentRelative =
-        segments.length > 1 ? segments.slice(0, -1).join("/") : "";
-      // Parent must have been listed successfully (not merely observed as a name).
-      if (!listedDirRelatives.has(parentRelative)) continue;
+        const segments = dbEntry.relativePath.split("/");
+        const parentRelative =
+          segments.length > 1 ? segments.slice(0, -1).join("/") : "";
+        // Parent must have been listed successfully (not merely observed as a name).
+        if (!listedDirRelatives.has(parentRelative)) continue;
 
-      // Direct child of a listed dir and missing from that listing → stale.
-      staleIds.push(dbEntry.id);
+        // Direct child of a listed dir and missing from that listing → stale.
+        staleIds.push(dbEntry.id);
+      }
+      if (dbEntries.length < DB_ENTRY_PAGE_SIZE) break;
+      cursorId = dbEntries[dbEntries.length - 1]!.id;
     }
 
     result.stale = staleIds.length;

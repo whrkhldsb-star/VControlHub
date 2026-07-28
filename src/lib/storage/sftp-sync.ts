@@ -8,7 +8,11 @@ import { listRemoteDirectory, type SftpListEntry } from "@/lib/ssh/client";
 import { normalizeRemotePath } from "@/lib/storage/remote-path";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 import { getSftpSyncDirectoryTimeoutMs } from "@/lib/runtime-settings/service";
-import { computeDirectoryRelativePath, computeRelativePath, withDirectoryTimeout } from "@/lib/storage/sftp-walk-utils";
+import {
+  computeDirectoryRelativePath,
+  computeRelativePath,
+  withDirectoryTimeout,
+} from "@/lib/storage/sftp-walk-utils";
 
 type SftpSyncNode = Prisma.StorageNodeGetPayload<{
   select: {
@@ -34,6 +38,7 @@ type SftpSyncNode = Prisma.StorageNodeGetPayload<{
     };
   };
 }>;
+const DB_ENTRY_PAGE_SIZE = 2_000;
 
 export interface SftpSyncResult {
   synced: number;
@@ -43,11 +48,23 @@ export interface SftpSyncResult {
   errors: string[];
 }
 
-async function upsertRemoteEntry(nodeId: string, entry: SftpListEntry, relativePath: string) {
-  const entryType: "DIRECTORY" | "FILE" = entry.type === "directory" ? "DIRECTORY" : "FILE";
-  const mimeType = entryType === "FILE" ? guessMimeType(entry.name) : "inode/directory";
+async function upsertRemoteEntry(
+  nodeId: string,
+  entry: SftpListEntry,
+  relativePath: string,
+) {
+  const entryType: "DIRECTORY" | "FILE" =
+    entry.type === "directory" ? "DIRECTORY" : "FILE";
+  const mimeType =
+    entryType === "FILE" ? guessMimeType(entry.name) : "inode/directory";
   const size = entryType === "FILE" ? BigInt(entry.size) : null;
-  const data = { name: entry.name, entryType, mimeType, size, isDeleted: false as const };
+  const data = {
+    name: entry.name,
+    entryType,
+    mimeType,
+    size,
+    isDeleted: false as const,
+  };
 
   // Prefer unique-key lookup (includes soft-deleted) so concurrent syncs converge.
   const existing = await prisma.fileEntry.findFirst({
@@ -82,30 +99,42 @@ async function upsertRemoteEntry(nodeId: string, entry: SftpListEntry, relativeP
   }
 }
 
-async function pruneStaleEntries(nodeId: string, basePath: string, dirPath: string, remoteRelativePaths: Set<string>) {
+async function pruneStaleEntries(
+  nodeId: string,
+  basePath: string,
+  dirPath: string,
+  remoteRelativePaths: Set<string>,
+) {
   const relativeDir = computeDirectoryRelativePath(basePath, dirPath);
   if (relativeDir === null) return 0;
 
-  // P2: take=10_000 上界。stale 检测需要全集语义,但单 nodeId+目录前缀范围下不会超 1w 条；超过即异常告警。
-  const existing = await prisma.fileEntry.findMany({
-    where: {
-      storageNodeId: nodeId,
-      isDeleted: false,
-      ...(relativeDir ? { relativePath: { startsWith: `${relativeDir}/` } } : {}),
-    },
-    select: { id: true, relativePath: true },
-    take: 10_000,
-  });
-
   const prefix = relativeDir ? `${relativeDir}/` : "";
-  const staleIds = existing
-    .filter((entry) => {
-      if (!entry.relativePath.startsWith(prefix)) return false;
+  const staleIds: string[] = [];
+  let cursorId: string | undefined;
+  for (;;) {
+    const existing = await prisma.fileEntry.findMany({
+      where: {
+        storageNodeId: nodeId,
+        isDeleted: false,
+        ...(relativeDir
+          ? { relativePath: { startsWith: `${relativeDir}/` } }
+          : {}),
+      },
+      select: { id: true, relativePath: true },
+      orderBy: { id: "asc" },
+      take: DB_ENTRY_PAGE_SIZE,
+      ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {}),
+    });
+    for (const entry of existing) {
+      if (!entry.relativePath.startsWith(prefix)) continue;
       const remainder = entry.relativePath.slice(prefix.length);
       const isDirectChild = remainder.length > 0 && !remainder.includes("/");
-      return isDirectChild && !remoteRelativePaths.has(entry.relativePath);
-    })
-    .map((entry) => entry.id);
+      if (isDirectChild && !remoteRelativePaths.has(entry.relativePath))
+        staleIds.push(entry.id);
+    }
+    if (existing.length < DB_ENTRY_PAGE_SIZE) break;
+    cursorId = existing[existing.length - 1]!.id;
+  }
 
   if (staleIds.length === 0) return 0;
 
@@ -133,17 +162,33 @@ export async function syncSftpDirectoryEntries(input: {
     credentials = resolveStorageSshCredentials(node);
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
-    return { synced: 0, created: 0, updated: 0, deleted: 0, errors: [`Connection credentials unavailable: ${msg}`] };
+    return {
+      synced: 0,
+      created: 0,
+      updated: 0,
+      deleted: 0,
+      errors: [`Connection credentials unavailable: ${msg}`],
+    };
   }
 
   const basePath = normalizeRemotePath(node.basePath);
   const normalizedStartPath = normalizeRemotePath(node.basePath, remotePath);
-  const result: SftpSyncResult = { synced: 0, created: 0, updated: 0, deleted: 0, errors: [] };
-  const directoryTimeoutMs = input.directoryTimeoutMs !== undefined
-    ? Math.max(1, input.directoryTimeoutMs)
-    : await getSftpSyncDirectoryTimeoutMs();
+  const result: SftpSyncResult = {
+    synced: 0,
+    created: 0,
+    updated: 0,
+    deleted: 0,
+    errors: [],
+  };
+  const directoryTimeoutMs =
+    input.directoryTimeoutMs !== undefined
+      ? Math.max(1, input.directoryTimeoutMs)
+      : await getSftpSyncDirectoryTimeoutMs();
 
-  async function syncDirectory(dirPath: string, currentDepth: number): Promise<void> {
+  async function syncDirectory(
+    dirPath: string,
+    currentDepth: number,
+  ): Promise<void> {
     let entries: SftpListEntry[];
     try {
       entries = await withDirectoryTimeout(
@@ -172,7 +217,9 @@ export async function syncSftpDirectoryEntries(input: {
       if (entry.type === "other") continue;
       const relativePath = computeRelativePath(basePath, dirPath, entry.name);
       if (!relativePath) {
-        result.errors.push(`Skipped entry outside basePath: ${dirPath}/${entry.name}`);
+        result.errors.push(
+          `Skipped entry outside basePath: ${dirPath}/${entry.name}`,
+        );
         continue;
       }
 
@@ -187,11 +234,19 @@ export async function syncSftpDirectoryEntries(input: {
       }
 
       if (recursive && entry.type === "directory" && currentDepth < maxDepth) {
-        await syncDirectory(`${dirPath.replace(/\/+$/, "")}/${entry.name}`, currentDepth + 1);
+        await syncDirectory(
+          `${dirPath.replace(/\/+$/, "")}/${entry.name}`,
+          currentDepth + 1,
+        );
       }
     }
 
-    result.deleted += await pruneStaleEntries(node.id, basePath, dirPath, remoteRelativePaths);
+    result.deleted += await pruneStaleEntries(
+      node.id,
+      basePath,
+      dirPath,
+      remoteRelativePaths,
+    );
   }
 
   await syncDirectory(normalizedStartPath, 0);

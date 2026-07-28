@@ -24,58 +24,51 @@ function utcDayEnd(dayStart: Date): Date {
  * Roll up MetricSnapshot samples for a UTC calendar day into
  * ServerUptimeSnapshot rows (one per enabled server that has samples).
  */
-export async function rollupServerUptimeForDay(day: Date = new Date()): Promise<{ upserted: number }> {
+export async function rollupServerUptimeForDay(
+  day: Date = new Date(),
+): Promise<{ upserted: number }> {
   const dayStart = utcDayStart(day);
   const dayEnd = utcDayEnd(dayStart);
 
-  const servers = await prisma.server.findMany({
-    where: { enabled: true },
-    select: { id: true },
-    take: 500,
-  });
-  if (servers.length === 0) return { upserted: 0 };
-
-  const samples = await prisma.metricSnapshot.findMany({
+  const grouped = await prisma.metricSnapshot.groupBy({
+    by: ["serverId", "isOnline"],
     where: {
-      serverId: { in: servers.map((s) => s.id) },
+      server: { enabled: true },
       createdAt: { gte: dayStart, lt: dayEnd },
     },
-    select: { serverId: true, isOnline: true, createdAt: true },
-    orderBy: { createdAt: "asc" },
-    take: 50_000,
+    _count: { _all: true },
   });
 
   const byServer = new Map<string, { online: number; offline: number }>();
-  for (const sample of samples) {
-    const bucket = byServer.get(sample.serverId) ?? { online: 0, offline: 0 };
-    if (sample.isOnline) bucket.online += 1;
-    else bucket.offline += 1;
-    byServer.set(sample.serverId, bucket);
+  for (const group of grouped) {
+    const bucket = byServer.get(group.serverId) ?? { online: 0, offline: 0 };
+    if (group.isOnline) bucket.online = group._count._all;
+    else bucket.offline = group._count._all;
+    byServer.set(group.serverId, bucket);
   }
 
   // health.sample interval is ~5 minutes → treat each sample as 5 minutes.
   const MINUTES_PER_SAMPLE = 5;
   let upserted = 0;
 
-  for (const server of servers) {
-    const counts = byServer.get(server.id);
-    if (!counts) continue;
+  for (const [serverId, counts] of byServer) {
     const checkCount = counts.online + counts.offline;
     if (checkCount <= 0) continue;
 
     const onlineMinutes = Math.min(1440, counts.online * MINUTES_PER_SAMPLE);
     const offlineMinutes = Math.min(1440, counts.offline * MINUTES_PER_SAMPLE);
-    const uptimePercent = Math.round((counts.online / checkCount) * 10000) / 100;
+    const uptimePercent =
+      Math.round((counts.online / checkCount) * 10000) / 100;
 
     await prisma.serverUptimeSnapshot.upsert({
       where: {
         serverId_date: {
-          serverId: server.id,
+          serverId,
           date: dayStart,
         },
       },
       create: {
-        serverId: server.id,
+        serverId,
         date: dayStart,
         uptimePercent,
         onlineMinutes,
@@ -96,14 +89,16 @@ export async function rollupServerUptimeForDay(day: Date = new Date()): Promise<
     logger.info("uptime rollup completed", {
       day: dayStart.toISOString().slice(0, 10),
       upserted,
-      samples: samples.length,
+      samples: grouped.reduce((total, group) => total + group._count._all, 0),
     });
   }
   return { upserted };
 }
 
 /** Roll up today + yesterday (covers late-night boundary samples). */
-export async function rollupRecentServerUptime(): Promise<{ upserted: number }> {
+export async function rollupRecentServerUptime(): Promise<{
+  upserted: number;
+}> {
   const today = await rollupServerUptimeForDay(new Date());
   const yesterday = new Date();
   yesterday.setUTCDate(yesterday.getUTCDate() - 1);

@@ -222,7 +222,8 @@ describe("sftp sync service", () => {
         relativePath: { startsWith: "team-a/" },
       },
       select: { id: true, relativePath: true },
-      take: 10_000,
+      orderBy: { id: "asc" },
+      take: 2_000,
     });
     expect(prismaMock.fileEntry.updateMany).toHaveBeenCalledWith({
       where: { id: { in: ["stale_1"] } },
