@@ -119,8 +119,11 @@ function sftpMkdir(client: Client, remoteDir: string): Promise<void> {
 				sftp.stat(current, (statErr) => {
 					if (!statErr) return ensureNext(index + 1);
 					sftp.mkdir(current, (mkdirErr) => {
-						if (mkdirErr && !String(mkdirErr.message || mkdirErr).includes("Failure")) return reject(mkdirErr);
-						ensureNext(index + 1);
+						if (!mkdirErr) return ensureNext(index + 1);
+						sftp.stat(current, (verifyErr, stats) => {
+							if (!verifyErr && stats?.isDirectory()) return ensureNext(index + 1);
+							reject(mkdirErr);
+						});
 					});
 				});
 			};

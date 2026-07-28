@@ -10,6 +10,7 @@ const {
   fileEntryUpdateMock,
   fileEntryCreateMock,
   sessionFindFirstMock,
+  sessionUpdateManyMock,
 } = vi.hoisted(() => ({
   assembleMock: vi.fn(),
   completeMock: vi.fn(),
@@ -20,6 +21,7 @@ const {
   fileEntryUpdateMock: vi.fn(),
   fileEntryCreateMock: vi.fn(),
   sessionFindFirstMock: vi.fn(),
+  sessionUpdateManyMock: vi.fn(),
 }));
 
 vi.mock("@/lib/upload/service", () => ({
@@ -49,6 +51,7 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     mediaUploadSession: {
       findFirst: sessionFindFirstMock,
+      updateMany: sessionUpdateManyMock,
     },
     fileEntry: {
       findFirst: fileEntryFindFirstMock,
@@ -72,8 +75,13 @@ describe("completeStorageFileUpload", () => {
       relativePath: "docs/report.bin",
       status: "UPLOADING",
     });
+    sessionUpdateManyMock.mockResolvedValue({ count: 1 });
     assertAccessMock.mockResolvedValue({ allowed: true });
-    getNodeMock.mockResolvedValue({ id: "node_local", driver: "LOCAL", basePath: "/data" });
+    getNodeMock.mockResolvedValue({
+      id: "node_local",
+      driver: "LOCAL",
+      basePath: "/data",
+    });
     writeBufferMock.mockResolvedValue("/data/docs/report.bin");
     fileEntryFindFirstMock.mockResolvedValue(null);
     fileEntryCreateMock.mockResolvedValue({ id: "fe_1" });
@@ -112,6 +120,7 @@ describe("completeStorageFileUpload", () => {
       sessionId: "sess_1",
       userId: "user_1",
       buffer: expect.any(Buffer),
+      allowedStatuses: ["FINALIZING"],
     });
     expect(result).toEqual({
       session: expect.objectContaining({ id: "sess_1", status: "COMPLETED" }),
@@ -136,5 +145,54 @@ describe("completeStorageFileUpload", () => {
       }),
     });
     expect(fileEntryCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("claims the active session before writing storage side effects", async () => {
+    await completeStorageFileUpload({
+      sessionId: "sess_1",
+      session: { userId: "user_1" } as never,
+    });
+
+    expect(sessionUpdateManyMock).toHaveBeenCalledWith({
+      where: {
+        id: "sess_1",
+        userId: "user_1",
+        status: { in: ["PENDING", "UPLOADING"] },
+      },
+      data: { status: "FINALIZING" },
+    });
+    expect(sessionUpdateManyMock.mock.invocationCallOrder[0]).toBeLessThan(
+      writeBufferMock.mock.invocationCallOrder[0]!,
+    );
+  });
+
+  it("refuses duplicate completion before rewriting the storage object", async () => {
+    sessionUpdateManyMock.mockResolvedValue({ count: 0 });
+
+    await expect(
+      completeStorageFileUpload({
+        sessionId: "sess_1",
+        session: { userId: "user_1" } as never,
+      }),
+    ).rejects.toThrow(/active|正在处理|状态/i);
+
+    expect(writeBufferMock).not.toHaveBeenCalled();
+    expect(fileEntryCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("marks a claimed session failed when storage finalization throws", async () => {
+    writeBufferMock.mockRejectedValue(new Error("disk full"));
+
+    await expect(
+      completeStorageFileUpload({
+        sessionId: "sess_1",
+        session: { userId: "user_1" } as never,
+      }),
+    ).rejects.toThrow("disk full");
+
+    expect(sessionUpdateManyMock).toHaveBeenLastCalledWith({
+      where: { id: "sess_1", userId: "user_1", status: "FINALIZING" },
+      data: { status: "FAILED", errorMessage: "disk full" },
+    });
   });
 });

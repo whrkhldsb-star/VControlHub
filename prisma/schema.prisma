@@ -1849,6 +1849,7 @@ model MediaUploadSession {
 enum MediaUploadSessionStatus {
   PENDING
   UPLOADING
+  FINALIZING
   COMPLETED
   CANCELLED
   FAILED

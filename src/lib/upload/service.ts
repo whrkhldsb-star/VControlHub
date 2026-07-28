@@ -360,15 +360,17 @@ export async function completeMediaUploadSession(params: {
 	userId: string;
 	buffer: Buffer;
 	resultImageId?: string;
+	allowedStatuses?: Array<"PENDING" | "UPLOADING" | "FINALIZING">;
 }): Promise<MediaUploadSessionView> {
 	const { sessionId, userId, buffer, resultImageId } = params;
+	const allowedStatuses = params.allowedStatuses ?? ["PENDING", "UPLOADING"];
 	const checksum = crypto.createHash("sha256").update(buffer).digest("hex");
-	// Only active sessions may complete — refuse terminal/cancelled states.
+	// Only active or explicitly claimed sessions may complete.
 	const updateResult = await prisma.mediaUploadSession.updateMany({
 		where: {
 			id: sessionId,
 			userId,
-			status: { in: ["PENDING", "UPLOADING"] },
+			status: { in: allowedStatuses },
 		},
 		data: {
 			status: "COMPLETED",

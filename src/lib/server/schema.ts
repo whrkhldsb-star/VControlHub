@@ -6,6 +6,16 @@ const serverTagSchema = z
   .min(1, "Tag is required")
   .max(32, "Tags must be at most 32 characters");
 
+const storagePathSchema = z
+  .string()
+  .trim()
+  .min(1, "Storage path is required")
+  .max(500, "Path is too long")
+  .refine((value) => value.startsWith("/"), "Storage path must be an absolute POSIX path")
+  .refine((value) => !value.includes("\0") && !value.split("/").includes(".."), "Storage path must not contain traversal segments")
+  .refine((value) => !["/", "/proc", "/sys", "/dev"].includes(value.replace(/\/+$/, "") || "/"), "Storage path must not target a system root")
+  .default("/root/drive");
+
 export const createServerSchema = z
   .object({
     name: z
@@ -45,12 +55,7 @@ export const createServerSchema = z
     enableDirectGateway: z.boolean().optional().default(false),
     directGatewayProtocol: z.enum(["http", "https"]).optional().default("http"),
     directGatewayDomain: z.string().trim().max(253).optional(),
-    storagePath: z
-      .string()
-      .trim()
-      .min(1, "Storage path is required")
-      .max(500, "Path is too long")
-      .default("/root/drive"),
+    storagePath: storagePathSchema,
     costAutoSync: z.boolean().optional().default(false),
     costMonthlyAmount: z
       .string()

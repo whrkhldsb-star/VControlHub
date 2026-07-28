@@ -4,7 +4,7 @@ const { mockPrisma, scheduleStorageNodeHealthProbeMock } = vi.hoisted(() => ({
 	mockPrisma: {
 		$queryRaw: vi.fn(),
 		server: { count: vi.fn() },
-		storageNode: { findMany: vi.fn() },
+		storageNode: { findMany: vi.fn(), count: vi.fn() },
 	},
 	// TR-049: stub the lazy probe so the status tests don't actually fan
 	// out background SSH round-trips during unit runs. We assert on the
@@ -91,11 +91,7 @@ describe("public status summary (TR-053)", () => {
 
   it("公开端点只暴露 overall + generatedAt + service，隐藏 checks 详情", async () => {
     mockPrisma.$queryRaw.mockResolvedValue([{ ok: 1 }]);
-    mockPrisma.server.count.mockResolvedValue(5);
-    mockPrisma.storageNode.findMany.mockResolvedValue([
-      { healthStatus: "HEALTHY", lastHealthCheckAt: new Date("2026-06-09T00:00:00Z") },
-      { healthStatus: "UNKNOWN", lastHealthCheckAt: null },
-    ]);
+		mockPrisma.storageNode.count.mockResolvedValue(0);
 
     const summary = await getPublicStatusSummary();
     const text = JSON.stringify(summary);
@@ -106,5 +102,8 @@ describe("public status summary (TR-053)", () => {
     // 不应泄露节点数、探测状态、节点详情
     expect(summary).not.toHaveProperty("checks");
     expect(text).not.toMatch(/storage node|probe healthy|pending probe|SSH\/network|VPS instances/i);
+		expect(mockPrisma.server.count).not.toHaveBeenCalled();
+		expect(mockPrisma.storageNode.findMany).not.toHaveBeenCalled();
+		expect(scheduleStorageNodeHealthProbeMock).not.toHaveBeenCalled();
   });
 });

@@ -37,6 +37,7 @@ const log = createLogger("storage:health");
 export const STORAGE_PROBE_STALE_MS = 5 * 60 * 1000;
 
 const PROBE_BATCH_LIMIT = 50;
+let scheduledOrRunning = false;
 
 /**
  * Schedule a one-shot lazy probe of all stale storage nodes. Returns
@@ -44,12 +45,16 @@ const PROBE_BATCH_LIMIT = 50;
  * maintenance work that must never throw out of a status handler.
  */
 export function scheduleStorageNodeHealthProbe(): void {
+	if (scheduledOrRunning) return;
+	scheduledOrRunning = true;
 	setImmediate(() => {
 		void probeAllStaleStorageNodes().catch((err: unknown) => {
 			const message = err instanceof Error ? err.message : String(err);
 			log.error("storage lazy probe unhandled error", {
 				error: message.slice(0, 200),
 			});
+		}).finally(() => {
+			scheduledOrRunning = false;
 		});
 	});
 }

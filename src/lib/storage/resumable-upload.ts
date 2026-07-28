@@ -91,6 +91,16 @@ export async function completeStorageFileUpload(params: {
     throw new ValidationError(t("backend.storage.uploadNotSupported"));
   }
 
+  const claimed = await prisma.mediaUploadSession.updateMany({
+    where: { id: sessionId, userId: session.userId, status: { in: ["PENDING", "UPLOADING"] } },
+    data: { status: "FINALIZING" },
+  });
+  if (claimed.count === 0) {
+    throw new ValidationError(t("backend.storage.uploadSessionNotActive"), {
+      code: "session_not_active",
+    });
+  }
+
   // Snapshot existing body before overwrite when index already exists.
   const existingEntry = await prisma.fileEntry.findFirst({
     where: {
@@ -158,6 +168,7 @@ export async function completeStorageFileUpload(params: {
     sessionId,
     userId: session.userId,
     buffer: assembled,
+    allowedStatuses: ["FINALIZING"],
   });
 
   return {
@@ -166,6 +177,15 @@ export async function completeStorageFileUpload(params: {
     size: byteSize,
     storageNodeId: existing.storageNodeId,
   };
+  } catch (error) {
+    await prisma.mediaUploadSession.updateMany({
+      where: { id: sessionId, userId: session.userId, status: "FINALIZING" },
+      data: {
+        status: "FAILED",
+        errorMessage: error instanceof Error ? error.message.slice(0, 1000) : "Storage upload finalization failed",
+      },
+    });
+    throw error;
   } finally {
     await releaseStorageQuotaGuard(access);
   }

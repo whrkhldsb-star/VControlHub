@@ -1,0 +1,1 @@
+ALTER TYPE "MediaUploadSessionStatus" ADD VALUE IF NOT EXISTS 'FINALIZING';

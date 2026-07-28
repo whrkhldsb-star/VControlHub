@@ -40,7 +40,7 @@ export function redactSensitiveValue(value: unknown, key = "", depth = 0): unkno
     };
   }
   if (depth >= MAX_DEPTH) return "[Truncated]";
-  if (Array.isArray(value)) return value.map((item) => redactSensitiveValue(item, "", depth + 1));
+  if (Array.isArray(value)) return value.map((item) => redactSensitiveValue(item, key, depth + 1));
   if (isPlainObject(value)) {
     return Object.fromEntries(
       Object.entries(value).map(([entryKey, entryValue]) => [entryKey, redactSensitiveValue(entryValue, entryKey, depth + 1)]),

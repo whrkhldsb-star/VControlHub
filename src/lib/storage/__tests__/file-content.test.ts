@@ -103,6 +103,17 @@ describe("storage file content helpers", () => {
 		expect(sftpWriteFileMock).toHaveBeenCalledWith("/srv/media/gallery/upload.png", Buffer.from("upload"), expect.any(Function));
 	});
 
+	it("rejects generic SFTP Failure errors unless a follow-up stat confirms the directory", async () => {
+		sftpMkdirMock.mockImplementationOnce((_remotePath: string, callback: (error?: Error | null) => void) => callback(new Error("Failure")));
+		sftpStatMock.mockImplementation((remotePath: string, callback: (error?: Error | null, stats?: { isDirectory(): boolean }) => void) => {
+			if (remotePath === "/srv") return callback(null, { isDirectory: () => true });
+			callback(new Error("still missing"));
+		});
+
+		await expect(writeStorageFileBuffer(sftpNode(), "gallery/upload.png", Buffer.from("upload"))).rejects.toThrow("Failure");
+		expect(sftpWriteFileMock).not.toHaveBeenCalled();
+	});
+
 	it("builds node-appropriate download URLs for media source links", () => {
 		expect(buildStorageFileDownloadUrl({ id: "local_1", driver: "LOCAL" }, "gallery/a b.png", true)).toBe("/api/storage/local?nodeId=local_1&path=gallery%2Fa+b.png&download=1");
 		expect(buildStorageFileDownloadUrl({ id: "sftp_1", driver: "SFTP" }, "/gallery/a.png", false)).toBe("/api/storage/sftp-download?nodeId=sftp_1&path=gallery%2Fa.png");

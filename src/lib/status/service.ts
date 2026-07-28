@@ -90,10 +90,19 @@ export async function getPublicStatus() {
  * 详细检查内容，避免未授权访问者获取节点数、探测状态等内部信息。
  */
 export async function getPublicStatusSummary() {
-	const full = await getPublicStatus();
+	let overall: SystemHealthStatus = "healthy";
+	try {
+		await prisma.$queryRaw`SELECT 1`;
+		const unhealthyStorage = await prisma.storageNode.count({
+			where: { healthStatus: "UNHEALTHY" },
+		});
+		if (unhealthyStorage > 0) overall = "warning";
+	} catch {
+		overall = "critical";
+	}
 	return {
-		generatedAt: full.generatedAt,
-		service: full.service,
-		summary: { overall: full.summary.overall },
+		generatedAt: new Date().toISOString(),
+		service: getAppSlug(),
+		summary: { overall },
 	};
 }

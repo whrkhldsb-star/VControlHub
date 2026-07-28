@@ -58,6 +58,7 @@ export interface MediaUploadSessionView {
 	status:
 		| "PENDING"
 		| "UPLOADING"
+		| "FINALIZING"
 		| "COMPLETED"
 		| "CANCELLED"
 		| "FAILED";

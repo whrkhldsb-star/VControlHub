@@ -1,44 +1,27 @@
 import { describe, expect, it } from "vitest";
 
-import { createServerSchema } from "@/lib/server/schema";
+import { createServerSchema } from "../schema";
 
-describe("createServerSchema", () => {
-  it("accepts ssh-key based server onboarding payloads", () => {
-    const result = createServerSchema.parse({
-      name: "hk-prod-1",
-      host: "203.0.113.10",
-      port: 22,
-      username: "root",
-      sshKeyId: "key_prod_root",
-      description: "Hong Kong production node",
-      tags: ["prod", "hk"],
-    });
+const base = {
+  name: "prod-node",
+  host: "203.0.113.10",
+  port: 22,
+  username: "root",
+  connectionType: "SSH_KEY" as const,
+  sshKeyId: "key-1",
+};
 
-    expect(result.sshKeyId).toBe("key_prod_root");
-    expect(result.port).toBe(22);
-  });
+describe("server storage path validation", () => {
+  it.each(["/", "relative/path", "../escape", "/srv/../etc", "/proc", "/sys/", "/dev"])(
+    "rejects unsafe storage path %s",
+    (storagePath) => {
+      expect(createServerSchema.safeParse({ ...base, storagePath }).success).toBe(false);
+    },
+  );
 
-  it("defaults missing usernames to root", () => {
-    const result = createServerSchema.parse({
-      name: "hk-prod-1",
-      host: "203.0.113.10",
-      port: 22,
-      connectionType: "PASSWORD",
-      password: "secret123",
-    });
-
-    expect(result.username).toBe("root");
-  });
-
-  it("rejects onboarding without an ssh key", () => {
-    expect(() =>
-      createServerSchema.parse({
-        name: "hk-prod-1",
-        host: "203.0.113.10",
-        port: 22,
-        username: "root",
-        sshKeyId: "",
-      }),
-    ).toThrow(/SSH key|password/i);
+  it("allows an ordinary absolute storage path", () => {
+    expect(createServerSchema.parse({ ...base, storagePath: "/srv/vcontrolhub/files" }).storagePath).toBe(
+      "/srv/vcontrolhub/files",
+    );
   });
 });

@@ -154,15 +154,27 @@ export async function importRolePermissions(
 ): Promise<void> {
   const records = t.rolePermissions;
   if (records.length === 0) return;
+  const roleIds = [...new Set(records.map((r) => r.roleId))];
+  const permissionIds = [...new Set(records.map((r) => r.permissionId))];
+  const [roles, permissions] = await Promise.all([
+    tx.role.findMany({ where: { id: { in: roleIds } }, select: { id: true } }),
+    tx.permission.findMany({ where: { id: { in: permissionIds } }, select: { id: true } }),
+  ]);
+  const validRoleIds = new Set(roles.map((row) => row.id));
+  const validPermissionIds = new Set(permissions.map((row) => row.id));
+  const validRecords = records.filter(
+    (row) => validRoleIds.has(row.roleId) && validPermissionIds.has(row.permissionId),
+  );
+  counts.skipped += records.length - validRecords.length;
   const result = await tx.rolePermission.createMany({
-    data: records.map((r) => ({
+    data: validRecords.map((r) => ({
       roleId: r.roleId,
       permissionId: r.permissionId,
     })),
     skipDuplicates: true,
   });
   counts.created += result.count;
-  counts.skipped += records.length - result.count;
+  counts.skipped += validRecords.length - result.count;
 }
 
 // 4. Users (可选，条件性密码处理)
@@ -210,7 +222,7 @@ export async function importUsers(
         displayName: r.displayName,
         // Full mode: restore actual hash; Standard: force password reset
         passwordHash: r.passwordHash ?? "DISABLED_IMPORT_RESET",
-        status: r.status as never,
+        status: (r.passwordHash ? r.status : "PENDING_PASSWORD_RESET") as never,
         mustChangePassword: r.passwordHash ? r.mustChangePassword : true,
         twoFactorEnabled: r.twoFactorEnabled,
         twoFactorSecret: r.twoFactorSecret,

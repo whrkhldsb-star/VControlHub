@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 
 import { getCurrentSession } from "@/lib/auth/server-session";
 import { loadSidebarDeclaredPermissions } from "@/lib/auth/declared-permissions";
+import { sessionHasPermission } from "@/lib/auth/authorization";
 import { config } from "@/lib/config/env";
 import { buildQuickServiceAccessUrl } from "@/lib/quick-service/access-url";
 import { listQuickServices } from "@/lib/quick-service/service";
@@ -22,7 +23,7 @@ export async function SidebarLoader() {
 
 	// Fetch running quick services for sidebar
 	let quickServices: Array<{ slug: string; name: string; icon: string; path: string }> = [];
-	try {
+	if (session && sessionHasPermission(session, "docker:manage")) try {
 		const headerStore = await headers();
 		const browserHost = headerStore.get("x-forwarded-host") ?? headerStore.get("host");
 		const protocol = headerStore.get("x-forwarded-proto") ?? "http";

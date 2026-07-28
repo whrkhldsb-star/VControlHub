@@ -7,7 +7,7 @@
 
 import { Prisma } from "@prisma/client";
 
-import type { ExportFile, ImportOptions } from "@/lib/system/config-schema";
+import { isSensitiveSettingKey, type ExportFile, type ImportOptions } from "@/lib/system/config-schema";
 import { parseDate } from "./import-executors-helpers";
 import type { Tx, Counts } from "./import-executors-helpers";
 
@@ -30,7 +30,9 @@ export async function importSettings(
     select: { key: true },
   });
   const existingKeys = new Set(existing.map((e) => e.key));
-  const toCreate = records.filter((r) => !existingKeys.has(r.key));
+  const uncreated = records.filter((r) => !existingKeys.has(r.key));
+  const toCreate = uncreated.filter((r) => !(r.value === "" && isSensitiveSettingKey(r.key)));
+  counts.skipped += uncreated.length - toCreate.length;
   const toUpdate = records.filter((r) => existingKeys.has(r.key));
 
   if (toCreate.length > 0) {
