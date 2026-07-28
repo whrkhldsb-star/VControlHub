@@ -31,6 +31,7 @@ import {
  buildProgressText,
 } from "@/lib/downloads/helpers";
 import { BusinessError } from "@/lib/errors";
+import { t } from "@/lib/i18n/translations";
 
 
 
@@ -277,7 +278,7 @@ export async function transferFileViaSsh2(
 ): Promise<void> {
  void taskId;
  if (!server.hostKeySha256?.trim()) {
-  throw new BusinessError("SSH host key fingerprint is required for relay file transfer");
+  throw new BusinessError(t("backend.downloads.hostKeyFingerprintRequiredForRelay"));
  }
  const sshParams = await buildSshParamsFromServer(server, server.sshKey);
   const config = createVerifiedSshConfig({

@@ -3,6 +3,7 @@ import type { SFTPWrapper } from "ssh2";
 import { BusinessError } from "@/lib/errors";
 import { config as appConfig } from "@/lib/config/env";
 import { shellQuote } from "@/lib/shell-quote";
+import { t } from "@/lib/i18n/translations";
 
 import { decryptServerPassword, decryptSshPrivateKey, decryptSshKeyPassphrase } from "@/lib/ssh/ssh-key-crypto";
 
@@ -396,5 +397,5 @@ export async function buildSshParamsFromServer(server: {
       ...(server.password ? { password: decryptServerPassword(server.password) } : {}),
     };
   }
-  throw new BusinessError(`Unsupported SSH connection type: ${connectionType}`);
+  throw new BusinessError(t("backend.server.unsupportedSshConnectionType", { connectionType }));
 }
