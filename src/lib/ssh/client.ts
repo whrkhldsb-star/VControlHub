@@ -1,6 +1,7 @@
 import { Client, type ConnectConfig } from "ssh2";
 import type { SFTPWrapper } from "ssh2";
 import { BusinessError } from "@/lib/errors";
+import { config as appConfig } from "@/lib/config/env";
 import { shellQuote } from "@/lib/shell-quote";
 
 import { decryptServerPassword, decryptSshPrivateKey, decryptSshKeyPassphrase } from "@/lib/ssh/ssh-key-crypto";
@@ -54,7 +55,8 @@ function createSshConfig(input: SshConnectionParams): ConnectConfig {
  }
 
  const expectedHostKey = normalizeHostKeySha256(input.hostKeySha256);
- const needsVerifier = expectedHostKey || input.onHostKeySha256 || input.enforceHostKeyPin;
+ const enforceHostKeyPin = input.enforceHostKeyPin ?? appConfig.ssh.enforceHostKeyPin;
+ const needsVerifier = expectedHostKey || input.onHostKeySha256 || enforceHostKeyPin;
  if (needsVerifier) {
   config.hostHash = "sha256";
   config.hostVerifier = (hashedKey: string) => {
@@ -62,7 +64,7 @@ function createSshConfig(input: SshConnectionParams): ConnectConfig {
    if (expectedHostKey) return hashedKey === expectedHostKey;
    // OPEN-1: No pinned key — if enforceHostKeyPin is set, reject to force
    // explicit approval. Otherwise accept (backward-compatible TOFU).
-   if (input.enforceHostKeyPin) return false;
+   if (enforceHostKeyPin) return false;
    return !input.rejectUnknownHostKeyAfterCapture;
   };
  }
@@ -365,19 +367,34 @@ export async function buildSshParamsFromServer(server: {
  host: string;
  port: number;
  username: string;
+ connectionType?: string;
  sshKeyId: string | null;
  password: string | null;
   hostKeySha256?: string | null;
 }, sshKey?: { privateKey: string | null; passphrase?: string | null } | null): Promise<SshConnectionParams> {
-  return {
+  const base = {
     host: server.host,
     port: server.port,
     username: server.username,
     hostKeySha256: server.hostKeySha256 ?? null,
-    ...(sshKey?.privateKey ? {
+  };
+  // Legacy/internal projections may omit connectionType; infer from the bound
+  // key id only for compatibility. Persisted Server rows always provide it.
+  const connectionType = server.connectionType ?? (server.sshKeyId ? "SSH_KEY" : "PASSWORD");
+  if (connectionType === "SSH_KEY") {
+    return {
+      ...base,
+      ...(sshKey?.privateKey ? {
       privateKey: decryptSshPrivateKey(sshKey.privateKey),
       ...(sshKey.passphrase ? { passphrase: decryptSshKeyPassphrase(sshKey.passphrase) } : {}),
-    } : {}),
-    ...(server.password ? { password: decryptServerPassword(server.password) } : {}),
-  };
+      } : {}),
+    };
+  }
+  if (connectionType === "PASSWORD") {
+    return {
+      ...base,
+      ...(server.password ? { password: decryptServerPassword(server.password) } : {}),
+    };
+  }
+  throw new BusinessError(`Unsupported SSH connection type: ${connectionType}`);
 }

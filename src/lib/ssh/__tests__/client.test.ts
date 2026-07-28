@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ConnectConfig } from "ssh2";
 
-import { createVerifiedSshConfig } from "../client";
+import { buildSshParamsFromServer, createVerifiedSshConfig } from "../client";
 import { requireApprovedSshHostKey, SshHostKeyApprovalRequiredError } from "../host-key";
 
 vi.mock("../client", async (importOriginal) => {
@@ -16,6 +16,27 @@ vi.mock("../client", async (importOriginal) => {
 });
 
 describe("SSH client host key verification", () => {
+	it("honors SSH_ENFORCE_HOST_KEY_PIN when callers omit an explicit override", () => {
+		process.env.SSH_ENFORCE_HOST_KEY_PIN = "true";
+		try {
+			const config = createVerifiedSshConfig({ host: "203.0.113.10", port: 22, username: "root", password: "secret" }) as ConnectConfig;
+			expect(config.hostHash).toBe("sha256");
+			const verifier = config.hostVerifier as unknown as (hash: string) => boolean;
+			expect(verifier("unknown-host-key")).toBe(false);
+		} finally {
+			delete process.env.SSH_ENFORCE_HOST_KEY_PIN;
+		}
+	});
+
+	it("lets an explicit bootstrap override disable the global pin requirement", () => {
+		process.env.SSH_ENFORCE_HOST_KEY_PIN = "true";
+		try {
+			const config = createVerifiedSshConfig({ host: "203.0.113.10", port: 22, username: "root", password: "secret", enforceHostKeyPin: false }) as ConnectConfig;
+			expect(config.hostVerifier).toBeUndefined();
+		} finally {
+			delete process.env.SSH_ENFORCE_HOST_KEY_PIN;
+		}
+	});
   it("installs a sha256 hostVerifier when a host key fingerprint is configured", () => {
     const config = createVerifiedSshConfig({
       host: "203.0.113.10",
@@ -43,5 +64,21 @@ describe("SSH client host key verification", () => {
       ssh: { host: "203.0.113.10", port: 22, username: "root" },
       approvedHostKeySha256: "SHA256:seen",
     })).resolves.toBe("SHA256:seen");
+  });
+
+  it("selects credentials strictly from the configured connection type", async () => {
+    const passwordParams = await buildSshParamsFromServer(
+      { host: "203.0.113.20", port: 22, username: "root", connectionType: "PASSWORD", sshKeyId: "stale-key", password: "plain-password" },
+      { privateKey: "plain-private-key" },
+    );
+    expect(passwordParams.password).toBe("plain-password");
+    expect(passwordParams.privateKey).toBeUndefined();
+
+    const keyParams = await buildSshParamsFromServer(
+      { host: "203.0.113.21", port: 22, username: "root", connectionType: "SSH_KEY", sshKeyId: "key-1", password: "stale-password" },
+      { privateKey: "plain-private-key" },
+    );
+    expect(keyParams.privateKey).toBe("plain-private-key");
+    expect(keyParams.password).toBeUndefined();
   });
 });

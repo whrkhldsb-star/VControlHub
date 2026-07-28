@@ -15,12 +15,8 @@ import {
  tellStatus,
  getPublicAria2Error,
 } from "@/lib/aria2/service";
-import { execRemoteCommand, buildSshParamsFromServer } from "@/lib/ssh/client";
-import { decryptServerPassword, decryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
-import { execFile } from "child_process";
+import { execRemoteCommand, buildSshParamsFromServer, connectSsh, createVerifiedSshConfig } from "@/lib/ssh/client";
 import { createReadStream } from "fs";
-import { randomUUID } from "crypto";
-import { promisify } from "util";
 import fs from "fs/promises";
 import path from "path";
 import {
@@ -28,7 +24,6 @@ import {
  getDirectDownloadLogCommand,
  shellQuote,
  toRemoteChildPath,
- toScpTarget,
 } from "@/lib/downloads/remote-command";
 import {
  indexDownloadedFileEntry,
@@ -36,9 +31,8 @@ import {
  buildProgressText,
 } from "@/lib/downloads/helpers";
 import { BusinessError } from "@/lib/errors";
-import { t } from "@/lib/i18n/translations";
 
-const execFileAsync = promisify(execFile);
+
 
 async function loadDownloadTeamId(taskId: string): Promise<string | null> {
   const row = await prisma.downloadTask.findUnique({
@@ -54,6 +48,7 @@ export type DownloadServer = {
  host: string;
  port: number;
  username: string;
+ connectionType?: string;
  sshKeyId: string | null;
  password: string | null;
  hostKeySha256?: string | null;
@@ -272,7 +267,7 @@ export async function executeDirectDownload(
  }
 }
 
-/* ── SCP file transfer ─────────────────────────────────── */
+/* ── Verified SFTP file transfer ───────────────────────── */
 
 export async function transferFileViaSsh2(
  server: DownloadServer,
@@ -280,19 +275,14 @@ export async function transferFileViaSsh2(
  remoteFilePath: string,
  taskId: string,
 ): Promise<void> {
- // Prefer verified ssh2 path when a host fingerprint is pinned.
- if (server.hostKeySha256?.trim()) {
-  const { connectSsh, createVerifiedSshConfig } = await import("@/lib/ssh/client");
+ void taskId;
+ if (!server.hostKeySha256?.trim()) {
+  throw new BusinessError("SSH host key fingerprint is required for relay file transfer");
+ }
+ const sshParams = await buildSshParamsFromServer(server, server.sshKey);
   const config = createVerifiedSshConfig({
-   host: server.host,
-   port: server.port || 22,
-   username: server.username || "root",
-   hostKeySha256: server.hostKeySha256,
-   ...(decryptSshPrivateKey(server.sshKey?.privateKey ?? "")
-    ? { privateKey: decryptSshPrivateKey(server.sshKey!.privateKey!) }
-    : server.password
-     ? { password: decryptServerPassword(server.password) }
-     : {}),
+   ...sshParams,
+   enforceHostKeyPin: true,
   });
   const client = await connectSsh(config);
   try {
@@ -310,26 +300,6 @@ export async function transferFileViaSsh2(
   } finally {
    client.end();
   }
-  return;
- }
-
- const scpArgs = ["-o", "StrictHostKeyChecking=accept-new", "-o", "UserKnownHostsFile=/dev/null", "-P", String(server.port || 22)];
- const target = toScpTarget(server.username || "root", server.host, remoteFilePath);
-
- if (decryptSshPrivateKey(server.sshKey?.privateKey ?? "")) {
-  const keyFile = path.join("/tmp", `app-key-${taskId}-${randomUUID()}`);
-  await fs.writeFile(keyFile, decryptSshPrivateKey(server.sshKey!.privateKey!), { mode: 0o600 });
-  try {
-   await execFileAsync("scp", [...scpArgs, "-i", keyFile, localFilePath, target], { timeout: 600_000, maxBuffer: 50 * 1024 * 1024 });
-  } finally {
-   await fs.unlink(keyFile).catch(() => {});
-  }
- } else if (server.password) {
-  const sshpassEnv = { ...process.env, SSHPASS: decryptServerPassword(server.password) };
-  await execFileAsync("sshpass", ["-e", "scp", ...scpArgs, localFilePath, target], { timeout: 600_000, maxBuffer: 50 * 1024 * 1024, env: sshpassEnv });
- } else {
-  throw new BusinessError(t("backend.downloads.noSshKeyOrPasswordForFileTransfer"));
- }
 }
 
 /* ── Temp directory cleanup ────────────────────────────── */

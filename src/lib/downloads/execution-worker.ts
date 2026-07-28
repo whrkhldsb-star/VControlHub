@@ -148,6 +148,7 @@ function buildServerForExec(server: {
   host: string;
   port: number;
   username: string;
+  connectionType?: string;
   sshKeyId: string | null;
   password: string | null;
   hostKeySha256?: string | null;
@@ -161,6 +162,7 @@ function buildServerForExec(server: {
     host: server.host,
     port: server.port,
     username: server.username,
+    connectionType: server.connectionType,
     sshKeyId: server.sshKeyId,
     password: server.password,
     hostKeySha256: server.hostKeySha256 ?? null,
