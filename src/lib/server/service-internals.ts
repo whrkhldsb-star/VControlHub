@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { prisma } from "@/lib/db";
 import { BusinessError, ConflictError } from "@/lib/errors";
+import { getErrorMessage as getErrorMessageShared } from "@/lib/http/error-message";
 import {
   buildSshParamsFromServer,
   execRemoteCommand,
@@ -153,8 +154,14 @@ function normalizeServerCostCurrency(value: string | null | undefined): ServerCo
     : "CNY";
 }
 
-export function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : String(error || "Unknown error");
+/**
+ * Re-export of the shared {@link getErrorMessage} from `@/lib/http/error-message`
+ * with a sensible default fallback. Kept for backward compatibility with the
+ * two server-domain callers that import from this module; new code should
+ * import the shared helper directly.
+ */
+export function getErrorMessage(error: unknown, fallback = "Unknown error"): string {
+  return getErrorMessageShared(error, fallback);
 }
 
 export function safeRevalidatePath(path: string) {
