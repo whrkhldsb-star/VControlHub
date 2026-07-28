@@ -5,7 +5,7 @@ import { Prisma } from "@prisma/client";
 
 import type { SessionPayload } from "@/lib/auth/session";
 import { teamWhere } from "@/lib/auth/team-scope";
-import { prisma } from "@/lib/db";
+import { prisma, isUniqueViolation } from "@/lib/db";
 import { BusinessError, ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 import { serverT } from "@/lib/i18n/server-locale";
 import { t } from "@/lib/i18n/translations";
@@ -169,8 +169,7 @@ export async function createFileEntry(input: CreateFileEntryInput) {
     });
   } catch (error) {
     // Concurrent first-time create: unique ([storageNodeId, relativePath]) loser → re-enter update path.
-    const code = typeof error === "object" && error && "code" in error ? String((error as { code?: string }).code) : "";
-    if (code === "P2002") {
+    if (isUniqueViolation(error)) {
       const raced = await prisma.fileEntry.findFirst({
         where: {
           storageNodeId: payload.storageNodeId,

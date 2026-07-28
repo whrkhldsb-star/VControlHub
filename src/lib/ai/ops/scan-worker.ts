@@ -17,26 +17,27 @@
  */
 import { prisma } from "@/lib/db";
 import { config } from "@/lib/config/env";
+import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { computeLeaseMs } from "@/lib/job/lease";
 import {
-	claimNextJob,
-	completeJob,
-	enqueueJob,
-	failJob,
-	heartbeatJob,
-	pruneCompletedJobsByType,
+  claimNextJob,
+  completeJob,
+  enqueueJob,
+  failJob,
+  heartbeatJob,
+  pruneCompletedJobsByType,
 } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
 import { getSetting } from "@/lib/settings/service";
 
 import {
-	AI_OPS_LOG_RETENTION_KEEP,
-	AI_OPS_SCAN_JOB_TYPE,
-	type AiOpsExecutedAction,
-	type AiOpsFinding,
-	type AiOpsFindingSeverity,
-	type AiOpsMode,
-	type AiOpsRecommendedAction,
+  AI_OPS_LOG_RETENTION_KEEP,
+  AI_OPS_SCAN_JOB_TYPE,
+  type AiOpsExecutedAction,
+  type AiOpsFinding,
+  type AiOpsFindingSeverity,
+  type AiOpsMode,
+  type AiOpsRecommendedAction,
 } from "./types";
 import { createAiOpsLog, completeScan } from "./service";
 import { executeAiOpsAction } from "./action-executor";
@@ -48,62 +49,67 @@ const AI_OPS_SCAN_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24h
 const AI_OPS_SCAN_WORKER_ID = `${config.app.hostname || "vcontrolhub"}:ai-ops-scan:${process.pid}`;
 
 type AiOpsScanWorkerState = {
-	started: boolean;
-	running: boolean;
-	timer: NodeJS.Timeout | null;
+  started: boolean;
+  running: boolean;
+  timer: NodeJS.Timeout | null;
 };
 
 type AiOpsScanWorkerGlobal = typeof globalThis & {
-	__vcontrolhubAiOpsScanWorker?: AiOpsScanWorkerState;
+  __vcontrolhubAiOpsScanWorker?: AiOpsScanWorkerState;
 };
 
 function getWorkerState(): AiOpsScanWorkerState {
-	const g = globalThis as AiOpsScanWorkerGlobal;
-	g.__vcontrolhubAiOpsScanWorker ??= {
-		started: false,
-		running: false,
-		timer: null,
-	};
-	return g.__vcontrolhubAiOpsScanWorker;
+  const g = globalThis as AiOpsScanWorkerGlobal;
+  g.__vcontrolhubAiOpsScanWorker ??= {
+    started: false,
+    running: false,
+    timer: null,
+  };
+  return g.__vcontrolhubAiOpsScanWorker;
 }
 
 async function hasActiveScanJob(): Promise<boolean> {
-	const row = await prisma.job.findFirst({
-		where: {
-			type: AI_OPS_SCAN_JOB_TYPE,
-			status: { in: ["PENDING", "RUNNING"] },
-		},
-		select: { id: true },
-	});
-	return row !== null;
+  const row = await prisma.job.findFirst({
+    where: {
+      type: AI_OPS_SCAN_JOB_TYPE,
+      status: { in: ["PENDING", "RUNNING"] },
+    },
+    select: { id: true },
+  });
+  return row !== null;
 }
 
 async function enqueueScanJob(reason: string, notes?: string | null) {
-	if (await hasActiveScanJob()) return null;
-	return enqueueJob({
-		type: AI_OPS_SCAN_JOB_TYPE,
-		title: "AI ops daily scan",
-		payload: {
-			reason,
-			requestedAt: new Date().toISOString(),
-			...(notes ? { notes } : {}),
-		},
-		priority: -2, // Below user-triggered scans but above nightly snapshots
-		maxAttempts: 2,
-	});
+  const release = await acquireAdvisoryLock("ai-ops-scan-enqueue", "global");
+  try {
+    if (await hasActiveScanJob()) return null;
+    return enqueueJob({
+      type: AI_OPS_SCAN_JOB_TYPE,
+      title: "AI ops daily scan",
+      payload: {
+        reason,
+        requestedAt: new Date().toISOString(),
+        ...(notes ? { notes } : {}),
+      },
+      priority: -2, // Below user-triggered scans but above nightly snapshots
+      maxAttempts: 2,
+    });
+  } finally {
+    await release();
+  }
 }
 
 async function readModeFromSettings(): Promise<AiOpsMode> {
-	const mode = await getSetting("ai.ops.mode").catch(() => "recommendation");
-	return mode === "autonomous" ? "autonomous" : "recommendation";
+  const mode = await getSetting("ai.ops.mode").catch(() => "recommendation");
+  return mode === "autonomous" ? "autonomous" : "recommendation";
 }
 
 interface SystemHealthSignal {
-	id: string;
-	severity: AiOpsFindingSeverity;
-	title: string;
-	body: string;
-	source: string;
+  id: string;
+  severity: AiOpsFindingSeverity;
+  title: string;
+  body: string;
+  source: string;
 }
 
 /**
@@ -112,437 +118,482 @@ interface SystemHealthSignal {
  * something to display.
  */
 async function collectSystemHealthSignals(): Promise<SystemHealthSignal[]> {
-	const signals: SystemHealthSignal[] = [];
+  const signals: SystemHealthSignal[] = [];
 
-	const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-	const [alertCount, recentFailures, playbookFailures, offlineServers, backupFailures, staleJobs] = await Promise.all([
-		prisma.alertRule.count({ where: { enabled: true } }),
-		prisma.commandRequest
-			.count({
-				where: {
-					status: "FAILED",
-					createdAt: { gte: since24h },
-				},
-			})
-			.catch(() => 0),
-		prisma.playbookRun
-			.count({
-				where: {
-					status: "failed",
-					createdAt: { gte: since24h },
-				},
-			})
-			.catch(() => 0),
-		// Prefer metricSnapshot.isOnline=false over "any enabled server" (false positive).
-		prisma.metricSnapshot
-			.findMany({
-				where: {
-					isOnline: false,
-					createdAt: { gte: new Date(Date.now() - 30 * 60 * 1000) },
-				},
-				select: { serverId: true },
-				orderBy: { createdAt: "desc" },
-				take: 500,
-			})
-			.then((rows) => new Set(rows.map((r) => r.serverId)).size)
-			.catch(() => 0),
-		// Backup records that failed in the last 24h
-		prisma.backupRecord
-			.count({
-				where: {
-					status: "FAILED",
-					createdAt: { gte: since24h },
-				},
-			})
-			.catch(() => 0),
-		// Stale completed jobs older than 7 days
-		prisma.job
-			.count({
-				where: {
-					status: "COMPLETED",
-					updatedAt: { lt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
-				},
-			})
-			.catch(() => 0),
-	]);
+  const [
+    alertCount,
+    recentFailures,
+    playbookFailures,
+    offlineServers,
+    backupFailures,
+    staleJobs,
+  ] = await Promise.all([
+    prisma.alertRule.count({ where: { enabled: true } }),
+    prisma.commandRequest
+      .count({
+        where: {
+          status: "FAILED",
+          createdAt: { gte: since24h },
+        },
+      })
+      .catch(() => 0),
+    prisma.playbookRun
+      .count({
+        where: {
+          status: "failed",
+          createdAt: { gte: since24h },
+        },
+      })
+      .catch(() => 0),
+    // Prefer metricSnapshot.isOnline=false over "any enabled server" (false positive).
+    prisma.metricSnapshot
+      .findMany({
+        where: {
+          isOnline: false,
+          createdAt: { gte: new Date(Date.now() - 30 * 60 * 1000) },
+        },
+        select: { serverId: true },
+        orderBy: { createdAt: "desc" },
+        take: 500,
+      })
+      .then((rows) => new Set(rows.map((r) => r.serverId)).size)
+      .catch(() => 0),
+    // Backup records that failed in the last 24h
+    prisma.backupRecord
+      .count({
+        where: {
+          status: "FAILED",
+          createdAt: { gte: since24h },
+        },
+      })
+      .catch(() => 0),
+    // Stale completed jobs older than 7 days
+    prisma.job
+      .count({
+        where: {
+          status: "COMPLETED",
+          updatedAt: { lt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+        },
+      })
+      .catch(() => 0),
+  ]);
 
-	if (alertCount > 20) {
-		signals.push({
-			id: "alert.noise",
-			severity: "warning",
-			title: "Too many alert rules",
-			body: `Currently ${alertCount} alert rules are enabled; consider reviewing whether any are redundant.`,
-			source: "alert.rules",
-		});
-	}
-	if (recentFailures > 5) {
-		signals.push({
-			id: "command.failure-burst",
-			severity: "critical",
-			title: "Command execution failure burst",
-			body: `${recentFailures} non-zero exits in the last 24 hours; there may be script/credential issues.`,
-			source: "command.execution",
-		});
-	}
-	if (playbookFailures > 0) {
-		signals.push({
-			id: "playbook.failure",
-			severity: "warning",
-			title: "Playbook failures",
-			body: `${playbookFailures} Playbook failures in the last 24 hours; recommend investigating.`,
-			source: "playbook.run",
-		});
-	}
-	if (offlineServers > 0) {
-		signals.push({
-			id: "server.offline",
-			severity: "critical",
-			title: "Servers offline",
-			body: `${offlineServers} enabled server(s) are offline; please check network or SSH connectivity.`,
-			source: "server.status",
-		});
-	}
-	if (backupFailures > 0) {
-		signals.push({
-			id: "backup.failure",
-			severity: "warning",
-			title: "Backup failures",
-			body: `${backupFailures} backup failures in the last 24 hours; recommend checking storage space or credentials.`,
-			source: "backup.records",
-		});
-	}
-	if (staleJobs > 100) {
-		signals.push({
-			id: "job.stale-accumulation",
-			severity: "info",
-			title: "Stale job accumulation",
-			body: `${staleJobs} completed jobs have not been cleaned up for over 7 days; recommend running cache cleanup.`,
-			source: "job.queue",
-		});
-	}
+  if (alertCount > 20) {
+    signals.push({
+      id: "alert.noise",
+      severity: "warning",
+      title: "Too many alert rules",
+      body: `Currently ${alertCount} alert rules are enabled; consider reviewing whether any are redundant.`,
+      source: "alert.rules",
+    });
+  }
+  if (recentFailures > 5) {
+    signals.push({
+      id: "command.failure-burst",
+      severity: "critical",
+      title: "Command execution failure burst",
+      body: `${recentFailures} non-zero exits in the last 24 hours; there may be script/credential issues.`,
+      source: "command.execution",
+    });
+  }
+  if (playbookFailures > 0) {
+    signals.push({
+      id: "playbook.failure",
+      severity: "warning",
+      title: "Playbook failures",
+      body: `${playbookFailures} Playbook failures in the last 24 hours; recommend investigating.`,
+      source: "playbook.run",
+    });
+  }
+  if (offlineServers > 0) {
+    signals.push({
+      id: "server.offline",
+      severity: "critical",
+      title: "Servers offline",
+      body: `${offlineServers} enabled server(s) are offline; please check network or SSH connectivity.`,
+      source: "server.status",
+    });
+  }
+  if (backupFailures > 0) {
+    signals.push({
+      id: "backup.failure",
+      severity: "warning",
+      title: "Backup failures",
+      body: `${backupFailures} backup failures in the last 24 hours; recommend checking storage space or credentials.`,
+      source: "backup.records",
+    });
+  }
+  if (staleJobs > 100) {
+    signals.push({
+      id: "job.stale-accumulation",
+      severity: "info",
+      title: "Stale job accumulation",
+      body: `${staleJobs} completed jobs have not been cleaned up for over 7 days; recommend running cache cleanup.`,
+      source: "job.queue",
+    });
+  }
 
-	// Check latest metric snapshots for resource pressure
-	try {
-		const recentMetrics = await prisma.metricSnapshot.findMany({
-			where: { createdAt: { gte: new Date(Date.now() - 30 * 60 * 1000) } },
-			select: { serverId: true, cpuUsage: true, memUsage: true, diskUsage: true, isOnline: true },
-			orderBy: { createdAt: "desc" },
-			take: 500,
-		});
-		// Deduplicate by serverId — keep the most recent snapshot per server
-		const seen = new Set<string>();
-		let highCpuCount = 0;
-		let highMemCount = 0;
-		let highDiskCount = 0;
-		for (const m of recentMetrics) {
-			if (seen.has(m.serverId)) continue;
-			seen.add(m.serverId);
-			if (m.cpuUsage > 85) highCpuCount++;
-			if (m.memUsage > 90) highMemCount++;
-			if (m.diskUsage > 85) highDiskCount++;
-		}
-		if (highCpuCount > 0) {
-			signals.push({
-				id: "resource.high-cpu",
-				severity: "warning",
-				title: "CPU usage too high",
-				body: `${highCpuCount} server(s) have CPU usage above 85%; recommend checking processes or scaling up.`,
-				source: "metric.cpu",
-			});
-		}
-		if (highMemCount > 0) {
-			signals.push({
-				id: "resource.high-mem",
-				severity: "warning",
-				title: "Memory usage too high",
-				body: `${highMemCount} server(s) have memory usage above 90%; this may affect service stability.`,
-				source: "metric.memory",
-			});
-		}
-		if (highDiskCount > 0) {
-			signals.push({
-				id: "resource.high-disk",
-				severity: "critical",
-				title: "Insufficient disk space",
-				body: `${highDiskCount} server(s) have disk usage above 85%; at risk of filling up.`,
-				source: "metric.disk",
-			});
-		}
-	} catch {
-		// metricSnapshot table may not have recent data; skip silently
-	}
+  // Check latest metric snapshots for resource pressure
+  try {
+    const recentMetrics = await prisma.metricSnapshot.findMany({
+      where: { createdAt: { gte: new Date(Date.now() - 30 * 60 * 1000) } },
+      select: {
+        serverId: true,
+        cpuUsage: true,
+        memUsage: true,
+        diskUsage: true,
+        isOnline: true,
+      },
+      orderBy: { createdAt: "desc" },
+      take: 500,
+    });
+    // Deduplicate by serverId — keep the most recent snapshot per server
+    const seen = new Set<string>();
+    let highCpuCount = 0;
+    let highMemCount = 0;
+    let highDiskCount = 0;
+    for (const m of recentMetrics) {
+      if (seen.has(m.serverId)) continue;
+      seen.add(m.serverId);
+      if (m.cpuUsage > 85) highCpuCount++;
+      if (m.memUsage > 90) highMemCount++;
+      if (m.diskUsage > 85) highDiskCount++;
+    }
+    if (highCpuCount > 0) {
+      signals.push({
+        id: "resource.high-cpu",
+        severity: "warning",
+        title: "CPU usage too high",
+        body: `${highCpuCount} server(s) have CPU usage above 85%; recommend checking processes or scaling up.`,
+        source: "metric.cpu",
+      });
+    }
+    if (highMemCount > 0) {
+      signals.push({
+        id: "resource.high-mem",
+        severity: "warning",
+        title: "Memory usage too high",
+        body: `${highMemCount} server(s) have memory usage above 90%; this may affect service stability.`,
+        source: "metric.memory",
+      });
+    }
+    if (highDiskCount > 0) {
+      signals.push({
+        id: "resource.high-disk",
+        severity: "critical",
+        title: "Insufficient disk space",
+        body: `${highDiskCount} server(s) have disk usage above 85%; at risk of filling up.`,
+        source: "metric.disk",
+      });
+    }
+  } catch {
+    // metricSnapshot table may not have recent data; skip silently
+  }
 
-	return signals;
+  return signals;
 }
 
 export function buildExplainableReport(
-	mode: AiOpsMode,
-	signals: SystemHealthSignal[],
-	actions: Array<AiOpsRecommendedAction | AiOpsExecutedAction>,
+  mode: AiOpsMode,
+  signals: SystemHealthSignal[],
+  actions: Array<AiOpsRecommendedAction | AiOpsExecutedAction>,
 ): string {
-	const severityCounts = { info: 0, warning: 0, critical: 0 };
-	for (const signal of signals) severityCounts[signal.severity] += 1;
-	const executed = actions.filter((action) => "executed" in action && action.executed).length;
-	const failed = actions.filter((action) => "executed" in action && !action.executed).length;
-	return [
-		`mode=${mode}`,
-		`findings=${signals.length} (critical=${severityCounts.critical}, warning=${severityCounts.warning}, info=${severityCounts.info})`,
-		`actions=${actions.length} (executed=${executed}, not_executed=${failed})`,
-		...signals.slice(0, 10).map((signal) => `[${signal.severity}] ${signal.title}: ${signal.body} (source=${signal.source})`),
-	].join("\n");
+  const severityCounts = { info: 0, warning: 0, critical: 0 };
+  for (const signal of signals) severityCounts[signal.severity] += 1;
+  const executed = actions.filter(
+    (action) => "executed" in action && action.executed,
+  ).length;
+  const failed = actions.filter(
+    (action) => "executed" in action && !action.executed,
+  ).length;
+  return [
+    `mode=${mode}`,
+    `findings=${signals.length} (critical=${severityCounts.critical}, warning=${severityCounts.warning}, info=${severityCounts.info})`,
+    `actions=${actions.length} (executed=${executed}, not_executed=${failed})`,
+    ...signals
+      .slice(0, 10)
+      .map(
+        (signal) =>
+          `[${signal.severity}] ${signal.title}: ${signal.body} (source=${signal.source})`,
+      ),
+  ].join("\n");
 }
 
 function buildScan(
-	mode: AiOpsMode,
-	signals: SystemHealthSignal[],
+  mode: AiOpsMode,
+  signals: SystemHealthSignal[],
 ): {
-	findings: AiOpsFinding[];
-	actions: AiOpsRecommendedAction[] | AiOpsExecutedAction[];
-	status: "ok" | "warning";
+  findings: AiOpsFinding[];
+  actions: AiOpsRecommendedAction[] | AiOpsExecutedAction[];
+  status: "ok" | "warning";
 } {
-	const findings: AiOpsFinding[] = signals.map((s) => ({
-		id: s.id,
-		severity: s.severity,
-		title: s.title,
-		body: s.body,
-		source: s.source,
-	}));
+  const findings: AiOpsFinding[] = signals.map((s) => ({
+    id: s.id,
+    severity: s.severity,
+    title: s.title,
+    body: s.body,
+    source: s.source,
+  }));
 
-	if (mode === "autonomous") {
-		const actions = signals.reduce<AiOpsExecutedAction[]>((out, s) => {
-			const action = s.id === "job.stale-accumulation"
-				? "cache.purge:stale"
-				: s.severity === "warning"
-					? "alert.evaluate"
-					: null;
-			if (action) {
-				out.push({
-					id: `${s.id}.autonomous`, action, risk: "low",
-					executed: false, result: `Pending safe executor processing; source=${s.source}`,
-				});
-			}
-			return out;
-		}, []);
-		return {
-			findings,
-			actions,
-			status: signals.length > 0 ? "warning" : "ok",
-		};
-	}
+  if (mode === "autonomous") {
+    const actions = signals.reduce<AiOpsExecutedAction[]>((out, s) => {
+      const action =
+        s.id === "job.stale-accumulation"
+          ? "cache.purge:stale"
+          : s.severity === "warning"
+            ? "alert.evaluate"
+            : null;
+      if (action) {
+        out.push({
+          id: `${s.id}.autonomous`,
+          action,
+          risk: "low",
+          executed: false,
+          result: `Pending safe executor processing; source=${s.source}`,
+        });
+      }
+      return out;
+    }, []);
+    return {
+      findings,
+      actions,
+      status: signals.length > 0 ? "warning" : "ok",
+    };
+  }
 
-	const actions: AiOpsRecommendedAction[] = signals.map((s) => {
-		// Map signal source to an actionable recommendation.
-		// Critical signals → alert.evaluate with high risk + requires approval
-		// Info signals about stale jobs → cache.purge:stale (safe, no approval)
-		// Warning signals → alert.evaluate with low risk (safe, no approval)
-		const isStaleJobSignal = s.id === "job.stale-accumulation";
-		const action = isStaleJobSignal ? "cache.purge:stale" : "alert.evaluate";
-		const risk = s.severity === "critical" ? ("high" as const) : ("low" as const);
-		return {
-			id: `${s.id}.reco`,
-			action,
-			risk,
-			requiresApproval: s.severity === "critical",
-			reason: s.body,
-		};
-	});
-	return {
-		findings,
-		actions,
-		status: signals.length > 0 ? "warning" : "ok",
-	};
+  const actions: AiOpsRecommendedAction[] = signals.map((s) => {
+    // Map signal source to an actionable recommendation.
+    // Critical signals → alert.evaluate with high risk + requires approval
+    // Info signals about stale jobs → cache.purge:stale (safe, no approval)
+    // Warning signals → alert.evaluate with low risk (safe, no approval)
+    const isStaleJobSignal = s.id === "job.stale-accumulation";
+    const action = isStaleJobSignal ? "cache.purge:stale" : "alert.evaluate";
+    const risk =
+      s.severity === "critical" ? ("high" as const) : ("low" as const);
+    return {
+      id: `${s.id}.reco`,
+      action,
+      risk,
+      requiresApproval: s.severity === "critical",
+      reason: s.body,
+    };
+  });
+  return {
+    findings,
+    actions,
+    status: signals.length > 0 ? "warning" : "ok",
+  };
 }
 
 export async function runAiOpsScanWorkerOnce(
-	reason = "manual",
-	options?: { notes?: string | null },
+  reason = "manual",
+  options?: { notes?: string | null },
 ): Promise<boolean> {
-	const state = getWorkerState();
-	if (state.running) {
-		logger.warn("Skipping AI ops scan tick because a previous tick is still running", {
-			reason,
-		});
-		return false;
-	}
-	state.running = true;
-	try {
-		await enqueueScanJob(reason, options?.notes);
-		const job = await claimNextJob({
-			workerId: AI_OPS_SCAN_WORKER_ID,
-			types: [AI_OPS_SCAN_JOB_TYPE],
-			leaseMs: AI_OPS_SCAN_LEASE_MS,
-		});
-		if (!job) return false;
+  const state = getWorkerState();
+  if (state.running) {
+    logger.warn(
+      "Skipping AI ops scan tick because a previous tick is still running",
+      {
+        reason,
+      },
+    );
+    return false;
+  }
+  state.running = true;
+  try {
+    await enqueueScanJob(reason, options?.notes);
+    const job = await claimNextJob({
+      workerId: AI_OPS_SCAN_WORKER_ID,
+      types: [AI_OPS_SCAN_JOB_TYPE],
+      leaseMs: AI_OPS_SCAN_LEASE_MS,
+    });
+    if (!job) return false;
 
-		const jobPayload =
-			job.payload && typeof job.payload === "object" && !Array.isArray(job.payload)
-				? (job.payload as { reason?: unknown; notes?: unknown })
-				: {};
-		const payloadReason =
-			typeof jobPayload.reason === "string" && jobPayload.reason.trim()
-				? jobPayload.reason.trim()
-				: reason;
-		const operatorNotes =
-			typeof jobPayload.notes === "string" && jobPayload.notes.trim()
-				? jobPayload.notes.trim()
-				: typeof options?.notes === "string" && options.notes.trim()
-					? options.notes.trim()
-					: null;
-		const initialNotes = operatorNotes
-			? `scan reason=${payloadReason}; notes=${operatorNotes}`
-			: `scan reason=${payloadReason}`;
+    const jobPayload =
+      job.payload &&
+      typeof job.payload === "object" &&
+      !Array.isArray(job.payload)
+        ? (job.payload as { reason?: unknown; notes?: unknown })
+        : {};
+    const payloadReason =
+      typeof jobPayload.reason === "string" && jobPayload.reason.trim()
+        ? jobPayload.reason.trim()
+        : reason;
+    const operatorNotes =
+      typeof jobPayload.notes === "string" && jobPayload.notes.trim()
+        ? jobPayload.notes.trim()
+        : typeof options?.notes === "string" && options.notes.trim()
+          ? options.notes.trim()
+          : null;
+    const initialNotes = operatorNotes
+      ? `scan reason=${payloadReason}; notes=${operatorNotes}`
+      : `scan reason=${payloadReason}`;
 
-		let aiOpsLogId: string | null = null;
-		try {
-			await heartbeatJob(job.id, AI_OPS_SCAN_WORKER_ID, {
-				leaseMs: AI_OPS_SCAN_LEASE_MS,
-				progress: "Collecting system health signals",
-			});
+    let aiOpsLogId: string | null = null;
+    try {
+      await heartbeatJob(job.id, AI_OPS_SCAN_WORKER_ID, {
+        leaseMs: AI_OPS_SCAN_LEASE_MS,
+        progress: "Collecting system health signals",
+      });
 
-			const mode = await readModeFromSettings();
-			const log = await createAiOpsLog({
-				triggerType: payloadReason === "interval" || payloadReason === "startup" ? "scheduled" : "manual",
-				mode,
-				triggeredById: null,
-				notes: initialNotes,
-			});
-			aiOpsLogId = log.id;
+      const mode = await readModeFromSettings();
+      const log = await createAiOpsLog({
+        triggerType:
+          payloadReason === "interval" || payloadReason === "startup"
+            ? "scheduled"
+            : "manual",
+        mode,
+        triggeredById: null,
+        notes: initialNotes,
+      });
+      aiOpsLogId = log.id;
 
-			const signals = await collectSystemHealthSignals();
-			const { findings, actions: plannedActions, status } = buildScan(mode, signals);
-			const actions = mode === "autonomous"
-				? await Promise.all(
-					(plannedActions as AiOpsExecutedAction[]).map((action) =>
-						executeAiOpsAction({
-							id: action.id,
-							action: action.action,
-							risk: action.risk,
-						}),
-					)
-				)
-				: plannedActions;
+      const signals = await collectSystemHealthSignals();
+      const {
+        findings,
+        actions: plannedActions,
+        status,
+      } = buildScan(mode, signals);
+      const actions =
+        mode === "autonomous"
+          ? await Promise.all(
+              (plannedActions as AiOpsExecutedAction[]).map((action) =>
+                executeAiOpsAction({
+                  id: action.id,
+                  action: action.action,
+                  risk: action.risk,
+                }),
+              ),
+            )
+          : plannedActions;
 
-			const report = buildExplainableReport(mode, signals, actions);
-			const completedNotes = operatorNotes
-				? `ai.ops.scan reason=${payloadReason}\noperatorNotes=${operatorNotes}\n${report}`
-				: `ai.ops.scan reason=${payloadReason}\n${report}`;
+      const report = buildExplainableReport(mode, signals, actions);
+      const completedNotes = operatorNotes
+        ? `ai.ops.scan reason=${payloadReason}\noperatorNotes=${operatorNotes}\n${report}`
+        : `ai.ops.scan reason=${payloadReason}\n${report}`;
 
-			const completed = await completeScan({
-				logId: log.id,
-				status,
-				findings,
-				actions,
-				notes: completedNotes,
-			});
+      const completed = await completeScan({
+        logId: log.id,
+        status,
+        findings,
+        actions,
+        notes: completedNotes,
+      });
 
-			await completeJob(job.id, AI_OPS_SCAN_WORKER_ID, {
-				logId: completed.id,
-				mode: completed.mode,
-				findingCount: findings.length,
-				actionCount: actions.length,
-				status: completed.status,
-				reason: payloadReason,
-			});
-			logger.info("AI ops daily scan complete", {
-				jobId: job.id,
-				logId: completed.id,
-				mode: completed.mode,
-				findingCount: findings.length,
-				actionCount: actions.length,
-			});
+      await completeJob(job.id, AI_OPS_SCAN_WORKER_ID, {
+        logId: completed.id,
+        mode: completed.mode,
+        findingCount: findings.length,
+        actionCount: actions.length,
+        status: completed.status,
+        reason: payloadReason,
+      });
+      logger.info("AI ops daily scan complete", {
+        jobId: job.id,
+        logId: completed.id,
+        mode: completed.mode,
+        findingCount: findings.length,
+        actionCount: actions.length,
+      });
 
-			// Retention: prune old AI ops logs (AI_OPS_LOG_RETENTION_KEEP)
-			try {
-				const oldLogs = await prisma.aiOpsLog.findMany({
-					select: { id: true },
-					orderBy: { createdAt: "desc" },
-					take: AI_OPS_LOG_RETENTION_KEEP,
-				});
-				if (oldLogs.length === AI_OPS_LOG_RETENTION_KEEP) {
-					const keepIds = oldLogs.map((l) => l.id);
-					const result = await prisma.aiOpsLog.deleteMany({
-						where: { id: { notIn: keepIds } },
-					});
-					if (result.count > 0) {
-						logger.info("AI ops log retention pruned old logs", { pruned: result.count });
-					}
-				}
-			} catch {
-				// Retention is best-effort; don't fail the scan
-			}
+      // Retention: prune old AI ops logs (AI_OPS_LOG_RETENTION_KEEP)
+      try {
+        const oldLogs = await prisma.aiOpsLog.findMany({
+          select: { id: true },
+          orderBy: { createdAt: "desc" },
+          take: AI_OPS_LOG_RETENTION_KEEP,
+        });
+        if (oldLogs.length === AI_OPS_LOG_RETENTION_KEEP) {
+          const keepIds = oldLogs.map((l) => l.id);
+          const result = await prisma.aiOpsLog.deleteMany({
+            where: { id: { notIn: keepIds } },
+          });
+          if (result.count > 0) {
+            logger.info("AI ops log retention pruned old logs", {
+              pruned: result.count,
+            });
+          }
+        }
+      } catch {
+        // Retention is best-effort; don't fail the scan
+      }
 
-			// Also prune old completed scan jobs (keep latest 25)
-			try {
-				await pruneCompletedJobsByType({ type: AI_OPS_SCAN_JOB_TYPE, keepLatest: 25 });
-			} catch {
-				// best-effort
-			}
+      // Also prune old completed scan jobs (keep latest 25)
+      try {
+        await pruneCompletedJobsByType({
+          type: AI_OPS_SCAN_JOB_TYPE,
+          keepLatest: 25,
+        });
+      } catch {
+        // best-effort
+      }
 
-			return true;
-		} catch (error) {
-			const message =
-				error instanceof Error ? error.message : "AI ops scan failed";
-			if (aiOpsLogId) {
-				try {
-					await completeScan({
-						logId: aiOpsLogId,
-						status: "error",
-						findings: [],
-						actions: [],
-						notes: `ai.ops.scan failed: ${message}`.slice(0, 4000),
-					});
-				} catch {
-					// best-effort — avoid leaving log stuck in running
-				}
-			}
-			await failJob(job.id, AI_OPS_SCAN_WORKER_ID, message.slice(0, 2000), {
-				retryAfterMs: 60 * 60 * 1000, // 1h retry
-			});
-			logger.error("AI ops scan failed", {
-				reason: payloadReason,
-				jobId: job.id,
-				error: message,
-			});
-			return true;
-		}
-	} finally {
-		state.running = false;
-	}
+      return true;
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "AI ops scan failed";
+      if (aiOpsLogId) {
+        try {
+          await completeScan({
+            logId: aiOpsLogId,
+            status: "error",
+            findings: [],
+            actions: [],
+            notes: `ai.ops.scan failed: ${message}`.slice(0, 4000),
+          });
+        } catch {
+          // best-effort — avoid leaving log stuck in running
+        }
+      }
+      await failJob(job.id, AI_OPS_SCAN_WORKER_ID, message.slice(0, 2000), {
+        retryAfterMs: 60 * 60 * 1000, // 1h retry
+      });
+      logger.error("AI ops scan failed", {
+        reason: payloadReason,
+        jobId: job.id,
+        error: message,
+      });
+      return true;
+    }
+  } finally {
+    state.running = false;
+  }
 }
 
 export async function startAiOpsScanWorker() {
-	const state = getWorkerState();
-	if (state.started) return state;
-	state.started = true;
+  const state = getWorkerState();
+  if (state.started) return state;
+  state.started = true;
 
-	void runAiOpsScanWorkerOnce("startup").catch((error) => {
-		logger.error("AI ops scan worker tick failed", {
-			reason: "startup",
-			error: error instanceof Error ? error.message : String(error),
-		});
-	});
-	state.timer = setInterval(() => {
-		void runAiOpsScanWorkerOnce("interval").catch((error) => {
-			logger.error("AI ops scan worker tick failed", {
-				reason: "interval",
-				error: error instanceof Error ? error.message : String(error),
-			});
-		});
-	}, AI_OPS_SCAN_INTERVAL_MS);
-	state.timer.unref?.();
+  void runAiOpsScanWorkerOnce("startup").catch((error) => {
+    logger.error("AI ops scan worker tick failed", {
+      reason: "startup",
+      error: error instanceof Error ? error.message : String(error),
+    });
+  });
+  state.timer = setInterval(() => {
+    void runAiOpsScanWorkerOnce("interval").catch((error) => {
+      logger.error("AI ops scan worker tick failed", {
+        reason: "interval",
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
+  }, AI_OPS_SCAN_INTERVAL_MS);
+  state.timer.unref?.();
 
-	logger.info("AI ops scan durable job worker started", {
-		workerId: AI_OPS_SCAN_WORKER_ID,
-		intervalMs: AI_OPS_SCAN_INTERVAL_MS,
-	});
-	return state;
+  logger.info("AI ops scan durable job worker started", {
+    workerId: AI_OPS_SCAN_WORKER_ID,
+    intervalMs: AI_OPS_SCAN_INTERVAL_MS,
+  });
+  return state;
 }
 
 export function stopAiOpsScanWorkerForTests() {
-	const state = getWorkerState();
-	if (state.timer) clearInterval(state.timer);
-	state.started = false;
-	state.running = false;
-	state.timer = null;
+  const state = getWorkerState();
+  if (state.timer) clearInterval(state.timer);
+  state.started = false;
+  state.running = false;
+  state.timer = null;
 }

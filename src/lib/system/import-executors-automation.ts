@@ -104,7 +104,8 @@ export async function importQuickServices(
         envJson: r.envJson,
         volumesJson: r.volumesJson,
         // Multi-instance: preserve target (hub-host default if absent)
-        instanceKey: (r as { instanceKey?: string | null }).instanceKey ?? "hub-host",
+        instanceKey:
+          (r as { instanceKey?: string | null }).instanceKey ?? "hub-host",
         serverId: (r as { serverId?: string | null }).serverId ?? null,
         // Never restore live runtime state from config package
         status: "stopped",
@@ -132,7 +133,8 @@ export async function importQuickServices(
           command: r.command,
           envJson: r.envJson,
           volumesJson: r.volumesJson,
-          instanceKey: (r as { instanceKey?: string | null }).instanceKey ?? "hub-host",
+          instanceKey:
+            (r as { instanceKey?: string | null }).instanceKey ?? "hub-host",
           serverId: (r as { serverId?: string | null }).serverId ?? null,
         },
       });
@@ -233,9 +235,12 @@ export async function importAlertRules(
         durationSeconds: r.durationSeconds,
         serverIds: r.serverIds,
         notifyChannels: r.notifyChannels,
+        playbookIds: r.playbookIds ?? [],
         webhookUrl: r.webhookUrl,
         cooldownMinutes: r.cooldownMinutes,
         silenceWindows: r.silenceWindows,
+        escalationMinutes: r.escalationMinutes ?? 30,
+        onCallUserIds: r.onCallUserIds ?? [],
         enabled: r.enabled,
         // Multi-tenant: preserve export teamId (null stays legacy-shared)
         teamId: r.teamId ?? null,
@@ -257,9 +262,12 @@ export async function importAlertRules(
           durationSeconds: r.durationSeconds,
           serverIds: r.serverIds,
           notifyChannels: r.notifyChannels,
+          playbookIds: r.playbookIds ?? [],
           webhookUrl: r.webhookUrl,
           cooldownMinutes: r.cooldownMinutes,
           silenceWindows: r.silenceWindows,
+          escalationMinutes: r.escalationMinutes ?? 30,
+          onCallUserIds: r.onCallUserIds ?? [],
           enabled: r.enabled,
           teamId: r.teamId ?? null,
         },

@@ -2,7 +2,7 @@ import { isProtectedByApproval } from "@/lib/auth/rbac";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import type { RoleKey } from "@/lib/auth/rbac";
 import { serverTeamWhere, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
-import { prisma } from "@/lib/db";
+import { prisma, isUniqueViolation } from "@/lib/db";
 import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
 import {
   notifyCommandPending,
@@ -374,11 +374,7 @@ export async function createCommandRequest(
   } catch (error) {
     // Global unique on idempotencyKey: another team may already own this key.
     // Never return foreign rows; surface a conflict instead of P2002 leak.
-    const code =
-      error && typeof error === "object" && "code" in error
-        ? String((error as { code?: unknown }).code)
-        : "";
-    if (payload.idempotencyKey && (code === "P2002" || /Unique constraint/i.test(String(error)))) {
+    if (payload.idempotencyKey && isUniqueViolation(error)) {
       const scopedReplay = await prisma.commandRequest.findFirst({
         where: {
           idempotencyKey: payload.idempotencyKey,

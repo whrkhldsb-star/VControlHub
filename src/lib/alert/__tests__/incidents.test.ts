@@ -27,7 +27,7 @@ const { prismaMock, createNotificationMock, sendEmailMock, sendTelegramMock, web
   webhookMock: vi.fn(),
 }));
 
-vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
+vi.mock("@/lib/db", () => ({ prisma: prismaMock, isUniqueViolation: (e: unknown) => typeof e === "object" && e !== null && "code" in e && (e as { code?: string }).code === "P2002" }));
 vi.mock("@/lib/notification/service", () => ({ createNotification: createNotificationMock }));
 vi.mock("@/lib/notification/email", () => ({ sendAlertEmail: sendEmailMock }));
 vi.mock("@/lib/notification/telegram", () => ({ sendAlertTelegram: sendTelegramMock }));

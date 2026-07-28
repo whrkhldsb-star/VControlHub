@@ -38,6 +38,8 @@ const { mockPrisma, listRemoteDirectoryMock, assertStorageAccessMock } =
 
 vi.mock("@/lib/db", () => ({
   prisma: mockPrisma,
+  isUniqueViolation: (e: unknown) =>
+    typeof e === "object" && e !== null && "code" in e && (e as { code?: string }).code === "P2002",
   isDatabaseUnavailableError: vi.fn(() => false),
 }));
 vi.mock("@/lib/ssh/client", () => ({

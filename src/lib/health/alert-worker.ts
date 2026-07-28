@@ -2,9 +2,17 @@ import { JobStatus } from "@prisma/client";
 
 import { ensureDefaultAlertRules } from "@/lib/alert/service";
 import { config } from "@/lib/config/env";
+import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { prisma } from "@/lib/db";
 import { computeLeaseMs } from "@/lib/job/lease";
-import { claimNextJob, completeJob, enqueueJob, failJob, heartbeatJob, pruneCompletedJobsByType } from "@/lib/job/service";
+import {
+  claimNextJob,
+  completeJob,
+  enqueueJob,
+  failJob,
+  heartbeatJob,
+  pruneCompletedJobsByType,
+} from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
 
 import { evaluateAlerts } from "./service";
@@ -52,18 +60,25 @@ async function hasActiveEvaluationJob() {
 }
 
 async function enqueueAlertEvaluationJob(reason: string) {
-  if (await hasActiveEvaluationJob()) return null;
-  return enqueueJob({
-    type: ALERT_EVALUATION_JOB_TYPE,
-    title: "Alert rule evaluation",
-    payload: { reason, requestedAt: new Date().toISOString() },
-    priority: -10,
-    maxAttempts: 3,
-  });
+  const release = await acquireAdvisoryLock("alert-evaluate-enqueue", "global");
+  try {
+    if (await hasActiveEvaluationJob()) return null;
+    return enqueueJob({
+      type: ALERT_EVALUATION_JOB_TYPE,
+      title: "Alert rule evaluation",
+      payload: { reason, requestedAt: new Date().toISOString() },
+      priority: -10,
+      maxAttempts: 3,
+    });
+  } finally {
+    await release();
+  }
 }
 
 async function pruneCompletedAlertEvaluationJobs() {
-  const olderThan = new Date(Date.now() - ALERT_EVALUATION_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+  const olderThan = new Date(
+    Date.now() - ALERT_EVALUATION_RETENTION_DAYS * 24 * 60 * 60 * 1000,
+  );
   try {
     const result = await pruneCompletedJobsByType({
       type: ALERT_EVALUATION_JOB_TYPE,
@@ -71,10 +86,16 @@ async function pruneCompletedAlertEvaluationJobs() {
       olderThan,
     });
     if (result.count > 0) {
-      logger.info("Pruned completed alert evaluation jobs", { count: result.count, keepLatest: ALERT_EVALUATION_RETENTION_KEEP_LATEST, olderThan: olderThan.toISOString() });
+      logger.info("Pruned completed alert evaluation jobs", {
+        count: result.count,
+        keepLatest: ALERT_EVALUATION_RETENTION_KEEP_LATEST,
+        olderThan: olderThan.toISOString(),
+      });
     }
   } catch (error) {
-    logger.warn("Failed to prune completed alert evaluation jobs", { error: error instanceof Error ? error.message : String(error) });
+    logger.warn("Failed to prune completed alert evaluation jobs", {
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
 }
 
@@ -102,25 +123,46 @@ async function processAlertEvaluation(jobId: string) {
 export async function runAlertEvaluationJobWorkerOnce(reason = "manual") {
   const state = getWorkerState();
   if (state.running) {
-    logger.warn("Skipping alert evaluation tick because a previous tick is still running", { reason });
+    logger.warn(
+      "Skipping alert evaluation tick because a previous tick is still running",
+      { reason },
+    );
     return false;
   }
 
   state.running = true;
   try {
     await enqueueAlertEvaluationJob(reason);
-    const job = await claimNextJob({ workerId: ALERT_EVALUATION_WORKER_ID, types: [ALERT_EVALUATION_JOB_TYPE], leaseMs: ALERT_EVALUATION_LEASE_MS });
+    const job = await claimNextJob({
+      workerId: ALERT_EVALUATION_WORKER_ID,
+      types: [ALERT_EVALUATION_JOB_TYPE],
+      leaseMs: ALERT_EVALUATION_LEASE_MS,
+    });
     if (!job) return false;
 
     try {
       const result = await processAlertEvaluation(job.id);
-      await completeJob(job.id, ALERT_EVALUATION_WORKER_ID, result ?? { evaluated: true });
+      await completeJob(
+        job.id,
+        ALERT_EVALUATION_WORKER_ID,
+        result ?? { evaluated: true },
+      );
       await pruneCompletedAlertEvaluationJobs();
       return true;
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Alert evaluation failed";
-      await failJob(job.id, ALERT_EVALUATION_WORKER_ID, message.slice(0, 2000), { retryAfterMs: 60_000 });
-      logger.error("Alert evaluation failed", { reason, jobId: job.id, error: message });
+      const message =
+        error instanceof Error ? error.message : "Alert evaluation failed";
+      await failJob(
+        job.id,
+        ALERT_EVALUATION_WORKER_ID,
+        message.slice(0, 2000),
+        { retryAfterMs: 60_000 },
+      );
+      logger.error("Alert evaluation failed", {
+        reason,
+        jobId: job.id,
+        error: message,
+      });
       return true;
     }
   } finally {
@@ -136,16 +178,25 @@ export async function startAlertEvaluationWorker() {
   const intervalMs = ALERT_EVALUATION_INTERVAL_MS;
 
   void runAlertEvaluationJobWorkerOnce("startup").catch((error) => {
-    logger.error("Alert evaluation worker tick failed", { reason: "startup", error: error instanceof Error ? error.message : String(error) });
+    logger.error("Alert evaluation worker tick failed", {
+      reason: "startup",
+      error: error instanceof Error ? error.message : String(error),
+    });
   });
   state.timer = setInterval(() => {
     void runAlertEvaluationJobWorkerOnce("interval").catch((error) => {
-      logger.error("Alert evaluation worker tick failed", { reason: "interval", error: error instanceof Error ? error.message : String(error) });
+      logger.error("Alert evaluation worker tick failed", {
+        reason: "interval",
+        error: error instanceof Error ? error.message : String(error),
+      });
     });
   }, intervalMs);
   state.timer.unref?.();
 
-  logger.info("alert evaluation durable job worker started", { workerId: ALERT_EVALUATION_WORKER_ID, intervalMs });
+  logger.info("alert evaluation durable job worker started", {
+    workerId: ALERT_EVALUATION_WORKER_ID,
+    intervalMs,
+  });
   return state;
 }
 

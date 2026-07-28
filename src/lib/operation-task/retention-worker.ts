@@ -18,18 +18,30 @@
 import { JobStatus } from "@prisma/client";
 
 import { config } from "@/lib/config/env";
+import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { prisma } from "@/lib/db";
 import { computeLeaseMs } from "@/lib/job/lease";
-import { claimNextJob, completeJob, enqueueJob, failJob, heartbeatJob } from "@/lib/job/service";
+import {
+  claimNextJob,
+  completeJob,
+  enqueueJob,
+  failJob,
+  heartbeatJob,
+} from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
 
-import { OPERATION_TASK_RETENTION_JOB_TYPE, pruneOperationTaskHistory } from "./retention";
+import {
+  OPERATION_TASK_RETENTION_JOB_TYPE,
+  pruneOperationTaskHistory,
+} from "./retention";
 
 const logger = createLogger("operation-task-retention-worker");
 
 const OPERATION_TASK_RETENTION_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6h
-// 5min 兜底 lease, 实际 pruneOperationTaskHistory 在大型实例可能 30s-1min 完成
-const OPERATION_TASK_RETENTION_LEASE_MS = computeLeaseMs("operation-task-retention");
+// TR-002 R2: 跨 worker lease 公式统一。
+const OPERATION_TASK_RETENTION_LEASE_MS = computeLeaseMs(
+  "operation-task-retention",
+);
 const OPERATION_TASK_RETENTION_WORKER_ID = `${config.app.hostname || "vcontrolhub"}:operation-task-retention:${process.pid}`;
 
 type OperationTaskRetentionWorkerState = {
@@ -42,7 +54,7 @@ type OperationTaskRetentionWorkerGlobal = typeof globalThis & {
   __vcontrolhubOperationTaskRetentionWorker?: OperationTaskRetentionWorkerState;
 };
 
-function getWorkerState(): OperationTaskRetentionWorkerState {
+function getWorkerState() {
   const globalState = globalThis as OperationTaskRetentionWorkerGlobal;
   globalState.__vcontrolhubOperationTaskRetentionWorker ??= {
     started: false,
@@ -64,20 +76,33 @@ async function hasActiveRetentionJob() {
 }
 
 async function enqueueOperationTaskRetentionJob(reason: string) {
-  if (await hasActiveRetentionJob()) return null;
-  return enqueueJob({
-    type: OPERATION_TASK_RETENTION_JOB_TYPE,
-    title: "Operation task cross-source retention policy pruning",
-    payload: { reason, requestedAt: new Date().toISOString() },
-    priority: -5, // 比 alert.evaluate (-10) 略低, 业务不阻塞
-    maxAttempts: 2, // 失败重试一次即可, 6h 后下次 tick 自然再跑
-  });
+  const release = await acquireAdvisoryLock(
+    "operation-task-retention-enqueue",
+    "global",
+  );
+  try {
+    if (await hasActiveRetentionJob()) return null;
+    return enqueueJob({
+      type: OPERATION_TASK_RETENTION_JOB_TYPE,
+      title: "Operation task cross-source retention policy pruning",
+      payload: { reason, requestedAt: new Date().toISOString() },
+      priority: -5, // 比 alert.evaluate (-10) 略低, 业务不阻塞
+      maxAttempts: 2, // 失败重试一次即可, 6h 后下次 tick 自然再跑
+    });
+  } finally {
+    await release();
+  }
 }
 
-export async function runOperationTaskRetentionJobWorkerOnce(reason = "manual") {
+export async function runOperationTaskRetentionJobWorkerOnce(
+  reason = "manual",
+) {
   const state = getWorkerState();
   if (state.running) {
-    logger.warn("Skipping operation-task retention tick because a previous tick is still running", { reason });
+    logger.warn(
+      "Skipping operation-task retention tick because a previous tick is still running",
+      { reason },
+    );
     return false;
   }
 
@@ -106,11 +131,23 @@ export async function runOperationTaskRetentionJobWorkerOnce(reason = "manual") 
       });
       return true;
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Operation task retention pruning failed";
-      await failJob(job.id, OPERATION_TASK_RETENTION_WORKER_ID, message.slice(0, 2000), {
-        retryAfterMs: 60 * 60 * 1000, // 1h 后重试
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Operation task retention pruning failed";
+      await failJob(
+        job.id,
+        OPERATION_TASK_RETENTION_WORKER_ID,
+        message.slice(0, 2000),
+        {
+          retryAfterMs: 60 * 60 * 1000, // 1h 后重试
+        },
+      );
+      logger.error("Operation task retention failed", {
+        reason,
+        jobId: job.id,
+        error: message,
       });
-      logger.error("Operation task retention failed", { reason, jobId: job.id, error: message });
       return true;
     }
   } finally {

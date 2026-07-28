@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/db";
+import { prisma, isUniqueViolation } from "@/lib/db";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import type { SessionPayload } from "@/lib/auth/session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
@@ -120,11 +120,7 @@ export async function createTeam(
       return team;
     } catch (error) {
       lastError = error;
-      const code =
-        typeof error === "object" && error && "code" in error
-          ? String((error as { code?: string }).code)
-          : "";
-      if (code === "P2002") continue; // slug race — retry with another slug
+      if (isUniqueViolation(error)) continue; // slug race - retry with another slug
       throw error;
     }
   }

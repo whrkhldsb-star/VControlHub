@@ -8,7 +8,7 @@
  *
  * On-call users (rule.onCallUserIds) receive in-app first; empty = notification:manage admins.
  */
-import { prisma } from "@/lib/db";
+import { prisma, isUniqueViolation } from "@/lib/db";
 import type { SessionPayload } from "@/lib/auth/session";
 import { teamWhere } from "@/lib/auth/team-scope";
 import { NotFoundError, ValidationError } from "@/lib/errors";
@@ -260,11 +260,7 @@ export async function openOrRefreshAlertIncident(input: AlertFireInput): Promise
       created = true;
     } catch (error) {
       // Concurrent create on unique fingerprint — re-load and treat as refresh.
-      const code =
-        error && typeof error === "object" && "code" in error
-          ? String((error as { code?: unknown }).code)
-          : "";
-      if (code !== "P2002") throw error;
+      if (!isUniqueViolation(error)) throw error;
       const raced = await prisma.alertIncident.findUnique({ where: { fingerprint } });
       if (!raced) throw error;
       if (raced.status === "OPEN" || raced.status === "ACKNOWLEDGED") {

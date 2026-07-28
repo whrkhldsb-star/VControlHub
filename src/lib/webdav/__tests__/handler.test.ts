@@ -7,6 +7,8 @@ const {
   readBufferMock,
   streamStorageFileMock,
   writeBufferMock,
+  copyStorageFileMock,
+  deleteStorageFileBufferMock,
   createFolderMock,
   deleteBackingMock,
   renameBackingMock,
@@ -28,6 +30,8 @@ const {
   readBufferMock: vi.fn(),
   streamStorageFileMock: vi.fn(),
   writeBufferMock: vi.fn(),
+  copyStorageFileMock: vi.fn(),
+  deleteStorageFileBufferMock: vi.fn(),
   createFolderMock: vi.fn(),
   deleteBackingMock: vi.fn(),
   renameBackingMock: vi.fn(),
@@ -45,6 +49,8 @@ vi.mock("@/lib/storage/file-content", () => ({
   readStorageFileBuffer: readBufferMock,
   streamStorageFile: streamStorageFileMock,
   writeStorageFileBuffer: writeBufferMock,
+  copyStorageFile: copyStorageFileMock,
+  deleteStorageFileBuffer: deleteStorageFileBufferMock,
   storageFileNodeSelect: {},
 }));
 vi.mock("@/lib/storage/fs-backend", () => ({
@@ -288,8 +294,9 @@ describe("webdav handlers", () => {
         mimeType: "text/plain",
         updatedAt: new Date(),
       });
-    readBufferMock.mockResolvedValue(Buffer.from("hello"));
-    writeBufferMock.mockResolvedValue("/data/dst.txt");
+    renameBackingMock.mockResolvedValue(undefined);
+    copyStorageFileMock.mockResolvedValue({ size: 5 });
+    deleteBackingMock.mockResolvedValue(undefined);
     prismaMock.fileEntry.update.mockResolvedValue({ id: "dst1" });
     snapshotMock.mockResolvedValue(undefined);
 
@@ -310,7 +317,11 @@ describe("webdav handlers", () => {
       req,
     );
     expect(res.status).toBe(204);
-    expect(writeBufferMock).toHaveBeenCalled();
+    expect(copyStorageFileMock).toHaveBeenCalledWith(
+      expect.anything(),
+      "src.txt",
+      "dst.txt",
+    );
     expect(createEntryMock).not.toHaveBeenCalled();
     expect(prismaMock.fileEntry.update).toHaveBeenCalledWith(
       expect.objectContaining({

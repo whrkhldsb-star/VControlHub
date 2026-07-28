@@ -16,7 +16,6 @@ function mediaTeamWhere(session?: TeamSession | null) {
   return { storageNode: nodeScope };
 }
 
-
 export function classifyMedia(
   mimeType?: string | null,
   nameOrPath?: string | null,
@@ -158,7 +157,12 @@ export async function listMediaItems(
 }
 
 export async function listMediaTypeCounts(
-  input: { q?: string; favorite?: boolean; tag?: string; session?: TeamSession | null } = {},
+  input: {
+    q?: string;
+    favorite?: boolean;
+    tag?: string;
+    session?: TeamSession | null;
+  } = {},
 ) {
   const q = input.q?.trim();
   const tag = input.tag?.trim();
@@ -213,10 +217,16 @@ export async function listMediaTags(session?: TeamSession | null) {
     .slice(0, 40);
 }
 
-export async function getMediaItem(id: string, session?: TeamSession | null) {
+export async function getMediaItem(
+  id: string,
+  session?: TeamSession | null,
+  options?: { includeCredentials?: boolean },
+) {
   return prisma.mediaItem.findFirst({
     where: { id, ...mediaTeamWhere(session) },
-    select: mediaStreamItemSelect,
+    select: options?.includeCredentials
+      ? mediaStreamItemSelect
+      : mediaItemSelect,
   });
 }
 

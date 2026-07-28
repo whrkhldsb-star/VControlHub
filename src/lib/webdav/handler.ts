@@ -24,13 +24,13 @@ import {
   renameBackingObject,
 } from "@/lib/storage/fs-backend";
 import {
-  readStorageFileBuffer,
+  copyStorageFile,
+  deleteStorageFileBuffer,
   streamStorageFile,
   writeStorageFileBuffer,
 } from "@/lib/storage/file-content";
 import {
   createFileEntry,
-  softDeleteFileEntry,
 } from "@/lib/storage/service-entries";
 import { snapshotFileVersionBeforeOverwrite } from "@/lib/storage/file-versions";
 import { guessContentType } from "@/lib/http/mime-types";
@@ -398,57 +398,74 @@ export async function handleWebDavDelete(
   if (!entry) throw new NotFoundError(t("backend.webdav.resourceNotFound"));
 
   const node = await loadNode(ctx.storageNodeId, ctx.session);
+  const destParent = parentRelativePath(entry.relativePath);
+  const stagedPath = `${destParent ? `${destParent}/` : ""}.vcontrolhub-webdav-delete-${randomUUID()}.staged`;
 
-  if (entry.entryType === "DIRECTORY") {
-    // Paginate until exhausted — a single take:5000 left overflow children as live index rows.
-    await forEachFileEntryPage(
-      (cursorId) =>
-        prisma.fileEntry.findMany({
-          where: {
-            storageNodeId: ctx.storageNodeId,
-            isDeleted: false,
-            relativePath: { startsWith: `${entry.relativePath}/` },
+  // Stage the whole tree away from the live path first so a later index failure
+  // can restore the original bytes instead of leaving unindexed orphans.
+  await renameBackingObject({
+    storageNode: node,
+    oldRelativePath: entry.relativePath,
+    newRelativePath: stagedPath,
+  });
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      if (entry.entryType === "DIRECTORY") {
+        await forEachFileEntryPage(
+          (cursorId) =>
+            tx.fileEntry.findMany({
+              where: {
+                storageNodeId: ctx.storageNodeId,
+                isDeleted: false,
+                relativePath: { startsWith: `${entry.relativePath}/` },
+              },
+              select: { id: true },
+              orderBy: { id: "asc" },
+              take: FILE_ENTRY_PAGE_SIZE,
+              ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {}),
+            }),
+          async (children) => {
+            for (const child of children) {
+              await tx.fileEntry.update({
+                where: { id: child.id },
+                data: { isDeleted: true },
+              });
+            }
           },
-          select: { id: true, relativePath: true, entryType: true },
-          orderBy: { id: "asc" },
-          take: FILE_ENTRY_PAGE_SIZE,
-          ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {}),
-        }),
-      async (children) => {
-        // delete deepest paths first for backing store within the page
-        const ordered = [...children].sort(
-          (a, b) => b.relativePath.length - a.relativePath.length,
         );
-        for (const child of ordered) {
-          await deleteBackingObject({
-            storageNode: node,
-            relativePath: child.relativePath,
-            isDirectory: child.entryType === "DIRECTORY",
-            tolerateMissing: true,
-          }).catch((err) => {
-            webdavLogger.warn(
-              "WebDAV DELETE: backing delete failed for child",
-              err,
-              { relativePath: child.relativePath },
-            );
-          });
-          await softDeleteFileEntry({ fileEntryId: child.id });
-        }
-      },
-    );
+      }
+      await tx.fileEntry.update({
+        where: { id: entry.id },
+        data: { isDeleted: true },
+      });
+    });
+  } catch (databaseError) {
+    await renameBackingObject({
+      storageNode: node,
+      oldRelativePath: stagedPath,
+      newRelativePath: entry.relativePath,
+    }).catch((rollbackError) => {
+      webdavLogger.error("WebDAV DELETE rollback failed", {
+        databaseError,
+        rollbackError,
+        stagedPath,
+      });
+    });
+    throw databaseError;
   }
 
   await deleteBackingObject({
     storageNode: node,
-    relativePath: entry.relativePath,
+    relativePath: stagedPath,
     isDirectory: entry.entryType === "DIRECTORY",
     tolerateMissing: true,
-  }).catch((err) => {
-    webdavLogger.warn("WebDAV DELETE: backing delete failed for entry", err, {
-      relativePath: entry.relativePath,
+  }).catch((error) => {
+    webdavLogger.warn("WebDAV DELETE staged cleanup failed", {
+      stagedPath,
+      error,
     });
   });
-  await softDeleteFileEntry({ fileEntryId: entry.id });
 
   return new Response(null, { status: 204 });
 }
@@ -689,54 +706,95 @@ export async function handleWebDavCopy(
   }
 
   const node = await loadNode(ctx.storageNodeId, ctx.session);
-  const buffer = await readStorageFileBuffer(node, ctx.relativePath);
   const destName = entryName(destPath);
   const destMime = entry.mimeType || undefined;
+  let copiedSize = 0;
+  let stagedDestPath: string | null = null;
+  let promoted = false;
 
-  if (existingDest) {
-    // Overwrite must update the live FileEntry (unique on storageNodeId+relativePath).
-    // Calling createFileEntry here would ConflictError after the backing write succeeded.
-    if (existingDest.entryType === "DIRECTORY") {
-      throw new ConflictError(
-        t("backend.webdav.cannotOverwriteACollectionWithAFile"),
-      );
+  try {
+    if (existingDest) {
+      if (existingDest.entryType === "DIRECTORY") {
+        throw new ConflictError(
+          t("backend.webdav.cannotOverwriteACollectionWithAFile"),
+        );
+      }
+      await snapshotFileVersionBeforeOverwrite({
+        fileEntryId: existingDest.id,
+        userId: ctx.session.userId,
+        reason: "UPLOAD",
+        note: "WebDAV COPY overwrite",
+      }).catch(() => undefined);
+      const destParent = parentRelativePath(destPath);
+      stagedDestPath = `${destParent ? `${destParent}/` : ""}.vcontrolhub-webdav-copy-${randomUUID()}.staged`;
+      await renameBackingObject({
+        storageNode: node,
+        oldRelativePath: destPath,
+        newRelativePath: stagedDestPath,
+      });
+    } else {
+      const parentPath = parentRelativePath(destPath);
+      if (parentPath) {
+        await ensureDirectoryIndexAndBacking({
+          session: ctx.session,
+          node,
+          storageNodeId: ctx.storageNodeId,
+          relativePath: parentPath,
+        });
+      }
     }
-    await snapshotFileVersionBeforeOverwrite({
-      fileEntryId: existingDest.id,
-      userId: ctx.session.userId,
-      reason: "UPLOAD",
-      note: "WebDAV COPY overwrite",
-    }).catch(() => undefined);
-    await writeStorageFileBuffer(node, destPath, buffer);
-    await prisma.fileEntry.update({
-      where: { id: existingDest.id },
-      data: {
-        name: destName,
-        mimeType: destMime || null,
-        size: BigInt(buffer.byteLength),
-        entryType: "FILE",
-        isDeleted: false,
-      },
-    });
-  } else {
-    const parentPath = parentRelativePath(destPath);
-    if (parentPath) {
-      await ensureDirectoryIndexAndBacking({
-        session: ctx.session,
-        node,
+
+    const copied = await copyStorageFile(node, ctx.relativePath, destPath);
+    copiedSize = copied.size;
+    promoted = true;
+
+    if (existingDest) {
+      await prisma.fileEntry.update({
+        where: { id: existingDest.id },
+        data: {
+          name: destName,
+          mimeType: destMime || null,
+          size: BigInt(copiedSize),
+          entryType: "FILE",
+          isDeleted: false,
+        },
+      });
+    } else {
+      await createFileEntry({
         storageNodeId: ctx.storageNodeId,
-        relativePath: parentPath,
+        name: destName,
+        entryType: "FILE",
+        relativePath: destPath,
+        mimeType: destMime,
+        size: copiedSize,
       });
     }
-    await writeStorageFileBuffer(node, destPath, buffer);
-    await createFileEntry({
-      storageNodeId: ctx.storageNodeId,
-      name: destName,
-      entryType: "FILE",
-      relativePath: destPath,
-      mimeType: destMime,
-      size: buffer.byteLength,
-    });
+  } catch (error) {
+    if (promoted) {
+      await deleteStorageFileBuffer(node, destPath).catch(() => undefined);
+    }
+    if (stagedDestPath) {
+      await renameBackingObject({
+        storageNode: node,
+        oldRelativePath: stagedDestPath,
+        newRelativePath: destPath,
+      }).catch(() => undefined);
+    }
+    throw error;
+  }
+
+  if (stagedDestPath) {
+    await deleteBackingObject({
+      storageNode: node,
+      relativePath: stagedDestPath,
+      isDirectory: false,
+      tolerateMissing: true,
+    }).catch((error) =>
+      webdavLogger.warn("WebDAV COPY staged cleanup failed", {
+        stagedDestPath,
+        error,
+      }),
+    );
   }
 
   return new Response(null, {

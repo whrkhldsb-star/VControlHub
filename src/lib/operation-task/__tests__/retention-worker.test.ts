@@ -11,28 +11,22 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  *   - 重入保护 (state.running)
  */
 
-const {
-  pruneHistoryMock,
-  infoMock,
-  warnMock,
-  errorMock,
-  jobMocks,
-  jobIds,
-} = vi.hoisted(() => ({
-  pruneHistoryMock: vi.fn(),
-  infoMock: vi.fn(),
-  warnMock: vi.fn(),
-  errorMock: vi.fn(),
-  jobIds: { next: 1 },
-  jobMocks: {
-    findFirst: vi.fn(),
-    enqueueJob: vi.fn(),
-    claimNextJob: vi.fn(),
-    heartbeatJob: vi.fn(),
-    completeJob: vi.fn(),
-    failJob: vi.fn(),
-  },
-}));
+const { pruneHistoryMock, infoMock, warnMock, errorMock, jobMocks, jobIds } =
+  vi.hoisted(() => ({
+    pruneHistoryMock: vi.fn(),
+    infoMock: vi.fn(),
+    warnMock: vi.fn(),
+    errorMock: vi.fn(),
+    jobIds: { next: 1 },
+    jobMocks: {
+      findFirst: vi.fn(),
+      enqueueJob: vi.fn(),
+      claimNextJob: vi.fn(),
+      heartbeatJob: vi.fn(),
+      completeJob: vi.fn(),
+      failJob: vi.fn(),
+    },
+  }));
 
 vi.mock("@/lib/logging", () => ({
   createLogger: () => ({
@@ -47,6 +41,10 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     job: { findFirst: jobMocks.findFirst },
   },
+}));
+
+vi.mock("@/lib/concurrency/advisory-lock", () => ({
+  acquireAdvisoryLock: vi.fn(async () => vi.fn(async () => undefined)),
 }));
 
 vi.mock("@/lib/job/service", () => ({
@@ -96,7 +94,12 @@ describe("operation task retention worker", () => {
     jobMocks.enqueueJob.mockResolvedValue({ id: "enqueued-job" });
     jobMocks.claimNextJob.mockImplementation(async () => {
       const id = `job-${jobIds.next++}`;
-      return { id, type: "operation-task.retention", payload: {}, status: "RUNNING" };
+      return {
+        id,
+        type: "operation-task.retention",
+        payload: {},
+        status: "RUNNING",
+      };
     });
     jobMocks.heartbeatJob.mockResolvedValue({ count: 1 });
     jobMocks.completeJob.mockResolvedValue({ count: 1 });
@@ -117,13 +120,19 @@ describe("operation task retention worker", () => {
     expect(jobMocks.heartbeatJob).toHaveBeenCalledWith(
       "job-1",
       expect.stringContaining("operation-task-retention:"),
-      expect.objectContaining({ leaseMs: expect.any(Number), progress: "Pruning historical records across sources" }),
+      expect.objectContaining({
+        leaseMs: expect.any(Number),
+        progress: "Pruning historical records across sources",
+      }),
     );
     expect(pruneHistoryMock).toHaveBeenCalledTimes(1);
     expect(jobMocks.completeJob).toHaveBeenCalledWith(
       "job-1",
       expect.stringContaining("operation-task-retention:"),
-      expect.objectContaining({ totalDeleted: 7, perSource: expect.any(Object) }),
+      expect.objectContaining({
+        totalDeleted: 7,
+        perSource: expect.any(Object),
+      }),
     );
   });
 

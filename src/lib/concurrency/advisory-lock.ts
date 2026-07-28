@@ -54,6 +54,18 @@ const NAMESPACE_KEYS: Record<string, number> = {
   "storage-editable": 45073,
   /** Serialize membership mutations that enforce team-owner invariants. */
   "team-membership": 45074,
+  /** Serialize singleton alert evaluation job enqueue. */
+  "alert-evaluate-enqueue": 45075,
+  /** Serialize singleton AI ops scan job enqueue. */
+  "ai-ops-scan-enqueue": 45076,
+  /** Serialize singleton operation-task retention job enqueue. */
+  "operation-task-retention-enqueue": 45077,
+  /** Serialize singleton cost snapshot job enqueue. */
+  "cost-snapshot-enqueue": 45078,
+  /** Serialize fleet health sampling job enqueue. */
+  "health-sample-enqueue": 45079,
+  /** Serialize traffic sampling job enqueue. */
+  "traffic-sample-enqueue": 45080,
 };
 
 function connectionStringForPg() {

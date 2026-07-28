@@ -1,12 +1,16 @@
 import { createReadStream } from "node:fs";
 import {
+  copyFile,
   mkdir,
   readFile,
+  rename,
   rm,
   stat as statFile,
   writeFile,
 } from "node:fs/promises";
 import path from "node:path";
+import { pipeline } from "node:stream/promises";
+import { randomUUID } from "node:crypto";
 
 import { Client } from "ssh2";
 
@@ -316,6 +320,110 @@ export async function deleteStorageFileBuffer(
       });
       await sftpUnlink(client, normalizedRemotePath);
       return normalizedRemotePath;
+    } finally {
+      client?.end();
+    }
+  }
+
+  throw new BusinessError(t("backend.storage.unsupportedNodeType"));
+}
+
+/**
+ * Stream-copy a file within the same storage node into a temporary sibling path,
+ * then promote to the final destination. Avoids full-file buffering for large COPY.
+ */
+export async function copyStorageFile(
+  node: StorageFileNode,
+  sourceRelativePath: string,
+  destinationRelativePath: string,
+): Promise<{ size: number }> {
+  if (sourceRelativePath === destinationRelativePath) {
+    throw new ValidationError(t("backend.storage.copySourceDestinationMustDiffer"));
+  }
+
+  if (node.driver === "LOCAL") {
+    const source = resolveStoragePathWithinBase(
+      node.basePath,
+      sourceRelativePath,
+    );
+    if (!source.ok) throw new ValidationError(source.reason);
+    const dest = resolveStoragePathWithinBase(
+      node.basePath,
+      destinationRelativePath,
+    );
+    if (!dest.ok) throw new ValidationError(dest.reason);
+    const tempPath = `${dest.path}.vch-copy-${randomUUID()}.tmp`;
+    try {
+      await mkdir(path.dirname(dest.path), { recursive: true });
+      await copyFile(source.path, tempPath);
+      const stats = await statFile(tempPath);
+      await rename(tempPath, dest.path);
+      return { size: stats.size };
+    } catch (error) {
+      await rm(tempPath, { force: true }).catch(() => undefined);
+      throw error;
+    }
+  }
+
+  if (node.driver === "SFTP") {
+    const credentials = resolveStorageSshCredentials(node);
+    const sourceRemote = normalizeRemoteTargetPath(
+      node.basePath,
+      sourceRelativePath,
+    );
+    const destRemote = normalizeRemoteTargetPath(
+      node.basePath,
+      destinationRelativePath,
+    );
+    const tempRemote = `${destRemote}.vch-copy-${randomUUID()}.tmp`;
+    let client: Client | null = null;
+    try {
+      client = await connectSsh({
+        host: credentials.host,
+        port: credentials.port,
+        username: credentials.username,
+        hostKeySha256: credentials.hostKeySha256,
+        privateKey: credentials.privateKey,
+        password: credentials.password,
+        readyTimeout: 15000,
+        timeout: 10000,
+      });
+      await sftpMkdir(client, path.posix.dirname(destRemote));
+      await new Promise<void>((resolve, reject) => {
+        client!.sftp((err, sftp) => {
+          if (err) return reject(err);
+          const readStream = sftp.createReadStream(sourceRemote);
+          const writeStream = sftp.createWriteStream(tempRemote);
+          pipeline(readStream, writeStream).then(resolve).catch(reject);
+        });
+      });
+      const size = await new Promise<number>((resolve, reject) => {
+        client!.sftp((err, sftp) => {
+          if (err) return reject(err);
+          sftp.stat(tempRemote, (statErr, stats) =>
+            statErr ? reject(statErr) : resolve(stats.size),
+          );
+        });
+      });
+      await new Promise<void>((resolve, reject) => {
+        client!.sftp((err, sftp) => {
+          if (err) return reject(err);
+          sftp.rename(tempRemote, destRemote, (renameErr) =>
+            renameErr ? reject(renameErr) : resolve(),
+          );
+        });
+      });
+      return { size };
+    } catch (error) {
+      if (client) {
+        await new Promise<void>((resolve) => {
+          client!.sftp((err, sftp) => {
+            if (err || !sftp) return resolve();
+            sftp.unlink(tempRemote, () => resolve());
+          });
+        }).catch(() => undefined);
+      }
+      throw error;
     } finally {
       client?.end();
     }

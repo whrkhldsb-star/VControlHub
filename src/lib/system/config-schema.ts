@@ -20,7 +20,8 @@ import { z } from "zod";
 export const EXPORT_SCHEMA_VERSION = 1;
 
 /** 敏感 Setting key 模式 — 值在导出时清空 */
-const SENSITIVE_SETTING_PATTERN = /(_key|_secret|_token|_password|_url|\.(password|secret|token|api_key|apikey|botToken|s3SecretKey|s3AccessKey))$/i;
+const SENSITIVE_SETTING_PATTERN =
+  /(_key|_secret|_token|_password|_url|\.(password|secret|token|api_key|apikey|botToken|s3SecretKey|s3AccessKey))$/i;
 
 export function isSensitiveSettingKey(key: string): boolean {
   return SENSITIVE_SETTING_PATTERN.test(key);
@@ -198,9 +199,12 @@ const alertRuleSchema = z.object({
   durationSeconds: z.number(),
   serverIds: z.array(z.string()),
   notifyChannels: z.array(z.string()),
+  playbookIds: z.array(z.string()).optional().default([]),
   webhookUrl: z.string().nullable(),
   cooldownMinutes: z.number(),
   silenceWindows: z.array(z.string()),
+  escalationMinutes: z.number().nullable().optional().default(null),
+  onCallUserIds: z.array(z.string()).optional().default([]),
   enabled: z.boolean(),
   createdAt: z.string(),
 });

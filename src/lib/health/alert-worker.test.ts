@@ -1,28 +1,31 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { evaluateAlertsMock, infoMock, warnMock, errorMock, jobMocks, jobIds } = vi.hoisted(() => ({
-  evaluateAlertsMock: vi.fn(),
-  infoMock: vi.fn(),
-  warnMock: vi.fn(),
-  errorMock: vi.fn(),
-  jobIds: { next: 1 },
-  jobMocks: {
-    findFirst: vi.fn(),
-    enqueueJob: vi.fn(),
-    claimNextJob: vi.fn(),
-    heartbeatJob: vi.fn(),
-    completeJob: vi.fn(),
-    failJob: vi.fn(),
-    pruneCompletedJobsByType: vi.fn(),
-  },
-}));
+const { evaluateAlertsMock, infoMock, warnMock, errorMock, jobMocks, jobIds } =
+  vi.hoisted(() => ({
+    evaluateAlertsMock: vi.fn(),
+    infoMock: vi.fn(),
+    warnMock: vi.fn(),
+    errorMock: vi.fn(),
+    jobIds: { next: 1 },
+    jobMocks: {
+      findFirst: vi.fn(),
+      enqueueJob: vi.fn(),
+      claimNextJob: vi.fn(),
+      heartbeatJob: vi.fn(),
+      completeJob: vi.fn(),
+      failJob: vi.fn(),
+      pruneCompletedJobsByType: vi.fn(),
+    },
+  }));
 
 vi.mock("./service", () => ({
   evaluateAlerts: evaluateAlertsMock,
 }));
 
 vi.mock("@/lib/alert/service", () => ({
-  ensureDefaultAlertRules: vi.fn().mockResolvedValue({ created: 0, skipped: true }),
+  ensureDefaultAlertRules: vi
+    .fn()
+    .mockResolvedValue({ created: 0, skipped: true }),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -31,6 +34,10 @@ vi.mock("@/lib/db", () => ({
       findFirst: jobMocks.findFirst,
     },
   },
+}));
+
+vi.mock("@/lib/concurrency/advisory-lock", () => ({
+  acquireAdvisoryLock: vi.fn(async () => vi.fn(async () => undefined)),
 }));
 
 vi.mock("@/lib/job/service", () => ({
@@ -50,7 +57,11 @@ vi.mock("@/lib/logging", () => ({
   }),
 }));
 
-import { runAlertEvaluationJobWorkerOnce, startAlertEvaluationWorker, stopAlertEvaluationWorkerForTests } from "./alert-worker";
+import {
+  runAlertEvaluationJobWorkerOnce,
+  startAlertEvaluationWorker,
+  stopAlertEvaluationWorkerForTests,
+} from "./alert-worker";
 
 async function flushPromises() {
   await Promise.resolve();
@@ -88,10 +99,22 @@ describe("alert evaluation worker", () => {
 
     expect(infoMock).toHaveBeenCalledTimes(1);
     expect(jobMocks.enqueueJob).toHaveBeenCalledTimes(1);
-    expect(jobMocks.claimNextJob).toHaveBeenCalledWith(expect.objectContaining({ types: ["alert.evaluate"] }));
+    expect(jobMocks.claimNextJob).toHaveBeenCalledWith(
+      expect.objectContaining({ types: ["alert.evaluate"] }),
+    );
     expect(evaluateAlertsMock).toHaveBeenCalledTimes(1);
-    expect(jobMocks.completeJob).toHaveBeenCalledWith("job-1", expect.stringContaining(":alert:"), { evaluated: true });
-    expect(jobMocks.pruneCompletedJobsByType).toHaveBeenCalledWith(expect.objectContaining({ type: "alert.evaluate", keepLatest: 25, olderThan: expect.any(Date) }));
+    expect(jobMocks.completeJob).toHaveBeenCalledWith(
+      "job-1",
+      expect.stringContaining(":alert:"),
+      { evaluated: true },
+    );
+    expect(jobMocks.pruneCompletedJobsByType).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "alert.evaluate",
+        keepLatest: 25,
+        olderThan: expect.any(Date),
+      }),
+    );
 
     await vi.runOnlyPendingTimersAsync();
     expect(jobMocks.enqueueJob).toHaveBeenCalledTimes(2);
@@ -99,22 +122,42 @@ describe("alert evaluation worker", () => {
   });
 
   it("marks durable evaluation jobs failed without throwing", async () => {
-    evaluateAlertsMock.mockRejectedValueOnce(new Error("eval boom")).mockResolvedValue({ evaluated: true });
+    evaluateAlertsMock
+      .mockRejectedValueOnce(new Error("eval boom"))
+      .mockResolvedValue({ evaluated: true });
 
-    await expect(startAlertEvaluationWorker()).resolves.toBeDefined();
-    await flushPromises();
+    await expect(runAlertEvaluationJobWorkerOnce("manual-fail")).resolves.toBe(
+      true,
+    );
 
-    expect(jobMocks.failJob).toHaveBeenCalledWith("job-1", expect.stringContaining(":alert:"), "eval boom", { retryAfterMs: 60_000 });
-    expect(errorMock).toHaveBeenCalledWith("Alert evaluation failed", expect.objectContaining({ jobId: "job-1", error: "eval boom" }));
+    expect(jobMocks.failJob).toHaveBeenCalledWith(
+      "job-1",
+      expect.stringContaining(":alert:"),
+      "eval boom",
+      { retryAfterMs: 60_000 },
+    );
+    expect(errorMock).toHaveBeenCalledWith(
+      "Alert evaluation failed",
+      expect.objectContaining({ jobId: "job-1", error: "eval boom" }),
+    );
   });
 
   it("keeps alert evaluation successful when completed-job pruning fails", async () => {
-    jobMocks.pruneCompletedJobsByType.mockRejectedValueOnce(new Error("prune boom"));
+    jobMocks.pruneCompletedJobsByType.mockRejectedValueOnce(
+      new Error("prune boom"),
+    );
 
     await runAlertEvaluationJobWorkerOnce("manual-test");
 
-    expect(jobMocks.completeJob).toHaveBeenCalledWith("job-1", expect.stringContaining(":alert:"), { evaluated: true });
-    expect(warnMock).toHaveBeenCalledWith("Failed to prune completed alert evaluation jobs", { error: "prune boom" });
+    expect(jobMocks.completeJob).toHaveBeenCalledWith(
+      "job-1",
+      expect.stringContaining(":alert:"),
+      { evaluated: true },
+    );
+    expect(warnMock).toHaveBeenCalledWith(
+      "Failed to prune completed alert evaluation jobs",
+      { error: "prune boom" },
+    );
     expect(errorMock).not.toHaveBeenCalled();
   });
 

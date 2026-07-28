@@ -198,11 +198,31 @@ describe("media service", () => {
     });
   });
 
-  it("selects connection credentials only for media stream lookups", async () => {
+  it("selects connection credentials only when includeCredentials is requested", async () => {
     mockPrisma.mediaItem.findFirst.mockResolvedValue(null);
 
     await getMediaItem("media_1");
+    expect(mockPrisma.mediaItem.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "media_1" },
+        select: expect.objectContaining({
+          storageNode: expect.objectContaining({
+            select: expect.objectContaining({
+              server: {
+                select: {
+                  id: true,
+                  name: true,
+                  host: true,
+                },
+              },
+            }),
+          }),
+        }),
+      }),
+    );
 
+    mockPrisma.mediaItem.findFirst.mockClear();
+    await getMediaItem("media_1", undefined, { includeCredentials: true });
     expect(mockPrisma.mediaItem.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: "media_1" },
@@ -257,5 +277,4 @@ describe("media service", () => {
       }),
     );
   });
-
 });

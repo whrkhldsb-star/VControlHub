@@ -11,7 +11,7 @@
  */
 
 import { createHash } from "node:crypto";
-import { createWriteStream, mkdirSync, statSync } from "node:fs";
+import { createWriteStream, mkdirSync, statSync, unlinkSync } from "node:fs";
 import { dirname, join, resolve as resolvePath } from "node:path";
 import { Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
@@ -19,10 +19,10 @@ import { pipeline } from "node:stream/promises";
 import { prisma } from "@/lib/db";
 import { buildSshParamsFromServer, execRemoteCommand } from "@/lib/ssh/client";
 import {
-	buildRemoteBackupCommand,
-	buildRemoteCleanupCommand,
-	generateRemoteBackupPath,
-	getPreset,
+  buildRemoteBackupCommand,
+  buildRemoteCleanupCommand,
+  generateRemoteBackupPath,
+  getPreset,
 } from "./vps-backup-presets";
 import { downloadFile } from "@/lib/ssh/sftp-service";
 import { createLogger } from "@/lib/logging";
@@ -38,44 +38,44 @@ export const VPS_BACKUP_CREATE_JOB_TYPE = "vps-backup.create";
  * Rejects absolute paths, null bytes, backslashes, and `..` segments.
  */
 export function assertPortableVpsBackupPath(localPath: string): string {
-	const value = localPath.trim();
-	if (
-		!value ||
-		value.startsWith("/") ||
-		value.includes("\0") ||
-		value.includes("\\") ||
-		value.includes("//")
-	) {
-		throw new Error("VPS backup path must be a portable relative path");
-	}
-	const parts = value.split("/");
-	if (parts.some((part) => !part || part === "." || part === "..")) {
-		throw new Error("VPS backup path must be a portable relative path");
-	}
-	// Expected layout written by this service.
-	if (!value.startsWith("storage/vps-backups/")) {
-		throw new Error("VPS backup path must be under storage/vps-backups/");
-	}
-	return value;
+  const value = localPath.trim();
+  if (
+    !value ||
+    value.startsWith("/") ||
+    value.includes("\0") ||
+    value.includes("\\") ||
+    value.includes("//")
+  ) {
+    throw new Error("VPS backup path must be a portable relative path");
+  }
+  const parts = value.split("/");
+  if (parts.some((part) => !part || part === "." || part === "..")) {
+    throw new Error("VPS backup path must be a portable relative path");
+  }
+  // Expected layout written by this service.
+  if (!value.startsWith("storage/vps-backups/")) {
+    throw new Error("VPS backup path must be under storage/vps-backups/");
+  }
+  return value;
 }
 
 /** Build a relative (portable) path for storing in DB */
 function buildPortableLocalPath(
-	serverId: string,
-	recordId: string,
-	backupType: string,
+  serverId: string,
+  recordId: string,
+  backupType: string,
 ): string {
-	return `storage/vps-backups/${serverId}/${backupType}-${recordId}.tar.gz`;
+  return `storage/vps-backups/${serverId}/${backupType}-${recordId}.tar.gz`;
 }
 
 /** Result of a successful backup run */
 export interface VpsBackupResult {
-	success: boolean;
-	fileSize: string | null;
-	checksumSha256: string | null;
-	localPath: string | null;
-	remotePath: string | null;
-	errorMessage: string | null;
+  success: boolean;
+  fileSize: string | null;
+  checksumSha256: string | null;
+  localPath: string | null;
+  remotePath: string | null;
+  errorMessage: string | null;
 }
 
 /**
@@ -86,270 +86,316 @@ export interface VpsBackupResult {
  * info, and orchestrates the full backup flow.
  */
 export async function runVpsBackupRecord(
-	recordId: string,
-	options?: { paths?: string[] },
+  recordId: string,
+  options?: { paths?: string[] },
 ): Promise<VpsBackupResult> {
-	const record = await prisma.vpsBackupRecord.findUnique({
-		where: { id: recordId },
-		include: {
-			server: {
-				select: {
-					id: true,
-					host: true,
-					port: true,
-					username: true,
-					sshKeyId: true,
-					password: true,
-					sshKey: { select: { privateKey: true } },
-					enabled: true,
-				},
-			},
-			schedule: {
-				select: { paths: true },
-			},
-		},
-	});
+  const record = await prisma.vpsBackupRecord.findUnique({
+    where: { id: recordId },
+    include: {
+      server: {
+        select: {
+          id: true,
+          host: true,
+          port: true,
+          username: true,
+          sshKeyId: true,
+          password: true,
+          sshKey: { select: { privateKey: true } },
+          enabled: true,
+        },
+      },
+      schedule: {
+        select: { paths: true },
+      },
+    },
+  });
 
-	if (!record) {
-		return {
-			success: false,
-			fileSize: null,
-			checksumSha256: null,
-			localPath: null,
-			remotePath: null,
-			errorMessage: `VpsBackupRecord ${recordId} not found`,
-		};
-	}
+  if (!record) {
+    return {
+      success: false,
+      fileSize: null,
+      checksumSha256: null,
+      localPath: null,
+      remotePath: null,
+      errorMessage: `VpsBackupRecord ${recordId} not found`,
+    };
+  }
 
-	// Pre-check failures must NOT force-fail a row that another worker may
-	// already have claimed as RUNNING. Capture reason, claim PENDING→RUNNING
-	// first, then CAS-fail only the claimed row.
-	let preClaimError: string | null = null;
-	if (!record.server) {
-		preClaimError = "Associated server not found";
-	} else if (!record.server.enabled) {
-		preClaimError = "Server is disabled";
-	} else if (!getPreset(record.backupType)) {
-		preClaimError = `Unknown backup type: ${record.backupType}`;
-	}
+  // Pre-check failures must NOT force-fail a row that another worker may
+  // already have claimed as RUNNING. Capture reason, claim PENDING→RUNNING
+  // first, then CAS-fail only the claimed row.
+  let preClaimError: string | null = null;
+  if (!record.server) {
+    preClaimError = "Associated server not found";
+  } else if (!record.server.enabled) {
+    preClaimError = "Server is disabled";
+  } else if (!getPreset(record.backupType)) {
+    preClaimError = `Unknown backup type: ${record.backupType}`;
+  }
 
-	// Mark as RUNNING via CAS — only PENDING. FAILED must be explicitly reset to PENDING before retry.
-	const claimed = await prisma.vpsBackupRecord.updateMany({
-		where: { id: recordId, status: "PENDING" },
-		data: { status: "RUNNING", updatedAt: new Date(), errorMessage: null },
-	});
-	if (claimed.count === 0) {
-		return {
-			success: false,
-			fileSize: null,
-			checksumSha256: null,
-			localPath: null,
-			remotePath: null,
-			errorMessage: `VpsBackupRecord ${recordId} is already running or completed`,
-		};
-	}
+  // Mark as RUNNING via CAS — only PENDING. FAILED must be explicitly reset to PENDING before retry.
+  const claimed = await prisma.vpsBackupRecord.updateMany({
+    where: { id: recordId, status: "PENDING" },
+    data: { status: "RUNNING", updatedAt: new Date(), errorMessage: null },
+  });
+  if (claimed.count === 0) {
+    return {
+      success: false,
+      fileSize: null,
+      checksumSha256: null,
+      localPath: null,
+      remotePath: null,
+      errorMessage: `VpsBackupRecord ${recordId} is already running or completed`,
+    };
+  }
 
-	if (preClaimError) {
-		return failRecord(record.id, preClaimError);
-	}
+  if (preClaimError) {
+    return failRecord(record.id, preClaimError);
+  }
 
-	// Narrowed: pre-claim checks ensure server exists and is enabled.
-	const server = record.server!;
+  // Narrowed: pre-claim checks ensure server exists and is enabled.
+  const server = record.server!;
 
-	const remoteFilePath = generateRemoteBackupPath();
-	// Prefer explicit job/manual paths; fall back to schedule paths for cron runs.
-	const customPaths =
-		(options?.paths && options.paths.length > 0 ? options.paths : null) ??
-		(record.paths && record.paths.length > 0 ? record.paths : null) ??
-		record.schedule?.paths ??
-		[];
+  const remoteFilePath = generateRemoteBackupPath();
+  // Prefer explicit job/manual paths; fall back to schedule paths for cron runs.
+  const customPaths =
+    (options?.paths && options.paths.length > 0 ? options.paths : null) ??
+    (record.paths && record.paths.length > 0 ? record.paths : null) ??
+    record.schedule?.paths ??
+    [];
 
-	try {
-		// Step 1: SSH exec — create backup on remote VPS
-		const sshParams = await buildSshParamsFromServer(server, server.sshKey);
-		const backupCommand = buildRemoteBackupCommand(
-			record.backupType,
-			remoteFilePath,
-			customPaths,
-		);
+  // Keep cleanup handles outside try so outer catch always cleans partials.
+  let sshParams:
+    | {
+        host: string;
+        port: number;
+        username: string;
+        privateKey?: string;
+        password?: string;
+      }
+    | undefined;
+  let localAbsolutePath: string | undefined;
+  let localWritten = false;
 
-		const execResult = await execRemoteCommand({
-			...sshParams,
-			command: backupCommand,
-			timeout: 600_000, // 10 min for large backups
-		});
+  try {
+    // Step 1: SSH exec — create backup on remote VPS
+    sshParams = await buildSshParamsFromServer(server, server.sshKey);
+    const backupCommand = buildRemoteBackupCommand(
+      record.backupType,
+      remoteFilePath,
+      customPaths,
+    );
 
-		// exitCode null = SSH connection / transport failure (client resolves null on error).
-		// Treat null and any non-zero as failure — never mark COMPLETED on soft SSH errors.
-		if (execResult.exitCode !== 0) {
-			const detail = (execResult.stderr || execResult.stdout || "").trim();
-			const errMsg = (
-				execResult.exitCode === null
-					? `Remote backup SSH connection failed${detail ? `: ${detail}` : ""}`
-					: `Remote backup command failed (exit ${execResult.exitCode})${detail ? `: ${detail}` : ""}`
-			).slice(0, 500);
-			return failRecord(record.id, errMsg, remoteFilePath, sshParams);
-		}
+    const execResult = await execRemoteCommand({
+      ...sshParams,
+      command: backupCommand,
+      timeout: 600_000, // 10 min for large backups
+    });
 
-		// Step 2: SFTP download — pull archive to local storage
-		const portablePath = buildPortableLocalPath(
-			server.id,
-			record.id,
-			record.backupType,
-		);
-		const localAbsolutePath = join(
-			config.storage.root || process.cwd(),
-			portablePath,
-		);
+    // exitCode null = SSH connection / transport failure (client resolves null on error).
+    // Treat null and any non-zero as failure — never mark COMPLETED on soft SSH errors.
+    if (execResult.exitCode !== 0) {
+      const detail = (execResult.stderr || execResult.stdout || "").trim();
+      const errMsg = (
+        execResult.exitCode === null
+          ? `Remote backup SSH connection failed${detail ? `: ${detail}` : ""}`
+          : `Remote backup command failed (exit ${execResult.exitCode})${detail ? `: ${detail}` : ""}`
+      ).slice(0, 500);
+      return failRecord(record.id, errMsg, remoteFilePath, sshParams);
+    }
 
-		// Ensure local directory exists
-		mkdirSync(dirname(localAbsolutePath), { recursive: true });
+    // Step 2: SFTP download — pull archive to local storage
+    const portablePath = buildPortableLocalPath(
+      server.id,
+      record.id,
+      record.backupType,
+    );
+    localAbsolutePath = join(
+      config.storage.root || process.cwd(),
+      portablePath,
+    );
 
-		const { stream, size } = await downloadFile(server.id, remoteFilePath);
+    // Ensure local directory exists
+    mkdirSync(dirname(localAbsolutePath), { recursive: true });
 
-		// Write stream to local file + compute sha256. Do not swallow pipeline errors —
-		// a failed download must not mark the record COMPLETED (false success).
-		const hash = createHash("sha256");
-		const hashTransform = new Transform({
-			transform(chunk, _encoding, callback) {
-				hash.update(chunk as Buffer);
-				callback(null, chunk);
-			},
-		});
-		const fileStream = createWriteStream(localAbsolutePath);
-		await pipeline(stream, hashTransform, fileStream);
+    const { stream, size } = await downloadFile(server.id, remoteFilePath);
 
-		const sha256 = hash.digest("hex");
-		let fileSize: string | null = null;
-		let sizeBytes = 0;
-		try {
-			const stat = statSync(localAbsolutePath);
-			sizeBytes = stat.size;
-			fileSize = stat.size.toString();
-		} catch {
-			// Fallback to SFTP-reported size
-			sizeBytes = size > 0 ? size : 0;
-			fileSize = sizeBytes > 0 ? sizeBytes.toString() : null;
-		}
+    // Write stream to local file + compute sha256. Do not swallow pipeline errors —
+    // a failed download must not mark the record COMPLETED (false success).
+    const hash = createHash("sha256");
+    const hashTransform = new Transform({
+      transform(chunk, _encoding, callback) {
+        hash.update(chunk as Buffer);
+        callback(null, chunk);
+      },
+    });
+    const fileStream = createWriteStream(localAbsolutePath);
+    await pipeline(stream, hashTransform, fileStream);
+    localWritten = true;
 
-		// Guard against empty archives from soft remote failures (missing paths,
-		// tar no-op, etc.). A 0-byte (or tiny empty gzip) COMPLETED is worse than FAIL.
-		if (sizeBytes < 32) {
-			return failRecord(
-				record.id,
-				`Remote backup archive is empty or too small (${sizeBytes} bytes); source path may be missing`,
-				remoteFilePath,
-				sshParams,
-			);
-		}
+    const sha256 = hash.digest("hex");
+    let fileSize: string | null = null;
+    let sizeBytes = 0;
+    try {
+      const stat = statSync(localAbsolutePath);
+      sizeBytes = stat.size;
+      fileSize = stat.size.toString();
+    } catch {
+      // Fallback to SFTP-reported size
+      sizeBytes = size > 0 ? size : 0;
+      fileSize = sizeBytes > 0 ? sizeBytes.toString() : null;
+    }
 
-		// Step 3: SSH exec — cleanup remote temp file
-		const cleanupCommand = buildRemoteCleanupCommand(remoteFilePath);
-		await execRemoteCommand({
-			...sshParams,
-			command: cleanupCommand,
-			timeout: 15_000,
-		}).catch(() => {
-			// Cleanup is best-effort; don't fail the backup
-		});
+    // Guard against empty archives from soft remote failures (missing paths,
+    // tar no-op, etc.). A 0-byte (or tiny empty gzip) COMPLETED is worse than FAIL.
+    if (sizeBytes < 32) {
+      return failRecord(
+        record.id,
+        `Remote backup archive is empty or too small (${sizeBytes} bytes); source path may be missing`,
+        remoteFilePath,
+        sshParams,
+        localAbsolutePath,
+      );
+    }
 
-		// Step 4: Update record to COMPLETED
-		await prisma.vpsBackupRecord.update({
-			where: { id: recordId },
-			data: {
-				status: "COMPLETED",
-				remotePath: remoteFilePath,
-				localPath: portablePath,
-				fileSize,
-				checksumSha256: sha256,
-				completedAt: new Date(),
-				errorMessage: null,
-			},
-		});
+    // Step 3: SSH exec — cleanup remote temp file
+    const cleanupCommand = buildRemoteCleanupCommand(remoteFilePath);
+    await execRemoteCommand({
+      ...sshParams,
+      command: cleanupCommand,
+      timeout: 15_000,
+    }).catch(() => {
+      // Cleanup is best-effort; don't fail the backup
+    });
 
-		// Step 5: Best-effort offsite S3 upload (reuses S3 client directly
-		// since uploadBackupToOffsite is coupled to BackupRecord model)
-		try {
-			const { loadOffsiteConfig, validateOffsiteConfigForUse } = await import("@/lib/storage/offsite/schema");
-			const { S3Client } = await import("@/lib/storage/offsite/s3-client");
-			const { readFileSync } = await import("node:fs");
-			const config = await loadOffsiteConfig();
-			if (config.enabled) {
-				const issues = validateOffsiteConfigForUse(config);
-				if (issues.length === 0) {
-					const offsiteKey = `${config.pathPrefix || "vps-backups"}/${server.id}/${record.backupType}-${record.id}.tar.gz`;
-					const fileBuffer = readFileSync(localAbsolutePath);
-					const s3 = new S3Client(config);
-					await s3.putObject(offsiteKey, fileBuffer, "application/gzip");
-					await prisma.vpsBackupRecord.update({
-						where: { id: recordId },
-						data: {
-							offsiteKey,
-							offsiteUploadedAt: new Date(),
-							offsiteSize: fileBuffer.length.toString(),
-						},
-					});
-				}
-			}
-		} catch (offsiteErr) {
-			// Offsite upload is best-effort; don't fail the backup — but never silent.
-			vpsBackupLogger.warn("vps offsite upload failed (non-fatal)", {
-				recordId,
-				error: offsiteErr instanceof Error ? offsiteErr.message : String(offsiteErr),
-			});
-		}
+    // Step 4: Update record to COMPLETED
+    await prisma.vpsBackupRecord.update({
+      where: { id: recordId },
+      data: {
+        status: "COMPLETED",
+        remotePath: remoteFilePath,
+        localPath: portablePath,
+        fileSize,
+        checksumSha256: sha256,
+        completedAt: new Date(),
+        errorMessage: null,
+      },
+    });
 
-		return {
-			success: true,
-			fileSize,
-			checksumSha256: sha256,
-			localPath: portablePath,
-			remotePath: remoteFilePath,
-			errorMessage: null,
-		};
-	} catch (err) {
-		const errMsg = err instanceof Error ? err.message : String(err);
-		return failRecord(record.id, errMsg.slice(0, 500), remoteFilePath);
-	}
+    // Step 5: Best-effort offsite S3 upload (reuses S3 client directly
+    // since uploadBackupToOffsite is coupled to BackupRecord model)
+    try {
+      const { loadOffsiteConfig, validateOffsiteConfigForUse } =
+        await import("@/lib/storage/offsite/schema");
+      const { S3Client } = await import("@/lib/storage/offsite/s3-client");
+      const { readFileSync } = await import("node:fs");
+      const offsiteConfig = await loadOffsiteConfig();
+      if (offsiteConfig.enabled) {
+        const issues = validateOffsiteConfigForUse(offsiteConfig);
+        if (issues.length === 0) {
+          const offsiteKey = `${offsiteConfig.pathPrefix || "vps-backups"}/${server.id}/${record.backupType}-${record.id}.tar.gz`;
+          const fileBuffer = readFileSync(localAbsolutePath);
+          const s3 = new S3Client(offsiteConfig);
+          await s3.putObject(offsiteKey, fileBuffer, "application/gzip");
+          await prisma.vpsBackupRecord.update({
+            where: { id: recordId },
+            data: {
+              offsiteKey,
+              offsiteUploadedAt: new Date(),
+              offsiteSize: fileBuffer.length.toString(),
+            },
+          });
+        }
+      }
+    } catch (offsiteErr) {
+      // Offsite upload is best-effort; don't fail the backup — but never silent.
+      vpsBackupLogger.warn("vps offsite upload failed (non-fatal)", {
+        recordId,
+        error:
+          offsiteErr instanceof Error ? offsiteErr.message : String(offsiteErr),
+      });
+    }
+
+    return {
+      success: true,
+      fileSize,
+      checksumSha256: sha256,
+      localPath: portablePath,
+      remotePath: remoteFilePath,
+      errorMessage: null,
+    };
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    return failRecord(
+      record.id,
+      errMsg.slice(0, 500),
+      remoteFilePath,
+      sshParams,
+      localWritten ? localAbsolutePath : undefined,
+    );
+  }
 }
 
-/** Mark a record as FAILED and optionally cleanup remote temp file */
+/** Mark a record as FAILED and optionally cleanup remote temp + local partial. */
 async function failRecord(
-	recordId: string,
-	errorMessage: string,
-	remotePath?: string,
-	sshParams?: { host: string; port: number; username: string; privateKey?: string; password?: string },
+  recordId: string,
+  errorMessage: string,
+  remotePath?: string,
+  sshParams?: {
+    host: string;
+    port: number;
+    username: string;
+    privateKey?: string;
+    password?: string;
+  },
+  localAbsolutePath?: string,
 ): Promise<VpsBackupResult> {
-	// CAS: only fail PENDING/RUNNING. Never overwrite COMPLETED or a terminal
-	// state that another path already committed.
-	await prisma.vpsBackupRecord.updateMany({
-		where: { id: recordId, status: { in: ["PENDING", "RUNNING"] } },
-		data: {
-			status: "FAILED",
-			errorMessage: errorMessage.slice(0, 500),
-			completedAt: new Date(),
-			...(remotePath ? { remotePath } : {}),
-		},
-	});
+  // CAS: only fail PENDING/RUNNING. Never overwrite COMPLETED or a terminal
+  // state that another path already committed.
+  await prisma.vpsBackupRecord.updateMany({
+    where: { id: recordId, status: { in: ["PENDING", "RUNNING"] } },
+    data: {
+      status: "FAILED",
+      errorMessage: errorMessage.slice(0, 500),
+      completedAt: new Date(),
+      ...(remotePath ? { remotePath } : {}),
+    },
+  });
 
-	// Best-effort remote cleanup
-	if (remotePath && sshParams) {
-		const cleanupCommand = buildRemoteCleanupCommand(remotePath);
-		await execRemoteCommand({
-			...sshParams,
-			command: cleanupCommand,
-			timeout: 10_000,
-		}).catch((err) => { vpsBackupLogger.warn("best-effort operation failed", { error: err instanceof Error ? err.message : String(err) }); });
-	}
+  // Best-effort remote cleanup
+  if (remotePath && sshParams) {
+    const cleanupCommand = buildRemoteCleanupCommand(remotePath);
+    await execRemoteCommand({
+      ...sshParams,
+      command: cleanupCommand,
+      timeout: 10_000,
+    }).catch((err) => {
+      vpsBackupLogger.warn("best-effort remote cleanup failed", {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    });
+  }
 
-	return {
-		success: false,
-		fileSize: null,
-		checksumSha256: null,
-		localPath: null,
-		remotePath: remotePath ?? null,
-		errorMessage,
-	};
+  // Best-effort local partial cleanup so failed downloads do not leak archives.
+  if (localAbsolutePath) {
+    try {
+      unlinkSync(localAbsolutePath);
+    } catch (err) {
+      vpsBackupLogger.warn("best-effort local partial cleanup failed", {
+        recordId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  return {
+    success: false,
+    fileSize: null,
+    checksumSha256: null,
+    localPath: null,
+    remotePath: remotePath ?? null,
+    errorMessage,
+  };
 }
 
 /* ── CRUD helpers ────────────────────────────────────────── */
@@ -358,166 +404,198 @@ async function failRecord(
 
 /** CAS: only RUNNING → FAILED (worker crash / job reclaim). */
 export async function forceFailVpsBackupRecordIfRunning(
-	recordId: string,
-	errorMessage: string,
+  recordId: string,
+  errorMessage: string,
 ): Promise<boolean> {
-	const result = await prisma.vpsBackupRecord.updateMany({
-		where: { id: recordId, status: "RUNNING" },
-		data: {
-			status: "FAILED",
-			errorMessage: errorMessage.slice(0, 500),
-			completedAt: new Date(),
-		},
-	});
-	return result.count > 0;
+  const result = await prisma.vpsBackupRecord.updateMany({
+    where: { id: recordId, status: "RUNNING" },
+    data: {
+      status: "FAILED",
+      errorMessage: errorMessage.slice(0, 500),
+      completedAt: new Date(),
+    },
+  });
+  return result.count > 0;
 }
 
 export async function abandonStaleRunningVpsBackupRecords(input?: {
-	olderThanMs?: number;
-	reason?: string;
-	limit?: number;
+  olderThanMs?: number;
+  reason?: string;
+  limit?: number;
 }) {
-	const olderThanMs = input?.olderThanMs ?? 45 * 60 * 1000;
-	const reason = (input?.reason ?? "Stale RUNNING VPS backup abandoned after worker timeout").slice(0, 500);
-	const limit = Math.min(Math.max(input?.limit ?? 50, 1), 200);
-	const cutoff = new Date(Date.now() - olderThanMs);
-	const stale = await prisma.vpsBackupRecord.findMany({
-		where: { status: "RUNNING", updatedAt: { lt: cutoff } },
-		select: { id: true },
-		orderBy: { updatedAt: "asc" },
-		take: limit,
-	});
-	const ids: string[] = [];
-	for (const row of stale) {
-		if (await forceFailVpsBackupRecordIfRunning(row.id, reason)) ids.push(row.id);
-	}
-	return { abandoned: ids.length, ids };
+  const olderThanMs = input?.olderThanMs ?? 45 * 60 * 1000;
+  const reason = (
+    input?.reason ?? "Stale RUNNING VPS backup abandoned after worker timeout"
+  ).slice(0, 500);
+  const limit = Math.min(Math.max(input?.limit ?? 50, 1), 200);
+  const cutoff = new Date(Date.now() - olderThanMs);
+  const stale = await prisma.vpsBackupRecord.findMany({
+    where: { status: "RUNNING", updatedAt: { lt: cutoff } },
+    select: { id: true },
+    orderBy: { updatedAt: "asc" },
+    take: limit,
+  });
+  const ids: string[] = [];
+  for (const row of stale) {
+    if (await forceFailVpsBackupRecordIfRunning(row.id, reason))
+      ids.push(row.id);
+  }
+  return { abandoned: ids.length, ids };
 }
 
 export async function createVpsBackupRecord(input: {
-	serverId: string;
-	backupType: string;
-	scheduleId?: string;
-	createdBy?: string | null;
-	paths?: string[];
+  serverId: string;
+  backupType: string;
+  scheduleId?: string;
+  createdBy?: string | null;
+  paths?: string[];
 }): Promise<{ id: string }> {
-	const record = await prisma.vpsBackupRecord.create({
-		data: {
-			serverId: input.serverId,
-			backupType: input.backupType,
-			paths: input.paths ?? [],
-			scheduleId: input.scheduleId ?? null,
-			createdBy: input.createdBy ?? null,
-			status: "PENDING",
-		},
-	});
-	return { id: record.id };
+  const record = await prisma.vpsBackupRecord.create({
+    data: {
+      serverId: input.serverId,
+      backupType: input.backupType,
+      paths: input.paths ?? [],
+      scheduleId: input.scheduleId ?? null,
+      createdBy: input.createdBy ?? null,
+      status: "PENDING",
+    },
+  });
+  return { id: record.id };
 }
 
 /** List VpsBackupRecords for a server */
 export async function listVpsBackupRecords(
-	serverId: string,
-	limit = 50,
+  serverId: string,
+  limit = 50,
 ): Promise<unknown[]> {
-	return prisma.vpsBackupRecord.findMany({
-		where: { serverId },
-		orderBy: { createdAt: "desc" },
-		take: limit,
-		select: {
-			id: true,
-			backupType: true,
-			status: true,
-			fileSize: true,
-			checksumSha256: true,
-			localPath: true,
-			paths: true,
-			errorMessage: true,
-			createdAt: true,
-			completedAt: true,
-			offsiteKey: true,
-			offsiteUploadedAt: true,
-		},
-	});
+  return prisma.vpsBackupRecord.findMany({
+    where: { serverId },
+    orderBy: { createdAt: "desc" },
+    take: limit,
+    select: {
+      id: true,
+      backupType: true,
+      status: true,
+      fileSize: true,
+      checksumSha256: true,
+      localPath: true,
+      paths: true,
+      errorMessage: true,
+      createdAt: true,
+      completedAt: true,
+      offsiteKey: true,
+      offsiteUploadedAt: true,
+    },
+  });
 }
 
-/** Delete a VpsBackupRecord and its local file */
+/** Delete a VpsBackupRecord, its local file, and best-effort offsite object. */
 export async function deleteVpsBackupRecord(recordId: string): Promise<void> {
-	const record = await prisma.vpsBackupRecord.findUnique({
-		where: { id: recordId },
-		select: { localPath: true, status: true },
-	});
-	if (!record) {
-		throw new Error(`VpsBackupRecord ${recordId} not found`);
-	}
-	// Refuse mid-flight deletes: worker may still write COMPLETED after row gone,
-	// or leave orphan remote temp + half-downloaded local files.
-	if (record.status === "RUNNING") {
-		throw new Error("Cannot delete a RUNNING VPS backup record; wait for completion or failure");
-	}
+  const record = await prisma.vpsBackupRecord.findUnique({
+    where: { id: recordId },
+    select: { localPath: true, status: true, offsiteKey: true },
+  });
+  if (!record) {
+    throw new Error(`VpsBackupRecord ${recordId} not found`);
+  }
+  // Refuse mid-flight deletes: worker may still write COMPLETED after row gone,
+  // or leave orphan remote temp + half-downloaded local files.
+  if (record.status === "RUNNING") {
+    throw new Error(
+      "Cannot delete a RUNNING VPS backup record; wait for completion or failure",
+    );
+  }
 
-	if (record.localPath) {
-		try {
-			const absPath = resolveVpsBackupFilePath(record.localPath);
-			const { unlinkSync } = await import("node:fs");
-			unlinkSync(absPath);
-		} catch (err) {
-			// File missing or path rejected — still remove the DB row.
-			vpsBackupLogger.warn("deleteVpsBackupRecord: local file cleanup skipped", {
-				recordId,
-				error: err instanceof Error ? err.message : String(err),
-			});
-		}
-	}
+  if (record.localPath) {
+    try {
+      const absPath = resolveVpsBackupFilePath(record.localPath);
+      unlinkSync(absPath);
+    } catch (err) {
+      // File missing or path rejected — still remove the DB row.
+      vpsBackupLogger.warn(
+        "deleteVpsBackupRecord: local file cleanup skipped",
+        {
+          recordId,
+          error: err instanceof Error ? err.message : String(err),
+        },
+      );
+    }
+  }
 
-	// CAS: do not delete if status flipped to RUNNING between read and delete.
-	const deleted = await prisma.vpsBackupRecord.deleteMany({
-		where: { id: recordId, status: { not: "RUNNING" } },
-	});
-	if (deleted.count === 0) {
-		throw new Error("Cannot delete a RUNNING VPS backup record; wait for completion or failure");
-	}
+  if (record.offsiteKey) {
+    try {
+      const { loadOffsiteConfig, validateOffsiteConfigForUse } =
+        await import("@/lib/storage/offsite/schema");
+      const { S3Client } = await import("@/lib/storage/offsite/s3-client");
+      const offsiteConfig = await loadOffsiteConfig();
+      if (offsiteConfig.enabled) {
+        const issues = validateOffsiteConfigForUse(offsiteConfig);
+        if (issues.length === 0) {
+          const s3 = new S3Client(offsiteConfig);
+          await s3.deleteObject(record.offsiteKey);
+        }
+      }
+    } catch (err) {
+      // Keep going so local/DB cleanup still proceeds, but never silent.
+      vpsBackupLogger.warn("deleteVpsBackupRecord: offsite cleanup skipped", {
+        recordId,
+        offsiteKey: record.offsiteKey,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  // CAS: do not delete if status flipped to RUNNING between read and delete.
+  const deleted = await prisma.vpsBackupRecord.deleteMany({
+    where: { id: recordId, status: { not: "RUNNING" } },
+  });
+  if (deleted.count === 0) {
+    throw new Error(
+      "Cannot delete a RUNNING VPS backup record; wait for completion or failure",
+    );
+  }
 }
 
 /** Get the absolute local path for a VpsBackupRecord (for download) */
 export function resolveVpsBackupFilePath(localPath: string): string {
-	const portable = assertPortableVpsBackupPath(localPath);
-	const root = resolvePath(config.storage.root || process.cwd());
-	const abs = resolvePath(root, portable);
-	const prefix = root.endsWith("/") ? root : root + "/";
-	if (abs !== root && !abs.startsWith(prefix)) {
-		throw new Error("VPS backup path escapes storage root");
-	}
-	return abs;
+  const portable = assertPortableVpsBackupPath(localPath);
+  const root = resolvePath(config.storage.root || process.cwd());
+  const abs = resolvePath(root, portable);
+  const prefix = root.endsWith("/") ? root : root + "/";
+  if (abs !== root && !abs.startsWith(prefix)) {
+    throw new Error("VPS backup path escapes storage root");
+  }
+  return abs;
 }
 
 /* ── Retention ───────────────────────────────────────────── */
 
 /** Prune old COMPLETED VpsBackupRecords based on retentionDays */
 export async function pruneOldVpsBackupRecords(
-	serverId: string,
-	retentionDays: number,
+  serverId: string,
+  retentionDays: number,
 ): Promise<number> {
-	const cutoff = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000);
+  const cutoff = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000);
 
-	const oldRecords = await prisma.vpsBackupRecord.findMany({
-		where: {
-			serverId,
-			status: "COMPLETED",
-			completedAt: { lt: cutoff },
-		},
-		select: { id: true, localPath: true },
-		take: 1000,
-	});
+  const oldRecords = await prisma.vpsBackupRecord.findMany({
+    where: {
+      serverId,
+      status: "COMPLETED",
+      completedAt: { lt: cutoff },
+    },
+    select: { id: true, localPath: true },
+    take: 1000,
+  });
 
-	let deleted = 0;
-	for (const record of oldRecords) {
-		try {
-			await deleteVpsBackupRecord(record.id);
-			deleted++;
-		} catch {
-			// Continue on individual failures
-		}
-	}
+  let deleted = 0;
+  for (const record of oldRecords) {
+    try {
+      await deleteVpsBackupRecord(record.id);
+      deleted++;
+    } catch {
+      // Continue on individual failures
+    }
+  }
 
-	return deleted;
+  return deleted;
 }
