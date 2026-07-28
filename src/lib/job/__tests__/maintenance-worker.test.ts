@@ -80,6 +80,41 @@ describe("abandonOrphanPendingJobs", () => {
     expect(_knownJobTypesForTests().has("playbook.run")).toBe(true);
   });
 
+  // Drift guard: KNOWN_JOB_TYPES is maintained by hand (importing
+  // WORKER_REGISTRY here would create a cycle), so a renamed/typo'd job type
+  // silently turns real jobs into "orphan type" rows that get CANCELLED after
+  // 24h. `quick_service.lifecycle` was mis-spelled with a hyphen exactly this
+  // way. Scan the source for every declared job-type constant instead.
+  it("covers every *_JOB_TYPE constant declared in the source tree", async () => {
+    const { readFileSync, readdirSync, statSync } = await import("node:fs");
+    const { join, resolve } = await import("node:path");
+
+    const srcRoot = resolve(__dirname, "../../..");
+    const files: string[] = [];
+    const walk = (dir: string) => {
+      for (const entry of readdirSync(dir)) {
+        if (entry === "node_modules" || entry === "__tests__") continue;
+        const full = join(dir, entry);
+        if (statSync(full).isDirectory()) walk(full);
+        else if (/\.tsx?$/.test(entry) && !/\.test\.tsx?$/.test(entry)) files.push(full);
+      }
+    };
+    walk(srcRoot);
+
+    const declared = new Set<string>();
+    for (const file of files) {
+      const text = readFileSync(file, "utf8");
+      for (const match of text.matchAll(/_JOB_TYPE(?:_[A-Z]+)?\s*=\s*"([a-z0-9._-]+)"/g)) {
+        if (match[1]) declared.add(match[1]);
+      }
+    }
+
+    expect(declared.size).toBeGreaterThan(10);
+    const known = _knownJobTypesForTests();
+    const missing = [...declared].filter((type) => !known.has(type)).sort();
+    expect(missing).toEqual([]);
+  });
+
   it("startup tick also recovers stale RUNNING leases", async () => {
     mocks.findMany.mockResolvedValueOnce([]);
     mocks.recoverStaleRunningJobs.mockResolvedValueOnce({

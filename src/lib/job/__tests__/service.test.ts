@@ -472,4 +472,29 @@ describe("durable job service", () => {
       }),
     });
   });
+
+  it("writes the enqueued event with the transaction client when one is passed", async () => {
+    // Regression: the job row was created inside the caller's transaction while
+    // the "enqueued" event was written through the global prisma client, so the
+    // FK job_events_jobId_fkey failed until the tx committed and the event was
+    // lost (scheduled-task.tick lost ~63% of its enqueued events in prod).
+    const txJobEventCreate = vi.fn(async () => ({ id: "evt-tx" }));
+    const tx = {
+      job: { create: vi.fn(async () => ({ id: "job-tx", type: "scheduled-task.tick", priority: -5, title: "tick", createdBy: null })) },
+      jobEvent: { create: txJobEventCreate },
+    } as unknown as Parameters<typeof enqueueJob>[1];
+
+    await enqueueJob({ type: "scheduled-task.tick", title: "tick" }, tx);
+
+    expect(txJobEventCreate).toHaveBeenCalledTimes(1);
+    const txEventCalls = txJobEventCreate.mock.calls as unknown as Array<
+      [{ data: { jobId: string; type: string } }]
+    >;
+    expect(txEventCalls[0]?.[0]).toMatchObject({
+      data: expect.objectContaining({ jobId: "job-tx", type: "enqueued" }),
+    });
+    // must NOT leak onto the global client (that write is the one that failed)
+    expect(mockPrisma.jobEvent.create).not.toHaveBeenCalled();
+    expect(mockPrisma.job.create).not.toHaveBeenCalled();
+  });
 });

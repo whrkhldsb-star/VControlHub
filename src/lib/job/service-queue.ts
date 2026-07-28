@@ -8,6 +8,7 @@ import { prisma } from "@/lib/db";
 import {
   DEFAULT_LEASE_MS,
   futureFrom,
+  recordJobEventWithClient,
   safeRecordJobEvent,
   type ClaimJobOptions,
   type EnqueueJobInput,
@@ -37,19 +38,28 @@ export async function enqueueJob(
       targetStorageNodeId: input.targetStorageNodeId ?? null,
     },
   });
-  safeRecordJobEvent({
-    jobId: job.id,
-    type: "enqueued",
-    message: `Task enqueued (type=${job.type}, priority=${job.priority})`,
-    level: "info",
-    workerId: null,
-    payload: {
-      type: job.type,
-      title: job.title,
-      priority: job.priority,
-      createdBy: job.createdBy,
+  // The event must be written with the SAME client that created the job row.
+  // When `client` is a transaction, the job row is invisible to other
+  // connections until commit, so a fire-and-forget write through the global
+  // prisma client violates `job_events_jobId_fkey` and the "enqueued" event is
+  // silently lost (observed on scheduled-task.tick, which enqueues inside a
+  // transaction: 4081 jobs but only 1501 enqueued events).
+  await recordJobEventWithClient(
+    {
+      jobId: job.id,
+      type: "enqueued",
+      message: `Task enqueued (type=${job.type}, priority=${job.priority})`,
+      level: "info",
+      workerId: null,
+      payload: {
+        type: job.type,
+        title: job.title,
+        priority: job.priority,
+        createdBy: job.createdBy,
+      },
     },
-  });
+    client,
+  );
   return job;
 }
 

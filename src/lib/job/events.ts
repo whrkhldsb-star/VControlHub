@@ -77,10 +77,13 @@ function normalizeKeepLatest(value: number | undefined) {
   return Math.max(1, Math.floor(value));
 }
 
-export async function recordJobEvent(input: RecordJobEventInput): Promise<JobEvent | null> {
+export async function recordJobEvent(
+  input: RecordJobEventInput,
+  client: Prisma.TransactionClient | typeof prisma = prisma,
+): Promise<JobEvent | null> {
   if (!input.jobId || !input.type || !input.message) return null;
   try {
-    const row = await prisma.jobEvent.create({
+    const row = await client.jobEvent.create({
       data: {
         jobId: input.jobId,
         type: input.type,

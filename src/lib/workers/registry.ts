@@ -203,7 +203,9 @@ const DOWNLOAD_EXECUTION: WorkerSpec = {
 const QUICK_SERVICE: WorkerSpec = {
   id: "quick-service",
   label: "Quick service lifecycle",
-  jobType: "quick-service.lifecycle",
+  // Must match QUICK_SERVICE_JOB_TYPE exactly (underscore, not hyphen) —
+  // /api/admin/workers reports this string as the queue the worker consumes.
+  jobType: "quick_service.lifecycle",
   start: async () => {
     await startQuickServiceJobWorker();
   },

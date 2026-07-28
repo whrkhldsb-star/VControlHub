@@ -42,6 +42,12 @@ const KNOWN_JOB_TYPES = new Set([
   "ticket.sla-escalate",
   "ai-ops.scan",
   "ai.ops.scan",
+  // NOTE: the real type emitted by QUICK_SERVICE_JOB_TYPE uses an underscore.
+  // The hyphenated spelling was never enqueued by anything; keeping only it
+  // made every real quick-service job look like an "orphan type" and get
+  // CANCELLED after 24h instead of the 7d hard-orphan window. Keep both so a
+  // historical row of either spelling is still recognised.
+  "quick_service.lifecycle",
   "quick-service.lifecycle",
   "storage.sftp-sync",
   "sftp.sync",
