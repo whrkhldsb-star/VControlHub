@@ -24,6 +24,7 @@ import {
 } from "@/lib/storage/fs-backend";
 import {
   readStorageFileBuffer,
+  streamStorageFile,
   writeStorageFileBuffer,
 } from "@/lib/storage/file-content";
 import {
@@ -32,6 +33,8 @@ import {
 } from "@/lib/storage/service-entries";
 import { snapshotFileVersionBeforeOverwrite } from "@/lib/storage/file-versions";
 import { guessContentType } from "@/lib/http/mime-types";
+import { nodeStreamToWeb } from "@/lib/http/node-to-web-stream";
+import { parseStorageRange } from "@/lib/storage/streaming";
 
 import { buildPropFindMultistatus, parseDepth, type PropFindItem } from "./xml";
 import { t } from "@/lib/i18n/translations";
@@ -64,8 +67,7 @@ export async function handleWebDavOptions(): Promise<Response> {
   return new Response(null, {
     status: 204,
     headers: {
-      Allow:
-        "OPTIONS, PROPFIND, GET, HEAD, PUT, DELETE, MKCOL, MOVE, COPY",
+      Allow: "OPTIONS, PROPFIND, GET, HEAD, PUT, DELETE, MKCOL, MOVE, COPY",
       DAV: "1, 2",
       "MS-Author-Via": "DAV",
       "Accept-Ranges": "bytes",
@@ -73,7 +75,10 @@ export async function handleWebDavOptions(): Promise<Response> {
   });
 }
 
-export async function handleWebDavPropFind(ctx: WebDavContext, depthHeader: string | null): Promise<Response> {
+export async function handleWebDavPropFind(
+  ctx: WebDavContext,
+  depthHeader: string | null,
+): Promise<Response> {
   const depth = parseDepth(depthHeader);
   if (depth === "infinity") {
     return new Response("Depth: infinity is not supported", { status: 403 });
@@ -165,12 +170,19 @@ export async function handleWebDavGetHead(
   }
 
   const node = await loadNode(ctx.storageNodeId, ctx.session);
-  const buffer = await readStorageFileBuffer(node, ctx.relativePath);
   const contentType =
-    entry.mimeType || guessContentType(entry.name) || "application/octet-stream";
+    entry.mimeType ||
+    guessContentType(entry.name) ||
+    "application/octet-stream";
+  const fileSize =
+    entry.size == null
+      ? (await streamStorageFile(node, ctx.relativePath)).size
+      : Number(entry.size);
+  const range = parseStorageRange(ctx.rangeHeader ?? null, fileSize);
+  if (range instanceof Response) return range;
   const headers: Record<string, string> = {
     "Content-Type": contentType,
-    "Content-Length": String(buffer.byteLength),
+    "Content-Length": String(fileSize === 0 ? 0 : range.end - range.start + 1),
     "Accept-Ranges": "bytes",
   };
   const etag = weakEtag(entry);
@@ -178,12 +190,35 @@ export async function handleWebDavGetHead(
   if (entry.updatedAt) headers["Last-Modified"] = entry.updatedAt.toUTCString();
 
   if (method === "HEAD") {
-    return new Response(null, { status: 200, headers });
+    if (range.status === 206) {
+      headers["Content-Range"] = `bytes ${range.start}-${range.end}/${fileSize}`;
+    }
+    return new Response(null, { status: range.status, headers });
   }
-  return new Response(new Uint8Array(buffer), { status: 200, headers });
+  const streamed = await streamStorageFile(
+    node,
+    ctx.relativePath,
+    range.status === 206 ? range : undefined,
+  );
+  headers["Content-Length"] = String(range.end - range.start + 1);
+  if (range.status === 206)
+    headers["Content-Range"] = `bytes ${range.start}-${range.end}/${fileSize}`;
+  const response = new Response(nodeStreamToWeb(streamed.stream), {
+    status: range.status,
+    headers,
+  });
+  const closeAwareStream = streamed.stream as NodeJS.ReadableStream & {
+    once?: (event: string, listener: () => void) => void;
+  };
+  closeAwareStream.once?.("close", streamed.close);
+  closeAwareStream.once?.("error", streamed.close);
+  return response;
 }
 
-export async function handleWebDavPut(ctx: WebDavContext, request: Request): Promise<Response> {
+export async function handleWebDavPut(
+  ctx: WebDavContext,
+  request: Request,
+): Promise<Response> {
   if (!ctx.relativePath) {
     throw new ValidationError(t("backend.webdav.cannotPutToCollectionRoot"));
   }
@@ -201,101 +236,106 @@ export async function handleWebDavPut(ctx: WebDavContext, request: Request): Pro
   );
 
   try {
-  const node = await loadNode(ctx.storageNodeId, ctx.session);
-  const existing = await findEntry(ctx.storageNodeId, ctx.relativePath);
-  if (existing?.entryType === "DIRECTORY") {
-    throw new ConflictError(t("backend.webdav.cannotOverwriteACollectionWithAFile"));
-  }
+    const node = await loadNode(ctx.storageNodeId, ctx.session);
+    const existing = await findEntry(ctx.storageNodeId, ctx.relativePath);
+    if (existing?.entryType === "DIRECTORY") {
+      throw new ConflictError(
+        t("backend.webdav.cannotOverwriteACollectionWithAFile"),
+      );
+    }
 
-  const parentPath = parentRelativePath(ctx.relativePath);
-  if (parentPath) {
-    await ensureDirectoryIndexAndBacking({
-      session: ctx.session,
-      node,
-      storageNodeId: ctx.storageNodeId,
-      relativePath: parentPath,
-    });
-  }
-
-  if (existing) {
-    await snapshotFileVersionBeforeOverwrite({
-      fileEntryId: existing.id,
-      userId: ctx.session.userId,
-      reason: "UPLOAD",
-      note: "WebDAV PUT overwrite",
-    }).catch(() => undefined);
-  }
-
-  await writeStorageFileBuffer(node, ctx.relativePath, body);
-  const name = entryName(ctx.relativePath);
-  const mimeType = request.headers.get("content-type") || guessContentType(name);
-  const indexData = {
-    name,
-    mimeType: mimeType || null,
-    size: BigInt(body.byteLength),
-    entryType: "FILE" as const,
-    isDeleted: false as const,
-  };
-
-  // Prefer unique-key lookup (includes soft-deleted) so concurrent PUTs converge.
-  const indexRow =
-    existing ??
-    (await prisma.fileEntry.findFirst({
-      where: {
+    const parentPath = parentRelativePath(ctx.relativePath);
+    if (parentPath) {
+      await ensureDirectoryIndexAndBacking({
+        session: ctx.session,
+        node,
         storageNodeId: ctx.storageNodeId,
-        relativePath: ctx.relativePath,
-      },
-      select: { id: true },
-    }));
-
-  if (indexRow) {
-    await prisma.fileEntry.update({
-      where: { id: indexRow.id },
-      data: indexData,
-    });
-  } else {
-    try {
-      await createFileEntry({
-        storageNodeId: ctx.storageNodeId,
-        name,
-        entryType: "FILE",
-        relativePath: ctx.relativePath,
-        mimeType: mimeType || undefined,
-        size: body.byteLength,
+        relativePath: parentPath,
       });
-    } catch (error) {
-      // Concurrent first-time PUT: createFileEntry may ConflictError on unique key.
-      // Blob already written — update winner's index instead of failing the PUT.
-      const code =
-        typeof error === "object" && error && "code" in error
-          ? String((error as { code?: string }).code)
-          : "";
-      const isConflict =
-        code === "P2002" ||
-        error instanceof ConflictError ||
-        /Unique constraint|already exists|pathAlreadyExists/i.test(String(error));
-      if (!isConflict) throw error;
-      const raced = await prisma.fileEntry.findFirst({
+    }
+
+    if (existing) {
+      await snapshotFileVersionBeforeOverwrite({
+        fileEntryId: existing.id,
+        userId: ctx.session.userId,
+        reason: "UPLOAD",
+        note: "WebDAV PUT overwrite",
+      }).catch(() => undefined);
+    }
+
+    await writeStorageFileBuffer(node, ctx.relativePath, body);
+    const name = entryName(ctx.relativePath);
+    const mimeType =
+      request.headers.get("content-type") || guessContentType(name);
+    const indexData = {
+      name,
+      mimeType: mimeType || null,
+      size: BigInt(body.byteLength),
+      entryType: "FILE" as const,
+      isDeleted: false as const,
+    };
+
+    // Prefer unique-key lookup (includes soft-deleted) so concurrent PUTs converge.
+    const indexRow =
+      existing ??
+      (await prisma.fileEntry.findFirst({
         where: {
           storageNodeId: ctx.storageNodeId,
           relativePath: ctx.relativePath,
         },
         select: { id: true },
-      });
-      if (!raced) throw error;
+      }));
+
+    if (indexRow) {
       await prisma.fileEntry.update({
-        where: { id: raced.id },
+        where: { id: indexRow.id },
         data: indexData,
       });
+    } else {
+      try {
+        await createFileEntry({
+          storageNodeId: ctx.storageNodeId,
+          name,
+          entryType: "FILE",
+          relativePath: ctx.relativePath,
+          mimeType: mimeType || undefined,
+          size: body.byteLength,
+        });
+      } catch (error) {
+        // Concurrent first-time PUT: createFileEntry may ConflictError on unique key.
+        // Blob already written — update winner's index instead of failing the PUT.
+        const code =
+          typeof error === "object" && error && "code" in error
+            ? String((error as { code?: string }).code)
+            : "";
+        const isConflict =
+          code === "P2002" ||
+          error instanceof ConflictError ||
+          /Unique constraint|already exists|pathAlreadyExists/i.test(
+            String(error),
+          );
+        if (!isConflict) throw error;
+        const raced = await prisma.fileEntry.findFirst({
+          where: {
+            storageNodeId: ctx.storageNodeId,
+            relativePath: ctx.relativePath,
+          },
+          select: { id: true },
+        });
+        if (!raced) throw error;
+        await prisma.fileEntry.update({
+          where: { id: raced.id },
+          data: indexData,
+        });
+      }
     }
-  }
 
-  return new Response(null, {
-    status: existing ? 204 : 201,
-    headers: {
-      Location: buildWebDavHref(ctx.storageNodeId, ctx.relativePath, false),
-    },
-  });
+    return new Response(null, {
+      status: existing ? 204 : 201,
+      headers: {
+        Location: buildWebDavHref(ctx.storageNodeId, ctx.relativePath, false),
+      },
+    });
   } finally {
     await releaseStorageQuotaGuard(putAccess);
   }
@@ -305,9 +345,15 @@ export async function handleWebDavMkcol(ctx: WebDavContext): Promise<Response> {
   if (!ctx.relativePath) {
     throw new ValidationError(t("backend.webdav.cannotMkcolAtRoot"));
   }
-  await requireAccess(ctx.session, ctx.storageNodeId, ctx.relativePath, "write");
+  await requireAccess(
+    ctx.session,
+    ctx.storageNodeId,
+    ctx.relativePath,
+    "write",
+  );
   const existing = await findEntry(ctx.storageNodeId, ctx.relativePath);
-  if (existing) throw new ConflictError(t("backend.webdav.resourceAlreadyExists"));
+  if (existing)
+    throw new ConflictError(t("backend.webdav.resourceAlreadyExists"));
 
   const node = await loadNode(ctx.storageNodeId, ctx.session);
   const parentPath = parentRelativePath(ctx.relativePath);
@@ -334,11 +380,18 @@ export async function handleWebDavMkcol(ctx: WebDavContext): Promise<Response> {
   });
 }
 
-export async function handleWebDavDelete(ctx: WebDavContext): Promise<Response> {
+export async function handleWebDavDelete(
+  ctx: WebDavContext,
+): Promise<Response> {
   if (!ctx.relativePath) {
     throw new ValidationError(t("backend.webdav.cannotDeleteCollectionRoot"));
   }
-  await requireAccess(ctx.session, ctx.storageNodeId, ctx.relativePath, "delete");
+  await requireAccess(
+    ctx.session,
+    ctx.storageNodeId,
+    ctx.relativePath,
+    "delete",
+  );
   const entry = await findEntry(ctx.storageNodeId, ctx.relativePath);
   if (!entry) throw new NotFoundError(t("backend.webdav.resourceNotFound"));
 
@@ -371,7 +424,11 @@ export async function handleWebDavDelete(ctx: WebDavContext): Promise<Response> 
             isDirectory: child.entryType === "DIRECTORY",
             tolerateMissing: true,
           }).catch((err) => {
-            webdavLogger.warn("WebDAV DELETE: backing delete failed for child", err, { relativePath: child.relativePath });
+            webdavLogger.warn(
+              "WebDAV DELETE: backing delete failed for child",
+              err,
+              { relativePath: child.relativePath },
+            );
           });
           await softDeleteFileEntry({ fileEntryId: child.id });
         }
@@ -385,7 +442,9 @@ export async function handleWebDavDelete(ctx: WebDavContext): Promise<Response> 
     isDirectory: entry.entryType === "DIRECTORY",
     tolerateMissing: true,
   }).catch((err) => {
-    webdavLogger.warn("WebDAV DELETE: backing delete failed for entry", err, { relativePath: entry.relativePath });
+    webdavLogger.warn("WebDAV DELETE: backing delete failed for entry", err, {
+      relativePath: entry.relativePath,
+    });
   });
   await softDeleteFileEntry({ fileEntryId: entry.id });
 
@@ -397,7 +456,8 @@ function destinationRelativePath(
   destinationHeader: string | null,
   requestUrl: URL,
 ): string {
-  if (!destinationHeader) throw new ValidationError(t("backend.webdav.destinationHeaderRequired"));
+  if (!destinationHeader)
+    throw new ValidationError(t("backend.webdav.destinationHeaderRequired"));
   let destUrl: URL;
   try {
     destUrl = new URL(destinationHeader, requestUrl.origin);
@@ -406,7 +466,9 @@ function destinationRelativePath(
   }
   // Refuse cross-origin Destination (clients may send absolute URLs).
   if (destUrl.origin !== requestUrl.origin) {
-    throw new ValidationError(t("backend.webdav.destinationMustStayOnTheSameOrigin"));
+    throw new ValidationError(
+      t("backend.webdav.destinationMustStayOnTheSameOrigin"),
+    );
   }
   // Require a path boundary after the node id so nodeId "abc" cannot match
   // "/api/webdav/abc-evil/..." (prefix IDOR across storage nodes).
@@ -417,7 +479,9 @@ function destinationRelativePath(
   const matchesBase = (b: string) =>
     pathName === b || pathName === `${b}/` || pathName.startsWith(`${b}/`);
   if (!matchesBase(base) && !matchesBase(baseRaw)) {
-    throw new ValidationError(t("backend.webdav.destinationMustStayOnTheSameStorageNode"));
+    throw new ValidationError(
+      t("backend.webdav.destinationMustStayOnTheSameStorageNode"),
+    );
   }
   const rest = pathName.startsWith(`${base}/`)
     ? pathName.slice(`${base}/`.length)
@@ -429,32 +493,51 @@ function destinationRelativePath(
           pathName === `${baseRaw}/`
         ? ""
         : null;
-  if (rest === null) throw new ValidationError(t("backend.webdav.invalidDestinationPath"));
+  if (rest === null)
+    throw new ValidationError(t("backend.webdav.invalidDestinationPath"));
   return normalizeWebDavRelativePath(rest);
 }
 
-export async function handleWebDavMove(ctx: WebDavContext, request: Request): Promise<Response> {
-  if (!ctx.relativePath) throw new ValidationError(t("backend.webdav.cannotMoveCollectionRoot"));
-  await requireAccess(ctx.session, ctx.storageNodeId, ctx.relativePath, "write");
+export async function handleWebDavMove(
+  ctx: WebDavContext,
+  request: Request,
+): Promise<Response> {
+  if (!ctx.relativePath)
+    throw new ValidationError(t("backend.webdav.cannotMoveCollectionRoot"));
+  await requireAccess(
+    ctx.session,
+    ctx.storageNodeId,
+    ctx.relativePath,
+    "write",
+  );
   const destPath = destinationRelativePath(
     ctx.storageNodeId,
     request.headers.get("destination"),
     ctx.requestUrl,
   );
-  if (!destPath) throw new ValidationError(t("backend.webdav.invalidDestination"));
+  if (!destPath)
+    throw new ValidationError(t("backend.webdav.invalidDestination"));
   await requireAccess(ctx.session, ctx.storageNodeId, destPath, "write");
 
   const entry = await findEntry(ctx.storageNodeId, ctx.relativePath);
   if (!entry) throw new NotFoundError(t("backend.webdav.resourceNotFound"));
   const existingDest = await findEntry(ctx.storageNodeId, destPath);
-  const overwrite = (request.headers.get("overwrite") ?? "T").toUpperCase() !== "F";
+  const overwrite =
+    (request.headers.get("overwrite") ?? "T").toUpperCase() !== "F";
   if (existingDest && !overwrite) {
-    throw new ConflictError(t("backend.webdav.destinationExistsAndOverwriteIsF"));
+    throw new ConflictError(
+      t("backend.webdav.destinationExistsAndOverwriteIsF"),
+    );
   }
 
   const node = await loadNode(ctx.storageNodeId, ctx.session);
   if (existingDest) {
-    await deleteBackingObject({ storageNode: node, relativePath: destPath, isDirectory: existingDest.entryType === "DIRECTORY", tolerateMissing: true }).catch(() => undefined);
+    await deleteBackingObject({
+      storageNode: node,
+      relativePath: destPath,
+      isDirectory: existingDest.entryType === "DIRECTORY",
+      tolerateMissing: true,
+    }).catch(() => undefined);
     await softDeleteFileEntry({ fileEntryId: existingDest.id });
   }
 
@@ -517,27 +600,37 @@ export async function handleWebDavMove(ctx: WebDavContext, request: Request): Pr
   });
 }
 
-export async function handleWebDavCopy(ctx: WebDavContext, request: Request): Promise<Response> {
-  if (!ctx.relativePath) throw new ValidationError(t("backend.webdav.cannotCopyCollectionRoot"));
+export async function handleWebDavCopy(
+  ctx: WebDavContext,
+  request: Request,
+): Promise<Response> {
+  if (!ctx.relativePath)
+    throw new ValidationError(t("backend.webdav.cannotCopyCollectionRoot"));
   await requireAccess(ctx.session, ctx.storageNodeId, ctx.relativePath, "read");
   const destPath = destinationRelativePath(
     ctx.storageNodeId,
     request.headers.get("destination"),
     ctx.requestUrl,
   );
-  if (!destPath) throw new ValidationError(t("backend.webdav.invalidDestination"));
+  if (!destPath)
+    throw new ValidationError(t("backend.webdav.invalidDestination"));
   await requireAccess(ctx.session, ctx.storageNodeId, destPath, "write");
 
   const entry = await findEntry(ctx.storageNodeId, ctx.relativePath);
   if (!entry) throw new NotFoundError(t("backend.webdav.resourceNotFound"));
   if (entry.entryType === "DIRECTORY") {
-    throw new BusinessError(t("backend.webdav.copyOfCollectionsIsNotSupportedCopyFiles"));
+    throw new BusinessError(
+      t("backend.webdav.copyOfCollectionsIsNotSupportedCopyFiles"),
+    );
   }
 
   const existingDest = await findEntry(ctx.storageNodeId, destPath);
-  const overwrite = (request.headers.get("overwrite") ?? "T").toUpperCase() !== "F";
+  const overwrite =
+    (request.headers.get("overwrite") ?? "T").toUpperCase() !== "F";
   if (existingDest && !overwrite) {
-    throw new ConflictError(t("backend.webdav.destinationExistsAndOverwriteIsF"));
+    throw new ConflictError(
+      t("backend.webdav.destinationExistsAndOverwriteIsF"),
+    );
   }
 
   const node = await loadNode(ctx.storageNodeId, ctx.session);
@@ -549,7 +642,9 @@ export async function handleWebDavCopy(ctx: WebDavContext, request: Request): Pr
     // Overwrite must update the live FileEntry (unique on storageNodeId+relativePath).
     // Calling createFileEntry here would ConflictError after the backing write succeeded.
     if (existingDest.entryType === "DIRECTORY") {
-      throw new ConflictError(t("backend.webdav.cannotOverwriteACollectionWithAFile"));
+      throw new ConflictError(
+        t("backend.webdav.cannotOverwriteACollectionWithAFile"),
+      );
     }
     await snapshotFileVersionBeforeOverwrite({
       fileEntryId: existingDest.id,
@@ -596,4 +691,3 @@ export async function handleWebDavCopy(ctx: WebDavContext, request: Request): Pr
     },
   });
 }
-

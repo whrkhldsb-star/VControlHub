@@ -1,4 +1,11 @@
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { createReadStream } from "node:fs";
+import {
+  mkdir,
+  readFile,
+  rm,
+  stat as statFile,
+  writeFile,
+} from "node:fs/promises";
 import path from "node:path";
 
 import { Client } from "ssh2";
@@ -9,230 +16,327 @@ import { connectSsh } from "@/lib/ssh/client";
 import { prisma } from "@/lib/db";
 import { BusinessError, ValidationError } from "@/lib/errors";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
-import { normalizeRemoteTargetPath, normalizeRemoteRelativePath } from "@/lib/storage/remote-path";
+import {
+  normalizeRemoteTargetPath,
+  normalizeRemoteRelativePath,
+} from "@/lib/storage/remote-path";
 import { resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
 import { t } from "@/lib/i18n/translations";
 
 export type StorageFileNode = {
-	id: string;
-	driver: "LOCAL" | "SFTP" | string;
-	basePath: string;
-	host?: string | null;
-	port?: number | null;
-	username?: string | null;
-	password?: string | null;
-	hostKeySha256?: string | null;
-	serverId?: string | null;
-	server?: {
-		id?: string;
-		host?: string | null;
-		port?: number | null;
-		username?: string | null;
-		connectionType?: string | null;
-		password?: string | null;
-		hostKeySha256?: string | null;
-		sshKey?: { privateKey?: string | null } | null;
-	} | null;
+  id: string;
+  driver: "LOCAL" | "SFTP" | string;
+  basePath: string;
+  host?: string | null;
+  port?: number | null;
+  username?: string | null;
+  password?: string | null;
+  hostKeySha256?: string | null;
+  serverId?: string | null;
+  server?: {
+    id?: string;
+    host?: string | null;
+    port?: number | null;
+    username?: string | null;
+    connectionType?: string | null;
+    password?: string | null;
+    hostKeySha256?: string | null;
+    sshKey?: { privateKey?: string | null } | null;
+  } | null;
 };
 
 export const storageFileNodeSelect = {
-	id: true,
-	driver: true,
-	basePath: true,
-	host: true,
-	port: true,
-	username: true,
-	hostKeySha256: true,
-	serverId: true,
-	server: {
-		select: {
-			id: true,
-			host: true,
-			port: true,
-			username: true,
-			connectionType: true,
-			password: true,
-			hostKeySha256: true,
-			sshKey: {
-				select: {
-					privateKey: true,
-				},
-			},
-		},
-	},
+  id: true,
+  driver: true,
+  basePath: true,
+  host: true,
+  port: true,
+  username: true,
+  hostKeySha256: true,
+  serverId: true,
+  server: {
+    select: {
+      id: true,
+      host: true,
+      port: true,
+      username: true,
+      connectionType: true,
+      password: true,
+      hostKeySha256: true,
+      sshKey: {
+        select: {
+          privateKey: true,
+        },
+      },
+    },
+  },
 } as const;
 
 function sftpReadFile(client: Client, remotePath: string): Promise<Buffer> {
-	return new Promise((resolve, reject) => {
-		client.sftp((err, sftp) => {
-			if (err) return reject(err);
-			sftp.readFile(remotePath, (readErr, data) => {
-				if (readErr) return reject(readErr);
-				resolve(Buffer.isBuffer(data) ? data : Buffer.from(data));
-			});
-		});
-	});
+  return new Promise((resolve, reject) => {
+    client.sftp((err, sftp) => {
+      if (err) return reject(err);
+      sftp.readFile(remotePath, (readErr, data) => {
+        if (readErr) return reject(readErr);
+        resolve(Buffer.isBuffer(data) ? data : Buffer.from(data));
+      });
+    });
+  });
 }
 
-export async function readStorageFileBuffer(node: StorageFileNode, relativePath: string) {
-	if (node.driver === "LOCAL") {
-		const resolved = resolveStoragePathWithinBase(node.basePath, relativePath);
-		if (!resolved.ok) throw new ValidationError(resolved.reason);
-		return readFile(resolved.path);
-	}
+export async function readStorageFileBuffer(
+  node: StorageFileNode,
+  relativePath: string,
+) {
+  if (node.driver === "LOCAL") {
+    const resolved = resolveStoragePathWithinBase(node.basePath, relativePath);
+    if (!resolved.ok) throw new ValidationError(resolved.reason);
+    return readFile(resolved.path);
+  }
 
-	if (node.driver === "SFTP") {
-		const credentials = resolveStorageSshCredentials(node);
-		const normalizedRemotePath = normalizeRemoteTargetPath(node.basePath, relativePath);
-		let client: Client | null = null;
-		try {
-			client = await connectSsh({
-				host: credentials.host,
-				port: credentials.port,
-				username: credentials.username,
-				hostKeySha256: credentials.hostKeySha256,
-				privateKey: credentials.privateKey,
-				password: credentials.password,
-				readyTimeout: 15000,
-				timeout: 10000,
-			});
-			return await sftpReadFile(client, normalizedRemotePath);
-		} finally {
-			client?.end();
-		}
-	}
+  if (node.driver === "SFTP") {
+    const credentials = resolveStorageSshCredentials(node);
+    const normalizedRemotePath = normalizeRemoteTargetPath(
+      node.basePath,
+      relativePath,
+    );
+    let client: Client | null = null;
+    try {
+      client = await connectSsh({
+        host: credentials.host,
+        port: credentials.port,
+        username: credentials.username,
+        hostKeySha256: credentials.hostKeySha256,
+        privateKey: credentials.privateKey,
+        password: credentials.password,
+        readyTimeout: 15000,
+        timeout: 10000,
+      });
+      return await sftpReadFile(client, normalizedRemotePath);
+    } finally {
+      client?.end();
+    }
+  }
 
-	throw new BusinessError(t("backend.storage.unsupportedNodeType"));
+  throw new BusinessError(t("backend.storage.unsupportedNodeType"));
+}
+
+export async function streamStorageFile(
+  node: StorageFileNode,
+  relativePath: string,
+  range?: { start: number; end: number },
+) {
+  if (node.driver === "LOCAL") {
+    const resolved = resolveStoragePathWithinBase(node.basePath, relativePath);
+    if (!resolved.ok) throw new ValidationError(resolved.reason);
+    const stats = await statFile(resolved.path);
+    const stream = createReadStream(resolved.path, range);
+    return { stream, size: stats.size, close: () => stream.destroy() };
+  }
+  if (node.driver === "SFTP") {
+    const credentials = resolveStorageSshCredentials(node);
+    const normalizedRemotePath = normalizeRemoteTargetPath(
+      node.basePath,
+      relativePath,
+    );
+    const client = await connectSsh({
+      host: credentials.host,
+      port: credentials.port,
+      username: credentials.username,
+      hostKeySha256: credentials.hostKeySha256,
+      privateKey: credentials.privateKey,
+      password: credentials.password,
+      readyTimeout: 15000,
+      timeout: 10000,
+    });
+    try {
+      const result = await new Promise<{
+        stream: NodeJS.ReadableStream;
+        size: number;
+      }>((resolve, reject) =>
+        client.sftp((err, sftp) => {
+          if (err) return reject(err);
+          sftp.stat(normalizedRemotePath, (statErr, stats) =>
+            statErr
+              ? reject(statErr)
+              : resolve({
+                  stream: sftp.createReadStream(normalizedRemotePath, range),
+                  size: stats.size,
+                }),
+          );
+        }),
+      );
+      return { ...result, close: () => client.end() };
+    } catch (error) {
+      client.end();
+      throw error;
+    }
+  }
+  throw new BusinessError(t("backend.storage.unsupportedNodeType"));
 }
 
 function sftpMkdir(client: Client, remoteDir: string): Promise<void> {
-	return new Promise((resolve, reject) => {
-		client.sftp((err, sftp) => {
-			if (err) return reject(err);
-			const normalized = normalizeRemoteRelativePath(remoteDir).replace(/\/$/, "");
-			const absolute = remoteDir.startsWith("/");
-			const segments = normalized.split("/").filter(Boolean);
-			let current = absolute ? "/" : "";
-			const ensureNext = (index: number) => {
-				if (index >= segments.length) return resolve();
-				current = current === "/" ? `/${segments[index]!}` : current ? `${current}/${segments[index]!}` : segments[index]!;
-				sftp.stat(current, (statErr) => {
-					if (!statErr) return ensureNext(index + 1);
-					sftp.mkdir(current, (mkdirErr) => {
-						if (!mkdirErr) return ensureNext(index + 1);
-						sftp.stat(current, (verifyErr, stats) => {
-							if (!verifyErr && stats?.isDirectory()) return ensureNext(index + 1);
-							reject(mkdirErr);
-						});
-					});
-				});
-			};
-			ensureNext(0);
-		});
-	});
+  return new Promise((resolve, reject) => {
+    client.sftp((err, sftp) => {
+      if (err) return reject(err);
+      const normalized = normalizeRemoteRelativePath(remoteDir).replace(
+        /\/$/,
+        "",
+      );
+      const absolute = remoteDir.startsWith("/");
+      const segments = normalized.split("/").filter(Boolean);
+      let current = absolute ? "/" : "";
+      const ensureNext = (index: number) => {
+        if (index >= segments.length) return resolve();
+        current =
+          current === "/"
+            ? `/${segments[index]!}`
+            : current
+              ? `${current}/${segments[index]!}`
+              : segments[index]!;
+        sftp.stat(current, (statErr) => {
+          if (!statErr) return ensureNext(index + 1);
+          sftp.mkdir(current, (mkdirErr) => {
+            if (!mkdirErr) return ensureNext(index + 1);
+            sftp.stat(current, (verifyErr, stats) => {
+              if (!verifyErr && stats?.isDirectory())
+                return ensureNext(index + 1);
+              reject(mkdirErr);
+            });
+          });
+        });
+      };
+      ensureNext(0);
+    });
+  });
 }
 
-function sftpWriteFile(client: Client, remotePath: string, buffer: Buffer): Promise<void> {
-	return new Promise((resolve, reject) => {
-		client.sftp((err, sftp) => {
-			if (err) return reject(err);
-			sftp.writeFile(remotePath, buffer, (writeErr) => {
-				if (writeErr) return reject(writeErr);
-				resolve();
-			});
-		});
-	});
+function sftpWriteFile(
+  client: Client,
+  remotePath: string,
+  buffer: Buffer,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    client.sftp((err, sftp) => {
+      if (err) return reject(err);
+      sftp.writeFile(remotePath, buffer, (writeErr) => {
+        if (writeErr) return reject(writeErr);
+        resolve();
+      });
+    });
+  });
 }
 
 function sftpUnlink(client: Client, remotePath: string): Promise<void> {
-	return new Promise((resolve, reject) => {
-		client.sftp((err, sftp) => {
-			if (err) return reject(err);
-			sftp.unlink(remotePath, (unlinkErr) => {
-				if (unlinkErr) return reject(unlinkErr);
-				resolve();
-			});
-		});
-	});
+  return new Promise((resolve, reject) => {
+    client.sftp((err, sftp) => {
+      if (err) return reject(err);
+      sftp.unlink(remotePath, (unlinkErr) => {
+        if (unlinkErr) return reject(unlinkErr);
+        resolve();
+      });
+    });
+  });
 }
 
-export async function writeStorageFileBuffer(node: StorageFileNode, relativePath: string, buffer: Buffer) {
-	if (node.driver === "LOCAL") {
-		const resolved = resolveStoragePathWithinBase(node.basePath, relativePath);
-		if (!resolved.ok) throw new ValidationError(resolved.reason);
-		await mkdir(path.dirname(resolved.path), { recursive: true });
-		await writeFile(resolved.path, buffer);
-		return resolved.path;
-	}
+export async function writeStorageFileBuffer(
+  node: StorageFileNode,
+  relativePath: string,
+  buffer: Buffer,
+) {
+  if (node.driver === "LOCAL") {
+    const resolved = resolveStoragePathWithinBase(node.basePath, relativePath);
+    if (!resolved.ok) throw new ValidationError(resolved.reason);
+    await mkdir(path.dirname(resolved.path), { recursive: true });
+    await writeFile(resolved.path, buffer);
+    return resolved.path;
+  }
 
-	if (node.driver === "SFTP") {
-		const credentials = resolveStorageSshCredentials(node);
-		const normalizedRemotePath = normalizeRemoteTargetPath(node.basePath, relativePath);
-		let client: Client | null = null;
-		try {
-			client = await connectSsh({
-				host: credentials.host,
-				port: credentials.port,
-				username: credentials.username,
-				hostKeySha256: credentials.hostKeySha256,
-				privateKey: credentials.privateKey,
-				password: credentials.password,
-				readyTimeout: 15000,
-				timeout: 10000,
-			});
-			await sftpMkdir(client, path.posix.dirname(normalizedRemotePath));
-			await sftpWriteFile(client, normalizedRemotePath, buffer);
-			return normalizedRemotePath;
-		} finally {
-			client?.end();
-		}
-	}
+  if (node.driver === "SFTP") {
+    const credentials = resolveStorageSshCredentials(node);
+    const normalizedRemotePath = normalizeRemoteTargetPath(
+      node.basePath,
+      relativePath,
+    );
+    let client: Client | null = null;
+    try {
+      client = await connectSsh({
+        host: credentials.host,
+        port: credentials.port,
+        username: credentials.username,
+        hostKeySha256: credentials.hostKeySha256,
+        privateKey: credentials.privateKey,
+        password: credentials.password,
+        readyTimeout: 15000,
+        timeout: 10000,
+      });
+      await sftpMkdir(client, path.posix.dirname(normalizedRemotePath));
+      await sftpWriteFile(client, normalizedRemotePath, buffer);
+      return normalizedRemotePath;
+    } finally {
+      client?.end();
+    }
+  }
 
-	throw new BusinessError(t("backend.storage.unsupportedNodeType"));
+  throw new BusinessError(t("backend.storage.unsupportedNodeType"));
 }
 
 /**
  * Best-effort delete of a previously written storage object (LOCAL or SFTP).
  * Used for compensating cleanup when DB indexing fails after a successful write.
  */
-export async function deleteStorageFileBuffer(node: StorageFileNode, relativePath: string) {
-	if (node.driver === "LOCAL") {
-		const resolved = resolveStoragePathWithinBase(node.basePath, relativePath);
-		if (!resolved.ok) throw new ValidationError(resolved.reason);
-		await rm(resolved.path, { force: true });
-		return resolved.path;
-	}
+export async function deleteStorageFileBuffer(
+  node: StorageFileNode,
+  relativePath: string,
+) {
+  if (node.driver === "LOCAL") {
+    const resolved = resolveStoragePathWithinBase(node.basePath, relativePath);
+    if (!resolved.ok) throw new ValidationError(resolved.reason);
+    await rm(resolved.path, { force: true });
+    return resolved.path;
+  }
 
-	if (node.driver === "SFTP") {
-		const credentials = resolveStorageSshCredentials(node);
-		const normalizedRemotePath = normalizeRemoteTargetPath(node.basePath, relativePath);
-		let client: Client | null = null;
-		try {
-			client = await connectSsh({
-				host: credentials.host,
-				port: credentials.port,
-				username: credentials.username,
-				hostKeySha256: credentials.hostKeySha256,
-				privateKey: credentials.privateKey,
-				password: credentials.password,
-				readyTimeout: 15000,
-				timeout: 10000,
-			});
-			await sftpUnlink(client, normalizedRemotePath);
-			return normalizedRemotePath;
-		} finally {
-			client?.end();
-		}
-	}
+  if (node.driver === "SFTP") {
+    const credentials = resolveStorageSshCredentials(node);
+    const normalizedRemotePath = normalizeRemoteTargetPath(
+      node.basePath,
+      relativePath,
+    );
+    let client: Client | null = null;
+    try {
+      client = await connectSsh({
+        host: credentials.host,
+        port: credentials.port,
+        username: credentials.username,
+        hostKeySha256: credentials.hostKeySha256,
+        privateKey: credentials.privateKey,
+        password: credentials.password,
+        readyTimeout: 15000,
+        timeout: 10000,
+      });
+      await sftpUnlink(client, normalizedRemotePath);
+      return normalizedRemotePath;
+    } finally {
+      client?.end();
+    }
+  }
 
-	throw new BusinessError(t("backend.storage.unsupportedNodeType"));
+  throw new BusinessError(t("backend.storage.unsupportedNodeType"));
 }
 
-export function buildStorageFileDownloadUrl(node: Pick<StorageFileNode, "id" | "driver">, relativePath: string, download = false) {
-	const params = new URLSearchParams({ nodeId: node.id, path: normalizeRemoteRelativePath(relativePath) });
-	if (download) params.set("download", "1");
-	if (node.driver === "SFTP") return `/api/storage/sftp-download?${params.toString()}`;
-	return `/api/storage/local?${params.toString()}`;
+export function buildStorageFileDownloadUrl(
+  node: Pick<StorageFileNode, "id" | "driver">,
+  relativePath: string,
+  download = false,
+) {
+  const params = new URLSearchParams({
+    nodeId: node.id,
+    path: normalizeRemoteRelativePath(relativePath),
+  });
+  if (download) params.set("download", "1");
+  if (node.driver === "SFTP")
+    return `/api/storage/sftp-download?${params.toString()}`;
+  return `/api/storage/local?${params.toString()}`;
 }
 
 type TeamSession = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
@@ -242,14 +346,14 @@ type TeamSession = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
  * `teamWhere` so callers cannot open another team's node by id (IDOR).
  */
 export async function getStorageFileNode(
-	storageNodeId: string,
-	session?: TeamSession | null,
+  storageNodeId: string,
+  session?: TeamSession | null,
 ) {
-	return prisma.storageNode.findFirst({
-		where: {
-			id: storageNodeId,
-			...(session ? teamWhere(session) : {}),
-		},
-		select: storageFileNodeSelect,
-	});
+  return prisma.storageNode.findFirst({
+    where: {
+      id: storageNodeId,
+      ...(session ? teamWhere(session) : {}),
+    },
+    select: storageFileNodeSelect,
+  });
 }

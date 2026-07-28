@@ -3,12 +3,23 @@ import { createHash } from "node:crypto";
 import type { SessionPayload } from "@/lib/auth/session";
 import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
-import { BusinessError, ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
+import {
+  BusinessError,
+  ConflictError,
+  NotFoundError,
+  ValidationError,
+} from "@/lib/errors";
 import { t } from "@/lib/i18n/translations";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { createManagedFolder } from "@/lib/storage/fs-backend";
-import { type StorageFileNode, storageFileNodeSelect } from "@/lib/storage/file-content";
-import { normalizeStorageRelativePath, resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
+import {
+  type StorageFileNode,
+  storageFileNodeSelect,
+} from "@/lib/storage/file-content";
+import {
+  normalizeStorageRelativePath,
+  resolveStoragePathWithinBase,
+} from "@/lib/storage/path-utils";
 import { createFileEntry } from "@/lib/storage/service-entries";
 import type { PropFindItem } from "./xml";
 
@@ -19,6 +30,7 @@ export type WebDavContext = {
   storageNodeId: string;
   relativePath: string;
   requestUrl: URL;
+  rangeHeader?: string | null;
 };
 
 export type WebDavFileEntryItem = {
@@ -61,7 +73,9 @@ export function buildWebDavHref(
   return isCollection ? `${href}/` : href;
 }
 
-export function normalizeWebDavRelativePath(raw: string | string[] | undefined): string {
+export function normalizeWebDavRelativePath(
+  raw: string | string[] | undefined,
+): string {
   const joined = Array.isArray(raw) ? raw.join("/") : (raw ?? "");
   const decoded = joined
     .split("/")
@@ -88,7 +102,9 @@ export async function loadNode(
     select: { ...storageFileNodeSelect, name: true },
   });
   if (!node || !["LOCAL", "SFTP"].includes(node.driver)) {
-    throw new NotFoundError(t("backend.webdav.storageNodeNotFoundOrNotWebdavCapable"));
+    throw new NotFoundError(
+      t("backend.webdav.storageNodeNotFoundOrNotWebdavCapable"),
+    );
   }
   return node as StorageFileNode & { name: string };
 }
@@ -108,7 +124,9 @@ export async function requireAccess(
     writeBytes,
   });
   if (!decision.allowed) {
-    throw new BusinessError(decision.reason ?? t("backend.webdav.storageAccessDenied"));
+    throw new BusinessError(
+      decision.reason ?? t("backend.webdav.storageAccessDenied"),
+    );
   }
   return decision;
 }
@@ -159,7 +177,9 @@ export function toPropFindItem(
   };
 }
 
-export function isRootDirectChild(entry: Pick<WebDavFileEntryItem, "relativePath">): boolean {
+export function isRootDirectChild(
+  entry: Pick<WebDavFileEntryItem, "relativePath">,
+): boolean {
   return entry.relativePath.split("/").filter(Boolean).length === 1;
 }
 
@@ -187,17 +207,25 @@ export async function ensureDirectoryIndexAndBacking(input: {
     const existing = await findEntry(input.storageNodeId, built);
     if (existing) {
       if (existing.entryType !== "DIRECTORY") {
-        throw new ConflictError(t("backend.webdav.pathComponentIsAFile", { path: built }));
+        throw new ConflictError(
+          t("backend.webdav.pathComponentIsAFile", { path: built }),
+        );
       }
       continue;
     }
     await requireAccess(input.session, input.storageNodeId, built, "write");
     try {
-      await createManagedFolder({ storageNode: input.node, relativePath: built });
+      await createManagedFolder({
+        storageNode: input.node,
+        relativePath: built,
+      });
     } catch (error) {
       if (input.node.driver === "LOCAL") {
         const { mkdir } = await import("node:fs/promises");
-        const resolved = resolveStoragePathWithinBase(input.node.basePath, built);
+        const resolved = resolveStoragePathWithinBase(
+          input.node.basePath,
+          built,
+        );
         if (!resolved.ok) throw new ValidationError(resolved.reason);
         await mkdir(resolved.path, { recursive: true });
       } else {

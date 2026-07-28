@@ -1,9 +1,11 @@
+import { Readable } from "node:stream";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   prismaMock,
   assertAccessMock,
   readBufferMock,
+  streamStorageFileMock,
   writeBufferMock,
   createFolderMock,
   deleteBackingMock,
@@ -22,6 +24,7 @@ const {
   },
   assertAccessMock: vi.fn(),
   readBufferMock: vi.fn(),
+  streamStorageFileMock: vi.fn(),
   writeBufferMock: vi.fn(),
   createFolderMock: vi.fn(),
   deleteBackingMock: vi.fn(),
@@ -32,9 +35,13 @@ const {
 }));
 
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
-vi.mock("@/lib/storage/access-control", () => ({ assertStorageAccess: assertAccessMock , releaseStorageQuotaGuard: vi.fn(async () => undefined) }));
+vi.mock("@/lib/storage/access-control", () => ({
+  assertStorageAccess: assertAccessMock,
+  releaseStorageQuotaGuard: vi.fn(async () => undefined),
+}));
 vi.mock("@/lib/storage/file-content", () => ({
   readStorageFileBuffer: readBufferMock,
+  streamStorageFile: streamStorageFileMock,
   writeStorageFileBuffer: writeBufferMock,
   storageFileNodeSelect: {},
 }));
@@ -80,7 +87,9 @@ describe("webdav helpers", () => {
     expect(buildWebDavHref("node1", "docs/a.txt", false)).toBe(
       "/api/webdav/node1/docs/a.txt",
     );
-    expect(buildWebDavHref("node1", "docs", true)).toBe("/api/webdav/node1/docs/");
+    expect(buildWebDavHref("node1", "docs", true)).toBe(
+      "/api/webdav/node1/docs/",
+    );
   });
 
   it("parses depth and builds multistatus xml", () => {
@@ -169,6 +178,11 @@ describe("webdav handlers", () => {
       updatedAt: new Date(),
     });
     readBufferMock.mockResolvedValue(Buffer.from("hello"));
+    streamStorageFileMock.mockResolvedValue({
+      size: 5,
+      stream: Readable.from([Buffer.from("hello")]),
+      close: vi.fn(),
+    });
     const res = await handleWebDavGetHead(
       {
         session: session as never,
@@ -228,7 +242,9 @@ describe("webdav handlers", () => {
           } as never,
           storageNodeId: "other-team-node",
           relativePath: "a.txt",
-          requestUrl: new URL("http://localhost/api/webdav/other-team-node/a.txt"),
+          requestUrl: new URL(
+            "http://localhost/api/webdav/other-team-node/a.txt",
+          ),
         },
         "GET",
       ),

@@ -39,7 +39,10 @@ function effectiveMethod(request: Request): string {
   return request.method.toUpperCase();
 }
 
-async function dispatch(request: Request, params: RouteParams): Promise<Response> {
+async function dispatch(
+  request: Request,
+  params: RouteParams,
+): Promise<Response> {
   const method = effectiveMethod(request);
 
   if (method === "OPTIONS") {
@@ -63,6 +66,7 @@ async function dispatch(request: Request, params: RouteParams): Promise<Response
     storageNodeId: params.storageNodeId,
     relativePath,
     requestUrl,
+    rangeHeader: request.headers.get("range"),
   };
 
   try {
@@ -99,11 +103,22 @@ async function dispatch(request: Request, params: RouteParams): Promise<Response
     // Prefer typed AppError.status over English message matching.
     if (error instanceof AppError) {
       status = error.status;
-    } else if (name === "AuthError" || message.includes("authenticated")) status = 401;
-    else if (name === "NotFoundError" || /not found/i.test(message)) status = 404;
-    else if (name === "ConflictError" || /already exists|overwrite/i.test(message)) status = 409;
-    else if (name === "ValidationError" || /invalid|cannot/i.test(message)) status = 400;
-    else if (name === "BusinessError" || /denied|not supported|access/i.test(message)) status = 403;
+    } else if (name === "AuthError" || message.includes("authenticated"))
+      status = 401;
+    else if (name === "NotFoundError" || /not found/i.test(message))
+      status = 404;
+    else if (
+      name === "ConflictError" ||
+      /already exists|overwrite/i.test(message)
+    )
+      status = 409;
+    else if (name === "ValidationError" || /invalid|cannot/i.test(message))
+      status = 400;
+    else if (
+      name === "BusinessError" ||
+      /denied|not supported|access/i.test(message)
+    )
+      status = 403;
 
     if (status === 401) return webDavUnauthorizedResponse();
 
