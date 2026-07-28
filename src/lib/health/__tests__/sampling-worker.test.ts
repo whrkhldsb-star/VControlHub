@@ -14,7 +14,12 @@ const mocks = vi.hoisted(() => ({
   rollupRecentServerUptime: vi.fn(),
 }));
 
-vi.mock("@/lib/db", () => ({ prisma: { job: { findFirst: mocks.jobFindFirst } } }));
+vi.mock("@/lib/db", () => ({
+  prisma: { job: { findFirst: mocks.jobFindFirst } },
+}));
+vi.mock("@/lib/concurrency/advisory-lock", () => ({
+  acquireAdvisoryLock: vi.fn(async () => vi.fn(async () => undefined)),
+}));
 vi.mock("@/lib/job/service", () => ({
   enqueueJob: mocks.enqueueJob,
   claimNextJob: mocks.claimNextJob,
@@ -23,7 +28,9 @@ vi.mock("@/lib/job/service", () => ({
   failJob: mocks.failJob,
   pruneCompletedJobsByType: mocks.pruneCompletedJobsByType,
 }));
-vi.mock("../service-collect", () => ({ collectAllHealth: mocks.collectAllHealth }));
+vi.mock("../service-collect", () => ({
+  collectAllHealth: mocks.collectAllHealth,
+}));
 vi.mock("../service-metrics", () => ({
   snapshotHealthOverview: mocks.snapshotHealthOverview,
   pruneMetricSnapshots: mocks.pruneMetricSnapshots,
@@ -32,7 +39,11 @@ vi.mock("@/lib/uptime/rollup", () => ({
   rollupRecentServerUptime: mocks.rollupRecentServerUptime,
 }));
 
-import { enqueueHealthSampleIfIdle, runHealthSamplingWorkerOnce, stopHealthSamplingWorkerForTests } from "../sampling-worker";
+import {
+  enqueueHealthSampleIfIdle,
+  runHealthSamplingWorkerOnce,
+  stopHealthSamplingWorkerForTests,
+} from "../sampling-worker";
 
 describe("fleet health background sampling", () => {
   beforeEach(() => {
@@ -40,11 +51,27 @@ describe("fleet health background sampling", () => {
     stopHealthSamplingWorkerForTests();
     mocks.jobFindFirst.mockResolvedValue(null);
     mocks.enqueueJob.mockResolvedValue({ id: "queued" });
-    mocks.claimNextJob.mockResolvedValue({ id: "job1", payload: {}, attempts: 1, maxAttempts: 3 });
+    mocks.claimNextJob.mockResolvedValue({
+      id: "job1",
+      payload: {},
+      attempts: 1,
+      maxAttempts: 3,
+    });
     mocks.collectAllHealth.mockResolvedValue({
-      total: 2, online: 1, warning: 0, critical: 0, offline: 1,
+      total: 2,
+      online: 1,
+      warning: 0,
+      critical: 0,
+      offline: 1,
       servers: [
-        { serverId: "s1", enabled: true, status: "healthy", cpu: 10, mem: 20, diskMax: 30 },
+        {
+          serverId: "s1",
+          enabled: true,
+          status: "healthy",
+          cpu: 10,
+          mem: 20,
+          diskMax: 30,
+        },
         { serverId: "s2", enabled: true, status: "offline" },
       ],
     });
@@ -62,23 +89,41 @@ describe("fleet health background sampling", () => {
 
   it("collects, batches snapshots, prunes retention, rolls up uptime and completes the durable job", async () => {
     expect(await runHealthSamplingWorkerOnce("test")).toBe(true);
-    expect(mocks.snapshotHealthOverview).toHaveBeenCalledWith(expect.objectContaining({ total: 2 }));
+    expect(mocks.snapshotHealthOverview).toHaveBeenCalledWith(
+      expect.objectContaining({ total: 2 }),
+    );
     expect(mocks.pruneMetricSnapshots).toHaveBeenCalledWith(expect.any(Date));
     expect(mocks.rollupRecentServerUptime).toHaveBeenCalledTimes(1);
     expect(mocks.pruneCompletedJobsByType).toHaveBeenCalledWith(
-      expect.objectContaining({ type: "health.sample", keepLatest: 50, olderThan: expect.any(Date) }),
+      expect.objectContaining({
+        type: "health.sample",
+        keepLatest: 50,
+        olderThan: expect.any(Date),
+      }),
     );
     expect(mocks.completeJob).toHaveBeenCalledWith(
       "job1",
       expect.any(String),
-      expect.objectContaining({ sampled: 2, offline: 1, pruned: 4, uptimeUpserted: 3 }),
+      expect.objectContaining({
+        sampled: 2,
+        offline: 1,
+        pruned: 4,
+        uptimeUpserted: 3,
+      }),
     );
   });
 
   it("fails the durable job instead of reporting false success", async () => {
-    mocks.collectAllHealth.mockRejectedValue(new Error("collector unavailable"));
+    mocks.collectAllHealth.mockRejectedValue(
+      new Error("collector unavailable"),
+    );
     expect(await runHealthSamplingWorkerOnce()).toBe(true);
-    expect(mocks.failJob).toHaveBeenCalledWith("job1", expect.any(String), "collector unavailable", expect.any(Object));
+    expect(mocks.failJob).toHaveBeenCalledWith(
+      "job1",
+      expect.any(String),
+      "collector unavailable",
+      expect.any(Object),
+    );
     expect(mocks.completeJob).not.toHaveBeenCalled();
   });
 });

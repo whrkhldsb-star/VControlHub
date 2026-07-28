@@ -2,11 +2,22 @@ import { JobStatus } from "@prisma/client";
 
 import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
-import { claimNextJob, completeJob, enqueueJob, failJob, heartbeatJob, pruneCompletedJobsByType } from "@/lib/job/service";
+import {
+  claimNextJob,
+  completeJob,
+  enqueueJob,
+  failJob,
+  heartbeatJob,
+  pruneCompletedJobsByType,
+} from "@/lib/job/service";
 import { computeLeaseMs } from "@/lib/job/lease";
 import { createLogger } from "@/lib/logging";
+import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { collectAllHealth } from "./service-collect";
-import { pruneMetricSnapshots, snapshotHealthOverview } from "./service-metrics";
+import {
+  pruneMetricSnapshots,
+  snapshotHealthOverview,
+} from "./service-metrics";
 import { rollupRecentServerUptime } from "@/lib/uptime/rollup";
 
 export const HEALTH_SAMPLING_JOB_TYPE = "health.sample";
@@ -18,30 +29,60 @@ const HEALTH_SAMPLE_JOB_KEEP_LATEST = 50;
 const HEALTH_SAMPLE_JOB_RETENTION_DAYS = 7;
 const logger = createLogger("health-sampling-worker");
 
-type State = { started: boolean; running: boolean; timer: NodeJS.Timeout | null };
-type WorkerGlobal = typeof globalThis & { __vcontrolhubHealthSamplingWorker?: State };
+type State = {
+  started: boolean;
+  running: boolean;
+  timer: NodeJS.Timeout | null;
+};
+type WorkerGlobal = typeof globalThis & {
+  __vcontrolhubHealthSamplingWorker?: State;
+};
 
 function getState(): State {
   const globalState = globalThis as WorkerGlobal;
-  globalState.__vcontrolhubHealthSamplingWorker ??= { started: false, running: false, timer: null };
+  globalState.__vcontrolhubHealthSamplingWorker ??= {
+    started: false,
+    running: false,
+    timer: null,
+  };
   return globalState.__vcontrolhubHealthSamplingWorker;
 }
 
-export async function enqueueHealthSampleIfIdle(reason: string): Promise<boolean> {
-  const active = await prisma.job.findFirst({
-    where: { type: HEALTH_SAMPLING_JOB_TYPE, status: { in: [JobStatus.PENDING, JobStatus.RUNNING] } },
-    select: { id: true },
-  });
-  if (active) return false;
-  await enqueueJob({ type: HEALTH_SAMPLING_JOB_TYPE, title: "Sample fleet health", payload: { reason }, maxAttempts: 3 });
-  return true;
+export async function enqueueHealthSampleIfIdle(
+  reason: string,
+): Promise<boolean> {
+  const release = await acquireAdvisoryLock("health-sample-enqueue", "global");
+  try {
+    const active = await prisma.job.findFirst({
+      where: {
+        type: HEALTH_SAMPLING_JOB_TYPE,
+        status: { in: [JobStatus.PENDING, JobStatus.RUNNING] },
+      },
+      select: { id: true },
+    });
+    if (active) return false;
+    await enqueueJob({
+      type: HEALTH_SAMPLING_JOB_TYPE,
+      title: "Sample fleet health",
+      payload: { reason },
+      maxAttempts: 3,
+    });
+    return true;
+  } finally {
+    await release();
+  }
 }
 
 async function processSample(jobId: string) {
-  await heartbeatJob(jobId, WORKER_ID, { leaseMs: LEASE_MS, progress: "Collecting fleet metrics" });
+  await heartbeatJob(jobId, WORKER_ID, {
+    leaseMs: LEASE_MS,
+    progress: "Collecting fleet metrics",
+  });
   const overview = await collectAllHealth();
   const sampled = await snapshotHealthOverview(overview);
-  const pruned = await pruneMetricSnapshots(new Date(Date.now() - RETENTION_MS));
+  const pruned = await pruneMetricSnapshots(
+    new Date(Date.now() - RETENTION_MS),
+  );
   // Feed /status 90-day heatmap from metric samples (table was previously never written).
   const uptime = await rollupRecentServerUptime();
   return {
@@ -55,13 +96,19 @@ async function processSample(jobId: string) {
   };
 }
 
-export async function runHealthSamplingWorkerOnce(reason = "interval"): Promise<boolean> {
+export async function runHealthSamplingWorkerOnce(
+  reason = "interval",
+): Promise<boolean> {
   const state = getState();
   if (state.running) return false;
   state.running = true;
   try {
     await enqueueHealthSampleIfIdle(reason);
-    const job = await claimNextJob({ workerId: WORKER_ID, types: [HEALTH_SAMPLING_JOB_TYPE], leaseMs: LEASE_MS });
+    const job = await claimNextJob({
+      workerId: WORKER_ID,
+      types: [HEALTH_SAMPLING_JOB_TYPE],
+      leaseMs: LEASE_MS,
+    });
     if (!job) return false;
     try {
       const result = await processSample(job.id);
@@ -70,17 +117,27 @@ export async function runHealthSamplingWorkerOnce(reason = "interval"): Promise<
         await pruneCompletedJobsByType({
           type: HEALTH_SAMPLING_JOB_TYPE,
           keepLatest: HEALTH_SAMPLE_JOB_KEEP_LATEST,
-          olderThan: new Date(Date.now() - HEALTH_SAMPLE_JOB_RETENTION_DAYS * 24 * 60 * 60 * 1000),
+          olderThan: new Date(
+            Date.now() - HEALTH_SAMPLE_JOB_RETENTION_DAYS * 24 * 60 * 60 * 1000,
+          ),
         });
       } catch (pruneError) {
         logger.warn("Failed to prune health.sample jobs", {
-          error: pruneError instanceof Error ? pruneError.message : String(pruneError),
+          error:
+            pruneError instanceof Error
+              ? pruneError.message
+              : String(pruneError),
         });
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      await failJob(job.id, WORKER_ID, message.slice(0, 2000), { retryAfterMs: 60_000 });
-      logger.error("fleet health sample failed", { jobId: job.id, error: message });
+      await failJob(job.id, WORKER_ID, message.slice(0, 2000), {
+        retryAfterMs: 60_000,
+      });
+      logger.error("fleet health sample failed", {
+        jobId: job.id,
+        error: message,
+      });
     }
     return true;
   } finally {
@@ -88,17 +145,26 @@ export async function runHealthSamplingWorkerOnce(reason = "interval"): Promise<
   }
 }
 
-export async function startHealthSamplingWorker(options: { intervalMs?: number } = {}): Promise<State> {
+export async function startHealthSamplingWorker(
+  options: { intervalMs?: number } = {},
+): Promise<State> {
   const state = getState();
   if (state.started) return state;
   state.started = true;
   const intervalMs = options.intervalMs ?? DEFAULT_INTERVAL_MS;
-  void runHealthSamplingWorkerOnce("startup").catch((error) => logger.error("health sampling startup failed", error));
+  void runHealthSamplingWorkerOnce("startup").catch((error) =>
+    logger.error("health sampling startup failed", error),
+  );
   state.timer = setInterval(() => {
-    void runHealthSamplingWorkerOnce().catch((error) => logger.error("health sampling tick failed", error));
+    void runHealthSamplingWorkerOnce().catch((error) =>
+      logger.error("health sampling tick failed", error),
+    );
   }, intervalMs);
   state.timer.unref?.();
-  logger.info("health sampling worker started", { workerId: WORKER_ID, intervalMs });
+  logger.info("health sampling worker started", {
+    workerId: WORKER_ID,
+    intervalMs,
+  });
   return state;
 }
 

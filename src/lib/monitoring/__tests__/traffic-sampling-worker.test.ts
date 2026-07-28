@@ -34,6 +34,9 @@ vi.mock("@/lib/db", () => ({
     server: { findMany: mocks.serverFindMany },
   },
 }));
+vi.mock("@/lib/concurrency/advisory-lock", () => ({
+  acquireAdvisoryLock: vi.fn(async () => vi.fn(async () => undefined)),
+}));
 
 vi.mock("@/lib/job/service", () => ({
   enqueueJob: mocks.enqueueJob,
@@ -67,7 +70,12 @@ describe("traffic sampling worker", () => {
     stopTrafficSamplingWorkerForTests();
     mocks.jobFindFirst.mockResolvedValue(null);
     mocks.enqueueJob.mockResolvedValue({ id: "queued" });
-    mocks.claimNextJob.mockResolvedValue({ id: "job1", payload: {}, attempts: 1, maxAttempts: 2 });
+    mocks.claimNextJob.mockResolvedValue({
+      id: "job1",
+      payload: {},
+      attempts: 1,
+      maxAttempts: 2,
+    });
     mocks.readFileSync.mockReturnValue(PROC_NET_DEV);
     mocks.serverFindMany.mockResolvedValue([
       {
@@ -138,7 +146,9 @@ describe("traffic sampling worker", () => {
       }),
     );
     expect(mocks.trafficSnapshotDeleteMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { sampledAt: { lt: expect.any(Date) } } }),
+      expect.objectContaining({
+        where: { sampledAt: { lt: expect.any(Date) } },
+      }),
     );
     expect(mocks.pruneCompletedJobsByType).toHaveBeenCalledWith(
       expect.objectContaining({ type: "traffic.sample", keepLatest: 50 }),

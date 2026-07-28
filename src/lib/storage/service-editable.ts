@@ -2,15 +2,25 @@ import { access, readFile, stat, writeFile } from "node:fs/promises";
 
 import type { SessionPayload } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
-import { BusinessError, ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
+import {
+  BusinessError,
+  ConflictError,
+  ForbiddenError,
+  NotFoundError,
+  ValidationError,
+} from "@/lib/errors";
 import { serverT } from "@/lib/i18n/server-locale";
-import { assertStorageAccess, releaseStorageQuotaGuard } from "@/lib/storage/access-control";
+import {
+  assertStorageAccess,
+  releaseStorageQuotaGuard,
+} from "@/lib/storage/access-control";
 import { MAX_EDITABLE_FILE_SIZE_BYTES } from "./mime-constants";
 import {
   isEditableTextFile,
   resolveLocalAbsolutePath,
 } from "./service-entries";
 import { snapshotFileVersionBeforeOverwrite } from "./file-versions";
+import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 
 async function resolveLocalEditableFileEntry(input: {
   fileEntryId: string;
@@ -49,7 +59,9 @@ async function resolveLocalEditableFileEntry(input: {
     writeBytes: input.writeBytes,
   });
   if (!storageAccess.allowed) {
-    throw new ForbiddenError(storageAccess.reason ?? t("backend.storage.editableNoAccess"));
+    throw new ForbiddenError(
+      storageAccess.reason ?? t("backend.storage.editableNoAccess"),
+    );
   }
 
   if (
@@ -77,20 +89,20 @@ async function resolveLocalEditableFileEntry(input: {
     throw new ValidationError(t("backend.storage.editableFileTooLarge"));
   }
 
-    return { entry, absolutePath, fileStat, storageAccess };
+  return { entry, absolutePath, fileStat, storageAccess };
 }
-
 
 export async function getLocalEditableFileDraft(input: {
   fileEntryId: string;
   session: SessionPayload;
 }) {
-  const { entry, fileStat, absolutePath } =
-    await resolveLocalEditableFileEntry({
+  const { entry, fileStat, absolutePath } = await resolveLocalEditableFileEntry(
+    {
       fileEntryId: input.fileEntryId,
       session: input.session,
       operation: "read",
-    });
+    },
+  );
   const content = await readFile(absolutePath, "utf8");
 
   return {
@@ -120,57 +132,68 @@ export async function saveLocalEditableFileDraft(input: {
     throw new ValidationError(t("backend.storage.editableFileTooLarge"));
   }
 
-  const { entry, fileStat, absolutePath, storageAccess } = await resolveLocalEditableFileEntry(
-    {
+  const { entry, fileStat, absolutePath, storageAccess } =
+    await resolveLocalEditableFileEntry({
       fileEntryId: input.fileEntryId,
       session: input.session,
       operation: "write",
       writeBytes: byteSize,
-    },
-  );
+    });
 
   try {
-  const currentUpdatedAt = entry.updatedAt?.toISOString?.() ?? entry.updatedAt;
-  if (input.expectedUpdatedAt && currentUpdatedAt && input.expectedUpdatedAt !== currentUpdatedAt) {
-    throw new ConflictError(t("backend.storage.editableFileUpdatedByOther"));
-  }
+    const releaseLock = await acquireAdvisoryLock("storage-editable", entry.id);
+    try {
+      const currentUpdatedAt =
+        entry.updatedAt?.toISOString?.() ?? entry.updatedAt;
+      if (
+        input.expectedUpdatedAt &&
+        currentUpdatedAt &&
+        input.expectedUpdatedAt !== currentUpdatedAt
+      ) {
+        throw new ConflictError(
+          t("backend.storage.editableFileUpdatedByOther"),
+        );
+      }
 
-  if (
-    typeof input.expectedLastModifiedMs === "number" &&
-    Number.isFinite(input.expectedLastModifiedMs) &&
-    Math.abs(fileStat.mtimeMs - input.expectedLastModifiedMs) > 1
-  ) {
-    throw new ConflictError(t("backend.storage.editableFileChangedOnDisk"));
-  }
+      if (
+        typeof input.expectedLastModifiedMs === "number" &&
+        Number.isFinite(input.expectedLastModifiedMs) &&
+        Math.abs(fileStat.mtimeMs - input.expectedLastModifiedMs) > 1
+      ) {
+        throw new ConflictError(t("backend.storage.editableFileChangedOnDisk"));
+      }
 
-  // Snapshot previous body before overwrite (best-effort).
-  await snapshotFileVersionBeforeOverwrite({
-    fileEntryId: entry.id,
-    userId: input.session.userId,
-    reason: "EDIT",
-    note: "Before text editor save",
-  });
+      // Snapshot previous body before overwrite (best-effort).
+      await snapshotFileVersionBeforeOverwrite({
+        fileEntryId: entry.id,
+        userId: input.session.userId,
+        reason: "EDIT",
+        note: "Before text editor save",
+      });
 
-  await writeFile(absolutePath, content, "utf8");
-  const nextStat = await stat(absolutePath);
-  const updated = await prisma.fileEntry.update({
-    where: { id: entry.id },
-    data: {
-      size: BigInt(nextStat.size),
-      updatedAt: new Date(),
-      checksumSha256: null,
-    },
-  });
+      await writeFile(absolutePath, content, "utf8");
+      const nextStat = await stat(absolutePath);
+      const updated = await prisma.fileEntry.update({
+        where: { id: entry.id },
+        data: {
+          size: BigInt(nextStat.size),
+          updatedAt: new Date(),
+          checksumSha256: null,
+        },
+      });
 
-  return {
-    fileEntryId: entry.id,
-    name: entry.name,
-    relativePath: entry.relativePath,
-    byteSize: nextStat.size,
-    previousByteSize: fileStat.size,
-    lastModifiedMs: nextStat.mtimeMs,
-    updatedAt: updated.updatedAt?.toISOString?.() ?? updated.updatedAt,
-  };
+      return {
+        fileEntryId: entry.id,
+        name: entry.name,
+        relativePath: entry.relativePath,
+        byteSize: nextStat.size,
+        previousByteSize: fileStat.size,
+        lastModifiedMs: nextStat.mtimeMs,
+        updatedAt: updated.updatedAt?.toISOString?.() ?? updated.updatedAt,
+      };
+    } finally {
+      await releaseLock();
+    }
   } finally {
     await releaseStorageQuotaGuard(storageAccess);
   }

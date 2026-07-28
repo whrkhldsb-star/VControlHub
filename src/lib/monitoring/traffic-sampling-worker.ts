@@ -29,6 +29,7 @@ import {
   pruneCompletedJobsByType,
 } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
+import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import {
   calculateTrafficRate,
   parseNetworkDeviceStats,
@@ -46,7 +47,10 @@ export const TRAFFIC_SAMPLING_JOB_TYPE = "traffic.sample";
 const TRAFFIC_SAMPLE_INTERVAL_MS = 5 * 60_000;
 // Remote SSH sampling across many VPS can exceed the 5m preset; keep lease
 // comfortably above interval and renew mid-flight via runWithLeaseHeartbeat.
-const TRAFFIC_SAMPLE_LEASE_MS = Math.max(computeLeaseMs("traffic-sampling"), 15 * 60_000);
+const TRAFFIC_SAMPLE_LEASE_MS = Math.max(
+  computeLeaseMs("traffic-sampling"),
+  15 * 60_000,
+);
 const TRAFFIC_SAMPLE_WORKER_ID = `${config.app.hostname || "vcontrolhub"}:traffic-sampling:${process.pid}`;
 const TRAFFIC_SAMPLE_JOB_KEEP_LATEST = 50;
 const TRAFFIC_SAMPLE_JOB_RETENTION_DAYS = 7;
@@ -202,7 +206,9 @@ async function sampleRemotePrimaries(): Promise<{
 }
 
 async function pruneOldTrafficSnapshots() {
-  const olderThan = new Date(Date.now() - TRAFFIC_SNAPSHOT_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+  const olderThan = new Date(
+    Date.now() - TRAFFIC_SNAPSHOT_RETENTION_DAYS * 24 * 60 * 60 * 1000,
+  );
   return prisma.trafficSnapshot.deleteMany({
     where: { sampledAt: { lt: olderThan } },
   });
@@ -220,15 +226,20 @@ async function hasActiveTrafficSampleJob() {
 }
 
 export async function enqueueTrafficSampleIfIdle(reason: string) {
-  if (await hasActiveTrafficSampleJob()) return false;
-  await enqueueJob({
-    type: TRAFFIC_SAMPLING_JOB_TYPE,
-    title: "Background traffic sampling",
-    payload: { reason, requestedAt: new Date().toISOString() },
-    priority: -8,
-    maxAttempts: 2,
-  });
-  return true;
+  const release = await acquireAdvisoryLock("traffic-sample-enqueue", "global");
+  try {
+    if (await hasActiveTrafficSampleJob()) return false;
+    await enqueueJob({
+      type: TRAFFIC_SAMPLING_JOB_TYPE,
+      title: "Background traffic sampling",
+      payload: { reason, requestedAt: new Date().toISOString() },
+      priority: -8,
+      maxAttempts: 2,
+    });
+    return true;
+  } finally {
+    await release();
+  }
 }
 
 async function processSample(jobId: string) {
@@ -254,7 +265,10 @@ async function processSample(jobId: string) {
 export async function runTrafficSamplingWorkerOnce(reason = "manual") {
   const state = getWorkerState();
   if (state.running) {
-    logger.warn("Skipping traffic sample tick because a previous tick is still running", { reason });
+    logger.warn(
+      "Skipping traffic sample tick because a previous tick is still running",
+      { reason },
+    );
     return false;
   }
 
@@ -284,11 +298,17 @@ export async function runTrafficSamplingWorkerOnce(reason = "manual") {
         await pruneCompletedJobsByType({
           type: TRAFFIC_SAMPLING_JOB_TYPE,
           keepLatest: TRAFFIC_SAMPLE_JOB_KEEP_LATEST,
-          olderThan: new Date(Date.now() - TRAFFIC_SAMPLE_JOB_RETENTION_DAYS * 24 * 60 * 60 * 1000),
+          olderThan: new Date(
+            Date.now() -
+              TRAFFIC_SAMPLE_JOB_RETENTION_DAYS * 24 * 60 * 60 * 1000,
+          ),
         });
       } catch (pruneError) {
         logger.warn("Failed to prune traffic.sample jobs", {
-          error: pruneError instanceof Error ? pruneError.message : String(pruneError),
+          error:
+            pruneError instanceof Error
+              ? pruneError.message
+              : String(pruneError),
         });
       }
       return true;
@@ -297,7 +317,11 @@ export async function runTrafficSamplingWorkerOnce(reason = "manual") {
       await failJob(job.id, TRAFFIC_SAMPLE_WORKER_ID, message.slice(0, 2000), {
         retryAfterMs: 60_000,
       });
-      logger.error("Traffic sample failed", { reason, jobId: job.id, error: message });
+      logger.error("Traffic sample failed", {
+        reason,
+        jobId: job.id,
+        error: message,
+      });
       return true;
     }
   } finally {

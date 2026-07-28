@@ -9,31 +9,32 @@ import * as path from "node:path";
 import { tmpdir } from "node:os";
 import { describe, expect, it, vi } from "vitest";
 
-const { mockPrisma, listRemoteDirectoryMock, assertStorageAccessMock } = vi.hoisted(() => ({
-  mockPrisma: {
-    storageNode: {
-      updateMany: vi.fn(),
-      create: vi.fn(),
-      findMany: vi.fn(),
-      findUnique: vi.fn(),
-      findFirst: vi.fn(),
-      update: vi.fn(),
-      delete: vi.fn(),
+const { mockPrisma, listRemoteDirectoryMock, assertStorageAccessMock } =
+  vi.hoisted(() => ({
+    mockPrisma: {
+      storageNode: {
+        updateMany: vi.fn(),
+        create: vi.fn(),
+        findMany: vi.fn(),
+        findUnique: vi.fn(),
+        findFirst: vi.fn(),
+        update: vi.fn(),
+        delete: vi.fn(),
+      },
+      server: {
+        findFirst: vi.fn(),
+      },
+      fileEntry: {
+        create: vi.fn(),
+        findMany: vi.fn(),
+        findUnique: vi.fn(),
+        findFirst: vi.fn(),
+        update: vi.fn(),
+      },
     },
-    server: {
-      findFirst: vi.fn(),
-    },
-    fileEntry: {
-      create: vi.fn(),
-      findMany: vi.fn(),
-      findUnique: vi.fn(),
-      findFirst: vi.fn(),
-      update: vi.fn(),
-    },
-  },
-  listRemoteDirectoryMock: vi.fn(),
-  assertStorageAccessMock: vi.fn(),
-}));
+    listRemoteDirectoryMock: vi.fn(),
+    assertStorageAccessMock: vi.fn(),
+  }));
 
 vi.mock("@/lib/db", () => ({
   prisma: mockPrisma,
@@ -45,6 +46,9 @@ vi.mock("@/lib/ssh/client", () => ({
 vi.mock("@/lib/storage/access-control", () => ({
   assertStorageAccess: assertStorageAccessMock,
   releaseStorageQuotaGuard: vi.fn(async () => undefined),
+}));
+vi.mock("@/lib/concurrency/advisory-lock", () => ({
+  acquireAdvisoryLock: vi.fn(async () => vi.fn(async () => undefined)),
 }));
 vi.mock("@/lib/ssh/ssh-key-crypto", () => ({
   decryptServerPassword: (value: string) => `decrypted:${value}`,
@@ -66,7 +70,11 @@ import {
 import { prisma } from "@/lib/db";
 
 describe("storage service", () => {
-  const storageSession = { userId: "u_1", username: "admin", roles: ["admin"] } as any;
+  const storageSession = {
+    userId: "u_1",
+    username: "admin",
+    roles: ["admin"],
+  } as any;
   it("creates a local default storage node", async () => {
     vi.clearAllMocks();
     vi.mocked(prisma.storageNode.updateMany).mockResolvedValue({ count: 0 });
@@ -99,7 +107,9 @@ describe("storage service", () => {
       where: {},
       data: { isDefault: false },
     });
-    expect(result.connectionSummary).toContain("Local storage: /srv/whrkhldsb/storage");
+    expect(result.connectionSummary).toContain(
+      "Local storage: /srv/whrkhldsb/storage",
+    );
     expect(result.directAccess.mode).toBe("managed-download");
   });
 
@@ -140,9 +150,13 @@ describe("storage service", () => {
       serverId: "srv_1",
     });
 
-    expect(result.connectionSummary).toContain("SFTP storage: root@203.0.113.11:22 (bound node hk-media-1), root directory /data/media");
+    expect(result.connectionSummary).toContain(
+      "SFTP storage: root@203.0.113.11:22 (bound node hk-media-1), root directory /data/media",
+    );
     expect(result.directAccess.mode).toBe("direct-url");
-    expect(result.directAccess.description).toContain("storage server direct access");
+    expect(result.directAccess.description).toContain(
+      "storage server direct access",
+    );
   });
 
   it("lists file entries with preview flags and direct access strategy", async () => {
@@ -234,11 +248,7 @@ describe("storage service", () => {
     expect(prisma.fileEntry.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { isDeleted: false },
-        orderBy: [
-          { entryType: "asc" },
-          { relativePath: "asc" },
-          { id: "asc" },
-        ],
+        orderBy: [{ entryType: "asc" }, { relativePath: "asc" }, { id: "asc" }],
         take: 25,
         // skip is bumped by 1 so the cursor row is included in the page
         skip: 11,
@@ -255,7 +265,8 @@ describe("storage service", () => {
 
     await listFileEntries(undefined, { cursor: "file_seed" });
 
-    const callArgs = vi.mocked(prisma.fileEntry.findMany).mock.calls[0]?.[0] as Record<string, unknown>;
+    const callArgs = vi.mocked(prisma.fileEntry.findMany).mock
+      .calls[0]?.[0] as Record<string, unknown>;
     expect(callArgs).toMatchObject({
       where: { isDeleted: false },
       cursor: { id: "file_seed" },
@@ -269,7 +280,8 @@ describe("storage service", () => {
 
     await listDeletedFileEntries("node_1", { take: 5, cursor: "deleted_seed" });
 
-    const callArgs = vi.mocked(prisma.fileEntry.findMany).mock.calls[0]?.[0] as Record<string, unknown>;
+    const callArgs = vi.mocked(prisma.fileEntry.findMany).mock
+      .calls[0]?.[0] as Record<string, unknown>;
     expect(callArgs).toMatchObject({
       where: { isDeleted: true, storageNodeId: "node_1" },
       orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
@@ -652,7 +664,10 @@ describe("storage service", () => {
 
     try {
       assertStorageAccessMock.mockResolvedValueOnce({ allowed: true });
-      const result = await getLocalEditableFileDraft({ fileEntryId: "file_3", session: storageSession });
+      const result = await getLocalEditableFileDraft({
+        fileEntryId: "file_3",
+        session: storageSession,
+      });
 
       expect(result).toMatchObject({
         fileEntryId: "file_3",
@@ -694,7 +709,10 @@ describe("storage service", () => {
     });
 
     await expect(
-      getLocalEditableFileDraft({ fileEntryId: "file_denied", session: storageSession }),
+      getLocalEditableFileDraft({
+        fileEntryId: "file_denied",
+        session: storageSession,
+      }),
     ).rejects.toThrow("没有该存储节点或路径的访问授权");
     expect(assertStorageAccessMock).toHaveBeenCalledWith({
       session: storageSession,
@@ -707,7 +725,9 @@ describe("storage service", () => {
 
   it("saves editable local file drafts and updates metadata", async () => {
     vi.clearAllMocks();
-    const tempRoot = await mkdtemp(path.join(tmpdir(), "storage-editable-save-"));
+    const tempRoot = await mkdtemp(
+      path.join(tmpdir(), "storage-editable-save-"),
+    );
     const relativePath = "docs/notes.txt";
     const absolutePath = path.join(tempRoot, relativePath);
     await mkdir(path.dirname(absolutePath), { recursive: true });
@@ -748,7 +768,9 @@ describe("storage service", () => {
         expectedUpdatedAt: "2026-04-20T01:02:03.000Z",
       });
 
-      await expect(readFileToDisk(absolutePath, "utf8")).resolves.toBe("new content");
+      await expect(readFileToDisk(absolutePath, "utf8")).resolves.toBe(
+        "new content",
+      );
       expect(prisma.fileEntry.update).toHaveBeenCalledWith({
         where: { id: "file_save" },
         data: expect.objectContaining({
@@ -769,7 +791,9 @@ describe("storage service", () => {
 
   it("rejects stale editable saves when the stored file version changed", async () => {
     vi.clearAllMocks();
-    const tempRoot = await mkdtemp(path.join(tmpdir(), "storage-editable-stale-"));
+    const tempRoot = await mkdtemp(
+      path.join(tmpdir(), "storage-editable-stale-"),
+    );
     const relativePath = "docs/notes.txt";
     const absolutePath = path.join(tempRoot, relativePath);
     await mkdir(path.dirname(absolutePath), { recursive: true });
@@ -806,7 +830,9 @@ describe("storage service", () => {
           expectedUpdatedAt: "2026-04-20T01:02:03.000Z",
         }),
       ).rejects.toThrow(/updated by another operation|文件已被其他操作更新/);
-      await expect(readFileToDisk(absolutePath, "utf8")).resolves.toBe("newer on disk");
+      await expect(readFileToDisk(absolutePath, "utf8")).resolves.toBe(
+        "newer on disk",
+      );
       expect(prisma.fileEntry.update).not.toHaveBeenCalled();
     } finally {
       await rm(tempRoot, { recursive: true, force: true });
@@ -816,7 +842,9 @@ describe("storage service", () => {
   it("loads editable local file drafts from local storage roots with app slug placeholders", async () => {
     vi.clearAllMocks();
     const previousSlug = process.env.APP_SLUG;
-    const tempParent = await mkdtemp(path.join(tmpdir(), "storage-editable-expanded-"));
+    const tempParent = await mkdtemp(
+      path.join(tmpdir(), "storage-editable-expanded-"),
+    );
     process.env.APP_SLUG = "vcontrolhub";
     const tempRoot = path.join(tempParent, "vcontrolhub", "storage");
     const relativePath = "docs/notes.txt";
@@ -847,7 +875,10 @@ describe("storage service", () => {
 
     try {
       assertStorageAccessMock.mockResolvedValueOnce({ allowed: true });
-      const result = await getLocalEditableFileDraft({ fileEntryId: "file_expanded", session: storageSession });
+      const result = await getLocalEditableFileDraft({
+        fileEntryId: "file_expanded",
+        session: storageSession,
+      });
       expect(result.content).toBe("expanded hello");
       expect(result.relativePath).toBe(relativePath);
     } finally {
@@ -863,7 +894,9 @@ describe("storage service", () => {
   it("checks local storage health against expanded app slug roots", async () => {
     vi.clearAllMocks();
     const previousSlug = process.env.APP_SLUG;
-    const tempParent = await mkdtemp(path.join(tmpdir(), "storage-health-expanded-"));
+    const tempParent = await mkdtemp(
+      path.join(tmpdir(), "storage-health-expanded-"),
+    );
     process.env.APP_SLUG = "vcontrolhub";
     const tempRoot = path.join(tempParent, "vcontrolhub", "storage");
     await mkdir(tempRoot, { recursive: true });
@@ -1130,7 +1163,9 @@ describe("storage service", () => {
 
     await expect(
       restoreFileEntry({ fileEntryId: "file_missing_sftp" }),
-    ).rejects.toThrow(/original remote file no longer exists|原始远端文件已不存在/);
+    ).rejects.toThrow(
+      /original remote file no longer exists|原始远端文件已不存在/,
+    );
     expect(prisma.fileEntry.update).not.toHaveBeenCalled();
   });
 });
