@@ -76,6 +76,17 @@ describe("resolveSshWsListenConfig", () => {
 		expect(source).not.toMatch(/findUnique\(\{\s*where:\s*\{\s*id:\s*serverId/);
 	});
 
+	it("quarantines unassigned (null-team) servers instead of treating them as shared", async () => {
+		// Servers are security roots: serverTeamWhere()/assertServerTeamAccess()
+		// restrict teamId=null legacy rows to `team:manage`. The WS proxy used the
+		// generic teamWhere() shape ({ OR: [team, { teamId: null }] }), so any user
+		// holding `server:ssh` could open a root shell on a legacy VPS that the
+		// HTTP surface hides from them.
+		const source = await readFile(path.resolve(__dirname, "../ssh-ws-proxy.ts"), "utf8");
+		expect(source).toContain("__unassigned_servers_require_team_manage__");
+		expect(source).not.toMatch(/OR:\s*\[\{\s*teamId:\s*session\.currentTeamId\s*\}\s*,\s*\{\s*teamId:\s*null\s*\}\s*\]/);
+	});
+
 	it("reuses the database-backed session verifier so revoked SSH access takes effect immediately", async () => {
 		const source = await readFile(path.resolve(__dirname, "../ssh-ws-proxy.ts"), "utf8");
 		expect(source).toContain('verifySessionToken } from "./lib/auth/session"');

@@ -110,14 +110,19 @@ async function resolveServerConnection(
   serverId: string,
   session: SessionPayload,
 ) {
+ // Server rows are security roots: a null teamId is quarantined legacy data,
+ // NOT an implicit shared VPS. This must match `serverTeamWhere()` /
+ // `assertServerTeamAccess()` — the HTTP surface already restricts unassigned
+ // servers to `team:manage`, so accepting them here would let any user with
+ // `server:ssh` open a root shell on a legacy VPS the web UI hides from them.
  const srv = await prisma.server.findFirst({
   where: {
    id: serverId,
    ...(canBypassTeamScope(session.roles)
      ? {}
      : session.currentTeamId
-       ? { OR: [{ teamId: session.currentTeamId }, { teamId: null }] }
-       : { teamId: null }),
+       ? { teamId: session.currentTeamId }
+       : { id: "__unassigned_servers_require_team_manage__" }),
   },
   select: {
    id: true,
