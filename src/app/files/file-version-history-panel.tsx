@@ -168,6 +168,7 @@ export function FileVersionHistoryPanel({
       {canWrite ? (
         <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
           <input
+            aria-label={t("fileVersionHistory.notePlaceholder")}
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder={t("fileVersionHistory.notePlaceholder")}

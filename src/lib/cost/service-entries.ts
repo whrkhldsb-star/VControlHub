@@ -67,12 +67,16 @@ export async function listCostEntries(options: ListCostEntriesOptions = {}): Pro
 
 export async function summarizeMonth(month: string, currency: CostCurrency = DEFAULT_CURRENCY, session?: TeamSession | null): Promise<CostSummary> {
 	const start = startOfMonthUtc(month); const end = endOfMonthUtc(month);
-	const rows = await prisma.costEntry.findMany({ where: { effectiveDate: { gte: start, lt: end }, ...(session ? teamWhere(session) : {}) }, select: { category: true, amount: true, currency: true }, take: 10000 });
+	const rows = await prisma.costEntry.groupBy({
+		by: ["category"],
+		where: { currency, effectiveDate: { gte: start, lt: end }, ...(session ? teamWhere(session) : {}) },
+		_sum: { amount: true },
+		_count: { _all: true },
+	});
 	const byCategory = emptyByCategory(); let total = 0; let count = 0;
 	for (const row of rows) {
-		if (row.currency !== currency) continue;
 		const category = (COST_CATEGORY_VALUES as readonly string[]).includes(row.category) ? row.category as CostCategory : "other";
-		const amount = row.amount.toString(); addDecimal(byCategory, category, amount); total += Number.isFinite(Number(amount)) ? Number(amount) : 0; count += 1;
+		const amount = row._sum.amount?.toString() ?? "0"; addDecimal(byCategory, category, amount); total += Number.isFinite(Number(amount)) ? Number(amount) : 0; count += row._count._all;
 	}
 	return { month, currency, totalAmount: total.toFixed(2), byCategory, entryCount: count, rangeStart: isoDateOnly(start), rangeEnd: lastDayIsoOfMonth(month) };
 }
@@ -80,13 +84,19 @@ export async function summarizeMonth(month: string, currency: CostCurrency = DEF
 export async function listRecentSnapshots(limit = 30, session?: TeamSession | null, currency: CostCurrency = DEFAULT_CURRENCY): Promise<DailySnapshot[]> {
 	if (session) {
 		const days = Math.max(1, Math.min(limit, 365));
-		const rows = await prisma.costEntry.findMany({ where: { ...teamWhere(session), effectiveDate: { gte: new Date(Date.now() - days * 86400000) } }, select: { effectiveDate: true, category: true, amount: true, currency: true }, take: 10000 });
+		const rows = await prisma.costEntry.groupBy({
+			by: ["effectiveDate", "category"],
+			where: { ...teamWhere(session), currency, effectiveDate: { gte: new Date(Date.now() - days * 86400000) } },
+			_sum: { amount: true },
+			_count: { _all: true },
+			orderBy: { effectiveDate: "desc" },
+		});
 		const byDay = new Map<string, { total: number; byCategory: Record<string, string>; count: number }>();
 		for (const row of rows) {
-			if (row.currency !== currency) continue;
 			const day = isoDateOnly(row.effectiveDate); const bucket = byDay.get(day) ?? { total: 0, byCategory: emptyByCategory(), count: 0 }; byDay.set(day, bucket);
 			const category = (COST_CATEGORY_VALUES as readonly string[]).includes(row.category) ? row.category as CostCategory : "other";
-			addDecimal(bucket.byCategory, category, row.amount.toString()); bucket.total += Number(row.amount); bucket.count += 1;
+			const amount = row._sum.amount?.toString() ?? "0";
+			addDecimal(bucket.byCategory, category, amount); bucket.total += Number(amount); bucket.count += row._count._all;
 		}
 		return Array.from(byDay.entries()).sort((a,b) => b[0].localeCompare(a[0])).slice(0,days).map(([snapshotDate,b]) => ({ snapshotDate, totalAmount: b.total.toFixed(2), byCategory: b.byCategory, entryCount: b.count }));
 	}

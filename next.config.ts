@@ -21,13 +21,10 @@ const nextConfig: NextConfig = {
 	// full Next.js app output instead of .next/standalone/server.js, so do not
 	// enable output: "standalone" here; Next.js warns at runtime when custom
 	// servers call next({ dev: false }) with standalone output enabled.
-	// Add cache headers to static assets
+	// Add cache headers that differ from Next.js defaults. Hashed files under
+	// /_next/static already receive immutable caching from Next.js itself.
 	async headers() {
 		return [
-			{
-				source: "/_next/static/(.*)",
-				headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
-			},
 			{
 				source: "/api/(status|system-health|tickets|notifications)",
 				headers: [

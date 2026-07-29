@@ -182,7 +182,8 @@ function isInvisibleField(raw: string, type: string | undefined): boolean {
 }
 
 /**
- * Walk a TSX file's text and collect all relevant fields and labels.
+ * Walk a TSX file's text and collect all relevant fields and labels,
+ * including the project's FormField primitive when it declares htmlFor.
  *
  * We do this in a single pass: track the position of each opening tag
  * (input / textarea / select / label), and the position of the matching
@@ -192,13 +193,14 @@ function collectNodes(text: string): { fields: Field[]; labels: Label[] } {
   const fields: Field[] = [];
   const labels: Label[] = [];
   const scanText = text.replace(/\/\*[\s\S]*?\*\//g, (comment) => " ".repeat(comment.length)).replace(/\/\/[^\n]*/g, (comment) => " ".repeat(comment.length));
-  const tagRe = /<(input|textarea|select|label)\b/g;
+  const tagRe = /<(input|textarea|select|label|FormField)\b/g;
   let m: RegExpExecArray | null;
 
   while ((m = tagRe.exec(scanText)) !== null) {
-    const tagKind = m[1]!.toLowerCase() as FieldKind | "label";
+    const tagName = m[1]!;
+    const tagKind = tagName.toLowerCase() as FieldKind | "label" | "formfield";
     const tagStart = m.index;
-    const tagNameEnd = tagStart + 1 + tagKind.length;
+    const tagNameEnd = tagStart + 1 + tagName.length;
     const tagEnd = findTagEnd(scanText, tagNameEnd);
     if (tagEnd < 0) continue;
     const inner = scanText.slice(tagNameEnd, tagEnd);
@@ -206,7 +208,7 @@ function collectNodes(text: string): { fields: Field[]; labels: Label[] } {
     const line = lineForOffset(text, tagStart);
     const raw = `<${tagKind}${inner}>`;
 
-    if (tagKind === "label") {
+    if (tagKind === "label" || tagKind === "formfield") {
       // Record the label's htmlFor for matching; depth tracking for the
       // label-wrapping check happens in computeLabelWrapping below.
       labels.push({ line, raw, htmlFor: attrs.htmlfor });

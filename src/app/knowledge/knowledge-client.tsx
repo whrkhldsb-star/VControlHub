@@ -213,6 +213,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
               </ActionButton>
             </div>
             <input
+              aria-label={t("knowledgePage.descPlaceholder")}
               className={UI_INPUT}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -251,6 +252,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
         >
           <div className="space-y-3">
             <input
+              aria-label={t("knowledgePage.docTitlePlaceholder")}
               className={UI_INPUT}
               value={docTitle}
               onChange={(e) => setDocTitle(e.target.value)}
@@ -258,6 +260,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
               disabled={!selectedId}
             />
             <textarea
+              aria-label={t("knowledgePage.docContentPlaceholder")}
               className={`${UI_INPUT} min-h-40 font-mono text-[11px]`}
               value={docContent}
               onChange={(e) => setDocContent(e.target.value)}
@@ -300,6 +303,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
       <SurfacePanel title={t("knowledgePage.searchTitle")} description={t("knowledgePage.searchDescription")}>
         <div className="flex flex-wrap gap-2">
           <input
+            aria-label={t("knowledgePage.queryPlaceholder")}
             className={`${UI_INPUT} min-w-[12rem] flex-1`}
             value={query}
             onChange={(e) => setQuery(e.target.value)}

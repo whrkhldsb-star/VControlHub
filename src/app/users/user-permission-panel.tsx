@@ -242,7 +242,7 @@ const _data = await csrfFetch("/api/users/permissions", {
               <h4 className="font-medium text-[var(--text-primary)]">{t("usersPerm.template.title")}</h4>
               <p className="mt-1 text-xs text-[var(--text-muted)]">{t("usersPerm.template.desc")}</p>
               <div className="mt-3 flex flex-wrap gap-2">
-                <select value={selectedTemplateId} onChange={(event) => setSelectedTemplateId(event.target.value)} className="min-h-10 rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 text-sm text-[var(--text-primary)]">
+                <select aria-label={t("usersPerm.template.select")} value={selectedTemplateId} onChange={(event) => setSelectedTemplateId(event.target.value)} className="min-h-10 rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 text-sm text-[var(--text-primary)]">
                   <option value="">{t("usersPerm.template.select")}</option>
                   {templates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}
                 </select>

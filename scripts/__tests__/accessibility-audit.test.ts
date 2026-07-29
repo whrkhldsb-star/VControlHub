@@ -34,6 +34,18 @@ describe("scanFile — basic positive cases", () => {
     expect(results[0]!.field.type).toBe("text");
   });
 
+  it("passes a field associated through the shared FormField primitive", () => {
+    const text = [
+      '<FormField label={t("field.name")} htmlFor="resource-name">',
+      '  <input id="resource-name" />',
+      '</FormField>',
+    ].join("\n");
+    const results = scanFile("resource.tsx", text);
+    expect(results).toHaveLength(1);
+    expect(results[0]!.ok).toBe(true);
+    expect(results[0]!.reason).toBe("htmlFor-match");
+  });
+
   it("passes an input that has aria-label", () => {
     const text = `
       <input type="search" aria-label="Search tickets" placeholder="Type to search" />

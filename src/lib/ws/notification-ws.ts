@@ -72,6 +72,17 @@ export function getWsServer(): WebSocketServer | null {
 	return wss;
 }
 
+export function closeWebSocketServer(): void {
+	if (!wss) return;
+	for (const client of wss.clients) {
+		client.terminate();
+	}
+	wss.close();
+	wss = null;
+	userConnections.clear();
+	setWsActive("notification", 0);
+}
+
 
 function extractCookie(cookieHeader: string | undefined, name: string): string | null {
 	if (!cookieHeader) return null;

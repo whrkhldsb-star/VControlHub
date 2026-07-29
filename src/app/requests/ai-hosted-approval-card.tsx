@@ -115,6 +115,7 @@ export function AiHostedApprovalCard({ action }: AiHostedApprovalCardProps) {
             <FormField label={t("aiHostedApproval.rejectReasonLabel")} className="mt-3">
               <input
                 type="text"
+                aria-label={t("aiHostedApproval.rejectReasonLabel")}
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
                 placeholder={t("aiHostedApproval.rejectReasonPlaceholder")}

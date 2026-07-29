@@ -21,7 +21,7 @@
 import { createServer } from "node:http";
 import next from "next";
 
-import { setupWebSocketServer } from "@/lib/ws/notification-ws";
+import { closeWebSocketServer, setupWebSocketServer } from "@/lib/ws/notification-ws";
 import { createLogger } from "@/lib/logging";
 
 const logger = createLogger("server");
@@ -98,10 +98,14 @@ async function main() {
 		shuttingDown = true;
 		logger.info("HTTP server shutdown started", { signal });
 		const forceTimer = setTimeout(() => {
-			logger.error("HTTP server graceful shutdown timed out; forcing exit");
-			process.exit(1);
+			logger.warn("HTTP server graceful shutdown timed out; closing remaining connections");
+			server.closeAllConnections();
+			process.exit(0);
 		}, 15_000);
 		forceTimer.unref();
+		// Upgraded WebSocket connections are not managed by server.close().
+		// Terminate them first so routine systemd stops can complete cleanly.
+		closeWebSocketServer();
 		server.close((error) => {
 			clearTimeout(forceTimer);
 			if (error) {

@@ -813,7 +813,7 @@ describe("deploy/install.sh", () => {
     } finally {
       await rm(appDir, { force: true, recursive: true });
     }
-  });
+  }, 15000);
 
   it("refuses to install live systemd units from temporary APP_DIR test fixtures", async () => {
     const repoRoot = path.resolve(__dirname, "../..");

@@ -269,6 +269,8 @@ export function scanCallSites(files: string[]): CallSite[] {
   // `permission: "perm:key"` (no leading word boundary — `:` and `"` are
   // both non-word, so `\b` would never match between them).
   const permArgRe = /permission:\s*"([a-z][a-z0-9_-]*(?::[a-z0-9_-]+)+)"/g;
+  const permissionsArgRe = /permissions:\s*\[([\s\S]*?)\]/g;
+  const permissionLiteralRe = /"([a-z][a-z0-9_-]*(?::[a-z0-9_-]+)+)"/g;
 
   for (const file of files) {
     const text = readFileSync(resolve(ROOT, file), "utf8");
@@ -287,6 +289,14 @@ export function scanCallSites(files: string[]): CallSite[] {
 			for (const match of text.matchAll(permArgRe)) {
 				const lineNum = text.slice(0, match.index ?? 0).split("\n").length;
 				sites.push({ permission: match[1]!, kind: "withApiRoutePermission", file, line: lineNum });
+			}
+			for (const arrayMatch of text.matchAll(permissionsArgRe)) {
+				const valueOffset = (arrayMatch.index ?? 0) + arrayMatch[0].indexOf(arrayMatch[1]!);
+				for (const match of arrayMatch[1]!.matchAll(permissionLiteralRe)) {
+					const offset = valueOffset + (match.index ?? 0);
+					const lineNum = text.slice(0, offset).split("\n").length;
+					sites.push({ permission: match[1]!, kind: "withApiRoutePermission", file, line: lineNum });
+				}
 			}
 		}
     for (let i = 0; i < lines.length; i++) {

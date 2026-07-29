@@ -102,6 +102,47 @@ function makePrismaMock() {
 					return rows;
 				},
 			),
+			groupBy: vi.fn(
+				async ({
+					by,
+					where,
+					orderBy,
+				}: {
+					by: Array<"category" | "effectiveDate">;
+					where?: { currency?: string; effectiveDate?: { gte?: Date; lt?: Date } };
+					orderBy?: { effectiveDate?: "asc" | "desc" };
+				}) => {
+					let rows = Array.from(store.entries.values());
+					if (where?.currency) rows = rows.filter((row) => row.currency === where.currency);
+					if (where?.effectiveDate?.gte) rows = rows.filter((row) => row.effectiveDate >= where.effectiveDate!.gte!);
+					if (where?.effectiveDate?.lt) rows = rows.filter((row) => row.effectiveDate < where.effectiveDate!.lt!);
+					const groups = new Map<string, { category: string; effectiveDate?: Date; amount: number; count: number }>();
+					for (const row of rows) {
+						const key = by.includes("effectiveDate")
+							? row.effectiveDate.toISOString() + ":" + row.category
+							: row.category;
+						const group = groups.get(key) ?? {
+							category: row.category,
+							...(by.includes("effectiveDate") ? { effectiveDate: row.effectiveDate } : {}),
+							amount: 0,
+							count: 0,
+						};
+						group.amount += Number(row.amount);
+						group.count += 1;
+						groups.set(key, group);
+					}
+					const result = Array.from(groups.values()).map((group) => ({
+						category: group.category,
+						...(group.effectiveDate ? { effectiveDate: group.effectiveDate } : {}),
+						_sum: { amount: { toString: () => group.amount.toFixed(2) } },
+						_count: { _all: group.count },
+					}));
+					if (orderBy?.effectiveDate === "desc") {
+						result.sort((a, b) => (b.effectiveDate?.getTime() ?? 0) - (a.effectiveDate?.getTime() ?? 0));
+					}
+					return result;
+				},
+			),
 			update: vi.fn(
 				async ({ where, data }: { where: { id: string }; data: Partial<CostEntryRow> }) => {
 					const cur = store.entries.get(where.id);
@@ -445,6 +486,33 @@ describe("snapshot writer + reader", () => {
 		});
 		const recent = await listRecentSnapshots(10);
 		expect(recent.map((r) => r.snapshotDate)).toEqual(["2026-06-15", "2026-06-10"]);
+	});
+
+	it("aggregates team snapshots in the database by day and category", async () => {
+		const today = new Date().toISOString().slice(0, 10);
+		await createCostEntry({ category: "vps", provider: "A", amount: "10", currency: "CNY", effectiveDate: today });
+		await createCostEntry({ category: "storage", provider: "B", amount: "5", currency: "CNY", effectiveDate: today });
+		await createCostEntry({ category: "vps", provider: "C", amount: "99", currency: "USD", effectiveDate: today });
+
+		const recent = await listRecentSnapshots(
+			30,
+			{ userId: "user-1", roles: ["operator"], currentTeamId: "team-1" },
+			"CNY",
+		);
+
+		expect(recent).toHaveLength(1);
+		expect(recent[0]).toMatchObject({
+			snapshotDate: today,
+			totalAmount: "15.00",
+			entryCount: 2,
+			byCategory: { vps: "10.00", storage: "5.00" },
+		});
+		expect(prismaMock.costEntry.groupBy).toHaveBeenCalledWith(
+			expect.objectContaining({
+				by: ["effectiveDate", "category"],
+				where: expect.objectContaining({ currency: "CNY" }),
+			}),
+		);
 	});
 });
 

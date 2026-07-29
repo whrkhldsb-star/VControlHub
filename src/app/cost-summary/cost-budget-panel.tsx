@@ -131,12 +131,14 @@ export function CostBudgetPanel({
         <div className="mt-4 grid gap-2 md:grid-cols-6">
           <input
             className={inputClass}
+            aria-label={t("costPage.budget.name")}
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             placeholder={t("costPage.budget.name")}
           />
           <select
             className={inputClass}
+            aria-label={t("costPage.budget.category")}
             value={form.category}
             onChange={(e) => setForm({ ...form, category: e.target.value as CostCategory })}
           >
@@ -148,12 +150,14 @@ export function CostBudgetPanel({
           </select>
           <input
             className={inputClass}
+            aria-label={t("costPage.budget.limit")}
             value={form.limitAmount}
             onChange={(e) => setForm({ ...form, limitAmount: e.target.value })}
             placeholder={t("costPage.budget.limit")}
           />
           <select
             className={inputClass}
+            aria-label={t("costPage.budget.currency")}
             value={form.currency}
             onChange={(e) => setForm({ ...form, currency: e.target.value as CostCurrency })}
           >
@@ -163,6 +167,7 @@ export function CostBudgetPanel({
           </select>
           <select
             className={inputClass}
+            aria-label={t("costPage.budget.period")}
             value={form.period}
             onChange={(e) => setForm({ ...form, period: e.target.value })}
           >

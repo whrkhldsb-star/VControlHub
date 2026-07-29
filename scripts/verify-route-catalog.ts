@@ -15,6 +15,11 @@
  */
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import {
+  mainNavItems,
+  mobileNavItems,
+  systemNavItems,
+} from '../src/components/nav-items';
 
 function walk(dir: string): string[] {
   const out: string[] = [];
@@ -44,6 +49,37 @@ const warn: string[] = [];
 
 const pagePaths = new Set(catalog.pages.map((p) => p.path));
 const permSet = new Set(catalog.permissions);
+
+function verifyCurrentNavigation(
+  label: string,
+  currentHrefs: string[],
+  catalogHrefs: string[],
+) {
+  const current = new Set(currentHrefs);
+  const recorded = new Set(catalogHrefs);
+  for (const href of current) {
+    if (!recorded.has(href)) errors.push(label + ' href ' + href + ' is missing from the catalog');
+  }
+  for (const href of recorded) {
+    if (!current.has(href)) errors.push(label + ' catalog contains stale href ' + href);
+  }
+}
+
+verifyCurrentNavigation(
+  'sidebar main',
+  mainNavItems.map(({ href }) => href),
+  catalog.sidebar.main.map(({ href }) => href),
+);
+verifyCurrentNavigation(
+  'sidebar system',
+  systemNavItems.map(({ href }) => href),
+  catalog.sidebar.system.map(({ href }) => href),
+);
+verifyCurrentNavigation(
+  'sidebar mobile',
+  mobileNavItems.map(({ href }) => href),
+  catalog.sidebar.mobileHrefs,
+);
 
 for (const item of catalog.sidebar.main) {
   if (!pagePaths.has(item.href)) {

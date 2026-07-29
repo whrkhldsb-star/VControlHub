@@ -212,6 +212,7 @@ export function CostCloudBillingPanel({
 						<>
 							<input
 								className={inputClass}
+								aria-label={t("costPage.billing.accessKeyId")}
 								value={form.accessKeyId}
 								onChange={(e) => setForm({ ...form, accessKeyId: e.target.value })}
 								placeholder={t("costPage.billing.accessKeyId")}
@@ -219,6 +220,7 @@ export function CostCloudBillingPanel({
 							/>
 							<input
 								className={inputClass}
+								aria-label={t("costPage.billing.secretAccessKey")}
 								type="password"
 								value={form.secretAccessKey}
 								onChange={(e) => setForm({ ...form, secretAccessKey: e.target.value })}
@@ -227,6 +229,7 @@ export function CostCloudBillingPanel({
 							/>
 							<input
 								className={inputClass}
+								aria-label={t("costPage.billing.region")}
 								value={form.region}
 								onChange={(e) => setForm({ ...form, region: e.target.value })}
 								placeholder={t("costPage.billing.region")}

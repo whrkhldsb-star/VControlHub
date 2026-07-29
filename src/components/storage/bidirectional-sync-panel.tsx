@@ -222,19 +222,21 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
       <div className="grid gap-2 sm:grid-cols-2">
         <input
           className={UI_INPUT}
+          aria-label={t("filesPage.syncJobs.namePlaceholder")}
           placeholder={t("filesPage.syncJobs.namePlaceholder")}
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
         <select
           className={UI_INPUT}
+          aria-label={t("filesPage.syncJobs.typeLabel")}
           value={syncType}
           onChange={(e) => setSyncType(e.target.value as "MIRROR" | "BIDIRECTIONAL")}
         >
           <option value="BIDIRECTIONAL">{t("filesPage.syncJobs.type.bidirectional")}</option>
           <option value="MIRROR">{t("filesPage.syncJobs.type.mirror")}</option>
         </select>
-        <select className={UI_INPUT} value={schedule} onChange={(e) => setSchedule(e.target.value)}>
+        <select aria-label={t("filesPage.syncJobs.scheduleLabel")} className={UI_INPUT} value={schedule} onChange={(e) => setSchedule(e.target.value)}>
           {SCHEDULES.map((s) => (
             <option key={s.value} value={s.value}>
               {t(s.key)}
@@ -243,6 +245,7 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
         </select>
         <select
           className={UI_INPUT}
+          aria-label={t("filesPage.syncJobs.source")}
           value={sourceServerId}
           onChange={(e) => setSourceServerId(e.target.value)}
         >
@@ -254,6 +257,7 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
         </select>
         <select
           className={UI_INPUT}
+          aria-label={t("filesPage.syncJobs.target")}
           value={targetServerId}
           onChange={(e) => setTargetServerId(e.target.value)}
         >
@@ -265,12 +269,14 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
         </select>
         <input
           className={UI_INPUT}
+          aria-label={t("filesPage.syncJobs.sourcePath")}
           value={sourcePath}
           onChange={(e) => setSourcePath(e.target.value)}
           placeholder={t("filesPage.syncJobs.sourcePath")}
         />
         <input
           className={UI_INPUT}
+          aria-label={t("filesPage.syncJobs.targetPath")}
           value={targetPath}
           onChange={(e) => setTargetPath(e.target.value)}
           placeholder={t("filesPage.syncJobs.targetPath")}
@@ -318,6 +324,7 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
                 <div className="flex flex-wrap gap-2">
                   <select
                     className={`${UI_INPUT} !py-1 !text-xs`}
+                    aria-label={t("filesPage.syncJobs.scheduleLabel")}
                     value={job.schedule || "manual"}
                     disabled={busyId === `sch-${job.id}`}
                     onChange={(e) => void patchSchedule(job.id, e.target.value)}

@@ -170,6 +170,28 @@ describe("scanCallSites — synthetic fixtures", () => {
     expect(sites[0]!.variable).toBe("canDelete");
   });
 
+  it("finds every permission in withApiRoute any-of arrays", () => {
+    const file = join(tmp, "route.ts");
+    writeFileSync(
+      file,
+      [
+        "export function POST(request: Request) {",
+        "  return withApiRoute(request, {",
+        '    permissions: ["ticket:create", "ticket:manage", "ticket:read"],',
+        "  }, async () => new Response());",
+        "}",
+      ].join("\n"),
+    );
+
+    const sites = scanCallSites([file]);
+    expect(sites.map(({ permission }) => permission).sort()).toEqual([
+      "ticket:create",
+      "ticket:manage",
+      "ticket:read",
+    ]);
+    expect(sites.every(({ kind }) => kind === "withApiRoutePermission")).toBe(true);
+  });
+
   it("finds requirePermission call sites in API route handlers", () => {
     const file = join(tmp, "route.ts");
     writeFileSync(

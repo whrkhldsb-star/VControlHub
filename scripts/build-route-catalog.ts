@@ -8,10 +8,14 @@
  */
 import { writeFileSync, readFileSync, statSync, readdirSync } from 'node:fs';
 import { join, relative, resolve, dirname } from 'node:path';
+import {
+  mainNavItems,
+  mobileNavItems,
+  systemNavItems,
+} from '../src/components/nav-items';
 
 const ROOT = process.cwd();
 const APP = join(ROOT, 'src', 'app');
-const NAV_FILE = join(ROOT, 'src', 'components', 'nav-items.tsx');
 const RBAC_FILE = join(ROOT, 'src', 'lib', 'auth', 'rbac.ts');
 const OUT = join(ROOT, 'docs', 'route-catalog.json');
 
@@ -27,22 +31,6 @@ function walk(dir: string): string[] {
     }
   }
   return out;
-}
-
-function extractSection(text: string, start: string, end: string): string {
-  const s = text.indexOf(start);
-  const e = end ? text.indexOf(end, s + 1) : -1;
-  return s >= 0 && e > 0 ? text.slice(s, e) : '';
-}
-
-function parseNavItems(block: string): { href: string; fallbackLabel: string }[] {
-  const items: { href: string; fallbackLabel: string }[] = [];
-  const re = /href:\s*"([^"]+)[\s\S]*?fallbackLabel:\s*"([^"]+)"/g;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(block)) !== null) {
-    items.push({ href: m[1]!, fallbackLabel: m[2]! });
-  }
-  return items;
 }
 
 /**
@@ -98,6 +86,12 @@ function apiMethods(text: string, filePath: string, seen: Set<string> = new Set(
   while ((m = direct.exec(text)) !== null) {
     set.add(m[1]!);
   }
+  // Next.js route handlers may also export a shared handler by alias, e.g.
+  // `export const GET = withParams`. Treat those as first-class methods too.
+  const aliases = /export\s+const\s+(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s*=/g;
+  while ((m = aliases.exec(text)) !== null) {
+    set.add(m[1]!);
+  }
   // 跟随 re-export: `export { GET } from "./other";`
   const reexp = /export\s*\{([^}]+)\}\s*from\s*["']([^"']+)["']/g;
   while ((m = reexp.exec(text)) !== null) {
@@ -132,16 +126,13 @@ function guardMode(text: string): string {
 }
 
 function main() {
-  const navText = readFileSync(NAV_FILE, 'utf8');
-  const mainBlock = extractSection(navText, 'mainNavItems:', 'export const systemNavItems');
-  const systemBlock = extractSection(navText, 'systemNavItems:', 'mobileNavHrefs');
-  const mobileMatch = navText.match(/mobileNavHrefs\s*=\s*\[([\s\S]*?)\]/);
-  const mobileHrefs = mobileMatch
-    ? [...mobileMatch[1]!.matchAll(/"(\/[^"]+)"/g)].map((m) => m[1]!)
-    : [];
-
-  const mainNav = parseNavItems(mainBlock);
-  const systemNav = parseNavItems(systemBlock);
+  const selectNavFields = ({ href, fallbackLabel }: { href: string; fallbackLabel: string }) => ({
+    href,
+    fallbackLabel,
+  });
+  const mainNav = mainNavItems.map(selectNavFields);
+  const systemNav = systemNavItems.map(selectNavFields);
+  const mobileHrefs = mobileNavItems.map(({ href }) => href);
 
   const pages = walk(APP)
     .filter((f) => f.endsWith('/page.tsx'))

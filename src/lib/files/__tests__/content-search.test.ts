@@ -1,5 +1,32 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { sanitizeSearchQuery } from "../content-search";
+
+const { findManyMock, teamWhereMock } = vi.hoisted(() => ({
+	findManyMock: vi.fn(),
+	teamWhereMock: vi.fn(),
+}));
+
+vi.mock("@/lib/db", () => ({
+	prisma: { storageNode: { findMany: findManyMock } },
+}));
+vi.mock("@/lib/auth/team-scope", () => ({ teamWhere: teamWhereMock }));
+vi.mock("@/lib/logging", () => ({
+	createLogger: () => ({
+		debug: vi.fn(),
+		warn: vi.fn(),
+		error: vi.fn(),
+		info: vi.fn(),
+	}),
+}));
+vi.mock("@/lib/ssh/client", () => ({
+	buildSshParamsFromServer: vi.fn(),
+	execRemoteCommand: vi.fn(),
+}));
+vi.mock("@/lib/storage/service-entries", () => ({
+	resolveLocalAbsolutePath: vi.fn((base: string, rel: string) => `${base}/${rel}`),
+}));
+vi.mock("@/lib/storage/access-control", () => ({ assertStorageAccess: vi.fn() }));
+
+import { sanitizeSearchQuery, searchFileContents } from "../content-search";
 
 // These tests focus on the pure functions and query sanitization.
 // The full search functions require DB + SSH mocking which is covered
@@ -23,41 +50,14 @@ describe("sanitizeSearchQuery", () => {
 });
 
 describe("searchFileContents", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		findManyMock.mockResolvedValue([]);
+		teamWhereMock.mockReturnValue({});
+	});
+
 	// Test that empty query returns empty results
 	it("returns empty results for empty query", async () => {
-		// We need to mock prisma to avoid DB connection
-		vi.mock("@/lib/db", () => ({
-			prisma: {
-				storageNode: {
-					findMany: vi.fn().mockResolvedValue([]),
-				},
-			},
-		}));
-
-		vi.mock("@/lib/logging", () => ({
-			createLogger: () => ({
-				debug: vi.fn(),
-				warn: vi.fn(),
-				error: vi.fn(),
-				info: vi.fn(),
-			}),
-		}));
-
-		vi.mock("@/lib/ssh/client", () => ({
-			buildSshParamsFromServer: vi.fn(),
-			execRemoteCommand: vi.fn(),
-		}));
-
-		vi.mock("@/lib/storage/service-entries", () => ({
-			resolveLocalAbsolutePath: vi.fn((base: string, rel: string) => `${base}/${rel}`),
-		}));
-
-		vi.mock("@/lib/storage/ssh-credentials", () => ({
-			resolveStorageSshCredentials: vi.fn(),
-		}));
-
-		const { searchFileContents } = await import("../content-search");
-
 		const result = await searchFileContents({ query: "" });
 		expect(result.results).toEqual([]);
 		expect(result.totalMatches).toBe(0);
@@ -65,43 +65,24 @@ describe("searchFileContents", () => {
 	});
 
 	it("applies teamWhere when session is provided", async () => {
-		const findMany = vi.fn().mockResolvedValue([]);
-		vi.resetModules();
-		vi.doMock("@/lib/db", () => ({
-			prisma: { storageNode: { findMany } },
-		}));
-		vi.doMock("@/lib/auth/team-scope", () => ({
-			teamWhere: () => ({ OR: [{ teamId: "team-a" }, { teamId: null }] }),
-		}));
-		vi.doMock("@/lib/logging", () => ({
-			createLogger: () => ({ debug: vi.fn(), warn: vi.fn(), error: vi.fn(), info: vi.fn() }),
-		}));
-		vi.doMock("@/lib/ssh/client", () => ({
-			buildSshParamsFromServer: vi.fn(),
-			execRemoteCommand: vi.fn(),
-		}));
-		vi.doMock("@/lib/storage/service-entries", () => ({
-			resolveLocalAbsolutePath: vi.fn((base: string, rel: string) => `${base}/${rel}`),
-		}));
-		vi.doMock("@/lib/storage/ssh-credentials", () => ({
-			resolveStorageSshCredentials: vi.fn(),
-		}));
-
-		const { searchFileContents } = await import("../content-search");
+		teamWhereMock.mockReturnValue({
+			OR: [{ teamId: "team-a" }, { teamId: null }],
+		});
 		await searchFileContents({
 			query: "secret",
 			session: { userId: "u1", roles: ["operator"], currentTeamId: "team-a" },
 		});
-		expect(findMany).toHaveBeenCalledWith(
+		expect(teamWhereMock).toHaveBeenCalledWith({
+			userId: "u1",
+			roles: ["operator"],
+			currentTeamId: "team-a",
+		});
+		expect(findManyMock).toHaveBeenCalledWith(
 			expect.objectContaining({
 				where: expect.objectContaining({
 					OR: [{ teamId: "team-a" }, { teamId: null }],
 				}),
 			}),
 		);
-	});
-
-	beforeEach(() => {
-		vi.clearAllMocks();
 	});
 });
