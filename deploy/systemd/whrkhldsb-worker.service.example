@@ -1,5 +1,5 @@
 [Unit]
-Description={{SITE_NAME}} Next.js application
+Description={{SITE_NAME}} background worker
 After=network-online.target postgresql.service
 Wants=network-online.target
 StartLimitIntervalSec=60
@@ -10,10 +10,8 @@ Type=simple
 WorkingDirectory={{APP_DIR}}
 EnvironmentFile={{RUNTIME_ENV_FILE}}
 Environment=NODE_ENV=production
-Environment=VCONTROLHUB_WORKERS_DISABLED=true
-Environment=PORT={{NEXT_PORT}}
 Environment=PATH={{SYSTEMD_PATH}}
-ExecStart={{NODE_BIN}} {{APP_DIR}}/dist/server.js
+ExecStart={{NODE_BIN}} {{APP_DIR}}/dist/worker.js
 Restart=always
 RestartSec=5
 User={{APP_USER}}
@@ -44,16 +42,14 @@ PrivateTmp=true
 
 ReadWritePaths=/var/lib/{{APP_SLUG}} /var/backups/{{APP_SLUG}} /tmp {{APP_DIR}}/.next {{APP_DIR}}/uploads {{APP_DIR}}/storage {{APP_DIR}}/downloads {{APP_DIR}}/backups {{APP_DIR}}/logs{{QUICK_SERVICE_READ_WRITE_PATHS}}
 
-# Resource limits (tune for your VPS)
 MemoryMax=768M
 MemoryHigh=640M
 CPUQuota=200%
 TasksMax=512
 
-# Logging
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier={{SERVICE_PREFIX}}-next
+SyslogIdentifier={{SERVICE_PREFIX}}-worker
 
 [Install]
 WantedBy=multi-user.target

@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   createServerProfileMock,
   deleteServerProfileMock,
+  getServerDeletionImpactMock,
+  getBlockingServerDeletionImpactMock,
   prismaServerFindFirstMock,
   prismaStorageNodeCountMock,
   updateServerProfileMock,
@@ -15,6 +17,8 @@ const {
 } = vi.hoisted(() => ({
   createServerProfileMock: vi.fn(),
   deleteServerProfileMock: vi.fn(),
+  getServerDeletionImpactMock: vi.fn(),
+  getBlockingServerDeletionImpactMock: vi.fn(),
   prismaServerFindFirstMock: vi.fn(),
   prismaStorageNodeCountMock: vi.fn(),
   updateServerProfileMock: vi.fn(),
@@ -45,6 +49,8 @@ vi.mock("@/lib/server/service", () => ({
   createServerProfile: createServerProfileMock,
   createSshKey: vi.fn(),
   deleteServerProfile: deleteServerProfileMock,
+  getServerDeletionImpact: getServerDeletionImpactMock,
+  getBlockingServerDeletionImpact: getBlockingServerDeletionImpactMock,
   setServerDirectGatewayEnabled: vi.fn(),
   toggleServerEnabled: toggleServerEnabledMock,
   updateServerProfile: updateServerProfileMock,
@@ -67,6 +73,8 @@ describe("server actions", () => {
     requirePermissionMock.mockResolvedValue({ userId: "user_1", roles: ["admin"], currentTeamId: null, username: "admin", mustChangePassword: false });
     prismaServerFindFirstMock.mockResolvedValue({ name: "prod" });
     prismaStorageNodeCountMock.mockResolvedValue(0);
+    getServerDeletionImpactMock.mockResolvedValue({ storageNodes: 0 });
+    getBlockingServerDeletionImpactMock.mockReturnValue([]);
   });
 
   it("returns a success message with onboarding warnings when direct setup needs retry", async () => {
@@ -95,7 +103,7 @@ describe("server actions", () => {
     expect(createServerProfileMock).toHaveBeenCalledWith(
       expect.objectContaining({
         enableDirectGateway: true,
-        saveAsDraftOnConnectionFailure: true,
+        saveAsDraftOnConnectionFailure: false,
         storagePath: "/data/vch-files",
       }),
       expect.objectContaining({ userId: "user_1" }),
@@ -118,6 +126,7 @@ describe("server actions", () => {
     formData.set("username", "root");
     formData.set("connectionType", "PASSWORD");
     formData.set("password", "secret123");
+    formData.set("saveAsDraftOnConnectionFailure", "on");
 
     const result = await createServerAction(null, formData);
 
@@ -192,6 +201,27 @@ describe("server actions", () => {
       relatedStorageCount: 0,
       error: "请输入 VPS 名称「prod」以确认删除。",
     });
+    expect(deleteServerProfileMock).not.toHaveBeenCalled();
+  });
+
+  it("blocks the delete confirmation when managed resources still reference the VPS", async () => {
+    getServerDeletionImpactMock.mockResolvedValueOnce({
+      storageNodes: 1,
+      files: 4,
+      scheduledTasks: 1,
+    });
+    getBlockingServerDeletionImpactMock.mockReturnValueOnce([
+      ["files", 4],
+      ["scheduledTasks", 1],
+    ]);
+    const { deleteServerAction } = await import("../actions");
+    const formData = new FormData();
+    formData.set("serverId", "srv_1");
+
+    const result = await deleteServerAction(null, formData);
+
+    expect(result.error).toContain("files=4");
+    expect(result.error).toContain("scheduledTasks=1");
     expect(deleteServerProfileMock).not.toHaveBeenCalled();
   });
 

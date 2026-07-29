@@ -18,6 +18,17 @@ enum ServerConnectionType {
   PASSWORD
 }
 
+enum ServerOnboardingStatus {
+  READY
+  DRAFT
+  NEEDS_ATTENTION
+}
+
+enum DirectGatewayProtocol {
+  HTTP  @map("http")
+  HTTPS @map("https")
+}
+
 enum CommandRequestStatus {
   PENDING_APPROVAL
   APPROVED
@@ -252,45 +263,50 @@ model SshKey {
 }
 
 model Server {
-  id                 String                 @id @default(cuid())
-  name               String
-  host               String
-  port               Int                    @default(22)
-  username           String
-  sshKeyId           String?
-  password           String?
-  description        String?
-  tags               String[]
-  enabled            Boolean                @default(true)
-  connectionType     ServerConnectionType   @default(SSH_KEY)
-  createdAt          DateTime               @default(now())
-  updatedAt          DateTime               @updatedAt
-  sshKey             SshKey?                @relation(fields: [sshKeyId], references: [id], onDelete: SetNull)
-  storageNode        StorageNode?
-  quickServices      QuickService[]
-  commandTargets     CommandTarget[]
-  metricSnapshots    MetricSnapshot[]
-  trafficSnapshots   TrafficSnapshot[]
-  downloadTasks      DownloadTask[]
-  sourceSyncs        SyncJob[]              @relation("SourceSyncs")
-  targetSyncs        SyncJob[]              @relation("TargetSyncs")
-  publicUrl          String? // 目标服务器公网访问地址（直连模式）
-  fileProxyPort      Int                    @default(0) // 文件代理端口（0=未启用）
-  osDialect          String? // TR-041: JSON 序列化的 OsDialect（包管理器/服务管理器/路径等）
-  osInfo             String? // TR-041: /etc/os-release 原始摘要（distro name + version）
-  hostKeySha256      String? // SHA256 SSH host key fingerprint used for strict host verification
-  costAutoSync       Boolean                @default(false) // TR-031: 是否自动同步 VPS 月费到成本条目
-  costMonthlyAmount  Decimal?               @db.Decimal(12, 2) // TR-031: VPS 月费
-  costCurrency       String                 @default("CNY") // TR-031: VPS 月费币种
-  costProvider       String? // TR-031: 账单提供方（为空时使用节点名称）
-  costLastSyncedAt   DateTime? // TR-031: 最近一次自动同步时间
-  teamId             String? // TR-030: 多租户资源隔离
-  team               Team?                  @relation("TeamServers", fields: [teamId], references: [id], onDelete: SetNull)
-  hostedActions      AiHostedAction[]
-  fileProxies        ServerFileProxy[]
-  vpsBackupSchedules VpsBackupSchedule[]
-  vpsBackupRecords   VpsBackupRecord[]
-  uptimeSnapshots    ServerUptimeSnapshot[]
+  id                           String                 @id @default(cuid())
+  name                         String
+  host                         String
+  port                         Int                    @default(22)
+  username                     String
+  sshKeyId                     String?
+  password                     String?
+  description                  String?
+  tags                         String[]
+  enabled                      Boolean                @default(true)
+  connectionType               ServerConnectionType   @default(SSH_KEY)
+  createdAt                    DateTime               @default(now())
+  updatedAt                    DateTime               @updatedAt
+  sshKey                       SshKey?                @relation(fields: [sshKeyId], references: [id], onDelete: SetNull)
+  storageNode                  StorageNode?
+  quickServices                QuickService[]
+  commandTargets               CommandTarget[]
+  metricSnapshots              MetricSnapshot[]
+  trafficSnapshots             TrafficSnapshot[]
+  downloadTasks                DownloadTask[]
+  sourceSyncs                  SyncJob[]              @relation("SourceSyncs")
+  targetSyncs                  SyncJob[]              @relation("TargetSyncs")
+  publicUrl                    String? // 目标服务器公网访问地址（直连模式）
+  fileProxyPort                Int                    @default(0) // 文件代理端口（0=未启用）
+  osDialect                    String? // TR-041: JSON 序列化的 OsDialect（包管理器/服务管理器/路径等）
+  osInfo                       String? // TR-041: /etc/os-release 原始摘要（distro name + version）
+  hostKeySha256                String? // SHA256 SSH host key fingerprint used for strict host verification
+  onboardingStatus             ServerOnboardingStatus @default(READY)
+  onboardingLastError          String?
+  directGatewayDesiredEnabled  Boolean                @default(false)
+  directGatewayDesiredProtocol DirectGatewayProtocol  @default(HTTP)
+  directGatewayDesiredDomain   String?
+  costAutoSync                 Boolean                @default(false) // TR-031: 是否自动同步 VPS 月费到成本条目
+  costMonthlyAmount            Decimal?               @db.Decimal(12, 2) // TR-031: VPS 月费
+  costCurrency                 String                 @default("CNY") // TR-031: VPS 月费币种
+  costProvider                 String? // TR-031: 账单提供方（为空时使用节点名称）
+  costLastSyncedAt             DateTime? // TR-031: 最近一次自动同步时间
+  teamId                       String? // TR-030: 多租户资源隔离
+  team                         Team?                  @relation("TeamServers", fields: [teamId], references: [id], onDelete: SetNull)
+  hostedActions                AiHostedAction[]
+  fileProxies                  ServerFileProxy[]
+  vpsBackupSchedules           VpsBackupSchedule[]
+  vpsBackupRecords             VpsBackupRecord[]
+  uptimeSnapshots              ServerUptimeSnapshot[]
 
   @@index([host, port])
   @@index([enabled])
@@ -374,6 +390,12 @@ model ExecutionLog {
   @@map("execution_logs")
 }
 
+enum StorageHealthStatus {
+  UNKNOWN
+  HEALTHY
+  UNHEALTHY
+}
+
 model StorageNode {
   id                         String               @id @default(cuid())
   name                       String
@@ -387,7 +409,7 @@ model StorageNode {
   port                       Int?
   username                   String?
   serverId                   String?              @unique
-  healthStatus               String               @default("UNKNOWN")
+  healthStatus               StorageHealthStatus  @default(UNKNOWN)
   lastHealthCheckAt          DateTime?
   lastHealthError            String?
   lastHealthLatencyMs        Int?
@@ -540,6 +562,29 @@ enum JobStatus {
   CANCELLED
 }
 
+enum WorkerRuntimeStatus {
+  RUNNING
+  FAILED
+  STOPPED
+}
+
+model WorkerRuntime {
+  id              String              @id @default(cuid())
+  workerId        String
+  label           String
+  jobType         String
+  instanceId      String
+  status          WorkerRuntimeStatus @default(RUNNING)
+  startedAt       DateTime            @default(now())
+  lastHeartbeatAt DateTime            @default(now())
+  lastError       String?
+
+  @@unique([workerId, instanceId])
+  @@index([workerId, status, lastHeartbeatAt])
+  @@index([instanceId])
+  @@map("worker_runtimes")
+}
+
 model Job {
   id                  String    @id @default(cuid())
   type                String
@@ -666,28 +711,36 @@ model Playbook {
   @@map("playbooks")
 }
 
+enum PlaybookRunStatus {
+  queued
+  running
+  completed
+  failed
+  cancelled
+}
+
 model PlaybookRun {
-  id             String    @id @default(cuid())
+  id             String            @id @default(cuid())
   playbookId     String
   // "queued" | "running" | "completed" | "failed" | "cancelled"
-  status         String    @default("queued")
+  status         PlaybookRunStatus @default(queued)
   // True when the run was triggered via /api/playbooks/[id]/dry-run and the
   // executor skipped real side effects. Persisted so the UI can distinguish
   // "I want to see what would happen" from real runs.
-  dryRun         Boolean   @default(false)
+  dryRun         Boolean           @default(false)
   // Free-form trigger context: cron tick id, metric reading, manual button
   // click. The executor writes a step result list back to `stepResults`.
   triggerContext Json?
   stepResults    Json?
   errorMessage   String?
-  jobId          String?   @unique
+  jobId          String?           @unique
   executionState Json?
-  version        Int       @default(0)
+  version        Int               @default(0)
   startedAt      DateTime?
   completedAt    DateTime?
   createdById    String?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
 
   playbook Playbook @relation(fields: [playbookId], references: [id], onDelete: Cascade)
   creator  User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
@@ -780,10 +833,16 @@ model AlertRule {
 }
 
 /// Open/acknowledged/resolved alert incidents with multi-level escalation.
+enum AlertIncidentStatus {
+  OPEN
+  ACKNOWLEDGED
+  RESOLVED
+}
+
 model AlertIncident {
-  id               String    @id @default(cuid())
+  id               String              @id @default(cuid())
   /// Stable key: ruleId + serverId + metric
-  fingerprint      String    @unique
+  fingerprint      String              @unique
   ruleId           String
   serverId         String?
   serverName       String
@@ -791,9 +850,9 @@ model AlertIncident {
   operator         String
   threshold        Float
   value            Float
-  status           String    @default("OPEN") // OPEN | ACKNOWLEDGED | RESOLVED
+  status           AlertIncidentStatus @default(OPEN)
   /// 1 = initial fire, 2 = escalated (no ack), 3 = re-escalated / critical
-  level            Int       @default(1)
+  level            Int                 @default(1)
   title            String
   message          String
   acknowledgedAt   DateTime?
@@ -801,8 +860,8 @@ model AlertIncident {
   escalatedAt      DateTime?
   lastNotifiedAt   DateTime?
   resolvedAt       DateTime?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
 
   rule           AlertRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
   acknowledgedBy User?     @relation("AlertIncidentAcknowledger", fields: [acknowledgedById], references: [id], onDelete: SetNull)
@@ -890,17 +949,23 @@ model SyncJob {
   @@map("sync_jobs")
 }
 
+enum SyncLogStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
 model SyncLog {
-  id               String    @id @default(cuid())
+  id               String        @id @default(cuid())
   syncJobId        String
-  status           String
-  filesScanned     Int       @default(0)
-  filesTransferred Int       @default(0)
-  filesDeleted     Int       @default(0)
-  bytesTransferred String    @default("0")
-  durationMs       Int       @default(0)
+  status           SyncLogStatus
+  filesScanned     Int           @default(0)
+  filesTransferred Int           @default(0)
+  filesDeleted     Int           @default(0)
+  bytesTransferred String        @default("0")
+  durationMs       Int           @default(0)
   errorMessage     String?
-  startedAt        DateTime  @default(now())
+  startedAt        DateTime      @default(now())
   completedAt      DateTime?
 
   syncJob SyncJob @relation(fields: [syncJobId], references: [id], onDelete: Cascade)

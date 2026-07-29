@@ -1,22 +1,20 @@
 /**
  * GET /api/admin/workers
  *
- * Health check for the in-process worker fleet. Returns each worker's
- * `started` flag (true once the interval timer is set, false otherwise)
- * plus a small summary used by dashboards and post-deploy probes.
+ * Health check for the standalone worker fleet. Runtime heartbeats are
+ * persisted so the web process can report the state of another process.
  *
  * TR-001 T13c: this endpoint is the read-only companion to
  * `@/lib/workers/registry`. It does not start or stop anything.
  *
  * Auth: same as the rest of the admin routes — caller must have
- * permission `task:read` (admins + owners). The endpoint is cheap
- * (no I/O — purely in-memory read), so the rate-limit preset is
- * "admin-stats" (5 req/sec) instead of a hard 1 req.
+ * permission `task:read` (admins + owners). The endpoint performs one
+ * small indexed database read.
  */
 import { NextResponse } from "next/server";
 
 import { withApiRoute } from "@/lib/http/api-guard";
-import { getWorkerStatuses } from "@/lib/workers/registry";
+import { getWorkerRuntimeHealth } from "@/lib/workers/runtime-health";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +23,7 @@ export async function GET(request: Request) {
     request,
     { permission: "task:read", errorMessage: "Fetch worker StatusFailed" },
     async () => {
-      const workers = getWorkerStatuses();
+      const workers = await getWorkerRuntimeHealth();
       const startedCount = workers.filter((w) => w.started).length;
       const totalCount = workers.length;
       const healthy = startedCount === totalCount;

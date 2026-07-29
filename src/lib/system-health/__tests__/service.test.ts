@@ -53,6 +53,7 @@ describe("system health service", () => {
   it("checks the production VControlHub service units instead of legacy whrkhldsb units", async () => {
     mockExecFileSync.mockImplementation((file: string, args: string[]) => {
       if (file === "systemctl" && args.join(" ") === "is-active vcontrolhub-next.service") return "active\n";
+      if (file === "systemctl" && args.join(" ") === "is-active vcontrolhub-worker.service") return "active\n";
       if (file === "systemctl" && args.join(" ") === "is-active vcontrolhub-ssh-ws.service") return "active\n";
       if (file === "systemctl" && args.join(" ") === "is-active whrkhldsb-next.service") return "inactive\n";
       if (file === "systemctl" && args.join(" ") === "is-active whrkhldsb-ssh-ws.service") return "inactive\n";
@@ -64,11 +65,16 @@ describe("system health service", () => {
     const result = await collectSystemHealthChecks({ projectRoot: process.cwd() });
 
     expect(mockExecFileSync).toHaveBeenCalledWith("systemctl", ["is-active", "vcontrolhub-next.service"], expect.any(Object));
+    expect(mockExecFileSync).toHaveBeenCalledWith("systemctl", ["is-active", "vcontrolhub-worker.service"], expect.any(Object));
     expect(mockExecFileSync).toHaveBeenCalledWith("systemctl", ["is-active", "vcontrolhub-ssh-ws.service"], expect.any(Object));
     expect(mockExecFileSync).not.toHaveBeenCalledWith("systemctl", ["is-active", "whrkhldsb-next.service"], expect.any(Object));
     expect(result.checks.find((check) => check.id === "next-service")).toMatchObject({
       status: "healthy",
       message: expect.stringContaining("vcontrolhub-next.service"),
+    });
+    expect(result.checks.find((check) => check.id === "worker-service")).toMatchObject({
+      status: "healthy",
+      message: expect.stringContaining("vcontrolhub-worker.service"),
     });
     expect(result.checks.find((check) => check.id === "ssh-ws-service")).toMatchObject({
       status: "healthy",

@@ -33,7 +33,7 @@ if command -v git >/dev/null 2>&1 && git rev-parse --is-inside-work-tree >/dev/n
 fi
 
 if command -v systemctl >/dev/null 2>&1; then
-  for svc in "${SERVICE_PREFIX}-next.service" "${SERVICE_PREFIX}-ssh-ws.service"; do
+  for svc in "${SERVICE_PREFIX}-next.service" "${SERVICE_PREFIX}-worker.service" "${SERVICE_PREFIX}-ssh-ws.service"; do
     if ! systemctl list-unit-files "$svc" >/dev/null 2>&1; then
       warn "$svc is not installed"
       continue
@@ -45,6 +45,7 @@ if command -v systemctl >/dev/null 2>&1; then
     [ -z "$wd" ] || [ "$wd" = "$APP_DIR" ] || fail "$svc WorkingDirectory drift: $wd != $APP_DIR"
     case "$svc" in
       *-next.service) [[ "$exec_start" == *"$APP_DIR/dist/server.js"* ]] || fail "$svc ExecStart does not point at $APP_DIR/dist/server.js" ;;
+      *-worker.service) [[ "$exec_start" == *"$APP_DIR/dist/worker.js"* ]] || fail "$svc ExecStart does not point at $APP_DIR/dist/worker.js" ;;
       *-ssh-ws.service) [[ "$exec_start" == *"$APP_DIR/dist/ssh-ws-proxy.js"* ]] || fail "$svc ExecStart does not point at $APP_DIR/dist/ssh-ws-proxy.js" ;;
     esac
     systemctl is-active --quiet "$svc" && log "$svc active" || warn "$svc inactive"
@@ -53,7 +54,7 @@ else
   warn "systemctl unavailable; skipped unit drift checks"
 fi
 
-for artifact in dist/server.js dist/ssh-ws-proxy.js .next/BUILD_ID; do
+for artifact in dist/server.js dist/worker.js dist/ssh-ws-proxy.js .next/BUILD_ID; do
   [ -e "$artifact" ] || fail "missing artifact: $artifact"
   log "$artifact mtime=$(stat -c '%y' "$artifact")"
 done

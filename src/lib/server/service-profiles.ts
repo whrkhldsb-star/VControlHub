@@ -22,7 +22,6 @@ import { SERVER_PROFILE_INCLUDE } from "./service-profile-includes";
 import { createServerSchema, type CreateServerInput } from "./schema";
 import { applyServerDirectGatewayState } from "./service-direct-gateway";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
-import { t } from "@/lib/i18n/translations";
 import {
   assertNoDuplicateServerHost,
   enrichServer,
@@ -35,6 +34,14 @@ import {
 } from "./service-internals";
 
 type TeamSession = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
+
+function toStoredDirectGatewayProtocol(value: "http" | "https") {
+  return value === "https" ? "HTTPS" as const : "HTTP" as const;
+}
+
+function fromStoredDirectGatewayProtocol(value: string | null | undefined): "http" | "https" {
+  return value === "HTTPS" || value === "https" ? "https" : "http";
+}
 
 async function findServerProfileForSession(
   serverId: string,
@@ -65,6 +72,7 @@ export async function createServerProfile(
   input: CreateServerInput,
   session?: Pick<SessionPayload, "currentTeamId"> & Partial<Pick<SessionPayload, "userId" | "roles">> | null,
 ) {
+  const t = await serverT();
   const payload = createServerSchema.parse(input);
   const normalized = normalizeServerInput(payload);
   const onboardingWarnings: string[] = [];
@@ -174,9 +182,7 @@ export async function createServerProfile(
     }
     hostKeySha256 = payload.approvedHostKeySha256 || payload.hostKeySha256 || null;
     draftReason = getErrorMessage(error);
-    onboardingWarnings.push(
-      `SSH connection is not ready: ${draftReason}. The node was saved disabled and no remote setup was attempted. Fix the endpoint or credentials, then enable the node to verify and activate it.`,
-    );
+    onboardingWarnings.push(t("backend.server.onboarding.sshDraft", { reason: draftReason }));
   }
 
   // Precompute paths outside the transaction (read-only counts may race slightly
@@ -211,6 +217,11 @@ export async function createServerProfile(
         costCurrency: normalized.costCurrency,
         costProvider: normalized.costProvider,
         enabled: connectivityVerified,
+        onboardingStatus: connectivityVerified ? "READY" : "DRAFT",
+        onboardingLastError: draftReason,
+        directGatewayDesiredEnabled: payload.enableDirectGateway,
+        directGatewayDesiredProtocol: toStoredDirectGatewayProtocol(payload.directGatewayProtocol),
+        directGatewayDesiredDomain: payload.directGatewayDomain?.trim() || null,
         ...teamData,
       },
       include: SERVER_PROFILE_INCLUDE,
@@ -233,7 +244,7 @@ export async function createServerProfile(
           ? {}
           : {
               lastHealthCheckAt: new Date(),
-              lastHealthError: draftReason?.slice(0, 500) ?? "SSH connection has not been verified",
+              lastHealthError: draftReason?.slice(0, 500) ?? t("backend.server.onboarding.sshNotVerified"),
             }),
         ...(teamData.teamId !== undefined ? { teamId: teamData.teamId } : {}),
       },
@@ -251,9 +262,10 @@ export async function createServerProfile(
       await mkdir(configuredPath, { recursive: true });
       storageDirectoryReady = true;
     } catch (error) {
-      onboardingWarnings.push(
-        `Failed to create local storage directory ${configuredPath}: ${getErrorMessage(error)}.`,
-      );
+      onboardingWarnings.push(t("backend.server.onboarding.localStorageCreateFailed", {
+        path: configuredPath,
+        error: getErrorMessage(error),
+      }));
     }
   } else if (connectivityVerified) {
     try {
@@ -264,9 +276,10 @@ export async function createServerProfile(
       });
       storageDirectoryReady = true;
     } catch (error) {
-      onboardingWarnings.push(
-        `Failed to auto-create remote storage directory: ${getErrorMessage(error)}. VPS node and storage node have been created. After confirming SSH connectivity, please manually create ${configuredPath} on the target server, or re-save/retry the relevant operation.`,
-      );
+      onboardingWarnings.push(t("backend.server.onboarding.remoteStorageCreateFailed", {
+        path: configuredPath,
+        error: getErrorMessage(error),
+      }));
     }
   }
 
@@ -274,14 +287,16 @@ export async function createServerProfile(
     try {
       const health = await checkStorageNodeHealth(createdStorageNodeId, sessionForTeamWhere(session));
       if (health.healthStatus === "UNHEALTHY") {
-        onboardingWarnings.push(
-          `Storage path ${configuredPath} was created, but its health check failed${health.lastHealthError ? `: ${health.lastHealthError}` : ""}. Review the storage node before using file workflows.`,
-        );
+        onboardingWarnings.push(t("backend.server.onboarding.storageHealthFailed", {
+          path: configuredPath,
+          details: health.lastHealthError ? `: ${health.lastHealthError}` : "",
+        }));
       }
     } catch (error) {
-      onboardingWarnings.push(
-        `Storage path ${configuredPath} was created, but its health status could not be recorded: ${getErrorMessage(error)}.`,
-      );
+      onboardingWarnings.push(t("backend.server.onboarding.storageHealthRecordFailed", {
+        path: configuredPath,
+        error: getErrorMessage(error),
+      }));
     }
   }
 
@@ -295,9 +310,9 @@ export async function createServerProfile(
       publicListen: true,
     });
     if (!directResult.enabled) {
-      onboardingWarnings.push(
-        `Failed to auto-configure direct gateway on target server${directResult.errorMessage ? `: ${directResult.errorMessage}` : ""}. VPS node and storage node have been created. You can retry enabling the direct gateway later in the VPS management panel.`,
-      );
+      onboardingWarnings.push(t("backend.server.onboarding.gatewayFailed", {
+        details: directResult.errorMessage ? `: ${directResult.errorMessage}` : "",
+      }));
     }
   }
 
@@ -315,10 +330,22 @@ export async function createServerProfile(
         },
       });
     } catch (error) {
-      onboardingWarnings.push(
-        `Failed to auto-detect OS dialect: ${getErrorMessage(error)}. VPS node is available; open node details and click "Detect OS" later.`,
-      );
+      onboardingWarnings.push(t("backend.server.onboarding.osDetectFailed", {
+        error: getErrorMessage(error),
+      }));
     }
+  }
+
+  if (connectivityVerified) {
+    await prisma.server.update({
+      where: { id: server.id },
+      data: {
+        onboardingStatus: onboardingWarnings.length > 0 ? "NEEDS_ATTENTION" : "READY",
+        onboardingLastError: onboardingWarnings.length > 0
+          ? onboardingWarnings.join(" ").slice(0, 2000)
+          : null,
+      },
+    });
   }
 
   // Re-fetch to include the newly created storageNode relation (+ dialect fields)
@@ -511,17 +538,19 @@ export async function updateServerProfile(
         });
         await checkStorageNodeHealth(storageNode.id, session).catch(() => null);
       } catch (error) {
-        onboardingWarnings.push(
-          `Failed to ensure remote storage directory ${targetPath}: ${getErrorMessage(error)}. Update the path or create the directory on the VPS, then retry.`,
-        );
+        onboardingWarnings.push(t("backend.server.update.remoteStorageFailed", {
+          path: targetPath,
+          error: getErrorMessage(error),
+        }));
       }
     } else {
       try {
         await mkdir(targetPath, { recursive: true });
       } catch (error) {
-        onboardingWarnings.push(
-          `Failed to ensure local storage directory ${targetPath}: ${getErrorMessage(error)}.`,
-        );
+        onboardingWarnings.push(t("backend.server.update.localStorageFailed", {
+          path: targetPath,
+          error: getErrorMessage(error),
+        }));
       }
     }
   }
@@ -572,9 +601,10 @@ export async function toggleServerEnabled(
       });
     } catch (error) {
       if (error instanceof SshHostKeyApprovalRequiredError) throw error;
-      throw new BusinessError(
-        `Cannot enable ${current.username}@${current.host}:${current.port}; the node remains disabled. Check the SSH port, firewall, and credentials. Details: ${getErrorMessage(error)}`,
-      );
+      throw new BusinessError(t("backend.server.enable.connectionFailedDetails", {
+        target: `${current.username}@${current.host}:${current.port}`,
+        error: getErrorMessage(error),
+      }));
     }
     await verifyServerSshConnectivity(
       normalized,
@@ -583,7 +613,9 @@ export async function toggleServerEnabled(
         hostKeySha256,
       },
       {
-        failureMessage: `Cannot enable ${current.username}@${current.host}:${current.port}; the node remains disabled. Check the SSH port, firewall, and credentials.`,
+        failureMessage: t("backend.server.enable.connectionFailed", {
+          target: `${current.username}@${current.host}:${current.port}`,
+        }),
       },
     );
 
@@ -603,9 +635,11 @@ export async function toggleServerEnabled(
           await mkdir(current.storageNode.basePath, { recursive: true });
         }
       } catch (error) {
-        throw new BusinessError(
-          `Cannot enable ${current.username}@${current.host}:${current.port}; storage path ${current.storageNode.basePath} could not be prepared and the node remains disabled. Details: ${getErrorMessage(error)}`,
-        );
+        throw new BusinessError(t("backend.server.enable.storagePrepareFailed", {
+          target: `${current.username}@${current.host}:${current.port}`,
+          path: current.storageNode.basePath,
+          error: getErrorMessage(error),
+        }));
       }
     }
 
@@ -629,8 +663,36 @@ export async function toggleServerEnabled(
       return updated;
     });
 
+    const onboardingWarnings: string[] = [];
     if (current.storageNode) {
-      await checkStorageNodeHealth(current.storageNode.id, session).catch(() => null);
+      try {
+        const health = await checkStorageNodeHealth(current.storageNode.id, session);
+        if (health.healthStatus === "UNHEALTHY") {
+          onboardingWarnings.push(t("backend.server.enable.storageHealthFailed", {
+            details: health.lastHealthError ? `: ${health.lastHealthError}` : "",
+          }));
+        }
+      } catch (error) {
+        onboardingWarnings.push(t("backend.server.enable.storageHealthRecordFailed", {
+          error: getErrorMessage(error),
+        }));
+      }
+    }
+
+    if (current.directGatewayDesiredEnabled && !isLocalHostLiteral(current.host)) {
+      const directResult = await applyServerDirectGatewayState({
+        serverId,
+        enabled: true,
+        bestEffort: true,
+        publicProtocol: fromStoredDirectGatewayProtocol(current.directGatewayDesiredProtocol),
+        publicDomain: current.directGatewayDesiredDomain ?? null,
+        publicListen: true,
+      });
+      if (!directResult.enabled) {
+        onboardingWarnings.push(t("backend.server.enable.gatewayFailed", {
+          details: directResult.errorMessage ? `: ${directResult.errorMessage}` : "",
+        }));
+      }
     }
 
     if (!isLocalHostLiteral(current.host)) {
@@ -643,83 +705,30 @@ export async function toggleServerEnabled(
             osInfo: dialect.distroName,
           },
         });
-      } catch {
-        // OS metadata is useful for later commands but should not undo a verified activation.
+      } catch (error) {
+        onboardingWarnings.push(t("backend.server.enable.osDetectFailed", {
+          error: getErrorMessage(error),
+        }));
       }
     }
 
-    return updated;
+    await prisma.server.update({
+      where: { id: serverId },
+      data: {
+        onboardingStatus: onboardingWarnings.length > 0 ? "NEEDS_ATTENTION" : "READY",
+        onboardingLastError: onboardingWarnings.length > 0
+          ? onboardingWarnings.join(" ").slice(0, 2000)
+          : null,
+      },
+    });
+
+    return { ...updated, onboardingWarnings };
   }
-  return prisma.server.update({
+  const updated = await prisma.server.update({
     where: { id: serverId },
     data: { enabled: false },
   });
-}
-
-export async function deleteServerProfile(
-  serverId: string,
-  session?: TeamSession | null,
-) {
-  const releaseLock = await acquireAdvisoryLock("server-delete", serverId);
-  try {
-  const current = session
-    ? await prisma.server.findFirst({
-        where: { id: serverId, ...serverTeamWhere(session) },
-        include: {
-          sshKey: { select: { privateKey: true, passphrase: true } },
-          storageNode: {
-            select: {
-              id: true,
-              basePath: true,
-              driver: true,
-              mediaItems: { select: { id: true }, take: 1 },
-            },
-          },
-        },
-      })
-    : await prisma.server.findUnique({
-        where: { id: serverId },
-        include: {
-          sshKey: { select: { privateKey: true, passphrase: true } },
-          storageNode: {
-            select: {
-              id: true,
-              basePath: true,
-              driver: true,
-              mediaItems: { select: { id: true }, take: 1 },
-            },
-          },
-        },
-      });
-  const t = await serverT();
-  if (!current) throw new NotFoundError(t("backend.server.nodeNotFound"));
-  let cleanupSkipped = false;
-  const shouldAttemptDirectGatewayCleanup =
-    current.fileProxyPort &&
-    current.fileProxyPort > 0 &&
-    current.storageNode?.driver === "SFTP";
-  if (shouldAttemptDirectGatewayCleanup) {
-    const result = await applyServerDirectGatewayState({
-      serverId,
-      enabled: false,
-      bestEffort: true,
-    });
-    cleanupSkipped = result.cleanupSkipped;
-  }
-  const storageNodeId = current.storageNode?.id ?? null;
-  if (storageNodeId) {
-    if ((current.storageNode?.mediaItems?.length ?? 0) > 0) {
-      await prisma.mediaItem.deleteMany({ where: { storageNodeId } });
-    }
-    await prisma.storageNode.delete({ where: { id: storageNodeId } });
-  }
-  await prisma.server.delete({ where: { id: serverId } });
-  return cleanupSkipped
-    ? { deleted: true, cleanupSkipped: true }
-    : { deleted: true };
-  } finally {
-    await releaseLock();
-  }
+  return { ...updated, onboardingWarnings: [] as string[] };
 }
 
 export async function listServerProfiles(

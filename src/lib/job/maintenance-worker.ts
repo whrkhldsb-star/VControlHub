@@ -14,6 +14,7 @@ import { prisma } from "@/lib/db";
 import { createLogger } from "@/lib/logging";
 import { pruneJobEvents } from "@/lib/job/events";
 import { recoverStaleRunningJobs } from "@/lib/job/service";
+import { MAX_LEASE_MS } from "@/lib/job/lease";
 
 const logger = createLogger("job-maintenance-worker");
 
@@ -144,7 +145,13 @@ async function tick(reason: string) {
     // expired leases, terminal-fail attempt-exhausted RUNNING rows.
     // Without this, recoverStaleRunningJobs is only unit-tested and
     // claimNextJob alone cannot clear attempts>=maxAttempts zombies.
-    const recovered = await recoverStaleRunningJobs({ staleBefore: new Date() });
+    const staleBefore = new Date();
+    const recovered = await recoverStaleRunningJobs({
+      staleBefore,
+      // Modern claims always carry leaseExpiresAt. This fallback is only for
+      // historical RUNNING rows created before leases were introduced.
+      heartbeatStaleBefore: new Date(staleBefore.getTime() - MAX_LEASE_MS),
+    });
     if (recovered.count > 0) {
       logger.warn("recovered stale RUNNING jobs", {
         workerId: WORKER_ID,

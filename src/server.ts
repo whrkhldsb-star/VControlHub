@@ -11,12 +11,9 @@
  * Usage:  npx tsx src/server.ts
  *   (requires full node_modules — do NOT use .next/standalone/server.js)
  *
- * Worker startup: this file does NOT call `startXxxWorker()` directly.
- * TR-001 T13c moved worker startup into `src/instrumentation.ts` (the
- * Next.js bootstrap hook). `app.prepare()` below triggers
- * `instrumentation.register()`, which starts all 8 workers via
- * `@/lib/workers/startup`. This way, future `next start` deployments
- * (no custom server) will also start the workers automatically.
+ * Worker startup: production runs `dist/worker.js` as a separate service and
+ * disables workers here. Development can still start them through the Next.js
+ * instrumentation hook for a single-command local environment.
  */
 import { createServer } from "node:http";
 import next from "next";

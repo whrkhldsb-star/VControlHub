@@ -18,6 +18,7 @@ import { sendAlertEmail } from "@/lib/notification/email";
 import { sendAlertTelegram } from "@/lib/notification/telegram";
 import { fetchWebhookSafely } from "@/lib/security/webhook-url";
 import { t } from "@/lib/i18n/translations";
+import type { AlertIncidentStatus } from "@prisma/client";
 
 const logger = createLogger("alert:incidents");
 
@@ -518,11 +519,11 @@ export async function escalateOverdueAlertIncidents(): Promise<{ escalated: numb
 }
 
 export async function listAlertIncidents(options?: {
-  status?: string;
+  status?: AlertIncidentStatus;
   take?: number;
   session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
 }) {
-  const status = options?.status?.trim();
+  const status = options?.status;
   // AlertIncident has serverId but no Prisma relation to Server — resolve
   // team-scoped server IDs first when a non-admin session is present.
   // Also restrict null-server (fleet) incidents to rules visible under teamWhere

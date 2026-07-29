@@ -371,6 +371,21 @@ export function ServerCreateForm({
           </div>{" "}
         </div>{" "}
       </label>{" "}
+      <label className="flex items-start gap-3 border-y border-[var(--border)] py-3 text-sm text-[var(--text-secondary)]">
+        <input
+          name="saveAsDraftOnConnectionFailure"
+          type="checkbox"
+          className="mt-0.5 h-4 w-4 accent-[var(--accent)]"
+        />
+        <span>
+          <span className="block font-medium text-[var(--text-primary)]">
+            {t("serversPage.create.saveDraftOnFailure")}
+          </span>
+          <span className="mt-1 block text-xs text-[var(--text-muted)]">
+            {t("serversPage.create.saveDraftOnFailureHint")}
+          </span>
+        </span>
+      </label>
       <div className="space-y-1.5">
         {" "}
         <label

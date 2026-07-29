@@ -156,6 +156,7 @@ echo ""
 if run_systemd_checks; then
     echo "── 1. System Services ──"
     check "${APP_SLUG}-next service"   "systemctl is-active ${APP_SLUG}-next" 0
+    check "${APP_SLUG}-worker service" "systemctl is-active ${APP_SLUG}-worker" 0
     check "${APP_SLUG}-ssh-ws service" "systemctl is-active ${APP_SLUG}-ssh-ws" 0
     if run_http_checks && [ -z "${SMOKE_PUBLIC_URL}" ]; then
         check "${PROXY_LABEL} service" "systemctl is-active ${PROXY_SERVICE}" 0

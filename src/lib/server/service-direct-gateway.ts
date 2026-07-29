@@ -424,7 +424,7 @@ export async function setServerDirectGatewayEnabled(
     publicDomain?: string | null;
   } = {},
 ) {
-  return applyServerDirectGatewayState({
+  const result = await applyServerDirectGatewayState({
     serverId,
     enabled,
     publicProtocol: options.publicProtocol,
@@ -434,4 +434,19 @@ export async function setServerDirectGatewayEnabled(
     autoReverseProxy: options.autoReverseProxy,
     publicDomain: options.publicDomain,
   });
+  await prisma.server.update({
+    where: { id: serverId },
+    data: {
+      directGatewayDesiredEnabled: enabled,
+      directGatewayDesiredProtocol:
+        options.publicProtocol === "https" ? "HTTPS" : "HTTP",
+      directGatewayDesiredDomain:
+        enabled && options.publicProtocol === "https"
+          ? options.publicDomain?.trim() || null
+          : null,
+      onboardingStatus: "READY",
+      onboardingLastError: null,
+    },
+  });
+  return result;
 }

@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "node scripts/guard-live-next-build.mjs && next build --webpack",
-    "build:runtime": "esbuild src/server.ts src/ssh-ws-proxy.ts --bundle --platform=node --target=node22 --format=cjs --outdir=dist --packages=external --tsconfig=tsconfig.json",
+    "build:runtime": "esbuild src/server.ts src/worker.ts src/ssh-ws-proxy.ts --bundle --platform=node --target=node22 --format=cjs --outdir=dist --packages=external --tsconfig=tsconfig.json",
     "start": "node dist/server.js",
     "start:ssh-ws": "node dist/ssh-ws-proxy.js",
     "start:dev": "next dev",

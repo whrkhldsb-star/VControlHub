@@ -120,7 +120,7 @@ sudo DOMAIN=your.example.com APP_DIR=/opt/VControlHub deploy/install.sh
 | `APP_NAME` | `VControlHub` | 应用/品牌名；可为中文 |
 | `APP_SLUG` | 从 `APP_NAME` 自动生成，空时 `vcontrolhub` | 安全短标识，用于默认安装目录、运行目录和 cookie/session issuer |
 | `SITE_NAME` | `$APP_NAME` | systemd 描述、部署展示名 |
-| `SERVICE_PREFIX` | `$APP_SLUG` | systemd 服务名前缀，生成 `$SERVICE_PREFIX-next.service` 与 `$SERVICE_PREFIX-ssh-ws.service` |
+| `SERVICE_PREFIX` | `$APP_SLUG` | systemd 服务名前缀，生成 `$SERVICE_PREFIX-next.service`、`$SERVICE_PREFIX-worker.service` 与 `$SERVICE_PREFIX-ssh-ws.service` |
 | `APP_DIR` | `/opt/$APP_SLUG` | 应用安装目录 |
 | `APP_USER` | `$APP_SLUG` | systemd 运行用户 |
 | `DOMAIN` | 空 | Caddy 绑定域名；为空时跳过 Caddy 配置 |
@@ -137,7 +137,7 @@ sudo DOMAIN=your.example.com APP_DIR=/opt/VControlHub deploy/install.sh
 
 > `APP_SLUG` 可包含短横线（如 `my-console`），用于目录、service、cookie 等标识；安装脚本为 PostgreSQL 默认库名/用户名会单独转换为安全标识符（如 `my_console`）。如果你显式设置 `PG_DB_NAME` / `PG_DB_USER`，脚本会按你的值使用。
 
-安装脚本会在全新 Debian/Ubuntu 主机上自动安装基础依赖：`ca-certificates`、`curl`、`gnupg`、`git`、`openssh-client`、`sshpass`、`rsync`、`iproute2`（提供 `ss`）、`aria2`（提供 `aria2c`）、`postgresql-client`、`build-essential`，并在缺少 Node 或 Node 主版本低于 `NODE_VERSION_MAJOR`（默认 22）时通过 NodeSource 安装 Node.js；未设置 `SKIP_CADDY=1` 且系统缺少 Caddy 时，也会自动安装 Caddy。脚本随后执行 `npm ci`、`npm run prisma:generate`、`npm run prisma:deploy`（除非 `SKIP_DB_SETUP=1`）、`npm run build`、`npm run build:runtime`（编译 `src/server.ts` 到 `dist/server.js`，跳过会导致后台 worker 不更新），最后写入 systemd 并重启服务。
+安装脚本会在全新 Debian/Ubuntu 主机上自动安装基础依赖：`ca-certificates`、`curl`、`gnupg`、`git`、`openssh-client`、`sshpass`、`rsync`、`iproute2`（提供 `ss`）、`aria2`（提供 `aria2c`）、`postgresql-client`、`build-essential`，并在缺少 Node 或 Node 主版本低于 `NODE_VERSION_MAJOR`（默认 22）时通过 NodeSource 安装 Node.js；未设置 `SKIP_CADDY=1` 且系统缺少 Caddy 时，也会自动安装 Caddy。脚本随后执行 `npm ci`、`npm run prisma:generate`、`npm run prisma:deploy`（除非 `SKIP_DB_SETUP=1`）、`npm run build`、`npm run build:runtime`（生成 `dist/server.js`、`dist/worker.js` 与 `dist/ssh-ws-proxy.js`），最后写入 systemd 并重启服务。
 
 安装脚本会在生成 systemd unit 时自动探测当前可用的 `node`、`npm`、`npx` 绝对路径，并把这些目录写入 systemd `PATH`。这可以兼容 Node 安装在 `/root/.local/bin`、`/usr/local/bin`、NodeSource `/usr/bin` 等不同位置的服务器，避免 systemd 启动时报 `/usr/bin/env: node: No such file or directory`。
 
@@ -156,7 +156,7 @@ sudo DOMAIN=your.example.com APP_DIR=/opt/VControlHub deploy/install.sh
 
 ## 运维脚本入口
 
-除 `deploy/install.sh` 外，仓库还提供以下可移植入口，便于在新机器或升级环境中复用。生产服务器推荐先执行 `make help` 查看统一维护入口；`Makefile` 会把常用的构建、runtime bundle、重启、健康检查和 smoke 串成固定命令，避免漏掉 systemd 实际运行的 `dist/server.js`/`dist/ssh-ws-proxy.js`。
+除 `deploy/install.sh` 外，仓库还提供以下可移植入口，便于在新机器或升级环境中复用。生产服务器推荐先执行 `make help` 查看统一维护入口；`Makefile` 会把常用的构建、runtime bundle、重启、健康检查和 smoke 串成固定命令，避免漏掉 systemd 实际运行的 `dist/server.js`、`dist/worker.js` 与 `dist/ssh-ws-proxy.js`。
 
 | 入口 | 用途 | 示例 |
 | --- | --- | --- |
@@ -225,10 +225,10 @@ npm run typecheck
 npm run lint
 npm test
 npm run build
-npm run build:runtime  # 必跑：编译 src/server.ts → dist/server.js，否则 alert-worker / scheduled-task-worker 仍跑旧产物
+npm run build:runtime  # 必跑：编译 Web、Worker 与 SSH-WS 三个运行入口
 curl -fsS http://127.0.0.1:3000/login >/dev/null
 # /health 或 /api/health 在未登录时可能按当前认证策略重定向到 /login，这不代表服务失败。
-systemctl status ${SERVICE_PREFIX:-my-console}-next.service ${SERVICE_PREFIX:-my-console}-ssh-ws.service caddy --no-pager
+systemctl status ${SERVICE_PREFIX:-my-console}-next.service ${SERVICE_PREFIX:-my-console}-worker.service ${SERVICE_PREFIX:-my-console}-ssh-ws.service caddy --no-pager
 ```
 
 部署后 smoke 支持按部署形态拆分，避免把本机 systemd、PostgreSQL 和公网反代假设混在一起：
@@ -275,6 +275,7 @@ Cron 示例：
 ## 服务结构
 
 - `${SERVICE_PREFIX:-vcontrolhub}-next.service`：Next.js 应用，默认监听 `127.0.0.1:3000`
+- `${SERVICE_PREFIX:-vcontrolhub}-worker.service`：独立后台任务进程，通过数据库心跳向 Web 端报告健康状态
 - `${SERVICE_PREFIX:-vcontrolhub}-ssh-ws.service`：SSH WebSocket 辅助服务，默认监听 `127.0.0.1:3001`
 - `caddy`：公网 HTTPS 反向代理
 - PostgreSQL：通过 `DATABASE_URL` 连接，可以是本机或外部数据库
@@ -283,7 +284,7 @@ Cron 示例：
 
 1. 部署前保留数据库备份：`scripts/backup-db.sh`。
 2. 保留上一版源码目录或 Git tag。
-3. 如新版本异常：回退源码后执行 `npm ci && npm run prisma:generate && npm run build && npm run build:runtime && systemctl restart ${SERVICE_PREFIX:-vcontrolhub}-next.service ${SERVICE_PREFIX:-vcontrolhub}-ssh-ws.service`。
+3. 如新版本异常：回退源码后执行 `npm ci && npm run prisma:generate && npm run build && npm run build:runtime && systemctl restart ${SERVICE_PREFIX:-vcontrolhub}-next.service ${SERVICE_PREFIX:-vcontrolhub}-worker.service ${SERVICE_PREFIX:-vcontrolhub}-ssh-ws.service`。
 
 
 ### Optional: AList WebDAV rclone mount

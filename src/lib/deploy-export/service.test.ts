@@ -15,6 +15,7 @@ describe("deployment export service", () => {
 		expect(text).toContain("SSH_WS_SECRET");
 		expect(text).toContain("REPLACE_WITH_A_RANDOM_SECRET");
 		expect(text).toContain("my-console-next.service");
+		expect(text).toContain("my-console-worker.service");
 		expect(text).toContain("my-console-ssh-ws.service");
 		expect(text).toContain("my-console_session");
 		expect(text).toContain("console.example.test");
@@ -22,6 +23,8 @@ describe("deployment export service", () => {
 		expect(text).toContain("SSH_WS_ALLOWED_ORIGINS");
 		expect(text).not.toContain("whrkhldsb.qzz.io");
 		expect(text).not.toContain("whrkhldsb-next.service");
+		expect(pkg.files["my-console-next.service"]).toContain("VCONTROLHUB_WORKERS_DISABLED=true");
+		expect(pkg.files["my-console-worker.service"]).toContain("dist/worker.js");
 		expect(text).not.toMatch(/postgres(?:ql)?:\/\/[^\s"']+:[^\s"']+@/i);
 		expect(text).not.toMatch(/BEGIN (?:OPENSSH|RSA|EC|DSA) PRIVATE KEY/);
 		// Each dangerous env flag must appear in the env template set to "false"

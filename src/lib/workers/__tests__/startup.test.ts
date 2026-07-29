@@ -5,14 +5,22 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  * workers in the current process and registers a SIGTERM/SIGINT
  * handler for graceful shutdown. These tests cover:
  *   - skip when VITEST=true / NODE_ENV=test / VCONTROLHUB_WORKERS_DISABLED=true
- *   - register all 9 workers in prod
+ *   - register the complete worker fleet in prod
  *   - idempotent: second call is a no-op
  *   - SIGTERM triggers stopAllWorkers
  *   - failed workers are surfaced in the return value
  */
-const { startAllWorkersMock, stopAllWorkersMock, mockCreateLogger } = vi.hoisted(() => ({
+const {
+  startAllWorkersMock,
+  stopAllWorkersMock,
+  startRuntimeHeartbeatMock,
+  stopRuntimeHeartbeatMock,
+  mockCreateLogger,
+} = vi.hoisted(() => ({
   startAllWorkersMock: vi.fn(),
   stopAllWorkersMock: vi.fn(),
+  startRuntimeHeartbeatMock: vi.fn(),
+  stopRuntimeHeartbeatMock: vi.fn(),
   mockCreateLogger: vi.fn(() => ({
     info: vi.fn(),
     warn: vi.fn(),
@@ -32,6 +40,11 @@ vi.mock("@/lib/workers/registry", async (importOriginal) => {
 
 vi.mock("@/lib/logging", () => ({
   createLogger: mockCreateLogger,
+}));
+
+vi.mock("@/lib/workers/runtime-heartbeat", () => ({
+  startWorkerRuntimeHeartbeat: startRuntimeHeartbeatMock,
+  stopWorkerRuntimeHeartbeat: stopRuntimeHeartbeatMock,
 }));
 
 import {
@@ -64,6 +77,8 @@ beforeEach(() => {
   _resetWorkerLifecycleForTests();
   startAllWorkersMock.mockReset();
   stopAllWorkersMock.mockReset();
+  startRuntimeHeartbeatMock.mockReset().mockResolvedValue(undefined);
+  stopRuntimeHeartbeatMock.mockReset().mockResolvedValue(undefined);
   startAllWorkersMock.mockResolvedValue({
     started: ALL_STARTED,
     failed: [],
@@ -113,6 +128,7 @@ describe("startWorkerLifecycle", () => {
     const result = await startWorkerLifecycle();
     expect(result.skipped).toBe(false);
     expect(startAllWorkersMock).toHaveBeenCalledTimes(1);
+    expect(startRuntimeHeartbeatMock).toHaveBeenCalledTimes(1);
     expect(result.failed).toEqual([]);
   });
 
@@ -136,9 +152,10 @@ describe("startWorkerLifecycle", () => {
 });
 
 describe("stopWorkerLifecycle", () => {
-  it("calls stopAllWorkers", () => {
-    stopWorkerLifecycle();
+  it("stops workers and records the stopped runtime", async () => {
+    await stopWorkerLifecycle();
     expect(stopAllWorkersMock).toHaveBeenCalledTimes(1);
+    expect(stopRuntimeHeartbeatMock).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -148,7 +165,7 @@ describe("SIGTERM handler", () => {
     expect(stopAllWorkersMock).not.toHaveBeenCalled();
     process.emit("SIGTERM");
     // Yield to let the once-handler fire.
-    await Promise.resolve();
+    await vi.waitFor(() => expect(stopRuntimeHeartbeatMock).toHaveBeenCalledTimes(1));
     expect(stopAllWorkersMock).toHaveBeenCalledTimes(1);
   });
 

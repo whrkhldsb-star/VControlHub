@@ -181,7 +181,10 @@ describe("durable job service", () => {
         status: "RUNNING",
         OR: expect.arrayContaining([
           expect.objectContaining({ leaseExpiresAt: expect.anything() }),
-          expect.objectContaining({ workerHeartbeatAt: expect.anything() }),
+          expect.objectContaining({
+            leaseExpiresAt: null,
+            workerHeartbeatAt: expect.anything(),
+          }),
         ]),
       }),
       data: expect.objectContaining({ status: "PENDING", errorMessage: "Backend executor heartbeat expired, re-queued" }),
@@ -244,7 +247,10 @@ describe("durable job service", () => {
           status: "RUNNING",
           OR: expect.arrayContaining([
             expect.objectContaining({ leaseExpiresAt: expect.anything() }),
-            expect.objectContaining({ workerHeartbeatAt: expect.anything() }),
+            expect.objectContaining({
+              leaseExpiresAt: null,
+              workerHeartbeatAt: expect.anything(),
+            }),
           ]),
         }),
         data: expect.objectContaining({
@@ -307,6 +313,31 @@ describe("durable job service", () => {
 
     expect(recovered).toEqual({ count: 0, recovered: [], failed: [] });
     expect(mockPrisma.jobEvent.createMany).not.toHaveBeenCalled();
+  });
+
+  it("does not treat an old heartbeat as stale while a lease is still present", async () => {
+    const now = new Date("2026-06-08T09:00:00Z");
+    mockPrisma.job.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+
+    await recoverStaleRunningJobs({
+      staleBefore: now,
+      heartbeatStaleBefore: new Date("2026-06-08T03:00:00Z"),
+      now,
+    });
+
+    expect(mockPrisma.job.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: [
+            { leaseExpiresAt: { lt: now } },
+            {
+              leaseExpiresAt: null,
+              workerHeartbeatAt: { lt: new Date("2026-06-08T03:00:00Z") },
+            },
+          ],
+        }),
+      }),
+    );
   });
 
   it("prunes only old completed jobs outside the retained latest set", async () => {

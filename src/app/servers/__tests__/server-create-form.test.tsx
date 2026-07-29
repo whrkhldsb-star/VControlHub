@@ -47,6 +47,14 @@ describe("ServerCreateForm", () => {
     expect(passwordInput).not.toHaveAttribute("value", expect.stringMatching(/.+/));
   });
 
+  it("does not save an unreachable node as a draft unless the operator opts in", () => {
+    render(<ServerCreateForm sshKeys={[]} />);
+
+    expect(
+      screen.getByRole("checkbox", { name: /连接失败时保存为草稿/ }),
+    ).not.toBeChecked();
+  });
+
   it("shows the first observed host fingerprint without a copy-paste field", () => {
     actionStateMock.current = {
       error: "First connection requires confirming the SSH host fingerprint",

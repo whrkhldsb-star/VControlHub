@@ -73,11 +73,12 @@ for d in storage tmp uploads downloads backups logs; do
 done
 
 [ -f "${APP_DIR}/dist/server.js" ] || fail "Missing runtime bundle: ${APP_DIR}/dist/server.js"
+[ -f "${APP_DIR}/dist/worker.js" ] || fail "Missing worker runtime bundle: ${APP_DIR}/dist/worker.js"
 [ -f "${APP_DIR}/dist/ssh-ws-proxy.js" ] || fail "Missing SSH-WS runtime bundle: ${APP_DIR}/dist/ssh-ws-proxy.js"
 
 if [ "${SKIP_LIVE_CHECKS}" != "1" ]; then
   if have_cmd systemctl; then
-    for svc in "${SERVICE_PREFIX}-next.service" "${SERVICE_PREFIX}-ssh-ws.service"; do
+    for svc in "${SERVICE_PREFIX}-next.service" "${SERVICE_PREFIX}-worker.service" "${SERVICE_PREFIX}-ssh-ws.service"; do
       if systemctl list-unit-files "$svc" >/dev/null 2>&1; then
         systemctl is-active --quiet "$svc" && log "$svc active" || warn "$svc is not active"
       else

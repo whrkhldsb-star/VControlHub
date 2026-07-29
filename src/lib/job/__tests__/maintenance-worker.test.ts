@@ -3,7 +3,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   findMany: vi.fn(),
   updateMany: vi.fn(),
-  recoverStaleRunningJobs: vi.fn(async (): Promise<{ count: number; recovered: string[]; failed: string[] }> => ({ count: 0, recovered: [], failed: [] })),
+  recoverStaleRunningJobs: vi.fn(async (
+    _options: { staleBefore: Date; heartbeatStaleBefore?: Date },
+  ): Promise<{ count: number; recovered: string[]; failed: string[] }> => ({
+    count: 0,
+    recovered: [],
+    failed: [],
+  })),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -126,8 +132,17 @@ describe("abandonOrphanPendingJobs", () => {
     // Allow the fire-and-forget startup tick to settle.
     await new Promise((r) => setTimeout(r, 20));
     expect(mocks.recoverStaleRunningJobs).toHaveBeenCalledWith(
-      expect.objectContaining({ staleBefore: expect.any(Date) }),
+      expect.objectContaining({
+        staleBefore: expect.any(Date),
+        heartbeatStaleBefore: expect.any(Date),
+      }),
     );
+    const recoveryOptions = mocks.recoverStaleRunningJobs.mock.calls[0]?.[0];
+    expect(recoveryOptions?.heartbeatStaleBefore).toBeInstanceOf(Date);
+    if (!recoveryOptions?.heartbeatStaleBefore) throw new Error("missing heartbeat fallback cutoff");
+    expect(
+      recoveryOptions.staleBefore.getTime() - recoveryOptions.heartbeatStaleBefore.getTime(),
+    ).toBe(6 * 60 * 60 * 1000);
     stopJobMaintenanceWorkerForTests();
   });
 });

@@ -1,6 +1,7 @@
 /**
  * Worker startup orchestrator — single entry point called from
- * `src/instrumentation.ts` to start every durable-job worker.
+ * `src/worker.ts` (production) or instrumentation (development) to start
+ * every durable-job worker.
  *
  * TR-001 T13c: the previous design had workers split between
  * `src/server.ts` (started all 8) and `src/instrumentation.ts`
@@ -83,12 +84,12 @@ function installShutdownHandler(): void {
   state.shutdownHandlerInstalled = true;
 
   let shuttingDown = false;
-  const shutdown = (signal: NodeJS.Signals) => {
+  const shutdown = async (signal: NodeJS.Signals) => {
     if (shuttingDown) return;
     shuttingDown = true;
     logger.info("worker lifecycle shutdown signal received", { signal });
     try {
-      stopAllWorkers();
+      await stopWorkerLifecycle();
     } catch (error) {
       logger.error("worker shutdown error", {
         error: error instanceof Error ? error.message : String(error),
@@ -99,8 +100,8 @@ function installShutdownHandler(): void {
     // nothing to wait for.
   };
 
-  process.once("SIGTERM", shutdown);
-  process.once("SIGINT", shutdown);
+  process.once("SIGTERM", (signal) => void shutdown(signal));
+  process.once("SIGINT", (signal) => void shutdown(signal));
 }
 
 /**
@@ -136,9 +137,11 @@ export async function startWorkerLifecycle(): Promise<{
   const result = await startAllWorkers({
     logger: (msg, meta) => logger.info(msg, meta),
     // Most workers run an immediate DB-backed tick. A short stagger prevents
-    // all 15 ticks from competing for Prisma transactions during process boot.
+    // all initial ticks from competing for Prisma transactions during boot.
     betweenWorkerDelayMs: 200,
   });
+  const { startWorkerRuntimeHeartbeat } = await import("./runtime-heartbeat");
+  await startWorkerRuntimeHeartbeat(result);
 
   state.started = true;
   state.startedAt = new Date().toISOString();
@@ -164,8 +167,10 @@ export async function startWorkerLifecycle(): Promise<{
  * re-run `startAllWorkers` (tests / in-process restart). The process-level
  * SIGTERM/SIGINT handler remains installed once per process.
  */
-export function stopWorkerLifecycle(): void {
+export async function stopWorkerLifecycle(): Promise<void> {
   stopAllWorkers();
+  const { stopWorkerRuntimeHeartbeat } = await import("./runtime-heartbeat");
+  await stopWorkerRuntimeHeartbeat();
   const state = getLifecycleState();
   state.installed = false;
   state.started = false;

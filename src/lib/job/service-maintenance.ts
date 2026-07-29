@@ -11,15 +11,20 @@ const PLAYBOOK_EXHAUSTED_ERROR = t("backend.job.parentDurableJobAttemptsExhauste
 
 export async function recoverStaleRunningJobs(options: {
   staleBefore: Date;
+  heartbeatStaleBefore?: Date;
   retryAfterMs?: number;
   now?: Date;
 }): Promise<{ count: number; recovered: string[]; failed: string[] }> {
   const now = options.now ?? new Date();
+  const heartbeatStaleBefore = options.heartbeatStaleBefore ?? options.staleBefore;
   const staleWhere = {
     status: JobStatus.RUNNING,
     OR: [
       { leaseExpiresAt: { lt: options.staleBefore } },
-      { workerHeartbeatAt: { lt: options.staleBefore } },
+      {
+        leaseExpiresAt: null,
+        workerHeartbeatAt: { lt: heartbeatStaleBefore },
+      },
     ],
   };
   const retryable = await prisma.job.findMany({
@@ -51,7 +56,10 @@ export async function recoverStaleRunningJobs(options: {
         status: JobStatus.RUNNING,
         OR: [
           { leaseExpiresAt: { lt: options.staleBefore } },
-          { workerHeartbeatAt: { lt: options.staleBefore } },
+          {
+            leaseExpiresAt: null,
+            workerHeartbeatAt: { lt: heartbeatStaleBefore },
+          },
         ],
       },
       data: {
@@ -104,7 +112,10 @@ export async function recoverStaleRunningJobs(options: {
         status: JobStatus.RUNNING,
         OR: [
           { leaseExpiresAt: { lt: options.staleBefore } },
-          { workerHeartbeatAt: { lt: options.staleBefore } },
+          {
+            leaseExpiresAt: null,
+            workerHeartbeatAt: { lt: heartbeatStaleBefore },
+          },
         ],
       },
       data: {

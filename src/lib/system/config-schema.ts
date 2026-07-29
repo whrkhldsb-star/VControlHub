@@ -121,7 +121,7 @@ const storageNodeExportSchema = z.object({
   port: z.number().nullable(),
   username: z.string().nullable(),
   serverId: z.string().nullable(),
-  healthStatus: z.string(),
+  healthStatus: z.enum(["UNKNOWN", "HEALTHY", "UNHEALTHY"]),
   createdAt: z.string(),
 });
 

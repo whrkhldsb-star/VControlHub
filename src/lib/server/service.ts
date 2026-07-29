@@ -31,9 +31,16 @@ export {
   createServerProfile,
   updateServerProfile,
   toggleServerEnabled,
-  deleteServerProfile,
   listServerProfiles,
 } from "./service-profiles";
+
+export { deleteServerProfile } from "./service-profile-deletion";
+
+export {
+  getServerDeletionImpact,
+  getBlockingServerDeletionImpact,
+} from "./service-deletion-impact";
+export type { ServerDeletionImpact } from "./service-deletion-impact";
 
 // Re-export shared types so call-sites that imported them from
 // "@/lib/server/service" (e.g. ServerWithRelations, ServerProfileRow) still

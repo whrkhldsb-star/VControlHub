@@ -923,10 +923,16 @@ build_app() {
 	fi
 	if [ -z "${DESTDIR}" ] && [ "${SKIP_SYSTEMD}" != "1" ] && have_cmd systemctl; then
 		local next_unit="${SERVICE_PREFIX}-next.service"
+		local worker_unit="${SERVICE_PREFIX}-worker.service"
 		if systemctl list-unit-files "${next_unit}" >/dev/null 2>&1 \
 			&& systemctl is-active --quiet "${next_unit}" 2>/dev/null; then
 			log "Stopping ${next_unit} before production build (avoids overwriting a live .next)"
 			systemctl stop "${next_unit}" || warn "Could not stop ${next_unit}; build may still be refused by guard-live-next-build"
+		fi
+		if systemctl list-unit-files "${worker_unit}" >/dev/null 2>&1 \
+			&& systemctl is-active --quiet "${worker_unit}" 2>/dev/null; then
+			log "Stopping ${worker_unit} before production build"
+			systemctl stop "${worker_unit}" || warn "Could not stop ${worker_unit}"
 		fi
 	fi
 	npm ci
@@ -950,8 +956,8 @@ build_app() {
 	# before the next deploy.
 	npm prune --omit=dev
  # Verify compiled runtime entrypoints are available before systemd restart.
- if [ ! -f dist/server.js ] || [ ! -f dist/ssh-ws-proxy.js ]; then
-   fail "Runtime bundle missing after build. Expected dist/server.js and dist/ssh-ws-proxy.js."
+ if [ ! -f dist/server.js ] || [ ! -f dist/worker.js ] || [ ! -f dist/ssh-ws-proxy.js ]; then
+   fail "Runtime bundle missing after build. Expected dist/server.js, dist/worker.js and dist/ssh-ws-proxy.js."
  fi
  chown -R "${APP_USER}:${APP_USER}" "${APP_DIR}"
 }
@@ -1029,7 +1035,7 @@ install_systemd() {
 		quick_service_read_write_paths=" $(quick_service_host_paths | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
 	fi
 	local svc
-	for svc in next ssh-ws; do
+	for svc in next worker ssh-ws; do
 		local src="${APP_DIR}/deploy/systemd/${APP_SLUG}-${svc}.service.example"
 		if [ ! -f "${src}" ]; then
 			src="${APP_DIR}/deploy/systemd/whrkhldsb-${svc}.service.example"
@@ -1078,7 +1084,7 @@ sed \
 		log "Rendered systemd units under ${DESTDIR}; skipping host systemctl daemon-reload/enable"
 	else
 		systemctl daemon-reload
-		systemctl enable "${SERVICE_PREFIX}-next.service" "${SERVICE_PREFIX}-ssh-ws.service"
+		systemctl enable "${SERVICE_PREFIX}-next.service" "${SERVICE_PREFIX}-worker.service" "${SERVICE_PREFIX}-ssh-ws.service"
 	fi
 }
 install_caddy() {
@@ -1179,7 +1185,7 @@ sed \
 restart_services() {
  [ "${SKIP_RESTART}" = "1" ] && { warn "Skipping service restart"; return; }
  log "Restarting services"
- systemctl restart "${SERVICE_PREFIX}-next.service" "${SERVICE_PREFIX}-ssh-ws.service"
+ systemctl restart "${SERVICE_PREFIX}-next.service" "${SERVICE_PREFIX}-worker.service" "${SERVICE_PREFIX}-ssh-ws.service"
 	# Restart Caddy with the newly rendered config. `systemctl reload caddy` fails
 	# when Caddy is installed/enabled but not currently running (common after a
 	# reboot or first install), so try reload only for an active service and fall
@@ -1208,7 +1214,7 @@ restart_services() {
  warn "Next.js did not respond on port ${NEXT_PORT} within 30s; check logs:"
  journalctl --no-pager --lines=30 -u "${SERVICE_PREFIX}-next.service" || true
  fi
- systemctl --no-pager --lines=20 status "${SERVICE_PREFIX}-next.service" "${SERVICE_PREFIX}-ssh-ws.service" || true
+ systemctl --no-pager --lines=20 status "${SERVICE_PREFIX}-next.service" "${SERVICE_PREFIX}-worker.service" "${SERVICE_PREFIX}-ssh-ws.service" || true
 }
 
 main() {

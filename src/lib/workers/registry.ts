@@ -4,18 +4,15 @@
  * TR-001 T13c: instead of starting each worker from `src/server.ts` (and
  * partially from `src/instrumentation.ts`), we describe every worker here
  * once, then a single orchestrator (`startup.ts`) starts/stops them all
- * from `src/instrumentation.ts`. `src/server.ts` no longer needs to call
- * `startXxxWorker()` directly.
+ * from `src/worker.ts` in production or instrumentation in development.
  *
  * The orchestrator is responsible for:
  *   - skipping startup in test mode (VITEST=true / NODE_ENV=test)
  *   - honoring the kill switch (VCONTROLHUB_WORKERS_DISABLED=true)
  *   - registering a SIGTERM/SIGINT handler for graceful shutdown
  *
- * This file does NOT import any prisma/next/server code so it stays
- * importable from both the Next.js runtime and a future standalone
- * `src/worker.ts` entry point (potential systemd-unit split, deferred
- * to a follow-up TR per the README New-D note).
+ * This file does NOT import prisma/next/server code so it stays importable
+ * from both runtimes.
  */
 import { startAlertEvaluationWorker, stopAlertEvaluationWorkerForTests } from "@/lib/health/alert-worker";
 import { startHealthSamplingWorker, stopHealthSamplingWorkerForTests } from "@/lib/health/sampling-worker";
@@ -83,12 +80,9 @@ type WorkerRegistryGlobal = typeof globalThis & {
 };
 
 /**
- * Per-worker runtime flags. We mirror the underlying `started` state
- * into a small map on `globalThis` so the health check
- * (`/api/admin/workers`) can read it without re-importing every worker's
- * internal state type. The underlying workers remain the source of
- * truth — `start`/`stop` calls forward to them; this map is a
- * read-only cache populated by the orchestrator.
+ * Per-worker in-process runtime flags used for lifecycle idempotency and
+ * development diagnostics. Production health is read from persistent
+ * heartbeats because the API and worker run in separate processes.
  */
 function getRegistryState(): Record<WorkerId, { started: boolean }> {
   const g = globalThis as WorkerRegistryGlobal;
@@ -449,10 +443,8 @@ export function stopAllWorkers(): void {
 }
 
 /**
- * Read-only snapshot of every worker's status. Used by
- * `/api/admin/workers` health check. The `started` field reflects
- * whether the worker's `startXxxWorker()` call has succeeded and
- * the interval timer is set.
+ * Read-only in-process snapshot. Production API health uses
+ * `runtime-health.ts` instead.
  */
 export function getWorkerStatuses(): WorkerStatus[] {
   const state = getRegistryState();
@@ -461,6 +453,14 @@ export function getWorkerStatuses(): WorkerStatus[] {
     label: spec.label,
     jobType: spec.jobType,
     started: state[spec.id]?.started ?? false,
+  }));
+}
+
+export function getWorkerDefinitions(): Array<Omit<WorkerStatus, "started">> {
+  return WORKER_REGISTRY.map((spec) => ({
+    id: spec.id,
+    label: spec.label,
+    jobType: spec.jobType,
   }));
 }
 

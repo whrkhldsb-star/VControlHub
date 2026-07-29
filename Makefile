@@ -12,8 +12,8 @@ help:
 	@printf '  make ci-local-full Full CI parity: + coverage + next build + runtime bundle\n'
 	@printf '  git config core.hooksPath .githooks   optional pre-push runs make ci-local\n'
 	@printf '  make build         Run Next.js production build\n'
-	@printf '  make runtime       Build dist/server.js and dist/ssh-ws-proxy.js\n'
-	@printf '  make restart       Restart SERVICE_PREFIX=$(SERVICE_PREFIX)-next/-ssh-ws when available\n'
+	@printf '  make runtime       Build dist/server.js, dist/worker.js and dist/ssh-ws-proxy.js\n'
+	@printf '  make restart       Restart SERVICE_PREFIX=$(SERVICE_PREFIX)-next/-worker/-ssh-ws when available\n'
 	@printf '  make deploy-check  Run deploy/check.sh against APP_DIR=$(APP_DIR)\n'
 	@printf '  make drift-check   Detect systemd/check-out/build artifact drift\n'
 	@printf '  make smoke         Run full post-deploy smoke test; set DOMAIN=your-host when auto-detect is not enough\n'
@@ -41,7 +41,7 @@ runtime:
 
 restart:
 	@if command -v systemctl >/dev/null 2>&1; then \
-		systemctl restart $(SERVICE_PREFIX)-next.service $(SERVICE_PREFIX)-ssh-ws.service; \
+		systemctl restart $(SERVICE_PREFIX)-next.service $(SERVICE_PREFIX)-worker.service $(SERVICE_PREFIX)-ssh-ws.service; \
 	else \
 		echo 'systemctl not available'; exit 1; \
 	fi
@@ -66,13 +66,13 @@ installer-fakeroot:
 
 status:
 	@if command -v systemctl >/dev/null 2>&1; then \
-		systemctl status $(SERVICE_PREFIX)-next.service $(SERVICE_PREFIX)-ssh-ws.service --no-pager; \
+		systemctl status $(SERVICE_PREFIX)-next.service $(SERVICE_PREFIX)-worker.service $(SERVICE_PREFIX)-ssh-ws.service --no-pager; \
 	else \
 		echo 'systemctl not available'; exit 1; \
 	fi
 
 logs:
-	journalctl -u $(SERVICE_PREFIX)-next.service -u $(SERVICE_PREFIX)-ssh-ws.service -n 120 --no-pager
+	journalctl -u $(SERVICE_PREFIX)-next.service -u $(SERVICE_PREFIX)-worker.service -u $(SERVICE_PREFIX)-ssh-ws.service -n 120 --no-pager
 
 package:
 	deploy/package.sh

@@ -38,6 +38,7 @@ release_deploy_lock() {
 APP_USER="vcontrolhub"
 APP_DIR="/opt/VControlHub"
 SERVICE_NAME="vcontrolhub-next"
+WORKER_SERVICE_NAME="vcontrolhub-worker"
 service_stopped=0
 DEPLOY_LOCK_RELEASED=0
 
@@ -47,6 +48,10 @@ on_exit() {
 		echo "==> 部署失败，恢复启动 $SERVICE_NAME"
 		systemctl reset-failed "$SERVICE_NAME" 2>/dev/null || true
 		systemctl start "$SERVICE_NAME" || true
+		if systemctl list-unit-files "${WORKER_SERVICE_NAME}.service" >/dev/null 2>&1; then
+			systemctl reset-failed "$WORKER_SERVICE_NAME" 2>/dev/null || true
+			systemctl start "$WORKER_SERVICE_NAME" || true
+		fi
 	fi
 	release_deploy_lock
 	exit "$status"
@@ -103,6 +108,9 @@ chown -R "$APP_USER:$APP_USER" "$APP_DIR/node_modules" 2>/dev/null || true
 
 echo "==> [2/6] 停止 Next 服务后 build（禁止覆盖运行中进程的 Client Manifest）"
 systemctl stop "$SERVICE_NAME"
+if systemctl list-unit-files "${WORKER_SERVICE_NAME}.service" >/dev/null 2>&1; then
+	systemctl stop "$WORKER_SERVICE_NAME"
+fi
 service_stopped=1
 # install.sh / upgrade.sh 最后会 npm prune --omit=dev 来减少生产磁盘占用。
 # deploy.sh 是热部署脚本, 不走 install.sh 的 npm ci 路径, 所以必须在这里
@@ -119,7 +127,26 @@ sudo -u "$APP_USER" env bash -lc 'umask 022; npm run build:runtime'
 echo "==> [2.5/6] 应用 prisma migration (P-001-N: deploy.sh 此前缺此步, 部署后 30 秒 worker 报列不存在)"
 sudo -u "$APP_USER" npx prisma migrate deploy 2>&1 | tail -20
 
-echo "==> [2.6/7] TR-002 + R2: 检测 + patch /etc/caddy/Caddyfile 的 /direct 反代 (validate-before-reload + 多版本 backup 轮转)"
+echo "==> [2.6/7] 安装独立 Worker unit，并关闭 Next 进程内 Worker"
+NEXT_UNIT="/etc/systemd/system/${SERVICE_NAME}.service"
+WORKER_UNIT="/etc/systemd/system/${WORKER_SERVICE_NAME}.service"
+[ -f "$NEXT_UNIT" ] || { echo "  FAIL: 找不到 $NEXT_UNIT"; exit 1; }
+cp "$NEXT_UNIT" "$WORKER_UNIT"
+sed -i \
+	-e 's/^Description=.*/Description=VControlHub background worker/' \
+	-e '/^Environment=PORT=/d' \
+	-e '/^Environment=VCONTROLHUB_WORKERS_DISABLED=/d' \
+	-e 's|/dist/server\.js|/dist/worker.js|' \
+	-e 's/SyslogIdentifier=vcontrolhub-next/SyslogIdentifier=vcontrolhub-worker/' \
+	"$WORKER_UNIT"
+mkdir -p "/etc/systemd/system/${SERVICE_NAME}.service.d"
+printf '[Service]\nEnvironment=VCONTROLHUB_WORKERS_DISABLED=true\n' \
+	> "/etc/systemd/system/${SERVICE_NAME}.service.d/10-workers.conf"
+chmod 0644 "$WORKER_UNIT" "/etc/systemd/system/${SERVICE_NAME}.service.d/10-workers.conf"
+systemctl daemon-reload
+systemctl enable "$WORKER_SERVICE_NAME"
+
+echo "==> [2.7/7] TR-002 + R2: 检测 + patch /etc/caddy/Caddyfile 的 /direct 反代 (validate-before-reload + 多版本 backup 轮转)"
 CADDY_FILE="/etc/caddy/Caddyfile"
 if [ -f "$CADDY_FILE" ]; then
 	if ! grep -q 'reverse_proxy /direct' "$CADDY_FILE"; then
@@ -190,13 +217,14 @@ chown -R "$APP_USER:$APP_USER" "$APP_DIR/.next" "$APP_DIR/.next/cache" 2>/dev/nu
 
 echo "==> [4/6] 启动服务"
 systemctl reset-failed "$SERVICE_NAME" 2>/dev/null || true
-systemctl start "$SERVICE_NAME"
+systemctl reset-failed "$WORKER_SERVICE_NAME" 2>/dev/null || true
+systemctl start "$SERVICE_NAME" "$WORKER_SERVICE_NAME"
 service_stopped=0
 systemctl restart vcontrolhub-ssh-ws caddy
 sleep 2
 
 echo "==> [5/6] 验证服务 active"
-for svc in "$SERVICE_NAME" vcontrolhub-ssh-ws caddy; do
+for svc in "$SERVICE_NAME" "$WORKER_SERVICE_NAME" vcontrolhub-ssh-ws caddy; do
   if ! systemctl is-active --quiet "$svc"; then
     echo "  FAIL: $svc 未 active"
     systemctl status "$svc" --no-pager -l | tail -20

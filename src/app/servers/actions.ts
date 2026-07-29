@@ -20,6 +20,7 @@ export type ServerActionState = {
   error?: string;
   success?: string;
   relatedStorageCount?: number;
+  deleteBlockerSummary?: string;
   hostKeySha256?: string;
 };
 
@@ -64,6 +65,8 @@ export async function createServerAction(
     const costCurrency = String(formData.get("costCurrency") ?? "CNY") as "CNY" | "USD" | "EUR" | "JPY" | "HKD";
     const costProvider = String(formData.get("costProvider") ?? "");
     const approvedHostKeySha256 = String(formData.get("approvedHostKeySha256") ?? "") || undefined;
+    const saveAsDraftOnConnectionFailure =
+      formData.get("saveAsDraftOnConnectionFailure") === "on";
 
     const created = await createServerProfile({
       name,
@@ -84,7 +87,7 @@ export async function createServerAction(
       costCurrency,
       costProvider,
       approvedHostKeySha256,
-      saveAsDraftOnConnectionFailure: true,
+      saveAsDraftOnConnectionFailure,
     }, session);
 
     await auditUserAction(session.userId, "server.create", {
@@ -251,7 +254,17 @@ export async function toggleServerAction(
     });
     revalidatePath("/");
     revalidatePath("/servers");
-    return { success: tr("serversPage.action.toggleSuccess") } as ServerActionState;
+    const onboardingWarnings =
+      "onboardingWarnings" in updated && Array.isArray(updated.onboardingWarnings)
+        ? updated.onboardingWarnings
+        : [];
+    return {
+      success: onboardingWarnings.length > 0
+        ? tr("serversPage.action.toggleWithWarnings", {
+            warnings: onboardingWarnings.join(" "),
+          })
+        : tr("serversPage.action.toggleSuccess"),
+    } as ServerActionState;
   } catch (error) {
     return {
       error: getErrorMessage(error, tr("serversPage.action.toggleFailed")),
@@ -366,10 +379,20 @@ export async function deleteServerAction(
       return { error: tr("serversPage.action.notFound") } as ServerActionState;
     }
 
-    // Query related storage nodes count
-    const relatedStorageCount = await prisma.storageNode.count({
-      where: { serverId },
-    });
+    const { getBlockingServerDeletionImpact, getServerDeletionImpact } =
+      await import("@/lib/server/service");
+    const deletionImpact = await getServerDeletionImpact(serverId);
+    const relatedStorageCount = deletionImpact.storageNodes;
+    const blockers = getBlockingServerDeletionImpact(deletionImpact);
+
+    if (blockers.length > 0) {
+      const dependencies = blockers.map(([name, count]) => `${name}=${count}`).join(", ");
+      return {
+        relatedStorageCount,
+        deleteBlockerSummary: dependencies,
+        error: tr("serversPage.action.deleteBlocked", { dependencies }),
+      } as ServerActionState;
+    }
 
     if (!confirmDelete) {
       return {

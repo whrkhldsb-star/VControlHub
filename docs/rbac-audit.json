@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-29T13:19:16.013Z",
+  "generatedAt": "2026-07-29T14:41:07.071Z",
   "summary": {
     "permissionsInList": 54,
     "rolesDefined": 4,
@@ -2021,35 +2021,35 @@
         },
         {
           "path": "src/app/servers/actions.ts",
-          "line": 42
+          "line": 43
         },
         {
           "path": "src/app/servers/actions.ts",
-          "line": 123
+          "line": 126
         },
         {
           "path": "src/app/servers/actions.ts",
-          "line": 192
+          "line": 195
         },
         {
           "path": "src/app/servers/actions.ts",
-          "line": 240
+          "line": 243
         },
         {
           "path": "src/app/servers/actions.ts",
-          "line": 267
+          "line": 280
         },
         {
           "path": "src/app/servers/actions.ts",
-          "line": 308
+          "line": 321
         },
         {
           "path": "src/app/servers/actions.ts",
-          "line": 352
+          "line": 365
         },
         {
           "path": "src/app/servers/actions.ts",
-          "line": 406
+          "line": 429
         },
         {
           "path": "src/app/servers/page.tsx",
@@ -2775,11 +2775,11 @@
         },
         {
           "path": "src/app/api/admin/workers/route.ts",
-          "line": 26
+          "line": 24
         },
         {
           "path": "src/app/api/admin/workers/route.ts",
-          "line": 26
+          "line": 24
         },
         {
           "path": "src/app/api/jobs/[id]/events/route.ts",

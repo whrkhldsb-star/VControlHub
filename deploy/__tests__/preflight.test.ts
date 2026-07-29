@@ -125,6 +125,7 @@ describe("deploy/check.sh", () => {
     ]);
     await Promise.all([
       writeFile(path.join(appDir, "dist/server.js"), "console.log('server')\n"),
+      writeFile(path.join(appDir, "dist/worker.js"), "console.log('worker')\n"),
       writeFile(
         path.join(appDir, "dist/ssh-ws-proxy.js"),
         "console.log('ssh-ws')\n",
@@ -291,6 +292,10 @@ describe("deploy/preflight.sh", () => {
     await writeFile(
       path.join(appDir, "deploy/systemd/whrkhldsb-next.service.example"),
       "[Unit]\nDescription=test next\n[Service]\nWorkingDirectory={{APP_DIR}}\nEnvironmentFile={{RUNTIME_ENV_FILE}}\nUser={{APP_USER}}\nGroup={{APP_USER}}\nExecStart=/bin/true\n",
+    );
+    await writeFile(
+      path.join(appDir, "deploy/systemd/whrkhldsb-worker.service.example"),
+      "[Unit]\nDescription=test worker\n[Service]\nWorkingDirectory={{APP_DIR}}\nEnvironmentFile={{RUNTIME_ENV_FILE}}\nUser={{APP_USER}}\nGroup={{APP_USER}}\nExecStart=/bin/true\n",
     );
     await writeFile(
       path.join(appDir, "deploy/systemd/whrkhldsb-ssh-ws.service.example"),
@@ -522,6 +527,10 @@ describe("deploy/install.sh", () => {
     await writeFile(
       path.join(appDir, "deploy/systemd/whrkhldsb-next.service.example"),
       "[Unit]\nDescription=test next\n[Service]\nWorkingDirectory={{APP_DIR}}\nEnvironmentFile={{ENV_FILE}}\nUser={{APP_USER}}\nGroup={{APP_USER}}\nExecStart=/bin/true\n",
+    );
+    await writeFile(
+      path.join(appDir, "deploy/systemd/whrkhldsb-worker.service.example"),
+      "[Unit]\nDescription=test worker\n[Service]\nWorkingDirectory={{APP_DIR}}\nEnvironmentFile={{ENV_FILE}}\nUser={{APP_USER}}\nGroup={{APP_USER}}\nExecStart=/bin/true\n",
     );
     await writeFile(
       path.join(appDir, "deploy/systemd/whrkhldsb-ssh-ws.service.example"),
@@ -959,6 +968,10 @@ describe("deploy/install.sh", () => {
     await writeFile(
       path.join(appDir, "deploy/systemd/whrkhldsb-next.service.example"),
       "[Unit]\nDescription=test next\n[Service]\nWorkingDirectory={{APP_DIR}}\nEnvironmentFile={{ENV_FILE}}\nUser={{APP_USER}}\nGroup={{APP_USER}}\nExecStart=/bin/true\n",
+    );
+    await writeFile(
+      path.join(appDir, "deploy/systemd/whrkhldsb-worker.service.example"),
+      "[Unit]\nDescription=test worker\n[Service]\nWorkingDirectory={{APP_DIR}}\nEnvironmentFile={{ENV_FILE}}\nUser={{APP_USER}}\nGroup={{APP_USER}}\nExecStart=/bin/true\n",
     );
     await writeFile(
       path.join(appDir, "deploy/systemd/whrkhldsb-ssh-ws.service.example"),

@@ -5,10 +5,9 @@
  *   1. Sentry server-side init (APM / error tracking).
  *   2. BigInt JSON serialization patch (must load before any JSON.stringify
  *      touches a prisma BigInt column).
- *   3. TR-001 T13c — start every durable-job worker via the centralised
- *      lifecycle orchestrator. Previously workers were started in
- *      `src/server.ts`; moving here means future `next start` deployments
- *      (without the custom server) still get all 8 workers.
+ *   3. Start durable-job workers via the central lifecycle orchestrator.
+ *      Production systemd disables this in the web process and runs
+ *      `dist/worker.js`; development keeps the convenient in-process mode.
  *   4. TR-051 — verify ADMIN_INITIAL_PASSWORD (env) matches the DB hash;
  *      log-only, never throws (don't lock out production on bootstrap).
  *   5. TR-002 R4 — fire-and-forget probe of the direct gateway public-port
@@ -36,7 +35,7 @@ export async function register() {
   // 2) BigInt patch must load before any JSON serialization runs.
   await import("./lib/bigint-patch");
 
-  // 3) TR-001 T13c — start all durable-job workers (idempotent).
+  // 3) Start all durable-job workers unless this process has the kill switch.
   try {
     const { startWorkerLifecycle } = await import("./lib/workers/startup");
     await startWorkerLifecycle();

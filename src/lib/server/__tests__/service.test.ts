@@ -1,10 +1,11 @@
 vi.mock("@/lib/concurrency/advisory-lock", () => ({ acquireAdvisoryLock: vi.fn(async () => async () => undefined) }));
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   createServerProfile,
   createSshKey,
   deleteServerProfile,
+  getServerDeletionImpact,
   listServerProfiles,
   setServerDirectGatewayEnabled,
   toggleServerEnabled,
@@ -90,6 +91,7 @@ vi.mock("@/lib/db", () => ({
     },
     storageNode: {
       findFirst: vi.fn(),
+      findMany: vi.fn(),
       create: vi.fn(),
       count: vi.fn(),
       update: vi.fn(),
@@ -97,8 +99,19 @@ vi.mock("@/lib/db", () => ({
       delete: vi.fn(),
     },
     mediaItem: {
+      count: vi.fn(),
       deleteMany: vi.fn(),
     },
+    fileEntry: { count: vi.fn() },
+    fileVersion: { count: vi.fn() },
+    shareLink: { count: vi.fn() },
+    scheduledTask: { count: vi.fn() },
+    alertRule: { count: vi.fn() },
+    playbook: { findMany: vi.fn() },
+    syncJob: { count: vi.fn() },
+    quickService: { count: vi.fn() },
+    vpsBackupSchedule: { count: vi.fn() },
+    vpsBackupRecord: { count: vi.fn() },
     // createServerProfile wraps server+storage in $transaction
     $transaction: vi.fn(async (fn: (tx: unknown) => unknown) => {
       const { prisma: p } = await import("@/lib/db");
@@ -108,6 +121,10 @@ vi.mock("@/lib/db", () => ({
 }));
 
 describe("server service", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   beforeEach(() => {
     process.env.STORAGE_DIRECT_ACCESS_SECRET = "test-direct-secret";
     vi.clearAllMocks();
@@ -121,6 +138,18 @@ describe("server service", () => {
     });
     // createServerProfile may call server.update for OS dialect then findUnique for refresh.
     vi.mocked(prisma.server.update).mockResolvedValue({} as any);
+    vi.mocked(prisma.storageNode.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.fileEntry.count).mockResolvedValue(0);
+    vi.mocked(prisma.fileVersion.count).mockResolvedValue(0);
+    vi.mocked(prisma.shareLink.count).mockResolvedValue(0);
+    vi.mocked(prisma.mediaItem.count).mockResolvedValue(0);
+    vi.mocked(prisma.scheduledTask.count).mockResolvedValue(0);
+    vi.mocked(prisma.alertRule.count).mockResolvedValue(0);
+    vi.mocked(prisma.playbook.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.syncJob.count).mockResolvedValue(0);
+    vi.mocked(prisma.quickService.count).mockResolvedValue(0);
+    vi.mocked(prisma.vpsBackupSchedule.count).mockResolvedValue(0);
+    vi.mocked(prisma.vpsBackupRecord.count).mockResolvedValue(0);
   });
 
   it("creates an ssh key from manual public/private key input", async () => {
@@ -338,7 +367,12 @@ describe("server service", () => {
     expect(result.draftReason).toContain("connect ECONNREFUSED");
     expect(prisma.server.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ enabled: false }),
+        data: expect.objectContaining({
+          enabled: false,
+          onboardingStatus: "DRAFT",
+          onboardingLastError: expect.stringContaining("connect ECONNREFUSED"),
+          directGatewayDesiredEnabled: false,
+        }),
       }),
     );
     expect(prisma.storageNode.create).toHaveBeenCalledWith(
@@ -493,12 +527,83 @@ describe("server service", () => {
     vi.mocked(createRemoteDirectory).mockRejectedValueOnce(new Error("permission denied"));
 
     await expect(toggleServerEnabled("srv_draft", null, "SHA256:verified")).rejects.toThrow(
-      "storage path /root/drive could not be prepared and the node remains disabled",
+      /root\/drive.*permission denied/,
     );
 
     expect(prisma.server.update).not.toHaveBeenCalled();
     expect(prisma.storageNode.update).not.toHaveBeenCalled();
     expect(checkStorageNodeHealth).not.toHaveBeenCalled();
+  });
+
+  it("continues the saved direct-gateway intent when a draft is enabled", async () => {
+    const current = {
+      id: "srv_draft_gateway",
+      name: "pending-gateway",
+      host: "107.148.254.104",
+      port: 48163,
+      username: "root",
+      description: null,
+      tags: [],
+      enabled: false,
+      connectionType: "PASSWORD",
+      sshKeyId: null,
+      password: "enc:v1:password",
+      hostKeySha256: "SHA256:verified",
+      sshKey: null,
+      storageNode: {
+        id: "storage_gateway",
+        name: "pending-gateway storage",
+        driver: "SFTP",
+        isDefault: false,
+        basePath: "/root/drive",
+        directAccessMode: "PROXY",
+        publicBaseUrl: null,
+        fileEntries: [],
+        mediaItems: [],
+      },
+      commandTargets: [],
+      costAutoSync: false,
+      costMonthlyAmount: null,
+      costCurrency: "CNY",
+      costProvider: null,
+      directGatewayDesiredEnabled: true,
+      directGatewayDesiredProtocol: "HTTP",
+      directGatewayDesiredDomain: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as any;
+    vi.mocked(prisma.server.findUnique)
+      .mockResolvedValueOnce(current)
+      .mockResolvedValueOnce(current);
+    vi.mocked(prisma.server.update).mockResolvedValue({
+      ...current,
+      enabled: true,
+    } as any);
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("ok", { status: 200 })));
+
+    const result = await toggleServerEnabled(
+      "srv_draft_gateway",
+      null,
+      "SHA256:verified",
+    );
+
+    expect(result.enabled).toBe(true);
+    expect(result.onboardingWarnings).toEqual([]);
+    expect(execRemoteCommandMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        command: expect.stringContaining("vcontrolhub-direct"),
+        port: 48163,
+      }),
+    );
+    expect(prisma.server.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "srv_draft_gateway" },
+        data: {
+          onboardingStatus: "READY",
+          onboardingLastError: null,
+        },
+      }),
+    );
   });
 
   it("keeps a draft disabled when SSH verification still fails", async () => {
@@ -531,7 +636,7 @@ describe("server service", () => {
     );
 
     await expect(toggleServerEnabled("srv_draft")).rejects.toThrow(
-      "the node remains disabled",
+      /107\.148\.254\.104:22.*保持停用/,
     );
 
     expect(prisma.server.update).not.toHaveBeenCalled();
@@ -1302,8 +1407,8 @@ describe("server service", () => {
       }),
     );
     expect(result.onboardingWarnings).toEqual([
-      expect.stringContaining("Failed to auto-create remote storage directory"),
-      expect.stringContaining("Failed to auto-configure direct gateway"),
+      expect.stringMatching(/mkdir permission denied.*\/data\/warn/),
+      expect.stringMatching(/systemctl not found.*可稍后.*重试/),
     ]);
   });
 
@@ -1586,6 +1691,45 @@ describe("server service", () => {
     });
   });
 
+  it("reports file and workflow references in the server deletion impact", async () => {
+    vi.mocked(prisma.storageNode.findMany).mockResolvedValueOnce([{ id: "sn_1" }] as any);
+    vi.mocked(prisma.fileEntry.count).mockResolvedValueOnce(3);
+    vi.mocked(prisma.fileVersion.count).mockResolvedValueOnce(2);
+    vi.mocked(prisma.scheduledTask.count).mockResolvedValueOnce(1);
+    vi.mocked(prisma.playbook.findMany).mockResolvedValueOnce([
+      { steps: [{ type: "run_command", config: { serverIds: ["srv_1"] } }] },
+      { steps: [{ type: "run_command", config: { serverIds: ["srv_other"] } }] },
+    ] as any);
+
+    await expect(getServerDeletionImpact("srv_1")).resolves.toEqual(
+      expect.objectContaining({
+        storageNodes: 1,
+        files: 3,
+        fileVersions: 2,
+        scheduledTasks: 1,
+        playbooks: 1,
+      }),
+    );
+  });
+
+  it("blocks server deletion while business workflows still reference it", async () => {
+    vi.mocked(prisma.server.findUnique).mockResolvedValueOnce({
+      id: "srv_1",
+      host: "203.0.113.10",
+      fileProxyPort: 0,
+      storageNode: null,
+      sshKey: null,
+    } as any);
+    vi.mocked(prisma.scheduledTask.count).mockResolvedValueOnce(2);
+
+    await expect(deleteServerProfile("srv_1")).rejects.toThrow(
+      "scheduledTasks=2",
+    );
+
+    expect(prisma.storageNode.delete).not.toHaveBeenCalled();
+    expect(prisma.server.delete).not.toHaveBeenCalled();
+  });
+
   it("still deletes a server when offline gateway cleanup fails", async () => {
     execRemoteCommandMock.mockRejectedValueOnce(new Error("connect ETIMEDOUT"));
     vi.mocked(prisma.server.findUnique).mockResolvedValueOnce({
@@ -1794,7 +1938,7 @@ describe("server service", () => {
 
     expect(result.directGateway.enabled).toBe(false);
     expect(result.onboardingWarnings).toEqual([
-      "Failed to auto-configure direct gateway on target server: connect ETIMEDOUT. VPS node and storage node have been created. You can retry enabling the direct gateway later in the VPS management panel.",
+      expect.stringMatching(/connect ETIMEDOUT.*可稍后.*重试/),
     ]);
     // TR-041: dialect probe still updates the server record even if direct gateway fails
     expect(prisma.server.update).toHaveBeenCalledWith(
@@ -2153,7 +2297,7 @@ describe("server service", () => {
       }),
     );
     expect(result.onboardingWarnings).toEqual([
-      expect.stringContaining("Failed to ensure remote storage directory /root/drive"),
+      expect.stringMatching(/\/root\/drive.*permission denied/),
     ]);
   });
 

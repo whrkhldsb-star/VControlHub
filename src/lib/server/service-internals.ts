@@ -72,6 +72,11 @@ export type ServerWithRelations = {
   costLastSyncedAt?: Date | string | null;
   // TR-030: multi-tenancy resource scoping
   teamId?: string | null;
+  onboardingStatus?: "READY" | "DRAFT" | "NEEDS_ATTENTION";
+  onboardingLastError?: string | null;
+  directGatewayDesiredEnabled?: boolean;
+  directGatewayDesiredProtocol?: "HTTP" | "HTTPS" | "http" | "https";
+  directGatewayDesiredDomain?: string | null;
 };
 
 export type ServerCommandTargetRow = ServerCommandTarget;
@@ -328,6 +333,8 @@ export function enrichServer(server: ServerWithRelations) {
     // TR-041: OS dialect info for UI display + dialect-aware command generation
     osDialect: server.osDialect ?? null,
     osInfo: server.osInfo ?? null,
+    onboardingStatus: server.onboardingStatus ?? "READY",
+    onboardingLastError: server.onboardingLastError ?? null,
     costAutoSync: server.costAutoSync ?? false,
     costMonthlyAmount: server.costMonthlyAmount?.toFixed(2) ?? null,
     costCurrency: normalizeServerCostCurrency(server.costCurrency),

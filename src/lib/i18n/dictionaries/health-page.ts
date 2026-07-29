@@ -130,7 +130,7 @@ export const zh: Record<string, string> = {
 	"healthPage.repair.services.label": "核对核心服务",
 	"healthPage.repair.services.description": "核心服务在线，可继续检查业务功能。",
 	"healthPage.repair.services.descriptionCritical": "优先确认 Next.js、SSH WS 与 Caddy 是否都在运行。",
-	"healthPage.repair.services.action": "验证 vcontrolhub-next.service / vcontrolhub-ssh-ws.service / caddy.service",
+	"healthPage.repair.services.action": "验证 vcontrolhub-next.service / vcontrolhub-worker.service / vcontrolhub-ssh-ws.service / caddy.service",
 
 	// Repair: git
 	"healthPage.repair.git.label": "核对 GitHub 同步",
@@ -151,6 +151,7 @@ export const zh: Record<string, string> = {
 	"healthPage.check.runtime-directories.label": "运行目录基线",
 	"healthPage.check.dir.label": "运行目录 {name}",
 	"healthPage.check.next-service.label": "Next.js 服务",
+	"healthPage.check.worker-service.label": "后台 Worker 服务",
 	"healthPage.check.ssh-ws-service.label": "SSH WebSocket 服务",
 	"healthPage.check.caddy-service.label": "Caddy 反代服务",
 	"healthPage.check.env-database-url.label": "数据库环境变量",
@@ -171,6 +172,9 @@ export const zh: Record<string, string> = {
 	"healthPage.check.next-service.message.running": "{unit} 正在运行",
 	"healthPage.check.next-service.message.state": "{unit} 当前状态为 {state}",
 	"healthPage.check.next-service.message.unreadable": "{unit} 状态暂不可读",
+	"healthPage.check.worker-service.message.running": "{unit} 正在运行",
+	"healthPage.check.worker-service.message.state": "{unit} 当前状态为 {state}",
+	"healthPage.check.worker-service.message.unreadable": "{unit} 状态暂不可读",
 	"healthPage.check.ssh-ws-service.message.running": "{unit} 正在运行",
 	"healthPage.check.ssh-ws-service.message.state": "{unit} 当前状态为 {state}",
 	"healthPage.check.ssh-ws-service.message.unreadable": "{unit} 状态暂不可读",
@@ -315,7 +319,7 @@ export const en: Record<string, string> = {
 	"healthPage.repair.services.label": "Verify core services",
 	"healthPage.repair.services.description": "Core services are online; continue checking product workflows.",
 	"healthPage.repair.services.descriptionCritical": "First confirm Next.js, SSH WS, and Caddy are all running.",
-	"healthPage.repair.services.action": "Verify vcontrolhub-next.service / vcontrolhub-ssh-ws.service / caddy.service",
+	"healthPage.repair.services.action": "Verify vcontrolhub-next.service / vcontrolhub-worker.service / vcontrolhub-ssh-ws.service / caddy.service",
 
 	// Repair: git
 	"healthPage.repair.git.label": "Check GitHub sync",
@@ -336,6 +340,7 @@ export const en: Record<string, string> = {
 	"healthPage.check.runtime-directories.label": "Runtime Directory Baseline",
 	"healthPage.check.dir.label": "Runtime directory {name}",
 	"healthPage.check.next-service.label": "Next.js Service",
+	"healthPage.check.worker-service.label": "Background Worker Service",
 	"healthPage.check.ssh-ws-service.label": "SSH WebSocket Service",
 	"healthPage.check.caddy-service.label": "Caddy Reverse Proxy Service",
 	"healthPage.check.env-database-url.label": "Database Environment Variable",
@@ -356,6 +361,9 @@ export const en: Record<string, string> = {
 	"healthPage.check.next-service.message.running": "{unit} is running",
 	"healthPage.check.next-service.message.state": "{unit} is currently {state}",
 	"healthPage.check.next-service.message.unreadable": "{unit} status is temporarily unreadable",
+	"healthPage.check.worker-service.message.running": "{unit} is running",
+	"healthPage.check.worker-service.message.state": "{unit} is currently {state}",
+	"healthPage.check.worker-service.message.unreadable": "{unit} status is temporarily unreadable",
 	"healthPage.check.ssh-ws-service.message.running": "{unit} is running",
 	"healthPage.check.ssh-ws-service.message.state": "{unit} is currently {state}",
 	"healthPage.check.ssh-ws-service.message.unreadable": "{unit} status is temporarily unreadable",
