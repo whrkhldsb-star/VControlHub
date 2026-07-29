@@ -71,21 +71,21 @@ export function ImagePreviewModal({
 						</div>
 					</div>
 					<div className="flex flex-wrap items-center justify-end gap-2">
-						<ActionButton type="submit" variant="outline"
+						<ActionButton type="button" variant="outline"
 							onClick={() => onCopyLink(image.publicUrl)}
 						
 							className="!min-h-11 !px-3 !py-1.5 !text-xs"
 						>
 							{t("imageBed.preview.copyLink")}
 						</ActionButton>
-						<ActionButton type="submit" variant="success"
+						<ActionButton type="button" variant="success"
 							onClick={() => onCopyMarkdown(image)}
 						
 							className="!min-h-11 !px-3 !py-1.5 !text-xs"
 						>
 							Markdown
 						</ActionButton>
-						<ActionButton type="submit" variant="outline"
+						<ActionButton type="button" variant="outline"
 							onClick={() => onCopyHTML(image)}
 						
 							className="!min-h-11 !px-3 !py-1.5 !text-xs"
@@ -93,7 +93,7 @@ export function ImagePreviewModal({
 							HTML
 						</ActionButton>
 						{canDelete && (
-							<ActionButton type="submit" variant="danger"
+							<ActionButton type="button" variant="danger"
 								onClick={() => onRequestDelete(image)}
 							
 								className="!min-h-11 !px-3 !py-1.5 !text-xs"
@@ -104,6 +104,7 @@ export function ImagePreviewModal({
 					</div>
 				</div>
 				<button
+					type="button"
 					onClick={onClose}
 					className="absolute -top-3 -right-3 w-8 h-8 bg-[var(--surface-elevated)] text-[var(--text-secondary)] rounded-full flex items-center justify-center hover:bg-[var(--surface-hover)] text-lg"
 					aria-label={t("common.close")}

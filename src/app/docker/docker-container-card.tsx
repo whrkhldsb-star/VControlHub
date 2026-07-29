@@ -56,16 +56,16 @@ export function DockerContainerCard({
 			)}
 			<div className="flex flex-wrap items-center gap-2">
 				{c.State !=="running" && (
-					<ActionButton type="submit" variant="success" onClick={() => handleAction(c,"start")} disabled={actionLoading === c.Id} className="!min-h-11 !px-2.5 !py-1 !text-[10px] disabled:opacity-50">{t("dockerPage.action.start")}</ActionButton>
+					<ActionButton type="button" variant="success" onClick={() => handleAction(c,"start")} disabled={actionLoading === c.Id} className="!min-h-11 !px-2.5 !py-1 !text-[10px] disabled:opacity-50">{t("dockerPage.action.start")}</ActionButton>
 				)}
 				{c.State ==="running" && (
 					<>
-						<ActionButton type="submit" variant="outline" onClick={() => handleAction(c,"stop")} disabled={actionLoading === c.Id} className="!min-h-11 !px-2.5 !py-1 !text-[10px] disabled:opacity-50">{t("dockerPage.action.stop")}</ActionButton>
-						<ActionButton type="submit" variant="outline" onClick={() => handleAction(c,"restart")} disabled={actionLoading === c.Id} className="!min-h-11 !px-2.5 !py-1 !text-[10px] disabled:opacity-50">{t("dockerPage.action.restart")}</ActionButton>
+						<ActionButton type="button" variant="outline" onClick={() => handleAction(c,"stop")} disabled={actionLoading === c.Id} className="!min-h-11 !px-2.5 !py-1 !text-[10px] disabled:opacity-50">{t("dockerPage.action.stop")}</ActionButton>
+						<ActionButton type="button" variant="outline" onClick={() => handleAction(c,"restart")} disabled={actionLoading === c.Id} className="!min-h-11 !px-2.5 !py-1 !text-[10px] disabled:opacity-50">{t("dockerPage.action.restart")}</ActionButton>
 					</>
 				)}
-				<ActionButton type="submit" variant="secondary" onClick={() => fetchLogs(c.Id)} className="!min-h-11 !px-2.5 !py-1 !text-[10px]">{t("dockerPage.action.logs")}</ActionButton>
-				<ActionButton type="submit" variant="danger" onClick={() => requestRemoval(c)} disabled={actionLoading === c.Id} className="!min-h-11 !px-2.5 !py-1 !text-[10px] disabled:opacity-50">{t("dockerPage.action.remove")}</ActionButton>
+				<ActionButton type="button" variant="secondary" onClick={() => fetchLogs(c.Id)} className="!min-h-11 !px-2.5 !py-1 !text-[10px]">{t("dockerPage.action.logs")}</ActionButton>
+				<ActionButton type="button" variant="danger" onClick={() => requestRemoval(c)} disabled={actionLoading === c.Id} className="!min-h-11 !px-2.5 !py-1 !text-[10px] disabled:opacity-50">{t("dockerPage.action.remove")}</ActionButton>
 			</div>
 		</div>
 	);

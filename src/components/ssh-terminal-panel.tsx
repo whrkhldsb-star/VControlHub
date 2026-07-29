@@ -2,7 +2,7 @@
 
 import { decodeBase64, encodeBase64 } from "@/components/ssh-terminal-codec";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { buildSshWebSocketUrl } from "@/components/ssh-terminal-url";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -10,7 +10,23 @@ import { SshFileManager } from "@/components/ssh-file-manager";
 import { SshTerminalSidePanel } from "@/components/ssh-terminal-side-panel";
 import { SshTerminalSearchBar, SshTerminalToolbar } from "@/components/ssh-terminal-chrome";
 import type { TerminalStatus } from "@/components/ssh-terminal-types";
+import { useBrowserStorageSnapshot, writeLocalStorageValue } from "@/lib/hooks/use-browser-storage-snapshot";
 export type { TerminalStatus } from "@/components/ssh-terminal-types";
+
+const FAVORITE_COMMANDS_KEY = "ssh-favorite-commands";
+
+function readFavoriteCommands(storage: Storage): string | null {
+	return storage.getItem(FAVORITE_COMMANDS_KEY);
+}
+
+function parseFavoriteCommands(raw: string | null): string[] {
+	try {
+		const parsed: unknown = raw ? JSON.parse(raw) : [];
+		return Array.isArray(parsed) && parsed.every((item) => typeof item === "string") ? parsed : [];
+	} catch {
+		return [];
+	}
+}
 
 /* ------------------------------------------------------------------ */
 /* SshTerminalPanel — single-tab terminal logic (extracted from modal) */
@@ -47,15 +63,8 @@ export function SshTerminalPanel({ serverId, serverName, host, sessionToken, vis
 	const [showFileManager, setShowFileManager] = useState(false);
 	const [terminalSearch, setTerminalSearch] = useState("");
 	const [commandHistory, setCommandHistory] = useState<string[]>([]);
-	const [favoriteCommands, setFavoriteCommands] = useState<string[]>(() => {
-		if (typeof window === "undefined") return [];
-		try {
-			const stored = localStorage.getItem("ssh-favorite-commands");
-			return stored ? JSON.parse(stored) : [];
-		} catch {
-			return [];
-		}
-	});
+	const storedFavoriteCommands = useBrowserStorageSnapshot(FAVORITE_COMMANDS_KEY, readFavoriteCommands, null);
+	const favoriteCommands = useMemo(() => parseFavoriteCommands(storedFavoriteCommands), [storedFavoriteCommands]);
 	const [newFavorite, setNewFavorite] = useState("");
 
 	// Notify parent of status changes
@@ -271,21 +280,19 @@ export function SshTerminalPanel({ serverId, serverName, host, sessionToken, vis
 	}, [serverId, sessionToken, reconnectKey, t]);
 
 	const saveFavorites = (items: string[]) => {
-		try { localStorage.setItem("ssh-favorite-commands", JSON.stringify(items)); } catch {}
+		writeLocalStorageValue(FAVORITE_COMMANDS_KEY, JSON.stringify(items));
 	};
 
 	const addFavorite = () => {
 		const cmd = newFavorite.trim();
 		if (!cmd || favoriteCommands.includes(cmd)) return;
 		const next = [...favoriteCommands, cmd];
-		setFavoriteCommands(next);
 		saveFavorites(next);
 		setNewFavorite("");
 	};
 
 	const removeFavorite = (cmd: string) => {
 		const next = favoriteCommands.filter((c) => c !== cmd);
-		setFavoriteCommands(next);
 		saveFavorites(next);
 	};
 

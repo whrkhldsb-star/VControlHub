@@ -128,7 +128,7 @@ describe("OperationTaskListClient", () => {
     expect(screen.getByRole("link", { name: "导出当前结果 CSV" })).toHaveAttribute("href", "/api/operation-tasks?status=failed&taskType=alert.evaluate&sort=attention&format=csv");
   });
 
-  it("renders folded periodic job metadata without losing source navigation", async () => {
+  it("renders folded periodic job metadata without linking to a missing source page", async () => {
     render(<OperationTaskListClient initialTasks={[{
       id: "job:alert_new",
       source: "job",
@@ -139,12 +139,11 @@ describe("OperationTaskListClient", () => {
       updatedAt: "2026-01-04T00:00:00.000Z",
       taskType: "alert.evaluate",
       foldedCount: 18,
-      href: "/tasks",
     }]} />);
 
     expect(screen.getByText("后台")).toBeInTheDocument();
     expect(screen.getAllByText("alert.evaluate").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("已折叠 18 次周期完成记录")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "查看来源 →" })).toHaveAttribute("href", "/tasks");
+    expect(screen.queryByRole("link", { name: "查看来源 →" })).not.toBeInTheDocument();
   });
 });

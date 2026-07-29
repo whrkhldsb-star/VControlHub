@@ -149,12 +149,12 @@ export function ServiceCard({
 							</a>
 						)}
 						{item.status === "running" && (
-							<ActionButton type="submit" variant="secondary" onClick={onStop} disabled={busy} className="!px-3 !py-1.5 !text-xs disabled:opacity-50">
+							<ActionButton type="button" variant="secondary" onClick={onStop} disabled={busy} className="!px-3 !py-1.5 !text-xs disabled:opacity-50">
 								{busy ? t("qsPage.busy") : t("qsPage.stop")}
 							</ActionButton>
 						)}
 						{item.status === "stopped" && (
-							<ActionButton type="submit" variant="success-solid" onClick={onStart} disabled={busy} className="!px-3 !py-1.5 !text-xs disabled:opacity-50">
+							<ActionButton type="button" variant="success-solid" onClick={onStart} disabled={busy} className="!px-3 !py-1.5 !text-xs disabled:opacity-50">
 								{busy ? t("qsPage.busy") : t("qsPage.start")}
 							</ActionButton>
 						)}
@@ -162,16 +162,16 @@ export function ServiceCard({
 							<span className="text-xs text-[var(--warning)] animate-pulse">{t("qsPage.pullingImage")}</span>
 						)}
 						{item.status === "error" && (
-							<ActionButton type="submit" variant="secondary" onClick={onSync} disabled={busy} className="!px-3 !py-1.5 !text-xs disabled:opacity-50">
+							<ActionButton type="button" variant="secondary" onClick={onSync} disabled={busy} className="!px-3 !py-1.5 !text-xs disabled:opacity-50">
 								{t("qsPage.refreshStatus")}
 							</ActionButton>
 						)}
 						{(item.status === "running" || item.status === "stopped" || item.status === "error") && (
-							<ActionButton type="submit" variant="outline" onClick={onUpdate} disabled={busy} className="!px-3 !py-1.5 !text-xs disabled:opacity-50">
+							<ActionButton type="button" variant="outline" onClick={onUpdate} disabled={busy} className="!px-3 !py-1.5 !text-xs disabled:opacity-50">
 								{busy ? t("qsPage.busy") : t("qsPage.update")}
 							</ActionButton>
 						)}
-						<ActionButton type="submit" variant="danger" onClick={onUninstall} disabled={busy} className="ml-auto !px-3 !py-1.5 !text-xs disabled:opacity-50">
+						<ActionButton type="button" variant="danger" onClick={onUninstall} disabled={busy} className="ml-auto !px-3 !py-1.5 !text-xs disabled:opacity-50">
 							{t("qsPage.uninstall")}
 						</ActionButton>
 					</>

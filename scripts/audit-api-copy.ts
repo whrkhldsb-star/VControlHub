@@ -39,7 +39,8 @@ function listFiles(): string[] {
   return output
     .split("\n")
     .filter(Boolean)
-    .filter((file) => INCLUDE_EXT.test(file) && !TEST_OR_DICT.test(file));
+    .filter((file) => INCLUDE_EXT.test(file) && !TEST_OR_DICT.test(file))
+    .filter((file) => existsSync(join(ROOT, file)));
 }
 
 function isLikelyUserCopy(text: string): boolean {

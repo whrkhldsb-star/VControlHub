@@ -8,13 +8,13 @@ function ToastHarness() {
 	const { toasts, addToast, removeToast } = useToast();
 	return (
 		<div>
-			<button onClick={() => addToast("success", "Saved successfully", 4000)}>Show Success</button>
-			<button onClick={() => addToast("error", "Operation failed", 4000)}>Show Error</button>
-			<button onClick={() => addToast("info", "Persistent toast", 0)}>Show Persistent</button>
-			<button onClick={() => addToast("warning", "Warning msg", 4000)}>Show Warning</button>
+			<button type="button" onClick={() => addToast("success", "Saved successfully", 4000)}>Show Success</button>
+			<button type="button" onClick={() => addToast("error", "Operation failed", 4000)}>Show Error</button>
+			<button type="button" onClick={() => addToast("info", "Persistent toast", 0)}>Show Persistent</button>
+			<button type="button" onClick={() => addToast("warning", "Warning msg", 4000)}>Show Warning</button>
 			<span data-testid="count">{toasts.length}</span>
 			{toasts.map((t) => (
-				<button key={t.id} onClick={() => removeToast(t.id)} data-testid={`dismiss-${t.id}`}>
+				<button type="button" key={t.id} onClick={() => removeToast(t.id)} data-testid={`dismiss-${t.id}`}>
 					dismiss
 				</button>
 			))}

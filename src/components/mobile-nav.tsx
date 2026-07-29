@@ -49,7 +49,7 @@ export function MobileNav({
 							key={tab.href}
 							href={tab.href}
 							aria-current={active ? "page" : undefined}
-							className={`flex min-w-0 flex-col items-center gap-0.5 rounded-xl px-1 py-1.5 transition ${
+							className={`flex min-h-11 min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-1.5 transition ${
 								active
 									? "bg-[var(--accent-bg)] font-medium text-[var(--accent)] shadow-[var(--shadow-sm)]"
 									: "text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-secondary)]"
@@ -61,7 +61,7 @@ export function MobileNav({
 					);
 				})}
 				<div className="ml-0 flex items-center gap-0.5 border-l border-[var(--border-subtle)] pl-1">
-					<LanguageToggle compact />
+					<LanguageToggle />
 					<ThemeToggle />
 				</div>
 			</div>

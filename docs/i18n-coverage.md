@@ -1,8 +1,8 @@
 # VControlHub i18n Coverage Report
 
-> Generated: 2026-07-10T14:22:45.476Z | Files: 358 | Strings: 0 | Coverage: **100%** (0/0)
+> Generated: 2026-07-29T04:51:24.351Z | Files: 427 | Strings: 0 | Coverage: **100%** (0/0)
 
-This report cross-references hardcoded Chinese strings in `src/app/**/*.tsx` and `src/components/**/*.tsx` against the values in `src/lib/i18n/translations.ts`. A string is **covered** when its exact value already exists in the `zh` translation map; **missing** strings are candidates for new translation keys (or for relocation to the `dom-bridge` runtime substitution system).
+This report cross-references hardcoded Chinese strings in `src/app/**/*.tsx` and `src/components/**/*.tsx` against the values in `src/lib/i18n/translations.ts`. A string is **covered** when its exact value already exists in the `zh` translation map; **missing** strings are candidates for new translation keys.
 
 Strings inside `data-i18n-skip` regions, in `<script>` tags, or in JSX expressions (`{...}`) are not audited.
 
@@ -13,7 +13,7 @@ Strings inside `data-i18n-skip` regions, in `<script>` tags, or in JSX expressio
 
 ## Top missing strings (frequency-sorted)
 
-Each row is a Chinese string that appears in source but has no matching key in `translations.ts`. Add the string as a `zh` value, then optionally provide an `en` value, then reference via `t("<key>")` or the `dom-bridge` data-i18n system.
+Each row is a Chinese string that appears in source but has no matching key in `translations.ts`. Add the string as a `zh` value, then optionally provide an `en` value, then reference it via `t("<key>")`.
 
 | String | Count | First 3 occurrences |
 |---|---|---|

@@ -532,16 +532,13 @@ function extractAttrs(tagContent: string): Record<string, string> {
 /**
  * Extract hardcoded Chinese strings from a TSX file's text.
  *
- * We do three passes:
+ * We do two passes:
  *   1. JSX text content: walk `>...<` regions and pick out Chinese
  *      content. We skip content that lives inside `{...}` expressions
  *      because those are dynamic values, not literal JSX text.
  *   2. JSX attribute values: for the four attributes we care about
  *      (placeholder / title / aria-label / alt), scan all opening
  *      tags and extract the string-literal value.
- *   3. We never extract from `data-i18n-original-*` (dom-bridge
- *      runtime markers — those are the source the bridge uses to
- *      translate, not user-authored UI strings).
  */
 export function extractCandidates(
   text: string,
@@ -570,8 +567,7 @@ export function extractCandidates(
       const value = attrs[name];
       if (!value) continue;
       if (!isChineseLabel(value)) continue;
-      // Sanity: skip if the attribute is on a dom-bridge marker tag.
-      if (tagName === "I18nBridge" || tagName === "script") continue;
+      if (tagName === "script") continue;
       candidates.push({
         text: value,
         line: lineForOffset(stripped, tagStart),
@@ -783,7 +779,7 @@ function buildMarkdown(report: CoverageReport): string {
   );
   lines.push("");
   lines.push(
-    "This report cross-references hardcoded Chinese strings in `src/app/**/*.tsx` and `src/components/**/*.tsx` against the values in `src/lib/i18n/translations.ts`. A string is **covered** when its exact value already exists in the `zh` translation map; **missing** strings are candidates for new translation keys (or for relocation to the `dom-bridge` runtime substitution system).",
+    "This report cross-references hardcoded Chinese strings in `src/app/**/*.tsx` and `src/components/**/*.tsx` against the values in `src/lib/i18n/translations.ts`. A string is **covered** when its exact value already exists in the `zh` translation map; **missing** strings are candidates for new translation keys.",
   );
   lines.push("");
   lines.push("Strings inside `data-i18n-skip` regions, in `<script>` tags, or in JSX expressions (`{...}`) are not audited.");
@@ -805,7 +801,7 @@ function buildMarkdown(report: CoverageReport): string {
   lines.push("## Top missing strings (frequency-sorted)");
   lines.push("");
   lines.push(
-    "Each row is a Chinese string that appears in source but has no matching key in `translations.ts`. Add the string as a `zh` value, then optionally provide an `en` value, then reference via `t(\"<key>\")` or the `dom-bridge` data-i18n system.",
+    "Each row is a Chinese string that appears in source but has no matching key in `translations.ts`. Add the string as a `zh` value, then optionally provide an `en` value, then reference it via `t(\"<key>\")`.",
   );
   lines.push("");
   lines.push("| String | Count | First 3 occurrences |");

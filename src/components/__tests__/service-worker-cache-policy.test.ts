@@ -9,7 +9,7 @@ describe("public/sw.js PWA cache policy", () => {
 	it("does not pre-cache authenticated app pages during install", () => {
 		const precacheBlock = swSource.slice(
 			swSource.indexOf("const PRECACHE_URLS"),
-			swSource.indexOf("const WARMABLE_ROUTES"),
+			swSource.indexOf('self.addEventListener("install"'),
 		);
 		expect(precacheBlock).toContain('"/offline"');
 		expect(precacheBlock).not.toContain('"/dashboard"');
@@ -18,11 +18,15 @@ describe("public/sw.js PWA cache policy", () => {
 		expect(precacheBlock).not.toContain('"/settings"');
 	});
 
-	it("exposes a session-aware route warming message for read-only pages", () => {
-		expect(swSource).toContain("VCH_PWA_WARM_ROUTE");
-		expect(swSource).toContain("warmRoute(data.pathname)");
-		expect(swSource).toContain('"/dashboard"');
-		expect(swSource).toContain('"/status"');
+	it("never stores authenticated navigation responses", () => {
+		const navigationBlock = swSource.slice(
+			swSource.indexOf('if (request.mode === "navigate")'),
+			swSource.indexOf("// Same-origin static assets"),
+		);
+		expect(swSource).not.toContain("VCH_PWA_WARM_ROUTE");
+		expect(navigationBlock).not.toContain("cache.put");
+		expect(navigationBlock).not.toContain("caches.match(request)");
+		expect(navigationBlock).toContain('caches.match("/offline")');
 	});
 
 	it("keeps API requests out of the cache", () => {

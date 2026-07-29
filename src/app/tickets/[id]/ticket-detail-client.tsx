@@ -408,7 +408,7 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
           <textarea id="ticketComment" value={comment} onChange={(e) => setComment(e.target.value)} placeholder={t("ticketsDetail.commentPlaceholder")}
             rows={3}
             className={`${UI_INPUT} resize-none px-4 py-3`} />
-          <ActionButton type="submit" variant="primary" onClick={addComment} disabled={saving || !comment.trim()} data-primary className="mt-2 px-4 py-2 text-sm">
+          <ActionButton type="button" variant="primary" onClick={addComment} disabled={saving || !comment.trim()} data-primary className="mt-2 px-4 py-2 text-sm">
             {saving ? t("ticketsDetail.commentSubmitting") : t("ticketsDetail.commentSubmit")}
           </ActionButton>
         </div>

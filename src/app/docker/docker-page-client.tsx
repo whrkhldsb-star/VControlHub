@@ -116,7 +116,7 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 				<span className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface)] px-2.5 py-1">{t("dockerPage.toolbar.ungroupedCount", { count: ungrouped.length })}</span>
 			</div>
 			<div className="mb-6 flex flex-wrap items-center gap-2">
-				<ActionButton type="submit" variant="primary"
+				<ActionButton type="button" variant="primary"
 					onClick={() => {
 						setLoading(true);
 						void fetchContainers();
@@ -124,14 +124,14 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 				>
 					{t("dockerPage.refresh.list")}
 				</ActionButton>
-				<ActionButton type="submit" variant="secondary"
+				<ActionButton type="button" variant="secondary"
 					onClick={() => {
 						for (const container of runningContainers) void fetchStats(container.Id);
 					}} className="!min-h-11 !rounded-xl !px-3 !py-1.5 !text-xs !font-medium"
 				>
 					{t("dockerPage.refresh.stats")}
 				</ActionButton>
-				<ActionButton type="submit" variant={statsAutoRefresh ? "success" : "secondary"}
+				<ActionButton type="button" variant={statsAutoRefresh ? "success" : "secondary"}
 					onClick={() => setStatsAutoRefresh((v) => !v)}
 					disabled={refreshIntervalSeconds <= 0 || runningContainers.length === 0}
 					className="!min-h-11 !rounded-xl !px-3 !py-1.5 !text-xs !font-medium disabled:cursor-not-allowed disabled:opacity-50"

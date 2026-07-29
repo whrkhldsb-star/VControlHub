@@ -4,7 +4,9 @@
  * — no JSX, fully unit-testable via renderHook.
  */
 
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
+
+import { useBrowserStorageSnapshot, writeLocalStorageValue } from "@/lib/hooks/use-browser-storage-snapshot";
 
 export type ViewMode = "list" | "grid" | "details";
 
@@ -12,22 +14,10 @@ export const VIEW_MODE_KEY = "app-file-view-mode";
 const VALID: ReadonlySet<ViewMode> = new Set(["list", "grid", "details"]);
 const DEFAULT_VIEW_MODE: ViewMode = "list";
 
-function readPersistedViewMode(): ViewMode {
-	try {
-		const saved = localStorage.getItem(VIEW_MODE_KEY) as ViewMode | null;
-		if (saved && VALID.has(saved)) return saved;
-	} catch {
-		/* localStorage may be unavailable (SSR, private mode) */
-	}
+function readPersistedViewMode(storage: Storage): ViewMode {
+	const saved = storage.getItem(VIEW_MODE_KEY) as ViewMode | null;
+	if (saved && VALID.has(saved)) return saved;
 	return DEFAULT_VIEW_MODE;
-}
-
-function persistViewMode(mode: ViewMode): void {
-	try {
-		localStorage.setItem(VIEW_MODE_KEY, mode);
-	} catch {
-		/* ignore */
-	}
 }
 
 /**
@@ -37,10 +27,9 @@ function persistViewMode(mode: ViewMode): void {
  * memoized children without invalidating their dependency array.
  */
 export function useViewMode(): [ViewMode, (mode: ViewMode) => void] {
-	const [viewMode, setViewMode] = useState<ViewMode>(readPersistedViewMode);
+	const viewMode = useBrowserStorageSnapshot(VIEW_MODE_KEY, readPersistedViewMode, DEFAULT_VIEW_MODE);
 	const set = useCallback((mode: ViewMode) => {
-		setViewMode(mode);
-		persistViewMode(mode);
+		writeLocalStorageValue(VIEW_MODE_KEY, mode);
 	}, []);
 	return [viewMode, set];
 }

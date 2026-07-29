@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback } from "react";
 
 import {
 	DEFAULT_REFRESH_INTERVAL_SECONDS,
 	getRefreshIntervalFromStorage,
+	REFRESH_PREFERENCES_STORAGE_KEY,
 } from "@/lib/preferences/refresh-interval";
+import { useBrowserStorageSnapshot } from "@/lib/hooks/use-browser-storage-snapshot";
 
 /**
  * Reads the user's auto-refresh interval (seconds) from the shared
@@ -25,20 +27,14 @@ import {
  * @returns the current refresh interval in seconds; 0 means "manual only"
  */
 export function useRefreshInterval(fallback: number = DEFAULT_REFRESH_INTERVAL_SECONDS): number {
-	const [refreshIntervalSeconds, setRefreshIntervalSeconds] = useState(() =>
-		typeof window === "undefined" ? fallback : getRefreshIntervalFromStorage(window.localStorage, fallback),
+	const read = useCallback(
+		(storage: Storage) => getRefreshIntervalFromStorage(storage, fallback),
+		[fallback],
 	);
-
-	useEffect(() => {
-		const onStorage = () =>
-			setRefreshIntervalSeconds(getRefreshIntervalFromStorage(globalThis.localStorage, fallback));
-		window.addEventListener("storage", onStorage);
-		window.addEventListener("vps-preferences-updated", onStorage);
-		return () => {
-			window.removeEventListener("storage", onStorage);
-			window.removeEventListener("vps-preferences-updated", onStorage);
-		};
-	}, [fallback]);
-
-	return refreshIntervalSeconds;
+	return useBrowserStorageSnapshot(
+		REFRESH_PREFERENCES_STORAGE_KEY,
+		read,
+		fallback,
+		"vps-preferences-updated",
+	);
 }

@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page, type Response } from "@playwright/test";
 
 import { installDirectSession } from "./helpers/direct-session";
 
@@ -35,9 +35,24 @@ async function ensureAuthenticated(
 	await login(page);
 }
 
+function observeRuntimeFailures(page: Page) {
+	const failures: string[] = [];
+	page.on("pageerror", (error) => failures.push(`pageerror ${page.url()}: ${error.message}`));
+	page.on("console", (message) => {
+		if (message.type() === "error" && !/favicon|ResizeObserver/i.test(message.text())) {
+			failures.push(`console ${page.url()}: ${message.text()}`);
+		}
+	});
+	page.on("response", (response: Response) => {
+		if (response.status() >= 500) failures.push(`${response.status()} ${response.url()}`);
+	});
+	return failures;
+}
+
 test.describe("authenticated golden path", () => {
 	test("login, navigation and settings remain usable", async ({ page, context }) => {
 		test.setTimeout(90_000);
+		const runtimeFailures = observeRuntimeFailures(page);
 		await ensureAuthenticated(page, context);
 		await expect(page.locator("body")).toBeVisible();
 
@@ -60,5 +75,6 @@ test.describe("authenticated golden path", () => {
 		await page.goto("/", { waitUntil: "domcontentloaded" });
 		// The authenticated chrome should expose primary navigation links.
 		await expect(page.getByRole("link", { name: /设置|Settings/i }).first()).toBeVisible();
+		expect(runtimeFailures).toEqual([]);
 	});
 });

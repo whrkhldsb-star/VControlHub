@@ -48,7 +48,7 @@ async function postVital(payload: VitalPayload) {
 			...payload,
 			rating: payload.rating ?? rateMetric(payload.name, payload.value),
 			path: typeof window !== "undefined" ? window.location.pathname : undefined,
-		});
+		}, { keepalive: true });
 	} catch {
 		// Best-effort telemetry — never block the UI on reporting failures.
 	}

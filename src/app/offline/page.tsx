@@ -12,18 +12,6 @@
 import { useState } from "react";
 import { useI18n } from "@/lib/i18n/use-locale";
 
-interface CachedRoute {
-  href: string;
-  labelKey: "pwa.offline.dashboard" | "pwa.offline.servers" | "pwa.offline.files" | "pwa.offline.settings";
-}
-
-const CACHED_ROUTES: ReadonlyArray<CachedRoute> = [
-  { href: "/dashboard", labelKey: "pwa.offline.dashboard" },
-  { href: "/servers", labelKey: "pwa.offline.servers" },
-  { href: "/files", labelKey: "pwa.offline.files" },
-  { href: "/settings", labelKey: "pwa.offline.settings" },
-];
-
 export default function OfflinePage() {
   const { t } = useI18n();
   const [retrying, setRetrying] = useState(false);
@@ -55,23 +43,9 @@ export default function OfflinePage() {
           </p>
         </div>
 
-        <div className="pt-1 text-left">
-          <h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">
-            {t("pwa.offline.cachedRoutes")}
-          </h2>
-          <ul className="grid grid-cols-2 gap-2 text-sm" role="list">
-            {CACHED_ROUTES.map((route) => (
-              <li key={route.href}>
-                <a
-                  href={route.href}
-                  className="block rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-elevated)]"
-                >
-                  {t(route.labelKey)}
-                </a>
-              </li>
-            ))}
-          </ul>
-        </div>
+        <p className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-left text-xs leading-relaxed text-[var(--text-muted)]">
+          {t("pwa.offline.securityNotice")}
+        </p>
 
         <div className="border-t border-[var(--border-subtle)] pt-5">
           <a

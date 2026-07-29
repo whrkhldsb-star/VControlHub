@@ -16,7 +16,8 @@ vi.mock("@/lib/auth/csrf-client", () => ({
 	csrfFetch: (...args: unknown[]) => csrfFetchMock(...args),
 }));
 
-vi.mock("@/lib/preferences/refresh-interval", () => ({
+vi.mock("@/lib/preferences/refresh-interval", async (importOriginal) => ({
+	...(await importOriginal<typeof import("@/lib/preferences/refresh-interval")>()),
 	getRefreshIntervalFromStorage: () => 5,
 }));
 

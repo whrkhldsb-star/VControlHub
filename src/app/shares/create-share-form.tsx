@@ -73,7 +73,7 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
   return (
     <div>
       {!open ? (
-        <ActionButton type="submit" variant="primary"
+        <ActionButton type="button" variant="primary"
           onClick={() => setOpen(true)} className="px-4 py-2.5 text-sm"
         >
           {t("sharesPage.create.title")}
@@ -85,7 +85,7 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
               <h3 className="text-sm font-semibold text-[var(--text-primary)]">{t("sharesPage.create.advancedTitle")}</h3>
               <p className="mt-1 text-xs text-[var(--text-muted)]">{t("sharesPage.create.desc")}</p>
             </div>
-            <button onClick={() => { setOpen(false); setResult(null); setError(""); }} className="text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)]">{t("common.collapse")}</button>
+            <button type="button" onClick={() => { setOpen(false); setResult(null); setError(""); }} className="text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)]">{t("common.collapse")}</button>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
@@ -145,7 +145,7 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
             </div>
           )}
 
-          <ActionButton type="submit" variant="primary"
+          <ActionButton type="button" variant="primary"
             onClick={handleCreate}
             disabled={saving || !nodeId || !path.trim()} className="mt-4 px-4 py-2.5 text-sm"
           >

@@ -170,6 +170,7 @@ export const renderContent = (content: string) => {
  <div className="flex items-center justify-between px-3 py-1.5 border-b border-[var(--border)]/10">
  <span className="text-[10px] text-[var(--color-action)]/60 font-mono">{lang || "code"}</span>
  <button
+ type="button"
  onClick={() => copyToClipboard(code)}
  className="text-[10px] text-[var(--text-muted)] hover:text-[var(--color-action)] transition opacity-100 sm:opacity-0 sm:group-hover/code:opacity-100 flex items-center gap-1"
  >

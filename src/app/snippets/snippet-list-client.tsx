@@ -54,13 +54,13 @@ const SnippetCard = memo(function SnippetCard({ snippet: s, t, copied, onCopy, o
           )}
         </div>
         <div className="flex items-center gap-1 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
-          <ActionButton type="submit" variant="ghost" onClick={() => onCopy(s)} title={t("snippetsPage.action.copy")} aria-label={t("snippetsPage.action.copy")} className="!min-h-11 !min-w-11 !rounded-lg !p-1.5">
+          <ActionButton type="button" variant="ghost" onClick={() => onCopy(s)} title={t("snippetsPage.action.copy")} aria-label={t("snippetsPage.action.copy")} className="!min-h-11 !min-w-11 !rounded-lg !p-1.5">
             {copied ? <Check size={14} /> : <Copy size={14} />}
           </ActionButton>
-          <ActionButton type="submit" variant="ghost" onClick={() => onEdit(s)} title={t("snippetsPage.action.edit")} aria-label={t("snippetsPage.action.edit")} className="!min-h-11 !min-w-11 !rounded-lg !p-1.5">
+          <ActionButton type="button" variant="ghost" onClick={() => onEdit(s)} title={t("snippetsPage.action.edit")} aria-label={t("snippetsPage.action.edit")} className="!min-h-11 !min-w-11 !rounded-lg !p-1.5">
             <Pencil size={14} />
           </ActionButton>
-          <ActionButton type="submit" variant="ghost" onClick={() => onDelete(s)} title={t("snippetsPage.action.delete")} aria-label={`${t("snippetsPage.deleteDialog.title")} ${s.title}`} className="!min-h-11 !min-w-11 !rounded-lg !p-1.5 text-[var(--danger)]">
+          <ActionButton type="button" variant="ghost" onClick={() => onDelete(s)} title={t("snippetsPage.action.delete")} aria-label={`${t("snippetsPage.deleteDialog.title")} ${s.title}`} className="!min-h-11 !min-w-11 !rounded-lg !p-1.5 text-[var(--danger)]">
             <Trash2 size={14} />
           </ActionButton>
         </div>

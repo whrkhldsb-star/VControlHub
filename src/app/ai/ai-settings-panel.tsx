@@ -239,7 +239,7 @@ export function AiSettingsPanel({
 
         {/* Save button */}
         <div className="flex items-end gap-2">
-          <ActionButton type="submit" variant="ghost"
+          <ActionButton type="button" variant="ghost"
             onClick={onSaveSettings}
            
             className="h-7 px-3 text-xs"

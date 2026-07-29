@@ -203,7 +203,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 								</div>
 								<div className="flex flex-col gap-2 shrink-0">
 									{canManage && (
-										<ActionButton type="submit" variant="outline"
+										<ActionButton type="button" variant="outline"
 											onClick={() => retryTask(task.id)}
 										
 											className="!min-h-11 !rounded-2xl !px-4 !py-2 !text-xs"
@@ -212,7 +212,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 										</ActionButton>
 									)}
 									{canManage && (
-										<ActionButton type="submit" variant={task.status === "ACTIVE" ? "outline" : "success"}
+										<ActionButton type="button" variant={task.status === "ACTIVE" ? "outline" : "success"}
 											onClick={() => toggleTask(task.id)}
 										
 											className="!min-h-11 !rounded-2xl !px-4 !py-2 !text-xs"
@@ -221,7 +221,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 										</ActionButton>
 									)}
 									{canManage && (
-										<ActionButton type="submit" variant="danger"
+										<ActionButton type="button" variant="danger"
 											onClick={() => setTaskPendingDelete(task)}
 										
 											className="!min-h-11 !rounded-2xl !px-4 !py-2 !text-xs"

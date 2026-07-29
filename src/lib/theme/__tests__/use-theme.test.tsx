@@ -132,7 +132,7 @@ describe("theme useTheme / ThemeProvider", () => {
     function B() {
       const { theme, setTheme } = useTheme();
       return (
-        <button data-testid="b" onClick={() => setTheme("light")}>
+        <button type="button" data-testid="b" onClick={() => setTheme("light")}>
           {theme}
         </button>
       );

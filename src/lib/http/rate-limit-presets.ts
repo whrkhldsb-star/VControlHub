@@ -40,6 +40,9 @@ export const GENERAL_READ_LIMIT: RateLimitConfig = { maxRequests: 120, windowMs:
 /** General API write: 30 per minute per IP */
 export const GENERAL_WRITE_LIMIT: RateLimitConfig = { maxRequests: 30, windowMs: 60_000 };
 
+/** Browser telemetry: allow several Web Vital samples per page navigation. */
+export const WEB_VITALS_WRITE_LIMIT: RateLimitConfig = { maxRequests: 300, windowMs: 60_000 };
+
 /** Image upload: 5 per minute per IP */
 export const IMAGE_UPLOAD_LIMIT: RateLimitConfig = { maxRequests: 5, windowMs: 60_000 };
 

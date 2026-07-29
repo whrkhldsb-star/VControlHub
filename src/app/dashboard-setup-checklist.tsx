@@ -1,14 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
 
 import { useI18n } from "@/lib/i18n/use-locale";
 import type { SetupChecklistItem } from "@/lib/dashboard/setup-checklist";
 import { countPendingSetupItems } from "@/lib/dashboard/setup-checklist";
 import { ActionButton } from "@/components/action-button";
+import { useBrowserStorageSnapshot, writeLocalStorageValue } from "@/lib/hooks/use-browser-storage-snapshot";
 
 const DISMISS_KEY = "vch.setupChecklist.dismissed";
+
+function readDismissed(storage: Storage): boolean {
+	return storage.getItem(DISMISS_KEY) === "1";
+}
 
 const ITEM_LABEL_KEY: Record<SetupChecklistItem["id"], string> = {
 	servers: "dashboard.setup.item.servers",
@@ -32,25 +36,13 @@ type Props = {
 
 export function DashboardSetupChecklist({ items }: Props) {
 	const { t } = useI18n();
-	const [dismissed, setDismissed] = useState(() => {
-		if (typeof window === "undefined") return false;
-		try {
-			return window.localStorage.getItem(DISMISS_KEY) === "1";
-		} catch {
-			return false;
-		}
-	});
+	const dismissed = useBrowserStorageSnapshot(DISMISS_KEY, readDismissed, false);
 
 	const pending = countPendingSetupItems(items);
 	if (pending === 0 || dismissed) return null;
 
 	const dismiss = () => {
-		try {
-			window.localStorage.setItem(DISMISS_KEY, "1");
-		} catch {
-			/* ignore */
-		}
-		setDismissed(true);
+		writeLocalStorageValue(DISMISS_KEY, "1");
 	};
 
 	return (

@@ -66,13 +66,14 @@ export function RouteError({
 					) : null}
 				</div>
 				<div className="mt-6 flex flex-wrap justify-center gap-2">
-					<ActionButton type="submit" variant="primary"
+					<ActionButton type="button" variant="primary"
 						onClick={reset}
 						data-primary className="px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40"
 					>
 						{t("common.retry")}
 					</ActionButton>
 					<button
+						type="button"
 						onClick={() => {
 							if (typeof window !== "undefined") {
 								window.location.reload();

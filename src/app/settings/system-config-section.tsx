@@ -254,7 +254,7 @@ async function handlePreview() {
           </div>
         )}
 
-        <ActionButton type="submit" variant="primary"
+        <ActionButton type="button" variant="primary"
           onClick={handleExport}
           disabled={exporting} className="disabled:opacity-50"
         >
@@ -317,7 +317,7 @@ async function handlePreview() {
             </label>
 
             {/* Preview button */}
-            <ActionButton type="submit" variant="secondary"
+            <ActionButton type="button" variant="secondary"
               onClick={handlePreview}
               disabled={previewing} className="!px-4 !py-2 !text-sm disabled:opacity-50">
               {previewing ? t("systemConfig.import.previewing") : t("systemConfig.import.previewButton")}
@@ -358,7 +358,7 @@ async function handlePreview() {
             )}
 
             {/* Confirm import button */}
-            <ActionButton type="submit" variant="primary"
+            <ActionButton type="button" variant="primary"
               onClick={handleExecute}
               disabled={executing || preview.totalRecords === 0} className="mt-2 disabled:opacity-50"
             >

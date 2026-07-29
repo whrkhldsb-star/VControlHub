@@ -39,6 +39,7 @@ export default async function NotificationsPage() {
 			<NotificationListClient
 				initialNotifications={serialized}
 				initialUnreadCount={unreadCount}
+				initialNow={new Date().toISOString()}
 			/>
 		</PageShell>
 	);

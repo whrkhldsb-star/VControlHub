@@ -113,8 +113,8 @@ export function SshFileManagerHeader({
       {showMkdir && (
         <div className="mt-2 flex gap-1.5">
           <input value={mkdirName} aria-label={t("sshFileManager.folderName")} onChange={(e) => setMkdirName(e.target.value)} onKeyDown={(e) => e.key ==="Enter" && onMkdir()} placeholder={t("sshFileManager.folderName")} className={cn(UI_INPUT,"min-h-9 min-w-0 flex-1 py-1 text-xs")} autoFocus />
-          <ActionButton type="submit" variant="outline" onClick={onMkdir} aria-label={t("common.confirm")} data-tone="cyan" className="min-h-9 min-w-9 shrink-0 !px-2 !text-xs">✓</ActionButton>
-          <button onClick={() => { setShowMkdir(false); setMkdirName(""); }} aria-label={t("common.cancel")} className="min-h-9 min-w-9 shrink-0 rounded-lg border border-[var(--border)] px-2 text-xs text-[var(--text-muted)] transition hover:bg-[var(--surface-hover)]">✕</button>
+          <ActionButton type="button" variant="outline" onClick={onMkdir} aria-label={t("common.confirm")} data-tone="cyan" className="min-h-9 min-w-9 shrink-0 !px-2 !text-xs">✓</ActionButton>
+          <button type="button" onClick={() => { setShowMkdir(false); setMkdirName(""); }} aria-label={t("common.cancel")} className="min-h-9 min-w-9 shrink-0 rounded-lg border border-[var(--border)] px-2 text-xs text-[var(--text-muted)] transition hover:bg-[var(--surface-hover)]">✕</button>
         </div>
       )}
     </div>

@@ -11,12 +11,20 @@ import { useMemo, useState } from "react";
 import { toDateLocale } from "@/lib/i18n/locale-format";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
+import { useBrowserStorageSnapshot, writeLocalStorageValue } from "@/lib/hooks/use-browser-storage-snapshot";
 
 import { tt as applyTemplate } from "@/app/health/health-dashboard-helpers";
 import { useHealthData } from "@/app/health/use-health-data";
 
 export type VpsStatusFilter = "all" | "online" | "issue";
 export type VpsStatusViewMode = "cards" | "table";
+
+const VPS_STATUS_VIEW_MODE_KEY = "vch.vpsStatus.viewMode";
+
+function readViewMode(storage: Storage): VpsStatusViewMode {
+	const saved = storage.getItem(VPS_STATUS_VIEW_MODE_KEY);
+	return saved === "table" ? "table" : "cards";
+}
 
 export function useVpsStatusView() {
 	const { locale, t } = useI18n();
@@ -35,24 +43,10 @@ export function useVpsStatusView() {
 
 	const [expandedServer, setExpandedServer] = useState<string | null>(null);
 	const [filter, setFilter] = useState<VpsStatusFilter>("all");
-	const [viewMode, setViewMode] = useState<VpsStatusViewMode>(() => {
-		if (typeof window === "undefined") return "cards";
-		try {
-			const saved = window.localStorage.getItem("vch.vpsStatus.viewMode");
-			if (saved === "cards" || saved === "table") return saved;
-		} catch {
-			/* ignore */
-		}
-		return "cards";
-	});
+	const viewMode = useBrowserStorageSnapshot(VPS_STATUS_VIEW_MODE_KEY, readViewMode, "cards");
 
 	const setViewModePersist = (mode: VpsStatusViewMode) => {
-		setViewMode(mode);
-		try {
-			window.localStorage.setItem("vch.vpsStatus.viewMode", mode);
-		} catch {
-			/* ignore */
-		}
+		writeLocalStorageValue(VPS_STATUS_VIEW_MODE_KEY, mode);
 	};
 
 	const tt = (key: string, vars?: Record<string, string | number>) => applyTemplate(t, key, vars);

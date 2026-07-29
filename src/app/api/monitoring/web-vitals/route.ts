@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { withApiRoute } from "@/lib/http/api-guard";
-import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { WEB_VITALS_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { recordWebVital, type WebVitalName } from "@/lib/monitoring/runtime-metrics";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
 		request,
 		{
 			requireAuth: true,
-			rateLimit: GENERAL_WRITE_LIMIT,
+			rateLimit: WEB_VITALS_WRITE_LIMIT,
 			bodySchema: webVitalSchema,
 			errorMessage: "Failed to record web vital",
 		},

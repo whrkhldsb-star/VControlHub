@@ -7,13 +7,6 @@ import { ActionButton } from "@/components/action-button";
 
 const logger = createLogger("pwa-register");
 
-const OFFLINE_WARM_ROUTES = [
-  "/dashboard",
-  "/servers",
-  "/files",
-  "/settings",
-  "/status",
-] as const;
 type PwaUpdateState = { waiting: ServiceWorker | null; visible: boolean };
 function isStandaloneDisplayMode() {
   if (typeof window === "undefined") return false;
@@ -78,13 +71,6 @@ export function PwaRegister() {
       // dismiss of the inline update banner.
       setUpdateState({ waiting: worker, visible: true });
     };
-    const warmOfflineRoutes = (registration: ServiceWorkerRegistration) => {
-      const target = registration.active || navigator.serviceWorker.controller;
-      if (!target) return;
-      for (const pathname of OFFLINE_WARM_ROUTES) {
-        target.postMessage({ type: "VCH_PWA_WARM_ROUTE", pathname });
-      }
-    };
     const onUpdateFound = (registration: ServiceWorkerRegistration) => {
       const installing = registration.installing;
       if (!installing) return;
@@ -103,7 +89,6 @@ export function PwaRegister() {
         if (registration.waiting) {
           notifyUpdateAvailable(registration.waiting);
         }
-        warmOfflineRoutes(registration);
         registration.addEventListener("updatefound", () =>
           onUpdateFound(registration),
         );

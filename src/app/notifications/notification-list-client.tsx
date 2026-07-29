@@ -26,6 +26,7 @@ type NotificationItem = {
 type Props = {
 	initialNotifications: NotificationItem[];
 	initialUnreadCount: number;
+	initialNow: string;
 };
 
 const typeIcon: Record<string, ReactNode> = {
@@ -40,8 +41,8 @@ const typeIcon: Record<string, ReactNode> = {
 	system: <Bell size={18} aria-hidden="true" />,
 };
 
-function timeAgo(dateStr: string, t: (k: string, vars?: Record<string, string | number>) => string, locale: Locale): string {
-	const diff = Date.now() - new Date(dateStr).getTime();
+function timeAgo(dateStr: string, nowMs: number, t: (k: string, vars?: Record<string, string | number>) => string, locale: Locale): string {
+	const diff = nowMs - new Date(dateStr).getTime();
 	const mins = Math.floor(diff / 60_000);
 	if (mins < 1) return t("notificationsPage.time.justNow");
 	if (mins < 60) return t("notificationsPage.time.minutesAgo", { count: mins });
@@ -56,12 +57,14 @@ const NotificationRow = memo(function NotificationRow({
 	notification: n,
 	t,
 	locale,
+	nowMs,
 	onMarkRead,
 	onDelete,
 }: {
 	notification: NotificationItem;
 	t: (k: string, vars?: Record<string, string | number>) => string;
 	locale: Locale;
+	nowMs: number;
 	onMarkRead: (id: string) => void;
 	onDelete: (id: string) => void;
 }) {
@@ -82,18 +85,18 @@ const NotificationRow = memo(function NotificationRow({
 					</div>
 					<p className="mt-1 text-xs text-[var(--text-muted)] leading-relaxed">{n.message}</p>
 					<div className="mt-2 flex flex-wrap items-center gap-3 text-[11px]">
-						<span className="text-[var(--text-muted)]">{timeAgo(n.createdAt, t, locale)}</span>
+						<span className="text-[var(--text-muted)]">{timeAgo(n.createdAt, nowMs, t, locale)}</span>
 						{n.actionUrl && (
 							<Link href={getSafeNotificationActionUrl(n.actionUrl)} className="rounded-lg px-1 py-0.5 font-medium text-[var(--accent)] transition hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40">
 								{t("notificationsPage.action.view")}
 							</Link>
 						)}
 						{!n.isRead && (
-							<button onClick={() => onMarkRead(n.id)} className="rounded-lg px-1 py-0.5 text-[var(--text-muted)] transition hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40">
+							<button type="button" onClick={() => onMarkRead(n.id)} className="rounded-lg px-1 py-0.5 text-[var(--text-muted)] transition hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40">
 								{t("notificationsPage.action.markOne")}
 							</button>
 						)}
-						<button onClick={() => onDelete(n.id)} className="rounded-lg px-1 py-0.5 text-[var(--text-muted)] transition hover:text-[var(--danger)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--danger-border)] light:hover:text-[var(--danger)]" aria-label={t("notificationsPage.action.delete")}>
+						<button type="button" onClick={() => onDelete(n.id)} className="rounded-lg px-1 py-0.5 text-[var(--text-muted)] transition hover:text-[var(--danger)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--danger-border)] light:hover:text-[var(--danger)]" aria-label={t("notificationsPage.action.delete")}>
 							{t("notificationsPage.action.delete")}
 						</button>
 					</div>
@@ -112,14 +115,17 @@ const NotificationRow = memo(function NotificationRow({
 		p.actionUrl === n.actionUrl &&
 		p.createdAt === n.createdAt &&
 		prev.locale === next.locale &&
+		prev.nowMs === next.nowMs &&
 		prev.t === next.t &&
 		prev.onMarkRead === next.onMarkRead &&
 		prev.onDelete === next.onDelete
 	);
 });
 
-export function NotificationListClient({ initialNotifications, initialUnreadCount }: Props) {
+export function NotificationListClient({ initialNotifications, initialUnreadCount, initialNow }: Props) {
 	const { t, locale } = useI18n();
+	const parsedNow = Date.parse(initialNow);
+	const nowMs = Number.isFinite(parsedNow) ? parsedNow : 0;
 	const [notifications, setNotifications] = useState(initialNotifications);
 	const [unreadCount, setUnreadCount] = useState(initialUnreadCount);
 	const [error, setError] = useState<string | null>(null);
@@ -223,6 +229,7 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 					notification={n}
 					t={t}
 					locale={locale}
+					nowMs={nowMs}
 					onMarkRead={markOneRead}
 					onDelete={deleteOne}
 				/>

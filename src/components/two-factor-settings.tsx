@@ -165,6 +165,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 						</ActionButton>
 					</div>
 					<button
+						type="button"
 						onClick={() => { setStep("idle"); setCode(""); setError(""); setQrDataUrl(""); setSecret(""); }}
 						className="text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition"
 					>
@@ -190,6 +191,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 							className={cn(UI_INPUT, "flex-1")}
 						/>
 						<button
+							type="button"
 							onClick={handleDisable}
 							disabled={loading || code.length !== 6}
 							className="px-4 py-2 text-xs font-medium bg-[var(--danger-bg)] text-[var(--danger)] rounded-lg hover:bg-[var(--danger-bg)] transition disabled:opacity-50"
@@ -198,6 +200,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 						</button>
 					</div>
 					<button
+						type="button"
 						onClick={() => { setStep("idle"); setCode(""); setError(""); }}
 						className="text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition"
 					>

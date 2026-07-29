@@ -317,6 +317,7 @@ export function PreferencesSettingsContent({
 					<div className="grid grid-cols-2 md:grid-cols-3 gap-2">
 						{(Object.keys(PAGE_KEYS) as DefaultPageOption[]).map((value) => (
 							<button
+								type="button"
 								key={value}
 								onClick={() => save({ ...prefs, defaultPage: value })}
 								className={`px-3 py-2 text-xs rounded-lg border transition ${
@@ -353,6 +354,7 @@ export function PreferencesSettingsContent({
 					<div className="flex flex-wrap gap-2">
 						{REFRESH_INTERVAL_OPTIONS.map((opt) => (
 							<button
+								type="button"
 								key={opt.value}
 								onClick={() => save({ ...prefs, autoRefreshInterval: opt.value })}
 								className={`px-3 py-1.5 text-xs rounded-lg border transition ${
@@ -377,6 +379,7 @@ export function PreferencesSettingsContent({
 					<div className="flex flex-wrap gap-2">
 						{AUTO_PROBE_INTERVAL_OPTIONS.map((opt) => (
 							<button
+								type="button"
 								key={opt.value}
 								onClick={() => {
 									if (!prefs.autoProbeEnabled) return;

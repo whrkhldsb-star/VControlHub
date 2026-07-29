@@ -31,6 +31,7 @@ export function AiChatHeader({
     <div className="flex items-center gap-3 border-b border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_96%,transparent)] px-4 py-3 shadow-[var(--shadow-sm)] backdrop-blur">
       {/* Mobile sidebar toggle */}
       <button
+		type="button"
         onClick={onToggleSidebar}
         className="flex-shrink-0 text-[var(--text-secondary)] transition hover:text-[var(--text-primary)] md:hidden"
         aria-label={t("common.openSidebar")}
@@ -50,20 +51,20 @@ export function AiChatHeader({
         </p>
       </div>
       <div className="flex items-center gap-1.5">
-        <ActionButton type="submit" variant="secondary"
+        <ActionButton type="button" variant="secondary"
           onClick={onToggleSettings} className="h-8 !px-2.5 !text-xs">
           {t("aiPage.settings")}
         </ActionButton>
-        <ActionButton type="submit" variant="danger"
+        <ActionButton type="button" variant="danger"
           onClick={onClearMessages}
           title={t("aiPage.clearMessagesTitle")} className="h-8 !px-2.5 !text-xs">
           {t("aiPage.clear")}
         </ActionButton>
-        <ActionButton type="submit" variant="secondary"
+        <ActionButton type="button" variant="secondary"
           onClick={onRenameConv} className="h-8 !px-2.5 !text-xs">
           {t("aiPage.rename")}
         </ActionButton>
-        <ActionButton type="submit" variant="secondary"
+        <ActionButton type="button" variant="secondary"
           onClick={onExportConv}
           title={t("aiPage.exportTitle")} className="h-8 !px-2.5 !text-xs">
           {t("aiPage.export")}

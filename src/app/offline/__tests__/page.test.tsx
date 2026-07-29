@@ -15,13 +15,9 @@ vi.mock("@/lib/i18n/use-locale", async () => {
 			setLocale: vi.fn(),
 			t: (key: string) => {
 				const zh: Record<string, string> = {
-					"pwa.offline.cachedRoutes": "可离线访问",
-					"pwa.offline.dashboard": "仪表盘",
 					"pwa.offline.description": "网络连接已断开",
-					"pwa.offline.files": "文件管理",
 					"pwa.offline.retry": "重试连接",
-					"pwa.offline.servers": "VPS 管理",
-					"pwa.offline.settings": "系统设置",
+					"pwa.offline.securityNotice": "登录后的页面不会存储到离线缓存",
 					"pwa.offline.title": "当前离线",
 				};
 				return zh[key] ?? key;
@@ -38,11 +34,9 @@ describe("OfflinePage", () => {
 		expect(screen.getByText(/网络连接已断开/)).toBeInTheDocument();
 	});
 
-	it("lists the four read-only routes that the service worker pre-caches", () => {
+	it("explains that authenticated pages are not cached offline", () => {
 		render(<OfflinePage />);
-		const links = screen.getAllByRole("link");
-		const hrefs = links.map((link) => link.getAttribute("href")).filter(Boolean);
-		expect(hrefs).toEqual(expect.arrayContaining(["/dashboard", "/servers", "/files", "/settings"]));
+		expect(screen.getByText(/不会存储到离线缓存/)).toBeInTheDocument();
 	});
 
 	it("exposes a retry link that goes back to /dashboard", () => {

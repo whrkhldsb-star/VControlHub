@@ -6,7 +6,8 @@ import { useEffect, useState, useCallback, useRef, useLayoutEffect } from "react
 import { useWsNotifications } from "@/lib/ws/use-ws-notifications";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { getSafeNotificationActionUrl } from "@/lib/notification/action-url";
-import { getRefreshIntervalFromStorage, getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
+import { getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
+import { useRefreshInterval } from "@/lib/preferences/use-refresh-interval";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useVisibilityInterval } from "@/lib/hooks/use-visibility-interval";
 import { getErrorMessage } from "@/lib/http/error-message";
@@ -49,9 +50,7 @@ export function NotificationBell() {
 
 	// Fallback: poll if WS not connected
 	const [polledUnread, setPolledUnread] = useState(0);
-	const [refreshIntervalSeconds, setRefreshIntervalSeconds] = useState(() =>
-		typeof window === "undefined" ? 30 : getRefreshIntervalFromStorage(window.localStorage, 30),
-	);
+	const refreshIntervalSeconds = useRefreshInterval(30);
 	const effectiveUnread = wsConnected ? unreadCount : polledUnread;
 
 	const fetchUnread = useCallback(async () => {
@@ -73,17 +72,6 @@ export function NotificationBell() {
 			setFeedback({ type: "error", message: getErrorMessage(err, t("notificationBell.error.load")) });
 		}
 	}, [t, wsConnected]);
-
-	// Poll fallback when WS not connected
-	useEffect(() => {
-		const onStorage = () => setRefreshIntervalSeconds(getRefreshIntervalFromStorage(window.localStorage, 30));
-		window.addEventListener("storage", onStorage);
-		window.addEventListener("vps-preferences-updated", onStorage);
-		return () => {
-			window.removeEventListener("storage", onStorage);
-			window.removeEventListener("vps-preferences-updated", onStorage);
-		};
-	}, []);
 
 	useEffect(() => {
 		if (wsConnected || refreshIntervalSeconds <= 0) return;

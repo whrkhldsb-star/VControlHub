@@ -1,3 +1,5 @@
+import { headers } from "next/headers";
+
 import { requireSession } from "@/lib/auth/require-session";
 import { getStorageOverview } from "@/lib/storage/service";
 import { getServerLocale, t } from "@/lib/i18n/translations";
@@ -11,6 +13,12 @@ export default async function FilesWebDavPage() {
   const session = await requireSession("/files/webdav");
   const locale = await getServerLocale();
   const storage = await getStorageOverview(session);
+  const headerStore = await headers();
+  const host = (headerStore.get("x-forwarded-host") ?? headerStore.get("host") ?? "")
+    .split(",")[0]
+    ?.trim();
+  const protocol = (headerStore.get("x-forwarded-proto") ?? "http").split(",")[0]?.trim();
+  const origin = host ? `${protocol === "https" ? "https" : "http"}://${host}` : "";
 
   return (
     <PageShell maxW="max-w-5xl">
@@ -25,6 +33,7 @@ export default async function FilesWebDavPage() {
         description={t("filesPage.webdav.description", locale)}
       >
         <WebDavSetupPanel
+          origin={origin}
           nodes={storage.nodes
             .filter((n) => n.driver === "LOCAL" || n.driver === "SFTP")
             .map((n) => ({ id: n.id, name: n.name, driver: n.driver }))}

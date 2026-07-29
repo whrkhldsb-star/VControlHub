@@ -122,9 +122,9 @@ export function SshFileList({
             <>
               <span className="shrink-0 text-[10px] text-[var(--text-muted)]">{entry.isFile ? formatSshFileSize(entry.size) :""}</span>
               <span className="hidden shrink-0 text-[10px] text-[var(--text-muted)] lg:block">{formatSshFileDate(entry.modifyTime, locale)}</span>
-              {entry.isFile && <ActionButton type="submit" variant="ghost" onClick={(e) => { e.stopPropagation(); onDownload(entry); }} className="!min-h-11 !min-w-11 !shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100" aria-label={t("sshFileManager.download")} title={t("sshFileManager.download")}>⬇</ActionButton>}
-              <ActionButton type="submit" variant="ghost" onClick={(e) => { e.stopPropagation(); setRenameTarget(entry.name); setRenameValue(entry.name); }} className="!min-h-11 !min-w-11 !shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100" aria-label={t("sshFileManager.rename")} title={t("sshFileManager.rename")}>✎</ActionButton>
-              {entry.isFile && <ActionButton type="submit" variant="ghost" onClick={(e) => { e.stopPropagation(); onDelete(entry); }} className="!min-h-11 !min-w-11 !shrink-0 text-[var(--danger)] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100" aria-label={t("sshFileManager.delete")} title={t("sshFileManager.delete")}>🗑</ActionButton>}
+              {entry.isFile && <ActionButton type="button" variant="ghost" onClick={(e) => { e.stopPropagation(); onDownload(entry); }} className="!min-h-11 !min-w-11 !shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100" aria-label={t("sshFileManager.download")} title={t("sshFileManager.download")}>⬇</ActionButton>}
+              <ActionButton type="button" variant="ghost" onClick={(e) => { e.stopPropagation(); setRenameTarget(entry.name); setRenameValue(entry.name); }} className="!min-h-11 !min-w-11 !shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100" aria-label={t("sshFileManager.rename")} title={t("sshFileManager.rename")}>✎</ActionButton>
+              {entry.isFile && <ActionButton type="button" variant="ghost" onClick={(e) => { e.stopPropagation(); onDelete(entry); }} className="!min-h-11 !min-w-11 !shrink-0 text-[var(--danger)] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100" aria-label={t("sshFileManager.delete")} title={t("sshFileManager.delete")}>🗑</ActionButton>}
             </>
           )}
         </div>
@@ -142,8 +142,8 @@ function RenameInlineEditor({ onRename, renameValue, setRenameTarget, setRenameV
   return (
     <div className="flex flex-1 items-center gap-1">
       <input value={renameValue} aria-label={t("sshFileManager.rename")} onChange={(e) => setRenameValue(e.target.value)} onKeyDown={(e) => { if (e.key ==="Enter") onRename(); if (e.key ==="Escape") { setRenameTarget(null); setRenameValue(""); } }} className="min-h-7 min-w-0 flex-1 rounded border border-[var(--color-action-border)]/30 bg-[var(--surface-hover)] px-2 text-xs text-[var(--text-primary)] outline-none" autoFocus onClick={(e) => e.stopPropagation()} />
-      <button onClick={(e) => { e.stopPropagation(); onRename(); }} aria-label={t("common.confirm")} className="text-[var(--color-action)] hover:text-[var(--color-action)]">✓</button>
-      <button onClick={(e) => { e.stopPropagation(); setRenameTarget(null); setRenameValue(""); }} aria-label={t("common.cancel")} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)]">✕</button>
+      <button type="button" onClick={(e) => { e.stopPropagation(); onRename(); }} aria-label={t("common.confirm")} className="text-[var(--color-action)] hover:text-[var(--color-action)]">✓</button>
+      <button type="button" onClick={(e) => { e.stopPropagation(); setRenameTarget(null); setRenameValue(""); }} aria-label={t("common.cancel")} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)]">✕</button>
     </div>
   );
 }

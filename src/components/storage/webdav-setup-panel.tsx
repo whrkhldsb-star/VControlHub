@@ -7,11 +7,9 @@ import { UI_INPUT } from "@/lib/ui/classes";
 
 type NodeOption = { id: string; name: string; driver: string };
 
-export function WebDavSetupPanel({ nodes }: { nodes: NodeOption[] }) {
+export function WebDavSetupPanel({ nodes, origin }: { nodes: NodeOption[]; origin: string }) {
   const { t } = useI18n();
   const [nodeId, setNodeId] = useState(nodes[0]?.id ?? "");
-  const origin =
-    typeof window !== "undefined" ? window.location.origin : "https://<host>";
 
   const url = useMemo(() => {
     if (!nodeId) return "";

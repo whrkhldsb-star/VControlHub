@@ -88,7 +88,7 @@ export default function GlobalError({
 							{c.digestLabel}: {error.digest}
 						</p>
 					)}
-					<ActionButton type="submit" variant="primary"
+					<ActionButton type="button" variant="primary"
 						onClick={reset}
 					
 						className="px-7 py-2.5 text-sm"

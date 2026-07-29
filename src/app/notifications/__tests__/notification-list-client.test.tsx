@@ -19,6 +19,7 @@ const unreadNotification = {
   actionUrl: "/health",
   createdAt: "2026-05-25T00:00:00.000Z",
 };
+const INITIAL_NOW = "2026-05-25T00:05:00.000Z";
 
 describe("NotificationListClient", () => {
   beforeEach(() => {
@@ -29,7 +30,7 @@ describe("NotificationListClient", () => {
     const user = userEvent.setup();
     vi.mocked(csrfFetch).mockRejectedValue(new Error("单条已读失败"));
 
-    render(<NotificationListClient initialNotifications={[unreadNotification]} initialUnreadCount={1} />);
+    render(<NotificationListClient initialNotifications={[unreadNotification]} initialUnreadCount={1} initialNow={INITIAL_NOW} />);
 
     await user.click(screen.getByRole("button", { name: "标为已读" }));
 
@@ -42,7 +43,7 @@ describe("NotificationListClient", () => {
     const user = userEvent.setup();
     vi.mocked(csrfFetch).mockRejectedValue(new Error("删除通知失败"));
 
-    render(<NotificationListClient initialNotifications={[unreadNotification]} initialUnreadCount={1} />);
+    render(<NotificationListClient initialNotifications={[unreadNotification]} initialUnreadCount={1} initialNow={INITIAL_NOW} />);
 
     await user.click(screen.getByRole("button", { name: "删除" }));
 
@@ -56,6 +57,7 @@ describe("NotificationListClient", () => {
       <NotificationListClient
         initialNotifications={[{ ...unreadNotification, actionUrl: "javascript:alert(1)" }]}
         initialUnreadCount={1}
+        initialNow={INITIAL_NOW}
       />,
     );
 
@@ -63,7 +65,7 @@ describe("NotificationListClient", () => {
   });
 
   it("keeps destructive actions reachable by keyboard focus and small screens", () => {
-    render(<NotificationListClient initialNotifications={[unreadNotification]} initialUnreadCount={1} />);
+    render(<NotificationListClient initialNotifications={[unreadNotification]} initialUnreadCount={1} initialNow={INITIAL_NOW} />);
 
     const deleteButton = screen.getByRole("button", { name: "删除" });
     expect(deleteButton).not.toHaveClass("opacity-0");

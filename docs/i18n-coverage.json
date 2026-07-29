@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-07-10T14:22:45.476Z",
+  "generatedAt": "2026-07-29T04:51:24.351Z",
   "summary": {
-    "files": 358,
+    "files": 427,
     "filesWithStrings": 0,
     "totalStrings": 0,
     "coveredStrings": 0,
@@ -179,6 +179,13 @@
       "missing": 0,
       "candidates": []
     },
+    "src/app/ai/ai-settings-model-selector.tsx": {
+      "path": "src/app/ai/ai-settings-model-selector.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
     "src/app/ai/ai-settings-panel-lazy.tsx": {
       "path": "src/app/ai/ai-settings-panel-lazy.tsx",
       "total": 0,
@@ -221,8 +228,43 @@
       "missing": 0,
       "candidates": []
     },
+    "src/app/alert-rules/alert-incidents-section.tsx": {
+      "path": "src/app/alert-rules/alert-incidents-section.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/alert-rules/alert-rule-card.tsx": {
+      "path": "src/app/alert-rules/alert-rule-card.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
     "src/app/alert-rules/alert-rule-list-client.tsx": {
       "path": "src/app/alert-rules/alert-rule-list-client.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/alert-rules/alert-rules-sections.tsx": {
+      "path": "src/app/alert-rules/alert-rules-sections.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/alert-rules/create-rule-form.tsx": {
+      "path": "src/app/alert-rules/create-rule-form.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/alert-rules/delete-rule-dialog.tsx": {
+      "path": "src/app/alert-rules/delete-rule-dialog.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -375,6 +417,13 @@
       "missing": 0,
       "candidates": []
     },
+    "src/app/backups/backup-drill-button.tsx": {
+      "path": "src/app/backups/backup-drill-button.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
     "src/app/backups/create-backup-form.tsx": {
       "path": "src/app/backups/create-backup-form.tsx",
       "total": 0,
@@ -391,6 +440,13 @@
     },
     "src/app/backups/loading.tsx": {
       "path": "src/app/backups/loading.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/backups/migration-wizard-panel.tsx": {
+      "path": "src/app/backups/migration-wizard-panel.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -445,6 +501,20 @@
       "missing": 0,
       "candidates": []
     },
+    "src/app/cost-summary/cost-budget-panel.tsx": {
+      "path": "src/app/cost-summary/cost-budget-panel.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/cost-summary/cost-cloud-billing-panel.tsx": {
+      "path": "src/app/cost-summary/cost-cloud-billing-panel.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
     "src/app/cost-summary/cost-entry-dialogs.tsx": {
       "path": "src/app/cost-summary/cost-entry-dialogs.tsx",
       "total": 0,
@@ -487,6 +557,13 @@
       "missing": 0,
       "candidates": []
     },
+    "src/app/dashboard-content.tsx": {
+      "path": "src/app/dashboard-content.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
     "src/app/dashboard-customize-toolbar.tsx": {
       "path": "src/app/dashboard-customize-toolbar.tsx",
       "total": 0,
@@ -503,6 +580,13 @@
     },
     "src/app/dashboard-preference-client.tsx": {
       "path": "src/app/dashboard-preference-client.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/dashboard-setup-checklist.tsx": {
+      "path": "src/app/dashboard-setup-checklist.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -538,6 +622,20 @@
     },
     "src/app/deployments/deployment-export-panel.tsx": {
       "path": "src/app/deployments/deployment-export-panel.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/deployments/deployment-export-preview.tsx": {
+      "path": "src/app/deployments/deployment-export-preview.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/deployments/deployment-export-tree.tsx": {
+      "path": "src/app/deployments/deployment-export-tree.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -580,6 +678,27 @@
     },
     "src/app/deployments/rollback-deploy-button.tsx": {
       "path": "src/app/deployments/rollback-deploy-button.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/docker/docker-container-card.tsx": {
+      "path": "src/app/docker/docker-container-card.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/docker/docker-container-list.tsx": {
+      "path": "src/app/docker/docker-container-list.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/docker/docker-dialogs.tsx": {
+      "path": "src/app/docker/docker-dialogs.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -760,8 +879,22 @@
       "missing": 0,
       "candidates": []
     },
+    "src/app/files/file-list-empty-state.tsx": {
+      "path": "src/app/files/file-list-empty-state.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
     "src/app/files/file-list-grid-view.tsx": {
       "path": "src/app/files/file-list-grid-view.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/files/file-list-list-view-mobile.tsx": {
+      "path": "src/app/files/file-list-list-view-mobile.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -816,8 +949,36 @@
       "missing": 0,
       "candidates": []
     },
+    "src/app/files/file-version-history-panel.tsx": {
+      "path": "src/app/files/file-version-history-panel.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/files/files-browser-sidebar.tsx": {
+      "path": "src/app/files/files-browser-sidebar.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
     "src/app/files/files-browser-spa.tsx": {
       "path": "src/app/files/files-browser-spa.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/files/files-more-nav.tsx": {
+      "path": "src/app/files/files-more-nav.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/files/files-subpage-nav.tsx": {
+      "path": "src/app/files/files-subpage-nav.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -970,8 +1131,29 @@
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/recycle-bin-section-client-lazy.tsx": {
-      "path": "src/app/files/recycle-bin-section-client-lazy.tsx",
+    "src/app/files/recent-downloads-panel.tsx": {
+      "path": "src/app/files/recent-downloads-panel.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/files/recent-downloads/error.tsx": {
+      "path": "src/app/files/recent-downloads/error.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/files/recent-downloads/loading.tsx": {
+      "path": "src/app/files/recent-downloads/loading.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/files/recent-downloads/page.tsx": {
+      "path": "src/app/files/recent-downloads/page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -979,6 +1161,27 @@
     },
     "src/app/files/recycle-bin-section-client.tsx": {
       "path": "src/app/files/recycle-bin-section-client.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/files/recycle-bin/error.tsx": {
+      "path": "src/app/files/recycle-bin/error.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/files/recycle-bin/loading.tsx": {
+      "path": "src/app/files/recycle-bin/loading.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/files/recycle-bin/page.tsx": {
+      "path": "src/app/files/recycle-bin/page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -998,8 +1201,29 @@
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/search-scope-toggle.tsx": {
-      "path": "src/app/files/search-scope-toggle.tsx",
+    "src/app/files/search/error.tsx": {
+      "path": "src/app/files/search/error.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/files/search/files-search-client.tsx": {
+      "path": "src/app/files/search/files-search-client.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/files/search/loading.tsx": {
+      "path": "src/app/files/search/loading.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/files/search/page.tsx": {
+      "path": "src/app/files/search/page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -1019,6 +1243,34 @@
       "missing": 0,
       "candidates": []
     },
+    "src/app/files/sync/error.tsx": {
+      "path": "src/app/files/sync/error.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/files/sync/loading.tsx": {
+      "path": "src/app/files/sync/loading.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/files/sync/page.tsx": {
+      "path": "src/app/files/sync/page.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/files/unified-file-search.tsx": {
+      "path": "src/app/files/unified-file-search.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
     "src/app/files/use-file-list-sort.tsx": {
       "path": "src/app/files/use-file-list-sort.tsx",
       "total": 0,
@@ -1028,6 +1280,27 @@
     },
     "src/app/files/use-file-toast.tsx": {
       "path": "src/app/files/use-file-toast.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/files/webdav/error.tsx": {
+      "path": "src/app/files/webdav/error.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/files/webdav/loading.tsx": {
+      "path": "src/app/files/webdav/loading.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/files/webdav/page.tsx": {
+      "path": "src/app/files/webdav/page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -1047,6 +1320,13 @@
       "missing": 0,
       "candidates": []
     },
+    "src/app/health/capacity-forecast-panel.tsx": {
+      "path": "src/app/health/capacity-forecast-panel.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
     "src/app/health/error.tsx": {
       "path": "src/app/health/error.tsx",
       "total": 0,
@@ -1054,8 +1334,8 @@
       "missing": 0,
       "candidates": []
     },
-    "src/app/health/health-dashboard-client.tsx": {
-      "path": "src/app/health/health-dashboard-client.tsx",
+    "src/app/health/health-dashboard-parts.tsx": {
+      "path": "src/app/health/health-dashboard-parts.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -1084,6 +1364,13 @@
     },
     "src/app/health/sparkline-chart.tsx": {
       "path": "src/app/health/sparkline-chart.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/health/system-health-client.tsx": {
+      "path": "src/app/health/system-health-client.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -1147,6 +1434,62 @@
     },
     "src/app/image-bed/page.tsx": {
       "path": "src/app/image-bed/page.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/itsm/error.tsx": {
+      "path": "src/app/itsm/error.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/itsm/itsm-page-client.tsx": {
+      "path": "src/app/itsm/itsm-page-client.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/itsm/loading.tsx": {
+      "path": "src/app/itsm/loading.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/itsm/page.tsx": {
+      "path": "src/app/itsm/page.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/knowledge/error.tsx": {
+      "path": "src/app/knowledge/error.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/knowledge/knowledge-client.tsx": {
+      "path": "src/app/knowledge/knowledge-client.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/knowledge/loading.tsx": {
+      "path": "src/app/knowledge/loading.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/knowledge/page.tsx": {
+      "path": "src/app/knowledge/page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -1273,6 +1616,13 @@
     },
     "src/app/media/media-item-card.tsx": {
       "path": "src/app/media/media-item-card.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/media/media-item-cover.tsx": {
+      "path": "src/app/media/media-item-cover.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -1726,13 +2076,6 @@
       "missing": 0,
       "candidates": []
     },
-    "src/app/servers/command-create-form.tsx": {
-      "path": "src/app/servers/command-create-form.tsx",
-      "total": 0,
-      "covered": 0,
-      "missing": 0,
-      "candidates": []
-    },
     "src/app/servers/error.tsx": {
       "path": "src/app/servers/error.tsx",
       "total": 0,
@@ -1768,15 +2111,29 @@
       "missing": 0,
       "candidates": []
     },
-    "src/app/servers/server-create-form.tsx": {
-      "path": "src/app/servers/server-create-form.tsx",
+    "src/app/servers/server-card-delete-form.tsx": {
+      "path": "src/app/servers/server-card-delete-form.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/servers/server-monitor-card.tsx": {
-      "path": "src/app/servers/server-monitor-card.tsx",
+    "src/app/servers/server-card-edit-form.tsx": {
+      "path": "src/app/servers/server-card-edit-form.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/servers/server-connection-type-fields.tsx": {
+      "path": "src/app/servers/server-connection-type-fields.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/servers/server-create-form.tsx": {
+      "path": "src/app/servers/server-create-form.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -1791,13 +2148,6 @@
     },
     "src/app/servers/server-overview-detail-sections.tsx": {
       "path": "src/app/servers/server-overview-detail-sections.tsx",
-      "total": 0,
-      "covered": 0,
-      "missing": 0,
-      "candidates": []
-    },
-    "src/app/servers/server-overview-details-lazy.tsx": {
-      "path": "src/app/servers/server-overview-details-lazy.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -1992,6 +2342,20 @@
       "missing": 0,
       "candidates": []
     },
+    "src/app/shares/share-access-logs.tsx": {
+      "path": "src/app/shares/share-access-logs.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/shares/share-access-report.tsx": {
+      "path": "src/app/shares/share-access-report.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
     "src/app/shares/share-file-picker.tsx": {
       "path": "src/app/shares/share-file-picker.tsx",
       "total": 0,
@@ -2043,6 +2407,13 @@
     },
     "src/app/snippets/snippet-list-client.tsx": {
       "path": "src/app/snippets/snippet-list-client.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/snippets/snippet-modal.tsx": {
+      "path": "src/app/snippets/snippet-modal.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -2111,8 +2482,22 @@
       "missing": 0,
       "candidates": []
     },
+    "src/app/storage/storage-node-fields.tsx": {
+      "path": "src/app/storage/storage-node-fields.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
     "src/app/storage/storage-node-list.tsx": {
       "path": "src/app/storage/storage-node-list.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/templates/create-template-form.tsx": {
+      "path": "src/app/templates/create-template-form.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -2134,6 +2519,13 @@
     },
     "src/app/templates/page.tsx": {
       "path": "src/app/templates/page.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/templates/template-deploy-button.tsx": {
+      "path": "src/app/templates/template-deploy-button.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -2197,6 +2589,13 @@
     },
     "src/app/tickets/page.tsx": {
       "path": "src/app/tickets/page.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/tickets/ticket-workspace.tsx": {
+      "path": "src/app/tickets/ticket-workspace.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -2272,6 +2671,62 @@
       "missing": 0,
       "candidates": []
     },
+    "src/app/users/users-forms.tsx": {
+      "path": "src/app/users/users-forms.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/vps-status/error.tsx": {
+      "path": "src/app/vps-status/error.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/vps-status/loading.tsx": {
+      "path": "src/app/vps-status/loading.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/vps-status/page.tsx": {
+      "path": "src/app/vps-status/page.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/vps-status/vps-node-card.tsx": {
+      "path": "src/app/vps-status/vps-node-card.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/vps-status/vps-status-client.tsx": {
+      "path": "src/app/vps-status/vps-status-client.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/vps-status/vps-status-table.tsx": {
+      "path": "src/app/vps-status/vps-status-table.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/vps-status/vps-status-toolbar.tsx": {
+      "path": "src/app/vps-status/vps-status-toolbar.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
     "src/components/action-button.tsx": {
       "path": "src/components/action-button.tsx",
       "total": 0,
@@ -2293,6 +2748,13 @@
       "missing": 0,
       "candidates": []
     },
+    "src/components/confirm-dialog.tsx": {
+      "path": "src/components/confirm-dialog.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
     "src/components/global-search.tsx": {
       "path": "src/components/global-search.tsx",
       "total": 0,
@@ -2302,13 +2764,6 @@
     },
     "src/components/icons.tsx": {
       "path": "src/components/icons.tsx",
-      "total": 0,
-      "covered": 0,
-      "missing": 0,
-      "candidates": []
-    },
-    "src/components/input-base.tsx": {
-      "path": "src/components/input-base.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -2337,6 +2792,13 @@
     },
     "src/components/mobile-nav.tsx": {
       "path": "src/components/mobile-nav.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/components/modal-shell.tsx": {
+      "path": "src/components/modal-shell.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -2440,15 +2902,15 @@
       "missing": 0,
       "candidates": []
     },
-    "src/components/ssh-terminal-manager.tsx": {
-      "path": "src/components/ssh-terminal-manager.tsx",
+    "src/components/ssh-terminal-chrome.tsx": {
+      "path": "src/components/ssh-terminal-chrome.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/ssh-terminal-modal.tsx": {
-      "path": "src/components/ssh-terminal-modal.tsx",
+    "src/components/ssh-terminal-manager.tsx": {
+      "path": "src/components/ssh-terminal-manager.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -2468,8 +2930,29 @@
       "missing": 0,
       "candidates": []
     },
+    "src/components/status-badge.tsx": {
+      "path": "src/components/status-badge.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/components/storage/bidirectional-sync-panel.tsx": {
+      "path": "src/components/storage/bidirectional-sync-panel.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
     "src/components/storage/file-upload-dropzone.tsx": {
       "path": "src/components/storage/file-upload-dropzone.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/components/storage/webdav-setup-panel.tsx": {
+      "path": "src/components/storage/webdav-setup-panel.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -2510,8 +2993,8 @@
       "missing": 0,
       "candidates": []
     },
-    "src/components/uptime-heatmap.tsx": {
-      "path": "src/components/uptime-heatmap.tsx",
+    "src/components/web-vitals-reporter.tsx": {
+      "path": "src/components/web-vitals-reporter.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,

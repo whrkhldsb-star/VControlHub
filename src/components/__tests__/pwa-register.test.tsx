@@ -97,11 +97,10 @@ describe("PwaRegister", () => {
 		await waitFor(() => expect(register).toHaveBeenCalledWith("/sw.js", { scope: "/" }));
 	});
 
-	it("warms read-only routes after registration with an active service worker", async () => {
+	it("does not send authenticated routes to the service worker cache", async () => {
 		renderPwa();
-		await waitFor(() => expect(swState.active?.postMessage).toHaveBeenCalled());
-		expect(swState.active?.postMessage).toHaveBeenCalledWith({ type: "VCH_PWA_WARM_ROUTE", pathname: "/dashboard" });
-		expect(swState.active?.postMessage).toHaveBeenCalledWith({ type: "VCH_PWA_WARM_ROUTE", pathname: "/status" });
+		await waitFor(() => expect(navigator.serviceWorker.register).toHaveBeenCalled());
+		expect(swState.active?.postMessage).not.toHaveBeenCalled();
 	});
 
 	it("gracefully no-ops when navigator.serviceWorker is absent", () => {

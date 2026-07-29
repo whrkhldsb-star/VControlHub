@@ -29,6 +29,7 @@ export function ImageBedStatsPanel({
           {t("imageBedPage.stats.title")}
         </h3>
         <button
+          type="button"
           onClick={onClose}
           aria-label={t("common.close")}
           className="text-sm text-[var(--text-muted)] hover:text-[var(--text-secondary)]"

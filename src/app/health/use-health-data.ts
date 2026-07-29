@@ -15,7 +15,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { t } from "@/lib/i18n/translations";
 import { getRefreshIntervalFromStorage } from "@/lib/preferences/refresh-interval";
+import { REFRESH_PREFERENCES_STORAGE_KEY } from "@/lib/preferences/refresh-interval";
 import { useVisibilityInterval } from "@/lib/hooks/use-visibility-interval";
+import { useBrowserStorageSnapshot } from "@/lib/hooks/use-browser-storage-snapshot";
 import { getErrorMessage } from "@/lib/http/error-message";
 
 import type {
@@ -34,6 +36,10 @@ function isSystemHealthReport(value: unknown): value is SystemHealthReport {
 		typeof candidate.summary === "object" &&
 		Array.isArray(candidate.checks)
 	);
+}
+
+function readRefreshInterval(storage: Storage): number {
+	return getRefreshIntervalFromStorage(storage, 30);
 }
 
 export interface UseHealthDataOptions {
@@ -81,8 +87,11 @@ export function useHealthData({
 	const [historyErrors, setHistoryErrors] = useState<Record<string, string>>({});
 	const [lastRefresh, setLastRefresh] = useState<string>("");
 	const [isRefreshing, setIsRefreshing] = useState(false);
-	const [refreshIntervalSeconds, setRefreshIntervalSeconds] = useState<number>(() =>
-		typeof window === "undefined" ? 30 : getRefreshIntervalFromStorage(window.localStorage, 30),
+	const refreshIntervalSeconds = useBrowserStorageSnapshot(
+		REFRESH_PREFERENCES_STORAGE_KEY,
+		readRefreshInterval,
+		30,
+		"vps-preferences-updated",
 	);
 	const [autoRefresh, setAutoRefresh] = useState(true);
 	// Separate in-flight counters so fleet + system fetches do not clobber each other.
@@ -184,20 +193,6 @@ export function useHealthData({
 			systemGenRef.current += 1;
 		};
 	}, [fetchHealth, fetchSystemHealth, wantSystem, wantVps]);
-
-	// Keep refresh interval in sync with Settings (storage + in-page event).
-	useEffect(() => {
-		const readSavedInterval = () => {
-			setRefreshIntervalSeconds(getRefreshIntervalFromStorage(window.localStorage, 30));
-		};
-		readSavedInterval();
-		window.addEventListener("storage", readSavedInterval);
-		window.addEventListener("vps-preferences-updated", readSavedInterval);
-		return () => {
-			window.removeEventListener("storage", readSavedInterval);
-			window.removeEventListener("vps-preferences-updated", readSavedInterval);
-		};
-	}, []);
 
 	// System self-check is a one-shot snapshot (+ error retry). Fleet auto-refresh
 	// belongs on /vps-status only (mode "vps" | "all").

@@ -107,21 +107,21 @@ export function ImageGrid({
                 }}
                 className="absolute inset-0 flex items-center justify-center gap-1 bg-[var(--overlay)] p-2 md:bg-[var(--overlay)] md:p-0 md:opacity-0 md:group-hover:opacity-100"
               >
-                <ActionButton type="submit" variant="ghost"
+                <ActionButton type="button" variant="ghost"
                   onClick={() => copyLink(img.publicUrl)} className="min-h-11 min-w-11 px-2 text-xs"
                   title={t("imageBedPage.copy.title.url")}
                   aria-label={t("imageBedPage.copy.title.url")}
                 >
                   🔗
                 </ActionButton>
-                <ActionButton type="submit" variant="success"
+                <ActionButton type="button" variant="success"
                   onClick={() => copyMarkdown(img)} className="!min-h-11 !min-w-11 !px-2 !text-xs"
                   title={t("imageBedPage.copy.title.markdown")}
                   aria-label={t("imageBedPage.copy.title.markdown")}
                 >
                   M↓
                 </ActionButton>
-                <ActionButton type="submit" variant="outline"
+                <ActionButton type="button" variant="outline"
                   onClick={() => copyHTML(img)} className="!min-h-11 !min-w-11 !px-2 !text-xs"
                   title={t("imageBedPage.copy.title.html")}
                   aria-label={t("imageBedPage.copy.title.html")}
@@ -129,7 +129,7 @@ export function ImageGrid({
                   H
                 </ActionButton>
                 {canDelete && (
-                  <ActionButton type="submit" variant="danger"
+                  <ActionButton type="button" variant="danger"
                     onClick={() => requestDelete(img)} className="!min-h-11 !min-w-11 !px-2 !text-xs"
                     title={t("imageBedPage.image.delete.aria")}
                     aria-label={t("imageBedPage.image.delete.aria")}

@@ -113,11 +113,11 @@ export function AnnouncementEditModal({
         {error && <p className="mt-2 text-xs text-[var(--danger)]">{error}</p>}
 
         <div className="mt-5 flex justify-end gap-3">
-          <ActionButton type="submit" variant="secondary"
+          <ActionButton type="button" variant="secondary"
             onClick={onClose} className="!px-4 !py-2 !text-sm">
             {t("common.cancel")}
           </ActionButton>
-          <ActionButton type="submit" variant="primary"
+          <ActionButton type="button" variant="primary"
             onClick={handleSave}
             disabled={saving || !title.trim() || !content.trim()} className="px-4 py-2 text-sm"
           >

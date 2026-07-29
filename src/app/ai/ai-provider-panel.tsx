@@ -148,6 +148,7 @@ export function AiProviderPanel({
         <div className="px-5 py-4 border-b border-[var(--border)] flex items-center justify-between">
           <h3 id="ai-provider-panel-title" className="text-sm font-semibold text-[var(--text-primary)]">{t("aiPage.providerPanelTitle")}</h3>
           <button
+            type="button"
             onClick={onClose}
             className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition"
             aria-label={t("aiPage.closeProviderAria")}
@@ -195,6 +196,7 @@ export function AiProviderPanel({
                       {p.enabled ? t("aiPage.disableAction") : t("aiPage.enableAction")}
                     </button>
                     <button
+                      type="button"
                       onClick={() => startEditing(p)}
                       className="text-xs text-[var(--color-action)]/60 hover:text-[var(--color-action)] transition"
                       aria-label={t("aiPage.editProviderAria", { name: p.name })}
@@ -202,6 +204,7 @@ export function AiProviderPanel({
                       {t("aiPage.editAction")}
                     </button>
                     <button
+                      type="button"
                       onClick={() => onDeleteProvider(p.id)}
                       className="text-xs text-[var(--danger)]/60 hover:text-[var(--danger)] transition"
                       aria-label={t("aiPage.deleteProviderAria2", { name: p.name })}

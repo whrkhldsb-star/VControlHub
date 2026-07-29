@@ -4,15 +4,13 @@
  * - Install: pre-cache only public/offline-safe assets. Protected pages are
  *   deliberately NOT pre-cached during install, because unauthenticated install
  *   fetches can cache login redirects instead of the real page.
- * - Client message VCH_PWA_WARM_ROUTE: after the app is running with a valid
- *   session, warm selected read-only routes into the runtime cache.
- * - Navigation: network-first. If the network fails, serve the exact cached
- *   navigation response when available; otherwise serve /offline.
+ * - Navigation: network-only with a public /offline fallback. Authenticated
+ *   HTML is never persisted in Cache Storage.
  * - Static assets: cache-first.
  * - API/cross-origin/non-GET: never cache.
  */
 
-const CACHE_VERSION = "vch-shell-v3";
+const CACHE_VERSION = "vch-shell-v4";
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 
@@ -22,15 +20,6 @@ const PRECACHE_URLS = [
 	"/icon.png",
 	"/manifest.webmanifest",
 ];
-
-const WARMABLE_ROUTES = new Set([
-	"/dashboard",
-	"/servers",
-	"/files",
-	"/settings",
-	"/status",
-	"/notifications",
-]);
 
 self.addEventListener("install", (event) => {
 	event.waitUntil(
@@ -69,27 +58,6 @@ function isStaticAsset(url) {
 	);
 }
 
-function isCacheablePageResponse(response) {
-	const contentType = response.headers.get("content-type") || "";
-	return response.ok && contentType.includes("text/html") && response.type !== "opaqueredirect";
-}
-
-async function warmRoute(pathname) {
-	if (!WARMABLE_ROUTES.has(pathname)) return { ok: false, reason: "route_not_warmable" };
-	const request = new Request(pathname, {
-		method: "GET",
-		credentials: "include",
-		headers: { Accept: "text/html" },
-	});
-	const response = await fetch(request);
-	if (!isCacheablePageResponse(response)) {
-		return { ok: false, reason: `not_cacheable_${response.status}` };
-	}
-	const cache = await caches.open(RUNTIME_CACHE);
-	await cache.put(request, response.clone());
-	return { ok: true, pathname };
-}
-
 self.addEventListener("message", (event) => {
 	const data = event.data || {};
 	if (data.type === "VCH_PWA_SKIP_WAITING") {
@@ -101,9 +69,6 @@ self.addEventListener("message", (event) => {
 			caches.keys().then((keys) => Promise.all(keys.map((key) => caches.delete(key)))),
 		);
 		return;
-	}
-	if (data.type === "VCH_PWA_WARM_ROUTE") {
-		event.waitUntil(warmRoute(data.pathname).catch(() => ({ ok: false, reason: "warm_failed" })));
 	}
 });
 
@@ -123,16 +88,7 @@ self.addEventListener("fetch", (event) => {
 	if (request.mode === "navigate") {
 		event.respondWith(
 			fetch(request)
-				.then((response) => {
-					if (isCacheablePageResponse(response)) {
-						const copy = response.clone();
-						caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy)).catch(() => undefined);
-					}
-					return response;
-				})
 				.catch(async () => {
-					const cached = await caches.match(request);
-					if (cached) return cached;
 					const offline = await caches.match("/offline");
 					return offline || new Response("Offline", { status: 503, statusText: "Offline" });
 				}),
