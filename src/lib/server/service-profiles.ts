@@ -4,13 +4,13 @@ import { mkdir } from "node:fs/promises";
 import type { SessionPayload } from "@/lib/auth/session";
 import { serverTeamWhere, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
-import { NotFoundError, ValidationError } from "@/lib/errors";
+import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
 import { serverT } from "@/lib/i18n/server-locale";
 import {
   buildSshParamsFromServer,
   createRemoteDirectory,
 } from "@/lib/ssh/client";
-import { requireApprovedSshHostKey } from "@/lib/ssh/host-key";
+import { requireApprovedSshHostKey, SshHostKeyApprovalRequiredError } from "@/lib/ssh/host-key";
 import {
   detectOsDialect,
   serializeDialect,
@@ -68,6 +68,7 @@ export async function createServerProfile(
   const payload = createServerSchema.parse(input);
   const normalized = normalizeServerInput(payload);
   const onboardingWarnings: string[] = [];
+  let draftReason: string | null = null;
   const teamData = session ? teamCreateData(session) : {};
 
   let validatedSshKey: {
@@ -110,7 +111,8 @@ export async function createServerProfile(
 
   // Serialize create/update by host so concurrent onboarding cannot double-insert
   // the same VPS host between findFirst and server.create (no @@unique on host).
-  let isLocalHost = false;
+  const isLocalHost = isLocalHostLiteral(normalized.host);
+  let connectivityVerified = false;
   let configuredPath = "";
   // Assigned under host lock before mkdir/onboarding uses them.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -156,16 +158,28 @@ export async function createServerProfile(
         }
       : null,
   );
-  const hostKeySha256 = await requireApprovedSshHostKey({
-    ssh: pendingSsh,
-    approvedHostKeySha256: payload.approvedHostKeySha256 || payload.hostKeySha256,
-  });
-  pendingServerForPreflight.hostKeySha256 = hostKeySha256;
-  await verifyServerSshConnectivity(normalized, pendingServerForPreflight);
+  let hostKeySha256: string | null = null;
+  try {
+    hostKeySha256 = await requireApprovedSshHostKey({
+      ssh: pendingSsh,
+      approvedHostKeySha256: payload.approvedHostKeySha256 || payload.hostKeySha256,
+    });
+    pendingServerForPreflight.hostKeySha256 = hostKeySha256;
+    await verifyServerSshConnectivity(normalized, pendingServerForPreflight);
+    connectivityVerified = true;
+  } catch (error) {
+    if (error instanceof SshHostKeyApprovalRequiredError || !payload.saveAsDraftOnConnectionFailure) {
+      throw error;
+    }
+    hostKeySha256 = payload.approvedHostKeySha256 || payload.hostKeySha256 || null;
+    draftReason = getErrorMessage(error);
+    onboardingWarnings.push(
+      `SSH connection is not ready: ${draftReason}. The node was saved disabled and no remote setup was attempted. Fix the endpoint or credentials, then enable the node to verify and activate it.`,
+    );
+  }
 
   // Precompute paths outside the transaction (read-only counts may race slightly
   // for isDefault; server+storage create must be atomic to avoid orphan Server rows).
-  isLocalHost = isLocalHostLiteral(normalized.host);
   const defaultCount = await prisma.storageNode.count({
     where: { isDefault: true },
   });
@@ -195,7 +209,7 @@ export async function createServerProfile(
         costMonthlyAmount: normalized.costMonthlyAmount ? new Prisma.Decimal(normalized.costMonthlyAmount) : null,
         costCurrency: normalized.costCurrency,
         costProvider: normalized.costProvider,
-        enabled: true,
+        enabled: connectivityVerified,
         ...teamData,
       },
       include: SERVER_PROFILE_INCLUDE,
@@ -208,11 +222,18 @@ export async function createServerProfile(
         name: storageNodeName,
         driver: isLocalHost ? "LOCAL" : "SFTP",
         basePath: configuredPath,
-        isDefault: defaultCount === 0,
+        isDefault: connectivityVerified && defaultCount === 0,
         serverId: isLocalHost ? null : created.id,
         directAccessMode: "PROXY",
         publicBaseUrl: null,
         hostKeySha256,
+        healthStatus: connectivityVerified ? "UNKNOWN" : "UNHEALTHY",
+        ...(connectivityVerified
+          ? {}
+          : {
+              lastHealthCheckAt: new Date(),
+              lastHealthError: draftReason?.slice(0, 500) ?? "SSH connection has not been verified",
+            }),
         ...(teamData.teamId !== undefined ? { teamId: teamData.teamId } : {}),
       },
     });
@@ -228,7 +249,7 @@ export async function createServerProfile(
     } catch {
       // Directory may already exist or FS unavailable — DB record proceeds regardless
     }
-  } else {
+  } else if (connectivityVerified) {
     try {
       await createRemoteDirectory({
         ...(await buildSshParamsFromServer(server, server.sshKey ?? null)),
@@ -242,7 +263,7 @@ export async function createServerProfile(
     }
   }
 
-  if (payload.enableDirectGateway && !isLocalHost) {
+  if (payload.enableDirectGateway && !isLocalHost && connectivityVerified) {
     const directResult = await applyServerDirectGatewayState({
       serverId: server.id,
       enabled: true,
@@ -260,7 +281,7 @@ export async function createServerProfile(
 
   // TR-041: best-effort OS dialect probe during onboarding so reload/AI commands
   // can use the right service manager without a manual "Detect OS" click first.
-  if (!isLocalHost) {
+  if (!isLocalHost && connectivityVerified) {
     try {
       const dialectSsh = await buildSshParamsFromServer(server, server.sshKey ?? null);
       const dialect = await detectOsDialect(dialectSsh);
@@ -290,6 +311,7 @@ export async function createServerProfile(
   return {
     ...enrichServer(refreshed!),
     onboardingWarnings,
+    draftReason,
   };
 }
 
@@ -496,21 +518,75 @@ export async function updateServerProfile(
 export async function toggleServerEnabled(
   serverId: string,
   session?: TeamSession | null,
+  approvedHostKeySha256?: string | null,
 ) {
-  const current = session
-    ? await prisma.server.findFirst({
-        where: { id: serverId, ...serverTeamWhere(session) },
-        select: { enabled: true },
-      })
-    : await prisma.server.findUnique({
-        where: { id: serverId },
-        select: { enabled: true },
-      });
+  const current = await findServerProfileForSession(serverId, session);
   const t = await serverT();
   if (!current) throw new NotFoundError(t("backend.server.nodeNotFound"));
+
+  if (!current.enabled) {
+    const normalized = normalizeServerInput({
+      name: current.name,
+      host: current.host,
+      port: current.port,
+      username: current.username,
+      connectionType: current.connectionType,
+      sshKeyId: current.sshKeyId ?? undefined,
+      password: current.password ?? undefined,
+      tags: current.tags,
+      description: current.description,
+      costAutoSync: current.costAutoSync,
+      costMonthlyAmount: current.costMonthlyAmount?.toFixed(2),
+      costCurrency: current.costCurrency as "CNY" | "USD" | "EUR" | "JPY" | "HKD",
+      costProvider: current.costProvider,
+    });
+    const ssh = await buildSshParamsFromServer(current, current.sshKey ?? null);
+    let hostKeySha256: string | null;
+    try {
+      hostKeySha256 = await requireApprovedSshHostKey({
+        ssh,
+        pinnedHostKeySha256: current.hostKeySha256,
+        approvedHostKeySha256,
+      });
+    } catch (error) {
+      if (error instanceof SshHostKeyApprovalRequiredError) throw error;
+      throw new BusinessError(
+        `Cannot enable ${current.username}@${current.host}:${current.port}; the node remains disabled. Check the SSH port, firewall, and credentials. Details: ${getErrorMessage(error)}`,
+      );
+    }
+    await verifyServerSshConnectivity(
+      normalized,
+      {
+        ...current,
+        hostKeySha256,
+      },
+      {
+        failureMessage: `Cannot enable ${current.username}@${current.host}:${current.port}; the node remains disabled. Check the SSH port, firewall, and credentials.`,
+      },
+    );
+    return prisma.$transaction(async (tx) => {
+      const updated = await tx.server.update({
+        where: { id: serverId },
+        data: { enabled: true, hostKeySha256 },
+      });
+      if (current.storageNode) {
+        await tx.storageNode.update({
+          where: { id: current.storageNode.id },
+          data: {
+            hostKeySha256,
+            healthStatus: "UNKNOWN",
+            lastHealthCheckAt: null,
+            lastHealthError: null,
+            lastHealthLatencyMs: null,
+          },
+        });
+      }
+      return updated;
+    });
+  }
   return prisma.server.update({
     where: { id: serverId },
-    data: { enabled: !current.enabled },
+    data: { enabled: false },
   });
 }
 

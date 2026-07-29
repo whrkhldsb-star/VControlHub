@@ -47,22 +47,33 @@ export function ServerCardEditForm({
   editState,
 }: Props) {
   const { t } = useI18n();
-  // First TOFU/host-key probe returns hostKeySha256 in action state.
-  // Controlled input so the probed fingerprint fills immediately (defaultValue does not).
-  const [approvedHostKeySha256, setApprovedHostKeySha256] = useState(
+  const [observedHostKeySha256, setObservedHostKeySha256] = useState(
     () => editState.hostKeySha256 ?? "",
   );
+  const [hostKeyConfirmed, setHostKeyConfirmed] = useState(false);
   useEffect(() => {
     if (editState.hostKeySha256) {
-      setApprovedHostKeySha256(editState.hostKeySha256);
+      setObservedHostKeySha256(editState.hostKeySha256);
+      setHostKeyConfirmed(false);
+    } else if (editState.error || editState.success) {
+      setObservedHostKeySha256("");
+      setHostKeyConfirmed(false);
     }
-  }, [editState.hostKeySha256]);
+  }, [editState.error, editState.hostKeySha256, editState.success]);
 
   return (
     <form
       action={editAction}
       aria-label={t("serverCardActions.edit.formAria")}
       className="space-y-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-elevated)] p-3"
+      onChange={(event) => {
+        const field = event.target;
+        if (!(field instanceof HTMLInputElement || field instanceof HTMLSelectElement)) return;
+        if (["host", "port", "username", "password"].includes(field.name)) {
+          setObservedHostKeySha256("");
+          setHostKeyConfirmed(false);
+        }
+      }}
     >
       <input type="hidden" name="serverId" value={serverId} />
       <input type="hidden" name="connectionType" value={connectionType} />
@@ -108,26 +119,33 @@ export function ServerCardEditForm({
         defaultValue={username}
         className={UI_INPUT}
       />
-      <label
-        className="grid gap-2 rounded-xl border border-[var(--warning-border)] bg-[var(--warning-bg)] p-3 text-xs text-[var(--text-secondary)]"
-        htmlFor={`edit-host-key-${serverId}`}
-      >
+      <div className="grid gap-2 rounded-xl border border-[var(--warning-border)] bg-[var(--warning-bg)] p-3 text-xs text-[var(--text-secondary)]">
         <span className="block font-medium text-[var(--text-primary)]">
           {t("serverCardActions.edit.hostKeyTrustTitle")}
         </span>
         <span className="block text-[11px] text-[var(--text-muted)]">
           {t("serverCardActions.edit.hostKeyTrustDesc")}
         </span>
-        <input
-          id={`edit-host-key-${serverId}`}
-          name="approvedHostKeySha256"
-          type="text"
-          value={approvedHostKeySha256}
-          onChange={(event) => setApprovedHostKeySha256(event.target.value)}
-          placeholder="SHA256:..."
-          className="w-full rounded-lg border border-[var(--warning-border)] bg-[var(--input-bg)] px-3 py-2 font-mono text-xs text-[var(--text-primary)]"
-        />
-      </label>
+        {observedHostKeySha256 ? (
+          <>
+            <span className="font-medium text-[var(--warning)]">{t("serverCardActions.edit.hostKeyObserved")}</span>
+            <code className="block break-all rounded-lg border border-[var(--warning-border)] bg-[var(--input-bg)] px-3 py-2 text-[var(--text-primary)]">
+              {observedHostKeySha256}
+            </code>
+            <input type="hidden" name="approvedHostKeySha256" value={observedHostKeySha256} />
+            <label className="flex items-start gap-2 text-[var(--text-primary)]">
+              <input
+                type="checkbox"
+                required
+                checked={hostKeyConfirmed}
+                onChange={(event) => setHostKeyConfirmed(event.currentTarget.checked)}
+                className="mt-0.5 h-4 w-4 accent-[var(--accent)]"
+              />
+              <span>{t("serverCardActions.edit.hostKeyConfirm")}</span>
+            </label>
+          </>
+        ) : null}
+      </div>
       {connectionType === "PASSWORD" ? (
         <>
           <label className="block text-xs text-[var(--text-muted)]" htmlFor={`edit-password-${serverId}`}>
@@ -245,9 +263,9 @@ export function ServerCardEditForm({
         ) : null}
       </div>
       <SubmitButton pendingLabel={t("serverCardActions.edit.pending")} variant="success" className="w-full">
-        {t("serverCardActions.edit.submit")}
+        {t(observedHostKeySha256 ? "serverCardActions.edit.submitConfirmed" : "serverCardActions.edit.submit")}
       </SubmitButton>
-      {editState.error ? (
+      {editState.error && !observedHostKeySha256 ? (
         <div role="alert" className="text-xs text-[var(--danger)]">
           {editState.error}
         </div>

@@ -45,6 +45,8 @@ export const createServerSchema = z
     password: z.string().trim().optional(),
     hostKeySha256: z.string().trim().max(128, "SSH host key fingerprint is too long").optional().or(z.literal("")),
     approvedHostKeySha256: z.string().trim().max(128, "SSH approved host key fingerprint is too long").optional().or(z.literal("")),
+    /** UI onboarding may persist an unreachable node as disabled configuration. */
+    saveAsDraftOnConnectionFailure: z.boolean().optional().default(false),
     description: z
       .string()
       .trim()

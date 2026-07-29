@@ -159,19 +159,35 @@ export function ServerCardActions({
 				/>
 			) : null}
 
-			{canManageServers ? (
-				<form action={toggleAction} className="space-y-2">
-					<input type="hidden" name="serverId" value={serverId} />
-					<SubmitButton
+				{canManageServers ? (
+					<form action={toggleAction} className="space-y-2">
+						<input type="hidden" name="serverId" value={serverId} />
+						{!enabled && toggleState.hostKeySha256 ? (
+							<div className="space-y-2 rounded-xl border border-[var(--warning-border)] bg-[var(--warning-bg)] p-3 text-xs text-[var(--text-secondary)]">
+								<p className="font-medium text-[var(--text-primary)]">{t("serverCardActions.toggle.hostKeyTitle")}</p>
+								<p>{t("serverCardActions.toggle.hostKeyDesc")}</p>
+								<code className="block break-all rounded-lg border border-[var(--warning-border)] bg-[var(--input-bg)] px-3 py-2 text-[var(--text-primary)]">
+									{toggleState.hostKeySha256}
+								</code>
+								<input type="hidden" name="approvedHostKeySha256" value={toggleState.hostKeySha256} />
+								<label className="flex items-start gap-2 text-[var(--text-primary)]">
+									<input type="checkbox" required className="mt-0.5 h-4 w-4 accent-[var(--accent)]" />
+									<span>{t("serverCardActions.toggle.hostKeyConfirm")}</span>
+								</label>
+							</div>
+						) : null}
+						<SubmitButton
 						pendingLabel={t("serverCardActions.toggle.pending")}
 						variant="ghost"
 						className="w-full"
 					>
-						{enabled
-							? t("serverCardActions.toggle.disable")
-							: t("serverCardActions.toggle.enable")}
+							{!enabled && toggleState.hostKeySha256
+								? t("serverCardActions.toggle.confirmAndEnable")
+								: enabled
+								? t("serverCardActions.toggle.disable")
+								: t("serverCardActions.toggle.enable")}
 					</SubmitButton>
-					{toggleState.error ? (
+						{toggleState.error && !toggleState.hostKeySha256 ? (
 						<div role="alert" className="text-xs text-[var(--danger)]">
 							{toggleState.error}
 						</div>

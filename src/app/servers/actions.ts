@@ -84,6 +84,7 @@ export async function createServerAction(
       costCurrency,
       costProvider,
       approvedHostKeySha256,
+      saveAsDraftOnConnectionFailure: true,
     }, session);
 
     await auditUserAction(session.userId, "server.create", {
@@ -99,7 +100,11 @@ export async function createServerAction(
 
     return {
       success:
-        created.onboardingWarnings.length > 0
+        created.enabled === false
+          ? tr("serversPage.action.createDraftSaved", {
+              details: created.draftReason || tr("serversPage.action.connectionNotReady"),
+            })
+          : created.onboardingWarnings.length > 0
           ? tr("serversPage.action.createWithWarnings", { warnings: created.onboardingWarnings.join(" ") })
           : tr("serversPage.action.createSuccess"),
     } as ServerActionState;
@@ -237,7 +242,8 @@ export async function toggleServerAction(
 
   try {
     const serverId = String(formData.get("serverId") ?? "");
-    const updated = await toggleServerEnabled(serverId, session);
+    const approvedHostKeySha256 = String(formData.get("approvedHostKeySha256") ?? "") || undefined;
+    const updated = await toggleServerEnabled(serverId, session, approvedHostKeySha256);
     const newState = updated.enabled;
     await auditUserAction(session.userId, "server.toggle", {
       serverId,
@@ -249,6 +255,7 @@ export async function toggleServerAction(
   } catch (error) {
     return {
       error: getErrorMessage(error, tr("serversPage.action.toggleFailed")),
+      ...(error instanceof SshHostKeyApprovalRequiredError ? { hostKeySha256: error.hostKeySha256 } : {}),
     } as ServerActionState;
   }
 }
@@ -308,6 +315,9 @@ export async function batchToggleServerAction(
     if (serverIds.length === 0) {
       return { error: tr("serversPage.action.batchEmpty") } as ServerActionState;
     }
+    if (enabled) {
+      return { error: tr("serversPage.action.batchEnableIndividual") } as ServerActionState;
+    }
 
     const { prisma } = await import("@/lib/db");
     const { teamWhere } = await import("@/lib/auth/team-scope");
@@ -326,9 +336,7 @@ export async function batchToggleServerAction(
     revalidatePath("/servers");
 
     return {
-      success: enabled
-        ? tr("serversPage.action.batchEnabled", { count: result.count })
-        : tr("serversPage.action.batchDisabled", { count: result.count }),
+      success: tr("serversPage.action.batchDisabled", { count: result.count }),
     } as ServerActionState;
   } catch (error) {
     return {

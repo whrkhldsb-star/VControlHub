@@ -115,20 +115,11 @@ export function BatchServerActionPanel({
         })}
       </div>
 
-      <form action={formAction} className="mt-4 flex flex-wrap gap-2">
-        {selectedIds.map((id) => (
-          <input key={id} type="hidden" name="serverIds" value={id} />
-        ))}
-        <input type="hidden" name="enabled" value="true" />
-        <SubmitButton
-          disabled={selectedIds.length === 0}
-          pendingLabel={t("serversPage.batchPanel.processing")}
-        >
-          {t("serverCardActions.toggle.enable")}
-        </SubmitButton>
-      </form>
+      <p className="mt-4 rounded-xl border border-[var(--info-border)] bg-[var(--info-bg)] px-3 py-2 text-xs text-[var(--text-secondary)]">
+        {t("serversPage.batchPanel.enableIndividual")}
+      </p>
 
-      <form action={formAction} className="mt-2 flex flex-wrap gap-2">
+      <form action={formAction} className="mt-3 flex flex-wrap gap-2">
         {selectedIds.map((id) => (
           <input key={id} type="hidden" name="serverIds" value={id} />
         ))}

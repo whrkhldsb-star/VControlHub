@@ -332,16 +332,14 @@ describe("server direct gateway controls", () => {
     expect(screen.getByLabelText("SSH 端口")).toHaveValue(22);
     expect(screen.getByLabelText("用户名")).toHaveValue("root");
     expect(screen.getByLabelText("新密码（留空保持不变）")).toHaveValue("");
-    expect(screen.getByPlaceholderText("SHA256:...")).toHaveValue("");
+    expect(screen.getByText(/修改 SSH 连接信息后，系统会显示新主机指纹/)).toBeInTheDocument();
+    expect(screen.queryByText("本次连接观测到的指纹")).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "保存并校验连接" }),
     ).toBeInTheDocument();
   });
 
-  it("auto-fills the probed SSH host fingerprint after the first TOFU rejection", () => {
-    // Render the edit form directly with the action-state returned by the
-    // first TOFU probe failure. Controlled input must show the fingerprint
-    // immediately (defaultValue would leave the field empty until remount).
+  it("shows the probed SSH host fingerprint for explicit confirmation", () => {
     render(
       <ServerCardEditForm
         serverId="srv_1"
@@ -366,11 +364,49 @@ describe("server direct gateway controls", () => {
       />,
     );
 
-    expect(screen.getByPlaceholderText("SHA256:...")).toHaveValue(
-      "SHA256:probed-from-server",
+    expect(screen.getByText("SHA256:probed-from-server")).toBeInTheDocument();
+    expect(screen.getByText("本次连接观测到的指纹")).toBeInTheDocument();
+    const approval = document.querySelector(
+      'input[name="approvedHostKeySha256"]',
     );
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      "First connection requires confirming the SSH host fingerprint",
+    expect(approval).toHaveAttribute("type", "hidden");
+    expect(approval).toHaveValue("SHA256:probed-from-server");
+    expect(
+      screen.getByRole("checkbox", { name: /我已通过独立渠道核对/ }),
+    ).toBeRequired();
+    expect(
+      screen.getByRole("button", { name: "确认指纹并保存" }),
+    ).toBeInTheDocument();
+  });
+
+  it("requires fingerprint confirmation before enabling a disabled VPS", () => {
+    actionStateOverrides.push(
+      {
+        error: "First connection requires confirming the SSH host fingerprint",
+        hostKeySha256: "SHA256:enable-probe",
+      },
+      { error: undefined, success: undefined },
+      { error: undefined, success: undefined },
     );
+
+    render(
+      <ServerCardActions
+        serverId="srv_draft"
+        serverName="pending-node"
+        host="107.148.254.104"
+        port={22}
+        enabled={false}
+        sessionToken="token"
+        canManageServers
+      />,
+    );
+
+    expect(screen.getByText("SHA256:enable-probe")).toBeInTheDocument();
+    expect(
+      screen.getByRole("checkbox", { name: /我已核对并信任/ }),
+    ).toBeRequired();
+    expect(
+      screen.getByRole("button", { name: "确认指纹并启用" }),
+    ).toBeInTheDocument();
   });
 });

@@ -24,21 +24,36 @@ export function ServerCreateForm({
   const { t } = useI18n();
   const router = useRouter();
   const [state, formAction] = useActionState(createServerAction, initialState);
-  // First TOFU/host-key probe returns hostKeySha256 in action state.
-  // Controlled input so the probed fingerprint fills immediately (defaultValue does not).
-  const [approvedHostKeySha256, setApprovedHostKeySha256] = useState(
+  const [observedHostKeySha256, setObservedHostKeySha256] = useState(
     () => state.hostKeySha256 ?? "",
   );
+  const [hostKeyConfirmed, setHostKeyConfirmed] = useState(false);
   useEffect(() => {
     if (state.hostKeySha256) {
-      setApprovedHostKeySha256(state.hostKeySha256);
+      setObservedHostKeySha256(state.hostKeySha256);
+      setHostKeyConfirmed(false);
+    } else if (state.error || state.success) {
+      setObservedHostKeySha256("");
+      setHostKeyConfirmed(false);
     }
-  }, [state.hostKeySha256]);
+  }, [state.error, state.hostKeySha256, state.success]);
   useEffect(() => {
     if (state.success) router.refresh();
   }, [state.success, router]);
   return (
-    <form action={formAction} data-card className="grid gap-4 ">
+    <form
+      action={formAction}
+      data-card
+      className="grid gap-4"
+      onChange={(event) => {
+        const field = event.target;
+        if (!(field instanceof HTMLInputElement || field instanceof HTMLSelectElement)) return;
+        if (["host", "port", "username", "connectionType", "sshKeyId", "password"].includes(field.name)) {
+          setObservedHostKeySha256("");
+          setHostKeyConfirmed(false);
+        }
+      }}
+    >
       {" "}
       <div>
         {" "}
@@ -49,7 +64,7 @@ export function ServerCreateForm({
           {t("serversPage.create.desc")}
         </p>{" "}
       </div>{" "}
-      {state.error && (
+      {state.error && !observedHostKeySha256 && (
         <div className="rounded-lg bg-[var(--danger-bg)] border border-[var(--danger-border)] px-3.5 py-2.5 text-sm text-[var(--danger)]">
           {" "}
           {state.error}{" "}
@@ -220,26 +235,38 @@ export function ServerCreateForm({
       </div>{" "}
       <ConnectionTypeFields sshKeys={sshKeys} />{" "}
       <div className="rounded-xl border border-[var(--warning-border)] bg-[var(--warning-bg)] p-4 text-sm text-[var(--text-secondary)]">
-        <label className="block space-y-2" htmlFor="approvedHostKeySha256">
+        <div className="space-y-2">
           <span className="block font-medium text-[var(--text-primary)]">
             {t("serversPage.create.hostKeyTrustTitle")}
           </span>
           <span className="block text-xs text-[var(--text-secondary)]">
             {t("serversPage.create.hostKeyTrustDesc")}
           </span>
-          <input
-            id="approvedHostKeySha256"
-            name="approvedHostKeySha256"
-            type="text"
-            value={approvedHostKeySha256}
-            onChange={(event) => setApprovedHostKeySha256(event.target.value)}
-            placeholder="SHA256:..."
-            className="mt-2 w-full rounded-lg border border-[var(--warning-border)] bg-[var(--input-bg)] px-3 py-2 font-mono text-xs text-[var(--text-primary)]"
-          />
+          {observedHostKeySha256 ? (
+            <>
+              <span className="block text-xs font-medium text-[var(--warning)]">
+                {t("serversPage.create.hostKeyObserved")}
+              </span>
+              <code className="block break-all rounded-lg border border-[var(--warning-border)] bg-[var(--input-bg)] px-3 py-2 text-xs text-[var(--text-primary)]">
+                {observedHostKeySha256}
+              </code>
+              <input type="hidden" name="approvedHostKeySha256" value={observedHostKeySha256} />
+              <label className="flex items-start gap-2 text-xs text-[var(--text-primary)]">
+                <input
+                  type="checkbox"
+                  required
+                  checked={hostKeyConfirmed}
+                  onChange={(event) => setHostKeyConfirmed(event.currentTarget.checked)}
+                  className="mt-0.5 h-4 w-4 accent-[var(--accent)]"
+                />
+                <span>{t("serversPage.create.hostKeyConfirm")}</span>
+              </label>
+            </>
+          ) : null}
           <span className="block text-xs text-[var(--warning)]">
             {t("serversPage.create.hostKeyTrustHint")}
           </span>
-        </label>
+        </div>
       </div>{" "}
       <div className="space-y-1.5">
         {" "}
@@ -354,7 +381,7 @@ export function ServerCreateForm({
         />{" "}
       </div>{" "}
       <SubmitButton pendingLabel={t("serversPage.create.submitting")}>
-        {t("serversPage.create.submit")}
+        {t(observedHostKeySha256 ? "serversPage.create.submitConfirmed" : "serversPage.create.submit")}
       </SubmitButton>{" "}
     </form>
   );

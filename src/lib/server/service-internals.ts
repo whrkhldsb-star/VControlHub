@@ -223,6 +223,7 @@ export async function verifyServerSshConnectivity(
   > & {
     sshKey?: { privateKey?: string | null; passphrase?: string | null } | null;
   },
+  options?: { failureMessage?: string },
 ) {
   if (isLocalHostLiteral(normalized.host)) return;
 
@@ -246,8 +247,11 @@ export async function verifyServerSshConnectivity(
       );
     }
   } catch (error) {
+    const failureMessage =
+      options?.failureMessage ??
+      `Cannot connect to target server ${normalized.username}@${normalized.host}:${normalized.port}; node was not added/saved. Please check IP, port, username, and authentication credentials and retry.`;
     throw new BusinessError(
-      `Cannot connect to target server ${normalized.username}@${normalized.host}:${normalized.port}; node was not added/saved. Please check IP, port, username, and authentication credentials and retry. Details: ${getErrorMessage(error)}`,
+      `${failureMessage} Details: ${getErrorMessage(error)}`,
     );
   }
 }

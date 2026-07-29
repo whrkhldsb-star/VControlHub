@@ -6,8 +6,10 @@ const {
   prismaServerFindFirstMock,
   prismaStorageNodeCountMock,
   updateServerProfileMock,
+  toggleServerEnabledMock,
   requirePermissionMock,
   revalidatePathMock,
+  prismaServerUpdateManyMock,
   sessionHasPermissionMock,
   teamWhereMock,
 } = vi.hoisted(() => ({
@@ -16,8 +18,10 @@ const {
   prismaServerFindFirstMock: vi.fn(),
   prismaStorageNodeCountMock: vi.fn(),
   updateServerProfileMock: vi.fn(),
+  toggleServerEnabledMock: vi.fn(),
   requirePermissionMock: vi.fn(),
   revalidatePathMock: vi.fn(),
+  prismaServerUpdateManyMock: vi.fn(),
   sessionHasPermissionMock: vi.fn(() => true),
   teamWhereMock: vi.fn(() => ({})),
 }));
@@ -42,13 +46,17 @@ vi.mock("@/lib/server/service", () => ({
   createSshKey: vi.fn(),
   deleteServerProfile: deleteServerProfileMock,
   setServerDirectGatewayEnabled: vi.fn(),
-  toggleServerEnabled: vi.fn(),
+  toggleServerEnabled: toggleServerEnabledMock,
   updateServerProfile: updateServerProfileMock,
 }));
 
 vi.mock("@/lib/db", () => ({
   prisma: {
-    server: { findFirst: prismaServerFindFirstMock, findUnique: prismaServerFindFirstMock },
+    server: {
+      findFirst: prismaServerFindFirstMock,
+      findUnique: prismaServerFindFirstMock,
+      updateMany: prismaServerUpdateManyMock,
+    },
     storageNode: { count: prismaStorageNodeCountMock },
   },
 }));
@@ -87,11 +95,52 @@ describe("server actions", () => {
     expect(createServerProfileMock).toHaveBeenCalledWith(
       expect.objectContaining({
         enableDirectGateway: true,
+        saveAsDraftOnConnectionFailure: true,
         storagePath: "/data/vch-files",
       }),
       expect.objectContaining({ userId: "user_1" }),
     );
     expect(revalidatePathMock).toHaveBeenCalledWith("/servers");
+  });
+
+  it("reports a saved disabled draft when SSH is not ready", async () => {
+    createServerProfileMock.mockResolvedValueOnce({
+      id: "srv_draft",
+      enabled: false,
+      draftReason: "connect ECONNREFUSED 107.148.254.104:22",
+      onboardingWarnings: [],
+    });
+    const { createServerAction } = await import("../actions");
+    const formData = new FormData();
+    formData.set("name", "pending-node");
+    formData.set("host", "107.148.254.104");
+    formData.set("port", "22");
+    formData.set("username", "root");
+    formData.set("connectionType", "PASSWORD");
+    formData.set("password", "secret123");
+
+    const result = await createServerAction(null, formData);
+
+    expect(result.error).toBeUndefined();
+    expect(result.success).toContain("节点配置已保存为停用状态");
+    expect(result.success).toContain("connect ECONNREFUSED 107.148.254.104:22");
+    expect(createServerProfileMock).toHaveBeenCalledWith(
+      expect.objectContaining({ saveAsDraftOnConnectionFailure: true }),
+      expect.objectContaining({ userId: "user_1" }),
+    );
+  });
+
+  it("rejects batch enable so SSH trust checks cannot be bypassed", async () => {
+    const { batchToggleServerAction } = await import("../actions");
+    const formData = new FormData();
+    formData.set("enabled", "true");
+    formData.append("serverIds", "srv_1");
+
+    const result = await batchToggleServerAction(null, formData);
+
+    expect(result.success).toBeUndefined();
+    expect(result.error).toContain("必须逐台完成首次启用");
+    expect(prismaServerUpdateManyMock).not.toHaveBeenCalled();
   });
 
   it("updates an existing server from edit form data", async () => {

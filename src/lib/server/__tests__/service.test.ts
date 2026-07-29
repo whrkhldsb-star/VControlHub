@@ -7,6 +7,7 @@ import {
   deleteServerProfile,
   listServerProfiles,
   setServerDirectGatewayEnabled,
+  toggleServerEnabled,
   updateServerProfile,
 } from "@/lib/server/service";
 import { prisma } from "@/lib/db";
@@ -41,6 +42,7 @@ vi.mock("@/lib/ssh/client", () => ({
     username: server.username,
     privateKey: sshKey?.privateKey ?? undefined,
     password: server.password ?? undefined,
+    hostKeySha256: server.hostKeySha256 ?? null,
   })),
   createRemoteDirectory: vi.fn(),
   execRemoteCommand: execRemoteCommandMock,
@@ -274,6 +276,213 @@ describe("server service", () => {
     );
     expect(prisma.server.create).not.toHaveBeenCalled();
     expect(prisma.storageNode.create).not.toHaveBeenCalled();
+  });
+
+  it("saves an unreachable VPS as a disabled draft when onboarding allows it", async () => {
+    const created = {
+      id: "srv_draft",
+      name: "pending-node",
+      host: "107.148.254.104",
+      port: 22,
+      username: "root",
+      description: null,
+      tags: [],
+      enabled: false,
+      connectionType: "PASSWORD",
+      sshKeyId: null,
+      password: "enc:v1:password",
+      hostKeySha256: "hk-prod-1 storage",
+      sshKey: null,
+      storageNode: null,
+      commandTargets: [],
+      costAutoSync: false,
+      costMonthlyAmount: null,
+      costCurrency: "CNY",
+      costProvider: null,
+      costLastSyncedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as any;
+    vi.mocked(prisma.server.findFirst).mockResolvedValueOnce(null);
+    vi.mocked(prisma.storageNode.count).mockResolvedValueOnce(0);
+    vi.mocked(prisma.server.create).mockResolvedValueOnce(created);
+    vi.mocked(prisma.server.findUnique).mockResolvedValueOnce({
+      ...created,
+      storageNode: {
+        id: "storage_draft",
+        name: "pending-node storage",
+        driver: "SFTP",
+        isDefault: false,
+        basePath: "/root/drive",
+        directAccessMode: "PROXY",
+        publicBaseUrl: null,
+      },
+    });
+    execRemoteCommandMock.mockRejectedValueOnce(
+      new Error("connect ECONNREFUSED 107.148.254.104:22"),
+    );
+
+    const result = await createServerProfile({
+      name: "pending-node",
+      host: "107.148.254.104",
+      port: 22,
+      username: "root",
+      connectionType: "PASSWORD",
+      password: "secret123",
+      approvedHostKeySha256: "hk-prod-1 storage",
+      saveAsDraftOnConnectionFailure: true,
+    });
+
+    expect(result.enabled).toBe(false);
+    expect(result.draftReason).toContain("connect ECONNREFUSED");
+    expect(prisma.server.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ enabled: false }),
+      }),
+    );
+    expect(prisma.storageNode.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          isDefault: false,
+          healthStatus: "UNHEALTHY",
+          lastHealthError: expect.stringContaining("connect ECONNREFUSED"),
+        }),
+      }),
+    );
+    expect(createRemoteDirectory).not.toHaveBeenCalled();
+    expect(prisma.server.update).not.toHaveBeenCalled();
+  });
+
+  it("requires first-time host fingerprint confirmation before enabling a draft", async () => {
+    const current = {
+      id: "srv_draft",
+      name: "pending-node",
+      host: "107.148.254.104",
+      port: 22,
+      username: "root",
+      description: null,
+      tags: [],
+      enabled: false,
+      connectionType: "PASSWORD",
+      sshKeyId: null,
+      password: "enc:v1:password",
+      hostKeySha256: null,
+      sshKey: null,
+      storageNode: { id: "storage_draft" },
+      commandTargets: [],
+      costAutoSync: false,
+      costMonthlyAmount: null,
+      costCurrency: "CNY",
+      costProvider: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as any;
+    vi.mocked(prisma.server.findUnique).mockResolvedValueOnce(current);
+
+    await expect(toggleServerEnabled("srv_draft")).rejects.toMatchObject({
+      name: "SshHostKeyApprovalRequiredError",
+      hostKeySha256: "hk-prod-1 storage",
+    });
+
+    expect(prisma.server.update).not.toHaveBeenCalled();
+    expect(prisma.storageNode.update).not.toHaveBeenCalled();
+  });
+
+  it("enables a draft only after fingerprint and SSH connectivity verification", async () => {
+    const current = {
+      id: "srv_draft",
+      name: "pending-node",
+      host: "107.148.254.104",
+      port: 22,
+      username: "root",
+      description: null,
+      tags: [],
+      enabled: false,
+      connectionType: "PASSWORD",
+      sshKeyId: null,
+      password: "enc:v1:password",
+      hostKeySha256: null,
+      sshKey: null,
+      storageNode: { id: "storage_draft" },
+      commandTargets: [],
+      costAutoSync: false,
+      costMonthlyAmount: null,
+      costCurrency: "CNY",
+      costProvider: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as any;
+    vi.mocked(prisma.server.findUnique).mockResolvedValueOnce(current);
+    vi.mocked(prisma.server.update).mockResolvedValueOnce({
+      ...current,
+      enabled: true,
+      hostKeySha256: "SHA256:verified",
+    });
+
+    const result = await toggleServerEnabled(
+      "srv_draft",
+      null,
+      "SHA256:verified",
+    );
+
+    expect(result.enabled).toBe(true);
+    expect(execRemoteCommandMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        command: "printf vcontrolhub-ssh-ready",
+        hostKeySha256: "SHA256:verified",
+      }),
+    );
+    expect(prisma.server.update).toHaveBeenCalledWith({
+      where: { id: "srv_draft" },
+      data: { enabled: true, hostKeySha256: "SHA256:verified" },
+    });
+    expect(prisma.storageNode.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "storage_draft" },
+        data: expect.objectContaining({
+          hostKeySha256: "SHA256:verified",
+          healthStatus: "UNKNOWN",
+          lastHealthError: null,
+        }),
+      }),
+    );
+  });
+
+  it("keeps a draft disabled when SSH verification still fails", async () => {
+    const current = {
+      id: "srv_draft",
+      name: "pending-node",
+      host: "107.148.254.104",
+      port: 22,
+      username: "root",
+      description: null,
+      tags: [],
+      enabled: false,
+      connectionType: "PASSWORD",
+      sshKeyId: null,
+      password: "enc:v1:password",
+      hostKeySha256: "SHA256:verified",
+      sshKey: null,
+      storageNode: { id: "storage_draft" },
+      commandTargets: [],
+      costAutoSync: false,
+      costMonthlyAmount: null,
+      costCurrency: "CNY",
+      costProvider: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as any;
+    vi.mocked(prisma.server.findUnique).mockResolvedValueOnce(current);
+    execRemoteCommandMock.mockRejectedValueOnce(
+      new Error("connect ECONNREFUSED 107.148.254.104:22"),
+    );
+
+    await expect(toggleServerEnabled("srv_draft")).rejects.toThrow(
+      "the node remains disabled",
+    );
+
+    expect(prisma.server.update).not.toHaveBeenCalled();
+    expect(prisma.storageNode.update).not.toHaveBeenCalled();
   });
 
   it("rejects updating a server to another server's host", async () => {
