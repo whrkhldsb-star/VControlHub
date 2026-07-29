@@ -348,9 +348,7 @@ describe("FilesPage", () => {
     expect(
       screen.getByRole("heading", { name: "当前目录操作" }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: "⬆ 上传文件" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "⬆ 上传文件" })).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "新建文件夹" }),
     ).not.toBeDisabled();
@@ -358,10 +356,8 @@ describe("FilesPage", () => {
       screen.getByRole("textbox", { name: "搜索文件名" }),
     ).toHaveAttribute("placeholder", "在当前目录搜索…");
     expect(screen.getAllByText(/主控本机/).length).toBeGreaterThan(0);
-    expect(screen.getByRole("link", { name: "⬆ 上传文件" })).toHaveAttribute(
-      "href",
-      "#upload-section",
-    );
+    fireEvent.click(screen.getByRole("button", { name: "⬆ 上传文件" }));
+    expect(screen.getByRole("dialog", { name: /上传到当前目录/ })).toBeInTheDocument();
   });
 
   it("renders per-entry actions from storage access capabilities on the initial page payload", async () => {

@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AppSidebar } from "../app-sidebar";
 import {
@@ -12,8 +12,10 @@ import {
 import { I18nProvider } from "@/lib/i18n/provider";
 import type { Permission } from "@/lib/auth/rbac";
 
+const navigationMocks = vi.hoisted(() => ({ pathname: "/dashboard" }));
+
 vi.mock("next/navigation", () => ({
-	usePathname: () => "/dashboard",
+	usePathname: () => navigationMocks.pathname,
 }));
 
 vi.mock("../sign-out-button", () => ({
@@ -97,6 +99,26 @@ async function expandNavGroup(name: RegExp) {
 }
 
 describe("AppSidebar permission-gated render", () => {
+	beforeEach(() => {
+		navigationMocks.pathname = "/dashboard";
+	});
+
+	it("opens only the current workspace by default", () => {
+		renderWithGate(ADMIN_GATE, SAMPLE_DECLARED);
+
+		expect(screen.getAllByRole("button", { name: /总览与监控/ })[0]).toHaveAttribute("aria-expanded", "true");
+		expect(screen.getAllByRole("button", { name: /文件与传输/ })[0]).toHaveAttribute("aria-expanded", "false");
+		expect(screen.getAllByRole("button", { name: /系统管理/ })[0]).toHaveAttribute("aria-expanded", "false");
+	});
+
+	it("treats the post-login root route as the dashboard workspace", () => {
+		navigationMocks.pathname = "/";
+		renderWithGate(ADMIN_GATE, SAMPLE_DECLARED);
+
+		expect(screen.getAllByRole("button", { name: /总览与监控/ })[0]).toHaveAttribute("aria-expanded", "true");
+		expect(screen.getAllByRole("link", { name: /仪表盘/ })[0]).toHaveAttribute("aria-current", "page");
+	});
+
 	it("hides main nav items whose declared permissions the session lacks", () => {
 		renderWithGate(READ_ONLY_GATE, SAMPLE_DECLARED);
 
@@ -118,8 +140,9 @@ describe("AppSidebar permission-gated render", () => {
 		expect(screen.queryByRole("link", { name: /审计日志/ })).not.toBeInTheDocument();
 	});
 
-	it("admits items via canAny — storage manager sees /files but not /users", () => {
+	it("admits items via canAny — storage manager sees /files but not /users", async () => {
 		renderWithGate(STORAGE_GATE, SAMPLE_DECLARED);
+		await expandNavGroup(/文件与传输/);
 
 		expect(screen.getAllByRole("link", { name: /文件管理/ }).length).toBeGreaterThan(0);
 		expect(screen.queryByRole("link", { name: /用户管理/ })).not.toBeInTheDocument();
@@ -128,8 +151,10 @@ describe("AppSidebar permission-gated render", () => {
 	it("admits every item for admin role (no filter triggers)", async () => {
 		renderWithGate(ADMIN_GATE, SAMPLE_DECLARED);
 
-		// Ops group is collapsed by default; expand so nested links are queryable.
+		// Non-current workspaces stay collapsed; expand the groups under test.
+		await expandNavGroup(/文件与传输/);
 		await expandNavGroup(/运维自动化/);
+		await expandNavGroup(/系统管理/);
 
 		expect(screen.getAllByRole("link", { name: /仪表盘/ }).length).toBeGreaterThan(0);
 		expect(screen.getAllByRole("link", { name: /VPS 管理/ }).length).toBeGreaterThan(0);

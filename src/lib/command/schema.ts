@@ -19,6 +19,7 @@ export const createCommandSchema = z.object({
   command: z.string().trim().min(1, "Command is required").max(10_000, "Command content is too long"),
   reason: z.string().trim().max(500, "Reason must be at most 500 characters").optional(),
   submissionMode: z.enum(["user", "assistant"]),
+  approvalRequired: z.boolean().optional(),
   requesterId: z.string().trim().min(1, "Requester is required"),
   teamId: z.string().trim().min(1).nullable().optional(),
   idempotencyKey: z.string().trim().min(1).max(300).optional(),

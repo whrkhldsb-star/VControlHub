@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { useI18n } from "@/lib/i18n/use-locale";
 
-type PanelKey = "nodes" | "create" | "sshkeys" | "batch";
+type PanelKey = "nodes" | "command" | "create" | "sshkeys" | "batch";
 
 const actions: {
 	key: PanelKey;
@@ -18,6 +18,16 @@ const actions: {
 		icon: (
 			<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
 				<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.6} d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2" />
+			</svg>
+		),
+	},
+	{
+		key: "command",
+		labelKey: "serversPage.tabs.command",
+		hintKey: "serversPage.tabs.commandHint",
+		icon: (
+			<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+				<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.6} d="M5 7l4 4-4 4m6 0h8" />
 			</svg>
 		),
 	},
@@ -60,20 +70,25 @@ function tabLabel(t: (k: string, vars?: Record<string, string | number>) => stri
 
 export function ServerTabLayout({
 	nodesPanel,
+	commandPanel,
 	createPanel,
 	sshKeysPanel,
 	batchPanel,
+	initialPanel = "nodes",
 }: {
 	nodesPanel: ReactNode;
+	commandPanel?: ReactNode;
 	createPanel?: ReactNode;
 	sshKeysPanel: ReactNode;
 	batchPanel?: ReactNode;
+	initialPanel?: PanelKey;
 }) {
 	const { t } = useI18n();
-	const [activePanel, setActivePanel] = useState<PanelKey>("nodes");
+	const [activePanel, setActivePanel] = useState<PanelKey>(initialPanel);
 
 	const panels: Record<PanelKey, ReactNode> = {
 		nodes: nodesPanel,
+		command: commandPanel,
 		create: createPanel,
 		sshkeys: sshKeysPanel,
 		batch: batchPanel,
@@ -81,6 +96,7 @@ export function ServerTabLayout({
 
 	const hints: Record<PanelKey, string> = {
 		nodes: tabLabel(t, "serversPage.tabs.overviewHint", "Browse health, SSH and node details"),
+		command: tabLabel(t, "serversPage.tabs.commandHint", "Run a command on enabled VPS nodes"),
 		create: tabLabel(t, "serversPage.tabs.addVpsHint", "Register a new VPS profile"),
 		sshkeys: tabLabel(t, "serversPage.tabs.addKeyHint", "Manage reusable SSH keys"),
 		batch: tabLabel(t, "serversPage.tabs.batchHint", "Run bulk enable / disable actions"),
@@ -92,7 +108,7 @@ export function ServerTabLayout({
 				aria-label={t("serversPage.quickActionsAria")}
 				className="rounded-2xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_90%,transparent)] p-2 shadow-[var(--shadow-sm)]"
 			>
-				<div role="tablist" aria-label={t("serversPage.quickActionsAria")} className="grid gap-2 md:grid-cols-4">
+				<div role="tablist" aria-label={t("serversPage.quickActionsAria")} className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
 					{actions.map((action) => {
 						const disabled = !panels[action.key];
 						const active = activePanel === action.key;

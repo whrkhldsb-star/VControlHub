@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-07-29T07:59:24.656Z",
+  "generatedAt": "2026-07-29T10:03:52.312Z",
   "summary": {
     "permissionsInList": 54,
     "rolesDefined": 4,
     "apiRoutesAudited": 179,
     "pagesAudited": 55,
-    "callSitesAudited": 631,
+    "callSitesAudited": 633,
     "driftCount": 0,
     "driftByCode": {
       "perm-not-in-list": 0,
@@ -754,12 +754,17 @@
           "line": 16
         },
         {
+          "path": "src/app/servers/page.tsx",
+          "line": 28
+        },
+        {
           "path": "src/app/templates/page.tsx",
           "line": 14
         }
       ],
       "pages": [
         "scheduled-tasks",
+        "servers",
         "templates"
       ],
       "apiRoutes": [],
@@ -773,23 +778,28 @@
       "files": [
         {
           "path": "src/app/api/commands/route.ts",
-          "line": 68
+          "line": 69
         },
         {
           "path": "src/app/api/commands/route.ts",
-          "line": 44
+          "line": 47
         },
         {
           "path": "src/app/api/commands/route.ts",
-          "line": 68
+          "line": 69
         },
         {
           "path": "src/app/scheduled-tasks/page.tsx",
           "line": 17
+        },
+        {
+          "path": "src/app/servers/page.tsx",
+          "line": 29
         }
       ],
       "pages": [
-        "scheduled-tasks"
+        "scheduled-tasks",
+        "servers"
       ],
       "apiRoutes": [
         "/api/commands"
@@ -1951,7 +1961,7 @@
         },
         {
           "path": "src/app/servers/page.tsx",
-          "line": 26
+          "line": 27
         }
       ],
       "pages": [
@@ -2043,7 +2053,7 @@
         },
         {
           "path": "src/app/servers/page.tsx",
-          "line": 25
+          "line": 26
         }
       ],
       "pages": [

@@ -38,6 +38,10 @@ vi.mock("@/components/global-search", () => ({
 	GlobalSearch: () => <div data-testid="global-search" />,
 }));
 
+vi.mock("@/components/web-vitals-reporter", () => ({
+	WebVitalsReporter: () => <div data-testid="web-vitals-reporter" />,
+}));
+
 vi.mock("@/lib/auth/server-session", () => ({
 	getCurrentSession: vi.fn(async () => ({
 		userId: "u1",
@@ -87,6 +91,7 @@ describe("RootLayout", () => {
 
 		expect(screen.queryByRole("navigation", { name: "移动端底部导航" })).not.toBeInTheDocument();
 		expect(screen.queryByTestId("global-search")).not.toBeInTheDocument();
+		expect(screen.queryByTestId("web-vitals-reporter")).not.toBeInTheDocument();
 	});
 
 	it("renders mobile navigation and global search for authenticated sessions", async () => {
@@ -97,6 +102,7 @@ describe("RootLayout", () => {
 		expect(screen.getByTestId("sidebar-loader")).toBeInTheDocument();
 		expect(screen.getByRole("navigation", { name: "移动端底部导航" })).toBeInTheDocument();
 		expect(screen.getByTestId("global-search")).toBeInTheDocument();
+		expect(screen.getByTestId("web-vitals-reporter")).toBeInTheDocument();
 	});
 
 	it("hides authenticated chrome on public login pages even when a session cookie still exists", async () => {
@@ -110,5 +116,6 @@ describe("RootLayout", () => {
 		expect(screen.queryByTestId("sidebar-loader")).not.toBeInTheDocument();
 		expect(screen.queryByRole("navigation", { name: "移动端底部导航" })).not.toBeInTheDocument();
 		expect(screen.queryByTestId("global-search")).not.toBeInTheDocument();
+		expect(screen.queryByTestId("web-vitals-reporter")).not.toBeInTheDocument();
 	});
 });

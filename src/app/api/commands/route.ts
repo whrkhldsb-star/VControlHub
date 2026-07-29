@@ -41,11 +41,12 @@ export async function POST(request: Request) {
         requesterId: session!.userId,
         submissionMode: body.submissionMode ?? "user",
       });
-      if (parsed.submissionMode === "user" && !sessionHasPermission(session!, "command:execute")) {
-        // Do not silently downgrade to assistant/approval — callers that want
-        // the approval path must send submissionMode: "assistant" explicitly.
+      const executesWithoutApproval =
+        parsed.approvalRequired === false ||
+        (parsed.approvalRequired === undefined && parsed.submissionMode === "user");
+      if (executesWithoutApproval && !sessionHasPermission(session!, "command:execute")) {
         throw new ForbiddenError(
-          "command:execute permission is required for direct (user) submission mode",
+          "command:execute permission is required for submissions that bypass approval",
         );
       }
       const command = await createCommandRequest(parsed, session!);

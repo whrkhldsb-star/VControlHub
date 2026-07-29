@@ -99,14 +99,9 @@ export function AppSidebar({
 	const [mobileOpen, setMobileOpen] = useState(false);
 	const [passwordModalOpen, setPasswordModalOpen] = useState(false);
 	const [filter, setFilter] = useState("");
-	// Default: keep Overview + Files open; collapse denser ops/collab groups for scanability.
-	const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
-		overview: true,
-		files: true,
-		ops: false,
-		collab: false,
-		config: true,
-	});
+	// Only the current workspace opens by default. Explicit user toggles win,
+	// while global search remains the complete cross-workspace catalog.
+	const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 	const shouldRenderSidebar = Boolean(username);
 	const iconInitial = username?.trim().charAt(0).toUpperCase() ?? "";
 
@@ -127,6 +122,7 @@ export function AppSidebar({
 	if (!shouldRenderSidebar) return null;
 
 	const isActive = (href: string) => {
+		if (href === "/dashboard" && pathname === "/") return true;
 		if (href === "/") return pathname === "/";
 		// Exact match, or a real nested route (/files/webdav), but not a
 		// sibling prefix collision like /ai vs /ai-ops.
@@ -148,6 +144,8 @@ export function AppSidebar({
 	const filteredQuick = quickServices.filter(
 		(item) => !filterNorm || item.name.toLowerCase().includes(filterNorm),
 	);
+	const activeGroupId = visibleGroups.find((group) => group.items.some((item) => isActive(item.href)))?.id;
+	const systemActive = visibleSystemNav.some((item) => isActive(item.href));
 
 	const renderNavLink = (item: AppNavItem) => {
 		const active = isActive(item.href);
@@ -175,7 +173,7 @@ export function AppSidebar({
 	};
 
 	const renderGroup = (group: AppNavGroup) => {
-		const open = filterNorm ? true : openGroups[group.id] !== false;
+		const open = filterNorm ? true : (openGroups[group.id] ?? group.id === activeGroupId);
 		const title = navLabel(t, group);
 		return (
 			<div key={group.id} className="mb-1">
@@ -236,14 +234,24 @@ export function AppSidebar({
 			<div className="min-w-0 flex-1 space-y-2 overflow-y-auto overflow-x-hidden px-2.5 py-3">
 				{filteredGroups.map(renderGroup)}
 
-				{filteredSystem.length > 0 && (
+				{filteredSystem.length > 0 && (() => {
+					const open = filterNorm ? true : (openGroups.system ?? systemActive);
+					return (
 					<div className="mb-1 mt-2">
-						<div className="px-2.5 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-							{t("nav.system")}
-						</div>
-						<div className="space-y-0.5">{filteredSystem.map(renderNavLink)}</div>
+						<button
+							type="button"
+							onClick={() => setOpenGroups((prev) => ({ ...prev, system: !open }))}
+							className="flex w-full items-center gap-1.5 rounded-md px-2.5 py-1.5 text-left text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)] transition hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-secondary)]"
+							aria-expanded={open}
+						>
+							<Chevron open={open} />
+							<span className="min-w-0 flex-1 truncate">{t("nav.system")}</span>
+							<span className="tabular-nums text-[10px] opacity-70">{filteredSystem.length}</span>
+						</button>
+						{open ? <div className="mt-0.5 space-y-0.5 pl-0.5">{filteredSystem.map(renderNavLink)}</div> : null}
 					</div>
-				)}
+					);
+				})()}
 
 				{filteredQuick.length > 0 && (
 					<div className="mb-1 mt-2">

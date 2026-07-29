@@ -17,6 +17,7 @@ import {
 import { BreadcrumbsClient } from "./breadcrumbs-client";
 import { FilesBrowserSidebar } from "./files-browser-sidebar";
 import { ActionButton } from "@/components/action-button";
+import { ModalShell } from "@/components/modal-shell";
 
 /* ── Navigation hook ────────────────────────────────────────────── */
 
@@ -69,6 +70,7 @@ export function FilesBrowserSpa({
     fetchFiles,
   } = useFileBrowserListing({ initialData });
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(false);
 
   const { navigateToFolder } = useFolderNavigation(fetchFiles);
 
@@ -231,13 +233,16 @@ export function FilesBrowserSpa({
                   {loading ? t("filesBrowserSpa.refreshing") : `↻ ${refreshLabel}`}
                 </ActionButton>
                 {data.permissions.canEditLocalFiles ? (
-                  <a
-                    href="#upload-section"
-                    data-tone="accent"
-                    className="rounded-lg border px-4 py-2 text-sm font-medium transition"
+                  <button
+                    type="button"
+                    onClick={() => setUploadOpen(true)}
+                    data-action-button
+                    data-variant="primary"
+                    aria-haspopup="dialog"
+                    className="px-4 py-2 text-sm"
                   >
                     {t("filesBrowserSpa.uploadFiles")}
-                  </a>
+                  </button>
                 ) : null}
                 {data.permissions.canEditLocalFiles && data.nodes.length > 0 ? (
                   <CreateFolderForm
@@ -303,9 +308,25 @@ export function FilesBrowserSpa({
           />
         </article>
 
-        {/* Upload section — TR-036 lazy chunk, only fetched when canEditLocalFiles */}
+        {/* Keep the expensive upload widget out of the browsing flow until requested. */}
         {data.permissions.canEditLocalFiles ? (
-          <div id="upload-section">
+          <ModalShell
+            open={uploadOpen}
+            onClose={() => setUploadOpen(false)}
+            labelledBy="files-upload-dialog-title"
+            panelClassName="max-h-[calc(100dvh-2rem)] w-full max-w-3xl overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--modal-bg)] p-4 shadow-2xl sm:p-5"
+          >
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <h2 id="files-upload-dialog-title" className="text-lg font-semibold text-[var(--text-primary)]">
+                  {t("filesBrowserSpa.uploadToPath", { path: currentPathDisplay.uploadPathLabel })}
+                </h2>
+                <p className="mt-1 text-sm text-[var(--text-muted)]">{t("filesBrowserSpa.uploadDescription")}</p>
+              </div>
+              <ActionButton variant="ghost" onClick={() => setUploadOpen(false)} aria-label={t("common.close")} className="!px-2 !py-1">
+                <span aria-hidden="true">✕</span>
+              </ActionButton>
+            </div>
             <FileUploadDropzoneLazy
               nodes={data.nodes}
               initialNodeId={preferredUploadNode}
@@ -316,16 +337,17 @@ export function FilesBrowserSpa({
               submitLabel={t("filesBrowserSpa.uploadSubmitLabel")}
               pathLabel={t("filesBrowserSpa.uploadPathLabel")}
               allowNodeSelection={true}
-              onUploadComplete={() =>
-                fetchFiles(
+              embedded
+              onUploadComplete={() => {
+                return fetchFiles(
                   data.currentPath,
                   data.searchQuery,
                   data.searchScope,
                   data.nodeIdFilter,
-                )
-              }
+                );
+              }}
             />
-          </div>
+          </ModalShell>
         ) : null}
       </section>
     </section>

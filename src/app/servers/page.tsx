@@ -14,6 +14,7 @@ import { SshKeyCreateForm } from "./ssh-key-create-form";
 import { ServerTabLayout } from "./server-tab-layout";
 import { ServerOverviewCard } from "./server-overview-card";
 import { AutoProbeProvider } from "./auto-probe-context";
+import { CommandLaunchForm } from "./command-launch-form";
 import Link from "next/link";
 import { cookies } from "next/headers";
 
@@ -24,6 +25,8 @@ export default async function ServersPage() {
 	const session = await requireSession("/servers");
 	const canManageServers = sessionHasPermission(session, "server:write");
 	const canUseSshTerminal = sessionHasPermission(session, "server:ssh");
+	const canLaunchCommands = sessionHasPermission(session, "command:create");
+	const canExecuteCommands = sessionHasPermission(session, "command:execute");
 	const cookieStore = await cookies();
 	const sessionToken = cookieStore.get(getSessionCookieName())?.value ?? "";
 	let servers, formOptions;
@@ -49,7 +52,7 @@ export default async function ServersPage() {
 				description={t("serversPage.desc")}
 			>
 				<div className="flex flex-wrap items-center gap-2">
-					<Link href="/requests" data-variant="primary" className="px-3.5 py-2 text-sm">
+					<Link href="/requests" data-variant="secondary" className="px-3.5 py-2 text-sm">
 						{t("serversPage.link.request")}
 					</Link>
 					<Link href="/audit" data-variant="secondary" className="px-3.5 py-2 text-sm">
@@ -61,12 +64,12 @@ export default async function ServersPage() {
 				</div>
 			</PageHeader>
 
-			<section className="mb-5 grid gap-3 sm:grid-cols-3">
+			{servers.length > 0 ? <section className="mb-5 grid gap-3 sm:grid-cols-3">
 				<StatCard label={t("serversPage.stat.total")} value={String(servers.length)} />
 				<StatCard label={t("serversPage.stat.enabled")} value={String(enabledCount)} accent={enabledCount > 0} accentColor="emerald" />
 				<StatCard label={t("serversPage.stat.storage")} value={String(storageCount)} accent={storageCount > 0} accentColor="cyan" />
-			</section>
-			<section className="mb-5">
+			</section> : null}
+			{servers.length > 0 ? <section className="mb-5">
 				<Callout
 					tone="accent"
 					title={t("serversPage.statusPriority.title")}
@@ -78,10 +81,11 @@ export default async function ServersPage() {
 				>
 					{t("serversPage.statusPriority.desc")}
 				</Callout>
-			</section>
+			</section> : null}
 
 			<AutoProbeProvider>
 			<ServerTabLayout
+				initialPanel={servers.length === 0 && canManageServers ? "create" : "nodes"}
 				nodesPanel={
 					<div className="space-y-4">
 						<section aria-label={t("serversPage.overview.aria")} className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -100,6 +104,16 @@ export default async function ServersPage() {
 							)}
 						</section>
 					</div>
+				}
+				commandPanel={
+					canLaunchCommands && enabledServers.length > 0 ? (
+						<CommandLaunchForm
+							servers={enabledServers.map((server) => ({ id: server.id, name: server.name, host: server.host }))}
+							allowDirectExecution={canExecuteCommands}
+						/>
+					) : canLaunchCommands ? (
+						<EmptyState text={t("serversPage.command.noAvailableNodes")} variant="boxed" />
+					) : undefined
 				}
 				createPanel={
 					canManageServers ? <ServerCreateForm sshKeys={formOptions.sshKeys} /> : <EmptyState text={t("serversPage.noManage")} />
@@ -121,5 +135,3 @@ export default async function ServersPage() {
 			</PageShell>
 	);
 }
-
-

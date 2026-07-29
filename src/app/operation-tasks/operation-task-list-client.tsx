@@ -14,6 +14,8 @@ import { JobEventsDialog } from "./job-events-dialog";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 
+const TASKS_PER_PAGE = 20;
+
 function getSourceLabels(t: (k: string, vars?: Record<string, string | number>) => string): Record<string, string> {
   return {
     job: t("operationTasksPage.source.job"),
@@ -125,6 +127,7 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [eventsJobId, setEventsJobId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
   const handleViewEvents = useCallback((sourceId: string) => setEventsJobId(sourceId), []);
   const taskTypeOptions = useMemo(() => Array.from(new Set(tasks.map((task) => task.taskType).filter((value): value is string => Boolean(value)))).sort(), [tasks]);
   const refresh = useCallback(async () => {
@@ -135,6 +138,7 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
       setTasks(data.tasks ?? []);
       setSourceSummary(data.sourceSummary ?? []);
       setFailureSummary(data.failureSummary ?? []);
+      setPage(1);
     } catch (err) {
       setError(getErrorMessage(err, t("operationTasks.refreshFailed")));
     } finally { setRefreshing(false); }
@@ -153,6 +157,10 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
     void refresh();
   }, [refresh, statusFilter, taskTypeFilter, sort]);
   const counts = tasks.reduce<Record<OperationTaskStatus, number>>((acc, task) => { acc[task.status] = (acc[task.status] ?? 0) + 1; return acc; }, {} as Record<OperationTaskStatus, number>);
+  const pageCount = Math.max(1, Math.ceil(tasks.length / TASKS_PER_PAGE));
+  const safePage = Math.min(page, pageCount);
+  const pageStart = (safePage - 1) * TASKS_PER_PAGE;
+  const visibleTasks = tasks.slice(pageStart, pageStart + TASKS_PER_PAGE);
   return <div className="space-y-5">
     {error && <Notice tone="danger">{error}</Notice>}
     <StatGrid cols={4} className="mb-0">
@@ -221,7 +229,39 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
       }
       empty={tasks.length === 0 ? <EmptyState text={t("operationTasks.tasks.empty")} /> : undefined}
     >
-      {tasks.map((task) => <TaskRow key={task.id} task={task} t={t} dateLocale={dateLocale} sourceLabels={sourceLabels} onViewEvents={handleViewEvents} />)}
+      {visibleTasks.map((task) => <TaskRow key={task.id} task={task} t={t} dateLocale={dateLocale} sourceLabels={sourceLabels} onViewEvents={handleViewEvents} />)}
+      {pageCount > 1 ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border)] px-4 py-3 sm:px-5">
+          <span className="text-xs text-[var(--text-muted)]" aria-live="polite">
+            {t("operationTasksPage.pagination.range", {
+              start: pageStart + 1,
+              end: Math.min(pageStart + TASKS_PER_PAGE, tasks.length),
+              total: tasks.length,
+            })}
+          </span>
+          <div className="flex items-center gap-2">
+            <ActionButton
+              variant="secondary"
+              onClick={() => setPage((current) => Math.max(1, current - 1))}
+              disabled={safePage === 1}
+              className="!px-3 !py-1.5 !text-xs disabled:opacity-40"
+            >
+              {t("operationTasksPage.pagination.previous")}
+            </ActionButton>
+            <span className="min-w-16 text-center text-xs tabular-nums text-[var(--text-secondary)]">
+              {t("operationTasksPage.pagination.page", { page: safePage, pages: pageCount })}
+            </span>
+            <ActionButton
+              variant="secondary"
+              onClick={() => setPage((current) => Math.min(pageCount, current + 1))}
+              disabled={safePage === pageCount}
+              className="!px-3 !py-1.5 !text-xs disabled:opacity-40"
+            >
+              {t("operationTasksPage.pagination.next")}
+            </ActionButton>
+          </div>
+        </div>
+      ) : null}
     </ListPanel>
     <JobEventsDialog jobId={eventsJobId} open={eventsJobId !== null} onClose={() => setEventsJobId(null)} />
   </div>;

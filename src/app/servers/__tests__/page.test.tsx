@@ -158,10 +158,8 @@ describe("ServersPage", () => {
       screen.getByRole("heading", { name: "VPS 管理" }),
     ).toBeInTheDocument();
     expect(screen.getByText("VPS 状态优先")).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "命令下发" }),
-    ).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "命令下发" })).toHaveAttribute(
+    expect(screen.getByRole("tab", { name: "命令下发" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "审批与执行记录" })).toHaveAttribute(
       "href",
       "/requests",
     );
@@ -382,6 +380,8 @@ describe("ServersPage", () => {
 
     renderPage(await ServersPage());
     await waitForAutoProbePreferences();
+		expect(screen.getByTestId("server-create-form")).toBeInTheDocument();
+		expect(screen.queryByText("VPS 状态优先")).not.toBeInTheDocument();
 
     // 等 hydrate 完
     await waitFor(() => {

@@ -190,7 +190,8 @@ describe("FilesBrowserSpa", () => {
 
     expect(screen.getByText("before.jpg")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "模拟上传完成" }));
+    fireEvent.click(screen.getByRole("button", { name: "⬆ 上传文件" }));
+    fireEvent.click(await screen.findByRole("button", { name: "模拟上传完成" }));
 
     await waitFor(() =>
       expect(globalThis.fetch).toHaveBeenCalledWith(
@@ -201,6 +202,7 @@ describe("FilesBrowserSpa", () => {
     await waitFor(() =>
       expect(screen.getByText("after.jpg")).toBeInTheDocument(),
     );
+    expect(screen.getByRole("dialog", { name: /上传到当前目录/ })).toBeInTheDocument();
   });
 
   it("surfaces list refresh failures inline and keeps the previous file list visible", async () => {
@@ -215,7 +217,8 @@ describe("FilesBrowserSpa", () => {
     );
     expect(screen.getByText("before.jpg")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "模拟上传完成" }));
+    fireEvent.click(screen.getByRole("button", { name: "⬆ 上传文件" }));
+    fireEvent.click(await screen.findByRole("button", { name: "模拟上传完成" }));
 
     await waitFor(() =>
       expect(screen.getByRole("alert")).toHaveTextContent("文件列表刷新失败"),
@@ -243,7 +246,7 @@ describe("FilesBrowserSpa", () => {
     );
   });
 
-  it("defaults create-folder and upload targets to the currently selected storage node", () => {
+  it("defaults create-folder and upload targets to the currently selected storage node", async () => {
     renderWithI18n(
       <FilesBrowserSpa
         initialData={{
@@ -261,7 +264,8 @@ describe("FilesBrowserSpa", () => {
       "data-initial-node-id",
       "node_sftp_1",
     );
-    expect(screen.getByRole("button", { name: "模拟上传完成" })).toHaveAttribute(
+    fireEvent.click(screen.getByRole("button", { name: "⬆ 上传文件" }));
+    expect(await screen.findByRole("button", { name: "模拟上传完成" })).toHaveAttribute(
       "data-initial-node-id",
       "node_sftp_1",
     );

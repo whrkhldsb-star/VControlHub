@@ -88,7 +88,7 @@ export default async function RootLayout({
 				<ThemeProvider initialTheme={initialTheme}>
 					<I18nProvider initialLocale={initialLocale}>
 						<SentryProvider />
-						<WebVitalsReporter />
+						{shouldRenderAuthenticatedChrome ? <WebVitalsReporter /> : null}
 						<ToastProvider>
 							<SshTerminalProvider>
 							{shouldRenderAuthenticatedChrome && (

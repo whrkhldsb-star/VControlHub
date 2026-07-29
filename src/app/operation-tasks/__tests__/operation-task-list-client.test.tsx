@@ -146,4 +146,26 @@ describe("OperationTaskListClient", () => {
     expect(screen.getByText("已折叠 18 次周期完成记录")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "查看来源 →" })).not.toBeInTheDocument();
   });
+
+  it("renders long task histories in bounded pages instead of mounting every row", async () => {
+    const actor = userEvent.setup();
+    const tasks = Array.from({ length: 25 }, (_, index): OperationTask => ({
+      ...initialTasks[0]!,
+      id: `command:cmd_${index + 1}`,
+      sourceId: `cmd_${index + 1}`,
+      title: `任务 ${index + 1}`,
+    }));
+
+    render(<OperationTaskListClient initialTasks={tasks} />);
+
+    expect(screen.getByText("任务 1")).toBeInTheDocument();
+    expect(screen.queryByText("任务 21")).not.toBeInTheDocument();
+    expect(screen.getByText("显示 1–20，共 25 条")).toBeInTheDocument();
+
+    await actor.click(screen.getByRole("button", { name: "下一页" }));
+
+    expect(screen.queryByText("任务 1")).not.toBeInTheDocument();
+    expect(screen.getByText("任务 21")).toBeInTheDocument();
+    expect(screen.getByText("显示 21–25，共 25 条")).toBeInTheDocument();
+  });
 });

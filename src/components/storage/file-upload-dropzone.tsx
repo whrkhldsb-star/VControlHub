@@ -31,6 +31,7 @@ export function FileUploadDropzone({
   submitLabel,
   pathLabel,
   allowNodeSelection = true,
+  embedded = false,
   onUploadComplete,
 }: {
   nodes: StorageUploadNode[];
@@ -42,6 +43,8 @@ export function FileUploadDropzone({
   submitLabel: string;
   pathLabel: string;
   allowNodeSelection?: boolean;
+  /** Removes duplicate card/title chrome when hosted by a labelled dialog. */
+  embedded?: boolean;
   onUploadComplete?: (payload: {
     relativePath?: string;
     size?: number;
@@ -295,9 +298,9 @@ export function FileUploadDropzone({
     await uploadFiles(files);
   }
   return (
-    <section className="rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6">
+    <section className={embedded ? "" : "rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6"}>
       
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+      {!embedded ? <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         
         <div>
           
@@ -308,7 +311,7 @@ export function FileUploadDropzone({
             {description}
           </p>
         </div>
-      </div>
+      </div> : null}
       <div
         className={`mt-5 grid gap-4 ${allowNodeSelection ?"md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]" :"md:grid-cols-1"}`}
       >

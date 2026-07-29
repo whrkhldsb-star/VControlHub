@@ -343,7 +343,7 @@ export async function createCommandRequest(
   // (playbook executor never has a session but always passes teamId).
   await assertCommandTargetServersInScope(payload.serverIds, session, teamId);
 
-  const requiresApproval = isProtectedByApproval({
+  const requiresApproval = payload.approvalRequired ?? isProtectedByApproval({
     actorType: toApprovalActorType(payload.submissionMode),
     actionType: "command.execute",
   });

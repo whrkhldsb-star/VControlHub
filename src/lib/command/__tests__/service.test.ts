@@ -247,6 +247,35 @@ describe("command service execution flow", () => {
     });
   });
 
+  it("keeps user-authored approval requests pending without enqueueing execution", async () => {
+    mockPrisma.commandRequest.create.mockResolvedValue({
+      id: "req_user_approval_1",
+      status: "PENDING_APPROVAL",
+      targets: [{ id: "target_approval_1" }],
+    });
+
+    const result = await createCommandRequest({
+      title: "Restart nginx after review",
+      command: "systemctl restart nginx",
+      requesterId: "u_1",
+      submissionMode: "user",
+      approvalRequired: true,
+      serverIds: ["srv_1"],
+    });
+
+    expect(result.requiresApproval).toBe(true);
+    expect(mockPrisma.commandRequest.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          initiatedByType: "USER",
+          status: "PENDING_APPROVAL",
+        }),
+      }),
+    );
+    expect(mockPrisma.commandTarget.updateMany).not.toHaveBeenCalled();
+    expect(spawnMock).not.toHaveBeenCalled();
+  });
+
   it("refreshes RUNNING command requests while background SSH execution is still active", async () => {
     vi.useFakeTimers();
     process.env.COMMAND_EXECUTION_HEARTBEAT_MS = "1000";

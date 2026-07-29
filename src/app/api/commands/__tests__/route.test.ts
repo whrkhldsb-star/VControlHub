@@ -152,6 +152,27 @@ describe("/api/commands audit coverage", () => {
     expect(mocks.createCommandRequest).not.toHaveBeenCalled();
   });
 
+  it("allows user-authored approval requests without direct execute permission", async () => {
+    mocks.sessionHasPermission.mockImplementation((_session, permission) => permission !== "command:execute");
+    const response = await route.POST(new Request("http://local/api/commands", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        title: "Restart nginx",
+        command: "systemctl restart nginx",
+        serverIds: ["srv1"],
+        submissionMode: "user",
+        approvalRequired: true,
+      }),
+    }));
+
+    expect(response.status).toBe(201);
+    expect(mocks.createCommandRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ submissionMode: "user", approvalRequired: true }),
+      expect.objectContaining({ userId: "u1" }),
+    );
+  });
+
   it("allows assistant submission mode without command:execute", async () => {
     mocks.sessionHasPermission.mockImplementation((_session, permission) => permission !== "command:execute");
     const response = await route.POST(new Request("http://local/api/commands", {
@@ -171,6 +192,24 @@ describe("/api/commands audit coverage", () => {
       expect.objectContaining({ submissionMode: "assistant" }),
       expect.objectContaining({ userId: "u1" }),
     );
+  });
+
+  it("rejects an assistant submission that explicitly attempts to bypass approval", async () => {
+    mocks.sessionHasPermission.mockImplementation((_session, permission) => permission !== "command:execute");
+    const response = await route.POST(new Request("http://local/api/commands", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        title: "Unsafe assistant bypass",
+        command: "systemctl restart nginx",
+        serverIds: ["srv1"],
+        submissionMode: "assistant",
+        approvalRequired: false,
+      }),
+    }));
+
+    expect(response.status).toBe(403);
+    expect(mocks.createCommandRequest).not.toHaveBeenCalled();
   });
 
   it("rejects schema-invalid command submissions before reaching service code", async () => {

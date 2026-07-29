@@ -49,9 +49,21 @@ async function ensureAuthenticated(
 }
 
 async function navigateThroughApp(page: Page, href: string) {
+	const groupByRoute: Record<string, RegExp> = {
+		"/dashboard": /总览与监控|Overview(?: and monitoring)?/i,
+		"/servers": /总览与监控|Overview(?: and monitoring)?/i,
+		"/files": /文件与传输|Files(?: and transfer)?/i,
+		"/settings": /配置|Configuration|Settings/i,
+	};
+	const link = page.locator(`a[href="${href}"]:visible`).first();
+	if (await link.count() === 0) {
+		const groupName = groupByRoute[href];
+		if (!groupName) throw new Error(`No navigation group configured for ${href}`);
+		await page.getByRole("button", { name: groupName }).filter({ visible: true }).first().click();
+	}
 	await Promise.all([
 		page.waitForURL((url) => url.pathname === href),
-		page.locator(`a[href="${href}"]:visible`).first().click(),
+		link.click(),
 	]);
 	await page.waitForLoadState("networkidle");
 }
