@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-07-29T06:28:38.678Z",
+  "generatedAt": "2026-07-29T07:59:24.656Z",
   "summary": {
     "permissionsInList": 54,
     "rolesDefined": 4,
     "apiRoutesAudited": 179,
     "pagesAudited": 55,
-    "callSitesAudited": 633,
+    "callSitesAudited": 631,
     "driftCount": 0,
     "driftByCode": {
       "perm-not-in-list": 0,
@@ -754,10 +754,6 @@
           "line": 16
         },
         {
-          "path": "src/app/servers/command-actions.ts",
-          "line": 17
-        },
-        {
           "path": "src/app/templates/page.tsx",
           "line": 14
         }
@@ -766,9 +762,7 @@
         "scheduled-tasks",
         "templates"
       ],
-      "apiRoutes": [
-        "src/app/servers/command-actions.ts"
-      ],
+      "apiRoutes": [],
       "grantedToRoles": [
         "admin",
         "operator"
@@ -792,10 +786,6 @@
         {
           "path": "src/app/scheduled-tasks/page.tsx",
           "line": 17
-        },
-        {
-          "path": "src/app/servers/command-actions.ts",
-          "line": 25
         }
       ],
       "pages": [

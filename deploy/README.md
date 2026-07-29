@@ -137,7 +137,7 @@ sudo DOMAIN=your.example.com APP_DIR=/opt/VControlHub deploy/install.sh
 
 > `APP_SLUG` 可包含短横线（如 `my-console`），用于目录、service、cookie 等标识；安装脚本为 PostgreSQL 默认库名/用户名会单独转换为安全标识符（如 `my_console`）。如果你显式设置 `PG_DB_NAME` / `PG_DB_USER`，脚本会按你的值使用。
 
-安装脚本会在全新 Debian/Ubuntu 主机上自动安装基础依赖：`ca-certificates`、`curl`、`gnupg`、`git`、`openssh-client`、`sshpass`、`rsync`、`postgresql-client`、`build-essential`，并在缺少 Node 或 Node 主版本低于 `NODE_VERSION_MAJOR`（默认 22）时通过 NodeSource 安装 Node.js；未设置 `SKIP_CADDY=1` 且系统缺少 Caddy 时，也会自动安装 Caddy。脚本随后执行 `npm ci`、`npm run prisma:generate`、`npm run prisma:deploy`（除非 `SKIP_DB_SETUP=1`）、`npm run build`、`npm run build:runtime`（编译 `src/server.ts` 到 `dist/server.js`，跳过会导致后台 worker 不更新），最后写入 systemd 并重启服务。
+安装脚本会在全新 Debian/Ubuntu 主机上自动安装基础依赖：`ca-certificates`、`curl`、`gnupg`、`git`、`openssh-client`、`sshpass`、`rsync`、`iproute2`（提供 `ss`）、`aria2`（提供 `aria2c`）、`postgresql-client`、`build-essential`，并在缺少 Node 或 Node 主版本低于 `NODE_VERSION_MAJOR`（默认 22）时通过 NodeSource 安装 Node.js；未设置 `SKIP_CADDY=1` 且系统缺少 Caddy 时，也会自动安装 Caddy。脚本随后执行 `npm ci`、`npm run prisma:generate`、`npm run prisma:deploy`（除非 `SKIP_DB_SETUP=1`）、`npm run build`、`npm run build:runtime`（编译 `src/server.ts` 到 `dist/server.js`，跳过会导致后台 worker 不更新），最后写入 systemd 并重启服务。
 
 安装脚本会在生成 systemd unit 时自动探测当前可用的 `node`、`npm`、`npx` 绝对路径，并把这些目录写入 systemd `PATH`。这可以兼容 Node 安装在 `/root/.local/bin`、`/usr/local/bin`、NodeSource `/usr/bin` 等不同位置的服务器，避免 systemd 启动时报 `/usr/bin/env: node: No such file or directory`。
 

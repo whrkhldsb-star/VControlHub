@@ -185,10 +185,10 @@ jobs:
             --project=chromium --project=firefox --project=webkit \
             --workers=1 --retries=1
 
-      # Authenticated golden path on Chromium only (keeps the job short).
       # Uses isolated admin + direct session minting so seed PENDING_PASSWORD_RESET
-      # does not block navigation. Full multi-browser authenticated suite stays nightly.
-      - name: Run authenticated smoke (Chromium)
+      # does not block navigation. Keep this cross-browser: protected routes load
+      # client modules and CSP paths that the public smoke cannot exercise.
+      - name: Run authenticated smoke across browsers
         env:
           NODE_ENV: production
           E2E_DIRECT_SESSION: "1"
@@ -201,7 +201,8 @@ jobs:
           set -euo pipefail
           curl -fsS http://127.0.0.1:3000/login >/dev/null
           npx playwright test e2e/authenticated-flow.spec.ts \
-            --project=chromium --workers=1 --retries=1
+            --project=chromium --project=firefox --project=webkit \
+            --workers=1 --retries=1
 
       - name: Dump server log on failure
         if: failure()

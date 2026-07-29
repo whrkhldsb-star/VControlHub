@@ -8,7 +8,7 @@
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y curl git build-essential openssh-client postgresql postgresql-contrib caddy
+sudo apt-get install -y curl git build-essential openssh-client rsync iproute2 aria2 postgresql postgresql-contrib caddy
 # 如需密码方式 SSH 执行命令，再安装：
 sudo apt-get install -y sshpass
 ```

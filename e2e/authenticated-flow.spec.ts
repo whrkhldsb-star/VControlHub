@@ -29,10 +29,31 @@ async function ensureAuthenticated(
 ) {
 	if (process.env.E2E_DIRECT_SESSION === "1") {
 		await installDirectSession(context);
+		const dashboardBootstrap = Promise.all(
+			["/api/dashboard/analytics", "/api/preferences", "/api/notifications"].map(
+				(pathname) =>
+					page.waitForResponse((response) => {
+						const url = new URL(response.url());
+						return url.pathname === pathname && response.ok();
+					}),
+			),
+		);
 		await page.goto("/", { waitUntil: "networkidle" });
+		await dashboardBootstrap;
+		await page.evaluate(async () => {
+			if ("serviceWorker" in navigator) await navigator.serviceWorker.ready;
+		});
 		return;
 	}
 	await login(page);
+}
+
+async function navigateThroughApp(page: Page, href: string) {
+	await Promise.all([
+		page.waitForURL((url) => url.pathname === href),
+		page.locator(`a[href="${href}"]:visible`).first().click(),
+	]);
+	await page.waitForLoadState("networkidle");
 }
 
 function observeRuntimeFailures(page: Page) {
@@ -56,15 +77,15 @@ test.describe("authenticated golden path", () => {
 		await ensureAuthenticated(page, context);
 		await expect(page.locator("body")).toBeVisible();
 
-		await page.goto("/servers", { waitUntil: "networkidle" });
+		await navigateThroughApp(page, "/servers");
 		await expect(page).toHaveURL(/\/servers$/);
 		await expect(page.locator("body")).not.toBeEmpty();
 
-		await page.goto("/files", { waitUntil: "networkidle" });
+		await navigateThroughApp(page, "/files");
 		await expect(page).toHaveURL(/\/files/);
 		await expect(page.locator("body")).not.toBeEmpty();
 
-		await page.goto("/settings", { waitUntil: "networkidle" });
+		await navigateThroughApp(page, "/settings");
 		await expect(page).toHaveURL(/\/settings$/);
 		await expect(page.locator("body")).not.toBeEmpty();
 		// Personal preferences auto-save; verify the interactive settings UI
@@ -72,7 +93,7 @@ test.describe("authenticated golden path", () => {
 		await expect(page.getByRole("heading", { name: /默认页面|Default page/i })).toBeVisible();
 		await expect(page.getByRole("switch").first()).toBeVisible();
 
-		await page.goto("/", { waitUntil: "networkidle" });
+		await navigateThroughApp(page, "/dashboard");
 		// The authenticated chrome should expose primary navigation links.
 		await expect(page.getByRole("link", { name: /设置|Settings/i }).first()).toBeVisible();
 		expect(runtimeFailures).toEqual([]);
