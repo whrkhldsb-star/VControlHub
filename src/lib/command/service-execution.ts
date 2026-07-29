@@ -10,7 +10,7 @@ import {
   cancelRunningCommandChild,
   markCommandTargetCancelled,
 } from "./ssh-executor";
-import { enqueueCommandExecutionJob } from "./execution-worker";
+import { enqueueCommandExecutionJob } from "./execution-queue";
 import { executeCommandOverSsh, getCommandRuntimeConfigValues } from "./service-ssh";
 
 export { executeCommandOverSsh, getCommandRuntimeConfigValues } from "./service-ssh";

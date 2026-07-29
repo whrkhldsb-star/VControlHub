@@ -1,12 +1,20 @@
-import { Prisma } from "@prisma/client";
-
 import { config } from "@/lib/config/env";
 import { computeLeaseMs } from "@/lib/job/lease";
-import { claimNextJob, completeJob, enqueueJob, failJob, heartbeatJob } from "@/lib/job/service";
-import { prisma } from "@/lib/db";
+import { claimNextJob, completeJob, failJob, heartbeatJob } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
 
 import { executeAndFinalizeCommand, markCommandExecutionFailed } from "./service-execution";
+import {
+	COMMAND_EXECUTION_JOB_TYPE,
+	parseCommandExecutionJobPayload,
+	type CommandExecutionJobPayload,
+} from "./execution-queue";
+
+export {
+	COMMAND_EXECUTION_JOB_TYPE,
+	enqueueCommandExecutionJob,
+	parseCommandExecutionJobPayload,
+} from "./execution-queue";
 
 const logger = createLogger("command-execution-worker");
 
@@ -16,17 +24,9 @@ const logger = createLogger("command-execution-worker");
 // durable workers (alert.evaluate, scheduled-task.tick, quick_service.lifecycle,
 // backup.create / backup.restore). Deployment runs that delegate to
 // createCommandRequest automatically inherit the new path.
-export const COMMAND_EXECUTION_JOB_TYPE = "command.execution";
-
 // TR-002 R2: 跨 worker lease 公式统一。computeLeaseMs 默认返 preset (= COMMAND_EXECUTION_LEASE_MS 等同原值)。
 const COMMAND_EXECUTION_LEASE_MS = computeLeaseMs("command-execution");
 const COMMAND_EXECUTION_WORKER_ID = `${config.app.hostname || "vcontrolhub"}:command-execution:${process.pid}`;
-
-type CommandExecutionJobPayload = {
-  commandRequestId: string;
-  summary?: string;
-  requestedAt?: string;
-};
 
 type CommandExecutionWorkerState = {
   started: boolean;
@@ -46,52 +46,6 @@ function getWorkerState() {
     timer: null,
   };
   return globalState.__vcontrolhubCommandExecutionWorker;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value && typeof value === "object" && !Array.isArray(value));
-}
-
-export function parseCommandExecutionJobPayload(
-  payload: Prisma.JsonValue,
-): CommandExecutionJobPayload {
-  if (!isRecord(payload)) throw new Error("Command execution task payload invalid");
-  const commandRequestId =
-    typeof payload.commandRequestId === "string" && payload.commandRequestId.trim()
-      ? payload.commandRequestId.trim()
-      : null;
-  if (!commandRequestId) throw new Error("Command execution task missing commandRequestId");
-  return {
-    commandRequestId,
-    summary: typeof payload.summary === "string" ? payload.summary : undefined,
-    requestedAt: typeof payload.requestedAt === "string" ? payload.requestedAt : undefined,
-  };
-}
-
-export async function enqueueCommandExecutionJob(input: {
-  commandRequestId: string;
-  summary?: string;
-}) {
-  const commandRequestId = input.commandRequestId?.trim();
-  if (!commandRequestId) throw new Error("Command execution task missing commandRequestId");
-  // Stamp teamId from the command request so Operation Tasks / getJob stay tenant-scoped.
-  const request = await prisma.commandRequest.findUnique({
-    where: { id: commandRequestId },
-    select: { teamId: true, createdBy: true },
-  });
-  return enqueueJob({
-    type: COMMAND_EXECUTION_JOB_TYPE,
-    title: `Execute command ${commandRequestId}`,
-    payload: {
-      commandRequestId,
-      summary: input.summary,
-      requestedAt: new Date().toISOString(),
-    },
-    priority: 0,
-    maxAttempts: 1,
-    teamId: request?.teamId ?? null,
-    createdBy: request?.createdBy ?? null,
-  });
 }
 
 async function handleClaimedJob(

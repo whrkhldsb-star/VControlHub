@@ -120,6 +120,7 @@ function buildContentSecurityPolicy(nonce: string) {
 		"img-src 'self' data: blob:",
 		"font-src 'self' data: https://fonts.scalar.com",
 		"connect-src 'self' ws: wss:",
+		"worker-src 'self' blob:",
 		"media-src 'self' blob:",
 		"frame-src 'self'",
 		"frame-ancestors 'self'",

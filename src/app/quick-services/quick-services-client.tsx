@@ -155,6 +155,21 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 		: runningItems.length > 0
 			? { label: t("qsPage.manageRunningServices"), tab:"installed" as Tab, tone:"emerald" }
 			: { label: t("qsPage.installRecommendedServices"), tab:"store" as Tab, tone:"cyan" };
+	const renderServiceCard = (item: CatalogItem, cardTab: Tab, keyPrefix = "") => (
+		<ServiceCard
+			key={`${keyPrefix}${item.slug}`}
+			item={item}
+			tab={cardTab === "community" ? "store" : cardTab}
+			busy={actions.actionSlug === item.slug}
+			onInstall={() => openInstallDialog(item)}
+			onStart={() => actions.doAction(item.slug, "start")}
+			onStop={() => actions.doAction(item.slug, "stop")}
+			onUpdate={() => requestUpdate(item)}
+			onSync={() => actions.doAction(item.slug, "sync")}
+			onUninstall={() => requestUninstall(item)}
+			publicHost={quickServicePublicHost}
+		/>
+	);
 
 	return (
 		<div className="space-y-6">
@@ -280,21 +295,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 						<span className="rounded-lg border border-[var(--color-action-border)]/20 px-2 py-1 text-[11px] text-[var(--text-secondary)]">{t("qsPage.mvpPriority")}</span>
 					</div>
 					<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-						{recommendedItems.map((item) => (
-							<ServiceCard
-								key={`recommended-${item.slug}`}
-								item={item}
-								tab="store"
-								busy={actions.actionSlug === item.slug}
-								onInstall={() => openInstallDialog(item)}
-								onStart={() => actions.doAction(item.slug,"start")}
-								onStop={() => actions.doAction(item.slug,"stop")}
-								onUpdate={() => requestUpdate(item)}
-								onSync={() => actions.doAction(item.slug,"sync")}
-								onUninstall={() => requestUninstall(item)}
-								publicHost={quickServicePublicHost}
-							/>
-						))}
+							{recommendedItems.map((item) => renderServiceCard(item, "store", "recommended-"))}
 					</div>
 				</section>
 			)}
@@ -358,21 +359,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 					<div key={cat} className="space-y-3">
 						<h2 className="text-sm font-semibold text-[var(--text-primary)]/70 tracking-wide">{categoryLabels[cat] ?? cat}</h2>
 						<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-							{items.map((item) => (
-								<ServiceCard
-									key={item.slug}
-									item={item}
-									tab={tab ==="community" ?"store" : tab}
-									busy={actions.actionSlug === item.slug}
-									onInstall={() => openInstallDialog(item)}
-									onStart={() => actions.doAction(item.slug,"start")}
-									onStop={() => actions.doAction(item.slug,"stop")}
-									onUpdate={() => requestUpdate(item)}
-									onSync={() => actions.doAction(item.slug,"sync")}
-									onUninstall={() => requestUninstall(item)}
-									publicHost={quickServicePublicHost}
-								/>
-							))}
+								{items.map((item) => renderServiceCard(item, tab))}
 						</div>
 					</div>
 				);

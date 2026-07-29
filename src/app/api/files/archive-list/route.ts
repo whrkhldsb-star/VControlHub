@@ -33,18 +33,10 @@ export async function GET(request: NextRequest) {
     async ({ session }) => {
       if (!session)
         throw new AuthError("Unauthorized");
-      const { nodeId, relativePath, driver, name } = parseSearchParams(
+      const { nodeId, relativePath, name } = parseSearchParams(
         request,
         archiveListQuerySchema,
       );
-      const _cleanedRelativePath = (relativePath ?? "").replace(/^\/+/, "");
-
-      if (driver !== "LOCAL") {
-        return NextResponse.json(
-          { error: "Only local storage node archive viewing is supported" },
-          { status: 400 },
-        );
-      }
 
       if (!relativePath) {
         throw new ValidationError("Missing file path");
@@ -56,6 +48,12 @@ export async function GET(request: NextRequest) {
       });
       if (!node) {
         throw new NotFoundError("Storage node not found");
+      }
+      if (node.driver !== "LOCAL") {
+        return NextResponse.json(
+          { error: "Only local storage node archive viewing is supported" },
+          { status: 400 },
+        );
       }
 
       const resolvedPath = resolveStoragePathWithinBase(

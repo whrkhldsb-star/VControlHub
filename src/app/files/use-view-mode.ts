@@ -6,7 +6,8 @@
 
 import { useCallback } from "react";
 
-import { useBrowserStorageSnapshot, writeLocalStorageValue } from "@/lib/hooks/use-browser-storage-snapshot";
+import { writeLocalStorageValue } from "@/lib/browser-storage";
+import { useBrowserStorageSnapshot } from "@/lib/hooks/use-browser-storage-snapshot";
 
 export type ViewMode = "list" | "grid" | "details";
 

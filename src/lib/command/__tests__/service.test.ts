@@ -82,8 +82,8 @@ vi.mock("@/lib/db", () => ({
 // kick off the real executeAndFinalizeCommand so the existing
 // `vi.waitFor(() => expect(spawnMock).toHaveBeenCalled())` assertions
 // keep working without rewriting every test.
-vi.mock("@/lib/command/execution-worker", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/command/execution-worker")>();
+vi.mock("@/lib/command/execution-queue", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/command/execution-queue")>();
   return {
     ...actual,
     enqueueCommandExecutionJob: vi.fn(async ({ commandRequestId }: { commandRequestId: string; summary?: string }) => {
@@ -93,6 +93,13 @@ vi.mock("@/lib/command/execution-worker", async (importOriginal) => {
       void execution.finally(() => pendingExecutions.delete(execution));
       return { id: "job-test-1", type: actual.COMMAND_EXECUTION_JOB_TYPE, status: "PENDING" };
     }),
+  };
+});
+
+vi.mock("@/lib/command/execution-worker", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/command/execution-worker")>();
+  return {
+    ...actual,
     runCommandExecutionJobWorkerOnce: vi.fn(async () => false),
     startCommandExecutionWorker: vi.fn(async () => ({ started: true, running: false, timer: null })),
     stopCommandExecutionWorkerForTests: vi.fn(),

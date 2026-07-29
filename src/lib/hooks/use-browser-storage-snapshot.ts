@@ -1,23 +1,9 @@
 "use client";
 
 import { useCallback, useSyncExternalStore } from "react";
+import { LOCAL_STORAGE_SYNC_EVENT } from "@/lib/browser-storage";
 
 type StableSnapshot = string | number | boolean | null | undefined;
-
-const LOCAL_STORAGE_SYNC_EVENT = "vch:local-storage-sync";
-
-export function notifyLocalStorageChange(key: string): void {
-	window.dispatchEvent(new CustomEvent(LOCAL_STORAGE_SYNC_EVENT, { detail: key }));
-}
-
-export function writeLocalStorageValue(key: string, value: string): void {
-	try {
-		window.localStorage.setItem(key, value);
-		notifyLocalStorageChange(key);
-	} catch {
-		// Storage can be unavailable in private or restricted browser contexts.
-	}
-}
 
 export function useBrowserStorageSnapshot<T extends StableSnapshot>(
 	key: string,

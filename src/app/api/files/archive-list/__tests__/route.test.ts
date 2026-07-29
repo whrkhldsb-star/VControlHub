@@ -118,6 +118,27 @@ describe("GET /api/files/archive-list", () => {
     expect(prismaMock.storageNode.findFirst).not.toHaveBeenCalled();
   });
 
+  it("rejects an SFTP node even when the client claims it is local", async () => {
+    prismaMock.storageNode.findFirst.mockResolvedValue({
+      id: "node_sftp",
+      name: "remote",
+      driver: "SFTP",
+      basePath: "/",
+    });
+
+    const response = await GET(
+      new NextRequest(
+        "https://app.example.test/api/files/archive-list?nodeId=node_sftp&driver=LOCAL&relativePath=etc%2Fpasswd&name=passwd",
+      ),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "Only local storage node archive viewing is supported",
+    });
+    expect(assertStorageAccessMock).not.toHaveBeenCalled();
+  });
+
   it("detects archive format from relativePath even when name is generic", async () => {
     await createTarGz();
     prismaMock.storageNode.findFirst.mockResolvedValue({

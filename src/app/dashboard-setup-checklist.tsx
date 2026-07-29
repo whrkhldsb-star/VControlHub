@@ -6,7 +6,8 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import type { SetupChecklistItem } from "@/lib/dashboard/setup-checklist";
 import { countPendingSetupItems } from "@/lib/dashboard/setup-checklist";
 import { ActionButton } from "@/components/action-button";
-import { useBrowserStorageSnapshot, writeLocalStorageValue } from "@/lib/hooks/use-browser-storage-snapshot";
+import { writeLocalStorageValue } from "@/lib/browser-storage";
+import { useBrowserStorageSnapshot } from "@/lib/hooks/use-browser-storage-snapshot";
 
 const DISMISS_KEY = "vch.setupChecklist.dismissed";
 

@@ -53,17 +53,9 @@ export async function POST(request: NextRequest) {
       if (!session)
         throw new AuthError("Unauthorized");
 
-      const driver = body.driver ?? "LOCAL";
       const name = body.name ?? "archive";
       const nodeId = body.storageNodeId ?? body.nodeId ?? body.serverId;
       const relativePath = (body.remotePath ?? body.relativePath ?? "").replace(/^\/+/, "");
-
-      if (driver !== "LOCAL") {
-        return NextResponse.json(
-          { error: "Only local storage node archive extraction is supported" },
-          { status: 400 },
-        );
-      }
 
       if (!nodeId || !relativePath) {
         throw new ValidationError("Missing required parameters");
@@ -75,6 +67,12 @@ export async function POST(request: NextRequest) {
       });
       if (!node) {
         throw new NotFoundError("Storage node not found");
+      }
+      if (node.driver !== "LOCAL") {
+        return NextResponse.json(
+          { error: "Only local storage node archive extraction is supported" },
+          { status: 400 },
+        );
       }
 
       const resolvedPath = resolveStoragePathWithinBase(

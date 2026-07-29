@@ -123,6 +123,35 @@ describe("POST /api/files/extract", () => {
     });
   });
 
+  it("rejects an SFTP node even when the client claims it is local", async () => {
+    prismaMock.storageNode.findFirst.mockResolvedValue({
+      id: "node_sftp",
+      name: "remote",
+      driver: "SFTP",
+      basePath: "/",
+    });
+
+    const response = await POST(
+      new NextRequest("https://app.example.test/api/files/extract", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          storageNodeId: "node_sftp",
+          relativePath: "etc/passwd",
+          driver: "LOCAL",
+          name: "passwd.gz",
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "Only local storage node archive extraction is supported",
+    });
+    expect(assertStorageAccessMock).not.toHaveBeenCalled();
+    expect(createFileEntryMock).not.toHaveBeenCalled();
+  });
+
   it("indexes the extracted .gz output after the real file is created", async () => {
     await createGz();
     prismaMock.storageNode.findFirst.mockResolvedValue({

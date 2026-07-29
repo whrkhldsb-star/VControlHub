@@ -11,7 +11,8 @@ import { useMemo, useState } from "react";
 import { toDateLocale } from "@/lib/i18n/locale-format";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
-import { useBrowserStorageSnapshot, writeLocalStorageValue } from "@/lib/hooks/use-browser-storage-snapshot";
+import { writeLocalStorageValue } from "@/lib/browser-storage";
+import { useBrowserStorageSnapshot } from "@/lib/hooks/use-browser-storage-snapshot";
 
 import { tt as applyTemplate } from "@/app/health/health-dashboard-helpers";
 import { useHealthData } from "@/app/health/use-health-data";

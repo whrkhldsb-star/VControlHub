@@ -44,9 +44,9 @@ import {
   exportAnnouncements,
   exportSnippets,
 } from "./export-collectors";
+import type { ExportMode, ExportScope } from "./export-types";
 
-export type ExportMode = "standard" | "full";
-export type ExportScope = "team" | "global";
+export type { ExportMode, ExportScope } from "./export-types";
 
 export type ExportOptions = {
   sourceDomain: string;

@@ -9,7 +9,7 @@
 import { prisma } from "@/lib/db";
 import { isSensitiveSettingKey } from "@/lib/system/config-schema";
 
-import type { ExportMode, ExportScope } from "./export-service";
+import type { ExportMode, ExportScope } from "./export-types";
 
 function dateToISO(d: Date | null | undefined): string | null {
   return d ? d.toISOString() : null;

@@ -9,7 +9,8 @@
  *   service-execution.ts   SSH execution + heartbeat + enqueue (~430 lines)
  *   service-recovery.ts    stale-running + queued-approved recovery (~150)
  *   service-requests.ts    create/review/cancel/list command-requests (~440)
- *   execution-worker.ts    durable job worker (TR-001 T11) — enqueue + claim
+ *   execution-queue.ts     durable job payload validation + enqueue
+ *   execution-worker.ts    durable job claim + execution loop (TR-001 T11)
  *   service.ts             barrel re-export (this file, ~30 lines)
  */
 

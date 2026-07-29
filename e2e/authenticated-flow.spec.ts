@@ -29,7 +29,7 @@ async function ensureAuthenticated(
 ) {
 	if (process.env.E2E_DIRECT_SESSION === "1") {
 		await installDirectSession(context);
-		await page.goto("/", { waitUntil: "domcontentloaded" });
+		await page.goto("/", { waitUntil: "networkidle" });
 		return;
 	}
 	await login(page);
@@ -56,15 +56,15 @@ test.describe("authenticated golden path", () => {
 		await ensureAuthenticated(page, context);
 		await expect(page.locator("body")).toBeVisible();
 
-		await page.goto("/servers", { waitUntil: "domcontentloaded" });
+		await page.goto("/servers", { waitUntil: "networkidle" });
 		await expect(page).toHaveURL(/\/servers$/);
 		await expect(page.locator("body")).not.toBeEmpty();
 
-		await page.goto("/files", { waitUntil: "domcontentloaded" });
+		await page.goto("/files", { waitUntil: "networkidle" });
 		await expect(page).toHaveURL(/\/files/);
 		await expect(page.locator("body")).not.toBeEmpty();
 
-		await page.goto("/settings", { waitUntil: "domcontentloaded" });
+		await page.goto("/settings", { waitUntil: "networkidle" });
 		await expect(page).toHaveURL(/\/settings$/);
 		await expect(page.locator("body")).not.toBeEmpty();
 		// Personal preferences auto-save; verify the interactive settings UI
@@ -72,7 +72,7 @@ test.describe("authenticated golden path", () => {
 		await expect(page.getByRole("heading", { name: /默认页面|Default page/i })).toBeVisible();
 		await expect(page.getByRole("switch").first()).toBeVisible();
 
-		await page.goto("/", { waitUntil: "domcontentloaded" });
+		await page.goto("/", { waitUntil: "networkidle" });
 		// The authenticated chrome should expose primary navigation links.
 		await expect(page.getByRole("link", { name: /设置|Settings/i }).first()).toBeVisible();
 		expect(runtimeFailures).toEqual([]);

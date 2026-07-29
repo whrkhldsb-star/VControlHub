@@ -11,6 +11,10 @@ import { ServerCardActions } from "./server-card-actions";
 import { useAutoProbeSettings } from "./auto-probe-context";
 import { ActionButton } from "@/components/action-button";
 import { ModalShell } from "@/components/modal-shell";
+import type {
+  ServerOverviewDetailsProps,
+  ServerOverviewDetailsServer,
+} from "./server-overview-details";
 
 // TR-036: defer ServerCardActions/form wiring until the details portal expands.
 const ServerOverviewDetails = dynamic(
@@ -21,53 +25,10 @@ const ServerOverviewDetails = dynamic(
   },
 );
 
-type DiagnosticRunState =
-  | { status: "idle" }
-  | { status: "loading" }
-  | { status: "success"; summary: string; checkedAt: string }
-  | { status: "error"; message: string; checkedAt: string };
+type DiagnosticRunState = ServerOverviewDetailsProps["diagnosticRun"];
 
 type ServerOverviewCardProps = {
-  server: {
-    id: string;
-    name: string;
-    host: string;
-    port: number;
-    username: string;
-    description?: string | null;
-    tags?: string[] | null;
-    enabled: boolean;
-    connectionType: "SSH_KEY" | "PASSWORD";
-    connectionSummary: string;
-    connectionTypeLabel: string;
-    statusLabel: string;
-    pendingCommandCount: number;
-    targetCount: number;
-    latestCommands: Array<{
-      id: string;
-      title: string;
-      initiatedByType: string;
-      requestStatus: string;
-      targetStatus: string;
-    }>;
-    sshKey: { name: string; fingerprint?: string | null } | null;
-    storageNode?: { id: string; name: string; basePath: string } | null;
-    directGateway?: {
-      enabled: boolean;
-      statusLabel: string;
-      publicUrl: string | null;
-      port: number;
-    } | null;
-    // TR-041: OS dialect + info
-    osDialect?: string | null;
-    osInfo?: string | null;
-    // TR-031: monthly VPS cost auto-sync settings
-    costAutoSync?: boolean;
-    costMonthlyAmount?: string | null;
-    costCurrency?: "CNY" | "USD" | "EUR" | "JPY" | "HKD";
-    costProvider?: string | null;
-    costLastSyncedAt?: string | null;
-  };
+  server: ServerOverviewDetailsServer;
   sessionToken: string;
   canManageServers: boolean;
   canUseSshTerminal: boolean;

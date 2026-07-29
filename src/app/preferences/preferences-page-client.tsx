@@ -15,25 +15,14 @@ import {
 	type DefaultPageOption,
 	type UserPreferences,
 } from "@/lib/preferences/user-preferences";
+import {
+	readUserPreferencesCache,
+	writeUserPreferencesCache,
+} from "@/lib/preferences/browser-cache";
 
 type Preferences = UserPreferences;
 
 const defaultPrefs: Preferences = defaultUserPreferences;
-
-function readStoredPreferences(): Preferences | null {
-	if (typeof window === "undefined") {
-		return null;
-	}
-	const local = window.localStorage.getItem("vps-preferences");
-	if (!local) {
-		return null;
-	}
-	try {
-		return normalizeUserPreferences({ ...defaultPrefs, ...JSON.parse(local) });
-	} catch {
-		return null;
-	}
-}
 
 const PAGE_KEYS: Record<DefaultPageOption, string> = {
 	"/": "preferencesPage.page.dashboard",
@@ -195,7 +184,7 @@ export function PreferencesSettingsContent({
 	const messageFromError = (err: unknown, fallback: string) => err instanceof Error && err.message ? err.message : fallback;
 
 	useEffect(() => {
-		const storedPrefs = readStoredPreferences();
+		const storedPrefs = readUserPreferencesCache();
 		if (storedPrefs) {
 			// Local cache must be applied immediately after hydration so preference buttons do not flash defaults.
 			// eslint-disable-next-line react-hooks/set-state-in-effect
@@ -215,7 +204,7 @@ export function PreferencesSettingsContent({
 						const nextPrefs = normalizeUserPreferences({ ...defaultPrefs, ...data });
 						setPrefs(nextPrefs);
 						setLastSavedPrefs(nextPrefs);
-						localStorage.setItem("vps-preferences", JSON.stringify(nextPrefs));
+						writeUserPreferencesCache(nextPrefs, { notify: false });
 						setError("");
 					} else {
 						setError(typeof data.error === "string" ? data.error : t("preferencesPage.error.load"));
@@ -268,8 +257,7 @@ export function PreferencesSettingsContent({
 					const nextPrefs = normalizeUserPreferences({ ...payload, ...savedPrefs });
 					setPrefs(nextPrefs);
 					setLastSavedPrefs(nextPrefs);
-					localStorage.setItem("vps-preferences", JSON.stringify(nextPrefs));
-					window.dispatchEvent(new Event("vps-preferences-updated"));
+					writeUserPreferencesCache(nextPrefs);
 					setSaved(true);
 					setTimeout(() => setSaved(false), 2000);
 				}
@@ -284,7 +272,7 @@ export function PreferencesSettingsContent({
 		} catch (err) {
 			// Prefer current last-saved; if a newer optimistic exists, keep UI but report error.
 			setPrefs(lastSavedPrefs);
-			localStorage.setItem("vps-preferences", JSON.stringify(lastSavedPrefs));
+			writeUserPreferencesCache(lastSavedPrefs, { notify: false });
 			setError(messageFromError(err, t("preferencesPage.error.save")));
 			pendingSavePrefsRef.current = null;
 		} finally {

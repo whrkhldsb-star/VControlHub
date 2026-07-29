@@ -45,6 +45,7 @@ export default async function RootLayout({
 }>) {
 	const cookieStore = await cookies();
 	const headerStore = await headers();
+	const nonce = headerStore.get("x-nonce") ?? undefined;
 	const hasSessionCookie = Boolean(cookieStore.get(getSessionCookieName())?.value);
 	const isPublicAuthPage = headerStore.get("x-vcontrolhub-public-auth-page") === "1";
 	const shouldRenderAuthenticatedChrome = hasSessionCookie && !isPublicAuthPage;
@@ -75,6 +76,13 @@ export default async function RootLayout({
 		>
 			<head>
 				<meta name="session-cookie-name" content={getSessionCookieName()} />
+				<script
+					nonce={nonce}
+					dangerouslySetInnerHTML={{
+						__html:
+							"globalThis.__zod_globalConfig={...(globalThis.__zod_globalConfig??{}),jitless:true};",
+					}}
+				/>
 			</head>
 			<body className="min-h-full flex flex-row">
 				<ThemeProvider initialTheme={initialTheme}>

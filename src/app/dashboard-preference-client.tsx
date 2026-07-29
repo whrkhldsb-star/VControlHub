@@ -10,6 +10,12 @@ import {
 	type DashboardWidgetId,
 	type UserPreferences,
 } from "@/lib/preferences/user-preferences";
+import {
+	mergeUserPreferencesCache,
+	readUserPreferencesCache,
+	USER_PREFERENCES_CHANGED_EVENT,
+	writeUserPreferencesCache,
+} from "@/lib/preferences/browser-cache";
 
 import { DashboardCustomizeToolbar } from "./dashboard-customize-toolbar";
 import { DashboardWidgetDetailDialog } from "./dashboard-widget-detail-dialog";
@@ -64,17 +70,13 @@ export function DashboardPreferenceClient({
 			}
 		};
 
-		try {
-			const raw = window.localStorage.getItem("vps-preferences");
-			if (raw) loadPreferences(JSON.parse(raw));
-		} catch {
-			// Ignore broken local preference cache and fall back to server/defaults.
-		}
+		const cachedPreferences = readUserPreferencesCache();
+		if (cachedPreferences) loadPreferences(cachedPreferences);
 
 		csrfFetch("/api/preferences")
 			.then((data) => {
 				const nextPreferences = normalizeUserPreferences(data);
-				window.localStorage.setItem("vps-preferences", JSON.stringify(nextPreferences));
+				writeUserPreferencesCache(nextPreferences, { notify: false });
 				loadPreferences(nextPreferences);
 			})
 			.catch(() => {
@@ -82,21 +84,15 @@ export function DashboardPreferenceClient({
 			});
 
 		const onStorage = () => {
-			try {
-				const raw = window.localStorage.getItem("vps-preferences");
-				loadPreferences(raw ? JSON.parse(raw) : null);
-			} catch {
-				// Stored preferences are corrupted or unparseable — reset to defaults.
-				loadPreferences(null);
-			}
+			loadPreferences(readUserPreferencesCache());
 		};
 		window.addEventListener("storage", onStorage);
-		window.addEventListener("vps-preferences-updated", onStorage);
+		window.addEventListener(USER_PREFERENCES_CHANGED_EVENT, onStorage);
 
 		return () => {
 			active = false;
 			window.removeEventListener("storage", onStorage);
-			window.removeEventListener("vps-preferences-updated", onStorage);
+			window.removeEventListener(USER_PREFERENCES_CHANGED_EVENT, onStorage);
 		};
 	}, []);
 
@@ -150,23 +146,8 @@ export function DashboardPreferenceClient({
 	const persistPreferences = useCallback(
 		async (order: DashboardWidgetId[], hidden: Set<DashboardWidgetId>) => {
 			const visibleOrder = order.filter((id) => !hidden.has(id));
-			// Merge into full localStorage blob so sibling preference keys are not wiped.
-			let base: Record<string, unknown> = {};
-			try {
-				const raw = window.localStorage.getItem("vps-preferences");
-				if (raw) {
-					const parsed = JSON.parse(raw) as unknown;
-					if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-						base = parsed as Record<string, unknown>;
-					}
-				}
-			} catch {
-				// ignore broken cache
-			}
-			const next = { ...base, ...preferences, dashboardWidgets: visibleOrder };
 			setPreferences({ dashboardWidgets: visibleOrder });
-			window.localStorage.setItem("vps-preferences", JSON.stringify(next));
-			window.dispatchEvent(new Event("vps-preferences-updated"));
+			mergeUserPreferencesCache({ dashboardWidgets: visibleOrder });
 			try {
 				await csrfFetch("/api/preferences", {
 					method: "PUT",
@@ -176,7 +157,7 @@ export function DashboardPreferenceClient({
 				// Persist locally; the next page load will reconcile.
 			}
 		},
-		[preferences],
+		[],
 	);
 
 	const handleEnterEdit = useCallback(() => {
@@ -361,4 +342,3 @@ export function DashboardPreferenceClient({
 		</>
 	);
 }
-

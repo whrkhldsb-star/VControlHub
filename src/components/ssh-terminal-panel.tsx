@@ -10,7 +10,8 @@ import { SshFileManager } from "@/components/ssh-file-manager";
 import { SshTerminalSidePanel } from "@/components/ssh-terminal-side-panel";
 import { SshTerminalSearchBar, SshTerminalToolbar } from "@/components/ssh-terminal-chrome";
 import type { TerminalStatus } from "@/components/ssh-terminal-types";
-import { useBrowserStorageSnapshot, writeLocalStorageValue } from "@/lib/hooks/use-browser-storage-snapshot";
+import { writeLocalStorageValue } from "@/lib/browser-storage";
+import { useBrowserStorageSnapshot } from "@/lib/hooks/use-browser-storage-snapshot";
 export type { TerminalStatus } from "@/components/ssh-terminal-types";
 
 const FAVORITE_COMMANDS_KEY = "ssh-favorite-commands";

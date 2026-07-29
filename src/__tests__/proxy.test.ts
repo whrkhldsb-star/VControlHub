@@ -35,6 +35,7 @@ describe("proxy auth guard", () => {
 
     const csp = response.headers.get("Content-Security-Policy");
     expect(csp).toMatch(/script-src 'self' 'nonce-[^']+' 'strict-dynamic' https:\/\/cdn\.jsdelivr\.net https:\/\/static\.cloudflareinsights\.com/);
+		expect(csp).toContain("worker-src 'self' blob:");
 		expect(csp).not.toContain("'unsafe-eval'");
 		expect(csp).not.toContain("script-src 'self' 'unsafe-inline'");
     expect(csp).toContain(

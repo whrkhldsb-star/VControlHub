@@ -1,7 +1,5 @@
-import {
-  type FolderProp,
-  type FileProp,
-} from "./file-list-client";
+import type { FileProp } from "./file-entry-utils";
+import type { FolderProp } from "./file-list-model";
 
 /* ── Types ──────────────────────────────────────────────────────── */
 
