@@ -40,6 +40,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Verify toolchain security regression
+        run: npm run toolchain:security
+
       - name: Generate Prisma client
         run: npx prisma generate
 

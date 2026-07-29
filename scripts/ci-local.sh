@@ -28,6 +28,9 @@ done
 
 step() { printf '\n==> %s\n' "$*"; }
 
+step "toolchain security regression"
+npm run toolchain:security
+
 step "prisma generate"
 npx prisma generate >/dev/null
 
