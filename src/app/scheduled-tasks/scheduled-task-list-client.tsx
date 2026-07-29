@@ -264,7 +264,7 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		if (selectedServerIds.size === 0) {
-			setError(t("scheduledTasks.createFailed"));
+			setError(t("scheduledTasks.noEnabledServers"));
 			return;
 		}
 		setSubmitting(true);
@@ -339,7 +339,7 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 				<input id="scheduled-task-reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder={t("scheduledTasks.reasonPlaceholder")} className={fieldInputClass} />
 			</div>
 
-			{enabledServers.length > 0 && (
+			{enabledServers.length > 0 ? (
 				<div className="space-y-1.5">
 					<div id="scheduled-task-target-nodes-label" className={fieldLabelClass}>{t("scheduledTasksPage.servers")}</div>
 					<div className="grid gap-1.5 sm:grid-cols-2" role="group" aria-labelledby="scheduled-task-target-nodes-label">
@@ -353,10 +353,12 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 						))}
 					</div>
 				</div>
+			) : (
+				<Notice tone="warning">{t("scheduledTasks.noEnabledServers")}</Notice>
 			)}
 
 			<div className="flex gap-3 pt-2">
-				<ActionButton variant="primary" type="submit" disabled={submitting} className="min-h-11 px-5 py-2.5 text-sm">
+				<ActionButton variant="primary" type="submit" disabled={submitting || enabledServers.length === 0} className="min-h-11 px-5 py-2.5 text-sm">
 					{submitting ? t("scheduledTasks.submit.creating") : t("scheduledTasks.submit.create")}
 				</ActionButton>
 				<ActionButton variant="secondary" onClick={onClose} className="min-h-11">

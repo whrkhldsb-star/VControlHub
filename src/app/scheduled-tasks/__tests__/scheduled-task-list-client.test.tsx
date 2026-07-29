@@ -65,6 +65,18 @@ describe("ScheduledTaskListClient", () => {
     })));
   });
 
+  it("explains why creation is unavailable when no VPS is enabled", async () => {
+    const actor = userEvent.setup();
+
+    render(<ScheduledTaskListClient tasks={[]} servers={[]} canCreate canManage />);
+
+    await actor.click(screen.getByRole("button", { name: "+ 创建定时任务" }));
+
+    expect(screen.getByText(/当前没有已启用的 VPS/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "创建任务" })).toBeDisabled();
+    expect(csrfFetch).not.toHaveBeenCalled();
+  });
+
   it("filters scheduled tasks by visible execution log text", async () => {
     const actor = userEvent.setup();
 

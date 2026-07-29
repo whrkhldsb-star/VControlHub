@@ -52,6 +52,37 @@ describe("SSH client host key verification", () => {
     expect(verifier("different")).toBe(false);
   });
 
+  it("converts ssh2 hex host hashes to standard OpenSSH Base64 fingerprints", () => {
+    const observed: string[] = [];
+    const config = createVerifiedSshConfig({
+      host: "203.0.113.10",
+      port: 22,
+      username: "root",
+      password: "secret",
+      onHostKeySha256: (fingerprint) => observed.push(fingerprint),
+    }) as ConnectConfig;
+    const verifier = config.hostVerifier as unknown as (hash: string) => boolean;
+    const hex = "c6e6baffe9fd581a60c49df60c5bc7e3798374811eb41957a21fa3c03384ac13";
+
+    expect(verifier(hex)).toBe(true);
+    expect(observed).toEqual(["SHA256:xua6/+n9WBpgxJ32DFvH43mDdIEetBlXoh+jwDOErBM"]);
+  });
+
+  it("accepts a standard Base64 pin while retaining legacy hex compatibility", () => {
+    const hex = "c6e6baffe9fd581a60c49df60c5bc7e3798374811eb41957a21fa3c03384ac13";
+    const standardPin = "SHA256:xua6/+n9WBpgxJ32DFvH43mDdIEetBlXoh+jwDOErBM";
+    const config = createVerifiedSshConfig({
+      host: "203.0.113.10",
+      port: 22,
+      username: "root",
+      password: "secret",
+      hostKeySha256: standardPin,
+    }) as ConnectConfig;
+    const verifier = config.hostVerifier as unknown as (hash: string) => boolean;
+
+    expect(verifier(hex)).toBe(true);
+  });
+
   it("captures first-contact host key without accepting it and requires explicit fingerprint approval", async () => {
     await expect(requireApprovedSshHostKey({
       ssh: { host: "203.0.113.10", port: 22, username: "root" },

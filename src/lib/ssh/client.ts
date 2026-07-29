@@ -39,6 +39,12 @@ function normalizeHostKeySha256(fingerprint?: string | null): string | null {
  return value.replace(/^SHA256:/i, "");
 }
 
+function standardSha256Fingerprint(hexDigest: string): string | null {
+ const normalized = hexDigest.trim();
+ if (!/^[a-f0-9]{64}$/i.test(normalized)) return null;
+ return Buffer.from(normalized, "hex").toString("base64").replace(/=+$/, "");
+}
+
 function createSshConfig(input: SshConnectionParams): ConnectConfig {
  const config: ConnectConfig = {
   host: input.host,
@@ -61,8 +67,14 @@ function createSshConfig(input: SshConnectionParams): ConnectConfig {
  if (needsVerifier) {
   config.hostHash = "sha256";
   config.hostVerifier = (hashedKey: string) => {
-   input.onHostKeySha256?.(`SHA256:${hashedKey}`);
-   if (expectedHostKey) return hashedKey === expectedHostKey;
+   const actualHex = hashedKey.trim();
+   const actualStandard = standardSha256Fingerprint(actualHex);
+   input.onHostKeySha256?.(`SHA256:${actualStandard ?? actualHex}`);
+   if (expectedHostKey) {
+    // ssh2 supplies a hex digest, while OpenSSH/cloud consoles use the
+    // standard unpadded Base64 SHA256 fingerprint. Keep legacy hex pins valid.
+    return expectedHostKey === (actualStandard ?? actualHex) || expectedHostKey.toLowerCase() === actualHex.toLowerCase();
+   }
    // OPEN-1: No pinned key — if enforceHostKeyPin is set, reject to force
    // explicit approval. Otherwise accept (backward-compatible TOFU).
    if (enforceHostKeyPin) return false;

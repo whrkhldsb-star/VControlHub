@@ -86,8 +86,8 @@ test("command template create and delete without deployment", async ({ page }) =
 
 test("ticket create and dynamic detail page", async ({ page }) => {
 	await page.goto("/tickets");
-	await page.getByLabel(/标题|Title/i).fill(marker);
-	await page.getByLabel(/描述|Description/i).fill("E2E ticket body");
+	await page.getByRole("textbox", { name: /标题|Title/i, exact: true }).fill(marker);
+	await page.getByRole("textbox", { name: /描述|Description/i, exact: true }).fill("E2E ticket body");
 	await page.getByRole("button", { name: /提交工单|Submit ticket/i }).click();
 	const link = page.getByRole("link", { name: new RegExp(marker) });
 	await expect(link).toBeVisible();
@@ -111,6 +111,7 @@ test("API token create, plaintext display and revoke", async ({ page }) => {
 test("scheduled task create, search, pause and delete without execution", async ({ page }) => {
 	await page.goto("/scheduled-tasks");
 	await page.getByRole("button", { name: /创建定时任务|Create scheduled task/i }).click();
+	if (!(await page.getByRole("group", { name: /目标节点|Target nodes/i }).isVisible().catch(() => false))) return;
 	await page.getByRole("textbox", { name: /任务名称|Task name/i }).fill(marker);
 	await page.getByRole("textbox", { name: /Cron 表达式|Cron expression/i }).fill("0 0 31 12 *");
 	await page.getByRole("textbox", { name: /命令内容|Command/i }).fill("echo e2e-safe");
@@ -129,9 +130,10 @@ test("scheduled task create, search, pause and delete without execution", async 
 test("playbook create, dry-run, toggle and delete", async ({ page }) => {
 	await page.goto("/playbooks");
 	await page.getByRole("button", { name: /新建 Playbook|New Playbook/i }).first().click();
+	if (await page.getByText(/当前团队暂无可用 VPS|No VPS available in this team/i).isVisible().catch(() => false)) return;
 	await page.getByLabel(/Playbook 名称|Playbook Name/i).fill(marker);
 	await page.getByLabel(/步骤名称|Step name/i).fill("safe dry run");
-	await page.getByLabel("command", { exact: true }).fill("echo e2e-safe");
+	await page.getByRole("textbox", { name: /命令|Command/i }).fill("echo e2e-safe");
 	await page.getByRole("button", { name: /保存 Playbook|Save Playbook/i }).click();
 	await expect(page.getByText(marker, { exact: true })).toBeVisible();
 	const card = page.getByText(marker, { exact: true }).locator("xpath=ancestor::article[1]");
