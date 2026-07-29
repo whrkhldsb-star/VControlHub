@@ -12,6 +12,7 @@ import {
 } from "@/lib/server/service";
 import { prisma } from "@/lib/db";
 import { createRemoteDirectory } from "@/lib/ssh/client";
+import { checkStorageNodeHealth } from "@/lib/storage/service-nodes";
 
 const { parseFromStringMock, execRemoteCommandMock } = vi.hoisted(() => ({
   parseFromStringMock: vi.fn(),
@@ -368,7 +369,7 @@ describe("server service", () => {
       password: "enc:v1:password",
       hostKeySha256: null,
       sshKey: null,
-      storageNode: { id: "storage_draft" },
+      storageNode: { id: "storage_draft", driver: "SFTP", basePath: "/root/drive" },
       commandTargets: [],
       costAutoSync: false,
       costMonthlyAmount: null,
@@ -403,7 +404,7 @@ describe("server service", () => {
       password: "enc:v1:password",
       hostKeySha256: null,
       sshKey: null,
-      storageNode: { id: "storage_draft" },
+      storageNode: { id: "storage_draft", driver: "SFTP", basePath: "/root/drive" },
       commandTargets: [],
       costAutoSync: false,
       costMonthlyAmount: null,
@@ -446,6 +447,58 @@ describe("server service", () => {
         }),
       }),
     );
+    expect(createRemoteDirectory).toHaveBeenCalledWith(
+      expect.objectContaining({
+        host: "107.148.254.104",
+        hostKeySha256: "SHA256:verified",
+        remotePath: "/root/drive",
+      }),
+    );
+    expect(checkStorageNodeHealth).toHaveBeenCalledWith("storage_draft", null);
+    expect(prisma.server.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "srv_draft" },
+        data: expect.objectContaining({
+          osInfo: "Debian GNU/Linux 12 (bookworm)",
+        }),
+      }),
+    );
+  });
+
+  it("keeps a verified draft disabled when its storage path cannot be prepared", async () => {
+    const current = {
+      id: "srv_draft",
+      name: "pending-node",
+      host: "107.148.254.104",
+      port: 48163,
+      username: "root",
+      description: null,
+      tags: [],
+      enabled: false,
+      connectionType: "PASSWORD",
+      sshKeyId: null,
+      password: "enc:v1:password",
+      hostKeySha256: "SHA256:verified",
+      sshKey: null,
+      storageNode: { id: "storage_draft", driver: "SFTP", basePath: "/root/drive" },
+      commandTargets: [],
+      costAutoSync: false,
+      costMonthlyAmount: null,
+      costCurrency: "CNY",
+      costProvider: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as any;
+    vi.mocked(prisma.server.findUnique).mockResolvedValueOnce(current);
+    vi.mocked(createRemoteDirectory).mockRejectedValueOnce(new Error("permission denied"));
+
+    await expect(toggleServerEnabled("srv_draft", null, "SHA256:verified")).rejects.toThrow(
+      "storage path /root/drive could not be prepared and the node remains disabled",
+    );
+
+    expect(prisma.server.update).not.toHaveBeenCalled();
+    expect(prisma.storageNode.update).not.toHaveBeenCalled();
+    expect(checkStorageNodeHealth).not.toHaveBeenCalled();
   });
 
   it("keeps a draft disabled when SSH verification still fails", async () => {
@@ -463,7 +516,7 @@ describe("server service", () => {
       password: "enc:v1:password",
       hostKeySha256: "SHA256:verified",
       sshKey: null,
-      storageNode: { id: "storage_draft" },
+      storageNode: { id: "storage_draft", driver: "SFTP", basePath: "/root/drive" },
       commandTargets: [],
       costAutoSync: false,
       costMonthlyAmount: null,
@@ -635,6 +688,7 @@ describe("server service", () => {
         recursive: true,
       }),
     );
+    expect(checkStorageNodeHealth).toHaveBeenCalledWith("sn_1", null);
     expect(result.connectionSummary).toContain("SSH key prod-root-key");
   });
 

@@ -114,6 +114,7 @@ export async function createServerProfile(
   const isLocalHost = isLocalHostLiteral(normalized.host);
   let connectivityVerified = false;
   let configuredPath = "";
+  let createdStorageNodeId = "";
   // Assigned under host lock before mkdir/onboarding uses them.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let server: any;
@@ -217,7 +218,7 @@ export async function createServerProfile(
 
     // Auto-create associated storage node in the same transaction
     const storageNodeName = `${created.name} storage`;
-    await tx.storageNode.create({
+    const createdStorageNode = await tx.storageNode.create({
       data: {
         name: storageNodeName,
         driver: isLocalHost ? "LOCAL" : "SFTP",
@@ -237,17 +238,22 @@ export async function createServerProfile(
         ...(teamData.teamId !== undefined ? { teamId: teamData.teamId } : {}),
       },
     });
+    createdStorageNodeId = createdStorageNode?.id ?? "";
     return created;
   });
   } finally {
     await releaseHostLock();
   }
 
+  let storageDirectoryReady = false;
   if (isLocalHost) {
     try {
       await mkdir(configuredPath, { recursive: true });
-    } catch {
-      // Directory may already exist or FS unavailable — DB record proceeds regardless
+      storageDirectoryReady = true;
+    } catch (error) {
+      onboardingWarnings.push(
+        `Failed to create local storage directory ${configuredPath}: ${getErrorMessage(error)}.`,
+      );
     }
   } else if (connectivityVerified) {
     try {
@@ -256,9 +262,25 @@ export async function createServerProfile(
         remotePath: configuredPath,
         recursive: true,
       });
+      storageDirectoryReady = true;
     } catch (error) {
       onboardingWarnings.push(
         `Failed to auto-create remote storage directory: ${getErrorMessage(error)}. VPS node and storage node have been created. After confirming SSH connectivity, please manually create ${configuredPath} on the target server, or re-save/retry the relevant operation.`,
+      );
+    }
+  }
+
+  if (storageDirectoryReady && createdStorageNodeId) {
+    try {
+      const health = await checkStorageNodeHealth(createdStorageNodeId, sessionForTeamWhere(session));
+      if (health.healthStatus === "UNHEALTHY") {
+        onboardingWarnings.push(
+          `Storage path ${configuredPath} was created, but its health check failed${health.lastHealthError ? `: ${health.lastHealthError}` : ""}. Review the storage node before using file workflows.`,
+        );
+      }
+    } catch (error) {
+      onboardingWarnings.push(
+        `Storage path ${configuredPath} was created, but its health status could not be recorded: ${getErrorMessage(error)}.`,
       );
     }
   }
@@ -564,7 +586,30 @@ export async function toggleServerEnabled(
         failureMessage: `Cannot enable ${current.username}@${current.host}:${current.port}; the node remains disabled. Check the SSH port, firewall, and credentials.`,
       },
     );
-    return prisma.$transaction(async (tx) => {
+
+    if (current.storageNode) {
+      try {
+        if (
+          current.storageNode.driver === "SFTP" ||
+          (!current.storageNode.driver && !isLocalHostLiteral(current.host))
+        ) {
+          await createRemoteDirectory({
+            ...ssh,
+            hostKeySha256,
+            remotePath: current.storageNode.basePath,
+            recursive: true,
+          });
+        } else {
+          await mkdir(current.storageNode.basePath, { recursive: true });
+        }
+      } catch (error) {
+        throw new BusinessError(
+          `Cannot enable ${current.username}@${current.host}:${current.port}; storage path ${current.storageNode.basePath} could not be prepared and the node remains disabled. Details: ${getErrorMessage(error)}`,
+        );
+      }
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
       const updated = await tx.server.update({
         where: { id: serverId },
         data: { enabled: true, hostKeySha256 },
@@ -583,6 +628,27 @@ export async function toggleServerEnabled(
       }
       return updated;
     });
+
+    if (current.storageNode) {
+      await checkStorageNodeHealth(current.storageNode.id, session).catch(() => null);
+    }
+
+    if (!isLocalHostLiteral(current.host)) {
+      try {
+        const dialect = await detectOsDialect({ ...ssh, hostKeySha256 });
+        await prisma.server.update({
+          where: { id: serverId },
+          data: {
+            osDialect: serializeDialect(dialect),
+            osInfo: dialect.distroName,
+          },
+        });
+      } catch {
+        // OS metadata is useful for later commands but should not undo a verified activation.
+      }
+    }
+
+    return updated;
   }
   return prisma.server.update({
     where: { id: serverId },

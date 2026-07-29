@@ -6,6 +6,7 @@ import { createServerAction, type ServerActionState } from "./actions";
 import { ConnectionTypeFields } from "./server-connection-type-fields";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { UI_INPUT } from "@/lib/ui/classes";
+import { usePreservedActionForm } from "@/lib/forms/use-preserved-action-form";
 const initialState: ServerActionState = {
   error: undefined,
   success: undefined,
@@ -28,6 +29,10 @@ export function ServerCreateForm({
     () => state.hostKeySha256 ?? "",
   );
   const [hostKeyConfirmed, setHostKeyConfirmed] = useState(false);
+  const { formRef, captureBeforeSubmit } = usePreservedActionForm(
+    state,
+    Boolean(state.error),
+  );
   useEffect(() => {
     if (state.hostKeySha256) {
       setObservedHostKeySha256(state.hostKeySha256);
@@ -42,7 +47,9 @@ export function ServerCreateForm({
   }, [state.success, router]);
   return (
     <form
+      ref={formRef}
       action={formAction}
+      onSubmit={captureBeforeSubmit}
       data-card
       className="grid gap-4"
       onChange={(event) => {
@@ -65,13 +72,13 @@ export function ServerCreateForm({
         </p>{" "}
       </div>{" "}
       {state.error && !observedHostKeySha256 && (
-        <div className="rounded-lg bg-[var(--danger-bg)] border border-[var(--danger-border)] px-3.5 py-2.5 text-sm text-[var(--danger)]">
+        <div role="alert" className="rounded-lg bg-[var(--danger-bg)] border border-[var(--danger-border)] px-3.5 py-2.5 text-sm text-[var(--danger)]">
           {" "}
           {state.error}{" "}
         </div>
       )}{" "}
       {state.success && (
-        <div className="rounded-lg bg-[var(--success-bg)] border border-[var(--success-border)] px-3.5 py-2.5 text-sm text-[var(--success)]">
+        <div role="status" className="rounded-lg bg-[var(--success-bg)] border border-[var(--success-border)] px-3.5 py-2.5 text-sm text-[var(--success)]">
           {" "}
           {state.success}{" "}
         </div>

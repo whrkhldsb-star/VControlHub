@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import { renderWithI18n as render } from "@/lib/i18n/__tests__/test-helpers";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -66,5 +66,56 @@ describe("ServerCreateForm", () => {
     expect(
       screen.getByRole("button", { name: "确认指纹并保存" }),
     ).toBeInTheDocument();
+  });
+
+  it("restores endpoint and SSH key fields when fingerprint approval requires a second submit", async () => {
+    const user = userEvent.setup();
+    const view = render(
+      <ServerCreateForm
+        sshKeys={[{ id: "key-1", name: "key", fingerprint: "fp", description: null }]}
+      />,
+    );
+    const form = document.querySelector('form:has(input[name="host"])') as HTMLFormElement;
+
+    await user.type(screen.getByLabelText("节点名称"), "production-vps");
+    await user.type(screen.getByLabelText("IP / 主机名"), "107.148.254.104");
+    await user.clear(screen.getByLabelText("端口"));
+    await user.type(screen.getByLabelText("端口"), "48163");
+    await user.selectOptions(screen.getByLabelText("SSH 密钥"), "key-1");
+    fireEvent.submit(form);
+    form.reset();
+
+    actionStateMock.current = {
+      error: "First connection requires confirming the SSH host fingerprint",
+      hostKeySha256: "SHA256:verified",
+    };
+    view.rerender(
+      <ServerCreateForm
+        sshKeys={[{ id: "key-1", name: "key", fingerprint: "fp", description: null }]}
+      />,
+    );
+
+    expect(screen.getByLabelText("节点名称")).toHaveValue("production-vps");
+    expect(screen.getByLabelText("IP / 主机名")).toHaveValue("107.148.254.104");
+    expect(screen.getByLabelText("端口")).toHaveValue(48163);
+    expect(screen.getByLabelText("SSH 密钥")).toHaveValue("key-1");
+  });
+
+  it("keeps a password in browser memory across fingerprint confirmation", async () => {
+    const user = userEvent.setup();
+    const view = render(<ServerCreateForm sshKeys={[]} />);
+    const form = document.querySelector('form:has(input[name="host"])') as HTMLFormElement;
+    await user.click(screen.getByRole("button", { name: "密码" }));
+    await user.type(screen.getByLabelText("密码"), "temporary-secret");
+    fireEvent.submit(form);
+    form.reset();
+
+    actionStateMock.current = {
+      error: "First connection requires confirming the SSH host fingerprint",
+      hostKeySha256: "SHA256:verified",
+    };
+    view.rerender(<ServerCreateForm sshKeys={[]} />);
+
+    expect(screen.getByLabelText("密码")).toHaveValue("temporary-secret");
   });
 });

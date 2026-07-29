@@ -6,6 +6,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import type { ServerActionState } from "./actions";
 
 import { UI_INPUT } from "@/lib/ui/classes";
+import { usePreservedActionForm } from "@/lib/forms/use-preserved-action-form";
 type Props = {
   serverId: string;
   serverName: string;
@@ -51,6 +52,10 @@ export function ServerCardEditForm({
     () => editState.hostKeySha256 ?? "",
   );
   const [hostKeyConfirmed, setHostKeyConfirmed] = useState(false);
+  const { formRef, captureBeforeSubmit } = usePreservedActionForm(
+    editState,
+    Boolean(editState.error),
+  );
   useEffect(() => {
     if (editState.hostKeySha256) {
       setObservedHostKeySha256(editState.hostKeySha256);
@@ -63,7 +68,9 @@ export function ServerCardEditForm({
 
   return (
     <form
+      ref={formRef}
       action={editAction}
+      onSubmit={captureBeforeSubmit}
       aria-label={t("serverCardActions.edit.formAria")}
       className="space-y-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-elevated)] p-3"
       onChange={(event) => {

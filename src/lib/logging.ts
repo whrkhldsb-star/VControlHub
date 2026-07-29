@@ -87,5 +87,12 @@ const defaultLogger = createLogger("app");
 export function logError(...args: unknown[]): void {
   const [first, ...rest] = args;
   if (first instanceof Error) defaultLogger.error("handled error", first, { args: rest });
-  else defaultLogger.error(typeof first === "string" ? first : "handled error", undefined, { args: first === undefined ? rest : args });
+  else if (typeof first === "string" && rest[0] instanceof Error) {
+    defaultLogger.error(first, rest[0], { args: rest.slice(1) });
+  } else {
+    defaultLogger.error(
+      typeof first === "string" ? first : "handled error",
+      { args: first === undefined ? rest : args },
+    );
+  }
 }

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { createLogger, redactSensitiveValue } from "@/lib/logging";
+import { createLogger, logError, redactSensitiveValue } from "@/lib/logging";
 
 const ORIGINAL_ENV = process.env.NODE_ENV;
 
@@ -55,5 +55,17 @@ describe("logging", () => {
     expect(serialized).toContain("kept");
     expect(serialized).not.toContain("REDACTED_PASSWORD_PLACEHOLDER");
     expect(serialized).not.toContain("postgresql://REDACTED_DATABASE_URL_PLACEHOLDER");
+  });
+
+  it("keeps the error when logError receives a scope message first", () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    logError("image-bed:upload", new Error("mkdir EROFS /legacy/path"));
+
+    const payload = JSON.parse(String(errorSpy.mock.calls[0]?.[0]));
+    expect(payload.message).toBe("image-bed:upload");
+    expect(payload.error).toEqual(
+      expect.objectContaining({ message: "mkdir EROFS /legacy/path" }),
+    );
   });
 });

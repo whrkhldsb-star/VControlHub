@@ -72,10 +72,13 @@ async function assertCommandTargetServersInScope(
       id: { in: serverIds },
       ...scope,
     },
-    select: { id: true },
+    select: { id: true, enabled: true },
   });
   if (servers.length !== serverIds.length) {
     throw new ValidationError(t("backend.command.targetsOutOfScope"));
+  }
+  if (servers.some((server) => server.enabled === false)) {
+    throw new ValidationError(t("backend.command.targetsDisabled"));
   }
 }
 

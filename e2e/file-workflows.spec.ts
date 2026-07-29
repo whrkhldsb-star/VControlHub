@@ -30,11 +30,16 @@ test("local file lifecycle: folder, upload, search, preview, share and delete", 
 	const tree = page.getByRole("heading", { name: /目录树|Directory tree/i }).locator("xpath=ancestor::aside[1]");
 	await tree.getByRole("button", { name: folder, exact: true }).click();
 	await expect(page).toHaveURL(new RegExp(`path=${folder}`), { timeout: 15_000 });
-	await expect(page.getByRole("heading", { name: new RegExp(folder) })).toBeVisible({ timeout: 15_000 });
+	const currentDirectory = page.getByRole("heading", { name: /当前目录操作|Current directory actions/i });
+	await expect(currentDirectory).toBeVisible({ timeout: 15_000 });
+	await expect(currentDirectory.locator("xpath=ancestor::article[1]")).toContainText(folder);
 
-	const uploadSection = page.getByRole("heading", { name: new RegExp(folder) }).locator("xpath=ancestor::section[1]");
-	await uploadSection.locator('input[type="file"]').first().setInputFiles(path.join(process.cwd(), "e2e/fixtures/vcontrolhub-e2e.txt"));
+	const uploadSection = currentDirectory.locator("xpath=ancestor::article[1]");
+	await uploadSection.getByRole("button", { name: /上传文件|Upload files/i }).click();
+	const uploadDialog = page.getByRole("dialog", { name: /上传到|Upload to/i });
+	await uploadDialog.locator('input[type="file"]').first().setInputFiles(path.join(process.cwd(), "e2e/fixtures/vcontrolhub-e2e.txt"));
 	await expect(page.getByText("vcontrolhub-e2e.txt", { exact: true }).first()).toBeVisible();
+	await uploadDialog.getByRole("button", { name: /关闭|Close/i }).click();
 
 	const search = page.getByRole("searchbox").first();
 	await search.fill("vcontrolhub-e2e");

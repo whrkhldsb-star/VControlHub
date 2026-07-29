@@ -1216,6 +1216,31 @@ describe("command service execution flow", () => {
     );
   });
 
+  it("rejects command creation for a disabled target VPS", async () => {
+    mockPrisma.server.findMany.mockResolvedValueOnce([
+      { id: "srv_disabled", enabled: false },
+    ]);
+
+    await expect(
+      createCommandRequest(
+        {
+          title: "Must not run",
+          command: "reboot",
+          requesterId: "u_team_a",
+          submissionMode: "user",
+          serverIds: ["srv_disabled"],
+        },
+        {
+          userId: "u_team_a",
+          roles: ["operator"],
+          currentTeamId: "team_a",
+        },
+      ),
+    ).rejects.toThrow(/已禁用|disabled/i);
+
+    expect(mockPrisma.commandRequest.create).not.toHaveBeenCalled();
+  });
+
   it("stamps CommandRequest.teamId from session and accepts in-scope servers", async () => {
     mockPrisma.server.findMany.mockResolvedValueOnce([{ id: "srv_1" }]);
     mockPrisma.commandRequest.create.mockResolvedValue({

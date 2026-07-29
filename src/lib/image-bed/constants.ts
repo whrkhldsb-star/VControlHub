@@ -4,7 +4,7 @@ import { config } from "@/lib/config/env";
 
 function resolveUploadDir() {
 	if (config.storage.imageUploadDir) return config.storage.imageUploadDir;
-	const appDir = config.app.appDir?.trim() || "/opt/whrkhldsb";
+	const appDir = config.app.appDir?.trim() || process.cwd();
 	return path.join(appDir, "uploads", "image-bed");
 }
 

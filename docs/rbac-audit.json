@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-29T10:03:52.312Z",
+  "generatedAt": "2026-07-29T13:19:16.013Z",
   "summary": {
     "permissionsInList": 54,
     "rolesDefined": 4,
@@ -2025,31 +2025,31 @@
         },
         {
           "path": "src/app/servers/actions.ts",
-          "line": 118
+          "line": 123
         },
         {
           "path": "src/app/servers/actions.ts",
-          "line": 187
+          "line": 192
         },
         {
           "path": "src/app/servers/actions.ts",
-          "line": 235
+          "line": 240
         },
         {
           "path": "src/app/servers/actions.ts",
-          "line": 260
+          "line": 267
         },
         {
           "path": "src/app/servers/actions.ts",
-          "line": 301
+          "line": 308
         },
         {
           "path": "src/app/servers/actions.ts",
-          "line": 344
+          "line": 352
         },
         {
           "path": "src/app/servers/actions.ts",
-          "line": 398
+          "line": 406
         },
         {
           "path": "src/app/servers/page.tsx",

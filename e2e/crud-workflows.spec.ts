@@ -86,8 +86,8 @@ test("command template create and delete without deployment", async ({ page }) =
 
 test("ticket create and dynamic detail page", async ({ page }) => {
 	await page.goto("/tickets");
-	await page.getByRole("textbox", { name: /标题|Title/i, exact: true }).fill(marker);
-	await page.getByRole("textbox", { name: /描述|Description/i, exact: true }).fill("E2E ticket body");
+	await page.getByRole("textbox", { name: /^(标题|Title)$/i }).fill(marker);
+	await page.getByRole("textbox", { name: /^(描述|Description)$/i }).fill("E2E ticket body");
 	await page.getByRole("button", { name: /提交工单|Submit ticket/i }).click();
 	const link = page.getByRole("link", { name: new RegExp(marker) });
 	await expect(link).toBeVisible();
@@ -134,6 +134,7 @@ test("playbook create, dry-run, toggle and delete", async ({ page }) => {
 	await page.getByLabel(/Playbook 名称|Playbook Name/i).fill(marker);
 	await page.getByLabel(/步骤名称|Step name/i).fill("safe dry run");
 	await page.getByRole("textbox", { name: /命令|Command/i }).fill("echo e2e-safe");
+	await page.getByRole("group", { name: /目标 VPS|Target VPS/i }).getByRole("checkbox").first().check();
 	await page.getByRole("button", { name: /保存 Playbook|Save Playbook/i }).click();
 	await expect(page.getByText(marker, { exact: true })).toBeVisible();
 	const card = page.getByText(marker, { exact: true }).locator("xpath=ancestor::article[1]");
