@@ -43,6 +43,9 @@ jobs:
       - name: Verify toolchain security regression
         run: npm run toolchain:security
 
+      - name: Verify high-severity dependency audit
+        run: npm run audit:high
+
       - name: Generate Prisma client
         run: npx prisma generate
 

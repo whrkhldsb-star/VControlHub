@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "node scripts/guard-live-next-build.mjs && next build --webpack",
     "build:runtime": "esbuild src/server.ts src/worker.ts src/ssh-ws-proxy.ts --bundle --platform=node --target=node22 --format=cjs --outdir=dist --packages=external --tsconfig=tsconfig.json",
+    "postinstall": "node scripts/patch-minimatch-legacy.mjs",
     "start": "node dist/server.js",
     "start:ssh-ws": "node dist/ssh-ws-proxy.js",
     "start:dev": "next dev",
@@ -41,6 +42,7 @@
     "compose:validate": "node scripts/validate-compose.mjs docker-compose.yml",
     "rbac:audit": "tsx scripts/rbac-audit.ts",
     "admin:consistency-check": "tsx scripts/admin-consistency-check.ts",
+    "audit:high": "npm audit --audit-level=high",
     "toolchain:security": "node scripts/verify-toolchain-security.mjs",
     "share:password-audit": "tsx scripts/audit-share-password-hashes.ts",
     "share:password-audit:strict": "tsx scripts/audit-share-password-hashes.ts --strict",
@@ -50,7 +52,7 @@
     "readme:metrics": "tsx scripts/readme-metrics.ts",
     "readme:metrics:write": "tsx scripts/readme-metrics.ts --write",
     "docs:check": "npm run readme:metrics",
-    "verify": "npm run toolchain:security && npm run prisma:generate && npx prisma format --check && npm run typecheck && npm run lint && npm run i18n:key-check && npm run api-copy:audit && npm test && npm run build && npm run build:runtime && npm run verify:deploy-assets && npm run docs:check",
+    "verify": "npm run toolchain:security && npm run audit:high && npm run prisma:generate && npx prisma format --check && npm run typecheck && npm run lint && npm run i18n:key-check && npm run api-copy:audit && npm test && npm run build && npm run build:runtime && npm run verify:deploy-assets && npm run docs:check",
     "build:turbopack": "node scripts/guard-live-next-build.mjs && next build",
     "build:webpack": "node scripts/guard-live-next-build.mjs && next build --webpack",
     "test:e2e:auth": "E2E_DIRECT_SESSION=1 E2E_TRUST_LOCAL_DB_SESSION=1 E2E_ISOLATED_ACCOUNT=1 E2E_USER=vcontrolhub_e2e E2E_PASS=VControlHub-E2E-2026! E2E_DIRECT_USER=vcontrolhub_e2e playwright test e2e/authenticated-flow.spec.ts --project=chromium --workers=1"
@@ -103,10 +105,11 @@
     "esbuild": "^0.28.1",
     "dotenv": "^17.4.2",
     "eslint": "9.39.4",
-    "eslint-config-next": "^16.2.10",
+    "eslint-config-next": "^16.2.12",
     "eslint-plugin-react-hooks": "^7.1.1",
     "js-yaml": "^4.3.0",
     "jsdom": "^29.0.2",
+    "minimatch": "3.1.5",
     "prisma": "^7.9.1",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
@@ -116,10 +119,7 @@
   "overrides": {
     "postcss": "^8.5.10",
     "@hono/node-server": "^1.19.13",
-    "minimatch@3.1.5": {
-      "brace-expansion": "1.1.17"
-    },
-    "brace-expansion@>=2 <2.0.2": "2.0.2",
+    "brace-expansion": "5.0.8",
     "sharp": "$sharp"
   }
 }

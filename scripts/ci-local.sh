@@ -31,6 +31,9 @@ step() { printf '\n==> %s\n' "$*"; }
 step "toolchain security regression"
 npm run toolchain:security
 
+step "high-severity dependency audit"
+npm run audit:high
+
 step "prisma generate"
 npx prisma generate >/dev/null
 
