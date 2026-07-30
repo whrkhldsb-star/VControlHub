@@ -1,11 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback } from "react";
 
 import { useI18n } from "@/lib/i18n/use-locale";
-import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
+import { RefreshCw } from "@/components/icons";
+import { IconButton } from "@/components/ui-primitives";
 import { formatDateTime } from "@/lib/datetime/format";
+import { api } from "@/lib/http/api-client";
+import { useResourcePolling } from "@/lib/http/use-resource-polling";
 
 type RecentDownload = {
   id: string;
@@ -21,38 +24,17 @@ export function RecentDownloadsPanel({
   onNavigate: (path: string, nodeId: string) => void;
 }) {
   const { t, locale } = useI18n();
-  const [downloads, setDownloads] = useState<RecentDownload[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const loadGenRef = useRef(0);
-
-  const load = useCallback(async () => {
-    const gen = ++loadGenRef.current;
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await fetch("/api/downloads/recent", { cache: "no-store" });
-      if (!response.ok) throw new Error(t("filesPage.recentDownloads.error"));
-      const body = await response.json() as { downloads?: RecentDownload[] };
-      // Ignore out-of-order responses from rapid refresh/remount races.
-      if (gen !== loadGenRef.current) return;
-      setDownloads(Array.isArray(body.downloads) ? body.downloads : []);
-    } catch (cause) {
-      if (gen !== loadGenRef.current) return;
-      setError(getErrorMessage(cause, t("filesPage.recentDownloads.error")));
-    } finally {
-      if (gen === loadGenRef.current) setLoading(false);
-    }
-  }, [t]);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => { void load(); }, 0);
-    return () => {
-      window.clearTimeout(timer);
-      // Invalidate in-flight load so unmount/remount cannot apply stale state.
-      loadGenRef.current += 1;
-    };
-  }, [load]);
+  const fetchDownloads = useCallback(async () => {
+    const body = await api.get<{ downloads?: RecentDownload[] }>("/api/downloads/recent", { cache: "no-store" });
+    return Array.isArray(body.downloads) ? body.downloads : [];
+  }, []);
+  const getLoadError = useCallback(() => t("filesPage.recentDownloads.error"), [t]);
+  const { data, loading, refreshing, error, refresh } = useResourcePolling({
+    fetcher: fetchDownloads,
+    intervalSeconds: 0,
+    getErrorMessage: getLoadError,
+  });
+  const downloads = data ?? [];
 
   return (
     <section data-card aria-labelledby="recent-downloads-title" className="rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow-sm)] sm:p-5">
@@ -63,15 +45,14 @@ export function RecentDownloadsPanel({
           </h2>
           <p className="mt-1 text-sm text-[var(--text-secondary)]">{t("filesPage.recentDownloads.description")}</p>
         </div>
-        <ActionButton variant="secondary"
-          aria-label={t("filesPage.recentDownloads.refreshAria")}
-          onClick={() => void load()}
-          disabled={loading}
-         
-          className="!px-3 !py-1.5 !text-xs !font-medium disabled:opacity-60"
+        <IconButton
+          label={t("filesPage.recentDownloads.refreshAria")}
+          onClick={() => void refresh()}
+          disabled={loading || refreshing}
+          className="h-9 w-9 shrink-0 border border-[var(--border)] bg-[var(--surface-elevated)]"
         >
-          {t("filesPage.recentDownloads.refresh")}
-        </ActionButton>
+          <RefreshCw size={16} className={refreshing ? "animate-spin" : undefined} aria-hidden="true" />
+        </IconButton>
       </div>
 
       {loading ? <p className="mt-4 text-sm text-[var(--text-muted)]">{t("filesPage.recentDownloads.loading")}</p> : null}
@@ -79,7 +60,7 @@ export function RecentDownloadsPanel({
         <div role="alert" className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--danger-border)] bg-[var(--danger-bg)] px-4 py-3 text-sm text-[var(--danger)]">
           <span>{error}</span>
           <ActionButton variant="danger"
-          	onClick={() => void load()}
+            onClick={() => void refresh()}
           
           	className="!px-3 !py-1.5 !text-xs !font-medium"
           >            {t("filesPage.recentDownloads.retry")}

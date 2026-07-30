@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ApiError, api } from "@/lib/http/api-client";
+import { csrfFetch } from "@/lib/auth/csrf-client";
+import { ApiError, api, apiRequest } from "@/lib/http/api-client";
 
 /** Minimal `fetch` mock that returns a Response-like object with `ok` + `status`. */
 function mockFetchOnce(status: number, body: unknown): typeof fetch {
@@ -89,6 +90,24 @@ describe("lib/http/api-client — ApiError envelope (TR-034 R3)", () => {
 		globalThis.fetch = mockFetchOnce(204, undefined);
 		const data = await api.delete("/api/x");
 		expect(data).toBeUndefined();
+	});
+
+	it("keeps csrfFetch as a compatibility entry point over the shared request core", async () => {
+		globalThis.fetch = mockFetchOnce(200, { ok: true });
+		await expect(csrfFetch<{ ok: boolean }>("/api/x")).resolves.toEqual({ ok: true });
+	});
+
+	it("returns the untouched non-OK response in raw mode", async () => {
+		const response = { ok: false, status: 503 } as Response;
+		globalThis.fetch = vi.fn().mockResolvedValue(response) as unknown as typeof fetch;
+		await expect(apiRequest<Response>("/api/x", { raw: true })).resolves.toBe(response);
+	});
+
+	it("appends typed query parameters without discarding an existing query", async () => {
+		const spy = mockFetchOnce(200, { ok: true });
+		globalThis.fetch = spy;
+		await api.get("/api/x?fixed=1", { params: { page: "2", search: "a b" } });
+		expect(vi.mocked(spy).mock.calls[0]?.[0]).toBe("/api/x?fixed=1&page=2&search=a+b");
 	});
 
 	it("does not force application/json Content-Type for FormData bodies", async () => {

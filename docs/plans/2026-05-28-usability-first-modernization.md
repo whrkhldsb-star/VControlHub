@@ -10,6 +10,26 @@
 - 路由/API 变薄：API route 只做鉴权、参数解析和响应映射，业务逻辑下沉到 `src/lib/<domain>`。
 - UI 一致：页面统一走 `PageShell`、共享错误页、共享操作反馈。
 
+## 实施状态（2026-07-30）
+
+| 阶段 | 状态 | 当前证据 / 剩余工作 |
+|---|---|---|
+| Phase 1 维护性底座 | 已完成 | 文件树公共层和共享 `RouteError` 已落地；56 个错误边界中 55 个使用统一组件，根错误边界保留专用实现。 |
+| Phase 2 文件体验 | 已完成主体 | 原单体文件浏览器已拆为 listing、selection、batch、preview 等 hooks/components；继续按真实文件操作回归补边界即可。 |
+| Phase 3 API guard/error | 已完成主体 | 179 个 API route 中 173 个已使用 `withApiRoute`；剩余主要是公开下载、登录验证或特殊流式响应，不应机械套 guard。 |
+| Phase 4 UI 一致性 | 持续收敛 | `PageShell`、`SurfacePanel`、`ListPanel`、`Notice` 已广泛采用；2026-07-30 删除重复 `Card` primitive，并将同步错误状态统一到 `Notice`。 |
+| Phase 5 重业务路由 | 部分完成 | Downloads route 已降至 23 行；Files listing 已下沉服务。`/api/ai/chat` 仍有 462 行，是下一轮优先服务化对象。 |
+| Phase 6 部署维护 | 已完成 | Makefile 已提供 `ci-local`、`build`、`restart`、`smoke`，部署脚本同时构建 Next 与 runtime bundle。 |
+| Phase 6.5 VPS/SSH | 已完成主体、持续 QA | 添加/编辑、非 22 端口、指纹 TOFU、Direct Gateway 和后台 worker 隔离已完成；继续做真实远端副作用回归。 |
+| Phase 7 Settings 控制面 | 已完成主体、持续扩展 | 运行时 SSH/SFTP/命令参数、通知集成、偏好和刷新频率已有真实消费者；新增设置仍必须遵守“保存即生效或明确需重启”。 |
+
+### 当前优化轮（2026-07-30）
+
+- 将重复的 `csrfFetch` / `api-client` 合并为单一 `apiRequest` 核心，旧入口只保留薄兼容层。
+- 最近下载与双向同步统一使用 typed API client 和 `useResourcePolling`，移除重复初始化和手写竞态状态。
+- 监控 SSE 降级轮询改用共享可见性定时器，后台标签页不再维持自建轮询。
+- 下一批高收益方向：AI chat route 服务化、剩余大型 storage/media route 业务下沉、逐页推广 typed API client。
+
 ---
 
 ## Phase 1：维护性底座与低风险可用性改造（当前轮）

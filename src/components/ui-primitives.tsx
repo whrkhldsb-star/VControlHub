@@ -60,20 +60,6 @@ export function Badge({
 	);
 }
 
-export function Card({
-	children,
-	className,
-	...rest
-}: {
-	children: ReactNode;
-} & HTMLAttributes<HTMLDivElement>) {
-	return (
-		<div data-card className={className} {...rest}>
-			{children}
-		</div>
-	);
-}
-
 export function Spinner({
 	size = "md",
 	className,

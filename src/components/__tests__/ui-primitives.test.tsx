@@ -2,7 +2,6 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import {
   Badge,
-  Card,
   CheckboxField,
   FormField,
   FormGrid,
@@ -13,10 +12,9 @@ import {
 } from "../ui-primitives";
 
 describe("UI Primitives", () => {
-  it("renders badges, cards, spinners and progress", () => {
-    render(<><Badge tone="emerald">Success</Badge><Card>Card Content</Card><Spinner label="加载中…" /><ProgressBar value={50} /></>);
+  it("renders badges, spinners and progress", () => {
+    render(<><Badge tone="emerald">Success</Badge><Spinner label="加载中…" /><ProgressBar value={50} /></>);
     expect(screen.getByText("Success")).toHaveAttribute("data-tone", "emerald");
-    expect(screen.getByText("Card Content")).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveAttribute("aria-label", "加载中…");
     expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "50");
   });

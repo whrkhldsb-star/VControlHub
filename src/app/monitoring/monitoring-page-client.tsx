@@ -8,6 +8,7 @@ import { getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
 import { useRefreshInterval } from "@/lib/preferences/use-refresh-interval";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { toDateLocale } from "@/lib/i18n/locale-format";
+import { useVisibilityInterval } from "@/lib/hooks/use-visibility-interval";
 
 interface Stats {
   hostname: string;
@@ -65,6 +66,7 @@ export default function MonitoringPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true); // default on — SSE is cheaper than polling
   const [sseConnected, setSseConnected] = useState(false);
+  const [fallbackPolling, setFallbackPolling] = useState(false);
   const refreshIntervalSeconds = useRefreshInterval(30);
 
   const getMonitoringErrorMessage = useCallback((error: unknown): string => {
@@ -96,42 +98,27 @@ export default function MonitoringPage() {
     return () => window.clearTimeout(timer);
   }, [fetchStats]);
 
-  // SSE stream: replaces setInterval polling with real-time push.
-  // Only active when autoRefresh=true. Falls back gracefully if
-  // EventSource fails (network / auth / proxy) → re-enable HTTP
-  // polling as a degraded mode.
+  useVisibilityInterval(
+    () => { void fetchStats(); },
+    autoRefresh && fallbackPolling && refreshIntervalSeconds > 0
+      ? refreshIntervalSeconds * 1000
+      : null,
+  );
+
+  // Prefer real-time SSE; the shared visibility interval handles degraded polling.
   useEffect(() => {
     if (!autoRefresh) return;
 
     let es: EventSource | null = null;
-    let fallbackTimer: ReturnType<typeof setInterval> | null = null;
-    let fallbackEnabled = false;
     let disposed = false;
 
-    function closeSse() {
-      if (es) { es.close(); es = null; }
+    function enableFallback() {
+      if (disposed) return;
+      es?.close();
+      es = null;
       setSseConnected(false);
+      setFallbackPolling(true);
     }
-
-    function stopFallback() {
-      if (fallbackTimer) clearInterval(fallbackTimer);
-      fallbackTimer = null;
-    }
-
-    function startFallback() {
-      fallbackEnabled = true;
-      if (disposed || fallbackTimer || document.visibilityState === "hidden") return;
-      fallbackTimer = setInterval(() => { void fetchStats(); }, refreshIntervalSeconds * 1000);
-    }
-
-    function onVisibilityChange() {
-      if (!fallbackEnabled) return;
-      if (document.visibilityState === "hidden") return stopFallback();
-      void fetchStats();
-      startFallback();
-    }
-
-    document.addEventListener("visibilitychange", onVisibilityChange);
 
     try {
       es = new EventSource("/api/monitoring/stream");
@@ -142,26 +129,32 @@ export default function MonitoringPage() {
           setErrorMessage(null);
           setLoading(false);
           setSseConnected(true);
+          setFallbackPolling(false);
         } catch { /* malform → ignore, next tick will retry */ }
       });
-      es.onerror = () => {
-        closeSse();
-        // Fallback: use HTTP polling at the user's configured interval.
-        startFallback();
+      es.onerror = enableFallback;
+      es.onopen = () => {
+        if (disposed) return;
+        setSseConnected(true);
+        setFallbackPolling(false);
       };
-      es.onopen = () => { setSseConnected(true); };
     } catch {
-      // EventSource constructor failed (very old browser?) → fallback to polling.
-      startFallback();
+      enableFallback();
     }
 
     return () => {
       disposed = true;
-      document.removeEventListener("visibilitychange", onVisibilityChange);
-      closeSse();
-      stopFallback();
+      es?.close();
     };
-  }, [autoRefresh, fetchStats, refreshIntervalSeconds]);
+  }, [autoRefresh]);
+
+  const toggleAutoRefresh = () => {
+    if (autoRefresh) {
+      setSseConnected(false);
+      setFallbackPolling(false);
+    }
+    setAutoRefresh((enabled) => !enabled);
+  };
 
   if (loading) {
     return (
@@ -224,7 +217,7 @@ export default function MonitoringPage() {
         </button>
         <button
           type="button"
-          onClick={() => setAutoRefresh(!autoRefresh)}
+          onClick={toggleAutoRefresh}
           disabled={refreshIntervalSeconds <= 0}
           className={`rounded-xl px-3 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${autoRefresh ? "border border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]" : "border border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-muted)]"}`}
         >

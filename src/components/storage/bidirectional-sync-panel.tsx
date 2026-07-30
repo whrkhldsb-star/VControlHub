@@ -1,14 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 
-import { csrfFetch } from "@/lib/auth/csrf-client";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { normalizeSyncEndpointPath } from "@/lib/sync/bidirectional";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
+import { Notice } from "@/components/ui-primitives";
+import { api } from "@/lib/http/api-client";
+import { useResourcePolling } from "@/lib/http/use-resource-polling";
 
 type ServerOption = { id: string; name: string; host: string | null };
 
@@ -58,9 +60,7 @@ const SCHEDULES = [
 
 export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] }) {
   const { t } = useI18n();
-  const [jobs, setJobs] = useState<SyncJobRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<{ id: string; label: string } | null>(null);
   const [name, setName] = useState("");
@@ -73,41 +73,21 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
   const [reportJobId, setReportJobId] = useState<string | null>(null);
   const [report, setReport] = useState<ReportPayload["report"] | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/sync-jobs", { credentials: "include" });
-      const data = (await res.json().catch(() => ({}))) as { jobs?: SyncJobRow[]; error?: string };
-      if (!res.ok) throw new Error(data.error || t("filesPage.syncJobs.loadFailed"));
-      setJobs(data.jobs ?? []);
-    } catch (e) {
-      setError(getErrorMessage(e, t("filesPage.syncJobs.loadFailed")));
-    } finally {
-      setLoading(false);
-    }
-  }, [t]);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch("/api/sync-jobs", { credentials: "include" });
-        const data = (await res.json().catch(() => ({}))) as { jobs?: SyncJobRow[]; error?: string };
-        if (cancelled) return;
-        if (!res.ok) setError(data.error || t("filesPage.syncJobs.loadFailed"));
-        else setJobs(data.jobs ?? []);
-      } catch (e) {
-        if (!cancelled) setError(getErrorMessage(e, t("filesPage.syncJobs.loadFailed")));
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- bootstrap once
+  const fetchJobs = useCallback(async () => {
+    const data = await api.get<{ jobs?: SyncJobRow[] }>("/api/sync-jobs");
+    return data.jobs ?? [];
   }, []);
+  const getLoadError = useCallback(
+    (cause: unknown) => getErrorMessage(cause, t("filesPage.syncJobs.loadFailed")),
+    [t],
+  );
+  const { data, loading, error: loadError, refresh: load } = useResourcePolling({
+    fetcher: fetchJobs,
+    intervalSeconds: 0,
+    getErrorMessage: getLoadError,
+  });
+  const jobs = data ?? [];
+  const error = actionError ?? loadError;
 
   const sameEndpoint =
     Boolean(sourceServerId) &&
@@ -115,33 +95,28 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
     normalizeSyncEndpointPath(sourcePath) === normalizeSyncEndpointPath(targetPath);
 
   const createJob = async () => {
-    setError(null);
+    setActionError(null);
     if (sameEndpoint) {
-      setError(t("filesPage.syncJobs.sameEndpoint"));
+      setActionError(t("filesPage.syncJobs.sameEndpoint"));
       return;
     }
     setBusyId("create");
     try {
-      // csrfFetch auto-parses JSON and throws on !ok — do not treat result as Response.
-      await csrfFetch("/api/sync-jobs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: name.trim() || t("filesPage.syncJobs.defaultName"),
-          sourceServerId,
-          targetServerId,
-          sourcePath,
-          targetPath,
-          syncType,
-          schedule: schedule === "manual" ? null : schedule,
-          deleteOrphans: false,
-          compress: false,
-        }),
+      await api.post("/api/sync-jobs", {
+        name: name.trim() || t("filesPage.syncJobs.defaultName"),
+        sourceServerId,
+        targetServerId,
+        sourcePath,
+        targetPath,
+        syncType,
+        schedule: schedule === "manual" ? null : schedule,
+        deleteOrphans: false,
+        compress: false,
       });
       setName("");
       await load();
     } catch (e) {
-      setError(getErrorMessage(e, t("filesPage.syncJobs.createFailed")));
+      setActionError(getErrorMessage(e, t("filesPage.syncJobs.createFailed")));
     } finally {
       setBusyId(null);
     }
@@ -149,12 +124,12 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
 
   const runJob = async (id: string) => {
     setBusyId(id);
-    setError(null);
+    setActionError(null);
     try {
-      await csrfFetch(`/api/sync-jobs/${id}/run`, { method: "POST" });
+      await api.post(`/api/sync-jobs/${id}/run`);
       await load();
     } catch (e) {
-      setError(getErrorMessage(e, t("filesPage.syncJobs.runFailed")));
+      setActionError(getErrorMessage(e, t("filesPage.syncJobs.runFailed")));
     } finally {
       setBusyId(null);
     }
@@ -162,16 +137,12 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
 
   const patchSchedule = async (id: string, next: string) => {
     setBusyId(`sch-${id}`);
-    setError(null);
+    setActionError(null);
     try {
-      await csrfFetch(`/api/sync-jobs/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ schedule: next === "manual" ? null : next }),
-      });
+      await api.patch(`/api/sync-jobs/${id}`, { schedule: next === "manual" ? null : next });
       await load();
     } catch (e) {
-      setError(getErrorMessage(e, t("filesPage.syncJobs.scheduleFailed")));
+      setActionError(getErrorMessage(e, t("filesPage.syncJobs.scheduleFailed")));
     } finally {
       setBusyId(null);
     }
@@ -179,15 +150,13 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
 
   const openReport = async (id: string) => {
     setBusyId(`rep-${id}`);
-    setError(null);
+    setActionError(null);
     try {
-      const res = await fetch(`/api/sync-jobs/${id}/report`, { credentials: "include" });
-      const data = (await res.json().catch(() => ({}))) as ReportPayload & { error?: string };
-      if (!res.ok) throw new Error(data.error || t("filesPage.syncJobs.reportFailed"));
+      const data = await api.get<ReportPayload>(`/api/sync-jobs/${id}/report`);
       setReportJobId(id);
       setReport(data.report);
     } catch (e) {
-      setError(getErrorMessage(e, t("filesPage.syncJobs.reportFailed")));
+      setActionError(getErrorMessage(e, t("filesPage.syncJobs.reportFailed")));
     } finally {
       setBusyId(null);
     }
@@ -195,16 +164,16 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
 
   const removeJob = async (id: string) => {
     setBusyId(id);
-    setError(null);
+    setActionError(null);
     try {
-      await csrfFetch(`/api/sync-jobs/${id}`, { method: "DELETE" });
+      await api.delete(`/api/sync-jobs/${id}`);
       if (reportJobId === id) {
         setReportJobId(null);
         setReport(null);
       }
       await load();
     } catch (e) {
-      setError(getErrorMessage(e, t("filesPage.syncJobs.deleteFailed")));
+      setActionError(getErrorMessage(e, t("filesPage.syncJobs.deleteFailed")));
     } finally {
       setBusyId(null);
       setPendingDelete(null);
@@ -214,9 +183,7 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
   return (
     <div className="space-y-4">
       {error ? (
-        <p className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
-          {error}
-        </p>
+        <Notice tone="danger" compact>{error}</Notice>
       ) : null}
 
       <div className="grid gap-2 sm:grid-cols-2">

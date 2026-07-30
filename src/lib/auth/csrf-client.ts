@@ -40,73 +40,13 @@
  * Cookie reading is the single source of truth for `@/lib/http/api-client` as well.
  */
 
-import { ApiError } from "@/lib/http/api-client-error";
+import { apiRequest, type ApiRequestInit } from "@/lib/http/api-client";
+export { getCsrfTokenFromCookie } from "@/lib/auth/csrf-token";
 
-/**
- * Read the double-submit `csrf_token` cookie (JS-readable by design).
- * Shared by csrfFetch, api-client, and non-fetch clients (XHR / chunk PUT).
- */
-export function getCsrfTokenFromCookie(): string | null {
-	if (typeof document === "undefined") return null;
-	const cookie = document.cookie
-		.split(";")
-		.map((c) => c.trim())
-		.find((c) => c.startsWith("csrf_token="));
-	if (!cookie) return null;
-	return decodeURIComponent(cookie.split("=").slice(1).join("="));
-}
-
+/** Backward-compatible entry point; all behavior is owned by apiRequest. */
 export async function csrfFetch<T = Record<string, any>>(
 	input: RequestInfo | URL,
-	init?: RequestInit & { raw?: boolean },
+	init?: ApiRequestInit,
 ): Promise<T> {
-	const method = (init?.method ?? "GET").toUpperCase();
-	const needsCsrf = !["GET", "HEAD", "OPTIONS"].includes(method);
-
-	let headers: Headers;
-
-	if (init?.headers instanceof Headers) {
-		headers = init.headers;
-	} else if (init?.headers) {
-		headers = new Headers(init.headers as Record<string, string>);
-	} else {
-		headers = new Headers();
-	}
-
-	// Auto-inject CSRF token
-	if (needsCsrf) {
-		const csrfToken = getCsrfTokenFromCookie();
-		if (csrfToken) {
-			headers.set("X-CSRF-Token", csrfToken);
-		}
-	}
-
-	// Auto-inject Content-Type for JSON bodies
-	if (init?.body && typeof init.body === "string" && !headers.has("Content-Type")) {
-		headers.set("Content-Type", "application/json");
-	}
-
-	// Raw mode — return the original Response object (caller handles status)
-	if (init?.raw) {
-		return fetch(input, { ...init, headers }) as unknown as T;
-	}
-
-	const response = await fetch(input, { ...init, headers });
-
-	if (!response.ok) {
-		let body: Record<string, unknown> = {};
-		try {
-			body = (await response.json()) as Record<string, unknown>;
-		} catch {
-			body = { error: response.statusText || `Request failed (${response.status})` };
-		}
-		throw new ApiError(response.status, body);
-	}
-
-	// Handle 204 No Content (align with api-client)
-	if (response.status === 204) {
-		return undefined as T;
-	}
-
-	return response.json();
+	return apiRequest<T>(input, init);
 }

@@ -10,6 +10,7 @@ import {
 	ListRow,
 	SurfacePanel,
 	Toolbar,
+	Card,
 } from "../page-shell";
 
 describe("PageShell Components", () => {
@@ -95,9 +96,10 @@ describe("PageShell Components", () => {
 			expect(screen.getByText("Row two")).toBeInTheDocument();
 		});
 
-		it("renders SurfacePanel and Toolbar", () => {
+		it("renders Card, SurfacePanel and Toolbar", () => {
 			render(
 				<>
+					<Card>Card content</Card>
 					<Toolbar>
 						<span>Filter</span>
 					</Toolbar>
@@ -106,6 +108,7 @@ describe("PageShell Components", () => {
 					</SurfacePanel>
 				</>
 			);
+			expect(screen.getByText("Card content")).toHaveAttribute("data-card");
 			expect(screen.getByText("Filter")).toBeInTheDocument();
 			expect(screen.getByText("Create")).toBeInTheDocument();
 			expect(screen.getByText("Form help")).toBeInTheDocument();
