@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-29T14:41:07.071Z",
+  "generatedAt": "2026-07-30T06:31:28.052Z",
   "summary": {
     "permissionsInList": 54,
     "rolesDefined": 4,
@@ -32,11 +32,11 @@
       "files": [
         {
           "path": "src/app/api/ai/chat/route.ts",
-          "line": 46
+          "line": 31
         },
         {
           "path": "src/app/api/ai/chat/route.ts",
-          "line": 46
+          "line": 31
         },
         {
           "path": "src/app/api/ai/conversations/[id]/route.ts",
