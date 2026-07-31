@@ -98,6 +98,7 @@ jobs:
       ADMIN_INITIAL_PASSWORD: ci-e2e-admin-initial-password
       APP_SLUG: vcontrolhub
       AUTH_SESSION_COOKIE_NAME: vcontrolhub_session
+      STORAGE_ROOT: /tmp/vcontrolhub-e2e-storage
     services:
       postgres:
         image: postgres:16-alpine
@@ -209,6 +210,20 @@ jobs:
           npx playwright test e2e/authenticated-flow.spec.ts \
             --project=chromium --project=firefox --project=webkit \
             --workers=1 --retries=1
+
+      - name: Run complete product workflows on Chromium
+        env:
+          NODE_ENV: production
+          E2E_DIRECT_SESSION: "1"
+          E2E_TRUST_LOCAL_DB_SESSION: "1"
+          E2E_ISOLATED_ACCOUNT: "1"
+          E2E_USER: vcontrolhub_e2e
+          E2E_PASS: VControlHub-E2E-2026!
+          E2E_DIRECT_USER: vcontrolhub_e2e
+        run: |
+          set -euo pipefail
+          curl -fsS http://127.0.0.1:3000/login >/dev/null
+          npm run test:e2e:workflows -- --retries=1
 
       - name: Dump server log on failure
         if: failure()

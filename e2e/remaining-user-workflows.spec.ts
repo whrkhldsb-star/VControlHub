@@ -66,30 +66,53 @@ test("read-only operational pages expose working refresh, filter and tab control
 	}
 });
 
-test("traffic history, quick-service tabs/search, Docker refresh/logs and QA detail", async ({ page }) => {
+test("traffic history range and refresh controls", async ({ page }) => {
 	test.setTimeout(90_000);
 	await login(page);
 
+	const localSummary = page.waitForResponse((response) => {
+		const url = new URL(response.url());
+		return url.pathname === "/api/traffic/summary" && !url.searchParams.has("include");
+	});
+	const remoteSummary = page.waitForResponse((response) => {
+		const url = new URL(response.url());
+		return url.pathname === "/api/traffic/summary" && url.searchParams.get("include") === "remote";
+	});
 	await page.goto("/traffic");
+	await Promise.all([localSummary, remoteSummary]);
 	await page.getByRole("button", { name: /^7d$/ }).click();
 	await expect(page.getByText(/7\s*天|7\s*days/i).first()).toBeVisible();
+	const refreshed = page.waitForResponse((response) => {
+		const url = new URL(response.url());
+		return url.pathname === "/api/traffic/summary" && !url.searchParams.has("include");
+	});
 	await page.getByRole("button", { name: /刷新|Refresh/i }).first().click();
+	await refreshed;
 	const iface = page.locator("#trafficIface");
 	if (await iface.isVisible().catch(() => false)) {
 		const options = await iface.locator("option").count();
 		if (options > 1) await iface.selectOption({ index: 1 });
 	}
+	await expect(page.locator("body")).not.toContainText(/Application error|Internal Server Error/i);
+});
 
+test("quick-service tabs and search remain usable", async ({ page }) => {
+	await login(page);
 	await page.goto("/quick-services");
 	const search = page.getByRole("searchbox", { name: /搜索快捷服务|Search quick services/i });
 	await search.fill("__qa_no_such_service__");
 	await expect(page.locator("body")).toContainText(/没有|No .*found|暂无/i);
 	await search.fill("");
-	for (const name of [/社区|Community/i, /已安装|Installed/i, /来源|Sources/i, /应用商店|Store/i]) {
-		const button = page.getByRole("button", { name }).first();
-		if (await button.isVisible().catch(() => false)) await button.click();
+	for (const name of [/本地精选|Local picks|Store/i, /社区推荐|Community/i, /已安装|Installed/i, /应用源|Sources/i]) {
+		const tab = page.getByRole("tab", { name }).first();
+		await expect(tab).toBeVisible();
+		await tab.click();
+		await expect(tab).toHaveAttribute("aria-selected", "true");
 	}
+});
 
+test("Docker refresh and logs remain usable", async ({ page }) => {
+	await login(page);
 	await page.goto("/docker");
 	await page.getByRole("button", { name: /刷新.*列表|Refresh.*list/i }).click();
 	const logButton = page.getByRole("button", { name: /日志|Logs/i }).first();
@@ -100,15 +123,17 @@ test("traffic history, quick-service tabs/search, Docker refresh/logs and QA det
 		await dialog.getByRole("button", { name: /关闭|Close/i }).click();
 		await expect(dialog).toBeHidden();
 	}
+});
 
+test("QA report list opens the selected detail", async ({ page }) => {
+	await login(page);
 	await page.goto("/qa-reports");
 	const detail = page.getByRole("link", { name: /查看详情|View detail/i }).first();
-	if (await detail.isVisible().catch(() => false)) {
-		await detail.click();
-		await expect(page).toHaveURL(/\/qa-reports\/[^/]+$/);
-		await expect(page.locator("h1").first()).toBeVisible();
-		await page.getByRole("link", { name: /返回|Back/i }).first().click();
-	}
+	await expect(detail).toBeVisible();
+	await detail.click();
+	await expect(page).toHaveURL(/\/qa-reports\/[^/]+$/);
+	await expect(page.locator("h1").first()).toBeVisible({ timeout: 15_000 });
+	await page.getByRole("link", { name: /返回|Back/i }).first().click();
 });
 
 test("audit filters and AI/AI Ops unavailable-provider experience stay usable", async ({ page }) => {
@@ -124,13 +149,16 @@ test("audit filters and AI/AI Ops unavailable-provider experience stay usable", 
 	await page.goto("/ai");
 	await expect(page.getByRole("heading", { name: /AI 助手|AI Assistant/i })).toBeVisible();
 	const messageBox = page.getByRole("textbox").last();
-	if (await messageBox.isVisible().catch(() => false)) {
+	if (await messageBox.count()) {
+		await expect(messageBox).toBeVisible();
 		await messageBox.fill("QA connectivity check only; do not perform actions.");
 		const send = page.getByRole("button", { name: /发送|Send/i }).last();
-		if (await send.isEnabled().catch(() => false)) {
-			await send.click();
-			await expect(page.locator("body")).toContainText(/provider|提供商|模型|model|配置|configure/i, { timeout: 20_000 });
-		}
+		await expect(send).toBeEnabled();
+		await send.click();
+		await expect(page.locator("body")).toContainText(/provider|提供商|模型|model|配置|configure/i, { timeout: 20_000 });
+	} else {
+		await expect(page.getByText(/没有可用的 AI 提供商|No AI providers available/i)).toBeVisible();
+		await expect(page.getByRole("button", { name: /配置 AI 提供商|Configure AI provider/i })).toBeVisible();
 	}
 
 	await page.goto("/ai-ops");
@@ -146,10 +174,10 @@ test("download task create, cancel and purge lifecycle", async ({ page }) => {
 	await login(page);
 	await page.goto("/downloads");
 	const create = page.getByRole("button", { name: /新建下载|Create download/i });
-	if (!(await create.isVisible().catch(() => false))) return;
+	await expect(create).toBeVisible();
 	await create.click();
 	const server = page.locator("#downloadServer");
-	if ((await server.locator("option").count()) === 0) return;
+	await expect(server.locator("option")).not.toHaveCount(0);
 	const marker = `qa-download-${Date.now()}.bin`;
 	await page.locator("#download-url").fill(`https://example.com/${marker}`);
 	await page.locator("#downloadFileName").fill(marker);
@@ -159,7 +187,8 @@ test("download task create, cancel and purge lifecycle", async ({ page }) => {
 	const task = page.locator("article").filter({ hasText: marker }).first();
 	await expect(task).toBeVisible({ timeout: 20_000 });
 	const cancel = task.getByRole("button", { name: /取消|Cancel/i });
-	if (await cancel.isVisible().catch(() => false)) await cancel.click();
+	await expect(cancel).toBeVisible();
+	await cancel.click();
 	await expect(task).toContainText(/已取消|Cancelled|失败|Failed/i, { timeout: 20_000 });
 	await task.getByRole("button", { name: /删除|Delete/i }).click();
 	const dialog = page.getByRole("dialog");
@@ -173,20 +202,19 @@ test("server detail, OS detection and realtime diagnostics", async ({ page }) =>
 	await login(page);
 	await page.goto("/servers");
 	const details = page.getByRole("button", { name: /查看详情|View details/i }).first();
-	if (!(await details.isVisible().catch(() => false))) return;
+	await expect(details).toBeVisible();
 	await details.click();
 	const dialog = page.getByRole("dialog");
 	await expect(dialog).toBeVisible();
 	const detect = dialog.getByRole("button", { name: /探测 OS|Detect OS/i });
-	if (await detect.isVisible().catch(() => false)) {
-		await detect.click();
-		await expect(detect).toBeEnabled({ timeout: 45_000 });
-	}
+	await expect(detect).toBeVisible();
+	await detect.click();
+	await expect(detect).toBeEnabled({ timeout: 45_000 });
 	const diagnose = dialog.getByRole("button", { name: /实时探测|Run realtime diagnostics/i });
-	if (await diagnose.isEnabled().catch(() => false)) {
-		await diagnose.click();
-		await expect(dialog.locator('[role="status"], [role="alert"]').last()).toBeVisible({ timeout: 45_000 });
-	}
+	await expect(diagnose).toBeVisible();
+	await expect(diagnose).toBeEnabled();
+	await diagnose.click();
+	await expect(dialog.locator('[role="status"], [role="alert"]').last()).toBeVisible({ timeout: 45_000 });
 	await dialog.getByRole("button", { name: /收起详情|Collapse details/i }).click();
 	await expect(dialog).toBeHidden();
 });
@@ -194,10 +222,8 @@ test("server detail, OS detection and realtime diagnostics", async ({ page }) =>
 test("team workspace create and delete lifecycle", async ({ page }) => {
 	await login(page);
 	await page.goto("/settings");
-	const teamTab = page.getByRole("tab", { name: /团队|Team/i });
-	if (await teamTab.isVisible().catch(() => false)) await teamTab.click();
 	const section = page.locator("#team-workspaces");
-	if (!(await section.isVisible().catch(() => false))) return;
+	await expect(section).toBeVisible();
 	const marker = `QA Team ${Date.now()}`;
 	await section.getByLabel(/团队名称|Team name/i).last().fill(marker);
 	await section.getByLabel(/slug/i).fill(`qa-team-${Date.now()}`);

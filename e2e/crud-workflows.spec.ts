@@ -111,11 +111,13 @@ test("API token create, plaintext display and revoke", async ({ page }) => {
 test("scheduled task create, search, pause and delete without execution", async ({ page }) => {
 	await page.goto("/scheduled-tasks");
 	await page.getByRole("button", { name: /创建定时任务|Create scheduled task/i }).click();
-	if (!(await page.getByRole("group", { name: /目标节点|Target nodes/i }).isVisible().catch(() => false))) return;
+	const targetNodes = page.getByRole("group", { name: /目标节点|Target nodes/i });
+	await expect(targetNodes).toBeVisible();
 	await page.getByRole("textbox", { name: /任务名称|Task name/i }).fill(marker);
 	await page.getByRole("textbox", { name: /Cron 表达式|Cron expression/i }).fill("0 0 31 12 *");
 	await page.getByRole("textbox", { name: /命令内容|Command/i }).fill("echo e2e-safe");
-	const server = page.getByRole("group", { name: /目标节点|Target nodes/i }).getByRole("checkbox").first();
+	const server = targetNodes.locator('input[type="checkbox"]:not(:disabled)').first();
+	await expect(server).toBeEnabled();
 	await server.check();
 	await page.getByRole("button", { name: /创建任务|Create task/i }).click();
 	await page.getByRole("searchbox", { name: /搜索定时任务|Search scheduled/i }).fill(marker);
@@ -127,23 +129,38 @@ test("scheduled task create, search, pause and delete without execution", async 
 	await expect(page.getByText(marker, { exact: true })).toBeHidden();
 });
 
-test("playbook create, dry-run, toggle and delete", async ({ page }) => {
+async function createPlaybook(page: Page, name: string) {
 	await page.goto("/playbooks");
 	await page.getByRole("button", { name: /新建 Playbook|New Playbook/i }).first().click();
-	if (await page.getByText(/当前团队暂无可用 VPS|No VPS available in this team/i).isVisible().catch(() => false)) return;
-	await page.getByLabel(/Playbook 名称|Playbook Name/i).fill(marker);
+	await expect(page.getByText(/当前团队暂无可用 VPS|No VPS available in this team/i)).toBeHidden();
+	await page.getByLabel(/Playbook 名称|Playbook Name/i).fill(name);
 	await page.getByLabel(/步骤名称|Step name/i).fill("safe dry run");
 	await page.getByRole("textbox", { name: /命令|Command/i }).fill("echo e2e-safe");
-	await page.getByRole("group", { name: /目标 VPS|Target VPS/i }).getByRole("checkbox").first().check();
+	const targetVps = page.getByRole("group", { name: /目标 VPS|Target VPS/i }).locator('input[type="checkbox"]:not(:disabled)').first();
+	await expect(targetVps).toBeEnabled();
+	await targetVps.check();
 	await page.getByRole("button", { name: /保存 Playbook|Save Playbook/i }).click();
-	await expect(page.getByText(marker, { exact: true })).toBeVisible();
-	const card = page.getByText(marker, { exact: true }).locator("xpath=ancestor::article[1]");
-	await card.getByRole("button", { name: /Dry-run/i }).click();
-	await expect(card.getByText(/dry-run/i).last()).toBeVisible();
+	await expect(page.getByText(name, { exact: true })).toBeVisible();
+	return page.getByText(name, { exact: true }).locator("xpath=ancestor::article[1]");
+}
+
+test("playbook create, toggle and delete before execution", async ({ page }) => {
+	const card = await createPlaybook(page, marker);
 	await card.getByRole("button", { name: /启用 \/ 停用|Enable \/ Disable/i }).click();
 	await card.getByRole("button", { name: /删除|Delete/i }).click();
 	await page.getByRole("dialog", { name: /删除 Playbook|Delete Playbook/i }).getByRole("button", { name: /确认删除|Confirm Delete/i }).click();
 	await expect(page.getByText(marker, { exact: true })).toBeHidden();
+});
+
+test("playbook dry-run queues safely and blocks deletion while active", async ({ page }) => {
+	const name = `${marker}-dry-run`;
+	const card = await createPlaybook(page, name);
+	await card.getByRole("button", { name: /Dry-run/i }).click();
+	await expect(card.getByText(/dry-run/i).last()).toBeVisible();
+	await card.getByRole("button", { name: /删除|Delete/i }).click();
+	await page.getByRole("dialog", { name: /删除 Playbook|Delete Playbook/i }).getByRole("button", { name: /确认删除|Confirm Delete/i }).click();
+	await expect(page.getByRole("alert").filter({ hasText: /进行中的运行|active run/i })).toBeVisible();
+	await expect(page.getByText(name, { exact: true })).toBeVisible();
 });
 
 test("cost entry create, edit and delete", async ({ page }) => {

@@ -95,10 +95,9 @@ test("desktop navigation and safe controls work through clicks and keyboard", as
 	const tabs = page.getByRole("tab");
 	for (let index = 0; index < (await tabs.count()); index += 1) {
 		const tab = tabs.nth(index);
-		if (await tab.isVisible()) {
-			await tab.click();
-			await expect(tab).toHaveAttribute("aria-selected", "true");
-		}
+		await expect(tab).toBeVisible();
+		await tab.click();
+		await expect(tab).toHaveAttribute("aria-selected", "true");
 	}
 
 	// Exercise dialogs without confirming destructive or state-changing actions.
@@ -138,7 +137,8 @@ test("mobile layout and navigation remain operable at 390px", async ({ page }) =
 	for (let index = 0; index < Math.min(await mobileLinks.count(), 5); index += 1) {
 		await page.goto("/");
 		const link = page.getByRole("navigation", { name: /Mobile navigation|移动端导航/i }).locator('a[href^="/"]').nth(index);
-		if (await link.isVisible().catch(() => false)) await link.click();
+		await expect(link).toBeVisible();
+		await link.click();
 		await expect(page.locator("body")).toBeVisible();
 	}
 	expect(failures).toEqual([]);

@@ -88,10 +88,10 @@ If you reintroduce cross-job `.next` artifact reuse later: set
 `prisma db push`, keep the server under `nohup` with a pid/log dump on failure,
 and do **not** re-introduce a bare `process.exit(1)` on `uncaughtException`.
 
-### Authenticated smoke (PR gate)
+### Authenticated and product workflow gates
 
-The E2E job also runs `e2e/authenticated-flow.spec.ts` on **Chromium only** after
-public smoke:
+The E2E job runs `e2e/authenticated-flow.spec.ts` on Chromium, Firefox, and
+WebKit after public smoke:
 
 - `prisma/seed.ts` seeds roles/admin so the app can boot cleanly
 - `E2E_ISOLATED_ACCOUNT=1` creates `vcontrolhub_e2e` (ACTIVE, no password reset)
@@ -99,8 +99,12 @@ public smoke:
   `mustChangePassword` redirects)
 - Path covered: `/` → `/servers` → `/files` → `/settings` → dashboard chrome
 
-Full multi-browser authenticated suite remains `npm run test:e2e:nightly` /
-`test:e2e:cross-browser` (not every PR).
+It then runs the complete non-destructive product workflow suite on Chromium.
+That gate renders every concrete authenticated page and exercises CRUD, files,
+media/image-bed, settings, monitoring, downloads, server diagnostics, and team
+workspaces against an isolated account and synthetic unreachable VPS. Missing
+fixtures are assertions, not silent skips. Full multi-browser coverage for all
+workflow specs remains available through `npm run test:e2e:cross-browser`.
 
 
 

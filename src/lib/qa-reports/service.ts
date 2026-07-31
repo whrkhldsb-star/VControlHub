@@ -296,27 +296,26 @@ export async function listQaReports(): Promise<QaReportsListResult> {
 
 export async function getQaReportDetail(id: string): Promise<QaReportDetail | null> {
   if (!id || typeof id !== "string") return null;
-  const [kind, sourceRaw] = id.split(":", 2);
-  if (!kind || !sourceRaw) return null;
+  const separatorIndex = id.indexOf(":");
+  if (separatorIndex <= 0 || separatorIndex === id.length - 1) return null;
+  const kind = id.slice(0, separatorIndex);
   const [remediation, qaLoop] = await Promise.all([loadRemediationState(), loadQaLoopState()]);
 
   if (kind === "slice") {
-    const target = sourceRaw;
     const rows = (remediation?.completed ?? []).filter(
       (row): row is Record<string, unknown> => Boolean(row) && typeof row === "object",
     );
-    const entry = rows.find((row) => coerceString(row.id) === target);
+    const entry = rows.find((row) => buildSliceSummary(row)?.id === id);
     if (!entry) return null;
     const summary = buildSliceSummary(entry);
     return summary ? buildSliceDetail(summary, entry) : null;
   }
 
   if (kind === "blocker") {
-    const target = sourceRaw;
     const rows = (remediation?.resolvedBlockers ?? []).filter(
       (row): row is Record<string, unknown> => Boolean(row) && typeof row === "object",
     );
-    const entry = rows.find((row) => coerceString(row.target) === target);
+    const entry = rows.find((row) => buildBlockerSummary(row)?.id === id);
     if (!entry) return null;
     const summary = buildBlockerSummary(entry);
     return summary ? buildBlockerDetail(summary, entry) : null;
@@ -325,9 +324,8 @@ export async function getQaReportDetail(id: string): Promise<QaReportDetail | nu
   if (kind === "qa_run") {
     const lastRun = qaLoop?.lastRun;
     if (!lastRun || typeof lastRun !== "object") return null;
-    if (coerceString(lastRun.id) !== sourceRaw) return null;
     const summary = buildQaRunSummary(lastRun);
-    return summary ? buildQaRunDetail(summary, lastRun) : null;
+    return summary?.id === id ? buildQaRunDetail(summary, lastRun) : null;
   }
 
   return null;

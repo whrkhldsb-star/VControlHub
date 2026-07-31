@@ -39,6 +39,15 @@ function makeRemediationState(): Record<string, unknown> {
 				resolution: "Deterministic preflight verified Docker is now installed and active.",
 				next: "Use a Docker-capable canary host for the next lifecycle run.",
 			},
+			{
+				at: "2026-06-04T06:30:00Z",
+				target: "quick-services-docker-canary",
+				type: "environment_blocker",
+				summary: "The same canary needed a later remediation.",
+				resolvedAt: "2026-06-04T07:00:00Z",
+				resolution: "Second exact resolution for the same target.",
+				next: "Keep the Docker canary in the scheduled verification set.",
+			},
 		],
 	};
 }
@@ -162,10 +171,10 @@ afterEach(async () => {
 describe("qa-reports/service", () => {
 	it("listQaReports aggregates slice / blocker / qa_run rows from .hermes/", async () => {
 		const result = await listQaReports();
-		expect(result.totals).toEqual({ total: 3, slices: 1, blockers: 1, qaRuns: 1 });
-		expect(result.reports).toHaveLength(3);
+		expect(result.totals).toEqual({ total: 4, slices: 1, blockers: 2, qaRuns: 1 });
+		expect(result.reports).toHaveLength(4);
 		const kinds = result.reports.map((report) => report.kind).sort();
-		expect(kinds).toEqual(["blocker", "qa_run", "slice"]);
+		expect(kinds).toEqual(["blocker", "blocker", "qa_run", "slice"]);
 		// Newest first
 		const first = result.reports[0]!;
 		expect(first.finishedAt >= result.reports[1]!.finishedAt).toBe(true);
@@ -201,11 +210,22 @@ describe("qa-reports/service", () => {
 	});
 
 	it("getQaReportDetail returns blocker with resolution + next as evidence", async () => {
-		const detail = await getQaReportDetail("blocker:quick-services-docker-canary:2026-06-03T06:35:45Z");
+		const detail = await getQaReportDetail("blocker:quick-services-docker-canary:2026-06-03T06:35:45.000Z");
 		expect(detail).not.toBeNull();
 		expect(detail?.kind).toBe("blocker");
 		expect(detail?.next).toContain("Docker-capable");
-		expect(detail?.evidence.some((row) => row.command === "resolution")).toBe(true);
+		expect(detail?.evidence).toContainEqual({
+			command: "resolution",
+			result: "Deterministic preflight verified Docker is now installed and active.",
+		});
+	});
+
+	it("getQaReportDetail distinguishes repeated blockers for the same target", async () => {
+		const detail = await getQaReportDetail("blocker:quick-services-docker-canary:2026-06-04T07:00:00.000Z");
+		expect(detail?.evidence).toContainEqual({
+			command: "resolution",
+			result: "Second exact resolution for the same target.",
+		});
 	});
 
 	it("getQaReportDetail returns qa_run with evidenceMatrix flattened to rows", async () => {
@@ -373,6 +393,6 @@ describe("qa-reports/service.listQaReports with trends", () => {
 		expect(result.trends.dailyBuckets).toEqual([]);
 		expect(result.trends.lastFailure).toBeNull();
 		// The slice / blocker / qa_run aggregates are unaffected
-		expect(result.totals.total).toBe(3);
+		expect(result.totals.total).toBe(4);
 	});
 });

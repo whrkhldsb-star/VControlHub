@@ -21,6 +21,7 @@
     "test:deploy": "npm run build && npm run build:runtime && npm run verify:deploy-assets && npm run docs:check",
     "test:e2e:nightly": "E2E_DIRECT_SESSION=1 E2E_TRUST_LOCAL_DB_SESSION=1 E2E_ISOLATED_ACCOUNT=1 E2E_USER=vcontrolhub_e2e E2E_PASS=VControlHub-E2E-2026! playwright test --project=chromium --workers=1",
     "test:e2e:cross-browser": "PLAYWRIGHT_CROSS_BROWSER=1 E2E_DIRECT_SESSION=1 E2E_TRUST_LOCAL_DB_SESSION=1 E2E_ISOLATED_ACCOUNT=1 E2E_USER=vcontrolhub_e2e E2E_PASS=VControlHub-E2E-2026! playwright test --project=chromium --project=firefox --project=webkit --workers=1",
+    "test:e2e:workflows": "E2E_DIRECT_SESSION=1 E2E_TRUST_LOCAL_DB_SESSION=1 E2E_ISOLATED_ACCOUNT=1 E2E_USER=vcontrolhub_e2e E2E_PASS=VControlHub-E2E-2026! E2E_DIRECT_USER=vcontrolhub_e2e playwright test e2e/crud-workflows.spec.ts e2e/exploratory-ui.spec.ts e2e/file-workflows.spec.ts e2e/frontend-quality.spec.ts e2e/media-image-workflows.spec.ts e2e/remaining-user-workflows.spec.ts --project=chromium --workers=1",
     "test:e2e:public": "playwright test e2e/public-smoke.spec.ts --workers=1",
     "dast:baseline": "bash scripts/dast-baseline.sh",
     "load:baseline": "bash scripts/load/run-k6-baseline.sh",

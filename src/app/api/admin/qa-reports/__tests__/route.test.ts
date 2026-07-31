@@ -10,10 +10,6 @@ vi.mock("@/lib/auth/require-api-permission", () => ({
 
 // Use the real apiCatch + real NotFoundError by re-importing them.
 // We mock only the QA service + auth gate to control handler behavior.
-vi.mock("@/lib/auth/require-api-permission", () => ({
-	requireApiPermission: requireApiPermissionMock,
-}));
-
 vi.mock("@/lib/qa-reports/service", () => ({
 	listQaReports: listQaReportsMock,
 	getQaReportDetail: getQaReportDetailMock,
