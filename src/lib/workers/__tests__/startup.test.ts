@@ -153,6 +153,32 @@ describe("startWorkerLifecycle", () => {
 
 describe("stopWorkerLifecycle", () => {
   it("stops workers and records the stopped runtime", async () => {
+    await startWorkerLifecycle();
+    await stopWorkerLifecycle();
+    expect(stopAllWorkersMock).toHaveBeenCalledTimes(1);
+    expect(stopRuntimeHeartbeatMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("coalesces concurrent shutdown callers into one stop operation", async () => {
+    let releaseHeartbeat!: () => void;
+    stopRuntimeHeartbeatMock.mockImplementationOnce(() => new Promise<void>((resolve) => {
+      releaseHeartbeat = resolve;
+    }));
+    await startWorkerLifecycle();
+
+    const first = stopWorkerLifecycle();
+    const second = stopWorkerLifecycle();
+    expect(second).toBe(first);
+    expect(stopAllWorkersMock).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(stopRuntimeHeartbeatMock).toHaveBeenCalledTimes(1));
+    releaseHeartbeat();
+    await Promise.all([first, second]);
+    expect(stopRuntimeHeartbeatMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("does nothing after the lifecycle has already stopped", async () => {
+    await startWorkerLifecycle();
+    await stopWorkerLifecycle();
     await stopWorkerLifecycle();
     expect(stopAllWorkersMock).toHaveBeenCalledTimes(1);
     expect(stopRuntimeHeartbeatMock).toHaveBeenCalledTimes(1);

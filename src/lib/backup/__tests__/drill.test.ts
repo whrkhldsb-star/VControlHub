@@ -30,6 +30,10 @@ describe("non-destructive backup drill", () => {
     expect(report.safe).toBe(true);
     expect(report.checksum.matched).toBe(true);
     expect(report.checks.map((check) => check.name)).toEqual(["artifact", "sha256", "gzip", "database-format"]);
+    expect(mocks.runBackupCommand).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      file: "bash",
+      args: ["-c", expect.stringContaining("head -c 8192; cat >/dev/null"), "backup-drill", path.join(backupDir, "database.sql.gz")],
+    }));
     expect(mocks.runBackupCommand).not.toHaveBeenCalledWith(expect.objectContaining({ args: expect.arrayContaining(["scripts/restore-db.sh"]) }));
   });
 

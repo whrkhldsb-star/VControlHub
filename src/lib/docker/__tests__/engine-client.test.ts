@@ -112,6 +112,27 @@ describe("requestRemoteDockerEngine", () => {
 		expect(result.dockerAvailable).toBe(false);
 	});
 
+	it("treats curl newline plus status 000 as an unavailable Docker socket", async () => {
+		vi.mocked(prisma.server.findUnique).mockResolvedValue(mockServer as never);
+		vi.mocked(execRemoteCommand).mockResolvedValue({
+			stdout: "\n000",
+			stderr: "",
+			exitCode: 7,
+		});
+
+		const result = await requestRemoteDockerEngine("srv-1", "/containers/json", {
+			unavailableData: [],
+			loggerScope: "test",
+		});
+
+		expect(result).toMatchObject({
+			ok: true,
+			status: 200,
+			data: [],
+			dockerAvailable: false,
+		});
+	});
+
 	it("parses successful Docker API response", async () => {
 		vi.mocked(prisma.server.findUnique).mockResolvedValue(mockServer as never);
 		// curl output: body + "\n" + http_status

@@ -112,9 +112,9 @@ describe("alert evaluation worker", () => {
       expect.objectContaining({
         type: "alert.evaluate",
         keepLatest: 25,
-        olderThan: expect.any(Date),
       }),
     );
+    expect(jobMocks.pruneCompletedJobsByType.mock.calls[0]?.[0]).not.toHaveProperty("olderThan");
 
     await vi.runOnlyPendingTimersAsync();
     expect(jobMocks.enqueueJob).toHaveBeenCalledTimes(2);

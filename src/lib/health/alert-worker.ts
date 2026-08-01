@@ -25,7 +25,6 @@ const ALERT_EVALUATION_INTERVAL_MS = 60_000;
 // TR-002 R2: 跨 worker lease 公式统一。computeLeaseMs 默认返 preset (= 60s, 等同原 ALERT_EVALUATION_LEASE_MS)。
 const ALERT_EVALUATION_LEASE_MS = computeLeaseMs("alert-evaluation");
 const ALERT_EVALUATION_RETENTION_KEEP_LATEST = 25;
-const ALERT_EVALUATION_RETENTION_DAYS = 7;
 const ALERT_EVALUATION_WORKER_ID = `${config.app.hostname || "vcontrolhub"}:alert:${process.pid}`;
 
 type AlertEvaluationWorkerState = {
@@ -76,20 +75,15 @@ async function enqueueAlertEvaluationJob(reason: string) {
 }
 
 async function pruneCompletedAlertEvaluationJobs() {
-  const olderThan = new Date(
-    Date.now() - ALERT_EVALUATION_RETENTION_DAYS * 24 * 60 * 60 * 1000,
-  );
   try {
     const result = await pruneCompletedJobsByType({
       type: ALERT_EVALUATION_JOB_TYPE,
       keepLatest: ALERT_EVALUATION_RETENTION_KEEP_LATEST,
-      olderThan,
     });
     if (result.count > 0) {
       logger.info("Pruned completed alert evaluation jobs", {
         count: result.count,
         keepLatest: ALERT_EVALUATION_RETENTION_KEEP_LATEST,
-        olderThan: olderThan.toISOString(),
       });
     }
   } catch (error) {

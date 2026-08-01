@@ -91,6 +91,11 @@ export function useDockerPage(initialServers: { id: string; name: string; host: 
 			if (data.dockerScope && typeof data.dockerScope === "object") {
 				setDockerScope(data.dockerScope as DockerScope);
 			}
+			if (data.dockerAvailable === false) {
+				setContainers([]);
+				setError(typeof data.message === "string" ? data.message : t("dockerPage.error.fetch"));
+				return;
+			}
 			const nextContainers: Container[] | null = data.data && Array.isArray(data.data)
 				? (data.data as Container[])
 				: Array.isArray(data)

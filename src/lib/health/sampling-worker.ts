@@ -26,7 +26,6 @@ const LEASE_MS = computeLeaseMs("health-sampling");
 const DEFAULT_INTERVAL_MS = 5 * 60_000;
 const RETENTION_MS = 30 * 24 * 60 * 60_000;
 const HEALTH_SAMPLE_JOB_KEEP_LATEST = 50;
-const HEALTH_SAMPLE_JOB_RETENTION_DAYS = 7;
 const logger = createLogger("health-sampling-worker");
 
 type State = {
@@ -117,9 +116,6 @@ export async function runHealthSamplingWorkerOnce(
         await pruneCompletedJobsByType({
           type: HEALTH_SAMPLING_JOB_TYPE,
           keepLatest: HEALTH_SAMPLE_JOB_KEEP_LATEST,
-          olderThan: new Date(
-            Date.now() - HEALTH_SAMPLE_JOB_RETENTION_DAYS * 24 * 60 * 60 * 1000,
-          ),
         });
       } catch (pruneError) {
         logger.warn("Failed to prune health.sample jobs", {

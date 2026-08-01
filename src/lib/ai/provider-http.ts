@@ -111,10 +111,14 @@ export async function fetchProviderModels(
 			? data.models
 			: [];
 	const rawModels = (candidates as ProviderModelRow[]) ?? [];
-	return rawModels.filter(
+	const models = rawModels.filter(
 		(m): m is ProviderModelRow =>
 			typeof m?.id === "string" && m.id.trim().length > 0,
 	);
+	if (models.length === 0) {
+		throw new Error("AI provider returned no usable models; please check the Base URL and provider compatibility");
+	}
+	return models;
 }
 
 export async function postProviderChat(input: ProviderChatRequest): Promise<Response> {

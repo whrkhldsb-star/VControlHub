@@ -46,6 +46,8 @@ type LifecycleGlobal = typeof globalThis & {
   __vcontrolhubWorkerLifecycle?: LifecycleState;
 };
 
+let stopLifecyclePromise: Promise<void> | null = null;
+
 function getLifecycleState(): LifecycleState {
   const g = globalThis as LifecycleGlobal;
   if (!g.__vcontrolhubWorkerLifecycle) {
@@ -167,16 +169,24 @@ export async function startWorkerLifecycle(): Promise<{
  * re-run `startAllWorkers` (tests / in-process restart). The process-level
  * SIGTERM/SIGINT handler remains installed once per process.
  */
-export async function stopWorkerLifecycle(): Promise<void> {
-  stopAllWorkers();
-  const { stopWorkerRuntimeHeartbeat } = await import("./runtime-heartbeat");
-  await stopWorkerRuntimeHeartbeat();
+export function stopWorkerLifecycle(): Promise<void> {
+  if (stopLifecyclePromise) return stopLifecyclePromise;
   const state = getLifecycleState();
-  state.installed = false;
-  state.started = false;
-  state.startedAt = null;
-  state.startedWorkerIds = [];
-  state.failedWorkers = [];
+  if (!state.installed && !state.started) return Promise.resolve();
+
+  stopLifecyclePromise = (async () => {
+    stopAllWorkers();
+    const { stopWorkerRuntimeHeartbeat } = await import("./runtime-heartbeat");
+    await stopWorkerRuntimeHeartbeat();
+    state.installed = false;
+    state.started = false;
+    state.startedAt = null;
+    state.startedWorkerIds = [];
+    state.failedWorkers = [];
+  })().finally(() => {
+    stopLifecyclePromise = null;
+  });
+  return stopLifecyclePromise;
 }
 
 /**
@@ -185,4 +195,5 @@ export async function stopWorkerLifecycle(): Promise<void> {
 export function _resetWorkerLifecycleForTests(): void {
   const g = globalThis as LifecycleGlobal;
   delete g.__vcontrolhubWorkerLifecycle;
+  stopLifecyclePromise = null;
 }

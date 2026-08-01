@@ -141,6 +141,16 @@ describe("ai provider-http adapter", () => {
       expect(models.map((m) => m.id)).toEqual(["valid"]);
     });
 
+    it("rejects successful responses that contain no usable model rows", async () => {
+      globalThis.fetch = vi.fn(async () =>
+        new Response(JSON.stringify({ url: "https://unrelated.example/anything" }), { status: 200 }),
+      ) as unknown as typeof fetch;
+
+      await expect(
+        fetchProviderModels({ apiKey: "sk-x", baseUrl: "https://api.example.com/v1" }),
+      ).rejects.toThrow("AI provider returned no usable models");
+    });
+
     it("throws a generic model-list-fetch-failed message on non-2xx", async () => {
       const fetchMock = vi.fn(
         async () => new Response("upstream blew up", { status: 401, statusText: "Unauthorized" }),

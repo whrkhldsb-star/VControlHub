@@ -98,9 +98,9 @@ describe("fleet health background sampling", () => {
       expect.objectContaining({
         type: "health.sample",
         keepLatest: 50,
-        olderThan: expect.any(Date),
       }),
     );
+    expect(mocks.pruneCompletedJobsByType.mock.calls[0]?.[0]).not.toHaveProperty("olderThan");
     expect(mocks.completeJob).toHaveBeenCalledWith(
       "job1",
       expect.any(String),

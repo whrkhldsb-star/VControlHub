@@ -16,7 +16,6 @@ const TICKET_SLA_INTERVAL_MS = 60_000;
 const TICKET_SLA_LEASE_MS = computeLeaseMs("ticket-sla");
 const TICKET_SLA_WORKER_ID = `${config.app.hostname || "vcontrolhub"}:ticket-sla:${process.pid}`;
 const RETENTION_KEEP_LATEST = 25;
-const RETENTION_DAYS = 7;
 
 type WorkerState = { started: boolean; running: boolean; timer: NodeJS.Timeout | null };
 type WorkerGlobal = typeof globalThis & { __vcontrolhubTicketSlaWorker?: WorkerState };
@@ -61,7 +60,6 @@ async function pruneCompletedJobs() {
     await pruneCompletedJobsByType({
       type: TICKET_SLA_JOB_TYPE,
       keepLatest: RETENTION_KEEP_LATEST,
-      olderThan: new Date(Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000),
     });
   } catch (error) {
     logger.warn("Failed to prune completed ticket SLA jobs", { error: error instanceof Error ? error.message : String(error) });

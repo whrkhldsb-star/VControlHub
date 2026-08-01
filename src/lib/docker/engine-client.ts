@@ -200,10 +200,12 @@ export async function requestRemoteDockerEngine(
 			timeout: timeoutMs,
 		});
 
-		if (result.exitCode !== 0 && !result.stdout) {
-			// curl failed entirely — Docker probably not installed
+		if (result.exitCode !== 0) {
+			// curl still writes "\n000" when it cannot open the Unix socket, so
+			// stdout presence is not evidence that Docker answered the request.
 			const stderr = result.stderr.toLowerCase();
-			if (stderr.includes("no such file") || stderr.includes("connection refused") || stderr.includes("permission denied")) {
+			const curlStatus = result.stdout.trim().split("\n").at(-1);
+			if (curlStatus === "000" || stderr.includes("no such file") || stderr.includes("connection refused") || stderr.includes("permission denied") || stderr.includes("couldn't connect")) {
 				return { ok: true, status: 200, data: unavailableData, dockerAvailable: false, message: "Docker is not installed or Docker socket is unavailable on the remote server" };
 			}
 			logger.error("Remote Docker SSH command failed", undefined, { serverId, stderr: result.stderr, exitCode: result.exitCode });

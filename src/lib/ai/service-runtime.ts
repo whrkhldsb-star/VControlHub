@@ -78,7 +78,6 @@ export async function fetchModelsFromCredentials(input: {
 }): Promise<AiModelInfo[]> {
 	if (!input.apiKey.trim()) throw new ValidationError(t("backend.ai.apiKeyCannotBeEmpty"));
 	const baseUrl = trimProviderBaseUrl(input.baseUrl, DEFAULT_AI_BASE_URL);
-	const fallbackModel = input.defaultModel?.trim() || "gpt-4o";
 
 	const rawModels = await fetchProviderModels({ apiKey: input.apiKey, baseUrl });
 	const models = rawModels
@@ -95,9 +94,7 @@ export async function fetchModelsFromCredentials(input: {
 		})
 		.sort((a, b) => a.id.localeCompare(b.id));
 
-	if (models.length > 0) return models;
-	const fallbackCaps = detectModelCapabilities(fallbackModel);
-	return [{ id: fallbackModel, name: fallbackModel, vision: fallbackCaps.vision, capabilities: fallbackCaps }];
+	return models;
 }
 
 export async function fetchModelsFromProvider(providerId: string, userId: string): Promise<AiModelInfo[]> {

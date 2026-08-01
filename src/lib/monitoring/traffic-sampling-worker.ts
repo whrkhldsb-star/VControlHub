@@ -53,7 +53,6 @@ const TRAFFIC_SAMPLE_LEASE_MS = Math.max(
 );
 const TRAFFIC_SAMPLE_WORKER_ID = `${config.app.hostname || "vcontrolhub"}:traffic-sampling:${process.pid}`;
 const TRAFFIC_SAMPLE_JOB_KEEP_LATEST = 50;
-const TRAFFIC_SAMPLE_JOB_RETENTION_DAYS = 7;
 const TRAFFIC_SNAPSHOT_RETENTION_DAYS = 14;
 const REMOTE_SAMPLE_LIMIT = 20;
 const logger = createLogger("traffic-sampling-worker");
@@ -298,10 +297,6 @@ export async function runTrafficSamplingWorkerOnce(reason = "manual") {
         await pruneCompletedJobsByType({
           type: TRAFFIC_SAMPLING_JOB_TYPE,
           keepLatest: TRAFFIC_SAMPLE_JOB_KEEP_LATEST,
-          olderThan: new Date(
-            Date.now() -
-              TRAFFIC_SAMPLE_JOB_RETENTION_DAYS * 24 * 60 * 60 * 1000,
-          ),
         });
       } catch (pruneError) {
         logger.warn("Failed to prune traffic.sample jobs", {

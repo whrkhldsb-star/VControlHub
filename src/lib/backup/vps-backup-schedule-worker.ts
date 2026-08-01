@@ -17,7 +17,6 @@ const TICK_INTERVAL_MS = 60_000; // 60 seconds
 const WORKER_ID = `${config.app.hostname || "localhost"}:vps-backup-schedule:${process.pid}`;
 const VPS_BACKUP_TICK_JOB_TYPE = "vps-backup-schedule.tick";
 const VPS_BACKUP_TICK_KEEP_LATEST = 50;
-const VPS_BACKUP_TICK_RETENTION_DAYS = 3;
 const logger = createLogger("vps-backup-schedule-worker");
 
 let interval: ReturnType<typeof setInterval> | null = null;
@@ -76,7 +75,6 @@ export async function runVpsBackupScheduleTickOnce(): Promise<number> {
 				await pruneCompletedJobsByType({
 					type: VPS_BACKUP_TICK_JOB_TYPE,
 					keepLatest: VPS_BACKUP_TICK_KEEP_LATEST,
-					olderThan: new Date(Date.now() - VPS_BACKUP_TICK_RETENTION_DAYS * 24 * 60 * 60 * 1000),
 				});
 			} catch (pruneError) {
 				logger.warn("Failed to prune vps-backup-schedule.tick jobs", {

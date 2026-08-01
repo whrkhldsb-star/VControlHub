@@ -237,7 +237,9 @@ export async function drillBackupRecord(input: { id: string; projectRoot?: strin
 	await runBackupCommand({ file: "gzip", args: ["-t", backupPath], options: { cwd: projectRoot, timeout: 5 * 60 * 1000 } });
 	checks.push({ name: "gzip", status: "passed", detail: "Compressed stream integrity verified" });
 	if (record.type === "DATABASE") {
-		const probe = await runBackupCommand({ file: "bash", args: ["-c", "set -o pipefail; gzip -cd -- \"$1\" | head -c 8192", "backup-drill", backupPath], options: { cwd: projectRoot, timeout: 5 * 60 * 1000, maxBuffer: 16 * 1024 } });
+		// Keep consuming the stream after sampling so gzip exits normally instead of
+		// receiving SIGPIPE from head on dumps larger than the probe window.
+		const probe = await runBackupCommand({ file: "bash", args: ["-c", "set -o pipefail; gzip -cd -- \"$1\" | { head -c 8192; cat >/dev/null; }", "backup-drill", backupPath], options: { cwd: projectRoot, timeout: 5 * 60 * 1000, maxBuffer: 16 * 1024 } });
 		if (!/PostgreSQL|SET |CREATE |DROP |COPY /i.test(probe.stdout)) throw new BusinessError(t("backend.backup.drillNotPostgres"));
 		checks.push({ name: "database-format", status: "passed", detail: "PostgreSQL SQL stream detected" });
 	} else {
