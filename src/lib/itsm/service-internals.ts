@@ -112,43 +112,48 @@ export function supportsInbound(direction: string): boolean {
 }
 
 export async function recordEvent(input: {
-  connectionId: string | null;
-  direction: "inbound" | "outbound";
-  eventType: string;
-  ticketId?: string | null;
-  status: ItsmEventStatus;
-  externalId?: string | null;
-  payload?: Record<string, unknown>;
-  errorMessage?: string | null;
+	connectionId: string | null;
+	direction: "inbound" | "outbound";
+	eventType: string;
+	ticketId?: string | null;
+	status: ItsmEventStatus;
+	externalId?: string | null;
+	payload?: Record<string, unknown>;
+	errorMessage?: string | null;
 }): Promise<ItsmEventRecord> {
-  try {
-    const row = await prisma.itsmEvent.create({
-      data: {
-        connectionId: input.connectionId,
-        direction: input.direction,
-        eventType: input.eventType,
-        ticketId: input.ticketId ?? null,
-        status: input.status,
-        externalId: input.externalId ?? null,
-        payload: (input.payload ?? {}) as Prisma.InputJsonValue,
-        errorMessage: input.errorMessage ?? null,
-      },
-    });
-    return toEventRecord(row);
-  } catch (err) {
-    const code =
-      err && typeof err === "object" && "code" in err
-        ? String((err as { code?: unknown }).code ?? "")
-        : "";
-    if (code === "P2002" || err instanceof Prisma.PrismaClientKnownRequestError) {
-      const existing = await prisma.itsmEvent.findFirst({
-        where: {
-          connectionId: input.connectionId,
-          externalId: input.externalId ?? undefined,
-        },
-      });
-      if (existing) return toEventRecord(existing);
-    }
-    throw err;
-  }
+	try {
+		const row = await prisma.itsmEvent.create({
+			data: {
+				connectionId: input.connectionId,
+				direction: input.direction,
+				eventType: input.eventType,
+				ticketId: input.ticketId ?? null,
+				status: input.status,
+				externalId: input.externalId ?? null,
+				payload: (input.payload ?? {}) as Prisma.InputJsonValue,
+				errorMessage: input.errorMessage ?? null,
+			},
+		});
+		return toEventRecord(row);
+	} catch (err) {
+		const code =
+			err && typeof err === "object" && "code" in err
+				? String((err as { code?: unknown }).code ?? "")
+				: "";
+		// Deduplicate ONLY on the (connectionId, externalId) unique violation.
+		// Every other Prisma error (P2003 FK, P2025, …) is a real failure and
+		// must propagate — treating it as "duplicate event" silently converts
+		// a lost write into a false success.
+		if (code === "P2002" && input.externalId) {
+			const existing = await prisma.itsmEvent.findFirst({
+				where: {
+					connectionId: input.connectionId,
+					externalId: input.externalId,
+				},
+				orderBy: { createdAt: "desc" },
+			});
+			if (existing) return toEventRecord(existing);
+		}
+		throw err;
+	}
 }

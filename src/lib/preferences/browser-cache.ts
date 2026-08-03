@@ -11,10 +11,14 @@ export const USER_PREFERENCES_STORAGE_KEY = "vps-preferences";
 export const USER_PREFERENCES_CHANGED_EVENT = "vps-preferences-updated";
 
 export function readUserPreferencesCache(
-	storage: Pick<Storage, "getItem"> = window.localStorage,
+	storage?: Pick<Storage, "getItem">,
 ): UserPreferences | null {
 	try {
-		const raw = storage.getItem(USER_PREFERENCES_STORAGE_KEY);
+		// Resolve the default inside the try so a non-browser environment
+		// (SSR render path) degrades to null instead of throwing ReferenceError.
+		const store = storage ?? (typeof window !== "undefined" ? window.localStorage : null);
+		if (!store) return null;
+		const raw = store.getItem(USER_PREFERENCES_STORAGE_KEY);
 		if (!raw) return null;
 		return normalizeUserPreferences(JSON.parse(raw));
 	} catch {
@@ -30,8 +34,9 @@ export function writeUserPreferencesCache(
 	} = {},
 ): UserPreferences {
 	const normalized = normalizeUserPreferences(value);
-	const storage = options.storage ?? window.localStorage;
+	const storage = options.storage ?? (typeof window !== "undefined" ? window.localStorage : null);
 	try {
+		if (!storage) return normalized;
 		storage.setItem(USER_PREFERENCES_STORAGE_KEY, JSON.stringify(normalized));
 		if (options.notify !== false && typeof window !== "undefined") {
 			notifyLocalStorageChange(USER_PREFERENCES_STORAGE_KEY);

@@ -214,6 +214,7 @@ export async function ensureDirectoryIndexAndBacking(input: {
       continue;
     }
     await requireAccess(input.session, input.storageNodeId, built, "write");
+    let resolvedDir: { ok: true; path: string } | null = null;
     try {
       await createManagedFolder({
         storageNode: input.node,
@@ -228,15 +229,28 @@ export async function ensureDirectoryIndexAndBacking(input: {
         );
         if (!resolved.ok) throw new ValidationError(resolved.reason);
         await mkdir(resolved.path, { recursive: true });
+        resolvedDir = resolved;
       } else {
         throw error;
       }
     }
-    await createFileEntry({
-      storageNodeId: input.storageNodeId,
-      name: segment,
-      entryType: "DIRECTORY",
-      relativePath: built,
-    });
+    try {
+      await createFileEntry({
+        storageNodeId: input.storageNodeId,
+        name: segment,
+        entryType: "DIRECTORY",
+        relativePath: built,
+      });
+    } catch (error) {
+      // The physical directory already exists (createManagedFolder or the
+      // LOCAL mkdir fallback); if the index write fails we must remove it,
+      // otherwise the filesystem and fileEntry index diverge and the same
+      // path keeps failing on later WebDAV operations.
+      if (resolvedDir) {
+        const { rm } = await import("node:fs/promises");
+        await rm(resolvedDir.path, { recursive: true, force: true }).catch(() => undefined);
+      }
+      throw error;
+    }
   }
 }

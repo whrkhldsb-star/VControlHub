@@ -46,6 +46,15 @@ export async function applyUserPermissionPatch(input: {
         select: { id: true, key: true },
         take: roleKeys.length,
       });
+      const foundRoleKeys = new Set(roles.map((role: { key: string }) => role.key));
+      const missingRoleKeys = roleKeys.filter((key) => !foundRoleKeys.has(key));
+      if (missingRoleKeys.length > 0) {
+        // Reject before any deleteMany: silently applying a subset would
+        // strip roles the caller did not intend to remove and still report success.
+        throw new ValidationError(
+          t("backend.user.unknownRoleKeys", { keys: missingRoleKeys.join(", ") }),
+        );
+      }
       await tx.userRole.deleteMany({
         where: { userId: parsedData.userId, role: { key: { not: customRoleKey } } },
       });
@@ -73,9 +82,22 @@ export async function applyUserPermissionPatch(input: {
       });
       const permissionRows = await tx.permission.findMany({
         where: { key: { in: permissionKeys } },
-        select: { id: true },
+        select: { id: true, key: true },
         take: permissionKeys.length,
       });
+      const foundPermissionKeys = new Set(
+        permissionRows.map((permission: { key: string }) => permission.key),
+      );
+      const missingPermissionKeys = permissionKeys.filter(
+        (key) => !foundPermissionKeys.has(key),
+      );
+      if (missingPermissionKeys.length > 0) {
+        // Same contract as roles: reject instead of silently clearing the
+        // custom role's permissions and reporting success.
+        throw new ValidationError(
+          t("backend.user.unknownPermissionKeys", { keys: missingPermissionKeys.join(", ") }),
+        );
+      }
       await tx.rolePermission.deleteMany({ where: { roleId: customRole.id } });
       if (permissionRows.length > 0) {
         await tx.rolePermission.createMany({
@@ -115,7 +137,8 @@ export async function applyUserPermissionPatch(input: {
         userId: parsedData.userId,
         storageNodeId: String(grant.storageNodeId ?? ""),
         pathPrefix: normalizePathPrefix(grant.pathPrefix),
-        canRead: grant.canRead ?? true,
+        // Default deny: an omitted flag must never silently grant read access.
+        canRead: grant.canRead ?? false,
         canWrite: grant.canWrite ?? false,
         canDelete: grant.canDelete ?? false,
         quotaBytes: parseNullableBigIntInput(grant.quotaBytes),

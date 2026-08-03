@@ -172,7 +172,28 @@ function createStreamingResponse(input: {
           onEvent: (event: ChatStreamEvent) => send(event),
           signal: abortController.signal,
         });
-        if (cancelled) return;
+        if (cancelled) {
+          // Client disconnected (stop / network drop) before the assistant
+          // reply was persisted. The user message is already in the DB, so
+          // write an interrupted marker — otherwise the conversation ends on
+          // a permanent orphan user message that gets replayed as history
+          // on the next turn.
+          try {
+            await prisma.aiMessage.create({
+              data: {
+                conversationId: input.conversationId,
+                role: "assistant",
+                content: t("apiAiChat.streamInterrupted", input.locale),
+                model: input.model,
+              },
+            });
+          } catch (error) {
+            logger.error("Failed to persist interrupted AI message", error, {
+              conversationId: input.conversationId,
+            });
+          }
+          return;
+        }
         if (result.readError) {
           send({
             type: "error",

@@ -112,10 +112,16 @@ vi.mock("@/lib/db", () => ({
     quickService: { count: vi.fn() },
     vpsBackupSchedule: { count: vi.fn() },
     vpsBackupRecord: { count: vi.fn() },
-    // createServerProfile wraps server+storage in $transaction
-    $transaction: vi.fn(async (fn: (tx: unknown) => unknown) => {
+    // createServerProfile wraps server+storage in $transaction;
+    // deleteServerProfile uses the array form for the storageNode+server pair.
+    $transaction: vi.fn(async (arg: unknown) => {
       const { prisma: p } = await import("@/lib/db");
-      return fn(p);
+      if (Array.isArray(arg)) {
+        // Array form: each element is a query promise (already constructed by
+        // the caller); resolve them in order like the real interactive tx.
+        return Promise.all(arg.map((op) => Promise.resolve(op)));
+      }
+      return (arg as (tx: unknown) => unknown)(p);
     }),
   },
 }));

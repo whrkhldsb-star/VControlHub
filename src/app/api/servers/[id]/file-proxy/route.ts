@@ -333,26 +333,40 @@ export async function POST(
           );
         }
 
-        // 等待代理启动并获取实际端口
-        await new Promise((r) => setTimeout(r, 1500));
-        const portResult = await sshExec(
-          server as {
-            host: string;
-            port: number;
-            username: string;
-            password: string | null;
-            sshKey: { privateKey: string } | null;
-    hostKeySha256?: string | null;
-          },
-          `cat /tmp/.vps_proxy_out 2>/dev/null | grep "PROXY_READY" | head -1`,
-        );
-
-        const portMatch = portResult.stdout.match(/PROXY_READY:(\d+)/);
-        const actualPort = portMatch ? parseInt(portMatch[1]!, 10) : desiredPort;
+        // 轮询等待代理启动并读取实际端口。固定 sleep + 单次读取在慢 VPS 上
+        // 会把"就绪慢"误报为失败(重试还会叠加孤儿 python3 进程); 且当
+        // fileProxyPort 已配置但绑定失败时, 回落 desiredPort 会把已崩溃的
+        // 代理记为 running(假成功)。这里必须等到 PROXY_READY 或显式失败。
+        const PROXY_READY_POLL_MS = 500;
+        const PROXY_READY_TIMEOUT_MS = 10_000;
+        let actualPort = 0;
+        let lastOut = "";
+        const readyDeadline = Date.now() + PROXY_READY_TIMEOUT_MS;
+        while (Date.now() < readyDeadline) {
+          const portResult = await sshExec(
+            server as {
+              host: string;
+              port: number;
+              username: string;
+              password: string | null;
+              sshKey: { privateKey: string } | null;
+              hostKeySha256?: string | null;
+            },
+            `cat /tmp/.vps_proxy_out 2>/dev/null | grep "PROXY_READY" | head -1`,
+          );
+          lastOut = portResult.stdout;
+          const portMatch = lastOut.match(/PROXY_READY:(\d+)/);
+          if (portMatch) {
+            actualPort = parseInt(portMatch[1]!, 10);
+            break;
+          }
+          await new Promise((r) => setTimeout(r, PROXY_READY_POLL_MS));
+        }
 
         if (!actualPort) {
+          const detail = lastOut.trim().slice(-400) || "(no proxy output yet)";
           return NextResponse.json(
-            { error: t("apiServersFileProxy.cannotDeterminePort", locale) },
+            { error: t("apiServersFileProxy.startTimeout", locale), details: detail },
             { status: 500 },
           );
         }

@@ -181,7 +181,18 @@ describe("createAiChatResponse", () => {
     await reader.cancel();
 
     await vi.waitFor(() => expect(upstreamCancelled).toBe(true));
-    expect(mocks.prisma.aiMessage.create).not.toHaveBeenCalled();
+    // The user message is already persisted; an interrupted marker is written
+    // so the conversation does not end on a permanent orphan user message.
+    expect(mocks.prisma.aiMessage.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          conversationId: conversation.id,
+          role: "assistant",
+          content: "(generation interrupted)",
+          model: conversation.model,
+        }),
+      }),
+    );
     expect(mocks.createHostedAction).not.toHaveBeenCalled();
   });
 

@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 import { ActionButton } from "@/components/action-button";
 import { useI18n } from "@/lib/i18n/use-locale";
 
@@ -21,6 +23,12 @@ export function AlertIncidentsSection({
 	ackIncident,
 }: Props) {
 	const { t } = useI18n();
+	// Unresolved incidents beyond the first 20 were previously unreachable:
+	// no pagination, no ack button — alerts could be silently missed. "Show all"
+	// expands the remaining ones so every incident stays actionable.
+	const [showAll, setShowAll] = useState(false);
+	const unresolved = incidents.filter((i) => i.status !== "RESOLVED");
+	const visible = showAll ? unresolved : unresolved.slice(0, 20);
 
 	return (
 		<section className="mb-6 space-y-3" aria-label={t("alertRulesPage.incidents.title")}>
@@ -32,13 +40,11 @@ export function AlertIncidentsSection({
 					{incidentsLoading ? "…" : t("alertRulesPage.incidents.refresh")}
 				</ActionButton>
 			</div>
-			{incidents.filter((i) => i.status !== "RESOLVED").length === 0 ? (
+			{unresolved.length === 0 ? (
 				<p className="text-xs text-[var(--text-muted)]">{t("alertRulesPage.incidents.empty")} ({incidents.filter((i) => i.status === "RESOLVED").length} {t("alertRulesPage.incidents.resolved")})</p>
 			) : (
 				<div className="space-y-2">
-					{incidents
-						.filter((i) => i.status !== "RESOLVED")
-						.slice(0, 20)
+					{visible
 						.map((incident) => (
 							<div
 								key={incident.id}
@@ -68,6 +74,15 @@ export function AlertIncidentsSection({
 								)}
 							</div>
 						))}
+					{!showAll && unresolved.length > 20 && (
+						<button
+							type="button"
+							onClick={() => setShowAll(true)}
+							className="w-full rounded-lg border border-[var(--border-subtle)] px-3 py-2 text-xs font-medium text-[var(--text-muted)] transition hover:bg-[var(--surface-subtle)] hover:text-[var(--text-primary)]"
+						>
+							{t("alertRulesPage.incidents.showAll", { count: unresolved.length - 20 })}
+						</button>
+					)}
 				</div>
 			)}
 		</section>

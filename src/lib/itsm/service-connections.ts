@@ -12,6 +12,7 @@ import { createItsmConnectionSchema, updateItsmConnectionSchema } from "./schema
 import {
   decryptCredentials,
   encryptCredentials,
+  parseConfig,
   supportsOutbound,
   toConnectionRecord,
   toEventRecord,
@@ -19,7 +20,9 @@ import {
 import type {
   ItsmConnectionConfig,
   ItsmConnectionRecord,
+  ItsmCredentials,
   ItsmEventRecord,
+  ItsmProvider,
 } from "./types";
 
 function resolveConnectionTeamId(
@@ -104,9 +107,23 @@ export async function updateItsmConnection(
     data.teamId = parsed.teamId;
   }
   if (parsed.config !== undefined) data.config = parsed.config as Prisma.InputJsonValue;
+  let effectiveCredentials: ItsmCredentials = {};
   if (parsed.credentials !== undefined) {
     const prev = decryptCredentials(existing.credentialsEnc);
-    data.credentialsEnc = encryptCredentials({ ...prev, ...parsed.credentials });
+    effectiveCredentials = { ...prev, ...parsed.credentials };
+    data.credentialsEnc = encryptCredentials(effectiveCredentials);
+  }
+
+  // Re-validate outbound readiness after the update: a connection flipped to
+  // outbound (or whose credentials/config changed) must not pass validation
+  // only to fail at delivery time.
+  const finalDirection = parsed.direction ?? existing.direction;
+  if (supportsOutbound(finalDirection)) {
+    const effectiveConfig = (parsed.config ?? parseConfig(existing.config)) as ItsmConnectionConfig;
+    if (parsed.credentials === undefined) {
+      effectiveCredentials = decryptCredentials(existing.credentialsEnc);
+    }
+    assertOutboundReady(existing.provider as ItsmProvider, effectiveConfig, effectiveCredentials);
   }
 
   const row = await prisma.itsmConnection.update({ where: { id }, data });

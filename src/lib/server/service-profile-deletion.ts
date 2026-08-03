@@ -53,9 +53,16 @@ export async function deleteServerProfile(
     }
 
     if (current.storageNode) {
-      await prisma.storageNode.delete({ where: { id: current.storageNode.id } });
+      // Atomic: the storage node and its owning server must be removed
+      // together — a mid-way failure would leave an orphan node pointing at
+      // a server that no longer exists.
+      await prisma.$transaction([
+        prisma.storageNode.delete({ where: { id: current.storageNode.id } }),
+        prisma.server.delete({ where: { id: serverId } }),
+      ]);
+    } else {
+      await prisma.server.delete({ where: { id: serverId } });
     }
-    await prisma.server.delete({ where: { id: serverId } });
     return cleanupSkipped
       ? { deleted: true, cleanupSkipped: true }
       : { deleted: true };

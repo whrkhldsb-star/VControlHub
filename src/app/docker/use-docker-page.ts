@@ -43,12 +43,17 @@ export function useDockerPage(initialServers: { id: string; name: string; host: 
 	const logsCloseButtonRef = useRef<HTMLButtonElement | null>(null);
 	const fetchingStatsRef = useRef<Set<string>>(new Set());
 	const statsServerIdRef = useRef(selectedServerId);
+	const selectedServerIdRef = useRef(selectedServerId);
 	const logsReqRef = useRef<{ id: string; serverId: string } | null>(null);
 	const fetchGenRef = useRef(0);
 	const fetchAbortRef = useRef<AbortController | null>(null);
 
 	useEffect(() => {
 		statsServerIdRef.current = selectedServerId;
+	}, [selectedServerId]);
+
+	useEffect(() => {
+		selectedServerIdRef.current = selectedServerId;
 	}, [selectedServerId]);
 
 	const { grouped, ungrouped } = useMemo(() => {
@@ -118,13 +123,14 @@ export function useDockerPage(initialServers: { id: string; name: string; host: 
 
 	const handleAction = async (container: Container, action: ContainerAction) => {
 		const id = container.Id;
+		const serverAtAction = selectedServerId;
 		setActionLoading(id);
 		setError("");
 		try {
 			const data = await csrfFetch<Record<string, unknown>>("/api/docker/containers", {
 				method:"POST",
 				headers: {"Content-Type":"application/json" },
-				body: JSON.stringify({ id, action, ...(selectedServerId ? { serverId: selectedServerId } : {}) }),
+				body: JSON.stringify({ id, action, ...(serverAtAction ? { serverId: serverAtAction } : {}) }),
 			});
 			if (data && typeof data ==="object" && data.ok === false) {
 				const msg =
@@ -134,6 +140,11 @@ export function useDockerPage(initialServers: { id: string; name: string; host: 
 				setError(msg);
 				return;
 			}
+			// Skip the post-action refresh when the user switched servers while
+			// the POST was in flight: the stale closure would abort the new
+			// selection's request and overwrite its list with the old server's
+			// containers. The new selection's own effect has already refreshed.
+			if (selectedServerIdRef.current !== serverAtAction) return;
 			await fetchContainers();
 		} catch (err) {
 			setError(getErrorMessage(err, t("dockerPage.error.action")));
@@ -171,6 +182,7 @@ export function useDockerPage(initialServers: { id: string; name: string; host: 
 		project: string,
 		action: ProjectAction,
 	) => {
+		const serverAtAction = selectedServerId;
 		setProjectActionLoading(`${project}:${action}`);
 		setError("");
 		setProjectMessage("");
@@ -181,7 +193,7 @@ export function useDockerPage(initialServers: { id: string; name: string; host: 
 				body: JSON.stringify({
 					project,
 					action,
-					...(selectedServerId ? { serverId: selectedServerId } : {}),
+					...(serverAtAction ? { serverId: serverAtAction } : {}),
 				}),
 			});
 			const modeLabel =
@@ -192,7 +204,9 @@ export function useDockerPage(initialServers: { id: string; name: string; host: 
 			const actionLabel = t(actionLabelKey) !== actionLabelKey ? t(actionLabelKey) : action;
 			const msg = typeof data.message ==="string" ? data.message : t("dockerPage.project.success", { project, message: actionLabel });
 			setProjectMessage(`${msg} (${modeLabel})`);
-			if (action !=="ps") {
+			// Same stale-closure guard as handleAction: never let an action that
+			// started on server A refresh the list after the user moved to B.
+			if (action !== "ps" && selectedServerIdRef.current === serverAtAction) {
 				await fetchContainers();
 			}
 		} catch (err) {
@@ -243,6 +257,10 @@ export function useDockerPage(initialServers: { id: string; name: string; host: 
 			if (data.data) {
 				setStats((prev) => ({ ...prev, [id]: data.data as ContainerStats }));
 			}
+		} catch {
+			// Stats are best-effort telemetry; a failed probe must not surface
+			// as an unhandled rejection. The auto-refresh cycle retries when
+			// enabled.
 		} finally {
 			fetchingStatsRef.current.delete(id);
 		}

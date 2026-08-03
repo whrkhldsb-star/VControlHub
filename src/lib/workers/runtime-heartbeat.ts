@@ -61,7 +61,7 @@ export async function startWorkerRuntimeHeartbeat(input: {
     void prisma.workerRuntime.updateMany({
       where: { instanceId, workerId: { in: state.workerIds }, status: "RUNNING" },
       data: { lastHeartbeatAt: heartbeatAt },
-    }).catch((error) => {
+    }).catch((error: unknown) => {
       logger.error("worker runtime heartbeat failed", error, { instanceId });
     });
   }, HEARTBEAT_INTERVAL_MS);
@@ -76,8 +76,4 @@ export async function stopWorkerRuntimeHeartbeat() {
     data: { status: "STOPPED", lastHeartbeatAt: new Date() },
   }).catch(() => undefined);
   state.workerIds = [];
-}
-
-export function getWorkerRuntimeInstanceId() {
-  return instanceId;
 }

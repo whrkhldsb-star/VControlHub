@@ -142,8 +142,17 @@ export async function startWorkerLifecycle(): Promise<{
     // all initial ticks from competing for Prisma transactions during boot.
     betweenWorkerDelayMs: 200,
   });
-  const { startWorkerRuntimeHeartbeat } = await import("./runtime-heartbeat");
-  await startWorkerRuntimeHeartbeat(result);
+  try {
+    const { startWorkerRuntimeHeartbeat } = await import("./runtime-heartbeat");
+    await startWorkerRuntimeHeartbeat(result);
+  } catch (error) {
+    // Workers are already running at this point; a heartbeat-registration
+    // failure (e.g. DB blip during boot) must not kill the fleet. Monitoring
+    // rows stay missing until the next process start retries them.
+    logger.error("worker runtime heartbeat registration failed; monitoring rows will be absent", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
 
   state.started = true;
   state.startedAt = new Date().toISOString();

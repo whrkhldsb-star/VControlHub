@@ -13,6 +13,7 @@ export const zh: Record<string, string> = {
 	"apiAiChat.streamErrorFallback": "流式传输错误",
 	"apiAiChat.emptyContent": "(无响应内容)",
 	"apiAiChat.waitingForApproval": "等待审批",
+	"apiAiChat.streamInterrupted": "（生成已中止）",
 };
 
 export const en: Record<string, string> = {
@@ -27,4 +28,5 @@ export const en: Record<string, string> = {
 	"apiAiChat.streamErrorFallback": "Streaming error",
 	"apiAiChat.emptyContent": "(no response content)",
 	"apiAiChat.waitingForApproval": "Waiting for approval",
+	"apiAiChat.streamInterrupted": "(generation interrupted)",
 };

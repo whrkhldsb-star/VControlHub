@@ -13,6 +13,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
 import { writeLocalStorageValue } from "@/lib/browser-storage";
 import { useBrowserStorageSnapshot } from "@/lib/hooks/use-browser-storage-snapshot";
+import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
 
 import { tt as applyTemplate } from "@/app/health/health-dashboard-helpers";
 import { useHealthData } from "@/app/health/use-health-data";
@@ -43,7 +44,11 @@ export function useVpsStatusView() {
 	} = useHealthData({ browserLocale, locale, mode: "vps" });
 
 	const [expandedServer, setExpandedServer] = useState<string | null>(null);
-	const [filter, setFilter] = useState<VpsStatusFilter>("all");
+	// Filter lives in the URL (like docker's serverId) so refresh/navigation
+	// and shared links keep the selected view; view-mode stays in localStorage.
+	const { state: queryState, setField: setQueryField } = useUrlQueryState({ filter: "all" });
+	const filter = (queryState.filter as VpsStatusFilter) || "all";
+	const setFilter = (next: VpsStatusFilter) => setQueryField("filter", next);
 	const viewMode = useBrowserStorageSnapshot(VPS_STATUS_VIEW_MODE_KEY, readViewMode, "cards");
 
 	const setViewModePersist = (mode: VpsStatusViewMode) => {

@@ -19,7 +19,7 @@
  *       { fallback: t("xx.failed") })}>
  */
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { getErrorMessage } from "@/lib/http/error-message";
 
@@ -35,12 +35,24 @@ export type AsyncActionOptions = {
 export function useAsyncAction() {
 	const [busyKey, setBusyKey] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
-	// 防止组件卸载后 setState(React 18 下无害但避免泄漏警告语义)。
+	// Prevents setState after the component unmounts.
 	const aliveRef = useRef(true);
-	// 注意:不用 useEffect 清理,保持 hook 零依赖挂载语义;aliveRef 仅防御性。
+	// Mirrors busyKey for synchronous re-entry checks (state is async).
+	const busyKeyRef = useRef<string | null>(null);
+
+	useEffect(() => {
+		aliveRef.current = true;
+		return () => {
+			aliveRef.current = false;
+		};
+	}, []);
 
 	const run = useCallback(
 		async <T>(key: string, action: () => Promise<T>, opts: AsyncActionOptions): Promise<T | undefined> => {
+			// Single busy slot: reject a second run while one is in flight so a
+			// finishing run can never clear a newer run's busy state early.
+			if (busyKeyRef.current !== null) return undefined;
+			busyKeyRef.current = key;
 			setBusyKey(key);
 			setError(null);
 			try {
@@ -53,6 +65,7 @@ export function useAsyncAction() {
 				else if (aliveRef.current) setError(message);
 				return undefined;
 			} finally {
+				busyKeyRef.current = null;
 				if (aliveRef.current) setBusyKey(null);
 			}
 		},
