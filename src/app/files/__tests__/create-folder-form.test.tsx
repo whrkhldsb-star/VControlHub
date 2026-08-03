@@ -75,4 +75,35 @@ describe("CreateFolderForm", () => {
     );
     expect(onCreated).toHaveBeenCalledTimes(1);
   });
+
+  it("keeps the form pending until the SPA refresh finishes", async () => {
+    let finishRefresh!: () => void;
+    const onCreated = vi.fn(
+      () => new Promise<void>((resolve) => {
+        finishRefresh = resolve;
+      }),
+    );
+    const user = userEvent.setup();
+    render(
+      <CreateFolderForm
+        storageNodes={nodes}
+        currentPath="docs"
+        initialNodeId="node_sftp"
+        onCreated={onCreated}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "新建文件夹" }));
+    await user.type(screen.getByLabelText("文件夹名称"), "reports");
+    await user.click(screen.getByRole("button", { name: "创建" }));
+
+    await waitFor(() => expect(onCreated).toHaveBeenCalledTimes(1));
+    expect(screen.getByLabelText("文件夹名称")).toBeVisible();
+    expect(screen.getByRole("button", { name: /提交中/ })).toBeDisabled();
+
+    finishRefresh();
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "新建文件夹" })).toBeVisible(),
+    );
+  });
 });

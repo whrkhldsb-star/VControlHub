@@ -1,5 +1,7 @@
 import { Client } from "pg";
 import bcrypt from "bcryptjs";
+import path from "node:path";
+import { readdir, rm } from "node:fs/promises";
 
 export const ISOLATED_E2E_USERNAME = "vcontrolhub_e2e";
 export const ISOLATED_E2E_PASSWORD = "VControlHub-E2E-2026!";
@@ -77,14 +79,31 @@ export async function removeIsolatedE2eAccount() {
 	const client = new Client({ connectionString: localConnectionString() });
 	await client.connect();
 	try {
+		const localStorage = await client.query<{ basePath: string }>(
+			`SELECT "basePath" FROM "StorageNode" WHERE id = 'node_local_default' AND driver = 'LOCAL'`,
+		);
 		await client.query("BEGIN");
 		await client.query(`DELETE FROM media_items WHERE "relativePath" LIKE 'qa-media/%'`);
-		await client.query(`DELETE FROM file_entries WHERE "relativePath" LIKE 'qa-media/%'`);
+		await client.query(
+			`DELETE FROM file_entries WHERE "relativePath" LIKE 'qa-media/%' OR "relativePath" LIKE 'qa-files-%'`,
+		);
 		await client.query(`DELETE FROM "User" WHERE username LIKE 'qa\\_%' ESCAPE '\\'`);
 		await client.query(`DELETE FROM "User" WHERE username = $1`, [ISOLATED_E2E_USERNAME]);
 		await client.query(`DELETE FROM "StorageNode" WHERE id = $1`, [ISOLATED_E2E_STORAGE_ID]);
 		await client.query(`DELETE FROM servers WHERE id = $1`, [ISOLATED_E2E_SERVER_ID]);
 		await client.query("COMMIT");
+
+		const basePath = localStorage.rows[0]?.basePath;
+		if (basePath) {
+			const resolvedBase = path.resolve(basePath);
+			const entries = await readdir(resolvedBase, { withFileTypes: true }).catch(() => []);
+			for (const entry of entries) {
+				if (!entry.isDirectory() || !/^qa-files-\d+$/.test(entry.name)) continue;
+				const target = path.resolve(resolvedBase, entry.name);
+				if (path.dirname(target) !== resolvedBase) continue;
+				await rm(target, { recursive: true, force: true });
+			}
+		}
 	} catch (error) {
 		await client.query("ROLLBACK");
 		throw error;

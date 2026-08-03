@@ -35,6 +35,7 @@ export function CreateFolderForm({
     ? initialNodeId
     : storageNodes.length > 0 ? storageNodes[0]!.id : "";
   const [expanded, setExpanded] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [folderName, setFolderName] = useState("");
   const [selectedNodeId, setSelectedNodeId] = useState(defaultNodeId);
   const onCreatedRef = useRef(onCreated);
@@ -67,15 +68,21 @@ export function CreateFolderForm({
   }, [defaultNodeId]);
 
   useEffect(() => {
-    if (state.success) {
+    if (!state.success) return;
+    let active = true;
+    setRefreshing(true);
+    const refreshResult = onCreatedRef.current
+      ? onCreatedRef.current()
+      : refreshPage();
+    void Promise.resolve(refreshResult).finally(() => {
+      if (!active) return;
       setExpanded(false);
       setFolderName("");
-      if (onCreatedRef.current) {
-        void onCreatedRef.current();
-      } else {
-        refreshPage();
-      }
-    }
+      setRefreshing(false);
+    });
+    return () => {
+      active = false;
+    };
   }, [state.success, refreshPage]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
@@ -136,10 +143,10 @@ export function CreateFolderForm({
       ) : null}
       <ActionButton variant="primary"
         type="submit"
-        disabled={!folderName.trim() || isPending}
+        disabled={!folderName.trim() || isPending || refreshing}
         data-tone="accent" className="disabled:opacity-50"
       >
-        {isPending ? t("common.submitting") : t("common.create")}
+        {isPending || refreshing ? t("common.submitting") : t("common.create")}
       </ActionButton>
       <ActionButton variant="secondary"
         onClick={handleCancel} className="!px-4 !py-2 !text-sm">
