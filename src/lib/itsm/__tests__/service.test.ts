@@ -7,12 +7,14 @@ const connectionStore = new Map<string, Record<string, unknown>>();
 const eventStore = new Map<string, Record<string, unknown>>();
 const ticketStore = new Map<string, Record<string, unknown>>();
 let seq = 0;
+let forcedEventCreateError: (Error & { code: string }) | null = null;
 
 function reset() {
 	connectionStore.clear();
 	eventStore.clear();
 	ticketStore.clear();
 	seq = 0;
+	forcedEventCreateError = null;
 }
 
 vi.mock("@/lib/db", () => ({
@@ -51,6 +53,11 @@ vi.mock("@/lib/db", () => ({
 		},
 		itsmEvent: {
 			create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
+				if (forcedEventCreateError) {
+					const error = forcedEventCreateError;
+					forcedEventCreateError = null;
+					throw error;
+				}
 				seq += 1;
 				const row: Record<string, unknown> = {
 					id: `evt_${seq}`,
@@ -182,7 +189,9 @@ import {
 	handleInboundWebhook,
 	listItsmConnections,
 	testItsmConnection,
+	updateItsmConnection,
 } from "../service";
+import { recordEvent } from "../service-internals";
 
 describe("ITSM adapters", () => {
 	it("builds slack/generic outbound bodies", () => {
@@ -279,6 +288,36 @@ describe("ITSM service", () => {
 				config: {},
 			}),
 		).rejects.toThrow();
+	});
+
+	it("revalidates readiness when an inbound connection becomes outbound", async () => {
+		const conn = await createItsmConnection({
+			name: "Inbound only",
+			provider: "slack",
+			direction: "inbound",
+			credentials: { webhookSecret: "secret" },
+			config: {},
+		});
+
+		await expect(
+			updateItsmConnection(conn.id, { direction: "outbound" }),
+		).rejects.toThrow();
+	});
+
+	it("propagates non-unique event persistence failures", async () => {
+		forcedEventCreateError = Object.assign(new Error("foreign key unavailable"), {
+			code: "P2003",
+		});
+
+		await expect(
+			recordEvent({
+				connectionId: "missing",
+				direction: "inbound",
+				eventType: "ticket.create",
+				status: "error",
+				externalId: "ext-failed",
+			}),
+		).rejects.toThrow("foreign key unavailable");
 	});
 
 	it("handles signed inbound ticket create", async () => {

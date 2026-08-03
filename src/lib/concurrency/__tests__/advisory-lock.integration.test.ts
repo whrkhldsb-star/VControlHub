@@ -2,7 +2,9 @@ import { afterAll, describe, expect, it } from "vitest";
 
 import { acquireAdvisoryLock, closeAdvisoryLockPoolForTests, tryAcquireAdvisoryLock } from "../advisory-lock";
 
-const hasDatabase = Boolean(process.env.DATABASE_URL);
+const hasDatabase =
+  process.env.RUN_DATABASE_INTEGRATION_TESTS === "1" &&
+  Boolean(process.env.DATABASE_URL);
 
 describe.skipIf(!hasDatabase)("advisory-lock PostgreSQL integration", () => {
   afterAll(async () => { await closeAdvisoryLockPoolForTests(); });

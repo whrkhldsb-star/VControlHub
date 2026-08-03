@@ -20,6 +20,7 @@ import next from "next";
 
 import { closeWebSocketServer, setupWebSocketServer } from "@/lib/ws/notification-ws";
 import { createLogger } from "@/lib/logging";
+import { parseTcpPort } from "@/lib/runtime/listen-port";
 
 const logger = createLogger("server");
 
@@ -52,14 +53,7 @@ process.on("uncaughtException", (err) => {
 const dev = process.env.NODE_ENV !== "production";
 // Bind to loopback by default in production; containers can set NEXT_HOST=0.0.0.0.
 const hostname = process.env.NEXT_HOST?.trim() || (dev ? "0.0.0.0" : "127.0.0.1");
-const port = (() => {
-  const raw = process.env.PORT || "3000";
-  const parsed = Number.parseInt(raw, 10);
-  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 65535) {
-    throw new Error(`Invalid PORT value: ${raw}`);
-  }
-  return parsed;
-})();
+const port = parseTcpPort(process.env.PORT, 3000, "PORT");
 
 async function main() {
 	const app = next({ dev, hostname, port });

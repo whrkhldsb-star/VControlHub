@@ -23,6 +23,10 @@ export type VpsStatusViewMode = "cards" | "table";
 
 const VPS_STATUS_VIEW_MODE_KEY = "vch.vpsStatus.viewMode";
 
+export function normalizeVpsStatusFilter(value: string): VpsStatusFilter {
+	return value === "online" || value === "issue" ? value : "all";
+}
+
 function readViewMode(storage: Storage): VpsStatusViewMode {
 	const saved = storage.getItem(VPS_STATUS_VIEW_MODE_KEY);
 	return saved === "table" ? "table" : "cards";
@@ -47,7 +51,7 @@ export function useVpsStatusView() {
 	// Filter lives in the URL (like docker's serverId) so refresh/navigation
 	// and shared links keep the selected view; view-mode stays in localStorage.
 	const { state: queryState, setField: setQueryField } = useUrlQueryState({ filter: "all" });
-	const filter = (queryState.filter as VpsStatusFilter) || "all";
+	const filter = normalizeVpsStatusFilter(queryState.filter);
 	const setFilter = (next: VpsStatusFilter) => setQueryField("filter", next);
 	const viewMode = useBrowserStorageSnapshot(VPS_STATUS_VIEW_MODE_KEY, readViewMode, "cards");
 

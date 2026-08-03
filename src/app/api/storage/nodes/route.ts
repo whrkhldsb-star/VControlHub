@@ -43,7 +43,9 @@ export async function GET(request: Request) {
           );
       const nodes = storage.nodes
         .filter((node) => !driverFilter || node.driver === driverFilter)
-        .filter((node) => node.driver !== "SFTP" || Boolean(node.serverId || node.server))
+        .filter((node) =>
+          node.driver !== "SFTP" || Boolean(node.serverId || node.server || node.host),
+        )
         .filter((node) => readableNodeIds === null || readableNodeIds.has(node.id))
         .map((node) => ({
           id: node.id,

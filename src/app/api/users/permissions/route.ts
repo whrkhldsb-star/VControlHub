@@ -11,7 +11,7 @@ import {
   assertUserInActorScope,
   teamWhere,
 } from "@/lib/auth/team-scope";
-import { AuthError, NotFoundError } from "@/lib/errors";
+import { AuthError, NotFoundError, ValidationError } from "@/lib/errors";
 import { getStorageAccessUsage } from "@/lib/storage/access-control";
 import { applyUserPermissionPatch } from "./route-patch";
 
@@ -232,13 +232,18 @@ export async function PATCH(request: Request) {
             ),
           )
         : undefined;
-      const permissionKeys = Array.isArray(parsedData.permissionKeys)
-        ? Array.from(
-            new Set(
-              parsedData.permissionKeys.map(String).filter(isPermissionKey),
-            ),
-          )
+      const requestedPermissionKeys = Array.isArray(parsedData.permissionKeys)
+        ? Array.from(new Set(parsedData.permissionKeys.map(String)))
         : undefined;
+      const unknownPermissionKeys = requestedPermissionKeys?.filter(
+        (key) => !isPermissionKey(key),
+      );
+      if (unknownPermissionKeys && unknownPermissionKeys.length > 0) {
+        throw new ValidationError(
+          `Unknown permission keys: ${unknownPermissionKeys.join(", ")}`,
+        );
+      }
+      const permissionKeys = requestedPermissionKeys as Permission[] | undefined;
       const storageAccess = Array.isArray(parsedData.storageAccess)
         ? parsedData.storageAccess
         : undefined;

@@ -7,6 +7,9 @@ const {
   proxyFindUniqueMock,
   proxyUpdateMock,
   proxyUpsertMock,
+  acquireLockMock,
+  releaseLockMock,
+  sshCommands,
 } = vi.hoisted(() => ({
   requireApiSessionMock: vi.fn(),
   sessionHasPermissionMock: vi.fn(),
@@ -14,6 +17,58 @@ const {
   proxyFindUniqueMock: vi.fn(),
   proxyUpdateMock: vi.fn(),
   proxyUpsertMock: vi.fn(),
+  acquireLockMock: vi.fn(),
+  releaseLockMock: vi.fn(),
+  sshCommands: [] as string[],
+}));
+
+vi.mock("ssh2", () => ({
+  Client: class {
+    private handlers: Record<string, (...args: unknown[]) => void> = {};
+
+    on(event: string, handler: (...args: unknown[]) => void) {
+      this.handlers[event] = handler;
+      return this;
+    }
+
+    connect() {
+      this.handlers.ready?.();
+    }
+
+    exec(
+      command: string,
+      _options: unknown,
+      callback: (error: Error | null, stream: unknown) => void,
+    ) {
+      sshCommands.push(command);
+      const handlers: Record<string, (...args: unknown[]) => void> = {};
+      const stderrHandlers: Record<string, (...args: unknown[]) => void> = {};
+      const stream = {
+        on(event: string, handler: (...args: unknown[]) => void) {
+          handlers[event] = handler;
+          return stream;
+        },
+        stderr: {
+          on(event: string, handler: (...args: unknown[]) => void) {
+            stderrHandlers[event] = handler;
+            return stream.stderr;
+          },
+        },
+      };
+      callback(null, stream);
+      queueMicrotask(() => {
+        const stdout = command.includes("nohup python3")
+          ? "4242\n"
+          : command.includes("tail -n 20")
+            ? "bind failed\n__PROXY_EXITED__\n"
+            : "";
+        if (stdout) handlers.data?.(Buffer.from(stdout));
+        handlers.close?.(0);
+      });
+    }
+
+    end() {}
+  },
 }));
 
 vi.mock("@/lib/auth/api-session", () => ({
@@ -37,6 +92,15 @@ vi.mock("@/lib/db", () => ({
 vi.mock("@/lib/ssh/ssh-key-crypto", () => ({
   decryptServerPassword: vi.fn((value: string) => value),
   decryptSshPrivateKey: vi.fn((value: string) => value),
+}));
+vi.mock("@/lib/ssh/client", () => ({
+  createVerifiedSshConfig: vi.fn(() => ({})),
+}));
+vi.mock("@/lib/concurrency/advisory-lock", () => ({
+  acquireAdvisoryLock: acquireLockMock,
+}));
+vi.mock("@/lib/audit/service", () => ({
+  auditUserAction: vi.fn(),
 }));
 
 import { buildFileProxyScript } from "@/lib/server/file-proxy-script";
@@ -64,6 +128,9 @@ describe("/api/servers/[id]/file-proxy", () => {
     });
     proxyFindUniqueMock.mockResolvedValue(null);
     proxyUpdateMock.mockResolvedValue({});
+    releaseLockMock.mockResolvedValue(undefined);
+    acquireLockMock.mockResolvedValue(releaseLockMock);
+    sshCommands.length = 0;
   });
 
   it("uses shared auth guard and server:ssh permission for status", async () => {
@@ -143,6 +210,41 @@ describe("/api/servers/[id]/file-proxy", () => {
     });
     expect(proxyFindUniqueMock).not.toHaveBeenCalled();
     expect(proxyUpsertMock).not.toHaveBeenCalled();
+  });
+
+  it("kills and cleans up a remote proxy that exits before becoming ready", async () => {
+    serverFindUniqueMock.mockResolvedValue({
+      id: "srv_1",
+      host: "127.0.0.1",
+      port: 48163,
+      username: "root",
+      password: "encrypted-password",
+      sshKey: null,
+      hostKeySha256: null,
+      publicUrl: "https://node.example.com",
+      fileProxyPort: 0,
+      teamId: null,
+      storageNode: { id: "node_1", basePath: "/srv/vcontrolhub/storage" },
+    });
+
+    const response = await POST(
+      new Request("http://local/api/servers/srv_1/file-proxy", {
+        method: "POST",
+      }),
+      params,
+    );
+
+    expect(response.status).toBe(502);
+    expect(sshCommands).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("nohup python3"),
+        expect.stringContaining("kill -0 4242"),
+        expect.stringContaining("kill 4242"),
+      ]),
+    );
+    expect(sshCommands.some((command) => command.includes(".out"))).toBe(true);
+    expect(proxyUpsertMock).not.toHaveBeenCalled();
+    expect(releaseLockMock).toHaveBeenCalledTimes(1);
   });
 
   it("generates a scoped proxy script with header tokens and restricted CORS", () => {

@@ -141,13 +141,23 @@ describe("startWorkerLifecycle", () => {
     expect(startAllWorkersMock).toHaveBeenCalledTimes(1);
   });
 
-  it("surfaces failed workers from startAllWorkers", async () => {
+  it("fails fast and rolls back when any worker cannot start", async () => {
     startAllWorkersMock.mockResolvedValueOnce({
       started: ["alert-evaluation"],
       failed: [{ id: "backup", error: "disk full" }],
     });
-    const result = await startWorkerLifecycle();
-    expect(result.failed).toEqual([{ id: "backup", error: "disk full" }]);
+
+    await expect(startWorkerLifecycle()).rejects.toThrow("backup");
+    expect(stopAllWorkersMock).toHaveBeenCalledTimes(1);
+    expect(startRuntimeHeartbeatMock).not.toHaveBeenCalled();
+  });
+
+  it("fails startup when runtime monitoring cannot be registered", async () => {
+    startRuntimeHeartbeatMock.mockRejectedValueOnce(new Error("database unavailable"));
+
+    await expect(startWorkerLifecycle()).rejects.toThrow("database unavailable");
+    expect(stopAllWorkersMock).toHaveBeenCalledTimes(1);
+    expect(stopRuntimeHeartbeatMock).toHaveBeenCalledTimes(1);
   });
 });
 

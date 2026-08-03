@@ -19,6 +19,7 @@ describe("resolveSshWsListenConfig", () => {
 
 	it("rejects invalid port values clearly", () => {
 		expect(() => resolveSshWsListenConfig({ SSH_WS_PORT: "not-a-port" })).toThrow("SSH_WS_PORT must be a valid TCP port");
+		expect(() => resolveSshWsListenConfig({ SSH_WS_PORT: "3001garbage" })).toThrow("SSH_WS_PORT must be a valid TCP port");
 		expect(() => resolveSshWsListenConfig({ SSH_WS_PORT: "70000" })).toThrow("SSH_WS_PORT must be a valid TCP port");
 	});
 

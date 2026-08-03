@@ -30,4 +30,11 @@ describe("StorageNodeFields", () => {
     expect(screen.getByLabelText("Username")).toHaveValue("deploy");
     expect(screen.getByLabelText("Set as default storage node")).toBeChecked();
   });
+
+  it("allows either a bound VPS or an explicit remote host", () => {
+    renderFields("SFTP");
+
+    expect(screen.getByLabelText(/Bind VPS/)).not.toBeRequired();
+    expect(screen.getByLabelText(/Remote host/)).not.toBeRequired();
+  });
 });

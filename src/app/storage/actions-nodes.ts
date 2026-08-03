@@ -80,15 +80,6 @@ export async function createStorageNodeAction(
     const hostRaw = String(formData.get("host") ?? "").trim();
     const usernameRaw = String(formData.get("username") ?? "").trim();
 
-    // SFTP nodes are invisible in the list unless bound to a VPS server
-    // (GET /api/storage/nodes filters them out), so an unbound submission
-    // would look like "created but missing". Reject it explicitly.
-    if (driver === "SFTP" && (!serverIdRaw || !hostRaw)) {
-      return {
-        error: t("storagePage.action.sftpRequiresServerAndHost"),
-      } satisfies StorageActionState;
-    }
-
     const node = await createStorageNode(
       {
         name: String(formData.get("name") ?? ""),
@@ -152,21 +143,6 @@ export async function updateStorageNodeAction(
 
     if (!storageNodeId) {
       return { error: t("storagePage.action.missingNodeParam") } satisfies StorageActionState;
-    }
-
-    // Same contract as create: an SFTP node must not be saved unbound /
-    // hostless (the list view filters such nodes out entirely).
-    if (driver === "SFTP") {
-      if (formData.has("serverId") && !serverIdRaw) {
-        return {
-          error: t("storagePage.action.sftpRequiresServerAndHost"),
-        } satisfies StorageActionState;
-      }
-      if (formData.has("host") && !hostRaw) {
-        return {
-          error: t("storagePage.action.sftpRequiresServerAndHost"),
-        } satisfies StorageActionState;
-      }
     }
 
     // Only touch optional/driver-specific fields when the form actually submitted them.

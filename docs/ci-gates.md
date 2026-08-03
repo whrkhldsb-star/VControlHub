@@ -11,6 +11,9 @@ substitute — they skip typecheck, lint, coverage, e2e, and dast.
 make ci-local
 # or: npm run ci:local
 
+# Include PostgreSQL integration tests against a dedicated disposable database
+TEST_DATABASE_URL=postgresql://... npm run ci:local
+
 # Full parity with GitHub "test" job (adds coverage + next build + runtime)
 make ci-local-full
 # or: npm run ci:local:full

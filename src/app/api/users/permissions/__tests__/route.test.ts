@@ -151,4 +151,35 @@ describe("/api/users/permissions", () => {
     });
     expect(mocks.prisma.userStorageAccess.createMany).toHaveBeenCalled();
   });
+
+  it("PATCH rejects unknown role keys before replacing assignments", async () => {
+    mocks.prisma.role.findMany.mockResolvedValueOnce([{ id: "r1", key: "viewer" }]);
+
+    const res = await route.PATCH(
+      new Request("http://local/api/users/permissions", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ userId: "user1", roleKeys: ["viewer", "missing"] }),
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    expect(mocks.prisma.userRole.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it("PATCH rejects unknown permission keys before replacing custom grants", async () => {
+    mocks.prisma.role.upsert.mockResolvedValueOnce({ id: "custom-role" });
+    mocks.prisma.permission.findMany.mockResolvedValueOnce([]);
+
+    const res = await route.PATCH(
+      new Request("http://local/api/users/permissions", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ userId: "user1", permissionKeys: ["unknown:grant"] }),
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    expect(mocks.prisma.rolePermission.deleteMany).not.toHaveBeenCalled();
+  });
 });

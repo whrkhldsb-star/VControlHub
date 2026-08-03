@@ -34,7 +34,6 @@ export const zh: Record<string, string> = {
 	"storagePage.action.createNodeFailed": "创建存储节点失败",
 
 	"storagePage.action.missingNodeParam": "缺少存储节点参数",
-	"storagePage.action.sftpRequiresServerAndHost": "SFTP 存储节点必须绑定 VPS 服务器并填写远程主机",
 	"storagePage.action.missingFileEntryParam": "缺少文件条目参数",
 	"storagePage.action.missingFolderName": "文件夹名称不能为空",
 	"storagePage.action.missingEntryName": "名称不能为空",
@@ -130,7 +129,6 @@ export const en: Record<string, string> = {
 	"storagePage.action.createNodeFailed": "Failed to create storage node",
 
 	"storagePage.action.missingNodeParam": "Missing storage node parameter",
-	"storagePage.action.sftpRequiresServerAndHost": "SFTP storage nodes must be bound to a VPS server and have a remote host",
 	"storagePage.action.missingFileEntryParam": "Missing file entry parameter",
 	"storagePage.action.missingFolderName": "Folder name cannot be empty",
 	"storagePage.action.missingEntryName": "Name cannot be empty",

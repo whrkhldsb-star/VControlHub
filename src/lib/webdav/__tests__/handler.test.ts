@@ -79,6 +79,7 @@ import {
 } from "../handler";
 import { buildPropFindMultistatus, parseDepth } from "../xml";
 import { webDavScopeForMethod, webDavTokenAllows } from "../auth";
+import { ensureDirectoryIndexAndBacking } from "../handler-internals";
 
 const session = {
   userId: "u1",
@@ -136,6 +137,7 @@ describe("webdav handlers", () => {
         callback(prismaMock),
     );
     assertAccessMock.mockResolvedValue({ allowed: true });
+    deleteBackingMock.mockResolvedValue(undefined);
     const node = {
       id: "node1",
       name: "Local",
@@ -151,6 +153,36 @@ describe("webdav handlers", () => {
     expect(res.status).toBe(204);
     expect(res.headers.get("DAV")).toContain("1");
     expect(res.headers.get("Allow")).toContain("PROPFIND");
+  });
+
+  it("rolls back a newly-created backing directory when indexing fails", async () => {
+    prismaMock.fileEntry.findFirst.mockResolvedValue(null);
+    createFolderMock.mockResolvedValue(undefined);
+    createEntryMock.mockRejectedValue(new Error("index unavailable"));
+
+    await expect(
+      ensureDirectoryIndexAndBacking({
+        session: session as never,
+        node: {
+          id: "node1",
+          driver: "SFTP",
+          basePath: "/data",
+          host: "sftp.example.com",
+          port: 22,
+          username: "root",
+          serverId: null,
+          server: null,
+        },
+        storageNodeId: "node1",
+        relativePath: "new-folder",
+      }),
+    ).rejects.toThrow("index unavailable");
+    expect(deleteBackingMock).toHaveBeenCalledWith({
+      storageNode: expect.objectContaining({ id: "node1" }),
+      relativePath: "new-folder",
+      isDirectory: true,
+      tolerateMissing: true,
+    });
   });
 
   it("PROPFIND root lists children", async () => {

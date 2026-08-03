@@ -54,6 +54,15 @@ describe("/api/storage/nodes", () => {
             port: 22,
           },
         },
+        {
+          id: "sftp_host",
+          name: "独立 SFTP 主机",
+          driver: "SFTP",
+          basePath: "/archive",
+          host: "sftp.example.com",
+          serverId: null,
+          server: null,
+        },
       ],
     });
   });
@@ -91,6 +100,14 @@ describe("/api/storage/nodes", () => {
           basePath: "/data",
           serverId: "srv_1",
           serverName: "prod-vps",
+        },
+        {
+          id: "sftp_host",
+          name: "独立 SFTP 主机",
+          driver: "SFTP",
+          basePath: "/archive",
+          serverId: null,
+          serverName: null,
         },
       ],
     });

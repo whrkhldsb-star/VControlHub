@@ -19,6 +19,7 @@ import { DEFAULT_ROLE_PERMISSIONS } from "./lib/auth/rbac";
 import { canUseSshTerminal } from "./lib/auth/ssh-access";
 import { getSessionCookieName, verifySessionToken } from "./lib/auth/session";
 import { createLogger } from "./lib/logging";
+import { parseTcpPort } from "./lib/runtime/listen-port";
 import { verifySshWsHandshakeToken } from "./lib/auth/ssh-ws-token";
 import { getSshTerminalRuntimeConfig } from "./lib/runtime-settings/service";
 import {
@@ -52,12 +53,7 @@ loadSshWsRuntimeEnv();
 
 export function resolveSshWsListenConfig(env: Partial<NodeJS.ProcessEnv> = process.env) {
 	const host = env.SSH_WS_HOST?.trim() || "127.0.0.1";
-	const portText = env.SSH_WS_PORT?.trim() || "3001";
-	const port = Number(portText);
-
-	if (!Number.isInteger(port) || port < 1 || port > 65535) {
-		throw new Error("SSH_WS_PORT must be a valid TCP port");
-	}
+	const port = parseTcpPort(env.SSH_WS_PORT, 3001, "SSH_WS_PORT");
 
 	return { host, port };
 }

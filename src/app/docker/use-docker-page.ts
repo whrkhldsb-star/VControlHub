@@ -36,14 +36,17 @@ export function useDockerPage(initialServers: { id: string; name: string; host: 
 	const [serverList] = useState<ServerOption[]>(initialServers);
 	const { state: dockerUrl, setField: setDockerUrlField } = useUrlQueryState({ serverId: "" });
 	const selectedServerId = dockerUrl.serverId || "";
-	const setSelectedServerId = (value: string) => setDockerUrlField("serverId", value);
+	const selectedServerIdRef = useRef(selectedServerId);
+	const setSelectedServerId = (value: string) => {
+		selectedServerIdRef.current = value;
+		setDockerUrlField("serverId", value);
+	};
 	const closeRemovalDialog = useCallback(() => setPendingRemoval(null), []);
 	const closeLogsDialog = useCallback(() => setLogsId(null), []);
 	const removeCancelButtonRef = useRef<HTMLButtonElement | null>(null);
 	const logsCloseButtonRef = useRef<HTMLButtonElement | null>(null);
 	const fetchingStatsRef = useRef<Set<string>>(new Set());
 	const statsServerIdRef = useRef(selectedServerId);
-	const selectedServerIdRef = useRef(selectedServerId);
 	const logsReqRef = useRef<{ id: string; serverId: string } | null>(null);
 	const fetchGenRef = useRef(0);
 	const fetchAbortRef = useRef<AbortController | null>(null);
@@ -279,11 +282,13 @@ export function useDockerPage(initialServers: { id: string; name: string; host: 
 	const runningContainers = useMemo(() => containers.filter((container) => container.State ==="running").slice(0, 12), [containers]);
 
 	useEffect(() => {
-		for (const container of runningContainers) {
-			// Skip if stats already fetched for this container
-			if (stats[container.Id]) continue;
-			void fetchStats(container.Id);
-		}
+		const timer = window.setTimeout(() => {
+			for (const container of runningContainers) {
+				if (stats[container.Id]) continue;
+				void fetchStats(container.Id);
+			}
+		}, 0);
+		return () => window.clearTimeout(timer);
 	}, [runningContainers]); // eslint-disable-line react-hooks/exhaustive-deps
 
 	useVisibilityInterval(() => {

@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { I18nProvider } from "@/lib/i18n/provider";
 import { VpsStatusClient } from "../vps-status-client";
+import { normalizeVpsStatusFilter } from "../use-vps-status-view";
 
 vi.mock("@/lib/auth/csrf-client", () => ({
 	csrfFetch: vi.fn(),
@@ -57,6 +58,14 @@ const overview = {
 		},
 	],
 };
+
+describe("normalizeVpsStatusFilter", () => {
+	it("falls back to all for unknown URL values", () => {
+		expect(normalizeVpsStatusFilter("online")).toBe("online");
+		expect(normalizeVpsStatusFilter("issue")).toBe("issue");
+		expect(normalizeVpsStatusFilter("unexpected")).toBe("all");
+	});
+});
 
 function renderVps(locale: "zh" | "en" = "zh") {
 	return render(

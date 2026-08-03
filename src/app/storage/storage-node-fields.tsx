@@ -51,13 +51,13 @@ export function StorageNodeFields({
 
       {isSftp ? <>
         <FormField label={<>{t("storagePage.form.fieldBindVps")} {required}</>} htmlFor="storage-node-server">
-          <select id="storage-node-server" name="serverId" defaultValue={values.serverId ?? ""} required className={`${UI_INPUT} border-[var(--danger-border)]`}>
+          <select id="storage-node-server" name="serverId" defaultValue={values.serverId ?? ""} className={`${UI_INPUT} border-[var(--danger-border)]`}>
             <option value="">{t("storagePage.form.optionNotBound")}</option>
             {servers.map((server) => <option key={server.id} value={server.id}>{server.name} · {server.host}</option>)}
           </select>
         </FormField>
         <FormField label={<>{t("storagePage.form.fieldRemoteHost")} {required}</>} htmlFor="storage-node-host">
-          <input id="storage-node-host" name="host" defaultValue={values.host ?? ""} required className={`${UI_INPUT} border-[var(--danger-border)]`} placeholder={t("storagePage.form.hostPlaceholder")} />
+          <input id="storage-node-host" name="host" defaultValue={values.host ?? ""} className={`${UI_INPUT} border-[var(--danger-border)]`} placeholder={t("storagePage.form.hostPlaceholder")} />
         </FormField>
         <FormField label={t("storagePage.form.fieldPort")} htmlFor="storage-node-port">
           <input id="storage-node-port" name="port" type="number" min={1} max={65535} defaultValue={values.port ?? 22} className={UI_INPUT} />

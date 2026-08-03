@@ -35,4 +35,25 @@ describe("useAsyncAction", () => {
     act(() => result.current.clearError());
     expect(result.current.error).toBeNull();
   });
+
+  it("rejects synchronous re-entry while an action is still running", async () => {
+    const pending = deferred<string>();
+    const { result } = renderHook(() => useAsyncAction());
+    let first!: Promise<string | undefined>;
+    let second!: Promise<string | undefined>;
+
+    act(() => {
+      first = result.current.run("first", () => pending.promise, { fallback: "failed" });
+      second = result.current.run("second", async () => "unexpected", { fallback: "failed" });
+    });
+
+    await expect(second).resolves.toBeUndefined();
+    expect(result.current.busyKey).toBe("first");
+    await act(async () => {
+      pending.resolve("done");
+      await first;
+    });
+    await expect(first).resolves.toBe("done");
+    expect(result.current.busyKey).toBeNull();
+  });
 });

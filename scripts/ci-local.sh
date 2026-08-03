@@ -12,8 +12,16 @@ cd "$ROOT"
 
 export NODE_ENV="${NODE_ENV:-test}"
 export NEXT_TELEMETRY_DISABLED=1
-# CI uses a dedicated DB URL; tests that need DB should mock. Keep a placeholder.
-export DATABASE_URL="${DATABASE_URL:-postgresql://postgres:postgres@127.0.0.1:5432/whrkhldsb_ci}"
+# Most tests mock persistence but config parsing still needs a syntactically
+# valid URL. Database integration tests are opt-in locally so this placeholder
+# is never mistaken for a reachable database. Pass TEST_DATABASE_URL to run them.
+if [ -n "${TEST_DATABASE_URL:-}" ]; then
+  export DATABASE_URL="$TEST_DATABASE_URL"
+  export RUN_DATABASE_INTEGRATION_TESTS=1
+else
+  export DATABASE_URL="${DATABASE_URL:-postgresql://postgres:postgres@127.0.0.1:5432/whrkhldsb_ci}"
+  export RUN_DATABASE_INTEGRATION_TESTS="${RUN_DATABASE_INTEGRATION_TESTS:-0}"
+fi
 
 FULL=0
 for arg in "$@"; do
