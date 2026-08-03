@@ -74,7 +74,7 @@ export async function resolveManagedLocalEntryPath(input: {
 
 /**
  * Create a managed folder on the storage node's backing filesystem.
- * - LOCAL: `mkdir(absolutePath, { recursive: false })`
+ * - LOCAL: initialize the configured root, then create the target non-recursively
  * - SFTP:  `createRemoteDirectory` with resolved SSH credentials
  * Other drivers throw — silent no-ops would leave DB indexes without backing objects.
  */
@@ -83,10 +83,11 @@ export async function createManagedFolder(input: {
   relativePath: string;
 }) {
   if (input.storageNode.driver === "LOCAL") {
-    const { absolutePath } = await resolveManagedLocalEntryPath({
+    const { absolutePath, allowedRoot } = await resolveManagedLocalEntryPath({
       basePath: input.storageNode.basePath,
       relativePath: input.relativePath,
     });
+    await mkdir(allowedRoot, { recursive: true });
     await mkdir(absolutePath, { recursive: false });
     return;
   }

@@ -83,7 +83,7 @@ export function CreateFolderForm({
     return () => {
       active = false;
     };
-  }, [state.success, refreshPage]);
+  }, [state, refreshPage]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   if (!expanded) {

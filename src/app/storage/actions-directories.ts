@@ -161,10 +161,6 @@ export async function createFolderAction(
       throw error;
     }
 
-    revalidatePath("/");
-    revalidatePath("/storage");
-    revalidatePath("/files");
-
     await auditUserAction(session.userId, "storage.folder.create", {
       storageNodeId,
       relativePath,

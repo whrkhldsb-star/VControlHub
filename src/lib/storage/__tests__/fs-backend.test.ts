@@ -199,12 +199,15 @@ describe("createManagedFolder", () => {
     vi.clearAllMocks();
   });
 
-  it("creates a LOCAL folder with mkdir (non-recursive)", async () => {
+  it("initializes the LOCAL root before creating a folder non-recursively", async () => {
     await createManagedFolder({
       storageNode: localNode,
       relativePath: "team/drafts",
     });
-    expect(mkdirMock).toHaveBeenCalledWith("/srv/storage/team/drafts", {
+    expect(mkdirMock).toHaveBeenNthCalledWith(1, "/srv/storage", {
+      recursive: true,
+    });
+    expect(mkdirMock).toHaveBeenNthCalledWith(2, "/srv/storage/team/drafts", {
       recursive: false,
     });
     expect(createRemoteDirectoryMock).not.toHaveBeenCalled();

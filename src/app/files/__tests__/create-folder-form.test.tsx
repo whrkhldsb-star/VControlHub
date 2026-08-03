@@ -106,4 +106,31 @@ describe("CreateFolderForm", () => {
       expect(screen.getByRole("button", { name: "新建文件夹" })).toBeVisible(),
     );
   });
+
+  it("refreshes after consecutive actions return the same success message", async () => {
+    createFolderActionMock.mockImplementation(async () => ({
+      success: "文件夹已创建",
+    }));
+    const onCreated = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <CreateFolderForm
+        storageNodes={nodes}
+        currentPath="docs"
+        initialNodeId="node_sftp"
+        onCreated={onCreated}
+      />,
+    );
+
+    for (const folderName of ["reports", "archives"]) {
+      await user.click(screen.getByRole("button", { name: "新建文件夹" }));
+      await user.type(screen.getByLabelText("文件夹名称"), folderName);
+      await user.click(screen.getByRole("button", { name: "创建" }));
+      await waitFor(() =>
+        expect(screen.getByRole("button", { name: "新建文件夹" })).toBeVisible(),
+      );
+    }
+
+    expect(onCreated).toHaveBeenCalledTimes(2);
+  });
 });

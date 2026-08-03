@@ -83,6 +83,18 @@ export async function removeIsolatedE2eAccount() {
 			`SELECT "basePath" FROM "StorageNode" WHERE id = 'node_local_default' AND driver = 'LOCAL'`,
 		);
 		await client.query("BEGIN");
+		await client.query(
+			`DELETE FROM share_links
+			 WHERE path LIKE 'qa-files-%'
+			    OR "createdBy" IN (SELECT id FROM "User" WHERE username = $1)`,
+			[ISOLATED_E2E_USERNAME],
+		);
+		await client.query(
+			`DELETE FROM audit_logs
+			 WHERE "actorId" IN (SELECT id FROM "User" WHERE username = $1)
+			    OR detail->>'relativePath' LIKE 'qa-files-%'`,
+			[ISOLATED_E2E_USERNAME],
+		);
 		await client.query(`DELETE FROM media_items WHERE "relativePath" LIKE 'qa-media/%'`);
 		await client.query(
 			`DELETE FROM file_entries WHERE "relativePath" LIKE 'qa-media/%' OR "relativePath" LIKE 'qa-files-%'`,
