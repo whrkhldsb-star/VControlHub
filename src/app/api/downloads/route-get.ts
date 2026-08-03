@@ -58,10 +58,11 @@ export async function GET(request: Request) {
           activeGids.set(t.aria2Gid, t.id);
         }
       }
-      // Merge live aria2 fields into the in-memory rows so this response reflects
-      // COMPLETED/FAILED/progress written below (avoid one-poll lag).
+      // aria2 completion is only the first half of a relay workflow. The worker
+      // must still copy and index the artifact on the target VPS, so GET must
+      // never promote an aria2 relay task to business-level COMPLETED.
       type Aria2LiveFields = {
-        status?: "COMPLETED" | "FAILED";
+        status?: "FAILED";
         progress?: string;
         errorMessage?: string;
         completedBytes?: number | null;
@@ -90,8 +91,7 @@ export async function GET(request: Request) {
                 const terminalUpdate: Aria2LiveFields =
                   a.status === "complete"
                     ? {
-                        status: "COMPLETED",
-                        progress: t("apiDownloads.completed", locale),
+                        progress: t("apiDownloads.transferPending", locale),
                         completedBytes,
                         totalBytes,
                         downloadSpeed,
@@ -128,21 +128,23 @@ export async function GET(request: Request) {
         }
       }
 
-      const safe = visibleTasks.map((t) => ({
-        ...t,
-        ...(aria2FieldByTaskId.get(t.id) ?? {}),
-        pid: t.pid ?? null,
-        aria2Gid: t.aria2Gid ?? null,
-        category: t.category ?? null,
-        maxSpeedKb: t.maxSpeedKb ?? null,
-        totalBytes: t.totalBytes ?? null,
-        completedBytes: t.completedBytes ?? null,
-        downloadSpeed: t.downloadSpeed ?? null,
-        fileSize: t.fileSize ?? null,
-        isBatch: t.isBatch ?? false,
-        batchUrls: t.batchUrls ?? null,
-        downloadAccess: taskDownloadAccess({ ...t, locale }),
-      }));
+      const safe = visibleTasks.map((task) => {
+        const merged = { ...task, ...(aria2FieldByTaskId.get(task.id) ?? {}) };
+        return {
+          ...merged,
+          pid: merged.pid ?? null,
+          aria2Gid: merged.aria2Gid ?? null,
+          category: merged.category ?? null,
+          maxSpeedKb: merged.maxSpeedKb ?? null,
+          totalBytes: merged.totalBytes ?? null,
+          completedBytes: merged.completedBytes ?? null,
+          downloadSpeed: merged.downloadSpeed ?? null,
+          fileSize: merged.fileSize ?? null,
+          isBatch: merged.isBatch ?? false,
+          batchUrls: merged.batchUrls ?? null,
+          downloadAccess: taskDownloadAccess({ ...merged, locale }),
+        };
+      });
 
       let globalStat = null;
       if (aria2Available) {

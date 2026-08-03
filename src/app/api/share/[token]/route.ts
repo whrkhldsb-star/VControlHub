@@ -16,7 +16,12 @@ import {
 import { buildContentDisposition } from "@/lib/http/content-disposition";
 import { nodeStreamToWeb } from "@/lib/http/node-to-web-stream";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
-import { normalizeSharePath, releaseShareQuotaClaim, resolveShareToken } from "@/lib/share-link/service";
+import {
+	assertShareTargetNotDeleted,
+	normalizeSharePath,
+	releaseShareQuotaClaim,
+	resolveShareToken,
+} from "@/lib/share-link/service";
 import { expandStorageBasePath } from "@/lib/storage/path-utils";
 import { normalizeRemoteTargetPath } from "@/lib/storage/remote-path";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
@@ -130,6 +135,11 @@ export async function GET(
 		}
 	} else if (share.entryType !== "FILE") {
 		return denyAfterClaim(apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.notDownloadable", locale), status: 400 }));
+		}
+	try {
+		await assertShareTargetNotDeleted(share.storageNodeId, targetPath);
+	} catch {
+		return denyAfterClaim(apiError({ code: "NOT_FOUND", message: t("apiShareToken.invalidToken", locale), status: 404 }));
 	}
 
 	const node = share.storageNode;

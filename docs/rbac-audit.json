@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-30T06:31:28.052Z",
+  "generatedAt": "2026-08-03T17:20:37.188Z",
   "summary": {
     "permissionsInList": 54,
     "rolesDefined": 4,
@@ -1873,39 +1873,39 @@
         },
         {
           "path": "src/app/api/servers/[id]/file-proxy/route.ts",
-          "line": 113
+          "line": 115
         },
         {
           "path": "src/app/api/servers/[id]/file-proxy/route.ts",
-          "line": 219
-        },
-        {
-          "path": "src/app/api/servers/[id]/file-proxy/route.ts",
-          "line": 427
-        },
-        {
-          "path": "src/app/api/servers/[id]/file-proxy/route.ts",
-          "line": 113
-        },
-        {
-          "path": "src/app/api/servers/[id]/file-proxy/route.ts",
-          "line": 120
-        },
-        {
-          "path": "src/app/api/servers/[id]/file-proxy/route.ts",
-          "line": 219
-        },
-        {
-          "path": "src/app/api/servers/[id]/file-proxy/route.ts",
-          "line": 226
-        },
-        {
-          "path": "src/app/api/servers/[id]/file-proxy/route.ts",
-          "line": 427
+          "line": 207
         },
         {
           "path": "src/app/api/servers/[id]/file-proxy/route.ts",
           "line": 434
+        },
+        {
+          "path": "src/app/api/servers/[id]/file-proxy/route.ts",
+          "line": 115
+        },
+        {
+          "path": "src/app/api/servers/[id]/file-proxy/route.ts",
+          "line": 122
+        },
+        {
+          "path": "src/app/api/servers/[id]/file-proxy/route.ts",
+          "line": 207
+        },
+        {
+          "path": "src/app/api/servers/[id]/file-proxy/route.ts",
+          "line": 214
+        },
+        {
+          "path": "src/app/api/servers/[id]/file-proxy/route.ts",
+          "line": 434
+        },
+        {
+          "path": "src/app/api/servers/[id]/file-proxy/route.ts",
+          "line": 441
         },
         {
           "path": "src/app/api/servers/[id]/reload/route.ts",
@@ -2242,15 +2242,15 @@
         },
         {
           "path": "src/app/storage/actions-file-entries.ts",
-          "line": 24
+          "line": 51
         },
         {
           "path": "src/app/storage/actions-file-entries.ts",
-          "line": 139
+          "line": 181
         },
         {
           "path": "src/app/storage/actions-file-entries.ts",
-          "line": 215
+          "line": 257
         }
       ],
       "pages": [
@@ -2399,11 +2399,11 @@
         },
         {
           "path": "src/app/api/images/publish-from-storage/route.ts",
-          "line": 40
+          "line": 46
         },
         {
           "path": "src/app/api/images/publish-from-storage/route.ts",
-          "line": 40
+          "line": 46
         },
         {
           "path": "src/app/api/media/[id]/stream/route.ts",
@@ -2487,11 +2487,11 @@
         },
         {
           "path": "src/app/api/storage/sftp-download/route.ts",
-          "line": 58
+          "line": 59
         },
         {
           "path": "src/app/api/storage/sftp-download/route.ts",
-          "line": 58
+          "line": 59
         },
         {
           "path": "src/app/api/storage/sftp-ops/route.ts",
@@ -2610,11 +2610,11 @@
         },
         {
           "path": "src/app/api/images/upload/[id]/complete/route.ts",
-          "line": 66
+          "line": 68
         },
         {
           "path": "src/app/api/images/upload/[id]/complete/route.ts",
-          "line": 66
+          "line": 68
         },
         {
           "path": "src/app/api/images/upload/[id]/route.ts",
@@ -2734,7 +2734,7 @@
         },
         {
           "path": "src/app/storage/actions-directories.ts",
-          "line": 188
+          "line": 184
         }
       ],
       "pages": [

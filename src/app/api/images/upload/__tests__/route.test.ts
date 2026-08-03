@@ -9,6 +9,7 @@ const {
   imageCreateMock,
   storageFindFirstMock,
   assertStorageAccessMock,
+	extractMetadataMock,
 } = vi.hoisted(() => ({
   requireApiSessionMock: vi.fn(),
   sessionHasPermissionMock: vi.fn(),
@@ -16,6 +17,7 @@ const {
   imageCreateMock: vi.fn(),
   storageFindFirstMock: vi.fn(),
   assertStorageAccessMock: vi.fn(),
+	extractMetadataMock: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/api-session", () => ({
@@ -43,7 +45,7 @@ vi.mock("@/lib/image-bed/constants", () => ({
   UPLOAD_DIR: "/tmp/vcontrolhub-image-upload-test",
 }));
 vi.mock("@/lib/image/service", () => ({
-  extractMetadata: vi.fn().mockResolvedValue({ width: 2, height: 2 }),
+  extractMetadata: extractMetadataMock,
   generateThumbnail: vi.fn().mockResolvedValue(Buffer.from("thumb")),
   convertToWebP: vi.fn().mockResolvedValue(Buffer.from("webp")),
   convertToAVIF: vi.fn().mockResolvedValue(Buffer.from("avif")),
@@ -53,6 +55,7 @@ import { POST } from "../route";
 
 const uploadRoot = "/tmp/vcontrolhub-image-upload-test";
 const session = { userId: "u1", username: "admin", roles: ["admin"], currentTeamId: "team_a" };
+let requestSequence = 0;
 
 function uploadRequest(extra?: Record<string, string>) {
   const formData = new FormData();
@@ -67,6 +70,7 @@ function uploadRequest(extra?: Record<string, string>) {
   return new Request("http://local/api/images/upload", {
     method: "POST",
     body: formData,
+		headers: { "x-forwarded-for": `192.0.2.${++requestSequence}` },
   });
 }
 
@@ -86,6 +90,7 @@ describe("POST /api/images/upload", () => {
     verifyBearerTokenMock.mockResolvedValue(null);
     imageCreateMock.mockResolvedValue({ id: "img_1", filename: "photo.png" });
     assertStorageAccessMock.mockResolvedValue({ allowed: true });
+		extractMetadataMock.mockResolvedValue({ width: 2, height: 2, format: "png", sizeBytes: 3 });
   });
 
   afterEach(async () => {
@@ -130,6 +135,16 @@ describe("POST /api/images/upload", () => {
     const response = await POST(uploadRequest());
     expect(response.status).toBe(403);
   });
+
+	it("rejects MIME-spoofed bytes that cannot be decoded as an image", async () => {
+		extractMetadataMock.mockRejectedValueOnce(new Error("unsupported image format"));
+
+		const response = await POST(uploadRequest());
+
+		expect(response.status).toBe(400);
+		expect(imageCreateMock).not.toHaveBeenCalled();
+		expect(await listFiles(uploadRoot)).toEqual([]);
+	});
 
   it("removes written image-bed files when image record creation fails", async () => {
     imageCreateMock.mockRejectedValueOnce(new Error("database unavailable"));

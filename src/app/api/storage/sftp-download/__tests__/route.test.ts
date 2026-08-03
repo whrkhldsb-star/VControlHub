@@ -15,6 +15,7 @@ const {
 	connectMock: vi.fn(),
 	endMock: vi.fn(),
 	prismaMock: {
+		fileEntry: { findFirst: vi.fn() },
 		storageNode: {
 			findUnique: vi.fn(),
 			findFirst: vi.fn(),
@@ -119,10 +120,21 @@ describe("/api/storage/sftp-download", () => {
 		prismaMock.storageNode.findUnique.mockResolvedValue(sftpNode);
 		prismaMock.storageNode.findFirst.mockResolvedValue(sftpNode);
 		assertStorageAccessMock.mockResolvedValue({ allowed: true });
+		prismaMock.fileEntry.findFirst.mockResolvedValue(null);
 		sftpStatMock.mockImplementation((_path: string, callback: (err: Error | undefined, stats: unknown) => void) => {
 			callback(undefined, { isFile: () => true, size: 12 });
 		});
 		sftpCreateReadStreamMock.mockImplementation(() => streamWithData());
+	});
+
+	it("rejects a known recycle-bin path before opening SSH", async () => {
+		prismaMock.fileEntry.findFirst.mockResolvedValueOnce({ isDeleted: true });
+		const response = await GET(
+			new Request("https://example.com/api/storage/sftp-download?nodeId=node_1&path=movies%2Fdemo.mp4"),
+		);
+
+		expect(response.status).toBe(404);
+		expect(connectMock).not.toHaveBeenCalled();
 	});
 
 	it("streams full SFTP downloads through shared private headers", async () => {

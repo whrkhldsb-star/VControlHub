@@ -13,6 +13,7 @@ import { ModalShell } from "@/components/modal-shell";
 
 type PendingUninstallDialogProps = {
 	pending: { slug: string; name: string; deleteVolumes: boolean } | null;
+	supportsDataDeletion: boolean;
 	onCancel: () => void;
 	onConfirm: () => void;
 	onToggleDeleteVolumes: (next: boolean) => void;
@@ -20,6 +21,7 @@ type PendingUninstallDialogProps = {
 
 export function PendingUninstallDialog({
 	pending,
+	supportsDataDeletion,
 	onCancel,
 	onConfirm,
 	onToggleDeleteVolumes,
@@ -45,13 +47,14 @@ export function PendingUninstallDialog({
 					<input
 						type="checkbox"
 						checked={pending.deleteVolumes}
+						disabled={!supportsDataDeletion}
 						onChange={(e) => onToggleDeleteVolumes(e.target.checked)}
 						className="mt-1 h-4 w-4 rounded-lg border-[var(--danger-border)] bg-transparent text-[var(--danger)]"
 					/>
 					<span>
 						<span className="block font-medium">{t("qsPage.alsoDeleteData")}</span>
 						<span className="mt-1 block text-xs leading-5 text-[var(--danger)]/80">
-							{t("qsPage.dataDeleteHint")}
+							{t(supportsDataDeletion ? "qsPage.dataDeleteHint" : "qsPage.remoteDataDeleteUnsupported")}
 						</span>
 					</span>
 				</label>

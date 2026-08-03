@@ -1,4 +1,4 @@
-import { JobStatus, Prisma } from "@prisma/client";
+import { JobStatus } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
 import { createCommandRequest } from "@/lib/command/service";
@@ -13,6 +13,7 @@ import {
   pruneCompletedJobsByType,
 } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
+import { tryAcquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 
 import { recordTaskRun } from "./service";
 
@@ -51,9 +52,8 @@ function getWorkerState() {
   return globalState.__vcontrolhubScheduledTaskWorker;
 }
 
-async function hasActiveScheduledTaskTickJob(tx?: Prisma.TransactionClient) {
-  const client = tx ?? prisma;
-  const existing = await client.job.findFirst({
+async function hasActiveScheduledTaskTickJob() {
+	const existing = await prisma.job.findFirst({
     where: {
       type: SCHEDULED_TASK_TICK_JOB_TYPE,
       status: { in: [JobStatus.PENDING, JobStatus.RUNNING] },
@@ -64,51 +64,23 @@ async function hasActiveScheduledTaskTickJob(tx?: Prisma.TransactionClient) {
 }
 
 async function enqueueScheduledTaskTickJob(reason: string) {
-  // New-B (2026-06-15): the previous "findFirst then enqueue" pair was a
-  // textbook read-then-write race — in a multi-process / cluster deploy
-  // (or even with two short-overlapping `tsx src/server.ts` invocations
-  // during a systemd restart) both workers could observe "no active tick
-  // job" simultaneously and each enqueue their own, leading to two
-  // parallel `scheduled-task.tick` jobs that each dispatch every due task
-  // twice.
-  //
-  // We now run the existence check + enqueue inside a single Prisma
-  // transaction so PostgreSQL's MVCC + the implicit row locks serialise
-  // the two halves. The loser's findFirst then sees the winner's enqueued
-  // row and returns early. The in-process `state.running` guard is no
-  // longer the only safety net.
-  try {
-    return await prisma.$transaction(async (tx) => {
-      if (await hasActiveScheduledTaskTickJob(tx)) return null;
-      // Pass `tx` so the job row is created inside this transaction — using
-      // the global prisma client here re-opened the TOCTOU race under RC.
-      return enqueueJob({
-        type: SCHEDULED_TASK_TICK_JOB_TYPE,
+	// A regular transaction does not serialize two concurrent "no rows"
+	// reads under READ COMMITTED. A non-blocking PostgreSQL advisory lock
+	// makes the check-and-enqueue sequence genuinely single-flight.
+	const release = await tryAcquireAdvisoryLock("scheduled-task-enqueue", "global");
+	if (!release) return null;
+	try {
+		if (await hasActiveScheduledTaskTickJob()) return null;
+		return await enqueueJob({
+				type: SCHEDULED_TASK_TICK_JOB_TYPE,
         title: "Scheduled task dispatch tick",
         payload: { reason, requestedAt: new Date().toISOString() },
         priority: -5,
         maxAttempts: 3,
-      }, tx);
-    });
-  } catch (error) {
-    // Belt-and-braces guard for cluster deployments that share the DB:
-    // if PostgreSQL aborts the transaction with a serialisation error
-    // (because another worker just committed its enqueue), treat it the
-    // same as "an active job exists" and bail.
-    const message = error instanceof Error ? error.message : String(error);
-    if (
-      message.includes("could not serialize") ||
-      message.includes("deadlock detected") ||
-      message.includes("conflict")
-    ) {
-      logger.warn(
-        "Skipping scheduled-task tick enqueue because of a serialisation conflict",
-        { reason, error: message },
-      );
-      return null;
-    }
-    throw error;
-  }
+			});
+	} finally {
+		await release();
+	}
 }
 
 async function dispatchDueTask(task: {

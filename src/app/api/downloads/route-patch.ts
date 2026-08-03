@@ -15,7 +15,7 @@ import { shellQuote } from "@/lib/downloads/remote-command";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import {
   deriveDownloadFileNameFromUrl,
-  mapAria2Status,
+  mapAria2RelayStatus,
   buildProgressText,
   indexDownloadedFileEntry,
 } from "@/lib/downloads/helpers";
@@ -141,13 +141,10 @@ export async function PATCH(request: Request) {
         try {
           await ensureAria2Daemon();
           const st = await tellStatus(task.aria2Gid);
-          const progress = buildProgressText(st);
-          const newStatus = mapAria2Status(st.status) as
-            | "RUNNING"
-            | "COMPLETED"
-            | "FAILED"
-            | "CANCELLED"
-            | "PENDING";
+          const progress = st.status === "complete"
+            ? t("apiDownloads.transferPending", locale)
+            : buildProgressText(st);
+          const newStatus = mapAria2RelayStatus(st.status);
           await prisma.downloadTask.update({
             where: { id: taskId },
             data: {

@@ -15,7 +15,7 @@ if (copies.length === 0) {
 }
 
 for (const copy of copies) {
-  if (copy.version !== "5.0.8") {
+  if (copy.version !== "5.0.9") {
     throw new Error(`Unsafe brace-expansion resolved at ${copy.path}: ${copy.version}`);
   }
 }
@@ -35,7 +35,7 @@ const installedMinimatch = JSON.parse(readFileSync(minimatchPackagePath, "utf8")
 if (installedMinimatch.version !== "3.1.5") {
   throw new Error(`Unexpected installed minimatch version: ${installedMinimatch.version}`);
 }
-if (installedMinimatch.dependencies?.["brace-expansion"] !== "5.0.8") {
+if (installedMinimatch.dependencies?.["brace-expansion"] !== "5.0.9") {
   throw new Error("The installed minimatch package metadata lacks the brace-expansion 5 compatibility patch");
 }
 

@@ -177,6 +177,41 @@ describe("sftp sync service", () => {
     expect(listRemoteDirectoryMock).not.toHaveBeenCalled();
   });
 
+	it("preserves recycle-bin tombstones when the remote object still exists", async () => {
+	vi.clearAllMocks();
+	const node = {
+	  id: "node_1",
+	  name: "remote",
+	  driver: "SFTP",
+	  basePath: "/data/files",
+	  host: null,
+	  port: null,
+	  username: null,
+	  hostKeySha256: null,
+	  server: {
+		id: "srv_1",
+		host: "203.0.113.20",
+		port: 22,
+		username: "root",
+		connectionType: "PASSWORD",
+		password: "secret",
+		hostKeySha256: null,
+		sshKey: null,
+	  },
+	} as const;
+	listRemoteDirectoryMock.mockResolvedValueOnce([
+	  { name: "deleted.txt", longname: "-rw-r--r-- deleted.txt", type: "file", size: 12, modifyTime: 1, accessTime: 1 },
+	]);
+	prismaMock.fileEntry.findFirst.mockResolvedValueOnce({ id: "deleted_1", isDeleted: true });
+	prismaMock.fileEntry.findMany.mockResolvedValue([]);
+	prismaMock.fileEntry.updateMany.mockResolvedValue({ count: 0 });
+
+	const result = await syncSftpDirectoryEntries({ node });
+
+	expect(result).toEqual({ synced: 1, created: 0, updated: 0, deleted: 0, errors: [] });
+	expect(prismaMock.fileEntry.update).not.toHaveBeenCalled();
+  });
+
   it("marks stale entries under the synced directory as deleted", async () => {
     vi.clearAllMocks();
     const node = {

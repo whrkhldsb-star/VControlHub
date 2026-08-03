@@ -4,6 +4,9 @@ import { tmpdir } from "node:os";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/share-link/service", () => ({
+	assertShareTargetNotDeleted: vi.fn(async () => undefined),
+	normalizeSharePath: vi.fn((value: string) => value.replace(/^\/+/, "")),
+	releaseShareQuotaClaim: vi.fn(async () => undefined),
   resolveShareToken: vi.fn(),
 }));
 

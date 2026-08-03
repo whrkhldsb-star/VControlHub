@@ -717,7 +717,7 @@ describe("/api/downloads", () => {
     expect(getGlobalStatMock).not.toHaveBeenCalled();
   });
 
-  it("reconciles terminal aria2 tasks from tellStatus", async () => {
+  it("keeps a completed aria2 relay running until transfer to the target VPS finishes", async () => {
     prismaMock.downloadTask.findMany.mockResolvedValueOnce([
       { id: "task_relay", createdBy: "u_1", targetPath: "/srv/cloud/downloads/file.iso", server: { ...serverFixture(), storageNode: { id: "store_1", basePath: "/srv/cloud" } }, status: "RUNNING", aria2Gid: "gid_1", pid: null, category: null, maxSpeedKb: null, totalBytes: null, completedBytes: null, downloadSpeed: null, fileSize: null, isBatch: false, batchUrls: null },
     ]);
@@ -731,7 +731,7 @@ describe("/api/downloads", () => {
     expect(tellStatusMock).toHaveBeenCalledWith("gid_1");
     expect(prismaMock.downloadTask.update).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: "task_relay" },
-      data: expect.objectContaining({ status: "COMPLETED", progress: "下载完成" }),
+      data: expect.not.objectContaining({ status: "COMPLETED" }),
     }));
     expect(getGlobalStatMock).toHaveBeenCalledOnce();
   });
@@ -816,24 +816,17 @@ describe("/api/downloads", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
-      status: "COMPLETED",
-      progress: "Completed · 4096 B",
+      status: "RUNNING",
+      progress: "下载完成，正在传输到目标 VPS…",
       completedBytes: "4096",
       totalBytes: "4096",
       downloadSpeed: "0",
-      downloadAccess: {
-        mode: "direct-url",
-        transport: "direct",
-        href: "/api/storage/direct-access?nodeId=store_1&path=downloads%2Ffile.iso&download=1",
-        fallbackHref: "/api/storage/sftp-download?nodeId=store_1&path=downloads%2Ffile.iso&download=1",
-        label: "下载文件",
-        statusLabel: "当前：直连",
-      },
+      downloadAccess: null,
     });
     expect(prismaMock.downloadTask.update).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: "task_relay" },
       data: expect.objectContaining({
-        status: "COMPLETED",
+        status: "RUNNING",
         completedBytes: "4096",
         totalBytes: "4096",
         downloadSpeed: "0",

@@ -17,6 +17,7 @@ import { shellQuote } from "@/lib/shell-quote";
 import { buildRsyncCommand, buildTarSyncCommand, getSyncTempKeyPath } from "./service-commands";
 import { decryptSyncTargetCredentials } from "./service-credentials";
 import {
+	effectiveDeleteOrphans,
   formatBidirectionalResult,
   isBidirectionalSyncType,
   mergeSyncStats,
@@ -172,6 +173,7 @@ async function runOneWayRsync(input: {
   targetPath: string;
   flags: string[];
   deleteOrphans: boolean;
+	allowTarFallback: boolean;
 }): Promise<{ output: string; stats: OneWaySyncStats }> {
   const sourceSsh = await buildSshParamsFromServer(input.sourceServer, input.sourceServer.sshKey);
   const targetSsh = await buildSshParamsFromServer(input.targetServer, input.targetServer.sshKey);
@@ -218,6 +220,11 @@ async function runOneWayRsync(input: {
   const whichRsync = whichResult.stdout;
   let output: string;
   if (whichRsync.trim() === "MISSING") {
+	if (!input.allowTarFallback) {
+	  throw new Error(
+		"Bidirectional sync requires rsync on both VPS nodes; install rsync and retry. Tar fallback is disabled because it cannot preserve newer-wins semantics.",
+	  );
+	}
     const targetSshKey = targetCredentials.privateKey ? { privateKey: targetCredentials.privateKey } : null;
     output = await executeTarSync(
       sourceSsh,
@@ -292,7 +299,7 @@ export async function executeSyncJob(jobId: string): Promise<ExecuteSyncJobResul
 
 	try {
 		const bidirectional = isBidirectionalSyncType(job.syncType);
-		const deleteOrphans = bidirectional ? false : job.deleteOrphans;
+		const deleteOrphans = effectiveDeleteOrphans(job.syncType, job.deleteOrphans);
 		const flags = rsyncFlagsForJob({
 			syncType: job.syncType,
 			deleteOrphans: job.deleteOrphans,
@@ -307,7 +314,8 @@ export async function executeSyncJob(jobId: string): Promise<ExecuteSyncJobResul
 			sourcePath: job.sourcePath,
 			targetPath: job.targetPath,
 			flags,
-			deleteOrphans,
+				deleteOrphans,
+				allowTarFallback: !bidirectional,
 		});
 
 		let reverse: { stats: OneWaySyncStats } | null = null;
@@ -325,6 +333,7 @@ export async function executeSyncJob(jobId: string): Promise<ExecuteSyncJobResul
 					targetPath: job.sourcePath,
 					flags,
 					deleteOrphans: false,
+					allowTarFallback: false,
 				});
 			} catch (revErr) {
 				reverseError = revErr instanceof Error ? revErr.message : String(revErr);
@@ -452,4 +461,3 @@ export async function reclaimStaleRunningSyncJobs(options?: {
   }
   return reclaimed;
 }
-

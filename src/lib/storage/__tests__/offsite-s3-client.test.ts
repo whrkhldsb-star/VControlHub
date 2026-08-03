@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import path from "node:path";
 
 import { S3Client, S3Error, randomProbeKey } from "../offsite/s3-client";
 
@@ -107,6 +109,32 @@ describe("S3Client — operations", () => {
 		const out = await client.putObject("k", "body");
 		expect(out.etag).toBe("deadbeef");
 		expect(calls[0]!.headers["x-amz-server-side-encryption"]).toBe("AES256");
+	});
+
+	it("putFile: streams the local file with a signed payload hash and content length", async () => {
+		const dir = await mkdtemp("/tmp/vch-s3-stream-");
+		const filePath = path.join(dir, "artifact.bin");
+		const expected = Buffer.from("streamed-backup-content".repeat(1024));
+		await writeFile(filePath, expected);
+		let received = Buffer.alloc(0);
+		let receivedHeaders: Record<string, string> = {};
+		const fetchImpl = vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
+			received = Buffer.from(await new Response(init?.body).arrayBuffer());
+			receivedHeaders = Object.fromEntries(
+				Object.entries(init?.headers ?? {}).map(([key, value]) => [key.toLowerCase(), String(value)]),
+			);
+			return new Response("", { status: 200, headers: { etag: '"stream-etag"' } });
+		}) as unknown as typeof fetch;
+		try {
+			const client = new S3Client({ ...basicConfig(), fetchImpl });
+			const result = await client.putFile("large/artifact.bin", filePath);
+			expect(result.etag).toBe("stream-etag");
+			expect(received).toEqual(expected);
+			expect(receivedHeaders["content-length"]).toBe(String(expected.length));
+			expect(receivedHeaders["x-amz-content-sha256"]).toMatch(/^[a-f0-9]{64}$/);
+		} finally {
+			await rm(dir, { recursive: true, force: true });
+		}
 	});
 
 	it("headObject: returns metadata on 200, null on 404", async () => {

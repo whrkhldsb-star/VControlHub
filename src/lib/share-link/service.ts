@@ -75,6 +75,19 @@ const SHARE_STORAGE_NODE_INCLUDE = {
   },
 } as const;
 
+export async function assertShareTargetNotDeleted(
+  storageNodeId: string,
+  relativePath: string,
+): Promise<void> {
+  const entry = await prisma.fileEntry.findFirst({
+    where: { storageNodeId, relativePath },
+    select: { isDeleted: true },
+  });
+  if (entry?.isDeleted) {
+    throw new NotFoundError(t("backend.shareLink.notFoundOrRevoked"));
+  }
+}
+
 async function recordShareAccess(input: {
   shareLinkId: string;
   action: string;
@@ -230,6 +243,7 @@ export async function resolveShareToken(token: string, password?: string, contex
   const share = await prisma.shareLink.findUnique({ where: { tokenHash: hashShareToken(token) }, include: SHARE_STORAGE_NODE_INCLUDE });
   if (!share || share.revokedAt) throw new NotFoundError(t("backend.shareLink.notFoundOrRevoked"));
   if (share.expiresAt && share.expiresAt.getTime() < Date.now()) throw new ValidationError(t("backend.shareLink.expired"));
+  await assertShareTargetNotDeleted(share.storageNodeId, share.path);
   if (share.permissionLevel === "preview") throw new ForbiddenError(t("backend.shareLink.previewOnly"));
   if (share.passwordHash) {
     if (!password) {
@@ -292,6 +306,7 @@ export async function peekShareToken(
   const share = await prisma.shareLink.findUnique({ where: { tokenHash: hashShareToken(token) }, include: SHARE_STORAGE_NODE_INCLUDE });
   if (!share || share.revokedAt) throw new NotFoundError(t("backend.shareLink.notFoundOrRevoked"));
   if (share.expiresAt && share.expiresAt.getTime() < Date.now()) throw new ValidationError(t("backend.shareLink.expired"));
+  await assertShareTargetNotDeleted(share.storageNodeId, share.path);
 
   const hasPassword = Boolean(share.passwordHash);
   if (hasPassword) {
@@ -381,13 +396,16 @@ async function syncLocalShareDirectory(share: { storageNodeId: string; storageNo
 			storageNodeId: share.storageNodeId,
 			relativePath: { in: records.map((r) => r.relativePath) },
 		},
-		select: { id: true, relativePath: true },
+		select: { id: true, relativePath: true, isDeleted: true },
 		take: 5000, // P2: records.length 已外部限,5k 作 hard 上界
 	});
 	const existingByPath = new Map(existingRows.map((row) => [row.relativePath, row]));
 
 	const toCreate = records.filter((r) => !existingByPath.has(r.relativePath));
-	const toUpdate = records.filter((r) => existingByPath.has(r.relativePath));
+	const toUpdate = records.filter((r) => {
+		const existing = existingByPath.get(r.relativePath);
+		return existing && !existing.isDeleted;
+	});
 
 	// Batch inserts (createMany) + parallel updates (Promise.all). Per-row
 	// failure isolation only matters for the update branch; createMany is
@@ -404,6 +422,7 @@ async function syncLocalShareDirectory(share: { storageNodeId: string; storageNo
 				mimeType: r.mimeType,
 				size: r.size ?? undefined,
 			})),
+			skipDuplicates: true,
 		});
 	}
 	if (toUpdate.length > 0) {
@@ -412,7 +431,7 @@ async function syncLocalShareDirectory(share: { storageNodeId: string; storageNo
 				const row = existingByPath.get(r.relativePath)!;
 				return prisma.fileEntry.update({
 					where: { id: row.id },
-					data: { name: r.name, entryType: r.entryType, mimeType: r.mimeType, size: r.size, isDeleted: false },
+					data: { name: r.name, entryType: r.entryType, mimeType: r.mimeType, size: r.size },
 				});
 			}),
 		);

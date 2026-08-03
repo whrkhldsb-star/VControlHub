@@ -58,6 +58,7 @@ export const zh: Record<string, string> = {
 	"qsPage.uninstallBody": "将卸载 {name}，容器将被删除。默认保留宿主机数据目录，方便重新安装后继续使用。",
 	"qsPage.alsoDeleteData": "同时删除数据目录",
 	"qsPage.dataDeleteHint": "仅删除该服务模板记录的 `/opt/` 或 `/srv/` 下挂载目录；不会删除 Docker socket、时区文件或根目录。",
+	"qsPage.remoteDataDeleteUnsupported": "远程 VPS 不支持自动删除宿主机目录；卸载只会删除容器并保留数据。",
 	"qsPage.confirmUninstall": "确认卸载",
 
 	// pending-source-delete-dialog
@@ -267,6 +268,7 @@ export const en: Record<string, string> = {
 	"qsPage.uninstallBody": "{name} will be uninstalled; the container will be removed. Host data directories are kept by default so you can reuse them on reinstall.",
 	"qsPage.alsoDeleteData": "Also delete data directory",
 	"qsPage.dataDeleteHint": "Only `/opt/` or `/srv/` mounts tracked for this template will be removed. Docker socket, timezone files, and root are not touched.",
+	"qsPage.remoteDataDeleteUnsupported": "Automatic host-directory deletion is unavailable for remote VPS targets; uninstall removes the container and retains its data.",
 	"qsPage.confirmUninstall": "Confirm uninstall",
 
 	// pending-source-delete-dialog

@@ -14,7 +14,7 @@
  * this tick only does lightweight DB writes. This separation keeps the
  * tick fast and survives process restarts.
  */
-import { JobStatus, Prisma } from "@prisma/client";
+import { JobStatus } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
 import { config } from "@/lib/config/env";
@@ -28,6 +28,7 @@ import {
   pruneCompletedJobsByType,
 } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
+import { tryAcquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 
 import { dispatchDueSchedule, recordScheduleRun } from "./schedule-service";
 
@@ -60,9 +61,8 @@ function getWorkerState() {
   return globalState.__vcontrolhubBackupScheduleWorker;
 }
 
-async function hasActiveTickJob(tx?: Prisma.TransactionClient) {
-  const client = tx ?? prisma;
-  const existing = await client.job.findFirst({
+async function hasActiveTickJob() {
+	const existing = await prisma.job.findFirst({
     where: {
       type: BACKUP_SCHEDULE_TICK_JOB_TYPE,
       status: { in: [JobStatus.PENDING, JobStatus.RUNNING] },
@@ -73,36 +73,20 @@ async function hasActiveTickJob(tx?: Prisma.TransactionClient) {
 }
 
 async function enqueueTickJob(reason: string) {
-  // Same race-guard pattern as scheduled-task/worker.ts: the
-  // existence-check + enqueue runs inside a single transaction so
-  // PostgreSQL MVCC + implicit row locks serialise concurrent enqueues
-  // from multiple workers (cluster deploy / overlapping restarts).
-  try {
-    return await prisma.$transaction(async (tx) => {
-      if (await hasActiveTickJob(tx)) return null;
-      return enqueueJob({
-        type: BACKUP_SCHEDULE_TICK_JOB_TYPE,
+	const release = await tryAcquireAdvisoryLock("backup-schedule-enqueue", "global");
+	if (!release) return null;
+	try {
+		if (await hasActiveTickJob()) return null;
+		return await enqueueJob({
+			type: BACKUP_SCHEDULE_TICK_JOB_TYPE,
         title: "Backup schedule dispatch tick",
         payload: { reason, requestedAt: new Date().toISOString() },
         priority: -5,
         maxAttempts: 3,
-      });
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (
-      message.includes("could not serialize") ||
-      message.includes("deadlock detected") ||
-      message.includes("conflict")
-    ) {
-      logger.warn("Skipping backup-schedule tick enqueue because of a serialisation conflict", {
-        reason,
-        error: message,
-      });
-      return null;
-    }
-    throw error;
-  }
+		});
+	} finally {
+		await release();
+	}
 }
 
 async function dispatchDueScheduleRow(schedule: {

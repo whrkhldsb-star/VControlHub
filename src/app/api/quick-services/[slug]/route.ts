@@ -55,6 +55,11 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ s
 		if (serverId) {
 			const access = await assertServerTeamAccess(session, serverId);
 			if (!access.ok) return access.response;
+			if (deleteVolumes) {
+				return NextResponse.json({
+					error: "Remote data-directory deletion is not supported because the host paths cannot be safely bounded; uninstall the container while retaining data.",
+				}, { status: 400 });
+			}
 		}
 		const { job, taskId, reused } = await enqueueQuickServiceJob({
 			title: `Uninstall quick service: ${slug} @ ${instanceKey}`,

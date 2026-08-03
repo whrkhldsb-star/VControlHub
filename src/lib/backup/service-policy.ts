@@ -161,7 +161,6 @@ export function pruneOldBackupRecords(
 			const bAt = b.completedAt ?? b.createdAt;
 			return bAt.getTime() - aAt.getTime();
 		});
-		const keepSet = new Set(sorted.slice(0, keepLatestPerType));
 		const oldestKept = sorted[keepLatestPerType - 1];
 		oldestKeptByType[type] = oldestKept ? (oldestKept.completedAt ?? oldestKept.createdAt) ?? null : null;
 		for (const record of sorted.slice(keepLatestPerType)) {
@@ -174,21 +173,6 @@ export function pruneOldBackupRecords(
 				completedAt,
 				reason: "exceeds-keep-latest",
 			});
-		}
-		// Records within keep window but past cutoff — eligible to delete
-		// because the user explicitly chose keepLatestPerType (treats the
-		// cutoff as a hard floor for the keep window).
-		for (const record of keepSet) {
-			const completedAt = record.completedAt ?? record.createdAt;
-			if (completedAt < cutoff) {
-				candidates.push({
-					id: record.id,
-					type: record.type,
-					filePath: record.filePath ?? null,
-					completedAt,
-					reason: "older-than-cutoff",
-				});
-			}
 		}
 	}
 

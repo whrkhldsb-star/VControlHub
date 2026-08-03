@@ -6,7 +6,8 @@ const {
   scheduledTaskUpdateManyMock,
   scheduledTaskUpdateMock,
   jobFindFirstMock,
-  prismaTransactionMock,
+	tryAcquireAdvisoryLockMock,
+	releaseAdvisoryLockMock,
   enqueueJobMock,
   claimNextJobMock,
   completeJobMock,
@@ -22,7 +23,8 @@ const {
   scheduledTaskUpdateManyMock: vi.fn(),
   scheduledTaskUpdateMock: vi.fn(),
   jobFindFirstMock: vi.fn(),
-  prismaTransactionMock: vi.fn(),
+	tryAcquireAdvisoryLockMock: vi.fn(),
+	releaseAdvisoryLockMock: vi.fn(),
   enqueueJobMock: vi.fn(),
   claimNextJobMock: vi.fn(),
   completeJobMock: vi.fn(),
@@ -45,8 +47,11 @@ vi.mock("@/lib/db", () => ({
     job: {
       findFirst: jobFindFirstMock,
     },
-    $transaction: prismaTransactionMock,
   },
+}));
+
+vi.mock("@/lib/concurrency/advisory-lock", () => ({
+	tryAcquireAdvisoryLock: tryAcquireAdvisoryLockMock,
 }));
 
 vi.mock("@/lib/command/service", () => ({
@@ -115,26 +120,8 @@ describe("scheduled-task durable job worker", () => {
     heartbeatJobMock.mockResolvedValue({ count: 1 });
     createCommandRequestMock.mockResolvedValue({ id: "cmd-1" });
     recordTaskRunMock.mockResolvedValue(undefined);
-    // New-B (2026-06-15): the tick enqueue now goes through prisma.$transaction.
-    // Default behaviour: no active tick job in flight, so the inner
-    // findFirst returns null and the enqueue goes through. The seam
-    // invokes the callback directly with the regular prisma mock (no
-    // separate transaction client) so the in-callback findFirst is
-    // observable via jobFindFirstMock. Any error in the callback
-    // re-throws so the surrounding serialisation-conflict guard in
-    // enqueueScheduledTaskTickJob can decide whether to swallow.
-    prismaTransactionMock.mockImplementation(
-      async (callback: (tx: unknown) => Promise<unknown>) => {
-        return callback({
-          job: { findFirst: jobFindFirstMock },
-          scheduledTask: {
-            findMany: scheduledTaskFindManyMock,
-            updateMany: scheduledTaskUpdateManyMock,
-            update: scheduledTaskUpdateMock,
-          },
-        });
-      },
-    );
+		tryAcquireAdvisoryLockMock.mockResolvedValue(releaseAdvisoryLockMock);
+		releaseAdvisoryLockMock.mockResolvedValue(undefined);
     stopScheduledTaskWorkerForTests();
   });
 
@@ -376,12 +363,7 @@ describe("scheduled-task durable job worker", () => {
     );
   });
 
-  it("serialises the enqueueScheduledTaskTickJob existence check and enqueue under a Prisma transaction", async () => {
-    // New-B (2026-06-15): every in-transaction findFirst sees an active
-    // tick job, so both the startup tick and the first interval tick
-    // short-circuit the enqueue to null. We assert the transaction was
-    // used (not a bare findFirst + enqueue pair) and that the enqueue
-    // was indeed bypassed.
+  it("serialises the tick existence check and enqueue with an advisory lock", async () => {
     jobFindFirstMock.mockResolvedValue({ id: "active-forever" });
     claimNextJobMock.mockResolvedValue(makeJob());
 
@@ -390,11 +372,8 @@ describe("scheduled-task durable job worker", () => {
     await Promise.resolve();
     await Promise.resolve();
 
-    // The transaction should have been entered on the first tick.
-    expect(prismaTransactionMock).toHaveBeenCalled();
-    // Because every in-transaction findFirst returned an active job,
-    // the enqueue short-circuited to null — i.e. enqueueJob was NEVER
-    // called.
-    expect(enqueueJobMock).not.toHaveBeenCalled();
-  });
+		expect(tryAcquireAdvisoryLockMock).toHaveBeenCalledWith("scheduled-task-enqueue", "global");
+		expect(releaseAdvisoryLockMock).toHaveBeenCalled();
+		expect(enqueueJobMock).not.toHaveBeenCalled();
+	});
 });

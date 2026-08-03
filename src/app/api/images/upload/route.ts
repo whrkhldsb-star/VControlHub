@@ -128,15 +128,17 @@ async function handleUpload(request: Request, userId: string, session: SessionPa
     const storageKey = generateStorageKey(originalName);
     const checksum = computeChecksum(buffer);
 
-    // Extract image metadata and generate thumbnail using sharp
+    // Decode with sharp before persisting. MIME and extension are caller
+    // controlled and must not turn arbitrary bytes into inline-served content.
     let imgWidth: number | null = null;
     let imgHeight: number | null = null;
     try {
       const meta = await extractMetadata(buffer);
+			if (!meta.format || meta.format === "svg" || meta.width <= 0 || meta.height <= 0) throw new Error("Invalid image dimensions or format");
       imgWidth = meta.width || null;
       imgHeight = meta.height || null;
     } catch {
-      // Not a valid image or sharp can't process — still save as-is
+			throw new ValidationError(t("api.image.invalidImage", locale));
     }
 
     // Ensure upload directory exists

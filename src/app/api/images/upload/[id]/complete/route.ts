@@ -40,6 +40,7 @@ import {
 } from "@/lib/upload/service";
 import { auditUserAction } from "@/lib/audit/service";
 import { ForbiddenError, ValidationError } from "@/lib/errors";
+import { getServerLocale, t } from "@/lib/i18n/translations";
 import { assertStorageAccess, releaseStorageQuotaGuard } from "@/lib/storage/access-control";
 import {
   deleteStorageFileBuffer,
@@ -60,6 +61,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id: sessionId } = await params;
+	const locale = await getServerLocale();
   return withApiRoute(
     request,
     {
@@ -105,10 +107,11 @@ export async function POST(
       let imgHeight: number | null = null;
       try {
         const meta = await extractMetadata(assembled);
+				if (!meta.format || meta.format === "svg" || meta.width <= 0 || meta.height <= 0) throw new Error("Invalid image dimensions or format");
         imgWidth = meta.width || null;
         imgHeight = meta.height || null;
       } catch {
-        // sharp failure tolerated — single-shot upload does the same.
+				throw new ValidationError(t("api.image.invalidImage", locale));
       }
 
       const ext = path.extname(storageKey).toLowerCase();

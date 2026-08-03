@@ -105,7 +105,8 @@ export async function uploadBackupToOffsite(input: {
 	const shouldCompress = compressSetting !== "false" && !record.filePath.endsWith(".gz");
 	// Prefer streaming gzip for larger artifacts to avoid full-file double buffering.
 	const STREAM_COMPRESS_THRESHOLD_BYTES = 8 * 1024 * 1024;
-	let body: Buffer;
+	let body: Buffer | null = null;
+	let uploadPath: string | null = null;
 	let originalSize = fileStat.size;
 	let compressedSize = fileStat.size;
 	let ratio = 1;
@@ -115,17 +116,14 @@ export async function uploadBackupToOffsite(input: {
 		if (shouldCompress && fileStat.size >= STREAM_COMPRESS_THRESHOLD_BYTES) {
 			const tempDir = await mkdtemp(path.join(tmpdir(), "vch-offsite-"));
 			tempGzPath = path.join(tempDir, `${record.id}.gz`);
-			try {
-				const result = await compressFileToGz(fullPath, tempGzPath);
-				body = await readFile(tempGzPath);
-				originalSize = result.originalSize;
-				compressedSize = result.compressedSize;
-				ratio = result.ratio;
-				compressed = true;
-			} finally {
-				await rm(tempDir, { recursive: true, force: true }).catch(() => {});
-				tempGzPath = null;
-			}
+			const result = await compressFileToGz(fullPath, tempGzPath);
+			uploadPath = tempGzPath;
+			originalSize = result.originalSize;
+			compressedSize = result.compressedSize;
+			ratio = result.ratio;
+			compressed = true;
+		} else if (!shouldCompress && fileStat.size >= STREAM_COMPRESS_THRESHOLD_BYTES) {
+			uploadPath = fullPath;
 		} else {
 			const rawBuf = await readFile(fullPath);
 			if (shouldCompress) {
@@ -156,10 +154,13 @@ export async function uploadBackupToOffsite(input: {
 		bucket: config.bucket,
 		accessKeyId: config.accessKeyId,
 		secretAccessKey: config.secretAccessKey,
+		timeoutMs: 30 * 60 * 1000,
 	};
 	const client = new S3Client(clientConfig);
 	try {
-		const { etag } = await client.putObject(key, body, contentType);
+		const { etag } = uploadPath
+			? await client.putFile(key, uploadPath, contentType)
+			: await client.putObject(key, body!, contentType);
 		// 7. 写 DB
 		const uploadedAt = new Date();
 		await prisma.backupRecord.update({
@@ -202,6 +203,10 @@ export async function uploadBackupToOffsite(input: {
 		});
 		logger.error("offsite upload failed", { backupId: record.id, code, error: message });
 		return { ok: false, skipped: false, error: message, code };
+	} finally {
+		if (tempGzPath) {
+			await rm(path.dirname(tempGzPath), { recursive: true, force: true }).catch(() => {});
+		}
 	}
 }
 

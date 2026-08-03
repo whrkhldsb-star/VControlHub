@@ -54,7 +54,10 @@ const allowedMimePrefixSchema = z
 	.refine(
 		(m) => ALLOWED_MIME_PREFIXES.some((p) => m.startsWith(p)),
 		{ message: "Only image/* MIME types are supported" },
-	);
+	)
+	.refine((m) => m.toLowerCase() !== "image/svg+xml" && m.toLowerCase() !== "image/svg", {
+		message: "SVG uploads are not allowed",
+	});
 
 const storageMimeSchema = z
 	.string()
@@ -71,7 +74,8 @@ const filenameSchema = z
 	.max(256, "filename cannot exceed 256 characters")
 	.refine((f) => !f.includes("/") && !f.includes("\\"), {
 		message: "filename must not contain path separators",
-	});
+	})
+	.refine((f) => !/\.svgz?$/i.test(f), { message: "SVG uploads are not allowed" });
 
 const totalSizeSchema = z
 	.number()

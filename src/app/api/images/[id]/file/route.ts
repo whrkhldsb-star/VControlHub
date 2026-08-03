@@ -103,6 +103,8 @@ export async function GET(
           ? "public, max-age=31536000, immutable"
           : "private, no-store",
         "Content-Disposition": `inline; filename="${image.filename.replace(/["\r\n]/g, "_")}"`,
+				"X-Content-Type-Options": "nosniff",
+				"Content-Security-Policy": "default-src 'none'; sandbox",
       },
     });
   });

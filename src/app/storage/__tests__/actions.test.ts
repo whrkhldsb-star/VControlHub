@@ -35,6 +35,10 @@ const {
       findUnique: vi.fn(),
       findFirst: vi.fn(),
     },
+	shareLink: {
+	  findMany: vi.fn().mockResolvedValue([]),
+	  updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+	},
   },
   createFileEntryMock: vi.fn(),
   restoreFileEntryMock: vi.fn(),
@@ -396,6 +400,22 @@ describe("SFTP file entry actions", () => {
     expect(deleteRemoteFileMock).not.toHaveBeenCalled();
   });
 
+	it("revokes direct and parent-directory shares when a file enters the recycle bin", async () => {
+	  prismaMock.fileEntry.findFirst.mockResolvedValueOnce(sftpEntry());
+	  prismaMock.shareLink.findMany.mockResolvedValueOnce([
+		{ id: "share-file", path: "docs/old.txt", entryType: "FILE" },
+		{ id: "share-parent", path: "docs", entryType: "DIRECTORY" },
+	  ]);
+	  prismaMock.fileEntry.update.mockResolvedValueOnce({ id: "entry-1" });
+
+	  await deleteFileEntryAction(null, entryForm("entry-1"));
+
+	  expect(prismaMock.shareLink.updateMany).toHaveBeenCalledWith({
+		where: { id: { in: ["share-file", "share-parent"] }, revokedAt: null },
+		data: { revokedAt: expect.any(Date) },
+	  });
+	});
+
   it("does not delete the backing file when recycle-bin indexing fails", async () => {
     prismaMock.fileEntry.findFirst.mockResolvedValueOnce(sftpEntry());
     prismaMock.fileEntry.update.mockRejectedValueOnce(new Error("database unavailable"));
@@ -417,7 +437,7 @@ describe("SFTP file entry actions", () => {
     expect(prismaMock.fileEntry.update).not.toHaveBeenCalled();
   });
 
-  it("removes directory index rows and then cleans up the remote SFTP directory", async () => {
+	it("cleans up the remote SFTP directory before removing directory index rows", async () => {
     prismaMock.fileEntry.findFirst.mockResolvedValueOnce(
       sftpEntry({
         name: "docs",
@@ -468,6 +488,17 @@ describe("SFTP file entry actions", () => {
       where: { id: "entry-1" },
     });
   });
+
+	it("keeps the recycle-bin row when permanent backing deletion fails", async () => {
+	  prismaMock.fileEntry.findFirst.mockResolvedValueOnce(sftpEntry());
+	  deleteRemoteFileMock.mockRejectedValueOnce(new Error("permission denied"));
+
+	  const result = await permanentDeleteFileEntryAction(null, entryForm("entry-1"));
+
+	  expect(result).toEqual({ error: "permission denied" });
+	  expect(prismaMock.fileEntry.delete).not.toHaveBeenCalled();
+	  expect(prismaMock.shareLink.updateMany).not.toHaveBeenCalled();
+	});
 
   it("renames the remote SFTP file before updating indexed paths", async () => {
     prismaMock.fileEntry.findFirst.mockResolvedValueOnce(sftpEntry());

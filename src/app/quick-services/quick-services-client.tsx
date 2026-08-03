@@ -403,6 +403,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 
 			<PendingUninstallDialogLazy
 				pending={pendingUninstall}
+				supportsDataDeletion={!selectedServerId}
 				onCancel={() => setPendingUninstall(null)}
 				onConfirm={doUninstall}
 				onToggleDeleteVolumes={(next) =>

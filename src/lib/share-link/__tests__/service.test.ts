@@ -35,7 +35,10 @@ vi.mock("@/lib/storage/access-control", () => ({
 const { createShareLink, createShareLinkFromFileEntry, listShareLinks, normalizeSharePath, releaseShareQuotaClaim, resolveShareToken, revokeShareLink } = await import("../service");
 
 describe("share link service", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+	vi.clearAllMocks();
+	mockPrisma.fileEntry.findFirst.mockResolvedValue(null);
+  });
 
   it("creates a share token but stores only its hash", async () => {
     mockPrisma.shareLink.create.mockImplementation(async ({ data }: any) => ({ id: "share1", ...data, createdAt: new Date(), updatedAt: new Date() }));
@@ -78,6 +81,20 @@ describe("share link service", () => {
     mockPrisma.shareLink.findUnique.mockResolvedValue({ id: "share1", tokenHash: "x", expiresAt: new Date("2020-01-01T00:00:00Z"), revokedAt: null });
     await expect(resolveShareToken("abc")).rejects.toThrow();
   });
+
+	it("rejects a valid token when its indexed target is in the recycle bin", async () => {
+	  mockPrisma.shareLink.findUnique.mockResolvedValue({
+		id: "share-deleted",
+		storageNodeId: "node1",
+		path: "docs/deleted.txt",
+		expiresAt: null,
+		revokedAt: null,
+	  });
+	  mockPrisma.fileEntry.findFirst.mockResolvedValueOnce({ isDeleted: true });
+
+	  await expect(resolveShareToken("abc")).rejects.toThrow();
+	  expect(mockPrisma.shareLink.update).not.toHaveBeenCalled();
+	});
 
   it("rejects password-protected shares when no password provided", async () => {
     const { hashSharePassword } = await import("../service");

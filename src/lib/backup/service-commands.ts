@@ -35,18 +35,10 @@ export function planBackupRestoreSteps(input: {
 		return [{ file: "bash", args: ["scripts/restore-db.sh", input.backupPath] }];
 	}
 	if (type === "FILES") {
-		return [{ file: "tar", args: ["-xzf", input.backupPath, "-C", input.projectRoot] }];
+		return [{ file: "bash", args: ["scripts/restore-files.sh", input.backupPath, input.projectRoot] }];
 	}
-	// FULL artifacts from deploy/backup.sh --full are app-path tars only
-	// (storage/uploads/…), not PostgreSQL dumps. Never call restore-db.sh on them.
 	if (type === "FULL") {
-		if (component === "database") {
-			throw new Error(
-				"FULL backups do not include a database dump; restore component=database is not supported. Use a DATABASE backup or component=files.",
-			);
-		}
-		// files | all: extract the tar only
-		return [{ file: "tar", args: ["-xzf", input.backupPath, "-C", input.projectRoot] }];
+		return [{ file: "bash", args: ["scripts/restore-full.sh", input.backupPath, component, input.projectRoot] }];
 	}
 	// Unknown type: default to database restore
 	return [{ file: "bash", args: ["scripts/restore-db.sh", input.backupPath] }];
@@ -57,9 +49,6 @@ function formatRestoreStepsAsShell(projectRoot: string, steps: BackupRestoreStep
 		// Keep fixed binaries/flags unquoted for readable docs; quote only path args.
 		if (step.file === "bash" && step.args[0] === "scripts/restore-db.sh" && step.args.length === 2) {
 			return `bash scripts/restore-db.sh ${shellQuote(step.args[1]!)}`;
-		}
-		if (step.file === "tar" && step.args[0] === "-xzf" && step.args[2] === "-C" && step.args.length === 4) {
-			return `tar -xzf ${shellQuote(step.args[1]!)} -C ${shellQuote(step.args[3]!)}`;
 		}
 		const argv = [step.file, ...step.args].map(shellQuote).join(" ");
 		return argv;

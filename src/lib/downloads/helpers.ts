@@ -115,6 +115,17 @@ export function mapAria2Status(s: string): string {
  }
 }
 
+/**
+ * Relay downloads are not complete when aria2 finishes: the worker must still
+ * transfer and index the artifact on the target VPS. Keep that intermediate
+ * state RUNNING so list/refresh requests cannot terminate the workflow early.
+ */
+export function mapAria2RelayStatus(s: string): "RUNNING" | "FAILED" | "PENDING" {
+ if (s === "error" || s === "removed") return "FAILED";
+ if (s === "paused") return "PENDING";
+ return "RUNNING";
+}
+
 /** Build a progress string from aria2 status */
 export function buildProgressText(st: Aria2Status): string {
  const pct = computeProgress(st.completedLength, st.totalLength);

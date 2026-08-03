@@ -131,6 +131,10 @@ vi.mock("@/lib/logging", () => ({
 	createLogger: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }),
 }));
 
+vi.mock("@/lib/concurrency/advisory-lock", () => ({
+	acquireAdvisoryLock: vi.fn(async () => async () => undefined),
+}));
+
 vi.mock("@/lib/ticket/service", () => ({
 	createTicket: vi.fn(async (input: {
 		title: string;
@@ -347,6 +351,36 @@ describe("ITSM service", () => {
 		expect(result.action).toBe("create");
 		expect(result.ticketId).toMatch(/^tk_/);
 		expect(result.event.status).toBe("ok");
+	});
+
+	it("deduplicates an inbound externalId before repeating ticket side effects", async () => {
+		const conn = await createItsmConnection({
+			name: "Inbound idempotency",
+			provider: "generic_webhook",
+			direction: "inbound",
+			credentials: { webhookSecret: "sec" },
+			config: { createOnInbound: true },
+		});
+		const rawBody = JSON.stringify({
+			eventType: "ticket.create",
+			externalId: "event-stable-1",
+			ticket: { title: "Create once", description: "Do not duplicate" },
+		});
+		const signatureHeader = `sha256=${createHmac("sha256", "sec").update(rawBody).digest("hex")}`;
+		const request = {
+			connectionId: conn.id,
+			rawBody,
+			signatureHeader,
+			json: JSON.parse(rawBody) as Record<string, unknown>,
+			systemUserId: "sys",
+		};
+
+		const first = await handleInboundWebhook(request);
+		const second = await handleInboundWebhook(request);
+
+		expect(second.ticketId).toBe(first.ticketId);
+		expect(second.event.id).toBe(first.event.id);
+		expect(Array.from(ticketStore.values()).filter((ticket) => ticket.title === "Create once")).toHaveLength(1);
 	});
 
 	it("rejects inbound with bad signature", async () => {

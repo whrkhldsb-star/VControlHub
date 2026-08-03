@@ -22,8 +22,13 @@ import {
 import { logError } from "@/lib/logging";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { readStorageFileBuffer, storageFileNodeSelect } from "@/lib/storage/file-content";
+import { extractMetadata } from "@/lib/image/service";
 
-import { ForbiddenError } from "@/lib/errors";
+import { ForbiddenError, ValidationError } from "@/lib/errors";
+import { getServerLocale, t } from "@/lib/i18n/translations";
+
+const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
+const BLOCKED_IMAGE_EXTENSIONS = new Set([".svg", ".svgz"]);
 const publishSchema = z.object({
   storageNodeId: z.string().min(1),
   relativePath: z.string().min(1),
@@ -34,6 +39,7 @@ const publishSchema = z.object({
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
+	const locale = await getServerLocale();
   return withApiRoute(
     request,
     {
@@ -69,7 +75,7 @@ export async function POST(request: Request) {
       }
 
       const ext = path.extname(relativePath).toLowerCase();
-      if (!IMAGE_EXTENSIONS.has(ext))
+      if (!IMAGE_EXTENSIONS.has(ext) || BLOCKED_IMAGE_EXTENSIONS.has(ext))
         return NextResponse.json(
           { error: "Unsupported file type" },
           { status: 400 },
@@ -87,6 +93,18 @@ export async function POST(request: Request) {
 
       // Read file from storage after the exact storage path has been authorized.
       const buffer = await readStorageFileBuffer(storageNode, relativePath);
+			if (buffer.byteLength > MAX_IMAGE_BYTES) {
+				throw new ValidationError(t("api.image.fileTooLarge", locale));
+			}
+			let metadata;
+			try {
+				metadata = await extractMetadata(buffer);
+				if (!metadata.format || metadata.format === "svg" || metadata.width <= 0 || metadata.height <= 0) {
+					throw new Error("Invalid image dimensions or format");
+				}
+			} catch {
+				throw new ValidationError(t("api.image.invalidImage", locale));
+			}
       const originalName = filename || path.basename(relativePath);
       const storageKey = `${crypto.randomUUID()}${ext}`;
       const checksum = crypto.createHash("sha256").update(buffer).digest("hex");
@@ -124,6 +142,8 @@ export async function POST(request: Request) {
             storageKey,
             mimeType: mimeTypeFromExt(ext),
             sizeBytes: buffer.byteLength,
+						width: metadata.width,
+						height: metadata.height,
             checksum,
             album: album?.trim() || undefined,
             isPublic: false,

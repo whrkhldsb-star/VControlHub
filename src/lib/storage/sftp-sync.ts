@@ -72,11 +72,14 @@ async function upsertRemoteEntry(
   });
 
   if (existing) {
+	  // A deleted row is a user-visible recycle-bin tombstone. Inventory refreshes
+	  // must not silently restore it just because the backing object still exists.
+	  if (existing.isDeleted) return "skipped" as const;
     await prisma.fileEntry.update({
       where: { id: existing.id },
       data,
     });
-    return existing.isDeleted ? ("created" as const) : ("updated" as const);
+	return "updated" as const;
   }
 
   try {
@@ -91,11 +94,12 @@ async function upsertRemoteEntry(
       where: { storageNodeId: nodeId, relativePath },
     });
     if (!raced) throw error;
+	if (raced.isDeleted) return "skipped" as const;
     await prisma.fileEntry.update({
       where: { id: raced.id },
       data,
     });
-    return raced.isDeleted ? ("created" as const) : ("updated" as const);
+	return "updated" as const;
   }
 }
 
@@ -173,13 +177,13 @@ export async function syncSftpDirectoryEntries(input: {
 
   const basePath = normalizeRemotePath(node.basePath);
   const normalizedStartPath = normalizeRemotePath(node.basePath, remotePath);
-  const result: SftpSyncResult = {
+	const result: SftpSyncResult = {
     synced: 0,
     created: 0,
     updated: 0,
     deleted: 0,
     errors: [],
-  };
+	};
   const directoryTimeoutMs =
     input.directoryTimeoutMs !== undefined
       ? Math.max(1, input.directoryTimeoutMs)
@@ -227,7 +231,7 @@ export async function syncSftpDirectoryEntries(input: {
       result.synced += 1;
       try {
         const action = await upsertRemoteEntry(node.id, entry, relativePath);
-        result[action] += 1;
+		if (action !== "skipped") result[action] += 1;
       } catch (error) {
         const msg = error instanceof Error ? error.message : "Unknown error";
         result.errors.push(`Saving ${relativePath} failed: ${msg}`);

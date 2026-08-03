@@ -268,6 +268,17 @@ describe("/api/quick-services routes", () => {
     expect(mocks.enqueueQuickServiceJob).toHaveBeenCalledWith(expect.objectContaining({ payload: { action: "uninstall", slug: "alist", deleteVolumes: true, instanceKey: "hub-host", serverId: null } }));
   });
 
+	it("rejects remote data deletion instead of claiming retained directories were removed", async () => {
+		const response = await slugRoute.DELETE(new Request("http://local/api/quick-services/alist", {
+			method: "DELETE",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({ deleteVolumes: true, serverId: "srv_remote" }),
+		}), { params: Promise.resolve({ slug: "alist" }) });
+
+		expect(response.status).toBe(400);
+		expect(mocks.enqueueQuickServiceJob).not.toHaveBeenCalled();
+	});
+
   it("checks and allocates ports", async () => {
     const checkResponse = await checkPortRoute.GET(new Request("http://local/api/quick-services/check-port?port=5244"));
     const allocateResponse = await checkPortRoute.GET(new Request("http://local/api/quick-services/check-port?action=allocate&preferred=5244"));

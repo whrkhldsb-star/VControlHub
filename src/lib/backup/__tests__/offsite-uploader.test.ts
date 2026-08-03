@@ -39,13 +39,15 @@ vi.mock("@/lib/storage/offsite/schema", () => ({
 	validateOffsiteConfigForUse: (validateForUseMock as unknown as (...args: unknown[]) => unknown),
 }));
 
-const { putObjectMock, headObjectMock, deleteObjectMock, listObjectsMock, MockS3Client, S3ErrorClass } = vi.hoisted(() => {
+const { putObjectMock, putFileMock, headObjectMock, deleteObjectMock, listObjectsMock, MockS3Client, S3ErrorClass } = vi.hoisted(() => {
 	const putObjectMock = vi.fn();
+	const putFileMock = vi.fn();
 	const headObjectMock = vi.fn();
 	const deleteObjectMock = vi.fn();
 	const listObjectsMock = vi.fn();
 	class MockS3Client {
 		putObject = putObjectMock;
+		putFile = putFileMock;
 		headObject = headObjectMock;
 		deleteObject = deleteObjectMock;
 		listObjects = listObjectsMock;
@@ -59,7 +61,7 @@ const { putObjectMock, headObjectMock, deleteObjectMock, listObjectsMock, MockS3
 			this.name = "S3Error";
 		}
 	}
-	return { putObjectMock, headObjectMock, deleteObjectMock, listObjectsMock, MockS3Client, S3ErrorClass };
+	return { putObjectMock, putFileMock, headObjectMock, deleteObjectMock, listObjectsMock, MockS3Client, S3ErrorClass };
 });
 
 vi.mock("@/lib/storage/offsite/s3-client", () => ({
@@ -118,6 +120,7 @@ beforeEach(() => {
 	validateForUseMock.mockReset();
 	validateForUseMock.mockReturnValue([]);
 	putObjectMock.mockReset();
+	putFileMock.mockReset();
 	headObjectMock.mockReset();
 	deleteObjectMock.mockReset();
 	listObjectsMock.mockReset();
@@ -275,6 +278,32 @@ describe("uploadBackupToOffsite", () => {
 			} else {
 				expect.fail("expected ok=true not skipped");
 			}
+		} finally {
+			await rm(dir, { recursive: true, force: true });
+		}
+	});
+
+	it("streams large pre-compressed backup artifacts instead of buffering them", async () => {
+		loadConfigMock.mockResolvedValue(baseConfig);
+		mockPrisma.backupRecord.findUnique.mockResolvedValue({
+			...baseRecord,
+			filePath: "large.sql.gz",
+		});
+		putFileMock.mockResolvedValue({ etag: "etag-stream" });
+		const { mkdtemp, writeFile, rm, mkdir } = await import("node:fs/promises");
+		const { join } = await import("node:path");
+		const dir = await mkdtemp("/tmp/55a-stream-test-");
+		try {
+			await mkdir(join(dir, "backups"));
+			await writeFile(join(dir, "backups/large.sql.gz"), Buffer.alloc(8 * 1024 * 1024, 7));
+			const result = await uploadBackupToOffsite({ backupId: "rec-1", projectRoot: dir });
+			expect(result.ok).toBe(true);
+			expect(putFileMock).toHaveBeenCalledWith(
+				expect.stringContaining("rec-1"),
+				join(dir, "backups/large.sql.gz"),
+				"application/octet-stream",
+			);
+			expect(putObjectMock).not.toHaveBeenCalled();
 		} finally {
 			await rm(dir, { recursive: true, force: true });
 		}

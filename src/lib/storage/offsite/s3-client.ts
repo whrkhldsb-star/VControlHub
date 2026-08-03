@@ -15,6 +15,9 @@
  *   - 跨 region 重试
  */
 import { createHmac, createHash, randomBytes } from "node:crypto";
+import { createReadStream } from "node:fs";
+import { stat } from "node:fs/promises";
+import { Readable } from "node:stream";
 
 /* ── Public types ────────────────────────────────────────── */
 
@@ -213,6 +216,32 @@ export class S3Client {
 		return { etag: etag.replace(/"/g, "") };
 	}
 
+	/** PUT a local file without hydrating the complete artifact into memory. */
+	async putFile(key: string, filePath: string, contentType?: string): Promise<{ etag: string; versionId?: string }> {
+		const info = await stat(filePath);
+		if (!info.isFile()) throw new S3Error("upload source must be a regular file", 0, "InvalidUploadSource");
+		const bodyHash = await sha256File(filePath);
+		const url = this.buildUrl(key, new URLSearchParams());
+		const headers: Record<string, string> = {
+			"content-length": String(info.size),
+			"content-type": contentType ?? "application/octet-stream",
+			"x-amz-server-side-encryption": "AES256",
+		};
+		const signed = this.signWithBodyHash("PUT", url, headers, bodyHash);
+		const body = Readable.toWeb(createReadStream(filePath)) as ReadableStream<Uint8Array>;
+		const request = {
+			method: "PUT",
+			headers: signed.headers,
+			body,
+			duplex: "half",
+			signal: AbortSignal.timeout(this.timeoutMs),
+		} as RequestInit & { duplex: "half" };
+		const res = await this.fetchImpl(url.toString(), request);
+		await this.assertOk(res, "PUT", key);
+		const etag = res.headers.get("etag") ?? "";
+		return { etag: etag.replace(/"/g, "") };
+	}
+
 	/** HEAD an object; returns metadata or null if not found. */
 	async headObject(key: string): Promise<{ size: number; etag: string; contentType: string; lastModified: string } | null> {
 		const url = this.buildUrl(key, new URLSearchParams());
@@ -284,6 +313,10 @@ export class S3Client {
 		const bodyHash = method === "GET" || method === "HEAD" || method === "DELETE"
 			? sha256Hex("")
 			: sha256Hex(body);
+		return this.signWithBodyHash(method, url, headers, bodyHash);
+	}
+
+	private signWithBodyHash(method: string, url: URL, headers: Record<string, string>, bodyHash: string): { headers: Record<string, string> } {
 		// Ensure Host header is present for canonical request
 		const merged: Record<string, string> = { ...headers, host: url.host };
 		return signV4(
@@ -310,6 +343,16 @@ export class S3Client {
 		const message = msgMatch?.[1] ?? (text.slice(0, 200) || `${op} ${key} failed with status ${res.status}`);
 		throw new S3Error(`${op} ${key} failed: ${message}`, res.status, code, requestId);
 	}
+}
+
+async function sha256File(filePath: string): Promise<string> {
+	return new Promise((resolve, reject) => {
+		const hash = createHash("sha256");
+		const stream = createReadStream(filePath);
+		stream.on("data", (chunk) => hash.update(chunk));
+		stream.on("error", reject);
+		stream.on("end", () => resolve(hash.digest("hex")));
+	});
 }
 
 /* ── Lightweight XML parser (list-type=2 only) ────────────── */

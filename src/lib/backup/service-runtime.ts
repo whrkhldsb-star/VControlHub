@@ -84,6 +84,7 @@ export async function runExistingBackupRecord(input: { id: string; projectRoot?:
 			throw new ConflictError(t("backend.backup.backupIsAlreadyRunning"));
 		}
 		if (latest?.status === "COMPLETED") {
+			if (!latest.offsiteKey) await logOffsiteUploadResult(record.id, projectRoot);
 			return latest;
 		}
 		throw new ConflictError(`Backup cannot start from status ${latest?.status ?? "unknown"}`);
@@ -111,39 +112,41 @@ export async function runExistingBackupRecord(input: { id: string; projectRoot?:
 			errorMessage: null,
 			checksumSha256,
 		});
-		// TR-009 55a: best-effort offsite 上传 — 失败不影响 backup COMPLETED
-		void uploadBackupToOffsite({ backupId: record.id, projectRoot })
-			.then((result) => {
-				if (result.ok === false) {
-					offsiteUploadLogger.warn("offsite upload did not succeed (non-fatal)", {
-						backupId: record.id,
-						code: result.code,
-						error: result.error,
-					});
-				} else if (result.skipped) {
-					offsiteUploadLogger.info("offsite upload skipped", {
-						backupId: record.id,
-						reason: result.reason,
-					});
-				} else {
-					offsiteUploadLogger.info("offsite upload completed", {
-						backupId: record.id,
-						key: result.key,
-						originalSize: result.originalSize,
-						compressedSize: result.compressedSize,
-						ratio: result.ratio,
-					});
-				}
-			})
-			.catch((err) => {
-				offsiteUploadLogger.error("offsite upload threw (non-fatal)", {
-					backupId: record.id,
-					error: err instanceof Error ? err.message : String(err),
-				});
-			});
+		// Keep the durable backup job alive until optional offsite delivery reaches
+		// a terminal result. Local completion remains valid when offsite is disabled
+		// or fails, and a reclaimed completed job retries records without offsiteKey.
+		await logOffsiteUploadResult(record.id, projectRoot);
 		return updated;
 	} catch (error) {
 		return updateBackupRecordStatus(record.id, { status: "FAILED", errorMessage: backupCommandErrorMessage(error).slice(0, 2000) });
+	}
+}
+
+async function logOffsiteUploadResult(backupId: string, projectRoot: string) {
+	try {
+		const result = await uploadBackupToOffsite({ backupId, projectRoot });
+		if (result.ok === false) {
+			offsiteUploadLogger.warn("offsite upload did not succeed (non-fatal)", {
+				backupId,
+				code: result.code,
+				error: result.error,
+			});
+		} else if (result.skipped) {
+			offsiteUploadLogger.info("offsite upload skipped", { backupId, reason: result.reason });
+		} else {
+			offsiteUploadLogger.info("offsite upload completed", {
+				backupId,
+				key: result.key,
+				originalSize: result.originalSize,
+				compressedSize: result.compressedSize,
+				ratio: result.ratio,
+			});
+		}
+	} catch (error) {
+		offsiteUploadLogger.error("offsite upload threw (non-fatal)", {
+			backupId,
+			error: error instanceof Error ? error.message : String(error),
+		});
 	}
 }
 
@@ -154,17 +157,36 @@ function buildRestoreExecution(record: { type: string; filePath: string }, proje
 	// Prefer argv arrays (execFile) over bash -c string interpolation so paths
 	// never re-enter a shell parser even when already path-validated.
 	// Policy is shared with buildBackupRestoreCommand via planBackupRestoreSteps.
-	try {
-		return {
-			steps: planBackupRestoreSteps({ projectRoot, backupPath, type, component }),
-			backupPath,
-		};
-	} catch (error) {
-		if (error instanceof Error && /FULL backups do not include a database dump/i.test(error.message)) {
-			throw new ValidationError(t("backend.backup.fullNoDatabaseRestore"));
-		}
-		throw error;
-	}
+	return {
+		steps: planBackupRestoreSteps({ projectRoot, backupPath, type, component }),
+		backupPath,
+	};
+}
+
+function planPreRestoreSnapshot(input: {
+	id: string;
+	type: "DATABASE" | "FILES" | "FULL";
+	component: "database" | "files" | "all";
+	projectRoot: string;
+}) {
+	const snapshotType =
+		input.type === "FULL"
+			? input.component === "database"
+				? "DATABASE"
+				: input.component === "files"
+					? "FILES"
+					: "FULL"
+			: input.type;
+	const suffix = snapshotType === "DATABASE" ? ".sql.gz" : ".tar.gz";
+	const relativePath = `backups/pre-restore-${input.id}-${Date.now()}${suffix}`;
+	const absolutePath = resolveBackupPath(input.projectRoot, relativePath);
+	const args =
+		snapshotType === "FILES"
+			? ["--files", absolutePath]
+			: snapshotType === "FULL"
+				? ["--full", absolutePath]
+				: [absolutePath];
+	return { relativePath, absolutePath, args, snapshotType };
 }
 
 export async function restoreBackupRecord(input: { id: string; confirm: string; projectRoot?: string; component?: "database" | "files" | "all"; session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId"> }) {
@@ -181,7 +203,8 @@ export async function restoreBackupRecord(input: { id: string; confirm: string; 
 			throw new BusinessError(t("backend.backup.onlyCompletedCanRestore"));
 		}
 		const projectRoot = input.projectRoot || config.app.appDir || process.cwd();
-		const execution = buildRestoreExecution(record, projectRoot, input.component ?? "all");
+		const component = input.component ?? "all";
+		const execution = buildRestoreExecution(record, projectRoot, component);
 		await stat(execution.backupPath);
 		if (!record.checksumSha256) {
 			throw new BusinessError(t("backend.backup.checksumMissing"));
@@ -190,6 +213,41 @@ export async function restoreBackupRecord(input: { id: string; confirm: string; 
 		if (actualChecksum !== record.checksumSha256) {
 			throw new BusinessError(t("backend.backup.checksumMismatch"));
 		}
+		const snapshot = planPreRestoreSnapshot({
+			id: record.id,
+			type: isBackupType(record.type) ? record.type : "DATABASE",
+			component,
+			projectRoot,
+		});
+		await runBackupCommand({
+			file: "bash",
+			args: ["deploy/backup.sh", ...snapshot.args],
+			options: { cwd: projectRoot, env: { ...process.env, APP_DIR: projectRoot } },
+		});
+		const snapshotInfo = await stat(snapshot.absolutePath);
+		if (!snapshotInfo.isFile() || snapshotInfo.size < 32) {
+			throw new BusinessError(t("backend.backup.artifactEmpty"));
+		}
+		let safetySnapshotRecord;
+		try {
+			const snapshotChecksum = await calculateFileSha256(snapshot.absolutePath);
+			safetySnapshotRecord = await prisma.backupRecord.create({
+				data: {
+					type: snapshot.snapshotType,
+					status: "COMPLETED",
+					filePath: snapshot.relativePath,
+					fileSize: String(snapshotInfo.size),
+					checksumSha256: snapshotChecksum,
+					note: `Automatic safety snapshot before restoring ${record.id}`,
+					createdBy: input.session?.userId ?? null,
+					teamId: record.teamId ?? input.session?.currentTeamId ?? null,
+					completedAt: new Date(),
+				},
+			});
+		} catch (error) {
+			await rm(snapshot.absolutePath, { force: true }).catch(() => undefined);
+			throw error;
+		}
 		for (const step of execution.steps) {
 			await runBackupCommand({
 				file: step.file,
@@ -197,7 +255,14 @@ export async function restoreBackupRecord(input: { id: string; confirm: string; 
 				options: { cwd: projectRoot, env: { ...process.env, APP_DIR: projectRoot, CONFIRM_RESTORE: "1" } },
 			});
 		}
-		return { id: record.id, type: record.type, filePath: record.filePath, restoredAt: new Date().toISOString() };
+		return {
+			id: record.id,
+			type: record.type,
+			filePath: record.filePath,
+			safetySnapshotPath: snapshot.relativePath,
+			safetySnapshotId: safetySnapshotRecord.id,
+			restoredAt: new Date().toISOString(),
+		};
 	} finally {
 		await releaseLock();
 	}
@@ -247,8 +312,16 @@ export async function drillBackupRecord(input: { id: string; projectRoot?: strin
 		// GNU tar treats the next token after -f as the archive name, so
 		// `tar -tzf -- "$path"` opens an archive literally named `--`.
 		// Path is already constrained by resolveBackupPath (portable under backups/).
-		await runBackupCommand({ file: "tar", args: ["-tzf", backupPath], options: { cwd: projectRoot, timeout: 10 * 60 * 1000 } });
-		checks.push({ name: "archive-index", status: "passed", detail: "tar archive index parsed without extraction" });
+			await runBackupCommand({ file: "tar", args: ["-tzf", backupPath], options: { cwd: projectRoot, timeout: 10 * 60 * 1000 } });
+			checks.push({ name: "archive-index", status: "passed", detail: "tar archive index parsed without extraction" });
+			if (record.type === "FULL") {
+				await runBackupCommand({
+					file: "bash",
+					args: ["-c", "set -o pipefail; tar -xOzf \"$1\" database.sql.gz | gzip -t", "backup-drill", backupPath],
+					options: { cwd: projectRoot, timeout: 10 * 60 * 1000 },
+				});
+				checks.push({ name: "full-database", status: "passed", detail: "Embedded PostgreSQL dump stream verified" });
+			}
 	}
 	const completed = new Date();
 	return { id: record.id, type: record.type, filePath: record.filePath, fileSize: info.size, checksum: { expected: record.checksumSha256, actual: actualChecksum, matched: true }, checks, startedAt: started.toISOString(), completedAt: completed.toISOString(), durationMs: completed.getTime() - started.getTime(), safe: true };

@@ -323,7 +323,7 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
                 </div>
               </div>
               <p className="mt-1 text-[var(--text-muted)]">
-                {job.sourceServer.name}:{job.sourcePath} ↔ {job.targetServer.name}:{job.targetPath}
+                {job.sourceServer.name}:{job.sourcePath} {job.syncType === "BIDIRECTIONAL" ? "↔" : "→"} {job.targetServer.name}:{job.targetPath}
               </p>
               {job.lastSyncResult ? (
                 <p className="mt-1 text-[var(--text-secondary)]">{job.lastSyncResult}</p>

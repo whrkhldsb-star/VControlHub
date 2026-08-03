@@ -47,7 +47,9 @@ case "${MODE}" in
     printf '[backup] Starting %s backup: %s\n' "${MODE}" "${OUTPUT_PATH}"
     TAR_PATHS=(storage uploads downloads logs)
     if [ "${MODE}" = "full" ]; then
-      TAR_PATHS=(storage uploads downloads logs backups public prisma package.json package-lock.json)
+      # Never archive backups/ itself: managed output commonly lives there and
+      # including it can recursively archive the file currently being written.
+      TAR_PATHS=(storage uploads downloads logs public prisma package.json package-lock.json)
     fi
     EXISTING_PATHS=()
     for path in "${TAR_PATHS[@]}"; do
@@ -59,7 +61,15 @@ case "${MODE}" in
       printf '[backup] No files found for %s backup under %s\n' "${MODE}" "${APP_DIR}" >&2
       exit 1
     fi
-    tar -C "${APP_DIR}" -czf "${OUTPUT_PATH}" "${EXISTING_PATHS[@]}"
+    if [ "${MODE}" = "full" ]; then
+      FULL_TMP_DIR="$(mktemp -d)"
+      trap 'rm -rf -- "${FULL_TMP_DIR}"' EXIT
+      DB_DUMP="${FULL_TMP_DIR}/database.sql.gz"
+      APP_DIR="${APP_DIR}" BACKUP_DIR="${FULL_TMP_DIR}" "${BACKUP_SCRIPT}" "${DB_DUMP}"
+      tar -czf "${OUTPUT_PATH}" -C "${APP_DIR}" "${EXISTING_PATHS[@]}" -C "${FULL_TMP_DIR}" database.sql.gz
+    else
+      tar -C "${APP_DIR}" -czf "${OUTPUT_PATH}" "${EXISTING_PATHS[@]}"
+    fi
     SIZE="$(du -sh "${OUTPUT_PATH}" | cut -f1)"
     printf '[backup] Completed %s backup: %s (%s)\n' "${MODE}" "${OUTPUT_PATH}" "${SIZE}"
     ;;

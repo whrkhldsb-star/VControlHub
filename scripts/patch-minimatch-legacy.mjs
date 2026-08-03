@@ -17,8 +17,8 @@ if (typeof braceExpansion.expand !== "function") {
   throw new Error("brace-expansion 5.x does not expose the expected expand function");
 }
 
-if (packageJson.dependencies?.["brace-expansion"] !== "5.0.8") {
-  packageJson.dependencies["brace-expansion"] = "5.0.8";
+if (packageJson.dependencies?.["brace-expansion"] !== "5.0.9") {
+  packageJson.dependencies["brace-expansion"] = "5.0.9";
   writeFileSync(packagePath, `${JSON.stringify(packageJson, null, 2)}\n`, "utf8");
 }
 

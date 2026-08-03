@@ -2,12 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 
-import { auditUserAction, writeAuditLog } from "@/lib/audit/service";
+import { auditUserAction } from "@/lib/audit/service";
 import { requirePermission } from "@/lib/auth/authorization";
 import { teamWhere } from "@/lib/auth/team-scope";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { prisma } from "@/lib/db";
-import { createLogger } from "@/lib/logging";
 import { serverT } from "@/lib/i18n/server-locale";
 import { restoreFileEntry } from "@/lib/storage/service";
 import { deleteBackingObject } from "@/lib/storage/fs-backend";
@@ -15,7 +14,35 @@ import { deleteBackingObject } from "@/lib/storage/fs-backend";
 import type { StorageActionState, StorageDeleteActionState } from "./actions-helpers";
 import { getErrorMessage } from "@/lib/http/error-message";
 
-const logger = createLogger("storage-file-entries");
+async function findAffectedShareIds(input: {
+  storageNodeId: string;
+  relativePath: string;
+  isDirectory: boolean;
+}): Promise<string[]> {
+  const shares = await prisma.shareLink.findMany({
+    where: {
+      storageNodeId: input.storageNodeId,
+      revokedAt: null,
+      OR: [
+        { path: input.relativePath },
+        ...(input.isDirectory
+          ? [{ path: { startsWith: `${input.relativePath}/` } }]
+          : []),
+        { entryType: "DIRECTORY" },
+      ],
+    },
+    select: { id: true, path: true, entryType: true },
+  });
+  return shares
+    .filter(
+      (share) =>
+        share.path === input.relativePath ||
+        (input.isDirectory && share.path.startsWith(`${input.relativePath}/`)) ||
+        (share.entryType === "DIRECTORY" &&
+          input.relativePath.startsWith(`${share.path.replace(/\/+$/, "")}/`)),
+    )
+    .map((share) => share.id);
+}
 
 export async function deleteFileEntryAction(
   _prev: StorageDeleteActionState | null,
@@ -82,8 +109,19 @@ export async function deleteFileEntryAction(
       return { error: deleteAccess.reason ?? t("storagePage.action.fileEntryNotFound") } satisfies StorageDeleteActionState;
     }
 
-    // Soft-delete is index-only. Physical bytes stay on LOCAL/SFTP so recycle-bin
-    // restore can still pass existence checks. Permanent delete removes backing.
+	const affectedShareIds = await findAffectedShareIds({
+	  storageNodeId: entry.storageNodeId,
+	  relativePath: entry.relativePath,
+	  isDirectory: entry.entryType === "DIRECTORY",
+	});
+	const revokeShares = prisma.shareLink.updateMany({
+	  where: { id: { in: affectedShareIds }, revokedAt: null },
+	  data: { revokedAt: new Date() },
+	});
+
+    // Soft-delete is index-only. Revoke every direct, descendant, or parent
+    // directory share in the same transaction so recycle-bin bytes cannot be
+    // reached through an already-issued public token.
     if (entry.entryType === "DIRECTORY") {
       const prefix = entry.relativePath + "/";
       await prisma.$transaction([
@@ -99,12 +137,16 @@ export async function deleteFileEntryAction(
           where: { id: fileEntryId },
           data: { isDeleted: true },
         }),
+		revokeShares,
       ]);
     } else {
-      await prisma.fileEntry.update({
-        where: { id: fileEntryId },
-        data: { isDeleted: true },
-      });
+	  await prisma.$transaction([
+		prisma.fileEntry.update({
+		  where: { id: fileEntryId },
+		  data: { isDeleted: true },
+		}),
+		revokeShares,
+	  ]);
     }
 
     await auditUserAction(session.userId, "storage.file_delete", {
@@ -273,8 +315,25 @@ export async function permanentDeleteFileEntryAction(
       return { error: permDeleteAccess.reason ?? t("storagePage.action.fileEntryNotFound") } satisfies StorageActionState;
     }
 
-    // Tombstone / remove index first so UI cannot keep a live entry if FS delete later fails.
-    // Physical delete is best-effort with tolerateMissing.
+	const affectedShareIds = await findAffectedShareIds({
+	  storageNodeId: entry.storageNodeId,
+	  relativePath: entry.relativePath,
+	  isDirectory: entry.entryType === "DIRECTORY",
+	});
+
+	// Delete backing first. If this fails, keep the tombstone and share records
+	// intact so the user can retry and the operation cannot report false success.
+	await deleteBackingObject({
+	  storageNode: entry.storageNode,
+	  relativePath: entry.relativePath,
+	  isDirectory: entry.entryType === "DIRECTORY",
+	  tolerateMissing: true,
+	});
+
+	const revokeShares = prisma.shareLink.updateMany({
+	  where: { id: { in: affectedShareIds }, revokedAt: null },
+	  data: { revokedAt: new Date() },
+	});
     if (entry.entryType === "DIRECTORY") {
       const prefix = entry.relativePath + "/";
       await prisma.$transaction([
@@ -287,43 +346,13 @@ export async function permanentDeleteFileEntryAction(
         prisma.fileEntry.delete({
           where: { id: fileEntryId },
         }),
+		revokeShares,
       ]);
     } else {
-      await prisma.fileEntry.delete({
-        where: { id: fileEntryId },
-      });
-    }
-
-    try {
-      await deleteBackingObject({
-        storageNode: entry.storageNode,
-        relativePath: entry.relativePath,
-        isDirectory: entry.entryType === "DIRECTORY",
-        tolerateMissing: true,
-      });
-    } catch (error) {
-      const reason = getErrorMessage(error, String(error));
-      logger.warn("permanent delete: backing object cleanup failed after index removal", {
-        entryId: entry.id,
-        relativePath: entry.relativePath,
-        reason,
-      });
-      writeAuditLog({
-        actorType: "SYSTEM",
-        action: "storage.file_permanent_delete_backing_failed",
-        severity: "WARNING",
-        detail: {
-          entryId: entry.id,
-          entryName: entry.name,
-          relativePath: entry.relativePath,
-          reason,
-        },
-      }).catch((err) => {
-        logger.warn("audit write failed after permanent backing delete failure", {
-          entryId: entry.id,
-          error: getErrorMessage(err, String(err)),
-        });
-      });
+	  await prisma.$transaction([
+		prisma.fileEntry.delete({ where: { id: fileEntryId } }),
+		revokeShares,
+	  ]);
     }
 
     await auditUserAction(session.userId, "storage.file_permanent_delete", {

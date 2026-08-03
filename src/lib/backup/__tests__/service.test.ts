@@ -80,7 +80,7 @@ describe("backup service", () => {
     });
     mockPrisma.$executeRaw.mockResolvedValue(undefined);
     runBackupCommandMock.mockResolvedValue({ stdout: "ok", stderr: "" });
-    statMock.mockResolvedValue({ size: 1234 });
+    statMock.mockResolvedValue({ size: 1234, isFile: () => true });
     createReadStreamMock.mockImplementation(() => Readable.from(["backup-content"]));
   });
 
@@ -287,29 +287,23 @@ describe("backup service", () => {
   it("builds restore commands that match the stored backup artifact type", () => {
     const databaseCommand = buildBackupRestoreCommand({ projectRoot: "/opt/whrkhldsb", backupPath: "backups/database.sql.gz", type: "DATABASE" });
     const filesCommand = buildBackupRestoreCommand({ projectRoot: "/opt/whrkhldsb", backupPath: "backups/files.tar.gz", type: "FILES" });
-    // FULL artifacts are app-path tars only — never restore-db.sh
     const fullAllCommand = buildBackupRestoreCommand({ projectRoot: "/opt/whrkhldsb", backupPath: "backups/full.tar.gz", type: "FULL", component: "all" });
     const fullFilesOnlyCommand = buildBackupRestoreCommand({ projectRoot: "/opt/whrkhldsb", backupPath: "backups/full.tar.gz", type: "FULL", component: "files" });
+    const fullDatabaseOnlyCommand = buildBackupRestoreCommand({ projectRoot: "/opt/whrkhldsb", backupPath: "backups/full.tar.gz", type: "FULL", component: "database" });
 
     expect(databaseCommand).toContain("scripts/restore-db.sh");
     expect(databaseCommand).toContain("backups/database.sql.gz");
-    expect(filesCommand).toContain("tar -xzf 'backups/files.tar.gz'");
+    expect(filesCommand).toContain("scripts/restore-files.sh");
     expect(filesCommand).not.toContain("restore-db.sh");
 
-    expect(fullAllCommand).toContain("tar -xzf 'backups/full.tar.gz'");
-    expect(fullAllCommand).not.toContain("restore-db.sh");
-    expect(fullFilesOnlyCommand).toContain("tar -xzf 'backups/full.tar.gz'");
-    expect(fullFilesOnlyCommand).not.toContain("restore-db.sh");
-    expect(() =>
-      buildBackupRestoreCommand({
-        projectRoot: "/opt/whrkhldsb",
-        backupPath: "backups/full.tar.gz",
-        type: "FULL",
-        component: "database",
-      }),
-    ).toThrow(/FULL backups do not include a database dump/);
+    expect(fullAllCommand).toContain("scripts/restore-full.sh");
+    expect(fullAllCommand).toContain("'all'");
+    expect(fullFilesOnlyCommand).toContain("scripts/restore-full.sh");
+    expect(fullFilesOnlyCommand).toContain("'files'");
+    expect(fullDatabaseOnlyCommand).toContain("scripts/restore-full.sh");
+    expect(fullDatabaseOnlyCommand).toContain("'database'");
 
-    for (const command of [databaseCommand, filesCommand, fullAllCommand, fullFilesOnlyCommand]) {
+    for (const command of [databaseCommand, filesCommand, fullAllCommand, fullFilesOnlyCommand, fullDatabaseOnlyCommand]) {
       expect(command).not.toMatch(/DATABASE_URL=.*postgres|PASSWORD|TOKEN|SECRET|PRIVATE_KEY/i);
     }
   });
@@ -321,26 +315,43 @@ describe("backup service", () => {
     expect(statMock).toHaveBeenCalledWith("/var/backups/vcontrolhub/backups/database.sql.gz");
     expect(runBackupCommandMock.mock.calls[0]![0]).toEqual(expect.objectContaining({
       file: "bash",
+      args: ["deploy/backup.sh", expect.stringMatching(/\/backups\/pre-restore-bak1-\d+\.sql\.gz$/)],
+      options: expect.objectContaining({ cwd: "/opt/app", env: expect.objectContaining({ APP_DIR: "/opt/app" }) }),
+    }));
+    expect(runBackupCommandMock.mock.calls[1]![0]).toEqual(expect.objectContaining({
+      file: "bash",
       args: ["scripts/restore-db.sh", "/var/backups/vcontrolhub/backups/database.sql.gz"],
       options: expect.objectContaining({ cwd: "/opt/app", env: expect.objectContaining({ APP_DIR: "/opt/app", CONFIRM_RESTORE: "1" }) }),
     }));
+		expect(mockPrisma.backupRecord.create).toHaveBeenCalledWith(expect.objectContaining({
+			data: expect.objectContaining({
+				type: "DATABASE",
+				status: "COMPLETED",
+				filePath: expect.stringMatching(/^backups\/pre-restore-bak1-/),
+				checksumSha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+			}),
+		}));
     expect(result).toMatchObject({ id: "bak1", type: "DATABASE", filePath: "backups/database.sql.gz" });
   });
 
-  it("uses tar extraction for completed FILES/FULL restore records", async () => {
+  it("creates a files safety snapshot before restoring a completed FILES record", async () => {
     mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({ id: "bak2", type: "FILES", status: "COMPLETED", filePath: "backups/files.tar.gz", checksumSha256: "a92e0ec81286ff0f9ccf5982a22a83a0b70082446d5fd7af0eb9a3ceacd16c86" });
 
     await restoreBackupRecord({ id: "bak2", confirm: "RESTORE", projectRoot: "/opt/app" });
 
     expect(statMock).toHaveBeenCalledWith("/var/backups/vcontrolhub/backups/files.tar.gz");
     expect(runBackupCommandMock.mock.calls[0]![0]).toEqual(expect.objectContaining({
-      file: "tar",
-      args: ["-xzf", "/var/backups/vcontrolhub/backups/files.tar.gz", "-C", "/opt/app"],
+      file: "bash",
+      args: ["deploy/backup.sh", "--files", expect.stringMatching(/\/backups\/pre-restore-bak2-\d+\.tar\.gz$/)],
+    }));
+    expect(runBackupCommandMock.mock.calls[1]![0]).toEqual(expect.objectContaining({
+      file: "bash",
+      args: ["scripts/restore-files.sh", "/var/backups/vcontrolhub/backups/files.tar.gz", "/opt/app"],
       options: expect.objectContaining({ cwd: "/opt/app" }),
     }));
   });
 
-  it("runs FULL restore as tar-only extract without bash -c or restore-db.sh", async () => {
+  it("creates a full safety snapshot before restoring all FULL components", async () => {
     mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({
       id: "bak-full",
       type: "FULL",
@@ -351,18 +362,18 @@ describe("backup service", () => {
 
     await restoreBackupRecord({ id: "bak-full", confirm: "RESTORE", projectRoot: "/opt/app", component: "all" });
 
-    expect(runBackupCommandMock).toHaveBeenCalledTimes(1);
+    expect(runBackupCommandMock).toHaveBeenCalledTimes(2);
     expect(runBackupCommandMock.mock.calls[0]![0]).toEqual(expect.objectContaining({
-      file: "tar",
-      args: ["-xzf", "/var/backups/vcontrolhub/backups/full.tar.gz", "-C", "/opt/app"],
+      file: "bash",
+      args: ["deploy/backup.sh", "--full", expect.stringMatching(/\/backups\/pre-restore-bak-full-\d+\.tar\.gz$/)],
     }));
-    for (const call of runBackupCommandMock.mock.calls) {
-      expect(call[0].args).not.toContain("-c");
-      expect(call[0].file).not.toBe("bash");
-    }
+    expect(runBackupCommandMock.mock.calls[1]![0]).toEqual(expect.objectContaining({
+      file: "bash",
+      args: ["scripts/restore-full.sh", "/var/backups/vcontrolhub/backups/full.tar.gz", "all", "/opt/app"],
+    }));
   });
 
-  it("rejects FULL restore with component=database", async () => {
+  it("supports restoring only the embedded database from a FULL backup", async () => {
     mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({
       id: "bak-full-db",
       type: "FULL",
@@ -371,10 +382,16 @@ describe("backup service", () => {
       checksumSha256: "a92e0ec81286ff0f9ccf5982a22a83a0b70082446d5fd7af0eb9a3ceacd16c86",
     });
 
-    await expect(
-      restoreBackupRecord({ id: "bak-full-db", confirm: "RESTORE", projectRoot: "/opt/app", component: "database" }),
-    ).rejects.toThrow(/FULL 备份不含数据库|FULL backups do not include/);
-    expect(runBackupCommandMock).not.toHaveBeenCalled();
+    await restoreBackupRecord({ id: "bak-full-db", confirm: "RESTORE", projectRoot: "/opt/app", component: "database" });
+
+    expect(runBackupCommandMock.mock.calls[0]![0]).toEqual(expect.objectContaining({
+      file: "bash",
+      args: ["deploy/backup.sh", expect.stringMatching(/\/backups\/pre-restore-bak-full-db-\d+\.sql\.gz$/)],
+    }));
+    expect(runBackupCommandMock.mock.calls[1]![0]).toEqual(expect.objectContaining({
+      file: "bash",
+      args: ["scripts/restore-full.sh", "/var/backups/vcontrolhub/backups/full.tar.gz", "database", "/opt/app"],
+    }));
   });
 
 	it("rejects restore before executing when confirmation, path, or status is unsafe", async () => {

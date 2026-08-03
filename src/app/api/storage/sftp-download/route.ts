@@ -16,6 +16,7 @@ import {
   toClientStorageError,
 } from "@/lib/storage/remote-path";
 import { contentDownloadQuerySchema } from "@/lib/storage/schema";
+import { prisma } from "@/lib/db";
 import { parseStorageRange, storageStreamResponse, type StorageByteRange } from "@/lib/storage/streaming";
 
 import { AuthError, ValidationError } from "@/lib/errors";
@@ -106,6 +107,17 @@ export async function GET(request: Request) {
           { status: 403 },
         );
       }
+
+	  const indexedEntry = await prisma.fileEntry.findFirst({
+		where: { storageNodeId: node.id, relativePath: normalizedRelativePath },
+		select: { isDeleted: true },
+	  });
+	  if (indexedEntry?.isDeleted) {
+		return NextResponse.json(
+		  { error: t("api.storage.fileUnavailable", locale) },
+		  { status: 404 },
+		);
+	  }
 
       const fileName = path.basename(normalizedRemotePath);
       const contentType = guessContentType(fileName);
