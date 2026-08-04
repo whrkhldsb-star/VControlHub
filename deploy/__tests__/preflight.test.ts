@@ -501,6 +501,7 @@ describe("deploy/install.sh", () => {
     expect(script).toContain('psql -tAc "SELECT 1 FROM pg_database');
     expect(script).not.toContain("psql -lqtAc");
     expect(script).toContain('createdb --owner="${PG_DB_USER}" "${PG_DB_NAME}"');
+    expect(script).toContain('(cd / && sudo -u postgres "$@")');
   });
 
   it("allows the root postinstall hook to run in a production-only dependency tree", async () => {

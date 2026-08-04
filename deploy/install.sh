@@ -108,6 +108,12 @@ sql_literal() {
   printf '%s' "$1" | sed "s/'/''/g"
 }
 
+run_as_postgres() {
+  # sudo preserves the caller's working directory. Fresh installs are commonly
+  # launched from /root, which postgres cannot traverse, so use a neutral cwd.
+  (cd / && sudo -u postgres "$@")
+}
+
 urlencode() {
   python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$1"
 }
@@ -853,7 +859,7 @@ setup_postgres() {
 	# Create database and user if they do not exist
 	local pg_user_exists pg_db_exists pg_password_sql
 	pg_password_sql="$(sql_literal "${PG_DB_PASSWORD}")"
-	pg_user_exists="$(sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='${PG_DB_USER}'" 2>/dev/null || true)"
+	pg_user_exists="$(run_as_postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='${PG_DB_USER}'" 2>/dev/null || true)"
 	if [ "${pg_user_exists}" != "1" ]; then
 		if [ -z "${PG_DB_PASSWORD}" ]; then
 			PG_DB_PASSWORD="$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 32)"
@@ -862,7 +868,7 @@ setup_postgres() {
 			warn "Generated random PostgreSQL password for ${PG_DB_USER}; saved to ${ENV_FILE}"
 		fi
 		log "Creating PostgreSQL user ${PG_DB_USER}"
-		sudo -u postgres psql -c "CREATE USER ${PG_DB_USER} WITH ENCRYPTED PASSWORD '${pg_password_sql}';" 2>/dev/null || warn "Failed to create PostgreSQL user (may already exist)"
+		run_as_postgres psql -c "CREATE USER ${PG_DB_USER} WITH ENCRYPTED PASSWORD '${pg_password_sql}';" 2>/dev/null || warn "Failed to create PostgreSQL user (may already exist)"
 	else
 		if [ -z "${PG_DB_PASSWORD}" ]; then
 			PG_DB_PASSWORD="$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 32)"
@@ -870,13 +876,13 @@ setup_postgres() {
 			set_env_var PG_DB_PASSWORD "${PG_DB_PASSWORD}"
 			warn "Generated random PostgreSQL password for existing user ${PG_DB_USER}; saved to ${ENV_FILE}"
 		fi
-		sudo -u postgres psql -c "ALTER USER ${PG_DB_USER} WITH ENCRYPTED PASSWORD '${pg_password_sql}';" 2>/dev/null || true
+		run_as_postgres psql -c "ALTER USER ${PG_DB_USER} WITH ENCRYPTED PASSWORD '${pg_password_sql}';" 2>/dev/null || true
 	fi
 
-	pg_db_exists="$(sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='${PG_DB_NAME}'" 2>/dev/null || true)"
+	pg_db_exists="$(run_as_postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='${PG_DB_NAME}'" 2>/dev/null || true)"
 	if [ "${pg_db_exists}" != "1" ]; then
 		log "Creating PostgreSQL database ${PG_DB_NAME}"
-		sudo -u postgres createdb --owner="${PG_DB_USER}" "${PG_DB_NAME}"
+		run_as_postgres createdb --owner="${PG_DB_USER}" "${PG_DB_NAME}"
 	fi
 
 	# Always sync DATABASE_URL with PG_DB_PASSWORD to prevent mismatch
