@@ -120,6 +120,21 @@ describe("/api/share-links", () => {
     expect(createShareLinkMock).not.toHaveBeenCalled();
   });
 
+  it("rejects password and download limits for metadata-only shares", async () => {
+    for (const conflicting of [{ password: "secret" }, { maxDownloads: 2 }]) {
+      const response = await POST(
+        postShare({
+          storageNodeId: "node_1",
+          path: "docs/report.pdf",
+          permissionLevel: "preview",
+          ...conflicting,
+        }),
+      );
+      expect(response.status).toBe(400);
+    }
+    expect(createShareLinkMock).not.toHaveBeenCalled();
+  });
+
   it("revokes share links with share manage permission", async () => {
     const response = await DELETE(
       new Request("https://example.com/api/share-links?id=share_1", {

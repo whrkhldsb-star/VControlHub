@@ -98,6 +98,29 @@ test("API docs render and filter every catalog-backed operation", async ({ page 
 	await expect(page.locator("article").first()).toContainText(/参数\s*1|1\s*(?:个)?参数|1\s*parameter/i);
 });
 
+test("advanced share policies expose only controls that affect delivery", async ({ page }) => {
+	await login(page);
+	await page.goto("/shares");
+	await page.getByRole("button", { name: /高级创建分享链接|Advanced share link creation/i }).click();
+
+	const permission = page.getByLabel(/权限级别|Permission level/i);
+	const maxDownloads = page.getByLabel(/最大下载次数|Maximum downloads/i);
+	const password = page.getByLabel(/访问密码|Access password/i);
+	await expect(maxDownloads).toBeVisible();
+	await expect(password).toBeVisible();
+	await maxDownloads.fill("2");
+	await password.fill("secret");
+
+	await permission.selectOption("preview");
+	await expect(maxDownloads).toBeHidden();
+	await expect(password).toBeHidden();
+	await expect(page.getByText(/仅查看模式会展示|View-only mode shows/i)).toBeVisible();
+
+	await permission.selectOption("download");
+	await expect(maxDownloads).toHaveValue("");
+	await expect(password).toHaveValue("");
+});
+
 test("traffic history range and refresh controls", async ({ page }) => {
 	test.setTimeout(90_000);
 	await login(page);

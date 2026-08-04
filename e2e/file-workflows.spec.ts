@@ -67,6 +67,12 @@ test("local file lifecycle: folder, upload, search, preview, share and delete", 
 	const publicPage = await context.newPage();
 	await publicPage.goto(shareUrl);
 	await expect(publicPage.locator("body")).toContainText("vcontrolhub-e2e.txt");
+	await expect(publicPage.locator("main")).not.toContainText(/[🔒📁📦⬇]/u);
+	const downloadPromise = publicPage.waitForEvent("download");
+	await publicPage.getByRole("link", { name: /下载文件|Download file/i }).click();
+	const download = await downloadPromise;
+	expect(download.suggestedFilename()).toBe("vcontrolhub-e2e.txt");
+	expect(await publicPage.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 	await publicPage.close();
 	await fileRow.getByRole("button", { name: /关闭|Close/i }).click();
 

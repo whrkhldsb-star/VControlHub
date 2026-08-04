@@ -434,7 +434,11 @@ describe("FileListClient", () => {
       screen.getAllByRole("button", { name: "资料详情 cover.jpg" })[0]!,
     );
 
-    const dialog = await screen.findByRole("dialog", { name: "cover.jpg" });
+    const dialog = await screen.findByRole(
+      "dialog",
+      { name: "cover.jpg" },
+      { timeout: 5_000 },
+    );
     expect(dialog).toHaveTextContent("资料详情");
     expect(dialog).toHaveTextContent("photos/cover.jpg");
     expect(dialog).toHaveTextContent("本机存储");

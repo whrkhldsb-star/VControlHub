@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-04T06:37:12.334Z",
+  "generatedAt": "2026-08-04T08:49:22.336Z",
   "summary": {
     "permissionsInList": 54,
     "rolesDefined": 4,
@@ -2072,11 +2072,11 @@
         },
         {
           "path": "src/app/api/share-links/route.ts",
-          "line": 50
+          "line": 55
         },
         {
           "path": "src/app/api/share-links/route.ts",
-          "line": 50
+          "line": 55
         },
         {
           "path": "src/app/files/page.tsx",
@@ -2105,11 +2105,11 @@
       "files": [
         {
           "path": "src/app/api/share-links/route.ts",
-          "line": 96
+          "line": 101
         },
         {
           "path": "src/app/api/share-links/route.ts",
-          "line": 96
+          "line": 101
         },
         {
           "path": "src/app/api/shares/access-report/route.ts",
@@ -2139,11 +2139,11 @@
       "files": [
         {
           "path": "src/app/api/share-links/route.ts",
-          "line": 37
+          "line": 42
         },
         {
           "path": "src/app/api/share-links/route.ts",
-          "line": 37
+          "line": 42
         },
         {
           "path": "src/app/api/shares/[id]/access-logs/route.ts",

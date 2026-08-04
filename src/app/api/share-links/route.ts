@@ -24,9 +24,14 @@ const shareLinkPostSchema = z.object({
   maxDownloads: z.number().int().positive().optional().nullable(),
   password: z.string().min(1).max(128).optional(),
   permissionLevel: z.enum(["preview", "download"]).optional(),
-}).refine((data) => Boolean(data.fileEntryId || (data.storageNodeId && data.path)), {
-  message: t("api.share.selectFileOrPath"),
-});
+})
+  .refine((data) => Boolean(data.fileEntryId || (data.storageNodeId && data.path)), {
+    message: t("api.share.selectFileOrPath"),
+  })
+  .refine(
+    (data) => data.permissionLevel !== "preview" || (!data.password && data.maxDownloads == null),
+    { message: t("api.share.previewPolicyConflict") },
+  );
 
 export const dynamic = "force-dynamic";
 

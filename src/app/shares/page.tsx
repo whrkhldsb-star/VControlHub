@@ -60,9 +60,11 @@ export default async function SharesPage() {
 									{s.name || s.path}
 								</h3>
 								<p className="mt-1 text-xs text-[var(--text-muted)]">
-									{s.storageNode.name} · {s.path} · {t("shares.accessCountPrefix")}
-									{s.accessCount}
-									{t("shares.accessCountSuffix")}
+									{s.storageNode.name} · {s.path} · {s.permissionLevel === "preview"
+										? t("shares.downloadDisabled")
+										: s.maxDownloads == null
+											? t("shares.downloadUsageUnlimited", { count: s.accessCount })
+											: t("shares.downloadUsageLimited", { count: s.accessCount, max: s.maxDownloads })}
 								</p>
 							</div>
 							<div className="flex flex-wrap items-center gap-2 sm:gap-3">

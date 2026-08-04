@@ -1,5 +1,5 @@
 {
-  "count": 414,
+  "count": 415,
   "findings": [
     {
       "file": "src/app/api/admin/workers/route.ts",
@@ -2406,6 +2406,12 @@
       "line": 80,
       "pattern": "json-error",
       "text": "Server not found"
+    },
+    {
+      "file": "src/lib/share-link/service.ts",
+      "line": 143,
+      "pattern": "typed-error",
+      "text": "api.share.previewPolicyConflict"
     },
     {
       "file": "src/lib/ssh/sftp-access-control.ts",

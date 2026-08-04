@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Check, Plus } from "@/components/icons";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { getErrorMessage } from "@/lib/http/error-message";
@@ -22,6 +23,7 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
   const [permissionLevel, setPermissionLevel] = useState<"preview" | "download">("download");
   const [name, setName] = useState("");
   const [expiresIn, setExpiresIn] = useState("");
+  const [maxDownloads, setMaxDownloads] = useState("");
   const [password, setPassword] = useState("");
   const [saving, setSaving] = useState(false);
   const [result, setResult] = useState<{ token: string } | null>(null);
@@ -51,6 +53,7 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
       const body: Record<string, unknown> = { storageNodeId: nodeId, path, entryType, permissionLevel };
       if (name.trim()) body.name = name.trim();
       if (expiresIn) body.expiresInHours = Number(expiresIn);
+      if (maxDownloads) body.maxDownloads = Number(maxDownloads);
       if (password.trim()) body.password = password.trim();
       const data = await csrfFetch<{ token: string }>("/api/share-links", {
         method: "POST",
@@ -61,6 +64,7 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
       setPath("");
       setName("");
       setExpiresIn("");
+      setMaxDownloads("");
       setPassword("");
       router.refresh();
     } catch (e: unknown) {
@@ -76,6 +80,7 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
         <ActionButton type="button" variant="primary"
           onClick={() => setOpen(true)} className="px-4 py-2.5 text-sm"
         >
+          <Plus aria-hidden="true" className="h-4 w-4" />
           {t("sharesPage.create.title")}
         </ActionButton>
       ) : (
@@ -108,7 +113,20 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
             </div>
             <div>
               <label className="block text-xs text-[var(--text-secondary)] mb-1" htmlFor="createSharePermissionLevel">{t("sharesPage.create.permissionLevel")}</label>
-              <select id="createSharePermissionLevel" value={permissionLevel} onChange={(e) => setPermissionLevel(e.target.value as "preview" | "download")} data-input className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2.5 text-sm outline-none">
+              <select
+                id="createSharePermissionLevel"
+                value={permissionLevel}
+                onChange={(e) => {
+                  const level = e.target.value as "preview" | "download";
+                  setPermissionLevel(level);
+                  if (level === "preview") {
+                    setMaxDownloads("");
+                    setPassword("");
+                  }
+                }}
+                data-input
+                className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2.5 text-sm outline-none"
+              >
                 <option value="download">{t("sharesPage.create.permissionLevel.download")}</option>
                 <option value="preview">{t("sharesPage.create.permissionLevel.preview")}</option>
               </select>
@@ -119,25 +137,41 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
             </div>
             <div>
               <label htmlFor="share-expires-in" className="block text-xs text-[var(--text-secondary)] mb-1">{t("sharesPage.create.expires")}</label>
-              <input id="share-expires-in" type="number" value={expiresIn} onChange={(e) => setExpiresIn(e.target.value)} placeholder="72" data-input className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2.5 text-sm outline-none" />
+              <input id="share-expires-in" type="number" min="1" value={expiresIn} onChange={(e) => setExpiresIn(e.target.value)} placeholder="72" data-input className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2.5 text-sm outline-none" />
             </div>
-            <div>
-              <label htmlFor="share-password" className="block text-xs text-[var(--text-secondary)] mb-1">{t("sharesPage.create.password")}</label>
-              <input id="share-password" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t("sharesPage.create.passwordPlaceholder")} data-input className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2.5 text-sm outline-none" />
-            </div>
+            {permissionLevel === "download" ? (
+              <>
+                <div>
+                  <label htmlFor="share-max-downloads" className="block text-xs text-[var(--text-secondary)] mb-1">{t("sharesPage.create.maxDownloads")}</label>
+                  <input id="share-max-downloads" type="number" min="1" step="1" value={maxDownloads} onChange={(e) => setMaxDownloads(e.target.value)} placeholder={t("sharesPage.create.maxDownloadsPlaceholder")} data-input className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2.5 text-sm outline-none" />
+                </div>
+                <div>
+                  <label htmlFor="share-password" className="block text-xs text-[var(--text-secondary)] mb-1">{t("sharesPage.create.password")}</label>
+                  <input id="share-password" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t("sharesPage.create.passwordPlaceholder")} data-input className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2.5 text-sm outline-none" />
+                </div>
+              </>
+            ) : (
+              <p className="self-end rounded-lg border border-[var(--warning-border)] bg-[var(--warning-bg)] px-3 py-2.5 text-xs text-[var(--warning)] sm:col-span-2">
+                {t("sharesPage.create.previewPolicyHint")}
+              </p>
+            )}
           </div>
 
           {error && <p className="mt-2 text-xs text-[var(--danger)]">{error}</p>}
 
           {result && (
             <div data-tone="emerald" className="mt-3 rounded-lg border border-[var(--success-border)] p-3">
-              <p className="text-xs text-[var(--success)] font-medium">{t("sharesPage.create.success")}</p>
+              <p className="flex items-center gap-1.5 text-xs font-medium text-[var(--success)]">
+                <Check aria-hidden="true" className="h-4 w-4" />
+                {t("sharesPage.create.success")}
+              </p>
               <div className="mt-2 flex items-center gap-2">
                 <code className="block flex-1 break-all text-xs text-[var(--success)]">{shareUrl || `/share/${result.token}`}</code>
                 <ActionButton variant="success"
                   onClick={handleCopy}
                   data-tone="emerald" className="shrink-0 !px-3 !py-1.5 !text-xs"
                 >
+                  {copied ? <Check aria-hidden="true" className="h-4 w-4" /> : null}
                   {copied ? t("sharesPage.create.copied") : t("sharesPage.create.copy")}
                 </ActionButton>
               </div>

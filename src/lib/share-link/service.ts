@@ -135,6 +135,13 @@ export async function createShareLink(input: {
   password?: string;
   permissionLevel?: "preview" | "download";
 }) {
+  if (
+    input.permissionLevel === "preview" &&
+    (input.password || input.maxDownloads != null)
+  ) {
+    const translate = await serverT();
+    throw new ValidationError(translate("api.share.previewPolicyConflict"));
+  }
   const normalizedPath = normalizeSharePath(input.path);
   const access = await assertStorageAccess({ session: input.session, storageNodeId: input.storageNodeId, relativePath: normalizedPath, operation: "read" });
   if (!access.allowed) {

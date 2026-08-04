@@ -21,16 +21,33 @@
 
 import dynamic from "next/dynamic";
 import type { ComponentProps, ComponentType } from "react";
+import { Spinner } from "@/components/ui-primitives";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 type FileDetailPanelProps = ComponentProps<
   typeof import("./file-detail-panel").FileDetailPanel
 >;
 
+function FileDetailPanelLoading() {
+  const { t } = useI18n();
+  const label = t("filesBrowserSpa.loading");
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end bg-[var(--surface-subtle)] p-3 backdrop-blur-sm" role="presentation">
+      <aside
+        className="flex h-full w-full max-w-xl items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--modal-bg)] shadow-2xl"
+        aria-live="polite"
+      >
+        <Spinner label={label} />
+      </aside>
+    </div>
+  );
+}
+
 export const FileDetailPanelLazy: ComponentType<FileDetailPanelProps> =
   dynamic(
     () =>
       import("./file-detail-panel").then((m) => m.FileDetailPanel),
-    { ssr: false },
+    { ssr: false, loading: FileDetailPanelLoading },
   );
 
 export type { FileDetailPanelProps };

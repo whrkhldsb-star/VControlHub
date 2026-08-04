@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AlertTriangle, Download, File, Folder } from "@/components/icons";
 
 import { listShareDirectoryFiles, peekShareToken } from "@/lib/share-link/service";
 import { getServerLocale, t } from "@/lib/i18n/translations";
@@ -52,12 +53,8 @@ export default async function SharePage({
   const isLocked = Boolean(share && (share.hasPassword || (share as { locked?: boolean }).locked));
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-16 text-[var(--text-primary)]">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(34,211,238,0.12),transparent_55%),var(--page-bg)]"
-      />
-      <div className="relative w-full max-w-3xl rounded-3xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_94%,transparent)] p-8 shadow-[var(--shadow-lg)] backdrop-blur-xl">
+    <div className="min-h-screen bg-[var(--page-bg)] px-4 py-12 text-[var(--text-primary)] sm:py-16">
+      <div className="relative mx-auto w-full max-w-3xl">
           {/* FEAT-P1: Share watermark — traceable token ID overlay */}
           <div
             aria-hidden="true"
@@ -65,21 +62,20 @@ export default async function SharePage({
           >
             {token.slice(0, 8)} · {new Date().toISOString().slice(0, 10)}
           </div>
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 overflow-hidden rounded-3xl"
-            style={{
-              backgroundImage: `repeating-linear-gradient(135deg, transparent, transparent 120px, color-mix(in srgb, var(--text-muted) 3%, transparent) 120px, color-mix(in srgb, var(--text-muted) 3%, transparent) 240px)`,
-            }}
-          />
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl border border-[var(--accent-border)] bg-[var(--accent-bg)] text-2xl">
-            {errorMessage ? "🔒" : share?.entryType === "DIRECTORY" ? "📁" : "📦"}
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-lg border border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]">
+            {errorMessage ? (
+              <AlertTriangle aria-hidden="true" className="h-5 w-5" />
+            ) : share?.entryType === "DIRECTORY" ? (
+              <Folder aria-hidden="true" className="h-5 w-5" />
+            ) : (
+              <File aria-hidden="true" className="h-5 w-5" />
+            )}
           </div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">
+          <p className="text-xs font-semibold uppercase text-[var(--accent)]">
             {t("sharePage.brand", locale)}
           </p>
-          <h1 className="mt-2 text-xl font-semibold tracking-tight text-[var(--text-primary)]">
+          <h1 className="mt-2 text-xl font-semibold text-[var(--text-primary)]">
             {errorMessage ? t("sharePage.errorTitle", locale) : share?.entryType === "DIRECTORY" ? t("sharePage.directoryTitle", locale) : t("sharePage.fileTitle", locale)}
           </h1>
         </div>
@@ -100,7 +96,7 @@ export default async function SharePage({
               />
             )}
 
-            <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-elevated)] p-4">
+            <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-4">
               <p className="break-all text-base font-medium text-[var(--text-primary)]">
                 {isLocked ? (share.name || t("sharePage.fileTitle", locale)) : (share.name || share.path)}
               </p>
@@ -154,8 +150,9 @@ export default async function SharePage({
                 <a
                   href={`/api/share/${encodeURIComponent(token)}`}
                   data-primary
-                  data-action-button data-variant="primary" className="block px-4 py-3 text-center text-sm"
+                  data-action-button data-variant="primary" className="flex items-center justify-center gap-2 px-4 py-3 text-center text-sm"
                 >
+                  <Download aria-hidden="true" className="h-4 w-4" />
                   {t("sharePage.downloadFile", locale)}
                 </a>
               )
@@ -171,8 +168,9 @@ export default async function SharePage({
                   {!share.hasPassword && !isPreviewOnly && (
                     <a
                       href={`/api/share/${encodeURIComponent(token)}?archive=1`}
-                      className="shrink-0 rounded-lg border border-[var(--color-action-border)]/40 px-3 py-1.5 text-center text-xs font-medium text-[var(--text-primary)] transition hover:bg-[var(--accent-hover)]/10"
+                      className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[var(--color-action-border)]/40 px-3 py-1.5 text-center text-xs font-medium text-[var(--text-primary)] transition hover:bg-[var(--accent-hover)]/10"
                     >
+                      <Download aria-hidden="true" className="h-3.5 w-3.5" />
                       {t("sharePage.downloadDirectory", locale)}
                     </a>
                   )}
@@ -197,8 +195,9 @@ export default async function SharePage({
                         {!share.hasPassword && !isPreviewOnly && (
                           <a
                             href={`/api/share/${encodeURIComponent(token)}?path=${encodeURIComponent(file.relativePath)}`}
-                            data-action-button data-variant="primary" className="shrink-0 px-3 py-1.5 text-xs"
+                            data-action-button data-variant="primary" className="inline-flex shrink-0 items-center gap-1.5 px-3 py-1.5 text-xs"
                           >
+                            <Download aria-hidden="true" className="h-3.5 w-3.5" />
                             {t("sharePage.download", locale)}
                           </a>
                         )}
@@ -217,6 +216,6 @@ export default async function SharePage({
           </Link>
         </div>
       </div>
-    </main>
+    </div>
   );
 }

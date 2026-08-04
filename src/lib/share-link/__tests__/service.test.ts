@@ -56,6 +56,20 @@ describe("share link service", () => {
     expect(mockPrisma.shareLink.create.mock.calls[0]![0]!.data.path).toBe("docs/report.pdf");
   });
 
+  it("rejects download-only controls on metadata-only shares", async () => {
+    const base: Omit<Parameters<typeof createShareLink>[0], "maxDownloads" | "password"> = {
+      session: { userId: "u1", username: "alice", roles: ["storage_manager"], mustChangePassword: false, currentTeamId: null },
+      storageNodeId: "node1",
+      path: "docs/report.pdf",
+      entryType: "FILE" as const,
+      permissionLevel: "preview" as const,
+    };
+
+    await expect(createShareLink({ ...base, maxDownloads: 1 })).rejects.toThrow();
+    await expect(createShareLink({ ...base, password: "secret" })).rejects.toThrow();
+    expect(mockPrisma.shareLink.create).not.toHaveBeenCalled();
+  });
+
   it("bounds share-link list hydration for growing public-link history", async () => {
     mockPrisma.shareLink.findMany.mockResolvedValueOnce([]);
 
