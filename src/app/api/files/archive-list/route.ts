@@ -202,7 +202,7 @@ function parseTarOutput(output: string): ArchiveEntry[] {
 }
 
 async function listGz(
-  filePath: string,
+  _filePath: string,
   originalName: string,
 ): Promise<ArchiveEntry[]> {
   // .gz (non-tar) — just a single compressed file

@@ -4,7 +4,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ShareFilePicker } from "../share-file-picker";
 import { csrfFetch } from "@/lib/auth/csrf-client";
-import { useI18n } from "@/lib/i18n/use-locale";
 
 const refresh = vi.fn();
 
@@ -34,7 +33,6 @@ vi.mock("@/lib/i18n/use-locale", async (importOriginal) => {
 });
 
 const mockedFetch = vi.mocked(csrfFetch);
-const _mockedUseI18n = vi.mocked(useI18n);
 const setI18nLocale = (locale: "zh" | "en") => {
 	(globalThis as { __setI18nLocale?: (l: "zh" | "en") => void }).__setI18nLocale?.(locale);
 };

@@ -61,7 +61,6 @@ export async function GET(request: Request) {
       if (!session)
         throw new AuthError(t("api.auth.sessionExpired", locale));
 
-      const _url = new URL(request.url);
       const { nodeId, path: remotePath, download } = parseSearchParams(
         request,
         contentDownloadQuerySchema,

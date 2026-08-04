@@ -156,7 +156,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 				maxSpeedKb: form.maxSpeedKb ? parseInt(form.maxSpeedKb, 10) : undefined,
 				isBatch, batchUrls,
 			};
-			const _data = await csrfFetch("/api/downloads", {
+			await csrfFetch("/api/downloads", {
 				method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
 			});
 			addToast("success", isBatch ? `${t("downloadsPage.success.batchCreated", { count: batchUrls?.length ?? 0 })}` : t("downloadsPage.success.taskCreated"));

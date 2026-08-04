@@ -322,25 +322,25 @@ describe("buildUsage — drift detection", () => {
     const catalog = minimalCatalog({
       apiRoutes: [
         {
-          path: "/src/app/api/monitoring/web-vitals",
+          path: "/api/monitoring/web-vitals",
           file: "src/app/api/monitoring/web-vitals/route.ts",
           methods: ["POST"],
           declaredPermissions: [],
         },
         {
-          path: "/src/app/api/itsm/inbound/[connectionId]",
+          path: "/api/itsm/inbound/[connectionId]",
           file: "src/app/api/itsm/inbound/[connectionId]/route.ts",
           methods: ["POST"],
           declaredPermissions: [],
         },
         {
-          path: "/src/app/api/webdav/[storageNodeId]/[[...path]]",
+          path: "/api/webdav/[storageNodeId]/[[...path]]",
           file: "src/app/api/webdav/[storageNodeId]/[[...path]]/route.ts",
           methods: ["GET", "PUT"],
           declaredPermissions: [],
         },
         {
-          path: "/src/app/api/mystery",
+          path: "/api/mystery",
           file: "src/app/api/mystery/route.ts",
           methods: ["GET"],
           declaredPermissions: [],

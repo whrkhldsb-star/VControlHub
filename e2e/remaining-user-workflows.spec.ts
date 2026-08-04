@@ -66,6 +66,38 @@ test("read-only operational pages expose working refresh, filter and tab control
 	}
 });
 
+test("API docs render and filter every catalog-backed operation", async ({ page }) => {
+	await login(page);
+	await page.goto("/api-docs");
+	const search = page.getByRole("searchbox", { name: /API|search|搜索/i });
+	await expect(search).toBeVisible();
+
+	const spec = await page.evaluate(async () => {
+		const response = await fetch("/api/docs/openapi.json");
+		if (!response.ok) throw new Error(`OpenAPI request failed (${response.status})`);
+		return response.json() as Promise<{
+			paths: Record<string, Record<string, unknown>>;
+		}>;
+	});
+	const operationCount = Object.values(spec.paths).reduce(
+		(total, methods) => total + Object.keys(methods).length,
+		0,
+	);
+	await expect(page.locator("article")).toHaveCount(operationCount);
+	await expect(page.getByText("/api/settings", { exact: true })).toHaveCount(2);
+	await expect(
+		page.locator("article").filter({ has: page.getByText("/api/settings", { exact: true }) }).filter({ hasText: /PATCH/i }),
+	).toHaveCount(1);
+	await expect(
+		page.locator("article").filter({ has: page.getByText("/api/settings", { exact: true }) }).filter({ hasText: /PUT/i }),
+	).toHaveCount(0);
+
+	await search.fill("/backups/{id}/restore");
+	await expect(page.locator("article")).toHaveCount(1);
+	await expect(page.locator("article").first()).toContainText(/POST/i);
+	await expect(page.locator("article").first()).toContainText(/参数\s*1|1\s*(?:个)?参数|1\s*parameter/i);
+});
+
 test("traffic history range and refresh controls", async ({ page }) => {
 	test.setTimeout(90_000);
 	await login(page);

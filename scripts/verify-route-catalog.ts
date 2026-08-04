@@ -14,7 +14,7 @@
  * Run: npx tsx scripts/verify-route-catalog.ts
  */
 import { readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import {
   mainNavItems,
   mobileNavItems,
@@ -49,6 +49,44 @@ const warn: string[] = [];
 
 const pagePaths = new Set(catalog.pages.map((p) => p.path));
 const permSet = new Set(catalog.permissions);
+
+function pagePathFor(file: string): string {
+  const rel = relative(join(ROOT, 'src', 'app'), file);
+  return rel === 'page.tsx' ? '/' : '/' + rel.slice(0, -'/page.tsx'.length);
+}
+
+function apiPathFor(file: string): string {
+  const rel = relative(join(ROOT, 'src', 'app', 'api'), file);
+  return '/api/' + rel.slice(0, -'/route.ts'.length);
+}
+
+function verifySourceParity(label: string, sourcePaths: Set<string>, catalogPaths: Set<string>) {
+  for (const path of sourcePaths) {
+    if (!catalogPaths.has(path)) errors.push(`${label} ${path} is missing from the catalog`);
+  }
+  for (const path of catalogPaths) {
+    if (!sourcePaths.has(path)) errors.push(`${label} catalog contains stale path ${path}`);
+  }
+}
+
+verifySourceParity(
+  'page',
+  new Set(
+    walk(join(ROOT, 'src', 'app'))
+      .filter((file) => file.endsWith('/page.tsx'))
+      .map(pagePathFor),
+  ),
+  pagePaths,
+);
+verifySourceParity(
+  'api',
+  new Set(
+    walk(join(ROOT, 'src', 'app', 'api'))
+      .filter((file) => file.endsWith('/route.ts'))
+      .map(apiPathFor),
+  ),
+  new Set(catalog.apiRoutes.map((route) => route.path)),
+);
 
 function verifyCurrentNavigation(
   label: string,
@@ -107,6 +145,9 @@ for (const page of catalog.pages) {
   }
 }
 for (const route of catalog.apiRoutes) {
+  if (!route.path.startsWith('/api/')) {
+    errors.push(`api catalog path ${route.path} must start with /api/`);
+  }
   if (route.methods.length === 0) {
     errors.push(`api ${route.path} declares no HTTP method`);
   }

@@ -1,9 +1,6 @@
-/* eslint-disable @typescript-eslint/no-unused-vars -- test utilities imported for mock registration */
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-/* eslint-enable @typescript-eslint/no-unused-vars */
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import React from "react";
 
 import { I18nProvider } from "@/lib/i18n/provider";
 
@@ -20,8 +17,6 @@ vi.mock("next/navigation", () => ({
 	useRouter: () => ({ refresh: refreshMock }),
 }));
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- imported to register the mock
-import { csrfFetch } from "@/lib/auth/csrf-client";
 import { SettingsClient } from "../settings-client";
 
 const HIGH_RISK_RUNTIME = {

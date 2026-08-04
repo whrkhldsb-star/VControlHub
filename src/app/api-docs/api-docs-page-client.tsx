@@ -127,6 +127,7 @@ export default function ApiDocsPage() {
 						<span className="sr-only">{t("apiDocsPage.searchAria")}</span>
 						<input
 							data-input
+							type="search"
 							value={query}
 							onChange={(event) => setQuery(event.target.value)}
 							placeholder={t("apiDocsPage.searchPlaceholder")}

@@ -114,7 +114,7 @@ describe("useFileBrowserListing", () => {
   it("fetchFiles aborts the previous request when called twice quickly", async () => {
     let firstAbort: AbortSignal | undefined;
     let firstAborted = false;
-    vi.mocked(csrfFetch).mockImplementationOnce((url, init) => {
+    vi.mocked(csrfFetch).mockImplementationOnce((_url, init) => {
       firstAbort = (init as { signal?: AbortSignal })?.signal;
       // Tie the abort to the first fetch so the test can observe it.
       if (firstAbort) {

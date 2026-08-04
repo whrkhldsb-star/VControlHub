@@ -116,7 +116,7 @@ function streamWithData(data = "hello remote") {
 describe("/api/storage/sftp-download", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		requireHandlerMock.mockImplementation(async (request, _options, handler) => handler({ session }));
+		requireHandlerMock.mockImplementation(async (_request, _options, handler) => handler({ session }));
 		prismaMock.storageNode.findUnique.mockResolvedValue(sftpNode);
 		prismaMock.storageNode.findFirst.mockResolvedValue(sftpNode);
 		assertStorageAccessMock.mockResolvedValue({ allowed: true });

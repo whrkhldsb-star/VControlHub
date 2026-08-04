@@ -156,7 +156,8 @@ function main() {
     .map((f) => {
       const rel = relative(ROOT, f);
       const text = readFileSync(f, 'utf8');
-      const path = '/' + rel.slice(0, -'/route.ts'.length);
+      const routeRel = relative(join(APP, 'api'), f);
+      const path = '/api/' + routeRel.slice(0, -'/route.ts'.length);
       return {
         path,
         file: rel,

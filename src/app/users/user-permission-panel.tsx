@@ -203,8 +203,8 @@ return data as PermissionsPayload;
     }
 
     try {
-const _data = await csrfFetch("/api/users/permissions", {
-		method: "PATCH",
+      await csrfFetch("/api/users/permissions", {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId, roleKeys, permissionKeys, storageAccess: normalizedGrants }),
       });

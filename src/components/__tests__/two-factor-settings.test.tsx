@@ -1,6 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unused-vars -- test utility alias kept for potential future use */
-import { render as rtlRender, screen } from "@testing-library/react";
-/* eslint-enable @typescript-eslint/no-unused-vars */
+import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 

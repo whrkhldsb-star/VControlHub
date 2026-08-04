@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-04T04:43:18.309Z",
+  "generatedAt": "2026-08-04T06:54:11.282Z",
   "summary": {
     "sidebarMain": 30,
     "sidebarSystem": 5,
@@ -638,7 +638,7 @@
   ],
   "apiRoutes": [
     {
-      "path": "/src/app/api/admin/workers",
+      "path": "/api/admin/workers",
       "file": "src/app/api/admin/workers/route.ts",
       "methods": [
         "GET"
@@ -649,7 +649,7 @@
       ]
     },
     {
-      "path": "/src/app/api/ai/chat",
+      "path": "/api/ai/chat",
       "file": "src/app/api/ai/chat/route.ts",
       "methods": [
         "POST"
@@ -660,7 +660,7 @@
       ]
     },
     {
-      "path": "/src/app/api/ai/conversations/[id]",
+      "path": "/api/ai/conversations/[id]",
       "file": "src/app/api/ai/conversations/[id]/route.ts",
       "methods": [
         "DELETE",
@@ -673,7 +673,7 @@
       ]
     },
     {
-      "path": "/src/app/api/ai/conversations",
+      "path": "/api/ai/conversations",
       "file": "src/app/api/ai/conversations/route.ts",
       "methods": [
         "GET",
@@ -685,7 +685,7 @@
       ]
     },
     {
-      "path": "/src/app/api/ai/hosted-actions/[id]",
+      "path": "/api/ai/hosted-actions/[id]",
       "file": "src/app/api/ai/hosted-actions/[id]/route.ts",
       "methods": [
         "PATCH"
@@ -696,7 +696,7 @@
       ]
     },
     {
-      "path": "/src/app/api/ai/hosted-actions",
+      "path": "/api/ai/hosted-actions",
       "file": "src/app/api/ai/hosted-actions/route.ts",
       "methods": [
         "GET"
@@ -707,7 +707,7 @@
       ]
     },
     {
-      "path": "/src/app/api/ai/models/probe",
+      "path": "/api/ai/models/probe",
       "file": "src/app/api/ai/models/probe/route.ts",
       "methods": [
         "POST"
@@ -718,7 +718,7 @@
       ]
     },
     {
-      "path": "/src/app/api/ai/models",
+      "path": "/api/ai/models",
       "file": "src/app/api/ai/models/route.ts",
       "methods": [
         "GET"
@@ -729,7 +729,7 @@
       ]
     },
     {
-      "path": "/src/app/api/ai/ops/logs/[id]/approve",
+      "path": "/api/ai/ops/logs/[id]/approve",
       "file": "src/app/api/ai/ops/logs/[id]/approve/route.ts",
       "methods": [
         "POST"
@@ -740,7 +740,7 @@
       ]
     },
     {
-      "path": "/src/app/api/ai/ops/logs/[id]/execute",
+      "path": "/api/ai/ops/logs/[id]/execute",
       "file": "src/app/api/ai/ops/logs/[id]/execute/route.ts",
       "methods": [
         "POST"
@@ -752,7 +752,7 @@
       ]
     },
     {
-      "path": "/src/app/api/ai/ops/logs/[id]",
+      "path": "/api/ai/ops/logs/[id]",
       "file": "src/app/api/ai/ops/logs/[id]/route.ts",
       "methods": [
         "GET"
@@ -763,7 +763,7 @@
       ]
     },
     {
-      "path": "/src/app/api/ai/ops/logs",
+      "path": "/api/ai/ops/logs",
       "file": "src/app/api/ai/ops/logs/route.ts",
       "methods": [
         "GET"
@@ -774,7 +774,7 @@
       ]
     },
     {
-      "path": "/src/app/api/ai/ops/scan",
+      "path": "/api/ai/ops/scan",
       "file": "src/app/api/ai/ops/scan/route.ts",
       "methods": [
         "POST"
@@ -785,7 +785,7 @@
       ]
     },
     {
-      "path": "/src/app/api/ai/ops/settings",
+      "path": "/api/ai/ops/settings",
       "file": "src/app/api/ai/ops/settings/route.ts",
       "methods": [
         "GET",
@@ -798,7 +798,7 @@
       ]
     },
     {
-      "path": "/src/app/api/ai/ops/summary",
+      "path": "/api/ai/ops/summary",
       "file": "src/app/api/ai/ops/summary/route.ts",
       "methods": [
         "GET"
@@ -809,7 +809,7 @@
       ]
     },
     {
-      "path": "/src/app/api/ai/providers/[id]",
+      "path": "/api/ai/providers/[id]",
       "file": "src/app/api/ai/providers/[id]/route.ts",
       "methods": [
         "DELETE",
@@ -822,7 +822,7 @@
       ]
     },
     {
-      "path": "/src/app/api/ai/providers",
+      "path": "/api/ai/providers",
       "file": "src/app/api/ai/providers/route.ts",
       "methods": [
         "GET",
@@ -834,7 +834,7 @@
       ]
     },
     {
-      "path": "/src/app/api/alert-incidents",
+      "path": "/api/alert-incidents",
       "file": "src/app/api/alert-incidents/route.ts",
       "methods": [
         "GET",
@@ -846,7 +846,7 @@
       ]
     },
     {
-      "path": "/src/app/api/alert-rules",
+      "path": "/api/alert-rules",
       "file": "src/app/api/alert-rules/route.ts",
       "methods": [
         "DELETE",
@@ -861,7 +861,7 @@
       ]
     },
     {
-      "path": "/src/app/api/announcements",
+      "path": "/api/announcements",
       "file": "src/app/api/announcements/route.ts",
       "methods": [
         "DELETE",
@@ -875,7 +875,7 @@
       ]
     },
     {
-      "path": "/src/app/api/api-tokens",
+      "path": "/api/api-tokens",
       "file": "src/app/api/api-tokens/route.ts",
       "methods": [
         "DELETE",
@@ -888,7 +888,7 @@
       ]
     },
     {
-      "path": "/src/app/api/app-sources",
+      "path": "/api/app-sources",
       "file": "src/app/api/app-sources/route.ts",
       "methods": [
         "DELETE",
@@ -902,7 +902,7 @@
       ]
     },
     {
-      "path": "/src/app/api/audit/export",
+      "path": "/api/audit/export",
       "file": "src/app/api/audit/export/route.ts",
       "methods": [
         "GET"
@@ -913,7 +913,7 @@
       ]
     },
     {
-      "path": "/src/app/api/audit",
+      "path": "/api/audit",
       "file": "src/app/api/audit/route.ts",
       "methods": [
         "GET"
@@ -924,7 +924,7 @@
       ]
     },
     {
-      "path": "/src/app/api/auth/2fa/disable",
+      "path": "/api/auth/2fa/disable",
       "file": "src/app/api/auth/2fa/disable/route.ts",
       "methods": [
         "POST"
@@ -933,7 +933,7 @@
       "declaredPermissions": []
     },
     {
-      "path": "/src/app/api/auth/2fa/enable",
+      "path": "/api/auth/2fa/enable",
       "file": "src/app/api/auth/2fa/enable/route.ts",
       "methods": [
         "POST"
@@ -942,7 +942,7 @@
       "declaredPermissions": []
     },
     {
-      "path": "/src/app/api/auth/2fa/setup",
+      "path": "/api/auth/2fa/setup",
       "file": "src/app/api/auth/2fa/setup/route.ts",
       "methods": [
         "POST",
@@ -952,7 +952,7 @@
       "declaredPermissions": []
     },
     {
-      "path": "/src/app/api/auth/2fa/verify-login",
+      "path": "/api/auth/2fa/verify-login",
       "file": "src/app/api/auth/2fa/verify-login/route.ts",
       "methods": [
         "POST"
@@ -961,7 +961,7 @@
       "declaredPermissions": []
     },
     {
-      "path": "/src/app/api/auth/signout",
+      "path": "/api/auth/signout",
       "file": "src/app/api/auth/signout/route.ts",
       "methods": [
         "POST"
@@ -970,7 +970,7 @@
       "declaredPermissions": []
     },
     {
-      "path": "/src/app/api/auth/ws-token",
+      "path": "/api/auth/ws-token",
       "file": "src/app/api/auth/ws-token/route.ts",
       "methods": [
         "POST"
@@ -981,7 +981,7 @@
       ]
     },
     {
-      "path": "/src/app/api/backup-schedules/[id]",
+      "path": "/api/backup-schedules/[id]",
       "file": "src/app/api/backup-schedules/[id]/route.ts",
       "methods": [
         "DELETE"
@@ -992,7 +992,7 @@
       ]
     },
     {
-      "path": "/src/app/api/backup-schedules",
+      "path": "/api/backup-schedules",
       "file": "src/app/api/backup-schedules/route.ts",
       "methods": [
         "GET",
@@ -1006,7 +1006,7 @@
       ]
     },
     {
-      "path": "/src/app/api/backups/[id]/drill",
+      "path": "/api/backups/[id]/drill",
       "file": "src/app/api/backups/[id]/drill/route.ts",
       "methods": [
         "POST"
@@ -1017,7 +1017,7 @@
       ]
     },
     {
-      "path": "/src/app/api/backups/[id]/restore",
+      "path": "/api/backups/[id]/restore",
       "file": "src/app/api/backups/[id]/restore/route.ts",
       "methods": [
         "POST"
@@ -1028,7 +1028,7 @@
       ]
     },
     {
-      "path": "/src/app/api/backups/[id]/retry",
+      "path": "/api/backups/[id]/retry",
       "file": "src/app/api/backups/[id]/retry/route.ts",
       "methods": [
         "POST"
@@ -1039,7 +1039,7 @@
       ]
     },
     {
-      "path": "/src/app/api/backups/[id]/void",
+      "path": "/api/backups/[id]/void",
       "file": "src/app/api/backups/[id]/void/route.ts",
       "methods": [
         "POST"
@@ -1050,7 +1050,7 @@
       ]
     },
     {
-      "path": "/src/app/api/backups/migration",
+      "path": "/api/backups/migration",
       "file": "src/app/api/backups/migration/route.ts",
       "methods": [
         "GET",
@@ -1063,7 +1063,7 @@
       ]
     },
     {
-      "path": "/src/app/api/backups/offsite/dry-run",
+      "path": "/api/backups/offsite/dry-run",
       "file": "src/app/api/backups/offsite/dry-run/route.ts",
       "methods": [
         "POST"
@@ -1074,7 +1074,7 @@
       ]
     },
     {
-      "path": "/src/app/api/backups/offsite",
+      "path": "/api/backups/offsite",
       "file": "src/app/api/backups/offsite/route.ts",
       "methods": [
         "GET",
@@ -1087,7 +1087,7 @@
       ]
     },
     {
-      "path": "/src/app/api/backups/retention",
+      "path": "/api/backups/retention",
       "file": "src/app/api/backups/retention/route.ts",
       "methods": [
         "GET",
@@ -1100,7 +1100,7 @@
       ]
     },
     {
-      "path": "/src/app/api/backups",
+      "path": "/api/backups",
       "file": "src/app/api/backups/route.ts",
       "methods": [
         "GET",
@@ -1113,7 +1113,7 @@
       ]
     },
     {
-      "path": "/src/app/api/command-templates",
+      "path": "/api/command-templates",
       "file": "src/app/api/command-templates/route.ts",
       "methods": [
         "DELETE",
@@ -1129,7 +1129,7 @@
       ]
     },
     {
-      "path": "/src/app/api/commands/[id]/tickets",
+      "path": "/api/commands/[id]/tickets",
       "file": "src/app/api/commands/[id]/tickets/route.ts",
       "methods": [
         "GET"
@@ -1140,7 +1140,7 @@
       ]
     },
     {
-      "path": "/src/app/api/commands",
+      "path": "/api/commands",
       "file": "src/app/api/commands/route.ts",
       "methods": [
         "GET",
@@ -1155,7 +1155,7 @@
       ]
     },
     {
-      "path": "/src/app/api/cost/billing-accounts/[id]",
+      "path": "/api/cost/billing-accounts/[id]",
       "file": "src/app/api/cost/billing-accounts/[id]/route.ts",
       "methods": [
         "DELETE",
@@ -1169,7 +1169,7 @@
       ]
     },
     {
-      "path": "/src/app/api/cost/billing-accounts/[id]/sync",
+      "path": "/api/cost/billing-accounts/[id]/sync",
       "file": "src/app/api/cost/billing-accounts/[id]/sync/route.ts",
       "methods": [
         "POST"
@@ -1180,7 +1180,7 @@
       ]
     },
     {
-      "path": "/src/app/api/cost/billing-accounts",
+      "path": "/api/cost/billing-accounts",
       "file": "src/app/api/cost/billing-accounts/route.ts",
       "methods": [
         "GET",
@@ -1193,7 +1193,7 @@
       ]
     },
     {
-      "path": "/src/app/api/cost/budgets/[id]",
+      "path": "/api/cost/budgets/[id]",
       "file": "src/app/api/cost/budgets/[id]/route.ts",
       "methods": [
         "DELETE",
@@ -1205,7 +1205,7 @@
       ]
     },
     {
-      "path": "/src/app/api/cost/budgets/check",
+      "path": "/api/cost/budgets/check",
       "file": "src/app/api/cost/budgets/check/route.ts",
       "methods": [
         "POST"
@@ -1216,7 +1216,7 @@
       ]
     },
     {
-      "path": "/src/app/api/cost/budgets",
+      "path": "/api/cost/budgets",
       "file": "src/app/api/cost/budgets/route.ts",
       "methods": [
         "GET",
@@ -1229,7 +1229,7 @@
       ]
     },
     {
-      "path": "/src/app/api/cost/entries/[id]",
+      "path": "/api/cost/entries/[id]",
       "file": "src/app/api/cost/entries/[id]/route.ts",
       "methods": [
         "DELETE",
@@ -1243,7 +1243,7 @@
       ]
     },
     {
-      "path": "/src/app/api/cost/entries",
+      "path": "/api/cost/entries",
       "file": "src/app/api/cost/entries/route.ts",
       "methods": [
         "GET",
@@ -1256,7 +1256,7 @@
       ]
     },
     {
-      "path": "/src/app/api/cost/snapshots",
+      "path": "/api/cost/snapshots",
       "file": "src/app/api/cost/snapshots/route.ts",
       "methods": [
         "GET",
@@ -1269,7 +1269,7 @@
       ]
     },
     {
-      "path": "/src/app/api/cost/summary",
+      "path": "/api/cost/summary",
       "file": "src/app/api/cost/summary/route.ts",
       "methods": [
         "GET"
@@ -1280,7 +1280,7 @@
       ]
     },
     {
-      "path": "/src/app/api/dashboard/analytics",
+      "path": "/api/dashboard/analytics",
       "file": "src/app/api/dashboard/analytics/route.ts",
       "methods": [
         "GET"
@@ -1297,7 +1297,7 @@
       ]
     },
     {
-      "path": "/src/app/api/deploy-export/[id]/zip",
+      "path": "/api/deploy-export/[id]/zip",
       "file": "src/app/api/deploy-export/[id]/zip/route.ts",
       "methods": [
         "GET"
@@ -1309,7 +1309,7 @@
       ]
     },
     {
-      "path": "/src/app/api/deploy-export",
+      "path": "/api/deploy-export",
       "file": "src/app/api/deploy-export/route.ts",
       "methods": [
         "GET",
@@ -1321,7 +1321,7 @@
       ]
     },
     {
-      "path": "/src/app/api/deployments/[id]/rollback",
+      "path": "/api/deployments/[id]/rollback",
       "file": "src/app/api/deployments/[id]/rollback/route.ts",
       "methods": [
         "POST"
@@ -1332,7 +1332,7 @@
       ]
     },
     {
-      "path": "/src/app/api/deployments",
+      "path": "/api/deployments",
       "file": "src/app/api/deployments/route.ts",
       "methods": [
         "GET",
@@ -1345,7 +1345,7 @@
       ]
     },
     {
-      "path": "/src/app/api/docker/compose",
+      "path": "/api/docker/compose",
       "file": "src/app/api/docker/compose/route.ts",
       "methods": [
         "GET",
@@ -1357,7 +1357,7 @@
       ]
     },
     {
-      "path": "/src/app/api/docker/containers",
+      "path": "/api/docker/containers",
       "file": "src/app/api/docker/containers/route.ts",
       "methods": [
         "GET",
@@ -1369,7 +1369,7 @@
       ]
     },
     {
-      "path": "/src/app/api/docker/resources",
+      "path": "/api/docker/resources",
       "file": "src/app/api/docker/resources/route.ts",
       "methods": [
         "GET",
@@ -1381,7 +1381,7 @@
       ]
     },
     {
-      "path": "/src/app/api/docs/openapi.json",
+      "path": "/api/docs/openapi.json",
       "file": "src/app/api/docs/openapi.json/route.ts",
       "methods": [
         "GET"
@@ -1390,16 +1390,16 @@
       "declaredPermissions": []
     },
     {
-      "path": "/src/app/api/docs/openapi",
+      "path": "/api/docs/openapi",
       "file": "src/app/api/docs/openapi/route.ts",
       "methods": [
         "GET"
       ],
-      "guardMode": "withApiRoute",
+      "guardMode": "string",
       "declaredPermissions": []
     },
     {
-      "path": "/src/app/api/downloads/recent",
+      "path": "/api/downloads/recent",
       "file": "src/app/api/downloads/recent/route.ts",
       "methods": [
         "GET"
@@ -1410,7 +1410,7 @@
       ]
     },
     {
-      "path": "/src/app/api/downloads",
+      "path": "/api/downloads",
       "file": "src/app/api/downloads/route.ts",
       "methods": [
         "DELETE",
@@ -1422,7 +1422,7 @@
       "declaredPermissions": []
     },
     {
-      "path": "/src/app/api/files/[id]/versions/[versionId]/download",
+      "path": "/api/files/[id]/versions/[versionId]/download",
       "file": "src/app/api/files/[id]/versions/[versionId]/download/route.ts",
       "methods": [
         "GET"
@@ -1433,7 +1433,7 @@
       ]
     },
     {
-      "path": "/src/app/api/files/[id]/versions/[versionId]/restore",
+      "path": "/api/files/[id]/versions/[versionId]/restore",
       "file": "src/app/api/files/[id]/versions/[versionId]/restore/route.ts",
       "methods": [
         "POST"
@@ -1444,7 +1444,7 @@
       ]
     },
     {
-      "path": "/src/app/api/files/[id]/versions",
+      "path": "/api/files/[id]/versions",
       "file": "src/app/api/files/[id]/versions/route.ts",
       "methods": [
         "GET",
@@ -1457,7 +1457,7 @@
       ]
     },
     {
-      "path": "/src/app/api/files/archive-list",
+      "path": "/api/files/archive-list",
       "file": "src/app/api/files/archive-list/route.ts",
       "methods": [
         "GET"
@@ -1468,7 +1468,7 @@
       ]
     },
     {
-      "path": "/src/app/api/files/compress",
+      "path": "/api/files/compress",
       "file": "src/app/api/files/compress/route.ts",
       "methods": [
         "POST"
@@ -1479,7 +1479,7 @@
       ]
     },
     {
-      "path": "/src/app/api/files/editable/[id]",
+      "path": "/api/files/editable/[id]",
       "file": "src/app/api/files/editable/[id]/route.ts",
       "methods": [
         "GET",
@@ -1492,7 +1492,7 @@
       ]
     },
     {
-      "path": "/src/app/api/files/extract",
+      "path": "/api/files/extract",
       "file": "src/app/api/files/extract/route.ts",
       "methods": [
         "POST"
@@ -1503,7 +1503,7 @@
       ]
     },
     {
-      "path": "/src/app/api/files/list",
+      "path": "/api/files/list",
       "file": "src/app/api/files/list/route.ts",
       "methods": [
         "GET"
@@ -1518,7 +1518,7 @@
       ]
     },
     {
-      "path": "/src/app/api/files/search-content",
+      "path": "/api/files/search-content",
       "file": "src/app/api/files/search-content/route.ts",
       "methods": [
         "GET"
@@ -1529,7 +1529,7 @@
       ]
     },
     {
-      "path": "/src/app/api/health/capacity",
+      "path": "/api/health/capacity",
       "file": "src/app/api/health/capacity/route.ts",
       "methods": [
         "GET"
@@ -1540,7 +1540,7 @@
       ]
     },
     {
-      "path": "/src/app/api/health",
+      "path": "/api/health",
       "file": "src/app/api/health/route.ts",
       "methods": [
         "GET"
@@ -1551,7 +1551,7 @@
       ]
     },
     {
-      "path": "/src/app/api/images/[id]/file",
+      "path": "/api/images/[id]/file",
       "file": "src/app/api/images/[id]/file/route.ts",
       "methods": [
         "GET"
@@ -1563,7 +1563,7 @@
       ]
     },
     {
-      "path": "/src/app/api/images/[id]",
+      "path": "/api/images/[id]",
       "file": "src/app/api/images/[id]/route.ts",
       "methods": [
         "DELETE"
@@ -1577,7 +1577,7 @@
       ]
     },
     {
-      "path": "/src/app/api/images/batch",
+      "path": "/api/images/batch",
       "file": "src/app/api/images/batch/route.ts",
       "methods": [
         "POST"
@@ -1591,7 +1591,7 @@
       ]
     },
     {
-      "path": "/src/app/api/images/list",
+      "path": "/api/images/list",
       "file": "src/app/api/images/list/route.ts",
       "methods": [
         "GET"
@@ -1604,7 +1604,7 @@
       ]
     },
     {
-      "path": "/src/app/api/images/publish-from-storage",
+      "path": "/api/images/publish-from-storage",
       "file": "src/app/api/images/publish-from-storage/route.ts",
       "methods": [
         "POST"
@@ -1615,7 +1615,7 @@
       ]
     },
     {
-      "path": "/src/app/api/images/stats",
+      "path": "/api/images/stats",
       "file": "src/app/api/images/stats/route.ts",
       "methods": [
         "GET"
@@ -1628,7 +1628,7 @@
       ]
     },
     {
-      "path": "/src/app/api/images/upload/[id]/chunk",
+      "path": "/api/images/upload/[id]/chunk",
       "file": "src/app/api/images/upload/[id]/chunk/route.ts",
       "methods": [
         "PUT"
@@ -1639,7 +1639,7 @@
       ]
     },
     {
-      "path": "/src/app/api/images/upload/[id]/complete",
+      "path": "/api/images/upload/[id]/complete",
       "file": "src/app/api/images/upload/[id]/complete/route.ts",
       "methods": [
         "POST"
@@ -1650,7 +1650,7 @@
       ]
     },
     {
-      "path": "/src/app/api/images/upload/[id]",
+      "path": "/api/images/upload/[id]",
       "file": "src/app/api/images/upload/[id]/route.ts",
       "methods": [
         "DELETE",
@@ -1662,7 +1662,7 @@
       ]
     },
     {
-      "path": "/src/app/api/images/upload/init",
+      "path": "/api/images/upload/init",
       "file": "src/app/api/images/upload/init/route.ts",
       "methods": [
         "POST"
@@ -1673,7 +1673,7 @@
       ]
     },
     {
-      "path": "/src/app/api/images/upload",
+      "path": "/api/images/upload",
       "file": "src/app/api/images/upload/route.ts",
       "methods": [
         "POST"
@@ -1685,7 +1685,7 @@
       ]
     },
     {
-      "path": "/src/app/api/itsm/connections/[id]",
+      "path": "/api/itsm/connections/[id]",
       "file": "src/app/api/itsm/connections/[id]/route.ts",
       "methods": [
         "DELETE",
@@ -1698,7 +1698,7 @@
       ]
     },
     {
-      "path": "/src/app/api/itsm/connections/[id]/test",
+      "path": "/api/itsm/connections/[id]/test",
       "file": "src/app/api/itsm/connections/[id]/test/route.ts",
       "methods": [
         "POST"
@@ -1709,7 +1709,7 @@
       ]
     },
     {
-      "path": "/src/app/api/itsm/connections",
+      "path": "/api/itsm/connections",
       "file": "src/app/api/itsm/connections/route.ts",
       "methods": [
         "GET",
@@ -1721,7 +1721,7 @@
       ]
     },
     {
-      "path": "/src/app/api/itsm/events",
+      "path": "/api/itsm/events",
       "file": "src/app/api/itsm/events/route.ts",
       "methods": [
         "GET"
@@ -1732,7 +1732,7 @@
       ]
     },
     {
-      "path": "/src/app/api/itsm/inbound/[connectionId]",
+      "path": "/api/itsm/inbound/[connectionId]",
       "file": "src/app/api/itsm/inbound/[connectionId]/route.ts",
       "methods": [
         "POST"
@@ -1741,7 +1741,7 @@
       "declaredPermissions": []
     },
     {
-      "path": "/src/app/api/jobs/[id]/events",
+      "path": "/api/jobs/[id]/events",
       "file": "src/app/api/jobs/[id]/events/route.ts",
       "methods": [
         "GET"
@@ -1753,7 +1753,7 @@
       ]
     },
     {
-      "path": "/src/app/api/jobs/backlog",
+      "path": "/api/jobs/backlog",
       "file": "src/app/api/jobs/backlog/route.ts",
       "methods": [
         "GET"
@@ -1764,7 +1764,7 @@
       ]
     },
     {
-      "path": "/src/app/api/knowledge/[id]",
+      "path": "/api/knowledge/[id]",
       "file": "src/app/api/knowledge/[id]/route.ts",
       "methods": [
         "GET"
@@ -1775,7 +1775,7 @@
       ]
     },
     {
-      "path": "/src/app/api/knowledge",
+      "path": "/api/knowledge",
       "file": "src/app/api/knowledge/route.ts",
       "methods": [
         "DELETE",
@@ -1789,7 +1789,7 @@
       ]
     },
     {
-      "path": "/src/app/api/login",
+      "path": "/api/login",
       "file": "src/app/api/login/route.ts",
       "methods": [
         "POST"
@@ -1798,7 +1798,7 @@
       "declaredPermissions": []
     },
     {
-      "path": "/src/app/api/media/[id]",
+      "path": "/api/media/[id]",
       "file": "src/app/api/media/[id]/route.ts",
       "methods": [
         "PATCH"
@@ -1809,7 +1809,7 @@
       ]
     },
     {
-      "path": "/src/app/api/media/[id]/stream",
+      "path": "/api/media/[id]/stream",
       "file": "src/app/api/media/[id]/stream/route.ts",
       "methods": [
         "GET"
@@ -1820,7 +1820,7 @@
       ]
     },
     {
-      "path": "/src/app/api/media/[id]/thumbnail",
+      "path": "/api/media/[id]/thumbnail",
       "file": "src/app/api/media/[id]/thumbnail/route.ts",
       "methods": [
         "GET"
@@ -1831,7 +1831,7 @@
       ]
     },
     {
-      "path": "/src/app/api/media",
+      "path": "/api/media",
       "file": "src/app/api/media/route.ts",
       "methods": [
         "GET",
@@ -1844,7 +1844,7 @@
       ]
     },
     {
-      "path": "/src/app/api/monitoring/observability",
+      "path": "/api/monitoring/observability",
       "file": "src/app/api/monitoring/observability/route.ts",
       "methods": [
         "GET"
@@ -1855,7 +1855,7 @@
       ]
     },
     {
-      "path": "/src/app/api/monitoring/stats",
+      "path": "/api/monitoring/stats",
       "file": "src/app/api/monitoring/stats/route.ts",
       "methods": [
         "GET"
@@ -1866,7 +1866,7 @@
       ]
     },
     {
-      "path": "/src/app/api/monitoring/stream",
+      "path": "/api/monitoring/stream",
       "file": "src/app/api/monitoring/stream/route.ts",
       "methods": [
         "GET"
@@ -1877,7 +1877,7 @@
       ]
     },
     {
-      "path": "/src/app/api/monitoring/web-vitals",
+      "path": "/api/monitoring/web-vitals",
       "file": "src/app/api/monitoring/web-vitals/route.ts",
       "methods": [
         "POST"
@@ -1886,7 +1886,7 @@
       "declaredPermissions": []
     },
     {
-      "path": "/src/app/api/notifications",
+      "path": "/api/notifications",
       "file": "src/app/api/notifications/route.ts",
       "methods": [
         "DELETE",
@@ -1900,7 +1900,7 @@
       ]
     },
     {
-      "path": "/src/app/api/operation-tasks",
+      "path": "/api/operation-tasks",
       "file": "src/app/api/operation-tasks/route.ts",
       "methods": [
         "GET"
@@ -1911,7 +1911,7 @@
       ]
     },
     {
-      "path": "/src/app/api/playbooks/[id]/dry-run",
+      "path": "/api/playbooks/[id]/dry-run",
       "file": "src/app/api/playbooks/[id]/dry-run/route.ts",
       "methods": [
         "POST"
@@ -1922,7 +1922,7 @@
       ]
     },
     {
-      "path": "/src/app/api/playbooks/[id]",
+      "path": "/api/playbooks/[id]",
       "file": "src/app/api/playbooks/[id]/route.ts",
       "methods": [
         "DELETE",
@@ -1936,7 +1936,7 @@
       ]
     },
     {
-      "path": "/src/app/api/playbooks/[id]/run",
+      "path": "/api/playbooks/[id]/run",
       "file": "src/app/api/playbooks/[id]/run/route.ts",
       "methods": [
         "POST"
@@ -1947,7 +1947,7 @@
       ]
     },
     {
-      "path": "/src/app/api/playbooks/[id]/runs",
+      "path": "/api/playbooks/[id]/runs",
       "file": "src/app/api/playbooks/[id]/runs/route.ts",
       "methods": [
         "GET"
@@ -1958,7 +1958,7 @@
       ]
     },
     {
-      "path": "/src/app/api/playbooks",
+      "path": "/api/playbooks",
       "file": "src/app/api/playbooks/route.ts",
       "methods": [
         "GET",
@@ -1971,7 +1971,7 @@
       ]
     },
     {
-      "path": "/src/app/api/preferences",
+      "path": "/api/preferences",
       "file": "src/app/api/preferences/route.ts",
       "methods": [
         "GET",
@@ -1981,7 +1981,7 @@
       "declaredPermissions": []
     },
     {
-      "path": "/src/app/api/quick-services/[slug]",
+      "path": "/api/quick-services/[slug]",
       "file": "src/app/api/quick-services/[slug]/route.ts",
       "methods": [
         "DELETE",
@@ -1993,7 +1993,7 @@
       ]
     },
     {
-      "path": "/src/app/api/quick-services/check-port",
+      "path": "/api/quick-services/check-port",
       "file": "src/app/api/quick-services/check-port/route.ts",
       "methods": [
         "GET"
@@ -2004,7 +2004,7 @@
       ]
     },
     {
-      "path": "/src/app/api/quick-services",
+      "path": "/api/quick-services",
       "file": "src/app/api/quick-services/route.ts",
       "methods": [
         "GET",
@@ -2016,7 +2016,7 @@
       ]
     },
     {
-      "path": "/src/app/api/role-templates/[id]",
+      "path": "/api/role-templates/[id]",
       "file": "src/app/api/role-templates/[id]/route.ts",
       "methods": [
         "DELETE",
@@ -2028,7 +2028,7 @@
       ]
     },
     {
-      "path": "/src/app/api/role-templates",
+      "path": "/api/role-templates",
       "file": "src/app/api/role-templates/route.ts",
       "methods": [
         "GET",
@@ -2041,7 +2041,7 @@
       ]
     },
     {
-      "path": "/src/app/api/scheduled-tasks",
+      "path": "/api/scheduled-tasks",
       "file": "src/app/api/scheduled-tasks/route.ts",
       "methods": [
         "DELETE",
@@ -2056,7 +2056,7 @@
       ]
     },
     {
-      "path": "/src/app/api/search",
+      "path": "/api/search",
       "file": "src/app/api/search/route.ts",
       "methods": [
         "GET"
@@ -2069,7 +2069,7 @@
       ]
     },
     {
-      "path": "/src/app/api/servers/[id]/detect-os",
+      "path": "/api/servers/[id]/detect-os",
       "file": "src/app/api/servers/[id]/detect-os/route.ts",
       "methods": [
         "POST"
@@ -2080,7 +2080,7 @@
       ]
     },
     {
-      "path": "/src/app/api/servers/[id]/file-proxy",
+      "path": "/api/servers/[id]/file-proxy",
       "file": "src/app/api/servers/[id]/file-proxy/route.ts",
       "methods": [
         "DELETE",
@@ -2093,7 +2093,7 @@
       ]
     },
     {
-      "path": "/src/app/api/servers/[id]/reload",
+      "path": "/api/servers/[id]/reload",
       "file": "src/app/api/servers/[id]/reload/route.ts",
       "methods": [
         "POST"
@@ -2104,7 +2104,7 @@
       ]
     },
     {
-      "path": "/src/app/api/servers/[id]/sftp/delete",
+      "path": "/api/servers/[id]/sftp/delete",
       "file": "src/app/api/servers/[id]/sftp/delete/route.ts",
       "methods": [
         "DELETE"
@@ -2115,7 +2115,7 @@
       ]
     },
     {
-      "path": "/src/app/api/servers/[id]/sftp/download",
+      "path": "/api/servers/[id]/sftp/download",
       "file": "src/app/api/servers/[id]/sftp/download/route.ts",
       "methods": [
         "GET"
@@ -2126,7 +2126,7 @@
       ]
     },
     {
-      "path": "/src/app/api/servers/[id]/sftp/list",
+      "path": "/api/servers/[id]/sftp/list",
       "file": "src/app/api/servers/[id]/sftp/list/route.ts",
       "methods": [
         "POST"
@@ -2137,7 +2137,7 @@
       ]
     },
     {
-      "path": "/src/app/api/servers/[id]/sftp/mkdir",
+      "path": "/api/servers/[id]/sftp/mkdir",
       "file": "src/app/api/servers/[id]/sftp/mkdir/route.ts",
       "methods": [
         "POST"
@@ -2148,7 +2148,7 @@
       ]
     },
     {
-      "path": "/src/app/api/servers/[id]/sftp/rename",
+      "path": "/api/servers/[id]/sftp/rename",
       "file": "src/app/api/servers/[id]/sftp/rename/route.ts",
       "methods": [
         "POST"
@@ -2159,7 +2159,7 @@
       ]
     },
     {
-      "path": "/src/app/api/servers/[id]/sftp/upload",
+      "path": "/api/servers/[id]/sftp/upload",
       "file": "src/app/api/servers/[id]/sftp/upload/route.ts",
       "methods": [
         "POST"
@@ -2170,7 +2170,7 @@
       ]
     },
     {
-      "path": "/src/app/api/servers/[id]/uptime",
+      "path": "/api/servers/[id]/uptime",
       "file": "src/app/api/servers/[id]/uptime/route.ts",
       "methods": [
         "GET"
@@ -2181,7 +2181,7 @@
       ]
     },
     {
-      "path": "/src/app/api/servers/[id]/vps-backup/records/[recordId]/download",
+      "path": "/api/servers/[id]/vps-backup/records/[recordId]/download",
       "file": "src/app/api/servers/[id]/vps-backup/records/[recordId]/download/route.ts",
       "methods": [
         "GET"
@@ -2192,7 +2192,7 @@
       ]
     },
     {
-      "path": "/src/app/api/servers/[id]/vps-backup/records/[recordId]",
+      "path": "/api/servers/[id]/vps-backup/records/[recordId]",
       "file": "src/app/api/servers/[id]/vps-backup/records/[recordId]/route.ts",
       "methods": [
         "DELETE"
@@ -2203,7 +2203,7 @@
       ]
     },
     {
-      "path": "/src/app/api/servers/[id]/vps-backup/records",
+      "path": "/api/servers/[id]/vps-backup/records",
       "file": "src/app/api/servers/[id]/vps-backup/records/route.ts",
       "methods": [
         "GET",
@@ -2216,7 +2216,7 @@
       ]
     },
     {
-      "path": "/src/app/api/servers/[id]/vps-backup/schedules/[scheduleId]",
+      "path": "/api/servers/[id]/vps-backup/schedules/[scheduleId]",
       "file": "src/app/api/servers/[id]/vps-backup/schedules/[scheduleId]/route.ts",
       "methods": [
         "DELETE",
@@ -2228,7 +2228,7 @@
       ]
     },
     {
-      "path": "/src/app/api/servers/[id]/vps-backup/schedules",
+      "path": "/api/servers/[id]/vps-backup/schedules",
       "file": "src/app/api/servers/[id]/vps-backup/schedules/route.ts",
       "methods": [
         "GET",
@@ -2241,7 +2241,7 @@
       ]
     },
     {
-      "path": "/src/app/api/servers/monitor",
+      "path": "/api/servers/monitor",
       "file": "src/app/api/servers/monitor/route.ts",
       "methods": [
         "GET"
@@ -2252,7 +2252,7 @@
       ]
     },
     {
-      "path": "/src/app/api/settings",
+      "path": "/api/settings",
       "file": "src/app/api/settings/route.ts",
       "methods": [
         "GET",
@@ -2264,7 +2264,7 @@
       ]
     },
     {
-      "path": "/src/app/api/share-links",
+      "path": "/api/share-links",
       "file": "src/app/api/share-links/route.ts",
       "methods": [
         "DELETE",
@@ -2279,7 +2279,7 @@
       ]
     },
     {
-      "path": "/src/app/api/share/[token]",
+      "path": "/api/share/[token]",
       "file": "src/app/api/share/[token]/route.ts",
       "methods": [
         "GET"
@@ -2288,7 +2288,7 @@
       "declaredPermissions": []
     },
     {
-      "path": "/src/app/api/shares/[id]/access-logs",
+      "path": "/api/shares/[id]/access-logs",
       "file": "src/app/api/shares/[id]/access-logs/route.ts",
       "methods": [
         "GET"
@@ -2299,7 +2299,7 @@
       ]
     },
     {
-      "path": "/src/app/api/shares/access-report",
+      "path": "/api/shares/access-report",
       "file": "src/app/api/shares/access-report/route.ts",
       "methods": [
         "GET"
@@ -2310,7 +2310,7 @@
       ]
     },
     {
-      "path": "/src/app/api/snippets",
+      "path": "/api/snippets",
       "file": "src/app/api/snippets/route.ts",
       "methods": [
         "DELETE",
@@ -2325,7 +2325,7 @@
       ]
     },
     {
-      "path": "/src/app/api/status",
+      "path": "/api/status",
       "file": "src/app/api/status/route.ts",
       "methods": [
         "GET"
@@ -2334,7 +2334,7 @@
       "declaredPermissions": []
     },
     {
-      "path": "/src/app/api/storage/archive-download",
+      "path": "/api/storage/archive-download",
       "file": "src/app/api/storage/archive-download/route.ts",
       "methods": [
         "GET"
@@ -2345,7 +2345,7 @@
       ]
     },
     {
-      "path": "/src/app/api/storage/direct-access",
+      "path": "/api/storage/direct-access",
       "file": "src/app/api/storage/direct-access/route.ts",
       "methods": [
         "DELETE",
@@ -2358,7 +2358,7 @@
       ]
     },
     {
-      "path": "/src/app/api/storage/local",
+      "path": "/api/storage/local",
       "file": "src/app/api/storage/local/route.ts",
       "methods": [
         "GET",
@@ -2371,7 +2371,7 @@
       ]
     },
     {
-      "path": "/src/app/api/storage/nodes",
+      "path": "/api/storage/nodes",
       "file": "src/app/api/storage/nodes/route.ts",
       "methods": [
         "GET"
@@ -2383,7 +2383,7 @@
       ]
     },
     {
-      "path": "/src/app/api/storage/sftp-download",
+      "path": "/api/storage/sftp-download",
       "file": "src/app/api/storage/sftp-download/route.ts",
       "methods": [
         "GET"
@@ -2394,7 +2394,7 @@
       ]
     },
     {
-      "path": "/src/app/api/storage/sftp-ops",
+      "path": "/api/storage/sftp-ops",
       "file": "src/app/api/storage/sftp-ops/route.ts",
       "methods": [
         "POST"
@@ -2407,7 +2407,7 @@
       ]
     },
     {
-      "path": "/src/app/api/storage/sftp-stale-inventory",
+      "path": "/api/storage/sftp-stale-inventory",
       "file": "src/app/api/storage/sftp-stale-inventory/route.ts",
       "methods": [
         "POST"
@@ -2418,7 +2418,7 @@
       ]
     },
     {
-      "path": "/src/app/api/storage/sftp-sync",
+      "path": "/api/storage/sftp-sync",
       "file": "src/app/api/storage/sftp-sync/route.ts",
       "methods": [
         "POST"
@@ -2429,7 +2429,7 @@
       ]
     },
     {
-      "path": "/src/app/api/storage/sftp",
+      "path": "/api/storage/sftp",
       "file": "src/app/api/storage/sftp/route.ts",
       "methods": [
         "GET"
@@ -2440,7 +2440,7 @@
       ]
     },
     {
-      "path": "/src/app/api/storage/upload/[id]/complete",
+      "path": "/api/storage/upload/[id]/complete",
       "file": "src/app/api/storage/upload/[id]/complete/route.ts",
       "methods": [
         "POST"
@@ -2451,7 +2451,7 @@
       ]
     },
     {
-      "path": "/src/app/api/storage/upload/init",
+      "path": "/api/storage/upload/init",
       "file": "src/app/api/storage/upload/init/route.ts",
       "methods": [
         "POST"
@@ -2462,7 +2462,7 @@
       ]
     },
     {
-      "path": "/src/app/api/sync-jobs/[id]/report",
+      "path": "/api/sync-jobs/[id]/report",
       "file": "src/app/api/sync-jobs/[id]/report/route.ts",
       "methods": [
         "GET"
@@ -2473,7 +2473,7 @@
       ]
     },
     {
-      "path": "/src/app/api/sync-jobs/[id]",
+      "path": "/api/sync-jobs/[id]",
       "file": "src/app/api/sync-jobs/[id]/route.ts",
       "methods": [
         "DELETE",
@@ -2485,7 +2485,7 @@
       ]
     },
     {
-      "path": "/src/app/api/sync-jobs/[id]/run",
+      "path": "/api/sync-jobs/[id]/run",
       "file": "src/app/api/sync-jobs/[id]/run/route.ts",
       "methods": [
         "POST"
@@ -2496,7 +2496,7 @@
       ]
     },
     {
-      "path": "/src/app/api/sync-jobs",
+      "path": "/api/sync-jobs",
       "file": "src/app/api/sync-jobs/route.ts",
       "methods": [
         "GET",
@@ -2509,7 +2509,7 @@
       ]
     },
     {
-      "path": "/src/app/api/system-health",
+      "path": "/api/system-health",
       "file": "src/app/api/system-health/route.ts",
       "methods": [
         "GET"
@@ -2520,7 +2520,7 @@
       ]
     },
     {
-      "path": "/src/app/api/system/export",
+      "path": "/api/system/export",
       "file": "src/app/api/system/export/route.ts",
       "methods": [
         "GET"
@@ -2531,7 +2531,7 @@
       ]
     },
     {
-      "path": "/src/app/api/system/import",
+      "path": "/api/system/import",
       "file": "src/app/api/system/import/route.ts",
       "methods": [
         "POST"
@@ -2542,7 +2542,7 @@
       ]
     },
     {
-      "path": "/src/app/api/system/uptime/all",
+      "path": "/api/system/uptime/all",
       "file": "src/app/api/system/uptime/all/route.ts",
       "methods": [
         "GET"
@@ -2553,7 +2553,7 @@
       ]
     },
     {
-      "path": "/src/app/api/teams/[id]/members/[userId]",
+      "path": "/api/teams/[id]/members/[userId]",
       "file": "src/app/api/teams/[id]/members/[userId]/route.ts",
       "methods": [
         "DELETE"
@@ -2564,7 +2564,7 @@
       ]
     },
     {
-      "path": "/src/app/api/teams/[id]/members",
+      "path": "/api/teams/[id]/members",
       "file": "src/app/api/teams/[id]/members/route.ts",
       "methods": [
         "POST"
@@ -2575,7 +2575,7 @@
       ]
     },
     {
-      "path": "/src/app/api/teams/[id]",
+      "path": "/api/teams/[id]",
       "file": "src/app/api/teams/[id]/route.ts",
       "methods": [
         "DELETE",
@@ -2587,7 +2587,7 @@
       ]
     },
     {
-      "path": "/src/app/api/teams",
+      "path": "/api/teams",
       "file": "src/app/api/teams/route.ts",
       "methods": [
         "GET",
@@ -2600,7 +2600,7 @@
       ]
     },
     {
-      "path": "/src/app/api/teams/switch",
+      "path": "/api/teams/switch",
       "file": "src/app/api/teams/switch/route.ts",
       "methods": [
         "POST"
@@ -2609,7 +2609,7 @@
       "declaredPermissions": []
     },
     {
-      "path": "/src/app/api/tickets/[id]",
+      "path": "/api/tickets/[id]",
       "file": "src/app/api/tickets/[id]/route.ts",
       "methods": [
         "GET",
@@ -2624,7 +2624,7 @@
       ]
     },
     {
-      "path": "/src/app/api/tickets/[id]/timeline",
+      "path": "/api/tickets/[id]/timeline",
       "file": "src/app/api/tickets/[id]/timeline/route.ts",
       "methods": [
         "GET",
@@ -2637,7 +2637,7 @@
       ]
     },
     {
-      "path": "/src/app/api/tickets",
+      "path": "/api/tickets",
       "file": "src/app/api/tickets/route.ts",
       "methods": [
         "GET",
@@ -2652,7 +2652,7 @@
       ]
     },
     {
-      "path": "/src/app/api/tickets/sla/escalate",
+      "path": "/api/tickets/sla/escalate",
       "file": "src/app/api/tickets/sla/escalate/route.ts",
       "methods": [
         "POST"
@@ -2664,7 +2664,7 @@
       ]
     },
     {
-      "path": "/src/app/api/traffic/history",
+      "path": "/api/traffic/history",
       "file": "src/app/api/traffic/history/route.ts",
       "methods": [
         "GET"
@@ -2675,7 +2675,7 @@
       ]
     },
     {
-      "path": "/src/app/api/traffic/summary",
+      "path": "/api/traffic/summary",
       "file": "src/app/api/traffic/summary/route.ts",
       "methods": [
         "GET"
@@ -2686,7 +2686,7 @@
       ]
     },
     {
-      "path": "/src/app/api/users/permissions",
+      "path": "/api/users/permissions",
       "file": "src/app/api/users/permissions/route.ts",
       "methods": [
         "GET",
@@ -2699,7 +2699,7 @@
       ]
     },
     {
-      "path": "/src/app/api/users",
+      "path": "/api/users",
       "file": "src/app/api/users/route.ts",
       "methods": [
         "GET",
@@ -2713,7 +2713,7 @@
       ]
     },
     {
-      "path": "/src/app/api/webdav/[storageNodeId]/[[...path]]",
+      "path": "/api/webdav/[storageNodeId]/[[...path]]",
       "file": "src/app/api/webdav/[storageNodeId]/[[...path]]/route.ts",
       "methods": [
         "DELETE",

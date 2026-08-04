@@ -7,8 +7,97 @@ import { NextResponse } from "next/server";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { t } from "@/lib/i18n/translations";
 import { getServerLocale } from "@/lib/i18n/server-locale";
+import routeCatalog from "../../../../../docs/route-catalog.json";
 
 type TFunction = (key: string, vars?: Record<string, string | number>) => string;
+
+type CatalogRoute = {
+  path: string;
+  methods: string[];
+  guardMode: string;
+  declaredPermissions: string[];
+};
+
+type OpenApiOperation = Record<string, unknown>;
+type OpenApiPathItem = Record<string, OpenApiOperation>;
+
+function toOpenApiPath(catalogPath: string): string {
+  return catalogPath
+    .replace(/^\/api/, "")
+    .replace(/\[\[\.\.\.([^\]]+)\]\]/g, "{$1}")
+    .replace(/\[\.\.\.([^\]]+)\]/g, "{$1}")
+    .replace(/\[([^\]]+)\]/g, "{$1}") || "/";
+}
+
+function generatedTag(path: string): string {
+  const segment = path.split("/").filter(Boolean)[0] ?? "system";
+  return segment
+    .split("-")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function generatedOperation(
+  route: CatalogRoute,
+  method: string,
+  path: string,
+  tr: TFunction,
+): OpenApiOperation {
+  const permissions = route.declaredPermissions;
+  const security = path.startsWith("/webdav/")
+    ? [{ basicAuth: [] }]
+    : path.startsWith("/itsm/inbound/")
+      ? [{ webhookSignature: [] }]
+      : route.guardMode === "public" || route.guardMode === "login"
+        ? []
+        : [{ cookieAuth: [] }];
+  const authDescription = path.startsWith("/webdav/")
+    ? tr("openapiSpec.generated.basicAuth")
+    : path.startsWith("/itsm/inbound/")
+      ? tr("openapiSpec.generated.webhookSignature")
+      : security.length === 0
+        ? tr("openapiSpec.generated.routeCredential")
+        : tr("openapiSpec.generated.authenticated");
+  const parameters = Array.from(path.matchAll(/\{([^}]+)\}/g), ([, name]) => ({
+    name,
+    in: "path",
+    required: true,
+    schema: { type: "string" },
+  }));
+  return {
+    tags: [generatedTag(path)],
+    summary: `${method} ${path}`,
+    description: permissions.length > 0
+      ? tr("openapiSpec.generated.permissions", { permissions: permissions.join(", ") })
+      : authDescription,
+    security,
+    ...(parameters.length > 0 ? { parameters } : {}),
+    responses: {
+      "2XX": { description: tr("openapiSpec.generated.success") },
+      "400": { description: tr("openapiSpec.generated.badRequest") },
+      "401": { description: tr("openapiSpec.generated.unauthorized") },
+      "403": { description: tr("openapiSpec.generated.forbidden") },
+    },
+    "x-vcontrolhub-permissions": permissions,
+  };
+}
+
+function buildCatalogPaths(
+  detailedPaths: Record<string, OpenApiPathItem>,
+  tr: TFunction,
+): Record<string, OpenApiPathItem> {
+  const paths: Record<string, OpenApiPathItem> = {};
+  for (const route of routeCatalog.apiRoutes as CatalogRoute[]) {
+    const path = toOpenApiPath(route.path);
+    const item: OpenApiPathItem = {};
+    for (const method of route.methods) {
+      const key = method.toLowerCase();
+      item[key] = detailedPaths[path]?.[key] ?? generatedOperation(route, method, path, tr);
+    }
+    paths[path] = item;
+  }
+  return paths;
+}
 
 function buildOpenApiSpec(t: TFunction) {
   return {
@@ -37,11 +126,12 @@ function buildOpenApiSpec(t: TFunction) {
       { name: t("openapiSpec.tags.ai.name"), description: t("openapiSpec.tags.ai.description") },
       { name: t("openapiSpec.tags.system.name"), description: t("openapiSpec.tags.system.description") },
     ],
-    paths: {
+    paths: buildCatalogPaths({
       "/login": {
         post: {
           tags: [t("openapiSpec.tags.auth.name")],
           summary: t("openapiSpec.paths./login.post.summary"),
+          security: [],
           requestBody: {
             required: true,
             content: {
@@ -390,13 +480,20 @@ function buildOpenApiSpec(t: TFunction) {
         get: {
           tags: [t("openapiSpec.tags.system.name")],
           summary: t("openapiSpec.paths./status.get.summary"),
+          security: [],
           responses: { "200": { description: t("openapiSpec.paths./status.get.responses.200") } },
         },
       },
-    },
+    }, t),
     components: {
       securitySchemes: {
         cookieAuth: { type: "apiKey", in: "cookie", name: "session" },
+        basicAuth: { type: "http", scheme: "basic" },
+        webhookSignature: {
+          type: "apiKey",
+          in: "header",
+          name: "X-VControlHub-Signature",
+        },
         apiTokenAuth: {
           type: "http",
           scheme: "bearer",

@@ -292,7 +292,7 @@ function computeLabelWrapping(text: string, fields: Field[]): boolean[] {
 /**
  * Scan a single file's TSX text and return per-field results.
  */
-export function scanFile(filePath: string, text: string): FieldResult[] {
+export function scanFile(_filePath: string, text: string): FieldResult[] {
   const { fields, labels } = collectNodes(text);
   if (fields.length === 0) return [];
 
@@ -411,7 +411,7 @@ function extractJsxVisibleText(body: string): string {
  * `title` is acceptable but not preferred — we treat it as labeled for
  * the purpose of the audit (passes for the user, but we note it).
  */
-export function scanIconOnlyButtons(filePath: string, text: string): ButtonFinding[] {
+export function scanIconOnlyButtons(_filePath: string, text: string): ButtonFinding[] {
   const findings: ButtonFinding[] = [];
   const openRe = /<button\b/g;
   let m: RegExpExecArray | null;

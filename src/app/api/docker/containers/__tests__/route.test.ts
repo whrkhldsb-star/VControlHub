@@ -99,7 +99,7 @@ describe("/api/docker/containers audit coverage", () => {
   });
 
   it("audits container lifecycle actions without leaking logs or commands", async () => {
-    httpRequestMock.mockImplementationOnce((options, callback) => {
+    httpRequestMock.mockImplementationOnce((_options, callback) => {
       const responseHandlers: Record<string, (chunk?: Buffer) => void> = {};
       const response = {
         statusCode: 204,

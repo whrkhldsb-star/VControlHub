@@ -1551,37 +1551,37 @@
     },
     {
       "file": "src/app/api/storage/archive-download/route.ts",
-      "line": 115,
+      "line": 114,
       "pattern": "typed-error",
       "text": "Missing nodeId parameter"
     },
     {
       "file": "src/app/api/storage/archive-download/route.ts",
-      "line": 118,
+      "line": 117,
       "pattern": "typed-error",
       "text": "Missing path parameter"
     },
     {
       "file": "src/app/api/storage/archive-download/route.ts",
-      "line": 128,
+      "line": 127,
       "pattern": "typed-error",
       "text": "Directory entry not found"
     },
     {
       "file": "src/app/api/storage/archive-download/route.ts",
-      "line": 131,
+      "line": 130,
       "pattern": "typed-error",
       "text": "Target is not a directory"
     },
     {
       "file": "src/app/api/storage/archive-download/route.ts",
-      "line": 156,
+      "line": 155,
       "pattern": "typed-error",
       "text": "Local directory not found or cannot be read"
     },
     {
       "file": "src/app/api/storage/archive-download/route.ts",
-      "line": 163,
+      "line": 162,
       "pattern": "typed-error",
       "text": "This storage node does not support directory download"
     },
@@ -1671,19 +1671,19 @@
     },
     {
       "file": "src/app/api/storage/sftp/route.ts",
-      "line": 31,
+      "line": 28,
       "pattern": "typed-error",
       "text": "Missing nodeId parameter"
     },
     {
       "file": "src/app/api/storage/sftp/route.ts",
-      "line": 93,
+      "line": 90,
       "pattern": "guard-error-message",
       "text": "Failed to list remote directory"
     },
     {
       "file": "src/app/api/storage/sftp/route.ts",
-      "line": 96,
+      "line": 93,
       "pattern": "typed-error",
       "text": "Not authenticated"
     },

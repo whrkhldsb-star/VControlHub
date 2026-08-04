@@ -105,7 +105,6 @@ export async function GET(request: Request) {
       throw new AuthError("Not authenticated");
     }
 
-    const _url = new URL(request.url);
     const { nodeId, path: requestedPath } = parseSearchParams(
       request,
       storageFileQuerySchema,

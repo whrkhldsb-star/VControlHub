@@ -39,6 +39,24 @@ describe("GET /api/docs/openapi", () => {
     expect(body.paths["/images/upload"].post.security).toContainEqual({
       apiTokenAuth: [],
     });
+    expect(Object.keys(body.paths)).toHaveLength(177);
+    expect(body.paths["/settings"]).toHaveProperty("patch");
+    expect(body.paths["/settings"]).not.toHaveProperty("put");
+    expect(body.paths["/storage/sftp"]).not.toHaveProperty("post");
+    expect(body.paths["/backups/{id}/restore"].post.parameters).toContainEqual(
+      expect.objectContaining({ name: "id", in: "path", required: true }),
+    );
+    expect(body.paths["/backups/{id}/restore"].post["x-vcontrolhub-permissions"]).toContain("backup:restore");
+    expect(body.paths["/login"].post.security).toEqual([]);
+    expect(body.paths["/auth/2fa/verify-login"].post.security).toEqual([]);
+    expect(body.paths["/status"].get.security).toEqual([]);
+    expect(body.paths["/share/{token}"].get.security).toEqual([]);
+    expect(body.paths["/webdav/{storageNodeId}/{path}"].get.security).toEqual([
+      { basicAuth: [] },
+    ]);
+    expect(body.paths["/itsm/inbound/{connectionId}"].post.security).toEqual([
+      { webhookSignature: [] },
+    ]);
     for (const path of ["/servers/monitor", "/storage/local", "/storage/sftp"]) {
       expect(body.paths[path].get.security).toContainEqual({ apiTokenAuth: [] });
     }

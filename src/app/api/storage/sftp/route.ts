@@ -20,13 +20,10 @@ const logger = createLogger("api:storage:sftp");
 export const dynamic = "force-dynamic";
 
 async function handleGet(request: Request, session: SessionPayload) {
-  const _url = new URL(request.url);
   const { nodeId, path: remotePath, limit } = parseSearchParams(
     request,
     sftpListQuerySchema,
   );
-  void nodeId; // currently unused beyond existence; preserved for parity with the prior ad-hoc parser.
-
   if (!nodeId) {
     throw new ValidationError("Missing nodeId parameter");
   }

@@ -490,42 +490,42 @@ export function buildUsage(
   // surface as drift. Suppressing them removes 16 known-good entries from
   // the report so the human eye can focus on real issues.
   const intentionallyPublic = new Set<string>([
-    "/src/app/api/login",
-    "/src/app/api/auth/signout",
-    "/src/app/api/auth/2fa/setup",
-    "/src/app/api/auth/2fa/enable",
-    "/src/app/api/auth/2fa/disable",
-    "/src/app/api/auth/2fa/verify-login",
-    "/src/app/api/share/[token]",
-    "/src/app/api/docs/openapi",
-    "/src/app/api/docs/openapi.json",
-    "/src/app/api/status",
-    "/src/app/api/dashboard/analytics",
-    "/src/app/api/preferences",
-    "/src/app/api/monitoring/stats",
+    "/api/login",
+    "/api/auth/signout",
+    "/api/auth/2fa/setup",
+    "/api/auth/2fa/enable",
+    "/api/auth/2fa/disable",
+    "/api/auth/2fa/verify-login",
+    "/api/share/[token]",
+    "/api/docs/openapi",
+    "/api/docs/openapi.json",
+    "/api/status",
+    "/api/dashboard/analytics",
+    "/api/preferences",
+    "/api/monitoring/stats",
     // Session-authenticated browser beacon (requireAuth, no RBAC permission key).
-    "/src/app/api/monitoring/web-vitals",
-    "/src/app/api/ai/conversations/[id]",
-    "/src/app/api/ai/hosted-actions",
-    "/src/app/api/ai/models",
-		"/src/app/api/ai/hosted-actions/[id]",
-		"/src/app/api/downloads",
-		"/src/app/api/monitoring/stream",
-		"/src/app/api/teams/[id]",
-		"/src/app/api/teams/[id]/members",
-		"/src/app/api/teams/[id]/members/[userId]",
-		"/src/app/api/teams/switch",
-		// Signature-verified inbound webhook (HMAC), not session RBAC.
-		"/src/app/api/itsm/inbound/[connectionId]",
-		// WebDAV Basic/session auth via authenticateWebDavRequest, not PERMISSIONS keys.
-		"/src/app/api/webdav/[storageNodeId]/[[...path]]",
+    "/api/monitoring/web-vitals",
+    "/api/ai/conversations/[id]",
+    "/api/ai/hosted-actions",
+    "/api/ai/models",
+    "/api/ai/hosted-actions/[id]",
+    "/api/downloads",
+    "/api/monitoring/stream",
+    "/api/teams/[id]",
+    "/api/teams/[id]/members",
+    "/api/teams/[id]/members/[userId]",
+    "/api/teams/switch",
+    // Signature-verified inbound webhook (HMAC), not session RBAC.
+    "/api/itsm/inbound/[connectionId]",
+    // WebDAV Basic/session auth via authenticateWebDavRequest, not PERMISSIONS keys.
+    "/api/webdav/[storageNodeId]/[[...path]]",
   ]);
   // TR-043: routes whose enforcement uses a dynamic permission variable
   // (e.g. ternary-derived). Static analysis can't follow these, so we
   // explicitly opt out of the api-decl-perm-unused check for them.
   const dynamicPermRoutes = new Set<string>([
-    "/src/app/api/storage/sftp-ops",
-    "/src/app/api/files/list",
+    "/api/storage/sftp-ops",
+    "/api/files/list",
   ]);
   for (const r of catalog.apiRoutes) {
     if (r.declaredPermissions.length === 0) {

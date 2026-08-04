@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const { prismaMock, withApiRouteMock } = vi.hoisted(() => ({
   prismaMock: { downloadTask: { findMany: vi.fn() } },
   withApiRouteMock: vi.fn(async (
-    request: Request,
+    _request: Request,
     _options: unknown,
     handler: (context: { session: { userId: string; username: string; roles: string[]; currentTeamId: string | null } }) => Promise<Response>,
   ) => handler({ session: { userId: "u_1", username: "alice", roles: ["viewer"], currentTeamId: "team_1" } })),
