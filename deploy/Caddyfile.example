@@ -1,3 +1,4 @@
+# Managed by VControlHub installer: {{APP_SLUG}}
 {
 	auto_https disable_redirects
 }

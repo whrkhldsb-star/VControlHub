@@ -5,7 +5,18 @@ import { dirname, join } from "node:path";
 // ESLint's plugins still call minimatch 3 as a function. Keep that API working
 // with brace-expansion 5 until those upstream packages drop minimatch 3.
 const require = createRequire(import.meta.url);
-const packagePath = require.resolve("minimatch/package.json");
+let packagePath;
+try {
+  packagePath = require.resolve("minimatch/package.json");
+} catch (error) {
+  if (error && typeof error === "object" && error.code === "MODULE_NOT_FOUND") {
+    // minimatch is a development-only lint dependency. Consumers that install
+    // production dependencies only must not fail when there is nothing to patch.
+    console.log("legacy minimatch is not installed; compatibility patch skipped");
+    process.exit(0);
+  }
+  throw error;
+}
 const packageJson = JSON.parse(readFileSync(packagePath, "utf8"));
 const braceExpansion = require("brace-expansion");
 

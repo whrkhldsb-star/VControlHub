@@ -6,7 +6,7 @@
  *
  * Run: npx tsx scripts/build-route-catalog.ts
  */
-import { writeFileSync, readFileSync, statSync, readdirSync } from 'node:fs';
+import { existsSync, writeFileSync, readFileSync, statSync, readdirSync } from 'node:fs';
 import { join, relative, resolve, dirname } from 'node:path';
 import {
   mainNavItems,
@@ -193,8 +193,29 @@ function main() {
     permissions,
   };
 
-  writeFileSync(OUT, JSON.stringify(catalog, null, 2) + '\n');
-  console.log(`wrote ${OUT} (${statSync(OUT).size} bytes)`);
+  let outputCatalog = catalog;
+  let previousText = '';
+  if (existsSync(OUT)) {
+    previousText = readFileSync(OUT, 'utf8');
+    try {
+      const previous = JSON.parse(previousText) as typeof catalog;
+      const previousStable = { ...previous, generatedAt: undefined };
+      const nextStable = { ...catalog, generatedAt: undefined };
+      if (JSON.stringify(previousStable) === JSON.stringify(nextStable)) {
+        outputCatalog = { ...catalog, generatedAt: previous.generatedAt };
+      }
+    } catch {
+      // Replace malformed or obsolete generated output below.
+    }
+  }
+
+  const nextText = JSON.stringify(outputCatalog, null, 2) + '\n';
+  if (nextText !== previousText) {
+    writeFileSync(OUT, nextText);
+    console.log(`wrote ${OUT} (${statSync(OUT).size} bytes)`);
+  } else {
+    console.log(`unchanged ${OUT} (${statSync(OUT).size} bytes)`);
+  }
   console.log('summary:', catalog.summary);
 }
 

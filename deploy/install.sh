@@ -60,6 +60,7 @@ SSH_WS_PORT="${SSH_WS_PORT:-3001}"
 ENV_FILE="${ENV_FILE:-${APP_DIR}/.env.local}"
 RUNTIME_ENV_FILE="${RUNTIME_ENV_FILE:-${APP_DIR}/.env.runtime}"
 ENV_TEMPLATE="${ENV_TEMPLATE:-${APP_DIR}/deploy/env.production.example}"
+PERSISTED_ENV_FILE="${PERSISTED_ENV_FILE:-/var/lib/${APP_SLUG}/installer/.env.local}"
 SKIP_PACKAGES="${SKIP_PACKAGES:-0}"
 SKIP_DOCKER="${SKIP_DOCKER:-0}"
 SKIP_CADDY="${SKIP_CADDY:-0}"
@@ -388,13 +389,11 @@ install_packages() {
 
 	# ── Phase 1: Check what's already installed ──────────────────────
 	local missing_pkgs=()
-	local need_apt_update=0
-
 	log "Checking system dependencies..."
 
 	# Core tools that come from apt. iproute2 provides `ss` and interface
 	# inspection utilities used by the installer and traffic dashboard checks.
-	for pkg_cmd in "ca-certificates:ca-certificates" "curl:curl" "gnupg:gnupg" "git:git" "openssh-client:ssh" "sshpass:sshpass" "rsync:rsync" "ss:iproute2" "aria2c:aria2" "build-essential:make"; do
+	for pkg_cmd in "update-ca-certificates:ca-certificates" "curl:curl" "gpg:gnupg" "git:git" "ssh:openssh-client" "sshpass:sshpass" "rsync:rsync" "ss:iproute2" "aria2c:aria2" "make:build-essential"; do
 		local cmd="${pkg_cmd%%:*}"
 		local pkg="${pkg_cmd##*:}"
 		if have_cmd "${cmd}"; then
@@ -415,36 +414,36 @@ install_packages() {
 	fi
 
 	# ── Phase 2: Node.js ─────────────────────────────────────────────
-	local node_major=0 node_path="" node_needs_system_install=0
-	if have_cmd node; then
-		node_path="$(command -v node 2>/dev/null || true)"
-		node_major="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)"
+	local node_major=0 node_path="" node_candidate="" node_real=""
+	# Root automation environments often prepend a private Node shim under /root
+	# to PATH. Search system locations too, because systemd's ProtectHome=true
+	# prevents APP_USER from executing that shim even when /usr/bin/node is valid.
+	for node_candidate in "$(command -v node 2>/dev/null || true)" /usr/bin/node /usr/local/bin/node /bin/node /opt/node/bin/node; do
+		[ -n "${node_candidate}" ] && [ -x "${node_candidate}" ] || continue
+		node_real="$(readlink -f "${node_candidate}" 2>/dev/null || printf '%s' "${node_candidate}")"
 		if [ "${APP_USER}" != "root" ]; then
-			local node_real=""
-			node_real="$(readlink -f "${node_path}" 2>/dev/null || printf '%s' "${node_path}")"
-			case "${node_path}" in
-				/root/*)
-					node_needs_system_install=1
-					warn "Node.js resolved to ${node_path}, which APP_USER=${APP_USER} cannot execute; installing system-wide Node.js"
-					;;
-				*)
-					case "${node_real}" in
-						/root/*)
-							node_needs_system_install=1
-							warn "Node.js at ${node_path} realpath=${node_real} is under /root; APP_USER=${APP_USER} cannot execute it (systemd ProtectHome); installing system-wide Node.js"
-							;;
-					esac
-					;;
+			case "${node_candidate}:${node_real}" in
+				/root/*:*|*:/root/*) continue ;;
 			esac
 		fi
-	fi
-	if [ "${node_major}" -ge "${NODE_VERSION_MAJOR}" ] 2>/dev/null && [ "${node_needs_system_install}" -eq 0 ]; then
-		log "  ✓ Node.js ${node_major} already installed (≥ ${NODE_VERSION_MAJOR})"
+		node_major="$("${node_candidate}" -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)"
+		if [ "${node_major}" -ge "${NODE_VERSION_MAJOR}" ] 2>/dev/null; then
+			node_path="${node_candidate}"
+			break
+		fi
+	done
+	if [ -n "${node_path}" ]; then
+		log "  ✓ Node.js ${node_major} already installed at ${node_path} (≥ ${NODE_VERSION_MAJOR})"
 	else
 		log "  ✗ Node.js missing, too old, or not service-accessible (found v${node_major:-0}) — installing"
 		curl -fsSL "https://deb.nodesource.com/setup_${NODE_VERSION_MAJOR}.x" | bash -
 		apt-get install -y nodejs
-		log "  ✓ Node.js $(node -v) installed"
+		hash -r
+		if [ -x /usr/bin/node ]; then
+			log "  ✓ Node.js $(/usr/bin/node -v) installed at /usr/bin/node"
+		else
+			log "  ✓ Node.js $(node -v) installed"
+		fi
 	fi
 
 	# ── Phase 3: Caddy ───────────────────────────────────────────────
@@ -540,14 +539,18 @@ sync_source() {
 }
 
 write_env_if_missing() {
- if [ ! -f "${ENV_FILE}" ]; then
- [ -f "${ENV_TEMPLATE}" ] || ENV_TEMPLATE="${APP_DIR}/.env.example"
- [ -f "${ENV_TEMPLATE}" ] || fail "No environment template found at ${ENV_TEMPLATE} or ${APP_DIR}/.env.example"
- log "Creating ${ENV_FILE} from ${ENV_TEMPLATE}"
- cp "${ENV_TEMPLATE}" "${ENV_FILE}"
- chmod 600 "${ENV_FILE}"
- warn "Created ${ENV_FILE} from template — placeholder secrets will be auto-generated next."
- fi
+  if [ ! -f "${ENV_FILE}" ] && [ -z "${DESTDIR}" ] && [ -f "${PERSISTED_ENV_FILE}" ]; then
+    log "Restoring preserved configuration from ${PERSISTED_ENV_FILE}"
+    install -m 0600 "${PERSISTED_ENV_FILE}" "${ENV_FILE}"
+  fi
+  if [ ! -f "${ENV_FILE}" ]; then
+    [ -f "${ENV_TEMPLATE}" ] || ENV_TEMPLATE="${APP_DIR}/.env.example"
+    [ -f "${ENV_TEMPLATE}" ] || fail "No environment template found at ${ENV_TEMPLATE} or ${APP_DIR}/.env.example"
+    log "Creating ${ENV_FILE} from ${ENV_TEMPLATE}"
+    cp "${ENV_TEMPLATE}" "${ENV_FILE}"
+    chmod 600 "${ENV_FILE}"
+    warn "Created ${ENV_FILE} from template — placeholder secrets will be auto-generated next."
+  fi
 }
 
 sync_installer_env_overrides() {
@@ -837,6 +840,9 @@ setup_postgres() {
 	[ "${SKIP_DB_SETUP}" = "1" ] && { warn "Skipping PostgreSQL setup (SKIP_DB_SETUP=1)"; return; }
 	have_cmd psql || { warn "psql not found; skipping PostgreSQL auto-setup"; return; }
 
+	[[ "${PG_DB_NAME}" =~ ^[a-z_][a-z0-9_]*$ ]] || fail "PG_DB_NAME must be a safe unquoted PostgreSQL identifier: ${PG_DB_NAME}"
+	[[ "${PG_DB_USER}" =~ ^[a-z_][a-z0-9_]*$ ]] || fail "PG_DB_USER must be a safe unquoted PostgreSQL identifier: ${PG_DB_USER}"
+
 	# Ensure PostgreSQL is running
 	if ! systemctl is-active --quiet postgresql 2>/dev/null; then
 		log "Starting PostgreSQL service"
@@ -867,10 +873,10 @@ setup_postgres() {
 		sudo -u postgres psql -c "ALTER USER ${PG_DB_USER} WITH ENCRYPTED PASSWORD '${pg_password_sql}';" 2>/dev/null || true
 	fi
 
-	pg_db_exists="$(sudo -u postgres psql -lqtAc "SELECT 1 FROM pg_database WHERE datname='${PG_DB_NAME}'" 2>/dev/null || true)"
+	pg_db_exists="$(sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='${PG_DB_NAME}'" 2>/dev/null || true)"
 	if [ "${pg_db_exists}" != "1" ]; then
 		log "Creating PostgreSQL database ${PG_DB_NAME}"
-		sudo -u postgres psql -c "CREATE DATABASE ${PG_DB_NAME} OWNER ${PG_DB_USER};" 2>/dev/null || warn "Failed to create PostgreSQL database (may already exist)"
+		sudo -u postgres createdb --owner="${PG_DB_USER}" "${PG_DB_NAME}"
 	fi
 
 	# Always sync DATABASE_URL with PG_DB_PASSWORD to prevent mismatch
@@ -950,11 +956,11 @@ build_app() {
 	# production deploy keeps small VPS disks from filling up while preserving all
 	# runtime files (.next/server, .next/static, dist, node_modules).
 	rm -rf .next/cache
-	# Runtime does not need TypeScript, test libraries, ESLint, or the Prisma CLI.
-	# Prune them after migrations/builds to reduce production disk usage and module
-	# scan overhead. Future upgrades still run npm ci first, so build tools return
-	# before the next deploy.
-	npm prune --omit=dev
+	# Keep the exact dependency tree used to generate Prisma Client and build
+	# Next.js. A second production-only install removes Prisma's generated client;
+	# pruning can also leave the runtime on versions different from the build.
+	# Deployment packaging may trim this tree only after producing a standalone
+	# artifact that contains all generated and runtime dependencies.
  # Verify compiled runtime entrypoints are available before systemd restart.
  if [ ! -f dist/server.js ] || [ ! -f dist/worker.js ] || [ ! -f dist/ssh-ws-proxy.js ]; then
    fail "Runtime bundle missing after build. Expected dist/server.js, dist/worker.js and dist/ssh-ws-proxy.js."
@@ -1080,6 +1086,20 @@ sed \
 		chmod 0644 "${dst}"
 		systemd-analyze verify "${dst}" >/dev/null 2>&1 || warn "systemd-analyze verify reported warnings for ${dst}"
 	done
+	# Older deployments used a drop-in to disable the in-process worker. The
+	# setting now lives in the canonical next unit, so remove only that exact
+	# legacy file and leave operator-owned drop-ins untouched.
+	if [ -z "${DESTDIR}" ]; then
+		local legacy_worker_dropin="/etc/systemd/system/${SERVICE_PREFIX}-next.service.d/10-workers.conf"
+		if [ -f "${legacy_worker_dropin}" ] \
+			&& grep -Fxq '[Service]' "${legacy_worker_dropin}" \
+			&& grep -Fxq 'Environment=VCONTROLHUB_WORKERS_DISABLED=true' "${legacy_worker_dropin}" \
+			&& [ "$(grep -Evc '^[[:space:]]*(#|$|\[Service\]|Environment=VCONTROLHUB_WORKERS_DISABLED=true)[[:space:]]*$' "${legacy_worker_dropin}")" -eq 0 ]; then
+			unlink "${legacy_worker_dropin}"
+			rmdir "$(dirname "${legacy_worker_dropin}")" 2>/dev/null || true
+			log "Removed obsolete worker drop-in ${legacy_worker_dropin}"
+		fi
+	fi
 	if [ -n "${DESTDIR}" ]; then
 		log "Rendered systemd units under ${DESTDIR}; skipping host systemctl daemon-reload/enable"
 	else
@@ -1102,7 +1122,8 @@ install_caddy() {
  escaped_next="$(shell_escape_sed_replacement "${NEXT_HOST}:${NEXT_PORT}")"
  escaped_ssh_ws="$(shell_escape_sed_replacement "${SSH_WS_HOST}:${SSH_WS_PORT}")"
 sed -i \
-  -e "s|your-domain.example|${escaped_domain}|g" \
+	-e "s|your-domain.example|${escaped_domain}|g" \
+	-e "s|{{APP_SLUG}}|${APP_SLUG}|g" \
   -e "s|127.0.0.1:3000|${escaped_next}|g" \
   -e "s|127.0.0.1:3001|${escaped_ssh_ws}|g" \
   "${DESTDIR}/etc/caddy/Caddyfile"
@@ -1163,6 +1184,7 @@ install_apache() {
  escaped_ssh_ws_host_port="$(shell_escape_sed_replacement "${SSH_WS_HOST}:${SSH_WS_PORT}")"
 
 sed \
+	-e "s|{{APP_SLUG}}|${APP_SLUG}|g" \
   -e "s|{{SERVER_NAME}}|${escaped_server_name}|g" \
   -e "s|{{NEXT_HOST}}:{{NEXT_PORT}}|${escaped_next_host_port}|g" \
   -e "s|{{SSH_WS_HOST}}:{{SSH_WS_PORT}}|${escaped_ssh_ws_host_port}|g" \
@@ -1213,6 +1235,7 @@ restart_services() {
  if [ "${retries}" -eq 0 ]; then
  warn "Next.js did not respond on port ${NEXT_PORT} within 30s; check logs:"
  journalctl --no-pager --lines=30 -u "${SERVICE_PREFIX}-next.service" || true
+ fail "Installation failed: Next.js service started but /login never became ready."
  fi
  systemctl --no-pager --lines=20 status "${SERVICE_PREFIX}-next.service" "${SERVICE_PREFIX}-worker.service" "${SERVICE_PREFIX}-ssh-ws.service" || true
 }

@@ -167,6 +167,13 @@ curl -fsSL https://raw.githubusercontent.com/whrkhldsb-star/VControlHub/main/dep
 sudo /opt/VControlHub/deploy/install.sh --show-credentials
 ```
 
+完整卸载前先预览精确作用域；默认会安全保存密钥配置以供重装恢复，只有 `--purge-data` 会删除 PostgreSQL 库/角色、密钥配置和运行数据。共享的 Node.js、PostgreSQL、Caddy、Apache、Docker 以及 Quick Service 容器/数据不会被删除：
+
+```bash
+sudo /opt/VControlHub/deploy/uninstall.sh --purge-data --dry-run
+sudo /opt/VControlHub/deploy/uninstall.sh --purge-data --yes
+```
+
 ### 传统手动安装（保留）
 
 ```bash
@@ -315,6 +322,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `deploy/bootstrap.sh`  | fresh server 一行安装入口，负责拉取仓库并调用安装脚本                                                                                            |
 | `deploy/install.sh`    | 一键安装/重装/升级核心脚本，生成环境变量、构建、写 systemd 和反代                                                                                |
+| `deploy/uninstall.sh`  | 安全卸载应用 unit/源码/反代；默认保留数据与恢复配置，显式 `--purge-data` 时彻底清除，共享系统依赖和 Quick Service 数据始终保留                       |
 | `deploy/setup.sh`      | 环境初始化（Node.js/PostgreSQL/Caddy 安装）                                                                                                       |
 | `deploy/upgrade.sh`    | 升级入口，默认升级前备份并在完成后自检                                                                                                           |
 | `deploy/check.sh`      | 不泄密的部署健康检查，可选 `RUN_NPM_CHECKS=1` 执行完整 npm 门禁                                                                                  |

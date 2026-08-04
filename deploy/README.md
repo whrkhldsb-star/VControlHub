@@ -47,6 +47,17 @@ curl -fsSL https://raw.githubusercontent.com/whrkhldsb-star/VControlHub/main/dep
 sudo /opt/VControlHub/deploy/install.sh --show-credentials
 ```
 
+### 完整卸载
+
+卸载器默认移除应用 unit、安装目录和安装器管理的反向代理配置，但保留数据库、运行数据及恢复所需的密钥配置；后续一键安装会自动恢复该配置。先用 `--dry-run` 核对精确作用域；确认需要不可恢复地清除应用数据库、角色、密钥配置和运行数据时，再显式加入 `--purge-data --yes`：
+
+```bash
+sudo /opt/VControlHub/deploy/uninstall.sh --purge-data --dry-run
+sudo /opt/VControlHub/deploy/uninstall.sh --purge-data --yes
+```
+
+Node.js、PostgreSQL、Caddy、Apache 和 Docker 是共享系统依赖，不会卸载；Quick Service 容器及其宿主数据目录也始终保留，避免删除独立业务数据。
+
 > 该入口不会要求先手动 clone，也不会把 token/密码写入文档或 Git remote。私有仓库请优先使用机器上已有 SSH deploy key 或临时 HTTPS 凭据。
 
 ### 方式 B：已有 Git 仓库目录部署
@@ -162,6 +173,7 @@ sudo DOMAIN=your.example.com APP_DIR=/opt/VControlHub deploy/install.sh
 | --- | --- | --- |
 | `Makefile` | 本地/生产统一维护入口 | `make verify && sudo make restart && make smoke DOMAIN=your.example.com SERVICE_PREFIX=vcontrolhub` |
 | `deploy/fakeroot-install-check.sh` | installer fakeroot/dry-run 回归；通过 Vitest 的 DESTDIR 隔离 fixture 覆盖域名/Caddy、无域名/Apache、`SKIP_PACKAGES=1`、`DESTDIR` 和凭据同步等 fresh-install 分支，不会改动宿主 systemd/反代服务 | `make installer-fakeroot` |
+| `deploy/uninstall.sh` | 安全卸载应用；默认保留数据库/运行数据，`--purge-data` 后才清除，共享依赖和 Quick Service 数据不删除 | `sudo deploy/uninstall.sh --purge-data --dry-run` |
 | `deploy/preflight.sh` | 部署前置检查；验证基础命令、环境变量占位符、Node 版本、端口占用、磁盘空间和运行目录，且不输出密钥值 | `APP_DIR=/opt/my-console ENV_FILE=/opt/my-console/.env.local deploy/preflight.sh` |
 | `deploy/upgrade.sh` | 升级部署；默认先创建升级前数据库备份，再复用 `install.sh` 的构建/迁移/重启流程，最后执行 `deploy/check.sh` | `sudo APP_NAME=my-console APP_SLUG=my-console APP_DIR=/opt/my-console DOMAIN=your.example.com deploy/upgrade.sh` |
 | `deploy/check.sh` | 检查环境变量、运行目录、systemd 服务和本地 `/login`，可选运行完整 npm 验证 | `APP_DIR=/opt/VControlHub CHECK_PUBLIC_URL=https://your.example.com deploy/check.sh` |

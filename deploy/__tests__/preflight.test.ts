@@ -463,6 +463,55 @@ describe("deploy/preflight.sh", () => {
 });
 
 describe("deploy/install.sh", () => {
+  it("maps executable probes correctly and preserves the built dependency tree", async () => {
+    const repoRoot = path.resolve(__dirname, "../..");
+    const script = await readFile(path.join(repoRoot, "deploy/install.sh"), "utf8");
+
+    expect(script).toContain('"update-ca-certificates:ca-certificates"');
+    expect(script).toContain('"gpg:gnupg"');
+    expect(script).toContain('"ssh:openssh-client"');
+    expect(script).toContain('"make:build-essential"');
+    expect(script).not.toContain('"openssh-client:ssh"');
+    expect(script).not.toContain('"build-essential:make"');
+    expect(script.match(/^\s*npm ci\s*$/gm)).toHaveLength(1);
+    expect(script).not.toContain("npm ci --omit=dev");
+    expect(script).not.toContain("npm prune --omit=dev");
+    expect(script).toContain("Keep the exact dependency tree used to generate Prisma Client");
+    expect(script).toContain("Restoring preserved configuration");
+    expect(script).toContain('/usr/bin/node /usr/local/bin/node /bin/node /opt/node/bin/node');
+    expect(script).toContain('Node.js ${node_major} already installed at ${node_path}');
+  });
+
+  it("removes only the exact obsolete in-process worker drop-in", async () => {
+    const repoRoot = path.resolve(__dirname, "../..");
+    const script = await readFile(path.join(repoRoot, "deploy/install.sh"), "utf8");
+
+    expect(script).toContain("10-workers.conf");
+    expect(script).toContain("Environment=VCONTROLHUB_WORKERS_DISABLED=true");
+    expect(script).toContain("leave operator-owned drop-ins untouched");
+    expect(script).toContain("Installation failed: Next.js service started but /login never became ready.");
+  });
+
+  it("checks PostgreSQL idempotently and rejects unsafe explicit identifiers", async () => {
+    const repoRoot = path.resolve(__dirname, "../..");
+    const script = await readFile(path.join(repoRoot, "deploy/install.sh"), "utf8");
+
+    expect(script).toContain('PG_DB_NAME must be a safe unquoted PostgreSQL identifier');
+    expect(script).toContain('PG_DB_USER must be a safe unquoted PostgreSQL identifier');
+    expect(script).toContain('psql -tAc "SELECT 1 FROM pg_database');
+    expect(script).not.toContain("psql -lqtAc");
+    expect(script).toContain('createdb --owner="${PG_DB_USER}" "${PG_DB_NAME}"');
+  });
+
+  it("allows the root postinstall hook to run in a production-only dependency tree", async () => {
+    const repoRoot = path.resolve(__dirname, "../..");
+    const patchScript = await readFile(path.join(repoRoot, "scripts/patch-minimatch-legacy.mjs"), "utf8");
+
+    expect(patchScript).toContain('error.code === "MODULE_NOT_FOUND"');
+    expect(patchScript).toContain("production dependencies only");
+    expect(patchScript).toContain("compatibility patch skipped");
+  });
+
   it("installs and enables Docker Engine during normal first install unless explicitly skipped", async () => {
     const repoRoot = path.resolve(__dirname, "../..");
     const script = await readFile(path.join(repoRoot, "deploy/install.sh"), "utf8");
@@ -1304,6 +1353,25 @@ describe("deploy/install.sh", () => {
     expect(script).toContain("APP_USER_EXPLICIT");
     expect(script).toContain("/root|/root/*");
     expect(script).toContain('APP_USER="root"');
+  });
+});
+
+describe("deploy/uninstall.sh", () => {
+  it("requires explicit data purge and protects shared host resources", async () => {
+    const repoRoot = path.resolve(__dirname, "../..");
+    const script = await readFile(path.join(repoRoot, "deploy/uninstall.sh"), "utf8");
+
+    expect(script).toContain("--purge-data");
+    expect(script).toContain("--dry-run");
+    expect(script).toContain("--yes");
+    expect(script).toContain("Quick Service containers and their host data directories are intentionally preserved");
+    expect(script).toContain('install -m 0600 "${ENV_FILE}" "${PERSISTED_ENV_FILE}"');
+    expect(script).toContain("# Managed by VControlHub installer:");
+    expect(script).toContain("Refusing unsafe APP_DIR");
+    expect(script).toContain("Refusing unsafe data path");
+    expect(script).not.toContain('units+=("vcontrolhub-direct.service")');
+    expect(script).not.toContain("apt-get remove");
+    expect(script).not.toContain("rm -rf");
   });
 });
 

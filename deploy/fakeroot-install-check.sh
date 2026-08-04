@@ -9,7 +9,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT_DIR}"
 
 echo "[installer-fakeroot] syntax checking deployment entrypoints"
-bash -n install.sh deploy/bootstrap.sh deploy/install.sh deploy/package.sh deploy/preflight.sh deploy/smoke-test.sh
+bash -n install.sh deploy/bootstrap.sh deploy/install.sh deploy/uninstall.sh deploy/package.sh deploy/preflight.sh deploy/smoke-test.sh
 
 echo "[installer-fakeroot] running DESTDIR/fakeroot installer regression suite"
 npx vitest run deploy/__tests__/preflight.test.ts \
