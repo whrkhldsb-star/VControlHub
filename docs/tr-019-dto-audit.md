@@ -1,6 +1,6 @@
 # TR-019 DTO 边界覆盖审计
 
-Generated: 2026-08-04T01:39:18.660Z
+Generated: 2026-08-04T04:43:21.576Z
 
 本报告扫描 5 个 TR-019 closure 域的 API route 看其 DTO/schema 边界覆盖率。
 

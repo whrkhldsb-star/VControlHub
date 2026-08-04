@@ -101,6 +101,18 @@ describe("QuickServicesClient", () => {
 		vi.mocked(csrfFetch).mockReset();
 	});
 
+	it("opens on local picks so the built-in catalog is immediately useful", async () => {
+		vi.mocked(csrfFetch)
+			.mockResolvedValueOnce(availableCatalogResponse)
+			.mockResolvedValueOnce(sourcesResponse);
+
+		render(<QuickServicesClient canManage />);
+
+		expect(await screen.findByRole("tab", { name: /本地精选/ })).toHaveAttribute("aria-selected", "true");
+		expect(screen.getAllByRole("button", { name: "一键安装" }).length).toBeGreaterThan(0);
+		expect(screen.queryByText(/请先在「应用源」中同步数据/)).not.toBeInTheDocument();
+	});
+
 	it("opens an in-app confirmation dialog before uninstalling a service", async () => {
 		const user = userEvent.setup();
 		const confirmSpy = vi.spyOn(window, "confirm");

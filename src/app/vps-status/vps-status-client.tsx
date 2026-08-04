@@ -111,13 +111,27 @@ export function VpsStatusClient({ serverCount }: Props) {
 			/>
 
 			{loading ? (
-				<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-					{Array.from({ length: Math.min(Math.max(serverCount, 1), 8) }).map((_, i) => (
-						<div
-							key={i}
-							className="h-64 animate-pulse rounded-2xl border border-[var(--border)] bg-[var(--surface)]"
-						/>
-					))}
+				<div className="space-y-4">
+					<div
+						role="status"
+						aria-live="polite"
+						className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] px-4 py-3"
+					>
+						<div className="text-sm font-medium text-[var(--text-primary)]">
+							{t("vpsStatusPage.loading.title")}
+						</div>
+						<div className="mt-1 text-xs text-[var(--text-muted)]">
+							{t("vpsStatusPage.loading.description")}
+						</div>
+					</div>
+					<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4" aria-hidden="true">
+						{Array.from({ length: Math.min(Math.max(serverCount, 1), 8) }).map((_, i) => (
+							<div
+								key={i}
+								className="h-64 animate-pulse rounded-2xl border border-[var(--border)] bg-[var(--surface)]"
+							/>
+						))}
+					</div>
 				</div>
 			) : filteredServers.length === 0 ? (
 				<div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface)] p-10 text-center text-sm text-[var(--text-muted)]">

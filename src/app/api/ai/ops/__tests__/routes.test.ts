@@ -22,6 +22,7 @@ const { mocks } = vi.hoisted(() => ({
 	mocks: {
 		requireApiPermission: vi.fn(),
 		listAiOpsLogs: vi.fn(),
+		countAiOpsLogs: vi.fn(),
 		getAiOpsLog: vi.fn(),
 		summariseAiOps: vi.fn(),
 		executeRecommendation: vi.fn(),
@@ -47,6 +48,7 @@ vi.mock("@/lib/ai/ops/service", async (importOriginal) => {
 	return {
 		...actual,
 		listAiOpsLogs: mocks.listAiOpsLogs,
+		countAiOpsLogs: mocks.countAiOpsLogs,
 		getAiOpsLog: mocks.getAiOpsLog,
 		summariseAiOps: mocks.summariseAiOps,
 		executeRecommendation: mocks.executeRecommendation,
@@ -116,6 +118,7 @@ describe("/api/ai/ops/* routes", () => {
 		vi.clearAllMocks();
 		mocks.requireApiPermission.mockResolvedValue({ session: adminSession });
 		mocks.listAiOpsLogs.mockResolvedValue([SAMPLE_LOG]);
+		mocks.countAiOpsLogs.mockResolvedValue(21);
 		mocks.getAiOpsLog.mockResolvedValue(SAMPLE_LOG);
 		mocks.summariseAiOps.mockResolvedValue(SAMPLE_SUMMARY);
 		mocks.executeRecommendation.mockResolvedValue({ ok: true, executed: false, errorMessage: "需要管理员审批" });
@@ -134,7 +137,7 @@ describe("/api/ai/ops/* routes", () => {
 	describe("GET /api/ai/ops/logs", () => {
 		it("requires ai:ops:read and forwards the filters to the service", async () => {
 			const res = await logsRoute.GET(
-				new Request("http://local/api/ai/ops/logs?mode=autonomous&status=warning&triggerType=manual&limit=10"),
+				new Request("http://local/api/ai/ops/logs?mode=autonomous&status=warning&triggerType=manual&limit=10&offset=20"),
 			);
 			expect(res.status).toBe(200);
 			expect(mocks.requireApiPermission).toHaveBeenCalledWith("ai:ops:read");
@@ -143,9 +146,17 @@ describe("/api/ai/ops/* routes", () => {
 				status: "warning",
 				triggerType: "manual",
 				limit: 10,
+				offset: 20,
+			});
+			expect(mocks.countAiOpsLogs).toHaveBeenCalledWith({
+				mode: "autonomous",
+				status: "warning",
+				triggerType: "manual",
 			});
 			const body = await res.json();
 			expect(body.logs).toEqual([SAMPLE_LOG]);
+			expect(body.hasMore).toBe(false);
+			expect(body.total).toBe(21);
 		});
 
 		it("returns 400 when mode is invalid", async () => {

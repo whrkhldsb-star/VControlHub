@@ -54,7 +54,6 @@ const searchItemMetadata: Record<string, SearchMetadata> = {
 	"/api-tokens": { icon: "🔑", keywordsKey: "search.keywords.apiTokens" },
 	"/status": { icon: "📡", keywordsKey: "search.keywords.status" },
 	"/audit": { icon: "📋", keywordsKey: "search.keywords.audit" },
-	"/qa-reports": { icon: "🧪", keywordsKey: "search.keywords.qaReports" },
 };
 
 type SearchItemDefinition = Omit<SearchItem, "label" | "category" | "keywords"> & {

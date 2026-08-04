@@ -59,7 +59,7 @@ test("notifications can be read without console or request failures", async ({ p
 
 test("read-only operational pages expose working refresh, filter and tab controls", async ({ page }) => {
 	await login(page);
-	for (const path of ["/docker", "/monitoring", "/traffic", "/quick-services", "/audit", "/qa-reports", "/api-docs"]) {
+	for (const path of ["/docker", "/monitoring", "/traffic", "/quick-services", "/audit", "/api-docs"]) {
 		await page.goto(path);
 		await expect(page.locator("h1").first()).toBeVisible();
 		await expect(page.locator("body")).not.toContainText(/Application error|Internal Server Error/i);
@@ -123,21 +123,6 @@ test("Docker refresh and logs remain usable", async ({ page }) => {
 		await dialog.getByRole("button", { name: /关闭|Close/i }).click();
 		await expect(dialog).toBeHidden();
 	}
-});
-
-test("QA report list renders history or a valid empty state", async ({ page }) => {
-	await login(page);
-	await page.goto("/qa-reports");
-	const detail = page.getByRole("link", { name: /查看详情|View detail/i }).first();
-	if (await detail.isVisible().catch(() => false)) {
-		await detail.click();
-		await expect(page).toHaveURL(/\/qa-reports\/[^/]+$/);
-		await expect(page.locator("h1").first()).toBeVisible({ timeout: 15_000 });
-		await page.getByRole("link", { name: /返回|Back/i }).first().click();
-		return;
-	}
-
-	await expect(page.getByText(/No QA reports found under \.hermes|当前 \.hermes\/ 下没有任何可展示的 QA 报告记录/i)).toBeVisible();
 });
 
 test("audit filters and AI/AI Ops unavailable-provider experience stay usable", async ({ page }) => {

@@ -38,6 +38,8 @@ import {
 type Props = {
 	initialSummary: AiOpsSummary;
 	initialLogs: AiOpsLogRecord[];
+	initialTotal: number;
+	initialHasMore: boolean;
 	initialSettings: AiOpsSettings;
 	providerOptions?: Array<{ id: string; name: string; defaultModel: string }>;
 	canManage: boolean;
@@ -47,6 +49,8 @@ type Props = {
 export function AiOpsPageClient({
 	initialSummary,
 	initialLogs,
+	initialTotal,
+	initialHasMore,
 	initialSettings,
 	providerOptions = [],
 	canManage,
@@ -56,6 +60,10 @@ export function AiOpsPageClient({
 	const { addToast } = useToast();
 
 	const [logs, setLogs] = useState<AiOpsLogRecord[]>(initialLogs);
+	const [logsPage, setLogsPage] = useState(0);
+	const [totalLogs, setTotalLogs] = useState(initialTotal);
+	const [hasMoreLogs, setHasMoreLogs] = useState(initialHasMore);
+	const [loadingLogs, setLoadingLogs] = useState(false);
 	const [summary, setSummary] = useState<AiOpsSummary>(initialSummary);
 	const [settings, setSettings] = useState<AiOpsSettings>(initialSettings);
 	const [modeFilter, setModeFilter] = useState<"all" | AiOpsMode>("all");
@@ -72,13 +80,15 @@ export function AiOpsPageClient({
 		initialLogs[0]?.id ?? null,
 	);
 	const [executing, setExecuting] = useState<string | null>(null);
-	const reload = useCallback(async () => {
+	const loadLogsPage = useCallback(async (targetPage: number) => {
+		setLoadingLogs(true);
 		try {
 			const params = new URLSearchParams();
 			if (modeFilter !== "all") params.set("mode", modeFilter);
 			if (statusFilter !== "all") params.set("status", statusFilter);
 			if (triggerFilter !== "all") params.set("triggerType", triggerFilter);
-			params.set("limit", "50");
+			params.set("limit", "20");
+			params.set("offset", String(targetPage * 20));
 			const [logsRes, summaryRes] = await Promise.all([
 				csrfFetch<Response>(`/api/ai/ops/logs?${params.toString()}`, {
 					raw: true,
@@ -86,9 +96,16 @@ export function AiOpsPageClient({
 				csrfFetch<Response>("/api/ai/ops/summary", { raw: true }),
 			]);
 			if (!logsRes.ok || !summaryRes.ok) throw new Error("reload failed");
-			const logsBody = (await logsRes.json()) as { logs: AiOpsLogRecord[] };
+			const logsBody = (await logsRes.json()) as {
+				logs: AiOpsLogRecord[];
+				total: number;
+				hasMore: boolean;
+			};
 			const summaryBody = (await summaryRes.json()) as { summary: AiOpsSummary };
 			setLogs(logsBody.logs);
+			setLogsPage(targetPage);
+			setTotalLogs(logsBody.total);
+			setHasMoreLogs(logsBody.hasMore);
 			setSummary(summaryBody.summary);
 			setSelectedLogId((prev) =>
 				prev && logsBody.logs.some((l) => l.id === prev)
@@ -100,8 +117,15 @@ export function AiOpsPageClient({
 				"error",
 				`${t("aiOpsPage.actions.loadFailed")}: ${String(error)}`,
 			);
+		} finally {
+			setLoadingLogs(false);
 		}
 	}, [modeFilter, statusFilter, triggerFilter, addToast, t]);
+
+	const reload = useCallback(
+		async () => loadLogsPage(logsPage),
+		[loadLogsPage, logsPage],
+	);
 
 	// Refetch when filters change. Skip the initial mount so the
 	// server-provided initial data stays as-is (avoids a redundant round
@@ -112,8 +136,8 @@ export function AiOpsPageClient({
 			isFirstRender.current = false;
 			return;
 		}
-		void reload();
-	}, [reload]);
+		void loadLogsPage(0);
+	}, [loadLogsPage]);
 
 	const triggerScan = useCallback(async () => {
 		if (!canManage) return;
@@ -287,7 +311,18 @@ export function AiOpsPageClient({
 				onSaveSettings={() => void saveSettings()}
 				t={t}
 			/>
-			<AiOpsLogsSection logs={logs} selectedLogId={selectedLogId} setSelectedLogId={setSelectedLogId} t={t} />
+			<AiOpsLogsSection
+				logs={logs}
+				page={logsPage}
+				total={totalLogs}
+				hasMore={hasMoreLogs}
+				loading={loadingLogs}
+				selectedLogId={selectedLogId}
+				setSelectedLogId={setSelectedLogId}
+				onPrevious={() => void loadLogsPage(logsPage - 1)}
+				onNext={() => void loadLogsPage(logsPage + 1)}
+				t={t}
+			/>
 			{selectedLog && (
 				<AiOpsDetailSection
 					selectedLog={selectedLog}

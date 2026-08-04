@@ -14,7 +14,7 @@
  * is expected to handle that (UI shows it as "needs manual approval").
  *
  * Functions exposed:
- *   - listAiOpsLogs   (filter by mode / status / triggerType + limit)
+ *   - listAiOpsLogs   (filter by mode / status / triggerType + pagination)
  *   - getAiOpsLog
  *   - createAiOpsLog  (creates a "running" row at the start of a scan)
  *   - completeScan    (writes findings + actions + status at scan end)
@@ -123,6 +123,20 @@ export interface ListAiOpsLogsInput {
 	status?: AiOpsStatus;
 	triggerType?: AiOpsTriggerType;
 	limit?: number;
+	offset?: number;
+}
+
+type AiOpsLogFilters = Pick<
+	ListAiOpsLogsInput,
+	"mode" | "status" | "triggerType"
+>;
+
+function toAiOpsLogWhere(input: AiOpsLogFilters) {
+	return {
+		mode: input.mode,
+		status: input.status,
+		triggerType: input.triggerType,
+	};
 }
 
 export async function listAiOpsLogs(
@@ -133,15 +147,18 @@ export async function listAiOpsLogs(
 		MAX_LIST_LIMIT,
 	);
 	const rows = await prisma.aiOpsLog.findMany({
-		where: {
-			mode: input.mode,
-			status: input.status,
-			triggerType: input.triggerType,
-		},
+		where: toAiOpsLogWhere(input),
 		orderBy: { createdAt: "desc" },
 		take: limit,
+		skip: Math.max(input.offset ?? 0, 0),
 	});
 	return rows.map(toRecord);
+}
+
+export async function countAiOpsLogs(
+	input: AiOpsLogFilters = {},
+): Promise<number> {
+	return prisma.aiOpsLog.count({ where: toAiOpsLogWhere(input) });
 }
 
 export async function getAiOpsLog(id: string): Promise<AiOpsLogRecord | null> {

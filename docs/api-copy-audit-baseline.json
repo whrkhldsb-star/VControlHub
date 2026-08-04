@@ -1,27 +1,9 @@
 {
-  "count": 438,
+  "count": 414,
   "findings": [
     {
-      "file": "src/app/api/admin/qa-reports/[id]/route.ts",
-      "line": 27,
-      "pattern": "guard-error-message",
-      "text": "Failed to fetch QA report detail"
-    },
-    {
-      "file": "src/app/api/admin/qa-reports/[id]/route.ts",
-      "line": 31,
-      "pattern": "typed-error",
-      "text": "QA report not found: ${id}"
-    },
-    {
-      "file": "src/app/api/admin/qa-reports/route.ts",
-      "line": 25,
-      "pattern": "guard-error-message",
-      "text": "Failed to fetch QA report list"
-    },
-    {
       "file": "src/app/api/admin/workers/route.ts",
-      "line": 26,
+      "line": 24,
       "pattern": "guard-error-message",
       "text": "Fetch worker StatusFailed"
     },
@@ -99,13 +81,13 @@
     },
     {
       "file": "src/app/api/ai/ops/logs/[id]/approve/route.ts",
-      "line": 37,
+      "line": 33,
       "pattern": "guard-error-message",
       "text": "Failed to approve recommendation"
     },
     {
       "file": "src/app/api/ai/ops/logs/[id]/approve/route.ts",
-      "line": 41,
+      "line": 37,
       "pattern": "typed-error",
       "text": "Not authenticated or session expired"
     },
@@ -141,7 +123,7 @@
     },
     {
       "file": "src/app/api/ai/ops/logs/route.ts",
-      "line": 39,
+      "line": 27,
       "pattern": "guard-error-message",
       "text": "Failed to load AI ops records"
     },
@@ -153,13 +135,13 @@
     },
     {
       "file": "src/app/api/ai/ops/settings/route.ts",
-      "line": 38,
+      "line": 40,
       "pattern": "guard-error-message",
       "text": "Failed to load AI ops settings"
     },
     {
       "file": "src/app/api/ai/ops/settings/route.ts",
-      "line": 60,
+      "line": 62,
       "pattern": "guard-error-message",
       "text": "Failed to save AI ops settings"
     },
@@ -279,31 +261,31 @@
     },
     {
       "file": "src/app/api/api-tokens/route.ts",
-      "line": 83,
+      "line": 85,
       "pattern": "typed-error",
       "text": "Unauthorized"
     },
     {
       "file": "src/app/api/api-tokens/route.ts",
-      "line": 99,
+      "line": 101,
       "pattern": "guard-error-message",
       "text": "Failed to create token"
     },
     {
       "file": "src/app/api/api-tokens/route.ts",
-      "line": 107,
+      "line": 109,
       "pattern": "typed-error",
       "text": "Unauthorized"
     },
     {
       "file": "src/app/api/api-tokens/route.ts",
-      "line": 150,
+      "line": 158,
       "pattern": "guard-error-message",
       "text": "Operation failed"
     },
     {
       "file": "src/app/api/api-tokens/route.ts",
-      "line": 154,
+      "line": 162,
       "pattern": "typed-error",
       "text": "Unauthorized"
     },
@@ -393,13 +375,13 @@
     },
     {
       "file": "src/app/api/backups/migration/route.ts",
-      "line": 51,
+      "line": 31,
       "pattern": "guard-error-message",
       "text": "Migration wizard action failed"
     },
     {
       "file": "src/app/api/backups/migration/route.ts",
-      "line": 128,
+      "line": 108,
       "pattern": "guard-error-message",
       "text": "Failed to list migration packages"
     },
@@ -411,7 +393,7 @@
     },
     {
       "file": "src/app/api/backups/offsite/route.ts",
-      "line": 62,
+      "line": 46,
       "pattern": "guard-error-message",
       "text": "Failed to save offsite backup configuration"
     },
@@ -627,13 +609,13 @@
     },
     {
       "file": "src/app/api/deployments/route.ts",
-      "line": 29,
+      "line": 30,
       "pattern": "guard-error-message",
       "text": "Failed to fetch deployment list"
     },
     {
       "file": "src/app/api/deployments/route.ts",
-      "line": 86,
+      "line": 87,
       "pattern": "guard-error-message",
       "text": "Operation failed"
     },
@@ -723,25 +705,25 @@
     },
     {
       "file": "src/app/api/files/[id]/versions/route.ts",
-      "line": 31,
+      "line": 27,
       "pattern": "guard-error-message",
       "text": "Failed to list file versions"
     },
     {
       "file": "src/app/api/files/[id]/versions/route.ts",
-      "line": 34,
+      "line": 30,
       "pattern": "typed-error",
       "text": "Unauthorized"
     },
     {
       "file": "src/app/api/files/[id]/versions/route.ts",
-      "line": 56,
+      "line": 52,
       "pattern": "guard-error-message",
       "text": "Failed to create file version"
     },
     {
       "file": "src/app/api/files/[id]/versions/route.ts",
-      "line": 59,
+      "line": 55,
       "pattern": "typed-error",
       "text": "Unauthorized"
     },
@@ -759,13 +741,13 @@
     },
     {
       "file": "src/app/api/files/archive-list/route.ts",
-      "line": 50,
+      "line": 42,
       "pattern": "typed-error",
       "text": "Missing file path"
     },
     {
       "file": "src/app/api/files/archive-list/route.ts",
-      "line": 58,
+      "line": 50,
       "pattern": "typed-error",
       "text": "Storage node not found"
     },
@@ -855,19 +837,19 @@
     },
     {
       "file": "src/app/api/files/extract/route.ts",
-      "line": 69,
+      "line": 61,
       "pattern": "typed-error",
       "text": "Missing required parameters"
     },
     {
       "file": "src/app/api/files/extract/route.ts",
-      "line": 77,
+      "line": 69,
       "pattern": "typed-error",
       "text": "Storage node not found"
     },
     {
       "file": "src/app/api/files/extract/route.ts",
-      "line": 129,
+      "line": 127,
       "pattern": "typed-error",
       "text": "File not found"
     },
@@ -885,13 +867,13 @@
     },
     {
       "file": "src/app/api/files/search-content/route.ts",
-      "line": 28,
+      "line": 22,
       "pattern": "guard-error-message",
       "text": "Content search failed"
     },
     {
       "file": "src/app/api/files/search-content/route.ts",
-      "line": 30,
+      "line": 24,
       "pattern": "typed-error",
       "text": "Unauthorized"
     },
@@ -903,31 +885,19 @@
     },
     {
       "file": "src/app/api/health/route.ts",
-      "line": 51,
-      "pattern": "api-error",
-      "text": "Unauthorized"
-    },
-    {
-      "file": "src/app/api/health/route.ts",
-      "line": 56,
-      "pattern": "api-error",
-      "text": "Unauthorized"
-    },
-    {
-      "file": "src/app/api/health/route.ts",
-      "line": 62,
+      "line": 22,
       "pattern": "guard-error-message",
       "text": "Failed to fetch health data"
     },
     {
       "file": "src/app/api/health/route.ts",
-      "line": 83,
+      "line": 42,
       "pattern": "api-error",
       "text": "Unauthorized"
     },
     {
       "file": "src/app/api/health/route.ts",
-      "line": 112,
+      "line": 63,
       "pattern": "api-error",
       "text": "Unauthorized"
     },
@@ -963,13 +933,13 @@
     },
     {
       "file": "src/app/api/images/list/route.ts",
-      "line": 28,
+      "line": 33,
       "pattern": "guard-error-message",
       "text": "Failed to fetch image list"
     },
     {
       "file": "src/app/api/images/publish-from-storage/route.ts",
-      "line": 42,
+      "line": 48,
       "pattern": "guard-error-message",
       "text": "Failed to publish from storage"
     },
@@ -999,31 +969,31 @@
     },
     {
       "file": "src/app/api/images/upload/[id]/complete/route.ts",
-      "line": 69,
+      "line": 71,
       "pattern": "guard-error-message",
       "text": "Failed to complete upload session"
     },
     {
       "file": "src/app/api/images/upload/[id]/complete/route.ts",
-      "line": 73,
+      "line": 75,
       "pattern": "typed-error",
       "text": "Not authenticated or session expired"
     },
     {
       "file": "src/app/api/images/upload/[id]/complete/route.ts",
-      "line": 91,
+      "line": 93,
       "pattern": "typed-error",
       "text": "Upload session not found or does not belong to the current user"
     },
     {
       "file": "src/app/api/images/upload/[id]/complete/route.ts",
-      "line": 180,
+      "line": 183,
       "pattern": "typed-error",
       "text": "No permission to write to the storage path"
     },
     {
       "file": "src/app/api/images/upload/[id]/complete/route.ts",
-      "line": 188,
+      "line": 191,
       "pattern": "typed-error",
       "text": "Storage node does not support media uploads"
     },
@@ -1197,111 +1167,39 @@
     },
     {
       "file": "src/app/api/media/[id]/stream/route.ts",
-      "line": 33,
+      "line": 45,
       "pattern": "typed-error",
       "text": "Invalid path"
     },
     {
       "file": "src/app/api/media/[id]/stream/route.ts",
-      "line": 56,
+      "line": 95,
       "pattern": "guard-error-message",
       "text": "Failed to read media"
     },
     {
       "file": "src/app/api/media/[id]/stream/route.ts",
-      "line": 58,
+      "line": 98,
       "pattern": "typed-error",
       "text": "Not authenticated"
     },
     {
-      "file": "src/app/api/media/[id]/stream/route.ts",
-      "line": 70,
-      "pattern": "api-error",
-      "text": "Media not found"
-    },
-    {
-      "file": "src/app/api/media/[id]/stream/route.ts",
-      "line": 80,
-      "pattern": "api-error",
-      "text": "Missing storage access authorization"
-    },
-    {
-      "file": "src/app/api/media/[id]/stream/route.ts",
-      "line": 88,
-      "pattern": "api-error",
-      "text": "Target is not a playable file"
-    },
-    {
-      "file": "src/app/api/media/[id]/stream/route.ts",
-      "line": 102,
-      "pattern": "api-error",
-      "text": "File not found or temporarily cannot be read"
-    },
-    {
-      "file": "src/app/api/media/[id]/stream/route.ts",
-      "line": 107,
-      "pattern": "api-error",
-      "text": "This storage node does not support media streaming"
-    },
-    {
-      "file": "src/app/api/media/[id]/stream/route.ts",
-      "line": 126,
-      "pattern": "api-error",
-      "text": "Missing storage access authorization"
-    },
-    {
       "file": "src/app/api/media/[id]/thumbnail/route.ts",
-      "line": 148,
+      "line": 181,
       "pattern": "typed-error",
       "text": "Invalid path"
     },
     {
       "file": "src/app/api/media/[id]/thumbnail/route.ts",
-      "line": 204,
+      "line": 251,
       "pattern": "guard-error-message",
       "text": "Failed to read media thumbnail"
     },
     {
       "file": "src/app/api/media/[id]/thumbnail/route.ts",
-      "line": 206,
+      "line": 254,
       "pattern": "typed-error",
       "text": "Not authenticated"
-    },
-    {
-      "file": "src/app/api/media/[id]/thumbnail/route.ts",
-      "line": 209,
-      "pattern": "api-error",
-      "text": "Media not found"
-    },
-    {
-      "file": "src/app/api/media/[id]/thumbnail/route.ts",
-      "line": 215,
-      "pattern": "api-error",
-      "text": "This media type does not support thumbnails"
-    },
-    {
-      "file": "src/app/api/media/[id]/thumbnail/route.ts",
-      "line": 225,
-      "pattern": "api-error",
-      "text": "Missing storage access authorization"
-    },
-    {
-      "file": "src/app/api/media/[id]/thumbnail/route.ts",
-      "line": 282,
-      "pattern": "api-error",
-      "text": "Missing storage access authorization"
-    },
-    {
-      "file": "src/app/api/media/[id]/thumbnail/route.ts",
-      "line": 313,
-      "pattern": "api-error",
-      "text": "Original image is too large, cannot generate thumbnail"
-    },
-    {
-      "file": "src/app/api/media/[id]/thumbnail/route.ts",
-      "line": 351,
-      "pattern": "api-error",
-      "text": "Failed to generate thumbnail"
     },
     {
       "file": "src/app/api/media/route.ts",
@@ -1707,7 +1605,7 @@
     },
     {
       "file": "src/app/api/storage/local/route.ts",
-      "line": 67,
+      "line": 64,
       "pattern": "typed-error",
       "text": "Invalid path"
     },
@@ -1983,43 +1881,43 @@
     },
     {
       "file": "src/app/api/users/permissions/route.ts",
-      "line": 98,
+      "line": 88,
       "pattern": "typed-error",
       "text": "Unauthorized"
     },
     {
       "file": "src/app/api/users/permissions/route.ts",
-      "line": 147,
+      "line": 137,
       "pattern": "typed-error",
       "text": "User not found"
     },
     {
       "file": "src/app/api/users/permissions/route.ts",
-      "line": 210,
+      "line": 200,
       "pattern": "guard-error-message",
       "text": "Operation failed"
     },
     {
       "file": "src/app/api/users/permissions/route.ts",
-      "line": 215,
+      "line": 205,
       "pattern": "typed-error",
       "text": "Not authenticated"
     },
     {
       "file": "src/app/api/users/permissions/route.ts",
-      "line": 232,
+      "line": 222,
       "pattern": "typed-error",
       "text": "User not found"
     },
     {
       "file": "src/app/api/users/route.ts",
-      "line": 69,
+      "line": 70,
       "pattern": "guard-error-message",
       "text": "Failed to create user"
     },
     {
       "file": "src/app/api/users/route.ts",
-      "line": 158,
+      "line": 159,
       "pattern": "guard-error-message",
       "text": "Failed to update user"
     },
@@ -2031,63 +1929,57 @@
     },
     {
       "file": "src/lib/ai/ops/service.ts",
-      "line": 235,
+      "line": 255,
       "pattern": "guard-error-message",
       "text": "Log not found"
     },
     {
       "file": "src/lib/ai/ops/service.ts",
-      "line": 242,
+      "line": 262,
       "pattern": "guard-error-message",
       "text": "Recommendation not found"
     },
     {
       "file": "src/lib/ai/ops/service.ts",
-      "line": 245,
+      "line": 265,
       "pattern": "guard-error-message",
       "text": "This recommendation does not require approval"
     },
     {
       "file": "src/lib/ai/ops/service.ts",
-      "line": 254,
+      "line": 274,
       "pattern": "guard-error-message",
       "text": "This recommendation has already been approved"
     },
     {
       "file": "src/lib/ai/ops/service.ts",
-      "line": 274,
+      "line": 294,
       "pattern": "guard-error-message",
       "text": "This recommendation was just approved by another approver; please refresh and try again"
     },
     {
       "file": "src/lib/ai/ops/service.ts",
-      "line": 286,
+      "line": 306,
       "pattern": "guard-error-message",
       "text": "Log not found"
     },
     {
       "file": "src/lib/ai/ops/service.ts",
-      "line": 293,
+      "line": 313,
       "pattern": "guard-error-message",
       "text": "Recommendation not found"
     },
     {
       "file": "src/lib/ai/ops/service.ts",
-      "line": 314,
+      "line": 341,
       "pattern": "guard-error-message",
       "text": "Admin approval required; will not execute automatically"
     },
     {
       "file": "src/lib/ai/ops/service.ts",
-      "line": 321,
+      "line": 348,
       "pattern": "guard-error-message",
       "text": "Action ${match.action} is not in the autonomous safe set; manual execution required"
-    },
-    {
-      "file": "src/lib/ai/ops/service.ts",
-      "line": 353,
-      "pattern": "guard-error-message",
-      "text": "Recommendation is already being executed; refresh to view the latest result"
     },
     {
       "file": "src/lib/alert/service.ts",
@@ -2109,7 +2001,7 @@
     },
     {
       "file": "src/lib/auth/authorization.ts",
-      "line": 18,
+      "line": 25,
       "pattern": "typed-error",
       "text": "Missing permission: ${permission}"
     },
@@ -2133,43 +2025,43 @@
     },
     {
       "file": "src/lib/auth/session.ts",
-      "line": 148,
+      "line": 150,
       "pattern": "typed-error",
       "text": "Invalid session token format"
     },
     {
       "file": "src/lib/auth/session.ts",
-      "line": 156,
+      "line": 158,
       "pattern": "typed-error",
       "text": "Invalid session token signature"
     },
     {
       "file": "src/lib/auth/session.ts",
-      "line": 161,
+      "line": 163,
       "pattern": "typed-error",
       "text": "Invalid session token signature"
     },
     {
       "file": "src/lib/auth/session.ts",
-      "line": 169,
+      "line": 171,
       "pattern": "typed-error",
       "text": "Invalid session token audience"
     },
     {
       "file": "src/lib/auth/session.ts",
-      "line": 175,
+      "line": 177,
       "pattern": "typed-error",
       "text": "Pending 2FA token is not a session"
     },
     {
       "file": "src/lib/auth/session.ts",
-      "line": 179,
+      "line": 181,
       "pattern": "typed-error",
       "text": "Session token expired"
     },
     {
       "file": "src/lib/auth/session.ts",
-      "line": 195,
+      "line": 197,
       "pattern": "typed-error",
       "text": "Session user is disabled or no longer exists"
     },
@@ -2217,7 +2109,7 @@
     },
     {
       "file": "src/lib/backup/vps-backup-schedule-worker.ts",
-      "line": 56,
+      "line": 55,
       "pattern": "guard-error-message",
       "text": "Stale VPS backup schedule tick lease expired"
     },
@@ -2283,75 +2175,45 @@
     },
     {
       "file": "src/lib/downloads/execution.ts",
-      "line": 145,
+      "line": 141,
       "pattern": "guard-error-message",
       "text": "aria2 download failed: ${st.status}"
     },
     {
       "file": "src/lib/downloads/execution.ts",
-      "line": 164,
+      "line": 162,
       "pattern": "guard-error-message",
       "text": "Download timed out (2 hour limit)"
     },
     {
       "file": "src/lib/downloads/execution.ts",
-      "line": 176,
+      "line": 174,
       "pattern": "guard-error-message",
       "text": "Download completed but file not found"
     },
     {
       "file": "src/lib/http/api-guard.ts",
-      "line": 132,
+      "line": 157,
       "pattern": "api-error",
       "text": "Not authenticated"
     },
     {
       "file": "src/lib/http/api-guard.ts",
-      "line": 141,
+      "line": 166,
       "pattern": "api-error",
       "text": "Insufficient permissions"
     },
     {
       "file": "src/lib/http/api-guard.ts",
-      "line": 168,
+      "line": 198,
       "pattern": "typed-error",
       "text": "Request body too large"
     },
     {
       "file": "src/lib/http/api-guard.ts",
-      "line": 179,
+      "line": 209,
       "pattern": "typed-error",
       "text": "Request body too large"
-    },
-    {
-      "file": "src/lib/job/service.ts",
-      "line": 481,
-      "pattern": "guard-error-message",
-      "text": "Backend executor heartbeat expired, re-queued"
-    },
-    {
-      "file": "src/lib/job/service.ts",
-      "line": 495,
-      "pattern": "guard-error-message",
-      "text": "Backend executor heartbeat expired, re-queued"
-    },
-    {
-      "file": "src/lib/job/service.ts",
-      "line": 548,
-      "pattern": "guard-error-message",
-      "text": "Backend executor heartbeat expired after exhausting attempts"
-    },
-    {
-      "file": "src/lib/job/service.ts",
-      "line": 559,
-      "pattern": "guard-error-message",
-      "text": "Backend executor heartbeat expired after exhausting attempts"
-    },
-    {
-      "file": "src/lib/job/service.ts",
-      "line": 610,
-      "pattern": "guard-error-message",
-      "text": "Parent durable job exhausted attempts after executor heartbeat expired"
     },
     {
       "file": "src/lib/playbook/route-params.ts",
@@ -2541,7 +2403,7 @@
     },
     {
       "file": "src/lib/server/team-access.ts",
-      "line": 85,
+      "line": 80,
       "pattern": "json-error",
       "text": "Server not found"
     },
@@ -2583,51 +2445,45 @@
     },
     {
       "file": "src/lib/sync/service-runtime.ts",
-      "line": 447,
+      "line": 456,
       "pattern": "guard-error-message",
       "text": "Reclaimed stale RUNNING sync after process loss"
     },
     {
       "file": "src/lib/system/export-service.ts",
-      "line": 551,
+      "line": 80,
       "pattern": "typed-error",
       "text": "teamId"
     },
     {
+      "file": "src/lib/user/admin-invariant.ts",
+      "line": 29,
+      "pattern": "typed-error",
+      "text": "The last active administrator cannot be disabled or stripped of the admin role"
+    },
+    {
       "file": "src/lib/webdav/auth.ts",
-      "line": 97,
+      "line": 75,
       "pattern": "typed-error",
       "text": "Invalid or insufficient WebDAV token"
     },
     {
       "file": "src/lib/webdav/auth.ts",
-      "line": 108,
+      "line": 86,
       "pattern": "typed-error",
       "text": "Invalid or insufficient WebDAV credentials"
     },
     {
       "file": "src/lib/webdav/auth.ts",
-      "line": 112,
+      "line": 90,
       "pattern": "typed-error",
       "text": "Invalid Basic authorization"
     },
     {
       "file": "src/lib/webdav/auth.ts",
-      "line": 116,
+      "line": 94,
       "pattern": "typed-error",
       "text": "WebDAV requires Bearer or Basic authentication"
-    },
-    {
-      "file": "src/lib/webdav/handler.ts",
-      "line": 152,
-      "pattern": "typed-error",
-      "text": "Storage access denied"
-    },
-    {
-      "file": "src/lib/webdav/handler.ts",
-      "line": 226,
-      "pattern": "typed-error",
-      "text": "Path component is a file: ${built}"
     }
   ]
 }

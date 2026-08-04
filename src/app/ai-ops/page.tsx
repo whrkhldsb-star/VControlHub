@@ -45,7 +45,7 @@ export default async function AiOpsPage() {
 
 	const [summary, logs, settings, providerOptions] = await Promise.all([
 		summariseAiOps(),
-		listAiOpsLogs({ limit: 50 }),
+		listAiOpsLogs({ limit: 20 }),
 		loadInitialSettings(),
 		canManage
 			? prisma.aiProvider.findMany({
@@ -67,6 +67,8 @@ export default async function AiOpsPage() {
 			<AiOpsPageClient
 				initialSummary={summary}
 				initialLogs={logs}
+				initialTotal={summary.total}
+				initialHasMore={summary.total > 20}
 				initialSettings={settings}
 				providerOptions={providerOptions}
 				canManage={canManage}

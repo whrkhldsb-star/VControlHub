@@ -166,14 +166,7 @@ export function FileListListView(props: FileListListViewProps) {
                 key={folder.path}
                 className="grid grid-cols-[44px_44px_minmax(280px,2.6fr)_120px_170px_160px_minmax(240px,auto)] items-center gap-3 px-5 py-3 text-sm hover:bg-[var(--surface-elevated)] transition"
               >
-                <div>
-                  <input
-                    type="checkbox"
-                    disabled
-                    aria-label={t("fileListClient.selectFolderDisabled")}
-                    className="rounded-lg h-4 w-4 accent-[var(--color-action)] opacity-30"
-                  />
-                </div>
+                <div aria-hidden="true" />
                 <div className="flex justify-center">
                   <FileTypeIcon entry={{ entryType:"DIRECTORY" }} size={22} />
                 </div>

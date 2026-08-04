@@ -11,6 +11,7 @@
  * is no half-render, no placeholder, and no leaky click target.
  */
 import { screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { AiOpsLogRecord, AiOpsMode, AiOpsStatus } from "@/lib/ai/ops/types";
@@ -44,7 +45,36 @@ const initialSettings = {
 
 const initialLogs: AiOpsLogRecord[] = [];
 
+function makeLogWithAction(id = "log-1"): AiOpsLogRecord {
+	return {
+		id,
+		createdAt: "2026-06-18T00:00:00.000Z",
+		updatedAt: "2026-06-18T00:00:00.000Z",
+		mode: "recommendation",
+		triggerType: "manual",
+		status: "ok",
+		findings: [],
+		actions: [
+			{
+				id: `action-${id}`,
+				action: "noop",
+				risk: "low",
+				requiresApproval: false,
+				reason: "smoke",
+			},
+		],
+		notes: null,
+		errorMessage: null,
+		providerId: null,
+		startedAt: null,
+		completedAt: null,
+		durationMs: 10,
+		triggeredById: null,
+	};
+}
+
 const csrfFetch = vi.fn();
+const addToast = vi.fn();
 
 vi.mock("@/lib/auth/csrf-client", () => ({
 	csrfFetch: (...args: unknown[]) => csrfFetch(...args),
@@ -57,7 +87,7 @@ vi.mock("@/lib/auth/csrf-client", () => ({
 vi.mock("@/components/toast-provider", () => ({
 	useToast: () => ({
 		toasts: [],
-		addToast: vi.fn(),
+		addToast,
 		removeToast: vi.fn(),
 	}),
 	ToastProvider: ({ children }: { children: React.ReactNode }) => children,
@@ -76,6 +106,8 @@ describe("AiOpsPageClient conditional render audit", () => {
 			<AiOpsPageClient
 				initialSummary={initialSummary}
 				initialLogs={initialLogs}
+				initialHasMore={false}
+				initialTotal={0}
 				initialSettings={initialSettings}
 				canManage={false}
 				canAutonomous={false}
@@ -94,6 +126,8 @@ describe("AiOpsPageClient conditional render audit", () => {
 			<AiOpsPageClient
 				initialSummary={initialSummary}
 				initialLogs={initialLogs}
+				initialHasMore={false}
+				initialTotal={0}
 				initialSettings={initialSettings}
 				canManage={true}
 				canAutonomous={false}
@@ -114,6 +148,8 @@ describe("AiOpsPageClient conditional render audit", () => {
 			<AiOpsPageClient
 				initialSummary={initialSummary}
 				initialLogs={initialLogs}
+				initialHasMore={false}
+				initialTotal={0}
 				initialSettings={initialSettings}
 				canManage={false}
 				canAutonomous={false}
@@ -129,6 +165,8 @@ describe("AiOpsPageClient conditional render audit", () => {
 			<AiOpsPageClient
 				initialSummary={initialSummary}
 				initialLogs={initialLogs}
+				initialHasMore={false}
+				initialTotal={0}
 				initialSettings={initialSettings}
 				canManage={true}
 				canAutonomous={false}
@@ -142,38 +180,14 @@ describe("AiOpsPageClient conditional render audit", () => {
 	});
 
 	it("hides the per-action execute buttons when canManage is false", async () => {
-		const logsWithAction: AiOpsLogRecord[] = [
-			{
-				id: "log-1",
-				createdAt: "2026-06-18T00:00:00.000Z",
-				updatedAt: "2026-06-18T00:00:00.000Z",
-				mode: "recommendation",
-				triggerType: "manual",
-				status: "ok",
-				findings: [],
-				actions: [
-					{
-						id: "a-1",
-						action: "noop",
-						risk: "low",
-						requiresApproval: false,
-						reason: "smoke",
-					},
-				],
-				notes: null,
-				errorMessage: null,
-				providerId: null,
-				startedAt: null,
-				completedAt: null,
-				durationMs: 10,
-				triggeredById: null,
-			},
-		];
+		const logsWithAction = [makeLogWithAction()];
 
 		render(
 			<AiOpsPageClient
 				initialSummary={initialSummary}
 				initialLogs={logsWithAction}
+				initialHasMore={false}
+				initialTotal={1}
 				initialSettings={initialSettings}
 				canManage={false}
 				canAutonomous={false}
@@ -193,38 +207,14 @@ describe("AiOpsPageClient conditional render audit", () => {
 	});
 
 	it("renders the per-action execute button when canManage is true", async () => {
-		const logsWithAction: AiOpsLogRecord[] = [
-			{
-				id: "log-1",
-				createdAt: "2026-06-18T00:00:00.000Z",
-				updatedAt: "2026-06-18T00:00:00.000Z",
-				mode: "recommendation",
-				triggerType: "manual",
-				status: "ok",
-				findings: [],
-				actions: [
-					{
-						id: "a-1",
-						action: "noop",
-						risk: "low",
-						requiresApproval: false,
-						reason: "smoke",
-					},
-				],
-				notes: null,
-				errorMessage: null,
-				providerId: null,
-				startedAt: null,
-				completedAt: null,
-				durationMs: 10,
-				triggeredById: null,
-			},
-		];
+		const logsWithAction = [makeLogWithAction()];
 
 		render(
 			<AiOpsPageClient
 				initialSummary={initialSummary}
 				initialLogs={logsWithAction}
+				initialHasMore={false}
+				initialTotal={1}
 				initialSettings={initialSettings}
 				canManage={true}
 				canAutonomous={false}
@@ -238,5 +228,39 @@ describe("AiOpsPageClient conditional render audit", () => {
 		expect(
 			await within(detail).findByRole("button", { name: /^执行$/i }),
 		).toBeInTheDocument();
+	});
+
+	it("loads the next history page from the API", async () => {
+		const user = userEvent.setup();
+		csrfFetch.mockImplementation(async (input: string) => {
+			if (input.startsWith("/api/ai/ops/logs?")) {
+				return {
+					ok: true,
+					json: async () => ({ logs: [makeLogWithAction("log-21")], total: 21, hasMore: false }),
+				};
+			}
+			return { ok: true, json: async () => ({ summary: initialSummary }) };
+		});
+
+		render(
+			<AiOpsPageClient
+				initialSummary={{ ...initialSummary, total: 21 }}
+				initialLogs={[makeLogWithAction()]}
+				initialHasMore
+				initialTotal={21}
+				initialSettings={initialSettings}
+				canManage={false}
+				canAutonomous={false}
+			/>,
+		);
+
+		await user.click(screen.getByRole("button", { name: "下一页" }));
+		await waitFor(() => {
+			expect(csrfFetch).toHaveBeenCalledWith(
+				expect.stringContaining("offset=20"),
+				{ raw: true },
+			);
+			expect(screen.getByText("显示 21–21，共 21 条")).toBeInTheDocument();
+		});
 	});
 });

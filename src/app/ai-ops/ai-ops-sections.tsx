@@ -219,11 +219,44 @@ export function AiOpsSettingsSection({
 	);
 }
 
-export function AiOpsLogsSection({ logs, selectedLogId, setSelectedLogId, t }: { logs: AiOpsLogRecord[]; selectedLogId: string | null; setSelectedLogId: Dispatch<SetStateAction<string | null>>; t: T }) {
+export function AiOpsLogsSection({
+	logs,
+	page,
+	total,
+	hasMore,
+	loading,
+	selectedLogId,
+	setSelectedLogId,
+	onPrevious,
+	onNext,
+	t,
+}: {
+	logs: AiOpsLogRecord[];
+	page: number;
+	total: number;
+	hasMore: boolean;
+	loading: boolean;
+	selectedLogId: string | null;
+	setSelectedLogId: Dispatch<SetStateAction<string | null>>;
+	onPrevious: () => void;
+	onNext: () => void;
+	t: T;
+}) {
 	const { locale } = useI18n();
 	return (
-		<section aria-label="ai-ops-logs" className={cardClass}>
-			<h2 className={`${labelClass} mb-4`}>{t("aiOpsPage.table.actions")}</h2>
+		<section aria-label="ai-ops-logs" className={`${cardClass} relative`} aria-busy={loading}>
+			<div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+				<h2 className={labelClass}>{t("aiOpsPage.table.title")}</h2>
+				{logs.length > 0 ? (
+					<span className="text-xs text-[var(--text-muted)]">
+						{t("aiOpsPage.pagination.info", {
+							start: page * 20 + 1,
+							end: page * 20 + logs.length,
+							total,
+						})}
+					</span>
+				) : null}
+			</div>
 			{logs.length === 0 ? (
 				<div className="text-sm text-[var(--text-primary)]/70">{t("aiOpsPage.actions.empty")}</div>
 			) : (
@@ -258,6 +291,26 @@ export function AiOpsLogsSection({ logs, selectedLogId, setSelectedLogId, t }: {
 					</table>
 				</div>
 			)}
+			{logs.length > 0 && (page > 0 || hasMore) ? (
+				<div className="mt-4 flex items-center justify-end gap-2 border-t border-[var(--border)] pt-4">
+					<ActionButton
+						variant="secondary"
+						className={buttonGhost}
+						disabled={loading || page === 0}
+						onClick={onPrevious}
+					>
+						{t("aiOpsPage.pagination.previous")}
+					</ActionButton>
+					<ActionButton
+						variant="secondary"
+						className={buttonGhost}
+						disabled={loading || !hasMore}
+						onClick={onNext}
+					>
+						{t("aiOpsPage.pagination.next")}
+					</ActionButton>
+				</div>
+			) : null}
 		</section>
 	);
 }

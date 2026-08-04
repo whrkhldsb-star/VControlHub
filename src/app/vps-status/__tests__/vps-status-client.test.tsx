@@ -89,6 +89,13 @@ describe("VpsStatusClient (split fleet surface)", () => {
 		});
 	});
 
+	it("explains the initial SSH sampling delay instead of showing a blank board", () => {
+		vi.mocked(csrfFetch).mockImplementation(() => new Promise(() => undefined));
+		renderVps();
+		expect(screen.getByRole("status")).toHaveTextContent("正在采集远程节点指标");
+		expect(screen.getByRole("status")).toHaveTextContent("SSH");
+	});
+
 	it("renders Komari/Nezha-style fleet cards and hits /api/health only", async () => {
 		renderVps();
 		expect((await screen.findAllByText("HK Prod")).length).toBeGreaterThan(0);

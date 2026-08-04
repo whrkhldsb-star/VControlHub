@@ -43,7 +43,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 		fetchCatalog,
 		fetchSources,
 	} = useQuickServiceCatalog(t);
-	const [tab, setTab] = useState<Tab>("community");
+	const [tab, setTab] = useState<Tab>("store");
 	// Install dialog state (the dialog body ships in <InstallDialog />)
 	const [installDialog, setInstallDialog] = useState<CatalogItem | null>(null);
 	const [configPreview, setConfigPreview] = useState<ConfigPreview<CatalogItem> | null>(null);

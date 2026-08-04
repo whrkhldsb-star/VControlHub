@@ -152,15 +152,16 @@ test("playbook create, toggle and delete before execution", async ({ page }) => 
 	await expect(page.getByText(marker, { exact: true })).toBeHidden();
 });
 
-test("playbook dry-run queues safely and blocks deletion while active", async ({ page }) => {
+test("playbook dry-run completes safely and can then be deleted", async ({ page }) => {
 	const name = `${marker}-dry-run`;
 	const card = await createPlaybook(page, name);
 	await card.getByRole("button", { name: /Dry-run/i }).click();
 	await expect(card.getByText(/dry-run/i).last()).toBeVisible();
+	await card.locator("summary").click();
+	await expect(card.getByText(/(?:已完成|Completed) · dry-run/i)).toBeVisible({ timeout: 15_000 });
 	await card.getByRole("button", { name: /删除|Delete/i }).click();
 	await page.getByRole("dialog", { name: /删除 Playbook|Delete Playbook/i }).getByRole("button", { name: /确认删除|Confirm Delete/i }).click();
-	await expect(page.getByRole("alert").filter({ hasText: /进行中的运行|active run/i })).toBeVisible();
-	await expect(page.getByText(name, { exact: true })).toBeVisible();
+	await expect(page.getByText(name, { exact: true })).toBeHidden();
 });
 
 test("cost entry create, edit and delete", async ({ page }) => {

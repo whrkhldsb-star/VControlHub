@@ -180,7 +180,7 @@ export function AppSidebar({
 				<button
 					type="button"
 					onClick={() => setOpenGroups((prev) => ({ ...prev, [group.id]: !open }))}
-					className="flex w-full items-center gap-1.5 rounded-md px-2.5 py-1.5 text-left text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)] transition hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-secondary)]"
+					className="flex min-h-8 w-full items-center gap-1.5 rounded-md px-2.5 py-1.5 text-left text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)] transition hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-secondary)]"
 					aria-expanded={open}
 				>
 					<Chevron open={open} />
@@ -241,7 +241,7 @@ export function AppSidebar({
 						<button
 							type="button"
 							onClick={() => setOpenGroups((prev) => ({ ...prev, system: !open }))}
-							className="flex w-full items-center gap-1.5 rounded-md px-2.5 py-1.5 text-left text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)] transition hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-secondary)]"
+							className="flex min-h-8 w-full items-center gap-1.5 rounded-md px-2.5 py-1.5 text-left text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)] transition hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-secondary)]"
 							aria-expanded={open}
 						>
 							<Chevron open={open} />

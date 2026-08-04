@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-08-04T02:05:23.847Z",
+  "generatedAt": "2026-08-04T04:43:18.309Z",
   "summary": {
     "sidebarMain": 30,
-    "sidebarSystem": 6,
+    "sidebarSystem": 5,
     "sidebarMobile": 5,
-    "pages": 55,
-    "apiRoutes": 179,
+    "pages": 53,
+    "apiRoutes": 177,
     "permissionsDefined": 54
   },
   "sidebar": {
@@ -151,10 +151,6 @@
       {
         "href": "/audit",
         "fallbackLabel": "Audit Log"
-      },
-      {
-        "href": "/qa-reports",
-        "fallbackLabel": "QA Reports"
       }
     ],
     "mobileHrefs": [
@@ -492,24 +488,6 @@
       "declaredPermissions": []
     },
     {
-      "path": "/qa-reports/[id]",
-      "file": "src/app/qa-reports/[id]/page.tsx",
-      "inSidebarMain": false,
-      "inSidebarSystem": false,
-      "declaredPermissions": [
-        "task:read"
-      ]
-    },
-    {
-      "path": "/qa-reports",
-      "file": "src/app/qa-reports/page.tsx",
-      "inSidebarMain": false,
-      "inSidebarSystem": true,
-      "declaredPermissions": [
-        "task:read"
-      ]
-    },
-    {
       "path": "/quick-services",
       "file": "src/app/quick-services/page.tsx",
       "inSidebarMain": true,
@@ -659,28 +637,6 @@
     }
   ],
   "apiRoutes": [
-    {
-      "path": "/src/app/api/admin/qa-reports/[id]",
-      "file": "src/app/api/admin/qa-reports/[id]/route.ts",
-      "methods": [
-        "GET"
-      ],
-      "guardMode": "withApiRoute",
-      "declaredPermissions": [
-        "task:read"
-      ]
-    },
-    {
-      "path": "/src/app/api/admin/qa-reports",
-      "file": "src/app/api/admin/qa-reports/route.ts",
-      "methods": [
-        "GET"
-      ],
-      "guardMode": "withApiRoute",
-      "declaredPermissions": [
-        "task:read"
-      ]
-    },
     {
       "path": "/src/app/api/admin/workers",
       "file": "src/app/api/admin/workers/route.ts",

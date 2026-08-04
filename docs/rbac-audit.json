@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-08-04T02:53:45.576Z",
+  "generatedAt": "2026-08-04T04:43:20.846Z",
   "summary": {
     "permissionsInList": 54,
     "rolesDefined": 4,
-    "apiRoutesAudited": 179,
-    "pagesAudited": 55,
-    "callSitesAudited": 632,
+    "apiRoutesAudited": 177,
+    "pagesAudited": 53,
+    "callSitesAudited": 626,
     "driftCount": 0,
     "driftByCode": {
       "perm-not-in-list": 0,
@@ -2754,22 +2754,6 @@
       "permission": "task:read",
       "files": [
         {
-          "path": "src/app/api/admin/qa-reports/[id]/route.ts",
-          "line": 27
-        },
-        {
-          "path": "src/app/api/admin/qa-reports/[id]/route.ts",
-          "line": 27
-        },
-        {
-          "path": "src/app/api/admin/qa-reports/route.ts",
-          "line": 25
-        },
-        {
-          "path": "src/app/api/admin/qa-reports/route.ts",
-          "line": 25
-        },
-        {
           "path": "src/app/api/admin/workers/route.ts",
           "line": 24
         },
@@ -2796,20 +2780,10 @@
         {
           "path": "src/app/operation-tasks/page.tsx",
           "line": 23
-        },
-        {
-          "path": "src/app/qa-reports/[id]/page.tsx",
-          "line": 44
-        },
-        {
-          "path": "src/app/qa-reports/page.tsx",
-          "line": 26
         }
       ],
       "pages": [
-        "operation-tasks",
-        "qa-reports/[id]",
-        "qa-reports"
+        "operation-tasks"
       ],
       "apiRoutes": [],
       "grantedToRoles": [

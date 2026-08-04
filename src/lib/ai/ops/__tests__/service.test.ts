@@ -74,10 +74,12 @@ function makePrismaMock() {
 					where = {},
 					orderBy,
 					take,
+					skip,
 				}: {
 					where?: { mode?: string; status?: string; triggerType?: string };
 					orderBy?: { createdAt?: "asc" | "desc" };
 					take?: number;
+					skip?: number;
 				}) => {
 					let rows = [...store.logs.values()];
 					if (where.mode) rows = rows.filter((r) => r.mode === where.mode);
@@ -89,6 +91,7 @@ function makePrismaMock() {
 					} else if (orderBy?.createdAt === "asc") {
 						rows.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
 					}
+					if (typeof skip === "number") rows = rows.slice(skip);
 					if (typeof take === "number") rows = rows.slice(0, take);
 					return rows;
 				},
@@ -112,7 +115,13 @@ function makePrismaMock() {
 				store.logs.set(row.id, { ...row, ...data });
 				return { count: 1 };
 			}),
-			count: vi.fn(async () => store.logs.size),
+			count: vi.fn(async ({ where = {} }: { where?: { mode?: string; status?: string; triggerType?: string } } = {}) => {
+				let rows = [...store.logs.values()];
+				if (where.mode) rows = rows.filter((row) => row.mode === where.mode);
+				if (where.status) rows = rows.filter((row) => row.status === where.status);
+				if (where.triggerType) rows = rows.filter((row) => row.triggerType === where.triggerType);
+				return rows.length;
+			}),
 			deleteMany: vi.fn(async () => ({ count: 0 })),
 		},
 	};
@@ -136,6 +145,7 @@ vi.mock("@/lib/health/service-alerts", () => ({
 }));
 
 import {
+	countAiOpsLogs,
 	completeScan,
 	createAiOpsLog,
 	executeRecommendation,
@@ -235,6 +245,22 @@ describe("AiOpsLog CRUD", () => {
 		const huge = await listAiOpsLogs({ limit: 999 });
 		expect(huge.length).toBeLessThanOrEqual(200);
 		expect(huge.length).toBe(3); // currently only 3 in store
+	});
+
+	it("listAiOpsLogs applies an offset for paged history", async () => {
+		for (let i = 0; i < 4; i += 1) {
+			await createAiOpsLog({ triggerType: "manual", mode: "recommendation" });
+		}
+		const secondPage = await listAiOpsLogs({ limit: 2, offset: 2 });
+		expect(secondPage.map((log) => log.id)).toEqual(["log_2", "log_1"]);
+	});
+
+	it("countAiOpsLogs uses the same filters as the paged list", async () => {
+		await createAiOpsLog({ triggerType: "manual", mode: "recommendation" });
+		await createAiOpsLog({ triggerType: "scheduled", mode: "autonomous" });
+		expect(await countAiOpsLogs({ mode: "recommendation" })).toBe(1);
+		expect(await countAiOpsLogs({ triggerType: "scheduled" })).toBe(1);
+		expect(await countAiOpsLogs()).toBe(2);
 	});
 
 	it("getAiOpsLog returns null for unknown id", async () => {

@@ -83,6 +83,20 @@ export async function removeIsolatedE2eAccount() {
 			`SELECT "basePath" FROM "StorageNode" WHERE id = 'node_local_default' AND driver = 'LOCAL'`,
 		);
 		await client.query("BEGIN");
+		// Jobs and playbooks retain a nullable creator after user deletion. Remove
+		// them first so failed E2E runs cannot accumulate orphaned operations.
+		await client.query(
+			`DELETE FROM jobs
+			 WHERE "createdBy" IN (SELECT id FROM "User" WHERE username = $1)
+			    OR ("createdBy" IS NULL AND title ~ '^Run playbook E2E-[0-9]+-dry-run$')`,
+			[ISOLATED_E2E_USERNAME],
+		);
+		await client.query(
+			`DELETE FROM playbooks
+			 WHERE "createdById" IN (SELECT id FROM "User" WHERE username = $1)
+			    OR ("createdById" IS NULL AND name ~ '^E2E-[0-9]+-dry-run$')`,
+			[ISOLATED_E2E_USERNAME],
+		);
 		await client.query(
 			`DELETE FROM share_links
 			 WHERE path LIKE 'qa-files-%'
