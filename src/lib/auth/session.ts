@@ -5,7 +5,7 @@ import { getAppSlug } from "@/lib/branding";
 import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
 import { AuthError } from "@/lib/errors";
-import type { RoleKey } from "./rbac";
+import type { Permission, RoleKey } from "./rbac";
 import { DEFAULT_ROLE_PERMISSIONS } from "./rbac";
 
 const logger = createLogger("auth:session");
@@ -80,6 +80,8 @@ export type SessionPayload = {
   roles: RoleKey[];
   mustChangePassword: boolean;
   currentTeamId: string | null;
+  /** Explicit effective permissions for API-token sessions; cookie sessions omit this. */
+  permissions?: Permission[];
 };
 
 type SessionTokenEnvelope = SessionPayload & {

@@ -333,6 +333,7 @@ model CommandRequest {
   executionLogs          ExecutionLog[]
   deploymentRuns         DeploymentRun[]
   deploymentRollbackRuns DeploymentRollbackRun[]
+  scheduledTaskRuns      ScheduledTaskRun[]
 
   teamId String? // TR-030: 多租户资源隔离
   team   Team?   @relation("TeamCommandRequests", fields: [teamId], references: [id], onDelete: SetNull)
@@ -663,6 +664,7 @@ model ScheduledTask {
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
   creator        User?               @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  runs           ScheduledTaskRun[]
 
   teamId String? // TR-030: 多租户资源隔离
   team   Team?   @relation("TeamScheduledTasks", fields: [teamId], references: [id], onDelete: SetNull)
@@ -670,6 +672,24 @@ model ScheduledTask {
   @@index([status, nextRunAt])
   @@index([teamId])
   @@map("scheduled_tasks")
+}
+
+model ScheduledTaskRun {
+  id               String    @id @default(cuid())
+  scheduledTaskId  String
+  commandRequestId String    @unique
+  status           String    @default("DISPATCHED")
+  manual           Boolean   @default(false)
+  result           String?
+  dispatchedAt     DateTime  @default(now())
+  completedAt      DateTime?
+
+  scheduledTask  ScheduledTask  @relation(fields: [scheduledTaskId], references: [id], onDelete: Cascade)
+  commandRequest CommandRequest @relation(fields: [commandRequestId], references: [id], onDelete: Cascade)
+
+  @@index([status, dispatchedAt])
+  @@index([scheduledTaskId, dispatchedAt])
+  @@map("scheduled_task_runs")
 }
 
 // TR-023 M04: Playbook = durable chain of steps (run_command | send_notification
@@ -1207,6 +1227,7 @@ model VpsBackupRecord {
 
 model DeploymentRun {
   id               String    @id @default(cuid())
+  idempotencyKey   String?   @unique
   templateId       String
   commandRequestId String?
   snapshotId       String?   @unique

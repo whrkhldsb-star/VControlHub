@@ -9,13 +9,10 @@
  * with ~92 hardcoded strings. Those have been extracted here.
  */
 export const zh: Record<string, string> = {
-	"healthPage.title": "节点健康",
 	"healthPage.systemTitle": "系统健康",
 	"healthPage.systemDescription": "平台自检、修复建议与活动告警；各 VPS 节点状态请前往「VPS 状态」。",
 	"healthPage.ui.gotoVpsStatus": "查看 VPS 状态 →",
 
-	"healthPage.description": "实时采集 SSH 指标、保存历史趋势，并与告警规则联动。",
-	"healthPage.serverCount": "纳管节点 {count} 台",
 	"healthPage.noPermission": "缺少健康监控权限",
 	"healthPage.noPermissionHint": "需要 health:read 权限后才能查看节点健康详情和历史指标。",
 	"healthPage.eyebrow": "健康中心",
@@ -82,7 +79,6 @@ export const zh: Record<string, string> = {
 
 	// UI strings
 	"healthPage.ui.selfCheck": "系统自检",
-	"healthPage.ui.collectingMetrics": "正在采集自检指标…",
 	"healthPage.ui.repairSuggestions": "修复建议",
 	"healthPage.ui.checksSummary": "{total} 项检查 · {healthy} 正常 · {warning} 警告 · {critical} 严重",
 	"healthPage.ui.auditLog": "看审计日志",
@@ -95,23 +91,14 @@ export const zh: Record<string, string> = {
 	"healthPage.ui.refreshAria": "刷新健康状态",
 	"healthPage.ui.refreshing": "正在刷新...",
 	"healthPage.ui.refresh": "🔄 刷新",
-	"healthPage.ui.autoRefresh": "自动刷新",
-	"healthPage.ui.toggleAutoRefreshAria": "切换健康状态自动刷新",
 	"healthPage.ui.autoRefreshOff": "已关闭",
-	"healthPage.ui.autoRefreshEvery": "每 {label}",
-	"healthPage.ui.autoRefreshPaused": "已暂停 · {label}",
-	"healthPage.ui.healthUnavailable": "健康状态暂不可用",
 	"healthPage.ui.retrying": "正在重试...",
 	"healthPage.ui.retryLoad": "重试加载健康状态",
-	"healthPage.ui.node": "节点",
-	"healthPage.ui.status": "状态",
 	"healthPage.ui.memory": "内存",
 	"healthPage.ui.disk": "磁盘",
 	"healthPage.ui.uptime": "运行时间",
-	"healthPage.ui.details": "详情",
 	"healthPage.ui.collapse": "收起 ▲",
 	"healthPage.ui.trend": "趋势 ▼",
-	"healthPage.ui.trendHeading": "{name} — 过去 24h 趋势",
 	"healthPage.sparkline.noHistoryData": "暂无历史数据",
 
 	// Repair: db
@@ -198,13 +185,10 @@ export const zh: Record<string, string> = {
 };
 
 export const en: Record<string, string> = {
-	"healthPage.title": "Node Health",
 	"healthPage.systemTitle": "System Health",
 	"healthPage.systemDescription": "Platform self-checks, repair tips, and active incidents. Per-VPS status lives on VPS Status.",
 	"healthPage.ui.gotoVpsStatus": "Open VPS Status →",
 
-	"healthPage.description": "Collect SSH metrics in real time, persist historical trends, and integrate with alert rules.",
-	"healthPage.serverCount": "Managed {count} nodes",
 	"healthPage.noPermission": "Missing health monitoring permission",
 	"healthPage.noPermissionHint": "You need the health:read permission to view node health details and historical metrics.",
 	"healthPage.eyebrow": "Health Center",
@@ -271,7 +255,6 @@ export const en: Record<string, string> = {
 
 	// UI strings
 	"healthPage.ui.selfCheck": "System Self-check",
-	"healthPage.ui.collectingMetrics": "Collecting self-check metrics…",
 	"healthPage.ui.repairSuggestions": "Repair Suggestions",
 	"healthPage.ui.checksSummary": "{total} checks · {healthy} healthy · {warning} warnings · {critical} critical",
 	"healthPage.ui.auditLog": "View Audit Log",
@@ -284,23 +267,14 @@ export const en: Record<string, string> = {
 	"healthPage.ui.refreshAria": "Refresh health status",
 	"healthPage.ui.refreshing": "Refreshing...",
 	"healthPage.ui.refresh": "🔄 Refresh",
-	"healthPage.ui.autoRefresh": "Auto refresh",
-	"healthPage.ui.toggleAutoRefreshAria": "Toggle health auto refresh",
 	"healthPage.ui.autoRefreshOff": "Off",
-	"healthPage.ui.autoRefreshEvery": "Every {label}",
-	"healthPage.ui.autoRefreshPaused": "Paused · {label}",
-	"healthPage.ui.healthUnavailable": "Health status is temporarily unavailable",
 	"healthPage.ui.retrying": "Retrying...",
 	"healthPage.ui.retryLoad": "Retry loading health status",
-	"healthPage.ui.node": "Node",
-	"healthPage.ui.status": "Status",
 	"healthPage.ui.memory": "Memory",
 	"healthPage.ui.disk": "Disk",
 	"healthPage.ui.uptime": "Uptime",
-	"healthPage.ui.details": "Details",
 	"healthPage.ui.collapse": "Collapse ▲",
 	"healthPage.ui.trend": "Trend ▼",
-	"healthPage.ui.trendHeading": "{name} — last 24h trend",
 	"healthPage.sparkline.noHistoryData": "No history data yet",
 
 	// Repair: db

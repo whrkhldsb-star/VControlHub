@@ -31,5 +31,16 @@ describe("GET /api/docs/openapi", () => {
     expect(body.openapi).toBe("3.0.3");
     expect(body.info.title).toContain("API");
     expect(body.paths).toHaveProperty("/login");
+    expect(body.components.securitySchemes.apiTokenAuth).toMatchObject({
+      type: "http",
+      scheme: "bearer",
+    });
+    expect(body.paths["/images/upload"].post.responses).toHaveProperty("201");
+    expect(body.paths["/images/upload"].post.security).toContainEqual({
+      apiTokenAuth: [],
+    });
+    for (const path of ["/servers/monitor", "/storage/local", "/storage/sftp"]) {
+      expect(body.paths[path].get.security).toContainEqual({ apiTokenAuth: [] });
+    }
   });
 });

@@ -14,6 +14,7 @@ import {
 import { AuthError, NotFoundError, ValidationError } from "@/lib/errors";
 import { getStorageAccessUsage } from "@/lib/storage/access-control";
 import { applyUserPermissionPatch } from "./route-patch";
+import { assertAdminAccessMayBeRemoved, withAdminInvariantLock } from "@/lib/user/admin-invariant";
 
 export const dynamic = "force-dynamic";
 
@@ -248,14 +249,22 @@ export async function PATCH(request: Request) {
         ? parsedData.storageAccess
         : undefined;
 
-      await applyUserPermissionPatch({
-        session,
-        parsedData,
-        targetUsername: targetUser.username,
-        roleKeys,
-        permissionKeys,
-        storageAccess,
-      });
+			const applyPatch = () => applyUserPermissionPatch({
+				session,
+				parsedData,
+				targetUsername: targetUser.username,
+				roleKeys,
+				permissionKeys,
+				storageAccess,
+			});
+			if (roleKeys && !roleKeys.includes("admin")) {
+				await withAdminInvariantLock(async () => {
+					await assertAdminAccessMayBeRemoved(parsedData.userId);
+					await applyPatch();
+				});
+			} else {
+				await applyPatch();
+			}
 
       await auditUserAction(
         session.userId,

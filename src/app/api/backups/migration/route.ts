@@ -8,7 +8,6 @@
  *  - list:     list packages under BACKUP_DIR/migration-packages
  */
 import { NextResponse } from "next/server";
-import { z } from "zod";
 
 import {
   exportMigrationPackage,
@@ -19,26 +18,7 @@ import {
 import { auditUserAction } from "@/lib/audit/service";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_READ_LIMIT, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
-
-const bodySchema = z.discriminatedUnion("action", [
-  z.object({
-    action: z.literal("export"),
-    backupId: z.string().trim().min(1),
-    note: z.string().trim().max(500).optional(),
-  }),
-  z.object({
-    action: z.literal("validate"),
-    packageRef: z.string().trim().min(1).max(500),
-  }),
-  z.object({
-    action: z.literal("import"),
-    packageRef: z.string().trim().min(1).max(500),
-    note: z.string().trim().max(500).optional(),
-  }),
-  z.object({
-    action: z.literal("list"),
-  }),
-]);
+import { backupMigrationBodySchema } from "@/lib/backup/schema";
 
 export async function POST(request: Request) {
   return withApiRoute(
@@ -47,7 +27,7 @@ export async function POST(request: Request) {
       // Export/import create durable artifacts — require create; list/validate also gated.
       permission: "backup:create",
       rateLimit: GENERAL_WRITE_LIMIT,
-      bodySchema,
+      bodySchema: backupMigrationBodySchema,
       errorMessage: "Migration wizard action failed",
     },
     async ({ session, body }) => {

@@ -74,3 +74,21 @@ export const backupRetentionInputSchema = z.object({
 
 export type BackupRetentionInput = z.input<typeof backupRetentionInputSchema>;
 export type BackupRetentionOutput = z.output<typeof backupRetentionInputSchema>;
+
+export const backupMigrationBodySchema = z.discriminatedUnion("action", [
+  z.object({
+    action: z.literal("export"),
+    backupId: z.string().trim().min(1),
+    note: z.string().trim().max(500).optional(),
+  }),
+  z.object({
+    action: z.literal("validate"),
+    packageRef: z.string().trim().min(1).max(500),
+  }),
+  z.object({
+    action: z.literal("import"),
+    packageRef: z.string().trim().min(1).max(500),
+    note: z.string().trim().max(500).optional(),
+  }),
+  z.object({ action: z.literal("list") }),
+]);

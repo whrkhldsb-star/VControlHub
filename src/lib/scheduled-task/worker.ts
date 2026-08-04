@@ -15,7 +15,7 @@ import {
 import { createLogger } from "@/lib/logging";
 import { tryAcquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 
-import { recordTaskRun } from "./service";
+import { reconcileScheduledTaskRuns, recordTaskDispatch, recordTaskRun } from "./service";
 
 const logger = createLogger("scheduled-task-worker");
 
@@ -138,9 +138,10 @@ async function dispatchDueTask(task: {
       requesterId: task.createdById,
       serverIds: task.serverIds,
       teamId: task.teamId,
+      idempotencyKey: `scheduled-task:${task.id}:${task.nextRunAt?.toISOString() ?? "manual"}`,
     });
 
-    await recordTaskRun(task.id, `Triggered command request ${result.id}`);
+	    await recordTaskDispatch(task.id, result.id);
     return true;
   } catch (error) {
     // We claimed the row (so no one else will dispatch it this tick),
@@ -234,7 +235,8 @@ export async function runScheduledTaskTickJobWorkerOnce(reason = "manual") {
         leaseMs: SCHEDULED_TASK_LEASE_MS,
         progress: "Dispatching due scheduled tasks",
       });
-      const result = await dispatchDueScheduledTasks(reason);
+	      const reconciliation = await reconcileScheduledTaskRuns();
+	      const result = { ...(await dispatchDueScheduledTasks(reason)), reconciled: reconciliation.reconciled };
       await completeJob(job.id, SCHEDULED_TASK_WORKER_ID, result);
       try {
         await pruneCompletedJobsByType({

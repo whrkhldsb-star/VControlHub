@@ -4,7 +4,7 @@ import { UserManagementClient } from "./users-client";
 import { PageShell, PageHeader, EmptyState } from "@/components/page-shell";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 export default async function UsersPage() {
 	const session = await requireSession("/users");

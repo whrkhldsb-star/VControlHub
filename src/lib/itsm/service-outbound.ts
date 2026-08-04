@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/translations";
 import { createLogger } from "@/lib/logging";
+import { enqueueJob } from "@/lib/job/service";
 
 import { assertOutboundReady, deliverOutbound } from "./adapters";
 import {
@@ -78,7 +79,8 @@ export async function fanOutTicketEvent(input: {
   priority: string;
   category?: string | null;
   commentBody?: string;
-  teamId?: string | null;
+	teamId?: string | null;
+	deliveryKey?: string;
 }): Promise<{ sent: number; failed: number }> {
   const connections = await prisma.itsmConnection.findMany({
     where: {
@@ -91,8 +93,17 @@ export async function fanOutTicketEvent(input: {
   });
   let sent = 0;
   let failed = 0;
-  for (const row of connections) {
-    if (!supportsOutbound(row.direction)) continue;
+	for (const row of connections) {
+		if (!supportsOutbound(row.direction)) continue;
+		const existing = input.deliveryKey
+			? await prisma.itsmEvent.findFirst({
+					where: { connectionId: row.id, externalId: input.deliveryKey },
+				})
+			: null;
+		if (existing?.status === "ok") {
+			sent += 1;
+			continue;
+		}
     const config = parseConfig(row.config);
     const credentials = decryptCredentials(row.credentialsEnc);
     try {
@@ -100,14 +111,20 @@ export async function fanOutTicketEvent(input: {
     } catch (err) {
       failed += 1;
       const msg = err instanceof Error ? err.message : "not ready";
-      await recordEvent({
-        connectionId: row.id,
-        direction: "outbound",
-        eventType: input.eventType,
-        ticketId: input.ticketId,
-        status: "error",
-        errorMessage: msg,
-      });
+			const eventInput = {
+				connectionId: row.id,
+				direction: "outbound",
+				eventType: input.eventType,
+				ticketId: input.ticketId,
+				status: "error",
+				externalId: input.deliveryKey,
+				errorMessage: msg,
+			} as const;
+			if (existing) {
+				await prisma.itsmEvent.update({ where: { id: existing.id }, data: { status: "error", errorMessage: msg } });
+			} else {
+				await recordEvent(eventInput);
+			}
       await prisma.itsmConnection.update({ where: { id: row.id }, data: { lastError: msg } });
       continue;
     }
@@ -126,18 +143,31 @@ export async function fanOutTicketEvent(input: {
         commentBody: input.commentBody,
       },
     });
-    await recordEvent({
-      connectionId: row.id,
+		const eventData = {
+			connectionId: row.id,
       direction: "outbound",
       eventType: input.eventType,
       ticketId: input.ticketId,
-      status: delivery.ok ? "ok" : "error",
+			status: delivery.ok ? "ok" : "error",
+			externalId: input.deliveryKey,
       payload: {
         statusCode: delivery.statusCode ?? null,
         responseBody: delivery.responseBody ?? null,
       },
-      errorMessage: delivery.ok ? null : delivery.error ?? "delivery failed",
-    });
+			errorMessage: delivery.ok ? null : delivery.error ?? "delivery failed",
+		} as const;
+		if (existing) {
+			await prisma.itsmEvent.update({
+				where: { id: existing.id },
+				data: {
+					status: eventData.status,
+					payload: eventData.payload,
+					errorMessage: eventData.errorMessage,
+				},
+			});
+		} else {
+			await recordEvent(eventData);
+		}
     await prisma.itsmConnection.update({
       where: { id: row.id },
       data: {
@@ -162,10 +192,17 @@ export async function fanOutTicketEvent(input: {
 export async function safeFanOutTicketEvent(
   input: Parameters<typeof fanOutTicketEvent>[0],
 ): Promise<void> {
-  try {
-    await fanOutTicketEvent(input);
-  } catch (err) {
-    logger.error("ticket fan-out failed", err, {
+	try {
+		await enqueueJob({
+			type: "itsm.outbound",
+			title: `ITSM ${input.eventType}: ${input.title}`.slice(0, 200),
+			payload: { ...input },
+			teamId: input.teamId ?? null,
+			maxAttempts: 5,
+			priority: 1,
+		});
+	} catch (err) {
+		logger.error("ticket fan-out enqueue failed", err, {
       ticketId: input.ticketId,
       eventType: input.eventType,
     });

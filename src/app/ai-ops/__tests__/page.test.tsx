@@ -14,6 +14,7 @@ const requirePagePermissionMock = vi.fn();
 const listAiOpsLogsMock = vi.fn();
 const summariseAiOpsMock = vi.fn();
 const getSettingMock = vi.fn();
+const aiProviderFindManyMock = vi.fn();
 
 vi.mock("@/lib/auth/page-guard", () => ({
 	requirePagePermission: requirePagePermissionMock,
@@ -30,6 +31,9 @@ vi.mock("@/lib/ai/ops/service", () => ({
 }));
 vi.mock("@/lib/settings/service", () => ({
 	getSetting: getSettingMock,
+}));
+vi.mock("@/lib/db", () => ({
+	prisma: { aiProvider: { findMany: aiProviderFindManyMock } },
 }));
 // The RSC reads the locale cookie via `next/headers` which is not
 // available outside a request scope (unit test env). Mock it with a
@@ -53,6 +57,8 @@ describe("/ai-ops page permission gate", () => {
 		listAiOpsLogsMock.mockReset();
 		summariseAiOpsMock.mockReset();
 		getSettingMock.mockReset();
+		aiProviderFindManyMock.mockReset();
+		aiProviderFindManyMock.mockResolvedValue([]);
 	});
 
 	it("calls requirePagePermission with the read permission before rendering", async () => {

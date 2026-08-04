@@ -10,6 +10,7 @@ const { mockPrisma, mockTeamWhere, mockTeamCreateData } = vi.hoisted(() => ({
     deploymentSnapshot: { create: vi.fn() },
     deploymentRollbackRun: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
     server: { findMany: vi.fn() },
+		$transaction: vi.fn(),
   },
   mockTeamWhere: vi.fn(),
   mockTeamCreateData: vi.fn(),
@@ -47,6 +48,7 @@ describe("deployment service", () => {
     vi.clearAllMocks();
     mockTeamWhere.mockReturnValue({ OR: [{ teamId: "team_a" }, { teamId: null }] });
     mockTeamCreateData.mockReturnValue({ teamId: "team_a" });
+		mockPrisma.$transaction.mockImplementation(async (callback: (tx: typeof mockPrisma) => unknown) => callback(mockPrisma));
     mockPrisma.server.findMany.mockImplementation(async ({ where }: { where: { id: { in: string[] } } }) =>
       (where.id.in ?? []).map((id: string) => ({ id })),
     );
@@ -83,6 +85,56 @@ describe("deployment service", () => {
     expect(commandService.createCommandRequest).toHaveBeenCalledWith(
       expect.objectContaining({ teamId: "team_a", submissionMode: "assistant" }),
     );
+  });
+
+  it("scopes idempotency keys by team before persisting and dispatching", async () => {
+    mockPrisma.deploymentRun.findFirst.mockResolvedValue(null);
+
+    await createDeploymentRunFromTemplate(
+      {
+        templateId: "tmpl1",
+        serverIds: ["srv1"],
+        variables: { pkg: "nginx" },
+        requesterId: "u1",
+        idempotencyKey: "browser-request-1",
+      },
+      teamSession,
+    );
+
+    expect(mockPrisma.deploymentRun.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        idempotencyKey: "team:team_a:browser-request-1",
+      }),
+    });
+    expect(commandService.createCommandRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        idempotencyKey: "deployment:team:team_a:browser-request-1",
+      }),
+    );
+  });
+
+  it("returns the existing run when the same scoped launch is replayed", async () => {
+    const existing = {
+      id: "dep-existing",
+      commandRequestId: "cmd-existing",
+      idempotencyKey: "team:team_a:browser-request-1",
+    };
+    mockPrisma.deploymentRun.findFirst.mockResolvedValue(existing);
+
+    const result = await createDeploymentRunFromTemplate(
+      {
+        templateId: "tmpl1",
+        serverIds: ["srv1"],
+        variables: { pkg: "nginx" },
+        requesterId: "u1",
+        idempotencyKey: "browser-request-1",
+      },
+      teamSession,
+    );
+
+    expect(result).toBe(existing);
+    expect(mockPrisma.deploymentRun.create).not.toHaveBeenCalled();
+    expect(commandService.createCommandRequest).not.toHaveBeenCalled();
   });
 
   it("deduplicates deployment target server ids before creating run and command targets", async () => {

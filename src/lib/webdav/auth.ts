@@ -2,9 +2,10 @@
  * WebDAV authentication — Bearer API token or Basic (password = API token).
  * Builds a SessionPayload from the token owner so storage grants/RBAC apply.
  */
-import { prisma } from "@/lib/db";
 import type { SessionPayload } from "@/lib/auth/session";
-import type { RoleKey } from "@/lib/auth/rbac";
+import type { Permission } from "@/lib/auth/rbac";
+import { sessionHasPermission } from "@/lib/auth/authorization";
+import { loadApiTokenOwnerSession } from "@/lib/api-token/authorization";
 import { verifyApiToken } from "@/lib/api-token/service";
 import { AuthError } from "@/lib/errors";
 
@@ -18,7 +19,6 @@ export function webDavTokenAllows(
   scopes: string[],
   needed: "read" | "write" | "delete",
 ): boolean {
-  if (scopes.includes("admin")) return true;
   if (needed === "read") {
     return (
       scopes.includes("storage:read") ||
@@ -42,33 +42,6 @@ export function webDavScopeForMethod(method: string): "read" | "write" | "delete
   return "read";
 }
 
-async function sessionFromUserId(userId: string): Promise<SessionPayload | null> {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      id: true,
-      username: true,
-      status: true,
-      mustChangePassword: true,
-      currentTeamId: true,
-      roles: { select: { role: { select: { key: true } } } },
-    },
-  });
-  if (!user || user.status === "DISABLED") return null;
-  const roles = user.roles
-    .map((r) => r.role.key as string)
-    .filter((key): key is RoleKey =>
-      key === "admin" || key === "operator" || key === "viewer" || key === "storage_manager",
-    );
-  return {
-    userId: user.id,
-    username: user.username,
-    roles,
-    mustChangePassword: user.mustChangePassword,
-    currentTeamId: user.currentTeamId ?? null,
-  };
-}
-
 async function authFromToken(
   token: string,
   needed: "read" | "write" | "delete",
@@ -76,8 +49,10 @@ async function authFromToken(
   const result = await verifyApiToken(token);
   if (!result) return null;
   if (!webDavTokenAllows(result.scopes, needed)) return null;
-  const session = await sessionFromUserId(result.userId);
+  const session = await loadApiTokenOwnerSession(result.userId);
   if (!session) return null;
+  const requiredPermission = `storage:${needed}` as Permission;
+  if (!sessionHasPermission(session, requiredPermission)) return null;
   return { session, tokenId: result.tokenId, scopes: result.scopes };
 }
 

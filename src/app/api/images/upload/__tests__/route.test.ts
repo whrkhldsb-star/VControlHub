@@ -30,6 +30,8 @@ vi.mock("@/lib/auth/authorization", () => ({
 }));
 vi.mock("@/lib/auth/bearer-token", () => ({
   verifyBearerToken: verifyBearerTokenMock,
+  hasBearerAuthorization: (request: Request) =>
+    /^Bearer\s+/i.test(request.headers.get("authorization") ?? ""),
 }));
 vi.mock("@/lib/storage/access-control", () => ({
   assertStorageAccess: assertStorageAccessMock,
@@ -57,7 +59,10 @@ const uploadRoot = "/tmp/vcontrolhub-image-upload-test";
 const session = { userId: "u1", username: "admin", roles: ["admin"], currentTeamId: "team_a" };
 let requestSequence = 0;
 
-function uploadRequest(extra?: Record<string, string>) {
+function uploadRequest(
+  extra?: Record<string, string>,
+  headers?: Record<string, string>,
+) {
   const formData = new FormData();
   formData.set(
     "file",
@@ -70,7 +75,10 @@ function uploadRequest(extra?: Record<string, string>) {
   return new Request("http://local/api/images/upload", {
     method: "POST",
     body: formData,
-		headers: { "x-forwarded-for": `192.0.2.${++requestSequence}` },
+		headers: {
+      "x-forwarded-for": `192.0.2.${++requestSequence}`,
+      ...headers,
+    },
   });
 }
 
@@ -127,6 +135,16 @@ describe("POST /api/images/upload", () => {
         data: expect.objectContaining({ userId: "api_user" }),
       }),
     );
+  });
+
+  it("does not fall back to a cookie session when an explicit Bearer token is invalid", async () => {
+    const response = await POST(
+      uploadRequest(undefined, { authorization: "Bearer revoked-token" }),
+    );
+
+    expect(response.status).toBe(401);
+    expect(requireApiSessionMock).not.toHaveBeenCalled();
+    expect(imageCreateMock).not.toHaveBeenCalled();
   });
 
   it("rejects session callers without storage write permission", async () => {

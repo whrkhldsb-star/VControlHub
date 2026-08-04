@@ -7,12 +7,14 @@ import {
   listApiTokens,
   revokeApiToken,
 } from "@/lib/api-token/service";
+import { apiTokenScopeAllowedForSession } from "@/lib/api-token/authorization";
 import { auditUserAction } from "@/lib/audit/service";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { withCacheHeaders, CachePresets } from "@/lib/cache";
 
-import { AuthError } from "@/lib/errors";
+import { AuthError, ForbiddenError } from "@/lib/errors";
+import { t } from "@/lib/i18n/translations";
 import { idQuerySchema, parseSearchParams } from "@/lib/http/parse-search-params";
 export const dynamic = "force-dynamic";
 
@@ -108,6 +110,12 @@ export async function POST(request: Request) {
 
       const parsed = isFormSubmission ? createTokenSchema.parse(await parseCreateBody(request)) : body;
       const scopes = validateScopes(parsed.scopes);
+      const unauthorizedScopes = scopes.filter(
+        (scope) => !apiTokenScopeAllowedForSession(scope, session),
+      );
+      if (unauthorizedScopes.length > 0) {
+        throw new ForbiddenError(t("api.auth.scopeEscalation"));
+      }
       const expiresAt = parseExpiresAt(parsed.expiresAt);
       const result = await createApiToken({
         userId: session.userId,

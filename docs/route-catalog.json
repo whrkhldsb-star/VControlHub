@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-29T01:41:23.336Z",
+  "generatedAt": "2026-08-04T02:05:23.847Z",
   "summary": {
     "sidebarMain": 30,
     "sidebarSystem": 6,
@@ -543,6 +543,8 @@
       "inSidebarMain": true,
       "inSidebarSystem": false,
       "declaredPermissions": [
+        "command:create",
+        "command:execute",
         "server:ssh",
         "server:write"
       ]

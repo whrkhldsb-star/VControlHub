@@ -41,11 +41,9 @@ eth0: 4096 1 0 0 0 0 0 0 8192 1 0 0 0 0 0 0
 import { GET } from "../route";
 
 function makeReq(query: string) {
-	const nextUrl = new URL(`http://localhost/api/traffic/summary${query}`);
-	return {
-		url: nextUrl.toString(),
-		nextUrl,
-	} as Parameters<typeof GET>[0];
+	return new Request(
+		`http://localhost/api/traffic/summary${query}`,
+	) as Parameters<typeof GET>[0];
 }
 
 describe("/api/traffic/summary zod validation (TR-037 R5+)", () => {

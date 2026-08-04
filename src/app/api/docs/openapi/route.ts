@@ -142,6 +142,7 @@ function buildOpenApiSpec(t: TFunction) {
         get: {
           tags: [t("openapiSpec.tags.servers.name")],
           summary: t("openapiSpec.paths./servers/monitor.get.summary"),
+          security: [{ cookieAuth: [] }, { apiTokenAuth: [] }],
           parameters: [
             {
               name: "id",
@@ -157,6 +158,7 @@ function buildOpenApiSpec(t: TFunction) {
         get: {
           tags: [t("openapiSpec.tags.files.name")],
           summary: t("openapiSpec.paths./storage/local.get.summary"),
+          security: [{ cookieAuth: [] }, { apiTokenAuth: [] }],
           parameters: [
             {
               name: "path",
@@ -172,6 +174,7 @@ function buildOpenApiSpec(t: TFunction) {
         get: {
           tags: [t("openapiSpec.tags.files.name")],
           summary: t("openapiSpec.paths./storage/sftp.get.summary"),
+          security: [{ cookieAuth: [] }, { apiTokenAuth: [] }],
           responses: { "200": { description: t("openapiSpec.paths./storage/sftp.get.responses.200") } },
         },
         post: {
@@ -196,6 +199,7 @@ function buildOpenApiSpec(t: TFunction) {
         post: {
           tags: [t("openapiSpec.tags.imageBed.name")],
           summary: t("openapiSpec.paths./images/upload.post.summary"),
+          security: [{ cookieAuth: [] }, { apiTokenAuth: [] }],
           requestBody: {
             required: true,
             content: {
@@ -208,13 +212,14 @@ function buildOpenApiSpec(t: TFunction) {
               },
             },
           },
-          responses: { "200": { description: t("openapiSpec.paths./images/upload.post.responses.200") } },
+          responses: { "201": { description: t("openapiSpec.paths./images/upload.post.responses.200") } },
         },
       },
       "/images/list": {
         get: {
           tags: [t("openapiSpec.tags.imageBed.name")],
           summary: t("openapiSpec.paths./images/list.get.summary"),
+          security: [{ cookieAuth: [] }, { apiTokenAuth: [] }],
           responses: { "200": { description: t("openapiSpec.paths./images/list.get.responses.200") } },
         },
       },
@@ -365,6 +370,7 @@ function buildOpenApiSpec(t: TFunction) {
         get: {
           tags: [t("openapiSpec.tags.system.name")],
           summary: t("openapiSpec.paths./health.get.summary"),
+          security: [{ cookieAuth: [] }, { apiTokenAuth: [] }],
           responses: { "200": { description: "OK" } },
         },
       },
@@ -391,6 +397,13 @@ function buildOpenApiSpec(t: TFunction) {
     components: {
       securitySchemes: {
         cookieAuth: { type: "apiKey", in: "cookie", name: "session" },
+        apiTokenAuth: {
+          type: "http",
+          scheme: "bearer",
+          bearerFormat: "VControlHub API Token",
+          description:
+            "Create a scoped token under /api-tokens. Bearer access is supported only by operations that explicitly list apiTokenAuth.",
+        },
       },
     },
     security: [{ cookieAuth: [] }],

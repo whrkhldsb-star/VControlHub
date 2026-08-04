@@ -136,6 +136,7 @@ export type DeploymentLaunchInputDto = {
   variables: Record<string, string>;
   requesterId: string;
   reason?: string;
+	idempotencyKey?: string;
 };
 
 /**

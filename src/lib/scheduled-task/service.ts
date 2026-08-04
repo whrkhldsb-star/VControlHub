@@ -227,8 +227,93 @@ export async function retryScheduledTask(
 		teamId: task.teamId ?? null,
 	});
 
-	await recordTaskRun(task.id, `Manual retry has triggered command request ${result.id}`);
+	await recordTaskDispatch(task.id, result.id, true);
 	return prisma.scheduledTask.findUniqueOrThrow({ where: { id } });
+}
+
+export async function recordTaskDispatch(id: string, commandRequestId: string, manual = false) {
+	return prisma.$transaction(async (tx) => {
+		const existing = await tx.scheduledTaskRun.findUnique({ where: { commandRequestId } });
+		const task = await tx.scheduledTask.findUnique({
+			where: { id },
+			select: { cronExpression: true },
+		});
+		if (!task) return null;
+		if (!existing) {
+			const dispatchedAt = new Date();
+			await tx.scheduledTaskRun.create({
+				data: { scheduledTaskId: id, commandRequestId, manual, dispatchedAt },
+			});
+			await tx.scheduledTask.update({
+				where: { id },
+				data: {
+					lastRunAt: dispatchedAt,
+					lastResult: `${manual ? "Manual retry dispatched" : "Dispatched"} command request ${commandRequestId}; awaiting final result`,
+					runCount: { increment: 1 },
+					nextRunAt: computeNextRun(task.cronExpression),
+				},
+			});
+		}
+		return existing ?? { scheduledTaskId: id, commandRequestId, status: "DISPATCHED", manual };
+	});
+}
+
+const TERMINAL_COMMAND_STATUSES = new Set(["COMPLETED", "FAILED", "REJECTED", "CANCELLED"]);
+
+export async function reconcileScheduledTaskRuns(limit = 500) {
+	const pendingRuns = await prisma.scheduledTaskRun.findMany({
+		where: { status: "DISPATCHED" },
+		orderBy: { dispatchedAt: "asc" },
+		take: limit,
+		include: {
+			commandRequest: { select: { status: true } },
+			scheduledTask: { select: { name: true, createdById: true, teamId: true } },
+		},
+	});
+	let reconciled = 0;
+	for (const run of pendingRuns) {
+		const status = run.commandRequest.status;
+		if (!TERMINAL_COMMAND_STATUSES.has(status)) continue;
+		const failed = status !== "COMPLETED";
+		const result = failed
+			? `Execution failed: command request ${run.commandRequestId} ended as ${status}`
+			: `Completed command request ${run.commandRequestId}`;
+		const completedAt = new Date();
+		const claimed = await prisma.scheduledTaskRun.updateMany({
+			where: { id: run.id, status: "DISPATCHED" },
+			data: { status, result, completedAt },
+		});
+		if (claimed.count === 0) continue;
+		await prisma.scheduledTask.updateMany({
+			where: {
+				id: run.scheduledTaskId,
+				OR: [{ lastRunAt: null }, { lastRunAt: { lte: run.dispatchedAt } }],
+			},
+			data: { lastResult: result },
+		});
+		if (failed && run.scheduledTask.createdById) {
+			const previous = await prisma.scheduledTaskRun.findFirst({
+				where: {
+					scheduledTaskId: run.scheduledTaskId,
+					dispatchedAt: { lt: run.dispatchedAt },
+					completedAt: { not: null },
+				},
+				orderBy: { dispatchedAt: "desc" },
+				select: { status: true },
+			});
+			if (previous && previous.status !== "COMPLETED") {
+				notifyTaskConsecutiveFailed(
+					run.scheduledTask.createdById,
+					run.scheduledTask.name,
+					2,
+					result.slice(0, 200),
+					run.scheduledTask.teamId,
+				).catch((err) => taskLogger.warn("notifyTaskConsecutiveFailed failed", { error: err instanceof Error ? err.message : String(err) }));
+			}
+		}
+		reconciled += 1;
+	}
+	return { inspected: pendingRuns.length, reconciled };
 }
 
 export async function recordTaskRun(id: string, result: string) {

@@ -1,12 +1,13 @@
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { ALLOWED_API_TOKEN_SCOPES, listApiTokens } from "@/lib/api-token/service";
+import { apiTokenScopeAllowedForSession } from "@/lib/api-token/authorization";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { ApiTokenManagerClient } from "./api-token-manager-client";
 import { PageShell, PageHeader, EmptyState } from "@/components/page-shell";
 import { Callout } from "@/components/ui-primitives";
 
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 export default async function Page() {
 	const locale = await getServerLocale();
@@ -26,6 +27,9 @@ export default async function Page() {
 		);
 	}
 	const tokens = await listApiTokens(session.userId, 200);
+	const allowedScopes = ALLOWED_API_TOKEN_SCOPES.filter((scope) =>
+		apiTokenScopeAllowedForSession(scope, session),
+	);
 	return (
 		<PageShell>
 			<PageHeader
@@ -36,7 +40,7 @@ export default async function Page() {
 			<div className="mb-5">
 				<Callout tone="neutral" title={t("apiTokensPage.hint", locale)} />
 			</div>
-			<ApiTokenManagerClient initialTokens={tokens} allowedScopes={ALLOWED_API_TOKEN_SCOPES} />
+			<ApiTokenManagerClient initialTokens={tokens} allowedScopes={allowedScopes} />
 		</PageShell>
 	);
 }

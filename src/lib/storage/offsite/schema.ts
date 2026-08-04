@@ -42,6 +42,22 @@ export const OffsiteConfigSchema = z.object({
 });
 export type OffsiteConfig = z.infer<typeof OffsiteConfigSchema>;
 
+export const offsiteConfigUpdateApiSchema = z
+	.object({
+		enabled: z.boolean().optional(),
+		provider: providerSchema.optional(),
+		endpoint: z.string().max(2048).optional(),
+		region: z.string().max(128).optional(),
+		bucket: z.string().max(128).optional(),
+		accessKeyId: z.string().max(256).optional(),
+		secretAccessKey: z.string().max(512).optional(),
+		pathPrefix: z.string().max(256).optional(),
+		dailyWindowHour: z.number().int().min(0).max(23).optional(),
+		retentionDays: z.number().int().min(1).max(3650).optional(),
+		failureAlertRecipient: z.string().max(256).optional(),
+	})
+	.strict();
+
 /** Returns a list of human-readable issues, empty list = ok. */
 export function validateOffsiteConfigForUse(config: OffsiteConfig): string[] {
 	const issues: string[] = [];

@@ -93,7 +93,7 @@ test("ticket create and dynamic detail page", async ({ page }) => {
 	await expect(link).toBeVisible();
 	await link.click();
 	await expect(page).toHaveURL(/\/tickets\/[^/]+$/);
-	await expect(page.getByText(marker, { exact: true })).toBeVisible();
+	await expect(page.getByRole("heading", { name: marker, exact: true })).toBeVisible();
 });
 
 test("API token create, plaintext display and revoke", async ({ page }) => {

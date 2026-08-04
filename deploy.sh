@@ -60,7 +60,7 @@ trap on_exit EXIT
 
 cd "$APP_DIR"
 
-echo "==> [1/6] 修正源文件 owner/mode (避免 root-owned / umask-077 阻塞 vcontrolhub 读)"
+echo "==> [1/8] 修正源文件 owner/mode (避免 root-owned / umask-077 阻塞 vcontrolhub 读)"
 # Cover every tree next build + runtime touch. `|| true` keeps deploy resilient
 # if an optional path is missing (next.config.* glob, vitest config, etc.).
 chown -R "$APP_USER:$APP_USER" \
@@ -106,7 +106,7 @@ chown -R "$APP_USER:$APP_USER" "$APP_DIR/.next" 2>/dev/null || rm -rf "$APP_DIR/
 # node_modules. npm ci runs as APP_USER and must be able to remove that tree.
 chown -R "$APP_USER:$APP_USER" "$APP_DIR/node_modules" 2>/dev/null || true
 
-echo "==> [2/6] 停止 Next 服务后 build（禁止覆盖运行中进程的 Client Manifest）"
+echo "==> [2/8] 停止 Next 服务后 build（禁止覆盖运行中进程的 Client Manifest）"
 systemctl stop "$SERVICE_NAME"
 if systemctl list-unit-files "${WORKER_SERVICE_NAME}.service" >/dev/null 2>&1; then
 	systemctl stop "$WORKER_SERVICE_NAME"
@@ -124,10 +124,10 @@ sudo -u "$APP_USER" env bash -lc 'umask 022; npx prisma generate'
 sudo -u "$APP_USER" env VCONTROLHUB_DEPLOY_BUILD=1 bash -lc 'umask 022; npm run build'
 sudo -u "$APP_USER" env bash -lc 'umask 022; npm run build:runtime'
 
-echo "==> [2.5/6] 应用 prisma migration (P-001-N: deploy.sh 此前缺此步, 部署后 30 秒 worker 报列不存在)"
+echo "==> [3/8] 应用 Prisma migration"
 sudo -u "$APP_USER" npx prisma migrate deploy 2>&1 | tail -20
 
-echo "==> [2.6/7] 安装独立 Worker unit，并关闭 Next 进程内 Worker"
+echo "==> [4/8] 安装独立 Worker unit，并关闭 Next 进程内 Worker"
 NEXT_UNIT="/etc/systemd/system/${SERVICE_NAME}.service"
 WORKER_UNIT="/etc/systemd/system/${WORKER_SERVICE_NAME}.service"
 [ -f "$NEXT_UNIT" ] || { echo "  FAIL: 找不到 $NEXT_UNIT"; exit 1; }
@@ -146,7 +146,7 @@ chmod 0644 "$WORKER_UNIT" "/etc/systemd/system/${SERVICE_NAME}.service.d/10-work
 systemctl daemon-reload
 systemctl enable "$WORKER_SERVICE_NAME"
 
-echo "==> [2.7/7] TR-002 + R2: 检测 + patch /etc/caddy/Caddyfile 的 /direct 反代 (validate-before-reload + 多版本 backup 轮转)"
+echo "==> [5/8] 检测并更新 Caddy /direct 反代（写入前后校验 + 备份轮转）"
 CADDY_FILE="/etc/caddy/Caddyfile"
 if [ -f "$CADDY_FILE" ]; then
 	if ! grep -q 'reverse_proxy /direct' "$CADDY_FILE"; then
@@ -183,10 +183,9 @@ if [ -f "$CADDY_FILE" ]; then
 	else
 		echo "  /direct 反代已存在, 跳过"
 	fi
-	# reload 前最终 validate (防止 deploy 期间 Caddyfile 被改)
+	# Final validation prevents a concurrent edit from reaching the later restart.
 	if caddy validate --config "$CADDY_FILE" --adapter caddyfile >/dev/null 2>&1; then
-		systemctl reload caddy || true
-		echo "  caddy validate OK + reload"
+		echo "  caddy validate OK（将在服务启动阶段统一 restart）"
 	else
 		validate_exit=$?
 		echo "  FAIL: caddy validate 退出码 $validate_exit, 恢复最新 backup"
@@ -201,7 +200,7 @@ else
 	echo "  跳过 ($CADDY_FILE 不存在)"
 fi
 
-echo "==> [2.7/7] TR-002: 验证 vcontrolhub-direct.service DIRECT_BIND=127.0.0.1 (如已装)"
+echo "==> [6/8] 验证 vcontrolhub-direct.service 的 loopback 绑定（如已安装）"
 if systemctl list-unit-files vcontrolhub-direct.service >/dev/null 2>&1; then
 	if ! systemctl show vcontrolhub-direct.service -p Environment 2>/dev/null | grep -q DIRECT_BIND; then
 		echo "  WARNING: vcontrolhub-direct.service 未显式声明 DIRECT_BIND. 建议在 /etc/vcontrolhub-direct.env 加 DIRECT_BIND=127.0.0.1 然后 systemctl restart vcontrolhub-direct.service"
@@ -212,10 +211,9 @@ else
 	echo "  跳过 (服务未安装)"
 fi
 
-echo "==> [3/6] 修正 .next owner"
+echo "==> [7/8] 修正构建产物权限并启动服务"
 chown -R "$APP_USER:$APP_USER" "$APP_DIR/.next" "$APP_DIR/.next/cache" 2>/dev/null || true
 
-echo "==> [4/6] 启动服务"
 systemctl reset-failed "$SERVICE_NAME" 2>/dev/null || true
 systemctl reset-failed "$WORKER_SERVICE_NAME" 2>/dev/null || true
 systemctl start "$SERVICE_NAME" "$WORKER_SERVICE_NAME"
@@ -223,7 +221,7 @@ service_stopped=0
 systemctl restart vcontrolhub-ssh-ws caddy
 sleep 2
 
-echo "==> [5/6] 验证服务 active"
+echo "==> 验证服务 active"
 for svc in "$SERVICE_NAME" "$WORKER_SERVICE_NAME" vcontrolhub-ssh-ws caddy; do
   if ! systemctl is-active --quiet "$svc"; then
     echo "  FAIL: $svc 未 active"
@@ -232,7 +230,7 @@ for svc in "$SERVICE_NAME" "$WORKER_SERVICE_NAME" vcontrolhub-ssh-ws caddy; do
   fi
 done
 
-echo "==> [6/7] 跑 smoke test"
+echo "==> [8/8] 跑 smoke test"
 if [ -x "$APP_DIR/deploy/smoke-test.sh" ]; then
   "$APP_DIR/deploy/smoke-test.sh"
 else
@@ -241,7 +239,7 @@ fi
 
 # 部署成功后清理 webpack 持久化缓存 (deploy 后留 429M+ 没用, 下次 build 重建)
 # 保留 swc cache (12K, 加快 next build 编译)
-echo "==> [7/7] 清理 .next/cache/webpack (deploy 后 429M 残留)"
+echo "==> [cleanup] 清理 .next/cache/webpack（下次构建会按需重建）"
 if [ -d "$APP_DIR/.next/cache/webpack" ]; then
   size_before=$(du -sm "$APP_DIR/.next/cache/webpack" 2>/dev/null | awk '{print $1}')
   rm -rf "$APP_DIR/.next/cache/webpack"

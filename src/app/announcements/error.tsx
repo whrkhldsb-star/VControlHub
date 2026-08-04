@@ -1,13 +1,3 @@
 "use client";
 
-import { RouteError } from "@/components/route-error";
-
-export default function SubRouteError({
-	error,
-	reset,
-}: {
-	error: Error & { digest?: string };
-	reset: () => void;
-}) {
-	return <RouteError error={error} reset={reset} />;
-}
+export { RouteError as default } from "@/components/route-error";

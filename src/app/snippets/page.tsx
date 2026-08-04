@@ -4,7 +4,7 @@ import { PageShell, PageHeader } from "@/components/page-shell";
 import { SnippetList } from "./snippet-list-client";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 export default async function Page() {
 	const locale = await getServerLocale();

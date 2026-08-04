@@ -25,7 +25,6 @@ const cardClass =
 const labelClass =
 	"text-xs font-medium text-[var(--text-secondary)] tracking-wide";
 const selectClass = UI_INPUT;
-const inputClass = UI_INPUT;
 const buttonPrimary =
 	"text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50";
 const buttonGhost =
@@ -156,6 +155,7 @@ export function AiOpsActionsToolbar({
 
 export function AiOpsSettingsSection({
 	settings,
+	providerOptions,
 	editingProvider,
 	canManage,
 	savingSettings,
@@ -165,6 +165,7 @@ export function AiOpsSettingsSection({
 	t,
 }: {
 	settings: AiOpsSettings;
+	providerOptions: Array<{ id: string; name: string; defaultModel: string }>;
 	editingProvider: string;
 	canManage: boolean;
 	savingSettings: boolean;
@@ -191,7 +192,17 @@ export function AiOpsSettingsSection({
 				<label className="flex flex-col gap-2">
 					<span className={labelClass}>{t("aiOpsPage.settings.provider")}</span>
 					{canManage ? (
-						<input type="text" className={inputClass} value={editingProvider} placeholder={t("aiOpsPage.settings.notConfigured")} onChange={(e) => setEditingProvider(e.target.value)} />
+						<select className={selectClass} value={editingProvider} onChange={(e) => setEditingProvider(e.target.value)}>
+							<option value="">{t("aiOpsPage.settings.notConfigured")}</option>
+							{editingProvider && !providerOptions.some((provider) => provider.id === editingProvider) && (
+								<option value={editingProvider} disabled>{editingProvider}</option>
+							)}
+							{providerOptions.map((provider) => (
+								<option key={provider.id} value={provider.id}>
+									{provider.name} · {provider.defaultModel}
+								</option>
+							))}
+						</select>
 					) : (
 						<span className="text-sm text-[var(--text-primary)]">{editingProvider.trim() || t("aiOpsPage.settings.notConfigured")}</span>
 					)}

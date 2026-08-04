@@ -138,6 +138,12 @@ const BEARER_TOKEN_API_BYPASS: Array<{ method: string; pattern: RegExp }> = [
 
 function canRouteValidateBearerToken(pathname: string, method: string): boolean {
   const normalizedMethod = method.toUpperCase();
+  if (pathname.startsWith("/api/") && SAFE_METHODS.has(normalizedMethod)) {
+    return true;
+  }
+  if (pathname.startsWith("/api/webdav/")) {
+    return true;
+  }
   return BEARER_TOKEN_API_BYPASS.some((entry) => entry.method === normalizedMethod && entry.pattern.test(pathname));
 }
 

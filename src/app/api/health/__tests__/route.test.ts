@@ -3,26 +3,26 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   requireApiPermissionMock,
-  verifyBearerTokenMock,
+  hasBearerAuthorizationMock,
+  authenticateBearerForPermissionsMock,
   collectAllHealthMock,
   getMetricHistoryMock,
   assertServerTeamAccessMock,
-  userFindUniqueMock,
 } = vi.hoisted(() => ({
   requireApiPermissionMock: vi.fn(),
-  verifyBearerTokenMock: vi.fn(),
+  hasBearerAuthorizationMock: vi.fn(),
+  authenticateBearerForPermissionsMock: vi.fn(),
   collectAllHealthMock: vi.fn(),
   getMetricHistoryMock: vi.fn(),
   assertServerTeamAccessMock: vi.fn(),
-  userFindUniqueMock: vi.fn(),
 }));
 
-vi.mock("@/lib/db", () => ({ prisma: { user: { findUnique: userFindUniqueMock } } }));
 vi.mock("@/lib/auth/require-api-permission", () => ({
   requireApiPermission: requireApiPermissionMock,
 }));
 vi.mock("@/lib/auth/bearer-token", () => ({
-  verifyBearerToken: verifyBearerTokenMock,
+  hasBearerAuthorization: hasBearerAuthorizationMock,
+  authenticateBearerForPermissions: authenticateBearerForPermissionsMock,
 }));
 vi.mock("@/lib/health/service", () => ({
   collectAllHealth: collectAllHealthMock,
@@ -38,7 +38,14 @@ describe("/api/health", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     requireApiPermissionMock.mockResolvedValue({ session });
-    verifyBearerTokenMock.mockResolvedValue(null);
+    hasBearerAuthorizationMock.mockImplementation(
+      (request: Request) => request.headers.has("authorization"),
+    );
+    authenticateBearerForPermissionsMock.mockResolvedValue({
+      session,
+      tokenId: "tok_1",
+      scopes: ["health:read"],
+    });
     collectAllHealthMock.mockResolvedValue({
       total: 1,
       online: 1,
@@ -70,7 +77,6 @@ describe("/api/health", () => {
       },
     ]);
     assertServerTeamAccessMock.mockResolvedValue({ ok: true, server: { id: "srv_1" } });
-    userFindUniqueMock.mockResolvedValue({ id: "user_1", username: "viewer", mustChangePassword: false, currentTeamId: null, roles: [{ role: { key: "viewer" } }] });
   });
 
   it("returns 401 when the session is missing", async () => {
@@ -100,12 +106,9 @@ describe("/api/health", () => {
 
 
   it("rejects Bearer tokens whose user no longer exists (no unscoped fleet dump)", async () => {
-    verifyBearerTokenMock.mockResolvedValueOnce({
-      userId: "gone_user",
-      tokenId: "tok_gone",
-      scopes: ["health:read"],
-    });
-    userFindUniqueMock.mockResolvedValueOnce(null);
+    authenticateBearerForPermissionsMock.mockResolvedValueOnce(
+      Response.json({ error: "invalid token" }, { status: 401 }),
+    );
 
     const response = await GET(
       new Request("https://example.com/api/health", {
@@ -119,12 +122,6 @@ describe("/api/health", () => {
   });
 
   it("allows health read API tokens to fetch node health for external monitors", async () => {
-    verifyBearerTokenMock.mockResolvedValueOnce({
-      userId: "user_1",
-      tokenId: "tok_1",
-      scopes: ["health:read"],
-    });
-
     const response = await GET(
       new Request("https://example.com/api/health", {
         headers: { authorization: "Bearer whr_fake_health" },
@@ -132,9 +129,9 @@ describe("/api/health", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(verifyBearerTokenMock).toHaveBeenCalledWith(
+    expect(authenticateBearerForPermissionsMock).toHaveBeenCalledWith(
       expect.any(Request),
-      "health:read",
+      ["health:read"],
     );
     expect(requireApiPermissionMock).not.toHaveBeenCalled();
     expect(collectAllHealthMock).toHaveBeenCalledOnce();
@@ -144,7 +141,9 @@ describe("/api/health", () => {
   });
 
   it("rejects invalid or insufficient Bearer tokens without falling back to session", async () => {
-    verifyBearerTokenMock.mockResolvedValueOnce(null);
+    authenticateBearerForPermissionsMock.mockResolvedValueOnce(
+      Response.json({ error: "invalid token" }, { status: 401 }),
+    );
 
     const response = await GET(
       new Request("https://example.com/api/health", {
@@ -199,9 +198,8 @@ describe("/api/health", () => {
     expect(response.status).toBe(500);
     const body = await response.json();
     expect(body.code).toBe("INTERNAL_ERROR");
-    expect(body.message).toContain(
-      "Failed to collect health data: Unsupported state or unable to authenticate data",
-    );
+    expect(body.message).toBe("Failed to fetch health data");
+    expect(body.message).not.toContain("authenticate data");
     expect(body.error).toBe(body.message);
   });
 
@@ -217,9 +215,8 @@ describe("/api/health", () => {
     expect(response.status).toBe(500);
     const body = await response.json();
     expect(body.code).toBe("INTERNAL_ERROR");
-    expect(body.message).toContain(
-      "Failed to fetch health history: database connection lost",
-    );
+    expect(body.message).toBe("Failed to fetch health data");
+    expect(body.message).not.toContain("database connection lost");
     expect(body.error).toBe(body.message);
   });
 });

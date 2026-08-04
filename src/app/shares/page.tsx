@@ -13,7 +13,7 @@ import { ShareRowActions } from "./share-row-actions";
 import { ShareAccessLogsButton } from "./share-access-logs";
 import { ShareAccessReport } from "./share-access-report";
 
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 export default async function SharesPage() {
 	const locale = await getServerLocale();

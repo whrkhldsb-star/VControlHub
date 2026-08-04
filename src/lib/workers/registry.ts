@@ -35,6 +35,7 @@ import { startVpsBackupJobWorker, stopVpsBackupForTests } from "@/lib/backup/vps
 import { startVpsBackupScheduleWorker, stopVpsBackupScheduleForTests } from "@/lib/backup/vps-backup-schedule-worker";
 import { startTicketSlaWorker, stopTicketSlaWorkerForTests } from "@/lib/ticket/sla-worker";
 import { startTrafficSamplingWorker, stopTrafficSamplingWorkerForTests } from "@/lib/monitoring/traffic-sampling-worker";
+import { startItsmOutboundWorker, stopItsmOutboundWorkerForTests } from "@/lib/itsm/outbound-worker";
 
 export type WorkerId =
   | "ai-ops-scan"
@@ -47,6 +48,7 @@ export type WorkerId =
   | "download-execution"
   | "health-sampling"
   | "job-maintenance"
+	| "itsm-outbound"
   | "quick-service"
   | "scheduled-task"
   | "sftp-sync"
@@ -98,6 +100,7 @@ function getRegistryState(): Record<WorkerId, { started: boolean }> {
       "download-execution": { started: false },
       "health-sampling": { started: false },
       "job-maintenance": { started: false },
+			"itsm-outbound": { started: false },
       "quick-service": { started: false },
       "scheduled-task": { started: false },
       "sftp-sync": { started: false },
@@ -346,6 +349,14 @@ const JOB_MAINTENANCE: WorkerSpec = {
   stop: () => stopJobMaintenanceWorkerForTests(),
 };
 
+const ITSM_OUTBOUND: WorkerSpec = {
+	id: "itsm-outbound",
+	label: "ITSM outbound delivery",
+	jobType: "itsm.outbound",
+	start: async () => { await startItsmOutboundWorker(); },
+	stop: () => stopItsmOutboundWorkerForTests(),
+};
+
 export const WORKER_REGISTRY: readonly WorkerSpec[] = Object.freeze([
   AI_OPS_SCAN,
   ALERT_EVALUATION,
@@ -358,6 +369,7 @@ export const WORKER_REGISTRY: readonly WorkerSpec[] = Object.freeze([
   TRAFFIC_SAMPLING,
   DOWNLOAD_EXECUTION,
   JOB_MAINTENANCE,
+	ITSM_OUTBOUND,
   QUICK_SERVICE,
   SCHEDULED_TASK,
   SFTP_SYNC,

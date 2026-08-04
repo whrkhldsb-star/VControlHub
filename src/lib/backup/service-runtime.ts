@@ -415,6 +415,7 @@ export async function pruneOldBackupRecordsNow(input: {
 	const deletedIds: string[] = [];
 
 	for (const candidate of plan.candidates) {
+		let artifactCleanupSucceeded = !candidate.filePath;
 		if (candidate.filePath) {
 			let fileExists = true;
 			let fullPath: string | null = null;
@@ -429,13 +430,14 @@ export async function pruneOldBackupRecordsNow(input: {
 					error: message,
 				});
 			}
-			if (fullPath) {
-				try {
-					await stat(fullPath);
-				} catch (statError) {
-					if ((statError as NodeJS.ErrnoException).code === "ENOENT") {
-						fileExists = false;
-					} else {
+				if (fullPath) {
+					try {
+						await stat(fullPath);
+					} catch (statError) {
+						if ((statError as NodeJS.ErrnoException).code === "ENOENT") {
+							fileExists = false;
+							artifactCleanupSucceeded = true;
+						} else {
 						const message = statError instanceof Error ? statError.message : String(statError);
 						fileErrors.push(`${candidate.id}: ${message.slice(0, 200)}`);
 						retentionLogger.warn("backup retention: stat failed", {
@@ -445,13 +447,15 @@ export async function pruneOldBackupRecordsNow(input: {
 						});
 					}
 				}
-				if (fileExists) {
-					try {
-						await rm(fullPath, { force: true });
-						filesDeleted += 1;
-					} catch (rmError) {
-						if ((rmError as NodeJS.ErrnoException).code === "ENOENT") {
-							filesSkipped += 1;
+					if (fileExists) {
+						try {
+							await rm(fullPath, { force: true });
+							filesDeleted += 1;
+							artifactCleanupSucceeded = true;
+						} catch (rmError) {
+							if ((rmError as NodeJS.ErrnoException).code === "ENOENT") {
+								filesSkipped += 1;
+								artifactCleanupSucceeded = true;
 						} else {
 							const message = rmError instanceof Error ? rmError.message : String(rmError);
 							fileErrors.push(`${candidate.id}: ${message.slice(0, 200)}`);
@@ -468,6 +472,9 @@ export async function pruneOldBackupRecordsNow(input: {
 			}
 		} else {
 			filesSkipped += 1;
+		}
+		if (!artifactCleanupSucceeded) {
+			continue;
 		}
 
 		try {

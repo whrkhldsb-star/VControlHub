@@ -2,7 +2,7 @@
  * TR-030 / 56 multi-tenant (Tick 3): conditional render audit.
  *
  * Asserts that the management surfaces in `AiOpsPageClient` (trigger
- * scan button, mode select / providerId input in settings, per-action
+ * scan button, mode/provider selects in settings, per-action
  * execute buttons) are fully removed when `canManage` is false, instead
  * of being rendered with `disabled={!canManage || ...}`.
  *
@@ -135,9 +135,9 @@ describe("AiOpsPageClient conditional render audit", () => {
 			/>,
 		);
 
-		// After enabling canManage, the settings card adds its own <select>.
+		// After enabling canManage, the settings card adds mode + provider selects.
 		await waitFor(() => {
-			expect(document.querySelectorAll("select").length).toBe(4);
+			expect(document.querySelectorAll("select").length).toBe(5);
 		});
 	});
 

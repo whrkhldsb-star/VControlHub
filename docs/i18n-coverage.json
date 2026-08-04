@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-07-29T08:05:35.450Z",
+  "generatedAt": "2026-08-04T01:34:15.219Z",
   "summary": {
-    "files": 427,
+    "files": 428,
     "filesWithStrings": 0,
     "totalStrings": 0,
     "coveredStrings": 0,
@@ -2071,6 +2071,13 @@
     },
     "src/app/servers/batch-server-action-panel.tsx": {
       "path": "src/app/servers/batch-server-action-panel.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/servers/command-launch-form.tsx": {
+      "path": "src/app/servers/command-launch-form.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,

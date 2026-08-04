@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -44,6 +44,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 	const [templateId, setTemplateId] = useState(templates[0]?.id ?? "");
 	const [pending, setPending] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const idempotencyKeyRef = useRef<string | null>(null);
 	const selectedTemplate = templates.find((template) => template.id === templateId) ?? templates[0];
 	const variables = useMemo(() => uniqueVariables(selectedTemplate), [selectedTemplate]);
 
@@ -70,6 +71,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 		setError(null);
 		setPending(true);
 		try {
+			idempotencyKeyRef.current ??= crypto.randomUUID();
 			const form = e.currentTarget;
 			const fd = new FormData(form);
 			const vars: Record<string, string> = {};
@@ -86,6 +88,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 			const reason = String(fd.get("reason") ||"").trim();
 			await csrfFetch("/api/deployments", {
 				method:"POST",
+				headers: { "Idempotency-Key": idempotencyKeyRef.current },
 				body: JSON.stringify({
 					templateId: fd.get("templateId"),
 					serverIds,
@@ -93,6 +96,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 					reason: reason || undefined,
 				}),
 			});
+			idempotencyKeyRef.current = null;
 			addToast("success", t("deploymentsPage.launch.toast.success"));
 			form.reset();
 			setTemplateId(templates[0]?.id ?? "");

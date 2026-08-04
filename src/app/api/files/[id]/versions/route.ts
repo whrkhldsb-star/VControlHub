@@ -3,7 +3,6 @@
  * POST /api/files/[id]/versions          — create manual snapshot
  */
 import { NextResponse } from "next/server";
-import { z } from "zod";
 
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -13,12 +12,9 @@ import {
   createManualFileVersion,
   listFileVersions,
 } from "@/lib/storage/file-versions";
+import { createFileVersionBodySchema } from "@/lib/files/schema";
 
 export const dynamic = "force-dynamic";
-
-const createBodySchema = z.object({
-  note: z.string().max(500).optional().nullable(),
-});
 
 export async function GET(
   request: Request,
@@ -51,7 +47,7 @@ export async function POST(
     {
       permission: "storage:write",
       rateLimit: GENERAL_WRITE_LIMIT,
-      bodySchema: createBodySchema,
+      bodySchema: createFileVersionBodySchema,
       errorStatus: 400,
       errorMessage: "Failed to create file version",
     },

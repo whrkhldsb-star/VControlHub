@@ -96,6 +96,19 @@ describe("/api/deployments", () => {
       reason: "upgrade",
     }, expect.objectContaining({ userId: "u1" }));
   });
+
+	it("forwards the Idempotency-Key header to the deployment service", async () => {
+		const res = await route.POST(new Request("http://local/api/deployments", {
+			method: "POST",
+			headers: { "content-type": "application/json", "idempotency-key": "deploy-request-1" },
+			body: JSON.stringify({ templateId: "tmpl1", serverIds: ["srv1"], variables: {} }),
+		}));
+		expect(res.status).toBe(201);
+		expect(mocks.createDeploymentRunFromTemplate).toHaveBeenCalledWith(
+			expect.objectContaining({ idempotencyKey: "deploy-request-1" }),
+			expect.objectContaining({ userId: "u1" }),
+		);
+	});
   it("accepts browser form submissions and redirects back to deployments page", async () => {
     const req = new Request("http://local/api/deployments", {
       method: "POST",

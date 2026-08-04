@@ -95,3 +95,13 @@ export const saveEditableFileBodySchema = z.object({
 });
 
 export type SaveEditableFileBody = z.infer<typeof saveEditableFileBodySchema>;
+
+export const createFileVersionBodySchema = z.object({
+  note: z.string().max(500).optional().nullable(),
+});
+
+export const searchFileContentQuerySchema = z.object({
+  q: z.string().trim().min(1).max(200),
+  nodeId: z.string().trim().min(1).optional(),
+  path: z.string().trim().optional(),
+});

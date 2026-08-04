@@ -96,3 +96,22 @@ describe("/status page exposure", () => {
     expect(html).toMatch(/edge-1/);
   });
 });
+
+describe("uptime presentation", () => {
+  it("distinguishes a sampled 0% outage from a day with no sample", async () => {
+    const { getUptimeColorClass } = await import("../uptime-presentation");
+    expect(getUptimeColorClass(0, true)).toBe("bg-[var(--danger)]");
+    expect(getUptimeColorClass(0, false)).toBe("bg-[var(--surface-hover)]");
+  });
+
+  it("weights SLA by check count instead of treating sparse days equally", async () => {
+    const { calculateWeightedSla } = await import("../uptime-presentation");
+    expect(
+      calculateWeightedSla([
+        { uptimePercent: 100, checkCount: 288 },
+        { uptimePercent: 0, checkCount: 1 },
+      ]),
+    ).toBe(99.65);
+    expect(calculateWeightedSla([])).toBeNull();
+  });
+});

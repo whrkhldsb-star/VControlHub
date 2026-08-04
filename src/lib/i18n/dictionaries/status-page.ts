@@ -21,6 +21,7 @@ export const zh: Record<string, string> = {
 	"statusPage.uptime.defaultServerName": "服务器",
 	"statusPage.uptime.slaLabel": "SLA：",
 	"statusPage.uptime.empty": "暂无历史采样数据，系统会在健康采样后自动生成可用率热力图。",
+	"statusPage.uptime.noSample": "无采样",
 };
 
 export const en: Record<string, string> = {
@@ -39,4 +40,5 @@ export const en: Record<string, string> = {
 	"statusPage.uptime.defaultServerName": "Server",
 	"statusPage.uptime.slaLabel": "SLA: ",
 	"statusPage.uptime.empty": "No historical samples yet. The heatmap is generated automatically after health sampling runs.",
+	"statusPage.uptime.noSample": "No sample",
 };

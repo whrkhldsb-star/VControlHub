@@ -131,8 +131,8 @@ describe("BackupsPage", () => {
     expect(screen.getByText(/deploy\/backup\.sh --files 'backups\/files\.tar\.gz'/)).toBeInTheDocument();
     expect(screen.getByText(/deploy\/backup\.sh --full 'backups\/full\.tar\.gz'/)).toBeInTheDocument();
     expect(screen.getByText(/restore-db\.sh 'backups\/database\.sql\.gz'/)).toBeInTheDocument();
-    expect(screen.getByText(/tar -xzf 'backups\/files\.tar\.gz'/)).toBeInTheDocument();
-    expect(screen.getByText(/tar -xzf 'backups\/full\.tar\.gz'/)).toBeInTheDocument();
+    expect(screen.getByText(/restore-files\.sh.*'backups\/files\.tar\.gz'/)).toBeInTheDocument();
+    expect(screen.getByText(/restore-full\.sh.*'backups\/full\.tar\.gz'/)).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "恢复" })).toHaveLength(5);
     expect(screen.getAllByRole("button", { name: "标记作废" })).toHaveLength(2);
     expect(screen.getByRole("button", { name: "重试备份" })).toBeInTheDocument();

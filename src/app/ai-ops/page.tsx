@@ -21,6 +21,7 @@ import { AI_OPS_DEFAULT_SCHEDULE_HOUR } from "@/lib/ai/ops/types";
 import { getSetting } from "@/lib/settings/service";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { PageHeader, PageShell } from "@/components/page-shell";
+import { prisma } from "@/lib/db";
 
 import { AiOpsPageClient } from "./ai-ops-page-client";
 
@@ -42,10 +43,18 @@ export default async function AiOpsPage() {
 	const canAutonomous = sessionHasPermission(session, "ai:ops:autonomous");
 	const locale = await getServerLocale();
 
-	const [summary, logs, settings] = await Promise.all([
+	const [summary, logs, settings, providerOptions] = await Promise.all([
 		summariseAiOps(),
 		listAiOpsLogs({ limit: 50 }),
 		loadInitialSettings(),
+		canManage
+			? prisma.aiProvider.findMany({
+					where: { createdBy: session.userId, enabled: true },
+					select: { id: true, name: true, defaultModel: true },
+					orderBy: [{ isDefault: "desc" }, { name: "asc" }],
+					take: 100,
+				})
+			: [],
 	]);
 
 	return (
@@ -59,6 +68,7 @@ export default async function AiOpsPage() {
 				initialSummary={summary}
 				initialLogs={logs}
 				initialSettings={settings}
+				providerOptions={providerOptions}
 				canManage={canManage}
 				canAutonomous={canAutonomous}
 			/>

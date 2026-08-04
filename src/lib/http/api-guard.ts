@@ -6,11 +6,16 @@ import type { Permission } from "@/lib/auth/rbac";
 import { requireApiPermission } from "@/lib/auth/require-api-permission";
 import { requireApiSession, isSessionPayload } from "@/lib/auth/api-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
+import {
+  authenticateBearerForPermissions,
+  hasBearerAuthorization,
+} from "@/lib/auth/bearer-token";
 import { ValidationError } from "@/lib/errors";
 import { apiCatch, apiError } from "@/lib/http/api-error";
 import { searchParamsToObject, zodIssueDetails } from "@/lib/http/parse-search-params";
 import { type RateLimitConfig, rateLimitResponse, withRateLimit } from "@/lib/http/rate-limit-presets";
 import { createLogger } from "@/lib/logging";
+import { t } from "@/lib/i18n/translations";
 
 const apiLogger = createLogger("api");
 
@@ -88,6 +93,14 @@ export async function enforceApiGuard(options: ApiGuardOptions): Promise<Respons
 
   if (!permission) return null;
 
+  if (hasBearerAuthorization(request)) {
+    const authenticated = await authenticateBearerForPermissions(request, [permission]);
+    if (!authenticated || authenticated instanceof Response) {
+      return authenticated ?? apiError({ code: "AUTH_REQUIRED", message: t("api.auth.invalidToken"), status: 401 });
+    }
+    return authenticated.session;
+  }
+
   const result = await requireApiPermission(permission);
   if (result instanceof Response) return result;
   return result.session;
@@ -124,6 +137,18 @@ export async function withApiRoute<TBody = unknown, TQuery = unknown>(
 
     let session = guard;
     if (!session && options.permissions && options.permissions.length > 0) {
+      if (hasBearerAuthorization(request)) {
+        const authenticated = await authenticateBearerForPermissions(request, options.permissions);
+        if (!authenticated || authenticated instanceof Response) {
+          const dur = performance.now() - startTime;
+          const rejected = authenticated ?? apiError({ code: "AUTH_REQUIRED", message: t("api.auth.invalidToken"), status: 401 });
+          apiLogger.info("request token rejected", { method, path, status: rejected.status, durationMs: Math.round(dur), requestId });
+          return attachRequestId(rejected, requestId, dur);
+        }
+        session = authenticated.session;
+      }
+    }
+    if (!session && options.permissions && options.permissions.length > 0) {
       const apiSession = await requireApiSession();
       if (apiSession instanceof Response || !isSessionPayload(apiSession)) {
         const dur = performance.now() - startTime;
@@ -145,6 +170,11 @@ export async function withApiRoute<TBody = unknown, TQuery = unknown>(
       }
       session = apiSession;
     } else if (!session && options.requireAuth) {
+      if (hasBearerAuthorization(request)) {
+        const dur = performance.now() - startTime;
+        const rejected = apiError({ code: "FORBIDDEN", message: t("api.auth.invalidToken"), status: 403 });
+        return attachRequestId(rejected, requestId, dur);
+      }
       const apiSession = await requireApiSession();
       if (apiSession instanceof Response) {
         const dur = performance.now() - startTime;

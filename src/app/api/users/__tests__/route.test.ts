@@ -5,6 +5,8 @@ const { mocks } = vi.hoisted(() => ({
     requireApiPermission: vi.fn(),
     hashPassword: vi.fn(),
     auditUserAction: vi.fn(),
+		assertAdminAccessMayBeRemoved: vi.fn(),
+		withAdminInvariantLock: vi.fn(),
     assertUserInActorScope: vi.fn(),
     userDirectoryWhere: vi.fn(),
     prisma: {
@@ -45,6 +47,10 @@ vi.mock("@/lib/auth/password", () => ({
 vi.mock("@/lib/audit/service", () => ({
   auditUserAction: mocks.auditUserAction,
 }));
+vi.mock("@/lib/user/admin-invariant", () => ({
+	assertAdminAccessMayBeRemoved: mocks.assertAdminAccessMayBeRemoved,
+	withAdminInvariantLock: mocks.withAdminInvariantLock,
+}));
 vi.mock("@/lib/auth/team-scope", () => ({
   assertUserInActorScope: mocks.assertUserInActorScope,
   userDirectoryWhere: mocks.userDirectoryWhere,
@@ -70,6 +76,8 @@ describe("/api/users", () => {
     mocks.requireApiPermission.mockResolvedValue({ session });
     mocks.hashPassword.mockResolvedValue("hashed-password");
     mocks.assertUserInActorScope.mockResolvedValue(undefined);
+		mocks.assertAdminAccessMayBeRemoved.mockResolvedValue(undefined);
+		mocks.withAdminInvariantLock.mockImplementation(async (operation) => operation());
     mocks.userDirectoryWhere.mockReturnValue({
       OR: [{ id: "admin1" }, { teamMemberships: { some: { teamId: "team-a" } } }],
     });
@@ -238,4 +246,15 @@ describe("/api/users", () => {
     expect(mocks.prisma.user.findUnique).not.toHaveBeenCalled();
     expect(mocks.prisma.user.update).not.toHaveBeenCalled();
   });
+
+	it("rejects legacy role assignment PATCHes before mutating roles", async () => {
+		mocks.prisma.user.findUnique.mockResolvedValue({ id: "user1", username: "alice", status: "ACTIVE" });
+		const res = await route.PATCH(new Request("http://local/api/users", {
+			method: "PATCH",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({ userId: "user1", roleKeys: ["admin"] }),
+		}));
+		expect(res.status).toBe(400);
+		expect(mocks.prisma.userRole.deleteMany).not.toHaveBeenCalled();
+	});
 });

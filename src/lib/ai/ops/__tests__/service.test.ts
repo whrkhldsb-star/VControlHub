@@ -45,6 +45,9 @@ function makePrismaMock() {
 		alertRule: {
 			count: vi.fn(async () => 3),
 		},
+		job: {
+			findMany: vi.fn(async () => []),
+		},
 		aiOpsLog: {
 			create: vi.fn(
 				async ({ data }: { data: Omit<AiOpsLogRow, "id" | "createdAt" | "updatedAt"> }) => {
@@ -110,6 +113,7 @@ function makePrismaMock() {
 				return { count: 1 };
 			}),
 			count: vi.fn(async () => store.logs.size),
+			deleteMany: vi.fn(async () => ({ count: 0 })),
 		},
 	};
 }
@@ -347,6 +351,54 @@ describe("executeRecommendation — mode-aware action gating", () => {
 
 		expect(results.filter((result) => result.executed)).toHaveLength(1);
 		expect(results.filter((result) => result.errorMessage?.includes("already being executed"))).toHaveLength(1);
+	});
+
+	it("preserves both results when different recommendations execute concurrently", async () => {
+		const log = await createAiOpsLog({ triggerType: "manual", mode: "autonomous" });
+		await completeScan({
+			logId: log.id,
+			status: "warning",
+			findings: [],
+			actions: [
+				{ id: "a1", action: "alert.evaluate", risk: "low", executed: false },
+				{ id: "a2", action: "cache.purge:stale", risk: "low", executed: false },
+			],
+		});
+
+		const results = await Promise.all([
+			executeRecommendation({ logId: log.id, actionId: "a1", forceAutonomous: true }),
+			executeRecommendation({ logId: log.id, actionId: "a2", forceAutonomous: true }),
+		]);
+
+		expect(results.every((result) => result.executed)).toBe(true);
+		const saved = await getAiOpsLog(log.id);
+		expect(saved?.actions).toHaveLength(2);
+		expect(saved?.actions.every((action) => action.executed)).toBe(true);
+	});
+
+	it("reclaims an in-progress action after its execution lease expires", async () => {
+		const log = await createAiOpsLog({ triggerType: "manual", mode: "autonomous" });
+		await completeScan({
+			logId: log.id,
+			status: "warning",
+			findings: [],
+			actions: [{
+				id: "a1",
+				action: "alert.evaluate",
+				risk: "low",
+				executed: false,
+				executedAt: "2020-01-01T00:00:00.000Z",
+				result: "in_progress",
+			}],
+		});
+
+		const result = await executeRecommendation({
+			logId: log.id,
+			actionId: "a1",
+			forceAutonomous: true,
+		});
+
+		expect(result.executed).toBe(true);
 	});
 });
 

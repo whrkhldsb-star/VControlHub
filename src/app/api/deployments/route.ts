@@ -21,6 +21,7 @@ const createDeploymentSchema = z.object({
     .min(1, "At least 1 target VPS must be selected"),
   variables: z.record(z.string(), z.string()).default({}),
   reason: z.string().trim().max(500, "ReasonAt most 500 characters").optional(),
+	idempotencyKey: z.string().trim().min(1).max(300).optional(),
 });
 
 export async function GET(request: Request) {
@@ -103,10 +104,12 @@ export async function POST(request: Request) {
             return redirectToDeployments(request, { error: message });
           throw new ValidationError(message);
         }
-        const deployment = await createDeploymentRunFromTemplate({
-          ...parsed.data,
-          requesterId: session.userId,
-        }, session);
+				const idempotencyKey = request.headers.get("idempotency-key")?.trim() || parsed.data.idempotencyKey;
+				const deployment = await createDeploymentRunFromTemplate({
+					...parsed.data,
+					...(idempotencyKey ? { idempotencyKey } : {}),
+					requesterId: session.userId,
+				}, session);
         await auditUserAction(session.userId, "deployment.create", {
           deploymentId: deployment.id,
           templateId: parsed.data.templateId,

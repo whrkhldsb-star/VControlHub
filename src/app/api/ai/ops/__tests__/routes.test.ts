@@ -30,6 +30,7 @@ const { mocks } = vi.hoisted(() => ({
 		sessionHasPermission: vi.fn(),
 		getSetting: vi.fn(),
 		setSetting: vi.fn(),
+		aiProviderFindFirst: vi.fn(),
 	},
 }));
 
@@ -68,6 +69,10 @@ vi.mock("@/lib/settings/service", async (importOriginal) => {
 		setSetting: mocks.setSetting,
 	};
 });
+
+vi.mock("@/lib/db", () => ({
+	prisma: { aiProvider: { findFirst: mocks.aiProviderFindFirst } },
+}));
 
 // Load all routes under test once; vi.hoisted ordering keeps the mocks
 // bound before the dynamic import resolves.
@@ -122,6 +127,7 @@ describe("/api/ai/ops/* routes", () => {
 			return "";
 		});
 		mocks.setSetting.mockResolvedValue(undefined);
+		mocks.aiProviderFindFirst.mockResolvedValue({ id: "anthropic" });
 	});
 
 	// ── GET /api/ai/ops/logs ────────────────────────────────────────────
@@ -369,6 +375,23 @@ describe("/api/ai/ops/* routes", () => {
 			const body = await res.json();
 			expect(body.mode).toBe("autonomous");
 			expect(body.providerId).toBe("anthropic");
+		});
+
+		it("rejects a provider that is disabled, missing, or owned by another user", async () => {
+			mocks.aiProviderFindFirst.mockResolvedValueOnce(null);
+			const res = await settingsRoute.PATCH(
+				new Request("http://local/api/ai/ops/settings", {
+					method: "PATCH",
+					body: JSON.stringify({ mode: "recommendation", providerId: "foreign-provider" }),
+				}),
+			);
+
+			expect(res.status).toBe(400);
+			expect(mocks.aiProviderFindFirst).toHaveBeenCalledWith({
+				where: { id: "foreign-provider", createdBy: "u-admin", enabled: true },
+				select: { id: true },
+			});
+			expect(mocks.setSetting).not.toHaveBeenCalled();
 		});
 
 		it("rejects an invalid providerId pattern with 400", async () => {

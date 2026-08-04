@@ -4,6 +4,8 @@ const { mocks } = vi.hoisted(() => ({
   mocks: {
     requireApiPermission: vi.fn(),
     auditUserAction: vi.fn(),
+		assertAdminAccessMayBeRemoved: vi.fn(),
+		withAdminInvariantLock: vi.fn(),
     assertUserInActorScope: vi.fn(),
     isGlobalTeamManager: vi.fn(),
     teamWhere: vi.fn(),
@@ -47,6 +49,10 @@ vi.mock("@/lib/auth/require-api-permission", () => ({
 vi.mock("@/lib/audit/service", () => ({
   auditUserAction: mocks.auditUserAction,
 }));
+vi.mock("@/lib/user/admin-invariant", () => ({
+	assertAdminAccessMayBeRemoved: mocks.assertAdminAccessMayBeRemoved,
+	withAdminInvariantLock: mocks.withAdminInvariantLock,
+}));
 vi.mock("@/lib/auth/team-scope", () => ({
   assertUserInActorScope: mocks.assertUserInActorScope,
   isGlobalTeamManager: mocks.isGlobalTeamManager,
@@ -76,6 +82,8 @@ describe("/api/users/permissions", () => {
     vi.clearAllMocks();
     mocks.requireApiPermission.mockResolvedValue({ session });
     mocks.assertUserInActorScope.mockResolvedValue(undefined);
+		mocks.assertAdminAccessMayBeRemoved.mockResolvedValue(undefined);
+		mocks.withAdminInvariantLock.mockImplementation(async (operation) => operation());
     mocks.isGlobalTeamManager.mockReturnValue(false);
     mocks.teamWhere.mockReturnValue({
       OR: [{ teamId: "team-a" }, { teamId: null }],
@@ -166,6 +174,18 @@ describe("/api/users/permissions", () => {
     expect(res.status).toBe(400);
     expect(mocks.prisma.userRole.deleteMany).not.toHaveBeenCalled();
   });
+
+	it("PATCH checks the active-admin invariant before removing the admin role", async () => {
+		mocks.prisma.role.findMany.mockResolvedValueOnce([{ id: "r1", key: "viewer" }]);
+		const res = await route.PATCH(new Request("http://local/api/users/permissions", {
+			method: "PATCH",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({ userId: "user1", roleKeys: ["viewer"] }),
+		}));
+		expect(res.status).toBe(200);
+		expect(mocks.withAdminInvariantLock).toHaveBeenCalledOnce();
+		expect(mocks.assertAdminAccessMayBeRemoved).toHaveBeenCalledWith("user1");
+	});
 
   it("PATCH rejects unknown permission keys before replacing custom grants", async () => {
     mocks.prisma.role.upsert.mockResolvedValueOnce({ id: "custom-role" });

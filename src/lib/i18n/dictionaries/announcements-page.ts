@@ -6,7 +6,6 @@
  */
 
 export const zh: Record<string, string> = {
-	"announcementsPage.action.delete": "删除",
 	"announcementsPage.action.deleteAria": "删除公告 {title}",
 	"announcementsPage.action.edit": "编辑",
 	"announcementsPage.count": "{count} 条",
@@ -51,7 +50,6 @@ export const zh: Record<string, string> = {
 };
 
 export const en: Record<string, string> = {
-	"announcementsPage.action.delete": "Delete",
 	"announcementsPage.action.deleteAria": "Delete announcement {title}",
 	"announcementsPage.action.edit": "Edit",
 	"announcementsPage.count": "{count}",

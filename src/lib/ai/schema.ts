@@ -1,4 +1,18 @@
 import { z } from "zod";
+import {
+  aiOpsModeSchema,
+  aiOpsStatusSchema,
+  aiOpsTriggerSchema,
+} from "./ops/schema";
+
+export { approveRecommendationSchema } from "./ops/schema";
+
+export const aiOpsLogsQuerySchema = z.object({
+  mode: aiOpsModeSchema.optional(),
+  status: aiOpsStatusSchema.optional(),
+  triggerType: aiOpsTriggerSchema.optional(),
+  limit: z.coerce.number().int().min(1).max(200).optional(),
+});
 
 /**
  * AI domain zod schemas (TR-037 R7).

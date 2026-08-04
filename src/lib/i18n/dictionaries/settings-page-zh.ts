@@ -255,7 +255,7 @@ export const zh: Record<string, string> = {
 	"settingsClient.field.offsite.retentionDays.helper": "异地端保留天数；超过的备份对象会被 lifecycle job 清理。",
 	"settingsClient.field.offsite.failureAlertRecipient.helper": "异地推送失败时发告警邮件到此地址；留空则不告警。",
 	"settingsClient.field.ai.ops.mode.helper": "切换到 autonomous 前请确认已开启 ai:ops:autonomous 权限，并理解 AI 会按 AI_OPS_SAFE_AUTONOMOUS_ACTIONS 白名单自动执行。",
-	"settingsClient.field.ai.ops.provider.helper": "可选。对接真实 AI provider 的预留字段（v2），目前仅用于标识与审计；仅允许字母、数字、点、下划线、冒号、连字符，最长 64 个字符。",
+	"settingsClient.field.ai.ops.provider.helper": "可选。填写已启用的 AI Provider ID，为已采集的健康事实补充分析与优先级说明；动作仍受内置安全白名单限制。最长 64 个字符。",
 
 	// ── Validate error messages (rendered to UI on input) ──
 	// Note: these only fire on user-driven validation. en translation provided for parity,

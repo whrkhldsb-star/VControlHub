@@ -126,6 +126,7 @@ describe("webdav helpers", () => {
     expect(webDavTokenAllows(["storage:delete"], "read")).toBe(true);
     expect(webDavTokenAllows(["storage:delete"], "write")).toBe(false);
     expect(webDavTokenAllows(["storage:write"], "write")).toBe(true);
+    expect(webDavTokenAllows(["admin"], "delete")).toBe(false);
   });
 });
 

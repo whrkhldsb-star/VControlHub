@@ -32,7 +32,6 @@ export const zh: Record<string, string> = {
 	"vpsStatusPage.table.net": "网络 入/出",
 	"vpsStatusPage.table.uptime": "运行时间",
 	"vpsStatusPage.table.updated": "采样时间",
-	"vpsStatusPage.agentNote": "未安装 Agent：不展示延迟/RTT 等 Agent 专属指标；刷新间隔与「设置 → 自动刷新」一致。",
 };
 
 export const en: Record<string, string> = {
@@ -66,5 +65,4 @@ export const en: Record<string, string> = {
 	"vpsStatusPage.table.net": "Net in/out",
 	"vpsStatusPage.table.uptime": "Uptime",
 	"vpsStatusPage.table.updated": "Sampled",
-	"vpsStatusPage.agentNote": "No host agent: latency/RTT and other agent-only metrics are hidden. Refresh interval follows Settings → auto-refresh.",
 };

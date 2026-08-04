@@ -175,7 +175,7 @@ describe("pruneOldBackupRecordsNow — runtime orchestrator", () => {
     expect(mockPrisma.backupRecord.delete).toHaveBeenCalledWith({ where: { id: "bak_missing_file" } });
   });
 
-  it("records file errors but continues with DB delete for the same candidate", async () => {
+	it("keeps the DB record when the artifact path is invalid", async () => {
     mockPrisma.backupRecord.findMany.mockResolvedValueOnce([
       baseRecord({ id: "bak_traversal", filePath: "../etc/passwd", completedAt: new Date("2026-04-01T00:00:00Z") }),
     ]);
@@ -183,13 +183,28 @@ describe("pruneOldBackupRecordsNow — runtime orchestrator", () => {
 
     const result = await pruneOldBackupRecordsNow({ projectRoot: "/opt/app", teamId: "team_1", keepLatestPerType: 0 });
 
-    expect(result.deletedRecords).toBe(1);
+		expect(result.deletedRecords).toBe(0);
     expect(result.filesDeleted).toBe(0);
     expect(result.fileErrors).toHaveLength(1);
     expect(result.fileErrors[0]).toContain("bak_traversal");
     expect(result.fileErrors[0]).toContain("可移植的相对路径");
-    expect(mockPrisma.backupRecord.delete).toHaveBeenCalledWith({ where: { id: "bak_traversal" } });
-  });
+		expect(mockPrisma.backupRecord.delete).not.toHaveBeenCalled();
+	});
+
+	it("keeps the DB record when artifact deletion fails so cleanup can be retried", async () => {
+		mockPrisma.backupRecord.findMany.mockResolvedValueOnce([
+			baseRecord({ id: "bak_eacces", completedAt: new Date("2026-04-01T00:00:00Z") }),
+		]);
+		statMock.mockResolvedValueOnce({ size: 1024 });
+		rmMock.mockRejectedValueOnce(Object.assign(new Error("permission denied"), { code: "EACCES" }));
+
+		const result = await pruneOldBackupRecordsNow({ projectRoot: "/opt/app", teamId: "team_1", keepLatestPerType: 0 });
+
+		expect(result.deletedRecords).toBe(0);
+		expect(result.filesDeleted).toBe(0);
+		expect(result.fileErrors[0]).toContain("bak_eacces");
+		expect(mockPrisma.backupRecord.delete).not.toHaveBeenCalled();
+	});
 
   it("processes candidates oldest-first (FIFO) for predictable cleanup order", async () => {
     mockPrisma.backupRecord.findMany.mockResolvedValueOnce([

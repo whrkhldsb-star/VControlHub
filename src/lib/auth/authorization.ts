@@ -7,7 +7,14 @@ import { requireSession } from "./require-session";
 // many server pages) keep importing from "@/lib/auth/authorization".
 export { getPermissionsFromRoles };
 
-export function sessionHasPermission(session: { roles: RoleKey[] }, permission: Permission) {
+
+export function sessionHasPermission(
+	session: { roles: RoleKey[]; permissions?: Permission[] },
+	permission: Permission,
+) {
+	if (Array.isArray(session.permissions)) {
+		return session.permissions.includes(permission);
+	}
 	return getPermissionsFromRoles(session.roles).includes(permission);
 }
 

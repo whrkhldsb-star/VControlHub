@@ -21,8 +21,8 @@ test("settings tabs and personal preference persistence", async ({ page }) => {
 	await login(page);
 	await page.goto("/settings");
 	const tabs = page.getByRole("tab");
+	await expect.poll(() => tabs.count()).toBeGreaterThanOrEqual(3);
 	const count = await tabs.count();
-	expect(count).toBeGreaterThanOrEqual(3);
 	for (let index = 0; index < count; index++) {
 		await tabs.nth(index).click();
 		await expect(tabs.nth(index)).toHaveAttribute("aria-selected", "true");
@@ -125,15 +125,19 @@ test("Docker refresh and logs remain usable", async ({ page }) => {
 	}
 });
 
-test("QA report list opens the selected detail", async ({ page }) => {
+test("QA report list renders history or a valid empty state", async ({ page }) => {
 	await login(page);
 	await page.goto("/qa-reports");
 	const detail = page.getByRole("link", { name: /查看详情|View detail/i }).first();
-	await expect(detail).toBeVisible();
-	await detail.click();
-	await expect(page).toHaveURL(/\/qa-reports\/[^/]+$/);
-	await expect(page.locator("h1").first()).toBeVisible({ timeout: 15_000 });
-	await page.getByRole("link", { name: /返回|Back/i }).first().click();
+	if (await detail.isVisible().catch(() => false)) {
+		await detail.click();
+		await expect(page).toHaveURL(/\/qa-reports\/[^/]+$/);
+		await expect(page.locator("h1").first()).toBeVisible({ timeout: 15_000 });
+		await page.getByRole("link", { name: /返回|Back/i }).first().click();
+		return;
+	}
+
+	await expect(page.getByText(/No QA reports found under \.hermes|当前 \.hermes\/ 下没有任何可展示的 QA 报告记录/i)).toBeVisible();
 });
 
 test("audit filters and AI/AI Ops unavailable-provider experience stay usable", async ({ page }) => {

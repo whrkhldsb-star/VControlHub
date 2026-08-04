@@ -11,7 +11,6 @@ export const zh: Record<string, string> = {
 	"apiServersFileProxy.missingPublicUrl": "服务器未配置公网访问地址(publicUrl)，无法启用直连模式",
 	"apiServersFileProxy.missingStorageNode": "服务器未绑定 SFTP 存储节点，无法确定文件代理根目录",
 	"apiServersFileProxy.startFailed": "启动文件代理失败",
-	"apiServersFileProxy.cannotDeterminePort": "无法确定代理端口",
 	"apiServersFileProxy.startTimeout": "文件代理启动超时（未就绪）",
 	"apiServersFileProxy.operationFailed": "操作失败",
 };
@@ -26,7 +25,6 @@ export const en: Record<string, string> = {
 	"apiServersFileProxy.missingPublicUrl": "Server has no publicUrl configured; direct mode is unavailable.",
 	"apiServersFileProxy.missingStorageNode": "Server is not bound to an SFTP storage node; cannot determine file-proxy root.",
 	"apiServersFileProxy.startFailed": "Failed to start file proxy",
-	"apiServersFileProxy.cannotDeterminePort": "Cannot determine proxy port",
 	"apiServersFileProxy.startTimeout": "File proxy startup timed out (not ready)",
 	"apiServersFileProxy.operationFailed": "Operation failed",
 };

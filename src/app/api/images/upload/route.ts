@@ -5,7 +5,7 @@ import * as path from "node:path";
 import { NextResponse } from "next/server";
 
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { verifyBearerToken } from "@/lib/auth/bearer-token";
+import { hasBearerAuthorization, verifyBearerToken } from "@/lib/auth/bearer-token";
 import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
@@ -70,9 +70,16 @@ export async function POST(request: Request) {
   const rl = await withRateLimit(request, IMAGE_UPLOAD_LIMIT);
   if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
 
+  const bearerRequested = hasBearerAuthorization(request);
   const tokenAuth = await verifyBearerToken(request, "image:write");
   if (tokenAuth) {
     return handleUpload(request, tokenAuth.userId, undefined, locale);
+  }
+  if (bearerRequested) {
+    return NextResponse.json(
+      { error: t("api.auth.invalidToken", locale) },
+      { status: 401 },
+    );
   }
 
   return withApiRoute(

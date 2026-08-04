@@ -150,6 +150,74 @@ describe("proxy auth guard", () => {
     });
   });
 
+  it("requires CSRF for cookie-authenticated image writes", () => {
+    const response = proxy(
+      makeRequest("/api/images/upload", {
+        method: "POST",
+        headers: { cookie: sessionCookie() },
+      }),
+    );
+
+    expect(response.status).toBe(403);
+  });
+
+  it("lets bearer clients reach token-aware image writes for route-level auth", () => {
+    const response = proxy(
+      makeRequest("/api/images/upload", {
+        method: "POST",
+        headers: { authorization: "Bearer whr_test" },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+  });
+
+  it("lets bearer clients reach protected read APIs for route-level scope checks", () => {
+    const response = proxy(
+      makeRequest("/api/servers/monitor", {
+        headers: { authorization: "Bearer whr_test" },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+  });
+
+  it("lets WebDAV bearer writes reach its dedicated authenticator", () => {
+    const response = proxy(
+      makeRequest("/api/webdav/node-1/file.txt", {
+        method: "PUT",
+        headers: { authorization: "Bearer whr_test" },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+  });
+
+  it("does not let arbitrary bearer headers bypass protected API auth", () => {
+    const response = proxy(
+      makeRequest("/api/backups/record_1/void", {
+        method: "POST",
+        headers: { authorization: "Bearer invalid" },
+      }),
+    );
+
+    expect(response.status).toBe(401);
+  });
+
+  it("still requires CSRF for non-token-aware routes with a session cookie", () => {
+    const response = proxy(
+      makeRequest("/api/backups/record_1/void", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer invalid",
+          cookie: sessionCookie(),
+        },
+      }),
+    );
+
+    expect(response.status).toBe(403);
+  });
+
   it("requires CSRF token on /api/auth/signout (no longer exempt)", async () => {
     // Authenticated request without csrf_token must be rejected — closes
     // a real CSRF surface where a third-party origin could log out the user
@@ -177,5 +245,18 @@ describe("proxy auth guard", () => {
       }),
     );
     expect(response.status).toBe(200);
+  });
+
+  it("keeps PWA resources public", () => {
+    for (const pathname of [
+      "/sw.js",
+      "/manifest.webmanifest",
+      "/offline",
+      "/icon-192x192.png",
+    ]) {
+      const response = proxy(makeRequest(pathname));
+      expect(response.status, pathname).toBe(200);
+      expect(response.headers.get("location"), pathname).toBeNull();
+    }
   });
 });

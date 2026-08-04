@@ -12,21 +12,9 @@ import { NextResponse } from "next/server";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_READ_LIMIT } from "@/lib/http/rate-limit-presets";
 import { listAiOpsLogs } from "@/lib/ai/ops/service";
-import {
-	aiOpsModeSchema,
-	aiOpsStatusSchema,
-	aiOpsTriggerSchema,
-} from "@/lib/ai/ops/schema";
-import { z } from "zod";
+import { aiOpsLogsQuerySchema } from "@/lib/ai/schema";
 
 export const dynamic = "force-dynamic";
-
-const querySchema = z.object({
-	mode: aiOpsModeSchema.optional(),
-	status: aiOpsStatusSchema.optional(),
-	triggerType: aiOpsTriggerSchema.optional(),
-	limit: z.coerce.number().int().min(1).max(200).optional(),
-});
 
 export async function GET(request: Request) {
 	return withApiRoute(
@@ -34,7 +22,7 @@ export async function GET(request: Request) {
 		{
 			permission: "ai:ops:read",
 			rateLimit: GENERAL_READ_LIMIT,
-			querySchema,
+			querySchema: aiOpsLogsQuerySchema,
 			errorStatus: 500,
 			errorMessage: "Failed to load AI ops records",
 		},

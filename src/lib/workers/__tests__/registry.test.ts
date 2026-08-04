@@ -45,6 +45,8 @@ const {
   stopTrafficSamplingWorkerForTestsMock,
   startJobMaintenanceWorkerMock,
   stopJobMaintenanceWorkerForTestsMock,
+	startItsmOutboundWorkerMock,
+	stopItsmOutboundWorkerForTestsMock,
 } = vi.hoisted(() => ({
   startAiOpsScanWorkerMock: vi.fn(() => undefined),
   stopAiOpsScanWorkerForTestsMock: vi.fn(),
@@ -82,6 +84,8 @@ const {
   stopTrafficSamplingWorkerForTestsMock: vi.fn(),
   startJobMaintenanceWorkerMock: vi.fn(async () => undefined),
   stopJobMaintenanceWorkerForTestsMock: vi.fn(),
+	startItsmOutboundWorkerMock: vi.fn(async () => undefined),
+	stopItsmOutboundWorkerForTestsMock: vi.fn(),
 }));
 
 vi.mock("@/lib/ai/ops/scan-worker", () => ({
@@ -160,6 +164,10 @@ vi.mock("@/lib/job/maintenance-worker", () => ({
   startJobMaintenanceWorker: startJobMaintenanceWorkerMock,
   stopJobMaintenanceWorkerForTests: stopJobMaintenanceWorkerForTestsMock,
 }));
+vi.mock("@/lib/itsm/outbound-worker", () => ({
+	startItsmOutboundWorker: startItsmOutboundWorkerMock,
+	stopItsmOutboundWorkerForTests: stopItsmOutboundWorkerForTestsMock,
+}));
 
 import {
   WORKER_REGISTRY,
@@ -214,6 +222,8 @@ function resetAllMocks() {
     stopTicketSlaWorkerForTestsMock,
     stopTrafficSamplingWorkerForTestsMock,
     stopJobMaintenanceWorkerForTestsMock,
+		startItsmOutboundWorkerMock,
+		stopItsmOutboundWorkerForTestsMock,
   ]) {
     m.mockReset();
   }
@@ -231,6 +241,7 @@ const EXPECTED_WORKER_IDS: WorkerId[] = [
   "traffic-sampling",
   "download-execution",
   "job-maintenance",
+	"itsm-outbound",
   "quick-service",
   "scheduled-task",
   "sftp-sync",
@@ -265,7 +276,7 @@ describe("worker registry", () => {
 
   it("getWorkerStatuses reports every worker as not started initially", () => {
     const statuses = getWorkerStatuses();
-    expect(statuses).toHaveLength(21);
+    expect(statuses).toHaveLength(22);
     expect(statuses.every((s) => s.started === false)).toBe(true);
   });
 
@@ -304,9 +315,9 @@ describe("worker registry", () => {
       ]),
     );
     expect(result.started).not.toContain("backup");
-    // 20 workers should be reported started.
+    // Every worker except the injected failure should be reported started.
     const startedCount = getWorkerStatuses().filter((s) => s.started).length;
-    expect(startedCount).toBe(20);
+    expect(startedCount).toBe(21);
   });
 
   it("startAllWorkers starts every worker once", async () => {

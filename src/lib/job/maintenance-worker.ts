@@ -41,6 +41,7 @@ const KNOWN_JOB_TYPES = new Set([
   "traffic.sample",
   "cost.snapshot",
   "ticket.sla-escalate",
+  "itsm.outbound",
   "ai-ops.scan",
   "ai.ops.scan",
   // NOTE: the real type emitted by QUICK_SERVICE_JOB_TYPE uses an underscore.

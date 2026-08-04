@@ -1,13 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { requireApiPermissionMock, requireApiSessionMock, withRateLimitMock } = vi.hoisted(() => ({
+const {
+  requireApiPermissionMock,
+  requireApiSessionMock,
+  withRateLimitMock,
+  hasBearerAuthorizationMock,
+  authenticateBearerForPermissionsMock,
+} = vi.hoisted(() => ({
   requireApiPermissionMock: vi.fn(),
   requireApiSessionMock: vi.fn(),
   withRateLimitMock: vi.fn(),
+  hasBearerAuthorizationMock: vi.fn(),
+  authenticateBearerForPermissionsMock: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/require-api-permission", () => ({ requireApiPermission: requireApiPermissionMock }));
 vi.mock("@/lib/auth/api-session", () => ({ requireApiSession: requireApiSessionMock }));
+vi.mock("@/lib/auth/bearer-token", () => ({
+  hasBearerAuthorization: hasBearerAuthorizationMock,
+  authenticateBearerForPermissions: authenticateBearerForPermissionsMock,
+}));
 vi.mock("@/lib/http/rate-limit-presets", async () => {
   const actual = await vi.importActual<typeof import("@/lib/http/rate-limit-presets")>("@/lib/http/rate-limit-presets");
   return { ...actual, withRateLimit: withRateLimitMock };
@@ -31,6 +43,7 @@ describe("api guard", () => {
     requireApiPermissionMock.mockResolvedValue({ session });
     requireApiSessionMock.mockResolvedValue(session);
     withRateLimitMock.mockResolvedValue({ allowed: true, retryAfterMs: 0, remaining: 1 });
+    hasBearerAuthorizationMock.mockReturnValue(false);
   });
 
   it("passes the authorized session into the route handler", async () => {
@@ -51,6 +64,38 @@ describe("api guard", () => {
 
     expect(response.status).toBe(403);
     expect(await json(response)).toEqual({ error: "缺少权限" });
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("accepts a bearer token for declarative permission routes", async () => {
+    const tokenSession = { ...session, roles: [], permissions: ["server:read"] };
+    hasBearerAuthorizationMock.mockReturnValue(true);
+    authenticateBearerForPermissionsMock.mockResolvedValue({
+      session: tokenSession,
+      scopes: ["server:read"],
+      tokenId: "token-1",
+    });
+
+    const response = await withApiRoute(request(), { permission: "server:read" }, async ({ session }) =>
+      Response.json({ userId: session?.userId }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(authenticateBearerForPermissionsMock).toHaveBeenCalledWith(expect.any(Request), ["server:read"]);
+    expect(requireApiPermissionMock).not.toHaveBeenCalled();
+  });
+
+  it("does not fall back to cookie auth when an explicit bearer token is rejected", async () => {
+    hasBearerAuthorizationMock.mockReturnValue(true);
+    authenticateBearerForPermissionsMock.mockResolvedValue(
+      Response.json({ error: "invalid token" }, { status: 403 }),
+    );
+    const handler = vi.fn(async () => Response.json({ ok: true }));
+
+    const response = await withApiRoute(request(), { permissions: ["server:read", "storage:read"] }, handler);
+
+    expect(response.status).toBe(403);
+    expect(requireApiSessionMock).not.toHaveBeenCalled();
     expect(handler).not.toHaveBeenCalled();
   });
 

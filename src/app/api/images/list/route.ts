@@ -2,16 +2,18 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { verifyBearerToken } from "@/lib/auth/bearer-token";
+import { hasBearerAuthorization, verifyBearerToken } from "@/lib/auth/bearer-token";
 import { teamWhere, type TeamSession } from "@/lib/auth/team-scope";
 import { withCacheHeaders, CachePresets } from "@/lib/cache";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
+import { t } from "@/lib/i18n/translations";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
+  const bearerRequested = hasBearerAuthorization(request);
   const tokenAuth = await verifyBearerToken(request, "image:read");
   if (tokenAuth) {
     return listImages(
@@ -21,6 +23,9 @@ export async function GET(request: Request) {
       // Bearer tokens have no team context; non-admin stays user-scoped.
       null,
     );
+  }
+  if (bearerRequested) {
+    return NextResponse.json({ error: t("api.auth.invalidToken") }, { status: 401 });
   }
 
   return withApiRoute(

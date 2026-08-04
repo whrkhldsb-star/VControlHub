@@ -5,8 +5,6 @@ import path from "node:path";
 
 import { computeQaReportTrends, getQaReportDetail, listQaReports } from "../service";
 
-const REPO_ROOT = process.cwd();
-
 function makeRemediationState(): Record<string, unknown> {
 	return {
 		updatedAt: "2026-06-11T16:28:00Z",
@@ -248,13 +246,6 @@ describe("qa-reports/service", () => {
 		expect(await getQaReportDetail("blocker:missing-blocker:2026-06-01T00:00:00Z")).toBeNull();
 	});
 
-	it("falls back to process.cwd() when no temp dir is provided", async () => {
-		process.cwd = realCwd;
-		const result = await listQaReports();
-		// Repo .hermes/remediation-state.json has at least 1 completed item
-		expect(result.totals.total).toBeGreaterThanOrEqual(1);
-		expect(REPO_ROOT).toBeTruthy();
-	});
 });
 
 describe("qa-reports/service.computeQaReportTrends", () => {

@@ -7,13 +7,13 @@
  * 权限: backup:read (GET), backup:create (POST, 与 retention / create 一致)
  */
 import { NextResponse } from "next/server";
-import { z } from "zod";
 
 import { auditUserAction } from "@/lib/audit/service";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { loadOffsiteConfig, saveOffsiteConfig } from "@/lib/storage/offsite/service";
 import { MASKED_VALUE } from "@/lib/settings/schema";
+import { offsiteConfigUpdateApiSchema } from "@/lib/storage/offsite/schema";
 
 export const dynamic = "force-dynamic";
 
@@ -36,22 +36,6 @@ export async function GET(request: Request) {
 	});
 }
 
-const OffsiteConfigUpdateApiSchema = z
-	.object({
-		enabled: z.boolean().optional(),
-		provider: z.enum(["s3", "r2", "b2", "minio"]).optional(),
-		endpoint: z.string().max(2048).optional(),
-		region: z.string().max(128).optional(),
-		bucket: z.string().max(128).optional(),
-		accessKeyId: z.string().max(256).optional(),
-		secretAccessKey: z.string().max(512).optional(),
-		pathPrefix: z.string().max(256).optional(),
-		dailyWindowHour: z.number().int().min(0).max(23).optional(),
-		retentionDays: z.number().int().min(1).max(3650).optional(),
-		failureAlertRecipient: z.string().max(256).optional(),
-	})
-	.strict();
-
 export async function POST(request: Request) {
 	return withApiRoute(
 		request,
@@ -60,7 +44,7 @@ export async function POST(request: Request) {
 			rateLimit: GENERAL_WRITE_LIMIT,
 			errorStatus: 500,
 			errorMessage: "Failed to save offsite backup configuration",
-			bodySchema: OffsiteConfigUpdateApiSchema,
+			bodySchema: offsiteConfigUpdateApiSchema,
 		},
 		async ({ session, body }) => {
 			const next = await saveOffsiteConfig(body);

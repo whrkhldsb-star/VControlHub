@@ -151,7 +151,6 @@ export const zh: Record<string, string> = {
 	"filesPage.recentDownloads.loading": "正在加载最近下载…",
 	"filesPage.recentDownloads.empty": "暂无最近完成的下载",
 	"filesPage.recentDownloads.error": "最近下载加载失败",
-	"filesPage.recentDownloads.refresh": "刷新",
 	"filesPage.recentDownloads.refreshAria": "刷新最近下载",
 	"filesPage.recentDownloads.retry": "重试",
 };
@@ -307,7 +306,6 @@ export const en: Record<string, string> = {
 	"filesPage.recentDownloads.loading": "Loading recent downloads…",
 	"filesPage.recentDownloads.empty": "No recently completed downloads",
 	"filesPage.recentDownloads.error": "Failed to load recent downloads",
-	"filesPage.recentDownloads.refresh": "Refresh",
 	"filesPage.recentDownloads.refreshAria": "Refresh recent downloads",
 	"filesPage.recentDownloads.retry": "Retry",
 };

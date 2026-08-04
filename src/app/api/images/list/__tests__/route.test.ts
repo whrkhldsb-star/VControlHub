@@ -24,6 +24,8 @@ vi.mock("@/lib/auth/authorization", () => ({
 }));
 vi.mock("@/lib/auth/bearer-token", () => ({
   verifyBearerToken: verifyBearerTokenMock,
+  hasBearerAuthorization: (request: Request) =>
+    /^Bearer\s+/i.test(request.headers.get("authorization") ?? ""),
 }));
 vi.mock("@/lib/db", () => ({
   prisma: {
@@ -80,6 +82,18 @@ describe("GET /api/images/list", () => {
     expect(imageFindManyMock).toHaveBeenCalledWith(
       expect.objectContaining({ where: { userId: "api_user" } }),
     );
+  });
+
+  it("does not fall back to a cookie session when an explicit Bearer token is invalid", async () => {
+    const response = await GET(
+      new Request("http://local/api/images/list", {
+        headers: { authorization: "Bearer revoked-token" },
+      }),
+    );
+
+    expect(response.status).toBe(401);
+    expect(requireApiSessionMock).not.toHaveBeenCalled();
+    expect(imageFindManyMock).not.toHaveBeenCalled();
   });
 
   it("lets team managers request all images fleet-wide", async () => {

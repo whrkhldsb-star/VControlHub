@@ -5,6 +5,10 @@ import { getPublicStatus, getPublicStatusSummary } from "@/lib/status/service";
 import { createLogger } from "@/lib/logging";
 import { getAllUptimeDataInternal } from "@/lib/uptime/internal";
 import { getCurrentSession } from "@/lib/auth/server-session";
+import {
+  calculateWeightedSla,
+  getUptimeColorClass,
+} from "./uptime-presentation";
 
 const logger = createLogger("status:page");
 
@@ -16,6 +20,7 @@ type StatusCheck = SystemHealthCheck;
 type UptimeDay = {
   date: string;
   uptimePercent: number;
+  checkCount: number;
 };
 
 type UptimeServer = {
@@ -37,15 +42,6 @@ async function getAllUptimeData(session: Awaited<ReturnType<typeof getCurrentSes
     logger.error("Failed to fetch uptime data", err);
   }
   return null;
-}
-
-function getColorClass(uptime: number) {
-  if (uptime === 0) return "bg-[var(--surface-hover)]";
-  if (uptime >= 99) return "bg-[var(--success)]";
-  if (uptime >= 95) return "bg-[var(--info)]";
-  if (uptime >= 90) return "bg-[var(--warning)]";
-  if (uptime >= 75) return "bg-[var(--danger)]/50";
-  return "bg-[var(--danger)]";
 }
 
 function getHealthLabel(status: string, locale: Parameters<typeof t>[1]) {
@@ -81,10 +77,10 @@ function renderUptimeSection(
       ) : (
         <div className="mt-4 grid gap-6">
           {servers.map((server: UptimeServer) => {
-            const daysMap = new Map<string, number>();
+            const daysMap = new Map<string, UptimeDay>();
             (server.data || []).forEach((d: UptimeDay) => {
               const dateKey = d.date ? String(d.date) : "";
-              if (dateKey) daysMap.set(dateKey, d.uptimePercent ?? 0);
+              if (dateKey) daysMap.set(dateKey, d);
             });
 
             const today = new Date();
@@ -97,19 +93,16 @@ function renderUptimeSection(
               if (dateStr) days.push(dateStr);
             }
 
-            const filled = days.map((dateStr) => ({
-              date: dateStr,
-              uptimePercent: daysMap.get(dateStr) ?? 0,
-            }));
-
-            // SLA over days that actually have samples (avoid averaging empty zeros).
-            const sampled = filled.filter((d) => (daysMap.get(d.date) ?? null) !== null && daysMap.has(d.date));
-            const sla =
-              sampled.length > 0
-                ? Math.round(
-                    (sampled.reduce((sum, d) => sum + d.uptimePercent, 0) / sampled.length) * 100,
-                  ) / 100
-                : 0;
+            const filled = days.map((date) => {
+              const sample = daysMap.get(date);
+              return {
+                date,
+                uptimePercent: sample?.uptimePercent ?? 0,
+                checkCount: sample?.checkCount ?? 0,
+                sampled: Boolean(sample && sample.checkCount > 0),
+              };
+            });
+            const sla = calculateWeightedSla(server.data ?? []);
 
             return (
               <div key={server.id} data-card className="p-4">
@@ -119,15 +112,19 @@ function renderUptimeSection(
                   </h3>
                   <div className="text-xs text-[var(--text-muted)]">
                     {t("statusPage.uptime.slaLabel", locale)}{" "}
-                    <span className="font-mono">{sampled.length > 0 ? `${sla}%` : "—"}</span>
+                    <span className="font-mono">{sla === null ? "—" : `${sla}%`}</span>
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-1">
                   {filled.map((d) => (
                     <div
                       key={d.date}
-                      className={`h-4 w-4 rounded ${getColorClass(d.uptimePercent)} transition hover:scale-125 hover:z-10`}
-                      title={`${d.date}: ${d.uptimePercent}%`}
+                      className={`h-4 w-4 rounded ${getUptimeColorClass(d.uptimePercent, d.sampled)} transition hover:scale-125 hover:z-10`}
+                      title={
+                        d.sampled
+                          ? `${d.date}: ${d.uptimePercent}%`
+                          : `${d.date}: ${t("statusPage.uptime.noSample", locale)}`
+                      }
                     />
                   ))}
                 </div>

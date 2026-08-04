@@ -76,11 +76,9 @@ import { GET } from "../route";
 
 describe("traffic summary route", () => {
   it("summarizes primary interface once per request (no mid-request cache advance)", async () => {
-    const nextUrl = new URL("http://localhost/api/traffic/summary");
-    const req = {
-      url: nextUrl.toString(),
-      nextUrl,
-    } as Parameters<typeof GET>[0];
+    const req = new Request(
+      "http://localhost/api/traffic/summary",
+    ) as Parameters<typeof GET>[0];
     const first = await (await GET(req)).json();
     const second = await (await GET(req)).json();
     // After first sample previous cache is warm; second request still has a primary iface object.
@@ -91,13 +89,9 @@ describe("traffic summary route", () => {
   });
 
   it("returns current server traffic and storage node sources", async () => {
-    const nextUrl = new URL("http://localhost/api/traffic/summary");
-    // parseSearchParams reads `request.url` (Request / NextRequest contract);
-    // mirror it here so the route hits the real path under test.
-    const req = {
-      url: nextUrl.toString(),
-      nextUrl,
-    } as Parameters<typeof GET>[0];
+    const req = new Request(
+      "http://localhost/api/traffic/summary",
+    ) as Parameters<typeof GET>[0];
 
     const response = await GET(req);
     const body = await response.json();

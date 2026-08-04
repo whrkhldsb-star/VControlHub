@@ -4,7 +4,7 @@ import { promisify } from "node:util";
 /**
  * Async wrapper around `execFile` used by the backup module to run
  * `deploy/backup.sh` (database / files / full) and `scripts/restore-db.sh`
- * (database restore) plus `tar -xzf` (files / full restore).
+ * plus the dedicated files/full restore scripts.
  *
  * Centralises the default 30-minute timeout and 1MB maxBuffer so the caller
  * (service.ts) does not have to re-derive the execution envelope, and keeps

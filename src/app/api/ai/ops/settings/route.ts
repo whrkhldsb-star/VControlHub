@@ -23,6 +23,8 @@ import { AI_OPS_DEFAULT_SCHEDULE_HOUR } from "@/lib/ai/ops/types";
 import { aiOpsModeSettingSchema } from "@/lib/ai/ops/schema";
 import { getSetting, setSetting } from "@/lib/settings/service";
 import { auditUserAction } from "@/lib/audit/service";
+import { prisma } from "@/lib/db";
+import { ValidationError } from "@/lib/errors";
 
 export const dynamic = "force-dynamic";
 
@@ -78,10 +80,26 @@ export async function PATCH(request: Request) {
 					{ status: 400 },
 				);
 			}
+			const normalizedProviderId = body.providerId?.trim() ?? "";
+			if (normalizedProviderId) {
+				const provider = await prisma.aiProvider.findFirst({
+					where: {
+						id: normalizedProviderId,
+						createdBy: session!.userId,
+						enabled: true,
+					},
+					select: { id: true },
+				});
+				if (!provider) {
+					throw new ValidationError(
+						"The selected AI provider was not found, is disabled, or belongs to another user",
+					);
+				}
+			}
 
 			await setSetting("ai.ops.mode", body.mode);
 			if (body.providerId !== undefined) {
-				await setSetting("ai.ops.provider", body.providerId);
+				await setSetting("ai.ops.provider", normalizedProviderId);
 			}
 
 			// Normalize the response:

@@ -48,7 +48,6 @@ export const zh: Record<string, string> = {
 	"common.saveNewPassword": "保存新密码",
 	"common.setAsDefault": "设为默认提供商",
 	"common.targetNode": "目标节点",
-	"common.urgent": "🔴 紧急",
 	"common.validUntil": "有效期至",
 	"common.backupNote": "备份备注",
 
@@ -120,7 +119,6 @@ export const en: Record<string, string> = {
 	"common.saveNewPassword": "Save new password",
 	"common.setAsDefault": "Set as default provider",
 	"common.targetNode": "Target node",
-	"common.urgent": "🔴 Urgent",
 	"common.validUntil": "Valid until",
 	"common.backupNote": "Backup notes",
 

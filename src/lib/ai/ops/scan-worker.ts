@@ -1,18 +1,18 @@
 /**
  * TR-032 E02: Smart AI ops — daily scan worker.
  *
- * Schedules a `ai.ops.scan` durable job every 24h. The actual scan logic
+ * Schedules a `ai.ops.scan` durable job for the next local 02:00. The scan logic
  * (calling the AI provider, collecting findings) is intentionally
  * minimal for v1: it surfaces known system-health signals (CPU, memory,
  * disk, alert-rule noise) and writes a `AiOpsLog` row so the UI has
- * something to show. A future tick can swap the body of `buildScan` for
- * a real AI provider call without changing the durable-job contract.
+ * findings and optionally asks the configured AI provider to explain and
+ * prioritize those facts. Provider output never expands the action allow-list.
  *
  * Pattern: same shape as `src/lib/cost/snapshot-worker.ts` and
  * `src/lib/operation-task/retention-worker.ts`.
  *   - durable job type `ai.ops.scan`
  *   - claimNextJob / heartbeatJob / completeJob / failJob
- *   - setInterval 24h + fire-once-on-startup
+ *   - next-local-time setTimeout + fire-once-on-startup
  *   - globalThis state mirror for re-entrancy
  */
 import { prisma } from "@/lib/db";
@@ -29,8 +29,10 @@ import {
 } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
 import { getSetting } from "@/lib/settings/service";
+import { sendChatRequest } from "@/lib/ai/service-runtime";
 
 import {
+  AI_OPS_DEFAULT_SCHEDULE_HOUR,
   AI_OPS_LOG_RETENTION_KEEP,
   AI_OPS_SCAN_JOB_TYPE,
   type AiOpsExecutedAction,
@@ -45,7 +47,6 @@ import { executeAiOpsAction } from "./action-executor";
 const logger = createLogger("ai-ops-scan-worker");
 
 export const AI_OPS_SCAN_LEASE_MS = computeLeaseMs("ai-ops-scan");
-const AI_OPS_SCAN_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24h
 const AI_OPS_SCAN_WORKER_ID = `${config.app.hostname || "vcontrolhub"}:ai-ops-scan:${process.pid}`;
 
 type AiOpsScanWorkerState = {
@@ -104,6 +105,63 @@ async function readModeFromSettings(): Promise<AiOpsMode> {
   return mode === "autonomous" ? "autonomous" : "recommendation";
 }
 
+async function readConfiguredProvider() {
+  const providerId = (await getSetting("ai.ops.provider").catch(() => ""))?.trim();
+  if (!providerId) return null;
+  const provider = await prisma.aiProvider.findFirst({
+    where: { id: providerId, enabled: true },
+    select: { id: true, createdBy: true, defaultModel: true },
+  });
+  if (!provider) {
+    throw new Error("The configured AI Ops provider does not exist or is disabled");
+  }
+  return provider;
+}
+
+async function requestProviderAnalysis(
+  provider: { id: string; createdBy: string; defaultModel: string },
+  signals: SystemHealthSignal[],
+): Promise<string> {
+  const { response, providerType } = await sendChatRequest(
+    {
+      providerId: provider.id,
+      model: provider.defaultModel,
+      stream: false,
+      temperature: 0.1,
+      max_tokens: 700,
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are an infrastructure operations reviewer. Analyze only the supplied health facts. Prioritize impact, explain likely relationships, and suggest verification steps. Do not invent measurements, credentials, hosts, or commands. Keep the response concise.",
+        },
+        {
+          role: "user",
+          content: JSON.stringify({ collectedAt: new Date().toISOString(), signals }),
+        },
+      ],
+    },
+    provider.createdBy,
+  );
+  const payload = (await response.json().catch(() => null)) as
+    | {
+        choices?: Array<{ message?: { content?: unknown } }>;
+        content?: Array<{ type?: string; text?: unknown }>;
+      }
+    | null;
+  const openAiText = payload?.choices?.[0]?.message?.content;
+  const anthropicText = payload?.content
+    ?.filter((part) => part.type === "text" && typeof part.text === "string")
+    .map((part) => part.text as string)
+    .join("\n");
+  const text =
+    (typeof openAiText === "string" ? openAiText : anthropicText)?.trim() ?? "";
+  if (!text) {
+    throw new Error(`AI Ops provider (${providerType}) returned no analysis text`);
+  }
+  return text.replace(/\0/g, "").slice(0, 4000);
+}
+
 interface SystemHealthSignal {
   id: string;
   severity: AiOpsFindingSeverity;
@@ -113,9 +171,8 @@ interface SystemHealthSignal {
 }
 
 /**
- * Surface known system-health signals as findings. Real AI provider
- * integration is a v2; this keeps the worker honest and gives the UI
- * something to display.
+ * Surface measured system-health signals as findings. These remain the
+ * auditable fact source even when a provider is configured for analysis.
  */
 async function collectSystemHealthSignals(): Promise<SystemHealthSignal[]> {
   const signals: SystemHealthSignal[] = [];
@@ -438,7 +495,10 @@ export async function runAiOpsScanWorkerOnce(
         progress: "Collecting system health signals",
       });
 
-      const mode = await readModeFromSettings();
+      const [mode, provider] = await Promise.all([
+        readModeFromSettings(),
+        readConfiguredProvider(),
+      ]);
       const log = await createAiOpsLog({
         triggerType:
           payloadReason === "interval" || payloadReason === "startup"
@@ -446,6 +506,7 @@ export async function runAiOpsScanWorkerOnce(
             : "manual",
         mode,
         triggeredById: null,
+        providerId: provider?.id ?? null,
         notes: initialNotes,
       });
       aiOpsLogId = log.id;
@@ -456,6 +517,9 @@ export async function runAiOpsScanWorkerOnce(
         actions: plannedActions,
         status,
       } = buildScan(mode, signals);
+      const providerAnalysis = provider
+        ? await requestProviderAnalysis(provider, signals)
+        : null;
       const actions =
         mode === "autonomous"
           ? await Promise.all(
@@ -471,8 +535,8 @@ export async function runAiOpsScanWorkerOnce(
 
       const report = buildExplainableReport(mode, signals, actions);
       const completedNotes = operatorNotes
-        ? `ai.ops.scan reason=${payloadReason}\noperatorNotes=${operatorNotes}\n${report}`
-        : `ai.ops.scan reason=${payloadReason}\n${report}`;
+        ? `ai.ops.scan reason=${payloadReason}\noperatorNotes=${operatorNotes}\n${report}${providerAnalysis ? `\nproviderAnalysis:\n${providerAnalysis}` : ""}`
+        : `ai.ops.scan reason=${payloadReason}\n${report}${providerAnalysis ? `\nproviderAnalysis:\n${providerAnalysis}` : ""}`;
 
       const completed = await completeScan({
         logId: log.id,
@@ -573,26 +637,46 @@ export async function startAiOpsScanWorker() {
       error: error instanceof Error ? error.message : String(error),
     });
   });
-  state.timer = setInterval(() => {
-    void runAiOpsScanWorkerOnce("interval").catch((error) => {
-      logger.error("AI ops scan worker tick failed", {
-        reason: "interval",
-        error: error instanceof Error ? error.message : String(error),
-      });
-    });
-  }, AI_OPS_SCAN_INTERVAL_MS);
-  state.timer.unref?.();
+  scheduleNextAiOpsScan();
 
   logger.info("AI ops scan durable job worker started", {
     workerId: AI_OPS_SCAN_WORKER_ID,
-    intervalMs: AI_OPS_SCAN_INTERVAL_MS,
+    scheduleHourLocal: AI_OPS_DEFAULT_SCHEDULE_HOUR,
   });
   return state;
 }
 
+export function millisecondsUntilNextLocalHour(
+  hour: number,
+  now = new Date(),
+): number {
+  const next = new Date(now);
+  next.setHours(hour, 0, 0, 0);
+  if (next.getTime() <= now.getTime()) next.setDate(next.getDate() + 1);
+  return next.getTime() - now.getTime();
+}
+
+function scheduleNextAiOpsScan() {
+  const state = getWorkerState();
+  if (!state.started) return;
+  const delayMs = millisecondsUntilNextLocalHour(AI_OPS_DEFAULT_SCHEDULE_HOUR);
+  state.timer = setTimeout(() => {
+    state.timer = null;
+    void runAiOpsScanWorkerOnce("scheduled")
+      .catch((error) => {
+        logger.error("AI ops scan worker tick failed", {
+          reason: "scheduled",
+          error: error instanceof Error ? error.message : String(error),
+        });
+      })
+      .finally(scheduleNextAiOpsScan);
+  }, delayMs);
+  state.timer.unref?.();
+}
+
 export function stopAiOpsScanWorkerForTests() {
   const state = getWorkerState();
-  if (state.timer) clearInterval(state.timer);
+  if (state.timer) clearTimeout(state.timer);
   state.started = false;
   state.running = false;
   state.timer = null;

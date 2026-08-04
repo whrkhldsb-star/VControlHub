@@ -11,6 +11,7 @@ import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 import { FormField, Notice } from "@/components/ui-primitives";
 import { useAsyncAction } from "@/lib/hooks/use-async-action";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 
 type KnowledgeBase = {
   id: string;
@@ -51,15 +52,20 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
   const [docContent, setDocContent] = useState("");
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<Hit[]>([]);
+  const [basePendingDelete, setBasePendingDelete] =
+    useState<KnowledgeBase | null>(null);
   const { run, busyKey: busy, error, setError } = useAsyncAction();
 
   const loadBases = useCallback(async () => {
     const data = await csrfFetch<{ knowledgeBases: KnowledgeBase[] }>("/api/knowledge");
-    setBases(data.knowledgeBases ?? []);
-    if (!selectedId && data.knowledgeBases?.[0]) {
-      setSelectedId(data.knowledgeBases[0].id);
-    }
-  }, [selectedId]);
+    const nextBases = data.knowledgeBases ?? [];
+    setBases(nextBases);
+    setSelectedId((current) =>
+      current && nextBases.some((base) => base.id === current)
+        ? current
+        : (nextBases[0]?.id ?? ""),
+    );
+  }, []);
 
   const loadDetail = useCallback(async (id: string) => {
     if (!id) {
@@ -181,6 +187,23 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
     }, { fallback: t("knowledgePage.error") });
   }
 
+  async function removeBase() {
+    if (!canManage || !basePendingDelete) return;
+    const target = basePendingDelete;
+    await run(`del-base-${target.id}`, async () => {
+      await csrfFetch(`/api/knowledge?id=${encodeURIComponent(target.id)}`, {
+        method: "DELETE",
+      });
+      setBasePendingDelete(null);
+      setDocuments([]);
+      setHits((current) =>
+        current.filter((hit) => hit.knowledgeBaseName !== target.name),
+      );
+      await loadBases();
+      addToast("success", t("knowledgePage.baseDeleted"));
+    }, { fallback: t("knowledgePage.error") });
+  }
+
   return (
     <PageShell>
       <PageHeader
@@ -195,7 +218,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
           description={t("knowledgePage.basesDescription")}
         >
           <div className="space-y-3">
-            <div className="flex flex-wrap gap-2">
+            {canManage && <div className="flex flex-wrap gap-2">
               <FormField label={t("knowledgePage.namePlaceholder")} className="min-w-[10rem] flex-1">
               <input
                 aria-label={t("knowledgePage.namePlaceholder")}
@@ -211,24 +234,24 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
               >
                 {busy === "create" ? t("knowledgePage.working") : t("knowledgePage.create")}
               </ActionButton>
-            </div>
-            <input
+            </div>}
+            {canManage && <input
               aria-label={t("knowledgePage.descPlaceholder")}
               className={UI_INPUT}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder={t("knowledgePage.descPlaceholder")}
-            />
+            />}
             {bases.length === 0 ? (
               <EmptyState text={t("knowledgePage.emptyBases")} />
             ) : (
               <ul className="space-y-2">
                 {bases.map((b) => (
-                  <li key={b.id}>
+                  <li key={b.id} className="flex items-stretch gap-2">
                     <button
                       type="button"
                       onClick={() => setSelectedId(b.id)}
-                      className={`w-full rounded-xl border px-3 py-2 text-left text-xs transition ${
+                      className={`min-w-0 flex-1 rounded-xl border px-3 py-2 text-left text-xs transition ${
                         selectedId === b.id
                           ? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]"
                           : "border-[var(--border-subtle)] bg-[var(--surface-subtle)] text-[var(--text-secondary)]"
@@ -239,6 +262,17 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
                         {t("knowledgePage.baseMeta", { docs: b.documentCount, chunks: b.chunkCount })}
                       </div>
                     </button>
+                    {canManage && (
+                      <ActionButton
+                        variant="danger"
+                        aria-label={t("knowledgePage.deleteBaseAria", { name: b.name })}
+                        disabled={busy !== null}
+                        onClick={() => setBasePendingDelete(b)}
+                        className="!px-3 !text-xs"
+                      >
+                        {t("knowledgePage.delete")}
+                      </ActionButton>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -251,28 +285,28 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
           description={t("knowledgePage.ingestDescription")}
         >
           <div className="space-y-3">
-            <input
+            {canManage && <input
               aria-label={t("knowledgePage.docTitlePlaceholder")}
               className={UI_INPUT}
               value={docTitle}
               onChange={(e) => setDocTitle(e.target.value)}
               placeholder={t("knowledgePage.docTitlePlaceholder")}
               disabled={!selectedId}
-            />
-            <textarea
+            />}
+            {canManage && <textarea
               aria-label={t("knowledgePage.docContentPlaceholder")}
               className={`${UI_INPUT} min-h-40 font-mono text-[11px]`}
               value={docContent}
               onChange={(e) => setDocContent(e.target.value)}
               placeholder={t("knowledgePage.docContentPlaceholder")}
               disabled={!selectedId}
-            />
-            <ActionButton variant="success"
+            />}
+            {canManage && <ActionButton variant="success"
               disabled={!selectedId || !docTitle.trim() || !docContent.trim() || busy !== null}
               onClick={() => void ingest()} className="!min-h-11 !px-3 !text-xs !font-semibold disabled:opacity-50"
             >
               {busy === "ingest" ? t("knowledgePage.working") : t("knowledgePage.ingest")}
-            </ActionButton>
+            </ActionButton>}
             <div className="max-h-48 space-y-2 overflow-auto">
               {documents.map((d) => (
                 <div
@@ -337,6 +371,19 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
       </SurfacePanel>
       {error && <Notice tone="danger" compact className="mt-3" onDismiss={() => setError(null)} dismissLabel={t("common.close")}>{error}</Notice>}
       <p className="mt-4 text-[11px] text-[var(--text-muted)]">{t("knowledgePage.aiHint")}</p>
+      <ConfirmDialog
+        open={basePendingDelete !== null}
+        title={t("knowledgePage.deleteBaseTitle")}
+        description={t("knowledgePage.deleteBaseConfirm", {
+          name: basePendingDelete?.name ?? "",
+        })}
+        cancelLabel={t("common.cancel")}
+        confirmLabel={t("common.confirmDelete")}
+        onCancel={() => setBasePendingDelete(null)}
+        onConfirm={() => void removeBase()}
+        busy={Boolean(basePendingDelete && busy === `del-base-${basePendingDelete.id}`)}
+        closeOnBackdrop={false}
+      />
     </PageShell>
   );
 }

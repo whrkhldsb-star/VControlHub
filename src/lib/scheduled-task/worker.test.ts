@@ -14,6 +14,8 @@ const {
   failJobMock,
   heartbeatJobMock,
   createCommandRequestMock,
+	reconcileScheduledTaskRunsMock,
+	recordTaskDispatchMock,
   recordTaskRunMock,
   infoMock,
   warnMock,
@@ -31,6 +33,8 @@ const {
   failJobMock: vi.fn(),
   heartbeatJobMock: vi.fn(),
   createCommandRequestMock: vi.fn(),
+	reconcileScheduledTaskRunsMock: vi.fn(),
+	recordTaskDispatchMock: vi.fn(),
   recordTaskRunMock: vi.fn(),
   infoMock: vi.fn(),
   warnMock: vi.fn(),
@@ -59,6 +63,8 @@ vi.mock("@/lib/command/service", () => ({
 }));
 
 vi.mock("./service", () => ({
+	reconcileScheduledTaskRuns: reconcileScheduledTaskRunsMock,
+	recordTaskDispatch: recordTaskDispatchMock,
   recordTaskRun: recordTaskRunMock,
 }));
 
@@ -119,6 +125,8 @@ describe("scheduled-task durable job worker", () => {
     failJobMock.mockResolvedValue({ count: 1 });
     heartbeatJobMock.mockResolvedValue({ count: 1 });
     createCommandRequestMock.mockResolvedValue({ id: "cmd-1" });
+		reconcileScheduledTaskRunsMock.mockResolvedValue({ inspected: 0, reconciled: 0 });
+		recordTaskDispatchMock.mockResolvedValue(undefined);
     recordTaskRunMock.mockResolvedValue(undefined);
 		tryAcquireAdvisoryLockMock.mockResolvedValue(releaseAdvisoryLockMock);
 		releaseAdvisoryLockMock.mockResolvedValue(undefined);
@@ -165,12 +173,14 @@ describe("scheduled-task durable job worker", () => {
       submissionMode: "user",
       requesterId: "user-1",
       serverIds: ["srv-1"],
+			teamId: undefined,
+			idempotencyKey: "scheduled-task:task-1:2026-01-01T00:00:00.000Z",
     });
-    expect(recordTaskRunMock).toHaveBeenCalledWith("task-1", "Triggered command request cmd-1");
+		expect(recordTaskDispatchMock).toHaveBeenCalledWith("task-1", "cmd-1");
     expect(completeJobMock).toHaveBeenCalledWith(
       "job-1",
       expect.stringContaining(":scheduled-task:"),
-      { dispatched: 1 },
+		{ dispatched: 1, reconciled: 0 },
     );
   });
 
@@ -228,7 +238,7 @@ describe("scheduled-task durable job worker", () => {
     expect(completeJobMock).toHaveBeenCalledWith(
       "job-1",
       expect.any(String),
-      { dispatched: 0 },
+		{ dispatched: 0, reconciled: 0 },
     );
   });
 
@@ -249,14 +259,14 @@ describe("scheduled-task durable job worker", () => {
     await Promise.resolve();
 
     expect(recordTaskRunMock).toHaveBeenCalledWith("bad", "Execution failed: boom");
-    expect(recordTaskRunMock).toHaveBeenCalledWith("good", "Triggered command request cmd-good");
+		expect(recordTaskDispatchMock).toHaveBeenCalledWith("good", "cmd-good");
     // New-B (2026-06-15): only the `good` task actually went through
     // createCommandRequest; `bad` failed and was caught by the per-task
     // try/catch, so it doesn't count toward `dispatched`.
     expect(completeJobMock).toHaveBeenCalledWith(
       "job-1",
       expect.any(String),
-      { dispatched: 1 },
+		{ dispatched: 1, reconciled: 0 },
     );
   });
 
@@ -305,10 +315,7 @@ describe("scheduled-task durable job worker", () => {
       }),
     );
     expect(createCommandRequestMock).not.toHaveBeenCalled();
-    expect(recordTaskRunMock).not.toHaveBeenCalledWith(
-      "raced",
-      expect.stringMatching(/^Triggered command request/),
-    );
+		expect(recordTaskDispatchMock).not.toHaveBeenCalledWith("raced", expect.any(String));
     expect(infoMock).toHaveBeenCalledWith(
       expect.stringContaining("already claimed by another worker"),
       expect.objectContaining({ taskId: "raced" }),
@@ -318,7 +325,7 @@ describe("scheduled-task durable job worker", () => {
     expect(completeJobMock).toHaveBeenCalledWith(
       "job-1",
       expect.any(String),
-      { dispatched: 0 },
+		{ dispatched: 0, reconciled: 0 },
     );
   });
 
@@ -359,7 +366,7 @@ describe("scheduled-task durable job worker", () => {
     expect(completeJobMock).toHaveBeenCalledWith(
       "job-1",
       expect.any(String),
-      { dispatched: 0 },
+		{ dispatched: 0, reconciled: 0 },
     );
   });
 

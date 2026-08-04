@@ -9,7 +9,6 @@ export const zh: Record<string, string> = {
 	"aiPage.emptyConversations": "暂无对话，点击新建开始",
 	"aiPage.providerManagement": "提供商管理",
 	"aiPage.collapseSidebar": "收起侧栏",
-	"aiPage.openSidebar": "打开侧边栏",
 	"aiPage.deleteConversationAria": "删除对话 {title}",
 
 	// chat header (ai-chat-header.tsx)
@@ -200,7 +199,6 @@ export const en: Record<string, string> = {
 	"aiPage.emptyConversations": "No conversations yet — click to start a new one",
 	"aiPage.providerManagement": "Provider management",
 	"aiPage.collapseSidebar": "Collapse sidebar",
-	"aiPage.openSidebar": "Open sidebar",
 	"aiPage.deleteConversationAria": "Delete conversation {title}",
 
 	// chat header

@@ -39,6 +39,7 @@ type Props = {
 	initialSummary: AiOpsSummary;
 	initialLogs: AiOpsLogRecord[];
 	initialSettings: AiOpsSettings;
+	providerOptions?: Array<{ id: string; name: string; defaultModel: string }>;
 	canManage: boolean;
 	canAutonomous: boolean;
 };
@@ -47,6 +48,7 @@ export function AiOpsPageClient({
 	initialSummary,
 	initialLogs,
 	initialSettings,
+	providerOptions = [],
 	canManage,
 	canAutonomous,
 }: Props) {
@@ -276,6 +278,7 @@ export function AiOpsPageClient({
 			/>
 			<AiOpsSettingsSection
 				settings={settings}
+				providerOptions={providerOptions}
 				editingProvider={editingProvider}
 				canManage={canManage}
 				savingSettings={savingSettings}

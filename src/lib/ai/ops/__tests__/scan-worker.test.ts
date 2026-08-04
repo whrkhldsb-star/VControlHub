@@ -17,6 +17,9 @@ const {
   aiOpsLogCountMock,
   aiOpsLogDeleteManyMock,
   pruneJobsMock,
+  getSettingMock,
+  providerFindFirstMock,
+  sendChatRequestMock,
 } = vi.hoisted(() => ({
   jobMocks: {
     enqueueJob: vi.fn(),
@@ -34,6 +37,9 @@ const {
   aiOpsLogCountMock: vi.fn(),
   aiOpsLogDeleteManyMock: vi.fn(),
   pruneJobsMock: vi.fn(),
+  getSettingMock: vi.fn(),
+  providerFindFirstMock: vi.fn(),
+  sendChatRequestMock: vi.fn(),
 }));
 
 vi.mock("@/lib/job/service", () => ({
@@ -54,7 +60,11 @@ vi.mock("@/lib/health/service-alerts", () => ({
 }));
 
 vi.mock("@/lib/settings/service", () => ({
-  getSetting: vi.fn(async () => null),
+  getSetting: getSettingMock,
+}));
+
+vi.mock("@/lib/ai/service-runtime", () => ({
+  sendChatRequest: sendChatRequestMock,
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -65,6 +75,9 @@ vi.mock("@/lib/db", () => ({
     },
     systemConfig: {
       findUnique: vi.fn(async () => null),
+    },
+    aiProvider: {
+      findFirst: providerFindFirstMock,
     },
     alertRule: {
       count: alertCountMock,
@@ -140,10 +153,23 @@ vi.mock("@/lib/db", () => ({
 }));
 
 import {
+  millisecondsUntilNextLocalHour,
   runAiOpsScanWorkerOnce,
   startAiOpsScanWorker,
   stopAiOpsScanWorkerForTests,
 } from "../scan-worker";
+import { prisma } from "@/lib/db";
+
+describe("millisecondsUntilNextLocalHour", () => {
+  it("targets the next local schedule time before and after the daily hour", () => {
+    expect(
+      millisecondsUntilNextLocalHour(2, new Date(2026, 5, 17, 1, 30)),
+    ).toBe(30 * 60 * 1000);
+    expect(
+      millisecondsUntilNextLocalHour(2, new Date(2026, 5, 17, 2, 30)),
+    ).toBe(23.5 * 60 * 60 * 1000);
+  });
+});
 
 beforeEach(() => {
   jobMocks.findFirst.mockReset();
@@ -177,6 +203,11 @@ beforeEach(() => {
   aiOpsLogDeleteManyMock.mockResolvedValue({ count: 0 });
   pruneJobsMock.mockReset();
   pruneJobsMock.mockResolvedValue({ pruned: 0 });
+  getSettingMock.mockReset();
+  getSettingMock.mockResolvedValue(null);
+  providerFindFirstMock.mockReset();
+  providerFindFirstMock.mockResolvedValue(null);
+  sendChatRequestMock.mockReset();
 });
 
 function playbackFailureCountMockResolveSafe(mock: ReturnType<typeof vi.fn>) {
@@ -216,6 +247,47 @@ describe("runAiOpsScanWorkerOnce", () => {
     expect(jobMocks.failJob).toHaveBeenCalledTimes(1);
     const failArgs = jobMocks.failJob.mock.calls[0];
     expect(failArgs?.[2]).toMatch(/db down/);
+  });
+
+  it("uses the configured provider for analysis and records it on the scan log", async () => {
+    getSettingMock.mockImplementation(async (key: string) =>
+      key === "ai.ops.provider" ? "provider-1" : "recommendation",
+    );
+    providerFindFirstMock.mockResolvedValue({
+      id: "provider-1",
+      createdBy: "admin-1",
+      defaultModel: "ops-model",
+    });
+    sendChatRequestMock.mockResolvedValue({
+      providerType: "OPENAI_COMPATIBLE",
+      response: {
+        json: vi.fn(async () => ({
+          choices: [{ message: { content: "Prioritize the failed backup." } }],
+        })),
+      },
+    });
+    backupFailureCountMock.mockResolvedValue(1);
+
+    await expect(runAiOpsScanWorkerOnce("manual")).resolves.toBe(true);
+
+    expect(sendChatRequestMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        providerId: "provider-1",
+        model: "ops-model",
+        stream: false,
+      }),
+      "admin-1",
+    );
+    const completedLog = jobMocks.completeJob.mock.calls[0]?.[2] as {
+      logId?: string;
+    };
+    expect(completedLog.logId).toBeTruthy();
+    expect(prisma.aiOpsLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ providerId: "provider-1" }),
+      }),
+    );
+    expect(jobMocks.failJob).not.toHaveBeenCalled();
   });
 });
 

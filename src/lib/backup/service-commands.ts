@@ -1,7 +1,7 @@
 /**
  * Backup service — pure command builders (R28 god-file split).
  *
- * Builds the `bash deploy/backup.sh ...` and `tar -xzf ...` shell
+ * Builds the backup and type-specific restore shell
  * strings consumed by `./command-runner`. No I/O, no prisma.
  *
  * Restore policy lives in `planBackupRestoreSteps` so the UI/docs shell

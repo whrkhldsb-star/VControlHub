@@ -235,7 +235,7 @@ export const en: Record<string, string> = {
 	"settingsClient.field.offsite.retentionDays.helper": "Retention days on the offsite side; expired backups are cleaned up by the lifecycle job.",
 	"settingsClient.field.offsite.failureAlertRecipient.helper": "Offsite push failures send an alert email to this address; blank to disable alerting.",
 	"settingsClient.field.ai.ops.mode.helper": "Before switching to autonomous, confirm the ai:ops:autonomous permission is granted and understand that AI will auto-execute whitelisted actions per AI_OPS_SAFE_AUTONOMOUS_ACTIONS.",
-	"settingsClient.field.ai.ops.provider.helper": "Optional. Reserved field for real AI provider integration (v2); currently used for identification and audit only. Only letters, digits, dots, underscores, colons, and hyphens; max 64 characters.",
+	"settingsClient.field.ai.ops.provider.helper": "Optional. Enter an enabled AI provider ID to add provider reasoning to measured health findings. Actions remain restricted to the built-in safe set. Max 64 characters.",
 
 	"settingsClient.validate.parseInteger.notNumber": "{label} must be a number",
 	"settingsClient.validate.parseInteger.outOfRange": "{label} must be between {min} and {max}",

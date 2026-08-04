@@ -14,6 +14,7 @@ import { createUserSchema, updateUserSchema } from "@/lib/user/schema";
 
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/translations";
+import { assertAdminAccessMayBeRemoved, withAdminInvariantLock } from "@/lib/user/admin-invariant";
 export const dynamic = "force-dynamic";
 
 /** GET: List users visible in the actor's team scope */
@@ -159,6 +160,9 @@ export async function PATCH(request: Request) {
     },
     async ({ session, body }) => {
       const { userId, action: userAction, roleKeys, newPassword } = body;
+			if (roleKeys !== undefined) {
+				throw new ValidationError(t("backend.user.rolesMustUsePermissionsEndpoint"));
+			}
 
       await assertUserInActorScope(session!, userId);
 
@@ -174,10 +178,13 @@ export async function PATCH(request: Request) {
       }
 
       if (userAction === "disable") {
-        await prisma.user.update({
-          where: { id: userId },
-          data: { status: "DISABLED" },
-        });
+				await withAdminInvariantLock(async () => {
+					await assertAdminAccessMayBeRemoved(userId);
+					await prisma.user.update({
+						where: { id: userId },
+						data: { status: "DISABLED" },
+					});
+				});
         await auditUserAction(session!.userId, "user.disable", {
           targetUsername: targetUser.username,
         }, undefined, session?.currentTeamId);
@@ -210,30 +217,6 @@ export async function PATCH(request: Request) {
           "WARNING",
           session?.currentTeamId,
         );
-      }
-
-      if (roleKeys) {
-        await prisma.$transaction(async (tx) => {
-          const customRoleKey = `user:${userId}:custom`;
-          // Preserve auto custom role grants when admin rewrites base roleKeys.
-          await tx.userRole.deleteMany({
-            where: { userId, role: { key: { not: customRoleKey } } },
-          });
-          const roles = await tx.role.findMany({
-            where: { key: { in: roleKeys } },
-            take: roleKeys.length,
-          });
-          if (roles.length > 0) {
-            await tx.userRole.createMany({
-              data: roles.map((role) => ({ userId, roleId: role.id })),
-              skipDuplicates: true,
-            });
-          }
-        });
-        await auditUserAction(session!.userId, "user.role_update", {
-          targetUsername: targetUser.username,
-          roles: roleKeys,
-        }, undefined, session?.currentTeamId);
       }
 
       return NextResponse.json({ success: true });

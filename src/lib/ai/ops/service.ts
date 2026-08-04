@@ -42,9 +42,12 @@ import type {
 } from "./types";
 import { AI_OPS_SAFE_AUTONOMOUS_ACTIONS } from "./types";
 import { executeAiOpsAction } from "./action-executor";
+import { t } from "@/lib/i18n/translations";
 
 const DEFAULT_LIST_LIMIT = 50;
 const MAX_LIST_LIMIT = 200;
+export const AI_OPS_ACTION_LEASE_MS = 10 * 60 * 1000;
+const ACTION_RESULT_WRITE_ATTEMPTS = 5;
 
 function toRecord(row: {
 	id: string;
@@ -296,13 +299,20 @@ export async function executeRecommendation(
 		const inProgress =
 			("result" in match && match.result === "in_progress") ||
 			("executed" in match && match.executed === false && !match.errorMessage);
-		return {
-			ok: true,
-			executed: false,
-			errorMessage: inProgress
-				? "Recommendation is already being executed; refresh to view the latest result"
-				: "Recommendation has already been executed",
-		};
+		const leaseStartedAt = Date.parse(match.executedAt);
+		const leaseExpired =
+			inProgress &&
+			Number.isFinite(leaseStartedAt) &&
+			Date.now() - leaseStartedAt >= AI_OPS_ACTION_LEASE_MS;
+		if (!leaseExpired) {
+			return {
+				ok: true,
+				executed: false,
+				errorMessage: inProgress
+					? "Recommendation is already being executed; refresh to view the latest result"
+					: "Recommendation has already been executed",
+			};
+		}
 	}
 
 	const safeSet = new Set<string>(AI_OPS_SAFE_AUTONOMOUS_ACTIONS);
@@ -332,25 +342,56 @@ export async function executeRecommendation(
 		executedAt: claimedAtIso,
 		result: "in_progress",
 	};
-	const claimedActions: (AiOpsRecommendedAction | AiOpsExecutedAction)[] = (
-		log.mode === "autonomous"
-			? (actions as AiOpsExecutedAction[]).filter((a) => a.id !== match.id)
-			: (actions as AiOpsRecommendedAction[]).filter((a) => a.id !== match.id)
-	).concat(inProgressLease);
+	let claimVersion = log.updatedAt;
+	let actionsAtClaim = actions;
+	let actionClaimed = false;
+	for (let attempt = 0; attempt < ACTION_RESULT_WRITE_ATTEMPTS; attempt += 1) {
+		const claimedActions = actionsAtClaim.map((action) =>
+			action.id === match.id ? inProgressLease : action,
+		);
+		const claim = await prisma.aiOpsLog.updateMany({
+			where: { id: log.id, updatedAt: claimVersion },
+			data: {
+				updatedAt: claimedAt,
+				actions: claimedActions as unknown as Prisma.InputJsonValue,
+			},
+		});
+		if (claim.count === 1) {
+			actionClaimed = true;
+			break;
+		}
 
-	// CAS on updatedAt + write in_progress lease so crash mid-side-effect leaves an auditable marker.
-	const claim = await prisma.aiOpsLog.updateMany({
-		where: { id: log.id, updatedAt: log.updatedAt },
-		data: {
-			updatedAt: claimedAt,
-			actions: claimedActions as unknown as Prisma.InputJsonValue,
-		},
-	});
-	if (claim.count !== 1) {
+		const latest = await prisma.aiOpsLog.findUnique({ where: { id: log.id } });
+		if (!latest) break;
+		actionsAtClaim = parseActions(latest.actions, latest.mode as AiOpsMode);
+		const current = actionsAtClaim.find((action) => action.id === match.id);
+		if (!current) break;
+		if (current.executedAt) {
+			const leaseStartedAt = Date.parse(current.executedAt);
+			const inProgress =
+				current.result === "in_progress" ||
+				(current.executed === false && !current.errorMessage);
+			const expired =
+				inProgress &&
+				Number.isFinite(leaseStartedAt) &&
+				Date.now() - leaseStartedAt >= AI_OPS_ACTION_LEASE_MS;
+			if (!expired) {
+				return {
+					ok: true,
+					executed: false,
+					errorMessage: inProgress
+						? "Recommendation is already being executed; refresh to view the latest result"
+						: "Recommendation has already been executed",
+				};
+			}
+		}
+		claimVersion = latest.updatedAt;
+	}
+	if (!actionClaimed) {
 		return {
-			ok: true,
+			ok: false,
 			executed: false,
-			errorMessage: "Recommendation is already being executed; refresh to view the latest result",
+			errorMessage: t("backend.ai.recommendationChangedConcurrently"),
 		};
 	}
 
@@ -359,18 +400,40 @@ export async function executeRecommendation(
 		action: match.action,
 		risk: match.risk,
 	});
-	const updatedActions: (AiOpsRecommendedAction | AiOpsExecutedAction)[] = (
-		log.mode === "autonomous"
-			? (actions as AiOpsExecutedAction[]).filter((a) => a.id !== match.id)
-			: (actions as AiOpsRecommendedAction[]).filter((a) => a.id !== match.id)
-	).concat(executed);
 
-	await prisma.aiOpsLog.update({
-		where: { id: log.id },
-		data: {
-			actions: updatedActions as unknown as Prisma.InputJsonValue,
-		},
-	});
+	let resultPersisted = false;
+	for (let attempt = 0; attempt < ACTION_RESULT_WRITE_ATTEMPTS; attempt += 1) {
+		const latest = await prisma.aiOpsLog.findUnique({ where: { id: log.id } });
+		if (!latest) break;
+		const latestActions = parseActions(latest.actions, latest.mode as AiOpsMode);
+		const leasedAction = latestActions.find((action) => action.id === match.id);
+		if (!leasedAction || leasedAction.executedAt !== claimedAtIso) break;
+
+		const mergedActions = latestActions.map((action) =>
+			action.id === match.id ? executed : action,
+		);
+		const completedAt = new Date();
+		const persisted = await prisma.aiOpsLog.updateMany({
+			where: { id: log.id, updatedAt: latest.updatedAt },
+			data: {
+				updatedAt: completedAt,
+				actions: mergedActions as unknown as Prisma.InputJsonValue,
+			},
+		});
+		if (persisted.count === 1) {
+			resultPersisted = true;
+			break;
+		}
+	}
+
+	if (!resultPersisted) {
+		return {
+			ok: false,
+			executed: false,
+			errorMessage:
+				"The action completed but its result could not be saved due to concurrent updates; refresh before retrying",
+		};
+	}
 
 	return executed.executed
 		? { ok: true, executed: true, action: executed }

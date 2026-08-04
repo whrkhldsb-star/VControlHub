@@ -36,7 +36,6 @@ export const zh: Record<string, string> = {
 	"storagePage.action.missingNodeParam": "缺少存储节点参数",
 	"storagePage.action.missingFileEntryParam": "缺少文件条目参数",
 	"storagePage.action.missingFolderName": "文件夹名称不能为空",
-	"storagePage.action.missingEntryName": "名称不能为空",
 	"storagePage.action.invalidEntryName": "名称包含非法字符",
 	"storagePage.action.nodeNotFound": "存储节点不存在",
 	"storagePage.action.fileEntryNotFound": "文件条目不存在",
@@ -46,7 +45,6 @@ export const zh: Record<string, string> = {
 	"storagePage.action.folderCreateFailed": "创建文件夹失败",
 
 	"storagePage.action.fileMovedToRecycle": "已将 {name} 移至回收站",
-	"storagePage.action.fileMovedToRecycleWithWarning": "已将 {name} 移至回收站；物理文件删除失败，索引仍可恢复或稍后重试永久删除：{warning}",
 	"storagePage.action.fileDeleteFailed": "删除文件条目失败",
 	"storagePage.action.fileRestoreFailed": "恢复文件条目失败",
 	"storagePage.action.filePermanentlyDeleteFailed": "永久删除文件条目失败",
@@ -66,7 +64,6 @@ export const zh: Record<string, string> = {
 	"storagePage.action.deleteNodeFailed": "删除存储节点失败",
 	"storagePage.delete.confirmNode": "确认删除「{name}」？",
 
-	"storagePage.action.physicalFileDeleteFailed": "物理文件删除失败",
 
 	"storagePage.form.createTitle": "新增存储节点",
 	"storagePage.form.createDescription": "支持本机存储与绑定 VPS 的 SFTP 存储节点。",
@@ -77,7 +74,6 @@ export const zh: Record<string, string> = {
 	"storagePage.form.fieldBindVps": "绑定 VPS",
 	"storagePage.form.fieldBindVpsRequired": "*（SFTP 必填绑定VPS或远端主机）",
 	"storagePage.form.fieldRemoteHost": "远端主机",
-	"storagePage.form.fieldRemoteHostRequired": "*（SFTP 必填远端主机或绑定VPS）",
 	"storagePage.form.fieldPort": "端口",
 	"storagePage.form.fieldUsername": "用户名",
 	"storagePage.form.fieldAccessMode": "访问模式",
@@ -131,7 +127,6 @@ export const en: Record<string, string> = {
 	"storagePage.action.missingNodeParam": "Missing storage node parameter",
 	"storagePage.action.missingFileEntryParam": "Missing file entry parameter",
 	"storagePage.action.missingFolderName": "Folder name cannot be empty",
-	"storagePage.action.missingEntryName": "Name cannot be empty",
 	"storagePage.action.invalidEntryName": "Name contains invalid characters",
 	"storagePage.action.nodeNotFound": "Storage node not found",
 	"storagePage.action.fileEntryNotFound": "File entry not found",
@@ -141,7 +136,6 @@ export const en: Record<string, string> = {
 	"storagePage.action.folderCreateFailed": "Failed to create folder",
 
 	"storagePage.action.fileMovedToRecycle": "{name} moved to recycle bin",
-	"storagePage.action.fileMovedToRecycleWithWarning": "{name} moved to recycle bin; physical file deletion failed, the index can still be restored or you can retry permanent deletion later: {warning}",
 	"storagePage.action.fileDeleteFailed": "Failed to delete file entry",
 	"storagePage.action.fileRestoreFailed": "Failed to restore file entry",
 	"storagePage.action.filePermanentlyDeleteFailed": "Failed to permanently delete file entry",
@@ -161,7 +155,6 @@ export const en: Record<string, string> = {
 	"storagePage.action.deleteNodeFailed": "Failed to delete storage node",
 	"storagePage.delete.confirmNode": "Delete “{name}”?",
 
-	"storagePage.action.physicalFileDeleteFailed": "Physical file deletion failed",
 
 	"storagePage.form.createTitle": "Add storage node",
 	"storagePage.form.createDescription": "Supports local storage and SFTP storage nodes bound to a VPS.",
@@ -172,7 +165,6 @@ export const en: Record<string, string> = {
 	"storagePage.form.fieldBindVps": "Bind VPS",
 	"storagePage.form.fieldBindVpsRequired": "* (required for SFTP — bind a VPS or remote host)",
 	"storagePage.form.fieldRemoteHost": "Remote host",
-	"storagePage.form.fieldRemoteHostRequired": "* (required for SFTP — provide a remote host or bind a VPS)",
 	"storagePage.form.fieldPort": "Port",
 	"storagePage.form.fieldUsername": "Username",
 	"storagePage.form.fieldAccessMode": "Access mode",

@@ -33,7 +33,13 @@ vi.mock("@/lib/audit/service", () => ({
 
 const route = await import("../route");
 
-const session = { userId: "u1", username: "alice", user: { id: "u1" }, currentTeamId: null };
+const session = {
+  userId: "u1",
+  username: "alice",
+  roles: ["admin"] as const,
+  mustChangePassword: false,
+  currentTeamId: null,
+};
 
 describe("/api/api-tokens", () => {
   beforeEach(() => {
