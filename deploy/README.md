@@ -4,9 +4,9 @@
 
 ## 快速部署
 
-### 方式 A：fresh server 一行命令安装（推荐）
+### 方式 A：一行生命周期菜单（推荐）
 
-适合全新 **Debian 12 / Ubuntu 22.04+ systemd** 主机（`apt-get` 包管理）。默认从公开 GitHub 仓库拉取 `main` 分支到 `/opt/VControlHub`，随后调用 `deploy/install.sh` 完成依赖安装、环境变量生成、PostgreSQL 初始化、Prisma 迁移/种子、Next.js/runtime 构建、systemd unit、反向代理和服务启动。该命令会先进入交互式配置：依次询问域名、应用名/slug、安装目录、systemd 服务前缀、Next.js 服务端口、SSH WebSocket 服务端口、仓库地址和分支；一路回车会采用默认值，适合快速 fresh install。
+适合 **Debian 12 / Ubuntu 22.04+ systemd** 主机（`apt-get` 包管理）。同一条命令会显示安装/重装、备份后更新、彻底卸载、健康检查、查看凭据和退出菜单；选择安装后再询问域名、应用名/slug、安装目录、服务前缀、端口、仓库和分支，一路回车采用默认值。
 
 > 系统兼容说明：一键安装**正式支持** Debian/Ubuntu + systemd。RHEL/CentOS/Rocky/Arch 等非 apt 系统不会自动装依赖；可先手动装好 Node.js 22+、PostgreSQL、git、curl、build tools、Caddy/Apache，再以 `SKIP_PACKAGES=1` 运行 `deploy/install.sh`。
 
@@ -34,11 +34,14 @@ curl -fsSL https://raw.githubusercontent.com/whrkhldsb-star/VControlHub/main/dep
   sudo REPO_URL=https://github.com/your-org/your-repo.git BRANCH=main APP_DIR=/opt/my-console DOMAIN=your.example.com bash
 ```
 
-非交互/自动化环境可显式跳过提示并只使用默认值或环境变量覆盖：
+非交互/自动化环境必须通过 `VCONTROLHUB_ACTION` 选择操作。完整卸载还要求 `VCONTROLHUB_UNINSTALL_CONFIRM=1`，防止误删：
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/whrkhldsb-star/VControlHub/main/deploy/bootstrap.sh | \
-  sudo VCONTROLHUB_ASSUME_DEFAULTS=1 DOMAIN=your.example.com bash
+  sudo VCONTROLHUB_ASSUME_DEFAULTS=1 VCONTROLHUB_ACTION=install DOMAIN=your.example.com bash
+
+curl -fsSL https://raw.githubusercontent.com/whrkhldsb-star/VControlHub/main/deploy/bootstrap.sh | \
+  sudo VCONTROLHUB_ASSUME_DEFAULTS=1 VCONTROLHUB_ACTION=uninstall VCONTROLHUB_UNINSTALL_CONFIRM=1 bash
 ```
 
 安装成功后查看首次登录密码：
@@ -49,14 +52,14 @@ sudo /opt/VControlHub/deploy/install.sh --show-credentials
 
 ### 完整卸载
 
-卸载器默认移除应用 unit、安装目录和安装器管理的反向代理配置，但保留数据库、运行数据及恢复所需的密钥配置；后续一键安装会自动恢复该配置。先用 `--dry-run` 核对精确作用域；确认需要不可恢复地清除应用数据库、角色、密钥配置和运行数据时，再显式加入 `--purge-data --yes`：
+卸载器没有保留模式，始终不可恢复地删除应用数据库/角色、密钥配置、运行数据、应用用户、unit、安装器管理的反向代理配置，以及本机 VControlHub Quick Service 容器和数据目录。先用 `--dry-run` 核对精确作用域：
 
 ```bash
-sudo /opt/VControlHub/deploy/uninstall.sh --purge-data --dry-run
-sudo /opt/VControlHub/deploy/uninstall.sh --purge-data --yes
+sudo /opt/VControlHub/deploy/uninstall.sh --dry-run
+sudo /opt/VControlHub/deploy/uninstall.sh --yes
 ```
 
-Node.js、PostgreSQL、Caddy、Apache 和 Docker 是共享系统依赖，不会卸载；Quick Service 容器及其宿主数据目录也始终保留，避免删除独立业务数据。
+Node.js、PostgreSQL、Caddy、Apache 和 Docker 是共享系统软件包，不会卸载；无关 Docker 容器、网络、卷和镜像不会删除。
 
 > 该入口不会要求先手动 clone，也不会把 token/密码写入文档或 Git remote。私有仓库请优先使用机器上已有 SSH deploy key 或临时 HTTPS 凭据。
 
@@ -173,7 +176,7 @@ sudo DOMAIN=your.example.com APP_DIR=/opt/VControlHub deploy/install.sh
 | --- | --- | --- |
 | `Makefile` | 本地/生产统一维护入口 | `make verify && sudo make restart && make smoke DOMAIN=your.example.com SERVICE_PREFIX=vcontrolhub` |
 | `deploy/fakeroot-install-check.sh` | installer fakeroot/dry-run 回归；通过 Vitest 的 DESTDIR 隔离 fixture 覆盖域名/Caddy、无域名/Apache、`SKIP_PACKAGES=1`、`DESTDIR` 和凭据同步等 fresh-install 分支，不会改动宿主 systemd/反代服务 | `make installer-fakeroot` |
-| `deploy/uninstall.sh` | 安全卸载应用；默认保留数据库/运行数据，`--purge-data` 后才清除，共享依赖和 Quick Service 数据不删除 | `sudo deploy/uninstall.sh --purge-data --dry-run` |
+| `deploy/uninstall.sh` | 彻底删除应用和全部本机应用数据，不提供保留模式；共享软件包和无关 Docker 资源不删除 | `sudo deploy/uninstall.sh --dry-run` |
 | `deploy/preflight.sh` | 部署前置检查；验证基础命令、环境变量占位符、Node 版本、端口占用、磁盘空间和运行目录，且不输出密钥值 | `APP_DIR=/opt/my-console ENV_FILE=/opt/my-console/.env.local deploy/preflight.sh` |
 | `deploy/upgrade.sh` | 升级部署；默认先创建升级前数据库备份，再复用 `install.sh` 的构建/迁移/重启流程，最后执行 `deploy/check.sh` | `sudo APP_NAME=my-console APP_SLUG=my-console APP_DIR=/opt/my-console DOMAIN=your.example.com deploy/upgrade.sh` |
 | `deploy/check.sh` | 检查环境变量、运行目录、systemd 服务和本地 `/login`，可选运行完整 npm 验证 | `APP_DIR=/opt/VControlHub CHECK_PUBLIC_URL=https://your.example.com deploy/check.sh` |

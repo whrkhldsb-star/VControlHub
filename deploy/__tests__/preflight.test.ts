@@ -477,7 +477,8 @@ describe("deploy/install.sh", () => {
     expect(script).not.toContain("npm ci --omit=dev");
     expect(script).not.toContain("npm prune --omit=dev");
     expect(script).toContain("Keep the exact dependency tree used to generate Prisma Client");
-    expect(script).toContain("Restoring preserved configuration");
+    expect(script).not.toContain("PERSISTED_ENV_FILE");
+    expect(script).toContain('source "${QUICK_SERVICE_PATHS_LIB}"');
     expect(script).toContain('/usr/bin/node /usr/local/bin/node /bin/node /opt/node/bin/node');
     expect(script).toContain('Node.js ${node_major} already installed at ${node_path}');
   });
@@ -516,6 +517,7 @@ describe("deploy/install.sh", () => {
   it("installs and enables Docker Engine during normal first install unless explicitly skipped", async () => {
     const repoRoot = path.resolve(__dirname, "../..");
     const script = await readFile(path.join(repoRoot, "deploy/install.sh"), "utf8");
+    const pathInventory = await readFile(path.join(repoRoot, "deploy/lib/quick-service-paths.sh"), "utf8");
 
     expect(script).toContain('SKIP_DOCKER="${SKIP_DOCKER:-0}"');
     expect(script).toContain("install_docker() {");
@@ -525,9 +527,10 @@ describe("deploy/install.sh", () => {
     expect(script).toContain("add_app_user_to_docker_group() {");
     expect(script).toContain('usermod -aG docker "${APP_USER}"');
     expect(script).toContain("prepare_quick_service_storage() {");
-    expect(script).toContain("quick_service_host_paths() {");
-    expect(script).toContain("/opt/filebrowser/db");
-    expect(script).toContain("/opt/dufs/data");
+    expect(pathInventory).toContain("quick_service_host_paths() {");
+    expect(pathInventory).toContain("quick_service_removable_data_paths() {");
+    expect(pathInventory).toContain("/opt/filebrowser/db");
+    expect(pathInventory).toContain("/opt/dufs/data");
     expect(script).toContain("quick_service_read_write_paths");
     expect(script).toContain("Skipping Docker Engine installation (SKIP_DOCKER=1)");
     expect(script).toContain("Skipping Docker Engine installation for DESTDIR isolated install");
@@ -1358,15 +1361,18 @@ describe("deploy/install.sh", () => {
 });
 
 describe("deploy/uninstall.sh", () => {
-  it("requires explicit data purge and protects shared host resources", async () => {
+  it("always removes application data while protecting unrelated host resources", async () => {
     const repoRoot = path.resolve(__dirname, "../..");
     const script = await readFile(path.join(repoRoot, "deploy/uninstall.sh"), "utf8");
 
-    expect(script).toContain("--purge-data");
+    expect(script).not.toContain("--purge-data");
     expect(script).toContain("--dry-run");
     expect(script).toContain("--yes");
-    expect(script).toContain("Quick Service containers and their host data directories are intentionally preserved");
-    expect(script).toContain('install -m 0600 "${ENV_FILE}" "${PERSISTED_ENV_FILE}"');
+    expect(script).toContain("Complete uninstall selected; no application information will be retained");
+    expect(script).toContain('label=com.vcontrolhub.quick-service=true');
+    expect(script).toContain('[[ "${name}" == qs-* ]]');
+    expect(script).toContain("quick_service_removable_data_paths");
+    expect(script).toContain("Complete uninstall verified");
     expect(script).toContain("# Managed by VControlHub installer:");
     expect(script).toContain("Refusing unsafe APP_DIR");
     expect(script).toContain("Refusing unsafe data path");
@@ -1398,6 +1404,7 @@ describe("compressed archive deployment entrypoints", () => {
     const installer = await readFile(rootInstaller, "utf8");
     const bootstrap = await readFile(bootstrapInstaller, "utf8");
     const packager = await readFile(archiveScript, "utf8");
+    const archiveAttributes = await readFile(path.join(repoRoot, ".gitattributes"), "utf8");
     expect(installer).toContain("SOURCE_DIR");
     expect(installer).toContain("deploy/install.sh");
     expect(bootstrap).toContain(
@@ -1405,15 +1412,35 @@ describe("compressed archive deployment entrypoints", () => {
     );
     expect(bootstrap).toContain("prompt_with_default");
     expect(bootstrap).toContain("VCONTROLHUB_ASSUME_DEFAULTS");
+    expect(bootstrap).toContain("VControlHub lifecycle menu");
+    expect(bootstrap).toContain("Install / reinstall");
+    expect(bootstrap).toContain("Completely uninstall");
+    expect(bootstrap).toContain("VCONTROLHUB_ACTION");
+    expect(bootstrap).toContain("VCONTROLHUB_UNINSTALL_CONFIRM");
+    expect(bootstrap).toContain("deploy/upgrade.sh");
+    expect(bootstrap).toContain("deploy/uninstall.sh");
+    expect(bootstrap).toContain("deploy/check.sh");
     expect(bootstrap).toContain("Domain / public hostname");
     expect(bootstrap).toContain("Next.js service port");
     expect(bootstrap).toContain("SSH WebSocket service port");
     expect(bootstrap).toContain("Install directory");
     expect(bootstrap).toContain("git clone");
     expect(bootstrap).toContain("deploy/install.sh");
+
+    const deployInstaller = await readFile(path.join(repoRoot, "deploy/install.sh"), "utf8");
+    const upgrader = await readFile(path.join(repoRoot, "deploy/upgrade.sh"), "utf8");
+    expect(deployInstaller).toContain('set_env_var DOMAIN "${DOMAIN}"');
+    expect(upgrader).toContain('public_origin="${SSH_WS_ALLOWED_ORIGINS:-}"');
+    expect(upgrader).toContain('/etc/caddy/Caddyfile');
+    expect(upgrader).toContain('# Managed by VControlHub installer:');
+    expect(upgrader).toContain('export DOMAIN');
     expect(packager).toContain(".env.local");
     expect(packager).toContain("node_modules");
     expect(packager).toContain("${APP_SLUG}-release");
+    for (const runtimeDir of ["backups", "downloads", "logs", "storage", "tmp", "uploads"]) {
+      expect(archiveAttributes).toContain(`/${runtimeDir}/ export-ignore`);
+      expect(archiveAttributes).not.toMatch(new RegExp(`^${runtimeDir}/ export-ignore$`, "m"));
+    }
   });
 
   it("lets release archives use a custom portable app slug and package root", async () => {

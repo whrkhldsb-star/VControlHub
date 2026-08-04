@@ -60,7 +60,6 @@ SSH_WS_PORT="${SSH_WS_PORT:-3001}"
 ENV_FILE="${ENV_FILE:-${APP_DIR}/.env.local}"
 RUNTIME_ENV_FILE="${RUNTIME_ENV_FILE:-${APP_DIR}/.env.runtime}"
 ENV_TEMPLATE="${ENV_TEMPLATE:-${APP_DIR}/deploy/env.production.example}"
-PERSISTED_ENV_FILE="${PERSISTED_ENV_FILE:-/var/lib/${APP_SLUG}/installer/.env.local}"
 SKIP_PACKAGES="${SKIP_PACKAGES:-0}"
 SKIP_DOCKER="${SKIP_DOCKER:-0}"
 SKIP_CADDY="${SKIP_CADDY:-0}"
@@ -86,6 +85,7 @@ SKIP_BUILD="${SKIP_BUILD:-0}"
 SKIP_SYSTEMD="${SKIP_SYSTEMD:-0}"
 REPO_URL="${REPO_URL:-}"
 SOURCE_DIR="${SOURCE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 log() { printf '\033[1;32m[%s]\033[0m %s\n' "$(date -Iseconds)" "$*"; }
 warn() { printf '\033[1;33m[%s]\033[0m %s\n' "$(date -Iseconds)" "$*" >&2; }
@@ -97,6 +97,11 @@ need_root() {
  [ "${uid}" = "0" ] || fail "Please run as root (or via sudo)."
 }
 have_cmd() { command -v "$1" >/dev/null 2>&1; }
+
+QUICK_SERVICE_PATHS_LIB="${SCRIPT_DIR}/lib/quick-service-paths.sh"
+[ -r "${QUICK_SERVICE_PATHS_LIB}" ] || fail "Missing Quick Service path inventory: ${QUICK_SERVICE_PATHS_LIB}"
+# shellcheck disable=SC1090
+source "${QUICK_SERVICE_PATHS_LIB}"
 
 shell_escape_sed_replacement() {
  # Escape &, \, /, #, and | for use in sed replacement strings.
@@ -294,67 +299,6 @@ install_docker() {
 	fi
 }
 
-quick_service_host_paths() {
-	# Keep in sync with src/lib/quick-service/catalog.ts. These are the host-side
-	# data directories Quick Services creates before docker run. The Next.js app
-	# runs as APP_USER under ProtectSystem=strict, so both filesystem ownership and
-	# systemd ReadWritePaths must include them on first install.
-	cat <<'EOF'
-/opt/adguardhome/conf
-/opt/adguardhome/work
-/opt/affine/data
-/opt/alist/data
-/opt/beszel/data
-/opt/changedetection/data
-/opt/code-server/config
-/opt/davos/config
-/opt/davos/downloads
-/opt/dufs/data
-/opt/emby/config
-/opt/emby/data
-/opt/filebrowser/config
-/opt/filebrowser/db
-/opt/frps/config
-/opt/ghost/content
-/opt/gitea/data
-/opt/gladys/data
-/opt/halo/data
-/opt/hedgedoc/uploads
-/opt/immich/upload
-/opt/jellyfin/cache
-/opt/jellyfin/config
-/opt/jellyfin/media
-/opt/komga/books
-/opt/komga/config
-/opt/linkwarden/data
-/opt/maxkb/data
-/opt/memos/data
-/opt/metube/downloads
-/opt/minio/data
-/opt/n8n/data
-/opt/navidrome/data
-/opt/navidrome/music
-/opt/nextcloud/data
-/opt/nextcloud/html
-/opt/outline/data
-/opt/photoprism/originals
-/opt/photoprism/storage
-/opt/pihole/etc-dnsmasq
-/opt/pihole/etc-pihole
-/opt/portainer/data
-/opt/speedtest/config
-/opt/stirling-pdf/data
-/opt/tianji/data
-/opt/typecho/data
-/opt/uptime-kuma/data
-/opt/vaultwarden/data
-/opt/wallabag/data
-/opt/wallabag/images
-/opt/wordpress/data
-/srv
-EOF
-}
-
 prepare_quick_service_storage() {
 	[ -n "${DESTDIR}" ] && return 0
 	[ "${SKIP_DOCKER}" = "1" ] && return 0
@@ -545,10 +489,6 @@ sync_source() {
 }
 
 write_env_if_missing() {
-  if [ ! -f "${ENV_FILE}" ] && [ -z "${DESTDIR}" ] && [ -f "${PERSISTED_ENV_FILE}" ]; then
-    log "Restoring preserved configuration from ${PERSISTED_ENV_FILE}"
-    install -m 0600 "${PERSISTED_ENV_FILE}" "${ENV_FILE}"
-  fi
   if [ ! -f "${ENV_FILE}" ]; then
     [ -f "${ENV_TEMPLATE}" ] || ENV_TEMPLATE="${APP_DIR}/.env.example"
     [ -f "${ENV_TEMPLATE}" ] || fail "No environment template found at ${ENV_TEMPLATE} or ${APP_DIR}/.env.example"
@@ -574,6 +514,7 @@ sync_installer_env_overrides() {
  set_env_var PORT "${NEXT_PORT}"
  set_env_var SSH_WS_HOST "${SSH_WS_HOST}"
  set_env_var SSH_WS_PORT "${SSH_WS_PORT}"
+ set_env_var DOMAIN "${DOMAIN}"
  set_env_var PG_DB_NAME "${PG_DB_NAME}"
  set_env_var PG_DB_USER "${PG_DB_USER}"
  if [ -n "${DATABASE_URL_OVERRIDE}" ] && ! is_placeholder_value "${DATABASE_URL_OVERRIDE}"; then

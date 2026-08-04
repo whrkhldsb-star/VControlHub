@@ -140,15 +140,15 @@
 - **域名** — 可选（无域名时自动配置 Apache/IP 直连模式）
 - **端口** — 对公网仅需 80/443（Web）；3000/3001 分别供 Next.js 与 SSH-WS 在本机回环地址监听，不应直接开放到公网
 
-### 真正一行 fresh server 安装（推荐）
+### 一行生命周期入口（推荐）
 
-在干净 **Debian 12 / Ubuntu 22.04+ systemd** 服务器上，直接执行一行命令即可拉取仓库、安装依赖、生成生产环境变量、初始化 PostgreSQL、构建产物、写入 systemd/反向代理并启动服务（默认目录 `/opt/VControlHub`）：
+执行同一条命令后可选择安装/重装、备份后更新、彻底卸载、健康检查或查看凭据。安装会拉取仓库、安装依赖、生成生产环境变量、初始化 PostgreSQL、构建产物并启动服务（默认目录 `/opt/VControlHub`）：
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/whrkhldsb-star/VControlHub/main/deploy/bootstrap.sh | sudo DOMAIN=your.example.com bash
 ```
 
-无域名时也可以省略 `DOMAIN`，脚本会走 IP 直连/本地代理模式：
+无域名安装时也可以省略 `DOMAIN`，脚本会走 IP 直连/本地代理模式：
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/whrkhldsb-star/VControlHub/main/deploy/bootstrap.sh | sudo bash
@@ -161,18 +161,24 @@ curl -fsSL https://raw.githubusercontent.com/whrkhldsb-star/VControlHub/main/dep
   sudo APP_NAME="VControlHub" APP_SLUG=vcontrolhub APP_DIR=/opt/VControlHub DOMAIN=your.example.com bash
 ```
 
-安装完成后如需查看自动生成的首次登录密码：
+自动化环境通过 `VCONTROLHUB_ACTION` 明确选择操作；安装使用 `install`，彻底卸载还必须显式设置确认变量：
 
 ```bash
-sudo /opt/VControlHub/deploy/install.sh --show-credentials
+curl -fsSL https://raw.githubusercontent.com/whrkhldsb-star/VControlHub/main/deploy/bootstrap.sh | \
+  sudo VCONTROLHUB_ASSUME_DEFAULTS=1 VCONTROLHUB_ACTION=install DOMAIN=your.example.com bash
+
+curl -fsSL https://raw.githubusercontent.com/whrkhldsb-star/VControlHub/main/deploy/bootstrap.sh | \
+  sudo VCONTROLHUB_ASSUME_DEFAULTS=1 VCONTROLHUB_ACTION=uninstall VCONTROLHUB_UNINSTALL_CONFIRM=1 bash
 ```
 
-完整卸载前先预览精确作用域；默认会安全保存密钥配置以供重装恢复，只有 `--purge-data` 会删除 PostgreSQL 库/角色、密钥配置和运行数据。共享的 Node.js、PostgreSQL、Caddy、Apache、Docker 以及 Quick Service 容器/数据不会被删除：
+卸载始终是不可恢复的完整卸载：删除应用数据库/角色、密钥配置、运行数据、应用用户、unit、安装器管理的反代配置，以及本机 VControlHub Quick Service 容器和目录，不保留旧信息。建议先预览：
 
 ```bash
-sudo /opt/VControlHub/deploy/uninstall.sh --purge-data --dry-run
-sudo /opt/VControlHub/deploy/uninstall.sh --purge-data --yes
+sudo /opt/VControlHub/deploy/uninstall.sh --dry-run
+sudo /opt/VControlHub/deploy/uninstall.sh --yes
 ```
+
+共享的 Node.js、PostgreSQL、Caddy、Apache、Docker 软件包和无关 Docker 资源不会删除。
 
 ### 传统手动安装（保留）
 
@@ -320,9 +326,9 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 | 文件                   | 用途                                                                                                                                             |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `deploy/bootstrap.sh`  | fresh server 一行安装入口，负责拉取仓库并调用安装脚本                                                                                            |
+| `deploy/bootstrap.sh`  | 一行生命周期入口，交互选择安装/重装、更新、彻底卸载、健康检查或查看凭据                                                                          |
 | `deploy/install.sh`    | 一键安装/重装/升级核心脚本，生成环境变量、构建、写 systemd 和反代                                                                                |
-| `deploy/uninstall.sh`  | 安全卸载应用 unit/源码/反代；默认保留数据与恢复配置，显式 `--purge-data` 时彻底清除，共享系统依赖和 Quick Service 数据始终保留                       |
+| `deploy/uninstall.sh`  | 完全删除应用 unit、源码、数据库、密钥、运行数据、本机 Quick Service 容器/数据和安装器管理的反代配置                                                |
 | `deploy/setup.sh`      | 环境初始化（Node.js/PostgreSQL/Caddy 安装）                                                                                                       |
 | `deploy/upgrade.sh`    | 升级入口，默认升级前备份并在完成后自检                                                                                                           |
 | `deploy/check.sh`      | 不泄密的部署健康检查，可选 `RUN_NPM_CHECKS=1` 执行完整 npm 门禁                                                                                  |
@@ -358,7 +364,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 | API 路由文件        | 177                                              |
 | 数据模型            | 75                                               |
 | UI 组件           | 44                                               |
-| 代码行数            | ~237,121（src 扫描）                                 |
+| 代码行数            | ~237,124（src 扫描）                                 |
 | 测试              | 503 文件                                           |
 | Docker 应用模板     | 44 (本地) + 社区源实时同步                                |
 | i18n            | 242 useI18n() 调用点，82 字典文件                        |

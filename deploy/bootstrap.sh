@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One-line fresh-host bootstrapper for VControlHub.
+# One-line lifecycle entrypoint for VControlHub.
 # Intended usage:
 #   curl -fsSL https://raw.githubusercontent.com/whrkhldsb-star/VControlHub/main/deploy/bootstrap.sh | sudo bash
 # Optional overrides before `bash`:
@@ -25,11 +25,44 @@ DOMAIN="${DOMAIN:-}"
 NEXT_PORT="${NEXT_PORT:-3000}"
 SSH_WS_PORT="${SSH_WS_PORT:-3001}"
 VCONTROLHUB_ASSUME_DEFAULTS="${VCONTROLHUB_ASSUME_DEFAULTS:-0}"
+VCONTROLHUB_ACTION="${VCONTROLHUB_ACTION:-}"
+VCONTROLHUB_UNINSTALL_CONFIRM="${VCONTROLHUB_UNINSTALL_CONFIRM:-0}"
 
 log() { printf '\033[1;32m[bootstrap]\033[0m %s\n' "$*"; }
 fail() { printf '\033[1;31m[bootstrap]\033[0m %s\n' "$*" >&2; exit 1; }
 can_prompt() {
   [ "${VCONTROLHUB_ASSUME_DEFAULTS}" != "1" ] && [ -r /dev/tty ] && [ -w /dev/tty ]
+}
+choose_action() {
+  if [ -z "${VCONTROLHUB_ACTION}" ] && can_prompt; then
+    cat > /dev/tty <<'EOF'
+
+VControlHub lifecycle menu
+  1) Install / reinstall
+  2) Update (backup, pull, migrate, rebuild, verify)
+  3) Completely uninstall (delete all application data)
+  4) Health check
+  5) Show generated credentials
+  0) Exit
+EOF
+    printf 'Select an action [1]: ' > /dev/tty
+    local selection=""
+    IFS= read -r selection < /dev/tty || selection=""
+    case "${selection:-1}" in
+      1) VCONTROLHUB_ACTION="install" ;;
+      2) VCONTROLHUB_ACTION="update" ;;
+      3) VCONTROLHUB_ACTION="uninstall" ;;
+      4) VCONTROLHUB_ACTION="check" ;;
+      5) VCONTROLHUB_ACTION="credentials" ;;
+      0) VCONTROLHUB_ACTION="exit" ;;
+      *) fail "Invalid menu selection: ${selection}" ;;
+    esac
+  fi
+  VCONTROLHUB_ACTION="${VCONTROLHUB_ACTION:-install}"
+  case "${VCONTROLHUB_ACTION}" in
+    install|update|uninstall|check|credentials|exit) ;;
+    *) fail "Invalid VCONTROLHUB_ACTION=${VCONTROLHUB_ACTION}; expected install, update, uninstall, check, credentials, or exit." ;;
+  esac
 }
 prompt_with_default() {
   local var_name="$1" label="$2" default_value="$3" input_value=""
@@ -94,17 +127,15 @@ checkout_repo() {
   fi
 }
 
-main() {
-  if [ "${CHECK_SYNTAX_ONLY:-0}" = "1" ]; then
-    bash -n "${BASH_SOURCE[0]}"
-    return
-  fi
+require_installed_script() {
+  local relative_path="$1"
+  [ -x "${APP_DIR}/${relative_path}" ] || fail "VControlHub is not installed at ${APP_DIR}; missing ${relative_path}. Choose install first."
+}
 
-  need_root
+run_install() {
   prompt_config
   ensure_git
   checkout_repo
-
   log "Starting one-click installer"
   APP_NAME="${APP_NAME}" \
   APP_SLUG="${APP_SLUG}" \
@@ -116,6 +147,54 @@ main() {
   SSH_WS_PORT="${SSH_WS_PORT}" \
   REPO_URL="${REPO_URL}" \
   "${APP_DIR}/deploy/install.sh" "$@"
+}
+
+run_update() {
+  require_installed_script deploy/upgrade.sh
+  log "Starting backup-first update"
+  APP_NAME="${APP_NAME}" APP_SLUG="${APP_SLUG}" SERVICE_PREFIX="${SERVICE_PREFIX}" \
+    APP_DIR="${APP_DIR}" UPGRADE_REF="${BRANCH}" "${APP_DIR}/deploy/upgrade.sh" "$@"
+}
+
+run_uninstall() {
+  require_installed_script deploy/uninstall.sh
+  log "Starting complete uninstall"
+  local confirmation_args=()
+  if ! can_prompt; then
+    [ "${VCONTROLHUB_UNINSTALL_CONFIRM}" = "1" ] || fail "Non-interactive complete uninstall requires VCONTROLHUB_UNINSTALL_CONFIRM=1."
+    confirmation_args+=(--yes)
+  fi
+  APP_SLUG="${APP_SLUG}" SERVICE_PREFIX="${SERVICE_PREFIX}" APP_DIR="${APP_DIR}" \
+    "${APP_DIR}/deploy/uninstall.sh" "${confirmation_args[@]}" "$@"
+}
+
+run_check() {
+  require_installed_script deploy/check.sh
+  APP_NAME="${APP_NAME}" APP_SLUG="${APP_SLUG}" SERVICE_PREFIX="${SERVICE_PREFIX}" APP_DIR="${APP_DIR}" \
+    "${APP_DIR}/deploy/check.sh" "$@"
+}
+
+show_credentials() {
+  require_installed_script deploy/install.sh
+  APP_SLUG="${APP_SLUG}" APP_DIR="${APP_DIR}" "${APP_DIR}/deploy/install.sh" --show-credentials
+}
+
+main() {
+  if [ "${CHECK_SYNTAX_ONLY:-0}" = "1" ]; then
+    bash -n "${BASH_SOURCE[0]}"
+    return
+  fi
+
+  need_root
+  choose_action
+  case "${VCONTROLHUB_ACTION}" in
+    install) run_install "$@" ;;
+    update) run_update "$@" ;;
+    uninstall) run_uninstall "$@" ;;
+    check) run_check "$@" ;;
+    credentials) show_credentials ;;
+    exit) log "No changes made." ;;
+  esac
 }
 
 main "$@"

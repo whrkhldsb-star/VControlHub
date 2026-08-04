@@ -88,6 +88,7 @@ describe("quick service docker lifecycle", () => {
 			expect.any(Function),
 		);
 		const dockerArgs = execFileMock.mock.calls[0]![1] as string[];
+		expect(dockerArgs).toEqual(expect.arrayContaining(["--label", "com.vcontrolhub.quick-service=true"]));
 		expect(dockerArgs).not.toContain("EMPTY=");
 		expect(dockerArgs.join(" ")).not.toContain("'qs-demo'");
 		expect(prismaMock.quickService.update).toHaveBeenCalledWith({

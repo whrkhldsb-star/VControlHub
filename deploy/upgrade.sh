@@ -24,6 +24,32 @@ load_env_for_defaults() {
   [ -f "${ENV_FILE}" ] || return 0
   # shellcheck disable=SC1090
   set -a; source "${ENV_FILE}"; set +a
+
+  # DOMAIN was not persisted by installers released before the lifecycle menu.
+  # Recover it from the first configured public SSH WebSocket origin so those
+  # existing installations can use Update without falling into IP/Apache mode.
+  local public_origin="" authority=""
+  if [ -z "${DOMAIN:-}" ]; then
+    public_origin="${SSH_WS_ALLOWED_ORIGINS:-}"
+    public_origin="${public_origin%%,*}"
+  fi
+  if [ -z "${DOMAIN:-}" ] && { [ -z "${public_origin}" ] || [[ "${public_origin}" == http://localhost* ]] || [[ "${public_origin}" == http://127.0.0.1* ]]; }; then
+    local caddy_file="/etc/caddy/Caddyfile"
+    if [ -f "${caddy_file}" ] && grep -Fq "# Managed by VControlHub installer:" "${caddy_file}"; then
+      public_origin="$(sed -nE 's|^[[:space:]]*(https?://[^, {]+).*|\1|p' "${caddy_file}" | head -1)"
+    fi
+  fi
+  if [ -z "${DOMAIN:-}" ] && [ -n "${public_origin}" ]; then
+    case "${public_origin}" in
+      http://*|https://*)
+        authority="${public_origin#*://}"
+        authority="${authority%%/*}"
+        DOMAIN="${authority%%:*}"
+        export DOMAIN
+        log "Recovered installed domain from existing public configuration: ${DOMAIN}"
+        ;;
+    esac
+  fi
   if [ -z "${CHECK_PUBLIC_URL}" ] && [ -n "${APP_PUBLIC_URL:-}" ]; then
     CHECK_PUBLIC_URL="${APP_PUBLIC_URL}"
   fi

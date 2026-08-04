@@ -292,6 +292,8 @@ export async function recreateDockerContainer(
 		"-d",
 		"--name",
 		containerName,
+		"--label",
+		"com.vcontrolhub.quick-service=true",
 		"--restart",
 		"unless-stopped",
 		"--add-host=host.docker.internal:host-gateway",
