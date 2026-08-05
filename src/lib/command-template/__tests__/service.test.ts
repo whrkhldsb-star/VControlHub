@@ -1,4 +1,6 @@
-vi.mock("@/lib/concurrency/advisory-lock", () => ({ acquireAdvisoryLock: vi.fn(async () => async () => undefined) }));
+vi.mock("@/lib/concurrency/advisory-lock", () => ({
+  acquireAdvisoryLock: vi.fn(async () => async () => undefined),
+}));
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { mockPrisma } = vi.hoisted(() => ({
@@ -9,6 +11,7 @@ const { mockPrisma } = vi.hoisted(() => ({
       createMany: vi.fn(),
       findMany: vi.fn(),
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
     },
@@ -23,6 +26,51 @@ describe("command template service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockPrisma.commandTemplate.count.mockResolvedValue(1);
+  });
+
+  it("scopes non-admin template reads to builtins and the current team", () => {
+    expect(
+      service.commandTemplateScopeWhere({
+        userId: "u1",
+        roles: ["operator"],
+        currentTeamId: "team_1",
+      }),
+    ).toEqual({ OR: [{ isBuiltin: true }, { teamId: "team_1" }] });
+    expect(
+      service.commandTemplateScopeWhere({
+        userId: "u1",
+        roles: ["operator"],
+        currentTeamId: null,
+      }),
+    ).toEqual({ isBuiltin: true });
+  });
+
+  it("uses the team-scoped lookup for API mutations", async () => {
+    mockPrisma.commandTemplate.findFirst.mockResolvedValueOnce({
+      id: "user_1",
+      isBuiltin: false,
+      command: "echo hi",
+      rollbackCommand: null,
+      createdById: "u1",
+    });
+    mockPrisma.commandTemplate.update.mockResolvedValue({ id: "user_1" });
+    const session = {
+      userId: "u1",
+      roles: ["operator"] as Array<"operator">,
+      currentTeamId: "team_1",
+    };
+
+    await service.updateTemplate(
+      "user_1",
+      { name: "Renamed" },
+      { userId: "u1" },
+      session,
+    );
+
+    expect(mockPrisma.commandTemplate.findFirst).toHaveBeenCalledWith({
+      where: { id: "user_1", OR: [{ isBuiltin: true }, { teamId: "team_1" }] },
+      select: expect.any(Object),
+    });
   });
 
   it("bounds command template list hydration while preserving built-in ordering", async () => {
@@ -50,13 +98,17 @@ describe("command template service", () => {
     // Ensure none of the 12 built-ins are still routed through `create`,
     // which would re-introduce the O(N) sequential round-trip pattern.
     expect(mockPrisma.commandTemplate.create).not.toHaveBeenCalled();
-    const args = mockPrisma.commandTemplate.createMany.mock.calls[0]?.[0] as {
-      data: Array<{ isBuiltin: boolean; name: string }>;
-    } | undefined;
+    const args = mockPrisma.commandTemplate.createMany.mock.calls[0]?.[0] as
+      | {
+          data: Array<{ isBuiltin: boolean; name: string }>;
+        }
+      | undefined;
     expect(args).toBeDefined();
     expect(Array.isArray(args?.data)).toBe(true);
     expect(args?.data.length ?? 0).toBeGreaterThanOrEqual(12);
-    expect(args?.data.every((row) => row.isBuiltin === true) ?? false).toBe(true);
+    expect(args?.data.every((row) => row.isBuiltin === true) ?? false).toBe(
+      true,
+    );
   });
 
   it("skips seeding when built-in templates already exist", async () => {
@@ -81,13 +133,17 @@ describe("command template service", () => {
     });
 
     await expect(
-      service.updateTemplate("builtin_1", { name: "Hijacked" }, { userId: "u1" }),
+      service.updateTemplate(
+        "builtin_1",
+        { name: "Hijacked" },
+        { userId: "u1" },
+      ),
     ).rejects.toThrow("内置命令模板不可修改");
     expect(mockPrisma.commandTemplate.update).not.toHaveBeenCalled();
 
-    await expect(service.deleteTemplate("builtin_1", { userId: "u1" })).rejects.toThrow(
-      "内置命令模板不可删除",
-    );
+    await expect(
+      service.deleteTemplate("builtin_1", { userId: "u1" }),
+    ).rejects.toThrow("内置命令模板不可删除");
     expect(mockPrisma.commandTemplate.delete).not.toHaveBeenCalled();
   });
 
@@ -108,17 +164,26 @@ describe("command template service", () => {
         variables: [],
         createdById: "u1",
       });
-    mockPrisma.commandTemplate.update.mockResolvedValue({ id: "user_1", name: "Renamed" });
+    mockPrisma.commandTemplate.update.mockResolvedValue({
+      id: "user_1",
+      name: "Renamed",
+    });
     mockPrisma.commandTemplate.delete.mockResolvedValue({ id: "user_1" });
 
-    await service.updateTemplate("user_1", { name: "Renamed" }, { userId: "u1" });
+    await service.updateTemplate(
+      "user_1",
+      { name: "Renamed" },
+      { userId: "u1" },
+    );
     expect(mockPrisma.commandTemplate.update).toHaveBeenCalledWith({
       where: { id: "user_1" },
       data: { name: "Renamed" },
     });
 
     await service.deleteTemplate("user_1", { userId: "u1" });
-    expect(mockPrisma.commandTemplate.delete).toHaveBeenCalledWith({ where: { id: "user_1" } });
+    expect(mockPrisma.commandTemplate.delete).toHaveBeenCalledWith({
+      where: { id: "user_1" },
+    });
   });
 
   it("rejects update/delete of another user's template without canManageAll", async () => {
@@ -138,7 +203,9 @@ describe("command template service", () => {
     ).rejects.toThrow(/无权|No permission/);
     expect(mockPrisma.commandTemplate.update).not.toHaveBeenCalled();
 
-    await expect(service.deleteTemplate("user_2", { userId: "u1" })).rejects.toThrow(/无权|No permission/);
+    await expect(
+      service.deleteTemplate("user_2", { userId: "u1" }),
+    ).rejects.toThrow(/无权|No permission/);
     expect(mockPrisma.commandTemplate.delete).not.toHaveBeenCalled();
   });
 
@@ -150,7 +217,10 @@ describe("command template service", () => {
       rollbackCommand: null,
       createdById: "owner-other",
     });
-    mockPrisma.commandTemplate.update.mockResolvedValue({ id: "user_2", name: "Managed" });
+    mockPrisma.commandTemplate.update.mockResolvedValue({
+      id: "user_2",
+      name: "Managed",
+    });
 
     await service.updateTemplate(
       "user_2",

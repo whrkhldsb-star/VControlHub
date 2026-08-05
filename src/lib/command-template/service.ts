@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { BusinessError, ForbiddenError, NotFoundError } from "@/lib/errors";
 import { t } from "@/lib/i18n/translations";
+import { isGlobalTeamManager, type TeamSession } from "@/lib/auth/team-scope";
 
 /* ── Types ────────────────────────────────────────────────── */
 
@@ -13,6 +14,7 @@ export type CreateTemplateInput = {
 	variables?: string[];
 	tags?: string[];
 	createdById?: string;
+	teamId?: string | null;
 };
 
 export type UpdateTemplateInput = Partial<CreateTemplateInput>;
@@ -86,9 +88,18 @@ export async function seedBuiltinTemplates() {
 
 /* ── CRUD ─────────────────────────────────────────────────── */
 
-export async function listTemplates(limit = 200) {
+export function commandTemplateScopeWhere(session?: TeamSession | null) {
+	if (!session || isGlobalTeamManager(session)) return {};
+	return session.currentTeamId
+		? { OR: [{ isBuiltin: true }, { teamId: session.currentTeamId }] }
+		: { isBuiltin: true };
+}
+
+export async function listTemplates(limit = 200, session?: TeamSession | null) {
 	await seedBuiltinTemplates();
+	const where = commandTemplateScopeWhere(session);
 	return prisma.commandTemplate.findMany({
+		...(Object.keys(where).length > 0 ? { where } : {}),
 		orderBy: [{ isBuiltin: "desc" }, { name: "asc" }],
 		take: limit,
 		include: { creator: { select: { username: true, displayName: true } } },
@@ -108,6 +119,7 @@ export async function createTemplate(input: CreateTemplateInput) {
 			isBuiltin: false,
 			// Blank strings are not real owners — normalize to null so assertCanMutateTemplate treats as legacy.
 			createdById,
+			teamId: input.teamId ?? null,
 		},
 	});
 }
@@ -132,11 +144,11 @@ function assertCanMutateTemplate(
 	throw new ForbiddenError(t("backend.command-template.noPermissionToModifyOthersCommandTemplates"));
 }
 
-export async function updateTemplate(id: string, input: UpdateTemplateInput, actor?: TemplateActor) {
-	const existingRow = await prisma.commandTemplate.findUnique({
-		where: { id },
-		select: { id: true, isBuiltin: true, command: true, rollbackCommand: true, createdById: true },
-	});
+export async function updateTemplate(id: string, input: UpdateTemplateInput, actor?: TemplateActor, session?: TeamSession | null) {
+	const select = { id: true, isBuiltin: true, command: true, rollbackCommand: true, createdById: true } as const;
+	const existingRow = session
+		? await prisma.commandTemplate.findFirst({ where: { id, ...commandTemplateScopeWhere(session) }, select })
+		: await prisma.commandTemplate.findUnique({ where: { id }, select });
 	if (!existingRow) {
 		throw new NotFoundError(t("backend.command-template.commandTemplateNotFound"));
 	}
@@ -160,11 +172,11 @@ export async function updateTemplate(id: string, input: UpdateTemplateInput, act
 	return prisma.commandTemplate.update({ where: { id }, data });
 }
 
-export async function deleteTemplate(id: string, actor?: TemplateActor) {
-	const existingRow = await prisma.commandTemplate.findUnique({
-		where: { id },
-		select: { id: true, name: true, isBuiltin: true, tags: true, variables: true, createdById: true },
-	});
+export async function deleteTemplate(id: string, actor?: TemplateActor, session?: TeamSession | null) {
+	const select = { id: true, name: true, isBuiltin: true, tags: true, variables: true, createdById: true } as const;
+	const existingRow = session
+		? await prisma.commandTemplate.findFirst({ where: { id, ...commandTemplateScopeWhere(session) }, select })
+		: await prisma.commandTemplate.findUnique({ where: { id }, select });
 	if (!existingRow) {
 		throw new NotFoundError(t("backend.command-template.commandTemplateNotFound"));
 	}

@@ -7,6 +7,7 @@ import { z } from "zod";
 
 import { auditUserAction } from "@/lib/audit/service";
 import { sessionHasPermission } from "@/lib/auth/authorization";
+import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { IMAGE_UPLOAD_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -40,10 +41,10 @@ export async function POST(request: Request) {
 
       const canManageImages =
         sessionHasPermission(session, "media:manage") ||
-    sessionHasPermission(session, "team:manage") ||
+        sessionHasPermission(session, "team:manage") ||
         sessionHasPermission(session, "role:manage");
       const whereClause = canManageImages
-        ? { id: { in: ids } }
+        ? { id: { in: ids }, ...teamWhere(session) }
         : { id: { in: ids }, userId: session.userId };
 
       switch (action) {
@@ -63,7 +64,9 @@ export async function POST(request: Request) {
           });
           // Delete on-disk variants FIRST so a disk failure leaves DB rows for retry.
           const fileResults = await Promise.allSettled(
-            images.map((img) => deleteImageVariants(img.storageKey, UPLOAD_DIR)),
+            images.map((img) =>
+              deleteImageVariants(img.storageKey, UPLOAD_DIR),
+            ),
           );
           const failedFileIds = images
             .filter((_, index) => fileResults[index]?.status === "rejected")
@@ -75,27 +78,45 @@ export async function POST(request: Request) {
           const result =
             okIds.length > 0
               ? await prisma.imageUpload.deleteMany({
-                  where: { id: { in: okIds } },
+                  where: { AND: [whereClause, { id: { in: okIds } }] },
                 })
               : { count: 0 };
           // Linked LOCAL/SFTP copies are intentionally retained (publish-from-storage
           // is a share of storage content); operators can delete via Files if needed.
-          await auditUserAction(session.userId, "image.batch.delete", {
-            requestedCount: ids.length,
-            deleted: result.count,
-            ids: okIds,
-            failedFileIds,
-            retainedLinkedStorage: images
-              .filter((img) => okIds.includes(img.id) && img.storageNodeId && img.relativePath)
-              .map((img) => ({ id: img.id, storageNodeId: img.storageNodeId, relativePath: img.relativePath })),
-          }, "WARNING", session?.currentTeamId);
+          await auditUserAction(
+            session.userId,
+            "image.batch.delete",
+            {
+              requestedCount: ids.length,
+              deleted: result.count,
+              ids: okIds,
+              failedFileIds,
+              retainedLinkedStorage: images
+                .filter(
+                  (img) =>
+                    okIds.includes(img.id) &&
+                    img.storageNodeId &&
+                    img.relativePath,
+                )
+                .map((img) => ({
+                  id: img.id,
+                  storageNodeId: img.storageNodeId,
+                  relativePath: img.relativePath,
+                })),
+            },
+            "WARNING",
+            session?.currentTeamId,
+          );
           const payload = {
             deleted: result.count,
             filesDeleted: okIds.length,
             failedFileIds,
           };
           if (failedFileIds.length > 0) {
-            return NextResponse.json({ ...payload, success: false, partial: true }, { status: 207 });
+            return NextResponse.json(
+              { ...payload, success: false, partial: true },
+              { status: 207 },
+            );
           }
           return NextResponse.json(payload);
         }
@@ -110,11 +131,17 @@ export async function POST(request: Request) {
             where: whereClause,
             data: { album: album.trim() || null },
           });
-          await auditUserAction(session.userId, "image.batch.moveAlbum", {
-            requestedCount: ids.length,
-            updated: result.count,
-            album: album.trim() || null,
-          }, undefined, session?.currentTeamId);
+          await auditUserAction(
+            session.userId,
+            "image.batch.moveAlbum",
+            {
+              requestedCount: ids.length,
+              updated: result.count,
+              album: album.trim() || null,
+            },
+            undefined,
+            session?.currentTeamId,
+          );
           return NextResponse.json({ updated: result.count });
         }
 
@@ -126,32 +153,45 @@ export async function POST(request: Request) {
             take: 100,
           });
           // Batch into two updateMany calls instead of N individual updates
-          const toPublic = images.filter((img) => !img.isPublic).map((img) => img.id);
-          const toPrivate = images.filter((img) => img.isPublic).map((img) => img.id);
+          const toPublic = images
+            .filter((img) => !img.isPublic)
+            .map((img) => img.id);
+          const toPrivate = images
+            .filter((img) => img.isPublic)
+            .map((img) => img.id);
           if (toPublic.length > 0) {
             await prisma.imageUpload.updateMany({
-              where: { id: { in: toPublic } },
+              where: { AND: [whereClause, { id: { in: toPublic } }] },
               data: { isPublic: true },
             });
           }
           if (toPrivate.length > 0) {
             await prisma.imageUpload.updateMany({
-              where: { id: { in: toPrivate } },
+              where: { AND: [whereClause, { id: { in: toPrivate } }] },
               data: { isPublic: false },
             });
           }
-          await auditUserAction(session.userId, "image.batch.togglePublic", {
-            requestedCount: ids.length,
-            updated: images.length,
-            toPublicCount: toPublic.length,
-            toPrivateCount: toPrivate.length,
-          }, undefined, session?.currentTeamId);
+          await auditUserAction(
+            session.userId,
+            "image.batch.togglePublic",
+            {
+              requestedCount: ids.length,
+              updated: images.length,
+              toPublicCount: toPublic.length,
+              toPrivateCount: toPrivate.length,
+            },
+            undefined,
+            session?.currentTeamId,
+          );
           return NextResponse.json({ updated: images.length });
         }
 
         default:
           return NextResponse.json(
-            { error: "Unsupported operation, options: delete / moveAlbum / togglePublic" },
+            {
+              error:
+                "Unsupported operation, options: delete / moveAlbum / togglePublic",
+            },
             { status: 400 },
           );
       }

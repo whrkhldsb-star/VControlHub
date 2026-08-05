@@ -5,7 +5,7 @@ import type { SessionScope } from "../service";
 
 const { mockPrisma, mockTeamWhere, mockTeamCreateData } = vi.hoisted(() => ({
   mockPrisma: {
-    commandTemplate: { findUnique: vi.fn(), findMany: vi.fn(), count: vi.fn(), create: vi.fn() },
+    commandTemplate: { findUnique: vi.fn(), findFirst: vi.fn(), findMany: vi.fn(), count: vi.fn(), create: vi.fn() },
     deploymentRun: { create: vi.fn(), update: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn() },
     deploymentSnapshot: { create: vi.fn() },
     deploymentRollbackRun: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
@@ -31,6 +31,7 @@ vi.mock("@/lib/auth/team-scope", () => ({
       : { id: "__unassigned_servers_require_team_manage__" };
   },
   teamCreateData: mockTeamCreateData,
+  isGlobalTeamManager: (session: { roles?: string[] }) => session.roles?.includes("admin") ?? false,
 }));
 const commandService = await import("@/lib/command/service");
 const commandTemplateService = await import("@/lib/command-template/service");
@@ -53,6 +54,7 @@ describe("deployment service", () => {
       (where.id.in ?? []).map((id: string) => ({ id })),
     );
     mockPrisma.commandTemplate.findUnique.mockResolvedValue({ id: "tmpl1", name: "Nginx", command: "apt install {{pkg}}", rollbackCommand: "apt remove {{pkg}}", variables: ["pkg"] });
+    mockPrisma.commandTemplate.findFirst.mockResolvedValue({ id: "tmpl1", name: "Nginx", command: "apt install {{pkg}}", rollbackCommand: "apt remove {{pkg}}", variables: ["pkg"] });
     mockPrisma.commandTemplate.findMany.mockResolvedValue([{ id: "tmpl1", name: "Nginx", command: "apt install {{pkg}}", rollbackCommand: "apt remove {{pkg}}", variables: ["pkg"], isBuiltin: true }]);
     mockPrisma.commandTemplate.count.mockResolvedValue(1);
     mockPrisma.commandTemplate.create.mockResolvedValue({});

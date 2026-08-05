@@ -36,7 +36,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 	const formSuccess = params?.success === "1" || params?.success === "true";
 	const [runs, templates, servers] = await Promise.all([
 		listDeploymentRuns(session),
-		listDeploymentTemplates(),
+		listDeploymentTemplates(session),
 		// teamWhere OR composes safely with top-level enabled (no key collision).
 		prisma.server.findMany({
 			where: { enabled: true, ...teamWhere(session) },

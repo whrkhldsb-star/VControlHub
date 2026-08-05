@@ -28,24 +28,28 @@ const ownerSession = {
   username: "owner",
   roles: ["user"],
   mustChangePassword: false,
+  currentTeamId: "team_1",
 };
 const imageReaderSession = {
   userId: "reader_1",
   username: "reader",
   roles: ["viewer"],
   mustChangePassword: false,
+  currentTeamId: "team_1",
 };
 const mediaManagerSession = {
   userId: "mgr_1",
   username: "manager",
   roles: ["admin"],
   mustChangePassword: false,
+  currentTeamId: "team_1",
 };
 const otherSession = {
   userId: "u2",
   username: "other",
   roles: ["user"],
   mustChangePassword: false,
+  currentTeamId: "team_2",
 };
 const params = { params: Promise.resolve({ id: "img_1" }) };
 const uploadRoot = "/tmp/vcontrolhub-image-file-test";
@@ -58,6 +62,7 @@ function image(overrides: Partial<Record<string, unknown>> = {}) {
     filename: "photo.png",
     isPublic: true,
     userId: "u1",
+    teamId: "team_1",
     ...overrides,
   };
 }
@@ -93,6 +98,7 @@ describe("GET /api/images/[id]/file", () => {
         filename: true,
         isPublic: true,
         userId: true,
+        teamId: true,
       },
     });
     expect(response.headers.get("Content-Type")).toBe("image/png");
@@ -140,6 +146,24 @@ describe("GET /api/images/[id]/file", () => {
     );
 
     expect(response.status).toBe(200);
+  });
+
+  it("does not let a team media manager preview another team's private image", async () => {
+    getApiSessionMock.mockResolvedValue({
+      ...mediaManagerSession,
+      roles: ["operator"],
+      currentTeamId: "team_1",
+    });
+    imageFindUniqueMock.mockResolvedValue(
+      image({ isPublic: false, userId: "u_foreign", teamId: "team_2" }),
+    );
+
+    const response = await GET(
+      new Request("http://local/api/images/img_1/file"),
+      params,
+    );
+
+    expect(response.status).toBe(404);
   });
 
   it("blocks non-public images from unrelated users", async () => {

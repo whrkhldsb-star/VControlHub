@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 
 import { getApiSession } from "@/lib/auth/api-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
+import { isGlobalTeamManager } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { UPLOAD_DIR } from "@/lib/image-bed/constants";
 
@@ -41,6 +42,7 @@ export async function GET(
         filename: true,
         isPublic: true,
         userId: true,
+        teamId: true,
       },
     });
 
@@ -54,11 +56,17 @@ export async function GET(
     if (!image.isPublic) {
       const session = await getApiSession();
       // Owner, or team/media managers — not every holder of image:read (list own library).
+      const isInManagedTeam =
+        !!session &&
+        (isGlobalTeamManager(session) ||
+          image.teamId === null ||
+          image.teamId === session.currentTeamId);
       const canReadPrivateImage =
         !!session &&
         (session.userId === image.userId ||
-          sessionHasPermission(session, "media:manage") ||
-          sessionHasPermission(session, "team:manage"));
+          (isInManagedTeam &&
+            (sessionHasPermission(session, "media:manage") ||
+              sessionHasPermission(session, "team:manage"))));
 
       if (!canReadPrivateImage) {
         return NextResponse.json(
@@ -70,14 +78,22 @@ export async function GET(
 
     const filePath = resolveUploadPath(image.storageKey);
     if (!filePath) {
-      return apiError({ code: "VALIDATION_FAILED", message: "Invalid file path", status: 400 });
+      return apiError({
+        code: "VALIDATION_FAILED",
+        message: "Invalid file path",
+        status: 400,
+      });
     }
 
     let fileStat;
     try {
       fileStat = await stat(filePath);
     } catch {
-      return apiError({ code: "NOT_FOUND", message: "File is missing", status: 404 });
+      return apiError({
+        code: "NOT_FOUND",
+        message: "File is missing",
+        status: 404,
+      });
     }
 
     const stream = createReadStream(filePath);
@@ -103,8 +119,8 @@ export async function GET(
           ? "public, max-age=31536000, immutable"
           : "private, no-store",
         "Content-Disposition": `inline; filename="${image.filename.replace(/["\r\n]/g, "_")}"`,
-				"X-Content-Type-Options": "nosniff",
-				"Content-Security-Policy": "default-src 'none'; sandbox",
+        "X-Content-Type-Options": "nosniff",
+        "Content-Security-Policy": "default-src 'none'; sandbox",
       },
     });
   });

@@ -192,6 +192,43 @@ async function maybeEnqueueOffsiteRetentionTick(): Promise<{
   }
 }
 
+/** Enqueue one durable catch-up upload during the configured UTC hour. */
+async function maybeEnqueueOffsiteUploadTick(now = new Date()): Promise<{
+  enqueued: boolean;
+  skipped?: string;
+  jobId?: string;
+}> {
+  try {
+    const { loadOffsiteConfig } = await import("@/lib/storage/offsite/schema");
+    const offsite = await loadOffsiteConfig();
+    if (!offsite.enabled) return { enqueued: false, skipped: "offsite-disabled" };
+    if (now.getUTCHours() !== offsite.dailyWindowHour) {
+      return { enqueued: false, skipped: "outside-daily-window" };
+    }
+    const dayKey = now.toISOString().slice(0, 10);
+    const title = `Offsite upload ${dayKey}`;
+    const existing = await prisma.job.findFirst({
+      where: { type: "backup.offsite-sync", title },
+      select: { id: true },
+    });
+    if (existing) return { enqueued: false, skipped: "already-today", jobId: existing.id };
+    const job = await enqueueJob({
+      type: "backup.offsite-sync",
+      title,
+      payload: { requestedAt: now.toISOString(), dailyWindowHour: offsite.dailyWindowHour },
+      createdBy: null,
+      teamId: null,
+      maxAttempts: 3,
+    });
+    return { enqueued: true, jobId: job.id };
+  } catch (error) {
+    logger.warn("failed to enqueue daily offsite upload", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return { enqueued: false, skipped: error instanceof Error ? error.message : String(error) };
+  }
+}
+
 async function dispatchDueBackupSchedules(reason: string) {
   const dueSchedules = await prisma.backupSchedule.findMany({
     where: {
@@ -251,9 +288,11 @@ export async function runBackupScheduleTickJobWorkerOnce(reason = "manual") {
         progress: "Dispatching due backup schedules",
       });
       const offsiteTick = await maybeEnqueueOffsiteRetentionTick();
+      const offsiteUploadTick = await maybeEnqueueOffsiteUploadTick();
       const scheduleResult = await dispatchDueBackupSchedules(reason);
       await completeJob(job.id, BACKUP_SCHEDULE_WORKER_ID, {
         offsiteRetentionTick: offsiteTick,
+        offsiteUploadTick,
         dispatched: scheduleResult.dispatched,
         observed: scheduleResult.observed,
       });

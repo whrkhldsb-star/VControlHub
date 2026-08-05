@@ -18,11 +18,6 @@ import { getErrorMessage } from "@/lib/http/error-message";
 
 const PROVIDERS: CloudBillingProvider[] = ["aws", "aliyun", "tencent", "generic_csv"];
 
-const EMPTY_CSV_SAMPLE = `date,amount,currency,category,product,notes
-2026-07-01,10.00,USD,vps,ec2,sample compute
-2026-07-02,2.50,USD,bandwidth,data-transfer,sample bandwidth
-`;
-
 type Props = {
 	initialAccounts: CloudBillingAccountRecord[];
 	canManage: boolean;
@@ -48,10 +43,8 @@ export function CostCloudBillingPanel({
 		name: "",
 		provider: "generic_csv" as CloudBillingProvider,
 		currency: "USD" as CostCurrency,
-		accessKeyId: "",
-		secretAccessKey: "",
 		region: "",
-		sampleCsv: EMPTY_CSV_SAMPLE,
+		sampleCsv: "",
 		billingCsvUrl: "",
 	});
 
@@ -70,16 +63,10 @@ export function CostCloudBillingPanel({
 				name: form.name.trim(),
 				provider: form.provider,
 				currency: form.currency,
-				credentials:
-					form.provider === "generic_csv"
-						? {}
-						: {
-								accessKeyId: form.accessKeyId.trim(),
-								secretAccessKey: form.secretAccessKey.trim(),
-							},
+				credentials: {},
 				config: {
 					...(form.region.trim() ? { region: form.region.trim() } : {}),
-					...(form.provider === "generic_csv" || form.sampleCsv.trim()
+					...(form.sampleCsv.trim()
 						? { sampleCsv: form.sampleCsv }
 						: {}),
 					...(form.billingCsvUrl.trim()
@@ -95,8 +82,8 @@ export function CostCloudBillingPanel({
 			setForm((c) => ({
 				...c,
 				name: "",
-				accessKeyId: "",
-				secretAccessKey: "",
+				sampleCsv: "",
+				billingCsvUrl: "",
 			}));
 			await reload();
 			addToast("success", t("costPage.billing.created"));
@@ -133,9 +120,11 @@ export function CostCloudBillingPanel({
 				result: { imported: number; skipped: number; warnings?: string[] };
 			};
 			await reload();
+			const summary = t("costPage.billing.syncDone", { imported: data.result.imported, skipped: data.result.skipped });
+			const warnings = data.result.warnings ?? [];
 			addToast(
-				"success",
-				t("costPage.billing.syncDone", { imported: data.result.imported, skipped: data.result.skipped }),
+				warnings.length > 0 ? "warning" : "success",
+				warnings.length > 0 ? `${summary} ${warnings.join("; ")}` : summary,
 			);
 			onImported?.();
 		} catch (error) {
@@ -212,23 +201,6 @@ export function CostCloudBillingPanel({
 						<>
 							<input
 								className={inputClass}
-								aria-label={t("costPage.billing.accessKeyId")}
-								value={form.accessKeyId}
-								onChange={(e) => setForm({ ...form, accessKeyId: e.target.value })}
-								placeholder={t("costPage.billing.accessKeyId")}
-								autoComplete="off"
-							/>
-							<input
-								className={inputClass}
-								aria-label={t("costPage.billing.secretAccessKey")}
-								type="password"
-								value={form.secretAccessKey}
-								onChange={(e) => setForm({ ...form, secretAccessKey: e.target.value })}
-								placeholder={t("costPage.billing.secretAccessKey")}
-								autoComplete="new-password"
-							/>
-							<input
-								className={inputClass}
 								aria-label={t("costPage.billing.region")}
 								value={form.region}
 								onChange={(e) => setForm({ ...form, region: e.target.value })}
@@ -243,15 +215,13 @@ export function CostCloudBillingPanel({
 						placeholder={t("costPage.billing.billingCsvUrl")}
 						aria-label={t("costPage.billing.billingCsvUrl")}
 					/>
-					{form.provider === "generic_csv" || form.sampleCsv ? (
-						<textarea
-							className={`${inputClass} md:col-span-2 lg:col-span-3 min-h-[88px] font-mono text-xs`}
-							value={form.sampleCsv}
-							onChange={(e) => setForm({ ...form, sampleCsv: e.target.value })}
-							placeholder={t("costPage.billing.sampleCsv")}
-							aria-label={t("costPage.billing.sampleCsv")}
-						/>
-					) : null}
+					<textarea
+						className={`${inputClass} min-h-[88px] font-mono text-xs md:col-span-2 lg:col-span-3`}
+						value={form.sampleCsv}
+						onChange={(e) => setForm({ ...form, sampleCsv: e.target.value })}
+						placeholder={t("costPage.billing.sampleCsv")}
+						aria-label={t("costPage.billing.sampleCsv")}
+					/>
 					<div className="md:col-span-2 lg:col-span-3">
 						<ActionButton type="button" disabled={busy} onClick={() => void create()} className="px-3 py-2 text-sm">
 							{t("costPage.billing.create")}
@@ -268,7 +238,7 @@ export function CostCloudBillingPanel({
 					</div>
 				) : (
 					accounts.map((account) => (
-						<article key={account.id} className="rounded-2xl border border-[var(--border)] p-4">
+						<article key={account.id} className="rounded-lg border border-[var(--border)] p-4">
 							<div className="flex items-start justify-between gap-3">
 								<div>
 									<h3 className="font-medium text-[var(--text-primary)]">{account.name}</h3>

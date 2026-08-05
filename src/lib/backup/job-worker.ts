@@ -12,7 +12,12 @@ import {
 import { config } from "@/lib/config/env";
 import { computeLeaseMs } from "@/lib/job/lease";
 import { runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
-import { claimNextJob, completeJob, failJob, heartbeatJob } from "@/lib/job/service";
+import {
+  claimNextJob,
+  completeJob,
+  failJob,
+  heartbeatJob,
+} from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
 
 const logger = createLogger("backup-job-worker");
@@ -21,8 +26,15 @@ export const BACKUP_CREATE_JOB_TYPE = "backup.create";
 export const BACKUP_RESTORE_JOB_TYPE = "backup.restore";
 export const BACKUP_RETENTION_JOB_TYPE = "backup.retention";
 export const BACKUP_DRILL_JOB_TYPE = "backup.drill";
+export const BACKUP_OFFSITE_SYNC_JOB_TYPE = "backup.offsite-sync";
 
-const BACKUP_JOB_TYPES = [BACKUP_CREATE_JOB_TYPE, BACKUP_RESTORE_JOB_TYPE, BACKUP_RETENTION_JOB_TYPE, BACKUP_DRILL_JOB_TYPE];
+const BACKUP_JOB_TYPES = [
+  BACKUP_CREATE_JOB_TYPE,
+  BACKUP_RESTORE_JOB_TYPE,
+  BACKUP_RETENTION_JOB_TYPE,
+  BACKUP_DRILL_JOB_TYPE,
+  BACKUP_OFFSITE_SYNC_JOB_TYPE,
+];
 const DEFAULT_POLL_MS = 5_000;
 const STALE_PENDING_SWEEP_MS = 15 * 60_000;
 const WORKER_ID = `${config.app.hostname || "vcontrolhub"}:backup:${process.pid}`;
@@ -51,19 +63,33 @@ type BackupRetentionPayload = {
   teamId?: string | null;
 };
 
-function parseRetentionPayload(payload: Prisma.JsonValue): BackupRetentionPayload {
+function parseRetentionPayload(
+  payload: Prisma.JsonValue,
+): BackupRetentionPayload {
   if (payload == null) return {};
   if (!isRecord(payload)) {
     throw new Error("Invalid backup retention job payload format");
   }
-  const olderThanDays = typeof payload.olderThanDays === "number" && Number.isFinite(payload.olderThanDays) && payload.olderThanDays > 0
-    ? Math.floor(payload.olderThanDays)
-    : undefined;
-  const keepLatestPerType = typeof payload.keepLatestPerType === "number" && Number.isFinite(payload.keepLatestPerType) && payload.keepLatestPerType >= 0
-    ? Math.floor(payload.keepLatestPerType)
-    : undefined;
-  const projectRoot = typeof payload.projectRoot === "string" && payload.projectRoot.trim() ? payload.projectRoot.trim() : undefined;
-  const teamId = typeof payload.teamId === "string" && payload.teamId.trim() ? payload.teamId.trim() : null;
+  const olderThanDays =
+    typeof payload.olderThanDays === "number" &&
+    Number.isFinite(payload.olderThanDays) &&
+    payload.olderThanDays > 0
+      ? Math.floor(payload.olderThanDays)
+      : undefined;
+  const keepLatestPerType =
+    typeof payload.keepLatestPerType === "number" &&
+    Number.isFinite(payload.keepLatestPerType) &&
+    payload.keepLatestPerType >= 0
+      ? Math.floor(payload.keepLatestPerType)
+      : undefined;
+  const projectRoot =
+    typeof payload.projectRoot === "string" && payload.projectRoot.trim()
+      ? payload.projectRoot.trim()
+      : undefined;
+  const teamId =
+    typeof payload.teamId === "string" && payload.teamId.trim()
+      ? payload.teamId.trim()
+      : null;
   return { olderThanDays, keepLatestPerType, projectRoot, teamId };
 }
 
@@ -77,35 +103,60 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function parseCreatePayload(payload: Prisma.JsonValue): BackupCreatePayload {
-  if (!isRecord(payload) || typeof payload.backupId !== "string" || !payload.backupId.trim()) {
+  if (
+    !isRecord(payload) ||
+    typeof payload.backupId !== "string" ||
+    !payload.backupId.trim()
+  ) {
     throw new Error("Backup job payload missing backupId");
   }
   const retentionDays =
-    typeof payload.retentionDays === "number" && Number.isFinite(payload.retentionDays) && payload.retentionDays > 0
+    typeof payload.retentionDays === "number" &&
+    Number.isFinite(payload.retentionDays) &&
+    payload.retentionDays > 0
       ? Math.floor(payload.retentionDays)
       : undefined;
-  const teamId = typeof payload.teamId === "string" && payload.teamId.trim() ? payload.teamId.trim() : null;
+  const teamId =
+    typeof payload.teamId === "string" && payload.teamId.trim()
+      ? payload.teamId.trim()
+      : null;
   return {
     backupId: payload.backupId.trim(),
-    projectRoot: typeof payload.projectRoot === "string" && payload.projectRoot.trim() ? payload.projectRoot.trim() : undefined,
+    projectRoot:
+      typeof payload.projectRoot === "string" && payload.projectRoot.trim()
+        ? payload.projectRoot.trim()
+        : undefined,
     retentionDays,
     teamId,
   };
 }
 
 function parseRestorePayload(payload: Prisma.JsonValue): BackupRestorePayload {
-  if (!isRecord(payload) || typeof payload.backupId !== "string" || !payload.backupId.trim()) {
+  if (
+    !isRecord(payload) ||
+    typeof payload.backupId !== "string" ||
+    !payload.backupId.trim()
+  ) {
     throw new Error("Restore job payload missing backupId");
   }
   if (payload.confirm !== "RESTORE") {
-    throw new Error("Restore job payload missing explicit RESTORE confirmation");
+    throw new Error(
+      "Restore job payload missing explicit RESTORE confirmation",
+    );
   }
-  const teamId = typeof payload.teamId === "string" && payload.teamId.trim() ? payload.teamId.trim() : null;
+  const teamId =
+    typeof payload.teamId === "string" && payload.teamId.trim()
+      ? payload.teamId.trim()
+      : null;
   return {
     backupId: payload.backupId.trim(),
     confirm: payload.confirm,
-    projectRoot: typeof payload.projectRoot === "string" && payload.projectRoot.trim() ? payload.projectRoot.trim() : undefined,
-    component: (payload.component as BackupRestorePayload["component"]) ?? "all",
+    projectRoot:
+      typeof payload.projectRoot === "string" && payload.projectRoot.trim()
+        ? payload.projectRoot.trim()
+        : undefined,
+    component:
+      (payload.component as BackupRestorePayload["component"]) ?? "all",
     teamId,
   };
 }
@@ -113,7 +164,9 @@ function parseRestorePayload(payload: Prisma.JsonValue): BackupRestorePayload {
 function workerSession(
   job: { createdBy?: string | null; teamId?: string | null },
   payloadTeamId?: string | null,
-): { userId: string; roles: RoleKey[]; currentTeamId: string | null } | undefined {
+):
+  | { userId: string; roles: RoleKey[]; currentTeamId: string | null }
+  | undefined {
   const teamId = (payloadTeamId && payloadTeamId.trim()) || job.teamId || null;
   if (!teamId) return undefined;
   // Do NOT elevate to admin: team:manage would make teamWhere() empty and ignore team boundaries.
@@ -133,19 +186,38 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
       const scope = workerSession(job, payload.teamId);
       const record = await getBackupRecord(payload.backupId, scope);
       if (!record) {
-        await failJob(job.id, WORKER_ID, "Backup record not found or outside job team scope", { retryAfterMs: 60_000 });
+        await failJob(
+          job.id,
+          WORKER_ID,
+          "Backup record not found or outside job team scope",
+          { retryAfterMs: 60_000 },
+        );
         return true;
       }
-      await heartbeatJob(job.id, WORKER_ID, { leaseMs: LEASE_MS, progress: `Running ${record?.type ?? "UNKNOWN"} backup` });
+      await heartbeatJob(job.id, WORKER_ID, {
+        leaseMs: LEASE_MS,
+        progress: `Running ${record?.type ?? "UNKNOWN"} backup`,
+      });
       const backup = await runWithLeaseHeartbeat({
         jobId: job.id,
         leaseMs: LEASE_MS,
-        heartbeat: () => heartbeatJob(job.id, WORKER_ID, { leaseMs: LEASE_MS, progress: `Running ${record?.type ?? "UNKNOWN"} backup` }),
-        run: () => runExistingBackupRecord({ id: payload.backupId, projectRoot: payload.projectRoot, session: scope }),
+        heartbeat: () =>
+          heartbeatJob(job.id, WORKER_ID, {
+            leaseMs: LEASE_MS,
+            progress: `Running ${record?.type ?? "UNKNOWN"} backup`,
+          }),
+        run: () =>
+          runExistingBackupRecord({
+            id: payload.backupId,
+            projectRoot: payload.projectRoot,
+            session: scope,
+          }),
       });
       // runExistingBackupRecord returns FAILED records without throwing — do not completeJob.
       if (backup.status !== "COMPLETED") {
-        const message = (backup.errorMessage || `Backup finished with status ${backup.status}`).slice(0, 2000);
+        const message = (
+          backup.errorMessage || `Backup finished with status ${backup.status}`
+        ).slice(0, 2000);
         await failJob(job.id, WORKER_ID, message, { retryAfterMs: 60_000 });
         logger.error("backup create job finished without COMPLETED status", {
           jobId: job.id,
@@ -182,11 +254,17 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
           } catch (retentionErr) {
             logger.error("failed to enqueue backup retention after create", {
               backupId: backup.id,
-              error: retentionErr instanceof Error ? retentionErr.message : String(retentionErr),
+              error:
+                retentionErr instanceof Error
+                  ? retentionErr.message
+                  : String(retentionErr),
             });
           }
         } else {
-          logger.warn("skip retention enqueue: no teamId on backup create job", { backupId: backup.id });
+          logger.warn(
+            "skip retention enqueue: no teamId on backup create job",
+            { backupId: backup.id },
+          );
         }
       }
       return true;
@@ -194,11 +272,18 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
 
     if (job.type === BACKUP_RESTORE_JOB_TYPE) {
       const payload = parseRestorePayload(job.payload);
-      await heartbeatJob(job.id, WORKER_ID, { leaseMs: LEASE_MS, progress: "Restoring backup" });
+      await heartbeatJob(job.id, WORKER_ID, {
+        leaseMs: LEASE_MS,
+        progress: "Restoring backup",
+      });
       const restore = await runWithLeaseHeartbeat({
         jobId: job.id,
         leaseMs: LEASE_MS,
-        heartbeat: () => heartbeatJob(job.id, WORKER_ID, { leaseMs: LEASE_MS, progress: "Restoring backup" }),
+        heartbeat: () =>
+          heartbeatJob(job.id, WORKER_ID, {
+            leaseMs: LEASE_MS,
+            progress: "Restoring backup",
+          }),
         run: () =>
           restoreBackupRecord({
             id: payload.backupId,
@@ -214,7 +299,10 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
 
     if (job.type === BACKUP_RETENTION_JOB_TYPE) {
       const payload = parseRetentionPayload(job.payload);
-      await heartbeatJob(job.id, WORKER_ID, { leaseMs: LEASE_MS, progress: "Cleaning up old backups" });
+      await heartbeatJob(job.id, WORKER_ID, {
+        leaseMs: LEASE_MS,
+        progress: "Cleaning up old backups",
+      });
       const summary = await pruneOldBackupRecordsNow({
         olderThanDays: payload.olderThanDays,
         keepLatestPerType: payload.keepLatestPerType,
@@ -222,13 +310,21 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
         teamId: payload.teamId,
       });
       // Offsite retentionDays is platform-wide; run best-effort prune alongside local retention.
-      let offsite: Awaited<ReturnType<typeof import("@/lib/storage/offsite/retention").pruneOffsiteObjects>> | null = null;
+      let offsite: Awaited<
+        ReturnType<
+          typeof import("@/lib/storage/offsite/retention").pruneOffsiteObjects
+        >
+      > | null = null;
       try {
-        const { pruneOffsiteObjects } = await import("@/lib/storage/offsite/retention");
+        const { pruneOffsiteObjects } =
+          await import("@/lib/storage/offsite/retention");
         offsite = await pruneOffsiteObjects();
       } catch (offsiteErr) {
         logger.warn("offsite retention prune failed (non-fatal)", {
-          error: offsiteErr instanceof Error ? offsiteErr.message : String(offsiteErr),
+          error:
+            offsiteErr instanceof Error
+              ? offsiteErr.message
+              : String(offsiteErr),
         });
       }
       await completeJob(job.id, WORKER_ID, {
@@ -241,7 +337,10 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
           keepLatestPerType: summary.keepLatestPerType,
           cutoff: summary.cutoff.toISOString(),
           oldestKeptByType: Object.fromEntries(
-            Object.entries(summary.oldestKeptByType).map(([k, v]) => [k, v ? v.toISOString() : null]),
+            Object.entries(summary.oldestKeptByType).map(([k, v]) => [
+              k,
+              v ? v.toISOString() : null,
+            ]),
           ),
         },
         offsite,
@@ -249,15 +348,63 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
       return true;
     }
 
+    if (job.type === BACKUP_OFFSITE_SYNC_JOB_TYPE) {
+      await heartbeatJob(job.id, WORKER_ID, {
+        leaseMs: LEASE_MS,
+        progress: "Uploading pending offsite backups",
+      });
+      const { retryPendingOffsiteUploads } =
+        await import("@/lib/backup/offsite-uploader");
+      const summary = await runWithLeaseHeartbeat({
+        jobId: job.id,
+        leaseMs: LEASE_MS,
+        heartbeat: () =>
+          heartbeatJob(job.id, WORKER_ID, {
+            leaseMs: LEASE_MS,
+            progress: "Uploading pending offsite backups",
+          }),
+        run: async () => {
+          const local = await retryPendingOffsiteUploads({
+            projectRoot: config.app.appDir,
+          });
+          const { retryPendingVpsOffsiteUploads } =
+            await import("@/lib/backup/vps-backup-service");
+          const vps = await retryPendingVpsOffsiteUploads();
+          return {
+            local,
+            vps,
+            observed: local.observed + vps.observed,
+            uploaded: local.uploaded + vps.uploaded,
+            failed: local.failed + vps.failed,
+            skipped: local.skipped + vps.skipped,
+          };
+        },
+      });
+      await completeJob(job.id, WORKER_ID, summary);
+      return true;
+    }
+
     if (job.type === BACKUP_DRILL_JOB_TYPE) {
       const payload = parseCreatePayload(job.payload);
       const scope = workerSession(job, payload.teamId);
-      await heartbeatJob(job.id, WORKER_ID, { leaseMs: LEASE_MS, progress: "Running non-destructive restore drill" });
+      await heartbeatJob(job.id, WORKER_ID, {
+        leaseMs: LEASE_MS,
+        progress: "Running non-destructive restore drill",
+      });
       const report = await runWithLeaseHeartbeat({
         jobId: job.id,
         leaseMs: LEASE_MS,
-        heartbeat: () => heartbeatJob(job.id, WORKER_ID, { leaseMs: LEASE_MS, progress: "Verifying backup checksum and archive format" }),
-        run: () => drillBackupRecord({ id: payload.backupId, projectRoot: payload.projectRoot, session: scope }),
+        heartbeat: () =>
+          heartbeatJob(job.id, WORKER_ID, {
+            leaseMs: LEASE_MS,
+            progress: "Verifying backup checksum and archive format",
+          }),
+        run: () =>
+          drillBackupRecord({
+            id: payload.backupId,
+            projectRoot: payload.projectRoot,
+            session: scope,
+          }),
       });
       await completeJob(job.id, WORKER_ID, { drillReport: report });
       return true;
@@ -265,9 +412,16 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
 
     throw new Error(`Unsupported backup job type: ${job.type}`);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Backup task execution failed";
-    await failJob(job.id, WORKER_ID, message.slice(0, 2000), { retryAfterMs: 60_000 });
-    logger.error("backup job failed", { jobId: job.id, type: job.type, error: message });
+    const message =
+      error instanceof Error ? error.message : "Backup task execution failed";
+    await failJob(job.id, WORKER_ID, message.slice(0, 2000), {
+      retryAfterMs: 60_000,
+    });
+    logger.error("backup job failed", {
+      jobId: job.id,
+      type: job.type,
+      error: message,
+    });
     return true;
   }
 }
@@ -276,7 +430,11 @@ export async function runBackupJobWorkerOnce() {
   if (running) return false;
   running = true;
   try {
-    const job = await claimNextJob({ workerId: WORKER_ID, types: BACKUP_JOB_TYPES, leaseMs: LEASE_MS });
+    const job = await claimNextJob({
+      workerId: WORKER_ID,
+      types: BACKUP_JOB_TYPES,
+      leaseMs: LEASE_MS,
+    });
     return await handleJob(job);
   } finally {
     running = false;
@@ -315,7 +473,9 @@ export function startBackupJobWorker(options: { pollMs?: number } = {}) {
   const pollMs = options.pollMs ?? DEFAULT_POLL_MS;
   timer = setInterval(() => {
     void runBackupJobWorkerOnce().catch((error) => {
-      logger.error("backup job worker tick failed", { error: error instanceof Error ? error.message : String(error) });
+      logger.error("backup job worker tick failed", {
+        error: error instanceof Error ? error.message : String(error),
+      });
     });
   }, pollMs);
   timer.unref?.();

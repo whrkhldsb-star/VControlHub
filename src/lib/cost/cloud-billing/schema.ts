@@ -83,22 +83,13 @@ export const createCloudBillingAccountSchema = z
 		config: rest.config ?? ({} as CloudBillingConfigParsed),
 	}))
 	.superRefine((val, ctx) => {
-		if (val.provider !== "generic_csv") {
-			if (!val.credentials.accessKeyId || !val.credentials.secretAccessKey) {
-				ctx.addIssue({
-					code: "custom",
-					message: "accessKeyId and secretAccessKey are required for this provider",
-					path: ["credentials"],
-				});
-			}
-			return;
-		}
+		if (val.provider !== "generic_csv") return;
 		const hasSample = Boolean(val.config?.sampleCsv?.trim());
 		const hasUrl = Boolean(val.config?.billingCsvUrl?.trim());
 		if (!hasSample && !hasUrl) {
 			ctx.addIssue({
 				code: "custom",
-				message: "generic_csv requires config.sampleCsv or config.billingCsvUrl",
+				message: `${val.provider} requires config.sampleCsv or config.billingCsvUrl`,
 				path: ["config"],
 			});
 		}

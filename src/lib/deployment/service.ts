@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { createCommandRequest } from "@/lib/command/service";
-import { renderCommand, seedBuiltinTemplates } from "@/lib/command-template/service";
+import { commandTemplateScopeWhere, renderCommand, seedBuiltinTemplates } from "@/lib/command-template/service";
 import type { SessionPayload } from "@/lib/auth/session";
 import { serverTeamWhere, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import { ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
@@ -117,9 +117,10 @@ function assertTemplateVariables(
     throw new ValidationError(`Deployment template variables not fully filled in: ${missing.join(", ")}`);
 }
 
-export async function listDeploymentTemplates() {
+export async function listDeploymentTemplates(session?: SessionScope | null) {
   await seedBuiltinTemplates();
-  return prisma.commandTemplate.findMany({ orderBy: [{ isBuiltin: "desc" }, { name: "asc" }], take: 200 });
+  const where = commandTemplateScopeWhere(session);
+  return prisma.commandTemplate.findMany({ ...(Object.keys(where).length > 0 ? { where } : {}), orderBy: [{ isBuiltin: "desc" }, { name: "asc" }], take: 200 });
 }
 
 export async function createDeploymentRunFromTemplate(
@@ -162,9 +163,9 @@ async function createDeploymentRunFromTemplateUnlocked(
 ) {
   const normalized = normalizeDeploymentInput(input);
   await assertDeploymentServersInScope(normalized.serverIds, session);
-  const template = await prisma.commandTemplate.findUnique({
-    where: { id: normalized.templateId },
-  });
+  const template = session
+		? await prisma.commandTemplate.findFirst({ where: { id: normalized.templateId, ...commandTemplateScopeWhere(session) } })
+		: await prisma.commandTemplate.findUnique({ where: { id: normalized.templateId } });
   if (!template) throw new NotFoundError(t("backend.deployment.deploymentTemplateNotFound"));
   assertTemplateVariables(
     template.command,

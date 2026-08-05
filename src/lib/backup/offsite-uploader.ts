@@ -19,6 +19,7 @@ import path from "node:path";
 import { prisma } from "@/lib/db";
 import { createLogger } from "@/lib/logging";
 import { getSetting } from "@/lib/settings/service";
+import { sendEmail } from "@/lib/notification/email";
 
 import { S3Client, S3Error, type S3ClientConfig } from "@/lib/storage/offsite/s3-client";
 import { loadOffsiteConfig, validateOffsiteConfigForUse } from "@/lib/storage/offsite/schema";
@@ -27,6 +28,29 @@ import { compressBuffer, compressFileToGz } from "./compress";
 import { resolveBackupPath } from "./service-types";
 
 const logger = createLogger("backup-offsite-uploader");
+
+export async function sendOffsiteFailureAlert(input: {
+	recipient?: string | null;
+	backupLabel: string;
+	error: string;
+}) {
+	const recipient = input.recipient?.trim();
+	if (!recipient) return false;
+	try {
+		await sendEmail({
+			to: recipient,
+			subject: `VControlHub offsite backup failed: ${input.backupLabel}`,
+			text: `The local backup completed, but its offsite upload failed.\n\nBackup: ${input.backupLabel}\nError: ${input.error}`,
+		});
+		return true;
+	} catch (error) {
+		logger.warn("offsite failure alert delivery failed", {
+			backupLabel: input.backupLabel,
+			error: formatError(error),
+		});
+		return false;
+	}
+}
 
 export type OffsiteUploadResult =
 	| {
@@ -202,12 +226,43 @@ export async function uploadBackupToOffsite(input: {
 			logger.warn("offsite upload: failed to record error message", { backupId: record.id, error: formatError(dbErr) });
 		});
 		logger.error("offsite upload failed", { backupId: record.id, code, error: message });
+		await sendOffsiteFailureAlert({
+			recipient: config.failureAlertRecipient,
+			backupLabel: `${record.type} ${record.id}`,
+			error: `${code}: ${message}`,
+		});
 		return { ok: false, skipped: false, error: message, code };
 	} finally {
 		if (tempGzPath) {
 			await rm(path.dirname(tempGzPath), { recursive: true, force: true }).catch(() => {});
 		}
 	}
+}
+
+export async function retryPendingOffsiteUploads(input: {
+	projectRoot?: string;
+	limit?: number;
+} = {}) {
+	const limit = Math.max(1, Math.min(input.limit ?? 100, 500));
+	const records = await prisma.backupRecord.findMany({
+		where: { status: "COMPLETED", offsiteKey: null },
+		orderBy: { createdAt: "asc" },
+		take: limit,
+		select: { id: true },
+	});
+	let uploaded = 0;
+	let failed = 0;
+	let skipped = 0;
+	for (const record of records) {
+		const result = await uploadBackupToOffsite({
+			backupId: record.id,
+			projectRoot: input.projectRoot,
+		});
+		if (result.ok && !result.skipped) uploaded += 1;
+		else if (result.ok) skipped += 1;
+		else failed += 1;
+	}
+	return { observed: records.length, uploaded, failed, skipped };
 }
 
 function formatError(err: unknown): string {

@@ -139,13 +139,11 @@ function renderUptimeSection(
 
 export default async function Page() {
   // Public status page:
-  // - anonymous: overall summary + public uptime heatmap (display names only)
+  // - anonymous: overall summary only
   // - authenticated: full component checks + uptime
   const session = await getCurrentSession();
   const locale = await getServerLocale();
   const dateLocale = toDateLocale(locale);
-  const uptimeData = await getAllUptimeData(session);
-
   if (!session) {
     const status = await getPublicStatusSummary();
     return (
@@ -191,8 +189,6 @@ export default async function Page() {
             {t("statusPage.public.detailsHint", locale)}
           </p>
 
-          {renderUptimeSection(uptimeData, locale)}
-
           <p className="mt-8 text-center text-xs text-[var(--text-muted)]">
             VControlHub · {new Date().getFullYear()}
           </p>
@@ -201,6 +197,7 @@ export default async function Page() {
     );
   }
 
+  const uptimeData = await getAllUptimeData(session);
   const status = await getPublicStatus();
 
   return (

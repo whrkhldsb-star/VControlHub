@@ -41,13 +41,11 @@ describe("getAllUptimeDataInternal team scope", () => {
     );
   });
 
-  it("does not apply team filter for public (no session) listing", async () => {
+  it("fails closed instead of exposing server names without a session", async () => {
     const { getAllUptimeDataInternal } = await import("../internal");
-    await getAllUptimeDataInternal({});
-    expect(findManyServer).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { enabled: true },
-      }),
-    );
+    const result = await getAllUptimeDataInternal({});
+    expect(result).toEqual({ servers: [] });
+    expect(findManyServer).not.toHaveBeenCalled();
+    expect(findManySnapshot).not.toHaveBeenCalled();
   });
 });

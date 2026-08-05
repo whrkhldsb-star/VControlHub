@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/db";
+import type { SessionPayload } from "@/lib/auth/session";
+import { serverTeamWhere } from "@/lib/auth/team-scope";
 import { config } from "@/lib/config/env";
 import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
 import { serverT } from "@/lib/i18n/server-locale";
@@ -133,21 +135,33 @@ export async function probePublicDirectGatewayHealth(
   return { ok: false, error: lastError, status: lastStatus };
 }
 
-export async function loadServerForDirectGateway(serverId: string) {
-  return prisma.server.findUnique({
-    where: { id: serverId },
-    include: {
-      sshKey: { select: { privateKey: true } },
-      storageNode: {
-        select: {
-          id: true,
-          basePath: true,
-          driver: true,
-          fileEntries: { select: { id: true }, take: 1 },
-          mediaItems: { select: { id: true }, take: 1 },
-        },
+type DirectGatewaySession = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
+
+export async function loadServerForDirectGateway(
+  serverId: string,
+  session?: DirectGatewaySession | null,
+) {
+  const include = {
+    sshKey: { select: { privateKey: true } },
+    storageNode: {
+      select: {
+        id: true,
+        basePath: true,
+        driver: true,
+        fileEntries: { select: { id: true }, take: 1 },
+        mediaItems: { select: { id: true }, take: 1 },
       },
     },
+  } as const;
+  if (session) {
+    return prisma.server.findFirst({
+      where: { id: serverId, ...serverTeamWhere(session) },
+      include,
+    });
+  }
+  return prisma.server.findUnique({
+    where: { id: serverId },
+    include,
   });
 }
 
@@ -189,6 +203,7 @@ async function markDirectGatewayEnabledDb(input: {
 export async function applyServerDirectGatewayState(input: {
   serverId: string;
   enabled: boolean;
+  session?: DirectGatewaySession | null;
   bestEffort?: boolean;
   publicProtocol?: "http" | "https";
   /**
@@ -212,7 +227,7 @@ export async function applyServerDirectGatewayState(input: {
   publicDomain?: string | null;
 }) {
   const t = await serverT();
-  const server = await loadServerForDirectGateway(input.serverId);
+  const server = await loadServerForDirectGateway(input.serverId, input.session);
   if (!server) {
     if (input.bestEffort)
       return {
@@ -423,10 +438,12 @@ export async function setServerDirectGatewayEnabled(
     /** HTTPS public domain; empty/null uses server IP/host. */
     publicDomain?: string | null;
   } = {},
+  session?: DirectGatewaySession | null,
 ) {
   const result = await applyServerDirectGatewayState({
     serverId,
     enabled,
+    session,
     publicProtocol: options.publicProtocol,
     publicListen: options.publicListen,
     bindAddress: options.bindAddress,

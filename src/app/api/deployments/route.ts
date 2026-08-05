@@ -31,7 +31,7 @@ export async function GET(request: Request) {
     async ({ session }) => {
       const [deployments, templates] = await Promise.all([
         listDeploymentRuns(session),
-        listDeploymentTemplates(),
+        listDeploymentTemplates(session),
       ]);
       return NextResponse.json({ deployments, templates });
     },

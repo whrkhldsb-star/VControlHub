@@ -28,6 +28,7 @@ const KNOWN_JOB_TYPES = new Set([
   "backup.restore",
   "backup.retention",
   "backup.drill",
+  "backup.offsite-sync",
   "backup-schedule.tick",
   "vps-backup.create",
   "vps-backup-schedule.tick",

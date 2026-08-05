@@ -153,6 +153,7 @@ model Team {
   servers              Server[]              @relation("TeamServers")
   storageNodes         StorageNode[]         @relation("TeamStorageNodes")
   commandRequests      CommandRequest[]      @relation("TeamCommandRequests")
+  commandTemplates     CommandTemplate[]     @relation("TeamCommandTemplates")
   downloadTasks        DownloadTask[]        @relation("TeamDownloadTasks")
   syncJobs             SyncJob[]             @relation("TeamSyncJobs")
   backupRecords        BackupRecord[]        @relation("TeamBackupRecords")
@@ -902,12 +903,15 @@ model CommandTemplate {
   tags            String[]
   isBuiltin       Boolean  @default(false)
   createdById     String?
+  teamId          String? // null is reserved for built-in/shared templates
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   creator        User?           @relation(fields: [createdById], references: [id], onDelete: SetNull)
   deploymentRuns DeploymentRun[]
+  team           Team?           @relation("TeamCommandTemplates", fields: [teamId], references: [id], onDelete: SetNull)
 
+  @@index([teamId, isBuiltin, name])
   @@map("command_templates")
 }
 

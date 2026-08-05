@@ -16,7 +16,7 @@ export default async function CommandTemplatesPage() {
 	const locale = await getServerLocale();
 
 	const [templates, servers] = await Promise.all([
-		listTemplates(),
+		listTemplates(200, session),
 		listServerProfiles(session),
 	]);
 

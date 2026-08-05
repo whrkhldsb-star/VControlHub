@@ -6,7 +6,7 @@ import { NextResponse } from "next/server";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import type { SessionPayload } from "@/lib/auth/session";
-import { teamWhere } from "@/lib/auth/team-scope";
+import { isGlobalTeamManager, teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { IMAGE_UPLOAD_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -37,12 +37,21 @@ async function unlinkIfPresent(filePath: string) {
   }
 }
 
-function canDeleteImage(input: { ownerId: string; session: SessionPayload }) {
+function canDeleteImage(input: {
+  ownerId: string;
+  teamId: string | null;
+  session: SessionPayload;
+}) {
+  const canManageTeamImages =
+    isGlobalTeamManager(input.session) ||
+    input.teamId === null ||
+    input.teamId === input.session.currentTeamId;
   return (
     input.ownerId === input.session.userId ||
-    sessionHasPermission(input.session, "media:manage") ||
-    sessionHasPermission(input.session, "team:manage") ||
-    sessionHasPermission(input.session, "role:manage")
+    (canManageTeamImages &&
+      (sessionHasPermission(input.session, "media:manage") ||
+        sessionHasPermission(input.session, "team:manage") ||
+        sessionHasPermission(input.session, "role:manage")))
   );
 }
 
@@ -70,6 +79,7 @@ export async function DELETE(
         select: {
           id: true,
           userId: true,
+          teamId: true,
           storageKey: true,
           storageNodeId: true,
           relativePath: true,
@@ -77,11 +87,19 @@ export async function DELETE(
       });
 
       if (!image)
-        throw new NotFoundError(t("api.imageNotFound", await getServerLocale()));
+        throw new NotFoundError(
+          t("api.imageNotFound", await getServerLocale()),
+        );
 
       // Only owner or explicit destructive/admin permissions can delete.
       // `user:read` is intentionally not enough because viewer accounts have it.
-      if (!canDeleteImage({ ownerId: image.userId, session })) {
+      if (
+        !canDeleteImage({
+          ownerId: image.userId,
+          teamId: image.teamId,
+          session,
+        })
+      ) {
         throw new ForbiddenError("No permission to delete");
       }
 
@@ -119,7 +137,10 @@ export async function DELETE(
             } catch (error) {
               logError("image-bed:delete-storage-copy", error);
               return NextResponse.json(
-                { error: "Failed to delete image copy from storage node, record not deleted" },
+                {
+                  error:
+                    "Failed to delete image copy from storage node, record not deleted",
+                },
                 { status: 502 },
               );
             }
@@ -166,7 +187,13 @@ export async function DELETE(
         await prisma.imageUpload.delete({ where: { id } });
       }
 
-      await auditUserAction(session?.userId ?? "", "image.delete", { imageId: id }, undefined, session?.currentTeamId);
+      await auditUserAction(
+        session?.userId ?? "",
+        "image.delete",
+        { imageId: id },
+        undefined,
+        session?.currentTeamId,
+      );
       return NextResponse.json({ success: true });
     },
   );

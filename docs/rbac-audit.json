@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-04T08:49:22.336Z",
+  "generatedAt": "2026-08-05T11:42:58.890Z",
   "summary": {
     "permissionsInList": 54,
     "rolesDefined": 4,
@@ -1381,19 +1381,19 @@
         },
         {
           "path": "src/app/api/images/[id]/route.ts",
-          "line": 56
+          "line": 65
         },
         {
           "path": "src/app/api/images/[id]/route.ts",
-          "line": 56
+          "line": 65
         },
         {
           "path": "src/app/api/images/batch/route.ts",
-          "line": 28
+          "line": 29
         },
         {
           "path": "src/app/api/images/batch/route.ts",
-          "line": 28
+          "line": 29
         },
         {
           "path": "src/app/api/images/upload/route.ts",
@@ -1431,15 +1431,15 @@
         },
         {
           "path": "src/app/api/images/[id]/file/route.ts",
-          "line": 60
+          "line": 68
         },
         {
           "path": "src/app/api/images/[id]/route.ts",
-          "line": 43
+          "line": 52
         },
         {
           "path": "src/app/api/images/batch/route.ts",
-          "line": 42
+          "line": 43
         },
         {
           "path": "src/app/api/images/list/route.ts",
@@ -1693,11 +1693,11 @@
         },
         {
           "path": "src/app/api/images/[id]/route.ts",
-          "line": 45
+          "line": 54
         },
         {
           "path": "src/app/api/images/batch/route.ts",
-          "line": 44
+          "line": 45
         },
         {
           "path": "src/app/api/role-templates/[id]/route.ts",
@@ -2821,15 +2821,15 @@
         },
         {
           "path": "src/app/api/images/[id]/file/route.ts",
-          "line": 61
+          "line": 69
         },
         {
           "path": "src/app/api/images/[id]/route.ts",
-          "line": 44
+          "line": 53
         },
         {
           "path": "src/app/api/images/batch/route.ts",
-          "line": 43
+          "line": 44
         },
         {
           "path": "src/app/api/images/list/route.ts",

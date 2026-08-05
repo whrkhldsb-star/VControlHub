@@ -1,6 +1,7 @@
 import { expect, test, type Page, type Response } from "@playwright/test";
 import catalog from "../docs/route-catalog.json";
 import { installDirectSession } from "./helpers/direct-session";
+import { loginWithCredentials } from "./helpers/login";
 
 const TEST_USER = process.env.E2E_USER ?? "admin";
 const TEST_PASS = process.env.E2E_PASS ?? "admin123";
@@ -11,11 +12,7 @@ async function login(page: Page) {
 		await page.goto("/dashboard");
 		return;
 	}
-	await page.goto("/login");
-	await page.getByLabel(/用户名|Username/i).fill(TEST_USER);
-	await page.getByLabel(/密码|Password/i).fill(TEST_PASS);
-	await page.getByRole("button", { name: /登录|Sign in|Log in/i }).click();
-	await page.waitForURL((url) => !url.pathname.startsWith("/login"));
+	await loginWithCredentials(page, TEST_USER, TEST_PASS);
 }
 
 function observe(page: Page) {

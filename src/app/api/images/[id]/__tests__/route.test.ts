@@ -18,7 +18,9 @@ const {
   storageFindFirstMock: vi.fn(),
   mediaDeleteManyMock: vi.fn(),
   fileDeleteManyMock: vi.fn(),
-  transactionMock: vi.fn(async (operations: Array<Promise<unknown>>) => Promise.all(operations)),
+  transactionMock: vi.fn(async (operations: Array<Promise<unknown>>) =>
+    Promise.all(operations),
+  ),
   unlinkMock: vi.fn(),
 }));
 
@@ -31,6 +33,7 @@ vi.mock("@/lib/auth/authorization", () => ({
   sessionHasPermission: sessionHasPermissionMock,
 }));
 vi.mock("@/lib/auth/team-scope", () => ({
+  isGlobalTeamManager: () => false,
   teamWhere: () => ({ OR: [{ teamId: "team_1" }, { teamId: null }] }),
 }));
 vi.mock("node:fs/promises", () => ({
@@ -55,8 +58,13 @@ vi.mock("@/lib/image-bed/constants", () => ({
   UPLOAD_DIR: "/tmp/vcontrolhub-image-delete-test",
 }));
 vi.mock("@/lib/http/rate-limit-presets", async () => {
-  const actual = await vi.importActual<typeof import("@/lib/http/rate-limit-presets")>("@/lib/http/rate-limit-presets");
-  return { ...actual, withRateLimit: vi.fn().mockResolvedValue({ allowed: true }) };
+  const actual = await vi.importActual<
+    typeof import("@/lib/http/rate-limit-presets")
+  >("@/lib/http/rate-limit-presets");
+  return {
+    ...actual,
+    withRateLimit: vi.fn().mockResolvedValue({ allowed: true }),
+  };
 });
 
 import { DELETE } from "../route";
@@ -79,6 +87,7 @@ describe("/api/images/[id]", () => {
     imageFindUniqueMock.mockResolvedValueOnce({
       id: "img_1",
       userId: "u_1",
+      teamId: "team_1",
       storageKey: "img.png",
       storageNodeId: null,
       relativePath: null,
@@ -111,11 +120,14 @@ describe("/api/images/[id]", () => {
     imageFindUniqueMock.mockResolvedValueOnce({
       id: "img_1",
       userId: "u_1",
+      teamId: "team_1",
       storageKey: "img.png",
       storageNodeId: null,
       relativePath: null,
     });
-    unlinkMock.mockRejectedValueOnce(Object.assign(new Error("EACCES"), { code: "EACCES" }));
+    unlinkMock.mockRejectedValueOnce(
+      Object.assign(new Error("EACCES"), { code: "EACCES" }),
+    );
 
     const response = await DELETE(
       new Request("https://example.com/api/images/img_1", { method: "DELETE" }),
@@ -140,6 +152,7 @@ describe("/api/images/[id]", () => {
     imageFindUniqueMock.mockResolvedValueOnce({
       id: "img_1",
       userId: "u_1",
+      teamId: "team_1",
       storageKey: "img.png",
       storageNodeId: "node_1",
       relativePath: "album/img.png",
@@ -182,6 +195,7 @@ describe("/api/images/[id]", () => {
     imageFindUniqueMock.mockResolvedValueOnce({
       id: "img_1",
       userId: "u_1",
+      teamId: "team_1",
       storageKey: "img.png",
       storageNodeId: "node_1",
       relativePath: "album/subdir",
@@ -190,7 +204,9 @@ describe("/api/images/[id]", () => {
       driver: "LOCAL",
       basePath: "/srv/images",
     });
-    unlinkMock.mockRejectedValueOnce(Object.assign(new Error("EACCES"), { code: "EACCES" }));
+    unlinkMock.mockRejectedValueOnce(
+      Object.assign(new Error("EACCES"), { code: "EACCES" }),
+    );
 
     const response = await DELETE(
       new Request("https://example.com/api/images/img_1", { method: "DELETE" }),
@@ -202,7 +218,8 @@ describe("/api/images/[id]", () => {
     expect(response.status).toBe(502);
     expect(imageDeleteMock).not.toHaveBeenCalled();
     await expect(response.json()).resolves.toMatchObject({
-      error: "Failed to delete image copy from storage node, record not deleted",
+      error:
+        "Failed to delete image copy from storage node, record not deleted",
     });
   });
 
@@ -215,6 +232,7 @@ describe("/api/images/[id]", () => {
     imageFindUniqueMock.mockResolvedValueOnce({
       id: "img_2",
       userId: "u_2",
+      teamId: "team_1",
       storageKey: "img.png",
       storageNodeId: null,
       relativePath: null,
@@ -241,6 +259,7 @@ describe("/api/images/[id]", () => {
     imageFindUniqueMock.mockResolvedValueOnce({
       id: "img_2",
       userId: "u_2",
+      teamId: "team_1",
       storageKey: "nested/img.png",
       storageNodeId: null,
       relativePath: null,
@@ -262,11 +281,14 @@ describe("/api/images/[id]", () => {
     requireApiSessionMock.mockResolvedValueOnce(session);
     sessionHasPermissionMock.mockImplementation(
       (_session, permission) =>
-        permission === "image:write" || permission === "media:manage" || permission === "team:manage",
+        permission === "image:write" ||
+        permission === "media:manage" ||
+        permission === "team:manage",
     );
     imageFindUniqueMock.mockResolvedValueOnce({
       id: "img_2",
       userId: "u_2",
+      teamId: "team_1",
       storageKey: "nested/img.png",
       storageNodeId: null,
       relativePath: null,
@@ -288,6 +310,33 @@ describe("/api/images/[id]", () => {
     expect(imageDeleteMock).toHaveBeenCalledWith({ where: { id: "img_2" } });
   });
 
+  it("rejects media managers deleting an image from another team", async () => {
+    vi.clearAllMocks();
+    requireApiSessionMock.mockResolvedValueOnce(session);
+    sessionHasPermissionMock.mockImplementation(
+      (_session, permission) =>
+        permission === "image:write" || permission === "media:manage",
+    );
+    imageFindUniqueMock.mockResolvedValueOnce({
+      id: "img_foreign",
+      userId: "u_foreign",
+      teamId: "team_2",
+      storageKey: "foreign.png",
+      storageNodeId: null,
+      relativePath: null,
+    });
+
+    const response = await DELETE(
+      new Request("https://example.com/api/images/img_foreign", {
+        method: "DELETE",
+      }),
+      { params: Promise.resolve({ id: "img_foreign" }) },
+    );
+
+    expect(response.status).toBe(403);
+    expect(unlinkMock).not.toHaveBeenCalled();
+    expect(imageDeleteMock).not.toHaveBeenCalled();
+  });
 
   it("skips storage cascade when node is outside team scope", async () => {
     vi.clearAllMocks();
@@ -298,6 +347,7 @@ describe("/api/images/[id]", () => {
     imageFindUniqueMock.mockResolvedValueOnce({
       id: "img_1",
       userId: "u_1",
+      teamId: "team_1",
       storageKey: "img.png",
       storageNodeId: "node_foreign",
       relativePath: "album/img.png",

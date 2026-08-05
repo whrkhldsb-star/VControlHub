@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { installDirectSession } from "./helpers/direct-session";
+import { loginWithCredentials } from "./helpers/login";
 
 const USER = process.env.E2E_USER ?? "admin";
 const PASS = process.env.E2E_PASS ?? "admin123";
@@ -13,11 +14,7 @@ async function login(page: Page) {
 		await page.goto("/dashboard");
 		return;
 	}
-	await page.goto("/login");
-	await page.getByLabel(/用户名|Username/i).fill(USER);
-	await page.getByLabel(/密码|Password/i).fill(PASS);
-	await page.getByRole("button", { name: /登录|Sign in|Log in/i }).click();
-	await page.waitForURL((url) => !url.pathname.startsWith("/login"));
+	await loginWithCredentials(page, USER, PASS);
 }
 
 test("media image upload, search, favorite, tag, detail and image-bed publish", async ({ page }) => {

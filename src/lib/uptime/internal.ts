@@ -29,7 +29,7 @@ function formatUptimeDay(
 export type UptimeListOptions = {
   /**
    * When provided, list is filtered with the same teamWhere rules as server lists.
-   * Omit/null for public status page (fleet-wide display names only, no host/port).
+   * Omit/null fails closed with an empty list. Uptime data is tenant-scoped.
    */
   session?: TeamSession | null;
 };
@@ -40,11 +40,12 @@ export type UptimeListOptions = {
  * their team (+ legacy null teamId) nodes.
  */
 export async function getAllUptimeDataInternal(options: UptimeListOptions = {}) {
+	if (!options.session) return { servers: [] };
   const ninetyDaysAgo = new Date();
   ninetyDaysAgo.setUTCDate(ninetyDaysAgo.getUTCDate() - 89);
   ninetyDaysAgo.setUTCHours(0, 0, 0, 0);
 
-  const teamFilter = options.session ? teamWhere(options.session) : {};
+  const teamFilter = teamWhere(options.session);
 
   const servers = await prisma.server.findMany({
     where: { enabled: true, ...teamFilter },

@@ -41,15 +41,12 @@ describe("/status page exposure", () => {
     getAllUptimeDataInternalMock.mockReset();
   });
 
-  it("anonymous: summary + uptime heatmap, no full component checks", async () => {
+  it("anonymous: summary only, no tenant uptime data", async () => {
     getCurrentSessionMock.mockResolvedValueOnce(null);
     getPublicStatusSummaryMock.mockResolvedValueOnce({
       generatedAt: "2026-07-17T00:00:00.000Z",
       service: "vcontrolhub",
       summary: { overall: "healthy" },
-    });
-    getAllUptimeDataInternalMock.mockResolvedValueOnce({
-      servers: [{ id: "s1", name: "edge-1", data: [{ date: "2026-07-16", uptimePercent: 100 }] }],
     });
 
     const { default: StatusPage } = await import("../page");
@@ -58,11 +55,10 @@ describe("/status page exposure", () => {
 
     expect(getPublicStatusSummaryMock).toHaveBeenCalledTimes(1);
     expect(getPublicStatusMock).not.toHaveBeenCalled();
-    expect(getAllUptimeDataInternalMock).toHaveBeenCalledTimes(1);
+    expect(getAllUptimeDataInternalMock).not.toHaveBeenCalled();
     expect(html).not.toMatch(/Database|VPS management|Cloud drive service/);
     expect(html).toMatch(/Healthy|healthy|Overall|Service Status/i);
-    expect(html).toMatch(/edge-1/);
-    expect(html).toMatch(/Historical uptime|uptime/i);
+    expect(html).not.toMatch(/edge-1|Historical uptime/i);
   });
 
   it("authenticated: full checks + uptime path", async () => {

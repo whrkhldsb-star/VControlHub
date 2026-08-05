@@ -291,7 +291,7 @@ export async function toggleDirectGatewayAction(
       // Always public-listen for HTTP; HTTPS uses loopback + auto reverse-proxy.
       publicListen: enabled ? true : undefined,
       publicDomain: enabled && directGatewayProtocol === "https" ? directGatewayDomain || null : null,
-    });
+    }, session);
     await auditUserAction(session.userId, "server.direct_gateway.toggle", {
       serverId,
       enabled,

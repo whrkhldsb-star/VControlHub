@@ -26,6 +26,12 @@ vi.mock("@/lib/auth/api-session", () => ({
 vi.mock("@/lib/auth/authorization", () => ({
   sessionHasPermission: sessionHasPermissionMock,
 }));
+vi.mock("@/lib/audit/service", () => ({ auditUserAction: vi.fn() }));
+vi.mock("@/lib/auth/team-scope", () => ({
+  teamWhere: (session: { currentTeamId?: string | null }) => ({
+    OR: [{ teamId: session.currentTeamId }, { teamId: null }],
+  }),
+}));
 vi.mock("node:fs/promises", () => ({
   default: { mkdir: vi.fn(), writeFile: vi.fn(), unlink: unlinkMock },
   mkdir: vi.fn(),
@@ -46,14 +52,23 @@ vi.mock("@/lib/image-bed/constants", () => ({
   UPLOAD_DIR: "/tmp/vcontrolhub-image-batch-test",
 }));
 vi.mock("@/lib/http/rate-limit-presets", async () => {
-  const actual = await vi.importActual<typeof import("@/lib/http/rate-limit-presets")>("@/lib/http/rate-limit-presets");
-  return { ...actual, withRateLimit: vi.fn().mockResolvedValue({ allowed: true }) };
+  const actual = await vi.importActual<
+    typeof import("@/lib/http/rate-limit-presets")
+  >("@/lib/http/rate-limit-presets");
+  return {
+    ...actual,
+    withRateLimit: vi.fn().mockResolvedValue({ allowed: true }),
+  };
 });
 
 import { POST } from "../route";
 
 const ownerSession = { userId: "u_1", username: "alice" };
-const managerSession = { userId: "u_manager", username: "manager" };
+const managerSession = {
+  userId: "u_manager",
+  username: "manager",
+  currentTeamId: "team_1",
+};
 const viewerSession = { userId: "u_viewer", username: "viewer" };
 
 async function postBatch(body: unknown) {
@@ -100,7 +115,9 @@ describe("/api/images/batch", () => {
     expect(response.status).toBe(403);
     expect(imageFindManyMock).not.toHaveBeenCalled();
     expect(imageDeleteManyMock).not.toHaveBeenCalled();
-    await expect(response.json()).resolves.toMatchObject({ error: "Insufficient permissions" });
+    await expect(response.json()).resolves.toMatchObject({
+      error: "Insufficient permissions",
+    });
   });
 
   it("allows image owners to batch-delete their own images without media:manage", async () => {
@@ -110,12 +127,20 @@ describe("/api/images/batch", () => {
       (_session: unknown, permission: string) => permission === "image:write",
     );
     imageFindManyMock.mockResolvedValueOnce([
-      { id: "img_1", storageKey: "albums/mine.png", storageNodeId: null, relativePath: null },
+      {
+        id: "img_1",
+        storageKey: "albums/mine.png",
+        storageNodeId: null,
+        relativePath: null,
+      },
     ]);
     imageDeleteManyMock.mockResolvedValueOnce({ count: 1 });
     unlinkMock.mockResolvedValue(undefined);
 
-    const response = await postBatch({ action: "delete", ids: ["img_1", "img_other"] });
+    const response = await postBatch({
+      action: "delete",
+      ids: ["img_1", "img_other"],
+    });
 
     expect(response.status).toBe(200);
     expect(imageFindManyMock).toHaveBeenCalledWith({
@@ -129,7 +154,12 @@ describe("/api/images/batch", () => {
       take: 100,
     });
     expect(imageDeleteManyMock).toHaveBeenCalledWith({
-      where: { id: { in: ["img_1"] } },
+      where: {
+        AND: [
+          { id: { in: ["img_1", "img_other"] }, userId: "u_1" },
+          { id: { in: ["img_1"] } },
+        ],
+      },
     });
     await expect(response.json()).resolves.toEqual({
       deleted: 1,
@@ -143,7 +173,9 @@ describe("/api/images/batch", () => {
     requireApiSessionMock.mockResolvedValueOnce(managerSession);
     sessionHasPermissionMock.mockImplementation(
       (_session, permission) =>
-        permission === "image:write" || permission === "media:manage" || permission === "team:manage",
+        permission === "image:write" ||
+        permission === "media:manage" ||
+        permission === "team:manage",
     );
     imageFindManyMock.mockResolvedValueOnce([
       { id: "img_2", storageKey: "albums/remote.png" },
@@ -155,7 +187,10 @@ describe("/api/images/batch", () => {
 
     expect(response.status).toBe(200);
     expect(imageFindManyMock).toHaveBeenCalledWith({
-      where: { id: { in: ["img_2"] } },
+      where: {
+        id: { in: ["img_2"] },
+        OR: [{ teamId: "team_1" }, { teamId: null }],
+      },
       select: {
         id: true,
         storageKey: true,
@@ -165,7 +200,15 @@ describe("/api/images/batch", () => {
       take: 100,
     });
     expect(imageDeleteManyMock).toHaveBeenCalledWith({
-      where: { id: { in: ["img_2"] } },
+      where: {
+        AND: [
+          {
+            id: { in: ["img_2"] },
+            OR: [{ teamId: "team_1" }, { teamId: null }],
+          },
+          { id: { in: ["img_2"] } },
+        ],
+      },
     });
     expect(unlinkMock).toHaveBeenCalledWith(
       "/tmp/vcontrolhub-image-batch-test/albums/remote.png",
@@ -173,20 +216,27 @@ describe("/api/images/batch", () => {
     expect(unlinkMock).toHaveBeenCalledWith(
       "/tmp/vcontrolhub-image-batch-test/albums/remote_thumb.webp",
     );
-    await expect(response.json()).resolves.toEqual({ deleted: 1, filesDeleted: 1, failedFileIds: [] });
+    await expect(response.json()).resolves.toEqual({
+      deleted: 1,
+      filesDeleted: 1,
+      failedFileIds: [],
+    });
   });
 
   it("returns 207 and keeps DB row when image files fail to unlink", async () => {
     vi.clearAllMocks();
     requireApiSessionMock.mockResolvedValueOnce(managerSession);
     sessionHasPermissionMock.mockImplementation(
-      (_session, permission) => permission === "image:write" || permission === "media:manage",
+      (_session, permission) =>
+        permission === "image:write" || permission === "media:manage",
     );
     imageFindManyMock.mockResolvedValueOnce([
       { id: "img_2", storageKey: "albums/remote.png" },
     ]);
     imageDeleteManyMock.mockResolvedValueOnce({ count: 1 });
-    unlinkMock.mockRejectedValue(Object.assign(new Error("EACCES"), { code: "EACCES" }));
+    unlinkMock.mockRejectedValue(
+      Object.assign(new Error("EACCES"), { code: "EACCES" }),
+    );
 
     const response = await postBatch({ action: "delete", ids: ["img_2"] });
 

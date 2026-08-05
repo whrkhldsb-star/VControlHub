@@ -1,6 +1,7 @@
 import { expect, test, type Page, type Response } from "@playwright/test";
 
 import { installDirectSession } from "./helpers/direct-session";
+import { loginWithCredentials } from "./helpers/login";
 
 /**
  * Authenticated golden-path smoke.
@@ -14,13 +15,7 @@ const TEST_USER = process.env.E2E_USER ?? "admin";
 const TEST_PASS = process.env.E2E_PASS ?? "admin123";
 
 async function login(page: import("@playwright/test").Page) {
-	await page.goto("/login");
-	await page.getByLabel(/用户名|Username/i).fill(TEST_USER);
-	await page.getByLabel(/密码|Password/i).fill(TEST_PASS);
-	await Promise.all([
-		page.waitForURL((url) => !url.pathname.startsWith("/login")),
-		page.getByRole("button", { name: /登录|Sign in|Log in/i }).click(),
-	]);
+	await loginWithCredentials(page, TEST_USER, TEST_PASS);
 }
 
 async function ensureAuthenticated(

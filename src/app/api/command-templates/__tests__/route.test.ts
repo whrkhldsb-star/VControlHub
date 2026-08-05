@@ -66,12 +66,14 @@ describe("/api/command-templates audit coverage", () => {
       "tmpl1",
       expect.objectContaining({ name: "Restart web" }),
       expect.objectContaining({ userId: "u1" }),
+      expect.objectContaining({ userId: "u1", roles: ["admin"] }),
     );
 
     await route.DELETE(new Request("http://local/api/command-templates?id=tmpl1", { method: "DELETE" }));
     expect(mocks.deleteTemplate).toHaveBeenCalledWith(
       "tmpl1",
       expect.objectContaining({ userId: "u1" }),
+      expect.objectContaining({ userId: "u1", roles: ["admin"] }),
     );
 
     expect(mocks.auditUserAction).toHaveBeenCalledWith("u1", "command_template.create", expect.objectContaining({ templateId: "tmpl1", name: "Restart app" }), undefined, null);

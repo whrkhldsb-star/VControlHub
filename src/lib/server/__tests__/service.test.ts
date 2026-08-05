@@ -1,4 +1,6 @@
-vi.mock("@/lib/concurrency/advisory-lock", () => ({ acquireAdvisoryLock: vi.fn(async () => async () => undefined) }));
+vi.mock("@/lib/concurrency/advisory-lock", () => ({
+  acquireAdvisoryLock: vi.fn(async () => async () => undefined),
+}));
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -11,6 +13,7 @@ import {
   toggleServerEnabled,
   updateServerProfile,
 } from "@/lib/server/service";
+import { loadServerForDirectGateway } from "../service-direct-gateway";
 import { prisma } from "@/lib/db";
 import { createRemoteDirectory } from "@/lib/ssh/client";
 import { checkStorageNodeHealth } from "@/lib/storage/service-nodes";
@@ -71,7 +74,10 @@ vi.mock("@/lib/ssh/os-dialect", () => ({
     detectedAt: "2026-07-19T00:00:00.000Z",
   })),
   serializeDialect: (d: unknown) => JSON.stringify(d),
-  deserializeDialect: () => ({ serviceManager: "systemd", sudoPattern: "sudo -n" }),
+  deserializeDialect: () => ({
+    serviceManager: "systemd",
+    sudoPattern: "sudo -n",
+  }),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -137,7 +143,10 @@ describe("server service", () => {
     execRemoteCommandMock.mockImplementation(async (input) => {
       input.onHostKeySha256?.("hk-prod-1 storage");
       return {
-        stdout: input.command === "printf vcontrolhub-ssh-host-key-probe" ? "vcontrolhub-ssh-host-key-probe" : "vcontrolhub-ssh-ready",
+        stdout:
+          input.command === "printf vcontrolhub-ssh-host-key-probe"
+            ? "vcontrolhub-ssh-host-key-probe"
+            : "vcontrolhub-ssh-ready",
         stderr: "",
         exitCode: 0,
       };
@@ -285,7 +294,9 @@ describe("server service", () => {
         password: "secret123",
         approvedHostKeySha256: "hk-prod-1 storage",
       }),
-    ).rejects.toThrow("A VPS node with the same IP/host already exists: existing-node (root@45.207.216.45:22). To avoid duplicate management of the same server or incorrect port entry, please edit the existing node or delete the old node before adding a new one.");
+    ).rejects.toThrow(
+      "A VPS node with the same IP/host already exists: existing-node (root@45.207.216.45:22). To avoid duplicate management of the same server or incorrect port entry, please edit the existing node or delete the old node before adding a new one.",
+    );
 
     expect(prisma.server.create).not.toHaveBeenCalled();
     expect(prisma.storageNode.create).not.toHaveBeenCalled();
@@ -305,7 +316,9 @@ describe("server service", () => {
         password: "secret123",
         approvedHostKeySha256: "hk-prod-1 storage",
       }),
-    ).rejects.toThrow("Cannot connect to target server root@203.0.113.44:61834; node was not added/saved. Please check IP, port, username, and authentication credentials and retry. Details: connect ETIMEDOUT");
+    ).rejects.toThrow(
+      "Cannot connect to target server root@203.0.113.44:61834; node was not added/saved. Please check IP, port, username, and authentication credentials and retry. Details: connect ETIMEDOUT",
+    );
 
     expect(execRemoteCommandMock).toHaveBeenCalledWith(
       expect.objectContaining({ command: "printf vcontrolhub-ssh-ready" }),
@@ -409,7 +422,11 @@ describe("server service", () => {
       password: "enc:v1:password",
       hostKeySha256: null,
       sshKey: null,
-      storageNode: { id: "storage_draft", driver: "SFTP", basePath: "/root/drive" },
+      storageNode: {
+        id: "storage_draft",
+        driver: "SFTP",
+        basePath: "/root/drive",
+      },
       commandTargets: [],
       costAutoSync: false,
       costMonthlyAmount: null,
@@ -444,7 +461,11 @@ describe("server service", () => {
       password: "enc:v1:password",
       hostKeySha256: null,
       sshKey: null,
-      storageNode: { id: "storage_draft", driver: "SFTP", basePath: "/root/drive" },
+      storageNode: {
+        id: "storage_draft",
+        driver: "SFTP",
+        basePath: "/root/drive",
+      },
       commandTargets: [],
       costAutoSync: false,
       costMonthlyAmount: null,
@@ -520,7 +541,11 @@ describe("server service", () => {
       password: "enc:v1:password",
       hostKeySha256: "SHA256:verified",
       sshKey: null,
-      storageNode: { id: "storage_draft", driver: "SFTP", basePath: "/root/drive" },
+      storageNode: {
+        id: "storage_draft",
+        driver: "SFTP",
+        basePath: "/root/drive",
+      },
       commandTargets: [],
       costAutoSync: false,
       costMonthlyAmount: null,
@@ -530,11 +555,13 @@ describe("server service", () => {
       updatedAt: new Date(),
     } as any;
     vi.mocked(prisma.server.findUnique).mockResolvedValueOnce(current);
-    vi.mocked(createRemoteDirectory).mockRejectedValueOnce(new Error("permission denied"));
-
-    await expect(toggleServerEnabled("srv_draft", null, "SHA256:verified")).rejects.toThrow(
-      /root\/drive.*permission denied/,
+    vi.mocked(createRemoteDirectory).mockRejectedValueOnce(
+      new Error("permission denied"),
     );
+
+    await expect(
+      toggleServerEnabled("srv_draft", null, "SHA256:verified"),
+    ).rejects.toThrow(/root\/drive.*permission denied/);
 
     expect(prisma.server.update).not.toHaveBeenCalled();
     expect(prisma.storageNode.update).not.toHaveBeenCalled();
@@ -585,7 +612,10 @@ describe("server service", () => {
       ...current,
       enabled: true,
     } as any);
-    vi.stubGlobal("fetch", vi.fn(async () => new Response("ok", { status: 200 })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("ok", { status: 200 })),
+    );
 
     const result = await toggleServerEnabled(
       "srv_draft_gateway",
@@ -627,7 +657,11 @@ describe("server service", () => {
       password: "enc:v1:password",
       hostKeySha256: "SHA256:verified",
       sshKey: null,
-      storageNode: { id: "storage_draft", driver: "SFTP", basePath: "/root/drive" },
+      storageNode: {
+        id: "storage_draft",
+        driver: "SFTP",
+        basePath: "/root/drive",
+      },
       commandTargets: [],
       costAutoSync: false,
       costMonthlyAmount: null,
@@ -684,7 +718,9 @@ describe("server service", () => {
         username: "root",
         connectionType: "PASSWORD",
       }),
-    ).rejects.toThrow("A VPS node with the same IP/host already exists: existing-node (root@45.207.216.45:22). To avoid duplicate management of the same server or incorrect port entry, please edit the existing node or delete the old node before adding a new one.");
+    ).rejects.toThrow(
+      "A VPS node with the same IP/host already exists: existing-node (root@45.207.216.45:22). To avoid duplicate management of the same server or incorrect port entry, please edit the existing node or delete the old node before adding a new one.",
+    );
 
     expect(prisma.server.update).not.toHaveBeenCalled();
   });
@@ -767,7 +803,7 @@ describe("server service", () => {
       description: " primary node ",
       tags: ["prod", " hk "],
       approvedHostKeySha256: "hk-prod-1 storage",
-      });
+    });
 
     expect(prisma.server.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -875,7 +911,7 @@ describe("server service", () => {
       description: "password node",
       tags: [],
       approvedHostKeySha256: "hk-prod-1 storage",
-      });
+    });
 
     expect(prisma.server.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -888,7 +924,9 @@ describe("server service", () => {
         }),
       }),
     );
-    expect(result.connectionSummary).toContain("admin@10.0.0.1:22, using password connection");
+    expect(result.connectionSummary).toContain(
+      "admin@10.0.0.1:22, using password connection",
+    );
   });
 
   it("creates a server with global direct gateway enabled during onboarding", async () => {
@@ -1009,7 +1047,7 @@ describe("server service", () => {
       tags: [],
       enableDirectGateway: true,
       approvedHostKeySha256: "hk-prod-1 storage",
-      });
+    });
 
     expect(fetchMock).toHaveBeenCalled();
     expect(execRemoteCommandMock).toHaveBeenCalledWith(
@@ -1127,7 +1165,7 @@ describe("server service", () => {
       storagePath: "/data/custom",
       tags: [],
       approvedHostKeySha256: "hk-prod-1 storage",
-      });
+    });
 
     expect(prisma.storageNode.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1251,7 +1289,7 @@ describe("server service", () => {
       enableDirectGateway: true,
       tags: [],
       approvedHostKeySha256: "hk-prod-1 storage",
-      });
+    });
 
     expect(prisma.storageNode.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1382,7 +1420,7 @@ describe("server service", () => {
       enableDirectGateway: true,
       tags: [],
       approvedHostKeySha256: "hk-prod-1 storage",
-      });
+    });
 
     expect(createRemoteDirectory).toHaveBeenCalledWith(
       expect.objectContaining({ remotePath: "/data/warn", recursive: true }),
@@ -1441,11 +1479,30 @@ describe("server service", () => {
 
     await expect(
       setServerDirectGatewayEnabled("srv_local", true),
-    ).rejects.toThrow("The local node does not need a direct gateway to the target server. Continue using website relay or local storage access.");
+    ).rejects.toThrow(
+      "The local node does not need a direct gateway to the target server. Continue using website relay or local storage access.",
+    );
 
     expect(execRemoteCommandMock).not.toHaveBeenCalled();
     expect(prisma.server.update).not.toHaveBeenCalled();
     expect(prisma.storageNode.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("uses the current team boundary when loading a direct-gateway target", async () => {
+    vi.mocked(prisma.server.findFirst).mockResolvedValueOnce(null);
+    const result = await loadServerForDirectGateway("srv_foreign", {
+      userId: "u_1",
+      roles: ["operator"],
+      currentTeamId: "team_1",
+    });
+
+    expect(result).toBeNull();
+    expect(prisma.server.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "srv_foreign", teamId: "team_1" },
+      }),
+    );
+    expect(prisma.server.findUnique).not.toHaveBeenCalled();
   });
 
   it("refuses to mark direct gateway enabled when the VPS has no SFTP storage node", async () => {
@@ -1465,7 +1522,9 @@ describe("server service", () => {
 
     await expect(
       setServerDirectGatewayEnabled("srv_orphan", true),
-    ).rejects.toThrow("Target server direct connection can only be enabled for VPS instances bound to an SFTP storage node. Please create or repair the remote storage node for this VPS first.");
+    ).rejects.toThrow(
+      "Target server direct connection can only be enabled for VPS instances bound to an SFTP storage node. Please create or repair the remote storage node for this VPS first.",
+    );
 
     expect(execRemoteCommandMock).not.toHaveBeenCalled();
     expect(prisma.server.update).not.toHaveBeenCalled();
@@ -1502,7 +1561,9 @@ describe("server service", () => {
     vi.mocked(prisma.server.update).mockReset();
     vi.mocked(prisma.server.update).mockResolvedValue({} as any);
     vi.mocked(prisma.storageNode.updateMany).mockReset();
-    vi.mocked(prisma.storageNode.updateMany).mockResolvedValue({ count: 1 } as any);
+    vi.mocked(prisma.storageNode.updateMany).mockResolvedValue({
+      count: 1,
+    } as any);
 
     const fetchMock = vi.fn(async () => new Response("ok", { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
@@ -1561,7 +1622,9 @@ describe("server service", () => {
     vi.mocked(prisma.server.update).mockReset();
     vi.mocked(prisma.server.update).mockResolvedValue({} as any);
     vi.mocked(prisma.storageNode.updateMany).mockReset();
-    vi.mocked(prisma.storageNode.updateMany).mockResolvedValue({ count: 1 } as any);
+    vi.mocked(prisma.storageNode.updateMany).mockResolvedValue({
+      count: 1,
+    } as any);
 
     const fetchMock = vi.fn(async () => {
       throw new Error("connect ETIMEDOUT");
@@ -1698,13 +1761,17 @@ describe("server service", () => {
   });
 
   it("reports file and workflow references in the server deletion impact", async () => {
-    vi.mocked(prisma.storageNode.findMany).mockResolvedValueOnce([{ id: "sn_1" }] as any);
+    vi.mocked(prisma.storageNode.findMany).mockResolvedValueOnce([
+      { id: "sn_1" },
+    ] as any);
     vi.mocked(prisma.fileEntry.count).mockResolvedValueOnce(3);
     vi.mocked(prisma.fileVersion.count).mockResolvedValueOnce(2);
     vi.mocked(prisma.scheduledTask.count).mockResolvedValueOnce(1);
     vi.mocked(prisma.playbook.findMany).mockResolvedValueOnce([
       { steps: [{ type: "run_command", config: { serverIds: ["srv_1"] } }] },
-      { steps: [{ type: "run_command", config: { serverIds: ["srv_other"] } }] },
+      {
+        steps: [{ type: "run_command", config: { serverIds: ["srv_other"] } }],
+      },
     ] as any);
 
     await expect(getServerDeletionImpact("srv_1")).resolves.toEqual(
@@ -1940,7 +2007,7 @@ describe("server service", () => {
       tags: [],
       enableDirectGateway: true,
       approvedHostKeySha256: "hk-prod-1 storage",
-      });
+    });
 
     expect(result.directGateway.enabled).toBe(false);
     expect(result.onboardingWarnings).toEqual([
@@ -1988,7 +2055,9 @@ describe("server service", () => {
         tags: [],
         approvedHostKeySha256: "hk-prod-1 storage",
       }),
-    ).rejects.toThrow("A VPS node with the same IP/host already exists: existing-node (root@203.0.113.10:22). To avoid duplicate management of the same server or incorrect port entry, please edit the existing node or delete the old node before adding a new one.");
+    ).rejects.toThrow(
+      "A VPS node with the same IP/host already exists: existing-node (root@203.0.113.10:22). To avoid duplicate management of the same server or incorrect port entry, please edit the existing node or delete the old node before adding a new one.",
+    );
 
     expect(prisma.server.create).not.toHaveBeenCalled();
     expect(prisma.storageNode.create).not.toHaveBeenCalled();
@@ -2051,7 +2120,9 @@ describe("server service", () => {
     const result = await listServerProfiles();
 
     expect(result).toHaveLength(1);
-    expect(result[0]?.connectionSummary).toContain("admin@10.0.0.1:22, using password connection");
+    expect(result[0]?.connectionSummary).toContain(
+      "admin@10.0.0.1:22, using password connection",
+    );
   });
 
   it("does not include unassigned servers in non-manager server lists", async () => {
@@ -2127,7 +2198,9 @@ describe("server service", () => {
       updatedAt: new Date(),
     } as any);
     vi.mocked(prisma.storageNode.count).mockResolvedValueOnce(1);
-    vi.mocked(prisma.storageNode.create).mockResolvedValueOnce({ id: "sn_1" } as any);
+    vi.mocked(prisma.storageNode.create).mockResolvedValueOnce({
+      id: "sn_1",
+    } as any);
     vi.mocked(prisma.server.findUnique).mockResolvedValueOnce({
       id: "srv_team",
       name: "team-box",
@@ -2157,7 +2230,9 @@ describe("server service", () => {
     } as any);
 
     const { requireApprovedSshHostKey } = await import("@/lib/ssh/host-key");
-    vi.mocked(requireApprovedSshHostKey as any).mockResolvedValueOnce?.("sha256");
+    vi.mocked(requireApprovedSshHostKey as any).mockResolvedValueOnce?.(
+      "sha256",
+    );
 
     // If host-key mock shape differs, skip assert on create data via try
     try {
@@ -2289,7 +2364,9 @@ describe("server service", () => {
       .mockResolvedValueOnce(current as any);
     vi.mocked(prisma.server.findFirst).mockResolvedValueOnce(null);
     vi.mocked(prisma.server.update).mockResolvedValueOnce(current as any);
-    vi.mocked(createRemoteDirectory).mockRejectedValueOnce(new Error("permission denied"));
+    vi.mocked(createRemoteDirectory).mockRejectedValueOnce(
+      new Error("permission denied"),
+    );
 
     const result = await updateServerProfile("srv_repair", {
       repairStoragePath: true,
@@ -2306,5 +2383,4 @@ describe("server service", () => {
       expect.stringMatching(/\/root\/drive.*permission denied/),
     ]);
   });
-
 });

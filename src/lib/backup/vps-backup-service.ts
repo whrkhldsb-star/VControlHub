@@ -27,6 +27,7 @@ import {
 import { downloadFile } from "@/lib/ssh/sftp-service";
 import { createLogger } from "@/lib/logging";
 import { config } from "@/lib/config/env";
+import { sendOffsiteFailureAlert } from "./offsite-uploader";
 
 const vpsBackupLogger = createLogger("vps-backup");
 
@@ -66,6 +67,127 @@ function buildPortableLocalPath(
   backupType: string,
 ): string {
   return `storage/vps-backups/${serverId}/${backupType}-${recordId}.tar.gz`;
+}
+
+export type VpsOffsiteUploadResult =
+  | { ok: true; skipped: false; key: string; size: string }
+  | {
+      ok: true;
+      skipped: true;
+      reason: "offsite_disabled" | "already_uploaded" | "backup_not_completed";
+    }
+  | { ok: false; skipped: false; error: string };
+
+/** Upload one completed VPS backup without buffering the archive in memory. */
+export async function uploadVpsBackupToOffsite(
+  recordId: string,
+): Promise<VpsOffsiteUploadResult> {
+  const record = await prisma.vpsBackupRecord.findUnique({
+    where: { id: recordId },
+    select: {
+      id: true,
+      serverId: true,
+      backupType: true,
+      status: true,
+      localPath: true,
+      offsiteKey: true,
+    },
+  });
+  if (!record || record.status !== "COMPLETED" || !record.localPath) {
+    return { ok: true, skipped: true, reason: "backup_not_completed" };
+  }
+  if (record.offsiteKey) {
+    return { ok: true, skipped: true, reason: "already_uploaded" };
+  }
+
+  let alertRecipient: string | null = null;
+  try {
+    const { loadOffsiteConfig, validateOffsiteConfigForUse } =
+      await import("@/lib/storage/offsite/schema");
+    const offsiteConfig = await loadOffsiteConfig();
+    alertRecipient = offsiteConfig.failureAlertRecipient;
+    if (!offsiteConfig.enabled) {
+      return { ok: true, skipped: true, reason: "offsite_disabled" };
+    }
+    const issues = validateOffsiteConfigForUse(offsiteConfig);
+    if (issues.length > 0) {
+      throw new Error(`Offsite configuration invalid: ${issues.join("; ")}`);
+    }
+
+    const localAbsolutePath = resolveVpsBackupFilePath(record.localPath);
+    const localStat = statSync(localAbsolutePath);
+    if (!localStat.isFile())
+      throw new Error("Local VPS backup artifact is missing");
+
+    const { S3Client } = await import("@/lib/storage/offsite/s3-client");
+    const prefix = (offsiteConfig.pathPrefix || "vps-backups").replace(
+      /\/+$/,
+      "",
+    );
+    const offsiteKey = `${prefix}/${record.serverId}/${record.backupType}-${record.id}.tar.gz`;
+    const s3 = new S3Client(offsiteConfig);
+    await s3.putFile(offsiteKey, localAbsolutePath, "application/gzip");
+    await prisma.vpsBackupRecord.update({
+      where: { id: record.id },
+      data: {
+        offsiteKey,
+        offsiteUploadedAt: new Date(),
+        offsiteSize: localStat.size.toString(),
+        errorMessage: null,
+      },
+    });
+    return {
+      ok: true,
+      skipped: false,
+      key: offsiteKey,
+      size: localStat.size.toString(),
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const persistedMessage = `[offsite-upload] ${message}`.slice(0, 500);
+    vpsBackupLogger.warn("vps offsite upload failed (non-fatal)", {
+      recordId,
+      error: message,
+    });
+    await prisma.vpsBackupRecord
+      .update({
+        where: { id: recordId },
+        data: { errorMessage: persistedMessage },
+      })
+      .catch(() => undefined);
+    await sendOffsiteFailureAlert({
+      recipient: alertRecipient,
+      backupLabel: `${record.serverId} ${record.backupType} ${record.id}`,
+      error: message,
+    });
+    return { ok: false, skipped: false, error: message };
+  }
+}
+
+export async function retryPendingVpsOffsiteUploads(
+  input: { limit?: number } = {},
+) {
+  const limit = Math.max(1, Math.min(input.limit ?? 100, 500));
+  const records = await prisma.vpsBackupRecord.findMany({
+    where: {
+      status: "COMPLETED",
+      offsiteKey: null,
+      localPath: { not: null },
+    },
+    orderBy: { createdAt: "asc" },
+    take: limit,
+    select: { id: true },
+  });
+  let uploaded = 0;
+  let failed = 0;
+  let skipped = 0;
+  for (const record of records) {
+    const result = await uploadVpsBackupToOffsite(record.id);
+    if (result.ok && !result.skipped) uploaded += 1;
+    else if (result.ok) skipped += 1;
+    else failed += 1;
+  }
+  return { observed: records.length, uploaded, failed, skipped };
 }
 
 /** Result of a successful backup run */
@@ -282,39 +404,12 @@ export async function runVpsBackupRecord(
       },
     });
 
-    // Step 5: Best-effort offsite S3 upload (reuses S3 client directly
-    // since uploadBackupToOffsite is coupled to BackupRecord model)
-    try {
-      const { loadOffsiteConfig, validateOffsiteConfigForUse } =
-        await import("@/lib/storage/offsite/schema");
-      const { S3Client } = await import("@/lib/storage/offsite/s3-client");
-      const { readFileSync } = await import("node:fs");
-      const offsiteConfig = await loadOffsiteConfig();
-      if (offsiteConfig.enabled) {
-        const issues = validateOffsiteConfigForUse(offsiteConfig);
-        if (issues.length === 0) {
-          const offsiteKey = `${offsiteConfig.pathPrefix || "vps-backups"}/${server.id}/${record.backupType}-${record.id}.tar.gz`;
-          const fileBuffer = readFileSync(localAbsolutePath);
-          const s3 = new S3Client(offsiteConfig);
-          await s3.putObject(offsiteKey, fileBuffer, "application/gzip");
-          await prisma.vpsBackupRecord.update({
-            where: { id: recordId },
-            data: {
-              offsiteKey,
-              offsiteUploadedAt: new Date(),
-              offsiteSize: fileBuffer.length.toString(),
-            },
-          });
-        }
-      }
-    } catch (offsiteErr) {
-      // Offsite upload is best-effort; don't fail the backup — but never silent.
-      vpsBackupLogger.warn("vps offsite upload failed (non-fatal)", {
-        recordId,
-        error:
-          offsiteErr instanceof Error ? offsiteErr.message : String(offsiteErr),
-      });
-    }
+    // Step 5: Best-effort offsite S3 upload. Local completion remains valid,
+    // while failures stay visible and are picked up by the daily catch-up job.
+    const offsite = await uploadVpsBackupToOffsite(recordId);
+    const offsiteError = offsite.ok
+      ? null
+      : `[offsite-upload] ${offsite.error}`.slice(0, 500);
 
     return {
       success: true,
@@ -322,7 +417,7 @@ export async function runVpsBackupRecord(
       checksumSha256: sha256,
       localPath: portablePath,
       remotePath: remoteFilePath,
-      errorMessage: null,
+      errorMessage: offsiteError,
     };
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err);
