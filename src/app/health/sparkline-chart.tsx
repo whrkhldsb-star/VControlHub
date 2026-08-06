@@ -6,7 +6,7 @@
  * `MetricPoint[]` into SVG paths, so it remains safe to lazy-load.
  */
 import { toDateLocale } from "@/lib/i18n/locale-format";
-import { t } from "@/lib/i18n/translations";
+import { browserT as t } from "@/lib/i18n/browser-translations";
 import type { MetricPoint } from "./health-types";
 
 export type SparklineChartProps = {

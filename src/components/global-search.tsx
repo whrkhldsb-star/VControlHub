@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { mainNavItems, systemNavItems } from "./nav-items";
 import { useI18n } from "@/lib/i18n/use-locale";
-import { t as translate, type Locale } from "@/lib/i18n/translations";
+import { browserT as translate, type Locale } from "@/lib/i18n/browser-translations";
 import { type Permission } from "@/lib/auth/rbac";
 import { filterByHrefPermissions } from "@/lib/auth/filter-by-href-permissions";
 import { useGateRoute } from "@/lib/auth/use-gate-route";

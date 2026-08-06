@@ -1,277 +1,42 @@
-/**
- * Simple i18n system — Chinese/English translations.
- * Uses React context + localStorage persistence.
- * No external deps — lightweight alternative to next-intl.
- */
-
-export type Locale = "zh" | "en";
-
-/**
- * Runtime translations map — built by spreading every dictionary under
- * `./dictionaries/*`. Keep this file as the aggregation entry point;
- * individual keys live in their domain files for easier editing.
- */
-
-
-import { zh as accountpasswordpageZh, en as accountpasswordpageEn } from "./dictionaries/account-password-page";
-import { zh as aiZh, en as aiEn } from "./dictionaries/ai";
-import { zh as aichatapiZh, en as aichatapiEn } from "./dictionaries/ai-chat-api";
-import { zh as aiopspageZh, en as aiopspageEn } from "./dictionaries/ai-ops-page";
-import { zh as alertrulespageZh, en as alertrulespageEn } from "./dictionaries/alert-rules-page";
-import { zh as apidocspageZh, en as apidocspageEn } from "./dictionaries/api-docs-page";
-import { zh as archivepreviewZh, en as archivepreviewEn } from "./dictionaries/archive-preview";
-import { zh as announcementspageZh, en as announcementspageEn } from "./dictionaries/announcements-page";
-import { zh as apitokenspageZh, en as apitokenspageEn } from "./dictionaries/api-tokens-page";
-import { zh as auditZh, en as auditEn } from "./dictionaries/audit";
-import { zh as authZh, en as authEn } from "./dictionaries/auth";
+/** Complete server translation map, including API and background-service copy. */
+import { browserTranslations } from "./browser-translations";
+import { zh as aiChatApiZh, en as aiChatApiEn } from "./dictionaries/ai-chat-api";
 import { zh as backendServicesZh, en as backendServicesEn } from "./dictionaries/backend-services";
-import { zh as backupspageZh, en as backupspageEn } from "./dictionaries/backups-page";
-import { zh as downloadspageZh, en as downloadspageEn } from "./dictionaries/downloads-page";
-import { zh as downloadsapiZh, en as downloadsapiEn } from "./dictionaries/downloads-api";
-import { zh as apicommonZh, en as apicommonEn } from "./dictionaries/api-common";
-import { zh as settingspageZh, en as settingspageEn } from "./dictionaries/settings-page";
-import { zh as sharetokenapiZh, en as sharetokenapiEn } from "./dictionaries/share-token-api";
-import { zh as filedetailpanelZh, en as filedetailpanelEn } from "./dictionaries/file-detail-panel";
-import { zh as fileversionhistoryZh, en as fileversionhistoryEn } from "./dictionaries/file-version-history";
-import { zh as filespageZh, en as filespageEn } from "./dictionaries/files-page";
-import { zh as deploymentspageZh, en as deploymentspageEn } from "./dictionaries/deployments-page";
-import { zh as commonZh, en as commonEn } from "./dictionaries/common";
-import { zh as costpageZh, en as costpageEn } from "./dictionaries/cost-page";
-import { zh as csvpreviewZh, en as csvpreviewEn } from "./dictionaries/csv-preview";
-import { zh as dashboardZh, en as dashboardEn } from "./dictionaries/dashboard";
-import { zh as dockerZh, en as dockerEn } from "./dictionaries/docker";
-import { zh as errorZh, en as errorEn } from "./dictionaries/error";
-import { zh as fileUploadDropzoneZh, en as fileUploadDropzoneEn } from "./dictionaries/file-upload-dropzone";
-import { zh as healthpageZh, en as healthpageEn } from "./dictionaries/health-page";
-import { zh as vpsstatusZh, en as vpsstatusEn } from "./dictionaries/vps-status-page";
-import { zh as knowledgepageZh, en as knowledgepageEn } from "./dictionaries/knowledge-page";
-import { zh as imagebedZh, en as imagebedEn } from "./dictionaries/image-bed";
-import { zh as imagebedpageZh, en as imagebedpageEn } from "./dictionaries/image-bed-page";
-import { zh as languagetoggleZh, en as languagetoggleEn } from "./dictionaries/language-toggle";
-import { zh as loginZh, en as loginEn } from "./dictionaries/login";
-import { zh as markdownpreviewZh, en as markdownpreviewEn } from "./dictionaries/markdown-preview";
-import { zh as mediaitemcardZh, en as mediaitemcardEn } from "./dictionaries/media-item-card";
-import { zh as mediapageZh, en as mediapageEn } from "./dictionaries/media-page";
-import { zh as mediapreviewZh, en as mediapreviewEn } from "./dictionaries/media-preview";
-import { zh as mediascanbuttonZh, en as mediascanbuttonEn } from "./dictionaries/media-scan-button";
-import { zh as mediauploadpanelZh, en as mediauploadpanelEn } from "./dictionaries/media-upload-panel";
-import { zh as monitoringZh, en as monitoringEn } from "./dictionaries/monitoring";
-import { zh as navZh, en as navEn } from "./dictionaries/nav";
-import { zh as notfoundZh, en as notfoundEn } from "./dictionaries/not-found";
-import { zh as notificationspageZh, en as notificationspageEn } from "./dictionaries/notifications-page";
-import { zh as officepreviewZh, en as officepreviewEn } from "./dictionaries/office-preview";
-import { zh as openapispecZh, en as openapispecEn } from "./dictionaries/openapi-spec";
-import { zh as operationtasksZh, en as operationtasksEn } from "./dictionaries/operation-tasks";
-import { zh as preferencespageZh, en as preferencespageEn } from "./dictionaries/preferences-page";
-import { zh as playbookspageZh, en as playbookspageEn } from "./dictionaries/playbooks-page";
-import { zh as pwaZh, en as pwaEn } from "./dictionaries/pwa";
-import { zh as quickServicesZh, en as quickServicesEn } from "./dictionaries/quick-services";
-import { zh as recyclebinsectionZh, en as recyclebinsectionEn } from "./dictionaries/recycle-bin-section";
-import { zh as requestspageZh, en as requestspageEn } from "./dictionaries/requests-page";
-import { zh as scheduledtasksZh, en as scheduledtasksEn } from "./dictionaries/scheduled-tasks";
-import { zh as searchZh, en as searchEn } from "./dictionaries/search";
-import { zh as serversZh, en as serversEn } from "./dictionaries/servers";
-import { zh as serversreloadapiZh, en as serversreloadapiEn } from "./dictionaries/servers-reload-api";
-import { zh as serversdetectosapiZh, en as serversdetectosapiEn } from "./dictionaries/servers-detect-os-api";
-import { zh as vpsbackupapiZh, en as vpsbackupapiEn } from "./dictionaries/vps-backup-api";
-import { zh as serversfileproxyapiZh, en as serversfileproxyapiEn } from "./dictionaries/servers-file-proxy-api";
-import { zh as sharepageZh, en as sharepageEn } from "./dictionaries/share-page";
-import { zh as sharesZh, en as sharesEn } from "./dictionaries/shares";
-import { zh as snippetsPageZh, en as snippetsPageEn } from "./dictionaries/snippets-page";
-import { zh as sshterminalmodalZh, en as sshterminalmodalEn } from "./dictionaries/ssh-terminal-modal";
-import { zh as statuspageZh, en as statuspageEn } from "./dictionaries/status-page";
-import { zh as templatespageZh, en as templatespageEn } from "./dictionaries/templates-page";
-import { zh as textpreviewZh, en as textpreviewEn } from "./dictionaries/text-preview";
-import { zh as themeZh, en as themeEn } from "./dictionaries/theme";
-import { zh as ticketsdetailZh, en as ticketsdetailEn } from "./dictionaries/tickets-detail";
-import { zh as ticketspageZh, en as ticketspageEn } from "./dictionaries/tickets-page";
-import { zh as itsmpageZh, en as itsmpageEn } from "./dictionaries/itsm-page";
-import { zh as trafficpageZh, en as trafficpageEn } from "./dictionaries/traffic-page";
-import { zh as usersZh, en as usersEn } from "./dictionaries/users";
-import { zh as userspermZh, en as userspermEn } from "./dictionaries/users-perm";
-import { zh as storagepageZh, en as storagepageEn } from "./dictionaries/storage-page";
-import { zh as systemconfigZh, en as systemconfigEn } from "./dictionaries/system-config";
-
-const zh: Record<string, string> = {
-	...accountpasswordpageZh,
-	...aiZh,
-	...aichatapiZh,
-	...aiopspageZh,
-	...alertrulespageZh,
-	...apidocspageZh,
-	...archivepreviewZh,
-	...announcementspageZh,
-	...apitokenspageZh,
-	...auditZh,
-	...authZh,
-	...backendServicesZh,
-	...backupspageZh,
-	...commonZh,
-	...costpageZh,
-	...csvpreviewZh,
-	...dashboardZh,
-	...deploymentspageZh,
-	...dockerZh,
-	...downloadspageZh,
-	...downloadsapiZh,
-	...apicommonZh,
-	...errorZh,
-	...fileUploadDropzoneZh,
-	...filedetailpanelZh,
-  ...fileversionhistoryZh,
-	...filespageZh,
-	...healthpageZh,
-	...vpsstatusZh,
-  ...knowledgepageZh,
-	...imagebedZh,
-	...imagebedpageZh,
-	...languagetoggleZh,
-	...loginZh,
-	...markdownpreviewZh,
-	...mediaitemcardZh,
-	...mediapageZh,
-	...mediapreviewZh,
-	...mediascanbuttonZh,
-	...mediauploadpanelZh,
-	...monitoringZh,
-	...navZh,
-	...notfoundZh,
-	...notificationspageZh,
-	...openapispecZh,
-	...officepreviewZh,
-	...operationtasksZh,
-	...preferencespageZh,
-	...playbookspageZh,
-	...pwaZh,
-	...quickServicesZh,
-	...recyclebinsectionZh,
-	...requestspageZh,
-	...scheduledtasksZh,
-	...settingspageZh,
-	...sharetokenapiZh,
-	...searchZh,
-	...serversZh,
-	...serversreloadapiZh,
-	...serversdetectosapiZh,
-	...vpsbackupapiZh,
-	...serversfileproxyapiZh,
-	...sharepageZh,
-	...sharesZh,
-	...snippetsPageZh,
-	...sshterminalmodalZh,
-	...statuspageZh,
-	...templatespageZh,
-	...textpreviewZh,
-	...themeZh,
-	...ticketsdetailZh,
-	...ticketspageZh,
-	...itsmpageZh,
-	...trafficpageZh,
-	...usersZh,
-	...userspermZh,
-	...storagepageZh,
-	...systemconfigZh,
-};
-
-const en: Record<string, string> = {
-	...accountpasswordpageEn,
-	...aiEn,
-	...aichatapiEn,
-	...aiopspageEn,
-	...alertrulespageEn,
-	...apidocspageEn,
-	...archivepreviewEn,
-	...announcementspageEn,
-	...apitokenspageEn,
-	...auditEn,
-	...authEn,
-	...backendServicesEn,
-	...backupspageEn,
-	...commonEn,
-	...costpageEn,
-	...csvpreviewEn,
-	...dashboardEn,
-	...deploymentspageEn,
-	...dockerEn,
-	...downloadspageEn,
-	...downloadsapiEn,
-	...apicommonEn,
-	...errorEn,
-	...fileUploadDropzoneEn,
-	...filedetailpanelEn,
-  ...fileversionhistoryEn,
-	...filespageEn,
-	...healthpageEn,
-	...vpsstatusEn,
-  ...knowledgepageEn,
-	...imagebedEn,
-	...imagebedpageEn,
-	...languagetoggleEn,
-	...loginEn,
-	...markdownpreviewEn,
-	...mediaitemcardEn,
-	...mediapageEn,
-	...mediapreviewEn,
-	...mediascanbuttonEn,
-	...mediauploadpanelEn,
-	...monitoringEn,
-	...navEn,
-	...notfoundEn,
-	...notificationspageEn,
-	...openapispecEn,
-	...officepreviewEn,
-	...operationtasksEn,
-	...preferencespageEn,
-	...playbookspageEn,
-	...pwaEn,
-	...quickServicesEn,
-	...recyclebinsectionEn,
-	...requestspageEn,
-	...scheduledtasksEn,
-	...settingspageEn,
-	...sharetokenapiEn,
-	...searchEn,
-	...serversEn,
-	...serversreloadapiEn,
-	...serversdetectosapiEn,
-	...vpsbackupapiEn,
-	...serversfileproxyapiEn,
-	...sharepageEn,
-	...sharesEn,
-	...snippetsPageEn,
-	...sshterminalmodalEn,
-	...statuspageEn,
-	...templatespageEn,
-	...textpreviewEn,
-	...themeEn,
-	...ticketsdetailEn,
-	...ticketspageEn,
-	...itsmpageEn,
-	...trafficpageEn,
-	...usersEn,
-	...userspermEn,
-	...storagepageEn,
-	...systemconfigEn,
-};
+import { zh as downloadsApiZh, en as downloadsApiEn } from "./dictionaries/downloads-api";
+import { zh as openApiSpecZh, en as openApiSpecEn } from "./dictionaries/openapi-spec";
+import { zh as serversDetectOsApiZh, en as serversDetectOsApiEn } from "./dictionaries/servers-detect-os-api";
+import { zh as serversFileProxyApiZh, en as serversFileProxyApiEn } from "./dictionaries/servers-file-proxy-api";
+import { zh as serversReloadApiZh, en as serversReloadApiEn } from "./dictionaries/servers-reload-api";
+import { zh as shareTokenApiZh, en as shareTokenApiEn } from "./dictionaries/share-token-api";
+import { zh as vpsBackupApiZh, en as vpsBackupApiEn } from "./dictionaries/vps-backup-api";
+import { interpolate, type Locale } from "./core";
 
 export const translations: Record<Locale, Record<string, string>> = {
-	zh,
-	en,
+	zh: {
+		...browserTranslations.zh,
+		...aiChatApiZh,
+		...backendServicesZh,
+		...downloadsApiZh,
+		...openApiSpecZh,
+		...serversDetectOsApiZh,
+		...serversFileProxyApiZh,
+		...serversReloadApiZh,
+		...shareTokenApiZh,
+		...vpsBackupApiZh,
+	},
+	en: {
+		...browserTranslations.en,
+		...aiChatApiEn,
+		...backendServicesEn,
+		...downloadsApiEn,
+		...openApiSpecEn,
+		...serversDetectOsApiEn,
+		...serversFileProxyApiEn,
+		...serversReloadApiEn,
+		...shareTokenApiEn,
+		...vpsBackupApiEn,
+	},
 };
-
-
-/** Client-side translate function shape (accepts optional interpolation vars). */
-export type TFn = (key: string, vars?: Record<string, string | number>) => string;
-
-/** Interpolate `{name}` placeholders. Shared by both server t() and the client hook. */
-export function interpolate(text: string, vars?: Record<string, string | number>): string {
-	if (!vars) return text;
-	let out = text;
-	for (const [k, v] of Object.entries(vars)) {
-		out = out.split(`{${k}}`).join(String(v));
-	}
-	return out;
-}
 
 export function t(
 	key: string,
@@ -287,24 +52,15 @@ export function getAllTranslations(locale: Locale): Record<string, string> {
 	return translations[locale] || translations.zh;
 }
 
-/**
- * Server-side locale resolution: reads the `vps-locale` cookie set by the
- * client-side i18n switcher. Returns "zh" when absent or invalid.
- *
- * Use in server components and route handlers that need to render translated
- * text. Layout already wires the same value into I18nProvider for hydration,
- * so a single call here keeps server output consistent with the client tree.
- */
 export async function getServerLocale(): Promise<Locale> {
 	try {
 		const { cookies } = await import("next/headers");
 		const store = await cookies();
-		const value = store.get("vps-locale")?.value;
-		return value === "en" ? "en" : "zh";
+		return store.get("vps-locale")?.value === "en" ? "en" : "zh";
 	} catch {
-		// cookies() throws when called outside a NextRequest scope (e.g. vitest unit
-		// tests, background tasks). Default to zh so server-side error messages
-		// still resolve.
 		return "zh";
 	}
 }
+
+export { interpolate } from "./core";
+export type { Locale, TFn } from "./core";

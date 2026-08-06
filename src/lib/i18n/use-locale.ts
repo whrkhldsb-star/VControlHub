@@ -5,7 +5,7 @@
 
 import { useEffect, useState, useCallback, createContext, useContext } from "react";
 import { toHtmlLang } from "./locale-format";
-import { type Locale, t, getAllTranslations } from "./translations";
+import type { Locale } from "./core";
 
 const STORAGE_KEY = "vps-locale";
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
@@ -14,14 +14,12 @@ interface I18nContextValue {
 	locale: Locale;
 	setLocale: (locale: Locale) => void;
 	t: (key: string, vars?: Record<string, string | number>) => string;
-	translations: Record<string, string>;
 }
 
 const I18nContext = createContext<I18nContextValue>({
 	locale: "zh",
 	setLocale: () => {},
 	t: (key, vars) => (vars ? Object.entries(vars).reduce((s, [k, v]) => s.split(`{${k}}`).join(String(v)), key) : key),
-	translations: {},
 });
 
 export function useI18n() {
@@ -79,12 +77,5 @@ export function useLocale(initialLocale: Locale = "zh") {
 		persistLocale(nextLocale);
 	}, []);
 
-	const translate = useCallback(
-		(key: string, vars?: Record<string, string | number>) => t(key, locale, vars),
-		[locale]
-	);
-
-	const translations = getAllTranslations(locale);
-
-	return { locale, setLocale, t: translate, translations };
+	return { locale, setLocale };
 }

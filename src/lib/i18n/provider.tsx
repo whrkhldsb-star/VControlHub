@@ -2,7 +2,10 @@
 
 import { type ReactNode, useMemo } from "react";
 import { I18nContext, useLocale } from "@/lib/i18n/use-locale";
-import { t as translate, getAllTranslations, type Locale } from "@/lib/i18n/translations";
+import {
+	browserT,
+	type Locale,
+} from "@/lib/i18n/browser-translations";
 
 export function I18nProvider({ children, initialLocale = "zh" }: { children: ReactNode; initialLocale?: Locale }) {
 	const { locale, setLocale } = useLocale(initialLocale);
@@ -10,8 +13,7 @@ export function I18nProvider({ children, initialLocale = "zh" }: { children: Rea
 	const value = useMemo(() => ({
 		locale,
 		setLocale,
-		t: (key: string, vars?: Record<string, string | number>) => translate(key, locale, vars),
-		translations: getAllTranslations(locale),
+		t: (key: string, vars?: Record<string, string | number>) => browserT(key, locale, vars),
 	}), [locale, setLocale]);
 
 	return (

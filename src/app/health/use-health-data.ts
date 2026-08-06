@@ -13,7 +13,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
-import { t } from "@/lib/i18n/translations";
+import { browserT as t } from "@/lib/i18n/browser-translations";
 import { getRefreshIntervalFromStorage } from "@/lib/preferences/refresh-interval";
 import { REFRESH_PREFERENCES_STORAGE_KEY } from "@/lib/preferences/refresh-interval";
 import { useVisibilityInterval } from "@/lib/hooks/use-visibility-interval";

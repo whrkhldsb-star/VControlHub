@@ -5,7 +5,7 @@ import { useMemo } from "react";
 import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
 
 import { toDateLocale } from "@/lib/i18n/locale-format";
-import { t, type Locale } from "@/lib/i18n/translations";
+import { browserT as t, type Locale } from "@/lib/i18n/browser-translations";
 import { UI_INPUT } from "@/lib/ui/classes";
 
 export type TicketWorkspaceTicket = {

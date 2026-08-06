@@ -1,4 +1,4 @@
-import type { Locale } from "./translations";
+import type { Locale } from "./core";
 
 export function toDateLocale(locale: Locale): string {
 	return locale === "zh" ? "zh-CN" : "en-US";
