@@ -13,7 +13,7 @@ import { getAiConversationListLimit, getAiProviderListLimit } from "@/lib/runtim
 import { normalizePublicHttpUrl } from "@/lib/storage/direct-access-url";
 import { aiProviderTypeSchema, type AiProviderType } from "./schema";
 import { defaultAiBaseUrl } from "./provider-http";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 
 const DEFAULT_AI_BASE_URL = defaultAiBaseUrl();
 

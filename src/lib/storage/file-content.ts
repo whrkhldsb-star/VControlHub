@@ -25,7 +25,7 @@ import {
   normalizeRemoteRelativePath,
 } from "@/lib/storage/remote-path";
 import { resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 
 export type StorageFileNode = {
   id: string;

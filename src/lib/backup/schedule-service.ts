@@ -20,7 +20,7 @@ import { isBackupType, type BackupType } from "./service-types";
 import { createBackupRecord, voidBackupRecord } from "./service-crud";
 import { BACKUP_CREATE_JOB_TYPE } from "./job-worker";
 import { enqueueJob } from "@/lib/job/service";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 
 /* ── Types ────────────────────────────────────────────────── */
 

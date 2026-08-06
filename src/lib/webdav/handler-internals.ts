@@ -9,7 +9,7 @@ import {
   NotFoundError,
   ValidationError,
 } from "@/lib/errors";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import {
   createManagedFolder,

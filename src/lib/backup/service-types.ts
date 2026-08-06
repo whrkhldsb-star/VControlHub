@@ -10,7 +10,7 @@ import { join, normalize, sep } from "node:path";
 
 import { config } from "@/lib/config/env";
 import { ValidationError } from "@/lib/errors";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 
 export const RESTORE_CONFIRM_TEXT = "RESTORE";
 

@@ -17,7 +17,7 @@ import { writeAuditLog } from "@/lib/audit/service";
 import { prisma } from "@/lib/db";
 import { BusinessError, ConflictError, ValidationError } from "@/lib/errors";
 import type { ServiceTemplate } from "./types";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 
 /* -- Concurrency / state guards ----------------------------------------- */
 

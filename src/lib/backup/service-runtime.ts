@@ -38,7 +38,7 @@ import {
 } from "./service-crud";
 import { pruneOldBackupRecords, summarizeBackupPolicy } from "./service-policy";
 import { uploadBackupToOffsite } from "./offsite-uploader";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 
 const offsiteUploadLogger = createLogger("backup-offsite-uploader");
 

@@ -9,7 +9,7 @@ import { isVpsBackupPresetType } from "./vps-backup-presets";
 import { createLogger } from "@/lib/logging";
 import { CronExpressionParser } from "cron-parser";
 import { ValidationError } from "@/lib/errors";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 
 const vpsSchedLogger = createLogger("vps-backup-schedule");
 

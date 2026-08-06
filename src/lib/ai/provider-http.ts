@@ -14,7 +14,7 @@
 
 import { ValidationError } from "@/lib/errors";
 import { isUnsafePublicHttpHost } from "@/lib/storage/direct-access-url";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 
 export interface ProviderModelRow {
 	id: string;

@@ -3,7 +3,7 @@ import { Prisma } from "@prisma/client";
 import { decrypt, encrypt, isEncrypted } from "@/lib/crypto/service";
 import { prisma } from "@/lib/db";
 import { ValidationError } from "@/lib/errors";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 
 import type {
   ItsmConnectionConfig,

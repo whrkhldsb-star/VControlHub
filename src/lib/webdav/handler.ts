@@ -38,7 +38,7 @@ import { nodeStreamToWeb } from "@/lib/http/node-to-web-stream";
 import { parseStorageRange } from "@/lib/storage/streaming";
 
 import { buildPropFindMultistatus, parseDepth, type PropFindItem } from "./xml";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 import {
   FILE_ENTRY_PAGE_SIZE,
   buildWebDavHref,

@@ -20,7 +20,7 @@ import {
   execRemoteCommand,
 } from "@/lib/ssh/client";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 import {
   dockerRequest,
   type DockerScope,

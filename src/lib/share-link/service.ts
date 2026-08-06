@@ -6,8 +6,8 @@ import { teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 
 import { prisma } from "@/lib/db";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
-import { serverT } from "@/lib/i18n/server-locale";
-import { t } from "@/lib/i18n/translations";
+import { serviceT } from "@/lib/i18n/service-locale";
+import { t } from "@/lib/i18n/service-translations";
 import { createLogger } from "@/lib/logging";
 import { guessMimeType } from "@/lib/image-bed/constants";
 import { assertStorageAccess } from "@/lib/storage/access-control";
@@ -139,13 +139,13 @@ export async function createShareLink(input: {
     input.permissionLevel === "preview" &&
     (input.password || input.maxDownloads != null)
   ) {
-    const translate = await serverT();
+    const translate = await serviceT();
     throw new ValidationError(translate("api.share.previewPolicyConflict"));
   }
   const normalizedPath = normalizeSharePath(input.path);
   const access = await assertStorageAccess({ session: input.session, storageNodeId: input.storageNodeId, relativePath: normalizedPath, operation: "read" });
   if (!access.allowed) {
-    const t = await serverT();
+    const t = await serviceT();
     throw new ForbiddenError(access.reason || t("backend.shareLink.noSharePermission"));
   }
 
@@ -179,7 +179,7 @@ export async function createShareLinkFromFileEntry(input: {
   password?: string;
   permissionLevel?: "preview" | "download";
 }) {
-  const t = await serverT();
+  const t = await serviceT();
   // Scope file entry by storage node team so guessing another team's fileEntryId cannot open a share.
   const entry = await prisma.fileEntry.findFirst({
     where: {
@@ -246,7 +246,7 @@ export async function revokeShareLink(
 }
 
 export async function resolveShareToken(token: string, password?: string, context?: { ip?: string; userAgent?: string }) {
-  const t = await serverT();
+  const t = await serviceT();
   const share = await prisma.shareLink.findUnique({ where: { tokenHash: hashShareToken(token) }, include: SHARE_STORAGE_NODE_INCLUDE });
   if (!share || share.revokedAt) throw new NotFoundError(t("backend.shareLink.notFoundOrRevoked"));
   if (share.expiresAt && share.expiresAt.getTime() < Date.now()) throw new ValidationError(t("backend.shareLink.expired"));
@@ -309,7 +309,7 @@ export async function peekShareToken(
   token: string,
   context?: { ip?: string; userAgent?: string; password?: string },
 ) {
-  const t = await serverT();
+  const t = await serviceT();
   const share = await prisma.shareLink.findUnique({ where: { tokenHash: hashShareToken(token) }, include: SHARE_STORAGE_NODE_INCLUDE });
   if (!share || share.revokedAt) throw new NotFoundError(t("backend.shareLink.notFoundOrRevoked"));
   if (share.expiresAt && share.expiresAt.getTime() < Date.now()) throw new ValidationError(t("backend.shareLink.expired"));

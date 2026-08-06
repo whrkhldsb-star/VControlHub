@@ -3,7 +3,7 @@ import type { SessionPayload } from "@/lib/auth/session";
 import { serverTeamWhere } from "@/lib/auth/team-scope";
 import { config } from "@/lib/config/env";
 import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
-import { serverT } from "@/lib/i18n/server-locale";
+import { serviceT } from "@/lib/i18n/service-locale";
 import { buildSshParamsFromServer, execRemoteCommand } from "@/lib/ssh/client";
 import {
   buildDirectGatewayPublicBaseUrl,
@@ -13,7 +13,7 @@ import {
   DIRECT_GATEWAY_HTTPS_PUBLIC_PORT,
 } from "./direct-gateway";
 import { getErrorMessage, safeRevalidatePath } from "./service-internals";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 
 const PUBLIC_HEALTH_TIMEOUT_MS = config.test.isVitest ? 400 : 8_000;
 const PUBLIC_HEALTH_ATTEMPTS = config.test.isVitest ? 1 : 4;
@@ -226,7 +226,7 @@ export async function applyServerDirectGatewayState(input: {
   /** HTTPS public hostname; empty uses server.host (IP). */
   publicDomain?: string | null;
 }) {
-  const t = await serverT();
+  const t = await serviceT();
   const server = await loadServerForDirectGateway(input.serverId, input.session);
   if (!server) {
     if (input.bestEffort)

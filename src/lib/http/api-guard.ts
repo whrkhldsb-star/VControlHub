@@ -15,7 +15,7 @@ import { apiCatch, apiError } from "@/lib/http/api-error";
 import { searchParamsToObject, zodIssueDetails } from "@/lib/http/parse-search-params";
 import { type RateLimitConfig, rateLimitResponse, withRateLimit } from "@/lib/http/rate-limit-presets";
 import { createLogger } from "@/lib/logging";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 
 const apiLogger = createLogger("api");
 

@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 import { createLogger } from "@/lib/logging";
 import { addTicketComment, createTicket, updateTicketStatus } from "@/lib/ticket/service";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";

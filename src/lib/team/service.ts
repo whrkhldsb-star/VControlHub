@@ -8,7 +8,7 @@ import type {
   CreateTeamInput,
   UpdateTeamInput,
 } from "./schema";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 
 export type TeamRole = "owner" | "admin" | "member";

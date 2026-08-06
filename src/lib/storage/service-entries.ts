@@ -7,8 +7,8 @@ import type { SessionPayload } from "@/lib/auth/session";
 import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma, isUniqueViolation } from "@/lib/db";
 import { BusinessError, ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
-import { serverT } from "@/lib/i18n/server-locale";
-import { t } from "@/lib/i18n/translations";
+import { serviceT } from "@/lib/i18n/service-locale";
+import { t } from "@/lib/i18n/service-translations";
 import { listRemoteDirectory } from "@/lib/ssh/client";
 import { normalizeRemotePath } from "@/lib/storage/remote-path";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
@@ -135,7 +135,7 @@ export async function createFileEntry(input: CreateFileEntryInput) {
     select: { id: true, isDeleted: true },
   });
   if (existing && !existing.isDeleted) {
-    const t = await serverT();
+    const t = await serviceT();
     throw new ConflictError(t("backend.storage.pathAlreadyExists", { path: payload.relativePath }));
   }
   if (existing?.isDeleted) {
@@ -178,7 +178,7 @@ export async function createFileEntry(input: CreateFileEntryInput) {
         select: { id: true, isDeleted: true },
       });
       if (raced && !raced.isDeleted) {
-        const t = await serverT();
+        const t = await serviceT();
         throw new ConflictError(t("backend.storage.pathAlreadyExists", { path: payload.relativePath }));
       }
       if (raced?.isDeleted) {
@@ -208,7 +208,7 @@ export async function softDeleteFileEntry(input: FileEntryMutationInput) {
   });
 
   if (!current) {
-    const t = await serverT();
+    const t = await serviceT();
     throw new NotFoundError(t("backend.storage.fileEntryNotFound"));
   }
 
@@ -248,7 +248,7 @@ type DeletedFileEntryWithNode = Prisma.FileEntryGetPayload<{
 export type { DeletedFileEntryWithNode };
 
 async function assertDeletedEntryStillExists(entry: DeletedFileEntryWithNode) {
-  const t = await serverT();
+  const t = await serviceT();
   if (entry.storageNode.driver === "LOCAL") {
     const absolutePath = resolveLocalAbsolutePath(
       entry.storageNode.basePath,
@@ -340,12 +340,12 @@ export async function restoreFileEntry(input: FileEntryMutationInput) {
   });
 
   if (!current) {
-    const t = await serverT();
+    const t = await serviceT();
     throw new NotFoundError(t("backend.storage.fileEntryNotFound"));
   }
 
   if (!current.isDeleted) {
-    const t = await serverT();
+    const t = await serviceT();
     throw new BusinessError(t("backend.storage.fileEntryNotInRecycleBin"));
   }
 

@@ -7,7 +7,7 @@
  */
 import { ValidationError } from "@/lib/errors";
 import { shellQuote } from "@/lib/shell-quote";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 
 export { shellQuote };
 

@@ -3,7 +3,7 @@ import { serverTeamWhere } from "@/lib/auth/team-scope";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { prisma } from "@/lib/db";
 import { BusinessError, NotFoundError } from "@/lib/errors";
-import { serverT } from "@/lib/i18n/server-locale";
+import { serviceT } from "@/lib/i18n/service-locale";
 import { applyServerDirectGatewayState } from "./service-direct-gateway";
 import {
   getBlockingServerDeletionImpact,
@@ -27,7 +27,7 @@ export async function deleteServerProfile(
           where: { id: serverId },
           include: { storageNode: { select: { id: true, driver: true } } },
         });
-    const t = await serverT();
+    const t = await serviceT();
     if (!current) throw new NotFoundError(t("backend.server.nodeNotFound"));
 
     const deletionImpact = await getServerDeletionImpact(serverId);

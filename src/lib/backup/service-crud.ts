@@ -16,7 +16,7 @@ import {
 	isBackupType,
 } from "./service-types";
 import { RESTORE_CONFIRM_TEXT } from "./service-types";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 
 type BackupStatus = "PENDING" | "RUNNING" | "COMPLETED" | "FAILED";
 

@@ -14,7 +14,7 @@ import { NotFoundError, ValidationError } from "@/lib/errors";
 import { defaultAiBaseUrl, fetchProviderModels, postProviderChat, trimProviderBaseUrl } from "./provider-http";
 
 import { safeDecryptApiKey } from "./service-crud";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 
 const DEFAULT_AI_BASE_URL = defaultAiBaseUrl();
 

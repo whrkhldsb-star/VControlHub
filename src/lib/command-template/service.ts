@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { BusinessError, ForbiddenError, NotFoundError } from "@/lib/errors";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 import { isGlobalTeamManager, type TeamSession } from "@/lib/auth/team-scope";
 
 /* ── Types ────────────────────────────────────────────────── */

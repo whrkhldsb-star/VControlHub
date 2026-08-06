@@ -17,7 +17,7 @@ import { createNotification, type NotificationType } from "@/lib/notification/se
 import { sendAlertEmail } from "@/lib/notification/email";
 import { sendAlertTelegram } from "@/lib/notification/telegram";
 import { fetchWebhookSafely } from "@/lib/security/webhook-url";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 import type { AlertIncidentStatus } from "@prisma/client";
 
 const logger = createLogger("alert:incidents");

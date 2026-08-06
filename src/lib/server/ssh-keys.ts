@@ -32,7 +32,7 @@ import { ValidationError } from "@/lib/errors";
 type TeamSession = { userId: string; roles: RoleKey[]; currentTeamId: string | null };
 
 import { encryptSshPrivateKey, encryptSshKeyPassphrase } from "@/lib/ssh/ssh-key-crypto";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 
 /** Detect SSH private key format from content */
 function detectKeyFormat(content: string): "ppk" | "openssh" | "unknown" {

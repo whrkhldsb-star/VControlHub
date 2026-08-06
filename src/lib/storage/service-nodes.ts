@@ -5,7 +5,7 @@ import type { SessionPayload } from "@/lib/auth/session";
 import { serverTeamWhere, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
-import { serverT } from "@/lib/i18n/server-locale";
+import { serviceT } from "@/lib/i18n/service-locale";
 import { listRemoteDirectory } from "@/lib/ssh/client";
 import { normalizePublicBaseUrl } from "@/lib/storage/direct-access-url";
 import { normalizeRemotePath } from "@/lib/storage/remote-path";
@@ -18,7 +18,7 @@ import {
   type CreateStorageNodeInput,
   type UpdateStorageNodeInput,
 } from "./schema";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 import {
   buildDirectAccessStrategy,
   buildStorageConnectionSummary,
@@ -82,7 +82,7 @@ async function assertServerInTeamScope(
     select: { id: true },
   });
   if (!server) {
-    const t = await serverT();
+    const t = await serviceT();
     throw new NotFoundError(t("backend.storage.nodeNotFound"));
   }
 }
@@ -137,7 +137,7 @@ export async function checkStorageNodeHealth(
         },
       });
 
-  const t = await serverT();
+  const t = await serviceT();
   if (!node) {
     throw new NotFoundError(t("backend.storage.nodeNotFound"));
   }
@@ -258,7 +258,7 @@ export async function updateStorageNode(
         include: STORAGE_NODE_SERVER_INCLUDE,
       });
 
-  const t = await serverT();
+  const t = await serviceT();
   if (!current) {
     throw new NotFoundError(t("backend.storage.nodeNotFound"));
   }
@@ -324,7 +324,7 @@ export async function deleteStorageNode(
         include: { fileEntries: { select: { id: true, isDeleted: true } } },
       });
 
-  const t = await serverT();
+  const t = await serviceT();
   if (!node) {
     throw new NotFoundError(t("backend.storage.nodeNotFound"));
   }

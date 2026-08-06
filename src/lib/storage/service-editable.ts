@@ -9,7 +9,7 @@ import {
   NotFoundError,
   ValidationError,
 } from "@/lib/errors";
-import { serverT } from "@/lib/i18n/server-locale";
+import { serviceT } from "@/lib/i18n/service-locale";
 import {
   assertStorageAccess,
   releaseStorageQuotaGuard,
@@ -28,7 +28,7 @@ async function resolveLocalEditableFileEntry(input: {
   operation: "read" | "write";
   writeBytes?: number | bigint | null;
 }) {
-  const t = await serverT();
+  const t = await serviceT();
   const entry = await prisma.fileEntry.findUnique({
     where: { id: input.fileEntryId },
     include: {
@@ -126,7 +126,7 @@ export async function saveLocalEditableFileDraft(input: {
   const content = String(input.content ?? "");
   const byteSize = Buffer.byteLength(content, "utf8");
 
-  const t = await serverT();
+  const t = await serviceT();
 
   if (byteSize > MAX_EDITABLE_FILE_SIZE_BYTES) {
     throw new ValidationError(t("backend.storage.editableFileTooLarge"));

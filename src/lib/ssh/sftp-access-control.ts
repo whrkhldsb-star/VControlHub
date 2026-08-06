@@ -5,7 +5,7 @@ import { sessionHasPermission } from "@/lib/auth/authorization";
 import { prisma } from "@/lib/db";
 import { ForbiddenError, NotFoundError } from "@/lib/errors";
 import { sanitizeRemotePath } from "./sftp-service";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 
 function isInsideRoot(candidate: string, root: string) {
 	// Always resolve relative candidates against root, then re-normalize so

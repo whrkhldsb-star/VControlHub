@@ -9,7 +9,7 @@ import {
 } from "@/lib/aria2/command-runner";
 import { postAria2Rpc } from "@/lib/aria2/provider-http";
 import { formatBytes as formatBytesShared } from "@/lib/format/bytes";
-import { t, type Locale } from "@/lib/i18n/translations";
+import { t, type Locale } from "@/lib/i18n/service-translations";
 
 /* ── Aria2 RPC Configuration ──────────────────────────────── */
 

@@ -10,7 +10,7 @@ import { ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 // without pulling the whole server-only service module. We import them
 // for in-file use AND re-export them so every existing call site
 // 'from "@/lib/deployment/service"' keeps working.
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 import type {
   DeploymentLaunchInputDto,
   DeploymentRollbackInputDto,

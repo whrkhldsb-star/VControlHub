@@ -23,7 +23,7 @@ import {
 } from "@/lib/system/config-schema";
 import type { SessionPayload } from "@/lib/auth/session";
 import { ValidationError, ForbiddenError } from "@/lib/errors";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 
 import {
   exportPermissions,

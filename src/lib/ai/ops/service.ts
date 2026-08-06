@@ -42,7 +42,7 @@ import type {
 } from "./types";
 import { AI_OPS_SAFE_AUTONOMOUS_ACTIONS } from "./types";
 import { executeAiOpsAction } from "./action-executor";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 
 const DEFAULT_LIST_LIMIT = 50;
 const MAX_LIST_LIMIT = 200;

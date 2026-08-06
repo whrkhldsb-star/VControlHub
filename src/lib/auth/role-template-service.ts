@@ -4,7 +4,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { ALL_PERMISSIONS } from "@/lib/auth/rbac";
 import { NotFoundError, ValidationError } from "@/lib/errors";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 
 export const roleTemplateStorageGrantSchema = z.object({
   storageNodeId: z.string().min(1),

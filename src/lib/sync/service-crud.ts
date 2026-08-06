@@ -10,7 +10,7 @@ import { serverTeamWhere, teamCreateData, teamWhere } from "@/lib/auth/team-scop
 import type { SessionPayload } from "@/lib/auth/session";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { effectiveDeleteOrphans, normalizeSyncEndpointPath } from "./bidirectional";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 
 export type SyncSessionScope = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
 

@@ -24,7 +24,7 @@ import { NotFoundError } from "@/lib/errors";
 
 import type { SessionPayload } from "./session";
 import { sessionHasPermission } from "./authorization";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 
 export type TeamSession = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
 

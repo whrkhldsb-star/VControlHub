@@ -1,7 +1,7 @@
 import { JobStatus } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 import { futureFrom, type PruneCompletedJobsByTypeOptions } from "./service-internals";
 
 // Persist stable English machine/audit strings while sourcing them from i18n.

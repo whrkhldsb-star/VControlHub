@@ -12,7 +12,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { ValidationError } from "@/lib/errors";
 import { fetchWebhookSafely, validateWebhookUrlSyntax } from "@/lib/security/webhook-url";
 
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 import type {
 	ItsmConnectionConfig,
 	ItsmCredentials,

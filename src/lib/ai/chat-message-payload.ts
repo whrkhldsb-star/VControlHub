@@ -1,5 +1,5 @@
 import type { getConversationById } from "./service";
-import { t, type Locale } from "@/lib/i18n/translations";
+import { t, type Locale } from "@/lib/i18n/service-translations";
 
 export type HistoryMessage = {
   role: "user" | "assistant" | "system" | "tool";

@@ -33,7 +33,7 @@ import {
   type StorageFileNode,
 } from "@/lib/storage/file-content";
 import { expandStorageBasePath } from "@/lib/storage/path-utils";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 
 export const DEFAULT_FILE_VERSION_DIR =
   config.fileVersion.dir ||

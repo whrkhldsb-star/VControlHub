@@ -5,7 +5,7 @@ import type { SessionPayload } from "@/lib/auth/session";
 import { serverTeamWhere, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
-import { serverT } from "@/lib/i18n/server-locale";
+import { serviceT } from "@/lib/i18n/service-locale";
 import {
   buildSshParamsFromServer,
   createRemoteDirectory,
@@ -72,7 +72,7 @@ export async function createServerProfile(
   input: CreateServerInput,
   session?: Pick<SessionPayload, "currentTeamId"> & Partial<Pick<SessionPayload, "userId" | "roles">> | null,
 ) {
-  const t = await serverT();
+  const t = await serviceT();
   const payload = createServerSchema.parse(input);
   const normalized = normalizeServerInput(payload);
   const onboardingWarnings: string[] = [];
@@ -370,7 +370,7 @@ export async function updateServerProfile(
   session?: TeamSession | null,
 ) {
   const current = await findServerProfileForSession(serverId, session);
-  const t = await serverT();
+  const t = await serviceT();
   if (!current) throw new NotFoundError(t("backend.server.nodeNotFound"));
 
   const connectionType = input.connectionType ?? current.connectionType;
@@ -572,7 +572,7 @@ export async function toggleServerEnabled(
   approvedHostKeySha256?: string | null,
 ) {
   const current = await findServerProfileForSession(serverId, session);
-  const t = await serverT();
+  const t = await serviceT();
   if (!current) throw new NotFoundError(t("backend.server.nodeNotFound"));
 
   if (!current.enabled) {

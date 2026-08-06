@@ -16,7 +16,7 @@ import {
 } from "./schema";
 import { cancelActiveCommandChild, enqueueApprovedCommandExecution } from "./service-execution";
 import { createLogger } from "@/lib/logging";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 
 const commandLogger = createLogger("command-requests");
 

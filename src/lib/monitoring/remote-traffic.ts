@@ -29,7 +29,7 @@ import {
 	type NetworkDeviceStats,
 	type TrafficCounterSample,
 } from "@/lib/monitoring/traffic";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 
 export type RemoteServerInput = {
 	id: string;

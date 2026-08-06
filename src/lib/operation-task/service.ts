@@ -4,7 +4,7 @@ import { teamWhere } from "@/lib/auth/team-scope";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { prisma } from "@/lib/db";
 import { getOperationTaskListLimit } from "@/lib/runtime-settings/service";
-import { serverT } from "@/lib/i18n/server-locale";
+import { serviceT } from "@/lib/i18n/service-locale";
 
 // TR-039: pure DTO types live in ./dto so client code can reach them
 // without pulling the whole server-only service module. We import them
@@ -243,7 +243,7 @@ export async function listOperationTaskResult(options: OperationTaskListOptions 
   const foldedTasks = foldCompletedPeriodicJobs(tasks);
   const filteredTasks = sortOperationTasks(filterOperationTasks(foldedTasks, options), options.sort)
     .slice(0, limit);
-  const t = await serverT();
+  const t = await serviceT();
   return {
     tasks: filteredTasks,
     sourceSummary: summarizeOperationTaskSources(filteredTasks),

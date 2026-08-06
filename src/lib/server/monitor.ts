@@ -1,6 +1,7 @@
 import { execRemoteCommand, buildSshParamsFromServer } from "@/lib/ssh/client";
 import { prisma } from "@/lib/db";
-import { getServerLocale, t } from "@/lib/i18n/translations";
+import { getServerLocale } from "@/lib/i18n/server-locale-cookie";
+import { t } from "@/lib/i18n/service-translations";
 
 /* ── Types ────────────────────────────────────────────────── */
 

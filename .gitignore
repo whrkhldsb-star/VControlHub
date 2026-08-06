@@ -42,8 +42,6 @@ yarn-error.log*
 test-results/
 playwright-report/
 .playwright-output/
-login-dark.png
-login-light.png
 
 # env files / local secrets
 .env*

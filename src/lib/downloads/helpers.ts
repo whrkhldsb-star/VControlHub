@@ -9,7 +9,7 @@ import { ValidationError } from "@/lib/errors";
 import { resolveDownloadTargetPath } from "@/lib/downloads/target-path";
 import { toRemoteChildPath } from "@/lib/downloads/remote-command";
 import path from "path";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 
 /* ── File name sanitization ────────────────────────────── */
 

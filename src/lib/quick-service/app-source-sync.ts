@@ -13,7 +13,7 @@ import { prisma } from "@/lib/db";
 import { BusinessError, NotFoundError } from "@/lib/errors";
 import { fetchSourceApps, type NormalizedApp } from "./adapters";
 import { createLogger } from "@/lib/logging";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 
 const logger = createLogger("app-source:sync");
 

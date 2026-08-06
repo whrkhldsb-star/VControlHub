@@ -14,7 +14,7 @@ import {
 } from "@/lib/downloads/helpers";
 import { buildDirectAccessStrategy } from "@/lib/storage/service";
 import { assertStorageAccess } from "@/lib/storage/access-control";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 
 export function taskTargetRelativePath(task: { targetPath: string | null; server?: { storageNode?: { basePath: string } | null } | null }) {
   const storageNode = task.server?.storageNode;
@@ -46,7 +46,7 @@ export function taskCompletedFileRelativePath(task: {
 }
 
 export function taskDownloadAccess(task: {
-  locale?: import("@/lib/i18n/translations").Locale;
+  locale?: import("@/lib/i18n/service-translations").Locale;
   url: string;
   status: string;
   targetPath: string | null;

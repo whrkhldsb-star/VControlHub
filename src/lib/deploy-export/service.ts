@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { BusinessError, ValidationError } from "@/lib/errors";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 
 const DANGEROUS_ENV_FLAGS = [
 	"ENABLE_DEMO_FALLBACK",

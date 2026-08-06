@@ -1,6 +1,6 @@
 import { BusinessError, ConflictError, ValidationError } from "@/lib/errors";
 import { execRemoteCommand, type SshConnectionParams } from "./client";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 
 export class SshHostKeyApprovalRequiredError extends BusinessError {
   readonly hostKeySha256: string;

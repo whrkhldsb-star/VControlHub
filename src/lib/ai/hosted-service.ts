@@ -20,7 +20,7 @@ import { buildCommand } from "./hosted-command-builder";
 export { buildCommand } from "./hosted-command-builder";
 import { getToolByName, type HostedTool } from "./hosted-tools";
 import { executeServerlessQuery } from "./hosted-safe-queries";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 
 import {
   buildAssistantCommandRequestPayload,

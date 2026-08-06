@@ -34,7 +34,7 @@ import {
 import { installService, recreateDockerContainer, type InstallOptions } from "./service-lifecycle-install";
 import type { ServiceTemplate } from "./types";
 import { createLogger } from "@/lib/logging";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 
 const qsLogger = createLogger("quick-service-lifecycle");
 

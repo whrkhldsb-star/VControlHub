@@ -3,7 +3,7 @@ import { pushNotification, pushUnreadCount } from "@/lib/ws/notification-ws";
 import { createLogger } from "@/lib/logging";
 import { NotFoundError } from "@/lib/errors";
 import { timeDelivery } from "@/lib/monitoring/runtime-metrics";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 
 const logger = createLogger("notification:service");
 

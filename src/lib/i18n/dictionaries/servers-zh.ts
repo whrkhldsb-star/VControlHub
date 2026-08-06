@@ -345,7 +345,6 @@ export const zh: Record<string, string> = {
 	"vpsBackup.error.fetch": "获取备份信息失败",
 	"vpsBackup.error.unknown": "未知错误",
 	"vpsBackup.error.trigger": "触发备份失败",
-	"vpsBackupApi.errorCustomPathsRequired": "自定义备份至少需要一条路径",
 	"vpsBackup.error.create": "创建备份计划失败",
 	"vpsBackup.error.delete": "删除失败",
 	"vpsBackup.deleteSchedule": "删除 {name}",

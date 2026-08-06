@@ -2,7 +2,7 @@ import type { SessionPayload } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
 import { AppError, NotFoundError } from "@/lib/errors";
 import { getErrorMessage } from "@/lib/http/error-message";
-import { t, type Locale } from "@/lib/i18n/translations";
+import { t, type Locale } from "@/lib/i18n/service-translations";
 import { createLogger } from "@/lib/logging";
 import { buildAiChatMessagePayload, type AiToolCall } from "./chat-message-payload";
 import { consumeProviderChatStream, type ChatStreamEvent } from "./chat-stream";

@@ -3,7 +3,7 @@ import type { SFTPWrapper } from "ssh2";
 import { BusinessError } from "@/lib/errors";
 import { config as appConfig } from "@/lib/config/env";
 import { shellQuote } from "@/lib/shell-quote";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 
 import { decryptServerPassword, decryptSshPrivateKey, decryptSshKeyPassphrase } from "@/lib/ssh/ssh-key-crypto";
 

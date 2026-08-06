@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from "child_process";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 
 /**
  * Async wrapper around the `aria2c` CLI used by the aria2 module to launch

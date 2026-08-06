@@ -334,7 +334,6 @@ export const en: Record<string, string> = {
 	"vpsBackup.error.fetch": "Failed to fetch backup info",
 	"vpsBackup.error.unknown": "Unknown error",
 	"vpsBackup.error.trigger": "Failed to trigger backup",
-	"vpsBackupApi.errorCustomPathsRequired": "Custom backup requires at least one path",
 	"vpsBackup.error.create": "Failed to create backup schedule",
 	"vpsBackup.error.delete": "Delete failed",
 	"vpsBackup.deleteSchedule": "Delete {name}",

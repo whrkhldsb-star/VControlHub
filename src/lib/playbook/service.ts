@@ -20,7 +20,7 @@ import type {
   CreatePlaybookInput,
   UpdatePlaybookInput,
 } from "./schema";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 import type {
   PlaybookRecord,
   PlaybookRunRecord,

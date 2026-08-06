@@ -12,7 +12,7 @@ import type { RoleKey } from "@/lib/auth/rbac";
 import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { NotFoundError, ValidationError } from "@/lib/errors";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 
 type TeamSession = { userId: string; roles: RoleKey[]; currentTeamId: string | null };
 

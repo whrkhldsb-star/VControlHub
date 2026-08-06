@@ -3,11 +3,12 @@
  *
  * Server actions can't use `useI18n()`, but the user's locale is persisted
  * in the `vps-locale` cookie (set by `use-locale.ts`). Locale resolution lives
- * in `translations.getServerLocale` (single source of truth); this module adds
+ * in `server-locale-cookie.getServerLocale`; this module adds
  * convenience wrappers for server actions.
  */
 
-import { t as translate, type Locale, type TFn, getServerLocale } from "./translations";
+import { t as translate, type Locale, type TFn } from "./translations";
+import { getServerLocale } from "./server-locale-cookie";
 
 export { getServerLocale };
 export type { Locale };
@@ -20,4 +21,3 @@ export async function serverT(): Promise<TFn> {
 	const locale = await getServerLocale();
 	return (key: string, vars?: Record<string, string | number>) => translate(key, locale, vars);
 }
-

@@ -15,15 +15,14 @@ const { prismaMock } = vi.hoisted(() => ({
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 
 import {
-  assertSyncRemoteSucceeded,
-  buildRsyncCommand,
-  buildTarSyncCommand,
-  createSyncJob,
-  decryptSyncTargetCredentials,
-  getSyncTempKeyPath,
-  listSyncJobs,
-  shellQuote,
-} from "@/lib/sync/service";
+	buildRsyncCommand,
+	buildTarSyncCommand,
+	getSyncTempKeyPath,
+	shellQuote,
+} from "@/lib/sync/service-commands";
+import { decryptSyncTargetCredentials } from "@/lib/sync/service-credentials";
+import { createSyncJob, listSyncJobs } from "@/lib/sync/service-crud";
+import { assertSyncRemoteSucceeded } from "@/lib/sync/service-runtime";
 
 beforeEach(() => {
   vi.clearAllMocks();

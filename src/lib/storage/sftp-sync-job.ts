@@ -10,7 +10,7 @@ import {
 } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
 import { getSftpSyncNode, syncSftpDirectoryEntries } from "./sftp-sync";
-import { serverT } from "@/lib/i18n/server-locale";
+import { serviceT } from "@/lib/i18n/service-locale";
 import { runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
 
 const logger = createLogger("sftp-sync-job-worker");
@@ -83,7 +83,7 @@ async function executeSftpSyncJob(job: {
   });
 
   const node = await getSftpSyncNode(payload.nodeId);
-  const t = await serverT();
+  const t = await serviceT();
   if (!node) throw new Error(t("backend.storage.nodeNotFoundShort"));
   if (node.driver !== "SFTP") throw new Error("This node is not SFTP type");
 

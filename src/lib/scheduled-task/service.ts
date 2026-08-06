@@ -6,7 +6,7 @@ import { notifyTaskConsecutiveFailed } from "@/lib/notification/service";
 import { createLogger } from "@/lib/logging";
 import type { SessionPayload } from "@/lib/auth/session";
 import { serverTeamWhere, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 
 const taskLogger = createLogger("scheduled-task");
 

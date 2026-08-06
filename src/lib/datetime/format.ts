@@ -1,4 +1,4 @@
-import type { Locale } from "@/lib/i18n/translations";
+import type { Locale } from "@/lib/i18n/core";
 
 export const APP_TIME_ZONE = "Asia/Shanghai";
 

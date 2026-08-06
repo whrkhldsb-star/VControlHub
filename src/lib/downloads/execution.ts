@@ -31,7 +31,7 @@ import {
  buildProgressText,
 } from "@/lib/downloads/helpers";
 import { BusinessError } from "@/lib/errors";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 
 
 

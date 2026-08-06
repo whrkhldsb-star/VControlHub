@@ -5,7 +5,7 @@ import type { SessionPayload } from "@/lib/auth/session";
 import { teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { NotFoundError } from "@/lib/errors";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 
 import { assertOutboundReady } from "./adapters";
 import { createItsmConnectionSchema, updateItsmConnectionSchema } from "./schema";

@@ -15,7 +15,7 @@ import {
 import { sessionHasPermission } from "./authorization";
 import type { Permission } from "./rbac";
 import type { SessionPayload } from "./session";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 
 export type BearerTokenResult = {
 	userId: string;

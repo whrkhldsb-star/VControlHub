@@ -35,7 +35,7 @@ import { prisma } from "@/lib/db";
 import { BusinessError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import { createLogger } from "@/lib/logging";
 
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 import {
   assertPortableBackupPath,
   buildBackupFilePath,

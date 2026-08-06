@@ -2,7 +2,7 @@ import { Prisma } from "@prisma/client";
 import { teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { NotFoundError } from "@/lib/errors";
-import { t } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/service-translations";
 import { createNotification } from "@/lib/notification/service";
 import { createCostBudgetSchema, updateCostBudgetSchema } from "./schema";
 import type { CostBudgetPeriod, CostBudgetRecord, CostCategory, CostCurrency } from "./types";
