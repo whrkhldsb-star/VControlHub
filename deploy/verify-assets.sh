@@ -5,6 +5,9 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "${TMP_DIR}"' EXIT
+NODE_BIN="$(command -v node)"
+
+[ -x "${NODE_BIN}" ] || { echo "node executable not found" >&2; exit 1; }
 
 bash -n "${ROOT}"/deploy/*.sh "${ROOT}"/scripts/*.sh "${ROOT}/docker-entrypoint.sh"
 
@@ -17,7 +20,7 @@ render_unit() {
     -e 's|{{NEXT_PORT}}|3000|g' \
     -e 's|{{SSH_WS_PORT}}|3001|g' \
     -e 's|{{SYSTEMD_PATH}}|/usr/local/bin:/usr/bin:/bin|g' \
-    -e 's|{{NODE_BIN}}|/usr/bin/node|g' \
+    -e "s|{{NODE_BIN}}|${NODE_BIN}|g" \
     -e 's|{{APP_USER}}|vcontrolhub|g' \
     -e 's|{{APP_SLUG}}|vcontrolhub|g' \
     -e 's|{{SERVICE_PREFIX}}|vcontrolhub|g' \

@@ -466,6 +466,7 @@ describe("deploy/install.sh", () => {
   it("maps executable probes correctly and preserves the built dependency tree", async () => {
     const repoRoot = path.resolve(__dirname, "../..");
     const script = await readFile(path.join(repoRoot, "deploy/install.sh"), "utf8");
+    const assetVerifier = await readFile(path.join(repoRoot, "deploy/verify-assets.sh"), "utf8");
 
     expect(script).toContain('"update-ca-certificates:ca-certificates"');
     expect(script).toContain('"gpg:gnupg"');
@@ -481,6 +482,9 @@ describe("deploy/install.sh", () => {
     expect(script).toContain('source "${QUICK_SERVICE_PATHS_LIB}"');
     expect(script).toContain('/usr/bin/node /usr/local/bin/node /bin/node /opt/node/bin/node');
     expect(script).toContain('Node.js ${node_major} already installed at ${node_path}');
+    expect(assetVerifier).toContain('NODE_BIN="$(command -v node)"');
+    expect(assetVerifier).toContain('s|{{NODE_BIN}}|${NODE_BIN}|g');
+    expect(assetVerifier).not.toContain("s|{{NODE_BIN}}|/usr/bin/node|g");
   });
 
   it("removes only the exact obsolete in-process worker drop-in", async () => {
