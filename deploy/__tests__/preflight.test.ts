@@ -1434,9 +1434,10 @@ describe("compressed archive deployment entrypoints", () => {
     expect(upgrader).toContain('/etc/caddy/Caddyfile');
     expect(upgrader).toContain('# Managed by VControlHub installer:');
     expect(upgrader).toContain('export DOMAIN');
-    expect(packager).toContain(".env.local");
-    expect(packager).toContain("node_modules");
-    expect(packager).toContain("${APP_SLUG}-release");
+    expect(packager).toContain("git archive");
+    expect(packager).toContain("APP_VERSION");
+    expect(packager).toContain("${APP_SLUG}-v${APP_VERSION}");
+    expect(packager).not.toContain("--exclude");
     for (const runtimeDir of ["backups", "downloads", "logs", "storage", "tmp", "uploads"]) {
       expect(archiveAttributes).toContain(`/${runtimeDir}/ export-ignore`);
       expect(archiveAttributes).not.toMatch(new RegExp(`^${runtimeDir}/ export-ignore$`, "m"));
@@ -1457,13 +1458,13 @@ describe("compressed archive deployment entrypoints", () => {
           APP_SLUG: "my-console",
           PACKAGE_ROOT_NAME: "my-console-bundle",
           OUTPUT_DIR: outputDir,
-          STAMP: "portabletest",
+          APP_VERSION: "9.8.7",
         },
       });
 
       expect(result.code, result.stdout + result.stderr).toBe(0);
       expect(result.stdout.trim()).toBe(
-        path.join(outputDir, "my-console-release-portabletest.tar.gz"),
+        path.join(outputDir, "my-console-v9.8.7.tar.gz"),
       );
 
       const listing = await new Promise<{
@@ -1473,7 +1474,7 @@ describe("compressed archive deployment entrypoints", () => {
       }>((resolve) => {
         const child = spawn("tar", [
           "-tzf",
-          path.join(outputDir, "my-console-release-portabletest.tar.gz"),
+          path.join(outputDir, "my-console-v9.8.7.tar.gz"),
         ]);
         let stdout = "";
         let stderr = "";
@@ -1486,8 +1487,8 @@ describe("compressed archive deployment entrypoints", () => {
         child.on("close", (code) => resolve({ code, stdout, stderr }));
       });
       expect(listing.code, listing.stderr).toBe(0);
-      expect(listing.stdout).toContain("my-console-bundle/./install.sh");
-      expect(listing.stdout).not.toContain("whrkhldsb-release/");
+      expect(listing.stdout).toContain("my-console-bundle/install.sh");
+      expect(listing.stdout).not.toContain("vcontrolhub-v0.1.0/");
     } finally {
       await rm(outputDir, { force: true, recursive: true });
     }

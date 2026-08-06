@@ -3,7 +3,7 @@ DOMAIN ?=
 SERVICE_PREFIX ?= $(notdir $(APP_DIR))
 SMOKE_PUBLIC_URL ?=
 
-.PHONY: help verify ci-local ci-local-full build runtime deploy-check drift-check smoke smoke-systemd smoke-http installer-fakeroot restart status logs package
+.PHONY: help verify ci-local ci-local-full build runtime deploy-check drift-check smoke smoke-systemd smoke-http installer-fakeroot restart status logs package version-check
 
 help:
 	@printf 'VControlHub maintenance targets:\n'
@@ -23,6 +23,7 @@ help:
 	@printf '  make status        Show systemd service status\n'
 	@printf '  make logs          Tail recent application logs\n'
 	@printf '  make package       Create a portable release archive\n'
+	@printf '  make version-check Verify package, lockfile, changelog and optional release tag versions\n'
 
 verify:
 	npm run verify
@@ -75,4 +76,7 @@ logs:
 	journalctl -u $(SERVICE_PREFIX)-next.service -u $(SERVICE_PREFIX)-worker.service -u $(SERVICE_PREFIX)-ssh-ws.service -n 120 --no-pager
 
 package:
-	deploy/package.sh
+	npm run release:package
+
+version-check:
+	npm run version:check

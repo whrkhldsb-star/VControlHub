@@ -8,11 +8,11 @@ slugify() {
 APP_NAME="${APP_NAME:-VControlHub}"
 APP_SLUG="${APP_SLUG:-$(slugify "${APP_NAME}")}"
 [ -n "${APP_SLUG}" ] || APP_SLUG="vcontrolhub"
-PACKAGE_ROOT_NAME="${PACKAGE_ROOT_NAME:-${APP_SLUG}-release}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUTPUT_DIR="${OUTPUT_DIR:-${REPO_ROOT}/dist}"
-STAMP="${STAMP:-$(date +%Y%m%d-%H%M%S)}"
-ARCHIVE_NAME="${ARCHIVE_NAME:-${APP_SLUG}-release-${STAMP}.tar.gz}"
+APP_VERSION="${APP_VERSION:-$(node -p "require('${REPO_ROOT}/package.json').version")}"
+PACKAGE_ROOT_NAME="${PACKAGE_ROOT_NAME:-${APP_SLUG}-v${APP_VERSION}}"
+ARCHIVE_NAME="${ARCHIVE_NAME:-${APP_SLUG}-v${APP_VERSION}.tar.gz}"
 ARCHIVE_PATH="${ARCHIVE_PATH:-${OUTPUT_DIR}/${ARCHIVE_NAME}}"
 
 case "${PACKAGE_ROOT_NAME}" in
@@ -26,41 +26,6 @@ fi
 mkdir -p "${OUTPUT_DIR}"
 cd "${REPO_ROOT}"
 
-tar --create --gzip --file "${ARCHIVE_PATH}" \
-  --transform "s#^#${PACKAGE_ROOT_NAME}/#" \
-  --exclude './.git' \
-  --exclude './.github' \
-  --exclude './.hermes' \
-  --exclude './.cache' \
-  --exclude './.npm' \
-  --exclude './.config' \
-  --exclude './node_modules' \
-  --exclude './.next' \
-  --exclude './coverage' \
-  --exclude './coverage/*' \
-  --exclude './.env.local' \
-  --exclude './.env.*.local' \
-  --exclude './storage/*' \
-  --exclude './tmp/*' \
-  --exclude './uploads/*' \
-  --exclude './downloads/*' \
-  --exclude './backups/*' \
-  --exclude './logs/*' \
-  --exclude './dist' \
-  --exclude './dist/*' \
-  --exclude './_test_*.js' \
-  --exclude './_test_*.ts' \
-  --exclude './check_*.py' \
-  --exclude './make_*.py' \
-  --exclude './*.tsbuildinfo' \
-  --exclude './*.pem' \
-  --exclude './*.key' \
-  --exclude './*.ppk' \
-  --exclude './*.sqlite' \
-  --exclude './*.db' \
-  --exclude './*.dump' \
-  --exclude './*.sql' \
-  --exclude './*.sql.gz' \
-  .
+git archive --format=tar --prefix="${PACKAGE_ROOT_NAME}/" HEAD | gzip -n > "${ARCHIVE_PATH}"
 
 printf '%s\n' "${ARCHIVE_PATH}"

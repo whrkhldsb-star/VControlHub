@@ -217,6 +217,29 @@ sudo APP_NAME="MyCloud" APP_SLUG=mycloud SITE_NAME="My Cloud Platform" \
 
 ---
 
+## 📦 版本与发布
+
+项目采用语义化版本，`package.json` 是版本号的唯一来源，`package-lock.json` 和 `CHANGELOG.md` 必须与其一致。发布标签使用 `v<version>`，例如当前版本 `v0.1.0`。
+
+```bash
+# 修改版本时同步 package.json 与 package-lock.json
+npm version patch --no-git-tag-version  # 或 minor / major
+
+# 更新 CHANGELOG.md 后验证并生成只包含 Git 已跟踪文件的版本包
+npm run version:check
+npm run release:package
+
+# 提交后发布；标签会触发完整验证并创建 GitHub Release、tar.gz 与 SHA-256
+git tag -a v0.1.0 -m "VControlHub v0.1.0"
+git push origin main v0.1.0
+```
+
+发布工作流会拒绝标签、package/lockfile 或 Changelog 版本不一致的提交。版本包不读取工作区中的 `.env`、日志、数据库或运行数据。
+
+完整变更记录见 [CHANGELOG.md](CHANGELOG.md)。
+
+---
+
 ## ⚙️ 技术栈
 
 | 层级     | 技术                                        | 版本     |

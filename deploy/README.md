@@ -78,15 +78,15 @@ sudo APP_NAME="my-console" APP_SLUG=my-console SITE_NAME="我的控制台" APP_D
 ```bash
 cd /opt/VControlHub
 ./deploy/package.sh
-# 默认输出示例：/opt/VControlHub/dist/vcontrolhub-release-YYYYMMDD-HHMMSS.tar.gz
+# 默认输出示例：/opt/VControlHub/dist/vcontrolhub-v0.1.0.tar.gz
 # 自定义包名/根目录：APP_NAME="我的 控制台" APP_SLUG=my-console PACKAGE_ROOT_NAME=my-console-bundle ./deploy/package.sh
 ```
 
 把压缩包传到新服务器后：
 
 ```bash
-tar -xzf my-console-release-YYYYMMDD-HHMMSS.tar.gz
-cd my-console-bundle   # 默认包则是 vcontrolhub-release
+tar -xzf my-console-v0.1.0.tar.gz
+cd my-console-bundle   # 默认包则是 vcontrolhub-v0.1.0
 sudo APP_NAME="我的控制台" APP_SLUG=my-console SITE_NAME="我的控制台" \
   SERVICE_PREFIX=my-console DOMAIN=your.example.com APP_DIR=/opt/my-console ./install.sh
 # 首次运行会创建 /opt/my-console/.env.local，自动生成密钥并继续安装完成。
@@ -95,7 +95,7 @@ sudo APP_NAME="我的控制台" APP_SLUG=my-console SITE_NAME="我的控制台" 
 # sudo APP_NAME="我的控制台" APP_SLUG=my-console SITE_NAME="我的控制台" SERVICE_PREFIX=my-console DOMAIN=your.example.com APP_DIR=/opt/my-console ./install.sh
 ```
 
-`deploy/package.sh` 默认排除 `.env.local`、`.env.*.local`、私钥、数据库/备份、`node_modules`、`.next`、上传/下载/日志/临时文件和运行态云盘数据。
+`deploy/package.sh` 只归档当前 Git `HEAD` 中已跟踪且未被 `.gitattributes export-ignore` 排除的文件。本机 `.env`、私钥、数据库/备份、`node_modules`、`.next`、上传/下载/日志/临时文件和未提交改动不会进入版本包。
 
 ### 方式 D：不上公网仓库，从旧服务器/本地目录同步部署
 
@@ -146,8 +146,9 @@ sudo DOMAIN=your.example.com APP_DIR=/opt/VControlHub deploy/install.sh
 | `SKIP_CADDY` | `0` | 设为 `1` 跳过 Caddy 配置 |
 | `SKIP_DB_SETUP` | `0` | 设为 `1` 跳过 `prisma migrate deploy` |
 | `SKIP_RESTART` | `0` | 只安装/构建不重启服务 |
-| `PACKAGE_ROOT_NAME` | `$APP_SLUG-release` | `deploy/package.sh` 生成压缩包内顶层目录 |
-| `ARCHIVE_NAME` | `$APP_SLUG-release-$STAMP.tar.gz` | `deploy/package.sh` 输出文件名 |
+| `APP_VERSION` | `package.json` 中的版本 | `deploy/package.sh` 生成包的语义版本，可显式覆盖 |
+| `PACKAGE_ROOT_NAME` | `$APP_SLUG-v$APP_VERSION` | `deploy/package.sh` 生成压缩包内顶层目录 |
+| `ARCHIVE_NAME` | `$APP_SLUG-v$APP_VERSION.tar.gz` | `deploy/package.sh` 输出文件名 |
 
 > `APP_SLUG` 可包含短横线（如 `my-console`），用于目录、service、cookie 等标识；安装脚本为 PostgreSQL 默认库名/用户名会单独转换为安全标识符（如 `my_console`）。如果你显式设置 `PG_DB_NAME` / `PG_DB_USER`，脚本会按你的值使用。
 
