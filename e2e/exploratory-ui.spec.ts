@@ -69,6 +69,25 @@ test("all concrete authenticated pages render in a real browser", async ({ page 
 	expect(failures).toEqual([]);
 });
 
+test("compatibility routes and an expired 2FA challenge redirect explicitly", async ({ page }) => {
+	await login(page);
+
+	for (const [source, destination] of [
+		["/account", "/account/password"],
+		["/preferences", "/settings#personal-preferences"],
+		["/storage", "/files"],
+	] as const) {
+		await page.goto(source);
+		await expect(page).toHaveURL((url) => `${url.pathname}${url.hash}` === destination);
+	}
+
+	await page.goto("/login/verify-2fa");
+	await expect(page).toHaveURL((url) =>
+		url.pathname === "/login" && url.searchParams.get("error") === "expired",
+	);
+	await expect(page.getByLabel(/用户名|Username/i)).toBeVisible();
+});
+
 test("desktop navigation and safe controls work through clicks and keyboard", async ({ page }) => {
 	test.setTimeout(180_000);
 	const failures = observe(page);

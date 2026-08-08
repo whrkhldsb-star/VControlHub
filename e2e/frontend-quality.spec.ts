@@ -1,10 +1,16 @@
 import { expect, test, type Page } from "@playwright/test";
+import { installDirectSession } from "./helpers/direct-session";
 import { loginWithCredentials } from "./helpers/login";
 
 const TEST_USER = process.env.E2E_USER ?? "admin";
 const TEST_PASS = process.env.E2E_PASS ?? "admin123";
 
 async function login(page: Page) {
+	if (process.env.E2E_DIRECT_SESSION === "1") {
+		await installDirectSession(page.context());
+		await page.goto("/dashboard");
+		return;
+	}
 	await loginWithCredentials(page, TEST_USER, TEST_PASS);
 }
 

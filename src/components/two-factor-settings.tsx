@@ -15,6 +15,8 @@ type Step = "idle" | "setup" | "verify" | "disable";
 export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 	const { t } = useI18n();
 	const router = useRouter();
+	const [enabledOverride, setEnabledOverride] = useState<boolean | null>(null);
+	const isEnabled = enabledOverride ?? enabled;
 	const [step, setStep] = useState<Step>("idle");
 	const [secret, setSecret] = useState("");
 	const [qrDataUrl, setQrDataUrl] = useState("");
@@ -65,6 +67,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 			setQrDataUrl("");
 			setCode("");
 			setStep("idle");
+			setEnabledOverride(true);
 			router.refresh();
 		} catch (err) { setError(messageFromError(err, t("auth.2fa-error-request-failed"))); }
 		finally { setLoading(false); }
@@ -85,6 +88,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 			setQrDataUrl("");
 			setCode("");
 			setStep("idle");
+			setEnabledOverride(false);
 			router.refresh();
 		} catch (err) { setError(messageFromError(err, t("auth.2fa-error-request-failed"))); }
 		finally { setLoading(false); }
@@ -94,8 +98,8 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 		<div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-5">
 			<div className="flex items-center justify-between mb-4">
 				<h3 className="text-sm font-medium text-[var(--text-primary)]">{t("auth.2fa-section-title")}</h3>
-				<span className={`text-xs px-2 py-0.5 rounded-full ${enabled ? "bg-[var(--success-bg)] text-[var(--success)]" : "bg-[var(--surface-hover)]/50 text-[var(--text-muted)]"}`}>
-					{enabled ? t("auth.2fa-enabled") : t("auth.2fa-disabled")}
+				<span className={`text-xs px-2 py-0.5 rounded-full ${isEnabled ? "bg-[var(--success-bg)] text-[var(--success)]" : "bg-[var(--surface-hover)]/50 text-[var(--text-muted)]"}`}>
+					{isEnabled ? t("auth.2fa-enabled") : t("auth.2fa-disabled")}
 				</span>
 			</div>
 
@@ -103,7 +107,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 				<div role="alert" className="mb-3 text-xs text-[var(--danger)] bg-[var(--danger-bg)] rounded-lg px-3 py-2">{error}</div>
 			)}
 
-			{step === "idle" && !enabled && (
+			{step === "idle" && !isEnabled && (
 				<div>
 					<p className="text-xs text-[var(--text-secondary)] mb-3">
 						{t("auth.2fa-setup-description")}
@@ -114,7 +118,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 				</div>
 			)}
 
-			{step === "idle" && enabled && (
+			{step === "idle" && isEnabled && (
 				<div>
 					<p className="text-xs text-[var(--text-secondary)] mb-3">
 						{t("auth.2fa-disable-description")}

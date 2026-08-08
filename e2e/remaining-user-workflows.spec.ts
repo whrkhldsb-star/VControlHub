@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { generate as generateTotp } from "otplib";
 import { installDirectSession } from "./helpers/direct-session";
 import { loginWithCredentials } from "./helpers/login";
 
@@ -36,6 +37,49 @@ test("settings tabs and personal preference persistence", async ({ page }) => {
 	await expect(notificationSwitch).not.toHaveAttribute("aria-checked", original ?? "false");
 	await notificationSwitch.click();
 	await expect(notificationSwitch).toHaveAttribute("aria-checked", original ?? "false");
+});
+
+test("two-factor setup, password login, TOTP verification and disable lifecycle", async ({ page, context }) => {
+	test.setTimeout(90_000);
+	await login(page);
+	await page.goto("/settings#2fa");
+
+	let section = page.locator('[id="2fa"]');
+	await expect(section).toBeVisible();
+	const details = section.locator("details");
+	if ((await details.getAttribute("open")) === null) await section.locator("summary").click();
+	await section.getByRole("button", { name: /开启两步验证|Enable 2FA/i }).click();
+
+	const secret = (await section.locator("code").textContent())?.trim();
+	expect(secret).toBeTruthy();
+	const setupCode = await generateTotp({ secret: secret! });
+	await section.getByLabel(/验证码|Verification code/i).fill(setupCode);
+	await section.getByRole("button", { name: /确认启用|Confirm enable/i }).click();
+	await expect(section.getByRole("button", { name: /关闭两步验证|Disable 2FA/i })).toBeVisible();
+
+	await context.clearCookies();
+	await page.goto("/login");
+	await page.getByLabel(/用户名|Username/i).fill(USER);
+	await page.getByLabel(/密码|Password/i).fill(PASS);
+	await page.getByRole("button", { name: /登录|Sign in|Log in/i }).click();
+	await page.waitForURL((url) => url.pathname === "/login/verify-2fa");
+
+	const loginCode = await generateTotp({ secret: secret! });
+	for (let index = 0; index < loginCode.length; index += 1) {
+		await page.getByLabel(new RegExp(`(?:验证码第 ${index + 1} 位|Verification code digit ${index + 1})`, "i")).fill(loginCode[index]!);
+	}
+	await page.waitForURL((url) => !url.pathname.startsWith("/login"));
+
+	await page.goto("/settings#2fa");
+	section = page.locator('[id="2fa"]');
+	await expect(section).toBeVisible();
+	const refreshedDetails = section.locator("details");
+	if ((await refreshedDetails.getAttribute("open")) === null) await section.locator("summary").click();
+	await section.getByRole("button", { name: /关闭两步验证|Disable 2FA/i }).click();
+	const disableCode = await generateTotp({ secret: secret! });
+	await section.getByLabel(/当前验证码|Current code/i).fill(disableCode);
+	await section.getByRole("button", { name: /确认关闭|Confirm disable/i }).click();
+	await expect(section.getByRole("button", { name: /开启两步验证|Enable 2FA/i })).toBeVisible();
 });
 
 test("notifications can be read without console or request failures", async ({ page }) => {

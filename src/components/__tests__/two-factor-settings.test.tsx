@@ -83,6 +83,8 @@ describe("TwoFactorSettings", () => {
 		await user.type(await screen.findByLabelText("6位验证码"), "123456");
 		await user.click(screen.getByRole("button", { name: "确认启用" }));
 
+		expect(await screen.findByText("已启用")).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "关闭两步验证" })).toBeEnabled();
 		expect(refreshMock).toHaveBeenCalledTimes(1);
 		expect(window.location.reload).not.toHaveBeenCalled();
 	});
@@ -113,6 +115,8 @@ describe("TwoFactorSettings", () => {
 		await user.type(screen.getByLabelText("当前验证码"), "654321");
 		await user.click(screen.getByRole("button", { name: "确认关闭" }));
 
+		expect(await screen.findByText("未启用")).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "开启两步验证" })).toBeEnabled();
 		expect(refreshMock).toHaveBeenCalledTimes(1);
 		expect(window.location.reload).not.toHaveBeenCalled();
 	});
