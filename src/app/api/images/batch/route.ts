@@ -7,7 +7,7 @@ import { z } from "zod";
 
 import { auditUserAction } from "@/lib/audit/service";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { teamWhere } from "@/lib/auth/team-scope";
+import { imageTeamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { IMAGE_UPLOAD_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -44,7 +44,7 @@ export async function POST(request: Request) {
         sessionHasPermission(session, "team:manage") ||
         sessionHasPermission(session, "role:manage");
       const whereClause = canManageImages
-        ? { id: { in: ids }, ...teamWhere(session) }
+        ? { id: { in: ids }, ...imageTeamWhere(session) }
         : { id: { in: ids }, userId: session.userId };
 
       switch (action) {

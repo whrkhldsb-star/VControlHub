@@ -51,7 +51,12 @@ vi.mock("../vps-backup-presets", () => ({
   generateRemoteBackupPath: mocks.generateRemoteBackupPath,
 }));
 
-const { runVpsBackupRecord, assertPortableVpsBackupPath, deleteVpsBackupRecord } = await import("../vps-backup-service");
+const {
+  runVpsBackupRecord,
+  assertPortableVpsBackupPath,
+  deleteVpsBackupRecord,
+  retryPendingVpsOffsiteUploads,
+} = await import("../vps-backup-service");
 
 const storageRoot = join(tmpdir(), `vch-vps-backup-test-${process.pid}`);
 
@@ -242,5 +247,34 @@ describe("deleteVpsBackupRecord", () => {
     expect(mocks.deleteMany).toHaveBeenCalledWith({
       where: { id: "rec_1", status: { not: "RUNNING" } },
     });
+  });
+});
+
+describe("retryPendingVpsOffsiteUploads", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("paginates beyond the oldest full batch", async () => {
+    const firstPage = Array.from({ length: 100 }, (_, index) => ({
+      id: `vps-${String(index).padStart(3, "0")}`,
+    }));
+    mocks.findMany
+      .mockResolvedValueOnce(firstPage)
+      .mockResolvedValueOnce([{ id: "vps-100" }]);
+    mocks.findUnique.mockResolvedValue({
+      id: "pending",
+      status: "PENDING",
+      localPath: null,
+      offsiteKey: null,
+    });
+
+    const result = await retryPendingVpsOffsiteUploads();
+
+    expect(result).toEqual({ observed: 101, uploaded: 0, failed: 0, skipped: 101 });
+    expect(mocks.findMany).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ cursor: { id: "vps-099" }, skip: 1 }),
+    );
   });
 });

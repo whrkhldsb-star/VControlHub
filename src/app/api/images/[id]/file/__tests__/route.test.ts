@@ -2,15 +2,21 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getApiSessionMock, imageFindUniqueMock } = vi.hoisted(() => ({
+const { getApiSessionMock, imageFindUniqueMock, verifyBearerTokenMock } = vi.hoisted(() => ({
   getApiSessionMock: vi.fn(),
   imageFindUniqueMock: vi.fn(),
+  verifyBearerTokenMock: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/api-session", () => ({
   getApiSession: getApiSessionMock,
 
   isSessionPayload: (value: unknown) => Boolean(value),
+}));
+vi.mock("@/lib/auth/bearer-token", () => ({
+  hasBearerAuthorization: (request: Request) =>
+    /^Bearer\s+/i.test(request.headers.get("authorization") ?? ""),
+  verifyBearerToken: verifyBearerTokenMock,
 }));
 vi.mock("@/lib/db", () => ({
   prisma: {
@@ -71,6 +77,7 @@ describe("GET /api/images/[id]/file", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     getApiSessionMock.mockResolvedValue(null);
+    verifyBearerTokenMock.mockResolvedValue(null);
     await mkdir(`${uploadRoot}/2026`, { recursive: true });
     await writeFile(`${uploadRoot}/2026/photo.png`, Buffer.from("png"));
   });
@@ -103,7 +110,9 @@ describe("GET /api/images/[id]/file", () => {
     });
     expect(response.headers.get("Content-Type")).toBe("image/png");
     expect(response.headers.get("Content-Length")).toBe("3");
-    expect(response.headers.get("Cache-Control")).toContain("public");
+    expect(response.headers.get("Cache-Control")).toBe(
+      "public, no-cache, must-revalidate",
+    );
   });
 
   it("lets the owner preview a private image from the image-bed page", async () => {
@@ -118,6 +127,41 @@ describe("GET /api/images/[id]/file", () => {
     expect(response.status).toBe(200);
     expect(getApiSessionMock).toHaveBeenCalled();
     expect(response.headers.get("Cache-Control")).toBe("private, no-store");
+  });
+
+  it("lets a Bearer token owner preview their private team image", async () => {
+    verifyBearerTokenMock.mockResolvedValueOnce({
+      userId: "u1",
+      tokenId: "tok_1",
+      scopes: ["image:read"],
+      session: { ...ownerSession, roles: [], permissions: ["image:read"] },
+    });
+    imageFindUniqueMock.mockResolvedValue(image({ isPublic: false }));
+
+    const response = await GET(
+      new Request("http://local/api/images/img_1/file", {
+        headers: { authorization: "Bearer whr_token" },
+      }),
+      params,
+    );
+
+    expect(response.status).toBe(200);
+    expect(getApiSessionMock).not.toHaveBeenCalled();
+  });
+
+  it("does not fall back to a cookie when a private-image Bearer token is invalid", async () => {
+    getApiSessionMock.mockResolvedValue(ownerSession);
+    imageFindUniqueMock.mockResolvedValue(image({ isPublic: false }));
+
+    const response = await GET(
+      new Request("http://local/api/images/img_1/file", {
+        headers: { authorization: "Bearer revoked" },
+      }),
+      params,
+    );
+
+    expect(response.status).toBe(404);
+    expect(getApiSessionMock).not.toHaveBeenCalled();
   });
 
   it("does not let bare image:read viewers preview another user's private image", async () => {
@@ -156,6 +200,23 @@ describe("GET /api/images/[id]/file", () => {
     });
     imageFindUniqueMock.mockResolvedValue(
       image({ isPublic: false, userId: "u_foreign", teamId: "team_2" }),
+    );
+
+    const response = await GET(
+      new Request("http://local/api/images/img_1/file"),
+      params,
+    );
+
+    expect(response.status).toBe(404);
+  });
+
+  it("does not treat legacy unassigned private images as shared with team managers", async () => {
+    getApiSessionMock.mockResolvedValue({
+      ...mediaManagerSession,
+      roles: ["operator"],
+    });
+    imageFindUniqueMock.mockResolvedValue(
+      image({ isPublic: false, userId: "legacy_owner", teamId: null }),
     );
 
     const response = await GET(

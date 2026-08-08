@@ -21,6 +21,7 @@ export type BearerTokenResult = {
 	userId: string;
 	scopes: string[];
 	tokenId: string;
+	session: SessionPayload;
 };
 
 export function hasBearerAuthorization(request: Request): boolean {
@@ -89,5 +90,6 @@ export async function verifyBearerToken(
 		userId: authenticated.session.userId,
 		scopes: authenticated.scopes,
 		tokenId: authenticated.tokenId,
+		session: authenticated.session,
 	};
 }

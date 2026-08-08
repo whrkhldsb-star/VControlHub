@@ -19,6 +19,7 @@ vi.mock("@/lib/db", () => ({
 		backupRecord: {
 			findUnique: vi.fn(),
 			update: vi.fn(),
+			findMany: vi.fn(),
 		},
 	},
 }));
@@ -72,12 +73,13 @@ vi.mock("@/lib/storage/offsite/s3-client", () => ({
 import { prisma } from "@/lib/db";
 import { getSetting } from "@/lib/settings/service";
 
-import { uploadBackupToOffsite } from "../offsite-uploader";
+import { retryPendingOffsiteUploads, uploadBackupToOffsite } from "../offsite-uploader";
 
 const mockPrisma = prisma as unknown as {
 	backupRecord: {
 		findUnique: ReturnType<typeof vi.fn>;
 		update: ReturnType<typeof vi.fn>;
+		findMany: ReturnType<typeof vi.fn>;
 	};
 };
 const mockGetSetting = getSetting as unknown as ReturnType<typeof vi.fn>;
@@ -127,8 +129,10 @@ beforeEach(() => {
 	mockGetSetting.mockReset();
 	mockGetSetting.mockResolvedValue("true");
 	mockPrisma.backupRecord.findUnique.mockReset();
+	mockPrisma.backupRecord.findUnique.mockResolvedValue({ ...baseRecord });
 	mockPrisma.backupRecord.update.mockReset();
 	mockPrisma.backupRecord.update.mockResolvedValue({ ...baseRecord });
+	mockPrisma.backupRecord.findMany.mockReset();
 });
 
 afterEach(() => {
@@ -149,17 +153,21 @@ describe("uploadBackupToOffsite", () => {
 		}
 	});
 
-	it("config invalid (缺 endpoint) → ok=true skipped=config_invalid + issues", async () => {
+	it("config invalid is persisted as a failed upload", async () => {
 		loadConfigMock.mockResolvedValue(baseConfig);
 		validateForUseMock.mockReturnValue(["endpoint 未配置"]);
 		const result = await uploadBackupToOffsite({ backupId: "rec-1" });
-		expect(result.ok).toBe(true);
-		if (result.ok && result.skipped) {
-			expect(result.reason).toBe("config_invalid");
-			expect(result.issues).toContain("endpoint 未配置");
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.code).toBe("ConfigInvalid");
+			expect(result.error).toContain("endpoint 未配置");
 		} else {
-			expect.fail("expected skipped result");
+			expect.fail("expected failed result");
 		}
+		expect(mockPrisma.backupRecord.update).toHaveBeenCalledWith({
+			where: { id: "rec-1" },
+			data: { errorMessage: expect.stringContaining("ConfigInvalid") },
+		});
 	});
 
 	it("backup record 不存在 → ok=false code=BackupNotFound", async () => {
@@ -215,6 +223,7 @@ describe("uploadBackupToOffsite", () => {
 				const updateArg = mockPrisma.backupRecord.update.mock.calls[0]?.[0];
 				expect(updateArg?.data?.offsiteKey).toContain("rec-1");
 				expect(updateArg?.data?.offsiteSize).toBeDefined();
+				expect(updateArg?.data?.errorMessage).toBeNull();
 			} else {
 				expect.fail("expected ok=true not skipped");
 			}
@@ -307,5 +316,55 @@ describe("uploadBackupToOffsite", () => {
 		} finally {
 			await rm(dir, { recursive: true, force: true });
 		}
+	});
+
+	it("removes the temporary gzip after streaming a large uncompressed artifact", async () => {
+		loadConfigMock.mockResolvedValue(baseConfig);
+		mockPrisma.backupRecord.findUnique.mockResolvedValue({
+			...baseRecord,
+			filePath: "large.sql",
+		});
+		let streamedPath = "";
+		putFileMock.mockImplementation(async (_key: string, filePath: string) => {
+			streamedPath = filePath;
+			return { etag: "etag-stream-gzip" };
+		});
+		const { access, mkdir, mkdtemp, rm, writeFile } = await import("node:fs/promises");
+		const { join } = await import("node:path");
+		const dir = await mkdtemp("/tmp/55a-stream-test-");
+		try {
+			await mkdir(join(dir, "backups"));
+			await writeFile(join(dir, "backups/large.sql"), Buffer.alloc(8 * 1024 * 1024, 7));
+			const result = await uploadBackupToOffsite({ backupId: "rec-1", projectRoot: dir });
+			expect(result.ok).toBe(true);
+			expect(streamedPath).toContain("vch-offsite-");
+			await expect(access(streamedPath)).rejects.toMatchObject({ code: "ENOENT" });
+		} finally {
+			await rm(dir, { recursive: true, force: true });
+		}
+	});
+});
+
+describe("retryPendingOffsiteUploads", () => {
+	it("paginates past a full batch even when every old record is skipped", async () => {
+		const firstPage = Array.from({ length: 100 }, (_, index) => ({
+			id: `rec-${String(index).padStart(3, "0")}`,
+		}));
+		mockPrisma.backupRecord.findMany
+			.mockResolvedValueOnce(firstPage)
+			.mockResolvedValueOnce([{ id: "rec-100" }]);
+		mockPrisma.backupRecord.findUnique.mockImplementation(async ({ where }) => ({
+			...baseRecord,
+			id: where.id,
+			status: "RUNNING",
+		}));
+
+		const result = await retryPendingOffsiteUploads();
+
+		expect(result).toEqual({ observed: 101, uploaded: 0, failed: 0, skipped: 101 });
+		expect(mockPrisma.backupRecord.findMany).toHaveBeenNthCalledWith(
+			2,
+			expect.objectContaining({ cursor: { id: "rec-099" }, skip: 1 }),
+		);
 	});
 });

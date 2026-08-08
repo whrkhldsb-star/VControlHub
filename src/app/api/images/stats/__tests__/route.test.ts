@@ -132,7 +132,7 @@ describe("/api/images/stats", () => {
     );
     expect(response.status).toBe(200);
     expect(imageCountMock).toHaveBeenCalledWith({
-      where: { OR: [{ teamId: "team_a" }, { teamId: null }] },
+      where: { teamId: "team_a" },
     });
   });
 });

@@ -44,8 +44,7 @@ function canDeleteImage(input: {
 }) {
   const canManageTeamImages =
     isGlobalTeamManager(input.session) ||
-    input.teamId === null ||
-    input.teamId === input.session.currentTeamId;
+    (input.teamId !== null && input.teamId === input.session.currentTeamId);
   return (
     input.ownerId === input.session.userId ||
     (canManageTeamImages &&
@@ -103,11 +102,10 @@ export async function DELETE(
         throw new ForbiddenError("No permission to delete");
       }
 
-      // If linked to a LOCAL storage node visible under the caller's team,
-      // delete the published copy before the index row. Do not report success
-      // if the real storage-side delete fails. Cross-team node ids are ignored
-      // for physical delete + index cascade (image-bed files still removed).
+      // Resolve physical cleanup targets before revoking the database record.
+      // Cross-team node ids are ignored for physical delete + index cascade.
       let linkedStorageInTeam = false;
+      let linkedFilePath: string | null = null;
       if (image.storageNodeId && image.relativePath) {
         const storageNode = await prisma.storageNode.findFirst({
           where: { id: image.storageNodeId, ...teamWhere(session) },
@@ -126,39 +124,14 @@ export async function DELETE(
                 { status: 400 },
               );
             }
-            try {
-              // New records store the full relative file path; legacy records
-              // stored only the directory. Support both shapes during deletion.
-              const linkedFilePath =
-                path.basename(image.relativePath) === image.storageKey
-                  ? resolvedDir.path
-                  : path.join(resolvedDir.path, image.storageKey);
-              await unlinkIfPresent(linkedFilePath);
-            } catch (error) {
-              logError("image-bed:delete-storage-copy", error);
-              return NextResponse.json(
-                {
-                  error:
-                    "Failed to delete image copy from storage node, record not deleted",
-                },
-                { status: 502 },
-              );
-            }
+            // New records store the full relative file path; legacy records
+            // stored only the directory. Support both shapes during cleanup.
+            linkedFilePath =
+              path.basename(image.relativePath) === image.storageKey
+                ? resolvedDir.path
+                : path.join(resolvedDir.path, image.storageKey);
           }
         }
-      }
-
-      // Delete local image-bed files before removing the DB record. Missing files
-      // are already absent, but permission/I/O failures keep the row intact so
-      // the UI does not claim deletion while files remain served from disk.
-      try {
-        await deleteImageVariants(image.storageKey, UPLOAD_DIR);
-      } catch (error) {
-        logError("image-bed:delete-local-files", error);
-        return NextResponse.json(
-          { error: "Failed to delete image file, record not deleted" },
-          { status: 502 },
-        );
       }
 
       const ownsLinkedStorageCopy = Boolean(
@@ -187,13 +160,45 @@ export async function DELETE(
         await prisma.imageUpload.delete({ where: { id } });
       }
 
+      // Database deletion revokes API access atomically. Physical cleanup is
+      // best-effort afterwards; failures are surfaced without leaving a live
+      // database row pointing at partially deleted files.
+      const cleanupTasks = [
+        {
+          target: "imageBed",
+          promise: deleteImageVariants(image.storageKey, UPLOAD_DIR),
+        },
+        ...(linkedFilePath
+          ? [{ target: "linkedStorage", promise: unlinkIfPresent(linkedFilePath) }]
+          : []),
+      ];
+      const cleanupResults = await Promise.allSettled(
+        cleanupTasks.map((task) => task.promise),
+      );
+      const cleanupFailures = cleanupResults.flatMap((result, index) => {
+        if (result.status === "fulfilled") return [];
+        logError(`image-bed:delete-${cleanupTasks[index]?.target}`, result.reason);
+        return [cleanupTasks[index]?.target ?? "unknown"];
+      });
+
       await auditUserAction(
         session?.userId ?? "",
         "image.delete",
-        { imageId: id },
-        undefined,
+        { imageId: id, cleanupFailures },
+        cleanupFailures.length > 0 ? "WARNING" : undefined,
         session?.currentTeamId,
       );
+      if (cleanupFailures.length > 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            deleted: true,
+            cleanupPending: true,
+            cleanupFailures,
+          },
+          { status: 207 },
+        );
+      }
       return NextResponse.json({ success: true });
     },
   );

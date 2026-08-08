@@ -380,6 +380,11 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
           };
         },
       });
+      if (summary.failed > 0) {
+        throw new Error(
+          `Offsite backup sync failed for ${summary.failed} of ${summary.observed} record(s)`,
+        );
+      }
       await completeJob(job.id, WORKER_ID, summary);
       return true;
     }

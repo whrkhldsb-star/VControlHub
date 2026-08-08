@@ -402,7 +402,6 @@ export async function pruneOldBackupRecordsNow(input: {
 			],
 		},
 		orderBy: { createdAt: "desc" },
-		take: 2000,
 	});
 	const plan = pruneOldBackupRecords(records, {
 		olderThanDays: input.olderThanDays,

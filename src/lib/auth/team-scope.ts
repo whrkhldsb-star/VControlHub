@@ -65,6 +65,15 @@ export function serverTeamWhere(session: TeamSession): Record<string, unknown> {
 		: { id: "__unassigned_servers_require_team_manage__" };
 }
 
+/** Image uploads are private by default. A null teamId is legacy data owned by
+ * its uploader, not a shared image library visible to every tenant manager. */
+export function imageTeamWhere(session: TeamSession): Record<string, unknown> {
+	if (isGlobalTeamManager(session)) return {};
+	return session.currentTeamId
+		? { teamId: session.currentTeamId }
+		: { id: "__unassigned_images_require_team_manage__" };
+}
+
 /**
  * Prisma `where` for listing users in the directory UI/API.
  *

@@ -70,6 +70,13 @@ describe("GET /api/images/list", () => {
       userId: "api_user",
       tokenId: "tok_1",
       scopes: ["image:read"],
+      session: {
+        ...session,
+        userId: "api_user",
+        currentTeamId: "team_token",
+        roles: [],
+        permissions: ["image:read"],
+      },
     });
 
     const response = await GET(
@@ -125,9 +132,7 @@ describe("GET /api/images/list", () => {
     expect(response.status).toBe(200);
     expect(imageFindManyMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: {
-          OR: [{ teamId: "team_a" }, { teamId: null }],
-        },
+        where: { teamId: "team_a" },
       }),
     );
   });

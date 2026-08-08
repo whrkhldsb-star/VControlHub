@@ -125,6 +125,13 @@ describe("POST /api/images/upload", () => {
       userId: "api_user",
       tokenId: "tok_1",
       scopes: ["image:write"],
+      session: {
+        ...session,
+        userId: "api_user",
+        currentTeamId: "team_token",
+        roles: [],
+        permissions: ["image:write"],
+      },
     });
 
     const response = await POST(uploadRequest());
@@ -132,7 +139,10 @@ describe("POST /api/images/upload", () => {
     expect(requireApiSessionMock).not.toHaveBeenCalled();
     expect(imageCreateMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ userId: "api_user" }),
+        data: expect.objectContaining({
+          userId: "api_user",
+          teamId: "team_token",
+        }),
       }),
     );
   });

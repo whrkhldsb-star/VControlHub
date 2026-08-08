@@ -167,27 +167,40 @@ export async function uploadVpsBackupToOffsite(
 export async function retryPendingVpsOffsiteUploads(
   input: { limit?: number } = {},
 ) {
-  const limit = Math.max(1, Math.min(input.limit ?? 100, 500));
-  const records = await prisma.vpsBackupRecord.findMany({
-    where: {
-      status: "COMPLETED",
-      offsiteKey: null,
-      localPath: { not: null },
-    },
-    orderBy: { createdAt: "asc" },
-    take: limit,
-    select: { id: true },
-  });
+  const maxRecords = input.limit === undefined
+    ? Number.POSITIVE_INFINITY
+    : Math.max(1, Math.min(input.limit, 5000));
   let uploaded = 0;
   let failed = 0;
   let skipped = 0;
-  for (const record of records) {
-    const result = await uploadVpsBackupToOffsite(record.id);
-    if (result.ok && !result.skipped) uploaded += 1;
-    else if (result.ok) skipped += 1;
-    else failed += 1;
+  let observed = 0;
+  let cursorId: string | undefined;
+  while (observed < maxRecords) {
+    const take = Math.min(100, maxRecords - observed);
+    const records = await prisma.vpsBackupRecord.findMany({
+      where: {
+        status: "COMPLETED",
+        offsiteKey: null,
+        localPath: { not: null },
+      },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      take,
+      ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {}),
+      select: { id: true },
+    });
+    if (records.length === 0) break;
+    for (const record of records) {
+      const result = await uploadVpsBackupToOffsite(record.id);
+      if (result.ok && !result.skipped) uploaded += 1;
+      else if (result.ok) skipped += 1;
+      else failed += 1;
+    }
+    observed += records.length;
+    const nextCursor = records.at(-1)?.id;
+    if (!nextCursor || nextCursor === cursorId || records.length < take) break;
+    cursorId = nextCursor;
   }
-  return { observed: records.length, uploaded, failed, skipped };
+  return { observed, uploaded, failed, skipped };
 }
 
 /** Result of a successful backup run */

@@ -73,7 +73,7 @@ export async function POST(request: Request) {
   const bearerRequested = hasBearerAuthorization(request);
   const tokenAuth = await verifyBearerToken(request, "image:write");
   if (tokenAuth) {
-    return handleUpload(request, tokenAuth.userId, undefined, locale);
+    return handleUpload(request, tokenAuth.userId, tokenAuth.session, locale);
   }
   if (bearerRequested) {
     return NextResponse.json(

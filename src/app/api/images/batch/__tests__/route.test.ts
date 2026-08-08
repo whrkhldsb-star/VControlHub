@@ -28,8 +28,8 @@ vi.mock("@/lib/auth/authorization", () => ({
 }));
 vi.mock("@/lib/audit/service", () => ({ auditUserAction: vi.fn() }));
 vi.mock("@/lib/auth/team-scope", () => ({
-  teamWhere: (session: { currentTeamId?: string | null }) => ({
-    OR: [{ teamId: session.currentTeamId }, { teamId: null }],
+  imageTeamWhere: (session: { currentTeamId?: string | null }) => ({
+    teamId: session.currentTeamId,
   }),
 }));
 vi.mock("node:fs/promises", () => ({
@@ -189,7 +189,7 @@ describe("/api/images/batch", () => {
     expect(imageFindManyMock).toHaveBeenCalledWith({
       where: {
         id: { in: ["img_2"] },
-        OR: [{ teamId: "team_1" }, { teamId: null }],
+        teamId: "team_1",
       },
       select: {
         id: true,
@@ -204,7 +204,7 @@ describe("/api/images/batch", () => {
         AND: [
           {
             id: { in: ["img_2"] },
-            OR: [{ teamId: "team_1" }, { teamId: null }],
+            teamId: "team_1",
           },
           { id: { in: ["img_2"] } },
         ],

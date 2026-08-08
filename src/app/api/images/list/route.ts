@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { hasBearerAuthorization, verifyBearerToken } from "@/lib/auth/bearer-token";
-import { teamWhere, type TeamSession } from "@/lib/auth/team-scope";
+import { imageTeamWhere, type TeamSession } from "@/lib/auth/team-scope";
 import { withCacheHeaders, CachePresets } from "@/lib/cache";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
@@ -19,9 +19,8 @@ export async function GET(request: Request) {
     return listImages(
       request,
       tokenAuth.userId,
-      tokenAuth.scopes.includes("admin"),
-      // Bearer tokens have no team context; non-admin stays user-scoped.
-      null,
+      false,
+      tokenAuth.session,
     );
   }
   if (bearerRequested) {
@@ -82,10 +81,7 @@ async function listImages(
   if (!showAll || !canListAll) {
     where.userId = userId;
   } else if (session) {
-    // Elevated list still respects tenant boundary unless global team:manage.
-    // (teamWhere already no-ops for isGlobalTeamManager.)
-    // Bearer admin path (session=null + canListAll) remains fleet-wide by design.
-    Object.assign(where, teamWhere(session));
+    Object.assign(where, imageTeamWhere(session));
   }
 
   const [images, total] = await Promise.all([

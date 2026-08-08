@@ -281,8 +281,29 @@ describe("parseBillingCsv", () => {
     );
     expect(items).toHaveLength(2);
     expect(items[0]?.externalId).not.toBe(items[1]?.externalId);
-    expect(items[0]?.externalId).toMatch(/csv:row:/);
+    expect(items[0]?.externalId).toMatch(/csv:natural:/);
     expect(items[1]?.externalId).toMatch(/:2$/);
+  });
+
+  it("keeps fallback IDs stable when a provider corrects mutable fields", () => {
+    const original = parseBillingCsv(
+      `date,amount,currency,category,product,notes
+2026-07-01,10,USD,vps,ec2,estimated`,
+      { currency: "USD", providerLabel: "CSV" },
+    );
+    const corrected = parseBillingCsv(
+      `date,amount,currency,category,product,notes
+2026-07-01,12.5,EUR,other,ec2,final`,
+      { currency: "USD", providerLabel: "CSV" },
+    );
+
+    expect(corrected[0]?.externalId).toBe(original[0]?.externalId);
+    expect(corrected[0]).toMatchObject({
+      amount: "12.50",
+      currency: "EUR",
+      category: "other",
+      notes: "final",
+    });
   });
 
   it("rejects missing columns", () => {

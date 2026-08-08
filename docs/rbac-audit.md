@@ -1,6 +1,6 @@
 # VControlHub RBAC Audit Report
 
-> Generated: 2026-08-05T11:42:58.890Z | Permissions: 54 | Roles: 4 | API routes: 177 | Pages: 53 | Drift: 0
+> Generated: 2026-08-08T02:23:36.335Z | Permissions: 54 | Roles: 4 | API routes: 177 | Pages: 53 | Drift: 0
 
 This report cross-references four RBAC sources of truth:
 1. `src/lib/auth/rbac.ts` — `PERMISSIONS` tuple + `DEFAULT_ROLE_PERMISSIONS` map
@@ -48,7 +48,7 @@ This report cross-references four RBAC sources of truth:
 | `deploy:run` | admin, operator | 2 | 0 | 5 |
 | `docker:manage` | admin, operator | 1 | 1 | 25 |
 | `health:read` | admin, operator, viewer, storage_manager | 2 | 1 | 13 |
-| `image:read` | admin | 0 | 1 | 6 |
+| `image:read` | admin | 0 | 1 | 7 |
 | `image:write` | admin | 1 | 1 | 9 |
 | `media:manage` | admin, operator, storage_manager | 1 | 6 | 11 |
 | `notification:manage` | admin, operator | 1 | 0 | 16 |

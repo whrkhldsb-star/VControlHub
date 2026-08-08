@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 
 import { getApiSession } from "@/lib/auth/api-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
+import { hasBearerAuthorization, verifyBearerToken } from "@/lib/auth/bearer-token";
 import { isGlobalTeamManager } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { UPLOAD_DIR } from "@/lib/image-bed/constants";
@@ -54,13 +55,17 @@ export async function GET(
     }
 
     if (!image.isPublic) {
-      const session = await getApiSession();
+      const bearerRequested = hasBearerAuthorization(request);
+      const tokenAuth = bearerRequested
+        ? await verifyBearerToken(request, "image:read")
+        : null;
+      const session = tokenAuth?.session ??
+        (bearerRequested ? null : await getApiSession());
       // Owner, or team/media managers — not every holder of image:read (list own library).
       const isInManagedTeam =
         !!session &&
         (isGlobalTeamManager(session) ||
-          image.teamId === null ||
-          image.teamId === session.currentTeamId);
+          (image.teamId !== null && image.teamId === session.currentTeamId));
       const canReadPrivateImage =
         !!session &&
         (session.userId === image.userId ||
@@ -116,7 +121,7 @@ export async function GET(
         "Content-Type": image.mimeType,
         "Content-Length": String(fileStat.size),
         "Cache-Control": image.isPublic
-          ? "public, max-age=31536000, immutable"
+          ? "public, no-cache, must-revalidate"
           : "private, no-store",
         "Content-Disposition": `inline; filename="${image.filename.replace(/["\r\n]/g, "_")}"`,
         "X-Content-Type-Options": "nosniff",

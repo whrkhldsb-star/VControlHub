@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-08-05T11:42:58.890Z",
+  "generatedAt": "2026-08-08T02:23:36.335Z",
   "summary": {
     "permissionsInList": 54,
     "rolesDefined": 4,
     "apiRoutesAudited": 177,
     "pagesAudited": 53,
-    "callSitesAudited": 626,
+    "callSitesAudited": 627,
     "driftCount": 0,
     "driftByCode": {
       "perm-not-in-list": 0,
@@ -1344,8 +1344,12 @@
           "line": 45
         },
         {
+          "path": "src/app/api/images/[id]/file/route.ts",
+          "line": 60
+        },
+        {
           "path": "src/app/api/images/list/route.ts",
-          "line": 33
+          "line": 32
         },
         {
           "path": "src/app/api/images/list/route.ts",
@@ -1353,7 +1357,7 @@
         },
         {
           "path": "src/app/api/images/list/route.ts",
-          "line": 33
+          "line": 32
         },
         {
           "path": "src/app/api/images/stats/route.ts",
@@ -1381,11 +1385,11 @@
         },
         {
           "path": "src/app/api/images/[id]/route.ts",
-          "line": 65
+          "line": 64
         },
         {
           "path": "src/app/api/images/[id]/route.ts",
-          "line": 65
+          "line": 64
         },
         {
           "path": "src/app/api/images/batch/route.ts",
@@ -1431,11 +1435,11 @@
         },
         {
           "path": "src/app/api/images/[id]/file/route.ts",
-          "line": 68
+          "line": 73
         },
         {
           "path": "src/app/api/images/[id]/route.ts",
-          "line": 52
+          "line": 51
         },
         {
           "path": "src/app/api/images/batch/route.ts",
@@ -1443,11 +1447,11 @@
         },
         {
           "path": "src/app/api/images/list/route.ts",
-          "line": 45
+          "line": 44
         },
         {
           "path": "src/app/api/images/stats/route.ts",
-          "line": 30
+          "line": 29
         },
         {
           "path": "src/app/api/media/[id]/route.ts",
@@ -1693,7 +1697,7 @@
         },
         {
           "path": "src/app/api/images/[id]/route.ts",
-          "line": 54
+          "line": 53
         },
         {
           "path": "src/app/api/images/batch/route.ts",
@@ -2821,11 +2825,11 @@
         },
         {
           "path": "src/app/api/images/[id]/file/route.ts",
-          "line": 69
+          "line": 74
         },
         {
           "path": "src/app/api/images/[id]/route.ts",
-          "line": 53
+          "line": 52
         },
         {
           "path": "src/app/api/images/batch/route.ts",
@@ -2833,11 +2837,11 @@
         },
         {
           "path": "src/app/api/images/list/route.ts",
-          "line": 44
+          "line": 43
         },
         {
           "path": "src/app/api/images/stats/route.ts",
-          "line": 29
+          "line": 28
         },
         {
           "path": "src/app/api/jobs/[id]/events/route.ts",

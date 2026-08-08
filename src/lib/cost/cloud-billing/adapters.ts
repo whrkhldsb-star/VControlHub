@@ -150,15 +150,18 @@ export function parseBillingCsv(
     const notes = notesI >= 0 ? cols[notesI] || undefined : undefined;
     const explicitExternalId =
       externalIdI >= 0 ? cols[externalIdI]?.trim() : "";
-    const rowHash = createHash("sha256")
-      .update(JSON.stringify(cols))
+    // A provider correction commonly changes amount/category/notes. Keep the
+    // fallback identity stable across those edits while preserving repeated
+    // charges for the same product and day through a deterministic ordinal.
+    const naturalKeyHash = createHash("sha256")
+      .update(JSON.stringify([date, product]))
       .digest("hex")
       .slice(0, 24);
-    const duplicateOrdinal = (duplicateCounts.get(rowHash) ?? 0) + 1;
-    duplicateCounts.set(rowHash, duplicateOrdinal);
+    const duplicateOrdinal = (duplicateCounts.get(naturalKeyHash) ?? 0) + 1;
+    duplicateCounts.set(naturalKeyHash, duplicateOrdinal);
     const externalId = explicitExternalId
       ? `csv:id:${explicitExternalId}`
-      : `csv:row:${rowHash}:${duplicateOrdinal}`;
+      : `csv:natural:${naturalKeyHash}:${duplicateOrdinal}`;
     items.push({
       externalId,
       category,

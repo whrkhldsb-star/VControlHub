@@ -78,7 +78,7 @@ const session = {
 };
 
 describe("/api/images/[id]", () => {
-  it("allows image owners to delete their image after removing backing files", async () => {
+  it("revokes the image record before removing backing files", async () => {
     vi.clearAllMocks();
     requireApiSessionMock.mockResolvedValueOnce(session);
     sessionHasPermissionMock.mockImplementation(
@@ -108,10 +108,13 @@ describe("/api/images/[id]", () => {
       "/tmp/vcontrolhub-image-delete-test/img.png",
     );
     expect(imageDeleteMock).toHaveBeenCalledWith({ where: { id: "img_1" } });
+    expect(imageDeleteMock.mock.invocationCallOrder[0]).toBeLessThan(
+      unlinkMock.mock.invocationCallOrder[0]!,
+    );
     await expect(response.json()).resolves.toMatchObject({ success: true });
   });
 
-  it("keeps the image record when the primary backing file cannot be removed", async () => {
+  it("keeps access revoked and reports pending cleanup when image files cannot be removed", async () => {
     vi.clearAllMocks();
     requireApiSessionMock.mockResolvedValueOnce(session);
     sessionHasPermissionMock.mockImplementation(
@@ -128,6 +131,7 @@ describe("/api/images/[id]", () => {
     unlinkMock.mockRejectedValueOnce(
       Object.assign(new Error("EACCES"), { code: "EACCES" }),
     );
+    imageDeleteMock.mockResolvedValueOnce({ id: "img_1" });
 
     const response = await DELETE(
       new Request("https://example.com/api/images/img_1", { method: "DELETE" }),
@@ -136,14 +140,17 @@ describe("/api/images/[id]", () => {
       },
     );
 
-    expect(response.status).toBe(502);
-    expect(imageDeleteMock).not.toHaveBeenCalled();
+    expect(response.status).toBe(207);
+    expect(imageDeleteMock).toHaveBeenCalledWith({ where: { id: "img_1" } });
     await expect(response.json()).resolves.toMatchObject({
-      error: "Failed to delete image file, record not deleted",
+      success: false,
+      deleted: true,
+      cleanupPending: true,
+      cleanupFailures: ["imageBed"],
     });
   });
 
-  it("deletes linked LOCAL storage copies before deleting the image record", async () => {
+  it("deletes linked LOCAL storage copies after revoking the image record", async () => {
     vi.clearAllMocks();
     requireApiSessionMock.mockResolvedValueOnce(session);
     sessionHasPermissionMock.mockImplementation(
@@ -184,9 +191,12 @@ describe("/api/images/[id]", () => {
     });
     expect(transactionMock).toHaveBeenCalled();
     expect(imageDeleteMock).toHaveBeenCalledWith({ where: { id: "img_1" } });
+    expect(transactionMock.mock.invocationCallOrder[0]).toBeLessThan(
+      unlinkMock.mock.invocationCallOrder[0]!,
+    );
   });
 
-  it("keeps the image record when a linked LOCAL storage copy cannot be removed", async () => {
+  it("keeps access revoked when a linked LOCAL storage copy cannot be removed", async () => {
     vi.clearAllMocks();
     requireApiSessionMock.mockResolvedValueOnce(session);
     sessionHasPermissionMock.mockImplementation(
@@ -204,9 +214,12 @@ describe("/api/images/[id]", () => {
       driver: "LOCAL",
       basePath: "/srv/images",
     });
-    unlinkMock.mockRejectedValueOnce(
-      Object.assign(new Error("EACCES"), { code: "EACCES" }),
+    unlinkMock.mockImplementation((filePath: string) =>
+      filePath.startsWith("/srv/images")
+        ? Promise.reject(Object.assign(new Error("EACCES"), { code: "EACCES" }))
+        : Promise.resolve(),
     );
+    imageDeleteMock.mockResolvedValueOnce({ id: "img_1" });
 
     const response = await DELETE(
       new Request("https://example.com/api/images/img_1", { method: "DELETE" }),
@@ -215,11 +228,13 @@ describe("/api/images/[id]", () => {
       },
     );
 
-    expect(response.status).toBe(502);
-    expect(imageDeleteMock).not.toHaveBeenCalled();
+    expect(response.status).toBe(207);
+    expect(imageDeleteMock).toHaveBeenCalledWith({ where: { id: "img_1" } });
     await expect(response.json()).resolves.toMatchObject({
-      error:
-        "Failed to delete image copy from storage node, record not deleted",
+      success: false,
+      deleted: true,
+      cleanupPending: true,
+      cleanupFailures: ["linkedStorage"],
     });
   });
 
@@ -335,6 +350,33 @@ describe("/api/images/[id]", () => {
 
     expect(response.status).toBe(403);
     expect(unlinkMock).not.toHaveBeenCalled();
+    expect(imageDeleteMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects media managers deleting a legacy unassigned image they do not own", async () => {
+    vi.clearAllMocks();
+    requireApiSessionMock.mockResolvedValueOnce(session);
+    sessionHasPermissionMock.mockImplementation(
+      (_session, permission) =>
+        permission === "image:write" || permission === "media:manage",
+    );
+    imageFindUniqueMock.mockResolvedValueOnce({
+      id: "img_legacy",
+      userId: "u_legacy",
+      teamId: null,
+      storageKey: "legacy.png",
+      storageNodeId: null,
+      relativePath: null,
+    });
+
+    const response = await DELETE(
+      new Request("https://example.com/api/images/img_legacy", {
+        method: "DELETE",
+      }),
+      { params: Promise.resolve({ id: "img_legacy" }) },
+    );
+
+    expect(response.status).toBe(403);
     expect(imageDeleteMock).not.toHaveBeenCalled();
   });
 

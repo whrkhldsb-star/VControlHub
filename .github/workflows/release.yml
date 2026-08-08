@@ -53,7 +53,7 @@ jobs:
       - name: Build versioned source package
         run: |
           npm run release:package
-          sha256sum "dist/vcontrolhub-${GITHUB_REF_NAME}.tar.gz" > "dist/vcontrolhub-${GITHUB_REF_NAME}.tar.gz.sha256"
+          (cd dist && sha256sum "vcontrolhub-${GITHUB_REF_NAME}.tar.gz" > "vcontrolhub-${GITHUB_REF_NAME}.tar.gz.sha256")
 
       - name: Publish GitHub release
         env:

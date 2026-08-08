@@ -12,6 +12,8 @@ const { mocks } = vi.hoisted(() => ({
     drillBackupRecord: vi.fn(),
     pruneOldBackupRecordsNow: vi.fn(),
     runWithLeaseHeartbeat: vi.fn(),
+    retryPendingOffsiteUploads: vi.fn(),
+    retryPendingVpsOffsiteUploads: vi.fn(),
   },
 }));
 
@@ -51,7 +53,19 @@ vi.mock("@/lib/backup/service", () => ({
   abandonStalePendingBackupRecords: vi.fn().mockResolvedValue({ abandoned: 0, ids: [] }),
 }));
 
-const { runBackupJobWorkerOnce, BACKUP_CREATE_JOB_TYPE } = await import("../job-worker");
+vi.mock("@/lib/backup/offsite-uploader", () => ({
+  retryPendingOffsiteUploads: mocks.retryPendingOffsiteUploads,
+}));
+
+vi.mock("@/lib/backup/vps-backup-service", () => ({
+  retryPendingVpsOffsiteUploads: mocks.retryPendingVpsOffsiteUploads,
+}));
+
+const {
+  runBackupJobWorkerOnce,
+  BACKUP_CREATE_JOB_TYPE,
+  BACKUP_OFFSITE_SYNC_JOB_TYPE,
+} = await import("../job-worker");
 
 describe("backup job worker create path", () => {
   beforeEach(() => {
@@ -109,6 +123,67 @@ describe("backup job worker create path", () => {
       "job_ok",
       expect.any(String),
       expect.objectContaining({ backupId: "bak_ok", status: "COMPLETED" }),
+    );
+    expect(mocks.failJob).not.toHaveBeenCalled();
+  });
+
+  it("fails the durable offsite-sync job when any upload fails", async () => {
+    mocks.claimNextJob.mockResolvedValueOnce({
+      id: "job_offsite_fail",
+      type: BACKUP_OFFSITE_SYNC_JOB_TYPE,
+      payload: {},
+    });
+    mocks.retryPendingOffsiteUploads.mockResolvedValueOnce({
+      observed: 2,
+      uploaded: 1,
+      failed: 1,
+      skipped: 0,
+    });
+    mocks.retryPendingVpsOffsiteUploads.mockResolvedValueOnce({
+      observed: 1,
+      uploaded: 1,
+      failed: 0,
+      skipped: 0,
+    });
+
+    const ran = await runBackupJobWorkerOnce();
+
+    expect(ran).toBe(true);
+    expect(mocks.failJob).toHaveBeenCalledWith(
+      "job_offsite_fail",
+      expect.any(String),
+      expect.stringContaining("1 of 3"),
+      expect.objectContaining({ retryAfterMs: 60_000 }),
+    );
+    expect(mocks.completeJob).not.toHaveBeenCalled();
+  });
+
+  it("completes the durable offsite-sync job when uploads have no failures", async () => {
+    mocks.claimNextJob.mockResolvedValueOnce({
+      id: "job_offsite_ok",
+      type: BACKUP_OFFSITE_SYNC_JOB_TYPE,
+      payload: {},
+    });
+    mocks.retryPendingOffsiteUploads.mockResolvedValueOnce({
+      observed: 1,
+      uploaded: 1,
+      failed: 0,
+      skipped: 0,
+    });
+    mocks.retryPendingVpsOffsiteUploads.mockResolvedValueOnce({
+      observed: 0,
+      uploaded: 0,
+      failed: 0,
+      skipped: 0,
+    });
+
+    const ran = await runBackupJobWorkerOnce();
+
+    expect(ran).toBe(true);
+    expect(mocks.completeJob).toHaveBeenCalledWith(
+      "job_offsite_ok",
+      expect.any(String),
+      expect.objectContaining({ observed: 1, uploaded: 1, failed: 0 }),
     );
     expect(mocks.failJob).not.toHaveBeenCalled();
   });
