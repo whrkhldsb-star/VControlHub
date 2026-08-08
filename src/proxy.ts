@@ -156,6 +156,19 @@ function requestUrlIsHttps(request: NextRequest): boolean {
   return request.nextUrl.protocol === "https:";
 }
 
+function formRequestNeedsDeclaredLength(request: NextRequest): boolean {
+  if (SAFE_METHODS.has(request.method.toUpperCase())) return false;
+  const contentType = request.headers.get("content-type")?.toLowerCase() ?? "";
+  if (
+    !contentType.includes("multipart/form-data") &&
+    !contentType.includes("application/x-www-form-urlencoded")
+  ) {
+    return false;
+  }
+  const contentLength = request.headers.get("content-length");
+  return !contentLength || !/^\d+$/.test(contentLength);
+}
+
 // ── Main middleware ───────────────────────────────────────────────
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -174,6 +187,17 @@ export function proxy(request: NextRequest) {
       .toLowerCase()
       .startsWith("bearer ") ?? false;
   const routeCanValidateBearerToken = hasBearerToken && canRouteValidateBearerToken(pathname, request.method);
+
+  // request.formData() buffers multipart bodies before route-level file size
+  // checks run. Require a valid declared length so chunked form requests
+  // cannot bypass those preflight limits and exhaust server memory.
+  if (formRequestNeedsDeclaredLength(request)) {
+    return addSecurityHeaders(
+      NextResponse.json({ error: "LENGTH_REQUIRED" }, { status: 411 }),
+      request,
+      nonce,
+    );
+  }
 
   // Login is public, but authenticated operators can still navigate there
   // (for example after changing default-page preferences) and should not see

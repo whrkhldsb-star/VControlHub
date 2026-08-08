@@ -88,6 +88,35 @@ describe("proxy auth guard", () => {
     });
   });
 
+  it("rejects form requests without a valid declared content length", async () => {
+    for (const contentLength of [undefined, "invalid"]) {
+      const headers: Record<string, string> = {
+        "content-type": "multipart/form-data; boundary=test",
+      };
+      if (contentLength) headers["content-length"] = contentLength;
+      const response = proxy(makeRequest("/api/login", {
+        method: "POST",
+        headers,
+      }));
+
+      expect(response.status).toBe(411);
+      expect(response.headers.get("X-Content-Type-Options")).toBe("nosniff");
+      await expect(response.json()).resolves.toEqual({ error: "LENGTH_REQUIRED" });
+    }
+  });
+
+  it("allows form requests with a valid declared content length", () => {
+    const response = proxy(makeRequest("/api/login", {
+      method: "POST",
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        "content-length": "28",
+      },
+    }));
+
+    expect(response.status).toBe(200);
+  });
+
   it("allows public login requests through with forwarded auth-page marker and security headers", () => {
     const response = proxy(makeRequest("/login"));
 
