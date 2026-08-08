@@ -54,7 +54,12 @@ test("two-factor setup, password login, TOTP verification and disable lifecycle"
 	expect(secret).toBeTruthy();
 	const setupCode = await generateTotp({ secret: secret! });
 	await section.getByLabel(/验证码|Verification code/i).fill(setupCode);
+	const enableResponse = page.waitForResponse((response) =>
+		new URL(response.url()).pathname === "/api/auth/2fa/enable" && response.request().method() === "POST",
+	);
 	await section.getByRole("button", { name: /确认启用|Confirm enable/i }).click();
+	const enabled = await enableResponse;
+	expect(enabled.status(), `2FA enable failed: ${await enabled.text()}`).toBe(200);
 	await expect(section.getByRole("button", { name: /关闭两步验证|Disable 2FA/i })).toBeVisible();
 
 	await context.clearCookies();
@@ -78,7 +83,12 @@ test("two-factor setup, password login, TOTP verification and disable lifecycle"
 	await section.getByRole("button", { name: /关闭两步验证|Disable 2FA/i }).click();
 	const disableCode = await generateTotp({ secret: secret! });
 	await section.getByLabel(/当前验证码|Current code/i).fill(disableCode);
+	const disableResponse = page.waitForResponse((response) =>
+		new URL(response.url()).pathname === "/api/auth/2fa/disable" && response.request().method() === "POST",
+	);
 	await section.getByRole("button", { name: /确认关闭|Confirm disable/i }).click();
+	const disabled = await disableResponse;
+	expect(disabled.status(), `2FA disable failed: ${await disabled.text()}`).toBe(200);
 	await expect(section.getByRole("button", { name: /开启两步验证|Enable 2FA/i })).toBeVisible();
 });
 

@@ -99,6 +99,7 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/whrkhldsb_ci
       AUTH_SECRET: ci-e2e-auth-secret-at-least-32-bytes-long
       AUTH_SESSION_SECRET: ci-e2e-session-secret-at-least-32-bytes
+      ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
       ADMIN_INITIAL_PASSWORD: ci-e2e-admin-initial-password
       APP_SLUG: vcontrolhub
       AUTH_SESSION_COOKIE_NAME: vcontrolhub_session
@@ -263,6 +264,7 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/whrkhldsb_ci
       AUTH_SECRET: ci-dast-auth-secret-at-least-32-bytes-long
       AUTH_SESSION_SECRET: ci-dast-session-secret-at-least-32-bytes
+      ENCRYPTION_KEY: fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210
       ADMIN_INITIAL_PASSWORD: ci-dast-admin-initial-password
     services:
       postgres:
