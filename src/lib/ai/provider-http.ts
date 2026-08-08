@@ -13,8 +13,12 @@
  */
 
 import { ValidationError } from "@/lib/errors";
-import { isUnsafePublicHttpHost } from "@/lib/storage/direct-access-url";
+import {
+	assertPublicBaseUrlResolvesPublic,
+	isUnsafePublicHttpHost,
+} from "@/lib/storage/direct-access-url";
 import { t } from "@/lib/i18n/service-translations";
+import { readResponseTextLimited } from "@/lib/http/response-body";
 
 export interface ProviderModelRow {
 	id: string;
@@ -39,6 +43,9 @@ const MODELS_PATH = "/models";
 const CHAT_PATH_SUFFIX = "/chat/completions";
 /** Bound hung upstream AI hosts so model-list / chat routes cannot stall until platform kill. */
 const AI_PROVIDER_HTTP_TIMEOUT_MS = 30_000;
+const AI_PROVIDER_MODELS_MAX_BYTES = 5 * 1024 * 1024;
+const AI_PROVIDER_ERROR_MAX_BYTES = 64 * 1024;
+const AI_PROVIDER_MODELS_MAX_ROWS = 10_000;
 
 function trimTrailingSlash(value: string): string {
 	return value.replace(/\/+$/, "");
@@ -49,7 +56,7 @@ export function trimProviderBaseUrl(value: string | undefined, fallback: string)
 }
 
 /** Re-validate a stored/derived provider URL at fetch time to prevent SSRF via stale DB rows. */
-function assertProviderUrlSafe(rawUrl: string): void {
+async function assertProviderUrlSafe(rawUrl: string): Promise<void> {
 	let url: URL;
 	try {
 		url = new URL(rawUrl);
@@ -65,6 +72,7 @@ function assertProviderUrlSafe(rawUrl: string): void {
 	if (isUnsafePublicHttpHost(url.hostname)) {
 		throw new ValidationError(t("backend.ai.aiProviderUrlMustNotPointToA"));
 	}
+	await assertPublicBaseUrlResolvesPublic(url.origin);
 }
 
 export function defaultAiBaseUrl(): string {
@@ -91,26 +99,45 @@ export async function fetchProviderModels(
 		throw new ValidationError(t("backend.ai.apiKeyIsRequired"));
 	}
 	const baseUrl = trimTrailingSlash(input.baseUrl);
-	assertProviderUrlSafe(baseUrl);
+	await assertProviderUrlSafe(baseUrl);
 	const response = await fetch(`${baseUrl}${MODELS_PATH}`, {
 		method: "GET",
+		redirect: "error",
 		headers: { Authorization: `Bearer ${input.apiKey.trim()}` },
 		signal: AbortSignal.timeout(AI_PROVIDER_HTTP_TIMEOUT_MS),
 	});
 	if (!response.ok) {
-		const errText = await response.text().catch(() => "");
+		const errText = await readResponseTextLimited(
+			response,
+			AI_PROVIDER_ERROR_MAX_BYTES,
+		).catch(() => "");
 		throw new Error(aiHttpErrorMessage(response.status, errText, "models"));
 	}
-	const data = (await response.json().catch(() => ({}))) as {
-		data?: unknown;
-		models?: unknown;
-	};
+	const rawBody = await readResponseTextLimited(
+		response,
+		AI_PROVIDER_MODELS_MAX_BYTES,
+	).catch(() => {
+		throw new Error("AI provider model response is invalid or too large");
+	});
+	const data = (() => {
+		try {
+			return JSON.parse(rawBody) as {
+				data?: unknown;
+				models?: unknown;
+			};
+		} catch {
+			return {};
+		}
+	})();
 	const candidates: unknown = Array.isArray(data?.data)
 		? data.data
 		: Array.isArray(data?.models)
 			? data.models
 			: [];
-	const rawModels = (candidates as ProviderModelRow[]) ?? [];
+	const rawModels = ((candidates as ProviderModelRow[]) ?? []).slice(
+		0,
+		AI_PROVIDER_MODELS_MAX_ROWS,
+	);
 	const models = rawModels.filter(
 		(m): m is ProviderModelRow =>
 			typeof m?.id === "string" && m.id.trim().length > 0,
@@ -122,9 +149,10 @@ export async function fetchProviderModels(
 }
 
 export async function postProviderChat(input: ProviderChatRequest): Promise<Response> {
-	assertProviderUrlSafe(input.url);
+	await assertProviderUrlSafe(input.url);
 	const response = await fetch(input.url, {
 		method: "POST",
+		redirect: "error",
 		headers: {
 			"Content-Type": "application/json",
 			...(input.headers ?? {}),
@@ -133,7 +161,10 @@ export async function postProviderChat(input: ProviderChatRequest): Promise<Resp
 		signal: AbortSignal.timeout(AI_PROVIDER_HTTP_TIMEOUT_MS),
 	});
 	if (!response.ok) {
-		const errText = await response.text().catch(() => "");
+		const errText = await readResponseTextLimited(
+			response,
+			AI_PROVIDER_ERROR_MAX_BYTES,
+		).catch(() => "");
 		throw new Error(aiHttpErrorMessage(response.status, errText, "chat"));
 	}
 	return response;

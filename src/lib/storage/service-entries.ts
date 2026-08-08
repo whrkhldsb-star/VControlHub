@@ -12,7 +12,7 @@ import { t } from "@/lib/i18n/service-translations";
 import { listRemoteDirectory } from "@/lib/ssh/client";
 import { normalizeRemotePath } from "@/lib/storage/remote-path";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
-import { expandStorageBasePath } from "@/lib/storage/path-utils";
+import { resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
 import {
   EDITABLE_TEXT_EXTENSIONS,
   EDITABLE_TEXT_MIME_PREFIXES,
@@ -35,16 +35,11 @@ function storageNodeTeamFilter(session?: TeamSession | null): Record<string, unk
 }
 
 export function resolveLocalAbsolutePath(basePath: string, relativePath: string) {
-  const normalizedRelativePath = relativePath.replace(/^\/+/, "");
-  const allowedRoot = path.resolve(expandStorageBasePath(basePath));
-  const absolutePath = path.resolve(allowedRoot, normalizedRelativePath);
-  const relativeToRoot = path.relative(allowedRoot, absolutePath);
-
-  if (relativeToRoot.startsWith("..") || path.isAbsolute(relativeToRoot)) {
+  const resolved = resolveStoragePathWithinBase(basePath, relativePath);
+  if (!resolved.ok) {
     throw new ValidationError(t("backend.storage.invalidPath"));
   }
-
-  return absolutePath;
+  return resolved.path;
 }
 
 export function isEditableTextFile(input: {

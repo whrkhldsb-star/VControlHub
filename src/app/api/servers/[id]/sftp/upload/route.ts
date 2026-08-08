@@ -19,10 +19,12 @@ import { assertSftpPathAccess } from "@/lib/ssh/sftp-access-control";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
 import { auditUserAction } from "@/lib/audit/service";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { requestContentLengthExceeds } from "@/lib/http/request-body";
 
 export const dynamic = "force-dynamic";
 // guardMode: manual
 const MAX_UPLOAD_SIZE = 100 * 1024 * 1024; // 100 MB
+const MAX_MULTIPART_OVERHEAD_BYTES = 1024 * 1024;
 
 export async function POST(
   request: Request,
@@ -40,6 +42,18 @@ export async function POST(
   const { id } = await params;
   const teamAccess = await assertServerTeamAccess(session, id);
   if (!teamAccess.ok) return teamAccess.response;
+
+  if (
+    requestContentLengthExceeds(
+      request,
+      MAX_UPLOAD_SIZE + MAX_MULTIPART_OVERHEAD_BYTES,
+    )
+  ) {
+    return NextResponse.json(
+      { error: `File size exceeds ${MAX_UPLOAD_SIZE / 1024 / 1024}MB limit` },
+      { status: 413 },
+    );
+  }
 
   try {
     const formData = await request.formData();

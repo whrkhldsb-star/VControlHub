@@ -1,5 +1,11 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 
+const { lookupMock } = vi.hoisted(() => ({ lookupMock: vi.fn() }));
+vi.mock("node:dns/promises", () => ({
+  lookup: lookupMock,
+  default: { lookup: lookupMock },
+}));
+
 import {
   fetchProviderModels,
   postProviderChat,
@@ -12,6 +18,7 @@ describe("ai provider-http adapter", () => {
 
   beforeEach(() => {
     vi.restoreAllMocks();
+    lookupMock.mockResolvedValue([{ address: "203.0.113.10", family: 4 }]);
   });
 
   afterEach(() => {
@@ -94,6 +101,7 @@ describe("ai provider-http adapter", () => {
       const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
       expect(url).toBe("https://api.openai.com/v1/models");
       expect(init.method).toBe("GET");
+	  expect(init.redirect).toBe("error");
       expect((init.headers as Record<string, string>).Authorization).toBe("Bearer sk-test");
       expect(init.signal).toBeInstanceOf(AbortSignal);
       expect(models).toEqual([
@@ -167,6 +175,17 @@ describe("ai provider-http adapter", () => {
         fetchProviderModels({ apiKey: "   ", baseUrl: "https://api.example.com/v1" }),
       ).rejects.toThrow("必须填写 API Key");
     });
+
+    it("rejects provider hostnames that resolve to metadata or private networks", async () => {
+      lookupMock.mockResolvedValue([{ address: "169.254.169.254", family: 4 }]);
+      const fetchMock = vi.fn();
+      globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+      await expect(
+        fetchProviderModels({ apiKey: "sk-x", baseUrl: "https://provider.example/v1" }),
+      ).rejects.toThrow(/public HTTP\(S\) address/);
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
   });
 
   describe("postProviderChat", () => {
@@ -185,6 +204,7 @@ describe("ai provider-http adapter", () => {
       const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
       expect(url).toBe("https://api.openai.com/v1/chat/completions");
       expect(init.method).toBe("POST");
+	  expect(init.redirect).toBe("error");
       expect((init.headers as Record<string, string>)["Content-Type"]).toBe("application/json");
       expect((init.headers as Record<string, string>).Authorization).toBe("Bearer sk-test");
       expect(init.signal).toBeInstanceOf(AbortSignal);

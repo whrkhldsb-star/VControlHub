@@ -152,10 +152,12 @@ const { enqueueDownloadExecutionJobMock } = vi.hoisted(() => {
   const successBody = async ({
     mode,
     taskId,
+    sourceResolution,
   }: {
     mode: "aria2_relay" | "direct";
     taskId: string;
     userId?: string | null;
+    sourceResolution?: { hostname: string; address: string; port: 80 | 443 };
   }) => {
     const { executeAria2RelayDownload, executeDirectDownload } = await import(
       "@/lib/downloads/execution"
@@ -213,6 +215,7 @@ const { enqueueDownloadExecutionJobMock } = vi.hoisted(() => {
         task?.targetPath ?? fallbackPath,
         task?.fileName ?? null,
         task?.createdBy ?? undefined,
+        sourceResolution,
       ).catch(() => {});
     }
     return { id: `job-test-${taskId}`, type: "download.execute", status: "PENDING" };
@@ -324,7 +327,7 @@ describe("/api/downloads", () => {
     // into a rejecting mode via enqueueDownloadExecutionJobMock.mockRejectedValueOnce().
     enqueueDownloadExecutionJobMock.mockReset();
     enqueueDownloadExecutionJobMock.mockImplementation(
-      async ({ mode, taskId }: { mode: "aria2_relay" | "direct"; taskId: string; userId?: string | null }) => {
+      async ({ mode, taskId, sourceResolution }: { mode: "aria2_relay" | "direct"; taskId: string; userId?: string | null; sourceResolution?: { hostname: string; address: string; port: 80 | 443 } }) => {
         const { executeAria2RelayDownload, executeDirectDownload } = await import(
           "@/lib/downloads/execution"
         );
@@ -376,6 +379,7 @@ describe("/api/downloads", () => {
             task?.targetPath ?? fallbackPath,
             task?.fileName ?? null,
             task?.createdBy ?? undefined,
+            sourceResolution,
           ).catch(() => {});
         }
         return { id: `job-test-${taskId}`, type: "download.execute", status: "PENDING" };

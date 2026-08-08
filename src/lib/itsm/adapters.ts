@@ -11,6 +11,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 
 import { ValidationError } from "@/lib/errors";
 import { fetchWebhookSafely, validateWebhookUrlSyntax } from "@/lib/security/webhook-url";
+import { readResponseTextLimited } from "@/lib/http/response-body";
 
 import { t } from "@/lib/i18n/service-translations";
 import type {
@@ -22,6 +23,7 @@ import type {
 } from "./types";
 
 export type ItsmFetch = typeof fetch;
+const ITSM_RESPONSE_MAX_BYTES = 64 * 1024;
 let fetchImpl: ItsmFetch = (...args) => fetch(...args);
 
 export function __setItsmFetch(impl: ItsmFetch | null) {
@@ -122,7 +124,10 @@ export async function deliverOutbound(input: {
 				body: packed.body,
 				signal: AbortSignal.timeout(15_000),
 			});
-			const responseBody = await res.text().catch(() => "");
+			const responseBody = await readResponseTextLimited(
+				res,
+				ITSM_RESPONSE_MAX_BYTES,
+			).catch(() => "");
 			if (!res.ok) {
 				return {
 					ok: false,
@@ -172,7 +177,10 @@ export async function deliverOutbound(input: {
 		if (!result.ok) {
 			return { ok: false, error: result.error };
 		}
-		const responseBody = await result.response.text().catch(() => "");
+		const responseBody = await readResponseTextLimited(
+			result.response,
+			ITSM_RESPONSE_MAX_BYTES,
+		).catch(() => "");
 		if (!result.response.ok) {
 			return {
 				ok: false,

@@ -10,9 +10,53 @@
 
 import { SERVICE_CATALOG } from "./catalog";
 import { createLogger } from "@/lib/logging";
-import { normalizePublicHttpUrl } from "@/lib/storage/direct-access-url";
+import {
+	assertPublicBaseUrlResolvesPublic,
+	normalizePublicHttpUrl,
+} from "@/lib/storage/direct-access-url";
+import {
+	readResponseTextLimited,
+	ResponseBodyTooLargeError,
+} from "@/lib/http/response-body";
 
 const logger = createLogger("app-source:adapters");
+const APP_SOURCE_TIMEOUT_MS = 20_000;
+const APP_SOURCE_MAX_BYTES = 5 * 1024 * 1024;
+const APP_SOURCE_MAX_APPS = 5_000;
+
+function sourceSlug(value: string) {
+	const slug = value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+	if (!slug) throw new Error("App source name cannot produce a safe slug");
+	return slug.slice(0, 64);
+}
+
+async function fetchCatalogJson(url: string): Promise<unknown> {
+	const res = await fetch(url, {
+		method: "GET",
+		redirect: "error",
+		signal: AbortSignal.timeout(APP_SOURCE_TIMEOUT_MS),
+		headers: { Accept: "application/json" },
+	});
+	if (!res.ok) throw new Error(`Source returned ${res.status}`);
+	const declaredSize = Number(res.headers.get("content-length"));
+	if (Number.isFinite(declaredSize) && declaredSize > APP_SOURCE_MAX_BYTES) {
+		throw new Error("App source response is too large");
+	}
+	let text: string;
+	try {
+		text = await readResponseTextLimited(res, APP_SOURCE_MAX_BYTES);
+	} catch (error) {
+		if (error instanceof ResponseBodyTooLargeError) {
+			throw new Error("App source response is too large");
+		}
+		throw error;
+	}
+	try {
+		return JSON.parse(text);
+	} catch {
+		throw new Error("App source returned invalid JSON");
+	}
+}
 
 /* ── Shared types ──────────────────────────────────────────────── */
 
@@ -132,12 +176,10 @@ interface LSIOResponse {
 	};
 }
 
-async function fetchLinuxServer(url: string): Promise<NormalizedApp[]> {
-	const res = await fetch(url, { next: { revalidate: 3600 } });
-	if (!res.ok) throw new Error(`LSIO API returned ${res.status}`);
-
-	const data: LSIOResponse = await res.json();
+async function fetchLinuxServer(url: string, sourceName: string): Promise<NormalizedApp[]> {
+	const data = (await fetchCatalogJson(url)) as LSIOResponse;
 	const images = data.data?.repositories?.linuxserver ?? [];
+	const prefix = sourceSlug(sourceName);
 
 	// Build set of local catalog slugs to de-duplicate
 	const localSlugs = new Set(SERVICE_CATALOG.map((t) => t.slug));
@@ -145,6 +187,7 @@ async function fetchLinuxServer(url: string): Promise<NormalizedApp[]> {
 	const localImages = new Set(SERVICE_CATALOG.map((t) => t.image.toLowerCase()));
 
 	return images
+		.slice(0, APP_SOURCE_MAX_APPS)
 		.filter((img) => img.stable && !img.deprecated)
 		.filter((img) => {
 			// Skip if we already have this locally
@@ -160,7 +203,7 @@ async function fetchLinuxServer(url: string): Promise<NormalizedApp[]> {
 		.map((img): NormalizedApp => {
 			const category = mapCategory(img.category);
 			return {
-				slug: `linuxserver-${img.name}`,
+				slug: `${prefix}-${sourceSlug(img.name)}`,
 				name: img.name
 					.replace(/-/g, " ")
 					.replace(/\b\w/g, (c) => c.toUpperCase()),
@@ -175,7 +218,7 @@ async function fetchLinuxServer(url: string): Promise<NormalizedApp[]> {
 					{ host: `/opt/${img.name}/config`, container: "/config" },
 				],
 				sourceVersion: img.version,
-				sourceName: "linuxserver",
+				sourceName,
 				stars: img.stars,
 				monthlyPulls: img.monthly_pulls,
 				rawJson: JSON.stringify({
@@ -197,32 +240,35 @@ async function fetchLinuxServer(url: string): Promise<NormalizedApp[]> {
  * Generic JSON adapter for sources that serve a JSON array of app definitions.
  * Expected format: array of objects with at least { name, image } fields.
  */
-async function fetchGenericJSON(url: string): Promise<NormalizedApp[]> {
-	const res = await fetch(url, { next: { revalidate: 3600 } });
-	if (!res.ok) throw new Error(`Source returned ${res.status}`);
-	const data = await res.json();
+async function fetchGenericJSON(url: string, sourceName: string): Promise<NormalizedApp[]> {
+	const data = await fetchCatalogJson(url) as Record<string, unknown> | unknown[];
 
 	const apps: NormalizedApp[] = [];
-	const items = Array.isArray(data) ? data : data.apps ?? data.data ?? [];
+	const record = Array.isArray(data) ? null : data;
+	const candidateItems = Array.isArray(data) ? data : record?.apps ?? record?.data ?? [];
+	const items = Array.isArray(candidateItems) ? candidateItems.slice(0, APP_SOURCE_MAX_APPS) : [];
+	const prefix = sourceSlug(sourceName);
 
 	for (const item of items) {
-		if (!item.name || !item.image) continue;
-		const slug = item.slug || item.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+		if (!item || typeof item !== "object") continue;
+		const row = item as Record<string, unknown>;
+		if (typeof row.name !== "string" || typeof row.image !== "string") continue;
+		const slug = sourceSlug(typeof row.slug === "string" ? row.slug : row.name);
 		apps.push({
-			slug: `custom-${slug}`,
-			name: item.displayName || item.name,
-			category: mapCategory(item.category || "other"),
-			icon: item.icon || CATEGORY_ICONS[mapCategory(item.category || "other")] || "📦",
-			description: item.description || "",
-			image: item.image,
-			defaultPort: item.defaultPort || item.port || 8080,
-			internalPort: item.internalPort,
-			path: item.path || "/",
-			envJson: item.envJson || item.env || {},
-			volumesJson: item.volumesJson || item.volumes || [],
-			command: item.command,
-			sourceName: "custom",
-			rawJson: JSON.stringify(item).substring(0, 4000),
+			slug: `${prefix}-${slug}`,
+			name: typeof row.displayName === "string" ? row.displayName : row.name,
+			category: mapCategory(typeof row.category === "string" ? row.category : "other"),
+			icon: typeof row.icon === "string" ? row.icon : CATEGORY_ICONS[mapCategory(typeof row.category === "string" ? row.category : "other")] || "📦",
+			description: typeof row.description === "string" ? row.description.slice(0, 500) : "",
+			image: row.image,
+			defaultPort: typeof row.defaultPort === "number" ? row.defaultPort : typeof row.port === "number" ? row.port : 8080,
+			internalPort: typeof row.internalPort === "number" ? row.internalPort : undefined,
+			path: typeof row.path === "string" ? row.path : "/",
+			envJson: row.envJson && typeof row.envJson === "object" && !Array.isArray(row.envJson) ? row.envJson as Record<string, string> : row.env && typeof row.env === "object" && !Array.isArray(row.env) ? row.env as Record<string, string> : {},
+			volumesJson: Array.isArray(row.volumesJson) ? row.volumesJson as NormalizedApp["volumesJson"] : Array.isArray(row.volumes) ? row.volumes as NormalizedApp["volumesJson"] : [],
+			command: typeof row.command === "string" ? row.command : undefined,
+			sourceName,
+			rawJson: JSON.stringify(row).substring(0, 4000),
 		});
 	}
 	return apps;
@@ -230,7 +276,7 @@ async function fetchGenericJSON(url: string): Promise<NormalizedApp[]> {
 
 /* ── Adapter registry ─────────────────────────────────────────── */
 
-const ADAPTERS: Record<string, (url: string) => Promise<NormalizedApp[]>> = {
+const ADAPTERS: Record<string, (url: string, sourceName: string) => Promise<NormalizedApp[]>> = {
 	linuxserver: fetchLinuxServer,
 	json: fetchGenericJSON,
 	github: fetchGenericJSON, // For now, GitHub raw JSON falls through to generic
@@ -247,7 +293,8 @@ export async function fetchSourceApps(
 	const adapter = ADAPTERS[sourceType] || ADAPTERS["json"]!;
 	try {
 		const safeUrl = normalizePublicHttpUrl(url);
-		const apps = await adapter(safeUrl);
+		await assertPublicBaseUrlResolvesPublic(new URL(safeUrl).origin);
+		const apps = await adapter(safeUrl, sourceName);
 		logger.info(`Fetched ${apps.length} apps from ${sourceName} (${sourceType})`);
 		return apps;
 	} catch (err) {

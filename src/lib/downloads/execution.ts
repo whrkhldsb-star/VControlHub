@@ -32,6 +32,7 @@ import {
 } from "@/lib/downloads/helpers";
 import { BusinessError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
+import type { DownloadSourceResolution } from "@/lib/downloads/source-url";
 
 
 
@@ -222,6 +223,7 @@ export async function executeDirectDownload(
  targetPath: string,
  fileName?: string | null,
  userId?: string,
+ sourceResolution?: DownloadSourceResolution,
 ) {
  const teamId = await loadDownloadTeamId(taskId);
 
@@ -229,7 +231,17 @@ export async function executeDirectDownload(
   const sshParams = await buildSshParamsFromServer(server, server.sshKey);
   await execRemoteCommand({ ...sshParams, command: `mkdir -p -- ${shellQuote(targetPath)}`, timeout: 15000 });
 
-  const downloadCmd = buildDirectDownloadCommand({ taskId, url, targetPath, fileName });
+  if (!sourceResolution) {
+   throw new Error("Download source DNS resolution is missing; retry the download request");
+  }
+
+  const downloadCmd = buildDirectDownloadCommand({
+   taskId,
+   url,
+   targetPath,
+   fileName,
+   sourceResolution,
+  });
   const { stdout: pidOutput, exitCode } = await execRemoteCommand({ ...sshParams, command: downloadCmd, timeout: 30000 });
   const pid = parseInt(pidOutput.trim(), 10);
 

@@ -16,6 +16,11 @@ import { withCacheHeaders, CachePresets } from "@/lib/cache";
 import { AuthError, ForbiddenError } from "@/lib/errors";
 import { t } from "@/lib/i18n/translations";
 import { idQuerySchema, parseSearchParams } from "@/lib/http/parse-search-params";
+import {
+  MAX_NON_FILE_FORM_BYTES,
+  requestContentLengthExceeds,
+} from "@/lib/http/request-body";
+import { t as serviceT } from "@/lib/i18n/service-translations";
 export const dynamic = "force-dynamic";
 
 const allowedScopes = new Set<string>(ALLOWED_API_TOKEN_SCOPES);
@@ -94,6 +99,9 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const contentType = request.headers.get("content-type") ?? "";
   const isFormSubmission = contentType.includes("application/x-www-form-urlencoded") || contentType.includes("multipart/form-data");
+  if (isFormSubmission && requestContentLengthExceeds(request, MAX_NON_FILE_FORM_BYTES)) {
+    return NextResponse.json({ error: serviceT("backend.request.bodyTooLarge") }, { status: 413 });
+  }
   const options = {
     permission: "api-token:manage" as const,
     rateLimit: GENERAL_WRITE_LIMIT,

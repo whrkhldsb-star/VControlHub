@@ -254,6 +254,36 @@ describe("api guard", () => {
     });
   });
 
+  it("rejects oversized streamed JSON without Content-Length", async () => {
+    const { z } = await import("zod");
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(Buffer.from('{"a":"'));
+        controller.enqueue(Buffer.from("x".repeat(2048)));
+        controller.enqueue(Buffer.from('"}'));
+        controller.close();
+      },
+    });
+    const request = new Request("https://example.test/api/demo", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body,
+      duplex: "half",
+    } as RequestInit & { duplex: "half" });
+
+    const response = await withApiRoute(
+      request,
+      { bodySchema: z.object({ a: z.string() }), maxBodyBytes: 1024 },
+      async () => Response.json({ ok: true }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(await json(response)).toMatchObject({
+      code: "VALIDATION_FAILED",
+      message: expect.stringMatching(/too large/i),
+    });
+  });
+
   it("TR-037: querySchema parses URL query and rejects on type mismatch", async () => {
     const { z } = await import("zod");
     const querySchema = z.object({

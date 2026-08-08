@@ -12,8 +12,8 @@ import { assertStorageAccess, releaseStorageQuotaGuard } from "@/lib/storage/acc
 import { logError } from "@/lib/logging";
 import { snapshotFileVersionBeforeOverwrite } from "@/lib/storage/file-versions";
 import {
-  expandStorageBasePath,
   normalizeStorageRelativePath,
+  resolveStoragePathWithinBase,
 } from "@/lib/storage/path-utils";
 import {
   createRemoteDirectory,
@@ -25,6 +25,7 @@ import { normalizeRemoteTargetPath } from "@/lib/storage/remote-path";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { MAX_STORAGE_UPLOAD_BYTES } from "@/lib/storage/mime-constants";
+import { requestContentLengthExceeds } from "@/lib/http/request-body";
 
 import { AuthError, ValidationError } from "@/lib/errors";
 import { isUniqueViolation } from "@/lib/db";
@@ -48,30 +49,35 @@ function isUploadLike(value: unknown): value is UploadLike {
 }
 
 export const dynamic = "force-dynamic";
+const MAX_MULTIPART_OVERHEAD_BYTES = 1024 * 1024;
 
 function resolveManagedLocalPath(basePath: string, relativePath: string) {
+  const resolved = resolveStoragePathWithinBase(basePath, relativePath);
+  if (!resolved.ok) throw new ValidationError(resolved.reason);
   const normalizedPath = normalizeStorageRelativePath(relativePath);
-  if (!normalizedPath.ok) {
-    throw new Error(normalizedPath.reason);
-  }
-
-  const normalizedRelativePath = normalizedPath.path;
-  const allowedRoot = path.resolve(expandStorageBasePath(basePath));
-  const absolutePath = path.resolve(allowedRoot, normalizedRelativePath);
-  const relativeToRoot = path.relative(allowedRoot, absolutePath);
-
-  if (relativeToRoot.startsWith("..") || path.isAbsolute(relativeToRoot)) {
-    throw new ValidationError("Invalid path");
-  }
+  if (!normalizedPath.ok) throw new ValidationError(normalizedPath.reason);
 
   return {
-    normalizedRelativePath,
-    absolutePath,
-    allowedRoot,
+    normalizedRelativePath: normalizedPath.path,
+    absolutePath: resolved.path,
   };
 }
 
 async function handlePost(request: Request, session: SessionPayload, locale: Locale) {
+  if (
+    requestContentLengthExceeds(
+      request,
+      MAX_STORAGE_UPLOAD_BYTES + MAX_MULTIPART_OVERHEAD_BYTES,
+    )
+  ) {
+    return NextResponse.json(
+      {
+        error: t("api.storage.uploadTooLarge", locale),
+        maxUploadBytes: MAX_STORAGE_UPLOAD_BYTES,
+      },
+      { status: 413 },
+    );
+  }
   const formData = await request.formData();
   const storageNodeId = String(formData.get("storageNodeId") ?? "").trim();
   const relativePath = String(formData.get("relativePath") ?? "").trim();

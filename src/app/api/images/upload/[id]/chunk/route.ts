@@ -3,7 +3,7 @@
  *
  * URL params: id = MediaUploadSession.id
  * Query: ?index=N&size=N (zod-validated via appendMediaChunkSchema)
- * Body: raw bytes (ArrayBuffer). NOT JSON.
+ * Body: raw bytes. NOT JSON.
  *
  * Returns: { session: MediaUploadSessionView }
  * Permission: storage:write (session-based, owner-scoped via service).
@@ -11,9 +11,8 @@
  * Rate limit: GENERAL_WRITE_LIMIT (30 req/min) — chunks are higher
  * frequency than init/complete, but we still want throttling.
  *
- * NOTE: withApiRoute's bodySchema option only handles JSON. We read
- * `request.arrayBuffer()` directly after the query schema validates
- * index+size.
+ * NOTE: withApiRoute's bodySchema option only handles JSON. We stream the
+ * request with a hard bound after the query schema validates index+size.
  */
 import { NextResponse } from "next/server";
 
@@ -26,6 +25,10 @@ import {
 } from "@/lib/upload/service";
 import { ForbiddenError, ValidationError } from "@/lib/errors";
 import { getErrorMessage } from "@/lib/http/error-message";
+import {
+  readRequestBodyBuffer,
+  RequestBodyTooLargeError,
+} from "@/lib/http/request-body";
 
 export const dynamic = "force-dynamic";
 
@@ -49,9 +52,14 @@ export async function PUT(
       }
       let buffer: Buffer;
       try {
-        const ab = await request.arrayBuffer();
-        buffer = Buffer.from(ab);
+        buffer = await readRequestBodyBuffer(request, query.size);
       } catch (err) {
+        if (err instanceof RequestBodyTooLargeError) {
+          return NextResponse.json(
+            { error: `Chunk exceeds declared size of ${query.size} bytes` },
+            { status: 413 },
+          );
+        }
         throw new ValidationError("Failed to read chunk content", {
           reason: getErrorMessage(err, String(err)),
         });

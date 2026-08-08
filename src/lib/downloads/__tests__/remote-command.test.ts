@@ -2,6 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import { buildDirectDownloadCommand, shellQuote, toScpTarget } from "@/lib/downloads/remote-command";
 
+const sourceResolution = {
+  hostname: "example.com",
+  address: "93.184.216.34",
+  port: 443 as const,
+};
+
 describe("download remote command helpers", () => {
   it("quotes arbitrary values as a single POSIX shell token", () => {
     expect(shellQuote("simple")).toBe("'simple'");
@@ -14,6 +20,7 @@ describe("download remote command helpers", () => {
       url: "https://example.com/file's name.iso?x=$(uname)",
       targetPath: "/srv/cloud/path with spaces/it's safe",
       fileName: null,
+      sourceResolution,
     });
 
     expect(command).toContain("nohup bash -lc '");
@@ -30,11 +37,13 @@ describe("download remote command helpers", () => {
       url: "https://example.com/a.iso",
       targetPath: "/srv/cloud",
       fileName: "custom name.iso",
+      sourceResolution,
     });
 
     expect(command).toContain("output_path='\\''/srv/cloud/custom name.iso'\\''");
-    expect(command).toContain("wget --max-redirect=3 -O \"$output_path\" \"$download_url\"");
-    expect(command).toContain("curl -L --max-redirs 3 --proto-redir =https,http -o \"$output_path\" \"$download_url\"");
+    expect(command).toContain("--max-redirs 0");
+    expect(command).toContain("--resolve \"$resolve_entry\"");
+    expect(command).not.toContain("wget ");
   });
 
   it("builds an scp target with brackets for IPv6 hosts", () => {

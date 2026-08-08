@@ -1,3 +1,7 @@
+import { mkdtemp, mkdir, rm, symlink, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -54,6 +58,27 @@ describe("storage path utils", () => {
     expect(resolved).toEqual({ ok: true, path: "/srv/storage/team-a/docs/a.txt" });
     expect(resolveStoragePathWithinBase("/srv/storage", "../secret.png").ok).toBe(false);
     expect(resolveStoragePathWithinBase("/srv/storage", "/etc/passwd").ok).toBe(false);
+  });
+
+  it("rejects existing symlinks that escape the configured storage root", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "vch-path-test-"));
+    const storageRoot = path.join(tempDir, "storage");
+    const outsideRoot = path.join(tempDir, "outside");
+    try {
+      await mkdir(storageRoot);
+      await mkdir(outsideRoot);
+      await writeFile(path.join(outsideRoot, "secret.txt"), "secret");
+      await symlink(outsideRoot, path.join(storageRoot, "escape"));
+
+      expect(
+        resolveStoragePathWithinBase(storageRoot, "escape/secret.txt").ok,
+      ).toBe(false);
+      expect(
+        resolveStoragePathWithinBase(storageRoot, "escape/new.txt").ok,
+      ).toBe(false);
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
   });
 
   it("expands portable app slug placeholders before resolving local storage roots", () => {

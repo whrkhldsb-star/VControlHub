@@ -16,7 +16,6 @@ import {
 } from "@/lib/upload/service";
 import { auditUserAction } from "@/lib/audit/service";
 import { ForbiddenError, ValidationError } from "@/lib/errors";
-import { assertStorageAccess, releaseStorageQuotaGuard } from "@/lib/storage/access-control";
 import { normalizeStorageRelativePath } from "@/lib/storage/path-utils";
 
 export const dynamic = "force-dynamic";
@@ -42,26 +41,13 @@ export async function POST(request: Request) {
       }
       const relativePath = normalized.path;
 
-      const access = await assertStorageAccess({
-        session,
-        storageNodeId: body.storageNodeId,
-        relativePath,
-        operation: "write",
-        writeBytes: body.totalSize,
-      });
-      if (!access.allowed) {
-        throw new ForbiddenError(access.reason ?? "No permission to write to the storage path");
-      }
-      // Init only pre-checks quota; do not hold the advisory lock across multi-chunk upload.
-      // Final commit path (resumable complete) re-checks under lock.
-      await releaseStorageQuotaGuard(access);
-
       try {
         const view = await initMediaUploadSession({
           userId: session.userId,
           filename: body.filename,
           mimeType: body.mimeType || "application/octet-stream",
           totalSize: body.totalSize,
+          session,
           ...(body.chunkSize !== undefined ? { chunkSize: body.chunkSize } : {}),
           storageNodeId: body.storageNodeId,
           relativePath,

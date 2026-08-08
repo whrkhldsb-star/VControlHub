@@ -15,6 +15,11 @@ import { enqueueJob } from "@/lib/job/service";
 
 import { ValidationError, BusinessError } from "@/lib/errors";
 import { auditUserAction } from "@/lib/audit/service";
+import {
+  MAX_NON_FILE_FORM_BYTES,
+  requestContentLengthExceeds,
+} from "@/lib/http/request-body";
+import { t } from "@/lib/i18n/service-translations";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
@@ -34,6 +39,9 @@ async function readRequestBody(request: Request) {
 export async function POST(request: Request) {
   const contentType = request.headers.get("content-type") || "";
   const isFormSubmission = contentType.includes("application/x-www-form-urlencoded") || contentType.includes("multipart/form-data");
+  if (isFormSubmission && requestContentLengthExceeds(request, MAX_NON_FILE_FORM_BYTES)) {
+    return NextResponse.json({ error: t("backend.request.bodyTooLarge") }, { status: 413 });
+  }
   const options = {
     permission: "backup:create" as const,
     rateLimit: GENERAL_WRITE_LIMIT,

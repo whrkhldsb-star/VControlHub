@@ -18,6 +18,7 @@ import { createHmac, createHash, randomBytes } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { Readable } from "node:stream";
+import { readResponseTextLimited } from "@/lib/http/response-body";
 
 /* ── Public types ────────────────────────────────────────── */
 
@@ -65,7 +66,22 @@ export class S3Error extends Error {
 function normalizeEndpoint(endpoint: string): string {
 	const trimmed = endpoint.trim().replace(/\/+$/, "");
 	if (!trimmed) throw new S3Error("endpoint is required", 0, "InvalidEndpoint");
-	return trimmed;
+	let parsed: URL;
+	try {
+		parsed = new URL(trimmed);
+	} catch {
+		throw new S3Error("endpoint must be a valid HTTP(S) URL", 0, "InvalidEndpoint");
+	}
+	if (
+		(parsed.protocol !== "https:" && parsed.protocol !== "http:") ||
+		parsed.username ||
+		parsed.password
+	) {
+		throw new S3Error("endpoint must be an HTTP(S) URL without credentials", 0, "InvalidEndpoint");
+	}
+	parsed.hash = "";
+	parsed.search = "";
+	return parsed.toString().replace(/\/+$/, "");
 }
 
 function isAwsS3(endpoint: string): boolean {
@@ -207,6 +223,7 @@ export class S3Client {
 		const signed = this.sign("PUT", url, headers, buf);
 		const res = await this.fetchImpl(url.toString(), {
 			method: "PUT",
+			redirect: "error",
 			headers: signed.headers,
 			body: new Uint8Array(buf),
 			signal: AbortSignal.timeout(this.timeoutMs),
@@ -231,6 +248,7 @@ export class S3Client {
 		const body = Readable.toWeb(createReadStream(filePath)) as ReadableStream<Uint8Array>;
 		const request = {
 			method: "PUT",
+			redirect: "error",
 			headers: signed.headers,
 			body,
 			duplex: "half",
@@ -249,6 +267,7 @@ export class S3Client {
 		const signed = this.sign("HEAD", url, headers, Buffer.alloc(0));
 		const res = await this.fetchImpl(url.toString(), {
 			method: "HEAD",
+			redirect: "error",
 			headers: signed.headers,
 			signal: AbortSignal.timeout(this.timeoutMs),
 		});
@@ -269,6 +288,7 @@ export class S3Client {
 		const signed = this.sign("DELETE", url, headers, Buffer.alloc(0));
 		const res = await this.fetchImpl(url.toString(), {
 			method: "DELETE",
+			redirect: "error",
 			headers: signed.headers,
 			signal: AbortSignal.timeout(this.timeoutMs),
 		});
@@ -288,11 +308,12 @@ export class S3Client {
 		const signed = this.sign("GET", url, headers, Buffer.alloc(0));
 		const res = await this.fetchImpl(url.toString(), {
 			method: "GET",
+			redirect: "error",
 			headers: signed.headers,
 			signal: AbortSignal.timeout(this.timeoutMs),
 		});
 		await this.assertOk(res, "LIST", prefix);
-		const xml = await res.text();
+		const xml = await readResponseTextLimited(res, 5 * 1024 * 1024);
 		return parseListV2(xml);
 	}
 
@@ -335,7 +356,7 @@ export class S3Client {
 
 	private async assertOk(res: Response, op: string, key: string): Promise<void> {
 		if (res.ok) return;
-		const text = await res.text();
+		const text = await readResponseTextLimited(res, 64 * 1024).catch(() => "");
 		const requestId = res.headers.get("x-amz-request-id") ?? undefined;
 		const codeMatch = /<Code>([^<]+)<\/Code>/.exec(text);
 		const msgMatch = /<Message>([^<]+)<\/Message>/.exec(text);

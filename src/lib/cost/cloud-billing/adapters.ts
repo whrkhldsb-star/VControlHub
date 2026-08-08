@@ -23,6 +23,10 @@ import {
   isUnsafePublicHttpHost,
   normalizePublicHttpUrl,
 } from "@/lib/storage/direct-access-url";
+import {
+  readResponseTextLimited,
+  ResponseBodyTooLargeError,
+} from "@/lib/http/response-body";
 
 import type { CostCategory, CostCurrency } from "../types";
 import { config } from "@/lib/config/env";
@@ -268,11 +272,14 @@ async function fetchBillingCsvFromUrl(
     if (!res.ok) {
       throw new ValidationError(`billingCsvUrl HTTP ${res.status}`);
     }
-    const text = await res.text();
-    if (text.length > 2_000_000) {
-      throw new ValidationError(
-        t("backend.cost.billingcsvurlResponseTooLarge"),
-      );
+    let text: string;
+    try {
+      text = await readResponseTextLimited(res, 2_000_000);
+    } catch (error) {
+      if (error instanceof ResponseBodyTooLargeError) {
+        throw new ValidationError(t("backend.cost.billingcsvurlResponseTooLarge"));
+      }
+      throw error;
     }
     return {
       items: parseBillingCsv(text, {

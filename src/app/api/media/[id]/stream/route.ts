@@ -1,7 +1,6 @@
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { NextResponse } from "next/server";
-import path from "node:path";
 import { Client } from "ssh2";
 import { z } from "zod";
 
@@ -11,8 +10,8 @@ import { createLogger } from "@/lib/logging";
 import { getMediaItem } from "@/lib/media/service";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import {
-  expandStorageBasePath,
   normalizeStorageRelativePath,
+  resolveStoragePathWithinBase,
 } from "@/lib/storage/path-utils";
 import {
   normalizeRemoteRelativePath,
@@ -38,12 +37,12 @@ const logger = createLogger("api:media:stream");
 function resolveManagedLocalPath(basePath: string, relativePath: string) {
   const normalizedPath = normalizeStorageRelativePath(relativePath);
   if (!normalizedPath.ok) throw new Error(normalizedPath.reason);
-  const allowedRoot = path.resolve(expandStorageBasePath(basePath));
-  const absolutePath = path.resolve(allowedRoot, normalizedPath.path);
-  const relativeToRoot = path.relative(allowedRoot, absolutePath);
-  if (relativeToRoot.startsWith("..") || path.isAbsolute(relativeToRoot))
-    throw new ValidationError("Invalid path");
-  return { normalizedRelativePath: normalizedPath.path, absolutePath };
+  const resolved = resolveStoragePathWithinBase(basePath, normalizedPath.path);
+  if (!resolved.ok) throw new ValidationError(resolved.reason);
+  return {
+    normalizedRelativePath: normalizedPath.path,
+    absolutePath: resolved.path,
+  };
 }
 
 function openSftpStream(

@@ -20,6 +20,10 @@ export const DEFAULT_CHUNK_SIZE = 5 * 1024 * 1024;
  *  admin to use direct storage node upload instead. */
 export const MAX_TOTAL_SIZE = 200 * 1024 * 1024;
 
+/** Image decoding and variant generation happen in memory, so image uploads
+ *  have a lower cap than ordinary resumable storage uploads. */
+export const MAX_IMAGE_UPLOAD_BYTES = 20 * 1024 * 1024;
+
 /** Hard cap on individual chunk size: 20 MiB. Larger chunks would
  *  exceed our request body limits. */
 export const MAX_CHUNK_SIZE = 20 * 1024 * 1024;

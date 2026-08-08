@@ -87,6 +87,9 @@ function makeJob(overrides: Partial<Record<string, unknown>> = {}) {
       taskId: "task-1",
       userId: "u-1",
       requestedAt: new Date().toISOString(),
+      sourceHostname: "example.com",
+      sourceAddress: "93.184.216.34",
+      sourcePort: 443,
     } as Prisma.JsonValue,
     attempts: 1,
     maxAttempts: 1,
@@ -253,6 +256,11 @@ describe("download execution durable job worker", () => {
         "/srv/cloud/downloads",
         "file.iso",
         "u-1",
+        {
+          hostname: "example.com",
+          address: "93.184.216.34",
+          port: 443,
+        },
       );
       expect(executeAria2RelayDownloadMock).not.toHaveBeenCalled();
       expect(completeJobMock).toHaveBeenCalledWith(
@@ -333,6 +341,7 @@ describe("download execution durable job worker", () => {
         expect.anything(),
         expect.anything(),
         "u-fallback",
+        undefined,
       );
     });
 

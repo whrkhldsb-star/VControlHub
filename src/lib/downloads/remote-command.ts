@@ -1,4 +1,5 @@
 import { shellQuote } from "@/lib/shell-quote";
+import type { DownloadSourceResolution } from "@/lib/downloads/source-url";
 export { shellQuote };
 
 export function toRemoteChildPath(parentPath: string, childName: string): string {
@@ -19,6 +20,7 @@ type DirectDownloadCommandInput = {
   url: string;
   targetPath: string;
   fileName?: string | null;
+  sourceResolution: DownloadSourceResolution;
 };
 
 export function buildDirectDownloadCommand({
@@ -26,12 +28,17 @@ export function buildDirectDownloadCommand({
   url,
   targetPath,
   fileName,
+  sourceResolution,
 }: DirectDownloadCommandInput): string {
   const safeTaskId = safeTaskFileStem(taskId);
-const pidFile = `/tmp/app-dl-${safeTaskId}.pid`;
-	const logFile = `/tmp/app-dl-${safeTaskId}.log`;
+  const pidFile = `/tmp/app-dl-${safeTaskId}.pid`;
+  const logFile = `/tmp/app-dl-${safeTaskId}.log`;
   const exitFile = `${pidFile}.exit`;
   const outputPath = fileName ? toRemoteChildPath(targetPath, fileName) : "";
+  const resolvedAddress = sourceResolution.address.includes(":")
+    ? `[${sourceResolution.address}]`
+    : sourceResolution.address;
+  const resolveEntry = `${sourceResolution.hostname}:${sourceResolution.port}:${resolvedAddress}`;
 
   const script = [
     "set +e",
@@ -41,19 +48,19 @@ const pidFile = `/tmp/app-dl-${safeTaskId}.pid`;
     `log_file=${shellQuote(logFile)}`,
     `pid_file=${shellQuote(pidFile)}`,
     `exit_file=${shellQuote(exitFile)}`,
+    `resolve_entry=${shellQuote(resolveEntry)}`,
     "if [ -z \"$output_path\" ]; then",
     "  clean_url=${download_url%%[?#]*}",
     "  base_name=${clean_url##*/}",
     "  if [ -z \"$base_name\" ] || [ \"$base_name\" = \"$clean_url\" ]; then base_name=download; fi",
     "  output_path=${target_dir%/}/$base_name",
     "fi",
-    "if command -v wget >/dev/null 2>&1; then",
-    // Cap redirect hops so public URLs cannot freely bounce into metadata/intranet hosts.
-    "  wget --max-redirect=3 -O \"$output_path\" \"$download_url\" >\"$log_file\" 2>&1",
-    "elif command -v curl >/dev/null 2>&1; then",
-    "  curl -L --max-redirs 3 --proto-redir =https,http -o \"$output_path\" \"$download_url\" >\"$log_file\" 2>&1",
+    "if command -v curl >/dev/null 2>&1; then",
+    // Pin the public DNS result and fail on any redirect. A redirect target
+    // has not passed the controller's DNS allowlist and may be an intranet IP.
+    "  curl --fail --show-error -L --max-redirs 0 --proto =https,http --proto-redir =https,http --resolve \"$resolve_entry\" -o \"$output_path\" \"$download_url\" >\"$log_file\" 2>&1",
     "else",
-    "  echo \"ERROR: No download tool found\" >\"$log_file\"",
+    "  echo \"ERROR: curl is required for DNS-pinned downloads\" >\"$log_file\"",
     "  false",
     "fi",
     "status=$?",

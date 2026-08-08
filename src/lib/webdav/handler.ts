@@ -35,6 +35,10 @@ import {
 import { snapshotFileVersionBeforeOverwrite } from "@/lib/storage/file-versions";
 import { guessContentType } from "@/lib/http/mime-types";
 import { nodeStreamToWeb } from "@/lib/http/node-to-web-stream";
+import {
+  readRequestBodyBuffer,
+  RequestBodyTooLargeError,
+} from "@/lib/http/request-body";
 import { parseStorageRange } from "@/lib/storage/streaming";
 
 import { buildPropFindMultistatus, parseDepth, type PropFindItem } from "./xml";
@@ -224,9 +228,14 @@ export async function handleWebDavPut(
   if (!ctx.relativePath) {
     throw new ValidationError(t("backend.webdav.cannotPutToCollectionRoot"));
   }
-  const body = Buffer.from(await request.arrayBuffer());
-  if (body.byteLength > MAX_WEBDAV_PUT_BYTES) {
-    return new Response("Payload too large (max 100MB)", { status: 413 });
+  let body: Buffer;
+  try {
+    body = await readRequestBodyBuffer(request, MAX_WEBDAV_PUT_BYTES);
+  } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) {
+      return new Response("Payload too large (max 100MB)", { status: 413 });
+    }
+    throw error;
   }
 
   const putAccess = await requireAccess(

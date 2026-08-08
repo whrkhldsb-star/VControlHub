@@ -19,6 +19,11 @@ import { validateWebhookUrlSyntax } from "@/lib/security/webhook-url";
 
 import { AuthError, ValidationError } from "@/lib/errors";
 import { getErrorMessage } from "@/lib/http/error-message";
+import {
+  MAX_NON_FILE_FORM_BYTES,
+  requestContentLengthExceeds,
+} from "@/lib/http/request-body";
+import { t } from "@/lib/i18n/service-translations";
 export const dynamic = "force-dynamic";
 
 const metrics = [
@@ -195,6 +200,9 @@ export async function POST(request: Request) {
   const isFormSubmission =
     contentType.includes("application/x-www-form-urlencoded") ||
     contentType.includes("multipart/form-data");
+  if (isFormSubmission && requestContentLengthExceeds(request, MAX_NON_FILE_FORM_BYTES)) {
+    return NextResponse.json({ error: t("backend.request.bodyTooLarge") }, { status: 413 });
+  }
   const options = {
     permission: "notification:manage" as const,
     rateLimit: GENERAL_WRITE_LIMIT,

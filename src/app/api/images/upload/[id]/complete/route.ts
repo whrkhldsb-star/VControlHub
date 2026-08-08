@@ -41,6 +41,7 @@ import {
 import { auditUserAction } from "@/lib/audit/service";
 import { ForbiddenError, ValidationError } from "@/lib/errors";
 import { getServerLocale, t } from "@/lib/i18n/translations";
+import { MAX_IMAGE_UPLOAD_BYTES } from "@/lib/upload/types";
 import { assertStorageAccess, releaseStorageQuotaGuard } from "@/lib/storage/access-control";
 import {
   deleteStorageFileBuffer,
@@ -74,6 +75,31 @@ export async function POST(
       if (!session) {
         throw new ForbiddenError("Not authenticated or session expired");
       }
+
+      // Reject legacy sessions created before the image-specific cap without
+      // assembling their chunks into memory.
+      const existing = await prisma.mediaUploadSession.findFirst({
+        where: { id: sessionId, userId: session.userId },
+        select: {
+          filename: true,
+          mimeType: true,
+          totalSize: true,
+          storageNodeId: true,
+          relativePath: true,
+        },
+      });
+      if (!existing) {
+        throw new ValidationError("Upload session not found or does not belong to the current user", {
+          code: "session_not_found",
+        });
+      }
+      if (Number(existing.totalSize) > MAX_IMAGE_UPLOAD_BYTES) {
+        throw new ValidationError(
+          `Image upload exceeds ${MAX_IMAGE_UPLOAD_BYTES} bytes`,
+          { code: "total_size_too_large" },
+        );
+      }
+
       let assembled: Buffer;
       try {
         assembled = await assembleMediaUploadChunks(sessionId, session.userId);
@@ -83,17 +109,13 @@ export async function POST(
         }
         throw err;
       }
-
-      // Resolve the session filename for storage key derivation.
-      const existing = await prisma.mediaUploadSession.findFirst({
-        where: { id: sessionId, userId: session.userId },
-        select: { filename: true, mimeType: true, storageNodeId: true, relativePath: true },
-      });
-      if (!existing) {
-        throw new ValidationError("Upload session not found or does not belong to the current user", {
-          code: "session_not_found",
-        });
+      if (assembled.byteLength > MAX_IMAGE_UPLOAD_BYTES) {
+        throw new ValidationError(
+          `Image upload exceeds ${MAX_IMAGE_UPLOAD_BYTES} bytes`,
+          { code: "total_size_too_large" },
+        );
       }
+
       const { filename, mimeType } = existing;
 
       // Mirror the single-shot /api/images/upload/route.ts pipeline.

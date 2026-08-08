@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { initMediaUploadSchema, initStorageUploadSchema } from "@/lib/upload/schema";
+import { MAX_IMAGE_UPLOAD_BYTES, MAX_TOTAL_SIZE } from "@/lib/upload/types";
 
 describe("upload init schemas relativePath guards", () => {
 	it("normalizes media directory paths and rejects traversal", () => {
@@ -51,5 +52,25 @@ describe("upload init schemas relativePath guards", () => {
 				relativePath: "team-a/../secret.bin",
 			}).success,
 		).toBe(false);
+	});
+
+	it("caps decoded image uploads below ordinary storage uploads", () => {
+		expect(
+			initMediaUploadSchema.safeParse({
+				filename: "large.png",
+				mimeType: "image/png",
+				totalSize: MAX_IMAGE_UPLOAD_BYTES + 1,
+			}).success,
+		).toBe(false);
+
+		expect(
+			initStorageUploadSchema.safeParse({
+				filename: "large.bin",
+				mimeType: "application/octet-stream",
+				totalSize: MAX_TOTAL_SIZE,
+				storageNodeId: "node_1",
+				relativePath: "large.bin",
+			}).success,
+		).toBe(true);
 	});
 });

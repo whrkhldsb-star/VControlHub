@@ -36,12 +36,15 @@ const {
   deleteRemoteFileMock: vi.fn(),
 }));
 
-vi.mock("node:fs", () => ({
-  default: {
-    createReadStream: vi.fn(() => new ReadableStream()),
-  },
-  createReadStream: vi.fn(() => new ReadableStream()),
-}));
+vi.mock("node:fs", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:fs")>();
+  const createReadStream = vi.fn(() => new ReadableStream());
+  return {
+    ...actual,
+    default: { ...actual, createReadStream },
+    createReadStream,
+  };
+});
 
 vi.mock("node:fs/promises", () => ({
   default: {

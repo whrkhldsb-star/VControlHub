@@ -18,7 +18,15 @@ ENV NODE_ENV=production
 ENV NEXT_HOST=0.0.0.0
 ENV PORT=3000
 
-RUN apt-get update && apt-get install -y --no-install-recommends     ca-certificates curl openssl sshpass openssh-client &&     rm -rf /var/lib/apt/lists/*
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+      ca-certificates \
+      curl \
+      docker.io \
+      openssh-client \
+      openssl \
+      sshpass \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next ./.next

@@ -22,7 +22,7 @@ import {
 	releaseShareQuotaClaim,
 	resolveShareToken,
 } from "@/lib/share-link/service";
-import { expandStorageBasePath } from "@/lib/storage/path-utils";
+import { resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
 import { normalizeRemoteTargetPath } from "@/lib/storage/remote-path";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 
@@ -146,12 +146,11 @@ export async function GET(
 	const fileName = targetPath.split("/").pop() || share.name || targetPath;
 
 	if (node.driver === "LOCAL") {
-		const allowedRoot = path.resolve(expandStorageBasePath(node.basePath));
-		const absolutePath = path.resolve(allowedRoot, targetPath);
-		const relativeToRoot = path.relative(allowedRoot, absolutePath);
-		if (relativeToRoot.startsWith("..") || path.isAbsolute(relativeToRoot)) {
+		const resolved = resolveStoragePathWithinBase(node.basePath, targetPath);
+		if (!resolved.ok) {
 			return denyAfterClaim(apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.invalidPath", locale), status: 400 }));
 		}
+		const absolutePath = resolved.path;
 		try {
 			const fileStat = await stat(absolutePath);
 			if (wantsArchive) {

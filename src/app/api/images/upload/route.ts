@@ -34,8 +34,10 @@ import type { SessionPayload } from "@/lib/auth/session";
 
 import { AppError, ForbiddenError, ValidationError, isAppError } from "@/lib/errors";
 import { getServerLocale, t, type Locale } from "@/lib/i18n/translations";
+import { requestContentLengthExceeds } from "@/lib/http/request-body";
+import { MAX_IMAGE_UPLOAD_BYTES } from "@/lib/upload/types";
 export const dynamic = "force-dynamic";
-const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
+const MAX_MULTIPART_OVERHEAD_BYTES = 1024 * 1024;
 // image/* minus SVG: SVG served inline can execute script (stored XSS).
 const ALLOWED_MIME_PREFIXES = ["image/"];
 const BLOCKED_MIME_TYPES = new Set(["image/svg+xml", "image/svg"]);
@@ -101,6 +103,17 @@ export async function POST(request: Request) {
 
 async function handleUpload(request: Request, userId: string, session: SessionPayload | undefined, locale: Locale) {
   try {
+    if (
+      requestContentLengthExceeds(
+        request,
+        MAX_IMAGE_UPLOAD_BYTES + MAX_MULTIPART_OVERHEAD_BYTES,
+      )
+    ) {
+      return NextResponse.json(
+        { error: t("api.image.fileTooLarge", locale) },
+        { status: 413 },
+      );
+    }
     const formData = await request.formData();
     const file = formData.get("file");
     const album = String(formData.get("album") ?? "").trim() || undefined;
@@ -127,7 +140,7 @@ async function handleUpload(request: Request, userId: string, session: SessionPa
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    if (buffer.byteLength > MAX_FILE_SIZE) {
+    if (buffer.byteLength > MAX_IMAGE_UPLOAD_BYTES) {
       throw new ValidationError(t("api.image.fileTooLarge", locale));
     }
 

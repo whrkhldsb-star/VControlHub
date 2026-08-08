@@ -8,6 +8,11 @@ import { createLogger } from "@/lib/logging";
 import { checkRateLimitAsync, getClientIp, LOGIN_RATE_LIMIT, LOGIN_SLOW_RATE_LIMIT, isAccountLockedAsync, recordLoginFailureAsync, clearLoginFailureAsync } from "@/lib/rate-limit";
 import { generateCsrfToken, getCsrfCookieName } from "@/lib/auth/csrf";
 import { isRequestHttps } from "@/lib/http/request-https";
+import {
+	MAX_NON_FILE_FORM_BYTES,
+	requestContentLengthExceeds,
+} from "@/lib/http/request-body";
+import { t } from "@/lib/i18n/service-translations";
 
 const logger = createLogger("api:login");
 // guardMode: login
@@ -54,6 +59,9 @@ export async function POST(request: Request) {
 		const contentType = request.headers.get("content-type") ?? "";
 		if (!contentType.includes("multipart/form-data") && !contentType.includes("application/x-www-form-urlencoded")) {
 			return redirectWithRelativeLocation("/login?error=invalid");
+		}
+		if (requestContentLengthExceeds(request, MAX_NON_FILE_FORM_BYTES)) {
+			return new Response(t("backend.request.bodyTooLarge"), { status: 413 });
 		}
 
 		const formData = await request.formData();

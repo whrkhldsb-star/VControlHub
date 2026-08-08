@@ -59,7 +59,7 @@ export async function POST(request: Request) {
       }
 
       if (body.action === "validate") {
-        const result = await validateMigrationPackage(body.packageRef);
+        const result = await validateMigrationPackage(body.packageRef, undefined, session);
         if (result.cleanup) await result.cleanup();
         return NextResponse.json({
           success: result.ok,
@@ -107,8 +107,8 @@ export async function GET(request: Request) {
       rateLimit: GENERAL_READ_LIMIT,
       errorMessage: "Failed to list migration packages",
     },
-    async () => {
-      const packages = await listMigrationPackages();
+    async ({ session }) => {
+      const packages = await listMigrationPackages(undefined, session);
       return NextResponse.json({ packages });
     },
   );

@@ -18,8 +18,14 @@ type ValidateDownloadSourceUrlOptions = {
 };
 
 export type DownloadSourceUrlValidationResult =
-  | { ok: true }
+  | { ok: true; resolution?: DownloadSourceResolution }
   | { ok: false; reason: string };
+
+export type DownloadSourceResolution = {
+  hostname: string;
+  address: string;
+  port: 80 | 443;
+};
 
 function parseIpv4(hostname: string): number[] | null {
   const parts = hostname.split(".");
@@ -198,9 +204,16 @@ export async function assertDownloadSourceUrlSafe(
     if (addresses.length === 0 || addresses.some((entry) => isBlockedIpAddress(entry.address))) {
       return { ok: false, reason: "Download URL DNS resolved to an intranet, loopback, or link-local address" };
     }
+    const selected = addresses[0]!;
+    return {
+      ok: true,
+      resolution: {
+        hostname: hostname.replace(/^\[|\]$/g, ""),
+        address: selected.address,
+        port: syntax.url.protocol === "https:" ? 443 : 80,
+      },
+    };
   } catch {
     return { ok: false, reason: "Download URL DNS resolution failed" };
   }
-
-  return { ok: true };
 }

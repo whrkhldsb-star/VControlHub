@@ -264,6 +264,26 @@ describe("webdav handlers", () => {
     expect(createEntryMock).toHaveBeenCalled();
   });
 
+	 it("PUT rejects an oversized declared body before writing", async () => {
+		const req = new Request("http://localhost/api/webdav/node1/a.txt", {
+			method: "PUT",
+			body: "x",
+			headers: { "content-length": String(100 * 1024 * 1024 + 1) },
+		});
+		const res = await handleWebDavPut(
+			{
+				session: session as never,
+				storageNodeId: "node1",
+				relativePath: "a.txt",
+				requestUrl: new URL("http://localhost/api/webdav/node1/a.txt"),
+			},
+			req,
+		);
+
+		expect(res.status).toBe(413);
+		expect(writeBufferMock).not.toHaveBeenCalled();
+	 });
+
   it("loadNode team-scopes StorageNode via findFirst + teamWhere", async () => {
     prismaMock.storageNode.findFirst.mockResolvedValue(null);
     prismaMock.fileEntry.findFirst.mockResolvedValue({

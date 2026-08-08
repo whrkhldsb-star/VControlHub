@@ -16,6 +16,10 @@ import { searchParamsToObject, zodIssueDetails } from "@/lib/http/parse-search-p
 import { type RateLimitConfig, rateLimitResponse, withRateLimit } from "@/lib/http/rate-limit-presets";
 import { createLogger } from "@/lib/logging";
 import { t } from "@/lib/i18n/service-translations";
+import {
+  readRequestBodyBuffer,
+  RequestBodyTooLargeError,
+} from "@/lib/http/request-body";
 
 const apiLogger = createLogger("api");
 
@@ -202,17 +206,17 @@ export async function withApiRoute<TBody = unknown, TQuery = unknown>(
           }
         }
         try {
-          // .json() on an empty body throws; treat that as undefined so the
-          // schema decides whether undefined is acceptable.
-          const text = await request.clone().text();
-          if (Buffer.byteLength(text, "utf8") > maxBodyBytes) {
+          // Stream the body through a hard byte limit. This also bounds
+          // chunked requests that do not declare Content-Length.
+          const text = (await readRequestBodyBuffer(request, maxBodyBytes)).toString("utf8");
+          raw = text.length === 0 ? undefined : JSON.parse(text);
+        } catch (err) {
+          if (err instanceof RequestBodyTooLargeError) {
             throw new ValidationError("Request body too large", {
               field: "body",
               maxBodyBytes,
             });
           }
-          raw = text.length === 0 ? undefined : JSON.parse(text);
-        } catch (err) {
           if (err instanceof ValidationError) throw err;
           throw new ValidationError("Request body is not valid JSON", { field: "body" });
         }

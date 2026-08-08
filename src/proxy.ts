@@ -197,9 +197,13 @@ export function proxy(request: NextRequest) {
   if (!hasValidSessionCookie(request) && !routeCanValidateBearerToken) {
     // API routes get 401, pages get redirected to login
     if (pathname.startsWith("/api/")) {
-      return NextResponse.json(
-        { error: "Not logged in or session expired" },
-        { status: 401 },
+      return addSecurityHeaders(
+        NextResponse.json(
+          { error: "Not logged in or session expired" },
+          { status: 401 },
+        ),
+        request,
+        nonce,
       );
     }
     const loginUrl = request.nextUrl.clone();
@@ -228,9 +232,13 @@ export function proxy(request: NextRequest) {
     ) {
       // Constant-time compare — tokens are fixed-length hex from generateCsrfToken().
       if (!csrfCookie || !csrfHeader || !timingSafeEqualString(csrfCookie, csrfHeader)) {
-        return NextResponse.json(
-          { error: "CSRF token validation failed" },
-          { status: 403 },
+        return addSecurityHeaders(
+          NextResponse.json(
+            { error: "CSRF token validation failed" },
+            { status: 403 },
+          ),
+          request,
+          nonce,
         );
       }
     }

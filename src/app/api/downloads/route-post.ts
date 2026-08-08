@@ -5,6 +5,7 @@ import { logError } from "@/lib/logging";
 import { auditUserAction } from "@/lib/audit/service";
 import { enqueueDownloadExecutionJob } from "@/lib/downloads/execution-worker";
 import { assertDownloadSourceUrlSafe } from "@/lib/downloads/source-url";
+import type { DownloadSourceResolution } from "@/lib/downloads/source-url";
 import {
   normalizeDownloadFileName,
   isMagnetLink,
@@ -79,6 +80,7 @@ export async function POST(request: Request) {
       // For an HTTP/HTTPS batch we iterate over every URL; otherwise this is a
       // single-task request (one HTTP link or one magnet relay).
       const isHttpBatch = isBatch && allUrls.length > 1 && !hasMagnet;
+      const sourceResolutions = new Map<string, DownloadSourceResolution>();
       for (const u of allUrls) {
         const validation = await assertDownloadSourceUrlSafe(u);
         if (!validation.ok) {
@@ -86,6 +88,9 @@ export async function POST(request: Request) {
             { error: validation.reason },
             { status: 400 },
           );
+        }
+        if (validation.resolution) {
+          sourceResolutions.set(u, validation.resolution);
         }
       }
 
@@ -218,6 +223,7 @@ export async function POST(request: Request) {
             // validated that `server.storageNode` is non-null above
             // (line 229), so the bang is safe.
             storageNodeId: server.storageNode!.id,
+            sourceResolution: sourceResolutions.get(taskUrl),
           });
         } catch (dispatchFailure) {
           const message =

@@ -165,7 +165,7 @@ export function buildRemoteBackupCommand(
  */
 export function generateRemoteBackupPath(): string {
 	const ts = Date.now();
-	const rand = Math.random().toString(36).slice(2, 10);
+	const rand = randomUUID().replace(/-/g, "").slice(0, 12);
 	return `/tmp/vch-backup-${ts}-${rand}.tar.gz`;
 }
 
@@ -177,3 +177,4 @@ export function buildRemoteCleanupCommand(remoteFilePath: string): string {
 	const sanitized = remoteFilePath.replace(/[^a-zA-Z0-9/._-]/g, "");
 	return `rm -f '${sanitized}' 2>/dev/null; true`;
 }
+import { randomUUID } from "node:crypto";

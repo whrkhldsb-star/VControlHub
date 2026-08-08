@@ -18,6 +18,7 @@ import { createReadStream } from "node:fs";
 import {
   access,
   copyFile,
+  lstat,
   mkdir,
   readFile,
   rm,
@@ -105,6 +106,8 @@ export type MigrationImportResult = {
   manifest: MigrationManifest;
 };
 
+type MigrationSession = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
+
 function projectRoot(): string {
   return config.app.appDir || process.cwd();
 }
@@ -185,13 +188,38 @@ export async function resolveMigrationPackageDir(
   const extractDir = join(packagesRoot(root), extractId);
   await mkdir(extractDir, { recursive: true });
   try {
+    const [{ stdout: memberNames }, { stdout: memberDetails }] = await Promise.all([
+      runFile("tar", ["-tzf", candidate], {
+        timeout: 30_000,
+        maxBuffer: 8 * 1024 * 1024,
+      }),
+      runFile("tar", ["-tvzf", candidate], {
+        timeout: 30_000,
+        maxBuffer: 8 * 1024 * 1024,
+      }),
+    ]);
+    for (const member of memberNames.split("\n").filter(Boolean)) {
+      const parts = member.replace(/\\/g, "/").split("/");
+      if (member.startsWith("/") || parts.some((part) => part === "..")) {
+        throw new ValidationError(t("backend.backup.archiveMemberUnsafe", { member }));
+      }
+    }
+    for (const detail of memberDetails.split("\n").filter(Boolean)) {
+      const type = detail[0];
+      if (type !== "-" && type !== "d") {
+        throw new ValidationError(t("backend.backup.archiveRegularOnly"));
+      }
+    }
+
     // Prefer GNU tar --restrict when available; always re-verify no path escape after extract.
     await runFile("tar", ["-xzf", candidate, "-C", extractDir, "--restrict"], {
       timeout: 120_000,
       maxBuffer: 2 * 1024 * 1024,
     }).catch(async () => {
       // BusyBox/older tar may not support --restrict; fall back then verify members.
-      await runFile("tar", ["-xzf", candidate, "-C", extractDir], {
+      await rm(extractDir, { recursive: true, force: true });
+      await mkdir(extractDir, { recursive: true });
+      await runFile("tar", ["-xzf", candidate, "-C", extractDir, "--no-same-owner", "--no-same-permissions"], {
         timeout: 120_000,
         maxBuffer: 2 * 1024 * 1024,
       });
@@ -212,6 +240,9 @@ export async function resolveMigrationPackageDir(
       const relPath = relative(rootAbs, abs);
       if (relPath.startsWith("..") || relPath === ".." || resolve(rootAbs, relPath) !== abs) {
         throw new ValidationError(t("backend.backup.packageOutsideRoot"));
+      }
+      if (kid.isSymbolicLink() || (!kid.isDirectory() && !kid.isFile())) {
+        throw new ValidationError(t("backend.backup.archiveRegularOnly"));
       }
       if (kid.isDirectory()) await assertNoEscape(abs, rootAbs);
     }
@@ -261,29 +292,72 @@ export async function readMigrationManifest(packageDir: string): Promise<Migrati
   if (!m.packageId || !m.backup?.type || !m.backup.payloadFileName || !m.backup.checksumSha256) {
     throw new ValidationError(t("backend.backup.manifestMissingFields"));
   }
+  assertSafePackageId(m.packageId);
   if (!isBackupType(m.backup.type)) {
     throw new ValidationError(`Invalid backup type in manifest: ${m.backup.type}`);
   }
+  if (
+    basename(m.backup.payloadFileName) !== m.backup.payloadFileName ||
+    m.backup.payloadFileName === "." ||
+    m.backup.payloadFileName === ".." ||
+    m.backup.payloadFileName.includes("\\") ||
+    m.backup.payloadFileName.includes("\0")
+  ) {
+    throw new ValidationError(t("backend.backup.payloadNameInvalid"));
+  }
+  if (!/^[a-f0-9]{64}$/i.test(m.backup.checksumSha256)) {
+    throw new ValidationError(t("backend.backup.payloadChecksumInvalid"));
+  }
+  if (!Number.isSafeInteger(m.backup.fileSize) || m.backup.fileSize < 0) {
+    throw new ValidationError(t("backend.backup.payloadSizeInvalid"));
+  }
   return m as MigrationManifest;
+}
+
+function assertMigrationTeamAccess(
+  manifest: MigrationManifest,
+  session?: MigrationSession | null,
+) {
+  if (!session || session.roles.includes("admin")) return;
+  const sourceTeamId = manifest.source?.teamId ?? null;
+  // Legacy null-team packages follow the existing shared backup policy. A
+  // stamped package is visible only from the matching current team.
+  if (sourceTeamId !== null && sourceTeamId !== session.currentTeamId) {
+    throw new ForbiddenError(t("backend.backup.packageTeamForbidden"));
+  }
 }
 
 export async function validateMigrationPackage(
   packageRef: string,
   root = projectRoot(),
+  session?: MigrationSession | null,
 ): Promise<MigrationValidateResult & { cleanup?: () => Promise<void> }> {
   const resolved = await resolveMigrationPackageDir(packageRef, root);
   const issues: string[] = [];
   let manifest: MigrationManifest;
   try {
     manifest = await readMigrationManifest(resolved.packageDir);
+    assertMigrationTeamAccess(manifest, session);
   } catch (error) {
     if (resolved.cleanup) await resolved.cleanup();
     throw error;
   }
 
-  const payloadAbsolutePath = join(resolved.packageDir, manifest.backup.payloadFileName);
+  const payloadAbsolutePath = resolve(resolved.packageDir, manifest.backup.payloadFileName);
+  const payloadRelativePath = relative(resolve(resolved.packageDir), payloadAbsolutePath);
+  if (
+    payloadRelativePath.startsWith("..") ||
+    payloadRelativePath === ".." ||
+    resolve(resolved.packageDir, payloadRelativePath) !== payloadAbsolutePath
+  ) {
+    if (resolved.cleanup) await resolved.cleanup();
+    throw new ValidationError(t("backend.backup.packageOutsideRoot"));
+  }
   try {
-    await access(payloadAbsolutePath);
+    const payloadInfo = await lstat(payloadAbsolutePath);
+    if (!payloadInfo.isFile() || payloadInfo.isSymbolicLink()) {
+      issues.push(`payload is not a regular file: ${manifest.backup.payloadFileName}`);
+    }
   } catch {
     issues.push(`payload missing: ${manifest.backup.payloadFileName}`);
   }
@@ -319,7 +393,7 @@ export async function validateMigrationPackage(
 
 export async function exportMigrationPackage(input: {
   backupId: string;
-  session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
+  session?: MigrationSession;
   projectRoot?: string;
   note?: string;
 }): Promise<MigrationExportResult> {
@@ -423,12 +497,12 @@ export async function exportMigrationPackage(input: {
 
 export async function importMigrationPackage(input: {
   packageRef: string;
-  session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
+  session?: MigrationSession;
   projectRoot?: string;
   note?: string;
 }): Promise<MigrationImportResult> {
   const root = input.projectRoot || projectRoot();
-  const validated = await validateMigrationPackage(input.packageRef, root);
+  const validated = await validateMigrationPackage(input.packageRef, root, input.session);
   try {
     if (!validated.ok) {
       throw new ValidationError(
@@ -437,19 +511,6 @@ export async function importMigrationPackage(input: {
     }
 
     const { manifest, payloadAbsolutePath } = validated;
-    // Team isolation: non-admin may only import packages exported for their team
-    // (or legacy packages with null source.teamId).
-    const sourceTeamId = manifest.source?.teamId ?? null;
-    const session = input.session;
-    if (
-      session &&
-      !session.roles?.includes("admin") &&
-      session.currentTeamId &&
-      sourceTeamId !== null &&
-      sourceTeamId !== session.currentTeamId
-    ) {
-      throw new ForbiddenError("Cannot import migration package from another team");
-    }
     const type = manifest.backup.type;
     const portablePath = buildBackupFilePath(type);
     assertPortableBackupPath(portablePath);
@@ -544,7 +605,7 @@ export async function listMigrationPackages(
   // (or legacy null packages — still visible under teamWhere-null policy).
   const isAdmin = Boolean(session?.roles?.includes("admin"));
   const teamId = session?.currentTeamId ?? null;
-  const filterByTeam = Boolean(session && teamId && !isAdmin);
+  const filterByTeam = Boolean(session && !isAdmin);
 
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
@@ -554,8 +615,8 @@ export async function listMigrationPackages(
       const dir = join(rootDir, packageId);
       const manifest = await readMigrationManifest(dir).catch(() => null);
       const sourceTeamId = manifest?.source?.teamId ?? null;
-      // Team-scoped list: only packages stamped with this team (exclude other teams and unscoped).
-      if (filterByTeam && sourceTeamId !== teamId) {
+      // Team-scoped list: include this team's packages and legacy unscoped packages.
+      if (filterByTeam && sourceTeamId !== null && sourceTeamId !== teamId) {
         continue;
       }
       const tarPath = join(getBackupStorageRoot(root), `${relativeDir}.tar.gz`);
@@ -578,4 +639,3 @@ export async function listMigrationPackages(
 
   return results.sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
 }
-

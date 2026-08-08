@@ -2,7 +2,7 @@ import { mkdir, readFile, rename, rm, unlink, writeFile } from "node:fs/promises
 
 import { ValidationError } from "@/lib/errors";
 import { resolveStorageSshCredentials } from "./ssh-credentials";
-import { expandStorageBasePath } from "./path-utils";
+import { expandStorageBasePath, resolveStoragePathWithinBase } from "./path-utils";
 import { normalizeRemoteTargetPath } from "./remote-path";
 import { t } from "@/lib/i18n/service-translations";
 import {
@@ -60,16 +60,16 @@ export async function resolveManagedLocalEntryPath(input: {
   relativePath: string;
 }) {
   const path = await import("node:path");
-  const normalizedRelativePath = input.relativePath.replace(/^\/+/, "");
   const allowedRoot = path.resolve(expandStorageBasePath(input.basePath));
-  const absolutePath = path.resolve(allowedRoot, normalizedRelativePath);
-  const relativeToRoot = path.relative(allowedRoot, absolutePath);
-
-  if (relativeToRoot.startsWith("..") || path.isAbsolute(relativeToRoot)) {
+  const resolved = resolveStoragePathWithinBase(
+    input.basePath,
+    input.relativePath.replace(/^\/+/, ""),
+  );
+  if (!resolved.ok) {
     throw new ValidationError(t("backend.storage.pathExceedsRoot"));
   }
 
-  return { path, absolutePath, allowedRoot };
+  return { path, absolutePath: resolved.path, allowedRoot };
 }
 
 /**

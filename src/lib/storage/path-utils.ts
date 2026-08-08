@@ -1,3 +1,4 @@
+import { lstatSync, realpathSync } from "node:fs";
 import path from "node:path";
 
 import { config } from "@/lib/config/env";
@@ -118,6 +119,30 @@ export function getPathName(relativePath: string): string {
   return parts[parts.length - 1] ?? "";
 }
 
+function resolveThroughExistingAncestor(absolutePath: string): string | null {
+  let current = path.resolve(absolutePath);
+  const missingSegments: string[] = [];
+
+  while (true) {
+    try {
+      return path.resolve(realpathSync.native(current), ...missingSegments);
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code !== "ENOENT" && code !== "ENOTDIR") return null;
+      try {
+        if (lstatSync(current).isSymbolicLink()) return null;
+      } catch (lstatError) {
+        const lstatCode = (lstatError as NodeJS.ErrnoException).code;
+        if (lstatCode !== "ENOENT" && lstatCode !== "ENOTDIR") return null;
+      }
+      const parent = path.dirname(current);
+      if (parent === current) return null;
+      missingSegments.unshift(path.basename(current));
+      current = parent;
+    }
+  }
+}
+
 export function resolveStoragePathWithinBase(basePath: string, relativePath: string | null | undefined): StoragePathResult {
   const normalizedPath = normalizeStorageRelativePath(relativePath);
   if (!normalizedPath.ok) {
@@ -129,6 +154,22 @@ export function resolveStoragePathWithinBase(basePath: string, relativePath: str
   const relativeToRoot = path.relative(allowedRoot, absolutePath);
 
   if (relativeToRoot.startsWith("..") || path.isAbsolute(relativeToRoot)) {
+    return { ok: false, reason: "Path is out of allowed bounds" };
+  }
+
+  // Lexical containment alone is insufficient when an existing component is
+  // a symlink. Resolve the nearest existing ancestor for both paths so a link
+  // inside the storage root cannot redirect reads or writes outside it.
+  const realRoot = resolveThroughExistingAncestor(allowedRoot);
+  const realTarget = resolveThroughExistingAncestor(absolutePath);
+  if (!realRoot || !realTarget) {
+    return { ok: false, reason: "Path cannot be safely resolved" };
+  }
+  const relativeToRealRoot = path.relative(realRoot, realTarget);
+  if (
+    relativeToRealRoot.startsWith("..") ||
+    path.isAbsolute(relativeToRealRoot)
+  ) {
     return { ok: false, reason: "Path is out of allowed bounds" };
   }
 

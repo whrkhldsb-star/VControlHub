@@ -82,7 +82,14 @@ describe("assertDownloadSourceUrlSafe", () => {
     lookupMock.mockReset();
     lookupMock.mockResolvedValueOnce([{ address: "93.184.216.34", family: 4 }]);
 
-    await expect(assertDownloadSourceUrlSafe("https://example.com/file.iso")).resolves.toEqual({ ok: true });
+    await expect(assertDownloadSourceUrlSafe("https://example.com/file.iso")).resolves.toEqual({
+      ok: true,
+      resolution: {
+        hostname: "example.com",
+        address: "93.184.216.34",
+        port: 443,
+      },
+    });
     await expect(assertDownloadSourceUrlSafe("magnet:?xt=urn:btih:abcdef")).resolves.toEqual({ ok: true });
     expect(lookupMock).toHaveBeenCalledTimes(1);
   });

@@ -157,4 +157,101 @@ describe("migration packages", () => {
     expect(validated.checksumMatches).toBe(false);
     if (validated.cleanup) await validated.cleanup();
   });
+
+  it("rejects a manifest payload path that escapes the package directory", async () => {
+    const packageDir = path.join(storage, "migration-packages", "mig-unsafe1");
+    await fs.mkdir(packageDir, { recursive: true });
+    await fs.writeFile(path.join(storage, "outside.sql.gz"), "outside");
+    await fs.writeFile(path.join(packageDir, "manifest.json"), JSON.stringify({
+      version: 1,
+      packageId: "mig-unsafe1",
+      createdAt: new Date().toISOString(),
+      source: { app: "VControlHub", hostname: "host", recordId: "r1", teamId: null },
+      backup: {
+        type: "DATABASE",
+        originalFilePath: "backups/a.sql.gz",
+        payloadFileName: "../../outside.sql.gz",
+        fileSize: 7,
+        checksumSha256: "0".repeat(64),
+        note: null,
+        completedAt: null,
+      },
+      instructions: { import: "", restore: "" },
+    }));
+
+    const mod = await import("../migration-package");
+    await expect(mod.validateMigrationPackage("migration-packages/mig-unsafe1", tmp))
+      .rejects.toThrow(/普通文件名/);
+  });
+
+  it("rejects symlink payloads even when their target is a regular file", async () => {
+    const { createHash } = await import("node:crypto");
+    const packageDir = path.join(storage, "migration-packages", "mig-symlink1");
+    const outside = path.join(storage, "outside.sql.gz");
+    const payload = Buffer.from("known outside payload");
+    await fs.mkdir(packageDir, { recursive: true });
+    await fs.writeFile(outside, payload);
+    await fs.symlink(outside, path.join(packageDir, "payload.sql.gz"));
+    await fs.writeFile(path.join(packageDir, "manifest.json"), JSON.stringify({
+      version: 1,
+      packageId: "mig-symlink1",
+      createdAt: new Date().toISOString(),
+      source: { app: "VControlHub", hostname: "host", recordId: "r1", teamId: null },
+      backup: {
+        type: "DATABASE",
+        originalFilePath: "backups/a.sql.gz",
+        payloadFileName: "payload.sql.gz",
+        fileSize: payload.length,
+        checksumSha256: createHash("sha256").update(payload).digest("hex"),
+        note: null,
+        completedAt: null,
+      },
+      instructions: { import: "", restore: "" },
+    }));
+
+    const mod = await import("../migration-package");
+    const result = await mod.validateMigrationPackage("migration-packages/mig-symlink1", tmp);
+    expect(result.ok).toBe(false);
+    expect(result.issues).toContain("payload is not a regular file: payload.sql.gz");
+  });
+
+  it("blocks another team's package while preserving legacy unscoped packages", async () => {
+    const packageDir = path.join(storage, "migration-packages", "mig-team123");
+    const payload = Buffer.from("team payload");
+    const { createHash } = await import("node:crypto");
+    await fs.mkdir(packageDir, { recursive: true });
+    await fs.writeFile(path.join(packageDir, "payload.sql.gz"), payload);
+    const manifest = {
+      version: 1,
+      packageId: "mig-team123",
+      createdAt: new Date().toISOString(),
+      source: { app: "VControlHub", hostname: "host", recordId: "r1", teamId: "team-a" },
+      backup: {
+        type: "DATABASE",
+        originalFilePath: "backups/a.sql.gz",
+        payloadFileName: "payload.sql.gz",
+        fileSize: payload.length,
+        checksumSha256: createHash("sha256").update(payload).digest("hex"),
+        note: null,
+        completedAt: null,
+      },
+      instructions: { import: "", restore: "" },
+    };
+    await fs.writeFile(path.join(packageDir, "manifest.json"), JSON.stringify(manifest));
+
+    const mod = await import("../migration-package");
+    await expect(mod.validateMigrationPackage(
+      "migration-packages/mig-team123",
+      tmp,
+      { userId: "u2", roles: ["operator"], currentTeamId: "team-b" },
+    )).rejects.toThrow(/其他团队/);
+
+    manifest.source.teamId = null as unknown as string;
+    await fs.writeFile(path.join(packageDir, "manifest.json"), JSON.stringify(manifest));
+    await expect(mod.validateMigrationPackage(
+      "migration-packages/mig-team123",
+      tmp,
+      { userId: "u2", roles: ["operator"], currentTeamId: "team-b" },
+    )).resolves.toMatchObject({ ok: true });
+  });
 });

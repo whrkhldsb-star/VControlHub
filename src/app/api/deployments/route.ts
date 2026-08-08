@@ -12,6 +12,11 @@ import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
 import { AppError, isAppError, ValidationError } from "@/lib/errors";
 import { getErrorMessage } from "@/lib/http/error-message";
+import {
+  MAX_NON_FILE_FORM_BYTES,
+  requestContentLengthExceeds,
+} from "@/lib/http/request-body";
+import { t } from "@/lib/i18n/service-translations";
 export const dynamic = "force-dynamic";
 
 const createDeploymentSchema = z.object({
@@ -81,6 +86,9 @@ async function readRequestBody(request: Request) {
 export async function POST(request: Request) {
   const contentType = request.headers.get("content-type") || "";
   const isFormSubmission = contentType.includes("application/x-www-form-urlencoded") || contentType.includes("multipart/form-data");
+  if (isFormSubmission && requestContentLengthExceeds(request, MAX_NON_FILE_FORM_BYTES)) {
+    return NextResponse.json({ error: t("backend.request.bodyTooLarge") }, { status: 413 });
+  }
   const options = {
     permission: "deploy:run" as const,
     rateLimit: GENERAL_WRITE_LIMIT,

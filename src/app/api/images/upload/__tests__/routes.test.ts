@@ -329,16 +329,35 @@ describe("PUT /api/images/upload/[id]/chunk", () => {
 		);
 		expect(res.status).toBe(400);
 	});
+
+	it("rejects a body larger than its declared chunk size", async () => {
+		const res = await chunkRoute.PUT(
+			new Request(
+				"http://local/api/images/upload/sess_1/chunk?index=0&size=3",
+				{ method: "PUT", body: Buffer.from("AAAA") },
+			),
+			{ params: Promise.resolve({ id: "sess_1" }) },
+		);
+
+		expect(res.status).toBe(413);
+		expect(mocks.appendMediaUploadChunk).not.toHaveBeenCalled();
+	});
 });
 
 // ── POST /api/images/upload/[id]/complete ────────────────────────────────
 describe("POST /api/images/upload/[id]/complete", () => {
-	it("assembles chunks, runs the image pipeline, and marks COMPLETED", async () => {
+	beforeEach(async () => {
 		const { prisma } = await import("@/lib/db");
 		vi.mocked(prisma.mediaUploadSession.findFirst).mockResolvedValue({
 			filename: "photo.png",
 			mimeType: "image/png",
+			totalSize: BigInt(Buffer.byteLength("assembled-bytes")),
+			storageNodeId: null,
+			relativePath: null,
 		} as never);
+	});
+
+	it("assembles chunks, runs the image pipeline, and marks COMPLETED", async () => {
 		const res = await completeRoute.POST(
 			new Request(
 				"http://local/api/images/upload/sess_1/complete",
@@ -410,6 +429,27 @@ describe("POST /api/images/upload/[id]/complete", () => {
 			{ params: Promise.resolve({ id: "missing" }) },
 		);
 		expect(res.status).toBe(400);
+	});
+
+	it("rejects an oversized legacy image session before assembly", async () => {
+		const { prisma } = await import("@/lib/db");
+		vi.mocked(prisma.mediaUploadSession.findFirst).mockResolvedValueOnce({
+			filename: "large.png",
+			mimeType: "image/png",
+			totalSize: BigInt(20 * 1024 * 1024 + 1),
+			storageNodeId: null,
+			relativePath: null,
+		} as never);
+
+		const res = await completeRoute.POST(
+			new Request("http://local/api/images/upload/legacy/complete", {
+				method: "POST",
+			}),
+			{ params: Promise.resolve({ id: "legacy" }) },
+		);
+
+		expect(res.status).toBe(400);
+		expect(mocks.assembleMediaUploadChunks).not.toHaveBeenCalled();
 	});
 });
 

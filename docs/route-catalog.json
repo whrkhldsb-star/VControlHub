@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-04T08:49:07.288Z",
+  "generatedAt": "2026-08-08T05:21:19.312Z",
   "summary": {
     "sidebarMain": 30,
     "sidebarSystem": 5,
@@ -1558,6 +1558,7 @@
       ],
       "guardMode": "withApiRoute",
       "declaredPermissions": [
+        "image:read",
         "media:manage",
         "team:manage"
       ]

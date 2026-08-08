@@ -15,6 +15,7 @@ import {
 	ALLOWED_MIME_PREFIXES,
 	DEFAULT_CHUNK_SIZE,
 	MAX_CHUNK_SIZE,
+	MAX_IMAGE_UPLOAD_BYTES,
 	MAX_TOTAL_SIZE,
 	MIN_CHUNK_SIZE,
 	STORAGE_ALLOWED_MIME_PATTERN,
@@ -77,10 +78,17 @@ const filenameSchema = z
 	})
 	.refine((f) => !/\.svgz?$/i.test(f), { message: "SVG uploads are not allowed" });
 
-const totalSizeSchema = z
+const baseTotalSizeSchema = z
 	.number()
 	.int("totalSize must be an integer")
-	.min(1, "totalSize must be > 0")
+	.min(1, "totalSize must be > 0");
+
+const mediaTotalSizeSchema = baseTotalSizeSchema.max(
+	MAX_IMAGE_UPLOAD_BYTES,
+	`totalSize cannot exceed ${MAX_IMAGE_UPLOAD_BYTES} bytes`,
+);
+
+const storageTotalSizeSchema = baseTotalSizeSchema
 	.max(MAX_TOTAL_SIZE, `totalSize cannot exceed ${MAX_TOTAL_SIZE} bytes`);
 
 const chunkSizeSchema = z
@@ -94,7 +102,7 @@ const chunkSizeSchema = z
 export const initMediaUploadSchema = z.object({
 	filename: filenameSchema,
 	mimeType: allowedMimePrefixSchema,
-	totalSize: totalSizeSchema,
+	totalSize: mediaTotalSizeSchema,
 	chunkSize: chunkSizeSchema,
 	storageNodeId: z.string().min(1).max(64).optional(),
 	/** Optional target directory; rejects absolute paths, `..`, and illegal segments. */
@@ -105,7 +113,7 @@ export const initMediaUploadSchema = z.object({
 export const initStorageUploadSchema = z.object({
 	filename: filenameSchema,
 	mimeType: storageMimeSchema,
-	totalSize: totalSizeSchema,
+	totalSize: storageTotalSizeSchema,
 	chunkSize: chunkSizeSchema,
 	storageNodeId: z.string().min(1).max(64),
 	/** Full relative path of the target file (including filename). */

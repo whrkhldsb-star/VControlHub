@@ -17,10 +17,10 @@ describe("billingCsvUrl live path", () => {
 		);
 		vi.stubGlobal(
 			"fetch",
-			vi.fn(async () => ({
-				ok: true,
-				text: async () => "date,amount,category\n2026-07-01,9.99,vps\n",
-			})),
+			vi.fn(async () => new Response(
+				"date,amount,category\n2026-07-01,9.99,vps\n",
+				{ status: 200, headers: { "content-type": "text/csv" } },
+			)),
 		);
 
 		const result = await fetchCloudBillingItems({
@@ -64,10 +64,10 @@ describe("billingCsvUrl live path", () => {
 		);
 		vi.stubGlobal(
 			"fetch",
-			vi.fn(async () => ({
-				ok: true,
-				text: async () => "date,amount\n2026-07-03,1.25\n",
-			})),
+			vi.fn(async () => new Response(
+				"date,amount\n2026-07-03,1.25\n",
+				{ status: 200, headers: { "content-type": "text/csv" } },
+			)),
 		);
 
 		const result = await fetchCloudBillingItems({

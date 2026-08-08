@@ -11,7 +11,7 @@ import { t } from "@/lib/i18n/service-translations";
 import { createLogger } from "@/lib/logging";
 import { guessMimeType } from "@/lib/image-bed/constants";
 import { assertStorageAccess } from "@/lib/storage/access-control";
-import { expandStorageBasePath } from "@/lib/storage/path-utils";
+import { resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
 import { getSftpSyncNode, syncSftpDirectoryEntries } from "@/lib/storage/sftp-sync";
 import type { SessionPayload } from "@/lib/auth/session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
@@ -357,10 +357,9 @@ async function syncLocalShareDirectory(share: { storageNodeId: string; storageNo
 	const basePath = share.storageNode?.basePath;
 	if (!basePath) return;
 	const normalizedPrefix = share.path.replace(/^\/+|\/+$/g, "");
-	const allowedRoot = path.resolve(expandStorageBasePath(basePath));
-	const absoluteDir = path.resolve(allowedRoot, normalizedPrefix);
-	const relativeToRoot = path.relative(allowedRoot, absoluteDir);
-	if (relativeToRoot.startsWith("..") || path.isAbsolute(relativeToRoot)) return;
+	const resolved = resolveStoragePathWithinBase(basePath, normalizedPrefix);
+	if (!resolved.ok) return;
+	const absoluteDir = resolved.path;
 
 	let entries: Dirent[];
 	try {

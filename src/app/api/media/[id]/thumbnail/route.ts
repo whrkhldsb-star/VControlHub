@@ -13,8 +13,8 @@ import { createLogger } from "@/lib/logging";
 import { getMediaItem } from "@/lib/media/service";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import {
-  expandStorageBasePath,
   normalizeStorageRelativePath,
+  resolveStoragePathWithinBase,
 } from "@/lib/storage/path-utils";
 import {
   normalizeRemoteRelativePath,
@@ -174,12 +174,9 @@ function runSingleFlight<T>(
 function resolveManagedLocalPath(basePath: string, relativePath: string) {
   const normalized = normalizeStorageRelativePath(relativePath);
   if (!normalized.ok) throw new Error(normalized.reason);
-  const allowedRoot = path.resolve(expandStorageBasePath(basePath));
-  const absolutePath = path.resolve(allowedRoot, normalized.path);
-  const relativeToRoot = path.relative(allowedRoot, absolutePath);
-  if (relativeToRoot.startsWith("..") || path.isAbsolute(relativeToRoot))
-    throw new ValidationError("Invalid path");
-  return absolutePath;
+  const resolved = resolveStoragePathWithinBase(basePath, normalized.path);
+  if (!resolved.ok) throw new ValidationError(resolved.reason);
+  return resolved.path;
 }
 
 function readLocalIntoBuffer(

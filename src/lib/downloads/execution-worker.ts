@@ -17,6 +17,7 @@ import {
   executeDirectDownload,
   type DownloadServer,
 } from "./execution";
+import type { DownloadSourceResolution } from "./source-url";
 
 const logger = createLogger("download-execution-worker");
 
@@ -43,6 +44,7 @@ type DownloadExecutionJobPayload = {
   taskId: string;
   userId?: string | null;
   requestedAt?: string;
+  sourceResolution?: DownloadSourceResolution;
 };
 
 type DownloadExecutionWorkerState = {
@@ -88,11 +90,24 @@ export function parseDownloadExecutionJobPayload(
     typeof payload.userId === "string" && payload.userId.trim()
       ? payload.userId.trim()
       : null;
+  const sourcePort: 80 | 443 | undefined =
+    payload.sourcePort === 80 ? 80 : payload.sourcePort === 443 ? 443 : undefined;
+  const sourceResolution =
+    typeof payload.sourceHostname === "string" &&
+    typeof payload.sourceAddress === "string" &&
+    sourcePort !== undefined
+      ? {
+          hostname: payload.sourceHostname,
+          address: payload.sourceAddress,
+          port: sourcePort,
+        }
+      : undefined;
   return {
     mode,
     taskId,
     userId,
     requestedAt: typeof payload.requestedAt === "string" ? payload.requestedAt : undefined,
+    ...(sourceResolution ? { sourceResolution } : {}),
   };
 }
 
@@ -108,6 +123,7 @@ export async function enqueueDownloadExecutionJob(input: {
    * already has it on the joined `server.storageNode` row).
    */
   storageNodeId?: string | null;
+  sourceResolution?: DownloadSourceResolution;
 }) {
   // Defensive trim + non-empty check: an empty/whitespace taskId would
   // create a real durable job row that the worker cannot dispatch against
@@ -127,6 +143,9 @@ export async function enqueueDownloadExecutionJob(input: {
       userId: input.userId ?? null,
       teamId: input.teamId ?? null,
       requestedAt: new Date().toISOString(),
+      sourceHostname: input.sourceResolution?.hostname ?? null,
+      sourceAddress: input.sourceResolution?.address ?? null,
+      sourcePort: input.sourceResolution?.port ?? null,
     },
     createdBy: input.userId ?? null,
     teamId: input.teamId ?? null,
@@ -309,6 +328,7 @@ async function handleClaimedJob(
         task.targetPath,
         task.fileName,
         payload.userId ?? task.createdBy ?? undefined,
+        payload.sourceResolution,
       );
     }
 
