@@ -8,12 +8,10 @@
  *   3. `src/app/<all-ts-or-tsx>` — actual call sites (sessionHasPermission / requirePermission)
  *   4. Page-level button gating (variable assigned + downstream usage)
  *
- * These tests cover the pure-function exports. Tests that depend on the
- * real on-disk `src/lib/auth/rbac.ts` and `docs/route-catalog.json` are
- * guarded by file-exists checks so the suite can run on a fresh checkout
- * where those files may not exist (e.g. during tooling migration).
+ * These tests cover the pure-function exports and the required on-disk RBAC
+ * source of truth. A missing source file is a test failure, not a skip.
  */
-import { mkdtempSync, rmSync, writeFileSync, existsSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -80,11 +78,8 @@ function makeReport(overrides?: Partial<AuditReport>): AuditReport {
 
 // ─── loadRbac — real rbac.ts fixture ───────────────────────────────────────
 
-const RBAC_FIXTURE = join(process.cwd(), "src/lib/auth/rbac.ts");
-
 describe("loadRbac — real rbac.ts fixture", () => {
   it("extracts all current permissions from the PERMISSIONS tuple", () => {
-    if (!existsSync(RBAC_FIXTURE)) return; // skip if fixture missing
     const { permissions } = loadRbac();
     expect(permissions.length).toBe(54);
     expect(permissions).toContain("ai:chat");
@@ -99,7 +94,6 @@ describe("loadRbac — real rbac.ts fixture", () => {
   });
 
   it("returns the admin role with all permissions via ALL_PERMISSIONS reference", () => {
-    if (!existsSync(RBAC_FIXTURE)) return;
     const { roleMap } = loadRbac();
     expect(roleMap.admin.length).toBe(54);
     expect(roleMap.admin).toContain("ai:chat");
@@ -113,7 +107,6 @@ describe("loadRbac — real rbac.ts fixture", () => {
   });
 
   it("returns a non-empty operator role map", () => {
-    if (!existsSync(RBAC_FIXTURE)) return;
     const { roleMap } = loadRbac();
     expect(roleMap.operator.length).toBeGreaterThan(0);
     expect(roleMap.operator).toContain("backup:create");
@@ -123,7 +116,6 @@ describe("loadRbac — real rbac.ts fixture", () => {
   });
 
   it("returns a non-empty viewer role map", () => {
-    if (!existsSync(RBAC_FIXTURE)) return;
     const { roleMap } = loadRbac();
     expect(roleMap.viewer.length).toBeGreaterThan(0);
     // viewer should not have write permissions
@@ -132,7 +124,6 @@ describe("loadRbac — real rbac.ts fixture", () => {
   });
 
   it("returns a storage_manager role map", () => {
-    if (!existsSync(RBAC_FIXTURE)) return;
     const { roleMap } = loadRbac();
     expect(roleMap.storage_manager.length).toBeGreaterThan(0);
     expect(roleMap.storage_manager).toContain("storage:read");
