@@ -7,6 +7,7 @@ import {
   completeJob,
   enqueueJob,
   failJob,
+  failJobTerminal,
   heartbeatJob,
 } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
@@ -206,7 +207,7 @@ async function handleClaimedJob(
   } catch (parseError) {
     const message =
       parseError instanceof Error ? parseError.message : "download.execute task payload parsing failed";
-    await failJob(job.id, DOWNLOAD_EXECUTION_WORKER_ID, message.slice(0, 2000));
+    await failJobTerminal(job.id, DOWNLOAD_EXECUTION_WORKER_ID, message.slice(0, 2000),);
     logger.error("Download execution job payload invalid", { jobId: job.id, error: message });
     return true;
   }
@@ -222,15 +223,15 @@ async function handleClaimedJob(
 
     const task = await loadTaskRow(payload.taskId);
     if (!task) {
-      await failJob(job.id, DOWNLOAD_EXECUTION_WORKER_ID, `Download task ${payload.taskId} does not exist`);
+      await failJobTerminal(job.id, DOWNLOAD_EXECUTION_WORKER_ID, `Download task ${payload.taskId} does not exist`);
       return true;
     }
     if (!task.server) {
-      await failJob(job.id, DOWNLOAD_EXECUTION_WORKER_ID, `Download task ${payload.taskId} is missing a VPS node`);
+      await failJobTerminal(job.id, DOWNLOAD_EXECUTION_WORKER_ID, `Download task ${payload.taskId} is missing a VPS node`);
       return true;
     }
     if (!task.server.storageNode) {
-      await failJob(
+      await failJobTerminal(
         job.id,
         DOWNLOAD_EXECUTION_WORKER_ID,
         `The VPS for download task ${payload.taskId} is not bound to a storage node`,
@@ -274,14 +275,12 @@ async function handleClaimedJob(
     }
     if (task.status === "FAILED") {
       // The execute* helper already recorded the failure on the
-      // downloadTask row. failJob with the row's last error so the
+      // downloadTask row. Fail terminally with the row's last error so the
       // job's `lastError` matches the user-visible message.
-      await failJob(
+      await failJobTerminal(
         job.id,
         DOWNLOAD_EXECUTION_WORKER_ID,
         (task.errorMessage ?? "Download task failed").slice(0, 2000),
-        // No retry: the business side is terminal.
-        { retryAfterMs: undefined },
       );
       logger.info(
         "Download execution job found the task already FAILED; failing job without retrying",
@@ -290,11 +289,10 @@ async function handleClaimedJob(
       return true;
     }
     if (task.status === "CANCELLED") {
-      await failJob(
+      await failJobTerminal(
         job.id,
         DOWNLOAD_EXECUTION_WORKER_ID,
         (task.errorMessage ?? "Download task cancelled").slice(0, 2000),
-        { retryAfterMs: undefined },
       );
       logger.info(
         "Download execution job found the task CANCELLED; failing job without retrying",
@@ -356,11 +354,10 @@ async function handleClaimedJob(
           status: "already_completed_after_error",
         });
       } else {
-        await failJob(
+        await failJobTerminal(
           job.id,
           DOWNLOAD_EXECUTION_WORKER_ID,
           (postTask.errorMessage ?? message).slice(0, 2000),
-          { retryAfterMs: undefined },
         );
       }
       logger.info(

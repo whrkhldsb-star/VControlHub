@@ -91,7 +91,7 @@ async function processHostedTools(input: {
 
     const execution = await executeSafeAction(
       { actionType: tool.actionType, serverId: action.serverId, params },
-      { session: input.session },
+      { session: input.session, locale: input.locale },
     );
     await prisma.$transaction([
       prisma.aiHostedAction.update({
@@ -139,8 +139,10 @@ function createStreamingResponse(input: {
   hostingEnabled: boolean;
   session: SessionPayload;
   locale: Locale;
+  userMessageId: string;
 }): Response {
   let cancelled = false;
+  let assistantPersisted = false;
   const abortController = new AbortController();
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -162,6 +164,10 @@ function createStreamingResponse(input: {
 
       try {
         if (!input.upstream.body) {
+          await removeOrphanUserMessage(
+            input.userMessageId,
+            input.conversationId,
+          );
           send({ type: "error", error: t("apiAiChat.cannotReadStream", input.locale) });
           return;
         }
@@ -173,24 +179,9 @@ function createStreamingResponse(input: {
           signal: abortController.signal,
         });
         if (cancelled) {
-          // Client disconnected (stop / network drop) before the assistant
-          // reply was persisted. The user message is already in the DB, so
-          // write an interrupted marker — otherwise the conversation ends on
-          // a permanent orphan user message that gets replayed as history
-          // on the next turn.
-          try {
-            await prisma.aiMessage.create({
-              data: {
-                conversationId: input.conversationId,
-                role: "assistant",
-                content: t("apiAiChat.streamInterrupted", input.locale),
-                model: input.model,
-              },
-            });
-          } catch (error) {
-            logger.error("Failed to persist interrupted AI message", error, {
-              conversationId: input.conversationId,
-            });
+          const persisted = await persistInterruptedAssistant(input);
+          if (!persisted) {
+            await removeOrphanUserMessage(input.userMessageId, input.conversationId);
           }
           return;
         }
@@ -214,6 +205,7 @@ function createStreamingResponse(input: {
             latencyMs: Date.now() - input.startTime,
           },
         });
+        assistantPersisted = true;
         const toolResults = input.hostingEnabled
           ? await processHostedTools({
               toolCalls: result.toolCalls,
@@ -233,10 +225,23 @@ function createStreamingResponse(input: {
           toolResults,
         });
       } catch (error) {
+        if (cancelled) {
+          const persisted = await persistInterruptedAssistant(input);
+          if (!persisted) {
+            await removeOrphanUserMessage(input.userMessageId, input.conversationId);
+          }
+          return;
+        }
         logger.error("Failed to finalize AI chat stream", error, {
           conversationId: input.conversationId,
           userId: input.session.userId,
         });
+        if (!assistantPersisted) {
+          await removeOrphanUserMessage(
+            input.userMessageId,
+            input.conversationId,
+          );
+        }
         send({
           type: "error",
           error: getErrorMessage(error, t("apiAiChat.streamErrorFallback", input.locale)),
@@ -260,6 +265,45 @@ function createStreamingResponse(input: {
   });
 }
 
+async function persistInterruptedAssistant(input: {
+  conversationId: string;
+  model: string;
+  locale: Locale;
+}) {
+  try {
+    await prisma.aiMessage.create({
+      data: {
+        conversationId: input.conversationId,
+        role: "assistant",
+        content: t("apiAiChat.streamInterrupted", input.locale),
+        model: input.model,
+      },
+    });
+    return true;
+  } catch (error) {
+    logger.error("Failed to persist interrupted AI message", error, {
+      conversationId: input.conversationId,
+    });
+    return false;
+  }
+}
+
+async function removeOrphanUserMessage(
+  messageId: string,
+  conversationId: string,
+) {
+  try {
+    await prisma.aiMessage.deleteMany({
+      where: { id: messageId, conversationId, role: "user" },
+    });
+  } catch (error) {
+    logger.error("Failed to remove orphan AI user message", error, {
+      conversationId,
+      messageId,
+    });
+  }
+}
+
 export async function createAiChatResponse(input: {
   body: ChatRequestBody & { conversationId: string; content: string };
   session: SessionPayload;
@@ -278,6 +322,7 @@ export async function createAiChatResponse(input: {
     isVisionCapable: conversation.enableVision,
     locale: input.locale,
   });
+  const userMessage =
   await createMessage({
     conversationId: conversation.id,
     role: "user",
@@ -324,8 +369,10 @@ export async function createAiChatResponse(input: {
       hostingEnabled: conversation.hostingEnabled,
       session: input.session,
       locale: input.locale,
+      userMessageId: userMessage.id,
     });
   } catch (error) {
+    await removeOrphanUserMessage(userMessage.id, conversation.id);
     throw new AppError({
       code: "INTERNAL_ERROR",
       message: getErrorMessage(error, t("apiAiChat.requestFailedFallback", input.locale)),

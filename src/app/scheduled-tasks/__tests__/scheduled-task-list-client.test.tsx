@@ -30,6 +30,7 @@ const task = {
 
 describe("ScheduledTaskListClient", () => {
   beforeEach(() => {
+    window.history.replaceState({}, "", "/scheduled-tasks");
     vi.clearAllMocks();
     vi.restoreAllMocks();
   });

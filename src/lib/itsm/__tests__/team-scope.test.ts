@@ -42,7 +42,7 @@ describe("ITSM team scope", () => {
     sessionHasPermissionMock.mockReturnValue(false);
   });
 
-  it("listItsmConnections spreads teamWhere for non-admin session", async () => {
+  it("listItsmConnections uses the exact team for a non-admin session", async () => {
     findManyMock.mockResolvedValueOnce([]);
     await listItsmConnections({
       userId: "u1",
@@ -51,9 +51,7 @@ describe("ITSM team scope", () => {
     });
     expect(findManyMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({
-          OR: [{ teamId: "team_a" }, { teamId: null }],
-        }),
+        where: { teamId: "team_a" },
       }),
     );
   });
@@ -69,10 +67,10 @@ describe("ITSM team scope", () => {
     ).rejects.toThrow(/不存在|not found/i);
     expect(findFirstMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({
+        where: {
           id: "c1",
-          OR: [{ teamId: "team_a" }, { teamId: null }],
-        }),
+          teamId: "team_a",
+        },
       }),
     );
   });

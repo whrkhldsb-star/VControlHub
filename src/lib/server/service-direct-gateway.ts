@@ -241,8 +241,7 @@ export async function applyServerDirectGatewayState(input: {
     server.host.trim(),
   );
   if (input.enabled && isLocalHost) {
-    const errorMessage =
-      "The local node does not need a direct gateway to the target server. Continue using website relay or local storage access.";
+    const errorMessage = t("backend.server.localNodeDirectGatewayNotNeeded");
     if (input.bestEffort) {
       return {
         enabled: false,
@@ -257,8 +256,7 @@ export async function applyServerDirectGatewayState(input: {
     input.enabled &&
     (!server.storageNode || server.storageNode.driver !== "SFTP")
   ) {
-    const errorMessage =
-      "Target server direct connection can only be enabled for VPS instances bound to an SFTP storage node. Please create or repair the remote storage node for this VPS first.";
+    const errorMessage = t("backend.server.directGatewayRequiresSftp");
     if (input.bestEffort) {
       return {
         enabled: false,
@@ -333,7 +331,7 @@ export async function applyServerDirectGatewayState(input: {
         throw new BusinessError(
           result.stderr ||
             result.stdout ||
-            "Target server direct connection service operation failed",
+            t("backend.server.directGatewayOperationFailed"),
         );
     } catch (error) {
       if (!input.bestEffort) throw error;
@@ -377,12 +375,18 @@ export async function applyServerDirectGatewayState(input: {
         } catch {
           /* ignore */
         }
-        const failMsg =
-          `Direct gateway installed on the VPS but public health check failed for ${publicBaseUrl}/__vch_health (${probe.error ?? "unreachable"}). ` +
-          `Open firewall/security-group/NAT for port ${autoReverseProxy ? DIRECT_GATEWAY_HTTPS_PUBLIC_PORT : DIRECT_GATEWAY_DEFAULT_PORT}` +
-          (autoReverseProxy
-            ? " (HTTPS auto reverse-proxy). Database stays on website relay."
-            : ", or use a reverse proxy. Database stays on website relay.");
+        const failMsg = t(
+          autoReverseProxy
+            ? "backend.server.directGatewayPublicProbeFailedHttps"
+            : "backend.server.directGatewayPublicProbeFailedHttp",
+          {
+            url: `${publicBaseUrl}/__vch_health`,
+            error: probe.error ?? t("backend.server.unreachable"),
+            port: autoReverseProxy
+              ? DIRECT_GATEWAY_HTTPS_PUBLIC_PORT
+              : DIRECT_GATEWAY_DEFAULT_PORT,
+          },
+        );
         if (input.bestEffort) {
           return {
             enabled: false,

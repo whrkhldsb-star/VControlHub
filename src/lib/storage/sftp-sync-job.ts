@@ -109,11 +109,7 @@ async function executeSftpSyncJob(job: {
   });
 
   if (
-    result.errors.length > 0 &&
-    result.synced === 0 &&
-    result.created === 0 &&
-    result.updated === 0 &&
-    result.deleted === 0
+    result.errors.length > 0
   ) {
     throw new Error(result.errors.join("; "));
   }

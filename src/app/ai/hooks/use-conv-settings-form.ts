@@ -9,7 +9,7 @@
  * Extracted from ai-client.tsx in R31. The form hydrates from
  * `activeConv` whenever the active conversation changes.
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -32,31 +32,36 @@ export function useConvSettingsForm({
 }) {
   const { t } = useI18n();
   const [settingsForm, setSettingsForm] = useState(DEFAULT_SETTINGS_FORM);
+  const [baseline, setBaseline] = useState(DEFAULT_SETTINGS_FORM);
 
   // Rehydrate only when the active conversation identity changes — not on every
   // refreshConversations() object replacement (which would clobber dirty edits).
   useEffect(() => {
-    let ignore = false;
     if (activeConv && activeConvId) {
-      setTimeout(() => {
-        if (!ignore) {
-          setSettingsForm({
-            model: activeConv.model,
-            systemPrompt: activeConv.systemPrompt || "",
-            temperature: activeConv.temperature,
-            maxTokens: activeConv.maxTokens,
-            topP: activeConv.topP,
-            frequencyPenalty: activeConv.frequencyPenalty,
-            presencePenalty: activeConv.presencePenalty,
-            enableVision: activeConv.enableVision,
-            hostingEnabled: activeConv.hostingEnabled,
-          });
-        }
+      const timer = window.setTimeout(() => {
+        const next = {
+          model: activeConv.model,
+          systemPrompt: activeConv.systemPrompt || "",
+          temperature: activeConv.temperature,
+          maxTokens: activeConv.maxTokens,
+          topP: activeConv.topP,
+          frequencyPenalty: activeConv.frequencyPenalty,
+          presencePenalty: activeConv.presencePenalty,
+          enableVision: activeConv.enableVision,
+          hostingEnabled: activeConv.hostingEnabled,
+        };
+        setSettingsForm(next);
+        setBaseline(next);
       }, 0);
+      return () => window.clearTimeout(timer);
     }
-    return () => { ignore = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally only activeConvId
   }, [activeConvId]);
+
+  const dirty = useMemo(
+    () => JSON.stringify(settingsForm) !== JSON.stringify(baseline),
+    [baseline, settingsForm],
+  );
 
   const handleSaveSettings = useCallback(async () => {
     if (!activeConvId) return;
@@ -66,6 +71,7 @@ export function useConvSettingsForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(settingsForm),
       });
+      setBaseline(settingsForm);
       await refreshConversations();
       onSaved();
     } catch {
@@ -81,5 +87,5 @@ export function useConvSettingsForm({
     t,
   ]);
 
-  return { settingsForm, setSettingsForm, handleSaveSettings };
+  return { settingsForm, setSettingsForm, handleSaveSettings, dirty };
 }

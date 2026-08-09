@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-09T06:19:57.114Z",
+  "generatedAt": "2026-08-09T14:19:45.477Z",
   "summary": {
     "permissionsInList": 54,
     "rolesDefined": 4,
@@ -440,7 +440,7 @@
         },
         {
           "path": "src/app/api/dashboard/analytics/route.ts",
-          "line": 44
+          "line": 62
         },
         {
           "path": "src/app/api/jobs/backlog/route.ts",
@@ -1070,7 +1070,7 @@
         },
         {
           "path": "src/app/deployments/page.tsx",
-          "line": 45
+          "line": 46
         }
       ],
       "pages": [
@@ -1104,7 +1104,7 @@
         },
         {
           "path": "src/app/deployments/page.tsx",
-          "line": 43
+          "line": 44
         }
       ],
       "pages": [
@@ -1134,7 +1134,7 @@
         },
         {
           "path": "src/app/deployments/page.tsx",
-          "line": 44
+          "line": 45
         },
         {
           "path": "src/app/templates/page.tsx",
@@ -1271,7 +1271,7 @@
       "files": [
         {
           "path": "src/app/api/dashboard/analytics/route.ts",
-          "line": 42
+          "line": 60
         },
         {
           "path": "src/app/api/health/capacity/route.ts",
@@ -1341,7 +1341,7 @@
       "files": [
         {
           "path": "src/app/api/dashboard/analytics/route.ts",
-          "line": 45
+          "line": 63
         },
         {
           "path": "src/app/api/images/[id]/file/route.ts",
@@ -1381,7 +1381,7 @@
       "files": [
         {
           "path": "src/app/api/dashboard/analytics/route.ts",
-          "line": 45
+          "line": 63
         },
         {
           "path": "src/app/api/images/[id]/route.ts",
@@ -1431,7 +1431,7 @@
       "files": [
         {
           "path": "src/app/api/dashboard/analytics/route.ts",
-          "line": 45
+          "line": 63
         },
         {
           "path": "src/app/api/images/[id]/file/route.ts",
@@ -1756,7 +1756,7 @@
       "files": [
         {
           "path": "src/app/api/dashboard/analytics/route.ts",
-          "line": 42
+          "line": 60
         },
         {
           "path": "src/app/api/search/route.ts",
@@ -2335,7 +2335,7 @@
       "files": [
         {
           "path": "src/app/api/dashboard/analytics/route.ts",
-          "line": 43
+          "line": 61
         },
         {
           "path": "src/app/api/downloads/recent/route.ts",
@@ -2347,7 +2347,7 @@
         },
         {
           "path": "src/app/api/downloads/route-get.ts",
-          "line": 20
+          "line": 22
         },
         {
           "path": "src/app/api/files/[id]/versions/[versionId]/download/route.ts",

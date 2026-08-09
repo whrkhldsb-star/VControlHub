@@ -85,6 +85,12 @@ export const zh: Record<string, string> = {
 	"jobEventsDialog.type.recovered": "恢复",
 	"jobEventsDialog.type.cancelled": "取消",
 	"jobEventsDialog.type.enqueued": "入队",
+	"jobEventsDialog.message.enqueued": "任务已入队（类型：{type}，优先级：{priority}）",
+	"jobEventsDialog.message.claimed": "后台执行器 {worker} 已认领任务",
+	"jobEventsDialog.message.completed": "任务已完成",
+	"jobEventsDialog.message.cancelled": "任务已取消",
+	"jobEventsDialog.message.recovered": "后台执行器心跳超时，任务已重新入队",
+	"jobEventsDialog.message.heartbeatExhausted": "后台执行器心跳超时，任务已耗尽重试次数",
 };
 
 export const en: Record<string, string> = {
@@ -167,4 +173,10 @@ export const en: Record<string, string> = {
 	"jobEventsDialog.type.recovered": "Recovered",
 	"jobEventsDialog.type.cancelled": "Cancelled",
 	"jobEventsDialog.type.enqueued": "Enqueued",
+	"jobEventsDialog.message.enqueued": "Task enqueued (type: {type}, priority: {priority})",
+	"jobEventsDialog.message.claimed": "Background worker {worker} claimed the task",
+	"jobEventsDialog.message.completed": "Task completed",
+	"jobEventsDialog.message.cancelled": "Task cancelled",
+	"jobEventsDialog.message.recovered": "Background worker heartbeat expired; task re-enqueued",
+	"jobEventsDialog.message.heartbeatExhausted": "Background worker heartbeat expired after all attempts were exhausted",
 };

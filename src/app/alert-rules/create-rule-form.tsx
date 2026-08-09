@@ -11,6 +11,7 @@ import { cn } from "@/lib/ui/cn";
 
 import type { PlaybookOption, ServerOption } from "./alert-rule-types";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { useUnsavedChangesGuard } from "@/lib/forms/use-unsaved-changes-guard";
 
 const selectClass = cn(UI_INPUT, "py-2.5");
 const chipActive =
@@ -52,7 +53,14 @@ export function CreateRuleForm({
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
-	const toggleChannel = (ch: string) => {
+	const [dirty, setDirty] = useState(false);
+  const { requestDiscard, discardDialog } = useUnsavedChangesGuard({
+    dirty,
+    onDiscard: onClose,
+  });
+
+  const toggleChannel = (ch: string) => {
+    setDirty(true);
 		setChannels((prev) => {
 			if (prev.includes(ch)) {
 				// Keep at least one channel so POST never sends notifyChannels:[].
@@ -63,11 +71,13 @@ export function CreateRuleForm({
 		});
 	};
 	const toggleServer = (serverId: string) => {
+    setDirty(true);
 		setSelectedServerIds((prev) =>
 			prev.includes(serverId) ? prev.filter((id) => id !== serverId) : [...prev, serverId],
 		);
 	};
 	const togglePlaybook = (playbookId: string) => {
+    setDirty(true);
 		setSelectedPlaybookIds((prev) =>
 			prev.includes(playbookId)
 				? prev.filter((id) => id !== playbookId)
@@ -114,6 +124,7 @@ export function CreateRuleForm({
 							: undefined,
 				}),
 			});
+      setDirty(false);
 			onClose();
 		} catch (err) {
 			setError(getErrorMessage(err, t("alertRulesPage.createForm.error")));
@@ -123,7 +134,8 @@ export function CreateRuleForm({
 	};
 
 	return (
-		<form onSubmit={handleSubmit} data-card className="space-y-4">
+		<form onSubmit={handleSubmit}
+      onChangeCapture={() => setDirty(true)} data-card className="space-y-4">
 			<h3 className="text-lg font-semibold text-[var(--text-primary)]">
 				{t("alertRulesPage.createForm.title")}
 			</h3>
@@ -384,10 +396,11 @@ export function CreateRuleForm({
 						? t("alertRulesPage.createForm.submitting")
 						: t("alertRulesPage.createForm.submit")}
 				</ActionButton>
-				<ActionButton type="button" variant="secondary" onClick={onClose} className="px-5 text-sm">
+				<ActionButton type="button" variant="secondary" onClick={requestDiscard} className="px-5 text-sm">
 					{t("alertRulesPage.createForm.cancel")}
 				</ActionButton>
 			</div>
+      {discardDialog}
 		</form>
 	);
 }

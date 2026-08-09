@@ -81,7 +81,12 @@ export const zh: Record<string, string> = {
 	"common.pagination.previous": "上一页",
 	"common.pagination.next": "下一页",
 
-	"changePassword.currentPassword": "当前密码",
+	"common.unsaved.title": "放弃未保存的更改？",
+  "common.unsaved.description": "当前内容尚未保存，离开后这些更改将丢失。",
+  "common.unsaved.stay": "继续编辑",
+  "common.unsaved.discard": "放弃并离开",
+
+  "changePassword.currentPassword": "当前密码",
 	"changePassword.currentPasswordDesc": "请输入当前正在使用的登录密码。",
 	"changePassword.newPassword": "新密码",
 	"changePassword.newPasswordDesc": "至少 8 位，建议混合大小写、数字和符号。",
@@ -172,7 +177,13 @@ export const en: Record<string, string> = {
 	"common.pagination.previous": "Previous",
 	"common.pagination.next": "Next",
 
-	"changePassword.currentPassword": "Current password",
+	"common.unsaved.title": "Discard unsaved changes?",
+  "common.unsaved.description":
+    "Your changes have not been saved and will be lost if you leave.",
+  "common.unsaved.stay": "Keep editing",
+  "common.unsaved.discard": "Discard and leave",
+
+  "changePassword.currentPassword": "Current password",
 	"changePassword.currentPasswordDesc": "Enter your current login password.",
 	"changePassword.newPassword": "New password",
 	"changePassword.newPasswordDesc": "At least 8 characters. Use a mix of upper/lower case, digits and symbols.",

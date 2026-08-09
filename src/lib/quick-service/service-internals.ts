@@ -108,7 +108,9 @@ function assertHostVolumeAllowed(hostPath: string, template: ServiceTemplate) {
 	}
 	if (TRUSTED_HOST_MOUNTS.has(hostPath)) return;
 	if (HOST_VOLUME_ROOTS.some((root) => hostPath === root.slice(0, -1) || hostPath.startsWith(root))) return;
-	throw new BusinessError(`Host mount path ${hostPath} is not within the allowed range`);
+	throw new BusinessError(
+    t("backend.quick-service.hostMountOutsideAllowedRoots", { path: hostPath }),
+  );
 }
 
 function isRemovableHostVolume(hostPath: string) {

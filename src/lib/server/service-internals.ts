@@ -12,6 +12,7 @@ import {
 import { getServerConnectionSummary } from "./config";
 import { config } from "@/lib/config/env";
 import { getDirectGatewayStatusLabel, getResolvedDirectGatewayProtocol } from "./direct-gateway";
+import { t } from "@/lib/i18n/service-translations";
 
 type ServerCommandTarget = {
   id: string;
@@ -250,16 +251,21 @@ export async function verifyServerSshConnectivity(
       throw new BusinessError(
         result.stderr ||
           result.stdout ||
-          `SSH pre-check exit code ${result.exitCode ?? "unknown"}`,
+          t("backend.server.sshPrecheckExitCode", {
+            code: result.exitCode ?? t("backend.ai.unknownError"),
+          }),
       );
     }
   } catch (error) {
     const failureMessage =
       options?.failureMessage ??
-      `Cannot connect to target server ${normalized.username}@${normalized.host}:${normalized.port}; node was not added/saved. Please check IP, port, username, and authentication credentials and retry.`;
-    throw new BusinessError(
-      `${failureMessage} Details: ${getErrorMessage(error)}`,
-    );
+      t("backend.server.cannotConnectTarget", {
+        target: `${normalized.username}@${normalized.host}:${normalized.port}`,
+      });
+    throw new BusinessError(t("backend.server.connectionFailureDetails", {
+      message: failureMessage,
+      details: getErrorMessage(error),
+    }));
   }
 }
 

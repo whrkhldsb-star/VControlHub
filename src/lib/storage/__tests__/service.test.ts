@@ -78,6 +78,11 @@ describe("storage service", () => {
     username: "admin",
     roles: ["admin"],
   } as any;
+  const teamStorageSession = {
+    userId: "u_1",
+    roles: ["operator"],
+    currentTeamId: "team-1",
+  } as any;
   it("creates a local default storage node", async () => {
     vi.clearAllMocks();
     vi.mocked(prisma.storageNode.updateMany).mockResolvedValue({ count: 0 });
@@ -1048,7 +1053,7 @@ describe("storage service", () => {
     await mkdir(path.dirname(absolutePath), { recursive: true });
     await writeFileToDisk(absolutePath, "recover me", "utf8");
 
-    vi.mocked(prisma.fileEntry.findUnique).mockResolvedValueOnce({
+    vi.mocked(prisma.fileEntry.findFirst).mockResolvedValueOnce({
       id: "file_restore_local",
       name: "notes.txt",
       entryType: "FILE",
@@ -1077,7 +1082,15 @@ describe("storage service", () => {
     } as any);
 
     try {
-      await restoreFileEntry({ fileEntryId: "file_restore_local" });
+      await restoreFileEntry({ fileEntryId: "file_restore_local" }, teamStorageSession);
+      expect(prisma.fileEntry.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            id: "file_restore_local",
+            storageNode: { OR: [{ teamId: "team-1" }, { teamId: null }] },
+          },
+        }),
+      );
       expect(prisma.fileEntry.update).toHaveBeenCalledWith({
         where: { id: "file_restore_local" },
         data: { isDeleted: false },
@@ -1093,7 +1106,7 @@ describe("storage service", () => {
       path.join(tmpdir(), "storage-restore-missing-"),
     );
 
-    vi.mocked(prisma.fileEntry.findUnique).mockResolvedValueOnce({
+    vi.mocked(prisma.fileEntry.findFirst).mockResolvedValueOnce({
       id: "file_missing_local",
       name: "missing.txt",
       entryType: "FILE",
@@ -1119,7 +1132,7 @@ describe("storage service", () => {
 
     try {
       await expect(
-        restoreFileEntry({ fileEntryId: "file_missing_local" }),
+        restoreFileEntry({ fileEntryId: "file_missing_local" }, teamStorageSession),
       ).rejects.toThrow(/original file no longer exists|原始文件已不存在/);
       expect(prisma.fileEntry.update).not.toHaveBeenCalled();
     } finally {
@@ -1129,7 +1142,7 @@ describe("storage service", () => {
 
   it("restores an SFTP deleted entry only after confirming the remote file still exists", async () => {
     vi.clearAllMocks();
-    vi.mocked(prisma.fileEntry.findUnique).mockResolvedValueOnce({
+    vi.mocked(prisma.fileEntry.findFirst).mockResolvedValueOnce({
       id: "file_restore_sftp",
       name: "report.pdf",
       entryType: "FILE",
@@ -1174,7 +1187,7 @@ describe("storage service", () => {
       isDeleted: false,
     } as any);
 
-    await restoreFileEntry({ fileEntryId: "file_restore_sftp" });
+    await restoreFileEntry({ fileEntryId: "file_restore_sftp" }, teamStorageSession);
 
     expect(listRemoteDirectoryMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1193,7 +1206,7 @@ describe("storage service", () => {
 
   it("does not restore an SFTP deleted entry when the remote file is missing", async () => {
     vi.clearAllMocks();
-    vi.mocked(prisma.fileEntry.findUnique).mockResolvedValueOnce({
+    vi.mocked(prisma.fileEntry.findFirst).mockResolvedValueOnce({
       id: "file_missing_sftp",
       name: "missing.pdf",
       entryType: "FILE",
@@ -1226,7 +1239,7 @@ describe("storage service", () => {
     listRemoteDirectoryMock.mockResolvedValueOnce([]);
 
     await expect(
-      restoreFileEntry({ fileEntryId: "file_missing_sftp" }),
+      restoreFileEntry({ fileEntryId: "file_missing_sftp" }, teamStorageSession),
     ).rejects.toThrow(
       /original remote file no longer exists|原始远端文件已不存在/,
     );

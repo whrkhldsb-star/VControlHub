@@ -46,6 +46,7 @@ vi.mock("@/lib/auth/csrf-client", () => ({
 
 describe("ImageBedPage", () => {
   beforeEach(() => {
+    window.history.replaceState({}, "", "/image-bed");
     vi.clearAllMocks();
     vi.useRealTimers();
     vi.mocked(csrfFetch).mockImplementation(async (input) => {

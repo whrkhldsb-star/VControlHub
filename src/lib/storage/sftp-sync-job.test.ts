@@ -130,4 +130,27 @@ describe("SFTP sync durable job worker", () => {
       { retryAfterMs: 60_000 },
     );
   });
+
+  it("fails and retries when a scan only partially succeeds", async () => {
+    syncSftpDirectoryEntriesMock.mockResolvedValueOnce({
+      synced: 3,
+      created: 2,
+      updated: 1,
+      deleted: 0,
+      errors: ["/logs/private: permission denied"],
+});
+
+    await runSftpSyncJobWorkerOnce(
+      { started: true, running: false, timer: null },
+      "test",
+    );
+
+    expect(completeJobMock).not.toHaveBeenCalled();
+    expect(failJobMock).toHaveBeenCalledWith(
+      "job_1",
+      expect.stringContaining(":sftp-sync:"),
+      "/logs/private: permission denied",
+      { retryAfterMs: 60_000 },
+    );
+  });
 });

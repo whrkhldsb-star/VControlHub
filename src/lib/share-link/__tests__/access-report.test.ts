@@ -14,12 +14,13 @@ describe("share access aggregate report", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.logFindMany
-      .mockResolvedValueOnce([{ id: "log-1", action: "download", ip: "203.0.113.1", userAgent: "Browser", accessedAt: new Date("2026-07-14T00:00:00Z"), shareLink: { id: "share-1", name: "Report", path: "docs/report.pdf", permissionLevel: "download", revokedAt: null } }])
+      .mockResolvedValue([{ id: "log-1", action: "download", ip: "203.0.113.1", userAgent: "Browser", accessedAt: new Date("2026-07-14T00:00:00Z"), shareLink: { id: "share-1", name: "Report", path: "docs/report.pdf", permissionLevel: "download", revokedAt: null } }]);
+    mocks.logGroupBy
+      .mockResolvedValueOnce([
+        { shareLinkId: "share-1", action: "view", _count: { _all: 2 } },
+        { shareLinkId: "share-1", action: "download", _count: { _all: 1 } },
+      ])
       .mockResolvedValueOnce([{ ip: "203.0.113.1" }]);
-    mocks.logGroupBy.mockResolvedValue([
-      { shareLinkId: "share-1", action: "view", _count: { _all: 2 } },
-      { shareLinkId: "share-1", action: "download", _count: { _all: 1 } },
-    ]);
     mocks.shareFindMany.mockResolvedValue([{ id: "share-1", name: "Report", path: "docs/report.pdf", permissionLevel: "download", revokedAt: null }]);
   });
 
@@ -29,6 +30,10 @@ describe("share access aggregate report", () => {
     expect(report.byShare[0]).toMatchObject({ shareId: "share-1", total: 3, view: 2, download: 1 });
     expect(report.logs[0]?.accessedAt).toBe("2026-07-14T00:00:00.000Z");
     expect(mocks.logGroupBy).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ shareLink: {} }) }));
+    expect(mocks.logGroupBy).toHaveBeenNthCalledWith(2, {
+      by: ["ip"],
+      where: expect.objectContaining({ ip: { not: null }, shareLink: {} }),
+    });
   });
 
   it("applies action filters and bounds report inputs", async () => {

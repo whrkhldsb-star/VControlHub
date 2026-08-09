@@ -359,11 +359,13 @@ async function persistResolvedDeploymentRunStatus<
   return { ...updated, ...resolveDeploymentRunStatus(updated) };
 }
 
-export async function listDeploymentRuns(session?: SessionScope | null) {
+export async function listDeploymentRuns(session?: SessionScope | null,
+  pagination?: { skip?: number; take?: number },) {
   const runs = await prisma.deploymentRun.findMany({
     where: teamScopeWhere(session),
-    orderBy: { createdAt: "desc" },
-    take: 100,
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    ...(pagination?.skip ? { skip: pagination.skip } : {}),
+    take: pagination?.take ?? 100,
     include: DEPLOYMENT_RUN_INCLUDE,
   });
   await refreshDeploymentRollbackStatuses(runs.flatMap((run) => run.rollbackAttempts ?? []));

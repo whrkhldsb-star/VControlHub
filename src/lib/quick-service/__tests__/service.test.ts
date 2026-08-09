@@ -184,7 +184,7 @@ describe("quick service docker lifecycle", () => {
 			return {};
 		});
 
-		await expect(installService({ template, userId: "user-1", customPort: 12345 })).rejects.toThrow("Installation failed: image pull denied");
+		await expect(installService({ template, userId: "user-1", customPort: 12345 })).rejects.toThrow("安装失败：image pull denied");
 
 		expect(execFileSyncMock).toHaveBeenCalledWith("docker", ["rm", "-f", "qs-demo"], expect.objectContaining({ timeout: 15_000, encoding: "utf8" }));
 		expect(prismaMock.quickService.delete).toHaveBeenCalledWith({ where: { instanceKey_slug: { instanceKey: "hub-host", slug: "demo" } } });
@@ -243,7 +243,7 @@ describe("quick service docker lifecycle", () => {
 		});
 		prismaMock.quickService.update.mockResolvedValueOnce({});
 
-		await expect(installService({ template, userId: "user-1", customPort: 12345 })).rejects.toThrow("Installation failed");
+		await expect(installService({ template, userId: "user-1", customPort: 12345 })).rejects.toThrow("安装失败");
 
 		expect(prismaMock.quickService.update).toHaveBeenCalledWith({
 			where: { instanceKey_slug: { instanceKey: "hub-host", slug: "demo" } },
@@ -280,7 +280,7 @@ describe("quick service docker lifecycle", () => {
 		});
 		prismaMock.quickService.update.mockResolvedValueOnce({});
 
-		await expect(uninstallService("demo")).rejects.toThrow("Uninstall failed");
+		await expect(uninstallService("demo")).rejects.toThrow("卸载失败");
 		expect(prismaMock.quickService.delete).not.toHaveBeenCalled();
 		expect(prismaMock.quickService.update).toHaveBeenCalledWith({
 			where: { instanceKey_slug: { instanceKey: "hub-host", slug: "demo" } },
@@ -347,7 +347,7 @@ describe("quick service docker lifecycle", () => {
 		});
 		prismaMock.quickService.update.mockResolvedValue({});
 
-		await expect(startService("demo")).rejects.toThrow("Start failed");
+		await expect(startService("demo")).rejects.toThrow("启动失败");
 		expect(prismaMock.quickService.update).toHaveBeenCalledWith({
 			where: { instanceKey_slug: { instanceKey: "hub-host", slug: "demo" } },
 			data: { status: "error", error: expect.stringContaining("docker daemon unavailable") },
@@ -396,7 +396,7 @@ describe("quick service docker lifecycle", () => {
 		});
 		prismaMock.quickService.update.mockResolvedValueOnce({});
 
-		await expect(uninstallService("demo")).rejects.toThrow("Uninstall failed: permission denied");
+		await expect(uninstallService("demo")).rejects.toThrow("卸载失败：permission denied");
 
 		expect(writeAuditLogMock).toHaveBeenCalledWith(expect.objectContaining({ action: "quick_service.uninstall.started" }));
 		expect(writeAuditLogMock).toHaveBeenCalledWith(expect.objectContaining({
@@ -499,7 +499,7 @@ describe("quick service docker lifecycle", () => {
 		});
 		prismaMock.quickService.update.mockResolvedValue({});
 
-		await expect(updateService("demo")).rejects.toThrow("Update failed: manifest unknown");
+		await expect(updateService("demo")).rejects.toThrow("更新失败：manifest unknown");
 		expect(prismaMock.quickService.update).toHaveBeenCalledWith({
 			where: { instanceKey_slug: { instanceKey: "hub-host", slug: "demo" } },
 			data: { status: "error", error: "Update failed: manifest unknown" },
@@ -654,7 +654,7 @@ describe("quick service docker lifecycle", () => {
 		prismaMock.quickService.delete.mockRejectedValueOnce(Object.assign(new Error("db connection lost"), { code: "P1001" }));
 		prismaMock.quickService.update.mockResolvedValue({});
 
-		await expect(uninstallService("demo")).rejects.toThrow("Uninstall rollback");
+		await expect(uninstallService("demo")).rejects.toThrow("容器已删除，但数据库记录保留");
 
 		expect(prismaMock.quickService.update).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -682,7 +682,7 @@ describe("quick service docker lifecycle", () => {
 		prismaMock.quickService.findUnique.mockResolvedValueOnce({ id: "svc-upsert-fail", slug: "demo", status: "error", port: 12345, containerId: null, image: "example/demo:latest", error: "stale row" });
 		prismaMock.quickService.upsert.mockRejectedValueOnce(new Error("connection refused"));
 
-		await expect(installService({ template, userId: "user-1", customPort: 12345 })).rejects.toThrow("Installation failed: connection refused");
+		await expect(installService({ template, userId: "user-1", customPort: 12345 })).rejects.toThrow("安装失败：connection refused");
 
 		expect(writeAuditLogMock).toHaveBeenCalledWith(expect.objectContaining({
 			action: "quick_service.install.failed",

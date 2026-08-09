@@ -9,7 +9,7 @@
 
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import type { RoleKey } from "@/lib/auth/rbac";
-import { teamWhere } from "@/lib/auth/team-scope";
+import { serverTeamWhere, teamWhere } from "@/lib/auth/team-scope";
 import { createCommandRequest } from "@/lib/command/service";
 import { prisma } from "@/lib/db";
 import { BusinessError, ForbiddenError, NotFoundError } from "@/lib/errors";
@@ -123,13 +123,15 @@ export async function executeSafeAction(
   },
   context?: HostedActionExecutionContext,
 ): Promise<{ success: boolean; data: unknown; error?: string }> {
+  const locale = context?.locale ?? "zh";
   if (context && !sessionHasPermission(context.session, context.requiredPermission ?? requiredPermissionForAction(action.actionType))) {
-    return { success: false, data: null, error: permissionDeniedMessage(action.actionType) };
+    return { success: false, data: null, error: permissionDeniedMessage(action.actionType, context.locale) };
   }
 
   const serverlessResult = await executeServerlessQuery(
     { actionType: action.actionType, params: action.params },
     sessionForTeamScope(context?.session),
+    context?.locale,
   );
   if (serverlessResult) return serverlessResult;
 
@@ -138,12 +140,12 @@ export async function executeSafeAction(
     return {
       success: false,
       data: null,
-      error: "run_playbook requires user confirmation; use the hosted-action confirm flow",
+      error: t( "backend.ai.runPlaybookRequiresConfirmation", locale),
     };
   }
 
   if (!action.serverId) {
-    return { success: false, data: null, error: "No server specified" };
+    return { success: false, data: null, error: t( "backend.ai.noServerSpecified", locale), };
   }
 
   // Team-scoped server load (IDOR: never SSH into out-of-team hosts).
@@ -151,13 +153,13 @@ export async function executeSafeAction(
   const server = await prisma.server.findFirst({
     where: {
       id: action.serverId,
-      ...(scope ? teamWhere(scope) : { teamId: null }),
+      ...(scope ? serverTeamWhere(scope) : { teamId: null }),
     },
     include: { sshKey: true },
   });
 
   if (!server) {
-    return { success: false, data: null, error: "Server not found" };
+    return { success: false, data: null, error: t( "backend.ai.serverNotFound", locale), };
   }
 
   try {
@@ -181,14 +183,14 @@ export async function executeSafeAction(
       sshClient.on("ready", () => {
         if (!isHostedActionType(action.actionType)) {
           sshClient.end();
-          resolve({ success: false, data: null, error: "Unsupported action type" });
+          resolve({ success: false, data: null, error: t("backend.ai.unsupportedActionType", locale) });
           return;
         }
         const dialect = server.osDialect ? deserializeDialect(server.osDialect) : undefined;
         const command = buildCommand(action.actionType, action.params, dialect);
         if (!command) {
           sshClient.end();
-          resolve({ success: false, data: null, error: "Unsupported action type" });
+          resolve({ success: false, data: null, error: t("backend.ai.unsupportedActionType", locale) });
           return;
         }
 
@@ -208,7 +210,9 @@ export async function executeSafeAction(
             resolve({
               success: code === 0,
               data: { stdout: stdout.slice(-5000), stderr: stderr.slice(-2000), exitCode: code },
-              error: code !== 0 ? `Command execution failed (exit code ${code})` : undefined,
+              error: code !== 0
+                ? t("backend.ai.commandExecutionFailed", locale, { code })
+                : undefined,
             });
           });
         });
@@ -216,13 +220,27 @@ export async function executeSafeAction(
 
       sshClient.on("error", (err) => {
         sshClient.end();
-        resolve({ success: false, data: null, error: `SSH connection failed: ${err.message}` });
+        resolve({
+          success: false,
+          data: null,
+          error: t("backend.ai.sshConnectionFailed", locale, {
+            error: err.message,
+          }),
+        });
       });
 
       sshClient.connect(connectConfig);
     });
   } catch (err) {
-    return { success: false, data: null, error: `Execution failed: ${err instanceof Error ? err.message : "Unknown error"}` };
+    return {
+      success: false,
+      data: null,
+      error: t("backend.ai.executionFailed", locale, {
+        error: err instanceof Error
+          ? err.message
+          : t("backend.ai.unknownError", locale),
+      }),
+    };
   }
 }
 
@@ -377,7 +395,7 @@ export async function confirmHostedAction(actionId: string, requester: HostedAct
     args: params,
     userId: requester.userId,
     serverId: action.serverId,
-    teamId: requester.currentTeamId ?? null,
+    teamId: action.teamId ?? requester.currentTeamId ?? null,
   });
 
   // Atomic compare-and-swap: prevent two concurrent confirmations from
@@ -421,7 +439,13 @@ export async function rejectHostedAction(actionId: string, actor: HostedActionSe
     data: {
       status: "REJECTED",
       approverId: actor.userId,
-      errorMessage: reason || (canApprove ? "Approval rejected" : "User cancelled confirmation"),
+      errorMessage:
+        reason ||
+        t(
+          canApprove
+            ? "backend.ai.approvalRejected"
+            : "backend.ai.confirmationCancelled",
+        ),
     },
   });
   if (claimed.count === 0) {
@@ -449,4 +473,3 @@ export async function getPendingActions(userId: string) {
     take: 200, // P2: 单用户 PENDING 操作数有限
   });
 }
-

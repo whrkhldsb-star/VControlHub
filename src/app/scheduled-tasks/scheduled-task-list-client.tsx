@@ -11,6 +11,7 @@ import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 import { Notice } from "@/components/ui-primitives";
 import { PaginatedList } from "@/components/paginated-list";
+import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
 
 type Task = {
 	id: string; name: string; cronExpression: string; cronDescription: string;
@@ -80,7 +81,8 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 	const [showCreate, setShowCreate] = useState(false);
 	const [taskPendingDelete, setTaskPendingDelete] = useState<Task | null>(null);
 	const [actionError, setActionError] = useState<string | null>(null);
-	const [searchQuery, setSearchQuery] = useState("");
+	const { state: filters, setField: setFilter } = useUrlQueryState({ q: "" });
+	const searchQuery = filters.q;
 
 	const refresh = useCallback(async () => {
 		try {
@@ -142,7 +144,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 						id="scheduled-task-log-search"
 						type="search"
 						value={searchQuery}
-						onChange={(e) => setSearchQuery(e.target.value)}
+						onChange={(e) => setFilter("q", e.target.value)}
 						placeholder={t("scheduledTasks.searchPlaceholder")}
 						data-input className="w-full min-w-[18rem] rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--input-border-focus)] focus:shadow-[0_0_0_3px_var(--input-ring)]"
 					/>

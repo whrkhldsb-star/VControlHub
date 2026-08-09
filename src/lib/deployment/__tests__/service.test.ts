@@ -312,10 +312,20 @@ describe("deployment service", () => {
     expect(mockTeamWhere).toHaveBeenCalledWith(teamSession);
     expect(mockPrisma.deploymentRun.findMany).toHaveBeenCalledWith({
       where: { OR: [{ teamId: "team_a" }, { teamId: null }] },
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: 100,
       include: expect.objectContaining({ template: true }),
     });
+  });
+
+  it("supports server-side deployment history pages", async () => {
+    mockPrisma.deploymentRun.findMany.mockResolvedValue([]);
+
+    await listDeploymentRuns(teamSession, { skip: 20, take: 21 });
+
+    expect(mockPrisma.deploymentRun.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ skip: 20, take: 21 }),
+    );
   });
 
   it("marks deployment run as rejected when its approval request is rejected", async () => {

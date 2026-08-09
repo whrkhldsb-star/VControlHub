@@ -6,6 +6,7 @@ const {
   claimNextJobMock,
   completeJobMock,
   failJobMock,
+  failJobTerminalMock,
   heartbeatJobMock,
   executeAria2RelayDownloadMock,
   executeDirectDownloadMock,
@@ -20,6 +21,7 @@ const {
   claimNextJobMock: vi.fn(),
   completeJobMock: vi.fn(),
   failJobMock: vi.fn(),
+  failJobTerminalMock: vi.fn(),
   heartbeatJobMock: vi.fn(),
   executeAria2RelayDownloadMock: vi.fn(),
   executeDirectDownloadMock: vi.fn(),
@@ -36,6 +38,7 @@ vi.mock("@/lib/job/service", () => ({
   claimNextJob: claimNextJobMock,
   completeJob: completeJobMock,
   failJob: failJobMock,
+  failJobTerminal: failJobTerminalMock,
   heartbeatJob: heartbeatJobMock,
 }));
 
@@ -126,6 +129,7 @@ describe("download execution durable job worker", () => {
     claimNextJobMock.mockResolvedValue(null);
     completeJobMock.mockResolvedValue({ count: 1 });
     failJobMock.mockResolvedValue({ count: 1 });
+    failJobTerminalMock.mockResolvedValue({ count: 1 });
     heartbeatJobMock.mockResolvedValue({ count: 1 });
     executeAria2RelayDownloadMock.mockResolvedValue(undefined);
     executeDirectDownloadMock.mockResolvedValue(undefined);
@@ -365,7 +369,7 @@ describe("download execution durable job worker", () => {
       const result = await runDownloadExecutionJobWorkerOnce();
 
       expect(result).toBe(true);
-      expect(failJobMock).toHaveBeenCalledWith(
+      expect(failJobTerminalMock).toHaveBeenCalledWith(
         "job-dl-1",
         expect.stringContaining(":download-execution:"),
         expect.stringContaining("task-1"),
@@ -382,7 +386,7 @@ describe("download execution durable job worker", () => {
       const result = await runDownloadExecutionJobWorkerOnce();
 
       expect(result).toBe(true);
-      expect(failJobMock).toHaveBeenCalledWith(
+      expect(failJobTerminalMock).toHaveBeenCalledWith(
         "job-dl-1",
         expect.stringContaining(":download-execution:"),
         expect.stringContaining("taskId"),
@@ -487,12 +491,10 @@ describe("download execution durable job worker", () => {
       expect(result).toBe(true);
       expect(executeDirectDownloadMock).not.toHaveBeenCalled();
       expect(executeAria2RelayDownloadMock).not.toHaveBeenCalled();
-      expect(failJobMock).toHaveBeenCalledWith(
+      expect(failJobTerminalMock).toHaveBeenCalledWith(
         "job-dl-1",
         expect.stringContaining(":download-execution:"),
-        "aria2 RPC 403: upstream rejected",
-        expect.objectContaining({ retryAfterMs: undefined }),
-      );
+        "aria2 RPC 403: upstream rejected",);
       expect(completeJobMock).not.toHaveBeenCalled();
       expect(infoMock).toHaveBeenCalledWith(
         expect.stringContaining("already FAILED"),
@@ -512,16 +514,14 @@ describe("download execution durable job worker", () => {
 
       expect(result).toBe(true);
       expect(executeDirectDownloadMock).not.toHaveBeenCalled();
-      expect(failJobMock).toHaveBeenCalledWith(
+      expect(failJobTerminalMock).toHaveBeenCalledWith(
         "job-dl-1",
         expect.stringContaining(":download-execution:"),
-        "User manually cancelled",
-        expect.objectContaining({ retryAfterMs: undefined }),
-      );
+        "User manually cancelled",);
       expect(completeJobMock).not.toHaveBeenCalled();
     });
 
-    it("fails the job with retryAfterMs=undefined when the dispatch path throws but the business row already terminal", async () => {
+    it("fails the job terminally when the dispatch path throws but the business row already terminal", async () => {
       claimNextJobMock.mockResolvedValueOnce(makeJob());
       // First findUnique: load before dispatch. Returns a PENDING row so
       // the worker passes the idempotency guard and enters the dispatch
@@ -542,12 +542,10 @@ describe("download execution durable job worker", () => {
       expect(result).toBe(true);
       // Even though execute* threw, the business row already reached
       // FAILED, so we mirror that without scheduling a retry.
-      expect(failJobMock).toHaveBeenCalledWith(
+      expect(failJobTerminalMock).toHaveBeenCalledWith(
         "job-dl-1",
         expect.stringContaining(":download-execution:"),
-        "exec helper inner crash",
-        expect.objectContaining({ retryAfterMs: undefined }),
-      );
+        "exec helper inner crash",);
       expect(completeJobMock).not.toHaveBeenCalled();
       expect(infoMock).toHaveBeenCalledWith(
         expect.stringContaining("threw but the business row already reached a terminal state"),

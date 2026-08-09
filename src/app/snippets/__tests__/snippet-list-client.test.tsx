@@ -34,6 +34,7 @@ function renderList() {
 describe("SnippetList", () => {
   let clipboardRestore: (() => void) | null = null;
   beforeEach(() => {
+    window.history.replaceState({}, "", "/snippets");
     vi.resetAllMocks();
     vi.mocked(csrfFetch).mockResolvedValue({});
     try {

@@ -18,6 +18,9 @@ import { AnnouncementEditModal } from "../announcement-edit-modal";
 vi.mock("@/lib/auth/csrf-client", () => ({
   csrfFetch: vi.fn(),
 }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}));
 
 const baseAnnouncement = {
   id: "ann-1",

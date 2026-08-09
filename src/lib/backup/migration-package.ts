@@ -227,7 +227,9 @@ export async function resolveMigrationPackageDir(
   } catch (error) {
     await rm(extractDir, { recursive: true, force: true }).catch(() => undefined);
     throw new BusinessError(
-      `Failed to extract migration package: ${error instanceof Error ? error.message : String(error)}`,
+      t("backend.backup.extractMigrationPackageFailed", {
+        error: error instanceof Error ? error.message : String(error),
+      }),
     );
   }
 

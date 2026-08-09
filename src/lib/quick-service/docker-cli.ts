@@ -11,6 +11,7 @@ import { promisify } from "util";
 import { prisma } from "@/lib/db";
 import { BusinessError } from "@/lib/errors";
 import { createLogger } from "@/lib/logging";
+import { t } from "@/lib/i18n/service-translations";
 import {
   buildSshParamsFromServer,
   execRemoteCommand,
@@ -59,8 +60,12 @@ async function loadRemoteSshParams(serverId: string) {
       },
     },
   });
-  if (!server) throw new BusinessError(`Target VPS not found: ${serverId}`);
-  if (!server.enabled) throw new BusinessError(`Target VPS is disabled: ${server.name}`);
+  if (!server) throw new BusinessError(
+      t("backend.quick-service.targetServerNotFound", { serverId }),
+    );
+  if (!server.enabled) throw new BusinessError(
+      t("backend.quick-service.targetServerDisabled", { name: server.name }),
+    );
   const ssh = await buildSshParamsFromServer(
     {
       host: server.host,

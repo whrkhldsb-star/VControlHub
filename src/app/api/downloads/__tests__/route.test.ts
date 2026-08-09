@@ -595,8 +595,8 @@ describe("/api/downloads", () => {
     // Admin (team:manage) uses empty teamWhere — still filters by creator/storage ACL.
     expect(prismaMock.downloadTask.findMany).toHaveBeenCalledWith(expect.objectContaining({
       where: {},
-      orderBy: { createdAt: "desc" },
-      take: 200,
+      orderBy: [ { createdAt: "desc" }, { id: "desc" }],
+      take: 101,
     }));
     const body = await response.json();
     expect(body.tasks.map((task: { id: string }) => task.id)).toEqual(["owned_task", "shared_task"]);
@@ -615,15 +615,18 @@ describe("/api/downloads", () => {
     sessionHasPermissionMock.mockImplementation((_sess, permission) => permission !== "team:manage");
     prismaMock.downloadTask.findMany.mockResolvedValueOnce([]);
 
-    const response = await GET(new Request("https://example.com/api/downloads?serverId=srv_1&category=iso"));
+    const response = await GET(new Request("https://example.com/api/downloads?serverId=srv_1&category=iso&status=FAILED&cursor=task_cursor"));
     expect(response.status).toBe(200);
     expect(prismaMock.downloadTask.findMany).toHaveBeenCalledWith(expect.objectContaining({
       where: {
         OR: [{ teamId: "team_1" }, { teamId: null }],
         serverId: "srv_1",
         category: "iso",
+        status: "FAILED",
       },
-      take: 200,
+      take: 101,
+      cursor: { id: "task_cursor" },
+      skip: 1,
     }));
   });
 

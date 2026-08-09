@@ -41,7 +41,8 @@ describe("cost budget service", () => {
 		const listed = await listCostBudgets(new Date("2026-06-15T10:00:00.000Z"));
 		expect(listed[0]).toMatchObject({ usageAmount: "85.00", usagePercent: 85 });
 		expect(prismaMock.costEntry.aggregate).toHaveBeenCalledWith({
-			where: { category: "vps", currency: "CNY", effectiveDate: { gte: new Date("2026-06-01T00:00:00.000Z"), lt: new Date("2026-07-01T00:00:00.000Z") } },
+			where: { category: "vps", currency: "CNY", effectiveDate: { gte: new Date("2026-06-01T00:00:00.000Z"), lt: new Date("2026-07-01T00:00:00.000Z") },
+        teamId: null, },
 			_sum: { amount: true },
 		});
 		await updateCostBudget("budget-1", { name: "更新预算" });
@@ -104,4 +105,23 @@ describe("cost budget service", () => {
 			expect.objectContaining({ userId: "team-a-manager", teamId: "team-a" }),
 		);
 	});
+
+  it("aggregates a team budget by the budget team even for a global administrator", async () => {
+    const teamBudget = { ...budgetRow, id: "budget-team", teamId: "team-a"
+};
+    prismaMock.costBudget.findMany.mockResolvedValue([teamBudget]);
+    const adminSession = {
+      userId: "admin-1",
+      roles: ["admin"] as import("@/lib/auth/rbac").RoleKey[],
+      currentTeamId: null,
+    };
+
+    await listCostBudgets(new Date("2026-06-15T10:00:00.000Z"), adminSession);
+
+    expect(prismaMock.costEntry.aggregate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ teamId: "team-a" }),
+      }),
+    );
+  });
 });

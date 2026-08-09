@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { PageShell, PageHeader, SurfacePanel } from "@/components/page-shell";
 import { ActionButton } from "@/components/action-button";
 import { csrfFetch } from "@/lib/auth/csrf-client";
@@ -67,6 +67,7 @@ export default function MonitoringPage() {
   const [autoRefresh, setAutoRefresh] = useState(true); // default on — SSE is cheaper than polling
   const [sseConnected, setSseConnected] = useState(false);
   const [fallbackPolling, setFallbackPolling] = useState(false);
+  const statsRequestRef = useRef<AbortController | null>(null);
   const refreshIntervalSeconds = useRefreshInterval(30);
 
   const getMonitoringErrorMessage = useCallback((error: unknown): string => {
@@ -76,9 +77,14 @@ export default function MonitoringPage() {
   }, [t]);
 
   const fetchStats = useCallback(async () => {
+    statsRequestRef.current?.abort();
+    const controller = new AbortController();
+    statsRequestRef.current = controller;
     setRefreshing(true);
     try {
-      const data = await csrfFetch("/api/monitoring/stats") as Stats & { error?: string; message?: string };
+      const data = await csrfFetch("/api/monitoring/stats", {
+        signal: controller.signal,
+      }) as Stats & { error?: string; message?: string };
       if (data.error) {
         setErrorMessage(data.error || data.message || t("monitoringPage.errorReturned"));
         return;
@@ -86,12 +92,18 @@ export default function MonitoringPage() {
       setStats(data);
       setErrorMessage(null);
     } catch (error) {
+      if (controller.signal.aborted) return;
       setErrorMessage(getMonitoringErrorMessage(error));
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (statsRequestRef.current === controller) {
+        statsRequestRef.current = null;
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, [getMonitoringErrorMessage, t]);
+
+  useEffect(() => () => statsRequestRef.current?.abort(), []);
 
   useEffect(() => {
     const timer = window.setTimeout(() => { void fetchStats(); }, 0);
@@ -114,8 +126,6 @@ export default function MonitoringPage() {
 
     function enableFallback() {
       if (disposed) return;
-      es?.close();
-      es = null;
       setSseConnected(false);
       setFallbackPolling(true);
     }

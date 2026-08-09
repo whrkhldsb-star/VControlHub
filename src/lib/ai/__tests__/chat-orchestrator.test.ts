@@ -11,7 +11,7 @@ const { mocks } = vi.hoisted(() => ({
     executeSafeAction: vi.fn(),
     parseToolCall: vi.fn(),
     prisma: {
-      aiMessage: { create: vi.fn() },
+      aiMessage: { create: vi.fn(), deleteMany: vi.fn() },
       aiHostedAction: { update: vi.fn() },
       $transaction: vi.fn(),
     },
@@ -81,6 +81,7 @@ describe("createAiChatResponse", () => {
       startTime: Date.now(),
     });
     mocks.prisma.aiMessage.create.mockResolvedValue({ id: "assistant-message-1" });
+    mocks.prisma.aiMessage.deleteMany.mockResolvedValue({ count: 1 });
     mocks.prisma.aiHostedAction.update.mockResolvedValue({ id: "action-1" });
     mocks.prisma.$transaction.mockResolvedValue([]);
   });
@@ -126,6 +127,35 @@ describe("createAiChatResponse", () => {
     expect(body).toContain('"type":"content","content":"hello"');
     expect(body).toContain('"type":"error","error":"database unavailable"');
     expect(body).not.toContain('"type":"done"');
+    expect(mocks.prisma.aiMessage.deleteMany).toHaveBeenCalledWith({
+      where: {
+        id: "user-message-1",
+        conversationId: conversation.id,
+        role: "user",
+  },
+    });
+  });
+
+  it("removes the user message when the provider request fails before streaming", async () => {
+    mocks.sendChatRequest.mockRejectedValueOnce(
+      new Error("provider unavailable"),
+    );
+
+    await expect(
+      createAiChatResponse({
+        body: { conversationId: conversation.id, content: "question" },
+        session,
+        locale: "en",
+      }),
+    ).rejects.toMatchObject({ message: "provider unavailable" });
+
+    expect(mocks.prisma.aiMessage.deleteMany).toHaveBeenCalledWith({
+      where: {
+        id: "user-message-1",
+        conversationId: conversation.id,
+        role: "user",
+      },
+    });
   });
 
   it("returns a typed stream error when the provider has no response body", async () => {
@@ -145,6 +175,13 @@ describe("createAiChatResponse", () => {
       '"type":"error","error":"Cannot read response stream"',
     );
     expect(mocks.prisma.aiMessage.create).not.toHaveBeenCalled();
+    expect(mocks.prisma.aiMessage.deleteMany).toHaveBeenCalledWith({
+      where: {
+        id: "user-message-1",
+        conversationId: conversation.id,
+        role: "user",
+  },
+    });
   });
 
   it("cancels the provider stream and skips side effects when the client disconnects", async () => {
@@ -241,7 +278,7 @@ describe("createAiChatResponse", () => {
     expect(body).toContain('"type":"done"');
     expect(mocks.executeSafeAction).toHaveBeenCalledWith(
       { actionType: "list_servers", serverId: null, params: {} },
-      { session },
+      { session, locale: "en" },
     );
     expect(mocks.prisma.$transaction).toHaveBeenCalledTimes(1);
   });

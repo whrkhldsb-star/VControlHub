@@ -27,6 +27,24 @@ const ANALYTICS_DOMAIN_SET = new Set<string>(ANALYTICS_DOMAINS);
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
+const ANALYTICS_PAGE_SIZE = 5000;
+
+async function forEachAnalyticsPage<T extends { id: string }>(
+  fetchPage: (cursor?: string) => Promise<T[]>,
+  consume: (row: T) => void,
+) {
+  let cursor: string | undefined;
+  for (;;) {
+    const page = await fetchPage(cursor);
+    for (const row of page) consume(row);
+    if (page.length < ANALYTICS_PAGE_SIZE) return;
+    const nextCursor = page.at(-1)?.id;
+    if (!nextCursor || nextCursor === cursor) {
+      throw new Error("Analytics pagination did not advance");
+    }
+    cursor = nextCursor;
+  }
+}
 
 function startOfUtcHour(value: Date) {
   const hour = new Date(value);
@@ -89,79 +107,90 @@ export async function GET(request: Request) {
     // so we do not join Server for every snapshot row.
     if (shouldIncludeAnalytics(session, type, "servers")) {
       const twentyFourHoursAgo = new Date(Date.now() - 24 * HOUR_MS);
-      const metrics = await prisma.metricSnapshot.findMany({
-        where: {
-          createdAt: { gte: twentyFourHoursAgo },
-          ...metricTeamFilter,
-        },
-        orderBy: { createdAt: "asc" },
-        take: 5000,
-        select: {
-          cpuUsage: true,
-          memUsage: true,
-          diskUsage: true,
-          createdAt: true,
-        },
-      });
-      // Group by time bucket (1h intervals)
       const buckets = new Map<
         string,
-        { cpu: number[]; memory: number[]; disk: number[] }
+        { cpu: number; memory: number; disk: number; count: number }
       >();
-      for (const m of metrics) {
-        const key = startOfUtcHour(m.createdAt);
-        if (!buckets.has(key))
-          buckets.set(key, { cpu: [], memory: [], disk: [] });
-        const bucket = buckets.get(key)!;
-        bucket.cpu.push(m.cpuUsage);
-        bucket.memory.push(m.memUsage);
-        bucket.disk.push(m.diskUsage);
-      }
+      await forEachAnalyticsPage(
+        (cursor) =>
+          prisma.metricSnapshot.findMany({
+            where: {
+              createdAt: { gte: twentyFourHoursAgo },
+              ...metricTeamFilter,
+            },
+            orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+            take: ANALYTICS_PAGE_SIZE,
+            ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+            select: {
+              id: true,
+              cpuUsage: true,
+              memUsage: true,
+              diskUsage: true,
+              createdAt: true,
+            },
+          }),
+        (metric) => {
+          const key = startOfUtcHour(metric.createdAt);
+          const bucket = buckets.get(key) ?? {
+            cpu: 0,
+            memory: 0,
+            disk: 0,
+            count: 0,
+          };
+          bucket.cpu += metric.cpuUsage;
+          bucket.memory += metric.memUsage;
+          bucket.disk += metric.diskUsage;
+          bucket.count++;
+          buckets.set(key, bucket);
+        },
+      );
       results.servers = Array.from(buckets.entries()).map(([time, data]) => ({
         time,
-        cpu: data.cpu.length
-          ? Math.round(data.cpu.reduce((a, b) => a + b, 0) / data.cpu.length)
-          : 0,
-        memory: data.memory.length
-          ? Math.round(
-              data.memory.reduce((a, b) => a + b, 0) / data.memory.length,
-            )
-          : 0,
-        disk: data.disk.length
-          ? Math.round(data.disk.reduce((a, b) => a + b, 0) / data.disk.length)
-          : 0,
+        cpu: data.count ? Math.round(data.cpu / data.count) : 0,
+        memory: data.count ? Math.round(data.memory / data.count) : 0,
+        disk: data.count ? Math.round(data.disk / data.count) : 0,
       }));
     }
 
     // Download task trend (last 7 days)
     if (shouldIncludeAnalytics(session, type, "downloads")) {
       const sevenDaysAgo = new Date(Date.now() - 7 * DAY_MS);
-      const downloads = await prisma.downloadTask.findMany({
-        where: {
-          createdAt: { gte: sevenDaysAgo },
-          ...resourceTeamFilter,
-        },
-        orderBy: { createdAt: "asc" },
-        take: 5000,
-        select: { status: true, createdAt: true },
-      });
       const dayBuckets = new Map<
         string,
-        { completed: number; failed: number; running: number; pending: number }
+        {
+          completed: number;
+          failed: number;
+          running: number;
+          pending: number;
+        }
       >();
-      for (const d of downloads) {
-        const day = startOfUtcDay(d.createdAt);
-        if (!dayBuckets.has(day))
-          dayBuckets.set(day, {
-            completed: 0,
-            failed: 0,
-            running: 0,
-            pending: 0,
-          });
-        const bucket = dayBuckets.get(day)!;
-        const status = d.status.toLowerCase() as keyof typeof bucket;
-        if (status in bucket) bucket[status]++;
-      }
+      await forEachAnalyticsPage(
+        (cursor) =>
+          prisma.downloadTask.findMany({
+            where: {
+              createdAt: { gte: sevenDaysAgo },
+              ...resourceTeamFilter,
+            },
+            orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+            take: ANALYTICS_PAGE_SIZE,
+            ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+            select: { id: true, status: true, createdAt: true },
+          }),
+        (download) => {
+          const day = startOfUtcDay(download.createdAt);
+          if (!dayBuckets.has(day)) {
+            dayBuckets.set(day, {
+              completed: 0,
+              failed: 0,
+              running: 0,
+              pending: 0,
+            });
+          }
+          const bucket = dayBuckets.get(day)!;
+          const status = download.status.toLowerCase() as keyof typeof bucket;
+          if (status in bucket) bucket[status]++;
+        },
+      );
       results.downloads = Array.from(dayBuckets.entries()).map(
         ([date, data]) => ({ date, ...data }),
       );
@@ -170,27 +199,32 @@ export async function GET(request: Request) {
     // Audit log activity (last 30 days, grouped by day)
     if (shouldIncludeAnalytics(session, type, "audit")) {
       const thirtyDaysAgo = new Date(Date.now() - 30 * DAY_MS);
-      const audits = await prisma.auditLog.findMany({
-        where: {
-          createdAt: { gte: thirtyDaysAgo },
-          ...resourceTeamFilter,
-        },
-        orderBy: { createdAt: "asc" },
-        take: 10000,
-        select: { action: true, createdAt: true },
-      });
       const dayBuckets = new Map<
         string,
         { total: number; actions: Record<string, number> }
       >();
-      for (const a of audits) {
-        const day = startOfUtcDay(a.createdAt);
-        if (!dayBuckets.has(day))
-          dayBuckets.set(day, { total: 0, actions: {} });
-        const bucket = dayBuckets.get(day)!;
-        bucket.total++;
-        bucket.actions[a.action] = (bucket.actions[a.action] || 0) + 1;
-      }
+      await forEachAnalyticsPage(
+        (cursor) =>
+          prisma.auditLog.findMany({
+            where: {
+              createdAt: { gte: thirtyDaysAgo },
+              ...resourceTeamFilter,
+            },
+            orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+            take: ANALYTICS_PAGE_SIZE,
+            ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+            select: { id: true, action: true, createdAt: true },
+          }),
+        (audit) => {
+          const day = startOfUtcDay(audit.createdAt);
+          if (!dayBuckets.has(day)) {
+            dayBuckets.set(day, { total: 0, actions: {} });
+          }
+          const bucket = dayBuckets.get(day)!;
+          bucket.total++;
+          bucket.actions[audit.action] = (bucket.actions[audit.action] || 0) + 1;
+        },
+      );
       results.audit = Array.from(dayBuckets.entries()).map(([date, data]) => ({
         date,
         ...data,
@@ -200,24 +234,30 @@ export async function GET(request: Request) {
     // Image bed storage trend (last 7 days)
     if (shouldIncludeAnalytics(session, type, "image-bed")) {
       const sevenDaysAgo = new Date(Date.now() - 7 * DAY_MS);
-      const images = await prisma.imageUpload.findMany({
-        where: {
-          createdAt: { gte: sevenDaysAgo },
-          // ImageUpload.teamId is team-scoped (legacy null still visible via teamWhere).
-          ...resourceTeamFilter,
-        },
-        orderBy: { createdAt: "asc" },
-        take: 5000,
-        select: { sizeBytes: true, createdAt: true },
-      });
       const dayBuckets = new Map<string, { count: number; size: number }>();
-      for (const img of images) {
-        const day = startOfUtcDay(img.createdAt);
-        if (!dayBuckets.has(day)) dayBuckets.set(day, { count: 0, size: 0 });
-        const bucket = dayBuckets.get(day)!;
-        bucket.count++;
-        bucket.size += img.sizeBytes;
-      }
+      await forEachAnalyticsPage(
+        (cursor) =>
+          prisma.imageUpload.findMany({
+            where: {
+              createdAt: { gte: sevenDaysAgo },
+              // ImageUpload.teamId is team-scoped (legacy null still visible via teamWhere).
+              ...resourceTeamFilter,
+            },
+            orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+            take: ANALYTICS_PAGE_SIZE,
+            ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+            select: { id: true, sizeBytes: true, createdAt: true },
+          }),
+        (image) => {
+          const day = startOfUtcDay(image.createdAt);
+          if (!dayBuckets.has(day)) {
+            dayBuckets.set(day, { count: 0, size: 0 });
+          }
+          const bucket = dayBuckets.get(day)!;
+          bucket.count++;
+          bucket.size += image.sizeBytes;
+        },
+      );
       results.imageBed = Array.from(dayBuckets.entries()).map(
         ([date, data]) => ({ date, ...data }),
       );

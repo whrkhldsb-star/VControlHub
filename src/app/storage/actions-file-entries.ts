@@ -218,7 +218,7 @@ export async function restoreFileEntryAction(
       return { error: restoreAccess.reason ?? t("storagePage.action.fileEntryNotFound") } satisfies StorageActionState;
     }
 
-    await restoreFileEntry({ fileEntryId });
+    await restoreFileEntry({ fileEntryId }, session);
 
     if (entry.entryType === "DIRECTORY") {
       const prefix = entry.relativePath + "/";

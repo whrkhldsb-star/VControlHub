@@ -141,6 +141,7 @@ export const zh: Record<string, string> = {
 	"backend.backup.payloadChecksumInvalid": "迁移载荷校验和必须是 SHA-256 摘要",
 	"backend.backup.payloadSizeInvalid": "迁移载荷文件大小无效",
 	"backend.backup.packageTeamForbidden": "不能访问其他团队的迁移包",
+	"backend.backup.extractMigrationPackageFailed": "迁移包解压失败：{error}",
 	"backend.request.bodyTooLarge": "请求体过大",
 	"backend.command.requestNotFound": "命令请求不存在",
 	"backend.command.cannotCancelEnded": "命令请求已结束，无法取消",
@@ -219,6 +220,15 @@ export const zh: Record<string, string> = {
 	"backend.shareLink.missingLogPermission": "缺少查看分享访问日志的权限",
 	"backend.server.invalidDirectDomain": "直连网关域名无效",
 	"backend.server.directDomainNotLocalhost": "直连网关域名不能是 localhost",
+	"backend.server.sshPrecheckExitCode": "SSH 连接预检查失败（退出码：{code}）",
+	"backend.server.cannotConnectTarget": "无法连接目标服务器 {target}，节点未添加或保存。请检查 IP、端口、用户名和认证凭据后重试。",
+	"backend.server.connectionFailureDetails": "{message} 详细信息：{details}",
+	"backend.server.localNodeDirectGatewayNotNeeded": "本机节点无需启用目标服务器直连网关，请继续使用网站中转或本机存储访问。",
+	"backend.server.directGatewayRequiresSftp": "仅绑定了 SFTP 存储节点的 VPS 才能启用目标服务器直连。请先为该 VPS 创建或修复远程存储节点。",
+	"backend.server.directGatewayOperationFailed": "目标服务器直连服务操作失败",
+	"backend.server.directGatewayPublicProbeFailedHttps": "直连网关已安装到 VPS，但公网健康检查 {url} 失败（{error}）。请在防火墙、安全组或 NAT 中开放端口 {port}（HTTPS 自动反向代理）；数据库已保持为网站中转模式。",
+	"backend.server.directGatewayPublicProbeFailedHttp": "直连网关已安装到 VPS，但公网健康检查 {url} 失败（{error}）。请在防火墙、安全组或 NAT 中开放端口 {port}，或配置反向代理；数据库已保持为网站中转模式。",
+	"backend.server.unreachable": "无法访问",
 	"backend.server.sshKeyMethodRequiresKey": "SSH 密钥连接方式需要选择密钥",
 	"backend.server.sshKeyNotFound": "所选 SSH 密钥不存在或已删除",
 	"backend.server.sshPrivateKeyInvalidBegin": "私钥格式无效：OpenSSH/PEM 私钥应以 -----BEGIN 开头",
@@ -376,7 +386,64 @@ export const zh: Record<string, string> = {
 	"backend.ai.documentTitleIsRequired": "文档标题不能为空",
 	"backend.ai.documentContentIsRequired": "文档内容不能为空",
 	"backend.ai.recommendationChangedConcurrently": "建议刚被其他请求修改，请刷新后重试",
-	"backend.scheduled-task.scheduledTaskNotFound": "计划任务不存在",
+	"backend.ai.serverNotFoundOrOutsideTeamScope":
+    "目标服务器不存在或不属于当前团队",
+  "backend.ai.permissionDenied.serverRead": "你没有服务器读取权限",
+  "backend.ai.permissionDenied.backupRead": "你没有备份读取权限",
+  "backend.ai.permissionDenied.playbookRun": "你没有 Playbook 运行权限",
+  "backend.ai.permissionDenied.healthRead": "你没有健康状态或流量读取权限",
+  "backend.ai.permissionDenied.scheduledTaskManage":
+    "你没有定时任务管理权限（command:create）",
+  "backend.ai.permissionDenied.aiChat": "你没有 AI 对话权限",
+  "backend.ai.permissionDenied.storageRead": "你没有存储读取权限",
+  "backend.ai.permissionDenied.required": "你没有所需权限（{permission}）",
+  "backend.ai.cron.taskIdRequired": "暂停或恢复定时任务时必须提供 taskId",
+  "backend.ai.cron.alreadyPaused": "定时任务已经暂停",
+  "backend.ai.cron.cannotPauseStatus": "无法暂停状态为 {status} 的定时任务",
+  "backend.ai.cron.alreadyActive": "定时任务已经启用",
+  "backend.ai.cron.cannotResumeStatus": "无法恢复状态为 {status} 的定时任务",
+  "backend.ai.cron.operationFailed": "定时任务操作失败",
+  "backend.ai.cron.unsupportedAction":
+    "不支持该定时任务操作，请使用 list、pause 或 resume",
+  "backend.ai.runPlaybookRequiresConfirmation":
+    "运行 Playbook 需要用户确认，请使用托管动作确认流程",
+  "backend.ai.noServerSpecified": "未指定服务器",
+  "backend.ai.serverNotFound": "服务器不存在或无权访问",
+  "backend.ai.commandExecutionFailed": "命令执行失败（退出码 {code}）",
+  "backend.ai.sshConnectionFailed": "SSH 连接失败：{error}",
+  "backend.ai.executionFailed": "执行失败：{error}",
+  "backend.ai.unknownError": "未知错误",
+  "backend.ai.invalidActionParameters": "AI 操作参数无效，无法生成命令",
+  "backend.ai.assistantRequestReason": "由网页会话中的 AI 助手发起，需人工批准后执行。",
+  "backend.ai.assistantRequestTitle": "AI 助手：{action}",
+  "backend.ai.noTrafficSamplesInPeriod": "所选时间范围内没有流量样本",
+  "backend.ai.approvalRejected": "审批已拒绝",
+  "backend.ai.confirmationCancelled": "用户已取消确认",
+  "backend.quick-service.targetServerNotFound": "目标 VPS 不存在：{serverId}",
+  "backend.quick-service.targetServerDisabled": "目标 VPS 已禁用：{name}",
+  "backend.quick-service.portInUseOnTarget":
+    "目标 VPS 上的端口 {port} 已被占用，请选择其他端口",
+  "backend.quick-service.extraPortInUseOnTarget":
+    "目标 VPS 上的附加端口 {port} 已被占用",
+  "backend.quick-service.noAvailablePortOnTarget":
+    "无法在目标 VPS 上分配可用端口，请指定一个空闲端口",
+  "backend.quick-service.installFailedWithMessage": "安装失败：{message}",
+  "backend.quick-service.uninstallFailedWithMessage": "卸载失败：{message}",
+  "backend.quick-service.uninstallRollbackFailed":
+    "容器已删除，但数据库记录保留；请重试卸载：{message}",
+  "backend.quick-service.startFailedWithMessage": "启动失败：{message}",
+  "backend.quick-service.updateFailedWithMessage": "更新失败：{message}",
+  "backend.quick-service.stopFailedWithMessage": "停止失败：{message}",
+  "backend.quick-service.hostMountOutsideAllowedRoots":
+    "主机挂载路径 {path} 不在允许范围内",
+  "backend.docker.composeNoContainers": "Compose 项目“{project}”中没有找到容器",
+  "backend.docker.composeUnsupportedAction": "不支持的 Compose 操作：{action}",
+  "backend.docker.composeActionFailed": "Compose 操作失败：{action}",
+  "backend.docker.unavailable": "Docker 未安装或 Docker 套接字不可用",
+  "backend.docker.containerActionFailed": "容器操作 {action} 失败（状态码：{status}）",
+  "backend.playbook.notFoundWithId": "Playbook 不存在：{id}",
+  "backend.playbook.disabledWithId": "Playbook 已禁用：{id}",
+  "backend.scheduled-task.scheduledTaskNotFound": "计划任务不存在",
 	"backend.scheduled-task.scheduledTaskMissingTargetServerOrCreatorCannot": "计划任务缺少目标服务器或创建人，无法重试",
 	"backend.scheduled-task.atLeastOneTargetServer": "至少需要一个目标服务器",
 	"backend.scheduled-task.invalidCronExpression": "Cron 表达式无效",
@@ -579,6 +646,7 @@ export const en: Record<string, string> = {
 	"backend.backup.payloadChecksumInvalid": "Migration payload checksum must be a SHA-256 digest",
 	"backend.backup.payloadSizeInvalid": "Migration payload file size is invalid",
 	"backend.backup.packageTeamForbidden": "Cannot access a migration package from another team",
+	"backend.backup.extractMigrationPackageFailed": "Failed to extract migration package: {error}",
 	"backend.request.bodyTooLarge": "Request body too large",
 
 	"backend.command.requestNotFound": "Command request not found",
@@ -662,6 +730,15 @@ export const en: Record<string, string> = {
 
 	"backend.server.invalidDirectDomain": "Invalid direct gateway domain",
 	"backend.server.directDomainNotLocalhost": "Direct gateway domain must not be localhost",
+	"backend.server.sshPrecheckExitCode": "SSH connection pre-check failed (exit code: {code})",
+	"backend.server.cannotConnectTarget": "Cannot connect to target server {target}; the node was not added or saved. Check the IP, port, username, and authentication credentials, then retry.",
+	"backend.server.connectionFailureDetails": "{message} Details: {details}",
+	"backend.server.localNodeDirectGatewayNotNeeded": "The local node does not need a target-server direct gateway. Continue using website relay or local storage access.",
+	"backend.server.directGatewayRequiresSftp": "Target-server direct access can only be enabled for a VPS bound to an SFTP storage node. Create or repair the remote storage node first.",
+	"backend.server.directGatewayOperationFailed": "Target-server direct connection service operation failed",
+	"backend.server.directGatewayPublicProbeFailedHttps": "The direct gateway was installed on the VPS, but public health check {url} failed ({error}). Open port {port} in the firewall, security group, or NAT for the automatic HTTPS reverse proxy. The database remains in website relay mode.",
+	"backend.server.directGatewayPublicProbeFailedHttp": "The direct gateway was installed on the VPS, but public health check {url} failed ({error}). Open port {port} in the firewall, security group, or NAT, or configure a reverse proxy. The database remains in website relay mode.",
+	"backend.server.unreachable": "unreachable",
 	"backend.server.sshKeyMethodRequiresKey": "SSH key connection method requires selecting a key",
 	"backend.server.sshKeyNotFound": "The selected SSH key does not exist or has been deleted",
 	"backend.server.sshPrivateKeyInvalidBegin": "Private key format is invalid: OpenSSH/PEM private key should start with -----BEGIN.",
@@ -819,7 +896,83 @@ export const en: Record<string, string> = {
 	"backend.ai.documentTitleIsRequired": "Document title is required",
 	"backend.ai.documentContentIsRequired": "Document content is required",
 	"backend.ai.recommendationChangedConcurrently": "The recommendation changed concurrently; refresh and try again",
-	"backend.scheduled-task.scheduledTaskNotFound": "Scheduled task not found",
+	"backend.ai.serverNotFoundOrOutsideTeamScope":
+    "The target server was not found or is outside the current team",
+  "backend.ai.permissionDenied.serverRead":
+    "You do not have server read permission",
+  "backend.ai.permissionDenied.backupRead":
+    "You do not have backup read permission",
+  "backend.ai.permissionDenied.playbookRun":
+    "You do not have playbook run permission",
+  "backend.ai.permissionDenied.healthRead":
+    "You do not have health or traffic read permission",
+  "backend.ai.permissionDenied.scheduledTaskManage":
+    "You do not have scheduled-task manage permission (command:create)",
+  "backend.ai.permissionDenied.aiChat": "You do not have AI chat permission",
+  "backend.ai.permissionDenied.storageRead":
+    "You do not have storage read permission",
+  "backend.ai.permissionDenied.required":
+    "You do not have the required permission ({permission})",
+  "backend.ai.cron.taskIdRequired":
+    "taskId is required to pause or resume a scheduled task",
+  "backend.ai.cron.alreadyPaused": "The scheduled task is already paused",
+  "backend.ai.cron.cannotPauseStatus":
+    "Cannot pause a scheduled task in status {status}",
+  "backend.ai.cron.alreadyActive": "The scheduled task is already active",
+  "backend.ai.cron.cannotResumeStatus":
+    "Cannot resume a scheduled task in status {status}",
+  "backend.ai.cron.operationFailed": "Scheduled task operation failed",
+  "backend.ai.cron.unsupportedAction":
+    "Unsupported scheduled-task action; use list, pause, or resume",
+  "backend.ai.runPlaybookRequiresConfirmation":
+    "Running a playbook requires user confirmation; use the hosted-action confirmation flow",
+  "backend.ai.noServerSpecified": "No server was specified",
+  "backend.ai.serverNotFound": "The server was not found or is not accessible",
+  "backend.ai.commandExecutionFailed":
+    "Command execution failed (exit code {code})",
+  "backend.ai.sshConnectionFailed": "SSH connection failed: {error}",
+  "backend.ai.executionFailed": "Execution failed: {error}",
+  "backend.ai.unknownError": "Unknown error",
+  "backend.ai.invalidActionParameters":
+    "AI action parameters are invalid; a command could not be generated",
+  "backend.ai.assistantRequestReason":
+    "Initiated by the AI assistant from a web session; execution requires manual approval.",
+  "backend.ai.assistantRequestTitle": "AI Assistant: {action}",
+  "backend.ai.noTrafficSamplesInPeriod":
+    "No traffic samples were found in the selected period",
+  "backend.ai.approvalRejected": "Approval rejected",
+  "backend.ai.confirmationCancelled": "User cancelled confirmation",
+  "backend.quick-service.targetServerNotFound":
+    "Target VPS not found: {serverId}",
+  "backend.quick-service.targetServerDisabled":
+    "Target VPS is disabled: {name}",
+  "backend.quick-service.portInUseOnTarget":
+    "Port {port} is already in use on the target VPS; choose another port",
+  "backend.quick-service.extraPortInUseOnTarget":
+    "Extra port {port} is already in use on the target VPS",
+  "backend.quick-service.noAvailablePortOnTarget":
+    "No available port could be allocated on the target VPS; specify a free port",
+  "backend.quick-service.installFailedWithMessage":
+    "Installation failed: {message}",
+  "backend.quick-service.uninstallFailedWithMessage":
+    "Uninstall failed: {message}",
+  "backend.quick-service.uninstallRollbackFailed":
+    "The container was deleted but the database record remains; retry uninstall: {message}",
+  "backend.quick-service.startFailedWithMessage": "Start failed: {message}",
+  "backend.quick-service.updateFailedWithMessage": "Update failed: {message}",
+  "backend.quick-service.stopFailedWithMessage": "Stop failed: {message}",
+  "backend.quick-service.hostMountOutsideAllowedRoots":
+    "Host mount path {path} is outside the allowed roots",
+  "backend.docker.composeNoContainers":
+    'No containers were found for Compose project "{project}"',
+  "backend.docker.composeUnsupportedAction":
+    "Unsupported Compose action: {action}",
+  "backend.docker.composeActionFailed": "Compose action failed: {action}",
+  "backend.docker.unavailable": "Docker is not installed or the Docker socket is unavailable",
+  "backend.docker.containerActionFailed": "Container action {action} failed (status: {status})",
+  "backend.playbook.notFoundWithId": "Playbook not found: {id}",
+  "backend.playbook.disabledWithId": "Playbook is disabled: {id}",
+  "backend.scheduled-task.scheduledTaskNotFound": "Scheduled task not found",
 	"backend.scheduled-task.scheduledTaskMissingTargetServerOrCreatorCannot": "Scheduled task missing target server or creator, cannot retry",
 	"backend.scheduled-task.atLeastOneTargetServer": "At least one target server is required",
 	"backend.scheduled-task.invalidCronExpression": "Invalid cron expression",

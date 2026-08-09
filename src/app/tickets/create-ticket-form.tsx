@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -11,6 +11,7 @@ import { cn } from "@/lib/ui/cn";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 import { Notice } from "@/components/ui-primitives";
+import { useUnsavedChangesGuard } from "@/lib/forms/use-unsaved-changes-guard";
 
 type Props = { locale?: Locale; servers?: { id: string; name: string; host: string }[] };
 
@@ -18,7 +19,9 @@ export function CreateTicketForm({ locale: _locale, servers = [] }: Props = {}) 
 	const router = useRouter();
 	const { t } = useI18n();
 	const { addToast } = useToast();
-	const [state, formAction, pending] = useActionState(async (_prev: { error?: string; success?: boolean } | null, formData: FormData) => {
+	const [dirty, setDirty] = useState(false);
+  const { discardDialog } = useUnsavedChangesGuard({ dirty });
+  const [state, formAction, pending] = useActionState(async (_prev: { error?: string; success?: boolean } | null, formData: FormData) => {
 		const title = String(formData.get("subject") ?? "").trim();
 		const description = String(formData.get("description") ?? "").trim();
 		const priority = String(formData.get("priority") ?? "NORMAL").toUpperCase();
@@ -30,6 +33,7 @@ export function CreateTicketForm({ locale: _locale, servers = [] }: Props = {}) 
 				headers: {"Content-Type":"application/json" },
 				body: JSON.stringify({ subject: title, description, priority, category, relatedServerId: String(formData.get("relatedServerId") ?? "") || undefined }),
 			});
+        setDirty(false);
 			router.refresh();
 			return { success: true };
 		} catch (err) {
@@ -46,7 +50,8 @@ export function CreateTicketForm({ locale: _locale, servers = [] }: Props = {}) 
 	}, [state, addToast, t]);
 
 	return (
-		<form action={formAction} data-card className="space-y-4 p-5">
+		<form action={formAction}
+      onChange={() => setDirty(true)} data-card className="space-y-4 p-5">
 			<div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
 				<div>
 					<p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--accent)]">
@@ -124,6 +129,7 @@ export function CreateTicketForm({ locale: _locale, servers = [] }: Props = {}) 
 			>
 				{pending ? t("ticketsPage.form.submitting") : t("ticketsPage.form.submit")}
 			</ActionButton>
+      {discardDialog}
 		</form>
 	);
 }

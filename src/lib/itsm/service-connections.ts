@@ -2,7 +2,7 @@ import { Prisma } from "@prisma/client";
 
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import type { SessionPayload } from "@/lib/auth/session";
-import { teamCreateData, teamWhere } from "@/lib/auth/team-scope";
+import { isGlobalTeamManager, teamCreateData } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { NotFoundError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
@@ -24,6 +24,19 @@ import type {
   ItsmEventRecord,
   ItsmProvider,
 } from "./types";
+
+type ConnectionSession = Pick<
+  SessionPayload,
+  "userId" | "roles" | "currentTeamId"
+>;
+
+function connectionScope(session?: ConnectionSession): Record<string, unknown> {
+  if (!session || isGlobalTeamManager(session)) return {};
+  if (session.currentTeamId) return { teamId: session.currentTeamId };
+  // Legacy unassigned connections are private to their creator. They are not
+  // global integrations that every tenant can inspect or mutate.
+  return { teamId: null, createdById: session.userId };
+}
 
 function resolveConnectionTeamId(
   session: Pick<SessionPayload, "userId" | "roles" | "currentTeamId"> | null | undefined,
@@ -70,7 +83,7 @@ export async function listItsmConnections(
   session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">,
 ): Promise<ItsmConnectionRecord[]> {
   const rows = await prisma.itsmConnection.findMany({
-    where: session ? teamWhere(session) : {},
+    where: connectionScope(session),
     orderBy: [{ enabled: "desc" }, { updatedAt: "desc" }],
     take: 200,
   });
@@ -82,7 +95,7 @@ export async function getItsmConnection(
   session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">,
 ): Promise<ItsmConnectionRecord> {
   const row = await prisma.itsmConnection.findFirst({
-    where: { id, ...(session ? teamWhere(session) : {}) },
+    where: { id, ...connectionScope(session) },
   });
   if (!row) throw new NotFoundError(t("backend.itsm.itsmConnectionNotFound"));
   return toConnectionRecord(row);
@@ -95,11 +108,11 @@ export async function updateItsmConnection(
 ): Promise<ItsmConnectionRecord> {
   const parsed = updateItsmConnectionSchema.parse(input);
   const existing = await prisma.itsmConnection.findFirst({
-    where: { id, ...(session ? teamWhere(session) : {}) },
+    where: { id, ...connectionScope(session) },
   });
   if (!existing) throw new NotFoundError(t("backend.itsm.itsmConnectionNotFound"));
 
-  const data: Prisma.ItsmConnectionUpdateInput = {};
+  const data: Prisma.ItsmConnectionUpdateManyMutationInput = {};
   if (parsed.name !== undefined) data.name = parsed.name;
   if (parsed.direction !== undefined) data.direction = parsed.direction;
   if (parsed.enabled !== undefined) data.enabled = parsed.enabled;
@@ -126,7 +139,16 @@ export async function updateItsmConnection(
     assertOutboundReady(existing.provider as ItsmProvider, effectiveConfig, effectiveCredentials);
   }
 
-  const row = await prisma.itsmConnection.update({ where: { id }, data });
+  const updated = await prisma.itsmConnection.updateMany({
+    where: { id, ...connectionScope(session) },
+    data,
+  });
+  if (updated.count === 0)
+    throw new NotFoundError(t("backend.itsm.itsmConnectionNotFound"));
+  const row = await prisma.itsmConnection.findFirst({
+    where: { id, ...connectionScope(session) },
+  });
+  if (!row) throw new NotFoundError(t("backend.itsm.itsmConnectionNotFound"));
   return toConnectionRecord(row);
 }
 
@@ -135,7 +157,7 @@ export async function deleteItsmConnection(
   session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">,
 ): Promise<void> {
   const deleted = await prisma.itsmConnection.deleteMany({
-    where: { id, ...(session ? teamWhere(session) : {}) },
+    where: { id, ...connectionScope(session) },
   });
   if (deleted.count === 0) throw new NotFoundError(t("backend.itsm.itsmConnectionNotFound"));
 }
@@ -146,7 +168,7 @@ export async function listItsmEvents(input?: {
   limit?: number;
   session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
 }): Promise<ItsmEventRecord[]> {
-  const teamFilter = input?.session ? teamWhere(input.session) : {};
+  const teamFilter = connectionScope(input?.session);
   const rows = await prisma.itsmEvent.findMany({
     where: {
       ...(input?.connectionId ? { connectionId: input.connectionId } : {}),

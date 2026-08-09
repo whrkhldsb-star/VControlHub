@@ -8,6 +8,7 @@
 import { prisma } from "@/lib/db";
 import { BusinessError } from "@/lib/errors";
 import { createNotification } from "@/lib/notification/service";
+import { t } from "@/lib/i18n/service-translations";
 import { buildInstallNotice, formatInstallNoticeMessage, type QuickServiceCredential } from "./install-notice";
 import {
 	dockerErrorMessage,
@@ -125,7 +126,9 @@ async function installServiceUnlocked(opts: InstallOptions) {
 			if (customPort) {
 				const free = await isRemotePortAvailable(target.serverId, customPort);
 				if (!free) {
-					throw new BusinessError(`Port ${customPort} is already in use on the target VPS, please choose another port.`);
+					throw new BusinessError(
+						t("backend.quick-service.portInUseOnTarget", { port: customPort }),
+					);
 				}
 				return customPort;
 			}
@@ -138,13 +141,19 @@ async function installServiceUnlocked(opts: InstallOptions) {
 					for (const ep of template.extraPorts ?? []) {
 						const free = await isRemotePortAvailable(target.serverId, ep.host);
 						if (!free) {
-							throw new BusinessError(`Extra port ${ep.host} is already in use on the target VPS.`);
+							throw new BusinessError(
+								t("backend.quick-service.extraPortInUseOnTarget", {
+									port: ep.host,
+								}),
+							);
 						}
 					}
 					return candidate;
 				}
 			}
-			throw new BusinessError("Unable to allocate an available port on the target VPS; please specify a free port.");
+			throw new BusinessError(
+				t("backend.quick-service.noAvailablePortOnTarget"),
+			);
 		}
 		const port = customPort ?? allocatePort(template.defaultPort);
 		assertTemplatePortsAvailable(template, port);
@@ -215,7 +224,9 @@ async function installServiceUnlocked(opts: InstallOptions) {
 			detail: { image: template.image, port: hostPort, error: msg, phase: "upsert" },
 			diff: { before, after: { status: "error", port: hostPort, error: msg } },
 		});
-		throw new BusinessError(`Installation failed: ${msg}`);
+		throw new BusinessError(
+			t("backend.quick-service.installFailedWithMessage", { message: msg }),
+		);
 	}
 
 	try {
@@ -243,7 +254,9 @@ async function installServiceUnlocked(opts: InstallOptions) {
 			},
 		});
 		await notifyQuickServiceInstallFailure(userId, template, msg);
-		throw new BusinessError(`Installation failed: ${msg}`);
+		throw new BusinessError(
+			t("backend.quick-service.installFailedWithMessage", { message: msg }),
+		);
 	}
 
 	return { ...svc, port: hostPort };

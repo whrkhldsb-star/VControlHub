@@ -41,6 +41,7 @@ const runningTask = {
 
 describe("DownloadsClient", () => {
   beforeEach(() => {
+    window.history.replaceState({}, "", "/downloads");
     vi.mocked(csrfFetch).mockReset();
   });
 
@@ -51,6 +52,39 @@ describe("DownloadsClient", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("下载列表加载失败");
     expect(screen.queryByText("暂无下载任务")).not.toBeInTheDocument();
+  });
+
+  it("keeps the deep-pagination cursor when the first page is refreshed", async () => {
+    const actor = userEvent.setup();
+    const secondTask = {
+      ...runningTask,
+      id: "dl_2",
+      url: "https://example.com/b.iso",
+    };
+    const thirdTask = {
+      ...runningTask,
+      id: "dl_3",
+      url: "https://example.com/c.iso",
+    };
+    vi.mocked(csrfFetch)
+      .mockResolvedValueOnce({ tasks: [runningTask], globalStat: null, nextCursor: "cursor_1" })
+      .mockResolvedValueOnce({ tasks: [secondTask], globalStat: null, nextCursor: "cursor_2" })
+      .mockResolvedValueOnce({ tasks: [runningTask], globalStat: null, nextCursor: "cursor_1" })
+      .mockResolvedValueOnce({ tasks: [thirdTask], globalStat: null, nextCursor: null });
+
+    render(<DownloadsClient servers={servers} canManage canManageNode />);
+
+    await screen.findByText("https://example.com/a.iso");
+    await actor.click(screen.getByRole("button", { name: "加载更多" }));
+    await screen.findByText("https://example.com/b.iso");
+    expect(csrfFetch).toHaveBeenNthCalledWith(2, "/api/downloads?cursor=cursor_1");
+
+    act(() => document.dispatchEvent(new Event("visibilitychange")));
+    await vi.waitFor(() => expect(csrfFetch).toHaveBeenCalledTimes(3));
+
+    await actor.click(screen.getByRole("button", { name: "加载更多" }));
+    await screen.findByText("https://example.com/c.iso");
+    expect(csrfFetch).toHaveBeenNthCalledWith(4, "/api/downloads?cursor=cursor_2");
   });
 
   it("surfaces download action failures and keeps the task visible", async () => {

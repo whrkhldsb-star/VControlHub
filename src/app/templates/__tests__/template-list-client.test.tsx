@@ -37,6 +37,7 @@ function renderClient() {
 
 describe("TemplateListClient", () => {
 	beforeEach(() => {
+		window.history.replaceState({}, "", "/templates");
 		vi.restoreAllMocks();
 		vi.mocked(csrfFetch).mockReset();
 	});

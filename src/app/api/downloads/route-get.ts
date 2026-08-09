@@ -11,6 +11,8 @@ import { getServerLocale, t } from "@/lib/i18n/translations";
 import { teamWhere } from "@/lib/auth/team-scope";
 import { canAccessDownloadTask, taskDownloadAccess } from "@/lib/downloads/route-helpers";
 
+const DOWNLOAD_PAGE_SIZE = 100;
+
 /* ── GET: List tasks with real-time aria2 progress ────────── */
 
 export async function GET(request: Request) {
@@ -21,31 +23,48 @@ export async function GET(request: Request) {
     async ({ session }) => {
       if (!session)
         throw new AuthError(t("apiDownloads.unauthorized", locale));
-      const { serverId, category } = parseSearchParams(
+      const { serverId, category, status, cursor } = parseSearchParams(
         request,
         z.object({
           serverId: z.string().trim().min(1).optional(),
           category: z.string().trim().min(1).optional(),
+          status: z
+            .enum(["PENDING", "RUNNING", "COMPLETED", "FAILED", "CANCELLED"])
+            .optional(),
+          cursor: z.string().trim().min(1).optional(),
         }),
       );
 
       // Team prefilter first (perf + defense if ownership/storage ACL misses team);
       // canAccessDownloadTask still applies creator/storage ACL on the reduced set.
-      const where: Record<string, unknown> = { ...teamWhere(session) };
+      const where: Record<string, unknown> =
+        category === "__uncategorized"
+          ? {
+              AND: [
+                teamWhere(session),
+                { OR: [{ category: null }, { category: "" }] },
+              ],
+            }
+          : { ...teamWhere(session) };
       if (serverId) where.serverId = serverId;
-      if (category) where.category = category;
+      if (category && category !== "__uncategorized") where.category = category;
+      if (status) where.status = status;
 
-      const tasks = await prisma.downloadTask.findMany({
+      const taskRows = await prisma.downloadTask.findMany({
         where,
         include: {
           server: { select: { id: true, name: true, host: true, storageNode: { select: { id: true, basePath: true, driver: true, host: true, port: true, directAccessMode: true, publicBaseUrl: true, directAccessExpiresSeconds: true } } } },
           creator: { select: { id: true, username: true, displayName: true } },
         },
-        orderBy: { createdAt: "desc" },
-        take: 200,
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        take: DOWNLOAD_PAGE_SIZE + 1,
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
       });
+      const hasMore = taskRows.length > DOWNLOAD_PAGE_SIZE;
+      const tasks = taskRows.slice(0, DOWNLOAD_PAGE_SIZE);
+      const nextCursor = hasMore ? (tasks.at(-1)?.id ?? null) : null;
 
-      // Parallel ACL checks (still bounded by take:200) — sequential awaits made
+      // Parallel ACL checks (still bounded by one page) — sequential awaits made
       // list latency grow linearly with storage ACL DB hits.
       const accessFlags = await Promise.all(
         tasks.map((task) => canAccessDownloadTask({ session, task, operation: "read" })),
@@ -155,7 +174,7 @@ export async function GET(request: Request) {
         }
       }
 
-      return NextResponse.json({ tasks: safe, globalStat });
+      return NextResponse.json({ tasks: safe, globalStat, nextCursor });
     },
   );
 }

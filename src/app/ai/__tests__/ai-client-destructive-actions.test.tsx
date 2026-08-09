@@ -10,6 +10,9 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 vi.mock("@/lib/auth/csrf-client", () => ({
   csrfFetch: vi.fn(),
 }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}));
 
 const addToastMock = vi.fn();
 vi.mock("@/components/toast-provider", () => ({

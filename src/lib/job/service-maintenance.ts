@@ -1,4 +1,4 @@
-import { JobStatus } from "@prisma/client";
+import { JobStatus, Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
 import { t } from "@/lib/i18n/service-translations";
@@ -191,19 +191,24 @@ export async function pruneCompletedJobsByType(options: PruneCompletedJobsByType
   const type = options.type.trim();
   if (!type) return { count: 0 };
   const keepLatest = Math.max(1, Math.floor(options.keepLatest ?? 25));
-  const retained = await prisma.job.findMany({
-    where: { type, status: JobStatus.COMPLETED },
-    select: { id: true },
-    orderBy: [{ completedAt: "desc" }, { createdAt: "desc" }],
-    take: keepLatest,
-  });
-  const retainedIds = retained.map((job) => job.id);
-  return prisma.job.deleteMany({
-    where: {
-      type,
-      status: JobStatus.COMPLETED,
-      ...(retainedIds.length > 0 ? { id: { notIn: retainedIds } } : {}),
-      ...(options.olderThan ? { completedAt: { lt: options.olderThan } } : {}),
+  return prisma.$transaction(
+    async (tx) => {
+      const retained = await tx.job.findMany({
+        where: { type, status: JobStatus.COMPLETED },
+        select: { id: true },
+        orderBy: [{ completedAt: "desc" }, { createdAt: "desc" }],
+        take: keepLatest,
+      });
+      const retainedIds = retained.map((job) => job.id);
+      return tx.job.deleteMany({
+        where: {
+          type,
+          status: JobStatus.COMPLETED,
+          ...(retainedIds.length > 0 ? { id: { notIn: retainedIds } } : {}),
+          ...(options.olderThan ? { completedAt: { lt: options.olderThan } } : {}),
+        },
+      });
     },
-  });
+    { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+  );
 }

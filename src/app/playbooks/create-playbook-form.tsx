@@ -23,6 +23,7 @@ import type { TriggerType, SerializedStep, ServerOption } from "./playbook-types
 import { SortableStepCard } from "./sortable-step-card";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
+import { useUnsavedChangesGuard } from "@/lib/forms/use-unsaved-changes-guard";
 
 export function CreatePlaybookForm({
 	onClose,
@@ -46,14 +47,28 @@ export function CreatePlaybookForm({
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
-	const addStep = () => setSteps((prev) => [...prev, makeNewStep()]);
-	const removeStep = (id: string) => setSteps((prev) => prev.filter((s) => s.id !== id));
-	const updateStep = (id: string, patch: Partial<SerializedStep>) =>
+	const [dirty, setDirty] = useState(false);
+  const { requestDiscard, discardDialog } = useUnsavedChangesGuard({
+    dirty,
+    onDiscard: onClose,
+  });
+
+  const addStep = () => {
+    setDirty(true); setSteps((prev) => [...prev, makeNewStep()]);
+  };
+	const removeStep = (id: string) => {
+    setDirty(true); setSteps((prev) => prev.filter((s) => s.id !== id));
+  };
+	const updateStep = (id: string, patch: Partial<SerializedStep>) => {
+    setDirty(true);
 		setSteps((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
-	const updateStepConfig = (id: string, patch: Record<string, unknown>) =>
+  };
+	const updateStepConfig = (id: string, patch: Record<string, unknown>) => {
+    setDirty(true);
 		setSteps((prev) =>
 			prev.map((s) => (s.id === id ? { ...s, config: { ...s.config, ...patch } } : s)),
 		);
+  };
 	const sensors = useSensors(
 		useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
 		useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -61,6 +76,7 @@ export function CreatePlaybookForm({
 	const handleStepDragEnd = (event: DragEndEvent) => {
 		const { active, over } = event;
 		if (!over || active.id === over.id) return;
+    setDirty(true);
 		setSteps((prev) => reorderSteps(prev, String(active.id), String(over.id)));
 	};
 
@@ -104,6 +120,7 @@ export function CreatePlaybookForm({
 				}),
 			});
 			addToast("success", t("playbooksPage.toast.created"));
+      setDirty(false);
 			onClose();
 		} catch (err) {
 			setError(getErrorMessage(err, t("playbooksPage.createForm.error")));
@@ -113,7 +130,8 @@ export function CreatePlaybookForm({
 	};
 
 	return (
-		<form onSubmit={handleSubmit} data-card className="space-y-4">
+		<form onSubmit={handleSubmit}
+      onChangeCapture={() => setDirty(true)} data-card className="space-y-4">
 			<h3 className="text-lg font-semibold text-[var(--text-primary)]">{t("playbooksPage.createForm.title")}</h3>
 			{error && (
 				<div role="alert" className="rounded-lg bg-[var(--danger-bg)]/20 border border-[var(--danger-border)] px-3.5 py-2.5 text-sm text-[var(--danger)]">
@@ -305,11 +323,13 @@ export function CreatePlaybookForm({
 				>
 					{submitting ? t("playbooksPage.createForm.submitting") : t("playbooksPage.createForm.submit")}
 				</ActionButton>
-				<ActionButton variant="secondary"
-					onClick={onClose} className="min-h-11 !px-5 !py-2 !text-sm">
+				<ActionButton
+          type="button" variant="secondary"
+					onClick={requestDiscard} className="min-h-11 !px-5 !py-2 !text-sm">
 					{t("playbooksPage.createForm.cancel")}
 				</ActionButton>
 			</div>
+      {discardDialog}
 		</form>
 	);
 }

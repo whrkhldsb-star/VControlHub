@@ -7,6 +7,7 @@ import { ConnectionTypeFields } from "./server-connection-type-fields";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { usePreservedActionForm } from "@/lib/forms/use-preserved-action-form";
+import { useUnsavedChangesGuard } from "@/lib/forms/use-unsaved-changes-guard";
 const initialState: ServerActionState = {
   error: undefined,
   success: undefined,
@@ -29,6 +30,8 @@ export function ServerCreateForm({
     () => state.hostKeySha256 ?? "",
   );
   const [hostKeyConfirmed, setHostKeyConfirmed] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const { discardDialog } = useUnsavedChangesGuard({ dirty });
   const { formRef, captureBeforeSubmit } = usePreservedActionForm(
     state,
     Boolean(state.error),
@@ -43,7 +46,9 @@ export function ServerCreateForm({
     }
   }, [state.error, state.hostKeySha256, state.success]);
   useEffect(() => {
-    if (state.success) router.refresh();
+    if (state.success) {
+      setDirty(false); router.refresh();
+  }
   }, [state.success, router]);
   return (
     <form
@@ -53,6 +58,7 @@ export function ServerCreateForm({
       data-card
       className="grid gap-4"
       onChange={(event) => {
+        setDirty(true);
         const field = event.target;
         if (!(field instanceof HTMLInputElement || field instanceof HTMLSelectElement)) return;
         if (["host", "port", "username", "connectionType", "sshKeyId", "password"].includes(field.name)) {
@@ -419,6 +425,7 @@ export function ServerCreateForm({
       >
         {t(observedHostKeySha256 ? "serversPage.create.submitConfirmed" : "serversPage.create.submit")}
       </SubmitButton>{" "}
+      {discardDialog}
     </form>
   );
 }

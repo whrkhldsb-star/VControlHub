@@ -13,6 +13,7 @@ const { mocks } = vi.hoisted(() => ({
     runCreate: vi.fn(),
     runUpdate: vi.fn(),
     jobCreate: vi.fn(),
+    jobEventCreate: vi.fn(),
     transaction: vi.fn(),
     auditUserAction: vi.fn(),
     serverFindMany: vi.fn(),
@@ -90,7 +91,9 @@ describe("playbook service", () => {
     mocks.transaction.mockImplementation(async (callback: (tx: unknown) => unknown) => callback({
       playbookRun: { create: mocks.runCreate, update: mocks.runUpdate },
       job: { create: mocks.jobCreate },
-    }));
+          jobEvent: { create: mocks.jobEventCreate
+    },
+        }));
   });
 
   it("lists and narrows playbooks", async () => {
@@ -327,7 +330,7 @@ describe("playbook service", () => {
   it("rejects missing and disabled playbooks", async () => {
     mocks.playbookFindFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({ ...baseRow, enabled: false });
     await expect(runPlaybook({ playbookId: "missing", dryRun: true })).rejects.toThrow(/不存在|not found/);
-    await expect(runPlaybook({ playbookId: "pb1", dryRun: false })).rejects.toThrow(/disabled/);
+		await expect(runPlaybook({ playbookId: "pb1", dryRun: false })).rejects.toThrow(/disabled|已禁用/);
   });
 
   it("atomically persists a queued run and durable parent job", async () => {
@@ -335,6 +338,7 @@ describe("playbook service", () => {
     mocks.runCreate.mockResolvedValue(queuedRun);
     mocks.runUpdate.mockResolvedValue({ ...queuedRun, jobId: "job-1" });
     mocks.jobCreate.mockResolvedValue({ id: "job-1" });
+    mocks.jobEventCreate.mockResolvedValue({ id: "event-1" });
     const session = { userId: "u1", roles: ["operator"] as import("@/lib/auth/rbac").RoleKey[], currentTeamId: "team1" };
     const run = await runPlaybook({ playbookId: "pb1", dryRun: false, createdById: "u1", session });
     expect(run.status).toBe("queued");
@@ -342,6 +346,12 @@ describe("playbook service", () => {
     expect(mocks.jobCreate).toHaveBeenCalledWith({ data: expect.objectContaining({
       type: "playbook.run", payload: { runId: "run-1" }, maxAttempts: 3, teamId: "team1",
     }) });
+    expect(mocks.jobEventCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        jobId: "job-1",
+        type: "enqueued",
+      }),
+    });
     expect(mocks.auditUserAction).toHaveBeenCalledWith("u1", "playbook.run", expect.objectContaining({ runId: "run-1", status: "queued" }));
   });
 

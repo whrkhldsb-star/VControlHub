@@ -76,6 +76,7 @@ describe("durable job service", () => {
     mockPrisma.job.updateMany.mockResolvedValue({ count: 0 });
     mockPrisma.job.create.mockResolvedValue({ id: "job-default" });
     mockPrisma.job.count.mockResolvedValue(0);
+    mockPrisma.$transaction.mockImplementation(async (callback: any) => callback(mockPrisma));
     configState.jobMaxConcurrentGlobal = 0;
     configState.jobMaxConcurrentPerUser = 0;
     configState.jobMaxConcurrentPerNode = 0;
@@ -152,9 +153,17 @@ describe("durable job service", () => {
   });
 
   it("cancels pending/running jobs and recovers stale running jobs", async () => {
-    await cancelJob("job1");
+    await cancelJob("job1", {
+      userId: "user-1",
+      roles: ["operator"],
+      currentTeamId: "team-1",
+    });
     expect(mockPrisma.job.updateMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: "job1", status: { in: ["PENDING", "RUNNING"] } },
+      where: {
+        id: "job1",
+        status: { in: ["PENDING", "RUNNING"] },
+        OR: [{ teamId: "team-1" }, { teamId: null }],
+      },
       data: expect.objectContaining({
         status: "CANCELLED",
         workerId: null,

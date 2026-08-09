@@ -1,6 +1,8 @@
 import { JobStatus, Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
+import type { SessionPayload } from "@/lib/auth/session";
+import { teamWhere } from "@/lib/auth/team-scope";
 import {
   DEFAULT_LEASE_MS,
   futureFrom,
@@ -123,10 +125,17 @@ export async function failJobTerminal(
   return updated;
 }
 
-export async function cancelJob(jobId: string) {
+export async function cancelJob(
+  jobId: string,
+  session: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">,
+) {
   const now = new Date();
   const updated = await prisma.job.updateMany({
-    where: { id: jobId, status: { in: [JobStatus.PENDING, JobStatus.RUNNING] } },
+    where: {
+      id: jobId,
+      status: { in: [JobStatus.PENDING, JobStatus.RUNNING] },
+      ...teamWhere(session),
+    },
     data: {
       status: JobStatus.CANCELLED,
       cancelledAt: now,

@@ -357,7 +357,7 @@ async function tryComposeCli(
   }
 
   throw new BusinessError(
-    (result.stderr || result.stdout || `compose ${action} failed`).slice(0, 800),
+    (result.stderr || result.stdout || t("backend.docker.composeActionFailed", { action })).slice(0, 800),
   );
 }
 
@@ -401,14 +401,15 @@ async function engineActionOnProjectContainers(
   // Lifecycle fallback must never treat that as a successful start/stop/remove.
   if (listed.dockerAvailable === false) {
     throw new BusinessError(
-      listed.message ?? "Docker is not installed or Docker socket is unavailable",
+      listed.message ?? t("backend.docker.unavailable"),
     );
   }
   const targets = listed.containers.filter(
     (c) => c.Labels?.[COMPOSE_PROJECT_LABEL] === project,
   );
   if (targets.length === 0) {
-    throw new BusinessError(`No containers found for compose project "${project}"`);
+    throw new BusinessError(
+      t( "backend.docker.composeNoContainers",{project}));
   }
 
   for (const c of targets) {
@@ -433,7 +434,7 @@ async function engineActionOnProjectContainers(
     });
     if (result.dockerAvailable === false) {
       throw new BusinessError(
-        result.message ?? "Docker is not installed or Docker socket is unavailable",
+        result.message ?? t("backend.docker.unavailable"),
       );
     }
     // 304 = already started/stopped — treat as success
@@ -441,7 +442,7 @@ async function engineActionOnProjectContainers(
       const msg =
         result.data && typeof result.data === "object" && "message" in result.data
           ? String((result.data as { message?: unknown }).message ?? "container action failed")
-          : `container ${action} failed (${result.status})`;
+          : t("backend.docker.containerActionFailed", { action, status: result.status });
       throw new BusinessError(`${msg} [${id.slice(0, 12)}]`);
     }
   }
@@ -483,7 +484,7 @@ export async function runComposeProjectAction(input: {
   // ok:true + dockerAvailable:false for empty UX; never complete up/down/start as success.
   if (action !== "ps" && listed.dockerAvailable === false) {
     throw new BusinessError(
-      listed.message ?? "Docker is not installed or Docker socket is unavailable",
+      listed.message ?? t("backend.docker.unavailable"),
     );
   }
 
@@ -583,7 +584,9 @@ export async function runComposeProjectAction(input: {
     };
   }
 
-  throw new BusinessError(`Unsupported compose action: ${action}`);
+  throw new BusinessError(
+      t("backend.docker.composeUnsupportedAction",{action}),
+    );
   } finally {
     if (releaseLock) await releaseLock();
   }

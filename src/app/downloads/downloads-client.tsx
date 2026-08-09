@@ -16,6 +16,8 @@ import { getCategories, getErrorMessage, getStatusLabel, formatSpeed, type Downl
 import { ActionButton } from "@/components/action-button";
 import { Notice } from "@/components/ui-primitives";
 export type { ServerOption } from "./downloads-shared";
+const UNCATEGORIZED_FILTER = "__uncategorized";
+
 export function DownloadsClient({ servers, canManage, canManageNode }: { servers: ServerOption[]; canManage: boolean; canManageNode: boolean }) {
 	const { t, locale } = useI18n();
 	const { addToast } = useToast();
@@ -25,6 +27,8 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 	const [globalStat, setGlobalStat] = useState<GlobalStat>(null);
 	const [loading, setLoading] = useState(true);
 	const [loadFailed, setLoadFailed] = useState(false);
+	const [loadingMore, setLoadingMore] = useState(false);
+	const [nextCursor, setNextCursor] = useState<string | null>(null);
 	const [showForm, setShowForm] = useState(false);
 	const { state: urlFilters, setField: setUrlFilter } = useUrlQueryState({
 		status: "ALL",
@@ -34,9 +38,18 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 		category: "all",
 	});
 	const filter = urlFilters.status || "ALL";
-	const categoryFilter = urlFilters.category === "all" ? null : urlFilters.category;
+	const categoryFilter =
+		urlFilters.category === "all"
+			? null
+			: urlFilters.category === UNCATEGORIZED_FILTER
+				? ""
+				: urlFilters.category;
 	const setFilter = (value: string) => setUrlFilter("status", value);
-	const setCategoryFilter = (value: string | null) => setUrlFilter("category", value ?? "all");
+	const setCategoryFilter = (value: string | null) =>
+		setUrlFilter(
+			"category",
+			value === null ? "all" : value || UNCATEGORIZED_FILTER,
+		);
 
 	const defaultServer = servers[0];
 	const defaultTargetPath = defaultServer?.storagePath ?? "/root/downloads";
@@ -50,17 +63,74 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 	const [downloadingIds, setDownloadingIds] = useState<Record<string, boolean>>({});
 	const [pendingPurgeTaskId, setPendingPurgeTaskId] = useState<string | null>(null);
 
-	const fetchTasks = useCallback(async () => {
+	const nextCursorRef = useRef<string | null>(null);
+	const loadedFilterKeyRef = useRef("");
+	const currentFilterKeyRef = useRef("");
+	const hasLoadedAdditionalPagesRef = useRef(false);
+	const refreshSequenceRef = useRef(0);
+	const filterKey = `${filter}:${categoryFilter ?? "all"}`;
+	useEffect(() => {
+		currentFilterKeyRef.current = filterKey;
+	}, [filterKey]);
+
+	const fetchTasks = useCallback(async (loadMore = false) => {
+		if (loadMore && !nextCursorRef.current) return;
+		const requestFilterKey = filterKey;
+		const refreshSequence = loadMore ? null : ++refreshSequenceRef.current;
+		if (!loadMore && loadedFilterKeyRef.current !== filterKey) {
+			hasLoadedAdditionalPagesRef.current = false;
+			nextCursorRef.current = null;
+			setNextCursor(null);
+		}
 		setLoadFailed(false);
+		if (loadMore) setLoadingMore(true);
 		try {
-			const data = await csrfFetch("/api/downloads");
-			setTasks(data.tasks ?? data);
+			const params = new URLSearchParams();
+			if (filter !== "ALL") params.set("status", filter);
+			if (categoryFilter !== null) {
+				params.set("category", categoryFilter || "__uncategorized");
+			}
+			if (loadMore && nextCursorRef.current) {
+				params.set("cursor", nextCursorRef.current);
+			}
+			const query = params.toString();
+			const data = await csrfFetch(`/api/downloads${query ? `?${query}` : ""}`);
+			if (
+				requestFilterKey !== currentFilterKeyRef.current ||
+				(refreshSequence !== null && refreshSequence !== refreshSequenceRef.current)
+			) {
+				return;
+			}
+			const incoming = (data.tasks ?? data) as DownloadTask[];
+			setTasks((current) => {
+				if (loadMore) {
+					const seen = new Set(current.map((task) => task.id));
+					return [...current, ...incoming.filter((task) => !seen.has(task.id))];
+				}
+				if (
+					loadedFilterKeyRef.current !== filterKey ||
+					!hasLoadedAdditionalPagesRef.current
+				) {
+					return incoming;
+				}
+				const freshIds = new Set(incoming.map((task) => task.id));
+				return [...incoming, ...current.filter((task) => !freshIds.has(task.id))];
+			});
+			loadedFilterKeyRef.current = filterKey;
+			if (loadMore) hasLoadedAdditionalPagesRef.current = true;
+			if (loadMore || !hasLoadedAdditionalPagesRef.current) {
+				nextCursorRef.current = data.nextCursor ?? null;
+				setNextCursor(nextCursorRef.current);
+			}
 			setGlobalStat(data.globalStat ?? null);
 		} catch (error) {
 			setLoadFailed(true);
 			addToast("error", getErrorMessage(error, t("downloadsPage.error.loadList")));
-		} finally { setLoading(false); }
-	}, [t, addToast]);
+		} finally {
+			setLoading(false);
+			setLoadingMore(false);
+		}
+	}, [t, addToast, categoryFilter, filter, filterKey]);
 
 	const fetchTasksRef = useRef(fetchTasks);
 	const tasksRef = useRef(tasks);
@@ -397,7 +467,22 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 						/>
 					</div>
 				))}
-			</ListPanel>
+        {!loading && nextCursor ? (
+			<div className="flex justify-center border-t border-[var(--border)] px-4 py-3">
+            <ActionButton
+              type="button"
+              variant="secondary"
+              disabled={loadingMore}
+              onClick={() => void fetchTasks(true)}
+              className="!px-4 !py-2 !text-xs disabled:opacity-60"
+            >
+              {loadingMore
+                ? t("downloadsPage.loadingMore")
+                : t("downloadsPage.loadMore")}
+            </ActionButton>
+          </div>
+        ) : null}
+      </ListPanel>
 			{pendingPurgeTaskId ? (
 				<ModalShell
 					open={pendingPurgeTaskId !== null}

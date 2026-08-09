@@ -13,6 +13,9 @@ const addToastMock = vi.fn();
 vi.mock("@/lib/auth/csrf-client", () => ({
 	csrfFetch: vi.fn(),
 }));
+vi.mock("next/navigation", () => ({
+	useRouter: () => ({ push: vi.fn() }),
+}));
 
 vi.mock("@/components/toast-provider", () => ({
 	useToast: () => ({ addToast: addToastMock }),

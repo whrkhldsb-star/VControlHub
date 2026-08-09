@@ -46,6 +46,24 @@ vi.mock("@/lib/db", () => ({
 				connectionStore.set(where.id, next);
 				return next;
 			}),
+      updateMany: vi.fn(
+        async ({
+          where,
+          data,
+        }: {
+          where: { id: string };
+          data: Record<string, unknown>;
+        }) => {
+          const prev = connectionStore.get(where.id);
+          if (!prev) return { count: 0 };
+          connectionStore.set(where.id, {
+            ...prev,
+            ...data,
+            updatedAt: new Date("2026-07-02T00:00:00Z"),
+          });
+          return { count: 1 };
+        },
+      ),
 			deleteMany: vi.fn(async ({ where }: { where: { id: string } }) => {
 				const existed = connectionStore.delete(where.id);
 				return { count: existed ? 1 : 0 };
@@ -105,10 +123,16 @@ vi.mock("@/lib/db", () => ({
 		},
 		ticket: {
 			findUnique: vi.fn(async ({ where }: { where: { id: string } }) => ticketStore.get(where.id) ?? null),
-			findFirst: vi.fn(async ({ where }: { where: { id: string; OR?: Array<{ teamId: string | null }> } }) => {
+			findFirst: vi.fn(async ({ where }: { where: { id: string;
+            teamId?: string | null; OR?: Array<{ teamId: string | null }>; } }) => {
 				const row = ticketStore.get(where.id);
 				if (!row) return null;
-				if (where.OR) {
+				if (
+							"teamId" in where &&
+            ((row.teamId as string | null) ?? null) !== where.teamId
+          )
+            return null;
+          if (where.OR) {
 					const allowed = new Set(where.OR.map((c) => c.teamId));
 					if (!allowed.has((row.teamId as string | null) ?? null)) return null;
 				}

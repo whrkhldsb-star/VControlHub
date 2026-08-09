@@ -1,6 +1,6 @@
 "use client";
 
-import { Children, useEffect, useRef, useState, type ReactNode } from "react";
+import { Children, useRef, useState, type ReactNode } from "react";
 
 import { ActionButton } from "@/components/action-button";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -19,21 +19,17 @@ export function PaginatedList({
   const { t } = useI18n();
   const items = Children.toArray(children);
   const pageCount = Math.max(1, Math.ceil(items.length / pageSize));
-  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState<{
+    page: number;
+    resetKey: string | number | undefined;
+  }>(() => ({ page: 1, resetKey }));
+  const page = Object.is(pagination.resetKey, resetKey) ? pagination.page : 1;
   const safePage = Math.min(page, pageCount);
   const start = (safePage - 1) * pageSize;
   const rootRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
-    if (page > pageCount) setPage(pageCount);
-  }, [page, pageCount]);
-
-  useEffect(() => {
-    setPage(1);
-  }, [resetKey]);
-
   const changePage = (next: number) => {
-    setPage(next);
+    setPagination({ page: Math.min(Math.max(next, 1), pageCount), resetKey });
     rootRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
   };
 

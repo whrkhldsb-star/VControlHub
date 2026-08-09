@@ -20,9 +20,10 @@ export function getBudgetPeriodRange(period: CostBudgetPeriod, now = new Date())
 	return { start: new Date(Date.UTC(year, 0, 1)), endExclusive: new Date(Date.UTC(year + 1, 0, 1)) };
 }
 
-async function budgetToRecord(row: BudgetRow & { teamId?: string | null }, now = new Date(), session?: TeamSession | null): Promise<CostBudgetRecord> {
+async function budgetToRecord(row: BudgetRow & { teamId?: string | null }, now = new Date()): Promise<CostBudgetRecord> {
 	const range = getBudgetPeriodRange(row.period as CostBudgetPeriod, now);
-	const aggregate = await prisma.costEntry.aggregate({ where: { category: row.category, currency: row.currency, effectiveDate: { gte: range.start, lt: range.endExclusive }, ...(session ? teamWhere(session) : row.teamId ? { teamId: row.teamId } : {}) }, _sum: { amount: true } });
+	// Usage belongs to the budget's tenant, not to the viewer's current scope.
+	const aggregate = await prisma.costEntry.aggregate({ where: { category: row.category, currency: row.currency, effectiveDate: { gte: range.start, lt: range.endExclusive }, teamId: row.teamId ?? null }, _sum: { amount: true } });
 	const usageAmount = aggregate._sum.amount?.toFixed(2) ?? "0.00"; const limitAmount = row.limitAmount.toFixed(2);
 	return { id: row.id, category: row.category as CostCategory, name: row.name, limitAmount, currency: row.currency as CostCurrency, period: row.period as CostBudgetPeriod, alertThresholdPercent: row.alertThresholdPercent, enabled: row.enabled, usageAmount, usagePercent: Number(((Number(usageAmount) / Number(limitAmount)) * 100).toFixed(1)), periodStart: isoDateOnly(range.start), periodEnd: isoDateOnly(new Date(range.endExclusive.getTime() - 1)), teamId: row.teamId ?? null, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() };
 }
@@ -30,15 +31,15 @@ async function budgetToRecord(row: BudgetRow & { teamId?: string | null }, now =
 export async function createCostBudget(input: unknown, session?: TeamSession | null): Promise<CostBudgetRecord> {
 	const parsed = createCostBudgetSchema.parse(input); const teamId = session ? teamCreateData(session).teamId : null;
 	const row = await prisma.costBudget.create({ data: { category: parsed.category, name: parsed.name, limitAmount: new Prisma.Decimal(parsed.limitAmount), currency: parsed.currency ?? DEFAULT_CURRENCY, period: parsed.period ?? "monthly", alertThresholdPercent: parsed.alertThresholdPercent ?? 80, enabled: parsed.enabled ?? true, teamId: teamId ?? null } });
-	return budgetToRecord(row, new Date(), session);
+	return budgetToRecord(row);
 }
 export async function listCostBudgets(now = new Date(), session?: TeamSession | null): Promise<CostBudgetRecord[]> {
 	const rows = await prisma.costBudget.findMany({ where: session ? teamWhere(session) : {}, orderBy: { createdAt: "desc" } });
-	return Promise.all(rows.map((row) => budgetToRecord(row, now, session)));
+	return Promise.all(rows.map((row) => budgetToRecord(row, now)));
 }
 export async function getCostBudget(id: string, now = new Date(), session?: TeamSession | null): Promise<CostBudgetRecord | null> {
 	const row = session ? await prisma.costBudget.findFirst({ where: { id, ...teamWhere(session) } }) : await prisma.costBudget.findUnique({ where: { id } });
-	return row ? budgetToRecord(row, now, session) : null;
+	return row ? budgetToRecord(row, now) : null;
 }
 export async function updateCostBudget(id: string, input: unknown, session?: TeamSession | null): Promise<CostBudgetRecord> {
 	const parsed = updateCostBudgetSchema.parse(input); const data: Prisma.CostBudgetUpdateInput = { ...parsed };
@@ -47,9 +48,9 @@ export async function updateCostBudget(id: string, input: unknown, session?: Tea
 		const claimed = await prisma.costBudget.updateMany({ where: { id, ...teamWhere(session) }, data });
 		if (claimed.count === 0) throw new NotFoundError(t("backend.cost.costBudgetNotFound"));
 		const row = await prisma.costBudget.findFirst({ where: { id, ...teamWhere(session) } });
-		if (!row) throw new NotFoundError(t("backend.cost.costBudgetNotFound")); return budgetToRecord(row, new Date(), session);
+		if (!row) throw new NotFoundError(t("backend.cost.costBudgetNotFound")); return budgetToRecord(row);
 	}
-	return budgetToRecord(await prisma.costBudget.update({ where: { id }, data }), new Date(), session);
+	return budgetToRecord(await prisma.costBudget.update({ where: { id }, data }));
 }
 export async function deleteCostBudget(id: string, session?: TeamSession | null): Promise<void> {
 	if (session) { const claimed = await prisma.costBudget.deleteMany({ where: { id, ...teamWhere(session) } }); if (claimed.count === 0) throw new NotFoundError(t("backend.cost.costBudgetNotFound")); return; }

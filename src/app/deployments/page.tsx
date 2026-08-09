@@ -12,7 +12,6 @@ import { RollbackDeployButton } from "./rollback-deploy-button";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { toDateLocale } from "@/lib/i18n/locale-format";
 import { getDomainStatusLabel } from "@/lib/i18n/domain-labels";
-import { PaginatedList } from "@/components/paginated-list";
 import { getServerTargetAvailability } from "@/lib/server/availability";
 
 export const dynamic = "force-dynamic";
@@ -32,7 +31,9 @@ function deploymentNextStep(status: string, tr: (key: string) => string) {
 	return tr("deploymentsPage.page.status.nextUnknown");
 }
 
-export default async function DeploymentsPage({ searchParams }: { searchParams?: Promise<{ error?: string; success?: string }> }) {
+const RUNS_PAGE_SIZE = 20;
+
+export default async function DeploymentsPage({ searchParams }: { searchParams?: Promise<{ error?: string; success?: string; page?: string }> }) {
 
 	const session = await requireSession("/deployments");
 	const locale = await getServerLocale();
@@ -44,10 +45,19 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 	const canRun = sessionHasPermission(session, "deploy:run");
 	const canExport = sessionHasPermission(session, "deploy:export");
 	const params = await searchParams;
+	const pageParam = params?.page ?? "1";
+	const requestedPage = /^\d+$/.test(pageParam) ? Number(pageParam) : 1;
+	const page = Math.min(
+		Number.isSafeInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1,
+		10_000,
+	);
 	const formError = params?.error;
 	const formSuccess = params?.success === "1" || params?.success === "true";
 	const [runs, templates, servers] = await Promise.all([
-		listDeploymentRuns(session),
+		listDeploymentRuns(session, {
+      skip: (page - 1) * RUNS_PAGE_SIZE,
+      take: RUNS_PAGE_SIZE + 1,
+    }),
 		listDeploymentTemplates(session),
 		// teamWhere OR composes safely with top-level enabled (no key collision).
 		prisma.server.findMany({
@@ -64,7 +74,9 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 			},
 		}),
 	]);
-	const latestRun = runs[0];
+	const hasNextPage = runs.length > RUNS_PAGE_SIZE;
+  const visibleRuns = runs.slice(0, RUNS_PAGE_SIZE);
+  const latestRun = page === 1 ? visibleRuns[0] : undefined;
 	return (
 		<PageShell>
 			<PageHeader eyebrow={tr("deploymentsPage.page.eyebrow")} title={tr("deploymentsPage.page.title")} description={tr("deploymentsPage.page.description")} />
@@ -105,7 +117,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 					{tr("deploymentsPage.page.submitFailed")}{formError}
 				</div>
 			)}
-			{formSuccess && !formError && (
+			{formSuccess && !formError && latestRun && (
 				<div role="status" className="mb-6 rounded-xl border border-[var(--success-border)] bg-[var(--success-bg)] px-4 py-3 text-sm text-[var(--success)]">
 					{tr("deploymentsPage.page.submitSuccess")}
 				</div>
@@ -169,11 +181,10 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 			)}
 			<ListPanel
 				title={tr("deploymentsPage.page.runsSection.title")}
-				count={runs.length}
-				empty={runs.length === 0 ? <EmptyState text={tr("deploymentsPage.page.runsSection.empty")} /> : undefined}
-			>
-					<PaginatedList pageSize={20}>
-					{runs.map((r) => (
+				count={visibleRuns.length}
+				empty={
+          visibleRuns.length === 0 ? <EmptyState text={tr("deploymentsPage.page.runsSection.empty")} /> : undefined}
+			>{visibleRuns.map((r) => (
 						<ListRow key={r.id}>
 							<div className="flex items-center justify-between gap-3">
 								<div>
@@ -210,8 +221,31 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 							) : null}
 						</ListRow>
 					))}
-					</PaginatedList>
-			</ListPanel>
+        {page > 1 || hasNextPage ? (
+					<div className="flex items-center justify-between border-t border-[var(--border)] px-4 py-3 sm:px-5">
+            {page > 1 ? (
+              <Link
+                href={`/deployments?page=${page - 1}`}
+                className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]">
+                {tr("common.pagination.previous")}
+			</Link>
+            ) : (
+              <span />
+            )}
+            <span className="text-xs text-[var(--text-muted)]">{page}</span>
+            {hasNextPage ? (
+              <Link
+                href={`/deployments?page=${page + 1}`}
+                className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
+              >
+                {tr("common.pagination.next")}
+              </Link>
+            ) : (
+              <span />
+            )}
+          </div>
+        ) : null}
+      </ListPanel>
 		</PageShell>
 	);
 }

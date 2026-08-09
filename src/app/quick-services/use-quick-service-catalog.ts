@@ -11,6 +11,7 @@ import {
   type DockerEnvironmentStatus,
 } from "./quick-services-shared";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { useVisibilityInterval } from "@/lib/hooks/use-visibility-interval";
 
 export type QuickServiceServerOption = {
   id: string;
@@ -95,15 +96,12 @@ export function useQuickServiceCatalog(t: TFn) {
     }
   }, []);
   /* eslint-enable react-hooks/set-state-in-effect */
-  useEffect(() => {
-    const allCatalog = [...catalog, ...remoteCatalog];
-    const installing = allCatalog.filter((s) => s.status === "installing");
-    if (installing.length === 0) return;
-    const timer = setTimeout(() => {
-      void fetchCatalog();
-    }, 3000);
-    return () => clearTimeout(timer);
-  }, [catalog, remoteCatalog, fetchCatalog]);
+  const hasInstallingService = [...catalog, ...remoteCatalog].some(
+    (service) => service.status === "installing",
+  );
+  useVisibilityInterval(() => {
+    void fetchCatalog();
+  }, hasInstallingService ? 3000 : null);
 
   return {
     catalog,

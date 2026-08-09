@@ -14,6 +14,7 @@ import { CreateTemplateForm } from "./create-template-form";
 import { DeployButton } from "./template-deploy-button";
 import type { ServerOption, Template } from "./template-types";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
 
 type Props = {
 	templates: Template[];
@@ -34,7 +35,9 @@ export function TemplateListClient({
 	const { addToast } = useToast();
 	const [templates, setTemplates] = useState(initialTemplates);
 	const [showCreate, setShowCreate] = useState(false);
-	const [filterTag, setFilterTag] = useState<string | null>(null);
+	const { state: filters, setField: setFilter } = useUrlQueryState({ tag: "" });
+	const filterTag = filters.tag || null;
+	const setFilterTag = (tag: string | null) => setFilter("tag", tag ?? "");
 	const [deploying, setDeploying] = useState<string | null>(null);
 	const [templatePendingDelete, setTemplatePendingDelete] = useState<Template | null>(null);
 

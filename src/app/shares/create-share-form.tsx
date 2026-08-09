@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Plus } from "@/components/icons";
 import { csrfFetch } from "@/lib/auth/csrf-client";
@@ -30,6 +30,8 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
 
+  const savingRef = useRef(false);
+
   const shareUrl = result
     ? `${typeof window !== "undefined" ? window.location.origin : ""}/share/${result.token}`
     : "";
@@ -46,6 +48,8 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
   };
 
   const handleCreate = async () => {
+    if (savingRef.current) return;
+    savingRef.current = true;
     setSaving(true);
     setError("");
     setResult(null);
@@ -70,6 +74,7 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
     } catch (e: unknown) {
       setError(getErrorMessage(e, t("sharesPage.create.errorFallback")));
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   };

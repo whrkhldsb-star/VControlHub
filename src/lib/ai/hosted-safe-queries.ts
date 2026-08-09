@@ -8,8 +8,9 @@
  */
 
 import type { SessionPayload } from "@/lib/auth/session";
-import { teamWhere } from "@/lib/auth/team-scope";
+import { serverTeamWhere, teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
+import { t, type Locale } from "@/lib/i18n/service-translations";
 
 export type SafeActionResult = { success: boolean; data: unknown; error?: string };
 
@@ -35,6 +36,7 @@ function periodToSince(periodRaw: unknown): { since: Date; period: string } {
 export async function executeServerlessQuery(
   action: { actionType: string; params: Record<string, unknown> },
   scope: TeamScope,
+  locale: Locale = "zh",
 ): Promise<SafeActionResult | null> {
   if (action.actionType === "search_knowledge") {
     const query = typeof action.params.query === "string" ? action.params.query : "";
@@ -72,7 +74,7 @@ export async function executeServerlessQuery(
 
   if (action.actionType === "list_servers") {
     const servers = await prisma.server.findMany({
-      where: scope ? teamWhere(scope) : { teamId: null },
+      where: scope ? serverTeamWhere(scope) : { teamId: null },
       orderBy: [{ enabled: "desc" }, { name: "asc" }],
       select: { id: true, name: true, host: true, port: true, username: true, enabled: true },
       take: 500, // P2: server 总数有限
@@ -130,7 +132,7 @@ export async function executeServerlessQuery(
     const { since, period } = periodToSince(action.params.period);
     const visibleServers = scope
       ? await prisma.server.findMany({
-          where: teamWhere(scope),
+          where: serverTeamWhere(scope),
           select: { id: true },
           take: 5000,
         })
@@ -186,7 +188,9 @@ export async function executeServerlessQuery(
               sampledAt: latest.sampledAt.toISOString(),
             }
           : null,
-        note: sampleCount === 0 ? "No traffic samples in the selected period" : undefined,
+        note: sampleCount === 0
+          ? t("backend.ai.noTrafficSamplesInPeriod", locale)
+          : undefined,
       },
     };
   }
@@ -218,7 +222,7 @@ export async function executeServerlessQuery(
 
     if (cronAction === "pause" || cronAction === "resume") {
       if (!taskId) {
-        return { success: false, data: null, error: "taskId is required for pause/resume" };
+        return { success: false, data: null, error: t("backend.ai.cron.taskIdRequired", locale) };
       }
       // Pause/resume mutates schedule state — require task:read is already checked;
       // still scope lookup by team and only flip ACTIVE↔PAUSED via toggleScheduledTask
@@ -228,13 +232,15 @@ export async function executeServerlessQuery(
         const task = await getScheduledTask(taskId, scope ?? null);
         if (cronAction === "pause") {
           if (task.status === "PAUSED") {
-            return { success: true, data: { id: task.id, status: task.status, message: "Already paused" } };
+            return { success: true, data: { id: task.id, status: task.status, message: t("backend.ai.cron.alreadyPaused", locale) } };
           }
           if (task.status !== "ACTIVE") {
             return {
               success: false,
               data: null,
-              error: `Cannot pause scheduled task in status ${task.status}`,
+              error: t("backend.ai.cron.cannotPauseStatus", locale, {
+                status: task.status,
+              }),
             };
           }
           const updated = await toggleScheduledTask(taskId, scope ?? null);
@@ -242,13 +248,15 @@ export async function executeServerlessQuery(
         }
         // resume
         if (task.status === "ACTIVE") {
-          return { success: true, data: { id: task.id, status: task.status, message: "Already active" } };
+          return { success: true, data: { id: task.id, status: task.status, message: t("backend.ai.cron.alreadyActive", locale) } };
         }
         if (task.status !== "PAUSED") {
           return {
             success: false,
             data: null,
-            error: `Cannot resume scheduled task in status ${task.status}`,
+            error: t("backend.ai.cron.cannotResumeStatus", locale, {
+              status: task.status,
+            }),
           };
         }
         const updated = await toggleScheduledTask(taskId, scope ?? null);
@@ -257,7 +265,7 @@ export async function executeServerlessQuery(
         return {
           success: false,
           data: null,
-          error: err instanceof Error ? err.message : "Scheduled task operation failed",
+          error: err instanceof Error ? err.message : t( "backend.ai.cron.operationFailed", locale),
         };
       }
     }
@@ -265,7 +273,7 @@ export async function executeServerlessQuery(
     return {
       success: false,
       data: null,
-      error: "Unsupported manage_cron action; use list, pause, or resume",
+      error: t( "backend.ai.cron.unsupportedAction", locale),
     };
   }
 

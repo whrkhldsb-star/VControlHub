@@ -15,6 +15,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
 
 import type { ImageItem } from "./image-bed-types";
 
@@ -41,11 +42,14 @@ export function useImageBedList(opts: { canWrite: boolean }): UseImageBedListRet
 	const [total, setTotal] = useState(0);
 	const [page, setPage] = useState(1);
 	const [totalPages, setTotalPages] = useState(1);
-	const [search, setSearch] = useState("");
+	const { state: filters, setField: setFilter } = useUrlQueryState({ q: "", all: "false" });
+	const search = filters.q;
 	const [debouncedSearch, setDebouncedSearch] = useState("");
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const [showAll, setShowAll] = useState(false);
+	const showAll = filters.all === "true";
+	const setSearch = (value: string) => setFilter("q", value);
+	const setShowAll = (value: boolean) => setFilter("all", value ? "true" : "false");
 	const fetchGenRef = useRef(0);
 
 	useEffect(() => {

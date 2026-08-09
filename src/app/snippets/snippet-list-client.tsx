@@ -14,6 +14,7 @@ import { ActionButton } from "@/components/action-button";
 import { Notice } from "@/components/ui-primitives";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { PaginatedList } from "@/components/paginated-list";
+import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
 
 interface Snippet {
   id: string;
@@ -83,8 +84,9 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
-  const [search, setSearch] = useState("");
-  const [langFilter, setLangFilter] = useState("ALL");
+  const { state: filters, setField: setFilter } = useUrlQueryState({ q: "", lang: "ALL" });
+  const search = filters.q;
+  const langFilter = filters.lang;
 
   const languages = useMemo(() => {
     const langs = new Set(items.map((s) => s.language));
@@ -169,7 +171,7 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
             type="search"
 
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => setFilter("q", e.target.value)}
             placeholder={t("snippetsPage.titlePlaceholder")}
             className={`${UI_INPUT} py-2 pl-9 pr-4`}
           />
@@ -177,7 +179,7 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
         <select
 
           value={langFilter}
-          onChange={(e) => setLangFilter(e.target.value)}
+          onChange={(e) => setFilter("lang", e.target.value)}
           aria-label={t("snippetsPage.filter.placeholder")}
           className={`${UI_INPUT} w-auto py-2`}
         >

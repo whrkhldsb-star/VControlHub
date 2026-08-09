@@ -12,6 +12,7 @@ import { execFileSync } from "child_process";
 
 import { prisma } from "@/lib/db";
 import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
+import { t } from "@/lib/i18n/service-translations";
 import {
 	dockerErrorMessage,
 	dockerExec,
@@ -34,7 +35,6 @@ import {
 import { installService, recreateDockerContainer, type InstallOptions } from "./service-lifecycle-install";
 import type { ServiceTemplate } from "./types";
 import { createLogger } from "@/lib/logging";
-import { t } from "@/lib/i18n/service-translations";
 
 const qsLogger = createLogger("quick-service-lifecycle");
 
@@ -129,7 +129,11 @@ export async function uninstallService(slug: string, options: UninstallServiceOp
 				detail: { error: msg.slice(0, 500) },
 				diff: { before, after: { status: "error", error: `Uninstall failed: ${msg}` } },
 			});
-			throw new BusinessError(`Uninstall failed: ${msg}`);
+			throw new BusinessError(
+				t("backend.quick-service.uninstallFailedWithMessage", {
+					message: msg,
+				}),
+			);
 		}
 
 		if (options.deleteVolumes === true) {
@@ -171,7 +175,9 @@ export async function uninstallService(slug: string, options: UninstallServiceOp
 				detail: { error: msg, phase: "db-delete" },
 				diff: { before, after: { status: "stopped", error: `Uninstall rollback: DB delete failed ${msg}` } },
 			});
-			throw new BusinessError(`Uninstall rollback: container deleted but DB record retained, please retry uninstall: ${msg}`);
+			throw new BusinessError(
+				t("backend.quick-service.uninstallRollbackFailed", { message: msg }),
+			);
 		}
 		await writeQuickServiceAudit({
 			action: "uninstall",
@@ -244,7 +250,9 @@ export async function startService(slug: string, instanceKey: string = HUB_HOST_
 					detail: { error: msg.slice(0, 500) },
 					diff: { before, after: { status: "error", error: msg.slice(0, 500) } },
 				});
-				throw new BusinessError(`Start failed: ${msg}`);
+				throw new BusinessError(
+					t("backend.quick-service.startFailedWithMessage", { message: msg }),
+				);
 			}
 		}
 	});
@@ -310,7 +318,9 @@ export async function updateService(slug: string, instanceKey: string = HUB_HOST
 				detail: { image: svc.image, error: msg.slice(0, 500) },
 				diff: { before, after: { status: "error", image: oldImage, error: `Update failed: ${msg}` } },
 			});
-			throw new BusinessError(`Update failed: ${msg}`);
+			throw new BusinessError(
+				t("backend.quick-service.updateFailedWithMessage", { message: msg }),
+			);
 		}
 	});
 }
@@ -349,7 +359,9 @@ export async function stopService(slug: string, instanceKey: string = HUB_HOST_I
 				detail: { error: msg.slice(0, 500) },
 				diff: { before, after: { status: "error", error: msg.slice(0, 500) } },
 			});
-			throw new BusinessError(`Stop failed: ${msg}`);
+			throw new BusinessError(
+				t("backend.quick-service.stopFailedWithMessage", { message: msg }),
+			);
 		}
 	});
 }

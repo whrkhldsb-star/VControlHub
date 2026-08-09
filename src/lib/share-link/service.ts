@@ -545,7 +545,7 @@ export async function getShareAccessReport(input: {
     ...(action === "all" ? {} : { action }),
     shareLink: teamWhere(input.session),
   };
-  const [logs, grouped, uniqueIpRows] = await Promise.all([
+  const [logs, grouped, uniqueIpGroups] = await Promise.all([
     prisma.shareAccessLog.findMany({
       where,
       orderBy: { accessedAt: "desc" },
@@ -556,9 +556,12 @@ export async function getShareAccessReport(input: {
       },
     }),
     prisma.shareAccessLog.groupBy({
-      by: ["shareLinkId", "action"], where, _count: { _all: true }, orderBy: { _count: { shareLinkId: "desc" } }, take: 2000,
+      by: ["shareLinkId", "action"], where, _count: { _all: true }, orderBy: { _count: { shareLinkId: "desc" } },
     }),
-    prisma.shareAccessLog.findMany({ where: { ...where, ip: { not: null } }, distinct: ["ip"], select: { ip: true }, take: 10000 }),
+    prisma.shareAccessLog.groupBy({
+      by: ["ip"],
+      where: { ...where, ip: { not: null } },
+    }),
   ]);
   const shareIds = Array.from(new Set(grouped.map((row) => row.shareLinkId)));
   const shares = shareIds.length > 0 ? await prisma.shareLink.findMany({
@@ -567,7 +570,7 @@ export async function getShareAccessReport(input: {
   }) : [];
   const shareMap = new Map(shares.map((share) => [share.id, share]));
   const byShareMap = new Map<string, { shareId: string; name: string; path: string; permissionLevel: string; revoked: boolean; view: number; download: number; passwordAttempt: number; total: number }>();
-  const totals = { total: 0, view: 0, download: 0, passwordAttempt: 0, uniqueIps: uniqueIpRows.length };
+  const totals = { total: 0, view: 0, download: 0, passwordAttempt: 0, uniqueIps: uniqueIpGroups.length };
   for (const row of grouped) {
     const count = row._count._all;
     const share = shareMap.get(row.shareLinkId);

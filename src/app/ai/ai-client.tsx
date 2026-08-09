@@ -46,6 +46,7 @@ import { useFileAttachments } from "./hooks/use-file-attachments";
 import { useModelCapabilities } from "./hooks/use-model-capabilities";
 import { useProviderForm } from "./hooks/use-provider-form";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { useUnsavedChangesGuard } from "@/lib/forms/use-unsaved-changes-guard";
 
 export function AiClient({
   initialProviders,
@@ -228,14 +229,26 @@ export function AiClient({
   });
 
   /* ── Per-conversation settings PATCH ───────────────────────── */
-  const { settingsForm, setSettingsForm, handleSaveSettings } =
-    useConvSettingsForm({
-      activeConv,
-      activeConvId,
-      refreshConversations,
-      onSaved: () => setShowSettings(false),
-      addToast,
-    });
+  const {
+    settingsForm,
+    setSettingsForm,
+    handleSaveSettings,
+    dirty: settingsDirty,
+  } = useConvSettingsForm({
+    activeConv,
+    activeConvId,
+    refreshConversations,
+    onSaved: () => setShowSettings(false),
+    addToast,
+  });
+  const {
+    requestAction: requestSettingsAction,
+    requestDiscard: requestCloseSettings,
+    discardDialog: settingsDiscardDialog,
+  } = useUnsavedChangesGuard({
+    dirty: showSettings && settingsDirty,
+    onDiscard: () => setShowSettings(false),
+  });
 
   /* ── Export conversation to markdown ───────────────────────── */
   const handleExportConversation = () => {
@@ -282,14 +295,27 @@ export function AiClient({
         showSidebar={showSidebar}
         conversations={conversations}
         activeConvId={activeConvId}
-        onNewConv={handleNewConv}
-        onSelectConv={setActiveConvId}
+        onNewConv={() =>
+          requestSettingsAction(() => {
+            setShowSettings(false);
+            void handleNewConv();
+          })
+        }
+        onSelectConv={(id) =>
+          requestSettingsAction(() => {
+            setShowSettings(false);
+            setActiveConvId(id);
+          })
+        }
         onDeleteConv={(id) => {
-          const target = conversations.find((conv) => conv.id === id);
-          confirm.open({
-            type: "delete-conversation",
-            id,
-            title: target?.title ?? t("aiPage.fallbackConvName"),
+          requestSettingsAction(() => {
+            setShowSettings(false);
+            const target = conversations.find((conv) => conv.id === id);
+            confirm.open({
+              type: "delete-conversation",
+              id,
+              title: target?.title ?? t("aiPage.fallbackConvName"),
+            });
           });
         }}
         onToggleSidebar={setShowSidebar}
@@ -303,7 +329,10 @@ export function AiClient({
               activeProvider={activeProvider ?? null}
               currentModelCaps={currentModelCaps}
               onToggleSidebar={() => setShowSidebar(true)}
-              onToggleSettings={() => setShowSettings(!showSettings)}
+              onToggleSettings={() => {
+                if (showSettings) requestCloseSettings();
+                else setShowSettings(true);
+              }}
               onClearMessages={() => confirm.open({ type: "clear-messages" })}
               onRenameConv={() => rename.openWith(activeConv.title)}
               onExportConv={handleExportConversation}
@@ -399,6 +428,7 @@ export function AiClient({
         setProvForm={setProvForm}
         creatingProvider={creatingProvider}
       />
+      {settingsDiscardDialog}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { LinkIcon } from "@/components/icons";
@@ -26,6 +26,8 @@ export function ShareFileButton({
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
 
+  const savingRef = useRef(false);
+
   const canShare = entry.entryType === "FILE";
   const label = useMemo(
     () => (compact ? t("sharesPage.button.compact") : `${t("sharesPage.button.compact")} ${entry.name}`),
@@ -43,7 +45,8 @@ export function ShareFileButton({
   }
 
   async function handleShare() {
-    if (!canShare || saving) return;
+    if (!canShare || savingRef.current) return;
+    savingRef.current = true;
     setSaving(true);
     setError("");
     try {
@@ -61,6 +64,7 @@ export function ShareFileButton({
       setError(message);
       onNotify?.("error", message);
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   }

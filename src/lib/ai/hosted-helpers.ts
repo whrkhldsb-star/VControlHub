@@ -7,8 +7,9 @@
 
 import type { Permission, RoleKey } from "@/lib/auth/rbac";
 import type { SessionPayload } from "@/lib/auth/session";
-import { teamWhere } from "@/lib/auth/team-scope";
+import { serverTeamWhere, teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
+import { t, type Locale } from "@/lib/i18n/service-translations";
 import { deserializeDialect } from "@/lib/ssh/os-dialect";
 
 import type { HostedActionType, HostedTool } from "./hosted-tools";
@@ -22,6 +23,7 @@ export type HostedActionSession = {
 export type HostedActionExecutionContext = {
   session: HostedActionSession;
   requiredPermission?: Permission;
+  locale?: Locale;
 };
 
 export function sessionForTeamScope(
@@ -42,16 +44,32 @@ export function requiredPermissionForAction(actionType: string): Permission {
   return "server:ssh";
 }
 
-export function permissionDeniedMessage(actionType: string): string {
+export function permissionDeniedMessage(
+  actionType: string,
+  locale: Locale = "zh",
+): string {
   const perm = requiredPermissionForAction(actionType);
-  if (actionType === "list_servers") return "You do not have server read permission";
-  if (actionType === "list_backups") return "You do not have backup read permission";
-  if (actionType === "run_playbook") return "You do not have playbook run permission";
-  if (actionType === "query_traffic") return "You do not have health/traffic read permission";
-  if (actionType === "manage_cron") return "You do not have scheduled-task manage permission (command:create)";
-  if (actionType === "search_knowledge") return "You do not have AI chat permission";
-  if (actionType === "list_files" || actionType === "search_files" || actionType === "read_file") return "You do not have storage read permission";
-  return `You do not have required permission (${perm})`;
+  if (actionType === "list_servers")
+    return t("backend.ai.permissionDenied.serverRead", locale);
+  if (actionType === "list_backups")
+    return t("backend.ai.permissionDenied.backupRead", locale);
+  if (actionType === "run_playbook")
+    return t("backend.ai.permissionDenied.playbookRun", locale);
+  if (actionType === "query_traffic")
+    return t("backend.ai.permissionDenied.healthRead", locale);
+  if (actionType === "manage_cron")
+    return t("backend.ai.permissionDenied.scheduledTaskManage", locale);
+  if (actionType === "search_knowledge")
+    return t("backend.ai.permissionDenied.aiChat", locale);
+  if (
+    actionType === "list_files" ||
+    actionType === "search_files" ||
+    actionType === "read_file"
+  )
+    return t("backend.ai.permissionDenied.storageRead", locale);
+  return t("backend.ai.permissionDenied.required", locale, {
+    permission: perm,
+  });
 }
 
 export const SERVERLESS_ACTION_TYPES = new Set<string>(["list_servers","list_backups","query_traffic","manage_cron","search_knowledge","run_playbook"]);
@@ -65,7 +83,7 @@ export function isHostedActionType(actionType: string): actionType is HostedActi
 export async function resolveServerId(args: Record<string, unknown>, session?: HostedActionSession | null): Promise<string | null> {
   const explicitId = typeof args.serverId === "string" ? args.serverId.trim() : "";
   const scope = sessionForTeamScope(session);
-  const teamFilter = scope ? teamWhere(scope) : {};
+  const teamFilter = scope ? serverTeamWhere(scope) : { teamId: null };
   if (explicitId) {
     const owned = await prisma.server.findFirst({ where: { id: explicitId, ...teamFilter }, select: { id: true } });
     return owned?.id ?? null;
@@ -92,14 +110,34 @@ export async function resolvePlaybookId(args: Record<string, unknown>, session?:
 }
 
 export async function buildAssistantCommandRequestPayload(input: {
-  tool: HostedTool; args: Record<string, unknown>; userId: string; serverId: string; teamId?: string | null;
+  tool: HostedTool;
+  args: Record<string, unknown>;
+  userId: string;
+  serverId: string;
+  teamId?: string | null;
 }) {
-  const server = await prisma.server.findUnique({ where: { id: input.serverId }, select: { osDialect: true, teamId: true } });
-  const dialect = server?.osDialect ? deserializeDialect(server.osDialect) : undefined;
+  const server = await prisma.server.findFirst({
+    where: { id: input.serverId, teamId: input.teamId ?? null },
+    select: { osDialect: true, teamId: true },
+  });
+  if (!server) throw new Error(t("backend.ai.serverNotFoundOrOutsideTeamScope"));
+  const dialect = server.osDialect ? deserializeDialect(server.osDialect) : undefined;
   const { buildCommand } = await import("./hosted-command-builder");
   const command = buildCommand(input.tool.actionType, input.args, dialect);
-  if (!command) throw new Error("AI action parameters are invalid; cannot generate a command");
-  const reason = typeof input.args.reason === "string" && input.args.reason.trim() ? input.args.reason.trim() : "AI assistant initiated from web session; will execute after manual approval.";
-  const teamId = input.teamId !== undefined && input.teamId !== null ? input.teamId : (server?.teamId ?? null);
-  return { title: `AI Assistant: ${input.tool.actionName}`, command, reason, requesterId: input.userId, serverIds: [input.serverId], submissionMode: "assistant" as const, teamId };
+  if (!command) throw new Error(t("backend.ai.invalidActionParameters"));
+  const reason = typeof input.args.reason === "string" && input.args.reason.trim()
+    ? input.args.reason.trim()
+    : t("backend.ai.assistantRequestReason");
+  const teamId = input.teamId ?? server.teamId;
+  return {
+    title: t("backend.ai.assistantRequestTitle", {
+      action: input.tool.actionName,
+    }),
+    command,
+    reason,
+    requesterId: input.userId,
+    serverIds: [input.serverId],
+    submissionMode: "assistant" as const,
+    teamId,
+  };
 }

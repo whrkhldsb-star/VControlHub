@@ -196,23 +196,6 @@ export async function createFileEntry(input: CreateFileEntryInput) {
   }
 }
 
-export async function softDeleteFileEntry(input: FileEntryMutationInput) {
-  const payload = fileEntryMutationSchema.parse(input);
-  const current = await prisma.fileEntry.findUnique({
-    where: { id: payload.fileEntryId },
-  });
-
-  if (!current) {
-    const t = await serviceT();
-    throw new NotFoundError(t("backend.storage.fileEntryNotFound"));
-  }
-
-  return prisma.fileEntry.update({
-    where: { id: payload.fileEntryId },
-    data: { isDeleted: true },
-  });
-}
-
 type DeletedFileEntryWithNode = Prisma.FileEntryGetPayload<{
   include: {
     storageNode: {
@@ -304,10 +287,16 @@ async function assertDeletedEntryStillExists(entry: DeletedFileEntryWithNode) {
   }
 }
 
-export async function restoreFileEntry(input: FileEntryMutationInput) {
+export async function restoreFileEntry(
+  input: FileEntryMutationInput,
+  session: TeamSession,
+) {
   const payload = fileEntryMutationSchema.parse(input);
-  const current = await prisma.fileEntry.findUnique({
-    where: { id: payload.fileEntryId },
+  const current = await prisma.fileEntry.findFirst({
+    where: {
+      id: payload.fileEntryId,
+      storageNode: teamWhere(session),
+    },
     include: {
       storageNode: {
         select: {

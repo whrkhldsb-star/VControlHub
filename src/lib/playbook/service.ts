@@ -14,6 +14,7 @@ import type { SessionPayload } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
 import { auditUserAction } from "@/lib/audit/service";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
+import { enqueueJob } from "@/lib/job/service";
 import { NotFoundError, ValidationError, BusinessError } from "@/lib/errors";
 
 import type {
@@ -341,10 +342,16 @@ export async function runPlaybook(input: {
     const playbook = await prisma.playbook.findFirst({
       where: { id: input.playbookId, ...scope },
     });
-    if (!playbook) throw new NotFoundError(`playbook not found: ${input.playbookId}`);
+    if (!playbook) {
+      throw new NotFoundError(
+        t("backend.playbook.notFoundWithId", { id: input.playbookId }),
+      );
+    }
     narrowedPlaybook = narrowPlaybook(playbook);
     if (!narrowedPlaybook.enabled) {
-      throw new BusinessError(`playbook is disabled: ${input.playbookId}`);
+      throw new BusinessError(
+        t("backend.playbook.disabledWithId", { id: input.playbookId }),
+      );
     }
 
     const teamData = input.session ? teamCreateData(input.session) : { teamId: playbook.teamId ?? null };
@@ -366,8 +373,8 @@ export async function runPlaybook(input: {
           ...teamData,
         },
       });
-      const job = await tx.job.create({
-        data: {
+      const job = await enqueueJob(
+        {
           type: "playbook.run",
           title: `Run playbook ${narrowedPlaybook.name}`,
           payload: { runId: created.id },
@@ -376,7 +383,8 @@ export async function runPlaybook(input: {
           priority: 0,
           maxAttempts: Math.max(1, narrowedPlaybook.chainRetry + 1),
         },
-      });
+        tx,
+      );
       return tx.playbookRun.update({
         where: { id: created.id },
         data: { jobId: job.id },

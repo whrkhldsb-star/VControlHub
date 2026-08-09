@@ -74,6 +74,37 @@ function summarizePayload(payload: unknown): string | null {
   }
 }
 
+function displayEventMessage(
+  event: JobEventRow,
+  t: (key: string, vars?: Record<string, string | number>) => string,
+) {
+  const payload = event.payload && typeof event.payload === "object"
+    ? event.payload as Record<string, unknown>
+    : null;
+  if (event.type === "enqueued") {
+    return t("jobEventsDialog.message.enqueued", {
+      type: String(payload?.type ?? "-"),
+      priority: String(payload?.priority ?? "-"),
+    });
+  }
+  if (event.type === "claimed") {
+    return t("jobEventsDialog.message.claimed", { worker: event.workerId ?? "-" });
+  }
+  if (event.type === "completed" && event.message === "Task completed") {
+    return t("jobEventsDialog.message.completed");
+  }
+  if (event.type === "cancelled" && event.message === "Task cancelled") {
+    return t("jobEventsDialog.message.cancelled");
+  }
+  if (event.type === "recovered" && event.message === "Background executor heartbeat expired; re-enqueued") {
+    return t("jobEventsDialog.message.recovered");
+  }
+  if (event.type === "failed" && event.message === "Background executor heartbeat expired after exhausting attempts") {
+    return t("jobEventsDialog.message.heartbeatExhausted");
+  }
+  return event.message;
+}
+
 export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) {
   const { t } = useI18n();
   const levelLabels = buildLevelLabels(t);
@@ -186,7 +217,7 @@ export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) 
                         </span>
                       ) : null}
                     </div>
-                    <p className="mt-1 break-words text-[var(--text-secondary)]">{event.message}</p>
+                    <p className="mt-1 break-words text-[var(--text-secondary)]">{displayEventMessage(event, t)}</p>
                     {summary ? (
                       <pre className="mt-1 max-h-32 overflow-auto rounded-lg bg-[var(--surface-subtle)] px-2 py-1 text-[10px] text-[var(--text-muted)]">
                         {summary}

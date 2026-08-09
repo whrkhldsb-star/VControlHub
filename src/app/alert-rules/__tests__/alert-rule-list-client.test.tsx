@@ -13,6 +13,9 @@ vi.mock("@/lib/auth/authorization", () => ({
 vi.mock("@/lib/auth/csrf-client", () => ({
 	csrfFetch: vi.fn(),
 }));
+vi.mock("next/navigation", () => ({
+	useRouter: () => ({ push: vi.fn() }),
+}));
 vi.mock("@/lib/alert/service", () => ({
 	listAlertRules: vi.fn(async () => [{
 		id: "rule1",

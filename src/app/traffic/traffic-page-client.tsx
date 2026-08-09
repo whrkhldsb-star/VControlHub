@@ -135,12 +135,22 @@ export default function TrafficPage() {
   const [historyScope, setHistoryScope] = useState<"24h" | "7d">("24h");
   const lastIfaceRef = useRef<string>("");
 
+  const historyRequestRef = useRef<AbortController | null>(null);
+  const summaryRequestRef = useRef<AbortController | null>(null);
+  const remoteRequestRef = useRef<AbortController | null>(null);
+
   const fetchHistory = useCallback(async (scope: "24h" | "7d", iface = selectedIface) => {
+    historyRequestRef.current?.abort();
+    const controller = new AbortController();
+    historyRequestRef.current = controller;
     try {
       const params = new URLSearchParams();
       params.set("hours", scope === "24h" ? "24" : "168");
       if (iface) params.set("iface", iface);
-      const data = (await csrfFetch(`/api/traffic/history?${params.toString()}`)) as { history?: TrafficHistoryPoint[]; error?: string };
+      const data = (await csrfFetch(
+        `/api/traffic/history?${params.toString()}`,
+        { signal: controller.signal },
+      )) as { history?: TrafficHistoryPoint[]; error?: string };
       if (data.error || !Array.isArray(data.history)) {
         setHistoryError(data.error || t("trafficPage.historyLoadFailed"));
         return;
@@ -154,15 +164,26 @@ export default function TrafficPage() {
         setHistory7d(data.history);
       }
     } catch (cause) {
+      if (controller.signal.aborted) return;
       setHistoryError(getErrorMessage(cause, t("trafficPage.historyLoadFailed")));
+    } finally {
+      if (historyRequestRef.current === controller) {
+        historyRequestRef.current = null;
+      }
     }
   }, [selectedIface, t]);
 
   const fetchSummary = useCallback(async (iface = selectedIface) => {
+    summaryRequestRef.current?.abort();
+    const controller = new AbortController();
+    summaryRequestRef.current = controller;
     try {
       const params = new URLSearchParams();
       if (iface) params.set("iface", iface);
-      const data = (await csrfFetch(`/api/traffic/summary${params.toString() ? `?${params}` : ""}`)) as TrafficSummary & { error?: string };
+      const data = (await csrfFetch(
+        `/api/traffic/summary${params.toString() ? `?${params}` : ""}`,
+        { signal: controller.signal },
+      )) as TrafficSummary & { error?: string };
       if (data.error) {
         setError(data.error);
         return;
@@ -183,23 +204,42 @@ export default function TrafficPage() {
         }
       }
     } catch {
+      if (controller.signal.aborted) return;
       setError(t("trafficPage.error.fetch"));
     } finally {
-      setLoading(false);
+      if (summaryRequestRef.current === controller) {
+        summaryRequestRef.current = null;
+        setLoading(false);
+      }
     }
   }, [selectedIface, t]);
 
   const fetchRemote = useCallback(async () => {
+    remoteRequestRef.current?.abort();
+    const controller = new AbortController();
+    remoteRequestRef.current = controller;
     setRemoteLoading(true);
     try {
-      const data = (await csrfFetch(`/api/traffic/summary?include=remote`)) as TrafficSummary & { error?: string };
+      const data = (await csrfFetch(`/api/traffic/summary?include=remote`, {
+        signal: controller.signal,
+      })) as TrafficSummary & { error?: string };
       if (data.error) return;
       setRemoteServers(data.remoteServers ?? []);
     } catch {
+      if (controller.signal.aborted) return;
       // soft-fail
     } finally {
-      setRemoteLoading(false);
+      if (remoteRequestRef.current === controller) {
+        remoteRequestRef.current = null;
+        setRemoteLoading(false);
+      }
     }
+  }, []);
+
+  useEffect(() => () => {
+      historyRequestRef.current?.abort();
+      summaryRequestRef.current?.abort();
+      remoteRequestRef.current?.abort();
   }, []);
 
   useEffect(() => {
@@ -212,9 +252,9 @@ export default function TrafficPage() {
     return () => clearTimeout(timer);
   }, [fetchRemote]);
   useVisibilityInterval(() => {
-      void fetchSummary();
-      void fetchRemote();
-      void fetchHistory(historyScope);
+    void fetchSummary();
+    void fetchRemote();
+    void fetchHistory(historyScope);
   }, autoRefresh && refreshIntervalSeconds > 0 ? refreshIntervalSeconds * 1000 : null);
 
   const primary = summary?.currentServer.primaryInterface ?? null;

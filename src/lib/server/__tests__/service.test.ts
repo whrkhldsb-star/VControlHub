@@ -316,9 +316,7 @@ describe("server service", () => {
         password: "secret123",
         approvedHostKeySha256: "hk-prod-1 storage",
       }),
-    ).rejects.toThrow(
-      "Cannot connect to target server root@203.0.113.44:61834; node was not added/saved. Please check IP, port, username, and authentication credentials and retry. Details: connect ETIMEDOUT",
-    );
+    ).rejects.toThrow(/无法连接目标服务器 root@203\.0\.113\.44:61834.*connect ETIMEDOUT/);
 
     expect(execRemoteCommandMock).toHaveBeenCalledWith(
       expect.objectContaining({ command: "printf vcontrolhub-ssh-ready" }),
@@ -1479,9 +1477,7 @@ describe("server service", () => {
 
     await expect(
       setServerDirectGatewayEnabled("srv_local", true),
-    ).rejects.toThrow(
-      "The local node does not need a direct gateway to the target server. Continue using website relay or local storage access.",
-    );
+    ).rejects.toThrow("本机节点无需启用目标服务器直连网关");
 
     expect(execRemoteCommandMock).not.toHaveBeenCalled();
     expect(prisma.server.update).not.toHaveBeenCalled();
@@ -1522,9 +1518,7 @@ describe("server service", () => {
 
     await expect(
       setServerDirectGatewayEnabled("srv_orphan", true),
-    ).rejects.toThrow(
-      "Target server direct connection can only be enabled for VPS instances bound to an SFTP storage node. Please create or repair the remote storage node for this VPS first.",
-    );
+    ).rejects.toThrow("仅绑定了 SFTP 存储节点的 VPS 才能启用目标服务器直连");
 
     expect(execRemoteCommandMock).not.toHaveBeenCalled();
     expect(prisma.server.update).not.toHaveBeenCalled();
@@ -1633,7 +1627,7 @@ describe("server service", () => {
 
     await expect(
       setServerDirectGatewayEnabled("srv_1", true, { publicListen: true }),
-    ).rejects.toThrow(/public health check failed/i);
+    ).rejects.toThrow(/公网健康检查.*失败/);
 
     // install + best-effort uninstall
     expect(execRemoteCommandMock.mock.calls.length).toBeGreaterThanOrEqual(2);

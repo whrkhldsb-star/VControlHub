@@ -433,7 +433,10 @@ describe("SFTP file entry actions", () => {
     const result = await restoreFileEntryAction(null, entryForm("entry-1"));
 
     expect(result.success).toContain("old.txt");
-    expect(restoreFileEntryMock).toHaveBeenCalledWith({ fileEntryId: "entry-1" });
+    expect(restoreFileEntryMock).toHaveBeenCalledWith(
+      { fileEntryId: "entry-1" },
+      expect.objectContaining({ userId: "user-1" }),
+    );
     expect(prismaMock.fileEntry.update).not.toHaveBeenCalled();
   });
 

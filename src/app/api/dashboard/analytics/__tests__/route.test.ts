@@ -56,9 +56,7 @@ describe("/api/dashboard/analytics", () => {
     expect(mocks.prisma.metricSnapshot.findMany).toHaveBeenCalled();
     expect(mocks.prisma.auditLog.findMany).not.toHaveBeenCalled();
   });
-});
-
-  it("scopes metric snapshots through denormalized teamId and downloads/audit/image-bed by teamId", async () => {
+	  it("scopes metric snapshots through denormalized teamId and downloads/audit/image-bed by teamId", async () => {
     mocks.sessionHasPermission.mockImplementation(
       (_session, permission: string) =>
         permission === "server:read" ||
@@ -105,7 +103,7 @@ describe("/api/dashboard/analytics", () => {
         }),
       }),
     );
-    expect(mocks.prisma.imageUpload.findMany).toHaveBeenCalledWith(
+	    expect(mocks.prisma.imageUpload.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
           OR: expect.arrayContaining([
@@ -114,5 +112,30 @@ describe("/api/dashboard/analytics", () => {
           ]),
         }),
       }),
+	    );
+	  });
+
+  it("reads every audit page instead of truncating the dashboard total", async () => {
+    mocks.sessionHasPermission.mockImplementation(
+      (_session, permission: string) => permission === "audit:read",
+    );
+    const createdAt = new Date("2026-08-01T00:00:00.000Z");
+    mocks.prisma.auditLog.findMany
+      .mockResolvedValueOnce(Array.from({ length: 5000 }, (_, index) => ({
+        id: `audit-${index}`,
+        action: "login",
+        createdAt,
+      })))
+      .mockResolvedValueOnce([{ id: "audit-5000", action: "logout", createdAt }]);
+
+    const response = await route.GET(new Request("http://local/api/dashboard/analytics?type=audit"));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.audit[0]).toMatchObject({ total: 5001, actions: { login: 5000, logout: 1 } });
+    expect(mocks.prisma.auditLog.findMany).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ cursor: { id: "audit-4999" }, skip: 1 }),
     );
   });
+});

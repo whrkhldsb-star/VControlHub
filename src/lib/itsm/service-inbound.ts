@@ -98,7 +98,7 @@ export async function handleInboundWebhook(input: {
       const commentTarget = await prisma.ticket.findFirst({
         where: {
           id: ticketId,
-          ...(row.teamId ? { OR: [{ teamId: row.teamId }, { teamId: null }] } : {}),
+          teamId: row.teamId,
         },
         select: { id: true },
       });
@@ -134,7 +134,7 @@ export async function handleInboundWebhook(input: {
         const statusTarget = await prisma.ticket.findFirst({
           where: {
             id: ticketId,
-            ...(row.teamId ? { OR: [{ teamId: row.teamId }, { teamId: null }] } : {}),
+            teamId: row.teamId,
           },
           select: { id: true },
         });
