@@ -387,10 +387,10 @@ make logs SERVICE_PREFIX=vcontrolhub
 | API 路由文件        | 177                                              |
 | 数据模型            | 75                                               |
 | UI 组件           | 44                                               |
-| 代码行数            | ~239,122（src 扫描）                                 |
+| 代码行数            | ~239,223（src 扫描）                                 |
 | 测试              | 507 文件                                           |
 | Docker 应用模板     | 44 (本地) + 社区源实时同步                                |
-| i18n            | 241 useI18n() 调用点，82 字典文件                        |
+| i18n            | 242 useI18n() 调用点，82 字典文件                        |
 <!-- README_METRICS_END -->
 
 ---

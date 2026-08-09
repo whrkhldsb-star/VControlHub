@@ -5,7 +5,6 @@ export const zh: Record<string, string> = {
 	"storagePage.list.empty": "暂无存储节点。",
 	"storagePage.nodes.title": "存储节点",
 	"storagePage.nodes.summary": "{total} 个节点 · 本机 {local} · SFTP {sftp}",
-	"storagePage.nodes.creationHint": "安装完成后会自动提供一个本机默认云盘。其他云盘请先在“服务器”中添加服务器，系统会自动创建并绑定对应云盘。",
 
 	"storagePage.list.health": "健康",
 
@@ -31,6 +30,8 @@ export const zh: Record<string, string> = {
 	"storagePage.action.healthCheckCompletedError": "异常",
 	"storagePage.action.healthCheckFailed": "节点健康检查失败",
 
+	"storagePage.action.createNodeSuccess": "存储节点已创建。",
+	"storagePage.action.createNodeFailed": "创建存储节点失败",
 
 	"storagePage.action.missingNodeParam": "缺少存储节点参数",
 	"storagePage.action.missingFileEntryParam": "缺少文件条目参数",
@@ -64,6 +65,8 @@ export const zh: Record<string, string> = {
 	"storagePage.delete.confirmNode": "确认删除「{name}」？",
 
 
+	"storagePage.form.createTitle": "新增存储节点",
+	"storagePage.form.createDescription": "支持本机存储与绑定 VPS 的 SFTP 存储节点。",
 	"storagePage.form.editTitle": "编辑存储节点",
 	"storagePage.form.fieldName": "节点名称",
 	"storagePage.form.fieldDriver": "驱动",
@@ -81,6 +84,7 @@ export const zh: Record<string, string> = {
 	"storagePage.form.fieldDirectExpiresSeconds": "直连链接有效期（秒）",
 	"storagePage.form.fieldIsDefault": "设为默认存储节点",
 	"storagePage.form.optionNotBound": "不绑定",
+	"storagePage.form.submitCreate": "创建节点",
 	"storagePage.form.submitEdit": "保存修改",
 	"storagePage.form.submitPending": "提交中...",
 	"storagePage.form.basePathPlaceholder": "/srv/storage 或 /data/media",
@@ -92,7 +96,6 @@ export const en: Record<string, string> = {
 	"storagePage.list.empty": "No storage nodes yet.",
 	"storagePage.nodes.title": "Storage nodes",
 	"storagePage.nodes.summary": "{total} node(s) · Local {local} · SFTP {sftp}",
-	"storagePage.nodes.creationHint": "A local default drive is created during installation. Add other drives by adding a server on the Servers page; the matching drive is created and bound automatically.",
 
 	"storagePage.list.health": "Healthy",
 
@@ -118,6 +121,8 @@ export const en: Record<string, string> = {
 	"storagePage.action.healthCheckCompletedError": "Error",
 	"storagePage.action.healthCheckFailed": "Storage node health check failed",
 
+	"storagePage.action.createNodeSuccess": "Storage node created.",
+	"storagePage.action.createNodeFailed": "Failed to create storage node",
 
 	"storagePage.action.missingNodeParam": "Missing storage node parameter",
 	"storagePage.action.missingFileEntryParam": "Missing file entry parameter",
@@ -151,6 +156,8 @@ export const en: Record<string, string> = {
 	"storagePage.delete.confirmNode": "Delete “{name}”?",
 
 
+	"storagePage.form.createTitle": "Add storage node",
+	"storagePage.form.createDescription": "Supports local storage and SFTP storage nodes bound to a VPS.",
 	"storagePage.form.editTitle": "Edit storage node",
 	"storagePage.form.fieldName": "Node name",
 	"storagePage.form.fieldDriver": "Driver",
@@ -168,6 +175,7 @@ export const en: Record<string, string> = {
 	"storagePage.form.fieldDirectExpiresSeconds": "Direct link TTL (seconds)",
 	"storagePage.form.fieldIsDefault": "Set as default storage node",
 	"storagePage.form.optionNotBound": "Not bound",
+	"storagePage.form.submitCreate": "Create node",
 	"storagePage.form.submitEdit": "Save changes",
 	"storagePage.form.submitPending": "Submitting...",
 	"storagePage.form.basePathPlaceholder": "/srv/storage or /data/media",

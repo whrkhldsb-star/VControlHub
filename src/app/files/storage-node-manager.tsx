@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { StorageNodeList } from "@/app/storage/storage-node-list";
+import { StorageNodeCreateForm } from "@/app/storage/storage-node-create-form";
 import { useI18n } from "@/lib/i18n/use-locale";
 
 type StorageNodeItem = {
@@ -61,9 +62,9 @@ export function StorageNodeManager({
 			{expanded ? (
 				<div className="mt-6 space-y-6">
 					<StorageNodeList nodes={nodes} servers={servers} canManageNodes={canManageNodes} />
-					<p className="rounded-xl border border-[var(--info-border)] bg-[var(--info-bg)] px-4 py-3 text-sm leading-6 text-[var(--text-secondary)]">
-						{t("storagePage.nodes.creationHint")}
-					</p>
+					{canManageNodes ? (
+						<StorageNodeCreateForm servers={servers} />
+					) : null}
 				</div>
 			) : null}
 		</section>

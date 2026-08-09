@@ -8,7 +8,9 @@ import { requireSession } from "@/lib/auth/require-session";
 import { serverT } from "@/lib/i18n/server-locale";
 import {
   checkStorageNodeHealth,
+  createStorageNode,
   deleteStorageNode,
+  listStorageNodes,
   updateStorageNode,
 } from "@/lib/storage/service";
 import { listServerProfiles } from "@/lib/server/service";
@@ -20,12 +22,20 @@ export async function getStorageFormOptions() {
   // Called from files page for users with storage:write OR storage:manage-node.
   // Scope servers by session team; do not require manage-node here.
   const session = await requireSession();
-  const servers = await listServerProfiles(session);
+  const [servers, nodes] = await Promise.all([
+    listServerProfiles(session),
+    listStorageNodes(session),
+  ]);
   return {
     servers: servers.map((server: (typeof servers)[number]) => ({
       id: server.id,
       name: server.name,
       host: server.host,
+    })),
+    nodes: nodes.map((node: (typeof nodes)[number]) => ({
+      id: node.id,
+      name: node.name,
+      driver: node.driver,
     })),
   };
 }
@@ -50,6 +60,65 @@ export async function checkStorageNodeHealthAction(storageNodeId: string) {
   } catch (error) {
     return {
       error: getErrorMessage(error, t("storagePage.action.healthCheckFailed")),
+    } satisfies StorageActionState;
+  }
+}
+
+export async function createStorageNodeAction(
+  _prev: StorageActionState | null,
+  formData: FormData,
+) {
+  const session = await requirePermission("storage:manage-node");
+
+  const t = await serverT();
+  try {
+    const driver = String(formData.get("driver") ?? "LOCAL").toUpperCase() as
+      | "LOCAL"
+      | "SFTP";
+    const portRaw = String(formData.get("port") ?? "").trim();
+    const serverIdRaw = String(formData.get("serverId") ?? "").trim();
+    const hostRaw = String(formData.get("host") ?? "").trim();
+    const usernameRaw = String(formData.get("username") ?? "").trim();
+
+    const node = await createStorageNode(
+      {
+        name: String(formData.get("name") ?? ""),
+        driver,
+        isDefault: String(formData.get("isDefault") ?? "") === "on",
+        basePath: String(formData.get("basePath") ?? ""),
+        directAccessMode: String(formData.get("directAccessMode") ?? "PROXY") as
+          | "PROXY"
+          | "DIRECT"
+          | "AUTO",
+        publicBaseUrl:
+          String(formData.get("publicBaseUrl") ?? "").trim() || undefined,
+        directAccessExpiresSeconds: Number(
+          String(formData.get("directAccessExpiresSeconds") ?? "300").trim() ||
+            300,
+        ),
+        serverId: serverIdRaw || undefined,
+        host: hostRaw || undefined,
+        port: portRaw ? Number(portRaw) : undefined,
+        username: usernameRaw || undefined,
+      },
+      session,
+    );
+
+    await auditUserAction(session.userId, "storage.node.create", {
+      storageNodeId: node.id,
+      name: node.name,
+      driver: node.driver,
+    });
+
+    revalidatePath("/");
+    revalidatePath("/servers");
+    revalidatePath("/storage");
+    revalidatePath("/files");
+
+    return { success: t("storagePage.action.createNodeSuccess") } satisfies StorageActionState;
+  } catch (error) {
+    return {
+      error: getErrorMessage(error, t("storagePage.action.createNodeFailed")),
     } satisfies StorageActionState;
   }
 }

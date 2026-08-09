@@ -174,6 +174,7 @@ vi.mock("@/app/storage/actions", () => ({
       { id: "node_2", name: "香港媒体库", driver: "SFTP" },
     ],
   }),
+  createStorageNodeAction: vi.fn(),
   createFolderAction: vi.fn().mockResolvedValue({ success: "文件夹已创建" }),
   deleteFileEntryAction: vi.fn(),
   restoreFileEntryAction: vi.fn(),
