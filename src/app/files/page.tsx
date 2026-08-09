@@ -53,9 +53,9 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
 
   const [initialStorage, formOptions] = await Promise.all([
     getStorageOverview(session),
-    canManageNodes || canEditLocalFiles
+    canManageNodes
       ? getStorageFormOptions()
-      : Promise.resolve({ servers: [], nodes: [] }),
+      : Promise.resolve({ servers: [] }),
   ]);
   let storage = initialStorage;
   let syncWarning: string | null = null;

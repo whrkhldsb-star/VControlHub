@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-08-08T05:25:31.251Z",
+  "generatedAt": "2026-08-09T00:36:38.708Z",
   "summary": {
-    "files": 421,
+    "files": 420,
     "filesWithStrings": 0,
     "totalStrings": 0,
     "coveredStrings": 0,
@@ -2414,13 +2414,6 @@
     },
     "src/app/storage/page.tsx": {
       "path": "src/app/storage/page.tsx",
-      "total": 0,
-      "covered": 0,
-      "missing": 0,
-      "candidates": []
-    },
-    "src/app/storage/storage-node-create-form.tsx": {
-      "path": "src/app/storage/storage-node-create-form.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
