@@ -50,10 +50,18 @@ describe("ServerCreateForm", () => {
   it("does not save an unreachable node as a draft unless the operator opts in", () => {
     render(<ServerCreateForm sshKeys={[]} />);
 
+		expect(screen.getByRole("button", { name: "检测连接并获取指纹" })).toBeInTheDocument();
     expect(
       screen.getByRole("checkbox", { name: /连接失败时保存为草稿/ }),
     ).not.toBeChecked();
   });
+
+	it("keeps optional cost and storage settings collapsed until requested", () => {
+		render(<ServerCreateForm sshKeys={[]} />);
+
+		expect(screen.getByText("成本同步（可选）").closest("details")).not.toHaveAttribute("open");
+		expect(screen.getByText("云盘与高级设置（可选）").closest("details")).not.toHaveAttribute("open");
+	});
 
   it("shows the first observed host fingerprint without a copy-paste field", () => {
     actionStateMock.current = {

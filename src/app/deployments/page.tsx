@@ -1,4 +1,5 @@
 import { requireSession } from "@/lib/auth/require-session";
+import Link from "next/link";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { teamWhere } from "@/lib/auth/team-scope";
 import { listDeploymentRuns, listDeploymentTemplates } from "@/lib/deployment/service";
@@ -18,6 +19,14 @@ function deploymentStatusTone(status: string) {
 	if (["FAILED", "CANCELLED", "REJECTED"].includes(status)) return "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)]";
 	if (["RUNNING", "APPROVED"].includes(status)) return "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]";
 	return "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)]";
+}
+
+function deploymentNextStep(status: string, tr: (key: string) => string) {
+	if (status === "PENDING_APPROVAL") return tr("deploymentsPage.page.status.nextApproval");
+	if (["APPROVED", "RUNNING"].includes(status)) return tr("deploymentsPage.page.status.nextExecution");
+	if (["COMPLETED", "SUCCESS", "SUCCEEDED"].includes(status)) return tr("deploymentsPage.page.status.nextDone");
+	if (["FAILED", "CANCELLED", "REJECTED"].includes(status)) return tr("deploymentsPage.page.status.nextFailed");
+	return tr("deploymentsPage.page.status.nextUnknown");
 }
 
 export default async function DeploymentsPage({ searchParams }: { searchParams?: Promise<{ error?: string; success?: string }> }) {
@@ -50,10 +59,9 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 		<PageShell>
 			<PageHeader eyebrow={tr("deploymentsPage.page.eyebrow")} title={tr("deploymentsPage.page.title")} description={tr("deploymentsPage.page.description")} />
 
-			{/* How it works */}
-			<section className="mb-5 rounded-2xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--accent-bg)_40%,var(--surface))] p-5 shadow-[var(--shadow-sm)]">
-				<h2 className="mb-3 text-sm font-semibold text-[var(--text-primary)]">{tr("deploymentsPage.page.howItWorks.title")}</h2>
-				<div className="grid gap-2 text-xs text-[var(--text-secondary)] md:grid-cols-5">
+			<details className="mb-5 border-y border-[var(--border)] py-4">
+				<summary className="cursor-pointer text-sm font-semibold text-[var(--text-primary)]">{tr("deploymentsPage.page.howItWorks.title")}</summary>
+				<div className="mt-3 grid gap-2 text-xs text-[var(--text-secondary)] md:grid-cols-5">
 					<div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] p-3 text-center">
 						<div className="text-lg mb-1">📝</div>
 						<div className="font-medium text-[var(--text-primary)]">{tr("deploymentsPage.page.howItWorks.step1.title")}</div>
@@ -81,7 +89,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 					</div>
 				</div>
 				<p className="mt-3 text-xs text-[var(--text-muted)]">{tr("deploymentsPage.page.howItWorks.auditNote")}</p>
-			</section>
+			</details>
 			{formError && (
 				<div role="alert" className="mb-6 rounded-xl border border-[var(--danger-border)] bg-[var(--danger-bg)] px-4 py-3 text-sm text-[var(--danger)]">
 					{tr("deploymentsPage.page.submitFailed")}{formError}
@@ -92,13 +100,18 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 					{tr("deploymentsPage.page.submitSuccess")}
 				</div>
 			)}
-			{canExport && <DeploymentExportPanel />}
 			{canRun && (
 				<div className="mb-5">
 					<SurfacePanel title={tr("deploymentsPage.page.launchSection.title")} description={tr("deploymentsPage.page.launchSection.desc")}>
 						<DeploymentLaunchForm templates={templates} servers={servers} />
 					</SurfacePanel>
 				</div>
+			)}
+			{canExport && (
+				<details className="mb-5 border-y border-[var(--border)] py-4">
+					<summary className="cursor-pointer text-sm font-semibold text-[var(--text-primary)]">{tr("deploymentsPage.page.exportSection")}</summary>
+					<div className="mt-4"><DeploymentExportPanel /></div>
+				</details>
 			)}
 			{canRun && latestRun && (
 				<section className="mb-5 rounded-2xl border border-[var(--success-border)] bg-[color-mix(in_srgb,var(--success-bg)_40%,var(--surface))] p-5 shadow-[var(--shadow-sm)]">
@@ -121,6 +134,12 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 							label={tr("deploymentsPage.launch.title")}
 						/>
 						<span className="text-xs text-[var(--text-muted)]">{tr("deploymentsPage.page.latestDeploy.help")}</span>
+						<span className="text-xs text-[var(--text-secondary)]">{deploymentNextStep(latestRun.status, tr)}</span>
+						{latestRun.commandRequestId ? (
+							<Link href={`/requests#command-${latestRun.commandRequestId}`} className="text-xs font-medium text-[var(--accent)] underline underline-offset-2">
+								{tr("deploymentsPage.page.status.viewApproval")}
+							</Link>
+						) : null}
 					</div>
 				</section>
 			)}
@@ -138,6 +157,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 								</div>
 								<span className={`rounded-lg border px-2 py-1 text-xs ${deploymentStatusTone(r.status)}`}>{r.status}</span>
 							</div>
+							<p className="mt-2 text-xs text-[var(--text-secondary)]">{deploymentNextStep(r.status, tr)}</p>
 							<code className="mt-3 block overflow-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-3 font-mono text-xs text-[var(--text-secondary)]">{r.renderedCommand}</code>
 							{r.snapshot?.rollbackCommand && <code data-tone="emerald" className="mt-2 block overflow-auto rounded-lg border border-[var(--success-border)] p-3 font-mono text-xs text-[var(--success)] light:border-[var(--success-border)]">{tr("deploymentsPage.page.runsSection.rollback")}{r.snapshot.rollbackCommand}</code>}
 							{r.rollbackAttempts?.length > 0 && (
@@ -158,6 +178,11 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 									/>
 								</div>
 							)}
+							{r.commandRequestId ? (
+								<Link href={`/requests#command-${r.commandRequestId}`} className="mt-2 inline-flex text-xs font-medium text-[var(--accent)] underline underline-offset-2">
+									{tr("deploymentsPage.page.status.viewApproval")}
+								</Link>
+							) : null}
 						</ListRow>
 					))}
 			</ListPanel>

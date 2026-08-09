@@ -106,6 +106,10 @@ describe("BackupsPage", () => {
     expect(screen.getAllByLabelText("备份类型")[0]).toHaveValue("DATABASE");
     expect(screen.getByLabelText("备份备注")).toHaveAttribute("placeholder", "例如：升级前备份");
     expect(screen.getByRole("button", { name: "创建并执行" })).toBeInTheDocument();
+		expect(screen.getByText("保留策略清理（按需展开）").closest("details")).not.toHaveAttribute("open");
+		expect(screen.getByText("迁移工具（按需展开）").closest("details")).not.toHaveAttribute("open");
+		expect(screen.getByText("异地备份（按需展开）").closest("details")).not.toHaveAttribute("open");
+		expect(screen.getByText("定时备份（按需展开）").closest("details")).not.toHaveAttribute("open");
 
     expect(screen.getByText("备份策略概览")).toBeInTheDocument();
     expect(screen.getByText("已用备份空间")).toBeInTheDocument();
@@ -133,6 +137,7 @@ describe("BackupsPage", () => {
     expect(screen.getByText(/restore-db\.sh 'backups\/database\.sql\.gz'/)).toBeInTheDocument();
     expect(screen.getByText(/restore-files\.sh.*'backups\/files\.tar\.gz'/)).toBeInTheDocument();
     expect(screen.getByText(/restore-full\.sh.*'backups\/full\.tar\.gz'/)).toBeInTheDocument();
+		expect(screen.getAllByText("查看命令与高级信息")[0]?.closest("details")).not.toHaveAttribute("open");
     expect(screen.getAllByRole("button", { name: "恢复" })).toHaveLength(5);
     expect(screen.getAllByRole("button", { name: "标记作废" })).toHaveLength(2);
     expect(screen.getByRole("button", { name: "重试备份" })).toBeInTheDocument();

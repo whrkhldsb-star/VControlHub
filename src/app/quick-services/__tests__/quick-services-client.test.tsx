@@ -113,6 +113,37 @@ describe("QuickServicesClient", () => {
 		expect(screen.queryByText(/请先在「应用源」中同步数据/)).not.toBeInTheDocument();
 	});
 
+	it("chooses the deployment target before installation and repeats it in confirmation", async () => {
+		const user = userEvent.setup();
+		const responseWithServer = {
+			...availableCatalogResponse,
+			servers: [{ id: "server-remote", name: "Production VPS", host: "203.0.113.20" }],
+		};
+		vi.mocked(csrfFetch)
+			.mockResolvedValueOnce(responseWithServer)
+			.mockResolvedValueOnce(sourcesResponse)
+			.mockResolvedValueOnce(responseWithServer)
+			.mockResolvedValueOnce(sourcesResponse)
+			.mockResolvedValueOnce({ available: true, usedBy: null });
+
+		render(<QuickServicesClient canManage />);
+
+		const targetSelect = await screen.findByRole("combobox", { name: "部署节点" });
+		const firstInstall = screen.getAllByRole("button", { name: "一键安装" })[0]!;
+		expect(targetSelect.compareDocumentPosition(firstInstall) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+		await user.selectOptions(targetSelect, "server-remote");
+		await screen.findByText("Production VPS");
+		await user.click(screen.getAllByRole("button", { name: "一键安装" })[0]!);
+
+		const dialog = await screen.findByRole("dialog", { name: "安装 AList" });
+		expect(dialog).toHaveTextContent("部署节点：Production VPS");
+		await waitFor(() => {
+			expect(csrfFetch).toHaveBeenCalledWith(
+				"/api/quick-services/check-port?port=5244&serverId=server-remote",
+			);
+		});
+	});
+
 	it("opens an in-app confirmation dialog before uninstalling a service", async () => {
 		const user = userEvent.setup();
 		const confirmSpy = vi.spyOn(window, "confirm");

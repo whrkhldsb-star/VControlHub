@@ -62,10 +62,12 @@ vi.mock("@/lib/db", () => ({
 }));
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { listDeploymentRuns } from "@/lib/deployment/service";
 import { prisma } from "@/lib/db";
 import DeploymentsPage from "../page";
 
 const csrfFetchMock = vi.mocked(csrfFetch);
+const listDeploymentRunsMock = vi.mocked(listDeploymentRuns);
 const serverFindManyMock = vi.mocked(prisma.server.findMany);
 
 const wrap = (ui: React.ReactNode) =>
@@ -92,12 +94,15 @@ describe("DeploymentsPage deploy-export panel", () => {
   beforeEach(() => {
     csrfFetchMock.mockReset();
     csrfFetchMock.mockResolvedValue(sampleExport);
+		listDeploymentRunsMock.mockReset();
+		listDeploymentRunsMock.mockResolvedValue([]);
   });
 
   it("renders the panel, generates a portable export, and shows the ZIP download + tree preview", async () => {
     const user = userEvent.setup();
     wrap(await DeploymentsPage({ searchParams: Promise.resolve({}) }));
 
+		await user.click(screen.getByText("迁移部署导出（按需展开）"));
     expect(screen.getByText("迁移部署导出包")).toBeInTheDocument();
     await user.type(screen.getByLabelText("目标域名"), " Console.Example.Test ");
     await user.type(screen.getByLabelText("应用标识"), " VControlHub ");
@@ -145,4 +150,30 @@ describe("DeploymentsPage deploy-export panel", () => {
       select: { id: true, name: true, host: true, username: true },
     }));
   });
+
+	it("collapses repeated guidance and links a pending deployment to its approval record", async () => {
+		listDeploymentRunsMock.mockResolvedValue([{
+			id: "run-1",
+			templateId: "tmpl1",
+			template: { name: "Docker Compose 更新" },
+			serverIds: ["srv1"],
+			createdAt: new Date("2026-08-09T01:00:00.000Z"),
+			status: "PENDING_APPROVAL",
+			commandRequestId: "req-1",
+			snapshotId: "snap-1",
+			snapshot: { rollbackCommand: "docker compose down" },
+			variables: { project_dir: "/srv/app" },
+			renderedCommand: "cd /srv/app && docker compose up -d",
+			rollbackAttempts: [],
+			errorMessage: null,
+		}] as unknown as Awaited<ReturnType<typeof listDeploymentRuns>>);
+
+		wrap(await DeploymentsPage({ searchParams: Promise.resolve({}) }));
+
+		expect(screen.getByText("💡 使用流程").closest("details")).not.toHaveAttribute("open");
+		expect(screen.getAllByText("下一步：等待审批。")).toHaveLength(2);
+		for (const link of screen.getAllByRole("link", { name: "查看审批与执行记录" })) {
+			expect(link).toHaveAttribute("href", "/requests#command-req-1");
+		}
+	});
 });

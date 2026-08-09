@@ -34,6 +34,8 @@ type InstallDialogItem = {
 
 type InstallDialogProps = {
 	open: InstallDialogItem | null;
+	targetLabel: string;
+	serverId?: string;
 	onClose: () => void;
 	onAdvance: (input: { slug: string; name: string; port: number }) => void;
 	getEnvCount: (item: InstallDialogItem) => number;
@@ -49,6 +51,8 @@ type PortCheckState = {
 
 export function InstallDialog({
 	open,
+	targetLabel,
+	serverId,
 	onClose,
 	onAdvance,
 	getEnvCount,
@@ -66,7 +70,7 @@ export function InstallDialog({
 		setPortCheck({ available: false, usedBy: null, checking: true });
 		try {
 			const data = await csrfFetch<{ available: boolean; usedBy?: string | null }>(
-				`/api/quick-services/check-port?port=${encodeURIComponent(String(port))}`,
+				`/api/quick-services/check-port?port=${encodeURIComponent(String(port))}${serverId ? `&serverId=${encodeURIComponent(serverId)}` : ""}`,
 			);
 			if (gen !== portCheckGenRef.current) return;
 			setPortCheck({ available: data.available, usedBy: data.usedBy ?? null, checking: false });
@@ -78,7 +82,7 @@ export function InstallDialog({
 				checking: false,
 			});
 		}
-	}, [t]);
+	}, [serverId, t]);
 
 	// Reset state every time the dialog opens — the cascading render is the
 	// desired behavior: open dialog → seed default port + immediate check.
@@ -133,7 +137,7 @@ export function InstallDialog({
 	const handleAutoAllocate = async () => {
 		try {
 			const data = await csrfFetch<{ port?: number }>(
-				`/api/quick-services/check-port?action=allocate&preferred=${open.defaultPort}`,
+				`/api/quick-services/check-port?action=allocate&preferred=${open.defaultPort}${serverId ? `&serverId=${encodeURIComponent(serverId)}` : ""}`,
 			);
 			if (data.port) {
 				handlePortInput(String(data.port));
@@ -153,6 +157,9 @@ export function InstallDialog({
 		>
 				<h3 className="text-lg font-semibold text-[var(--text-primary)] mb-1">{t("qsPage.installTitle", { name: open.name })}</h3>
 				<p className="text-xs text-[var(--text-muted)] mb-4">{t("qsPage.installSubtitle")}</p>
+				<div data-tone="cyan" className="mb-4 rounded-lg border border-[var(--accent-border)] bg-[var(--accent-bg)] px-3 py-2 text-xs text-[var(--text-secondary)]">
+					<span className="font-semibold text-[var(--text-primary)]">{t("qsPage.targetNode")}</span>{t("common.colon")}{targetLabel}
+				</div>
 
 				<div className="space-y-3">
 					<label className="block">

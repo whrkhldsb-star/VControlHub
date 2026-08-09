@@ -41,6 +41,14 @@ export default async function BackupsPage() {
 				<StatCard label={t("backupsPage.summary.exceptions")} value={`${summary.failedRecords} / ${summary.runningRecords}`} detail={t("backupsPage.summary.exceptionsHint")} accent={summary.failedRecords > 0} accentColor="rose" />
 			</StatGrid>
 
+			{canCreate && (
+				<div className="mb-5">
+					<SurfacePanel title={t("backupsPage.create.title")} description={t("backupsPage.create.description")}>
+						<CreateBackupForm />
+					</SurfacePanel>
+				</div>
+			)}
+
 			<div className="mb-5">
 				<SurfacePanel
 					title={t("backupsPage.overview.title")}
@@ -85,16 +93,20 @@ export default async function BackupsPage() {
 			</div>
 
 			{canCreate && (
-				<div className="mb-5">
+				<details className="mb-5 border-y border-[var(--border)] py-4">
+					<summary className="cursor-pointer text-sm font-semibold text-[var(--text-primary)]">{t("backupsPage.section.retention")}</summary>
+					<div className="mt-4">
 					<SurfacePanel title={t("backupsPage.retention.title")} description={t("backupsPage.retention.description")}>
 						<RetentionButton olderThan30Days={summary.recordsOlderThan30Days} totalRecords={summary.totalRecords} />
 					</SurfacePanel>
-				</div>
+					</div>
+				</details>
 			)}
 
-			
 			{canCreate && (
-				<div className="mb-5">
+				<details className="mb-5 border-y border-[var(--border)] py-4">
+					<summary className="cursor-pointer text-sm font-semibold text-[var(--text-primary)]">{t("backupsPage.section.migration")}</summary>
+					<div className="mt-4">
 					<SurfacePanel title={t("backupsPage.migration.title")} description={t("backupsPage.migration.description")}>
 						<MigrationWizardPanel
 							canCreate={canCreate}
@@ -108,18 +120,14 @@ export default async function BackupsPage() {
 								}))}
 						/>
 					</SurfacePanel>
-				</div>
-			)}
-{canCreate && (
-				<div className="mb-5">
-					<SurfacePanel title={t("backupsPage.create.title")} description={t("backupsPage.create.description")}>
-						<CreateBackupForm />
-					</SurfacePanel>
-				</div>
+					</div>
+				</details>
 			)}
 
 			{canCreate && (
-				<div className="mb-5">
+				<details className="mb-5 border-y border-[var(--border)] py-4">
+					<summary className="cursor-pointer text-sm font-semibold text-[var(--text-primary)]">{t("backupsPage.section.offsite")}</summary>
+					<div className="mt-4">
 					<SurfacePanel
 						title={t("backupsPage.offsite.title")}
 						description={t("backupsPage.offsite.description")}
@@ -155,15 +163,19 @@ export default async function BackupsPage() {
 						<OffsiteDryRunButton />
 					</div>
 					</SurfacePanel>
-				</div>
+					</div>
+				</details>
 			)}
 
 			{canCreate && (
-				<div className="mb-5">
+				<details className="mb-5 border-y border-[var(--border)] py-4">
+					<summary className="cursor-pointer text-sm font-semibold text-[var(--text-primary)]">{t("backupsPage.section.schedule")}</summary>
+					<div className="mt-4">
 					<SurfacePanel title={t("backupsPage.schedule.title")} description={t("backupsPage.schedule.description")}>
 						<ScheduleBackupForm />
 					</SurfacePanel>
-				</div>
+					</div>
+				</details>
 			)}
 
 			<ListPanel
@@ -188,8 +200,13 @@ export default async function BackupsPage() {
 							{b.note && <p className="mt-2 text-xs text-[var(--text-muted)]">{b.note}</p>}
 							{canRestore && (
 								<div className="mt-3 grid gap-2">
-									<code className="block overflow-auto rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-3 font-mono text-xs text-[var(--text-secondary)]">{buildPortableBackupCommand({ projectRoot, outputPath: b.filePath, type: isBackupType(b.type) ? b.type : undefined })}</code>
-									<code className="block overflow-auto rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-3 font-mono text-xs text-[var(--text-secondary)]">{buildBackupRestoreCommand({ projectRoot, backupPath: b.filePath, type: isBackupType(b.type) ? b.type : undefined })}</code>
+						<details className="rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-3 py-2">
+							<summary className="cursor-pointer text-xs font-medium text-[var(--text-secondary)]">{t("backupsPage.records.showCommands")}</summary>
+							<div className="mt-2 grid gap-2">
+								<code className="block overflow-auto rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-3 font-mono text-xs text-[var(--text-secondary)]">{buildPortableBackupCommand({ projectRoot, outputPath: b.filePath, type: isBackupType(b.type) ? b.type : undefined })}</code>
+								<code className="block overflow-auto rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-3 font-mono text-xs text-[var(--text-secondary)]">{buildBackupRestoreCommand({ projectRoot, backupPath: b.filePath, type: isBackupType(b.type) ? b.type : undefined })}</code>
+							</div>
+						</details>
 									<RestoreBackupButton backupId={b.id} backupType={b.type} disabled={b.status !== "COMPLETED"} />
 									<BackupDrillButton backupId={b.id} disabled={b.status !== "COMPLETED"} />
 									{b.status !== "COMPLETED" && <p className="text-xs text-[var(--text-muted)]">{t("backupsPage.records.restoreHint")}</p>}

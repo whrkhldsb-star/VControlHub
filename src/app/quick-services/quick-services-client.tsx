@@ -56,6 +56,9 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 	// Action handlers + message + actionSlug + syncing now live in the
 	// useQuickServiceActions hook (extracted in R23).
 	const actions = useQuickServiceActions({ fetchCatalog, fetchSources, selectedServerId });
+	const selectedTargetLabel = selectedServerId
+		? (servers.find((server) => server.id === selectedServerId)?.name ?? t("qsPage.targetNodeRemote"))
+		: t("qsPage.targetHubHost");
 
 	const openInstallDialog = (item: CatalogItem) => {
 		if (dockerStatus && !dockerStatus.available) {
@@ -80,11 +83,11 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 			actions.showMessage({ type:"err", text: t("qsPage.installConfigMissing") });
 			return;
 		}
-		setConfigPreview({ action:"install", item, port: input.port });
+		setConfigPreview({ action:"install", item, port: input.port, targetLabel: selectedTargetLabel });
 	};
 
 	const requestUpdate = (item: CatalogItem) => {
-		setConfigPreview({ action:"update", item, port: item.port ?? item.defaultPort });
+		setConfigPreview({ action:"update", item, port: item.port ?? item.defaultPort, targetLabel: selectedTargetLabel });
 	};
 
 	const confirmConfigPreview = () => {
@@ -200,6 +203,29 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 				<StatCard label={t("qsPage.summaryAvailable")} value={String(summary.available)} accent={summary.available > 0} accentColor="cyan" />
 			</StatGrid>
 
+			<div className="flex flex-col gap-2 rounded-2xl border border-[var(--accent-border)] bg-[var(--accent-bg)] p-4 sm:flex-row sm:items-center sm:justify-between">
+				<div>
+					<p className="text-xs font-medium uppercase tracking-[0.16em] text-[var(--accent)]">{t("qsPage.targetNode")}</p>
+					<p className="mt-1 text-sm text-[var(--text-primary)]">{selectedTargetLabel}</p>
+					<p className="mt-1 text-xs text-[var(--text-secondary)]">
+						{selectedServerId ? t("qsPage.targetNodeRemoteHint") : t("qsPage.targetNodeHubHint")}
+					</p>
+				</div>
+				<select
+					value={selectedServerId}
+					onChange={(e) => setSelectedServerId(e.target.value)}
+					className={`${CONTROL_CLASS} min-w-[16rem] bg-[var(--surface)]`}
+					aria-label={t("qsPage.targetNode")}
+				>
+					<option value="">{t("qsPage.targetHubHost")}</option>
+					{servers.map((server) => (
+						<option key={server.id} value={server.id}>
+							{server.name} ({server.host})
+						</option>
+					))}
+				</select>
+			</div>
+
 			<section className="grid gap-3 lg:grid-cols-3">
 				<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-elevated)] p-4">
 					<div className="flex items-start justify-between gap-3">
@@ -301,31 +327,6 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 			)}
 
 
-			<div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-				<div>
-					<p className="text-xs font-medium uppercase tracking-[0.16em] text-[var(--text-muted)]">
-						{t("qsPage.targetNode")}
-					</p>
-					<p className="mt-1 text-xs text-[var(--text-secondary)]">
-						{selectedServerId
-							? t("qsPage.targetNodeRemoteHint")
-							: t("qsPage.targetNodeHubHint")}
-					</p>
-				</div>
-				<select
-					value={selectedServerId}
-					onChange={(e) => setSelectedServerId(e.target.value)}
-					className={`${CONTROL_CLASS} min-w-[16rem]`}
-					aria-label={t("qsPage.targetNode")}
-				>
-					<option value="">{t("qsPage.targetHubHost")}</option>
-					{servers.map((server) => (
-						<option key={server.id} value={server.id}>
-							{server.name} ({server.host})
-						</option>
-					))}
-				</select>
-			</div>
 			<SegmentedTabs
 				ariaLabel={t("qsPage.title")}
 				value={tab}
@@ -384,6 +385,8 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 			{/* Install Dialog (port picker) — extracted to <InstallDialog /> in TR-036 T37 */}
 			<InstallDialog
 				open={installDialog}
+				targetLabel={selectedTargetLabel}
+				serverId={selectedServerId || undefined}
 				onClose={closeInstallDialog}
 				onAdvance={advanceInstall}
 				getEnvCount={getEnvCount}

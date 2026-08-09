@@ -44,6 +44,16 @@ describe("session auth helpers", () => {
     expect(session.getSessionCookieName()).toBe("custom_session");
   });
 
+	it("reads the configured cookie name after an early module import", async () => {
+		vi.stubEnv("AUTH_SESSION_COOKIE_NAME", "");
+		vi.resetModules();
+		const session = await import("@/lib/auth/session");
+
+		vi.stubEnv("AUTH_SESSION_COOKIE_NAME", "late-loaded-session");
+
+		expect(session.getSessionCookieName()).toBe("late-loaded-session");
+	});
+
   it("allows anonymous access only for login and static asset paths", () => {
     expect(shouldBypassAuth("/login")).toBe(true);
     expect(shouldBypassAuth("/_next/static/chunk.js")).toBe(true);

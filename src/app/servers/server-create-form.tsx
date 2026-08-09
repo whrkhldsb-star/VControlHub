@@ -157,7 +157,11 @@ export function ServerCreateForm({
           />{" "}
         </div>{" "}
       </div>{" "}
-      <div className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-4">
+      <details className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-4">
+        <summary className="cursor-pointer text-sm font-medium text-[var(--text-primary)]">
+          {t("serversPage.create.costAdvancedTitle")}
+        </summary>
+        <div className="mt-4 space-y-3">
         {" "}
         <label className="flex items-start gap-3 text-sm text-[var(--text-secondary)]">
           {" "}
@@ -239,7 +243,8 @@ export function ServerCreateForm({
             className={UI_INPUT}
           />{" "}
         </div>{" "}
-      </div>{" "}
+        </div>
+      </details>{" "}
       <ConnectionTypeFields sshKeys={sshKeys} />{" "}
       <div className="rounded-xl border border-[var(--warning-border)] bg-[var(--warning-bg)] p-4 text-sm text-[var(--text-secondary)]">
         <div className="space-y-2">
@@ -275,6 +280,11 @@ export function ServerCreateForm({
           </span>
         </div>
       </div>{" "}
+      <details className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-4">
+        <summary className="cursor-pointer text-sm font-medium text-[var(--text-primary)]">
+          {t("serversPage.create.advancedTitle")}
+        </summary>
+        <div className="mt-4 space-y-4">
       <div className="space-y-1.5">
         {" "}
         <label
@@ -371,6 +381,8 @@ export function ServerCreateForm({
           </div>{" "}
         </div>{" "}
       </label>{" "}
+        </div>
+      </details>{" "}
       <label className="flex items-start gap-3 border-y border-[var(--border)] py-3 text-sm text-[var(--text-secondary)]">
         <input
           name="saveAsDraftOnConnectionFailure"
@@ -402,7 +414,9 @@ export function ServerCreateForm({
           className={UI_INPUT}
         />{" "}
       </div>{" "}
-      <SubmitButton pendingLabel={t("serversPage.create.submitting")}>
+      <SubmitButton
+        pendingLabel={t(observedHostKeySha256 ? "serversPage.create.submitting" : "serversPage.create.detecting")}
+      >
         {t(observedHostKeySha256 ? "serversPage.create.submitConfirmed" : "serversPage.create.submit")}
       </SubmitButton>{" "}
     </form>

@@ -9,6 +9,7 @@ export const zh: Record<string, string> = {
 	"qsPage.eyebrow": "快捷服务",
 	"qsPage.targetNode": "部署节点",
 	"qsPage.targetHubHost": "本机（控制面）",
+	"qsPage.targetNodeRemote": "所选 VPS",
 	"qsPage.targetNodeHubHint": "安装/启停将在 VControlHub 本机 Docker 上执行。",
 	"qsPage.targetNodeRemoteHint": "安装/启停将通过 SSH 在所选 VPS 的 Docker 上执行。",
 	// quick-service-card
@@ -219,6 +220,7 @@ export const en: Record<string, string> = {
 	"qsPage.eyebrow": "Quick Services",
 	"qsPage.targetNode": "Target node",
 	"qsPage.targetHubHost": "Hub host (control plane)",
+	"qsPage.targetNodeRemote": "Selected VPS",
 	"qsPage.targetNodeHubHint": "Install/start/stop runs on the VControlHub host Docker.",
 	"qsPage.targetNodeRemoteHint": "Install/start/stop runs on the selected VPS Docker over SSH.",
 	// quick-service-card

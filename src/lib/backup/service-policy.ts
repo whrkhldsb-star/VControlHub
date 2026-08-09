@@ -93,8 +93,9 @@ function summarizeBackupFailures(records: BackupRecordForSummary[]): BackupFailu
 }
 
 export function formatBackupSize(value: string | number | bigint | null | undefined) {
+	if (value == null) return "Pending";
 	const size = parseBackupSizeBytes(value);
-	if (size <= 0) return "Pending";
+	if (size <= 0) return "0 B";
 	if (size < 1024) return `${size} B`;
 	if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
 	if (size < 1024 * 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`;

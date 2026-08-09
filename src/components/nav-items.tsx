@@ -124,7 +124,10 @@ export const systemNavItems: AppNavItem[] = [
 	{ href: "/audit", labelKey: "nav.audit", fallbackLabel: "Audit Log", icon: <IconAudit /> },
 ];
 
-const mobileNavHrefs = ["/dashboard", "/servers", "/traffic", "/files", "/settings"] as const;
+// Keep the fixed mobile bar focused on the daily operator loop. Traffic and
+// other secondary views remain available from the drawer and global search;
+// active operation tasks need a persistent shortcut for queued work.
+const mobileNavHrefs = ["/dashboard", "/servers", "/operation-tasks", "/files", "/settings"] as const;
 
 export const mobileNavItems: AppNavItem[] = mobileNavHrefs.map((href) => {
 	const item = mainNavItems.find((navItem) => navItem.href === href);

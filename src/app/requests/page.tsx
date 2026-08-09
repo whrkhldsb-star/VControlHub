@@ -113,7 +113,7 @@ export default async function RequestsPage() {
 							{sortedRequests.map((request) => {
 								const isActionable = request.status === "PENDING_APPROVAL" || request.status === "APPROVED" || request.status === "RUNNING";
 								return (
-								<article key={request.id} data-id={request.id} data-card className={`p-5 transition-colors duration-150 hover:bg-[var(--surface-elevated)] ${isActionable ? "" : "opacity-70"}`}>
+								<article id={`command-${request.id}`} key={request.id} data-id={request.id} data-card className={`p-5 transition-colors duration-150 hover:bg-[var(--surface-elevated)] ${isActionable ? "" : "opacity-70"}`}>
 								<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
 									<div className="min-w-0 flex-1">
 										<div className="flex flex-wrap items-center gap-2">

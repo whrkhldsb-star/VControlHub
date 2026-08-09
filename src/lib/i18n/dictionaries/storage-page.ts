@@ -13,6 +13,9 @@ export const zh: Record<string, string> = {
 	"storagePage.list.unchecked": "未检测",
 
 	"storagePage.list.defaultNode": "默认节点",
+	"storagePage.list.source.localDefault": "本机默认",
+	"storagePage.list.source.serverBound": "服务器绑定",
+	"storagePage.list.source.manual": "手动添加",
 
 	"storagePage.list.edit": "编辑",
 
@@ -104,6 +107,9 @@ export const en: Record<string, string> = {
 	"storagePage.list.unchecked": "Unchecked",
 
 	"storagePage.list.defaultNode": "Default node",
+	"storagePage.list.source.localDefault": "Local default",
+	"storagePage.list.source.serverBound": "Server-bound",
+	"storagePage.list.source.manual": "Added manually",
 
 	"storagePage.list.edit": "Edit",
 

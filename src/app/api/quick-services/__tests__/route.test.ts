@@ -15,6 +15,8 @@ const { mocks } = vi.hoisted(() => ({
     updateService: vi.fn(),
     enqueueQuickServiceJob: vi.fn(),
     getDockerEnvironmentStatus: vi.fn(),
+		isRemotePortAvailable: vi.fn(),
+		getRemoteUsedPorts: vi.fn(),
     getRemoteApps: vi.fn(),
     serverFindMany: vi.fn(async () => [] as Array<{ id: string; name: string; host: string }>),
     serverFindUnique: vi.fn(async () => ({ id: "srv1", enabled: true, name: "vps-1" })),
@@ -41,6 +43,8 @@ vi.mock("@/lib/quick-service/docker-cli", () => ({
   HUB_HOST_INSTANCE_KEY: "hub-host",
   getDockerEnvironmentStatusFor: vi.fn(async () => ({ available: true, running: true, version: "Docker", message: null, installHint: null, scope: "hub-host" })),
   getDockerEnvironmentStatus: mocks.getDockerEnvironmentStatus,
+	isRemotePortAvailable: mocks.isRemotePortAvailable,
+	getRemoteUsedPorts: mocks.getRemoteUsedPorts,
   dockerExecSync: vi.fn(),
   dockerErrorMessage: vi.fn(),
   getContainerHealth: vi.fn(),
@@ -87,6 +91,8 @@ describe("/api/quick-services routes", () => {
     mocks.checkPort.mockReturnValue({ available: true });
     mocks.getUsedPorts.mockReturnValue([{ port: 3000, usedBy: "vcontrolhub" }]);
     mocks.getDockerEnvironmentStatus.mockReturnValue({ available: true, running: true, version: "Docker 26", message: null, installHint: null });
+		mocks.isRemotePortAvailable.mockResolvedValue(true);
+		mocks.getRemoteUsedPorts.mockResolvedValue([22, 443]);
     mocks.allocatePort.mockReturnValue(5244);
     mocks.startService.mockResolvedValue(undefined);
     mocks.stopService.mockResolvedValue(undefined);
@@ -158,6 +164,16 @@ describe("/api/quick-services routes", () => {
     });
     expect(json.servers).toEqual([{ id: "srv_a", name: "team-a-vps", host: "10.0.0.1" }]);
   });
+
+	it("shows listening ports from the selected remote VPS", async () => {
+		const response = await rootRoute.GET(new Request("http://local/api/quick-services?serverId=srv_remote"));
+		const json = await body(response);
+
+		expect(response.status).toBe(200);
+		expect(json.usedPorts).toEqual([22, 443]);
+		expect(mocks.getRemoteUsedPorts).toHaveBeenCalledWith("srv_remote");
+		expect(mocks.getUsedPorts).not.toHaveBeenCalled();
+	});
 
   it("queues local service installation for the authorized user", async () => {
     const response = await rootRoute.POST(new Request("http://local/api/quick-services", {
@@ -289,4 +305,27 @@ describe("/api/quick-services routes", () => {
     expect(await body(allocateResponse)).toEqual({ port: 5244, available: true });
     expect(mocks.allocatePort).toHaveBeenCalledWith(5244);
   });
+
+	it("checks the selected remote VPS instead of the hub host", async () => {
+		const response = await checkPortRoute.GET(
+			new Request("http://local/api/quick-services/check-port?port=5244&serverId=srv_remote"),
+		);
+
+		expect(response.status).toBe(200);
+		expect(await body(response)).toEqual({ port: 5244, available: true, usedBy: null });
+		expect(mocks.isRemotePortAvailable).toHaveBeenCalledWith("srv_remote", 5244);
+		expect(mocks.checkPort).not.toHaveBeenCalled();
+	});
+
+	it("allocates a remote port from one listening-port inventory", async () => {
+		mocks.getRemoteUsedPorts.mockResolvedValueOnce([5244, 5245]);
+		const response = await checkPortRoute.GET(
+			new Request("http://local/api/quick-services/check-port?action=allocate&preferred=5244&serverId=srv_remote"),
+		);
+
+		expect(response.status).toBe(200);
+		expect(await body(response)).toEqual({ port: 5246, available: true });
+		expect(mocks.getRemoteUsedPorts).toHaveBeenCalledTimes(1);
+		expect(mocks.isRemotePortAvailable).not.toHaveBeenCalled();
+	});
 });

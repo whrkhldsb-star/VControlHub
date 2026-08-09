@@ -18,7 +18,7 @@ vi.mock("next/navigation", () => ({
 const SAMPLE_DECLARED = {
 	"/dashboard": [],
 	"/servers": ["server:ssh", "server:write"],
-	"/traffic": ["server:read"],
+	"/operation-tasks": ["task:read"],
 	"/files": ["storage:write", "storage:read"],
 	"/settings": [],
 } as const satisfies Record<string, readonly Permission[]>;
@@ -53,7 +53,7 @@ describe("MobileNav", () => {
 	it("does not expose stale routes in mobile bottom navigation", () => {
 		const hrefs = getMobileNavTabs().map((tab) => tab.href);
 
-		expect(hrefs).toEqual(["/dashboard", "/servers", "/traffic", "/files", "/settings"]);
+		expect(hrefs).toEqual(["/dashboard", "/servers", "/operation-tasks", "/files", "/settings"]);
 		expect(hrefs).not.toContain("/more");
 		expect(hrefs).toContain("/settings");
 	});
@@ -61,7 +61,7 @@ describe("MobileNav", () => {
 	it("derives mobile tabs by stable hrefs instead of fragile main-nav indexes", () => {
 		const labels = getMobileNavTabs().map((tab) => tab.fallbackLabel);
 
-		expect(labels).toEqual(["Dashboard", "VPS Management", "Traffic", "Files", "Settings"]);
+		expect(labels).toEqual(["Dashboard", "VPS Management", "Tasks", "Files", "Settings"]);
 	});
 
 	it("renders a working settings entry instead of a missing more page", () => {
@@ -103,7 +103,7 @@ describe("MobileNav", () => {
 		);
 
 		const hrefs = screen.getAllByRole("link").map((el) => el.getAttribute("href"));
-		expect(hrefs).toEqual(["/dashboard", "/traffic", "/settings"]);
+			expect(hrefs).toEqual(["/dashboard", "/settings"]);
 		expect(hrefs).not.toContain("/servers");
 		expect(hrefs).not.toContain("/files");
 	});

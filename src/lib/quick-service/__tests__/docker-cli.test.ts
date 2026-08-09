@@ -20,7 +20,7 @@ vi.mock("child_process", async (importOriginal) => {
 	};
 });
 
-import { dockerErrorMessage, dockerExecSync, getContainerHealth, getContainerLogTail, getDockerEnvironmentStatus } from "../docker-cli";
+import { dockerErrorMessage, dockerExecSync, getContainerHealth, getContainerLogTail, getDockerEnvironmentStatus, parseRemoteListeningPorts } from "../docker-cli";
 
 describe("quick-service docker-cli adapter", () => {
 	beforeEach(() => {
@@ -236,6 +236,18 @@ describe("quick-service docker-cli adapter", () => {
 			expect(getDockerEnvironmentStatus()).toEqual(
 				expect.objectContaining({ message: "Docker is not installed" }),
 			);
+		});
+	});
+
+	describe("parseRemoteListeningPorts", () => {
+		it("normalizes IPv4, IPv6, and netstat endpoints into unique sorted ports", () => {
+			expect(parseRemoteListeningPorts([
+				"0.0.0.0:443",
+				"[::]:22",
+				"127.0.0.1.3000",
+				"0.0.0.0:443",
+				"invalid",
+			].join("\n"))).toEqual([22, 443, 3000]);
 		});
 	});
 });

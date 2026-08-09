@@ -217,6 +217,41 @@ test("quick-service tabs and search remain usable", async ({ page }) => {
 	}
 });
 
+test("primary operator workflows expose target context and progressive controls", async ({ page }) => {
+	await login(page);
+
+	await page.goto("/quick-services");
+	const target = page.getByRole("combobox", { name: /部署节点|Target node/i });
+	await expect(target).toBeVisible();
+	await expect(target).toHaveValue("");
+	await expect(page.locator("body")).toContainText(/Hub 本机|Hub host/i);
+
+	await page.goto("/backups");
+	for (const summary of [
+		/保留策略清理（按需展开）|Retention cleanup \(expand when needed\)/i,
+		/迁移工具（按需展开）|Migration tools \(expand when needed\)/i,
+		/异地备份（按需展开）|Offsite backup \(expand when needed\)/i,
+		/定时备份（按需展开）|Scheduled backups \(expand when needed\)/i,
+	]) {
+		await expect(page.getByText(summary).locator("xpath=ancestor::details[1]")).not.toHaveAttribute("open", "");
+	}
+
+	await page.goto("/deployments");
+	await expect(page.getByText(/使用流程|How it works/i).locator("xpath=ancestor::details[1]")).not.toHaveAttribute("open", "");
+	await expect(page.getByText(/迁移部署导出（按需展开）|Migration deployment export \(expand when needed\)/i).locator("xpath=ancestor::details[1]")).not.toHaveAttribute("open", "");
+
+	await page.goto("/servers");
+	await page.getByRole("tab", { name: /添加 VPS|Add VPS/i }).click();
+	await expect(page.getByText(/成本同步（可选）|Cost tracking \(optional\)/i).locator("xpath=ancestor::details[1]")).not.toHaveAttribute("open", "");
+	await expect(page.getByText(/云盘与高级设置（可选）|Storage and advanced settings \(optional\)/i).locator("xpath=ancestor::details[1]")).not.toHaveAttribute("open", "");
+	await expect(page.getByRole("button", { name: /检测连接并获取指纹|Check connection and get fingerprint/i })).toBeVisible();
+
+	await page.goto("/files");
+	const storageNodes = page.locator("#storage-nodes");
+	await storageNodes.getByRole("button", { name: /展开|Expand/i }).click();
+	await expect(storageNodes).toContainText(/本机默认|Local default/i);
+});
+
 test("Docker refresh and logs remain usable", async ({ page }) => {
 	await login(page);
 	await page.goto("/docker");

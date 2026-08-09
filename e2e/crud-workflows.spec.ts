@@ -202,6 +202,7 @@ test("user create, password reset, disable and enable", async ({ page }) => {
 
 test("backup schedule create, pause and delete without running backup", async ({ page }) => {
 	await page.goto("/backups");
+	await page.getByText(/定时备份（按需展开）|Scheduled backups \(expand when needed\)/i).click();
 	await page.locator("#schedule-backup-name").fill(marker);
 	await page.locator("#schedule-backup-cron").fill("0 0 31 12 *");
 	await page.locator("#schedule-backup-retention").fill("1");

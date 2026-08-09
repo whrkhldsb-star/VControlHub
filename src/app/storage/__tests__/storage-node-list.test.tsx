@@ -49,6 +49,7 @@ describe("StorageNodeList health UI", () => {
     );
 
     expect(screen.getByText("异常")).toBeInTheDocument();
+		expect(screen.getByText("手动添加")).toBeInTheDocument();
     expect(screen.getByText(/最近检测/)).toBeInTheDocument();
     expect(screen.getByText(/321 毫秒/)).toBeInTheDocument();
     expect(screen.getByText(/connect ECONNREFUSED/)).toBeInTheDocument();

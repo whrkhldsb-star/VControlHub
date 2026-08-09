@@ -226,12 +226,13 @@ describe("DashboardPreferenceClient", () => {
     });
 
     renderDashboardPreferenceClient();
-    await waitFor(() => expect(csrfFetchMock).toHaveBeenCalledWith("/api/preferences"));
-
-    // View mode still hides analytics via preference CSS.
-    expect(document.querySelector("style")?.textContent).toContain(
-      '[data-dashboard-widget="analytics"]{display:none}',
-    );
+    // Wait for the fetched preference to be committed, not merely for the
+    // request to start. Under a busy full-suite worker those are distinct ticks.
+    await waitFor(() => {
+      expect(document.querySelector("style")?.textContent).toContain(
+        '[data-dashboard-widget="analytics"]{display:none}',
+      );
+    });
 
     fireEvent.click(screen.getByRole("button", { name: "dashboard.customize-edit" }));
 

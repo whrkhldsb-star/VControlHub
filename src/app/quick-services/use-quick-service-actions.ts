@@ -44,6 +44,7 @@ export type ConfigPreview<TItem extends ConfigPreviewItem = ConfigPreviewItem> =
   action: ConfigPreviewAction;
   item: TItem;
   port: number;
+  targetLabel?: string;
 };
 
 export type AddSourceInput = {

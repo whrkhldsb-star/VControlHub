@@ -31,6 +31,7 @@ type ConfigPreviewLike = {
 	action: "install" | "update";
 	item: ConfigPreviewItemLike;
 	port: number;
+	targetLabel?: string;
 };
 
 type ConfigPreviewDialogProps = {
@@ -94,6 +95,10 @@ export function ConfigPreviewDialog({
 					<div>
 						<span className="text-[var(--text-muted)]">{fieldService}</span>
 						{item.name} ({item.slug})
+					</div>
+					<div>
+						<span className="text-[var(--text-muted)]">{t("qsPage.targetNode")}{t("common.colon")}</span>
+						{configPreview.targetLabel ?? t("qsPage.targetHubHost")}
 					</div>
 					<div>
 						<span className="text-[var(--text-muted)]">{fieldImage}</span>

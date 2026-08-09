@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-09T01:51:23.395Z",
+  "generatedAt": "2026-08-09T03:56:07.683Z",
   "summary": {
     "permissionsInList": 54,
     "rolesDefined": 4,
@@ -1070,7 +1070,7 @@
         },
         {
           "path": "src/app/deployments/page.tsx",
-          "line": 33
+          "line": 42
         }
       ],
       "pages": [
@@ -1104,7 +1104,7 @@
         },
         {
           "path": "src/app/deployments/page.tsx",
-          "line": 31
+          "line": 40
         }
       ],
       "pages": [
@@ -1134,7 +1134,7 @@
         },
         {
           "path": "src/app/deployments/page.tsx",
-          "line": 32
+          "line": 41
         },
         {
           "path": "src/app/templates/page.tsx",
@@ -1220,11 +1220,11 @@
         },
         {
           "path": "src/app/api/quick-services/check-port/route.ts",
-          "line": 26
+          "line": 30
         },
         {
           "path": "src/app/api/quick-services/check-port/route.ts",
-          "line": 26
+          "line": 30
         },
         {
           "path": "src/app/api/quick-services/route.ts",

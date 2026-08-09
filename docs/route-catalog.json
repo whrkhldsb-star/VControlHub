@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-08T05:21:19.312Z",
+  "generatedAt": "2026-08-09T03:01:51.903Z",
   "summary": {
     "sidebarMain": 30,
     "sidebarSystem": 5,
@@ -156,7 +156,7 @@
     "mobileHrefs": [
       "/dashboard",
       "/servers",
-      "/traffic",
+      "/operation-tasks",
       "/files",
       "/settings"
     ]

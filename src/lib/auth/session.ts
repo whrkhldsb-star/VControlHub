@@ -10,10 +10,6 @@ import { DEFAULT_ROLE_PERMISSIONS } from "./rbac";
 
 const logger = createLogger("auth:session");
 
-const APP_SLUG = getAppSlug();
-const SESSION_COOKIE_NAME = config.auth.sessionCookieName || `${APP_SLUG}_session`;
-const SESSION_ISSUER = config.auth.sessionIssuer || APP_SLUG;
-const SESSION_AUDIENCE = config.auth.sessionAudience || `${APP_SLUG}-console`;
 const DEFAULT_SESSION_TTL_SECONDS = 7 * 24 * 60 * 60;
 const REMEMBER_SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
 
@@ -116,7 +112,14 @@ function signPayload(payload: string) {
 }
 
 export function getSessionCookieName() {
-  return SESSION_COOKIE_NAME;
+  return config.auth.sessionCookieName || `${getAppSlug()}_session`;
+}
+
+function getSessionIdentity() {
+  const appSlug = getAppSlug();
+  const issuer = config.auth.sessionIssuer || appSlug;
+  const audience = config.auth.sessionAudience || `${appSlug}-console`;
+  return { issuer, audience };
 }
 
 export function shouldBypassAuth(pathname: string) {
@@ -130,10 +133,11 @@ export function shouldBypassAuth(pathname: string) {
 export async function createSessionToken(payload: SessionPayload, options: { remember?: boolean } = {}) {
   const now = Date.now();
   const ttlMs = (await getConfiguredSessionTtlSeconds(options.remember === true)) * 1000;
+  const { issuer, audience } = getSessionIdentity();
   const envelope: SessionTokenEnvelope = {
     ...payload,
-    iss: SESSION_ISSUER,
-    aud: SESSION_AUDIENCE,
+    iss: issuer,
+    aud: audience,
     iat: now,
     exp: now + ttlMs,
   };
@@ -167,13 +171,14 @@ export async function verifySessionToken(token: string) {
     pending2fa?: boolean;
   };
 
-  if (payload.iss !== SESSION_ISSUER || payload.aud !== SESSION_AUDIENCE) {
+  const { issuer, audience } = getSessionIdentity();
+  if (payload.iss !== issuer || payload.aud !== audience) {
     throw new AuthError("Invalid session token audience");
   }
 
   // Pending-2FA tokens must never authenticate as a full session. They share the
   // same HMAC secret historically; aud split + this flag check block cookie swap.
-  if (payload.pending2fa === true || payload.aud === PENDING_2FA_AUDIENCE) {
+  if (payload.pending2fa === true) {
     throw new AuthError("Pending 2FA token is not a session");
   }
 
@@ -218,10 +223,7 @@ export async function verifySessionToken(token: string) {
 // session. This token is stored in a separate cookie and can
 // only be exchanged for a real session after TOTP verification.
 
-const PENDING_2FA_COOKIE_NAME = `${APP_SLUG}_pending_2fa`;
 const PENDING_2FA_TTL_MS = 5 * 60 * 1000; // 5 minutes
-/** Distinct aud so pending-2FA cookies cannot be swapped into the session cookie. */
-const PENDING_2FA_AUDIENCE = `${SESSION_AUDIENCE}-pending-2fa`;
 
 export type Pending2faSessionPayload = SessionPayload & {
  remember?: boolean;
@@ -233,18 +235,19 @@ type Pending2faPayload = Pending2faSessionPayload & {
 };
 
 export function getPending2faCookieName() {
-	return PENDING_2FA_COOKIE_NAME;
+	return `${getAppSlug()}_pending_2fa`;
 }
 
 export async function createPending2faToken(payload: Pending2faSessionPayload): Promise<string> {
 	const now = Date.now();
 	const nonce = randomBytes(16).toString("hex");
+	const { issuer, audience } = getSessionIdentity();
 	const envelope: Pending2faPayload & { iss: string; aud: string; iat: number; exp: number } = {
 		...payload,
 		pending2fa: true,
 		nonce,
-		iss: SESSION_ISSUER,
-		aud: PENDING_2FA_AUDIENCE,
+		iss: issuer,
+		aud: `${audience}-pending-2fa`,
 		iat: now,
 		exp: now + PENDING_2FA_TTL_MS,
 	};
@@ -267,7 +270,8 @@ export async function verifyPending2faToken(token: string): Promise<Pending2faSe
 
 		const payload = JSON.parse(decodeBase64Url(encodedPayload)) as Pending2faPayload & { iss: string; aud: string; iat: number; exp: number };
 
-		if (payload.iss !== SESSION_ISSUER || payload.aud !== PENDING_2FA_AUDIENCE) return null;
+		const { issuer, audience } = getSessionIdentity();
+		if (payload.iss !== issuer || payload.aud !== `${audience}-pending-2fa`) return null;
 		if (payload.exp <= Date.now()) return null;
 		if (!payload.pending2fa) return null;
 

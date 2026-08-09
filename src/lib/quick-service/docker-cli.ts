@@ -178,6 +178,40 @@ export async function isRemotePortAvailable(serverId: string, port: number): Pro
   return true;
 }
 
+export function parseRemoteListeningPorts(output: string): number[] {
+  const ports = output
+    .split(/\r?\n/)
+    .map((endpoint) => endpoint.trim().match(/[:.](\d+)$/)?.[1])
+    .map(Number)
+    .filter((port) => Number.isInteger(port) && port >= 1 && port <= 65_535);
+  return [...new Set(ports)].sort((a, b) => a - b);
+}
+
+/** List TCP listen ports on a remote VPS with one SSH round-trip. */
+export async function getRemoteUsedPorts(serverId: string): Promise<number[]> {
+  const { server, ssh } = await loadRemoteSshParams(serverId);
+  const command =
+    `if command -v ss >/dev/null 2>&1; then ` +
+    `ss -tlnH 2>/dev/null | awk '{print $4}'; ` +
+    `elif command -v netstat >/dev/null 2>&1; then ` +
+    `netstat -tln 2>/dev/null | awk 'NR > 2 {print $4}'; ` +
+    `fi`;
+  const result = await execRemoteCommand({
+    ...(ssh as object),
+    command,
+    timeout: 10_000,
+  } as Parameters<typeof execRemoteCommand>[0]);
+  if (result.exitCode !== 0 && result.exitCode !== null) {
+    logger.warn("remote listening-port inventory failed", {
+      serverId: server.id,
+      exitCode: result.exitCode,
+      stderr: (result.stderr || "").slice(0, 200),
+    });
+    return [];
+  }
+  return parseRemoteListeningPorts(result.stdout);
+}
+
 /** Local sync health probe (historical API). */
 export function getContainerHealth(containerName: string, timeoutMs = 10_000): string | null {
   try {

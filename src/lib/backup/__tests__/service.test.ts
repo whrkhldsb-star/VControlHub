@@ -457,6 +457,7 @@ describe("backup service", () => {
 
   it("formats backup sizes without rounding small artifacts down to 0 MB", () => {
     expect(formatBackupSize(null)).toBe("Pending");
+		expect(formatBackupSize(0)).toBe("0 B");
     expect(formatBackupSize("512")).toBe("512 B");
     expect(formatBackupSize(1536)).toBe("1.5 KB");
     expect(formatBackupSize(2 * 1024 * 1024)).toBe("2.0 MB");

@@ -83,6 +83,11 @@ function StorageNodeCard({
 	const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
 	const [isPending, startTransition] = useTransition();
 	const health = getHealthPresentation(node.healthStatus, t);
+	const sourceLabel = node.isDefault
+		? t("storagePage.list.source.localDefault")
+		: node.serverId
+			? t("storagePage.list.source.serverBound")
+			: t("storagePage.list.source.manual");
 
 	function handleHealthCheck() {
 		setMessage(null);
@@ -103,9 +108,12 @@ function StorageNodeCard({
 					<h3 className="text-lg font-medium text-[var(--text-primary)]">{node.name}</h3>
 					<p className="mt-2 text-sm leading-7 text-[var(--text-secondary)]">{node.connectionSummary}</p>
 				</div>
-				<div className="flex items-center gap-2">
-					<span data-tone="emerald" className="rounded-lg border border-[var(--success-border)] px-3 py-1 text-xs text-[var(--success)]">
-						{node.isDefault ? t("storagePage.list.defaultNode") : node.driver}
+					<div className="flex items-center gap-2">
+						<span data-tone="neutral" className="rounded-lg border border-[var(--border)] px-3 py-1 text-xs text-[var(--text-secondary)]">
+							{sourceLabel}
+						</span>
+						<span data-tone="emerald" className="rounded-lg border border-[var(--success-border)] px-3 py-1 text-xs text-[var(--success)]">
+							{node.isDefault ? t("storagePage.list.defaultNode") : node.driver}
 					</span>
 					{canManageNodes ? (
 						<>
