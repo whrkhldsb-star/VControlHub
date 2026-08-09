@@ -3,7 +3,7 @@ import { access, stat } from "node:fs/promises";
 
 import type { SessionPayload } from "@/lib/auth/session";
 import { serverTeamWhere, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
-import { prisma } from "@/lib/db";
+import { isUniqueViolation, prisma } from "@/lib/db";
 import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
 import { serviceT } from "@/lib/i18n/service-locale";
 import { listRemoteDirectory } from "@/lib/ssh/client";
@@ -200,26 +200,43 @@ export async function createStorageNode(
   }
 
   await assertServerInTeamScope(payload.serverId, session);
+  if (payload.serverId) {
+    const existingServerNode = await prisma.storageNode.findUnique({
+      where: { serverId: payload.serverId },
+      select: { id: true },
+    });
+    if (existingServerNode) {
+      throw new ValidationError(t("backend.storage.serverAlreadyHasStorageNode"));
+    }
+  }
   await ensureDefaultNodeState(payload.isDefault, session);
   const teamData = session ? teamCreateData(session) : {};
 
-  const storageNode = await prisma.storageNode.create({
-    data: {
-      name: payload.name,
-      driver: payload.driver,
-      basePath: payload.basePath,
-      isDefault: payload.isDefault,
-      host: payload.host,
-      port: payload.port,
-      username: payload.username,
-      serverId: payload.serverId,
-      directAccessMode: payload.directAccessMode,
-      publicBaseUrl: normalizePublicBaseUrl(payload.publicBaseUrl),
-      directAccessExpiresSeconds: payload.directAccessExpiresSeconds,
-      ...teamData,
-    },
-    include: STORAGE_NODE_SERVER_INCLUDE,
-  });
+  let storageNode;
+  try {
+    storageNode = await prisma.storageNode.create({
+      data: {
+        name: payload.name,
+        driver: payload.driver,
+        basePath: payload.basePath,
+        isDefault: payload.isDefault,
+        host: payload.host,
+        port: payload.port,
+        username: payload.username,
+        serverId: payload.serverId,
+        directAccessMode: payload.directAccessMode,
+        publicBaseUrl: normalizePublicBaseUrl(payload.publicBaseUrl),
+        directAccessExpiresSeconds: payload.directAccessExpiresSeconds,
+        ...teamData,
+      },
+      include: STORAGE_NODE_SERVER_INCLUDE,
+    });
+  } catch (error) {
+    if (payload.serverId && isUniqueViolation(error)) {
+      throw new ValidationError(t("backend.storage.serverAlreadyHasStorageNode"));
+    }
+    throw error;
+  }
 
   return {
     ...storageNode,

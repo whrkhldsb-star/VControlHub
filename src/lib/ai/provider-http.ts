@@ -85,11 +85,45 @@ export function aiHttpErrorMessage(
 	kind: "models" | "chat",
 ): string {
 	if (kind === "models") {
-		return "Failed to fetch model list, please check API Key and Base URL";
+		if (status === 401 || status === 403) {
+			return "Failed to fetch model list: the provider rejected the API Key";
+		}
+		if (status === 429) {
+			return "Failed to fetch model list: provider rate limit reached; retry later";
+		}
+		if (status >= 500) {
+			return `Failed to fetch model list: provider is temporarily unavailable (${status})`;
+		}
+		return `Failed to fetch model list (${status}); check the Base URL and provider compatibility`;
 	}
 	const trimmed = (errorText || "").trim();
 	const body = (trimmed || "Unknown error").slice(0, 500);
 	return `AI request failed (${status}): ${body}`;
+}
+
+async function fetchProviderResponse(
+	url: string,
+	init: RequestInit,
+	kind: "models" | "chat",
+): Promise<Response> {
+	try {
+		return await fetch(url, init);
+	} catch (error) {
+		const name =
+			typeof error === "object" && error && "name" in error
+				? String(error.name)
+				: "";
+		if (name === "TimeoutError" || name === "AbortError") {
+			const operation = kind === "models" ? "model list request" : "chat request";
+			throw new Error(`AI provider ${operation} timed out after ${AI_PROVIDER_HTTP_TIMEOUT_MS / 1000} seconds`);
+		}
+		const message =
+			typeof error === "object" && error && "message" in error
+				? String(error.message)
+				: "";
+		const details = message ? `: ${message}` : "";
+		throw new Error(`Unable to connect to AI provider${details}`);
+	}
 }
 
 export async function fetchProviderModels(
@@ -100,12 +134,12 @@ export async function fetchProviderModels(
 	}
 	const baseUrl = trimTrailingSlash(input.baseUrl);
 	await assertProviderUrlSafe(baseUrl);
-	const response = await fetch(`${baseUrl}${MODELS_PATH}`, {
+	const response = await fetchProviderResponse(`${baseUrl}${MODELS_PATH}`, {
 		method: "GET",
 		redirect: "error",
 		headers: { Authorization: `Bearer ${input.apiKey.trim()}` },
 		signal: AbortSignal.timeout(AI_PROVIDER_HTTP_TIMEOUT_MS),
-	});
+	}, "models");
 	if (!response.ok) {
 		const errText = await readResponseTextLimited(
 			response,
@@ -150,7 +184,7 @@ export async function fetchProviderModels(
 
 export async function postProviderChat(input: ProviderChatRequest): Promise<Response> {
 	await assertProviderUrlSafe(input.url);
-	const response = await fetch(input.url, {
+	const response = await fetchProviderResponse(input.url, {
 		method: "POST",
 		redirect: "error",
 		headers: {
@@ -159,7 +193,7 @@ export async function postProviderChat(input: ProviderChatRequest): Promise<Resp
 		},
 		body: JSON.stringify(input.body),
 		signal: AbortSignal.timeout(AI_PROVIDER_HTTP_TIMEOUT_MS),
-	});
+	}, "chat");
 	if (!response.ok) {
 		const errText = await readResponseTextLimited(
 			response,

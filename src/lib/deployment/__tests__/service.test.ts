@@ -413,6 +413,46 @@ describe("deployment service", () => {
     expect(runs[0]!.completedAt).toBeInstanceOf(Date);
   });
 
+  it("returns a resolved rollback status on the same list refresh that persists it", async () => {
+    const rollback = {
+      id: "rollback_completed",
+      status: "PENDING",
+      errorMessage: null,
+      completedAt: null,
+      commandRequest: { status: "COMPLETED" },
+    };
+    mockPrisma.deploymentRun.findMany.mockResolvedValueOnce([
+      {
+        id: "dep_with_rollback",
+        status: "COMPLETED",
+        errorMessage: null,
+        completedAt: new Date("2026-05-25T00:01:00Z"),
+        commandRequest: { status: "COMPLETED" },
+        rollbackAttempts: [rollback],
+      },
+    ]);
+    mockPrisma.deploymentRollbackRun.update.mockResolvedValueOnce({
+      ...rollback,
+      status: "COMPLETED",
+      completedAt: new Date("2026-05-25T00:02:00Z"),
+    });
+
+    const runs = await listDeploymentRuns();
+
+    expect(mockPrisma.deploymentRollbackRun.update).toHaveBeenCalledWith({
+      where: { id: "rollback_completed" },
+      data: {
+        status: "COMPLETED",
+        errorMessage: null,
+        completedAt: expect.any(Date),
+      },
+    });
+    expect(runs[0]?.rollbackAttempts[0]).toMatchObject({
+      id: "rollback_completed",
+      status: "COMPLETED",
+    });
+  });
+
   it("rejects serverIds outside team scope on create", async () => {
     mockPrisma.server.findMany.mockResolvedValueOnce([{ id: "srv1" }]);
     await expect(

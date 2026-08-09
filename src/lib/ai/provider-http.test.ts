@@ -49,16 +49,16 @@ describe("ai provider-http adapter", () => {
   });
 
   describe("aiHttpErrorMessage", () => {
-    it("returns a generic message for model list failures (preserves Site 1 copy)", () => {
-      expect(aiHttpErrorMessage(401, "Unauthorized", "models")).toBe(
-        "Failed to fetch model list, please check API Key and Base URL",
-      );
-    });
-
-    it("ignores errorText for the models kind", () => {
-      expect(aiHttpErrorMessage(500, "internal", "models")).toBe(
-        "Failed to fetch model list, please check API Key and Base URL",
-      );
+	it("distinguishes model-list authentication, rate-limit, and upstream failures", () => {
+		expect(aiHttpErrorMessage(401, "Unauthorized", "models")).toBe(
+			"Failed to fetch model list: the provider rejected the API Key",
+		);
+		expect(aiHttpErrorMessage(429, "rate limit", "models")).toBe(
+			"Failed to fetch model list: provider rate limit reached; retry later",
+		);
+		expect(aiHttpErrorMessage(503, "internal", "models")).toBe(
+			"Failed to fetch model list: provider is temporarily unavailable (503)",
+		);
     });
 
     it("formats chat kind with status code and truncated body", () => {
@@ -165,10 +165,20 @@ describe("ai provider-http adapter", () => {
       );
       globalThis.fetch = fetchMock as unknown as typeof fetch;
 
-      await expect(
-        fetchProviderModels({ apiKey: "sk-x", baseUrl: "https://api.example.com/v1" }),
-      ).rejects.toThrow("Failed to fetch model list, please check API Key and Base URL");
-    });
+		await expect(
+			fetchProviderModels({ apiKey: "sk-x", baseUrl: "https://api.example.com/v1" }),
+		).rejects.toThrow("Failed to fetch model list: the provider rejected the API Key");
+	});
+
+	it("turns provider timeouts into an actionable model-list error", async () => {
+		globalThis.fetch = vi.fn(async () => {
+			throw new DOMException("timed out", "TimeoutError");
+		}) as unknown as typeof fetch;
+
+		await expect(
+			fetchProviderModels({ apiKey: "sk-x", baseUrl: "https://api.example.com/v1" }),
+		).rejects.toThrow("AI provider model list request timed out after 30 seconds");
+	});
 
     it("rejects empty API keys with the same business-side validation error", async () => {
       await expect(
@@ -214,7 +224,7 @@ describe("ai provider-http adapter", () => {
       expect(await response.text()).toBe("ok-stream");
     });
 
-    it("throws AI request failed (status): <truncated body> on non-2xx", async () => {
+	it("throws AI request failed (status): <truncated body> on non-2xx", async () => {
       const fetchMock = vi.fn(
         async () => new Response("rate limit reached", { status: 429 }),
       );
@@ -227,7 +237,20 @@ describe("ai provider-http adapter", () => {
           headers: { Authorization: "Bearer sk-test" },
         }),
       ).rejects.toThrow("AI request failed (429): rate limit reached");
-    });
+	});
+
+	it("turns provider timeouts into an actionable chat error", async () => {
+		globalThis.fetch = vi.fn(async () => {
+			throw new DOMException("timed out", "TimeoutError");
+		}) as unknown as typeof fetch;
+
+		await expect(
+			postProviderChat({
+				url: "https://api.openai.com/v1/chat/completions",
+				body: { model: "gpt-4o" },
+			}),
+		).rejects.toThrow("AI provider chat request timed out after 30 seconds");
+	});
 
     it("falls back to Unknown error when error body cannot be read", async () => {
       const fetchMock = vi.fn(async () => ({

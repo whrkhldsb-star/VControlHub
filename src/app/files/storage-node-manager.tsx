@@ -31,7 +31,7 @@ export function StorageNodeManager({
 	canManageNodes,
 }: {
 	nodes: StorageNodeItem[];
-	servers: Array<{ id: string; name: string; host: string }>;
+	servers: Array<{ id: string; name: string; host: string; storageNodeId?: string | null }>;
 	canManageNodes: boolean;
 }) {
 	const { t } = useI18n();
@@ -39,6 +39,7 @@ export function StorageNodeManager({
 
 	const localCount = nodes.filter((n) => n.driver === "LOCAL").length;
 	const sftpCount = nodes.filter((n) => n.driver === "SFTP").length;
+	const serversWithoutStorage = servers.filter((server) => !server.storageNodeId);
 
 	return (
 		<section id="storage-nodes" className="scroll-mt-24 rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6">
@@ -63,7 +64,7 @@ export function StorageNodeManager({
 				<div className="mt-6 space-y-6">
 					<StorageNodeList nodes={nodes} servers={servers} canManageNodes={canManageNodes} />
 					{canManageNodes ? (
-						<StorageNodeCreateForm servers={servers} />
+						<StorageNodeCreateForm servers={serversWithoutStorage} />
 					) : null}
 				</div>
 			) : null}

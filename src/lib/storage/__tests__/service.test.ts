@@ -161,6 +161,21 @@ describe("storage service", () => {
     );
   });
 
+	it("rejects binding a second storage node to the same server with a business error", async () => {
+		vi.clearAllMocks();
+		vi.mocked(prisma.storageNode.findUnique).mockResolvedValueOnce({ id: "node_existing" } as any);
+
+		await expect(
+			createStorageNode({
+				name: "duplicate server node",
+				driver: "SFTP",
+				basePath: "/data/duplicate",
+				serverId: "srv_1",
+			}),
+		).rejects.toThrow("该服务器已经绑定了云盘");
+		expect(prisma.storageNode.create).not.toHaveBeenCalled();
+	});
+
   it("lists file entries with preview flags and direct access strategy", async () => {
     vi.clearAllMocks();
     vi.mocked(prisma.fileEntry.findMany).mockResolvedValueOnce([

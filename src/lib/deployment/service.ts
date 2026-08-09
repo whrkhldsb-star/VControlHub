@@ -356,7 +356,15 @@ export async function listDeploymentRuns(session?: SessionScope | null) {
   });
   await refreshDeploymentRollbackStatuses(runs.flatMap((run) => run.rollbackAttempts ?? []));
   return Promise.all(
-    runs.map((run) => persistResolvedDeploymentRunStatus(run)),
+    runs.map((run) =>
+      persistResolvedDeploymentRunStatus({
+        ...run,
+        rollbackAttempts: (run.rollbackAttempts ?? []).map((rollback) => ({
+          ...rollback,
+          ...resolveRollbackRunStatus(rollback),
+        })),
+      }),
+    ),
   );
 }
 

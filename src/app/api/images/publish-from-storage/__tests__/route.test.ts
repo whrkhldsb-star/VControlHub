@@ -36,7 +36,6 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 vi.mock("@/lib/image-bed/constants", () => ({
-  IMAGE_EXTENSIONS: new Set([".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif", ".svg"]),
   UPLOAD_DIR: "/tmp/vcontrolhub-image-publish-test",
   mimeTypeFromExt: (ext: string) => ext === ".png" ? "image/png" : "image/jpeg",
 }));

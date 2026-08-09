@@ -39,7 +39,7 @@ export async function enqueueCommandExecutionJob(input: {
 	if (!commandRequestId) throw new Error("Command execution task missing commandRequestId");
 	const request = await prisma.commandRequest.findUnique({
 		where: { id: commandRequestId },
-		select: { teamId: true, createdBy: true },
+		select: { teamId: true, requesterId: true },
 	});
 	return enqueueJob({
 		type: COMMAND_EXECUTION_JOB_TYPE,
@@ -52,6 +52,6 @@ export async function enqueueCommandExecutionJob(input: {
 		priority: 0,
 		maxAttempts: 1,
 		teamId: request?.teamId ?? null,
-		createdBy: request?.createdBy ?? null,
+		createdBy: request?.requesterId ?? null,
 	});
 }

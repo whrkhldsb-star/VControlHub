@@ -95,7 +95,7 @@ describe("command execution durable job worker", () => {
     heartbeatJobMock.mockResolvedValue({ count: 1 });
     findUniqueCommandRequestMock.mockResolvedValue({
       teamId: "team_1",
-      createdBy: "user_1",
+      requesterId: "user_1",
     });
     executeAndFinalizeCommandMock.mockResolvedValue({
       id: "req-default",
@@ -126,6 +126,10 @@ describe("command execution durable job worker", () => {
           createdBy: "user_1",
         }),
       );
+		expect(findUniqueCommandRequestMock).toHaveBeenCalledWith({
+			where: { id: "req-42" },
+			select: { teamId: true, requesterId: true },
+		});
     });
 
     it("rejects empty commandRequestId to surface caller bugs early", async () => {

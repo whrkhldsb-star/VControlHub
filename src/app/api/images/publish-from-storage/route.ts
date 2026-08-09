@@ -14,14 +14,11 @@ import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { IMAGE_UPLOAD_LIMIT } from "@/lib/http/rate-limit-presets";
-import {
-  IMAGE_EXTENSIONS,
-  mimeTypeFromExt,
-  UPLOAD_DIR,
-} from "@/lib/image-bed/constants";
+import { mimeTypeFromExt, UPLOAD_DIR } from "@/lib/image-bed/constants";
 import { logError } from "@/lib/logging";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { readStorageFileBuffer, storageFileNodeSelect } from "@/lib/storage/file-content";
+import { IMAGE_EXTENSIONS } from "@/lib/storage/mime-constants";
 import { extractMetadata } from "@/lib/image/service";
 
 import { ForbiddenError, ValidationError } from "@/lib/errors";

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-08T05:25:31.255Z",
+  "generatedAt": "2026-08-09T01:51:23.395Z",
   "summary": {
     "permissionsInList": 54,
     "rolesDefined": 4,
@@ -2300,19 +2300,19 @@
         },
         {
           "path": "src/app/storage/actions-nodes.ts",
-          "line": 44
+          "line": 45
         },
         {
           "path": "src/app/storage/actions-nodes.ts",
-          "line": 71
+          "line": 72
         },
         {
           "path": "src/app/storage/actions-nodes.ts",
-          "line": 130
+          "line": 131
         },
         {
           "path": "src/app/storage/actions-nodes.ts",
-          "line": 208
+          "line": 209
         }
       ],
       "pages": [
@@ -2399,11 +2399,11 @@
         },
         {
           "path": "src/app/api/images/publish-from-storage/route.ts",
-          "line": 46
+          "line": 43
         },
         {
           "path": "src/app/api/images/publish-from-storage/route.ts",
-          "line": 46
+          "line": 43
         },
         {
           "path": "src/app/api/media/[id]/stream/route.ts",

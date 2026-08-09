@@ -235,15 +235,17 @@ describe("command service execution flow", () => {
     expect(spawnMock).not.toHaveBeenCalled();
 
     await vi.waitFor(() => expect(spawnMock).toHaveBeenCalled());
-    expect(mockPrisma.commandTarget.updateMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({ id: "target_1" }),
-        data: expect.objectContaining({ status: "COMPLETED" }),
-      }),
-    );
-    expect(mockPrisma.commandRequest.updateMany).toHaveBeenCalledWith({
-      where: { id: "req_user_1", status: { in: ["RUNNING", "APPROVED"] } },
-      data: { status: "COMPLETED", workerId: null, workerHeartbeatAt: null },
+    await vi.waitFor(() => {
+      expect(mockPrisma.commandTarget.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ id: "target_1" }),
+          data: expect.objectContaining({ status: "COMPLETED" }),
+        }),
+      );
+      expect(mockPrisma.commandRequest.updateMany).toHaveBeenCalledWith({
+        where: { id: "req_user_1", status: { in: ["RUNNING", "APPROVED"] } },
+        data: { status: "COMPLETED", workerId: null, workerHeartbeatAt: null },
+      });
     });
   });
 
