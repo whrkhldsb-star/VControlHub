@@ -9,6 +9,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 import { ModalShell } from "@/components/modal-shell";
+import { getBackupTypeLabel } from "@/lib/i18n/domain-labels";
 
 type Props = {
   backupId: string;
@@ -119,7 +120,7 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
         >
             <h3 id="restore-backup-title" className="text-base font-semibold text-[var(--text-primary)]">{t("backupsPage.restore.confirmTitle")}</h3>
             <p id="restore-backup-description" className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
-              {t("backupsPage.restore.warningPrefix")} <span className="font-semibold text-[var(--text-primary)]">{backupType}</span> {t("backupsPage.restore.warningSuffix")} <span className="font-mono font-semibold text-[var(--danger)]">{CONFIRM_TEXT}</span> {t("backupsPage.restore.warningContinue")}
+              {t("backupsPage.restore.warningPrefix")} <span className="font-semibold text-[var(--text-primary)]">{getBackupTypeLabel(t, backupType)}</span> {t("backupsPage.restore.warningSuffix")} <span className="font-mono font-semibold text-[var(--danger)]">{CONFIRM_TEXT}</span> {t("backupsPage.restore.warningContinue")}
             </p>
             {backupType === "FULL" ? (
             <div className="mt-4 grid gap-2">

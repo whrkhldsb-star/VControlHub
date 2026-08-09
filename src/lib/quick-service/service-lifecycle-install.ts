@@ -363,7 +363,7 @@ export async function recreateDockerContainer(
 			after: { status: "running", port: hostPort, containerId, image: tmpl.image },
 		},
 	});
-	await notifyQuickServiceInstallSuccess(notice?.userId, tmpl, hostPort, notice?.credentials ?? [], notice?.notes ?? []);
+	await notifyQuickServiceInstallSuccess(notice?.userId, tmpl, hostPort, notice?.credentials ?? [], notice?.notes ?? [], target);
 }
 
 async function applyPostInstallSetup(target: DockerTarget, tmpl: ServiceTemplate, containerName: string) {
@@ -376,10 +376,13 @@ async function applyPostInstallSetup(target: DockerTarget, tmpl: ServiceTemplate
 	}
 }
 
-async function notifyQuickServiceInstallSuccess(userId: string | undefined, tmpl: ServiceTemplate, hostPort: number, credentials: QuickServiceCredential[], notes: string[]) {
+async function notifyQuickServiceInstallSuccess(userId: string | undefined, tmpl: ServiceTemplate, hostPort: number, credentials: QuickServiceCredential[], notes: string[], target: DockerTarget) {
 	if (!userId) return;
 	try {
-		const notice = buildInstallNotice(tmpl, hostPort, credentials, notes);
+		const remoteHost = target.kind === "remote"
+			? (await prisma.server.findUnique({ where: { id: target.serverId }, select: { host: true } }))?.host
+			: null;
+		const notice = buildInstallNotice(tmpl, hostPort, credentials, notes, remoteHost ? { host: remoteHost, protocol: "http:" } : undefined);
 		await createNotification({
 			userId,
 			type: "system",

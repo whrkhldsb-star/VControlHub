@@ -59,4 +59,28 @@ describe("StorageNodeList health UI", () => {
     await waitFor(() => expect(checkStorageNodeHealthActionMock).toHaveBeenCalledWith("node-1"));
     await waitFor(() => expect(screen.getByText("节点健康检查完成：健康")).toBeInTheDocument());
   });
+
+  it("identifies a remote default as server-bound and hides its delete action", () => {
+    render(
+      <StorageNodeList
+        canManageNodes
+        servers={[]}
+        nodes={[{
+          id: "remote-default",
+          name: "Remote default",
+          driver: "SFTP",
+          basePath: "/data",
+          isDefault: true,
+          serverId: "server-1",
+          connectionSummary: "SFTP storage",
+          directAccess: { mode: "managed-download", description: "Managed", href: null },
+          fileCount: 0,
+        }]}
+      />,
+    );
+
+    expect(screen.getByText("服务器绑定")).toBeVisible();
+    expect(screen.getByText("默认节点")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "删除" })).not.toBeInTheDocument();
+  });
 });

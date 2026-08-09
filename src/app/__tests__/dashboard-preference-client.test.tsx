@@ -56,6 +56,14 @@ describe("DashboardPreferenceClient", () => {
     expect(document.querySelector("style")?.textContent ?? "").not.toContain("display:none");
   });
 
+	it("surfaces preference load failures while keeping dashboard widgets usable", async () => {
+		csrfFetchMock.mockRejectedValueOnce(new Error("network unavailable"));
+		renderDashboardPreferenceClient();
+
+		expect(await screen.findByRole("alert")).toHaveTextContent("network unavailable");
+		expect(screen.getByText("服务器状态")).toBeVisible();
+	});
+
   it("applies local dashboard widget preferences before the server round trip", () => {
     csrfFetchMock.mockImplementation(() => new Promise(() => {}));
     window.localStorage.setItem("vps-preferences", JSON.stringify({ dashboardWidgets: ["quick-links"] }));

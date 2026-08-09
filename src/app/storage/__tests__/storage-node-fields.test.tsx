@@ -6,10 +6,10 @@ import { StorageNodeFields } from "../storage-node-fields";
 
 const servers = [{ id: "s1", name: "Tokyo", host: "10.0.0.1" }];
 
-function renderFields(driver: "LOCAL" | "SFTP", values = {}) {
+function renderFields(driver: "LOCAL" | "SFTP", values = {}, lockDefault = false) {
   return render(
     <I18nProvider initialLocale="en">
-      <StorageNodeFields driver={driver} onDriverChange={() => undefined} servers={servers} values={values} />
+      <StorageNodeFields driver={driver} onDriverChange={() => undefined} servers={servers} values={values} lockDefault={lockDefault} />
     </I18nProvider>,
   );
 }
@@ -36,5 +36,13 @@ describe("StorageNodeFields", () => {
 
     expect(screen.getByLabelText(/Bind VPS/)).not.toBeRequired();
     expect(screen.getByLabelText(/Remote host/)).not.toBeRequired();
+  });
+
+  it("locks the driver and default checkbox for the active default node", () => {
+    renderFields("LOCAL", { isDefault: true }, true);
+
+    expect(screen.getByLabelText("Driver")).toBeDisabled();
+    expect(screen.getByLabelText("Set as default storage node")).toBeDisabled();
+    expect(screen.getByText(/Set another node as default/)).toBeVisible();
   });
 });

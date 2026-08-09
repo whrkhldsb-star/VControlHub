@@ -9,6 +9,7 @@ import { CsvPreviewClient } from "./csv-preview-client";
 import { OfficePreviewClient } from "./office-preview-client";
 import { ArchivePreviewClient } from "./archive-preview-client";
 import { getServerLocale, t } from "@/lib/i18n/translations";
+import { getStorageDriverLabel } from "@/lib/i18n/domain-labels";
 
 export const dynamic ="force-dynamic";
 
@@ -112,7 +113,7 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 						</a>
 						<h1 className="truncate text-xl font-semibold text-[var(--text-primary)]">{name}</h1>
 						<span className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-1 text-xs text-[var(--text-secondary)]">
-							{driver}
+							{getStorageDriverLabel((key, vars) => t(key, locale, vars), driver)}
 						</span>
 					</div>
 					{downloadUrl ? (

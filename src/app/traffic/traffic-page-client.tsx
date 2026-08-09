@@ -12,6 +12,7 @@ import { useVisibilityInterval } from "@/lib/hooks/use-visibility-interval";
 import { TrafficSparkline, type TrafficSample } from "./traffic-sparkline";
 
 import { ActionButton } from "@/components/action-button";
+import { getErrorMessage } from "@/lib/http/error-message";
 const HISTORY_LIMIT = 60; // ≈ 30 min at 30s polling cadence
 
 type InterfaceTraffic = {
@@ -130,6 +131,7 @@ export default function TrafficPage() {
   const refreshIntervalSeconds = useRefreshInterval(30);
   const [history, setHistory] = useState<TrafficSample[]>([]);
   const [history7d, setHistory7d] = useState<TrafficHistoryPoint[]>([]);
+  const [historyError, setHistoryError] = useState("");
   const [historyScope, setHistoryScope] = useState<"24h" | "7d">("24h");
   const lastIfaceRef = useRef<string>("");
 
@@ -139,7 +141,11 @@ export default function TrafficPage() {
       params.set("hours", scope === "24h" ? "24" : "168");
       if (iface) params.set("iface", iface);
       const data = (await csrfFetch(`/api/traffic/history?${params.toString()}`)) as { history?: TrafficHistoryPoint[]; error?: string };
-      if (data.error || !Array.isArray(data.history)) return;
+      if (data.error || !Array.isArray(data.history)) {
+        setHistoryError(data.error || t("trafficPage.historyLoadFailed"));
+        return;
+      }
+      setHistoryError("");
       if (scope === "24h") {
         setHistory(
           data.history.slice(-HISTORY_LIMIT).map((point) => ({ t: new Date(point.t).getTime(), rx: point.rx, tx: point.tx })),
@@ -147,10 +153,10 @@ export default function TrafficPage() {
       } else {
         setHistory7d(data.history);
       }
-    } catch {
-      // best effort
+    } catch (cause) {
+      setHistoryError(getErrorMessage(cause, t("trafficPage.historyLoadFailed")));
     }
-  }, [selectedIface]);
+  }, [selectedIface, t]);
 
   const fetchSummary = useCallback(async (iface = selectedIface) => {
     try {
@@ -237,6 +243,7 @@ export default function TrafficPage() {
       </div>
 
       {error && <div className="mb-4 rounded-lg bg-[var(--danger-bg)] px-4 py-3 text-sm text-[var(--danger)]">{error}</div>}
+      {historyError && <div role="alert" className="mb-4 rounded-lg bg-[var(--danger-bg)] px-4 py-3 text-sm text-[var(--danger)]">{historyError}</div>}
 
       <div className="mb-5 flex flex-wrap items-center gap-2">
         <button type="button" onClick={() => { setHistoryScope("24h"); void fetchHistory("24h"); }} className={`rounded-lg px-3 py-1.5 text-xs font-medium ${historyScope === "24h" ? "bg-[var(--color-action)]/15 text-[var(--text-secondary)]" : "bg-[var(--surface-elevated)] text-[var(--text-secondary)]"}`}>24h</button>

@@ -67,5 +67,22 @@ describe("TicketDetailClient", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "Sending…" })).toBeDisabled());
     expect(screen.getByRole("button", { name: "Move to In Progress" })).toBeDisabled();
     resolveComment({ comment: { id: "comment-1", body: "Investigating", createdAt: "2026-01-01T01:00:00Z", author: initial.creator } });
+    await waitFor(() => expect(screen.getByLabelText("Add a comment")).toHaveValue(""));
+  });
+
+  it("localizes statuses for linked commands and tickets", async () => {
+    vi.mocked(csrfFetch).mockResolvedValue({
+      events: [],
+      related: {
+        server: null,
+        command: { id: "command-1", title: "Restart database", command: "systemctl restart db", status: "PENDING_APPROVAL", createdAt: initial.createdAt },
+        reverseTickets: [{ id: "ticket-2", title: "Database latency", status: "IN_PROGRESS" }],
+      },
+    });
+
+    render(<TicketDetailClient initial={initial} canManage={false} />, { locale: "zh" });
+
+    expect(await screen.findByText("Restart database · 等待审批")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Database latency · 处理中" })).toBeInTheDocument();
   });
 });

@@ -81,6 +81,15 @@ describe("localized dashboard sections", () => {
             createdAt: "2026-05-31T00:00:00.000Z",
             formattedCreatedAt: "2026/05/31 08:00:00",
           },
+          {
+            id: "audit-2",
+            action: "AI_REVIEW",
+            severity: "INFO",
+            actorType: "ASSISTANT",
+            actor: null,
+            createdAt: "2026-05-31T00:01:00.000Z",
+            formattedCreatedAt: "2026/05/31 08:01:00",
+          },
         ]}
       />,
       "en",
@@ -95,6 +104,7 @@ describe("localized dashboard sections", () => {
     expect(auditLink).toHaveAttribute("href", "/audit");
     const auditTime = within(screen.getByText("LOGIN").closest("div") as HTMLElement).getByText("2026/05/31 08:00:00");
     expect(auditTime).toHaveAttribute("dateTime", "2026-05-31T00:00:00.000Z");
+    expect(screen.getByText("assistant")).toBeInTheDocument();
   });
 
   // Invariant guards: only ONE element may claim a given data-dashboard-widget id

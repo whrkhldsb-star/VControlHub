@@ -11,6 +11,7 @@ import { ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 // for in-file use AND re-export them so every existing call site
 // 'from "@/lib/deployment/service"' keeps working.
 import { t } from "@/lib/i18n/service-translations";
+import { getServerTargetAvailability } from "@/lib/server/availability";
 import type {
   DeploymentLaunchInputDto,
   DeploymentRollbackInputDto,
@@ -69,12 +70,23 @@ async function assertDeploymentServersInScope(
   const scope = serverTeamWhere(session);
   const servers = await prisma.server.findMany({
     where: { id: { in: serverIds }, ...scope },
-    select: { id: true },
+    select: {
+      id: true,
+      enabled: true,
+      onboardingStatus: true,
+      metricSnapshots: { select: { isOnline: true, createdAt: true }, orderBy: { createdAt: "desc" }, take: 1 },
+    },
   });
   if (servers.length !== serverIds.length) {
     throw new ValidationError(
       "One or more target servers were not found or are outside your team scope",
     );
+  }
+  if (servers.some((server) => server.enabled === false || !getServerTargetAvailability({
+    onboardingStatus: server.onboardingStatus,
+    latestMetric: server.metricSnapshots?.[0] ?? null,
+  }).available)) {
+    throw new ValidationError(t("backend.deployment.targetUnavailable"));
   }
 }
 

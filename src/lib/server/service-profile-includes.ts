@@ -19,6 +19,7 @@ export const SERVER_PROFILE_INCLUDE = {
       basePath: true,
       directAccessMode: true,
       publicBaseUrl: true,
+      healthStatus: true,
     },
   },
   commandTargets: {
@@ -37,5 +38,10 @@ export const SERVER_PROFILE_INCLUDE = {
     },
     orderBy: { commandRequest: { createdAt: "desc" } },
     take: 3,
+  },
+  metricSnapshots: {
+    select: { isOnline: true, createdAt: true },
+    orderBy: { createdAt: "desc" },
+    take: 1,
   },
 } as const;

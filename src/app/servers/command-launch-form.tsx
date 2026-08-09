@@ -4,6 +4,7 @@ import { useMemo, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
 import { ActionButton } from "@/components/action-button";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useToast } from "@/components/toast-provider";
 import { Notice } from "@/components/ui-primitives";
 import { api } from "@/lib/http/api-client";
@@ -15,6 +16,8 @@ export type CommandTargetOption = {
 	id: string;
 	name: string;
 	host: string;
+	available?: boolean;
+	unavailableReason?: string;
 };
 
 type CommandResponse = {
@@ -37,8 +40,10 @@ export function CommandLaunchForm({ servers, allowDirectExecution }: { servers: 
 	const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [confirmingDirect, setConfirmingDirect] = useState(false);
 	const submissionRef = useRef<{ fingerprint: string; idempotencyKey: string } | null>(null);
-	const allSelected = servers.length > 0 && selectedIds.size === servers.length;
+	const availableServers = servers.filter((server) => server.available !== false);
+	const allSelected = availableServers.length > 0 && selectedIds.size === availableServers.length;
 	const canSubmit = title.trim().length > 0 && command.trim().length > 0 && selectedIds.size > 0 && !submitting;
 	const selectedNames = useMemo(
 		() => servers.filter((server) => selectedIds.has(server.id)).map((server) => server.name),
@@ -54,9 +59,9 @@ export function CommandLaunchForm({ servers, allowDirectExecution }: { servers: 
 		});
 	}
 
-	async function submit(event: FormEvent<HTMLFormElement>) {
-		event.preventDefault();
+	async function performSubmit() {
 		if (!canSubmit) return;
+		setConfirmingDirect(false);
 		setSubmitting(true);
 		setError(null);
 		try {
@@ -86,7 +91,18 @@ export function CommandLaunchForm({ servers, allowDirectExecution }: { servers: 
 		}
 	}
 
+	function submit(event: FormEvent<HTMLFormElement>) {
+		event.preventDefault();
+		if (!canSubmit) return;
+		if (!approvalRequired) {
+			setConfirmingDirect(true);
+			return;
+		}
+		void performSubmit();
+	}
+
 	return (
+		<>
 		<form onSubmit={submit} className="space-y-5" aria-label={t("serversPage.command.title")}>
 			<div>
 				<h2 className="text-lg font-semibold text-[var(--text-primary)]">{t("serversPage.command.title")}</h2>
@@ -163,7 +179,7 @@ export function CommandLaunchForm({ servers, allowDirectExecution }: { servers: 
 					<legend className="text-sm font-medium text-[var(--text-secondary)]">{t("serversPage.command.targetNodes")}</legend>
 					<ActionButton
 						variant="secondary"
-						onClick={() => setSelectedIds(allSelected ? new Set() : new Set(servers.map((server) => server.id)))}
+						onClick={() => setSelectedIds(allSelected ? new Set() : new Set(availableServers.map((server) => server.id)))}
 						className="!px-3 !py-1.5 !text-xs"
 					>
 						{t(allSelected ? "serversPage.command.deselectAll" : "serversPage.command.selectAllEnabled")}
@@ -171,9 +187,10 @@ export function CommandLaunchForm({ servers, allowDirectExecution }: { servers: 
 				</div>
 				<div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
 					{servers.map((server) => (
-						<label key={server.id} className="flex min-w-0 cursor-pointer items-start gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 hover:bg-[var(--surface-elevated)]">
+						<label key={server.id} className={`flex min-w-0 items-start gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 ${server.available === false ? "cursor-not-allowed opacity-60" : "cursor-pointer hover:bg-[var(--surface-elevated)]"}`}>
 							<input
 								type="checkbox"
+								disabled={server.available === false}
 								checked={selectedIds.has(server.id)}
 								onChange={() => toggleServer(server.id)}
 								className="mt-0.5 h-4 w-4 accent-[var(--accent)]"
@@ -181,6 +198,7 @@ export function CommandLaunchForm({ servers, allowDirectExecution }: { servers: 
 							<span className="min-w-0">
 								<span className="block truncate text-sm font-medium text-[var(--text-primary)]">{server.name}</span>
 								<span className="mt-0.5 block truncate font-mono text-xs text-[var(--text-muted)]">{server.host}</span>
+								{server.unavailableReason ? <span className="mt-1 block text-xs text-[var(--danger)]">{server.unavailableReason}</span> : null}
 							</span>
 						</label>
 					))}
@@ -198,5 +216,24 @@ export function CommandLaunchForm({ servers, allowDirectExecution }: { servers: 
 				</ActionButton>
 			</div>
 		</form>
+		<ConfirmDialog
+			open={confirmingDirect}
+			title={t("serversPage.command.directConfirmTitle")}
+			description={(
+				<div className="space-y-3">
+					<p>{t("serversPage.command.directConfirmDesc", { count: selectedIds.size })}</p>
+					<div><span className="font-medium text-[var(--text-primary)]">{t("serversPage.command.targetNodes")}</span><p className="mt-1">{selectedNames.join(", ")}</p></div>
+					<div><span className="font-medium text-[var(--text-primary)]">{t("serversPage.command.reasonLabel")}</span><p className="mt-1">{reason.trim() || t("serversPage.command.noReason")}</p></div>
+					<code className="block max-h-48 overflow-auto whitespace-pre-wrap break-all rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-3 font-mono text-xs text-[var(--text-primary)]">{command.trim()}</code>
+				</div>
+			)}
+			cancelLabel={t("common.cancel")}
+			confirmLabel={t("serversPage.command.directConfirmAction")}
+			onCancel={() => setConfirmingDirect(false)}
+			onConfirm={() => void performSubmit()}
+			busy={submitting}
+			closeOnBackdrop={false}
+		/>
+		</>
 	);
 }

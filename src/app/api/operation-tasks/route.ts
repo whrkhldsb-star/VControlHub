@@ -16,12 +16,11 @@ const SORT_VALUES = ["recent", "attention"] as const;
  * `parseSearchParams(...)` zod call so unknown keys surface a unified 400
  * and the route can lean on type-narrowed values.
  *
- * Backward-compat notes:
+ * Validation notes:
  *   - `?limit=` still resolves to `undefined` (service falls back to
  *     `configuredLimit`). NaN values are rejected with 400.
- *   - `?status=garbage` still gets silently dropped inside the handler so
- *     dashboards with stale enum values don't break.
- *   - `?sort=oldest` is still silently ignored (legacy contract).
+ *   - Every comma-separated status token must be known; typos return 400.
+ *   - Unknown sort values return 400 instead of silently changing semantics.
  *   - `?format=xml` (or any value other than `csv` / `json`) is now 400
  *     instead of silently falling through to JSON. The two values that
  *     matter are still accepted.
@@ -31,9 +30,14 @@ const operationTasksQuerySchema = z.object({
     (v) => (v === "" || v == null) ? undefined : Number(v),
     z.number().finite().nonnegative().max(9999).optional(),
   ),
-  status: z.string().max(256).optional(),
+  status: z.string().max(256).superRefine((value, ctx) => {
+    const tokens = value.split(",").map((item) => item.trim()).filter(Boolean);
+    if (tokens.length === 0 || tokens.some((item) => !(STATUS_VALUES as readonly string[]).includes(item))) {
+      ctx.addIssue({ code: "custom", message: "Unknown operation task status" });
+    }
+  }).optional(),
   taskType: z.string().trim().min(1).max(64).optional(),
-  sort: z.string().max(32).optional(),
+  sort: z.enum(SORT_VALUES).optional(),
   format: z.enum(["csv", "json"]).optional(),
 });
 
@@ -54,7 +58,7 @@ function parseTaskTypeFilter(value: string | null | undefined) {
 
 function parseSort(value: string | null | undefined): OperationTaskListSort | undefined {
   if (!value) return undefined;
-  return (SORT_VALUES as readonly string[]).includes(value) ? (value as OperationTaskListSort) : undefined;
+  return value as OperationTaskListSort;
 }
 
 function csvCell(value: string | number | null | undefined) {

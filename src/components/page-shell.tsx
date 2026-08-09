@@ -291,7 +291,7 @@ export function StatGrid({
 					? "sm:grid-cols-2 lg:grid-cols-5"
 					: "sm:grid-cols-2 lg:grid-cols-4";
 	return (
-		<section data-stat-grid className={`mb-5 grid gap-3 ${colCls} ${className}`}>
+		<section data-stat-grid className={`mb-5 grid grid-cols-2 gap-3 max-[340px]:grid-cols-1 ${colCls} ${className}`}>
 			{children}
 		</section>
 	);

@@ -60,12 +60,12 @@ export function useAlertRuleActions({
 		try {
 			const data = await csrfFetch("/api/alert-incidents");
 			setIncidents((data?.incidents ?? []) as AlertIncident[]);
-		} catch {
-			// best-effort panel
+		} catch (error) {
+			setActionError(getErrorMessage(error, t("alertRulesPage.error.loadIncidents")));
 		} finally {
 			setIncidentsLoading(false);
 		}
-	}, [canManage]);
+	}, [canManage, t]);
 
 	/* eslint-disable react-hooks/set-state-in-effect -- bootstrap open incidents panel */
 	useEffect(() => {

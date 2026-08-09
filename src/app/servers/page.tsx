@@ -17,6 +17,7 @@ import { AutoProbeProvider } from "./auto-probe-context";
 import { CommandLaunchForm } from "./command-launch-form";
 import Link from "next/link";
 import { cookies } from "next/headers";
+import { getServerTargetAvailability } from "@/lib/server/availability";
 
 export const dynamic = "force-dynamic";
 
@@ -108,7 +109,20 @@ export default async function ServersPage() {
 				commandPanel={
 					canLaunchCommands && enabledServers.length > 0 ? (
 						<CommandLaunchForm
-							servers={enabledServers.map((server) => ({ id: server.id, name: server.name, host: server.host }))}
+							servers={enabledServers.map((server) => {
+								const availability = getServerTargetAvailability(server);
+								return {
+									id: server.id,
+									name: server.name,
+									host: server.host,
+									available: availability.available,
+									unavailableReason: availability.reason === "setup-incomplete"
+										? t("serversPage.command.nodeSetupIncomplete", locale)
+										: availability.reason === "recently-offline"
+											? t("serversPage.command.nodeRecentlyOffline", locale)
+											: undefined,
+								};
+							})}
 							allowDirectExecution={canExecuteCommands}
 						/>
 					) : canLaunchCommands ? (

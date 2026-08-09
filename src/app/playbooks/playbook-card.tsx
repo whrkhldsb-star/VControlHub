@@ -6,6 +6,12 @@ import { statusLabelFor, formatTime } from "./playbook-types";
 import type { SerializedPlaybook, RunSummary } from "./playbook-types";
 import { ActionButton } from "@/components/action-button";
 
+function stepStatusLabel(t: (k: string) => string, status: string): string {
+	const key = `playbooksPage.stepStatus.${status}`;
+	const translated = t(key);
+	return translated === key ? status : translated;
+}
+
 type PlaybookRunHistoryProps = {
   runs: RunSummary[];
   t: (k: string, vars?: Record<string, string | number>) => string;
@@ -33,7 +39,7 @@ export function PlaybookRunHistory({ runs, t }: PlaybookRunHistoryProps) {
                   {r.stepResults.map((sr, si) => (
                     <span
                       key={si}
-                      title={`${sr.stepId}: ${sr.status}${sr.summary ? ` - ${sr.summary}` : ""}`}
+                      title={`${sr.stepId}: ${stepStatusLabel(t, sr.status)}${sr.summary ? ` - ${sr.summary}` : ""}`}
                       className={`inline-block h-1.5 w-3 rounded-sm ${sr.status === "ok" ? "bg-[var(--success)]" : sr.status === "failed" ? "bg-[var(--danger)]" : sr.status === "dry_run" ? "bg-[var(--accent)]" : "bg-[var(--surface-hover)]"}`}
                     />
                   ))}
@@ -89,7 +95,7 @@ export const PlaybookCard = memo(function PlaybookCard({
               {playbook.enabled ? t("playbooksPage.status.enabled") : t("playbooksPage.status.disabled")}
             </span>
             <span className="inline-flex items-center rounded-full border border-[var(--accent-border)] bg-[var(--accent-bg)] px-2 py-0.5 text-[11px] font-medium text-[var(--accent)]">
-              {playbook.triggerType}
+              {playbook.triggerType === "cron" ? t("playbooksPage.triggerType.cron") : t("playbooksPage.triggerType.metric")}
             </span>
           </div>
           {playbook.description && (

@@ -10,6 +10,7 @@ import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 import { FormField, Notice } from "@/components/ui-primitives";
 import { UI_INPUT } from "@/lib/ui/classes";
+import { getDomainStatusLabel } from "@/lib/i18n/domain-labels";
 
 export interface TicketUser { id: string; username: string; displayName: string | null; }
 export interface TicketComment { id: string; body: string; createdAt: string; author: TicketUser; }
@@ -255,7 +256,7 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
             <div className="font-medium text-[var(--text-primary)]">{t("ticketsDetail.relatedCommand")}</div>
             {timeline?.related.command ? (
               <div className="mt-1 space-y-1 text-[var(--text-secondary)]">
-                <div>{timeline.related.command.title} · {timeline.related.command.status}</div>
+                <div>{timeline.related.command.title} · {getDomainStatusLabel(t, timeline.related.command.status)}</div>
                 <code className="block break-all text-[11px] opacity-80">{timeline.related.command.command}</code>
                 <Link href={`/commands?highlight=${timeline.related.command.id}`} className="text-[var(--accent)] underline-offset-2 hover:underline">
                   {t("ticketsDetail.openCommand")}
@@ -332,7 +333,7 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
               {timeline.related.reverseTickets.map((rt) => (
                 <li key={rt.id}>
                   <Link href={`/tickets/${rt.id}`} className="text-[var(--accent)] underline-offset-2 hover:underline">
-                    {rt.title} · {rt.status}
+                    {rt.title} · {statusLabel(t, rt.status)}
                   </Link>
                 </li>
               ))}

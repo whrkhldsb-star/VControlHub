@@ -9,6 +9,7 @@ import {
   getNodeLabel,
 } from "./files-browser-helpers";
 import { Server, HardDrive } from "@/components/icons";
+import { getStorageDriverLabel } from "@/lib/i18n/domain-labels";
 
 function NodeDriverIcon({ driver, size = 14 }: { driver: string; size?: number }) {
   return driver === "SFTP" ? (
@@ -87,7 +88,7 @@ export function NodeFilterSelect({
           <option value="">{t("filesBrowserSpa.allNodesOption")}</option>
           {filteredNodes.map((node) => (
             <option key={node.id} value={node.id}>
-              {node.name} ({node.driver})
+              {node.name} ({getStorageDriverLabel(t, node.driver)})
             </option>
           ))}
         </select>

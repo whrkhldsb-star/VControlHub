@@ -16,6 +16,12 @@ import { UI_INPUT } from "@/lib/ui/classes";
 const PROVIDERS: ItsmProvider[] = ["generic_webhook", "slack", "telegram", "dingtalk", "feishu"];
 const DIRECTIONS: ItsmDirection[] = ["bidirectional", "outbound", "inbound"];
 
+function eventLabel(t: (key: string) => string, prefix: string, value: string): string {
+	const key = `${prefix}.${value}`;
+	const translated = t(key);
+	return translated === key ? value : translated;
+}
+
 const cardClass = "rounded-xl border border-border/60 bg-card/40 p-4 space-y-3";
 type Props = {
 	initialConnections: ItsmConnectionRecord[];
@@ -345,14 +351,14 @@ export function ItsmPageClient({
 							<li key={ev.id} className="border-b border-border/40 py-2 last:border-0">
 								<div className="flex flex-wrap justify-between gap-2">
 									<span>
-										{ev.direction} · {ev.eventType} · {ev.status}
+										{t(`itsmPage.direction.${ev.direction}`)} · {eventLabel(t, "itsmPage.eventType", ev.eventType)} · {eventLabel(t, "itsmPage.eventStatus", ev.status)}
 									</span>
 									<span className="text-xs text-muted-foreground">
 										{formatDateTime(ev.createdAt, locale)}
 									</span>
 								</div>
 								{ev.ticketId && (
-									<div className="text-xs text-muted-foreground">ticket: {ev.ticketId}</div>
+									<div className="text-xs text-muted-foreground">{t("itsmPage.events.ticket")}: {ev.ticketId}</div>
 								)}
 								{ev.errorMessage && (
 									<div className="text-xs text-rose-500">{ev.errorMessage}</div>

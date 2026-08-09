@@ -46,6 +46,10 @@ export const en: Record<string, string> = {
 	"settingsClient.riskMediumDescription": "Changing this affects behavior but will not immediately break services (most runtime tuning).",
 
 	"settingsClient.fieldIsDefault": "Already at default",
+	"settingsClient.unsavedLeaveTitle": "Unsaved settings",
+	"settingsClient.unsavedLeaveDescription": "You have {count} unsaved change(s). They will be lost if you leave this page.",
+	"settingsClient.stayOnPage": "Stay on page",
+	"settingsClient.discardAndLeave": "Discard and leave",
 	"settingsClient.fieldRestoreDefault": "Restore default ({value})",
 	"settingsClient.fieldRestoreAria": "Restore {label} to default",
 	"settingsClient.fieldDefaultSr": "Default",

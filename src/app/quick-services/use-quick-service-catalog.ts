@@ -31,6 +31,7 @@ export function useQuickServiceCatalog(t: TFn) {
   const [selectedServerId, setSelectedServerId] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [sourcesError, setSourcesError] = useState<string | null>(null);
   const [hostName, setHostName] = useState("");
   const [quickServicePublicHost, setQuickServicePublicHost] = useState(QUICK_SERVICE_PUBLIC_HOST);
 
@@ -75,10 +76,11 @@ export function useQuickServiceCatalog(t: TFn) {
     try {
       const data = await csrfFetch("/api/app-sources?includeApps=false");
       setSources(data.sources ?? []);
-    } catch {
-      // silent
+      setSourcesError(null);
+    } catch (err) {
+      setSourcesError(getErrorMessage(err, t("qsPage.sourcesLoadFailed")));
     }
-  }, []);
+  }, [t]);
 
   /* eslint-disable react-hooks/set-state-in-effect -- catalog bootstrap + hostName browser capability read. */
   useEffect(() => {
@@ -114,6 +116,7 @@ export function useQuickServiceCatalog(t: TFn) {
     setSelectedServerId,
     loading,
     error,
+    sourcesError,
     hostName,
     quickServicePublicHost,
     fetchCatalog,

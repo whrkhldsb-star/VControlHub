@@ -13,6 +13,7 @@ import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 import { Notice } from "@/components/ui-primitives";
 import { UI_INPUT } from "@/lib/ui/classes";
+import { PaginatedList } from "@/components/paginated-list";
 
 interface Snippet {
   id: string;
@@ -205,11 +206,13 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
         }
         bodyClassName="!divide-y-0 space-y-0 bg-transparent p-2.5"
       >
-        {filtered.map((s) => (
-          <div key={s.id} className="mb-2.5 last:mb-0">
-            <SnippetCard snippet={s} t={t} copied={copiedId === s.id} onCopy={handleCopy} onEdit={handleEdit} onDelete={handleDeleteClick} />
-          </div>
-        ))}
+        <PaginatedList pageSize={20} resetKey={`${search}\u0000${langFilter}`}>
+          {filtered.map((s) => (
+            <div key={s.id} className="mb-2.5 last:mb-0">
+              <SnippetCard snippet={s} t={t} copied={copiedId === s.id} onCopy={handleCopy} onEdit={handleEdit} onDelete={handleDeleteClick} />
+            </div>
+          ))}
+        </PaginatedList>
       </ListPanel>
 
       {creating && (

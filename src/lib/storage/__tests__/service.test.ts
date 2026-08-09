@@ -59,6 +59,7 @@ vi.mock("@/lib/ssh/ssh-key-crypto", () => ({
 import {
   createFileEntry,
   createStorageNode,
+  deleteStorageNode,
   checkStorageNodeHealth,
   getLocalEditableFileDraft,
   getStorageOverview,
@@ -106,7 +107,7 @@ describe("storage service", () => {
     });
 
     expect(prisma.storageNode.updateMany).toHaveBeenCalledWith({
-      where: {},
+      where: { id: { not: "node_1" } },
       data: { isDefault: false },
     });
     expect(result.connectionSummary).toContain(
@@ -444,6 +445,52 @@ describe("storage service", () => {
         }),
       }),
     );
+  });
+
+  it("keeps the current default node until another node is promoted", async () => {
+    vi.clearAllMocks();
+    vi.mocked(prisma.storageNode.findUnique).mockResolvedValueOnce({
+      id: "node_default",
+      name: "Local default",
+      driver: "LOCAL",
+      isDefault: true,
+      basePath: "/srv/storage",
+      server: null,
+    } as any);
+    vi.mocked(prisma.storageNode.findUnique).mockResolvedValueOnce({
+      id: "node_default",
+      name: "Local default",
+      driver: "LOCAL",
+      isDefault: true,
+      basePath: "/srv/storage",
+      server: null,
+    } as any);
+
+    await expect(updateStorageNode({
+      storageNodeId: "node_default",
+      isDefault: false,
+    })).rejects.toThrow(/默认存储节点/);
+
+    await expect(updateStorageNode({
+      storageNodeId: "node_default",
+      driver: "SFTP",
+      host: "203.0.113.20",
+    })).rejects.toThrow(/默认存储节点/);
+    expect(prisma.storageNode.update).not.toHaveBeenCalled();
+  });
+
+  it("blocks deleting the default node even when it has no files", async () => {
+    vi.clearAllMocks();
+    vi.mocked(prisma.storageNode.findUnique).mockResolvedValueOnce({
+      id: "node_default",
+      isDefault: true,
+      fileEntries: [],
+    } as any);
+
+    await expect(deleteStorageNode("node_default")).rejects.toThrow(
+      /默认存储节点/,
+    );
+    expect(prisma.storageNode.delete).not.toHaveBeenCalled();
   });
 
   it("normalizes safe public direct-access URLs before storage-node persistence", async () => {

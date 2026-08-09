@@ -11,6 +11,7 @@ import { ActionButton } from "@/components/action-button";
 import { Notice } from "@/components/ui-primitives";
 import { api } from "@/lib/http/api-client";
 import { useResourcePolling } from "@/lib/http/use-resource-polling";
+import { getDomainStatusLabel } from "@/lib/i18n/domain-labels";
 
 type ServerOption = { id: string; name: string; host: string | null };
 
@@ -57,6 +58,15 @@ const SCHEDULES = [
   { value: "every:6h", key: "filesPage.syncJobs.schedule.every6h" },
   { value: "every:24h", key: "filesPage.syncJobs.schedule.every24h" },
 ] as const;
+
+function syncTypeLabel(t: (key: string) => string, value: string): string {
+	return value === "BIDIRECTIONAL" ? t("filesPage.syncJobs.type.bidirectional") : value === "MIRROR" ? t("filesPage.syncJobs.type.mirror") : value;
+}
+
+function scheduleLabel(t: (key: string) => string, value: string): string {
+	const option = SCHEDULES.find((item) => item.value === value);
+	return option ? t(option.key) : value;
+}
 
 export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] }) {
   const { t } = useI18n();
@@ -285,7 +295,7 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
                 <div>
                   <span className="font-medium text-[var(--text-primary)]">{job.name}</span>
                   <span className="ml-2 text-[var(--text-muted)]">
-                    {job.syncType} · {job.status} · {job.schedule || "manual"}
+                    {syncTypeLabel(t, job.syncType)} · {getDomainStatusLabel(t, job.status)} · {scheduleLabel(t, job.schedule || "manual")}
                   </span>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -351,7 +361,7 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
                       <p className="text-[var(--text-muted)]">{t("filesPage.syncJobs.history")}</p>
                       {report.history.slice(0, 5).map((h) => (
                         <p key={h.id} className="text-[var(--text-secondary)]">
-                          {h.startedAt.slice(0, 19)} · {h.status} · xfer {h.filesTransferred} ·{" "}
+                          {h.startedAt.slice(0, 19)} · {getDomainStatusLabel(t, h.status)} · xfer {h.filesTransferred} ·{" "}
                           {Math.round(h.durationMs / 1000)}s
                           {h.errorMessage ? ` · ${h.errorMessage}` : ""}
                         </p>

@@ -48,7 +48,7 @@ describe("GlobalSearch", () => {
 		expect(screen.getByRole("listbox")).toHaveAttribute("id", "global-search-results");
 
 		await user.type(input, "健康");
-		expect(screen.getByRole("option", { name: /系统健康/ })).toHaveAttribute("aria-selected", "true");
+		expect(screen.getByRole("option", { name: /平台运行健康/ })).toHaveAttribute("aria-selected", "true");
 	});
 
 	it("opens from the visible sidebar search event as well as the keyboard shortcut", async () => {
@@ -85,8 +85,8 @@ describe("GlobalSearch", () => {
 	});
 
 	it("routes health search results to the real health dashboard page", () => {
-		const healthItem = getSearchItems().find((item) => item.label === "系统健康");
-		const vpsItem = getSearchItems().find((item) => item.label === "VPS 状态");
+		const healthItem = getSearchItems().find((item) => item.label === "平台运行健康");
+		const vpsItem = getSearchItems().find((item) => item.label === "节点在线状态");
 
 		expect(healthItem?.href).toBe("/health");
 		expect(vpsItem?.href).toBe("/vps-status");

@@ -14,6 +14,7 @@ import {
 
 import { getErrorMessage } from "./media-item-helpers";
 import { ActionButton } from "@/components/action-button";
+import { getStorageDriverLabel } from "@/lib/i18n/domain-labels";
 
 type StorageNodeOption = {
 	id: string;
@@ -258,7 +259,7 @@ export function MediaImageUploadPanel() {
 					<select id="media-image-storage-node" value={storageNodeId} onChange={(e) => setStorageNodeId(e.target.value)} onFocus={() => { if (!nodesLoaded && !loadingNodes) void loadNodes(); }} className="mt-1 w-full rounded-lg border border-[var(--success-border)] dark:border-[var(--success-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--success-border)] light:border-[var(--success-border)]">
 						<option value="">{t("mediaUploadPanel.defaultStorage")}</option>
 						{nodes.map((node) => (
-							<option key={node.id} value={node.id}>{node.name}{node.driver ? ` · ${node.driver}` : ""}{node.serverName ? ` · ${node.serverName}` : ""}</option>
+							<option key={node.id} value={node.id}>{node.name}{node.driver ? ` · ${getStorageDriverLabel(t, node.driver)}` : ""}{node.serverName ? ` · ${node.serverName}` : ""}</option>
 						))}
 					</select>
 				</div>

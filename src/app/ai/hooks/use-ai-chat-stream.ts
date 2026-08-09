@@ -104,9 +104,9 @@ export function useAiChatStream({
           if (data.conversation?.messages)
             setMessages(data.conversation.messages);
         })
-        .catch(() => {});
+        .catch(() => addToast("error", t("aiPage.stopRefreshFailed")));
     }
-  }, [activeConvId, setMessages]);
+  }, [activeConvId, addToast, setMessages, t]);
 
   const refreshActiveMessages = useCallback(async () => {
     if (!activeConvId) return;
@@ -335,7 +335,8 @@ export function useAiChatStream({
             if (data.conversation?.messages)
               setMessages(data.conversation.messages);
           } catch {
-            // Keep local transcript if post-stream refresh fails.
+            // Keep the local transcript, but tell the user the server copy may lag.
+            addToast("error", t("aiPage.refreshMessagesFailed"));
           }
         }
         await refreshConversations();
@@ -347,8 +348,8 @@ export function useAiChatStream({
       addToast,
       refreshConversations,
       setMessages,
-      streaming,
       t,
+      streaming,
     ],
   );
 

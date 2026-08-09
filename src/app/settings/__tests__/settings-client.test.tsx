@@ -15,13 +15,14 @@ import { renderWithI18n as renderWithLocale } from "@/lib/i18n/__tests__/test-he
 const render = (ui: React.ReactElement) => renderWithLocale(ui, { locale: "zh" });
 
 const refreshMock = vi.fn();
+const pushMock = vi.fn();
 
 vi.mock("@/lib/auth/csrf-client", () => ({
 	csrfFetch: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({
-	useRouter: () => ({ refresh: refreshMock }),
+	useRouter: () => ({ refresh: refreshMock, push: pushMock }),
 }));
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
@@ -30,6 +31,7 @@ describe("SettingsClient", () => {
 	beforeEach(() => {
 		vi.mocked(csrfFetch).mockReset();
 		refreshMock.mockReset();
+		pushMock.mockReset();
 	});
 
 	it("persists edited settings through the settings API", async () => {
@@ -51,6 +53,20 @@ describe("SettingsClient", () => {
 		});
 		expect(await screen.findByText(/✓ 设置已保存/)).toBeInTheDocument();
 		expect(screen.getByText(/平台信息已保存/)).toBeInTheDocument();
+	});
+
+	it("protects unsaved changes during client-side navigation", async () => {
+		const user = userEvent.setup();
+		render(<><SettingsClient settings={{ "platform.name": "旧名称", "platform.logo": "" }} canManage /><a href="/servers">前往节点</a></>);
+		await user.clear(screen.getByLabelText("平台名称"));
+		await user.type(screen.getByLabelText("平台名称"), "未保存名称");
+
+		await user.click(screen.getByRole("link", { name: "前往节点" }));
+		expect(pushMock).not.toHaveBeenCalled();
+		const dialog = screen.getByRole("dialog", { name: "有设置尚未保存" });
+		expect(dialog).toHaveTextContent("当前有 1 项更改尚未保存");
+		await user.click(screen.getByRole("button", { name: "放弃更改并离开" }));
+		expect(pushMock).toHaveBeenCalledWith("/servers");
 	});
 
 	it("validates platform settings before calling the API", async () => {

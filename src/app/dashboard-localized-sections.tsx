@@ -5,6 +5,12 @@ import Link from "next/link";
 import { EmptyState, StatCard, SurfacePanel, ListPanel, ListRow } from "@/components/page-shell";
 import { useI18n } from "@/lib/i18n/use-locale";
 
+const AUDIT_ACTOR_LABEL_KEYS: Record<string, string> = {
+  USER: "dashboard.actor-user",
+  SYSTEM: "dashboard.actor-system",
+  ASSISTANT: "dashboard.actor-assistant",
+};
+
 type DashboardServerSummary = {
   total: number;
   enabled: number;
@@ -244,7 +250,7 @@ export function DashboardRecentActivity({ recentRequests, recentAuditLogs }: { r
           <ListRow key={log.id}>
             <div className="flex items-center gap-2 text-xs">
               <Badge color={log.severity === "WARNING" ? "amber" : log.severity === "CRITICAL" ? "rose" : "slate"}>{log.action}</Badge>
-              <span className="min-w-0 flex-1 truncate text-[var(--text-muted)]">{log.actor?.displayName ?? log.actor?.username ?? (log.actorType === "SYSTEM" ? t("dashboard.actor-system") : log.actorType)}</span>
+              <span className="min-w-0 flex-1 truncate text-[var(--text-muted)]">{log.actor?.displayName ?? log.actor?.username ?? t(AUDIT_ACTOR_LABEL_KEYS[log.actorType] ?? "dashboard.actor-user")}</span>
               <time className="shrink-0 whitespace-nowrap text-[var(--text-muted)]" dateTime={log.createdAt} suppressHydrationWarning>{log.formattedCreatedAt}</time>
             </div>
           </ListRow>

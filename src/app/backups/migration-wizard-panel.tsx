@@ -8,6 +8,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
+import { getBackupTypeLabel } from "@/lib/i18n/domain-labels";
 
 type Props = {
   completedBackups: Array<{ id: string; type: string; filePath: string; label: string }>;
@@ -229,7 +230,7 @@ export function MigrationWizardPanel({ completedBackups, canCreate }: Props) {
                     onClick={() => setPackageRef(pkg.relativeDir)}
                   >
                     {pkg.packageId}
-                    {pkg.type ? ` · ${pkg.type}` : ""}
+                    {pkg.type ? ` · ${getBackupTypeLabel(t, pkg.type)}` : ""}
                     {pkg.hasTarball ? " · tar.gz" : ""}
                   </button>
                 </li>

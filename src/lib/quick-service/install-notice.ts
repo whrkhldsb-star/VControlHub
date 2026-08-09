@@ -181,14 +181,20 @@ export function prepareInstallSecrets(template: ServiceTemplate): PreparedInstal
 	return { template, credentials, notes };
 }
 
-export function buildInstallNotice(template: ServiceTemplate, hostPort: number, credentials: QuickServiceCredential[], notes: string[]): QuickServiceInstallNotice {
-	const publicHost = config.app.publicQuickServiceHost;
+export function buildInstallNotice(
+	template: ServiceTemplate,
+	hostPort: number,
+	credentials: QuickServiceCredential[],
+	notes: string[],
+	accessTarget?: { host?: string | null; protocol?: string | null },
+): QuickServiceInstallNotice {
+	const publicHost = accessTarget?.host ?? config.app.publicQuickServiceHost;
 	return {
 		accessUrl: buildQuickServiceAccessUrl({
 			port: hostPort,
 			defaultPort: template.defaultPort,
 			configuredHost: publicHost,
-			protocol: publicHost ? "http:" : undefined,
+			protocol: accessTarget?.protocol ?? (publicHost ? "http:" : undefined),
 		}),
 		credentials,
 		notes,

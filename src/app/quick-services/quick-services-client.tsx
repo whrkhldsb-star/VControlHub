@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState, useMemo } from "react";
 import { buildQuickServiceAccessDescriptor } from "@/lib/quick-service/access-url";
 import { EmptyState, Toolbar, StatCard, StatGrid } from "@/components/page-shell";
-import { CONTROL_CLASS, SegmentedTabs } from "@/components/ui-primitives";
+import { CONTROL_CLASS, Notice, SegmentedTabs } from "@/components/ui-primitives";
 import { useI18n } from "@/lib/i18n/use-locale";
 import {
   useQuickServiceActions,
@@ -38,6 +38,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 		setSelectedServerId,
 		loading,
 		error,
+		sourcesError,
 		hostName,
 		quickServicePublicHost,
 		fetchCatalog,
@@ -52,6 +53,11 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 	// Sync state is owned by useQuickServiceActions (see use-quick-service-actions.ts)
 	// Search
 	const [search, setSearch] = useState("");
+	const [categoryFilter, setCategoryFilter] = useState("all");
+	const selectTab = (nextTab: Tab) => {
+		setTab(nextTab);
+		setCategoryFilter("all");
+	};
 
 	// Action handlers + message + actionSlug + syncing now live in the
 	// useQuickServiceActions hook (extracted in R23).
@@ -59,6 +65,11 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 	const selectedTargetLabel = selectedServerId
 		? (servers.find((server) => server.id === selectedServerId)?.name ?? t("qsPage.targetNodeRemote"))
 		: t("qsPage.targetHubHost");
+	const selectedServerHost = selectedServerId
+		? (servers.find((server) => server.id === selectedServerId)?.host ?? "")
+		: "";
+	const quickServiceAccessHost = selectedServerHost || quickServicePublicHost;
+	const quickServiceAccessProtocol = selectedServerHost ? "http:" : undefined;
 
 	const openInstallDialog = (item: CatalogItem) => {
 		if (dockerStatus && !dockerStatus.available) {
@@ -132,9 +143,10 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 		() => buildQuickServiceViewModel(catalog, remoteCatalog, tab, search),
 		[catalog, remoteCatalog, search, tab],
 	);
+	const categoryCounts = Object.fromEntries(CATEGORY_ORDER.map((category) => [category, grouped[category]?.length ?? 0]));
 
 	if (loading) return <div className="text-sm text-[var(--text-muted)] py-12 text-center">{t("qsPage.loading")}</div>;
-	if (error) return <div className="text-sm text-[var(--danger)] py-12 text-center">{error}</div>;
+	if (error) return <Notice tone="danger" action={{ label: t("common.retry"), onClick: () => void fetchCatalog() }}>{error}</Notice>;
 
 	if (!canManage) {
 		return <EmptyState text={t("qsPage.permissionDenied")} variant="boxed" icon="🔒" />;
@@ -144,11 +156,11 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 		port: item.port,
 		defaultPort: item.defaultPort,
 		browserHost: hostName,
-		configuredHost: quickServicePublicHost,
-		protocol: typeof window !=="undefined" ? window.location.protocol : null,
+		configuredHost: quickServiceAccessHost,
+		protocol: quickServiceAccessProtocol ?? (typeof window !=="undefined" ? window.location.protocol : null),
 		path: item.path,
 	});
-	const accessHostLabel = quickServicePublicHost || hostName || t("qsPage.currentHost");
+	const accessHostLabel = quickServiceAccessHost || hostName || t("qsPage.currentHost");
 	const staleSources = sources.filter((source) => source.enabled && source.lastSyncStatus !=="success");
 	const lastSyncedSource = sources
 		.filter((source) => source.lastSyncAt)
@@ -170,12 +182,14 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 			onUpdate={() => requestUpdate(item)}
 			onSync={() => actions.doAction(item.slug, "sync")}
 			onUninstall={() => requestUninstall(item)}
-			publicHost={quickServicePublicHost}
+			accessHost={quickServiceAccessHost}
+			accessProtocol={quickServiceAccessProtocol}
 		/>
 	);
 
 	return (
 		<div className="space-y-6">
+			{sourcesError ? <Notice tone="danger" action={{ label: t("common.retry"), onClick: () => void fetchSources() }}>{sourcesError}</Notice> : null}
 			{dockerStatus && !dockerStatus.available ? (
 				<div data-tone="amber" className="rounded-2xl border border-[var(--warning-border)] p-4 text-sm text-[var(--warning)]">
 					<div className="font-medium">{t("qsPage.dockerNotReadyTitle")}</div>
@@ -233,7 +247,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 							<p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">{t("qsPage.runningOverview")}</p>
 							<h2 className="mt-1 text-base font-semibold text-[var(--text-primary)]">{runningItems.length > 0 ? t("qsPage.runningOnlineCount", { count: runningItems.length }) : t("qsPage.noRunningServicesYet")}</h2>
 							</div>
-							<button type="button" onClick={() => setTab(nextAction.tab)}
+							<button type="button" onClick={() => selectTab(nextAction.tab)}
 							data-tone={nextAction.tone ==="rose" ?"rose" : nextAction.tone ==="emerald" ?"emerald" :"cyan"}
 							className={`rounded-full border px-3 py-1.5 text-xs transition ${nextAction.tone ==="rose" ?"border-[var(--danger-border)] text-[var(--danger)] hover:bg-[var(--danger-bg)]" : nextAction.tone ==="emerald" ?"border-[var(--success-border)] text-[var(--success)] hover:bg-[var(--success-bg)]" :"border-[var(--accent-border)] text-[var(--accent)] hover:bg-[var(--accent-bg)]"}`}
 						>
@@ -281,7 +295,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 					<p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">{t("qsPage.sourcesLabel")}</p>
 					<h3 className="mt-1 text-base font-semibold text-[var(--text-primary)]">{t("qsPage.sourcesEnabledCount", { enabled: sources.filter((s) => s.enabled).length, total: sources.length })}</h3>
 					<p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{lastSyncedSource ? t("qsPage.lastSynced", { name: lastSyncedSource.displayName }) : t("qsPage.noSyncRecord")}</p>
-					<ActionButton variant={staleSources.length > 0 ? "outline" : "secondary"} onClick={() => setTab("sources")} className="!mt-3 !px-3 !py-1.5 !text-xs">
+					<ActionButton variant={staleSources.length > 0 ? "outline" : "secondary"} onClick={() => selectTab("sources")} className="!mt-3 !px-3 !py-1.5 !text-xs">
 						{staleSources.length > 0 ? t("qsPage.handleStaleSources", { count: staleSources.length }) : t("qsPage.manageSources")}
 					</ActionButton>
 				</div>
@@ -309,6 +323,17 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 						) : null}
 					</div>
 				</div>
+				{tab !== "sources" ? (
+					<label className="space-y-1.5 text-xs font-medium text-[var(--text-muted)]">
+						<span className="block">{t("qsPage.categoryFilter")}</span>
+						<select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)} className={`${CONTROL_CLASS} min-w-40`}>
+							<option value="all">{t("qsPage.categoryAll")}</option>
+							{CATEGORY_ORDER.filter((category) => (categoryCounts[category] ?? 0) > 0).map((category) => (
+								<option key={category} value={category}>{categoryLabels[category]} ({categoryCounts[category]})</option>
+							))}
+						</select>
+					</label>
+				) : null}
 			</Toolbar>
 
 			{tab ==="store" && !search && recommendedItems.length > 0 && (
@@ -330,7 +355,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 			<SegmentedTabs
 				ariaLabel={t("qsPage.title")}
 				value={tab}
-				onChange={(value) => setTab(value as Tab)}
+				onChange={(value) => selectTab(value as Tab)}
 				items={[
 					{ id:"store", label: t("qsPage.tabStore", { count: localAvailable.length }) },
 					{ id:"community", label: t("qsPage.tabCommunity", { count: remoteAvailable.length }) },
@@ -353,7 +378,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 			)}
 
 			{/* Store / Community / Installed content */}
-			{tab !=="sources" && CATEGORY_ORDER.map((cat) => {
+			{tab !=="sources" && CATEGORY_ORDER.filter((cat) => categoryFilter === "all" || categoryFilter === cat).map((cat) => {
 				const items = grouped[cat]!;
 				if (items.length === 0) return null;
 				return (

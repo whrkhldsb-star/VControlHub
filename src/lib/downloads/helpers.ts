@@ -11,7 +11,7 @@ import { toRemoteChildPath } from "@/lib/downloads/remote-command";
 import path from "path";
 import { t } from "@/lib/i18n/service-translations";
 
-/* ── File name sanitization ────────────────────────────── */
+/* File name sanitization */
 
 export function normalizeDownloadFileName(fileName: string | null | undefined): string | null {
  const value = (fileName ?? "").trim();

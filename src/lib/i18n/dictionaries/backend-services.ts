@@ -173,6 +173,7 @@ export const zh: Record<string, string> = {
 	"backend.command.cannotCancelOthers": "只能取消自己提交的命令，或由审批人取消",
 	"backend.command.targetsOutOfScope": "一个或多个目标服务器不存在，或不在你的团队范围内",
 	"backend.command.targetsDisabled": "一个或多个目标 VPS 已禁用；请先重新启用节点，或从任务中移除这些目标",
+	"backend.command.targetsUnavailable": "一个或多个目标 VPS 尚未完成初始化或最近监控为离线；请先恢复节点可用性",
 	"backend.command.idempotencyKeyInUse": "幂等键已被使用，请更换后重试",
 	"backend.command.enqueuedFromCreate": "命令已进入后台 SSH 执行队列，可在任务中心查看节点状态。",
 	"backend.command.enqueuedFromApproval": "审批已通过，任务已进入后台 SSH 执行队列。",
@@ -189,6 +190,9 @@ export const zh: Record<string, string> = {
 	"backend.storage.versionSnapshotFailed": "无法创建版本快照（文件缺失、过大或不可读）",
 	"backend.storage.localRootNotDir": "本地存储根路径不是目录",
 	"backend.storage.nodeHasEntries": "该存储节点仍有文件条目，请先删除或迁移文件再移除节点",
+	"backend.storage.defaultMustBeReplacedFirst": "默认存储节点不能直接取消；请先把另一个节点设为默认节点",
+	"backend.storage.defaultDriverLocked": "默认存储节点不能更换驱动；如需迁移，请先把另一个节点设为默认节点",
+	"backend.storage.defaultCannotDelete": "默认存储节点不能删除；请先把另一个节点设为默认节点",
 	"backend.storage.sftpNeedsHost": "SFTP 存储节点必须绑定 VPS 或指定远程主机",
 	"backend.storage.serverAlreadyHasStorageNode": "该服务器已经绑定了云盘，请编辑现有云盘或选择其他服务器",
 	"backend.storage.uploadNotSupported": "该存储节点不支持文件上传",
@@ -231,6 +235,7 @@ export const zh: Record<string, string> = {
 
 	// B5 pass2 auto
 	"backend.deployment.deploymentTemplateIsRequired": "必须选择部署模板",
+	"backend.deployment.targetUnavailable": "一个或多个目标 VPS 已禁用、尚未完成初始化或最近监控为离线；请先恢复节点可用性",
 	"backend.deployment.requesterIsRequired": "必须指定请求人",
 	"backend.deployment.atLeast1TargetVpsMustBeSelected": "至少选择 1 台目标 VPS",
 	"backend.deployment.reasonMustBeAtMost500Characters": "原因最多 500 个字符",
@@ -607,6 +612,7 @@ export const en: Record<string, string> = {
 	"backend.command.cannotCancelOthers": "You can only cancel your own requests, or cancel as an approver",
 	"backend.command.targetsOutOfScope": "One or more target servers were not found or are outside your team scope",
 	"backend.command.targetsDisabled": "One or more target VPS nodes are disabled; enable them first or remove them from this operation",
+	"backend.command.targetsUnavailable": "One or more target VPS nodes have incomplete setup or were recently reported offline; restore node availability first",
 	"backend.command.idempotencyKeyInUse": "Idempotency key is already in use; choose a different key",
 	"backend.command.enqueuedFromCreate": "Command entered the background SSH execution queue; check node status in the task center.",
 	"backend.command.enqueuedFromApproval": "Approval passed; the task entered the background SSH execution queue.",
@@ -625,6 +631,9 @@ export const en: Record<string, string> = {
 	"backend.storage.versionSnapshotFailed": "Unable to create version snapshot (file missing, oversized, or unreadable)",
 	"backend.storage.localRootNotDir": "Local storage root path is not a directory",
 	"backend.storage.nodeHasEntries": "This storage node still has file entries; please delete or migrate the files before removing the node",
+	"backend.storage.defaultMustBeReplacedFirst": "The default storage node cannot be unset directly; set another node as default first",
+	"backend.storage.defaultDriverLocked": "The default storage node driver cannot be changed; set another node as default before migrating",
+	"backend.storage.defaultCannotDelete": "The default storage node cannot be deleted; set another node as default first",
 	"backend.storage.sftpNeedsHost": "SFTP storage nodes must be bound to a VPS node or specify a remote host",
 	"backend.storage.serverAlreadyHasStorageNode": "This server already has a bound storage node; edit the existing node or choose another server",
 	"backend.storage.uploadNotSupported": "Storage node does not support file uploads",
@@ -669,6 +678,7 @@ export const en: Record<string, string> = {
 
 	// B5 pass2 auto
 	"backend.deployment.deploymentTemplateIsRequired": "Deployment template is required",
+	"backend.deployment.targetUnavailable": "One or more target VPS nodes are disabled, have incomplete setup, or were recently reported offline; restore node availability first",
 	"backend.deployment.requesterIsRequired": "Requester is required",
 	"backend.deployment.atLeast1TargetVpsMustBeSelected": "At least 1 target VPS must be selected",
 	"backend.deployment.reasonMustBeAtMost500Characters": "Reason must be at most 500 characters",

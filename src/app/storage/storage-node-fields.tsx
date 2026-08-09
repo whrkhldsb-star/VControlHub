@@ -3,6 +3,7 @@
 import { CheckboxField, FormField, FormGrid } from "@/components/ui-primitives";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { getStorageDriverLabel } from "@/lib/i18n/domain-labels";
 
 export type StorageNodeFieldValues = {
   name?: string;
@@ -23,12 +24,14 @@ export function StorageNodeFields({
   servers,
   values = {},
   includeExplicitUncheckedDefault = false,
+  lockDefault = false,
 }: {
   driver: string;
   onDriverChange: (driver: string) => void;
   servers: Array<{ id: string; name: string; host: string }>;
   values?: StorageNodeFieldValues;
   includeExplicitUncheckedDefault?: boolean;
+  lockDefault?: boolean;
 }) {
   const { t } = useI18n();
   const isSftp = driver === "SFTP";
@@ -40,9 +43,10 @@ export function StorageNodeFields({
         <input id="storage-node-name" name="name" defaultValue={values.name} required className={UI_INPUT} />
       </FormField>
       <FormField label={t("storagePage.form.fieldDriver")} htmlFor="storage-node-driver">
-        <select id="storage-node-driver" name="driver" value={driver} className={UI_INPUT} onChange={(event) => onDriverChange(event.target.value)}>
-          <option value="LOCAL">LOCAL</option>
-          <option value="SFTP">SFTP</option>
+        {lockDefault ? <input type="hidden" name="driver" value={driver} /> : null}
+        <select id="storage-node-driver" name="driver" value={driver} className={UI_INPUT} disabled={lockDefault} onChange={(event) => onDriverChange(event.target.value)}>
+          <option value="LOCAL">{getStorageDriverLabel(t, "LOCAL")}</option>
+          <option value="SFTP">{getStorageDriverLabel(t, "SFTP")}</option>
         </select>
       </FormField>
       <FormField label={t("storagePage.form.fieldBasePath")} htmlFor="storage-node-base-path" className="md:col-span-2">
@@ -81,8 +85,10 @@ export function StorageNodeFields({
       </> : null}
 
       <div className="md:col-span-2">
-        {includeExplicitUncheckedDefault ? <input type="hidden" name="isDefault" value="off" /> : null}
-        <CheckboxField name="isDefault" value="on" defaultChecked={values.isDefault} label={t("storagePage.form.fieldIsDefault")} />
+        {includeExplicitUncheckedDefault && !lockDefault ? <input type="hidden" name="isDefault" value="off" /> : null}
+        {lockDefault ? <input type="hidden" name="isDefault" value="on" /> : null}
+        <CheckboxField name="isDefault" value="on" defaultChecked={values.isDefault} disabled={lockDefault} label={t("storagePage.form.fieldIsDefault")} />
+        {lockDefault ? <p className="mt-2 text-xs text-[var(--text-muted)]">{t("storagePage.form.defaultLockedHint")}</p> : null}
       </div>
     </FormGrid>
   );

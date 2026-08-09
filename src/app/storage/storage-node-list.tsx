@@ -8,6 +8,7 @@ import { checkStorageNodeHealthAction } from "./actions";
 import { EmptyState } from "@/components/page-shell";
 import { StorageNodeEditForm } from "./storage-node-edit-form";
 import { StorageNodeDeleteButton } from "./storage-node-delete-button";
+import { getStorageDriverLabel } from "@/lib/i18n/domain-labels";
 
 type StorageNodeItem = {
 	id: string;
@@ -83,11 +84,11 @@ function StorageNodeCard({
 	const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
 	const [isPending, startTransition] = useTransition();
 	const health = getHealthPresentation(node.healthStatus, t);
-	const sourceLabel = node.isDefault
-		? t("storagePage.list.source.localDefault")
-		: node.serverId
+	const sourceLabel = node.serverId
 			? t("storagePage.list.source.serverBound")
-			: t("storagePage.list.source.manual");
+			: node.driver === "LOCAL" && node.isDefault
+				? t("storagePage.list.source.localDefault")
+				: t("storagePage.list.source.manual");
 
 	function handleHealthCheck() {
 		setMessage(null);
@@ -113,7 +114,7 @@ function StorageNodeCard({
 							{sourceLabel}
 						</span>
 						<span data-tone="emerald" className="rounded-lg border border-[var(--success-border)] px-3 py-1 text-xs text-[var(--success)]">
-							{node.isDefault ? t("storagePage.list.defaultNode") : node.driver}
+							{node.isDefault ? t("storagePage.list.defaultNode") : getStorageDriverLabel(t, node.driver)}
 					</span>
 					{canManageNodes ? (
 						<>
@@ -125,7 +126,7 @@ function StorageNodeCard({
 							>
 								<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
 							</button>
-							{!editing ? (
+							{!editing && !node.isDefault ? (
 								<StorageNodeDeleteButton storageNodeId={node.id} nodeName={node.name} />
 							) : null}
 						</>

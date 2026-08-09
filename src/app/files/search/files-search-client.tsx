@@ -8,6 +8,7 @@ import { FilesSubpageNav } from "../files-subpage-nav";
 import { PageShell, PageHeader, SurfacePanel } from "@/components/page-shell";
 import { useRouter } from "next/navigation";
 import { UI_INPUT } from "@/lib/ui/classes";
+import { getStorageDriverLabel } from "@/lib/i18n/domain-labels";
 
 /**
  * Global file search subpage.
@@ -60,7 +61,7 @@ export function FilesSearchClient({
             <option value="">{t("filesPage.subPage.searchAllNodes")}</option>
             {nodes.map((node) => (
               <option key={node.id} value={node.id}>
-                {node.name} · {node.driver}
+                {node.name} · {getStorageDriverLabel(t, node.driver)}
               </option>
             ))}
           </select>

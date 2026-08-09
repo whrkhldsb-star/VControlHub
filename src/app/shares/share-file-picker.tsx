@@ -7,6 +7,7 @@ import { ChevronRight, Copy, File, Folder, Loader2, RefreshCw, Share2 } from "@/
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { EmptyState } from "@/components/page-shell";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { getStorageDriverLabel } from "@/lib/i18n/domain-labels";
 
 import { ActionButton } from "@/components/action-button";
 import { getErrorMessage } from "@/lib/http/error-message";
@@ -244,7 +245,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 						className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none"
 					>
 						{nodes.map((node) => (
-							<option key={node.id} value={node.id}>{node.name}{node.driver ? ` · ${node.driver}` : ""}</option>
+							<option key={node.id} value={node.id}>{node.name}{node.driver ? ` · ${getStorageDriverLabel(t, node.driver)}` : ""}</option>
 						))}
 					</select>
 					<ActionButton variant="secondary"

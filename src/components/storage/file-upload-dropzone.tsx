@@ -20,6 +20,7 @@ import {
   uploadStorageFileChunked,
 } from "./storage-chunked-upload";
 import { ActionButton } from "@/components/action-button";
+import { getStorageDriverLabel } from "@/lib/i18n/domain-labels";
 
 export function FileUploadDropzone({
   nodes,
@@ -334,7 +335,7 @@ export function FileUploadDropzone({
               {nodes.map((node) => (
                 <option key={node.id} value={node.id}>
                   
-                  {node.name} · {node.driver}
+                  {node.name} · {getStorageDriverLabel(tr, node.driver)}
                 </option>
               ))}
             </select>

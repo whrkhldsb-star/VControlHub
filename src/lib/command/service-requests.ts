@@ -17,6 +17,7 @@ import {
 import { cancelActiveCommandChild, enqueueApprovedCommandExecution } from "./service-execution";
 import { createLogger } from "@/lib/logging";
 import { t } from "@/lib/i18n/service-translations";
+import { getServerTargetAvailability } from "@/lib/server/availability";
 
 const commandLogger = createLogger("command-requests");
 
@@ -72,13 +73,24 @@ async function assertCommandTargetServersInScope(
       id: { in: serverIds },
       ...scope,
     },
-    select: { id: true, enabled: true },
+    select: {
+      id: true,
+      enabled: true,
+      onboardingStatus: true,
+      metricSnapshots: { select: { isOnline: true, createdAt: true }, orderBy: { createdAt: "desc" }, take: 1 },
+    },
   });
   if (servers.length !== serverIds.length) {
     throw new ValidationError(t("backend.command.targetsOutOfScope"));
   }
   if (servers.some((server) => server.enabled === false)) {
     throw new ValidationError(t("backend.command.targetsDisabled"));
+  }
+  if (servers.some((server) => !getServerTargetAvailability({
+    onboardingStatus: server.onboardingStatus,
+    latestMetric: server.metricSnapshots?.[0] ?? null,
+  }).available)) {
+    throw new ValidationError(t("backend.command.targetsUnavailable"));
   }
 }
 

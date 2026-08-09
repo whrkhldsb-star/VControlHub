@@ -86,4 +86,16 @@ describe("quick service install notices", () => {
 		expect(message).toContain("Initial password: secret");
 		expect(message).toContain("Please change the password after first login.");
 	});
+
+	it("uses the selected remote VPS host for remote install notices", () => {
+		const notice = buildInstallNotice(
+			baseTemplate,
+			8080,
+			[],
+			[],
+			{ host: "203.0.113.20", protocol: "http:" },
+		);
+
+		expect(notice.accessUrl).toBe("http://203.0.113.20:8080/");
+	});
 });

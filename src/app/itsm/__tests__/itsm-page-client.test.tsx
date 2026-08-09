@@ -117,4 +117,24 @@ describe("ItsmPageClient destructive UX", () => {
 			expect(toastSpy).toHaveBeenCalledWith("success", "连接已删除");
 		});
 	});
+
+	it("renders event direction, type, and status as user-facing labels", () => {
+		const event: ItsmEventRecord = {
+			id: "event-1",
+			connectionId: connection.id,
+			direction: "outbound",
+			eventType: "ticket.created",
+			ticketId: "ticket-1",
+			status: "ok",
+			externalId: null,
+			payload: {},
+			errorMessage: null,
+			createdAt: "2026-07-01T00:00:00.000Z",
+		};
+
+		render(wrap(<ItsmPageClient initialConnections={[connection]} initialEvents={[event]} canManage publicBaseUrl="https://example.test" />));
+
+		expect(screen.getByText("仅出站 · 工单已创建 · 成功")).toBeInTheDocument();
+		expect(screen.getByText("关联工单: ticket-1")).toBeInTheDocument();
+	});
 });

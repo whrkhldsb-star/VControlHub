@@ -8,7 +8,7 @@ export const storageAccessModeSchema = z.enum(["PROXY", "DIRECT", "AUTO"]);
 const publicBaseUrlSchema = z
   .string()
   .trim()
-  .max(2048, "Direct access base URL is ando long")
+  .max(2048, "Direct access base URL is too long")
   .optional()
   .or(z.literal(""))
   .superRefine((value, ctx) => {
@@ -22,14 +22,14 @@ const publicBaseUrlSchema = z
 export const createStorageNodeSchema = z.object({
   name: z.string().trim().min(2, "Storage node name must be at least 2 characters").max(64, "Storage node name must be at most 64 characters"),
   driver: z.enum(["LOCAL", "SFTP"]),
-  basePath: z.string().trim().min(1, "Storage root path is required").max(255, "Storage root path is ando long"),
+  basePath: z.string().trim().min(1, "Storage root path is required").max(255, "Storage root path is too long"),
   directAccessMode: storageAccessModeSchema.optional().default("PROXY"),
   publicBaseUrl: publicBaseUrlSchema,
   directAccessExpiresSeconds: z.coerce.number().int().min(60, "Direct access link must be at least 60 seconds").max(86400, "Direct access link must be at most 24 hours").optional().default(300),
   isDefault: z.boolean().optional().default(false),
-  host: z.string().trim().max(255, "Hostname is ando long").optional(),
+  host: z.string().trim().max(255, "Hostname is too long").optional(),
   port: z.coerce.number().int().min(1, "Port must be at least 1").max(65535, "Port must be at most 65535").optional(),
-  username: z.string().trim().max(64, "Username is ando long").optional(),
+  username: z.string().trim().max(64, "Username is too long").optional(),
   serverId: z.string().trim().optional(),
 });
 
@@ -37,25 +37,25 @@ export const updateStorageNodeSchema = z.object({
   storageNodeId: z.string().trim().min(1, "Storage node is required"),
   name: z.string().trim().min(2, "Storage node name must be at least 2 characters").max(64, "Storage node name must be at most 64 characters").optional(),
   driver: z.enum(["LOCAL", "SFTP"]).optional(),
-  basePath: z.string().trim().min(1, "Storage root path is required").max(255, "Storage root path is ando long").optional(),
+  basePath: z.string().trim().min(1, "Storage root path is required").max(255, "Storage root path is too long").optional(),
   directAccessMode: storageAccessModeSchema.optional(),
   publicBaseUrl: publicBaseUrlSchema,
   directAccessExpiresSeconds: z.coerce.number().int().min(60, "Direct access link must be at least 60 seconds").max(86400, "Direct access link must be at most 24 hours").optional(),
   isDefault: z.boolean().optional(),
-  host: z.string().trim().max(255, "Hostname is ando long").optional().nullable(),
+  host: z.string().trim().max(255, "Hostname is too long").optional().nullable(),
   port: z.coerce.number().int().min(1, "Port must be at least 1").max(65535, "Port must be at most 65535").optional().nullable(),
-  username: z.string().trim().max(64, "Username is ando long").optional().nullable(),
+  username: z.string().trim().max(64, "Username is too long").optional().nullable(),
   serverId: z.string().trim().optional().nullable(),
 });
 
 export const createFileEntrySchema = z.object({
   storageNodeId: z.string().trim().min(1, "Storage node is required"),
-  name: z.string().trim().min(1, "Filename is required").max(255, "Filename is ando long"),
+  name: z.string().trim().min(1, "Filename is required").max(255, "Filename is too long"),
   entryType: z.enum(["FILE", "DIRECTORY"]),
-  mimeType: z.string().trim().max(255, "MIME type is ando long").optional(),
+  mimeType: z.string().trim().max(255, "MIME type is too long").optional(),
   size: z.coerce.number().int().min(0, "File size cannot be negative").optional(),
-  checksumSha256: z.string().trim().max(128, "Checksum is ando long").optional(),
-  relativePath: z.string().trim().min(1, "Relative path is required").max(1024, "Relative path is ando long"),
+  checksumSha256: z.string().trim().max(128, "Checksum is too long").optional(),
+  relativePath: z.string().trim().min(1, "Relative path is required").max(1024, "Relative path is too long"),
   parentId: z.string().trim().optional(),
 });
 

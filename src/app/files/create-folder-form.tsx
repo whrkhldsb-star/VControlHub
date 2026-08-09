@@ -9,6 +9,7 @@ import { createFolderAction, type StorageActionState } from "../storage/actions"
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
 import { ActionButton } from "@/components/action-button";
+import { getStorageDriverLabel } from "@/lib/i18n/domain-labels";
 const initialState: StorageActionState = {};
 
 type StorageNodeOption = {
@@ -115,7 +116,7 @@ export function CreateFolderForm({
           >
             {storageNodes.map((node) => (
               <option key={node.id} value={node.id}>
-                {node.name} ({node.driver})
+                {node.name} ({getStorageDriverLabel(t, node.driver)})
               </option>
             ))}
           </select>

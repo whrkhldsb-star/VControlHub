@@ -13,6 +13,7 @@ import { toDateLocale } from "@/lib/i18n/locale-format";
 import { JobEventsDialog } from "./job-events-dialog";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
+import { getDomainStatusLabel } from "@/lib/i18n/domain-labels";
 
 const TASKS_PER_PAGE = 20;
 
@@ -65,7 +66,7 @@ const TaskRow = memo(function TaskRow({ task, t, dateLocale, sourceLabels, onVie
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <span className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-2 py-1 text-xs text-[var(--text-muted)]">{sourceLabels[task.source] ?? task.source}</span>
-          <span data-tone={statusTone[task.status] ?? "neutral"} className="rounded-lg border px-2 py-1 text-xs font-semibold">{task.status}</span>
+          <span data-tone={statusTone[task.status] ?? "neutral"} className="rounded-lg border px-2 py-1 text-xs font-semibold">{getDomainStatusLabel(t, task.status)}</span>
           {task.taskType && <span className="rounded-lg border border-[var(--border)] px-2 py-1 text-xs text-[var(--text-muted)]">{task.taskType}</span>}
           {task.foldedCount && task.foldedCount > 1 && <span className="rounded-lg border border-[var(--accent-border)] bg-[var(--accent-bg)] px-2 py-1 text-xs text-[var(--accent)]">{t("operationTasksPage.folded", { count: task.foldedCount })}</span>}
           {task.workerId && <span title={task.workerHeartbeatAt ? t("operationTasksPage.worker.heartbeat", { time: new Date(task.workerHeartbeatAt).toLocaleString(dateLocale) }) : t("operationTasksPage.worker.noHeartbeat")} data-tone="accent" className="rounded-lg border px-2 py-1 text-xs font-medium">worker {task.workerId}</span>}

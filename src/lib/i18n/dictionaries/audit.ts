@@ -6,6 +6,12 @@
  */
 
 export const zh: Record<string, string> = {
+	"audit.severity.INFO": "信息",
+	"audit.severity.WARNING": "警告",
+	"audit.severity.CRITICAL": "严重",
+	"audit.actorType.USER": "用户",
+	"audit.actorType.ASSISTANT": "AI 助手",
+	"audit.actorType.SYSTEM": "系统",
 	"audit.action.api_token.create": "创建令牌",
 	"audit.action.auth.login": "登录",
 	"audit.action.auth.login_password_ok": "登录成功",
@@ -187,6 +193,12 @@ export const zh: Record<string, string> = {
 };
 
 export const en: Record<string, string> = {
+	"audit.severity.INFO": "Info",
+	"audit.severity.WARNING": "Warning",
+	"audit.severity.CRITICAL": "Critical",
+	"audit.actorType.USER": "User",
+	"audit.actorType.ASSISTANT": "AI assistant",
+	"audit.actorType.SYSTEM": "System",
 	"audit.action.api_token.create": "Create API token",
 	"audit.action.auth.login": "Login",
 	"audit.action.auth.login_password_ok": "Login succeeded",

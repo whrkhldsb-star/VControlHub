@@ -14,6 +14,7 @@ import {
 	tt as applyTemplate,
 	unknownTone,
 } from "./health-dashboard-helpers";
+import { getDomainStatusLabel } from "@/lib/i18n/domain-labels";
 import type { SystemHealthReport } from "./health-types";
 import { useHealthData } from "./use-health-data";
 import { Notice } from "@/components/ui-primitives";
@@ -142,7 +143,7 @@ export function SystemHealthClient({ initialSystemHealth }: Props) {
 										<span
 											className={`rounded-full border px-2 py-0.5 text-[10px] ${tone.badge}`}
 										>
-											{item.status}
+											{getDomainStatusLabel(t, item.status)}
 										</span>
 									</div>
 									<p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">

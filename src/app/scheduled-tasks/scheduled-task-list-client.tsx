@@ -10,6 +10,7 @@ import type { Locale } from "@/lib/i18n/translations";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 import { Notice } from "@/components/ui-primitives";
+import { PaginatedList } from "@/components/paginated-list";
 
 type Task = {
 	id: string; name: string; cronExpression: string; cronDescription: string;
@@ -174,7 +175,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 			) : filteredTasks.length === 0 ? (
 				<EmptyState text={`${t("scheduledTasksPage.search.empty", { query: searchQuery })}`} variant="boxed" />
 			) : (
-				<div className="space-y-3">
+				<PaginatedList pageSize={20} resetKey={searchQuery} className="space-y-3">
 					{filteredTasks.map((task) => (
 						<article key={task.id} data-card className="p-5 transition-colors duration-150 hover:bg-[var(--surface-elevated)]">
 							<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -233,7 +234,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 							</div>
 						</article>
 					))}
-				</div>
+				</PaginatedList>
 			)}
 			<ConfirmDialog open={taskPendingDelete !== null} title={t("scheduledTasksPage.delete.title")} description={<>{t("scheduledTasksPage.delete.descPrefix")}<strong className="font-semibold text-[var(--text-primary)]">{taskPendingDelete?.name}</strong>{t("scheduledTasksPage.delete.descSuffix")}</>} cancelLabel={t("scheduledTasksPage.cancel")} confirmLabel={t("scheduledTasksPage.delete.confirm")} onCancel={() => setTaskPendingDelete(null)} onConfirm={() => taskPendingDelete && deleteTask(taskPendingDelete)} closeOnBackdrop={false} />
 		</div>

@@ -113,6 +113,16 @@ describe("QuickServicesClient", () => {
 		expect(screen.queryByText(/请先在「应用源」中同步数据/)).not.toBeInTheDocument();
 	});
 
+	it("surfaces app-source load failures without hiding the built-in catalog", async () => {
+		vi.mocked(csrfFetch)
+			.mockResolvedValueOnce(availableCatalogResponse)
+			.mockRejectedValueOnce(new Error("source API unavailable"));
+
+		render(<QuickServicesClient canManage />);
+		expect(await screen.findByRole("alert")).toHaveTextContent("source API unavailable");
+		expect(screen.getAllByRole("button", { name: "一键安装" }).length).toBeGreaterThan(0);
+	});
+
 	it("chooses the deployment target before installation and repeats it in confirmation", async () => {
 		const user = userEvent.setup();
 		const responseWithServer = {

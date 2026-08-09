@@ -19,6 +19,8 @@ import {
 
 import { DashboardCustomizeToolbar } from "./dashboard-customize-toolbar";
 import { DashboardWidgetDetailDialog } from "./dashboard-widget-detail-dialog";
+import { Notice } from "@/components/ui-primitives";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 export type DashboardPreferences = Pick<UserPreferences, "dashboardWidgets">;
 
@@ -57,6 +59,7 @@ export function DashboardPreferenceClient({
 	const [draftHidden, setDraftHidden] = useState<Set<DashboardWidgetId> | null>(null);
 	const [dragId, setDragId] = useState<DashboardWidgetId | null>(null);
 	const [openDetailId, setOpenDetailId] = useState<DashboardWidgetId | null>(null);
+	const [preferenceError, setPreferenceError] = useState<string | null>(null);
 	const gridRef = useRef<HTMLDivElement | null>(null);
 
 	// Load preferences from localStorage and /api/preferences on mount.
@@ -79,8 +82,8 @@ export function DashboardPreferenceClient({
 				writeUserPreferencesCache(nextPreferences, { notify: false });
 				loadPreferences(nextPreferences);
 			})
-			.catch(() => {
-				// The dashboard itself is still usable; preference fetch failures should not hide widgets.
+			.catch((error) => {
+				if (active) setPreferenceError(getErrorMessage(error, t("dashboard.preferences-load-failed")));
 			});
 
 		const onStorage = () => {
@@ -94,6 +97,9 @@ export function DashboardPreferenceClient({
 			window.removeEventListener("storage", onStorage);
 			window.removeEventListener(USER_PREFERENCES_CHANGED_EVENT, onStorage);
 		};
+	// Initial preference hydration runs once; locale changes do not require a
+	// second network load, and any later action uses the current translator.
+	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
 	const effectiveHidden = useMemo(() => {
@@ -153,11 +159,12 @@ export function DashboardPreferenceClient({
 					method: "PUT",
 					body: JSON.stringify({ dashboardWidgets: visibleOrder }),
 				});
-			} catch {
-				// Persist locally; the next page load will reconcile.
+				setPreferenceError(null);
+			} catch (error) {
+				setPreferenceError(getErrorMessage(error, t("dashboard.preferences-save-failed")));
 			}
 		},
-		[],
+		[t],
 	);
 
 	const handleEnterEdit = useCallback(() => {
@@ -288,6 +295,7 @@ export function DashboardPreferenceClient({
 	return (
 		<>
 			<style>{visibleStyle}</style>
+			{preferenceError ? <Notice tone="danger" onDismiss={() => setPreferenceError(null)} dismissLabel={t("common.close")} className="mb-4">{preferenceError}</Notice> : null}
 			{/* TR-020 M02: 系统设置关闭拖拽时, 整个工具栏不再渲染 */}
 			{dragReorderEnabled ? (
 				<DashboardCustomizeToolbar

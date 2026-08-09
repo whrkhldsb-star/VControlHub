@@ -40,7 +40,7 @@ describe("MediaImageUploadPanel", () => {
 		render(<MediaImageUploadPanel />);
 
 		await user.click(screen.getByRole("button", { name: "加载存储节点" }));
-		expect(await screen.findByRole("option", { name: "本机图片 · LOCAL" })).toBeInTheDocument();
+		expect(await screen.findByRole("option", { name: "本机图片 · 本机存储" })).toBeInTheDocument();
 
 		const input = document.querySelector('input[type="file"]') as HTMLInputElement;
 		fireEvent.change(input, {

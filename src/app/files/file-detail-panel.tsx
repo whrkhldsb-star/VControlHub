@@ -30,6 +30,7 @@ import {
 } from "./file-entry-utils";
 import { FileVersionHistoryPanel } from "./file-version-history-panel";
 import { ActionButton } from "@/components/action-button";
+import { getStorageDriverLabel } from "@/lib/i18n/domain-labels";
 
 export type FileDetailPanelProps = {
   detailEntry: StorageEntry;
@@ -99,7 +100,7 @@ export function FileDetailPanel({
               <div>
                 <p className="text-xs text-[var(--text-muted)]">{t("fileDetailPanel.driver")}</p>
                 <p className="mt-1 font-medium">
-                  {detailEntry.storageNode.driver}
+                  {getStorageDriverLabel(t, detailEntry.storageNode.driver)}
                 </p>
               </div>
               <div>

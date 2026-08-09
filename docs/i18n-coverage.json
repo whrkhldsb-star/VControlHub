@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-08-09T04:01:06.704Z",
+  "generatedAt": "2026-08-09T05:46:10.460Z",
   "summary": {
-    "files": 421,
+    "files": 422,
     "filesWithStrings": 0,
     "totalStrings": 0,
     "coveredStrings": 0,
@@ -2778,6 +2778,13 @@
     },
     "src/components/page-shell.tsx": {
       "path": "src/components/page-shell.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/components/paginated-list.tsx": {
+      "path": "src/components/paginated-list.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,

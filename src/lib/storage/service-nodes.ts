@@ -90,10 +90,14 @@ async function assertServerInTeamScope(
 export async function ensureDefaultNodeState(
   isDefault?: boolean,
   session?: TeamSession | null,
+  excludeId?: string,
 ) {
   if (isDefault) {
     await prisma.storageNode.updateMany({
-      where: teamScopeWhere(session),
+      where: {
+        ...teamScopeWhere(session),
+        ...(excludeId ? { id: { not: excludeId } } : {}),
+      },
       data: { isDefault: false },
     });
   }
@@ -209,7 +213,6 @@ export async function createStorageNode(
       throw new ValidationError(t("backend.storage.serverAlreadyHasStorageNode"));
     }
   }
-  await ensureDefaultNodeState(payload.isDefault, session);
   const teamData = session ? teamCreateData(session) : {};
 
   let storageNode;
@@ -237,6 +240,10 @@ export async function createStorageNode(
     }
     throw error;
   }
+
+  // Create the replacement first so a failed create can never leave the team
+  // without a default node. The old default is retired only after success.
+  await ensureDefaultNodeState(payload.isDefault, session, storageNode.id);
 
   return {
     ...storageNode,
@@ -281,6 +288,12 @@ export async function updateStorageNode(
   }
 
   const nextDriver = payload.driver ?? current.driver;
+  if (current.isDefault && payload.isDefault === false) {
+    throw new BusinessError(t("backend.storage.defaultMustBeReplacedFirst"));
+  }
+  if (current.isDefault && nextDriver !== current.driver) {
+    throw new BusinessError(t("backend.storage.defaultDriverLocked"));
+  }
   const nextServerId =
     payload.serverId === undefined
       ? (current.serverId ?? undefined)
@@ -301,9 +314,7 @@ export async function updateStorageNode(
     await assertServerInTeamScope(payload.serverId, session);
   }
 
-  await ensureDefaultNodeState(payload.isDefault, session);
-
-  return prisma.storageNode.update({
+  const updated = await prisma.storageNode.update({
     where: { id: payload.storageNodeId },
     data: {
       name: payload.name ?? current.name,
@@ -325,6 +336,11 @@ export async function updateStorageNode(
         current.directAccessExpiresSeconds,
     },
   });
+
+  // Promote first, then retire the previous default. This preserves a usable
+  // default even if the second database operation is interrupted.
+  await ensureDefaultNodeState(payload.isDefault, session, payload.storageNodeId);
+  return updated;
 }
 
 export async function deleteStorageNode(
@@ -344,6 +360,10 @@ export async function deleteStorageNode(
   const t = await serviceT();
   if (!node) {
     throw new NotFoundError(t("backend.storage.nodeNotFound"));
+  }
+
+  if (node.isDefault) {
+    throw new BusinessError(t("backend.storage.defaultCannotDelete"));
   }
 
   const activeEntryCount = node.fileEntries.filter(

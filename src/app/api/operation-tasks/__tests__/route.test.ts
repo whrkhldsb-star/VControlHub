@@ -94,18 +94,6 @@ describe("/api/operation-tasks", () => {
     expect(body).toContain('"stderr: a,b\nquoted ""value"""');
   });
 
-  it("ignores unsupported sort values", async () => {
-    const response = await route.GET(
-      new Request("http://local/api/operation-tasks?sort=oldest"),
-    );
-
-    expect(response.status).toBe(200);
-    expect(mocks.listOperationTaskResult).toHaveBeenCalledWith(
-      { limit: undefined, status: undefined, taskType: undefined, sort: undefined },
-      { userId: "u1", roles: ["viewer"], currentTeamId: "team-1" },
-    );
-  });
-
   it("returns shared API permission failures without calling the service", async () => {
     mocks.requireApiPermission.mockResolvedValueOnce(
       Response.json({ error: "缺少权限" }, { status: 403 }),

@@ -165,6 +165,10 @@ interface LSIOImage {
 	stars: number;
 	monthly_pulls: number;
 	tags: Array<{ tag: string; desc: string }>;
+	config?: {
+		ports?: Array<{ external: string; internal: string; optional?: boolean }>;
+		volumes?: Array<{ path: string; optional?: boolean }>;
+	};
 }
 
 interface LSIOResponse {
@@ -189,6 +193,9 @@ async function fetchLinuxServer(url: string, sourceName: string): Promise<Normal
 	return images
 		.slice(0, APP_SOURCE_MAX_APPS)
 		.filter((img) => img.stable && !img.deprecated)
+		// Quick services need a declared TCP web port. Images without one are
+		// CLI/base images and cannot provide a useful one-click browser entry.
+		.filter((img) => img.config?.ports?.some((port) => /^\d+$/.test(port.external)))
 		.filter((img) => {
 			// Skip if we already have this locally
 			if (localSlugs.has(img.name)) return false;
@@ -202,6 +209,14 @@ async function fetchLinuxServer(url: string, sourceName: string): Promise<Normal
 		})
 		.map((img): NormalizedApp => {
 			const category = mapCategory(img.category);
+			const ports = (img.config?.ports ?? [])
+				.map((port) => ({ host: Number(port.external), container: Number(port.internal) }))
+				.filter((port) => Number.isInteger(port.host) && port.host > 0 && port.host <= 65535 && Number.isInteger(port.container) && port.container > 0 && port.container <= 65535);
+			const primaryPort = ports[0]!;
+			const extraPorts = ports.slice(1);
+			const volumes = (img.config?.volumes ?? [])
+				.filter((volume) => volume.path?.startsWith("/"))
+				.map((volume) => ({ host: `/opt/${img.name}${volume.path}`, container: volume.path }));
 			return {
 				slug: `${prefix}-${sourceSlug(img.name)}`,
 				name: img.name
@@ -211,12 +226,12 @@ async function fetchLinuxServer(url: string, sourceName: string): Promise<Normal
 				icon: CATEGORY_ICONS[category] ?? "📦",
 				description: img.description?.substring(0, 200) || "",
 				image: `lscr.io/linuxserver/${img.name}:latest`,
-				defaultPort: 8080, // LSIO images use variable ports, we'll auto-assign
+				defaultPort: primaryPort.host,
+				internalPort: primaryPort.container,
 				path: "/",
-				envJson: { PUID: "0", PGID: "0" },
-				volumesJson: [
-					{ host: `/opt/${img.name}/config`, container: "/config" },
-				],
+				envJson: { PUID: "1000", PGID: "1000" },
+				volumesJson: volumes,
+				extraPorts,
 				sourceVersion: img.version,
 				sourceName,
 				stars: img.stars,

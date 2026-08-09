@@ -11,6 +11,7 @@ import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 import { ModalShell } from "@/components/modal-shell";
 import { IconButton, Notice } from "@/components/ui-primitives";
+import { PaginatedList } from "@/components/paginated-list";
 
 interface Announcement {
   id: string;
@@ -166,15 +167,17 @@ export function AnnouncementList({
         <span className="text-xs text-[var(--text-muted)]">{t("announcementsPage.count", { count: filtered.length })}</span>
       </div>
 
-      <div className="grid gap-4">
+      <div>
         {filtered.length === 0 ? (
           <div data-card className="p-8 text-center text-sm text-[var(--text-muted)]">
             {items.length === 0 ? t("announcementsPage.empty") : t("announcementsPage.emptyFiltered")}
           </div>
         ) : (
-          filtered.map((a) => (
-            <AnnouncementCard key={a.id} announcement={a} t={t} locale={locale} canManage={canManage} onEdit={handleEdit} onDelete={handleDeleteClick} />
-          ))
+          <PaginatedList pageSize={20} resetKey={`${search}\u0000${levelFilter}`} className="grid gap-4">
+            {filtered.map((a) => (
+              <AnnouncementCard key={a.id} announcement={a} t={t} locale={locale} canManage={canManage} onEdit={handleEdit} onDelete={handleDeleteClick} />
+            ))}
+          </PaginatedList>
         )}
       </div>
 

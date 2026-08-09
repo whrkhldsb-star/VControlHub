@@ -13,6 +13,7 @@ import { PlaybookCard } from "./playbook-card";
 import { PlaybookDeleteDialog } from "./playbook-delete-dialog";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
+import { PaginatedList } from "@/components/paginated-list";
 
 const RUN_POLL_DELAYS_MS = [2_000, 5_000, 10_000, 20_000, 30_000, 45_000, 60_000, 90_000, 120_000, 180_000, 240_000, 300_000] as const;
 
@@ -247,20 +248,22 @@ export function PlaybookListClient({
         }
         bodyClassName={playbooks.length === 0 ? undefined : "!divide-y-0 space-y-0 bg-transparent p-3"}
       >
-        {playbooks.map((playbook) => (
-          <div key={playbook.id} className="mb-3 last:mb-0">
-            <PlaybookCard
-              playbook={playbook}
-              runs={runsByPlaybook[playbook.id]}
-              canRun={canRun}
-              canManage={canManage}
-              busyAction={busyAction}
-              onTrigger={handleTrigger}
-              onToggle={handleToggle}
-              onDelete={setPendingDelete}
-            />
-          </div>
-        ))}
+        <PaginatedList pageSize={20}>
+          {playbooks.map((playbook) => (
+            <div key={playbook.id} className="mb-3 last:mb-0">
+              <PlaybookCard
+                playbook={playbook}
+                runs={runsByPlaybook[playbook.id]}
+                canRun={canRun}
+                canManage={canManage}
+                busyAction={busyAction}
+                onTrigger={handleTrigger}
+                onToggle={handleToggle}
+                onDelete={setPendingDelete}
+              />
+            </div>
+          ))}
+        </PaginatedList>
       </ListPanel>
 
       <PlaybookDeleteDialog

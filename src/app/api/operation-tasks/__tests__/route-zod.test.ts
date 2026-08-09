@@ -84,29 +84,23 @@ describe("/api/operation-tasks zod validation (TR-037 R5+)", () => {
 		);
 	});
 
-	it("still drops unknown status tokens silently inside the handler (legacy contract)", async () => {
+	it("rejects unknown status tokens instead of silently widening the result", async () => {
 		const response = await route.GET(
 			new Request(
 				"http://local/api/operation-tasks?status=garbage,pending,another",
 			),
 		);
 
-		expect(response.status).toBe(200);
-		expect(mocks.listOperationTaskResult).toHaveBeenCalledWith(
-			{ limit: undefined, status: "pending", taskType: undefined, sort: undefined },
-			{ userId: "u1", roles: ["viewer"], currentTeamId: "team-1" },
-		);
+		expect(response.status).toBe(400);
+		expect(mocks.listOperationTaskResult).not.toHaveBeenCalled();
 	});
 
-	it("still drops unknown sort values silently inside the handler (legacy contract)", async () => {
+	it("rejects unknown sort values instead of silently using the default", async () => {
 		const response = await route.GET(
 			new Request("http://local/api/operation-tasks?sort=oldest"),
 		);
 
-		expect(response.status).toBe(200);
-		expect(mocks.listOperationTaskResult).toHaveBeenCalledWith(
-			{ limit: undefined, status: undefined, taskType: undefined, sort: undefined },
-			{ userId: "u1", roles: ["viewer"], currentTeamId: "team-1" },
-		);
+		expect(response.status).toBe(400);
+		expect(mocks.listOperationTaskResult).not.toHaveBeenCalled();
 	});
 });

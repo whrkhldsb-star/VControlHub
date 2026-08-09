@@ -30,36 +30,35 @@ type SourcesPanelActions = {
 	syncing: string | null;
 };
 
+function sourceTypeLabel(t: (k: string, vars?: Record<string, string | number>) => string, type: string) {
+	if (type === "linuxserver") return t("quickServicesPage.sources.type.linuxserver");
+	if (type === "github") return t("quickServicesPage.sources.type.github");
+	if (type === "json") return t("quickServicesPage.sources.type.json");
+	return type;
+}
+
 function getSourcePresets(t: (k: string, vars?: Record<string, string | number>) => string) {
   return [
 	{
 		key:"linuxserver",
 		badge:"LinuxServer",
 		label:"LinuxServer.io",
-		type:"json" as const,
-		url:"https://docs.linuxserver.io/general/container-customization",
+		type:"linuxserver" as const,
+		url:"https://api.linuxserver.io/api/v1/images?include_config=true&include_deprecated=false",
 		description: t("quickServicesPage.sources.linuxserverDesc"),
-	},
-	{
-		key:"github-apps",
-		badge:"GitHub",
-		label:"GitHub Apps",
-		type:"github" as const,
-		url:"https://api.github.com/repos/example/apps.json",
-		description: t("quickServicesPage.sources.githubDesc"),
 	},
 	{
 		key:"custom",
 		badge:"Custom",
 		label: t("quickServicesPage.sources.customLabel"),
 		type:"json" as const,
-		url:"https://example.com/apps.json",
+		url:"",
 		description: t("quickServicesPage.sources.customDesc"),
 	},
   ];
 }
 
-type SourcePresetKey ="linuxserver" |"github-apps" |"custom";
+type SourcePresetKey ="linuxserver" |"custom";
 
 type SourcesPanelProps = {
 	sources: AppSource[];
@@ -111,7 +110,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 					</div>
 					<span className="rounded-lg border border-[var(--border)] px-2 py-1 text-[10px] text-[var(--text-muted)]">{t("quickServicesPage.sources.tapToFill")}</span>
 				</div>
-				<div className="grid gap-3 sm:grid-cols-3">
+				<div className="grid gap-3 sm:grid-cols-2">
 					{getSourcePresets(t).map((preset) => {
 						const active = sourcePreset === preset.key;
 						return (
@@ -169,7 +168,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 								onClick={() => setNewSourceType(type)}
 								className={`rounded-lg border px-3 py-1.5 text-xs transition ${newSourceType === type ?"border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]" :"border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"}`}
 							>
-								{type}
+								{sourceTypeLabel(t, type)}
 							</button>
 						))}
 					</div>
@@ -211,7 +210,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 						</div>
 					</div>
 					<div className="flex items-center gap-3 text-[10px] text-[var(--text-muted)]">
-						<span>{t("quickServicesPage.sources.type") +":" + src.type}</span>
+						<span>{t("quickServicesPage.sources.type") + t("common.colon") + sourceTypeLabel(t, src.type)}</span>
 						<span>{t("quickServicesPage.sources.syncCount") +":" + String(src.syncCount)}</span>
 						{src.lastSyncAt && <span>{t("quickServicesPage.sources.lastSyncAt") + ":" + formatDateTime(src.lastSyncAt, locale)}</span>}
 					</div>

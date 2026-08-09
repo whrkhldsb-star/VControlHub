@@ -15,20 +15,30 @@ import { BackupDrillButton } from "./backup-drill-button";
 import { MigrationWizardPanel } from "./migration-wizard-panel";
 import { loadOffsiteConfig } from "@/lib/storage/offsite/service";
 import { formatZhDateTime } from "@/lib/datetime/format";
+import { getBackupTypeLabel, getDomainStatusLabel } from "@/lib/i18n/domain-labels";
+import { PaginatedList } from "@/components/paginated-list";
+import { createLogger } from "@/lib/logging";
 
 export const dynamic = "force-dynamic";
 
 const projectRoot = config.app.appDir || process.cwd();
+const logger = createLogger("backups:page");
 
 export default async function BackupsPage() {
 	const session = await requireSession("/backups");
 	if (!sessionHasPermission(session, "backup:read")) return <PageShell><EmptyState text={t("backupsPage.noPermission")} variant="boxed" /></PageShell>;
 	const canCreate = sessionHasPermission(session, "backup:create");
 	const canRestore = sessionHasPermission(session, "backup:restore");
-	const [backups, offsite] = await Promise.all([
+	const [backups, offsiteState] = await Promise.all([
 		listBackupRecords(session),
-		loadOffsiteConfig().catch(() => null),
+		loadOffsiteConfig()
+			.then((value) => ({ value, failed: false }))
+			.catch((error) => {
+				logger.warn("Failed to load offsite backup config", error);
+				return { value: null, failed: true };
+			}),
 	]);
+	const offsite = offsiteState.value;
 	const summary = summarizeBackupPolicy(backups);
 	return (
 		<PageShell>
@@ -36,7 +46,7 @@ export default async function BackupsPage() {
 
 			<StatGrid cols={4}>
 				<StatCard label={t("backupsPage.summary.completed")} value={String(summary.completedRecords)} detail={t("backupsPage.summary.totalRecords", { count: summary.totalRecords })} accent={summary.completedRecords > 0} accentColor="emerald" />
-				<StatCard label={t("backupsPage.summary.usedSpace")} value={formatBackupSize(summary.totalCompletedSizeBytes)} detail={summary.largestCompleted ? t("backupsPage.summary.largestRecord", { type: summary.largestCompleted.type, size: formatBackupSize(summary.largestCompleted.sizeBytes) }) : t("backupsPage.summary.largestNone")} />
+				<StatCard label={t("backupsPage.summary.usedSpace")} value={formatBackupSize(summary.totalCompletedSizeBytes)} detail={summary.largestCompleted ? t("backupsPage.summary.largestRecord", { type: getBackupTypeLabel(t, summary.largestCompleted.type), size: formatBackupSize(summary.largestCompleted.sizeBytes) }) : t("backupsPage.summary.largestNone")} />
 				<StatCard label={t("backupsPage.summary.retentionNote")} value={String(summary.recordsOlderThan30Days)} detail={t("backupsPage.summary.retentionHint")} accent={summary.recordsOlderThan30Days > 0} accentColor="amber" />
 				<StatCard label={t("backupsPage.summary.exceptions")} value={`${summary.failedRecords} / ${summary.runningRecords}`} detail={t("backupsPage.summary.exceptionsHint")} accent={summary.failedRecords > 0} accentColor="rose" />
 			</StatGrid>
@@ -58,7 +68,7 @@ export default async function BackupsPage() {
 					<div className="grid gap-3 md:grid-cols-3">
 						{(["DATABASE", "FILES", "FULL"] as const).map((type) => (
 							<div key={type} className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-3">
-								<p className="text-xs font-semibold text-[var(--text-secondary)]">{type}</p>
+								<p className="text-xs font-semibold text-[var(--text-secondary)]">{getBackupTypeLabel(t, type)}</p>
 								<p className="mt-1 text-sm text-[var(--text-primary)]">{t("backupsPage.overview.typeSummary", { count: summary.byType[type].count, size: formatBackupSize(summary.byType[type].sizeBytes) })}</p>
 							</div>
 						))}
@@ -116,7 +126,7 @@ export default async function BackupsPage() {
 									id: b.id,
 									type: b.type,
 									filePath: b.filePath,
-									label: `${b.type} · ${b.filePath} · ${b.id.slice(0, 8)}`,
+									label: `${getBackupTypeLabel(t, b.type)} · ${b.filePath} · ${b.id.slice(0, 8)}`,
 								}))}
 						/>
 					</SurfacePanel>
@@ -140,7 +150,11 @@ export default async function BackupsPage() {
 							</a>
 						}
 					>
-					{offsite ? (
+						{offsiteState.failed ? (
+							<p role="alert" className="mt-4 rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] px-3 py-2 text-xs text-[var(--danger)]">
+								{t("backupsPage.offsite.loadFailed")}
+							</p>
+						) : offsite ? (
 						<div className="mt-4 grid gap-3 text-xs text-[var(--text-secondary)] md:grid-cols-2">
 							<p>
 								<span
@@ -183,11 +197,12 @@ export default async function BackupsPage() {
 				count={t("backupsPage.records.count", { count: backups.length })}
 				empty={backups.length === 0 ? <EmptyState text={t("backupsPage.records.empty")} /> : undefined}
 			>
+					<PaginatedList pageSize={20}>
 					{backups.map((b) => (
 						<ListRow key={b.id}>
 							<div className="flex items-center justify-between gap-3">
 								<div>
-									<h3 className="text-sm font-medium text-[var(--text-primary)]">{t("backupsPage.records.typeStatus", { type: b.type, status: b.status })}</h3>
+									<h3 className="text-sm font-medium text-[var(--text-primary)]">{t("backupsPage.records.typeStatus", { type: getBackupTypeLabel(t, b.type), status: getDomainStatusLabel(t, b.status) })}</h3>
 									<p className="mt-1 text-xs text-[var(--text-muted)]">{t("backupsPage.records.pathTime", { path: b.filePath, time: formatZhDateTime(b.createdAt) })}</p>
 								</div>
 								<span className="rounded-lg border border-[var(--border)] px-2 py-1 text-xs text-[var(--text-muted)]">{b.creator?.displayName || b.creator?.username || t("backupsPage.records.creatorSystem")}</span>
@@ -224,6 +239,7 @@ export default async function BackupsPage() {
 							)}
 						</ListRow>
 					))}
+					</PaginatedList>
 			</ListPanel>
 		</PageShell>
 	);

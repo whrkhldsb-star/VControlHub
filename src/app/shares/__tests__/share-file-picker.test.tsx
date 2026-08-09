@@ -92,7 +92,7 @@ describe("ShareFilePicker", () => {
 		render(<ShareFilePicker nodes={[{ id: "node_1", name: "本机默认存储", driver: "LOCAL" }]} />);
 
 		expect(await screen.findByRole("heading", { name: "Choose files in Shares" })).toBeInTheDocument();
-		expect(screen.getByText("本机默认存储 · LOCAL")).toBeInTheDocument();
+		expect(screen.getByText("本机默认存储 · Local storage")).toBeInTheDocument();
 		expect(screen.getByText("No shareable items in this folder")).toBeInTheDocument();
 		expect(screen.getByText("Selected 0 items")).toBeInTheDocument();
 		expect(screen.getByText("Select files or folders on the left")).toBeInTheDocument();

@@ -61,7 +61,8 @@ export function ServiceCard({
 	onUpdate,
 	onSync,
 	onUninstall,
-	publicHost,
+	accessHost,
+	accessProtocol,
 }: {
 	item: CatalogItemLike;
 	tab: string;
@@ -72,7 +73,8 @@ export function ServiceCard({
 	onUpdate: () => void;
 	onSync: () => void;
 	onUninstall: () => void;
-	publicHost: string;
+	accessHost: string;
+	accessProtocol?: string;
 }) {
 	const { t } = useI18n();
 	const displayPort = item.port ?? item.defaultPort;
@@ -80,8 +82,8 @@ export function ServiceCard({
 		port: item.port,
 		defaultPort: item.defaultPort,
 		browserHost: typeof window !== "undefined" ? window.location.hostname : null,
-		configuredHost: publicHost,
-		protocol: typeof window !== "undefined" ? window.location.protocol : null,
+		configuredHost: accessHost,
+		protocol: accessProtocol ?? (typeof window !== "undefined" ? window.location.protocol : null),
 		path: item.path,
 	});
 	const isRemote = item.source !== "local";

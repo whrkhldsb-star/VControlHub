@@ -12,6 +12,7 @@ import { ShareFilePicker } from "./share-file-picker";
 import { ShareRowActions } from "./share-row-actions";
 import { ShareAccessLogsButton } from "./share-access-logs";
 import { ShareAccessReport } from "./share-access-report";
+import { getStorageDriverLabel } from "@/lib/i18n/domain-labels";
 
 export const dynamic = "force-dynamic";
 
@@ -41,7 +42,7 @@ export default async function SharesPage() {
 			{canCreate ? (
 				<div className="mb-5 space-y-4">
 					<ShareFilePicker nodes={nodes.map((n) => ({ id: n.id, name: n.name, driver: n.driver }))} />
-					<CreateShareForm nodes={nodes.map((n) => ({ id: n.id, name: `${n.name} · ${n.driver}` }))} />
+					<CreateShareForm nodes={nodes.map((n) => ({ id: n.id, name: `${n.name} · ${getStorageDriverLabel((key, vars) => t(key, locale, vars), n.driver)}` }))} />
 				</div>
 			) : null}
 

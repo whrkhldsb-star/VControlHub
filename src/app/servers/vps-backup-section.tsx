@@ -12,6 +12,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { IconButton, Notice } from "@/components/ui-primitives";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { getDomainStatusLabel } from "@/lib/i18n/domain-labels";
 type BackupSchedule = {
 	id: string;
 	name: string;
@@ -469,7 +470,7 @@ export function VpsBackupSection({
 														: "bg-[var(--warning-bg)] text-[var(--warning)]"
 											}`}
 										>
-											{r.status}
+											{getDomainStatusLabel(t, r.status)}
 										</span>
 									</div>
 									<div className="mt-0.5 text-xs text-[var(--text-muted)]">

@@ -80,7 +80,7 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
         await loadDir("/root", { throwOnError: true });
       } catch {
         // /root not accessible — fall back to the filesystem root.
-        await loadDir("/").catch(() => {});
+        await loadDir("/");
       }
     };
     void init();

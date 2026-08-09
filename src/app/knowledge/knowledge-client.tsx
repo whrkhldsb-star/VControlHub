@@ -12,6 +12,7 @@ import { ActionButton } from "@/components/action-button";
 import { FormField, Notice } from "@/components/ui-primitives";
 import { useAsyncAction } from "@/lib/hooks/use-async-action";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { getDomainStatusLabel } from "@/lib/i18n/domain-labels";
 
 type KnowledgeBase = {
   id: string;
@@ -54,6 +55,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
   const [hits, setHits] = useState<Hit[]>([]);
   const [basePendingDelete, setBasePendingDelete] =
     useState<KnowledgeBase | null>(null);
+  const [documentPendingDelete, setDocumentPendingDelete] = useState<DocumentRow | null>(null);
   const { run, busyKey: busy, error, setError } = useAsyncAction();
 
   const loadBases = useCallback(async () => {
@@ -184,6 +186,8 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
       });
       await loadDetail(selectedId);
       await loadBases();
+      setDocumentPendingDelete(null);
+      addToast("success", t("knowledgePage.documentDeleted"));
     }, { fallback: t("knowledgePage.error") });
   }
 
@@ -316,13 +320,13 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
                   <div>
                     <div className="font-medium text-[var(--text-primary)]">{d.title}</div>
                     <div className="text-[var(--text-muted)]">
-                      {d.status} · {d.chunkCount} chunks
+                      {getDomainStatusLabel(t, d.status)} · {t("knowledgePage.chunkCount", { count: d.chunkCount })}
                     </div>
                   </div>
                   {canManage && (
                     <ActionButton variant="danger" className="!px-2 !py-1 !text-[11px]"
                       disabled={busy !== null}
-                      onClick={() => void removeDoc(d.id)}
+                      onClick={() => setDocumentPendingDelete(d)}
                     >
                       {t("knowledgePage.delete")}
                     </ActionButton>
@@ -371,6 +375,17 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
       </SurfacePanel>
       {error && <Notice tone="danger" compact className="mt-3" onDismiss={() => setError(null)} dismissLabel={t("common.close")}>{error}</Notice>}
       <p className="mt-4 text-[11px] text-[var(--text-muted)]">{t("knowledgePage.aiHint")}</p>
+      <ConfirmDialog
+        open={documentPendingDelete !== null}
+        title={t("knowledgePage.deleteDocumentTitle")}
+        description={t("knowledgePage.deleteDocumentConfirm", { name: documentPendingDelete?.title ?? "" })}
+        cancelLabel={t("common.cancel")}
+        confirmLabel={t("common.confirmDelete")}
+        onCancel={() => setDocumentPendingDelete(null)}
+        onConfirm={() => documentPendingDelete && void removeDoc(documentPendingDelete.id)}
+        busy={Boolean(documentPendingDelete && busy === `del-${documentPendingDelete.id}`)}
+        closeOnBackdrop={false}
+      />
       <ConfirmDialog
         open={basePendingDelete !== null}
         title={t("knowledgePage.deleteBaseTitle")}

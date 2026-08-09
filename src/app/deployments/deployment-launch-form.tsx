@@ -23,6 +23,8 @@ type DeploymentServerOption = {
 	name: string;
 	host: string;
 	username: string;
+	available?: boolean;
+	unavailableReason?: string;
 };
 
 function uniqueVariables(template?: DeploymentTemplateOption) {
@@ -158,9 +160,9 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 				</div>
 				<div className="grid gap-2 md:grid-cols-2">
 					{servers.map((server) => (
-						<label key={server.id} className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2 text-xs text-[var(--text-secondary)]">
-							<input type="checkbox" name="serverIds" value={server.id} />
-							<span>{server.name} · {server.username}@{server.host}</span>
+						<label key={server.id} className={`flex items-start gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2 text-xs text-[var(--text-secondary)] ${server.available === false ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}>
+							<input type="checkbox" name="serverIds" value={server.id} disabled={server.available === false} className="mt-0.5" />
+							<span>{server.name} · {server.username}@{server.host}{server.unavailableReason ? <span className="mt-1 block text-[var(--danger)]">{server.unavailableReason}</span> : null}</span>
 						</label>
 					))}
 				</div>

@@ -10,6 +10,8 @@ import { BatchReviewToolbar } from "./batch-review-toolbar";
 import { PageShell, PageHeader, StatCard, StatGrid, EmptyState, ListPanel } from "@/components/page-shell";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { toDateLocale } from "@/lib/i18n/locale-format";
+import { getDomainStatusLabel } from "@/lib/i18n/domain-labels";
+import { PaginatedList } from "@/components/paginated-list";
 
 export const dynamic = "force-dynamic";
 
@@ -110,6 +112,7 @@ export default async function RequestsPage() {
 									: []
 							}
 						>
+							<PaginatedList pageSize={20}>
 							{sortedRequests.map((request) => {
 								const isActionable = request.status === "PENDING_APPROVAL" || request.status === "APPROVED" || request.status === "RUNNING";
 								return (
@@ -140,7 +143,7 @@ export default async function RequestsPage() {
 											{request.targets.map((target: (typeof request.targets)[number]) => (
 												<InfoItem key={target.id}>
 													<div className="text-sm font-medium text-[var(--text-primary)]">{target.server.name}</div>
-													<div className="text-[11px] text-[var(--text-muted)]">{target.server.host}:{target.server.port} · {target.status}</div>
+											<div className="text-[11px] text-[var(--text-muted)]">{target.server.host}:{target.server.port} · {getDomainStatusLabel((key) => t(key, locale), target.status)}</div>
 												</InfoItem>
 											))}
 										</div>
@@ -185,6 +188,7 @@ export default async function RequestsPage() {
 								</article>
 								);
 								})}
+							</PaginatedList>
 								</BatchReviewToolbar>
 								) : null}
 					</ListPanel>

@@ -56,7 +56,7 @@ describe("VpsBackupSection", () => {
     vi.stubGlobal("fetch", fetchMock);
     render(<VpsBackupSection serverId="srv-1" canManage />, { locale: "en" });
 
-    await screen.findByText("COMPLETED");
+    await screen.findByText("Completed");
     expect(screen.getByRole("link", { name: "Download backup record" })).toHaveAttribute("href", "/api/servers/srv-1/vps-backup/records/rec-1/download");
     expect(screen.getByRole("button", { name: "Delete backup record" })).toBeInTheDocument();
   });

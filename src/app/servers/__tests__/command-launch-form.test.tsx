@@ -44,6 +44,12 @@ describe("CommandLaunchForm", () => {
 		await actor.type(screen.getByLabelText("执行原因"), "发布后重载");
 		await actor.click(screen.getByText("香港生产节点"));
 		await actor.click(submit);
+		expect(api.post).not.toHaveBeenCalled();
+		const dialog = screen.getByRole("dialog", { name: "确认立即执行命令" });
+		expect(dialog).toHaveTextContent("sudo systemctl restart nginx");
+		expect(dialog).toHaveTextContent("香港生产节点");
+		expect(dialog).toHaveTextContent("发布后重载");
+		await actor.click(screen.getByRole("button", { name: "确认执行" }));
 
 		await waitFor(() => expect(api.post).toHaveBeenCalledWith(
 			"/api/commands",
@@ -60,6 +66,21 @@ describe("CommandLaunchForm", () => {
 		expect(await screen.findByText("命令已提交到执行队列。")).toBeInTheDocument();
 		expect(routerMocks.push).toHaveBeenCalledWith("/requests");
 		expect(routerMocks.refresh).toHaveBeenCalled();
+	});
+
+	it("shows unhealthy nodes but prevents selecting them", async () => {
+		renderWithI18n(
+			<ToastProvider>
+				<CommandLaunchForm
+					servers={[...servers, { id: "srv_bad", name: "故障节点", host: "203.0.113.12", available: false, unavailableReason: "最近健康检查失败" }]}
+					allowDirectExecution
+				/>
+			</ToastProvider>,
+		);
+
+		const unavailable = screen.getByRole("checkbox", { name: /故障节点/ });
+		expect(unavailable).toBeDisabled();
+		expect(screen.getByText("最近健康检查失败")).toBeVisible();
 	});
 
 	it("supports selecting and clearing every enabled target", async () => {

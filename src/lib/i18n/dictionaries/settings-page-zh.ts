@@ -56,6 +56,10 @@ export const zh: Record<string, string> = {
 	"settingsClient.riskMediumDescription": "改此值会影响行为但不会立即破坏（多数 runtime 调参）",
 
 	"settingsClient.fieldIsDefault": "已经是默认值",
+	"settingsClient.unsavedLeaveTitle": "有设置尚未保存",
+	"settingsClient.unsavedLeaveDescription": "当前有 {count} 项更改尚未保存，离开后这些更改会丢失。",
+	"settingsClient.stayOnPage": "留在本页",
+	"settingsClient.discardAndLeave": "放弃更改并离开",
 	"settingsClient.fieldRestoreDefault": "恢复默认 ({value})",
 	"settingsClient.fieldRestoreAria": "恢复 {label} 到默认值",
 	"settingsClient.fieldDefaultSr": "默认",

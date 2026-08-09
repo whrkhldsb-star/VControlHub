@@ -53,4 +53,37 @@ describe("Quick Services app-source fetch URL boundaries", () => {
 			expect.objectContaining({ redirect: "error", signal: expect.any(AbortSignal) }),
 		);
 	});
+
+	it("uses LinuxServer image config instead of inventing ports and mounts", async () => {
+		globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({
+			status: "ok",
+			data: { repositories: { linuxserver: [{
+				name: "demo-web",
+				description: "Demo",
+				category: "Web Tools",
+				project_logo: "",
+				project_url: "",
+				github_url: "",
+				version: "1",
+				stable: true,
+				deprecated: false,
+				stars: 1,
+				monthly_pulls: 2,
+				tags: [],
+				config: {
+					ports: [{ external: "7878", internal: "7878" }, { external: "9898", internal: "9898", optional: true }],
+					volumes: [{ path: "/config", optional: false }],
+				},
+			}] } },
+		}), { status: 200 })) as unknown as typeof fetch;
+
+		const apps = await fetchSourceApps("LinuxServer", "linuxserver", "https://api.linuxserver.io/api/v1/images");
+		expect(apps[0]).toMatchObject({
+			defaultPort: 7878,
+			internalPort: 7878,
+			envJson: { PUID: "1000", PGID: "1000" },
+			volumesJson: [{ host: "/opt/demo-web/config", container: "/config" }],
+			extraPorts: [{ host: 9898, container: 9898 }],
+		});
+	});
 });

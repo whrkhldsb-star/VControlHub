@@ -58,8 +58,10 @@ export function NotificationBell() {
 		try {
 			const data = await csrfFetch("/api/notifications");
 			setPolledUnread(data.unreadCount ?? 0);
-		} catch { /* ignore */ }
-	}, [wsConnected]);
+		} catch (error) {
+			setFeedback({ type: "error", message: getErrorMessage(error, t("notificationBell.error.load")) });
+		}
+	}, [t, wsConnected]);
 
 	const fetchList = useCallback(async () => {
 		setFeedback(null);

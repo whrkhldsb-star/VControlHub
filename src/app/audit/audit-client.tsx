@@ -43,6 +43,12 @@ function severityTone(severity: string):"accent" |"warning" |"danger" {
   return tones[severity] ?? tones.INFO!;
 }
 
+function enumLabel(t: (k: string) => string, prefix: string, value: string): string {
+  const key = `${prefix}.${value}`;
+  const translated = t(key);
+  return translated === key ? value : translated;
+}
+
 function formatAction(action: string, t: (k: string, vars?: Record<string, string | number>) => string): string {
   // Historical action aliases that do not match audit.action.<action> keys 1:1.
   const aliases: Record<string, string> = {
@@ -141,9 +147,9 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
             className={`${CONTROL_CLASS} !w-auto min-w-[10rem]`}
           >
             <option value="">{t("audit.all-severities")}</option>
-            <option value="INFO">INFO</option>
-            <option value="WARNING">WARNING</option>
-            <option value="CRITICAL">CRITICAL</option>
+            <option value="INFO">{enumLabel(t, "audit.severity", "INFO")}</option>
+            <option value="WARNING">{enumLabel(t, "audit.severity", "WARNING")}</option>
+            <option value="CRITICAL">{enumLabel(t, "audit.severity", "CRITICAL")}</option>
           </select>
           <select
             value={actionFilter}
@@ -236,17 +242,17 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
                   </div>
                   <div>
                     <span data-tone={severityTone(log.severity)} className="rounded-full border px-2 py-0.5 text-[10px] font-medium">
-                      {log.severity}
+                      {enumLabel(t, "audit.severity", log.severity)}
                     </span>
                   </div>
                   <div className="text-[var(--text-primary)]">{formatAction(log.action, t)}</div>
                   <div className="text-[var(--text-secondary)] truncate">
-                    {log.actor ? (log.actor.displayName ?? log.actor.username) : log.actorType}
+                    {log.actor ? (log.actor.displayName ?? log.actor.username) : enumLabel(t, "audit.actorType", log.actorType)}
                   </div>
                   <div className="text-xs text-[var(--text-muted)] truncate font-mono">
                     {Object.entries(log.detail).map(([k, v]) => `${k}=${String(v)}`).join(",")}
                   </div>
-                  <div className="text-xs text-[var(--text-muted)]">{log.actorType}</div>
+                  <div className="text-xs text-[var(--text-muted)]">{enumLabel(t, "audit.actorType", log.actorType)}</div>
                 </div>
               ))
             )}
@@ -267,11 +273,11 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
                 <div className="flex items-center justify-between">
                   <span className="text-[var(--text-primary)] text-sm">{formatAction(log.action, t)}</span>
                   <span data-tone={severityTone(log.severity)} className="rounded-full border px-2 py-0.5 text-[10px] font-medium">
-                    {log.severity}
+                    {enumLabel(t, "audit.severity", log.severity)}
                   </span>
                 </div>
                 <div className="text-xs text-[var(--text-muted)]">
-                  {log.actor ? (log.actor.displayName ?? log.actor.username) : log.actorType} · {new Date(log.createdAt).toLocaleString(toDateLocale(locale))}
+                  {log.actor ? (log.actor.displayName ?? log.actor.username) : enumLabel(t, "audit.actorType", log.actorType)} · {new Date(log.createdAt).toLocaleString(toDateLocale(locale))}
                 </div>
                 <div className="text-xs text-[var(--text-muted)] font-mono truncate">
                   {Object.entries(log.detail).map(([k, v]) => `${k}=${String(v)}`).join(",")}

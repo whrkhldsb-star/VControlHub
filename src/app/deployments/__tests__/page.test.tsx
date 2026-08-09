@@ -147,7 +147,18 @@ describe("DeploymentsPage deploy-export panel", () => {
       },
       orderBy: { createdAt: "desc" },
       take: 200,
-      select: { id: true, name: true, host: true, username: true },
+      select: {
+        id: true,
+        name: true,
+        host: true,
+        username: true,
+        onboardingStatus: true,
+        metricSnapshots: {
+          select: { isOnline: true, createdAt: true },
+          orderBy: { createdAt: "desc" },
+          take: 1,
+        },
+      },
     }));
   });
 

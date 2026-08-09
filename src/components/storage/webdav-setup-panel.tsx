@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 
 import { useI18n } from "@/lib/i18n/use-locale";
 import { UI_INPUT } from "@/lib/ui/classes";
+import { getStorageDriverLabel } from "@/lib/i18n/domain-labels";
 
 type NodeOption = { id: string; name: string; driver: string };
 
@@ -32,7 +33,7 @@ export function WebDavSetupPanel({ nodes, origin }: { nodes: NodeOption[]; origi
         >
           {nodes.map((n) => (
             <option key={n.id} value={n.id}>
-              {n.name} ({n.driver})
+              {n.name} ({getStorageDriverLabel(t, n.driver)})
             </option>
           ))}
         </select>

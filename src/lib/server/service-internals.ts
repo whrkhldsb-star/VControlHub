@@ -56,8 +56,10 @@ export type ServerWithRelations = {
     basePath: string;
     directAccessMode?: string;
     publicBaseUrl?: string | null;
+    healthStatus?: "UNKNOWN" | "HEALTHY" | "UNHEALTHY";
   } | null;
   commandTargets?: ServerCommandTarget[];
+  metricSnapshots?: Array<{ isOnline: boolean; createdAt: Date | string }>;
   publicUrl?: string | null;
   fileProxyPort?: number | null;
   // TR-041: OS dialect adaptation layer
@@ -330,6 +332,12 @@ export function enrichServer(server: ServerWithRelations) {
       targetStatus: target.status,
       createdAt: serializeDate(target.commandRequest.createdAt),
     })),
+    latestMetric: server.metricSnapshots?.[0]
+      ? {
+          isOnline: server.metricSnapshots[0].isOnline,
+          createdAt: serializeDate(server.metricSnapshots[0].createdAt),
+        }
+      : null,
     // TR-041: OS dialect info for UI display + dialect-aware command generation
     osDialect: server.osDialect ?? null,
     osInfo: server.osInfo ?? null,

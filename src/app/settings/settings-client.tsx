@@ -27,6 +27,7 @@ import {
   useRef,
   type SyntheticEvent,
 } from "react";
+import { useRouter } from "next/navigation";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -52,6 +53,7 @@ import { TOC_SUBTITLE_KEYS } from "./settings-toc";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 import { Notice } from "@/components/ui-primitives";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 
 // Re-export so test files importing from `settings-client` keep working.
 export { FieldRiskBadge, FieldRollbackButton } from "./settings-field-risk";
@@ -78,6 +80,7 @@ export function SettingsClient({
   visibleSectionIds,
 }: Props) {
   const { t } = useI18n();
+  const router = useRouter();
   // Schema now holds i18n keys directly — rendering components call t()/tt()
   // to resolve them. No bridge layer needed.
   const schema = SETTINGS_SCHEMA;
@@ -103,17 +106,38 @@ export function SettingsClient({
   // SPA lifetime after the first paint; without a local baseline update, a
   // successful save still looks dirty and re-triggers high-risk confirm.
   const [baselineSettings, setBaselineSettings] = useState(initialSettings);
+  const [pendingNavigationHref, setPendingNavigationHref] = useState<string | null>(null);
+  const pendingChanges = useMemo(
+    () => getPendingChanges(SETTINGS_SCHEMA, settings, baselineSettings),
+    [settings, baselineSettings],
+  );
   // FE-4: warn when leaving with unsaved section edits (browser tab close / hard nav).
   useEffect(() => {
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
-      const pending = getPendingChanges(SETTINGS_SCHEMA, settings, baselineSettings);
-      if (pending.length === 0) return;
+      if (pendingChanges.length === 0) return;
       event.preventDefault();
       event.returnValue = "";
     };
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
-  }, [settings, baselineSettings]);
+  }, [pendingChanges]);
+
+  useEffect(() => {
+    if (pendingChanges.length === 0) return;
+    const interceptInternalNavigation = (event: MouseEvent) => {
+      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const target = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>("a[href]") : null;
+      if (!target || target.target === "_blank" || target.hasAttribute("download")) return;
+      const destination = new URL(target.href, window.location.href);
+      if (destination.origin !== window.location.origin) return;
+      const current = new URL(window.location.href);
+      if (destination.pathname === current.pathname && destination.search === current.search) return;
+      event.preventDefault();
+      setPendingNavigationHref(`${destination.pathname}${destination.search}${destination.hash}`);
+    };
+    document.addEventListener("click", interceptInternalNavigation, true);
+    return () => document.removeEventListener("click", interceptInternalNavigation, true);
+  }, [pendingChanges]);
 
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -468,6 +492,20 @@ export function SettingsClient({
           }}
         />
       )}
+      <ConfirmDialog
+        open={pendingNavigationHref !== null}
+        title={t("settingsClient.unsavedLeaveTitle")}
+        description={t("settingsClient.unsavedLeaveDescription", { count: pendingChanges.length })}
+        cancelLabel={t("settingsClient.stayOnPage")}
+        confirmLabel={t("settingsClient.discardAndLeave")}
+        onCancel={() => setPendingNavigationHref(null)}
+        onConfirm={() => {
+          const href = pendingNavigationHref;
+          setPendingNavigationHref(null);
+          if (href) router.push(href);
+        }}
+        closeOnBackdrop={false}
+      />
     </div>
   );
 }
