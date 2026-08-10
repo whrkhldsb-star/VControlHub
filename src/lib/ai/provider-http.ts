@@ -42,7 +42,8 @@ const DEFAULT_AI_BASE_URL = "https://api.openai.com/v1";
 const MODELS_PATH = "/models";
 const CHAT_PATH_SUFFIX = "/chat/completions";
 /** Bound hung upstream AI hosts so model-list / chat routes cannot stall until platform kill. */
-const AI_PROVIDER_HTTP_TIMEOUT_MS = 30_000;
+const AI_PROVIDER_MODELS_TIMEOUT_MS = 30_000;
+const AI_PROVIDER_CHAT_TIMEOUT_MS = 90_000;
 const AI_PROVIDER_MODELS_MAX_BYTES = 5 * 1024 * 1024;
 const AI_PROVIDER_ERROR_MAX_BYTES = 64 * 1024;
 const AI_PROVIDER_MODELS_MAX_ROWS = 10_000;
@@ -105,6 +106,7 @@ async function fetchProviderResponse(
 	url: string,
 	init: RequestInit,
 	kind: "models" | "chat",
+	timeoutMs: number,
 ): Promise<Response> {
 	try {
 		return await fetch(url, init);
@@ -115,7 +117,7 @@ async function fetchProviderResponse(
 				: "";
 		if (name === "TimeoutError" || name === "AbortError") {
 			const operation = kind === "models" ? "model list request" : "chat request";
-			throw new Error(`AI provider ${operation} timed out after ${AI_PROVIDER_HTTP_TIMEOUT_MS / 1000} seconds`);
+			throw new Error(`AI provider ${operation} timed out after ${timeoutMs / 1000} seconds`);
 		}
 		const message =
 			typeof error === "object" && error && "message" in error
@@ -138,8 +140,8 @@ export async function fetchProviderModels(
 		method: "GET",
 		redirect: "error",
 		headers: { Authorization: `Bearer ${input.apiKey.trim()}` },
-		signal: AbortSignal.timeout(AI_PROVIDER_HTTP_TIMEOUT_MS),
-	}, "models");
+		signal: AbortSignal.timeout(AI_PROVIDER_MODELS_TIMEOUT_MS),
+	}, "models", AI_PROVIDER_MODELS_TIMEOUT_MS);
 	if (!response.ok) {
 		const errText = await readResponseTextLimited(
 			response,
@@ -192,8 +194,8 @@ export async function postProviderChat(input: ProviderChatRequest): Promise<Resp
 			...(input.headers ?? {}),
 		},
 		body: JSON.stringify(input.body),
-		signal: AbortSignal.timeout(AI_PROVIDER_HTTP_TIMEOUT_MS),
-	}, "chat");
+		signal: AbortSignal.timeout(AI_PROVIDER_CHAT_TIMEOUT_MS),
+	}, "chat", AI_PROVIDER_CHAT_TIMEOUT_MS);
 	if (!response.ok) {
 		const errText = await readResponseTextLimited(
 			response,

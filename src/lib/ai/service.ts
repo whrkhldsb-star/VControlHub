@@ -21,6 +21,7 @@ export * from "./service-serialize";
 export type {
   AiConversationDto,
   AiConversationListItemDto,
+  AiHostedActionDto,
   AiMessageDto,
   AiProviderDto,
   AiProviderRowDto,

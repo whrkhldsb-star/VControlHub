@@ -2,7 +2,8 @@
  * Serverless hosted-AI query handlers (no SSH / no bound serverId).
  *
  * Pure move out of hosted-service.ts `executeSafeAction`:
- *   search_knowledge / list_servers / list_backups / query_traffic / manage_cron
+ *   search_knowledge / list_servers / list_backups / query_traffic /
+ *   list_scheduled_tasks / manage_cron
  * Behaviour is byte-identical; hosted-service delegates here first and falls
  * through to the SSH execution path when this module returns null.
  */
@@ -195,30 +196,33 @@ export async function executeServerlessQuery(
     };
   }
 
+  if (action.actionType === "list_scheduled_tasks") {
+    const { listScheduledTasks } = await import("@/lib/scheduled-task/service");
+    const tasks = await listScheduledTasks(50, scope ?? null);
+    return {
+      success: true,
+      data: {
+        tasks: tasks.map((task) => ({
+          id: task.id,
+          name: task.name,
+          cronExpression: task.cronExpression,
+          status: task.status,
+          nextRunAt: task.nextRunAt?.toISOString?.() ?? task.nextRunAt ?? null,
+          lastRunAt: task.lastRunAt?.toISOString?.() ?? task.lastRunAt ?? null,
+          lastResult:
+            typeof task.lastResult === "string"
+              ? task.lastResult.slice(0, 200)
+              : task.lastResult,
+        })),
+        count: tasks.length,
+      },
+    };
+  }
+
   if (action.actionType === "manage_cron") {
     const cronAction =
       typeof action.params.action === "string" ? action.params.action.trim().toLowerCase() : "";
     const taskId = typeof action.params.taskId === "string" ? action.params.taskId.trim() : "";
-
-    if (cronAction === "list" || !cronAction) {
-      const { listScheduledTasks } = await import("@/lib/scheduled-task/service");
-      const tasks = await listScheduledTasks(50, scope ?? null);
-      return {
-        success: true,
-        data: {
-          tasks: tasks.map((t) => ({
-            id: t.id,
-            name: t.name,
-            cronExpression: t.cronExpression,
-            status: t.status,
-            nextRunAt: t.nextRunAt?.toISOString?.() ?? t.nextRunAt ?? null,
-            lastRunAt: t.lastRunAt?.toISOString?.() ?? t.lastRunAt ?? null,
-            lastResult: typeof t.lastResult === "string" ? t.lastResult.slice(0, 200) : t.lastResult,
-          })),
-          count: tasks.length,
-        },
-      };
-    }
 
     if (cronAction === "pause" || cronAction === "resume") {
       if (!taskId) {

@@ -11,6 +11,28 @@ describe("AI hosted file and Docker tools", () => {
     }
   });
 
+  it("separates read-only schedule listing from confirmed schedule changes", () => {
+    const listTool = HOSTED_TOOLS.find(
+      (tool) => tool.name === "list_scheduled_tasks",
+    );
+    const manageTool = HOSTED_TOOLS.find((tool) => tool.name === "manage_cron");
+
+    expect(listTool).toMatchObject({
+      actionType: "list_scheduled_tasks",
+      riskLevel: "low",
+      autoApproved: true,
+    });
+    expect(manageTool).toMatchObject({
+      actionType: "manage_cron",
+      riskLevel: "medium",
+      autoApproved: false,
+    });
+    expect(
+      (manageTool?.parameters.properties as { action?: { enum?: string[] } })
+        .action?.enum,
+    ).toEqual(["pause", "resume"]);
+  });
+
   it("builds safe file listing and search commands", () => {
     expect(buildCommand("list_files", { path: "/var/log" })).toContain("find '/var/log'");
     expect(buildCommand("search_files", { path: "/var/log", query: "error", filePattern: "*.log" })).toContain("grep -rFInI");

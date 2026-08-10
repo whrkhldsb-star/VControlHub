@@ -1624,6 +1624,7 @@ model AiHostedAction {
   id             String               @id @default(cuid())
   conversationId String
   messageId      String
+  toolCallId     String?
   serverId       String?
   teamId         String?
   actionType     String // list_servers | get_status | read_logs | list_docker_containers | check_service_status | execute_command | restart_service | modify_config | deploy_docker
@@ -1650,6 +1651,7 @@ model AiHostedAction {
 
   @@index([status, createdAt])
   @@index([conversationId, createdAt])
+  @@index([toolCallId])
   @@index([serverId, status])
   @@index([teamId, status, createdAt])
   @@map("ai_hosted_actions")

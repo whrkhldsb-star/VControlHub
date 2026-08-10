@@ -33,6 +33,13 @@ export function serializeConversation(c: Awaited<ReturnType<typeof getConversati
 		messages: c.messages.map((m) => ({
 			...m,
 			createdAt: m.createdAt.toISOString(),
+			hostedActions: m.hostedActions.map((action) => ({
+				...action,
+				createdAt: action.createdAt.toISOString(),
+				approvedAt: action.approvedAt?.toISOString() ?? null,
+				executedAt: action.executedAt?.toISOString() ?? null,
+				completedAt: action.completedAt?.toISOString() ?? null,
+			})),
 		})),
 	};
 }

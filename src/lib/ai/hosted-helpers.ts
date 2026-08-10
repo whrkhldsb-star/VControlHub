@@ -38,6 +38,7 @@ export function requiredPermissionForAction(actionType: string): Permission {
   if (actionType === "list_backups") return "backup:read";
   if (actionType === "run_playbook") return "playbook:run";
   if (actionType === "query_traffic") return "health:read";
+  if (actionType === "list_scheduled_tasks") return "command:read";
   if (actionType === "manage_cron") return "command:create";
   if (actionType === "search_knowledge") return "ai:chat";
   if (actionType === "list_files" || actionType === "search_files" || actionType === "read_file") return "storage:read";
@@ -57,7 +58,7 @@ export function permissionDeniedMessage(
     return t("backend.ai.permissionDenied.playbookRun", locale);
   if (actionType === "query_traffic")
     return t("backend.ai.permissionDenied.healthRead", locale);
-  if (actionType === "manage_cron")
+  if (actionType === "list_scheduled_tasks" || actionType === "manage_cron")
     return t("backend.ai.permissionDenied.scheduledTaskManage", locale);
   if (actionType === "search_knowledge")
     return t("backend.ai.permissionDenied.aiChat", locale);
@@ -72,9 +73,9 @@ export function permissionDeniedMessage(
   });
 }
 
-export const SERVERLESS_ACTION_TYPES = new Set<string>(["list_servers","list_backups","query_traffic","manage_cron","search_knowledge","run_playbook"]);
+export const SERVERLESS_ACTION_TYPES = new Set<string>(["list_servers","list_backups","query_traffic","list_scheduled_tasks","manage_cron","search_knowledge","run_playbook"]);
 
-const HOSTED_ACTION_TYPES = new Set<HostedActionType>(["list_servers","get_status","read_logs","list_docker_containers","check_service_status","execute_command","restart_service","modify_config","deploy_docker","list_backups","run_playbook","query_traffic","manage_cron","list_files","search_files","read_file","get_docker_logs","search_knowledge"]);
+const HOSTED_ACTION_TYPES = new Set<HostedActionType>(["list_servers","get_status","read_logs","list_docker_containers","check_service_status","execute_command","restart_service","modify_config","deploy_docker","list_backups","run_playbook","query_traffic","list_scheduled_tasks","manage_cron","list_files","search_files","read_file","get_docker_logs","search_knowledge"]);
 
 export function isHostedActionType(actionType: string): actionType is HostedActionType {
   return HOSTED_ACTION_TYPES.has(actionType as HostedActionType);

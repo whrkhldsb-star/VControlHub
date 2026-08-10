@@ -41,11 +41,14 @@ export interface Message {
   content: string;
   reasoningContent: string | null;
   imageUrls: string;
+  toolCalls?: string;
+  toolCallId?: string | null;
   model: string | null;
   inputTokens: number | null;
   outputTokens: number | null;
   latencyMs: number | null;
   createdAt: string;
+  hostedActions?: HostedAction[];
 }
 
 export interface ModelInfo {
@@ -117,6 +120,7 @@ export interface HostedAction {
  id: string;
  conversationId: string;
  messageId: string;
+ toolCallId: string | null;
  serverId: string | null;
  actionType: string;
  actionName: string;
@@ -145,7 +149,8 @@ export interface ToolCallEvent {
 export interface ToolApprovalNeeded {
  toolCallId: string;
  actionId: string;
- actionName: string;
+  actionName: string;
+  actionType: string;
  riskLevel: string;
  params: Record<string, unknown>;
 }

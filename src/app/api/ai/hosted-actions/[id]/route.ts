@@ -2,7 +2,7 @@
  * PATCH /api/ai/hosted-actions/[id] — approve or reject an AI hosted action
  *
  * Permission rules:
- * - `confirm` requires an authenticated requester with `server:ssh` in the service layer.
+ * - `confirm` requires the action-specific permission in the service layer.
  * - `approve` / `reject` require `ai:action:approve` in the service layer.
  */
 

@@ -18,7 +18,7 @@
  *     user message
  *   - markdown export of the active conversation
  */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -30,6 +30,10 @@ import { AiConfirmDialog } from "./ai-confirm-dialog";
 import { AiEmptyState } from "./ai-empty-state";
 import { exportConversationToMarkdown } from "./ai-export";
 import { AiInputAreaLazy } from "./ai-input-area-lazy";
+import {
+  mergePendingApprovals,
+  pendingApprovalsFromMessages,
+} from "./ai-hosted-action-utils";
 import { AiMessageList } from "./ai-message-list";
 import { AiProviderPanelLazy } from "./ai-provider-panel-lazy";
 import { AiRenameDialog } from "./ai-rename-dialog";
@@ -115,7 +119,7 @@ export function AiClient({
     streaming,
     streamContent,
     streamReasoning,
-    pendingApprovals,
+    pendingApprovals: streamedPendingApprovals,
     approvalBusyById,
     sendMessage,
     stopGeneration,
@@ -127,6 +131,14 @@ export function AiClient({
     refreshConversations,
     addToast,
   });
+  const pendingApprovals = useMemo(
+    () =>
+      mergePendingApprovals(
+        streamedPendingApprovals,
+        pendingApprovalsFromMessages(messages),
+      ),
+    [messages, streamedPendingApprovals],
+  );
 
   // FE/c3: composer draft is per-workspace UI state — reset when switching
   // conversations so text/attachments never leak into another chat.

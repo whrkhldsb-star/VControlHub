@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 
 const { prismaMock } = vi.hoisted(() => ({
   prismaMock: {
+	$transaction: vi.fn(async (operations: unknown[]) => operations),
     aiProvider: {
       findMany: vi.fn(),
       create: vi.fn(),
@@ -20,6 +21,9 @@ const { prismaMock } = vi.hoisted(() => ({
       deleteMany: vi.fn(),
     },
     aiMessage: {
+      deleteMany: vi.fn(),
+    },
+    aiHostedAction: {
       deleteMany: vi.fn(),
     },
   },
@@ -170,14 +174,26 @@ describe("AI service list hydration limits", () => {
     expect(createCall?.include?.provider?.select?.apiKey).toBeUndefined();
   });
 
-  it("deleteConversation is owner-scoped via deleteMany and throws when missing", async () => {
+  it("deletes hosted actions and messages after an owner-scoped lookup", async () => {
+    prismaMock.aiConversation.findFirst.mockResolvedValueOnce({ id: "c1" });
     prismaMock.aiConversation.deleteMany.mockResolvedValueOnce({ count: 1 });
     await deleteConversation("c1", "u1");
+    expect(prismaMock.aiConversation.findFirst).toHaveBeenCalledWith({
+      where: { id: "c1", createdBy: "u1" },
+      select: { id: true },
+    });
+    expect(prismaMock.aiHostedAction.deleteMany).toHaveBeenCalledWith({
+      where: { conversationId: "c1" },
+    });
+    expect(prismaMock.aiMessage.deleteMany).toHaveBeenCalledWith({
+      where: { conversationId: "c1" },
+    });
     expect(prismaMock.aiConversation.deleteMany).toHaveBeenCalledWith({
       where: { id: "c1", createdBy: "u1" },
     });
+    expect(prismaMock.$transaction).toHaveBeenCalledOnce();
 
-    prismaMock.aiConversation.deleteMany.mockResolvedValueOnce({ count: 0 });
+    prismaMock.aiConversation.findFirst.mockResolvedValueOnce(null);
     await expect(deleteConversation("c-missing", "u1")).rejects.toThrow(/不存在|not found/i);
   });
 });

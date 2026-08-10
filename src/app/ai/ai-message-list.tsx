@@ -20,6 +20,30 @@ import type { Message, ModelCapabilities, ToolApprovalNeeded } from "./ai-types"
 import { formatAllowedTypes } from "./ai-file-helpers";
 import { ActionButton } from "@/components/action-button";
 
+const EMPTY_TOOL_CONTENT = new Set([
+  "(无响应内容)",
+  "(no response content)",
+  "(无响应)",
+  "(no response)",
+]);
+
+function formatActionResult(raw: string): string {
+  try {
+    return JSON.stringify(JSON.parse(raw), null, 2).slice(0, 1200);
+  } catch {
+    return raw.slice(0, 1200);
+  }
+}
+
+function actionStatusClass(status: string): string {
+  if (status === "COMPLETED") return "text-[var(--success)]";
+  if (status === "FAILED" || status === "REJECTED" || status === "CANCELLED") {
+    return "text-[var(--danger)]";
+  }
+  if (status === "EXECUTING") return "text-[var(--accent)]";
+  return "text-[var(--warning)]";
+}
+
 type Props = {
   messages: Message[];
   streaming: boolean;
@@ -55,6 +79,16 @@ export function AiMessageList({
   onDragOver,
 }: Props) {
   const { t } = useI18n();
+  const actionDisplayName = (actionType: string, fallback: string) => {
+    const key = `aiPage.actionType.${actionType}`;
+    const translated = t(key);
+    return translated === key ? fallback : translated;
+  };
+  const riskDisplayName = (riskLevel: string) => {
+    const key = `aiPage.risk.${riskLevel}`;
+    const translated = t(key);
+    return translated === key ? riskLevel : translated;
+  };
   return (
     <div
       className="flex-1 overflow-y-auto px-3 py-3 sm:px-4 sm:py-4 space-y-4"
@@ -86,11 +120,16 @@ export function AiMessageList({
         </div>
       )}
 
-      {messages.map((msg) => (
-        <div
+      {messages.filter((msg) => msg.role !== "tool").map((msg) => {
+        const hostedActions = msg.hostedActions ?? [];
+        const hasToolOnlyContent =
+          hostedActions.length > 0 &&
+          (!msg.content.trim() || EMPTY_TOOL_CONTENT.has(msg.content.trim()));
+        return (
+          <div
           key={msg.id}
           className={`flex gap-3 ${msg.role === "user" ? "justify-end" : ""}`}
-        >
+          >
           {msg.role !== "user" && (
             <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-xl border border-[var(--accent-border)] bg-[var(--accent-bg)]">
               <svg
@@ -125,7 +164,68 @@ export function AiMessageList({
                 </div>
               </details>
             )}
-            <div className="break-words">{renderContent(msg.content)}</div>
+            {!hasToolOnlyContent && (
+              <div className="break-words">{renderContent(msg.content)}</div>
+            )}
+            {hostedActions.length > 0 && (
+              <div className="mt-2 space-y-2 border-t border-[var(--border-subtle)] pt-2">
+                <div className="text-[10px] font-medium uppercase text-[var(--text-muted)]">
+                  {t("aiPage.toolActivity")}
+                </div>
+                {hostedActions.map((action) => (
+                  <div
+                    key={action.id}
+                    className="border-l-2 border-[var(--border)] pl-2.5"
+                  >
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className="font-medium text-[var(--text-primary)]">
+                        {actionDisplayName(
+                          action.actionType,
+                          action.actionName,
+                        )}
+                      </span>
+                      <span
+                        className={`text-[10px] font-semibold ${actionStatusClass(action.status)}`}
+                      >
+                        {t(
+                          action.status === "APPROVED" &&
+                            action.result?.includes("commandRequestId")
+                            ? "aiPage.actionStatus.COMMAND_REQUESTED"
+                            : `aiPage.actionStatus.${action.status}`,
+                        )}
+                      </span>
+                    </div>
+                    <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-[var(--text-muted)]">
+                      <span>{action.actionType}</span>
+                      <span>
+                        {t("aiPage.riskLabel")}
+                        {riskDisplayName(action.riskLevel)}
+                      </span>
+                      {action.server && (
+                        <span>
+                          {action.server.name} ({action.server.host})
+                        </span>
+                      )}
+                    </div>
+                    {action.errorMessage && (
+                      <p className="mt-1 break-words text-xs text-[var(--danger)]">
+                        {action.errorMessage}
+                      </p>
+                    )}
+                    {action.result && action.result !== "null" && (
+                      <details className="mt-1 text-xs">
+                        <summary className="cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-primary)]">
+                          {t("aiPage.actionResult")}
+                        </summary>
+                        <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-all border-l border-[var(--border)] pl-2 text-[10px] text-[var(--text-secondary)]">
+                          {formatActionResult(action.result)}
+                        </pre>
+                      </details>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
             {(() => {
               try {
                 const urls: string[] = JSON.parse(msg.imageUrls || "[]");
@@ -167,7 +267,8 @@ export function AiMessageList({
                   )}
                 </div>
               )}
-            <button
+            {!hasToolOnlyContent && (
+              <button
               type="button"
               aria-label={t("aiPage.copyAria")}
               onClick={async () => {
@@ -195,15 +296,17 @@ export function AiMessageList({
               {copyFeedback === msg.id
                 ? t("aiPage.copyOrCopied")
                 : t("aiPage.copy")}
-            </button>
+              </button>
+            )}
           </div>
           {msg.role === "user" && (
             <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] text-[11px] font-semibold uppercase text-[var(--accent)]">
               U
             </div>
           )}
-        </div>
-      ))}
+          </div>
+        );
+      })}
 
       {streaming && streamContent && (
         <div className="flex gap-3">
@@ -252,7 +355,7 @@ export function AiMessageList({
         </div>
       )}
       {pendingApprovals.length > 0 && (
-        <div className="px-4 py-2 border-t border-[var(--warning-border)] bg-[var(--warning-bg)]">
+        <div className="sticky bottom-0 z-10 border-t border-[var(--warning-border)] bg-[color-mix(in_srgb,var(--warning-bg)_96%,var(--surface))] px-2 py-2 shadow-[0_-8px_20px_rgba(0,0,0,0.16)] backdrop-blur sm:px-4">
           <div className="text-xs text-[var(--warning)] font-medium mb-2">
             {t("aiPage.pendingApprovalsTitle").replace(
               "{count}",
@@ -263,11 +366,14 @@ export function AiMessageList({
             {pendingApprovals.map((approval) => (
               <div
                 key={approval.actionId}
-                className="flex items-center justify-between bg-[var(--input-bg)] rounded-lg p-2.5"
+                className="flex flex-col gap-2 rounded-lg bg-[var(--input-bg)] p-2.5 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="flex-1 min-w-0">
                   <div className="text-sm text-[var(--text-primary)] font-medium">
-                    {approval.actionName}
+                    {actionDisplayName(
+                      approval.actionType,
+                      approval.actionName,
+                    )}
                   </div>
                   <div className="text-xs text-[var(--text-secondary)] truncate">
                     {t("aiPage.riskLabel")}
@@ -282,7 +388,7 @@ export function AiMessageList({
                               : "text-[var(--success)]"
                       }
                     >
-                      {approval.riskLevel}
+                      {riskDisplayName(approval.riskLevel)}
                     </span>
                     {typeof approval.params.serverId === "string" && (
                       <span className="ml-2">
@@ -294,8 +400,8 @@ export function AiMessageList({
                     )}
                   </div>
                 </div>
-                <div className="flex gap-2 ml-3">
-                  <ActionButton variant="danger-solid" className="!px-3 !py-1 !text-xs disabled:opacity-50"
+                <div className="flex w-full gap-2 sm:ml-3 sm:w-auto">
+                  <ActionButton variant="danger-solid" className="flex-1 !px-3 !py-1 !text-xs disabled:opacity-50 sm:flex-none"
                     disabled={approvalBusyById[approval.actionId]}
                     aria-busy={
                       approvalBusyById[approval.actionId] ? "true" : undefined
@@ -304,14 +410,19 @@ export function AiMessageList({
                   >
                     {t("aiPage.reject")}
                   </ActionButton>
-                  <ActionButton variant="success-solid" className="!px-3 !py-1 !text-xs disabled:opacity-50"
+                  <ActionButton variant="success-solid" className="flex-1 !px-3 !py-1 !text-xs disabled:opacity-50 sm:flex-none"
                     disabled={approvalBusyById[approval.actionId]}
                     aria-busy={
                       approvalBusyById[approval.actionId] ? "true" : undefined
                     }
                     onClick={() => void onApproval(approval, "confirm")}
                   >
-                    {t("aiPage.approve")}
+                    {t(
+                      approval.actionType === "manage_cron" ||
+                        approval.actionType === "run_playbook"
+                        ? "aiPage.confirmAction"
+                        : "aiPage.approve",
+                    )}
                   </ActionButton>
                 </div>
               </div>

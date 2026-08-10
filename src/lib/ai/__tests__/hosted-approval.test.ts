@@ -360,7 +360,7 @@ describe("AI hosted action approvals", () => {
 		);
 	});
 
-	it("lists scheduled tasks via manage_cron without a serverId", async () => {
+	it("lists scheduled tasks through the read-only tool without a serverId", async () => {
 		const { executeSafeAction } = await import("../hosted-service");
 		scheduledTaskServiceMock.listScheduledTasks.mockResolvedValue([
 			{
@@ -375,7 +375,7 @@ describe("AI hosted action approvals", () => {
 		]);
 
 		const result = await executeSafeAction(
-			{ actionType: "manage_cron", serverId: null, params: { action: "list" } },
+			{ actionType: "list_scheduled_tasks", serverId: null, params: {} },
 			{ session: { userId: "operator_1", roles: ["operator"], currentTeamId: "team_a" } },
 		);
 
@@ -398,6 +398,83 @@ describe("AI hosted action approvals", () => {
 			50,
 			expect.objectContaining({ userId: "operator_1", currentTeamId: "team_a" }),
 		);
+	});
+
+	it("executes a scheduled-task state change only after requester confirmation", async () => {
+		const { confirmHostedAction } = await import("../hosted-service");
+		prismaMock.aiHostedAction.findFirst.mockResolvedValue({
+			id: "action_cron",
+			status: "PENDING_APPROVAL",
+			actionType: "manage_cron",
+			actionName: "Manage scheduled tasks",
+			riskLevel: "medium",
+			autoApproved: false,
+			requesterId: "operator_1",
+			serverId: null,
+			params: JSON.stringify({ action: "pause", taskId: "task_1" }),
+		});
+		scheduledTaskServiceMock.getScheduledTask.mockResolvedValue({
+			id: "task_1",
+			status: "ACTIVE",
+		});
+		scheduledTaskServiceMock.toggleScheduledTask.mockResolvedValue({
+			id: "task_1",
+			status: "PAUSED",
+		});
+
+		await confirmHostedAction("action_cron", {
+			userId: "operator_1",
+			roles: ["operator"],
+			currentTeamId: "team_a",
+		});
+
+		expect(prismaMock.aiHostedAction.updateMany).toHaveBeenCalledWith({
+			where: { id: "action_cron", status: "PENDING_APPROVAL" },
+			data: expect.objectContaining({
+				status: "EXECUTING",
+				approverId: "operator_1",
+				executedAt: expect.any(Date),
+			}),
+		});
+		expect(scheduledTaskServiceMock.toggleScheduledTask).toHaveBeenCalledWith(
+			"task_1",
+			expect.objectContaining({ userId: "operator_1", currentTeamId: "team_a" }),
+		);
+		expect(prismaMock.aiHostedAction.update).toHaveBeenCalledWith({
+			where: { id: "action_cron" },
+			data: expect.objectContaining({
+				status: "COMPLETED",
+				result: JSON.stringify({ id: "task_1", status: "PAUSED" }),
+				errorMessage: null,
+			}),
+		});
+		expect(commandServiceMock.createCommandRequest).not.toHaveBeenCalled();
+	});
+
+	it("does not let a read-only role confirm a scheduled-task state change", async () => {
+		const { confirmHostedAction } = await import("../hosted-service");
+		prismaMock.aiHostedAction.findFirst.mockResolvedValue({
+			id: "action_cron",
+			status: "PENDING_APPROVAL",
+			actionType: "manage_cron",
+			actionName: "Manage scheduled tasks",
+			riskLevel: "medium",
+			autoApproved: false,
+			requesterId: "viewer_1",
+			serverId: null,
+			params: JSON.stringify({ action: "pause", taskId: "task_1" }),
+		});
+
+		await expect(
+			confirmHostedAction("action_cron", {
+				userId: "viewer_1",
+				roles: ["viewer"],
+				currentTeamId: "team_a",
+			}),
+		).rejects.toThrow(/permission|权限/i);
+
+		expect(prismaMock.aiHostedAction.updateMany).not.toHaveBeenCalled();
+		expect(scheduledTaskServiceMock.toggleScheduledTask).not.toHaveBeenCalled();
 	});
 
 	it("queues a playbook run on confirm for run_playbook without requiring server:ssh", async () => {

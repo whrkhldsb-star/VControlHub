@@ -71,11 +71,24 @@ async function processHostedTools(input: {
     const params = JSON.parse(action.params) as Record<string, unknown>;
 
     if (!tool.autoApproved) {
+      await prisma.aiMessage.create({
+        data: {
+          conversationId: input.conversationId,
+          role: "tool",
+          content: JSON.stringify({
+            actionId: action.id,
+            status: "PENDING_APPROVAL",
+            pendingApproval: true,
+          }),
+          toolCallId,
+        },
+      });
       input.send({
         type: "tool_approval_needed",
         toolCallId,
         actionId: action.id,
         actionName: tool.actionName,
+        actionType: tool.actionType,
         riskLevel: tool.riskLevel,
         params,
       });
@@ -98,8 +111,9 @@ async function processHostedTools(input: {
         where: { id: action.id },
         data: {
           status: execution.success ? "COMPLETED" : "FAILED",
-          result: JSON.parse(JSON.stringify(execution.data ?? {})),
+          result: JSON.stringify(execution.data ?? null),
           errorMessage: execution.error,
+          executedAt: new Date(),
           completedAt: new Date(),
         },
       }),
@@ -196,7 +210,11 @@ function createStreamingResponse(input: {
           data: {
             conversationId: input.conversationId,
             role: "assistant",
-            content: result.content || t("apiAiChat.emptyContent", input.locale),
+            content:
+              result.content ||
+              (result.toolCalls.length > 0
+                ? ""
+                : t("apiAiChat.emptyContent", input.locale)),
             reasoningContent: result.reasoning || undefined,
             toolCalls: JSON.stringify(result.toolCalls),
             model: input.model,

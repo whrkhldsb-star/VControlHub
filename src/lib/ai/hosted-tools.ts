@@ -21,6 +21,7 @@ export type HostedActionType =
   | "list_backups"
   | "run_playbook"
   | "query_traffic"
+  | "list_scheduled_tasks"
   | "manage_cron"
   | "list_files"
   | "search_files"
@@ -251,15 +252,29 @@ export const HOSTED_TOOLS: HostedTool[] = [
     actionName: "Query traffic data",
   },
   {
+    name: "list_scheduled_tasks",
+    description: "List scheduled tasks and their current state. This is read-only and never changes a schedule.",
+    parameters: {
+      type: "object",
+      properties: {},
+      additionalProperties: false,
+    },
+    riskLevel: "low",
+    autoApproved: true,
+    actionType: "list_scheduled_tasks",
+    actionName: "List scheduled tasks",
+  },
+  {
     name: "manage_cron",
-    description: "Manage scheduled tasks. list is read-only; pause/resume mutate schedule state and require command:create (approval workflow when not auto-approved by policy).",
+    description: "Pause or resume an existing scheduled task. This changes schedule state and always requires explicit user confirmation.",
     parameters: {
       type: "object",
       properties: {
-        action: { type: "string", description: "Action type: list/pause/resume", enum: ["list", "pause", "resume"] },
-        taskId: { type: "string", description: "Scheduled task ID (required for pause/resume)" },
+        action: { type: "string", description: "Action type: pause/resume", enum: ["pause", "resume"] },
+        taskId: { type: "string", description: "Scheduled task ID" },
       },
-      required: ["action"],
+      required: ["action", "taskId"],
+      additionalProperties: false,
     },
     riskLevel: "medium",
     autoApproved: false,

@@ -281,6 +281,15 @@ describe("createAiChatResponse", () => {
       { session, locale: "en" },
     );
     expect(mocks.prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(mocks.prisma.aiHostedAction.update).toHaveBeenCalledWith({
+      where: { id: "action-1" },
+      data: expect.objectContaining({
+        status: "COMPLETED",
+        result: JSON.stringify({ servers: [] }),
+        executedAt: expect.any(Date),
+        completedAt: expect.any(Date),
+      }),
+    });
   });
 
   it("creates an approval request without executing dangerous hosted tools", async () => {
@@ -322,6 +331,18 @@ describe("createAiChatResponse", () => {
     expect(body).toContain('"type":"tool_approval_needed"');
     expect(body).toContain('"actionId":"action-2"');
     expect(body).toContain('"needsApproval":true');
+    expect(mocks.prisma.aiMessage.create).toHaveBeenCalledWith({
+      data: {
+        conversationId: conversation.id,
+        role: "tool",
+        content: JSON.stringify({
+          actionId: "action-2",
+          status: "PENDING_APPROVAL",
+          pendingApproval: true,
+        }),
+        toolCallId: "tool-2",
+      },
+    });
     expect(mocks.executeSafeAction).not.toHaveBeenCalled();
     expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
   });

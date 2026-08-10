@@ -249,7 +249,7 @@ describe("ai provider-http adapter", () => {
 				url: "https://api.openai.com/v1/chat/completions",
 				body: { model: "gpt-4o" },
 			}),
-		).rejects.toThrow("AI provider chat request timed out after 30 seconds");
+		).rejects.toThrow("AI provider chat request timed out after 90 seconds");
 	});
 
     it("falls back to Unknown error when error body cannot be read", async () => {

@@ -78,11 +78,42 @@ export type AiMessageDto = {
   content: string;
   reasoningContent: string | null;
   imageUrls: unknown;
+  toolCalls: string;
+  toolCallId: string | null;
   model: string | null;
   inputTokens: number | null;
   outputTokens: number | null;
   latencyMs: number | null;
   createdAt: string;
+  hostedActions: AiHostedActionDto[];
+};
+
+export type AiHostedActionDto = {
+  id: string;
+  conversationId: string;
+  messageId: string;
+  toolCallId: string | null;
+  serverId: string | null;
+  actionType: string;
+  actionName: string;
+  params: string;
+  status:
+    | "PENDING_APPROVAL"
+    | "APPROVED"
+    | "REJECTED"
+    | "EXECUTING"
+    | "COMPLETED"
+    | "FAILED"
+    | "CANCELLED";
+  riskLevel: string;
+  autoApproved: boolean;
+  result: string | null;
+  errorMessage: string | null;
+  createdAt: string;
+  approvedAt: string | null;
+  executedAt: string | null;
+  completedAt: string | null;
+  server: { id: string; name: string; host: string } | null;
 };
 
 /**

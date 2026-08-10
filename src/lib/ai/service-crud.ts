@@ -284,7 +284,37 @@ export async function getConversationById(id: string, userId: string) {
 				},
 			},
 			// Latest window first, then reverse to chronological for UI.
-			messages: { orderBy: { createdAt: "desc" }, take: MESSAGE_TAKE },
+			messages: {
+				orderBy: { createdAt: "desc" },
+				take: MESSAGE_TAKE,
+				include: {
+					hostedActions: {
+						orderBy: { createdAt: "asc" },
+						select: {
+							id: true,
+							conversationId: true,
+							messageId: true,
+							toolCallId: true,
+							serverId: true,
+							actionType: true,
+							actionName: true,
+							params: true,
+							status: true,
+							riskLevel: true,
+							autoApproved: true,
+							result: true,
+							errorMessage: true,
+							createdAt: true,
+							approvedAt: true,
+							executedAt: true,
+							completedAt: true,
+							server: {
+								select: { id: true, name: true, host: true },
+							},
+						},
+					},
+				},
+			},
 		},
 	});
 	if (!conv) throw new NotFoundError(t("backend.ai.conversationNotFound"));
@@ -331,13 +361,23 @@ export async function updateConversation(id: string, userId: string, input: Upda
 }
 
 export async function deleteConversation(id: string, userId: string) {
-	// deleteMany avoids Prisma throwing on compound unique miss; keep ownership gate.
-	const deleted = await prisma.aiConversation.deleteMany({ where: { id, createdBy: userId } });
-	if (deleted.count === 0) throw new NotFoundError(t("backend.ai.conversationNotFound"));
+	const conversation = await prisma.aiConversation.findFirst({
+		where: { id, createdBy: userId },
+		select: { id: true },
+	});
+	if (!conversation) throw new NotFoundError(t("backend.ai.conversationNotFound"));
+	await prisma.$transaction([
+		prisma.aiHostedAction.deleteMany({ where: { conversationId: id } }),
+		prisma.aiMessage.deleteMany({ where: { conversationId: id } }),
+		prisma.aiConversation.deleteMany({ where: { id, createdBy: userId } }),
+	]);
 }
 
 export async function clearConversationMessages(id: string, userId: string) {
 	const conv = await prisma.aiConversation.findFirst({ where: { id, createdBy: userId } });
 	if (!conv) throw new NotFoundError(t("backend.ai.conversationNotFound"));
-	await prisma.aiMessage.deleteMany({ where: { conversationId: id } });
+	await prisma.$transaction([
+		prisma.aiHostedAction.deleteMany({ where: { conversationId: id } }),
+		prisma.aiMessage.deleteMany({ where: { conversationId: id } }),
+	]);
 }

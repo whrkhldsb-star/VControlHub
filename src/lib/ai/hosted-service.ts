@@ -99,6 +99,7 @@ export async function createHostedAction(input: {
     data: {
       conversationId,
       messageId,
+      toolCallId: input.toolCallId,
       serverId,
       teamId,
       actionType: tool.actionType,
@@ -247,6 +248,101 @@ export async function executeSafeAction(
 
 // ── 审批操作 ──────────────────────────────────────────────
 
+async function persistHostedToolOutcome(
+  action: {
+    id: string;
+    conversationId: string;
+    toolCallId: string | null;
+  },
+  outcome: Record<string, unknown>,
+) {
+  if (!action.toolCallId) return;
+  const content = JSON.stringify({ actionId: action.id, ...outcome });
+  const updated = await prisma.aiMessage.updateMany({
+    where: {
+      conversationId: action.conversationId,
+      role: "tool",
+      toolCallId: action.toolCallId,
+    },
+    data: { content },
+  });
+  if (updated.count > 0) return;
+  await prisma.aiMessage.create({
+    data: {
+      conversationId: action.conversationId,
+      role: "tool",
+      toolCallId: action.toolCallId,
+      content,
+    },
+  });
+}
+
+async function executeConfirmedServerlessAction(
+  action: {
+    id: string;
+    conversationId: string;
+    toolCallId: string | null;
+    actionType: string;
+    serverId: string | null;
+    params: string;
+  },
+  actor: HostedActionSession,
+) {
+  const permission = requiredPermissionForAction(action.actionType);
+  if (!sessionHasPermission(actor, permission)) {
+    throw new ForbiddenError(permissionDeniedMessage(action.actionType));
+  }
+
+  const claimed = await prisma.aiHostedAction.updateMany({
+    where: { id: action.id, status: "PENDING_APPROVAL" },
+    data: {
+      status: "EXECUTING",
+      approverId: actor.userId,
+      approvedAt: new Date(),
+      executedAt: new Date(),
+    },
+  });
+  if (claimed.count === 0) {
+    throw new BusinessError(
+      t("backend.ai.actionIsNotPendingConfirmationMayHaveJust"),
+    );
+  }
+
+  const params = JSON.parse(action.params) as Record<string, unknown>;
+  let execution: Awaited<ReturnType<typeof executeSafeAction>>;
+  try {
+    execution = await executeSafeAction(
+      { actionType: action.actionType, serverId: action.serverId, params },
+      { session: actor, requiredPermission: permission },
+    );
+  } catch (error) {
+    execution = {
+      success: false,
+      data: null,
+      error:
+        error instanceof Error
+          ? error.message
+          : t("backend.ai.unknownError"),
+    };
+  }
+
+  await prisma.aiHostedAction.update({
+    where: { id: action.id },
+    data: {
+      status: execution.success ? "COMPLETED" : "FAILED",
+      result: JSON.stringify(execution.data ?? null),
+      errorMessage: execution.error ?? null,
+      completedAt: new Date(),
+    },
+  });
+  await persistHostedToolOutcome(action, {
+    success: execution.success,
+    status: execution.success ? "COMPLETED" : "FAILED",
+    data: execution.data ?? null,
+    error: execution.error ?? null,
+  });
+}
+
 export async function approveHostedAction(actionId: string, approver: HostedActionSession) {
   if (!sessionHasPermission(approver, "ai:action:approve")) throw new ForbiddenError(t("backend.ai.missingPermissionAiActionApprove"));
 
@@ -261,6 +357,10 @@ export async function approveHostedAction(actionId: string, approver: HostedActi
   if (!action) throw new NotFoundError(t("backend.ai.actionNotFoundOrNotAuthorizedToApprove"));
   if (action.status !== "PENDING_APPROVAL") throw new BusinessError(t("backend.ai.actionIsNotPendingApproval"));
   if (!isHostedActionType(action.actionType)) throw new BusinessError(t("backend.ai.unsupportedActionType"));
+  if (action.actionType === "manage_cron") {
+    await executeConfirmedServerlessAction(action, approver);
+    return;
+  }
   if (SERVERLESS_ACTION_TYPES.has(action.actionType)) {
     throw new BusinessError(t("backend.ai.listQueryToolsDoNotRequireCreatingA"));
   }
@@ -312,6 +412,12 @@ export async function approveHostedAction(actionId: string, approver: HostedActi
       }),
     },
   });
+  await persistHostedToolOutcome(action, {
+    success: true,
+    status: "APPROVED",
+    commandRequestId: request.id,
+    requiresApproval: request.requiresApproval,
+  });
 }
 
 export async function confirmHostedAction(actionId: string, requester: HostedActionSession) {
@@ -320,11 +426,20 @@ export async function confirmHostedAction(actionId: string, requester: HostedAct
   if (action.status !== "PENDING_APPROVAL") throw new BusinessError(t("backend.ai.actionIsNotPendingConfirmation"));
   if (action.autoApproved) throw new BusinessError(t("backend.ai.autoApprovedActionsDoNotRequireManualConfirmation"));
   if (!isHostedActionType(action.actionType)) throw new BusinessError(t("backend.ai.unsupportedActionType"));
-  if (SERVERLESS_ACTION_TYPES.has(action.actionType) && action.actionType !== "run_playbook") {
+  if (
+    SERVERLESS_ACTION_TYPES.has(action.actionType) &&
+    action.actionType !== "run_playbook" &&
+    action.actionType !== "manage_cron"
+  ) {
     throw new BusinessError(t("backend.ai.listQueryToolsDoNotRequireCreatingA"));
   }
 
   const params = JSON.parse(action.params) as Record<string, unknown>;
+
+  if (action.actionType === "manage_cron") {
+    await executeConfirmedServerlessAction(action, requester);
+    return;
+  }
 
   // Cross-module: run_playbook queues a real Playbook run (not an SSH CommandRequest).
   if (action.actionType === "run_playbook") {
@@ -376,6 +491,13 @@ export async function confirmHostedAction(actionId: string, requester: HostedAct
         }),
       },
     });
+    await persistHostedToolOutcome(action, {
+      success: true,
+      status: "COMPLETED",
+      playbookId: playbook.id,
+      runId: run.id,
+      runStatus: run.status,
+    });
     return;
   }
 
@@ -423,6 +545,11 @@ export async function confirmHostedAction(actionId: string, requester: HostedAct
     where: { id: actionId },
     data: { result: JSON.stringify(commandRequest) },
   });
+  await persistHostedToolOutcome(action, {
+    success: true,
+    status: "APPROVED",
+    ...commandRequest,
+  });
 }
 
 export async function rejectHostedAction(actionId: string, actor: HostedActionSession, reason?: string) {
@@ -460,7 +587,15 @@ export async function rejectHostedAction(actionId: string, actor: HostedActionSe
     }
     throw new BusinessError(canApprove ? t("backend.ai.actionIsNotPendingApproval") : t("backend.ai.actionIsNotPendingConfirmation"));
   }
-  return prisma.aiHostedAction.findUniqueOrThrow({ where: { id: actionId } });
+  const action = await prisma.aiHostedAction.findUniqueOrThrow({
+    where: { id: actionId },
+  });
+  await persistHostedToolOutcome(action, {
+    success: false,
+    status: "REJECTED",
+    error: action.errorMessage,
+  });
+  return action;
 }
 
 // ── 获取待审批操作 ────────────────────────────────────────

@@ -233,8 +233,8 @@ describe("AiClient destructive actions", () => {
     const refreshedMessage: Message = {
       id: "msg-tool-result",
       conversationId: "conv-1",
-      role: "tool",
-      content: JSON.stringify({ commandRequestId: "cmd-1", requiresApproval: true }),
+      role: "assistant",
+      content: "命令请求已创建",
       reasoningContent: null,
       imageUrls: "[]",
       model: null,
@@ -257,7 +257,7 @@ describe("AiClient destructive actions", () => {
           start(controller) {
             const encoder = new TextEncoder();
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "content", content: "我需要确认" })}\n\n`));
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "tool_approval_needed", toolCallId: "tc-1", actionId: "act-1", actionName: "重启服务", riskLevel: "high", params: { serverId: "srv-1" } })}\n\n`));
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "tool_approval_needed", toolCallId: "tc-1", actionId: "act-1", actionName: "重启服务", actionType: "restart_service", riskLevel: "high", params: { serverId: "srv-1" } })}\n\n`));
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "done", inputTokens: 1, outputTokens: 1, latencyMs: 10 })}\n\n`));
             controller.close();
           },
@@ -284,7 +284,101 @@ describe("AiClient destructive actions", () => {
     await Promise.all([user.click(approveButton), user.click(approveButton)]);
 
     await waitFor(() => expect(confirmCalls).toBe(1));
-    await waitFor(() => expect(screen.getByText(/commandRequestId/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("命令请求已创建")).toBeInTheDocument());
+  });
+
+  it("restores pending hosted actions after reload and shows their final state", async () => {
+    const user = userEvent.setup();
+    let confirmed = false;
+    const hostedMessage = (): Message => ({
+      id: "msg-cron",
+      conversationId: "conv-1",
+      role: "assistant",
+      content: "(无响应内容)",
+      reasoningContent: null,
+      imageUrls: "[]",
+      toolCalls: "[]",
+      toolCallId: null,
+      model: "gpt-4o-mini",
+      inputTokens: 10,
+      outputTokens: 5,
+      latencyMs: 1200,
+      createdAt: "2026-05-27T00:01:00.000Z",
+      hostedActions: [
+        {
+          id: "act-cron",
+          conversationId: "conv-1",
+          messageId: "msg-cron",
+          toolCallId: "tool-cron",
+          serverId: null,
+          actionType: "manage_cron",
+          actionName: "管理定时任务",
+          params: JSON.stringify({ action: "pause", taskId: "task-1" }),
+          status: confirmed ? "COMPLETED" : "PENDING_APPROVAL",
+          riskLevel: "medium",
+          autoApproved: false,
+          result: confirmed
+            ? JSON.stringify({ id: "task-1", status: "PAUSED" })
+            : null,
+          errorMessage: null,
+          createdAt: "2026-05-27T00:01:00.000Z",
+          approvedAt: confirmed ? "2026-05-27T00:02:00.000Z" : null,
+          executedAt: confirmed ? "2026-05-27T00:02:00.000Z" : null,
+          completedAt: confirmed ? "2026-05-27T00:02:00.000Z" : null,
+          server: null,
+        },
+      ],
+    });
+    vi.mocked(csrfFetch).mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url === "/api/ai/conversations/conv-1" && !init) {
+        return { conversation: { ...conversation, messages: [hostedMessage()] } };
+      }
+      if (
+        url === "/api/ai/hosted-actions/act-cron" &&
+        init?.method === "PATCH"
+      ) {
+        confirmed = true;
+        return { success: true, action: hostedMessage().hostedActions?.[0] };
+      }
+      if (url === "/api/ai/models?providerId=provider-1") {
+        return { models: [{ id: "gpt-4o-mini", name: "gpt-4o-mini" }] };
+      }
+      if (url === "/api/ai/conversations") {
+        return { conversations: [conversation] };
+      }
+      return {};
+    });
+
+    render(
+      <AiClient
+        userId="user-1"
+        initialProviders={[provider]}
+        initialConversations={[conversation]}
+      />,
+    );
+    await user.click(screen.getByText("生产排障助手"));
+
+    expect((await screen.findAllByText("管理定时任务")).length).toBeGreaterThan(0);
+    expect(screen.getByText("等待确认")).toBeInTheDocument();
+    expect(screen.queryByText("(无响应内容)")).not.toBeInTheDocument();
+    expect(screen.getByText(/待审批操作/).closest(".sticky")).not.toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "确认执行" }));
+
+    await waitFor(() => {
+      expect(csrfFetch).toHaveBeenCalledWith(
+        "/api/ai/hosted-actions/act-cron",
+        expect.objectContaining({
+          method: "PATCH",
+          body: JSON.stringify({ action: "confirm" }),
+        }),
+      );
+      expect(screen.getByText("已完成")).toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "确认执行" }),
+      ).not.toBeInTheDocument();
+    });
   });
 
   it("keeps the optimistic user message and surfaces chat HTTP failures after stream teardown", async () => {

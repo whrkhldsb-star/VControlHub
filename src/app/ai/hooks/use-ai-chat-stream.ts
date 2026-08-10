@@ -26,6 +26,7 @@ import {
 } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { getErrorMessage } from "@/lib/http/error-message";
 import { useI18n } from "@/lib/i18n/use-locale";
 import type {
   ConvItem,
@@ -135,11 +136,15 @@ export function useAiChatStream({
         await refreshActiveMessages();
         addToast(
           "success",
-          action === "reject" ? t("aiPage.rejected") : t("aiPage.approved"),
+          action === "reject"
+            ? t("aiPage.rejected")
+            : approval.actionType === "manage_cron" ||
+                approval.actionType === "run_playbook"
+              ? t("aiPage.confirmed")
+              : t("aiPage.approved"),
         );
-      } catch {
-        // Approval/rejection request failed — notify the user via toast.
-        addToast("error", t("aiPage.opFailed"));
+      } catch (error) {
+        addToast("error", getErrorMessage(error, t("aiPage.opFailed")));
       } finally {
         approvalBusyRef.current.delete(approval.actionId);
         setApprovalBusyById((prev) => {
