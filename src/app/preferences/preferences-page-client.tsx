@@ -49,6 +49,10 @@ function widgetLabel(t: (key: string, vars?: Record<string, string | number>) =>
 	return t(WIDGET_KEYS[value] ?? "preferencesPage.widget.serverStatus");
 }
 
+function intervalLabel(t: (key: string) => string, seconds: number): string {
+	return t(`preferencesPage.interval.${seconds}`);
+}
+
 /** Section card — extracted to module top to avoid re-creation on every render */
 function Section({
 	summaryId,
@@ -65,7 +69,7 @@ function Section({
 		<section id={summaryId} className="scroll-mt-28" data-card>
 			<div className="space-y-4 p-5 sm:p-6">
 				<div className="flex flex-col gap-1 border-b border-[var(--border-subtle)] pb-3">
-					<div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-wide text-[var(--text-muted)]">
+					<div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">
 						<span>{t("preferencesPage.group.personal")}</span>
 					</div>
 					<h2 className="flex flex-wrap items-center gap-2 text-base font-semibold text-[var(--text-primary)] sm:text-lg">
@@ -351,11 +355,11 @@ export function PreferencesSettingsContent({
 										: "border-[var(--border)] bg-[var(--surface)] text-[var(--text-muted)] hover:bg-[var(--surface-hover)]"
 								}`}
 							>
-								{opt.label}
+								{intervalLabel(t, opt.value)}
 							</button>
 						))}
 					</div>
-					<p className="text-[11px] text-[var(--text-muted)]">{t("preferencesPage.hint.autoRefresh")}</p>
+					<p className="text-xs leading-5 text-[var(--text-muted)]">{t("preferencesPage.hint.autoRefresh")}</p>
 				</Section>
 
 				<Section summaryId="preferences-auto-probe">
@@ -380,11 +384,11 @@ export function PreferencesSettingsContent({
 										: "border-[var(--border)] bg-[var(--surface)] text-[var(--text-muted)] hover:bg-[var(--surface-hover)]"
 								} disabled:opacity-50 disabled:cursor-not-allowed`}
 							>
-								{opt.label}
+								{intervalLabel(t, opt.value)}
 							</button>
 						))}
 					</div>
-					<p className="text-[11px] text-[var(--text-muted)]">
+					<p className="text-xs leading-5 text-[var(--text-muted)]">
 						{t("preferencesPage.hint.autoProbe")}
 					</p>
 				</Section>

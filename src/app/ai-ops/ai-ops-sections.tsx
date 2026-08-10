@@ -260,27 +260,27 @@ export function AiOpsLogsSection({
 			{logs.length === 0 ? (
 				<div className="text-sm text-[var(--text-primary)]/70">{t("aiOpsPage.actions.empty")}</div>
 			) : (
-				<div className="overflow-x-auto">
-					<table className="w-full text-left text-sm text-[var(--text-primary)]">
+				<div className="overflow-x-auto overscroll-x-contain" tabIndex={0}>
+					<table className="w-full min-w-[860px] table-fixed text-left text-sm text-[var(--text-primary)]">
 						<thead className="text-xs uppercase tracking-wide text-[var(--text-primary)]/70">
 							<tr>
-								<th className="py-2">{t("aiOpsPage.table.time")}</th>
+								<th className="w-40 py-2">{t("aiOpsPage.table.time")}</th>
 								<th className="py-2">{t("aiOpsPage.table.mode")}</th>
 								<th className="py-2">{t("aiOpsPage.table.trigger")}</th>
 								<th className="py-2">{t("aiOpsPage.table.status")}</th>
 								<th className="py-2">{t("aiOpsPage.table.findings")}</th>
 								<th className="py-2">{t("aiOpsPage.table.actions")}</th>
 								<th className="py-2">{t("aiOpsPage.table.duration")}</th>
-								<th className="py-2">{t("aiOpsPage.table.viewDetail")}</th>
+								<th className="w-24 py-2">{t("aiOpsPage.table.viewDetail")}</th>
 							</tr>
 						</thead>
 						<tbody>
 							{logs.map((log) => (
 								<tr key={log.id} className={selectedLogId === log.id ? "bg-[var(--color-action)]/10" : "hover:bg-[var(--surface-elevated)]"}>
 									<td className="py-2 pr-3 font-mono text-xs text-[var(--text-primary)]/70">{formatAiOpsTime(log.createdAt, "—", locale)}</td>
-									<td className="py-2 pr-3">{log.mode === "autonomous" ? t("aiOpsPage.mode.autonomous") : t("aiOpsPage.mode.recommendation")}</td>
-									<td className="py-2 pr-3">{log.triggerType === "scheduled" ? t("aiOpsPage.trigger.scheduled") : log.triggerType === "manual" ? t("aiOpsPage.trigger.manual") : t("aiOpsPage.trigger.recommendation_followup")}</td>
-									<td className="py-2 pr-3">{t(`aiOpsPage.status.${log.status}`)}</td>
+									<td className="whitespace-nowrap py-2 pr-3">{log.mode === "autonomous" ? t("aiOpsPage.mode.autonomous") : t("aiOpsPage.mode.recommendation")}</td>
+									<td className="whitespace-nowrap py-2 pr-3">{log.triggerType === "scheduled" ? t("aiOpsPage.trigger.scheduled") : log.triggerType === "manual" ? t("aiOpsPage.trigger.manual") : t("aiOpsPage.trigger.recommendation_followup")}</td>
+									<td className="whitespace-nowrap py-2 pr-3">{t(`aiOpsPage.status.${log.status}`)}</td>
 									<td className="py-2 pr-3">{log.findings.length}</td>
 									<td className="py-2 pr-3">{log.actions.length}</td>
 									<td className="py-2 pr-3 font-mono text-xs">{log.durationMs !== null ? t("aiOpsPage.detail.durationMs", { ms: log.durationMs }) : "—"}</td>

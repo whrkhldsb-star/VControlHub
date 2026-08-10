@@ -261,10 +261,10 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 								<>
 									<div className="flex items-center justify-between gap-2">
 										<span className="truncate text-sm font-medium text-[var(--text-primary)]">{item.icon} {item.name}</span>
-										<span className="text-[10px] text-[var(--success)]">:{item.port ?? item.defaultPort}</span>
+										<span className="text-xs text-[var(--success)]">:{item.port ?? item.defaultPort}</span>
 									</div>
-									<p className="mt-1 truncate text-[11px] text-[var(--text-muted)]">{access?.url ?? `${accessHostLabel}:${item.port ?? item.defaultPort}`}</p>
-									{access ? <p className="mt-2 text-[10px] font-medium text-[var(--warning)]">{access.label}</p> : <p className="mt-2 text-[10px] font-medium text-[var(--text-muted)]">{t("qsPage.accessEntryUnconfigured", { name: item.name })}</p>}
+									<p className="mt-1 truncate text-xs text-[var(--text-muted)]">{access?.url ?? `${accessHostLabel}:${item.port ?? item.defaultPort}`}</p>
+									{access ? <p className="mt-2 text-xs font-medium text-[var(--warning)]">{access.label}</p> : <p className="mt-2 text-xs font-medium text-[var(--text-muted)]">{t("qsPage.accessEntryUnconfigured", { name: item.name })}</p>}
 								</>
 							);
 							if (!access) {
@@ -288,7 +288,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 					<h3 className="mt-1 text-base font-semibold text-[var(--text-primary)]">{t("qsPage.listeningPortsCount", { count: usedPorts.length })}</h3>
 					<p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{t("qsPage.portsHint")}</p>
 					<div className="mt-3 flex flex-wrap gap-1.5">
-						{usedPorts.slice(0, 8).map((port) => <span key={port} className="rounded-lg border border-[var(--border)] px-2 py-0.5 text-[10px] text-[var(--text-muted)]">{port}</span>)}
+						{usedPorts.slice(0, 8).map((port) => <span key={port} className="rounded-lg border border-[var(--border)] px-2 py-0.5 text-xs text-[var(--text-muted)]">{port}</span>)}
 					</div>
 				</div>
 				<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-elevated)] p-4">
@@ -343,7 +343,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 							<h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("qsPage.recommendedHeader")}</h2>
 							<p className="mt-1 text-xs text-[var(--text-muted)]">{t("qsPage.recommendedSubheader")}</p>
 						</div>
-						<span className="rounded-lg border border-[var(--color-action-border)]/20 px-2 py-1 text-[11px] text-[var(--text-secondary)]">{t("qsPage.mvpPriority")}</span>
+						<span className="rounded-lg border border-[var(--color-action-border)]/20 px-2 py-1 text-xs text-[var(--text-secondary)]">{t("qsPage.mvpPriority")}</span>
 					</div>
 					<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 							{recommendedItems.map((item) => renderServiceCard(item, "store", "recommended-"))}

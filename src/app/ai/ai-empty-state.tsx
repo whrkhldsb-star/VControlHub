@@ -14,12 +14,14 @@ type Props = {
   hasProviders: boolean;
   onOpenProviders: () => void;
   onNewConv: () => void;
+  onOpenSidebar: () => void;
 };
 
 export function AiEmptyState({
   hasProviders,
   onOpenProviders,
   onNewConv,
+  onOpenSidebar,
 }: Props) {
   const { t } = useI18n();
   return (
@@ -59,12 +61,14 @@ export function AiEmptyState({
         ) : (
           <>
             <p className="mb-3 text-sm font-semibold text-[var(--text-primary)]">{t("aiPage.emptySelectConv")}</p>
-            <ActionButton variant="primary"
-              onClick={onNewConv}
-              data-primary className="h-9 px-4 text-sm"
-            >
-              {t("aiPage.newConversation")}
-            </ActionButton>
+            <div className="flex flex-col justify-center gap-2 sm:flex-row">
+              <ActionButton variant="secondary" onClick={onOpenSidebar} className="min-h-11 px-4 text-sm">
+                {t("aiPage.openConversations")}
+              </ActionButton>
+              <ActionButton variant="primary" onClick={onNewConv} data-primary className="min-h-11 px-4 text-sm">
+                {t("aiPage.newConversation")}
+              </ActionButton>
+            </div>
           </>
         )}
       </div>

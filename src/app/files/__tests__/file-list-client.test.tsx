@@ -293,7 +293,17 @@ describe("FileListClient", () => {
     ).toHaveClass("overflow-x-auto");
     expect(
       container.querySelector('[data-testid="file-table-inner"]'),
-    ).toHaveClass("min-w-[1180px]");
+    ).toHaveClass("min-w-[1040px]");
+    expect(screen.getByText("操作")).toHaveClass("sticky", "right-0");
+  });
+
+  it("uses native anchors for file downloads so API routes are not prefetched as RSC", () => {
+    renderFileList();
+
+    const download = screen.getAllByRole("link", { name: /下载 cover\.jpg/ })[0]!;
+    expect(download).toHaveAttribute("download");
+    expect(download.tagName).toBe("A");
+    expect(download).not.toHaveAttribute("data-prefetch");
   });
 
   it("sorts by numeric file size instead of formatted labels", () => {

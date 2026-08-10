@@ -156,7 +156,7 @@ export function AppSidebar({
 				href={item.href}
 				onClick={() => setMobileOpen(false)}
 				aria-current={active ? "page" : undefined}
-				className={`group relative flex min-w-0 items-center gap-2.5 rounded-xl px-2.5 py-2 text-[13px] transition-colors duration-150 ${
+				className={`group relative flex min-w-0 items-center gap-2.5 rounded-xl px-2.5 py-2 text-sm transition-colors duration-150 ${
 					active
 						? "bg-[var(--sidebar-active)] font-semibold text-[var(--sidebar-active-fg)] shadow-[inset_3px_0_0_var(--accent)]"
 						: "text-[var(--text-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-secondary)]"
@@ -180,12 +180,12 @@ export function AppSidebar({
 				<button
 					type="button"
 					onClick={() => setOpenGroups((prev) => ({ ...prev, [group.id]: !open }))}
-					className="flex min-h-8 w-full items-center gap-1.5 rounded-md px-2.5 py-1.5 text-left text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)] transition hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-secondary)]"
+					className="flex min-h-9 w-full items-center gap-1.5 rounded-md px-2.5 py-1.5 text-left text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)] transition hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-secondary)]"
 					aria-expanded={open}
 				>
 					<Chevron open={open} />
 					<span className="min-w-0 flex-1 truncate">{title}</span>
-					<span className="tabular-nums text-[10px] opacity-70">{group.items.length}</span>
+					<span className="tabular-nums text-xs opacity-70">{group.items.length}</span>
 				</button>
 				{open ? <div className="mt-0.5 space-y-0.5 pl-0.5">{group.items.map(renderNavLink)}</div> : null}
 			</div>
@@ -203,7 +203,7 @@ export function AppSidebar({
 					</div>
 					<div className="min-w-0">
 						<div className="truncate text-sm font-semibold tracking-tight text-[var(--text-primary)]">{getAppName()}</div>
-						<p className="mt-0.5 truncate text-[11px] leading-none text-[var(--text-muted)]">{getPublicLabel()}</p>
+						<p className="mt-0.5 truncate text-xs leading-none text-[var(--text-muted)]">{getPublicLabel()}</p>
 					</div>
 				</div>
 				<label className="mt-3 block">
@@ -241,12 +241,12 @@ export function AppSidebar({
 						<button
 							type="button"
 							onClick={() => setOpenGroups((prev) => ({ ...prev, system: !open }))}
-							className="flex min-h-8 w-full items-center gap-1.5 rounded-md px-2.5 py-1.5 text-left text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)] transition hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-secondary)]"
+							className="flex min-h-9 w-full items-center gap-1.5 rounded-md px-2.5 py-1.5 text-left text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)] transition hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-secondary)]"
 							aria-expanded={open}
 						>
 							<Chevron open={open} />
 							<span className="min-w-0 flex-1 truncate">{t("nav.system")}</span>
-							<span className="tabular-nums text-[10px] opacity-70">{filteredSystem.length}</span>
+							<span className="tabular-nums text-xs opacity-70">{filteredSystem.length}</span>
 						</button>
 						{open ? <div className="mt-0.5 space-y-0.5 pl-0.5">{filteredSystem.map(renderNavLink)}</div> : null}
 					</div>
@@ -255,7 +255,7 @@ export function AppSidebar({
 
 				{filteredQuick.length > 0 && (
 					<div className="mb-1 mt-2">
-						<div className="px-2.5 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+						<div className="px-2.5 pb-1 pt-1 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
 							{t("nav.quickservice")}
 						</div>
 						<div className="space-y-0.5">
@@ -266,7 +266,7 @@ export function AppSidebar({
 									target="_blank"
 									rel="noopener noreferrer"
 									onClick={() => setMobileOpen(false)}
-									className="flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-[13px] text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-secondary)]"
+									className="flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-sm text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-secondary)]"
 								>
 									<span className="shrink-0 text-[16px] leading-none">{item.icon}</span>
 									<span className="min-w-0 flex-1 truncate" title={item.name}>
@@ -308,7 +308,7 @@ export function AppSidebar({
 						setPasswordModalOpen(true);
 						setMobileOpen(false);
 					}}
-					className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-secondary)]"
+					className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-secondary)]"
 				>
 					<IconKey />
 					<span>{t("auth.change-password")}</span>

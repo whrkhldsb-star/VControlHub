@@ -48,7 +48,7 @@ export function DetailActionButton({
       onClick={() => onOpen(entry.id)}
       className={
         compact
-          ?"inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)] transition hover:bg-[var(--accent-bg)]"
+          ?"inline-flex h-11 w-11 items-center justify-center rounded-lg border border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)] transition hover:bg-[var(--accent-bg)]"
           :"inline-flex items-center gap-1.5 rounded-lg border border-[var(--accent-border)] bg-[var(--accent-bg)] px-2.5 py-1.5 text-xs text-[var(--accent)] transition hover:bg-[var(--accent-bg)]"
       }
     >
@@ -91,7 +91,7 @@ export function DownloadActionLink({
   const { t } = useI18n();
   if (!entryCanRead(entry)) return null;
   return (
-    <Link
+    <a
       href={downloadUrl}
       title={t("fileListClient.downloadTitle")}
       aria-label={`${t("fileListClient.downloadTitle")} ${entry.name}`}
@@ -100,13 +100,13 @@ export function DownloadActionLink({
       rel={downloadUrl.startsWith("/") ? undefined :"noopener noreferrer"}
       className={
         compact
-          ?"inline-flex items-center justify-center w-8 h-8 rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] text-[var(--text-secondary)] transition hover:bg-[var(--surface-subtle)] hover:text-[var(--text-primary)]"
+          ?"inline-flex h-11 w-11 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] text-[var(--text-secondary)] transition hover:bg-[var(--surface-subtle)] hover:text-[var(--text-primary)]"
           :"inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-2.5 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface-subtle)] hover:text-[var(--text-primary)]"
       }
     >
       <DownloadIcon />
       {compact ? null : <span>{t("fileListClient.downloadTitle")}</span>}
-    </Link>
+    </a>
   );
 }
 
@@ -131,20 +131,20 @@ export function FolderDownloadActionLink({
   });
   if (!href) return null;
   return (
-    <Link
+    <a
       href={href}
       title={t("fileListClient.downloadFolderArchiveTitle")}
       aria-label={t("fileListClient.downloadFolderArchiveAria", { name: folder.displayName ?? folder.name })}
       download
       className={
         compact
-          ?"inline-flex items-center justify-center w-8 h-8 rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] text-[var(--text-secondary)] transition hover:bg-[var(--surface-subtle)] hover:text-[var(--text-primary)]"
+          ?"inline-flex h-11 w-11 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] text-[var(--text-secondary)] transition hover:bg-[var(--surface-subtle)] hover:text-[var(--text-primary)]"
           :"inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface-subtle)] hover:text-[var(--text-primary)]"
       }
     >
       <DownloadIcon />
       {compact ? null : <span>{t("fileListClient.downloadTitle")}</span>}
-    </Link>
+    </a>
   );
 }
 
@@ -191,7 +191,7 @@ export function FileRowActions({
           title={previewAction.title}
           aria-label={previewAction.label}
           data-tone="cyan"
-          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--accent-border)] text-[var(--accent)] transition hover:bg-[var(--accent-bg)]"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-[var(--accent-border)] text-[var(--accent)] transition hover:bg-[var(--accent-bg)]"
         >
           <PreviewIcon />
         </Link>

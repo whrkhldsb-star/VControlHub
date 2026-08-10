@@ -69,6 +69,7 @@ export const zh: Record<string, string> = {
 	"aiPage.emptyNoProvider": "还没有可用的 AI 提供商",
 	"aiPage.emptyNoProviderHint": "先添加一个 OpenAI 兼容或其它提供商并填写 API Key、Base URL 和默认模型；配置完成后即可创建新对话。",
 	"aiPage.configProviders": "配置 AI 提供商",
+	"aiPage.openConversations": "查看对话",
 	"aiPage.placeholder": "发送消息开始对话",
 	"aiPage.dragPasteHint": "支持: {types} · 拖拽/粘贴上传",
 
@@ -261,6 +262,7 @@ export const en: Record<string, string> = {
 	"aiPage.emptyNoProvider": "No AI providers available yet",
 	"aiPage.emptyNoProviderHint": "Add an OpenAI-compatible provider (or another one), fill in the API Key, Base URL, and default model. Configuration is required before creating a new conversation.",
 	"aiPage.configProviders": "Configure AI provider",
+	"aiPage.openConversations": "View conversations",
 	"aiPage.placeholder": "Type a message to start the conversation",
 	"aiPage.dragPasteHint": "Supports: {types} · drag/paste to upload",
 

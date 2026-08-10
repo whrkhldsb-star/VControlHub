@@ -108,7 +108,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 						<p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">{t("quickServicesPage.sources.header")}</p>
 						<p className="mt-1 text-sm text-[var(--text-muted)]">{t("quickServicesPage.sources.headerDesc")}</p>
 					</div>
-					<span className="rounded-lg border border-[var(--border)] px-2 py-1 text-[10px] text-[var(--text-muted)]">{t("quickServicesPage.sources.tapToFill")}</span>
+					<span className="rounded-lg border border-[var(--border)] px-2 py-1 text-xs text-[var(--text-muted)]">{t("quickServicesPage.sources.tapToFill")}</span>
 				</div>
 				<div className="grid gap-3 sm:grid-cols-2">
 					{getSourcePresets(t).map((preset) => {
@@ -122,7 +122,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 							>
 								<div className="flex items-center justify-between gap-2">
 									<span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">{preset.badge}</span>
-									<span className={`rounded-full border px-2 py-0.5 text-[10px] ${active ?"border-[var(--color-action-border)]/30 text-[var(--text-primary)]" :"border-[var(--border)] text-[var(--text-muted)]"}`}>{preset.type}</span>
+									<span className={`rounded-full border px-2 py-0.5 text-xs ${active ?"border-[var(--color-action-border)]/30 text-[var(--text-primary)]" :"border-[var(--border)] text-[var(--text-muted)]"}`}>{preset.type}</span>
 								</div>
 								<h4 className="mt-2 text-sm font-semibold text-[var(--text-primary)]">{preset.label}</h4>
 								<p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">{preset.description}</p>
@@ -199,23 +199,23 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 							</div>
 						</div>
 						<div className="flex items-center gap-2">
-							<span className={`text-[10px] px-2 py-0.5 rounded-full border ${src.enabled ?"border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]" :"border-[var(--border)] text-[var(--text-muted)]"}`}>
+							<span className={`rounded-full border px-2 py-0.5 text-xs ${src.enabled ?"border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]" :"border-[var(--border)] text-[var(--text-muted)]"}`}>
 								{src.enabled ? t("quickServicesPage.sources.status.enabled") : t("quickServicesPage.sources.status.disabled")}
 							</span>
 							{src.lastSyncStatus && (
-								<span className={`text-[10px] px-2 py-0.5 rounded-full border ${src.lastSyncStatus ==="success" ?"border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]" :"border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)]"}`}>
+								<span className={`rounded-full border px-2 py-0.5 text-xs ${src.lastSyncStatus ==="success" ?"border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]" :"border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)]"}`}>
 									{src.lastSyncStatus ==="success" ? t("quickServicesPage.sources.status.syncSuccess") : t("quickServicesPage.sources.status.syncFailed")}
 								</span>
 							)}
 						</div>
 					</div>
-					<div className="flex items-center gap-3 text-[10px] text-[var(--text-muted)]">
+					<div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--text-muted)]">
 						<span>{t("quickServicesPage.sources.type") + t("common.colon") + sourceTypeLabel(t, src.type)}</span>
 						<span>{t("quickServicesPage.sources.syncCount") +":" + String(src.syncCount)}</span>
 						{src.lastSyncAt && <span>{t("quickServicesPage.sources.lastSyncAt") + ":" + formatDateTime(src.lastSyncAt, locale)}</span>}
 					</div>
 					{src.lastSyncError && (
-						<div className="text-[10px] text-[var(--danger)] bg-[var(--danger-bg)] rounded px-2 py-1">{src.lastSyncError}</div>
+						<div className="rounded bg-[var(--danger-bg)] px-2 py-1 text-xs leading-5 text-[var(--danger)]">{src.lastSyncError}</div>
 					)}
 					<div className="flex items-center gap-2 pt-1">
 						<ActionButton variant="secondary"

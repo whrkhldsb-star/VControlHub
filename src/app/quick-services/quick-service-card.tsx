@@ -101,11 +101,11 @@ export function ServiceCard({
 				</div>
 				<div className="flex items-center gap-1.5">
 					{isRemote && (
-						<span className="text-[10px] px-1.5 py-0.5 rounded-lg border border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]">
+						<span className="rounded-lg border border-[var(--accent-border)] bg-[var(--accent-bg)] px-1.5 py-0.5 text-xs text-[var(--accent)]">
 							{item.source}
 						</span>
 					)}
-					<span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full border ${statusColor[item.status] ?? "text-[var(--text-muted)]"} ${item.status === "running" ? "border-[var(--success-border)] bg-[var(--success-bg)]" : item.status === "error" ? "border-[var(--danger-border)] bg-[var(--danger-bg)]" : "border-[var(--border)]"}`}>
+					<span className={`rounded-full border px-1.5 py-0.5 text-xs font-medium ${statusColor[item.status] ?? "text-[var(--text-muted)]"} ${item.status === "running" ? "border-[var(--success-border)] bg-[var(--success-bg)]" : item.status === "error" ? "border-[var(--danger-border)] bg-[var(--danger-bg)]" : "border-[var(--border)]"}`}>
 						{(statusLabelKeys[item.status] && t(statusLabelKeys[item.status] as string)) || item.status}
 					</span>
 				</div>
@@ -115,7 +115,7 @@ export function ServiceCard({
 			<p className="text-xs text-[var(--text-muted)] leading-relaxed line-clamp-2">{item.description}</p>
 
 			{/* Meta */}
-			<div className="flex items-center gap-3 text-[10px] text-[var(--text-muted)]">
+			<div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--text-muted)]">
 				<span>{t("qsPage.portLabel", { port: displayPort })}</span>
 				{item.path && <span>{t("qsPage.pathLabel", { path: item.path })}</span>}
 				{item.monthlyPulls != null && <span>{t("qsPage.monthlyPulls", { pulls: (item.monthlyPulls / 1000).toFixed(0) })}</span>}
@@ -124,11 +124,11 @@ export function ServiceCard({
 
 			{/* Error message */}
 			{item.error && (
-				<div className="text-[10px] text-[var(--danger)] bg-[var(--danger-bg)] rounded px-2 py-1 line-clamp-2">{item.error}</div>
+				<div className="rounded bg-[var(--danger-bg)] px-2 py-1 text-xs leading-5 text-[var(--danger)] line-clamp-2">{item.error}</div>
 			)}
 
 			{/* Actions */}
-			<div className="flex items-center gap-2 mt-auto pt-1">
+			<div className="mt-auto flex min-h-9 flex-wrap items-center gap-2 pt-1">
 				{tab !== "installed" && item.status === "available" && (
 					<ActionButton type="button" onClick={onInstall} disabled={busy} className="px-3.5 py-1.5 text-xs">
 						{busy ? t("qsPage.installingLabel") : t("qsPage.installNow")}

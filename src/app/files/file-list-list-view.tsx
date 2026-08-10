@@ -94,8 +94,8 @@ export function FileListListView(props: FileListListViewProps) {
     <>
       {/* Desktop table view (md+) */}
       <div className="hidden overflow-x-auto rounded-b-2xl border-t border-[var(--border)] md:block" data-testid="file-table-scroll">
-        <div className="min-w-[1180px]" data-testid="file-table-inner">
-          <div className="grid grid-cols-[44px_44px_minmax(280px,2.6fr)_120px_170px_160px_minmax(240px,auto)] items-center gap-3 bg-[var(--surface-subtle)] px-5 py-3 text-xs uppercase tracking-[0.15em] text-[var(--text-muted)] font-medium">
+        <div className="min-w-[1040px]" data-testid="file-table-inner">
+          <div className="grid grid-cols-[36px_36px_minmax(240px,2.6fr)_90px_130px_130px_minmax(190px,auto)] items-center gap-2 bg-[var(--surface-subtle)] px-4 py-3 text-xs uppercase tracking-[0.15em] text-[var(--text-muted)] font-medium">
             <div>
               <input
                 type="checkbox"
@@ -154,7 +154,7 @@ export function FileListListView(props: FileListListViewProps) {
                 onToggle={toggleSort}
               />
             </div>
-            <div>{t("fileListClient.actions")}</div>
+            <div className="sticky right-0 z-10 bg-[var(--surface-subtle)] pl-2">{t("fileListClient.actions")}</div>
           </div>
           <div className="divide-y divide-[var(--border-subtle)] light:divide-[var(--border)]">
             {sortedFolders.length === 0 && sortedFiles.length === 0 ? (
@@ -164,7 +164,7 @@ export function FileListListView(props: FileListListViewProps) {
             {sortedFolders.map((folder) => (
               <div
                 key={folder.path}
-                className="grid grid-cols-[44px_44px_minmax(280px,2.6fr)_120px_170px_160px_minmax(240px,auto)] items-center gap-3 px-5 py-3 text-sm hover:bg-[var(--surface-elevated)] transition"
+                className="group grid grid-cols-[36px_36px_minmax(240px,2.6fr)_90px_130px_130px_minmax(190px,auto)] items-center gap-2 px-4 py-3 text-sm transition hover:bg-[var(--surface-elevated)]"
               >
                 <div aria-hidden="true" />
                 <div className="flex justify-center">
@@ -187,7 +187,7 @@ export function FileListListView(props: FileListListViewProps) {
                   {folder.sourceValues[0] ?? "—"}
                 </div>
                 <div className="text-xs text-[var(--text-muted)]">—</div>
-                <div className="flex flex-wrap gap-1">
+                <div className="sticky right-0 z-10 flex flex-wrap gap-1 bg-[var(--surface)] pl-2 group-hover:bg-[var(--surface-elevated)]">
                   <ActionButton variant="secondary"
                     onClick={() => navigateToFolder(folder.path)}
                     data-tone="cyan" className="!inline-flex !items-center !gap-1.5 !px-3 !py-1.5 !text-xs"
@@ -240,7 +240,7 @@ export function FileListListView(props: FileListListViewProps) {
               return (
                 <div
                   key={entry.id}
-                  className={`grid grid-cols-[44px_44px_minmax(280px,2.6fr)_120px_170px_160px_minmax(240px,auto)] items-center gap-3 px-5 py-3 text-sm hover:bg-[var(--surface-elevated)] transition ${isChecked ?"bg-[var(--color-action-bg)]/[0.04]" :""}`}
+                  className={`group grid grid-cols-[36px_36px_minmax(240px,2.6fr)_90px_130px_130px_minmax(190px,auto)] items-center gap-2 px-4 py-3 text-sm transition hover:bg-[var(--surface-elevated)] ${isChecked ?"bg-[var(--color-action-bg)]/[0.04]" :""}`}
                 >
                   <div>
                     {entryCanWrite(entry) || entryCanDelete(entry) ? (
@@ -281,7 +281,7 @@ export function FileListListView(props: FileListListViewProps) {
                   <div className="text-[var(--text-muted)] text-xs">
                     {entry.updatedAt ? formatDate(entry.updatedAt) :"—"}
                   </div>
-                  <div className="flex flex-wrap gap-1">
+                  <div className="sticky right-0 z-10 flex flex-wrap gap-1 bg-[var(--surface)] pl-2 group-hover:bg-[var(--surface-elevated)]">
                     <FileRowActions
                       entry={entry}
                       downloadUrl={downloadUrl}

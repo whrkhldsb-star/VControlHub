@@ -406,6 +406,7 @@ export function AiClient({
             hasProviders={providers.length > 0}
             onOpenProviders={() => setShowProviders(true)}
             onNewConv={handleNewConv}
+            onOpenSidebar={() => setShowSidebar(true)}
           />
         )}
       </div>

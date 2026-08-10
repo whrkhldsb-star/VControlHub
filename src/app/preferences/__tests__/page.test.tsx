@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import PreferencesPageClient from "../preferences-page-client";
@@ -167,10 +167,11 @@ describe("PreferencesPage", () => {
 		render(wrap(<PreferencesPageClient />));
 
 		// 等 /api/preferences 加载 + 切到 enabled=true
-		expect(await screen.findByRole("heading", { name: /VPS 自动探测/ })).toBeInTheDocument();
+		const section = (await screen.findByRole("heading", { name: /VPS 自动探测/ })).closest("section");
+		expect(section).not.toBeNull();
 		const toggle = screen.getByRole("switch", { name: "进入 VPS 管理时自动探测节点状态" }) as HTMLButtonElement;
 		expect(toggle).toHaveAttribute("aria-checked", "true");
-		expect(screen.getByRole("button", { name: "1 minute" })).toHaveClass("border-[var(--accent-border)]");
+		expect(within(section!).getByRole("button", { name: "1 分钟" })).toHaveClass("border-[var(--accent-border)]");
 	});
 
 	it("disables the auto-probe interval picker when 自动探测 is off", async () => {
@@ -184,7 +185,9 @@ describe("PreferencesPage", () => {
 
 		const toggle = await screen.findByRole("switch", { name: "进入 VPS 管理时自动探测节点状态" });
 		expect(toggle).toHaveAttribute("aria-checked", "false");
-		const intervalButton = screen.getByRole("button", { name: "1 minute" });
+		const section = screen.getByRole("heading", { name: /VPS 自动探测/ }).closest("section");
+		expect(section).not.toBeNull();
+		const intervalButton = within(section!).getByRole("button", { name: "1 分钟" });
 		expect(intervalButton).toBeDisabled();
 	});
 });

@@ -63,7 +63,7 @@ export function FilesMoreNav() {
           id={menuId}
           role="menu"
           aria-label={t("filesPage.moreFeaturesAria")}
-          className="absolute right-0 z-30 mt-2 w-[min(100vw-2rem,20rem)] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-lg)]"
+          className="fixed left-4 right-4 z-30 mt-2 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-lg)] sm:absolute sm:left-auto sm:right-0 sm:w-80"
         >
           <ul className="py-1">
             {LINKS.map((link) => (
