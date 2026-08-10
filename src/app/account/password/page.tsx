@@ -7,7 +7,7 @@ import { ChangePasswordForm } from "./change-password-form";
 export const dynamic = "force-dynamic";
 
 export default async function AccountPasswordPage() {
-  await requireSession("/account/password");
+  const session = await requireSession("/account/password");
   const locale = await getServerLocale();
 
   return (
@@ -15,7 +15,7 @@ export default async function AccountPasswordPage() {
       <PageHeader eyebrow={t("accountPasswordPage.eyebrow", locale)} title={t("accountPasswordPage.title", locale)} description={t("accountPasswordPage.description", locale)} className="mb-8" />
 
       <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-        <ChangePasswordForm />
+        <ChangePasswordForm allowSkip={session.mustChangePassword} />
 
         <aside className="rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6">
           <h2 className="text-xl font-semibold text-[var(--text-primary)]">{t("accountPasswordPage.securityTips", locale)}</h2>

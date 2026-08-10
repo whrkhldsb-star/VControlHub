@@ -20,6 +20,7 @@ import {
 
 import { getStorageFormOptions } from "@/app/storage/actions";
 import { getSftpSyncNode, syncSftpDirectoryEntries } from "@/lib/storage/sftp-sync";
+import { getLocalSyncNode, syncLocalDirectoryEntries } from "@/lib/storage/local-sync";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { FilesBrowserSpa } from "./files-browser-spa";
 import { PageShell, PageHeader } from "@/components/page-shell";
@@ -74,6 +75,19 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
           remotePath: effectiveSyncPath,
           recursive: false,
           maxDepth: 1,
+        });
+        if (syncResult.errors.length > 0) {
+          syncWarning = syncResult.errors[0] ?? t("filesPage.syncWarningFallback", locale);
+        } else {
+          storage = await getStorageOverview(session);
+        }
+      }
+    } else if (selectedNode?.driver === "LOCAL") {
+      const syncNode = await getLocalSyncNode(effectiveNodeId, session);
+      if (syncNode?.driver === "LOCAL") {
+        const syncResult = await syncLocalDirectoryEntries({
+          node: syncNode,
+          relativePath: effectiveSyncPath,
         });
         if (syncResult.errors.length > 0) {
           syncWarning = syncResult.errors[0] ?? t("filesPage.syncWarningFallback", locale);
@@ -213,6 +227,7 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
       id: n.id,
       name: n.name,
       driver: n.driver,
+      basePath: n.driver === "LOCAL" ? n.basePath : undefined,
     })),
   };
 

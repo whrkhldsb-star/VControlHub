@@ -7,12 +7,20 @@ import { SubmitButton } from "@/components/submit-button";
 import { PasswordField } from "@/components/password-field";
 import { useI18n } from "@/lib/i18n/use-locale";
 
-import { changePasswordAction, type AccountPasswordActionState } from "./actions";
+import {
+	changePasswordAction,
+	skipPasswordChangeAction,
+	type AccountPasswordActionState,
+} from "./actions";
 
 const initialState: AccountPasswordActionState = {};
 const POST_SUCCESS_REDIRECT_DELAY_MS = 1500;
 
-export function ChangePasswordForm() {
+function getSafeNextPath(value: string | null) {
+	return value && value.startsWith("/") && !value.startsWith("//") ? value : "/";
+}
+
+export function ChangePasswordForm({ allowSkip = false }: { allowSkip?: boolean }) {
 	const { t } = useI18n();
 	const [state, formAction] = useActionState(changePasswordAction, initialState);
 	const router = useRouter();
@@ -22,8 +30,7 @@ export function ChangePasswordForm() {
 	// TR-052: 改密成功后自动跳到 dashboard (默认 "/", 尊重 ?next=). 给用户 1.5s 看 success message 再跳.
 	useEffect(() => {
 		if (!state.success) return;
-		const nextPath = searchParams.get("next");
-		const safeNext = nextPath && nextPath.startsWith("/") && !nextPath.startsWith("//") ? nextPath : "/";
+		const safeNext = getSafeNextPath(searchParams.get("next"));
 		// eslint-disable-next-line react-hooks/set-state-in-effect -- success → 启动 countdown + 1.5s 后的 setTimeout 跳转; 业务上需要 setState-in-effect 来同步启动客户端计时器
 		setCountdown(POST_SUCCESS_REDIRECT_DELAY_MS / 1000);
 		const interval = setInterval(() => {
@@ -39,7 +46,10 @@ export function ChangePasswordForm() {
 		};
 	}, [state.success, router, searchParams]);
 
+	const safeNext = getSafeNextPath(searchParams.get("next"));
+
 	return (
+		<div className="grid gap-3">
 		<form action={formAction} className="grid gap-4 rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6">
 			<input type="text" name="username" autoComplete="username" className="hidden" tabIndex={-1} aria-hidden="true" />
 			<div>
@@ -92,8 +102,6 @@ export function ChangePasswordForm() {
 					<button
 						type="button"
 						onClick={() => {
-							const nextPath = searchParams.get("next");
-							const safeNext = nextPath && nextPath.startsWith("/") && !nextPath.startsWith("//") ? nextPath : "/";
 							router.push(safeNext);
 						}}
 						className="rounded-2xl border border-[var(--accent-border)] px-4 py-2 text-sm text-[var(--accent)] transition hover:bg-[var(--accent-bg)] focus:outline-none focus:ring-2 focus:ring-[var(--input-ring)]"
@@ -104,5 +112,24 @@ export function ChangePasswordForm() {
 				<SubmitButton pendingLabel={t("changePassword.saving")}>{t("common.saveNewPassword")}</SubmitButton>
 			</div>
 		</form>
+		{allowSkip ? (
+			<form
+				action={skipPasswordChangeAction}
+				className="flex flex-col gap-3 rounded-2xl border border-[var(--warning-border)] bg-[var(--warning-bg)] p-4 sm:flex-row sm:items-center sm:justify-between"
+			>
+				<input type="hidden" name="next" value={safeNext} />
+				<p className="text-sm leading-6 text-[var(--text-secondary)]">
+					{t("accountPasswordPage.skipDescription")}
+				</p>
+				<SubmitButton
+					pendingLabel={t("accountPasswordPage.skipping")}
+					variant="secondary"
+					className="shrink-0"
+				>
+					{t("accountPasswordPage.skip")}
+				</SubmitButton>
+			</form>
+		) : null}
+		</div>
 	);
 }

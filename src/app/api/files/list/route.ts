@@ -15,6 +15,10 @@ import {
   syncSftpDirectoryEntries,
 } from "@/lib/storage/sftp-sync";
 import {
+  getLocalSyncNode,
+  syncLocalDirectoryEntries,
+} from "@/lib/storage/local-sync";
+import {
   buildFileTree,
   findFileTreeNode,
   isDirectoryEntry,
@@ -62,7 +66,7 @@ export async function GET(request: NextRequest) {
           (node) => node.id === effectiveNodeId,
         );
         if (selectedNode?.driver === "SFTP") {
-          const syncNode = await getSftpSyncNode(effectiveNodeId);
+          const syncNode = await getSftpSyncNode(effectiveNodeId, session);
           if (syncNode?.driver === "SFTP") {
             const syncResult = await syncSftpDirectoryEntries({
               node: syncNode,
@@ -73,6 +77,20 @@ export async function GET(request: NextRequest) {
             if (syncResult.errors.length > 0) {
               syncWarning =
                 syncResult.errors[0] ?? "Remote directory sync failed, showing local index";
+            } else {
+              storage = await getStorageOverview(session);
+            }
+          }
+        } else if (selectedNode?.driver === "LOCAL") {
+          const syncNode = await getLocalSyncNode(effectiveNodeId, session);
+          if (syncNode?.driver === "LOCAL") {
+            const syncResult = await syncLocalDirectoryEntries({
+              node: syncNode,
+              relativePath: effectiveSyncPath,
+            });
+            if (syncResult.errors.length > 0) {
+              syncWarning =
+                syncResult.errors[0] ?? "Local directory sync failed, showing local index";
             } else {
               storage = await getStorageOverview(session);
             }
@@ -217,6 +235,7 @@ export async function GET(request: NextRequest) {
           id: n.id,
           name: n.name,
           driver: n.driver,
+          basePath: n.driver === "LOCAL" ? n.basePath : undefined,
         })),
       });
     },

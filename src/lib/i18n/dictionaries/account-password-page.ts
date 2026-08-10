@@ -35,6 +35,10 @@ export const zh: Record<string, string> = {
 	"accountPasswordPage.redirectNow": "立即跳到仪表盘",
 	"accountPasswordPage.action.success": "密码已更新。下次登录请使用新密码。",
 	"accountPasswordPage.action.errorFallback": "修改密码失败",
+	"accountPasswordPage.skip": "暂时跳过",
+	"accountPasswordPage.skipping": "正在跳过...",
+	"accountPasswordPage.skipDescription":
+		"可以暂时保留当前密码并继续使用。为避免初始密码长期有效，建议稍后从侧栏进入修改密码。",
 };
 
 export const en: Record<string, string> = {
@@ -59,4 +63,8 @@ export const en: Record<string, string> = {
 	"accountPasswordPage.redirectNow": "Go to dashboard now",
 	"accountPasswordPage.action.success": "Password updated. Use the new password next time you sign in.",
 	"accountPasswordPage.action.errorFallback": "Failed to change password",
+	"accountPasswordPage.skip": "Skip for now",
+	"accountPasswordPage.skipping": "Skipping...",
+	"accountPasswordPage.skipDescription":
+		"You can keep the current password and continue. Change it later from the sidebar to avoid long-term use of the initial password.",
 };

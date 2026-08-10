@@ -104,6 +104,8 @@ const {
   getStorageAccessCapabilitiesMock,
   getSftpSyncNodeMock,
   syncSftpDirectoryEntriesMock,
+  getLocalSyncNodeMock,
+  syncLocalDirectoryEntriesMock,
   refreshMock,
   pushMock,
   replaceMock,
@@ -120,6 +122,8 @@ const {
   getStorageAccessCapabilitiesMock: vi.fn(),
   getSftpSyncNodeMock: vi.fn(),
   syncSftpDirectoryEntriesMock: vi.fn(),
+  getLocalSyncNodeMock: vi.fn(),
+  syncLocalDirectoryEntriesMock: vi.fn(),
   refreshMock: vi.fn(),
   pushMock: vi.fn(),
   replaceMock: vi.fn(),
@@ -149,6 +153,11 @@ vi.mock("@/lib/storage/access-control", () => ({
 vi.mock("@/lib/storage/sftp-sync", () => ({
   getSftpSyncNode: getSftpSyncNodeMock,
   syncSftpDirectoryEntries: syncSftpDirectoryEntriesMock,
+}));
+
+vi.mock("@/lib/storage/local-sync", () => ({
+  getLocalSyncNode: getLocalSyncNodeMock,
+  syncLocalDirectoryEntries: syncLocalDirectoryEntriesMock,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -303,7 +312,15 @@ beforeEach(() => {
   );
   getStorageAccessCapabilitiesMock.mockResolvedValue(new Map());
   getSftpSyncNodeMock.mockResolvedValue(null);
+  getLocalSyncNodeMock.mockResolvedValue(null);
   syncSftpDirectoryEntriesMock.mockResolvedValue({
+    synced: 0,
+    created: 0,
+    updated: 0,
+    deleted: 0,
+    errors: [],
+  });
+  syncLocalDirectoryEntriesMock.mockResolvedValue({
     synced: 0,
     created: 0,
     updated: 0,

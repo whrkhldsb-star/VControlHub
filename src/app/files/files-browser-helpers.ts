@@ -52,7 +52,7 @@ export type FilesApiResponse = {
     canShare?: boolean;
     canManageNodes: boolean;
   };
-  nodes: { id: string; name: string; driver: string }[];
+  nodes: { id: string; name: string; driver: string; basePath?: string }[];
 };
 
 export type DeletedEntryProp = {
@@ -111,7 +111,7 @@ export function getInitialExpandedTreePaths(tree: TreeRootNode, currentPath: str
   return expanded;
 }
 
-export type NodeOption = { id: string; name: string; driver: string };
+export type NodeOption = { id: string; name: string; driver: string; basePath?: string };
 
 export function parseNodeGroupSegment(segment: string) {
   const [label, idPrefix] = segment.split("__");

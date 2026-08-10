@@ -167,6 +167,11 @@ export function FilesBrowserSpa({
               <p className="mt-2 text-sm leading-7 text-[var(--text-secondary)]">
                 {currentPathDisplay.label ? t("filesBrowserSpa.currentPathPrefix") + currentPathDisplay.label : t("filesBrowserSpa.currentPathAllNodes")}
               </p>
+              {selectedNode?.driver === "LOCAL" && selectedNode.basePath ? (
+                <p className="mt-1 break-all text-xs text-[var(--text-muted)]">
+                  {t("filesBrowserSpa.localDiskPath", { path: selectedNode.basePath })}
+                </p>
+              ) : null}
             </div>
             <BreadcrumbsClient
               t={t}

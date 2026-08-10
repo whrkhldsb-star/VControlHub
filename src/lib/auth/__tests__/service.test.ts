@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { authenticateUser, changePassword } from "@/lib/auth/service";
+import { authenticateUser, changePassword, skipPasswordChange } from "@/lib/auth/service";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { prisma } from "@/lib/db";
 
@@ -136,5 +136,22 @@ describe("changePassword", () => {
  }),
  ).resolves.toEqual({ success: false, error: "Current password is incorrect" });
  expect(prisma.user.update).not.toHaveBeenCalled();
+ });
+});
+
+describe("skipPasswordChange", () => {
+ it("activates the account without replacing its password hash", async () => {
+  vi.mocked(prisma.user.update).mockResolvedValueOnce({ id: "u_1" } as any);
+
+  await skipPasswordChange("u_1");
+
+  expect(prisma.user.update).toHaveBeenCalledWith({
+   where: { id: "u_1" },
+   data: {
+    mustChangePassword: false,
+    status: "ACTIVE",
+   },
+  });
+  expect(vi.mocked(prisma.user.update).mock.calls[0]?.[0].data).not.toHaveProperty("passwordHash");
  });
 });

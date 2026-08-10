@@ -399,9 +399,30 @@ describe("FileListClient", () => {
     expect(
       screen.getAllByRole("link", { name: "下载 cover.jpg" }).length,
     ).toBeGreaterThan(0);
-    expect(
-      (await screen.findAllByRole("button", { name: "更多操作 cover.jpg" })).length,
-    ).toBeGreaterThan(0);
+    const moreButtons = await screen.findAllByRole("button", {
+      name: "更多操作 cover.jpg",
+    });
+    expect(moreButtons.length).toBeGreaterThan(0);
+    Object.defineProperty(moreButtons[0]!, "getBoundingClientRect", {
+      configurable: true,
+      value: () => ({
+        x: 720,
+        y: 720,
+        top: 720,
+        right: 752,
+        bottom: 752,
+        left: 720,
+        width: 32,
+        height: 32,
+        toJSON: () => ({}),
+      }),
+    });
+    fireEvent.click(moreButtons[0]!);
+    const menu = await screen.findByRole("group", {
+      name: "更多操作 cover.jpg",
+    });
+    expect(menu.parentElement).toBe(document.body);
+    expect(Number.parseFloat(menu.style.top)).toBeLessThan(720);
     expect(
       (await screen.findAllByRole("button", { name: "分享" })).length,
     ).toBeGreaterThan(0);

@@ -27,6 +27,23 @@ export type ChangePasswordResult = {
  error?: string;
 };
 
+export async function skipPasswordChange(userId: string): Promise<void> {
+	await prisma.user.update({
+		where: { id: userId },
+		data: {
+			mustChangePassword: false,
+			status: "ACTIVE",
+		},
+	});
+
+	await auditUserAction(
+		userId,
+		"auth.password_change_skipped",
+		{ userId },
+		"WARNING",
+	);
+}
+
 function deriveRoleKeys(keys: string[]): RoleKey[] {
  return keys.filter((key): key is RoleKey => key in DEFAULT_ROLE_PERMISSIONS);
 }

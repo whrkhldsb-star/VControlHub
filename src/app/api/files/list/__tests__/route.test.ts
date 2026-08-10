@@ -8,6 +8,8 @@ const {
   getStorageAccessCapabilitiesMock,
   getSftpSyncNodeMock,
   syncSftpDirectoryEntriesMock,
+  getLocalSyncNodeMock,
+  syncLocalDirectoryEntriesMock,
 } = vi.hoisted(() => ({
   requireApiPermissionMock: vi.fn(),
   sessionHasPermissionMock: vi.fn(),
@@ -15,6 +17,8 @@ const {
   getStorageAccessCapabilitiesMock: vi.fn(),
   getSftpSyncNodeMock: vi.fn(),
   syncSftpDirectoryEntriesMock: vi.fn(),
+  getLocalSyncNodeMock: vi.fn(),
+  syncLocalDirectoryEntriesMock: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/require-api-permission", () => ({
@@ -39,6 +43,11 @@ vi.mock("@/lib/storage/access-control", () => ({
 vi.mock("@/lib/storage/sftp-sync", () => ({
   getSftpSyncNode: getSftpSyncNodeMock,
   syncSftpDirectoryEntries: syncSftpDirectoryEntriesMock,
+}));
+
+vi.mock("@/lib/storage/local-sync", () => ({
+  getLocalSyncNode: getLocalSyncNodeMock,
+  syncLocalDirectoryEntries: syncLocalDirectoryEntriesMock,
 }));
 
 import { GET } from "../route";
@@ -232,7 +241,10 @@ describe("/api/files/list", () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(getSftpSyncNodeMock).toHaveBeenCalledWith("node_sftp_abcdef");
+    expect(getSftpSyncNodeMock).toHaveBeenCalledWith(
+      "node_sftp_abcdef",
+      expect.objectContaining({ userId: "u_1" }),
+    );
     expect(syncSftpDirectoryEntriesMock).toHaveBeenCalledWith({
       node: { id: "node_sftp_abcdef", driver: "SFTP" },
       remotePath: "",
