@@ -11,6 +11,7 @@ import {
 import { createLogger } from "@/lib/logging";
 import { getSftpSyncNode, syncSftpDirectoryEntries } from "./sftp-sync";
 import { serviceT } from "@/lib/i18n/service-locale";
+import { t } from "@/lib/i18n/service-translations";
 import { runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
 
 const logger = createLogger("sftp-sync-job-worker");
@@ -60,7 +61,7 @@ export function parseSftpSyncJobPayload(
     typeof payload.nodeId !== "string" ||
     payload.nodeId.trim().length === 0
   ) {
-    throw new Error("SFTP sync job missing storage node");
+    throw new Error(t("backend.storage.syncJobMissingNode"));
   }
   return {
     nodeId: payload.nodeId,
@@ -85,7 +86,7 @@ async function executeSftpSyncJob(job: {
   const node = await getSftpSyncNode(payload.nodeId);
   const t = await serviceT();
   if (!node) throw new Error(t("backend.storage.nodeNotFoundShort"));
-  if (node.driver !== "SFTP") throw new Error("This node is not SFTP type");
+  if (node.driver !== "SFTP") throw new Error(t("backend.storage.notSftpNode"));
 
   await heartbeatJob(job.id, SFTP_SYNC_WORKER_ID, {
     leaseMs: SFTP_SYNC_WORKER_LEASE_MS,

@@ -327,12 +327,14 @@ export async function applyServerDirectGatewayState(input: {
         command,
         timeout: 180_000,
       });
-      if (result.exitCode && result.exitCode !== 0)
+      if (result.exitCode && result.exitCode !== 0) {
+        const diagnostic = (result.stderr || result.stdout).trim().slice(0, 500);
         throw new BusinessError(
-          result.stderr ||
-            result.stdout ||
-            t("backend.server.directGatewayOperationFailed"),
+          diagnostic
+            ? `${t("backend.server.directGatewayOperationFailed")}: ${diagnostic}`
+            : t("backend.server.directGatewayOperationFailed"),
         );
+      }
     } catch (error) {
       if (!input.bestEffort) throw error;
       errorMessage = getErrorMessage(error);

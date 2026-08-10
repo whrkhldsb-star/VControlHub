@@ -8,6 +8,7 @@ import { listRemoteDirectory, type SftpListEntry } from "@/lib/ssh/client";
 import { normalizeRemotePath } from "@/lib/storage/remote-path";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 import { getSftpSyncDirectoryTimeoutMs } from "@/lib/runtime-settings/service";
+import { t } from "@/lib/i18n/service-translations";
 import {
   computeDirectoryRelativePath,
   computeRelativePath,
@@ -158,20 +159,20 @@ export async function syncSftpDirectoryEntries(input: {
 }): Promise<SftpSyncResult> {
   const { node, remotePath, recursive = false, maxDepth = 1 } = input;
   if (node.driver !== "SFTP") {
-    throw new Error("This node is not SFTP type");
+    throw new Error(t("backend.storage.notSftpNode"));
   }
 
   let credentials: ReturnType<typeof resolveStorageSshCredentials>;
   try {
     credentials = resolveStorageSshCredentials(node);
   } catch (error) {
-    const msg = error instanceof Error ? error.message : "Unknown error";
+    const msg = error instanceof Error ? error.message : t("backend.common.unknownError");
     return {
       synced: 0,
       created: 0,
       updated: 0,
       deleted: 0,
-      errors: [`Connection credentials unavailable: ${msg}`],
+      errors: [t("backend.storage.connectionCredentialsUnavailable", { error: msg })],
     };
   }
 

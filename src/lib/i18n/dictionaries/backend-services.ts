@@ -10,6 +10,7 @@
  */
 
 export const zh: Record<string, string> = {
+	"backend.common.unknownError": "未知错误",
 	// deploy-export/service.ts
 	"backend.deployExport.appNameInvalid": "应用名称只能包含小写字母、数字和连字符，且必须以字母开头",
 	"backend.deployExport.domainInvalid": "域名格式不合法",
@@ -205,6 +206,8 @@ export const zh: Record<string, string> = {
 	"backend.storage.missingPassword": "缺少登录密码，无法连接",
 	"backend.storage.pathExceedsRoot": "路径超出存储根目录",
 	"backend.storage.notSftpNode": "该节点不是 SFTP 存储节点",
+	"backend.storage.syncJobMissingNode": "SFTP 同步任务缺少存储节点",
+	"backend.storage.connectionCredentialsUnavailable": "连接凭据不可用：{error}",
 	"backend.storage.pathExceedsNodeRoot": "请求路径超出存储节点根目录",
 	"backend.storage.targetCannotBeRoot": "目标路径不能是存储节点根目录",
 	"backend.storage.invalidVersionBlobPath": "版本内容路径无效",
@@ -427,6 +430,11 @@ export const zh: Record<string, string> = {
     "目标 VPS 上的附加端口 {port} 已被占用",
   "backend.quick-service.noAvailablePortOnTarget":
     "无法在目标 VPS 上分配可用端口，请指定一个空闲端口",
+  "backend.quick-service.dockerNotInstalled": "尚未安装 Docker",
+  "backend.quick-service.dockerNotRunning": "Docker 未运行，或当前用户无权访问 Docker 服务",
+  "backend.quick-service.dockerInstallHintLocal": "快捷服务依赖 Docker。请先运行 curl -fsSL https://get.docker.com | sh，并确认已执行 systemctl enable --now docker。",
+  "backend.quick-service.dockerInstallHintRemote": "快捷服务依赖 Docker。请在目标 VPS 安装 Docker，并确保 Docker 服务正在运行。",
+  "backend.quick-service.dockerUnavailableRemote": "目标 VPS 上的 Docker 不可用：{message}",
   "backend.quick-service.installFailedWithMessage": "安装失败：{message}",
   "backend.quick-service.uninstallFailedWithMessage": "卸载失败：{message}",
   "backend.quick-service.uninstallRollbackFailed":
@@ -440,6 +448,7 @@ export const zh: Record<string, string> = {
   "backend.docker.composeUnsupportedAction": "不支持的 Compose 操作：{action}",
   "backend.docker.composeActionFailed": "Compose 操作失败：{action}",
   "backend.docker.unavailable": "Docker 未安装或 Docker 套接字不可用",
+  "backend.docker.listFailed": "获取 Docker 容器列表失败",
   "backend.docker.containerActionFailed": "容器操作 {action} 失败（状态码：{status}）",
   "backend.playbook.notFoundWithId": "Playbook 不存在：{id}",
   "backend.playbook.disabledWithId": "Playbook 已禁用：{id}",
@@ -515,6 +524,7 @@ export const zh: Record<string, string> = {
 
 
 export const en: Record<string, string> = {
+	"backend.common.unknownError": "Unknown error",
 	// deploy-export/service.ts
 	"backend.deployExport.appNameInvalid": "App name must contain only lowercase letters, digits, and hyphens, and must start with a letter",
 	"backend.deployExport.domainInvalid": "Invalid domain format",
@@ -713,6 +723,8 @@ export const en: Record<string, string> = {
 	"backend.storage.missingPassword": "Missing login password, cannot connect",
 	"backend.storage.pathExceedsRoot": "Path exceeds storage root directory",
 	"backend.storage.notSftpNode": "This node is not an SFTP storage node",
+	"backend.storage.syncJobMissingNode": "The SFTP sync job is missing its storage node",
+	"backend.storage.connectionCredentialsUnavailable": "Connection credentials are unavailable: {error}",
 	"backend.storage.pathExceedsNodeRoot": "Requested path exceeds storage node root",
 	"backend.storage.targetCannotBeRoot": "Target path cannot be the storage node root",
 	"backend.storage.invalidVersionBlobPath": "Invalid version blob path",
@@ -952,6 +964,11 @@ export const en: Record<string, string> = {
     "Extra port {port} is already in use on the target VPS",
   "backend.quick-service.noAvailablePortOnTarget":
     "No available port could be allocated on the target VPS; specify a free port",
+  "backend.quick-service.dockerNotInstalled": "Docker is not installed",
+  "backend.quick-service.dockerNotRunning": "Docker is not running, or the current user cannot access the Docker daemon",
+  "backend.quick-service.dockerInstallHintLocal": "Quick services require Docker. Run curl -fsSL https://get.docker.com | sh, then ensure systemctl enable --now docker has completed.",
+  "backend.quick-service.dockerInstallHintRemote": "Quick services require Docker. Install Docker on the target VPS and ensure the Docker daemon is running.",
+  "backend.quick-service.dockerUnavailableRemote": "Docker is unavailable on the target VPS: {message}",
   "backend.quick-service.installFailedWithMessage":
     "Installation failed: {message}",
   "backend.quick-service.uninstallFailedWithMessage":
@@ -969,6 +986,7 @@ export const en: Record<string, string> = {
     "Unsupported Compose action: {action}",
   "backend.docker.composeActionFailed": "Compose action failed: {action}",
   "backend.docker.unavailable": "Docker is not installed or the Docker socket is unavailable",
+  "backend.docker.listFailed": "Failed to list Docker containers",
   "backend.docker.containerActionFailed": "Container action {action} failed (status: {status})",
   "backend.playbook.notFoundWithId": "Playbook not found: {id}",
   "backend.playbook.disabledWithId": "Playbook is disabled: {id}",

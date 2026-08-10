@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Plus } from "@/components/icons";
 import { csrfFetch } from "@/lib/auth/csrf-client";
@@ -31,6 +31,14 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
   const [error, setError] = useState("");
 
   const savingRef = useRef(false);
+  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+    },
+    [],
+  );
 
   const shareUrl = result
     ? `${typeof window !== "undefined" ? window.location.origin : ""}/share/${result.token}`
@@ -41,7 +49,11 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
     try {
       await navigator.clipboard.writeText(shareUrl);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+      copiedTimerRef.current = setTimeout(() => {
+        copiedTimerRef.current = null;
+        setCopied(false);
+      }, 2000);
     } catch {
       /* Clipboard may be unavailable; the URL remains visible for manual copy. */
     }

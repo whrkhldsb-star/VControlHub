@@ -80,7 +80,7 @@ describe("SFTP sync durable job worker", () => {
       maxDepth: 3,
     });
     expect(() => parseSftpSyncJobPayload({ remotePath: "/logs" })).toThrow(
-      "SFTP sync job missing storage node",
+      /SFTP sync job is missing its storage node|SFTP 同步任务缺少存储节点/,
     );
   });
 

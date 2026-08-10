@@ -150,7 +150,7 @@ export async function updateBackupSchedule(id: string, input: UpdateBackupSchedu
     }
   }
   return prisma.backupSchedule.update({
-    where: { id },
+    where: { id, teamId: existing.teamId ?? null },
     data,
     include: { creator: { select: { username: true, displayName: true } } },
   });
@@ -159,7 +159,7 @@ export async function updateBackupSchedule(id: string, input: UpdateBackupSchedu
 export async function deleteBackupSchedule(id: string, session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">) {
   const existing = await getBackupSchedule(id, session);
   if (!existing) throw new NotFoundError(t("backend.backup.scheduleNotFound"));
-  await prisma.backupSchedule.delete({ where: { id } });
+  await prisma.backupSchedule.delete({ where: { id, teamId: existing.teamId ?? null } });
   return { id };
 }
 

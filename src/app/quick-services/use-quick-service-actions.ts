@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { getErrorMessage } from "@/lib/http/error-message";
@@ -101,6 +101,7 @@ export function useQuickServiceActions({
   const [message, setMessage] = useState<QuickServiceMessage | null>(null);
   const [actionSlug, setActionSlug] = useState<string | null>(null);
   const [syncing, setSyncing] = useState<string | null>(null);
+  const catalogRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Auto-dismiss message after 4s, matching the original inline behaviour.
   useEffect(() => {
@@ -108,6 +109,15 @@ export function useQuickServiceActions({
     const t = setTimeout(() => setMessage(null), 4000);
     return () => clearTimeout(t);
   }, [message]);
+
+  useEffect(
+    () => () => {
+      if (catalogRefreshTimerRef.current) {
+        clearTimeout(catalogRefreshTimerRef.current);
+      }
+    },
+    [],
+  );
 
   const showMessage = useCallback((msg: QuickServiceMessage) => {
     setMessage(msg);
@@ -132,7 +142,13 @@ export function useQuickServiceActions({
             : t("qsActions.submitted", { name: preview.item.name }),
           taskId: data.taskId,
         });
-        setTimeout(fetchCatalog, 1500);
+        if (catalogRefreshTimerRef.current) {
+          clearTimeout(catalogRefreshTimerRef.current);
+        }
+        catalogRefreshTimerRef.current = setTimeout(() => {
+          catalogRefreshTimerRef.current = null;
+          void fetchCatalog();
+        }, 1500);
       } catch (err) {
         setMessage({
           type: "err",

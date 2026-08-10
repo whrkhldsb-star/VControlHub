@@ -173,8 +173,8 @@ async function listAllContainers(serverId?: string): Promise<{
   if (!result.ok) {
     const msg =
       result.data && typeof result.data === "object" && "message" in result.data
-        ? String((result.data as { message?: unknown }).message ?? "Docker list failed")
-        : "Docker list failed";
+        ? String((result.data as { message?: unknown }).message ?? t("backend.docker.listFailed"))
+        : t("backend.docker.listFailed");
     throw new BusinessError(msg);
   }
   const containers = Array.isArray(result.data) ? (result.data as EngineContainer[]) : [];
@@ -441,7 +441,7 @@ async function engineActionOnProjectContainers(
     if (!result.ok && result.status !== 304 && result.status !== 204) {
       const msg =
         result.data && typeof result.data === "object" && "message" in result.data
-          ? String((result.data as { message?: unknown }).message ?? "container action failed")
+          ? String((result.data as { message?: unknown }).message ?? t("backend.docker.containerActionFailed", { action, status: result.status }))
           : t("backend.docker.containerActionFailed", { action, status: result.status });
       throw new BusinessError(`${msg} [${id.slice(0, 12)}]`);
     }

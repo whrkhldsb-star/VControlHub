@@ -301,6 +301,7 @@ export async function restoreFileEntry(
       storageNode: {
         select: {
           id: true,
+          teamId: true,
           driver: true,
           basePath: true,
           host: true,
@@ -336,7 +337,10 @@ export async function restoreFileEntry(
   await assertDeletedEntryStillExists(current);
 
   return prisma.fileEntry.update({
-    where: { id: payload.fileEntryId },
+    where: {
+      id: payload.fileEntryId,
+      storageNode: { teamId: current.storageNode.teamId ?? null },
+    },
     data: { isDeleted: false },
   });
 }

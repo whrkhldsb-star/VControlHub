@@ -181,10 +181,10 @@ describe("backup schedule service", () => {
   describe("toggleBackupSchedule", () => {
     it("flips ACTIVE → PAUSED and clears nextRunAt", async () => {
       await toggleBackupSchedule("s1");
-      // The toggle path goes through updateBackupSchedule → prisma.update
+      // The toggle path pins the team ownership in the atomic update.
       expect(backupScheduleUpdateMock).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: "s1" },
+          where: { id: "s1", teamId: null },
           data: expect.objectContaining({ status: "PAUSED", nextRunAt: null }),
         }),
       );
@@ -209,7 +209,7 @@ describe("backup schedule service", () => {
       await toggleBackupSchedule("s1");
       expect(backupScheduleUpdateMock).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: "s1" },
+          where: { id: "s1", teamId: null },
           data: expect.objectContaining({ status: "ACTIVE", nextRunAt: expect.any(Date) }),
         }),
       );
@@ -224,7 +224,9 @@ describe("backup schedule service", () => {
     it("deletes an existing schedule", async () => {
       const result = await deleteBackupSchedule("s1");
       expect(result).toEqual({ id: "s1" });
-      expect(backupScheduleDeleteMock).toHaveBeenCalledWith({ where: { id: "s1" } });
+      expect(backupScheduleDeleteMock).toHaveBeenCalledWith({
+        where: { id: "s1", teamId: null },
+      });
     });
     it("throws NotFoundError when schedule does not exist", async () => {
       backupScheduleFindUniqueMock.mockResolvedValueOnce(null);

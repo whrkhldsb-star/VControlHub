@@ -172,7 +172,11 @@ describe("sftp sync service", () => {
       created: 0,
       updated: 0,
       deleted: 0,
-      errors: ["Connection credentials unavailable: Unsupported state or unable to authenticate data"],
+      errors: [
+        expect.stringMatching(
+          /Connection credentials are unavailable|连接凭据不可用/,
+        ),
+      ],
     });
     expect(listRemoteDirectoryMock).not.toHaveBeenCalled();
   });

@@ -57,7 +57,7 @@ export async function PATCH(
 			}
 
 			try {
-				const updated = await updateVpsBackupSchedule(scheduleId, body);
+				const updated = await updateVpsBackupSchedule(scheduleId, serverId, body);
 				await auditUserAction(session!.userId, "vps-backup.schedule.update", { serverId, scheduleId }, undefined, session?.currentTeamId);
 				return Response.json({ schedule: updated });
 			} catch (err) {
@@ -95,7 +95,7 @@ export async function DELETE(
 			}
 
 			try {
-				await deleteVpsBackupSchedule(scheduleId);
+				await deleteVpsBackupSchedule(scheduleId, serverId);
 				await auditUserAction(session!.userId, "vps-backup.schedule.delete", { serverId, scheduleId }, undefined, session?.currentTeamId);
 				return Response.json({ success: true });
 			} catch (err) {

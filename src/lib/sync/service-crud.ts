@@ -162,7 +162,7 @@ export async function updateSyncJob(
 		if (data.syncType !== undefined) patch.syncType = data.syncType;
 	}
 	return prisma.syncJob.update({
-		where: { id },
+		where: { id, teamId: existing.teamId ?? null },
 		data: patch,
 		include: {
 			sourceServer: { select: { id: true, name: true, host: true } },

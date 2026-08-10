@@ -493,7 +493,7 @@ describe("server service", () => {
       }),
     );
     expect(prisma.server.update).toHaveBeenCalledWith({
-      where: { id: "srv_draft" },
+      where: { id: "srv_draft", teamId: null },
       data: { enabled: true, hostKeySha256: "SHA256:verified" },
     });
     expect(prisma.storageNode.update).toHaveBeenCalledWith(
@@ -516,7 +516,7 @@ describe("server service", () => {
     expect(checkStorageNodeHealth).toHaveBeenCalledWith("storage_draft", null);
     expect(prisma.server.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "srv_draft" },
+        where: { id: "srv_draft", teamId: null },
         data: expect.objectContaining({
           osInfo: "Debian GNU/Linux 12 (bookworm)",
         }),
@@ -631,7 +631,7 @@ describe("server service", () => {
     );
     expect(prisma.server.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "srv_draft_gateway" },
+        where: { id: "srv_draft_gateway", teamId: null },
         data: {
           onboardingStatus: "READY",
           onboardingLastError: null,
@@ -2259,6 +2259,7 @@ describe("server service", () => {
   it("updates bound SFTP storage basePath and ensures the remote directory exists", async () => {
     const current = {
       id: "srv_path",
+      teamId: "team-1",
       name: "path-node",
       host: "203.0.113.77",
       port: 22,
@@ -2307,6 +2308,11 @@ describe("server service", () => {
       repairStoragePath: true,
     });
 
+    expect(prisma.server.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "srv_path", teamId: "team-1" },
+      }),
+    );
     expect(prisma.storageNode.update).toHaveBeenCalledWith({
       where: { id: "sn_path" },
       data: { basePath: "/data/vch-files" },

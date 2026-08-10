@@ -484,7 +484,7 @@ export async function updateServerProfile(
   }
 
   updated = await prisma.server.update({
-    where: { id: serverId },
+    where: { id: serverId, teamId: current.teamId ?? null },
     data: {
       name: normalized.name,
       host: normalized.host,
@@ -560,8 +560,12 @@ export async function updateServerProfile(
     include: SERVER_PROFILE_INCLUDE,
   });
 
+  if (!refreshed || (refreshed.teamId ?? null) !== (current.teamId ?? null)) {
+    throw new NotFoundError(t("backend.server.nodeNotFound"));
+  }
+
   return {
-    ...enrichServer(refreshed!),
+    ...enrichServer(refreshed),
     onboardingWarnings,
   };
 }
@@ -645,7 +649,7 @@ export async function toggleServerEnabled(
 
     const updated = await prisma.$transaction(async (tx) => {
       const updated = await tx.server.update({
-        where: { id: serverId },
+        where: { id: serverId, teamId: current.teamId ?? null },
         data: { enabled: true, hostKeySha256 },
       });
       if (current.storageNode) {
@@ -699,7 +703,7 @@ export async function toggleServerEnabled(
       try {
         const dialect = await detectOsDialect({ ...ssh, hostKeySha256 });
         await prisma.server.update({
-          where: { id: serverId },
+          where: { id: serverId, teamId: current.teamId ?? null },
           data: {
             osDialect: serializeDialect(dialect),
             osInfo: dialect.distroName,
@@ -713,7 +717,7 @@ export async function toggleServerEnabled(
     }
 
     await prisma.server.update({
-      where: { id: serverId },
+      where: { id: serverId, teamId: current.teamId ?? null },
       data: {
         onboardingStatus: onboardingWarnings.length > 0 ? "NEEDS_ATTENTION" : "READY",
         onboardingLastError: onboardingWarnings.length > 0
@@ -725,7 +729,7 @@ export async function toggleServerEnabled(
     return { ...updated, onboardingWarnings };
   }
   const updated = await prisma.server.update({
-    where: { id: serverId },
+    where: { id: serverId, teamId: current.teamId ?? null },
     data: { enabled: false },
   });
   return { ...updated, onboardingWarnings: [] as string[] };

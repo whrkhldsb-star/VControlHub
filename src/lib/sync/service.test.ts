@@ -4,7 +4,9 @@ const { prismaMock } = vi.hoisted(() => ({
   prismaMock: {
     syncJob: {
       findMany: vi.fn(),
+      findFirst: vi.fn(),
       create: vi.fn(),
+      update: vi.fn(),
     },
     server: {
       findMany: vi.fn(),
@@ -21,7 +23,7 @@ import {
 	shellQuote,
 } from "@/lib/sync/service-commands";
 import { decryptSyncTargetCredentials } from "@/lib/sync/service-credentials";
-import { createSyncJob, listSyncJobs } from "@/lib/sync/service-crud";
+import { createSyncJob, listSyncJobs, updateSyncJob } from "@/lib/sync/service-crud";
 import { assertSyncRemoteSucceeded } from "@/lib/sync/service-runtime";
 
 beforeEach(() => {
@@ -109,6 +111,31 @@ describe("createSyncJob team scope", () => {
     ).rejects.toThrow(/同一路径|same server path/i);
     expect(prismaMock.server.findMany).not.toHaveBeenCalled();
     expect(prismaMock.syncJob.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("updateSyncJob ownership CAS", () => {
+  it("pins the original teamId in the atomic update", async () => {
+    prismaMock.syncJob.findFirst.mockResolvedValueOnce({
+      id: "job-1",
+      teamId: "team-1",
+      syncType: "MIRROR",
+      deleteOrphans: false,
+    });
+    prismaMock.syncJob.update.mockResolvedValueOnce({ id: "job-1", name: "renamed" });
+
+    await updateSyncJob(
+      "job-1",
+      { name: "renamed" },
+      { userId: "u1", roles: ["operator"], currentTeamId: "team-1" },
+    );
+
+    expect(prismaMock.syncJob.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "job-1", teamId: "team-1" },
+        data: { name: "renamed" },
+      }),
+    );
   });
 });
 

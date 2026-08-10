@@ -314,8 +314,7 @@ export type DockerEnvironmentStatus = {
 
 /** Local sync status (historical API used by tests + local install preflight). */
 export function getDockerEnvironmentStatus(): DockerEnvironmentStatus {
-  const DOCKER_INSTALL_HINT =
-    "Quick services depend on Docker. Please run curl -fsSL https://get.docker.com | sh first, and confirm systemctl enable --now docker.";
+  const dockerInstallHint = t("backend.quick-service.dockerInstallHintLocal");
   try {
     const version = execFileSync("docker", ["--version"], {
       timeout: 5_000,
@@ -338,9 +337,9 @@ export function getDockerEnvironmentStatus(): DockerEnvironmentStatus {
       running: false,
       version: null,
       message: notInstalled
-        ? "Docker is not installed"
-        : "Docker is not running or the current user has no permission to access the Docker daemon",
-      installHint: DOCKER_INSTALL_HINT,
+        ? t("backend.quick-service.dockerNotInstalled")
+        : t("backend.quick-service.dockerNotRunning"),
+      installHint: dockerInstallHint,
       scope: "hub-host",
     };
   }
@@ -352,8 +351,7 @@ export async function getDockerEnvironmentStatusFor(
   if (target.kind === "local") {
     return getDockerEnvironmentStatus();
   }
-  const DOCKER_INSTALL_HINT =
-    "Quick services depend on Docker. Please install Docker on the target VPS and ensure the daemon is running.";
+  const dockerInstallHint = t("backend.quick-service.dockerInstallHintRemote");
   try {
     const { server } = await loadRemoteSshParams(target.serverId);
     const version = (await dockerExec(target, ["--version"], 10_000)).trim();
@@ -374,8 +372,8 @@ export async function getDockerEnvironmentStatusFor(
       available: false,
       running: false,
       version: null,
-      message: `Remote Docker unavailable: ${message}`,
-      installHint: DOCKER_INSTALL_HINT,
+      message: t("backend.quick-service.dockerUnavailableRemote", { message }),
+      installHint: dockerInstallHint,
       scope: "remote-vps",
       serverId: target.serverId,
     };

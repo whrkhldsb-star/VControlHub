@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { LinkIcon } from "@/components/icons";
@@ -27,6 +27,14 @@ export function ShareFileButton({
   const [error, setError] = useState("");
 
   const savingRef = useRef(false);
+  const copiedTimerRef = useRef<number | null>(null);
+
+  useEffect(
+    () => () => {
+      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+    },
+    [],
+  );
 
   const canShare = entry.entryType === "FILE";
   const label = useMemo(
@@ -38,7 +46,11 @@ export function ShareFileButton({
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
-      window.setTimeout(() => setCopied(false), 1800);
+      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+      copiedTimerRef.current = window.setTimeout(() => {
+        copiedTimerRef.current = null;
+        setCopied(false);
+      }, 1800);
     } catch {
       setCopied(false);
     }

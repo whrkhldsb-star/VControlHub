@@ -17,10 +17,11 @@ import {
   VPS_BACKUP_CREATE_JOB_TYPE,
 } from "./vps-backup-service";
 import { config } from "@/lib/config/env";
+import { computeLeaseMs } from "@/lib/job/lease";
 import { runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
 
 const POLL_INTERVAL_MS = 5000;
-const LEASE_MS = 30 * 60 * 1000; // 30 min for large remote backups
+const LEASE_MS = computeLeaseMs("vps-backup");
 const WORKER_ID = `${config.app.hostname || "localhost"}:vps-backup:${process.pid}`;
 
 let interval: ReturnType<typeof setInterval> | null = null;

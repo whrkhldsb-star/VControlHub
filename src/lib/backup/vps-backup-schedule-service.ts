@@ -80,6 +80,7 @@ export async function createVpsBackupSchedule(input: {
 
 export async function updateVpsBackupSchedule(
 	id: string,
+	serverId: string,
 	input: Partial<{
 		name: string;
 		cronExpression: string;
@@ -111,7 +112,7 @@ export async function updateVpsBackupSchedule(
 	// custom type without paths is only enforceable when we know the resulting type.
 	if (data.backupType === "custom" || (data.backupType === undefined && input.paths !== undefined)) {
 		const existing = await prisma.vpsBackupSchedule.findUnique({
-			where: { id },
+			where: { id, serverId },
 			select: { backupType: true, paths: true },
 		});
 		const nextType = (data.backupType as string | undefined) ?? existing?.backupType;
@@ -121,11 +122,14 @@ export async function updateVpsBackupSchedule(
 		}
 	}
 
-	return prisma.vpsBackupSchedule.update({ where: { id }, data });
+	return prisma.vpsBackupSchedule.update({ where: { id, serverId }, data });
 }
 
-export async function deleteVpsBackupSchedule(id: string): Promise<void> {
-	await prisma.vpsBackupSchedule.delete({ where: { id } });
+export async function deleteVpsBackupSchedule(
+	id: string,
+	serverId: string,
+): Promise<void> {
+	await prisma.vpsBackupSchedule.delete({ where: { id, serverId } });
 }
 
 /* ── Schedule dispatch ───────────────────────────────────── */
@@ -265,4 +269,3 @@ export function computeNextRun(cronExpression: string, from: Date = new Date()):
 		return new Date(from.getTime() + 24 * 60 * 60 * 1000);
 	}
 }
-

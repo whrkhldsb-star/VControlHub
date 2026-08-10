@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useCallback, useState, useMemo } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useToast } from "@/components/toast-provider";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -84,9 +84,17 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { state: filters, setField: setFilter } = useUrlQueryState({ q: "", lang: "ALL" });
   const search = filters.q;
   const langFilter = filters.lang;
+
+  useEffect(
+    () => () => {
+      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+    },
+    [],
+  );
 
   const languages = useMemo(() => {
     const langs = new Set(items.map((s) => s.language));
@@ -131,7 +139,11 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
       const full = await fetchFullSnippet(snippet);
       await navigator.clipboard.writeText(full.content ?? "");
       setCopiedId(full.id);
-      setTimeout(() => setCopiedId(null), 2000);
+      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+      copiedTimerRef.current = setTimeout(() => {
+        copiedTimerRef.current = null;
+        setCopiedId(null);
+      }, 2000);
     } catch {
       // Clipboard write failed (permissions, non-secure context) — notify the user.
       addToast("error", t("snippetsPage.toast.copyFailed"));

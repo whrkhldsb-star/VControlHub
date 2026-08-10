@@ -529,7 +529,7 @@ describe("quick service docker lifecycle", () => {
 
 		expect(getDockerEnvironmentStatus()).toEqual(expect.objectContaining({
 			available: false,
-			message: "Docker is not installed",
+			message: expect.stringMatching(/Docker is not installed|尚未安装 Docker/),
 			installHint: expect.stringContaining("get.docker.com"),
 		}));
 	});

@@ -1068,6 +1068,7 @@ describe("storage service", () => {
       updatedAt: new Date(),
       storageNode: {
         id: "node_1",
+        teamId: "team-1",
         driver: "LOCAL",
         basePath: tempRoot,
         host: null,
@@ -1092,7 +1093,10 @@ describe("storage service", () => {
         }),
       );
       expect(prisma.fileEntry.update).toHaveBeenCalledWith({
-        where: { id: "file_restore_local" },
+        where: {
+          id: "file_restore_local",
+          storageNode: { teamId: "team-1" },
+        },
         data: { isDeleted: false },
       });
     } finally {
@@ -1157,6 +1161,7 @@ describe("storage service", () => {
       updatedAt: new Date(),
       storageNode: {
         id: "node_2",
+        teamId: "team-1",
         driver: "SFTP",
         basePath: "/data/files",
         host: "203.0.113.10",
@@ -1199,7 +1204,10 @@ describe("storage service", () => {
       }),
     );
     expect(prisma.fileEntry.update).toHaveBeenCalledWith({
-      where: { id: "file_restore_sftp" },
+      where: {
+        id: "file_restore_sftp",
+        storageNode: { teamId: "team-1" },
+      },
       data: { isDeleted: false },
     });
   });
