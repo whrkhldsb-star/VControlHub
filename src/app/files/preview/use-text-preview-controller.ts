@@ -138,12 +138,35 @@ export function useTextPreviewController(options: {
         let content: string;
         let nextDraftVersion: { updatedAt?: string | null; lastModifiedMs?: number | null } = {};
         if (canEdit && fileEntryId) {
-          const data = await csrfFetch<{ draft: EditableDraft }>(`/api/files/editable/${fileEntryId}`);
-          content = data.draft.content;
-          nextDraftVersion = {
-            updatedAt: data.draft.updatedAt,
-            lastModifiedMs: data.draft.lastModifiedMs,
-          };
+          if (driver === "SFTP" && nodeId && relativePath) {
+            const data = await csrfFetch<{
+              content?: string;
+              encoding?: "text" | "base64";
+              draft?: EditableDraft;
+            }>("/api/storage/sftp-ops", {
+              method: "POST",
+              body: JSON.stringify({
+                action: "read",
+                nodeId,
+                path: relativePath,
+              }),
+            });
+            if (data.encoding === "base64") {
+              throw new Error(t("textPreview.error.binaryEditable"));
+            }
+            const remoteContent = data.content ?? data.draft?.content;
+            if (typeof remoteContent !== "string") {
+              throw new Error(t("textPreview.error.loadFailed"));
+            }
+            content = remoteContent;
+          } else {
+            const data = await csrfFetch<{ draft: EditableDraft }>(`/api/files/editable/${fileEntryId}`);
+            content = data.draft.content;
+            nextDraftVersion = {
+              updatedAt: data.draft.updatedAt,
+              lastModifiedMs: data.draft.lastModifiedMs,
+            };
+          }
         } else {
           const res = await fetch(href);
           if (!res.ok) {
@@ -172,7 +195,7 @@ export function useTextPreviewController(options: {
     return () => {
       cancelled = true;
     };
-  }, [href, fileEntryId, canEdit, loadVersion, t]);
+  }, [href, fileEntryId, canEdit, driver, nodeId, relativePath, loadVersion, t]);
 
   const handleJumpToLine = useCallback(() => {
     const num = parseInt(jumpLine, 10);

@@ -7,7 +7,7 @@
  * `recycleBinSection.*` call sites.
  */
 export const zh: Record<string, string> = {
-	"recycleBinSection.title": "🗑️ 回收站",
+	"recycleBinSection.title": "回收站",
 	"recycleBinSection.empty": "回收站为空，没有已删除的文件。",
 	"recycleBinSection.summary": "共 {count} 个已删除条目。恢复后文件将回到原路径。",
 	"recycleBinSection.table.name": "名称",
@@ -21,7 +21,7 @@ export const zh: Record<string, string> = {
 };
 
 export const en: Record<string, string> = {
-	"recycleBinSection.title": "🗑️ Recycle Bin",
+	"recycleBinSection.title": "Recycle Bin",
 	"recycleBinSection.empty": "The recycle bin is empty — no deleted files.",
 	"recycleBinSection.summary": "{count} deleted entries. Restoring returns the file to its original path.",
 	"recycleBinSection.table.name": "Name",

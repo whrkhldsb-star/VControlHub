@@ -99,11 +99,28 @@ export function FilesBrowserSpa({
       return next;
     });
   }, []);
+  const refreshCurrentListing = useCallback(
+    () =>
+      fetchFiles(
+        data.currentPath,
+        data.searchQuery,
+        data.searchScope,
+        data.nodeIdFilter,
+      ),
+    [
+      data.currentPath,
+      data.nodeIdFilter,
+      data.searchQuery,
+      data.searchScope,
+      fetchFiles,
+    ],
+  );
 
   // Node filter handler
   const handleNodeFilterChange = useCallback(
     (newNodeId: string) => {
       // Reset to root path when switching nodes
+      setUploadOpen(false);
       fetchFiles("", data.searchQuery, data.searchScope, newNodeId, {
         resetSelection: true,
       });
@@ -241,10 +258,11 @@ export function FilesBrowserSpa({
                   <button
                     type="button"
                     onClick={() => setUploadOpen(true)}
+                    disabled={loading}
                     data-action-button
                     data-variant="primary"
                     aria-haspopup="dialog"
-                    className="px-4 py-2 text-sm"
+                    className="px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {t("filesBrowserSpa.uploadFiles")}
                   </button>
@@ -254,14 +272,8 @@ export function FilesBrowserSpa({
                     storageNodes={data.nodes}
                     currentPath={data.currentPath}
                     initialNodeId={data.nodeIdFilter || undefined}
-                    onCreated={() =>
-                      fetchFiles(
-                        data.currentPath,
-                        data.searchQuery,
-                        data.searchScope,
-                        data.nodeIdFilter,
-                      )
-                    }
+                    disabled={loading}
+                    onCreated={refreshCurrentListing}
                   />
                 ) : (
                   <ActionButton variant="secondary"
@@ -302,14 +314,7 @@ export function FilesBrowserSpa({
             currentPath={data.currentPath}
             searchQuery={data.searchQuery}
             onFolderClick={navigateToFolder}
-            onRefresh={() =>
-              fetchFiles(
-                data.currentPath,
-                data.searchQuery,
-                data.searchScope,
-                data.nodeIdFilter,
-              )
-            }
+            onRefresh={refreshCurrentListing}
           />
         </article>
 

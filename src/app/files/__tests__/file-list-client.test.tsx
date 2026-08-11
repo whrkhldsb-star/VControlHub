@@ -458,6 +458,50 @@ describe("FileListClient", () => {
     );
   });
 
+  it("keeps folder rename, move, download, and delete available in every view", async () => {
+    renderFileList({ files: [], folders: [folder], canDelete: true });
+
+    for (const mode of ["列表视图", "图标视图", "详情视图"]) {
+      fireEvent.click(screen.getByRole("button", { name: mode }));
+      expect(
+        (await screen.findAllByRole("link", { name: "下载目录归档 photos" }))
+          .length,
+      ).toBeGreaterThan(0);
+      expect(
+        (await screen.findAllByRole("button", { name: "重命名 photos" }))
+          .length,
+      ).toBeGreaterThan(0);
+      expect(
+        (await screen.findAllByRole("button", { name: "移动 photos" }))
+          .length,
+      ).toBeGreaterThan(0);
+      expect(
+        (await screen.findAllByRole("button", { name: "删除 photos" }))
+          .length,
+      ).toBeGreaterThan(0);
+    }
+  });
+
+  it("hides folder mutations when folder capabilities deny them", async () => {
+    renderFileList({
+      files: [],
+      folders: [
+        {
+          ...folder,
+          capabilities: { canRead: true, canWrite: false, canDelete: false },
+        },
+      ],
+      canDelete: true,
+    });
+
+    expect(
+      screen.getAllByRole("link", { name: "下载目录归档 photos" }).length,
+    ).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: "重命名 photos" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "移动 photos" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "删除 photos" })).not.toBeInTheDocument();
+  });
+
   it("opens an asset detail panel that consolidates preview, download, share, and media actions", async () => {
     renderFileList({ files: [imageFile], folders: [], canShare: true });
 
@@ -542,7 +586,11 @@ describe("FileListClient", () => {
       screen.queryByRole("link", { name: /cover\.jpg/ }),
     ).not.toBeInTheDocument();
     expect(screen.queryByLabelText("选择 cover.jpg")).not.toBeInTheDocument();
-    expect(screen.queryAllByTestId("delete-btn")).toHaveLength(0);
+    expect(
+      screen
+        .queryAllByTestId("delete-btn")
+        .filter((button) => button.getAttribute("data-file-entry-id") === "file_1"),
+    ).toHaveLength(0);
     fireEvent.click(screen.getByLabelText("全选文件"));
     expect(screen.queryByText(/已选/)).not.toBeInTheDocument();
   });

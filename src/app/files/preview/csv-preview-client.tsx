@@ -3,6 +3,7 @@
 import { useI18n } from "@/lib/i18n/use-locale";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { useAbortableTextResource } from "@/lib/http/use-abortable-text-resource";
+import { AlertTriangle, File } from "@/components/icons";
 
 
 function parseCsv(text: string): string[][] {
@@ -101,7 +102,7 @@ export function CsvPreviewClient({ href }: { href: string }) {
 	if (state.error) {
 		return (
 			<div className="flex flex-col items-center gap-3 py-16 text-[var(--danger)]">
-				<span className="text-3xl">⚠️</span>
+				<AlertTriangle size={32} aria-hidden="true" />
 				<p className="text-sm">{state.error}</p>
 			</div>
 		);
@@ -110,7 +111,7 @@ export function CsvPreviewClient({ href }: { href: string }) {
 	if (!state.rows || state.rows.length === 0) {
 		return (
 			<div className="flex flex-col items-center gap-3 py-16 text-[var(--text-secondary)]">
-				<span className="text-3xl">📊</span>
+				<File size={32} aria-hidden="true" />
 				<p className="text-sm">{t("csvPreview.empty")}</p>
 			</div>
 		);

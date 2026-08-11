@@ -13,7 +13,7 @@ import Link from "next/link";
 import { useI18n } from "@/lib/i18n/use-locale";
 
 import { FileTypeIcon } from "./file-entry-icons";
-import { FileRowActions } from "./file-list-actions";
+import { FileRowActions, FolderRowActions } from "./file-list-actions";
 import {
   buildForcedDownloadHref,
   getPreviewHref,
@@ -91,26 +91,40 @@ export function FileListGridView({
 
       {/* Folder cards */}
       {sortedFolders.map((folder) => (
-        <button
+        <div
           key={folder.path}
-          type="button"
-          onClick={() => navigateToFolder(folder.path)}
           data-testid="folder-card"
-          className="group flex min-h-[156px] flex-col items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5 text-center transition-colors duration-150 hover:border-[var(--warning-border)] hover:bg-[var(--warning)]/[0.04]"
+          className="group flex min-h-[180px] flex-col overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)] text-center transition-colors duration-150 hover:border-[var(--warning-border)] hover:bg-[var(--warning)]/[0.04]"
         >
-          <div
-            className="rounded-xl bg-[var(--warning-bg)] p-3 transition-colors group-hover:bg-[var(--warning-bg)]"
-            aria-hidden="true"
+          <button
+            type="button"
+            onClick={() => navigateToFolder(folder.path)}
+            className="flex flex-1 flex-col items-center gap-3 p-5"
           >
-            <FileTypeIcon entry={{ entryType: "DIRECTORY" }} size={36} />
+            <span
+              className="rounded-xl bg-[var(--warning-bg)] p-3 transition-colors group-hover:bg-[var(--warning-bg)]"
+              aria-hidden="true"
+            >
+              <FileTypeIcon entry={{ entryType: "DIRECTORY" }} size={36} />
+            </span>
+            <span className="w-full truncate text-sm font-medium text-[var(--text-primary)] transition">
+              {folder.displayName ?? folder.name}
+            </span>
+            <span className="text-xs text-[var(--text-muted)]">
+              {t("fileListClient.folderItemCount", { count: folder.fileCount + folder.folderCount })}
+            </span>
+          </button>
+          <div className="flex min-h-14 items-center justify-center border-t border-[var(--border)] bg-[var(--surface-subtle)] px-3 py-2">
+            <FolderRowActions
+              folder={folder}
+              canWrite={entryCanWrite(folder)}
+              canDelete={canDelete && entryCanDelete(folder)}
+              entryCanRead={entryCanRead}
+              onRefresh={onRefresh}
+              onNotify={onNotify}
+            />
           </div>
-          <span className="w-full truncate text-sm font-medium text-[var(--text-primary)] group-hover:text-[var(--text-primary)] light:hover:text-[var(--text-primary)] transition">
-            {folder.displayName ?? folder.name}
-          </span>
-          <span className="text-xs text-[var(--text-muted)]">
-            {t("fileListClient.folderItemCount", { count: folder.fileCount + folder.folderCount })}
-          </span>
-        </button>
+        </div>
       ))}
 
       {/* File cards */}

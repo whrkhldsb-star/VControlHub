@@ -15,6 +15,11 @@ import Link from "next/link";
 
 import { useI18n } from "@/lib/i18n/use-locale";
 import { FileMoreActionsLazy } from "./file-more-actions-lazy";
+import {
+  DeleteConfirmButton,
+  MoveInlineForm,
+  RenameInlineForm,
+} from "./file-row-actions";
 import { DownloadIcon, PreviewIcon } from "./file-entry-icons";
 import {
   buildArchiveDownloadHref,
@@ -148,6 +153,62 @@ export function FolderDownloadActionLink({
   );
 }
 
+export function FolderRowActions({
+  folder,
+  canWrite,
+  canDelete,
+  onRefresh,
+  onNotify,
+  entryCanRead,
+}: {
+  folder: FolderProp;
+  canWrite: boolean;
+  canDelete: boolean;
+  onRefresh?: () => void;
+  onNotify: ToastFn;
+  entryCanRead: EntryGuard;
+}) {
+  const entryId = folder.entryId?.trim();
+  const name = folder.displayName ?? folder.name;
+
+  return (
+    <div className="flex flex-wrap items-center gap-1">
+      <FolderDownloadActionLink
+        folder={folder}
+        entryCanRead={entryCanRead}
+        compact
+      />
+      {canWrite && entryId ? (
+        <RenameInlineForm
+          fileEntryId={entryId}
+          currentName={name}
+          currentPath={folder.path}
+          onRefresh={onRefresh}
+          onNotify={onNotify}
+        />
+      ) : null}
+      {canWrite && entryId ? (
+        <MoveInlineForm
+          fileEntryId={entryId}
+          name={name}
+          relativePath={folder.path}
+          onRefresh={onRefresh}
+          onNotify={onNotify}
+        />
+      ) : null}
+      {canDelete && entryId ? (
+        <DeleteConfirmButton
+          fileEntryId={entryId}
+          entryName={name}
+          entryType="DIRECTORY"
+          onRefresh={onRefresh}
+          onNotify={onNotify}
+        />
+      ) : null}
+    </div>
+  );
+}
+
 /**
  * Composite"row of action buttons" for a single file row. Always
  * renders: detail button + (conditional) preview link + download link
@@ -203,6 +264,7 @@ export function FileRowActions({
         compact
       />
       <FileMoreActionsLazy
+        key={`${entry.id}:${entry.name}:${entry.relativePath}`}
         entry={entry}
         compact={compact}
         canShare={canShare}

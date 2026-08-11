@@ -40,6 +40,7 @@ vi.mock("@/components/storage/file-upload-dropzone", () => ({
 vi.mock("../create-folder-form", () => ({
   CreateFolderForm: (props: {
     initialNodeId?: string;
+    disabled?: boolean;
     onCreated?: () => void;
   }) =>
     React.createElement(
@@ -47,6 +48,7 @@ vi.mock("../create-folder-form", () => ({
       {
         type: "button",
         onClick: () => props.onCreated?.(),
+        disabled: props.disabled,
         "data-initial-node-id": props.initialNodeId ?? "",
       },
       "新建文件夹",
@@ -320,6 +322,51 @@ describe("FilesBrowserSpa", () => {
         expect.any(Object),
       ),
     );
+  });
+
+  it("blocks upload and folder creation until a storage-node switch finishes", async () => {
+    let resolveSwitch!: (value: Response) => void;
+    vi.mocked(globalThis.fetch).mockImplementationOnce(
+      () => new Promise<Response>((resolve) => { resolveSwitch = resolve; }),
+    );
+    renderWithI18n(
+      <FilesBrowserSpa
+        initialData={{
+          ...baseData,
+          nodes: [
+            { id: "node_1", name: "本机存储", driver: "LOCAL" },
+            { id: "node_sftp_1", name: "香港 VPS", driver: "SFTP" },
+          ],
+        }}
+      />,
+    );
+
+    fireEvent.change(screen.getAllByLabelText("选择存储节点")[0]!, {
+      target: { value: "node_sftp_1" },
+    });
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "⬆ 上传文件" })).toBeDisabled(),
+    );
+    expect(screen.getByRole("button", { name: "新建文件夹" })).toBeDisabled();
+
+    resolveSwitch({
+      ok: true,
+      json: async () => ({
+        ...baseData,
+        currentPath: "",
+        nodeIdFilter: "node_sftp_1",
+        nodes: [
+          { id: "node_1", name: "本机存储", driver: "LOCAL" },
+          { id: "node_sftp_1", name: "香港 VPS", driver: "SFTP" },
+        ],
+      }),
+    } as Response);
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "⬆ 上传文件" })).toBeEnabled(),
+    );
+    expect(screen.getByRole("button", { name: "新建文件夹" })).toBeEnabled();
   });
 
   it("uses the unified file list for SFTP nodes instead of rendering a separate SFTP browser", async () => {

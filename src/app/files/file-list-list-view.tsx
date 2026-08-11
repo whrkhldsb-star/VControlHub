@@ -13,8 +13,7 @@ import Link from "next/link";
 
 import { useI18n } from "@/lib/i18n/use-locale";
 import { FileTypeIcon } from "./file-entry-icons";
-import { FileRowActions, FolderDownloadActionLink } from "./file-list-actions";
-import { RenameInlineForm, MoveInlineForm } from "./file-row-actions";
+import { FileRowActions, FolderRowActions } from "./file-list-actions";
 import { SortIcon } from "./use-file-list-sort";
 import {
   buildForcedDownloadHref,
@@ -204,29 +203,14 @@ export function FileListListView(props: FileListListViewProps) {
                     </svg>
                     {t("fileListClient.open")}
                   </ActionButton>
-                  {folderCanWrite(folder) && folder.entryId ? (
-                    <RenameInlineForm
-                      fileEntryId={folder.entryId}
-                      currentName={folder.displayName ?? folder.name}
-                      currentPath={folder.path}
-                      onRefresh={onRefresh}
-                      onNotify={onNotify}
-                    />
-                  ) : null}
-                  <FolderDownloadActionLink
+                  <FolderRowActions
                     folder={folder}
+                    canWrite={folderCanWrite(folder)}
+                    canDelete={canDelete && entryCanDelete(folder)}
                     entryCanRead={entryCanRead}
-                    compact
+                    onRefresh={onRefresh}
+                    onNotify={onNotify}
                   />
-                  {folderCanWrite(folder) && folder.entryId ? (
-                    <MoveInlineForm
-                      fileEntryId={folder.entryId}
-                      name={folder.displayName ?? folder.name}
-                      relativePath={folder.path}
-                      onRefresh={onRefresh}
-                      onNotify={onNotify}
-                    />
-                  ) : null}
                 </div>
               </div>
             ))}

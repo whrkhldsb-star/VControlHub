@@ -1,6 +1,7 @@
 "use client";
 
 import { useI18n } from "@/lib/i18n/use-locale";
+import { File } from "@/components/icons";
 
 export function OfficePreviewClient({
 	href,
@@ -12,7 +13,7 @@ export function OfficePreviewClient({
 	const { t } = useI18n();
 	return (
 		<div className="flex flex-col items-center gap-4 py-12 text-center text-[var(--text-secondary)]">
-			<span className="text-6xl">📝</span>
+			<File size={64} aria-hidden="true" />
 			<div className="space-y-2">
 				<p className="text-lg text-[var(--text-secondary)]">{t("officePreview.title")}</p>
 				<p className="max-w-xl text-sm text-[var(--text-muted)]">{t("officePreview.desc")}</p>

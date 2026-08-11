@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useAbortableTextResource } from "@/lib/http/use-abortable-text-resource";
+import { AlertTriangle } from "@/components/icons";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { escapeHtml } from "@/lib/sanitize/escape-html";
 
@@ -318,7 +319,7 @@ export function MarkdownPreviewClient({ href }: { href: string }) {
   if (state.error) {
     return (
       <div className="flex flex-col items-center gap-3 py-16 text-[var(--danger)]">
-        <span className="text-3xl">⚠️</span>
+        <AlertTriangle size={32} aria-hidden="true" />
         <p className="text-sm">{state.error}</p>
       </div>
     );

@@ -1,7 +1,6 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 
 import { useI18n } from "@/lib/i18n/use-locale";
 import { type MoveFileActionState, moveFileAction } from "./move-file-action";
@@ -26,12 +25,20 @@ export function MoveInlineForm({
   onRefresh?: () => void;
   onNotify?: (type: "success" | "error" | "info", message: string) => void;
 }) {
-  const router = useRouter();
   const { t } = useI18n();
   const [editing, setEditing] = useState(false);
   const [targetDir, setTargetDir] = useState("");
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const submittedRef = useRef(false);
+  const handledSuccessRef = useRef<string | null>(null);
   const [state, formAction, pending] = useActionState(moveFileAction, initialState);
+  const onNotifyRef = useRef(onNotify);
+  const onRefreshRef = useRef(onRefresh);
+
+  useEffect(() => {
+    onNotifyRef.current = onNotify;
+    onRefreshRef.current = onRefresh;
+  }, [onNotify, onRefresh]);
 
   function handleToggle() {
     setEditing(true);
@@ -45,18 +52,26 @@ export function MoveInlineForm({
   }
 
   useEffect(() => {
-    if (!state.success) return;
-    onNotify?.("success", state.success);
-    const t = setTimeout(() => {
+    if (!state.success) {
+      handledSuccessRef.current = null;
+      return;
+    }
+    if (handledSuccessRef.current === state.success) return;
+    handledSuccessRef.current = state.success;
+    onNotifyRef.current?.("success", state.success);
+  }, [state.success]);
+
+  useEffect(() => {
+    if (pending || !submittedRef.current) return;
+    const timer = window.setTimeout(() => {
+      submittedRef.current = false;
+      if (state.error) return;
       setEditing(false);
-      if (onRefresh) {
-        onRefresh();
-      } else {
-        router.refresh();
-      }
-    }, 250);
-    return () => clearTimeout(t);
-  }, [state.success, onNotify, onRefresh, router]);
+      onRefreshRef.current?.();
+      window.setTimeout(() => window.location.reload(), 250);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [pending, state.error]);
 
   useEffect(() => {
     if (!state.error) return;
@@ -102,7 +117,11 @@ export function MoveInlineForm({
     : relativePath;
 
   return (
-    <form action={formAction} className="flex flex-wrap items-center gap-2">
+    <form
+      action={formAction}
+      onSubmit={() => { submittedRef.current = true; }}
+      className="flex flex-wrap items-center gap-2"
+    >
       <input type="hidden" name="fileEntryId" value={fileEntryId} />
       <label className="grid gap-1 text-sm text-[var(--text-secondary)]">
         <span className="sr-only">{t("filesPage.actions.targetPath")}</span>

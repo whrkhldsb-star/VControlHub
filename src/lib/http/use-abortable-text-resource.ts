@@ -31,6 +31,15 @@ export function useAbortableTextResource({
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const requestRef = useRef(0);
+  const fetcherRef = useRef(fetcher);
+  const errorMessageRef = useRef(errorMessage);
+  const getErrorMessageRef = useRef(getErrorMessage);
+
+  useEffect(() => {
+    fetcherRef.current = fetcher;
+    errorMessageRef.current = errorMessage;
+    getErrorMessageRef.current = getErrorMessage;
+  }, [errorMessage, fetcher, getErrorMessage]);
 
   const reload = useCallback(async () => {
     abortRef.current?.abort();
@@ -40,8 +49,9 @@ export function useAbortableTextResource({
     setLoading(true);
     setError(null);
     try {
-      const response = await fetcher(href, { signal: controller.signal });
-      if (!response.ok) throw new Error(errorMessage(response.status));
+      const currentFetcher = fetcherRef.current;
+      const response = await currentFetcher(href, { signal: controller.signal });
+      if (!response.ok) throw new Error(errorMessageRef.current(response.status));
       const next = await response.text();
       if (requestId !== requestRef.current) return;
       setContent(next);
@@ -49,11 +59,11 @@ export function useAbortableTextResource({
       if (cause instanceof Error && cause.name === "AbortError") return;
       if (requestId !== requestRef.current) return;
       setContent(null);
-      setError(getErrorMessage(cause));
+      setError(getErrorMessageRef.current(cause));
     } finally {
       if (requestId === requestRef.current) setLoading(false);
     }
-  }, [errorMessage, fetcher, getErrorMessage, href]);
+  }, [href]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => { void reload(); }, 0);

@@ -1,7 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useActionState, useEffect, useRef, useState } from "react";
 
 import { ActionButton } from "@/components/action-button";
 import { SubmitButton } from "@/components/submit-button";
@@ -28,27 +27,47 @@ export function DeleteConfirmButton({
   onRefresh?: () => void;
   onNotify?: (type: "success" | "error" | "info", message: string) => void;
 }) {
-  const router = useRouter();
   const { t } = useI18n();
   const [confirming, setConfirming] = useState(false);
-  const [state, formAction] = useActionState(
+  const [state, formAction, pending] = useActionState(
     deleteFileEntryAction,
     initialState,
   );
+  const submittedRef = useRef(false);
+  const handledSuccessRef = useRef<string | null>(null);
+  const onNotifyRef = useRef(onNotify);
+  const onRefreshRef = useRef(onRefresh);
+
+  useEffect(() => {
+    onNotifyRef.current = onNotify;
+    onRefreshRef.current = onRefresh;
+  }, [onNotify, onRefresh]);
 
   function handleCancel() {
     setConfirming(false);
   }
 
   useEffect(() => {
-    if (!state.success) return;
-    onNotify?.("success", state.success);
-    if (onRefresh) {
-      onRefresh();
-    } else {
-      router.refresh();
+    if (!state.success) {
+      handledSuccessRef.current = null;
+      return;
     }
-  }, [onNotify, onRefresh, router, state.success]);
+    if (handledSuccessRef.current === state.success) return;
+    handledSuccessRef.current = state.success;
+    onNotifyRef.current?.("success", state.success);
+  }, [state.success]);
+
+  useEffect(() => {
+    if (pending || !submittedRef.current) return;
+    const timer = window.setTimeout(() => {
+      submittedRef.current = false;
+      if (state.error) return;
+      setConfirming(false);
+      onRefreshRef.current?.();
+      window.setTimeout(() => window.location.reload(), 250);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [pending, state.error]);
 
   useEffect(() => {
     if (!state.error) return;
@@ -90,7 +109,11 @@ export function DeleteConfirmButton({
   }
 
   return (
-    <form action={formAction} className="flex flex-wrap items-center gap-3">
+    <form
+      action={formAction}
+      onSubmit={() => { submittedRef.current = true; }}
+      className="flex flex-wrap items-center gap-3"
+    >
       <input type="hidden" name="fileEntryId" value={fileEntryId} />
       <span className="text-sm text-[var(--danger)]">
         {t("filesPage.actions.confirmDelete", { name: entryName, contents: entryType === "DIRECTORY" ? t("filesPage.actions.directoryContents") : "" })}

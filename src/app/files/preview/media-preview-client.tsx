@@ -1,6 +1,7 @@
 "use client";
 
 import { useI18n } from "@/lib/i18n/use-locale";
+import { Music2 } from "@/components/icons";
 
 export function MediaPreviewClient({
 	href,
@@ -31,7 +32,7 @@ export function MediaPreviewClient({
 				</video>
 			) : isAudio ? (
 				<div className="flex flex-col items-center gap-4 py-8">
-					<span className="text-6xl">🎵</span>
+					<Music2 size={64} aria-hidden="true" />
 					<span className="text-lg text-[var(--text-secondary)]">{name}</span>
 					<audio src={href} controls className="w-full max-w-lg" autoPlay>
 						{t("mediaPreview.audioUnsupported")}

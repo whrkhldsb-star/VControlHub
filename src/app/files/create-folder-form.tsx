@@ -22,11 +22,13 @@ export function CreateFolderForm({
   storageNodes,
   currentPath,
   initialNodeId,
+  disabled = false,
   onCreated,
 }: {
   storageNodes: StorageNodeOption[];
   currentPath: string;
   initialNodeId?: string;
+  disabled?: boolean;
   onCreated?: () => void | Promise<void>;
 }) {
   const { t } = useI18n();
@@ -69,6 +71,12 @@ export function CreateFolderForm({
   }, [defaultNodeId]);
 
   useEffect(() => {
+    if (!disabled) return;
+    setExpanded(false);
+    setFolderName("");
+  }, [disabled]);
+
+  useEffect(() => {
     if (!state.success) return;
     let active = true;
     setRefreshing(true);
@@ -92,8 +100,9 @@ export function CreateFolderForm({
       <button
         type="button"
         onClick={handleToggle}
+        disabled={disabled}
         data-tone="accent"
-        className="rounded-lg border px-4 py-2 text-sm font-medium transition"
+        className="rounded-lg border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
       >
         {t("common.newFolder")}
       </button>
@@ -144,7 +153,7 @@ export function CreateFolderForm({
       ) : null}
       <ActionButton variant="primary"
         type="submit"
-        disabled={!folderName.trim() || isPending || refreshing}
+        disabled={disabled || !folderName.trim() || isPending || refreshing}
         data-tone="accent" className="disabled:opacity-50"
       >
         {isPending || refreshing ? t("common.submitting") : t("common.create")}

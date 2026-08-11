@@ -1,7 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
 import { auditUserAction } from "@/lib/audit/service";
 import { requirePermission } from "@/lib/auth/authorization";
 import { teamWhere } from "@/lib/auth/team-scope";
@@ -369,10 +367,6 @@ export async function renameFileEntryAction(
       oldPath: entry.relativePath,
       newPath: newRelativePath,
     });
-
-    revalidatePath("/");
-    revalidatePath("/storage");
-    revalidatePath("/files");
 
     return { success: t("storagePage.action.fileRenamed", { name: normalizedNewName }) } satisfies StorageActionState;
   } catch (error) {

@@ -433,9 +433,11 @@ export async function listFileEntries(
       storageNode: entry.storageNode,
       sizeLabel: entry.size == null ? "-" : formatFileSize(Number(entry.size)),
       directAccess,
-      // Only LOCAL files use /api/files/editable (SFTP loads via sftp-ops).
+      // LOCAL drafts use /api/files/editable; SFTP drafts use sftp-ops.
+      // The UI capability must include both or remote text editing stays hidden.
       localEditable:
-        entry.storageNode.driver === "LOCAL" &&
+        (entry.storageNode.driver === "LOCAL" ||
+          entry.storageNode.driver === "SFTP") &&
         isEditableTextFile({
           entryType: entry.entryType,
           name: entry.name,

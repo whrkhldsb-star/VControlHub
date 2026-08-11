@@ -65,7 +65,7 @@ export const zh: Record<string, string> = {
   "filesBrowserSpa.breadcrumbAria": "面包屑",
   "filesBrowserSpa.sidebarAria": "目录树",
   "filesBrowserSpa.searchPlaceholder": "节点名称、类型或 ID",
-  "filesBrowserSpa.allNodesOption": "🌐 全部节点",
+  "filesBrowserSpa.allNodesOption": "全部节点",
   "filesBrowserSpa.collapseNode": "折叠",
   "filesBrowserSpa.expandNode": "展开",
   "filesBrowserSpa.cannotCreateFolderNoPermission":
@@ -192,7 +192,7 @@ export const en: Record<string, string> = {
   "filesBrowserSpa.breadcrumbAria": "Breadcrumb",
   "filesBrowserSpa.sidebarAria": "Directory tree",
   "filesBrowserSpa.searchPlaceholder": "Node name, type, or ID",
-  "filesBrowserSpa.allNodesOption": "🌐 All nodes",
+  "filesBrowserSpa.allNodesOption": "All nodes",
   "filesBrowserSpa.collapseNode": "Collapse",
   "filesBrowserSpa.expandNode": "Expand",
   "filesBrowserSpa.cannotCreateFolderNoPermission":

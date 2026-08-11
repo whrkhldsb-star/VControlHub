@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { createHash } from "node:crypto";
 
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
@@ -230,6 +231,20 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
       basePath: n.driver === "LOCAL" ? n.basePath : undefined,
     })),
   };
+  const browserSnapshotKey = createHash("sha256")
+    .update(
+      JSON.stringify({
+        nodeId: initialData.nodeIdFilter,
+        path: initialData.currentPath,
+        folders: initialData.folders.map((folder) => folder.relativePath),
+        files: initialData.files.map((file) => [
+          file.id,
+          file.relativePath,
+          file.updatedAt,
+        ]),
+      }),
+    )
+    .digest("base64url");
 
   return (
     <PageShell maxW="max-w-7xl">
@@ -313,7 +328,7 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
         canManageNodes={canManageNodes}
       />
 
-      <FilesBrowserSpa initialData={initialData} />
+      <FilesBrowserSpa key={browserSnapshotKey} initialData={initialData} />
     </PageShell>
   );
 }

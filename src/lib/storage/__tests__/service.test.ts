@@ -229,6 +229,43 @@ describe("storage service", () => {
     expect(result[0]?.sizeLabel).toBe("1.0 KB");
   });
 
+  it("marks editable SFTP text files for the remote editor", async () => {
+    vi.clearAllMocks();
+    vi.mocked(prisma.fileEntry.findMany).mockResolvedValueOnce([
+      {
+        id: "file_sftp_text",
+        name: "app.conf",
+        entryType: "FILE",
+        mimeType: "text/plain",
+        size: BigInt(12),
+        checksumSha256: null,
+        relativePath: "etc/app.conf",
+        storageNodeId: "node_2",
+        parentId: null,
+        isDeleted: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        storageNode: {
+          id: "node_2",
+          name: "远端配置",
+          driver: "SFTP",
+          basePath: "/data",
+          host: "203.0.113.11",
+          port: 22,
+          username: "root",
+          directAccessMode: "PROXY",
+          publicBaseUrl: null,
+          directAccessExpiresSeconds: 300,
+          server: null,
+        },
+      } as any,
+    ]);
+
+    const result = await listFileEntries();
+
+    expect(result[0]?.localEditable).toBe(true);
+  });
+
   it("passes take / skip / cursor through to the fileEntry findMany call", async () => {
     vi.clearAllMocks();
     vi.mocked(prisma.fileEntry.findMany).mockResolvedValueOnce([

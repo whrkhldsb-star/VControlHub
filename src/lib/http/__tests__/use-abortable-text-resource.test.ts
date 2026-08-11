@@ -46,4 +46,39 @@ describe("useAbortableTextResource", () => {
     await act(() => result.current.reload());
     expect(result.current.content).toBe("recovered");
   });
+
+  it("does not reload when callback identities change during a render", async () => {
+    const fetcher = vi.fn().mockResolvedValue(new Response("stable", { status: 200 }));
+    const { result, rerender } = renderHook(
+      ({ renderId }) => useAbortableTextResource({
+        href: "/file",
+        fetcher,
+        errorMessage: (status) => `${renderId}: status ${status}`,
+        getErrorMessage: () => `${renderId}: failed`,
+      }),
+      { initialProps: { renderId: 1 } },
+    );
+
+    await waitFor(() => expect(result.current.content).toBe("stable"));
+    rerender({ renderId: 2 });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(result.current.content).toBe("stable");
+  });
+
+  it("invokes the fetcher as a standalone function", async () => {
+    const fetcherMock = vi.fn(function (this: unknown) {
+      return Promise.resolve(new Response("content", { status: 200 }));
+    });
+    const fetcher = fetcherMock as unknown as typeof fetch;
+
+    const { result } = renderHook(() => useAbortableTextResource({
+      href: "/file",
+      fetcher,
+    }));
+
+    await waitFor(() => expect(result.current.content).toBe("content"));
+    expect(fetcherMock.mock.contexts[0]).toBeUndefined();
+  });
 });

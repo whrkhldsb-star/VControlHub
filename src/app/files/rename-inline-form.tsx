@@ -1,7 +1,6 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 
 import {
   renameFileEntryAction,
@@ -28,14 +27,22 @@ export function RenameInlineForm({
   onNotify?: (type: "success" | "error" | "info", message: string) => void;
 }) {
   const { t } = useI18n();
-  const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [newName, setNewName] = useState(currentName);
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const [state, formAction] = useActionState(
+  const [state, formAction, pending] = useActionState(
     renameFileEntryAction,
     initialState,
   );
+  const submittedRef = useRef(false);
+  const handledSuccessRef = useRef<string | null>(null);
+  const onNotifyRef = useRef(onNotify);
+  const onRefreshRef = useRef(onRefresh);
+
+  useEffect(() => {
+    onNotifyRef.current = onNotify;
+    onRefreshRef.current = onRefresh;
+  }, [onNotify, onRefresh]);
   const canRename = Boolean(fileEntryId?.trim());
 
   function handleToggle() {
@@ -51,18 +58,26 @@ export function RenameInlineForm({
   }
 
   useEffect(() => {
-    if (!state.success) return;
-    onNotify?.("success", state.success);
-    const t = setTimeout(() => {
+    if (!state.success) {
+      handledSuccessRef.current = null;
+      return;
+    }
+    if (handledSuccessRef.current === state.success) return;
+    handledSuccessRef.current = state.success;
+    onNotifyRef.current?.("success", state.success);
+  }, [state.success]);
+
+  useEffect(() => {
+    if (pending || !submittedRef.current) return;
+    const timer = window.setTimeout(() => {
+      submittedRef.current = false;
+      if (state.error) return;
       setEditing(false);
-      if (onRefresh) {
-        onRefresh();
-      } else {
-        router.refresh();
-      }
-    }, 250);
-    return () => clearTimeout(t);
-  }, [state.success, onNotify, onRefresh, router]);
+      onRefreshRef.current?.();
+      window.setTimeout(() => window.location.reload(), 250);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [pending, state.error]);
 
   useEffect(() => {
     if (!state.error) return;
@@ -111,7 +126,11 @@ export function RenameInlineForm({
     ? `${pathPrefix}${newName.trim()}`
     : currentPath;
   return (
-    <form action={formAction} className="flex flex-wrap items-center gap-3">
+    <form
+      action={formAction}
+      onSubmit={() => { submittedRef.current = true; }}
+      className="flex flex-wrap items-center gap-3"
+    >
       {" "}
       <input type="hidden" name="fileEntryId" value={fileEntryId} />{" "}
       <label className="grid gap-1 text-sm text-[var(--text-secondary)]">
@@ -137,7 +156,7 @@ export function RenameInlineForm({
       ) : null}
       <ActionButton variant="primary"
         type="submit"
-        disabled={!newName.trim() || newName === currentName}
+        disabled={pending || !newName.trim() || newName === currentName}
         data-tone="accent" className="disabled:opacity-50"
       >
         {t("renameInlineForm.confirm")}

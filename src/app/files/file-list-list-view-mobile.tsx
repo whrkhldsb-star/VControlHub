@@ -4,8 +4,7 @@ import Link from "next/link";
 
 import { useI18n } from "@/lib/i18n/use-locale";
 import { FileTypeIcon } from "./file-entry-icons";
-import { FileRowActions, FolderDownloadActionLink } from "./file-list-actions";
-import { RenameInlineForm, MoveInlineForm } from "./file-row-actions";
+import { FileRowActions, FolderRowActions } from "./file-list-actions";
 import {
   buildForcedDownloadHref,
   formatDate,
@@ -99,31 +98,16 @@ export function FileListListViewMobile(props: FileListListViewMobileProps) {
               {t("fileListClient.open")}
             </ActionButton>
           </div>
-          {entryCanRead(folder) || folderCanWrite(folder) ? (
+          {entryCanRead(folder) || folderCanWrite(folder) || (canDelete && entryCanDelete(folder)) ? (
             <div className="mt-2 flex flex-wrap gap-1 pl-9">
-              <FolderDownloadActionLink
+              <FolderRowActions
                 folder={folder}
+                canWrite={folderCanWrite(folder)}
+                canDelete={canDelete && entryCanDelete(folder)}
                 entryCanRead={entryCanRead}
-                compact
+                onRefresh={onRefresh}
+                onNotify={onNotify}
               />
-              {folderCanWrite(folder) ? (
-                <RenameInlineForm
-                  fileEntryId={folder.entryId ?? ""}
-                  currentName={folder.displayName ?? folder.name}
-                  currentPath={folder.path}
-                  onRefresh={onRefresh}
-                  onNotify={onNotify}
-                />
-              ) : null}
-              {folderCanWrite(folder) && folder.entryId ? (
-                <MoveInlineForm
-                  fileEntryId={folder.entryId}
-                  name={folder.displayName ?? folder.name}
-                  relativePath={folder.path}
-                  onRefresh={onRefresh}
-                  onNotify={onNotify}
-                />
-              ) : null}
             </div>
           ) : null}
         </div>

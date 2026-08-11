@@ -1,7 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
 import { auditUserAction } from "@/lib/audit/service";
 import { requirePermission } from "@/lib/auth/authorization";
 import { teamWhere } from "@/lib/auth/team-scope";
@@ -157,11 +155,6 @@ export async function deleteFileEntryAction(
       recycleBin: true,
     }, "INFO");
 
-    revalidatePath("/");
-    revalidatePath("/storage");
-    revalidatePath("/files");
-    revalidatePath("/files/recycle-bin");
-
     return {
       success: t("storagePage.action.fileMovedToRecycle", { name: entry.name }),
       physicalDeleted: false,
@@ -236,11 +229,6 @@ export async function restoreFileEntryAction(
       entryName: entry.name,
       relativePath: entry.relativePath,
     });
-
-    revalidatePath("/");
-    revalidatePath("/storage");
-    revalidatePath("/files");
-    revalidatePath("/files/recycle-bin");
 
     return { success: t("storagePage.action.fileRestored", { name: entry.name }) } satisfies StorageActionState;
   } catch (error) {
@@ -360,11 +348,6 @@ export async function permanentDeleteFileEntryAction(
       entryName: entry.name,
       relativePath: entry.relativePath,
     }, "WARNING");
-
-    revalidatePath("/");
-    revalidatePath("/storage");
-    revalidatePath("/files");
-    revalidatePath("/files/recycle-bin");
 
     return { success: t("storagePage.action.filePermanentlyDeleted", { name: entry.name }) } satisfies StorageActionState;
   } catch (error) {

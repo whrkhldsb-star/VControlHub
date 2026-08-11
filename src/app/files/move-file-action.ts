@@ -1,7 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
 import { requirePermission } from "@/lib/auth/authorization";
 import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
@@ -213,10 +211,6 @@ export async function moveFileAction(
       }
       throw databaseError;
     }
-
-    revalidatePath("/");
-    revalidatePath("/storage");
-    revalidatePath("/files");
 
     return {
       success: tr("filesPage.move.success", { path: `/${newRelativePath}` }),

@@ -38,7 +38,7 @@ describe("TextPreviewClient editable mode", () => {
 
     render(<TextPreviewClient href="/download/readme.txt" name="readme.txt" fileEntryId="file_1" editable />);
 
-    expect(await screen.findByText("可在线编辑 · 保存会校验并发修改")).toBeInTheDocument();
+    expect(await screen.findByText("可在线编辑 · 保存前可确认差异")).toBeInTheDocument();
     await actor.click(screen.getByRole("button", { name: "编辑" }));
     const editor = screen.getByRole("textbox", { name: "在线编辑文件内容" });
     fireEvent.change(editor, { target: { value: "alpha\ngamma\ndelta\n" } });
@@ -81,7 +81,7 @@ describe("TextPreviewClient editable mode", () => {
 
     render(<TextPreviewClient href="/download/readme.txt" name="readme.txt" fileEntryId="file_1" editable />);
 
-    await screen.findByText("可在线编辑 · 保存会校验并发修改");
+    await screen.findByText("可在线编辑 · 保存前可确认差异");
     await actor.click(screen.getByRole("button", { name: "编辑" }));
     fireEvent.change(screen.getByRole("textbox", { name: "在线编辑文件内容" }), { target: { value: "alpha\nchanged\n" } });
     await actor.click(screen.getByRole("button", { name: "预览并保存" }));
@@ -118,7 +118,18 @@ describe("TextPreviewClient editable mode", () => {
       />,
     );
 
-    expect(await screen.findByText("可在线编辑 · 保存会校验并发修改")).toBeInTheDocument();
+    expect(await screen.findByText("可在线编辑 · 保存前可确认差异")).toBeInTheDocument();
+    expect(csrfFetch).toHaveBeenCalledWith(
+      "/api/storage/sftp-ops",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          action: "read",
+          nodeId: "node_1",
+          path: "etc/app.conf",
+        }),
+      }),
+    );
     await actor.click(screen.getByRole("button", { name: "编辑" }));
     fireEvent.change(screen.getByRole("textbox", { name: "在线编辑文件内容" }), {
       target: { value: "alpha\ngamma\ndelta\n" },
@@ -170,7 +181,7 @@ describe("TextPreviewClient editable mode", () => {
       />,
     );
 
-    await screen.findByText("可在线编辑 · 保存会校验并发修改");
+    await screen.findByText("可在线编辑 · 保存前可确认差异");
     await actor.click(screen.getByRole("button", { name: "编辑" }));
     fireEvent.change(screen.getByRole("textbox", { name: "在线编辑文件内容" }), {
       target: { value: "alpha\nchanged\n" },
@@ -238,7 +249,7 @@ describe("TextPreviewClient editable mode", () => {
       />,
     );
 
-    await screen.findByText("可在线编辑 · 保存会校验并发修改");
+    await screen.findByText("可在线编辑 · 保存前可确认差异");
     await actor.click(screen.getByRole("button", { name: "编辑" }));
     fireEvent.change(screen.getByRole("textbox", { name: "在线编辑文件内容" }), {
       target: { value: "user www-data;\nworker_processes 4;\n" },
@@ -278,7 +289,7 @@ describe("TextPreviewClient editable mode", () => {
       />,
     );
 
-    await screen.findByText("可在线编辑 · 保存会校验并发修改");
+    await screen.findByText("可在线编辑 · 保存前可确认差异");
     await actor.click(screen.getByRole("button", { name: "编辑" }));
     fireEvent.change(screen.getByRole("textbox", { name: "在线编辑文件内容" }), {
       target: { value: "user www-data;\nworker_processes 4;\n" },
@@ -333,7 +344,7 @@ describe("TextPreviewClient editable mode", () => {
       />,
     );
 
-    await screen.findByText("可在线编辑 · 保存会校验并发修改");
+    await screen.findByText("可在线编辑 · 保存前可确认差异");
     await actor.click(screen.getByRole("button", { name: "编辑" }));
     fireEvent.change(screen.getByRole("textbox", { name: "在线编辑文件内容" }), {
       target: { value: "user www-data;\nbroken config\n" },
