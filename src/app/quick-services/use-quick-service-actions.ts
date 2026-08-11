@@ -101,7 +101,19 @@ export function useQuickServiceActions({
   const [message, setMessage] = useState<QuickServiceMessage | null>(null);
   const [actionSlug, setActionSlug] = useState<string | null>(null);
   const [syncing, setSyncing] = useState<string | null>(null);
-  const catalogRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const catalogRefreshTimersRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
+
+  const scheduleQueuedCatalogRefresh = useCallback(() => {
+    for (const timer of catalogRefreshTimersRef.current) clearTimeout(timer);
+    catalogRefreshTimersRef.current.clear();
+    for (const delay of [1_500, 4_000, 8_000]) {
+      const timer = setTimeout(() => {
+        catalogRefreshTimersRef.current.delete(timer);
+        void fetchCatalog();
+      }, delay);
+      catalogRefreshTimersRef.current.add(timer);
+    }
+  }, [fetchCatalog]);
 
   // Auto-dismiss message after 4s, matching the original inline behaviour.
   useEffect(() => {
@@ -112,9 +124,8 @@ export function useQuickServiceActions({
 
   useEffect(
     () => () => {
-      if (catalogRefreshTimerRef.current) {
-        clearTimeout(catalogRefreshTimerRef.current);
-      }
+      for (const timer of catalogRefreshTimersRef.current) clearTimeout(timer);
+      catalogRefreshTimersRef.current.clear();
     },
     [],
   );
@@ -142,13 +153,7 @@ export function useQuickServiceActions({
             : t("qsActions.submitted", { name: preview.item.name }),
           taskId: data.taskId,
         });
-        if (catalogRefreshTimerRef.current) {
-          clearTimeout(catalogRefreshTimerRef.current);
-        }
-        catalogRefreshTimerRef.current = setTimeout(() => {
-          catalogRefreshTimerRef.current = null;
-          void fetchCatalog();
-        }, 1500);
+        scheduleQueuedCatalogRefresh();
       } catch (err) {
         setMessage({
           type: "err",
@@ -158,7 +163,7 @@ export function useQuickServiceActions({
         setActionSlug(null);
       }
     },
-    [fetchCatalog, selectedServerId, t],
+    [scheduleQueuedCatalogRefresh, selectedServerId, t],
   );
 
   const doAction = useCallback(
@@ -205,7 +210,8 @@ export function useQuickServiceActions({
           text: actionMessages[action] ?? t("qsActions.opComplete"),
           taskId: data.taskId,
         });
-        fetchCatalog();
+        if (data.queued) scheduleQueuedCatalogRefresh();
+        else void fetchCatalog();
       } catch (err) {
         setMessage({
           type: "err",
@@ -215,7 +221,7 @@ export function useQuickServiceActions({
         setActionSlug(null);
       }
     },
-    [fetchCatalog, selectedServerId, t],
+    [fetchCatalog, scheduleQueuedCatalogRefresh, selectedServerId, t],
   );
 
   const doUninstall = useCallback(
@@ -242,7 +248,8 @@ export function useQuickServiceActions({
               : t("qsActions.uninstallKeepDone"),
           taskId: data.taskId,
         });
-        fetchCatalog();
+        if (data.queued) scheduleQueuedCatalogRefresh();
+        else void fetchCatalog();
       } catch (err) {
         setMessage({
           type: "err",
@@ -252,7 +259,7 @@ export function useQuickServiceActions({
         setActionSlug(null);
       }
     },
-    [fetchCatalog, selectedServerId, t],
+    [fetchCatalog, scheduleQueuedCatalogRefresh, selectedServerId, t],
   );
 
   const doSync = useCallback(

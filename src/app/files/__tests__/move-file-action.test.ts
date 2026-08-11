@@ -1,9 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { moveBackingObjectMock, fileEntryMock } = vi.hoisted(() => ({
+const { moveBackingObjectMock, fileEntryMock, shareLinkMock } = vi.hoisted(() => ({
   moveBackingObjectMock: vi.fn(),
 	fileEntryMock: {
 		findFirst: vi.fn(),
+		findMany: vi.fn(),
+		update: vi.fn(),
+	},
+	shareLinkMock: {
 		findMany: vi.fn(),
 		update: vi.fn(),
 	},
@@ -23,7 +27,8 @@ vi.mock("@/lib/auth/authorization", () => ({
 vi.mock("@/lib/db", () => ({
   prisma: {
 		fileEntry: fileEntryMock,
-		$transaction: vi.fn(async (callback) => callback({ fileEntry: fileEntryMock })),
+		shareLink: shareLinkMock,
+		$transaction: vi.fn(async (callback) => callback({ fileEntry: fileEntryMock, shareLink: shareLinkMock })),
   },
 }));
 
@@ -80,6 +85,7 @@ describe("moveFileAction", () => {
     vi.clearAllMocks();
     vi.mocked(assertStorageAccess).mockResolvedValue({ allowed: true });
     vi.mocked(prisma.fileEntry.findFirst).mockResolvedValue(null);
+    shareLinkMock.findMany.mockResolvedValue([]);
     moveBackingObjectMock.mockResolvedValue(undefined);
   });
 
@@ -270,6 +276,34 @@ describe("moveFileAction", () => {
         data: { relativePath: "team-b/a.txt" },
       }),
     );
+  });
+
+  it("keeps active file shares usable by rewriting their path in the move transaction", async () => {
+    mockEntryLookup(baseEntry);
+    shareLinkMock.findMany.mockResolvedValueOnce([
+      { id: "share-1", path: "team-a/a.txt" },
+    ]);
+
+    const formData = new FormData();
+    formData.set("fileEntryId", "file-1");
+    formData.set("targetDir", "team-b");
+
+    const result = await moveFileAction(null, formData);
+
+    expect(result.error).toBeUndefined();
+    expect(shareLinkMock.findMany).toHaveBeenCalledWith({
+      where: {
+        storageNodeId: "node-1",
+        revokedAt: null,
+        OR: [{ path: "team-a/a.txt" }],
+      },
+      select: { id: true, path: true },
+      take: 10_001,
+    });
+    expect(shareLinkMock.update).toHaveBeenCalledWith({
+      where: { id: "share-1" },
+      data: { path: "team-b/a.txt" },
+    });
   });
 
   it("moves SFTP files into a nested target path through the fs-backend adapter", async () => {

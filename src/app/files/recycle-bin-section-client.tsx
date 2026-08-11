@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { formatBytes } from "@/lib/format/bytes";
 import { RestoreButton } from "./restore-button";
@@ -33,8 +35,21 @@ export function RecycleBinSectionClient({
 	onRefresh?: () => void;
 }) {
 	const { t } = useI18n();
+	const router = useRouter();
+	const [dismissedEntryIds, setDismissedEntryIds] = useState<Set<string>>(
+		() => new Set(),
+	);
+	const visibleEntries = deletedEntries.filter(
+		(entry) => !dismissedEntryIds.has(entry.id),
+	);
 
-	if (deletedEntries.length === 0) {
+	const handleEntryCompleted = (entryId: string) => {
+		setDismissedEntryIds((current) => new Set(current).add(entryId));
+		onRefresh?.();
+		router.refresh();
+	};
+
+	if (visibleEntries.length === 0) {
 		return (
 			<article className="rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6">
 				<h3 className="text-xl font-semibold text-[var(--text-primary)]">{t("recycleBinSection.title")}</h3>
@@ -49,7 +64,7 @@ export function RecycleBinSectionClient({
 				<div>
 					<h3 className="text-xl font-semibold text-[var(--text-primary)]">{t("recycleBinSection.title")}</h3>
 					<p className="mt-2 text-sm text-[var(--text-secondary)]">
-						{t("recycleBinSection.summary", { count: deletedEntries.length })}
+						{t("recycleBinSection.summary", { count: visibleEntries.length })}
 					</p>
 				</div>
 			</div>
@@ -67,7 +82,7 @@ export function RecycleBinSectionClient({
 						</div>
 
 						<div className="divide-y divide-[var(--border)] bg-[var(--surface-subtle)]">
-							{deletedEntries.map((entry) => (
+							{visibleEntries.map((entry) => (
 								<div
 									key={entry.id}
 									className="grid grid-cols-[minmax(260px,2fr)_120px_120px_minmax(220px,1fr)_200px] items-center gap-4 px-4 py-3 text-sm"
@@ -79,8 +94,8 @@ export function RecycleBinSectionClient({
 									<div className="flex flex-wrap gap-2">
 										{canDelete ? (
 											<>
-												<RestoreButton fileEntryId={entry.id} onRefresh={onRefresh} />
-												<PermanentDeleteButton fileEntryId={entry.id} entryName={entry.name} onRefresh={onRefresh} />
+												<RestoreButton fileEntryId={entry.id} onRefresh={() => handleEntryCompleted(entry.id)} />
+												<PermanentDeleteButton fileEntryId={entry.id} entryName={entry.name} onRefresh={() => handleEntryCompleted(entry.id)} />
 											</>
 										) : (
 											<span className="text-xs text-[var(--text-muted)]">{t("recycleBinSection.noPermission")}</span>
@@ -93,7 +108,7 @@ export function RecycleBinSectionClient({
 
 					{/* Mobile card view (below md) */}
 					<div className="md:hidden divide-y divide-[var(--border)] bg-[var(--surface-subtle)]">
-						{deletedEntries.map((entry) => (
+						{visibleEntries.map((entry) => (
 							<div key={entry.id} className="px-4 py-3">
 								<div className="min-w-0">
 									<div className="truncate font-medium text-[var(--text-primary)]">{entry.name}</div>
@@ -105,8 +120,8 @@ export function RecycleBinSectionClient({
 								</div>
 								{canDelete ? (
 									<div className="mt-2 flex flex-wrap gap-2">
-										<RestoreButton fileEntryId={entry.id} onRefresh={onRefresh} />
-										<PermanentDeleteButton fileEntryId={entry.id} entryName={entry.name} onRefresh={onRefresh} />
+									<RestoreButton fileEntryId={entry.id} onRefresh={() => handleEntryCompleted(entry.id)} />
+									<PermanentDeleteButton fileEntryId={entry.id} entryName={entry.name} onRefresh={() => handleEntryCompleted(entry.id)} />
 									</div>
 								) : (
 									<span className="mt-2 inline-block text-xs text-[var(--text-muted)]">{t("recycleBinSection.noPermission")}</span>

@@ -462,6 +462,7 @@ describe("quick service docker lifecycle", () => {
 		await expect(updateService("demo")).resolves.toEqual({ status: "running", health: "healthy", logTail: "old line\nservice ready" });
 
 		expect(execFileSyncMock).toHaveBeenCalledWith("docker", ["pull", "example/demo:latest"], expect.objectContaining({ timeout: 300_000, encoding: "utf8" }));
+		expect(execFileSyncMock).toHaveBeenCalledWith("docker", ["stop", "qs-demo__prev"], expect.objectContaining({ timeout: 30_000, encoding: "utf8" }));
 		expect(prismaMock.quickService.update).toHaveBeenCalledWith({ where: { instanceKey_slug: { instanceKey: "hub-host", slug: "demo" } }, data: { status: "installing", error: null } });
 		const dockerArgs = execFileMock.mock.calls[0]![1] as string[];
 		expect(dockerArgs).toEqual(expect.arrayContaining(["run", "-d", "--name", "qs-demo", "-p", "18080:8080", "example/demo:latest"]));

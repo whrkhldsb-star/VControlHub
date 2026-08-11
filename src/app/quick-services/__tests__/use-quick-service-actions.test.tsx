@@ -106,7 +106,7 @@ describe("useQuickServiceActions", () => {
     expect(result.current.message?.text).toBe("镜像拉取失败");
   });
 
-  it("doAction 'start' queued produces a queued message and refreshes catalog", async () => {
+  it("doAction 'start' queued produces a queued message and polls catalog until the worker settles", async () => {
     vi.mocked(csrfFetch).mockResolvedValue(okResp({ taskId: "job:start_1" }));
     const { result } = renderHook(() =>
       useQuickServiceActions({ fetchCatalog, fetchSources }),
@@ -115,7 +115,11 @@ describe("useQuickServiceActions", () => {
       await result.current.doAction("alist", "start");
     });
     expect(result.current.message?.text).toMatch(/启动已排队/);
-    expect(fetchCatalog).toHaveBeenCalledTimes(1);
+    expect(fetchCatalog).not.toHaveBeenCalled();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(8_100);
+    });
+    expect(fetchCatalog).toHaveBeenCalledTimes(3);
   });
 
   it("doAction 'update' non-queued includes health and log details", async () => {
@@ -152,6 +156,10 @@ describe("useQuickServiceActions", () => {
       }),
     );
     expect(result.current.message?.text).toMatch(/卸载并删除数据目录已排队/);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(8_100);
+    });
+    expect(fetchCatalog).toHaveBeenCalledTimes(3);
   });
 
   it("doUninstall non-queued keeps the data directory", async () => {

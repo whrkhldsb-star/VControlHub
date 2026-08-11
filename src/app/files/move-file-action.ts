@@ -167,6 +167,37 @@ export async function moveFileAction(
           data: { relativePath: newRelativePath },
         });
 
+        const oldSharePrefix = `${entry.relativePath}/`;
+        const newSharePrefix = `${newRelativePath}/`;
+        const activeShares = await tx.shareLink.findMany({
+          where: {
+            storageNodeId: entry.storageNodeId,
+            revokedAt: null,
+            OR: [
+              { path: entry.relativePath },
+              ...(entry.entryType === "DIRECTORY"
+                ? [{ path: { startsWith: oldSharePrefix } }]
+                : []),
+            ],
+          },
+          select: { id: true, path: true },
+          take: 10_001,
+        });
+        if (activeShares.length > 10_000) {
+          throw new Error("Moved entry has more than 10000 active share links");
+        }
+        for (const share of activeShares) {
+          await tx.shareLink.update({
+            where: { id: share.id },
+            data: {
+              path:
+                share.path === entry.relativePath
+                  ? newRelativePath
+                  : share.path.replace(oldSharePrefix, newSharePrefix),
+            },
+          });
+        }
+
         if (entry.entryType === "DIRECTORY") {
           const oldPrefix = entry.relativePath + "/";
           const newPrefix = newRelativePath + "/";

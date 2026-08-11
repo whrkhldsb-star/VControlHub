@@ -263,10 +263,17 @@ export const renderContent = (content: string) => {
  const paraLines: string[] = [];
  while (i < lines.length) {
  const l = lines[i]!;
- if (l.trim() === "" || l.match(/^\x00CODE/) || l.match(/^#{1,6}\s+/) ||
- l.match(/^[\s]*[-*]\s+/) || l.match(/^[\s]*\d+\.\s+/) || l.match(/^\|/)) break;
+ if (l.trim() === "" || l.match(/^\x00CODE/) || l.match(/^#{1,6}\s+.+$/) ||
+ l.match(/^[\s]*[-*]\s+.+$/) || l.match(/^[\s]*\d+\.\s+.+$/) || l.match(/^\|(.+)\|$/)) break;
  paraLines.push(l);
  i++;
+ }
+ // Streaming markdown often ends on a half-written block marker such as
+ // "1. ", "- ", or "# ". Always consume at least one line so an
+ // incomplete token cannot trap the parser on the same index.
+ if (paraLines.length === 0 && i < lines.length && lines[i]!.trim() !== "") {
+   paraLines.push(lines[i]!);
+   i++;
  }
  if (paraLines.length > 0) {
  elements.push(

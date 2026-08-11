@@ -297,6 +297,22 @@ export async function recreateDockerContainer(
 			await dockerExec(target, ["rm", "-f", containerName], 15_000);
 			hadExisting = false;
 		}
+		if (hadExisting) {
+			try {
+				// Renaming does not release published ports. Stop the preserved
+				// container before starting its replacement, then restart it only
+				// if the new container fails and rollback is required.
+				await dockerExec(target, ["stop", backupName], 30_000);
+			} catch (error) {
+				try {
+					await dockerExec(target, ["rename", backupName, containerName], 15_000);
+					await dockerExec(target, ["start", containerName], 30_000);
+				} catch {
+					// Surface the original stop failure; recovery is best effort.
+				}
+				throw error;
+			}
+		}
 	}
 
 	const internalPort = tmpl.internalPort ?? tmpl.defaultPort;

@@ -19,6 +19,7 @@ describe("command OpenSSH host-key pin execution", () => {
     expect(mocks.scanPinnedKnownHost).toHaveBeenCalledWith({ host: "example.com", port: 22, expectedFingerprint: "SHA256:pin" });
     const call = mocks.runSshCommandProcess.mock.calls[0]![0];
     expect(call.command).toBe("ssh");
+    expect(call.args).toContain("BatchMode=yes");
     expect(call.args).toContain("StrictHostKeyChecking=yes");
     expect(call.args.some((arg: string) => arg.startsWith("UserKnownHostsFile=") && !arg.endsWith("/dev/null"))).toBe(true);
   });
@@ -30,6 +31,11 @@ describe("command OpenSSH host-key pin execution", () => {
     expect(mocks.scanPinnedKnownHost).not.toHaveBeenCalled();
     const call = mocks.runSshCommandProcess.mock.calls[0]![0];
     expect(call.command).toBe("sshpass");
+    expect(call.args).toContain("BatchMode=no");
+    expect(call.args).not.toContain("BatchMode=yes");
+    expect(call.args).toContain("PreferredAuthentications=password,keyboard-interactive");
+    expect(call.args).toContain("PubkeyAuthentication=no");
+    expect(call.args).toContain("NumberOfPasswordPrompts=1");
     expect(call.args).toContain("StrictHostKeyChecking=accept-new");
     expect(call.args).toContain("UserKnownHostsFile=/dev/null");
   });
