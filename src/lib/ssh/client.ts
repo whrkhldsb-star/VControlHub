@@ -249,10 +249,22 @@ function pythonCommand(source: string, args: string[]) {
   return `python3 -c "$(printf %s ${shellQuote(encoded)} | base64 -d)" ${args.map(shellQuote).join(" ")}`;
 }
 
+async function withSftpChannel<T>(client: Client, operation: (sftp: SFTPWrapper) => Promise<T>): Promise<T> {
+  const sftp = await new Promise<SFTPWrapper>((resolve, reject) => {
+    client.sftp((error, channel) => {
+      if (error) reject(error);
+      else resolve(channel);
+    });
+  });
+  try {
+    return await operation(sftp);
+  } finally {
+    try { sftp.end(); } catch { /* best-effort channel cleanup */ }
+  }
+}
+
 function sftpReaddir(client: Client, remotePath: string): Promise<SftpListEntry[]> {
-  return new Promise((resolve, reject) => {
-    client.sftp((err, sftp) => {
-      if (err) return reject(err);
+  return withSftpChannel(client, (sftp) => new Promise((resolve, reject) => {
       sftp.readdir(remotePath, (err2, entries) => {
         if (err2) return reject(err2);
         const result: SftpListEntry[] = entries.map((entry) => {
@@ -269,8 +281,7 @@ function sftpReaddir(client: Client, remotePath: string): Promise<SftpListEntry[
         });
         resolve(result);
       });
-    });
-  });
+  }));
 }
 
 export async function listRemoteDirectory(input: SshConnectionParams & { remotePath: string; maxEntries?: number }): Promise<SftpListEntry[]> {
@@ -294,9 +305,7 @@ export async function statRemoteEntry(input: SshConnectionParams & { remotePath:
     return JSON.parse(result.stdout) as SftpStatEntry;
   }
   return withReusableSshClient(input, async (client) => {
-    return await new Promise<SftpStatEntry>((resolve, reject) => {
-      client.sftp((err, sftp) => {
-        if (err) return reject(err);
+    return withSftpChannel(client, (sftp) => new Promise<SftpStatEntry>((resolve, reject) => {
         sftp.lstat(input.remotePath, (statErr, attrs) => {
           if (statErr) return reject(statErr);
           const mode = attrs.mode ?? 0;
@@ -308,8 +317,7 @@ export async function statRemoteEntry(input: SshConnectionParams & { remotePath:
             accessTime: (attrs.atime ?? 0) * 1000,
           });
         });
-      });
-    });
+    }));
   });
 }
 
@@ -390,15 +398,12 @@ export async function createRemoteDirectory(input: SshConnectionParams & { remot
   }
   await withReusableSshClient(input, async (client) => {
     try {
-      await new Promise<void>((resolve, reject) => {
-        client.sftp((err, sftp) => {
-          if (err) return reject(err);
+      await withSftpChannel(client, (sftp) => new Promise<void>((resolve, reject) => {
           const paths = input.recursive ? buildRemoteDirectoryChain(input.remotePath) : [input.remotePath];
           paths
             .reduce<Promise<void>>((promise, remotePath) => promise.then(() => sftpMkdir(sftp, remotePath)), Promise.resolve())
             .then(resolve, reject);
-        });
-      });
+      }));
     } catch (sftpError) {
       if (!input.recursive) throw sftpError;
       const result = await execCommandOnClient(
@@ -426,10 +431,7 @@ export async function deleteRemoteFile(input: SshConnectionParams & { remotePath
     return;
   }
   await withReusableSshClient(input, async (client) => {
-    await new Promise<void>((resolve, reject) => {
-      client.sftp((err, sftp) => {
-        if (err) return reject(err);
-
+    await withSftpChannel(client, (sftp) => new Promise<void>((resolve, reject) => {
         if (input.isDirectory) {
           // For directories, first check if empty, then rmdir
           // If non-empty, recursively delete contents first
@@ -459,8 +461,7 @@ export async function deleteRemoteFile(input: SshConnectionParams & { remotePath
             else resolve();
           });
         }
-      });
-    });
+    }));
   });
 }
 
@@ -470,15 +471,12 @@ export async function renameRemoteFile(input: SshConnectionParams & { oldPath: s
     return;
   }
   await withReusableSshClient(input, async (client) => {
-    await new Promise<void>((resolve, reject) => {
-      client.sftp((err, sftp) => {
-        if (err) return reject(err);
+    await withSftpChannel(client, (sftp) => new Promise<void>((resolve, reject) => {
         sftp.rename(input.oldPath, input.newPath, (renameErr) => {
           if (renameErr) reject(renameErr);
           else resolve();
         });
-      });
-    });
+    }));
   });
 }
 
@@ -499,9 +497,7 @@ export async function readRemoteFile(input: SshConnectionParams & { remotePath: 
     return Buffer.from(result.stdout.trim(), "base64");
   }
   return withReusableSshClient(input, async (client) => {
-    return await new Promise<Buffer>((resolve, reject) => {
-      client.sftp((err, sftp) => {
-        if (err) return reject(err);
+    return withSftpChannel(client, (sftp) => new Promise<Buffer>((resolve, reject) => {
         const chunks: Buffer[] = [];
         const readStream = sftp.createReadStream(input.remotePath);
         readStream.on("data", (chunk: Buffer | string) => {
@@ -513,8 +509,7 @@ export async function readRemoteFile(input: SshConnectionParams & { remotePath: 
 readStream.on("error", (readErr: Error) => {
 				reject(readErr);
         });
-      });
-    });
+    }));
   });
 }
 
@@ -526,15 +521,12 @@ export async function writeRemoteFile(input: SshConnectionParams & { remotePath:
     return;
   }
   await withReusableSshClient(input, async (client) => {
-    await new Promise<void>((resolve, reject) => {
-      client.sftp((err, sftp) => {
-        if (err) return reject(err);
+    await withSftpChannel(client, (sftp) => new Promise<void>((resolve, reject) => {
         const writeStream = sftp.createWriteStream(input.remotePath);
         writeStream.on("close", () => resolve());
         writeStream.on("error", (writeErr: Error) => reject(writeErr));
         writeStream.end(input.content);
-      });
-    });
+    }));
   });
 }
 

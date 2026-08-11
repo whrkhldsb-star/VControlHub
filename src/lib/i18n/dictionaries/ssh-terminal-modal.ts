@@ -18,7 +18,7 @@ export const zh: Record<string, string> = {
 	"sshTerminalModal.statusConnecting": "连接中",
 	"sshTerminalModal.statusError": "连接失败",
 	"sshTerminalModal.statusClosed": "已断开",
-	"sshTerminalModal.panelToggle": "📋 命令面板",
+	"sshTerminalModal.panelToggle": "命令面板",
 	"sshTerminalModal.ariaClose": "关闭 SSH 终端",
 	"sshTerminalModal.reconnect": "重连",
 	"sshTerminalModal.close": "关闭",
@@ -39,7 +39,7 @@ export const zh: Record<string, string> = {
 	"sshTerminalModal.searchClear": "清除",
 
 	// Side panel — favorites (⭐ 常用命令)
-	"sshTerminalModal.favoritesTitle": "⭐ 常用命令",
+	"sshTerminalModal.favoritesTitle": "常用命令",
 	"sshTerminalModal.favoritesLabel": "添加常用 SSH 命令",
 	"sshTerminalModal.favoritesPlaceholder": "添加常用命令…",
 	"sshTerminalModal.favoritesAdd": "添加常用命令",
@@ -47,11 +47,11 @@ export const zh: Record<string, string> = {
 	"sshTerminalModal.favoritesRemove": "删除常用命令 {cmd}",
 
 	// Side panel — history (📜 命令历史)
-	"sshTerminalModal.historyTitle": "📜 命令历史",
+	"sshTerminalModal.historyTitle": "命令历史",
 	"sshTerminalModal.historyEmpty": "暂无历史命令",
 
 	// Side panel — quick commands (⚡ 快捷命令)
-	"sshTerminalModal.quickCommandsTitle": "⚡ 快捷命令",
+	"sshTerminalModal.quickCommandsTitle": "快捷命令",
 
 	// Multi-tab manager (TR-039)
 	"sshTerminalManager.title": "SSH 终端",
@@ -61,7 +61,7 @@ export const zh: Record<string, string> = {
 	"sshTerminalManager.expand": "展开",
 
 	// File manager (SFTP)
-	"sshFileManager.toggle": "📁 文件",
+	"sshFileManager.toggle": "文件",
 	"sshFileManager.title": "远程文件",
 	"sshFileManager.upload": "上传",
 	"sshFileManager.download": "下载",
@@ -90,7 +90,7 @@ export const en: Record<string, string> = {
 	"sshTerminalModal.statusConnecting": "Connecting",
 	"sshTerminalModal.statusError": "Connection failed",
 	"sshTerminalModal.statusClosed": "Disconnected",
-	"sshTerminalModal.panelToggle": "📋 Command panel",
+	"sshTerminalModal.panelToggle": "Command panel",
 	"sshTerminalModal.ariaClose": "Close SSH terminal",
 	"sshTerminalModal.reconnect": "Reconnect",
 	"sshTerminalModal.close": "Close",
@@ -111,7 +111,7 @@ export const en: Record<string, string> = {
 	"sshTerminalModal.searchClear": "Clear",
 
 	// Side panel — favorites (⭐ Favorite commands)
-	"sshTerminalModal.favoritesTitle": "⭐ Favorite commands",
+	"sshTerminalModal.favoritesTitle": "Favorite commands",
 	"sshTerminalModal.favoritesLabel": "Add favorite SSH command",
 	"sshTerminalModal.favoritesPlaceholder": "Add a favorite command…",
 	"sshTerminalModal.favoritesAdd": "Add favorite command",
@@ -119,11 +119,11 @@ export const en: Record<string, string> = {
 	"sshTerminalModal.favoritesRemove": "Remove favorite command {cmd}",
 
 	// Side panel — history (📜 Command history)
-	"sshTerminalModal.historyTitle": "📜 Command history",
+	"sshTerminalModal.historyTitle": "Command history",
 	"sshTerminalModal.historyEmpty": "No history commands yet",
 
 	// Side panel — quick commands (⚡ Quick commands)
-	"sshTerminalModal.quickCommandsTitle": "⚡ Quick commands",
+	"sshTerminalModal.quickCommandsTitle": "Quick commands",
 
 	// Multi-tab manager (TR-039)
 	"sshTerminalManager.title": "SSH Terminal",
@@ -133,7 +133,7 @@ export const en: Record<string, string> = {
 	"sshTerminalManager.expand": "Expand",
 
 	// File manager (SFTP)
-	"sshFileManager.toggle": "📁 Files",
+	"sshFileManager.toggle": "Files",
 	"sshFileManager.title": "Remote Files",
 	"sshFileManager.upload": "Upload",
 	"sshFileManager.download": "Download",

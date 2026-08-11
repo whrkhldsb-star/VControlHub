@@ -64,6 +64,14 @@ function encodeSse(payload: unknown): Uint8Array {
   return encoder.encode(`data: ${JSON.stringify(payload)}\n\n`);
 }
 
+function isConversationDeletedDuringStream(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const candidate = error as { code?: unknown; message?: unknown; meta?: unknown };
+  if (candidate.code !== "P2003") return false;
+  const detail = `${typeof candidate.message === "string" ? candidate.message : ""} ${JSON.stringify(candidate.meta ?? {})}`;
+  return /ai_messages_conversationId_fkey|conversationId/i.test(detail);
+}
+
 async function processHostedTools(input: {
   toolCalls: AiToolCall[];
   conversationId: string;
@@ -406,6 +414,13 @@ function createStreamingResponse(input: {
               input.conversationId,
             );
           }
+          return;
+        }
+        if (isConversationDeletedDuringStream(error)) {
+          logger.info("AI conversation deleted before stream persistence completed", {
+            conversationId: input.conversationId,
+            userId: input.session.userId,
+          });
           return;
         }
         logger.error("Failed to finalize AI chat stream", error, {

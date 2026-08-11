@@ -12,6 +12,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { AlertTriangle } from "@/components/icons";
 
 import { SshDeleteDialog } from "./ssh-file-manager-dialogs";
 import { SshFileList, SshUploadProgressList } from "./ssh-file-manager-list";
@@ -212,8 +213,8 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
 
   return (
     <div className="flex max-h-[50vh] w-full shrink-0 flex-col gap-2 overflow-y-auto lg:ml-3 lg:max-h-none lg:w-72" data-testid={`ssh-file-manager-${serverId}`}>
-      <SshFileManagerHeader breadcrumbs={breadcrumbs} fileInputRef={fileInputRef} mkdirName={mkdirName} onMkdir={handleMkdir} onNavigateToBreadcrumb={navigateToBreadcrumb} onGoUp={canGoUp ? navigateUp : undefined} onSelectFiles={handleUpload} setMkdirName={setMkdirName} setShowMkdir={setShowMkdir} showMkdir={showMkdir} t={t} />
-      {error && <div className="rounded-xl border border-[var(--danger-border)] px-3 py-2 text-xs text-[var(--danger)]">❌ {error}</div>}
+      <SshFileManagerHeader breadcrumbs={breadcrumbs} disabled={loading || !currentPath} fileInputRef={fileInputRef} mkdirName={mkdirName} onMkdir={handleMkdir} onNavigateToBreadcrumb={navigateToBreadcrumb} onGoUp={canGoUp ? navigateUp : undefined} onSelectFiles={handleUpload} setMkdirName={setMkdirName} setShowMkdir={setShowMkdir} showMkdir={showMkdir} t={t} />
+      {error && <div className="flex items-center gap-2 rounded-xl border border-[var(--danger-border)] px-3 py-2 text-xs text-[var(--danger)]"><AlertTriangle size={14} className="shrink-0" aria-hidden="true" /><span>{error}</span></div>}
       <SshUploadProgressList uploads={uploads} />
       <SshFileList dragOver={dragOver} entries={entries} error={error} loading={loading} onDelete={setPendingDeleteEntry} onDownload={handleDownload} onDragLeave={onDragLeave} onDragOver={onDragOver} onDrop={onDrop} onNavigateInto={navigateInto} onGoUp={canGoUp ? navigateUp : undefined} onRename={handleRename} renameTarget={renameTarget} renameValue={renameValue} selectedEntry={selectedEntry} setRenameTarget={setRenameTarget} setRenameValue={setRenameValue} setSelectedEntry={setSelectedEntry} t={t} />
       <SshDeleteDialog entry={pendingDeleteEntry} onCancel={() => setPendingDeleteEntry(null)} onConfirm={(entry) => void handleDelete(entry)} t={t} />

@@ -44,6 +44,29 @@ describe("SshFileManager", () => {
 			expect(screen.getByText("docs")).toBeInTheDocument();
 			expect(screen.getByText("link.conf")).toBeInTheDocument();
 		});
+		const reportRow = document.querySelector('[data-ssh-file-entry="report.txt"]');
+		expect(reportRow).toBeInTheDocument();
+		expect(reportRow).toHaveTextContent("1.0 KB");
+		expect(reportRow?.querySelector('[title="report.txt"]')).toBeInTheDocument();
+	});
+
+	it("keeps remote write controls disabled until the initial directory is ready", async () => {
+		let resolveList!: (value: { path: string; entries: typeof fileEntries }) => void;
+		mocks.csrfFetch.mockImplementation(
+			() => new Promise((resolve) => { resolveList = resolve; }),
+		);
+		render(<SshFileManager serverId="srv1" visible={true} />);
+
+		expect(screen.getByRole("button", { name: "上传" })).toBeDisabled();
+		expect(screen.getByRole("button", { name: "新建文件夹" })).toBeDisabled();
+
+		await act(async () => {
+			resolveList({ path: "/root", entries: fileEntries });
+		});
+		await waitFor(() => {
+			expect(screen.getByRole("button", { name: "上传" })).toBeEnabled();
+			expect(screen.getByRole("button", { name: "新建文件夹" })).toBeEnabled();
+		});
 	});
 
 	it("does not render when visible is false", () => {
@@ -57,10 +80,9 @@ describe("SshFileManager", () => {
 	it("shows file icons based on entry type", async () => {
 		render(<SshFileManager serverId="srv1" visible={true} />);
 		await waitFor(() => screen.getByText("report.txt"));
-		// Breadcrumb also renders a directory icon, so at least one of each type exists
-		expect(screen.getAllByText("📁").length).toBeGreaterThanOrEqual(1); // directory
-		expect(screen.getByText("📄")).toBeInTheDocument(); // file
-		expect(screen.getByText("🔗")).toBeInTheDocument(); // symlink
+		expect(document.querySelector('[data-ssh-file-kind="directory"] svg')).toBeInTheDocument();
+		expect(document.querySelector('[data-ssh-file-kind="file"] svg')).toBeInTheDocument();
+		expect(document.querySelector('[data-ssh-file-kind="symlink"] svg')).toBeInTheDocument();
 	});
 
 	it("downloads a file via window.open when the download button is clicked", async () => {

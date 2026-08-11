@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { screen } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 
 import { SshTerminalPanel } from "../ssh-terminal-panel";
 import { renderWithI18n as render } from "@/lib/i18n/__tests__/test-helpers";
@@ -42,11 +42,15 @@ class MockWebSocket {
 	static CONNECTING = 0;
 	static CLOSING = 2;
 	static CLOSED = 3;
+	static instances: MockWebSocket[] = [];
 	readyState = 0;
 	onopen: (() => void) | null = null;
 	onmessage: ((event: { data: string }) => void) | null = null;
 	onclose: (() => void) | null = null;
 	onerror: (() => void) | null = null;
+	constructor() {
+		MockWebSocket.instances.push(this);
+	}
 	send() {}
 	close() {}
 }
@@ -63,6 +67,7 @@ const defaultProps = {
 describe("SshTerminalPanel", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		MockWebSocket.instances = [];
 		vi.stubGlobal("WebSocket", MockWebSocket);
 	});
 
@@ -77,6 +82,23 @@ describe("SshTerminalPanel", () => {
 		render(<SshTerminalPanel {...defaultProps} />);
 
 		expect(screen.getByRole("status")).toHaveTextContent("连接中");
+	});
+
+	it("waits for the SSH proxy handshake before reporting connected", async () => {
+		render(<SshTerminalPanel {...defaultProps} />);
+		await waitFor(() => expect(MockWebSocket.instances).toHaveLength(1));
+		const socket = MockWebSocket.instances[0]!;
+
+		act(() => {
+			socket.readyState = MockWebSocket.OPEN;
+			socket.onopen?.();
+		});
+		expect(screen.getByRole("status")).toHaveTextContent("连接中");
+
+		act(() => {
+			socket.onmessage?.({ data: JSON.stringify({ type: "connected" }) });
+		});
+		expect(screen.getByRole("status")).toHaveTextContent("已连接");
 	});
 
 	it("renders the terminal surface div", () => {
@@ -95,8 +117,8 @@ describe("SshTerminalPanel", () => {
 	it("renders the command panel and file manager toggle buttons", () => {
 		render(<SshTerminalPanel {...defaultProps} />);
 
-		expect(screen.getByRole("button", { name: "📋 命令面板" })).toHaveAttribute("aria-expanded", "false");
-		expect(screen.getByRole("button", { name: "📁 文件" })).toHaveAttribute("aria-expanded", "false");
+		expect(screen.getByRole("button", { name: "命令面板" })).toHaveAttribute("aria-expanded", "false");
+		expect(screen.getByRole("button", { name: "文件" })).toHaveAttribute("aria-expanded", "false");
 	});
 
 	it("hides the panel via CSS when visible is false", () => {

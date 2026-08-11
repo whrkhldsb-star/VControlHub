@@ -54,13 +54,15 @@ test("local file lifecycle: folder, upload, search, preview, share and delete", 
 
 	const fileRow = page.getByRole("link", { name: "vcontrolhub-e2e.txt", exact: true }).locator("xpath=ancestor::div[contains(@class,'grid-cols')][1]");
 	await fileRow.getByRole("button", { name: /更多操作 vcontrolhub-e2e\.txt|More actions vcontrolhub-e2e\.txt/i }).click();
+	const moreActions = page.getByRole("group", { name: /更多操作 vcontrolhub-e2e\.txt|More actions vcontrolhub-e2e\.txt/i });
+	await expect(moreActions).toBeVisible();
 	const shareResponsePromise = page.waitForResponse((response) => response.url().endsWith("/api/share-links") && response.request().method() === "POST");
-	await fileRow.getByRole("button", { name: /分享|Share/i }).click();
+	await moreActions.getByRole("button", { name: /分享|Share/i }).click();
 	const shareResponse = await shareResponsePromise;
 	expect(shareResponse.status()).toBe(201);
 	const { token } = await shareResponse.json() as { token: string };
 	const shareUrl = new URL(`/share/${token}`, page.url()).toString();
-	await expect(fileRow.locator("code")).toContainText(shareUrl);
+	await expect(moreActions.locator("code")).toContainText(shareUrl);
 	const publicPage = await context.newPage();
 	await publicPage.goto(shareUrl);
 	await expect(publicPage.locator("body")).toContainText("vcontrolhub-e2e.txt");
@@ -71,13 +73,12 @@ test("local file lifecycle: folder, upload, search, preview, share and delete", 
 	expect(download.suggestedFilename()).toBe("vcontrolhub-e2e.txt");
 	expect(await publicPage.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 	await publicPage.close();
-	await fileRow.getByRole("button", { name: /关闭|Close/i }).click();
+	await moreActions.getByRole("button", { name: /关闭|Close/i }).click();
 
-	const moreMenu = fileRow.locator("details");
-	if (!(await moreMenu.evaluate((element) => element.hasAttribute("open")))) {
+	if (!(await moreActions.isVisible().catch(() => false))) {
 		await fileRow.getByRole("button", { name: /更多操作 vcontrolhub-e2e\.txt|More actions vcontrolhub-e2e\.txt/i }).click();
 	}
-	await fileRow.getByRole("button", { name: /删除|Delete/i }).click();
-	await fileRow.getByRole("button", { name: /^确认$|^Confirm$/i }).click();
+	await moreActions.getByRole("button", { name: /删除|Delete/i }).click();
+	await moreActions.getByRole("button", { name: /^确认$|^Confirm$/i }).click();
 	await expect(page.getByRole("link", { name: "vcontrolhub-e2e.txt", exact: true })).toBeHidden();
 });

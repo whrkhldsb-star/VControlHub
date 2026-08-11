@@ -5,6 +5,7 @@ import { cn } from "@/lib/ui/cn";
 
 import type { TerminalStatus } from "@/components/ssh-terminal-types";
 import { ActionButton } from "@/components/action-button";
+import { ClipboardList, Folder, Server } from "@/components/icons";
 
 type TFn = (key: string, vars?: Record<string, string | number>) => string;
 
@@ -53,9 +54,7 @@ export function SshTerminalToolbar({
 	return (
 		<div className="flex flex-wrap items-center gap-2 border-b border-[var(--border-subtle)] light:border-[var(--border)] px-4 py-2">
 			<div className="flex items-center gap-2">
-				<span className="text-sm" aria-hidden="true">
-					💻
-				</span>
+				<Server size={15} className="shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
 				<span className="text-sm font-medium text-[var(--text-primary)]">
 					{serverName}
 				</span>
@@ -71,6 +70,7 @@ export function SshTerminalToolbar({
 					aria-expanded={showSidePanel}
 					className={`${chipBase} ${showSidePanel ? chipActive : chipIdle}`}
 				>
+					<ClipboardList size={14} className="mr-1 inline-block align-[-2px]" aria-hidden="true" />
 					{t("sshTerminalModal.panelToggle")}
 				</button>
 				<button
@@ -79,6 +79,7 @@ export function SshTerminalToolbar({
 					aria-expanded={showFileManager}
 					className={`${chipBase} ${showFileManager ? chipActive : chipIdle}`}
 				>
+					<Folder size={14} className="mr-1 inline-block align-[-2px]" aria-hidden="true" />
 					{t("sshFileManager.toggle")}
 				</button>
 				{(status ==="error" || status ==="closed") && (

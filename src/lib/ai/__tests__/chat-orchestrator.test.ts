@@ -136,6 +136,25 @@ describe("createAiChatResponse", () => {
     });
   });
 
+  it("closes quietly when the conversation is deleted while the stream is finishing", async () => {
+    mocks.prisma.aiMessage.create.mockRejectedValueOnce({
+      code: "P2003",
+      message: "Foreign key constraint violated",
+      meta: { constraint: "ai_messages_conversationId_fkey" },
+    });
+
+    const response = await createAiChatResponse({
+      body: { conversationId: conversation.id, content: "question" },
+      session,
+      locale: "en",
+    });
+    const body = await response.text();
+
+    expect(body).toContain('"type":"content","content":"hello"');
+    expect(body).not.toContain('"type":"error"');
+    expect(mocks.prisma.aiMessage.deleteMany).not.toHaveBeenCalled();
+  });
+
   it("removes the user message when the provider request fails before streaming", async () => {
     mocks.sendChatRequest.mockRejectedValueOnce(
       new Error("provider unavailable"),

@@ -6,6 +6,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import type { DirEntry, UploadProgress } from "./ssh-file-manager-parts";
 import { formatSshFileDate, formatSshFileSize } from "./ssh-file-manager-parts";
 import { ActionButton } from "@/components/action-button";
+import { Download, File, Folder, LinkIcon, Pencil, Trash2 } from "@/components/icons";
 
 type UploadsProps = {
   uploads: UploadProgress[];
@@ -88,7 +89,7 @@ export function SshFileList({
       onDrop={onDrop}
       style={{ minHeight:"200px" }}
     >
-      {dragOver && <div className="flex h-full items-center justify-center text-sm text-[var(--color-action)]">📥 {t("sshFileManager.dropHere")}</div>}
+      {dragOver && <div className="flex h-full items-center justify-center text-sm text-[var(--color-action)]">{t("sshFileManager.dropHere")}</div>}
       {!dragOver && loading && <div className="flex h-full items-center justify-center text-xs text-[var(--text-muted)]">{t("sshFileManager.loading")}</div>}
       {!dragOver && !loading && entries.length === 0 && !error && (
         <div className="flex h-full flex-col items-center justify-center gap-3 px-3 text-center text-xs text-[var(--text-muted)]">
@@ -105,8 +106,8 @@ export function SshFileList({
         </div>
       )}
       {!dragOver && !loading && entries.map((entry) => (
-        <div key={entry.name} className={`group flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs transition hover:bg-[var(--surface-hover)] ${selectedEntry === entry.name ?"bg-[var(--surface-elevated)]" :""}`} onClick={() => setSelectedEntry(entry.name)} onDoubleClick={() => { if (entry.isDirectory) onNavigateInto(entry.name); else onDownload(entry); }}>
-          <span className="shrink-0" aria-hidden="true">{entry.isDirectory ?"📁" : entry.isSymlink ?"🔗" :"📄"}</span>
+        <div key={entry.name} data-ssh-file-entry={entry.name} data-ssh-file-kind={entry.isDirectory ? "directory" : entry.isSymlink ? "symlink" : "file"} className={`group flex min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-xs transition hover:bg-[var(--surface-hover)] ${selectedEntry === entry.name ?"bg-[var(--surface-elevated)]" :""}`} onClick={() => setSelectedEntry(entry.name)} onDoubleClick={() => { if (entry.isDirectory) onNavigateInto(entry.name); else onDownload(entry); }}>
+          <span className="shrink-0 text-[var(--text-muted)]" aria-hidden="true">{entry.isDirectory ? <Folder size={14} /> : entry.isSymlink ? <LinkIcon size={14} /> : <File size={14} />}</span>
           {renameTarget === entry.name ? (
             <RenameInlineEditor
               renameValue={renameValue}
@@ -116,15 +117,18 @@ export function SshFileList({
               t={t}
             />
           ) : (
-            <span className={`min-w-0 flex-1 truncate ${entry.isDirectory ?"text-[var(--text-primary)]" :"text-[var(--text-secondary)]"}`}>{entry.name}</span>
+            <div className="min-w-0 flex-1">
+              <span title={entry.name} className={`block truncate ${entry.isDirectory ?"text-[var(--text-primary)]" :"text-[var(--text-secondary)]"}`}>{entry.name}</span>
+              <span className="block truncate text-[10px] text-[var(--text-muted)]">
+                {[entry.isFile ? formatSshFileSize(entry.size) : null, formatSshFileDate(entry.modifyTime, locale)].filter(Boolean).join(" · ")}
+              </span>
+            </div>
           )}
           {renameTarget !== entry.name && (
             <>
-              <span className="shrink-0 text-[10px] text-[var(--text-muted)]">{entry.isFile ? formatSshFileSize(entry.size) :""}</span>
-              <span className="hidden shrink-0 text-[10px] text-[var(--text-muted)] lg:block">{formatSshFileDate(entry.modifyTime, locale)}</span>
-              {entry.isFile && <ActionButton type="button" variant="ghost" onClick={(e) => { e.stopPropagation(); onDownload(entry); }} className="!min-h-11 !min-w-11 !shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100" aria-label={t("sshFileManager.download")} title={t("sshFileManager.download")}>⬇</ActionButton>}
-              <ActionButton type="button" variant="ghost" onClick={(e) => { e.stopPropagation(); setRenameTarget(entry.name); setRenameValue(entry.name); }} className="!min-h-11 !min-w-11 !shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100" aria-label={t("sshFileManager.rename")} title={t("sshFileManager.rename")}>✎</ActionButton>
-              <ActionButton type="button" variant="ghost" onClick={(e) => { e.stopPropagation(); onDelete(entry); }} className="!min-h-11 !min-w-11 !shrink-0 text-[var(--danger)] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100" aria-label={t("sshFileManager.delete")} title={t("sshFileManager.delete")}>🗑</ActionButton>
+              {entry.isFile && <ActionButton type="button" variant="ghost" onClick={(e) => { e.stopPropagation(); onDownload(entry); }} className="!min-h-11 !min-w-11 !shrink-0 opacity-100 sm:!min-h-8 sm:!min-w-8 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100" aria-label={t("sshFileManager.download")} title={t("sshFileManager.download")}><Download size={14} aria-hidden="true" /></ActionButton>}
+              <ActionButton type="button" variant="ghost" onClick={(e) => { e.stopPropagation(); setRenameTarget(entry.name); setRenameValue(entry.name); }} className="!min-h-11 !min-w-11 !shrink-0 opacity-100 sm:!min-h-8 sm:!min-w-8 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100" aria-label={t("sshFileManager.rename")} title={t("sshFileManager.rename")}><Pencil size={14} aria-hidden="true" /></ActionButton>
+              <ActionButton type="button" variant="ghost" onClick={(e) => { e.stopPropagation(); onDelete(entry); }} className="!min-h-11 !min-w-11 !shrink-0 text-[var(--danger)] opacity-100 sm:!min-h-8 sm:!min-w-8 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100" aria-label={t("sshFileManager.delete")} title={t("sshFileManager.delete")}><Trash2 size={14} aria-hidden="true" /></ActionButton>
             </>
           )}
         </div>

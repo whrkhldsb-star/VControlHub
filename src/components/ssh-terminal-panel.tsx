@@ -12,6 +12,7 @@ import { SshTerminalSearchBar, SshTerminalToolbar } from "@/components/ssh-termi
 import type { TerminalStatus } from "@/components/ssh-terminal-types";
 import { writeLocalStorageValue } from "@/lib/browser-storage";
 import { useBrowserStorageSnapshot } from "@/lib/hooks/use-browser-storage-snapshot";
+import { AlertTriangle } from "@/components/icons";
 export type { TerminalStatus } from "@/components/ssh-terminal-types";
 
 const FAVORITE_COMMANDS_KEY = "ssh-favorite-commands";
@@ -200,7 +201,10 @@ export function SshTerminalPanel({ serverId, serverName, host, sessionToken, vis
 			wsRef.current = ws;
 
 			ws.onopen = () => {
-				if (!disposed && nonce === connectionNonceRef.current) setStatus("connected");
+				// The browser transport being open does not mean the proxy has
+				// finished SSH authentication. Keep the UI in "connecting" until
+				// the proxy emits its explicit connected handshake; otherwise a
+				// command clicked in this window can be silently dropped.
 				ws.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
 			};
 
@@ -343,8 +347,9 @@ export function SshTerminalPanel({ serverId, serverName, host, sessionToken, vis
 
 			{/* Error banner */}
 			{errorMsg && (status === "error" || status === "closed") && (
-				<div data-tone="rose" className="mx-4 mt-3 rounded-xl border border-[var(--danger-border)] px-4 py-2 text-sm text-[var(--danger)]">
-					❌ {errorMsg}
+				<div data-tone="rose" className="mx-4 mt-3 flex items-center gap-2 rounded-xl border border-[var(--danger-border)] px-4 py-2 text-sm text-[var(--danger)]">
+					<AlertTriangle size={15} className="shrink-0" aria-hidden="true" />
+					<span>{errorMsg}</span>
 				</div>
 			)}
 
