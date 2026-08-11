@@ -234,11 +234,13 @@ function usesAgentOnly(input: SshConnectionParams) {
 }
 
 async function execAgentOnly(input: SshConnectionParams, command: string, timeoutMs = 60_000) {
-  if (!input.agentServerId) throw new BusinessError("Agent server identity is missing");
+  if (!input.agentServerId) throw new BusinessError(t("backend.server.agentIdentityMissing"));
   const { executeCommandWithAgent } = await import("@/lib/server/agent-service");
   const result = await executeCommandWithAgent({ serverId: input.agentServerId, command, timeoutMs });
-  if (!result) throw new BusinessError("Agent is offline and no SSH fallback credential is configured");
-  if (result.exitCode !== 0) throw new BusinessError(result.stderr || result.stdout || `Agent command failed with exit code ${result.exitCode}`);
+  if (!result) throw new BusinessError(t("backend.server.agentOfflineNoFallback"));
+  if (result.exitCode !== 0) {
+    throw new BusinessError(result.stderr || result.stdout || t("backend.server.agentCommandFailed", { code: result.exitCode }));
+  }
   return result;
 }
 
@@ -488,10 +490,10 @@ export async function readRemoteFile(input: SshConnectionParams & { remotePath: 
     );
     const size = Number.parseInt(sizeResult.stdout.trim(), 10);
     if (!Number.isSafeInteger(size) || size < 0) {
-      throw new BusinessError("Agent could not determine the remote file size");
+      throw new BusinessError(t("backend.server.agentFileSizeUnknown"));
     }
     if (size > 5 * 1_048_576) {
-      throw new BusinessError("Agent-only file reads are limited to 5 MB per operation; enable target direct access for larger files");
+      throw new BusinessError(t("backend.server.agentReadLimit"));
     }
     const result = await execAgentOnly(input, pythonCommand("import base64,sys\nprint(base64.b64encode(open(sys.argv[1],'rb').read()).decode())", [input.remotePath]));
     return Buffer.from(result.stdout.trim(), "base64");
@@ -519,7 +521,7 @@ readStream.on("error", (readErr: Error) => {
 export async function writeRemoteFile(input: SshConnectionParams & { remotePath: string; content: string | Buffer }): Promise<void> {
   if (usesAgentOnly(input)) {
     const encoded = Buffer.from(input.content).toString("base64");
-    if (encoded.length > 8_000_000) throw new BusinessError("Agent-only file writes are limited to 6 MB per operation; use target direct access for larger files");
+    if (encoded.length > 8_000_000) throw new BusinessError(t("backend.server.agentWriteLimit"));
     await execAgentOnly(input, pythonCommand("import base64,sys\nopen(sys.argv[1],'wb').write(base64.b64decode(sys.argv[2]))", [input.remotePath, encoded]));
     return;
   }

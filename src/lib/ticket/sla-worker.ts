@@ -3,6 +3,7 @@ import { JobStatus } from "@prisma/client";
 import { tryAcquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
+import { runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
 import { computeLeaseMs } from "@/lib/job/lease";
 import { claimNextJob, completeJob, enqueueJob, failJob, heartbeatJob, pruneCompletedJobsByType } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
@@ -80,8 +81,19 @@ export async function runTicketSlaJobWorkerOnce(reason = "manual") {
     if (!job) return false;
 
     try {
-      await heartbeatJob(job.id, TICKET_SLA_WORKER_ID, { leaseMs: TICKET_SLA_LEASE_MS, progress: "Checking ticket SLA deadlines" });
-      const escalated = await escalateBreachedTickets();
+      await heartbeatJob(job.id, TICKET_SLA_WORKER_ID, {
+        leaseMs: TICKET_SLA_LEASE_MS,
+        progress: "Checking ticket SLA deadlines",
+      });
+      const escalated = await runWithLeaseHeartbeat({
+        jobId: job.id,
+        leaseMs: TICKET_SLA_LEASE_MS,
+        heartbeat: () => heartbeatJob(job.id, TICKET_SLA_WORKER_ID, {
+          leaseMs: TICKET_SLA_LEASE_MS,
+          progress: "Checking ticket SLA deadlines",
+        }),
+        run: () => escalateBreachedTickets(),
+      });
       await completeJob(job.id, TICKET_SLA_WORKER_ID, { escalated });
       await pruneCompletedJobs();
       return true;

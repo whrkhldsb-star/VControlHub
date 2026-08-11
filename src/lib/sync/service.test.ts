@@ -6,7 +6,7 @@ const { prismaMock } = vi.hoisted(() => ({
       findMany: vi.fn(),
       findFirst: vi.fn(),
       create: vi.fn(),
-      update: vi.fn(),
+      updateMany: vi.fn(),
     },
     server: {
       findMany: vi.fn(),
@@ -116,13 +116,16 @@ describe("createSyncJob team scope", () => {
 
 describe("updateSyncJob ownership CAS", () => {
   it("pins the original teamId in the atomic update", async () => {
-    prismaMock.syncJob.findFirst.mockResolvedValueOnce({
+    const existing = {
       id: "job-1",
       teamId: "team-1",
       syncType: "MIRROR",
       deleteOrphans: false,
-    });
-    prismaMock.syncJob.update.mockResolvedValueOnce({ id: "job-1", name: "renamed" });
+    };
+    prismaMock.syncJob.findFirst
+      .mockResolvedValueOnce(existing)
+      .mockResolvedValueOnce({ ...existing, name: "renamed" });
+    prismaMock.syncJob.updateMany.mockResolvedValueOnce({ count: 1 });
 
     await updateSyncJob(
       "job-1",
@@ -130,12 +133,28 @@ describe("updateSyncJob ownership CAS", () => {
       { userId: "u1", roles: ["operator"], currentTeamId: "team-1" },
     );
 
-    expect(prismaMock.syncJob.update).toHaveBeenCalledWith(
+    expect(prismaMock.syncJob.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: "job-1", teamId: "team-1" },
         data: { name: "renamed" },
       }),
     );
+  });
+
+  it("returns NotFound when ownership changes before the atomic update", async () => {
+    prismaMock.syncJob.findFirst.mockResolvedValueOnce({
+      id: "job-1",
+      teamId: "team-1",
+      syncType: "MIRROR",
+      deleteOrphans: false,
+    });
+    prismaMock.syncJob.updateMany.mockResolvedValueOnce({ count: 0 });
+
+    await expect(updateSyncJob(
+      "job-1",
+      { name: "renamed" },
+      { userId: "u1", roles: ["operator"], currentTeamId: "team-1" },
+    )).rejects.toMatchObject({ name: "NotFoundError", status: 404 });
   });
 });
 

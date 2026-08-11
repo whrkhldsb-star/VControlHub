@@ -161,12 +161,20 @@ export async function updateSyncJob(
 		patch.deleteOrphans = effectiveDeleteOrphans(syncType, Boolean(deleteOrphans));
 		if (data.syncType !== undefined) patch.syncType = data.syncType;
 	}
-	return prisma.syncJob.update({
+	const updated = await prisma.syncJob.updateMany({
 		where: { id, teamId: existing.teamId ?? null },
 		data: patch,
+	});
+	if (updated.count === 0) {
+		throw new NotFoundError(t("backend.sync.syncJobNotFound"));
+	}
+	const result = await prisma.syncJob.findFirst({
+		where: { id, teamId: existing.teamId ?? null },
 		include: {
 			sourceServer: { select: { id: true, name: true, host: true } },
 			targetServer: { select: { id: true, name: true, host: true } },
 		},
 	});
+	if (!result) throw new NotFoundError(t("backend.sync.syncJobNotFound"));
+	return result;
 }

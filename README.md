@@ -261,7 +261,7 @@ git push origin main v0.1.0
 
 ```
 ├── src/
-│   ├── app/                    # Next.js App Router (47 页面 + 138 API)
+│   ├── app/                    # Next.js App Router 页面与 API
 │   │   ├── api/                # API Routes (RESTful)
 │   │   ├── servers/            # VPS 管理
 │   │   ├── files/              # 文件管理
@@ -384,13 +384,13 @@ make logs SERVICE_PREFIX=vcontrolhub
 | 指标            | 数量                                             |
 | --------------- | ------------------------------------------------ |
 | 功能页面            | 53                                               |
-| API 路由文件        | 177                                              |
-| 数据模型            | 75                                               |
+| API 路由文件        | 178                                              |
+| 数据模型            | 76                                               |
 | UI 组件           | 45                                               |
-| 代码行数            | ~240,703（src 扫描）                                 |
-| 测试              | 510 文件                                           |
+| 代码行数            | ~246,113（src 扫描）                                 |
+| 测试              | 521 文件                                           |
 | Docker 应用模板     | 44 (本地) + 社区源实时同步                                |
-| i18n            | 243 useI18n() 调用点，82 字典文件                        |
+| i18n            | 245 useI18n() 调用点，82 字典文件                        |
 <!-- README_METRICS_END -->
 
 ---

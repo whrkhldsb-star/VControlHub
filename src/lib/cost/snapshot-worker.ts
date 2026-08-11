@@ -17,6 +17,7 @@ import { JobStatus } from "@prisma/client";
 import { config } from "@/lib/config/env";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { prisma } from "@/lib/db";
+import { runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
 import { computeLeaseMs } from "@/lib/job/lease";
 import {
   claimNextJob,
@@ -175,11 +176,22 @@ export async function runCostSnapshotWorkerOnce(
         leaseMs: COST_SNAPSHOT_LEASE_MS,
         progress: "Syncing VPS monthly fees and aggregating daily cost",
       });
-      const monthlySync = await syncServerMonthlyCosts();
-      const today = new Date();
-      const payload = await buildTodaySnapshot(today);
-      const snapshot = await upsertDailySnapshot(payload);
-      const budgetAlerts = await checkBudgetAlerts(today);
+      const { monthlySync, snapshot, budgetAlerts } = await runWithLeaseHeartbeat({
+        jobId: job.id,
+        leaseMs: COST_SNAPSHOT_LEASE_MS,
+        heartbeat: () => heartbeatJob(job.id, COST_SNAPSHOT_WORKER_ID, {
+          leaseMs: COST_SNAPSHOT_LEASE_MS,
+          progress: "Syncing VPS monthly fees and aggregating daily cost",
+        }),
+        run: async () => {
+          const monthlySync = await syncServerMonthlyCosts();
+          const today = new Date();
+          const payload = await buildTodaySnapshot(today);
+          const snapshot = await upsertDailySnapshot(payload);
+          const budgetAlerts = await checkBudgetAlerts(today);
+          return { monthlySync, snapshot, budgetAlerts };
+        },
+      });
       await completeJob(job.id, COST_SNAPSHOT_WORKER_ID, {
         snapshotId: snapshot.id,
         snapshotDate: snapshot.snapshotDate,

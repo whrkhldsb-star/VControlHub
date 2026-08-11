@@ -26,9 +26,9 @@ const bodySchema = z.object({
 export async function POST(request: Request) {
   const authorization = request.headers.get("authorization") ?? "";
   const agent = await authenticateServerAgent(authorization.replace(/^Bearer\s+/i, ""));
-  if (!agent) return NextResponse.json({ error: "Unauthorized agent" }, { status: 401 });
+  if (!agent) return NextResponse.json({ error: "Unauthorized agent" }, { status: 401 }); // api-copy-audit: allow -- stable machine protocol
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return NextResponse.json({ error: "Invalid agent payload" }, { status: 400 });
+  if (!parsed.success) return NextResponse.json({ error: "Invalid agent payload" }, { status: 400 }); // api-copy-audit: allow -- stable machine protocol
   if (parsed.data.result) {
     await completeServerAgentJob({ serverId: agent.id, ...parsed.data.result });
   }

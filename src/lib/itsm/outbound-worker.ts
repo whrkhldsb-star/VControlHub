@@ -1,4 +1,5 @@
 import { config } from "@/lib/config/env";
+import { runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
 import { computeLeaseMs } from "@/lib/job/lease";
 import { claimNextJob, completeJob, failJob, heartbeatJob } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
@@ -45,8 +46,19 @@ export async function runItsmOutboundWorkerOnce(): Promise<boolean> {
     const job = await claimNextJob({ workerId: WORKER_ID, types: [ITSM_OUTBOUND_JOB_TYPE], leaseMs: LEASE_MS });
     if (!job) return false;
     try {
-      await heartbeatJob(job.id, WORKER_ID, { leaseMs: LEASE_MS, progress: "Delivering ITSM event" });
-      const result = await fanOutTicketEvent({ ...parsePayload(job.payload), deliveryKey: job.id });
+      await heartbeatJob(job.id, WORKER_ID, {
+        leaseMs: LEASE_MS,
+        progress: "Delivering ITSM event",
+      });
+      const result = await runWithLeaseHeartbeat({
+        jobId: job.id,
+        leaseMs: LEASE_MS,
+        heartbeat: () => heartbeatJob(job.id, WORKER_ID, {
+          leaseMs: LEASE_MS,
+          progress: "Delivering ITSM event",
+        }),
+        run: () => fanOutTicketEvent({ ...parsePayload(job.payload), deliveryKey: job.id }),
+      });
       if (result.failed > 0) throw new Error(`${result.failed} ITSM connection(s) failed; ${result.sent} delivered`);
       await completeJob(job.id, WORKER_ID, result);
     } catch (error) {

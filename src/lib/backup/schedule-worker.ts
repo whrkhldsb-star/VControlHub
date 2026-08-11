@@ -18,6 +18,7 @@ import { JobStatus } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
 import { config } from "@/lib/config/env";
+import { runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
 import { computeLeaseMs } from "@/lib/job/lease";
 import {
   claimNextJob,
@@ -287,9 +288,19 @@ export async function runBackupScheduleTickJobWorkerOnce(reason = "manual") {
         leaseMs: BACKUP_SCHEDULE_TICK_LEASE_MS,
         progress: "Dispatching due backup schedules",
       });
-      const offsiteTick = await maybeEnqueueOffsiteRetentionTick();
-      const offsiteUploadTick = await maybeEnqueueOffsiteUploadTick();
-      const scheduleResult = await dispatchDueBackupSchedules(reason);
+      const { offsiteTick, offsiteUploadTick, scheduleResult } = await runWithLeaseHeartbeat({
+        jobId: job.id,
+        leaseMs: BACKUP_SCHEDULE_TICK_LEASE_MS,
+        heartbeat: () => heartbeatJob(job.id, BACKUP_SCHEDULE_WORKER_ID, {
+          leaseMs: BACKUP_SCHEDULE_TICK_LEASE_MS,
+          progress: "Dispatching due backup schedules",
+        }),
+        run: async () => ({
+          offsiteTick: await maybeEnqueueOffsiteRetentionTick(),
+          offsiteUploadTick: await maybeEnqueueOffsiteUploadTick(),
+          scheduleResult: await dispatchDueBackupSchedules(reason),
+        }),
+      });
       await completeJob(job.id, BACKUP_SCHEDULE_WORKER_ID, {
         offsiteRetentionTick: offsiteTick,
         offsiteUploadTick,

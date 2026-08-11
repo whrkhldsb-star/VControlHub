@@ -44,7 +44,7 @@ function resolveSchedule(input: Pick<CreateScheduledTaskInput, "scheduleType" | 
 	if (scheduleType === "ONCE") {
 		const runAt = input.runAt instanceof Date ? input.runAt : new Date(input.runAt ?? "");
 		if (Number.isNaN(runAt.getTime()) || runAt.getTime() <= Date.now()) {
-			throw new ValidationError("One-time execution must use a future date and time");
+			throw new ValidationError(t("backend.scheduled-task.futureOnce"));
 		}
 		return { scheduleType, cronExpression: input.cronExpression ?? ONCE_CRON_PLACEHOLDER, runAt, nextRunAt: runAt } as const;
 	}
@@ -247,7 +247,7 @@ export async function toggleScheduledTask(
 	if (!current) throw new NotFoundError(t("backend.scheduled-task.scheduledTaskNotFound"));
 	const newStatus = current.status === "ACTIVE" ? "PAUSED" : "ACTIVE";
 	if (newStatus === "ACTIVE" && current.scheduleType === "ONCE" && (!current.runAt || current.runAt.getTime() <= Date.now())) {
-		throw new BusinessError("A completed or expired one-time task cannot be resumed");
+		throw new BusinessError(t("backend.scheduled-task.completedCannotResume"));
 	}
 	return prisma.scheduledTask.update({
 		where: { id },

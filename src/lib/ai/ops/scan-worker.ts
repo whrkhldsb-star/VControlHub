@@ -18,6 +18,7 @@
 import { prisma } from "@/lib/db";
 import { config } from "@/lib/config/env";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
+import { runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
 import { computeLeaseMs } from "@/lib/job/lease";
 import {
   claimNextJob,
@@ -494,56 +495,65 @@ export async function runAiOpsScanWorkerOnce(
         leaseMs: AI_OPS_SCAN_LEASE_MS,
         progress: "Collecting system health signals",
       });
+      const { findings, actions, completed } = await runWithLeaseHeartbeat({
+        jobId: job.id,
+        leaseMs: AI_OPS_SCAN_LEASE_MS,
+        heartbeat: () => heartbeatJob(job.id, AI_OPS_SCAN_WORKER_ID, {
+          leaseMs: AI_OPS_SCAN_LEASE_MS,
+          progress: "Running AI operations scan",
+        }),
+        run: async () => {
+          const [mode, provider] = await Promise.all([
+            readModeFromSettings(),
+            readConfiguredProvider(),
+          ]);
+          const log = await createAiOpsLog({
+            triggerType:
+              payloadReason === "interval" || payloadReason === "startup"
+                ? "scheduled"
+                : "manual",
+            mode,
+            triggeredById: null,
+            providerId: provider?.id ?? null,
+            notes: initialNotes,
+          });
+          aiOpsLogId = log.id;
 
-      const [mode, provider] = await Promise.all([
-        readModeFromSettings(),
-        readConfiguredProvider(),
-      ]);
-      const log = await createAiOpsLog({
-        triggerType:
-          payloadReason === "interval" || payloadReason === "startup"
-            ? "scheduled"
-            : "manual",
-        mode,
-        triggeredById: null,
-        providerId: provider?.id ?? null,
-        notes: initialNotes,
-      });
-      aiOpsLogId = log.id;
+          const signals = await collectSystemHealthSignals();
+          const {
+            findings,
+            actions: plannedActions,
+            status,
+          } = buildScan(mode, signals);
+          const providerAnalysis = provider
+            ? await requestProviderAnalysis(provider, signals)
+            : null;
+          const actions =
+            mode === "autonomous"
+              ? await Promise.all(
+                  (plannedActions as AiOpsExecutedAction[]).map((action) =>
+                    executeAiOpsAction({
+                      id: action.id,
+                      action: action.action,
+                      risk: action.risk,
+                    }),
+                  ),
+                )
+              : plannedActions;
 
-      const signals = await collectSystemHealthSignals();
-      const {
-        findings,
-        actions: plannedActions,
-        status,
-      } = buildScan(mode, signals);
-      const providerAnalysis = provider
-        ? await requestProviderAnalysis(provider, signals)
-        : null;
-      const actions =
-        mode === "autonomous"
-          ? await Promise.all(
-              (plannedActions as AiOpsExecutedAction[]).map((action) =>
-                executeAiOpsAction({
-                  id: action.id,
-                  action: action.action,
-                  risk: action.risk,
-                }),
-              ),
-            )
-          : plannedActions;
-
-      const report = buildExplainableReport(mode, signals, actions);
-      const completedNotes = operatorNotes
-        ? `ai.ops.scan reason=${payloadReason}\noperatorNotes=${operatorNotes}\n${report}${providerAnalysis ? `\nproviderAnalysis:\n${providerAnalysis}` : ""}`
-        : `ai.ops.scan reason=${payloadReason}\n${report}${providerAnalysis ? `\nproviderAnalysis:\n${providerAnalysis}` : ""}`;
-
-      const completed = await completeScan({
-        logId: log.id,
-        status,
-        findings,
-        actions,
-        notes: completedNotes,
+          const report = buildExplainableReport(mode, signals, actions);
+          const completedNotes = operatorNotes
+            ? `ai.ops.scan reason=${payloadReason}\noperatorNotes=${operatorNotes}\n${report}${providerAnalysis ? `\nproviderAnalysis:\n${providerAnalysis}` : ""}`
+            : `ai.ops.scan reason=${payloadReason}\n${report}${providerAnalysis ? `\nproviderAnalysis:\n${providerAnalysis}` : ""}`;
+          const completed = await completeScan({
+            logId: log.id,
+            status,
+            findings,
+            actions,
+            notes: completedNotes,
+          });
+          return { findings, actions, completed };
+        },
       });
 
       await completeJob(job.id, AI_OPS_SCAN_WORKER_ID, {

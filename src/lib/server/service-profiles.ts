@@ -388,10 +388,10 @@ export async function updateServerProfile(
   const requestedManagementMode = input.managementMode ?? current.managementMode;
   if (removeSshCredential) {
     if (requestedManagementMode !== "AGENT") {
-      throw new ValidationError("SSH credentials can only be removed in Agent mode.");
+      throw new ValidationError(t("backend.server.removeCredentialsAgentOnly"));
     }
     if (!current.agentLastSeenAt || Date.now() - current.agentLastSeenAt.getTime() >= 90_000) {
-      throw new ValidationError("Wait for a fresh Agent heartbeat before removing the SSH fallback credential.");
+      throw new ValidationError(t("backend.server.waitFreshAgentHeartbeat"));
     }
   }
 
@@ -462,7 +462,7 @@ export async function updateServerProfile(
       ? Boolean(normalized.sshKeyId && updateSshKey?.privateKey)
       : Boolean(normalized.password);
     if (!hasNextCredential) {
-      throw new ValidationError("Direct mode requires a valid SSH password or private key.");
+      throw new ValidationError(t("backend.server.directRequiresCredential"));
     }
   }
 

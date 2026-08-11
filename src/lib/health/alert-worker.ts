@@ -4,6 +4,7 @@ import { ensureDefaultAlertRules } from "@/lib/alert/service";
 import { config } from "@/lib/config/env";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { prisma } from "@/lib/db";
+import { runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
 import { computeLeaseMs } from "@/lib/job/lease";
 import {
   claimNextJob,
@@ -135,7 +136,15 @@ export async function runAlertEvaluationJobWorkerOnce(reason = "manual") {
     if (!job) return false;
 
     try {
-      const result = await processAlertEvaluation(job.id);
+      const result = await runWithLeaseHeartbeat({
+        jobId: job.id,
+        leaseMs: ALERT_EVALUATION_LEASE_MS,
+        heartbeat: () => heartbeatJob(job.id, ALERT_EVALUATION_WORKER_ID, {
+          leaseMs: ALERT_EVALUATION_LEASE_MS,
+          progress: "Evaluating alert rules",
+        }),
+        run: () => processAlertEvaluation(job.id),
+      });
       await completeJob(
         job.id,
         ALERT_EVALUATION_WORKER_ID,

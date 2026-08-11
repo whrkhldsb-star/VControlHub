@@ -60,7 +60,7 @@ describe("Agent-only file fallback", () => {
       username: "root",
       agentServerId: "srv_agent",
       remotePath: "/data/large.bin",
-    })).rejects.toThrow(/target direct access/);
+    })).rejects.toThrow(/5 MB/);
     expect(mocks.executeCommandWithAgent).toHaveBeenCalledTimes(1);
   });
 

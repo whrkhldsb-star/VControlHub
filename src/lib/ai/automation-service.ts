@@ -10,11 +10,15 @@ import {
 } from "@/lib/command-template/service";
 import { prisma } from "@/lib/db";
 import { BusinessError, ForbiddenError, ValidationError } from "@/lib/errors";
+import { serviceT } from "@/lib/i18n/service-locale";
 import { createScheduledTask } from "@/lib/scheduled-task/service";
 
 import type { HostedActionSession } from "./hosted-helpers";
 
-const automationSchema = z.object({
+function createAutomationSchema(
+  t: (key: string, vars?: Record<string, string | number>) => string,
+) {
+  return z.object({
   name: z.string().trim().min(1).max(200),
   plan: z.string().trim().min(1).max(10_000),
   reason: z.string().trim().min(1).max(2_000),
@@ -30,20 +34,21 @@ const automationSchema = z.object({
   runAt: z.string().trim().optional(),
   dailyTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
   approvalMode: z.enum(["approve_once", "every_run"]),
-}).superRefine((value, ctx) => {
+  }).superRefine((value, ctx) => {
   if (value.targetScope === "selected" && !value.serverIds?.length) {
-    ctx.addIssue({ code: "custom", path: ["serverIds"], message: "Selected scope requires serverIds" });
+    ctx.addIssue({ code: "custom", path: ["serverIds"], message: t("backend.ai.automationSelectedScopeRequiresTargets") });
   }
   if (!value.templateId && !value.templateName && !value.command) {
-    ctx.addIssue({ code: "custom", path: ["command"], message: "Choose a template or provide a command" });
+    ctx.addIssue({ code: "custom", path: ["command"], message: t("backend.ai.automationTemplateOrCommandRequired") });
   }
   if (value.executionMode === "once" && !value.runAt) {
-    ctx.addIssue({ code: "custom", path: ["runAt"], message: "One-time execution requires runAt" });
+    ctx.addIssue({ code: "custom", path: ["runAt"], message: t("backend.ai.automationRunAtRequired") });
   }
   if (value.executionMode === "daily" && !value.dailyTime) {
-    ctx.addIssue({ code: "custom", path: ["dailyTime"], message: "Daily execution requires dailyTime" });
+    ctx.addIssue({ code: "custom", path: ["dailyTime"], message: t("backend.ai.automationDailyTimeRequired") });
   }
-});
+  });
+}
 
 function unique(values: string[]) {
   return [...new Set(values)];
@@ -52,23 +57,24 @@ function unique(values: string[]) {
 function validateBuiltinVariables(
   template: { isBuiltin?: boolean; name: string; variables: string[] } | null,
   variables: Record<string, string>,
+  t: (key: string, vars?: Record<string, string | number>) => string,
 ) {
   if (!template?.isBuiltin) return;
   for (const [name, value] of Object.entries(variables)) {
     if (["days", "count", "port"].includes(name) && !/^\d{1,6}$/.test(value)) {
-      throw new ValidationError(`Template variable ${name} must be numeric`);
+      throw new ValidationError(t("backend.ai.automationVariableNumeric", { name }));
     }
     if (["service", "container"].includes(name) && !/^[A-Za-z0-9_.@-]+$/.test(value)) {
-      throw new ValidationError(`Template variable ${name} contains unsupported characters`);
+      throw new ValidationError(t("backend.ai.automationVariableUnsupported", { name }));
     }
     if (name === "project_dir" && (!/^\/[A-Za-z0-9_./-]+$/.test(value) || value.split("/").includes(".."))) {
-      throw new ValidationError("Template variable project_dir must be a safe absolute path");
+      throw new ValidationError(t("backend.ai.automationProjectDirSafe"));
     }
   }
   if (variables.public_key !== undefined) {
     const key = variables.public_key ?? "";
     if (!/^(ssh-(rsa|ed25519)|ecdsa-sha2-nistp\d+|sk-(ssh-ed25519|ecdsa-sha2-nistp256)@openssh\.com) [A-Za-z0-9+/=]+(?: [^\r\n]+)?$/.test(key)) {
-      throw new ValidationError("public_key must be one valid OpenSSH public-key line");
+      throw new ValidationError(t("backend.ai.automationPublicKeyValid"));
     }
   }
 }
@@ -77,16 +83,17 @@ export async function materializeAutomationProposal(
   raw: Record<string, unknown>,
   actor: HostedActionSession,
 ) {
-  const input = automationSchema.parse(raw);
+  const t = await serviceT();
+  const input = createAutomationSchema(t).parse(raw);
 	const session = { userId: actor.userId, roles: actor.roles, currentTeamId: actor.currentTeamId ?? null };
   if (!sessionHasPermission(actor, "command:create")) {
-    throw new ForbiddenError("Missing permission: command:create");
+    throw new ForbiddenError(t("backend.ai.missingPermissionCommandCreate"));
   }
   if (!sessionHasPermission(actor, "server:ssh")) {
-    throw new ForbiddenError("Missing permission: server:ssh");
+    throw new ForbiddenError(t("backend.ai.missingPermissionServerSsh"));
   }
   if (input.approvalMode === "approve_once" && !sessionHasPermission(actor, "command:approve")) {
-    throw new ForbiddenError("Unattended execution requires command:approve permission; use every_run instead");
+    throw new ForbiddenError(t("backend.ai.automationUnattendedRequiresApprove"));
   }
 
   const templateId = input.templateId ?? undefined;
@@ -102,7 +109,7 @@ export async function materializeAutomationProposal(
       })
     : null;
   if ((templateId || templateName) && !template) {
-    throw new BusinessError("Command template was not found or is outside the current workspace");
+    throw new BusinessError(t("backend.ai.automationTemplateNotFound"));
   }
 
   const variables = Object.fromEntries(
@@ -112,14 +119,16 @@ export async function materializeAutomationProposal(
   const requiredVariables = extractTemplateVariables(templateCommand, template?.rollbackCommand);
   const missingVariables = requiredVariables.filter((name) => variables[name] === undefined);
   if (missingVariables.length) {
-    throw new ValidationError(`Missing template variables: ${missingVariables.join(", ")}`);
+    throw new ValidationError(t("backend.ai.automationMissingVariables", {
+      variables: missingVariables.join(", "),
+    }));
   }
-	validateBuiltinVariables(template, variables);
+	validateBuiltinVariables(template, variables, t);
   const command = renderCommand(templateCommand, variables);
   const rollbackCommand = input.rollbackCommand
     ?? (template?.rollbackCommand ? renderCommand(template.rollbackCommand, variables) : undefined);
   if (/\{\{\w+\}\}/.test(command) || (rollbackCommand && /\{\{\w+\}\}/.test(rollbackCommand))) {
-    throw new ValidationError("The rendered automation still contains unresolved template variables");
+    throw new ValidationError(t("backend.ai.automationUnresolvedVariables"));
   }
 
   const requestedIds = unique(input.serverIds ?? []);
@@ -133,13 +142,13 @@ export async function materializeAutomationProposal(
     orderBy: { name: "asc" },
     take: 500,
   });
-  if (!servers.length) throw new BusinessError("No enabled target servers are available in the current workspace");
+  if (!servers.length) throw new BusinessError(t("backend.ai.automationNoEnabledTargets"));
   if (input.targetScope === "selected" && servers.length !== requestedIds.length) {
-    throw new BusinessError("One or more selected servers are disabled or outside the current workspace");
+    throw new BusinessError(t("backend.ai.automationSelectedTargetsUnavailable"));
   }
   const teamIds = unique(servers.map((server) => server.teamId ?? ""));
   if (teamIds.length !== 1) {
-    throw new BusinessError("Automation targets must belong to one workspace; select a workspace first");
+    throw new BusinessError(t("backend.ai.automationSingleWorkspace"));
   }
 
   return {

@@ -144,7 +144,7 @@ export async function POST(request: Request) {
 		if (data.scheduleType !== "ONCE" && !cronExpression)
         throw new ValidationError(t("api.cronRequired", locale));
 		if (data.approvalRequired === false && !sessionHasPermission(session, "command:approve")) {
-			throw new ValidationError("Only command approvers may create unattended tasks");
+			throw new ValidationError(t("backend.scheduled-task.unattendedRequiresApprover", locale));
 		}
       const task = await createScheduledTask(
         {
@@ -206,7 +206,7 @@ export async function PATCH(request: Request) {
 		if (!data.id)
         throw new ValidationError(t("api.missingTaskId", locale));
 		if (data.approvalRequired === false && !sessionHasPermission(session, "command:approve")) {
-			throw new ValidationError("Only command approvers may disable per-run approval");
+			throw new ValidationError(t("backend.scheduled-task.disableApprovalRequiresApprover", locale));
 		}
       const result = await updateScheduledTask(
         data.id,

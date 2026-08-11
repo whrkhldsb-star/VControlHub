@@ -20,6 +20,7 @@ import { JobStatus } from "@prisma/client";
 import { config } from "@/lib/config/env";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { prisma } from "@/lib/db";
+import { runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
 import { computeLeaseMs } from "@/lib/job/lease";
 import {
   claimNextJob,
@@ -121,7 +122,15 @@ export async function runOperationTaskRetentionJobWorkerOnce(
         leaseMs: OPERATION_TASK_RETENTION_LEASE_MS,
         progress: "Pruning historical records across sources",
       });
-      const result = await pruneOperationTaskHistory();
+      const result = await runWithLeaseHeartbeat({
+        jobId: job.id,
+        leaseMs: OPERATION_TASK_RETENTION_LEASE_MS,
+        heartbeat: () => heartbeatJob(job.id, OPERATION_TASK_RETENTION_WORKER_ID, {
+          leaseMs: OPERATION_TASK_RETENTION_LEASE_MS,
+          progress: "Pruning historical records across sources",
+        }),
+        run: () => pruneOperationTaskHistory(),
+      });
       await completeJob(job.id, OPERATION_TASK_RETENTION_WORKER_ID, {
         totalDeleted: result.totalDeleted,
         perSource: result.perSource,

@@ -2,6 +2,7 @@ import { JobStatus } from "@prisma/client";
 
 import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
+import { runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
 import {
   claimNextJob,
   completeJob,
@@ -110,7 +111,15 @@ export async function runHealthSamplingWorkerOnce(
     });
     if (!job) return false;
     try {
-      const result = await processSample(job.id);
+      const result = await runWithLeaseHeartbeat({
+        jobId: job.id,
+        leaseMs: LEASE_MS,
+        heartbeat: () => heartbeatJob(job.id, WORKER_ID, {
+          leaseMs: LEASE_MS,
+          progress: "Collecting fleet metrics",
+        }),
+        run: () => processSample(job.id),
+      });
       await completeJob(job.id, WORKER_ID, result);
       try {
         await pruneCompletedJobsByType({
