@@ -1,10 +1,11 @@
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
+import { Readable } from "node:stream";
 import { NextResponse } from "next/server";
 import { Client } from "ssh2";
 import { z } from "zod";
 
-import { connectSsh } from "@/lib/ssh/client";
+import { connectSsh, readRemoteFile } from "@/lib/ssh/client";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { createLogger } from "@/lib/logging";
 import { getMediaItem } from "@/lib/media/service";
@@ -233,6 +234,20 @@ export async function GET(
 
       let client: Client | null = null;
       try {
+        if (connectionCredentials.agentServerId && !connectionCredentials.privateKey && !connectionCredentials.password) {
+          const buffer = await readRemoteFile({ ...connectionCredentials, remotePath: normalizedRemotePath });
+          const range = parseStorageRange(request.headers.get("range"), buffer.length);
+          if (range instanceof Response) return range;
+          const selected = buffer.subarray(range.start, range.end + 1);
+          return storageStreamResponse({
+            stream: Readable.from(selected),
+            range,
+            contentType: item.mimeType,
+            fileName: item.name,
+            fileSize: buffer.length,
+            download,
+          });
+        }
         client = await connectSsh({
           host: connectionCredentials.host,
           port: connectionCredentials.port,

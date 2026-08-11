@@ -51,6 +51,7 @@ export async function createServerAction(
     const connectionType = String(
       formData.get("connectionType") ?? "SSH_KEY",
     ) as "SSH_KEY" | "PASSWORD";
+    const managementMode: "DIRECT" | "AGENT" = formData.get("managementMode") === "AGENT" ? "AGENT" : "DIRECT";
     const sshKeyId = String(formData.get("sshKeyId") ?? "") || undefined;
     const password = String(formData.get("password") ?? "") || undefined;
     const description = String(formData.get("description") ?? "");
@@ -74,6 +75,7 @@ export async function createServerAction(
       port,
       username,
       connectionType,
+      managementMode,
       sshKeyId,
       password,
       description,
@@ -131,6 +133,7 @@ export async function updateServerAction(
     const connectionType = String(
       formData.get("connectionType") ?? "PASSWORD",
     ) as "SSH_KEY" | "PASSWORD";
+    const managementMode: "DIRECT" | "AGENT" = formData.get("managementMode") === "AGENT" ? "AGENT" : "DIRECT";
     const password = String(formData.get("password") ?? "");
     const sshKeyId = String(formData.get("sshKeyId") ?? "");
     const approvedHostKeySha256 = String(formData.get("approvedHostKeySha256") ?? "") || undefined;
@@ -143,6 +146,7 @@ export async function updateServerAction(
       port: Number(String(formData.get("port") ?? "22")),
       username: String(formData.get("username") ?? "") || undefined,
       connectionType,
+      managementMode,
       sshKeyId:
         connectionType === "SSH_KEY" ? sshKeyId || undefined : undefined,
       password:
@@ -156,6 +160,7 @@ export async function updateServerAction(
       approvedHostKeySha256,
       ...(storagePathRaw ? { storagePath: storagePathRaw } : {}),
       repairStoragePath,
+      removeSshCredential: formData.get("removeSshCredential") === "on",
     };
 
     const updated = await updateServerProfile(serverId, changes, session);
@@ -409,7 +414,7 @@ export async function deleteServerAction(
     }
 
     const serverName = current.name;
-    await deleteServerProfile(serverId, session);
+    const deletion = await deleteServerProfile(serverId, session);
     await auditUserAction(session.userId, "server.delete", {
       serverId,
       name: serverName,
@@ -417,7 +422,11 @@ export async function deleteServerAction(
     revalidatePath("/");
     revalidatePath("/servers");
     revalidatePath("/storage");
-    return { success: tr("serversPage.action.deleteSuccess") } as ServerActionState;
+    return {
+      success: deletion.cleanupSkipped
+        ? tr("serversPage.action.deleteSuccessCleanupPending")
+        : tr("serversPage.action.deleteSuccess"),
+    } as ServerActionState;
   } catch (error) {
     return {
       error: getErrorMessage(error, tr("serversPage.action.deleteFailed")),

@@ -1,9 +1,10 @@
 import path from "node:path";
+import { Readable } from "node:stream";
 import { guessContentType } from "@/lib/http/mime-types";
 
 import { Client } from "ssh2";
 import { NextResponse } from "next/server";
-import { connectSsh, type SshConnectionParams } from "@/lib/ssh/client";
+import { connectSsh, readRemoteFile, type SshConnectionParams } from "@/lib/ssh/client";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 
@@ -124,6 +125,20 @@ export async function GET(request: Request) {
       let client: Client | null = null;
 
       try {
+        if (connectionCredentials.agentServerId && !connectionCredentials.privateKey && !connectionCredentials.password) {
+          const buffer = await readRemoteFile({ ...connectionCredentials, remotePath: normalizedRemotePath });
+          const range = parseStorageRange(request.headers.get("range"), buffer.length);
+          if (range instanceof Response) return range;
+          const selected = buffer.subarray(range.start, range.end + 1);
+          return storageStreamResponse({
+            stream: Readable.from(selected),
+            range,
+            fileName,
+            fileSize: buffer.length,
+            contentType,
+            download,
+          });
+        }
         const config: SshConnectionParams = {
           host: connectionCredentials.host,
           port: connectionCredentials.port,
@@ -131,6 +146,7 @@ export async function GET(request: Request) {
           privateKey: connectionCredentials.privateKey,
           password: connectionCredentials.password,
           hostKeySha256: connectionCredentials.hostKeySha256,
+          agentServerId: connectionCredentials.agentServerId,
         };
 
         client = await connectSsh(config);

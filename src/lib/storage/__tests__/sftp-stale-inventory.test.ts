@@ -53,6 +53,7 @@ const baseNode = {
     port: 22,
     username: "root",
     connectionType: "PASSWORD" as const,
+    managementMode: "DIRECT" as const,
     password: "secret",
     hostKeySha256: "STALE-PIN",
     sshKey: null,

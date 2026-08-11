@@ -19,4 +19,24 @@ describe("getServerTargetAvailability", () => {
       latestMetric: { isOnline: false, createdAt: "2026-08-09T04:30:00.000Z" },
     }, now)).toEqual({ available: true, reason: null });
   });
+
+  it("uses a fresh Agent heartbeat even when the latest SSH probe is offline", () => {
+    expect(getServerTargetAvailability({
+      onboardingStatus: "READY",
+      managementMode: "AGENT",
+      agentLastSeenAt: "2026-08-09T04:59:30.000Z",
+      hasSshCredential: false,
+      latestMetric: { isOnline: false, createdAt: "2026-08-09T04:58:00.000Z" },
+    }, now)).toEqual({ available: true, reason: null });
+  });
+
+  it("blocks an offline Agent-only node that has no SSH fallback", () => {
+    expect(getServerTargetAvailability({
+      onboardingStatus: "READY",
+      managementMode: "AGENT",
+      agentLastSeenAt: "2026-08-09T04:30:00.000Z",
+      hasSshCredential: false,
+      latestMetric: { isOnline: true, createdAt: "2026-08-09T04:59:00.000Z" },
+    }, now)).toEqual({ available: false, reason: "recently-offline" });
+  });
 });

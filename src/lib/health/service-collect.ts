@@ -13,6 +13,7 @@ import type { HealthOverview, ServerHealth } from "./service-types";
 import { evaluateHealth } from "./service-types";
 import { serverTeamWhere } from "@/lib/auth/team-scope";
 import type { SessionPayload } from "@/lib/auth/session";
+import { persistServerTrafficFromMetrics } from "@/lib/monitoring/server-traffic-snapshot";
 
 /** Default TCP probe deadline; tight enough to keep the health rollup snappy
  *  even when dozens of servers are probed in parallel. */
@@ -66,12 +67,14 @@ export async function collectAllHealth(
     host: string;
     port: number;
     enabled: boolean;
+    managementMode: "DIRECT" | "AGENT";
+    agentLastSeenAt: Date | null;
   }> = [];
   let cursorId: string | undefined;
   for (;;) {
     const page = await prisma.server.findMany({
       where: session ? serverTeamWhere(session) : {},
-      select: { id: true, name: true, host: true, port: true, enabled: true },
+      select: { id: true, name: true, host: true, port: true, enabled: true, managementMode: true, agentLastSeenAt: true },
       orderBy: { id: "asc" },
       take: SERVER_PAGE_SIZE,
       ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {}),
@@ -97,11 +100,10 @@ export async function collectAllHealth(
     // TR-050: lightweight TCP probe before the heavy SSH pull. A failed
     // probe means the host is unreachable on the network — mark offline
     // with a clear "网络不可达" reason instead of the generic SSH error.
-    const probe = await tcpProbe(
-      server.host,
-      server.port,
-      TCP_PROBE_TIMEOUT_MS,
-    );
+    const agentFresh = server.managementMode === "AGENT" && server.agentLastSeenAt && Date.now() - server.agentLastSeenAt.getTime() < 90_000;
+    const probe = agentFresh
+      ? { ok: true as const, latencyMs: undefined }
+      : await tcpProbe(server.host, server.port, TCP_PROBE_TIMEOUT_MS);
     if (!probe.ok) {
       return {
         serverId: server.id,
@@ -134,6 +136,7 @@ export async function collectAllHealth(
         };
       }
       const metrics = result as ServerMetrics;
+      await persistServerTrafficFromMetrics(server.id, metrics).catch(() => false);
       const health = evaluateHealth(metrics);
       const diskMax = Math.max(...metrics.disk.map((d) => d.usagePercent), 0);
       // Prefer root mount for absolute disk labels; fall back to busiest mount.

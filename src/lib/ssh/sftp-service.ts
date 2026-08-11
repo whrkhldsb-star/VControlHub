@@ -9,8 +9,18 @@
  */
 
 import { Client } from "ssh2";
-import { createVerifiedSshConfig } from "@/lib/ssh/client";
-import type { Stats, FileEntryWithStats } from "ssh2";
+import {
+  createRemoteDirectory,
+  createVerifiedSshConfig,
+  deleteRemoteFile,
+  listRemoteDirectory,
+  readRemoteFile,
+  renameRemoteFile,
+  statRemoteEntry,
+  writeRemoteFile,
+  type SshConnectionParams,
+} from "@/lib/ssh/client";
+import type { Stats } from "ssh2";
 import { Readable, PassThrough } from "node:stream";
 import { prisma } from "@/lib/db";
 import { decryptServerPassword, decryptSshPrivateKey, decryptSshKeyPassphrase } from "@/lib/ssh/ssh-key-crypto";
@@ -52,6 +62,7 @@ type ResolvedConnection = {
   passphrase?: string;
   password?: string;
   hostKeySha256?: string | null;
+  agentServerId?: string;
 };
 
 // ── Path safety ────────────────────────────────────────────────────
@@ -109,6 +120,7 @@ async function resolveServerConnection(serverId: string): Promise<ResolvedConnec
       enabled: true,
       connectionType: true,
       password: true,
+      managementMode: true,
       hostKeySha256: true,
       sshKey: { select: { privateKey: true, passphrase: true } },
     },
@@ -118,10 +130,11 @@ async function resolveServerConnection(serverId: string): Promise<ResolvedConnec
     throw new Error("Server not found or disabled");
   }
 
-  if (srv.connectionType === "SSH_KEY" && !srv.sshKey?.privateKey) {
+  const agentServerId = srv.managementMode === "AGENT" ? srv.id : undefined;
+  if (srv.connectionType === "SSH_KEY" && !srv.sshKey?.privateKey && !agentServerId) {
     throw new Error("SSH key not configured for this server");
   }
-  if (srv.connectionType === "PASSWORD" && !srv.password) {
+  if (srv.connectionType === "PASSWORD" && !srv.password && !agentServerId) {
     throw new Error("Password not configured for this server");
   }
 
@@ -143,7 +156,25 @@ async function resolveServerConnection(serverId: string): Promise<ResolvedConnec
       srv.connectionType === "PASSWORD"
         ? decryptServerPassword(srv.password ?? "")
         : undefined,
+    ...(agentServerId ? { agentServerId } : {}),
   };
+}
+
+function toConnectionParams(conn: ResolvedConnection): SshConnectionParams {
+  return {
+    host: conn.host,
+    port: conn.port,
+    username: conn.username,
+    hostKeySha256: conn.hostKeySha256,
+    ...(conn.privateKey ? { privateKey: conn.privateKey } : {}),
+    ...(conn.passphrase ? { passphrase: conn.passphrase } : {}),
+    ...(conn.password ? { password: conn.password } : {}),
+    ...(conn.agentServerId ? { agentServerId: conn.agentServerId } : {}),
+  };
+}
+
+function isAgentOnly(conn: ResolvedConnection) {
+  return Boolean(conn.agentServerId && !conn.privateKey && !conn.password);
 }
 
 // ── SFTP session helper ────────────────────────────────────────────
@@ -206,48 +237,30 @@ async function openSftpSession(serverId: string): Promise<SftpSession> {
 
 // ── Public operations ──────────────────────────────────────────────
 
-function toDirEntry(entry: FileEntryWithStats): SftpDirEntry {
-  const stats = entry.attrs;
-  return {
-    name: entry.filename,
-    longname: entry.longname,
-    isDirectory: stats.isDirectory(),
-    isFile: stats.isFile(),
-    isSymlink: stats.isSymbolicLink(),
-    size: stats.size,
-    modifyTime: stats.mtime,
-    accessTime: stats.atime,
-    owner: stats.uid,
-    group: stats.gid,
-  };
-}
-
 export async function listDirectory(
   serverId: string,
   remotePath: string,
 ): Promise<SftpDirEntry[]> {
   const path = sanitizeRemotePath(remotePath);
-  const session = await openSftpSession(serverId);
-
-  try {
-    const entries = await new Promise<FileEntryWithStats[]>((resolve, reject) => {
-      session.sftp.readdir(path, (err, list) => {
-        if (err) reject(err);
-        else resolve(list);
-      });
-    });
-
-    // Sort: directories first, then files, alphabetically
-    const result = entries.map(toDirEntry);
-    result.sort((a, b) => {
+  const conn = await resolveServerConnection(serverId);
+  const entries = await listRemoteDirectory({ ...toConnectionParams(conn), remotePath: path });
+  const result: SftpDirEntry[] = entries.map((entry) => ({
+    name: entry.name,
+    longname: entry.longname,
+    isDirectory: entry.type === "directory",
+    isFile: entry.type === "file",
+    isSymlink: false,
+    size: entry.size,
+    modifyTime: Math.floor(entry.modifyTime / 1000),
+    accessTime: Math.floor(entry.accessTime / 1000),
+    owner: 0,
+    group: 0,
+  }));
+  result.sort((a, b) => {
       if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1;
       return a.name.localeCompare(b.name);
-    });
-
-    return result;
-  } finally {
-    session.close();
-  }
+  });
+  return result;
 }
 
 export async function statEntry(
@@ -255,28 +268,17 @@ export async function statEntry(
   remotePath: string,
 ): Promise<SftpStat> {
   const path = sanitizeRemotePath(remotePath);
-  const session = await openSftpSession(serverId);
-
-  try {
-    const stats = await new Promise<Stats>((resolve, reject) => {
-      session.sftp.stat(path, (err, s) => {
-        if (err) reject(err);
-        else resolve(s);
-      });
-    });
-
-    return {
-      mode: stats.mode,
-      size: stats.size,
-      isDirectory: stats.isDirectory(),
-      isFile: stats.isFile(),
-      isSymlink: stats.isSymbolicLink(),
-      modifyTime: stats.mtime,
-      accessTime: stats.atime,
-    };
-  } finally {
-    session.close();
-  }
+  const conn = await resolveServerConnection(serverId);
+  const stats = await statRemoteEntry({ ...toConnectionParams(conn), remotePath: path });
+  return {
+    mode: stats.mode,
+    size: stats.size,
+    isDirectory: stats.type === "directory",
+    isFile: stats.type === "file",
+    isSymlink: stats.type === "other",
+    modifyTime: Math.floor(stats.modifyTime / 1000),
+    accessTime: Math.floor(stats.accessTime / 1000),
+  };
 }
 
 /**
@@ -289,6 +291,21 @@ export async function uploadFile(
   sourceStream: Readable,
 ): Promise<number> {
   const path = sanitizeRemotePath(remotePath);
+  const conn = await resolveServerConnection(serverId);
+  if (isAgentOnly(conn)) {
+    const chunks: Buffer[] = [];
+    let size = 0;
+    for await (const chunk of sourceStream) {
+      const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      size += buffer.length;
+      if (size > 5 * 1_048_576) {
+        throw new Error("Agent-only uploads are limited to 5 MB; enable target direct access for larger files");
+      }
+      chunks.push(buffer);
+    }
+    await writeRemoteFile({ ...toConnectionParams(conn), remotePath: path, content: Buffer.concat(chunks) });
+    return size;
+  }
   const session = await openSftpSession(serverId);
 
   try {
@@ -363,6 +380,11 @@ export async function downloadFile(
   remotePath: string,
 ): Promise<{ stream: Readable; size: number }> {
   const path = sanitizeRemotePath(remotePath);
+  const conn = await resolveServerConnection(serverId);
+  if (isAgentOnly(conn)) {
+    const content = await readRemoteFile({ ...toConnectionParams(conn), remotePath: path });
+    return { stream: Readable.from(content), size: content.length };
+  }
   const session = await openSftpSession(serverId);
 
   // Get file size for Content-Length header
@@ -412,30 +434,10 @@ export async function deleteFile(
   remotePath: string,
 ): Promise<void> {
   const path = sanitizeRemotePath(remotePath);
-  const session = await openSftpSession(serverId);
-
-  try {
-    // Check if path is a directory
-    const stats = await new Promise<Stats>((resolve, reject) => {
-      session.sftp.stat(path, (err, s) => {
-        if (err) reject(err);
-        else resolve(s);
-      });
-    });
-
-    if (stats.isDirectory()) {
-      throw new Error("Cannot delete a directory — use recursive delete");
-    }
-
-    await new Promise<void>((resolve, reject) => {
-      session.sftp.unlink(path, (err) => {
-        if (err) reject(err);
-        else resolve();
-      });
-    });
-  } finally {
-    session.close();
-  }
+  const conn = await resolveServerConnection(serverId);
+  const params = toConnectionParams(conn);
+  const stats = await statRemoteEntry({ ...params, remotePath: path });
+  await deleteRemoteFile({ ...params, remotePath: path, isDirectory: stats.type === "directory" });
 }
 
 export async function makeDirectory(
@@ -443,18 +445,8 @@ export async function makeDirectory(
   remotePath: string,
 ): Promise<void> {
   const path = sanitizeRemotePath(remotePath);
-  const session = await openSftpSession(serverId);
-
-  try {
-    await new Promise<void>((resolve, reject) => {
-      session.sftp.mkdir(path, (err) => {
-        if (err) reject(err);
-        else resolve();
-      });
-    });
-  } finally {
-    session.close();
-  }
+  const conn = await resolveServerConnection(serverId);
+  await createRemoteDirectory({ ...toConnectionParams(conn), remotePath: path });
 }
 
 export async function renameEntry(
@@ -464,16 +456,6 @@ export async function renameEntry(
 ): Promise<void> {
   const src = sanitizeRemotePath(oldPath);
   const dst = sanitizeRemotePath(newPath);
-  const session = await openSftpSession(serverId);
-
-  try {
-    await new Promise<void>((resolve, reject) => {
-      session.sftp.rename(src, dst, (err) => {
-        if (err) reject(err);
-        else resolve();
-      });
-    });
-  } finally {
-    session.close();
-  }
+  const conn = await resolveServerConnection(serverId);
+  await renameRemoteFile({ ...toConnectionParams(conn), oldPath: src, newPath: dst });
 }

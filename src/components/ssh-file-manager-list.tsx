@@ -124,7 +124,7 @@ export function SshFileList({
               <span className="hidden shrink-0 text-[10px] text-[var(--text-muted)] lg:block">{formatSshFileDate(entry.modifyTime, locale)}</span>
               {entry.isFile && <ActionButton type="button" variant="ghost" onClick={(e) => { e.stopPropagation(); onDownload(entry); }} className="!min-h-11 !min-w-11 !shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100" aria-label={t("sshFileManager.download")} title={t("sshFileManager.download")}>⬇</ActionButton>}
               <ActionButton type="button" variant="ghost" onClick={(e) => { e.stopPropagation(); setRenameTarget(entry.name); setRenameValue(entry.name); }} className="!min-h-11 !min-w-11 !shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100" aria-label={t("sshFileManager.rename")} title={t("sshFileManager.rename")}>✎</ActionButton>
-              {entry.isFile && <ActionButton type="button" variant="ghost" onClick={(e) => { e.stopPropagation(); onDelete(entry); }} className="!min-h-11 !min-w-11 !shrink-0 text-[var(--danger)] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100" aria-label={t("sshFileManager.delete")} title={t("sshFileManager.delete")}>🗑</ActionButton>}
+              <ActionButton type="button" variant="ghost" onClick={(e) => { e.stopPropagation(); onDelete(entry); }} className="!min-h-11 !min-w-11 !shrink-0 text-[var(--danger)] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100" aria-label={t("sshFileManager.delete")} title={t("sshFileManager.delete")}>🗑</ActionButton>
             </>
           )}
         </div>

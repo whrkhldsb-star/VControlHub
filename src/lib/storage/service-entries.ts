@@ -209,10 +209,12 @@ type DeletedFileEntryWithNode = Prisma.FileEntryGetPayload<{
         hostKeySha256: true;
         server: {
           select: {
+            id: true;
             host: true;
             port: true;
             username: true;
             connectionType: true;
+            managementMode: true;
             password: true;
             hostKeySha256: true;
             sshKey: { select: { privateKey: true } };
@@ -310,10 +312,12 @@ export async function restoreFileEntry(
           hostKeySha256: true,
           server: {
             select: {
+              id: true,
               host: true,
               port: true,
               username: true,
               connectionType: true,
+              managementMode: true,
               password: true,
               hostKeySha256: true,
               sshKey: { select: { privateKey: true } },

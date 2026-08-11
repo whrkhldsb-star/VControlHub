@@ -167,6 +167,8 @@ export const config = {
 		get wsSecret(): string | undefined { return readOptionalString("SSH_WS_SECRET"); },
 		/** OPEN-1: When true, reject SSH connections to servers without a pinned hostKeySha256. */
 		get enforceHostKeyPin(): boolean { return readBool("SSH_ENFORCE_HOST_KEY_PIN", false); },
+		get poolIdleTimeoutMs(): number { return readInt("SSH_POOL_IDLE_TIMEOUT_MS", 10 * 60_000); },
+		get failureBackoffMs(): number { return readInt("SSH_FAILURE_BACKOFF_MS", 30_000); },
 	},
 
 	/** Storage / direct-access gateway. */

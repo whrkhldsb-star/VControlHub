@@ -30,10 +30,21 @@ const playbookServiceMock = vi.hoisted(() => ({
 	runPlaybook: vi.fn(),
 }));
 
+const agentServiceMock = vi.hoisted(() => ({
+	executeCommandWithAgent: vi.fn(),
+}));
+
+const sshClientMock = vi.hoisted(() => ({
+	buildSshParamsFromServer: vi.fn(),
+	execRemoteCommand: vi.fn(),
+}));
+
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 vi.mock("@/lib/command/service", () => commandServiceMock);
 vi.mock("@/lib/scheduled-task/service", () => scheduledTaskServiceMock);
 vi.mock("@/lib/playbook/service", () => playbookServiceMock);
+vi.mock("@/lib/server/agent-service", () => agentServiceMock);
+vi.mock("@/lib/ssh/client", () => sshClientMock);
 vi.mock("ssh2", () => ({ Client: vi.fn() }));
 
 describe("AI hosted action approvals", () => {
@@ -163,6 +174,39 @@ describe("AI hosted action approvals", () => {
 			select: { id: true, name: true, host: true, port: true, username: true, enabled: true },
 			take: 500,
 		});
+	});
+
+	it("runs safe status checks through Agent when the server has no SSH credential", async () => {
+		const { executeSafeAction } = await import("../hosted-service");
+		prismaMock.server.findFirst.mockResolvedValue({
+			id: "srv_agent",
+			host: "203.0.113.10",
+			port: 22,
+			username: "root",
+			connectionType: "PASSWORD",
+			managementMode: "AGENT",
+			password: null,
+			sshKey: null,
+			hostKeySha256: "SHA256:test",
+			osDialect: null,
+		});
+		agentServiceMock.executeCommandWithAgent.mockResolvedValue({
+			stdout: "agent status output",
+			stderr: "",
+			exitCode: 0,
+		});
+
+		const result = await executeSafeAction(
+			{ actionType: "get_status", serverId: "srv_agent", params: {} },
+			{ session: { userId: "operator_1", roles: ["operator"], currentTeamId: "team_a" } },
+		);
+
+		expect(result).toMatchObject({
+			success: true,
+			data: { stdout: "agent status output", exitCode: 0, transport: "agent" },
+		});
+		expect(agentServiceMock.executeCommandWithAgent).toHaveBeenCalledWith(expect.objectContaining({ serverId: "srv_agent" }));
+		expect(sshClientMock.execRemoteCommand).not.toHaveBeenCalled();
 	});
 
 	it("binds a natural-language VPS target but does not create a command request before user confirmation", async () => {

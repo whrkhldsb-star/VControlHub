@@ -142,9 +142,13 @@ deploy the authenticated payload currently shows:
 So `overall: warning` is **expected** while any storage node stays unhealthy —
 fix the node credentials/path, do not treat the public summary alone as "app down".
 
-## Intentional non-goals (from improvement backlog)
+## Agent management boundary
 
-- **Lightweight host agent / latency probe** — needs a separate protocol; do not
-  bolt RTT onto SSH sampling.
+- The lightweight host Agent uses its own outbound HTTPS protocol for heartbeat,
+  metrics, and approved command jobs. It is not implemented as an SSH sampling
+  extension and does not require an inbound port on managed hosts.
+- Agent mode retains SSH credentials for bootstrap and automatic fallback.
+  Once an Agent has claimed a command, the executor must not replay that command
+  over SSH because mutation commands may not be idempotent.
 - **GitHub branch protection** — must be flipped in repo Settings by an admin
   (require `test` + `E2E public smoke`).

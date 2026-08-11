@@ -51,6 +51,7 @@ const SFTP_STALE_INVENTORY_NODE_SELECT = {
       port: true,
       username: true,
       connectionType: true,
+      managementMode: true,
       password: true,
       hostKeySha256: true,
       sshKey: { select: { privateKey: true } },
@@ -75,6 +76,7 @@ type SftpSyncNode = Prisma.StorageNodeGetPayload<{
         port: true;
         username: true;
         connectionType: true;
+        managementMode: true;
         password: true;
         hostKeySha256: true;
         sshKey: { select: { privateKey: true } };
@@ -170,6 +172,7 @@ export async function detectAndPruneSftpStaleInventory(input: {
           privateKey: credentials.privateKey,
           password: credentials.password,
           hostKeySha256: credentials.hostKeySha256,
+          agentServerId: credentials.agentServerId,
           remotePath: dirPath,
         }),
         dirPath,

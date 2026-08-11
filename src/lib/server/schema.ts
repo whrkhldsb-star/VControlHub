@@ -41,6 +41,7 @@ export const createServerSchema = z
       .optional()
       .default("root"),
     connectionType: z.enum(["SSH_KEY", "PASSWORD"]).default("SSH_KEY"),
+    managementMode: z.enum(["DIRECT", "AGENT"]).default("DIRECT"),
     sshKeyId: z.string().trim().optional(),
     password: z.string().trim().optional(),
     hostKeySha256: z.string().trim().max(128, "SSH host key fingerprint is too long").optional().or(z.literal("")),

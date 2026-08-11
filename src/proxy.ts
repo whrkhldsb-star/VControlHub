@@ -36,6 +36,7 @@ const PUBLIC_PATHS_EXACT = new Set([
 const PUBLIC_PATH_PREFIXES = [
   "/_next", // static assets
   "/api/public", // public API endpoints
+  "/api/agent/", // outbound host agent (Bearer token verified by route)
   "/api/share/", // public share-token downloads (validated server-side)
   // ITSM inbound webhooks: no session cookie; HMAC signature verified in route.
   "/api/itsm/inbound/",

@@ -33,6 +33,8 @@ type ServerCardActionsProps = {
 	sessionToken: string;
 	username?: string;
 	connectionType?: "SSH_KEY" | "PASSWORD";
+	managementMode?: "DIRECT" | "AGENT";
+	hasSshCredential?: boolean;
 	description?: string | null;
 	tags?: string[] | null;
 	costAutoSync?: boolean;
@@ -62,6 +64,8 @@ export function ServerCardActions({
 	sessionToken,
 	username = "root",
 	connectionType = "PASSWORD",
+	managementMode = "DIRECT",
+	hasSshCredential = true,
 	description = "",
 	tags = [],
 	costAutoSync = false,
@@ -145,6 +149,8 @@ export function ServerCardActions({
 					port={port}
 					username={username}
 					connectionType={connectionType}
+					managementMode={managementMode}
+					hasSshCredential={hasSshCredential}
 					description={description}
 					tags={tags}
 					costAutoSync={costAutoSync}

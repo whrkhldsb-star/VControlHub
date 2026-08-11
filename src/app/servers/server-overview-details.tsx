@@ -36,6 +36,9 @@ export type ServerOverviewDetailsServer = {
 	tags?: string[] | null;
 	enabled: boolean;
 	connectionType: "SSH_KEY" | "PASSWORD";
+	managementMode: "DIRECT" | "AGENT";
+	hasSshCredential?: boolean;
+	agent?: { online: boolean; lastSeenAt: string | null; metricsAt: string | null; version: string | null; capabilities: string[]; lastError: string | null };
 	connectionSummary: string;
 	connectionTypeLabel: string;
 	statusLabel: string;
@@ -113,13 +116,17 @@ export function ServerOverviewDetails({
 	}> = [
 		{
 			label: t("serverOverviewDetails.sshInteractive"),
-			status: server.enabled && canUseSshTerminal
+			status: server.enabled && canUseSshTerminal && server.hasSshCredential !== false
 				? t("serverOverviewDetails.verifiable")
+				: server.hasSshCredential === false
+					? t("serversPage.management.agentOnly")
 				: server.enabled
 					? t("serverOverviewDetails.missingPermission")
 					: t("serverOverviewDetails.nodeDisabled"),
-			tone: server.enabled && canUseSshTerminal ? "success" : "warning",
-			detail: server.enabled
+			tone: server.enabled && canUseSshTerminal && server.hasSshCredential !== false ? "success" : "warning",
+			detail: server.hasSshCredential === false
+				? t("serversPage.management.agentOnlySshHint")
+				: server.enabled
 				? t("serverOverviewDetails.sshInteractiveDetail")
 				: t("serverOverviewDetails.enableNodeFirst"),
 			href: null,
@@ -223,6 +230,13 @@ export function ServerOverviewDetails({
 					<InfoRow label={t("serverOverviewDetails.directMode")} value={directLabel} />
 					<InfoRow label={t("serverOverviewDetails.totalCommandTargets")} value={String(server.targetCount)} />
 					<InfoRow label={t("serverOverviewDetails.connectionSummary")} value={server.connectionSummary} />
+					<InfoRow
+						label={t("serversPage.management.title")}
+						value={server.managementMode === "AGENT"
+							? `${t("serversPage.management.agent")} · ${server.agent?.online ? t("serversPage.management.online") : server.hasSshCredential === false ? t("serversPage.management.agentOnly") : t("serversPage.management.fallback")}`
+							: t("serversPage.management.direct")}
+					/>
+					{server.managementMode === "AGENT" && server.agent?.lastError ? <InfoRow label={t("serversPage.management.lastError")} value={server.agent.lastError} /> : null}
 					<OsDialectSection
 						serverId={server.id}
 						osDialect={server.osDialect}
@@ -251,9 +265,11 @@ export function ServerOverviewDetails({
 							enabled={server.enabled}
 							sessionToken={sessionToken}
 							canManageServers={canManageServers}
-							canUseSshTerminal={canUseSshTerminal}
+							canUseSshTerminal={canUseSshTerminal && server.hasSshCredential !== false}
 							username={server.username}
 							connectionType={server.connectionType}
+							managementMode={server.managementMode}
+							hasSshCredential={server.hasSshCredential}
 							description={server.description}
 							tags={server.tags}
 							costAutoSync={server.costAutoSync}

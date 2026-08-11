@@ -77,6 +77,11 @@ async function assertCommandTargetServersInScope(
       id: true,
       enabled: true,
       onboardingStatus: true,
+      managementMode: true,
+      agentLastSeenAt: true,
+      connectionType: true,
+      password: true,
+      sshKeyId: true,
       metricSnapshots: { select: { isOnline: true, createdAt: true }, orderBy: { createdAt: "desc" }, take: 1 },
     },
   });
@@ -88,6 +93,11 @@ async function assertCommandTargetServersInScope(
   }
   if (servers.some((server) => !getServerTargetAvailability({
     onboardingStatus: server.onboardingStatus,
+    managementMode: server.managementMode,
+    agentLastSeenAt: server.agentLastSeenAt,
+    hasSshCredential: server.connectionType === "SSH_KEY"
+      ? Boolean(server.sshKeyId)
+      : Boolean(server.password),
     latestMetric: server.metricSnapshots?.[0] ?? null,
   }).available)) {
     throw new ValidationError(t("backend.command.targetsUnavailable"));

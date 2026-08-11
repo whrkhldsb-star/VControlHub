@@ -13,9 +13,9 @@ import { serverTeamWhere, teamWhere } from "@/lib/auth/team-scope";
 import { createCommandRequest } from "@/lib/command/service";
 import { prisma } from "@/lib/db";
 import { BusinessError, ForbiddenError, NotFoundError } from "@/lib/errors";
-import { createVerifiedSshConfig } from "@/lib/ssh/client";
-import { decryptServerPassword, decryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
+import { buildSshParamsFromServer, execRemoteCommand } from "@/lib/ssh/client";
 import { deserializeDialect } from "@/lib/ssh/os-dialect";
+import { executeCommandWithAgent } from "@/lib/server/agent-service";
 import { buildCommand } from "./hosted-command-builder";
 export { buildCommand } from "./hosted-command-builder";
 import { getToolByName, type HostedTool } from "./hosted-tools";
@@ -118,7 +118,7 @@ export async function createHostedAction(input: {
   });
 }
 
-// ── 执行安全操作（通过 SSH） ───────────────────────────────
+// ── 执行安全操作（Agent 优先，SSH 回退） ───────────────────
 
 export async function executeSafeAction(
   action: {
@@ -168,74 +168,50 @@ export async function executeSafeAction(
   }
 
   try {
-    const { Client } = await import("ssh2");
-    const sshClient = new Client();
+    if (!isHostedActionType(action.actionType)) {
+      return { success: false, data: null, error: t("backend.ai.unsupportedActionType", locale) };
+    }
+    const dialect = server.osDialect ? deserializeDialect(server.osDialect) : undefined;
+    const command = buildCommand(action.actionType, action.params, dialect);
+    if (!command) {
+      return { success: false, data: null, error: t("backend.ai.unsupportedActionType", locale) };
+    }
 
-    return new Promise((resolve) => {
-      const connectConfig = createVerifiedSshConfig({
-        host: server.host,
-        port: server.port,
-        username: server.username,
-        hostKeySha256: server.hostKeySha256,
-        ...(server.sshKey?.privateKey
-          ? { privateKey: decryptSshPrivateKey(server.sshKey.privateKey) }
-          : server.password
-            ? { password: decryptServerPassword(server.password) }
-            : {}),
-      });
-      connectConfig.readyTimeout = 10000;
-
-      sshClient.on("ready", () => {
-        if (!isHostedActionType(action.actionType)) {
-          sshClient.end();
-          resolve({ success: false, data: null, error: t("backend.ai.unsupportedActionType", locale) });
-          return;
-        }
-        const dialect = server.osDialect ? deserializeDialect(server.osDialect) : undefined;
-        const command = buildCommand(action.actionType, action.params, dialect);
-        if (!command) {
-          sshClient.end();
-          resolve({ success: false, data: null, error: t("backend.ai.unsupportedActionType", locale) });
-          return;
-        }
-
-        sshClient.exec(command, { pty: false }, (err, stream) => {
-          if (err) {
-            sshClient.end();
-            resolve({ success: false, data: null, error: err.message });
-            return;
-          }
-
-          let stdout = "";
-          let stderr = "";
-          stream.on("data", (data: Buffer) => { stdout += data.toString(); });
-          stream.stderr.on("data", (data: Buffer) => { stderr += data.toString(); });
-          stream.on("close", (code: number) => {
-            sshClient.end();
-            resolve({
-              success: code === 0,
-              data: { stdout: stdout.slice(-5000), stderr: stderr.slice(-2000), exitCode: code },
-              error: code !== 0
-                ? t("backend.ai.commandExecutionFailed", locale, { code })
-                : undefined,
-            });
-          });
-        });
-      });
-
-      sshClient.on("error", (err) => {
-        sshClient.end();
-        resolve({
+    let transport: "agent" | "ssh" = server.managementMode === "AGENT" ? "agent" : "ssh";
+    let result: { stdout: string; stderr: string; exitCode: number | null } | null = server.managementMode === "AGENT"
+      ? await executeCommandWithAgent({ serverId: server.id, command, timeoutMs: 60_000 })
+      : null;
+    if (!result) {
+      transport = "ssh";
+      const hasSshCredential = server.connectionType === "SSH_KEY"
+        ? Boolean(server.sshKey?.privateKey)
+        : Boolean(server.password);
+      if (!hasSshCredential) {
+        return {
           success: false,
           data: null,
-          error: t("backend.ai.sshConnectionFailed", locale, {
-            error: err.message,
-          }),
-        });
-      });
-
-      sshClient.connect(connectConfig);
-    });
+          error: "Agent is offline and no SSH fallback credential is configured",
+        };
+      }
+      const ssh = await buildSshParamsFromServer(server, server.sshKey);
+      result = await execRemoteCommand({ ...ssh, command, timeout: 60_000 });
+    }
+    if (!result) {
+      return { success: false, data: null, error: t("backend.ai.executionFailed", locale, { error: "No execution result" }) };
+    }
+    const code = result.exitCode ?? 255;
+    return {
+      success: code === 0,
+      data: {
+        stdout: result.stdout.slice(-5000),
+        stderr: result.stderr.slice(-2000),
+        exitCode: code,
+        transport,
+      },
+      error: code !== 0
+        ? t("backend.ai.commandExecutionFailed", locale, { code })
+        : undefined,
+    };
   } catch (err) {
     return {
       success: false,

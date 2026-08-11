@@ -70,6 +70,11 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 				host: true,
 				username: true,
 				onboardingStatus: true,
+				managementMode: true,
+				agentLastSeenAt: true,
+				connectionType: true,
+				password: true,
+				sshKeyId: true,
 				metricSnapshots: { select: { isOnline: true, createdAt: true }, orderBy: { createdAt: "desc" }, take: 1 },
 			},
 		}),
@@ -126,7 +131,15 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 				<div className="mb-5">
 					<SurfacePanel title={tr("deploymentsPage.page.launchSection.title")} description={tr("deploymentsPage.page.launchSection.desc")}>
 						<DeploymentLaunchForm templates={templates} servers={servers.map((server) => {
-							const availability = getServerTargetAvailability({ onboardingStatus: server.onboardingStatus, latestMetric: server.metricSnapshots?.[0] ?? null });
+							const availability = getServerTargetAvailability({
+								onboardingStatus: server.onboardingStatus,
+								managementMode: server.managementMode,
+								agentLastSeenAt: server.agentLastSeenAt,
+								hasSshCredential: server.connectionType === "SSH_KEY"
+									? Boolean(server.sshKeyId)
+									: Boolean(server.password),
+								latestMetric: server.metricSnapshots?.[0] ?? null,
+							});
 							return {
 								id: server.id,
 								name: server.name,

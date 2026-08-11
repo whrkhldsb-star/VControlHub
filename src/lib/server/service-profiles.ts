@@ -21,6 +21,7 @@ import { normalizeServerInput } from "./config";
 import { SERVER_PROFILE_INCLUDE } from "./service-profile-includes";
 import { createServerSchema, type CreateServerInput } from "./schema";
 import { applyServerDirectGatewayState } from "./service-direct-gateway";
+import { installServerAgent, uninstallServerAgent } from "./agent-service";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import {
   assertNoDuplicateServerHost,
@@ -140,6 +141,7 @@ export async function createServerProfile(
     tags: normalized.tags,
     enabled: true,
     connectionType: normalized.connectionType,
+    managementMode: normalized.managementMode,
     sshKeyId:
       normalized.connectionType === "SSH_KEY" ? normalized.sshKeyId! : null,
     password:
@@ -205,6 +207,7 @@ export async function createServerProfile(
         description: normalized.description,
         tags: normalized.tags,
         connectionType: normalized.connectionType,
+        managementMode: normalized.managementMode,
         hostKeySha256,
         sshKeyId:
           normalized.connectionType === "SSH_KEY" ? normalized.sshKeyId! : null,
@@ -336,6 +339,14 @@ export async function createServerProfile(
     }
   }
 
+  if (normalized.managementMode === "AGENT" && !isLocalHost && connectivityVerified) {
+    try {
+      await installServerAgent(server.id);
+    } catch (error) {
+      onboardingWarnings.push(`Agent installation failed; direct SSH fallback remains available: ${getErrorMessage(error)}`);
+    }
+  }
+
   if (connectivityVerified) {
     await prisma.server.update({
       where: { id: server.id },
@@ -366,12 +377,23 @@ export async function createServerProfile(
 
 export async function updateServerProfile(
   serverId: string,
-  input: Partial<CreateServerInput> & { enabled?: boolean; repairStoragePath?: boolean },
+  input: Partial<CreateServerInput> & { enabled?: boolean; repairStoragePath?: boolean; removeSshCredential?: boolean },
   session?: TeamSession | null,
 ) {
   const current = await findServerProfileForSession(serverId, session);
   const t = await serviceT();
   if (!current) throw new NotFoundError(t("backend.server.nodeNotFound"));
+
+  const removeSshCredential = input.removeSshCredential === true;
+  const requestedManagementMode = input.managementMode ?? current.managementMode;
+  if (removeSshCredential) {
+    if (requestedManagementMode !== "AGENT") {
+      throw new ValidationError("SSH credentials can only be removed in Agent mode.");
+    }
+    if (!current.agentLastSeenAt || Date.now() - current.agentLastSeenAt.getTime() >= 90_000) {
+      throw new ValidationError("Wait for a fresh Agent heartbeat before removing the SSH fallback credential.");
+    }
+  }
 
   const connectionType = input.connectionType ?? current.connectionType;
   const normalized = normalizeServerInput({
@@ -380,6 +402,7 @@ export async function updateServerProfile(
     port: input.port ? Number(input.port) : current.port,
     username: input.username ?? current.username,
     connectionType,
+    managementMode: input.managementMode ?? current.managementMode,
     sshKeyId: input.sshKeyId ?? current.sshKeyId ?? undefined,
     password: input.password ?? current.password ?? undefined,
     tags: input.tags ?? current.tags,
@@ -434,6 +457,15 @@ export async function updateServerProfile(
     if (!updateSshKey) throw new NotFoundError(t("backend.server.sshKeyNotFound"));
   }
 
+  if (normalized.managementMode === "DIRECT") {
+    const hasNextCredential = normalized.connectionType === "SSH_KEY"
+      ? Boolean(normalized.sshKeyId && updateSshKey?.privateKey)
+      : Boolean(normalized.password);
+    if (!hasNextCredential) {
+      throw new ValidationError("Direct mode requires a valid SSH password or private key.");
+    }
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let updated: any;
   const releaseHostLock = await acquireAdvisoryLock("server-host", normalized.host.toLowerCase());
@@ -445,6 +477,7 @@ export async function updateServerProfile(
     normalized.port !== current.port ||
     normalized.username !== current.username ||
     normalized.connectionType !== current.connectionType ||
+    (normalized.managementMode === "DIRECT" && current.managementMode !== "DIRECT") ||
     normalized.sshKeyId !== current.sshKeyId ||
     (normalized.connectionType === "PASSWORD" && !!input.password);
 
@@ -491,11 +524,12 @@ export async function updateServerProfile(
       port: normalized.port,
       username: normalized.username,
       connectionType: normalized.connectionType,
+      managementMode: normalized.managementMode,
       hostKeySha256,
       sshKeyId:
-        normalized.connectionType === "SSH_KEY" ? normalized.sshKeyId! : null,
+        removeSshCredential ? null : normalized.connectionType === "SSH_KEY" ? normalized.sshKeyId! : null,
       password:
-        normalized.connectionType === "PASSWORD" && normalized.password
+        !removeSshCredential && normalized.connectionType === "PASSWORD" && normalized.password
           ? encryptServerPasswordIfPlain(normalized.password)
           : null,
       description: normalized.description,
@@ -520,6 +554,19 @@ export async function updateServerProfile(
   const repairStoragePath = input.repairStoragePath === true;
   const storageNode = updated.storageNode;
   const onboardingWarnings: string[] = [];
+
+  if (normalized.managementMode !== current.managementMode) {
+    if (normalized.managementMode === "AGENT" && !isLocalHostLiteral(updated.host) && updated.enabled) {
+      try {
+        await installServerAgent(serverId);
+      } catch (error) {
+        onboardingWarnings.push(`Agent installation failed; direct SSH fallback remains available: ${getErrorMessage(error)}`);
+      }
+    } else if (current.managementMode === "AGENT") {
+      const cleanup = await uninstallServerAgent(serverId);
+      if (!cleanup.removed) onboardingWarnings.push("Agent token was revoked, but the offline remote service could not be removed.");
+    }
+  }
 
   if (storageNode && (nextStoragePath || repairStoragePath)) {
     const targetPath = nextStoragePath || storageNode.basePath;
@@ -580,6 +627,21 @@ export async function toggleServerEnabled(
   if (!current) throw new NotFoundError(t("backend.server.nodeNotFound"));
 
   if (!current.enabled) {
+    const hasSshCredential = current.connectionType === "SSH_KEY"
+      ? Boolean(current.sshKeyId && current.sshKey?.privateKey)
+      : Boolean(current.password);
+    if (
+      current.managementMode === "AGENT" &&
+      !hasSshCredential &&
+      current.agentLastSeenAt &&
+      Date.now() - current.agentLastSeenAt.getTime() < 90_000
+    ) {
+      const updated = await prisma.server.update({
+        where: { id: serverId, teamId: current.teamId ?? null },
+        data: { enabled: true, onboardingStatus: "READY", onboardingLastError: null },
+      });
+      return { ...updated, onboardingWarnings: [] as string[] };
+    }
     const normalized = normalizeServerInput({
       name: current.name,
       host: current.host,
@@ -668,6 +730,13 @@ export async function toggleServerEnabled(
     });
 
     const onboardingWarnings: string[] = [];
+    if (current.managementMode === "AGENT" && !isLocalHostLiteral(current.host)) {
+      try {
+        await installServerAgent(serverId);
+      } catch (error) {
+        onboardingWarnings.push(`Agent installation failed; direct SSH fallback remains available: ${getErrorMessage(error)}`);
+      }
+    }
     if (current.storageNode) {
       try {
         const health = await checkStorageNodeHealth(current.storageNode.id, session);

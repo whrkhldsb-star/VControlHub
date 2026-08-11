@@ -117,7 +117,7 @@ export function AiInputArea({
           }
           rows={1}
           disabled={streaming}
-          className={`${UI_INPUT} flex-1 resize-none px-4 py-2.5`}
+          className={`${UI_INPUT} min-w-0 flex-1 resize-none px-4 py-2.5 placeholder-shown:overflow-hidden placeholder-shown:whitespace-nowrap`}
           style={{ maxHeight: "120px" }}
           onInput={(e) => {
             const el = e.currentTarget;

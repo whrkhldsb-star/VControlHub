@@ -386,6 +386,7 @@ export async function GET(
               port: credentials.port,
               username: credentials.username,
               hostKeySha256: credentials.hostKeySha256,
+              agentServerId: credentials.agentServerId,
               privateKey: credentials.privateKey,
               password: credentials.password,
               readyTimeout: 5000,

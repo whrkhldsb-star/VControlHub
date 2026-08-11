@@ -70,11 +70,11 @@ describe("server direct gateway controls", () => {
     );
 
     const checkbox = screen.getByRole("checkbox", {
-      name: /启用目标服务器直连/,
+      name: /启用目标直连（Agent 文件能力）/,
     });
     expect(checkbox).not.toBeChecked();
     expect(checkbox).toHaveAttribute("name", "enableDirectGateway");
-    expect(screen.getByText(/默认使用网站服务器中转/)).toBeInTheDocument();
+    expect(screen.getByText(/默认由网站中转文件流量/)).toBeInTheDocument();
     expect(screen.getByLabelText("用户名")).toHaveValue("root");
   });
 
@@ -128,7 +128,7 @@ describe("server direct gateway controls", () => {
     expect(screen.getByText("直连状态：目标直连")).toBeInTheDocument();
     expect(screen.getByText("http://203.0.113.10:31888")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "切回网站中转并删除直连服务" }),
+      screen.getByRole("button", { name: "切回网站中转" }),
     ).toBeInTheDocument();
     expect(
       document.querySelector('input[name="enabledDirectGateway"]'),
@@ -159,7 +159,7 @@ describe("server direct gateway controls", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("直连状态：网站中转");
     expect(screen.getByText(/VPS 必须绑定 SFTP 存储节点/)).toBeInTheDocument();
-    expect(screen.getByText(/不会把直连标记成成功/)).toBeInTheDocument();
+    expect(screen.getByText(/失败时仍保持网站中转/)).toBeInTheDocument();
   });
 
   it("shows direct gateway public URL as a probe link and recovery guidance when enabled", () => {
@@ -185,7 +185,7 @@ describe("server direct gateway controls", () => {
     expect(
       screen.getByRole("link", { name: "http://203.0.113.10:31888" }),
     ).toHaveAttribute("href", "http://203.0.113.10:31888");
-    expect(screen.getByText(/进程仍在监听 31888/)).toBeInTheDocument();
+    expect(screen.getByText(/入口仍在监听 31888/)).toBeInTheDocument();
   });
 
   it("announces direct gateway action errors without implying success", () => {

@@ -4,6 +4,7 @@ export type ServerInput = {
   port?: number;
   username?: string;
   connectionType: "SSH_KEY" | "PASSWORD";
+  managementMode?: "DIRECT" | "AGENT";
   sshKeyId?: string;
   password?: string;
   tags?: string[];
@@ -21,6 +22,7 @@ export type NormalizedServerInput = {
   port: number;
   username: string;
   connectionType: "SSH_KEY" | "PASSWORD";
+  managementMode: "DIRECT" | "AGENT";
   sshKeyId: string | null;
   password: string | null;
   tags: string[];
@@ -41,6 +43,7 @@ export function normalizeServerInput(
     port: input.port ?? 22,
     username: input.username?.trim() || "root",
     connectionType: input.connectionType ?? "SSH_KEY",
+    managementMode: input.managementMode ?? "DIRECT",
     sshKeyId: input.sshKeyId?.trim() || null,
     password: input.password?.trim() || null,
     tags: Array.from(

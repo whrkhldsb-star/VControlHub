@@ -18,7 +18,7 @@ export type ServerMetrics = {
 
 export type MonitorError = { error: string; serverId: string };
 
-const MONITOR_SCRIPT = `echo "===CPU==="; nproc 2>/dev/null || echo 1; cat /proc/loadavg 2>/dev/null || echo "0 0 0"; awk '/^cpu /{idle=$5+$6; total=0; for(i=2;i<=NF;i++) total+=$i; print idle,total; exit}' /proc/stat 2>/dev/null || echo "0 0"; echo "===MEM==="; awk '/MemTotal:/{t=$2} /MemAvailable:/{a=$2} END{if(t>0){printf "%d %d %d\\n", t/1024, (t-a)/1024, a/1024}else{print "0 0 0"}}' /proc/meminfo 2>/dev/null || echo "0 0 0"; echo "===SWAP==="; awk '/SwapTotal:/{t=$2} /SwapFree:/{f=$2} END{if(t>0){printf "%d %d\\n", t/1024, (t-f)/1024}else{print "0 0"}}' /proc/meminfo 2>/dev/null || echo "0 0"; echo "===DISK==="; df -h --output=size,used,pcent,target -x tmpfs -x devtmpfs -x squashfs 2>/dev/null | tail -n +2 || df -h 2>/dev/null | tail -n +2; echo "===LOAD==="; uptime 2>/dev/null || echo "unknown"; echo "===NET==="; awk 'NR>2 && $1!="lo:" {gsub(/:/,"",$1); print $1,$2,$10}' /proc/net/dev 2>/dev/null | head -5 || echo ""`;
+export const MONITOR_SCRIPT = `echo "===CPU==="; nproc 2>/dev/null || echo 1; cat /proc/loadavg 2>/dev/null || echo "0 0 0"; awk '/^cpu /{idle=$5+$6; total=0; for(i=2;i<=NF;i++) total+=$i; print idle,total; exit}' /proc/stat 2>/dev/null || echo "0 0"; echo "===MEM==="; awk '/MemTotal:/{t=$2} /MemAvailable:/{a=$2} END{if(t>0){printf "%d %d %d\\n", t/1024, (t-a)/1024, a/1024}else{print "0 0 0"}}' /proc/meminfo 2>/dev/null || echo "0 0 0"; echo "===SWAP==="; awk '/SwapTotal:/{t=$2} /SwapFree:/{f=$2} END{if(t>0){printf "%d %d\\n", t/1024, (t-f)/1024}else{print "0 0"}}' /proc/meminfo 2>/dev/null || echo "0 0"; echo "===DISK==="; df -h --output=size,used,pcent,target -x tmpfs -x devtmpfs -x squashfs 2>/dev/null | tail -n +2 || df -h 2>/dev/null | tail -n +2; echo "===LOAD==="; uptime 2>/dev/null || echo "unknown"; echo "===NET==="; awk 'NR>2 && $1!="lo:" {gsub(/:/,"",$1); print $1,$2,$10}' /proc/net/dev 2>/dev/null | head -5 || echo ""`;
 
 /* ── Parse helpers ────────────────────────────────────────── */
 
@@ -137,6 +137,15 @@ export async function collectServerMetrics(serverId: string): Promise<ServerMetr
 
 		if (!server) return { error: tr("backend.server.monitor.notFound"), serverId };
 		if (!server.enabled) return { error: tr("backend.server.monitor.disabled"), serverId };
+
+		if (
+			server.managementMode === "AGENT" &&
+			server.agentMetricsRaw &&
+			server.agentMetricsAt &&
+			Date.now() - server.agentMetricsAt.getTime() < 3 * 60_000
+		) {
+			return parseMonitorScriptOutput(server.agentMetricsRaw);
+		}
 
 		const sshParams = await buildSshParamsFromServer(server, server.sshKey);
 		const { stdout, exitCode } = await execRemoteCommand({ ...sshParams, command: MONITOR_SCRIPT, timeout: 15_000 });

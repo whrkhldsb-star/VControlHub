@@ -153,6 +153,11 @@ describe("DeploymentsPage deploy-export panel", () => {
         host: true,
         username: true,
         onboardingStatus: true,
+        managementMode: true,
+        agentLastSeenAt: true,
+        connectionType: true,
+        password: true,
+        sshKeyId: true,
         metricSnapshots: {
           select: { isOnline: true, createdAt: true },
           orderBy: { createdAt: "desc" },

@@ -234,6 +234,12 @@ export function ServerOverviewCard({
       <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-[var(--text-muted)]">
         <CompactField label={t("serverOverviewCard.connection")} value={server.connectionTypeLabel} />
         <CompactField
+          label={t("serversPage.management.title")}
+          value={server.managementMode === "AGENT"
+            ? `${t("serversPage.management.agent")} · ${server.agent?.online ? t("serversPage.management.online") : server.hasSshCredential === false ? t("serversPage.management.agentOnly") : t("serversPage.management.fallback")}`
+            : t("serversPage.management.direct")}
+        />
+        <CompactField
           label={t("serverOverviewCard.key")}
           value={server.sshKey ? server.sshKey.name : t("serverOverviewCard.notConfigured")}
         />
@@ -248,7 +254,7 @@ export function ServerOverviewCard({
       </p>
 
       <div className="mt-3 flex flex-wrap gap-2 border-t border-[var(--border-subtle)] pt-3">
-        {server.enabled && canUseSshTerminal ? (
+        {server.enabled && canUseSshTerminal && server.hasSshCredential !== false ? (
           <ServerCardActions
             serverId={server.id}
             serverName={server.name}
@@ -256,6 +262,8 @@ export function ServerOverviewCard({
             port={server.port}
             username={server.username}
             connectionType={server.connectionType as "SSH_KEY" | "PASSWORD"}
+            managementMode={server.managementMode}
+            hasSshCredential={server.hasSshCredential}
             description={server.description ?? null}
             tags={server.tags ?? []}
             enabled={server.enabled}

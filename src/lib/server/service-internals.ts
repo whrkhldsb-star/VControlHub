@@ -38,6 +38,12 @@ export type ServerWithRelations = {
   tags: string[];
   enabled: boolean;
   connectionType: "SSH_KEY" | "PASSWORD";
+  managementMode?: "DIRECT" | "AGENT";
+  agentLastSeenAt?: Date | string | null;
+  agentMetricsAt?: Date | string | null;
+  agentVersion?: string | null;
+  agentCapabilities?: string[];
+  agentLastError?: string | null;
   createdAt: Date | string;
   updatedAt: Date | string;
   sshKey?: {
@@ -270,6 +276,9 @@ export async function verifyServerSshConnectivity(
 }
 
 export function enrichServer(server: ServerWithRelations) {
+  const hasSshCredential = Boolean(
+    server.connectionType === "SSH_KEY" ? server.sshKeyId && server.sshKey : server.password,
+  );
   return {
     id: server.id,
     name: server.name,
@@ -283,6 +292,16 @@ export function enrichServer(server: ServerWithRelations) {
     tags: server.tags,
     enabled: server.enabled,
     connectionType: server.connectionType,
+    hasSshCredential,
+    managementMode: server.managementMode ?? "DIRECT",
+    agent: {
+      online: Boolean(server.agentLastSeenAt && Date.now() - new Date(server.agentLastSeenAt).getTime() < 90_000),
+      lastSeenAt: server.agentLastSeenAt ? serializeDate(server.agentLastSeenAt) : null,
+      metricsAt: server.agentMetricsAt ? serializeDate(server.agentMetricsAt) : null,
+      version: server.agentVersion ?? null,
+      capabilities: server.agentCapabilities ?? [],
+      lastError: server.agentLastError ?? null,
+    },
     createdAt: serializeDate(server.createdAt),
     updatedAt: serializeDate(server.updatedAt),
     sshKey: server.sshKey
@@ -318,14 +337,14 @@ export function enrichServer(server: ServerWithRelations) {
       }),
     },
     statusLabel: buildServerStatusLabel(server.enabled),
-    connectionTypeLabel: buildServerConnectionTypeLabel(server.connectionType),
-    connectionSummary: getServerConnectionSummary({
+    connectionTypeLabel: hasSshCredential ? buildServerConnectionTypeLabel(server.connectionType) : "Agent only",
+    connectionSummary: hasSshCredential ? getServerConnectionSummary({
       host: server.host,
       port: server.port,
       username: server.username,
       connectionType: server.connectionType,
       sshKeyName: server.sshKey?.name ?? null,
-    }),
+    }) : `Agent-only management for ${server.host}; no SSH fallback credential is stored.`,
     targetCount: server.commandTargets?.length ?? 0,
     pendingCommandCount: (server.commandTargets ?? []).filter(
       (target) => target.status === "PENDING_APPROVAL",

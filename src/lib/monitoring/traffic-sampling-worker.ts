@@ -9,7 +9,8 @@
  * Design:
  * - Durable job type `traffic.sample`, every 5 minutes.
  * - Always sample the local primary interface from /proc/net/dev.
- * - Best-effort remote sampling for enabled servers (SSH cat /proc/net/dev).
+ * - Remote counters are persisted by the health collector from the same
+ *   metrics payload, avoiding a second SSH session per interval.
  * - Persist one row per primary interface sample into traffic_snapshots.
  * - Prune completed traffic.sample jobs after each successful tick.
  */
@@ -37,10 +38,6 @@ import {
   type NetworkDeviceStats,
   type TrafficCounterSample,
 } from "@/lib/monitoring/traffic";
-import {
-  sampleRemoteServersTraffic,
-  type RemoteServerInput,
-} from "@/lib/monitoring/remote-traffic";
 
 export const TRAFFIC_SAMPLING_JOB_TYPE = "traffic.sample";
 
@@ -54,7 +51,6 @@ const TRAFFIC_SAMPLE_LEASE_MS = Math.max(
 const TRAFFIC_SAMPLE_WORKER_ID = `${config.app.hostname || "vcontrolhub"}:traffic-sampling:${process.pid}`;
 const TRAFFIC_SAMPLE_JOB_KEEP_LATEST = 50;
 const TRAFFIC_SNAPSHOT_RETENTION_DAYS = 14;
-const REMOTE_SAMPLE_LIMIT = 20;
 const logger = createLogger("traffic-sampling-worker");
 
 const previousLocalSamples = new Map<string, TrafficCounterSample>();
@@ -148,62 +144,6 @@ async function sampleLocalPrimary(): Promise<{
   return { sampled: true, iface: summary.iface };
 }
 
-async function sampleRemotePrimaries(): Promise<{
-  attempted: number;
-  sampled: number;
-  failed: number;
-}> {
-  const servers = (await prisma.server.findMany({
-    where: { enabled: true },
-    select: {
-      id: true,
-      name: true,
-      host: true,
-      port: true,
-      username: true,
-      password: true,
-      sshKeyId: true,
-      sshKey: { select: { privateKey: true } },
-    },
-    orderBy: { name: "asc" },
-    take: REMOTE_SAMPLE_LIMIT,
-  })) as RemoteServerInput[];
-
-  if (servers.length === 0) {
-    return { attempted: 0, sampled: 0, failed: 0 };
-  }
-
-  const results = await sampleRemoteServersTraffic(servers);
-  let sampled = 0;
-  let failed = 0;
-  for (const result of results) {
-    if (result.error || !result.primaryInterface) {
-      failed += 1;
-      continue;
-    }
-    const iface = result.primaryInterface;
-    try {
-      await persistTrafficSample({
-        source: "server",
-        serverId: result.serverId,
-        iface: iface.iface,
-        rxBytes: iface.rxBytes,
-        txBytes: iface.txBytes,
-        rxRateBps: iface.rxRateBytesPerSecond,
-        txRateBps: iface.txRateBytesPerSecond,
-      });
-      sampled += 1;
-    } catch (error) {
-      failed += 1;
-      logger.warn("Failed to persist remote traffic sample", {
-        serverId: result.serverId,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
-  }
-  return { attempted: results.length, sampled, failed };
-}
-
 async function pruneOldTrafficSnapshots() {
   const olderThan = new Date(
     Date.now() - TRAFFIC_SNAPSHOT_RETENTION_DAYS * 24 * 60 * 60 * 1000,
@@ -248,15 +188,14 @@ async function processSample(jobId: string) {
   });
 
   const local = await sampleLocalPrimary();
-  const remote = await sampleRemotePrimaries();
   const pruned = await pruneOldTrafficSnapshots();
 
   return {
     localSampled: local.sampled,
     localIface: local.iface,
-    remoteAttempted: remote.attempted,
-    remoteSampled: remote.sampled,
-    remoteFailed: remote.failed,
+    remoteAttempted: 0,
+    remoteSampled: 0,
+    remoteFailed: 0,
     prunedSnapshots: pruned.count,
   };
 }

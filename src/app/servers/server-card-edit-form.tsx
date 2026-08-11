@@ -7,6 +7,7 @@ import type { ServerActionState } from "./actions";
 
 import { UI_INPUT } from "@/lib/ui/classes";
 import { usePreservedActionForm } from "@/lib/forms/use-preserved-action-form";
+import { ServerManagementModeFields } from "./server-management-mode-fields";
 type Props = {
   serverId: string;
   serverName: string;
@@ -14,6 +15,8 @@ type Props = {
   port: number;
   username: string;
   connectionType: "SSH_KEY" | "PASSWORD";
+  managementMode?: "DIRECT" | "AGENT";
+  hasSshCredential?: boolean;
   description: string | null | undefined;
   tags: string[] | null | undefined;
   costAutoSync: boolean;
@@ -35,6 +38,8 @@ export function ServerCardEditForm({
   port,
   username,
   connectionType,
+  managementMode = "DIRECT",
+  hasSshCredential = true,
   description,
   tags,
   costAutoSync,
@@ -52,6 +57,7 @@ export function ServerCardEditForm({
     () => editState.hostKeySha256 ?? "",
   );
   const [hostKeyConfirmed, setHostKeyConfirmed] = useState(false);
+  const [selectedManagementMode, setSelectedManagementMode] = useState(managementMode);
   const { formRef, captureBeforeSubmit } = usePreservedActionForm(
     editState,
     Boolean(editState.error),
@@ -84,6 +90,16 @@ export function ServerCardEditForm({
     >
       <input type="hidden" name="serverId" value={serverId} />
       <input type="hidden" name="connectionType" value={connectionType} />
+      <ServerManagementModeFields
+        defaultValue={managementMode}
+        onChange={setSelectedManagementMode}
+      />
+      {selectedManagementMode === "AGENT" && hasSshCredential ? (
+        <label className="flex items-start gap-2 rounded-lg border border-[var(--warning-border)] bg-[var(--warning-bg)] p-3 text-xs text-[var(--text-secondary)]">
+          <input name="removeSshCredential" type="checkbox" className="mt-0.5 h-4 w-4" />
+          <span><span className="block font-medium text-[var(--text-primary)]">{t("serversPage.management.removeCredential")}</span><span className="mt-1 block text-[var(--text-muted)]">{t("serversPage.management.removeCredentialHint")}</span></span>
+        </label>
+      ) : null}
       <label className="block text-xs text-[var(--text-muted)]" htmlFor={`edit-name-${serverId}`}>
         {t("serverCardActions.edit.name")}
       </label>

@@ -1,11 +1,12 @@
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import path from "node:path";
+import { Readable } from "node:stream";
 import { guessContentType } from "@/lib/http/mime-types";
 import { Client } from "ssh2";
 import { z } from "zod";
 
-import { connectSsh } from "@/lib/ssh/client";
+import { connectSsh, readRemoteFile } from "@/lib/ssh/client";
 import {
 	archiveStreamResponse,
 	closeSshClientOnStreamEnd,
@@ -182,11 +183,34 @@ export async function GET(
 		}
 		let client: Client | null = null;
 		try {
+			const agentOnly = Boolean(
+				credentials.agentServerId && !credentials.privateKey && !credentials.password,
+			);
+			if (agentOnly) {
+				if (wantsArchive) {
+					return denyAfterClaim(apiError({
+						code: "VALIDATION_FAILED",
+						message: t("apiShareToken.agentArchiveNeedsDirect", locale),
+						status: 400,
+					}));
+				}
+				try {
+					const buffer = await readRemoteFile({ ...credentials, remotePath });
+					return fileResponse(Readable.from(buffer), { size: buffer.length, fileName });
+				} catch {
+					return denyAfterClaim(apiError({
+						code: "VALIDATION_FAILED",
+						message: t("apiShareToken.agentFileNeedsDirect", locale),
+						status: 400,
+					}));
+				}
+			}
 			client = await connectSsh({
 				host: credentials.host,
 				port: credentials.port,
 				username: credentials.username,
 				hostKeySha256: credentials.hostKeySha256,
+				agentServerId: credentials.agentServerId,
 				privateKey: credentials.privateKey,
 				password: credentials.password,
 				readyTimeout: 15000,

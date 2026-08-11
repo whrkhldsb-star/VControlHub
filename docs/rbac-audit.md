@@ -1,6 +1,6 @@
 # VControlHub RBAC Audit Report
 
-> Generated: 2026-08-09T14:19:45.477Z | Permissions: 54 | Roles: 4 | API routes: 177 | Pages: 53 | Drift: 0
+> Generated: 2026-08-11T05:47:44.696Z | Permissions: 54 | Roles: 4 | API routes: 178 | Pages: 53 | Drift: 0
 
 This report cross-references four RBAC sources of truth:
 1. `src/lib/auth/rbac.ts` — `PERMISSIONS` tuple + `DEFAULT_ROLE_PERMISSIONS` map
@@ -36,7 +36,7 @@ This report cross-references four RBAC sources of truth:
 | `backup:create` | admin, operator | 1 | 0 | 21 |
 | `backup:read` | admin, operator, viewer, storage_manager | 1 | 0 | 11 |
 | `backup:restore` | admin | 1 | 0 | 5 |
-| `command:approve` | admin | 1 | 1 | 3 |
+| `command:approve` | admin | 2 | 2 | 6 |
 | `command:create` | admin, operator | 3 | 0 | 17 |
 | `command:execute` | admin, operator | 2 | 1 | 5 |
 | `command:read` | admin, operator, viewer, storage_manager | 0 | 0 | 8 |

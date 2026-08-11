@@ -21,6 +21,7 @@ describe("server config helpers", () => {
     expect(result).toEqual({
       name: "hk-1",
       host: "10.0.0.5",
+      managementMode: "DIRECT",
       port: 2222,
       username: "root",
       connectionType: "SSH_KEY",

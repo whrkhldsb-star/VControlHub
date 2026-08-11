@@ -10,13 +10,14 @@ import {
 } from "node:fs/promises";
 import path from "node:path";
 import { pipeline } from "node:stream/promises";
+import { Readable } from "node:stream";
 import { randomUUID } from "node:crypto";
 
 import { Client } from "ssh2";
 
 import type { SessionPayload } from "@/lib/auth/session";
 import { teamWhere } from "@/lib/auth/team-scope";
-import { connectSsh } from "@/lib/ssh/client";
+import { connectSsh, createRemoteDirectory, deleteRemoteFile, readRemoteFile, writeRemoteFile } from "@/lib/ssh/client";
 import { prisma } from "@/lib/db";
 import { BusinessError, ValidationError } from "@/lib/errors";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
@@ -65,6 +66,7 @@ export const storageFileNodeSelect = {
       port: true,
       username: true,
       connectionType: true,
+      managementMode: true,
       password: true,
       hostKeySha256: true,
       sshKey: {
@@ -104,6 +106,9 @@ export async function readStorageFileBuffer(
       node.basePath,
       relativePath,
     );
+    if (credentials.agentServerId && !credentials.privateKey && !credentials.password) {
+      return readRemoteFile({ ...credentials, remotePath: normalizedRemotePath });
+    }
     let client: Client | null = null;
     try {
       client = await connectSsh({
@@ -111,6 +116,7 @@ export async function readStorageFileBuffer(
         port: credentials.port,
         username: credentials.username,
         hostKeySha256: credentials.hostKeySha256,
+        agentServerId: credentials.agentServerId,
         privateKey: credentials.privateKey,
         password: credentials.password,
         readyTimeout: 15000,
@@ -143,11 +149,18 @@ export async function streamStorageFile(
       node.basePath,
       relativePath,
     );
+    if (credentials.agentServerId && !credentials.privateKey && !credentials.password) {
+      const buffer = await readRemoteFile({ ...credentials, remotePath: normalizedRemotePath });
+      const selected = range ? buffer.subarray(range.start, Math.min(buffer.length, range.end + 1)) : buffer;
+      const stream = Readable.from(selected);
+      return { stream, size: buffer.length, close: () => stream.destroy() };
+    }
     const client = await connectSsh({
       host: credentials.host,
       port: credentials.port,
       username: credentials.username,
       hostKeySha256: credentials.hostKeySha256,
+      agentServerId: credentials.agentServerId,
       privateKey: credentials.privateKey,
       password: credentials.password,
       readyTimeout: 15000,
@@ -262,6 +275,11 @@ export async function writeStorageFileBuffer(
       node.basePath,
       relativePath,
     );
+    if (credentials.agentServerId && !credentials.privateKey && !credentials.password) {
+      await createRemoteDirectory({ ...credentials, remotePath: path.posix.dirname(normalizedRemotePath), recursive: true });
+      await writeRemoteFile({ ...credentials, remotePath: normalizedRemotePath, content: buffer });
+      return normalizedRemotePath;
+    }
     let client: Client | null = null;
     try {
       client = await connectSsh({
@@ -269,6 +287,7 @@ export async function writeStorageFileBuffer(
         port: credentials.port,
         username: credentials.username,
         hostKeySha256: credentials.hostKeySha256,
+        agentServerId: credentials.agentServerId,
         privateKey: credentials.privateKey,
         password: credentials.password,
         readyTimeout: 15000,
@@ -306,6 +325,10 @@ export async function deleteStorageFileBuffer(
       node.basePath,
       relativePath,
     );
+    if (credentials.agentServerId && !credentials.privateKey && !credentials.password) {
+      await deleteRemoteFile({ ...credentials, remotePath: normalizedRemotePath });
+      return normalizedRemotePath;
+    }
     let client: Client | null = null;
     try {
       client = await connectSsh({
@@ -313,6 +336,7 @@ export async function deleteStorageFileBuffer(
         port: credentials.port,
         username: credentials.username,
         hostKeySha256: credentials.hostKeySha256,
+        agentServerId: credentials.agentServerId,
         privateKey: credentials.privateKey,
         password: credentials.password,
         readyTimeout: 15000,
@@ -376,6 +400,12 @@ export async function copyStorageFile(
       destinationRelativePath,
     );
     const tempRemote = `${destRemote}.vch-copy-${randomUUID()}.tmp`;
+    if (credentials.agentServerId && !credentials.privateKey && !credentials.password) {
+      const buffer = await readRemoteFile({ ...credentials, remotePath: sourceRemote });
+      await createRemoteDirectory({ ...credentials, remotePath: path.posix.dirname(destRemote), recursive: true });
+      await writeRemoteFile({ ...credentials, remotePath: destRemote, content: buffer });
+      return { size: buffer.length };
+    }
     let client: Client | null = null;
     try {
       client = await connectSsh({
@@ -383,6 +413,7 @@ export async function copyStorageFile(
         port: credentials.port,
         username: credentials.username,
         hostKeySha256: credentials.hostKeySha256,
+        agentServerId: credentials.agentServerId,
         privateKey: credentials.privateKey,
         password: credentials.password,
         readyTimeout: 15000,

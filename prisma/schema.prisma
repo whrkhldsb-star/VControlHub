@@ -56,6 +56,19 @@ enum StorageAccessMode {
   AUTO
 }
 
+enum ServerManagementMode {
+  DIRECT
+  AGENT
+}
+
+enum ServerAgentJobStatus {
+  PENDING
+  CLAIMED
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
 enum FileEntryType {
   FILE
   DIRECTORY
@@ -275,6 +288,14 @@ model Server {
   tags                         String[]
   enabled                      Boolean                @default(true)
   connectionType               ServerConnectionType   @default(SSH_KEY)
+  managementMode               ServerManagementMode   @default(DIRECT)
+  agentTokenHash               String?
+  agentLastSeenAt              DateTime?
+  agentMetricsAt               DateTime?
+  agentMetricsRaw              String?
+  agentVersion                 String?
+  agentCapabilities            String[]               @default([])
+  agentLastError               String?
   createdAt                    DateTime               @default(now())
   updatedAt                    DateTime               @updatedAt
   sshKey                       SshKey?                @relation(fields: [sshKeyId], references: [id], onDelete: SetNull)
@@ -308,11 +329,34 @@ model Server {
   vpsBackupSchedules           VpsBackupSchedule[]
   vpsBackupRecords             VpsBackupRecord[]
   uptimeSnapshots              ServerUptimeSnapshot[]
+  agentJobs                    ServerAgentJob[]
 
   @@index([host, port])
   @@index([enabled])
   @@index([teamId])
   @@map("servers")
+}
+
+model ServerAgentJob {
+  id              String               @id @default(cuid())
+  serverId        String
+  commandTargetId String?
+  command         String
+  status          ServerAgentJobStatus @default(PENDING)
+  timeoutMs       Int                  @default(60000)
+  stdout          String?
+  stderr          String?
+  exitCode        Int?
+  claimedAt       DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  server          Server               @relation(fields: [serverId], references: [id], onDelete: Cascade)
+
+  @@index([serverId, status, createdAt])
+  @@index([commandTargetId, status])
+  @@index([status, createdAt])
+  @@map("server_agent_jobs")
 }
 
 model CommandRequest {

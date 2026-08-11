@@ -122,7 +122,7 @@ describe("traffic sampling worker", () => {
     expect(mocks.enqueueJob).not.toHaveBeenCalled();
   });
 
-  it("samples local + remote primary interfaces, prunes snapshots/jobs, and completes", async () => {
+  it("samples the local interface while remote counters are consolidated into health sampling", async () => {
     expect(await runTrafficSamplingWorkerOnce("test")).toBe(true);
 
     expect(mocks.trafficSnapshotCreate).toHaveBeenCalledWith(
@@ -134,17 +134,7 @@ describe("traffic sampling worker", () => {
         }),
       }),
     );
-    expect(mocks.trafficSnapshotCreate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          source: "server",
-          serverId: "srv1",
-          iface: "eth0",
-          rxRateBps: 12,
-          txRateBps: 18,
-        }),
-      }),
-    );
+    expect(mocks.sampleRemoteServersTraffic).not.toHaveBeenCalled();
     expect(mocks.trafficSnapshotDeleteMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { sampledAt: { lt: expect.any(Date) } },
@@ -158,7 +148,7 @@ describe("traffic sampling worker", () => {
       expect.any(String),
       expect.objectContaining({
         localSampled: true,
-        remoteSampled: 1,
+        remoteSampled: 0,
         prunedSnapshots: 2,
       }),
     );

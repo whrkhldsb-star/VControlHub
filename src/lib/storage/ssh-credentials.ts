@@ -8,6 +8,8 @@ export type StorageSshCredentialNode = {
   username?: string | null;
   hostKeySha256?: string | null;
   server?: {
+    id?: string | null;
+    managementMode?: string | null;
     host?: string | null;
     port?: number | null;
     username?: string | null;
@@ -26,6 +28,7 @@ export type ResolvedStorageSshCredentials = {
   privateKey?: string;
   password?: string;
   hostKeySha256?: string | null;
+  agentServerId?: string;
 };
 
 export function resolveStorageSshCredentials(node: StorageSshCredentialNode): ResolvedStorageSshCredentials {
@@ -47,12 +50,13 @@ export function resolveStorageSshCredentials(node: StorageSshCredentialNode): Re
   if (!username) {
     throw new ValidationError(t("backend.storage.missingUsername"));
   }
-  if (connectionType === "SSH_KEY" && !privateKey) {
+  const agentServerId = node.server?.managementMode === "AGENT" ? node.server.id ?? undefined : undefined;
+  if (connectionType === "SSH_KEY" && !privateKey && !agentServerId) {
     throw new ValidationError(t("backend.storage.missingSshKey"));
   }
-  if (connectionType === "PASSWORD" && !password) {
+  if (connectionType === "PASSWORD" && !password && !agentServerId) {
     throw new ValidationError(t("backend.storage.missingPassword"));
   }
 
-  return { host, port, username, connectionType, privateKey, password, hostKeySha256: node.hostKeySha256 ?? node.server?.hostKeySha256 ?? null };
+  return { host, port, username, connectionType, privateKey, password, hostKeySha256: node.hostKeySha256 ?? node.server?.hostKeySha256 ?? null, ...(agentServerId ? { agentServerId } : {}) };
 }

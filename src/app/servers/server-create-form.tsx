@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { SubmitButton } from "@/components/submit-button";
 import { createServerAction, type ServerActionState } from "./actions";
 import { ConnectionTypeFields } from "./server-connection-type-fields";
+import { ServerManagementModeFields } from "./server-management-mode-fields";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { usePreservedActionForm } from "@/lib/forms/use-preserved-action-form";
@@ -251,6 +252,7 @@ export function ServerCreateForm({
         </div>{" "}
         </div>
       </details>{" "}
+      <ServerManagementModeFields />
       <ConnectionTypeFields sshKeys={sshKeys} />{" "}
       <div className="rounded-xl border border-[var(--warning-border)] bg-[var(--warning-bg)] p-4 text-sm text-[var(--text-secondary)]">
         <div className="space-y-2">

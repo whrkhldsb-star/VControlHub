@@ -221,7 +221,7 @@ describe("ServersPage", () => {
     expect(screen.getByText(/节点“启用”只表示允许接收操作/)).toBeInTheDocument();
     expect(screen.getByText("SSH 交互连接")).toBeInTheDocument();
     expect(screen.getByText("SFTP / 文件管理")).toBeInTheDocument();
-    expect(screen.getByText("Direct Gateway")).toBeInTheDocument();
+    expect(screen.getByText("Agent 文件直连")).toBeInTheDocument();
     expect(screen.getByText("命令审批队列")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "查看实时监控 JSON" })).toHaveAttribute(
       "href",

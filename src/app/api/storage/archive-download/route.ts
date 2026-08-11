@@ -46,10 +46,12 @@ type DirectoryEntry = {
     username: string | null;
     hostKeySha256: string | null;
     server: {
+      id: string;
       host: string;
       port: number;
       username: string;
       connectionType: string;
+      managementMode: string;
       password: string | null;
       hostKeySha256: string | null;
       sshKey: { privateKey: string } | null;
@@ -84,10 +86,12 @@ async function findDirectoryEntry(
           hostKeySha256: true,
           server: {
             select: {
+              id: true,
               host: true,
               port: true,
               username: true,
               connectionType: true,
+              managementMode: true,
               password: true,
               hostKeySha256: true,
               sshKey: { select: { privateKey: true } },
@@ -172,6 +176,11 @@ export async function GET(request: Request) {
     if (credentials instanceof Error) {
       throw new ValidationError(credentials.message);
     }
+    if (credentials.agentServerId && !credentials.privateKey && !credentials.password) {
+      throw new ValidationError(
+        "Pure Agent nodes require target direct access or an SSH fallback credential for directory archive downloads",
+      );
+    }
 
     let client: Client | null = null;
     try {
@@ -181,6 +190,7 @@ export async function GET(request: Request) {
         port: credentials.port,
         username: credentials.username,
         hostKeySha256: credentials.hostKeySha256,
+        agentServerId: credentials.agentServerId,
         privateKey: credentials.privateKey,
         password: credentials.password,
         readyTimeout: 15000,

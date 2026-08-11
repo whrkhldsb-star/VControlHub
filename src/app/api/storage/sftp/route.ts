@@ -63,6 +63,7 @@ async function handleGet(request: Request, session: SessionPayload) {
       privateKey: connectionCredentials.privateKey,
       password: connectionCredentials.password,
       hostKeySha256: connectionCredentials.hostKeySha256,
+      agentServerId: connectionCredentials.agentServerId,
       remotePath: normalizedRemotePath,
       maxEntries: limit + 1,
     });

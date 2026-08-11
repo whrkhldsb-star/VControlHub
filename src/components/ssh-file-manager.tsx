@@ -151,7 +151,6 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
   }
 
   async function handleDelete(entry: DirEntry) {
-    if (!entry.isFile) return;
     const filePath = currentPath.replace(/\/$/, "") + "/" + entry.name;
     try {
       await csrfFetch(`/api/servers/${serverId}/sftp/delete?path=${encodeURIComponent(filePath)}`, { method: "DELETE" });

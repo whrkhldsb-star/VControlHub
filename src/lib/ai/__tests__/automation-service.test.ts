@@ -72,6 +72,32 @@ describe("generic AI automation proposals", () => {
     }, { userId: "u1", roles: ["operator"], currentTeamId: "team_1" })).rejects.toThrow(/command:approve/);
   });
 
+  it("accepts a previously normalized proposal with nullable optional fields", async () => {
+    serverFindMany.mockResolvedValue([
+      { id: "srv_1", name: "A", host: "10.0.0.1", teamId: "team_1" },
+    ]);
+    const proposal = await materializeAutomationProposal({
+      name: "Read-only probe",
+      plan: "Run a read-only connectivity check.",
+      reason: "Verification",
+      executionMode: "now",
+      targetScope: "selected",
+      serverIds: ["srv_1"],
+      command: "uptime",
+      templateId: null,
+      templateName: null,
+      verificationCommand: null,
+      rollbackCommand: null,
+      approvalMode: "approve_once",
+    }, { userId: "u1", roles: ["admin"], currentTeamId: "team_1" });
+
+    await expect(materializeAutomationProposal(proposal, {
+      userId: "u1",
+      roles: ["admin"],
+      currentTeamId: "team_1",
+    })).resolves.toMatchObject({ command: "uptime", templateId: null, rollbackCommand: null });
+  });
+
   it("rejects multiline or shell-injected public keys before approval", async () => {
 	serverFindMany.mockResolvedValueOnce([
 		{ id: "srv_1", name: "A", host: "10.0.0.1", teamId: "team_1" },

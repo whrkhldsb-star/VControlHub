@@ -26,6 +26,8 @@ export type StorageNodeWithCredentials = {
   username?: string | null;
   hostKeySha256?: string | null;
   server?: {
+    id?: string | null;
+    managementMode?: string | null;
     host?: string | null;
     port?: number | null;
     username?: string | null;

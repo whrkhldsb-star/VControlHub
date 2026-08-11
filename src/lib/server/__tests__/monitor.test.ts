@@ -100,4 +100,25 @@ describe("collectServerMetrics", () => {
 		});
 		expect(execRemoteCommandMock).not.toHaveBeenCalled();
 	});
+
+	it("uses fresh Agent metrics without opening an SSH session", async () => {
+		const raw = [
+			"===CPU===", "2", "0.01 0.02 0.03 1/100 1", "10 100",
+			"===MEM===", "8000 2000 6000", "===SWAP===", "0 0",
+			"===DISK===", "20G 5G 25% /", "===LOAD===", "up 1 day, 1 user, load average: 0.01, 0.02, 0.03",
+			"===NET===", "eth0 100 200",
+		].join("\n");
+		prismaMock.server.findUnique.mockResolvedValueOnce({
+			id: "server_agent",
+			enabled: true,
+			managementMode: "AGENT",
+			agentMetricsRaw: raw,
+			agentMetricsAt: new Date(),
+		});
+
+		const result = await collectServerMetrics("server_agent");
+
+		expect(result).toMatchObject({ cpu: { usagePercent: 90 }, network: [{ iface: "eth0" }] });
+		expect(execRemoteCommandMock).not.toHaveBeenCalled();
+	});
 });

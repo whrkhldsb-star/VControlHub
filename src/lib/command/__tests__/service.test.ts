@@ -24,6 +24,9 @@ const { mockPrisma, spawnMock, pendingExecutions } = vi.hoisted(() => ({
       findUnique: vi.fn(),
       update: vi.fn(),
     },
+    serverAgentJob: {
+      updateMany: vi.fn(),
+    },
     commandApproval: {
       create: vi.fn(),
     },
@@ -140,6 +143,7 @@ describe("command service execution flow", () => {
     mockPrisma.$transaction.mockImplementation(async (callback: (tx: typeof mockPrisma) => unknown) => callback(mockPrisma));
     mockPrisma.commandRequest.updateMany.mockResolvedValue({ count: 1 });
     mockPrisma.commandTarget.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.serverAgentJob.updateMany.mockResolvedValue({ count: 0 });
     // Default live target preflight for executeTarget: still runnable.
     mockPrisma.commandTarget.findUnique.mockImplementation(async (args: { where?: { id?: string } }) => ({
       id: args?.where?.id ?? "target_unknown",

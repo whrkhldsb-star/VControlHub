@@ -17,12 +17,12 @@ export const zh: Record<string, string> = {
 	"aiPage.videoCap": " · 🎬 视频",
 	"aiPage.audioCap": " · 🎵 音频",
 	"aiPage.documentCap": " · 📑 文档",
-	"aiPage.settings": "⚙ 设置",
+	"aiPage.settings": "设置",
 	"aiPage.clearMessagesTitle": "清空对话消息",
-	"aiPage.clear": "🗑 清空",
-	"aiPage.rename": "✏ 重命名",
+	"aiPage.clear": "清空",
+	"aiPage.rename": "重命名",
 	"aiPage.exportTitle": "导出对话为 Markdown",
-	"aiPage.export": "📥 导出",
+	"aiPage.export": "导出",
 	"aiPage.modelCaps": "{provider} · {model}",
 
 	// client — attachments / input
@@ -258,12 +258,12 @@ export const en: Record<string, string> = {
 	"aiPage.videoCap": " · 🎬 Video",
 	"aiPage.audioCap": " · 🎵 Audio",
 	"aiPage.documentCap": " · 📑 Document",
-	"aiPage.settings": "⚙ Settings",
+	"aiPage.settings": "Settings",
 	"aiPage.clearMessagesTitle": "Clear conversation messages",
-	"aiPage.clear": "🗑 Clear",
-	"aiPage.rename": "✏ Rename",
+	"aiPage.clear": "Clear",
+	"aiPage.rename": "Rename",
 	"aiPage.exportTitle": "Export conversation as Markdown",
-	"aiPage.export": "📥 Export",
+	"aiPage.export": "Export",
 	"aiPage.modelCaps": "{provider} · {model}",
 
 	// client — attachments / input

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { BusinessError, NotFoundError } from "@/lib/errors";
 import { serviceT } from "@/lib/i18n/service-locale";
 import { applyServerDirectGatewayState } from "./service-direct-gateway";
+import { uninstallServerAgent } from "./agent-service";
 import {
   getBlockingServerDeletionImpact,
   getServerDeletionImpact,
@@ -49,7 +50,11 @@ export async function deleteServerProfile(
         enabled: false,
         bestEffort: true,
       });
-      cleanupSkipped = result.cleanupSkipped;
+      cleanupSkipped = cleanupSkipped || result.cleanupSkipped;
+    }
+    if (current.managementMode === "AGENT") {
+      const agentCleanup = await uninstallServerAgent(serverId);
+      cleanupSkipped = cleanupSkipped || !agentCleanup.removed;
     }
 
     if (current.storageNode) {

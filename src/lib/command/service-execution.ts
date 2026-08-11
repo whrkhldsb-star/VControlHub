@@ -12,6 +12,7 @@ import {
 } from "./ssh-executor";
 import { enqueueCommandExecutionJob } from "./execution-queue";
 import { executeCommandOverSsh, getCommandRuntimeConfigValues } from "./service-ssh";
+import { executeCommandWithAgent } from "@/lib/server/agent-service";
 
 export { executeCommandOverSsh, getCommandRuntimeConfigValues } from "./service-ssh";
 
@@ -21,6 +22,10 @@ export const COMMAND_WORKER_ID = `${process.pid}-${randomUUID()}`;
 
 export function cancelActiveCommandChild(targetId: string) {
   markCommandTargetCancelled(targetId);
+  void prisma.serverAgentJob.updateMany({
+    where: { commandTargetId: targetId, status: "PENDING" },
+    data: { status: "CANCELLED" },
+  }).catch((error) => cmdExecLogger.warn("Failed to cancel pending Agent job", { targetId, error: error instanceof Error ? error.message : String(error) }));
   return cancelRunningCommandChild(targetId);
 }
 
@@ -64,6 +69,8 @@ export async function executeTarget(
       port: number;
       username: string;
       connectionType: string;
+      managementMode: string;
+      agentLastSeenAt: Date | null;
       password: string | null;
       sshKey: { id: string; name: string; privateKey: string | null } | null;
     };
@@ -104,7 +111,27 @@ export async function executeTarget(
     : undefined;
   const connectionType = target.server.connectionType;
 
-  if (connectionType === "SSH_KEY" && !privateKey) {
+  let result: SshExecutionResult | null = null;
+  if (target.server.managementMode === "AGENT") {
+    const runtime = await getCommandRuntimeConfigValues();
+    result = await executeCommandWithAgent({
+      serverId: target.server.id,
+      commandTargetId: target.id,
+      command: target.commandRequest.command,
+      timeoutMs: runtime.executionTimeoutMs,
+    });
+    await prisma.executionLog.create({
+      data: {
+        commandRequestId,
+        serverId: target.server.id,
+        summary: result
+          ? `Command dispatched through Agent on ${target.server.name}.`
+          : `Agent unavailable on ${target.server.name}; falling back to direct SSH.`,
+      },
+    });
+  }
+
+  if (!result && connectionType === "SSH_KEY" && !privateKey) {
     const summary = `The SSH key bound to node ${target.server.name} lacks a private key; cannot execute real SSH command.`;
     const failed = await prisma.commandTarget.updateMany({
       where: {
@@ -131,7 +158,7 @@ export async function executeTarget(
     return false;
   }
 
-  if (connectionType === "PASSWORD" && !password) {
+  if (!result && connectionType === "PASSWORD" && !password) {
     const summary = `Node ${target.server.name} is configured for password connection but lacks a password; cannot execute real SSH command.`;
     const failed = await prisma.commandTarget.updateMany({
       where: {
@@ -158,7 +185,7 @@ export async function executeTarget(
     return false;
   }
 
-  const result = await executeCommandOverSsh({
+  result ??= await executeCommandOverSsh({
     host: target.server.host,
     port: target.server.port,
     username: target.server.username,
@@ -238,6 +265,8 @@ export async function executeTargets(commandRequestId: string) {
           port: true,
           username: true,
           connectionType: true,
+          managementMode: true,
+          agentLastSeenAt: true,
           password: true,
           hostKeySha256: true,
           sshKey: {

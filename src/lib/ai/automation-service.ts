@@ -21,12 +21,12 @@ const automationSchema = z.object({
   executionMode: z.enum(["now", "once", "daily"]),
   targetScope: z.enum(["all", "selected"]),
   serverIds: z.array(z.string().trim().min(1)).max(500).optional(),
-  templateId: z.string().trim().min(1).optional(),
-  templateName: z.string().trim().min(1).optional(),
+  templateId: z.string().trim().min(1).nullable().optional(),
+  templateName: z.string().trim().min(1).nullable().optional(),
   variables: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
   command: z.string().trim().min(1).max(10_000).optional(),
-  verificationCommand: z.string().trim().max(10_000).optional(),
-  rollbackCommand: z.string().trim().max(10_000).optional(),
+  verificationCommand: z.string().trim().max(10_000).nullable().optional(),
+  rollbackCommand: z.string().trim().max(10_000).nullable().optional(),
   runAt: z.string().trim().optional(),
   dailyTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
   approvalMode: z.enum(["approve_once", "every_run"]),
@@ -89,17 +89,19 @@ export async function materializeAutomationProposal(
     throw new ForbiddenError("Unattended execution requires command:approve permission; use every_run instead");
   }
 
-  const template = input.templateId || input.templateName
+  const templateId = input.templateId ?? undefined;
+  const templateName = input.templateName ?? undefined;
+  const template = templateId || templateName
     ? await prisma.commandTemplate.findFirst({
         where: {
 		  ...commandTemplateScopeWhere(session),
-          ...(input.templateId
-            ? { id: input.templateId }
-            : { name: { equals: input.templateName, mode: "insensitive" } }),
+          ...(templateId
+            ? { id: templateId }
+            : { name: { equals: templateName!, mode: "insensitive" } }),
         },
       })
     : null;
-  if ((input.templateId || input.templateName) && !template) {
+  if ((templateId || templateName) && !template) {
     throw new BusinessError("Command template was not found or is outside the current workspace");
   }
 

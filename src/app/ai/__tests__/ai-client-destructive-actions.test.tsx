@@ -170,7 +170,7 @@ describe("AiClient destructive actions", () => {
     render(<AiClient userId="user-1" initialProviders={[provider]} initialConversations={[conversation]} />);
     await user.click(screen.getByText("生产排障助手"));
     await screen.findByText(/OpenAI · gpt-4o-mini/);
-    await user.click(screen.getByRole("button", { name: "✏ 重命名" }));
+    await user.click(screen.getByRole("button", { name: "重命名" }));
 
     expect(promptSpy).not.toHaveBeenCalled();
     expect(screen.getByRole("dialog", { name: "修改对话标题" })).toBeInTheDocument();

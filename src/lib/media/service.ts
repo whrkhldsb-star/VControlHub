@@ -115,6 +115,7 @@ const mediaStreamItemSelect = {
           port: true,
           username: true,
           connectionType: true,
+          managementMode: true,
           password: true,
           sshKey: { select: { privateKey: true } },
         },

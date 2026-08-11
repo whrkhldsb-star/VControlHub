@@ -110,7 +110,13 @@ export default async function ServersPage() {
 					canLaunchCommands && enabledServers.length > 0 ? (
 						<CommandLaunchForm
 							servers={enabledServers.map((server) => {
-								const availability = getServerTargetAvailability(server);
+								const availability = getServerTargetAvailability({
+									onboardingStatus: server.onboardingStatus,
+									managementMode: server.managementMode,
+									agentLastSeenAt: server.agent?.lastSeenAt,
+									hasSshCredential: server.hasSshCredential,
+									latestMetric: server.latestMetric,
+								});
 								return {
 									id: server.id,
 									name: server.name,
