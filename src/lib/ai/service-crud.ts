@@ -76,6 +76,7 @@ export interface CreateConversationInput {
 	presencePenalty?: number;
 	enableVision?: boolean;
 	hostingEnabled?: boolean;
+	automationMode?: "ASSISTED" | "PLAN_ONLY";
 	createdBy: string;
 }
 
@@ -90,6 +91,7 @@ export interface UpdateConversationInput {
 	presencePenalty?: number;
 	enableVision?: boolean;
 	hostingEnabled?: boolean;
+	automationMode?: "ASSISTED" | "PLAN_ONLY";
 }
 
 /* ── Provider CRUD ───────────────────────────────────────────── */
@@ -228,6 +230,7 @@ export async function createConversation(input: CreateConversationInput) {
 			presencePenalty: input.presencePenalty,
 			enableVision: input.enableVision ?? false,
 			hostingEnabled: input.hostingEnabled ?? false,
+			automationMode: input.automationMode ?? "ASSISTED",
 			createdBy: input.createdBy,
 		},
 		// Never include provider.apiKey ciphertext on conversation create responses.
@@ -333,6 +336,7 @@ export async function updateConversation(id: string, userId: string, input: Upda
 	if (input.presencePenalty !== undefined) data.presencePenalty = input.presencePenalty;
 	if (input.enableVision !== undefined) data.enableVision = input.enableVision;
 	if (input.hostingEnabled !== undefined) data.hostingEnabled = input.hostingEnabled;
+	if (input.automationMode !== undefined) data.automationMode = input.automationMode;
 
 	const updated = await prisma.aiConversation.updateMany({
 		where: { id, createdBy: userId },

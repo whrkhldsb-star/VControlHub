@@ -56,6 +56,11 @@ export const BUILTIN_TEMPLATES: CreateTemplateInput[] = [
 	{ name: "Check Process Memory Usage", command: "ps aux --sort=-%mem | head -{{count}}", tags: ["process", "debug"], description: "Show processes with the highest memory usage", variables: ["count"] },
 	{ name: "Firewall Allow Port", command: "ufw allow {{port}}/tcp && ufw reload", tags: ["firewall", "ufw"], description: "UFW allow specified TCP port", variables: ["port"] },
 	{ name: "Check Service Status", command: "systemctl status {{service}}", tags: ["system", "service", "systemd"], description: "Check systemd service status", variables: ["service"] },
+	{ name: "Install SSH Public Key", command: "public_key=$(cat <<'VCONTROLHUB_PUBLIC_KEY'\n{{public_key}}\nVCONTROLHUB_PUBLIC_KEY\n) && install -d -m 700 \"$HOME/.ssh\" && touch \"$HOME/.ssh/authorized_keys\" && chmod 600 \"$HOME/.ssh/authorized_keys\" && (grep -qxF -- \"$public_key\" \"$HOME/.ssh/authorized_keys\" || printf '%s\\n' \"$public_key\" >> \"$HOME/.ssh/authorized_keys\")", tags: ["ssh", "access", "security"], description: "Idempotently add an SSH public key for the connected user", variables: ["public_key"] },
+	{ name: "List Failed Services", command: "systemctl --failed --no-pager", tags: ["system", "service", "debug"], description: "List failed systemd units without changing server state" },
+	{ name: "Recent System Errors", command: "journalctl -p err -n {{count}} --no-pager", tags: ["system", "log", "debug"], description: "Read recent error-level system journal entries", variables: ["count"] },
+	{ name: "Nginx Graceful Reload", command: "nginx -t && systemctl reload nginx", tags: ["web", "nginx"], description: "Validate configuration and gracefully reload Nginx" },
+	{ name: "Restart Docker Container", command: "docker restart {{container}}", tags: ["docker", "service"], description: "Restart a named Docker container", variables: ["container"] },
 ];
 
 /* ── Seed built-in templates ──────────────────────────────── */
@@ -65,12 +70,19 @@ export async function seedBuiltinTemplates() {
 	// insert duplicate builtin rows (no @@unique on name+isBuiltin).
 	const release = await acquireAdvisoryLock("command-template-seed", "builtin");
 	try {
-		const existing = await prisma.commandTemplate.count({ where: { isBuiltin: true } });
-		if (existing > 0) return;
+		const existingCount = await prisma.commandTemplate.count({ where: { isBuiltin: true } });
+		if (existingCount >= BUILTIN_TEMPLATES.length) return;
+		const existing = existingCount === 0 ? [] : await prisma.commandTemplate.findMany({
+			where: { isBuiltin: true, name: { in: BUILTIN_TEMPLATES.map((template) => template.name) } },
+			select: { name: true },
+		});
+		const existingNames = new Set(existing.map((template) => template.name));
+		const missing = BUILTIN_TEMPLATES.filter((template) => !existingNames.has(template.name));
+		if (missing.length === 0) return;
 
 		// TR-040: single createMany; skipDuplicates softens races if unique is added later.
 		await prisma.commandTemplate.createMany({
-			data: BUILTIN_TEMPLATES.map((tmpl) => ({
+			data: missing.map((tmpl) => ({
 				name: tmpl.name,
 				description: tmpl.description ?? null,
 				command: tmpl.command,

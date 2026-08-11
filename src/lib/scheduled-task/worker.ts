@@ -91,6 +91,7 @@ async function dispatchDueTask(task: {
   serverIds: string[];
   createdById: string | null;
   nextRunAt: Date | null;
+	approvalRequired: boolean;
   /** Propagate parent ScheduledTask.teamId so the spawned CommandRequest is not global (null = shared). */
   teamId: string | null;
 }): Promise<boolean> {
@@ -138,6 +139,7 @@ async function dispatchDueTask(task: {
       requesterId: task.createdById,
       serverIds: task.serverIds,
       teamId: task.teamId,
+		approvalRequired: task.approvalRequired,
       idempotencyKey: `scheduled-task:${task.id}:${task.nextRunAt?.toISOString() ?? "manual"}`,
     });
 

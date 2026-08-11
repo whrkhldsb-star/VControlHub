@@ -366,7 +366,7 @@ export function AiMessageList({
             {pendingApprovals.map((approval) => (
               <div
                 key={approval.actionId}
-                className="flex flex-col gap-2 rounded-lg bg-[var(--input-bg)] p-2.5 sm:flex-row sm:items-center sm:justify-between"
+                className={`flex flex-col gap-2 rounded-lg bg-[var(--input-bg)] p-2.5 ${approval.actionType === "create_automation_task" ? "" : "sm:flex-row sm:items-center sm:justify-between"}`}
               >
                 <div className="flex-1 min-w-0">
                   <div className="text-sm text-[var(--text-primary)] font-medium">
@@ -399,6 +399,19 @@ export function AiMessageList({
                       </span>
                     )}
                   </div>
+                  {approval.actionType === "create_automation_task" && (
+                    <div className="mt-2 space-y-2 text-xs text-[var(--text-secondary)]">
+                      <div className="flex flex-wrap gap-x-4 gap-y-1">
+                        <span>{t("aiPage.automationExecution")}: {String(approval.params.executionMode ?? "-")}</span>
+                        <span>{t("aiPage.automationTargets")}: {Array.isArray(approval.params.serverIds) ? approval.params.serverIds.length : 0}</span>
+                        <span>{t("aiPage.automationApproval")}: {String(approval.params.approvalMode ?? "-")}</span>
+                        {typeof approval.params.templateName === "string" && <span>{t("aiPage.automationTemplate")}: {approval.params.templateName}</span>}
+                      </div>
+                      {typeof approval.params.plan === "string" && <p className="whitespace-pre-wrap break-words leading-5">{approval.params.plan}</p>}
+                      {typeof approval.params.command === "string" && <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-md border border-[var(--border)] bg-[var(--surface-subtle)] p-2 font-mono text-[11px] text-[var(--text-primary)]">{approval.params.command}</pre>}
+                      {(typeof approval.params.verificationCommand === "string" || typeof approval.params.rollbackCommand === "string") && <div className="space-y-1 font-mono text-[11px]">{typeof approval.params.verificationCommand === "string" && <p>{t("aiPage.automationVerify")}: {approval.params.verificationCommand}</p>}{typeof approval.params.rollbackCommand === "string" && <p>{t("aiPage.automationRollback")}: {approval.params.rollbackCommand}</p>}</div>}
+                    </div>
+                  )}
                 </div>
                 <div className="flex w-full gap-2 sm:ml-3 sm:w-auto">
                   <ActionButton variant="danger-solid" className="flex-1 !px-3 !py-1 !text-xs disabled:opacity-50 sm:flex-none"
@@ -419,7 +432,8 @@ export function AiMessageList({
                   >
                     {t(
                       approval.actionType === "manage_cron" ||
-                        approval.actionType === "run_playbook"
+                        approval.actionType === "run_playbook" ||
+                        approval.actionType === "create_automation_task"
                         ? "aiPage.confirmAction"
                         : "aiPage.approve",
                     )}

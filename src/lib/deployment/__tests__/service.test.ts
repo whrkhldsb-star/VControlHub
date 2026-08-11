@@ -5,7 +5,7 @@ import type { SessionScope } from "../service";
 
 const { mockPrisma, mockTeamWhere, mockTeamCreateData } = vi.hoisted(() => ({
   mockPrisma: {
-    commandTemplate: { findUnique: vi.fn(), findFirst: vi.fn(), findMany: vi.fn(), count: vi.fn(), create: vi.fn() },
+    commandTemplate: { findUnique: vi.fn(), findFirst: vi.fn(), findMany: vi.fn(), count: vi.fn(), create: vi.fn(), createMany: vi.fn() },
     deploymentRun: { create: vi.fn(), update: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn() },
     deploymentSnapshot: { create: vi.fn() },
     deploymentRollbackRun: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },

@@ -103,6 +103,27 @@ describe("consumeProviderChatStream", () => {
     expect(result.readError).toBe(upstreamError);
   });
 
+  it("cancels a provider stream that never finishes", async () => {
+    let cancelled = false;
+    const body = new ReadableStream<Uint8Array>({
+      cancel() {
+        cancelled = true;
+      },
+    });
+
+    const result = await consumeProviderChatStream({
+      providerType: "OPENAI",
+      body,
+      onEvent: vi.fn(),
+      timeoutMs: 10,
+    });
+
+    expect(cancelled).toBe(true);
+    expect(result.readError).toEqual(
+      new Error("AI provider stream timed out after 0.01 seconds"),
+    );
+  });
+
   it("skips malformed chunks without dropping later valid events", async () => {
     const result = await consumeProviderChatStream({
       providerType: "OPENAI",

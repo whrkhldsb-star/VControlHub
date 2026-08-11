@@ -556,6 +556,11 @@ enum ScheduledTaskStatus {
   DISABLED
 }
 
+enum ScheduledTaskType {
+  CRON
+  ONCE
+}
+
 enum JobStatus {
   PENDING
   RUNNING
@@ -650,28 +655,38 @@ model JobEvent {
 }
 
 model ScheduledTask {
-  id             String              @id @default(cuid())
-  name           String
-  cronExpression String
-  command        String
-  reason         String?
-  status         ScheduledTaskStatus @default(ACTIVE)
-  serverIds      String[]
-  createdById    String?
-  lastRunAt      DateTime?
-  nextRunAt      DateTime?
-  lastResult     String?
-  runCount       Int                 @default(0)
-  createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
-  creator        User?               @relation(fields: [createdById], references: [id], onDelete: SetNull)
-  runs           ScheduledTaskRun[]
+  id                  String              @id @default(cuid())
+  name                String
+  cronExpression      String
+  scheduleType        ScheduledTaskType   @default(CRON)
+  runAt               DateTime?
+  command             String
+  reason              String?
+  plan                String?
+  verificationCommand String?
+  rollbackCommand     String?
+  approvalRequired    Boolean             @default(true)
+  source              String              @default("MANUAL")
+  templateId          String?
+  status              ScheduledTaskStatus @default(ACTIVE)
+  serverIds           String[]
+  createdById         String?
+  lastRunAt           DateTime?
+  nextRunAt           DateTime?
+  lastResult          String?
+  runCount            Int                 @default(0)
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  creator             User?               @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  runs                ScheduledTaskRun[]
+  template            CommandTemplate?    @relation(fields: [templateId], references: [id], onDelete: SetNull)
 
   teamId String? // TR-030: 多租户资源隔离
   team   Team?   @relation("TeamScheduledTasks", fields: [teamId], references: [id], onDelete: SetNull)
 
   @@index([status, nextRunAt])
   @@index([teamId])
+  @@index([templateId])
   @@map("scheduled_tasks")
 }
 
@@ -909,6 +924,7 @@ model CommandTemplate {
 
   creator        User?           @relation(fields: [createdById], references: [id], onDelete: SetNull)
   deploymentRuns DeploymentRun[]
+  scheduledTasks ScheduledTask[]
   team           Team?           @relation("TeamCommandTemplates", fields: [teamId], references: [id], onDelete: SetNull)
 
   @@index([teamId, isBuiltin, name])
@@ -1481,6 +1497,11 @@ enum AiProviderType {
   CUSTOM
 }
 
+enum AiAutomationMode {
+  ASSISTED
+  PLAN_ONLY
+}
+
 model AiProvider {
   id              String           @id @default(cuid())
   name            String
@@ -1516,6 +1537,7 @@ model AiConversation {
   presencePenalty  Float            @default(0.0)
   enableVision     Boolean          @default(false)
   hostingEnabled   Boolean          @default(false) // AI托管模式：允许AI操作VPS
+  automationMode   AiAutomationMode @default(ASSISTED)
   createdBy        String
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt

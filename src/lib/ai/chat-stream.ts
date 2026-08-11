@@ -3,8 +3,7 @@ import type { AiToolCall } from "./chat-message-payload";
 type ProviderType = "ANTHROPIC" | string;
 
 export type ChatStreamEvent =
-  | { type: "content"; content: string }
-  | { type: "reasoning"; content: string };
+  { type: "content"; content: string } | { type: "reasoning"; content: string };
 
 export type ChatStreamState = {
   content: string;
@@ -22,7 +21,9 @@ type MutableChatStreamState = Omit<ChatStreamState, "toolCalls"> & {
 type JsonRecord = Record<string, unknown>;
 
 function record(value: unknown): JsonRecord | undefined {
-  return value !== null && typeof value === "object" ? (value as JsonRecord) : undefined;
+  return value !== null && typeof value === "object"
+    ? (value as JsonRecord)
+    : undefined;
 }
 
 function stringValue(value: unknown): string {
@@ -30,12 +31,16 @@ function stringValue(value: unknown): string {
 }
 
 function numberValue(value: unknown): number | undefined {
-  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+  return typeof value === "number" && Number.isFinite(value)
+    ? value
+    : undefined;
 }
 
 function toolIndex(value: unknown, fallback: number): number {
   const index = numberValue(value);
-  return index !== undefined && Number.isInteger(index) && index >= 0 ? index : fallback;
+  return index !== undefined && Number.isInteger(index) && index >= 0
+    ? index
+    : fallback;
 }
 
 function applyAnthropicEvent(
@@ -49,7 +54,8 @@ function applyAnthropicEvent(
   if (type === "content_block_delta") {
     // Support the official Anthropic shape (`delta.text`) and the nested shape
     // returned by some compatible gateways (`delta.delta.text`).
-    const text = stringValue(delta?.text) || stringValue(record(delta?.delta)?.text);
+    const text =
+      stringValue(delta?.text) || stringValue(record(delta?.delta)?.text);
     if (text) {
       state.content += text;
       emit({ type: "content", content: text });
@@ -63,7 +69,10 @@ function applyAnthropicEvent(
 
     const partialJson = stringValue(delta?.partial_json);
     if (partialJson) {
-      const index = toolIndex(event.index, Math.max(0, state.toolCalls.length - 1));
+      const index = toolIndex(
+        event.index,
+        Math.max(0, state.toolCalls.length - 1),
+      );
       const call = state.toolCalls[index];
       if (call) call.function.arguments += partialJson;
     }
@@ -105,7 +114,8 @@ function applyAnthropicEvent(
     state.inputTokens = numberValue(usage?.input_tokens) ?? state.inputTokens;
   } else if (type === "message_delta") {
     const usage = record(event.usage);
-    state.outputTokens = numberValue(usage?.output_tokens) ?? state.outputTokens;
+    state.outputTokens =
+      numberValue(usage?.output_tokens) ?? state.outputTokens;
   }
 }
 
@@ -155,7 +165,8 @@ function applyOpenAiEvent(
 
   const usage = record(event.usage);
   state.inputTokens = numberValue(usage?.prompt_tokens) ?? state.inputTokens;
-  state.outputTokens = numberValue(usage?.completion_tokens) ?? state.outputTokens;
+  state.outputTokens =
+    numberValue(usage?.completion_tokens) ?? state.outputTokens;
 }
 
 export async function consumeProviderChatStream(input: {
@@ -163,6 +174,7 @@ export async function consumeProviderChatStream(input: {
   providerType: ProviderType;
   onEvent: (event: ChatStreamEvent) => void;
   signal?: AbortSignal;
+  timeoutMs?: number;
 }): Promise<ChatStreamState> {
   const state: MutableChatStreamState = {
     content: "",
@@ -172,9 +184,16 @@ export async function consumeProviderChatStream(input: {
     toolCalls: [],
   };
   const reader = input.body.getReader();
+  let timedOut = false;
   const cancelReader = () => {
     void reader.cancel().catch(() => undefined);
   };
+  const timeout = input.timeoutMs
+    ? setTimeout(() => {
+        timedOut = true;
+        cancelReader();
+      }, input.timeoutMs)
+    : undefined;
   if (input.signal?.aborted) cancelReader();
   input.signal?.addEventListener("abort", cancelReader, { once: true });
   const decoder = new TextDecoder();
@@ -211,14 +230,22 @@ export async function consumeProviderChatStream(input: {
   } catch (error) {
     readError = error;
   } finally {
+    if (timeout) clearTimeout(timeout);
     input.signal?.removeEventListener("abort", cancelReader);
+  }
+  if (timedOut && !readError) {
+    readError = new Error(
+      `AI provider stream timed out after ${input.timeoutMs! / 1000} seconds`,
+    );
   }
   buffer += decoder.decode();
   if (buffer) consumeLine(buffer);
 
   return {
     ...state,
-    toolCalls: state.toolCalls.filter((call): call is AiToolCall => Boolean(call)),
+    toolCalls: state.toolCalls.filter((call): call is AiToolCall =>
+      Boolean(call),
+    ),
     readError,
   };
 }

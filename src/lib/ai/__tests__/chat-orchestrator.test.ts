@@ -275,7 +275,15 @@ describe("createAiChatResponse", () => {
 
     expect(body).toContain('"type":"tool_call"');
     expect(body).toContain('"type":"tool_result","toolCallId":"tool-1","success":true');
+	expect(body).toContain('"type":"content","content":"hello"');
     expect(body).toContain('"type":"done"');
+	expect(mocks.sendChatRequest).toHaveBeenCalledTimes(2);
+	expect(mocks.sendChatRequest.mock.calls[1]?.[0]).toEqual(expect.objectContaining({
+		messages: expect.arrayContaining([
+			expect.objectContaining({ role: "assistant", tool_calls: expect.any(Array) }),
+			expect.objectContaining({ role: "tool", tool_call_id: "tool-1" }),
+		]),
+	}));
     expect(mocks.executeSafeAction).toHaveBeenCalledWith(
       { actionType: "list_servers", serverId: null, params: {} },
       { session, locale: "en" },
@@ -288,6 +296,66 @@ describe("createAiChatResponse", () => {
         result: JSON.stringify({ servers: [] }),
         executedAt: expect.any(Date),
         completedAt: expect.any(Date),
+      }),
+    });
+	expect(mocks.prisma.aiMessage.create).toHaveBeenCalledWith({
+		data: expect.objectContaining({
+			conversationId: conversation.id,
+			role: "assistant",
+			content: "hello",
+		}),
+	});
+  });
+
+  it("returns a readable tool summary when the model follow-up fails", async () => {
+    mocks.getConversationById.mockResolvedValueOnce({
+      ...conversation,
+      hostingEnabled: true,
+    });
+    mocks.sendChatRequest
+      .mockResolvedValueOnce({
+        response: new Response(
+          'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"tool-1","function":{"name":"list_command_templates","arguments":"{}"}}]}}]}\n',
+        ),
+        providerType: "OPENAI",
+        startTime: Date.now(),
+      })
+      .mockRejectedValueOnce(new Error("provider unavailable"));
+    mocks.parseToolCall.mockReturnValueOnce({
+      toolCallId: "tool-1",
+      args: {},
+      tool: {
+        name: "list_command_templates",
+        actionName: "List command templates",
+        actionType: "list_command_templates",
+        riskLevel: "low",
+        autoApproved: true,
+      },
+    });
+    mocks.createHostedAction.mockResolvedValueOnce({
+      id: "action-1",
+      serverId: null,
+      params: "{}",
+    });
+    mocks.executeSafeAction.mockResolvedValueOnce({
+      success: true,
+      data: { templates: [{ name: "Install SSH Public Key" }] },
+    });
+
+    const response = await createAiChatResponse({
+      body: { conversationId: conversation.id, content: "list templates" },
+      session,
+      locale: "en",
+    });
+    const body = await response.text();
+
+    expect(body).toContain("Tool execution completed");
+    expect(body).toContain("Install SSH Public Key");
+    expect(body).toContain('"type":"done"');
+    expect(mocks.prisma.aiMessage.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        role: "assistant",
+        content: expect.stringContaining("Install SSH Public Key"),
       }),
     });
   });

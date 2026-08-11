@@ -58,9 +58,11 @@ describe("ScheduledTaskListClient", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name: "清理日志",
+		scheduleType: "CRON",
         cronExpression: "0 2 * * *",
         command: "journalctl --vacuum-time=7d",
         reason: "",
+		approvalRequired: true,
         serverIds: ["srv_1"],
       }),
     })));

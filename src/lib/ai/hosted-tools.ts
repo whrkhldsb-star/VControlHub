@@ -23,6 +23,8 @@ export type HostedActionType =
   | "query_traffic"
   | "list_scheduled_tasks"
   | "manage_cron"
+  | "list_command_templates"
+  | "create_automation_task"
   | "list_files"
   | "search_files"
   | "read_file"
@@ -282,6 +284,51 @@ export const HOSTED_TOOLS: HostedTool[] = [
     actionName: "Manage scheduled tasks",
   },
   {
+    name: "list_command_templates",
+    description: "List built-in and team command templates available to the current user. Call this before proposing a common operation so the proposal can reuse a reviewed template instead of inventing a command.",
+    parameters: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Optional name, description, or tag filter" },
+      },
+      additionalProperties: false,
+    },
+    riskLevel: "low",
+    autoApproved: true,
+    actionType: "list_command_templates",
+    actionName: "List command templates",
+  },
+  {
+    name: "create_automation_task",
+    description: "Propose a generic multi-server automation from a reviewed command template or an explicit command. The user must confirm the fully rendered command, plan, target scope, schedule, verification and rollback before anything is created. Supports immediate, one-time, and daily execution.",
+    parameters: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Short task name" },
+        plan: { type: "string", description: "Detailed implementation and risk plan shown before confirmation" },
+        reason: { type: "string", description: "Business reason for the operation" },
+        executionMode: { type: "string", enum: ["now", "once", "daily"], description: "Run immediately, once at runAt, or every day at dailyTime" },
+        targetScope: { type: "string", enum: ["all", "selected"], description: "All enabled visible servers or selected server IDs" },
+        serverIds: { type: "array", items: { type: "string" }, description: "Required when targetScope is selected" },
+        templateId: { type: "string", description: "Preferred command template ID from list_command_templates" },
+        templateName: { type: "string", description: "Template name lookup fallback" },
+        variables: { type: "object", additionalProperties: { type: "string" }, description: "Values for template {{variables}}" },
+        command: { type: "string", description: "Explicit command only when no suitable template exists" },
+        verificationCommand: { type: "string", description: "Optional read-only command used by the operator to verify success" },
+        rollbackCommand: { type: "string", description: "Optional recovery command shown with the plan" },
+        runAt: { type: "string", description: "ISO-8601 future timestamp when executionMode is once" },
+        dailyTime: { type: "string", description: "UTC time in HH:mm format when executionMode is daily" },
+        approvalMode: { type: "string", enum: ["approve_once", "every_run"], description: "approve_once allows unattended runs after this confirmation and requires command approval permission; every_run creates an approval request on every run" },
+      },
+      required: ["name", "plan", "reason", "executionMode", "targetScope", "approvalMode"],
+      additionalProperties: false,
+    },
+    riskLevel: "critical",
+    autoApproved: false,
+    actionType: "create_automation_task",
+    actionName: "Create automation task",
+  },
+  {
     name: "list_files",
     description: "List files and directories on a VPS. The path must be absolute and cannot contain traversal segments.",
     parameters: { type: "object", properties: { serverId: { type: "string" }, serverQuery: { type: "string" }, path: { type: "string", description: "Absolute directory path" } }, required: ["path"] },
@@ -333,11 +380,16 @@ export function getToolByName(name: string): HostedTool | undefined {
 
 // ── OpenAI Function Calling 格式 ──────────────────────────
 
-export function getOpenAIToolsFormat(): Array<{
+function toolsForMode(mode: "ASSISTED" | "PLAN_ONLY" = "ASSISTED") {
+  if (mode === "ASSISTED") return HOSTED_TOOLS;
+  return HOSTED_TOOLS.filter((tool) => tool.autoApproved || tool.actionType === "create_automation_task");
+}
+
+export function getOpenAIToolsFormat(mode: "ASSISTED" | "PLAN_ONLY" = "ASSISTED"): Array<{
   type: "function";
   function: { name: string; description: string; parameters: Record<string, unknown> };
 }> {
-  return HOSTED_TOOLS.map((tool) => ({
+  return toolsForMode(mode).map((tool) => ({
     type: "function" as const,
     function: {
       name: tool.name,
@@ -349,12 +401,12 @@ export function getOpenAIToolsFormat(): Array<{
 
 // ── Anthropic Tool Use 格式 ────────────────────────────────
 
-export function getAnthropicToolsFormat(): Array<{
+export function getAnthropicToolsFormat(mode: "ASSISTED" | "PLAN_ONLY" = "ASSISTED"): Array<{
   name: string;
   description: string;
   input_schema: Record<string, unknown>;
 }> {
-  return HOSTED_TOOLS.map((tool) => ({
+  return toolsForMode(mode).map((tool) => ({
     name: tool.name,
     description: tool.description,
     input_schema: tool.parameters,

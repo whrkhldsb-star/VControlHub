@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { buildCommand } from "../hosted-command-builder";
-import { HOSTED_TOOLS } from "../hosted-tools";
+import { getOpenAIToolsFormat, HOSTED_TOOLS } from "../hosted-tools";
 
 describe("AI hosted file and Docker tools", () => {
   it("registers all cross-module read tools", () => {
@@ -31,6 +31,27 @@ describe("AI hosted file and Docker tools", () => {
       (manageTool?.parameters.properties as { action?: { enum?: string[] } })
         .action?.enum,
     ).toEqual(["pause", "resume"]);
+  });
+
+  it("links command templates to confirmed generic automation proposals", () => {
+    expect(HOSTED_TOOLS.find((tool) => tool.name === "list_command_templates")).toMatchObject({
+      actionType: "list_command_templates",
+      autoApproved: true,
+    });
+    expect(HOSTED_TOOLS.find((tool) => tool.name === "create_automation_task")).toMatchObject({
+      actionType: "create_automation_task",
+      riskLevel: "critical",
+      autoApproved: false,
+    });
+  });
+
+  it("removes direct mutation tools in plan-only mode", () => {
+    const names = getOpenAIToolsFormat("PLAN_ONLY").map((tool) => tool.function.name);
+    expect(names).toContain("list_command_templates");
+    expect(names).toContain("create_automation_task");
+    expect(names).not.toContain("execute_command");
+    expect(names).not.toContain("restart_service");
+    expect(names).not.toContain("manage_cron");
   });
 
   it("builds safe file listing and search commands", () => {

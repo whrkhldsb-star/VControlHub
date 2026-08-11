@@ -4,9 +4,16 @@ import { AppError, NotFoundError } from "@/lib/errors";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { t, type Locale } from "@/lib/i18n/service-translations";
 import { createLogger } from "@/lib/logging";
-import { buildAiChatMessagePayload, type AiToolCall } from "./chat-message-payload";
+import {
+  buildAiChatMessagePayload,
+  type AiToolCall,
+} from "./chat-message-payload";
 import { consumeProviderChatStream, type ChatStreamEvent } from "./chat-stream";
-import { createHostedAction, executeSafeAction, parseToolCall } from "./hosted-service";
+import {
+  createHostedAction,
+  executeSafeAction,
+  parseToolCall,
+} from "./hosted-service";
 import { getOpenAIToolsFormat } from "./hosted-tools";
 import { buildKnowledgeContextForPrompt } from "./knowledge";
 import type { ChatRequestBody } from "./schema";
@@ -14,6 +21,8 @@ import { createMessage, getConversationById, sendChatRequest } from "./service";
 
 const logger = createLogger("ai:chat");
 const encoder = new TextEncoder();
+const PRIMARY_STREAM_TIMEOUT_MS = 90_000;
+const TOOL_FOLLOW_UP_TIMEOUT_MS = 30_000;
 
 type ToolResult = {
   toolCallId: string;
@@ -22,6 +31,34 @@ type ToolResult = {
   needsApproval: boolean;
   actionId?: string;
 };
+
+function toolResultFallback(results: ToolResult[], locale: Locale): string {
+  const summaries = results.map((item) => {
+    const execution =
+      item.result && typeof item.result === "object"
+        ? (item.result as Record<string, unknown>)
+        : undefined;
+    const data =
+      execution?.data && typeof execution.data === "object"
+        ? (execution.data as Record<string, unknown>)
+        : undefined;
+    const templates = Array.isArray(data?.templates) ? data.templates : [];
+    const templateNames = templates.flatMap((template) => {
+      if (!template || typeof template !== "object") return [];
+      const name = (template as Record<string, unknown>).name;
+      return typeof name === "string" && name.trim() ? [name.trim()] : [];
+    });
+    if (templateNames.length > 0) {
+      return `${item.toolName}: ${templateNames.join(", ")}`;
+    }
+    const serialized =
+      JSON.stringify(execution?.data ?? item.result) ?? String(item.result);
+    return `${item.toolName}: ${serialized.length > 1200 ? `${serialized.slice(0, 1200)}...` : serialized}`;
+  });
+  const heading =
+    locale === "zh" ? "工具执行完成，结果如下：" : "Tool execution completed:";
+  return `${heading}\n\n${summaries.map((summary) => `- ${summary}`).join("\n")}`;
+}
 
 function encodeSse(payload: unknown): Uint8Array {
   return encoder.encode(`data: ${JSON.stringify(payload)}\n\n`);
@@ -154,6 +191,24 @@ function createStreamingResponse(input: {
   session: SessionPayload;
   locale: Locale;
   userMessageId: string;
+  providerId: string;
+  messages: Array<{
+    role: "user" | "assistant" | "system" | "tool";
+    content:
+      | string
+      | Array<{
+          type: "text" | "image_url";
+          text?: string;
+          image_url?: { url: string; detail?: string };
+        }>;
+    tool_call_id?: string;
+    tool_calls?: AiToolCall[];
+  }>;
+  temperature: number;
+  maxTokens: number;
+  topP: number;
+  frequencyPenalty: number;
+  presencePenalty: number;
 }): Response {
   let cancelled = false;
   let assistantPersisted = false;
@@ -182,7 +237,10 @@ function createStreamingResponse(input: {
             input.userMessageId,
             input.conversationId,
           );
-          send({ type: "error", error: t("apiAiChat.cannotReadStream", input.locale) });
+          send({
+            type: "error",
+            error: t("apiAiChat.cannotReadStream", input.locale),
+          });
           return;
         }
 
@@ -191,18 +249,25 @@ function createStreamingResponse(input: {
           providerType: input.providerType,
           onEvent: (event: ChatStreamEvent) => send(event),
           signal: abortController.signal,
+          timeoutMs: PRIMARY_STREAM_TIMEOUT_MS,
         });
         if (cancelled) {
           const persisted = await persistInterruptedAssistant(input);
           if (!persisted) {
-            await removeOrphanUserMessage(input.userMessageId, input.conversationId);
+            await removeOrphanUserMessage(
+              input.userMessageId,
+              input.conversationId,
+            );
           }
           return;
         }
         if (result.readError) {
           send({
             type: "error",
-            error: getErrorMessage(result.readError, t("apiAiChat.streamErrorFallback", input.locale)),
+            error: getErrorMessage(
+              result.readError,
+              t("apiAiChat.streamErrorFallback", input.locale),
+            ),
           });
         }
 
@@ -235,10 +300,100 @@ function createStreamingResponse(input: {
             })
           : [];
 
+        let finalInputTokens = result.inputTokens;
+        let finalOutputTokens = result.outputTokens;
+        if (
+          result.toolCalls.length > 0 &&
+          toolResults.length > 0 &&
+          toolResults.every((toolResult) => !toolResult.needsApproval)
+        ) {
+          let followUpPersisted = false;
+          try {
+            const followUp = await sendChatRequest(
+              {
+                providerId: input.providerId,
+                model: input.model,
+                messages: [
+                  ...input.messages,
+                  {
+                    role: "assistant",
+                    content: result.content || "",
+                    tool_calls: result.toolCalls,
+                  },
+                  ...toolResults.map((toolResult) => ({
+                    role: "tool" as const,
+                    content: JSON.stringify(toolResult.result),
+                    tool_call_id: toolResult.toolCallId,
+                  })),
+                ],
+                temperature: input.temperature,
+                max_tokens: input.maxTokens,
+                top_p: input.topP,
+                frequency_penalty: input.frequencyPenalty,
+                presence_penalty: input.presencePenalty,
+                stream: true,
+              },
+              input.session.userId,
+            );
+            if (followUp.response.body) {
+              const followUpResult = await consumeProviderChatStream({
+                body: followUp.response.body,
+                providerType: followUp.providerType,
+                onEvent: (event: ChatStreamEvent) => send(event),
+                signal: abortController.signal,
+                timeoutMs: TOOL_FOLLOW_UP_TIMEOUT_MS,
+              });
+              if (followUpResult.content || followUpResult.reasoning) {
+                await prisma.aiMessage.create({
+                  data: {
+                    conversationId: input.conversationId,
+                    role: "assistant",
+                    content:
+                      followUpResult.content ||
+                      t("apiAiChat.emptyContent", input.locale),
+                    reasoningContent: followUpResult.reasoning || undefined,
+                    model: input.model,
+                    inputTokens: followUpResult.inputTokens,
+                    outputTokens: followUpResult.outputTokens,
+                    latencyMs: Date.now() - followUp.startTime,
+                  },
+                });
+                followUpPersisted = true;
+              }
+              if (followUpResult.readError) throw followUpResult.readError;
+              finalInputTokens =
+                (finalInputTokens ?? 0) + (followUpResult.inputTokens ?? 0);
+              finalOutputTokens =
+                (finalOutputTokens ?? 0) + (followUpResult.outputTokens ?? 0);
+            }
+          } catch (error) {
+            logger.warn(
+              "AI tool follow-up failed; keeping completed tool result",
+              error,
+              {
+                conversationId: input.conversationId,
+              },
+            );
+          }
+          if (!followUpPersisted) {
+            const fallback = toolResultFallback(toolResults, input.locale);
+            send({ type: "content", content: fallback });
+            await prisma.aiMessage.create({
+              data: {
+                conversationId: input.conversationId,
+                role: "assistant",
+                content: fallback,
+                model: input.model,
+                latencyMs: Date.now() - input.startTime,
+              },
+            });
+          }
+        }
+
         send({
           type: "done",
-          inputTokens: result.inputTokens,
-          outputTokens: result.outputTokens,
+          inputTokens: finalInputTokens,
+          outputTokens: finalOutputTokens,
           latencyMs: Date.now() - input.startTime,
           toolResults,
         });
@@ -246,7 +401,10 @@ function createStreamingResponse(input: {
         if (cancelled) {
           const persisted = await persistInterruptedAssistant(input);
           if (!persisted) {
-            await removeOrphanUserMessage(input.userMessageId, input.conversationId);
+            await removeOrphanUserMessage(
+              input.userMessageId,
+              input.conversationId,
+            );
           }
           return;
         }
@@ -262,7 +420,10 @@ function createStreamingResponse(input: {
         }
         send({
           type: "error",
-          error: getErrorMessage(error, t("apiAiChat.streamErrorFallback", input.locale)),
+          error: getErrorMessage(
+            error,
+            t("apiAiChat.streamErrorFallback", input.locale),
+          ),
         });
       } finally {
         close();
@@ -329,7 +490,10 @@ export async function createAiChatResponse(input: {
 }): Promise<Response> {
   let conversation: Awaited<ReturnType<typeof getConversationById>>;
   try {
-    conversation = await getConversationById(input.body.conversationId, input.session.userId);
+    conversation = await getConversationById(
+      input.body.conversationId,
+      input.session.userId,
+    );
   } catch {
     throw new NotFoundError(t("apiAiChat.conversationNotFound", input.locale));
   }
@@ -340,8 +504,7 @@ export async function createAiChatResponse(input: {
     isVisionCapable: conversation.enableVision,
     locale: input.locale,
   });
-  const userMessage =
-  await createMessage({
+  const userMessage = await createMessage({
     conversationId: conversation.id,
     role: "user",
     content: payload.userText,
@@ -349,6 +512,16 @@ export async function createAiChatResponse(input: {
   });
 
   const messages = [...payload.historyMessages];
+  if (
+    conversation.hostingEnabled &&
+    conversation.automationMode === "PLAN_ONLY"
+  ) {
+    messages.unshift({
+      role: "system",
+      content:
+        "Automation mode is PLAN_ONLY. Inspect read-only state and reusable command templates, explain the complete plan, final rendered command, target scope, verification, rollback, timing, and approval policy. Do not call direct mutation tools. Use create_automation_task only when the user asks to save or submit the reviewed plan; it still requires explicit confirmation.",
+    });
+  }
   try {
     const { context } = await buildKnowledgeContextForPrompt({
       query: payload.userText,
@@ -357,9 +530,13 @@ export async function createAiChatResponse(input: {
     });
     if (context) messages.unshift({ role: "system", content: context });
   } catch (error) {
-    logger.warn("Knowledge retrieval failed; continuing without context", error, {
-      conversationId: conversation.id,
-    });
+    logger.warn(
+      "Knowledge retrieval failed; continuing without context",
+      error,
+      {
+        conversationId: conversation.id,
+      },
+    );
   }
 
   try {
@@ -374,7 +551,9 @@ export async function createAiChatResponse(input: {
         frequency_penalty: conversation.frequencyPenalty,
         presence_penalty: conversation.presencePenalty,
         stream: true,
-        tools: conversation.hostingEnabled ? getOpenAIToolsFormat() : undefined,
+        tools: conversation.hostingEnabled
+          ? getOpenAIToolsFormat(conversation.automationMode)
+          : undefined,
       },
       input.session.userId,
     );
@@ -388,12 +567,22 @@ export async function createAiChatResponse(input: {
       session: input.session,
       locale: input.locale,
       userMessageId: userMessage.id,
+      providerId: conversation.provider.id,
+      messages,
+      temperature: conversation.temperature,
+      maxTokens: conversation.maxTokens,
+      topP: conversation.topP,
+      frequencyPenalty: conversation.frequencyPenalty,
+      presencePenalty: conversation.presencePenalty,
     });
   } catch (error) {
     await removeOrphanUserMessage(userMessage.id, conversation.id);
     throw new AppError({
       code: "INTERNAL_ERROR",
-      message: getErrorMessage(error, t("apiAiChat.requestFailedFallback", input.locale)),
+      message: getErrorMessage(
+        error,
+        t("apiAiChat.requestFailedFallback", input.locale),
+      ),
       status: 500,
     });
   }

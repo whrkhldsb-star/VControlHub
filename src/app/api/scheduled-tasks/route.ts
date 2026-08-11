@@ -6,6 +6,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { idQuerySchema, parseSearchParams } from "@/lib/http/parse-search-params";
 import { AuthError, ValidationError } from "@/lib/errors";
+import { sessionHasPermission } from "@/lib/auth/authorization";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import {
   createScheduledTask,
@@ -19,6 +20,8 @@ import {
 
 const scheduledTaskPostSchema = z.object({
   name: z.string().min(1),
+	scheduleType: z.enum(["CRON", "ONCE"]).optional(),
+	runAt: z.coerce.date().optional(),
   cron: z.string().min(1).optional(),
   command: z.string().min(1),
   serverId: z.string().min(1).optional(),
@@ -27,7 +30,12 @@ const scheduledTaskPostSchema = z.object({
   cronExpression: z.string().min(1).optional(),
   reason: z.string().optional(),
   serverIds: z.array(z.string()).optional(),
-}).refine((data) => Boolean(data.cronExpression ?? data.cron), {
+	plan: z.string().max(10000).optional(),
+	verificationCommand: z.string().max(10000).optional(),
+	rollbackCommand: z.string().max(10000).optional(),
+	approvalRequired: z.boolean().optional(),
+	templateId: z.string().min(1).nullable().optional(),
+}).refine((data) => data.scheduleType === "ONCE" ? Boolean(data.runAt) : Boolean(data.cronExpression ?? data.cron), {
   message: "请填写 Cron 表达式",
   path: ["cronExpression"],
 }).refine((data) => (data.serverIds?.length ?? 0) > 0 || Boolean(data.serverId), {
@@ -49,6 +57,13 @@ const scheduledTaskPatchSchema = z.object({
   description: z.string().optional(),
   enabled: z.boolean().optional(),
   status: z.enum(["ACTIVE", "PAUSED", "DISABLED"]).optional(),
+	scheduleType: z.enum(["CRON", "ONCE"]).optional(),
+	runAt: z.coerce.date().nullable().optional(),
+	plan: z.string().max(10000).optional(),
+	verificationCommand: z.string().max(10000).optional(),
+	rollbackCommand: z.string().max(10000).optional(),
+	approvalRequired: z.boolean().optional(),
+	templateId: z.string().min(1).nullable().optional(),
 });
 
 export const dynamic = "force-dynamic";
@@ -86,9 +101,17 @@ export async function GET(request: Request) {
         id: task.id,
         name: task.name,
         cronExpression: task.cronExpression,
-        cronDescription: describeCron(task.cronExpression),
+		cronDescription: task.scheduleType === "ONCE" ? "One-time execution" : describeCron(task.cronExpression),
+		scheduleType: task.scheduleType,
+		runAt: task.runAt?.toISOString() ?? null,
         command: task.command,
         reason: task.reason,
+		plan: task.plan,
+		verificationCommand: task.verificationCommand,
+		rollbackCommand: task.rollbackCommand,
+		approvalRequired: task.approvalRequired,
+		source: task.source,
+		templateId: task.templateId,
         status: task.status,
         serverIds: task.serverIds,
         lastRunAt: task.lastRunAt?.toISOString() ?? null,
@@ -117,17 +140,27 @@ export async function POST(request: Request) {
       const locale = await getServerLocale();
       if (!session)
         throw new AuthError(t("api.unauthorized", locale));
-      const cronExpression = data.cronExpression ?? data.cron;
-      if (!cronExpression)
+		const cronExpression = data.cronExpression ?? data.cron;
+		if (data.scheduleType !== "ONCE" && !cronExpression)
         throw new ValidationError(t("api.cronRequired", locale));
+		if (data.approvalRequired === false && !sessionHasPermission(session, "command:approve")) {
+			throw new ValidationError("Only command approvers may create unattended tasks");
+		}
       const task = await createScheduledTask(
         {
           name: data.name,
           cronExpression,
+		  scheduleType: data.scheduleType,
+		  runAt: data.runAt,
           command: data.command,
           reason: data.reason ?? data.description,
           serverIds: data.serverIds ?? (data.serverId ? [data.serverId] : []),
           createdById: session.userId,
+		  plan: data.plan,
+		  verificationCommand: data.verificationCommand,
+		  rollbackCommand: data.rollbackCommand,
+		  approvalRequired: data.approvalRequired,
+		  templateId: data.templateId,
         },
         session,
       );
@@ -170,8 +203,11 @@ export async function PATCH(request: Request) {
           auditScheduledTaskDetail(result), undefined, session?.currentTeamId);
         return NextResponse.json({ task: result });
       }
-      if (!data.id)
+		if (!data.id)
         throw new ValidationError(t("api.missingTaskId", locale));
+		if (data.approvalRequired === false && !sessionHasPermission(session, "command:approve")) {
+			throw new ValidationError("Only command approvers may disable per-run approval");
+		}
       const result = await updateScheduledTask(
         data.id,
         {
@@ -180,7 +216,14 @@ export async function PATCH(request: Request) {
           command: data.command,
           reason: data.reason ?? data.description,
           serverIds: data.serverIds ?? (data.serverId ? [data.serverId] : undefined),
-          status: data.status,
+		  status: data.status,
+		  scheduleType: data.scheduleType,
+		  runAt: data.runAt,
+		  plan: data.plan,
+		  verificationCommand: data.verificationCommand,
+		  rollbackCommand: data.rollbackCommand,
+		  approvalRequired: data.approvalRequired,
+		  templateId: data.templateId,
         },
         session,
       );

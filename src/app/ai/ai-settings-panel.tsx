@@ -237,6 +237,35 @@ export function AiSettingsPanel({
           </label>
         </div>
 
+        {settingsForm.hostingEnabled && (
+          <fieldset className="col-span-2 flex min-w-0 flex-col gap-1.5 md:col-span-2">
+            <legend className="text-xs font-medium text-[var(--text-secondary)]">
+              {t("aiPage.automationMode")}
+            </legend>
+            <div className="grid min-h-10 grid-cols-2 rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-1">
+              {(["ASSISTED", "PLAN_ONLY"] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  aria-pressed={settingsForm.automationMode === mode}
+                  onClick={() => setSettingsForm((form) => ({ ...form, automationMode: mode }))}
+                  className={cn(
+                    "min-w-0 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                    settingsForm.automationMode === mode
+                      ? "bg-[var(--surface-elevated)] text-[var(--text-primary)] shadow-sm"
+                      : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]",
+                  )}
+                >
+                  {t(mode === "ASSISTED" ? "aiPage.automationAssisted" : "aiPage.automationPlanOnly")}
+                </button>
+              ))}
+            </div>
+            <p className="text-[11px] leading-4 text-[var(--text-muted)]">
+              {t(settingsForm.automationMode === "ASSISTED" ? "aiPage.automationAssistedHint" : "aiPage.automationPlanOnlyHint")}
+            </p>
+          </fieldset>
+        )}
+
         {/* Save button */}
         <div className="flex items-end gap-2">
           <ActionButton type="button" variant="ghost"

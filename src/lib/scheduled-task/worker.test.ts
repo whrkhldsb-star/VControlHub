@@ -98,6 +98,7 @@ function makeTask(overrides: Partial<Record<string, unknown>> = {}) {
     // nextRunAt on its updateMany `where` clause, so every fixture that
     // dispatches must carry it.
     nextRunAt: new Date("2026-01-01T00:00:00Z"),
+	approvalRequired: true,
     ...overrides,
   };
 }
@@ -174,6 +175,7 @@ describe("scheduled-task durable job worker", () => {
       requesterId: "user-1",
       serverIds: ["srv-1"],
 			teamId: undefined,
+			approvalRequired: true,
 			idempotencyKey: "scheduled-task:task-1:2026-01-01T00:00:00.000Z",
     });
 		expect(recordTaskDispatchMock).toHaveBeenCalledWith("task-1", "cmd-1");

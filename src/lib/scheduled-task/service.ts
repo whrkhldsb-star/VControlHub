@@ -16,9 +16,17 @@ export type SessionScope = Pick<SessionPayload, "userId" | "roles" | "currentTea
 
 export type CreateScheduledTaskInput = {
 	name: string;
-	cronExpression: string;
+	cronExpression?: string;
+	scheduleType?: "CRON" | "ONCE";
+	runAt?: Date | string | null;
 	command: string;
 	reason?: string;
+	plan?: string;
+	verificationCommand?: string;
+	rollbackCommand?: string;
+	approvalRequired?: boolean;
+	source?: string;
+	templateId?: string | null;
 	serverIds: string[];
 	createdById?: string;
 	/** Optional explicit team; defaults to session.currentTeamId when session is provided. */
@@ -28,6 +36,26 @@ export type CreateScheduledTaskInput = {
 export type UpdateScheduledTaskInput = Partial<CreateScheduledTaskInput> & {
 	status?: "ACTIVE" | "PAUSED" | "DISABLED";
 };
+
+const ONCE_CRON_PLACEHOLDER = "0 0 1 1 *";
+
+function resolveSchedule(input: Pick<CreateScheduledTaskInput, "scheduleType" | "cronExpression" | "runAt">) {
+	const scheduleType = input.scheduleType ?? "CRON";
+	if (scheduleType === "ONCE") {
+		const runAt = input.runAt instanceof Date ? input.runAt : new Date(input.runAt ?? "");
+		if (Number.isNaN(runAt.getTime()) || runAt.getTime() <= Date.now()) {
+			throw new ValidationError("One-time execution must use a future date and time");
+		}
+		return { scheduleType, cronExpression: input.cronExpression ?? ONCE_CRON_PLACEHOLDER, runAt, nextRunAt: runAt } as const;
+	}
+	if (!input.cronExpression?.trim()) throw new ValidationError(t("backend.scheduled-task.invalidCronExpression"));
+	return {
+		scheduleType,
+		cronExpression: input.cronExpression.trim(),
+		runAt: null,
+		nextRunAt: computeNextRun(input.cronExpression),
+	} as const;
+}
 
 /* ── Basic cron description ───────────────────────────────── */
 
@@ -106,21 +134,32 @@ export async function createScheduledTask(
 	input: CreateScheduledTaskInput,
 	session?: SessionScope | null,
 ) {
-	const nextRun = computeNextRun(input.cronExpression);
+	const schedule = resolveSchedule(input);
 	const teamFromSession = session ? teamCreateData(session).teamId : undefined;
 	const teamId =
 		input.teamId !== undefined ? input.teamId : (teamFromSession ?? null);
 	const serverIds = normalizeServerIds(input.serverIds);
+	if (serverIds.length === 0) {
+		throw new ValidationError(t("backend.scheduled-task.atLeastOneTargetServer"));
+	}
 	await assertScheduledTaskServersInScope(serverIds, session);
 	return prisma.scheduledTask.create({
 		data: {
 			name: input.name,
-			cronExpression: input.cronExpression,
+			cronExpression: schedule.cronExpression,
+			scheduleType: schedule.scheduleType,
+			runAt: schedule.runAt,
 			command: input.command,
 			reason: input.reason ?? null,
+			plan: input.plan ?? null,
+			verificationCommand: input.verificationCommand ?? null,
+			rollbackCommand: input.rollbackCommand ?? null,
+			approvalRequired: input.approvalRequired ?? true,
+			source: input.source ?? "MANUAL",
+			templateId: input.templateId ?? null,
 			serverIds,
 			createdById: input.createdById ?? session?.userId ?? null,
-			nextRunAt: nextRun,
+			nextRunAt: schedule.nextRunAt,
 			teamId,
 		},
 	});
@@ -157,12 +196,25 @@ export async function updateScheduledTask(
 
 	const data: Record<string, unknown> = {};
 	if (input.name !== undefined) data.name = input.name;
-	if (input.cronExpression !== undefined) {
-		data.cronExpression = input.cronExpression;
-		data.nextRunAt = computeNextRun(input.cronExpression);
+	if (input.scheduleType !== undefined || input.cronExpression !== undefined || input.runAt !== undefined) {
+		const schedule = resolveSchedule({
+			scheduleType: input.scheduleType ?? existing.scheduleType,
+			cronExpression: input.cronExpression ?? existing.cronExpression,
+			runAt: input.runAt === undefined ? existing.runAt : input.runAt,
+		});
+		data.scheduleType = schedule.scheduleType;
+		data.cronExpression = schedule.cronExpression;
+		data.runAt = schedule.runAt;
+		data.nextRunAt = schedule.nextRunAt;
 	}
 	if (input.command !== undefined) data.command = input.command;
 	if (input.reason !== undefined) data.reason = input.reason;
+	if (input.plan !== undefined) data.plan = input.plan;
+	if (input.verificationCommand !== undefined) data.verificationCommand = input.verificationCommand;
+	if (input.rollbackCommand !== undefined) data.rollbackCommand = input.rollbackCommand;
+	if (input.approvalRequired !== undefined) data.approvalRequired = input.approvalRequired;
+	if (input.source !== undefined) data.source = input.source;
+	if (input.templateId !== undefined) data.templateId = input.templateId;
 	if (input.serverIds !== undefined) {
 		const serverIds = normalizeServerIds(input.serverIds);
 		if (serverIds.length === 0) {
@@ -194,12 +246,15 @@ export async function toggleScheduledTask(
 	const current = await getScheduledTaskForSession(id, session);
 	if (!current) throw new NotFoundError(t("backend.scheduled-task.scheduledTaskNotFound"));
 	const newStatus = current.status === "ACTIVE" ? "PAUSED" : "ACTIVE";
+	if (newStatus === "ACTIVE" && current.scheduleType === "ONCE" && (!current.runAt || current.runAt.getTime() <= Date.now())) {
+		throw new BusinessError("A completed or expired one-time task cannot be resumed");
+	}
 	return prisma.scheduledTask.update({
 		where: { id },
 		data: {
 			status: newStatus,
 			...(newStatus === "ACTIVE"
-				? { nextRunAt: computeNextRun(current.cronExpression) }
+				? { nextRunAt: current.scheduleType === "ONCE" ? current.runAt : computeNextRun(current.cronExpression) }
 				: { nextRunAt: null }),
 		},
 	});
@@ -225,6 +280,7 @@ export async function retryScheduledTask(
 		requesterId: task.createdById,
 		serverIds: task.serverIds,
 		teamId: task.teamId ?? null,
+		approvalRequired: task.approvalRequired,
 	});
 
 	await recordTaskDispatch(task.id, result.id, true);
@@ -236,7 +292,7 @@ export async function recordTaskDispatch(id: string, commandRequestId: string, m
 		const existing = await tx.scheduledTaskRun.findUnique({ where: { commandRequestId } });
 		const task = await tx.scheduledTask.findUnique({
 			where: { id },
-			select: { cronExpression: true },
+			select: { cronExpression: true, scheduleType: true },
 		});
 		if (!task) return null;
 		if (!existing) {
@@ -250,7 +306,10 @@ export async function recordTaskDispatch(id: string, commandRequestId: string, m
 					lastRunAt: dispatchedAt,
 					lastResult: `${manual ? "Manual retry dispatched" : "Dispatched"} command request ${commandRequestId}; awaiting final result`,
 					runCount: { increment: 1 },
-					nextRunAt: computeNextRun(task.cronExpression),
+					...(!manual ? {
+						nextRunAt: task.scheduleType === "ONCE" ? null : computeNextRun(task.cronExpression),
+						...(task.scheduleType === "ONCE" ? { status: "DISABLED" as const } : {}),
+					} : {}),
 				},
 			});
 		}
@@ -319,7 +378,7 @@ export async function reconcileScheduledTaskRuns(limit = 500) {
 export async function recordTaskRun(id: string, result: string) {
 	const task = await prisma.scheduledTask.findUnique({
 		where: { id },
-		select: { name: true, cronExpression: true, runCount: true, createdById: true, lastResult: true, teamId: true },
+		select: { name: true, cronExpression: true, scheduleType: true, runCount: true, createdById: true, lastResult: true, teamId: true },
 	});
 	if (!task) return;
 
@@ -339,7 +398,8 @@ export async function recordTaskRun(id: string, result: string) {
 			lastRunAt: new Date(),
 			lastResult: result,
 			runCount: task.runCount + 1,
-			nextRunAt: computeNextRun(task.cronExpression),
+			nextRunAt: task.scheduleType === "ONCE" ? null : computeNextRun(task.cronExpression),
+			...(task.scheduleType === "ONCE" ? { status: "DISABLED" as const } : {}),
 		},
 	});
 }

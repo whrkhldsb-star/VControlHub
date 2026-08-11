@@ -21,6 +21,7 @@ export { buildCommand } from "./hosted-command-builder";
 import { getToolByName, type HostedTool } from "./hosted-tools";
 import { executeServerlessQuery } from "./hosted-safe-queries";
 import { t } from "@/lib/i18n/service-translations";
+import { executeAutomationProposal, materializeAutomationProposal } from "./automation-service";
 
 import {
   buildAssistantCommandRequestPayload,
@@ -81,7 +82,7 @@ export async function createHostedAction(input: {
   /** Optional session for team-scoped server resolution. */
   session?: HostedActionSession | null;
 }) {
-  const { conversationId, messageId, tool, args, userId } = input;
+  const { conversationId, messageId, tool, userId } = input;
   const session =
     input.session ??
     ({
@@ -89,6 +90,9 @@ export async function createHostedAction(input: {
       roles: [] as RoleKey[],
       currentTeamId: null,
     } satisfies HostedActionSession);
+  const args = tool.actionType === "create_automation_task"
+    ? await materializeAutomationProposal(input.args, session)
+    : input.args;
   const serverId = await resolveServerId(args, session);
   const resolvedServer = serverId
     ? await prisma.server.findUnique({ where: { id: serverId }, select: { teamId: true } })
@@ -343,6 +347,54 @@ async function executeConfirmedServerlessAction(
   });
 }
 
+async function executeConfirmedAutomationAction(
+  action: {
+    id: string;
+    conversationId: string;
+    toolCallId: string | null;
+    actionType: string;
+    params: string;
+  },
+  actor: HostedActionSession,
+) {
+  const claimed = await prisma.aiHostedAction.updateMany({
+    where: { id: action.id, status: "PENDING_APPROVAL" },
+    data: {
+      status: "EXECUTING",
+      approverId: actor.userId,
+      approvedAt: new Date(),
+      executedAt: new Date(),
+    },
+  });
+  if (claimed.count === 0) {
+    throw new BusinessError(t("backend.ai.actionIsNotPendingConfirmationMayHaveJust"));
+  }
+
+  try {
+    const result = await executeAutomationProposal(
+      JSON.parse(action.params) as Record<string, unknown>,
+      actor,
+      action.id,
+    );
+    await prisma.aiHostedAction.update({
+      where: { id: action.id },
+      data: {
+        status: "COMPLETED",
+        result: JSON.stringify(result),
+        completedAt: new Date(),
+      },
+    });
+    await persistHostedToolOutcome(action, { success: true, status: "COMPLETED", data: result });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : t("backend.ai.unknownError");
+    await prisma.aiHostedAction.update({
+      where: { id: action.id },
+      data: { status: "FAILED", errorMessage: message, completedAt: new Date() },
+    });
+    await persistHostedToolOutcome(action, { success: false, status: "FAILED", error: message });
+  }
+}
+
 export async function approveHostedAction(actionId: string, approver: HostedActionSession) {
   if (!sessionHasPermission(approver, "ai:action:approve")) throw new ForbiddenError(t("backend.ai.missingPermissionAiActionApprove"));
 
@@ -357,6 +409,10 @@ export async function approveHostedAction(actionId: string, approver: HostedActi
   if (!action) throw new NotFoundError(t("backend.ai.actionNotFoundOrNotAuthorizedToApprove"));
   if (action.status !== "PENDING_APPROVAL") throw new BusinessError(t("backend.ai.actionIsNotPendingApproval"));
   if (!isHostedActionType(action.actionType)) throw new BusinessError(t("backend.ai.unsupportedActionType"));
+  if (action.actionType === "create_automation_task") {
+    await executeConfirmedAutomationAction(action, approver);
+    return;
+  }
   if (action.actionType === "manage_cron") {
     await executeConfirmedServerlessAction(action, approver);
     return;
@@ -429,12 +485,18 @@ export async function confirmHostedAction(actionId: string, requester: HostedAct
   if (
     SERVERLESS_ACTION_TYPES.has(action.actionType) &&
     action.actionType !== "run_playbook" &&
-    action.actionType !== "manage_cron"
+    action.actionType !== "manage_cron" &&
+    action.actionType !== "create_automation_task"
   ) {
     throw new BusinessError(t("backend.ai.listQueryToolsDoNotRequireCreatingA"));
   }
 
   const params = JSON.parse(action.params) as Record<string, unknown>;
+
+  if (action.actionType === "create_automation_task") {
+    await executeConfirmedAutomationAction(action, requester);
+    return;
+  }
 
   if (action.actionType === "manage_cron") {
     await executeConfirmedServerlessAction(action, requester);

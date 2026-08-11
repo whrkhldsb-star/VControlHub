@@ -49,6 +49,7 @@ export function useConvSettingsForm({
           presencePenalty: activeConv.presencePenalty,
           enableVision: activeConv.enableVision,
           hostingEnabled: activeConv.hostingEnabled,
+          automationMode: activeConv.automationMode ?? "ASSISTED",
         };
         setSettingsForm(next);
         setBaseline(next);

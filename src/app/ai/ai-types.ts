@@ -28,6 +28,7 @@ export interface ConvItem {
  presencePenalty: number;
  enableVision: boolean;
  hostingEnabled: boolean;
+ automationMode?: "ASSISTED" | "PLAN_ONLY";
  createdBy: string;
  createdAt: string;
  updatedAt: string;
@@ -112,6 +113,7 @@ export const DEFAULT_SETTINGS_FORM = {
  presencePenalty: 0.0,
  enableVision: false,
  hostingEnabled: false,
+ automationMode: "ASSISTED" as "ASSISTED" | "PLAN_ONLY",
 };
 
 /* ── AI 托管操作类型 ───────────────────────────────────────── */

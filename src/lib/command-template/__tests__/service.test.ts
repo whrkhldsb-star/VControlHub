@@ -112,7 +112,7 @@ describe("command template service", () => {
   });
 
   it("skips seeding when built-in templates already exist", async () => {
-    mockPrisma.commandTemplate.count.mockResolvedValueOnce(12);
+    mockPrisma.commandTemplate.count.mockResolvedValueOnce(service.BUILTIN_TEMPLATES.length);
 
     await service.seedBuiltinTemplates();
 

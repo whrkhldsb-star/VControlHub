@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-09T03:01:51.903Z",
+  "generatedAt": "2026-08-11T01:26:52.238Z",
   "summary": {
     "sidebarMain": 30,
     "sidebarSystem": 5,
@@ -511,6 +511,7 @@
       "inSidebarMain": true,
       "inSidebarSystem": false,
       "declaredPermissions": [
+        "command:approve",
         "command:create",
         "command:execute"
       ]
@@ -2052,6 +2053,7 @@
       ],
       "guardMode": "withApiRoute",
       "declaredPermissions": [
+        "command:approve",
         "command:create",
         "command:read"
       ]

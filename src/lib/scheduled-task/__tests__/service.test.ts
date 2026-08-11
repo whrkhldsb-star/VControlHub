@@ -111,6 +111,28 @@ describe("scheduled task service", () => {
     });
   });
 
+  it("creates a one-time task with its exact future run time", async () => {
+    const runAt = new Date(Date.now() + 3_600_000);
+    mockPrisma.scheduledTask.create.mockResolvedValue({ id: "once_1" });
+
+    await service.createScheduledTask({
+      name: "Rotate key once",
+      scheduleType: "ONCE",
+      runAt,
+      command: "true",
+      serverIds: ["srv1"],
+    });
+
+    expect(mockPrisma.scheduledTask.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        scheduleType: "ONCE",
+        runAt,
+        nextRunAt: runAt,
+        approvalRequired: true,
+      }),
+    });
+  });
+
   it("updates scheduled task target server ids exactly once after trimming blanks", async () => {
     mockPrisma.scheduledTask.findFirst.mockResolvedValue({ id: "task1", teamId: null });
     mockPrisma.scheduledTask.update.mockResolvedValue({ id: "task1" });

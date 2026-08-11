@@ -90,6 +90,7 @@ export const createConversationSchema = z.object({
   presencePenalty: z.number().min(-2).max(2).optional(),
   enableVision: z.boolean().optional(),
   hostingEnabled: z.boolean().optional(),
+  automationMode: z.enum(["ASSISTED", "PLAN_ONLY"]).optional(),
 });
 
 // PATCH /api/ai/conversations/[id] body. Same field set as the create
@@ -106,6 +107,7 @@ export const updateConversationSchema = z.object({
   presencePenalty: z.number().min(-2).max(2).optional(),
   enableVision: z.boolean().optional(),
   hostingEnabled: z.boolean().optional(),
+  automationMode: z.enum(["ASSISTED", "PLAN_ONLY"]).optional(),
   clearMessages: z.boolean().optional(),
 });
 

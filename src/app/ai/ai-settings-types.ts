@@ -12,6 +12,7 @@ export interface SettingsFormState {
 	presencePenalty: number;
 	enableVision: boolean;
 	hostingEnabled: boolean;
+	automationMode: "ASSISTED" | "PLAN_ONLY";
 }
 
 export interface SettingsPanelProps {

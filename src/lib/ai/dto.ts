@@ -60,6 +60,7 @@ export type AiConversationListItemDto = {
   presencePenalty: number | null;
   enableVision: boolean;
   hostingEnabled: boolean;
+  automationMode: "ASSISTED" | "PLAN_ONLY";
   createdBy: string;
   createdAt: string;
   updatedAt: string;
@@ -136,6 +137,7 @@ export type AiConversationDto = {
   presencePenalty: number | null;
   enableVision: boolean;
   hostingEnabled: boolean;
+  automationMode: "ASSISTED" | "PLAN_ONLY";
   createdBy: string;
   createdAt: string;
   updatedAt: string;

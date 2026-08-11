@@ -206,6 +206,10 @@ export async function executeServerlessQuery(
           id: task.id,
           name: task.name,
           cronExpression: task.cronExpression,
+		  ...(task.scheduleType ? { scheduleType: task.scheduleType } : {}),
+		  ...(task.runAt ? { runAt: task.runAt.toISOString() } : {}),
+		  ...(typeof task.approvalRequired === "boolean" ? { approvalRequired: task.approvalRequired } : {}),
+		  ...(task.source ? { source: task.source } : {}),
           status: task.status,
           nextRunAt: task.nextRunAt?.toISOString?.() ?? task.nextRunAt ?? null,
           lastRunAt: task.lastRunAt?.toISOString?.() ?? task.lastRunAt ?? null,
@@ -215,6 +219,33 @@ export async function executeServerlessQuery(
               : task.lastResult,
         })),
         count: tasks.length,
+      },
+    };
+  }
+
+  if (action.actionType === "list_command_templates") {
+    const { listTemplates } = await import("@/lib/command-template/service");
+    const templates = await listTemplates(100, scope ?? null);
+    const query = typeof action.params.query === "string" ? action.params.query.trim().toLowerCase() : "";
+    const filtered = query
+      ? templates.filter((template) => [template.name, template.description, ...template.tags]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(query)))
+      : templates;
+    return {
+      success: true,
+      data: {
+        templates: filtered.map((template) => ({
+          id: template.id,
+          name: template.name,
+          description: template.description,
+          command: template.command,
+          rollbackCommand: template.rollbackCommand,
+          variables: template.variables,
+          tags: template.tags,
+          isBuiltin: template.isBuiltin,
+        })),
+        count: filtered.length,
       },
     };
   }
