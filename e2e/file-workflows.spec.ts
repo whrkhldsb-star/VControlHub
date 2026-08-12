@@ -46,6 +46,46 @@ test("local file lifecycle: folder, upload, search, preview, share and delete", 
 	await page.getByRole("button", { name: /详情视图|Details view/i }).click();
 	await page.getByRole("button", { name: /列表视图|List view/i }).click();
 
+	const detailButton = page.getByRole("button", {
+		name: /资料详情 vcontrolhub-e2e\.txt|File details vcontrolhub-e2e\.txt/i,
+	}).first();
+	await detailButton.hover();
+	await detailButton.click();
+	const detailDialog = page.getByRole("dialog", {
+		name: "vcontrolhub-e2e.txt",
+	});
+	await expect(detailDialog).toBeVisible();
+	await expect(detailDialog).toHaveAttribute("data-motion", "drawer");
+	expect(await detailDialog.evaluate((dialog) => ({
+		portalIsOnBody: dialog.parentElement?.parentElement === document.body,
+		insideArticle: Boolean(dialog.closest("article")),
+	}))).toEqual({ portalIsOnBody: true, insideArticle: false });
+	await page.waitForTimeout(250);
+	const detailPositions: string[] = [];
+	for (let index = 0; index < 12; index += 1) {
+		const box = await detailDialog.boundingBox();
+		expect(box).not.toBeNull();
+		detailPositions.push(
+			`${Math.round(box!.x)}:${Math.round(box!.y)}:${Math.round(box!.width)}:${Math.round(box!.height)}`,
+		);
+		await page.waitForTimeout(100);
+	}
+	expect(new Set(detailPositions).size, `detail drawer moved: ${detailPositions.join(", ")}`).toBe(1);
+	await detailDialog.getByRole("button", { name: /关闭|Close/i }).click();
+	await expect(detailDialog).toBeHidden();
+
+	await page.setViewportSize({ width: 390, height: 844 });
+	await detailButton.click();
+	await expect(detailDialog).toBeVisible();
+	await page.waitForTimeout(250);
+	const mobileBox = await detailDialog.boundingBox();
+	expect(mobileBox).not.toBeNull();
+	expect(Math.round(mobileBox!.x)).toBe(12);
+	expect(Math.round(mobileBox!.width)).toBe(366);
+	expect(Math.round(mobileBox!.height)).toBe(820);
+	await detailDialog.getByRole("button", { name: /关闭|Close/i }).click();
+	await page.setViewportSize({ width: 1280, height: 720 });
+
 	const fileLink = page.getByRole("link", { name: "vcontrolhub-e2e.txt", exact: true });
 	await fileLink.click();
 	await expect(page).toHaveURL(/\/files\/preview/);

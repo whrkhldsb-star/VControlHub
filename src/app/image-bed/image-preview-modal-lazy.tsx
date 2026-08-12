@@ -21,19 +21,23 @@
 
 import dynamic from "next/dynamic";
 import type { ComponentProps, ComponentType } from "react";
+import { createPortal } from "react-dom";
 
 type ImagePreviewModalProps = ComponentProps<
 	typeof import("./image-preview-modal").ImagePreviewModal
 >;
 
 function ImagePreviewModalStub() {
-	return (
+	if (typeof document === "undefined") return null;
+	return createPortal(
 		<div
 			aria-hidden
+			data-modal-overlay
 			className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)]"
 		>
 			<div className="h-[60vh] w-full max-w-4xl animate-pulse rounded-lg bg-[var(--surface-hover)]" />
-		</div>
+		</div>,
+		document.body,
 	);
 }
 

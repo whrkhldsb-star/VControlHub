@@ -18,7 +18,8 @@
  * for content dialogs (forms, previews, log viewers).
  */
 
-import type { ReactNode, RefObject } from "react";
+import { useSyncExternalStore, type ReactNode, type RefObject } from "react";
+import { createPortal } from "react-dom";
 import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import { cn } from "@/lib/ui/cn";
 
@@ -56,6 +57,8 @@ type ModalShellProps = ModalShellLabel & {
 	panelProps?: Record<string, string>;
 };
 
+const subscribeToClient = () => () => {};
+
 export function ModalShell({
 	open,
 	onClose,
@@ -71,16 +74,23 @@ export function ModalShell({
 	role = "dialog",
 	panelProps,
 }: ModalShellProps) {
+	const canUseDom = useSyncExternalStore(
+		subscribeToClient,
+		() => true,
+		() => false,
+	);
 	const dialogRef = useDialogFocus<HTMLDivElement>({
 		open,
 		onClose,
 		...(initialFocusRef ? { initialFocusRef } : {}),
 	});
-	if (!open) return null;
+
+	if (!open || !canUseDom) return null;
 
 	const Panel = as;
-	return (
+	return createPortal(
 		<div
+			data-modal-overlay
 			className={cn(overlayClassName)}
 			role="presentation"
 			onClick={closeOnBackdrop ? onClose : undefined}
@@ -99,6 +109,7 @@ export function ModalShell({
 			>
 				{children}
 			</Panel>
-		</div>
+		</div>,
+		document.body,
 	);
 }

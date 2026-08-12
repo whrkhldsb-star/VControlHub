@@ -21,6 +21,7 @@
 
 import dynamic from "next/dynamic";
 import type { ComponentProps, ComponentType } from "react";
+import { createPortal } from "react-dom";
 import { Spinner } from "@/components/ui-primitives";
 import { useI18n } from "@/lib/i18n/use-locale";
 
@@ -31,15 +32,17 @@ type FileDetailPanelProps = ComponentProps<
 function FileDetailPanelLoading() {
   const { t } = useI18n();
   const label = t("filesBrowserSpa.loading");
-  return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-[var(--surface-subtle)] p-3 backdrop-blur-sm" role="presentation">
+  if (typeof document === "undefined") return null;
+  return createPortal(
+    <div data-modal-overlay className="fixed inset-0 z-50 flex justify-end bg-[var(--overlay)] p-3 backdrop-blur-sm" role="presentation">
       <aside
-        className="flex h-full w-full max-w-xl items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--modal-bg)] shadow-2xl"
+        className="flex h-full w-full max-w-xl items-center justify-center overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--modal-bg)] shadow-2xl"
         aria-live="polite"
       >
         <Spinner label={label} />
       </aside>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

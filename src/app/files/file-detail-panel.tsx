@@ -64,9 +64,10 @@ export function FileDetailPanel({
       open
       onClose={onClose}
       labelledBy="file-detail-panel-title"
-      overlayClassName="fixed inset-0 z-50 flex justify-end bg-[var(--surface-subtle)] p-3 backdrop-blur-sm"
+      overlayClassName="fixed inset-0 z-50 flex justify-end bg-[var(--overlay)] p-3 backdrop-blur-sm"
       panelClassName="flex h-full w-full max-w-xl flex-col overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--modal-bg)] text-[var(--text-primary)] shadow-2xl"
       as="aside"
+      panelProps={{ "data-motion": "drawer" }}
     >
         <div className="flex items-start justify-between gap-4 border-b border-[var(--border)] px-5 py-4">
           <div className="min-w-0">

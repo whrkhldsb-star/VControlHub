@@ -18,18 +18,22 @@
 
 import dynamic from "next/dynamic";
 import type { ComponentProps, ComponentType } from "react";
+import { createPortal } from "react-dom";
 
 /* ── Stubs ──────────────────────────────────────────────────────── */
 
 function DialogStub({ label }: { label: string }) {
-	return (
+	if (typeof document === "undefined") return null;
+	return createPortal(
 		<div
 			aria-hidden
+			data-modal-overlay
 			data-testid={`quick-service-${label}-loading`}
 			className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] backdrop-blur-sm"
 		>
 			<div className="h-48 w-full max-w-md animate-pulse rounded-2xl border border-[var(--border)] bg-[var(--surface-root)]" />
-		</div>
+		</div>,
+		document.body,
 	);
 }
 

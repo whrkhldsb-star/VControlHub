@@ -323,7 +323,7 @@ body > main {
 :root [data-card]:hover {
 	border-color: var(--border-strong);
 	box-shadow: var(--shadow-md);
-	transform: translateY(-1px);
+	transform: none;
 }
 
 /* Nested cards / dense lists: avoid double “float” noise */
@@ -762,6 +762,14 @@ html.light { --surface-root: #eef2f7; }
 }
 [role="dialog"] {
 	animation: modal-enter 0.18s ease-out;
+}
+
+@keyframes drawer-enter {
+	from { opacity: 0; transform: translateX(12px); }
+	to { opacity: 1; transform: translateX(0); }
+}
+[role="dialog"][data-motion="drawer"] {
+	animation: drawer-enter 0.18s ease-out;
 }
 
 /* T7. Modal 遮罩入场 */
