@@ -109,12 +109,30 @@ export async function runOperationTaskRetentionJobWorkerOnce(
 
   state.running = true;
   try {
-    await enqueueOperationTaskRetentionJob(reason);
-    const job = await claimNextJob({
+    const enqueued = await enqueueOperationTaskRetentionJob(reason);
+    let job = await claimNextJob({
       workerId: OPERATION_TASK_RETENTION_WORKER_ID,
       types: [OPERATION_TASK_RETENTION_JOB_TYPE],
       leaseMs: OPERATION_TASK_RETENTION_LEASE_MS,
     });
+    // Mitigate a same-tick claim race observed in production: the enqueue
+    // commits but the immediate claim occasionally returns null (row visible
+    // a moment later). Retry once after a short delay instead of silently
+    // waiting for the next 6h tick.
+    if (!job && enqueued) {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      job = await claimNextJob({
+        workerId: OPERATION_TASK_RETENTION_WORKER_ID,
+        types: [OPERATION_TASK_RETENTION_JOB_TYPE],
+        leaseMs: OPERATION_TASK_RETENTION_LEASE_MS,
+      });
+      if (!job) {
+        logger.warn(
+          "Retention job enqueued but not claimed in the same tick; it will be picked up by the next tick",
+          { reason, enqueuedJobId: enqueued.id },
+        );
+      }
+    }
     if (!job) return false;
 
     try {

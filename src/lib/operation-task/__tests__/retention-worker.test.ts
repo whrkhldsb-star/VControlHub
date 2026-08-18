@@ -156,7 +156,7 @@ describe("operation task retention worker", () => {
   });
 
   it("无 pending job → 立即返 false, 不调 prune", async () => {
-    jobMocks.claimNextJob.mockResolvedValueOnce(null);
+    jobMocks.claimNextJob.mockResolvedValue(null);
 
     const ran = await runOperationTaskRetentionJobWorkerOnce("test");
 
