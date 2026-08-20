@@ -18,6 +18,10 @@ export default defineConfig({
     pool: "threads",
     maxWorkers: 2,
     isolate: true,
+    // Full V8 coverage on the small CI runners can briefly pause jsdom/user-event
+    // and bcrypt work. Keep the default long enough to avoid false negatives while
+    // still failing genuinely stuck tests promptly.
+    testTimeout: 15_000,
     coverage: {
       provider: "v8",
       reporter: ["text", "json-summary", "lcov"],

@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-08-11T05:47:44.696Z",
+  "generatedAt": "2026-08-20T13:35:23.089Z",
   "summary": {
     "permissionsInList": 54,
     "rolesDefined": 4,
-    "apiRoutesAudited": 178,
-    "pagesAudited": 53,
-    "callSitesAudited": 630,
+    "apiRoutesAudited": 179,
+    "pagesAudited": 54,
+    "callSitesAudited": 632,
     "driftCount": 0,
     "driftByCode": {
       "perm-not-in-list": 0,
@@ -461,10 +461,15 @@
         {
           "path": "src/app/audit/page.tsx",
           "line": 55
+        },
+        {
+          "path": "src/app/servers/page.tsx",
+          "line": 32
         }
       ],
       "pages": [
-        "audit"
+        "audit",
+        "servers"
       ],
       "apiRoutes": [
         "/api/dashboard/analytics"
@@ -690,11 +695,16 @@
         {
           "path": "src/app/scheduled-tasks/page.tsx",
           "line": 19
+        },
+        {
+          "path": "src/app/servers/page.tsx",
+          "line": 31
         }
       ],
       "pages": [
         "requests",
-        "scheduled-tasks"
+        "scheduled-tasks",
+        "servers"
       ],
       "apiRoutes": [
         "/api/scheduled-tasks",
@@ -1119,10 +1129,15 @@
         {
           "path": "src/app/deployments/page.tsx",
           "line": 44
+        },
+        {
+          "path": "src/app/servers/page.tsx",
+          "line": 33
         }
       ],
       "pages": [
-        "deployments"
+        "deployments",
+        "servers"
       ],
       "apiRoutes": [],
       "grantedToRoles": [
@@ -2015,7 +2030,7 @@
         },
         {
           "path": "src/app/api/servers/[id]/vps-backup/schedules/[scheduleId]/route.ts",
-          "line": 82
+          "line": 74
         },
         {
           "path": "src/app/api/servers/[id]/vps-backup/schedules/[scheduleId]/route.ts",
@@ -2023,7 +2038,7 @@
         },
         {
           "path": "src/app/api/servers/[id]/vps-backup/schedules/[scheduleId]/route.ts",
-          "line": 82
+          "line": 74
         },
         {
           "path": "src/app/api/servers/[id]/vps-backup/schedules/route.ts",
@@ -2090,15 +2105,15 @@
         },
         {
           "path": "src/app/api/share-links/route.ts",
-          "line": 55
+          "line": 57
         },
         {
           "path": "src/app/api/share-links/route.ts",
-          "line": 55
+          "line": 57
         },
         {
           "path": "src/app/files/page.tsx",
-          "line": 47
+          "line": 48
         },
         {
           "path": "src/app/shares/page.tsx",
@@ -2123,11 +2138,11 @@
       "files": [
         {
           "path": "src/app/api/share-links/route.ts",
-          "line": 101
+          "line": 108
         },
         {
           "path": "src/app/api/share-links/route.ts",
-          "line": 101
+          "line": 108
         },
         {
           "path": "src/app/api/shares/access-report/route.ts",
@@ -2157,11 +2172,11 @@
       "files": [
         {
           "path": "src/app/api/share-links/route.ts",
-          "line": 42
+          "line": 44
         },
         {
           "path": "src/app/api/share-links/route.ts",
-          "line": 42
+          "line": 44
         },
         {
           "path": "src/app/api/shares/[id]/access-logs/route.ts",
@@ -2244,7 +2259,7 @@
         },
         {
           "path": "src/app/files/page.tsx",
-          "line": 46
+          "line": 47
         },
         {
           "path": "src/app/files/recycle-bin/page.tsx",
@@ -2256,15 +2271,15 @@
         },
         {
           "path": "src/app/storage/actions-file-entries.ts",
-          "line": 51
+          "line": 49
         },
         {
           "path": "src/app/storage/actions-file-entries.ts",
-          "line": 181
+          "line": 174
         },
         {
           "path": "src/app/storage/actions-file-entries.ts",
-          "line": 257
+          "line": 245
         }
       ],
       "pages": [
@@ -2306,7 +2321,7 @@
         },
         {
           "path": "src/app/files/page.tsx",
-          "line": 48
+          "line": 49
         },
         {
           "path": "src/app/files/sync/page.tsx",
@@ -2528,10 +2543,6 @@
           "line": 37
         },
         {
-          "path": "src/app/downloads/page.tsx",
-          "line": 17
-        },
-        {
           "path": "src/app/media/[id]/page.tsx",
           "line": 87
         },
@@ -2541,7 +2552,6 @@
         }
       ],
       "pages": [
-        "downloads",
         "media/[id]",
         "media"
       ],
@@ -2732,11 +2742,11 @@
         },
         {
           "path": "src/app/files/move-file-action.ts",
-          "line": 24
+          "line": 22
         },
         {
           "path": "src/app/files/page.tsx",
-          "line": 45
+          "line": 46
         },
         {
           "path": "src/app/files/sync/page.tsx",
@@ -2744,11 +2754,11 @@
         },
         {
           "path": "src/app/storage/actions-directories.ts",
-          "line": 30
+          "line": 28
         },
         {
           "path": "src/app/storage/actions-directories.ts",
-          "line": 184
+          "line": 182
         }
       ],
       "pages": [

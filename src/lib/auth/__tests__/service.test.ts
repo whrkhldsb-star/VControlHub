@@ -13,6 +13,9 @@ vi.mock("@/lib/db", () => ({
  setting: {
  findUnique: vi.fn(),
  },
+ auditLog: {
+ create: vi.fn(),
+ },
  },
  isDatabaseUnavailableError: vi.fn(() => false),
 }));
@@ -117,7 +120,7 @@ describe("changePassword", () => {
  const newHash = updateCall?.data?.passwordHash as string;
  expect(typeof newHash).toBe("string");
  expect(await verifyPassword("Newpass123", newHash)).toBe(true);
- });
+ }, 15_000);
 
  it("rejects password change when current password is invalid", async () => {
  const currentHash = await hashPassword("19970103");
@@ -136,7 +139,7 @@ describe("changePassword", () => {
  }),
  ).resolves.toEqual({ success: false, error: "Current password is incorrect" });
  expect(prisma.user.update).not.toHaveBeenCalled();
- });
+ }, 15_000);
 });
 
 describe("skipPasswordChange", () => {
