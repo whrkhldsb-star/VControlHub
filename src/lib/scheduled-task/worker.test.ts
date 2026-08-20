@@ -1,5 +1,5 @@
 import { JobStatus, Prisma } from "@prisma/client";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   scheduledTaskFindManyMock,
@@ -132,6 +132,11 @@ describe("scheduled-task durable job worker", () => {
 		tryAcquireAdvisoryLockMock.mockResolvedValue(releaseAdvisoryLockMock);
 		releaseAdvisoryLockMock.mockResolvedValue(undefined);
     stopScheduledTaskWorkerForTests();
+  });
+
+  afterEach(() => {
+    stopScheduledTaskWorkerForTests();
+    vi.useRealTimers();
   });
 
   it("starts once (idempotent) and ticks on startup and interval", async () => {

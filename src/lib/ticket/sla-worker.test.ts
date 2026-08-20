@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { escalateMock, loggerMocks, jobMocks } = vi.hoisted(() => ({
   escalateMock: vi.fn(),
@@ -44,6 +44,11 @@ describe("ticket SLA durable worker", () => {
     jobMocks.failJob.mockResolvedValue({ count: 1 });
     jobMocks.pruneCompletedJobsByType.mockResolvedValue({ count: 0 });
     escalateMock.mockResolvedValue(3);
+  });
+
+  afterEach(() => {
+    stopTicketSlaWorkerForTests();
+    vi.useRealTimers();
   });
 
   it("enqueues, leases and completes one SLA sweep", async () => {

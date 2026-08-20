@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
  * Tests for operation-task-retention-worker — TR-006 跨来源保留策略 worker
@@ -75,6 +75,7 @@ async function flushPromises() {
 
 describe("operation task retention worker", () => {
   beforeEach(() => {
+    vi.useFakeTimers();
     vi.clearAllMocks();
     jobIds.next = 1;
     pruneHistoryMock.mockResolvedValue({
@@ -105,6 +106,11 @@ describe("operation task retention worker", () => {
     jobMocks.completeJob.mockResolvedValue({ count: 1 });
     jobMocks.failJob.mockResolvedValue({ count: 1 });
     stopOperationTaskRetentionWorkerForTests();
+  });
+
+  afterEach(() => {
+    stopOperationTaskRetentionWorkerForTests();
+    vi.useRealTimers();
   });
 
   it("一次 tick: enqueue → claim → heartbeat → prune → complete 完整路径", async () => {
@@ -155,13 +161,44 @@ describe("operation task retention worker", () => {
     expect(jobMocks.completeJob).not.toHaveBeenCalled();
   });
 
-  it("无 pending job → 立即返 false, 不调 prune", async () => {
+  it("新建任务首次和重试领取都为空 → 返 false、记录警告且不调 prune", async () => {
     jobMocks.claimNextJob.mockResolvedValue(null);
 
-    const ran = await runOperationTaskRetentionJobWorkerOnce("test");
+    const ran = runOperationTaskRetentionJobWorkerOnce("test");
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(1_500);
 
-    expect(ran).toBe(false);
+    await expect(ran).resolves.toBe(false);
+    expect(jobMocks.claimNextJob).toHaveBeenCalledTimes(2);
+    expect(warnMock).toHaveBeenCalledWith(
+      "Retention job enqueued but not claimed in the same tick; it will be picked up by the next tick",
+      expect.objectContaining({ reason: "test", enqueuedJobId: "enqueued-job" }),
+    );
     expect(pruneHistoryMock).not.toHaveBeenCalled();
+  });
+
+  it("新建任务首次领取为空时，短暂重试后仍在同一 tick 执行", async () => {
+    jobMocks.claimNextJob
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        id: "retried-job",
+        type: "operation-task.retention",
+        payload: {},
+        status: "RUNNING",
+      });
+
+    const ran = runOperationTaskRetentionJobWorkerOnce("test");
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(1_500);
+
+    await expect(ran).resolves.toBe(true);
+    expect(jobMocks.claimNextJob).toHaveBeenCalledTimes(2);
+    expect(pruneHistoryMock).toHaveBeenCalledTimes(1);
+    expect(jobMocks.completeJob).toHaveBeenCalledWith(
+      "retried-job",
+      expect.stringContaining("operation-task-retention:"),
+      expect.objectContaining({ totalDeleted: 7 }),
+    );
   });
 
   it("已有 PENDING/RUNNING job → skip enqueue (不再叠加新 job)", async () => {

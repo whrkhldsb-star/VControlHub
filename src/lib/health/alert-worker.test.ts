@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { evaluateAlertsMock, infoMock, warnMock, errorMock, jobMocks, jobIds } =
   vi.hoisted(() => ({
@@ -89,6 +89,11 @@ describe("alert evaluation worker", () => {
     jobMocks.failJob.mockResolvedValue({ count: 1 });
     jobMocks.pruneCompletedJobsByType.mockResolvedValue({ count: 0 });
     stopAlertEvaluationWorkerForTests();
+  });
+
+  afterEach(() => {
+    stopAlertEvaluationWorkerForTests();
+    vi.useRealTimers();
   });
 
   it("starts once (idempotent), enqueues durable jobs, and evaluates alerts on startup and interval", async () => {

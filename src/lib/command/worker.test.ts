@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { recoverStaleRunningCommandRequestsMock, recoverQueuedApprovedCommandRequestsMock, getRuntimeSettingNumberMock, infoMock, warnMock, errorMock } = vi.hoisted(() => ({
   recoverStaleRunningCommandRequestsMock: vi.fn(),
@@ -37,6 +37,12 @@ describe("command maintenance worker", () => {
     recoverStaleRunningCommandRequestsMock.mockResolvedValue({ recovered: 0 });
     recoverQueuedApprovedCommandRequestsMock.mockResolvedValue({ enqueued: 0 });
     stopCommandMaintenanceWorkerForTests();
+  });
+
+  afterEach(() => {
+    stopCommandMaintenanceWorkerForTests();
+    delete process.env.COMMAND_RECONCILE_INTERVAL_MS;
+    vi.useRealTimers();
   });
 
   it("starts once and reconciles stale running commands on startup and interval", async () => {

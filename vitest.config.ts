@@ -11,10 +11,12 @@ export default defineConfig({
     // Exclude Playwright e2e specs — they run via `npx playwright test`, not vitest.
     exclude: ["**/node_modules/**", "**/dist/**", "**/.next/**", "e2e/**", "playwright.config.*"],
     // Pool config (vitest 4 API: poolOptions removed, use top-level).
-    // VPS has 2-4 cores. Bumping maxWorkers from CPU/2 to 4 cuts test time.
-    // 161s → ~80s on 4-core box, ~110s on 2-core.
+    // Keep the suite reliable on two-vCPU CI runners. Four V8 coverage workers
+    // oversubscribe them and make timer-driven user-event and bcrypt tests
+    // cross the 5s test timeout despite passing alone. Developers can still
+    // override this through the Vitest CLI on a larger machine.
     pool: "threads",
-    maxWorkers: 4,
+    maxWorkers: 2,
     isolate: true,
     coverage: {
       provider: "v8",
