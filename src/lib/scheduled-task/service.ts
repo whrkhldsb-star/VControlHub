@@ -7,6 +7,7 @@ import { createLogger } from "@/lib/logging";
 import type { SessionPayload } from "@/lib/auth/session";
 import { serverTeamWhere, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import { t } from "@/lib/i18n/service-translations";
+import { APP_TIME_ZONE } from "@/lib/datetime/time-zone";
 
 const taskLogger = createLogger("scheduled-task");
 
@@ -76,9 +77,12 @@ export function describeCron(expr: string): string {
 
 /* ── Compute next run time ────────────────────────────────── */
 
-export function computeNextRun(cronExpression: string): Date {
+export function computeNextRun(cronExpression: string, from: Date = new Date()): Date {
 	try {
-		const interval = CronExpressionParser.parse(cronExpression, { currentDate: new Date() });
+		const interval = CronExpressionParser.parse(cronExpression, {
+			currentDate: from,
+			tz: APP_TIME_ZONE,
+		});
 		return interval.next().toDate();
 	} catch {
 		throw new ValidationError(t("backend.scheduled-task.invalidCronExpression"));

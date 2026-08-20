@@ -84,7 +84,7 @@ export async function PUT(request: Request) {
         );
 
       const { code, secret } = body;
-      const valid = verifyTOTP({ token: code, secret });
+      const valid = (await verifyTOTP({ token: code, secret })).valid;
       return NextResponse.json({ valid });
     },
   );

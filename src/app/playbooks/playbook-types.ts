@@ -29,6 +29,8 @@ export type SerializedPlaybook = {
 	steps: SerializedStep[];
 	chainRetry: number;
 	enabled: boolean;
+	nextRunAt: string | null;
+	lastTriggeredAt: string | null;
 	createdAt: string;
 };
 

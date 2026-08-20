@@ -485,8 +485,9 @@ export function buildUsage(
     }
   }
   // Drift: api-no-declared-perm
-  // TR-043: routes that are intentionally public (login, signout, 2FA flow,
-  // share-by-token, OpenAPI, status, auth-only callbacks) should not
+  // TR-043: routes that are intentionally public or self-scoped (login,
+  // signout, 2FA flow, preferences, share-by-token, OpenAPI, status,
+  // auth-only callbacks) should not
   // surface as drift. Suppressing them removes 16 known-good entries from
   // the report so the human eye can focus on real issues.
   const intentionallyPublic = new Set<string>([
@@ -496,6 +497,7 @@ export function buildUsage(
     "/api/auth/2fa/enable",
     "/api/auth/2fa/disable",
     "/api/auth/2fa/verify-login",
+    "/api/auth/2fa/recovery-codes",
     "/api/share/[token]",
     "/api/docs/openapi",
     "/api/docs/openapi.json",

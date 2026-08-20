@@ -75,7 +75,7 @@ describe("TwoFactorSettings", () => {
 		vi.mocked(csrfFetch)
 			.mockResolvedValueOnce({ secret: "ABC123", otpauthUrl: "otpauth://totp/demo", qrDataUrl: "data:image/png;base64,AAA" })
 			.mockResolvedValueOnce({ valid: true })
-			.mockResolvedValueOnce({ success: true });
+			.mockResolvedValueOnce({ success: true, recoveryCodes: ["ABCD-EFGH-JKLM", "MNPR-STUV-WXYZ"] });
 
 		render(<TwoFactorSettings enabled={false} />);
 
@@ -83,10 +83,29 @@ describe("TwoFactorSettings", () => {
 		await user.type(await screen.findByLabelText("6位验证码"), "123456");
 		await user.click(screen.getByRole("button", { name: "确认启用" }));
 
-		expect(await screen.findByText("已启用")).toBeInTheDocument();
+		expect(await screen.findByText("ABCD-EFGH-JKLM")).toBeInTheDocument();
+		expect(screen.getByText("这些恢复码只会显示这一次；离开此页面后无法再次查看。")).toBeInTheDocument();
+		await user.click(screen.getByRole("button", { name: "我已安全保存" }));
 		expect(screen.getByRole("button", { name: "关闭两步验证" })).toBeEnabled();
 		expect(refreshMock).toHaveBeenCalledTimes(1);
 		expect(window.location.reload).not.toHaveBeenCalled();
+	});
+
+	it("replaces recovery codes only after a current authenticator code", async () => {
+		const user = userEvent.setup();
+		vi.mocked(csrfFetch).mockResolvedValueOnce({ success: true, recoveryCodes: ["ABCD-EFGH-JKLM"] });
+
+		render(<TwoFactorSettings enabled />);
+
+		await user.click(screen.getByRole("button", { name: "重新生成恢复码" }));
+		await user.type(screen.getByLabelText("当前验证码"), "654321");
+		await user.click(screen.getByRole("button", { name: "重新生成恢复码" }));
+
+		expect(await screen.findByText("ABCD-EFGH-JKLM")).toBeInTheDocument();
+		expect(csrfFetch).toHaveBeenCalledWith("/api/auth/2fa/recovery-codes", expect.objectContaining({
+			method: "POST",
+			body: JSON.stringify({ code: "654321" }),
+		}));
 	});
 
 	it("surfaces disable API failures and keeps the disable panel open", async () => {

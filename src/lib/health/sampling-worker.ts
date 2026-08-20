@@ -20,6 +20,7 @@ import {
   snapshotHealthOverview,
 } from "./service-metrics";
 import { rollupRecentServerUptime } from "@/lib/uptime/rollup";
+import { dispatchMetricPlaybooksForHealthOverview } from "@/lib/playbook/trigger-service";
 
 export const HEALTH_SAMPLING_JOB_TYPE = "health.sample";
 const WORKER_ID = `${config.app.hostname || "vcontrolhub"}:health-sampling:${process.pid}`;
@@ -80,6 +81,19 @@ async function processSample(jobId: string) {
   });
   const overview = await collectAllHealth();
   const sampled = await snapshotHealthOverview(overview);
+  // Metric-trigger Playbooks consume exactly the fresh health reading that
+  // was just persisted. Their own edge state prevents a sustained breach from
+  // re-running remediation on every sampling interval.
+  let playbookTriggers = { dispatched: 0, evaluated: 0 };
+  try {
+    playbookTriggers = await dispatchMetricPlaybooksForHealthOverview(overview.servers);
+  } catch (error) {
+    // A failed automation dispatch must not discard otherwise healthy metric
+    // sampling; the next fresh sample retries the threshold evaluation.
+    logger.warn("metric Playbook trigger evaluation failed", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
   const pruned = await pruneMetricSnapshots(
     new Date(Date.now() - RETENTION_MS),
   );
@@ -91,6 +105,8 @@ async function processSample(jobId: string) {
     warning: overview.warning,
     critical: overview.critical,
     offline: overview.offline,
+    metricPlaybooksDispatched: playbookTriggers.dispatched,
+    metricPlaybooksEvaluated: playbookTriggers.evaluated,
     pruned: pruned.count,
     uptimeUpserted: uptime.upserted,
   };

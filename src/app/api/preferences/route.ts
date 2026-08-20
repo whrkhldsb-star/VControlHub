@@ -10,7 +10,10 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
-import { defaultUserPreferences, normalizeUserPreferences } from "@/lib/preferences/user-preferences";
+import {
+  defaultUserPreferences,
+  normalizeUserPreferencesForRoles,
+} from "@/lib/preferences/user-preferences";
 import { withCacheHeaders, CachePresets } from "@/lib/cache";
 
 import { AuthError } from "@/lib/errors";
@@ -40,10 +43,10 @@ export async function GET(request: Request) {
       });
 
       const prefs = user?.preferences
-        ? normalizeUserPreferences({
+        ? normalizeUserPreferencesForRoles({
             ...defaultPreferences,
             ...(typeof user.preferences === "object" ? user.preferences : {}),
-          })
+          }, session.roles)
         : defaultPreferences;
 
       // Preferences mutate via PUT and are read immediately after save (multi-tab /
@@ -78,11 +81,11 @@ export async function PUT(request: Request) {
         existingRow?.preferences && typeof existingRow.preferences === "object"
           ? (existingRow.preferences as Record<string, unknown>)
           : {};
-      const prefs = normalizeUserPreferences({
+      const prefs = normalizeUserPreferencesForRoles({
         ...defaultPreferences,
         ...existing,
         ...body,
-      });
+      }, session.roles);
 
       await prisma.user.update({
         where: { id: session.userId },

@@ -5,7 +5,7 @@ import { hashPassword, verifyPassword } from "./password";
 import { validatePasswordPolicy } from "./password-policy";
 import { changePasswordSchema, loginSchema, type ChangePasswordInput, type LoginInput } from "./schema";
 import { DEFAULT_ROLE_PERMISSIONS, getPermissionsFromRoles, type Permission, type RoleKey } from "./rbac";
-import { normalizeUserPreferences, type UserPreferences } from "@/lib/preferences/user-preferences";
+import { normalizeUserPreferencesForRoles, type UserPreferences } from "@/lib/preferences/user-preferences";
 
 export type AuthenticatedUser = {
  id: string;
@@ -87,7 +87,7 @@ export async function authenticateUser(input: LoginInput): Promise<Authenticated
  status: user.status,
  roles: roleKeys,
  permissions: getPermissionsFromRoles(roleKeys),
- preferences: normalizeUserPreferences(user.preferences),
+ preferences: normalizeUserPreferencesForRoles(user.preferences, roleKeys),
  currentTeamId: user.currentTeamId,
  };
 }

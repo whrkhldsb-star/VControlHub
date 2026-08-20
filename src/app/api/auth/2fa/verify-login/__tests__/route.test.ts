@@ -7,7 +7,7 @@ const { cookiesMock, verifyPending2faTokenMock, createSessionTokenMock, getConfi
 	getConfiguredSessionTtlSecondsMock: vi.fn(),
 	generateCsrfTokenMock: vi.fn(),
 	verifyTotpMock: vi.fn(),
-	prismaMock: { user: { findUnique: vi.fn() } },
+	prismaMock: { user: { findUnique: vi.fn(), updateMany: vi.fn() } },
 	auditUserActionMock: vi.fn(),
 	auditSystemActionMock: vi.fn(),
 	checkRateLimitMock: vi.fn(),
@@ -35,6 +35,11 @@ vi.mock("@/lib/auth/two-factor-secret", () => ({
 			? stored.slice("sealed:".length)
 			: stored,
 	sealTwoFactorSecret: (secret: string) => `sealed:${secret}`,
+}));
+vi.mock("@/lib/auth/two-factor-recovery", () => ({
+	normalizeTwoFactorRecoveryCode: (code: string) => (/^[A-Z2-9-]+$/i.test(code) ? code.replaceAll("-", "").toUpperCase() : null),
+	findMatchingTwoFactorRecoveryCode: (code: string, stored: unknown) =>
+		Array.isArray(stored) && code === "ABCD-EFGH-JKLM" ? stored[0] ?? null : null,
 }));
 vi.mock("@/lib/audit/service", () => ({
 	auditUserAction: auditUserActionMock,
@@ -72,9 +77,11 @@ describe("POST /api/auth/2fa/verify-login", () => {
 			username: "admin",
 			mustChangePassword: false,
 			currentTeamId: null,
+			twoFactorRecoveryCodes: ["recovery-hash"],
 			roles: [{ role: { key: "admin" } }],
 		});
-		verifyTotpMock.mockReturnValue(true);
+		verifyTotpMock.mockReturnValue({ valid: true });
+		prismaMock.user.updateMany.mockResolvedValue({ count: 1 });
 		createSessionTokenMock.mockResolvedValue("session-token");
 		getConfiguredSessionTtlSecondsMock.mockResolvedValue(7 * 24 * 60 * 60);
 		generateCsrfTokenMock.mockReturnValue("csrf-token");
@@ -195,5 +202,28 @@ describe("POST /api/auth/2fa/verify-login", () => {
 		expect(cookies).toContain("vcontrolhub_session=session-token");
 		expect(cookies).toContain("vcontrolhub_csrf=csrf-token");
 		expect(cookies).toContain("Max-Age=2592000");
+	});
+
+	it("accepts a recovery code once and atomically removes it", async () => {
+		verifyTotpMock.mockReturnValueOnce({ valid: false });
+
+		const response = await POST(new Request("https://app.example.test/api/auth/2fa/verify-login", {
+			method: "POST",
+			headers: { "content-type": "application/json", "x-forwarded-proto": "https" },
+			body: JSON.stringify({ code: "ABCD-EFGH-JKLM" }),
+		}));
+
+		expect(response.status).toBe(200);
+		expect(prismaMock.user.updateMany).toHaveBeenCalledWith({
+			where: { id: "u_1", twoFactorRecoveryCodes: { equals: ["recovery-hash"] } },
+			data: { twoFactorRecoveryCodes: [] },
+		});
+		expect(auditUserActionMock).toHaveBeenCalledWith(
+			"u_1",
+			"auth.login_2fa_recovery_ok",
+			expect.any(Object),
+			undefined,
+			null,
+		);
 	});
 });

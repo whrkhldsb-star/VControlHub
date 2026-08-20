@@ -104,6 +104,15 @@ export const PlaybookCard = memo(function PlaybookCard({
           <div className="mt-2 text-xs text-[var(--text-muted)]">
             {t("playbooksPage.stepsAndCreatedAt", { count: playbook.steps.length, time: formatTime(playbook.createdAt, locale) })}
           </div>
+			{playbook.triggerType === "cron" ? (
+				<p className="mt-1 text-xs text-[var(--text-muted)]">
+					{t("playbooksPage.schedule.nextRun", { time: formatTime(playbook.nextRunAt, locale) })}
+				</p>
+			) : (
+				<p className="mt-1 text-xs text-[var(--text-muted)]">
+					{t("playbooksPage.metricBehavior")}
+				</p>
+			)}
           <PlaybookRunHistory runs={playbookRuns} t={t} />
         </div>
         <div className="flex flex-col gap-2 shrink-0">

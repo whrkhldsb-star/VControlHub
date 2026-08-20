@@ -7,6 +7,7 @@ import { z } from "zod";
 import { verify as verifyTOTP } from "otplib";
 
 import { sealTwoFactorSecret } from "@/lib/auth/two-factor-secret";
+import { createTwoFactorRecoveryCodes } from "@/lib/auth/two-factor-recovery";
 import { auditUserAction } from "@/lib/audit/service";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
@@ -54,15 +55,21 @@ export async function POST(request: Request) {
         );
       }
 
-      const valid = verifyTOTP({ token: code, secret });
+      const valid = (await verifyTOTP({ token: code, secret })).valid;
       if (!valid) {
         throw new ValidationError(t("api.auth.twoFactor.invalidCode", locale));
       }
 
+      const recovery = createTwoFactorRecoveryCodes();
+
       // Encrypt at rest — DB dumps / backups must not yield usable TOTP seeds.
       await prisma.user.update({
         where: { id: session.userId },
-        data: { twoFactorEnabled: true, twoFactorSecret: sealTwoFactorSecret(secret) },
+        data: {
+          twoFactorEnabled: true,
+          twoFactorSecret: sealTwoFactorSecret(secret),
+          twoFactorRecoveryCodes: recovery.hashes,
+        },
       });
 
       await auditUserAction(
@@ -73,7 +80,9 @@ export async function POST(request: Request) {
         session.currentTeamId,
       );
 
-      return NextResponse.json({ success: true });
+      // Plaintext recovery codes are returned once, over the authenticated
+      // response. Only HMAC fingerprints are persisted.
+      return NextResponse.json({ success: true, recoveryCodes: recovery.codes });
     },
   );
 }

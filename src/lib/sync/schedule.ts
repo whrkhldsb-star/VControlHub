@@ -7,6 +7,7 @@
  * - standard 5-field cron (via cron-parser)
  */
 import { CronExpressionParser } from "cron-parser";
+import { APP_TIME_ZONE } from "@/lib/datetime/time-zone";
 
 export const SYNC_SCHEDULE_PRESETS = [
   { value: "manual", labelKey: "filesPage.syncJobs.schedule.manual" },
@@ -41,7 +42,7 @@ export function isValidSyncSchedule(raw: string | null | undefined): boolean {
   if (s == null) return true;
   if (INTERVAL_MS[s] != null) return true;
   try {
-    CronExpressionParser.parse(s);
+    CronExpressionParser.parse(s, { tz: APP_TIME_ZONE });
     return true;
   } catch {
     return false;
@@ -73,6 +74,7 @@ export function isSyncJobDue(input: {
   try {
     const expr = CronExpressionParser.parse(s, {
       currentDate: last ?? new Date(0),
+      tz: APP_TIME_ZONE,
     });
     const next = expr.next().toDate();
     return next.getTime() <= now.getTime();

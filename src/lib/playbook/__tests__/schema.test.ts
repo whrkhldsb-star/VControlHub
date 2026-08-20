@@ -28,6 +28,16 @@ describe("playbook createPlaybookSchema", () => {
 		expect(parsed.success).toBe(true);
 	});
 
+	it("rejects a six-field Cron expression because the UI promises five fields", () => {
+		const parsed = createPlaybookSchema.safeParse({
+			name: "Too many Cron fields",
+			triggerType: "cron",
+			triggerConfig: { expression: "0 0 3 * * *" },
+			steps: [buildBaseStep()],
+		});
+		expect(parsed.success).toBe(false);
+	});
+
 	it("accepts a metric-trigger playbook with a send_notification step", () => {
 		const parsed = createPlaybookSchema.safeParse({
 			name: "CPU alarm",

@@ -1,7 +1,7 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import PreferencesPageClient from "../preferences-page-client";
+import PreferencesPageClient, { PreferencesSettingsContent } from "../preferences-page-client";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { I18nProvider } from "@/lib/i18n/provider";
 
@@ -84,6 +84,15 @@ describe("PreferencesPage", () => {
 		expect(await screen.findByRole("button", { name: "仪表盘" })).toBeInTheDocument();
 		expect(screen.queryByText("紧凑模式")).not.toBeInTheDocument();
 		expect(screen.queryByText("侧边栏默认收起")).not.toBeInTheDocument();
+	});
+
+	it("only offers landing pages granted to the signed-in user", async () => {
+		render(wrap(<PreferencesSettingsContent defaultPageOptions={["/", "/servers"]} />));
+
+		expect(await screen.findByRole("button", { name: "仪表盘" })).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "服务器管理" })).toBeInTheDocument();
+		expect(screen.queryByRole("button", { name: "文件管理" })).not.toBeInTheDocument();
+		expect(screen.queryByRole("button", { name: "Docker 管理" })).not.toBeInTheDocument();
 	});
 
 	it("does not publish local preference side effects until the server save succeeds", async () => {

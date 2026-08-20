@@ -69,6 +69,14 @@ describe("scheduled task service", () => {
     );
   });
 
+  it("evaluates cron expressions in the application timezone", () => {
+    const next = service.computeNextRun("0 3 * * *", new Date("2026-01-01T00:00:00.000Z"));
+
+    // At 00:00 UTC it is already 08:00 in Asia/Shanghai, so the next 03:00
+    // wall-clock slot is the following local day.
+    expect(next.toISOString()).toBe("2026-01-01T19:00:00.000Z");
+  });
+
   it("stores scheduled task target server ids exactly once after trimming blanks", async () => {
     mockPrisma.scheduledTask.create.mockResolvedValue({ id: "task1" });
 

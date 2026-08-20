@@ -29,7 +29,7 @@ export const zh: Record<string, string> = {
 	"login.form.submit": "登录",
 	"login.form.username": "用户名",
 	"login.form.usernamePlaceholder": "输入用户名",
-	"login.verify2faDescription": "请输入身份验证器应用 (Authenticator) 中生成的 6 位动态验证码",
+	"login.verify2faDescription": "请输入身份验证器应用生成的 6 位动态验证码，或使用已保存的恢复码",
 	"login.verify2faBackToLogin": "← 返回登录",
 	"login.verify2faSubmit": "验证",
 	"login.verify2faDigitAria": "验证码第 {n} 位",
@@ -39,6 +39,11 @@ export const zh: Record<string, string> = {
 	"login.verify2faExpired": "验证会话已过期，请重新登录",
 	"login.verify2faInvalid": "验证码错误，请重试",
 	"login.verify2faRateLimited": "验证尝试过于频繁，请稍后再试",
+	"login.verify2faMethodLabel": "验证方式",
+	"login.verify2faUseAuthenticator": "验证器验证码",
+	"login.verify2faUseRecovery": "使用恢复码",
+	"login.verify2faRecoveryLabel": "恢复码",
+	"login.verify2faRecoveryDescription": "恢复码不区分大小写，每个恢复码只能使用一次。",
 };
 
 export const en: Record<string, string> = {
@@ -65,7 +70,7 @@ export const en: Record<string, string> = {
 	"login.form.submitting": "Signing in...",
 	"login.form.username": "Username",
 	"login.form.usernamePlaceholder": "Enter username",
-	"login.verify2faDescription": "Enter the 6-digit code from your authenticator app.",
+	"login.verify2faDescription": "Enter the 6-digit code from your authenticator app, or use a saved recovery code.",
 	"login.verify2faBackToLogin": "← Back to sign in",
 	"login.verify2faSubmit": "Verify",
 	"login.verify2faDigitAria": "Verification code digit {n}",
@@ -75,4 +80,9 @@ export const en: Record<string, string> = {
 	"login.verify2faExpired": "Verification session expired. Please sign in again",
 	"login.verify2faInvalid": "Invalid verification code, please try again",
 	"login.verify2faRateLimited": "Too many verification attempts. Please try again later",
+	"login.verify2faMethodLabel": "Verification method",
+	"login.verify2faUseAuthenticator": "Authenticator code",
+	"login.verify2faUseRecovery": "Use a recovery code",
+	"login.verify2faRecoveryLabel": "Recovery code",
+	"login.verify2faRecoveryDescription": "Recovery codes are case-insensitive and can be used once each.",
 };

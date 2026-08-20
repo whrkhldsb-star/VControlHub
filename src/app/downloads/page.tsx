@@ -1,24 +1,19 @@
-import { requireSession } from "@/lib/auth/require-session";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { buildDirectAccessStrategy } from "@/lib/storage/service";
 import { DownloadsClient } from "./downloads-client";
-import { PageShell, PageHeader, EmptyState } from "@/components/page-shell";
+import { PageShell, PageHeader } from "@/components/page-shell";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 
 export const dynamic = "force-dynamic";
 
 export default async function DownloadsPage() {
-	const session = await requireSession("/downloads");
+	const session = await requirePagePermission("storage:read", { redirectTo: "/downloads" });
 	const locale = await getServerLocale();
 	const canManage = sessionHasPermission(session, "storage:write");
 	const canManageNode = sessionHasPermission(session, "storage:manage-node");
-	const canRead = sessionHasPermission(session, "storage:read");
-
-	if (!canRead) {
-		return <PageShell maxW="max-w-7xl"><EmptyState text={t("downloadsPage.permissionDenied", locale)} variant="boxed" /></PageShell>;
-	}
 
 	// teamWhere may emit OR for teamId; AND-compose so credential OR is not overwritten.
 	const servers = await prisma.server.findMany({

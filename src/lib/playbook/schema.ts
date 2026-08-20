@@ -19,6 +19,7 @@ import {
   TRIGGER_TYPES,
 } from "./types";
 import { validateWebhookUrlSyntax } from "@/lib/security/webhook-url";
+import { isValidPlaybookCronExpression } from "./trigger-utils";
 
 const stepNameSchema = z
   .string()
@@ -92,9 +93,8 @@ const cronTriggerConfigSchema = z.object({
     .min(1, "Cron expression is required")
     .max(120)
     .refine(
-      // 5-field cron (minute hour day-of-month month day-of-week)
-      (expr) => /^\S+\s+\S+\s+\S+\s+\S+\s+\S+(\s+\S+)?$/.test(expr),
-      "Cron expression must have 5 fields (minute hour day month weekday)",
+      isValidPlaybookCronExpression,
+      "Cron expression must be a valid 5-field expression (minute hour day month weekday)",
     ),
 });
 

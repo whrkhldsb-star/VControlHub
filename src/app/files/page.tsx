@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createHash } from "node:crypto";
 
-import { requireSession } from "@/lib/auth/require-session";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import {
   getStorageAccessCapabilities,
@@ -41,7 +41,7 @@ type FilesPageProps = {
 };
 
 export default async function FilesPage({ searchParams }: FilesPageProps) {
-  const session = await requireSession("/files");
+	const session = await requirePagePermission("storage:read", { redirectTo: "/files" });
   const locale = await getServerLocale();
   const canEditLocalFiles = sessionHasPermission(session, "storage:write");
   const canDelete = sessionHasPermission(session, "storage:delete");

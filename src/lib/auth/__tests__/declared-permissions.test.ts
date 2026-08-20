@@ -15,12 +15,11 @@ describe("loadSidebarDeclaredPermissions", () => {
 		expect(result["/totally-unknown"]).toEqual([]);
 	});
 
-	it("returns the declared permissions for a sidebar href backed by a page.tsx", () => {
-		// `/files` declares storage:* + share:create per docs/route-catalog.json
+	it("returns the route-admission permissions for a sidebar href backed by a page.tsx", () => {
+		// `/files` has optional storage/share controls, but entering the page
+		// itself only requires storage:read.
 		const result = loadSidebarDeclaredPermissions(["/files"]);
-		expect(result["/files"]).toEqual(
-			expect.arrayContaining(["share:create", "storage:delete", "storage:manage-node", "storage:write"]),
-		);
+		expect(result["/files"]).toEqual(["storage:read"]);
 	});
 
 	it("returns an empty list for hrefs whose page declares no permissions (e.g. /dashboard)", () => {

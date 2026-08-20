@@ -78,6 +78,7 @@ vi.mock("@/lib/auth/two-factor-secret", () => ({
 
 const enableRoute = await import("../enable/route");
 const disableRoute = await import("../disable/route");
+const recoveryCodesRoute = await import("../recovery-codes/route");
 
 function jsonRequest(body: unknown): Request {
   return new Request("http://localhost/api/auth/2fa/enable", {
@@ -118,7 +119,7 @@ describe("POST /api/auth/2fa/enable", () => {
   });
 
   it("rejects invalid TOTP code with 400", async () => {
-    verifyTotpMock.mockReturnValueOnce(false);
+    verifyTotpMock.mockReturnValueOnce({ valid: false });
     const res = await enableRoute.POST(jsonRequest({ code: "111111", secret: "SECRET" }));
     expect(res.status).toBe(400);
     const body = await res.json();
@@ -131,7 +132,7 @@ describe("POST /api/auth/2fa/enable", () => {
       twoFactorEnabled: true,
       twoFactorSecret: "EXISTING_SECRET",
     });
-    verifyTotpMock.mockReturnValueOnce(true);
+    verifyTotpMock.mockReturnValueOnce({ valid: true });
     const res = await enableRoute.POST(jsonRequest({ code: "123456", secret: "NEW_SECRET" }));
     expect(res.status).toBe(400);
     const body = await res.json();
@@ -141,15 +142,21 @@ describe("POST /api/auth/2fa/enable", () => {
   });
 
   it("persists sealed secret and enables 2FA on valid code", async () => {
-    verifyTotpMock.mockReturnValueOnce(true);
+    verifyTotpMock.mockReturnValueOnce({ valid: true });
     prismaMock.user.update.mockResolvedValueOnce({});
     const res = await enableRoute.POST(jsonRequest({ code: "123456", secret: "JBSWY3DPEHPK3PXP" }));
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toEqual({ success: true });
+    expect(body.success).toBe(true);
+    expect(body.recoveryCodes).toHaveLength(10);
+    expect(body.recoveryCodes.every((code: unknown) => typeof code === "string" && /^[A-Z2-9]{4}(?:-[A-Z2-9]{4}){2}$/.test(code))).toBe(true);
     expect(prismaMock.user.update).toHaveBeenCalledWith({
       where: { id: "u1" },
-      data: { twoFactorEnabled: true, twoFactorSecret: "sealed:JBSWY3DPEHPK3PXP" },
+      data: expect.objectContaining({
+        twoFactorEnabled: true,
+        twoFactorSecret: "sealed:JBSWY3DPEHPK3PXP",
+        twoFactorRecoveryCodes: expect.any(Array),
+      }),
     });
   });
 });
@@ -191,7 +198,7 @@ describe("POST /api/auth/2fa/disable", () => {
       twoFactorEnabled: true,
       twoFactorSecret: "EXISTING_SECRET",
     });
-    verifyTotpMock.mockReturnValueOnce(false);
+    verifyTotpMock.mockReturnValueOnce({ valid: false });
     const res = await disableRoute.POST(jsonRequest({ code: "000000" }));
     expect(res.status).toBe(400);
     expect(prismaMock.user.update).not.toHaveBeenCalled();
@@ -202,7 +209,7 @@ describe("POST /api/auth/2fa/disable", () => {
       twoFactorEnabled: true,
       twoFactorSecret: "sealed:EXISTING_SECRET",
     });
-    verifyTotpMock.mockReturnValueOnce(true);
+    verifyTotpMock.mockReturnValueOnce({ valid: true });
     prismaMock.user.update.mockResolvedValueOnce({});
     const res = await disableRoute.POST(jsonRequest({ code: "654321" }));
     expect(res.status).toBe(200);
@@ -211,7 +218,50 @@ describe("POST /api/auth/2fa/disable", () => {
     expect(verifyTotpMock).toHaveBeenCalledWith({ token: "654321", secret: "EXISTING_SECRET" });
     expect(prismaMock.user.update).toHaveBeenCalledWith({
       where: { id: "u1" },
-      data: { twoFactorEnabled: false, twoFactorSecret: null },
+      data: expect.objectContaining({
+        twoFactorEnabled: false,
+        twoFactorSecret: null,
+        twoFactorRecoveryCodes: expect.anything(),
+      }),
     });
+  });
+});
+
+describe("POST /api/auth/2fa/recovery-codes", () => {
+  beforeEach(() => {
+    requireSessionMock.mockReset();
+    verifyTotpMock.mockReset();
+    prismaMock.user.findUnique.mockReset();
+    prismaMock.user.update.mockReset();
+    requireSessionMock.mockReturnValue({ userId: "u1" });
+    prismaMock.user.findUnique.mockResolvedValue({
+      twoFactorEnabled: true,
+      twoFactorSecret: "sealed:EXISTING_SECRET",
+    });
+  });
+
+  it("requires a current authenticator code before replacing recovery codes", async () => {
+    verifyTotpMock.mockReturnValueOnce({ valid: true });
+    prismaMock.user.update.mockResolvedValueOnce({});
+
+    const response = await recoveryCodesRoute.POST(jsonRequest({ code: "123456" }));
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.recoveryCodes).toHaveLength(10);
+    expect(verifyTotpMock).toHaveBeenCalledWith({ token: "123456", secret: "EXISTING_SECRET" });
+    expect(prismaMock.user.update).toHaveBeenCalledWith({
+      where: { id: "u1" },
+      data: { twoFactorRecoveryCodes: expect.any(Array) },
+    });
+  });
+
+  it("rejects an invalid current authenticator code", async () => {
+    verifyTotpMock.mockReturnValueOnce({ valid: false });
+
+    const response = await recoveryCodesRoute.POST(jsonRequest({ code: "000000" }));
+
+    expect(response.status).toBe(400);
+    expect(prismaMock.user.update).not.toHaveBeenCalled();
   });
 });

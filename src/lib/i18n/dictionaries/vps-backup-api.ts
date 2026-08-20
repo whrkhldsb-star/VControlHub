@@ -13,6 +13,7 @@ export const zh = {
 	"vpsBackupApi.errorNotCompleted": "备份尚未完成，无法下载",
 	"vpsBackupApi.errorFileNotFound": "备份文件不存在",
 	"vpsBackupApi.errorCustomPathsRequired": "自定义备份至少需要一条路径",
+	"vpsBackupApi.errorScheduleNotFound": "备份计划不存在",
 };
 
 export const en = {
@@ -26,4 +27,5 @@ export const en = {
 	"vpsBackupApi.errorNotCompleted": "Backup has not completed yet",
 	"vpsBackupApi.errorFileNotFound": "Backup file not found",
 	"vpsBackupApi.errorCustomPathsRequired": "Custom backup requires at least one path",
+	"vpsBackupApi.errorScheduleNotFound": "Backup schedule not found",
 };

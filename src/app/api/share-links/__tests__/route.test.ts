@@ -120,6 +120,18 @@ describe("/api/share-links", () => {
     expect(createShareLinkMock).not.toHaveBeenCalled();
   });
 
+	it("gives file-manager quick shares a bounded default expiry", async () => {
+		const response = await POST(postShare({ fileEntryId: "file_1", quick: true, expiresInHours: 720 }));
+
+		expect(response.status).toBe(201);
+		expect(createShareLinkFromFileEntryMock).toHaveBeenCalledWith(
+			expect.objectContaining({
+				fileEntryId: "file_1",
+				expiresInHours: 24,
+			}),
+		);
+	});
+
   it("rejects password and download limits for metadata-only shares", async () => {
     for (const conflicting of [{ password: "secret" }, { maxDownloads: 2 }]) {
       const response = await POST(

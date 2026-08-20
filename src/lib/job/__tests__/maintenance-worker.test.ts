@@ -84,6 +84,7 @@ describe("abandonOrphanPendingJobs", () => {
 
   it("exposes known job types helper", () => {
     expect(_knownJobTypesForTests().has("playbook.run")).toBe(true);
+    expect(_knownJobTypesForTests().has("playbook.trigger.tick")).toBe(true);
   });
 
   // Drift guard: KNOWN_JOB_TYPES is maintained by hand (importing

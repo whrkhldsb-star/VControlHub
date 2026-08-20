@@ -41,6 +41,8 @@ function buildPlaybook(steps: PlaybookRecord["steps"]): PlaybookRecord {
 		steps,
 		chainRetry: 0,
 		enabled: true,
+		nextRunAt: null,
+		lastTriggeredAt: null,
 		createdById: null,
 		createdAt: new Date(),
 		updatedAt: new Date(),

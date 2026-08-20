@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { PageShell, PageHeader } from "@/components/page-shell";
 import { Notice, Switch } from "@/components/ui-primitives";
 import { Bell, Home, LayoutDashboard, Radio, RefreshCw, User } from "@/components/icons";
@@ -9,8 +9,9 @@ import { REFRESH_INTERVAL_OPTIONS } from "@/lib/preferences/refresh-interval";
 import { AUTO_PROBE_INTERVAL_OPTIONS } from "@/lib/preferences/auto-probe";
 import { useI18n } from "@/lib/i18n/use-locale";
 import {
+	DEFAULT_PAGE_OPTIONS,
 	defaultUserPreferences,
-	normalizeUserPreferences,
+	normalizeUserPreferencesForAllowedDefaultPages,
 	type DashboardWidgetId,
 	type DefaultPageOption,
 	type UserPreferences,
@@ -170,9 +171,12 @@ function hashLabel(label: string): string {
 export function PreferencesSettingsContent({
 	showHeader = true,
 	wrapInShell = true,
+	defaultPageOptions = DEFAULT_PAGE_OPTIONS,
 }: {
 	showHeader?: boolean;
 	wrapInShell?: boolean;
+	/** Already filtered from the signed-in user's permissions by the server. */
+	defaultPageOptions?: readonly DefaultPageOption[];
 }) {
 	const { t } = useI18n();
 	const [prefs, setPrefs] = useState<Preferences>(defaultPrefs);
@@ -184,6 +188,15 @@ export function PreferencesSettingsContent({
 	const latestSaveRequestIdRef = useRef(0);
 	const savingRef = useRef(false);
 	const pendingSavePrefsRef = useRef<Preferences | null>(null);
+	const allowedDefaultPageOptions = useMemo<readonly DefaultPageOption[]>(
+		() => defaultPageOptions.includes("/") ? defaultPageOptions : ["/"],
+		[defaultPageOptions],
+	);
+	const normalizePrefs = useCallback(
+		(value: unknown) =>
+			normalizeUserPreferencesForAllowedDefaultPages(value, allowedDefaultPageOptions),
+		[allowedDefaultPageOptions],
+	);
 
 	const messageFromError = (err: unknown, fallback: string) => err instanceof Error && err.message ? err.message : fallback;
 
@@ -205,7 +218,7 @@ export function PreferencesSettingsContent({
 						return;
 					}
 					if (!data.error) {
-						const nextPrefs = normalizeUserPreferences({ ...defaultPrefs, ...data });
+						const nextPrefs = normalizePrefs({ ...defaultPrefs, ...data });
 						setPrefs(nextPrefs);
 						setLastSavedPrefs(nextPrefs);
 						writeUserPreferencesCache(nextPrefs, { notify: false });
@@ -231,10 +244,10 @@ export function PreferencesSettingsContent({
 			activeLoadRequestIdRef.current += 1;
 			window.clearTimeout(timer);
 		};
-	}, [t]);
+	}, [normalizePrefs, t]);
 
 	const save = async (newPrefs: Preferences) => {
-		const normalizedPrefs = normalizeUserPreferences(newPrefs);
+		const normalizedPrefs = normalizePrefs(newPrefs);
 		const saveRequestId = latestSaveRequestIdRef.current + 1;
 		latestSaveRequestIdRef.current = saveRequestId;
 		activeLoadRequestIdRef.current = Math.max(activeLoadRequestIdRef.current, saveRequestId);
@@ -258,7 +271,7 @@ export function PreferencesSettingsContent({
 				});
 				// Only apply response if nothing newer was queued/optimistic.
 				if (requestIdAtSend === latestSaveRequestIdRef.current) {
-					const nextPrefs = normalizeUserPreferences({ ...payload, ...savedPrefs });
+					const nextPrefs = normalizePrefs({ ...payload, ...savedPrefs });
 					setPrefs(nextPrefs);
 					setLastSavedPrefs(nextPrefs);
 					writeUserPreferencesCache(nextPrefs);
@@ -307,7 +320,7 @@ export function PreferencesSettingsContent({
 			<div id="personal-preferences" className="space-y-4 max-w-2xl scroll-mt-24">
 				<Section summaryId="preferences-default-page">
 					<div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-						{(Object.keys(PAGE_KEYS) as DefaultPageOption[]).map((value) => (
+						{allowedDefaultPageOptions.map((value) => (
 							<button
 								type="button"
 								key={value}

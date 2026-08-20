@@ -94,11 +94,10 @@ describe("computeNextRun", () => {
 		expect(next.getTime()).toBeLessThan(from.getTime() + 7 * 24 * 60 * 60 * 1000);
 	});
 
-	it("matches daily at 3am (local time)", () => {
-		const from = new Date("2026-01-01T00:00:00");
+	it("matches daily at 3am in the application timezone", () => {
+		const from = new Date("2026-01-01T00:00:00Z");
 		const next = computeNextRun("0 3 * * *", from);
-		expect(next.getHours()).toBe(3);
-		expect(next.getMinutes()).toBe(0);
+		expect(next.toISOString()).toBe("2026-01-01T19:00:00.000Z");
 	});
 
 	it("falls back to 24h for invalid cron (defense-in-depth for legacy rows)", () => {
@@ -114,10 +113,9 @@ describe("computeNextRun", () => {
 	});
 
 	it("matches minute field", () => {
-		const from = new Date("2026-01-01T00:00:00");
+		const from = new Date("2026-01-01T00:00:00Z");
 		const next = computeNextRun("30 0 * * *", from);
-		expect(next.getMinutes()).toBe(30);
-		expect(next.getHours()).toBe(0);
+		expect(next.toISOString()).toBe("2026-01-01T16:30:00.000Z");
 	});
 });
 

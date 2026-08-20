@@ -8,9 +8,9 @@ import {
 } from "@/lib/datetime/format";
 
 describe("datetime formatters", () => {
-  it("APP_TIME_ZONE is fixed to Asia/Shanghai", () => {
-    expect(APP_TIME_ZONE).toBe("Asia/Shanghai");
-  });
+	it("APP_TIME_ZONE is fixed to Asia/Shanghai", () => {
+		expect(APP_TIME_ZONE).toBe("Asia/Shanghai");
+	});
 
   describe("formatZhDateTime", () => {
     it("formats a Date as YYYY/MM/DD HH:mm:ss in Asia/Shanghai", () => {
@@ -27,6 +27,10 @@ describe("datetime formatters", () => {
     it("accepts epoch number input", () => {
       const out = formatZhDateTime(Date.parse("2025-01-15T03:30:45Z"));
       expect(out).toMatch(/^2025\/01\/15 11:30:45$/);
+    });
+
+    it("accepts epoch zero instead of treating it as an empty value", () => {
+      expect(formatZhDateTime(0)).toMatch(/^1970\/01\/01 08:00:00$/);
     });
 
     it("returns the fallback for null / undefined / NaN", () => {

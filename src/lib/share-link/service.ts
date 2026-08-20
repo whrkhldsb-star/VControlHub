@@ -15,8 +15,9 @@ import { resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
 import { getSftpSyncNode, syncSftpDirectoryEntries } from "@/lib/storage/sftp-sync";
 import type { SessionPayload } from "@/lib/auth/session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-
 const logger = createLogger("share-link");
+
+export { QUICK_SHARE_DEFAULT_EXPIRY_HOURS } from "./policy";
 
 export function hashShareToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
@@ -204,6 +205,33 @@ export async function createShareLinkFromFileEntry(input: {
   });
 }
 
+async function loadActiveShare(token: string) {
+  const t = await serviceT();
+  const share = await prisma.shareLink.findUnique({ where: { tokenHash: hashShareToken(token) }, include: SHARE_STORAGE_NODE_INCLUDE });
+  if (!share || share.revokedAt) throw new NotFoundError(t("backend.shareLink.notFoundOrRevoked"));
+  if (share.expiresAt && share.expiresAt.getTime() < Date.now()) throw new ValidationError(t("backend.shareLink.expired"));
+  await assertShareTargetNotDeleted(share.storageNodeId, share.path);
+  return share;
+}
+
+/** Verify a share password without claiming a download quota. */
+export async function authorizeShareDownload(
+  token: string,
+  password: string | undefined,
+  context?: { ip?: string; userAgent?: string },
+) {
+  const t = await serviceT();
+  const share = await loadActiveShare(token);
+  if (share.permissionLevel === "preview") throw new ForbiddenError(t("backend.shareLink.previewOnly"));
+  if (share.passwordHash) {
+    if (!password || !verifySharePassword(password, share.passwordHash)) {
+      await recordShareAccess({ shareLinkId: share.id, action: "password_attempt", ip: context?.ip, userAgent: context?.userAgent });
+      throw new ValidationError(password ? t("backend.shareLink.passwordIncorrect") : t("backend.shareLink.passwordRequired"));
+    }
+  }
+  return share;
+}
+
 export async function listShareLinks(userId?: string, session?: { userId: string; roles: import("@/lib/auth/rbac").RoleKey[]; currentTeamId: string | null }) {
   // When session is present without an explicit userId filter, return the team-
   // scoped catalogue (matches /shares page). Pass userId only when intentionally
@@ -245,14 +273,17 @@ export async function revokeShareLink(
   return prisma.shareLink.update({ where: { id: share.id }, data: { revokedAt: new Date() } });
 }
 
-export async function resolveShareToken(token: string, password?: string, context?: { ip?: string; userAgent?: string }) {
+export async function resolveShareToken(
+  token: string,
+  password?: string,
+  context?: { ip?: string; userAgent?: string },
+  options?: { authorizedShareId?: string | null },
+) {
   const t = await serviceT();
-  const share = await prisma.shareLink.findUnique({ where: { tokenHash: hashShareToken(token) }, include: SHARE_STORAGE_NODE_INCLUDE });
-  if (!share || share.revokedAt) throw new NotFoundError(t("backend.shareLink.notFoundOrRevoked"));
-  if (share.expiresAt && share.expiresAt.getTime() < Date.now()) throw new ValidationError(t("backend.shareLink.expired"));
-  await assertShareTargetNotDeleted(share.storageNodeId, share.path);
+  const share = await loadActiveShare(token);
   if (share.permissionLevel === "preview") throw new ForbiddenError(t("backend.shareLink.previewOnly"));
-  if (share.passwordHash) {
+  const hasTicketAuthorization = options?.authorizedShareId === share.id;
+  if (share.passwordHash && !hasTicketAuthorization) {
     if (!password) {
       await recordShareAccess({ shareLinkId: share.id, action: "password_attempt", ip: context?.ip, userAgent: context?.userAgent });
       throw new ValidationError(t("backend.shareLink.passwordRequired"));
@@ -310,10 +341,7 @@ export async function peekShareToken(
   context?: { ip?: string; userAgent?: string; password?: string },
 ) {
   const t = await serviceT();
-  const share = await prisma.shareLink.findUnique({ where: { tokenHash: hashShareToken(token) }, include: SHARE_STORAGE_NODE_INCLUDE });
-  if (!share || share.revokedAt) throw new NotFoundError(t("backend.shareLink.notFoundOrRevoked"));
-  if (share.expiresAt && share.expiresAt.getTime() < Date.now()) throw new ValidationError(t("backend.shareLink.expired"));
-  await assertShareTargetNotDeleted(share.storageNodeId, share.path);
+  const share = await loadActiveShare(token);
 
   const hasPassword = Boolean(share.passwordHash);
   if (hasPassword) {

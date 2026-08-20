@@ -4,13 +4,15 @@ import { tmpdir } from "node:os";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/share-link/service", () => ({
+	authorizeShareDownload: vi.fn(),
 	assertShareTargetNotDeleted: vi.fn(async () => undefined),
+	hashShareToken: vi.fn((token: string) => `hash:${token}`),
 	normalizeSharePath: vi.fn((value: string) => value.replace(/^\/+/, "")),
 	releaseShareQuotaClaim: vi.fn(async () => undefined),
   resolveShareToken: vi.fn(),
 }));
 
-const { resolveShareToken } = await import("@/lib/share-link/service");
+const { authorizeShareDownload, resolveShareToken } = await import("@/lib/share-link/service");
 const route = await import("../route");
 
 describe("share token file route", () => {
@@ -101,5 +103,42 @@ describe("share token file route", () => {
 
     expect(last?.status).toBe(429);
   });
+
+	it("exchanges a password for a short-lived HttpOnly download credential", async () => {
+		vi.mocked(authorizeShareDownload).mockResolvedValueOnce({ id: "share-password" } as never);
+		const token = "share-token-password";
+
+		const authorizeResponse = await route.POST(new Request(`https://local/api/share/${token}`, {
+			method: "POST",
+			headers: { "content-type": "application/json", "x-forwarded-proto": "https" },
+			body: JSON.stringify({ password: "correct-password" }),
+		}), {
+			params: Promise.resolve({ token }),
+		});
+
+		expect(authorizeResponse.status).toBe(200);
+		expect(authorizeShareDownload).toHaveBeenCalledWith(token, "correct-password", expect.any(Object));
+		const cookie = authorizeResponse.headers.getSetCookie().find((value) => value.includes("share_download_ticket="));
+		expect(cookie).toContain("HttpOnly");
+		expect(cookie).toContain(`Path=/api/share/${token}`);
+		expect(cookie).toContain("Secure");
+
+		vi.mocked(resolveShareToken).mockResolvedValueOnce({
+			id: "share-password",
+			storageNode: { id: "node_1", name: "本机存储", driver: "LOCAL", basePath: tempRoot },
+			entryType: "FILE",
+			path: "missing.txt",
+			name: "missing.txt",
+		} as never);
+		await route.GET(new Request(`https://local/api/share/${token}`, { headers: { cookie: cookie! } }), {
+			params: Promise.resolve({ token }),
+		});
+		expect(resolveShareToken).toHaveBeenCalledWith(
+			token,
+			undefined,
+			expect.any(Object),
+			{ authorizedShareId: "share-password" },
+		);
+	});
 
 });

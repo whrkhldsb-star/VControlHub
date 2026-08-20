@@ -37,7 +37,7 @@ const CATALOG = join(ROOT, 'docs', 'route-catalog.json');
 
 type Catalog = {
   sidebar: { main: { href: string }[]; system: { href: string }[]; mobileHrefs: string[] };
-  pages: { path: string; declaredPermissions: string[] }[];
+  pages: { path: string; declaredPermissions: string[]; navigationPermissions?: string[] }[];
   apiRoutes: { path: string; methods: string[]; declaredPermissions: string[]; guardMode?: string }[];
   permissions: string[];
 };
@@ -142,6 +142,11 @@ for (const page of catalog.pages) {
       errors.push(`page ${page.path} declares unknown permission ${p}`);
     }
     usedInPageOrApi.add(p);
+  }
+  for (const p of page.navigationPermissions ?? page.declaredPermissions) {
+    if (!permSet.has(p)) {
+      errors.push(`page ${page.path} declares unknown navigation permission ${p}`);
+    }
   }
 }
 for (const route of catalog.apiRoutes) {

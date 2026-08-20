@@ -16,9 +16,9 @@ interface SharePasswordGateProps {
 /**
  * Public share download gate.
  *
- * Password is sent via `X-Share-Password` header (never in the URL) so it does
- * not leak into browser history, server access logs, or Referer headers.
- * Query-string password remains supported server-side for legacy bookmarks.
+ * Password is posted in a same-origin JSON request and exchanged for a short-
+ * lived HttpOnly cookie. The actual download then uses a normal browser GET,
+ * preserving streaming and the native download manager for large files.
  */
 export function SharePasswordGate({ token, label, placeholder, submitLabel, entryType }: SharePasswordGateProps) {
   const [pw, setPw] = useState("");
@@ -36,29 +36,18 @@ export function SharePasswordGate({ token, label, placeholder, submitLabel, entr
       const qs = params.toString();
       const url = `/api/share/${encodeURIComponent(token)}${qs ? `?${qs}` : ""}`;
       const res = await fetch(url, {
-        method: "GET",
-        credentials: "omit",
+        method: "POST",
+        credentials: "same-origin",
         cache: "no-store",
-        headers: { "X-Share-Password": pw },
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: pw }),
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { message?: string; error?: string };
         setError(body.message || body.error || `Download failed (${res.status})`);
         return;
       }
-      const blob = await res.blob();
-      const cd = res.headers.get("content-disposition") || "";
-      const match = /filename\*?=(?:UTF-8''|")?([^\";]+)/i.exec(cd);
-      const fileName = match ? decodeURIComponent(match[1]!.replace(/"/g, "")) : "download";
-      const objectUrl = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = objectUrl;
-      a.download = fileName;
-      a.rel = "noopener";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(objectUrl);
+      window.location.assign(url);
     } catch (err) {
       setError(getErrorMessage(err, "Download failed"));
     } finally {

@@ -1,4 +1,4 @@
-import { requireSession } from "@/lib/auth/require-session";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { listServerProfiles } from "@/lib/server/service";
 import { PageShell, PageHeader, StatCard, EmptyState } from "@/components/page-shell";
@@ -23,11 +23,14 @@ export const dynamic = "force-dynamic";
 
 export default async function ServersPage() {
   const locale = await getServerLocale();
-	const session = await requireSession("/servers");
+	const session = await requirePagePermission("server:read", { redirectTo: "/servers" });
 	const canManageServers = sessionHasPermission(session, "server:write");
 	const canUseSshTerminal = sessionHasPermission(session, "server:ssh");
 	const canLaunchCommands = sessionHasPermission(session, "command:create");
 	const canExecuteCommands = sessionHasPermission(session, "command:execute");
+	const canApproveCommands = sessionHasPermission(session, "command:approve");
+	const canReadAudit = sessionHasPermission(session, "audit:read");
+	const canReadDeployments = sessionHasPermission(session, "deploy:read");
 	const cookieStore = await cookies();
 	const sessionToken = cookieStore.get(getSessionCookieName())?.value ?? "";
 	let servers, formOptions;
@@ -53,15 +56,15 @@ export default async function ServersPage() {
 				description={t("serversPage.desc")}
 			>
 				<div className="flex flex-wrap items-center gap-2">
-					<Link href="/requests" data-variant="secondary" className="px-3.5 py-2 text-sm">
+					{canApproveCommands ? <Link href="/requests" data-variant="secondary" className="px-3.5 py-2 text-sm">
 						{t("serversPage.link.request")}
-					</Link>
-					<Link href="/audit" data-variant="secondary" className="px-3.5 py-2 text-sm">
+					</Link> : null}
+					{canReadAudit ? <Link href="/audit" data-variant="secondary" className="px-3.5 py-2 text-sm">
 						{t("serversPage.link.audit")}
-					</Link>
-					<Link href="/deployments" data-variant="secondary" className="px-3.5 py-2 text-sm">
+					</Link> : null}
+					{canReadDeployments ? <Link href="/deployments" data-variant="secondary" className="px-3.5 py-2 text-sm">
 						{t("serversPage.link.deploy")}
-					</Link>
+					</Link> : null}
 				</div>
 			</PageHeader>
 

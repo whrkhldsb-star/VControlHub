@@ -1,10 +1,10 @@
 /**
  * src/lib/auth/declared-permissions.ts
  *
- * Server-side loader for the per-page `declaredPermissions` declared in
- * `docs/route-catalog.json`. The catalog is the single source of truth for
- * "which page requires which RBAC permission" (TR-025 + TR-030 multi-tenant
- * permission-gated render).
+ * Server-side loader for the per-page `navigationPermissions` declared in
+ * `docs/route-catalog.json`. The catalog separates the route's admission
+ * permission from optional in-page controls, so navigation does not advertise
+ * a page to a user who only has one of its write-only capabilities.
  *
  * Used by `SidebarLoader` to inject a `Record<href, Permission[]>` prop into
  * `AppSidebar` / `GlobalSearch` so client components can filter nav + search
@@ -21,6 +21,7 @@ import type { Permission } from "./rbac";
 interface RouteCatalogPage {
 	path: string;
 	declaredPermissions: string[];
+	navigationPermissions?: string[];
 }
 
 interface RouteCatalogShape {
@@ -40,7 +41,7 @@ function getAllDeclaredPermissions(): Record<string, readonly Permission[]> {
 		const catalog = loadRouteCatalog();
 		const map: Record<string, readonly Permission[]> = {};
 		for (const page of catalog.pages) {
-			map[page.path] = page.declaredPermissions as readonly Permission[];
+			map[page.path] = (page.navigationPermissions ?? page.declaredPermissions) as readonly Permission[];
 		}
 		cache = map;
 	}

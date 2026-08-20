@@ -110,6 +110,23 @@ describe("POST /api/login", () => {
     expect(response.headers.get("location")).toBe("/files");
   });
 
+  it("falls back to the dashboard when a saved default page is no longer permitted", async () => {
+    authenticateUserMock.mockResolvedValueOnce({
+      id: "u_1",
+      username: "viewer",
+      roles: ["viewer"],
+      mustChangePassword: false,
+      preferences: { defaultPage: "/docker", dashboardWidgets: ["server-status"], notificationsEnabled: true, notificationSound: true, autoRefreshInterval: 30 },
+      twoFactorEnabled: false,
+      hasTwoFactorSecret: false,
+    });
+
+    const response = await POST(makeLoginRequest({ username: "viewer", password: "secret" }));
+
+    expect(response.status).toBe(303);
+    expect(response.headers.get("location")).toBe("/");
+  });
+
   it("carries remember login into the pending 2FA token", async () => {
     authenticateUserMock.mockResolvedValueOnce({
       id: "u_1",

@@ -35,6 +35,7 @@ const KNOWN_JOB_TYPES = new Set([
   "command.execution",
   "command.maintenance",
   "download.execute",
+  "playbook.trigger.tick",
   "playbook.run",
   "scheduled-task.tick",
   "health.sample",

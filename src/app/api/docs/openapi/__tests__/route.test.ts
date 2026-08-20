@@ -39,7 +39,7 @@ describe("GET /api/docs/openapi", () => {
     expect(body.paths["/images/upload"].post.security).toContainEqual({
       apiTokenAuth: [],
     });
-    expect(Object.keys(body.paths)).toHaveLength(178);
+    expect(Object.keys(body.paths)).toHaveLength(179);
     expect(body.paths["/settings"]).toHaveProperty("patch");
     expect(body.paths["/settings"]).not.toHaveProperty("put");
     expect(body.paths["/storage/sftp"]).not.toHaveProperty("post");
@@ -49,6 +49,9 @@ describe("GET /api/docs/openapi", () => {
     expect(body.paths["/backups/{id}/restore"].post["x-vcontrolhub-permissions"]).toContain("backup:restore");
     expect(body.paths["/login"].post.security).toEqual([]);
     expect(body.paths["/auth/2fa/verify-login"].post.security).toEqual([]);
+		expect(body.paths["/auth/2fa/recovery-codes"].post.security).toEqual([
+			{ cookieAuth: [] },
+		]);
     expect(body.paths["/status"].get.security).toEqual([]);
     expect(body.paths["/share/{token}"].get.security).toEqual([]);
     expect(body.paths["/webdav/{storageNodeId}/{path}"].get.security).toEqual([

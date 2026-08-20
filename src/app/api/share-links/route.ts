@@ -10,6 +10,7 @@ import {
   listShareLinks,
   revokeShareLink,
 } from "@/lib/share-link/service";
+import { QUICK_SHARE_DEFAULT_EXPIRY_HOURS } from "@/lib/share-link/policy";
 import { auditUserAction } from "@/lib/audit/service";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 
@@ -24,6 +25,7 @@ const shareLinkPostSchema = z.object({
   maxDownloads: z.number().int().positive().optional().nullable(),
   password: z.string().min(1).max(128).optional(),
   permissionLevel: z.enum(["preview", "download"]).optional(),
+  quick: z.boolean().optional(),
 })
   .refine((data) => Boolean(data.fileEntryId || (data.storageNodeId && data.path)), {
     message: t("api.share.selectFileOrPath"),
@@ -63,12 +65,17 @@ export async function POST(request: Request) {
           { error: t("api.auth.sessionExpired", locale) },
           { status: 401 },
         );
+      // The one-click file-manager action is deliberately a short public
+      // link. Advanced sharing remains the explicit route for custom expiry.
+      const expiresInHours = data.quick
+        ? QUICK_SHARE_DEFAULT_EXPIRY_HOURS
+        : (data.expiresInHours ?? data.expiresIn);
       const result = data.fileEntryId
         ? await createShareLinkFromFileEntry({
             session,
             fileEntryId: data.fileEntryId,
             name: data.name,
-            expiresInHours: data.expiresInHours ?? data.expiresIn,
+            expiresInHours,
             maxDownloads: data.maxDownloads,
             password: data.password,
             permissionLevel: data.permissionLevel,
@@ -79,7 +86,7 @@ export async function POST(request: Request) {
             path: data.path!,
             entryType: data.entryType,
             name: data.name,
-            expiresInHours: data.expiresInHours ?? data.expiresIn,
+            expiresInHours,
             maxDownloads: data.maxDownloads,
             password: data.password,
             permissionLevel: data.permissionLevel,

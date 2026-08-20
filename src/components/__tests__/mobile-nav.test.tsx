@@ -17,7 +17,7 @@ vi.mock("next/navigation", () => ({
 
 const SAMPLE_DECLARED = {
 	"/dashboard": [],
-	"/servers": ["server:ssh", "server:write"],
+	"/servers": ["server:read", "server:ssh", "server:write"],
 	"/operation-tasks": ["task:read"],
 	"/files": ["storage:write", "storage:read"],
 	"/settings": [],
@@ -103,8 +103,8 @@ describe("MobileNav", () => {
 		);
 
 		const hrefs = screen.getAllByRole("link").map((el) => el.getAttribute("href"));
-			expect(hrefs).toEqual(["/dashboard", "/settings"]);
-		expect(hrefs).not.toContain("/servers");
+		expect(hrefs).toEqual(["/dashboard", "/servers", "/settings"]);
+		expect(hrefs).toContain("/servers");
 		expect(hrefs).not.toContain("/files");
 	});
 });

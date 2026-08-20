@@ -19,6 +19,8 @@ import { nodeStreamToWeb } from "@/lib/http/node-to-web-stream";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import {
 	assertShareTargetNotDeleted,
+	authorizeShareDownload,
+	hashShareToken,
 	normalizeSharePath,
 	releaseShareQuotaClaim,
 	resolveShareToken,
@@ -33,11 +35,99 @@ import { getClientIp } from "@/lib/rate-limit";
 import { rateLimitResponse, withRateLimit, type RateLimitConfig } from "@/lib/http/rate-limit-presets";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { readRequestBodyBuffer } from "@/lib/http/request-body";
+import { NextResponse } from "next/server";
+import { isRequestHttps } from "@/lib/http/request-https";
+import {
+	createShareDownloadTicket,
+	getShareDownloadTicketCookieName,
+	SHARE_DOWNLOAD_TICKET_MAX_AGE_SECONDS,
+	verifyShareDownloadTicket,
+} from "@/lib/share-link/download-ticket";
 export const dynamic = "force-dynamic";
 // guardMode: public
 
 const SHARE_TOKEN_LIMIT: RateLimitConfig = { maxRequests: 60, windowMs: 60_000 };
 const SHARE_PASSWORD_LIMIT: RateLimitConfig = { maxRequests: 8, windowMs: 15 * 60_000 };
+const SHARE_PASSWORD_MAX_BODY_BYTES = 1024;
+
+function readCookie(request: Request, name: string): string | undefined {
+	const value = request.headers.get("cookie")?.match(new RegExp(`(?:^|;\\s*)${name}=([^;]*)`))?.[1];
+	if (!value) return undefined;
+	try {
+		return decodeURIComponent(value);
+	} catch {
+		return undefined;
+	}
+}
+
+async function checkSharePasswordRateLimit(request: Request, clientIp: string | null, token: string) {
+	return withRateLimit(
+		new Request(request.url, { headers: { "x-forwarded-for": `${clientIp}:share:${token}` } }),
+		SHARE_PASSWORD_LIMIT,
+	);
+}
+
+const passwordAuthorizationSchema = z.object({
+	password: z.string().min(1).max(128),
+});
+
+async function parsePasswordAuthorization(request: Request) {
+	try {
+		const text = (await readRequestBodyBuffer(request, SHARE_PASSWORD_MAX_BODY_BYTES)).toString("utf8");
+		return passwordAuthorizationSchema.safeParse(text ? JSON.parse(text) : null);
+	} catch {
+		return passwordAuthorizationSchema.safeParse(null);
+	}
+}
+
+/**
+ * Exchange a share password for a short-lived, HttpOnly download credential.
+ * The subsequent browser navigation remains a normal streaming GET, so large
+ * files do not become a Blob in the page's JavaScript heap.
+ */
+export async function POST(
+	request: Request,
+	{ params }: { params: Promise<{ token: string }> },
+) {
+	const { token } = await params;
+	const locale = await getServerLocale();
+	const tokenRateLimit = await withRateLimit(request, SHARE_TOKEN_LIMIT);
+	if (!tokenRateLimit.allowed) return rateLimitResponse(tokenRateLimit.retryAfterMs);
+	if (!token || token.length < 10) {
+		return apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.invalidToken", locale), status: 400 });
+	}
+	const parsed = await parsePasswordAuthorization(request);
+	if (!parsed.success) {
+		return apiError({ code: "VALIDATION_FAILED", message: t("backend.shareLink.passwordRequired", locale), status: 400 });
+	}
+
+	const clientIp = getClientIp(request);
+	const passwordLimit = await checkSharePasswordRateLimit(request, clientIp, token);
+	if (!passwordLimit.allowed) return rateLimitResponse(passwordLimit.retryAfterMs);
+	try {
+		const share = await authorizeShareDownload(token, parsed.data.password, {
+			ip: clientIp ?? undefined,
+			userAgent: request.headers.get("user-agent") ?? undefined,
+		});
+		const response = NextResponse.json({ success: true });
+		response.headers.set("cache-control", "no-store");
+		response.cookies.set(getShareDownloadTicketCookieName(), createShareDownloadTicket({
+			shareId: share.id,
+			tokenHash: hashShareToken(token),
+		}), {
+			httpOnly: true,
+			sameSite: "lax",
+			secure: isRequestHttps(request),
+			path: `/api/share/${encodeURIComponent(token)}`,
+			maxAge: SHARE_DOWNLOAD_TICKET_MAX_AGE_SECONDS,
+		});
+		return response;
+	} catch (err) {
+		const message = getErrorMessage(err, t("apiShareToken.invalidToken", locale));
+		return apiError({ code: err instanceof ForbiddenError ? "FORBIDDEN" : "NOT_FOUND", message, status: err instanceof ForbiddenError ? 403 : 404 });
+	}
+}
 
 async function openSftpFile(client: Client, remotePath: string) {
 	return new Promise<{ stream: import("stream").Readable; size: number }>((resolve, reject) => {
@@ -88,14 +178,18 @@ export async function GET(
 		// Prefer header so clients can avoid putting secrets in URLs / access logs.
 		const headerPassword = request.headers.get("x-share-password")?.trim() || undefined;
 		const password = headerPassword || queryPassword;
+		const ticket = readCookie(request, getShareDownloadTicketCookieName());
+		const authorizedShareId = ticket ? verifyShareDownloadTicket(ticket, hashShareToken(token)) : null;
 		if (password) {
-			const passwordLimit = await withRateLimit(
-				new Request(request.url, { headers: { "x-forwarded-for": `${clientIp}:share:${token}` } }),
-				SHARE_PASSWORD_LIMIT,
-			);
+			const passwordLimit = await checkSharePasswordRateLimit(request, clientIp, token);
 			if (!passwordLimit.allowed) return rateLimitResponse(passwordLimit.retryAfterMs);
 		}
-		share = await resolveShareToken(token, password, { ip: clientIp ?? undefined, userAgent: request.headers.get("user-agent") ?? undefined });
+		share = await resolveShareToken(
+			token,
+			password,
+			{ ip: clientIp ?? undefined, userAgent: request.headers.get("user-agent") ?? undefined },
+			{ authorizedShareId },
+		);
 	} catch (err) {
 		const message = getErrorMessage(err, t("apiShareToken.invalidToken", locale));
 		return apiError({ code: err instanceof ForbiddenError ? "FORBIDDEN" : "NOT_FOUND", message, status: err instanceof ForbiddenError ? 403 : 404 });

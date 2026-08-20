@@ -35,6 +35,8 @@ const playbook = {
 	steps: [stepA, stepB],
 	chainRetry: 0,
 	enabled: true,
+	nextRunAt: "2026-01-02T03:00:00.000Z",
+	lastTriggeredAt: null,
 	createdAt: "2026-01-01T00:00:00.000Z",
 };
 

@@ -121,6 +121,8 @@ export type PlaybookRecord = {
   steps: PlaybookStep[];
   chainRetry: number;
   enabled: boolean;
+  nextRunAt: Date | null;
+  lastTriggeredAt: Date | null;
   createdById: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -132,6 +134,7 @@ export type PlaybookRunRecord = {
   status: "queued" | "running" | "completed" | "failed" | "cancelled";
   dryRun: boolean;
   triggerContext: unknown;
+  triggerKey: string | null;
   stepResults: PlaybookStepResult[];
   errorMessage: string | null;
   startedAt: Date | null;

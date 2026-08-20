@@ -32,7 +32,7 @@ describe("/api/auth/2fa/setup", () => {
 		mocks.requireApiSession.mockResolvedValue(session);
 		mocks.userFindUnique.mockResolvedValue({ twoFactorEnabled: false });
 		mocks.generateSecret.mockReturnValue("SECRETABC123");
-		mocks.verifyTOTP.mockReturnValue(true);
+		mocks.verifyTOTP.mockReturnValue({ valid: true });
 	});
 
 	describe("POST", () => {
@@ -84,7 +84,7 @@ describe("/api/auth/2fa/setup", () => {
 		});
 
 		it("returns valid=false for an incorrect code", async () => {
-			mocks.verifyTOTP.mockReturnValueOnce(false);
+			mocks.verifyTOTP.mockReturnValueOnce({ valid: false });
 			const res = await route.PUT(
 				new Request("http://local/api/auth/2fa/setup", {
 					method: "PUT",

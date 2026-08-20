@@ -5,6 +5,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { verify as verifyTOTP } from "otplib";
+import { Prisma } from "@prisma/client";
 
 import { openTwoFactorSecret } from "@/lib/auth/two-factor-secret";
 import { auditUserAction } from "@/lib/audit/service";
@@ -44,14 +45,14 @@ export async function POST(request: Request) {
         throw new ValidationError(t("api.auth.twoFactor.notEnabled", locale));
       }
 
-      const valid = verifyTOTP({ token: code, secret: openTwoFactorSecret(user.twoFactorSecret) });
+      const valid = (await verifyTOTP({ token: code, secret: openTwoFactorSecret(user.twoFactorSecret) })).valid;
       if (!valid) {
         throw new ValidationError(t("api.auth.twoFactor.invalidCode", locale));
       }
 
       await prisma.user.update({
         where: { id: session.userId },
-        data: { twoFactorEnabled: false, twoFactorSecret: null },
+        data: { twoFactorEnabled: false, twoFactorSecret: null, twoFactorRecoveryCodes: Prisma.DbNull },
       });
 
       await auditUserAction(

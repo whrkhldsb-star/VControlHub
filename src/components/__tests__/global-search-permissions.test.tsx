@@ -42,7 +42,7 @@ function renderWithGate(
 
 const SAMPLE_DECLARED = {
 	"/dashboard": [],
-	"/servers": ["server:ssh", "server:write"],
+	"/servers": ["server:read", "server:ssh", "server:write"],
 	"/files": ["storage:read", "storage:write", "storage:manage-node", "share:create"],
 	"/backups": ["backup:create", "backup:read", "backup:restore"],
 	"/users": ["user:manage"],
@@ -99,6 +99,17 @@ describe("GlobalSearch permission-gated filter", () => {
 		await user.type(input, "文件");
 
 		expect(await screen.findByRole("option", { name: /文件管理/ })).toBeInTheDocument();
+	});
+
+	it("does not advertise SSH terminal access to a user who can only read servers", async () => {
+		const user = userEvent.setup();
+		renderWithGate(READ_ONLY_GATE, SAMPLE_DECLARED);
+
+		openSearchOverlay();
+		const input = await screen.findByPlaceholderText("搜索页面、操作...");
+		await user.type(input, "SSH");
+
+		expect(screen.queryByRole("option", { name: /SSH 终端/ })).not.toBeInTheDocument();
 	});
 
 	it("hides every permission-gated option when no provider is mounted (fail-safe)", async () => {

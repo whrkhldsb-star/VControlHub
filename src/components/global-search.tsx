@@ -62,6 +62,12 @@ type SearchItemDefinition = Omit<SearchItem, "label" | "category" | "keywords"> 
 	categoryKey: string;
 	fallbackCategory: string;
 	keywordsKey?: string;
+	/** Extra capability for an action that shares a route with a broader page. */
+	requiredPermission?: Permission;
+};
+
+type LocalSearchItem = SearchItem & {
+	requiredPermission?: Permission;
 };
 
 function categoryForHref(href: string) {
@@ -86,9 +92,9 @@ const navigationSearchItems: SearchItemDefinition[] = [...mainNavItems, ...syste
 
 const searchItemDefinitions: SearchItemDefinition[] = [
 	...navigationSearchItems,
-	{ labelKey: "nav.ssh", fallbackLabel: "SSH Terminal", href: "/servers", icon: "🔑", categoryKey: "search.category.tool", fallbackCategory: "Tool", keywordsKey: "search.keywords.ssh" },
-	{ labelKey: "auth.change-password", fallbackLabel: "Change password", href: "/settings#password", icon: "🔐", categoryKey: "search.category.action", fallbackCategory: "Action", keywordsKey: "search.keywords.changePassword" },
-	{ labelKey: "auth.two-factor", fallbackLabel: "Two-factor authentication", href: "/settings#2fa", icon: "🛡️", categoryKey: "search.category.action", fallbackCategory: "Action", keywordsKey: "search.keywords.twoFactor" },
+	{ labelKey: "nav.ssh", fallbackLabel: "SSH Terminal", href: "/servers", icon: "🔑", categoryKey: "search.category.tool", fallbackCategory: "Tool", keywordsKey: "search.keywords.ssh", requiredPermission: "server:ssh" },
+	{ labelKey: "auth.change-password", fallbackLabel: "Change password", href: "/account/password", icon: "🔐", categoryKey: "search.category.action", fallbackCategory: "Action", keywordsKey: "search.keywords.changePassword" },
+	{ labelKey: "auth.two-factor", fallbackLabel: "Two-factor authentication", href: "/account/security", icon: "🛡️", categoryKey: "search.category.action", fallbackCategory: "Action", keywordsKey: "search.keywords.twoFactor" },
 	{ labelKey: "preferencesPage.category.personal.title", fallbackLabel: "Personal preferences", href: "/settings#personal-preferences", icon: "👤", categoryKey: "search.category.action", fallbackCategory: "Action", keywordsKey: "search.keywords.personalPreferences" },
 ];
 
@@ -98,13 +104,14 @@ function getKeywords(key: string | undefined, locale: Locale): string[] {
 	return translated === key ? [] : translated.split("|").filter(Boolean);
 }
 
-function localizeSearchItems(locale: Locale): SearchItem[] {
+function localizeSearchItems(locale: Locale): LocalSearchItem[] {
 	return searchItemDefinitions.map((item) => ({
 		label: translate(item.labelKey, locale) === item.labelKey ? item.fallbackLabel : translate(item.labelKey, locale),
 		href: item.href,
 		icon: item.icon,
 		category: translate(item.categoryKey, locale) === item.categoryKey ? item.fallbackCategory : translate(item.categoryKey, locale),
 		keywords: getKeywords(item.keywordsKey, locale),
+		requiredPermission: item.requiredPermission,
 	}));
 }
 
@@ -130,11 +137,17 @@ export function GlobalSearch({
 	const returnFocusRef = useRef<HTMLElement | null>(null);
 	const router = useRouter();
 	const { locale, t } = useI18n();
-	const gate = useGateRoute();
-	const searchItems = useMemo(
-		() => filterItemsByPermissions(localizeSearchItems(locale), declaredPermissionsByHref, gate.canAny),
-		[locale, declaredPermissionsByHref, gate.canAny],
-	);
+	const { can, canAny } = useGateRoute();
+	const searchItems = useMemo(() => {
+		const routeVisible = filterItemsByPermissions(
+			localizeSearchItems(locale),
+			declaredPermissionsByHref,
+			canAny,
+		);
+		return routeVisible.filter(
+			(item) => !item.requiredPermission || can(item.requiredPermission),
+		);
+	}, [locale, declaredPermissionsByHref, can, canAny]);
 
 	const filteredLocal = query
 		? searchItems.filter(

@@ -25,6 +25,7 @@ describe("TR-002 R2: job lease 公式统一", () => {
 			"job-maintenance",
 			"operation-task-retention",
 			"playbook-run",
+			"playbook-trigger",
 			"quick-service",
 			"scheduled-task",
 			"sftp-stale-inventory",

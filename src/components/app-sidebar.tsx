@@ -302,6 +302,14 @@ export function AppSidebar({
 				<div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] px-1.5 py-1">
 					<SidebarControls />
 				</div>
+				<Link
+					href="/account/security"
+					onClick={() => setMobileOpen(false)}
+					className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-secondary)]"
+				>
+					<span aria-hidden="true">🛡️</span>
+					<span>{t("auth.account-security")}</span>
+				</Link>
 				<button
 					type="button"
 					onClick={() => {

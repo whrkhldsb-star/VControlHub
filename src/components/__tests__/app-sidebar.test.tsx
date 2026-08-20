@@ -29,10 +29,11 @@ vi.mock("../language-toggle", () => ({
 }));
 
 describe("AppSidebar", () => {
-	it("keeps two-factor controls centralized under the unified settings entry instead of separate menu items", () => {
+	it("exposes account security independently from administrator-only settings", () => {
 		render(<AppSidebar username="admin" />);
 
 		expect(screen.getAllByRole("link", { name: /^Settings$/ }).length).toBeGreaterThan(0);
+		expect(screen.getAllByRole("link", { name: "auth.account-security" })[0]).toHaveAttribute("href", "/account/security");
 		expect(screen.queryByRole("link", { name: /系统设置/ })).not.toBeInTheDocument();
 		expect(screen.queryByRole("link", { name: /偏好设置/ })).not.toBeInTheDocument();
 		expect(screen.queryByRole("link", { name: /两步验证/ })).not.toBeInTheDocument();

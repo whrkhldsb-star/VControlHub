@@ -21,6 +21,7 @@ import { createBackupRecord, voidBackupRecord } from "./service-crud";
 import { BACKUP_CREATE_JOB_TYPE } from "./job-worker";
 import { enqueueJob } from "@/lib/job/service";
 import { t } from "@/lib/i18n/service-translations";
+import { APP_TIME_ZONE } from "@/lib/datetime/time-zone";
 
 /* ── Types ────────────────────────────────────────────────── */
 
@@ -51,7 +52,7 @@ export function validateCronExpression(expr: string): string {
   const trimmed = expr.trim();
   if (!trimmed) throw new ValidationError(t("backend.backup.cronRequired"));
   try {
-    CronExpressionParser.parse(trimmed, { currentDate: new Date() });
+    CronExpressionParser.parse(trimmed, { currentDate: new Date(), tz: APP_TIME_ZONE });
   } catch {
     throw new ValidationError(t("backend.backup.cronInvalid"));
   }

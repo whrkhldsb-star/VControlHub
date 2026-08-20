@@ -71,6 +71,25 @@ function declaredPerms(text: string): string[] {
   return [...set].sort();
 }
 
+/**
+ * Page chrome needs the permission that admits a user to the route, rather
+ * than every permission mentioned by optional controls inside that page.
+ * For example, `/files` requires `storage:read`, while its upload/delete
+ * buttons also mention write-only permissions.  Falling back to the complete
+ * declaration preserves the prior discoverability behavior for pages that
+ * intentionally use a bare session guard and show partial capabilities.
+ */
+function navigationPerms(text: string, fallback: string[]): string[] {
+  const set = new Set<string>();
+  const re = /requirePagePermission\(\s*["']([^"']+)["']/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    const candidate = m[1]!;
+    if (PERMISSION_VOCAB.has(candidate)) set.add(candidate);
+  }
+  return set.size > 0 ? [...set].sort() : fallback;
+}
+
 function pagePathFor(fileAbs: string): string {
   const rel = relative(APP, fileAbs);
   if (rel === 'page.tsx') return '/';
@@ -141,12 +160,14 @@ function main() {
       const rel = relative(ROOT, f);
       const text = readFileSync(f, 'utf8');
       const path = pagePathFor(f);
+      const permissions = declaredPerms(text);
       return {
         path,
         file: rel,
         inSidebarMain: mainNav.some((m) => m.href === path),
         inSidebarSystem: systemNav.some((s) => s.href === path),
-        declaredPermissions: declaredPerms(text),
+        declaredPermissions: permissions,
+        navigationPermissions: navigationPerms(text, permissions),
       };
     });
 

@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-08-11T03:07:06.417Z",
+  "generatedAt": "2026-08-20T07:35:30.212Z",
   "summary": {
     "sidebarMain": 30,
     "sidebarSystem": 5,
     "sidebarMobile": 5,
-    "pages": 53,
-    "apiRoutes": 178,
+    "pages": 54,
+    "apiRoutes": 179,
     "permissionsDefined": 54
   },
   "sidebar": {
@@ -167,14 +167,24 @@
       "file": "src/app/account/page.tsx",
       "inSidebarMain": false,
       "inSidebarSystem": false,
-      "declaredPermissions": []
+      "declaredPermissions": [],
+      "navigationPermissions": []
     },
     {
       "path": "/account/password",
       "file": "src/app/account/password/page.tsx",
       "inSidebarMain": false,
       "inSidebarSystem": false,
-      "declaredPermissions": []
+      "declaredPermissions": [],
+      "navigationPermissions": []
+    },
+    {
+      "path": "/account/security",
+      "file": "src/app/account/security/page.tsx",
+      "inSidebarMain": false,
+      "inSidebarSystem": false,
+      "declaredPermissions": [],
+      "navigationPermissions": []
     },
     {
       "path": "/ai-ops",
@@ -185,6 +195,9 @@
         "ai:ops:autonomous",
         "ai:ops:manage",
         "ai:ops:read"
+      ],
+      "navigationPermissions": [
+        "ai:ops:read"
       ]
     },
     {
@@ -193,6 +206,9 @@
       "inSidebarMain": true,
       "inSidebarSystem": false,
       "declaredPermissions": [
+        "ai:chat"
+      ],
+      "navigationPermissions": [
         "ai:chat"
       ]
     },
@@ -203,6 +219,9 @@
       "inSidebarSystem": false,
       "declaredPermissions": [
         "notification:manage"
+      ],
+      "navigationPermissions": [
+        "notification:manage"
       ]
     },
     {
@@ -212,6 +231,9 @@
       "inSidebarSystem": false,
       "declaredPermissions": [
         "announcement:manage"
+      ],
+      "navigationPermissions": [
+        "announcement:manage"
       ]
     },
     {
@@ -219,7 +241,8 @@
       "file": "src/app/api-docs/page.tsx",
       "inSidebarMain": false,
       "inSidebarSystem": true,
-      "declaredPermissions": []
+      "declaredPermissions": [],
+      "navigationPermissions": []
     },
     {
       "path": "/api-tokens",
@@ -227,6 +250,9 @@
       "inSidebarMain": false,
       "inSidebarSystem": true,
       "declaredPermissions": [
+        "api-token:manage"
+      ],
+      "navigationPermissions": [
         "api-token:manage"
       ]
     },
@@ -237,6 +263,9 @@
       "inSidebarSystem": true,
       "declaredPermissions": [
         "audit:read"
+      ],
+      "navigationPermissions": [
+        "audit:read"
       ]
     },
     {
@@ -245,6 +274,11 @@
       "inSidebarMain": true,
       "inSidebarSystem": false,
       "declaredPermissions": [
+        "backup:create",
+        "backup:read",
+        "backup:restore"
+      ],
+      "navigationPermissions": [
         "backup:create",
         "backup:read",
         "backup:restore"
@@ -258,6 +292,10 @@
       "declaredPermissions": [
         "cost:manage",
         "cost:read"
+      ],
+      "navigationPermissions": [
+        "cost:manage",
+        "cost:read"
       ]
     },
     {
@@ -265,7 +303,8 @@
       "file": "src/app/dashboard/page.tsx",
       "inSidebarMain": true,
       "inSidebarSystem": false,
-      "declaredPermissions": []
+      "declaredPermissions": [],
+      "navigationPermissions": []
     },
     {
       "path": "/deployments",
@@ -273,6 +312,11 @@
       "inSidebarMain": true,
       "inSidebarSystem": false,
       "declaredPermissions": [
+        "deploy:export",
+        "deploy:read",
+        "deploy:run"
+      ],
+      "navigationPermissions": [
         "deploy:export",
         "deploy:read",
         "deploy:run"
@@ -285,6 +329,9 @@
       "inSidebarSystem": false,
       "declaredPermissions": [
         "docker:manage"
+      ],
+      "navigationPermissions": [
+        "docker:manage"
       ]
     },
     {
@@ -296,6 +343,9 @@
         "storage:manage-node",
         "storage:read",
         "storage:write"
+      ],
+      "navigationPermissions": [
+        "storage:read"
       ]
     },
     {
@@ -307,7 +357,11 @@
         "share:create",
         "storage:delete",
         "storage:manage-node",
+        "storage:read",
         "storage:write"
+      ],
+      "navigationPermissions": [
+        "storage:read"
       ]
     },
     {
@@ -315,14 +369,16 @@
       "file": "src/app/files/preview/page.tsx",
       "inSidebarMain": false,
       "inSidebarSystem": false,
-      "declaredPermissions": []
+      "declaredPermissions": [],
+      "navigationPermissions": []
     },
     {
       "path": "/files/recent-downloads",
       "file": "src/app/files/recent-downloads/page.tsx",
       "inSidebarMain": false,
       "inSidebarSystem": false,
-      "declaredPermissions": []
+      "declaredPermissions": [],
+      "navigationPermissions": []
     },
     {
       "path": "/files/recycle-bin",
@@ -331,6 +387,9 @@
       "inSidebarSystem": false,
       "declaredPermissions": [
         "storage:delete"
+      ],
+      "navigationPermissions": [
+        "storage:delete"
       ]
     },
     {
@@ -338,7 +397,8 @@
       "file": "src/app/files/search/page.tsx",
       "inSidebarMain": false,
       "inSidebarSystem": false,
-      "declaredPermissions": []
+      "declaredPermissions": [],
+      "navigationPermissions": []
     },
     {
       "path": "/files/sync",
@@ -348,6 +408,10 @@
       "declaredPermissions": [
         "storage:manage-node",
         "storage:write"
+      ],
+      "navigationPermissions": [
+        "storage:manage-node",
+        "storage:write"
       ]
     },
     {
@@ -355,7 +419,8 @@
       "file": "src/app/files/webdav/page.tsx",
       "inSidebarMain": false,
       "inSidebarSystem": false,
-      "declaredPermissions": []
+      "declaredPermissions": [],
+      "navigationPermissions": []
     },
     {
       "path": "/health",
@@ -363,6 +428,9 @@
       "inSidebarMain": true,
       "inSidebarSystem": false,
       "declaredPermissions": [
+        "health:read"
+      ],
+      "navigationPermissions": [
         "health:read"
       ]
     },
@@ -375,6 +443,9 @@
         "image:read",
         "image:write",
         "storage:delete"
+      ],
+      "navigationPermissions": [
+        "image:read"
       ]
     },
     {
@@ -383,6 +454,10 @@
       "inSidebarMain": true,
       "inSidebarSystem": false,
       "declaredPermissions": [
+        "ticket:manage",
+        "ticket:read"
+      ],
+      "navigationPermissions": [
         "ticket:manage",
         "ticket:read"
       ]
@@ -395,6 +470,10 @@
       "declaredPermissions": [
         "ai:chat",
         "ai:manage"
+      ],
+      "navigationPermissions": [
+        "ai:chat",
+        "ai:manage"
       ]
     },
     {
@@ -402,14 +481,16 @@
       "file": "src/app/login/page.tsx",
       "inSidebarMain": false,
       "inSidebarSystem": false,
-      "declaredPermissions": []
+      "declaredPermissions": [],
+      "navigationPermissions": []
     },
     {
       "path": "/login/verify-2fa",
       "file": "src/app/login/verify-2fa/page.tsx",
       "inSidebarMain": false,
       "inSidebarSystem": false,
-      "declaredPermissions": []
+      "declaredPermissions": [],
+      "navigationPermissions": []
     },
     {
       "path": "/media/[id]",
@@ -417,6 +498,9 @@
       "inSidebarMain": false,
       "inSidebarSystem": false,
       "declaredPermissions": [
+        "storage:read"
+      ],
+      "navigationPermissions": [
         "storage:read"
       ]
     },
@@ -428,6 +512,10 @@
       "declaredPermissions": [
         "media:manage",
         "storage:read"
+      ],
+      "navigationPermissions": [
+        "media:manage",
+        "storage:read"
       ]
     },
     {
@@ -437,6 +525,9 @@
       "inSidebarSystem": false,
       "declaredPermissions": [
         "health:read"
+      ],
+      "navigationPermissions": [
+        "health:read"
       ]
     },
     {
@@ -444,14 +535,16 @@
       "file": "src/app/notifications/page.tsx",
       "inSidebarMain": true,
       "inSidebarSystem": false,
-      "declaredPermissions": []
+      "declaredPermissions": [],
+      "navigationPermissions": []
     },
     {
       "path": "/offline",
       "file": "src/app/offline/page.tsx",
       "inSidebarMain": false,
       "inSidebarSystem": false,
-      "declaredPermissions": []
+      "declaredPermissions": [],
+      "navigationPermissions": []
     },
     {
       "path": "/operation-tasks",
@@ -460,6 +553,9 @@
       "inSidebarSystem": false,
       "declaredPermissions": [
         "task:read"
+      ],
+      "navigationPermissions": [
+        "task:read"
       ]
     },
     {
@@ -467,7 +563,8 @@
       "file": "src/app/page.tsx",
       "inSidebarMain": false,
       "inSidebarSystem": false,
-      "declaredPermissions": []
+      "declaredPermissions": [],
+      "navigationPermissions": []
     },
     {
       "path": "/playbooks",
@@ -478,6 +575,11 @@
         "playbook:manage",
         "playbook:read",
         "playbook:run"
+      ],
+      "navigationPermissions": [
+        "playbook:manage",
+        "playbook:read",
+        "playbook:run"
       ]
     },
     {
@@ -485,7 +587,8 @@
       "file": "src/app/preferences/page.tsx",
       "inSidebarMain": false,
       "inSidebarSystem": false,
-      "declaredPermissions": []
+      "declaredPermissions": [],
+      "navigationPermissions": []
     },
     {
       "path": "/quick-services",
@@ -493,6 +596,9 @@
       "inSidebarMain": true,
       "inSidebarSystem": false,
       "declaredPermissions": [
+        "docker:manage"
+      ],
+      "navigationPermissions": [
         "docker:manage"
       ]
     },
@@ -502,6 +608,9 @@
       "inSidebarMain": true,
       "inSidebarSystem": false,
       "declaredPermissions": [
+        "command:approve"
+      ],
+      "navigationPermissions": [
         "command:approve"
       ]
     },
@@ -514,6 +623,11 @@
         "command:approve",
         "command:create",
         "command:execute"
+      ],
+      "navigationPermissions": [
+        "command:approve",
+        "command:create",
+        "command:execute"
       ]
     },
     {
@@ -522,10 +636,17 @@
       "inSidebarMain": true,
       "inSidebarSystem": false,
       "declaredPermissions": [
+        "audit:read",
+        "command:approve",
         "command:create",
         "command:execute",
+        "deploy:read",
+        "server:read",
         "server:ssh",
         "server:write"
+      ],
+      "navigationPermissions": [
+        "server:read"
       ]
     },
     {
@@ -535,6 +656,9 @@
       "inSidebarSystem": false,
       "declaredPermissions": [
         "user:manage"
+      ],
+      "navigationPermissions": [
+        "user:manage"
       ]
     },
     {
@@ -542,7 +666,8 @@
       "file": "src/app/share/[token]/page.tsx",
       "inSidebarMain": false,
       "inSidebarSystem": false,
-      "declaredPermissions": []
+      "declaredPermissions": [],
+      "navigationPermissions": []
     },
     {
       "path": "/shares",
@@ -550,6 +675,11 @@
       "inSidebarMain": true,
       "inSidebarSystem": false,
       "declaredPermissions": [
+        "share:create",
+        "share:manage",
+        "share:read"
+      ],
+      "navigationPermissions": [
         "share:create",
         "share:manage",
         "share:read"
@@ -562,6 +692,9 @@
       "inSidebarSystem": false,
       "declaredPermissions": [
         "snippet:manage"
+      ],
+      "navigationPermissions": [
+        "snippet:manage"
       ]
     },
     {
@@ -569,14 +702,16 @@
       "file": "src/app/status/page.tsx",
       "inSidebarMain": false,
       "inSidebarSystem": true,
-      "declaredPermissions": []
+      "declaredPermissions": [],
+      "navigationPermissions": []
     },
     {
       "path": "/storage",
       "file": "src/app/storage/page.tsx",
       "inSidebarMain": false,
       "inSidebarSystem": false,
-      "declaredPermissions": []
+      "declaredPermissions": [],
+      "navigationPermissions": []
     },
     {
       "path": "/templates",
@@ -584,6 +719,10 @@
       "inSidebarMain": true,
       "inSidebarSystem": false,
       "declaredPermissions": [
+        "command:create",
+        "deploy:run"
+      ],
+      "navigationPermissions": [
         "command:create",
         "deploy:run"
       ]
@@ -596,6 +735,10 @@
       "declaredPermissions": [
         "team:manage",
         "ticket:manage"
+      ],
+      "navigationPermissions": [
+        "team:manage",
+        "ticket:manage"
       ]
     },
     {
@@ -604,6 +747,10 @@
       "inSidebarMain": true,
       "inSidebarSystem": false,
       "declaredPermissions": [
+        "ticket:create",
+        "ticket:manage"
+      ],
+      "navigationPermissions": [
         "ticket:create",
         "ticket:manage"
       ]
@@ -615,6 +762,9 @@
       "inSidebarSystem": false,
       "declaredPermissions": [
         "server:read"
+      ],
+      "navigationPermissions": [
+        "server:read"
       ]
     },
     {
@@ -625,6 +775,10 @@
       "declaredPermissions": [
         "user:manage",
         "user:read"
+      ],
+      "navigationPermissions": [
+        "user:manage",
+        "user:read"
       ]
     },
     {
@@ -633,6 +787,9 @@
       "inSidebarMain": true,
       "inSidebarSystem": false,
       "declaredPermissions": [
+        "health:read"
+      ],
+      "navigationPermissions": [
         "health:read"
       ]
     }
@@ -945,6 +1102,15 @@
     {
       "path": "/api/auth/2fa/enable",
       "file": "src/app/api/auth/2fa/enable/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": []
+    },
+    {
+      "path": "/api/auth/2fa/recovery-codes",
+      "file": "src/app/api/auth/2fa/recovery-codes/route.ts",
       "methods": [
         "POST"
       ],
@@ -2294,7 +2460,8 @@
       "path": "/api/share/[token]",
       "file": "src/app/api/share/[token]/route.ts",
       "methods": [
-        "GET"
+        "GET",
+        "POST"
       ],
       "guardMode": "public",
       "declaredPermissions": []

@@ -4,8 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
-import { toDateLocale } from "@/lib/i18n/locale-format";
 import { formatBytes } from "@/lib/format/bytes";
+import { APP_TIME_ZONE, formatDateTime } from "@/lib/datetime/format";
 
 import { ActionButton } from "@/components/action-button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -19,7 +19,8 @@ type BackupSchedule = {
 	cronExpression: string;
 	backupType: string;
 	status: string;
-	retentionDays: number;
+	paths?: string[];
+	retentionDays: number | null;
 	lastRunAt: string | null;
 	nextRunAt: string | null;
 };
@@ -50,6 +51,38 @@ const PRESET_OPTIONS = [
 	"custom",
 ] as const;
 
+type ScheduleForm = {
+	name: string;
+	cronExpression: string;
+	backupType: string;
+	paths: string;
+	retentionDays: string;
+};
+
+function emptyScheduleForm(): ScheduleForm {
+	return {
+		name: "",
+		cronExpression: "0 3 * * *",
+		backupType: "nginx-config",
+		paths: "",
+		retentionDays: "7",
+	};
+}
+
+function scheduleFormFrom(schedule: BackupSchedule): ScheduleForm {
+	return {
+		name: schedule.name,
+		cronExpression: schedule.cronExpression,
+		backupType: schedule.backupType,
+		paths: (schedule.paths ?? []).join("\n"),
+		retentionDays: schedule.retentionDays ? String(schedule.retentionDays) : "",
+	};
+}
+
+function splitPaths(value: string): string[] {
+	return value.split("\n").map((path) => path.trim()).filter(Boolean);
+}
+
 function formatDuration(ms: string | null): string {
 	if (!ms) return "—";
 	const n = Number(ms);
@@ -77,15 +110,12 @@ export function VpsBackupSection({
 	const [manualPaths, setManualPaths] = useState("");
 	const [deleteTarget, setDeleteTarget] = useState<DeleteTarget>(null);
 	const [deleting, setDeleting] = useState(false);
+	const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
+	const [editForm, setEditForm] = useState<ScheduleForm>(emptyScheduleForm);
+	const [savingScheduleId, setSavingScheduleId] = useState<string | null>(null);
 
 	// Create form state
-	const [createForm, setCreateForm] = useState({
-		name: "",
-		cronExpression: "0 3 * * *",
-		backupType: "nginx-config",
-		paths: "",
-		retentionDays: "7",
-	});
+	const [createForm, setCreateForm] = useState<ScheduleForm>(emptyScheduleForm);
 
 	const fetchAbortRef = useRef<AbortController | null>(null);
 	const fetchAll = useCallback(async () => {
@@ -130,7 +160,7 @@ export function VpsBackupSection({
 				body: JSON.stringify({
 					backupType,
 					...(backupType === "custom"
-						? { paths: manualPaths.split("\n").map((p) => p.trim()).filter(Boolean) }
+						? { paths: splitPaths(manualPaths) }
 						: {}),
 				}),
 				raw: true,
@@ -159,7 +189,7 @@ export function VpsBackupSection({
 					name: createForm.name,
 					cronExpression: createForm.cronExpression,
 					backupType: createForm.backupType,
-					paths: createForm.paths ? createForm.paths.split("\n").filter(Boolean) : undefined,
+					paths: createForm.paths ? splitPaths(createForm.paths) : undefined,
 					retentionDays: createForm.retentionDays
 						? parseInt(createForm.retentionDays)
 						: undefined,
@@ -171,13 +201,7 @@ export function VpsBackupSection({
 				setError(data.error ?? t("vpsBackup.error.create"));
 			} else {
 				setShowCreate(false);
-				setCreateForm({
-					name: "",
-					cronExpression: "0 3 * * *",
-					backupType: "nginx-config",
-					paths: "",
-					retentionDays: "7",
-				});
+				setCreateForm(emptyScheduleForm());
 				await fetchAll();
 			}
 		} catch (err) {
@@ -185,6 +209,56 @@ export function VpsBackupSection({
 		} finally {
 			setCreating(false);
 		}
+	};
+
+	const updateSchedule = async (
+		scheduleId: string,
+		payload: Record<string, unknown>,
+		fallback: string,
+	): Promise<boolean> => {
+		if (savingScheduleId) return false;
+		setSavingScheduleId(scheduleId);
+		setError(null);
+		try {
+			const res = await csrfFetch<Response>(`/api/servers/${serverId}/vps-backup/schedules/${scheduleId}`, {
+				method: "PATCH",
+				body: JSON.stringify(payload),
+				raw: true,
+			});
+			if (!res.ok) {
+				const data = await res.json().catch(() => ({}));
+				setError(data.error ?? fallback);
+				return false;
+			}
+			await fetchAll();
+			return true;
+		} catch (err) {
+			setError(getErrorMessage(err, fallback));
+			return false;
+		} finally {
+			setSavingScheduleId(null);
+		}
+	};
+
+	const saveScheduleEdit = async () => {
+		if (!editingScheduleId || !editForm.name.trim()) return;
+		const updated = await updateSchedule(editingScheduleId, {
+			name: editForm.name.trim(),
+			cronExpression: editForm.cronExpression,
+			backupType: editForm.backupType,
+			// Clear stale custom paths when a preset is selected.
+			paths: editForm.backupType === "custom" ? splitPaths(editForm.paths) : [],
+			retentionDays: editForm.retentionDays ? Number.parseInt(editForm.retentionDays, 10) : null,
+		}, t("vpsBackup.error.update"));
+		if (updated) setEditingScheduleId(null);
+	};
+
+	const toggleScheduleStatus = async (schedule: BackupSchedule) => {
+		await updateSchedule(
+			schedule.id,
+			{ status: schedule.status === "ACTIVE" ? "PAUSED" : "ACTIVE" },
+			t("vpsBackup.error.update"),
+		);
 	};
 
 	const handleDeleteSchedule = async (scheduleId: string) => {
@@ -231,6 +305,9 @@ export function VpsBackupSection({
 		return label === key ? type : label;
 	};
 
+	const scheduleStatusLabel = (status: string) =>
+		status === "ACTIVE" ? t("vpsBackup.status.active") : t("vpsBackup.status.paused");
+
 	if (loading) {
 		return (
 			<div className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-3">
@@ -245,8 +322,9 @@ export function VpsBackupSection({
 		<div className="space-y-3">
 			{error ? <Notice tone="danger" compact action={{ label: t("common.retry"), onClick: () => { setError(null); void fetchAll(); } }} onDismiss={() => setError(null)} dismissLabel={t("common.close")}>{error}</Notice> : null}
 
-			{/* Manual trigger */}
-			<div className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-3">
+			{/* A read-only user may inspect records and schedules, but must not be
+			    offered a trigger that the server will reject. */}
+			{canManage ? <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-3">
 				<div className="mb-2 text-sm font-medium text-[var(--text-secondary)]">
 					{t("vpsBackup.manualTrigger")}
 				</div>
@@ -277,7 +355,7 @@ export function VpsBackupSection({
 						</ActionButton>
 					))}
 				</div>
-			</div>
+			</div> : null}
 
 			{/* Schedules */}
 			<div className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-3">
@@ -331,7 +409,10 @@ export function VpsBackupSection({
 								className={UI_INPUT}
 							/>
 						</div>
-						<textarea
+						<p className="text-[11px] text-[var(--text-muted)]">
+							{t("vpsBackup.timezone", { timezone: APP_TIME_ZONE })}
+						</p>
+						{createForm.backupType === "custom" ? <textarea
 							placeholder={t("vpsBackup.pathsPlaceholder")}
 							aria-label={t("vpsBackup.pathsPlaceholder")}
 							value={createForm.paths}
@@ -339,7 +420,7 @@ export function VpsBackupSection({
 							rows={2}
 							data-input
 							className={UI_INPUT}
-						/>
+						/> : null}
 						<div className="flex items-center gap-2">
 							<input
 								type="number"
@@ -417,24 +498,118 @@ export function VpsBackupSection({
 					</div>
 				) : (
 					<div className="space-y-1.5">
-						{schedules.map((s) => (
-							<div
-								key={s.id}
-								className="flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2"
-							>
-								<div className="min-w-0">
-									<div className="truncate text-sm text-[var(--text-primary)]">{s.name}</div>
-									<div className="text-xs text-[var(--text-muted)]">
-										{presetLabel(s.backupType)} · {s.cronExpression} ·{" "}
-										{s.status === "ACTIVE" ? "✅" : "⏸"} ·{" "}
-										{t("vpsBackup.retention")}: {s.retentionDays}d
-									</div>
+						{schedules.map((s) => {
+							const isEditing = editingScheduleId === s.id;
+							const isSaving = savingScheduleId === s.id;
+							return (
+								<div key={s.id} className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2">
+									{isEditing ? (
+										<div className="space-y-2">
+											<div className="flex items-center justify-between gap-2">
+												<span className="text-sm font-medium text-[var(--text-primary)]">{t("vpsBackup.editSchedule", { name: s.name })}</span>
+												<button
+													type="button"
+													onClick={() => setEditingScheduleId(null)}
+													className="text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+												>
+													{t("common.cancel")}
+												</button>
+											</div>
+											<input
+												type="text"
+												aria-label={t("vpsBackup.scheduleName")}
+												value={editForm.name}
+												onChange={(event) => setEditForm({ ...editForm, name: event.target.value })}
+												data-input
+												className={UI_INPUT}
+											/>
+											<div className="grid grid-cols-2 gap-2">
+												<select
+													value={editForm.backupType}
+													aria-label={t("vpsBackup.backupType")}
+													onChange={(event) => setEditForm({ ...editForm, backupType: event.target.value })}
+													data-input
+													className={UI_INPUT}
+												>
+													{PRESET_OPTIONS.map((preset) => <option key={preset} value={preset}>{presetLabel(preset)}</option>)}
+												</select>
+												<input
+													type="text"
+													aria-label={t("vpsBackup.cronExpression")}
+													value={editForm.cronExpression}
+													onChange={(event) => setEditForm({ ...editForm, cronExpression: event.target.value })}
+													data-input
+													className={UI_INPUT}
+												/>
+											</div>
+											{editForm.backupType === "custom" ? <textarea
+												placeholder={t("vpsBackup.pathsPlaceholder")}
+												aria-label={t("vpsBackup.pathsPlaceholder")}
+												value={editForm.paths}
+												onChange={(event) => setEditForm({ ...editForm, paths: event.target.value })}
+												rows={2}
+												data-input
+												className={UI_INPUT}
+											/> : null}
+											<div className="flex flex-wrap items-center gap-2">
+												<input
+													type="number"
+													min={1}
+													max={365}
+													placeholder={t("vpsBackup.retentionDays")}
+													aria-label={t("vpsBackup.retentionDays")}
+													value={editForm.retentionDays}
+													onChange={(event) => setEditForm({ ...editForm, retentionDays: event.target.value })}
+													data-input
+													className={`w-32 ${UI_INPUT}`}
+												/>
+												<ActionButton
+													type="button"
+													onClick={() => void saveScheduleEdit()}
+													disabled={!editForm.name.trim() || isSaving}
+													className="px-3 py-1.5 text-xs"
+												>
+													{isSaving ? t("common.submitting") : t("vpsBackup.save")}
+												</ActionButton>
+											</div>
+											<p className="text-[11px] text-[var(--text-muted)]">{t("vpsBackup.timezone", { timezone: APP_TIME_ZONE })}</p>
+										</div>
+									) : (
+										<div className="flex items-start justify-between gap-3">
+											<div className="min-w-0 flex-1">
+												<div className="truncate text-sm text-[var(--text-primary)]">{s.name}</div>
+												<div className="text-xs text-[var(--text-muted)]">
+													{presetLabel(s.backupType)} · {s.cronExpression} · {scheduleStatusLabel(s.status)} · {t("vpsBackup.retention")}: {s.retentionDays ? `${s.retentionDays}d` : t("vpsBackup.retentionNone")}
+												</div>
+												<div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-[var(--text-muted)]">
+													<span>{t("vpsBackup.lastRun", { time: formatDateTime(s.lastRunAt, locale) })}</span>
+													<span>{t("vpsBackup.nextRun", { time: s.status === "ACTIVE" ? formatDateTime(s.nextRunAt, locale) : t("vpsBackup.noNextRun") })}</span>
+												</div>
+											</div>
+											{canManage ? (
+												<div className="flex shrink-0 items-center gap-1">
+													<IconButton
+														label={t("vpsBackup.editSchedule", { name: s.name })}
+														onClick={() => { setEditForm(scheduleFormFrom(s)); setEditingScheduleId(s.id); }}
+														className="h-8 w-8 text-xs"
+													>✎</IconButton>
+													<ActionButton
+														type="button"
+														variant={s.status === "ACTIVE" ? "outline" : "success"}
+														onClick={() => void toggleScheduleStatus(s)}
+														disabled={isSaving}
+														className="!min-h-8 !px-2 !py-1 !text-[11px]"
+													>
+														{s.status === "ACTIVE" ? t("vpsBackup.pause") : t("vpsBackup.resume")}
+													</ActionButton>
+													<IconButton label={t("vpsBackup.deleteSchedule", { name: s.name })} tone="danger" onClick={() => setDeleteTarget({ kind: "schedule", id: s.id, name: s.name })} className="h-8 w-8 text-xs">✕</IconButton>
+												</div>
+											) : null}
+										</div>
+									)}
 								</div>
-								{canManage ? (
-									<IconButton label={t("vpsBackup.deleteSchedule", { name: s.name })} tone="danger" onClick={() => setDeleteTarget({ kind: "schedule", id: s.id, name: s.name })} className="ml-2 h-8 w-8 shrink-0 text-xs">✕</IconButton>
-								) : null}
-							</div>
-						))}
+							);
+						})}
 					</div>
 				)}
 			</div>
@@ -474,7 +649,7 @@ export function VpsBackupSection({
 										</span>
 									</div>
 									<div className="mt-0.5 text-xs text-[var(--text-muted)]">
-										{new Date(r.createdAt).toLocaleString(toDateLocale(locale))}
+										{formatDateTime(r.createdAt, locale)}
 										{" · "}
 										{formatBytes(r.fileSize)}
 										{" · "}

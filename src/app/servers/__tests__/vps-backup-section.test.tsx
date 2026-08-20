@@ -50,6 +50,41 @@ describe("VpsBackupSection", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/servers/srv-1/vps-backup/schedules/sch-1", expect.objectContaining({ method: "DELETE" })));
   });
 
+  it("offers edit and pause actions, then patches the selected schedule", async () => {
+    const fetchMock = vi.fn();
+    mockInitialLoad(fetchMock, [{ id: "sch-1", name: "Nightly", cronExpression: "0 3 * * *", backupType: "nginx-config", status: "ACTIVE", paths: [], retentionDays: 7, lastRunAt: null, nextRunAt: "2026-01-02T03:00:00Z" }]);
+    vi.stubGlobal("fetch", fetchMock);
+    render(<VpsBackupSection serverId="srv-1" canManage />, { locale: "en" });
+
+    await screen.findByText("Nightly");
+    expect(screen.getByRole("button", { name: "Edit backup schedule Nightly" })).toBeInTheDocument();
+
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(undefined))
+      .mockResolvedValueOnce(jsonResponse({ schedules: [] }))
+      .mockResolvedValueOnce(jsonResponse({ records: [] }));
+    fireEvent.click(screen.getByRole("button", { name: "Pause" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      "/api/servers/srv-1/vps-backup/schedules/sch-1",
+      expect.objectContaining({ method: "PATCH" }),
+    ));
+  });
+
+  it("opens an inline editor with the selected schedule values", async () => {
+    const fetchMock = vi.fn();
+    mockInitialLoad(fetchMock, [{ id: "sch-1", name: "Nightly", cronExpression: "0 3 * * *", backupType: "custom", status: "PAUSED", paths: ["/srv/app"], retentionDays: 7, lastRunAt: null, nextRunAt: null }]);
+    vi.stubGlobal("fetch", fetchMock);
+    render(<VpsBackupSection serverId="srv-1" canManage />, { locale: "en" });
+
+    await screen.findByText("Nightly");
+    fireEvent.click(screen.getByRole("button", { name: "Edit backup schedule Nightly" }));
+
+    expect(screen.getByRole("button", { name: "Save schedule" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Cron Expression")).toHaveValue("0 3 * * *");
+    expect(screen.getAllByLabelText("Custom paths (one per line, only for custom type)")[1]).toHaveValue("/srv/app");
+  });
+
   it("uses accessible icon actions for completed records", async () => {
     const fetchMock = vi.fn();
     mockInitialLoad(fetchMock, [], [{ id: "rec-1", backupType: "nginx-config", status: "COMPLETED", fileSize: "1024", localPath: "/tmp/a.tar", offsiteKey: null, errorMessage: null, createdAt: "2026-01-01T00:00:00Z", durationMs: "1000" }]);
@@ -59,5 +94,16 @@ describe("VpsBackupSection", () => {
     await screen.findByText("Completed");
     expect(screen.getByRole("link", { name: "Download backup record" })).toHaveAttribute("href", "/api/servers/srv-1/vps-backup/records/rec-1/download");
     expect(screen.getByRole("button", { name: "Delete backup record" })).toBeInTheDocument();
+  });
+
+  it("keeps manual backup triggers out of the read-only view", async () => {
+    const fetchMock = vi.fn();
+    mockInitialLoad(fetchMock);
+    vi.stubGlobal("fetch", fetchMock);
+    render(<VpsBackupSection serverId="srv-1" canManage={false} />, { locale: "en" });
+
+    await screen.findByText("No backup schedules");
+    expect(screen.queryByText("Manual Backup Trigger")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Nginx configuration/ })).not.toBeInTheDocument();
   });
 });

@@ -12,19 +12,20 @@ import { SystemConfigSection } from "./system-config-section";
 import { TeamWorkspaceSection } from "./team-workspace-section";
 import { SETTINGS_SCHEMA } from "./field-schema";
 import { TOC_SUBTITLE_KEYS } from "./settings-toc";
+import { DEFAULT_PAGE_OPTIONS, type DefaultPageOption } from "@/lib/preferences/user-preferences";
 
 type Props = {
   settings: Record<string, string>;
   runtimeSettings?: RuntimeSettingSummary[];
-  settingUpdateMetadata?: Record<string, SettingUpdateMetadata>;
-  canManage: boolean;
-  twoFactorEnabled?: boolean;
+	settingUpdateMetadata?: Record<string, SettingUpdateMetadata>;
+	canManage: boolean;
+	defaultPageOptions?: readonly DefaultPageOption[];
 };
 
 type SettingsTab = "personal" | "security" | "notifications" | "advanced";
 
 const TAB_SECTION_IDS: Record<Exclude<SettingsTab, "personal">, string[]> = {
-  security: ["2fa", "platform", "password"],
+  security: ["platform", "password"],
   notifications: ["smtp", "telegram"],
   advanced: ["runtime", "dashboard", "offsite", "aiOps"],
 };
@@ -68,9 +69,9 @@ const TAB_META: {
 export function UnifiedSettingsPageClient({
   settings,
   runtimeSettings = [],
-  settingUpdateMetadata = {},
-  canManage,
-  twoFactorEnabled = false,
+	settingUpdateMetadata = {},
+	canManage,
+	defaultPageOptions = DEFAULT_PAGE_OPTIONS,
 }: Props) {
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<SettingsTab>("personal");
@@ -88,6 +89,13 @@ export function UnifiedSettingsPageClient({
     if (typeof window === "undefined") return;
 
     const applyHash = () => {
+      if (window.location.hash === "#2fa") {
+        // Legacy deep links used the administrator-only settings panel. 2FA
+        // belongs to the signed-in account, so preserve the bookmark intent
+        // while routing every role to the self-service page.
+        window.location.replace("/account/security");
+        return;
+      }
       const resolved = resolveHash(window.location.hash);
       if (resolved) {
         setActiveTab(resolved.tab);
@@ -260,7 +268,11 @@ export function UnifiedSettingsPageClient({
 
         {activeTab === "personal" && (
           <div className="space-y-5">
-            <PreferencesSettingsContent showHeader={false} wrapInShell={false} />
+            <PreferencesSettingsContent
+              showHeader={false}
+              wrapInShell={false}
+              defaultPageOptions={defaultPageOptions}
+            />
             <TeamWorkspaceSection canManage={canManage} />
           </div>
         )}
@@ -269,10 +281,9 @@ export function UnifiedSettingsPageClient({
           <SettingsClient
             settings={settings}
             runtimeSettings={runtimeSettings}
-            settingUpdateMetadata={settingUpdateMetadata}
-            canManage={canManage}
-            twoFactorEnabled={twoFactorEnabled}
-            showCategoryNav={false}
+			settingUpdateMetadata={settingUpdateMetadata}
+			canManage={canManage}
+			showCategoryNav={false}
             visibleSectionIds={visibleSectionIds}
           />
           {activeTab === "advanced" && canManage && <SystemConfigSection />}

@@ -11,6 +11,7 @@ import { prisma } from "@/lib/db";
 import { verifyPending2faToken, createSessionToken, getSessionCookieName, getPending2faCookieName, getConfiguredSessionTtlSeconds } from "@/lib/auth/session";
 import { generateCsrfToken, getCsrfCookieName } from "@/lib/auth/csrf";
 import { openTwoFactorSecret } from "@/lib/auth/two-factor-secret";
+import { findMatchingTwoFactorRecoveryCode, normalizeTwoFactorRecoveryCode } from "@/lib/auth/two-factor-recovery";
 import { DEFAULT_ROLE_PERMISSIONS, type RoleKey } from "@/lib/auth/rbac";
 import { auditUserAction, auditSystemAction } from "@/lib/audit/service";
 import { checkRateLimitAsync, getClientIp, LOGIN_RATE_LIMIT } from "@/lib/rate-limit";
@@ -43,12 +44,14 @@ export async function POST(request: Request) {
 			});
 		}
 		const { code } = parsed.data;
-		if (!/^\d{4,8}$/.test(code)) {
+		const isTotpCode = /^\d{6}$/.test(code);
+		const normalizedRecoveryCode = normalizeTwoFactorRecoveryCode(code);
+		if (!isTotpCode && !normalizedRecoveryCode) {
 			return apiError({
 				code: "VALIDATION_FAILED",
-				message: "Please enter a valid verification code",
+				message: "Please enter a valid verification or recovery code",
 				status: 400,
-				details: { fieldErrors: { code: ["format must be 4-8 digits"] } },
+				details: { fieldErrors: { code: ["format must be a 6-digit authenticator code or recovery code"] } },
 			});
 		}
 
@@ -82,6 +85,7 @@ export async function POST(request: Request) {
 			select: {
 				twoFactorSecret: true,
 				twoFactorEnabled: true,
+				twoFactorRecoveryCodes: true,
 				status: true,
 				username: true,
 				mustChangePassword: true,
@@ -108,8 +112,29 @@ export async function POST(request: Request) {
 			});
 		}
 
-		// Verify the TOTP code (open sealed seed; legacy plaintext still accepted)
-		const valid = verifyTOTP({ token: code, secret: openTwoFactorSecret(user.twoFactorSecret) });
+		// Verify an authenticator code first (sealed seed; legacy plaintext still
+		// accepted), then accept and atomically consume a one-use recovery code.
+		let valid = isTotpCode
+			? (await verifyTOTP({ token: code, secret: openTwoFactorSecret(user.twoFactorSecret) })).valid
+			: false;
+		let usedRecoveryCode = false;
+		if (!valid && normalizedRecoveryCode) {
+			const matchingHash = findMatchingTwoFactorRecoveryCode(code, user.twoFactorRecoveryCodes);
+			if (matchingHash && Array.isArray(user.twoFactorRecoveryCodes)) {
+				const remainingHashes = user.twoFactorRecoveryCodes.filter(
+					(hash): hash is string => typeof hash === "string" && hash !== matchingHash,
+				);
+				const consumed = await prisma.user.updateMany({
+					where: {
+						id: sessionPayload.userId,
+						twoFactorRecoveryCodes: { equals: user.twoFactorRecoveryCodes },
+					},
+					data: { twoFactorRecoveryCodes: remainingHashes },
+				});
+				valid = consumed.count === 1;
+				usedRecoveryCode = valid;
+			}
+		}
 		if (!valid) {
 			await auditSystemAction("auth.2fa_failed", { userId: sessionPayload.userId, ip: clientIp }, "WARNING", user.currentTeamId);
 			return apiError({
@@ -142,7 +167,13 @@ export async function POST(request: Request) {
 		// Clear the pending 2FA cookie
 		cookieStore.delete(getPending2faCookieName());
 
-		await auditUserAction(sessionPayload.userId, "auth.login_2fa_ok", { username: user.username, ip: clientIp }, undefined, user?.currentTeamId);
+		await auditUserAction(
+			sessionPayload.userId,
+			usedRecoveryCode ? "auth.login_2fa_recovery_ok" : "auth.login_2fa_ok",
+			{ username: user.username, ip: clientIp },
+			undefined,
+			user?.currentTeamId,
+		);
 
 		const response = NextResponse.json({ success: true });
 		response.cookies.set(getSessionCookieName(), token, {

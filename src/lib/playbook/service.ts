@@ -14,7 +14,6 @@ import type { SessionPayload } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
 import { auditUserAction } from "@/lib/audit/service";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
-import { enqueueJob } from "@/lib/job/service";
 import { NotFoundError, ValidationError, BusinessError } from "@/lib/errors";
 
 import type {
@@ -30,6 +29,13 @@ import type {
   TriggerConfig,
   TriggerType,
 } from "./types";
+import {
+  assertValidPlaybookTriggerConfig,
+  computeNextPlaybookCronRun,
+  isCronTriggerConfig,
+  normalizePlaybookCronExpression,
+} from "./trigger-utils";
+import { queuePlaybookRunWithClient } from "./run-queue";
 
 type TeamSession = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
 
@@ -116,7 +122,11 @@ type RawPlaybook = {
   steps: unknown;
   chainRetry: number;
   enabled: boolean;
+  nextRunAt: Date | null;
+  lastTriggeredAt: Date | null;
+  metricMatchState: unknown;
   createdById: string | null;
+  teamId: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -127,6 +137,7 @@ type RawPlaybookRun = {
   status: string;
   dryRun: boolean;
   triggerContext: unknown;
+  triggerKey: string | null;
   stepResults: unknown;
   errorMessage: string | null;
   startedAt: Date | null;
@@ -146,6 +157,8 @@ function narrowPlaybook(row: RawPlaybook): PlaybookRecord {
     steps: row.steps as PlaybookStep[],
     chainRetry: row.chainRetry,
     enabled: row.enabled,
+    nextRunAt: row.nextRunAt,
+    lastTriggeredAt: row.lastTriggeredAt,
     createdById: row.createdById,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -159,6 +172,7 @@ function narrowPlaybookRun(row: RawPlaybookRun): PlaybookRunRecord {
     status: row.status as PlaybookRunRecord["status"],
     dryRun: row.dryRun,
     triggerContext: row.triggerContext,
+    triggerKey: row.triggerKey,
     stepResults: (row.stepResults ?? []) as PlaybookStepResult[],
     errorMessage: row.errorMessage,
     startedAt: row.startedAt,
@@ -195,16 +209,28 @@ export async function createPlaybook(
   session?: TeamSession | null,
 ): Promise<PlaybookRecord> {
   await assertPlaybookStepsInScope(input.steps as PlaybookStep[], session);
+  try {
+    assertValidPlaybookTriggerConfig(input.triggerType, input.triggerConfig);
+  } catch (error) {
+    throw new ValidationError(error instanceof Error ? error.message : String(error));
+  }
+  const triggerConfig = input.triggerType === "cron" && isCronTriggerConfig(input.triggerConfig)
+    ? { expression: normalizePlaybookCronExpression(input.triggerConfig.expression) }
+    : input.triggerConfig;
+  const nextRunAt = input.enabled && input.triggerType === "cron" && isCronTriggerConfig(triggerConfig)
+    ? computeNextPlaybookCronRun(triggerConfig.expression)
+    : null;
   const teamData = session ? teamCreateData(session) : {};
   const row = await prisma.playbook.create({
     data: {
       name: input.name,
       description: input.description ?? null,
       triggerType: input.triggerType,
-      triggerConfig: input.triggerConfig as unknown as Prisma.InputJsonValue,
+      triggerConfig: triggerConfig as unknown as Prisma.InputJsonValue,
       steps: input.steps as unknown as Prisma.InputJsonValue,
       chainRetry: input.chainRetry,
       enabled: input.enabled,
+      nextRunAt,
       createdById,
       ...teamData,
     },
@@ -226,25 +252,53 @@ export async function updatePlaybook(
   session?: TeamSession | null,
 ): Promise<PlaybookRecord> {
   const { id, ...rest } = input;
-  const existing = await getPlaybook(id, session);
-  if (!existing) throw new NotFoundError(t("backend.playbook.notFound"));
-  if (rest.steps !== undefined) {
-    await assertPlaybookStepsInScope(rest.steps as PlaybookStep[], session);
+  const releaseLock = await acquireAdvisoryLock("playbook-lifecycle", id);
+  let narrowed: PlaybookRecord;
+  try {
+    const existing = await getPlaybook(id, session);
+    if (!existing) throw new NotFoundError(t("backend.playbook.notFound"));
+    if (rest.steps !== undefined) {
+      await assertPlaybookStepsInScope(rest.steps as PlaybookStep[], session);
+    }
+
+    const effectiveTriggerType = rest.triggerType ?? existing.triggerType;
+    const effectiveTriggerConfig = (rest.triggerConfig ?? existing.triggerConfig) as TriggerConfig;
+    const triggerChanged = rest.triggerType !== undefined || rest.triggerConfig !== undefined;
+    if (triggerChanged) {
+      try {
+        assertValidPlaybookTriggerConfig(effectiveTriggerType, effectiveTriggerConfig);
+      } catch (error) {
+        throw new ValidationError(error instanceof Error ? error.message : String(error));
+      }
+    }
+    const normalizedTriggerConfig = triggerChanged && effectiveTriggerType === "cron" && isCronTriggerConfig(effectiveTriggerConfig)
+      ? { expression: normalizePlaybookCronExpression(effectiveTriggerConfig.expression) }
+      : effectiveTriggerConfig;
+    const effectiveEnabled = rest.enabled ?? existing.enabled;
+
+    const data: Prisma.PlaybookUpdateInput = {};
+    if (rest.name !== undefined) data.name = rest.name;
+    if (rest.description !== undefined) data.description = rest.description;
+    if (rest.triggerType !== undefined) data.triggerType = rest.triggerType;
+    if (rest.triggerConfig !== undefined) {
+      data.triggerConfig = normalizedTriggerConfig as unknown as Prisma.InputJsonValue;
+    }
+    if (rest.steps !== undefined) {
+      data.steps = rest.steps as unknown as Prisma.InputJsonValue;
+    }
+    if (rest.chainRetry !== undefined) data.chainRetry = rest.chainRetry;
+    if (rest.enabled !== undefined) data.enabled = rest.enabled;
+    if (triggerChanged || rest.enabled !== undefined) {
+      data.nextRunAt = effectiveEnabled && effectiveTriggerType === "cron" && isCronTriggerConfig(normalizedTriggerConfig)
+        ? computeNextPlaybookCronRun(normalizedTriggerConfig.expression)
+        : null;
+    }
+    if (triggerChanged) data.metricMatchState = Prisma.DbNull;
+    const row = await prisma.playbook.update({ where: { id }, data });
+    narrowed = narrowPlaybook(row);
+  } finally {
+    await releaseLock();
   }
-  const data: Prisma.PlaybookUpdateInput = {};
-  if (rest.name !== undefined) data.name = rest.name;
-  if (rest.description !== undefined) data.description = rest.description;
-  if (rest.triggerType !== undefined) data.triggerType = rest.triggerType;
-  if (rest.triggerConfig !== undefined) {
-    data.triggerConfig = rest.triggerConfig as unknown as Prisma.InputJsonValue;
-  }
-  if (rest.steps !== undefined) {
-    data.steps = rest.steps as unknown as Prisma.InputJsonValue;
-  }
-  if (rest.chainRetry !== undefined) data.chainRetry = rest.chainRetry;
-  if (rest.enabled !== undefined) data.enabled = rest.enabled;
-  const row = await prisma.playbook.update({ where: { id }, data });
-  const narrowed = narrowPlaybook(row);
   await auditUserAction(updatedById, "playbook.update", {
     playbookId: narrowed.id,
     name: narrowed.name,
@@ -354,42 +408,23 @@ export async function runPlaybook(input: {
       );
     }
 
-    const teamData = input.session ? teamCreateData(input.session) : { teamId: playbook.teamId ?? null };
-    const executionState = {
-      schemaVersion: 1,
-      stepsSnapshot: narrowedPlaybook.steps,
-    } as unknown as Prisma.InputJsonValue;
-    run = await prisma.$transaction(async (tx) => {
-      const created = await tx.playbookRun.create({
-        data: {
-          playbookId: input.playbookId,
-          status: "queued",
-          dryRun: input.dryRun,
-          triggerContext: (input.triggerContext ?? null) as Prisma.InputJsonValue,
-          stepResults: [] as unknown as Prisma.InputJsonValue,
-          executionState,
-          startedAt: null,
-          createdById: input.createdById ?? null,
-          ...teamData,
+    const queued = await prisma.$transaction((tx) =>
+      queuePlaybookRunWithClient({
+        client: tx,
+        playbook: {
+          id: playbook.id,
+          name: playbook.name,
+          steps: narrowedPlaybook.steps,
+          chainRetry: playbook.chainRetry,
+          createdById: playbook.createdById,
+          teamId: playbook.teamId ?? null,
         },
-      });
-      const job = await enqueueJob(
-        {
-          type: "playbook.run",
-          title: `Run playbook ${narrowedPlaybook.name}`,
-          payload: { runId: created.id },
-          createdBy: input.createdById ?? null,
-          teamId: teamData.teamId ?? null,
-          priority: 0,
-          maxAttempts: Math.max(1, narrowedPlaybook.chainRetry + 1),
-        },
-        tx,
-      );
-      return tx.playbookRun.update({
-        where: { id: created.id },
-        data: { jobId: job.id },
-      });
-    });
+        dryRun: input.dryRun,
+        triggerContext: input.triggerContext,
+        createdById: input.createdById ?? null,
+      }),
+    );
+    run = queued.run;
   } finally {
     await releaseLock();
   }

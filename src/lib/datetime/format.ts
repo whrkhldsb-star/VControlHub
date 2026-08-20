@@ -1,6 +1,7 @@
 import type { Locale } from "@/lib/i18n/core";
+import { APP_TIME_ZONE } from "./time-zone";
 
-export const APP_TIME_ZONE = "Asia/Shanghai";
+export { APP_TIME_ZONE } from "./time-zone";
 
 const dateTimeFormatter = new Intl.DateTimeFormat("zh-CN", {
   timeZone: APP_TIME_ZONE,
@@ -85,7 +86,7 @@ function getCachedFormatter(locale: Locale, kind: FormatterKind): Intl.DateTimeF
 }
 
 function toDate(value: Date | string | number | null | undefined) {
-  if (!value) return null;
+  if (value === null || value === undefined || value === "") return null;
   const date = value instanceof Date ? value : new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
 }

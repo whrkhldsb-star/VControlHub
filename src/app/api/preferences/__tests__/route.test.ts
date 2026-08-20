@@ -9,6 +9,11 @@ const { prismaMock } = vi.hoisted(() => ({
   },
 }));
 
+const apiSession = vi.hoisted(() => ({
+  userId: "u_1",
+  roles: ["admin"] as Array<"admin" | "viewer">,
+}));
+
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 vi.mock("@/lib/http/api-guard", () => ({
   withApiRoute: vi.fn(async (_request, _options, handler) => {
@@ -20,7 +25,7 @@ vi.mock("@/lib/http/api-guard", () => ({
         body = text.length === 0 ? undefined : JSON.parse(text);
       } catch { /* ignore */ }
     }
-    return handler({ session: { userId: "u_1" }, body });
+    return handler({ session: apiSession, body });
   }),
 }));
 
@@ -31,6 +36,7 @@ describe("/api/preferences", () => {
     vi.clearAllMocks();
     prismaMock.user.findUnique.mockResolvedValue({ preferences: null });
     prismaMock.user.update.mockResolvedValue({});
+    apiSession.roles = ["admin"];
   });
 
   it("normalizes stored preferences and does not return legacy no-op fields", async () => {
@@ -138,5 +144,17 @@ describe("/api/preferences", () => {
       autoProbeEnabled: false,
       autoProbeIntervalSec: 60,
     }));
+  });
+
+  it("rejects a default page the current role cannot open", async () => {
+    apiSession.roles = ["viewer"];
+
+    const response = await PUT(new Request("http://local/api/preferences", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ defaultPage: "/docker" }),
+    }));
+
+    expect((await response.json()).defaultPage).toBe("/");
   });
 });

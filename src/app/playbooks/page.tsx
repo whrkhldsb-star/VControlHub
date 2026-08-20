@@ -67,6 +67,8 @@ export default async function PlaybooksPage() {
 		steps: p.steps,
 		chainRetry: p.chainRetry,
 		enabled: p.enabled,
+		nextRunAt: p.nextRunAt ? p.nextRunAt.toISOString() : null,
+		lastTriggeredAt: p.lastTriggeredAt ? p.lastTriggeredAt.toISOString() : null,
 		createdAt: p.createdAt.toISOString(),
 	}));
 

@@ -6,6 +6,8 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { LinkIcon } from "@/components/icons";
 import type { StorageEntry } from "./file-entry-utils";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { QUICK_SHARE_DEFAULT_EXPIRY_HOURS } from "@/lib/share-link/policy";
 
 type ShareFileButtonProps = {
   entry: StorageEntry;
@@ -25,6 +27,7 @@ export function ShareFileButton({
   const [shareUrl, setShareUrl] = useState("");
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
+	const [confirming, setConfirming] = useState(false);
 
   const savingRef = useRef(false);
   const copiedTimerRef = useRef<number | null>(null);
@@ -58,6 +61,7 @@ export function ShareFileButton({
 
   async function handleShare() {
     if (!canShare || savingRef.current) return;
+		setConfirming(false);
     savingRef.current = true;
     setSaving(true);
     setError("");
@@ -65,7 +69,7 @@ export function ShareFileButton({
       const data = await csrfFetch<{ token: string }>("/api/share-links", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileEntryId: entry.id }),
+        body: JSON.stringify({ fileEntryId: entry.id, quick: true }),
       });
       const url = `${window.location.origin}/share/${data.token}`;
       setShareUrl(url);
@@ -87,7 +91,7 @@ export function ShareFileButton({
     <div className="relative inline-flex">
       <button
         type="button"
-        onClick={handleShare}
+        onClick={() => setConfirming(true)}
         disabled={saving}
         title={shareUrl ? t("sharesPage.button.regenerate") : t("sharesPage.button.title")}
         aria-label={label}
@@ -140,6 +144,17 @@ export function ShareFileButton({
           ) : null}
         </div>
       ) : null}
+		<ConfirmDialog
+			open={confirming}
+			title={t("sharesPage.button.quickConfirmTitle")}
+			description={t("sharesPage.button.quickConfirmDescription", { hours: QUICK_SHARE_DEFAULT_EXPIRY_HOURS })}
+			cancelLabel={t("sharesPage.button.quickConfirmCancel")}
+			confirmLabel={t("sharesPage.button.quickConfirmAction")}
+			onCancel={() => setConfirming(false)}
+			onConfirm={() => void handleShare()}
+			busy={saving}
+			closeOnBackdrop={!saving}
+		/>
     </div>
   );
 }

@@ -155,7 +155,7 @@ describe("GlobalSearch", () => {
 		}
 	});
 
-	it("routes 2FA and password actions to concrete settings anchors instead of dead modal events", async () => {
+	it("routes 2FA and password actions to self-service account pages", async () => {
 		pushMock.mockClear();
 		const dispatchSpy = vi.spyOn(window, "dispatchEvent");
 		const user = userEvent.setup();
@@ -167,9 +167,9 @@ describe("GlobalSearch", () => {
 		await user.type(await screen.findByPlaceholderText("搜索页面、操作..."), "两步验证");
 		await user.click(await screen.findByRole("button", { name: /两步验证/ }));
 
-		expect(pushMock).toHaveBeenCalledWith("/settings#2fa");
+		expect(pushMock).toHaveBeenCalledWith("/account/security");
 		expect(dispatchSpy).not.toHaveBeenCalledWith(expect.objectContaining({ type: "open-2fa-modal" }));
-		expect(getSearchItems().find((item) => item.label === "修改密码")?.href).toBe("/settings#password");
+		expect(getSearchItems().find((item) => item.label === "修改密码")?.href).toBe("/account/password");
 		expect(getSearchItems().find((item) => item.label === "个人偏好")?.href).toBe("/settings#personal-preferences");
 		dispatchSpy.mockRestore();
 	});

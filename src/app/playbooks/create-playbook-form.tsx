@@ -223,9 +223,11 @@ export function CreatePlaybookForm({
 						placeholder={t("playbooksPage.triggerConfig.cronPlaceholder")}
 						className={monoFieldInputClass}
 					/>
+					<p className="text-xs text-[var(--text-muted)]">{t("playbooksPage.createForm.cronHint")}</p>
 				</div>
 			) : (
-				<div className="grid gap-4 md:grid-cols-3">
+				<div className="space-y-1.5">
+					<div className="grid gap-4 md:grid-cols-3">
 					<div className="space-y-1.5">
 						<label htmlFor="playbook-metric" className={fieldLabelClass}>
 							{t("playbooksPage.triggerConfig.metric")}
@@ -271,6 +273,8 @@ export function CreatePlaybookForm({
 							className={fieldInputClass}
 						/>
 					</div>
+					</div>
+					<p className="text-xs text-[var(--text-muted)]">{t("playbooksPage.createForm.metricHint")}</p>
 				</div>
 			)}
 

@@ -30,7 +30,7 @@ const updateSchema = z.object({
 	backupType: z.enum(VALID_PRESET_TYPES as [string, ...string[]]).optional(),
 	paths: z.array(z.string().max(500)).max(20).optional(),
 	note: z.string().max(500).optional(),
-	retentionDays: z.number().int().min(1).max(365).optional(),
+	retentionDays: z.number().int().min(1).max(365).nullable().optional(),
 	status: z.enum(["ACTIVE", "PAUSED"]).optional(),
 });
 
@@ -47,14 +47,6 @@ export async function PATCH(
 
 			const teamAccess = await assertServerTeamAccess(session, serverId);
 			if (!teamAccess.ok) return teamAccess.response;
-
-			const existing = await prisma.vpsBackupSchedule.findFirst({
-				where: { id: scheduleId, serverId },
-				select: { id: true },
-			});
-			if (!existing) {
-				return Response.json({ error: "Schedule not found" }, { status: 404 });
-			}
 
 			try {
 				const updated = await updateVpsBackupSchedule(scheduleId, serverId, body);

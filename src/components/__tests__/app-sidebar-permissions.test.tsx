@@ -63,8 +63,8 @@ function renderWithGate(
 // the AppSidebar filter can be tested in isolation from the catalog.
 const SAMPLE_DECLARED = {
 	"/dashboard": [],
-	"/servers": ["server:ssh", "server:write"],
-	"/files": ["share:create", "storage:delete", "storage:manage-node", "storage:write"],
+	"/servers": ["command:create", "command:execute", "server:read", "server:ssh", "server:write"],
+	"/files": ["share:create", "storage:delete", "storage:manage-node", "storage:read", "storage:write"],
 	"/backups": ["backup:create", "backup:read", "backup:restore"],
 	"/users": ["user:manage", "user:read"],
 	"/api-tokens": ["api-token:manage"],
@@ -76,7 +76,7 @@ const SAMPLE_DECLARED = {
 // not coupled to the live DEFAULT_ROLE_PERMISSIONS table.
 const READ_ONLY_GATE: SessionGate = {
 	roles: [],
-	permissions: ["server:read"],
+	permissions: ["server:read", "storage:read"],
 	authenticated: true,
 };
 const STORAGE_GATE: SessionGate = {
@@ -119,14 +119,15 @@ describe("AppSidebar permission-gated render", () => {
 		expect(screen.getAllByRole("link", { name: /仪表盘/ })[0]).toHaveAttribute("aria-current", "page");
 	});
 
-	it("hides main nav items whose declared permissions the session lacks", () => {
+	it("hides main nav items whose declared permissions the session lacks", async () => {
 		renderWithGate(READ_ONLY_GATE, SAMPLE_DECLARED);
+		await expandNavGroup(/文件与传输/);
 
 		// /dashboard has no declared permissions → visible to anyone authenticated.
 		expect(screen.getAllByRole("link", { name: /仪表盘/ }).length).toBeGreaterThan(0);
-		// /servers, /files, /backups, /users, /api-tokens all gated.
-		expect(screen.queryByRole("link", { name: /VPS 管理/ })).not.toBeInTheDocument();
-		expect(screen.queryByRole("link", { name: /文件管理/ })).not.toBeInTheDocument();
+		// Read permissions are enough to discover and open the read-only pages.
+		expect(screen.getAllByRole("link", { name: /VPS 管理/ }).length).toBeGreaterThan(0);
+		expect(screen.getAllByRole("link", { name: /文件管理/ }).length).toBeGreaterThan(0);
 		expect(screen.queryByRole("link", { name: /备份迁移/ })).not.toBeInTheDocument();
 		expect(screen.queryByRole("link", { name: /用户管理/ })).not.toBeInTheDocument();
 	});
@@ -134,7 +135,7 @@ describe("AppSidebar permission-gated render", () => {
 	it("hides the system-management section entirely when no system nav items are visible", () => {
 		renderWithGate(READ_ONLY_GATE, SAMPLE_DECLARED);
 
-		// READ_ONLY_GATE has only server:read; user / api-token / audit all gated.
+		// READ_ONLY_GATE has only read access to servers/files; system controls stay gated.
 		expect(screen.queryByRole("link", { name: /用户管理/ })).not.toBeInTheDocument();
 		expect(screen.queryByRole("link", { name: /API Token/ })).not.toBeInTheDocument();
 		expect(screen.queryByRole("link", { name: /审计日志/ })).not.toBeInTheDocument();

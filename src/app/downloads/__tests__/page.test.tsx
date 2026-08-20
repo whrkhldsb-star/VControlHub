@@ -1,15 +1,19 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/auth/require-session", () => ({
-  requireSession: vi.fn().mockResolvedValue({
-    userId: "u1",
-    username: "operator",
-    roles: ["operator"],
+const { requirePagePermissionMock } = vi.hoisted(() => ({
+	requirePagePermissionMock: vi.fn().mockResolvedValue({
+		userId: "u1",
+		username: "operator",
+		roles: ["operator"],
     permissions: ["storage:read", "storage:write"],
-    currentTeamId: "team-a",
-    mustChangePassword: false,
-  }),
+		currentTeamId: "team-a",
+		mustChangePassword: false,
+	}),
+}));
+
+vi.mock("@/lib/auth/page-guard", () => ({
+	requirePagePermission: requirePagePermissionMock,
 }));
 
 vi.mock("@/lib/auth/authorization", () => ({
@@ -50,10 +54,11 @@ describe("DownloadsPage", () => {
     serverFindManyMock.mockClear();
   });
 
-  it("hydrates only download-capable VPS targets within team scope", async () => {
-    render(await DownloadsPage());
+	it("hydrates only download-capable VPS targets within team scope", async () => {
+		render(await DownloadsPage());
 
-    expect(screen.getByTestId("downloads-client")).toHaveTextContent("下载 VPS:当前：直连");
+		expect(requirePagePermissionMock).toHaveBeenCalledWith("storage:read", { redirectTo: "/downloads" });
+		expect(screen.getByTestId("downloads-client")).toHaveTextContent("下载 VPS:当前：直连");
     expect(serverFindManyMock).toHaveBeenCalledWith(expect.objectContaining({
       where: {
         AND: [

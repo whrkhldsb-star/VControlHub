@@ -128,7 +128,11 @@ describe("playbook service", () => {
       steps: baseRow.steps as never, chainRetry: 2, enabled: true,
     }, "u1", session);
     expect(mocks.playbookCreate).toHaveBeenCalledWith({
-      data: expect.objectContaining({ teamId: "team1", createdById: "u1" }),
+      data: expect.objectContaining({
+        teamId: "team1",
+        createdById: "u1",
+        nextRunAt: expect.any(Date),
+      }),
     });
     expect(mocks.serverFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -144,6 +148,16 @@ describe("playbook service", () => {
     expect(mocks.releaseAdvisoryLock).toHaveBeenCalled();
     expect(mocks.playbookDelete).toHaveBeenCalledWith({ where: { id: "pb1" } });
     expect(mocks.auditUserAction).toHaveBeenCalledTimes(3);
+  });
+
+  it("rejects a partial trigger-type update that would leave an incompatible trigger config", async () => {
+    mocks.playbookFindFirst.mockResolvedValue(baseRow);
+    const session = { userId: "u1", roles: ["operator"] as import("@/lib/auth/rbac").RoleKey[], currentTeamId: "team1" };
+
+    await expect(
+      updatePlaybook({ id: "pb1", triggerType: "metric" }, "u1", session),
+    ).rejects.toThrow(/metric trigger requires/i);
+    expect(mocks.playbookUpdate).not.toHaveBeenCalled();
   });
 
   it("rejects create when run_command targets servers outside team scope", async () => {

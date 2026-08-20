@@ -10,7 +10,7 @@ import { ActionButton } from "@/components/action-button";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
 import { getErrorMessage } from "@/lib/http/error-message";
-type Step = "idle" | "setup" | "verify" | "disable";
+type Step = "idle" | "setup" | "verify" | "disable" | "regenerate" | "recovery";
 
 export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 	const { t } = useI18n();
@@ -21,6 +21,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 	const [secret, setSecret] = useState("");
 	const [qrDataUrl, setQrDataUrl] = useState("");
 	const [code, setCode] = useState("");
+	const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState("");
 
@@ -63,12 +64,39 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 				body: JSON.stringify({ code, secret }),
 			});
 			if (enableData.error) { setError(enableData.error); return; }
+			if (!Array.isArray(enableData.recoveryCodes) || enableData.recoveryCodes.some((item: unknown) => typeof item !== "string")) {
+				setError(t("auth.2fa-error-request-failed"));
+				return;
+			}
 			setSecret("");
 			setQrDataUrl("");
 			setCode("");
-			setStep("idle");
+			setRecoveryCodes(enableData.recoveryCodes);
+			setStep("recovery");
 			setEnabledOverride(true);
 			router.refresh();
+		} catch (err) { setError(messageFromError(err, t("auth.2fa-error-request-failed"))); }
+		finally { setLoading(false); }
+	};
+
+	const handleRegenerateRecoveryCodes = async () => {
+		if (code.length !== 6) { setError(t("auth.2fa-error-code-length")); return; }
+		setLoading(true);
+		setError("");
+		try {
+			const data = await csrfFetch("/api/auth/2fa/recovery-codes", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ code }),
+			});
+			if (data.error) { setError(data.error); return; }
+			if (!Array.isArray(data.recoveryCodes) || data.recoveryCodes.some((item: unknown) => typeof item !== "string")) {
+				setError(t("auth.2fa-error-request-failed"));
+				return;
+			}
+			setCode("");
+			setRecoveryCodes(data.recoveryCodes);
+			setStep("recovery");
 		} catch (err) { setError(messageFromError(err, t("auth.2fa-error-request-failed"))); }
 		finally { setLoading(false); }
 	};
@@ -123,9 +151,14 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 					<p className="text-xs text-[var(--text-secondary)] mb-3">
 						{t("auth.2fa-disable-description")}
 					</p>
-					<ActionButton type="button" variant="danger" onClick={() => { setStep("disable"); setCode(""); setError(""); }} className="text-xs">
-						{t("auth.2fa-disable")}
-					</ActionButton>
+					<div className="flex flex-wrap gap-2">
+						<ActionButton type="button" variant="secondary" onClick={() => { setStep("regenerate"); setCode(""); setError(""); }} className="text-xs">
+							{t("auth.2fa-regenerate-recovery-codes")}
+						</ActionButton>
+						<ActionButton type="button" variant="danger" onClick={() => { setStep("disable"); setCode(""); setError(""); }} className="text-xs">
+							{t("auth.2fa-disable")}
+						</ActionButton>
+					</div>
 				</div>
 			)}
 
@@ -210,6 +243,65 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 					>
 						{t("auth.2fa-cancel")}
 					</button>
+				</div>
+			)}
+
+			{step === "regenerate" && (
+				<div className="space-y-4">
+					<p className="text-xs text-[var(--text-secondary)]">{t("auth.2fa-regenerate-recovery-description")}</p>
+					<label htmlFor="two-factor-regenerate-code" className="block text-xs font-medium text-[var(--text-secondary)]">
+						{t("auth.2fa-current-code-label")}
+					</label>
+					<div className="flex gap-2">
+						<input
+							id="two-factor-regenerate-code"
+							type="text"
+							inputMode="numeric"
+							maxLength={6}
+							value={code}
+							onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+							placeholder="000000"
+							className={cn(UI_INPUT, "flex-1")}
+						/>
+						<ActionButton type="button" onClick={handleRegenerateRecoveryCodes} disabled={loading || code.length !== 6} className="text-xs">
+							{loading ? t("auth.2fa-verifying") : t("auth.2fa-regenerate-recovery-codes")}
+						</ActionButton>
+					</div>
+					<button type="button" onClick={() => { setStep("idle"); setCode(""); setError(""); }} className="text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition">
+						{t("auth.2fa-cancel")}
+					</button>
+				</div>
+			)}
+
+			{step === "recovery" && (
+				<div className="space-y-4">
+					<div className="rounded-lg border border-[var(--warning-border)] bg-[var(--warning-bg)] px-3 py-2 text-xs text-[var(--text-secondary)]">
+						{t("auth.2fa-recovery-warning")}
+					</div>
+					<div>
+						<p className="text-xs font-medium text-[var(--text-primary)]">{t("auth.2fa-recovery-title")}</p>
+						<p className="mt-1 text-xs text-[var(--text-secondary)]">{t("auth.2fa-recovery-description")}</p>
+					</div>
+					<div className="grid gap-2 sm:grid-cols-2">
+						{recoveryCodes.map((recoveryCode) => (
+							<code key={recoveryCode} className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-center text-sm font-semibold tracking-wide text-[var(--text-primary)] select-all">
+								{recoveryCode}
+							</code>
+						))}
+					</div>
+					<div className="flex flex-wrap gap-2">
+						<ActionButton
+							type="button"
+							variant="secondary"
+							onClick={() => void navigator.clipboard?.writeText(recoveryCodes.join("\n"))}
+							className="text-xs"
+						>
+							{t("auth.2fa-recovery-copy")}
+						</ActionButton>
+						<ActionButton type="button" onClick={() => { setRecoveryCodes([]); setStep("idle"); }} className="text-xs">
+							{t("auth.2fa-recovery-saved")}
+						</ActionButton>
+					</div>
 				</div>
 			)}
 		</div>

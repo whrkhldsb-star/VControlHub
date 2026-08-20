@@ -14,6 +14,8 @@ type Verify2faFormProps = {
 export function Verify2faForm({ nextPath, error }: Verify2faFormProps) {
 	const { t } = useI18n();
 	const [digits, setDigits] = useState<string[]>(Array(6).fill(""));
+	const [mode, setMode] = useState<"totp" | "recovery">("totp");
+	const [recoveryCode, setRecoveryCode] = useState("");
 	const [submitting, setSubmitting] = useState(false);
 	const [errorMsg, setErrorMsg] = useState(error);
 	const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -81,8 +83,10 @@ if (data.success) {
 			}
 
 			setErrorMsg(data.error || t("login.verify2faFailed"));
-			setDigits(Array(6).fill(""));
-			inputRefs.current[0]?.focus();
+			if (mode === "totp") {
+				setDigits(Array(6).fill(""));
+				inputRefs.current[0]?.focus();
+			}
 		} catch {
 			setErrorMsg(t("login.verify2faNetworkError"));
 		} finally {
@@ -92,14 +96,34 @@ if (data.success) {
 
 	function handleResubmit(e: React.FormEvent) {
 		e.preventDefault();
-		const code = digits.join("");
-		if (code.length === 6) {
+		const code = mode === "totp" ? digits.join("") : recoveryCode.trim();
+		if ((mode === "totp" && code.length === 6) || (mode === "recovery" && code.length > 0)) {
 			submitCode(code);
 		}
 	}
 
 	return (
 		<form onSubmit={handleResubmit} className="space-y-4">
+			<div className="flex justify-center gap-2" role="group" aria-label={t("login.verify2faMethodLabel")}>
+				<button
+					type="button"
+					aria-pressed={mode === "totp"}
+					onClick={() => { setMode("totp"); setErrorMsg(undefined); }}
+					className={`rounded-lg px-3 py-1.5 text-xs font-medium ${mode === "totp" ? "bg-[var(--accent-bg)] text-[var(--accent)]" : "text-[var(--text-muted)] hover:bg-[var(--surface-hover)]"}`}
+				>
+					{t("login.verify2faUseAuthenticator")}
+				</button>
+				<button
+					type="button"
+					aria-pressed={mode === "recovery"}
+					onClick={() => { setMode("recovery"); setErrorMsg(undefined); }}
+					className={`rounded-lg px-3 py-1.5 text-xs font-medium ${mode === "recovery" ? "bg-[var(--accent-bg)] text-[var(--accent)]" : "text-[var(--text-muted)] hover:bg-[var(--surface-hover)]"}`}
+				>
+					{t("login.verify2faUseRecovery")}
+				</button>
+			</div>
+
+			{mode === "totp" ? (
 			<div className="flex justify-center gap-2">
 				{digits.map((digit, i) => (
 					<input
@@ -120,6 +144,24 @@ if (data.success) {
 					/>
 				))}
 			</div>
+			) : (
+				<div className="space-y-2">
+					<label htmlFor="two-factor-recovery-code" className="block text-sm font-medium text-[var(--text-secondary)]">
+						{t("login.verify2faRecoveryLabel")}
+					</label>
+					<input
+						id="two-factor-recovery-code"
+						type="text"
+						autoComplete="one-time-code"
+						value={recoveryCode}
+						onChange={(event) => setRecoveryCode(event.target.value.toUpperCase())}
+						placeholder="ABCD-EFGH-JKLM"
+						disabled={submitting}
+						className="h-12 w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 text-center font-mono text-sm font-semibold tracking-wide text-[var(--text-primary)] outline-none transition-[box-shadow,border-color] focus:border-[var(--color-action-border)] focus:bg-[var(--input-bg)] focus:ring-[var(--color-action-ring)] disabled:opacity-50"
+					/>
+					<p className="text-xs text-[var(--text-muted)]">{t("login.verify2faRecoveryDescription")}</p>
+				</div>
+			)}
 
 			{errorMsg ? (
 				<StateBox tone="danger" role="alert" className="py-2.5 text-center">
@@ -129,7 +171,7 @@ if (data.success) {
 
 			<button
 				type="submit"
-				disabled={submitting || digits.some((d) => !d)}
+				disabled={submitting || (mode === "totp" ? digits.some((d) => !d) : recoveryCode.trim().length === 0)}
 				data-variant="primary" className="w-full py-2.5 text-sm font-semibold"
 			>
 				{submitting ? t("login.verify2faSubmitting") : t("login.verify2faSubmit")}

@@ -26,6 +26,7 @@ import { startJobMaintenanceWorker, stopJobMaintenanceWorkerForTests } from "@/l
 import { startQuickServiceJobWorker, stopQuickServiceJobWorkerForTests } from "@/lib/quick-service/job-worker";
 import { startScheduledTaskWorker, stopScheduledTaskWorkerForTests } from "@/lib/scheduled-task/worker";
 import { startPlaybookRunWorker, stopPlaybookRunWorkerForTests } from "@/lib/playbook/worker";
+import { startPlaybookTriggerWorker, stopPlaybookTriggerWorkerForTests } from "@/lib/playbook/trigger-worker";
 import { startSftpSyncJobWorker, stopSftpSyncJobWorkerForTests } from "@/lib/storage/sftp-sync-job";
 import { startSyncScheduleWorker, stopSyncScheduleWorkerForTests } from "@/lib/sync/sync-schedule-worker";
 import { startSftpStaleInventoryWorker, stopSftpStaleInventoryWorkerForTests } from "@/lib/storage/sftp-stale-inventory-job";
@@ -55,6 +56,7 @@ export type WorkerId =
   | "sync-schedule"
   | "sftp-stale-inventory"
   | "operation-task-retention"
+  | "playbook-trigger"
   | "playbook-run"
   | "ticket-sla"
   | "vps-backup"
@@ -107,6 +109,7 @@ function getRegistryState(): Record<WorkerId, { started: boolean }> {
       "sync-schedule": { started: false },
       "sftp-stale-inventory": { started: false },
       "operation-task-retention": { started: false },
+      "playbook-trigger": { started: false },
       "playbook-run": { started: false },
       "ticket-sla": { started: false },
       "vps-backup": { started: false },
@@ -217,6 +220,16 @@ const PLAYBOOK_RUN: WorkerSpec = {
     await startPlaybookRunWorker();
   },
   stop: () => stopPlaybookRunWorkerForTests(),
+};
+
+const PLAYBOOK_TRIGGER: WorkerSpec = {
+  id: "playbook-trigger",
+  label: "Playbook Cron trigger dispatch",
+  jobType: "playbook.trigger.tick",
+  start: async () => {
+    await startPlaybookTriggerWorker();
+  },
+  stop: () => stopPlaybookTriggerWorkerForTests(),
 };
 
 const SCHEDULED_TASK: WorkerSpec = {
@@ -376,6 +389,7 @@ export const WORKER_REGISTRY: readonly WorkerSpec[] = Object.freeze([
   SFTP_STALE_INVENTORY,
   SYNC_SCHEDULE,
   OPERATION_TASK_RETENTION,
+  PLAYBOOK_TRIGGER,
   PLAYBOOK_RUN,
   TICKET_SLA,
   VPS_BACKUP,
