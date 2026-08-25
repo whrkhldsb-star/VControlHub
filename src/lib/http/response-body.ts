@@ -28,6 +28,7 @@ export async function readResponseTextLimited(
 	if (rawLength && /^\d+$/.test(rawLength)) {
 		const declaredLength = Number(rawLength);
 		if (Number.isSafeInteger(declaredLength) && declaredLength > maxBytes) {
+			await response.body?.getReader().cancel().catch(() => undefined);
 			throw new ResponseBodyTooLargeError(maxBytes);
 		}
 	}

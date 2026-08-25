@@ -267,6 +267,7 @@ async function executeConfirmedServerlessAction(
     params: string;
   },
   actor: HostedActionSession,
+  actionScope: Record<string, unknown>,
 ) {
   const permission = requiredPermissionForAction(action.actionType);
   if (!sessionHasPermission(actor, permission)) {
@@ -274,7 +275,7 @@ async function executeConfirmedServerlessAction(
   }
 
   const claimed = await prisma.aiHostedAction.updateMany({
-    where: { id: action.id, status: "PENDING_APPROVAL" },
+    where: { id: action.id, status: "PENDING_APPROVAL", ...actionScope },
     data: {
       status: "EXECUTING",
       approverId: actor.userId,
@@ -332,9 +333,10 @@ async function executeConfirmedAutomationAction(
     params: string;
   },
   actor: HostedActionSession,
+  actionScope: Record<string, unknown>,
 ) {
   const claimed = await prisma.aiHostedAction.updateMany({
-    where: { id: action.id, status: "PENDING_APPROVAL" },
+    where: { id: action.id, status: "PENDING_APPROVAL", ...actionScope },
     data: {
       status: "EXECUTING",
       approverId: actor.userId,
@@ -379,18 +381,19 @@ export async function approveHostedAction(actionId: string, approver: HostedActi
   const approvalScope = approver.currentTeamId
     ? { teamId: approver.currentTeamId }
     : teamWhere(sessionForTeamScope(approver)!);
+  const actionScope = approvalScope;
   const action = await prisma.aiHostedAction.findFirst({
-    where: { id: actionId, ...approvalScope },
+    where: { id: actionId, ...actionScope },
   });
   if (!action) throw new NotFoundError(t("backend.ai.actionNotFoundOrNotAuthorizedToApprove"));
   if (action.status !== "PENDING_APPROVAL") throw new BusinessError(t("backend.ai.actionIsNotPendingApproval"));
   if (!isHostedActionType(action.actionType)) throw new BusinessError(t("backend.ai.unsupportedActionType"));
   if (action.actionType === "create_automation_task") {
-    await executeConfirmedAutomationAction(action, approver);
+    await executeConfirmedAutomationAction(action, approver, actionScope);
     return;
   }
   if (action.actionType === "manage_cron") {
-    await executeConfirmedServerlessAction(action, approver);
+    await executeConfirmedServerlessAction(action, approver, actionScope);
     return;
   }
   if (SERVERLESS_ACTION_TYPES.has(action.actionType)) {
@@ -428,7 +431,7 @@ export async function approveHostedAction(actionId: string, approver: HostedActi
 
   // Atomic compare-and-swap: only transition this workspace's pending action.
   const claimed = await prisma.aiHostedAction.updateMany({
-    where: { id: actionId, status: "PENDING_APPROVAL", ...approvalScope },
+    where: { id: actionId, status: "PENDING_APPROVAL", ...actionScope },
     data: { status: "APPROVED", approverId: approver.userId, approvedAt: new Date() },
   });
   if (claimed.count === 0) {
@@ -453,7 +456,12 @@ export async function approveHostedAction(actionId: string, approver: HostedActi
 }
 
 export async function confirmHostedAction(actionId: string, requester: HostedActionSession) {
-  const action = await prisma.aiHostedAction.findFirst({ where: { id: actionId, requesterId: requester.userId } });
+  const actionScope = requester.currentTeamId
+    ? { teamId: requester.currentTeamId }
+    : teamWhere(sessionForTeamScope(requester)!);
+  const action = await prisma.aiHostedAction.findFirst({
+    where: { id: actionId, requesterId: requester.userId, ...actionScope },
+  });
   if (!action) throw new NotFoundError(t("backend.ai.actionNotFoundOrNotAuthorizedToConfirm"));
   if (action.status !== "PENDING_APPROVAL") throw new BusinessError(t("backend.ai.actionIsNotPendingConfirmation"));
   if (action.autoApproved) throw new BusinessError(t("backend.ai.autoApprovedActionsDoNotRequireManualConfirmation"));
@@ -470,12 +478,12 @@ export async function confirmHostedAction(actionId: string, requester: HostedAct
   const params = JSON.parse(action.params) as Record<string, unknown>;
 
   if (action.actionType === "create_automation_task") {
-    await executeConfirmedAutomationAction(action, requester);
+    await executeConfirmedAutomationAction(action, requester, actionScope);
     return;
   }
 
   if (action.actionType === "manage_cron") {
-    await executeConfirmedServerlessAction(action, requester);
+    await executeConfirmedServerlessAction(action, requester, actionScope);
     return;
   }
 
@@ -488,7 +496,7 @@ export async function confirmHostedAction(actionId: string, requester: HostedAct
     if (!playbook) throw new BusinessError(t("backend.ai.playbookNotFoundOrOutsideTeamScope"));
 
     const claimed = await prisma.aiHostedAction.updateMany({
-      where: { id: actionId, status: "PENDING_APPROVAL" },
+      where: { id: actionId, status: "PENDING_APPROVAL", ...actionScope },
       data: {
         status: "APPROVED",
         approverId: requester.userId,
@@ -598,7 +606,7 @@ export async function rejectHostedAction(actionId: string, actor: HostedActionSe
   // Scope approvers to the selected workspace; requesters may only cancel self.
   const where = canApprove
     ? { id: actionId, status: "PENDING_APPROVAL" as const, ...approvalScope }
-    : { id: actionId, status: "PENDING_APPROVAL" as const, requesterId: actor.userId };
+    : { id: actionId, status: "PENDING_APPROVAL" as const, requesterId: actor.userId, ...approvalScope };
   const claimed = await prisma.aiHostedAction.updateMany({
     where,
     data: {

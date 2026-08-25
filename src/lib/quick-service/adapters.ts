@@ -37,7 +37,15 @@ async function fetchCatalogJson(url: string): Promise<unknown> {
 		signal: AbortSignal.timeout(APP_SOURCE_TIMEOUT_MS),
 		headers: { Accept: "application/json" },
 	});
-	if (!res.ok) throw new Error(`Source returned ${res.status}`);
+	if (!res.ok) {
+		let errorText = "";
+		try {
+			errorText = await readResponseTextLimited(res, 16 * 1024);
+		} catch {
+			// The body helper cancels oversized/error streams; preserve the HTTP status.
+		}
+		throw new Error(`Source returned ${res.status}${errorText ? `: ${errorText.slice(0, 300)}` : ""}`);
+	}
 	const declaredSize = Number(res.headers.get("content-length"));
 	if (Number.isFinite(declaredSize) && declaredSize > APP_SOURCE_MAX_BYTES) {
 		throw new Error("App source response is too large");

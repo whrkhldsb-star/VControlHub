@@ -353,7 +353,7 @@ describe("AI hosted action approvals", () => {
 		await rejectHostedAction("action_1", { userId: "user_1", roles: ["operator"] }, "User rejected");
 
 		expect(prismaMock.aiHostedAction.updateMany).toHaveBeenCalledWith({
-			where: { id: "action_1", status: "PENDING_APPROVAL", requesterId: "user_1" },
+			where: { id: "action_1", status: "PENDING_APPROVAL", requesterId: "user_1", teamId: null },
 			data: expect.objectContaining({ status: "REJECTED", approverId: "user_1", errorMessage: "User rejected" }),
 		});
 		expect(prismaMock.aiHostedAction.findUniqueOrThrow).toHaveBeenCalledWith({ where: { id: "action_1" } });
@@ -473,7 +473,7 @@ describe("AI hosted action approvals", () => {
 		});
 
 		expect(prismaMock.aiHostedAction.updateMany).toHaveBeenCalledWith({
-			where: { id: "action_cron", status: "PENDING_APPROVAL" },
+			where: { id: "action_cron", status: "PENDING_APPROVAL", teamId: "team_a" },
 			data: expect.objectContaining({
 				status: "EXECUTING",
 				approverId: "operator_1",
