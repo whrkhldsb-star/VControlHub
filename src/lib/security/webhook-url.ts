@@ -99,6 +99,56 @@ export async function assertWebhookUrlSafeForServerFetch(value: string) {
 	return syntax;
 }
 
+/**
+ * Webhook responses are only inspected for status plus a short body excerpt.
+ * Buffer at most this much so a hostile endpoint cannot exhaust memory, and so
+ * the per-request dispatcher can be torn down without waiting on an unread body.
+ */
+const WEBHOOK_RESPONSE_MAX_BYTES = 256 * 1024;
+
+/**
+ * Drain a webhook response into a detached Response.
+ *
+ * `Agent.close()` waits for in-flight bodies to finish; when a caller only
+ * checks `response.ok` the socket still holds unread bytes and the close never
+ * settles (verified: bodies >64 KiB hang indefinitely). Buffering here keeps the
+ * caller-visible API intact while letting us `destroy()` the dispatcher.
+ */
+export async function detachWebhookResponse(response: Response): Promise<Response> {
+	if (!response.body) {
+		return new Response(null, {
+			status: response.status,
+			statusText: response.statusText,
+			headers: response.headers,
+		});
+	}
+	const reader = response.body.getReader();
+	const chunks: Uint8Array[] = [];
+	let total = 0;
+	try {
+		while (total < WEBHOOK_RESPONSE_MAX_BYTES) {
+			const { done, value } = await reader.read();
+			if (done) break;
+			if (!value) continue;
+			// A single chunk can exceed the budget on its own, so clamp it.
+			const remaining = WEBHOOK_RESPONSE_MAX_BYTES - total;
+			const slice = value.byteLength > remaining ? value.subarray(0, remaining) : value;
+			total += slice.byteLength;
+			chunks.push(slice);
+		}
+	} catch {
+		// A truncated body must not mask the HTTP status the caller needs.
+	} finally {
+		await reader.cancel().catch(() => undefined);
+		reader.releaseLock();
+	}
+	return new Response(Buffer.concat(chunks, total), {
+		status: response.status,
+		statusText: response.statusText,
+		headers: response.headers,
+	});
+}
+
 export async function fetchWebhookSafely(url: string, init: Omit<Dispatcher.RequestOptions, "origin" | "path">) {
 	const started = performance.now();
 	const finish = (ok: boolean) => {
@@ -135,12 +185,15 @@ export async function fetchWebhookSafely(url: string, init: Omit<Dispatcher.Requ
 	try {
 		const requestInit = { ...init, dispatcher, redirect: "error" } as unknown as Parameters<typeof undiciFetch>[1];
 		const response = await undiciFetch(safe.url, requestInit);
-		finish(response.ok);
-		return { ok: true as const, response };
+		// Detach before the dispatcher goes away: an unread body makes
+		// Agent.close() hang forever and Agent.destroy() would abort the read.
+		const detached = await detachWebhookResponse(response as unknown as Response);
+		finish(detached.ok);
+		return { ok: true as const, response: detached };
 	} catch {
 		finish(false);
 		return { ok: false as const, error: "Webhook request failed" };
 	} finally {
-		await dispatcher.close();
+		await dispatcher.destroy().catch(() => undefined);
 	}
 }

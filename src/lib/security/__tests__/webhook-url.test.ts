@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { validateWebhookUrlSyntax } from "../webhook-url";
+import { detachWebhookResponse, validateWebhookUrlSyntax } from "../webhook-url";
 
 describe("webhook URL safety validation", () => {
 	it("allows normal HTTPS webhook endpoints", () => {
@@ -30,5 +30,39 @@ describe("webhook URL safety validation", () => {
 		for (const url of blocked) {
 			expect(validateWebhookUrlSyntax(url), url).toMatchObject({ ok: false });
 		}
+	});
+});
+
+describe("detachWebhookResponse", () => {
+	it("preserves status and headers while fully draining the body", async () => {
+		const source = new Response("pong", {
+			status: 202,
+			statusText: "Accepted",
+			headers: { "X-Trace": "abc" },
+		});
+
+		const detached = await detachWebhookResponse(source);
+
+		expect(detached.status).toBe(202);
+		expect(detached.headers.get("x-trace")).toBe("abc");
+		expect(await detached.text()).toBe("pong");
+		// The upstream body must be consumed so the dispatcher can be destroyed.
+		expect(source.bodyUsed || source.body?.locked).toBeTruthy();
+	});
+
+	it("truncates oversized bodies instead of buffering without bound", async () => {
+		const oversized = "a".repeat(300 * 1024);
+		const detached = await detachWebhookResponse(new Response(oversized, { status: 200 }));
+
+		const text = await detached.text();
+		expect(text.length).toBeLessThan(oversized.length);
+		expect(detached.status).toBe(200);
+	});
+
+	it("handles bodyless responses", async () => {
+		const detached = await detachWebhookResponse(new Response(null, { status: 204 }));
+
+		expect(detached.status).toBe(204);
+		expect(await detached.text()).toBe("");
 	});
 });
