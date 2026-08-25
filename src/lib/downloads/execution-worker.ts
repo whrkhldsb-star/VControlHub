@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 
 import { config } from "@/lib/config/env";
 import { computeLeaseMs } from "@/lib/job/lease";
+import { LeaseLostError, runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
 import {
   claimNextJob,
   completeJob,
@@ -308,27 +309,45 @@ async function handleClaimedJob(
     // plaintext password the original fire-and-forget path was using.
     serverForExec.password = decryptServerPasswordField(task.server);
 
-    if (payload.mode === "aria2_relay") {
-      await executeAria2RelayDownload(
-        payload.taskId,
-        serverForExec,
-        [task.url],
-        task.targetPath,
-        task.fileName,
-        task.maxSpeedKb,
-        payload.userId ?? task.createdBy ?? undefined,
-      );
-    } else {
-      await executeDirectDownload(
-        payload.taskId,
-        serverForExec,
-        task.url,
-        task.targetPath,
-        task.fileName,
-        payload.userId ?? task.createdBy ?? undefined,
-        payload.sourceResolution,
-      );
-    }
+    // Continuous lease heartbeat for the transfer body. Aria2 relays can run
+    // for up to ~2h; a single opening heartbeat left the lease exposed for the
+    // entire remaining window (DEFAULT preset is 150m for this job type).
+    const transferProgress =
+      payload.mode === "aria2_relay"
+        ? `Running aria2 relay download ${payload.taskId}`
+        : `Running direct download ${payload.taskId}`;
+    await runWithLeaseHeartbeat({
+      jobId: job.id,
+      leaseMs: DOWNLOAD_EXECUTION_LEASE_MS,
+      heartbeat: () =>
+        heartbeatJob(job.id, DOWNLOAD_EXECUTION_WORKER_ID, {
+          leaseMs: DOWNLOAD_EXECUTION_LEASE_MS,
+          progress: transferProgress,
+        }),
+      run: async () => {
+        if (payload.mode === "aria2_relay") {
+          await executeAria2RelayDownload(
+            payload.taskId,
+            serverForExec,
+            [task.url],
+            task.targetPath,
+            task.fileName,
+            task.maxSpeedKb,
+            payload.userId ?? task.createdBy ?? undefined,
+          );
+        } else {
+          await executeDirectDownload(
+            payload.taskId,
+            serverForExec,
+            task.url,
+            task.targetPath,
+            task.fileName,
+            payload.userId ?? task.createdBy ?? undefined,
+            payload.sourceResolution,
+          );
+        }
+      },
+    });
 
     await completeJob(job.id, DOWNLOAD_EXECUTION_WORKER_ID, {
       taskId: payload.taskId,
@@ -337,6 +356,14 @@ async function handleClaimedJob(
     });
     return true;
   } catch (error) {
+    if (error instanceof LeaseLostError) {
+      logger.warn("Download execution lost its lease mid-transfer; not retrying from this worker", {
+        jobId: job.id,
+        taskId: payload.taskId,
+        mode: payload.mode,
+      });
+      return true;
+    }
     const message = error instanceof Error ? error.message : String(error);
     // New-C (2026-06-15): if our own dispatch path threw (i.e. the
     // execute* helper itself crashed, not the underlying download), the

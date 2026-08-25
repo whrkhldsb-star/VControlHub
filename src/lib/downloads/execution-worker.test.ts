@@ -72,6 +72,14 @@ vi.mock("@/lib/logging", () => ({
   }),
 }));
 
+vi.mock("@/lib/job/heartbeat-runner", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/job/heartbeat-runner")>();
+  return {
+    ...actual,
+    runWithLeaseHeartbeat: vi.fn(async ({ run }: { run: () => Promise<unknown> }) => run()),
+  };
+});
+
 import {
   DOWNLOAD_EXECUTION_JOB_TYPE,
   enqueueDownloadExecutionJob,
@@ -80,6 +88,7 @@ import {
   startDownloadJobWorker,
   stopDownloadJobWorkerForTests,
 } from "./execution-worker";
+import { LeaseLostError, runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
 
 function makeJob(overrides: Partial<Record<string, unknown>> = {}) {
   return {
@@ -277,6 +286,14 @@ describe("download execution durable job worker", () => {
         }),
       );
       expect(failJobMock).not.toHaveBeenCalled();
+      expect(runWithLeaseHeartbeat).toHaveBeenCalledWith(
+        expect.objectContaining({
+          jobId: "job-dl-1",
+          leaseMs: expect.any(Number),
+          heartbeat: expect.any(Function),
+          run: expect.any(Function),
+        }),
+      );
     });
 
     it("dispatches an aria2 relay job via executeAria2RelayDownload", async () => {
@@ -408,6 +425,24 @@ describe("download execution durable job worker", () => {
       );
       expect(completeJobMock).not.toHaveBeenCalled();
       expect(errorMock).toHaveBeenCalled();
+    });
+
+    it("stops quietly when the continuous heartbeat loses the lease mid-transfer", async () => {
+      claimNextJobMock.mockResolvedValueOnce(makeJob());
+      vi.mocked(runWithLeaseHeartbeat).mockImplementationOnce(async () => {
+        throw new LeaseLostError("job-dl-1");
+      });
+
+      const result = await runDownloadExecutionJobWorkerOnce();
+
+      expect(result).toBe(true);
+      expect(failJobMock).not.toHaveBeenCalled();
+      expect(failJobTerminalMock).not.toHaveBeenCalled();
+      expect(completeJobMock).not.toHaveBeenCalled();
+      expect(warnMock).toHaveBeenCalledWith(
+        "Download execution lost its lease mid-transfer; not retrying from this worker",
+        expect.objectContaining({ jobId: "job-dl-1", taskId: "task-1" }),
+      );
     });
 
     it("does not overlap concurrent ticks", async () => {
