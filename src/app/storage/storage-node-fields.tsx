@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useRef } from "react";
+
 import { CheckboxField, FormField, FormGrid } from "@/components/ui-primitives";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -35,7 +37,35 @@ export function StorageNodeFields({
 }) {
   const { t } = useI18n();
   const isSftp = driver === "SFTP";
-  const required = <span className="text-[var(--danger)]">{t("storagePage.form.fieldBindVpsRequired")}</span>;
+  const serverRef = useRef<HTMLSelectElement>(null);
+  const hostRef = useRef<HTMLInputElement>(null);
+  const eitherOrMessage = t("storagePage.form.sftpEndpointEitherOr");
+
+  useEffect(() => {
+    if (!isSftp) return;
+
+    const syncValidity = () => {
+      const serverEl = serverRef.current;
+      const hostEl = hostRef.current;
+      if (!serverEl || !hostEl) return;
+      const hasEndpoint = Boolean(serverEl.value.trim() || hostEl.value.trim());
+      const message = hasEndpoint ? "" : eitherOrMessage;
+      serverEl.setCustomValidity(message);
+      hostEl.setCustomValidity(message);
+    };
+
+    syncValidity();
+    const serverEl = serverRef.current;
+    const hostEl = hostRef.current;
+    serverEl?.addEventListener("change", syncValidity);
+    hostEl?.addEventListener("input", syncValidity);
+    hostEl?.addEventListener("change", syncValidity);
+    return () => {
+      serverEl?.removeEventListener("change", syncValidity);
+      hostEl?.removeEventListener("input", syncValidity);
+      hostEl?.removeEventListener("change", syncValidity);
+    };
+  }, [eitherOrMessage, isSftp]);
 
   return (
     <FormGrid>
@@ -54,14 +84,30 @@ export function StorageNodeFields({
       </FormField>
 
       {isSftp ? <>
-        <FormField label={<>{t("storagePage.form.fieldBindVps")} {required}</>} htmlFor="storage-node-server">
-          <select id="storage-node-server" name="serverId" defaultValue={values.serverId ?? ""} className={`${UI_INPUT} border-[var(--danger-border)]`}>
+        <p className="md:col-span-2 text-xs text-[var(--text-muted)]" data-testid="sftp-endpoint-hint">
+          {t("storagePage.form.sftpEndpointHint")}
+        </p>
+        <FormField label={t("storagePage.form.fieldBindVps")} htmlFor="storage-node-server">
+          <select
+            id="storage-node-server"
+            name="serverId"
+            ref={serverRef}
+            defaultValue={values.serverId ?? ""}
+            className={`${UI_INPUT} border-[var(--danger-border)]`}
+          >
             <option value="">{t("storagePage.form.optionNotBound")}</option>
             {servers.map((server) => <option key={server.id} value={server.id}>{server.name} · {server.host}</option>)}
           </select>
         </FormField>
-        <FormField label={<>{t("storagePage.form.fieldRemoteHost")} {required}</>} htmlFor="storage-node-host">
-          <input id="storage-node-host" name="host" defaultValue={values.host ?? ""} className={`${UI_INPUT} border-[var(--danger-border)]`} placeholder={t("storagePage.form.hostPlaceholder")} />
+        <FormField label={t("storagePage.form.fieldRemoteHost")} htmlFor="storage-node-host">
+          <input
+            id="storage-node-host"
+            name="host"
+            ref={hostRef}
+            defaultValue={values.host ?? ""}
+            className={`${UI_INPUT} border-[var(--danger-border)]`}
+            placeholder={t("storagePage.form.hostPlaceholder")}
+          />
         </FormField>
         <FormField label={t("storagePage.form.fieldPort")} htmlFor="storage-node-port">
           <input id="storage-node-port" name="port" type="number" min={1} max={65535} defaultValue={values.port ?? 22} className={UI_INPUT} />

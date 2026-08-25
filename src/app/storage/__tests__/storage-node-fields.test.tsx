@@ -36,6 +36,11 @@ describe("StorageNodeFields", () => {
 
     expect(screen.getByLabelText(/Bind VPS/)).not.toBeRequired();
     expect(screen.getByLabelText(/Remote host/)).not.toBeRequired();
+    expect(screen.getByTestId("sftp-endpoint-hint")).toHaveTextContent(/at least one/i);
+    expect(screen.getByLabelText(/Bind VPS/)).toHaveProperty(
+      "validationMessage",
+      expect.stringMatching(/at least one/i),
+    );
   });
 
   it("locks the driver and default checkbox for the active default node", () => {

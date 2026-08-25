@@ -29,12 +29,15 @@ export function DeleteRuleDialog({
 
 	if (!rulePendingDelete) return null;
 
+	const deleting = busyAction === `delete:${rulePendingDelete.id}`;
+
 	return (
 		<ModalShell
 			open
 			onClose={closeDeleteDialog}
 			labelledBy="delete-alert-rule-title"
 			closeOnBackdrop={false}
+			busy={deleting}
 			overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] p-4 backdrop-blur-sm"
 			panelClassName="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-5 shadow-2xl shadow-black/30"
 		>
@@ -55,6 +58,7 @@ export function DeleteRuleDialog({
 					type="button"
 					variant="secondary"
 					onClick={() => setRulePendingDelete(null)}
+					disabled={deleting}
 				>
 					{t("alertRulesPage.delete.cancel")}
 				</ActionButton>
@@ -62,9 +66,9 @@ export function DeleteRuleDialog({
 					type="button"
 					variant="danger"
 					onClick={() => deleteRule(rulePendingDelete.id)}
-					disabled={busyAction === `delete:${rulePendingDelete.id}`}
+					disabled={deleting}
 				>
-					{busyAction === `delete:${rulePendingDelete.id}`
+					{deleting
 						? t("alertRulesPage.delete.deleting")
 						: t("alertRulesPage.delete.confirmBtn")}
 				</ActionButton>

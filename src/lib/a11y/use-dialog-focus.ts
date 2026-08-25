@@ -16,6 +16,8 @@ type DialogFocusOptions = {
 	onClose: () => void;
 	initialFocusRef?: RefObject<HTMLElement | null>;
 	restoreFocus?: boolean;
+	/** When true, Escape must not dismiss (in-flight destructive / submit). */
+	closeLocked?: boolean;
 };
 
 function getFocusableElements(container: HTMLElement) {
@@ -24,14 +26,25 @@ function getFocusableElements(container: HTMLElement) {
 	);
 }
 
-export function useDialogFocus<TElement extends HTMLElement>({ open, onClose, initialFocusRef, restoreFocus = true }: DialogFocusOptions) {
+export function useDialogFocus<TElement extends HTMLElement>({
+	open,
+	onClose,
+	initialFocusRef,
+	restoreFocus = true,
+	closeLocked = false,
+}: DialogFocusOptions) {
 	const dialogRef = useRef<TElement>(null);
 	const returnFocusRef = useRef<HTMLElement | null>(null);
 	const onCloseRef = useRef(onClose);
+	const closeLockedRef = useRef(closeLocked);
 
 	useEffect(() => {
 		onCloseRef.current = onClose;
 	}, [onClose]);
+
+	useEffect(() => {
+		closeLockedRef.current = closeLocked;
+	}, [closeLocked]);
 
 	useEffect(() => {
 		if (!open) return;
@@ -52,6 +65,7 @@ export function useDialogFocus<TElement extends HTMLElement>({ open, onClose, in
 
 			if (event.key === "Escape") {
 				event.preventDefault();
+				if (closeLockedRef.current) return;
 				onCloseRef.current();
 				return;
 			}

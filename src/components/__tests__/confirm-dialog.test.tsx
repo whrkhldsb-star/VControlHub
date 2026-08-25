@@ -28,4 +28,24 @@ describe("ConfirmDialog", () => {
 		await user.click(screen.getByRole("dialog").parentElement!);
 		expect(onCancel).not.toHaveBeenCalled();
 	});
+
+	it("keeps the dialog open under Escape while busy", async () => {
+		const user = userEvent.setup();
+		const onCancel = vi.fn();
+		render(
+			<ConfirmDialog
+				open
+				busy
+				title="删除中"
+				description="请稍候"
+				cancelLabel="取消"
+				confirmLabel="删除"
+				onCancel={onCancel}
+				onConfirm={vi.fn()}
+			/>,
+		);
+		await user.keyboard("{Escape}");
+		expect(onCancel).not.toHaveBeenCalled();
+		expect(screen.getByRole("dialog", { name: "删除中" })).toHaveAttribute("aria-busy", "true");
+	});
 });

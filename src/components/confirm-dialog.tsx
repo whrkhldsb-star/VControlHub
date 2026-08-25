@@ -37,6 +37,7 @@ export function ConfirmDialog({
 			overlayClassName={cn(UI_OVERLAY, "flex items-center justify-center px-4")}
 			panelClassName={cn(UI_MODAL_PANEL, "w-full max-w-md border-[var(--danger-border)] p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]")}
 			closeOnBackdrop={closeOnBackdrop}
+			busy={busy}
 			as="section"
 		>
 				<h2 id="confirm-dialog-title" className="text-lg font-semibold text-[var(--text-primary)]">{title}</h2>

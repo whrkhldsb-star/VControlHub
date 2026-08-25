@@ -76,6 +76,24 @@ describe("useDialogFocus", () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
+  it("Escape does not close when closeLocked", () => {
+    const container = document.createElement("div");
+    container.append(makeButton("x"));
+    document.body.append(container);
+
+    const onClose = vi.fn();
+    const { result } = renderHook(() =>
+      useDialogFocus({ open: true, onClose, closeLocked: true }),
+    );
+    act(() => {
+      result.current.current = container;
+    });
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    });
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
   it("Tab on the last focusable element wraps to the first", () => {
     const container = document.createElement("div");
     const a = makeButton("a");

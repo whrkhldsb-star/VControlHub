@@ -47,6 +47,12 @@ type ModalShellProps = ModalShellLabel & {
 	panelClassName?: string;
 	/** Backdrop click closes the dialog (default true). */
 	closeOnBackdrop?: boolean;
+	/**
+	 * When true, Escape and backdrop must not dismiss — use while a
+	 * destructive/submit request is in flight so the dialog cannot race
+	 * the mutation (buttons should also be disabled by the caller).
+	 */
+	busy?: boolean;
 	/** Element focused when the dialog opens (falls back to the panel). */
 	initialFocusRef?: RefObject<HTMLElement | null>;
 	/** Render the panel as a <section>/<aside> instead of a <div>. */
@@ -69,6 +75,7 @@ export function ModalShell({
 	overlayClassName = "fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] p-4 backdrop-blur-sm",
 	panelClassName = "w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-5 shadow-2xl",
 	closeOnBackdrop = true,
+	busy = false,
 	initialFocusRef,
 	as = "div",
 	role = "dialog",
@@ -82,23 +89,26 @@ export function ModalShell({
 	const dialogRef = useDialogFocus<HTMLDivElement>({
 		open,
 		onClose,
+		closeLocked: busy,
 		...(initialFocusRef ? { initialFocusRef } : {}),
 	});
 
 	if (!open || !canUseDom) return null;
 
+	const allowBackdropClose = closeOnBackdrop && !busy;
 	const Panel = as;
 	return createPortal(
 		<div
 			data-modal-overlay
 			className={cn(overlayClassName)}
 			role="presentation"
-			onClick={closeOnBackdrop ? onClose : undefined}
+			onClick={allowBackdropClose ? onClose : undefined}
 		>
 			<Panel
 				ref={dialogRef}
 				role={role}
 				aria-modal="true"
+				aria-busy={busy || undefined}
 				{...(labelledBy ? { "aria-labelledby": labelledBy } : {})}
 				{...(label ? { "aria-label": label } : {})}
 				{...(describedBy ? { "aria-describedby": describedBy } : {})}

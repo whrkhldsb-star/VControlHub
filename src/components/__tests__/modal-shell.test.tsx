@@ -22,4 +22,19 @@ describe("ModalShell", () => {
 		fireEvent.click(dialog.parentElement!);
 		expect(onClose).toHaveBeenCalledOnce();
 	});
+
+	it("blocks Escape and backdrop dismiss while busy", async () => {
+		const onClose = vi.fn();
+		render(
+			<ModalShell open onClose={onClose} labelledBy="busy-title" busy>
+				<h2 id="busy-title">Busy dialog</h2>
+			</ModalShell>,
+		);
+
+		const dialog = await screen.findByRole("dialog", { name: "Busy dialog" });
+		expect(dialog).toHaveAttribute("aria-busy", "true");
+		fireEvent.click(dialog.parentElement!);
+		window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+		expect(onClose).not.toHaveBeenCalled();
+	});
 });
