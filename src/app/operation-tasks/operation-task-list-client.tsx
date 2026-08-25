@@ -131,19 +131,38 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
   const [page, setPage] = useState(1);
   const handleViewEvents = useCallback((sourceId: string) => setEventsJobId(sourceId), []);
   const taskTypeOptions = useMemo(() => Array.from(new Set(tasks.map((task) => task.taskType).filter((value): value is string => Boolean(value)))).sort(), [tasks]);
+  const refreshSequenceRef = useRef(0);
+  const refreshAbortRef = useRef<AbortController | null>(null);
+  const filterKey = `${statusFilter}:${taskTypeFilter}:${sort}`;
   const refresh = useCallback(async () => {
+    refreshAbortRef.current?.abort();
+    const controller = new AbortController();
+    refreshAbortRef.current = controller;
+    const refreshSequence = ++refreshSequenceRef.current;
+    const requestFilterKey = filterKey;
     setRefreshing(true);
     setError(null);
     try {
-      const data = await csrfFetch(getRefreshPath(statusFilter, taskTypeFilter, sort));
+      const data = await csrfFetch(getRefreshPath(statusFilter, taskTypeFilter, sort), {
+        signal: controller.signal,
+      });
+      if (
+        refreshSequence !== refreshSequenceRef.current ||
+        requestFilterKey !== `${statusFilter}:${taskTypeFilter}:${sort}`
+      ) {
+        return;
+      }
       setTasks(data.tasks ?? []);
       setSourceSummary(data.sourceSummary ?? []);
       setFailureSummary(data.failureSummary ?? []);
       setPage(1);
     } catch (err) {
+      if (controller.signal.aborted || refreshSequence !== refreshSequenceRef.current) return;
       setError(getErrorMessage(err, t("operationTasks.refreshFailed")));
-    } finally { setRefreshing(false); }
-  }, [statusFilter, taskTypeFilter, sort, t]);
+    } finally {
+      if (refreshSequence === refreshSequenceRef.current) setRefreshing(false);
+    }
+  }, [statusFilter, taskTypeFilter, sort, filterKey, t]);
   // Apply URL deep-link / non-default filter changes without requiring Apply.
   // Skip the first paint when filters are still the SSR defaults to keep initialTasks
   // and avoid a redundant fetch that races tests/mocks.
@@ -157,6 +176,9 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
     }
     void refresh();
   }, [refresh, statusFilter, taskTypeFilter, sort]);
+  useEffect(() => () => {
+    refreshAbortRef.current?.abort();
+  }, []);
   const counts = tasks.reduce<Record<OperationTaskStatus, number>>((acc, task) => { acc[task.status] = (acc[task.status] ?? 0) + 1; return acc; }, {} as Record<OperationTaskStatus, number>);
   const pageCount = Math.max(1, Math.ceil(tasks.length / TASKS_PER_PAGE));
   const safePage = Math.min(page, pageCount);

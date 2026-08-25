@@ -99,12 +99,54 @@ describe("OperationTaskListClient", () => {
     await actor.selectOptions(screen.getByLabelText("排序偏好"), "attention");
     await actor.click(screen.getByRole("button", { name: "应用筛选" }));
 
-    expect(csrfFetch).toHaveBeenCalledWith("/api/operation-tasks?status=failed&taskType=alert.evaluate&sort=attention");
+    expect(csrfFetch).toHaveBeenCalledWith(
+      "/api/operation-tasks?status=failed&taskType=alert.evaluate&sort=attention",
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
     expect(await screen.findByText("告警规则评估失败")).toBeInTheDocument();
     expect(screen.getByLabelText("来源聚合")).toHaveTextContent("后台");
     expect(screen.getByLabelText("来源聚合")).toHaveTextContent("失败 1");
     expect(screen.getByLabelText("失败原因聚合")).toHaveTextContent("通知发送失败");
     expect(screen.getByLabelText("失败原因聚合")).toHaveTextContent("最新：告警规则评估失败");
+  });
+
+  it("drops a stale refresh when a newer filter request wins", async () => {
+    const actor = userEvent.setup();
+    let resolveStale: ((value: unknown) => void) | undefined;
+    const staleResponse = new Promise((resolve) => {
+      resolveStale = resolve;
+    });
+    vi.mocked(csrfFetch)
+      .mockImplementationOnce(() => staleResponse as Promise<never>)
+      .mockResolvedValueOnce({
+        tasks: [{
+          ...initialTasks[0]!,
+          id: "job:alert_failed",
+          source: "job",
+          sourceId: "alert_failed",
+          title: "告警规则评估失败",
+          status: "failed",
+          taskType: "alert.evaluate",
+        }],
+        sourceSummary: [{ source: "job", total: 1, attention: 1, failed: 1, running: 0, pending: 0 }],
+        failureSummary: [],
+      });
+
+    render(<OperationTaskListClient initialTasks={initialTasks} initialSourceSummary={initialSourceSummary} initialFailureSummary={[]} />);
+
+    await actor.selectOptions(screen.getByLabelText("状态筛选"), "pending");
+    await actor.selectOptions(screen.getByLabelText("状态筛选"), "failed");
+
+    expect(await screen.findByText("告警规则评估失败")).toBeInTheDocument();
+    resolveStale?.({
+      tasks: [{ ...initialTasks[0]!, title: "陈旧刷新结果" }],
+      sourceSummary: initialSourceSummary,
+      failureSummary: [],
+    });
+    await waitFor(() => {
+      expect(screen.queryByText("陈旧刷新结果")).not.toBeInTheDocument();
+    });
+    expect(screen.getByText("告警规则评估失败")).toBeInTheDocument();
   });
 
   it("links CSV export to the current task filters", async () => {
