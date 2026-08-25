@@ -157,11 +157,19 @@ export async function evaluateCapacityLinkedAlerts(
     // Empty serverIds + team-scoped rule: only evaluate servers in that team
     // (forecast is global; without this, capacity rules would fire across tenants).
     if (rule.serverIds.length === 0 && rule.teamId) {
-      const teamServers = await prisma.server.findMany({
-        where: { teamId: rule.teamId },
-        select: { id: true },
-        take: 5000,
-      });
+      const teamServers: Array<{ id: string }> = [];
+      let serverCursor: { id: string } | undefined;
+      do {
+        const page = await prisma.server.findMany({
+          where: { teamId: rule.teamId },
+          select: { id: true },
+          orderBy: { id: "asc" },
+          take: 500,
+          ...(serverCursor ? { cursor: serverCursor, skip: 1 } : {}),
+        });
+        teamServers.push(...page);
+        serverCursor = page.length === 500 ? { id: page[page.length - 1]!.id } : undefined;
+      } while (serverCursor);
       const allowed = new Set(teamServers.map((s) => s.id));
       targets = targets.filter((s) => allowed.has(s.serverId));
     }

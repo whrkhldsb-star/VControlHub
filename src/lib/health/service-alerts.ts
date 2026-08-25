@@ -134,11 +134,19 @@ export async function evaluateAlerts() {
   async function serverIdsForTeam(teamId: string): Promise<Set<string>> {
     const hit = teamServerIdsCache.get(teamId);
     if (hit) return hit;
-    const rows = await prisma.server.findMany({
-      where: { teamId },
-      select: { id: true },
-      take: 5000,
-    });
+    const rows: Array<{ id: string }> = [];
+    let serverCursor: { id: string } | undefined;
+    do {
+      const page = await prisma.server.findMany({
+        where: { teamId },
+        select: { id: true },
+        orderBy: { id: "asc" },
+        take: 500,
+        ...(serverCursor ? { cursor: serverCursor, skip: 1 } : {}),
+      });
+      rows.push(...page);
+      serverCursor = page.length === 500 ? { id: page[page.length - 1]!.id } : undefined;
+    } while (serverCursor);
     const set = new Set(rows.map((r) => r.id));
     teamServerIdsCache.set(teamId, set);
     return set;

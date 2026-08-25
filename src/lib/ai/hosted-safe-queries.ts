@@ -131,13 +131,21 @@ export async function executeServerlessQuery(
 
   if (action.actionType === "query_traffic") {
     const { since, period } = periodToSince(action.params.period);
-    const visibleServers = scope
-      ? await prisma.server.findMany({
+    const visibleServers: Array<{ id: string }> = [];
+    if (scope) {
+      let serverCursor: { id: string } | undefined;
+      do {
+        const page = await prisma.server.findMany({
           where: serverTeamWhere(scope),
           select: { id: true },
-          take: 5000,
-        })
-      : [];
+          orderBy: { id: "asc" },
+          take: 500,
+          ...(serverCursor ? { cursor: serverCursor, skip: 1 } : {}),
+        });
+        visibleServers.push(...page);
+        serverCursor = page.length === 500 ? { id: page[page.length - 1]!.id } : undefined;
+      } while (serverCursor);
+    }
     const visibleServerIds = visibleServers.map((s) => s.id);
     const rows = await prisma.trafficSnapshot.findMany({
       where: {
