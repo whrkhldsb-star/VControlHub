@@ -3,6 +3,7 @@ import { JobStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { createCommandRequest } from "@/lib/command/service";
 import { config } from "@/lib/config/env";
+import { runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
 import { computeLeaseMs } from "@/lib/job/lease";
 import {
   claimNextJob,
@@ -233,12 +234,18 @@ export async function runScheduledTaskTickJobWorkerOnce(reason = "manual") {
     if (!job) return false;
 
     try {
-      await heartbeatJob(job.id, SCHEDULED_TASK_WORKER_ID, {
+      const result = await runWithLeaseHeartbeat({
+        jobId: job.id,
         leaseMs: SCHEDULED_TASK_LEASE_MS,
-        progress: "Dispatching due scheduled tasks",
+        heartbeat: () => heartbeatJob(job.id, SCHEDULED_TASK_WORKER_ID, {
+          leaseMs: SCHEDULED_TASK_LEASE_MS,
+          progress: "Dispatching due scheduled tasks",
+        }),
+        run: async () => {
+          const reconciliation = await reconcileScheduledTaskRuns();
+          return { ...(await dispatchDueScheduledTasks(reason)), reconciled: reconciliation.reconciled };
+        },
       });
-	      const reconciliation = await reconcileScheduledTaskRuns();
-	      const result = { ...(await dispatchDueScheduledTasks(reason)), reconciled: reconciliation.reconciled };
       await completeJob(job.id, SCHEDULED_TASK_WORKER_ID, result);
       try {
         await pruneCompletedJobsByType({

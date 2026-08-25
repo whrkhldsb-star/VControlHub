@@ -27,23 +27,33 @@ export async function recoverStaleRunningJobs(options: {
       },
     ],
   };
-  const retryable = await prisma.job.findMany({
-    where: { ...staleWhere, attempts: { lt: prisma.job.fields.maxAttempts } },
-    select: { id: true, type: true, title: true, attempts: true, maxAttempts: true },
-    take: 1000,
-  });
-  const exhausted = await prisma.job.findMany({
-    where: { ...staleWhere, attempts: { gte: prisma.job.fields.maxAttempts } },
-    select: {
-      id: true,
-      type: true,
-      title: true,
-      attempts: true,
-      maxAttempts: true,
-      payload: true,
-    },
-    take: 1000,
-  });
+  const batchSize = 1000;
+  const retryable: Array<{ id: string; type: string; title: string; attempts: number; maxAttempts: number }> = [];
+  let retryCursor: { id: string } | undefined;
+  do {
+    const batch = await prisma.job.findMany({
+      where: { ...staleWhere, attempts: { lt: prisma.job.fields.maxAttempts } },
+      select: { id: true, type: true, title: true, attempts: true, maxAttempts: true },
+      orderBy: { id: "asc" },
+      take: batchSize,
+      ...(retryCursor ? { cursor: retryCursor, skip: 1 } : {}),
+    });
+    retryable.push(...batch);
+    retryCursor = batch.length === batchSize ? { id: batch[batch.length - 1]!.id } : undefined;
+  } while (retryCursor);
+  const exhausted: Array<{ id: string; type: string; title: string; attempts: number; maxAttempts: number; payload: unknown }> = [];
+  let exhaustedCursor: { id: string } | undefined;
+  do {
+    const batch = await prisma.job.findMany({
+      where: { ...staleWhere, attempts: { gte: prisma.job.fields.maxAttempts } },
+      select: { id: true, type: true, title: true, attempts: true, maxAttempts: true, payload: true },
+      orderBy: { id: "asc" },
+      take: batchSize,
+      ...(exhaustedCursor ? { cursor: exhaustedCursor, skip: 1 } : {}),
+    });
+    exhausted.push(...batch);
+    exhaustedCursor = batch.length === batchSize ? { id: batch[batch.length - 1]!.id } : undefined;
+  } while (exhaustedCursor);
   if (retryable.length === 0 && exhausted.length === 0) {
     return { count: 0, recovered: [], failed: [] };
   }
@@ -77,7 +87,6 @@ export async function recoverStaleRunningJobs(options: {
         where: {
           id: { in: retryable.map((j) => j.id) },
           status: JobStatus.PENDING,
-          errorMessage: REQUEUED_ERROR,
         },
         select: { id: true },
         take: retryable.length,
@@ -133,7 +142,6 @@ export async function recoverStaleRunningJobs(options: {
         where: {
           id: { in: exhausted.map((j) => j.id) },
           status: JobStatus.FAILED,
-          errorMessage: EXHAUSTED_ERROR,
         },
         select: { id: true },
         take: exhausted.length,

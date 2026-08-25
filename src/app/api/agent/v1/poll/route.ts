@@ -5,6 +5,7 @@ import {
   authenticateServerAgent,
   claimNextServerAgentJob,
   completeServerAgentJob,
+  heartbeatServerAgentJob,
   updateServerAgentHeartbeat,
 } from "@/lib/server/agent-service";
 
@@ -15,6 +16,7 @@ const bodySchema = z.object({
   capabilities: z.array(z.string().max(64)).max(20).optional(),
   metricsRaw: z.string().max(64_000).optional(),
   error: z.string().max(1000).nullable().optional(),
+  heartbeatJobId: z.string().min(1).max(128).optional(),
   result: z.object({
     jobId: z.string().min(1).max(128),
     stdout: z.string().max(8 * 1_048_576).optional(),
@@ -33,6 +35,13 @@ export async function POST(request: Request) {
     await completeServerAgentJob({ serverId: agent.id, ...parsed.data.result });
   }
   await updateServerAgentHeartbeat({ serverId: agent.id, ...parsed.data });
+  if (parsed.data.heartbeatJobId) {
+    const cancelled = await heartbeatServerAgentJob({
+      serverId: agent.id,
+      jobId: parsed.data.heartbeatJobId,
+    });
+    return NextResponse.json({ pollAfterMs: 5_000, cancelled, job: null });
+  }
   const job = await claimNextServerAgentJob(agent.id);
   return NextResponse.json({
     pollAfterMs: job ? 0 : 5_000,

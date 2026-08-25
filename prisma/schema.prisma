@@ -349,6 +349,7 @@ model ServerAgentJob {
   stderr          String?
   exitCode        Int?
   claimedAt       DateTime?
+  leaseExpiresAt  DateTime?
   completedAt     DateTime?
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt
@@ -357,6 +358,7 @@ model ServerAgentJob {
   @@index([serverId, status, createdAt])
   @@index([commandTargetId, status])
   @@index([status, createdAt])
+  @@index([serverId, status, leaseExpiresAt])
   @@map("server_agent_jobs")
 }
 

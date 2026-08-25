@@ -5,6 +5,7 @@ import { NotFoundError, ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 import { createLogger } from "@/lib/logging";
 import { enqueueJob } from "@/lib/job/service";
+import { createNotification } from "@/lib/notification/service";
 
 import { assertOutboundReady, deliverOutbound } from "./adapters";
 import {
@@ -191,7 +192,7 @@ export async function fanOutTicketEvent(input: {
 
 export async function safeFanOutTicketEvent(
   input: Parameters<typeof fanOutTicketEvent>[0],
-): Promise<void> {
+): Promise<{ ok: true } | { ok: false; error: string }> {
 	try {
 		await enqueueJob({
 			type: "itsm.outbound",
@@ -201,10 +202,36 @@ export async function safeFanOutTicketEvent(
 			maxAttempts: 5,
 			priority: 1,
 		});
+		return { ok: true };
 	} catch (err) {
 		logger.error("ticket fan-out enqueue failed", err, {
       ticketId: input.ticketId,
       eventType: input.eventType,
     });
+		try {
+			const ticket = await prisma.ticket.findUnique({
+				where: { id: input.ticketId },
+				select: { createdBy: true, teamId: true },
+			});
+			if (ticket?.createdBy) {
+				await createNotification({
+					userId: ticket.createdBy,
+					type: "system",
+					title: t("backend.itsm.ticketFanOutFailedTitle"),
+					message: t("backend.itsm.ticketFanOutFailedMessage", {
+						eventType: input.eventType,
+						error: err instanceof Error ? err.message : String(err),
+					}),
+					actionUrl: `/tickets/${input.ticketId}`,
+					teamId: ticket.teamId,
+				});
+			}
+		} catch (notificationError) {
+			logger.warn("ticket fan-out failure notification failed", notificationError);
+		}
+		return {
+			ok: false,
+			error: err instanceof Error ? err.message : String(err),
+		};
   }
 }

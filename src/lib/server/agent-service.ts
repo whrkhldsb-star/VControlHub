@@ -8,6 +8,8 @@ import { MONITOR_SCRIPT } from "./monitor";
 
 const AGENT_VERSION = "1.0.0";
 export const AGENT_FRESH_MS = 90_000;
+export const AGENT_JOB_HEARTBEAT_MS = 30_000;
+const AGENT_LEGACY_CLAIMED_STALE_MS = AGENT_FRESH_MS;
 const AGENT_OUTPUT_LIMIT = 8 * 1_048_576;
 export const AGENT_CLEANUP_COMMAND = "nohup sh -c 'sleep 2; systemctl disable vcontrolhub-agent.service >/dev/null 2>&1 || true; rm -f /etc/systemd/system/vcontrolhub-agent.service; rm -rf /opt/vcontrolhub-agent; systemctl daemon-reload >/dev/null 2>&1 || true; systemctl stop vcontrolhub-agent.service >/dev/null 2>&1 || true' >/dev/null 2>&1 &";
 
@@ -71,12 +73,51 @@ export async function completeServerAgentJob(input: {
       stderr: input.stderr?.slice(0, AGENT_OUTPUT_LIMIT) || null,
       exitCode: Number.isInteger(input.exitCode) ? input.exitCode : 255,
       completedAt: new Date(),
+      leaseExpiresAt: null,
     },
   });
 }
 
+export async function heartbeatServerAgentJob(input: {
+  serverId: string;
+  jobId: string;
+}): Promise<boolean> {
+  const leaseExpiresAt = new Date(Date.now() + AGENT_JOB_HEARTBEAT_MS);
+  const updated = await prisma.serverAgentJob.updateMany({
+    where: { id: input.jobId, serverId: input.serverId, status: "CLAIMED" },
+    data: { leaseExpiresAt },
+  });
+  if (updated.count > 0) return false;
+  const current = await prisma.serverAgentJob.findUnique({
+    where: { id: input.jobId },
+    select: { serverId: true, status: true },
+  });
+  return current?.serverId === input.serverId && current.status === "CANCELLED";
+}
+
 export async function claimNextServerAgentJob(serverId: string) {
   return prisma.$transaction(async (tx) => {
+    const now = new Date();
+    await tx.serverAgentJob.updateMany({
+      where: {
+        serverId,
+        status: "CLAIMED",
+        OR: [
+          { leaseExpiresAt: { lt: now } },
+          {
+            leaseExpiresAt: null,
+            claimedAt: { lt: new Date(now.getTime() - AGENT_LEGACY_CLAIMED_STALE_MS) },
+          },
+        ],
+      },
+      data: {
+        status: "CANCELLED",
+        stderr: "Agent job lease expired before completion",
+        exitCode: 124,
+        completedAt: now,
+        leaseExpiresAt: null,
+      },
+    });
     const next = await tx.serverAgentJob.findFirst({
       where: { serverId, status: "PENDING" },
       orderBy: { createdAt: "asc" },
@@ -84,7 +125,11 @@ export async function claimNextServerAgentJob(serverId: string) {
     if (!next) return null;
     const claimed = await tx.serverAgentJob.updateMany({
       where: { id: next.id, status: "PENDING" },
-      data: { status: "CLAIMED", claimedAt: new Date() },
+      data: {
+        status: "CLAIMED",
+        claimedAt: now,
+        leaseExpiresAt: new Date(now.getTime() + AGENT_JOB_HEARTBEAT_MS),
+      },
     });
     return claimed.count === 1 ? next : null;
   });
@@ -120,11 +165,41 @@ export async function executeCommandWithAgent(input: {
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
   const current = await prisma.serverAgentJob.findUnique({ where: { id: job.id } });
-  if (current?.status === "PENDING") {
-    await prisma.serverAgentJob.update({ where: { id: job.id }, data: { status: "CANCELLED" } });
+  if (!current) return null;
+  if (current.status === "COMPLETED" || current.status === "FAILED") {
+    return { stdout: current.stdout ?? "", stderr: current.stderr ?? "", exitCode: current.exitCode ?? 255 };
+  }
+  if (current.status === "CANCELLED") {
+    return { stdout: "", stderr: "Agent job cancelled", exitCode: 130 };
+  }
+  const cancelled = await prisma.serverAgentJob.updateMany({
+    where: {
+      id: job.id,
+      serverId: input.serverId,
+      status: { in: ["PENDING", "CLAIMED"] },
+    },
+    data: {
+      status: "CANCELLED",
+      stderr: "Agent command timed out after dispatch",
+      exitCode: 124,
+      completedAt: new Date(),
+      leaseExpiresAt: null,
+    },
+  });
+  if (cancelled.count === 0) {
+    const final = await prisma.serverAgentJob.findUnique({ where: { id: job.id } });
+    if (final?.status === "COMPLETED" || final?.status === "FAILED") {
+      return { stdout: final.stdout ?? "", stderr: final.stderr ?? "", exitCode: final.exitCode ?? 255 };
+    }
+  }
+  if (current.status === "PENDING") {
     return null;
   }
-  return { stdout: current?.stdout ?? "", stderr: "Agent command timed out after dispatch; SSH fallback was suppressed to avoid duplicate execution.", exitCode: 124 };
+  return {
+    stdout: current.stdout ?? "",
+    stderr: "Agent command timed out after dispatch; SSH fallback was suppressed to avoid duplicate execution.",
+    exitCode: 124,
+  };
 }
 
 function buildAgentPython(hubUrl: string, token: string) {
@@ -135,6 +210,7 @@ ENDPOINT=${JSON.stringify(endpoint)}
 TOKEN=${JSON.stringify(token)}
 MONITOR=${JSON.stringify(MONITOR_SCRIPT)}
 VERSION=${JSON.stringify(AGENT_VERSION)}
+HEARTBEAT_SECONDS=20
 pending=None
 last_metrics=0
 parts=urllib.parse.urlsplit(ENDPOINT)
@@ -142,27 +218,59 @@ conn=None
 def connect():
     cls=http.client.HTTPSConnection if parts.scheme == "https" else http.client.HTTPConnection
     return cls(parts.hostname, parts.port, timeout=35)
+def post(payload):
+    global conn
+    body=json.dumps(payload).encode()
+    if conn is None: conn=connect()
+    conn.request("POST", parts.path, body, {"Authorization":"Bearer "+TOKEN,"Content-Type":"application/json","Content-Length":str(len(body))})
+    response=conn.getresponse(); data=response.read()
+    if response.status != 200: raise RuntimeError("hub returned %s" % response.status)
+    return json.loads(data or b"{}")
+def text(value):
+    if value is None: return ""
+    return value.decode(errors="replace") if isinstance(value, bytes) else value
+def terminate(proc):
+    if proc.poll() is None:
+        proc.terminate()
+        try: proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill(); proc.wait()
 while True:
     try:
         now=time.time()
         payload={"version":VERSION,"capabilities":["metrics","command","file"]}
-        if pending is not None: payload["result"]=pending; pending=None
+        if pending is not None: payload["result"]=pending
         if now-last_metrics >= 60:
             metrics=subprocess.run(["/bin/sh","-c",MONITOR],capture_output=True,text=True,timeout=15)
             payload["metricsRaw"]=metrics.stdout[:64000]; last_metrics=now
-        body=json.dumps(payload).encode()
-        if conn is None: conn=connect()
-        conn.request("POST", parts.path, body, {"Authorization":"Bearer "+TOKEN,"Content-Type":"application/json","Content-Length":str(len(body))})
-        response=conn.getresponse(); data=response.read()
-        if response.status != 200: raise RuntimeError("hub returned %s" % response.status)
-        message=json.loads(data or b"{}")
+        message=post(payload)
+        pending=None
         job=message.get("job")
         if job:
-            try:
-                result=subprocess.run(["/bin/sh","-c",job["command"]],capture_output=True,text=True,timeout=max(1,min(int(job.get("timeoutMs",60000))/1000,3600)))
-                pending={"jobId":job["id"],"stdout":result.stdout[:8388608],"stderr":result.stderr[:1048576],"exitCode":result.returncode}
-            except subprocess.TimeoutExpired as exc:
-                pending={"jobId":job["id"],"stdout":(exc.stdout or "")[:8388608],"stderr":"Agent command timed out","exitCode":124}
+            timeout_seconds=max(1,min(int(job.get("timeoutMs",60000))/1000,3600))
+            proc=subprocess.Popen(["/bin/sh","-c",job["command"]],stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+            deadline=time.time()+timeout_seconds
+            while True:
+                remaining=max(0,deadline-time.time())
+                try:
+                    stdout,stderr=proc.communicate(timeout=min(HEARTBEAT_SECONDS,remaining or 0.001))
+                    pending={"jobId":job["id"],"stdout":text(stdout)[:8388608],"stderr":text(stderr)[:1048576],"exitCode":proc.returncode}
+                    break
+                except subprocess.TimeoutExpired as exc:
+                    try:
+                        heartbeat=post({"version":VERSION,"heartbeatJobId":job["id"]})
+                    except Exception:
+                        heartbeat={}
+                    if heartbeat.get("cancelled"):
+                        terminate(proc)
+                        stdout,stderr=proc.communicate()
+                        pending={"jobId":job["id"],"stdout":text(stdout or exc.stdout)[:8388608],"stderr":"Agent command cancelled"[:1048576],"exitCode":130}
+                        break
+                    if time.time() >= deadline:
+                        terminate(proc)
+                        stdout,stderr=proc.communicate()
+                        pending={"jobId":job["id"],"stdout":text(stdout or exc.stdout)[:8388608],"stderr":"Agent command timed out"[:1048576],"exitCode":124}
+                        break
         else: time.sleep(max(1,min(int(message.get("pollAfterMs",5000))/1000,30)))
     except Exception:
         try:

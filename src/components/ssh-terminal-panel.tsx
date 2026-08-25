@@ -16,6 +16,8 @@ import { AlertTriangle } from "@/components/icons";
 export type { TerminalStatus } from "@/components/ssh-terminal-types";
 
 const FAVORITE_COMMANDS_KEY = "ssh-favorite-commands";
+const MAX_AUTO_RECONNECT_ATTEMPTS = 5;
+const AUTO_RECONNECT_BASE_DELAY_MS = 1_000;
 
 function readFavoriteCommands(storage: Storage): string | null {
 	return storage.getItem(FAVORITE_COMMANDS_KEY);
@@ -57,6 +59,8 @@ export function SshTerminalPanel({ serverId, serverName, host, sessionToken, vis
 	const searchAddonRef = useRef<import("@xterm/addon-search").SearchAddon | null>(null);
 	const currentCommandRef = useRef("");
 	const connectionNonceRef = useRef(0);
+	const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const reconnectAttemptsRef = useRef(0);
 
 	const [status, setStatus] = useState<TerminalStatus>("connecting");
 	const [errorMsg, setErrorMsg] = useState<string>("");
@@ -108,11 +112,36 @@ export function SshTerminalPanel({ serverId, serverName, host, sessionToken, vis
 		searchAddonRef.current = null;
 	}
 
+	useEffect(() => () => {
+		if (reconnectTimerRef.current) {
+			clearTimeout(reconnectTimerRef.current);
+			reconnectTimerRef.current = null;
+		}
+	}, []);
+
 	useEffect(() => {
 		if (!termRef.current) return;
 
 		let disposed = false;
 		const nonce = connectionNonceRef.current;
+
+		const scheduleReconnect = () => {
+			if (
+				disposed
+				|| nonce !== connectionNonceRef.current
+				|| reconnectTimerRef.current
+				|| reconnectAttemptsRef.current >= MAX_AUTO_RECONNECT_ATTEMPTS
+			) return;
+			const attempt = reconnectAttemptsRef.current;
+			reconnectAttemptsRef.current += 1;
+			const delay = AUTO_RECONNECT_BASE_DELAY_MS * 2 ** attempt;
+			reconnectTimerRef.current = setTimeout(() => {
+				reconnectTimerRef.current = null;
+				if (disposed || nonce !== connectionNonceRef.current) return;
+				setStatus("connecting");
+				setReconnectKey((previous) => previous + 1);
+			}, delay);
+		};
 
 		async function init() {
 			const [{ Terminal }, { FitAddon }, { SearchAddon }] = await Promise.all([
@@ -214,6 +243,7 @@ export function SshTerminalPanel({ serverId, serverName, host, sessionToken, vis
 					if (msg.type === "output" && msg.data) {
 						term.write(decodeBase64(msg.data));
 					} else if (msg.type === "connected") {
+						reconnectAttemptsRef.current = 0;
 						if (!disposed && nonce === connectionNonceRef.current) setStatus("connected");
 					} else if (msg.type === "error") {
 						if (!disposed && nonce === connectionNonceRef.current) {
@@ -233,6 +263,7 @@ export function SshTerminalPanel({ serverId, serverName, host, sessionToken, vis
 				if (!disposed && nonce === connectionNonceRef.current) {
 					setStatus("closed");
 					setErrorMsg(t("sshTerminalModal.errDisconnected"));
+					scheduleReconnect();
 				}
 			};
 
@@ -321,6 +352,11 @@ export function SshTerminalPanel({ serverId, serverName, host, sessionToken, vis
 
 	const handleReconnect = () => {
 		disposeConnection();
+		if (reconnectTimerRef.current) {
+			clearTimeout(reconnectTimerRef.current);
+			reconnectTimerRef.current = null;
+		}
+		reconnectAttemptsRef.current = 0;
 		setStatus("connecting");
 		setErrorMsg("");
 		setReconnectKey((prev) => prev + 1);

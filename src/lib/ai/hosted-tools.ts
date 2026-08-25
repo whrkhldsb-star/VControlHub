@@ -317,7 +317,7 @@ export const HOSTED_TOOLS: HostedTool[] = [
         verificationCommand: { type: "string", description: "Optional read-only command used by the operator to verify success" },
         rollbackCommand: { type: "string", description: "Optional recovery command shown with the plan" },
         runAt: { type: "string", description: "ISO-8601 future timestamp when executionMode is once" },
-        dailyTime: { type: "string", description: "UTC time in HH:mm format when executionMode is daily" },
+        dailyTime: { type: "string", description: "Application timezone Asia/Shanghai wall-clock time in HH:mm format when executionMode is daily" },
         approvalMode: { type: "string", enum: ["approve_once", "every_run"], description: "approve_once allows unattended runs after this confirmation and requires command approval permission; every_run creates an approval request on every run" },
       },
       required: ["name", "plan", "reason", "executionMode", "targetScope", "approvalMode"],

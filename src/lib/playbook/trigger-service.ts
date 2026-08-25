@@ -198,15 +198,23 @@ export async function dispatchDueCronPlaybook(input: {
 }
 
 export async function initializeUnscheduledCronPlaybooks(now: Date = new Date()): Promise<number> {
-  const rows = await prisma.playbook.findMany({
-    where: { enabled: true, triggerType: "cron", nextRunAt: null },
-    select: { id: true },
-    take: MAX_TRIGGER_PLAYBOOKS_PER_TICK,
-  });
   let initialized = 0;
-  for (const row of rows) {
-    if (await initializeCronPlaybookSchedule(row.id, now)) initialized += 1;
-  }
+  let cursor: { id: string } | undefined;
+  do {
+    const rows = await prisma.playbook.findMany({
+      where: { enabled: true, triggerType: "cron", nextRunAt: null },
+      select: { id: true },
+      orderBy: { id: "asc" },
+      take: MAX_TRIGGER_PLAYBOOKS_PER_TICK,
+      ...(cursor ? { cursor, skip: 1 } : {}),
+    });
+    for (const row of rows) {
+      if (await initializeCronPlaybookSchedule(row.id, now)) initialized += 1;
+    }
+    cursor = rows.length === MAX_TRIGGER_PLAYBOOKS_PER_TICK
+      ? { id: rows[rows.length - 1]!.id }
+      : undefined;
+  } while (cursor);
   return initialized;
 }
 
@@ -214,28 +222,35 @@ export async function dispatchDueCronPlaybooks(now: Date = new Date()): Promise<
   dispatched: number;
   advanced: number;
 }> {
-  const rows = await prisma.playbook.findMany({
-    where: {
-      enabled: true,
-      triggerType: "cron",
-      nextRunAt: { not: null, lte: now },
-    },
-    select: { id: true, nextRunAt: true },
-    take: MAX_TRIGGER_PLAYBOOKS_PER_TICK,
-    orderBy: { nextRunAt: "asc" },
-  });
   let dispatched = 0;
   let advanced = 0;
-  for (const row of rows) {
-    if (!row.nextRunAt) continue;
-    const outcome = await dispatchDueCronPlaybook({
-      playbookId: row.id,
-      dueAt: row.nextRunAt,
-      now,
+  let cursor: { id: string } | undefined;
+  do {
+    const rows = await prisma.playbook.findMany({
+      where: {
+        enabled: true,
+        triggerType: "cron",
+        nextRunAt: { not: null, lte: now },
+      },
+      select: { id: true, nextRunAt: true },
+      orderBy: { id: "asc" },
+      take: MAX_TRIGGER_PLAYBOOKS_PER_TICK,
+      ...(cursor ? { cursor, skip: 1 } : {}),
     });
-    if (outcome.dispatched) dispatched += 1;
-    if (outcome.advanced) advanced += 1;
-  }
+    for (const row of rows) {
+      if (!row.nextRunAt) continue;
+      const outcome = await dispatchDueCronPlaybook({
+        playbookId: row.id,
+        dueAt: row.nextRunAt,
+        now,
+      });
+      if (outcome.dispatched) dispatched += 1;
+      if (outcome.advanced) advanced += 1;
+    }
+    cursor = rows.length === MAX_TRIGGER_PLAYBOOKS_PER_TICK
+      ? { id: rows[rows.length - 1]!.id }
+      : undefined;
+  } while (cursor);
   return { dispatched, advanced };
 }
 
@@ -287,21 +302,29 @@ export async function dispatchMetricPlaybooksForHealthOverview(
   });
   if (readings.length === 0) return { dispatched: 0, evaluated: 0 };
 
-  const playbooks = await prisma.playbook.findMany({
-    where: { enabled: true, triggerType: "metric" },
-    select: { id: true, teamId: true },
-    take: MAX_TRIGGER_PLAYBOOKS_PER_TICK,
-  });
   let dispatched = 0;
   let evaluated = 0;
-  for (const playbook of playbooks) {
-    const teamReadings = readings.filter((reading) => reading.teamId === (playbook.teamId ?? null));
-    if (teamReadings.length === 0) continue;
-    evaluated += 1;
-    if (await dispatchMetricPlaybook({ playbookId: playbook.id, readings: teamReadings, now })) {
-      dispatched += 1;
+  let cursor: { id: string } | undefined;
+  do {
+    const playbooks = await prisma.playbook.findMany({
+      where: { enabled: true, triggerType: "metric" },
+      select: { id: true, teamId: true },
+      orderBy: { id: "asc" },
+      take: MAX_TRIGGER_PLAYBOOKS_PER_TICK,
+      ...(cursor ? { cursor, skip: 1 } : {}),
+    });
+    for (const playbook of playbooks) {
+      const teamReadings = readings.filter((reading) => reading.teamId === (playbook.teamId ?? null));
+      if (teamReadings.length === 0) continue;
+      evaluated += 1;
+      if (await dispatchMetricPlaybook({ playbookId: playbook.id, readings: teamReadings, now })) {
+        dispatched += 1;
+      }
     }
-  }
+    cursor = playbooks.length === MAX_TRIGGER_PLAYBOOKS_PER_TICK
+      ? { id: playbooks[playbooks.length - 1]!.id }
+      : undefined;
+  } while (cursor);
   return { dispatched, evaluated };
 }
 

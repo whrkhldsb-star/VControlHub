@@ -111,14 +111,17 @@ export async function listRecentSnapshots(limit = 30, session?: TeamSession | nu
 export interface ServerMonthlyCostSyncResult { month: string; synced: number; skipped: number; entries: CostEntryRecord[]; }
 export async function syncServerMonthlyCosts(month = new Date().toISOString().slice(0, 7), session?: TeamSession | null): Promise<ServerMonthlyCostSyncResult> {
 	const effectiveDate = startOfMonthUtc(month);
-	const servers = await prisma.server.findMany({ where: { enabled: true, costAutoSync: true, costMonthlyAmount: { not: null }, ...(session ? serverTeamWhere(session) : {}) }, select: { id: true, name: true, host: true, costMonthlyAmount: true, costCurrency: true, costProvider: true, teamId: true }, take: 1000 });
-	const entries: CostEntryRecord[] = []; let skipped = 0;
-	for (const server of servers) {
-		const amount = server.costMonthlyAmount?.toFixed(2); if (!amount || Number(amount) <= 0) { skipped += 1; continue; }
+	const entries: CostEntryRecord[] = []; let skipped = 0; let cursor: { id: string } | undefined;
+	do {
+		const servers = await prisma.server.findMany({ where: { enabled: true, costAutoSync: true, costMonthlyAmount: { not: null }, ...(session ? serverTeamWhere(session) : {}) }, select: { id: true, name: true, host: true, costMonthlyAmount: true, costCurrency: true, costProvider: true, teamId: true }, orderBy: { id: "asc" }, take: 1000, ...(cursor ? { cursor, skip: 1 } : {}) });
+		for (const server of servers) {
+			const amount = server.costMonthlyAmount?.toFixed(2); if (!amount || Number(amount) <= 0 || !server.costCurrency?.trim()) { skipped += 1; continue; }
 		const provider = server.costProvider?.trim() || server.name; const tags = automaticTags("server_monthly", "vps", provider, server.id);
 		const notes = `Auto-collected: ${server.name} (${server.host}) ${month} VPS monthly fee`;
-		const entry = await prisma.costEntry.upsert({ where: { sourceType_sourceRef_effectiveDate: { sourceType: "server_monthly", sourceRef: server.id, effectiveDate } }, create: { category: "vps", provider, amount: new Prisma.Decimal(amount), currency: server.costCurrency, effectiveDate, notes, sourceType: "server_monthly", sourceRef: server.id, createdById: null, teamId: server.teamId ?? null, tags }, update: { provider, amount: new Prisma.Decimal(amount), currency: server.costCurrency, notes, teamId: server.teamId ?? null, tags } });
+		const entry = await prisma.costEntry.upsert({ where: { sourceType_sourceRef_effectiveDate: { sourceType: "server_monthly", sourceRef: server.id, effectiveDate } }, create: { category: "vps", provider, amount: new Prisma.Decimal(amount), currency: server.costCurrency, effectiveDate, notes, sourceType: "server_monthly", sourceRef: server.id, createdById: null, teamId: server.teamId ?? null, tags }, update: { provider, amount: new Prisma.Decimal(amount), currency: server.costCurrency, notes, tags } });
 		await prisma.server.update({ where: { id: server.id }, data: { costLastSyncedAt: new Date() } }); entries.push(toRecord(entry));
-	}
+		}
+		cursor = servers.length === 1000 ? { id: servers[servers.length - 1]!.id } : undefined;
+	} while (cursor);
 	return { month, synced: entries.length, skipped, entries };
 }

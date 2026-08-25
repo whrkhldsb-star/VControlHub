@@ -40,6 +40,10 @@ export class ApiError extends Error {
 		this.category = categoryForCode(this.code);
 		// Pass `details` through when present; otherwise drop it to avoid
 		// leaking server-internal noise into the UI.
-		this.details = body.details !== undefined ? body.details : undefined;
+		this.details = process.env.NODE_ENV === "production"
+			? undefined
+			: body.details !== undefined
+				? body.details
+				: undefined;
 	}
 }

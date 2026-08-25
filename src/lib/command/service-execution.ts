@@ -23,8 +23,14 @@ export const COMMAND_WORKER_ID = `${process.pid}-${randomUUID()}`;
 export function cancelActiveCommandChild(targetId: string) {
   markCommandTargetCancelled(targetId);
   void prisma.serverAgentJob.updateMany({
-    where: { commandTargetId: targetId, status: "PENDING" },
-    data: { status: "CANCELLED" },
+    where: { commandTargetId: targetId, status: { in: ["PENDING", "CLAIMED"] } },
+    data: {
+      status: "CANCELLED",
+      stderr: "Agent job cancelled by operator",
+      exitCode: 130,
+      completedAt: new Date(),
+      leaseExpiresAt: null,
+    },
   }).catch((error) => cmdExecLogger.warn("Failed to cancel pending Agent job", { targetId, error: error instanceof Error ? error.message : String(error) }));
   return cancelRunningCommandChild(targetId);
 }

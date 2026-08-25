@@ -9,6 +9,7 @@ import {
   renderCommand,
 } from "@/lib/command-template/service";
 import { prisma } from "@/lib/db";
+import { APP_TIME_ZONE } from "@/lib/datetime/time-zone";
 import { BusinessError, ForbiddenError, ValidationError } from "@/lib/errors";
 import { serviceT } from "@/lib/i18n/service-locale";
 import { createScheduledTask } from "@/lib/scheduled-task/service";
@@ -132,16 +133,24 @@ export async function materializeAutomationProposal(
   }
 
   const requestedIds = unique(input.serverIds ?? []);
-  const servers = await prisma.server.findMany({
-    where: {
-      enabled: true,
+  const servers: Array<{ id: string; name: string; host: string; teamId: string | null }> = [];
+  let cursor: { id: string } | undefined;
+  do {
+    const batch = await prisma.server.findMany({
+      where: {
+        enabled: true,
 	  ...serverTeamWhere(session),
-      ...(input.targetScope === "selected" ? { id: { in: requestedIds } } : {}),
-    },
-    select: { id: true, name: true, host: true, teamId: true },
-    orderBy: { name: "asc" },
-    take: 500,
-  });
+        ...(input.targetScope === "selected" ? { id: { in: requestedIds } } : {}),
+      },
+      select: { id: true, name: true, host: true, teamId: true },
+      orderBy: { id: "asc" },
+      take: 500,
+      ...(cursor ? { cursor, skip: 1 } : {}),
+    });
+    servers.push(...batch);
+    cursor = batch.length === 500 ? { id: batch[batch.length - 1]!.id } : undefined;
+  } while (cursor);
+  servers.sort((a, b) => a.name.localeCompare(b.name));
   if (!servers.length) throw new BusinessError(t("backend.ai.automationNoEnabledTargets"));
   if (input.targetScope === "selected" && servers.length !== requestedIds.length) {
     throw new BusinessError(t("backend.ai.automationSelectedTargetsUnavailable"));
@@ -162,7 +171,7 @@ export async function materializeAutomationProposal(
     servers: servers.map(({ id, name, host }) => ({ id, name, host })),
     teamId: servers[0]!.teamId,
     approvalRequired: input.approvalMode === "every_run",
-    timeZone: "UTC",
+    timeZone: APP_TIME_ZONE,
   };
 }
 
@@ -220,6 +229,6 @@ export async function executeAutomationProposal(
     requiresApprovalEveryRun: task.approvalRequired,
     targetCount: proposal.serverIds.length,
     command: proposal.command,
-    timeZone: "UTC",
+    timeZone: APP_TIME_ZONE,
   };
 }
