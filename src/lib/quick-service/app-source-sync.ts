@@ -19,6 +19,7 @@ const logger = createLogger("app-source:sync");
 
 const MAX_ENABLED_APP_SOURCES = 50;
 const MAX_REMOTE_APPS = 500;
+const SOURCE_APP_CLEANUP_PAGE_SIZE = 500;
 
 type AppSourceAppSlugRow = Prisma.AppSourceAppGetPayload<{ select: { id: true; slug: true } }>;
 type RemoteAppRow = Prisma.AppSourceAppGetPayload<{ include: { source: { select: { name: true } } } }>;
@@ -103,18 +104,41 @@ export async function syncSource(sourceId: string): Promise<{ synced: number; er
 			else errors++;
 		}
 
-		// Remove apps that are no longer in the source
+		// Remove apps that are no longer in the source. Read all existing rows in
+		// pages; a fixed take would leave stale catalog entries forever once a
+		// source grows beyond the arbitrary cap.
 		const remoteSlugs = new Set(apps.map((a) => a.slug));
-		const existing = await prisma.appSourceApp.findMany({
-			where: { sourceId: source.id },
-			select: { id: true, slug: true },
-			take: 5000, // P2: 单 source 的 app 数,5k 作 hard 上界
-		});
-		const toRemove = existing.filter((entry: AppSourceAppSlugRow) => !remoteSlugs.has(entry.slug));
-		if (toRemove.length > 0) {
-			await prisma.appSourceApp.deleteMany({
-				where: { id: { in: toRemove.map((entry: AppSourceAppSlugRow) => entry.id) } },
-			});
+		let removed = 0;
+		let lastExistingId: string | undefined;
+		// The adapters cap remote results. Never delete rows when the source may
+		// have been truncated, otherwise a large healthy catalog can be damaged.
+		if (apps.length < MAX_REMOTE_APPS) {
+			const staleIds: string[] = [];
+			while (true) {
+				const existing = await prisma.appSourceApp.findMany({
+					where: { sourceId: source.id },
+					select: { id: true, slug: true },
+					orderBy: { id: "asc" },
+					take: SOURCE_APP_CLEANUP_PAGE_SIZE,
+					...(lastExistingId ? { cursor: { id: lastExistingId }, skip: 1 } : {}),
+				});
+				if (existing.length === 0) break;
+				staleIds.push(
+					...existing
+						.filter((entry: AppSourceAppSlugRow) => !remoteSlugs.has(entry.slug))
+						.map((entry: AppSourceAppSlugRow) => entry.id),
+				);
+				lastExistingId = existing[existing.length - 1]!.id;
+				if (existing.length < SOURCE_APP_CLEANUP_PAGE_SIZE) break;
+			}
+			for (let i = 0; i < staleIds.length; i += SOURCE_APP_CLEANUP_PAGE_SIZE) {
+				const result = await prisma.appSourceApp.deleteMany({
+					where: { id: { in: staleIds.slice(i, i + SOURCE_APP_CLEANUP_PAGE_SIZE) } },
+				});
+				removed += result.count;
+			}
+		} else {
+			logger.warn(`Skipped stale app cleanup for ${source.name}: remote catalog reached the ${MAX_REMOTE_APPS} item cap`);
 		}
 
 		// Update source metadata
@@ -128,7 +152,7 @@ export async function syncSource(sourceId: string): Promise<{ synced: number; er
 			},
 		});
 
-		logger.info(`Synced ${source.name}: ${synced} apps, ${errors} errors, ${toRemove.length} removed`);
+		logger.info(`Synced ${source.name}: ${synced} apps, ${errors} errors, ${removed} removed`);
 		return { synced, errors };
 	} catch (err) {
 		const msg = err instanceof Error ? err.message : String(err);

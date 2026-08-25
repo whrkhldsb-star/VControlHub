@@ -281,6 +281,7 @@ export async function startTrafficSamplingWorker() {
       });
     });
   }, TRAFFIC_SAMPLE_INTERVAL_MS);
+  state.timer.unref?.();
 
   logger.info("traffic sampling durable job worker started", {
     intervalMs: TRAFFIC_SAMPLE_INTERVAL_MS,

@@ -424,31 +424,29 @@ async function syncLocalShareDirectory(share: { storageNodeId: string; storageNo
 	}
 	if (records.length === 0) return;
 
-	// Single round-trip to learn which records already exist.
-	const existingRows = await prisma.fileEntry.findMany({
-		where: {
-			storageNodeId: share.storageNodeId,
-			relativePath: { in: records.map((r) => r.relativePath) },
-		},
-		select: { id: true, relativePath: true, isDeleted: true },
-		take: 5000, // P2: records.length 已外部限,5k 作 hard 上界
-	});
-	const existingByPath = new Map(existingRows.map((row) => [row.relativePath, row]));
+	// Query and mutate in bounded chunks so a large directory cannot exceed
+	// PostgreSQL parameter limits or create an unbounded Promise.all fan-out.
+	const existingByPath = new Map<string, { id: string; relativePath: string; isDeleted: boolean }>();
+	const batchSize = 500;
+	for (let i = 0; i < records.length; i += batchSize) {
+		const batch = records.slice(i, i + batchSize);
+		const existingRows = await prisma.fileEntry.findMany({
+			where: {
+				storageNodeId: share.storageNodeId,
+				relativePath: { in: batch.map((r) => r.relativePath) },
+			},
+			select: { id: true, relativePath: true, isDeleted: true },
+		});
+		for (const row of existingRows) existingByPath.set(row.relativePath, row);
+	}
 
 	const toCreate = records.filter((r) => !existingByPath.has(r.relativePath));
-	const toUpdate = records.filter((r) => {
-		const existing = existingByPath.get(r.relativePath);
-		return existing && !existing.isDeleted;
-	});
+	const toUpdate = records.filter((r) => existingByPath.has(r.relativePath));
 
-	// Batch inserts (createMany) + parallel updates (Promise.all). Per-row
-	// failure isolation only matters for the update branch; createMany is
-	// atomic on the DB side and a schema mismatch will surface as a single
-	// thrown error, matching the prior all-or-nothing semantics of the
-	// per-entry findFirst path.
-	if (toCreate.length > 0) {
+	for (let i = 0; i < toCreate.length; i += batchSize) {
+		const batch = toCreate.slice(i, i + batchSize);
 		await prisma.fileEntry.createMany({
-			data: toCreate.map((r) => ({
+			data: batch.map((r) => ({
 				storageNodeId: share.storageNodeId,
 				relativePath: r.relativePath,
 				name: r.name,
@@ -459,13 +457,20 @@ async function syncLocalShareDirectory(share: { storageNodeId: string; storageNo
 			skipDuplicates: true,
 		});
 	}
-	if (toUpdate.length > 0) {
+	for (let i = 0; i < toUpdate.length; i += batchSize) {
+		const batch = toUpdate.slice(i, i + batchSize);
 		await Promise.all(
-			toUpdate.map((r) => {
+			batch.map((r) => {
 				const row = existingByPath.get(r.relativePath)!;
 				return prisma.fileEntry.update({
 					where: { id: row.id },
-					data: { name: r.name, entryType: r.entryType, mimeType: r.mimeType, size: r.size },
+					data: {
+						name: r.name,
+						entryType: r.entryType,
+						mimeType: r.mimeType,
+						size: r.size,
+						isDeleted: false,
+					},
 				});
 			}),
 		);

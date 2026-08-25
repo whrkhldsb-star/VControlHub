@@ -4,7 +4,8 @@ const { prismaMock, accessMock, statMock, listRemoteDirectoryMock } = vi.hoisted
   prismaMock: {
     storageNode: {
       findUnique: vi.fn(),
-      update: vi.fn(),
+      updateMany: vi.fn(),
+      findFirst: vi.fn(),
     },
   },
   accessMock: vi.fn(),
@@ -39,7 +40,11 @@ import { checkStorageNodeHealth } from "../service";
 describe("checkStorageNodeHealth", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    prismaMock.storageNode.update.mockImplementation(async ({ data }) => ({ id: "node-1", ...data }));
+    prismaMock.storageNode.updateMany.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => {
+      prismaMock.storageNode.findFirst.mockResolvedValue({ id: "node-1", ...data });
+      return { count: 1 };
+    });
+    prismaMock.storageNode.findFirst.mockResolvedValue({ id: "node-1", healthStatus: "HEALTHY", lastHealthError: null });
   });
 
   it("marks a LOCAL node healthy when its base path is an accessible directory", async () => {
@@ -60,7 +65,7 @@ describe("checkStorageNodeHealth", () => {
     expect(result.healthStatus).toBe("HEALTHY");
     expect(result.lastHealthError).toBeNull();
     expect(accessMock).toHaveBeenCalledWith("/srv/storage", expect.any(Number));
-    expect(prismaMock.storageNode.update).toHaveBeenCalledWith(expect.objectContaining({
+    expect(prismaMock.storageNode.updateMany).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: "node-1" },
       data: expect.objectContaining({ healthStatus: "HEALTHY", lastHealthError: null }),
     }));

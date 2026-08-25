@@ -9,7 +9,6 @@ import {
   DEFAULT_LEASE_MS,
   futureFrom,
   recordJobEventWithClient,
-  safeRecordJobEvent,
   type ClaimJobOptions,
   type EnqueueJobInput,
 } from "./service-internals";
@@ -160,18 +159,21 @@ export async function claimNextJob(options: ClaimJobOptions) {
       });
       if (claimed.count === 0) continue;
       const claimedJob = await tx.job.findUniqueOrThrow({ where: { id: candidate.id } });
-      safeRecordJobEvent({
-        jobId: claimedJob.id,
-        type: "claimed",
-        message: `Background executor ${options.workerId} claimed task`,
-        workerId: options.workerId,
-        payload: {
-          type: claimedJob.type,
-          title: claimedJob.title,
-          priority: claimedJob.priority,
-          attempts: claimedJob.attempts,
+      await recordJobEventWithClient(
+        {
+          jobId: claimedJob.id,
+          type: "claimed",
+          message: `Background executor ${options.workerId} claimed task`,
+          workerId: options.workerId,
+          payload: {
+            type: claimedJob.type,
+            title: claimedJob.title,
+            priority: claimedJob.priority,
+            attempts: claimedJob.attempts,
+          },
         },
-      });
+        tx,
+      );
       return claimedJob;
     }
     return null;

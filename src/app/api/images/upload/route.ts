@@ -239,14 +239,23 @@ async function handleUpload(request: Request, userId: string, session: SessionPa
           where: { id: storageNodeId, ...teamWhere(session) },
           select: storageFileNodeSelect,
         });
-        if (storageNode && (storageNode.driver === "LOCAL" || storageNode.driver === "SFTP")) {
-          linkedStorageRelativePath = `${relativePath.replace(/\/$/, "")}/${storageKey}`;
-          await writeStorageFileBuffer(storageNode, linkedStorageRelativePath, buffer);
-          linkedStorageNode = storageNode;
+        if (!storageNode || (storageNode.driver !== "LOCAL" && storageNode.driver !== "SFTP")) {
+          throw new ValidationError(t("backend.storage.uploadNotSupported", locale));
         }
-      } catch (e) {
-        // Non-fatal: cloud copy is best-effort
-        logError("image-bed:cloud-copy-failed", e);
+        linkedStorageRelativePath = `${relativePath.replace(/\/$/, "")}/${storageKey}`;
+        linkedStorageNode = storageNode;
+        await writeStorageFileBuffer(storageNode, linkedStorageRelativePath, buffer);
+      } catch (error) {
+        logError("image-bed:cloud-copy-failed", error);
+        await Promise.allSettled([
+          ...writtenPaths.map((filePath) => rm(filePath, { force: true })),
+          linkedStorageNode && linkedStorageRelativePath
+            ? deleteStorageFileBuffer(linkedStorageNode, linkedStorageRelativePath).catch((cleanupErr) => {
+                logError("image-bed:linked-storage-rollback-failed", cleanupErr);
+              })
+            : Promise.resolve(),
+        ]);
+        throw error;
       } finally {
         await releaseStorageQuotaGuard(access);
       }

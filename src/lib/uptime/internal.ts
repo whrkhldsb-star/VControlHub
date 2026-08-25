@@ -47,21 +47,40 @@ export async function getAllUptimeDataInternal(options: UptimeListOptions = {}) 
 
   const teamFilter = teamWhere(options.session);
 
-  const servers = await prisma.server.findMany({
-    where: { enabled: true, ...teamFilter },
-    select: { id: true, name: true },
-    orderBy: { name: "asc" },
-    take: 500,
-  });
+  const servers: Array<{ id: string; name: string }> = [];
+  let serverCursor: { id: string } | undefined;
+  do {
+    const page = await prisma.server.findMany({
+      where: { enabled: true, ...teamFilter },
+      select: { id: true, name: true },
+      orderBy: { id: "asc" },
+      take: 500,
+      ...(serverCursor ? { cursor: serverCursor, skip: 1 } : {}),
+    });
+    servers.push(...page);
+    serverCursor = page.length === 500 ? { id: page[page.length - 1]!.id } : undefined;
+  } while (serverCursor);
+  servers.sort((a, b) => a.name.localeCompare(b.name));
 
-  const snapshots = await prisma.serverUptimeSnapshot.findMany({
-    where: {
-      serverId: { in: servers.map((server) => server.id) },
-      date: { gte: ninetyDaysAgo },
-    },
-    orderBy: [{ serverId: "asc" }, { date: "asc" }],
-    take: 5000,
-  });
+  const snapshots: ServerUptimeSnapshot[] = [];
+  for (let i = 0; i < servers.length; i += 500) {
+    const serverIds = servers.slice(i, i + 500).map((server) => server.id);
+    let snapshotCursor: { id: string } | undefined;
+    do {
+      const page = await prisma.serverUptimeSnapshot.findMany({
+        where: {
+          serverId: { in: serverIds },
+          date: { gte: ninetyDaysAgo },
+        },
+        orderBy: { id: "asc" },
+        take: 1000,
+        ...(snapshotCursor ? { cursor: snapshotCursor, skip: 1 } : {}),
+      });
+      snapshots.push(...page);
+      snapshotCursor = page.length === 1000 ? { id: page[page.length - 1]!.id } : undefined;
+    } while (snapshotCursor);
+  }
+  snapshots.sort((a, b) => a.serverId.localeCompare(b.serverId) || a.date.getTime() - b.date.getTime());
 
   const snapshotsByServer = new Map<string, ServerUptimeSnapshot[]>();
   for (const snapshot of snapshots) {

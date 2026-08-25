@@ -46,15 +46,42 @@ type SshExecServer = {
   hostKeySha256?: string | null;
 };
 
-// 在目标服务器上执行 SSH 命令的辅助函数
+const SSH_EXEC_TIMEOUT_MS = 15_000;
+
+// Execute a remote command with an independent command deadline. SSH
+// readyTimeout only covers authentication; a remote `ps`, `tail`, or shell
+// command can otherwise keep the HTTP request open indefinitely.
 async function sshExec(
   server: SshExecServer,
   command: string,
-): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+): Promise<{ stdout: string; stderr: string; exitCode: number; timedOut?: boolean }> {
   const { Client } = await import("ssh2");
   const sshClient = new Client();
 
   return new Promise((resolve) => {
+    let stdout = "";
+    let stderr = "";
+    let settled = false;
+    let commandStream: { destroy?: () => void } | null = null;
+    let timeout: NodeJS.Timeout | null = null;
+
+    const finish = (result: { stdout: string; stderr: string; exitCode: number; timedOut?: boolean }) => {
+      if (settled) return;
+      settled = true;
+      if (timeout) clearTimeout(timeout);
+      try {
+        commandStream?.destroy?.();
+      } catch {
+        // The stream may already be closed.
+      }
+      try {
+        sshClient.end();
+      } catch {
+        // Connection teardown is best-effort after the result is decided.
+      }
+      resolve(result);
+    };
+
     const config = createVerifiedSshConfig({
       host: server.host,
       port: server.port,
@@ -67,17 +94,24 @@ async function sshExec(
           : {}),
     });
     config.readyTimeout = 10000;
+    config.timeout = 10000;
+    timeout = setTimeout(() => {
+      finish({
+        stdout,
+        stderr: `${stderr}\nRemote command exceeded ${SSH_EXEC_TIMEOUT_MS}ms and was terminated.`,
+        exitCode: 124,
+        timedOut: true,
+      });
+    }, SSH_EXEC_TIMEOUT_MS);
 
     sshClient.on("ready", () => {
       sshClient.exec(command, { pty: false }, (err, stream) => {
         if (err) {
-          sshClient.end();
-          resolve({ stdout: "", stderr: err.message, exitCode: -1 });
+          finish({ stdout, stderr: err.message, exitCode: -1 });
           return;
         }
 
-        let stdout = "";
-        let stderr = "";
+        commandStream = stream as unknown as { destroy?: () => void };
         stream.on("data", (data: Buffer) => {
           stdout += data.toString();
         });
@@ -85,15 +119,13 @@ async function sshExec(
           stderr += data.toString();
         });
         stream.on("close", (code: number) => {
-          sshClient.end();
-          resolve({ stdout, stderr, exitCode: code });
+          finish({ stdout, stderr, exitCode: code });
         });
       });
     });
 
     sshClient.on("error", (err) => {
-      sshClient.end();
-      resolve({ stdout: "", stderr: err.message, exitCode: -1 });
+      finish({ stdout, stderr: err.message, exitCode: -1 });
     });
 
     sshClient.connect(config);
