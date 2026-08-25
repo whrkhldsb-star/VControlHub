@@ -51,6 +51,12 @@ export async function POST(request: Request) {
         sourceDomain: file.sourceDomain,
       }, undefined, session?.currentTeamId);
 
+      if (result.rolledBack) {
+        return NextResponse.json(
+          { result, error: "IMPORT_ROLLED_BACK" },
+          { status: 400 },
+        );
+      }
       if (result.errors.length > 0) {
         return NextResponse.json(
           { result, error: "IMPORT_PARTIAL_FAILURE" },

@@ -139,6 +139,7 @@ const userStorageAccessSchema = z.object({
 });
 
 const commandTemplateSchema = z.object({
+  teamId: z.string().nullable().optional(),
   id: z.string(),
   name: z.string(),
   description: z.string().nullable(),

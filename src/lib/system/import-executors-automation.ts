@@ -40,6 +40,7 @@ export async function importCommandTemplates(
         tags: r.tags,
         isBuiltin: r.isBuiltin,
         createdById: r.createdById,
+        teamId: r.teamId ?? null,
       })),
       skipDuplicates: true,
     });
@@ -59,6 +60,7 @@ export async function importCommandTemplates(
           tags: r.tags,
           isBuiltin: r.isBuiltin,
           createdById: r.createdById,
+          teamId: r.teamId ?? null,
         },
       });
     }

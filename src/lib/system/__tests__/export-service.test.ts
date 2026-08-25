@@ -219,7 +219,9 @@ describe("export-service multi-tenant scope", () => {
 
     expect(prisma.snippet.findMany).toHaveBeenLastCalledWith({
       where: { createdBy: { in: ["u1"] } },
-      orderBy: { title: "asc" },
+      orderBy: [{ title: "asc" }, { id: "asc" }],
+      skip: 0,
+      take: 500,
     });
   });
 

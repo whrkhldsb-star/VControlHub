@@ -20,6 +20,7 @@ export type ImportResult = {
   updated: number;
   skipped: number;
   errors: string[];
+  rolledBack?: boolean;
 };
 
 export function parseDate(s: string): Date {

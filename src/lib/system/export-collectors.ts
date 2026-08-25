@@ -19,8 +19,30 @@ function teamScopedWhere(teamId: string) {
   return { OR: [{ teamId }, { teamId: null }] as const };
 }
 
+const EXPORT_PAGE_SIZE = 500;
+
+type Page = { take: number; skip: number };
+
+/**
+ * Read a complete table in bounded database pages. The caller still receives
+ * the complete export array because the .vch.json contract is intentionally
+ * unchanged, but Prisma never materializes an unbounded result set in one
+ * query.
+ */
+async function readAllPages<T>(fetchPage: (page: Page) => PromiseLike<T[]>): Promise<T[]> {
+  const rows: T[] = [];
+  for (let skip = 0; ; skip += EXPORT_PAGE_SIZE) {
+    const page = await fetchPage({ take: EXPORT_PAGE_SIZE, skip });
+    rows.push(...page);
+    if (page.length < EXPORT_PAGE_SIZE) return rows;
+  }
+}
+
 export async function exportPermissions() {
-  const rows = await prisma.permission.findMany({ orderBy: { key: "asc" } });
+  const rows = await readAllPages(async (page) => prisma.permission.findMany({
+    orderBy: [{ key: "asc" }, { id: "asc" }],
+    ...page,
+  }));
   return rows.map((r) => ({
     id: r.id,
     key: r.key,
@@ -30,7 +52,10 @@ export async function exportPermissions() {
 }
 
 export async function exportRoles() {
-  const rows = await prisma.role.findMany({ orderBy: { key: "asc" } });
+  const rows = await readAllPages(async (page) => prisma.role.findMany({
+    orderBy: [{ key: "asc" }, { id: "asc" }],
+    ...page,
+  }));
   return rows.map((r) => ({
     id: r.id,
     key: r.key,
@@ -40,7 +65,10 @@ export async function exportRoles() {
 }
 
 export async function exportRolePermissions() {
-  const rows = await prisma.rolePermission.findMany();
+  const rows = await readAllPages(async (page) => prisma.rolePermission.findMany({
+    orderBy: [{ roleId: "asc" }, { permissionId: "asc" }],
+    ...page,
+  }));
   return rows.map((r) => ({
     roleId: r.roleId,
     permissionId: r.permissionId,
@@ -54,13 +82,15 @@ export async function exportUsers(
 ) {
   if (scope === "team" && teamId) {
     const memberUserIds = (
-      await prisma.teamMember.findMany({
+      await readAllPages(async (page) => prisma.teamMember.findMany({
         where: { teamId },
         select: { userId: true },
-      })
+        orderBy: { userId: "asc" },
+        ...page,
+      }))
     ).map((m) => m.userId);
     if (memberUserIds.length === 0) return [];
-    const rows = await prisma.user.findMany({
+    const rows = await readAllPages(async (page) => prisma.user.findMany({
       where: { id: { in: memberUserIds } },
       orderBy: { username: "asc" },
       select: {
@@ -75,7 +105,8 @@ export async function exportUsers(
         passwordHash: mode === "full",
         twoFactorSecret: mode === "full",
       },
-    });
+      ...page,
+    }));
     return rows.map((r) => ({
       id: r.id,
       username: r.username,
@@ -90,7 +121,7 @@ export async function exportUsers(
     }));
   }
 
-  const rows = await prisma.user.findMany({
+  const rows = await readAllPages(async (page) => prisma.user.findMany({
     orderBy: { username: "asc" },
     select: {
       id: true,
@@ -104,7 +135,8 @@ export async function exportUsers(
       passwordHash: mode === "full",
       twoFactorSecret: mode === "full",
     },
-  });
+    ...page,
+  }));
   return rows.map((r) => ({
     id: r.id,
     username: r.username,
@@ -122,16 +154,21 @@ export async function exportUsers(
 export async function exportUserRoles(scope: ExportScope, userIds: string[]) {
   if (scope === "team") {
     if (userIds.length === 0) return [];
-    const rows = await prisma.userRole.findMany({
+    const rows = await readAllPages(async (page) => prisma.userRole.findMany({
       where: { userId: { in: userIds } },
-    });
+      orderBy: [{ userId: "asc" }, { roleId: "asc" }],
+      ...page,
+    }));
     return rows.map((r) => ({
       userId: r.userId,
       roleId: r.roleId,
       assignedAt: dateToISO(r.assignedAt)!,
     }));
   }
-  const rows = await prisma.userRole.findMany();
+  const rows = await readAllPages(async (page) => prisma.userRole.findMany({
+    orderBy: [{ userId: "asc" }, { roleId: "asc" }],
+    ...page,
+  }));
   return rows.map((r) => ({
     userId: r.userId,
     roleId: r.roleId,
@@ -145,9 +182,9 @@ export async function exportSshKeys(
   teamId: string | null,
 ) {
   const where = scope === "team" && teamId ? teamScopedWhere(teamId) : {};
-  const rows = await prisma.sshKey.findMany({
+  const rows = await readAllPages(async (page) => prisma.sshKey.findMany({
     where,
-    orderBy: { name: "asc" },
+    orderBy: [{ name: "asc" }, { id: "asc" }],
     select: {
       id: true,
       name: true,
@@ -160,7 +197,8 @@ export async function exportSshKeys(
       privateKey: mode === "full",
       passphrase: mode === "full",
     },
-  });
+    ...page,
+  }));
   return rows.map((r) => ({
     id: r.id,
     name: r.name,
@@ -181,9 +219,9 @@ export async function exportServers(
   teamId: string | null,
 ) {
   const where = scope === "team" && teamId ? teamScopedWhere(teamId) : {};
-  const rows = await prisma.server.findMany({
+  const rows = await readAllPages(async (page) => prisma.server.findMany({
     where,
-    orderBy: { name: "asc" },
+    orderBy: [{ name: "asc" }, { id: "asc" }],
     select: {
       id: true,
       name: true,
@@ -203,7 +241,8 @@ export async function exportServers(
       teamId: true,
       password: mode === "full",
     },
-  });
+    ...page,
+  }));
   return rows.map((r) => ({
     id: r.id,
     name: r.name,
@@ -230,10 +269,11 @@ export async function exportStorageNodes(
   teamId: string | null,
 ) {
   const where = scope === "team" && teamId ? teamScopedWhere(teamId) : {};
-  const rows = await prisma.storageNode.findMany({
+  const rows = await readAllPages(async (page) => prisma.storageNode.findMany({
     where,
-    orderBy: { name: "asc" },
-  });
+    orderBy: [{ name: "asc" }, { id: "asc" }],
+    ...page,
+  }));
   return rows.map((r) => ({
     id: r.id,
     name: r.name,
@@ -259,9 +299,11 @@ export async function exportUserStorageAccess(
 ) {
   if (scope === "team") {
     if (storageNodeIds.length === 0) return [];
-    const rows = await prisma.userStorageAccess.findMany({
+    const rows = await readAllPages(async (page) => prisma.userStorageAccess.findMany({
       where: { storageNodeId: { in: storageNodeIds } },
-    });
+      orderBy: [{ storageNodeId: "asc" }, { id: "asc" }],
+      ...page,
+    }));
     return rows.map((r) => ({
       id: r.id,
       userId: r.userId,
@@ -275,7 +317,10 @@ export async function exportUserStorageAccess(
       createdAt: dateToISO(r.createdAt)!,
     }));
   }
-  const rows = await prisma.userStorageAccess.findMany();
+  const rows = await readAllPages(async (page) => prisma.userStorageAccess.findMany({
+    orderBy: [{ storageNodeId: "asc" }, { id: "asc" }],
+    ...page,
+  }));
   return rows.map((r) => ({
     id: r.id,
     userId: r.userId,
@@ -290,10 +335,12 @@ export async function exportUserStorageAccess(
   }));
 }
 
-export async function exportCommandTemplates() {
-  const rows = await prisma.commandTemplate.findMany({
-    orderBy: { name: "asc" },
-  });
+export async function exportCommandTemplates(scope: ExportScope, teamId: string | null) {
+  const rows = await readAllPages(async (page) => prisma.commandTemplate.findMany({
+    where: scope === "team" && teamId ? teamScopedWhere(teamId) : {},
+    orderBy: [{ name: "asc" }, { id: "asc" }],
+    ...page,
+  }));
   return rows.map((r) => ({
     id: r.id,
     name: r.name,
@@ -304,6 +351,7 @@ export async function exportCommandTemplates() {
     tags: r.tags,
     isBuiltin: r.isBuiltin,
     createdById: r.createdById,
+    teamId: r.teamId ?? null,
     createdAt: dateToISO(r.createdAt)!,
   }));
 }
@@ -316,15 +364,19 @@ export async function exportQuickServices(
   if (scope === "team" && teamId) {
     // Team scope: hub-host (serverId null) + remote services on this team's servers only.
     // Do NOT pull server.teamId==null remotes (cross-tenant leak).
-    const rows = await prisma.quickService.findMany({
+    const rows = await readAllPages(async (page) => prisma.quickService.findMany({
       where: {
         OR: [{ serverId: null }, { server: { teamId } }],
       },
-      orderBy: { name: "asc" },
-    });
+      orderBy: [{ name: "asc" }, { id: "asc" }],
+      ...page,
+    }));
     return rows.map((r) => mapQuickService(r, mode));
   }
-  const rows = await prisma.quickService.findMany({ orderBy: { name: "asc" } });
+  const rows = await readAllPages(async (page) => prisma.quickService.findMany({
+    orderBy: [{ name: "asc" }, { id: "asc" }],
+    ...page,
+  }));
   return rows.map((r) => mapQuickService(r, mode));
 }
 
@@ -379,10 +431,11 @@ export async function exportPlaybooks(
   teamId: string | null,
 ) {
   const where = scope === "team" && teamId ? teamScopedWhere(teamId) : {};
-  const rows = await prisma.playbook.findMany({
+  const rows = await readAllPages(async (page) => prisma.playbook.findMany({
     where,
-    orderBy: { name: "asc" },
-  });
+    orderBy: [{ name: "asc" }, { id: "asc" }],
+    ...page,
+  }));
   return rows.map((r) => ({
     id: r.id,
     name: r.name,
@@ -403,10 +456,11 @@ export async function exportAlertRules(
   teamId: string | null,
 ) {
   const where = scope === "team" && teamId ? teamScopedWhere(teamId) : {};
-  const rows = await prisma.alertRule.findMany({
+  const rows = await readAllPages(async (page) => prisma.alertRule.findMany({
     where,
-    orderBy: { name: "asc" },
-  });
+    orderBy: [{ name: "asc" }, { id: "asc" }],
+    ...page,
+  }));
   return rows.map((r) => ({
     id: r.id,
     name: r.name,
@@ -430,7 +484,10 @@ export async function exportAlertRules(
 
 export async function exportSettings(mode: ExportMode, scope: ExportScope) {
   if (scope === "team") return [];
-  const rows = await prisma.setting.findMany({ orderBy: { key: "asc" } });
+  const rows = await readAllPages(async (page) => prisma.setting.findMany({
+    orderBy: { key: "asc" },
+    ...page,
+  }));
   return rows.map((r) => ({
     key: r.key,
     value:
@@ -440,8 +497,8 @@ export async function exportSettings(mode: ExportMode, scope: ExportScope) {
 
 export async function exportAiProviders(mode: ExportMode, scope: ExportScope) {
   if (scope === "team") return [];
-  const rows = await prisma.aiProvider.findMany({
-    orderBy: { name: "asc" },
+  const rows = await readAllPages(async (page) => prisma.aiProvider.findMany({
+    orderBy: [{ name: "asc" }, { id: "asc" }],
     select: {
       id: true,
       name: true,
@@ -456,7 +513,8 @@ export async function exportAiProviders(mode: ExportMode, scope: ExportScope) {
       createdAt: true,
       apiKey: mode === "full",
     },
-  });
+    ...page,
+  }));
   return rows.map((r) => ({
     id: r.id,
     name: r.name,
@@ -475,9 +533,10 @@ export async function exportAiProviders(mode: ExportMode, scope: ExportScope) {
 
 export async function exportAnnouncements(scope: ExportScope) {
   if (scope === "team") return [];
-  const rows = await prisma.announcement.findMany({
-    orderBy: { createdAt: "desc" },
-  });
+  const rows = await readAllPages(async (page) => prisma.announcement.findMany({
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    ...page,
+  }));
   return rows.map((r) => ({
     id: r.id,
     title: r.title,
@@ -498,15 +557,19 @@ export async function exportSnippets(
 ) {
   if (scope === "team") {
     if (memberUserIds.length === 0) return [];
-    const rows = await prisma.snippet.findMany({
+    const rows = await readAllPages(async (page) => prisma.snippet.findMany({
       // Snippet has no teamId yet, so team exports must derive ownership from
       // the creator directory. Public visibility is not export ownership.
       where: { createdBy: { in: memberUserIds } },
-      orderBy: { title: "asc" },
-    });
+      orderBy: [{ title: "asc" }, { id: "asc" }],
+      ...page,
+    }));
     return rows.map(mapSnippet);
   }
-  const rows = await prisma.snippet.findMany({ orderBy: { title: "asc" } });
+  const rows = await readAllPages(async (page) => prisma.snippet.findMany({
+    orderBy: [{ title: "asc" }, { id: "asc" }],
+    ...page,
+  }));
   return rows.map(mapSnippet);
 }
 

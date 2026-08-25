@@ -79,6 +79,7 @@ export async function executeImport(
 
   // Large multi-table imports easily exceed Prisma's default 5s interactive
   // transaction timeout (P2028). Give operators a realistic window.
+  let rolledBack = false;
   await prisma.$transaction(async (tx) => {
     // 1. Permissions
     await importPermissions(tx, t, options, counts);
@@ -115,10 +116,14 @@ export async function executeImport(
     // 17. Snippets
     await importSnippets(tx, t, options, counts);
   }, { timeout: 120_000, maxWait: 20_000 }).catch((err: unknown) => {
-    // 事务失败 → 记录错误，不部分提交；不 rethrow，让路由返回 207 + structured errors
+    // 事务失败时全部写入都会回滚。不要把事务内累计的计数伪装成
+    // 已落库结果，否则 UI 会显示“创建了 N 条”但数据库实际为 0。
+    rolledBack = true;
+    counts.created = 0;
+    counts.updated = 0;
     const msg = err instanceof Error ? err.message : String(err);
     errors.push(`Transaction failed: ${msg}`);
   });
 
-  return { created: counts.created, updated: counts.updated, skipped: counts.skipped, errors };
+  return { created: counts.created, updated: counts.updated, skipped: counts.skipped, errors, ...(rolledBack ? { rolledBack: true } : {}) };
 }

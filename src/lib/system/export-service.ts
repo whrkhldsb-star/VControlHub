@@ -141,7 +141,7 @@ export async function buildExportFile(
     exportSshKeys(mode, scope, teamId),
     exportServers(mode, scope, teamId),
     exportStorageNodes(scope, teamId),
-    exportCommandTemplates(),
+    exportCommandTemplates(scope, teamId),
     exportQuickServices(mode, scope, teamId),
     exportPlaybooks(scope, teamId),
     exportAlertRules(scope, teamId),
