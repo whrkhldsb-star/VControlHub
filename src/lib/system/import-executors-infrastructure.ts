@@ -173,12 +173,18 @@ export async function importServers(
 
 /** After import, keep a single default storage node per teamId group (null = shared). */
 async function normalizeStorageNodeDefaults(tx: Tx): Promise<void> {
-  const defaults = await tx.storageNode.findMany({
-    where: { isDefault: true },
-    select: { id: true, teamId: true, createdAt: true },
-    orderBy: { createdAt: "asc" },
-    take: 5000,
-  });
+  const defaults: Array<{ id: string; teamId: string | null; createdAt: Date }> = [];
+  for (let skip = 0; ; skip += 500) {
+    const page = await tx.storageNode.findMany({
+      where: { isDefault: true },
+      select: { id: true, teamId: true, createdAt: true },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      take: 500,
+      skip,
+    });
+    defaults.push(...page);
+    if (page.length < 500) break;
+  }
   const winners = new Map<string | null, string>();
   for (const row of defaults) {
     const key = row.teamId ?? null;

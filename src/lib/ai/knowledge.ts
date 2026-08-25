@@ -225,7 +225,10 @@ export async function deleteKnowledgeBase(
 ) {
   const existing = await getKnowledgeBase(id, session);
   if (!existing) throw new NotFoundError(t("backend.ai.knowledgeBaseNotFound"));
-  await prisma.knowledgeBase.delete({ where: { id } });
+  const deleted = await prisma.knowledgeBase.deleteMany({
+    where: { id, ...(session ? teamWhere(session) : {}) },
+  });
+  if (deleted.count === 0) throw new NotFoundError(t("backend.ai.knowledgeBaseNotFound"));
   return { id };
 }
 
