@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { SshTerminalPanel, type TerminalStatus } from "@/components/ssh-terminal-panel";
 import { ActionButton } from "@/components/action-button";
@@ -51,6 +51,46 @@ export function SshTerminalManager({
 }: SshTerminalManagerProps) {
 	const { t } = useI18n();
 	const [minimized, setMinimized] = useState(false);
+	const [mobileHeight, setMobileHeight] = useState<number | null>(null);
+	const dragStateRef = useRef<{ startY: number; startHeight: number } | null>(null);
+
+	const handleMobileDragStart = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+		if (window.innerWidth >= 640) return;
+		event.preventDefault();
+		event.currentTarget.setPointerCapture(event.pointerId);
+		dragStateRef.current = {
+			startY: event.clientY,
+			startHeight: mobileHeight ?? window.innerHeight,
+		};
+	}, [mobileHeight]);
+
+	const handleMobileDragMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+		const drag = dragStateRef.current;
+		if (!drag) return;
+		const viewportHeight = window.innerHeight;
+		const nextHeight = Math.max(
+			Math.min(viewportHeight, drag.startHeight + drag.startY - event.clientY),
+			Math.min(360, viewportHeight),
+		);
+		setMobileHeight(nextHeight);
+	}, []);
+
+	const handleMobileDragEnd = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+		dragStateRef.current = null;
+		try {
+			event.currentTarget.releasePointerCapture(event.pointerId);
+		} catch {
+			// Pointer capture may already have been released by the browser.
+		}
+	}, []);
+
+	useEffect(() => {
+		const handleViewportResize = () => {
+			if (window.innerWidth >= 640) setMobileHeight(null);
+		};
+		window.addEventListener("resize", handleViewportResize);
+		return () => window.removeEventListener("resize", handleViewportResize);
+	}, []);
 
 	// ── Keyboard shortcuts ──────────────────────────────────────
 	// Escape → close active tab (NOT all tabs)
@@ -107,7 +147,7 @@ export function SshTerminalManager({
 	const connectedCount = tabs.filter((tab) => tab.status === "connected").length;
 
 	return (
-		<div className="pointer-events-none fixed inset-x-2 bottom-2 z-50 flex justify-end sm:inset-x-4 sm:bottom-4">
+		<div className="pointer-events-none fixed inset-0 z-[var(--z-modal)] flex items-end justify-end sm:inset-x-4 sm:inset-y-auto sm:bottom-4">
 			{/* Minimized pill — sessions stay mounted below, only chrome swaps */}
 			{minimized && (
 				<button
@@ -134,18 +174,33 @@ export function SshTerminalManager({
 			<div
 				role="region"
 				data-ssh-terminal-dialog="true"
+				data-mobile-fullscreen="true"
 				aria-labelledby="ssh-terminal-manager-title"
 				aria-hidden={minimized}
 				style={{
 					backgroundColor: "var(--surface)",
 					borderColor: "var(--border)",
 					color: "var(--text-primary)",
+					height: mobileHeight ? `${mobileHeight}px` : undefined,
 					// Keep in DOM when minimized so WebSockets / xterm stay alive.
 					// display:none is enough; panels already use display for tab visibility.
 					display: minimized ? "none" : "flex",
 				}}
-				className="pointer-events-auto max-h-[72vh] min-h-0 w-full max-w-5xl flex-col rounded-2xl border border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] shadow-2xl sm:rounded-3xl"
+				className="pointer-events-auto flex h-[100dvh] max-h-[100dvh] min-h-0 w-full max-w-5xl flex-col overflow-hidden rounded-none border border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface)] pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)] text-[var(--text-primary)] shadow-2xl sm:h-auto sm:max-h-[72vh] sm:rounded-3xl sm:pt-0"
 			>
+				<div
+					className="flex h-6 shrink-0 touch-none select-none items-center justify-center sm:hidden"
+					onPointerDown={handleMobileDragStart}
+					onPointerMove={handleMobileDragMove}
+					onPointerUp={handleMobileDragEnd}
+					onPointerCancel={handleMobileDragEnd}
+					role="separator"
+					aria-orientation="horizontal"
+					aria-label={t("sshTerminalManager.resizeHandle")}
+					data-testid="ssh-terminal-mobile-resize-handle"
+				>
+					<span className="h-1 w-12 rounded-full bg-[var(--border-strong)]" aria-hidden="true" />
+				</div>
 				{/* Title bar + tab bar + controls */}
 				<div className="flex items-center justify-between border-b border-[var(--border-subtle)] light:border-[var(--border)] px-4 py-2.5">
 					<div className="flex items-center gap-2">

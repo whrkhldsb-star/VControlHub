@@ -390,7 +390,7 @@ export function SshTerminalPanel({ serverId, serverName, host, sessionToken, vis
 			)}
 
 			{/* Terminal + side panel */}
-			<div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3 lg:flex-row lg:overflow-hidden">
+			<div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain p-3 lg:flex-row lg:overflow-hidden">
 				<div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
 					<SshTerminalSearchBar
 						serverId={serverId}
@@ -403,7 +403,7 @@ export function SshTerminalPanel({ serverId, serverName, host, sessionToken, vis
 					<div
 						ref={termRef}
 						data-testid="ssh-terminal-surface"
-						className="h-[clamp(280px,52vh,520px)] w-full overflow-hidden rounded-xl border border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface-root)] lg:h-full lg:min-h-[350px]"
+						className="min-h-[280px] min-w-0 flex-1 w-full overflow-hidden rounded-xl border border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface-root)] lg:h-full lg:min-h-[350px]"
 					/>
 				</div>
 				{showFileManager && (

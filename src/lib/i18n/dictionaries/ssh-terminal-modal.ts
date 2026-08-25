@@ -59,6 +59,7 @@ export const zh: Record<string, string> = {
 	"sshTerminalManager.closeTab": "关闭 {serverName} 标签",
 	"sshTerminalManager.minimize": "最小化",
 	"sshTerminalManager.expand": "展开",
+	"sshTerminalManager.resizeHandle": "拖动调整 SSH 终端高度",
 
 	// File manager (SFTP)
 	"sshFileManager.toggle": "文件",
@@ -131,6 +132,7 @@ export const en: Record<string, string> = {
 	"sshTerminalManager.closeTab": "Close {serverName} tab",
 	"sshTerminalManager.minimize": "Minimize",
 	"sshTerminalManager.expand": "Expand",
+	"sshTerminalManager.resizeHandle": "Drag to resize the SSH terminal",
 
 	// File manager (SFTP)
 	"sshFileManager.toggle": "Files",

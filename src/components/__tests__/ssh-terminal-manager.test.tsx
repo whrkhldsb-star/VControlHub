@@ -71,4 +71,22 @@ describe("SshTerminalManager minimize keeps sessions mounted", () => {
 		expect(screen.getByTestId("mock-panel-srv1")).toBeInTheDocument();
 		expect(screen.getByTestId("mock-panel-srv1").getAttribute("data-visible")).toBe("1");
 	});
+
+	it("renders a mobile resize handle without unmounting the terminal", () => {
+		render(
+			<SshTerminalManager
+				tabs={tabs}
+				activeTabIndex={0}
+				onTabSelect={vi.fn()}
+				onTabClose={vi.fn()}
+				onClose={vi.fn()}
+				onStatusChange={vi.fn()}
+			/>,
+		);
+
+		const manager = screen.getByRole("region");
+		expect(manager).toHaveAttribute("data-mobile-fullscreen", "true");
+		expect(screen.getByTestId("ssh-terminal-mobile-resize-handle")).toBeInTheDocument();
+		expect(screen.getByTestId("mock-panel-srv1")).toBeInTheDocument();
+	});
 });
