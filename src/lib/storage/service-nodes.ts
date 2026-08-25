@@ -178,15 +178,25 @@ export async function checkStorageNodeHealth(
   }
 
   const lastHealthLatencyMs = Math.max(0, Date.now() - startedAt);
-  const updated = await prisma.storageNode.update({
-    where: { id: storageNodeId },
-    data: {
-      healthStatus,
-      lastHealthCheckAt: new Date(),
-      lastHealthError,
-      lastHealthLatencyMs,
-    },
+  const healthData = {
+    healthStatus,
+    lastHealthCheckAt: new Date(),
+    lastHealthError,
+    lastHealthLatencyMs,
+  };
+  const claimed = await prisma.storageNode.updateMany({
+    where: { id: storageNodeId, ...(session ? teamWhere(session) : {}) },
+    data: healthData,
   });
+  if (claimed.count === 0) {
+    throw new NotFoundError(t("backend.storage.nodeNotFound"));
+  }
+  const updated = await prisma.storageNode.findFirst({
+    where: { id: storageNodeId, ...(session ? teamWhere(session) : {}) },
+  });
+  if (!updated) {
+    throw new NotFoundError(t("backend.storage.nodeNotFound"));
+  }
 
   return {
     id: updated.id,
@@ -315,8 +325,8 @@ export async function updateStorageNode(
     await assertServerInTeamScope(payload.serverId, session);
   }
 
-  const updated = await prisma.storageNode.update({
-    where: { id: payload.storageNodeId },
+  const claimed = await prisma.storageNode.updateMany({
+    where: { id: payload.storageNodeId, ...(session ? teamWhere(session) : {}) },
     data: {
       name: payload.name ?? current.name,
       driver: nextDriver,
@@ -337,6 +347,16 @@ export async function updateStorageNode(
         current.directAccessExpiresSeconds,
     },
   });
+  if (claimed.count === 0) {
+    throw new NotFoundError(t("backend.storage.nodeNotFound"));
+  }
+  const updated = await prisma.storageNode.findFirst({
+    where: { id: payload.storageNodeId, ...(session ? teamWhere(session) : {}) },
+    include: STORAGE_NODE_SERVER_INCLUDE,
+  });
+  if (!updated) {
+    throw new NotFoundError(t("backend.storage.nodeNotFound"));
+  }
 
   // Promote first, then retire the previous default. This preserves a usable
   // default even if the second database operation is interrupted.
@@ -374,7 +394,12 @@ export async function deleteStorageNode(
     throw new BusinessError(t("backend.storage.nodeHasEntries"));
   }
 
-  await prisma.storageNode.delete({ where: { id: storageNodeId } });
+  const deleted = await prisma.storageNode.deleteMany({
+    where: { id: storageNodeId, ...(session ? teamWhere(session) : {}) },
+  });
+  if (deleted.count === 0) {
+    throw new NotFoundError(t("backend.storage.nodeNotFound"));
+  }
   return { deleted: true };
 }
 

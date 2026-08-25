@@ -208,14 +208,24 @@ async function createDeploymentRunFromTemplateUnlocked(
 				teamId: existing.teamId,
 				idempotencyKey: `deployment:${idempotencyKey}`,
 			});
-			return prisma.deploymentRun.update({
-				where: { id: existing.id },
+			const recovered = await prisma.deploymentRun.updateMany({
+				where: { id: existing.id, ...teamScopeWhere(session) },
 				data: {
 					commandRequestId: command.id,
 					status: command.status === "PENDING_APPROVAL" ? "PENDING" : "RUNNING",
 					errorMessage: null,
 				},
 			});
+			if (recovered.count === 0) {
+				throw new NotFoundError(t("backend.deployment.deploymentRunNotFound"));
+			}
+			const recoveredRun = await prisma.deploymentRun.findFirst({
+				where: { id: existing.id, ...teamScopeWhere(session) },
+			});
+			if (!recoveredRun) {
+				throw new NotFoundError(t("backend.deployment.deploymentRunNotFound"));
+			}
+			return recoveredRun;
 		}
 	}
 

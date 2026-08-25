@@ -207,7 +207,15 @@ export async function updateCloudBillingAccount(
 		});
 	}
 
-	const row = await prisma.cloudBillingAccount.update({ where: { id }, data });
+	const claimed = await prisma.cloudBillingAccount.updateMany({
+		where: { id, ...(session ? teamWhere(session) : {}) },
+		data,
+	});
+	if (claimed.count === 0) throw new NotFoundError(t("backend.cost.cloudBillingAccountNotFound"));
+	const row = await prisma.cloudBillingAccount.findFirst({
+		where: { id, ...(session ? teamWhere(session) : {}) },
+	});
+	if (!row) throw new NotFoundError(t("backend.cost.cloudBillingAccountNotFound"));
 	return toAccountRecord(row);
 }
 
@@ -352,8 +360,8 @@ export async function syncCloudBillingAccount(
 		},
 	});
 
-	const updatedAccount = await prisma.cloudBillingAccount.update({
-		where: { id: accountId },
+	const accountClaimed = await prisma.cloudBillingAccount.updateMany({
+		where: { id: accountId, ...(session ? teamWhere(session) : {}) },
 		data: {
 			lastSyncAt: finishedAt,
 			lastSyncStatus: status,
@@ -362,6 +370,15 @@ export async function syncCloudBillingAccount(
 			lastSyncSkipped: skipped,
 		},
 	});
+	if (accountClaimed.count === 0) {
+		throw new NotFoundError(t("backend.cost.cloudBillingAccountNotFound"));
+	}
+	const updatedAccount = await prisma.cloudBillingAccount.findFirst({
+		where: { id: accountId, ...(session ? teamWhere(session) : {}) },
+	});
+	if (!updatedAccount) {
+		throw new NotFoundError(t("backend.cost.cloudBillingAccountNotFound"));
+	}
 
 	if (status === "error") {
 		// Do not throw after recording — caller can inspect run.status.

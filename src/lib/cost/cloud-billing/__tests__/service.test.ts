@@ -110,6 +110,39 @@ vi.mock("@/lib/db", () => ({
           return next;
         },
       ),
+      updateMany: vi.fn(
+        async ({
+          where,
+          data,
+        }: {
+          where: Record<string, unknown>;
+          data: Record<string, unknown>;
+        }) => {
+          const id = where.id as string;
+          const prev = accountStore.get(id);
+          if (!prev) return { count: 0 };
+          if (where.teamId === null && prev.teamId != null) return { count: 0 };
+          const or = where.OR as Array<Record<string, unknown>> | undefined;
+          if (or) {
+            const teamIds = or
+              .map((c) => c.teamId)
+              .filter((v): v is string | null => v !== undefined);
+            if (!(
+              teamIds.includes(prev.teamId as string | null) ||
+              prev.teamId == null
+            )) {
+              return { count: 0 };
+            }
+          }
+          const next = {
+            ...prev,
+            ...data,
+            updatedAt: new Date("2026-07-02T00:00:00Z"),
+          };
+          accountStore.set(id, next);
+          return { count: 1 };
+        },
+      ),
       deleteMany: vi.fn(
         async ({ where }: { where: Record<string, unknown> }) => {
           const id = where.id as string;

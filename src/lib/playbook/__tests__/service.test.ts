@@ -7,7 +7,9 @@ const { mocks } = vi.hoisted(() => ({
     playbookFindFirst: vi.fn(),
     playbookCreate: vi.fn(),
     playbookUpdate: vi.fn(),
+    playbookUpdateMany: vi.fn(),
     playbookDelete: vi.fn(),
+    playbookDeleteMany: vi.fn(),
     runFindMany: vi.fn(),
     runFindFirst: vi.fn(),
     runCreate: vi.fn(),
@@ -31,7 +33,9 @@ vi.mock("@/lib/db", () => ({
       findFirst: mocks.playbookFindFirst,
       create: mocks.playbookCreate,
       update: mocks.playbookUpdate,
+      updateMany: mocks.playbookUpdateMany,
       delete: mocks.playbookDelete,
+      deleteMany: mocks.playbookDeleteMany,
     },
     playbookRun: { findMany: mocks.runFindMany, findFirst: mocks.runFindFirst },
     server: { findMany: mocks.serverFindMany },
@@ -80,6 +84,8 @@ describe("playbook service", () => {
     vi.clearAllMocks();
     mocks.auditUserAction.mockResolvedValue(undefined);
     mocks.runFindFirst.mockResolvedValue(null);
+    mocks.playbookUpdateMany.mockResolvedValue({ count: 1 });
+    mocks.playbookDeleteMany.mockResolvedValue({ count: 1 });
     // Default: all referenced servers exist and are in scope.
     mocks.serverFindMany.mockImplementation(async ({ where }: { where?: { id?: { in?: string[] } } }) => {
       const ids = where?.id?.in ?? [];
@@ -121,7 +127,9 @@ describe("playbook service", () => {
   it("creates, updates and deletes with audit and stamps teamId on create", async () => {
     mocks.playbookCreate.mockResolvedValue(baseRow);
     mocks.playbookFindFirst.mockResolvedValue(baseRow);
-    mocks.playbookUpdate.mockResolvedValue({ ...baseRow, name: "Renamed" });
+    mocks.playbookFindUnique.mockResolvedValue({ ...baseRow, name: "Renamed" });
+    mocks.playbookUpdateMany.mockResolvedValue({ count: 1 });
+    mocks.playbookDeleteMany.mockResolvedValue({ count: 1 });
     const session = { userId: "u1", roles: ["operator"] as import("@/lib/auth/rbac").RoleKey[], currentTeamId: "team1" };
     await createPlaybook({
       name: "Cleanup", triggerType: "cron", triggerConfig: { expression: "0 3 * * *" },
@@ -146,7 +154,9 @@ describe("playbook service", () => {
     await deletePlaybook("pb1", "u1", session);
     expect(mocks.acquireAdvisoryLock).toHaveBeenCalledWith("playbook-lifecycle", "pb1");
     expect(mocks.releaseAdvisoryLock).toHaveBeenCalled();
-    expect(mocks.playbookDelete).toHaveBeenCalledWith({ where: { id: "pb1" } });
+    expect(mocks.playbookDeleteMany).toHaveBeenCalledWith({
+      where: expect.objectContaining({ id: "pb1" }),
+    });
     expect(mocks.auditUserAction).toHaveBeenCalledTimes(3);
   });
 

@@ -14,6 +14,7 @@ const { mockPrisma, listRemoteDirectoryMock, assertStorageAccessMock } =
     mockPrisma: {
       storageNode: {
         updateMany: vi.fn(),
+        deleteMany: vi.fn(),
         create: vi.fn(),
         findMany: vi.fn(),
         findUnique: vi.fn(),
@@ -460,7 +461,8 @@ describe("storage service", () => {
         username: "root",
       },
     } as any);
-    vi.mocked(prisma.storageNode.update).mockResolvedValueOnce({
+    vi.mocked(prisma.storageNode.updateMany).mockResolvedValueOnce({ count: 1 } as any);
+    vi.mocked(prisma.storageNode.findFirst).mockResolvedValueOnce({
       id: "node_2",
     } as any);
 
@@ -474,7 +476,7 @@ describe("storage service", () => {
       publicBaseUrl: "",
     });
 
-    expect(prisma.storageNode.update).toHaveBeenCalledWith(
+    expect(prisma.storageNode.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: "node_2" },
         data: expect.objectContaining({
@@ -518,7 +520,7 @@ describe("storage service", () => {
       driver: "SFTP",
       host: "203.0.113.20",
     })).rejects.toThrow(/默认存储节点/);
-    expect(prisma.storageNode.update).not.toHaveBeenCalled();
+    expect(prisma.storageNode.updateMany).not.toHaveBeenCalled();
   });
 
   it("blocks deleting the default node even when it has no files", async () => {
@@ -532,7 +534,7 @@ describe("storage service", () => {
     await expect(deleteStorageNode("node_default")).rejects.toThrow(
       /默认存储节点/,
     );
-    expect(prisma.storageNode.delete).not.toHaveBeenCalled();
+    expect(prisma.storageNode.deleteMany).not.toHaveBeenCalled();
   });
 
   it("normalizes safe public direct-access URLs before storage-node persistence", async () => {
@@ -1013,7 +1015,8 @@ describe("storage service", () => {
       basePath: path.join(tempParent, "${APP_SLUG:-vcontrolhub}", "storage"),
       server: null,
     } as any);
-    vi.mocked(prisma.storageNode.update).mockResolvedValueOnce({
+    vi.mocked(prisma.storageNode.updateMany).mockResolvedValueOnce({ count: 1 } as any);
+    vi.mocked(prisma.storageNode.findFirst).mockResolvedValueOnce({
       id: "node_health_expanded",
       healthStatus: "HEALTHY",
       lastHealthCheckAt: new Date("2026-06-04T00:00:00.000Z"),
@@ -1024,7 +1027,7 @@ describe("storage service", () => {
     try {
       const result = await checkStorageNodeHealth("node_health_expanded");
       expect(result.healthStatus).toBe("HEALTHY");
-      expect(prisma.storageNode.update).toHaveBeenCalledWith(
+      expect(prisma.storageNode.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: "node_health_expanded" },
           data: expect.objectContaining({ healthStatus: "HEALTHY" }),
@@ -1057,7 +1060,8 @@ describe("storage service", () => {
       directAccessExpiresSeconds: 300,
       server: null,
     } as any);
-    vi.mocked(prisma.storageNode.update).mockResolvedValueOnce({} as any);
+    vi.mocked(prisma.storageNode.updateMany).mockResolvedValueOnce({ count: 1 } as any);
+    vi.mocked(prisma.storageNode.findFirst).mockResolvedValueOnce({} as any);
 
     await updateStorageNode({
       storageNodeId: "node_1",
@@ -1070,7 +1074,7 @@ describe("storage service", () => {
       serverId: "srv_1",
     });
 
-    expect(prisma.storageNode.update).toHaveBeenCalledWith(
+    expect(prisma.storageNode.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           host: null,

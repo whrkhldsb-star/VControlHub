@@ -5,7 +5,7 @@ import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
 import { notifyTaskConsecutiveFailed } from "@/lib/notification/service";
 import { createLogger } from "@/lib/logging";
 import type { SessionPayload } from "@/lib/auth/session";
-import { serverTeamWhere, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
+import { serverTeamWhere, isGlobalTeamManager, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import { t } from "@/lib/i18n/service-translations";
 import { APP_TIME_ZONE } from "@/lib/datetime/time-zone";
 
@@ -230,8 +230,20 @@ export async function updateScheduledTask(
 		data.serverIds = serverIds;
 	}
 	if (input.status !== undefined) data.status = input.status;
-	if (input.teamId !== undefined) data.teamId = input.teamId;
-	return prisma.scheduledTask.update({ where: { id }, data });
+	if (input.teamId !== undefined) {
+		if (session && !isGlobalTeamManager(session) && input.teamId !== session.currentTeamId) {
+			throw new ValidationError(t("backend.scheduled-task.teamChangeRequiresManager"));
+		}
+		data.teamId = input.teamId;
+	}
+	const updated = await prisma.scheduledTask.updateMany({
+		where: { id, ...teamScopeWhere(session) },
+		data,
+	});
+	if (updated.count === 0) {
+		throw new NotFoundError(t("backend.scheduled-task.scheduledTaskNotFound"));
+	}
+	return getScheduledTask(id, session);
 }
 
 export async function deleteScheduledTask(
@@ -240,7 +252,13 @@ export async function deleteScheduledTask(
 ) {
 	const existing = await getScheduledTaskForSession(id, session);
 	if (!existing) throw new NotFoundError(t("backend.scheduled-task.scheduledTaskNotFound"));
-	return prisma.scheduledTask.delete({ where: { id } });
+	const deleted = await prisma.scheduledTask.deleteMany({
+		where: { id, ...teamScopeWhere(session) },
+	});
+	if (deleted.count === 0) {
+		throw new NotFoundError(t("backend.scheduled-task.scheduledTaskNotFound"));
+	}
+	return existing;
 }
 
 export async function toggleScheduledTask(
@@ -253,8 +271,8 @@ export async function toggleScheduledTask(
 	if (newStatus === "ACTIVE" && current.scheduleType === "ONCE" && (!current.runAt || current.runAt.getTime() <= Date.now())) {
 		throw new BusinessError(t("backend.scheduled-task.completedCannotResume"));
 	}
-	return prisma.scheduledTask.update({
-		where: { id },
+	const updated = await prisma.scheduledTask.updateMany({
+		where: { id, ...teamScopeWhere(session) },
 		data: {
 			status: newStatus,
 			...(newStatus === "ACTIVE"
@@ -262,6 +280,10 @@ export async function toggleScheduledTask(
 				: { nextRunAt: null }),
 		},
 	});
+	if (updated.count === 0) {
+		throw new NotFoundError(t("backend.scheduled-task.scheduledTaskNotFound"));
+	}
+	return getScheduledTask(id, session);
 }
 
 export async function retryScheduledTask(

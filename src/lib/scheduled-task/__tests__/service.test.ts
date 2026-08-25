@@ -13,6 +13,7 @@ const { mockPrisma, mockCreateCommandRequest, mockTeamWhere, mockTeamCreateData,
       update: vi.fn(),
 			updateMany: vi.fn(),
       delete: vi.fn(),
+			deleteMany: vi.fn(),
     },
 		scheduledTaskRun: {
 			findUnique: vi.fn(),
@@ -143,13 +144,13 @@ describe("scheduled task service", () => {
 
   it("updates scheduled task target server ids exactly once after trimming blanks", async () => {
     mockPrisma.scheduledTask.findFirst.mockResolvedValue({ id: "task1", teamId: null });
-    mockPrisma.scheduledTask.update.mockResolvedValue({ id: "task1" });
+    mockPrisma.scheduledTask.updateMany.mockResolvedValue({ count: 1 });
 
     await service.updateScheduledTask("task1", {
       serverIds: ["srv1", " srv2 ", "srv1", ""],
     });
 
-    expect(mockPrisma.scheduledTask.update).toHaveBeenCalledWith({
+    expect(mockPrisma.scheduledTask.updateMany).toHaveBeenCalledWith({
       where: { id: "task1" },
       data: { serverIds: ["srv1", "srv2"] },
     });
@@ -220,9 +221,20 @@ describe("scheduled task service", () => {
     });
     mockCreateCommandRequest.mockResolvedValue({ id: "cmd1" });
     mockPrisma.scheduledTask.update.mockResolvedValue({ id: "task1", runCount: 4 });
+    mockPrisma.scheduledTask.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.scheduledTask.findFirst.mockResolvedValue({
+      id: "task1",
+			name: "Clean logs",
+			command: "df -h",
+			reason: "maintenance",
+			cronExpression: "0 2 * * *",
+			serverIds: ["srv1"],
+			createdById: "u1",
+			teamId: null,
+    });
     mockPrisma.scheduledTask.findUniqueOrThrow.mockResolvedValue({
       id: "task1",
-			lastResult: "Manual retry dispatched command request cmd1; awaiting final result",
+      lastResult: "Manual retry dispatched command request cmd1; awaiting final result",
     });
 
     const result = await service.retryScheduledTask("task1");
@@ -239,8 +251,8 @@ describe("scheduled task service", () => {
     expect(mockPrisma.scheduledTask.update).toHaveBeenCalledWith({
       where: { id: "task1" },
       data: expect.objectContaining({
-				lastResult: "Manual retry dispatched command request cmd1; awaiting final result",
-				runCount: { increment: 1 },
+        lastResult: "Manual retry dispatched command request cmd1; awaiting final result",
+        runCount: { increment: 1 },
       }),
     });
 		expect(mockPrisma.scheduledTaskRun.create).toHaveBeenCalledWith({
@@ -330,15 +342,15 @@ describe("scheduled task service", () => {
       status: "ACTIVE",
       cronExpression: "0 2 * * *",
     });
-    mockPrisma.scheduledTask.update.mockResolvedValue({ id: "task1", status: "PAUSED" });
+    mockPrisma.scheduledTask.updateMany.mockResolvedValue({ count: 1 });
 
     await service.toggleScheduledTask("task1", teamSession);
 
     expect(mockTeamWhere).toHaveBeenCalledWith(teamSession);
-    expect(mockPrisma.scheduledTask.update).toHaveBeenCalledWith({
-      where: { id: "task1" },
-      data: { status: "PAUSED", nextRunAt: null },
-    });
+		expect(mockPrisma.scheduledTask.updateMany).toHaveBeenCalledWith({
+		  where: { id: "task1", OR: [{ teamId: "team_a" }, { teamId: null }] },
+		  data: { status: "PAUSED", nextRunAt: null },
+		});
   });
 
   it("rejects serverIds outside team scope on create", async () => {

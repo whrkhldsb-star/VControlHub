@@ -6,7 +6,7 @@ import type { SessionScope } from "../service";
 const { mockPrisma, mockTeamWhere, mockTeamCreateData } = vi.hoisted(() => ({
   mockPrisma: {
     commandTemplate: { findUnique: vi.fn(), findFirst: vi.fn(), findMany: vi.fn(), count: vi.fn(), create: vi.fn(), createMany: vi.fn() },
-    deploymentRun: { create: vi.fn(), update: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn() },
+    deploymentRun: { create: vi.fn(), update: vi.fn(), updateMany: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn() },
     deploymentSnapshot: { create: vi.fn() },
     deploymentRollbackRun: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
     server: { findMany: vi.fn() },
@@ -61,6 +61,10 @@ describe("deployment service", () => {
     mockPrisma.deploymentRun.create.mockImplementation(async ({ data }: any) => ({ id: "dep1", ...data }));
     mockPrisma.deploymentSnapshot.create.mockImplementation(async ({ data }: any) => ({ id: "snap1", ...data }));
     mockPrisma.deploymentRun.update.mockImplementation(async ({ where, data }: any) => ({ id: where?.id ?? "dep1", ...data }));
+    mockPrisma.deploymentRun.updateMany.mockImplementation(async ({ where, data }: any) => {
+      void data;
+      return { count: where?.id ? 1 : 0 };
+    });
     mockPrisma.deploymentRollbackRun.findFirst.mockResolvedValue(null);
   });
 

@@ -294,8 +294,14 @@ export async function updatePlaybook(
         : null;
     }
     if (triggerChanged) data.metricMatchState = Prisma.DbNull;
-    const row = await prisma.playbook.update({ where: { id }, data });
-    narrowed = narrowPlaybook(row);
+    const updated = await prisma.playbook.updateMany({
+      where: { id, ...(session ? teamWhere(session) : {}) },
+      data,
+    });
+    if (updated.count === 0) throw new NotFoundError(t("backend.playbook.notFound"));
+    const row = await getPlaybook(id, session);
+    if (!row) throw new NotFoundError(t("backend.playbook.notFound"));
+    narrowed = row;
   } finally {
     await releaseLock();
   }
@@ -325,7 +331,10 @@ export async function deletePlaybook(
     if (activeRun) {
       throw new BusinessError(t("backend.playbook.cannotDeleteWhileRunning"));
     }
-    await prisma.playbook.delete({ where: { id } });
+    const deleted = await prisma.playbook.deleteMany({
+      where: { id, ...(session ? teamWhere(session) : {}) },
+    });
+    if (deleted.count === 0) throw new NotFoundError(t("backend.playbook.notFound"));
   } finally {
     await releaseLock();
   }

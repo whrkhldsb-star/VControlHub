@@ -181,7 +181,14 @@ export async function updateTemplate(id: string, input: UpdateTemplateInput, act
 		data.variables = input.variables ?? extractTemplateVariables(command, rollbackCommand);
 	}
 	if (input.tags !== undefined) data.tags = input.tags;
-	return prisma.commandTemplate.update({ where: { id }, data });
+	const updated = await prisma.commandTemplate.updateMany({
+		where: { id, ...commandTemplateScopeWhere(session) },
+		data,
+	});
+	if (updated.count === 0) {
+		throw new NotFoundError(t("backend.command-template.commandTemplateNotFound"));
+	}
+	return prisma.commandTemplate.findUniqueOrThrow({ where: { id } });
 }
 
 export async function deleteTemplate(id: string, actor?: TemplateActor, session?: TeamSession | null) {
@@ -196,6 +203,11 @@ export async function deleteTemplate(id: string, actor?: TemplateActor, session?
 		throw new BusinessError(t("backend.command-template.builtInCommandTemplatesCannotBeDeleted"));
 	}
 	assertCanMutateTemplate(existingRow, actor);
-	await prisma.commandTemplate.delete({ where: { id } });
+	const deleted = await prisma.commandTemplate.deleteMany({
+		where: { id, ...commandTemplateScopeWhere(session) },
+	});
+	if (deleted.count === 0) {
+		throw new NotFoundError(t("backend.command-template.commandTemplateNotFound"));
+	}
 	return existingRow;
 }

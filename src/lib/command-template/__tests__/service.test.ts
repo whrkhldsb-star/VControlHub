@@ -11,9 +11,12 @@ const { mockPrisma } = vi.hoisted(() => ({
       createMany: vi.fn(),
       findMany: vi.fn(),
       findUnique: vi.fn(),
+      findUniqueOrThrow: vi.fn(),
       findFirst: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
       delete: vi.fn(),
+      deleteMany: vi.fn(),
     },
   },
 }));
@@ -26,6 +29,9 @@ describe("command template service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockPrisma.commandTemplate.count.mockResolvedValue(1);
+    mockPrisma.commandTemplate.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.commandTemplate.deleteMany.mockResolvedValue({ count: 1 });
+    mockPrisma.commandTemplate.findUniqueOrThrow.mockResolvedValue({ id: "user_1" });
   });
 
   it("scopes non-admin template reads to builtins and the current team", () => {
@@ -164,24 +170,23 @@ describe("command template service", () => {
         variables: [],
         createdById: "u1",
       });
-    mockPrisma.commandTemplate.update.mockResolvedValue({
+    mockPrisma.commandTemplate.findUniqueOrThrow.mockResolvedValue({
       id: "user_1",
       name: "Renamed",
     });
-    mockPrisma.commandTemplate.delete.mockResolvedValue({ id: "user_1" });
 
     await service.updateTemplate(
       "user_1",
       { name: "Renamed" },
       { userId: "u1" },
     );
-    expect(mockPrisma.commandTemplate.update).toHaveBeenCalledWith({
+    expect(mockPrisma.commandTemplate.updateMany).toHaveBeenCalledWith({
       where: { id: "user_1" },
       data: { name: "Renamed" },
     });
 
     await service.deleteTemplate("user_1", { userId: "u1" });
-    expect(mockPrisma.commandTemplate.delete).toHaveBeenCalledWith({
+    expect(mockPrisma.commandTemplate.deleteMany).toHaveBeenCalledWith({
       where: { id: "user_1" },
     });
   });
@@ -217,7 +222,7 @@ describe("command template service", () => {
       rollbackCommand: null,
       createdById: "owner-other",
     });
-    mockPrisma.commandTemplate.update.mockResolvedValue({
+    mockPrisma.commandTemplate.findUniqueOrThrow.mockResolvedValue({
       id: "user_2",
       name: "Managed",
     });
@@ -227,7 +232,7 @@ describe("command template service", () => {
       { name: "Managed" },
       { userId: "admin", canManageAll: true },
     );
-    expect(mockPrisma.commandTemplate.update).toHaveBeenCalled();
+    expect(mockPrisma.commandTemplate.updateMany).toHaveBeenCalled();
   });
 
   it("blocks mutation of legacy null-owner templates for non-managers", async () => {

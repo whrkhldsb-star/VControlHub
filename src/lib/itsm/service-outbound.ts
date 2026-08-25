@@ -61,13 +61,14 @@ export async function testItsmConnection(
     },
     errorMessage: delivery.ok ? null : delivery.error ?? "delivery failed",
   });
-  await prisma.itsmConnection.update({
-    where: { id: row.id },
+  const claimed = await prisma.itsmConnection.updateMany({
+    where: { id: row.id, ...(session ? teamWhere(session) : {}) },
     data: {
       lastOutboundAt: new Date(),
       lastError: delivery.ok ? null : delivery.error ?? "delivery failed",
     },
   });
+  if (claimed.count === 0) throw new NotFoundError(t("backend.itsm.itsmConnectionNotFound"));
   return { ok: delivery.ok, event, error: delivery.ok ? undefined : delivery.error };
 }
 
