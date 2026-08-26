@@ -42,18 +42,19 @@ test("settings tabs and personal preference persistence", async ({ page }) => {
 test("two-factor setup, password login, TOTP verification and disable lifecycle", async ({ page, context }) => {
 	test.setTimeout(90_000);
 	await login(page);
+	// 2FA moved from the admin settings panel to the self-service account page.
+	// /settings#2fa still redirects there, so assert the redirect lands first.
 	await page.goto("/settings#2fa");
+	await page.waitForURL((url) => url.pathname === "/account/security");
 
-	let section = page.locator('[id="2fa"]');
+	const section = page.locator('[id="2fa"]');
 	await expect(section).toBeVisible();
-	const details = section.locator("details");
-	if ((await details.getAttribute("open")) === null) await section.locator("summary").click();
 	await section.getByRole("button", { name: /开启两步验证|Enable 2FA/i }).click();
 
-	const secret = (await section.locator("code").textContent())?.trim();
+	const secret = (await section.locator("code").first().textContent())?.trim();
 	expect(secret).toBeTruthy();
 	const setupCode = await generateTotp({ secret: secret! });
-	await section.getByLabel(/验证码|Verification code/i).fill(setupCode);
+	await section.getByLabel(/6位验证码|6-digit code/i).fill(setupCode);
 	const enableResponse = page.waitForResponse((response) =>
 		new URL(response.url()).pathname === "/api/auth/2fa/enable" && response.request().method() === "POST",
 	);
@@ -75,11 +76,8 @@ test("two-factor setup, password login, TOTP verification and disable lifecycle"
 	}
 	await page.waitForURL((url) => !url.pathname.startsWith("/login"));
 
-	await page.goto("/settings#2fa");
-	section = page.locator('[id="2fa"]');
+	await page.goto("/account/security");
 	await expect(section).toBeVisible();
-	const refreshedDetails = section.locator("details");
-	if ((await refreshedDetails.getAttribute("open")) === null) await section.locator("summary").click();
 	await section.getByRole("button", { name: /关闭两步验证|Disable 2FA/i }).click();
 	const disableCode = await generateTotp({ secret: secret! });
 	await section.getByLabel(/当前验证码|Current code/i).fill(disableCode);

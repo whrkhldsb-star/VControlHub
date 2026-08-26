@@ -65,6 +65,17 @@ export function serverTeamWhere(session: TeamSession): Record<string, unknown> {
 		: { id: "__unassigned_servers_require_team_manage__" };
 }
 
+/** Command requests carry the command text and target-server refs — a security
+ * root like the servers they run against. A null teamId is quarantined legacy
+ * data (only global managers may read/cancel/approve it), never a shared request
+ * every tenant can see. Mirrors {@link serverTeamWhere}. */
+export function commandRequestTeamWhere(session: TeamSession): Record<string, unknown> {
+	if (isGlobalTeamManager(session)) return {};
+	return session.currentTeamId
+		? { teamId: session.currentTeamId }
+		: { id: "__unassigned_command_requests_require_team_manage__" };
+}
+
 /** Image uploads are private by default. A null teamId is legacy data owned by
  * its uploader, not a shared image library visible to every tenant manager. */
 export function imageTeamWhere(session: TeamSession): Record<string, unknown> {

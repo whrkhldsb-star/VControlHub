@@ -9,6 +9,7 @@ import { useToast } from "@/components/toast-provider";
 import type { CostBudgetRecord, CostCategory, CostCurrency } from "@/lib/cost/types";
 import { CATEGORIES, cardClass, inputClass } from "./cost-page-shared";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { UI_TONE } from "@/lib/ui/classes";
 
 export function CostBudgetPanel({
   initialBudgets,
@@ -226,6 +227,15 @@ export function CostBudgetPanel({
                 <span className="ml-1">·</span>
                 <span className="ml-1">{`${budget.usagePercent.toFixed(1)}%`}</span>
               </p>
+              {budget.otherCurrencyUsage.length > 0 ? (
+                <p className={`mt-2 rounded-lg border px-2 py-1.5 text-xs ${UI_TONE.warning}`}>
+                  {t("costPage.budget.otherCurrencies", {
+                    detail: budget.otherCurrencyUsage
+                      .map((bucket) => `${bucket.totalAmount} ${bucket.currency} (${bucket.entryCount})`)
+                      .join("、"),
+                  })}
+                </p>
+              ) : null}
             </article>
           ))
         )}

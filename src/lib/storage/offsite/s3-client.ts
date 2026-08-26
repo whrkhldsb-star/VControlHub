@@ -281,6 +281,33 @@ export class S3Client {
 		};
 	}
 
+	/**
+	 * GET an object as a stream. Returns the response body (web ReadableStream)
+	 * plus size/content-type, or null if the object does not exist (404).
+	 * Used as a download fallback when the local backup copy is missing.
+	 */
+	async getObject(
+		key: string,
+	): Promise<{ body: ReadableStream<Uint8Array>; size: number; contentType: string } | null> {
+		const url = this.buildUrl(key, new URLSearchParams());
+		const headers: Record<string, string> = {};
+		const signed = this.sign("GET", url, headers, Buffer.alloc(0));
+		const res = await this.fetchImpl(url.toString(), {
+			method: "GET",
+			redirect: "error",
+			headers: signed.headers,
+			signal: AbortSignal.timeout(this.timeoutMs),
+		});
+		if (res.status === 404) return null;
+		await this.assertOk(res, "GET", key);
+		if (!res.body) throw new S3Error("GET returned an empty body", res.status, "EmptyBody");
+		return {
+			body: res.body as ReadableStream<Uint8Array>,
+			size: Number(res.headers.get("content-length") ?? 0),
+			contentType: res.headers.get("content-type") ?? "application/octet-stream",
+		};
+	}
+
 	/** DELETE an object. Idempotent (404 is treated as success). */
 	async deleteObject(key: string): Promise<void> {
 		const url = this.buildUrl(key, new URLSearchParams());

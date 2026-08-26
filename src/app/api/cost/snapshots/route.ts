@@ -19,6 +19,7 @@ export const dynamic = "force-dynamic";
 const querySchema = z.object({
 	limit: z.coerce.number().int().min(1).max(365).optional(),
 	currency: costCurrencySchema.optional(),
+	month: costMonthSchema.optional(),
 });
 
 const syncSchema = z.object({
@@ -40,6 +41,7 @@ export async function GET(request: Request) {
 				query.limit ?? 30,
 				session,
 				query.currency,
+				query.month,
 			);
 			return NextResponse.json({ snapshots });
 		},

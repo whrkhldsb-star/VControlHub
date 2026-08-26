@@ -199,6 +199,42 @@ describe("playbook service", () => {
     expect(mocks.playbookCreate).not.toHaveBeenCalled();
   });
 
+  it("rejects create with run_command steps when author lacks command:execute", async () => {
+    // Explicit permissions: has playbook:manage but NOT command:execute — the
+    // exact permission-decoupling bypass. sessionHasPermission trusts an
+    // explicit permissions array, so this simulates a custom role.
+    const session = {
+      userId: "u1",
+      roles: [] as import("@/lib/auth/rbac").RoleKey[],
+      currentTeamId: "team1",
+      permissions: ["playbook:manage", "playbook:run"] as import("@/lib/auth/rbac").Permission[],
+    };
+    await expect(
+      createPlaybook(
+        {
+          name: "Sneaky shell",
+          triggerType: "cron",
+          triggerConfig: { expression: "0 3 * * *" },
+          steps: [
+            {
+              id: "s1",
+              name: "run",
+              type: "run_command",
+              config: { command: "id", serverIds: ["srv1"] },
+              retry: 0,
+              timeoutSec: 60,
+            },
+          ] as never,
+          chainRetry: 0,
+          enabled: true,
+        },
+        "u1",
+        session,
+      ),
+    ).rejects.toThrow(/command:execute/i);
+    expect(mocks.playbookCreate).not.toHaveBeenCalled();
+  });
+
   it("rejects create when send_notification recipient is outside team scope", async () => {
     mocks.teamMemberFindUnique.mockResolvedValueOnce(null);
     const session = { userId: "u1", roles: ["operator"] as import("@/lib/auth/rbac").RoleKey[], currentTeamId: "team1" };

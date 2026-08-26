@@ -8,7 +8,7 @@
 import type { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
-import { createCommandRequest } from "@/lib/command/service";
+import { createCommandRequest, cancelCommandRequest } from "@/lib/command/service";
 import { recordJobEvent } from "@/lib/job/events";
 import { fetchWebhookSafely } from "@/lib/security/webhook-url";
 
@@ -87,6 +87,20 @@ async function waitForCommand(
       await onProgress(`waiting command ${commandRequestId} (${request.status})`);
     }
     await new Promise((resolve) => setTimeout(resolve, COMMAND_POLL_MS));
+  }
+  // Timeout: cancel the still-running request (kills the remote SSH subprocess)
+  // BEFORE the step retries. Otherwise a step-level retry would create a second
+  // CommandRequest and run the same (possibly destructive) command concurrently
+  // with the first, which is still executing on the target.
+  try {
+    await cancelCommandRequest({
+      commandRequestId,
+      actorId: "system:playbook-timeout",
+      reason: `Playbook step timed out after ${timeoutSec}s`,
+    });
+  } catch {
+    // Best-effort: the request may already be terminal; the throw below still
+    // surfaces the timeout so the step is recorded as failed.
   }
   throw new Error(`command request ${commandRequestId} timed out after ${timeoutSec}s`);
 }
@@ -169,6 +183,17 @@ async function dispatchStep(input: {
       return waitForCommand(commandRequestId, step.timeoutSec, input.onProgress);
     }
     case "send_notification": {
+      // At-most-once guard: if a prior attempt already dispatched this step
+      // (persisted a "running" marker) but the worker crashed/lost its lease
+      // before recording success, do NOT blindly re-send on reclaim — fail the
+      // step instead. Re-sending would spam a duplicate notification. Only
+      // attempt 0 can inherit a prior running marker (later attempts are fresh).
+      const priorNotify = input.results.find((r) => r.stepId === step.id);
+      if (input.attempt === 0 && priorNotify?.status === "running" && priorNotify.sideEffectDispatched) {
+        throw new Error(
+          `notification step ${step.id} was already dispatched in a prior attempt; not re-sending (at-most-once)`,
+        );
+      }
       // Defense-in-depth: write-time service asserts actor scope; when the run
       // carries a teamId, also require the recipient to be a team member so a
       // legacy/stale playbook step cannot spam out-of-team inboxes.
@@ -188,6 +213,9 @@ async function dispatchStep(input: {
           );
         }
       }
+      // Dispatch-before-persist: mark the step as dispatched BEFORE the side
+      // effect so a crash after create() is recognized on reclaim.
+      await markSideEffectDispatched(input, step.id);
       await prisma.notification.create({
         data: {
           userId: step.config.recipientUserId,
@@ -200,9 +228,19 @@ async function dispatchStep(input: {
       return `notification sent to ${step.config.recipientUserId}`;
     }
     case "call_webhook": {
+      // At-most-once guard (see send_notification): a webhook may be a
+      // non-idempotent action (restart service, send SMS). Never auto-replay a
+      // dispatched-but-unconfirmed webhook on reclaim.
+      const priorWebhook = input.results.find((r) => r.stepId === step.id);
+      if (input.attempt === 0 && priorWebhook?.status === "running" && priorWebhook.sideEffectDispatched) {
+        throw new Error(
+          `webhook step ${step.id} was already dispatched in a prior attempt; not re-calling (at-most-once)`,
+        );
+      }
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), Math.max(1, step.timeoutSec) * 1_000);
       try {
+        await markSideEffectDispatched(input, step.id);
         const result = await fetchWebhookSafely(step.config.url, {
           method: step.config.method,
           headers: step.config.headers ?? { "Content-Type": "application/json" },
@@ -219,6 +257,30 @@ async function dispatchStep(input: {
       }
     }
   }
+}
+
+/**
+ * Persist a "running + sideEffectDispatched" marker for a step BEFORE its
+ * non-idempotent side effect fires. On worker reclaim, dispatchStep sees this
+ * marker and refuses to replay the side effect (at-most-once), instead of
+ * silently double-sending a webhook/notification.
+ */
+async function markSideEffectDispatched(
+  input: { runId: string; results: PlaybookStepResult[]; existing?: PlaybookStepResult },
+  stepId: string,
+): Promise<void> {
+  const marker: PlaybookStepResult = {
+    stepId,
+    status: "running",
+    startedAt: input.existing?.startedAt ?? nowIso(),
+    completedAt: "",
+    summary: `side effect dispatched`,
+    sideEffectDispatched: true,
+  };
+  const index = input.results.findIndex((result) => result.stepId === stepId);
+  if (index >= 0) input.results[index] = marker;
+  else input.results.push(marker);
+  await persistProgress(input.runId, input.results);
 }
 
 async function executeWithRetries<T>(

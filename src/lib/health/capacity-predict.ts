@@ -133,8 +133,9 @@ function classifyMetricRisk(input: {
   sampleCount: number;
   dataSpanHours: number;
   r2: number | null;
+  slopePerDay: number | null;
 }): { risk: CapacityRisk; reason: string } {
-  const { latest, projected, daysUntil85, daysUntil95, sampleCount, dataSpanHours, r2 } = input;
+  const { latest, projected, daysUntil85, daysUntil95, sampleCount, dataSpanHours, r2, slopePerDay } = input;
 
   if (sampleCount < MIN_SAMPLES || dataSpanHours < MIN_SPAN_HOURS || latest === null) {
     return {
@@ -145,6 +146,9 @@ function classifyMetricRisk(input: {
 
   // Low correlation → still report slope but down-rank risk messaging
   const weakFit = r2 !== null && r2 < 0.15;
+  // Flat or declining: same test daysUntilThreshold uses, so "no projected
+  // breach" and "flat" always agree.
+  const flatOrDeclining = slopePerDay !== null && slopePerDay <= 0.01;
 
   if (latest >= 95 || (daysUntil95 !== null && daysUntil95 <= 3) || (projected !== null && projected >= 98)) {
     return { risk: "critical", reason: weakFit ? "near_full_weak_fit" : "near_full" };
@@ -159,10 +163,17 @@ function classifyMetricRisk(input: {
   }
   if (
     (daysUntil85 !== null && daysUntil85 <= 14) ||
-    (projected !== null && projected >= 85) ||
-    latest >= 75
+    (projected !== null && projected >= 85)
   ) {
     return { risk: "warning", reason: weakFit ? "elevated_weak_fit" : "elevated" };
+  }
+  // A high-but-flat metric (e.g. a disk parked at 76% for months) is not
+  // actionable. Reporting it as `warning` forever trains operators to ignore
+  // the panel, so it is down-ranked to `watch` unless the trend is rising.
+  if (latest >= 75) {
+    return flatOrDeclining
+      ? { risk: "watch", reason: "elevated_stable" }
+      : { risk: "warning", reason: weakFit ? "elevated_weak_fit" : "elevated" };
   }
   if ((daysUntil85 !== null && daysUntil85 <= 30) || (projected !== null && projected >= 75)) {
     return { risk: "watch", reason: weakFit ? "rising_weak_fit" : "rising" };
@@ -224,6 +235,9 @@ export function forecastMetric(
       sampleCount,
       dataSpanHours,
       r2: null,
+      // No usable fit → no trend evidence; treat as flat, matching the
+      // `slopePerDay: 0` this branch already reports below.
+      slopePerDay: 0,
     });
     return {
       metric,
@@ -257,6 +271,7 @@ export function forecastMetric(
     sampleCount,
     dataSpanHours,
     r2: fit.r2,
+    slopePerDay,
   });
 
   return {

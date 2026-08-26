@@ -11,6 +11,8 @@ import { downloadQuerySchema } from "@/lib/ssh/sftp-schema";
 import { assertSftpPathAccess } from "@/lib/ssh/sftp-access-control";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
 import { auditUserAction } from "@/lib/audit/service";
+import { buildContentDisposition } from "@/lib/http/content-disposition";
+import { nodeStreamToWeb } from "@/lib/http/node-to-web-stream";
 
 export const dynamic = "force-dynamic";
 
@@ -40,18 +42,20 @@ export async function GET(
         session?.currentTeamId,
       );
 
-      // Extract filename for Content-Disposition
+      // Preserve non-ASCII (e.g. Chinese) filenames via RFC 5987 instead of
+      // replacing every non-ASCII char with "_" (which produced "____.pdf").
       const filename = query.path.split("/").pop() || "download";
-      const safeFilename = filename.replace(/[^a-zA-Z0-9._-]/g, "_");
 
       const headers = new Headers({
         "Content-Type": "application/octet-stream",
-        "Content-Disposition": `attachment; filename="${safeFilename}"`,
+        "Content-Disposition": buildContentDisposition("attachment", filename),
         "Content-Length": String(size),
         "Cache-Control": "no-store",
       });
 
-      return new Response(stream as unknown as ReadableStream, { status: 200, headers });
+      // nodeStreamToWeb wires cancel() → stream.destroy() so a client abort
+      // frees the SFTP session instead of leaking it until keepalive timeout.
+      return new Response(nodeStreamToWeb(stream), { status: 200, headers });
     },
   );
 }

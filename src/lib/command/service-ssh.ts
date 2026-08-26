@@ -56,6 +56,12 @@ async function executeCommandOverSshWithKey(input: {
       "LogLevel=ERROR",
       "-o",
       "ConnectTimeout=15",
+      // `--` terminates ssh option parsing: without it, a destination that
+      // begins with `-` (e.g. a maliciously-set username `-oProxyCommand=…`)
+      // would be parsed as a local ssh option → arbitrary command execution on
+      // the control-plane host. Charset validation at the schema layer is the
+      // primary guard; this is defense-in-depth for any pre-existing rows.
+      "--",
       `${input.username}@${input.host}`,
       input.command,
     ];
@@ -113,6 +119,9 @@ async function executeCommandOverSshWithPassword(input: {
       "LogLevel=ERROR",
       "-o",
       "ConnectTimeout=15",
+      // See the key-auth path: `--` terminates option parsing so a `-`-leading
+      // destination cannot be reinterpreted as a local ssh option.
+      "--",
       `${input.username}@${input.host}`,
       input.command,
     ];

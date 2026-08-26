@@ -2,9 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   APP_TIME_ZONE,
-  formatZhDate,
   formatZhDateTime,
-  formatZhTime,
 } from "@/lib/datetime/format";
 
 describe("datetime formatters", () => {
@@ -38,26 +36,6 @@ describe("datetime formatters", () => {
       expect(formatZhDateTime(undefined)).toBe("—");
       expect(formatZhDateTime(Number.NaN)).toBe("—");
       expect(formatZhDateTime(null, "n/a")).toBe("n/a");
-    });
-  });
-
-  describe("formatZhDate", () => {
-    it("returns just the date portion", () => {
-      const out = formatZhDate(new Date("2025-01-15T03:30:45Z"));
-      expect(out).toMatch(/^2025\/01\/15$/);
-    });
-    it("honors the fallback", () => {
-      expect(formatZhDate(null, "no-date")).toBe("no-date");
-    });
-  });
-
-  describe("formatZhTime", () => {
-    it("returns just the time portion", () => {
-      const out = formatZhTime(new Date("2025-01-15T03:30:45Z"));
-      expect(out).toMatch(/^11:30:45$/);
-    });
-    it("honors the fallback", () => {
-      expect(formatZhTime(undefined, "n/a")).toBe("n/a");
     });
   });
 });

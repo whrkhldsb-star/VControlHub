@@ -191,6 +191,30 @@ async function enforceRetention(fileEntryId: string, keep = DEFAULT_FILE_VERSION
 }
 
 /**
+ * Remove ALL version blob files for a file entry from disk. Call this before
+ * permanently deleting a FileEntry: the `onDelete: Cascade` on FileVersion only
+ * drops the DB rows, leaving the blob bytes orphaned under FILE_VERSION_DIR
+ * (a disk leak, and the "permanently deleted" content stays readable on the
+ * control plane). Best-effort per blob; returns how many were removed.
+ */
+export async function purgeAllFileVersionBlobs(fileEntryId: string): Promise<number> {
+  const rows = await prisma.fileVersion.findMany({
+    where: { fileEntryId },
+    select: { blobRelativePath: true },
+  });
+  let removed = 0;
+  for (const row of rows) {
+    try {
+      await rm(blobAbsolutePath(row.blobRelativePath), { force: true });
+      removed += 1;
+    } catch (err) {
+      logError("file-version:blob-purge-on-delete-failed", err);
+    }
+  }
+  return removed;
+}
+
+/**
  * Snapshot the *current* on-disk body of a file entry before overwrite.
  * Best-effort: size over cap / missing file / read errors return null (caller continues).
  */

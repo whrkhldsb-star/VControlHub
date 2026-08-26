@@ -173,6 +173,15 @@ describe("/api/ai/ops/* routes", () => {
 			expect(res.status).toBe(403);
 			expect(mocks.listAiOpsLogs).not.toHaveBeenCalled();
 		});
+
+		it("returns 403 for a non-global-manager even if ai:ops:read passed (platform-admin gate)", async () => {
+			// Defense-in-depth: a custom role mis-granted ai:ops:read still cannot
+			// read cross-team aggregates without team:manage.
+			mocks.sessionHasPermission.mockReturnValue(false);
+			const res = await logsRoute.GET(new Request("http://local/api/ai/ops/logs"));
+			expect(res.status).toBe(403);
+			expect(mocks.listAiOpsLogs).not.toHaveBeenCalled();
+		});
 	});
 
 	// ── GET /api/ai/ops/logs/[id] ───────────────────────────────────────

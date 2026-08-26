@@ -235,8 +235,10 @@ export async function evaluateCapacityLinkedAlerts(
         cooldownMinutes: rule.cooldownMinutes,
       });
 
-      if (!fire.notified) {
-        // Existing OPEN incident refresh, or create suppressed — not a new notify.
+      if (!fire.fired) {
+        // Existing OPEN incident refresh, cooldown-suppressed, or raced — not a
+        // fresh fire. Gate on `fired` (not `notified`) so a best-effort delivery
+        // failure still counts as a fire and stamps lastTriggeredAt / automates.
         if (ruleCooldownActive) skipped += 1;
         continue;
       }

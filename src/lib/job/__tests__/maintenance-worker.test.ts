@@ -37,6 +37,17 @@ vi.mock("@/lib/job/events", () => ({
   pruneJobEvents: vi.fn(async () => ({ count: 0 })),
 }));
 
+// The maintenance tick also reaps stale VPS backups and sweeps expired upload
+// sessions; stub both so this unit test stays isolated from those modules
+// (and their config reads) and only exercises the job-maintenance logic.
+vi.mock("@/lib/backup/vps-backup-service", () => ({
+  abandonStaleRunningVpsBackupRecords: vi.fn(async () => ({ abandoned: 0, ids: [] })),
+}));
+
+vi.mock("@/lib/upload/service", () => ({
+  sweepExpiredMediaUploadSessions: vi.fn(async () => 0),
+}));
+
 const {
   abandonOrphanPendingJobs,
   _knownJobTypesForTests,

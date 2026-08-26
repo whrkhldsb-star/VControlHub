@@ -77,6 +77,13 @@ vi.mock("@/lib/db", () => ({
     error instanceof Error && /P1001|Can't reach database server|PrismaClientInitializationError|database server/i.test(error.message),
 }));
 
+// Servers reaching SSH execution always carry a pinned host key (onboarding
+// forces it, and the executor now fails closed without one). Stub the pin scan
+// so fixtures with hostKeySha256 don't perform real ssh-keyscan network I/O.
+vi.mock("@/lib/ssh/known-hosts", () => ({
+  scanPinnedKnownHost: vi.fn(async () => "203.0.113.20 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA_test_pinned_line"),
+}));
+
 // TR-001 (T11): the command execution path now goes through the durable
 // jobs table. In production the actual SSH dispatch is performed by
 // startCommandExecutionWorker() when the job worker claims the row. In
@@ -202,6 +209,7 @@ describe("command service execution flow", () => {
           connectionType: "SSH_KEY",
           password: null,
           sshKey: { privateKey: "TEST_SSH_PRIVATE_KEY_PLACEHOLDER" },
+          hostKeySha256: "SHA256:testpinnedhostkeyfingerprintvalue000000000",
         },
         commandRequest: { command: "uptime" },
       },
@@ -302,6 +310,7 @@ describe("command service execution flow", () => {
           connectionType: "SSH_KEY",
           password: null,
           sshKey: { privateKey: "TEST_SSH_PRIVATE_KEY_PLACEHOLDER" },
+          hostKeySha256: "SHA256:testpinnedhostkeyfingerprintvalue000000000",
         },
         commandRequest: { command: "sleep 5" },
       },
@@ -370,6 +379,7 @@ describe("command service execution flow", () => {
           connectionType: "PASSWORD",
           password: encryptServerPassword("plain-secret"),
           sshKey: null,
+          hostKeySha256: "SHA256:testpinnedhostkeyfingerprintvalue000000000",
         },
         commandRequest: { command: "uptime" },
       },
@@ -387,14 +397,21 @@ describe("command service execution flow", () => {
 
     await vi.waitFor(() => expect(spawnMock).toHaveBeenCalledWith(
       "sshpass",
-      expect.arrayContaining(["-e", "ssh", "-o", "StrictHostKeyChecking=accept-new", "-o", "UserKnownHostsFile=/dev/null", "-o", "LogLevel=ERROR"]),
+      // Pinned host key → StrictHostKeyChecking=yes with a real known-hosts file.
+      expect.arrayContaining(["-e", "ssh", "-o", "StrictHostKeyChecking=yes", "-o", "LogLevel=ERROR"]),
       expect.objectContaining({
         env: expect.objectContaining({ SSHPASS: "plain-secret" }),
       }),
     ));
+    // Destination must be terminated by `--` so a `-`-leading identifier cannot
+    // be reinterpreted as a local ssh option (argv-injection guard).
+    const pwArgs = spawnMock.mock.calls.at(-1)?.[1] as string[];
+    expect(pwArgs).toContain("--");
+    expect(pwArgs.indexOf("--")).toBeLessThan(pwArgs.indexOf("admin@203.0.113.20"));
+    expect(pwArgs).not.toContain("UserKnownHostsFile=/dev/null");
   });
 
-  it("routes SSH execution through a non-persistent known-hosts file", async () => {
+  it("routes pinned SSH execution through a verified known-hosts file with a -- destination guard", async () => {
     mockPrisma.commandRequest.create.mockResolvedValue({
       id: "req_known_hosts_1",
       status: "APPROVED",
@@ -412,6 +429,7 @@ describe("command service execution flow", () => {
           connectionType: "SSH_KEY",
           password: null,
           sshKey: { privateKey: "TEST_SSH_PRIVATE_KEY_PLACEHOLDER" },
+          hostKeySha256: "SHA256:testpinnedhostkeyfingerprintvalue000000000",
         },
         commandRequest: { command: "uptime" },
       },
@@ -429,12 +447,62 @@ describe("command service execution flow", () => {
 
     await vi.waitFor(() => expect(spawnMock).toHaveBeenCalledWith(
       "ssh",
-      expect.arrayContaining(["-o", "StrictHostKeyChecking=accept-new", "-o", "UserKnownHostsFile=/dev/null", "-o", "LogLevel=ERROR"]),
+      // Pinned key → strict checking; never the unpinned /dev/null accept-new fallback.
+      expect.arrayContaining(["-o", "StrictHostKeyChecking=yes", "-o", "LogLevel=ERROR"]),
       expect.any(Object),
     ));
+    const args = spawnMock.mock.calls.at(-1)?.[1] as string[];
+    expect(args).not.toContain("UserKnownHostsFile=/dev/null");
+    // `--` precedes the destination so a hostile identifier can't become an ssh option.
+    expect(args).toContain("--");
+    expect(args.indexOf("--")).toBeLessThan(args.indexOf("root@203.0.113.20"));
     await vi.waitFor(() => expect(mockPrisma.commandTarget.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: expect.objectContaining({ id: "target_known_hosts_1" }) }),
     ));
+  });
+
+  it("fails closed (no SSH) when a DIRECT target has no pinned host key", async () => {
+    mockPrisma.commandRequest.create.mockResolvedValue({
+      id: "req_nopin_1",
+      status: "APPROVED",
+      targets: [{ id: "target_nopin_1" }],
+    });
+    mockPrisma.commandTarget.findMany.mockResolvedValue([
+      {
+        id: "target_nopin_1",
+        server: {
+          id: "srv_nopin_1",
+          name: "unpinned-node",
+          host: "203.0.113.30",
+          port: 22,
+          username: "root",
+          connectionType: "SSH_KEY",
+          password: null,
+          sshKey: { privateKey: "TEST_SSH_PRIVATE_KEY_PLACEHOLDER" },
+          hostKeySha256: null,
+        },
+        commandRequest: { command: "uptime" },
+      },
+    ]);
+    mockPrisma.commandRequest.update.mockResolvedValue({ id: "req_nopin_1", status: "RUNNING" });
+    mockPrisma.commandRequest.findUnique.mockResolvedValue({ id: "req_nopin_1", targets: [{ id: "target_nopin_1" }] });
+
+    await createCommandRequest({
+      title: "Run uptime",
+      command: "uptime",
+      requesterId: "u_1",
+      submissionMode: "user",
+      serverIds: ["srv_nopin_1"],
+    });
+
+    // No SSH subprocess is ever spawned, and the target is marked FAILED.
+    await vi.waitFor(() => expect(mockPrisma.commandTarget.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: "target_nopin_1" }),
+        data: expect.objectContaining({ status: "FAILED" }),
+      }),
+    ));
+    expect(spawnMock).not.toHaveBeenCalled();
   });
 
   it("normalizes duplicate command targets before creating approval/execution rows", async () => {
@@ -478,6 +546,47 @@ describe("command service execution flow", () => {
     expect(mockPrisma.commandRequest.create).not.toHaveBeenCalled();
   });
 
+  it("quarantines null-team callers to null-team servers (no cross-team command exec)", async () => {
+    // Scope-aware server mock: only return a server when the where-clause team
+    // filter matches the server's own teamId (mirrors real Prisma behaviour).
+    const serverTeam: Record<string, string | null> = { srv_team_a: "team-a" };
+    mockPrisma.server.findMany.mockImplementation(
+      async (args: { where?: { id?: { in?: string[] }; teamId?: string | null } }) => {
+        const ids = args?.where?.id?.in ?? [];
+        const teamFilter = args?.where?.teamId;
+        return ids
+          .filter((id) => teamFilter === undefined || serverTeam[id] === teamFilter)
+          .map((id) => ({
+            id,
+            enabled: true,
+            onboardingStatus: "READY",
+            managementMode: "SSH",
+            agentLastSeenAt: null,
+            connectionType: "PASSWORD",
+            password: "x",
+            sshKeyId: null,
+            metricSnapshots: [{ isOnline: true, createdAt: new Date() }],
+          }));
+      },
+    );
+
+    // Null-team playbook worker path: no session, teamId null → must NOT reach
+    // a team-A server. The scope collapses to { teamId: null }, which srv_team_a
+    // (teamId "team-a") does not satisfy, so the target is out of scope.
+    await expect(
+      createCommandRequest({
+        title: "Playbook step",
+        command: "rm -rf /",
+        requesterId: "u_attacker",
+        submissionMode: "user",
+        teamId: null,
+        serverIds: ["srv_team_a"],
+      }),
+    ).rejects.toThrow();
+
+    expect(mockPrisma.commandRequest.create).not.toHaveBeenCalled();
+  });
+
   it("marks command request as failed when only some targets complete", async () => {
     mockPrisma.commandRequest.create.mockResolvedValue({
       id: "req_partial_1",
@@ -496,6 +605,7 @@ describe("command service execution flow", () => {
           connectionType: "SSH_KEY",
           password: null,
           sshKey: { privateKey: "TEST_SSH_PRIVATE_KEY_PLACEHOLDER" },
+          hostKeySha256: "SHA256:testpinnedhostkeyfingerprintvalue000000000",
         },
         commandRequest: { command: "deploy" },
       },
@@ -510,6 +620,7 @@ describe("command service execution flow", () => {
           connectionType: "SSH_KEY",
           password: null,
           sshKey: { privateKey: "TEST_SSH_PRIVATE_KEY_PLACEHOLDER" },
+          hostKeySha256: "SHA256:testpinnedhostkeyfingerprintvalue000000000",
         },
         commandRequest: { command: "deploy" },
       },
@@ -583,6 +694,7 @@ describe("command service execution flow", () => {
           connectionType: "SSH_KEY",
           password: null,
           sshKey: { privateKey: "TEST_SSH_PRIVATE_KEY_PLACEHOLDER" },
+          hostKeySha256: "SHA256:testpinnedhostkeyfingerprintvalue000000000",
         },
         commandRequest: { command: "deploy" },
       },
@@ -597,6 +709,7 @@ describe("command service execution flow", () => {
           connectionType: "SSH_KEY",
           password: null,
           sshKey: { privateKey: "TEST_SSH_PRIVATE_KEY_PLACEHOLDER" },
+          hostKeySha256: "SHA256:testpinnedhostkeyfingerprintvalue000000000",
         },
         commandRequest: { command: "deploy" },
       },
@@ -681,6 +794,7 @@ describe("command service execution flow", () => {
           connectionType: "SSH_KEY",
           password: null,
           sshKey: { privateKey: "TEST_SSH_PRIVATE_KEY_PLACEHOLDER" },
+          hostKeySha256: "SHA256:testpinnedhostkeyfingerprintvalue000000000",
         },
         commandRequest: { command: "uptime" },
       },
@@ -764,6 +878,7 @@ describe("command service execution flow", () => {
           connectionType: "SSH_KEY",
           password: null,
           sshKey: { privateKey: "TEST_SSH_PRIVATE_KEY_PLACEHOLDER" },
+          hostKeySha256: "SHA256:testpinnedhostkeyfingerprintvalue000000000",
         },
         commandRequest: { command: "sleep 3600" },
       },
@@ -850,6 +965,7 @@ describe("command service execution flow", () => {
           connectionType: "SSH_KEY",
           password: null,
           sshKey: { privateKey: "TEST_SSH_PRIVATE_KEY_PLACEHOLDER" },
+          hostKeySha256: "SHA256:testpinnedhostkeyfingerprintvalue000000000",
         },
         commandRequest: { command: "sleep 3600" },
       },
@@ -976,6 +1092,7 @@ describe("command service execution flow", () => {
           connectionType: "SSH_KEY",
           password: null,
           sshKey: { privateKey: "TEST_SSH_PRIVATE_KEY_PLACEHOLDER" },
+          hostKeySha256: "SHA256:testpinnedhostkeyfingerprintvalue000000000",
         },
         commandRequest: { command: "sleep 3600" },
       },
@@ -1055,6 +1172,7 @@ describe("command service execution flow", () => {
           connectionType: "SSH_KEY",
           password: null,
           sshKey: { privateKey: "TEST_SSH_PRIVATE_KEY_PLACEHOLDER" },
+          hostKeySha256: "SHA256:testpinnedhostkeyfingerprintvalue000000000",
         },
         commandRequest: { command: "yes" },
       },
@@ -1115,6 +1233,7 @@ describe("command service execution flow", () => {
           connectionType: "SSH_KEY",
           password: null,
           sshKey: { privateKey: "TEST_SSH_PRIVATE_KEY_PLACEHOLDER" },
+          hostKeySha256: "SHA256:testpinnedhostkeyfingerprintvalue000000000",
         },
         commandRequest: { command: "systemctl restart nginx" },
       },
@@ -1310,11 +1429,13 @@ describe("command service execution flow", () => {
       ),
     ).rejects.toThrow(/Idempotency|幂等/);
 
+    // commandRequestTeamWhere quarantines null-team rows: an operator scoped to
+    // team_a replays only team_a's requests, never shared/null-team ones.
     expect(mockPrisma.commandRequest.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
           idempotencyKey: "playbook:shared-key",
-          OR: [{ teamId: "team_a" }, { teamId: null }],
+          teamId: "team_a",
         }),
       }),
     );
@@ -1351,7 +1472,8 @@ describe("command service execution flow", () => {
     expect(mockPrisma.server.findMany).not.toHaveBeenCalled();
   });
 
-  it("scopes cancel/review loads with teamWhere when session is provided", async () => {
+  it("quarantines cancel/review loads with commandRequestTeamWhere when session is provided", async () => {
+    mockPrisma.commandRequest.findFirst.mockReset();
     mockPrisma.commandRequest.findFirst.mockResolvedValue(null);
 
     await expect(
@@ -1362,11 +1484,13 @@ describe("command service execution flow", () => {
       }),
     ).rejects.toThrow("命令请求不存在");
 
+    // Null-team rows are quarantined: team_a operator scope is {teamId:"team_a"},
+    // not the old shared OR:[team_a, null].
     expect(mockPrisma.commandRequest.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
           id: "req_other_team",
-          OR: [{ teamId: "team_a" }, { teamId: null }],
+          teamId: "team_a",
         }),
       }),
     );
@@ -1589,6 +1713,7 @@ describe("command service execution flow", () => {
           connectionType: "SSH_KEY",
           password: null,
           sshKey: { privateKey: "TEST_SSH_PRIVATE_KEY_PLACEHOLDER" },
+          hostKeySha256: "SHA256:testpinnedhostkeyfingerprintvalue000000000",
         },
         commandRequest: { command: "rm -rf /" },
       },

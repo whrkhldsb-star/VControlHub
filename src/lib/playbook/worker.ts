@@ -9,10 +9,57 @@ import { createLogger } from "@/lib/logging";
 import { auditSystemAction } from "@/lib/audit/service";
 
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
+import { loadApiTokenOwnerSession } from "@/lib/api-token/authorization";
+import { sessionHasPermission } from "@/lib/auth/authorization";
 import { executePlaybookChain } from "./executor";
 import type { PlaybookStep, PlaybookStepResult } from "./types";
 
 export const PLAYBOOK_RUN_JOB_TYPE = "playbook.run";
+
+/**
+ * Thrown when the run's requester no longer qualifies to execute commands at
+ * execution time (disabled / demoted / removed from the run's team). Terminal —
+ * must not requeue, since retrying under the same revoked identity would loop.
+ */
+export class PlaybookAuthorizationError extends Error {
+  constructor(reason: string) {
+    super(reason);
+    this.name = "PlaybookAuthorizationError";
+  }
+}
+
+/**
+ * Live re-check that `requesterId` may execute a playbook's command steps:
+ *   1. user exists, is enabled, not in must-change-password (loadApiTokenOwnerSession),
+ *   2. holds command:execute,
+ *   3. is a member of the run's team (when the run is team-scoped).
+ * Returns a structured result so the caller can fail the run with a clear reason.
+ */
+async function assertPlaybookCommandExecutionAllowed(
+  requesterId: string,
+  runTeamId: string | null,
+): Promise<{ ok: true } | { ok: false; reason: string }> {
+  const ownerSession = await loadApiTokenOwnerSession(requesterId);
+  if (!ownerSession) {
+    return { ok: false, reason: "playbook command requester is disabled or no longer valid" };
+  }
+  if (!sessionHasPermission(ownerSession, "command:execute")) {
+    return { ok: false, reason: "playbook command requester lacks command:execute permission" };
+  }
+  if (runTeamId) {
+    // team:manage (global) members are not bound to per-team membership rows.
+    if (!sessionHasPermission(ownerSession, "team:manage")) {
+      const membership = await prisma.teamMember.findUnique({
+        where: { teamId_userId: { teamId: runTeamId, userId: requesterId } },
+        select: { userId: true },
+      });
+      if (!membership) {
+        return { ok: false, reason: "playbook command requester is no longer a member of the run's team" };
+      }
+    }
+  }
+  return { ok: true };
+}
 const WORKER_ID = `${config.app.hostname || "vcontrolhub"}:playbook-run:${process.pid}`;
 const LEASE_MS = computeLeaseMs("playbook-run");
 const logger = createLogger("playbook-run-worker");
@@ -75,8 +122,24 @@ export async function processPlaybookRun(runId: string, jobId: string): Promise<
   const steps = executionState?.schemaVersion === 1 && Array.isArray(executionState.stepsSnapshot)
     ? executionState.stepsSnapshot
     : run.playbook.steps as unknown as PlaybookStep[];
-  if (steps.some((step) => step.type === "run_command") && !requesterId) {
+  const hasCommandStep = steps.some((step) => step.type === "run_command");
+  if (hasCommandStep && !requesterId) {
     throw new Error("playbook command step requires a creator/requester");
+  }
+
+  // Live authorization re-check for command execution. The requester identity is
+  // a snapshot taken at create/trigger time; by execution time (esp. cron/metric
+  // triggers that fire indefinitely) the user may have been disabled, demoted,
+  // or removed from the run's team. Without this, a triggered playbook keeps
+  // executing commands under a revoked identity, and a playbook:manage user with
+  // no command:execute could otherwise drive command execution. Re-verify at
+  // execution against the live DB, fail terminally if the requester no longer
+  // qualifies.
+  if (hasCommandStep && requesterId) {
+    const authz = await assertPlaybookCommandExecutionAllowed(requesterId, run.teamId);
+    if (!authz.ok) {
+      throw new PlaybookAuthorizationError(authz.reason);
+    }
   }
 
   // Serialize concurrent runs of the same playbook (shared target servers / commands).
@@ -192,17 +255,25 @@ async function handleJob(job: NonNullable<Awaited<ReturnType<typeof claimNextJob
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const payload = (() => { try { return parsePayload(job.payload); } catch { return null; } })();
+    // Authorization failures are terminal: retrying under the same revoked
+    // identity would loop forever. Mark the run failed and terminal-fail the job.
+    const isTerminal = error instanceof PlaybookAuthorizationError;
     if (payload) {
       const current = await prisma.playbookRun.findUnique({ where: { id: payload.runId }, select: { stepResults: true } });
       await prisma.playbookRun.updateMany({
         where: { id: payload.runId, status: { in: ["queued", "running"] } },
         data: {
-          status: job.attempts < job.maxAttempts ? "queued" : "failed",
+          status: !isTerminal && job.attempts < job.maxAttempts ? "queued" : "failed",
           errorMessage: message.slice(0, 2000),
-          completedAt: job.attempts < job.maxAttempts ? null : new Date(),
+          completedAt: !isTerminal && job.attempts < job.maxAttempts ? null : new Date(),
           ...(current?.stepResults ? { stepResults: current.stepResults as Prisma.InputJsonValue } : {}),
         },
       });
+    }
+    if (isTerminal) {
+      await failJobTerminal(job.id, WORKER_ID, message.slice(0, 2000));
+      logger.warn("playbook run terminally failed authorization", { jobId: job.id, error: message });
+      return true;
     }
     // Infrastructure / unexpected throw: allow durable job retry via failJob.
     await failJob(job.id, WORKER_ID, message.slice(0, 2000), { retryAfterMs: 5_000 });

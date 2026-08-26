@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const { prismaMock, createNotificationMock } = vi.hoisted(() => ({
 	prismaMock: {
 		costBudget: { create: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn(), delete: vi.fn() },
-		costEntry: { aggregate: vi.fn() },
+		costEntry: { aggregate: vi.fn(), groupBy: vi.fn() },
 		user: { findMany: vi.fn() },
 		notification: { findFirst: vi.fn() },
 	},
@@ -30,6 +30,8 @@ describe("cost budget service", () => {
 		prismaMock.costBudget.delete.mockResolvedValue(budgetRow);
 		prismaMock.costBudget.findMany.mockResolvedValue([budgetRow]);
 		prismaMock.costEntry.aggregate.mockResolvedValue({ _sum: { amount: decimal("85.00") } });
+		// Multi-currency spend aggregation; default to no other-currency rows.
+		prismaMock.costEntry.groupBy.mockResolvedValue([]);
 		prismaMock.user.findMany.mockResolvedValue([{ id: "admin-1" }, { id: "admin-2" }]);
 		prismaMock.notification.findFirst.mockResolvedValue(null);
 		createNotificationMock.mockResolvedValue({ id: "notification-1" });
@@ -67,6 +69,7 @@ describe("cost budget service", () => {
 		vi.clearAllMocks();
 		prismaMock.costBudget.findMany.mockResolvedValue([budgetRow]);
 		prismaMock.costEntry.aggregate.mockResolvedValue({ _sum: { amount: decimal("85.00") } });
+		prismaMock.costEntry.groupBy.mockResolvedValue([]);
 		prismaMock.user.findMany.mockResolvedValue([{ id: "admin-1" }, { id: "admin-2" }]);
 		prismaMock.notification.findFirst.mockResolvedValue({ id: "existing" });
 		const second = await checkBudgetAlerts(new Date("2026-06-16T10:00:00.000Z"));

@@ -9,6 +9,7 @@ import { NextResponse } from "next/server";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_READ_LIMIT } from "@/lib/http/rate-limit-presets";
 import { getAiOpsLog } from "@/lib/ai/ops/service";
+import { assertAiOpsPlatformReader } from "@/lib/ai/ops/authorization";
 import { NotFoundError } from "@/lib/errors";
 
 export const dynamic = "force-dynamic";
@@ -26,7 +27,8 @@ export async function GET(
 			errorStatus: 500,
 			errorMessage: "Failed to load AI ops records",
 		},
-		async () => {
+		async ({ session }) => {
+			assertAiOpsPlatformReader(session);
 			const log = await getAiOpsLog(id);
 			if (!log) {
 				throw new NotFoundError(`AI ops record not found ${id}`);

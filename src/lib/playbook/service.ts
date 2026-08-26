@@ -14,7 +14,8 @@ import type { SessionPayload } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
 import { auditUserAction } from "@/lib/audit/service";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
-import { NotFoundError, ValidationError, BusinessError } from "@/lib/errors";
+import { NotFoundError, ValidationError, BusinessError, ForbiddenError } from "@/lib/errors";
+import { sessionHasPermission } from "@/lib/auth/authorization";
 
 import type {
   CreatePlaybookInput,
@@ -105,10 +106,31 @@ async function assertPlaybookNotificationRecipientsInScope(
   }
 }
 
+/**
+ * A playbook with run_command steps is a command-execution vector. Require the
+ * author to actually hold command:execute so `playbook:manage` alone cannot be
+ * used to author (and later auto-trigger) command execution — closing the
+ * permission-decoupling bypass. The worker also re-checks at execution time
+ * (defense in depth), but rejecting at write time gives immediate feedback.
+ */
+function assertPlaybookCommandAuthoring(
+  steps: PlaybookStep[],
+  session?: TeamSession | null,
+): void {
+  if (!session) return;
+  const hasCommandStep = steps.some((step) => step.type === "run_command");
+  if (hasCommandStep && !sessionHasPermission(session, "command:execute")) {
+    throw new ForbiddenError(
+      "Playbooks with command steps require the command:execute permission",
+    );
+  }
+}
+
 async function assertPlaybookStepsInScope(
   steps: PlaybookStep[],
   session?: TeamSession | null,
 ): Promise<void> {
+  assertPlaybookCommandAuthoring(steps, session);
   await assertPlaybookCommandServersInScope(steps, session);
   await assertPlaybookNotificationRecipientsInScope(steps, session);
 }

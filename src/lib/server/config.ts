@@ -1,3 +1,6 @@
+import { ValidationError } from "@/lib/errors";
+import { t } from "@/lib/i18n/service-translations";
+
 export type ServerInput = {
   name: string;
   host: string;
@@ -34,14 +37,40 @@ export type NormalizedServerInput = {
   costProvider: string | null;
 };
 
+/**
+ * Reject SSH host/username values that could be reinterpreted as `ssh` CLI
+ * options. A destination beginning with `-` (e.g. `-oProxyCommand=…`) becomes an
+ * argv option rather than a hostname, which is arbitrary command execution on
+ * the control-plane host. The command layer also inserts `--` before the
+ * destination as defense-in-depth, but we reject the value at the write chokepoint
+ * so a hostile identifier never reaches persistence in the first place.
+ * All server create/update paths funnel through normalizeServerInput.
+ */
+const HOST_PATTERN = /^[A-Za-z0-9._:\-\[\]]+$/;
+const USERNAME_PATTERN = /^[A-Za-z0-9._@\-]+$/;
+
+function assertSshIdentifier(kind: "host" | "username", value: string): void {
+  if (value.startsWith("-")) {
+    throw new ValidationError(t("backend.ssh.invalidIdentifierLeadingDash", { kind }));
+  }
+  const pattern = kind === "host" ? HOST_PATTERN : USERNAME_PATTERN;
+  if (!pattern.test(value)) {
+    throw new ValidationError(t("backend.ssh.invalidIdentifierChars", { kind }));
+  }
+}
+
 export function normalizeServerInput(
   input: ServerInput,
 ): NormalizedServerInput {
+  const host = input.host.trim();
+  const username = input.username?.trim() || "root";
+  assertSshIdentifier("host", host);
+  assertSshIdentifier("username", username);
   return {
     name: input.name.trim(),
-    host: input.host.trim(),
+    host,
     port: input.port ?? 22,
-    username: input.username?.trim() || "root",
+    username,
     connectionType: input.connectionType ?? "SSH_KEY",
     managementMode: input.managementMode ?? "DIRECT",
     sshKeyId: input.sshKeyId?.trim() || null,

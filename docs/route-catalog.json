@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-08-20T07:35:30.212Z",
+  "generatedAt": "2026-08-25T15:03:48.544Z",
   "summary": {
     "sidebarMain": 30,
     "sidebarSystem": 5,
     "sidebarMobile": 5,
     "pages": 54,
-    "apiRoutes": 179,
+    "apiRoutes": 180,
     "permissionsDefined": 54
   },
   "sidebar": {
@@ -2367,6 +2367,17 @@
       "guardMode": "withApiRoute",
       "declaredPermissions": [
         "server:read"
+      ]
+    },
+    {
+      "path": "/api/servers/[id]/vps-backup/records/[recordId]/retry",
+      "file": "src/app/api/servers/[id]/vps-backup/records/[recordId]/retry/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "server:write"
       ]
     },
     {

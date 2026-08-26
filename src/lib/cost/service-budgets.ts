@@ -5,7 +5,7 @@ import { NotFoundError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 import { createNotification } from "@/lib/notification/service";
 import { createCostBudgetSchema, updateCostBudgetSchema } from "./schema";
-import type { CostBudgetPeriod, CostBudgetRecord, CostCategory, CostCurrency } from "./types";
+import type { CostBudgetPeriod, CostBudgetRecord, CostCategory, CostCurrency, CostCurrencyBucket } from "./types";
 import { DEFAULT_CURRENCY, isoDateOnly, type TeamSession } from "./service-internals";
 
 type BudgetRow = {
@@ -23,9 +23,25 @@ export function getBudgetPeriodRange(period: CostBudgetPeriod, now = new Date())
 async function budgetToRecord(row: BudgetRow & { teamId?: string | null }, now = new Date()): Promise<CostBudgetRecord> {
 	const range = getBudgetPeriodRange(row.period as CostBudgetPeriod, now);
 	// Usage belongs to the budget's tenant, not to the viewer's current scope.
-	const aggregate = await prisma.costEntry.aggregate({ where: { category: row.category, currency: row.currency, effectiveDate: { gte: range.start, lt: range.endExclusive }, teamId: row.teamId ?? null }, _sum: { amount: true } });
+	const periodWhere = { category: row.category, effectiveDate: { gte: range.start, lt: range.endExclusive }, teamId: row.teamId ?? null };
+	const aggregate = await prisma.costEntry.aggregate({ where: { ...periodWhere, currency: row.currency }, _sum: { amount: true } });
+	// Spend in other currencies cannot be converted (no FX source) but must not
+	// vanish: a CNY budget that silently ignores USD spend never alerts.
+	const otherRows = await prisma.costEntry.groupBy({
+		by: ["currency"],
+		where: { ...periodWhere, currency: { not: row.currency } },
+		_sum: { amount: true },
+		_count: { _all: true },
+	});
+	const otherCurrencyUsage: CostCurrencyBucket[] = otherRows
+		.map((other) => ({
+			currency: other.currency as CostCurrency,
+			totalAmount: (Number(other._sum.amount?.toString() ?? "0") || 0).toFixed(2),
+			entryCount: other._count._all,
+		}))
+		.sort((a, b) => a.currency.localeCompare(b.currency));
 	const usageAmount = aggregate._sum.amount?.toFixed(2) ?? "0.00"; const limitAmount = row.limitAmount.toFixed(2);
-	return { id: row.id, category: row.category as CostCategory, name: row.name, limitAmount, currency: row.currency as CostCurrency, period: row.period as CostBudgetPeriod, alertThresholdPercent: row.alertThresholdPercent, enabled: row.enabled, usageAmount, usagePercent: Number(((Number(usageAmount) / Number(limitAmount)) * 100).toFixed(1)), periodStart: isoDateOnly(range.start), periodEnd: isoDateOnly(new Date(range.endExclusive.getTime() - 1)), teamId: row.teamId ?? null, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() };
+	return { id: row.id, category: row.category as CostCategory, name: row.name, limitAmount, currency: row.currency as CostCurrency, period: row.period as CostBudgetPeriod, alertThresholdPercent: row.alertThresholdPercent, enabled: row.enabled, usageAmount, usagePercent: Number(((Number(usageAmount) / Number(limitAmount)) * 100).toFixed(1)), periodStart: isoDateOnly(range.start), periodEnd: isoDateOnly(new Date(range.endExclusive.getTime() - 1)), otherCurrencyUsage, teamId: row.teamId ?? null, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() };
 }
 
 export async function createCostBudget(input: unknown, session?: TeamSession | null): Promise<CostBudgetRecord> {

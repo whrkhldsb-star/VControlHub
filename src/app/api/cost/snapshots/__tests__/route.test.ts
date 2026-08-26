@@ -69,7 +69,7 @@ describe("/api/cost/snapshots", () => {
 			new Request("http://local/api/cost/snapshots?limit=7"),
 		);
 		expect(res.status).toBe(200);
-		expect(mocks.listRecentSnapshots).toHaveBeenCalledWith(7, expect.anything(), undefined);
+		expect(mocks.listRecentSnapshots).toHaveBeenCalledWith(7, expect.anything(), undefined, undefined);
 	});
 
 	it("GET forwards currency to the service", async () => {
@@ -77,7 +77,7 @@ describe("/api/cost/snapshots", () => {
 			new Request("http://local/api/cost/snapshots?limit=14&currency=USD"),
 		);
 		expect(res.status).toBe(200);
-		expect(mocks.listRecentSnapshots).toHaveBeenCalledWith(14, expect.anything(), "USD");
+		expect(mocks.listRecentSnapshots).toHaveBeenCalledWith(14, expect.anything(), "USD", undefined);
 	});
 
 	it("GET returns 400 when limit is out of range", async () => {

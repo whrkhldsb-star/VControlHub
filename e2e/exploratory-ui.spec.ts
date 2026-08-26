@@ -73,7 +73,7 @@ test("compatibility routes and an expired 2FA challenge redirect explicitly", as
 	await login(page);
 
 	for (const [source, destination] of [
-		["/account", "/account/password"],
+		["/account", "/account/security"],
 		["/preferences", "/settings#personal-preferences"],
 		["/storage", "/files"],
 	] as const) {

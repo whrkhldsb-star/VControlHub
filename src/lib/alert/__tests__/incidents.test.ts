@@ -82,6 +82,7 @@ describe("alert incidents", () => {
     });
 
     expect(result.created).toBe(true);
+    expect(result.fired).toBe(true);
     expect(result.notified).toBe(true);
     expect(createNotificationMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -89,6 +90,41 @@ describe("alert incidents", () => {
         type: "server_alert",
       }),
     );
+  });
+
+  it("reports fired=true but notified=false when every channel fails (best-effort delivery)", async () => {
+    prismaMock.alertIncident.findUnique.mockResolvedValue(null);
+    prismaMock.alertIncident.create.mockResolvedValue({
+      id: "inc_fail",
+      level: 1,
+      status: "OPEN",
+    });
+    // Telegram-only rule, delivery throws — the incident still opened this pass.
+    sendTelegramMock.mockRejectedValueOnce(new Error("network down"));
+
+    const result = await openOrRefreshAlertIncident({
+      ruleId: "r1",
+      ruleName: "High CPU",
+      serverId: "s1",
+      serverName: "vps-1",
+      metric: "cpu_usage",
+      operator: "gte",
+      threshold: 90,
+      value: 95,
+      notifyChannels: ["telegram"],
+      onCallUserIds: [],
+      title: "Alert: vps-1 cpu usage",
+      message: "High CPU: cpu_usage gte 90 (current: 95)",
+    });
+
+    // fired reflects that an incident opened; notified reflects delivery reality.
+    // Callers stamp lastTriggeredAt / run playbooks on fired, not notified.
+    expect(result.fired).toBe(true);
+    expect(result.notified).toBe(false);
+    expect(result.failedChannels).toEqual([
+      { channel: "telegram", error: "network down" },
+    ]);
+    expect(prismaMock.alertIncident.create).toHaveBeenCalled();
   });
 
   it("does not re-notify when incident already OPEN", async () => {
@@ -192,6 +228,7 @@ describe("alert incidents", () => {
     expect(result).toEqual({
       incidentId: "inc-cool",
       created: false,
+      fired: false,
       notified: false,
       level: 1,
     });

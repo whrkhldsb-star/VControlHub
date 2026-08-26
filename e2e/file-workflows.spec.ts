@@ -97,7 +97,12 @@ test("local file lifecycle: folder, upload, search, preview, share and delete", 
 	const moreActions = page.getByRole("group", { name: /更多操作 vcontrolhub-e2e\.txt|More actions vcontrolhub-e2e\.txt/i });
 	await expect(moreActions).toBeVisible();
 	const shareResponsePromise = page.waitForResponse((response) => response.url().endsWith("/api/share-links") && response.request().method() === "POST");
-	await moreActions.getByRole("button", { name: /分享|Share/i }).click();
+	await moreActions.getByRole("button", { name: /^分享$|^Share$/i }).click();
+	// Quick share is destructive (creates a public link), so it asks for an
+	// explicit acknowledgement first. The dialog is portalled to <body>.
+	const shareDialog = page.getByRole("dialog", { name: /创建临时公开分享|Create a temporary public share/i });
+	await expect(shareDialog).toBeVisible();
+	await shareDialog.getByRole("button", { name: /创建临时链接|Create temporary link/i }).click();
 	const shareResponse = await shareResponsePromise;
 	expect(shareResponse.status()).toBe(201);
 	const { token } = await shareResponse.json() as { token: string };

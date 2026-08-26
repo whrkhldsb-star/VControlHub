@@ -1,7 +1,7 @@
 import { isProtectedByApproval } from "@/lib/auth/rbac";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import type { RoleKey } from "@/lib/auth/rbac";
-import { serverTeamWhere, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
+import { commandRequestTeamWhere, serverTeamWhere, teamCreateData } from "@/lib/auth/team-scope";
 import { prisma, isUniqueViolation } from "@/lib/db";
 import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
 import {
@@ -61,12 +61,19 @@ async function assertCommandTargetServersInScope(
   session?: CommandSessionScope | null,
   teamId?: string | null,
 ): Promise<void> {
-  let scope: Record<string, unknown> = {};
+  let scope: Record<string, unknown>;
   if (session) {
     scope = serverTeamWhere(session);
   } else if (teamId) {
     // Concrete worker stamp has no admin bypass and must use strict server scope.
     scope = { teamId };
+  } else {
+    // No session AND no concrete teamId (e.g. a null-team playbook run reaching
+    // the executor with teamId=null). Servers are security roots: a null-team
+    // caller may ONLY target quarantined null-team servers, never fall through
+    // to an unfiltered scope that would allow cross-team command execution.
+    // This mirrors serverTeamWhere's "null teamId is quarantine, not shared".
+    scope = { teamId: null };
   }
   const servers = await prisma.server.findMany({
     where: {
@@ -271,7 +278,9 @@ export async function cancelCommandRequest(input: {
   const request = await prisma.commandRequest.findFirst({
     where: {
       id: commandRequestId,
-      ...(input.session ? teamWhere(input.session) : {}),
+      // Quarantine null-team requests: a team user must not cancel another
+      // team's (or unassigned legacy) request. Only global managers see all.
+      ...(input.session ? commandRequestTeamWhere(input.session) : {}),
     },
     include: { targets: { select: { id: true, status: true } } },
   });
@@ -306,7 +315,7 @@ export async function cancelCommandRequest(input: {
     where: {
       id: commandRequestId,
       status: { in: ["PENDING_APPROVAL", "APPROVED", "RUNNING"] },
-      ...(input.session ? teamWhere(input.session) : {}),
+      ...(input.session ? commandRequestTeamWhere(input.session) : {}),
     },
     data: { status: "CANCELLED", workerId: null, workerHeartbeatAt: null },
   });
@@ -350,20 +359,23 @@ export async function createCommandRequest(
   session?: CommandSessionScope | null,
 ) {
   const payload = createCommandSchema.parse(input);
+  const teamId = resolveCommandTeamId(payload.teamId, session);
   if (payload.idempotencyKey) {
     // Scope idempotency replay by team so a shared/global key cannot return
     // another tenant's CommandRequest (and its command text / targets).
+    // Sessioned callers are quarantined via commandRequestTeamWhere (null-team
+    // is not shared); sessionless system callers replay only within their own
+    // stamped teamId (or the null-team quarantine), never across all teams.
     const existing = await prisma.commandRequest.findFirst({
       where: {
         idempotencyKey: payload.idempotencyKey,
-        ...(session ? teamWhere(session) : {}),
+        ...(session ? commandRequestTeamWhere(session) : { teamId: teamId ?? null }),
       },
       include: { targets: true },
     });
     if (existing) return { ...existing, requiresApproval: existing.status === "PENDING_APPROVAL" };
   }
 
-  const teamId = resolveCommandTeamId(payload.teamId, session);
   // Scope servers by session teamWhere, or by stamped teamId on system paths
   // (playbook executor never has a session but always passes teamId).
   await assertCommandTargetServersInScope(payload.serverIds, session, teamId);
@@ -403,7 +415,8 @@ export async function createCommandRequest(
       const scopedReplay = await prisma.commandRequest.findFirst({
         where: {
           idempotencyKey: payload.idempotencyKey,
-          ...(session ? teamWhere(session) : {}),
+          // Same quarantine as the pre-create replay lookup above.
+          ...(session ? commandRequestTeamWhere(session) : { teamId: teamId ?? null }),
         },
         include: { targets: true },
       });
@@ -439,7 +452,9 @@ export async function reviewCommandRequest(
   const request = await prisma.commandRequest.findFirst({
     where: {
       id: payload.commandRequestId,
-      ...(session ? teamWhere(session) : {}),
+      // Quarantine null-team requests: a team user must not approve/reject
+      // another team's (or unassigned legacy) request.
+      ...(session ? commandRequestTeamWhere(session) : {}),
     },
   });
 
@@ -478,7 +493,7 @@ export async function reviewCommandRequest(
       where: {
         id: payload.commandRequestId,
         status: "PENDING_APPROVAL",
-        ...(session ? teamWhere(session) : {}),
+        ...(session ? commandRequestTeamWhere(session) : {}),
       },
       data: payload.approved
         ? { status: nextStatus }
@@ -531,7 +546,9 @@ export async function reviewCommandRequest(
 }
 
 export async function listCommandRequests(session?: CommandSessionScope | null) {
-  const where = session ? { ...teamWhere(session) } : {};
+  // Quarantine null-team requests from team-user lists (command text + targets
+  // are a security root); global managers still see all via commandRequestTeamWhere.
+  const where = session ? { ...commandRequestTeamWhere(session) } : {};
   const requests = await prisma.commandRequest.findMany({
     where,
     orderBy: { createdAt: "desc" },

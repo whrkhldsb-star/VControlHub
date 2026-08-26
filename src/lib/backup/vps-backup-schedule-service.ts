@@ -32,6 +32,17 @@ export function validateVpsCronExpression(expr: string): string {
 	return trimmed;
 }
 
+// Defense-in-depth: the HTTP routes already zod-validate retentionDays to
+// 1..365, but the service must not trust callers (future internal callers,
+// scripts) to have done so. Mirror the same bound here. null = keep forever.
+const VPS_RETENTION_DAYS_MAX = 365;
+function validateVpsRetentionDays(value: number | null | undefined): void {
+	if (value === null || value === undefined) return;
+	if (!Number.isInteger(value) || value < 1 || value > VPS_RETENTION_DAYS_MAX) {
+		throw new ValidationError(t("vpsBackupApi.errorRetentionRange"));
+	}
+}
+
 /* ── CRUD ────────────────────────────────────────────────── */
 
 export async function listVpsBackupSchedules(serverId?: string) {
@@ -68,6 +79,7 @@ export async function createVpsBackupSchedule(input: {
 	}
 
 	const cronExpression = validateVpsCronExpression(input.cronExpression);
+	validateVpsRetentionDays(input.retentionDays);
 	const nextRunAt = computeNextRun(cronExpression);
 
 	return prisma.vpsBackupSchedule.create({
@@ -132,7 +144,10 @@ export async function updateVpsBackupSchedule(
 	}
 	if (input.paths !== undefined) data.paths = input.paths.map((path) => path.trim()).filter(Boolean);
 	if (input.note !== undefined) data.note = input.note.trim() || null;
-	if (input.retentionDays !== undefined) data.retentionDays = input.retentionDays;
+	if (input.retentionDays !== undefined) {
+		validateVpsRetentionDays(input.retentionDays);
+		data.retentionDays = input.retentionDays;
+	}
 	if (input.status !== undefined) {
 		if (!VPS_BACKUP_SCHEDULE_STATUSES.includes(input.status)) {
 			throw new ValidationError(t("backend.backup.statusInvalid"));
@@ -194,6 +209,32 @@ export async function dispatchDueVpsBackupSchedules(): Promise<number> {
 			});
 
 			if (claimed.count === 0) continue; // Already claimed by another worker
+
+			// Overlap guard: if the previous cycle for this server is still
+			// PENDING/RUNNING (slow backup + short cron), skip this tick instead
+			// of stacking concurrent SSH backup sessions against the same host.
+			// Advance nextRunAt so the schedule stays healthy and retries next
+			// cycle. The stale-record reaper (job maintenance) fails any RUNNING
+			// row whose worker actually died, so this cannot wedge permanently.
+			const inFlight = await prisma.vpsBackupRecord.count({
+				where: {
+					serverId: schedule.serverId,
+					status: { in: ["PENDING", "RUNNING"] },
+				},
+			});
+			if (inFlight > 0) {
+				const skipNextRunAt = computeNextRun(schedule.cronExpression);
+				await prisma.vpsBackupSchedule.update({
+					where: { id: schedule.id },
+					data: { nextRunAt: skipNextRunAt, lastResult: "SKIPPED_OVERLAP" },
+				});
+				vpsSchedLogger.warn("VPS backup skipped: previous run still in flight", {
+					scheduleId: schedule.id,
+					serverId: schedule.serverId,
+					inFlight,
+				});
+				continue;
+			}
 
 			// Create PENDING record
 			const { id: recordId } = await createVpsBackupRecord({

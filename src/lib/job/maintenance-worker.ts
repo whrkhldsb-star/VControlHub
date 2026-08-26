@@ -15,6 +15,8 @@ import { createLogger } from "@/lib/logging";
 import { pruneJobEvents } from "@/lib/job/events";
 import { recoverStaleRunningJobs } from "@/lib/job/service";
 import { MAX_LEASE_MS } from "@/lib/job/lease";
+import { abandonStaleRunningVpsBackupRecords } from "@/lib/backup/vps-backup-service";
+import { sweepExpiredMediaUploadSessions } from "@/lib/upload/service";
 
 const logger = createLogger("job-maintenance-worker");
 
@@ -162,6 +164,29 @@ async function tick(reason: string) {
         failed: recovered.failed.length,
         recoveredIds: recovered.recovered,
         failedIds: recovered.failed,
+      });
+    }
+    // VpsBackupRecord rows are downstream of the jobs recovered above but are
+    // NOT touched by recoverStaleRunningJobs (which only finalizes Job rows).
+    // Without this, a worker that dies mid-backup (OOM/SIGKILL, so the in-proc
+    // catch never runs) leaves the record stuck RUNNING forever — invisible as
+    // a failure and un-deletable (deleteVpsBackupRecord refuses RUNNING rows).
+    const abandonedVpsBackups = await abandonStaleRunningVpsBackupRecords();
+    if (abandonedVpsBackups.abandoned > 0) {
+      logger.warn("abandoned stale RUNNING vps backup records", {
+        workerId: WORKER_ID,
+        abandoned: abandonedVpsBackups.abandoned,
+        ids: abandonedVpsBackups.ids,
+      });
+    }
+    // Reclaim temp chunks + session rows from uploads abandoned mid-flight
+    // (tab closed / network dropped). The sweep function existed but was never
+    // scheduled, so /tmp and mediaUploadSession grew unbounded.
+    const sweptUploads = await sweepExpiredMediaUploadSessions();
+    if (sweptUploads > 0) {
+      logger.info("swept expired media upload sessions", {
+        workerId: WORKER_ID,
+        swept: sweptUploads,
       });
     }
     // Bound job_events growth: drop events older than 30d while always

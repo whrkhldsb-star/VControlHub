@@ -123,7 +123,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 	};
 
 	return (
-		<div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-5">
+		<div id="2fa" className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-5">
 			<div className="flex items-center justify-between mb-4">
 				<h3 className="text-sm font-medium text-[var(--text-primary)]">{t("auth.2fa-section-title")}</h3>
 				<span className={`text-xs px-2 py-0.5 rounded-full ${isEnabled ? "bg-[var(--success-bg)] text-[var(--success)]" : "bg-[var(--surface-hover)]/50 text-[var(--text-muted)]"}`}>

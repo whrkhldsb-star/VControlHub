@@ -105,11 +105,12 @@ export function useCostPageState(options: {
     }
   }, [addToast, t, month]);
 
-  const fetchSnapshots = useCallback(async (forCurrency?: CostCurrency) => {
+  const fetchSnapshots = useCallback(async (forCurrency?: CostCurrency, forMonth?: string) => {
     const seq = ++snapshotsReqSeq.current;
     const c = forCurrency ?? currency;
+    const m = forMonth ?? month;
     try {
-      const qs = new URLSearchParams({ limit: "30", currency: c });
+      const qs = new URLSearchParams({ limit: "31", currency: c, month: m });
       const res = await csrfFetch<Response>(`/api/cost/snapshots?${qs.toString()}`, { raw: true });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = (await res.json()) as { snapshots: DailySnapshot[] };
@@ -124,10 +125,10 @@ export function useCostPageState(options: {
         `${t("costPage.error.loadSnapshots")}: ${getErrorMessage(err, String(err))}`,
       );
     }
-  }, [addToast, t, currency]);
+  }, [addToast, t, currency, month]);
 
   const refreshAll = useCallback(async () => {
-    await Promise.all([fetchSummary(month, currency), fetchEntries(), fetchSnapshots(currency)]);
+    await Promise.all([fetchSummary(month, currency), fetchEntries(), fetchSnapshots(currency, month)]);
   }, [fetchSummary, fetchEntries, fetchSnapshots, month, currency]);
 
   const syncServerCosts = useCallback(async () => {
@@ -144,11 +145,30 @@ export function useCostPageState(options: {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.message ?? `HTTP ${res.status}`);
       }
-      const data = (await res.json()) as { result: { synced: number; skipped: number } };
+      const data = (await res.json()) as {
+        result: {
+          synced: number;
+          skipped: number;
+          skippedDetails?: { serverName: string; reason: string }[];
+        };
+      };
       addToast(
         "success",
         t("costPage.actions.syncSourcesDone", { synced: data.result.synced, skipped: data.result.skipped }),
       );
+      // Naming the servers that were skipped turns a false success into an
+      // actionable message; the counter alone leaves the user nowhere to go.
+      const details = data.result.skippedDetails ?? [];
+      if (details.length > 0) {
+        addToast(
+          "info",
+          t("costPage.actions.syncSkippedDetail", {
+            detail: details
+              .map((row) => `${row.serverName}（${t(`costPage.actions.syncSkipReason.${row.reason}`)}）`)
+              .join("、"),
+          }),
+        );
+      }
       await refreshAll();
     } catch (err) {
       addToast(
@@ -163,15 +183,17 @@ export function useCostPageState(options: {
   const onChangeMonth = useCallback(
     async (m: string) => {
       setMonth(m);
-      await Promise.all([fetchSummary(m, currency), fetchEntries(m)]);
+      // The trend chart must follow the selected month too, otherwise it keeps
+      // rendering "last 30 days" next to a historical summary.
+      await Promise.all([fetchSummary(m, currency), fetchEntries(m), fetchSnapshots(currency, m)]);
     },
-    [currency, fetchSummary, fetchEntries],
+    [currency, fetchSummary, fetchEntries, fetchSnapshots],
   );
 
   const onChangeCurrency = useCallback(
     async (c: CostCurrency) => {
       setCurrency(c);
-      await Promise.all([fetchSummary(month, c), fetchSnapshots(c)]);
+      await Promise.all([fetchSummary(month, c), fetchSnapshots(c, month)]);
     },
     [month, fetchSummary, fetchSnapshots],
   );

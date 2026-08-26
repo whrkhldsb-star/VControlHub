@@ -39,6 +39,13 @@ export interface CostBudgetRecord {
 	usagePercent: number;
 	periodStart: string;
 	periodEnd: string;
+	/**
+	 * Same category and period, but recorded in a DIFFERENT currency than the
+	 * budget. Not counted in `usageAmount`/`usagePercent` (no FX source), so
+	 * the UI must warn — otherwise a CNY budget silently ignores USD spend and
+	 * the user believes they are under budget.
+	 */
+	otherCurrencyUsage: CostCurrencyBucket[];
 	teamId?: string | null;
 	createdAt: string;
 	updatedAt: string;
@@ -61,6 +68,22 @@ export interface CostSummary {
 	entryCount: number;
 	rangeStart: string;
 	rangeEnd: string;
+	/**
+	 * Spend recorded in OTHER currencies inside the same month.
+	 *
+	 * `totalAmount` only covers `currency` because the product has no FX rate
+	 * source, so cross-currency addition would invent numbers. Reporting the
+	 * excluded buckets here lets the UI say "another 3 USD entries are not
+	 * included" instead of silently showing a total that looks like everything.
+	 */
+	otherCurrencies: CostCurrencyBucket[];
+}
+
+/** One excluded currency bucket (see CostSummary.otherCurrencies). */
+export interface CostCurrencyBucket {
+	currency: CostCurrency;
+	totalAmount: string;
+	entryCount: number;
 }
 
 export interface DailySnapshot {

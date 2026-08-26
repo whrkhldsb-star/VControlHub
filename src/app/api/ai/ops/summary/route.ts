@@ -13,6 +13,7 @@ import { NextResponse } from "next/server";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { summariseAiOps } from "@/lib/ai/ops/service";
+import { assertAiOpsPlatformReader } from "@/lib/ai/ops/authorization";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +26,8 @@ export async function GET(request: Request) {
 			errorStatus: 500,
 			errorMessage: "Failed to load AI ops summary",
 		},
-		async () => {
+		async ({ session }) => {
+			assertAiOpsPlatformReader(session);
 			const summary = await summariseAiOps();
 			return NextResponse.json({ summary });
 		},

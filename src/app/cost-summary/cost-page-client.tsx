@@ -27,6 +27,7 @@ import type {
 	CostBudgetRecord,
 } from "@/lib/cost/types";
 import { ActionButton } from "@/components/action-button";
+import { UI_TONE } from "@/lib/ui/classes";
 // csrfFetch kept in hook
 
 type Props = {
@@ -150,6 +151,15 @@ export function CostPageClient({
 							<div className="mt-1 text-xs text-[var(--text-primary)]/70">
 								{t("costPage.summary.range", { start: summary.rangeStart, end: summary.rangeEnd })}
 							</div>
+							{summary.otherCurrencies.length > 0 ? (
+								<div className={`mt-2 rounded-lg border px-2 py-1.5 text-xs ${UI_TONE.warning}`}>
+									{t("costPage.summary.otherCurrencies", {
+										detail: summary.otherCurrencies
+											.map((bucket) => `${formatAmount(bucket.totalAmount, bucket.currency, localeTag)} (${bucket.entryCount})`)
+											.join("、"),
+									})}
+								</div>
+							) : null}
 						</div>
 						<div>
 							<div className="text-xs uppercase tracking-wide text-[var(--text-primary)]/70">{t("costPage.summary.entryCount")}</div>

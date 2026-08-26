@@ -12,6 +12,7 @@ import { NextResponse } from "next/server";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_READ_LIMIT } from "@/lib/http/rate-limit-presets";
 import { countAiOpsLogs, listAiOpsLogs } from "@/lib/ai/ops/service";
+import { assertAiOpsPlatformReader } from "@/lib/ai/ops/authorization";
 import { aiOpsLogsQuerySchema } from "@/lib/ai/schema";
 
 export const dynamic = "force-dynamic";
@@ -26,7 +27,10 @@ export async function GET(request: Request) {
 			errorStatus: 500,
 			errorMessage: "Failed to load AI ops records",
 		},
-		async ({ query }) => {
+		async ({ query, session }) => {
+			// AI-ops scans aggregate fleet health across ALL teams and logs are
+			// not team-scoped, so reading them is a platform-admin capability.
+			assertAiOpsPlatformReader(session);
 			const requestedLimit = query.limit ?? 20;
 			const filters = {
 				mode: query.mode,

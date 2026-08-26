@@ -12,16 +12,8 @@ const {
   rmMock,
   unlinkMock,
   renameFsMock,
-} = vi.hoisted(() => ({
-  requirePermissionMock: vi.fn().mockResolvedValue({
-    userId: "user-1",
-    username: "alice",
-    roles: ["operator"],
-    currentTeamId: "team-1",
-    mustChangePassword: false,
-  }),
-  prismaMock: {
-	$transaction: vi.fn(async (operations: Array<Promise<unknown>>) => Promise.all(operations)),
+} = vi.hoisted(() => {
+  const prismaMock: any = {
     fileEntry: {
       findFirst: vi.fn(),
       findMany: vi.fn(),
@@ -35,11 +27,34 @@ const {
       findUnique: vi.fn(),
       findFirst: vi.fn(),
     },
-	shareLink: {
-	  findMany: vi.fn().mockResolvedValue([]),
-	  updateMany: vi.fn().mockResolvedValue({ count: 0 }),
-	},
-  },
+    shareLink: {
+      findMany: vi.fn().mockResolvedValue([]),
+      updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+    },
+    // permanentDeleteFileEntryAction purges version blobs before the cascade;
+    // default to no versions so the purge is a no-op unless a test opts in.
+    fileVersion: {
+      findMany: vi.fn().mockResolvedValue([]),
+      delete: vi.fn().mockResolvedValue({}),
+    },
+  };
+  // Support both Prisma transaction forms: the array form ($transaction([...]))
+  // and the interactive/callback form ($transaction(async (tx) => ...)). The
+  // callback receives the same mock as the tx client (single in-memory store).
+  prismaMock.$transaction = vi.fn(
+    async (
+      arg: Array<Promise<unknown>> | ((tx: unknown) => Promise<unknown>),
+    ) => (typeof arg === "function" ? arg(prismaMock) : Promise.all(arg)),
+  );
+  return {
+  requirePermissionMock: vi.fn().mockResolvedValue({
+    userId: "user-1",
+    username: "alice",
+    roles: ["operator"],
+    currentTeamId: "team-1",
+    mustChangePassword: false,
+  }),
+  prismaMock,
   createFileEntryMock: vi.fn(),
   restoreFileEntryMock: vi.fn(),
   createRemoteDirectoryMock: vi.fn(),
@@ -49,7 +64,8 @@ const {
   rmMock: vi.fn(),
   unlinkMock: vi.fn(),
   renameFsMock: vi.fn(),
-}));
+  };
+});
 
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
@@ -380,6 +396,10 @@ describe("SFTP file entry actions", () => {
       roles: ["operator"],
       mustChangePassword: false,
     });
+    // clearAllMocks wipes the default; restore so permanent-delete's version-blob
+    // purge is a no-op (no versions / no descendants) unless a test overrides it.
+    prismaMock.fileVersion.findMany.mockResolvedValue([]);
+    prismaMock.fileEntry.findMany.mockResolvedValue([]);
   });
 
   it("soft-deletes the indexed SFTP entry without removing remote backing (recycle bin)", async () => {

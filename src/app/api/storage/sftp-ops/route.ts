@@ -26,7 +26,7 @@ import {
   type SftpOpsBody,
 } from "@/lib/storage/schema";
 
-import { AuthError, ForbiddenError, ValidationError } from "@/lib/errors";
+import { AuthError, ForbiddenError, ValidationError, isAppError } from "@/lib/errors";
 import { getErrorMessage } from "@/lib/http/error-message";
 const logger = createLogger("api:storage:sftp-ops");
 
@@ -398,10 +398,31 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
           );
         }
 
-        const buffer = await readBackingObject({
-          storageNode: node,
-          relativePath: normalizedRelativePath,
-        });
+        // Pass the cap into the backend so an UNINDEXED remote file (indexedSize
+        // null → the pre-check above is skipped) can never be buffered whole
+        // into memory. The stream aborts once it crosses the limit.
+        let buffer: Buffer;
+        try {
+          buffer = await readBackingObject({
+            storageNode: node,
+            relativePath: normalizedRelativePath,
+            maxBytes: MAX_INLINE_REMOTE_READ_BYTES,
+          });
+        } catch (readError) {
+          // The backend aborts oversized reads with a typed error; surface it as
+          // a 413 (not the generic 502 from the outer catch) so the client shows
+          // the correct "too large, use download" hint.
+          if (isAppError(readError) && readError.status === 422) {
+            return NextResponse.json(
+              {
+                error: "File exceeds 1 MB, online reading is temporarily unsupported, please use the download feature",
+                maxInlineBytes: MAX_INLINE_REMOTE_READ_BYTES,
+              },
+              { status: 413 },
+            );
+          }
+          throw readError;
+        }
 
         if (buffer.byteLength > MAX_INLINE_REMOTE_READ_BYTES) {
           return NextResponse.json(

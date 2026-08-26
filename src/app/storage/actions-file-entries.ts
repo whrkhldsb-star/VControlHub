@@ -8,6 +8,7 @@ import { prisma } from "@/lib/db";
 import { serverT } from "@/lib/i18n/server-locale";
 import { restoreFileEntry } from "@/lib/storage/service";
 import { deleteBackingObject } from "@/lib/storage/fs-backend";
+import { purgeAllFileVersionBlobs } from "@/lib/storage/file-versions";
 
 import type { StorageActionState, StorageDeleteActionState } from "./actions-helpers";
 import { getErrorMessage } from "@/lib/http/error-message";
@@ -324,6 +325,20 @@ export async function permanentDeleteFileEntryAction(
 	});
     if (entry.entryType === "DIRECTORY") {
       const prefix = entry.relativePath + "/";
+      // Purge version blobs for the directory's own entry AND every descendant
+      // before the cascade drops their FileVersion rows — otherwise the blob
+      // files leak on disk and deleted content stays readable on the control plane.
+      const descendants = await prisma.fileEntry.findMany({
+        where: {
+          storageNodeId: entry.storageNodeId,
+          relativePath: { startsWith: prefix },
+        },
+        select: { id: true },
+      });
+      for (const child of descendants) {
+        await purgeAllFileVersionBlobs(child.id);
+      }
+      await purgeAllFileVersionBlobs(fileEntryId);
       await prisma.$transaction([
         prisma.fileEntry.deleteMany({
           where: {
@@ -337,6 +352,8 @@ export async function permanentDeleteFileEntryAction(
 		revokeShares,
       ]);
     } else {
+	  // Purge version blobs before the cascade removes their rows (see above).
+	  await purgeAllFileVersionBlobs(fileEntryId);
 	  await prisma.$transaction([
 		prisma.fileEntry.delete({ where: { id: fileEntryId } }),
 		revokeShares,

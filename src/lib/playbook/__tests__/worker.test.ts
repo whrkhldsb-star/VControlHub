@@ -9,6 +9,10 @@ const { mocks } = vi.hoisted(() => ({
     auditSystemAction: vi.fn(),
     heartbeatJob: vi.fn(),
     releaseLock: vi.fn(),
+    loadApiTokenOwnerSession: vi.fn(),
+    sessionHasPermission: vi.fn(),
+    teamMemberFindUnique: vi.fn(),
+    failJobTerminal: vi.fn(),
   },
 }));
 
@@ -18,7 +22,13 @@ vi.mock("@/lib/db", () => ({
       findUnique: mocks.playbookRunFindUnique,
       updateMany: mocks.playbookRunUpdateMany,
     },
+    teamMember: {
+      findUnique: mocks.teamMemberFindUnique,
+    },
   },
+}));
+vi.mock("@/lib/auth/authorization", () => ({
+  sessionHasPermission: mocks.sessionHasPermission,
 }));
 vi.mock("@/lib/concurrency/advisory-lock", () => ({
   acquireAdvisoryLock: mocks.acquireAdvisoryLock,
@@ -38,6 +48,9 @@ vi.mock("@/lib/job/service", () => ({
 }));
 vi.mock("@/lib/job/heartbeat-runner", () => ({
   runWithLeaseHeartbeat: vi.fn(async ({ run }: { run: () => Promise<unknown> }) => run()),
+}));
+vi.mock("@/lib/api-token/authorization", () => ({
+  loadApiTokenOwnerSession: mocks.loadApiTokenOwnerSession,
 }));
 vi.mock("@/lib/job/lease", () => ({
   computeLeaseMs: () => 30 * 60 * 1000,
@@ -74,6 +87,10 @@ describe("processPlaybookRun dual-owner races", () => {
     mocks.acquireAdvisoryLock.mockResolvedValue(mocks.releaseLock);
     mocks.auditSystemAction.mockResolvedValue(undefined);
     mocks.heartbeatJob.mockResolvedValue({ count: 1 });
+    // Default: requester is a valid, fully-permitted team member.
+    mocks.loadApiTokenOwnerSession.mockResolvedValue({ userId: "u1", roles: ["operator"] });
+    mocks.sessionHasPermission.mockReturnValue(true);
+    mocks.teamMemberFindUnique.mockResolvedValue({ userId: "u1" });
   });
 
   it("skips re-execution after lock when another owner already terminalized the run", async () => {
@@ -181,6 +198,128 @@ describe("processPlaybookRun dual-owner races", () => {
 
     expect(result).toEqual({ status: "failed", summary: "cancelled" });
     expect(mocks.acquireAdvisoryLock).not.toHaveBeenCalled();
+    expect(mocks.executePlaybookChain).not.toHaveBeenCalled();
+  });
+});
+
+describe("processPlaybookRun command-step live authorization", () => {
+  const commandPlaybook = {
+    id: "pb-cmd",
+    name: "Restart",
+    steps: [
+      {
+        id: "c1",
+        name: "restart",
+        type: "run_command",
+        config: { serverId: "srv1", command: "systemctl restart nginx" },
+        retry: 0,
+        timeoutSec: 30,
+      },
+    ],
+    createdById: "u1",
+  };
+
+  function claimedCommandRun() {
+    mocks.playbookRunFindUnique.mockResolvedValueOnce({
+      id: "run-c",
+      status: "running",
+      dryRun: false,
+      teamId: "team1",
+      stepResults: [],
+      executionState: { schemaVersion: 1, stepsSnapshot: commandPlaybook.steps },
+      errorMessage: null,
+      startedAt: null,
+      createdById: "u1",
+      playbook: commandPlaybook,
+    });
+    mocks.playbookRunUpdateMany.mockResolvedValueOnce({ count: 1 }); // initial claim
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.releaseLock.mockResolvedValue(undefined);
+    mocks.acquireAdvisoryLock.mockResolvedValue(mocks.releaseLock);
+    mocks.auditSystemAction.mockResolvedValue(undefined);
+    mocks.heartbeatJob.mockResolvedValue({ count: 1 });
+    mocks.loadApiTokenOwnerSession.mockResolvedValue({ userId: "u1", roles: ["operator"] });
+    mocks.sessionHasPermission.mockReturnValue(true);
+    mocks.teamMemberFindUnique.mockResolvedValue({ userId: "u1" });
+  });
+
+  it("terminal-fails (throws PlaybookAuthorizationError) when the requester is disabled", async () => {
+    claimedCommandRun();
+    mocks.loadApiTokenOwnerSession.mockResolvedValue(null);
+
+    await expect(processPlaybookRun("run-c", "job-c")).rejects.toMatchObject({
+      name: "PlaybookAuthorizationError",
+    });
+    // Must not dispatch the command chain nor take the per-playbook lock.
+    expect(mocks.acquireAdvisoryLock).not.toHaveBeenCalled();
+    expect(mocks.executePlaybookChain).not.toHaveBeenCalled();
+  });
+
+  it("terminal-fails when the requester lost command:execute", async () => {
+    claimedCommandRun();
+    mocks.sessionHasPermission.mockImplementation((_s: unknown, perm: string) => perm !== "command:execute");
+
+    await expect(processPlaybookRun("run-c", "job-c")).rejects.toMatchObject({
+      name: "PlaybookAuthorizationError",
+    });
+    expect(mocks.executePlaybookChain).not.toHaveBeenCalled();
+  });
+
+  it("terminal-fails when the requester is no longer a member of the run's team", async () => {
+    claimedCommandRun();
+    // Has command:execute but not team:manage, and membership row is gone.
+    mocks.sessionHasPermission.mockImplementation((_s: unknown, perm: string) => perm !== "team:manage");
+    mocks.teamMemberFindUnique.mockResolvedValue(null);
+
+    await expect(processPlaybookRun("run-c", "job-c")).rejects.toMatchObject({
+      name: "PlaybookAuthorizationError",
+    });
+    expect(mocks.executePlaybookChain).not.toHaveBeenCalled();
+  });
+
+  it("executes when the requester still qualifies", async () => {
+    claimedCommandRun();
+    // post-lock re-check + stillClaimable
+    mocks.playbookRunFindUnique.mockResolvedValueOnce({
+      status: "running",
+      errorMessage: null,
+      stepResults: [],
+      dryRun: false,
+      teamId: "team1",
+    });
+    mocks.playbookRunUpdateMany
+      .mockResolvedValueOnce({ count: 1 }) // stillClaimable
+      .mockResolvedValueOnce({ count: 1 }); // finalize
+    mocks.executePlaybookChain.mockResolvedValue({
+      results: [{ stepId: "c1", status: "ok", startedAt: "", completedAt: "", summary: "ok" }],
+      summary: "completed 1/1 steps",
+    });
+
+    const result = await processPlaybookRun("run-c", "job-c");
+
+    expect(result).toEqual({ status: "completed", summary: "completed 1/1 steps" });
+    expect(mocks.executePlaybookChain).toHaveBeenCalledTimes(1);
+  });
+
+  it("throws when a command step exists but there is no requester", async () => {
+    mocks.playbookRunFindUnique.mockResolvedValueOnce({
+      id: "run-c",
+      status: "running",
+      dryRun: false,
+      teamId: "team1",
+      stepResults: [],
+      executionState: { schemaVersion: 1, stepsSnapshot: commandPlaybook.steps },
+      errorMessage: null,
+      startedAt: null,
+      createdById: null,
+      playbook: { ...commandPlaybook, createdById: null },
+    });
+    mocks.playbookRunUpdateMany.mockResolvedValueOnce({ count: 1 });
+
+    await expect(processPlaybookRun("run-c", "job-c")).rejects.toThrow(/requires a creator\/requester/);
     expect(mocks.executePlaybookChain).not.toHaveBeenCalled();
   });
 });

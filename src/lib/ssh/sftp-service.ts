@@ -25,8 +25,52 @@ import { Readable, PassThrough } from "node:stream";
 import { prisma } from "@/lib/db";
 import { decryptServerPassword, decryptSshPrivateKey, decryptSshKeyPassphrase } from "@/lib/ssh/ssh-key-crypto";
 import { createLogger } from "@/lib/logging";
+import {
+  AppError,
+  BusinessError,
+  ConflictError,
+  ForbiddenError,
+  NotFoundError,
+  isAppError,
+} from "@/lib/errors";
+import { t } from "@/lib/i18n/service-translations";
 
 const logger = createLogger("sftp-service");
+
+/**
+ * Translate a raw SFTP/SSH error into a typed AppError with an accurate status
+ * and a message safe to show the user. Without this, servers-side SFTP routes
+ * let plain Errors reach `apiCatch(e, 500, ...)`, which — because the status is
+ * >=500 — replaces the real reason ("no such file", "permission denied", "disk
+ * full") with a generic fallback and always reports 500. AppErrors are passed
+ * through by apiCatch, so mapping here restores useful errors and correct codes.
+ */
+function mapSftpError(error: unknown): never {
+  if (isAppError(error)) throw error;
+  const message = error instanceof Error ? error.message : String(error);
+  const code = (error as { code?: unknown } | null)?.code;
+  const lower = message.toLowerCase();
+
+  if (code === "ENOENT" || code === 2 || /no such file|not found|不存在/.test(lower)) {
+    throw new NotFoundError(message || t("backend.sftp.remotePathNotFound"));
+  }
+  if (
+    code === 3 || // SSH_FX_PERMISSION_DENIED
+    code === "EACCES" ||
+    /permission denied|access denied|拒绝访问|not permitted/.test(lower)
+  ) {
+    throw new ForbiddenError(message || t("backend.sftp.permissionDenied"));
+  }
+  if (/not empty|目录非空|directory is not empty/.test(lower)) {
+    throw new ConflictError(message);
+  }
+  if (/no space left|disk full|quota exceeded|磁盘空间/.test(lower)) {
+    throw new BusinessError(message);
+  }
+  // Unknown remote failure: surface the real message as a 502 (upstream/remote
+  // fault) so it is preserved rather than masked by the generic 500 fallback.
+  throw new AppError({ code: "EXTERNAL_SERVICE_ERROR", message: message || t("backend.sftp.operationFailed"), status: 502 });
+}
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -91,13 +135,17 @@ export function sanitizeFileName(raw: string): string {
   if (!raw || typeof raw !== "string") {
     throw new Error("Filename must be a non-empty string");
   }
+  // Path separators and null bytes are the real traversal vectors and are
+  // rejected outright. `.` / `..` are only dangerous as whole path segments,
+  // which cannot occur here once "/" and "\" are banned — so a mere substring
+  // ".." (e.g. "photo..jpg", "版本..备份.zip") is a legitimate filename and
+  // must NOT be rejected.
   if (
     raw.includes("\0") ||
     raw.includes("/") ||
     raw.includes("\\") ||
     raw === "." ||
-    raw === ".." ||
-    raw.includes("..")
+    raw === ".."
   ) {
     throw new Error("Invalid filename");
   }
@@ -436,8 +484,12 @@ export async function deleteFile(
   const path = sanitizeRemotePath(remotePath);
   const conn = await resolveServerConnection(serverId);
   const params = toConnectionParams(conn);
-  const stats = await statRemoteEntry({ ...params, remotePath: path });
-  await deleteRemoteFile({ ...params, remotePath: path, isDirectory: stats.type === "directory" });
+  try {
+    const stats = await statRemoteEntry({ ...params, remotePath: path });
+    await deleteRemoteFile({ ...params, remotePath: path, isDirectory: stats.type === "directory" });
+  } catch (error) {
+    mapSftpError(error);
+  }
 }
 
 export async function makeDirectory(
@@ -446,7 +498,11 @@ export async function makeDirectory(
 ): Promise<void> {
   const path = sanitizeRemotePath(remotePath);
   const conn = await resolveServerConnection(serverId);
-  await createRemoteDirectory({ ...toConnectionParams(conn), remotePath: path });
+  try {
+    await createRemoteDirectory({ ...toConnectionParams(conn), remotePath: path });
+  } catch (error) {
+    mapSftpError(error);
+  }
 }
 
 export async function renameEntry(
@@ -457,5 +513,9 @@ export async function renameEntry(
   const src = sanitizeRemotePath(oldPath);
   const dst = sanitizeRemotePath(newPath);
   const conn = await resolveServerConnection(serverId);
-  await renameRemoteFile({ ...toConnectionParams(conn), oldPath: src, newPath: dst });
+  try {
+    await renameRemoteFile({ ...toConnectionParams(conn), oldPath: src, newPath: dst });
+  } catch (error) {
+    mapSftpError(error);
+  }
 }

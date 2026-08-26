@@ -11,6 +11,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ForbiddenError } from "@/lib/errors";
 
 const requirePagePermissionMock = vi.fn();
+const sessionHasPermissionMock = vi.fn();
 const listAiOpsLogsMock = vi.fn();
 const summariseAiOpsMock = vi.fn();
 const getSettingMock = vi.fn();
@@ -20,7 +21,7 @@ vi.mock("@/lib/auth/page-guard", () => ({
 	requirePagePermission: requirePagePermissionMock,
 }));
 vi.mock("@/lib/auth/authorization", () => ({
-	sessionHasPermission: vi.fn(),
+	sessionHasPermission: sessionHasPermissionMock,
 }));
 vi.mock("@/lib/auth/require-session", () => ({
 	requireSession: vi.fn(),
@@ -54,6 +55,10 @@ describe("/ai-ops page permission gate", () => {
 		// Without this, the second test inherits `summariseAiOpsMock.mock.calls`
 		// from the first test and `not.toHaveBeenCalled()` spuriously fails.
 		requirePagePermissionMock.mockReset();
+		sessionHasPermissionMock.mockReset();
+		// Default: caller is a platform admin (holds team:manage), so the
+		// cross-tenant AI-ops gate passes and tests can focus on their subject.
+		sessionHasPermissionMock.mockReturnValue(true);
 		listAiOpsLogsMock.mockReset();
 		summariseAiOpsMock.mockReset();
 		getSettingMock.mockReset();
@@ -87,6 +92,27 @@ describe("/ai-ops page permission gate", () => {
 
 		expect(requirePagePermissionMock).toHaveBeenCalledTimes(1);
 		expect(requirePagePermissionMock).toHaveBeenCalledWith("ai:ops:read");
+	});
+
+	it("blocks a custom role granted ai:ops:read but lacking team:manage", async () => {
+		// AiOpsLog has no teamId, so the summary/logs are cross-tenant aggregates.
+		// The API routes gate on assertAiOpsPlatformReader; the SSR page renders
+		// the same data and must gate too, otherwise a mis-granted `ai:ops:read`
+		// role reads other teams' fleet health straight off the server-rendered
+		// page while the API says 403.
+		requirePagePermissionMock.mockResolvedValue({
+			userId: "u2",
+			roles: ["custom-with-ai-ops-read"],
+		});
+		sessionHasPermissionMock.mockReturnValue(false);
+
+		const { default: AiOpsPage } = await import("../page");
+		await expect(AiOpsPage()).rejects.toBeInstanceOf(ForbiddenError);
+
+		// The gate must run before any cross-tenant read.
+		expect(summariseAiOpsMock).not.toHaveBeenCalled();
+		expect(listAiOpsLogsMock).not.toHaveBeenCalled();
+		expect(getSettingMock).not.toHaveBeenCalled();
 	});
 
 	it("lets ForbiddenError bubble up (no manual PermissionDenied render)", async () => {

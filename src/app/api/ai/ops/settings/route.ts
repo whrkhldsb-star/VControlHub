@@ -22,6 +22,7 @@ import { GENERAL_READ_LIMIT, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-p
 import { AI_OPS_DEFAULT_SCHEDULE_HOUR } from "@/lib/ai/ops/types";
 import { aiOpsModeSettingSchema } from "@/lib/ai/ops/schema";
 import { getSetting, setSetting } from "@/lib/settings/service";
+import { assertAiOpsPlatformReader } from "@/lib/ai/ops/authorization";
 import { auditUserAction } from "@/lib/audit/service";
 import { prisma } from "@/lib/db";
 import { ValidationError } from "@/lib/errors";
@@ -39,7 +40,8 @@ export async function GET(request: Request) {
 			errorStatus: 500,
 			errorMessage: "Failed to load AI ops settings",
 		},
-		async () => {
+		async ({ session }) => {
+			assertAiOpsPlatformReader(session);
 			const mode = await getSetting("ai.ops.mode");
 			const providerId = await getSetting("ai.ops.provider");
 			return NextResponse.json({

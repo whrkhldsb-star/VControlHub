@@ -49,6 +49,37 @@ describe("server config helpers", () => {
     expect(result.username).toBe("root");
   });
 
+  it("rejects host/username that could be reinterpreted as ssh CLI options", () => {
+    const base = {
+      name: "node",
+      connectionType: "PASSWORD" as const,
+      password: "secret",
+    };
+    // Leading-dash host/username → ssh argv-injection (e.g. -oProxyCommand=…).
+    expect(() =>
+      normalizeServerInput({ ...base, host: "-oProxyCommand=calc", username: "root" }),
+    ).toThrow(/host/i);
+    expect(() =>
+      normalizeServerInput({ ...base, host: "10.0.0.5", username: "-oProxyCommand=calc" }),
+    ).toThrow(/username/i);
+    // Whitespace/metacharacters are not valid hostnames either.
+    expect(() =>
+      normalizeServerInput({ ...base, host: "10.0.0.5 -oProxyCommand=x", username: "root" }),
+    ).toThrow(/host/i);
+  });
+
+  it("accepts legitimate hosts and usernames (ipv6, dotted, service accounts)", () => {
+    expect(() =>
+      normalizeServerInput({
+        name: "node",
+        host: "2001:db8::1",
+        username: "deploy.svc-01@corp",
+        connectionType: "PASSWORD",
+        password: "secret",
+      }),
+    ).not.toThrow();
+  });
+
   it("describes ssh-key connection details for review screens", () => {
     expect(
       getServerConnectionSummary({

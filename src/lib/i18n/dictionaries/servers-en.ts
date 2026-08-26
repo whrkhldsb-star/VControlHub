@@ -375,6 +375,7 @@ export const en: Record<string, string> = {
 	"vpsBackup.deleteScheduleTitle": "Delete backup schedule",
 	"vpsBackup.deleteScheduleConfirm": "Delete backup schedule {name}? This cannot be undone.",
 	"vpsBackup.deleteRecord": "Delete backup record",
+	"vpsBackup.retryRecord": "Retry backup",
 	"vpsBackup.downloadRecord": "Download backup record",
 	"vpsBackup.confirmDelete": "Confirm delete",
 	"serversPage.batchPanel.title": "Batch node operations",

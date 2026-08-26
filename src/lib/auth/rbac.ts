@@ -76,7 +76,6 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[]> = {
 		"audit:read",
 		"ai:chat",
 		"ai:manage",
-		"ai:ops:read",
 		"backup:create",
 		"backup:read",
 		"command:create",
@@ -113,7 +112,6 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[]> = {
 	],
 	viewer: [
 		"ai:chat",
-		"ai:ops:read",
 		"audit:read",
 		"backup:read",
 		"command:read",

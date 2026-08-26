@@ -273,19 +273,25 @@ export async function renameFileEntryAction(
       } satisfies StorageActionState;
     }
 
-    const existing = await prisma.fileEntry.findFirst({
+    // Include soft-deleted (recycle-bin) rows: the physical rename overwrites
+    // the target bytes, but a soft-deleted occupant's file is still on disk.
+    // Filtering to isDeleted:false would let rename destroy a recycled file's
+    // bytes and then hit the @@unique constraint (which spans soft-deleted
+    // rows) on the DB update, silently emptying the recycle-bin entry.
+    const occupant = await prisma.fileEntry.findFirst({
       where: {
         storageNodeId: entry.storageNodeId,
         relativePath: newRelativePath,
-        isDeleted: false,
         id: { not: fileEntryId },
       },
-      select: { id: true },
+      select: { id: true, isDeleted: true },
     });
 
-    if (existing) {
+    if (occupant) {
       return {
-        error: t("storagePage.action.pathAlreadyExists", { path: newRelativePath }),
+        error: occupant.isDeleted
+          ? t("storagePage.action.pathInRecycleBin", { path: newRelativePath })
+          : t("storagePage.action.pathAlreadyExists", { path: newRelativePath }),
       } satisfies StorageActionState;
     }
 
@@ -323,24 +329,31 @@ export async function renameFileEntryAction(
     });
 
     try {
-      if (entry.entryType === "DIRECTORY") {
-        const oldPrefix = entry.relativePath + "/";
-        const newPrefix = newRelativePath + "/";
-        // N+1 acceptable: non-uniform per-item writes (each row gets a computed relativePath)
-        for (const child of directoryChildren) {
-          await prisma.fileEntry.update({
-            where: { id: child.id },
-            data: {
-              relativePath:
-                newPrefix + child.relativePath.slice(oldPrefix.length),
-            },
-          });
+      // Wrap the child-row rewrites and the root update in a single
+      // transaction. Without it, a mid-loop failure (connection blip/timeout)
+      // leaves some descendants pointing at the new prefix and the rest at the
+      // old one while the physical tree is rolled back below — a permanent
+      // index/disk mismatch. This mirrors moveFileAction's atomic DB update.
+      await prisma.$transaction(async (tx) => {
+        if (entry.entryType === "DIRECTORY") {
+          const oldPrefix = entry.relativePath + "/";
+          const newPrefix = newRelativePath + "/";
+          // N+1 acceptable: non-uniform per-item writes (each row gets a computed relativePath)
+          for (const child of directoryChildren) {
+            await tx.fileEntry.update({
+              where: { id: child.id },
+              data: {
+                relativePath:
+                  newPrefix + child.relativePath.slice(oldPrefix.length),
+              },
+            });
+          }
         }
-      }
 
-      await prisma.fileEntry.update({
-        where: { id: fileEntryId },
-        data: { name: normalizedNewName, relativePath: newRelativePath },
+        await tx.fileEntry.update({
+          where: { id: fileEntryId },
+          data: { name: normalizedNewName, relativePath: newRelativePath },
+        });
       });
     } catch (databaseError) {
       // Physical rename already succeeded — roll back so disk and index stay aligned.

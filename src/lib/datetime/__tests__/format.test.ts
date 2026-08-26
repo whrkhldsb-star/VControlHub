@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  formatCompactDateTime,
   formatDateTime,
   formatShortDate,
   formatShortTime,
@@ -14,7 +13,6 @@ describe("shared datetime formatting", () => {
     expect(formatDateTime(SAMPLE, "zh")).toContain("14:30:45");
     expect(formatShortDate(SAMPLE, "zh")).toMatch(/07[\/-]27/);
     expect(formatShortTime(SAMPLE, "zh")).toContain("14:30");
-    expect(formatCompactDateTime(SAMPLE, "en")).toMatch(/07\/27.*14:30/);
   });
 
   it("uses fallback for empty and invalid values", () => {

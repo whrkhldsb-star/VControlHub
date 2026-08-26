@@ -1,6 +1,6 @@
 import { mkdir, readFile, rename, rm, unlink, writeFile } from "node:fs/promises";
 
-import { ValidationError } from "@/lib/errors";
+import { BusinessError, ValidationError } from "@/lib/errors";
 import { resolveStorageSshCredentials } from "./ssh-credentials";
 import { expandStorageBasePath, resolveStoragePathWithinBase } from "./path-utils";
 import { normalizeRemoteTargetPath } from "./remote-path";
@@ -185,12 +185,22 @@ export async function writeBackingObject(input: {
 export async function readBackingObject(input: {
   storageNode: StorageNodeWithCredentials;
   relativePath: string;
+  maxBytes?: number;
 }): Promise<Buffer> {
   if (input.storageNode.driver === "LOCAL") {
     const { absolutePath } = await resolveManagedLocalEntryPath({
       basePath: input.storageNode.basePath,
       relativePath: input.relativePath,
     });
+    // Enforce the byte cap before buffering the whole file into memory.
+    // BusinessError (422) matches the SFTP path so callers can map both to 413.
+    if (input.maxBytes !== undefined) {
+      const { stat } = await import("node:fs/promises");
+      const fileStat = await stat(absolutePath);
+      if (fileStat.size > input.maxBytes) {
+        throw new BusinessError(t("backend.storage.remoteReadTooLarge"));
+      }
+    }
     return readFile(absolutePath);
   }
 
@@ -203,6 +213,7 @@ export async function readBackingObject(input: {
     return readRemoteFile({
       ...credentials,
       remotePath,
+      ...(input.maxBytes !== undefined ? { maxBytes: input.maxBytes } : {}),
     });
   }
 

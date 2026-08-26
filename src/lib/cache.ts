@@ -69,10 +69,6 @@ export const CachePresets = {
 	noStore: { maxAge: 0, staleWhileRevalidate: 0, visibility: "private" as const },
 	/** Short cache: 30s fresh, 60s stale-while-revalidate */
 	shortLived: { maxAge: 30, staleWhileRevalidate: 60, visibility: "private" as const },
-	/** Medium cache: 60s fresh, 120s stale-while-revalidate */
-	mediumLived: { maxAge: 60, staleWhileRevalidate: 120, visibility: "private" as const },
 	/** Long cache for public data: 300s fresh, 600s stale-while-revalidate */
 	longLivedPublic: { maxAge: 300, staleWhileRevalidate: 600, visibility: "public" as const },
-	/** Image files: 1 hour fresh, 1 day stale */
-	imageFile: { maxAge: 3600, staleWhileRevalidate: 86400, visibility: "public" as const },
 };

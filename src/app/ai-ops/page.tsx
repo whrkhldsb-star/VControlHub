@@ -16,6 +16,7 @@
  */
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { requirePagePermission } from "@/lib/auth/page-guard";
+import { assertAiOpsPlatformReader } from "@/lib/ai/ops/authorization";
 import { listAiOpsLogs, summariseAiOps } from "@/lib/ai/ops/service";
 import { AI_OPS_DEFAULT_SCHEDULE_HOUR } from "@/lib/ai/ops/types";
 import { getSetting } from "@/lib/settings/service";
@@ -39,6 +40,11 @@ async function loadInitialSettings() {
 
 export default async function AiOpsPage() {
 	const session = await requirePagePermission("ai:ops:read");
+	// The API routes gate on platform-admin because AI-ops aggregates are
+	// cross-tenant; the SSR page renders the same data, so it must gate too.
+	// Without this a custom role granted `ai:ops:read` reads other teams'
+	// fleet health straight off the server-rendered page.
+	assertAiOpsPlatformReader(session);
 	const canManage = sessionHasPermission(session, "ai:ops:manage");
 	const canAutonomous = sessionHasPermission(session, "ai:ops:autonomous");
 	const locale = await getServerLocale();

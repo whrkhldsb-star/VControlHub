@@ -27,7 +27,10 @@ export const createServerSchema = z
       .string()
       .trim()
       .min(2, "IP address or hostname is required")
-      .max(255, "IP address or hostname is too long"),
+      .max(255, "IP address or hostname is too long")
+      // Must not be reinterpretable as an ssh CLI option (argv-injection guard).
+      .refine((value) => !value.startsWith("-"), "Host must not begin with '-'")
+      .refine((value) => /^[A-Za-z0-9._:\-\[\]]+$/.test(value), "Host contains invalid characters"),
     port: z.coerce
       .number()
       .int()
@@ -38,6 +41,9 @@ export const createServerSchema = z
       .string()
       .trim()
       .max(64, "SSH username is too long")
+      // Must not be reinterpretable as an ssh CLI option (argv-injection guard).
+      .refine((value) => value === "" || !value.startsWith("-"), "Username must not begin with '-'")
+      .refine((value) => value === "" || /^[A-Za-z0-9._@\-]+$/.test(value), "Username contains invalid characters")
       .optional()
       .default("root"),
     connectionType: z.enum(["SSH_KEY", "PASSWORD"]).default("SSH_KEY"),

@@ -117,10 +117,17 @@ describe("sanitizeFileName", () => {
     expect(() => sanitizeFileName("foo\\bar")).toThrow("Invalid filename");
   });
 
-  it("rejects . and .. traversal names", () => {
+  it("rejects . and .. as whole-segment traversal names", () => {
     expect(() => sanitizeFileName(".")).toThrow("Invalid filename");
     expect(() => sanitizeFileName("..")).toThrow("Invalid filename");
-    expect(() => sanitizeFileName("foo..bar")).toThrow("Invalid filename");
+  });
+
+  it("accepts legitimate filenames that merely contain '..' as a substring", () => {
+    // Path separators are already rejected, so a substring ".." cannot form a
+    // traversal segment. Names like these are valid and must not be rejected.
+    expect(sanitizeFileName("foo..bar")).toBe("foo..bar");
+    expect(sanitizeFileName("photo..jpg")).toBe("photo..jpg");
+    expect(sanitizeFileName("版本..备份.zip")).toBe("版本..备份.zip");
   });
 
   it("rejects null bytes", () => {

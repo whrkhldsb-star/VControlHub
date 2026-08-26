@@ -321,19 +321,81 @@ export async function statRemoteEntry(input: SshConnectionParams & { remotePath:
   });
 }
 
+/**
+ * Resolve the canonical (symlink-free) absolute path of `remotePath` on the
+ * remote host. For a path that does not yet exist (e.g. an upload/mkdir/rename
+ * target), the deepest EXISTING ancestor is resolved via the remote realpath
+ * and the remaining not-yet-existing segments are re-appended. This lets a
+ * caller enforce a home-directory jail that a symlinked parent could otherwise
+ * bypass, while still allowing creation of brand-new paths.
+ */
+export async function resolveRemoteRealPath(
+  input: SshConnectionParams & { remotePath: string },
+): Promise<string> {
+  const posix = await import("node:path/posix");
+  const target = input.remotePath;
+
+  if (usesAgentOnly(input)) {
+    // os.path.realpath resolves existing components and leaves the rest intact.
+    const source = "import os,sys\nprint(os.path.realpath(sys.argv[1]))";
+    const result = await execAgentOnly(input, pythonCommand(source, [target]));
+    return result.stdout.trim() || target;
+  }
+
+  return withReusableSshClient(input, async (client) =>
+    withSftpChannel(client, (sftp) => new Promise<string>((resolve) => {
+      const realpathOf = (p: string) =>
+        new Promise<string | null>((res) => {
+          sftp.realpath(p, (err, resolved) => res(err ? null : resolved));
+        });
+
+      // Walk from the full path upward to the deepest ancestor that resolves.
+      (async () => {
+        const segments = target.split("/").filter(Boolean);
+        const trailing: string[] = [];
+        for (let i = segments.length; i >= 0; i -= 1) {
+          const candidate = "/" + segments.slice(0, i).join("/");
+          const resolved = await realpathOf(candidate === "/" ? "/" : candidate);
+          if (resolved !== null) {
+            resolve(
+              trailing.length > 0
+                ? posix.join(resolved, ...trailing.reverse())
+                : resolved,
+            );
+            return;
+          }
+          if (i > 0) trailing.push(segments[i - 1]!);
+        }
+        // Nothing resolved (unusual) — fall back to the lexical path.
+        resolve(target);
+      })();
+    })),
+  );
+}
+
 function sftpMkdir(sftp: SFTPWrapper, remotePath: string): Promise<void> {
   return new Promise((resolve, reject) => {
     sftp.mkdir(remotePath, (mkdirErr) => {
-      if (mkdirErr) {
-        const sshErr = mkdirErr as { code?: number };
-        if (sshErr.code === 4) {
-          resolve();
-        } else {
-          reject(mkdirErr);
-        }
-      } else {
+      if (!mkdirErr) {
         resolve();
+        return;
       }
+      // SSH_FX_FAILURE (code 4) is a GENERIC failure. Many servers return it for
+      // "already exists", but a real fault (e.g. permission, parent missing)
+      // also surfaces as 4 — blindly resolving would mask it. Confirm the path
+      // is actually an existing directory before treating it as success.
+      const sshErr = mkdirErr as { code?: number };
+      if (sshErr.code === 4) {
+        sftp.stat(remotePath, (statErr, stats) => {
+          if (!statErr && stats.isDirectory()) {
+            resolve(); // already-exists → idempotent success
+          } else {
+            reject(mkdirErr); // genuine failure → surface the original error
+          }
+        });
+        return;
+      }
+      reject(mkdirErr);
     });
   });
 }
@@ -361,9 +423,19 @@ function execCommandOnClient(
   timeoutMs = 120_000,
 ): Promise<{ stdout: string; stderr: string; exitCode: number | null }> {
   return new Promise((resolve, reject) => {
+    let commandStream: { close?: () => void; destroy?: () => void } | null = null;
     const timer = setTimeout(() => {
+      // Only tear down THIS command's channel, never `client.end()`: the client
+      // may be a pooled connection shared by concurrent operations on the same
+      // host, and ending it would abort all of them. The pooled caller
+      // (execRemoteCommand) already invalidates the pool entry on rejection.
+      try {
+        commandStream?.close?.();
+        commandStream?.destroy?.();
+      } catch {
+        /* best-effort channel teardown */
+      }
       reject(new Error(`Command timed out after ${timeoutMs / 1000}s`));
-      client.end();
     }, timeoutMs);
 
     client.exec(command, (err, stream) => {
@@ -372,6 +444,7 @@ function execCommandOnClient(
         reject(err);
         return;
       }
+      commandStream = stream as unknown as { close?: () => void; destroy?: () => void };
       let stdout = "";
       let stderr = "";
       stream.on("data", (data: Buffer) => {
@@ -424,37 +497,59 @@ export async function createRemoteDirectory(input: SshConnectionParams & { remot
   });
 }
 
+/**
+ * Recursively delete a remote directory tree over one SFTP channel: depth-first
+ * unlink files / rmdir subdirs, then rmdir the root. Matches the LOCAL driver's
+ * `rm(recursive:true)` so a directory delete removes its contents instead of
+ * leaving them orphaned on disk after the index was already soft-deleted.
+ */
+function sftpRemoveRecursive(sftp: SFTPWrapper, remotePath: string): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    sftp.readdir(remotePath, async (readErr, entries) => {
+      if (readErr) {
+        // Not a readable directory (or already gone) — try a plain rmdir.
+        sftp.rmdir(remotePath, (rmdirErr) => (rmdirErr ? reject(rmdirErr) : resolve()));
+        return;
+      }
+      try {
+        for (const entry of entries) {
+          if (entry.filename === "." || entry.filename === "..") continue;
+          const childPath = `${remotePath.replace(/\/+$/, "")}/${entry.filename}`;
+          const attrs = entry.attrs;
+          const isDir = (attrs.mode! & 0o170000) === 0o040000;
+          if (isDir) {
+            await sftpRemoveRecursive(sftp, childPath);
+          } else {
+            await new Promise<void>((res, rej) =>
+              sftp.unlink(childPath, (e) => (e ? rej(e) : res())),
+            );
+          }
+        }
+        sftp.rmdir(remotePath, (rmdirErr) => (rmdirErr ? reject(rmdirErr) : resolve()));
+      } catch (walkError) {
+        reject(walkError);
+      }
+    });
+  });
+}
+
 export async function deleteRemoteFile(input: SshConnectionParams & { remotePath: string; isDirectory?: boolean }): Promise<void> {
   if (usesAgentOnly(input)) {
-    const source = input.isDirectory ? "import os,sys\nos.rmdir(sys.argv[1])" : "import os,sys\nos.unlink(sys.argv[1])";
+    // shutil.rmtree gives the agent path the same recursive semantics as SFTP.
+    const source = input.isDirectory
+      ? "import shutil,sys\nshutil.rmtree(sys.argv[1])"
+      : "import os,sys\nos.unlink(sys.argv[1])";
     await execAgentOnly(input, pythonCommand(source, [input.remotePath]));
     return;
   }
   await withReusableSshClient(input, async (client) => {
     await withSftpChannel(client, (sftp) => new Promise<void>((resolve, reject) => {
         if (input.isDirectory) {
-          // For directories, first check if empty, then rmdir
-          // If non-empty, recursively delete contents first
-          sftp.readdir(input.remotePath, (readErr, entries) => {
-            if (readErr) {
-              // If we can't read it, try rmdir anyway
-              sftp.rmdir(input.remotePath, (rmdirErr) => {
-                if (rmdirErr) reject(rmdirErr);
-                else resolve();
-              });
-              return;
-            }
-
-            if (entries.length === 0) {
-              sftp.rmdir(input.remotePath, (rmdirErr) => {
-                if (rmdirErr) reject(rmdirErr);
-                else resolve();
-              });
-            } else {
-              // Non-empty directory — reject with helpful error
-              reject(new Error("Directory is not empty and cannot be deleted. Please delete all files in the directory first."));
-            }
-          });
+          // Recursively remove the whole tree (contents + directory) so the
+          // physical delete matches the recursive index soft-delete. Previously
+          // a non-empty directory was rejected, leaving files orphaned on disk
+          // while the UI showed them as deleted.
+          sftpRemoveRecursive(sftp, input.remotePath).then(resolve, reject);
         } else {
           sftp.unlink(input.remotePath, (unlinkErr) => {
             if (unlinkErr) reject(unlinkErr);
@@ -480,7 +575,11 @@ export async function renameRemoteFile(input: SshConnectionParams & { oldPath: s
   });
 }
 
-export async function readRemoteFile(input: SshConnectionParams & { remotePath: string }): Promise<Buffer> {
+export async function readRemoteFile(
+  input: SshConnectionParams & { remotePath: string; maxBytes?: number },
+): Promise<Buffer> {
+  // Agent-only path keeps its own 5MB ceiling; honour a smaller caller cap too.
+  const agentCap = Math.min(input.maxBytes ?? 5 * 1_048_576, 5 * 1_048_576);
   if (usesAgentOnly(input)) {
     const sizeResult = await execAgentOnly(
       input,
@@ -490,7 +589,7 @@ export async function readRemoteFile(input: SshConnectionParams & { remotePath: 
     if (!Number.isSafeInteger(size) || size < 0) {
       throw new BusinessError(t("backend.server.agentFileSizeUnknown"));
     }
-    if (size > 5 * 1_048_576) {
+    if (size > agentCap) {
       throw new BusinessError(t("backend.server.agentReadLimit"));
     }
     const result = await execAgentOnly(input, pythonCommand("import base64,sys\nprint(base64.b64encode(open(sys.argv[1],'rb').read()).decode())", [input.remotePath]));
@@ -499,9 +598,20 @@ export async function readRemoteFile(input: SshConnectionParams & { remotePath: 
   return withReusableSshClient(input, async (client) => {
     return withSftpChannel(client, (sftp) => new Promise<Buffer>((resolve, reject) => {
         const chunks: Buffer[] = [];
+        let received = 0;
         const readStream = sftp.createReadStream(input.remotePath);
         readStream.on("data", (chunk: Buffer | string) => {
-          chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
+          const buf = typeof chunk === "string" ? Buffer.from(chunk) : chunk;
+          received += buf.length;
+          // Enforce the cap while streaming so an unindexed multi-GB file can
+          // never be buffered whole into memory (OOM). Destroy the stream and
+          // reject as soon as we cross the limit instead of reading to EOF.
+          if (input.maxBytes !== undefined && received > input.maxBytes) {
+            try { readStream.destroy(); } catch { /* best-effort */ }
+            reject(new BusinessError(t("backend.storage.remoteReadTooLarge")));
+            return;
+          }
+          chunks.push(buf);
         });
         readStream.on("end", () => {
           resolve(Buffer.concat(chunks));

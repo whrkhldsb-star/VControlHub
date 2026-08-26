@@ -268,10 +268,13 @@ export async function runVpsBackupRecord(
     preClaimError = `Unknown backup type: ${record.backupType}`;
   }
 
-  // Mark as RUNNING via CAS — only PENDING. FAILED must be explicitly reset to PENDING before retry.
+  // Mark as RUNNING via CAS — only PENDING. FAILED is re-run by creating a new
+  // record (see the retry route), never by resetting this one.
+  // Stamp startedAt here so durationMs can be computed on completion.
+  const startedAt = new Date();
   const claimed = await prisma.vpsBackupRecord.updateMany({
     where: { id: recordId, status: "PENDING" },
-    data: { status: "RUNNING", updatedAt: new Date(), errorMessage: null },
+    data: { status: "RUNNING", startedAt, updatedAt: new Date(), errorMessage: null },
   });
   if (claimed.count === 0) {
     return {
@@ -404,6 +407,7 @@ export async function runVpsBackupRecord(
     });
 
     // Step 4: Update record to COMPLETED
+    const completedAt = new Date();
     await prisma.vpsBackupRecord.update({
       where: { id: recordId },
       data: {
@@ -412,7 +416,8 @@ export async function runVpsBackupRecord(
         localPath: portablePath,
         fileSize,
         checksumSha256: sha256,
-        completedAt: new Date(),
+        completedAt,
+        durationMs: completedAt.getTime() - startedAt.getTime(),
         errorMessage: null,
       },
     });
@@ -460,12 +465,23 @@ async function failRecord(
 ): Promise<VpsBackupResult> {
   // CAS: only fail PENDING/RUNNING. Never overwrite COMPLETED or a terminal
   // state that another path already committed.
+  const failedAt = new Date();
+  // Compute duration for RUNNING rows that were actually started; pre-claim
+  // failures (still PENDING, startedAt null) leave durationMs null.
+  const existing = await prisma.vpsBackupRecord.findUnique({
+    where: { id: recordId },
+    select: { startedAt: true },
+  });
+  const durationMs = existing?.startedAt
+    ? failedAt.getTime() - existing.startedAt.getTime()
+    : null;
   await prisma.vpsBackupRecord.updateMany({
     where: { id: recordId, status: { in: ["PENDING", "RUNNING"] } },
     data: {
       status: "FAILED",
       errorMessage: errorMessage.slice(0, 500),
-      completedAt: new Date(),
+      completedAt: failedAt,
+      ...(durationMs !== null ? { durationMs } : {}),
       ...(remotePath ? { remotePath } : {}),
     },
   });
@@ -591,6 +607,7 @@ export async function listVpsBackupRecords(
       errorMessage: true,
       createdAt: true,
       completedAt: true,
+      durationMs: true,
       offsiteKey: true,
       offsiteUploadedAt: true,
     },

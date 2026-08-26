@@ -191,6 +191,35 @@ export async function executeTarget(
     return false;
   }
 
+  // Fail closed on unpinned DIRECT SSH targets. Without a pinned host key the
+  // ssh args fall back to accept-new + UserKnownHostsFile=/dev/null — not even
+  // TOFU (no change detection), so a MITM on first/every connect is undetected.
+  // Onboarding forces a pin, but refuse rather than silently accept-new if a
+  // legacy/draft row ever reaches execution without one.
+  const pinnedHostKey = (target.server as { hostKeySha256?: string | null }).hostKeySha256;
+  if (!result && !pinnedHostKey?.trim()) {
+    const summary = `Node ${target.server.name} has no pinned SSH host key; refusing to execute without host-key verification.`;
+    const failed = await prisma.commandTarget.updateMany({
+      where: {
+        id: target.id,
+        status: { in: ["RUNNING", "APPROVED", "PENDING_APPROVAL"] },
+      },
+      data: {
+        status: "FAILED",
+        stdout: null,
+        stderr: summary,
+        exitCode: 255,
+        finishedAt: new Date(),
+      },
+    });
+    if (failed.count > 0) {
+      await prisma.executionLog.create({
+        data: { commandRequestId, serverId: target.server.id, summary },
+      });
+    }
+    return false;
+  }
+
   result ??= await executeCommandOverSsh({
     host: target.server.host,
     port: target.server.port,

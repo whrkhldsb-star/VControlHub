@@ -4,7 +4,6 @@
  * 覆盖:
  *   - compressBuffer: 大数据 / 小数据 / 空 buffer / 压缩比 < 1
  *   - compressFileToGz: 文件写入 + 压缩比 < 1 + 文件可读回
- *   - estimateCompressionRatio: 大文件 / 小文件 / 不存在文件
  */
 import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -12,7 +11,7 @@ import { join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { compressBuffer, compressFileToGz, estimateCompressionRatio } from "../compress";
+import { compressBuffer, compressFileToGz } from "../compress";
 
 describe("compressBuffer", () => {
 	it("压缩一个含重复 pattern 的 buffer, 压缩比 < 1", () => {
@@ -75,39 +74,3 @@ describe("compressFileToGz", () => {
 	});
 });
 
-describe("estimateCompressionRatio", () => {
-	let dir: string;
-	beforeEach(async () => {
-		dir = await mkdtemp(join(tmpdir(), "estimate-test-"));
-	});
-	afterEach(async () => {
-		await rm(dir, { recursive: true, force: true });
-	});
-
-	it("大文件 + 重复 pattern, 估出 ratio < 0.5", async () => {
-		const src = join(dir, "big.txt");
-		await writeFile(src, "y".repeat(200_000));
-		const ratio = await estimateCompressionRatio(src);
-		expect(ratio).not.toBeNull();
-		expect(ratio!).toBeLessThan(0.5);
-	});
-
-	it("小文件 (4KB 以下) 返 null (估不准)", async () => {
-		const src = join(dir, "small.txt");
-		await writeFile(src, "hello world");
-		const ratio = await estimateCompressionRatio(src);
-		expect(ratio).toBeNull();
-	});
-
-	it("不存在的文件返 null (不抛)", async () => {
-		const ratio = await estimateCompressionRatio(join(dir, "nope.txt"));
-		expect(ratio).toBeNull();
-	});
-
-	it("空文件 (0 字节) 返 0 (跟 isEmpty 短路)", async () => {
-		const src = join(dir, "empty.txt");
-		await writeFile(src, "");
-		const ratio = await estimateCompressionRatio(src);
-		expect(ratio).toBe(0);
-	});
-});

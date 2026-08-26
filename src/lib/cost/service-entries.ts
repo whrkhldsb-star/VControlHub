@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { NotFoundError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 import { createCostEntrySchema, updateCostEntrySchema } from "./schema";
-import type { CostCategory, CostCurrency, CostEntryRecord, CostSummary, DailySnapshot } from "./types";
+import type { CostCategory, CostCurrency, CostCurrencyBucket, CostEntryRecord, CostSummary, DailySnapshot } from "./types";
 import { COST_CATEGORY_VALUES } from "./types";
 import { DEFAULT_CURRENCY, DEFAULT_LIST_LIMIT, addDecimal, automaticTags, emptyByCategory, endOfMonthUtc, isoDateOnly, lastDayIsoOfMonth, startOfMonthUtc, toRecord, type TeamSession } from "./service-internals";
 
@@ -67,9 +67,10 @@ export async function listCostEntries(options: ListCostEntriesOptions = {}): Pro
 
 export async function summarizeMonth(month: string, currency: CostCurrency = DEFAULT_CURRENCY, session?: TeamSession | null): Promise<CostSummary> {
 	const start = startOfMonthUtc(month); const end = endOfMonthUtc(month);
+	const monthWhere: Prisma.CostEntryWhereInput = { effectiveDate: { gte: start, lt: end }, ...(session ? teamWhere(session) : {}) };
 	const rows = await prisma.costEntry.groupBy({
 		by: ["category"],
-		where: { currency, effectiveDate: { gte: start, lt: end }, ...(session ? teamWhere(session) : {}) },
+		where: { ...monthWhere, currency },
 		_sum: { amount: true },
 		_count: { _all: true },
 	});
@@ -78,15 +79,37 @@ export async function summarizeMonth(month: string, currency: CostCurrency = DEF
 		const category = (COST_CATEGORY_VALUES as readonly string[]).includes(row.category) ? row.category as CostCategory : "other";
 		const amount = row._sum.amount?.toString() ?? "0"; addDecimal(byCategory, category, amount); total += Number.isFinite(Number(amount)) ? Number(amount) : 0; count += row._count._all;
 	}
-	return { month, currency, totalAmount: total.toFixed(2), byCategory, entryCount: count, rangeStart: isoDateOnly(start), rangeEnd: lastDayIsoOfMonth(month) };
+	// Same month, every OTHER currency. Without an FX source we must not add
+	// these into `total`, but hiding them makes the headline figure look like
+	// the full monthly spend when it is not. Surface them so the UI can warn.
+	const otherRows = await prisma.costEntry.groupBy({
+		by: ["currency"],
+		where: { ...monthWhere, currency: { not: currency } },
+		_sum: { amount: true },
+		_count: { _all: true },
+	});
+	const otherCurrencies: CostCurrencyBucket[] = otherRows
+		.map((row) => ({
+			currency: row.currency as CostCurrency,
+			totalAmount: (Number(row._sum.amount?.toString() ?? "0") || 0).toFixed(2),
+			entryCount: row._count._all,
+		}))
+		.sort((a, b) => a.currency.localeCompare(b.currency));
+	return { month, currency, totalAmount: total.toFixed(2), byCategory, entryCount: count, rangeStart: isoDateOnly(start), rangeEnd: lastDayIsoOfMonth(month), otherCurrencies };
 }
 
-export async function listRecentSnapshots(limit = 30, session?: TeamSession | null, currency: CostCurrency = DEFAULT_CURRENCY): Promise<DailySnapshot[]> {
+export async function listRecentSnapshots(limit = 30, session?: TeamSession | null, currency: CostCurrency = DEFAULT_CURRENCY, month?: string): Promise<DailySnapshot[]> {
 	if (session) {
 		const days = Math.max(1, Math.min(limit, 365));
+		// When a month is selected the trend must cover THAT month, otherwise the
+		// chart keeps showing "last N days" while the summary/entries below it
+		// show a historical month — the numbers silently disagree.
+		const dateFilter = month
+			? { gte: startOfMonthUtc(month), lt: endOfMonthUtc(month) }
+			: { gte: new Date(Date.now() - days * 86400000) };
 		const rows = await prisma.costEntry.groupBy({
 			by: ["effectiveDate", "category"],
-			where: { ...teamWhere(session), currency, effectiveDate: { gte: new Date(Date.now() - days * 86400000) } },
+			where: { ...teamWhere(session), currency, effectiveDate: dateFilter },
 			_sum: { amount: true },
 			_count: { _all: true },
 			orderBy: { effectiveDate: "desc" },
@@ -98,7 +121,10 @@ export async function listRecentSnapshots(limit = 30, session?: TeamSession | nu
 			const amount = row._sum.amount?.toString() ?? "0";
 			addDecimal(bucket.byCategory, category, amount); bucket.total += Number(amount); bucket.count += row._count._all;
 		}
-		return Array.from(byDay.entries()).sort((a,b) => b[0].localeCompare(a[0])).slice(0,days).map(([snapshotDate,b]) => ({ snapshotDate, totalAmount: b.total.toFixed(2), byCategory: b.byCategory, entryCount: b.count }));
+		// A month can hold 31 days, so a `limit` of 30 must not silently drop the
+		// earliest day when an explicit month was requested.
+		const maxDays = month ? 31 : days;
+		return Array.from(byDay.entries()).sort((a,b) => b[0].localeCompare(a[0])).slice(0,maxDays).map(([snapshotDate,b]) => ({ snapshotDate, totalAmount: b.total.toFixed(2), byCategory: b.byCategory, entryCount: b.count }));
 	}
 	const rows = await prisma.costSnapshot.findMany({ orderBy: { snapshotDate: "desc" }, take: Math.max(1, Math.min(limit, 365)) });
 	return rows.map((row) => {
@@ -108,14 +134,30 @@ export async function listRecentSnapshots(limit = 30, session?: TeamSession | nu
 	});
 }
 
-export interface ServerMonthlyCostSyncResult { month: string; synced: number; skipped: number; entries: CostEntryRecord[]; }
+export interface ServerMonthlyCostSyncSkip { serverId: string; serverName: string; reason: "missing_amount" | "non_positive_amount" | "missing_currency"; }
+export interface ServerMonthlyCostSyncResult { month: string; synced: number; skipped: number; skippedDetails: ServerMonthlyCostSyncSkip[]; entries: CostEntryRecord[]; }
 export async function syncServerMonthlyCosts(month = new Date().toISOString().slice(0, 7), session?: TeamSession | null): Promise<ServerMonthlyCostSyncResult> {
 	const effectiveDate = startOfMonthUtc(month);
 	const entries: CostEntryRecord[] = []; let skipped = 0; let cursor: { id: string } | undefined;
+	// Skipping silently is a false success: the toast says "synced N, skipped M"
+	// and the user has no way to learn WHICH server needs fixing.
+	const skippedDetails: ServerMonthlyCostSyncSkip[] = [];
 	do {
 		const servers = await prisma.server.findMany({ where: { enabled: true, costAutoSync: true, costMonthlyAmount: { not: null }, ...(session ? serverTeamWhere(session) : {}) }, select: { id: true, name: true, host: true, costMonthlyAmount: true, costCurrency: true, costProvider: true, teamId: true }, orderBy: { id: "asc" }, take: 1000, ...(cursor ? { cursor, skip: 1 } : {}) });
 		for (const server of servers) {
-			const amount = server.costMonthlyAmount?.toFixed(2); if (!amount || Number(amount) <= 0 || !server.costCurrency?.trim()) { skipped += 1; continue; }
+			const amount = server.costMonthlyAmount?.toFixed(2);
+			const reason: ServerMonthlyCostSyncSkip["reason"] | null =
+				!amount ? "missing_amount"
+				: Number(amount) <= 0 ? "non_positive_amount"
+				: !server.costCurrency?.trim() ? "missing_currency"
+				: null;
+			if (reason || !amount) {
+				skipped += 1;
+				// Cap the detail list so a fleet-wide misconfiguration cannot blow up
+				// the response payload; the counter stays accurate either way.
+				if (skippedDetails.length < 50) skippedDetails.push({ serverId: server.id, serverName: server.name, reason: reason ?? "missing_amount" });
+				continue;
+			}
 		const provider = server.costProvider?.trim() || server.name; const tags = automaticTags("server_monthly", "vps", provider, server.id);
 		const notes = `Auto-collected: ${server.name} (${server.host}) ${month} VPS monthly fee`;
 		const entry = await prisma.costEntry.upsert({ where: { sourceType_sourceRef_effectiveDate: { sourceType: "server_monthly", sourceRef: server.id, effectiveDate } }, create: { category: "vps", provider, amount: new Prisma.Decimal(amount), currency: server.costCurrency, effectiveDate, notes, sourceType: "server_monthly", sourceRef: server.id, createdById: null, teamId: server.teamId ?? null, tags }, update: { provider, amount: new Prisma.Decimal(amount), currency: server.costCurrency, notes, tags } });
@@ -123,5 +165,5 @@ export async function syncServerMonthlyCosts(month = new Date().toISOString().sl
 		}
 		cursor = servers.length === 1000 ? { id: servers[servers.length - 1]!.id } : undefined;
 	} while (cursor);
-	return { month, synced: entries.length, skipped, entries };
+	return { month, synced: entries.length, skipped, skippedDetails, entries };
 }

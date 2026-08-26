@@ -59,6 +59,7 @@ export const zh: Record<string, string> = {
 	"storagePage.action.fileRenameFailed": "重命名文件条目失败",
 	"storagePage.action.renameFailed": "重命名失败",
 	"storagePage.action.pathAlreadyExists": "路径 /{path} 已存在，请使用其他名称",
+	"storagePage.action.pathInRecycleBin": "路径 /{path} 有一个已删除到回收站的同名项，重命名会永久覆盖它。请先在回收站中还原或彻底删除该项。",
 	"storagePage.action.directoryTooLargeToRename": "目录索引子项超过 {limit} 条，无法安全重命名；请先拆分或重新索引",
 
 	"storagePage.action.updateNodeSuccess": "存储节点已更新。",
@@ -156,6 +157,7 @@ export const en: Record<string, string> = {
 	"storagePage.action.fileRenameFailed": "Failed to rename file entry",
 	"storagePage.action.renameFailed": "Rename failed",
 	"storagePage.action.pathAlreadyExists": "Path /{path} already exists. Please use a different name",
+	"storagePage.action.pathInRecycleBin": "Path /{path} has a same-named item in the recycle bin; renaming here would permanently overwrite it. Restore or permanently delete that item from the recycle bin first.",
 	"storagePage.action.directoryTooLargeToRename": "Directory has more than {limit} indexed children; rename is not safe — split or reindex first",
 
 	"storagePage.action.updateNodeSuccess": "Storage node updated.",

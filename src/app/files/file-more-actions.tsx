@@ -117,6 +117,17 @@ export function FileMoreActions({
     if (!open) return;
     const handlePointerDown = (event: MouseEvent) => {
       const target = event.target as Node;
+      // Menu items may open a modal (ShareFileButton's quick-share
+      // confirmation). Those dialogs render through their own body portal, so
+      // they are *outside* this menu's DOM subtree — closing the menu here
+      // would unmount the dialog before its onConfirm handler ever runs.
+      // Treat any click inside a modal overlay as "still inside the menu".
+      if (
+        target instanceof Element &&
+        target.closest("[data-modal-overlay]") !== null
+      ) {
+        return;
+      }
       if (
         !triggerRef.current?.contains(target) &&
         !menuRef.current?.contains(target)
@@ -126,6 +137,9 @@ export function FileMoreActions({
     };
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
+        // A modal opened from a menu item owns Escape first; closing the menu
+        // would unmount the dialog underneath the user.
+        if (document.querySelector("[data-modal-overlay]")) return;
         setOpen(false);
         triggerRef.current?.focus();
       }

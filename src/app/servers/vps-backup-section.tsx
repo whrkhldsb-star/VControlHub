@@ -105,6 +105,7 @@ export function VpsBackupSection({
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [triggering, setTriggering] = useState<string | null>(null);
+	const [retrying, setRetrying] = useState<string | null>(null);
 	const [creating, setCreating] = useState(false);
 	const [showCreate, setShowCreate] = useState(false);
 	const [manualPaths, setManualPaths] = useState("");
@@ -151,6 +152,21 @@ export function VpsBackupSection({
 		};
 	}, [fetchAll]);
 
+	// Backups run asynchronously in the worker (up to ~10 min). Without polling
+	// the user stares at a PENDING/RUNNING row and never sees it flip to
+	// COMPLETED/FAILED (nor the error message) unless they manually refresh.
+	// Poll every 5s while any record is in flight, and stop once all settle.
+	const hasInFlight = records.some(
+		(r) => r.status === "PENDING" || r.status === "RUNNING",
+	);
+	useEffect(() => {
+		if (!hasInFlight) return;
+		const timer = setInterval(() => {
+			void fetchAll();
+		}, 5000);
+		return () => clearInterval(timer);
+	}, [hasInFlight, fetchAll]);
+
 	const handleTrigger = async (backupType: string) => {
 		setTriggering(backupType);
 		setError(null);
@@ -175,6 +191,28 @@ export function VpsBackupSection({
 			setError(getErrorMessage(err, t("vpsBackup.error.trigger")));
 		} finally {
 			setTriggering(null);
+		}
+	};
+
+	const handleRetry = async (recordId: string) => {
+		if (retrying) return;
+		setRetrying(recordId);
+		setError(null);
+		try {
+			const res = await csrfFetch<Response>(
+				`/api/servers/${serverId}/vps-backup/records/${recordId}/retry`,
+				{ method: "POST", raw: true },
+			);
+			if (!res.ok) {
+				const data = await res.json().catch(() => ({}));
+				setError(data.error ?? t("vpsBackup.error.trigger"));
+			} else {
+				await fetchAll();
+			}
+		} catch (err) {
+			setError(getErrorMessage(err, t("vpsBackup.error.trigger")));
+		} finally {
+			setRetrying(null);
 		}
 	};
 
@@ -671,6 +709,16 @@ export function VpsBackupSection({
 										>
 											⬇
 										</a>
+									) : null}
+									{canManage && r.status === "FAILED" ? (
+										<IconButton
+											label={t("vpsBackup.retryRecord")}
+											onClick={() => handleRetry(r.id)}
+											disabled={retrying === r.id}
+											className="h-8 w-8 text-xs"
+										>
+											↻
+										</IconButton>
 									) : null}
 									{canManage ? (
 										<IconButton label={t("vpsBackup.deleteRecord")} tone="danger" onClick={() => setDeleteTarget({ kind: "record", id: r.id })} className="h-8 w-8 text-xs">✕</IconButton>

@@ -57,31 +57,6 @@ export async function compressFileToGz(sourcePath: string, targetPath: string): 
 	};
 }
 
-/** 估算压缩率 (不实际压缩, 拿流的前 64KB 估算; 适合 UI 显示)。 */
-export async function estimateCompressionRatio(filePath: string): Promise<number | null> {
-	try {
-		const sourceStat = await stat(filePath);
-		if (sourceStat.size === 0) return 0;
-		if (sourceStat.size < 4096) {
-			// 文件太小, 估不准
-			return null;
-		}
-		// 用 64KB 采样估算
-		const { open } = await import("node:fs/promises");
-		const fh = await open(filePath, "r");
-		try {
-			const sample = Buffer.alloc(64 * 1024);
-			const { bytesRead } = await fh.read(sample, 0, sample.length, 0);
-			const compressed = gzipSync(sample.subarray(0, bytesRead), { level: 6 });
-			return compressed.length / bytesRead;
-		} finally {
-			await fh.close();
-		}
-	} catch {
-		return null;
-	}
-}
-
 function buildResult(original: Buffer, compressed: Buffer): CompressResult {
 	const originalSize = original.length;
 	const compressedSize = compressed.length;

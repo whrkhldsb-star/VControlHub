@@ -33,15 +33,14 @@ export function ServerCardDeleteForm({
       <input type="hidden" name="serverId" value={serverId} />
       {isConfirming ? (
         <div
-          role="alertdialog"
-          aria-modal="true"
+          role="group"
           aria-labelledby={`delete-server-title-${serverId}`}
           aria-describedby={`delete-server-description-${serverId}`}
           data-tone="rose"
           className="space-y-3 rounded-2xl border border-[var(--danger-border)] p-3 light:bg-[var(--danger-bg)]"
         >
           <input type="hidden" name="confirmDelete" value="true" />
-          <div className="space-y-1 text-sm text-[var(--danger)]">
+          <div className="space-y-1 text-sm text-[var(--danger)]" role="alert">
             <p id={`delete-server-title-${serverId}`} className="font-semibold">
               {t("serversPage.delete.confirmTitle", { name: serverName })}
             </p>

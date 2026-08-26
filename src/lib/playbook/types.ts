@@ -74,6 +74,10 @@ export type PlaybookStepResult = {
   // Persisted before a command is awaited, allowing a reclaimed parent job
   // to resume polling without dispatching the remote command a second time.
   commandRequestId?: string;
+  // Persisted before a non-idempotent side effect (webhook/notification) fires,
+  // so a reclaimed job refuses to replay it (at-most-once) rather than
+  // double-sending. See executor.markSideEffectDispatched.
+  sideEffectDispatched?: boolean;
 };
 
 /**

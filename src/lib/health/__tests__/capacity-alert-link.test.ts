@@ -95,6 +95,7 @@ describe("evaluateCapacityLinkedAlerts", () => {
     openOrRefreshMock.mockResolvedValue({
       incidentId: "inc1",
       created: true,
+      fired: true,
       notified: true,
       level: 1,
     });
@@ -289,12 +290,14 @@ describe("evaluateCapacityLinkedAlerts", () => {
       .mockResolvedValueOnce({
         incidentId: "inc_s1",
         created: true,
+        fired: true,
         notified: true,
         level: 1,
       })
       .mockResolvedValueOnce({
         incidentId: "inc_s2",
         created: true,
+        fired: true,
         notified: true,
         level: 1,
       });

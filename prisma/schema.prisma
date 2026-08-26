@@ -1280,6 +1280,10 @@ model VpsBackupRecord {
   paths             String[]  @default([])
   // PENDING | RUNNING | COMPLETED | FAILED — plain string convention
   status            String    @default("PENDING")
+  // When the worker claimed the record (PENDING→RUNNING). Basis for durationMs.
+  startedAt         DateTime?
+  // Wall-clock backup duration in ms (startedAt→completedAt), set on completion.
+  durationMs        Int?
   // Path on remote VPS where the backup archive was created (before SFTP download)
   remotePath        String?
   // Local storage path after SFTP download (relative to storage root)

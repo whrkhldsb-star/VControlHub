@@ -4,12 +4,32 @@ const prismaMock = vi.hoisted(() => ({
   vpsBackupSchedule: {
     create: vi.fn(),
     findUnique: vi.fn(),
+    findMany: vi.fn(),
     update: vi.fn(),
+    updateMany: vi.fn(),
     delete: vi.fn(),
+  },
+  vpsBackupRecord: {
+    count: vi.fn(),
+    updateMany: vi.fn(),
   },
 }));
 
+const { enqueueJobMock, createVpsBackupRecordMock, pruneOldVpsBackupRecordsMock } = vi.hoisted(() => ({
+  enqueueJobMock: vi.fn(),
+  createVpsBackupRecordMock: vi.fn(),
+  pruneOldVpsBackupRecordsMock: vi.fn(),
+}));
+
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
+
+vi.mock("@/lib/job/service", () => ({ enqueueJob: enqueueJobMock }));
+
+vi.mock("../vps-backup-service", () => ({
+  createVpsBackupRecord: createVpsBackupRecordMock,
+  pruneOldVpsBackupRecords: pruneOldVpsBackupRecordsMock,
+  VPS_BACKUP_CREATE_JOB_TYPE: "vps-backup.create",
+}));
 
 vi.mock("cron-parser", () => ({
   CronExpressionParser: {
@@ -17,9 +37,12 @@ vi.mock("cron-parser", () => ({
   },
 }));
 
-const { createVpsBackupSchedule, deleteVpsBackupSchedule, updateVpsBackupSchedule } = await import(
-  "../vps-backup-schedule-service"
-);
+const {
+  createVpsBackupSchedule,
+  deleteVpsBackupSchedule,
+  updateVpsBackupSchedule,
+  dispatchDueVpsBackupSchedules,
+} = await import("../vps-backup-schedule-service");
 
 describe("VPS backup schedule ownership", () => {
   beforeEach(() => {
@@ -82,6 +105,44 @@ describe("VPS backup schedule ownership", () => {
     })).rejects.toThrow();
   });
 
+  it("rejects out-of-range retentionDays (defense-in-depth beyond the route zod)", async () => {
+    await expect(createVpsBackupSchedule({
+      serverId: "server-1",
+      name: "Nightly",
+      cronExpression: "0 3 * * *",
+      backupType: "nginx-config",
+      retentionDays: 0,
+    })).rejects.toThrow();
+
+    await expect(createVpsBackupSchedule({
+      serverId: "server-1",
+      name: "Nightly",
+      cronExpression: "0 3 * * *",
+      backupType: "nginx-config",
+      retentionDays: 9999,
+    })).rejects.toThrow();
+
+    await expect(
+      updateVpsBackupSchedule("schedule-1", "server-1", { retentionDays: 9999 }),
+    ).rejects.toThrow();
+  });
+
+  it("accepts retentionDays within range and null (keep forever)", async () => {
+    await createVpsBackupSchedule({
+      serverId: "server-1",
+      name: "Nightly",
+      cronExpression: "0 3 * * *",
+      backupType: "nginx-config",
+      retentionDays: 30,
+    });
+    expect(prismaMock.vpsBackupSchedule.create).toHaveBeenCalled();
+
+    await updateVpsBackupSchedule("schedule-1", "server-1", { retentionDays: null });
+    expect(prismaMock.vpsBackupSchedule.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ retentionDays: null }) }),
+    );
+  });
+
   it("clears the next run while paused so a delayed worker cannot dispatch it", async () => {
     await updateVpsBackupSchedule("schedule-1", "server-1", { status: "PAUSED" });
 
@@ -134,5 +195,53 @@ describe("VPS backup schedule ownership", () => {
     expect(prismaMock.vpsBackupSchedule.delete).toHaveBeenCalledWith({
       where: { id: "schedule-1", serverId: "server-1" },
     });
+  });
+});
+
+describe("dispatchDueVpsBackupSchedules overlap guard", () => {
+  const dueSchedule = {
+    id: "schedule-1",
+    serverId: "server-1",
+    name: "Nightly",
+    backupType: "nginx-config",
+    cronExpression: "0 3 * * *",
+    retentionDays: null,
+    nextRunAt: new Date("2020-01-01T00:00:00Z"),
+    server: { id: "server-1", teamId: "team-1", name: "web" },
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    prismaMock.vpsBackupSchedule.findMany.mockResolvedValue([dueSchedule]);
+    prismaMock.vpsBackupSchedule.updateMany.mockResolvedValue({ count: 1 }); // CAS claim wins
+    prismaMock.vpsBackupSchedule.update.mockResolvedValue({ id: "schedule-1" });
+    createVpsBackupRecordMock.mockResolvedValue({ id: "record-1" });
+    enqueueJobMock.mockResolvedValue(undefined);
+  });
+
+  it("skips dispatch and marks SKIPPED_OVERLAP when a prior run is still in flight", async () => {
+    prismaMock.vpsBackupRecord.count.mockResolvedValue(1); // previous run still PENDING/RUNNING
+
+    const dispatched = await dispatchDueVpsBackupSchedules();
+
+    expect(dispatched).toBe(0);
+    expect(createVpsBackupRecordMock).not.toHaveBeenCalled();
+    expect(enqueueJobMock).not.toHaveBeenCalled();
+    expect(prismaMock.vpsBackupSchedule.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "schedule-1" },
+        data: expect.objectContaining({ lastResult: "SKIPPED_OVERLAP" }),
+      }),
+    );
+  });
+
+  it("dispatches normally when no prior run is in flight", async () => {
+    prismaMock.vpsBackupRecord.count.mockResolvedValue(0);
+
+    const dispatched = await dispatchDueVpsBackupSchedules();
+
+    expect(dispatched).toBe(1);
+    expect(createVpsBackupRecordMock).toHaveBeenCalledTimes(1);
+    expect(enqueueJobMock).toHaveBeenCalledTimes(1);
   });
 });

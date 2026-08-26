@@ -14,7 +14,6 @@ describe("RBAC defaults", () => {
   it("keeps viewer read-only", () => {
     expect(DEFAULT_ROLE_PERMISSIONS.viewer).toEqual([
       "ai:chat",
-      "ai:ops:read",
       "audit:read",
       "backup:read",
       "command:read",
@@ -36,6 +35,14 @@ describe("RBAC defaults", () => {
     expect(DEFAULT_ROLE_PERMISSIONS.operator).toContain("docker:manage");
     expect(DEFAULT_ROLE_PERMISSIONS.operator).not.toContain("user:manage");
     expect(DEFAULT_ROLE_PERMISSIONS.viewer).not.toContain("docker:manage");
+  });
+
+  it("restricts AI-ops log reads to platform admins (scans aggregate all teams)", () => {
+    // ai:ops:read exposes cross-team fleet-health aggregates + LLM analysis;
+    // only admin (which holds team:manage) may read them.
+    expect(DEFAULT_ROLE_PERMISSIONS.admin).toContain("ai:ops:read");
+    expect(DEFAULT_ROLE_PERMISSIONS.operator).not.toContain("ai:ops:read");
+    expect(DEFAULT_ROLE_PERMISSIONS.viewer).not.toContain("ai:ops:read");
   });
 
   it("requires approval for assistant initiated destructive or command actions", () => {

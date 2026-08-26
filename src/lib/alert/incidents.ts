@@ -91,6 +91,14 @@ async function resolveNotifyUserIds(
   return admins.map((u) => u.id);
 }
 
+/** Per-channel delivery outcome, so callers never report a phantom "notified". */
+export interface AlertDispatchResult {
+  /** Channels that were configured AND delivered at least one message. */
+  delivered: string[];
+  /** Channels that were configured but failed, with the reason. */
+  failed: { channel: string; error: string }[];
+}
+
 async function dispatchChannels(input: {
   userIds: string[];
   type: NotificationType;
@@ -102,9 +110,12 @@ async function dispatchChannels(input: {
   contextLines: string[];
   level: number;
   teamId?: string | null;
-}) {
+}): Promise<AlertDispatchResult> {
+  const delivered: string[] = [];
+  const failed: { channel: string; error: string }[] = [];
+
   if (input.notifyChannels.includes("in_app")) {
-    await Promise.allSettled(
+    const results = await Promise.allSettled(
       input.userIds.map((userId) =>
         createNotification({
           userId,
@@ -116,6 +127,19 @@ async function dispatchChannels(input: {
         }),
       ),
     );
+    // No recipients at all is a silent failure too: the rule looks armed but
+    // nobody is on call.
+    if (input.userIds.length === 0) {
+      failed.push({ channel: "in_app", error: "no recipients resolved" });
+    } else if (results.some((r) => r.status === "fulfilled")) {
+      delivered.push("in_app");
+    } else {
+      const first = results.find((r) => r.status === "rejected") as PromiseRejectedResult | undefined;
+      failed.push({
+        channel: "in_app",
+        error: first?.reason instanceof Error ? first.reason.message : String(first?.reason ?? "unknown"),
+      });
+    }
   }
 
   if (input.notifyChannels.includes("webhook") && input.webhookUrl) {
@@ -133,11 +157,15 @@ async function dispatchChannels(input: {
       });
       if (!delivery.ok) throw new Error(delivery.error);
       if (!delivery.response.ok) throw new Error(`HTTP ${delivery.response.status}`);
+      delivered.push("webhook");
     } catch (error) {
-      logger.warn("alert webhook delivery failed", {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      const message = error instanceof Error ? error.message : String(error);
+      failed.push({ channel: "webhook", error: message });
+      logger.warn("alert webhook delivery failed", { error: message });
     }
+  } else if (input.notifyChannels.includes("webhook")) {
+    // Channel selected but no URL configured — the rule can never notify.
+    failed.push({ channel: "webhook", error: "webhook URL not configured" });
   }
 
   if (input.notifyChannels.includes("email")) {
@@ -147,10 +175,11 @@ async function dispatchChannels(input: {
         message: input.message,
         contextLines: input.contextLines,
       });
+      delivered.push("email");
     } catch (error) {
-      logger.warn("alert email delivery failed", {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      const message = error instanceof Error ? error.message : String(error);
+      failed.push({ channel: "email", error: message });
+      logger.warn("alert email delivery failed", { error: message });
     }
   }
 
@@ -161,12 +190,15 @@ async function dispatchChannels(input: {
         message: input.message,
         contextLines: input.contextLines,
       });
+      delivered.push("telegram");
     } catch (error) {
-      logger.warn("alert telegram delivery failed", {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      const message = error instanceof Error ? error.message : String(error);
+      failed.push({ channel: "telegram", error: message });
+      logger.warn("alert telegram delivery failed", { error: message });
     }
   }
+
+  return { delivered, failed };
 }
 
 /**
@@ -176,8 +208,19 @@ async function dispatchChannels(input: {
 export async function openOrRefreshAlertIncident(input: AlertFireInput): Promise<{
   incidentId: string;
   created: boolean;
+  /**
+   * True only when an incident was opened or re-opened this pass (the dispatch
+   * path was reached). Independent of whether any channel actually delivered —
+   * callers use this to stamp `lastTriggeredAt` and run remediation playbooks so
+   * a fire is recorded even when notification is best-effort and fails.
+   */
+  fired: boolean;
   notified: boolean;
   level: number;
+  /** Channels that actually accepted the message. */
+  deliveredChannels?: string[];
+  /** Configured channels that failed, so the UI can show "notify failed". */
+  failedChannels?: { channel: string; error: string }[];
 }> {
   const fingerprint = buildAlertFingerprint(input.ruleId, input.serverId, input.metric);
   const existing = await prisma.alertIncident.findUnique({ where: { fingerprint } });
@@ -196,6 +239,7 @@ export async function openOrRefreshAlertIncident(input: AlertFireInput): Promise
     return {
       incidentId: existing.id,
       created: false,
+      fired: false,
       notified: false,
       level: existing.level,
     };
@@ -215,6 +259,7 @@ export async function openOrRefreshAlertIncident(input: AlertFireInput): Promise
     return {
       incidentId: existing.id,
       created: false,
+      fired: false,
       notified: false,
       level: existing.level,
     };
@@ -277,6 +322,7 @@ export async function openOrRefreshAlertIncident(input: AlertFireInput): Promise
         return {
           incidentId: raced.id,
           created: false,
+          fired: false,
           notified: false,
           level: raced.level,
         };
@@ -301,7 +347,7 @@ export async function openOrRefreshAlertIncident(input: AlertFireInput): Promise
   }
 
   const userIds = await resolveNotifyUserIds(input.onCallUserIds, input.teamId);
-  await dispatchChannels({
+  const dispatch = await dispatchChannels({
     userIds,
     type: "server_alert",
     title: input.title,
@@ -321,7 +367,25 @@ export async function openOrRefreshAlertIncident(input: AlertFireInput): Promise
     teamId: input.teamId ?? null,
   });
 
-  return { incidentId: incident.id, created, notified: true, level: 1 };
+  // `notified` must reflect reality. Reporting true while every channel failed
+  // is the worst kind of silent failure: the operator believes they were paged.
+  if (dispatch.failed.length > 0) {
+    logger.warn("alert incident notification partially or fully failed", {
+      incidentId: incident.id,
+      delivered: dispatch.delivered,
+      failed: dispatch.failed,
+    });
+  }
+
+  return {
+    incidentId: incident.id,
+    created,
+    fired: true,
+    notified: dispatch.delivered.length > 0,
+    level: 1,
+    deliveredChannels: dispatch.delivered,
+    failedChannels: dispatch.failed,
+  };
 }
 
 export async function resolveAlertIncident(input: {
@@ -334,7 +398,13 @@ export async function resolveAlertIncident(input: {
   webhookUrl?: string | null;
   onCallUserIds?: string[];
   teamId?: string | null;
-}): Promise<{ resolved: boolean; incidentId?: string }> {
+}): Promise<{
+  resolved: boolean;
+  incidentId?: string;
+  notified?: boolean;
+  deliveredChannels?: string[];
+  failedChannels?: { channel: string; error: string }[];
+}> {
   const fingerprint = buildAlertFingerprint(input.ruleId, input.serverId, input.metric);
   const existing = await prisma.alertIncident.findUnique({ where: { fingerprint } });
   if (!existing || existing.status === "RESOLVED") {
@@ -348,7 +418,7 @@ export async function resolveAlertIncident(input: {
   });
 
   const userIds = await resolveNotifyUserIds(input.onCallUserIds, input.teamId);
-  await dispatchChannels({
+  const dispatch = await dispatchChannels({
     userIds,
     type: "alert_resolved",
     title: input.title,
@@ -365,8 +435,23 @@ export async function resolveAlertIncident(input: {
     level: existing.level,
     teamId: input.teamId ?? null,
   });
+  if (dispatch.failed.length > 0) {
+    logger.warn("alert resolution notification partially or fully failed", {
+      incidentId: existing.id,
+      delivered: dispatch.delivered,
+      failed: dispatch.failed,
+    });
+  }
 
-  return { resolved: true, incidentId: existing.id };
+  // The DB state change is what "resolved" means; delivery is reported separately
+  // so a dead notify channel cannot make a resolved incident look unresolved.
+  return {
+    resolved: true,
+    incidentId: existing.id,
+    notified: dispatch.delivered.length > 0,
+    deliveredChannels: dispatch.delivered,
+    failedChannels: dispatch.failed,
+  };
 }
 
 export async function acknowledgeAlertIncident(input: {
@@ -429,8 +514,10 @@ export async function acknowledgeAlertIncident(input: {
  * Level increases by 1 (capped at 3) and re-notifies on-call + admins.
  * Uses conditional updateMany so overlapping workers cannot double-notify the same level.
  */
-export async function escalateOverdueAlertIncidents(): Promise<{ escalated: number }> {
+export async function escalateOverdueAlertIncidents(): Promise<{ escalated: number; notifyFailures: number }> {
   let escalated = 0;
+  // Escalations that reached zero channels — the caller/cron can surface this.
+  let notifyFailures = 0;
   const nowMs = Date.now();
   // Paginate until a short page so older rows beyond the first 200 are not starved.
   for (let page = 0; page < 20; page += 1) {
@@ -485,7 +572,7 @@ export async function escalateOverdueAlertIncidents(): Promise<{ escalated: numb
       const adminIds = await resolveNotifyUserIds([], incident.rule.teamId ?? null);
       const merged = Array.from(new Set([...userIds, ...adminIds]));
 
-      await dispatchChannels({
+      const escalationDispatch = await dispatchChannels({
         userIds: merged,
         type: "server_alert",
         title: incident.title,
@@ -508,14 +595,26 @@ export async function escalateOverdueAlertIncidents(): Promise<{ escalated: numb
         incidentId: incident.id,
         level: nextLevel,
         ruleId: incident.ruleId,
+        delivered: escalationDispatch.delivered,
+        failed: escalationDispatch.failed,
       });
+      // An escalation nobody received is the failure mode escalation exists to
+      // prevent — surface it loudly rather than counting it as a success.
+      if (escalationDispatch.delivered.length === 0) {
+        logger.error("alert escalation reached no channel", {
+          incidentId: incident.id,
+          level: nextLevel,
+          failed: escalationDispatch.failed,
+        });
+        notifyFailures += 1;
+      }
       escalated += 1;
     }
 
     if (open.length < 200) break;
   }
 
-  return { escalated };
+  return { escalated, notifyFailures };
 }
 
 export async function listAlertIncidents(options?: {

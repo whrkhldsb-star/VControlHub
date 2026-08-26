@@ -300,7 +300,11 @@ export async function evaluateAlerts() {
         cooldownMinutes: rule.cooldownMinutes,
       });
 
-      if (fire.notified) {
+      // Stamp lastTriggeredAt and run remediation on a fresh fire regardless of
+      // delivery outcome. `notified` reflects only whether a human was paged;
+      // best-effort delivery failure must not lose the trigger record or skip
+      // automation. Per-host notify spam control lives in the incident layer.
+      if (fire.fired) {
         ruleFiredThisPass = true;
         latestFireAt = now;
         for (const playbookId of rule.playbookIds ?? []) {

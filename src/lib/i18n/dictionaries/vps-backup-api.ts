@@ -14,6 +14,9 @@ export const zh = {
 	"vpsBackupApi.errorFileNotFound": "备份文件不存在",
 	"vpsBackupApi.errorCustomPathsRequired": "自定义备份至少需要一条路径",
 	"vpsBackupApi.errorScheduleNotFound": "备份计划不存在",
+	"vpsBackupApi.errorRecordNotFound": "备份记录不存在",
+	"vpsBackupApi.errorRetryNotFailed": "只有失败的备份记录才能重试",
+	"vpsBackupApi.errorRetentionRange": "保留天数必须在 1 到 365 之间",
 };
 
 export const en = {
@@ -28,4 +31,7 @@ export const en = {
 	"vpsBackupApi.errorFileNotFound": "Backup file not found",
 	"vpsBackupApi.errorCustomPathsRequired": "Custom backup requires at least one path",
 	"vpsBackupApi.errorScheduleNotFound": "Backup schedule not found",
+	"vpsBackupApi.errorRecordNotFound": "Backup record not found",
+	"vpsBackupApi.errorRetryNotFailed": "Only failed backup records can be retried",
+	"vpsBackupApi.errorRetentionRange": "Retention days must be between 1 and 365",
 };
