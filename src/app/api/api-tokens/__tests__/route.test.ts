@@ -13,20 +13,20 @@ const { mocks } = vi.hoisted(() => ({
 vi.mock("@/lib/auth/require-api-permission", () => ({
   requireApiPermission: mocks.requireApiPermission,
 }));
-vi.mock("@/lib/api-token/service", () => ({
-  listApiTokens: mocks.listApiTokens,
-  createApiToken: mocks.createApiToken,
-  revokeApiToken: mocks.revokeApiToken,
-  ALLOWED_API_TOKEN_SCOPES: [
-    "read",
-    "server:read",
-    "storage:read",
-    "storage:write",
-    "storage:delete",
-    "health:read",
-    "status:read",
-  ],
-}));
+// Keep the real pure helpers (normalizeScopes / ALLOWED_API_TOKEN_SCOPES /
+// isAllowedApiTokenScope) — the route now delegates scope validation to the
+// service's normalizeScopes, so a wholesale stub would drift. Only the three
+// DB-touching functions are mocked. `@/lib/db` is a lazy Proxy, so importing
+// the real module here instantiates no Prisma client.
+vi.mock("@/lib/api-token/service", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/api-token/service")>();
+  return {
+    ...actual,
+    listApiTokens: mocks.listApiTokens,
+    createApiToken: mocks.createApiToken,
+    revokeApiToken: mocks.revokeApiToken,
+  };
+});
 vi.mock("@/lib/audit/service", () => ({
   auditUserAction: mocks.auditUserAction,
 }));
@@ -101,8 +101,10 @@ describe("/api/api-tokens", () => {
     });
     const res = await route.POST(req);
     expect(res.status).toBe(400);
+    // The rejection names the offending scope; assert on that (locale-independent)
+    // rather than the literal word "scope", since the message is i18n'd.
     expect(await res.json()).toMatchObject({
-      error: expect.stringContaining("scope"),
+      error: expect.stringContaining("admin:everything"),
     });
     expect(mocks.createApiToken).not.toHaveBeenCalled();
   });
@@ -216,5 +218,16 @@ describe("/api/api-tokens", () => {
       "api_token.revoke",
       expect.objectContaining({ tokenId: "tok1" }),
     undefined, null);
+  });
+
+  it("surfaces a 404 (not a 500) when revoking a nonexistent or non-owned token", async () => {
+    const { NotFoundError } = await import("@/lib/errors");
+    mocks.revokeApiToken.mockRejectedValueOnce(new NotFoundError("API token not found"));
+    const req = new Request("http://local/api/api-tokens?id=ghost", {
+      method: "DELETE",
+    });
+    const res = await route.DELETE(req);
+    expect(res.status).toBe(404);
+    expect(mocks.auditUserAction).not.toHaveBeenCalled();
   });
 });

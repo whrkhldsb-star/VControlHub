@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { ValidationError } from "@/lib/errors";
+import { NotFoundError, ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 
 const TOKEN_BYTES=32;
@@ -27,13 +28,15 @@ export function hashApiToken(token: string) {
   return createHash("sha256").update(token, "utf8").digest("hex");
 }
 
-function normalizeScopes(scopes?: string[]) {
+export function normalizeScopes(scopes?: string[]) {
   const normalized = Array.from(
     new Set((scopes ?? ["read"]).map((s) => s.trim()).filter(Boolean)),
   );
   const invalid = normalized.filter((scope) => !isAllowedApiTokenScope(scope));
   if (invalid.length > 0) {
-    throw new ValidationError(`Unsupported scope: ${invalid.join(", ")}`);
+    throw new ValidationError(
+      t("backend.api-token.unsupportedScope", { scopes: invalid.join(", ") }),
+    );
   }
   return (normalized.length > 0 ? normalized : ["read"]).slice(0, 20);
 }
@@ -80,7 +83,23 @@ export async function listApiTokens(userId: string, limit = 200) {
 }
 
 export async function revokeApiToken(input: { userId: string; id: string }) {
-  return prisma.apiToken.update({ where: { id: input.id, createdBy: input.userId }, data: { revokedAt: new Date() } });
+  try {
+    return await prisma.apiToken.update({
+      where: { id: input.id, createdBy: input.userId },
+      data: { revokedAt: new Date() },
+    });
+  } catch (error) {
+    // A nonexistent id, or a token owned by another user, yields P2025
+    // ("record not found") for the scoped where. Surface it as a 404 instead
+    // of leaking a generic 500 — the caller never proves the token exists.
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2025"
+    ) {
+      throw new NotFoundError(t("backend.api-token.tokenNotFound"));
+    }
+    throw error;
+  }
 }
 
 /** Skip lastUsedAt writes when the token was already marked used within this window. */

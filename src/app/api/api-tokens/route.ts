@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import {
-  ALLOWED_API_TOKEN_SCOPES,
   createApiToken,
   listApiTokens,
+  normalizeScopes,
   revokeApiToken,
 } from "@/lib/api-token/service";
 import { apiTokenScopeAllowedForSession } from "@/lib/api-token/authorization";
@@ -22,8 +22,6 @@ import {
 } from "@/lib/http/request-body";
 import { t as serviceT } from "@/lib/i18n/service-translations";
 export const dynamic = "force-dynamic";
-
-const allowedScopes = new Set<string>(ALLOWED_API_TOKEN_SCOPES);
 
 const createTokenSchema = z.object({
   name: z
@@ -50,17 +48,6 @@ async function parseCreateBody(request: Request) {
     scopes: scopes.length > 0 ? scopes : undefined,
     expiresAt: form.get("expiresAt") ? String(form.get("expiresAt")) : null,
   };
-}
-
-function validateScopes(scopes: string[]) {
-  const normalized = Array.from(
-    new Set(scopes.map((scope) => scope.trim()).filter(Boolean)),
-  );
-  const invalid = normalized.filter((scope) => !allowedScopes.has(scope));
-  if (invalid.length > 0) {
-    throw new Error(`Unsupported scope: ${invalid.join(", ")}`);
-  }
-  return normalized.length > 0 ? normalized : ["read"];
 }
 
 function parseExpiresAt(value?: string | null) {
@@ -117,7 +104,7 @@ export async function POST(request: Request) {
         throw new AuthError("Unauthorized");
 
       const parsed = isFormSubmission ? createTokenSchema.parse(await parseCreateBody(request)) : body;
-      const scopes = validateScopes(parsed.scopes);
+      const scopes = normalizeScopes(parsed.scopes);
       const unauthorizedScopes = scopes.filter(
         (scope) => !apiTokenScopeAllowedForSession(scope, session),
       );
