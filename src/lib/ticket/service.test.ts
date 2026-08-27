@@ -328,8 +328,7 @@ describe("ticket service", () => {
 
   it("recomputes slaDueAt when priority changes on an open ticket", async () => {
     mockPrisma.ticket.findFirst
-      .mockResolvedValueOnce({ status: "OPEN", teamId: "team_a" })
-      .mockResolvedValueOnce({ createdAt: new Date("2026-01-01T00:00:00Z"), status: "OPEN" })
+      .mockResolvedValueOnce({ status: "OPEN", teamId: "team_a", createdAt: new Date("2026-01-01T00:00:00Z") })
       .mockResolvedValueOnce({
         id: "tk1",
         status: "IN_PROGRESS",
@@ -360,6 +359,35 @@ describe("ticket service", () => {
       }),
     );
     expect(updated.priority).toBe("URGENT");
+  });
+
+  it("recomputes SLA on reopen (RESOLVED→IN_PROGRESS) with a priority change", async () => {
+    // Regression: the guard must key off the RESULTING status, not the stale
+    // pre-transition row. Reopening a RESOLVED ticket makes it active again, so
+    // a priority change here must produce a fresh SLA deadline.
+    mockPrisma.ticket.findFirst
+      .mockResolvedValueOnce({ status: "RESOLVED", teamId: "team_a", createdAt: new Date("2026-01-01T00:00:00Z") })
+      .mockResolvedValueOnce({ id: "tk1", status: "IN_PROGRESS", priority: "HIGH", teamId: "team_a", title: "t", description: "d", category: null });
+    mockPrisma.ticket.updateMany.mockResolvedValueOnce({ count: 1 });
+    const session = { userId: "u1", roles: ["admin"] as any, currentTeamId: "team_a" };
+    await updateTicketStatus({ id: "tk1", status: "IN_PROGRESS", priority: "HIGH", session, skipItsmFanOut: true });
+    const data = mockPrisma.ticket.updateMany.mock.calls[0][0].data;
+    expect(data.slaDueAt).toBeInstanceOf(Date);
+    expect(data.escalatedAt).toBeNull();
+  });
+
+  it("does NOT recompute SLA when resolving (IN_PROGRESS→RESOLVED) with a priority change", async () => {
+    // Regression: old code keyed off the pre-transition status ("IN_PROGRESS")
+    // and would reset the SLA on a ticket that is being resolved.
+    mockPrisma.ticket.findFirst
+      .mockResolvedValueOnce({ status: "IN_PROGRESS", teamId: "team_a", createdAt: new Date("2026-01-01T00:00:00Z") })
+      .mockResolvedValueOnce({ id: "tk1", status: "RESOLVED", priority: "HIGH", teamId: "team_a", title: "t", description: "d", category: null });
+    mockPrisma.ticket.updateMany.mockResolvedValueOnce({ count: 1 });
+    const session = { userId: "u1", roles: ["admin"] as any, currentTeamId: "team_a" };
+    await updateTicketStatus({ id: "tk1", status: "RESOLVED", priority: "HIGH", session, skipItsmFanOut: true });
+    const data = mockPrisma.ticket.updateMany.mock.calls[0][0].data;
+    expect(data.slaDueAt).toBeUndefined();
+    expect("escalatedAt" in data).toBe(false);
   });
 
 });

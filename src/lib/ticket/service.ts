@@ -262,11 +262,11 @@ export async function updateTicketStatus(input: {
     const current = input.session
       ? await prisma.ticket.findFirst({
           where: { id: input.id, ...teamFilter },
-          select: { status: true, teamId: true },
+          select: { status: true, teamId: true, createdAt: true },
         })
       : await prisma.ticket.findUnique({
           where: { id: input.id },
-          select: { status: true, teamId: true },
+          select: { status: true, teamId: true, createdAt: true },
         });
     if (!current) throw new NotFoundError(t("backend.ticket.ticketNotFound"));
     const allowed = TRANSITIONS[current.status] ?? new Set<string>();
@@ -286,18 +286,12 @@ export async function updateTicketStatus(input: {
       data.priority = input.priority;
       // Priority change must recompute SLA deadline; otherwise escalations and
       // UI badges keep the old due time (false "breached" / false "ok").
-      const row = input.session
-        ? await prisma.ticket.findFirst({
-            where: { id: input.id, ...teamFilter },
-            select: { createdAt: true, status: true },
-          })
-        : await prisma.ticket.findUnique({
-            where: { id: input.id },
-            select: { createdAt: true, status: true },
-          });
-      if (row && row.status !== "CLOSED" && row.status !== "RESOLVED") {
+      // Key off the status the ticket will HAVE after this update (input.status),
+      // not the stale pre-transition row: reopening RESOLVED→OPEN with a new
+      // priority must get a fresh SLA, and closing OPEN→CLOSED must not.
+      if (input.status !== "CLOSED" && input.status !== "RESOLVED") {
         const { computeSlaDueAt } = await import("./sla");
-        data.slaDueAt = computeSlaDueAt(row.createdAt, input.priority);
+        data.slaDueAt = computeSlaDueAt(current.createdAt, input.priority);
         data.escalatedAt = null;
       }
     }

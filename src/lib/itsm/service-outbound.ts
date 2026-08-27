@@ -87,9 +87,14 @@ export async function fanOutTicketEvent(input: {
   const connections = await prisma.itsmConnection.findMany({
     where: {
       enabled: true,
-      ...(input.teamId
-        ? { OR: [{ teamId: input.teamId }, { teamId: null }] }
-        : { teamId: null }),
+      // A ticket fans out ONLY to its own team's connections. null-team
+      // connections are legacy/private (see connectionScope: they are "not
+      // global integrations that every tenant can inspect or mutate"), so
+      // including them for a team ticket would push one team's ticket data to
+      // an integration another user configured and manages — a cross-tenant
+      // leak. Legacy tickets with no team still reach legacy null-team
+      // connections (same quarantined scope), keeping the mapping symmetric.
+      teamId: input.teamId ?? null,
     },
     take: 50,
   });
