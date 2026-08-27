@@ -201,7 +201,18 @@ export async function evaluateAlerts(options?: { ruleWhere?: Record<string, unkn
           value = server.diskMax;
           break;
         case "server_offline":
-          value = server.status === "offline" ? 1 : 0;
+          // A disabled host is intentionally unmonitored — collectAllHealth
+          // reports it as status "offline" for the dashboard chip, but that is
+          // an administrative state, not a network outage. Treating it as a
+          // match here would fire a false "offline" alert on disable and a
+          // false "back online" resolution on re-enable. Every other metric is
+          // already immune (disabled hosts carry undefined cpu/mem → skipped);
+          // this is the only metric that derives its value from `status`.
+          value = server.enabled
+            ? server.status === "offline"
+              ? 1
+              : 0
+            : undefined;
           break;
         case "network_in":
           value = server.networkInKbps;
@@ -247,7 +258,10 @@ export async function evaluateAlerts(options?: { ruleWhere?: Record<string, unkn
           Boolean(matchState[LEGACY_MATCH_KEY]);
         if (hadMatch) {
           const resolvedTitle = `Alert resolved: ${server.serverName} ${rule.metric === "server_offline" ? "back online" : rule.metric.replace("_", " ")}`;
-          const resolvedMessage = `${rule.name}: ${rule.metric} has returned to normal range (threshold ${rule.operator} ${rule.threshold})`;
+          const resolvedMessage =
+            rule.metric === "server_offline"
+              ? `${rule.name}: ${server.serverName} is reachable again`
+              : `${rule.name}: ${rule.metric} has returned to normal range (threshold ${rule.operator} ${rule.threshold})`;
           await resolveAlertIncident({
             ruleId: rule.id,
             serverId: server.serverId,

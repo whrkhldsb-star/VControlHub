@@ -239,6 +239,42 @@ describe("evaluateAlerts", () => {
 		});
 	});
 
+	it("does not fire a server_offline alert for an administratively disabled host", async () => {
+		// A disabled host is reported as status "offline" for the dashboard chip,
+		// but disabling is not a network outage. An explicit-target server_offline
+		// rule must not raise a false "offline" alert (nor a false "back online"
+		// resolution) just because the host was turned off in the UI.
+		prismaMock.server.findMany.mockResolvedValue([
+			{ id: "srv1", name: "Retired", host: "10.0.0.1", port: 22, enabled: false },
+		]);
+		prismaMock.alertRule.findMany.mockResolvedValue([
+			{
+				id: "rule_off",
+				name: "Server offline",
+				metric: "server_offline",
+				threshold: 1,
+				operator: "eq",
+				durationSeconds: 0,
+				enabled: true,
+				lastTriggeredAt: null,
+				lastMatchedAt: null,
+				matchState: {},
+				cooldownMinutes: 0,
+				silenceWindows: [],
+				serverIds: ["srv1"],
+				notifyChannels: ["in_app"],
+				webhookUrl: null,
+			},
+		]);
+
+		await evaluateAlerts();
+
+		expect(prismaMock.alertIncident.create).not.toHaveBeenCalled();
+		expect(createNotificationMock).not.toHaveBeenCalled();
+		// The disabled host never reaches metric collection.
+		expect(collectServerMetricsMock).not.toHaveBeenCalled();
+	});
+
 	it("does not resolve unrelated hosts from a global lastMatchedAt alone", async () => {
 		vi.useFakeTimers();
 		vi.setSystemTime(new Date("2026-05-25T01:05:00.000Z"));
