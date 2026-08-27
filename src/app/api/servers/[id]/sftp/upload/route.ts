@@ -19,7 +19,7 @@ import { assertSftpPathAccess } from "@/lib/ssh/sftp-access-control";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
 import { auditUserAction } from "@/lib/audit/service";
 import { getErrorMessage } from "@/lib/http/error-message";
-import { requestContentLengthExceeds } from "@/lib/http/request-body";
+import { requestContentLengthExceeds, requestContentLengthMissing } from "@/lib/http/request-body";
 
 export const dynamic = "force-dynamic";
 // guardMode: manual
@@ -52,6 +52,14 @@ export async function POST(
     return NextResponse.json(
       { error: `File size exceeds ${MAX_UPLOAD_SIZE / 1024 / 1024}MB limit` },
       { status: 413 },
+    );
+  }
+  // Without a declared length, request.formData() would buffer a chunked body
+  // of unknown size into memory before any check — reject before parsing.
+  if (requestContentLengthMissing(request)) {
+    return NextResponse.json(
+      { error: "Content-Length required for uploads" },
+      { status: 411 },
     );
   }
 

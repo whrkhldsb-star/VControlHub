@@ -26,6 +26,18 @@ export function requestContentLengthExceeds(
 	return declared !== null && declared > maxBytes;
 }
 
+/**
+ * True when the request carries no usable Content-Length (missing, non-numeric,
+ * or unsafe). `requestContentLengthExceeds` can only reject a *declared* length,
+ * so a chunked/omitted-length body slips past it and is then fully buffered by
+ * request.formData() — an unbounded-memory DoS on upload routes. File-upload
+ * handlers should reject these with 411 before parsing; legitimate browser
+ * multipart uploads always send Content-Length.
+ */
+export function requestContentLengthMissing(request: Request): boolean {
+	return declaredContentLength(request) === null;
+}
+
 /** Read a raw request body while enforcing a hard in-memory byte limit. */
 export async function readRequestBodyBuffer(
 	request: Request,

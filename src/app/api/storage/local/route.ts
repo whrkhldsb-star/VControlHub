@@ -25,7 +25,7 @@ import { normalizeRemoteTargetPath } from "@/lib/storage/remote-path";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { MAX_STORAGE_UPLOAD_BYTES } from "@/lib/storage/mime-constants";
-import { requestContentLengthExceeds } from "@/lib/http/request-body";
+import { requestContentLengthExceeds, requestContentLengthMissing } from "@/lib/http/request-body";
 
 import { AuthError, ValidationError } from "@/lib/errors";
 import { isUniqueViolation } from "@/lib/db";
@@ -76,6 +76,17 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
         maxUploadBytes: MAX_STORAGE_UPLOAD_BYTES,
       },
       { status: 413 },
+    );
+  }
+  // A chunked/omitted Content-Length would let request.formData() buffer an
+  // unbounded body into memory before any size check — reject before parsing.
+  if (requestContentLengthMissing(request)) {
+    return NextResponse.json(
+      {
+        error: t("api.storage.uploadTooLarge", locale),
+        maxUploadBytes: MAX_STORAGE_UPLOAD_BYTES,
+      },
+      { status: 411 },
     );
   }
   const formData = await request.formData();

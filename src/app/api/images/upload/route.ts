@@ -34,7 +34,7 @@ import type { SessionPayload } from "@/lib/auth/session";
 
 import { AppError, ForbiddenError, ValidationError, isAppError } from "@/lib/errors";
 import { getServerLocale, t, type Locale } from "@/lib/i18n/translations";
-import { requestContentLengthExceeds } from "@/lib/http/request-body";
+import { requestContentLengthExceeds, requestContentLengthMissing } from "@/lib/http/request-body";
 import { MAX_IMAGE_UPLOAD_BYTES } from "@/lib/upload/types";
 export const dynamic = "force-dynamic";
 const MAX_MULTIPART_OVERHEAD_BYTES = 1024 * 1024;
@@ -112,6 +112,14 @@ async function handleUpload(request: Request, userId: string, session: SessionPa
       return NextResponse.json(
         { error: t("api.image.fileTooLarge", locale) },
         { status: 413 },
+      );
+    }
+    // No declared length means request.formData() would buffer a chunked body
+    // of unknown size into memory before the size check below — reject up front.
+    if (requestContentLengthMissing(request)) {
+      return NextResponse.json(
+        { error: t("api.image.fileTooLarge", locale) },
+        { status: 411 },
       );
     }
     const formData = await request.formData();
