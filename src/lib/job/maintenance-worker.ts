@@ -20,6 +20,7 @@ import {
   abandonStaleRunningVpsBackupRecords,
 } from "@/lib/backup/vps-backup-service";
 import { abandonStaleRunningBackupRecords } from "@/lib/backup/service";
+import { reconcileStaleRunningDownloadTasks } from "@/lib/downloads/reconcile";
 import { sweepExpiredMediaUploadSessions } from "@/lib/upload/service";
 
 const logger = createLogger("job-maintenance-worker");
@@ -207,6 +208,22 @@ async function tick(reason: string) {
         workerId: WORKER_ID,
         abandoned: abandonedRunningBackups.abandoned,
         ids: abandonedRunningBackups.ids,
+      });
+    }
+    // RUNNING DownloadTasks have no in-band reaper. A direct download whose
+    // user closed the tab finishes remotely but the row is only reconciled on a
+    // manual refresh (route-patch), and a relay whose worker died mid-run sits
+    // RUNNING forever. Probe the real remote state (pid/exit marker, or aria2
+    // gid) and finalize only on a definitive answer — never a blind updatedAt
+    // timeout, since a large unwatched direct download legitimately has a stale
+    // row while curl is still writing.
+    const reconciledDownloads = await reconcileStaleRunningDownloadTasks();
+    if (reconciledDownloads.completed > 0 || reconciledDownloads.failed > 0) {
+      logger.info("reconciled stale RUNNING download tasks", {
+        workerId: WORKER_ID,
+        completed: reconciledDownloads.completed,
+        failed: reconciledDownloads.failed,
+        ids: reconciledDownloads.ids,
       });
     }
     // Reclaim temp chunks + session rows from uploads abandoned mid-flight

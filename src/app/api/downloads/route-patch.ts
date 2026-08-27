@@ -10,8 +10,8 @@ import {
   changeOption,
   changeGlobalOption,
 } from "@/lib/aria2/service";
-import { execRemoteCommand, buildSshParamsFromServer } from "@/lib/ssh/client";
-import { shellQuote } from "@/lib/downloads/remote-command";
+import { buildSshParamsFromServer } from "@/lib/ssh/client";
+import { probeDirectDownloadRemote } from "@/lib/downloads/reconcile";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import {
   deriveDownloadFileNameFromUrl,
@@ -187,41 +187,18 @@ export async function PATCH(request: Request) {
               task.server,
               task.server.sshKey,
             );
-            const safeTaskFileStem = task.id.replace(/[^A-Za-z0-9_-]/g, "_");
-            const pidFile = `/tmp/app-dl-${safeTaskFileStem}.pid`;
-            const exitFile = `${pidFile}.exit`;
-            const outputPath = task.fileName
-              ? `${task.targetPath.replace(/\/$/, "")}/${task.fileName}`
-              : "";
-            const statSnippet = outputPath
-              ? `if [ -f ${shellQuote(outputPath)} ]; then stat -c %s -- ${shellQuote(outputPath)} 2>/dev/null || echo 0; else echo 0; fi`
-              : "echo 0";
-            const probeCommand = [
-              `if [ -f ${shellQuote(exitFile)} ]; then`,
-              "  status=$(cat " + shellQuote(exitFile) + " 2>/dev/null || echo 1)",
-              "  if [ \"$status\" = \"0\" ]; then echo COMPLETED; else echo FAILED; fi",
-              `  ${statSnippet}`,
-              outputPath ? `  echo ${shellQuote(outputPath)}` : "  echo",
-              `elif kill -0 ${task.pid} 2>/dev/null; then`,
-              "  echo RUNNING",
-              "  echo 0",
-              "else",
-              "  echo FAILED",
-              "  echo 0",
-              "fi",
-            ].join("\n");
-            const { stdout } = await execRemoteCommand({
-              ...sshParams,
-              command: probeCommand,
-              timeout: 10000,
+            const probe = await probeDirectDownloadRemote({
+              taskId: task.id,
+              pid: task.pid,
+              url: task.url,
+              fileName: task.fileName ?? null,
+              targetPath: task.targetPath,
+              sshParams,
             });
-            const [remoteState, sizeLine, resolvedPathLine] = stdout.trim().split(/\r?\n/);
-            if (remoteState === "COMPLETED") {
-              const size = /^\d+$/.test(sizeLine ?? "") ? sizeLine : null;
+            if (probe.state === "COMPLETED") {
+              const size = probe.size;
               const resolvedFileName =
-                task.fileName ||
-                (resolvedPathLine ? resolvedPathLine.split("/").filter(Boolean).pop() ?? null : null) ||
-                deriveDownloadFileNameFromUrl(task.url);
+                probe.resolvedFileName ?? deriveDownloadFileNameFromUrl(task.url);
               const data = {
                 status: "COMPLETED" as const,
                 progress: t("apiDownloads.completed", locale),
@@ -254,7 +231,7 @@ export async function PATCH(request: Request) {
                 downloadAccess,
               });
             }
-            if (remoteState === "FAILED") {
+            if (probe.state === "FAILED") {
               const data = {
                 status: "FAILED" as const,
                 progress: t("apiDownloads.failed", locale),

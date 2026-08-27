@@ -53,6 +53,10 @@ vi.mock("@/lib/upload/service", () => ({
   sweepExpiredMediaUploadSessions: vi.fn(async () => 0),
 }));
 
+vi.mock("@/lib/downloads/reconcile", () => ({
+  reconcileStaleRunningDownloadTasks: vi.fn(async () => ({ completed: 0, failed: 0, ids: [] })),
+}));
+
 const {
   abandonOrphanPendingJobs,
   _knownJobTypesForTests,
