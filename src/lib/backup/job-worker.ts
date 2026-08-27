@@ -318,30 +318,49 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
         leaseMs: LEASE_MS,
         progress: "Cleaning up old backups",
       });
-      const summary = await pruneOldBackupRecordsNow({
-        olderThanDays: payload.olderThanDays,
-        keepLatestPerType: payload.keepLatestPerType,
-        projectRoot: payload.projectRoot,
-        teamId: payload.teamId,
+      // Retention deletes N records + unlinks N archive files (plus a
+      // platform-wide offsite object sweep). On a large backlog this easily
+      // exceeds the 30s lease, so renew it under runWithLeaseHeartbeat —
+      // otherwise the lease expires mid-prune and the stale reaper / a sibling
+      // worker re-claims and runs a *duplicate* prune concurrently. The other
+      // long-running branches (create/restore/drill/offsite-sync) already do
+      // this; retention was the one that ran unprotected.
+      const { summary, offsite } = await runWithLeaseHeartbeat({
+        jobId: job.id,
+        leaseMs: LEASE_MS,
+        heartbeat: () =>
+          heartbeatJob(job.id, WORKER_ID, {
+            leaseMs: LEASE_MS,
+            progress: "Cleaning up old backups",
+          }),
+        run: async () => {
+          const localSummary = await pruneOldBackupRecordsNow({
+            olderThanDays: payload.olderThanDays,
+            keepLatestPerType: payload.keepLatestPerType,
+            projectRoot: payload.projectRoot,
+            teamId: payload.teamId,
+          });
+          // Offsite retentionDays is platform-wide; run best-effort prune alongside local retention.
+          let offsiteResult: Awaited<
+            ReturnType<
+              typeof import("@/lib/storage/offsite/retention").pruneOffsiteObjects
+            >
+          > | null = null;
+          try {
+            const { pruneOffsiteObjects } =
+              await import("@/lib/storage/offsite/retention");
+            offsiteResult = await pruneOffsiteObjects();
+          } catch (offsiteErr) {
+            logger.warn("offsite retention prune failed (non-fatal)", {
+              error:
+                offsiteErr instanceof Error
+                  ? offsiteErr.message
+                  : String(offsiteErr),
+            });
+          }
+          return { summary: localSummary, offsite: offsiteResult };
+        },
       });
-      // Offsite retentionDays is platform-wide; run best-effort prune alongside local retention.
-      let offsite: Awaited<
-        ReturnType<
-          typeof import("@/lib/storage/offsite/retention").pruneOffsiteObjects
-        >
-      > | null = null;
-      try {
-        const { pruneOffsiteObjects } =
-          await import("@/lib/storage/offsite/retention");
-        offsite = await pruneOffsiteObjects();
-      } catch (offsiteErr) {
-        logger.warn("offsite retention prune failed (non-fatal)", {
-          error:
-            offsiteErr instanceof Error
-              ? offsiteErr.message
-              : String(offsiteErr),
-        });
-      }
       await completeJob(job.id, WORKER_ID, {
         retention: {
           deletedRecords: summary.deletedRecords,

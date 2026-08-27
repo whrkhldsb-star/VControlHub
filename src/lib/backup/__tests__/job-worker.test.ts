@@ -63,10 +63,15 @@ vi.mock("@/lib/backup/vps-backup-service", () => ({
   retryPendingVpsOffsiteUploads: mocks.retryPendingVpsOffsiteUploads,
 }));
 
+vi.mock("@/lib/storage/offsite/retention", () => ({
+  pruneOffsiteObjects: vi.fn().mockResolvedValue(null),
+}));
+
 const {
   runBackupJobWorkerOnce,
   BACKUP_CREATE_JOB_TYPE,
   BACKUP_OFFSITE_SYNC_JOB_TYPE,
+  BACKUP_RETENTION_JOB_TYPE,
 } = await import("../job-worker");
 
 describe("backup job worker create path", () => {
@@ -184,6 +189,46 @@ describe("backup job worker create path", () => {
       expect.stringContaining("Unsupported backup job type"),
     );
     expect(mocks.failJob).not.toHaveBeenCalled();
+  });
+
+  it("runs backup retention under lease-renewal and completes with the prune summary", async () => {
+    mocks.claimNextJob.mockResolvedValueOnce({
+      id: "job_retention",
+      type: BACKUP_RETENTION_JOB_TYPE,
+      payload: { olderThanDays: 30, teamId: "team_1" },
+    });
+    mocks.pruneOldBackupRecordsNow.mockResolvedValueOnce({
+      deletedRecords: 12,
+      filesDeleted: 12,
+      filesSkipped: 0,
+      fileErrors: 0,
+      olderThanDays: 30,
+      keepLatestPerType: 3,
+      cutoff: new Date("2026-07-28T00:00:00.000Z"),
+      oldestKeptByType: { DATABASE: new Date("2026-08-01T00:00:00.000Z"), FULL: null },
+    });
+
+    const ran = await runBackupJobWorkerOnce();
+    expect(ran).toBe(true);
+    // The (potentially long) prune must run under runWithLeaseHeartbeat so the
+    // lease is renewed — otherwise it expires mid-prune and the stale reaper /
+    // a sibling worker re-claims and runs a duplicate prune.
+    expect(mocks.runWithLeaseHeartbeat).toHaveBeenCalledWith(
+      expect.objectContaining({
+        jobId: "job_retention",
+        heartbeat: expect.any(Function),
+        run: expect.any(Function),
+      }),
+    );
+    expect(mocks.completeJob).toHaveBeenCalledWith(
+      "job_retention",
+      expect.any(String),
+      expect.objectContaining({
+        retention: expect.objectContaining({ deletedRecords: 12, filesDeleted: 12 }),
+      }),
+    );
+    expect(mocks.failJob).not.toHaveBeenCalled();
+    expect(mocks.failJobTerminal).not.toHaveBeenCalled();
   });
 
   it("fails the durable offsite-sync job when any upload fails", async () => {
