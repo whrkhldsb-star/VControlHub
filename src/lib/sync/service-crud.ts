@@ -149,6 +149,17 @@ export async function updateSyncJob(
 ) {
 	const existing = await getSyncJob(id, session);
 	if (!existing) throw new NotFoundError(t("backend.sync.syncJobNotFound"));
+	// createSyncJob refuses an endpoint that syncs a path onto itself; a PATCH of
+	// sourcePath/targetPath must not be able to reach that state either. On one
+	// server with the same path and deleteOrphans, the tar fallback pipes
+	// `tar cf - -C <path> .` into a remote `find ... -exec rm -rf` on that very
+	// path — it would wipe the directory while still reading from it.
+	assertDistinctSyncEndpoints({
+		sourceServerId: existing.sourceServerId,
+		targetServerId: existing.targetServerId,
+		sourcePath: data.sourcePath ?? existing.sourcePath,
+		targetPath: data.targetPath ?? existing.targetPath,
+	});
 	const patch: Record<string, unknown> = {};
 	if (data.name !== undefined) patch.name = data.name;
 	if (data.sourcePath !== undefined) patch.sourcePath = data.sourcePath;

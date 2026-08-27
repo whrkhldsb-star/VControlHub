@@ -147,6 +147,10 @@ describe("updateSyncJob ownership CAS", () => {
       teamId: "team-1",
       syncType: "MIRROR",
       deleteOrphans: false,
+      sourceServerId: "srv-a",
+      targetServerId: "srv-b",
+      sourcePath: "/data/source",
+      targetPath: "/data/target",
     };
     prismaMock.syncJob.findFirst
       .mockResolvedValueOnce(existing)
@@ -173,6 +177,10 @@ describe("updateSyncJob ownership CAS", () => {
       teamId: "team-1",
       syncType: "MIRROR",
       deleteOrphans: false,
+      sourceServerId: "srv-a",
+      targetServerId: "srv-b",
+      sourcePath: "/data/source",
+      targetPath: "/data/target",
     });
     prismaMock.syncJob.updateMany.mockResolvedValueOnce({ count: 0 });
 
@@ -181,6 +189,29 @@ describe("updateSyncJob ownership CAS", () => {
       { name: "renamed" },
       { userId: "u1", roles: ["operator"], currentTeamId: "team-1" },
     )).rejects.toMatchObject({ name: "NotFoundError", status: 404 });
+  });
+
+  it("refuses a patch that collapses both endpoints onto the same path", async () => {
+    // createSyncJob rejects this shape; a PATCH must not be a way around it. On
+    // one server with the same path and deleteOrphans, the tar fallback wipes the
+    // target directory while `tar cf -` is still streaming from it.
+    prismaMock.syncJob.findFirst.mockResolvedValueOnce({
+      id: "job-1",
+      teamId: "team-1",
+      syncType: "MIRROR",
+      deleteOrphans: true,
+      sourceServerId: "srv-a",
+      targetServerId: "srv-a",
+      sourcePath: "/data/source",
+      targetPath: "/data/target",
+    });
+
+    await expect(updateSyncJob(
+      "job-1",
+      { targetPath: "/data/source/" },
+      { userId: "u1", roles: ["operator"], currentTeamId: "team-1" },
+    )).rejects.toMatchObject({ name: "ValidationError", status: 400 });
+    expect(prismaMock.syncJob.updateMany).not.toHaveBeenCalled();
   });
 });
 
