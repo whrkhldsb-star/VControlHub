@@ -56,6 +56,18 @@ export function buildStorageStreamHeaders(input: StorageStreamHeadersInput): Hea
 	headers.set("content-length", String(contentLength));
 	headers.set("cache-control", "private, no-store");
 	headers.set("content-disposition", buildContentDisposition(input.download ? "attachment" : "inline", input.fileName));
+	// Neutralise stored-XSS from user-controlled file bytes. `nosniff` stops the
+	// browser reinterpreting a text/octet response as HTML; the `sandbox` CSP
+	// disables scripting (SVG <script>, on* handlers, javascript:) and forces a
+	// unique origin when the resource is navigated to directly or framed as a
+	// document — the only case where a resource's own CSP applies, so in-app
+	// <img>/<video> embedding and direct media playback are unaffected. We use
+	// bare `sandbox` rather than `default-src 'none'` so a directly-opened video
+	// or image still renders (default-src 'none' blocks the MediaDocument fetch).
+	headers.set("x-content-type-options", "nosniff");
+	if (!input.download) {
+		headers.set("content-security-policy", "sandbox");
+	}
 	if (input.range.status === 206) {
 		headers.set("content-range", `bytes ${input.range.start}-${input.range.end}/${input.fileSize}`);
 	}

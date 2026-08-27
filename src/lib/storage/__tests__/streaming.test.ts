@@ -22,6 +22,24 @@ describe("storage streaming helpers", () => {
 		expect(headers.get("content-length")).toBe("1024");
 		expect(headers.get("content-range")).toBeNull();
 		expect(headers.get("content-disposition")).toContain("inline");
+		// Inline responses must neutralise stored XSS from user file bytes.
+		expect(headers.get("x-content-type-options")).toBe("nosniff");
+		expect(headers.get("content-security-policy")).toBe("sandbox");
+	});
+
+	it("omits the sandbox CSP on attachment downloads but keeps nosniff", () => {
+		const range = parseStorageRange(null, 512);
+		if (range instanceof Response) throw new Error("expected range spec");
+		const headers = buildStorageStreamHeaders({
+			fileName: "evil.svg",
+			fileSize: 512,
+			contentType: "image/svg+xml",
+			download: true,
+			range,
+		});
+		expect(headers.get("content-disposition")).toContain("attachment");
+		expect(headers.get("x-content-type-options")).toBe("nosniff");
+		expect(headers.get("content-security-policy")).toBeNull();
 	});
 
 	it("parses explicit and suffix byte ranges", () => {
