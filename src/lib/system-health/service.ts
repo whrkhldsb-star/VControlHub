@@ -3,6 +3,7 @@ import { join, relative } from "node:path";
 
 import { prisma } from "@/lib/db";
 import { config } from "@/lib/config/env";
+import { serverTeamWhere, teamWhere, type TeamSession } from "@/lib/auth/team-scope";
 import { runHealthCheckCommand } from "./command-runner";
 
 export type SystemHealthStatus = "healthy" | "warning" | "critical";
@@ -70,7 +71,7 @@ async function checkPathExists(projectRoot: string, dir: string): Promise<System
   }
 }
 
-export async function collectSystemHealthChecks(options: { projectRoot?: string } = {}): Promise<SystemHealthReport> {
+export async function collectSystemHealthChecks(options: { projectRoot?: string; session?: TeamSession } = {}): Promise<SystemHealthReport> {
   const projectRoot = options.projectRoot ?? process.cwd();
   const checks: SystemHealthCheck[] = [];
 
@@ -81,9 +82,16 @@ export async function collectSystemHealthChecks(options: { projectRoot?: string 
     checks.push({ id: "database", label: "Database connection", status: "critical", message: "Database is unavailable", detail: sanitizeDetail(error instanceof Error ? error.message : String(error)), messageCode: "critical" });
   }
 
+  // Scope inventory counts to the caller's tenant. Without a team filter these
+  // counts leak the platform-wide VPS/storage totals to every operator/viewer
+  // (health:read is granted to all non-admin roles), letting one tenant infer
+  // the size of every other tenant's fleet. Global managers (serverTeamWhere /
+  // teamWhere → {}) still see the true totals for this control-plane page.
+  const serverScope = options.session ? serverTeamWhere(options.session) : {};
+  const storageScope = options.session ? teamWhere(options.session) : {};
   const [serverCount, storageNodeCount] = await Promise.all([
-    prisma.server.count().catch(() => -1),
-    prisma.storageNode.count().catch(() => -1),
+    prisma.server.count({ where: serverScope }).catch(() => -1),
+    prisma.storageNode.count({ where: storageScope }).catch(() => -1),
   ]);
   checks.push({
     id: "server-inventory",

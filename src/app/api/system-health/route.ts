@@ -6,7 +6,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  return withApiRoute(request, { permission: "health:read" }, async () => {
-    return NextResponse.json(await collectSystemHealthChecks());
+  return withApiRoute(request, { permission: "health:read" }, async ({ session }) => {
+    return NextResponse.json(await collectSystemHealthChecks({ session: session ?? undefined }));
   });
 }

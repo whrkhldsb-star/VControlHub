@@ -42,6 +42,30 @@ describe("system health service", () => {
     expect(JSON.stringify(result)).not.toMatch(/postgres:\/\/[^\s]+:[^\s]+@/i);
   });
 
+  it("scopes inventory counts to the caller's team for non-admins", async () => {
+    await collectSystemHealthChecks({
+      projectRoot: process.cwd(),
+      session: { userId: "u1", roles: ["viewer"], currentTeamId: "team-x" },
+    });
+
+    // A team viewer must not see the platform-wide totals — serverTeamWhere
+    // pins servers to their team, teamWhere lets storage include shared (null).
+    expect(mockPrisma.server.count).toHaveBeenCalledWith({ where: { teamId: "team-x" } });
+    expect(mockPrisma.storageNode.count).toHaveBeenCalledWith({
+      where: { OR: [{ teamId: "team-x" }, { teamId: null }] },
+    });
+  });
+
+  it("counts the full fleet for global managers", async () => {
+    await collectSystemHealthChecks({
+      projectRoot: process.cwd(),
+      session: { userId: "admin", roles: ["admin"], currentTeamId: null },
+    });
+
+    expect(mockPrisma.server.count).toHaveBeenCalledWith({ where: {} });
+    expect(mockPrisma.storageNode.count).toHaveBeenCalledWith({ where: {} });
+  });
+
   it("summarizes warning and critical checks", () => {
     expect(summarizeSystemHealth([
       { id: "ok", label: "OK", status: "healthy", message: "ok" },
