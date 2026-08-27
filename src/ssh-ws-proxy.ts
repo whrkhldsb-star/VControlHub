@@ -154,6 +154,7 @@ async function resolveServerConnection(
 // ── WebSocket server ────────────────────────────────────────────────
 
 const MAX_WS_CONNECTIONS = config.ssh.wsMaxConnections;
+const WS_IDLE_TIMEOUT_MS = config.ssh.wsIdleTimeoutMs;
 const DEFAULT_WS_HEARTBEAT_INTERVAL_MS = config.ssh.wsHeartbeatIntervalMs;
 const DEFAULT_SSH_KEEPALIVE_INTERVAL_MS = config.ssh.keepaliveIntervalMs;
 const DEFAULT_SSH_KEEPALIVE_COUNT_MAX = config.ssh.keepaliveCountMax;
@@ -260,11 +261,18 @@ function extractCookie(cookieHeader: string | undefined, name: string): string |
 	return null;
 }
 
-function resolveSshSessionToken(req: import("http").IncomingMessage, url: URL): string | null {
+/**
+ * Resolve the session token from the HttpOnly session cookie only.
+ *
+ * The session JWT is long-lived and grants full app access, so it must never
+ * travel in the URL query string (leaks into proxy/access logs, browser
+ * history, Referer). The browser client sends only serverId + handshake in the
+ * query and relies on the same-origin cookie for auth, so a query fallback is
+ * dead weight and a liability — removed.
+ */
+function resolveSshSessionToken(req: import("http").IncomingMessage): string | null {
 	const fromCookie = extractCookie(req.headers.cookie, getSessionCookieName());
-	if (fromCookie) return fromCookie;
-	const fromQuery = url.searchParams.get("token");
-	return fromQuery && fromQuery.trim() ? fromQuery.trim() : null;
+	return fromCookie && fromCookie.trim() ? fromCookie.trim() : null;
 }
 
 wss.on("connection", async (ws, req) => {
@@ -293,7 +301,7 @@ wss.on("connection", async (ws, req) => {
 	const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
 	const serverId = url.searchParams.get("serverId");
 	const handshake = url.searchParams.get("handshake");
-	const token = resolveSshSessionToken(req, url);
+	const token = resolveSshSessionToken(req);
 
  if (!serverId || !token || !handshake) {
  ws.send(JSON.stringify({ type: "error", data: "Missing serverId, session, or handshake parameter" }));
@@ -350,6 +358,31 @@ wss.on("connection", async (ws, req) => {
 	const terminalRuntimeConfig = await getSshTerminalRuntimeConfigWithFallback();
 	let sshStream: import("ssh2").ClientChannel | undefined;
 
+	// Idle guard: unlike the ping/pong heartbeat (which only detects a dead
+	// transport), this reaps a *live but unattended* terminal — an open root
+	// shell left behind pins an SSH connection + PTY on the target and consumes a
+	// slot from the global cap. The clock resets on real activity in EITHER
+	// direction (client keystrokes/resize OR server output), so a user watching
+	// `tail -f` is never disconnected; only true silence trips it.
+	let idleTimer: NodeJS.Timeout | undefined;
+	const clearIdle = () => {
+		if (idleTimer) clearTimeout(idleTimer);
+		idleTimer = undefined;
+	};
+	const resetIdle = () => {
+		if (WS_IDLE_TIMEOUT_MS <= 0) return;
+		if (idleTimer) clearTimeout(idleTimer);
+		idleTimer = setTimeout(() => {
+			if (ws.readyState === WebSocket.OPEN) {
+				ws.send(JSON.stringify({ type: "closed", data: `Session closed after ${WS_IDLE_TIMEOUT_MS / 60_000} min of inactivity` }));
+				ws.close();
+			}
+			try { sshStream?.close(); } catch { /* best-effort */ }
+			try { sshClient.end(); } catch { /* best-effort */ }
+		}, WS_IDLE_TIMEOUT_MS);
+		idleTimer.unref?.();
+	};
+
   sshClient.on("ready", () => {
     sshClient.shell({ term: "xterm-256color" }, (err, stream) => {
       if (err) {
@@ -359,8 +392,10 @@ wss.on("connection", async (ws, req) => {
       }
       sshStream = stream;
       ws.send(JSON.stringify({ type: "connected" }));
+      resetIdle();
 
       stream.on("data", (data: Buffer) => {
+        resetIdle();
         if (ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ type: "output", data: data.toString("base64") }));
         }
@@ -374,6 +409,7 @@ wss.on("connection", async (ws, req) => {
       });
 
       stream.stderr?.on("data", (data: Buffer) => {
+        resetIdle();
         if (ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ type: "output", data: data.toString("base64") }));
         }
@@ -399,8 +435,10 @@ wss.on("connection", async (ws, req) => {
     try {
       const msg = JSON.parse(raw.toString());
       if (msg.type === "input" && sshStream) {
+        resetIdle();
         sshStream.write(Buffer.from(msg.data, "base64"));
       } else if (msg.type === "resize" && sshStream) {
+        resetIdle();
         sshStream.setWindow(msg.rows || 24, msg.cols || 80, 0, 0);
       }
     } catch {
@@ -409,6 +447,7 @@ wss.on("connection", async (ws, req) => {
   });
 
  ws.on("close", () => {
+ clearIdle();
  if (sshStream) { try { sshStream.close(); } catch {} }
  try { sshClient.end(); } catch {}
  });
