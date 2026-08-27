@@ -18,8 +18,10 @@ describe("api token service", () => {
     expect(result.apiToken).not.toHaveProperty("tokenHash");
     expect(JSON.stringify(result.apiToken)).not.toContain(data.tokenHash);
   });
+  // The message itself is localised (zh by default), so assert on the offending
+  // scope rather than on one locale's wording.
   it("rejects unknown requested scopes instead of creating a misleading lower-privilege token", async () => {
-    await expect(createApiToken({ userId: "u1", name: "cli", scopes: ["read", "admin:everything"] })).rejects.toThrow("Unsupported scope: admin:everything");
+    await expect(createApiToken({ userId: "u1", name: "cli", scopes: ["read", "admin:everything"] })).rejects.toThrow(/admin:everything/);
     expect(mockPrisma.apiToken.create).not.toHaveBeenCalled();
   });
   it("bounds token list hydration newest-first for growing token history", async () => {

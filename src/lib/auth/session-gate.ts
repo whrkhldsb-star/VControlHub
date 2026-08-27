@@ -30,11 +30,20 @@ export const EMPTY_GATE: SessionGate = {
  * Build a `SessionGate` from a server-issued role list. Pure, side-effect-free
  * helper so server components (e.g. `SidebarLoader`) can construct the value
  * that gets handed to the client provider.
+ *
+ * Pass `permissions` (the session's effective list, which already includes the
+ * user's direct grants) whenever a verified session is at hand: deriving them
+ * from roles alone hides sidebar entries the user is in fact allowed to open.
  */
-export function gateFromRoles(roles: RoleKey[]): SessionGate {
+export function gateFromRoles(
+	roles: RoleKey[],
+	permissions?: readonly Permission[],
+): SessionGate {
 	return {
 		roles: [...roles],
-		permissions: getPermissionsFromRoles(roles),
-		authenticated: roles.length > 0,
+		permissions: permissions ? [...permissions] : getPermissionsFromRoles(roles),
+		// A user whose access comes only from direct grants holds no built-in
+		// role, yet is still signed in.
+		authenticated: roles.length > 0 || (permissions?.length ?? 0) > 0,
 	};
 }

@@ -13,6 +13,9 @@ vi.mock("@/lib/db", () => ({
     user: {
       findUnique: vi.fn(),
     },
+    rolePermission: {
+      findMany: vi.fn(),
+    },
   },
 }));
 
@@ -77,6 +80,36 @@ describe("session auth helpers", () => {
       mustChangePassword: false,
       currentTeamId: null,
     });
+  });
+
+  it("resolves the direct grants of a custom role into session.permissions", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({
+      id: "u_1",
+      username: "alice",
+      status: "ACTIVE",
+      mustChangePassword: false,
+      currentTeamId: null,
+      roles: [{ role: { key: "viewer" } }, { role: { key: "user:u_1:custom" } }],
+    } as any);
+    vi.mocked(prisma.rolePermission.findMany).mockResolvedValueOnce([
+      { permission: { key: "docker:manage" } },
+    ] as any);
+    const token = await createSessionToken({
+      userId: "u_1",
+      username: "alice",
+      roles: ["viewer"],
+      mustChangePassword: false,
+      currentTeamId: null,
+    });
+
+    const session = await verifySessionToken(token);
+
+    // Without this the permission panel's saved grants were persisted and shown
+    // back to the admin, but never honoured by sessionHasPermission.
+    expect(session.permissions).toContain("docker:manage");
+    expect(session.permissions).toContain("storage:read");
+    // The synthetic per-user role is not a RoleKey and stays out of the list.
+    expect(session.roles).toEqual(["viewer"]);
   });
 
   it("rejects signed sessions for disabled users", async () => {

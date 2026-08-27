@@ -5,6 +5,7 @@ import {
 	type Permission,
 	type RoleKey,
 } from "@/lib/auth/rbac";
+import { resolveEffectivePermissions } from "@/lib/auth/effective-permissions";
 import type { SessionPayload } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
 
@@ -54,13 +55,22 @@ export async function loadApiTokenOwnerSession(
 	if (!user || user.status === "DISABLED" || user.mustChangePassword) {
 		return null;
 	}
-	const roles = user.roles
-		.map((entry) => entry.role.key)
-		.filter((key): key is RoleKey => key in DEFAULT_ROLE_PERMISSIONS);
+	const assignedRoleKeys = user.roles.map((entry) => entry.role.key);
+	const roles = assignedRoleKeys.filter(
+		(key): key is RoleKey => key in DEFAULT_ROLE_PERMISSIONS,
+	);
+	// Same reason as the cookie-session path: a token owner whose permission
+	// comes from a direct grant must be able to mint and use that scope.
+	const permissions = await resolveEffectivePermissions({
+		userId: user.id,
+		roles,
+		assignedRoleKeys,
+	});
 	return {
 		userId: user.id,
 		username: user.username,
 		roles,
+		permissions,
 		mustChangePassword: false,
 		currentTeamId: user.currentTeamId ?? null,
 	};

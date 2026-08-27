@@ -122,3 +122,26 @@ export function normalizeUserPreferencesForRoles(
     getAvailableDefaultPageOptions((permission) => permissions.has(permission)),
   );
 }
+
+/**
+ * Session-aware variant. A user whose `storage:read` comes from a direct grant
+ * rather than a role has that permission in `session.permissions` but not in
+ * the role-derived set, so the role-only wrapper would keep resetting their
+ * saved landing page (e.g. `/files`) back to the dashboard.
+ */
+export function normalizeUserPreferencesForSession(
+  value: unknown,
+  session: {
+    roles: readonly RoleKey[] | undefined;
+    permissions?: readonly Permission[];
+  },
+): UserPreferences {
+  if (!session.permissions) {
+    return normalizeUserPreferencesForRoles(value, session.roles);
+  }
+  const permissions = new Set<Permission>(session.permissions);
+  return normalizeUserPreferencesForAllowedDefaultPages(
+    value,
+    getAvailableDefaultPageOptions((permission) => permissions.has(permission)),
+  );
+}

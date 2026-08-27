@@ -4,8 +4,9 @@ import { auditUserAction } from "@/lib/audit/service";
 import { hashPassword, verifyPassword } from "./password";
 import { validatePasswordPolicy } from "./password-policy";
 import { changePasswordSchema, loginSchema, type ChangePasswordInput, type LoginInput } from "./schema";
-import { DEFAULT_ROLE_PERMISSIONS, getPermissionsFromRoles, type Permission, type RoleKey } from "./rbac";
-import { normalizeUserPreferencesForRoles, type UserPreferences } from "@/lib/preferences/user-preferences";
+import { DEFAULT_ROLE_PERMISSIONS, type Permission, type RoleKey } from "./rbac";
+import { normalizeUserPreferencesForSession, type UserPreferences } from "@/lib/preferences/user-preferences";
+import { resolveEffectivePermissions } from "./effective-permissions";
 
 export type AuthenticatedUser = {
  id: string;
@@ -75,7 +76,15 @@ export async function authenticateUser(input: LoginInput): Promise<Authenticated
  return null;
  }
 
- const roleKeys = deriveRoleKeys(user.roles.map((entry) => entry.role.key));
+ const assignedRoleKeys = user.roles.map((entry) => entry.role.key);
+ const roleKeys = deriveRoleKeys(assignedRoleKeys);
+ // Direct grants are not part of the static role map; resolve them here so the
+ // login redirect and the returned permission list match what the guards see.
+ const permissions = await resolveEffectivePermissions({
+   userId: user.id,
+   roles: roleKeys,
+   assignedRoleKeys,
+ });
 
  return {
  id: user.id,
@@ -86,8 +95,11 @@ export async function authenticateUser(input: LoginInput): Promise<Authenticated
  hasTwoFactorSecret: Boolean(user.twoFactorSecret),
  status: user.status,
  roles: roleKeys,
- permissions: getPermissionsFromRoles(roleKeys),
- preferences: normalizeUserPreferencesForRoles(user.preferences, roleKeys),
+ permissions,
+ preferences: normalizeUserPreferencesForSession(user.preferences, {
+   roles: roleKeys,
+   permissions,
+ }),
  currentTeamId: user.currentTeamId,
  };
 }

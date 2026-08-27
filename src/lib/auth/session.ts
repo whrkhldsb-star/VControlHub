@@ -7,6 +7,7 @@ import { prisma } from "@/lib/db";
 import { AuthError } from "@/lib/errors";
 import type { Permission, RoleKey } from "./rbac";
 import { DEFAULT_ROLE_PERMISSIONS } from "./rbac";
+import { resolveEffectivePermissions } from "./effective-permissions";
 
 const logger = createLogger("auth:session");
 
@@ -65,7 +66,13 @@ export type SessionPayload = {
   roles: RoleKey[];
   mustChangePassword: boolean;
   currentTeamId: string | null;
-  /** Explicit effective permissions for API-token sessions; cookie sessions omit this. */
+  /**
+   * Effective permissions of the session. Resolved from the database on every
+   * cookie-session verification (base roles ∪ the user's direct grants, see
+   * `effective-permissions.ts`) and from the token's grant list for API-token
+   * sessions. Never serialised into the session cookie: a revoked grant must
+   * stop working on the next request, not when the cookie expires.
+   */
   permissions?: Permission[];
 };
 
@@ -183,14 +190,23 @@ export async function verifySessionToken(token: string) {
    throw new AuthError("Session user is disabled or no longer exists");
  }
 
- const roles = user.roles
-   .map((entry) => entry.role.key)
-   .filter((key): key is RoleKey => key in DEFAULT_ROLE_PERMISSIONS);
+ const assignedRoleKeys = user.roles.map((entry) => entry.role.key);
+ const roles = assignedRoleKeys.filter(
+   (key): key is RoleKey => key in DEFAULT_ROLE_PERMISSIONS,
+ );
+ // Per-user grants live outside the static role map, so they have to be read
+ // here — otherwise every guard silently falls back to role-only permissions.
+ const permissions = await resolveEffectivePermissions({
+   userId: user.id,
+   roles,
+   assignedRoleKeys,
+ });
 
  return {
  userId: user.id,
  username: user.username,
  roles,
+ permissions,
  mustChangePassword: user.mustChangePassword,
  currentTeamId: user.currentTeamId,
  } satisfies SessionPayload;

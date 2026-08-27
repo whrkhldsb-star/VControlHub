@@ -13,7 +13,7 @@ import {
 	requestContentLengthExceeds,
 } from "@/lib/http/request-body";
 import { t } from "@/lib/i18n/service-translations";
-import { normalizeUserPreferencesForRoles } from "@/lib/preferences/user-preferences";
+import { normalizeUserPreferencesForSession } from "@/lib/preferences/user-preferences";
 
 const logger = createLogger("api:login");
 // guardMode: login
@@ -114,7 +114,7 @@ export async function POST(request: Request) {
 		// check at the redirect boundary so an alternative auth implementation or
 		// a stale saved value can never make login land on an inaccessible page.
 		const nextPath = requestedNextPath === "/"
-			? normalizeUserPreferencesForRoles(user.preferences, user.roles).defaultPage
+			? normalizeUserPreferencesForSession(user.preferences, user).defaultPage
 			: requestedNextPath;
 
 		// Log successful login & clear any previous failure count

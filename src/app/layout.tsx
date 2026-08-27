@@ -61,7 +61,7 @@ export default async function RootLayout({
 	// also calls it. Empty gate when the cookie is missing / invalid → fail-
 	// safe (every `can()` returns false → UI elements disappear).
 	const session = shouldRenderAuthenticatedChrome ? await getCurrentSession() : null;
-	const sessionGate = session ? gateFromRoles(session.roles) : EMPTY_GATE;
+	const sessionGate = session ? gateFromRoles(session.roles, session.permissions) : EMPTY_GATE;
 	// TR-030: same permission map as SidebarLoader so ⌘K search cannot list
 	// routes the user cannot open (filterItemsByPermissions is a no-op when empty).
 	const declaredPermissionsByHref = shouldRenderAuthenticatedChrome
