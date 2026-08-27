@@ -41,7 +41,6 @@ export type SshTerminalPanelProps = {
 	serverId: string;
 	serverName: string;
 	host: string;
-	sessionToken: string;
 	/** When false, the panel is hidden via CSS but keeps its WS + terminal alive. */
 	visible: boolean;
 	/** Called when the user clicks the close button on this tab. */
@@ -50,7 +49,7 @@ export type SshTerminalPanelProps = {
 	onStatusChange?: (status: TerminalStatus) => void;
 };
 
-export function SshTerminalPanel({ serverId, serverName, host, sessionToken, visible, onClose, onStatusChange }: SshTerminalPanelProps) {
+export function SshTerminalPanel({ serverId, serverName, host, visible, onClose, onStatusChange }: SshTerminalPanelProps) {
 	const { t } = useI18n();
 	const termRef = useRef<HTMLDivElement>(null);
 	const wsRef = useRef<WebSocket | null>(null);
@@ -313,7 +312,7 @@ export function SshTerminalPanel({ serverId, serverName, host, sessionToken, vis
 			fitAddonRef.current = null;
 			searchAddonRef.current = null;
 		};
-	}, [serverId, sessionToken, reconnectKey, t]);
+	}, [serverId, reconnectKey, t]);
 
 	const saveFavorites = (items: string[]) => {
 		writeLocalStorageValue(FAVORITE_COMMANDS_KEY, JSON.stringify(items));

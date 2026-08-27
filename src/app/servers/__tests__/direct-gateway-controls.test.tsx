@@ -86,7 +86,6 @@ describe("server direct gateway controls", () => {
         host="203.0.113.10"
         port={22}
         enabled={true}
-        sessionToken="token"
         canManageServers
         directGateway={{
           enabled: false,
@@ -114,7 +113,6 @@ describe("server direct gateway controls", () => {
         host="203.0.113.10"
         port={22}
         enabled={true}
-        sessionToken="token"
         canManageServers
         directGateway={{
           enabled: true,
@@ -143,7 +141,6 @@ describe("server direct gateway controls", () => {
         host="203.0.113.10"
         port={22}
         enabled={true}
-        sessionToken="token"
         canManageServers
         directGateway={{
           enabled: false,
@@ -170,7 +167,6 @@ describe("server direct gateway controls", () => {
         host="203.0.113.10"
         port={22}
         enabled={true}
-        sessionToken="token"
         canManageServers
         directGateway={{
           enabled: true,
@@ -207,7 +203,6 @@ describe("server direct gateway controls", () => {
         host="203.0.113.10"
         port={22}
         enabled={true}
-        sessionToken="token"
         canManageServers
         directGateway={{
           enabled: false,
@@ -239,7 +234,6 @@ describe("server direct gateway controls", () => {
         host="203.0.113.10"
         port={22}
         enabled={true}
-        sessionToken="token"
         canManageServers
       />,
     );
@@ -263,7 +257,6 @@ describe("server direct gateway controls", () => {
         host="203.0.113.10"
         port={22}
         enabled={true}
-        sessionToken="token"
         canManageServers
       />,
     );
@@ -291,7 +284,6 @@ describe("server direct gateway controls", () => {
         host="203.0.113.10"
         port={22}
         enabled={true}
-        sessionToken="token"
         canManageServers
       />,
       { locale: "en" },
@@ -315,7 +307,6 @@ describe("server direct gateway controls", () => {
         host="45.207.216.45"
         port={22}
         enabled={true}
-        sessionToken="token"
         canManageServers
         username="root"
         connectionType="PASSWORD"
@@ -398,7 +389,6 @@ describe("server direct gateway controls", () => {
         host="107.148.254.104"
         port={22}
         enabled={false}
-        sessionToken="token"
         canManageServers
       />,
     );

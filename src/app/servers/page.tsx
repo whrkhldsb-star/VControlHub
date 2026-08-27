@@ -3,7 +3,6 @@ import { sessionHasPermission } from "@/lib/auth/authorization";
 import { listServerProfiles } from "@/lib/server/service";
 import { PageShell, PageHeader, StatCard, EmptyState } from "@/components/page-shell";
 import { Callout } from "@/components/ui-primitives";
-import { getSessionCookieName } from "@/lib/auth/session";
 import { logError } from "@/lib/logging";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 
@@ -16,7 +15,6 @@ import { ServerOverviewCard } from "./server-overview-card";
 import { AutoProbeProvider } from "./auto-probe-context";
 import { CommandLaunchForm } from "./command-launch-form";
 import Link from "next/link";
-import { cookies } from "next/headers";
 import { getServerTargetAvailability } from "@/lib/server/availability";
 
 export const dynamic = "force-dynamic";
@@ -31,8 +29,6 @@ export default async function ServersPage() {
 	const canApproveCommands = sessionHasPermission(session, "command:approve");
 	const canReadAudit = sessionHasPermission(session, "audit:read");
 	const canReadDeployments = sessionHasPermission(session, "deploy:read");
-	const cookieStore = await cookies();
-	const sessionToken = cookieStore.get(getSessionCookieName())?.value ?? "";
 	let servers, formOptions;
 	try {
 		[servers, formOptions] = await Promise.all([
@@ -100,7 +96,6 @@ export default async function ServersPage() {
 									<ServerOverviewCard
 										key={server.id}
 										server={server}
-										sessionToken={sessionToken}
 										canManageServers={canManageServers}
 										canUseSshTerminal={canUseSshTerminal}
 									/>

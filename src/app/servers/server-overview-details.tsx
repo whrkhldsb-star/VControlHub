@@ -77,7 +77,6 @@ export type ServerOverviewDetailsServer = {
 
 export type ServerOverviewDetailsProps = {
 	server: ServerOverviewDetailsServer;
-	sessionToken: string;
 	canManageServers: boolean;
 	canUseSshTerminal: boolean;
 	directLabel: string;
@@ -92,7 +91,6 @@ export type ServerOverviewDetailsProps = {
 
 export function ServerOverviewDetails({
 	server,
-	sessionToken,
 	canManageServers,
 	canUseSshTerminal,
 	directLabel,
@@ -265,7 +263,6 @@ export function ServerOverviewDetails({
 							host={server.host}
 							port={server.port}
 							enabled={server.enabled}
-							sessionToken={sessionToken}
 							canManageServers={canManageServers}
 							canUseSshTerminal={canUseSshTerminal && server.hasSshCredential !== false}
 							username={server.username}

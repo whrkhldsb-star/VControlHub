@@ -13,8 +13,6 @@ const HANDSHAKE_TTL_MS = 60_000;
 
 const requestSchema = z.object({
   serverId: z.string().min(1),
-  // Legacy clients may still send sessionToken; prefer HttpOnly cookie below.
-  sessionToken: z.string().min(1).optional(),
 });
 
 function resolveRequestOrigin(request: NextRequest) {
@@ -52,10 +50,11 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Bind handshake to the HttpOnly session cookie value so the WS proxy
+      // Bind the handshake to the HttpOnly session cookie value so the WS proxy
       // can authenticate via Cookie without putting the JWT in the query string.
-      const cookieSession = request.cookies.get(getSessionCookieName())?.value;
-      const sessionId = cookieSession || body.sessionToken;
+      // Only the cookie is accepted: a caller-supplied session id would let the
+      // handshake be bound to a session other than the one being authenticated.
+      const sessionId = request.cookies.get(getSessionCookieName())?.value;
       if (!sessionId) {
         return NextResponse.json({ error: "Missing session" }, { status: 401 });
       }

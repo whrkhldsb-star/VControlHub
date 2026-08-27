@@ -29,7 +29,11 @@ vi.mock("@/lib/http/rate-limit-presets", () => ({
 
 import { requireApiPermission } from "@/lib/auth/require-api-permission";
 import { createSshWsHandshakeToken } from "@/lib/auth/ssh-ws-token";
+import { getSessionCookieName } from "@/lib/auth/session";
 import { POST } from "../route";
+
+/** The handshake is bound to the HttpOnly session cookie, never to request body. */
+const SESSION_COOKIE = `${getSessionCookieName()}=session-token`;
 
 describe("POST /api/auth/ws-token", () => {
   beforeEach(() => {
@@ -52,8 +56,12 @@ describe("POST /api/auth/ws-token", () => {
     const response = await POST(
       new NextRequest("https://console.example.test/api/auth/ws-token", {
         method: "POST",
-        body: JSON.stringify({ serverId: "server-1", sessionToken: "session-token" }),
-        headers: { "content-type": "application/json", origin: "https://console.example.test" },
+        body: JSON.stringify({ serverId: "server-1", sessionToken: "attacker-supplied" }),
+        headers: {
+          "content-type": "application/json",
+          origin: "https://console.example.test",
+          cookie: SESSION_COOKIE,
+        },
       }),
     );
 
@@ -86,8 +94,12 @@ describe("POST /api/auth/ws-token", () => {
     const response = await POST(
       new NextRequest("https://console.example.test/api/auth/ws-token", {
         method: "POST",
-        body: JSON.stringify({ serverId: "", sessionToken: "" }),
-        headers: { "content-type": "application/json", origin: "https://console.example.test" },
+        body: JSON.stringify({ serverId: "" }),
+        headers: {
+          "content-type": "application/json",
+          origin: "https://console.example.test",
+          cookie: SESSION_COOKIE,
+        },
       }),
     );
 
@@ -101,8 +113,8 @@ describe("POST /api/auth/ws-token", () => {
     const response = await POST(
       new NextRequest("https://console.example.test/api/auth/ws-token", {
         method: "POST",
-        body: JSON.stringify({ serverId: "server-1", sessionToken: "session-token" }),
-        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ serverId: "server-1" }),
+        headers: { "content-type": "application/json", cookie: SESSION_COOKIE },
       }),
     );
 
@@ -131,12 +143,39 @@ describe("POST /api/auth/ws-token", () => {
     const response = await POST(
       new NextRequest("https://console.example.test/api/auth/ws-token", {
         method: "POST",
-        body: JSON.stringify({ serverId: "other-team-server", sessionToken: "session-token" }),
-        headers: { "content-type": "application/json", origin: "https://console.example.test" },
+        body: JSON.stringify({ serverId: "other-team-server" }),
+        headers: {
+          "content-type": "application/json",
+          origin: "https://console.example.test",
+          cookie: SESSION_COOKIE,
+        },
       }),
     );
 
     expect(response.status).toBe(404);
+    expect(createSshWsHandshakeToken).not.toHaveBeenCalled();
+  });
+
+  it("refuses to mint when there is no session cookie, even if the body offers one", async () => {
+    vi.mocked(requireApiPermission).mockResolvedValue({
+      session: {
+        userId: "user-1",
+        username: "alice",
+        roles: ["admin"],
+        mustChangePassword: false,
+        currentTeamId: null,
+      },
+    });
+
+    const response = await POST(
+      new NextRequest("https://console.example.test/api/auth/ws-token", {
+        method: "POST",
+        body: JSON.stringify({ serverId: "server-1", sessionToken: "attacker-supplied" }),
+        headers: { "content-type": "application/json", origin: "https://console.example.test" },
+      }),
+    );
+
+    expect(response.status).toBe(401);
     expect(createSshWsHandshakeToken).not.toHaveBeenCalled();
   });
 });

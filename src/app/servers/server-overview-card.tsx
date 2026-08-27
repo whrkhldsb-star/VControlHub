@@ -29,14 +29,12 @@ type DiagnosticRunState = ServerOverviewDetailsProps["diagnosticRun"];
 
 type ServerOverviewCardProps = {
   server: ServerOverviewDetailsServer;
-  sessionToken: string;
   canManageServers: boolean;
   canUseSshTerminal: boolean;
 };
 
 export function ServerOverviewCard({
   server,
-  sessionToken,
   canManageServers,
   canUseSshTerminal,
 }: ServerOverviewCardProps) {
@@ -267,7 +265,6 @@ export function ServerOverviewCard({
             description={server.description ?? null}
             tags={server.tags ?? []}
             enabled={server.enabled}
-            sessionToken={sessionToken}
             canManageServers={false}
             canUseSshTerminal={canUseSshTerminal}
           />
@@ -313,7 +310,6 @@ export function ServerOverviewCard({
                 <div className="max-h-[78vh] overflow-y-auto pr-1">
                   <ServerOverviewDetails
                     server={server}
-                    sessionToken={sessionToken}
                     canManageServers={canManageServers}
                     canUseSshTerminal={canUseSshTerminal}
                     directLabel={directLabel}

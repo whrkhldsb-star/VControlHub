@@ -14,7 +14,6 @@ type SshTerminalContextValue = {
 		serverId: string;
 		serverName: string;
 		host: string;
-		sessionToken: string;
 	}) => void;
 	/** Whether any terminal tabs are open. */
 	isOpen: boolean;
@@ -42,7 +41,6 @@ type TerminalAction =
 				serverId: string;
 				serverName: string;
 				host: string;
-				sessionToken: string;
 			};
 	  }
 	| { type: "close"; index: number }
@@ -64,7 +62,6 @@ function terminalReducer(state: TerminalState, action: TerminalAction): Terminal
 				serverId: action.server.serverId,
 				serverName: action.server.serverName,
 				host: action.server.host,
-				sessionToken: action.server.sessionToken,
 				status: "connecting",
 			};
 			return {
@@ -117,7 +114,6 @@ export function SshTerminalProvider({ children }: { children: ReactNode }) {
 		serverId: string;
 		serverName: string;
 		host: string;
-		sessionToken: string;
 	}) => {
 		dispatch({ type: "open", server });
 	}, []);

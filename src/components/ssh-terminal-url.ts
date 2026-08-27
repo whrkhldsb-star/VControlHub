@@ -2,8 +2,6 @@ type BuildSshWebSocketUrlInput = {
   pageProtocol: string;
   host: string;
   serverId: string;
-  /** @deprecated session JWT must not be placed in the query string; cookies carry auth. */
-  sessionToken?: string;
   handshakeToken: string;
 };
 

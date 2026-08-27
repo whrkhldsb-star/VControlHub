@@ -30,7 +30,6 @@ type ServerCardActionsProps = {
 	host: string;
 	port: number;
 	enabled: boolean;
-	sessionToken: string;
 	username?: string;
 	connectionType?: "SSH_KEY" | "PASSWORD";
 	managementMode?: "DIRECT" | "AGENT";
@@ -61,7 +60,6 @@ export function ServerCardActions({
 	host,
 	port,
 	enabled,
-	sessionToken,
 	username = "root",
 	connectionType = "PASSWORD",
 	managementMode = "DIRECT",
@@ -106,7 +104,6 @@ export function ServerCardActions({
 			serverId,
 			serverName,
 			host: `${host}:${port}`,
-			sessionToken,
 		});
 	};
 

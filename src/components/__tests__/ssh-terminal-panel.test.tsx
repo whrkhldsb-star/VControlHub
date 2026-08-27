@@ -59,7 +59,6 @@ const defaultProps = {
 	serverId: "srv_1",
 	serverName: "prod-vps",
 	host: "203.0.113.10:22",
-	sessionToken: "session-token",
 	visible: true,
 	onClose: vi.fn(),
 } as const;

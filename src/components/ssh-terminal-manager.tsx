@@ -22,7 +22,6 @@ export type SshTerminalTab = {
 	serverId: string;
 	serverName: string;
 	host: string;
-	sessionToken: string;
 	status: TerminalStatus;
 };
 
@@ -287,7 +286,6 @@ export function SshTerminalManager({
 							serverId={tab.serverId}
 							serverName={tab.serverName}
 							host={tab.host}
-							sessionToken={tab.sessionToken}
 							// When manager is minimized, treat all as not "visible" for
 							// layout fit only — connection lifecycle ignores `visible`.
 							visible={!minimized && i === activeTabIndex}

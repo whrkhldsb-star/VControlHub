@@ -37,7 +37,6 @@ const tabs: SshTerminalTab[] = [
 		serverId: "srv1",
 		serverName: "Alpha",
 		host: "1.1.1.1",
-		sessionToken: "tok",
 		status: "connected",
 	},
 ];
