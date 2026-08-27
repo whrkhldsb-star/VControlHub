@@ -326,9 +326,35 @@ export async function transferFileViaSsh2(
      if (err) return reject(err);
      const read = createReadStream(localFilePath);
      const write = sftp.createWriteStream(remoteFilePath);
-     read.on("error", reject);
-     write.on("error", reject);
-     write.on("close", () => resolve());
+     let settled = false;
+     let idleTimer: NodeJS.Timeout | undefined;
+     // Abort a stalled transfer (remote stops ACKing) so it can't hang forever —
+     // there is no other wall-clock bound on this SFTP pipe. Reset on progress.
+     const IDLE_TIMEOUT_MS = 120_000;
+     const finish = (error?: Error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(idleTimer);
+      // Tear down BOTH ends on any exit path: a read error otherwise leaks the
+      // remote SFTP write handle, and a write error leaves the local file
+      // descriptor open until GC.
+      try { read.destroy(); } catch { /* best-effort */ }
+      try { write.destroy(); } catch { /* best-effort */ }
+      if (error) reject(error);
+      else resolve();
+     };
+     const resetIdle = () => {
+      clearTimeout(idleTimer);
+      idleTimer = setTimeout(
+       () => finish(new Error(`SFTP transfer stalled (no progress for ${IDLE_TIMEOUT_MS / 1000}s)`)),
+       IDLE_TIMEOUT_MS,
+      );
+     };
+     read.on("error", (e: Error) => finish(e));
+     write.on("error", (e: Error) => finish(e));
+     read.on("data", resetIdle);
+     write.on("close", () => finish());
+     resetIdle();
      read.pipe(write);
     });
    });

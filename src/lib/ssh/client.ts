@@ -422,8 +422,14 @@ function execCommandOnClient(
   command: string,
   timeoutMs = 120_000,
 ): Promise<{ stdout: string; stderr: string; exitCode: number | null }> {
+  // Cap accumulated output. execRemoteCommand is only used for small control
+  // output (pids, statuses, `tail -5`); without a bound a chatty or misbehaving
+  // remote command streams unbounded data straight into a growing string and
+  // OOMs the Node process. Mirrors the maxBytes guard in readRemoteFile.
+  const MAX_OUTPUT_BYTES = 16 * 1024 * 1024;
   return new Promise((resolve, reject) => {
     let commandStream: { close?: () => void; destroy?: () => void } | null = null;
+    let settled = false;
     const timer = setTimeout(() => {
       // Only tear down THIS command's channel, never `client.end()`: the client
       // may be a pooled connection shared by concurrent operations on the same
@@ -435,26 +441,52 @@ function execCommandOnClient(
       } catch {
         /* best-effort channel teardown */
       }
+      if (settled) return;
+      settled = true;
       reject(new Error(`Command timed out after ${timeoutMs / 1000}s`));
     }, timeoutMs);
+
+    const failOversized = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      try {
+        commandStream?.close?.();
+        commandStream?.destroy?.();
+      } catch {
+        /* best-effort channel teardown */
+      }
+      reject(new Error(`Command output exceeded ${MAX_OUTPUT_BYTES} bytes; aborted`));
+    };
 
     client.exec(command, (err, stream) => {
       if (err) {
         clearTimeout(timer);
+        if (settled) return;
+        settled = true;
         reject(err);
         return;
       }
       commandStream = stream as unknown as { close?: () => void; destroy?: () => void };
       let stdout = "";
       let stderr = "";
+      let bytes = 0;
       stream.on("data", (data: Buffer) => {
+        if (settled) return;
+        bytes += data.length;
+        if (bytes > MAX_OUTPUT_BYTES) return failOversized();
         stdout += data.toString();
       });
       stream.stderr.on("data", (data: Buffer) => {
+        if (settled) return;
+        bytes += data.length;
+        if (bytes > MAX_OUTPUT_BYTES) return failOversized();
         stderr += data.toString();
       });
       stream.on("close", (code: number | null) => {
         clearTimeout(timer);
+        if (settled) return;
+        settled = true;
         resolve({ stdout, stderr, exitCode: code });
       });
     });
