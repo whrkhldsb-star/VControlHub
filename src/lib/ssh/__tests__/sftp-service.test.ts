@@ -3,12 +3,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   createWriteStreamMock,
+  createReadStreamMock,
+  statMock,
   sftpEndMock,
   clientEndMock,
   connectMock,
   findUniqueMock,
 } = vi.hoisted(() => ({
   createWriteStreamMock: vi.fn(),
+  createReadStreamMock: vi.fn(),
+  statMock: vi.fn(),
   sftpEndMock: vi.fn(),
   clientEndMock: vi.fn(),
   connectMock: vi.fn(),
@@ -42,6 +46,8 @@ vi.mock("ssh2", () => {
     sftp(cb: (err: Error | null, sftp: unknown) => void) {
       cb(null, {
         createWriteStream: createWriteStreamMock,
+        createReadStream: createReadStreamMock,
+        stat: statMock,
         end: sftpEndMock,
       });
     }
@@ -75,6 +81,7 @@ import {
   sanitizeRemotePath,
   sanitizeFileName,
   uploadFile,
+  downloadFile,
 } from "@/lib/ssh/sftp-service";
 
 describe("sanitizeRemotePath", () => {
@@ -200,5 +207,80 @@ describe("uploadFile session lifecycle", () => {
     await expect(uploadPromise).rejects.toThrow("Upload write error");
     expect(sftpEndMock).toHaveBeenCalled();
     expect(clientEndMock).toHaveBeenCalled();
+  });
+});
+
+describe("downloadFile session lifecycle", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    findUniqueMock.mockResolvedValue({
+      id: "srv1",
+      host: "10.0.0.1",
+      port: 22,
+      username: "alice",
+      enabled: true,
+      connectionType: "PASSWORD",
+      password: "secret",
+      hostKeySha256: "SHA256:pin",
+      sshKey: null,
+    });
+    statMock.mockImplementation(
+      (_path: string, cb: (err: Error | null, stats: unknown) => void) => {
+        cb(null, { isDirectory: () => false, size: 12 });
+      },
+    );
+  });
+
+  it("closes the SSH/SFTP session after the read stream finishes", async () => {
+    const readStream = new PassThrough();
+    createReadStreamMock.mockReturnValue(readStream);
+
+    const { stream, size } = await downloadFile("srv1", "/home/alice/in.txt");
+    expect(size).toBe(12);
+
+    // Drain the returned stream, then let the remote read stream end normally.
+    stream.resume();
+    readStream.end(Buffer.from("hello-remote"));
+
+    await vi.waitFor(() => {
+      expect(clientEndMock).toHaveBeenCalled();
+    });
+  });
+
+  it("tears the session down (and destroys the read stream) when the consumer aborts", async () => {
+    const readStream = new PassThrough();
+    readStream.on("error", () => {
+      /* expected once destroyed */
+    });
+    createReadStreamMock.mockReturnValue(readStream);
+
+    const { stream } = await downloadFile("srv1", "/home/alice/in.txt");
+    // Simulate an HTTP client disconnect: the consumer destroys the passthrough
+    // before the read completes. .pipe() would otherwise leave readStream (and
+    // thus the SSH session) open.
+    stream.destroy();
+
+    await vi.waitFor(() => {
+      expect(readStream.destroyed).toBe(true);
+      expect(clientEndMock).toHaveBeenCalled();
+    });
+  });
+
+  it("closes the session when the read stream errors", async () => {
+    const readStream = new PassThrough();
+    readStream.on("error", () => {
+      /* handled by downloadFile */
+    });
+    createReadStreamMock.mockReturnValue(readStream);
+
+    const { stream } = await downloadFile("srv1", "/home/alice/in.txt");
+    stream.on("error", () => {
+      /* expected: error propagates to the consumer */
+    });
+    readStream.destroy(new Error("remote read failed"));
+
+    await vi.waitFor(() => {
+      expect(clientEndMock).toHaveBeenCalled();
+    });
   });
 });

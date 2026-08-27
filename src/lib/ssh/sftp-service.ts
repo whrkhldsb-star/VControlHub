@@ -37,6 +37,13 @@ import { t } from "@/lib/i18n/service-translations";
 
 const logger = createLogger("sftp-service");
 
+// Abort a stalled SFTP transfer (remote stops sending/ACKing) so it can't hang
+// forever — keepalive only detects a fully dead TCP connection, not a live
+// connection whose bytes simply stopped flowing. The clock resets on every
+// chunk, so a slow-but-progressing large transfer is never killed. Matches the
+// bound already applied in downloads' transferFileViaSsh2.
+const SFTP_TRANSFER_IDLE_TIMEOUT_MS = 120_000;
+
 /**
  * Translate a raw SFTP/SSH error into a typed AppError with an accurate status
  * and a message safe to show the user. Without this, servers-side SFTP routes
@@ -367,9 +374,11 @@ export async function uploadFile(
 
     return await new Promise<number>((resolve, reject) => {
       let settled = false;
+      let idleTimer: NodeJS.Timeout | undefined;
       const fail = (err: Error) => {
         if (settled) return;
         settled = true;
+        if (idleTimer) clearTimeout(idleTimer);
         // Destroy both ends so a half-failed pipe cannot leave the SSH
         // session open after we reject (resource leak / fd exhaustion).
         try {
@@ -385,9 +394,20 @@ export async function uploadFile(
         }
         reject(err);
       };
+      // Reset on progress; fire only after a true stall (no data for the idle
+      // window) so an abandoned/hung upload frees the session instead of pinning
+      // it until GC.
+      const resetIdle = () => {
+        if (idleTimer) clearTimeout(idleTimer);
+        idleTimer = setTimeout(
+          () => fail(new Error(`SFTP upload stalled (no data for ${SFTP_TRANSFER_IDLE_TIMEOUT_MS / 1000}s)`)),
+          SFTP_TRANSFER_IDLE_TIMEOUT_MS,
+        );
+      };
 
       sourceStream.on("data", (chunk: Buffer) => {
         bytesWritten += chunk.length;
+        resetIdle();
       });
       sourceStream.on("error", (err: Error) => {
         fail(new Error(`Upload source error: ${err.message}`));
@@ -403,11 +423,13 @@ export async function uploadFile(
       const succeed = () => {
         if (settled) return;
         settled = true;
+        if (idleTimer) clearTimeout(idleTimer);
         resolve(bytesWritten);
       };
       writeStream.on("close", succeed);
       writeStream.on("finish", succeed);
 
+      resetIdle();
       sourceStream.pipe(writeStream);
     });
   } finally {
@@ -462,16 +484,48 @@ export async function downloadFile(
 
   const passthrough = new PassThrough();
 
+  // Tear the SSH/SFTP session down exactly once, from whichever end settles
+  // first: a read error, the read finishing, the consumer aborting (HTTP client
+  // disconnect), or an idle stall. `.pipe()` does NOT auto-destroy the source
+  // when the destination is destroyed, so without the passthrough "close"
+  // handler a cancelled download would pin the SSH connection until GC.
+  let closed = false;
+  let idleTimer: NodeJS.Timeout | undefined;
+  const teardown = () => {
+    if (closed) return;
+    closed = true;
+    if (idleTimer) clearTimeout(idleTimer);
+    try {
+      readStream.destroy();
+    } catch {
+      /* best-effort */
+    }
+    session.close();
+  };
+  // Abort a stalled read (remote stops sending) so a hung download cannot pin
+  // the session — and, for the VPS-backup job caller, hang the worker forever.
+  // Reset on every chunk so a slow-but-progressing large file is never killed.
+  const resetIdle = () => {
+    if (idleTimer) clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => {
+      passthrough.destroy(
+        new Error(`SFTP download stalled (no data for ${SFTP_TRANSFER_IDLE_TIMEOUT_MS / 1000}s)`),
+      );
+    }, SFTP_TRANSFER_IDLE_TIMEOUT_MS);
+  };
+
   readStream.on("error", (err: Error) => {
     logger.error("SFTP download stream error", err, { serverId, path });
     passthrough.destroy(err);
-    session.close();
+    teardown();
   });
 
-  readStream.on("close", () => {
-    session.close();
-  });
+  readStream.on("close", teardown);
+  readStream.on("data", resetIdle);
+  // Consumer abort / passthrough error must also release the session.
+  passthrough.on("close", teardown);
 
+  resetIdle();
   readStream.pipe(passthrough);
 
   return { stream: passthrough, size: stats.size };
