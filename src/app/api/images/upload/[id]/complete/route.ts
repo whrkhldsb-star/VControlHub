@@ -25,10 +25,12 @@ import { IMAGE_UPLOAD_LIMIT } from "@/lib/http/rate-limit-presets";
 import { UPLOAD_DIR } from "@/lib/image-bed/constants";
 import { indexLinkedStorageImage } from "@/lib/image-bed/linked-storage";
 import {
+  canonicalImageMime,
   convertToAVIF,
   convertToWebP,
   extractMetadata,
   generateThumbnail,
+  MAX_IMAGE_PIXELS,
 } from "@/lib/image/service";
 import { logError } from "@/lib/logging";
 import { teamWhere } from "@/lib/auth/team-scope";
@@ -116,7 +118,7 @@ export async function POST(
         );
       }
 
-      const { filename, mimeType } = existing;
+      const { filename } = existing;
 
       // Mirror the single-shot /api/images/upload/route.ts pipeline.
       const storageKey = generateStorageKey(filename);
@@ -127,12 +129,21 @@ export async function POST(
 
       let imgWidth: number | null = null;
       let imgHeight: number | null = null;
+      let detectedMime = "application/octet-stream";
       try {
         const meta = await extractMetadata(assembled);
 				if (!meta.format || meta.format === "svg" || meta.width <= 0 || meta.height <= 0) throw new Error("Invalid image dimensions or format");
+        // Decompression-bomb guard (see single-shot route). Reject gigapixel
+        // dimensions with a clear message before running the variant encoders.
+        if (meta.width * meta.height > MAX_IMAGE_PIXELS) {
+          throw new ValidationError(t("api.image.dimensionsTooLarge", locale));
+        }
         imgWidth = meta.width || null;
         imgHeight = meta.height || null;
-      } catch {
+        // Persist sharp's byte-sniffed MIME, not the session-declared type.
+        detectedMime = canonicalImageMime(meta.format);
+      } catch (err) {
+				if (err instanceof ValidationError) throw err;
 				throw new ValidationError(t("api.image.invalidImage", locale));
       }
 
@@ -165,7 +176,7 @@ export async function POST(
           })(),
           (async () => {
             try {
-              if (!mimeType.includes("webp")) {
+              if (!detectedMime.includes("webp")) {
                 const webp = await convertToWebP(assembled);
                 await writeFile(webpPath, webp);
                 writtenPaths.push(webpPath);
@@ -176,7 +187,7 @@ export async function POST(
           })(),
           (async () => {
             try {
-              if (!mimeType.includes("avif")) {
+              if (!detectedMime.includes("avif")) {
                 const avif = await convertToAVIF(assembled);
                 await writeFile(avifPath, avif);
                 writtenPaths.push(avifPath);
@@ -213,8 +224,22 @@ export async function POST(
             throw new ValidationError("Storage node does not support media uploads");
           }
           linkedStorageRelativePath = `${existing.relativePath.replace(/\/$/, "")}/${storageKey}`;
-          await writeStorageFileBuffer(storageNode, linkedStorageRelativePath, assembled);
           linkedStorageNode = storageNode;
+          await writeStorageFileBuffer(storageNode, linkedStorageRelativePath, assembled);
+        } catch (err) {
+          // The local original + variants are already on disk but no DB row
+          // points at them yet — remove them, and roll back any partial linked
+          // write, so a storage failure here leaves nothing orphaned.
+          logError("media-upload:linked-storage-failed", err);
+          await Promise.allSettled([
+            ...writtenPaths.map((filePath) => rm(filePath, { force: true })),
+            linkedStorageNode && linkedStorageRelativePath
+              ? deleteStorageFileBuffer(linkedStorageNode, linkedStorageRelativePath).catch((cleanupErr) => {
+                  logError("media-upload:linked-storage-rollback-failed", cleanupErr);
+                })
+              : Promise.resolve(),
+          ]);
+          throw err;
         } finally {
           await releaseStorageQuotaGuard(access);
         }
@@ -226,7 +251,7 @@ export async function POST(
           data: {
             filename,
             storageKey,
-            mimeType,
+            mimeType: detectedMime,
             sizeBytes: assembled.byteLength,
             width: imgWidth,
             height: imgHeight,
@@ -243,7 +268,7 @@ export async function POST(
             storageNodeId: existing.storageNodeId,
             relativePath: linkedStorageRelativePath,
             originalName: filename,
-            mimeType,
+            mimeType: detectedMime,
             size: assembled.byteLength,
             checksum,
           });
@@ -278,7 +303,7 @@ export async function POST(
           imageId: image.id,
           sizeBytes: assembled.byteLength,
           filename,
-          mimeType,
+          mimeType: detectedMime,
         },
         "INFO",
       );

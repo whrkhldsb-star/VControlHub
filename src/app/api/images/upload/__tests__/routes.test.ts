@@ -70,6 +70,9 @@ vi.mock("@/lib/image/service", () => ({
 	generateThumbnail: mocks.generateThumbnail,
 	convertToWebP: mocks.convertToWebP,
 	convertToAVIF: mocks.convertToAVIF,
+	canonicalImageMime: (format?: string) =>
+		format ? (format === "svg" ? "image/svg+xml" : `image/${format}`) : "application/octet-stream",
+	MAX_IMAGE_PIXELS: 50_000_000,
 }));
 
 vi.mock("@/lib/http/rate-limit-presets", async (importOriginal) => {
@@ -450,6 +453,49 @@ describe("POST /api/images/upload/[id]/complete", () => {
 
 		expect(res.status).toBe(400);
 		expect(mocks.assembleMediaUploadChunks).not.toHaveBeenCalled();
+	});
+
+	it("rejects a decompression bomb whose decoded dimensions exceed the pixel cap", async () => {
+		mocks.extractMetadata.mockResolvedValueOnce({
+			width: 60000,
+			height: 60000,
+			format: "png",
+		});
+
+		const res = await completeRoute.POST(
+			new Request("http://local/api/images/upload/sess_1/complete", {
+				method: "POST",
+			}),
+			{ params: Promise.resolve({ id: "sess_1" }) },
+		);
+
+		expect(res.status).toBe(400);
+		expect(mocks.imageCreate).not.toHaveBeenCalled();
+		expect(mocks.completeMediaUploadSession).not.toHaveBeenCalled();
+	});
+
+	it("persists the sharp-detected MIME, not the session-declared type", async () => {
+		// Session row claims image/png; sharp sniffs webp. Stored record must
+		// follow the real bytes.
+		mocks.extractMetadata.mockResolvedValueOnce({
+			width: 10,
+			height: 10,
+			format: "webp",
+		});
+
+		const res = await completeRoute.POST(
+			new Request("http://local/api/images/upload/sess_1/complete", {
+				method: "POST",
+			}),
+			{ params: Promise.resolve({ id: "sess_1" }) },
+		);
+
+		expect(res.status).toBe(200);
+		expect(mocks.imageCreate).toHaveBeenCalledWith(
+			expect.objectContaining({
+				data: expect.objectContaining({ mimeType: "image/webp" }),
+			}),
+		);
 	});
 });
 

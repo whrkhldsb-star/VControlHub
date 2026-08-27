@@ -56,6 +56,7 @@ export const zh: Record<string, string> = {
 	"api.image.fileTooLarge": "文件大小超过 20MB 限制",
 	"api.image.svgBlocked": "不允许上传 SVG 图片",
 	"api.image.invalidImage": "文件内容不是有效的图片",
+	"api.image.dimensionsTooLarge": "图片像素尺寸过大（超过 5000 万像素），可能是解压炸弹",
 	"api.image.storageCopyForbidden": "Bearer 上传不支持写入存储节点副本",
 	"api.image.storageWriteDenied": "没有写入该存储路径的权限",
 };
@@ -113,6 +114,7 @@ export const en: Record<string, string> = {
 	"api.image.fileTooLarge": "File size exceeds the 20MB limit",
 	"api.image.svgBlocked": "SVG uploads are not allowed",
 	"api.image.invalidImage": "The file content is not a valid image",
+	"api.image.dimensionsTooLarge": "Image pixel dimensions are too large (exceeds 50 megapixels); possible decompression bomb",
 	"api.image.storageCopyForbidden": "Bearer uploads do not support writing to a storage node copy",
 	"api.image.storageWriteDenied": "No permission to write to the storage path",
 };

@@ -51,6 +51,9 @@ vi.mock("@/lib/image/service", () => ({
   generateThumbnail: vi.fn().mockResolvedValue(Buffer.from("thumb")),
   convertToWebP: vi.fn().mockResolvedValue(Buffer.from("webp")),
   convertToAVIF: vi.fn().mockResolvedValue(Buffer.from("avif")),
+  canonicalImageMime: (format?: string) =>
+    format ? (format === "svg" ? "image/svg+xml" : `image/${format}`) : "application/octet-stream",
+  MAX_IMAGE_PIXELS: 50_000_000,
 }));
 
 import { POST } from "../route";
@@ -77,6 +80,9 @@ function uploadRequest(
     body: formData,
 		headers: {
       "x-forwarded-for": `192.0.2.${++requestSequence}`,
+      // Real browser multipart uploads always declare a length; the route
+      // rejects a missing Content-Length with 411 before parsing the body.
+      "content-length": "1024",
       ...headers,
     },
   });
@@ -172,6 +178,44 @@ describe("POST /api/images/upload", () => {
 		expect(response.status).toBe(400);
 		expect(imageCreateMock).not.toHaveBeenCalled();
 		expect(await listFiles(uploadRoot)).toEqual([]);
+	});
+
+	it("rejects a decompression bomb whose decoded dimensions exceed the pixel cap", async () => {
+		// A small file can still declare gigapixel dimensions. Reject before we
+		// run the variant encoders three more times.
+		extractMetadataMock.mockResolvedValueOnce({
+			width: 60000,
+			height: 60000,
+			format: "png",
+			sizeBytes: 3,
+		});
+
+		const response = await POST(uploadRequest());
+
+		expect(response.status).toBe(400);
+		expect(imageCreateMock).not.toHaveBeenCalled();
+		expect(await listFiles(uploadRoot)).toEqual([]);
+	});
+
+	it("persists the sharp-detected MIME, not the client-declared Content-Type", async () => {
+		// Client Blob claims image/png (see uploadRequest), but sharp sniffs webp.
+		// The stored record must reflect the real bytes so a spoofed header can
+		// never dictate how the file is later served.
+		extractMetadataMock.mockResolvedValueOnce({
+			width: 2,
+			height: 2,
+			format: "webp",
+			sizeBytes: 3,
+		});
+
+		const response = await POST(uploadRequest());
+
+		expect(response.status).toBe(201);
+		expect(imageCreateMock).toHaveBeenCalledWith(
+			expect.objectContaining({
+				data: expect.objectContaining({ mimeType: "image/webp" }),
+			}),
+		);
 	});
 
   it("removes written image-bed files when image record creation fails", async () => {

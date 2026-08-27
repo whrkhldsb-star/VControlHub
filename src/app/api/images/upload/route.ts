@@ -17,10 +17,12 @@ import {
 import { UPLOAD_DIR } from "@/lib/image-bed/constants";
 import { indexLinkedStorageImage } from "@/lib/image-bed/linked-storage";
 import {
+  canonicalImageMime,
   convertToAVIF,
   convertToWebP,
   extractMetadata,
   generateThumbnail,
+  MAX_IMAGE_PIXELS,
 } from "@/lib/image/service";
 import { logError } from "@/lib/logging";
 import { assertStorageAccess, releaseStorageQuotaGuard } from "@/lib/storage/access-control";
@@ -160,12 +162,23 @@ async function handleUpload(request: Request, userId: string, session: SessionPa
     // controlled and must not turn arbitrary bytes into inline-served content.
     let imgWidth: number | null = null;
     let imgHeight: number | null = null;
+    let detectedMime = "application/octet-stream";
     try {
       const meta = await extractMetadata(buffer);
 			if (!meta.format || meta.format === "svg" || meta.width <= 0 || meta.height <= 0) throw new Error("Invalid image dimensions or format");
+      // Decompression-bomb guard: a small file can carry gigapixel dimensions.
+      // sharp's openImage() already caps decode, but reject here with a clear
+      // message before we run it three more times for the variants.
+      if (meta.width * meta.height > MAX_IMAGE_PIXELS) {
+        throw new ValidationError(t("api.image.dimensionsTooLarge", locale));
+      }
       imgWidth = meta.width || null;
       imgHeight = meta.height || null;
-    } catch {
+      // Trust sharp's byte-sniffed format for the stored MIME, never the
+      // client-supplied Content-Type (which could spoof a benign type).
+      detectedMime = canonicalImageMime(meta.format);
+    } catch (error) {
+			if (error instanceof ValidationError) throw error;
 			throw new ValidationError(t("api.image.invalidImage", locale));
     }
 
@@ -184,7 +197,12 @@ async function handleUpload(request: Request, userId: string, session: SessionPa
     const webpPath = path.join(uploadDir, `${base}.webp`);
     const avifPath = path.join(uploadDir, `${base}.avif`);
 
-    await Promise.all([
+    // The original write is the record of truth; the three variants are
+    // best-effort. Use allSettled so a failed variant never rejects the whole
+    // batch, then check the original explicitly: if IT failed, any variants
+    // that did land are orphans (no DB row will point at them) — remove them
+    // and surface the error instead of leaving files behind.
+    const [originalResult] = await Promise.allSettled([
       writeFile(originalPath, buffer).then(() => {
         writtenPaths.push(originalPath);
       }),
@@ -201,7 +219,7 @@ async function handleUpload(request: Request, userId: string, session: SessionPa
       // Generate WebP variant (best-effort)
       (async () => {
         try {
-          if (!mimeType.includes("webp")) {
+          if (!detectedMime.includes("webp")) {
             const webp = await convertToWebP(buffer);
             await writeFile(webpPath, webp);
             writtenPaths.push(webpPath);
@@ -213,7 +231,7 @@ async function handleUpload(request: Request, userId: string, session: SessionPa
       // Generate AVIF variant (best-effort)
       (async () => {
         try {
-          if (!mimeType.includes("avif")) {
+          if (!detectedMime.includes("avif")) {
             const avif = await convertToAVIF(buffer);
             await writeFile(avifPath, avif);
             writtenPaths.push(avifPath);
@@ -223,6 +241,11 @@ async function handleUpload(request: Request, userId: string, session: SessionPa
         }
       })(),
     ]);
+
+    if (originalResult.status === "rejected") {
+      await Promise.allSettled(writtenPaths.map((filePath) => rm(filePath, { force: true })));
+      throw originalResult.reason;
+    }
 
     let linkedStorageRelativePath: string | null = null;
     let linkedStorageNode: StorageFileNode | null = null;
@@ -276,7 +299,7 @@ async function handleUpload(request: Request, userId: string, session: SessionPa
         data: {
           filename: originalName,
           storageKey,
-          mimeType,
+          mimeType: detectedMime,
           sizeBytes: buffer.byteLength,
           width: imgWidth,
           height: imgHeight,
@@ -294,7 +317,7 @@ async function handleUpload(request: Request, userId: string, session: SessionPa
           storageNodeId,
           relativePath: linkedStorageRelativePath,
           originalName,
-          mimeType,
+          mimeType: detectedMime,
           size: buffer.byteLength,
           checksum,
         });
