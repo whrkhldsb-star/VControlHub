@@ -126,6 +126,23 @@ export function parseMonitorScriptOutput(stdout: string): ServerMetrics {
 	};
 }
 
+/**
+ * Guard against a truncated / garbled monitor payload silently parsing to
+ * all-zero metrics. Every parse helper falls back to 0 on bad input, so a
+ * host that returned no usable telemetry (SSH answered but the command output
+ * was cut off, or /proc was unreadable) would parse to cpu=0 / mem=0 / empty
+ * disk — which `evaluateHealth` reports as a perfectly "healthy" green server,
+ * masking that we have zero real data. A genuine Linux host always emits the
+ * section markers and reports MemTotal > 0, so treat their absence as a
+ * collection failure (→ caller maps to "warning": host online but metrics
+ * unusable) rather than fabricating a healthy reading.
+ */
+function isUsableMonitorOutput(stdout: string, metrics: ServerMetrics): boolean {
+	if (!stdout.includes("===CPU===") || !stdout.includes("===MEM===")) return false;
+	return metrics.memory.totalMb > 0;
+}
+
+
 export async function collectServerMetrics(serverId: string): Promise<ServerMetrics | MonitorError> {
 	const locale = await getServerLocale();
 	const tr = (key: string, vars?: Record<string, string | number>) => t(key, locale, vars);
@@ -144,7 +161,11 @@ export async function collectServerMetrics(serverId: string): Promise<ServerMetr
 			server.agentMetricsAt &&
 			Date.now() - server.agentMetricsAt.getTime() < 3 * 60_000
 		) {
-			return parseMonitorScriptOutput(server.agentMetricsRaw);
+			const agentMetrics = parseMonitorScriptOutput(server.agentMetricsRaw);
+			if (!isUsableMonitorOutput(server.agentMetricsRaw, agentMetrics)) {
+				return { error: tr("backend.server.monitor.metricsUnavailable"), serverId };
+			}
+			return agentMetrics;
 		}
 
 		const sshParams = await buildSshParamsFromServer(server, server.sshKey);
@@ -154,7 +175,11 @@ export async function collectServerMetrics(serverId: string): Promise<ServerMetr
 			return { error: tr("backend.server.monitor.sshCommandFailed"), serverId };
 		}
 
-		return parseMonitorScriptOutput(stdout);
+		const metrics = parseMonitorScriptOutput(stdout);
+		if (!isUsableMonitorOutput(stdout, metrics)) {
+			return { error: tr("backend.server.monitor.metricsUnavailable"), serverId };
+		}
+		return metrics;
 	} catch (err) {
 		const message = err instanceof Error ? err.message : tr("backend.server.monitor.unknownError");
 		return {

@@ -121,4 +121,60 @@ describe("collectServerMetrics", () => {
 		expect(result).toMatchObject({ cpu: { usagePercent: 90 }, network: [{ iface: "eth0" }] });
 		expect(execRemoteCommandMock).not.toHaveBeenCalled();
 	});
+
+	it("reports metrics unavailable instead of a false-healthy all-zero reading when SSH output is truncated", async () => {
+		prismaMock.server.findUnique.mockResolvedValueOnce({
+			id: "server_trunc",
+			host: "203.0.113.20",
+			port: 22,
+			username: "root",
+			enabled: true,
+			managementMode: "DIRECT",
+			password: null,
+			sshKeyId: null,
+			sshKey: null,
+		});
+		buildSshParamsFromServerMock.mockResolvedValueOnce({ host: "203.0.113.20", port: 22, username: "root" });
+		// SSH answered (exitCode 0) but the monitor payload was cut off — no
+		// section markers, so every parse helper would fall back to 0.
+		execRemoteCommandMock.mockResolvedValueOnce({ stdout: "bash: /proc: Permission denied", exitCode: 0 });
+
+		const result = await collectServerMetrics("server_trunc");
+
+		expect(result).toEqual({
+			serverId: "server_trunc",
+			error: "Monitoring data unavailable (SSH reachable but no valid /proc metrics returned)",
+		});
+	});
+
+	it("reports metrics unavailable when MemTotal parses to zero (unreadable /proc/meminfo)", async () => {
+		prismaMock.server.findUnique.mockResolvedValueOnce({
+			id: "server_nomem",
+			host: "203.0.113.21",
+			port: 22,
+			username: "root",
+			enabled: true,
+			managementMode: "DIRECT",
+			password: null,
+			sshKeyId: null,
+			sshKey: null,
+		});
+		buildSshParamsFromServerMock.mockResolvedValueOnce({ host: "203.0.113.21", port: 22, username: "root" });
+		// Markers present but the MEM awk fallback fired (meminfo unreadable) →
+		// totalMb 0. Do not fabricate a healthy 0% memory reading.
+		const raw = [
+			"===CPU===", "4", "0.1 0.2 0.3", "50 100",
+			"===MEM===", "0 0 0", "===SWAP===", "0 0",
+			"===DISK===", "40G 10G 25% /", "===LOAD===", "up 1 day, 1 user",
+			"===NET===", "eth0 1 2",
+		].join("\n");
+		execRemoteCommandMock.mockResolvedValueOnce({ stdout: raw, exitCode: 0 });
+
+		const result = await collectServerMetrics("server_nomem");
+
+		expect(result).toEqual({
+			serverId: "server_nomem",
+			error: "Monitoring data unavailable (SSH reachable but no valid /proc metrics returned)",
+		});
+	});
 });

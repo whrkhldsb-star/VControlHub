@@ -82,6 +82,7 @@ export const zh: Record<string, string> = {
 	"backend.server.monitor.notFound": "服务器不存在",
 	"backend.server.monitor.disabled": "服务器已停用",
 	"backend.server.monitor.sshCommandFailed": "SSH 命令执行失败",
+	"backend.server.monitor.metricsUnavailable": "监控数据不可用（SSH 连接正常但未返回有效的 /proc 指标）",
 	"backend.server.monitor.unknownError": "未知错误",
 	"backend.server.monitor.connectionFailed": "连接失败：{message}",
 
@@ -636,6 +637,7 @@ export const en: Record<string, string> = {
 	"backend.server.monitor.notFound": "Server does not exist",
 	"backend.server.monitor.disabled": "Server has been disabled",
 	"backend.server.monitor.sshCommandFailed": "SSH command execution failed",
+	"backend.server.monitor.metricsUnavailable": "Monitoring data unavailable (SSH reachable but no valid /proc metrics returned)",
 	"backend.server.monitor.unknownError": "Unknown error",
 	"backend.server.monitor.connectionFailed": "Connection failed: {message}",
 
