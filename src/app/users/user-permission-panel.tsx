@@ -50,6 +50,8 @@ type RoleTemplate = {
   roleKeys: string[];
   permissions: string[];
   storageAccess: StorageGrant[];
+  /** Built-in templates are read-only: the API refuses PATCH/DELETE on them. */
+  isBuiltin: boolean;
 };
 
 type Props = {
@@ -92,6 +94,8 @@ export function UserPermissionPanel({ userId, username, onClose, onSaved }: Prop
   const [saving, setSaving] = useState(false);
   const [templates, setTemplates] = useState<RoleTemplate[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [confirmingTemplateDelete, setConfirmingTemplateDelete] = useState(false);
+  const [deletingTemplate, setDeletingTemplate] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -146,6 +150,24 @@ return data as PermissionsPayload;
     setPermissionKeys([...template.permissions]);
     setGrants(template.storageAccess.map((grant) => ({ ...grant })));
     setMessage({ type: "success", text: t("usersPerm.template.applied") });
+  };
+
+  const selectedTemplate = templates.find((item) => item.id === selectedTemplateId) ?? null;
+
+  const deleteSelectedTemplate = async () => {
+    if (!selectedTemplate || selectedTemplate.isBuiltin) return;
+    setDeletingTemplate(true);
+    try {
+      await csrfFetch(`/api/role-templates/${encodeURIComponent(selectedTemplate.id)}`, { method: "DELETE" });
+      setTemplates((current) => current.filter((item) => item.id !== selectedTemplate.id));
+      setSelectedTemplateId("");
+      setConfirmingTemplateDelete(false);
+      setMessage({ type: "success", text: t("usersPerm.template.deleted") });
+    } catch (error) {
+      setMessage({ type: "error", text: getErrorMessage(error, t("usersPerm.template.deleteFailed")) });
+    } finally {
+      setDeletingTemplate(false);
+    }
   };
 
   const saveTemplate = async () => {
@@ -244,11 +266,27 @@ return data as PermissionsPayload;
               <h4 className="font-medium text-[var(--text-primary)]">{t("usersPerm.template.title")}</h4>
               <p className="mt-1 text-xs text-[var(--text-muted)]">{t("usersPerm.template.desc")}</p>
               <div className="mt-3 flex flex-wrap gap-2">
-                <select aria-label={t("usersPerm.template.select")} value={selectedTemplateId} onChange={(event) => setSelectedTemplateId(event.target.value)} className="min-h-10 rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 text-sm text-[var(--text-primary)]">
+                <select aria-label={t("usersPerm.template.select")} value={selectedTemplateId} onChange={(event) => { setSelectedTemplateId(event.target.value); setConfirmingTemplateDelete(false); }} className="min-h-10 rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 text-sm text-[var(--text-primary)]">
                   <option value="">{t("usersPerm.template.select")}</option>
                   {templates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}
                 </select>
                 <ActionButton variant="outline" onClick={applyTemplate} disabled={!selectedTemplateId} className="!px-3 !py-2 !text-xs disabled:opacity-40">{t("usersPerm.template.apply")}</ActionButton>
+                {/* Custom templates were creatable but never removable from the UI;
+                    built-ins stay read-only because the API refuses to delete them. */}
+                {selectedTemplate && !selectedTemplate.isBuiltin && (confirmingTemplateDelete ? (
+                  <>
+                    <ActionButton variant="danger-solid" onClick={deleteSelectedTemplate} disabled={deletingTemplate} className="!px-3 !py-2 !text-xs disabled:opacity-50">
+                      {deletingTemplate ? "…" : t("usersPerm.template.deleteConfirm")}
+                    </ActionButton>
+                    <ActionButton variant="secondary" onClick={() => setConfirmingTemplateDelete(false)} disabled={deletingTemplate} className="!px-3 !py-2 !text-xs disabled:opacity-50">
+                      {t("usersPerm.action.cancel")}
+                    </ActionButton>
+                  </>
+                ) : (
+                  <ActionButton variant="danger" onClick={() => setConfirmingTemplateDelete(true)} className="!px-3 !py-2 !text-xs">
+                    {t("usersPerm.template.delete")}
+                  </ActionButton>
+                ))}
                 <div className="flex flex-wrap items-center gap-2">
                   <input
                     type="text"
