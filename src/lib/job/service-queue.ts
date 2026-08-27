@@ -1,7 +1,5 @@
 import { JobStatus, Prisma } from "@prisma/client";
 
-import type { RoleKey } from "@/lib/auth/rbac";
-import { teamWhere } from "@/lib/auth/team-scope";
 import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
 
@@ -12,8 +10,6 @@ import {
   type ClaimJobOptions,
   type EnqueueJobInput,
 } from "./service-internals";
-
-type JobSession = { userId: string; roles: RoleKey[]; currentTeamId: string | null };
 
 function sanitizeAttempts(value: number | undefined) {
   if (typeof value !== "number" || !Number.isFinite(value)) return config.job.defaultMaxAttempts;
@@ -60,17 +56,6 @@ export async function enqueueJob(
     client,
   );
   return job;
-}
-
-export async function getJob(jobId: string, session?: JobSession | null) {
-  if (!session) return prisma.job.findUnique({ where: { id: jobId } });
-  const teamScope = teamWhere(session);
-  if (Object.keys(teamScope).length === 0) {
-    return prisma.job.findUnique({ where: { id: jobId } });
-  }
-  return prisma.job.findFirst({
-    where: { id: jobId, OR: [teamScope, { createdBy: session.userId }] },
-  });
 }
 
 export async function claimNextJob(options: ClaimJobOptions) {

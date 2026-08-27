@@ -1,5 +1,5 @@
 /** Durable job service public API. */
-export { claimNextJob, enqueueJob, getJob } from "./service-queue";
+export { claimNextJob, enqueueJob } from "./service-queue";
 export {
   cancelJob,
   completeJob,

@@ -146,119 +146,164 @@ export async function abandonOrphanPendingJobs(options?: {
   return { cancelled: ids.length, ids };
 }
 
+/**
+ * Every sweep below used to share a single try/catch around the whole tick, so
+ * the first step that threw (a DB hiccup in the VPS-backup reaper, an
+ * unreachable node in the download reconciler) silently skipped the remaining
+ * sweeps for that tick — job_events and the thumbnail cache then grew unbounded
+ * while the log showed one generic "tick failed". Each step is isolated so a
+ * failing sweep is named and the rest still run.
+ */
+async function runStep(name: string, run: () => Promise<void>) {
+  try {
+    await run();
+  } catch (error) {
+    logger.error("job maintenance step failed", {
+      workerId: WORKER_ID,
+      step: name,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
 async function tick(reason: string) {
   const state = getState();
   if (state.running) return;
   state.running = true;
   try {
-    await abandonOrphanPendingJobs();
-    // Free concurrency slots held by dead workers: re-queue retryable
-    // expired leases, terminal-fail attempt-exhausted RUNNING rows.
-    // Without this, recoverStaleRunningJobs is only unit-tested and
-    // claimNextJob alone cannot clear attempts>=maxAttempts zombies.
-    const staleBefore = new Date();
-    const recovered = await recoverStaleRunningJobs({
-      staleBefore,
-      // Modern claims always carry leaseExpiresAt. This fallback is only for
-      // historical RUNNING rows created before leases were introduced.
-      heartbeatStaleBefore: new Date(staleBefore.getTime() - MAX_LEASE_MS),
+    await runStep("abandon-orphan-pending-jobs", async () => {
+      await abandonOrphanPendingJobs();
     });
-    if (recovered.count > 0) {
-      logger.warn("recovered stale RUNNING jobs", {
-        workerId: WORKER_ID,
-        recovered: recovered.recovered.length,
-        failed: recovered.failed.length,
-        recoveredIds: recovered.recovered,
-        failedIds: recovered.failed,
+
+    // Free concurrency slots held by dead workers: re-queue retryable expired
+    // leases, terminal-fail attempt-exhausted RUNNING rows. Without this,
+    // recoverStaleRunningJobs is only unit-tested and claimNextJob alone cannot
+    // clear attempts>=maxAttempts zombies.
+    await runStep("recover-stale-running-jobs", async () => {
+      const staleBefore = new Date();
+      const recovered = await recoverStaleRunningJobs({
+        staleBefore,
+        // Modern claims always carry leaseExpiresAt. This fallback is only for
+        // historical RUNNING rows created before leases were introduced.
+        heartbeatStaleBefore: new Date(staleBefore.getTime() - MAX_LEASE_MS),
       });
-    }
+      if (recovered.count > 0) {
+        logger.warn("recovered stale RUNNING jobs", {
+          workerId: WORKER_ID,
+          recovered: recovered.recovered.length,
+          failed: recovered.failed.length,
+          recoveredIds: recovered.recovered,
+          failedIds: recovered.failed,
+        });
+      }
+    });
+
     // VpsBackupRecord rows are downstream of the jobs recovered above but are
     // NOT touched by recoverStaleRunningJobs (which only finalizes Job rows).
     // Without this, a worker that dies mid-backup (OOM/SIGKILL, so the in-proc
-    // catch never runs) leaves the record stuck RUNNING forever — invisible as
-    // a failure and un-deletable (deleteVpsBackupRecord refuses RUNNING rows).
-    const abandonedVpsBackups = await abandonStaleRunningVpsBackupRecords();
-    if (abandonedVpsBackups.abandoned > 0) {
-      logger.warn("abandoned stale RUNNING vps backup records", {
-        workerId: WORKER_ID,
-        abandoned: abandonedVpsBackups.abandoned,
-        ids: abandonedVpsBackups.ids,
-      });
-    }
+    // catch never runs) leaves the record stuck RUNNING forever — invisible as a
+    // failure and un-deletable (deleteVpsBackupRecord refuses RUNNING rows).
+    await runStep("abandon-stale-running-vps-backups", async () => {
+      const abandoned = await abandonStaleRunningVpsBackupRecords();
+      if (abandoned.abandoned > 0) {
+        logger.warn("abandoned stale RUNNING vps backup records", {
+          workerId: WORKER_ID,
+          abandoned: abandoned.abandoned,
+          ids: abandoned.ids,
+        });
+      }
+    });
+
     // PENDING VpsBackupRecords are stranded when a worker dies/throws BEFORE the
     // PENDING→RUNNING CAS (transient DB error on the pre-claim findUnique/initial
     // heartbeat, or OOM/redeploy in that window). The RUNNING reaper above cannot
     // see them, and an orphaned PENDING row permanently wedges that server's
     // schedule via dispatchDueVpsBackupSchedules' overlap guard (counts
     // PENDING+RUNNING). Mirror of the LOCAL path's stale-PENDING sweep.
-    const abandonedPendingVpsBackups = await abandonStalePendingVpsBackupRecords();
-    if (abandonedPendingVpsBackups.abandoned > 0) {
-      logger.warn("abandoned stale PENDING vps backup records", {
-        workerId: WORKER_ID,
-        abandoned: abandonedPendingVpsBackups.abandoned,
-        ids: abandonedPendingVpsBackups.ids,
-      });
-    }
+    await runStep("abandon-stale-pending-vps-backups", async () => {
+      const abandoned = await abandonStalePendingVpsBackupRecords();
+      if (abandoned.abandoned > 0) {
+        logger.warn("abandoned stale PENDING vps backup records", {
+          workerId: WORKER_ID,
+          abandoned: abandoned.abandoned,
+          ids: abandoned.ids,
+        });
+      }
+    });
+
     // LOCAL BackupRecords have the same crashed-mid-run gap as VPS: the backup
     // job-worker's own sweep only clears stale PENDING, and a worker killed
     // mid-run (OOM/SIGKILL) strands the record RUNNING forever — un-voidable and
     // un-retryable. Reap them here alongside the VPS RUNNING reaper.
-    const abandonedRunningBackups = await abandonStaleRunningBackupRecords();
-    if (abandonedRunningBackups.abandoned > 0) {
-      logger.warn("abandoned stale RUNNING backup records", {
-        workerId: WORKER_ID,
-        abandoned: abandonedRunningBackups.abandoned,
-        ids: abandonedRunningBackups.ids,
-      });
-    }
-    // RUNNING DownloadTasks have no in-band reaper. A direct download whose
-    // user closed the tab finishes remotely but the row is only reconciled on a
-    // manual refresh (route-patch), and a relay whose worker died mid-run sits
-    // RUNNING forever. Probe the real remote state (pid/exit marker, or aria2
-    // gid) and finalize only on a definitive answer — never a blind updatedAt
-    // timeout, since a large unwatched direct download legitimately has a stale
-    // row while curl is still writing.
-    const reconciledDownloads = await reconcileStaleRunningDownloadTasks();
-    if (reconciledDownloads.completed > 0 || reconciledDownloads.failed > 0) {
-      logger.info("reconciled stale RUNNING download tasks", {
-        workerId: WORKER_ID,
-        completed: reconciledDownloads.completed,
-        failed: reconciledDownloads.failed,
-        ids: reconciledDownloads.ids,
-      });
-    }
-    // Reclaim temp chunks + session rows from uploads abandoned mid-flight
-    // (tab closed / network dropped). The sweep function existed but was never
+    await runStep("abandon-stale-running-backups", async () => {
+      const abandoned = await abandonStaleRunningBackupRecords();
+      if (abandoned.abandoned > 0) {
+        logger.warn("abandoned stale RUNNING backup records", {
+          workerId: WORKER_ID,
+          abandoned: abandoned.abandoned,
+          ids: abandoned.ids,
+        });
+      }
+    });
+
+    // RUNNING DownloadTasks have no in-band reaper. A direct download whose user
+    // closed the tab finishes remotely but the row is only reconciled on a manual
+    // refresh (route-patch), and a relay whose worker died mid-run sits RUNNING
+    // forever. Probe the real remote state (pid/exit marker, or aria2 gid) and
+    // finalize only on a definitive answer — never a blind updatedAt timeout,
+    // since a large unwatched direct download legitimately has a stale row while
+    // curl is still writing.
+    await runStep("reconcile-stale-running-downloads", async () => {
+      const reconciled = await reconcileStaleRunningDownloadTasks();
+      if (reconciled.completed > 0 || reconciled.failed > 0) {
+        logger.info("reconciled stale RUNNING download tasks", {
+          workerId: WORKER_ID,
+          completed: reconciled.completed,
+          failed: reconciled.failed,
+          ids: reconciled.ids,
+        });
+      }
+    });
+
+    // Reclaim temp chunks + session rows from uploads abandoned mid-flight (tab
+    // closed / network dropped). The sweep function existed but was never
     // scheduled, so /tmp and mediaUploadSession grew unbounded.
-    const sweptUploads = await sweepExpiredMediaUploadSessions();
-    if (sweptUploads > 0) {
-      logger.info("swept expired media upload sessions", {
-        workerId: WORKER_ID,
-        swept: sweptUploads,
-      });
-    }
+    await runStep("sweep-expired-upload-sessions", async () => {
+      const swept = await sweepExpiredMediaUploadSessions();
+      if (swept > 0) {
+        logger.info("swept expired media upload sessions", { workerId: WORKER_ID, swept });
+      }
+    });
+
     // Bound the thumbnail cache: its keys are one-way hashes, so a deleted or
     // re-uploaded media item can never reclaim its own file. Age + count sweep.
-    const prunedThumbnails = await pruneThumbnailCache();
-    if (prunedThumbnails.deleted > 0) {
-      logger.info("pruned media thumbnail cache", {
-        workerId: WORKER_ID,
-        deleted: prunedThumbnails.deleted,
-        retained: prunedThumbnails.retained,
-      });
-    }
-    // Bound job_events growth: drop events older than 30d while always
-    // retaining the newest KEEP_LATEST rows so recent timelines stay intact.
-    const olderThan = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const pruned = await pruneJobEvents({ olderThan, keepLatest: 5000 });
-    if (pruned.count > 0) {
-      logger.info("pruned job events", {
-        workerId: WORKER_ID,
-        deleted: pruned.count,
-        olderThan: olderThan.toISOString(),
-      });
-    }
+    await runStep("prune-thumbnail-cache", async () => {
+      const pruned = await pruneThumbnailCache();
+      if (pruned.deleted > 0) {
+        logger.info("pruned media thumbnail cache", {
+          workerId: WORKER_ID,
+          deleted: pruned.deleted,
+          retained: pruned.retained,
+        });
+      }
+    });
+
+    // Bound job_events growth: drop events older than 30d while always retaining
+    // the newest KEEP_LATEST rows so recent timelines stay intact.
+    await runStep("prune-job-events", async () => {
+      const olderThan = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const pruned = await pruneJobEvents({ olderThan, keepLatest: 5000 });
+      if (pruned.count > 0) {
+        logger.info("pruned job events", {
+          workerId: WORKER_ID,
+          deleted: pruned.count,
+          olderThan: olderThan.toISOString(),
+        });
+      }
+    });
   } catch (error) {
+    // runStep already contains every step, so reaching here means the tick
+    // scaffolding itself failed.
     logger.error("job maintenance tick failed", {
       reason,
       error: error instanceof Error ? error.message : String(error),
