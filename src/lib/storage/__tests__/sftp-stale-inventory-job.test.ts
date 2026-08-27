@@ -10,6 +10,7 @@ const {
   acquireAdvisoryLockMock,
   detectAndPruneSftpStaleInventoryMock,
   listSftpNodesForStaleInventoryMock,
+  loggerWarnMock,
 } = vi.hoisted(() => ({
   claimNextJobMock: vi.fn(),
   completeJobMock: vi.fn(),
@@ -20,6 +21,16 @@ const {
   acquireAdvisoryLockMock: vi.fn(),
   detectAndPruneSftpStaleInventoryMock: vi.fn(),
   listSftpNodesForStaleInventoryMock: vi.fn(),
+  loggerWarnMock: vi.fn(),
+}));
+
+vi.mock("@/lib/logging", () => ({
+  createLogger: () => ({
+    info: vi.fn(),
+    warn: loggerWarnMock,
+    error: vi.fn(),
+    debug: vi.fn(),
+  }),
 }));
 
 vi.mock("@/lib/job/service", () => ({
@@ -321,6 +332,68 @@ describe("SFTP stale inventory durable job worker", () => {
         "ssh handshake failed",
         expect.objectContaining({ retryAfterMs: expect.any(Number) }),
       );
+    });
+
+    it("surfaces real per-node scan errors to the log while still completing the job", async () => {
+      const nodes = [
+        {
+          id: "n1",
+          name: "alpha",
+          driver: "SFTP" as const,
+          basePath: "/a",
+          healthStatus: "HEALTHY" as const,
+          lastHealthError: null,
+        },
+      ];
+      listSftpNodesForStaleInventoryMock.mockResolvedValueOnce(nodes);
+      claimNextJobMock.mockResolvedValueOnce({ id: "job_realerr", payload: {} });
+      // A node that connected but failed mid-scan: real error, not a skip.
+      detectAndPruneSftpStaleInventoryMock.mockResolvedValueOnce({
+        ...sampleResult,
+        nodeId: "n1",
+        scanned: 0,
+        errors: ["Connection credentials unavailable: vault down"],
+      });
+
+      await runSftpStaleInventoryJobWorkerOnce();
+
+      // Job still completes (records the structured per-node diagnostics)…
+      expect(completeJobMock).toHaveBeenCalledWith(
+        "job_realerr",
+        expect.any(String),
+        expect.objectContaining({ totals: expect.objectContaining({ errors: 1 }) }),
+      );
+      // …but the real error is surfaced to the log so status-based alerting
+      // doesn't miss a sweep that silently failed to scan.
+      expect(loggerWarnMock).toHaveBeenCalledWith(
+        expect.stringContaining("per-node scan errors"),
+        expect.objectContaining({ jobId: "job_realerr", failedNodeCount: 1 }),
+      );
+    });
+
+    it("does not log a warning when the only errors are benign UNHEALTHY skips", async () => {
+      const nodes = [
+        {
+          id: "n1",
+          name: "broken",
+          driver: "SFTP" as const,
+          basePath: "/a",
+          healthStatus: "UNHEALTHY" as const,
+          lastHealthError: "ssh timeout",
+        },
+      ];
+      listSftpNodesForStaleInventoryMock.mockResolvedValueOnce(nodes);
+      claimNextJobMock.mockResolvedValueOnce({ id: "job_skip", payload: {} });
+
+      await runSftpStaleInventoryJobWorkerOnce();
+
+      // UNHEALTHY skip is by-design (P-001-A) and tracked by health monitoring —
+      // it must not trigger a noisy per-tick error log.
+      expect(loggerWarnMock).not.toHaveBeenCalledWith(
+        expect.stringContaining("per-node scan errors"),
+        expect.anything(),
+      );
+      expect(completeJobMock).toHaveBeenCalled();
     });
 
     it("completes immediately with empty results when no SFTP nodes exist", async () => {

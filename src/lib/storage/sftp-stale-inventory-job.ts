@@ -179,6 +179,7 @@ async function executeStaleInventoryJob(job: {
         }),
       run: () => scanOneNode({ node, maxDepth, dryRun }),
     });
+    logSweepNodeErrors(job.id, "single", [result]);
     await completeJob(job.id, SFTP_STALE_INVENTORY_WORKER_ID, {
       mode: "single",
       results: [result],
@@ -222,6 +223,7 @@ async function executeStaleInventoryJob(job: {
     results.push(result);
   }
 
+  logSweepNodeErrors(job.id, payload.nodeIds !== undefined ? "scoped" : "all", results);
   await completeJob(job.id, SFTP_STALE_INVENTORY_WORKER_ID, {
     mode: payload.nodeIds !== undefined ? "scoped" : "all",
     results,
@@ -237,6 +239,49 @@ function summarize(results: SftpStaleInventoryResult[]) {
     errors: results.reduce((sum, r) => sum + r.errors.length, 0),
     durationMs: results.reduce((sum, r) => sum + r.durationMs, 0),
   };
+}
+
+/**
+ * A node result carrying only an "…skipped" error (UNHEALTHY node, non-SFTP
+ * type) is a BENIGN, by-design skip (P-001-A: don't repeatedly scan failed
+ * nodes — health is tracked separately). A node with any other error string
+ * had a *real* scan failure (credentials unavailable, DB diff failed, a
+ * directory listing threw).
+ */
+function realErrorsOf(result: SftpStaleInventoryResult): string[] {
+  return result.errors.filter((e) => !/\bskipped\b/i.test(e));
+}
+
+/**
+ * scanOneNode never throws — it records per-node failures in `result.errors`
+ * so the job can still completeJob and persist the structured per-node
+ * diagnostics (a failJob would drop that payload for a bare error string).
+ * The tradeoff is that a sweep whose nodes all failed to scan still reports
+ * COMPLETED, indistinguishable from a healthy sweep at the job.status level —
+ * invisible to status-based alerting. Surface real (non-skip) per-node errors
+ * into the log so they are not silently buried in the result JSON.
+ */
+function logSweepNodeErrors(
+  jobId: string,
+  mode: string,
+  results: SftpStaleInventoryResult[],
+): void {
+  const failedNodes = results
+    .map((r) => ({ result: r, real: realErrorsOf(r) }))
+    .filter((x) => x.real.length > 0);
+  if (failedNodes.length === 0) return;
+  logger.warn("SFTP stale inventory sweep completed with per-node scan errors", {
+    jobId,
+    mode,
+    failedNodeCount: failedNodes.length,
+    totalNodes: results.length,
+    nodes: failedNodes.map((x) => ({
+      nodeId: x.result.nodeId,
+      nodeName: x.result.nodeName,
+      scanned: x.result.scanned,
+      errors: x.real,
+    })),
+  });
 }
 
 /**
