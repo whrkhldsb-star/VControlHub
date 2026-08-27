@@ -132,6 +132,19 @@ describe("runtime settings", () => {
     expect(getRuntimeSettingFallback("runtime.commandExecutionTimeoutMs")).toBe(180000);
   });
 
+  it("truncates and clamps an env override the same way a persisted value is", () => {
+    // A fractional value used to reach a Prisma `take`, and an out-of-range one
+    // bypassed the bound the settings UI enforces.
+    process.env.AI_PROVIDER_LIST_LIMIT = "50.5";
+    expect(getRuntimeSettingFallback("runtime.aiProviderListLimit")).toBe(50);
+    process.env.AI_PROVIDER_LIST_LIMIT = "99999";
+    expect(getRuntimeSettingFallback("runtime.aiProviderListLimit")).toBe(500);
+    process.env.AI_PROVIDER_LIST_LIMIT = "1";
+    expect(getRuntimeSettingFallback("runtime.aiProviderListLimit")).toBe(10);
+    delete process.env.AI_PROVIDER_LIST_LIMIT;
+    expect(getRuntimeSettingFallback("runtime.aiProviderListLimit")).toBe(100);
+  });
+
   it("summarizes current values with source and restart metadata", async () => {
     process.env.COMMAND_EXECUTION_TIMEOUT_MS = "180000";
     prismaMock.setting.findMany.mockResolvedValueOnce([

@@ -177,7 +177,15 @@ function runtimeSettingRequiresRestart(applies: string) {
 
 export function getRuntimeSettingFallback(key: RuntimeSettingKey): number {
   const definition = RUNTIME_SETTING_DEFINITIONS[key];
-  return readPositiveEnvNumber(definition.env, definition.defaultValue);
+  const raw = readPositiveEnvNumber(definition.env, definition.defaultValue);
+  // Apply the same truncation and range check the database path gets from
+  // `normalizeRuntimeSettingValue`. An env override was previously accepted
+  // verbatim as long as it was positive, so `AI_PROVIDER_LIST_LIMIT=50.5`
+  // reached a Prisma `take` (which rejects a fractional row count) and a value
+  // above `definition.max` bypassed the limit the settings UI enforces.
+  // Every definition's `defaultValue` is inside its own range, so this is a
+  // no-op when no env override is set.
+  return Math.min(Math.max(Math.trunc(raw), definition.min), definition.max);
 }
 
 function resolveRuntimeSettingSummary(key: RuntimeSettingKey, persistedValue?: string | null): RuntimeSettingSummary {
