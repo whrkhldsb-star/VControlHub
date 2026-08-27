@@ -119,6 +119,37 @@ describe("/api/audit/export GET", () => {
 		});
 	});
 
+	it("serialises nested detail values instead of [object Object]", async () => {
+		mocks.exportAuditLogs.mockResolvedValueOnce([
+			{
+				id: "log-nested",
+				actorType: "SYSTEM",
+				actorId: null,
+				action: "playbook.trigger.metric",
+				severity: "INFO",
+				// Audit details routinely nest — metric readings, step lists, zod issues.
+				detail: { readings: [{ serverId: "s1", value: 91 }] },
+				createdAt: new Date("2025-01-01T00:00:00Z"),
+				actor: null,
+			},
+		]);
+		const res = await route.GET(new Request("http://local/api/audit/export"));
+		const text = await res.text();
+		expect(text).not.toContain("[object Object]");
+		expect(text).toContain('serverId');
+		expect(text).toContain("91");
+	});
+
+	it("rejects an unsupported format with 400 rather than 500", async () => {
+		const res = await route.GET(
+			new Request("http://local/api/audit/export?format=xml"),
+		);
+		// The guard's querySchema turns this into a client error; a bare
+		// schema.parse() in the handler would surface it as 500 "Operation failed".
+		expect(res.status).toBe(400);
+		expect(mocks.exportAuditLogs).not.toHaveBeenCalled();
+	});
+
 	it("returns 403 when the caller lacks audit:read", async () => {
 		mocks.requireApiPermission.mockResolvedValueOnce(
 			new Response(JSON.stringify({ error: "forbidden" }), { status: 403 }),

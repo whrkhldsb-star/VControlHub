@@ -213,7 +213,12 @@ export async function listOperationTasks(options: OperationTaskListOptions = {})
 export async function listOperationTaskResult(options: OperationTaskListOptions = {}, session?: { userId: string; roles: import("@/lib/auth/rbac").RoleKey[]; currentTeamId: string | null }): Promise<OperationTaskListResult> {
   const configuredLimit = await getOperationTaskListLimit();
   const requestedLimit = options.limit ?? configuredLimit;
-  const limit = Math.min(Math.max(Number.isFinite(requestedLimit) ? requestedLimit : configuredLimit, 1), configuredLimit);
+  // `Math.trunc` is not cosmetic: `limit` becomes Prisma `take`, which rejects a
+  // fractional row count. Callers other than the HTTP route (which validates
+  // `.int()`) pass this straight through.
+  const limit = Math.trunc(
+    Math.min(Math.max(Number.isFinite(requestedLimit) ? requestedLimit : configuredLimit, 1), configuredLimit),
+  );
   const teamScope = session ? teamWhere(session) : {};
   const canReadTeamTasks = Boolean(session && sessionHasPermission(session, "team:manage"));
   const scopedWhere = (ownerField: string): Record<string, unknown> => {

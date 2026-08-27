@@ -33,7 +33,10 @@ function toCsv(logs: AuditLogEntry[]): string {
       log.actor ? (log.actor.displayName ?? log.actor.username) : "",
       log.actorType,
       Object.entries(log.detail)
-        .map(([k, v]) => `${k}=${String(v)}`)
+        // `String(v)` renders a nested object as "[object Object]", and audit
+        // details routinely nest (metric readings, playbook step lists, zod
+        // issues). Serialise those instead so the export keeps the data.
+        .map(([k, v]) => `${k}=${typeof v === "object" && v !== null ? JSON.stringify(v) : String(v)}`)
         .join("; "),
     ]
       .map(csvCell)
@@ -45,10 +48,16 @@ function toCsv(logs: AuditLogEntry[]): string {
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { permission: "audit:read", rateLimit: GENERAL_READ_LIMIT },
-    async ({ session }) => {
-    const url = new URL(request.url);
-    const params = exportQuerySchema.parse(Object.fromEntries(url.searchParams));
+    // The query goes through the guard's `querySchema` rather than a bare
+    // `.parse()` in the handler: a thrown ZodError is not an AppError, so
+    // `apiCatch` would turn `?format=xml` into a 500 "Operation failed"
+    // instead of a 400 naming the bad field.
+    {
+      permission: "audit:read",
+      rateLimit: GENERAL_READ_LIMIT,
+      querySchema: exportQuerySchema,
+    },
+    async ({ session, query: params }) => {
     const logs = await exportAuditLogs({
       action: params.action,
       severity: params.severity,

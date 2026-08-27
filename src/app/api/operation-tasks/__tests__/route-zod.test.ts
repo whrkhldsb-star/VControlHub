@@ -44,6 +44,16 @@ describe("/api/operation-tasks zod validation (TR-037 R5+)", () => {
 		expect(mocks.listOperationTaskResult).not.toHaveBeenCalled();
 	});
 
+	it("rejects a fractional limit with 400", async () => {
+		// The value becomes Prisma `take`, which refuses a fractional row count —
+		// letting it through would produce a 500 rather than a client error.
+		const res = await route.GET(
+			new Request("http://local/api/operation-tasks?limit=5.7"),
+		);
+		expect(res.status).toBe(400);
+		expect(mocks.listOperationTaskResult).not.toHaveBeenCalled();
+	});
+
 	it("rejects an oversized limit with 400", async () => {
 		const response = await route.GET(
 			new Request("http://local/api/operation-tasks?limit=99999"),

@@ -4,7 +4,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { csvCell } from "@/lib/http/csv";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { listOperationTaskResult } from "@/lib/operation-task/service";
-import type { OperationTask, OperationTaskListSort, OperationTaskStatus } from "@/lib/operation-task/dto";
+import type { OperationTask, OperationTaskStatus } from "@/lib/operation-task/dto";
 
 const STATUS_VALUES = ["pending", "running", "completed", "failed", "cancelled", "paused"] as const;
 const SORT_VALUES = ["recent", "attention"] as const;
@@ -29,7 +29,10 @@ const SORT_VALUES = ["recent", "attention"] as const;
 const operationTasksQuerySchema = z.object({
   limit: z.preprocess(
     (v) => (v === "" || v == null) ? undefined : Number(v),
-    z.number().finite().nonnegative().max(9999).optional(),
+    // `.int()` matters: the value ends up as Prisma `take`, which rejects a
+    // fractional row count — `?limit=5.7` would surface as a 500 instead of
+    // the 400 every other bad limit gets.
+    z.number().int().nonnegative().max(9999).optional(),
   ),
   status: z.string().max(256).superRefine((value, ctx) => {
     const tokens = value.split(",").map((item) => item.trim()).filter(Boolean);
@@ -50,16 +53,6 @@ function parseStatusFilter(value: string | null | undefined): OperationTaskStatu
     .filter((item): item is OperationTaskStatus => (STATUS_VALUES as readonly string[]).includes(item));
   if (list.length === 0) return undefined;
   return list.length === 1 ? list[0] : list;
-}
-
-function parseTaskTypeFilter(value: string | null | undefined) {
-  const taskType = value?.trim();
-  return taskType || undefined;
-}
-
-function parseSort(value: string | null | undefined): OperationTaskListSort | undefined {
-  if (!value) return undefined;
-  return value as OperationTaskListSort;
 }
 
 function taskToCsvRow(task: OperationTask) {
@@ -96,8 +89,10 @@ export async function GET(request: Request) {
       const result = await listOperationTaskResult({
         limit: q.limit,
         status: parseStatusFilter(q.status),
-        taskType: parseTaskTypeFilter(q.taskType),
-        sort: parseSort(q.sort),
+        // `taskType` is already trimmed and non-empty, and `sort` already
+        // narrowed to the enum, by `operationTasksQuerySchema` above.
+        taskType: q.taskType,
+        sort: q.sort,
       }, session!);
       if (q.format === "csv") {
         return new Response(operationTasksCsv(result.tasks), {
