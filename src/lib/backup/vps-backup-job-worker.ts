@@ -9,6 +9,7 @@ import {
   claimNextJob,
   completeJob,
   failJob,
+  failJobTerminal,
   heartbeatJob,
 } from "@/lib/job/service";
 import {
@@ -47,7 +48,9 @@ export async function runVpsBackupJobWorkerOnce(): Promise<void> {
 
     const payload = job.payload as { recordId?: string; paths?: string[] };
     if (!payload?.recordId) {
-      await failJob(job.id, WORKER_ID, "Missing recordId in job payload");
+      // A payload without a recordId is malformed for good: retrying it just
+      // burns maxAttempts and delays the FAILED state the caller is waiting on.
+      await failJobTerminal(job.id, WORKER_ID, "Missing recordId in job payload");
       return;
     }
 
@@ -80,7 +83,18 @@ export async function runVpsBackupJobWorkerOnce(): Promise<void> {
         localPath: result.localPath,
       });
     } else {
-      await failJob(job.id, WORKER_ID, result.errorMessage || "Backup failed");
+      // Terminal, not retryable. `runVpsBackupRecord` claims the record with a
+      // `status: "PENDING"` CAS and every one of its failure paths leaves the row
+      // in a terminal state, so a second attempt can never re-claim it: it
+      // returns "already running or completed" and OVERWRITES the job's
+      // errorMessage, hiding the real cause (e.g. "SSH connection refused")
+      // behind a meaningless one. A genuine retry means a new record — that is
+      // what the retry route creates.
+      await failJobTerminal(
+        job.id,
+        WORKER_ID,
+        result.errorMessage || "Backup failed",
+      );
     }
   } catch (err) {
     // The backup work (run()) completed but the lease could no longer be
@@ -102,6 +116,11 @@ export async function runVpsBackupJobWorkerOnce(): Promise<void> {
         `Job worker failed: ${errMsg}`,
       ).catch(() => undefined);
     }
+    // Retryable on purpose: a throw before the PENDING→RUNNING CAS (a DB blip,
+    // a transient connect error) leaves the record PENDING, and
+    // forceFailVpsBackupRecordIfRunning is a no-op on it, so the next attempt
+    // can legitimately claim and run it. If the record HAD been claimed, the
+    // next attempt hits the terminal branch above instead.
     await failJob(job.id, WORKER_ID, errMsg);
   }
 }
