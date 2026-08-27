@@ -102,19 +102,6 @@ export async function indexDownloadedFileEntry(input: {
 
 /* ── Aria2 status helpers ──────────────────────────────── */
 
-/** Map aria2 status to our DownloadTaskStatus */
-export function mapAria2Status(s: string): string {
- switch (s) {
-  case "active": return "RUNNING";
-  case "waiting": return "PENDING";
-  case "paused": return "PENDING";
-  case "error": return "FAILED";
-  case "complete": return "COMPLETED";
-  case "removed": return "CANCELLED";
-  default: return "PENDING";
- }
-}
-
 /**
  * Relay downloads are not complete when aria2 finishes: the worker must still
  * transfer and index the artifact on the target VPS. Keep that intermediate

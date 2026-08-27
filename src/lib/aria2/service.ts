@@ -220,16 +220,6 @@ export async function addUri(
 	return gid as string;
 }
 
-export async function addTorrent(
-	torrent: string,	// base64 encoded
-	ouris: string[] = [],
-	options: Record<string, string> = {},
-): Promise<string> {
-	await ensureAria2Daemon();
-	const gid = await rpcCall("aria2.addTorrent", [torrent, ouris, options]);
-	return gid as string;
-}
-
 export async function removeDownload(gid: string, force = false): Promise<string> {
 	const method = force ? "aria2.forceRemove" : "aria2.remove";
 	const result = await rpcCall(method, [gid]);
