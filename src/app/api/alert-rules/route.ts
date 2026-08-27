@@ -18,6 +18,7 @@ import { idQuerySchema, parseSearchParams } from "@/lib/http/parse-search-params
 import { validateWebhookUrlSyntax } from "@/lib/security/webhook-url";
 
 import { AuthError, ValidationError } from "@/lib/errors";
+import { teamWhere } from "@/lib/auth/team-scope";
 import { getErrorMessage } from "@/lib/http/error-message";
 import {
   MAX_NON_FILE_FORM_BYTES,
@@ -314,7 +315,12 @@ export async function PUT(request: Request) {
       if (!session)
         throw new AuthError("Not authenticated");
       try {
-        await evaluateAlerts();
+        // Scope the manual "evaluate now" to the caller's team. Left unscoped,
+        // any notification:manage operator could drive every tenant's alert
+        // lifecycle — opening/escalating incidents, paging their on-call, and
+        // running their playbooks. teamWhere({}) for a global manager keeps the
+        // fleet-wide behaviour; the background worker still calls it with no arg.
+        await evaluateAlerts({ ruleWhere: teamWhere(session) });
         await auditUserAction(session.userId, "alert_rule.evaluate", {
           manual: true,
         }, undefined, session?.currentTeamId);

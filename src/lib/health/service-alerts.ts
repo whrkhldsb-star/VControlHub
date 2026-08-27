@@ -81,12 +81,23 @@ async function persistMatchState(
   });
 }
 
-export async function evaluateAlerts() {
+/**
+ * Evaluate alert rules against current fleet health.
+ *
+ * Called two ways:
+ *  - background worker / AI ops with no argument → fleet-wide (every tenant).
+ *  - a manual "evaluate now" trigger passes `ruleWhere` (a `teamWhere(session)`
+ *    fragment) so a team operator only evaluates their own rules and never
+ *    opens/escalates/notifies — or runs playbooks against — other tenants' hosts.
+ */
+export async function evaluateAlerts(options?: { ruleWhere?: Record<string, unknown> }) {
+  const ruleScope = options?.ruleWhere ?? {};
+  const escalateOptions = Object.keys(ruleScope).length > 0 ? { ruleTeamWhere: ruleScope } : undefined;
   const rules = [];
   let ruleCursorId: string | undefined;
   for (;;) {
     const page = await prisma.alertRule.findMany({
-      where: { enabled: true },
+      where: { enabled: true, ...ruleScope },
       select: {
         id: true,
         name: true,
@@ -117,7 +128,7 @@ export async function evaluateAlerts() {
     ruleCursorId = page[page.length - 1]!.id;
   }
   if (rules.length === 0) {
-    await escalateOverdueAlertIncidents();
+    await escalateOverdueAlertIncidents(escalateOptions);
     return;
   }
 
@@ -349,5 +360,5 @@ export async function evaluateAlerts() {
     }
   }
 
-  await escalateOverdueAlertIncidents();
+  await escalateOverdueAlertIncidents(escalateOptions);
 }

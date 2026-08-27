@@ -548,11 +548,85 @@ export async function acknowledgeAlertIncident(input: {
 }
 
 /**
+ * Resolve incidents whose bound server no longer participates in evaluation —
+ * the server row was deleted, or the server was disabled. `evaluateAlerts` only
+ * ever inspects existing, enabled hosts, so such an incident can never recover
+ * on its own: it would keep escalating to L3 and paging on-call forever, and
+ * once the server row is gone it cannot even be acknowledged by team operators
+ * (the server-team ownership check in {@link acknowledgeAlertIncident} throws
+ * NotFoundError). Silently marking them RESOLVED lets the queue self-heal; if
+ * the server is later re-enabled and still breaching, evaluateAlerts opens a
+ * fresh incident.
+ *
+ * A server that merely went *offline* is untouched — its row still exists and is
+ * enabled (`enabled` is the monitoring intent, not liveness), which is exactly
+ * what `server_offline` incidents track. Fleet incidents (serverId = null) are
+ * also never touched: they are not bound to a single host. `ruleTeamWhere`
+ * scopes cleanup to one tenant when invoked from a manual, team-scoped trigger.
+ */
+export async function resolveOrphanedAlertIncidents(options?: {
+  ruleTeamWhere?: Record<string, unknown>;
+}): Promise<{ resolved: number }> {
+  const ruleFilter =
+    options?.ruleTeamWhere && Object.keys(options.ruleTeamWhere).length > 0
+      ? { rule: options.ruleTeamWhere }
+      : {};
+  let resolved = 0;
+  let cursorId: string | undefined;
+  // Cursor by id (stable under the RESOLVED mutation — resolved rows drop out of
+  // the status filter but never reorder, so offset-skip cannot starve rows).
+  for (let page = 0; page < 50; page += 1) {
+    const active = await prisma.alertIncident.findMany({
+      where: { status: { in: ["OPEN", "ACKNOWLEDGED"] }, serverId: { not: null }, ...ruleFilter },
+      select: { id: true, serverId: true },
+      take: 500,
+      orderBy: { id: "asc" },
+      ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {}),
+    });
+    if (active.length === 0) break;
+    cursorId = active[active.length - 1]!.id;
+
+    const serverIds = Array.from(new Set(active.map((i) => i.serverId).filter((v): v is string => Boolean(v))));
+    const live = serverIds.length
+      ? await prisma.server.findMany({
+          where: { id: { in: serverIds }, enabled: true },
+          select: { id: true },
+        })
+      : [];
+    const liveSet = new Set(live.map((s) => s.id));
+    const orphanIds = active.filter((i) => i.serverId && !liveSet.has(i.serverId)).map((i) => i.id);
+    if (orphanIds.length > 0) {
+      const res = await prisma.alertIncident.updateMany({
+        where: { id: { in: orphanIds }, status: { in: ["OPEN", "ACKNOWLEDGED"] } },
+        data: { status: "RESOLVED", resolvedAt: new Date() },
+      });
+      resolved += res.count;
+    }
+    if (active.length < 500) break;
+  }
+  if (resolved > 0) logger.info("auto-resolved orphaned alert incidents", { resolved });
+  return { resolved };
+}
+
+/**
  * Escalate OPEN incidents that exceeded rule.escalationMinutes without ack.
  * Level increases by 1 (capped at 3) and re-notifies on-call + admins.
  * Uses conditional updateMany so overlapping workers cannot double-notify the same level.
+ *
+ * First self-heals orphaned incidents (deleted/disabled target servers) so they
+ * stop escalating forever — see {@link resolveOrphanedAlertIncidents}.
+ * `ruleTeamWhere` (from a manual, team-scoped trigger) restricts both the orphan
+ * sweep and escalation to incidents whose rule is visible to that tenant, so one
+ * team's "evaluate now" never drives another team's incident lifecycle.
  */
-export async function escalateOverdueAlertIncidents(): Promise<{ escalated: number; notifyFailures: number }> {
+export async function escalateOverdueAlertIncidents(options?: {
+  ruleTeamWhere?: Record<string, unknown>;
+}): Promise<{ escalated: number; notifyFailures: number; orphansResolved: number }> {
+  const { resolved: orphansResolved } = await resolveOrphanedAlertIncidents(options);
+  const ruleFilter =
+    options?.ruleTeamWhere && Object.keys(options.ruleTeamWhere).length > 0
+      ? { rule: options.ruleTeamWhere }
+      : {};
   let escalated = 0;
   // Escalations that reached zero channels — the caller/cron can surface this.
   let notifyFailures = 0;
@@ -560,7 +634,7 @@ export async function escalateOverdueAlertIncidents(): Promise<{ escalated: numb
   // Paginate until a short page so older rows beyond the first 200 are not starved.
   for (let page = 0; page < 20; page += 1) {
     const open = await prisma.alertIncident.findMany({
-      where: { status: "OPEN" },
+      where: { status: "OPEN", ...ruleFilter },
       include: {
         rule: {
           select: {
@@ -652,7 +726,7 @@ export async function escalateOverdueAlertIncidents(): Promise<{ escalated: numb
     if (open.length < 200) break;
   }
 
-  return { escalated, notifyFailures };
+  return { escalated, notifyFailures, orphansResolved };
 }
 
 export async function listAlertIncidents(options?: {

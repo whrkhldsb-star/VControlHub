@@ -396,6 +396,48 @@ describe("alert incidents", () => {
     expect(createNotificationMock).not.toHaveBeenCalled();
   });
 
+  it("auto-resolves incidents whose target server was deleted or disabled", async () => {
+    // resolveOrphanedAlertIncidents scan returns one OPEN incident bound to a
+    // server that no longer exists / is disabled; the escalation scan then sees
+    // nothing left to page.
+    prismaMock.alertIncident.findMany
+      .mockResolvedValueOnce([{ id: "inc-orphan", serverId: "gone-srv" }])
+      .mockResolvedValue([]);
+    // Server row is gone (or disabled) → not returned by the enabled-only lookup.
+    prismaMock.server.findMany.mockResolvedValue([]);
+    prismaMock.alertIncident.updateMany.mockResolvedValue({ count: 1 });
+
+    const result = await escalateOverdueAlertIncidents();
+
+    expect(result.orphansResolved).toBe(1);
+    expect(result.escalated).toBe(0);
+    expect(prismaMock.alertIncident.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: { in: ["inc-orphan"] } }),
+        data: expect.objectContaining({ status: "RESOLVED" }),
+      }),
+    );
+    // A deleted/disabled host must never be escalated or re-paged.
+    expect(createNotificationMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps incidents whose target server still exists and is enabled", async () => {
+    prismaMock.alertIncident.findMany
+      .mockResolvedValueOnce([{ id: "inc-live", serverId: "live-srv" }])
+      .mockResolvedValue([]);
+    prismaMock.server.findMany.mockResolvedValue([{ id: "live-srv" }]);
+    prismaMock.alertIncident.updateMany.mockResolvedValue({ count: 0 });
+
+    const result = await escalateOverdueAlertIncidents();
+
+    expect(result.orphansResolved).toBe(0);
+    // The only updateMany permitted here is the (skipped) escalation claim, never
+    // an orphan resolve — the live server keeps its incident open.
+    for (const call of prismaMock.alertIncident.updateMany.mock.calls) {
+      expect((call[0] as { data?: { status?: string } }).data?.status).not.toBe("RESOLVED");
+    }
+  });
+
   it("openOrRefresh recovers from concurrent P2002 create races", async () => {
     prismaMock.alertIncident.findUnique
       .mockResolvedValueOnce(null)
