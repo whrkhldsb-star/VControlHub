@@ -14,8 +14,8 @@ const { requireApiPermissionMock, getObservabilitySnapshotMock } = vi.hoisted(()
 		webVitals: { byName: {}, recent: [] },
 		delivery: {},
 		websocket: {
-			notification: { active: 1, opened: 2, closed: 1, errors: 0, rejected: 0, reconnectHints: 0 },
-			ssh: { active: 0, opened: 0, closed: 0, errors: 0, rejected: 0, reconnectHints: 0 },
+			notification: { active: 1, opened: 2, closed: 1, errors: 0, rejected: 0 },
+			ssh: { active: 0, opened: 0, closed: 0, errors: 0, rejected: 0 },
 		},
 	})),
 }));
@@ -44,7 +44,7 @@ describe("GET /api/monitoring/observability", () => {
 			vi.fn(async () => ({
 				ok: true,
 				json: async () => ({
-					websocket: { active: 3, opened: 5, closed: 2, errors: 0, rejected: 1, reconnectHints: 0 },
+					websocket: { active: 3, opened: 5, closed: 2, errors: 0, rejected: 1 },
 					activeClients: 3,
 				}),
 			})),

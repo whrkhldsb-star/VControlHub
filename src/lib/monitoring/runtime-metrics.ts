@@ -42,8 +42,6 @@ type WsStats = {
 	closed: number;
 	errors: number;
 	rejected: number;
-	/** Client-driven reconnect is not observed server-side; reserved for future. */
-	reconnectHints: number;
 };
 
 const MAX_SAMPLES = 500;
@@ -60,8 +58,8 @@ const deliveryStats: Record<DeliveryChannel, ChannelStats> = {
 };
 
 const wsStats: Record<"notification" | "ssh", WsStats> = {
-	notification: { active: 0, opened: 0, closed: 0, errors: 0, rejected: 0, reconnectHints: 0 },
-	ssh: { active: 0, opened: 0, closed: 0, errors: 0, rejected: 0, reconnectHints: 0 },
+	notification: { active: 0, opened: 0, closed: 0, errors: 0, rejected: 0 },
+	ssh: { active: 0, opened: 0, closed: 0, errors: 0, rejected: 0 },
 };
 
 function pushBounded(list: number[], value: number, max = MAX_SAMPLES) {
@@ -139,7 +137,7 @@ export async function timeDelivery<T>(
 
 export function recordWsEvent(
 	kind: "notification" | "ssh",
-	event: "open" | "close" | "error" | "reject" | "reconnect_hint",
+	event: "open" | "close" | "error" | "reject",
 ) {
 	const stats = wsStats[kind];
 	switch (event) {
@@ -156,9 +154,6 @@ export function recordWsEvent(
 			break;
 		case "reject":
 			stats.rejected += 1;
-			break;
-		case "reconnect_hint":
-			stats.reconnectHints += 1;
 			break;
 	}
 }
@@ -230,6 +225,6 @@ export function __resetRuntimeMetricsForTests() {
 	for (const channel of Object.keys(deliveryStats) as DeliveryChannel[]) {
 		deliveryStats[channel] = { success: 0, failure: 0, latenciesMs: [] };
 	}
-	wsStats.notification = { active: 0, opened: 0, closed: 0, errors: 0, rejected: 0, reconnectHints: 0 };
-	wsStats.ssh = { active: 0, opened: 0, closed: 0, errors: 0, rejected: 0, reconnectHints: 0 };
+	wsStats.notification = { active: 0, opened: 0, closed: 0, errors: 0, rejected: 0 };
+	wsStats.ssh = { active: 0, opened: 0, closed: 0, errors: 0, rejected: 0 };
 }

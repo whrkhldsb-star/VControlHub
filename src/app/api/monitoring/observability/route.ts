@@ -20,7 +20,6 @@ type SshMetricsPayload = {
 		closed: number;
 		errors: number;
 		rejected: number;
-		reconnectHints: number;
 	};
 	activeClients?: number;
 };
