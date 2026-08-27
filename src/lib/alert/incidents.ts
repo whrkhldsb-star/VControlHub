@@ -170,12 +170,31 @@ async function dispatchChannels(input: {
 
   if (input.notifyChannels.includes("email")) {
     try {
-      await sendAlertEmail({
+      // sendAlertEmail only throws on config problems; a successful SMTP session
+      // that had every recipient rejected still resolves with accepted:[]. Treat
+      // "zero accepted" as a failure so `notified` cannot report a phantom page.
+      const result = await sendAlertEmail({
         title: input.level > 1 ? `[L${input.level}] ${input.title}` : input.title,
         message: input.message,
         contextLines: input.contextLines,
       });
-      delivered.push("email");
+      if (result.accepted.length > 0) {
+        delivered.push("email");
+        if (result.rejected.length > 0) {
+          logger.warn("alert email partially delivered", {
+            accepted: result.accepted.length,
+            rejected: result.rejected.length,
+          });
+        }
+      } else {
+        failed.push({
+          channel: "email",
+          error: `all ${result.rejected.length} recipient(s) rejected`,
+        });
+        logger.warn("alert email delivery rejected for all recipients", {
+          rejected: result.rejected.length,
+        });
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       failed.push({ channel: "email", error: message });
@@ -185,12 +204,31 @@ async function dispatchChannels(input: {
 
   if (input.notifyChannels.includes("telegram")) {
     try {
-      await sendAlertTelegram({
+      // Same contract as email: sendAlertTelegram resolves with accepted:[] when
+      // every chat_id failed (per-chat errors are collected, not thrown). Only
+      // count the channel delivered when at least one target actually accepted.
+      const result = await sendAlertTelegram({
         title: input.level > 1 ? `[L${input.level}] ${input.title}` : input.title,
         message: input.message,
         contextLines: input.contextLines,
       });
-      delivered.push("telegram");
+      if (result.accepted.length > 0) {
+        delivered.push("telegram");
+        if (result.rejected.length > 0) {
+          logger.warn("alert telegram partially delivered", {
+            accepted: result.accepted.length,
+            rejected: result.rejected.length,
+          });
+        }
+      } else {
+        failed.push({
+          channel: "telegram",
+          error: result.rejected[0]?.reason ?? `all ${result.rejected.length} target(s) failed`,
+        });
+        logger.warn("alert telegram delivery failed for all targets", {
+          rejected: result.rejected.length,
+        });
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       failed.push({ channel: "telegram", error: message });

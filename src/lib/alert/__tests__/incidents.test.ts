@@ -127,6 +127,92 @@ describe("alert incidents", () => {
     expect(prismaMock.alertIncident.create).toHaveBeenCalled();
   });
 
+  it("telegram that resolves with zero accepted (all chats rejected) is NOT a phantom notify", async () => {
+    prismaMock.alertIncident.findUnique.mockResolvedValue(null);
+    prismaMock.alertIncident.create.mockResolvedValue({ id: "inc_tg0", level: 1, status: "OPEN" });
+    // sendAlertTelegram resolves (does not throw) even when every chat_id failed.
+    sendTelegramMock.mockResolvedValueOnce({
+      accepted: [],
+      rejected: [{ chatId: "123", reason: "chat not found" }],
+    });
+
+    const result = await openOrRefreshAlertIncident({
+      ruleId: "r1",
+      ruleName: "High CPU",
+      serverId: "s1",
+      serverName: "vps-1",
+      metric: "cpu_usage",
+      operator: "gte",
+      threshold: 90,
+      value: 95,
+      notifyChannels: ["telegram"],
+      onCallUserIds: [],
+      title: "Alert: vps-1 cpu usage",
+      message: "High CPU",
+    });
+
+    expect(result.fired).toBe(true);
+    expect(result.notified).toBe(false);
+    expect(result.deliveredChannels).toEqual([]);
+    expect(result.failedChannels).toEqual([
+      { channel: "telegram", error: "chat not found" },
+    ]);
+  });
+
+  it("telegram/email with at least one accepted counts as delivered", async () => {
+    prismaMock.alertIncident.findUnique.mockResolvedValue(null);
+    prismaMock.alertIncident.create.mockResolvedValue({ id: "inc_ok", level: 1, status: "OPEN" });
+    sendTelegramMock.mockResolvedValueOnce({
+      accepted: [{ chatId: "123", messageId: 1 }],
+      rejected: [{ chatId: "456", reason: "blocked" }], // partial → still delivered
+    });
+    sendEmailMock.mockResolvedValueOnce({ accepted: ["a@b.com"], rejected: [] });
+
+    const result = await openOrRefreshAlertIncident({
+      ruleId: "r1",
+      ruleName: "High CPU",
+      serverId: "s1",
+      serverName: "vps-1",
+      metric: "cpu_usage",
+      operator: "gte",
+      threshold: 90,
+      value: 95,
+      notifyChannels: ["telegram", "email"],
+      onCallUserIds: [],
+      title: "Alert: vps-1 cpu usage",
+      message: "High CPU",
+    });
+
+    expect(result.notified).toBe(true);
+    expect(result.deliveredChannels).toEqual(expect.arrayContaining(["telegram", "email"]));
+  });
+
+  it("email that resolves with all recipients rejected is NOT a phantom notify", async () => {
+    prismaMock.alertIncident.findUnique.mockResolvedValue(null);
+    prismaMock.alertIncident.create.mockResolvedValue({ id: "inc_em0", level: 1, status: "OPEN" });
+    sendEmailMock.mockResolvedValueOnce({ accepted: [], rejected: ["a@b.com", "c@d.com"] });
+
+    const result = await openOrRefreshAlertIncident({
+      ruleId: "r1",
+      ruleName: "High CPU",
+      serverId: "s1",
+      serverName: "vps-1",
+      metric: "cpu_usage",
+      operator: "gte",
+      threshold: 90,
+      value: 95,
+      notifyChannels: ["email"],
+      onCallUserIds: [],
+      title: "Alert: vps-1 cpu usage",
+      message: "High CPU",
+    });
+
+    expect(result.notified).toBe(false);
+    expect(result.failedChannels).toEqual([
+      { channel: "email", error: "all 2 recipient(s) rejected" },
+    ]);
+  });
+
   it("does not re-notify when incident already OPEN", async () => {
     prismaMock.alertIncident.findUnique.mockResolvedValue({
       id: "inc1",
