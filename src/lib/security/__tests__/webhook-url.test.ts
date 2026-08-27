@@ -25,6 +25,10 @@ describe("webhook URL safety validation", () => {
 			"https://[fd00::1]/hook",
 			"https://[::ffff:127.0.0.1]/hook",
 			"https://[::ffff:7f00:1]/hook",
+			// Deprecated IPv4-compatible form (::a.b.c.d) must also be blocked.
+			"https://[::127.0.0.1]/hook",
+			"https://[::169.254.169.254]/hook",
+			"https://[::a9fe:a9fe]/hook",
 		];
 
 		for (const url of blocked) {

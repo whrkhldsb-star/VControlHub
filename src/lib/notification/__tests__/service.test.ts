@@ -124,4 +124,23 @@ describe("notification service state synchronization", () => {
     );
   });
 
+  it("notifyCommandPending restricts null-team requests to global team managers", async () => {
+    prismaMock.user.findMany.mockResolvedValueOnce([{ id: "a1" }]);
+    prismaMock.notification.create.mockImplementation(async ({ data }: any) => ({ id: "n", ...data, createdAt: new Date() }));
+    prismaMock.notification.count.mockResolvedValue(0);
+
+    await notifyCommandPending("requester", "reboot edge", null);
+
+    const where = prismaMock.user.findMany.mock.calls.at(-1)![0].where;
+    // No OR broadcast to every tenant's approvers; only team:manage holders.
+    expect(where.OR).toBeUndefined();
+    expect(where.roles).toEqual({
+      some: {
+        role: {
+          permissions: { some: { permission: { key: "team:manage" } } },
+        },
+      },
+    });
+  });
+
 });

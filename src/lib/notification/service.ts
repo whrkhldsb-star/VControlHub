@@ -159,7 +159,12 @@ export async function notifyCommandPending(
 							{ roles: { some: { role: { permissions: { some: { permission: { key: "team:manage" } } } } } } },
 						],
 					}
-				: {}),
+				: {
+						// Null-team (legacy/shared) request: mirror the null-team
+						// quarantine — do NOT broadcast to every tenant's approvers.
+						// Only global team managers see cross/null-team requests.
+						roles: { some: { role: { permissions: { some: { permission: { key: "team:manage" } } } } } },
+					}),
 		},
 		select: { id: true },
 		take: 1000,

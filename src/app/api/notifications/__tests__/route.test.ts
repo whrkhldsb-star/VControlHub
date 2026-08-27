@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 
 const {
   requireApiSessionMock,
-  requireApiPermissionMock,
   listUserNotificationsMock,
   getUnreadCountMock,
   markAsReadMock,
@@ -10,7 +9,6 @@ const {
   deleteNotificationMock,
 } = vi.hoisted(() => ({
   requireApiSessionMock: vi.fn(),
-  requireApiPermissionMock: vi.fn(),
   listUserNotificationsMock: vi.fn(),
   getUnreadCountMock: vi.fn(),
   markAsReadMock: vi.fn(),
@@ -24,10 +22,6 @@ vi.mock("@/lib/auth/api-session", () => ({
   isSessionPayload: (value: unknown) => Boolean(value),
 }));
 
-vi.mock("@/lib/auth/require-api-permission", () => ({
-  requireApiPermission: requireApiPermissionMock,
-}));
-
 vi.mock("@/lib/notification/service", () => ({
   listUserNotifications: listUserNotificationsMock,
   getUnreadCount: getUnreadCountMock,
@@ -36,7 +30,7 @@ vi.mock("@/lib/notification/service", () => ({
   deleteNotification: deleteNotificationMock,
 }));
 
-import { DELETE, GET, PATCH, POST } from "../route";
+import { DELETE, GET, PATCH } from "../route";
 
 const session = { userId: "u_1", username: "alice" };
 
@@ -89,55 +83,6 @@ describe("/api/notifications", () => {
 
     expect(response.status).toBe(200);
     expect(markAllAsReadMock).toHaveBeenCalledWith("u_1");
-  });
-
-  it("batch marks notifications using notification:manage permission", async () => {
-    vi.clearAllMocks();
-    requireApiPermissionMock.mockResolvedValueOnce({ session });
-    markAsReadMock.mockResolvedValue(undefined);
-
-    const response = await POST(
-      new Request("https://example.com/api/notifications", {
-        method: "POST",
-        body: JSON.stringify({ ids: ["n_1", "n_2"] }),
-      }),
-    );
-
-    expect(response.status).toBe(200);
-    expect(requireApiPermissionMock).toHaveBeenCalledWith(
-      "notification:manage",
-    );
-    expect(markAsReadMock).toHaveBeenCalledWith("n_1", "u_1");
-    expect(markAsReadMock).toHaveBeenCalledWith("n_2", "u_1");
-    await expect(response.json()).resolves.toMatchObject({
-      success: true,
-      marked: 2,
-      failed: 0,
-      total: 2,
-    });
-  });
-
-  it("returns multi-status when partial batch mark fails", async () => {
-    vi.clearAllMocks();
-    requireApiPermissionMock.mockResolvedValueOnce({ session });
-    markAsReadMock
-      .mockResolvedValueOnce(undefined)
-      .mockRejectedValueOnce(new Error("missing"));
-
-    const response = await POST(
-      new Request("https://example.com/api/notifications", {
-        method: "POST",
-        body: JSON.stringify({ ids: ["n_1", "n_2"] }),
-      }),
-    );
-
-    expect(response.status).toBe(207);
-    await expect(response.json()).resolves.toMatchObject({
-      success: false,
-      marked: 1,
-      failed: 1,
-      total: 2,
-    });
   });
 
   it("deletes only the authenticated user's notification", async () => {

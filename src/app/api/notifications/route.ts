@@ -16,10 +16,6 @@ import {
 
 export const dynamic = "force-dynamic";
 
-const postSchema = z.object({
-  ids: z.array(z.string()).min(1),
-});
-
 const patchSchema = z.union([
   z.discriminatedUnion("action", [
     z.object({ action: z.literal("markAllAsRead") }),
@@ -117,41 +113,6 @@ export async function PATCH(request: Request) {
       }
 
       return NextResponse.json({ success: true });
-    },
-  );
-}
-
-export async function POST(request: Request) {
-  return withApiRoute(
-    request,
-    {
-      permission: "notification:manage",
-      rateLimit: GENERAL_WRITE_LIMIT,
-      bodySchema: postSchema,
-      errorMessage: "Batch operation failed",
-    },
-    async ({ session, body }) => {
-      if (!session)
-        throw new AuthError("Not authenticated");
-
-      // Batch mark multiple notifications as read
-      const results = await Promise.allSettled(
-        body.ids.map((id: string) => markAsRead(id, session.userId)),
-      );
-      const succeeded = results.filter(
-        (result) => result.status === "fulfilled",
-      ).length;
-      const failed = results.filter(
-        (result) => result.status === "rejected",
-      ).length;
-
-      // Partial batch outcomes are not overall success — callers must inspect counts.
-      return NextResponse.json({
-        success: failed === 0,
-        marked: succeeded,
-        failed,
-        total: body.ids.length,
-      }, { status: failed === 0 ? 200 : failed === body.ids.length ? 404 : 207 });
     },
   );
 }

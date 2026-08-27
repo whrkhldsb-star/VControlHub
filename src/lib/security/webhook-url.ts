@@ -42,7 +42,12 @@ function isBlockedIpAddress(address: string) {
 		const linkLocal = (parts[0]! & 0xffc0) === 0xfe80;
 		const multicast = (parts[0]! & 0xff00) === 0xff00;
 		const ipv4Mapped = parts.slice(0, 5).every((part) => part === 0) && parts[5] === 0xffff;
-		if (ipv4Mapped) {
+		// Both IPv4-mapped (::ffff:a.b.c.d) and the deprecated IPv4-compatible
+		// (::a.b.c.d — top 96 bits zero) form embed an IPv4 address in the low 32
+		// bits. Evaluate it under the IPv4 rules so e.g. ::127.0.0.1 or
+		// ::ffff:169.254.169.254 cannot bypass the private-range block.
+		const ipv4Compatible = parts.slice(0, 6).every((part) => part === 0);
+		if (ipv4Mapped || ipv4Compatible) {
 			return isBlockedIpAddress(`${(parts[6]! >> 8) & 255}.${parts[6]! & 255}.${(parts[7]! >> 8) & 255}.${parts[7]! & 255}`);
 		}
 		return allZero || loopback || uniqueLocal || linkLocal || multicast;

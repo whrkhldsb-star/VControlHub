@@ -417,7 +417,12 @@ async function notifyQuickServiceInstallSuccess(userId: string | undefined, tmpl
 			type: "system",
 			title: `Quick service installed successfully: ${tmpl.name}`,
 			message: formatInstallNoticeMessage(tmpl.name, notice),
-			actionUrl: notice.accessUrl ?? "/quick-services",
+			// The access URL is an external http://host:port link; the notification
+			// action guard (getSafeNotificationActionUrl) rejects off-origin URLs, so
+			// linking it here would dead-end at /notifications. The URL is already
+			// shown as text in the message body — click-through goes to the internal
+			// service list instead.
+			actionUrl: "/quick-services",
 		});
 	} catch {
 		// Notification delivery should never flip a successfully started container into a failed install.
