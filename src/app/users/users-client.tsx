@@ -143,6 +143,9 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
       addToast("success", t("usersPage.success.passwordReset", { name: resetPasswordUser.username }));
       setResetPasswordUser(null);
       setResetPasswordValue("");
+      // The reset flips status to PENDING_PASSWORD_RESET; without a refetch the
+      // row keeps showing the stale status until the page is reloaded.
+      await fetchUsers();
     } catch (err) {
       addToast("error", messageFromError(err, t("usersPage.error.resetFailed", { name: resetPasswordUser.username })));
     } finally {

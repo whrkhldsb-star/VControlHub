@@ -196,7 +196,12 @@ export async function PATCH(request: Request) {
         await auditUserAction(session!.userId, "user.enable", {
           targetUsername: targetUser.username,
         }, undefined, session?.currentTeamId);
-      } else if (userAction === "reset_password" && newPassword) {
+      } else if (userAction === "reset_password") {
+        // The schema refines reset_password ⇒ newPassword, but narrow it here too
+        // so a future schema change cannot turn this into a silent no-op.
+        if (!newPassword) {
+          throw new ValidationError(t("backend.user.missingNewPassword"));
+        }
         const resetPolicyError = await validatePasswordPolicy(newPassword);
         if (resetPolicyError) {
           throw new ValidationError(resetPolicyError);
@@ -217,6 +222,11 @@ export async function PATCH(request: Request) {
           "WARNING",
           session?.currentTeamId,
         );
+      } else {
+        // `action` is optional in the schema (it also accepts roleKeys/newPassword
+        // only). Without it nothing above runs, and returning success would tell
+        // the caller a password reset happened when the account is untouched.
+        throw new ValidationError(t("backend.user.missingAction"));
       }
 
       return NextResponse.json({ success: true });
