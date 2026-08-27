@@ -108,7 +108,12 @@ function isBlockedIpAddress(address: string): boolean {
   	const linkLocal = (parts[0]! & 0xffc0) === 0xfe80;
   	const multicast = (parts[0]! & 0xff00) === 0xff00;
   	const ipv4Mapped = parts.slice(0, 5).every((part) => part === 0) && parts[5]! === 0xffff;
-  	if (ipv4Mapped) {
+  	// Both IPv4-mapped (::ffff:a.b.c.d) and the deprecated IPv4-compatible
+  	// (::a.b.c.d — top 96 bits zero) form embed an IPv4 address in the low 32
+  	// bits. Evaluate under IPv4 rules so e.g. ::127.0.0.1 or ::169.254.169.254
+  	// cannot bypass the private-range block (mirrors security/webhook-url.ts).
+  	const ipv4Compatible = parts.slice(0, 6).every((part) => part === 0);
+  	if (ipv4Mapped || ipv4Compatible) {
   		return isBlockedIpAddress(`${(parts[6]! >> 8) & 255}.${parts[6]! & 255}.${(parts[7]! >> 8) & 255}.${parts[7]! & 255}`);
   	}
   	return allZero || loopback || uniqueLocal || linkLocal || multicast;
@@ -168,22 +173,28 @@ function validateDownloadSourceUrlSyntax(
 
   const hostname = parsed.hostname.toLowerCase();
   if (!hostname) return { ok: false, reason: "Download URL is missing a hostname" };
+  // URL.hostname keeps the brackets on an IPv6 literal ("[::1]"), and isIP()
+  // returns 0 for a bracketed form — which previously bypassed the robust
+  // isBlockedIpAddress checker and left literal IPv6 URLs to the weaker
+  // prefix-string isBlockedIpv6 fallback. Strip brackets so every IP literal
+  // (incl. IPv4-mapped/compatible forms) is vetted by isBlockedIpAddress.
+  const ipLiteral = hostname.replace(/^\[(.*)\]$/u, "$1");
 
   const blockedSuffixes = options.blockedHostnameSuffixes ?? DEFAULT_BLOCKED_HOSTNAME_SUFFIXES;
   if (hostnameMatchesBlockedSuffix(hostname, blockedSuffixes)) {
     return { ok: false, reason: "Downloading intranet or local domain resources is not allowed" };
   }
 
-  if (isIP(hostname) && isBlockedIpAddress(hostname)) {
+  if (isIP(ipLiteral) && isBlockedIpAddress(ipLiteral)) {
     return { ok: false, reason: "Downloading intranet, loopback, or link-local address resources is not allowed" };
   }
 
-  const ipv4 = parseIpv4(hostname);
+  const ipv4 = parseIpv4(ipLiteral);
   if (ipv4 && isBlockedIpv4(ipv4)) {
     return { ok: false, reason: "Downloading intranet, loopback, or link-local address resources is not allowed" };
   }
 
-  if (hostname.includes(":") && isBlockedIpv6(hostname)) {
+  if (ipLiteral.includes(":") && isBlockedIpv6(ipLiteral)) {
     return { ok: false, reason: "Downloading intranet, loopback, or link-local IPv6 address resources is not allowed" };
   }
 

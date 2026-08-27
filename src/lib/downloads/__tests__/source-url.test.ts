@@ -42,6 +42,12 @@ describe("validateDownloadSourceUrl", () => {
       "http://[fc00::1]/",
       "http://[fe80::1]/",
       "http://224.0.0.1/file",
+      // IPv4-mapped and deprecated IPv4-compatible IPv6 forms must resolve to
+      // their embedded IPv4 and be blocked (no ::a.b.c.d metadata bypass).
+      "http://[::ffff:169.254.169.254]/latest/meta-data/",
+      "http://[::127.0.0.1]/",
+      "http://[::169.254.169.254]/latest/meta-data/",
+      "http://[::a9fe:a9fe]/latest/meta-data/",
     ];
 
     for (const url of blocked) {
