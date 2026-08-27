@@ -317,6 +317,12 @@ export async function GET(
 
       let sourceBuffer!: Buffer;
       const generate = async () => {
+        // The breaker is about node reachability, so only a failure to connect
+        // may trip it. Once the handshake succeeds the host is demonstrably
+        // alive and a per-file error (missing file, not a regular file, a read
+        // that blows the size cap) must not blank out every other tile on that
+        // node for the whole cooldown.
+        let sftpConnected = false;
         try {
           if (node.driver === "LOCAL") {
             const absolutePath = resolveManagedLocalPath(
@@ -392,13 +398,14 @@ export async function GET(
               readyTimeout: 5000,
               timeout: 5000,
             });
+            sftpConnected = true;
+            noteBreakerSuccess(node.id);
             try {
               sourceBuffer = await readRemoteIntoBuffer(
                 client,
                 normalizedRemotePath,
                 MAX_SOURCE_BYTES,
               );
-              noteBreakerSuccess(node.id);
             } finally {
               client.end();
             }
@@ -414,9 +421,9 @@ export async function GET(
               status: 413,
             });
           }
-          // SFTP / SSH transport failures trip the circuit breaker — the next
-          // gallery render won't try this node again until the cooldown elapses.
-          if (node.driver === "SFTP") {
+          // Only an unreachable node trips the circuit breaker — the next
+          // gallery render won't try it again until the cooldown elapses.
+          if (node.driver === "SFTP" && !sftpConnected) {
             noteBreakerFailure(node.id);
           }
           logger.error("media thumbnail read source failed", error, {
