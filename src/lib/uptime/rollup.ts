@@ -7,6 +7,7 @@
  */
 import { prisma } from "@/lib/db";
 import { createLogger } from "@/lib/logging";
+import { HEALTH_SAMPLE_INTERVAL_MINUTES } from "@/lib/health/service-types";
 
 const logger = createLogger("uptime-rollup");
 
@@ -47,8 +48,9 @@ export async function rollupServerUptimeForDay(
     byServer.set(group.serverId, bucket);
   }
 
-  // health.sample interval is ~5 minutes → treat each sample as 5 minutes.
-  const MINUTES_PER_SAMPLE = 5;
+  // Each MetricSnapshot row covers one sampler tick; derive minutes-per-sample
+  // from the shared cadence constant so this never drifts from the worker.
+  const MINUTES_PER_SAMPLE = HEALTH_SAMPLE_INTERVAL_MINUTES;
   let upserted = 0;
 
   for (const [serverId, counts] of byServer) {

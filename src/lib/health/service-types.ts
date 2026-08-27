@@ -60,6 +60,15 @@ export type HealthOverview = {
 
 /* ── Thresholds ───────────────────────────────────────────── */
 
+/**
+ * Cadence of the background health sampler (`health.sample`). Single source of
+ * truth: the sampling worker derives its timer interval from this, and the
+ * uptime rollup treats each MetricSnapshot row as covering this many minutes.
+ * Keeping both off one constant stops the two "5 minutes" from silently
+ * drifting apart (which would skew ServerUptimeSnapshot online/offline minutes).
+ */
+export const HEALTH_SAMPLE_INTERVAL_MINUTES = 5;
+
 export const WARN_CPU = 80;
 export const CRIT_CPU = 95;
 export const WARN_MEM = 85;

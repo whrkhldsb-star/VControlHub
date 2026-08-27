@@ -15,6 +15,7 @@ import { computeLeaseMs } from "@/lib/job/lease";
 import { createLogger } from "@/lib/logging";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { collectAllHealth } from "./service-collect";
+import { HEALTH_SAMPLE_INTERVAL_MINUTES } from "./service-types";
 import {
   pruneMetricSnapshots,
   snapshotHealthOverview,
@@ -25,7 +26,7 @@ import { dispatchMetricPlaybooksForHealthOverview } from "@/lib/playbook/trigger
 export const HEALTH_SAMPLING_JOB_TYPE = "health.sample";
 const WORKER_ID = `${config.app.hostname || "vcontrolhub"}:health-sampling:${process.pid}`;
 const LEASE_MS = computeLeaseMs("health-sampling");
-const DEFAULT_INTERVAL_MS = 5 * 60_000;
+const DEFAULT_INTERVAL_MS = HEALTH_SAMPLE_INTERVAL_MINUTES * 60_000;
 const RETENTION_MS = 30 * 24 * 60 * 60_000;
 const HEALTH_SAMPLE_JOB_KEEP_LATEST = 50;
 const logger = createLogger("health-sampling-worker");
