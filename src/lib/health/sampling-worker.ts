@@ -79,7 +79,10 @@ async function processSample(jobId: string) {
     leaseMs: LEASE_MS,
     progress: "Collecting fleet metrics",
   });
-  const overview = await collectAllHealth();
+  // This is the one caller on the intended 5-min cadence, so it is the only
+  // path that persists durable per-server TrafficSnapshot rows (dashboard
+  // polls and alert evals call collectAllHealth without persistTraffic).
+  const overview = await collectAllHealth(undefined, { persistTraffic: true });
   const sampled = await snapshotHealthOverview(overview);
   // Metric-trigger Playbooks consume exactly the fresh health reading that
   // was just persisted. Their own edge state prevents a sustained breach from

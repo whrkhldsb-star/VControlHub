@@ -16,7 +16,8 @@ const { prismaMock, collectServerMetricsMock, tcpProbeMock } = vi.hoisted(() => 
 			findMany: vi.fn(),
 		},
 		trafficSnapshot: {
-			findMany: vi.fn(async () => []),
+			findMany: vi.fn(),
+			create: vi.fn(),
 		},
 	},
 	collectServerMetricsMock: vi.fn(),
@@ -191,5 +192,81 @@ describe("collectAllHealth — TR-050 TCP probe integration", () => {
 		expect(result.warning).toBe(1);
 		// offline counts both the unreachable and the disabled server.
 		expect(result.offline).toBe(2);
+	});
+
+	it("does NOT persist a durable traffic snapshot on an ad-hoc collect (no persistTraffic)", async () => {
+		prismaMock.server.findMany.mockResolvedValueOnce([
+			{ id: "s1", name: "Healthy", host: "10.0.0.1", port: 22, enabled: true },
+		]);
+		tcpProbeMock.mockResolvedValueOnce({ ok: true, latencyMs: 3 });
+		collectServerMetricsMock.mockResolvedValueOnce({
+			...goodMetrics(),
+			network: [{ iface: "eth0", rxBytes: 1000, txBytes: 2000 }],
+		});
+
+		// Dashboard poll / alert-eval shape: no persist opt-in.
+		await collectAllHealth();
+
+		expect(prismaMock.trafficSnapshot.create).not.toHaveBeenCalled();
+	});
+
+	it("persists exactly one durable traffic snapshot per reachable server when persistTraffic is set", async () => {
+		prismaMock.server.findMany.mockResolvedValueOnce([
+			{ id: "s1", name: "Healthy", host: "10.0.0.1", port: 22, enabled: true },
+			{ id: "s2", name: "Down", host: "10.0.0.2", port: 22, enabled: true },
+		]);
+		tcpProbeMock
+			.mockResolvedValueOnce({ ok: true, latencyMs: 3 })
+			.mockResolvedValueOnce({ ok: false, error: "EHOSTUNREACH" });
+		collectServerMetricsMock.mockResolvedValueOnce({
+			...goodMetrics(),
+			network: [{ iface: "eth0", rxBytes: 1000, txBytes: 2000 }],
+		});
+
+		// Sampling-worker shape: opt in to durable persistence.
+		await collectAllHealth(undefined, { persistTraffic: true });
+
+		// Only the reachable server with metrics gets a row; the unreachable one
+		// never reaches the persist call.
+		expect(prismaMock.trafficSnapshot.create).toHaveBeenCalledTimes(1);
+		expect(prismaMock.trafficSnapshot.create).toHaveBeenCalledWith(
+			expect.objectContaining({
+				data: expect.objectContaining({ source: "server", serverId: "s1", iface: "eth0" }),
+			}),
+		);
+	});
+
+	it("derives monthly traffic from the true first/last sample per server (no take:5000 truncation)", async () => {
+		prismaMock.server.findMany.mockResolvedValueOnce([
+			{ id: "s1", name: "Healthy", host: "10.0.0.1", port: 22, enabled: true },
+		]);
+		tcpProbeMock.mockResolvedValueOnce({ ok: true, latencyMs: 3 });
+		collectServerMetricsMock.mockResolvedValueOnce(goodMetrics());
+		// Two DISTINCT ON queries: earliest sample first, then latest sample.
+		prismaMock.trafficSnapshot.findMany
+			.mockResolvedValueOnce([{ serverId: "s1", rxBytes: BigInt(100), txBytes: BigInt(200) }])
+			.mockResolvedValueOnce([{ serverId: "s1", rxBytes: BigInt(1_100), txBytes: BigInt(1_200) }]);
+
+		const result = await collectAllHealth();
+
+		// delta = last - first, independent of how many rows exist in between.
+		expect(result.servers[0]?.monthlyRxBytes).toBe(1_000);
+		expect(result.servers[0]?.monthlyTxBytes).toBe(1_000);
+		// The first query walks sampledAt asc, the second desc — both DISTINCT ON serverId.
+		expect(prismaMock.trafficSnapshot.findMany).toHaveBeenCalledTimes(2);
+		expect(prismaMock.trafficSnapshot.findMany).toHaveBeenNthCalledWith(
+			1,
+			expect.objectContaining({
+				distinct: ["serverId"],
+				orderBy: [{ serverId: "asc" }, { sampledAt: "asc" }],
+			}),
+		);
+		expect(prismaMock.trafficSnapshot.findMany).toHaveBeenNthCalledWith(
+			2,
+			expect.objectContaining({
+				distinct: ["serverId"],
+				orderBy: [{ serverId: "asc" }, { sampledAt: "desc" }],
+			}),
+		);
 	});
 });

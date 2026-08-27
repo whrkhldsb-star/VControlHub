@@ -60,6 +60,7 @@ export function resetHealthNetworkRateCacheForTests() {
 
 export async function collectAllHealth(
   session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">,
+  options: { persistTraffic?: boolean } = {},
 ): Promise<HealthOverview> {
   const servers: Array<{
     id: string;
@@ -136,7 +137,19 @@ export async function collectAllHealth(
         };
       }
       const metrics = result as ServerMetrics;
-      await persistServerTrafficFromMetrics(server.id, metrics).catch(() => false);
+      // Durable per-server traffic snapshots are the periodic sampler's job:
+      // the traffic-sampling worker samples the local NIC and delegates remote
+      // counters to "the health collector ... per interval" (see its docstring).
+      // But collectAllHealth is *also* invoked on every /api/health dashboard
+      // poll and every alert evaluation — many times a minute. Writing a
+      // TrafficSnapshot row on each of those amplified the table far past the
+      // intended 5-min cadence, skewed the stored rxRateBps/txRateBps (computed
+      // over the few-second gap between two polls rather than the sample
+      // interval), and flooded the monthly rollup. Only the sampling worker
+      // opts in via persistTraffic.
+      if (options.persistTraffic) {
+        await persistServerTrafficFromMetrics(server.id, metrics).catch(() => false);
+      }
       const health = evaluateHealth(metrics);
       const diskMax = Math.max(...metrics.disk.map((d) => d.usagePercent), 0);
       // Prefer root mount for absolute disk labels; fall back to busiest mount.
@@ -199,28 +212,39 @@ export async function collectAllHealth(
     monthStart.setUTCHours(0, 0, 0, 0);
     const ids = results.map((r) => r.serverId);
     if (ids.length > 0) {
-      const snaps = await prisma.trafficSnapshot.findMany({
-        where: {
-          source: "server",
-          serverId: { in: ids },
-          sampledAt: { gte: monthStart },
-        },
-        select: {
-          serverId: true,
-          rxBytes: true,
-          txBytes: true,
-          sampledAt: true,
-        },
-        orderBy: { sampledAt: "asc" },
-        take: 5_000,
-      });
+      const snapWhere = {
+        source: "server",
+        serverId: { in: ids },
+        sampledAt: { gte: monthStart },
+      };
+      const snapSelect = { serverId: true, rxBytes: true, txBytes: true };
+      // DISTINCT ON (serverId): the earliest and latest sample per server this
+      // month, in two bounded queries (≤ ids.length rows each). The previous
+      // `take: 5000` asc scan silently truncated the month once the fleet
+      // produced >5000 rows — it read the oldest 5000, so each server's "last"
+      // sample was capped early in the month and monthly traffic was
+      // under-reported (worse still under the pre-fix write amplification).
+      const [firstRows, lastRows] = await Promise.all([
+        prisma.trafficSnapshot.findMany({
+          where: snapWhere,
+          select: snapSelect,
+          orderBy: [{ serverId: "asc" }, { sampledAt: "asc" }],
+          distinct: ["serverId"],
+        }),
+        prisma.trafficSnapshot.findMany({
+          where: snapWhere,
+          select: snapSelect,
+          orderBy: [{ serverId: "asc" }, { sampledAt: "desc" }],
+          distinct: ["serverId"],
+        }),
+      ]);
       const first = new Map<string, { rx: bigint; tx: bigint }>();
       const last = new Map<string, { rx: bigint; tx: bigint }>();
-      for (const s of snaps) {
-        if (!s.serverId) continue;
-        const row = { rx: s.rxBytes, tx: s.txBytes };
-        if (!first.has(s.serverId)) first.set(s.serverId, row);
-        last.set(s.serverId, row);
+      for (const s of firstRows) {
+        if (s.serverId) first.set(s.serverId, { rx: s.rxBytes, tx: s.txBytes });
+      }
+      for (const s of lastRows) {
+        if (s.serverId) last.set(s.serverId, { rx: s.rxBytes, tx: s.txBytes });
       }
       for (const r of results) {
         const a = first.get(r.serverId);
