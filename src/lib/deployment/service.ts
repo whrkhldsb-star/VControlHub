@@ -3,7 +3,7 @@ import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { createCommandRequest } from "@/lib/command/service";
 import { commandTemplateScopeWhere, renderCommand, seedBuiltinTemplates } from "@/lib/command-template/service";
 import type { SessionPayload } from "@/lib/auth/session";
-import { serverTeamWhere, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
+import { deploymentRunTeamWhere, serverTeamWhere, teamCreateData } from "@/lib/auth/team-scope";
 import { ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 
 // TR-039: pure DTO types live in ./dto so client code can reach them
@@ -34,8 +34,16 @@ export type {
 
 export type SessionScope = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
 
+/**
+ * Scope for `DeploymentRun` queries. Strict, not the loose `teamWhere`: a run
+ * holds the rendered command, its rollback snapshot and the target server ids,
+ * and `createDeploymentRollbackRun` replays that snapshot as a real command
+ * request. A `teamId: null` row is quarantined legacy data, so it stays
+ * invisible to every tenant instead of being readable (and roll-back-able) by
+ * all of them.
+ */
 function teamScopeWhere(session?: SessionScope | null): Record<string, unknown> {
-  return session ? teamWhere(session) : {};
+  return session ? deploymentRunTeamWhere(session) : {};
 }
 
 /**
@@ -60,13 +68,17 @@ async function getDeploymentRunForSession(
 }
 
 
-async function assertDeploymentServersInScope(
+/**
+ * Load the targets, refusing any that the caller cannot see.
+ *
+ * Both launch and rollback need this: a snapshot stores raw server ids, so a
+ * server that has since moved to another workspace must not be reachable by
+ * replaying an old run.
+ */
+async function loadDeploymentServersInScope(
   serverIds: string[],
-  session?: SessionScope | null,
-): Promise<void> {
-  if (serverIds.length === 0) return;
-  // Prefer session teamWhere; when no session, skip (system/unscoped callers).
-  if (!session) return;
+  session: SessionScope,
+) {
   const scope = serverTeamWhere(session);
   const servers = await prisma.server.findMany({
     where: { id: { in: serverIds }, ...scope },
@@ -82,6 +94,17 @@ async function assertDeploymentServersInScope(
       "One or more target servers were not found or are outside your team scope",
     );
   }
+  return servers;
+}
+
+async function assertDeploymentServersInScope(
+  serverIds: string[],
+  session?: SessionScope | null,
+): Promise<void> {
+  if (serverIds.length === 0) return;
+  // Prefer session teamWhere; when no session, skip (system/unscoped callers).
+  if (!session) return;
+  const servers = await loadDeploymentServersInScope(serverIds, session);
   if (servers.some((server) => server.enabled === false || !getServerTargetAvailability({
     onboardingStatus: server.onboardingStatus,
     latestMetric: server.metricSnapshots?.[0] ?? null,
@@ -449,6 +472,13 @@ export async function createDeploymentRollbackRun(
   const snapshot = sourceRun.snapshot;
   if (!snapshot) throw new NotFoundError(t("backend.deployment.thisDeploymentHasNoSnapshotAvailableForRollback"));
   if (!snapshot.rollbackCommand?.trim()) throw new ValidationError(t("backend.deployment.thisDeploymentSnapshotHasNoRollbackCommand"));
+  // The snapshot froze raw server ids at launch time. Re-check visibility (not
+  // availability — a rollback is exactly what you run when a target is sick) so
+  // a server that has since moved workspaces cannot be commanded through an old
+  // run.
+  if (session && Array.isArray(snapshot.serverIds) && snapshot.serverIds.length > 0) {
+    await loadDeploymentServersInScope(snapshot.serverIds, session);
+  }
 
   // Serialize concurrent rollback POSTs for the same source run.
   const releaseLock = await acquireAdvisoryLock("deployment-rollback", sourceRun.id);

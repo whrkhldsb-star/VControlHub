@@ -140,10 +140,12 @@ describe("DeploymentsPage deploy-export panel", () => {
   it("bounds enabled target server hydration for the deployment form to team scope", async () => {
     wrap(await DeploymentsPage({ searchParams: Promise.resolve({}) }));
 
+    // Strict `serverTeamWhere`, not the loose filter: a null-team server is
+    // quarantined legacy data and must not be offered as a deployment target.
     expect(serverFindManyMock).toHaveBeenCalledWith(expect.objectContaining({
       where: {
         enabled: true,
-        OR: [{ teamId: "team-a" }, { teamId: null }],
+        teamId: "team-a",
       },
       orderBy: { createdAt: "desc" },
       take: 200,

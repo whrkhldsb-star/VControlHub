@@ -59,10 +59,12 @@ describe("DownloadsPage", () => {
 
 		expect(requirePagePermissionMock).toHaveBeenCalledWith("storage:read", { redirectTo: "/downloads" });
 		expect(screen.getByTestId("downloads-client")).toHaveTextContent("下载 VPS:当前：直连");
+    // Strict `serverTeamWhere`: a null-team server is quarantined legacy data,
+    // never a shared download target.
     expect(serverFindManyMock).toHaveBeenCalledWith(expect.objectContaining({
       where: {
         AND: [
-          { OR: [{ teamId: "team-a" }, { teamId: null }] },
+          { teamId: "team-a" },
           {
             enabled: true,
             storageNode: { isNot: null },

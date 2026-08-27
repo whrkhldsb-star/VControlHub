@@ -87,6 +87,17 @@ export function syncJobTeamWhere(session: TeamSession): Record<string, unknown> 
 		: { id: "__unassigned_sync_jobs_require_team_manage__" };
 }
 
+/** A deployment run carries the rendered command text, its rollback snapshot and
+ * the ids of the VPS it targets — and `createDeploymentRollbackRun` turns one back
+ * into an executable command request. A null teamId is quarantined legacy data,
+ * not a run every tenant may read or roll back. Mirrors {@link serverTeamWhere}. */
+export function deploymentRunTeamWhere(session: TeamSession): Record<string, unknown> {
+	if (isGlobalTeamManager(session)) return {};
+	return session.currentTeamId
+		? { teamId: session.currentTeamId }
+		: { id: "__unassigned_deployments_require_team_manage__" };
+}
+
 /** Image uploads are private by default. A null teamId is legacy data owned by
  * its uploader, not a shared image library visible to every tenant manager. */
 export function imageTeamWhere(session: TeamSession): Record<string, unknown> {

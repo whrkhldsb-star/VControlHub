@@ -3,7 +3,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import type { RoleKey } from "@/lib/auth/rbac";
 import type { SessionScope } from "../service";
 
-const { mockPrisma, mockTeamWhere, mockTeamCreateData } = vi.hoisted(() => ({
+const { mockPrisma, mockTeamWhere, mockDeploymentRunTeamWhere, mockTeamCreateData } = vi.hoisted(() => ({
   mockPrisma: {
     commandTemplate: { findUnique: vi.fn(), findFirst: vi.fn(), findMany: vi.fn(), count: vi.fn(), create: vi.fn(), createMany: vi.fn() },
     deploymentRun: { create: vi.fn(), update: vi.fn(), updateMany: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn() },
@@ -13,6 +13,7 @@ const { mockPrisma, mockTeamWhere, mockTeamCreateData } = vi.hoisted(() => ({
 		$transaction: vi.fn(),
   },
   mockTeamWhere: vi.fn(),
+  mockDeploymentRunTeamWhere: vi.fn(),
   mockTeamCreateData: vi.fn(),
 }));
 
@@ -24,6 +25,7 @@ vi.mock("@/lib/command-template/service", async () => {
 });
 vi.mock("@/lib/auth/team-scope", () => ({
   teamWhere: mockTeamWhere,
+  deploymentRunTeamWhere: mockDeploymentRunTeamWhere,
   serverTeamWhere: (session: { roles?: string[]; currentTeamId?: string | null }) => {
     if (session.roles?.includes("admin")) return {};
     return session.currentTeamId
@@ -48,6 +50,7 @@ describe("deployment service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockTeamWhere.mockReturnValue({ OR: [{ teamId: "team_a" }, { teamId: null }] });
+    mockDeploymentRunTeamWhere.mockReturnValue({ teamId: "team_a" });
     mockTeamCreateData.mockReturnValue({ teamId: "team_a" });
 		mockPrisma.$transaction.mockImplementation(async (callback: (tx: typeof mockPrisma) => unknown) => callback(mockPrisma));
     mockPrisma.server.findMany.mockImplementation(async ({ where }: { where: { id: { in: string[] } } }) =>
@@ -293,12 +296,36 @@ describe("deployment service", () => {
       createDeploymentRollbackRun({ sourceRunId: "foreign_dep", requesterId: "u1" }, teamSession),
     ).rejects.toMatchObject({ name: "NotFoundError" });
 
-    expect(mockTeamWhere).toHaveBeenCalledWith(teamSession);
+    expect(mockDeploymentRunTeamWhere).toHaveBeenCalledWith(teamSession);
     expect(mockPrisma.deploymentRun.findFirst).toHaveBeenCalledWith({
-      where: { id: "foreign_dep", OR: [{ teamId: "team_a" }, { teamId: null }] },
+      where: { id: "foreign_dep", teamId: "team_a" },
       include: { snapshot: true, template: true },
     });
     expect(mockPrisma.deploymentRollbackRun.create).not.toHaveBeenCalled();
+  });
+
+  it("refuses rollback when a snapshot target has left the caller's team", async () => {
+    // The snapshot froze raw server ids at launch; if one has since moved
+    // workspaces, replaying it must not become a way to command that VPS.
+    mockPrisma.deploymentRun.findFirst.mockResolvedValue({
+      id: "dep1",
+      teamId: "team_a",
+      template: { id: "tmpl1", name: "Nginx" },
+      snapshot: {
+        id: "snap1",
+        templateName: "Nginx",
+        rollbackCommand: "apt remove nginx",
+        serverIds: ["srv1", "srv_moved"],
+      },
+    });
+    mockPrisma.server.findMany.mockResolvedValueOnce([{ id: "srv1" }]);
+
+    await expect(
+      createDeploymentRollbackRun({ sourceRunId: "dep1", requesterId: "u1" }, teamSession),
+    ).rejects.toMatchObject({ name: "ValidationError" });
+
+    expect(mockPrisma.deploymentRollbackRun.create).not.toHaveBeenCalled();
+    expect(commandService.createCommandRequest).not.toHaveBeenCalled();
   });
 
   it("lists templates for the deployment page without rendering secrets", async () => {
@@ -308,14 +335,17 @@ describe("deployment service", () => {
     expect(mockPrisma.commandTemplate.findMany).toHaveBeenCalledWith({ orderBy: [{ isBuiltin: "desc" }, { name: "asc" }], take: 200 });
   });
 
-  it("scopes list queries with teamWhere when session is provided", async () => {
+  it("scopes list queries strictly to the caller's team", async () => {
+    // Strict, not loose: a run holds the rendered command, the rollback snapshot
+    // and its target server ids, so a null-team legacy row stays quarantined
+    // instead of being listed (and rolled back) by every tenant.
     mockPrisma.deploymentRun.findMany.mockResolvedValue([]);
 
     await listDeploymentRuns(teamSession);
 
-    expect(mockTeamWhere).toHaveBeenCalledWith(teamSession);
+    expect(mockDeploymentRunTeamWhere).toHaveBeenCalledWith(teamSession);
     expect(mockPrisma.deploymentRun.findMany).toHaveBeenCalledWith({
-      where: { OR: [{ teamId: "team_a" }, { teamId: null }] },
+      where: { teamId: "team_a" },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: 100,
       include: expect.objectContaining({ template: true }),
