@@ -6,7 +6,7 @@
  * `./service-commands`.
  */
 import { prisma } from "@/lib/db";
-import { serverTeamWhere, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
+import { serverTeamWhere, syncJobTeamWhere, teamCreateData } from "@/lib/auth/team-scope";
 import type { SessionPayload } from "@/lib/auth/session";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { effectiveDeleteOrphans, normalizeSyncEndpointPath } from "./bidirectional";
@@ -95,7 +95,7 @@ export async function listSyncJobs(
 	session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">,
 ) {
 	return prisma.syncJob.findMany({
-		where: session ? teamWhere(session) : {},
+		where: session ? syncJobTeamWhere(session) : {},
 		include: {
 			sourceServer: { select: { id: true, name: true, host: true } },
 			targetServer: { select: { id: true, name: true, host: true } },
@@ -112,7 +112,7 @@ export async function getSyncJob(
 	session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">,
 ) {
 	return prisma.syncJob.findFirst({
-		where: { id, ...(session ? teamWhere(session) : {}) },
+		where: { id, ...(session ? syncJobTeamWhere(session) : {}) },
 		include: {
 			sourceServer: { include: { sshKey: true } },
 			targetServer: { include: { sshKey: true } },
@@ -132,7 +132,7 @@ export async function deleteSyncJob(
 		throw new ValidationError(t("backend.sync.cannotDeleteRunningSyncJob"));
 	}
 	const deleted = await prisma.syncJob.deleteMany({
-		where: { id, status: { not: "RUNNING" }, ...(session ? teamWhere(session) : {}) },
+		where: { id, status: { not: "RUNNING" }, ...(session ? syncJobTeamWhere(session) : {}) },
 	});
 	if (deleted.count === 0) {
 		throw new ValidationError(t("backend.sync.cannotDeleteRunningSyncJob"));

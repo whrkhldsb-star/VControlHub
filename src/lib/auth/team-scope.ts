@@ -76,6 +76,17 @@ export function commandRequestTeamWhere(session: TeamSession): Record<string, un
 		: { id: "__unassigned_command_requests_require_team_manage__" };
 }
 
+/** A sync job binds two servers plus paths and can be executed on demand
+ * (rsync, optionally with --delete). Reading one hydrates both servers together
+ * with their SSH keys. A null teamId is quarantined legacy data, never a job
+ * every tenant may read or run. Mirrors {@link serverTeamWhere}. */
+export function syncJobTeamWhere(session: TeamSession): Record<string, unknown> {
+	if (isGlobalTeamManager(session)) return {};
+	return session.currentTeamId
+		? { teamId: session.currentTeamId }
+		: { id: "__unassigned_sync_jobs_require_team_manage__" };
+}
+
 /** Image uploads are private by default. A null teamId is legacy data owned by
  * its uploader, not a shared image library visible to every tenant manager. */
 export function imageTeamWhere(session: TeamSession): Record<string, unknown> {

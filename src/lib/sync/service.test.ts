@@ -43,6 +43,32 @@ describe("sync job listing", () => {
   });
 });
 
+describe("sync job team scope", () => {
+  it("quarantines null-team jobs from a caller with no current team", async () => {
+    // A sync job hydrates both servers with their SSH keys and can be executed
+    // on demand, so a null teamId is legacy data only a global manager may read.
+    prismaMock.syncJob.findMany.mockResolvedValueOnce([]);
+
+    await listSyncJobs({ userId: "u1", roles: ["operator"], currentTeamId: null });
+
+    expect(prismaMock.syncJob.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "__unassigned_sync_jobs_require_team_manage__" },
+      }),
+    );
+  });
+
+  it("scopes list queries to the caller's current team", async () => {
+    prismaMock.syncJob.findMany.mockResolvedValueOnce([]);
+
+    await listSyncJobs({ userId: "u1", roles: ["operator"], currentTeamId: "team-1" });
+
+    expect(prismaMock.syncJob.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { teamId: "team-1" } }),
+    );
+  });
+});
+
 describe("createSyncJob team scope", () => {
   const baseInput = {
     name: "team-sync",
