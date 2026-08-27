@@ -56,6 +56,44 @@ describe("BidirectionalSyncPanel", () => {
 		});
 	});
 
+	it("shows why a run failed instead of only its counters", async () => {
+		const job = {
+			id: "job-1",
+			name: "两地同步",
+			syncType: "BIDIRECTIONAL",
+			status: "ERROR",
+			schedule: null,
+			deleteOrphans: false,
+			lastSyncAt: "2026-08-27T00:00:00.000Z",
+			lastSyncResult: "Partial: forward completed (3 files, 1 MB, 4s); reverse failed: disk full",
+			sourceServer: { id: "server-a", name: "Source", host: "10.0.0.1" },
+			targetServer: { id: "server-b", name: "Target", host: "10.0.0.2" },
+		};
+		vi.mocked(globalThis.fetch)
+			.mockResolvedValueOnce(jsonResponse({ jobs: [job] }))
+			.mockResolvedValueOnce(
+				jsonResponse({
+					report: {
+						summary: {
+							mode: "bidirectional",
+							transferredFiles: 3,
+							durationSec: 4,
+							// The reason lives here — the panel used to drop it.
+							notes: ["reverse leg failed: disk full", "the forward leg is already applied"],
+							legs: [],
+						},
+						conflictHints: [],
+						history: [],
+					},
+				}),
+			);
+		renderWithI18n(<BidirectionalSyncPanel servers={servers} />);
+
+		fireEvent.click(await screen.findByRole("button", { name: "报告" }));
+
+		expect(await screen.findByText("reverse leg failed: disk full")).toBeVisible();
+	});
+
 	it("uses the shared notice for API errors", async () => {
 		vi.mocked(globalThis.fetch).mockResolvedValueOnce(jsonResponse({ error: "同步服务不可用" }, 503));
 		renderWithI18n(<BidirectionalSyncPanel servers={servers} />);

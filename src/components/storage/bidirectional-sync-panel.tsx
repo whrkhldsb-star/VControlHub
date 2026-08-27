@@ -349,6 +349,18 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
                       {report.summary.durationSec}s
                     </p>
                   ) : null}
+                  {report.summary && report.summary.notes.length > 0 ? (
+                    // `notes` carries the run's own explanation — "reverse leg
+                    // failed: …" for a partial two-way run, "error: …" for a failed
+                    // one. It was parsed, returned by the API and typed here, but
+                    // never rendered, so the report panel showed "mirror: 0 files /
+                    // 0s" with no hint of why.
+                    <ul className="mt-1 list-disc pl-4 text-[var(--text-secondary)]">
+                      {report.summary.notes.map((note) => (
+                        <li key={note}>{note}</li>
+                      ))}
+                    </ul>
+                  ) : null}
                   {report.conflictHints.length > 0 ? (
                     <ul className="mt-1 list-disc pl-4 text-[var(--text-muted)]">
                       {report.conflictHints.map((h) => (
