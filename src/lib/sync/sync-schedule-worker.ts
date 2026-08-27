@@ -71,7 +71,12 @@ export async function runSyncScheduleWorkerOnce(reason = "manual"): Promise<numb
           schedule: job.schedule,
           reason,
         });
-        await executeSyncJob(job.id);
+        // Release the advisory lock as soon as executeSyncJob's CAS has claimed
+        // the row RUNNING — mutual exclusion then rests on the RUNNING state (the
+        // findMany above only picks IDLE/ERROR), so the rsync no longer holds one
+        // of the 2-4 shared advisory-lock connections for its whole duration.
+        // release() is idempotent, so the finally below is a safe no-op.
+        await executeSyncJob(job.id, { onClaimed: release });
         started += 1;
       } catch (error) {
         logger.error("scheduled sync job failed", {

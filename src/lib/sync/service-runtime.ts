@@ -278,7 +278,10 @@ export type ExecuteSyncJobResult = {
  * surface failures instead of always returning success:true after a
  * swallowed catch.
  */
-export async function executeSyncJob(jobId: string): Promise<ExecuteSyncJobResult> {
+export async function executeSyncJob(
+	jobId: string,
+	options?: { onClaimed?: () => void | Promise<void> },
+): Promise<ExecuteSyncJobResult> {
 	const job = await getSyncJob(jobId);
 	if (!job) throw new Error("Sync job not found");
 
@@ -298,6 +301,12 @@ export async function executeSyncJob(jobId: string): Promise<ExecuteSyncJobResul
 	const startTime = Date.now();
 
 	try {
+		// The CAS above made this runner the sole RUNNING owner, and the
+		// scheduler's findMany only selects IDLE/ERROR rows — so a caller's
+		// cross-process mutual-exclusion lock is now redundant and must not pin a
+		// scarce advisory-lock connection for the full (possibly hours-long) rsync.
+		if (options?.onClaimed) await options.onClaimed();
+
 		const bidirectional = isBidirectionalSyncType(job.syncType);
 		const deleteOrphans = effectiveDeleteOrphans(job.syncType, job.deleteOrphans);
 		const flags = rsyncFlagsForJob({
