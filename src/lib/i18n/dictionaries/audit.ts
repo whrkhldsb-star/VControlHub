@@ -192,6 +192,7 @@ export const zh: Record<string, string> = {
 	"audit.page.topActions.title": "最常见动作",
 	"audit.page.topActions.empty": "暂无动作统计。",
 	"auditPage.eyebrow": "审计",
+	"audit.page.statsUnavailable": "统计概览暂时加载失败，下方日志列表不受影响；刷新页面可重试。",
 };
 
 export const en: Record<string, string> = {
@@ -381,4 +382,5 @@ export const en: Record<string, string> = {
 	"audit.page.topActions.title": "Most common actions",
 	"audit.page.topActions.empty": "No action statistics yet.",
 	"auditPage.eyebrow": "Audit",
+	"audit.page.statsUnavailable": "The statistics overview failed to load; the log list below is unaffected. Refresh to retry.",
 };

@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { EmptyState, ListPanel, Toolbar } from "@/components/page-shell";
 import { CONTROL_CLASS, Notice } from "@/components/ui-primitives";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { formatAuditDetail } from "@/lib/audit/detail-format";
 import { useResourcePolling } from "@/lib/http/use-resource-polling";
 import { toDateLocale } from "@/lib/i18n/locale-format";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -34,6 +35,13 @@ type AuditListResponse = {
 type AuditLogClientProps = {
   initialActionFilter?: string;
 };
+
+/**
+ * `useResourcePolling` refetches whenever the fetcher identity changes, so an
+ * un-debounced search box fired one list+count query — including an ILIKE join
+ * against users — per keystroke. Same window the image-bed list uses.
+ */
+const SEARCH_DEBOUNCE_MS = 350;
 
 function severityTone(severity: string):"accent" |"warning" |"danger" {
   const tones: Record<string,"accent" |"warning" |"danger"> = {
@@ -84,14 +92,20 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
   const setSearchQuery = (value: string) => {
     patchUrl({ q: value, page: "1" });
   };
+  // The input stays fully controlled; only the query the fetcher reads lags.
+  const [debouncedSearch, setDebouncedSearch] = useState(searchQuery);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(searchQuery), SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(timer);
+  }, [searchQuery]);
 
   const fetchAudit = useCallback(async (): Promise<AuditListResponse> => {
     const params = new URLSearchParams({ page: String(page), pageSize:"50" });
     if (severityFilter) params.set("severity", severityFilter);
     if (actionFilter) params.set("action", actionFilter);
-    if (searchQuery.trim()) params.set("search", searchQuery.trim());
+    if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
     return (await csrfFetch(`/api/audit?${params}`)) as AuditListResponse;
-  }, [page, severityFilter, actionFilter, searchQuery]);
+  }, [page, severityFilter, actionFilter, debouncedSearch]);
 
   const getAuditErrorMessage = useCallback(
     (error: unknown) => getErrorMessage(error, t("audit.loadFailed")),
@@ -115,13 +129,16 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
             aria-label={t("audit.search-placeholder")}
             onChange={(e) => {
               setSearchQuery(e.target.value);
-              setPage(1);
             }}
             placeholder={t("audit.search-placeholder")}
             className={`${CONTROL_CLASS} min-w-[240px] flex-1`}
           />
           <ActionButton variant="secondary"
-            onClick={fetchLogs}
+            onClick={() => {
+              // Explicit search skips the debounce window.
+              setDebouncedSearch(searchQuery);
+              fetchLogs();
+            }}
             data-tone="accent" className="!rounded-full"
           >
             {t("audit.search")}
@@ -130,7 +147,6 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
             type="button"
             onClick={() => {
               setSearchQuery("");
-              setPage(1);
             }}
             className="rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface-subtle)]"
           >
@@ -142,7 +158,6 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
             value={severityFilter}
             onChange={(e) => {
               setSeverityFilter(e.target.value);
-              setPage(1);
             }}
             aria-label={t("audit.filterBySeverity")}
             className={`${CONTROL_CLASS} !w-auto min-w-[10rem]`}
@@ -156,7 +171,6 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
             value={actionFilter}
             onChange={(e) => {
               setActionFilter(e.target.value);
-              setPage(1);
             }}
             aria-label={t("audit.filterByAction")}
             className={`${CONTROL_CLASS} !w-auto min-w-[10rem]`}
@@ -182,7 +196,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
               const params = new URLSearchParams();
               if (severityFilter) params.set("severity", severityFilter);
               if (actionFilter) params.set("action", actionFilter);
-              if (searchQuery.trim()) params.set("search", searchQuery.trim());
+              if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
               window.open(`/api/audit/export?${params.toString()}`,"_self");
             }}
             className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface-subtle)]"
@@ -197,7 +211,6 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
               type="button"
               onClick={() => {
                 setActionFilter(action);
-                setPage(1);
               }}
               data-tone={actionFilter === action ?"accent" : undefined}
               className={`rounded-full border px-3 py-1 text-xs transition ${actionFilter === action ?"" :"border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"}`}
@@ -246,7 +259,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
                     {log.actor ? (log.actor.displayName ?? log.actor.username) : enumLabel(t, "audit.actorType", log.actorType)}
                   </div>
                   <div className="text-xs text-[var(--text-muted)] truncate font-mono">
-                    {Object.entries(log.detail).map(([k, v]) => `${k}=${String(v)}`).join(",")}
+                    {formatAuditDetail(log.detail)}
                   </div>
                   <div className="text-xs text-[var(--text-muted)]">{enumLabel(t, "audit.actorType", log.actorType)}</div>
                 </div>
@@ -276,7 +289,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
                   {log.actor ? (log.actor.displayName ?? log.actor.username) : enumLabel(t, "audit.actorType", log.actorType)} · {new Date(log.createdAt).toLocaleString(toDateLocale(locale))}
                 </div>
                 <div className="text-xs text-[var(--text-muted)] font-mono truncate">
-                  {Object.entries(log.detail).map(([k, v]) => `${k}=${String(v)}`).join(",")}
+                  {formatAuditDetail(log.detail)}
                 </div>
               </div>
             ))

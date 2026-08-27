@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { exportAuditLogs, type AuditLogEntry } from "@/lib/audit/service";
+import { formatAuditDetail } from "@/lib/audit/detail-format";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { csvCell } from "@/lib/http/csv";
 import { GENERAL_READ_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -32,12 +33,7 @@ function toCsv(logs: AuditLogEntry[]): string {
       log.severity,
       log.actor ? (log.actor.displayName ?? log.actor.username) : "",
       log.actorType,
-      Object.entries(log.detail)
-        // `String(v)` renders a nested object as "[object Object]", and audit
-        // details routinely nest (metric readings, playbook step lists, zod
-        // issues). Serialise those instead so the export keeps the data.
-        .map(([k, v]) => `${k}=${typeof v === "object" && v !== null ? JSON.stringify(v) : String(v)}`)
-        .join("; "),
+      formatAuditDetail(log.detail, "; "),
     ]
       .map(csvCell)
       .join(","),

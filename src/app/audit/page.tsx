@@ -6,6 +6,7 @@ import { getAuditStats } from "@/lib/audit/service";
 import { getServerLocale, t, type Locale } from "@/lib/i18n/translations";
 import { AuditLogClient } from "./audit-client";
 import { PageShell, PageHeader, StatCard, EmptyState, StatGrid, SurfacePanel } from "@/components/page-shell";
+import { Notice } from "@/components/ui-primitives";
 import { createLogger } from "@/lib/logging";
 
 const HIGH_RISK_ACTIONS = ["command.execute", "storage.file_delete", "server.delete", "user.permission_update", "docker.container_restart", "api_token.create"];
@@ -55,10 +56,14 @@ export default async function AuditPage({ searchParams }: AuditPageProps) {
 	const canRead = sessionHasPermission(session, "audit:read");
 
 	let stats: Awaited<ReturnType<typeof getAuditStats>> | null = null;
+	// Tracked separately from `stats === null`: a failed aggregate query used to make
+	// the whole overview silently disappear, which reads as "nothing to report".
+	let statsFailed = false;
 	if (canRead) {
 		try {
 			stats = await getAuditStats(session);
 		} catch (error) {
+			statsFailed = true;
 			logger.warn("Failed to load audit stats", error);
 		}
 	}
@@ -82,6 +87,9 @@ export default async function AuditPage({ searchParams }: AuditPageProps) {
 				<EmptyState text={copy.noPermission} variant="boxed" />
 			) : (
 				<>
+						{statsFailed && (
+						<Notice tone="warning" className="mb-6">{t("audit.page.statsUnavailable", locale)}</Notice>
+					)}
 					{stats && (
 						<section className="mb-6 space-y-4">
 							<StatGrid cols={5} className="mb-0">
