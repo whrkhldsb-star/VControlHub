@@ -1,16 +1,15 @@
 import { createHash } from "node:crypto";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { createReadStream } from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import { Client } from "ssh2";
 import { NextResponse } from "next/server";
 
 import { connectSsh } from "@/lib/ssh/client";
-import { config } from "@/lib/config/env";
 import { createLogger } from "@/lib/logging";
 import { getMediaItem } from "@/lib/media/service";
+import { thumbnailCacheRoot } from "@/lib/media/thumbnail-cache";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import {
   normalizeStorageRelativePath,
@@ -108,13 +107,6 @@ const SUPPORTED_IMAGE_MIME_PREFIX = "image/";
 // requires shipping ffmpeg into the runtime image. For the v1 thumbnail layer
 // we only optimize image media, where the win is largest (galleries with many
 // large originals). Video tiles fall back to a generic poster on the client.
-
-function thumbnailCacheRoot(): string {
-  return (
-    config.media.thumbCacheDir ??
-    path.join(os.tmpdir(), "vcontrolhub-thumbnails")
-  );
-}
 
 function thumbnailKey(input: {
   id: string;

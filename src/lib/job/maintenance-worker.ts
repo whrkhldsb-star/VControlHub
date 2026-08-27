@@ -22,6 +22,7 @@ import {
 import { abandonStaleRunningBackupRecords } from "@/lib/backup/service";
 import { reconcileStaleRunningDownloadTasks } from "@/lib/downloads/reconcile";
 import { sweepExpiredMediaUploadSessions } from "@/lib/upload/service";
+import { pruneThumbnailCache } from "@/lib/media/thumbnail-cache";
 
 const logger = createLogger("job-maintenance-worker");
 
@@ -234,6 +235,16 @@ async function tick(reason: string) {
       logger.info("swept expired media upload sessions", {
         workerId: WORKER_ID,
         swept: sweptUploads,
+      });
+    }
+    // Bound the thumbnail cache: its keys are one-way hashes, so a deleted or
+    // re-uploaded media item can never reclaim its own file. Age + count sweep.
+    const prunedThumbnails = await pruneThumbnailCache();
+    if (prunedThumbnails.deleted > 0) {
+      logger.info("pruned media thumbnail cache", {
+        workerId: WORKER_ID,
+        deleted: prunedThumbnails.deleted,
+        retained: prunedThumbnails.retained,
       });
     }
     // Bound job_events growth: drop events older than 30d while always
