@@ -324,7 +324,7 @@ async function handleClaimedJob(
           leaseMs: DOWNLOAD_EXECUTION_LEASE_MS,
           progress: transferProgress,
         }),
-      run: async () => {
+      run: async (signal) => {
         if (payload.mode === "aria2_relay") {
           await executeAria2RelayDownload(
             payload.taskId,
@@ -334,6 +334,7 @@ async function handleClaimedJob(
             task.fileName,
             task.maxSpeedKb,
             payload.userId ?? task.createdBy ?? undefined,
+            signal,
           );
         } else {
           await executeDirectDownload(

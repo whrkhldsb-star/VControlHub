@@ -68,6 +68,7 @@ export async function executeAria2RelayDownload(
  _fileName?: string | null,
  maxSpeedKb?: number | null,
  userId?: string,
+ signal?: AbortSignal,
 ) {
  void _fileName;
  const tempDir = `/tmp/app-relay-${taskId}`;
@@ -131,6 +132,15 @@ export async function executeAria2RelayDownload(
   while (!done && elapsed < maxWait) {
    await new Promise((r) => setTimeout(r, 5000));
    elapsed += 5;
+
+   // Lease lost mid-transfer: stop polling and return WITHOUT marking the row
+   // terminal, leaving the aria2 download running. A reclaiming worker resumes
+   // by the stored gid (the "not PENDING" branch above). Marking FAILED here
+   // would race that resume and surface a spurious failure to the user.
+   if (signal?.aborted) {
+    logError(`[DownloadAPI] Relay task ${taskId} lease lost; pausing poll for reclaim`);
+    return;
+   }
 
    try {
     // Stop if cancelled/terminal while polling.

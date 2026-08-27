@@ -76,7 +76,7 @@ vi.mock("@/lib/job/heartbeat-runner", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/job/heartbeat-runner")>();
   return {
     ...actual,
-    runWithLeaseHeartbeat: vi.fn(async ({ run }: { run: () => Promise<unknown> }) => run()),
+    runWithLeaseHeartbeat: vi.fn(async ({ run }: { run: (signal: AbortSignal) => Promise<unknown> }) => run(new AbortController().signal)),
   };
 });
 
@@ -328,6 +328,7 @@ describe("download execution durable job worker", () => {
         null,
         1024,
         "u-2",
+        expect.any(AbortSignal),
       );
       expect(executeDirectDownloadMock).not.toHaveBeenCalled();
       expect(completeJobMock).toHaveBeenCalledWith(
