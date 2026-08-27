@@ -6,12 +6,10 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { cookies } from "next/headers";
 
-import { verify as verifyTOTP } from "otplib";
 import { prisma } from "@/lib/db";
 import { verifyPending2faToken, createSessionToken, getSessionCookieName, getPending2faCookieName, getConfiguredSessionTtlSeconds } from "@/lib/auth/session";
 import { generateCsrfToken, getCsrfCookieName } from "@/lib/auth/csrf";
-import { openTwoFactorSecret } from "@/lib/auth/two-factor-secret";
-import { findMatchingTwoFactorRecoveryCode, normalizeTwoFactorRecoveryCode } from "@/lib/auth/two-factor-recovery";
+import { isAcceptableTwoFactorCodeShape, verifyTwoFactorChallenge } from "@/lib/auth/two-factor-challenge";
 import { DEFAULT_ROLE_PERMISSIONS, type RoleKey } from "@/lib/auth/rbac";
 import { auditUserAction, auditSystemAction } from "@/lib/audit/service";
 import { checkRateLimitAsync, getClientIp, LOGIN_RATE_LIMIT } from "@/lib/rate-limit";
@@ -44,9 +42,7 @@ export async function POST(request: Request) {
 			});
 		}
 		const { code } = parsed.data;
-		const isTotpCode = /^\d{6}$/.test(code);
-		const normalizedRecoveryCode = normalizeTwoFactorRecoveryCode(code);
-		if (!isTotpCode && !normalizedRecoveryCode) {
+		if (!isAcceptableTwoFactorCodeShape(code)) {
 			return apiError({
 				code: "VALIDATION_FAILED",
 				message: "Please enter a valid verification or recovery code",
@@ -112,29 +108,15 @@ export async function POST(request: Request) {
 			});
 		}
 
-		// Verify an authenticator code first (sealed seed; legacy plaintext still
-		// accepted), then accept and atomically consume a one-use recovery code.
-		let valid = isTotpCode
-			? (await verifyTOTP({ token: code, secret: openTwoFactorSecret(user.twoFactorSecret) })).valid
-			: false;
-		let usedRecoveryCode = false;
-		if (!valid && normalizedRecoveryCode) {
-			const matchingHash = findMatchingTwoFactorRecoveryCode(code, user.twoFactorRecoveryCodes);
-			if (matchingHash && Array.isArray(user.twoFactorRecoveryCodes)) {
-				const remainingHashes = user.twoFactorRecoveryCodes.filter(
-					(hash): hash is string => typeof hash === "string" && hash !== matchingHash,
-				);
-				const consumed = await prisma.user.updateMany({
-					where: {
-						id: sessionPayload.userId,
-						twoFactorRecoveryCodes: { equals: user.twoFactorRecoveryCodes },
-					},
-					data: { twoFactorRecoveryCodes: remainingHashes },
-				});
-				valid = consumed.count === 1;
-				usedRecoveryCode = valid;
-			}
-		}
+		// An authenticator code first (sealed seed; legacy plaintext still
+		// accepted), then a one-use recovery code, consumed atomically. Shared with
+		// the 2FA disable / regenerate routes so the two factors stay interchangeable.
+		const { valid, usedRecoveryCode } = await verifyTwoFactorChallenge({
+			userId: sessionPayload.userId,
+			code,
+			sealedSecret: user.twoFactorSecret,
+			storedRecoveryCodes: user.twoFactorRecoveryCodes,
+		});
 		if (!valid) {
 			await auditSystemAction("auth.2fa_failed", { userId: sessionPayload.userId, ip: clientIp }, "WARNING", user.currentTeamId);
 			return apiError({

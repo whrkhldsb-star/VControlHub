@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { isAcceptableTwoFactorCodeShape } from "@/lib/auth/two-factor-challenge-shape";
 import { useI18n } from "@/lib/i18n/use-locale";
 
 import { ActionButton } from "@/components/action-button";
@@ -28,6 +29,10 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 	const [error, setError] = useState("");
 
 	const messageFromError = (err: unknown, fallback: string) => getErrorMessage(err, fallback);
+	// Disable / regenerate accept an authenticator code OR a recovery code — a user
+	// whose authenticator is gone has no other way off 2FA, and no admin can reset
+	// it for them. Setup/enable stay 6-digit-only: they verify a brand-new seed.
+	const secondFactorOk = isAcceptableTwoFactorCodeShape(code);
 
 	const handleSetup = async () => {
 		setLoading(true);
@@ -82,7 +87,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 	};
 
 	const handleRegenerateRecoveryCodes = async () => {
-		if (code.length !== 6) { setError(t("auth.2fa-error-code-length")); return; }
+		if (!secondFactorOk) { setError(t("auth.2fa-error-code-format")); return; }
 		setLoading(true);
 		setError("");
 		try {
@@ -104,7 +109,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 	};
 
 	const handleDisable = async () => {
-		if (code.length !== 6) { setError(t("auth.2fa-error-code-length")); return; }
+		if (!secondFactorOk) { setError(t("auth.2fa-error-code-format")); return; }
 		setLoading(true);
 		setError("");
 		try {
@@ -217,22 +222,22 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 				<div className="space-y-4">
 					<p className="text-xs text-[var(--text-secondary)]">{t("auth.2fa-disable-instruction")}</p>
 					<label htmlFor="two-factor-disable-code" className="block text-xs font-medium text-[var(--text-secondary)]">
-						{t("auth.2fa-current-code-label")}
+						{t("auth.2fa-code-or-recovery-label")}
 					</label>
 					<div className="flex gap-2">
 						<input
 							id="two-factor-disable-code"
 							type="text"
-							maxLength={6}
+							maxLength={19}
 							value={code}
-							onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
-							placeholder="000000"
+							onChange={(e) => setCode(e.target.value)}
+							placeholder={t("auth.2fa-code-or-recovery-placeholder")}
 							className={cn(UI_INPUT, "flex-1")}
 						/>
 						<button
 							type="button"
 							onClick={handleDisable}
-							disabled={loading || code.length !== 6}
+							disabled={loading || !secondFactorOk}
 							className="px-4 py-2 text-xs font-medium bg-[var(--danger-bg)] text-[var(--danger)] rounded-lg hover:bg-[var(--danger-bg)] transition disabled:opacity-50"
 						>
 							{loading ? t("auth.2fa-verifying") : t("auth.2fa-confirm-disable")}
@@ -252,20 +257,19 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 				<div className="space-y-4">
 					<p className="text-xs text-[var(--text-secondary)]">{t("auth.2fa-regenerate-recovery-description")}</p>
 					<label htmlFor="two-factor-regenerate-code" className="block text-xs font-medium text-[var(--text-secondary)]">
-						{t("auth.2fa-current-code-label")}
+						{t("auth.2fa-code-or-recovery-label")}
 					</label>
 					<div className="flex gap-2">
 						<input
 							id="two-factor-regenerate-code"
 							type="text"
-							inputMode="numeric"
-							maxLength={6}
+							maxLength={19}
 							value={code}
-							onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
-							placeholder="000000"
+							onChange={(e) => setCode(e.target.value)}
+							placeholder={t("auth.2fa-code-or-recovery-placeholder")}
 							className={cn(UI_INPUT, "flex-1")}
 						/>
-						<ActionButton type="button" onClick={handleRegenerateRecoveryCodes} disabled={loading || code.length !== 6} className="text-xs">
+						<ActionButton type="button" onClick={handleRegenerateRecoveryCodes} disabled={loading || !secondFactorOk} className="text-xs">
 							{loading ? t("auth.2fa-verifying") : t("auth.2fa-regenerate-recovery-codes")}
 						</ActionButton>
 					</div>

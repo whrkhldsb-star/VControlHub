@@ -1,13 +1,17 @@
 /**
  * Regenerate single-use 2FA recovery codes for the current account.
- * A live authenticator code is required so a stolen browser session cannot
- * replace an account's last-resort recovery path.
+ * A live second factor is required so a stolen browser session cannot replace
+ * an account's last-resort recovery path. One of the account's own recovery
+ * codes counts as that factor (and is consumed) — otherwise a user whose
+ * authenticator is gone could never top the set back up, and would be locked
+ * out for good once the last code was spent.
  */
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { verify as verifyTOTP } from "otplib";
-
-import { openTwoFactorSecret } from "@/lib/auth/two-factor-secret";
+import {
+  isAcceptableTwoFactorCodeShape,
+  verifyTwoFactorChallenge,
+} from "@/lib/auth/two-factor-challenge";
 import { createTwoFactorRecoveryCodes } from "@/lib/auth/two-factor-recovery";
 import { auditUserAction } from "@/lib/audit/service";
 import { prisma } from "@/lib/db";
@@ -16,7 +20,10 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 
-const regenerateSchema = z.object({ code: z.string().regex(/^\d{6}$/) });
+// Shape is checked in the handler: an authenticator code and a recovery code
+// have different formats, and rejecting one of them here would hard-code the
+// dead end this route exists to avoid.
+const regenerateSchema = z.object({ code: z.string().min(1) });
 
 export async function POST(request: Request) {
   const locale = await getServerLocale();
@@ -36,14 +43,28 @@ export async function POST(request: Request) {
         );
       }
 
+      if (!isAcceptableTwoFactorCodeShape(body.code)) {
+        throw new ValidationError(t("api.auth.twoFactor.invalidCode", locale));
+      }
+
       const user = await prisma.user.findUnique({
         where: { id: session.userId },
-        select: { twoFactorEnabled: true, twoFactorSecret: true },
+        select: {
+          twoFactorEnabled: true,
+          twoFactorSecret: true,
+          twoFactorRecoveryCodes: true,
+        },
       });
       if (!user?.twoFactorEnabled || !user.twoFactorSecret) {
         throw new ValidationError(t("api.auth.twoFactor.notEnabled", locale));
       }
-      if (!(await verifyTOTP({ token: body.code, secret: openTwoFactorSecret(user.twoFactorSecret) })).valid) {
+      const challenge = await verifyTwoFactorChallenge({
+        userId: session.userId,
+        code: body.code,
+        sealedSecret: user.twoFactorSecret,
+        storedRecoveryCodes: user.twoFactorRecoveryCodes,
+      });
+      if (!challenge.valid) {
         throw new ValidationError(t("api.auth.twoFactor.invalidCode", locale));
       }
 
@@ -55,7 +76,7 @@ export async function POST(request: Request) {
       await auditUserAction(
         session.userId,
         "auth.2fa.recovery_codes_regenerated",
-        { userId: session.userId },
+        { userId: session.userId, usedRecoveryCode: challenge.usedRecoveryCode },
         "WARNING",
         session.currentTeamId,
       );

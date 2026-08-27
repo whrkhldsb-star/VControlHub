@@ -1,13 +1,19 @@
 /**
- * 2FA Disable — verify current TOTP code, then disable 2FA.
+ * 2FA Disable — verify the current second factor, then disable 2FA.
  * POST /api/auth/2fa/disable  { code }
+ *
+ * `code` is an authenticator code OR one of the account's recovery codes. A
+ * recovery code has to be accepted here: it is enough to sign in, and this is
+ * the only self-service way off 2FA once the authenticator device is gone.
  */
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { verify as verifyTOTP } from "otplib";
 import { Prisma } from "@prisma/client";
 
-import { openTwoFactorSecret } from "@/lib/auth/two-factor-secret";
+import {
+  isAcceptableTwoFactorCodeShape,
+  verifyTwoFactorChallenge,
+} from "@/lib/auth/two-factor-challenge";
 import { auditUserAction } from "@/lib/audit/service";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
@@ -36,17 +42,30 @@ export async function POST(request: Request) {
 
       const { code } = body;
 
+      if (!isAcceptableTwoFactorCodeShape(code)) {
+        throw new ValidationError(t("api.auth.twoFactor.invalidCode", locale));
+      }
+
       const user = await prisma.user.findUnique({
         where: { id: session.userId },
-        select: { twoFactorEnabled: true, twoFactorSecret: true },
+        select: {
+          twoFactorEnabled: true,
+          twoFactorSecret: true,
+          twoFactorRecoveryCodes: true,
+        },
       });
 
       if (!user?.twoFactorEnabled || !user.twoFactorSecret) {
         throw new ValidationError(t("api.auth.twoFactor.notEnabled", locale));
       }
 
-      const valid = (await verifyTOTP({ token: code, secret: openTwoFactorSecret(user.twoFactorSecret) })).valid;
-      if (!valid) {
+      const challenge = await verifyTwoFactorChallenge({
+        userId: session.userId,
+        code,
+        sealedSecret: user.twoFactorSecret,
+        storedRecoveryCodes: user.twoFactorRecoveryCodes,
+      });
+      if (!challenge.valid) {
         throw new ValidationError(t("api.auth.twoFactor.invalidCode", locale));
       }
 
@@ -58,7 +77,7 @@ export async function POST(request: Request) {
       await auditUserAction(
         session.userId,
         "auth.2fa.disable",
-        { userId: session.userId },
+        { userId: session.userId, usedRecoveryCode: challenge.usedRecoveryCode },
         "INFO",
         session.currentTeamId,
       );

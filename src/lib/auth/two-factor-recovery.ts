@@ -2,9 +2,17 @@ import { createHmac, randomInt, timingSafeEqual } from "node:crypto";
 
 import { config } from "@/lib/config/env";
 
-const RECOVERY_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-const RECOVERY_CODE_LENGTH = 12;
+import {
+  normalizeTwoFactorRecoveryCode,
+  RECOVERY_CODE_ALPHABET,
+  RECOVERY_CODE_LENGTH,
+} from "./two-factor-challenge-shape";
+
 const RECOVERY_CODE_COUNT = 10;
+
+// Re-exported so existing importers keep a single entry point for recovery-code
+// handling; the definition lives in the client-safe shape module.
+export { normalizeTwoFactorRecoveryCode };
 
 function getRecoveryCodeSigningSecret(): string {
   const configured = config.auth.sessionSecret;
@@ -13,17 +21,6 @@ function getRecoveryCodeSigningSecret(): string {
     throw new Error("AUTH_SESSION_SECRET must be set in production before enabling two-factor recovery codes");
   }
   return "dev-only-session-secret-change-me";
-}
-
-/** Remove separators and normalize a human-entered recovery code. */
-export function normalizeTwoFactorRecoveryCode(value: string): string | null {
-	// Be forgiving about the separators shown in the UI, but do not silently
-	// discard other characters.  Stripping arbitrary input here would make a
-	// valid code with an accidental character inserted still authenticate.
-	const normalized = value.trim().toUpperCase().replace(/[\s-]/g, "");
-	return new RegExp(`^[${RECOVERY_CODE_ALPHABET}]{${RECOVERY_CODE_LENGTH}}$`).test(normalized)
-		? normalized
-		: null;
 }
 
 function formatRecoveryCode(value: string): string {

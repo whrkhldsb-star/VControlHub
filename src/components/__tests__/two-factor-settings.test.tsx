@@ -98,7 +98,7 @@ describe("TwoFactorSettings", () => {
 		render(<TwoFactorSettings enabled />);
 
 		await user.click(screen.getByRole("button", { name: "重新生成恢复码" }));
-		await user.type(screen.getByLabelText("当前验证码"), "654321");
+		await user.type(screen.getByLabelText("验证码或恢复码"), "654321");
 		await user.click(screen.getByRole("button", { name: "重新生成恢复码" }));
 
 		expect(await screen.findByText("ABCD-EFGH-JKLM")).toBeInTheDocument();
@@ -115,7 +115,7 @@ describe("TwoFactorSettings", () => {
 		render(<TwoFactorSettings enabled={true} />);
 
 		await user.click(screen.getByRole("button", { name: "关闭两步验证" }));
-		await user.type(screen.getByLabelText("当前验证码"), "654321");
+		await user.type(screen.getByLabelText("验证码或恢复码"), "654321");
 		await user.click(screen.getByRole("button", { name: "确认关闭" }));
 
 		expect(await screen.findByRole("alert")).toHaveTextContent("关闭失败");
@@ -131,13 +131,64 @@ describe("TwoFactorSettings", () => {
 		render(<TwoFactorSettings enabled={true} />);
 
 		await user.click(screen.getByRole("button", { name: "关闭两步验证" }));
-		await user.type(screen.getByLabelText("当前验证码"), "654321");
+		await user.type(screen.getByLabelText("验证码或恢复码"), "654321");
 		await user.click(screen.getByRole("button", { name: "确认关闭" }));
 
 		expect(await screen.findByText("未启用")).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: "开启两步验证" })).toBeEnabled();
 		expect(refreshMock).toHaveBeenCalledTimes(1);
 		expect(window.location.reload).not.toHaveBeenCalled();
+	});
+
+	it("accepts a recovery code when disabling, for users who lost the authenticator", async () => {
+		const user = userEvent.setup();
+		vi.mocked(csrfFetch).mockResolvedValueOnce({ success: true });
+
+		render(<TwoFactorSettings enabled />);
+
+		await user.click(screen.getByRole("button", { name: "关闭两步验证" }));
+		// Separators as displayed to the user; the field must not strip letters.
+		await user.type(screen.getByLabelText("验证码或恢复码"), "ABCD-EFGH-JKLM");
+		expect(screen.getByRole("button", { name: "确认关闭" })).toBeEnabled();
+		await user.click(screen.getByRole("button", { name: "确认关闭" }));
+
+		expect(await screen.findByText("未启用")).toBeInTheDocument();
+		expect(csrfFetch).toHaveBeenCalledWith("/api/auth/2fa/disable", expect.objectContaining({
+			body: JSON.stringify({ code: "ABCD-EFGH-JKLM" }),
+		}));
+	});
+
+	it("accepts a recovery code when regenerating recovery codes", async () => {
+		const user = userEvent.setup();
+		vi.mocked(csrfFetch).mockResolvedValueOnce({ success: true, recoveryCodes: ["WXYZ-2345-6789"] });
+
+		render(<TwoFactorSettings enabled />);
+
+		await user.click(screen.getByRole("button", { name: "重新生成恢复码" }));
+		await user.type(screen.getByLabelText("验证码或恢复码"), "ABCD-EFGH-JKLM");
+		await user.click(screen.getByRole("button", { name: "重新生成恢复码" }));
+
+		expect(await screen.findByText("WXYZ-2345-6789")).toBeInTheDocument();
+		expect(csrfFetch).toHaveBeenCalledWith("/api/auth/2fa/recovery-codes", expect.objectContaining({
+			body: JSON.stringify({ code: "ABCD-EFGH-JKLM" }),
+		}));
+	});
+
+	it("keeps the submit button disabled for input that is neither factor", async () => {
+		const user = userEvent.setup();
+
+		render(<TwoFactorSettings enabled />);
+
+		await user.click(screen.getByRole("button", { name: "关闭两步验证" }));
+		const field = screen.getByLabelText("验证码或恢复码");
+		await user.type(field, "1234");
+		expect(screen.getByRole("button", { name: "确认关闭" })).toBeDisabled();
+		// 12 chars but with a character outside the recovery-code alphabet (I/O/0/1
+		// are excluded to avoid transcription errors).
+		await user.clear(field);
+		await user.type(field, "ABCDEFGHJKL0");
+		expect(screen.getByRole("button", { name: "确认关闭" })).toBeDisabled();
+		expect(csrfFetch).not.toHaveBeenCalled();
 	});
 
 	it("renders English copy when locale is en", () => {

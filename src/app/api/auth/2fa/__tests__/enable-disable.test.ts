@@ -11,6 +11,7 @@ const { requireSessionMock, verifyTotpMock, prismaMock } = vi.hoisted(() => ({
   prismaMock: {
     user: {
       update: vi.fn(),
+      updateMany: vi.fn(),
       findUnique: vi.fn(),
     },
   },
@@ -76,6 +77,8 @@ vi.mock("@/lib/auth/two-factor-secret", () => ({
       : stored,
 }));
 
+const { createTwoFactorRecoveryCodes } = await import("@/lib/auth/two-factor-recovery");
+
 const enableRoute = await import("../enable/route");
 const disableRoute = await import("../disable/route");
 const recoveryCodesRoute = await import("../recovery-codes/route");
@@ -93,6 +96,7 @@ describe("POST /api/auth/2fa/enable", () => {
     requireSessionMock.mockReset();
     verifyTotpMock.mockReset();
     prismaMock.user.update.mockReset();
+    prismaMock.user.updateMany.mockReset();
     prismaMock.user.findUnique.mockReset();
     requireSessionMock.mockReturnValue({ userId: "u1" });
     prismaMock.user.findUnique.mockResolvedValue({
@@ -167,6 +171,7 @@ describe("POST /api/auth/2fa/disable", () => {
     verifyTotpMock.mockReset();
     prismaMock.user.findUnique.mockReset();
     prismaMock.user.update.mockReset();
+    prismaMock.user.updateMany.mockReset();
     requireSessionMock.mockReturnValue({ userId: "u1" });
   });
   afterEach(() => vi.restoreAllMocks());
@@ -225,6 +230,35 @@ describe("POST /api/auth/2fa/disable", () => {
       }),
     });
   });
+
+  it("accepts a recovery code so a lost authenticator is not a permanent lockout", async () => {
+    const generated = createTwoFactorRecoveryCodes(3);
+    prismaMock.user.findUnique.mockResolvedValueOnce({
+      twoFactorEnabled: true,
+      twoFactorSecret: "sealed:EXISTING_SECRET",
+      twoFactorRecoveryCodes: generated.hashes,
+    });
+    verifyTotpMock.mockReturnValue({ valid: false });
+    prismaMock.user.updateMany.mockResolvedValueOnce({ count: 1 });
+    prismaMock.user.update.mockResolvedValueOnce({});
+
+    const res = await disableRoute.POST(jsonRequest({ code: generated.codes[0]! }));
+
+    expect(res.status).toBe(200);
+    // The code is burned on the way through, even though 2FA is being turned off.
+    expect(prismaMock.user.updateMany).toHaveBeenCalledWith({
+      where: { id: "u1", twoFactorRecoveryCodes: { equals: generated.hashes } },
+      data: { twoFactorRecoveryCodes: [generated.hashes[1], generated.hashes[2]] },
+    });
+    expect(prismaMock.user.update).toHaveBeenCalled();
+  });
+
+  it("rejects input that is neither factor before reading the user row", async () => {
+    const res = await disableRoute.POST(jsonRequest({ code: "12345" }));
+    expect(res.status).toBe(400);
+    expect(prismaMock.user.findUnique).not.toHaveBeenCalled();
+    expect(prismaMock.user.update).not.toHaveBeenCalled();
+  });
 });
 
 describe("POST /api/auth/2fa/recovery-codes", () => {
@@ -233,6 +267,7 @@ describe("POST /api/auth/2fa/recovery-codes", () => {
     verifyTotpMock.mockReset();
     prismaMock.user.findUnique.mockReset();
     prismaMock.user.update.mockReset();
+    prismaMock.user.updateMany.mockReset();
     requireSessionMock.mockReturnValue({ userId: "u1" });
     prismaMock.user.findUnique.mockResolvedValue({
       twoFactorEnabled: true,
@@ -262,6 +297,50 @@ describe("POST /api/auth/2fa/recovery-codes", () => {
     const response = await recoveryCodesRoute.POST(jsonRequest({ code: "000000" }));
 
     expect(response.status).toBe(400);
+    expect(prismaMock.user.update).not.toHaveBeenCalled();
+  });
+
+  it("also accepts one of the current recovery codes", async () => {
+    const generated = createTwoFactorRecoveryCodes(2);
+    prismaMock.user.findUnique.mockResolvedValueOnce({
+      twoFactorEnabled: true,
+      twoFactorSecret: "sealed:EXISTING_SECRET",
+      twoFactorRecoveryCodes: generated.hashes,
+    });
+    verifyTotpMock.mockReturnValue({ valid: false });
+    prismaMock.user.updateMany.mockResolvedValueOnce({ count: 1 });
+    prismaMock.user.update.mockResolvedValueOnce({});
+
+    const response = await recoveryCodesRoute.POST(
+      jsonRequest({ code: generated.codes[1]! }),
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.recoveryCodes).toHaveLength(10);
+    // The consumed code is irrelevant afterwards — `update` replaces the whole set.
+    expect(prismaMock.user.updateMany).toHaveBeenCalled();
+    expect(prismaMock.user.update).toHaveBeenCalledWith({
+      where: { id: "u1" },
+      data: { twoFactorRecoveryCodes: expect.any(Array) },
+    });
+  });
+
+  it("rejects a recovery code that is not one of the stored ones", async () => {
+    const generated = createTwoFactorRecoveryCodes(2);
+    prismaMock.user.findUnique.mockResolvedValueOnce({
+      twoFactorEnabled: true,
+      twoFactorSecret: "sealed:EXISTING_SECRET",
+      twoFactorRecoveryCodes: generated.hashes,
+    });
+    verifyTotpMock.mockReturnValue({ valid: false });
+
+    const response = await recoveryCodesRoute.POST(
+      jsonRequest({ code: "AAAA-BBBB-CCCC" }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(prismaMock.user.updateMany).not.toHaveBeenCalled();
     expect(prismaMock.user.update).not.toHaveBeenCalled();
   });
 });
