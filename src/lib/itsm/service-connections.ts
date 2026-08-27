@@ -176,7 +176,10 @@ export async function listItsmEvents(input?: {
       ...(Object.keys(teamFilter).length > 0 ? { connection: teamFilter } : {}),
     },
     orderBy: { createdAt: "desc" },
-    take: Math.min(input?.limit ?? 100, 200),
+    // Clamped and truncated here too: `take` rejects a fractional row count, and a
+    // negative one silently pages backwards from the oldest end. The HTTP route
+    // validates its query, but server components call this directly.
+    take: Math.min(Math.max(Math.trunc(input?.limit ?? 100), 1), 200),
   });
   return rows.map(toEventRecord);
 }
