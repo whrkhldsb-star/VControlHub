@@ -18,6 +18,23 @@ const TRUNCATE_AT = 280;
 const COMMAND_POLL_MS = 1_000;
 const COMMAND_TERMINAL = new Set(["COMPLETED", "FAILED", "REJECTED", "CANCELLED"]);
 
+/**
+ * Raised when a reclaimed run finds a step whose non-idempotent side effect was
+ * already dispatched (see {@link markSideEffectDispatched}).
+ *
+ * This has to be distinguishable from an ordinary step failure. `step.retry` may
+ * be up to 5, and the retry loop's `onRetry` deletes the step's row so the next
+ * attempt starts clean — which would delete the very marker the guard reads and
+ * then re-fire the webhook/notification the guard just refused to send. So
+ * {@link executeWithRetries} treats this error as terminal: no retry, no splice.
+ */
+class SideEffectAlreadyDispatchedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "SideEffectAlreadyDispatchedError";
+  }
+}
+
 function truncate(input: string, max = TRUNCATE_AT): string {
   return input.length <= max ? input : `${input.slice(0, max)}…`;
 }
@@ -183,14 +200,17 @@ async function dispatchStep(input: {
       return waitForCommand(commandRequestId, step.timeoutSec, input.onProgress);
     }
     case "send_notification": {
-      // At-most-once guard: if a prior attempt already dispatched this step
-      // (persisted a "running" marker) but the worker crashed/lost its lease
-      // before recording success, do NOT blindly re-send on reclaim — fail the
-      // step instead. Re-sending would spam a duplicate notification. Only
-      // attempt 0 can inherit a prior running marker (later attempts are fresh).
+      // At-most-once guard: if a prior attempt already dispatched this step but
+      // the worker crashed/lost its lease before recording success, do NOT
+      // blindly re-send on reclaim — fail the step instead. Re-sending would
+      // spam a duplicate notification. Only attempt 0 can inherit a prior
+      // marker (later attempts within this worker are deliberately fresh).
+      // The marker is honoured whatever status it carries: "running" means the
+      // outcome is unknown, "failed" means the notification definitely went out
+      // and only the recording of it did not.
       const priorNotify = input.results.find((r) => r.stepId === step.id);
-      if (input.attempt === 0 && priorNotify?.status === "running" && priorNotify.sideEffectDispatched) {
-        throw new Error(
+      if (input.attempt === 0 && priorNotify?.sideEffectDispatched) {
+        throw new SideEffectAlreadyDispatchedError(
           `notification step ${step.id} was already dispatched in a prior attempt; not re-sending (at-most-once)`,
         );
       }
@@ -232,8 +252,8 @@ async function dispatchStep(input: {
       // non-idempotent action (restart service, send SMS). Never auto-replay a
       // dispatched-but-unconfirmed webhook on reclaim.
       const priorWebhook = input.results.find((r) => r.stepId === step.id);
-      if (input.attempt === 0 && priorWebhook?.status === "running" && priorWebhook.sideEffectDispatched) {
-        throw new Error(
+      if (input.attempt === 0 && priorWebhook?.sideEffectDispatched) {
+        throw new SideEffectAlreadyDispatchedError(
           `webhook step ${step.id} was already dispatched in a prior attempt; not re-calling (at-most-once)`,
         );
       }
@@ -294,6 +314,9 @@ async function executeWithRetries<T>(
       return await run();
     } catch (error) {
       lastError = error;
+      // A refusal to replay a dispatched side effect must not be retried: the
+      // retry would undo the marker and fire it anyway.
+      if (error instanceof SideEffectAlreadyDispatchedError) throw error;
       if (attempt + 1 < attempts) await onRetry?.(error);
     }
   }
@@ -373,6 +396,11 @@ export async function executePlaybookChain(input: {
         result = failedResult(step, error, startedAt);
         const live = results.find((item) => item.stepId === step.id);
         if (live?.commandRequestId) result.commandRequestId = live.commandRequestId;
+        // Carry the marker onto the failed row. Without this the "we already
+        // fired this webhook" fact is lost the moment the failure is recorded,
+        // and a reclaim between this write and the run being finalized would
+        // dispatch the side effect a second time.
+        if (live?.sideEffectDispatched) result.sideEffectDispatched = true;
       }
     }
 

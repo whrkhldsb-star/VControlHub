@@ -367,4 +367,66 @@ describe("executePlaybookChain", () => {
 		);
 		expect(results[0]?.commandRequestId).toBe("request-fresh");
 	});
+
+	it("does not re-call a dispatched webhook on reclaim even when the step allows retries", async () => {
+		const playbook = buildPlaybook([
+			{
+				id: "s1",
+				name: "hook",
+				type: "call_webhook",
+				// retry > 0 used to defeat the at-most-once guard: the guard threw,
+				// the retry loop dropped the marker row and the next attempt called
+				// the webhook anyway.
+				retry: 3,
+				timeoutSec: 60,
+				config: { url: "https://example.com/webhook", method: "POST" },
+			},
+		]);
+		const { results } = await executePlaybookChain({
+			playbook,
+			runId: "run-1",
+			dryRun: false,
+			resumeResults: [
+				{
+					stepId: "s1",
+					status: "running",
+					startedAt: new Date().toISOString(),
+					completedAt: "",
+					summary: "side effect dispatched",
+					sideEffectDispatched: true,
+				},
+			],
+		});
+		expect(results[0]?.status).toBe("failed");
+		expect(results[0]?.error).toContain("at-most-once");
+		expect(mocks.fetchWebhookSafely).not.toHaveBeenCalled();
+	});
+
+	it("keeps the dispatched marker on a failed step so a later reclaim cannot re-send", async () => {
+		mocks.notificationCreate.mockRejectedValueOnce(new Error("db down"));
+		const playbook = buildPlaybook([
+			{
+				id: "s1",
+				name: "notify",
+				type: "send_notification",
+				retry: 0,
+				timeoutSec: 60,
+				config: { recipientUserId: "u1", subject: "s", body: "b" },
+			},
+		]);
+		const first = await executePlaybookChain({ playbook, runId: "run-1", dryRun: false });
+		expect(first.results[0]?.status).toBe("failed");
+		expect(first.results[0]?.sideEffectDispatched).toBe(true);
+
+		// Reclaiming that run must not create a second Notification row.
+		mocks.notificationCreate.mockClear();
+		const second = await executePlaybookChain({
+			playbook,
+			runId: "run-1",
+			dryRun: false,
+			resumeResults: first.results,
+		});
+		expect(second.results[0]?.status).toBe("failed");
+		expect(mocks.notificationCreate).not.toHaveBeenCalled();
+	});
 });
