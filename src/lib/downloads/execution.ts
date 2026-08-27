@@ -75,6 +75,12 @@ export async function executeAria2RelayDownload(
  const teamId = await loadDownloadTeamId(taskId);
 
  let gid: string;
+ // The gid we STARTED ourselves (fresh-claim path only). If the dispatch later
+ // throws before the poll loop's own cleanup, the outer catch force-removes it
+ // so a failed dispatch never leaves an orphaned aria2 download running with no
+ // DB row tracking it. Stays null on the resume path — that gid belongs to a
+ // live sibling worker and must not be removed here.
+ let ownedGid: string | null = null;
  try {
   // Claim BEFORE starting the aria2 download. Historically addUri ran first and
   // the PENDING→RUNNING CAS ran second: a retry (maxAttempts=3) or a concurrent
@@ -102,6 +108,7 @@ export async function executeAria2RelayDownload(
    if (maxSpeedKb) options["max-download-limit"] = `${maxSpeedKb}K`;
 
    gid = await addUri(urls, options);
+   ownedGid = gid;
 
    await prisma.downloadTask.updateMany({
     where: { id: taskId, status: "RUNNING" },
@@ -237,6 +244,12 @@ export async function executeAria2RelayDownload(
   await cleanupTemp(tempDir);
  } catch (error) {
   logError("[DownloadAPI] Relay download execution failed:", error);
+  // Force-remove the download we started so a mid-dispatch throw (e.g. the
+  // gid-persist updateMany failing right after addUri) can't orphan a live
+  // aria2 job. Best-effort; never masks the original error.
+  if (ownedGid) {
+   try { await removeDownload(ownedGid, true); } catch { /* best-effort */ }
+  }
   try {
    await prisma.downloadTask.updateMany({ where: { id: taskId, status: { in: ["PENDING", "RUNNING"] } }, data: { status: "FAILED", errorMessage: getPublicAria2Error(error) } });
    if (userId) notifyDownloadResult(userId, urls[0]!, "failed", getPublicAria2Error(error), teamId).catch((err) => { notifyLogger.warn("notifyDownloadResult failed", { error: err instanceof Error ? err.message : String(err) }); });
