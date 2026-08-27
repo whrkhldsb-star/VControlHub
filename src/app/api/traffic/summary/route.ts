@@ -44,6 +44,34 @@ type CachedTrafficSample = {
 
 const previousSamples = new Map<string, CachedTrafficSample>();
 
+/**
+ * The durable `traffic.sample` worker owns traffic_snapshots and writes one row
+ * per primary interface every 5 minutes. This route wrote a row on *every*
+ * request as well, and the /traffic page turns one refresh into two requests
+ * here (`fetchSummary` plus `fetchRemote`), so a single open tab at the default
+ * 30s cadence produced ~5 700 rows a day against the worker's 288 — and each
+ * extra row carried a rate diffed against whatever poll happened milliseconds
+ * earlier through the shared `previousSamples` slot.
+ *
+ * The write stays as a fallback for deployments running with workers disabled,
+ * but it is held to the worker's own cadence and skips samples whose interval is
+ * too short to mean anything.
+ */
+const REQUEST_PERSIST_MIN_INTERVAL_MS = 5 * 60_000;
+const MIN_PERSIST_INTERVAL_SECONDS = 1;
+const lastPersistedAt = new Map<string, number>();
+
+function shouldPersistLocalSample(iface: string, intervalSeconds: number) {
+  if (intervalSeconds < MIN_PERSIST_INTERVAL_SECONDS) return false;
+  const now = Date.now();
+  if (now - (lastPersistedAt.get(iface) ?? 0) < REQUEST_PERSIST_MIN_INTERVAL_MS) {
+    return false;
+  }
+  // Claim the slot synchronously: two concurrent polls must not both pass.
+  lastPersistedAt.set(iface, now);
+  return true;
+}
+
 function readProcNetDev() {
   try {
     return readFileSync("/proc/net/dev", "utf-8");
@@ -247,7 +275,10 @@ export async function GET(req: NextRequest) {
         primary
           ? summarizedInterfaces.find((item) => item.iface === primary.iface) ?? null
           : null;
-      if (primarySummary) {
+      if (
+        primarySummary &&
+        shouldPersistLocalSample(primarySummary.iface, primarySummary.intervalSeconds)
+      ) {
         void persistLocalInterfaceSample(primarySummary.iface, primarySummary);
       }
 

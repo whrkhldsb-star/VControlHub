@@ -17,6 +17,25 @@ import { Notice } from "@/components/ui-primitives";
 import { getErrorMessage } from "@/lib/http/error-message";
 const HISTORY_LIMIT = 60; // ≈ 30 min at 30s polling cadence
 
+type HistoryScope = "live" | "24h" | "7d";
+
+/** The live scope keeps the in-memory curve the summary poll builds; the other two read persisted samples. */
+const SCOPE_BUTTONS: ReadonlyArray<{
+  scope: HistoryScope;
+  label?: string;
+  labelKey?: string;
+}> = [
+  { scope: "live", labelKey: "trafficPage.historyScopeLive" },
+  { scope: "24h", label: "24h" },
+  { scope: "7d", label: "7d" },
+];
+
+const HISTORY_HINT_KEYS: Record<HistoryScope, string> = {
+  live: "trafficPage.historyHintLive",
+  "24h": "trafficPage.historyHint24h",
+  "7d": "trafficPage.historyHint7d",
+};
+
 type InterfaceTraffic = {
   iface: string;
   rxBytes: number;
@@ -65,10 +84,19 @@ type TrafficSummary = {
   servers: Array<{ id: string; name: string; host: string; port: number }>;
 };
 
-type TrafficHistoryPoint = TrafficSample & {
+/**
+ * One row of /api/traffic/history. Unlike {@link TrafficSample}, whose `t` is
+ * milliseconds for the sparkline, the API hands back an ISO timestamp — this type
+ * used to intersect TrafficSample and so claimed `t: number` for a string value.
+ */
+export type TrafficHistoryPoint = {
   source: string;
   serverId: string | null;
   iface: string;
+  /** ISO-8601 sample timestamp. */
+  t: string;
+  rx: number;
+  tx: number;
 };
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
@@ -98,27 +126,27 @@ export function formatStorageHealthStatus(t: (key: string, vars?: Record<string,
   return status;
 }
 
-function groupHistory(points: TrafficHistoryPoint[], scope: "24h" | "7d") {
-  if (scope === "24h") {
-    const byIface = new Map<string, TrafficHistoryPoint[]>();
-    for (const point of points) {
-      const list = byIface.get(point.iface) ?? [];
-      list.push(point);
-      byIface.set(point.iface, list);
-    }
-    return byIface;
-  }
-  const daily = new Map<string, TrafficHistoryPoint[]>();
+/**
+ * One curve per interface (24h) or per interface and local calendar day (7d).
+ * The interface has to be part of the key: two interfaces interleaved into one
+ * sparkline read as a saw-tooth that belongs to neither.
+ */
+export function groupHistory(points: TrafficHistoryPoint[], scope: "24h" | "7d") {
+  const grouped = new Map<string, TrafficHistoryPoint[]>();
   for (const point of points) {
-    const d = new Date(point.t);
-    // Group by LOCAL calendar date (not UTC) so day boundaries match the
-    // viewer's timezone — otherwise points after 16:00 UTC land on the wrong day for UTC+8.
-    const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    const list = daily.get(day) ?? [];
+    let key = point.iface;
+    if (scope === "7d") {
+      const d = new Date(point.t);
+      // Group by LOCAL calendar date (not UTC) so day boundaries match the
+      // viewer's timezone — otherwise points after 16:00 UTC land on the wrong day for UTC+8.
+      const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      key = `${point.iface} · ${day}`;
+    }
+    const list = grouped.get(key) ?? [];
     list.push(point);
-    daily.set(day, list);
+    grouped.set(key, list);
   }
-  return daily;
+  return grouped;
 }
 
 export default function TrafficPage() {
@@ -131,23 +159,33 @@ export default function TrafficPage() {
   const [error, setError] = useState("");
   const [autoRefresh, setAutoRefresh] = useState(true);
   const refreshIntervalSeconds = useRefreshInterval(30);
-  const [history, setHistory] = useState<TrafficSample[]>([]);
-  const [history7d, setHistory7d] = useState<TrafficHistoryPoint[]>([]);
+  // Two independent series. `liveSamples` is the rolling in-memory curve fed by
+  // the summary poll; `persistedHistory` is what /api/traffic/history returns.
+  // They used to share one state field, so every refresh overwrote the persisted
+  // curve with the live one and back again, and the "last 24 hours" view was in
+  // fact whichever of the two answered last.
+  const [liveSamples, setLiveSamples] = useState<TrafficSample[]>([]);
+  const [persistedHistory, setPersistedHistory] = useState<TrafficHistoryPoint[]>([]);
   const [historyError, setHistoryError] = useState("");
-  const [historyScope, setHistoryScope] = useState<"24h" | "7d">("24h");
+  const [historyScope, setHistoryScope] = useState<HistoryScope>("live");
   const lastIfaceRef = useRef<string>("");
 
   const historyRequestRef = useRef<AbortController | null>(null);
   const summaryRequestRef = useRef<AbortController | null>(null);
   const remoteRequestRef = useRef<AbortController | null>(null);
 
-  const fetchHistory = useCallback(async (scope: "24h" | "7d", iface = selectedIface) => {
+  const fetchHistory = useCallback(async (scope: Exclude<HistoryScope, "live">, iface = selectedIface) => {
     historyRequestRef.current?.abort();
     const controller = new AbortController();
     historyRequestRef.current = controller;
     try {
       const params = new URLSearchParams();
       params.set("hours", scope === "24h" ? "24" : "168");
+      // This chart sits under the hub's own rx/tx badges, so it must only carry
+      // hub samples. Without the filter every visible server's snapshots came
+      // back too and interleaved into the curve — `eth0` is the primary
+      // interface name on the hub and on most VPS alike.
+      params.set("source", "local");
       if (iface) params.set("iface", iface);
       const data = (await csrfFetch(
         `/api/traffic/history?${params.toString()}`,
@@ -158,13 +196,7 @@ export default function TrafficPage() {
         return;
       }
       setHistoryError("");
-      if (scope === "24h") {
-        setHistory(
-          data.history.slice(-HISTORY_LIMIT).map((point) => ({ t: new Date(point.t).getTime(), rx: point.rx, tx: point.tx })),
-        );
-      } else {
-        setHistory7d(data.history);
-      }
+      setPersistedHistory(data.history);
     } catch (cause) {
       if (controller.signal.aborted) return;
       setHistoryError(getErrorMessage(cause, t("trafficPage.historyLoadFailed")));
@@ -197,9 +229,9 @@ export default function TrafficPage() {
         const ifaceKey = prim.iface;
         if (lastIfaceRef.current !== ifaceKey) {
           lastIfaceRef.current = ifaceKey;
-          setHistory([{ t: Date.now(), rx: prim.rxRateBytesPerSecond, tx: prim.txRateBytesPerSecond }]);
+          setLiveSamples([{ t: Date.now(), rx: prim.rxRateBytesPerSecond, tx: prim.txRateBytesPerSecond }]);
         } else {
-          setHistory((prev) => {
+          setLiveSamples((prev) => {
             const next = [...prev, { t: Date.now(), rx: prim.rxRateBytesPerSecond, tx: prim.txRateBytesPerSecond }];
             return next.length > HISTORY_LIMIT ? next.slice(-HISTORY_LIMIT) : next;
           });
@@ -245,7 +277,10 @@ export default function TrafficPage() {
   }, []);
 
   useEffect(() => {
-    const timer = setTimeout(() => { void fetchSummary(); void fetchHistory(historyScope); }, 0);
+    const timer = setTimeout(() => {
+      void fetchSummary();
+      if (historyScope !== "live") void fetchHistory(historyScope);
+    }, 0);
     return () => clearTimeout(timer);
   }, [fetchHistory, fetchSummary, historyScope]);
 
@@ -256,15 +291,15 @@ export default function TrafficPage() {
   useVisibilityInterval(() => {
     void fetchSummary();
     void fetchRemote();
-    void fetchHistory(historyScope);
+    if (historyScope !== "live") void fetchHistory(historyScope);
   }, autoRefresh && refreshIntervalSeconds > 0 ? refreshIntervalSeconds * 1000 : null);
 
   const primary = summary?.currentServer.primaryInterface ?? null;
   const refreshLabel = getRefreshIntervalLabel(refreshIntervalSeconds);
   const persistedTrend = useMemo(() => {
-    if (historyScope === "24h") return null;
-    return groupHistory(history7d, historyScope);
-  }, [history7d, historyScope]);
+    if (historyScope === "live") return null;
+    return groupHistory(persistedHistory, historyScope);
+  }, [persistedHistory, historyScope]);
 
   return (
     <PageShell>
@@ -288,9 +323,21 @@ export default function TrafficPage() {
       {historyError && <Notice tone="danger">{historyError}</Notice>}
 
       <div className="mb-5 flex flex-wrap items-center gap-2">
-        <button type="button" onClick={() => { setHistoryScope("24h"); void fetchHistory("24h"); }} className={`rounded-lg px-3 py-1.5 text-xs font-medium ${historyScope === "24h" ? "bg-[var(--color-action)]/15 text-[var(--text-secondary)]" : "bg-[var(--surface-elevated)] text-[var(--text-secondary)]"}`}>24h</button>
-        <button type="button" onClick={() => { setHistoryScope("7d"); void fetchHistory("7d"); }} className={`rounded-lg px-3 py-1.5 text-xs font-medium ${historyScope === "7d" ? "bg-[var(--color-action)]/15 text-[var(--text-secondary)]" : "bg-[var(--surface-elevated)] text-[var(--text-secondary)]"}`}>7d</button>
-        <span className="text-xs text-[var(--text-muted)]">{historyScope === "24h" ? t("trafficPage.historyHint24h") : t("trafficPage.historyHint7d")}</span>
+        {SCOPE_BUTTONS.map(({ scope, label, labelKey }) => (
+          <button
+            key={scope}
+            type="button"
+            aria-pressed={historyScope === scope}
+            onClick={() => {
+              setHistoryScope(scope);
+              if (scope !== "live") void fetchHistory(scope);
+            }}
+            className={`rounded-lg px-3 py-1.5 text-xs font-medium ${historyScope === scope ? "bg-[var(--color-action)]/15 text-[var(--text-secondary)]" : "bg-[var(--surface-elevated)] text-[var(--text-secondary)]"}`}
+          >
+            {labelKey ? t(labelKey) : label}
+          </button>
+        ))}
+        <span className="text-xs text-[var(--text-muted)]">{t(HISTORY_HINT_KEYS[historyScope])}</span>
       </div>
 
       <div className="space-y-5">
@@ -314,9 +361,9 @@ export default function TrafficPage() {
                     <RateBadge label={t("trafficPage.txRate", { iface: primary.iface })} value={primary.txRateLabel} color="emerald" />
                   </div>
                   <div className="mt-4">
-                    {historyScope === "24h" ? (
+                    {historyScope === "live" ? (
                       <TrafficSparkline
-                        samples={history}
+                        samples={liveSamples}
                         labels={{
                           rx: t("trafficPage.rxShort"),
                           tx: t("trafficPage.txShort"),

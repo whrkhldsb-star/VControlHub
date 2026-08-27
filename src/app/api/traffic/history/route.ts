@@ -20,6 +20,9 @@ const trafficHistoryQuerySchema = z.object({
     }),
 });
 
+/** Hard cap on rows returned per request; see the orderBy comment below. */
+const HISTORY_ROW_LIMIT = 5000;
+
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
@@ -59,8 +62,15 @@ export async function GET(request: Request) {
               }
             : {}),
         },
-        orderBy: { sampledAt: "asc" },
-        take: 5000,
+        // Newest rows in the window, re-sorted ascending for the chart below.
+        // `asc` + `take` returned the OLDEST rows instead: local samples land
+        // every 5 minutes and the health collector adds one row per server per
+        // tick, so a 7-day request on a modest fleet passes the cap after ~1.5
+        // days — the chart silently ended days in the past while its own hint
+        // claimed "the last 7 days", and the client only ever renders the tail.
+        // Same truncation `service-collect.ts` had to fix for monthly traffic.
+        orderBy: { sampledAt: "desc" },
+        take: HISTORY_ROW_LIMIT,
         select: {
           source: true,
           serverId: true,
@@ -74,7 +84,7 @@ export async function GET(request: Request) {
       });
 
       return NextResponse.json({
-        history: rows.map((row) => ({
+        history: rows.reverse().map((row) => ({
           source: row.source,
           serverId: row.serverId,
           iface: row.iface,

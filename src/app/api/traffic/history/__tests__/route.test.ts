@@ -73,4 +73,45 @@ describe("/api/traffic/history", () => {
       },
     ]);
   });
+
+  it("keeps the newest rows when the window exceeds the row cap", async () => {
+    // The cap has to bite at the far end of the window: `asc` + `take` returned
+    // the OLDEST rows, so a 7-day request on a fleet that samples every 5
+    // minutes produced a chart that stopped days before "now" without saying so.
+    prismaMock.server.findMany.mockResolvedValueOnce([]);
+    prismaMock.trafficSnapshot.findMany.mockResolvedValueOnce([
+      {
+        source: "local",
+        serverId: null,
+        iface: "eth0",
+        rxBytes: BigInt("20"),
+        txBytes: BigInt("40"),
+        rxRateBps: 2,
+        txRateBps: 4,
+        sampledAt: new Date("2026-06-28T12:00:00Z"),
+      },
+      {
+        source: "local",
+        serverId: null,
+        iface: "eth0",
+        rxBytes: BigInt("10"),
+        txBytes: BigInt("20"),
+        rxRateBps: 1,
+        txRateBps: 2,
+        sampledAt: new Date("2026-06-28T11:00:00Z"),
+      },
+    ]);
+
+    const response = await GET(new Request("http://localhost/api/traffic/history?hours=168"));
+    const body = await response.json();
+
+    expect(prismaMock.trafficSnapshot.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: { sampledAt: "desc" }, take: 5000 }),
+    );
+    // Descending rows from the database, ascending timeline for the chart.
+    expect(body.history.map((row: { t: string }) => row.t)).toEqual([
+      "2026-06-28T11:00:00.000Z",
+      "2026-06-28T12:00:00.000Z",
+    ]);
+  });
 });
