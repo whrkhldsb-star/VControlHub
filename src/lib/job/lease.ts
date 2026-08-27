@@ -59,6 +59,10 @@ export const LEASE_PRESETS_MS: Record<string, number> = {
 	"ticket-sla": 5 * 60 * 1000,
 	"cost-snapshot": 10 * 60 * 1000,
 	"ai-ops-scan": 30 * 60 * 1000,
+	// ITSM outbound fans out HTTP webhooks to N external ITSM connections; a
+	// slow/retrying endpoint can exceed the 30s MIN floor it silently used
+	// before, risking premature reclaim + a duplicate delivery attempt.
+	"itsm-outbound": 5 * 60 * 1000,
 };
 
 /** Minimum safety floor: 任何 worker 的 lease 不少于 30s (太短会让长任务被误回收) */
