@@ -35,6 +35,15 @@ export const dynamic = "force-dynamic";
 
 const logger = createLogger("api:media:stream");
 
+/**
+ * A live SFTP read that stops producing bytes must not hold the SSH client and
+ * the HTTP response open forever — the socket can stay healthy while the remote
+ * side never sends another byte. Reset on every chunk, so a slow-but-advancing
+ * transfer of a large video is never killed. Same budget as the SFTP service
+ * and the download relay.
+ */
+const STREAM_IDLE_TIMEOUT_MS = 120_000;
+
 function resolveManagedLocalPath(basePath: string, relativePath: string) {
   const normalizedPath = normalizeStorageRelativePath(relativePath);
   if (!normalizedPath.ok) throw new Error(normalizedPath.reason);
@@ -266,15 +275,33 @@ export async function GET(
           normalizedRemotePath,
           request.headers.get("range"),
         );
-        stream.on("close", () => {
+        // `nodeStreamToWeb` destroys the Node stream when the browser cancels
+        // the response, which lands here — so this is also the disconnect path.
+        let idleTimer: NodeJS.Timeout | null = null;
+        const releaseClient = () => {
+          if (idleTimer) {
+            clearTimeout(idleTimer);
+            idleTimer = null;
+          }
           client?.end();
           client = null;
-        });
-        stream.on("error", () => {
-          client?.end();
-          client = null;
-        });
-        return storageStreamResponse({
+        };
+        const armIdleTimer = () => {
+          if (idleTimer) clearTimeout(idleTimer);
+          idleTimer = setTimeout(() => {
+            logger.warn("remote media stream stalled, tearing down", {
+              id,
+              nodeId: node.id,
+              idleTimeoutMs: STREAM_IDLE_TIMEOUT_MS,
+            });
+            stream.destroy(
+              new Error(
+                `SFTP media stream stalled (no data for ${STREAM_IDLE_TIMEOUT_MS / 1000}s)`,
+              ),
+            );
+          }, STREAM_IDLE_TIMEOUT_MS);
+        };
+        const response = storageStreamResponse({
           stream,
           range,
           contentType: item.mimeType,
@@ -282,6 +309,14 @@ export async function GET(
           fileSize: remoteStat.size,
           download,
         });
+        // Attach only after the response exists: adding a `data` listener puts
+        // the stream into flowing mode, so doing it first would let chunks be
+        // emitted before `nodeStreamToWeb` has subscribed and drop them.
+        stream.on("data", armIdleTimer);
+        stream.on("close", releaseClient);
+        stream.on("error", releaseClient);
+        armIdleTimer();
+        return response;
       } catch (error) {
         client?.end();
         const maybeResponse = (error as { response?: Response }).response;
