@@ -406,10 +406,14 @@ export async function runVpsBackupRecord(
       // Cleanup is best-effort; don't fail the backup
     });
 
-    // Step 4: Update record to COMPLETED
+    // Step 4: Update record to COMPLETED — CAS on RUNNING so we never
+    // resurrect a record the stale-RUNNING reaper already moved to FAILED
+    // while this (long) transfer was in flight. A blind update-by-id would
+    // silently flip such a record back to COMPLETED, contradicting the
+    // failure the reaper already surfaced/notified.
     const completedAt = new Date();
-    await prisma.vpsBackupRecord.update({
-      where: { id: recordId },
+    const completed = await prisma.vpsBackupRecord.updateMany({
+      where: { id: recordId, status: "RUNNING" },
       data: {
         status: "COMPLETED",
         remotePath: remoteFilePath,
@@ -421,6 +425,21 @@ export async function runVpsBackupRecord(
         errorMessage: null,
       },
     });
+    if (completed.count === 0) {
+      vpsBackupLogger.warn(
+        "VpsBackupRecord no longer RUNNING at completion; not resurrecting (reclaimed by stale reaper?)",
+        { recordId },
+      );
+      return {
+        success: false,
+        fileSize,
+        checksumSha256: sha256,
+        localPath: portablePath,
+        remotePath: remoteFilePath,
+        errorMessage:
+          "Backup finished but its record was already moved to a terminal state (reclaimed); not overwriting",
+      };
+    }
 
     // Step 5: Best-effort offsite S3 upload. Local completion remains valid,
     // while failures stay visible and are picked up by the daily catch-up job.

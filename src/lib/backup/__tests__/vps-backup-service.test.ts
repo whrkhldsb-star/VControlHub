@@ -243,8 +243,12 @@ describe("runVpsBackupRecord false-success guards", () => {
     expect(result.success).toBe(true);
     expect(result.checksumSha256).toMatch(/^[a-f0-9]{64}$/);
     expect(result.localPath).toMatch(/^storage\/vps-backups\/srv_1\//);
-    expect(mocks.update).toHaveBeenCalledWith(
+    // Completion is a status-guarded CAS (updateMany where status:RUNNING), never a
+    // blind update-by-id — so a record the stale-RUNNING reaper already failed
+    // cannot be resurrected back to COMPLETED by a late-finishing transfer.
+    expect(mocks.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
+        where: { id: "rec_1", status: "RUNNING" },
         data: expect.objectContaining({ status: "COMPLETED", checksumSha256: result.checksumSha256 }),
       }),
     );

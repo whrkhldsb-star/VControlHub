@@ -5,6 +5,7 @@ const { mocks } = vi.hoisted(() => ({
     claimNextJob: vi.fn(),
     completeJob: vi.fn(),
     failJob: vi.fn(),
+    failJobTerminal: vi.fn(),
     heartbeatJob: vi.fn(),
     getBackupRecord: vi.fn(),
     runExistingBackupRecord: vi.fn(),
@@ -21,6 +22,7 @@ vi.mock("@/lib/job/service", () => ({
   claimNextJob: mocks.claimNextJob,
   completeJob: mocks.completeJob,
   failJob: mocks.failJob,
+  failJobTerminal: mocks.failJobTerminal,
   heartbeatJob: mocks.heartbeatJob,
 }));
 
@@ -73,6 +75,7 @@ describe("backup job worker create path", () => {
     mocks.heartbeatJob.mockResolvedValue({ count: 1 });
     mocks.completeJob.mockResolvedValue({ count: 1 });
     mocks.failJob.mockResolvedValue({ count: 1 });
+    mocks.failJobTerminal.mockResolvedValue({ count: 1 });
     mocks.runWithLeaseHeartbeat.mockImplementation(async ({ run }: { run: () => Promise<unknown> }) => run());
   });
 
@@ -123,6 +126,62 @@ describe("backup job worker create path", () => {
       "job_ok",
       expect.any(String),
       expect.objectContaining({ backupId: "bak_ok", status: "COMPLETED" }),
+    );
+    expect(mocks.failJob).not.toHaveBeenCalled();
+  });
+
+  it("terminally fails (no retry) when the backup record is not found or out of scope", async () => {
+    mocks.claimNextJob.mockResolvedValueOnce({
+      id: "job_missing",
+      type: BACKUP_CREATE_JOB_TYPE,
+      payload: { backupId: "bak_missing" },
+    });
+    // getBackupRecord returns null → deleted row or outside this job's team scope.
+    mocks.getBackupRecord.mockResolvedValueOnce(null);
+
+    const ran = await runBackupJobWorkerOnce();
+    expect(ran).toBe(true);
+    // Must be terminal — retrying every 60s until maxAttempts cannot resurrect a
+    // gone/out-of-scope record.
+    expect(mocks.failJobTerminal).toHaveBeenCalledWith(
+      "job_missing",
+      expect.any(String),
+      expect.stringContaining("not found or outside job team scope"),
+    );
+    expect(mocks.failJob).not.toHaveBeenCalled();
+    expect(mocks.completeJob).not.toHaveBeenCalled();
+  });
+
+  it("terminally fails (no retry) on a malformed payload", async () => {
+    mocks.claimNextJob.mockResolvedValueOnce({
+      id: "job_badpayload",
+      type: BACKUP_CREATE_JOB_TYPE,
+      payload: {}, // missing backupId → PermanentBackupJobError
+    });
+
+    const ran = await runBackupJobWorkerOnce();
+    expect(ran).toBe(true);
+    expect(mocks.failJobTerminal).toHaveBeenCalledWith(
+      "job_badpayload",
+      expect.any(String),
+      expect.stringContaining("backupId"),
+    );
+    expect(mocks.failJob).not.toHaveBeenCalled();
+  });
+
+  it("terminally fails (no retry) on an unsupported job type", async () => {
+    mocks.claimNextJob.mockResolvedValueOnce({
+      id: "job_unknown",
+      type: "backup.not-a-real-type",
+      payload: {},
+    });
+
+    const ran = await runBackupJobWorkerOnce();
+    expect(ran).toBe(true);
+    expect(mocks.failJobTerminal).toHaveBeenCalledWith(
+      "job_unknown",
+      expect.any(String),
+      expect.stringContaining("Unsupported backup job type"),
     );
     expect(mocks.failJob).not.toHaveBeenCalled();
   });

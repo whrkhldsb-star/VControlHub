@@ -16,11 +16,25 @@ import {
   claimNextJob,
   completeJob,
   failJob,
+  failJobTerminal,
   heartbeatJob,
 } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
 
 const logger = createLogger("backup-job-worker");
+
+/**
+ * Marks a failure that will NEVER succeed on retry — a malformed payload, an
+ * unsupported job type, or a record that is gone / outside the job's team
+ * scope. These must fail terminally instead of burning all maxAttempts retries
+ * (every 60s) on an outcome that cannot change.
+ */
+class PermanentBackupJobError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "PermanentBackupJobError";
+  }
+}
 
 export const BACKUP_CREATE_JOB_TYPE = "backup.create";
 export const BACKUP_RESTORE_JOB_TYPE = "backup.restore";
@@ -68,7 +82,7 @@ function parseRetentionPayload(
 ): BackupRetentionPayload {
   if (payload == null) return {};
   if (!isRecord(payload)) {
-    throw new Error("Invalid backup retention job payload format");
+    throw new PermanentBackupJobError("Invalid backup retention job payload format");
   }
   const olderThanDays =
     typeof payload.olderThanDays === "number" &&
@@ -108,7 +122,7 @@ function parseCreatePayload(payload: Prisma.JsonValue): BackupCreatePayload {
     typeof payload.backupId !== "string" ||
     !payload.backupId.trim()
   ) {
-    throw new Error("Backup job payload missing backupId");
+    throw new PermanentBackupJobError("Backup job payload missing backupId");
   }
   const retentionDays =
     typeof payload.retentionDays === "number" &&
@@ -137,10 +151,10 @@ function parseRestorePayload(payload: Prisma.JsonValue): BackupRestorePayload {
     typeof payload.backupId !== "string" ||
     !payload.backupId.trim()
   ) {
-    throw new Error("Restore job payload missing backupId");
+    throw new PermanentBackupJobError("Restore job payload missing backupId");
   }
   if (payload.confirm !== "RESTORE") {
-    throw new Error(
+    throw new PermanentBackupJobError(
       "Restore job payload missing explicit RESTORE confirmation",
     );
   }
@@ -186,11 +200,12 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
       const scope = workerSession(job, payload.teamId);
       const record = await getBackupRecord(payload.backupId, scope);
       if (!record) {
-        await failJob(
+        // Terminal: a deleted record (or one outside this job's team scope)
+        // never reappears, so retrying every 60s until maxAttempts is wasted.
+        await failJobTerminal(
           job.id,
           WORKER_ID,
           "Backup record not found or outside job team scope",
-          { retryAfterMs: 60_000 },
         );
         return true;
       }
@@ -415,16 +430,24 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
       return true;
     }
 
-    throw new Error(`Unsupported backup job type: ${job.type}`);
+    throw new PermanentBackupJobError(`Unsupported backup job type: ${job.type}`);
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Backup task execution failed";
-    await failJob(job.id, WORKER_ID, message.slice(0, 2000), {
-      retryAfterMs: 60_000,
-    });
+    // Permanent failures (bad payload, unsupported type, missing record) must
+    // not be retried — burning maxAttempts on an unchangeable outcome only
+    // delays the row reaching FAILED and clutters the retry queue.
+    if (error instanceof PermanentBackupJobError) {
+      await failJobTerminal(job.id, WORKER_ID, message.slice(0, 2000));
+    } else {
+      await failJob(job.id, WORKER_ID, message.slice(0, 2000), {
+        retryAfterMs: 60_000,
+      });
+    }
     logger.error("backup job failed", {
       jobId: job.id,
       type: job.type,
+      permanent: error instanceof PermanentBackupJobError,
       error: message,
     });
     return true;

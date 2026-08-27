@@ -106,8 +106,13 @@ export function startVpsBackupScheduleWorker(): ReturnType<typeof setInterval> {
 		running = true;
 		try {
 			await runVpsBackupScheduleTickOnce();
-		} catch {
-			// Swallow errors to keep the worker alive
+		} catch (error) {
+			// Keep the worker alive, but never swallow silently: a recurring
+			// failure here (e.g. the advisory-lock DB call or dispatch throwing
+			// before the inner try) would otherwise be completely invisible.
+			logger.error("VPS backup schedule tick failed", {
+				error: error instanceof Error ? error.message : String(error),
+			});
 		} finally {
 			running = false;
 		}
