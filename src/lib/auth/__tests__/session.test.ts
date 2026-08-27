@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
-  shouldBypassAuth,
   verifySessionToken,
   createSessionToken,
   createPending2faToken,
@@ -53,20 +52,6 @@ describe("session auth helpers", () => {
 
 		expect(session.getSessionCookieName()).toBe("late-loaded-session");
 	});
-
-  it("allows anonymous access only for login and static asset paths", () => {
-    expect(shouldBypassAuth("/login")).toBe(true);
-    expect(shouldBypassAuth("/_next/static/chunk.js")).toBe(true);
-    expect(shouldBypassAuth("/favicon.ico")).toBe(true);
-    expect(shouldBypassAuth("/icon.png")).toBe(true);
-    expect(shouldBypassAuth("/apple-icon.png")).toBe(true);
-    expect(shouldBypassAuth("/status")).toBe(true);
-    expect(shouldBypassAuth("/api/status")).toBe(true);
-    expect(shouldBypassAuth("/share/public-token")).toBe(true);
-    expect(shouldBypassAuth("/api/share/public-token")).toBe(true);
-    expect(shouldBypassAuth("/api/itsm/inbound/conn_1")).toBe(true);
-    expect(shouldBypassAuth("/servers")).toBe(false);
-  });
 
   it("round-trips a signed session token", async () => {
     vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({

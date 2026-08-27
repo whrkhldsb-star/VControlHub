@@ -57,18 +57,7 @@ export async function getConfiguredSessionTtlSeconds(remember = false): Promise<
   }
   return getSessionTtlSeconds(remember);
 }
-const AUTH_BYPASS_PREFIXES = [
-  "/_next",
-  "/api/public",
-  "/api/share/",
-  "/api/itsm/inbound/",
-  "/api/status",
-  "/share/",
-  "/favicon.ico",
-  "/icon.png",
-  "/apple-icon.png",
-];
-const AUTH_BYPASS_EXACT = new Set(["/login", "/login/verify-2fa", "/api/login", "/api/auth/2fa/verify-login", "/status"]);
+
 
 export type SessionPayload = {
   userId: string;
@@ -120,14 +109,6 @@ function getSessionIdentity() {
   const issuer = config.auth.sessionIssuer || appSlug;
   const audience = config.auth.sessionAudience || `${appSlug}-console`;
   return { issuer, audience };
-}
-
-export function shouldBypassAuth(pathname: string) {
-  if (AUTH_BYPASS_EXACT.has(pathname)) {
-    return true;
-  }
-
-  return AUTH_BYPASS_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 }
 
 export async function createSessionToken(payload: SessionPayload, options: { remember?: boolean } = {}) {
