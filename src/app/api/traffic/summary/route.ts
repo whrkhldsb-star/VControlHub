@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
-import { teamWhere } from "@/lib/auth/team-scope";
+import { serverTeamWhere, teamWhere } from "@/lib/auth/team-scope";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import {
   calculateTrafficRate,
@@ -169,6 +169,11 @@ export async function GET(req: NextRequest) {
         : selectPrimaryInterface(interfaces);
 
       const teamFilter = teamWhere(session);
+      // Servers are security roots: this route hands back their host/port and,
+      // with `include=remote`, loads their SSH credentials and dials out. A null
+      // teamId is quarantined legacy data, never a shared VPS, so the strict
+      // filter applies here even though storage nodes use the loose one.
+      const serverFilter = serverTeamWhere(session);
       const storageNodes = await prisma.storageNode.findMany({
         where: teamFilter,
         select: {
@@ -191,7 +196,7 @@ export async function GET(req: NextRequest) {
       // List/metadata polls return id/name/host/port only and must not load credentials.
       const servers = includeRemote
         ? await prisma.server.findMany({
-            where: { enabled: true, ...teamFilter },
+            where: { enabled: true, ...serverFilter },
             select: {
               id: true,
               name: true,
@@ -206,7 +211,7 @@ export async function GET(req: NextRequest) {
             take: 200,
           })
         : await prisma.server.findMany({
-            where: { enabled: true, ...teamFilter },
+            where: { enabled: true, ...serverFilter },
             select: {
               id: true,
               name: true,

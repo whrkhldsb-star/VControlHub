@@ -338,9 +338,10 @@ export async function batchToggleServerAction(
     }
 
     const { prisma } = await import("@/lib/db");
-    const { teamWhere } = await import("@/lib/auth/team-scope");
+    const { serverTeamWhere } = await import("@/lib/auth/team-scope");
+    // Strict scope: a batch disable must not reach quarantined null-team servers.
     const result = await prisma.server.updateMany({
-      where: { id: { in: serverIds }, ...teamWhere(session) },
+      where: { id: { in: serverIds }, ...serverTeamWhere(session) },
       data: { enabled },
     });
     await auditUserAction(session.userId, "server.batch_toggle", {
@@ -375,9 +376,11 @@ export async function deleteServerAction(
     const confirmDelete = formData.get("confirmDelete") === "true";
 
     const { prisma } = await import("@/lib/db");
-    const { teamWhere } = await import("@/lib/auth/team-scope");
+    const { serverTeamWhere } = await import("@/lib/auth/team-scope");
+    // Same scope as deleteServerProfile below, so the confirm prompt cannot
+    // disclose the name of a server the delete would then refuse.
     const current = await prisma.server.findFirst({
-      where: { id: serverId, ...teamWhere(session) },
+      where: { id: serverId, ...serverTeamWhere(session) },
       select: { name: true },
     });
     if (!current) {

@@ -116,4 +116,25 @@ describe("traffic summary route", () => {
     });
     expect(body.servers[0]).toMatchObject({ id: "srv", host: "127.0.0.1" });
   });
+
+  it("scopes servers strictly and storage nodes loosely", async () => {
+    // A viewer with no current team must not reach null-team servers: they are
+    // quarantined legacy data, and with `include=remote` this route would load
+    // their SSH credentials and dial out.
+    const { prisma } = await import("@/lib/db");
+    await GET(
+      new Request("http://localhost/api/traffic/summary") as Parameters<typeof GET>[0],
+    );
+    expect(vi.mocked(prisma.server.findMany)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          enabled: true,
+          id: "__unassigned_servers_require_team_manage__",
+        },
+      }),
+    );
+    expect(vi.mocked(prisma.storageNode.findMany)).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { teamId: null } }),
+    );
+  });
 });

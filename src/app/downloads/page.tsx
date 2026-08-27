@@ -1,6 +1,6 @@
 import { requirePagePermission } from "@/lib/auth/page-guard";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { teamWhere } from "@/lib/auth/team-scope";
+import { serverTeamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { buildDirectAccessStrategy } from "@/lib/storage/service";
 import { DownloadsClient } from "./downloads-client";
@@ -15,11 +15,12 @@ export default async function DownloadsPage() {
 	const canManage = sessionHasPermission(session, "storage:write");
 	const canManageNode = sessionHasPermission(session, "storage:manage-node");
 
-	// teamWhere may emit OR for teamId; AND-compose so credential OR is not overwritten.
+	// Strict server scope (null teamId is quarantined legacy data); AND-compose so
+	// the credential OR below is not overwritten.
 	const servers = await prisma.server.findMany({
 		where: {
 			AND: [
-				teamWhere(session),
+				serverTeamWhere(session),
 				{
 					enabled: true,
 					storageNode: { isNot: null },

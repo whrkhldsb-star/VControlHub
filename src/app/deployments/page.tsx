@@ -1,7 +1,7 @@
 import { requireSession } from "@/lib/auth/require-session";
 import Link from "next/link";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { teamWhere } from "@/lib/auth/team-scope";
+import { serverTeamWhere } from "@/lib/auth/team-scope";
 import { listDeploymentRuns, listDeploymentTemplates } from "@/lib/deployment/service";
 import { prisma } from "@/lib/db";
 import { PageShell, EmptyState, PageHeader, ListPanel, ListRow, SurfacePanel } from "@/components/page-shell";
@@ -61,9 +61,9 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
       take: RUNS_PAGE_SIZE + 1,
     }),
 		listDeploymentTemplates(session),
-		// teamWhere OR composes safely with top-level enabled (no key collision).
+		// Strict server scope: this picker carries host/username/credential refs.
 		prisma.server.findMany({
-			where: { enabled: true, ...teamWhere(session) },
+			where: { enabled: true, ...serverTeamWhere(session) },
 			orderBy: { createdAt: "desc" },
 			take: 200,
 			select: {

@@ -98,6 +98,17 @@ export async function summarizeMonth(month: string, currency: CostCurrency = DEF
 	return { month, currency, totalAmount: total.toFixed(2), byCategory, entryCount: count, rangeStart: isoDateOnly(start), rangeEnd: lastDayIsoOfMonth(month), otherCurrencies };
 }
 
+/**
+ * Daily cost trend.
+ *
+ * With a session the trend is recomputed from `cost_entries` inside the
+ * caller's tenant scope. WITHOUT a session it falls back to the
+ * `cost_snapshots` table, whose rows are written by the snapshot worker as a
+ * PLATFORM-WIDE aggregate (every tenant's spend in one row, see
+ * `snapshot-worker.ts`). That branch therefore exists only for platform-level
+ * reporting and must never back a tenant-facing surface — always pass the
+ * session from a request.
+ */
 export async function listRecentSnapshots(limit = 30, session?: TeamSession | null, currency: CostCurrency = DEFAULT_CURRENCY, month?: string): Promise<DailySnapshot[]> {
 	if (session) {
 		const days = Math.max(1, Math.min(limit, 365));

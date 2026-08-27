@@ -9,7 +9,7 @@
  * - reverse: other tickets that point at the same command
  */
 import type { RoleKey } from "@/lib/auth/rbac";
-import { teamWhere } from "@/lib/auth/team-scope";
+import { commandRequestTeamWhere, serverTeamWhere, teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
@@ -70,7 +70,10 @@ export async function linkTicketCommand(input: {
   if (input.commandRequestId) {
     const cmd = input.session
       ? await prisma.commandRequest.findFirst({
-          where: { id: input.commandRequestId, ...teamWhere(input.session) },
+          where: {
+            id: input.commandRequestId,
+            ...commandRequestTeamWhere(input.session),
+          },
           select: { id: true, title: true, status: true },
         })
       : await prisma.commandRequest.findUnique({
@@ -138,7 +141,7 @@ export async function linkTicketServer(input: {
   if (input.serverId) {
     const server = input.session
       ? await prisma.server.findFirst({
-          where: { id: input.serverId, ...teamWhere(input.session) },
+          where: { id: input.serverId, ...serverTeamWhere(input.session) },
           select: { id: true },
         })
       : await prisma.server.findUnique({
@@ -299,7 +302,7 @@ export async function getTicketTimeline(ticketId: string, session?: TeamSession 
   if (ticket.relatedServerId) {
     const server = session
       ? await prisma.server.findFirst({
-          where: { id: ticket.relatedServerId, ...teamWhere(session) },
+          where: { id: ticket.relatedServerId, ...serverTeamWhere(session) },
           select: { id: true, name: true, host: true },
         })
       : await prisma.server.findUnique({
@@ -320,7 +323,10 @@ export async function getTicketTimeline(ticketId: string, session?: TeamSession 
   if (ticket.relatedCommandId) {
     const cmd = session
       ? await prisma.commandRequest.findFirst({
-          where: { id: ticket.relatedCommandId, ...teamWhere(session) },
+          // Command requests carry the command text, approvals and execution
+          // logs — strict scope, so a null-team (quarantined) request is not
+          // rendered into another tenant's ticket timeline.
+          where: { id: ticket.relatedCommandId, ...commandRequestTeamWhere(session) },
           include: {
             requester: { select: { username: true, displayName: true } },
             approvals: {

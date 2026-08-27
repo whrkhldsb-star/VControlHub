@@ -14,6 +14,7 @@ const {
   prismaServerUpdateManyMock,
   sessionHasPermissionMock,
   teamWhereMock,
+  serverTeamWhereMock,
 } = vi.hoisted(() => ({
   createServerProfileMock: vi.fn(),
   deleteServerProfileMock: vi.fn(),
@@ -28,6 +29,7 @@ const {
   prismaServerUpdateManyMock: vi.fn(),
   sessionHasPermissionMock: vi.fn(() => true),
   teamWhereMock: vi.fn(() => ({})),
+  serverTeamWhereMock: vi.fn(() => ({})),
 }));
 
 vi.mock("next/cache", () => ({
@@ -41,6 +43,7 @@ vi.mock("@/lib/auth/authorization", () => ({
 
 vi.mock("@/lib/auth/team-scope", () => ({
   teamWhere: teamWhereMock,
+  serverTeamWhere: serverTeamWhereMock,
   teamCreateData: vi.fn(() => ({})),
   teamAccessFilter: vi.fn(() => undefined),
 }));
