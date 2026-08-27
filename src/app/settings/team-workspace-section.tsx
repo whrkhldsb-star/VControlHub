@@ -34,7 +34,21 @@ function formatCopy(template: string, replacements: Record<string, string | numb
 	return Object.entries(replacements).reduce((text, [key, value]) => text.replaceAll(`{${key}}`, String(value)), template);
 }
 
-export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
+/**
+ * What the viewer may do with team workspaces. The team APIs authorize per
+ * workspace (global `team:manage`, or owner/admin of that one team), so the UI
+ * mirrors that instead of hiding everything behind the admin-only `user:manage`
+ * flag that gates the rest of the settings page.
+ */
+export type TeamCapabilities = {
+	viewerId: string;
+	canCreate: boolean;
+	canManageMembers: boolean;
+	canManageAll: boolean;
+};
+
+export function TeamWorkspaceSection({ capabilities }: { capabilities: TeamCapabilities }) {
+	const { viewerId, canCreate, canManageMembers, canManageAll } = capabilities;
 	const { t } = useI18n();
 	const router = useRouter();
 	const [teams, setTeams] = useState<TeamDto[]>([]);
@@ -53,13 +67,29 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 	const [editDesc, setEditDesc] = useState("");
 	const [pendingConfirm, setPendingConfirm] = useState<PendingConfirm>(null);
 
+	function viewerRoleIn(team: TeamDto) {
+		return team.members.find((member) => member.user.id === viewerId)?.role ?? null;
+	}
+	/** Rename/description edits: global manager, workspace owner or team admin. */
+	function canEditTeam(team: TeamDto) {
+		const role = viewerRoleIn(team);
+		return canManageAll || team.ownerId === viewerId || role === "owner" || role === "admin";
+	}
+	/** Deletion is narrower: only a global manager or the workspace owner. */
+	function canDeleteTeam(team: TeamDto) {
+		return canManageAll || team.ownerId === viewerId || viewerRoleIn(team) === "owner";
+	}
+
 	async function refresh() {
 		setLoading(true);
 		try {
 			const data = await csrfFetch<{ teams: TeamDto[]; currentTeamId: string | null }>("/api/teams");
 			setTeams(data.teams ?? []);
 			setCurrentTeamId(data.currentTeamId ?? null);
-			setTargetTeamId((prev) => prev || data.teams?.[0]?.id || "");
+			const manageable = (data.teams ?? []).filter((team) => canEditTeam(team));
+			setTargetTeamId((prev) =>
+				manageable.some((team) => team.id === prev) ? prev : manageable[0]?.id || "",
+			);
 		} catch (err) {
 			setError(getErrorMessage(err, t("settingsTeam.error.load")));
 		} finally {
@@ -193,6 +223,7 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 		}
 	}
 
+	const manageableTeams = teams.filter((team) => canEditTeam(team));
 	const confirmTitle = pendingConfirm?.kind === "removeMember" ? t("settingsTeam.confirm.removeMember.title") : t("settingsTeam.confirm.deleteTeam.title");
 	const confirmDesc = pendingConfirm
 		? formatCopy(t(pendingConfirm.kind === "removeMember" ? "settingsTeam.confirm.removeMember.desc" : "settingsTeam.confirm.deleteTeam.desc"), { name: pendingConfirm.name })
@@ -236,17 +267,17 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 									<ActionButton variant="secondary" disabled={busy || currentTeamId === team.id} onClick={() => switchTeam(team.id)} className="!min-h-9 !px-3 !py-1 !text-xs disabled:opacity-60">
 										{currentTeamId === team.id ? t("settingsTeam.current") : t("settingsTeam.switch")}
 									</ActionButton>
-									{canManage && editingTeamId !== team.id && (
+									{canEditTeam(team) && editingTeamId !== team.id && (
 										<ActionButton variant="secondary" disabled={busy} onClick={() => startEditTeam(team)} className="!min-h-9 !px-3 !py-1 !text-xs disabled:opacity-60">
 											{t("settingsTeam.edit")}
 										</ActionButton>
 									)}
-									{canManage && editingTeamId === team.id && (
+									{canEditTeam(team) && editingTeamId === team.id && (
 										<ActionButton variant="success" disabled={busy} onClick={() => saveEditTeam(team.id)} className="!min-h-9 !px-3 !py-1 !text-xs disabled:opacity-60">
 											{t("settingsTeam.save")}
 										</ActionButton>
 									)}
-									{canManage && (
+									{canDeleteTeam(team) && (
 										<ActionButton variant="danger" disabled={busy} onClick={() => deleteTeamSpace(team.id, team.name)} className="!min-h-9 !px-3 !py-1 !text-xs disabled:opacity-60">
 											{t("settingsTeam.delete")}
 										</ActionButton>
@@ -259,7 +290,7 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 										<span>{member.user.displayName || member.user.username}</span>
 										<span className="flex items-center gap-2">
 											<span className="text-[var(--text-muted)]">{member.role}</span>
-											{canManage && member.role !== "owner" && (
+											{canManageMembers && canEditTeam(team) && member.role !== "owner" && (
 												<IconButton label={t("settingsTeam.confirm.removeMember.title")} tone="danger" disabled={busy} onClick={() => removeMember(team.id, member.user.id, member.user.displayName || member.user.username)} className="h-7 w-7 text-xs">✕</IconButton>
 											)}
 										</span>
@@ -274,18 +305,22 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 				</div>
 			)}
 
-			{canManage && (
+			{(canCreate || (canManageMembers && manageableTeams.length > 0)) && (
 				<div className="grid gap-4 border-t border-[var(--border-subtle)] pt-4 md:grid-cols-2">
+					{canCreate && (
 					<div className="space-y-2">
 						<h3 className="text-sm font-semibold text-[var(--text-primary)]">{t("settingsTeam.createTitle")}</h3>
 						<input value={name} aria-label={t("settingsTeam.namePlaceholder")} onChange={(e) => setName(e.target.value)} placeholder={t("settingsTeam.namePlaceholder")} className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm" />
 						<input value={slug} aria-label={t("settingsTeam.slugPlaceholder")} onChange={(e) => setSlug(e.target.value)} placeholder={t("settingsTeam.slugPlaceholder")} className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm" />
 						<ActionButton variant="primary" disabled={busy || !name.trim()} onClick={createTeam} data-tone="accent" className="min-h-10 disabled:opacity-60">{t("settingsTeam.createButton")}</ActionButton>
 					</div>
+					)}
+					{canManageMembers && manageableTeams.length > 0 && (
 					<div className="space-y-2">
 						<h3 className="text-sm font-semibold text-[var(--text-primary)]">{t("settingsTeam.addMemberTitle")}</h3>
 						<select aria-label={t("settingsTeam.addMemberTitle")} value={targetTeamId} onChange={(e) => setTargetTeamId(e.target.value)} className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm">
-							{teams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
+							{/* Only workspaces the viewer can actually manage — the API 403s otherwise. */}
+							{manageableTeams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
 						</select>
 						<input value={memberUsername} aria-label={t("settingsTeam.usernamePlaceholder")} onChange={(e) => setMemberUsername(e.target.value)} placeholder={t("settingsTeam.usernamePlaceholder")} className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm" />
 						<select aria-label={t("settingsTeam.roleAria")} value={memberRole} onChange={(e) => setMemberRole(e.target.value as "admin" | "member")} className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm">
@@ -294,6 +329,7 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 						</select>
 						<ActionButton variant="primary" disabled={busy || !targetTeamId || !memberUsername.trim()} onClick={addMember} data-tone="accent" className="min-h-10 disabled:opacity-60">{t("settingsTeam.addMemberButton")}</ActionButton>
 					</div>
+					)}
 				</div>
 			)}
 

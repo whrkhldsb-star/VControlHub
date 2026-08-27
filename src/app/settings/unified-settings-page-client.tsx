@@ -9,7 +9,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { PreferencesSettingsContent, PREFERENCES_CATEGORY_SUMMARIES } from "../preferences/preferences-page-client";
 import { SettingsClient } from "./settings-client";
 import { SystemConfigSection } from "./system-config-section";
-import { TeamWorkspaceSection } from "./team-workspace-section";
+import { TeamWorkspaceSection, type TeamCapabilities } from "./team-workspace-section";
 import { SETTINGS_SCHEMA } from "./field-schema";
 import { TOC_SUBTITLE_KEYS } from "./settings-toc";
 import { DEFAULT_PAGE_OPTIONS, type DefaultPageOption } from "@/lib/preferences/user-preferences";
@@ -19,6 +19,7 @@ type Props = {
   runtimeSettings?: RuntimeSettingSummary[];
 	settingUpdateMetadata?: Record<string, SettingUpdateMetadata>;
 	canManage: boolean;
+	teamCapabilities: TeamCapabilities;
 	defaultPageOptions?: readonly DefaultPageOption[];
 };
 
@@ -71,6 +72,7 @@ export function UnifiedSettingsPageClient({
   runtimeSettings = [],
 	settingUpdateMetadata = {},
 	canManage,
+	teamCapabilities,
 	defaultPageOptions = DEFAULT_PAGE_OPTIONS,
 }: Props) {
   const { t } = useI18n();
@@ -273,7 +275,7 @@ export function UnifiedSettingsPageClient({
               wrapInShell={false}
               defaultPageOptions={defaultPageOptions}
             />
-            <TeamWorkspaceSection canManage={canManage} />
+            <TeamWorkspaceSection capabilities={teamCapabilities} />
           </div>
         )}
 

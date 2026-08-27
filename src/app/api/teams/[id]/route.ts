@@ -10,7 +10,10 @@ export const dynamic = "force-dynamic";
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
 	return withApiRoute(
 		request,
-		{ permission: "team:manage", rateLimit: GENERAL_WRITE_LIMIT, bodySchema: updateTeamSchema, errorMessage: "Failed to update team" },
+		// Gate on the session only: updateTeam()/deleteTeam() authorize per workspace
+		// (global team:manage, or owner/admin of THIS team). Requiring team:manage
+		// here would lock a workspace owner out of the workspace they created.
+		{ requireAuth: true, rateLimit: GENERAL_WRITE_LIMIT, bodySchema: updateTeamSchema, errorMessage: "Failed to update team" },
 		async ({ session, body }) => {
 			const { id } = await params;
 			const team = await updateTeam(id, body, session!);
@@ -23,7 +26,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
 	return withApiRoute(
 		request,
-		{ permission: "team:manage", rateLimit: GENERAL_WRITE_LIMIT, errorMessage: "Failed to delete team" },
+		// See PATCH: deleteTeam() itself requires global team:manage or team owner.
+		{ requireAuth: true, rateLimit: GENERAL_WRITE_LIMIT, errorMessage: "Failed to delete team" },
 		async ({ session }) => {
 			const { id } = await params;
 			await deleteTeam(id, session!);

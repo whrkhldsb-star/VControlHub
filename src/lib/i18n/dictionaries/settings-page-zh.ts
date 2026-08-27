@@ -316,7 +316,7 @@ export const zh: Record<string, string> = {
 	"settingsTeam.confirm.removeMember.title": "确认移除成员",
 	"settingsTeam.confirm.removeMember.desc": "确定移除成员「{name}」？",
 	"settingsTeam.confirm.deleteTeam.title": "确认删除团队",
-	"settingsTeam.confirm.deleteTeam.desc": "确定删除团队「{name}」？此操作不可撤销，团队下的服务器将变为未分配状态。",
+	"settingsTeam.confirm.deleteTeam.desc": "确定删除团队「{name}」？所有成员将被移出，团队及其数据（服务器、存储、密钥、账单等）将从所有人的视图中消失，仅平台管理员可在数据库中恢复。",
 	"settingsTeam.confirm.cancel": "取消",
 	"settingsTeam.confirm.submit": "确认",
 

@@ -44,6 +44,14 @@ const SETTINGS_AUDIT_KEYS = [
 export default async function SettingsPage() {
 	const session = await requireSession();
 	const canManage = sessionHasPermission(session, "user:manage");
+	// Team workspaces authorize per workspace, not via the admin-only `user:manage`
+	// gate that guards the rest of this page.
+	const teamCapabilities = {
+		viewerId: session.userId,
+		canCreate: sessionHasPermission(session, "team:create"),
+		canManageMembers: sessionHasPermission(session, "team:member:manage"),
+		canManageAll: sessionHasPermission(session, "team:manage"),
+	};
 	const defaultPageOptions = getAvailableDefaultPageOptions((permission) =>
 		sessionHasPermission(session, permission),
 	);
@@ -62,6 +70,7 @@ export default async function SettingsPage() {
 				runtimeSettings={runtimeSettings}
 				settingUpdateMetadata={settingUpdateMetadata}
 				canManage={canManage}
+				teamCapabilities={teamCapabilities}
 				defaultPageOptions={defaultPageOptions}
 			/>
 		</PageShell>

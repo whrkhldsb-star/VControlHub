@@ -13,6 +13,35 @@ import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 
 export type TeamRole = "owner" | "admin" | "member";
 
+/**
+ * Reserved slug prefix that marks a workspace as deleted.
+ *
+ * Almost every tenant-scoped model relates to Team with `onDelete: SetNull`
+ * (see prisma/schema.prisma), and `teamWhere()` treats `teamId: null` as
+ * "shared/legacy — visible to every tenant". Hard-deleting a Team row would
+ * therefore silently re-publish the whole workspace (SSH keys, storage nodes,
+ * cloud billing accounts, share links, tickets, cost data, audit logs …) to
+ * every other team on the platform. So deletion is a tombstone instead: the
+ * row stays, its members are removed and its slug is prefixed, which keeps the
+ * data team-scoped and unreachable — no live session can hold this teamId, and
+ * `teamWhere()` never matches it for a non-`team:manage` caller.
+ */
+const DELETED_TEAM_SLUG_PREFIX = "__deleted__";
+
+/** True when the workspace has been tombstoned by {@link deleteTeam}. */
+export function isDeletedTeamSlug(slug: string) {
+  return slug.startsWith(DELETED_TEAM_SLUG_PREFIX);
+}
+
+/** A tombstoned workspace is indistinguishable from a missing one to callers. */
+function assertTeamAlive<T extends { slug: string }>(
+  team: T | null,
+): asserts team is T {
+  if (!team || isDeletedTeamSlug(team.slug)) {
+    throw new NotFoundError(t("backend.team.teamWorkspaceNotFound"));
+  }
+}
+
 function slugifyTeamName(name: string) {
   return (
     name
@@ -42,9 +71,14 @@ async function uniqueTeamSlug(base: string) {
 export async function listTeamsForSession(session: SessionPayload) {
   const canManageAll = sessionHasPermission(session, "team:manage");
   const teams = await prisma.team.findMany({
-    where: canManageAll
-      ? undefined
-      : { members: { some: { userId: session.userId } } },
+    where: {
+      // Tombstoned workspaces stay in the table to keep their data scoped, but
+      // they are not real workspaces any more — hide them from everyone.
+      NOT: { slug: { startsWith: DELETED_TEAM_SLUG_PREFIX } },
+      ...(canManageAll
+        ? {}
+        : { members: { some: { userId: session.userId } } }),
+    },
     orderBy: [{ createdAt: "asc" }],
     take: 200,
     select: {
@@ -88,6 +122,11 @@ export async function createTeam(
     );
   }
   const baseSlug = input.slug?.trim() || slugifyTeamName(input.name);
+  if (isDeletedTeamSlug(baseSlug)) {
+    // The prefix is reserved for tombstones; a team wearing it would be hidden
+    // from its own members the moment it was created.
+    throw new ValidationError(t("backend.team.reservedTeamSlug"));
+  }
   let lastError: unknown;
   for (let attempt = 0; attempt < 5; attempt++) {
     const slug = await uniqueTeamSlug(
@@ -180,7 +219,7 @@ export async function addTeamMember(
     where: { id: teamId },
     select: { id: true, slug: true, ownerId: true },
   });
-  if (!team) throw new NotFoundError(t("backend.team.teamWorkspaceNotFound"));
+  assertTeamAlive(team);
   const user = await prisma.user.findUnique({
     where: { username: input.username },
     select: { id: true, username: true },
@@ -235,7 +274,7 @@ export async function removeTeamMember(
       where: { id: teamId },
       select: { id: true, slug: true, ownerId: true },
     });
-    if (!team) throw new NotFoundError(t("backend.team.teamWorkspaceNotFound"));
+    assertTeamAlive(team);
 
     // Prevent removing the team owner
     if (team.ownerId === userId) {
@@ -293,7 +332,7 @@ export async function updateTeam(
     where: { id: teamId },
     select: { id: true, slug: true },
   });
-  if (!team) throw new NotFoundError(t("backend.team.teamWorkspaceNotFound"));
+  assertTeamAlive(team);
 
   const data: { name?: string; description?: string | null } = {};
   if (input.name !== undefined) data.name = input.name.trim();
@@ -332,23 +371,29 @@ export async function deleteTeam(teamId: string, session: SessionPayload) {
     where: { id: teamId },
     select: { id: true, slug: true, name: true },
   });
-  if (!team) throw new NotFoundError(t("backend.team.teamWorkspaceNotFound"));
+  assertTeamAlive(team);
 
+  // Tombstone rather than hard-delete: see DELETED_TEAM_SLUG_PREFIX. The row
+  // keeps owning the workspace's data (servers included — they stay attached to
+  // a workspace nobody can reach instead of becoming platform-wide
+  // "unassigned"), while every path into it is cut.
+  const tombstoneSlug = `${DELETED_TEAM_SLUG_PREFIX}${Date.now().toString(36)}-${team.slug}`.slice(
+    0,
+    120,
+  );
   await prisma.$transaction(async (tx) => {
     // Clear currentTeamId for users pointing to this team
     await tx.user.updateMany({
       where: { currentTeamId: teamId },
       data: { currentTeamId: null },
     });
-    // Null out teamId on servers belonging to this team
-    await tx.server.updateMany({
-      where: { teamId },
-      data: { teamId: null },
-    });
-    // Delete team members (cascade)
+    // Drop every membership: this is what makes the workspace unreachable, and
+    // it frees the original slug for reuse.
     await tx.teamMember.deleteMany({ where: { teamId } });
-    // Delete the team
-    await tx.team.delete({ where: { id: teamId } });
+    await tx.team.update({
+      where: { id: teamId },
+      data: { slug: tombstoneSlug, ownerId: null },
+    });
   });
 
   await auditUserAction(session.userId, "team.delete", {

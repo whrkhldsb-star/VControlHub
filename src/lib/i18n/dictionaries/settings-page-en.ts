@@ -293,7 +293,7 @@ export const en: Record<string, string> = {
 	"settingsTeam.confirm.removeMember.title": "Confirm remove member",
 	"settingsTeam.confirm.removeMember.desc": "Remove member {name}?",
 	"settingsTeam.confirm.deleteTeam.title": "Confirm delete team",
-	"settingsTeam.confirm.deleteTeam.desc": "Delete team {name}? This cannot be undone, and servers under the team will become unassigned.",
+	"settingsTeam.confirm.deleteTeam.desc": "Delete team {name}? All members are removed and the workspace and its data (servers, storage, keys, billing…) disappear from everyone's view; only a platform admin can restore it.",
 	"settingsTeam.confirm.cancel": "Cancel",
 	"settingsTeam.confirm.submit": "Confirm",
 

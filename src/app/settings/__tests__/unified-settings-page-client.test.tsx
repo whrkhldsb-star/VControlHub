@@ -43,6 +43,20 @@ const serverPrefs = {
   autoProbeIntervalSec: 60,
 };
 
+const adminTeamCapabilities = {
+  viewerId: "u_admin",
+  canCreate: true,
+  canManageMembers: true,
+  canManageAll: true,
+};
+
+const viewerTeamCapabilities = {
+  viewerId: "u_viewer",
+  canCreate: false,
+  canManageMembers: false,
+  canManageAll: false,
+};
+
 describe("UnifiedSettingsPageClient", () => {
   beforeEach(() => {
     vi.mocked(csrfFetch).mockReset();
@@ -69,6 +83,7 @@ describe("UnifiedSettingsPageClient", () => {
       <UnifiedSettingsPageClient
         settings={{ "platform.name": "VControlHub", "platform.logo": "", ...runtimeDefaults }}
         canManage
+        teamCapabilities={adminTeamCapabilities}
       />,
     );
 
@@ -94,6 +109,7 @@ describe("UnifiedSettingsPageClient", () => {
       <UnifiedSettingsPageClient
         settings={{ "platform.name": "旧名称", "platform.logo": "", ...runtimeDefaults }}
         canManage
+        teamCapabilities={adminTeamCapabilities}
       />,
     );
 
@@ -123,7 +139,13 @@ describe("UnifiedSettingsPageClient", () => {
   });
 
   it("shows non-admin operators their personal preferences without system setting edit controls", async () => {
-    render(<UnifiedSettingsPageClient settings={{}} canManage={false} />);
+    render(
+      <UnifiedSettingsPageClient
+        settings={{}}
+        canManage={false}
+        teamCapabilities={viewerTeamCapabilities}
+      />,
+    );
 
     // Personal preferences are visible
     expect(await screen.findByRole("button", { name: "仪表盘" })).toBeInTheDocument();
@@ -142,6 +164,7 @@ describe("UnifiedSettingsPageClient", () => {
       <UnifiedSettingsPageClient
         settings={{ "platform.name": "VControlHub", "platform.logo": "", ...runtimeDefaults }}
         canManage
+        teamCapabilities={adminTeamCapabilities}
       />,
     );
 
