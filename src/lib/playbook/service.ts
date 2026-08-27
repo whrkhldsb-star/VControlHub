@@ -8,7 +8,7 @@
  */
 
 import { Prisma } from "@prisma/client";
-import { assertUserInActorScope, serverTeamWhere, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
+import { assertUserInActorScope, playbookTeamWhere, serverTeamWhere, teamCreateData } from "@/lib/auth/team-scope";
 import type { SessionPayload } from "@/lib/auth/session";
 
 import { prisma } from "@/lib/db";
@@ -206,7 +206,7 @@ function narrowPlaybookRun(row: RawPlaybookRun): PlaybookRunRecord {
 }
 
 export async function listPlaybooks(session?: TeamSession): Promise<PlaybookRecord[]> {
-  const where = session ? { ...teamWhere(session) } : {};
+  const where = session ? { ...playbookTeamWhere(session) } : {};
   const rows = await prisma.playbook.findMany({
     where,
     orderBy: { createdAt: "desc" },
@@ -220,7 +220,7 @@ export async function getPlaybook(
   session?: TeamSession | null,
 ): Promise<PlaybookRecord | null> {
   const row = session
-    ? await prisma.playbook.findFirst({ where: { id, ...teamWhere(session) } })
+    ? await prisma.playbook.findFirst({ where: { id, ...playbookTeamWhere(session) } })
     : await prisma.playbook.findUnique({ where: { id } });
   return row ? narrowPlaybook(row) : null;
 }
@@ -326,7 +326,7 @@ export async function updatePlaybook(
     }
     if (triggerChanged) data.metricMatchState = Prisma.DbNull;
     const updated = await prisma.playbook.updateMany({
-      where: { id, ...(session ? teamWhere(session) : {}) },
+      where: { id, ...(session ? playbookTeamWhere(session) : {}) },
       data,
     });
     if (updated.count === 0) throw new NotFoundError(t("backend.playbook.notFound"));
@@ -369,7 +369,7 @@ export async function deletePlaybook(
       throw new BusinessError(t("backend.playbook.cannotDeleteWhileRunning"));
     }
     const deleted = await prisma.playbook.deleteMany({
-      where: { id, ...(session ? teamWhere(session) : {}) },
+      where: { id, ...(session ? playbookTeamWhere(session) : {}) },
     });
     if (deleted.count === 0) throw new NotFoundError(t("backend.playbook.notFound"));
   } finally {
@@ -394,7 +394,7 @@ export async function listPlaybookRuns(
     if (!playbook) throw new NotFoundError(t("backend.playbook.notFound"));
   }
   const rows = await prisma.playbookRun.findMany({
-    where: { playbookId, ...(session ? teamWhere(session) : {}) },
+    where: { playbookId, ...(session ? playbookTeamWhere(session) : {}) },
     orderBy: { createdAt: "desc" },
     take: 50,
   });
@@ -420,7 +420,7 @@ export async function listRecentPlaybookRunsForPlaybooks(
   const rows = await prisma.playbookRun.findMany({
     where: {
       playbookId: { in: playbookIds },
-      ...(session ? teamWhere(session) : {}),
+      ...(session ? playbookTeamWhere(session) : {}),
     },
     orderBy: { createdAt: "desc" },
     take,
@@ -447,7 +447,7 @@ export async function runPlaybook(input: {
   // caller's current one (a `team:manage` admin can queue across workspaces).
   let auditTeamId: string | null = null;
   try {
-    const scope = input.session ? teamWhere(input.session) : {};
+    const scope = input.session ? playbookTeamWhere(input.session) : {};
     const playbook = await prisma.playbook.findFirst({
       where: { id: input.playbookId, ...scope },
     });

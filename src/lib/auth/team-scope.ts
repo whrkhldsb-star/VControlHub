@@ -98,6 +98,23 @@ export function deploymentRunTeamWhere(session: TeamSession): Record<string, unk
 		: { id: "__unassigned_deployments_require_team_manage__" };
 }
 
+/** A playbook is a stored, replayable command channel: its `run_command` steps
+ * freeze bare server ids, and `runPlaybook` queues those steps as-is without
+ * re-checking them against the caller's scope (authoring-time
+ * `assertPlaybookStepsInScope` is the only server check). Under the loose filter
+ * a `teamId: null` playbook — legacy data, or one created by a session with no
+ * current team, since `teamCreateData` omits teamId then — is readable, editable,
+ * deletable and *runnable* by every tenant, so running it executes commands on
+ * servers the caller cannot see. Quarantine it to global managers instead.
+ * Mirrors {@link deploymentRunTeamWhere}; also covers PlaybookRun rows, which
+ * inherit their playbook's teamId. */
+export function playbookTeamWhere(session: TeamSession): Record<string, unknown> {
+	if (isGlobalTeamManager(session)) return {};
+	return session.currentTeamId
+		? { teamId: session.currentTeamId }
+		: { id: "__unassigned_playbooks_require_team_manage__" };
+}
+
 /** Image uploads are private by default. A null teamId is legacy data owned by
  * its uploader, not a shared image library visible to every tenant manager. */
 export function imageTeamWhere(session: TeamSession): Record<string, unknown> {

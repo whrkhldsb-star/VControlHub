@@ -423,6 +423,41 @@ describe("playbook service", () => {
     );
   });
 
+  it("quarantines a null-team playbook instead of exposing it to every tenant", async () => {
+    // `playbookTeamWhere` is strict: a `teamId: null` playbook replays frozen
+    // server ids that the caller may not own, and `runPlaybook` does not
+    // re-check the steps, so it must not be readable/runnable by an arbitrary
+    // tenant the way the loose `teamWhere` (`OR: [team, null]`) allowed.
+    mocks.playbookFindFirst.mockResolvedValue(null);
+    const tenant = { userId: "u1", roles: ["operator"] as import("@/lib/auth/rbac").RoleKey[], currentTeamId: "team1" };
+    expect(await getPlaybook("legacy-pb", tenant)).toBeNull();
+    expect(mocks.playbookFindFirst).toHaveBeenCalledWith({
+      where: { id: "legacy-pb", teamId: "team1" },
+    });
+
+    // A session with no current team gets the unmatchable sentinel rather than
+    // every unassigned playbook.
+    mocks.playbookFindMany.mockResolvedValueOnce([]);
+    const teamless = { userId: "u2", roles: ["operator"] as import("@/lib/auth/rbac").RoleKey[], currentTeamId: null };
+    expect(await listPlaybooks(teamless)).toEqual([]);
+    expect(mocks.playbookFindMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        where: { id: "__unassigned_playbooks_require_team_manage__" },
+      }),
+    );
+
+    await expect(runPlaybook({ playbookId: "legacy-pb", dryRun: false, session: tenant })).rejects.toThrow();
+    expect(mocks.transaction).not.toHaveBeenCalled();
+  });
+
+  it("lets a team:manage admin still reach an unassigned playbook", async () => {
+    // The quarantine has to leave someone able to reassign the row.
+    mocks.playbookFindFirst.mockResolvedValueOnce({ ...baseRow, teamId: null });
+    const admin = { userId: "admin", roles: ["admin"] as import("@/lib/auth/rbac").RoleKey[], currentTeamId: null };
+    expect((await getPlaybook("pb1", admin))?.id).toBe("pb1");
+    expect(mocks.playbookFindFirst).toHaveBeenCalledWith({ where: { id: "pb1" } });
+  });
+
   it("blocks delete when a run is queued or running", async () => {
     const session = { userId: "u1", roles: ["operator"] as import("@/lib/auth/rbac").RoleKey[], currentTeamId: "team1" };
     mocks.playbookFindFirst.mockResolvedValueOnce(baseRow);

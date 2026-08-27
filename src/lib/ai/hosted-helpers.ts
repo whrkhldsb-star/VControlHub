@@ -7,7 +7,7 @@
 
 import type { Permission, RoleKey } from "@/lib/auth/rbac";
 import type { SessionPayload } from "@/lib/auth/session";
-import { serverTeamWhere, teamWhere } from "@/lib/auth/team-scope";
+import { playbookTeamWhere, serverTeamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { t, type Locale } from "@/lib/i18n/service-translations";
 import { deserializeDialect } from "@/lib/ssh/os-dialect";
@@ -102,7 +102,9 @@ export async function resolveServerId(args: Record<string, unknown>, session?: H
 
 export async function resolvePlaybookId(args: Record<string, unknown>, session?: HostedActionSession | null): Promise<{ id: string; name: string } | null> {
   const scope = sessionForTeamScope(session);
-  const teamFilter = scope ? teamWhere(scope) : {};
+  // Strict: the assistant resolves a playbook in order to run it, and a
+  // `teamId: null` playbook replays frozen server ids the caller may not own.
+  const teamFilter = scope ? playbookTeamWhere(scope) : {};
   const explicitId = typeof args.playbookId === "string" ? args.playbookId.trim() : "";
   if (explicitId) {
     return prisma.playbook.findFirst({ where: { id: explicitId, ...teamFilter }, select: { id: true, name: true } });

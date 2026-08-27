@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { serverTeamWhere, teamWhere } from "@/lib/auth/team-scope";
+import { playbookTeamWhere, serverTeamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { SERVICE_CATALOG } from "@/lib/quick-service/catalog";
@@ -65,7 +65,9 @@ export async function GET(request: Request) {
 			const playbooks = await prisma.playbook.findMany({
 				where: {
 					AND: [
-						teamWhere(session),
+						// Strict, matching the playbook service: search must not hand a
+						// `teamId: null` playbook id to a tenant that cannot run it.
+						playbookTeamWhere(session),
 						{
 							OR: [
 								{ name: { contains: q, mode: "insensitive" } },

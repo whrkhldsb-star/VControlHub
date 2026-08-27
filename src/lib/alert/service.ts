@@ -1,6 +1,6 @@
 import type { RoleKey } from "@/lib/auth/rbac";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { serverTeamWhere, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
+import { playbookTeamWhere, serverTeamWhere, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 
@@ -31,7 +31,9 @@ async function assertPlaybookIdsInTeam(playbookIds: string[], session?: TeamSess
   if (!session || playbookIds.length === 0) return;
   if (sessionHasPermission(session, "team:manage")) return;
   const allowed = await prisma.playbook.findMany({
-    where: { id: { in: playbookIds }, ...teamWhere(session) },
+    // Strict: an alert rule binds a playbook that later fires unattended, so a
+    // `teamId: null` playbook must not be bindable by an arbitrary tenant.
+    where: { id: { in: playbookIds }, ...playbookTeamWhere(session) },
     select: { id: true },
   });
   if (allowed.length !== playbookIds.length) {
