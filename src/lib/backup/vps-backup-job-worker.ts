@@ -18,11 +18,13 @@ import {
 } from "./vps-backup-service";
 import { config } from "@/lib/config/env";
 import { computeLeaseMs } from "@/lib/job/lease";
-import { runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
+import { LeaseLostError, runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
+import { createLogger } from "@/lib/logging";
 
 const POLL_INTERVAL_MS = 5000;
 const LEASE_MS = computeLeaseMs("vps-backup");
 const WORKER_ID = `${config.app.hostname || "localhost"}:vps-backup:${process.pid}`;
+const logger = createLogger("vps-backup-job-worker");
 
 let interval: ReturnType<typeof setInterval> | null = null;
 let running = false;
@@ -81,6 +83,17 @@ export async function runVpsBackupJobWorkerOnce(): Promise<void> {
       await failJob(job.id, WORKER_ID, result.errorMessage || "Backup failed");
     }
   } catch (err) {
+    // The backup work (run()) completed but the lease could no longer be
+    // renewed — runWithLeaseHeartbeat throws LeaseLostError AFTER run()
+    // resolves. The business record already holds its terminal state, so
+    // do NOT force-fail it (that would mark a succeeded backup FAILED).
+    // Let the job/lease reaper reconcile the durable job row.
+    if (err instanceof LeaseLostError) {
+      logger.warn("VPS backup lost its lease after completing; not force-failing the record", {
+        jobId: job.id,
+      });
+      return;
+    }
     const errMsg = err instanceof Error ? err.message : String(err);
     const payload = job.payload as { recordId?: string };
     if (payload?.recordId) {

@@ -42,6 +42,7 @@ vi.mock("@/lib/job/events", () => ({
 // (and their config reads) and only exercises the job-maintenance logic.
 vi.mock("@/lib/backup/vps-backup-service", () => ({
   abandonStaleRunningVpsBackupRecords: vi.fn(async () => ({ abandoned: 0, ids: [] })),
+  abandonStalePendingVpsBackupRecords: vi.fn(async () => ({ abandoned: 0, ids: [] })),
 }));
 
 vi.mock("@/lib/upload/service", () => ({

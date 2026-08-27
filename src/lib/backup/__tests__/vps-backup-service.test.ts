@@ -56,6 +56,7 @@ const {
   assertPortableVpsBackupPath,
   deleteVpsBackupRecord,
   retryPendingVpsOffsiteUploads,
+  abandonStalePendingVpsBackupRecords,
 } = await import("../vps-backup-service");
 
 const storageRoot = join(tmpdir(), `vch-vps-backup-test-${process.pid}`);
@@ -79,6 +80,47 @@ function baseRecord() {
     schedule: null,
   };
 }
+
+describe("abandonStalePendingVpsBackupRecords", () => {
+  beforeEach(() => {
+    mocks.findMany.mockReset();
+    mocks.updateMany.mockReset();
+  });
+
+  it("CAS-fails stale PENDING rows and returns the abandoned ids", async () => {
+    mocks.findMany.mockResolvedValue([{ id: "rec_a" }, { id: "rec_b" }]);
+    mocks.updateMany.mockResolvedValue({ count: 1 });
+
+    const result = await abandonStalePendingVpsBackupRecords();
+
+    expect(result.abandoned).toBe(2);
+    expect(result.ids).toEqual(["rec_a", "rec_b"]);
+    // Only PENDING rows older than the cutoff are candidates.
+    expect(mocks.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ status: "PENDING" }),
+      }),
+    );
+    // Each row is failed via a status-guarded CAS — never a blind update — so a
+    // row a worker just claimed to RUNNING is left untouched.
+    expect(mocks.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "rec_a", status: "PENDING" },
+        data: expect.objectContaining({ status: "FAILED" }),
+      }),
+    );
+  });
+
+  it("skips a row already claimed to RUNNING (CAS count 0)", async () => {
+    mocks.findMany.mockResolvedValue([{ id: "rec_a" }]);
+    mocks.updateMany.mockResolvedValue({ count: 0 });
+
+    const result = await abandonStalePendingVpsBackupRecords();
+
+    expect(result.abandoned).toBe(0);
+    expect(result.ids).toEqual([]);
+  });
+});
 
 describe("runVpsBackupRecord false-success guards", () => {
   beforeEach(() => {

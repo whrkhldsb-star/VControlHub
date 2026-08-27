@@ -567,6 +567,60 @@ export async function abandonStaleRunningVpsBackupRecords(input?: {
   return { abandoned: ids.length, ids };
 }
 
+/**
+ * Reap orphaned PENDING VpsBackupRecords that no worker will ever claim.
+ *
+ * A record is created PENDING by dispatch, then the worker CAS-claims it to
+ * RUNNING inside runVpsBackupRecord. If the worker dies or throws BEFORE that
+ * CAS commits — a transient DB error on the pre-claim `findUnique` or the job
+ * worker's initial `heartbeatJob`, or an OOM/redeploy in that window — the row
+ * is stranded PENDING: the in-proc catch only force-fails RUNNING rows,
+ * recoverStaleRunningJobs only finalizes the Job (not the record), and
+ * abandonStaleRunningVpsBackupRecords above only touches RUNNING. Nothing
+ * clears a stuck PENDING row.
+ *
+ * That is not merely a cosmetic stuck record: dispatchDueVpsBackupSchedules'
+ * overlap guard counts PENDING+RUNNING, so a single orphaned PENDING row makes
+ * every future scheduled backup for that server skip with SKIPPED_OVERLAP —
+ * silently and permanently (nextRunAt keeps advancing, so it still looks
+ * healthy). This mirrors the LOCAL backup path's abandonStalePendingBackupRecords.
+ */
+export async function abandonStalePendingVpsBackupRecords(input?: {
+  olderThanMs?: number;
+  reason?: string;
+  limit?: number;
+}) {
+  const olderThanMs = input?.olderThanMs ?? 24 * 60 * 60 * 1000;
+  const reason = (
+    input?.reason ??
+    "Stale PENDING VPS backup abandoned (never claimed by a worker)"
+  ).slice(0, 500);
+  const limit = Math.min(Math.max(input?.limit ?? 50, 1), 200);
+  const cutoff = new Date(Date.now() - olderThanMs);
+  const stale = await prisma.vpsBackupRecord.findMany({
+    where: { status: "PENDING", createdAt: { lt: cutoff } },
+    select: { id: true },
+    orderBy: { createdAt: "asc" },
+    take: limit,
+  });
+  const ids: string[] = [];
+  for (const row of stale) {
+    // CAS: only fail rows STILL pending. A row a worker just claimed to RUNNING
+    // between the findMany above and here must be left to that worker / the
+    // RUNNING reaper — never clobbered back to FAILED.
+    const claimed = await prisma.vpsBackupRecord.updateMany({
+      where: { id: row.id, status: "PENDING" },
+      data: {
+        status: "FAILED",
+        errorMessage: reason,
+        completedAt: new Date(),
+      },
+    });
+    if (claimed.count > 0) ids.push(row.id);
+  }
+  return { abandoned: ids.length, ids };
+}
+
 export async function createVpsBackupRecord(input: {
   serverId: string;
   backupType: string;

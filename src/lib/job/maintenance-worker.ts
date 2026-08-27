@@ -15,7 +15,10 @@ import { createLogger } from "@/lib/logging";
 import { pruneJobEvents } from "@/lib/job/events";
 import { recoverStaleRunningJobs } from "@/lib/job/service";
 import { MAX_LEASE_MS } from "@/lib/job/lease";
-import { abandonStaleRunningVpsBackupRecords } from "@/lib/backup/vps-backup-service";
+import {
+  abandonStalePendingVpsBackupRecords,
+  abandonStaleRunningVpsBackupRecords,
+} from "@/lib/backup/vps-backup-service";
 import { sweepExpiredMediaUploadSessions } from "@/lib/upload/service";
 
 const logger = createLogger("job-maintenance-worker");
@@ -177,6 +180,20 @@ async function tick(reason: string) {
         workerId: WORKER_ID,
         abandoned: abandonedVpsBackups.abandoned,
         ids: abandonedVpsBackups.ids,
+      });
+    }
+    // PENDING VpsBackupRecords are stranded when a worker dies/throws BEFORE the
+    // PENDING→RUNNING CAS (transient DB error on the pre-claim findUnique/initial
+    // heartbeat, or OOM/redeploy in that window). The RUNNING reaper above cannot
+    // see them, and an orphaned PENDING row permanently wedges that server's
+    // schedule via dispatchDueVpsBackupSchedules' overlap guard (counts
+    // PENDING+RUNNING). Mirror of the LOCAL path's stale-PENDING sweep.
+    const abandonedPendingVpsBackups = await abandonStalePendingVpsBackupRecords();
+    if (abandonedPendingVpsBackups.abandoned > 0) {
+      logger.warn("abandoned stale PENDING vps backup records", {
+        workerId: WORKER_ID,
+        abandoned: abandonedPendingVpsBackups.abandoned,
+        ids: abandonedPendingVpsBackups.ids,
       });
     }
     // Reclaim temp chunks + session rows from uploads abandoned mid-flight

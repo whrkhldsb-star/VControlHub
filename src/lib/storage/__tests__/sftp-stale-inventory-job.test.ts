@@ -5,6 +5,9 @@ const {
   completeJobMock,
   failJobMock,
   heartbeatJobMock,
+  enqueueJobMock,
+  jobFindFirstMock,
+  acquireAdvisoryLockMock,
   detectAndPruneSftpStaleInventoryMock,
   listSftpNodesForStaleInventoryMock,
 } = vi.hoisted(() => ({
@@ -12,6 +15,9 @@ const {
   completeJobMock: vi.fn(),
   failJobMock: vi.fn(),
   heartbeatJobMock: vi.fn(),
+  enqueueJobMock: vi.fn(),
+  jobFindFirstMock: vi.fn(),
+  acquireAdvisoryLockMock: vi.fn(),
   detectAndPruneSftpStaleInventoryMock: vi.fn(),
   listSftpNodesForStaleInventoryMock: vi.fn(),
 }));
@@ -21,11 +27,18 @@ vi.mock("@/lib/job/service", () => ({
   completeJob: completeJobMock,
   failJob: failJobMock,
   heartbeatJob: heartbeatJobMock,
+  enqueueJob: enqueueJobMock,
 }));
 vi.mock("@/lib/job/heartbeat-runner", () => ({
   runWithLeaseHeartbeat: vi.fn(async (input: { run: () => Promise<unknown> }) =>
     input.run(),
   ),
+}));
+vi.mock("@/lib/db", () => ({
+  prisma: { job: { findFirst: jobFindFirstMock } },
+}));
+vi.mock("@/lib/concurrency/advisory-lock", () => ({
+  acquireAdvisoryLock: acquireAdvisoryLockMock,
 }));
 
 vi.mock("../sftp-stale-inventory", () => ({
@@ -34,6 +47,7 @@ vi.mock("../sftp-stale-inventory", () => ({
 }));
 
 import {
+  enqueueSftpStaleInventorySweepIfIdle,
   parseSftpStaleInventoryJobPayload,
   runSftpStaleInventoryJobWorkerOnce,
   SFTP_STALE_INVENTORY_JOB_TYPE,
@@ -57,6 +71,12 @@ describe("SFTP stale inventory durable job worker", () => {
     heartbeatJobMock.mockResolvedValue({ count: 1 });
     completeJobMock.mockResolvedValue({ count: 1 });
     failJobMock.mockResolvedValue({ count: 1 });
+    // Advisory lock: no-op release. Default findFirst => a sweep is already in
+    // flight, so the periodic producer no-ops and existing consume-path tests
+    // are unaffected (they exercise claimNextJob, not the producer).
+    acquireAdvisoryLockMock.mockResolvedValue(async () => {});
+    jobFindFirstMock.mockResolvedValue({ id: "in-flight-sweep" });
+    enqueueJobMock.mockResolvedValue({ id: "job_enqueued" });
   });
 
   afterEach(() => {
@@ -113,6 +133,38 @@ describe("SFTP stale inventory durable job worker", () => {
       expect(
         parseSftpStaleInventoryJobPayload({ nodeIds: [] }).nodeIds,
       ).toEqual([]);
+    });
+  });
+
+  describe("enqueueSftpStaleInventorySweepIfIdle (periodic producer)", () => {
+    it("enqueues one global all-nodes sweep when the queue is idle", async () => {
+      jobFindFirstMock.mockResolvedValueOnce(null);
+      const enqueued = await enqueueSftpStaleInventorySweepIfIdle("interval");
+      expect(enqueued).toBe(true);
+      expect(enqueueJobMock).toHaveBeenCalledTimes(1);
+      const arg = enqueueJobMock.mock.calls[0]![0] as {
+        type: string;
+        payload: Record<string, unknown>;
+      };
+      expect(arg.type).toBe(SFTP_STALE_INVENTORY_JOB_TYPE);
+      // Global sweep: no node scoping → executeStaleInventoryJob scans all nodes.
+      expect(arg.payload.nodeId).toBeUndefined();
+      expect(arg.payload.nodeIds).toBeUndefined();
+    });
+
+    it("does not enqueue when a sweep is already pending or running", async () => {
+      jobFindFirstMock.mockResolvedValueOnce({ id: "in-flight" });
+      const enqueued = await enqueueSftpStaleInventorySweepIfIdle("interval");
+      expect(enqueued).toBe(false);
+      expect(enqueueJobMock).not.toHaveBeenCalled();
+    });
+
+    it("is invoked by the worker tick before it consumes", async () => {
+      jobFindFirstMock.mockResolvedValueOnce(null);
+      claimNextJobMock.mockResolvedValueOnce(null);
+      await runSftpStaleInventoryJobWorkerOnce();
+      expect(enqueueJobMock).toHaveBeenCalledTimes(1);
+      expect(claimNextJobMock).toHaveBeenCalledTimes(1);
     });
   });
 

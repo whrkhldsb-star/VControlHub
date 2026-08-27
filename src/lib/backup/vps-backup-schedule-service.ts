@@ -195,7 +195,8 @@ export async function dispatchDueVpsBackupSchedules(): Promise<number> {
 			nextRunAt: { lte: now },
 		},
 		include: { server: { select: { id: true, teamId: true, name: true } } },
-		take: 10,
+		orderBy: { nextRunAt: "asc" },
+		take: 500,
 	});
 
 	let dispatched = 0;

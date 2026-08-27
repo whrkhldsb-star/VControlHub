@@ -13,13 +13,16 @@
  * `claimNextJob` + `completeJob` / `failJob` + `heartbeatJob` 走
  * jobs 表, 沿用 TR-001 T10/T12 已建好的基础设施。
  */
-import { Prisma } from "@prisma/client";
+import { JobStatus, Prisma } from "@prisma/client";
 
 import { config } from "@/lib/config/env";
+import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
+import { prisma } from "@/lib/db";
 import { computeLeaseMs } from "@/lib/job/lease";
 import {
   claimNextJob,
   completeJob,
+  enqueueJob,
   failJob,
   heartbeatJob,
 } from "@/lib/job/service";
@@ -236,6 +239,48 @@ function summarize(results: SftpStaleInventoryResult[]) {
   };
 }
 
+/**
+ * Periodic PRODUCER for the background stale-inventory sweep.
+ *
+ * The worker tick is a pure consumer (`claimNextJob`); without a producer,
+ * nothing enqueues a system-wide sweep, so the "background periodic cleanup"
+ * documented at the top of this module only ran when a human hit the API route.
+ * Mirror of health sampling's `enqueueHealthSampleIfIdle`: enqueue at most one
+ * GLOBAL (all-nodes) sweep at a time, gated by an advisory lock plus an
+ * already-in-flight check, so repeated ticks (and manual API jobs) never stack.
+ *
+ * A global sweep carries no `nodeId`/`nodeIds` in its payload, so
+ * `executeStaleInventoryJob` scans every node returned by
+ * `listSftpNodesForStaleInventory()`.
+ */
+export async function enqueueSftpStaleInventorySweepIfIdle(
+  reason: string,
+): Promise<boolean> {
+  const release = await acquireAdvisoryLock(
+    "sftp-stale-inventory-enqueue",
+    "global",
+  );
+  try {
+    const active = await prisma.job.findFirst({
+      where: {
+        type: SFTP_STALE_INVENTORY_JOB_TYPE,
+        status: { in: [JobStatus.PENDING, JobStatus.RUNNING] },
+      },
+      select: { id: true },
+    });
+    if (active) return false;
+    await enqueueJob({
+      type: SFTP_STALE_INVENTORY_JOB_TYPE,
+      title: "SFTP stale inventory sweep (all nodes)",
+      payload: { reason },
+      maxAttempts: 1,
+    });
+    return true;
+  } finally {
+    await release();
+  }
+}
+
 export async function runSftpStaleInventoryJobWorkerOnce(
   state = getWorkerState(),
   reason = "manual",
@@ -250,6 +295,11 @@ export async function runSftpStaleInventoryJobWorkerOnce(
 
   state.running = true;
   try {
+    // Periodic PRODUCER: without this the tick below is a pure consumer, so a
+    // system-wide sweep was only ever enqueued by the manual API route — the
+    // "background periodic cleanup" this module documents never actually ran.
+    // Mirror of health sampling's enqueueHealthSampleIfIdle.
+    await enqueueSftpStaleInventorySweepIfIdle(reason);
     const job = await claimNextJob({
       workerId: SFTP_STALE_INVENTORY_WORKER_ID,
       types: [...SFTP_STALE_INVENTORY_JOB_TYPES],
