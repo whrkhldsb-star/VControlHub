@@ -517,6 +517,14 @@ describe("snapshot writer + reader", () => {
 });
 
 describe("syncServerMonthlyCosts", () => {
+	/**
+	 * The sync returns counts only, so correctness is asserted against the rows it
+	 * wrote rather than against its return value.
+	 */
+	function syncedRows() {
+		return Array.from(store.entries.values()).filter((row) => row.sourceType === "server_monthly");
+	}
+
 	it("upserts enabled server monthly costs idempotently", async () => {
 		store.servers.set("srv_1", {
 			id: "srv_1",
@@ -531,10 +539,10 @@ describe("syncServerMonthlyCosts", () => {
 		});
 		const first = await syncServerMonthlyCosts("2026-06");
 		expect(first.synced).toBe(1);
-		expect(first.entries[0]?.sourceType).toBe("server_monthly");
-		expect(first.entries[0]?.sourceRef).toBe("srv_1");
-		expect(first.entries[0]?.effectiveDate).toBe("2026-06-01");
-		expect(first.entries[0]?.tags).toEqual([
+		const created = syncedRows()[0];
+		expect(created?.sourceRef).toBe("srv_1");
+		expect(created?.effectiveDate.toISOString()).toBe("2026-06-01T00:00:00.000Z");
+		expect(created?.tags).toEqual([
 			"source:server_monthly",
 			"category:vps",
 			"provider:linode",
@@ -547,9 +555,10 @@ describe("syncServerMonthlyCosts", () => {
 		});
 		const second = await syncServerMonthlyCosts("2026-06");
 		expect(second.synced).toBe(1);
-		expect(second.entries[0]?.id).toBe(first.entries[0]?.id);
-		expect(second.entries[0]?.amount).toBe("99.00");
-		expect(Array.from(store.entries.values()).filter((row) => row.sourceType === "server_monthly")).toHaveLength(1);
+		const updated = syncedRows()[0];
+		expect(updated?.id).toBe(created?.id);
+		expect(Number(String(updated?.amount))).toBe(99);
+		expect(syncedRows()).toHaveLength(1);
 		expect(store.servers.get("srv_1")?.costLastSyncedAt).toBeInstanceOf(Date);
 	});
 
@@ -578,7 +587,7 @@ describe("syncServerMonthlyCosts", () => {
 		});
 		const result = await syncServerMonthlyCosts("2026-06");
 		expect(result.synced).toBe(0);
-		expect(result.entries).toHaveLength(0);
+		expect(syncedRows()).toHaveLength(0);
 	});
 });
 

@@ -52,7 +52,7 @@ describe("/api/cost/snapshots", () => {
 		vi.clearAllMocks();
 		mocks.requireApiPermission.mockResolvedValue({ session });
 		mocks.listRecentSnapshots.mockResolvedValue(SAMPLE);
-		mocks.syncServerMonthlyCosts.mockResolvedValue({ month: "2026-06", synced: 2, skipped: 1, entries: [] });
+		mocks.syncServerMonthlyCosts.mockResolvedValue({ month: "2026-06", synced: 2, skipped: 1, skippedDetails: [] });
 		mocks.auditUserAction.mockResolvedValue(undefined);
 	});
 

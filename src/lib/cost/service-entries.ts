@@ -146,10 +146,17 @@ export async function listRecentSnapshots(limit = 30, session?: TeamSession | nu
 }
 
 export interface ServerMonthlyCostSyncSkip { serverId: string; serverName: string; reason: "missing_amount" | "non_positive_amount" | "missing_currency"; }
-export interface ServerMonthlyCostSyncResult { month: string; synced: number; skipped: number; skippedDetails: ServerMonthlyCostSyncSkip[]; entries: CostEntryRecord[]; }
+/**
+ * Counts only. The synced entries themselves are deliberately NOT returned: this
+ * walks the whole fleet in pages of 1000, and neither caller (the HTTP route,
+ * which ships its result to the browser, nor the snapshot worker, which records
+ * the counts on the job) ever read them — so materialising one record per server
+ * was pure payload and heap weight proportional to fleet size.
+ */
+export interface ServerMonthlyCostSyncResult { month: string; synced: number; skipped: number; skippedDetails: ServerMonthlyCostSyncSkip[]; }
 export async function syncServerMonthlyCosts(month = new Date().toISOString().slice(0, 7), session?: TeamSession | null): Promise<ServerMonthlyCostSyncResult> {
 	const effectiveDate = startOfMonthUtc(month);
-	const entries: CostEntryRecord[] = []; let skipped = 0; let cursor: { id: string } | undefined;
+	let synced = 0; let skipped = 0; let cursor: { id: string } | undefined;
 	// Skipping silently is a false success: the toast says "synced N, skipped M"
 	// and the user has no way to learn WHICH server needs fixing.
 	const skippedDetails: ServerMonthlyCostSyncSkip[] = [];
@@ -171,10 +178,10 @@ export async function syncServerMonthlyCosts(month = new Date().toISOString().sl
 			}
 		const provider = server.costProvider?.trim() || server.name; const tags = automaticTags("server_monthly", "vps", provider, server.id);
 		const notes = `Auto-collected: ${server.name} (${server.host}) ${month} VPS monthly fee`;
-		const entry = await prisma.costEntry.upsert({ where: { sourceType_sourceRef_effectiveDate: { sourceType: "server_monthly", sourceRef: server.id, effectiveDate } }, create: { category: "vps", provider, amount: new Prisma.Decimal(amount), currency: server.costCurrency, effectiveDate, notes, sourceType: "server_monthly", sourceRef: server.id, createdById: null, teamId: server.teamId ?? null, tags }, update: { provider, amount: new Prisma.Decimal(amount), currency: server.costCurrency, notes, tags } });
-		await prisma.server.update({ where: { id: server.id }, data: { costLastSyncedAt: new Date() } }); entries.push(toRecord(entry));
+		await prisma.costEntry.upsert({ where: { sourceType_sourceRef_effectiveDate: { sourceType: "server_monthly", sourceRef: server.id, effectiveDate } }, create: { category: "vps", provider, amount: new Prisma.Decimal(amount), currency: server.costCurrency, effectiveDate, notes, sourceType: "server_monthly", sourceRef: server.id, createdById: null, teamId: server.teamId ?? null, tags }, update: { provider, amount: new Prisma.Decimal(amount), currency: server.costCurrency, notes, tags } });
+		await prisma.server.update({ where: { id: server.id }, data: { costLastSyncedAt: new Date() } }); synced += 1;
 		}
 		cursor = servers.length === 1000 ? { id: servers[servers.length - 1]!.id } : undefined;
 	} while (cursor);
-	return { month, synced: entries.length, skipped, skippedDetails, entries };
+	return { month, synced, skipped, skippedDetails };
 }
