@@ -19,6 +19,7 @@ import {
   abandonStalePendingVpsBackupRecords,
   abandonStaleRunningVpsBackupRecords,
 } from "@/lib/backup/vps-backup-service";
+import { abandonStaleRunningBackupRecords } from "@/lib/backup/service";
 import { sweepExpiredMediaUploadSessions } from "@/lib/upload/service";
 
 const logger = createLogger("job-maintenance-worker");
@@ -194,6 +195,18 @@ async function tick(reason: string) {
         workerId: WORKER_ID,
         abandoned: abandonedPendingVpsBackups.abandoned,
         ids: abandonedPendingVpsBackups.ids,
+      });
+    }
+    // LOCAL BackupRecords have the same crashed-mid-run gap as VPS: the backup
+    // job-worker's own sweep only clears stale PENDING, and a worker killed
+    // mid-run (OOM/SIGKILL) strands the record RUNNING forever — un-voidable and
+    // un-retryable. Reap them here alongside the VPS RUNNING reaper.
+    const abandonedRunningBackups = await abandonStaleRunningBackupRecords();
+    if (abandonedRunningBackups.abandoned > 0) {
+      logger.warn("abandoned stale RUNNING backup records", {
+        workerId: WORKER_ID,
+        abandoned: abandonedRunningBackups.abandoned,
+        ids: abandonedRunningBackups.ids,
       });
     }
     // Reclaim temp chunks + session rows from uploads abandoned mid-flight

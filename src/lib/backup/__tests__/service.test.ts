@@ -53,6 +53,7 @@ const {
   voidBackupRecord,
   prepareBackupRecordRetry,
   abandonStalePendingBackupRecords,
+  abandonStaleRunningBackupRecords,
   restoreBackupRecord,
   listBackupRecords,
   getBackupRecord,
@@ -239,6 +240,30 @@ describe("backup service", () => {
     expect(mockPrisma.backupRecord.updateMany).toHaveBeenCalledWith({
       where: { id: "stale-1", status: "PENDING" },
       data: { status: "VOIDED", errorMessage: "Voided: timeout" },
+    });
+  });
+
+  it("abandons orphan RUNNING backups (crashed worker) as FAILED via CAS", async () => {
+    mockPrisma.backupRecord.findMany.mockResolvedValueOnce([{ id: "run-1" }, { id: "run-2" }]);
+    mockPrisma.backupRecord.updateMany
+      .mockResolvedValueOnce({ count: 1 })
+      .mockResolvedValueOnce({ count: 0 }); // run-2 already left RUNNING between findMany and CAS
+
+    const result = await abandonStaleRunningBackupRecords({
+      olderThanMs: 60_000,
+      reason: "worker died",
+    });
+
+    expect(result).toEqual({ abandoned: 1, ids: ["run-1"] });
+    expect(mockPrisma.backupRecord.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ status: "RUNNING" }),
+        take: 50,
+      }),
+    );
+    expect(mockPrisma.backupRecord.updateMany).toHaveBeenCalledWith({
+      where: { id: "run-1", status: "RUNNING" },
+      data: expect.objectContaining({ status: "FAILED", errorMessage: "worker died" }),
     });
   });
 

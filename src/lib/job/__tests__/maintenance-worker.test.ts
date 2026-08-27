@@ -45,6 +45,10 @@ vi.mock("@/lib/backup/vps-backup-service", () => ({
   abandonStalePendingVpsBackupRecords: vi.fn(async () => ({ abandoned: 0, ids: [] })),
 }));
 
+vi.mock("@/lib/backup/service", () => ({
+  abandonStaleRunningBackupRecords: vi.fn(async () => ({ abandoned: 0, ids: [] })),
+}));
+
 vi.mock("@/lib/upload/service", () => ({
   sweepExpiredMediaUploadSessions: vi.fn(async () => 0),
 }));
@@ -156,6 +160,15 @@ describe("abandonOrphanPendingJobs", () => {
     expect(
       recoveryOptions.staleBefore.getTime() - recoveryOptions.heartbeatStaleBefore.getTime(),
     ).toBe(6 * 60 * 60 * 1000);
+    stopJobMaintenanceWorkerForTests();
+  });
+
+  it("startup tick reaps stale RUNNING LOCAL backup records", async () => {
+    mocks.findMany.mockResolvedValueOnce([]);
+    const { abandonStaleRunningBackupRecords } = await import("@/lib/backup/service");
+    await startJobMaintenanceWorker({ intervalMs: 60_000 });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(vi.mocked(abandonStaleRunningBackupRecords)).toHaveBeenCalled();
     stopJobMaintenanceWorkerForTests();
   });
 });

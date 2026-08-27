@@ -153,5 +153,53 @@ export async function abandonStalePendingBackupRecords(input?: {
 	return { abandoned: ids.length, ids };
 }
 
+/**
+ * Reap LOCAL backups stuck RUNNING because their worker died mid-run
+ * (OOM/SIGKILL/redeploy) so the in-proc catch never marked them FAILED.
+ *
+ * Mirror of abandonStaleRunningVpsBackupRecords. recoverStaleRunningJobs only
+ * finalizes the durable Job row, not this BackupRecord, and the PENDING sweep
+ * above never touches RUNNING. Without this a crashed backup is stranded
+ * RUNNING forever — invisible as a failure and impossible to clear:
+ * voidBackupRecord and prepareBackupRecordRetry both refuse RUNNING rows.
+ *
+ * Terminal state is FAILED (not VOIDED): the backup genuinely started, so the
+ * user should be able to retry it like any other failure.
+ */
+export async function abandonStaleRunningBackupRecords(input?: {
+	olderThanMs?: number;
+	reason?: string;
+	limit?: number;
+}) {
+	const olderThanMs = input?.olderThanMs ?? 45 * 60 * 1000;
+	const reason = (input?.reason ?? "Stale RUNNING backup abandoned after worker timeout").slice(0, 500);
+	const limit = Math.min(Math.max(input?.limit ?? 50, 1), 200);
+	const cutoff = new Date(Date.now() - olderThanMs);
+	const stale = await prisma.backupRecord.findMany({
+		where: { status: "RUNNING", updatedAt: { lt: cutoff } },
+		select: { id: true },
+		orderBy: { updatedAt: "asc" },
+		take: limit,
+	});
+	if (stale.length === 0) return { abandoned: 0, ids: [] as string[] };
+
+	const ids: string[] = [];
+	for (const row of stale) {
+		// CAS: only fail rows STILL running. A row that just completed or was
+		// force-failed by its own worker between the findMany above and here must
+		// never be clobbered back to FAILED.
+		const claimed = await prisma.backupRecord.updateMany({
+			where: { id: row.id, status: "RUNNING" },
+			data: {
+				status: "FAILED",
+				errorMessage: reason,
+				completedAt: new Date(),
+			},
+		});
+		if (claimed.count > 0) ids.push(row.id);
+	}
+	return { abandoned: ids.length, ids };
+}
+
 /** Re-exported for callers that import the constant from `./service`. */
 export { RESTORE_CONFIRM_TEXT };
