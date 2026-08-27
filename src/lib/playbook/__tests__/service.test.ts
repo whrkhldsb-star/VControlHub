@@ -412,7 +412,15 @@ describe("playbook service", () => {
         type: "enqueued",
       }),
     });
-    expect(mocks.auditUserAction).toHaveBeenCalledWith("u1", "playbook.run", expect.objectContaining({ runId: "run-1", status: "queued" }));
+    // The run's workspace must reach the audit row: an unstamped row is
+    // teamId: null, which teamWhere shows to every tenant.
+    expect(mocks.auditUserAction).toHaveBeenCalledWith(
+      "u1",
+      "playbook.run",
+      expect.objectContaining({ runId: "run-1", status: "queued" }),
+      undefined,
+      "team1",
+    );
   });
 
   it("blocks delete when a run is queued or running", async () => {

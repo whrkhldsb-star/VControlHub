@@ -258,13 +258,22 @@ export async function createPlaybook(
     },
   });
   const narrowed = narrowPlaybook(row);
-  await auditUserAction(createdById, "playbook.create", {
-    playbookId: narrowed.id,
-    name: narrowed.name,
-    triggerType: narrowed.triggerType,
-    stepCount: narrowed.steps.length,
-    chainRetry: narrowed.chainRetry,
-  });
+  // Stamp the workspace: an audit row left at `teamId: null` is treated as
+  // shared/legacy data by `teamWhere` and shown to every tenant, and a playbook
+  // name is tenant-authored content.
+  await auditUserAction(
+    createdById,
+    "playbook.create",
+    {
+      playbookId: narrowed.id,
+      name: narrowed.name,
+      triggerType: narrowed.triggerType,
+      stepCount: narrowed.steps.length,
+      chainRetry: narrowed.chainRetry,
+    },
+    undefined,
+    row.teamId ?? null,
+  );
   return narrowed;
 }
 
@@ -327,12 +336,18 @@ export async function updatePlaybook(
   } finally {
     await releaseLock();
   }
-  await auditUserAction(updatedById, "playbook.update", {
-    playbookId: narrowed.id,
-    name: narrowed.name,
-    enabled: narrowed.enabled,
-    stepCount: narrowed.steps.length,
-  });
+  await auditUserAction(
+    updatedById,
+    "playbook.update",
+    {
+      playbookId: narrowed.id,
+      name: narrowed.name,
+      enabled: narrowed.enabled,
+      stepCount: narrowed.steps.length,
+    },
+    undefined,
+    session?.currentTeamId ?? null,
+  );
   return narrowed;
 }
 
@@ -360,7 +375,13 @@ export async function deletePlaybook(
   } finally {
     await releaseLock();
   }
-  await auditUserAction(deletedById, "playbook.delete", { playbookId: id });
+  await auditUserAction(
+    deletedById,
+    "playbook.delete",
+    { playbookId: id },
+    undefined,
+    session?.currentTeamId ?? null,
+  );
 }
 
 export async function listPlaybookRuns(
@@ -422,6 +443,9 @@ export async function runPlaybook(input: {
   const releaseLock = await acquireAdvisoryLock("playbook-lifecycle", input.playbookId);
   let narrowedPlaybook: PlaybookRecord;
   let run: RawPlaybookRun;
+  // The run belongs to the playbook's workspace, which is not necessarily the
+  // caller's current one (a `team:manage` admin can queue across workspaces).
+  let auditTeamId: string | null = null;
   try {
     const scope = input.session ? teamWhere(input.session) : {};
     const playbook = await prisma.playbook.findFirst({
@@ -433,6 +457,7 @@ export async function runPlaybook(input: {
       );
     }
     narrowedPlaybook = narrowPlaybook(playbook);
+    auditTeamId = playbook.teamId ?? null;
     if (!narrowedPlaybook.enabled) {
       throw new BusinessError(
         t("backend.playbook.disabledWithId", { id: input.playbookId }),
@@ -461,13 +486,19 @@ export async function runPlaybook(input: {
   }
 
   if (input.createdById) {
-    await auditUserAction(input.createdById, input.dryRun ? "playbook.dry-run" : "playbook.run", {
-      playbookId: input.playbookId,
-      runId: run.id,
-      dryRun: input.dryRun,
-      status: "queued",
-      stepCount: narrowedPlaybook.steps.length,
-    });
+    await auditUserAction(
+      input.createdById,
+      input.dryRun ? "playbook.dry-run" : "playbook.run",
+      {
+        playbookId: input.playbookId,
+        runId: run.id,
+        dryRun: input.dryRun,
+        status: "queued",
+        stepCount: narrowedPlaybook.steps.length,
+      },
+      undefined,
+      auditTeamId,
+    );
   }
   return narrowPlaybookRun(run);
 }

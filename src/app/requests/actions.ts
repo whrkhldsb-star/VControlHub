@@ -39,10 +39,13 @@ export async function reviewCommandAction(_prevState: ReviewActionState | null, 
       },
       session,
     );
-    await auditUserAction(session.userId, approved ? "command.approve" : "command.reject", {
-      commandRequestId,
-      comment: comment || null,
-    });
+    await auditUserAction(
+      session.userId,
+      approved ? "command.approve" : "command.reject",
+      { commandRequestId, comment: comment || null },
+      undefined,
+      session.currentTeamId,
+    );
 
     revalidatePath("/");
     revalidatePath("/servers");
@@ -106,11 +109,13 @@ export async function batchReviewCommandAction(
         },
         session,
       );
-      await auditUserAction(session.userId, approved ? "command.approve" : "command.reject", {
-        commandRequestId,
-        comment: comment || null,
-        batch: true,
-      });
+      await auditUserAction(
+        session.userId,
+        approved ? "command.approve" : "command.reject",
+        { commandRequestId, comment: comment || null, batch: true },
+        undefined,
+        session.currentTeamId,
+      );
       results[commandRequestId] = "ok";
       okCount++;
     } catch (error) {

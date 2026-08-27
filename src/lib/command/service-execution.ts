@@ -459,6 +459,10 @@ export async function executeAndFinalizeCommand(commandRequestId: string) {
           requesterId: request.requesterId,
         },
         "INFO",
+        // Without the workspace stamp the row lands at `teamId: null`, which
+        // `teamWhere` reads as shared/legacy data — the command title and its
+        // execution summary would appear on every tenant's audit page.
+        request.teamId,
       );
       notifyCommandResult(
         request.requesterId,
@@ -516,6 +520,7 @@ export async function executeAndFinalizeCommand(commandRequestId: string) {
         requesterId: request.requesterId,
       },
       nextStatus === "COMPLETED" ? "INFO" : "WARNING",
+      request.teamId,
     );
     notifyCommandResult(
       request.requesterId,
@@ -590,6 +595,7 @@ export async function markCommandExecutionFailed(
       phase: "executor_error",
     },
     "WARNING",
+    request?.teamId ?? null,
   );
   if (request?.requesterId) {
     notifyCommandResult(request.requesterId, request.title, "failed", request.teamId).catch((err) => {

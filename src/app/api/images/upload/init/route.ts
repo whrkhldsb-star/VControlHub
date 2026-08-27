@@ -62,6 +62,7 @@ export async function POST(request: Request) {
             totalChunks: view.totalChunks,
           },
           "INFO",
+          session.currentTeamId,
         );
         return NextResponse.json({ session: view }, { status: 201 });
       } catch (err) {

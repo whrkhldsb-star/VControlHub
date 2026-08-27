@@ -129,10 +129,13 @@ describe("Playbook automatic trigger dispatch", () => {
         timeZone: "Asia/Shanghai",
       }),
     }));
+    // The playbook's workspace must be stamped: the detail carries the
+    // playbook name, and a teamId: null row is visible to every tenant.
     expect(mocks.auditSystemAction).toHaveBeenCalledWith(
       "playbook.trigger.cron",
       expect.objectContaining({ runId: "run-1" }),
       "INFO",
+      "team-1",
     );
   });
 

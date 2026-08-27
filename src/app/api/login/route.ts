@@ -50,6 +50,8 @@ export async function POST(request: Request) {
 				? Math.ceil(fastCheck.retryAfterMs / 1000)
 				: Math.ceil(slowCheck.retryAfterMs / 1000);
 			const params = new URLSearchParams({ error: "rate_limited" });
+			// No teamId by design: this fires before authentication, so there is no
+			// workspace to attribute it to. See buildAuditWhere in lib/audit/service.
 			await auditSystemAction("auth.login_rate_limited", { ip: clientIp, retryAfter }, "WARNING");
 			const response = redirectWithRelativeLocation(`/login?${params.toString()}`);
 			response.headers.set("Retry-After", String(retryAfter));

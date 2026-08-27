@@ -306,6 +306,7 @@ export async function POST(
           mimeType: detectedMime,
         },
         "INFO",
+        session.currentTeamId,
       );
 
       return NextResponse.json({

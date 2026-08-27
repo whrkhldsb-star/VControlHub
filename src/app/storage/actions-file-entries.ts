@@ -148,13 +148,19 @@ export async function deleteFileEntryAction(
 	  ]);
     }
 
-    await auditUserAction(session.userId, "storage.file_delete", {
-      entryId: entry.id,
-      entryName: entry.name,
-      relativePath: entry.relativePath,
-      physicalDeleted: false,
-      recycleBin: true,
-    }, "INFO");
+    await auditUserAction(
+      session.userId,
+      "storage.file_delete",
+      {
+        entryId: entry.id,
+        entryName: entry.name,
+        relativePath: entry.relativePath,
+        physicalDeleted: false,
+        recycleBin: true,
+      },
+      "INFO",
+      session.currentTeamId,
+    );
 
     return {
       success: t("storagePage.action.fileMovedToRecycle", { name: entry.name }),
@@ -225,11 +231,13 @@ export async function restoreFileEntryAction(
       });
     }
 
-    await auditUserAction(session.userId, "storage.file_restore", {
-      entryId: entry.id,
-      entryName: entry.name,
-      relativePath: entry.relativePath,
-    });
+    await auditUserAction(
+      session.userId,
+      "storage.file_restore",
+      { entryId: entry.id, entryName: entry.name, relativePath: entry.relativePath },
+      undefined,
+      session.currentTeamId,
+    );
 
     return { success: t("storagePage.action.fileRestored", { name: entry.name }) } satisfies StorageActionState;
   } catch (error) {
@@ -360,11 +368,13 @@ export async function permanentDeleteFileEntryAction(
 	  ]);
     }
 
-    await auditUserAction(session.userId, "storage.file_permanent_delete", {
-      entryId: entry.id,
-      entryName: entry.name,
-      relativePath: entry.relativePath,
-    }, "WARNING");
+    await auditUserAction(
+      session.userId,
+      "storage.file_permanent_delete",
+      { entryId: entry.id, entryName: entry.name, relativePath: entry.relativePath },
+      "WARNING",
+      session.currentTeamId,
+    );
 
     return { success: t("storagePage.action.filePermanentlyDeleted", { name: entry.name }) } satisfies StorageActionState;
   } catch (error) {

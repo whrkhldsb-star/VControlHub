@@ -78,6 +78,16 @@ export type AuditLogListResult = {
 /**
  * Build Prisma where for audit list/export/stats.
  * Team filter is AND-composed so it never overwrites search `OR` clauses.
+ *
+ * The filter is deliberately the LOOSE `teamWhere`, so `teamId: null` rows stay
+ * visible to every tenant. That is only safe because such rows are genuinely
+ * platform-level — pre-login events that have no workspace to attribute them to
+ * (`auth.login_rate_limited`, `auth.account_locked`, `auth.login_failed`) and
+ * account-level password events. Every write that *does* have a workspace in
+ * hand must pass its `teamId`; otherwise tenant-authored content (command
+ * titles and execution summaries, playbook names, storage paths, file names,
+ * breaching server ids) would land in this shared bucket and be readable by
+ * every tenant holding `audit:read`.
  */
 function buildAuditWhere(input: {
 	action?: string;

@@ -37,6 +37,9 @@ export async function skipPasswordChange(userId: string): Promise<void> {
 		},
 	});
 
+	// No teamId by design: this is an account-level credential event, not a
+	// workspace one, and the detail carries no tenant-owned content. See
+	// buildAuditWhere in lib/audit/service for why null-team rows stay shared.
 	await auditUserAction(
 		userId,
 		"auth.password_change_skipped",
@@ -144,6 +147,7 @@ export async function changePassword(input: ChangePasswordInput & { userId: stri
 		},
 	});
 
+	// Account-level, deliberately unstamped — see auth.password_change_skipped.
 	await auditUserAction(input.userId, "auth.password_change", { userId: input.userId });
 
 	return { success: true };

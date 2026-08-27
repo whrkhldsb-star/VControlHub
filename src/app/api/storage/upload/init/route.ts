@@ -64,6 +64,7 @@ export async function POST(request: Request) {
             relativePath,
           },
           "INFO",
+          session.currentTeamId,
         );
         return NextResponse.json({ session: view }, { status: 201 });
       } catch (err) {

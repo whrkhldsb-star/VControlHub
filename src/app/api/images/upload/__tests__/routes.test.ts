@@ -104,6 +104,7 @@ const adminSession = {
 	userId: "u-admin",
 	username: "admin",
 	roles: ["admin"] as const,
+	currentTeamId: "team-a",
 };
 
 const SAMPLE_INIT_VIEW = {
@@ -205,6 +206,9 @@ describe("POST /api/images/upload/init", () => {
 				totalChunks: 16,
 			}),
 			"INFO",
+			// The uploader's workspace must reach the audit row; an unstamped row is
+			// teamId: null, which teamWhere shows to every tenant.
+			"team-a",
 		);
 		const body = await res.json();
 		expect(body.session).toEqual(SAMPLE_INIT_VIEW);
@@ -396,6 +400,7 @@ describe("POST /api/images/upload/[id]/complete", () => {
 			"media.upload.complete",
 			expect.objectContaining({ sessionId: "sess_1", imageId: "img_1" }),
 			"INFO",
+			"team-a",
 		);
 		const body = await res.json();
 		expect(body.session.status).toBe("COMPLETED");
@@ -544,6 +549,7 @@ describe("DELETE /api/images/upload/[id]", () => {
 			"media.upload.cancel",
 			{ sessionId: "sess_1", status: "CANCELLED" },
 			"INFO",
+			"team-a",
 		);
 		const body = await res.json();
 		expect(body.session.status).toBe("CANCELLED");

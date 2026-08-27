@@ -36,7 +36,13 @@ describe("team workspace service", () => {
 		await expect(createTeam({ name: "Ops", slug: "ops", description: null }, adminSession)).resolves.toMatchObject({ id: "team_1", slug: "ops" });
 		expect(prismaMock.teamMember.create).toHaveBeenCalledWith({ data: { teamId: "team_1", userId: "u_admin", role: "owner" } });
 		expect(prismaMock.user.update).toHaveBeenCalledWith({ where: { id: "u_admin" }, data: { currentTeamId: "team_1" } });
-		expect(auditUserActionMock).toHaveBeenCalledWith("u_admin", "team.create", expect.objectContaining({ teamId: "team_1", slug: "ops" }));
+		expect(auditUserActionMock).toHaveBeenCalledWith(
+			"u_admin",
+			"team.create",
+			expect.objectContaining({ teamId: "team_1", slug: "ops" }),
+			undefined,
+			"team_1",
+		);
 	});
 
 	it("prevents switching to a team the user does not belong to", async () => {

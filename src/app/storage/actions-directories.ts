@@ -159,11 +159,13 @@ export async function createFolderAction(
       throw error;
     }
 
-    await auditUserAction(session.userId, "storage.folder.create", {
-      storageNodeId,
-      relativePath,
-      folderName,
-    });
+    await auditUserAction(
+      session.userId,
+      "storage.folder.create",
+      { storageNodeId, relativePath, folderName },
+      undefined,
+      session.currentTeamId,
+    );
 
     return {
       success: t("storagePage.action.folderCreated", { path: relativePath }),
@@ -373,13 +375,19 @@ export async function renameFileEntryAction(
       } satisfies StorageActionState;
     }
 
-    await auditUserAction(session.userId, "storage.file_rename", {
-      entryId: entry.id,
-      oldName: entry.name,
-      newName: normalizedNewName,
-      oldPath: entry.relativePath,
-      newPath: newRelativePath,
-    });
+    await auditUserAction(
+      session.userId,
+      "storage.file_rename",
+      {
+        entryId: entry.id,
+        oldName: entry.name,
+        newName: normalizedNewName,
+        oldPath: entry.relativePath,
+        newPath: newRelativePath,
+      },
+      undefined,
+      session.currentTeamId,
+    );
 
     return { success: t("storagePage.action.fileRenamed", { name: normalizedNewName }) } satisfies StorageActionState;
   } catch (error) {

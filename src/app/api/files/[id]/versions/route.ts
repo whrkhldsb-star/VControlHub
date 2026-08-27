@@ -69,6 +69,7 @@ export async function POST(
           reason: version.reason,
         },
         "INFO",
+        session.currentTeamId,
       );
       return NextResponse.json({ version }, { status: 201 });
     },

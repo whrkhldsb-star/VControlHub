@@ -70,11 +70,15 @@ function queueablePlaybook(row: TriggerQueuePlaybook) {
 async function recordTriggerAudit(
   action: "playbook.trigger.cron" | "playbook.trigger.metric",
   context: AuditDetail,
+  teamId: string | null,
 ): Promise<void> {
   // The run/job transaction has already committed at this point. Audit
   // availability must not cause a retry that replays an automatic action.
   try {
-    await auditSystemAction(action, context, "INFO");
+    // `teamId` matters: an unstamped row is `teamId: null`, which `teamWhere`
+    // treats as shared/legacy data, so the playbook name and the breaching
+    // server ids in `readings` would be visible to every tenant.
+    await auditSystemAction(action, context, "INFO", teamId);
   } catch {
     // The durable PlaybookRun, Job and trigger context remain observable even
     // if the optional audit write is temporarily unavailable.
@@ -142,7 +146,12 @@ export async function dispatchDueCronPlaybook(input: {
         || playbook.nextRunAt.getTime() !== input.dueAt.getTime()
         || !isCronTriggerConfig(playbook.triggerConfig)
       ) {
-        return { dispatched: false, advanced: false, audit: null as AuditDetail | null };
+        return {
+          dispatched: false,
+          advanced: false,
+          audit: null as AuditDetail | null,
+          teamId: null as string | null,
+        };
       }
 
       const expression = playbook.triggerConfig.expression;
@@ -157,7 +166,12 @@ export async function dispatchDueCronPlaybook(input: {
         data: { nextRunAt, lastTriggeredAt: now },
       });
       if (advanced.count !== 1) {
-        return { dispatched: false, advanced: false, audit: null as AuditDetail | null };
+        return {
+          dispatched: false,
+          advanced: false,
+          audit: null as AuditDetail | null,
+          teamId: null as string | null,
+        };
       }
 
       const scheduledFor = input.dueAt.toISOString();
@@ -178,6 +192,7 @@ export async function dispatchDueCronPlaybook(input: {
       return {
         dispatched: queued.created,
         advanced: true,
+        teamId: playbook.teamId ?? null,
         audit: {
           playbookId: playbook.id,
           playbookName: playbook.name,
@@ -189,7 +204,7 @@ export async function dispatchDueCronPlaybook(input: {
       };
     });
     if (outcome.dispatched && outcome.audit) {
-      await recordTriggerAudit("playbook.trigger.cron", outcome.audit);
+      await recordTriggerAudit("playbook.trigger.cron", outcome.audit, outcome.teamId);
     }
     return { dispatched: outcome.dispatched, advanced: outcome.advanced };
   } finally {
@@ -344,7 +359,7 @@ async function dispatchMetricPlaybook(input: {
         || playbook.triggerType !== "metric"
         || !isMetricTriggerConfig(playbook.triggerConfig)
       ) {
-        return { dispatched: false, audit: null as AuditDetail | null };
+        return { dispatched: false, audit: null as AuditDetail | null, teamId: null as string | null };
       }
 
       const config = playbook.triggerConfig;
@@ -366,14 +381,16 @@ async function dispatchMetricPlaybook(input: {
           transitions.push({ serverId: reading.serverId, value, sampleAt: new Date(sampleAt).toISOString() });
         }
       }
-      if (!stateChanged) return { dispatched: false, audit: null as AuditDetail | null };
+      if (!stateChanged) {
+        return { dispatched: false, audit: null as AuditDetail | null, teamId: null as string | null };
+      }
 
       if (transitions.length === 0) {
         await tx.playbook.update({
           where: { id: playbook.id },
           data: { metricMatchState: state as unknown as Prisma.InputJsonValue },
         });
-        return { dispatched: false, audit: null as AuditDetail | null };
+        return { dispatched: false, audit: null as AuditDetail | null, teamId: null as string | null };
       }
 
       const queued = await queuePlaybookRunWithClient({
@@ -400,6 +417,7 @@ async function dispatchMetricPlaybook(input: {
       });
       return {
         dispatched: queued.created,
+        teamId: playbook.teamId ?? null,
         audit: {
           playbookId: playbook.id,
           playbookName: playbook.name,
@@ -412,7 +430,7 @@ async function dispatchMetricPlaybook(input: {
       };
     });
     if (outcome.dispatched && outcome.audit) {
-      await recordTriggerAudit("playbook.trigger.metric", outcome.audit);
+      await recordTriggerAudit("playbook.trigger.metric", outcome.audit, outcome.teamId);
     }
     return outcome.dispatched;
   } finally {

@@ -151,11 +151,16 @@ export async function createTeam(
         });
         return created;
       });
-      await auditUserAction(session.userId, "team.create", {
-        teamId: team.id,
-        slug: team.slug,
-        name: team.name,
-      });
+      // Stamp the workspace on the audit row: an unstamped row is `teamId:
+      // null`, which `teamWhere` treats as shared/legacy data and shows to every
+      // tenant — workspace names and member usernames are not platform-wide.
+      await auditUserAction(
+        session.userId,
+        "team.create",
+        { teamId: team.id, slug: team.slug, name: team.name },
+        undefined,
+        team.id,
+      );
       return team;
     } catch (error) {
       lastError = error;
@@ -202,10 +207,13 @@ export async function switchCurrentTeam(
     where: { id: session.userId },
     data: { currentTeamId: teamId },
   });
-  await auditUserAction(session.userId, "team.switch", {
+  await auditUserAction(
+    session.userId,
+    "team.switch",
+    { teamId, slug: membership.team.slug },
+    undefined,
     teamId,
-    slug: membership.team.slug,
-  });
+  );
   return membership.team;
 }
 
@@ -253,12 +261,13 @@ export async function addTeamMember(
       },
     },
   });
-  await auditUserAction(session.userId, "team.member.upsert", {
+  await auditUserAction(
+    session.userId,
+    "team.member.upsert",
+    { teamId, teamSlug: team.slug, username: user.username, role: input.role },
+    undefined,
     teamId,
-    teamSlug: team.slug,
-    username: user.username,
-    role: input.role,
-  });
+  );
   return member;
 }
 
@@ -311,11 +320,13 @@ export async function removeTeamMember(
       data: { currentTeamId: null },
     });
 
-    await auditUserAction(session.userId, "team.member.remove", {
+    await auditUserAction(
+      session.userId,
+      "team.member.remove",
+      { teamId, teamSlug: team.slug, removedUserId: userId },
+      undefined,
       teamId,
-      teamSlug: team.slug,
-      removedUserId: userId,
-    });
+    );
     return { removed: true };
   } finally {
     await releaseLock();
@@ -345,11 +356,13 @@ export async function updateTeam(
     select: { id: true, slug: true, name: true, description: true },
   });
 
-  await auditUserAction(session.userId, "team.update", {
+  await auditUserAction(
+    session.userId,
+    "team.update",
+    { teamId, teamSlug: team.slug, fields: Object.keys(data) },
+    undefined,
     teamId,
-    teamSlug: team.slug,
-    fields: Object.keys(data),
-  });
+  );
   return updated;
 }
 
@@ -396,10 +409,14 @@ export async function deleteTeam(teamId: string, session: SessionPayload) {
     });
   });
 
-  await auditUserAction(session.userId, "team.delete", {
+  // The tombstoned teamId keeps this row reachable only to `team:manage`
+  // (no live session can hold it) instead of visible to every tenant.
+  await auditUserAction(
+    session.userId,
+    "team.delete",
+    { teamId, teamSlug: team.slug, teamName: team.name },
+    undefined,
     teamId,
-    teamSlug: team.slug,
-    teamName: team.name,
-  });
+  );
   return { deleted: true };
 }

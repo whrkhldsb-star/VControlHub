@@ -194,6 +194,10 @@ export async function processPlaybookRun(runId: string, jobId: string): Promise<
         stepCount: chain.results.length,
       },
       status === "completed" ? "INFO" : "WARNING",
+      // Without the workspace stamp this row lands at `teamId: null`, which
+      // `teamWhere` treats as shared/legacy data — the step summary and error
+      // text of one tenant's run would show up on every tenant's audit page.
+      latest.teamId,
     );
     return { status, summary: chain.summary };
   } finally {

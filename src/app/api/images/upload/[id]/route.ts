@@ -76,6 +76,7 @@ export async function DELETE(
           "media.upload.cancel",
           { sessionId, status: view.status },
           "INFO",
+          session.currentTeamId,
         );
         return NextResponse.json({ session: view });
       } catch (err) {

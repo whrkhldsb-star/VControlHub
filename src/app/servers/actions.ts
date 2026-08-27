@@ -92,11 +92,13 @@ export async function createServerAction(
       saveAsDraftOnConnectionFailure,
     }, session);
 
-    await auditUserAction(session.userId, "server.create", {
-      serverId: created.id,
-      name,
-      host,
-    });
+    await auditUserAction(
+      session.userId,
+      "server.create",
+      { serverId: created.id, name, host },
+      undefined,
+      session.currentTeamId,
+    );
 
     revalidatePath("/");
     revalidatePath("/servers");
@@ -165,10 +167,13 @@ export async function updateServerAction(
 
     const updated = await updateServerProfile(serverId, changes, session);
 
-    await auditUserAction(session.userId, "server.update", {
-      serverId,
-      fields: Object.keys(changes),
-    });
+    await auditUserAction(
+      session.userId,
+      "server.update",
+      { serverId, fields: Object.keys(changes) },
+      undefined,
+      session.currentTeamId,
+    );
 
     revalidatePath("/");
     revalidatePath("/servers");
@@ -224,9 +229,13 @@ export async function createSshKeyAction(
       session,
     });
 
-    await auditUserAction(session.userId, "ssh_key.create", {
-      name: String(formData.get("name") ?? ""),
-    });
+    await auditUserAction(
+      session.userId,
+      "ssh_key.create",
+      { name: String(formData.get("name") ?? "") },
+      undefined,
+      session.currentTeamId,
+    );
 
     revalidatePath("/");
     revalidatePath("/servers");
@@ -253,10 +262,13 @@ export async function toggleServerAction(
     const approvedHostKeySha256 = String(formData.get("approvedHostKeySha256") ?? "") || undefined;
     const updated = await toggleServerEnabled(serverId, session, approvedHostKeySha256);
     const newState = updated.enabled;
-    await auditUserAction(session.userId, "server.toggle", {
-      serverId,
-      enabled: newState,
-    });
+    await auditUserAction(
+      session.userId,
+      "server.toggle",
+      { serverId, enabled: newState },
+      undefined,
+      session.currentTeamId,
+    );
     revalidatePath("/");
     revalidatePath("/servers");
     const onboardingWarnings =
@@ -297,12 +309,18 @@ export async function toggleDirectGatewayAction(
       publicListen: enabled ? true : undefined,
       publicDomain: enabled && directGatewayProtocol === "https" ? directGatewayDomain || null : null,
     }, session);
-    await auditUserAction(session.userId, "server.direct_gateway.toggle", {
-      serverId,
-      enabled,
-      protocol: directGatewayProtocol,
-      publicDomain: directGatewayDomain || null,
-    });
+    await auditUserAction(
+      session.userId,
+      "server.direct_gateway.toggle",
+      {
+        serverId,
+        enabled,
+        protocol: directGatewayProtocol,
+        publicDomain: directGatewayDomain || null,
+      },
+      undefined,
+      session.currentTeamId,
+    );
     revalidatePath("/");
     revalidatePath("/servers");
     revalidatePath("/storage");
@@ -344,12 +362,18 @@ export async function batchToggleServerAction(
       where: { id: { in: serverIds }, ...serverTeamWhere(session) },
       data: { enabled },
     });
-    await auditUserAction(session.userId, "server.batch_toggle", {
-      enabled,
-      requestedCount: serverIds.length,
-      updatedCount: result.count,
-      serverIds,
-    });
+    await auditUserAction(
+      session.userId,
+      "server.batch_toggle",
+      {
+        enabled,
+        requestedCount: serverIds.length,
+        updatedCount: result.count,
+        serverIds,
+      },
+      undefined,
+      session.currentTeamId,
+    );
 
     revalidatePath("/");
     revalidatePath("/servers");
@@ -418,10 +442,13 @@ export async function deleteServerAction(
 
     const serverName = current.name;
     const deletion = await deleteServerProfile(serverId, session);
-    await auditUserAction(session.userId, "server.delete", {
-      serverId,
-      name: serverName,
-    });
+    await auditUserAction(
+      session.userId,
+      "server.delete",
+      { serverId, name: serverName },
+      undefined,
+      session.currentTeamId,
+    );
     revalidatePath("/");
     revalidatePath("/servers");
     revalidatePath("/storage");
