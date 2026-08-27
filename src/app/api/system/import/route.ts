@@ -13,6 +13,7 @@ import { auditUserAction } from "@/lib/audit/service";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { exportFileSchema, importOptionsSchema } from "@/lib/system/config-schema";
 import { previewImport, executeImport } from "@/lib/system/import-service";
+import { assertPlatformAdminForConfigImport } from "@/lib/system/platform-admin";
 
 export const dynamic = "force-dynamic";
 
@@ -29,27 +30,31 @@ export async function POST(request: Request) {
       bodySchema: importBodySchema,
     },
     async ({ session, body }) => {
+      // `user:manage` opens the settings tab, but an import writes the global
+      // RBAC catalog and trusts each row's teamId — that needs the platform
+      // admin role, matching the bar the export side already enforces.
+      assertPlatformAdminForConfigImport(session);
       const { file, ...options } = body;
 
       if (options.dryRun) {
         // 预览模式：不写入
         const preview = await previewImport(file, options);
-        await auditUserAction(session?.userId ?? "", "system.import.preview", {
+        await auditUserAction(session!.userId, "system.import.preview", {
           totalRecords: preview.totalRecords,
           schemaVersion: file.schemaVersion,
-        }, undefined, session?.currentTeamId);
+        }, undefined, session!.currentTeamId);
         return NextResponse.json({ preview });
       }
 
       // 实际导入
       const result = await executeImport(file, options);
-      await auditUserAction(session?.userId ?? "", "system.import", {
+      await auditUserAction(session!.userId, "system.import", {
         created: result.created,
         updated: result.updated,
         skipped: result.skipped,
         errors: result.errors,
         sourceDomain: file.sourceDomain,
-      }, undefined, session?.currentTeamId);
+      }, undefined, session!.currentTeamId);
 
       if (result.rolledBack) {
         return NextResponse.json(

@@ -19,6 +19,8 @@ type Props = {
   runtimeSettings?: RuntimeSettingSummary[];
 	settingUpdateMetadata?: Record<string, SettingUpdateMetadata>;
 	canManage: boolean;
+	/** Built-in `admin` role — required by the config import/export surface. */
+	isPlatformAdmin?: boolean;
 	teamCapabilities: TeamCapabilities;
 	defaultPageOptions?: readonly DefaultPageOption[];
 };
@@ -72,6 +74,7 @@ export function UnifiedSettingsPageClient({
   runtimeSettings = [],
 	settingUpdateMetadata = {},
 	canManage,
+	isPlatformAdmin = false,
 	teamCapabilities,
 	defaultPageOptions = DEFAULT_PAGE_OPTIONS,
 }: Props) {
@@ -288,7 +291,9 @@ export function UnifiedSettingsPageClient({
 			showCategoryNav={false}
             visibleSectionIds={visibleSectionIds}
           />
-          {activeTab === "advanced" && canManage && <SystemConfigSection />}
+          {activeTab === "advanced" && canManage && (
+            <SystemConfigSection isPlatformAdmin={isPlatformAdmin} />
+          )}
         </div>
       </SplitPane>
     </div>

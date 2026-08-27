@@ -24,6 +24,7 @@ import {
 import type { SessionPayload } from "@/lib/auth/session";
 import { ValidationError, ForbiddenError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
+import { isPlatformAdmin } from "./platform-admin";
 
 import {
   exportPermissions,
@@ -56,10 +57,6 @@ export type ExportOptions = {
   session: SessionPayload;
 };
 
-function isPlatformAdmin(session: SessionPayload): boolean {
-  return session.roles.includes("admin");
-}
-
 export function resolveExportAuthorization(input: {
   session: SessionPayload;
   mode: ExportMode;
@@ -86,33 +83,20 @@ export function resolveExportAuthorization(input: {
   return { mode, scope, teamId: scope === "global" ? null : teamId };
 }
 
-export async function buildExportFile(
-  sourceDomainOrOptions: string | ExportOptions,
-  legacyMode: ExportMode = "standard",
-): Promise<ExportFile> {
-  let sourceDomain: string;
-  let mode: ExportMode;
-  let scope: ExportScope;
-  let teamId: string | null;
-
-  if (typeof sourceDomainOrOptions === "string") {
-    sourceDomain = sourceDomainOrOptions;
-    mode = legacyMode;
-    scope = "global";
-    teamId = null;
-  } else {
-    const opts = sourceDomainOrOptions;
-    sourceDomain = opts.sourceDomain;
-    const resolved = resolveExportAuthorization({
-      session: opts.session,
-      mode: opts.mode ?? "standard",
-      scope: opts.scope ?? "team",
-      teamId: opts.teamId,
-    });
-    mode = resolved.mode;
-    scope = resolved.scope;
-    teamId = resolved.teamId;
-  }
+/**
+ * Build the export payload. The session is mandatory on purpose: the removed
+ * `buildExportFile("domain")` overload defaulted to `scope: "global"` with no
+ * authorization at all, so any future internal caller would have produced a
+ * cross-tenant (and, with `mode: "full"`, secret-bearing) dump unnoticed.
+ */
+export async function buildExportFile(options: ExportOptions): Promise<ExportFile> {
+  const sourceDomain = options.sourceDomain;
+  const { mode, scope, teamId } = resolveExportAuthorization({
+    session: options.session,
+    mode: options.mode ?? "standard",
+    scope: options.scope ?? "team",
+    teamId: options.teamId,
+  });
 
   const users = await exportUsers(mode, scope, teamId);
   const userIds = users.map((u) => u.id);

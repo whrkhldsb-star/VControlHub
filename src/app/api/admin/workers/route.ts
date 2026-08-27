@@ -21,7 +21,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { permission: "task:read", errorMessage: "Fetch worker StatusFailed" },
+    { permission: "task:read", errorMessage: "Failed to fetch worker status" },
     async () => {
       const workers = await getWorkerRuntimeHealth();
       const startedCount = workers.filter((w) => w.started).length;

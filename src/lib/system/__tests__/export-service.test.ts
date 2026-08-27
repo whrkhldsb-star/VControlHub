@@ -129,10 +129,29 @@ vi.mock("@/lib/db", () => ({
 }));
 
 import { buildExportFile } from "@/lib/system/export-service";
+import type { SessionPayload } from "@/lib/auth/session";
+
+const ADMIN_SESSION: SessionPayload = {
+  userId: "u_admin",
+  username: "admin",
+  roles: ["admin"],
+  mustChangePassword: false,
+  currentTeamId: null,
+};
+
+/** Platform-wide export: the only scope that sees every table. */
+function globalExport(mode: "standard" | "full" = "standard") {
+  return buildExportFile({
+    sourceDomain: "test.example.com",
+    mode,
+    scope: "global",
+    session: ADMIN_SESSION,
+  });
+}
 
 describe("export-service sanitization", () => {
   it("should strip User.passwordHash and twoFactorSecret", async () => {
-    const result = await buildExportFile("test.example.com");
+    const result = await globalExport();
     const user = result.tables.users[0]!;
     expect(user.passwordHash).toBeNull();
     expect(user.twoFactorSecret).toBeNull();
@@ -140,28 +159,28 @@ describe("export-service sanitization", () => {
   });
 
   it("should strip SshKey.privateKey", async () => {
-    const result = await buildExportFile("test.example.com");
+    const result = await globalExport();
     const key = result.tables.sshKeys[0]!;
     expect(key.privateKey).toBeNull();
     expect(key.publicKey).toBe("ssh-ed25519 AAAA test"); // public key preserved
   });
 
   it("should strip Server.password", async () => {
-    const result = await buildExportFile("test.example.com");
+    const result = await globalExport();
     const server = result.tables.servers[0]!;
     expect(server.password).toBeNull();
     expect(server.host).toBe("1.2.3.4"); // non-sensitive preserved
   });
 
   it("should strip AiProvider.apiKey", async () => {
-    const result = await buildExportFile("test.example.com");
+    const result = await globalExport();
     const ai = result.tables.aiProviders[0]!;
     expect(ai.apiKey).toBeNull();
     expect(ai.name).toBe("openai"); // non-sensitive preserved
   });
 
   it("should clear sensitive Setting values", async () => {
-    const result = await buildExportFile("test.example.com");
+    const result = await globalExport();
     const settings = result.tables.settings;
     const smtpPwd = settings.find((s) => s.key === "smtp.password");
     const tgToken = settings.find((s) => s.key === "telegram.botToken");
@@ -173,7 +192,7 @@ describe("export-service sanitization", () => {
   });
 
   it("should redact QuickService envJson/volumesJson in standard mode", async () => {
-    const result = await buildExportFile("test.example.com");
+    const result = await globalExport();
     const qs = result.tables.quickServices[0]!;
     expect(qs.envJson).toBe("{}");
     expect(qs.volumesJson).toBe("[]");
@@ -181,14 +200,14 @@ describe("export-service sanitization", () => {
   });
 
   it("should keep QuickService envJson/volumesJson in full mode", async () => {
-    const result = await buildExportFile("test.example.com", "full");
+    const result = await globalExport("full");
     const qs = result.tables.quickServices[0]!;
     expect(qs.envJson).toContain("super-secret");
     expect(qs.volumesJson).toContain("/data");
   });
 
   it("should set correct schema version and metadata", async () => {
-    const result = await buildExportFile("test.example.com");
+    const result = await globalExport();
     expect(result.schemaVersion).toBe(1);
     expect(result.exportedAt).toBeTruthy();
     expect(result.sourceDomain).toBe("test.example.com");

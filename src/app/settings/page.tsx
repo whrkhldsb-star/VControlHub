@@ -44,6 +44,10 @@ const SETTINGS_AUDIT_KEYS = [
 export default async function SettingsPage() {
 	const session = await requireSession();
 	const canManage = sessionHasPermission(session, "user:manage");
+	// Config import, cross-team export and secret-bearing export are reserved for
+	// the built-in admin role — `user:manage` can also arrive as a direct grant,
+	// and the API refuses those callers (see lib/system/platform-admin.ts).
+	const isPlatformAdmin = session.roles.includes("admin");
 	// Team workspaces authorize per workspace, not via the admin-only `user:manage`
 	// gate that guards the rest of this page.
 	const teamCapabilities = {
@@ -70,6 +74,7 @@ export default async function SettingsPage() {
 				runtimeSettings={runtimeSettings}
 				settingUpdateMetadata={settingUpdateMetadata}
 				canManage={canManage}
+				isPlatformAdmin={isPlatformAdmin}
 				teamCapabilities={teamCapabilities}
 				defaultPageOptions={defaultPageOptions}
 			/>

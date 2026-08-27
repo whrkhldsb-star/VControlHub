@@ -17,7 +17,16 @@ import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 import { Notice } from "@/components/ui-primitives";
 
-export function SystemConfigSection() {
+export function SystemConfigSection({
+  isPlatformAdmin = false,
+}: {
+  /**
+   * Built-in `admin` role. Config import and the cross-team / secret-bearing
+   * export modes are refused by the API for anyone else (a direct `user:manage`
+   * grant is enough to open this tab), so those controls are not offered.
+   */
+  isPlatformAdmin?: boolean;
+}) {
   const { t } = useI18n();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -201,6 +210,7 @@ async function handlePreview() {
               <span className="text-xs text-[var(--text-muted)]">{t("systemConfig.export.scopeTeamHint")}</span>
             </div>
           </label>
+          {isPlatformAdmin && (
           <label className="flex items-start gap-2.5 text-sm cursor-pointer">
             <input
               type="radio"
@@ -215,9 +225,11 @@ async function handlePreview() {
               <span className="text-xs text-[var(--text-muted)]">{t("systemConfig.export.scopeGlobalHint")}</span>
             </div>
           </label>
+          )}
         </div>
 
-        {/* Export mode selection */}
+        {/* Export mode selection — standard only unless platform admin */}
+        {isPlatformAdmin && (
         <div className="flex flex-col gap-2 py-1">
           <label className="flex items-start gap-2.5 text-sm cursor-pointer">
             <input
@@ -248,6 +260,7 @@ async function handlePreview() {
             </div>
           </label>
         </div>
+        )}
 
         {exportMode === "full" && (
           <div className="rounded-lg border border-[var(--warning-border)] bg-[var(--warning)]/[0.08] px-3.5 py-2.5 text-xs text-[var(--warning)] light:text-[var(--warning)]">
@@ -266,10 +279,12 @@ async function handlePreview() {
         )}
       </div>
 
-      {/* Divider */}
+      {/* Divider + import: import writes the global RBAC catalog, so it is
+          platform-admin only and the API refuses everyone else. */}
+      {isPlatformAdmin && (
+      <>
       <hr className="border-[var(--border)]" />
 
-      {/* Import area */}
       <div className="space-y-3">
         <h4 className="text-sm font-medium text-[var(--text-primary)]">{t("systemConfig.import.title")}</h4>
 
@@ -379,6 +394,8 @@ async function handlePreview() {
           <p className="text-sm text-[var(--danger)] light:text-[var(--danger)]">{importError}</p>
         )}
       </div>
+      </>
+      )}
     </div>
   );
 }
