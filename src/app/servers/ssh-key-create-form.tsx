@@ -4,6 +4,7 @@ import { SubmitButton } from "@/components/submit-button";
 import { createSshKeyAction, type ServerActionState } from "./actions";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { UI_INPUT } from "@/lib/ui/classes";
+import { Notice } from "@/components/ui-primitives";
 import { cn } from "@/lib/ui/cn";
 const initialState: ServerActionState = {
   error: undefined,
@@ -29,14 +30,10 @@ export function SshKeyCreateForm() {
         </p>{" "}
       </div>{" "}
       {state.error && (
-        <div className="rounded-lg bg-[var(--danger-bg)] border border-[var(--danger-border)] px-3.5 py-2.5 text-sm text-[var(--danger)] ">
-          {state.error}
-        </div>
+        <Notice tone="danger">{state.error}</Notice>
       )}{" "}
       {state.success && (
-        <div className="rounded-lg bg-[var(--success-bg)] border border-[var(--success-border)] px-3.5 py-2.5 text-sm text-[var(--success)] ">
-          {state.success}
-        </div>
+        <Notice tone="success">{state.success}</Notice>
       )}{" "}
       <div className="space-y-1.5">
         {" "}

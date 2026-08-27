@@ -9,14 +9,17 @@ import { formatBytes } from "@/lib/format/bytes";
 import { toDateLocale } from "@/lib/i18n/locale-format";
 
 import {
+	healthStatusBadgeTone,
 	statusLabelKey,
 	statusToneClasses,
 	unknownTone,
-	usageBarColor,
+	usageBarTone,
 	usageColor,
 } from "@/app/health/health-dashboard-helpers";
 import type { ServerHealth } from "@/app/health/health-types";
 import { SparklineChartLazy } from "@/app/health/sparkline-chart-lazy";
+import { Notice, ProgressBar } from "@/components/ui-primitives";
+import { StatusBadge } from "@/components/status-badge";
 
 export function formatKbps(kbps: number | undefined): string {
 	if (kbps === undefined || !Number.isFinite(kbps)) return "—";
@@ -54,7 +57,7 @@ function MetricBar({
 					<span className="text-[var(--text-muted)]">{label}</span>
 					<span className="font-mono text-[var(--text-muted)]">—</span>
 				</div>
-				<div className="h-2 overflow-hidden rounded-full bg-[var(--surface-hover)]" />
+				<ProgressBar value={0} />
 			</div>
 		);
 	}
@@ -69,12 +72,7 @@ function MetricBar({
 					) : null}
 				</span>
 			</div>
-			<div className="h-2 overflow-hidden rounded-full bg-[var(--surface-hover)]">
-				<div
-					className={`h-full rounded-full transition-[width] duration-500 ${usageBarColor(value)}`}
-					style={{ width: `${Math.min(100, Math.max(0, value))}%` }}
-				/>
-			</div>
+			<ProgressBar value={value} tone={usageBarTone(value)} />
 		</div>
 	);
 }
@@ -141,11 +139,9 @@ export function VpsNodeCard({
 					</div>
 					<p className="mt-1 truncate font-mono text-[11px] text-[var(--text-muted)]">{server.host}</p>
 				</div>
-				<span
-					className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[10px] font-medium ${sc.bg} ${sc.text}`}
-				>
+				<StatusBadge tone={healthStatusBadgeTone(server.status)} className="shrink-0">
 					{t(statusLabelKey(server.status))}
-				</span>
+				</StatusBadge>
 			</div>
 
 			<div className="space-y-3 px-4 pb-3">
@@ -224,12 +220,7 @@ export function VpsNodeCard({
 			{expanded ? (
 				<div className="border-t border-[var(--border-subtle)] bg-[var(--surface-elevated)] p-3">
 					{historyError ? (
-						<div
-							role="alert"
-							className="rounded-xl border border-[var(--danger-border)] p-2 text-xs text-[var(--danger)]"
-						>
-							{historyError}
-						</div>
+						<Notice tone="danger" compact>{historyError}</Notice>
 					) : history ? (
 						<div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] p-2">
 							<SparklineChartLazy data={history} locale={locale} />

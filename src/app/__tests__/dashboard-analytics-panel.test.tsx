@@ -51,7 +51,7 @@ describe("DashboardAnalyticsPanel", () => {
 
     renderPanel();
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("趋势数据暂不可用: analytics unavailable");
+    expect(await screen.findByText(/趋势数据暂不可用/)).toHaveTextContent("趋势数据暂不可用: analytics unavailable");
   });
 
   it("uses the active locale for dashboard analytics labels", async () => {

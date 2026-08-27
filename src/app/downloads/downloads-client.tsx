@@ -7,7 +7,7 @@ import { Download } from "@/components/icons";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useToast } from "@/components/toast-provider";
 import { useWsNotifications } from "@/lib/ws/use-ws-notifications";
-import { ModalShell } from "@/components/modal-shell";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useVisibilityInterval } from "@/lib/hooks/use-visibility-interval";
 import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
 import { CreateDownloadFormLazy } from "./create-download-form-lazy";
@@ -483,23 +483,16 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
           </div>
         ) : null}
       </ListPanel>
-			{pendingPurgeTaskId ? (
-				<ModalShell
-					open={pendingPurgeTaskId !== null}
-					onClose={() => setPendingPurgeTaskId(null)}
-					labelledBy="download-purge-title"
-					overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] px-4 backdrop-blur-sm"
-					panelClassName="w-full max-w-md rounded-2xl border border-[var(--danger-border)] bg-[var(--modal-bg)] p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]"
-					as="section"
-				>
-						<h3 id="download-purge-title" className="text-lg font-semibold text-[var(--text-primary)]">{t("common.confirmDelete")}</h3>
-						<p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">{t("downloadsPage.confirm.purge", { name: pendingPurgeName })}</p>
-						<div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-							<ActionButton variant="secondary" onClick={() => setPendingPurgeTaskId(null)} className="min-h-11 !px-4 !py-2 !text-sm">{t("common.cancel")}</ActionButton>
-							<ActionButton variant="danger-solid" disabled={Boolean(busyActions[`${pendingPurgeTaskId}:purge`])} onClick={() => void handleAction(pendingPurgeTaskId, "purge")} className="min-h-11 !px-4 !py-2 !text-sm disabled:opacity-60">{t("common.confirmDelete")}</ActionButton>
-						</div>
-				</ModalShell>
-			) : null}
+			<ConfirmDialog
+				open={pendingPurgeTaskId !== null}
+				title={t("common.confirmDelete")}
+				description={t("downloadsPage.confirm.purge", { name: pendingPurgeName })}
+				cancelLabel={t("common.cancel")}
+				confirmLabel={t("common.confirmDelete")}
+				busy={pendingPurgeTaskId ? Boolean(busyActions[`${pendingPurgeTaskId}:purge`]) : false}
+				onCancel={() => setPendingPurgeTaskId(null)}
+				onConfirm={() => { if (pendingPurgeTaskId) void handleAction(pendingPurgeTaskId, "purge"); }}
+			/>
 		</div>
 	);
 }

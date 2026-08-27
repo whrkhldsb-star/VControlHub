@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { UI_INPUT } from "@/lib/ui/classes";
+import { cn } from "@/lib/ui/cn";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 
@@ -77,7 +78,7 @@ export function CreateAnnouncementForm() {
 			</div>
 			<div className="grid gap-1.5">
 				<label htmlFor={contentId} className="text-xs font-medium text-[var(--text-secondary)]">{t("announcementsPage.create.contentLabel")}</label>
-				<textarea id={contentId} name="content" required rows={3} aria-describedby={`${contentId}-hint`} className="rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] resize-y" />
+				<textarea id={contentId} name="content" required rows={3} aria-describedby={`${contentId}-hint`} className={cn(UI_INPUT, "resize-y")} />
 				<p id={`${contentId}-hint`} className="text-[11px] text-[var(--text-muted)]">{t("announcementsPage.create.contentHint")}</p>
 			</div>
 			<div className="grid gap-3 md:grid-cols-2">

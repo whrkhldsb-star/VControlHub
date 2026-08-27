@@ -7,6 +7,7 @@ import { formatBytes as formatBytesShared } from "@/lib/format/bytes";
 import { formatShortTime } from "@/lib/datetime/format";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { EmptyState } from "@/components/page-shell";
+import { Notice } from "@/components/ui-primitives";
 import { getErrorMessage } from "@/lib/http/error-message";
 
 type ServerMetricPoint = {
@@ -111,9 +112,7 @@ export function DashboardAnalyticsPanel() {
       </div>
 
       {error ? (
-        <div data-tone="amber" className="mt-4 rounded-xl border border-[var(--warning-border)] bg-[var(--warning-bg)] px-4 py-3 text-sm text-[var(--warning)]" role="alert">
-          {t("dashboard.analytics.unavailable")}: {error}
-        </div>
+        <Notice tone="warning">{t("dashboard.analytics.unavailable")}: {error}</Notice>
       ) : null}
 
       {!loading && !error && data ? (

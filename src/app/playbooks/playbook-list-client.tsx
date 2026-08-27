@@ -14,6 +14,7 @@ import { PlaybookDeleteDialog } from "./playbook-delete-dialog";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 import { PaginatedList } from "@/components/paginated-list";
+import { Notice } from "@/components/ui-primitives";
 
 const RUN_POLL_DELAYS_MS = [2_000, 5_000, 10_000, 20_000, 30_000, 45_000, 60_000, 90_000, 120_000, 180_000, 240_000, 300_000] as const;
 
@@ -203,9 +204,7 @@ export function PlaybookListClient({
   return (
     <div className="space-y-6">
       {actionError && (
-        <div role="alert" className="rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] px-3.5 py-2.5 text-sm text-[var(--danger)]">
-          {actionError}
-        </div>
+        <Notice tone="danger">{actionError}</Notice>
       )}
       <Toolbar className="justify-end">
         {canManage && !showCreate && (

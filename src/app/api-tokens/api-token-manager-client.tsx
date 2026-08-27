@@ -7,7 +7,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { formatDateTime } from "@/lib/datetime/format";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
-import { ModalShell } from "@/components/modal-shell";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
 import { CheckboxField, FormField, FormGrid, Notice } from "@/components/ui-primitives";
 import { UI_INPUT } from "@/lib/ui/classes";
@@ -212,29 +212,15 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
           </div>
         )}
       </section>
-      {tokenPendingRevoke && (
-        <ModalShell
-          open
-          onClose={() => setTokenPendingRevoke(null)}
-          labelledBy="revoke-api-token-title"
-          as="section"
-          overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]/70 px-4 backdrop-blur-sm"
-          panelClassName="w-full max-w-md rounded-2xl border border-[var(--danger-border)] bg-[var(--modal-bg)] p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]"
-        >
-            <h2 id="revoke-api-token-title" className="text-lg font-semibold text-[var(--text-primary)]">{t("apiTokensPage.revoke.confirmTitle")}</h2>
-            <p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">
-              {t("apiTokensPage.revoke.confirmBody", { name: tokenPendingRevoke.name })}
-            </p>
-            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-              <ActionButton variant="secondary" onClick={() => setTokenPendingRevoke(null)} className="!px-4 !py-2 !text-sm">
-                {t("apiTokensPage.revoke.cancel")}
-              </ActionButton>
-              <ActionButton variant="danger-solid" onClick={() => revokeToken(tokenPendingRevoke)} className="!px-4 !py-2 !text-sm">
-                {t("apiTokensPage.revoke.confirm")}
-              </ActionButton>
-            </div>
-        </ModalShell>
-      )}
+      <ConfirmDialog
+        open={tokenPendingRevoke !== null}
+        title={t("apiTokensPage.revoke.confirmTitle")}
+        description={tokenPendingRevoke ? t("apiTokensPage.revoke.confirmBody", { name: tokenPendingRevoke.name }) : ""}
+        cancelLabel={t("apiTokensPage.revoke.cancel")}
+        confirmLabel={t("apiTokensPage.revoke.confirm")}
+        onCancel={() => setTokenPendingRevoke(null)}
+        onConfirm={() => tokenPendingRevoke && revokeToken(tokenPendingRevoke)}
+      />
     </div>
   );
 }

@@ -8,7 +8,9 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import type { Locale } from "@/lib/i18n/translations";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
+import { StatusBadge } from "@/components/status-badge";
 import { Notice } from "@/components/ui-primitives";
+import { UI_INPUT } from "@/lib/ui/classes";
 import { PaginatedList } from "@/components/paginated-list";
 import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
 import { formatDateTime } from "@/lib/datetime/format";
@@ -64,8 +66,8 @@ function matchesTask(task: Task, query: string) {
 }
 
 const fieldLabelClass = "text-xs font-medium text-[var(--text-secondary)] tracking-wide";
-const fieldInputClass = "w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--input-border-focus)] focus:shadow-[0_0_0_3px_var(--input-ring)]";
-const monoFieldInputClass = `${fieldInputClass} font-mono`;
+const fieldInputClass = UI_INPUT;
+const monoFieldInputClass = `${UI_INPUT} font-mono`;
 
 function describeCronPreview(expr: string, t: (key: string, vars?: Record<string, string | number>) => string) {
 	const parts = expr.trim().split(/\s+/);
@@ -88,6 +90,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, template
 	const [showCreate, setShowCreate] = useState(false);
 	const [taskPendingDelete, setTaskPendingDelete] = useState<Task | null>(null);
 	const [actionError, setActionError] = useState<string | null>(null);
+	const [busyId, setBusyId] = useState<string | null>(null);
 	const { state: filters, setField: setFilter } = useUrlQueryState({ q: "" });
 	const searchQuery = filters.q;
 
@@ -103,6 +106,8 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, template
 	const filteredTasks = useMemo(() => tasks.filter((task) => matchesTask(task, searchQuery)), [tasks, searchQuery]);
 
 	const toggleTask = useCallback(async (id: string) => {
+		if (busyId) return;
+		setBusyId(id);
 		setActionError(null);
 		try {
 			await csrfFetch("/api/scheduled-tasks", {
@@ -113,10 +118,14 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, template
 			void refresh();
 		} catch (err) {
 			setActionError(getErrorMessage(err, t("scheduledTasks.toggleFailed")));
+		} finally {
+			setBusyId(null);
 		}
-	}, [refresh, t]);
+	}, [busyId, refresh, t]);
 
 	const retryTask = useCallback(async (id: string) => {
+		if (busyId) return;
+		setBusyId(id);
 		setActionError(null);
 		try {
 			await csrfFetch("/api/scheduled-tasks", {
@@ -127,10 +136,14 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, template
 			void refresh();
 		} catch (err) {
 			setActionError(getErrorMessage(err, t("scheduledTasks.retryFailed")));
+		} finally {
+			setBusyId(null);
 		}
-	}, [refresh, t]);
+	}, [busyId, refresh, t]);
 
 	const deleteTask = useCallback(async (task: Task) => {
+		if (busyId) return;
+		setBusyId(task.id);
 		setTaskPendingDelete(null);
 		setActionError(null);
 		try {
@@ -138,8 +151,10 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, template
 			void refresh();
 		} catch (err) {
 			setActionError(getErrorMessage(err, t("scheduledTasks.deleteFailed")));
+		} finally {
+			setBusyId(null);
 		}
-	}, [refresh, t]);
+	}, [busyId, refresh, t]);
 
 	return (
 		<div className="space-y-6">
@@ -191,9 +206,9 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, template
 								<div className="min-w-0 flex-1">
 									<div className="flex flex-wrap items-center gap-2.5">
 										<h2 className="text-lg font-semibold text-[var(--text-primary)]">{task.name}</h2>
-										<span data-tone={statusTone[task.status] ?? "neutral"} className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium">
+										<StatusBadge tone={statusTone[task.status] ?? "neutral"} size="sm">
 											{statusLabelFor(task.status, t)}
-										</span>
+										</StatusBadge>
 									</div>
 									<p className="mt-1 text-xs text-[var(--text-muted)]">{task.scheduleType === "ONCE" ? t("scheduledTasks.schedule.once") : <>Cron: <code className="font-mono text-[var(--accent)]">{task.cronExpression}</code> — {task.cronDescription}</>}</p>
 									<div className="mt-1 flex flex-wrap gap-2 text-[11px] text-[var(--text-muted)]">
@@ -220,7 +235,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, template
 								<div className="flex flex-col gap-2 shrink-0">
 									{canManage && (
 										<ActionButton type="button" variant="outline"
-											onClick={() => retryTask(task.id)}
+											onClick={() => retryTask(task.id)} disabled={busyId !== null}
 										
 											className="!min-h-11 !rounded-2xl !px-4 !py-2 !text-xs"
 										>
@@ -229,7 +244,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, template
 									)}
 									{canManage && (
 										<ActionButton type="button" variant={task.status === "ACTIVE" ? "outline" : "success"}
-											onClick={() => toggleTask(task.id)}
+											onClick={() => toggleTask(task.id)} disabled={busyId !== null}
 										
 											className="!min-h-11 !rounded-2xl !px-4 !py-2 !text-xs"
 										>
@@ -238,7 +253,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, template
 									)}
 									{canManage && (
 										<ActionButton type="button" variant="danger"
-											onClick={() => setTaskPendingDelete(task)}
+											onClick={() => setTaskPendingDelete(task)} disabled={busyId !== null}
 										
 											className="!min-h-11 !rounded-2xl !px-4 !py-2 !text-xs"
 										>
@@ -251,7 +266,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, template
 					))}
 				</PaginatedList>
 			)}
-			<ConfirmDialog open={taskPendingDelete !== null} title={t("scheduledTasksPage.delete.title")} description={<>{t("scheduledTasksPage.delete.descPrefix")}<strong className="font-semibold text-[var(--text-primary)]">{taskPendingDelete?.name}</strong>{t("scheduledTasksPage.delete.descSuffix")}</>} cancelLabel={t("scheduledTasksPage.cancel")} confirmLabel={t("scheduledTasksPage.delete.confirm")} onCancel={() => setTaskPendingDelete(null)} onConfirm={() => taskPendingDelete && deleteTask(taskPendingDelete)} closeOnBackdrop={false} />
+			<ConfirmDialog open={taskPendingDelete !== null} title={t("scheduledTasksPage.delete.title")} description={<>{t("scheduledTasksPage.delete.descPrefix")}<strong className="font-semibold text-[var(--text-primary)]">{taskPendingDelete?.name}</strong>{t("scheduledTasksPage.delete.descSuffix")}</>} cancelLabel={t("scheduledTasksPage.cancel")} confirmLabel={t("scheduledTasksPage.delete.confirm")} busy={busyId !== null} onCancel={() => { if (!busyId) setTaskPendingDelete(null); }} onConfirm={() => taskPendingDelete && deleteTask(taskPendingDelete)} closeOnBackdrop={false} />
 		</div>
 	);
 }

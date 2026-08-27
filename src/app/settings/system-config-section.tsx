@@ -15,6 +15,7 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { EXPORT_SCHEMA_VERSION, type ExportFile, type ImportPreview } from "@/lib/system/config-schema";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
+import { Notice } from "@/components/ui-primitives";
 
 export function SystemConfigSection() {
   const { t } = useI18n();
@@ -369,11 +370,9 @@ async function handlePreview() {
 
         {/* Import result */}
         {result && (
-          <div className="p-3 rounded-lg bg-[var(--success-bg)] border border-[var(--success-border)]">
-            <p className="text-sm text-[var(--success)] light:text-[var(--success)]">
-              {t("systemConfig.import.result.success", { created: result.created, updated: result.updated, skipped: result.skipped })}
-            </p>
-          </div>
+          <Notice tone="success">
+            {t("systemConfig.import.result.success", { created: result.created, updated: result.updated, skipped: result.skipped })}
+          </Notice>
         )}
 
         {importError && (

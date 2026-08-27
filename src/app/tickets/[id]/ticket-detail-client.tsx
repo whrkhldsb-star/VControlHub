@@ -11,6 +11,7 @@ import { ActionButton } from "@/components/action-button";
 import { FormField, Notice } from "@/components/ui-primitives";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { getDomainStatusLabel } from "@/lib/i18n/domain-labels";
+import { StatusBadge, type StatusTone } from "@/components/status-badge";
 
 export interface TicketUser { id: string; username: string; displayName: string | null; }
 export interface TicketComment { id: string; body: string; createdAt: string; author: TicketUser; }
@@ -47,11 +48,11 @@ interface TicketDetailClientProps {
   locale?: string;
 }
 
-const STATUS_TONE: Record<string, string> = {
-  OPEN: "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]",
-  IN_PROGRESS: "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)]",
-  RESOLVED: "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]",
-  CLOSED: "border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-secondary)]",
+const STATUS_TONE: Record<string, StatusTone> = {
+  OPEN: "accent",
+  IN_PROGRESS: "warning",
+  RESOLVED: "success",
+  CLOSED: "neutral",
 };
 const PRIORITY_TONE: Record<string, string> = {
   LOW: "text-[var(--text-secondary)]", NORMAL: "text-[var(--text-secondary)]", HIGH: "text-[var(--warning)]", URGENT: "text-[var(--danger)]",
@@ -202,9 +203,9 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
           <div className="min-w-0">
             <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">{ticket.title}</h1>
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${STATUS_TONE[ticket.status] ?? ""}`}>
+              <StatusBadge tone={STATUS_TONE[ticket.status] ?? "neutral"} size="md">
                 {statusLabel(t, ticket.status)}
-              </span>
+              </StatusBadge>
               <span className={`text-xs font-semibold uppercase tracking-[0.08em] ${PRIORITY_TONE[ticket.priority] ?? ""}`}>
                 {priorityLabel(t, ticket.priority)}
               </span>

@@ -10,6 +10,7 @@
 import { useI18n } from "@/lib/i18n/use-locale";
 import type { ViewMode } from "./use-view-mode";
 import { ActionButton } from "@/components/action-button";
+import { StatusBadge } from "@/components/status-badge";
 
 export type FileListToolbarProps = {
   itemCount: number;
@@ -74,13 +75,13 @@ export function FileListToolbar({
             {t("fileListClient.upLevel")}
           </ActionButton>
         ) : null}
-        <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-2.5 py-0.5 text-xs font-medium text-[var(--text-secondary)]">
+        <StatusBadge tone="neutral">
           {t("filesPage.list.itemCount", { count: itemCount })}
-        </span>
+        </StatusBadge>
         {selectedCount > 0 ? (
-          <span className="inline-flex items-center rounded-full border border-[var(--accent-border)] bg-[var(--accent-bg)] px-2.5 py-0.5 text-xs font-semibold text-[var(--accent)]">
+          <StatusBadge tone="accent">
             {t("filesPage.list.selectedCount", { count: selectedCount })}
-          </span>
+          </StatusBadge>
         ) : null}
       </div>
       <div className="flex items-center gap-1 rounded-xl border border-[var(--border)] bg-[var(--modal-bg)] p-1">

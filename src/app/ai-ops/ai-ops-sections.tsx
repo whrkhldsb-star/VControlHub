@@ -13,6 +13,7 @@ import type {
 import type { AiOpsSummary } from "@/lib/ai/ops/service";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { ActionButton } from "@/components/action-button";
+import { Notice } from "@/components/ui-primitives";
 
 export type AiOpsSettings = {
 	mode: AiOpsMode;
@@ -389,10 +390,7 @@ export function AiOpsDetailSection({
 				</div>
 			</div>
 			{selectedLog.errorMessage && (
-				<div className="mt-4 rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] p-3 text-sm text-[var(--danger)]">
-					<div className="text-xs uppercase tracking-wide text-[var(--danger)]">{t("aiOpsPage.detail.errorMessage")}</div>
-					<div className="mt-1">{selectedLog.errorMessage}</div>
-				</div>
+				<Notice tone="danger" title={t("aiOpsPage.detail.errorMessage")}>{selectedLog.errorMessage}</Notice>
 			)}
 		</section>
 	);

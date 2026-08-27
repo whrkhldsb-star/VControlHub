@@ -3,6 +3,7 @@
 import Link from "next/link";
 
 import { EmptyState, StatCard, SurfacePanel, ListPanel, ListRow } from "@/components/page-shell";
+import { StatusBadge, type StatusTone } from "@/components/status-badge";
 import { useI18n } from "@/lib/i18n/use-locale";
 
 const AUDIT_ACTOR_LABEL_KEYS: Record<string, string> = {
@@ -261,7 +262,6 @@ export function DashboardRecentActivity({ recentRequests, recentAuditLogs }: { r
 }
 
 function QuickLink({ href, title, desc, icon, badge, badgeColor }: { href: string; title: string; desc: string; icon: React.ReactNode; badge?: string; badgeColor?: "cyan" | "amber" }) {
-  const badgeBg = badgeColor === "cyan" ? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]" : "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)]";
   return (
     <Link
       data-card
@@ -273,19 +273,15 @@ function QuickLink({ href, title, desc, icon, badge, badgeColor }: { href: strin
       </div>
       <div className="mt-3 text-sm font-semibold text-[var(--text-primary)]">{title}</div>
       <p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">{desc}</p>
-      {badge ? <span className={`mt-2.5 inline-block rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${badgeBg}`}>{badge}</span> : null}
+      {badge ? <StatusBadge className="mt-2.5" tone={badgeColor === "cyan" ? "accent" : "warning"}>{badge}</StatusBadge> : null}
     </Link>
   );
 }
 
 function Badge({ color, children }: { color: "amber" | "emerald" | "rose" | "slate"; children: React.ReactNode }) {
-  const styles = {
-    amber: "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)]",
-    emerald: "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]",
-    rose: "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)]",
-    slate: "border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-secondary)]",
-  };
-  return <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${styles[color]}`}>{children}</span>;
+  const tone: StatusTone =
+    color === "amber" ? "warning" : color === "emerald" ? "success" : color === "rose" ? "danger" : "neutral";
+  return <StatusBadge tone={tone}>{children}</StatusBadge>;
 }
 
 function ServerIcon() { return <svg className="w-6 h-6" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" /></svg>; }

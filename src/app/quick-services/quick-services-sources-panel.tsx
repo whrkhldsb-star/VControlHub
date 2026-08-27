@@ -1,6 +1,7 @@
 "use client";
 
 import { ActionButton } from "@/components/action-button";
+import { StatusBadge } from "@/components/status-badge";
 import { formatDateTime } from "@/lib/datetime/format";
 import { UI_INPUT } from "@/lib/ui/classes";
 /**
@@ -199,13 +200,13 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 							</div>
 						</div>
 						<div className="flex items-center gap-2">
-							<span className={`rounded-full border px-2 py-0.5 text-xs ${src.enabled ?"border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]" :"border-[var(--border)] text-[var(--text-muted)]"}`}>
+							<StatusBadge tone={src.enabled ? "success" : "neutral"} size="sm">
 								{src.enabled ? t("quickServicesPage.sources.status.enabled") : t("quickServicesPage.sources.status.disabled")}
-							</span>
+							</StatusBadge>
 							{src.lastSyncStatus && (
-								<span className={`rounded-full border px-2 py-0.5 text-xs ${src.lastSyncStatus ==="success" ?"border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]" :"border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)]"}`}>
+								<StatusBadge tone={src.lastSyncStatus === "success" ? "success" : "danger"} size="sm">
 									{src.lastSyncStatus ==="success" ? t("quickServicesPage.sources.status.syncSuccess") : t("quickServicesPage.sources.status.syncFailed")}
-								</span>
+								</StatusBadge>
 							)}
 						</div>
 					</div>

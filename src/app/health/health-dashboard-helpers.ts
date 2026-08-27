@@ -1,6 +1,7 @@
 /** Pure helpers / tone maps for the health dashboard. */
 
 import type { SystemHealthStatus, SystemHealthSummary } from "./health-types";
+import type { BadgeTone } from "@/components/ui-primitives";
 
 export type { SystemHealthStatus, SystemHealthSummary };
 
@@ -134,6 +135,20 @@ export function statusLabelKey(status: string): `healthPage.status.${HealthStatu
 	return `healthPage.status.${status in statusToneClasses ? (status as HealthStatusKey) : "unknown"}`;
 }
 
+/** Maps a health status to the shared StatusBadge tone (offline/unknown/other → neutral). */
+export function healthStatusBadgeTone(status: string): "success" | "warning" | "danger" | "neutral" {
+	switch (status) {
+		case "healthy":
+			return "success";
+		case "warning":
+			return "warning";
+		case "critical":
+			return "danger";
+		default:
+			return "neutral";
+	}
+}
+
 export function usageColor(val: number | undefined, warn = 80, crit = 95): string {
 	if (val === undefined) return "text-[var(--text-muted)]";
 	if (val >= crit) return "text-[var(--danger)]";
@@ -146,6 +161,15 @@ export function usageBarColor(val: number | undefined, warn = 80, crit = 95): st
 	if (val >= crit) return "bg-[var(--danger)]";
 	if (val >= warn) return "bg-[var(--warning)]";
 	return "bg-[var(--success)]";
+}
+
+/** Tone equivalent of usageBarColor, for the shared ProgressBar primitive.
+ *  undefined → "neutral" (rendered at 0 width, so never visible). */
+export function usageBarTone(val: number | undefined, warn = 80, crit = 95): BadgeTone {
+	if (val === undefined) return "neutral";
+	if (val >= crit) return "danger";
+	if (val >= warn) return "warning";
+	return "success";
 }
 
 export function tt(

@@ -8,9 +8,10 @@ import { formatDate, formatDateTime } from "@/lib/datetime/format";
 import { AnnouncementEditModal } from "./announcement-edit-modal";
 import { Pencil, Trash2, Search } from "@/components/icons";
 import { getErrorMessage } from "@/lib/http/error-message";
-import { ActionButton } from "@/components/action-button";
-import { ModalShell } from "@/components/modal-shell";
-import { IconButton, Notice } from "@/components/ui-primitives";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { IconButton } from "@/components/ui-primitives";
+import { UI_INPUT } from "@/lib/ui/classes";
+import { cn } from "@/lib/ui/cn";
 import { PaginatedList } from "@/components/paginated-list";
 
 interface Announcement {
@@ -151,14 +152,14 @@ export function AnnouncementList({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t("announcementsPage.search.placeholder")}
-            className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] py-2.5 pl-9 pr-4 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
+            className={cn(UI_INPUT, "pl-9 pr-4")}
           />
         </div>
         <select
           value={levelFilter}
           onChange={(e) => setLevelFilter(e.target.value)}
           aria-label={t("announcementsPage.filter.label")}
-          className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2.5 text-sm text-[var(--text-primary)] outline-none"
+          className={cn(UI_INPUT, "w-auto")}
         >
           {levels.map((l) => (
             <option key={l} value={l}>{l ==="ALL" ? t("announcementsPage.filter.all") : levelLabel(t, l)}</option>
@@ -189,28 +190,18 @@ export function AnnouncementList({
         />
       )}
 
-      {pendingDelete && (
-        <ModalShell
-          open
-          onClose={() => setPendingDelete(null)}
-          labelledBy="delete-announcement-title"
-          closeOnBackdrop={false}
-          overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]/70 p-4 backdrop-blur-sm"
-          panelClassName="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-5 shadow-2xl shadow-black/30"
-        >
-            <h3 id="delete-announcement-title" className="text-base font-semibold text-[var(--text-primary)]">{t("announcementsPage.delete.title")}</h3>
-            <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{t("announcementsPage.delete.confirm", { title: pendingDelete.title })}</p>
-            {deleteError && <Notice tone="danger" compact className="mt-3">{deleteError}</Notice>}
-            <div className="mt-5 flex justify-end gap-2">
-              <button type="button" disabled={deleteBusy} onClick={() => { setPendingDelete(null); setDeleteError(null); }} data-card className="px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-50">
-                {t("announcementsPage.delete.cancel")}
-              </button>
-              <ActionButton variant="danger" disabled={deleteBusy} onClick={handleDelete} className="!px-4 !py-2 !text-sm disabled:opacity-50">
-                {deleteBusy ? t("announcementsPage.delete.deleting") : t("announcementsPage.delete.confirmBtn")}
-              </ActionButton>
-            </div>
-        </ModalShell>
-      )}
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title={t("announcementsPage.delete.title")}
+        description={pendingDelete ? t("announcementsPage.delete.confirm", { title: pendingDelete.title }) : ""}
+        cancelLabel={t("announcementsPage.delete.cancel")}
+        confirmLabel={deleteBusy ? t("announcementsPage.delete.deleting") : t("announcementsPage.delete.confirmBtn")}
+        busy={deleteBusy}
+        error={deleteError}
+        onCancel={() => { setPendingDelete(null); setDeleteError(null); }}
+        onConfirm={handleDelete}
+        closeOnBackdrop={false}
+      />
     </>
   );
 }

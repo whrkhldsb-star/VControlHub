@@ -10,7 +10,7 @@
 
 import { CapacityForecastPanel } from "@/app/health/capacity-forecast-panel";
 import { FleetResourceSummary, SummaryCard } from "@/app/health/health-dashboard-parts";
-import { ActionButton } from "@/components/action-button";
+import { Notice } from "@/components/ui-primitives";
 
 import { useVpsStatusView } from "./use-vps-status-view";
 import { VpsNodeCard } from "./vps-node-card";
@@ -46,34 +46,23 @@ export function VpsStatusClient({ serverCount }: Props) {
 
 	if (!overview && loadError) {
 		return (
-			<div
-				data-tone="rose"
-				className="rounded-xl border border-[var(--danger-border)] p-4 text-sm text-[var(--danger)]"
-				role="alert"
+			<Notice
+				tone="danger"
+				action={{
+					label: isRefreshing ? t("healthPage.ui.retrying") : t("healthPage.ui.retryLoad"),
+					onClick: () => void fetchHealth(),
+					disabled: isRefreshing,
+				}}
 			>
-				<div>{loadError}</div>
-				<ActionButton variant="danger"
-					onClick={() => void fetchHealth()}
-					disabled={isRefreshing}
-				
-					className="!mt-3 !px-3 !py-1.5 !text-xs disabled:cursor-not-allowed disabled:opacity-50"
-				>
-					{isRefreshing ? t("healthPage.ui.retrying") : t("healthPage.ui.retryLoad")}
-				</ActionButton>
-			</div>
+				{loadError}
+			</Notice>
 		);
 	}
 
 	return (
 		<div className="space-y-6">
 			{loadError ? (
-				<div
-					role="alert"
-					data-tone="rose"
-					className="rounded-xl border border-[var(--danger-border)] p-3 text-sm text-[var(--danger)]"
-				>
-					{loadError}
-				</div>
+				<Notice tone="danger">{loadError}</Notice>
 			) : null}
 
 			<section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">

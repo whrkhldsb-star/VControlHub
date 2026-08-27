@@ -1,6 +1,7 @@
 "use client";
 
 import { ActionButton } from "@/components/action-button";
+import { StatusBadge } from "@/components/status-badge";
 /**
  * `ServiceCard` — single Quick Service tile used in both the
  * "推荐快速服务" rail and the per-category grid.
@@ -17,14 +18,6 @@ import { ActionButton } from "@/components/action-button";
 
 import { buildQuickServiceAccessDescriptor } from "@/lib/quick-service/access-url";
 import { useI18n } from "@/lib/i18n/use-locale";
-
-const statusColor: Record<string, string> = {
-	available: "text-[var(--text-muted)]",
-	installing: "text-[var(--warning)]",
-	running: "text-[var(--success)]",
-	stopped: "text-[var(--text-muted)]",
-	error: "text-[var(--danger)]",
-};
 
 const statusLabelKeys: Record<string, string> = {
 	available: "qsPage.statusAvailable",
@@ -105,9 +98,9 @@ export function ServiceCard({
 							{item.source}
 						</span>
 					)}
-					<span className={`rounded-full border px-1.5 py-0.5 text-xs font-medium ${statusColor[item.status] ?? "text-[var(--text-muted)]"} ${item.status === "running" ? "border-[var(--success-border)] bg-[var(--success-bg)]" : item.status === "error" ? "border-[var(--danger-border)] bg-[var(--danger-bg)]" : "border-[var(--border)]"}`}>
+					<StatusBadge tone={item.status === "running" ? "success" : item.status === "error" ? "danger" : item.status === "installing" ? "warning" : "neutral"} size="sm">
 						{(statusLabelKeys[item.status] && t(statusLabelKeys[item.status] as string)) || item.status}
-					</span>
+					</StatusBadge>
 				</div>
 			</div>
 

@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
-import { ModalShell } from "@/components/modal-shell";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ActionButton } from "@/components/action-button";
 import { FormField, FormGrid, IconButton, Notice } from "@/components/ui-primitives";
 import { cn } from "@/lib/ui/cn";
@@ -375,45 +375,16 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
           {renderList("volumes", volumes)}
         </div>{" "}
       </div>{" "}
-      {pendingDelete ? (
-        <ModalShell
-          open={pendingDelete !== null}
-          onClose={() => setPendingDelete(null)}
-          labelledBy="docker-resource-delete-title"
-          overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]/70 px-4 backdrop-blur-sm"
-          panelClassName="w-full max-w-md rounded-2xl border border-[var(--danger-border)] bg-[var(--modal-bg)] p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]"
-          closeOnBackdrop={false}
-          as="section"
-        >
-          {" "}
-            <h3
-              id="docker-resource-delete-title"
-              className="text-lg font-semibold text-[var(--text-primary)]"
-            >
-              {formatCopy(t("dockerResources.confirm.delete"), {
-                kind: resourceKind(pendingDelete.type),
-                name: pendingDelete.name,
-              })}
-            </h3>{" "}
-            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-              {" "}
-              <ActionButton variant="secondary"
-                onClick={() => setPendingDelete(null)} className="min-h-11 !px-4 !py-2 !text-sm"
-              >
-                {t("dockerResources.cancel")}
-              </ActionButton>{" "}
-              <ActionButton variant="danger-solid"
-                onClick={() => void confirmDeleteResource()}
-                disabled={
-                  busyKey ===
-                  `delete:${pendingDelete.type}:${pendingDelete.name}`
-                } className="min-h-11 !px-4 !py-2 !text-sm disabled:opacity-60"
-              >
-                {t("dockerResources.confirm")}
-              </ActionButton>{" "}
-            </div>{" "}
-        </ModalShell>
-      ) : null}{" "}
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title={pendingDelete ? formatCopy(t("dockerResources.confirm.delete"), { kind: resourceKind(pendingDelete.type), name: pendingDelete.name }) : ""}
+        cancelLabel={t("dockerResources.cancel")}
+        confirmLabel={t("dockerResources.confirm")}
+        busy={pendingDelete ? busyKey === `delete:${pendingDelete.type}:${pendingDelete.name}` : false}
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={() => void confirmDeleteResource()}
+        closeOnBackdrop={false}
+      />
       {detail ? (
         <div className="mt-4 rounded-xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--surface-subtle)_85%,#000)] p-3">
           <div className="mb-2 flex items-center justify-between gap-3">

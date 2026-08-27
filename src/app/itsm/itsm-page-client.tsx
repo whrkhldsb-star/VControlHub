@@ -22,7 +22,7 @@ function eventLabel(t: (key: string) => string, prefix: string, value: string): 
 	return translated === key ? value : translated;
 }
 
-const cardClass = "rounded-xl border border-border/60 bg-card/40 p-4 space-y-3";
+const cardClass = "rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 space-y-3";
 type Props = {
 	initialConnections: ItsmConnectionRecord[];
 	initialEvents: ItsmEventRecord[];
@@ -163,7 +163,7 @@ export function ItsmPageClient({
 			{canManage && (
 				<section className={cardClass}>
 					<h2 className="text-base font-semibold">{t("itsmPage.form.title")}</h2>
-					<p className="text-sm text-muted-foreground">{t("itsmPage.form.desc")}</p>
+					<p className="text-sm text-[var(--text-muted)]">{t("itsmPage.form.desc")}</p>
 					<div className="grid gap-3 md:grid-cols-2">
 						<label className="space-y-1 text-sm">
 							<span>{t("itsmPage.field.name")}</span>
@@ -277,24 +277,24 @@ export function ItsmPageClient({
 					</ActionButton>
 				</div>
 				{connections.length === 0 ? (
-					<p className="text-sm text-muted-foreground">{t("itsmPage.list.empty")}</p>
+					<p className="text-sm text-[var(--text-muted)]">{t("itsmPage.list.empty")}</p>
 				) : (
 					<ul className="space-y-3">
 						{connections.map((row) => (
 							<li
 								key={row.id}
-								className="rounded-lg border border-border/50 bg-background/40 p-3 space-y-2"
+								className="rounded-lg border border-[var(--border)] bg-background/40 p-3 space-y-2"
 							>
 								<div className="flex flex-wrap items-center justify-between gap-2">
 									<div>
 										<div className="font-medium">
 											{row.name}{" "}
-											<span className="text-xs text-muted-foreground">
+											<span className="text-xs text-[var(--text-muted)]">
 												{t(`itsmPage.provider.${row.provider}`)} ·{" "}
 												{t(`itsmPage.direction.${row.direction}`)}
 											</span>
 										</div>
-										<div className="text-xs text-muted-foreground">
+										<div className="text-xs text-[var(--text-muted)]">
 											{row.enabled ? t("itsmPage.status.enabled") : t("itsmPage.status.disabled")}
 											{row.lastError ? ` · ${row.lastError}` : ""}
 										</div>
@@ -326,12 +326,12 @@ export function ItsmPageClient({
 									)}
 								</div>
 								{(row.direction === "inbound" || row.direction === "bidirectional") && (
-									<div className="rounded-md bg-muted/40 p-2 text-xs font-mono break-all">
+									<div className="rounded-md bg-[var(--surface-subtle)] p-2 text-xs font-mono break-all">
 										{t("itsmPage.inboundUrl")}: {baseUrlForInbound}/api/itsm/inbound/{row.id}
 									</div>
 								)}
 								{row.config.webhookUrl && (
-									<div className="text-xs text-muted-foreground break-all">
+									<div className="text-xs text-[var(--text-muted)] break-all">
 										{t("itsmPage.field.webhookUrl")}: {row.config.webhookUrl}
 									</div>
 								)}
@@ -344,24 +344,24 @@ export function ItsmPageClient({
 			<section className={cardClass}>
 				<h2 className="text-base font-semibold">{t("itsmPage.events.title")}</h2>
 				{events.length === 0 ? (
-					<p className="text-sm text-muted-foreground">{t("itsmPage.events.empty")}</p>
+					<p className="text-sm text-[var(--text-muted)]">{t("itsmPage.events.empty")}</p>
 				) : (
 					<ul className="space-y-2 max-h-96 overflow-auto text-sm">
 						{events.map((ev) => (
-							<li key={ev.id} className="border-b border-border/40 py-2 last:border-0">
+							<li key={ev.id} className="border-b border-[var(--border)] py-2 last:border-0">
 								<div className="flex flex-wrap justify-between gap-2">
 									<span>
 										{t(`itsmPage.direction.${ev.direction}`)} · {eventLabel(t, "itsmPage.eventType", ev.eventType)} · {eventLabel(t, "itsmPage.eventStatus", ev.status)}
 									</span>
-									<span className="text-xs text-muted-foreground">
+									<span className="text-xs text-[var(--text-muted)]">
 										{formatDateTime(ev.createdAt, locale)}
 									</span>
 								</div>
 								{ev.ticketId && (
-									<div className="text-xs text-muted-foreground">{t("itsmPage.events.ticket")}: {ev.ticketId}</div>
+									<div className="text-xs text-[var(--text-muted)]">{t("itsmPage.events.ticket")}: {ev.ticketId}</div>
 								)}
 								{ev.errorMessage && (
-									<div className="text-xs text-rose-500">{ev.errorMessage}</div>
+									<div className="text-xs text-[var(--danger)]">{ev.errorMessage}</div>
 								)}
 							</li>
 						))}

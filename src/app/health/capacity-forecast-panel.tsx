@@ -12,6 +12,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { tt as applyTemplate } from "./health-dashboard-helpers";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
+import { StatusBadge, type StatusTone } from "@/components/status-badge";
 
 type CapacityRisk = "ok" | "watch" | "warning" | "critical" | "insufficient_data";
 
@@ -58,6 +59,14 @@ const RISK_TONE: Record<CapacityRisk, string> = {
   warning: "border-[var(--warning-border)] bg-[color-mix(in_srgb,var(--warning-bg)_40%,var(--surface))] text-[var(--warning)]",
   critical: "border-[var(--danger-border)] bg-[color-mix(in_srgb,var(--danger-bg)_40%,var(--surface))] text-[var(--danger)]",
   insufficient_data: "border-[var(--border)] bg-[var(--surface)] text-[var(--text-muted)]",
+};
+
+const RISK_BADGE_TONE: Record<CapacityRisk, StatusTone> = {
+  ok: "success",
+  watch: "neutral",
+  warning: "warning",
+  critical: "danger",
+  insufficient_data: "neutral",
 };
 
 function formatDays(value: number | null, t: (k: string, vars?: Record<string, string | number>) => string): string {
@@ -266,11 +275,9 @@ export function CapacityForecastPanel() {
                         ) : null}
                         {idx === 0 ? (
                           <td className="px-3 py-2 align-top" rowSpan={rows.length}>
-                            <span
-                              className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${RISK_TONE[server.overallRisk]}`}
-                            >
+                            <StatusBadge tone={RISK_BADGE_TONE[server.overallRisk]}>
                               {riskLabel(server.overallRisk, t)}
-                            </span>
+                            </StatusBadge>
                           </td>
                         ) : null}
                         <td className="px-3 py-2 text-[var(--text-secondary)]">

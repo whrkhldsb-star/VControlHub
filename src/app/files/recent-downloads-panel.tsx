@@ -3,9 +3,8 @@
 import { useCallback } from "react";
 
 import { useI18n } from "@/lib/i18n/use-locale";
-import { ActionButton } from "@/components/action-button";
 import { RefreshCw } from "@/components/icons";
-import { IconButton } from "@/components/ui-primitives";
+import { IconButton, Notice } from "@/components/ui-primitives";
 import { formatDateTime } from "@/lib/datetime/format";
 import { api } from "@/lib/http/api-client";
 import { useResourcePolling } from "@/lib/http/use-resource-polling";
@@ -57,15 +56,7 @@ export function RecentDownloadsPanel({
 
       {loading ? <p className="mt-4 text-sm text-[var(--text-muted)]">{t("filesPage.recentDownloads.loading")}</p> : null}
       {!loading && error ? (
-        <div role="alert" className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--danger-border)] bg-[var(--danger-bg)] px-4 py-3 text-sm text-[var(--danger)]">
-          <span>{error}</span>
-          <ActionButton variant="danger"
-            onClick={() => void refresh()}
-          
-          	className="!px-3 !py-1.5 !text-xs !font-medium"
-          >            {t("filesPage.recentDownloads.retry")}
-          </ActionButton>
-        </div>
+        <Notice tone="danger" className="mt-4" action={{ label: t("filesPage.recentDownloads.retry"), onClick: () => void refresh() }}>{error}</Notice>
       ) : null}
       {!loading && !error && downloads.length === 0 ? (
         <p className="mt-4 rounded-2xl border border-dashed border-[var(--border)] px-4 py-5 text-sm text-[var(--text-muted)]">

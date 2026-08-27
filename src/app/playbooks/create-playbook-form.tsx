@@ -23,6 +23,7 @@ import type { TriggerType, SerializedStep, ServerOption } from "./playbook-types
 import { SortableStepCard } from "./sortable-step-card";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
+import { Notice } from "@/components/ui-primitives";
 import { useUnsavedChangesGuard } from "@/lib/forms/use-unsaved-changes-guard";
 
 export function CreatePlaybookForm({
@@ -134,9 +135,7 @@ export function CreatePlaybookForm({
       onChangeCapture={() => setDirty(true)} data-card className="space-y-4">
 			<h3 className="text-lg font-semibold text-[var(--text-primary)]">{t("playbooksPage.createForm.title")}</h3>
 			{error && (
-				<div role="alert" className="rounded-lg bg-[var(--danger-bg)]/20 border border-[var(--danger-border)] px-3.5 py-2.5 text-sm text-[var(--danger)]">
-					{error}
-				</div>
+				<Notice tone="danger">{error}</Notice>
 			)}
 
 			<div className="grid gap-4 md:grid-cols-2">

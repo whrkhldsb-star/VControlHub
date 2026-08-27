@@ -1,7 +1,8 @@
 "use client";
 
 import type { HealthOverview } from "./health-types";
-import { usageBarColor, usageColor, type TFunc } from "./health-dashboard-helpers";
+import { usageBarTone, usageColor, type TFunc } from "./health-dashboard-helpers";
+import { ProgressBar } from "@/components/ui-primitives";
 
 export function SummaryCard({
 	label,
@@ -46,12 +47,7 @@ export function UsageCell({ value }: { value: number | undefined }) {
 	if (value === undefined) return <span className="text-xs text-[var(--text-muted)]">—</span>;
 	return (
 		<div className="flex min-w-[100px] items-center gap-2">
-			<div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--surface-hover)]">
-				<div
-					className={`h-full rounded-full transition-[width] ${usageBarColor(value)}`}
-					style={{ width: `${Math.min(100, value)}%` }}
-				/>
-			</div>
+			<ProgressBar value={value} height="sm" tone={usageBarTone(value)} className="flex-1" />
 			<span className={`w-12 text-right font-mono text-xs tabular-nums ${usageColor(value)}`}>
 				{value.toFixed(1)}%
 			</span>
@@ -69,12 +65,7 @@ function FleetMetricBar({ label, value, unit }: { label: string; value: number; 
 					{unit}
 				</p>
 			</div>
-			<div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--surface)]">
-				<div
-					className={`h-full rounded-full transition-all ${usageBarColor(value)}`}
-					style={{ width: `${Math.min(value, 100)}%` }}
-				/>
-			</div>
+			<ProgressBar value={value} height="sm" tone={usageBarTone(value)} className="mt-2" />
 		</div>
 	);
 }

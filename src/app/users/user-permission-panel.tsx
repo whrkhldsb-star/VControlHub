@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { formatBytes as formatBytesShared } from "@/lib/format/bytes";
 import { EmptyState } from "@/components/page-shell";
+import { Notice } from "@/components/ui-primitives";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { ModalShell } from "@/components/modal-shell";
 import { getErrorMessage } from "@/lib/http/error-message";
@@ -236,7 +237,7 @@ return data as PermissionsPayload;
           <ActionButton variant="secondary" onClick={onClose} className="!px-3 !py-1.5 !text-sm">{t("usersPerm.action.close")}</ActionButton>
         </div>
 
-        {message && <div className={`mb-4 rounded-2xl border px-4 py-3 text-sm ${message.type === "success" ? "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]" : "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)]"}`}>{message.text}</div>}
+        {message && <Notice tone={message.type === "success" ? "success" : "danger"} className="mb-4">{message.text}</Notice>}
         {loading || !payload ? <EmptyState>{t("usersPerm.loading")}</EmptyState> : (
           <div className="space-y-6">
             <section className="rounded-2xl border border-[var(--accent-border)] bg-[var(--accent-bg)] p-4">

@@ -8,6 +8,8 @@ import { CancelCommandButton } from "./cancel-command-button";
 import { AiHostedApprovalCard } from "./ai-hosted-approval-card";
 import { BatchReviewToolbar } from "./batch-review-toolbar";
 import { PageShell, PageHeader, StatCard, StatGrid, EmptyState, ListPanel } from "@/components/page-shell";
+import { StatusBadge } from "@/components/status-badge";
+import { Badge, type BadgeTone } from "@/components/ui-primitives";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { toDateLocale } from "@/lib/i18n/locale-format";
 import { getDomainStatusLabel } from "@/lib/i18n/domain-labels";
@@ -80,7 +82,7 @@ export default async function RequestsPage() {
 						title={t("requestsPage.ai.title", locale)}
 						description={t("requestsPage.ai.desc", locale)}
 						count={aiActions.length}
-						actions={<span className="rounded-full border border-[var(--accent-border)] bg-[var(--accent-bg)] px-3 py-1 text-xs font-medium text-[var(--accent)]">{t("requestsPage.ai.scopeBadge", locale)}</span>}
+						actions={<StatusBadge tone="accent">{t("requestsPage.ai.scopeBadge", locale)}</StatusBadge>}
 						empty={aiActions.length === 0 ? <EmptyState text={t("requestsPage.ai.empty", locale)} /> : undefined}
 						bodyClassName={aiActions.length === 0 ? undefined : "!divide-y-0 space-y-0 bg-transparent p-3"}
 					>
@@ -98,7 +100,7 @@ export default async function RequestsPage() {
 						title={t("requestsPage.cmd.title", locale)}
 						description={t("requestsPage.cmd.desc", locale)}
 						count={sortedRequests.length}
-						actions={<span className="rounded-full border border-[var(--warning-border)] bg-[var(--warning-bg)] px-3 py-1 text-xs font-medium text-[var(--warning)]">{t("requestsPage.cmd.scopeBadge", locale)}</span>}
+						actions={<StatusBadge tone="warning">{t("requestsPage.cmd.scopeBadge", locale)}</StatusBadge>}
 						empty={sortedRequests.length === 0 ? <EmptyState text={t("requestsPage.cmd.empty", locale)} /> : undefined}
 						bodyClassName={sortedRequests.length === 0 ? undefined : "!divide-y-0 space-y-0 bg-transparent p-3"}
 						>
@@ -220,46 +222,23 @@ function getRequestStatusLabel(status: string, locale: Parameters<typeof t>[1]) 
 }
 
 function ApprovalBadge({ status, label }: { status: string; label: string }) {
-	const toneMap: Record<string, "warning" | "success" | "danger" | "neutral" | "info"> = {
+	const toneMap: Record<string, BadgeTone> = {
 		PENDING_APPROVAL: "warning",
 		APPROVED: "success",
-		RUNNING: "info",
+		RUNNING: "accent",
 		COMPLETED: "success",
 		REJECTED: "danger",
 		FAILED: "danger",
 		CANCELLED: "neutral",
 	};
-	const styleMap: Record<string, string> = {
-		PENDING_APPROVAL: "border-[var(--warning-border)] text-[var(--warning)]",
-		APPROVED: "border-[var(--success-border)] text-[var(--success)]",
-		RUNNING: "border-[var(--info-border)] text-[var(--info)]",
-		COMPLETED: "border-[var(--success-border)] text-[var(--success)]",
-		REJECTED: "border-[var(--danger-border)] text-[var(--danger)]",
-		FAILED: "border-[var(--danger-border)] text-[var(--danger)]",
-		CANCELLED: "border-[var(--border)] text-[var(--text-muted)]",
-	};
-	const tone = toneMap[status] ?? "neutral";
-	const style = styleMap[status] ?? "border-[var(--border)] text-[var(--text-secondary)]";
-	return (
-		<span
-			data-tone={tone}
-			className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${style}`}
-		>
-			{label}
-		</span>
-	);
+	return <Badge tone={toneMap[status] ?? "neutral"}>{label}</Badge>;
 }
 
 function InitiatorBadge({ assistant, label }: { assistant: boolean; label: string }) {
 	return (
-		<span
-			data-tone={assistant ? "accent" : "neutral"}
-			className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${
-				assistant ? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]" : "border-[var(--border)] text-[var(--text-muted)]"
-			}`}
-		>
+		<StatusBadge tone={assistant ? "accent" : "neutral"} size="sm">
 			{label}
-		</span>
+		</StatusBadge>
 	);
 }
 

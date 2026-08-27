@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { ActionButton } from "@/components/action-button";
+import { StatusBadge } from "@/components/status-badge";
 import { useI18n } from "@/lib/i18n/use-locale";
 
 import type { AlertIncident } from "./alert-rule-types";
@@ -52,9 +53,9 @@ export function AlertIncidentsSection({
 							>
 								<div className="min-w-0">
 									<div className="flex flex-wrap items-center gap-2">
-										<span className="rounded-full bg-[var(--danger-bg)] px-2 py-0.5 text-[10px] font-semibold text-[var(--danger)]">
+										<StatusBadge tone="danger" size="sm">
 											{t("alertRulesPage.incidents.level", { level: incident.level })}
-										</span>
+										</StatusBadge>
 										<span className="text-sm font-medium text-[var(--text-primary)]">{incident.title}</span>
 										<span className="text-[10px] text-[var(--text-muted)]">
 											{incident.status === "ACKNOWLEDGED"

@@ -5,6 +5,7 @@ import type { CostCategory, CostCurrency } from "@/lib/cost/types";
 import { CATEGORIES, buttonGhost, buttonPrimary, cardClass, inputClass, labelClass } from "./cost-page-shared";
 import { ActionButton } from "@/components/action-button";
 import { ModalShell } from "@/components/modal-shell";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 
 type T = (key: string, vars?: Record<string, string | number>) => string;
 type CostForm = { category: CostCategory; provider: string; amount: string; currency: CostCurrency; effectiveDate: string; notes: string };
@@ -129,38 +130,17 @@ export function CostEntryFormModal({ open, editingId, form, availableCurrencies,
 								}
 
 export function CostDeleteDialog({ confirmDelete, deletingId, setConfirmDelete, onConfirmDelete, t }: { confirmDelete: { id: string; provider: string; amount: string } | null; deletingId: string | null; setConfirmDelete: Dispatch<SetStateAction<{ id: string; provider: string; amount: string } | null>>; onConfirmDelete: () => void; t: T }) {
-	return confirmDelete ? (
-		<ModalShell
+	return (
+		<ConfirmDialog
 			open={confirmDelete !== null}
-			onClose={() => setConfirmDelete(null)}
-			labelledBy="cost-delete-dialog-title"
-			overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] p-4"
-			panelClassName={`${cardClass} w-full max-w-sm space-y-4`}
+			title={t("costPage.delete.title")}
+			description={confirmDelete ? t("costPage.delete.confirm", { provider: confirmDelete.provider, amount: confirmDelete.amount }) : ""}
+			cancelLabel={t("costPage.delete.cancel")}
+			confirmLabel={confirmDelete && deletingId === confirmDelete.id ? t("costPage.actions.deleting") : t("costPage.delete.confirmBtn")}
+			busy={confirmDelete ? deletingId === confirmDelete.id : false}
+			onCancel={() => setConfirmDelete(null)}
+			onConfirm={onConfirmDelete}
 			closeOnBackdrop={false}
-			role="alertdialog"
-		>
-						<h3 id="cost-delete-dialog-title" className="text-base font-semibold text-[var(--text-primary)]">
-							{t("costPage.delete.title")}
-						</h3>
-						<p className="text-sm text-[var(--text-primary)]/70">
-							{t("costPage.delete.confirm", { provider: confirmDelete.provider, amount: confirmDelete.amount })}
-						</p>
-						<div className="flex justify-end gap-2">
-							<ActionButton variant="secondary" className={buttonGhost}
-								onClick={() => setConfirmDelete(null)}
-								disabled={deletingId === confirmDelete.id}
-							>
-								{t("costPage.delete.cancel")}
-							</ActionButton>
-							<ActionButton variant="primary" className={buttonPrimary}
-								onClick={onConfirmDelete}
-								disabled={deletingId === confirmDelete.id}
-							>
-								{deletingId === confirmDelete.id
-									? t("costPage.actions.deleting")
-									: t("costPage.delete.confirmBtn")}
-									</ActionButton>
-									</div>
-									</ModalShell>
-									) : null;
-									}
+		/>
+	);
+}

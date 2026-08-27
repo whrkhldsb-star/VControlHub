@@ -20,6 +20,7 @@ import {
   uploadStorageFileChunked,
 } from "./storage-chunked-upload";
 import { ActionButton } from "@/components/action-button";
+import { Notice } from "@/components/ui-primitives";
 import { getStorageDriverLabel } from "@/lib/i18n/domain-labels";
 
 export function FileUploadDropzone({
@@ -413,12 +414,9 @@ export function FileUploadDropzone({
         <span className="text-[var(--text-secondary)]">{tr("fileUploadDropzone.folderHelpText")}</span>
       </div>
       {message ? (
-        <div
-          className={`mt-4 rounded-2xl border px-4 py-3 text-sm ${message.type ==="success" ?"border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]" :"border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)]"}`}
-        >
-          
+        <Notice tone={message.type === "success" ? "success" : "danger"} className="mt-4">
           {message.text}
-        </div>
+        </Notice>
       ) : null}
       {queue.length > 0 ? (
         <div className="mt-3 space-y-1 rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] p-3 text-xs text-[var(--text-secondary)]">

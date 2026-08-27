@@ -8,6 +8,7 @@
 import Link from "next/link";
 
 import { ActionButton } from "@/components/action-button";
+import { StatusBadge } from "@/components/status-badge";
 
 import type { VpsStatusFilter, VpsStatusViewMode } from "./use-vps-status-view";
 
@@ -93,11 +94,11 @@ export function VpsStatusToolbar({
 				<span className="text-xs text-[var(--text-muted)]">
 					{t("healthPage.ui.lastRefresh")}: {lastRefresh || "—"}
 				</span>
-				<span className="rounded-full border border-[var(--border)] bg-[var(--surface-elevated)] px-2.5 py-1 text-[11px] text-[var(--text-secondary)]">
+				<StatusBadge tone="neutral">
 					{refreshIntervalSeconds <= 0
 						? t("vpsStatusPage.refresh.off")
 						: tt("vpsStatusPage.refresh.every", { label: intervalLabel })}
-				</span>
+				</StatusBadge>
 				<Link
 					href="/health"
 					data-action-button

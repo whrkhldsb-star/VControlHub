@@ -7,6 +7,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 
 import { ActiveIncidentsBanner } from "./active-incidents-banner";
 import {
+	healthStatusBadgeTone,
 	repairSuggestions,
 	repairToneClasses,
 	statusLabelKey,
@@ -17,7 +18,7 @@ import {
 import { getDomainStatusLabel } from "@/lib/i18n/domain-labels";
 import type { SystemHealthReport } from "./health-types";
 import { useHealthData } from "./use-health-data";
-import { Notice } from "@/components/ui-primitives";
+import { Badge, Notice } from "@/components/ui-primitives";
 
 type Props = { initialSystemHealth?: SystemHealthReport | null };
 
@@ -140,11 +141,9 @@ export function SystemHealthClient({ initialSystemHealth }: Props) {
 										<h3 className="text-sm font-semibold text-[var(--text-primary)]">
 											{item.label}
 										</h3>
-										<span
-											className={`rounded-full border px-2 py-0.5 text-[10px] ${tone.badge}`}
-										>
+										<Badge tone={healthStatusBadgeTone(item.status)}>
 											{getDomainStatusLabel(t, item.status)}
-										</span>
+										</Badge>
 									</div>
 									<p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
 										{item.description}
@@ -178,11 +177,9 @@ export function SystemHealthClient({ initialSystemHealth }: Props) {
 												check.params,
 											)}
 										</div>
-										<span
-											className={`rounded-full border px-2 py-0.5 text-[10px] ${sc.text}`}
-										>
+										<Badge tone={healthStatusBadgeTone(check.status)}>
 											{t(statusLabelKey(check.status))}
-										</span>
+										</Badge>
 									</div>
 									<p className="mt-1 text-xs text-[var(--text-secondary)]">
 										{tt(

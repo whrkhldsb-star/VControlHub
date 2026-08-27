@@ -1,6 +1,7 @@
 import { requireSession } from "@/lib/auth/require-session";
 import { OFFICE_MIME_TYPES, ARCHIVE_MIME_TYPES, CSV_MIME_TYPES, MARKDOWN_MIME_TYPES, EXTENDED_TEXT_MIME_TYPES } from "@/lib/storage/mime-constants";
 import { PageShell } from "@/components/page-shell";
+import { Notice } from "@/components/ui-primitives";
 import { File as FileIcon } from "@/components/icons";
 import { MediaPreviewClient } from "./media-preview-client";
 import { TextPreviewClient } from "./text-preview-client";
@@ -129,9 +130,9 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 
 				{/* Large file warning */}
 				{invalidHref ? (
-					<div role="alert" data-tone="danger" className="mb-4 rounded-2xl border border-[var(--danger-border)] px-4 py-3 text-sm text-[var(--danger)]">
+					<Notice tone="danger">
 						{t("textPreview.preview.invalidHref", locale)}
-					</div>
+					</Notice>
 				) : null}
 
 				{/* Large file warning */}

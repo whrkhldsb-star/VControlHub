@@ -15,6 +15,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { ActionButton } from "@/components/action-button";
+import { StatusBadge } from "@/components/status-badge";
 import { FormField, Notice } from "@/components/ui-primitives";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { DockerResourcesPanel } from "./docker-resources-panel";
@@ -92,9 +93,9 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 					</select>
 					</FormField>
 					{selectedServerId && (
-						<span className="rounded-full border border-[var(--accent-border)] bg-[var(--accent-bg)] px-2.5 py-1 text-[10px] font-medium text-[var(--accent)]">
+						<StatusBadge tone="accent">
 							{t("dockerPage.scope.remoteActive")}
-						</span>
+						</StatusBadge>
 					)}
 				</div>
 			)}
@@ -111,7 +112,7 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 				</p>
 			</section>
 			<div data-toolbar className="mb-4 flex flex-wrap items-center gap-2 p-2.5 text-xs text-[var(--text-muted)]">
-				<span className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-2.5 py-1 font-medium text-[var(--text-secondary)]">{t("dockerPage.toolbar.compose")}</span>
+				<StatusBadge tone="neutral" size="md">{t("dockerPage.toolbar.compose")}</StatusBadge>
 				<span className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface)] px-2.5 py-1">{t("dockerPage.toolbar.groupCount", { count: projectCount })}</span>
 				<span className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface)] px-2.5 py-1">{t("dockerPage.toolbar.ungroupedCount", { count: ungrouped.length })}</span>
 			</div>

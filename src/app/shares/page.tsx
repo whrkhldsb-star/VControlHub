@@ -82,17 +82,11 @@ export default async function SharesPage() {
 								{(() => {
 									const level = (s as { permissionLevel?: "preview" | "download" }).permissionLevel ?? "download";
 									return (
-										<span
-											className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${
-												level === "preview"
-													? "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)]"
-													: "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]"
-											}`}
-										>
+										<StatusBadge size="sm" tone={level === "preview" ? "warning" : "accent"}>
 											{level === "preview"
 												? t("sharesPage.permissionLevel.preview")
 												: t("sharesPage.permissionLevel.download")}
-										</span>
+										</StatusBadge>
 									);
 								})()}
 								<ShareAccessLogsButton shareId={s.id} />

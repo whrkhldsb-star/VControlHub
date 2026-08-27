@@ -4,6 +4,8 @@ import { buildBackupRestoreCommand, buildPortableBackupCommand, formatBackupSize
 import { config } from "@/lib/config/env";
 import { t } from "@/lib/i18n/translations";
 import { PageShell, EmptyState, PageHeader, StatCard, StatGrid, SurfacePanel, ListPanel, ListRow } from "@/components/page-shell";
+import { StatusBadge } from "@/components/status-badge";
+import { Badge, Notice } from "@/components/ui-primitives";
 import { CreateBackupForm } from "./create-backup-form";
 import { ScheduleBackupForm } from "./schedule-backup-form";
 import { RestoreBackupButton } from "./restore-backup-button";
@@ -90,7 +92,7 @@ export default async function BackupsPage() {
 							<div key={item.category} className="rounded-xl border border-[var(--danger-border)] bg-[color-mix(in_srgb,var(--danger-bg)_40%,var(--surface))] p-3">
 								<div className="flex items-center justify-between gap-3">
 									<p className="text-xs font-semibold text-[var(--danger)]">{item.label}</p>
-									<span className="rounded-full bg-[var(--danger-bg)] px-2 py-0.5 text-xs text-[var(--danger)]">{t("backupsPage.failures.itemCount", { count: item.count })}</span>
+									<StatusBadge tone="danger">{t("backupsPage.failures.itemCount", { count: item.count })}</StatusBadge>
 								</div>
 								{item.latestRecordPath && <p className="mt-2 text-xs text-[var(--text-muted)]">{t("backupsPage.failures.latestRecord", { path: item.latestRecordPath })}</p>}
 								<p className="mt-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface)] px-2 py-1.5 text-xs text-[var(--text-secondary)]">{t("backupsPage.failures.remediation", { remediation: item.remediation })}</p>
@@ -151,18 +153,13 @@ export default async function BackupsPage() {
 						}
 					>
 						{offsiteState.failed ? (
-							<p role="alert" className="mt-4 rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] px-3 py-2 text-xs text-[var(--danger)]">
-								{t("backupsPage.offsite.loadFailed")}
-							</p>
+							<Notice tone="danger" compact>{t("backupsPage.offsite.loadFailed")}</Notice>
 						) : offsite ? (
 						<div className="mt-4 grid gap-3 text-xs text-[var(--text-secondary)] md:grid-cols-2">
 							<p>
-								<span
-									data-tone={offsite.enabled ? "emerald" : "neutral"}
-									className="mr-2 rounded-full border px-2 py-0.5 text-xs"
-								>
+								<Badge tone={offsite.enabled ? "emerald" : "neutral"} className="mr-2">
 									{offsite.enabled ? t("backupsPage.offsite.status.enabled") : t("backupsPage.offsite.status.disabled")}
-								</span>
+								</Badge>
 								{t("backupsPage.offsite.provider", { provider: offsite.provider })}
 							</p>
 							{offsite.bucket && <p>{t("backupsPage.offsite.bucket", { bucket: offsite.bucket })}</p>}

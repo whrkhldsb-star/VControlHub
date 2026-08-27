@@ -80,15 +80,40 @@ export function Spinner({
 	);
 }
 
+/**
+ * Inline loading indicator — Spinner + localized label in a centered row.
+ * Use for client-side secondary loads (filter/refresh/dialog refetch) so
+ * inline loading reads consistently instead of bare text / animate-pulse /
+ * an EmptyState standing in for a spinner.
+ */
+export function InlineLoading({
+	label,
+	size = "sm",
+	className,
+}: {
+	label: string;
+	size?: "sm" | "md" | "lg";
+	className?: string;
+}) {
+	return (
+		<div className={cn("flex items-center justify-center gap-2 text-sm text-[var(--text-muted)]", className)}>
+			<Spinner size={size} label={label} />
+			<span aria-hidden>{label}</span>
+		</div>
+	);
+}
+
 export function ProgressBar({
 	value,
 	max = 100,
 	tone = "accent",
+	height = "md",
 	className,
 }: {
 	value: number;
 	max?: number;
 	tone?: BadgeTone;
+	height?: "sm" | "md";
 	className?: string;
 }) {
 	const percentage = max > 0 ? Math.min(100, Math.max(0, (value / max) * 100)) : 0;
@@ -108,7 +133,7 @@ export function ProgressBar({
 	}[tone];
 	return (
 		<div
-			className={`h-2 w-full overflow-hidden rounded-full bg-[var(--surface-elevated)] ${className ?? ""}`}
+			className={`${height === "sm" ? "h-1.5" : "h-2"} w-full overflow-hidden rounded-full bg-[var(--surface-elevated)] ${className ?? ""}`}
 			role="progressbar"
 			aria-valuenow={value}
 			aria-valuemin={0}

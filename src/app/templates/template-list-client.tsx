@@ -5,7 +5,7 @@ import { useCallback, useState } from "react";
 import { ActionButton } from "@/components/action-button";
 import { EmptyState, SurfacePanel, Toolbar } from "@/components/page-shell";
 import { useToast } from "@/components/toast-provider";
-import { ModalShell } from "@/components/modal-shell";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import type { Locale } from "@/lib/i18n/translations";
@@ -40,6 +40,7 @@ export function TemplateListClient({
 	const setFilterTag = (tag: string | null) => setFilter("tag", tag ?? "");
 	const [deploying, setDeploying] = useState<string | null>(null);
 	const [templatePendingDelete, setTemplatePendingDelete] = useState<Template | null>(null);
+	const [deleteBusy, setDeleteBusy] = useState(false);
 
 	const closeDeleteDialog = useCallback(() => setTemplatePendingDelete(null), []);
 
@@ -55,6 +56,7 @@ export function TemplateListClient({
 
 	const handleDelete = useCallback(
 		async (id: string) => {
+			setDeleteBusy(true);
 			try {
 				await csrfFetch(`/api/command-templates?id=${id}`, { method: "DELETE" });
 				setTemplatePendingDelete(null);
@@ -65,6 +67,8 @@ export function TemplateListClient({
 					"error",
 					getErrorMessage(err, t("templatesPage.toast.deleteFailed")),
 				);
+			} finally {
+				setDeleteBusy(false);
 			}
 		},
 		[addToast, refresh, t],
@@ -106,47 +110,17 @@ export function TemplateListClient({
 
 	return (
 		<div className="space-y-6">
-			{templatePendingDelete && (
-				<ModalShell
-					open
-					onClose={closeDeleteDialog}
-					labelledBy="delete-template-title"
-					closeOnBackdrop={false}
-					overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] p-4 backdrop-blur-sm"
-					panelClassName="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-5 shadow-2xl shadow-black/30"
-				>
-						<h3
-							id="delete-template-title"
-							className="text-base font-semibold text-[var(--text-primary)]"
-						>
-							{t("templatesPage.delete.title")}
-						</h3>
-						<p className="mt-2 text-sm text-[var(--text-muted)]">
-							{t("templatesPage.delete.confirm").replace(
-								"{name}",
-								templatePendingDelete.name,
-							)}
-						</p>
-						<div className="mt-5 flex justify-end gap-2">
-							<ActionButton
-								type="button"
-								variant="secondary"
-								onClick={() => setTemplatePendingDelete(null)}
-								className="min-h-11"
-							>
-								{t("templatesPage.delete.cancel")}
-							</ActionButton>
-							<ActionButton
-								type="button"
-								variant="danger"
-								onClick={() => handleDelete(templatePendingDelete.id)}
-								className="min-h-11"
-							>
-								{t("templatesPage.delete.confirm2")}
-							</ActionButton>
-						</div>
-				</ModalShell>
-			)}
+			<ConfirmDialog
+				open={templatePendingDelete !== null}
+				title={t("templatesPage.delete.title")}
+				description={t("templatesPage.delete.confirm").replace("{name}", templatePendingDelete?.name ?? "")}
+				cancelLabel={t("templatesPage.delete.cancel")}
+				confirmLabel={t("templatesPage.delete.confirm2")}
+				busy={deleteBusy}
+				onCancel={closeDeleteDialog}
+				onConfirm={() => templatePendingDelete && handleDelete(templatePendingDelete.id)}
+				closeOnBackdrop={false}
+			/>
 
 			<Toolbar className="justify-between">
 				{allTags.length > 0 && (

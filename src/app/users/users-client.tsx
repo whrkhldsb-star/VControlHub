@@ -104,8 +104,12 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
 		}
   };
 
+  const [togglingUserId, setTogglingUserId] = useState<string | null>(null);
+
   const handleToggleStatus = async (userId: string, currentStatus: string, username: string) => {
+    if (togglingUserId) return;
     const action = currentStatus === "DISABLED" ? "enable" : "disable";
+    setTogglingUserId(userId);
     try {
       await csrfFetch("/api/users", {
         method: "PATCH",
@@ -118,6 +122,8 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
     } catch (err) {
       const errKey = action === "enable" ? "usersPage.error.enableFailed" : "usersPage.error.disableFailed";
       addToast("error", messageFromError(err, t(errKey, { name: username })));
+    } finally {
+      setTogglingUserId(null);
     }
   };
 
@@ -238,7 +244,8 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
                             type="button"
                             onClick={() => handleToggleStatus(user.id, user.status, user.username)}
                             data-tone="danger"
-                            className="rounded-lg border px-3 py-1.5 text-xs transition"
+                            disabled={togglingUserId !== null}
+                            className="rounded-lg border px-3 py-1.5 text-xs transition disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             {t("usersPage.action.disable")}
                           </button>
@@ -249,7 +256,8 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
                             type="button"
                             onClick={() => handleToggleStatus(user.id, user.status, user.username)}
                             data-tone="success"
-                            className="rounded-lg border px-3 py-1.5 text-xs transition"
+                            disabled={togglingUserId !== null}
+                            className="rounded-lg border px-3 py-1.5 text-xs transition disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             {t("usersPage.action.enable")}
                           </button>

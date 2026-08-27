@@ -1,11 +1,11 @@
 "use client";
 
 import { ActionButton } from "@/components/action-button";
+import { StatusBadge } from "@/components/status-badge";
 import {
 	type Container,
 	type ContainerStats,
 	formatBytes,
-	stateColors,
 	stateLabel,
 } from "./docker-helpers";
 
@@ -34,9 +34,9 @@ export function DockerContainerCard({
 		<div key={c.Id} className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-4">
 			<div className="mb-2 flex items-center justify-between gap-3">
 				<div className="flex min-w-0 items-center gap-3">
-					<span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${stateColors[c.State] ||"bg-[var(--surface-hover)]/50 text-[var(--text-muted)]"}`}>
+					<StatusBadge tone={c.State === "running" ? "success" : c.State === "paused" || c.State === "restarting" ? "warning" : c.State === "created" ? "accent" : c.State === "dead" || c.State === "removing" ? "danger" : "neutral"} size="sm">
 						{stateLabel(t, c.State)}
-					</span>
+					</StatusBadge>
 					<span className="truncate text-sm font-medium text-[var(--text-primary)]">{(c.Names?.[0] || c.Id?.slice(0, 12)).replace(/^\//,"")}</span>
 				</div>
 				<span className="ml-3 truncate text-[10px] text-[var(--text-muted)]">{c.Image}</span>

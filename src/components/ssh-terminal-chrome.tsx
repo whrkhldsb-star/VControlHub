@@ -6,6 +6,7 @@ import { cn } from "@/lib/ui/cn";
 import type { TerminalStatus } from "@/components/ssh-terminal-types";
 import { ActionButton } from "@/components/action-button";
 import { ClipboardList, Folder, Server } from "@/components/icons";
+import { StatusBadge, type StatusTone } from "@/components/status-badge";
 
 type TFn = (key: string, vars?: Record<string, string | number>) => string;
 
@@ -36,12 +37,12 @@ export function SshTerminalToolbar({
 	onReconnect: () => void;
 	onClose: () => void;
 }) {
-	const statusClass =
+	const statusTone: StatusTone =
 		status ==="connected"
-			?"border border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]"
+			?"success"
 			: status ==="connecting"
-				?"border border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)]"
-				:"border border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)]";
+				?"warning"
+				:"danger";
 	const statusLabel =
 		status ==="connected"
 			? t("sshTerminalModal.statusConnected")
@@ -61,9 +62,9 @@ export function SshTerminalToolbar({
 				<span className="text-xs text-[var(--text-secondary)]">{host}</span>
 			</div>
 			<div className="ml-auto flex flex-wrap items-center gap-2">
-				<span role="status" aria-live="polite" className={`rounded-full px-3 py-1 text-xs ${statusClass}`}>
+				<StatusBadge tone={statusTone} size="md" role="status" aria-live="polite">
 					{statusLabel}
-				</span>
+				</StatusBadge>
 				<button
 					type="button"
 					onClick={onToggleSidePanel}

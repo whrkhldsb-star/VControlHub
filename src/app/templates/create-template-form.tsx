@@ -3,7 +3,7 @@
 import { useId, useState } from "react";
 
 import { ActionButton } from "@/components/action-button";
-import { FormField } from "@/components/ui-primitives";
+import { FormField, Notice } from "@/components/ui-primitives";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { UI_INPUT } from "@/lib/ui/classes";
@@ -54,9 +54,7 @@ export function CreateTemplateForm({ onClose }: { onClose: () => void }) {
 				{t("templatesPage.create.title")}
 			</h3>
 			{error && (
-				<div className="rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] px-3.5 py-2.5 text-sm text-[var(--danger)]">
-					{error}
-				</div>
+				<Notice tone="danger">{error}</Notice>
 			)}
 			<FormField label={t("templatesPage.create.nameLabel")} htmlFor={`${createFormId}-name`}>
 				<input

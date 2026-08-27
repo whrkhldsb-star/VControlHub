@@ -17,6 +17,7 @@ import {
 import { BreadcrumbsClient } from "./breadcrumbs-client";
 import { FilesBrowserSidebar } from "./files-browser-sidebar";
 import { ActionButton } from "@/components/action-button";
+import { Notice } from "@/components/ui-primitives";
 import { ModalShell } from "@/components/modal-shell";
 
 /* ── Navigation hook ────────────────────────────────────────────── */
@@ -294,15 +295,12 @@ export function FilesBrowserSpa({
 
           {/* File list with batch operations */}
           {listError ? (
-            <div
-              role="alert"
-              data-tone="amber" className="mt-4 rounded-lg border border-[var(--warning-border)] px-4 py-3 text-sm text-[var(--warning)]"
-            >
+            <Notice tone={data.syncWarning === listError ? "warning" : "danger"} className="mt-4">
               {data.syncWarning === listError
                 ? t("filesBrowserSpa.remoteSyncNotice")
                 : t("filesBrowserSpa.fileListRefreshFailed")}
               : {listError}
-            </div>
+            </Notice>
           ) : null}
           <FileListClient
             selectionScopeSeed={`${selectionEpoch}\u0000${data.currentPath}\u0000${data.searchQuery}\u0000${data.searchScope}\u0000${data.nodeIdFilter ?? ""}`}

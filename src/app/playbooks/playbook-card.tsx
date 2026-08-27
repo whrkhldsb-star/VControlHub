@@ -5,6 +5,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { statusLabelFor, formatTime } from "./playbook-types";
 import type { SerializedPlaybook, RunSummary } from "./playbook-types";
 import { ActionButton } from "@/components/action-button";
+import { StatusBadge } from "@/components/status-badge";
 
 function stepStatusLabel(t: (k: string) => string, status: string): string {
 	const key = `playbooksPage.stepStatus.${status}`;
@@ -30,9 +31,9 @@ export function PlaybookRunHistory({ runs, t }: PlaybookRunHistoryProps) {
         ) : (
           runs.map((r) => (
             <div key={r.id} className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
-              <span data-tone={r.status === "failed" ? "danger" : r.status === "completed" ? "success" : "neutral"} className="rounded-full border px-1.5 py-0.5 text-[10px]">
+              <StatusBadge tone={r.status === "failed" ? "danger" : r.status === "completed" ? "success" : "neutral"} size="sm">
                 {statusLabelFor(t, r.status)}{r.dryRun ? " · dry-run" : ""}
-              </span>
+              </StatusBadge>
               <span className="text-[var(--text-muted)]">{formatTime(r.startedAt, locale)}</span>
               {r.stepResults && r.stepResults.length > 0 && (
                 <span className="flex items-center gap-0.5">
@@ -88,15 +89,12 @@ export const PlaybookCard = memo(function PlaybookCard({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2.5">
             <h2 className="text-lg font-semibold text-[var(--text-primary)]">{playbook.name}</h2>
-            <span
-              data-tone={playbook.enabled ? "success" : "neutral"}
-              className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium"
-            >
+            <StatusBadge tone={playbook.enabled ? "success" : "neutral"} size="sm">
               {playbook.enabled ? t("playbooksPage.status.enabled") : t("playbooksPage.status.disabled")}
-            </span>
-            <span className="inline-flex items-center rounded-full border border-[var(--accent-border)] bg-[var(--accent-bg)] px-2 py-0.5 text-[11px] font-medium text-[var(--accent)]">
+            </StatusBadge>
+            <StatusBadge tone="accent" size="sm">
               {playbook.triggerType === "cron" ? t("playbooksPage.triggerType.cron") : t("playbooksPage.triggerType.metric")}
-            </span>
+            </StatusBadge>
           </div>
           {playbook.description && (
             <p className="mt-1 text-xs text-[var(--text-secondary)]">{playbook.description}</p>

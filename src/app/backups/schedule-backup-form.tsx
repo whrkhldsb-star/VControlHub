@@ -9,6 +9,9 @@ import { formatZhDateTime } from "@/lib/datetime/format";
 import { APP_TIME_ZONE } from "@/lib/datetime/time-zone";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
+import { Badge, type BadgeTone } from "@/components/ui-primitives";
+import { UI_INPUT } from "@/lib/ui/classes";
+import { cn } from "@/lib/ui/cn";
 
 /* ── Types ────────────────────────────────────────────────── */
 
@@ -53,10 +56,10 @@ function describeCronPreview(expr: string, t: (k: string, vars?: Record<string, 
 	return t("backupsPage.schedule.cronPreview.custom");
 }
 
-function statusBadgeClass(status: string): string {
-	if (status ==="ACTIVE") return"border-[var(--success-border)] text-[var(--success)]";
-	if (status ==="PAUSED") return"border-[var(--warning-border)] text-[var(--warning)]";
-	return"border-[var(--danger-border)] text-[var(--danger)]";
+function statusBadgeTone(status: string): BadgeTone {
+	if (status ==="ACTIVE") return "success";
+	if (status ==="PAUSED") return "warning";
+	return "danger";
 }
 
 function statusLabel(t: (k: string, vars?: Record<string, string | number>) => string, status: string): string {
@@ -176,11 +179,11 @@ export function ScheduleBackupForm() {
 				<div className="grid gap-3 md:grid-cols-[180px_1fr]">
 					<div className="space-y-1.5">
 						<label htmlFor="schedule-backup-name" className="block text-xs font-medium text-[var(--text-secondary)]">{t("backupsPage.records.title")}</label>
-						<input id="schedule-backup-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={t("backupsPage.schedule.nameTemplate", { type: getTypeLabel(t, type) })} className="block w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)]" />
+						<input id="schedule-backup-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={t("backupsPage.schedule.nameTemplate", { type: getTypeLabel(t, type) })} className={UI_INPUT} />
 					</div>
 					<div className="space-y-1.5">
 						<label htmlFor="schedule-backup-type" className="block text-xs font-medium text-[var(--text-secondary)]">{t("common.backupType")}</label>
-						<select id="schedule-backup-type" value={type} onChange={(e) => setType(e.target.value as BackupType)} className="block w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)]">
+						<select id="schedule-backup-type" value={type} onChange={(e) => setType(e.target.value as BackupType)} className={UI_INPUT}>
 							<option value="DATABASE">{t("common.databaseBackup")}</option>
 							<option value="FILES">{t("common.fileBackup")}</option>
 							<option value="FULL">{t("common.fullBackup")}</option>
@@ -190,17 +193,17 @@ export function ScheduleBackupForm() {
 				<div className="grid gap-3 md:grid-cols-[1fr_180px]">
 					<div className="space-y-1.5">
 						<label htmlFor="schedule-backup-cron" className="block text-xs font-medium text-[var(--text-secondary)]">{t("common.cronExpression")}</label>
-						<input id="schedule-backup-cron" value={cronExpression} onChange={(e) => setCronExpression(e.target.value)} required placeholder="0 3 * * *" className="block w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm font-mono text-[var(--text-primary)]" />
+						<input id="schedule-backup-cron" value={cronExpression} onChange={(e) => setCronExpression(e.target.value)} required placeholder="0 3 * * *" className={cn(UI_INPUT, "font-mono")} />
 					</div>
 					<div className="space-y-1.5">
 						<label htmlFor="schedule-backup-retention" className="block text-xs font-medium text-[var(--text-secondary)]">{t("backupsPage.schedule.retentionLabel")}</label>
-						<input id="schedule-backup-retention" type="number" min={1} max={3650} value={retentionDays} onChange={(e) => setRetentionDays(e.target.value)} placeholder={t("backupsPage.schedule.retentionPlaceholder")} className="block w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)]" />
+						<input id="schedule-backup-retention" type="number" min={1} max={3650} value={retentionDays} onChange={(e) => setRetentionDays(e.target.value)} placeholder={t("backupsPage.schedule.retentionPlaceholder")} className={UI_INPUT} />
 					</div>
 				</div>
 				<p data-tone="cyan" className="rounded-lg border border-[var(--color-action-border)]/10 px-3 py-2 text-xs text-[var(--text-primary)]">{t("common.preview")}{cronPreview}<span className="ml-1 text-[var(--text-muted)]">{t("backupsPage.schedule.timezone", { timezone: APP_TIME_ZONE })}</span></p>
 				<div className="space-y-1.5">
 					<label htmlFor="schedule-backup-note" className="block text-xs font-medium text-[var(--text-secondary)]">{t("backupsPage.schedule.noteLabel")}</label>
-					<input id="schedule-backup-note" value={note} onChange={(e) => setNote(e.target.value)} placeholder={t("backupsPage.schedule.notePlaceholder")} className="block w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)]" />
+					<input id="schedule-backup-note" value={note} onChange={(e) => setNote(e.target.value)} placeholder={t("backupsPage.schedule.notePlaceholder")} className={UI_INPUT} />
 				</div>
 				{retentionDays && (
 					<p className="text-xs text-[var(--text-muted)]">{t("backupsPage.schedule.retentionHint")}</p>
@@ -243,7 +246,7 @@ export function ScheduleBackupForm() {
 									<div className="min-w-0 flex-1">
 										<div className="flex items-center gap-2">
 											<span className="text-sm font-medium text-[var(--text-primary)]">{s.name}</span>
-											<span className={`rounded-full border px-2 py-0.5 text-xs ${statusBadgeClass(s.status)}`}>{statusLabel(t, s.status)}</span>
+											<Badge tone={statusBadgeTone(s.status)}>{statusLabel(t, s.status)}</Badge>
 										</div>
 										<div className="mt-1 flex flex-wrap gap-3 text-xs text-[var(--text-muted)]">
 											<span className="font-mono">{s.cronExpression}</span>

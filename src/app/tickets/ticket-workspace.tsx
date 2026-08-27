@@ -7,6 +7,7 @@ import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
 import { toDateLocale } from "@/lib/i18n/locale-format";
 import { browserT as t, type Locale } from "@/lib/i18n/browser-translations";
 import { UI_INPUT } from "@/lib/ui/classes";
+import { StatusBadge, type StatusTone } from "@/components/status-badge";
 
 export type TicketWorkspaceTicket = {
   id: string;
@@ -37,11 +38,11 @@ const PRIORITIES = ["LOW","NORMAL","HIGH","URGENT"] as const;
 const CATEGORIES = ["incident","request","question","feedback"] as const;
 const SLA_STATUSES: SlaStatus[] = ["ok","warning","breached","none"];
 
-const statusTone: Record<string, string> = {
-  OPEN:"border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]",
-  IN_PROGRESS:"border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)]",
-  RESOLVED:"border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]",
-  CLOSED:"border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-secondary)]",
+const statusTone: Record<string, StatusTone> = {
+  OPEN:"accent",
+  IN_PROGRESS:"warning",
+  RESOLVED:"success",
+  CLOSED:"neutral",
 };
 
 const priorityTone: Record<string, string> = {
@@ -51,11 +52,11 @@ const priorityTone: Record<string, string> = {
   URGENT:"text-[var(--danger)]",
 };
 
-const slaTone: Record<SlaStatus, string> = {
-  ok:"border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]",
-  warning:"border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)]",
-  breached:"border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)]",
-  none:"border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-muted)]",
+const slaTone: Record<SlaStatus, StatusTone> = {
+  ok:"success",
+  warning:"warning",
+  breached:"danger",
+  none:"neutral",
 };
 
 function getSlaStatus(ticket: TicketWorkspaceTicket, nowMs: number): SlaStatus {
@@ -92,9 +93,9 @@ function TicketCard({ ticket, locale, nowMs, compact = false }: { ticket: Ticket
           </div>
           {!compact && <p className="mt-1.5 line-clamp-2 text-xs leading-5 text-[var(--text-muted)]">{ticket.description}</p>}
           <div className="mt-2.5 flex flex-wrap items-center gap-2 text-[11px] text-[var(--text-muted)]">
-            <span className={`rounded-full border px-2 py-0.5 font-medium ${slaTone[slaStatus]}`}>
+            <StatusBadge tone={slaTone[slaStatus]} size="sm">
               {t(`ticketsPage.sla.${slaStatus}`, locale)}
-            </span>
+            </StatusBadge>
             {ticket.slaDueAt && (
               <span>{t("ticketsPage.sla.due", locale, { time: new Date(ticket.slaDueAt).toLocaleString(dateLocale) })}</span>
             )}
@@ -108,9 +109,9 @@ function TicketCard({ ticket, locale, nowMs, compact = false }: { ticket: Ticket
           </div>
         </div>
         {!compact && (
-          <span className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-medium ${statusTone[ticket.status] ?? "border-[var(--border)] text-[var(--text-muted)]"}`}>
+          <StatusBadge tone={statusTone[ticket.status] ?? "neutral"} size="md" className="shrink-0">
             {label(locale,"ticketsPage.status", ticket.status)}
-          </span>
+          </StatusBadge>
         )}
       </div>
     </Link>

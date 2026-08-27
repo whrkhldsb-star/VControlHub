@@ -23,8 +23,10 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { ServerCardActions } from "./server-card-actions";
 import { VpsBackupSection } from "./vps-backup-section";
 import { getDirectGatewayRepairAdvice } from "./direct-gateway-advice";
-import { DirectGatewayAdviceList, DirectGatewayHealthyDetail, InfoRow, OsDialectSection, statusToneClass } from "./server-overview-detail-sections";
+import { DirectGatewayAdviceList, DirectGatewayHealthyDetail, InfoRow, OsDialectSection } from "./server-overview-detail-sections";
 import { ActionButton } from "@/components/action-button";
+import { StatusBadge } from "@/components/status-badge";
+import { Notice } from "@/components/ui-primitives";
 
 export type ServerOverviewDetailsServer = {
 	id: string;
@@ -324,13 +326,9 @@ export function ServerOverviewDetails({
 						</div>
 					) : null}
 					{diagnosticRun.status === "error" ? (
-						<div
-							role="alert"
-							data-tone="rose"
-							className="mt-3 rounded-lg border border-[var(--danger-border)] p-2 text-[11px] leading-5 text-[var(--danger)] light:border-[var(--danger-border)]"
-						>
+						<Notice tone="danger" compact>
 							{t("serverOverviewDetails.diagnosticFailure", { message: diagnosticRun.message, checkedAt: diagnosticRun.checkedAt })}
-						</div>
+						</Notice>
 					) : null}
 				</div>
 				<div className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -341,11 +339,9 @@ export function ServerOverviewDetails({
 						>
 							<div className="flex items-center justify-between gap-2">
 								<span className="text-xs font-medium text-[var(--text-primary)]">{item.label}</span>
-								<span
-									className={`rounded-full border px-2 py-0.5 text-[10px] ${statusToneClass(item.tone)}`}
-								>
+								<StatusBadge tone={item.tone}>
 									{item.status}
-								</span>
+								</StatusBadge>
 							</div>
 							<div className="mt-2 text-[11px] leading-5 text-[var(--text-muted)]">
 								{item.detail}

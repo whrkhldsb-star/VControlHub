@@ -1,6 +1,7 @@
 "use client";
 
 import { ActionButton } from "@/components/action-button";
+import { Notice } from "@/components/ui-primitives";
 import { ModalShell } from "@/components/modal-shell";
 /**
  * `InstallDialog` — port-picker modal shown when the user clicks
@@ -198,9 +199,7 @@ export function InstallDialog({
 					</label>
 
 					{portCheck && !portCheck.available && portCheck.usedBy && (
-						<div className="text-xs text-[var(--danger)]/80 bg-[var(--danger-bg)] rounded-lg px-3 py-2 border border-[var(--danger-border)]">
-							{t("qsPage.portInUseDetail", { usedBy: portCheck.usedBy })}
-						</div>
+						<Notice tone="danger" compact>{t("qsPage.portInUseDetail", { usedBy: portCheck.usedBy })}</Notice>
 					)}
 
 					<div data-tone="cyan" className="rounded-xl border border-[var(--color-action-border)]/15 p-3 text-xs text-[var(--text-primary)]">

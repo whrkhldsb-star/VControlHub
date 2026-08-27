@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import { SubmitButton } from "@/components/submit-button";
 import { PasswordField } from "@/components/password-field";
+import { Notice } from "@/components/ui-primitives";
 import { useI18n } from "@/lib/i18n/use-locale";
 
 import {
@@ -84,17 +85,17 @@ export function ChangePasswordForm({ allowSkip = false }: { allowSkip?: boolean 
 			</div>
 
 			{state.error ? (
-				<div role="alert" data-tone="rose" className="rounded-2xl border border-[var(--danger-border)] px-4 py-3 text-sm text-[var(--danger)]">{state.error}</div>
+				<Notice tone="danger">{state.error}</Notice>
 			) : null}
 			{state.success ? (
-				<div data-tone="emerald" className="rounded-2xl border border-[var(--success-border)] px-4 py-3 text-sm text-[var(--success)]" role="status" aria-live="polite">
+				<Notice tone="success">
 					{state.success}
 					{countdown !== null && countdown > 0 ? (
 						<span className="ml-2 text-[var(--success)]/80">
 							{t("accountPasswordPage.redirectCountdown", { seconds: countdown })}
 						</span>
 					) : null}
-				</div>
+				</Notice>
 			) : null}
 
 			<div className="flex items-center justify-end gap-3">

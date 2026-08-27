@@ -5,6 +5,8 @@ import { teamWhere } from "@/lib/auth/team-scope";
 import { listDeploymentRuns, listDeploymentTemplates } from "@/lib/deployment/service";
 import { prisma } from "@/lib/db";
 import { PageShell, EmptyState, PageHeader, ListPanel, ListRow, SurfacePanel } from "@/components/page-shell";
+import { StatusBadge } from "@/components/status-badge";
+import { Notice } from "@/components/ui-primitives";
 import { DeploymentLaunchForm } from "./deployment-launch-form";
 import { DeploymentExportPanel } from "./deployment-export-panel";
 import { ResendDeployButton } from "./resend-deploy-button";
@@ -118,9 +120,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 				<p className="mt-3 text-xs text-[var(--text-muted)]">{tr("deploymentsPage.page.howItWorks.auditNote")}</p>
 			</details>
 			{formError && (
-				<div role="alert" className="mb-6 rounded-xl border border-[var(--danger-border)] bg-[var(--danger-bg)] px-4 py-3 text-sm text-[var(--danger)]">
-					{tr("deploymentsPage.page.submitFailed")}{formError}
-				</div>
+				<Notice tone="danger">{tr("deploymentsPage.page.submitFailed")}{formError}</Notice>
 			)}
 			{formSuccess && !formError && latestRun && (
 				<div role="status" className="mb-6 rounded-xl border border-[var(--success-border)] bg-[var(--success-bg)] px-4 py-3 text-sm text-[var(--success)]">
@@ -170,7 +170,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 							<h2 className="mt-1 text-sm font-semibold text-[var(--text-primary)]">{tr("deploymentsPage.page.latestDeploy.heading")}{latestRun.template.name}</h2>
 							<p className="mt-1 text-xs text-[var(--text-secondary)]">{trTpl("deploymentsPage.page.latestDeploy.meta", { count: String(latestRun.serverIds.length), date: latestRun.createdAt.toLocaleString(dateLocale), snapshot: latestRun.snapshotId || tr("deploymentsPage.page.latestDeploy.snapshotPending") })}</p>
 						</div>
-						<span className={`rounded-full border px-2.5 py-1 text-xs ${deploymentStatusTone(latestRun.status)}`}>{getDomainStatusLabel(tr, latestRun.status)}</span>
+						<StatusBadge tone={["COMPLETED", "SUCCESS", "SUCCEEDED"].includes(latestRun.status) ? "success" : ["FAILED", "CANCELLED", "REJECTED"].includes(latestRun.status) ? "danger" : ["RUNNING", "APPROVED"].includes(latestRun.status) ? "accent" : "warning"} size="md">{getDomainStatusLabel(tr, latestRun.status)}</StatusBadge>
 					</div>
 					<code className="mt-4 block max-h-24 overflow-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] p-3 font-mono text-xs text-[var(--text-secondary)]">{latestRun.snapshot?.rollbackCommand || tr("deploymentsPage.page.latestDeploy.noRollback")}</code>
 					<div className="mt-4 flex flex-wrap items-center gap-3">

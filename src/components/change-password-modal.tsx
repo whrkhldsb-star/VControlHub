@@ -9,6 +9,7 @@ import {
   type AccountPasswordActionState,
 } from "@/app/account/password/actions";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { Notice } from "@/components/ui-primitives";
 const initialState: AccountPasswordActionState = {};
 const POST_SUCCESS_CLOSE_DELAY_MS = 1200;
 export function ChangePasswordModal({
@@ -121,13 +122,7 @@ export function ChangePasswordModal({
             description={t("changePassword.confirmPasswordDesc")}
           />{" "}
           {state.error ? (
-            <div
-              role="alert"
-              data-tone="rose"
-              className="rounded-2xl border border-[var(--danger-border)] px-4 py-3 text-sm text-[var(--danger)]"
-            >
-              {state.error}
-            </div>
+            <Notice tone="danger">{state.error}</Notice>
           ) : null}{" "}
           {state.success ? (
             <div

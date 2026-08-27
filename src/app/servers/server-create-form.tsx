@@ -7,6 +7,7 @@ import { ConnectionTypeFields } from "./server-connection-type-fields";
 import { ServerManagementModeFields } from "./server-management-mode-fields";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { UI_INPUT } from "@/lib/ui/classes";
+import { Notice } from "@/components/ui-primitives";
 import { usePreservedActionForm } from "@/lib/forms/use-preserved-action-form";
 import { useUnsavedChangesGuard } from "@/lib/forms/use-unsaved-changes-guard";
 const initialState: ServerActionState = {
@@ -79,10 +80,7 @@ export function ServerCreateForm({
         </p>{" "}
       </div>{" "}
       {state.error && !observedHostKeySha256 && (
-        <div role="alert" className="rounded-lg bg-[var(--danger-bg)] border border-[var(--danger-border)] px-3.5 py-2.5 text-sm text-[var(--danger)]">
-          {" "}
-          {state.error}{" "}
-        </div>
+        <Notice tone="danger">{state.error}</Notice>
       )}{" "}
       {state.success && (
         <div role="status" className="rounded-lg bg-[var(--success-bg)] border border-[var(--success-border)] px-3.5 py-2.5 text-sm text-[var(--success)]">

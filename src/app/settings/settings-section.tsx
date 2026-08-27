@@ -23,6 +23,7 @@ import { toDateLocale } from "@/lib/i18n/locale-format";
 import type { Locale } from "@/lib/i18n/translations";
 import type { RuntimeSettingSummaryDto as RuntimeSettingSummary } from "@/lib/runtime-settings/dto";
 import type { SettingUpdateMetadata } from "@/lib/settings/service";
+import { StatusBadge, type StatusTone } from "@/components/status-badge";
 
 import {
   type BadgeTone,
@@ -64,11 +65,11 @@ export function latestSectionMetadata(
   );
 }
 
-const BADGE_COLOR_CLASSES: Record<BadgeTone, string> = {
-  cyan: "bg-[var(--accent-bg)] text-[var(--accent)] border-[var(--accent-border)]",
-  emerald: "bg-[var(--success-bg)] text-[var(--success)] border-[var(--success-border)]",
-  amber: "bg-[var(--warning-bg)] text-[var(--warning)] border-[var(--warning-border)]",
-  slate: "bg-[var(--surface-elevated)] text-[var(--text-muted)] border-[var(--border)]",
+const BADGE_TONE_TO_STATUS: Record<BadgeTone, StatusTone> = {
+  cyan: "accent",
+  emerald: "success",
+  amber: "warning",
+  slate: "neutral",
 };
 
 type CollapsibleSectionProps = {
@@ -100,7 +101,6 @@ export function CollapsibleSection({
 }: CollapsibleSectionProps) {
   const { t } = useI18n();
   const Inner = asForm ? "form" : "div";
-  const badgeClass = BADGE_COLOR_CLASSES[badgeTone] ?? BADGE_COLOR_CLASSES.cyan;
   return (
     <section id={id} className="scroll-mt-28" data-card>
       <details open={open} onToggle={onToggle} className="group">
@@ -121,11 +121,9 @@ export function CollapsibleSection({
                   <span aria-hidden>{icon}</span>
                   <span>{title}</span>
                   {badge && (
-                    <span
-                      className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${badgeClass}`}
-                    >
+                    <StatusBadge size="sm" tone={BADGE_TONE_TO_STATUS[badgeTone] ?? "accent"}>
                       {badge}
-                    </span>
+                    </StatusBadge>
                   )}
                 </h2>
                 <p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">{description}</p>

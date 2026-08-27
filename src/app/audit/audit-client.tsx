@@ -4,12 +4,13 @@ import { useCallback } from "react";
 import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { EmptyState, ListPanel, Toolbar } from "@/components/page-shell";
-import { CONTROL_CLASS } from "@/components/ui-primitives";
+import { CONTROL_CLASS, Notice } from "@/components/ui-primitives";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { useResourcePolling } from "@/lib/http/use-resource-polling";
 import { toDateLocale } from "@/lib/i18n/locale-format";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { ActionButton } from "@/components/action-button";
+import { StatusBadge } from "@/components/status-badge";
 
 type AuditLog = {
   id: string;
@@ -208,12 +209,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
       </Toolbar>
 
       {error && (
-        <div role="alert" data-tone="rose" className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-[var(--danger-border)] px-4 py-3 text-sm text-[var(--danger)]">
-          <span>{error}</span>
-          <ActionButton variant="danger" onClick={fetchLogs} className="shrink-0 !px-3 !py-1 !text-xs">
-            {t("common.retry")}
-          </ActionButton>
-        </div>
+        <Notice tone="danger" className="mb-4" action={{ label: t("common.retry"), onClick: fetchLogs }}>{error}</Notice>
       )}
 
       <ListPanel title={t("audit.details")} count={data?.total ?? (loading ?"…" : 0)}>
@@ -241,9 +237,9 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
                     {new Date(log.createdAt).toLocaleString(toDateLocale(locale), { month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit" })}
                   </div>
                   <div>
-                    <span data-tone={severityTone(log.severity)} className="rounded-full border px-2 py-0.5 text-[10px] font-medium">
+                    <StatusBadge tone={severityTone(log.severity)} size="sm">
                       {enumLabel(t, "audit.severity", log.severity)}
-                    </span>
+                    </StatusBadge>
                   </div>
                   <div className="text-[var(--text-primary)]">{formatAction(log.action, t)}</div>
                   <div className="text-[var(--text-secondary)] truncate">
@@ -272,9 +268,9 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
               <div key={log.id} className="px-4 py-3 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-[var(--text-primary)] text-sm">{formatAction(log.action, t)}</span>
-                  <span data-tone={severityTone(log.severity)} className="rounded-full border px-2 py-0.5 text-[10px] font-medium">
+                  <StatusBadge tone={severityTone(log.severity)} size="sm">
                     {enumLabel(t, "audit.severity", log.severity)}
-                  </span>
+                  </StatusBadge>
                 </div>
                 <div className="text-xs text-[var(--text-muted)]">
                   {log.actor ? (log.actor.displayName ?? log.actor.username) : enumLabel(t, "audit.actorType", log.actorType)} · {new Date(log.createdAt).toLocaleString(toDateLocale(locale))}

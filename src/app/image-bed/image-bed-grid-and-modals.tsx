@@ -3,6 +3,7 @@
 import Image from "next/image";
 import type { Dispatch, SetStateAction } from "react";
 import { ModalShell } from "@/components/modal-shell";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Card } from "@/components/page-shell";
 import type { ImageItem, PendingDelete } from "./image-bed-types";
 import { formatImageSize, type ImageBedT } from "./image-bed-sections";
@@ -328,52 +329,17 @@ export function DeleteImageDialog({
   t: ImageBedT;
 }) {
   
-  const handleClose = deleting ? () => undefined : onClose;
-
-return (
-    <ModalShell
+  return (
+    <ConfirmDialog
       open
-      onClose={handleClose}
-      label={
-        pendingDelete.type === "single"
-          ? t("imageBedPage.delete.ariaLabel.single")
-          : t("imageBedPage.delete.ariaLabel.batch")
-      }
-      overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay-strong)] p-4"
-      panelClassName="w-full max-w-md rounded-xl border border-[var(--danger-border)] bg-[var(--modal-bg)] p-6 shadow-2xl"
-    >
-        <h3 className="mb-2 text-lg font-semibold text-[var(--text-primary)]">
-          {pendingDelete.type === "single"
-            ? t("imageBedPage.delete.title.single")
-            : t("imageBedPage.delete.title.batch")}
-        </h3>
-        <p className="text-sm leading-6 text-[var(--text-secondary)]">
-          {pendingDelete.type === "single"
-            ? t("imageBedPage.delete.desc.singleWithName").replace(
-                "{filename}",
-                pendingDelete.filename,
-              )
-            : t("imageBedPage.delete.desc.batchWithCount").replace(
-                "{count}",
-                String(pendingDelete.count),
-              )}
-        </p>
-        <div className="mt-6 flex items-center justify-end gap-2">
-          <ActionButton variant="ghost"
-            onClick={handleClose}
-            disabled={deleting} className="!text-sm disabled:opacity-50"
-          >
-            {t("imageBedPage.delete.cancel")}
-          </ActionButton>
-          <ActionButton variant="danger-solid"
-            onClick={confirmDelete}
-            disabled={deleting} className="!px-4 !py-2 !text-sm disabled:opacity-50"
-          >
-            {deleting
-              ? t("imageBedPage.delete.deleting")
-              : t("common.confirmDelete")}
-          </ActionButton>
-        </div>
-    </ModalShell>
+      ariaLabel={pendingDelete.type === "single" ? t("imageBedPage.delete.ariaLabel.single") : t("imageBedPage.delete.ariaLabel.batch")}
+      title={pendingDelete.type === "single" ? t("imageBedPage.delete.title.single") : t("imageBedPage.delete.title.batch")}
+      description={pendingDelete.type === "single" ? t("imageBedPage.delete.desc.singleWithName").replace("{filename}", pendingDelete.filename) : t("imageBedPage.delete.desc.batchWithCount").replace("{count}", String(pendingDelete.count))}
+      cancelLabel={t("imageBedPage.delete.cancel")}
+      confirmLabel={deleting ? t("imageBedPage.delete.deleting") : t("common.confirmDelete")}
+      busy={deleting}
+      onCancel={onClose}
+      onConfirm={confirmDelete}
+    />
   );
 }

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ActionButton } from "@/components/action-button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { ProgressBar } from "@/components/ui-primitives";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useToast } from "@/components/toast-provider";
@@ -208,18 +209,11 @@ export function CostBudgetPanel({
                   </button>
                 )}
               </div>
-              <div className="mt-3 h-2 overflow-hidden rounded-full bg-[var(--surface-hover)]">
-                <div
-                  className={`h-full ${
-                    budget.usagePercent >= 100
-                      ? "bg-[var(--danger)]"
-                      : budget.usagePercent >= budget.alertThresholdPercent
-                        ? "bg-[var(--warning)]"
-                        : "bg-[var(--success)]"
-                  }`}
-                  style={{ width: `${Math.min(100, budget.usagePercent)}%` }}
-                />
-              </div>
+              <ProgressBar
+                value={budget.usagePercent}
+                tone={budget.usagePercent >= 100 ? "danger" : budget.usagePercent >= budget.alertThresholdPercent ? "warning" : "success"}
+                className="mt-3"
+              />
               <p className="mt-2 text-xs text-[var(--text-secondary)]">
                 <span>
                   {budget.usageAmount} / {budget.limitAmount} {budget.currency}

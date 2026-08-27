@@ -7,6 +7,7 @@
 import { formatBytes } from "@/lib/format/bytes";
 
 import {
+	healthStatusBadgeTone,
 	statusLabelKey,
 	statusToneClasses,
 	unknownTone,
@@ -14,6 +15,7 @@ import {
 } from "@/app/health/health-dashboard-helpers";
 import type { ServerHealth } from "@/app/health/health-types";
 
+import { StatusBadge } from "@/components/status-badge";
 import { formatDisk, formatKbps, formatMem } from "./vps-node-card";
 
 export function VpsStatusTable({
@@ -64,11 +66,9 @@ export function VpsStatusTable({
 									</div>
 								</td>
 								<td className="px-3 py-2.5">
-									<span
-										className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${sc.bg} ${sc.text}`}
-									>
+									<StatusBadge tone={healthStatusBadgeTone(server.status)} size="sm">
 										{t(statusLabelKey(server.status))}
-									</span>
+									</StatusBadge>
 								</td>
 								<td className={`px-3 py-2.5 font-mono tabular-nums ${usageColor(server.cpu)}`}>
 									{server.cpu !== undefined ? `${server.cpu.toFixed(1)}%` : "—"}

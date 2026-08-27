@@ -4,6 +4,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { useAbortableTextResource } from "@/lib/http/use-abortable-text-resource";
 import { AlertTriangle, File } from "@/components/icons";
+import { StatusBadge } from "@/components/status-badge";
 
 
 function parseCsv(text: string): string[][] {
@@ -120,7 +121,7 @@ export function CsvPreviewClient({ href }: { href: string }) {
 	return (
 		<div className="space-y-4">
 			<div className="flex items-center gap-3">
-				<span className="rounded-full bg-[var(--success-bg)] px-3 py-1 text-xs font-medium text-[var(--success)] border border-[var(--success-border)]">{t("csvPreview.tableBadge")}</span>
+				<StatusBadge size="md" tone="success">{t("csvPreview.tableBadge")}</StatusBadge>
 				<span className="text-xs text-[var(--text-secondary)]">{t("csvPreview.rowCol", { rows: dataRows.length, cols: colCount })}</span>
 			</div>
 			<div className="overflow-auto rounded-2xl border border-[var(--border)]">

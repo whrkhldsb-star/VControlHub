@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { PageShell, PageHeader, SurfacePanel } from "@/components/page-shell";
 import { ActionButton } from "@/components/action-button";
+import { Notice, ProgressBar } from "@/components/ui-primitives";
+import { StatusBadge } from "@/components/status-badge";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
 import { useRefreshInterval } from "@/lib/preferences/use-refresh-interval";
@@ -211,9 +213,7 @@ export default function MonitoringPage() {
       />
 
       {errorMessage ? (
-        <div className="mb-4 rounded-xl border border-[var(--warning-border)] bg-[var(--warning-bg)] px-4 py-3 text-xs text-[var(--warning)]">
-          {t("monitoringPage.lastRefreshFailed", { message: errorMessage })}
-        </div>
+        <Notice tone="warning">{t("monitoringPage.lastRefreshFailed", { message: errorMessage })}</Notice>
       ) : null}
 
       <div className="mb-6 flex flex-wrap items-center gap-3" data-toolbar>
@@ -234,10 +234,10 @@ export default function MonitoringPage() {
           {autoRefreshLabel}
         </button>
         {sseConnected && autoRefresh && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-[var(--success-bg)] px-2 py-0.5 text-[10px] text-[var(--success)]">
+          <StatusBadge tone="success" size="sm" className="gap-1">
             <span className="h-1.5 w-1.5 rounded-full bg-[var(--success)] animate-pulse" />
             {t("monitoringPage.sseLabel")}
-          </span>
+          </StatusBadge>
         )}
       </div>
 
@@ -264,12 +264,7 @@ export default function MonitoringPage() {
               <span>{t("monitoringPage.field.usage")}</span>
               <span>{stats.memory.usagePercent}%</span>
             </div>
-            <div className="h-1.5 overflow-hidden rounded-full bg-[var(--surface-hover)]">
-              <div
-                className="h-full rounded-full bg-[var(--accent)] transition-[width]"
-                style={{ width: `${stats.memory.usagePercent}%` }}
-              />
-            </div>
+            <ProgressBar value={Number(stats.memory.usagePercent)} height="sm" />
           </div>
         </Card>
 

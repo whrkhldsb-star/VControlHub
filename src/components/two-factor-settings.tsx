@@ -7,6 +7,8 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 
 import { ActionButton } from "@/components/action-button";
+import { StatusBadge } from "@/components/status-badge";
+import { Notice } from "@/components/ui-primitives";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
 import { getErrorMessage } from "@/lib/http/error-message";
@@ -126,13 +128,13 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 		<div id="2fa" className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-5">
 			<div className="flex items-center justify-between mb-4">
 				<h3 className="text-sm font-medium text-[var(--text-primary)]">{t("auth.2fa-section-title")}</h3>
-				<span className={`text-xs px-2 py-0.5 rounded-full ${isEnabled ? "bg-[var(--success-bg)] text-[var(--success)]" : "bg-[var(--surface-hover)]/50 text-[var(--text-muted)]"}`}>
+				<StatusBadge tone={isEnabled ? "success" : "neutral"} size="sm">
 					{isEnabled ? t("auth.2fa-enabled") : t("auth.2fa-disabled")}
-				</span>
+				</StatusBadge>
 			</div>
 
 			{error && (
-				<div role="alert" className="mb-3 text-xs text-[var(--danger)] bg-[var(--danger-bg)] rounded-lg px-3 py-2">{error}</div>
+				<Notice tone="danger" compact>{error}</Notice>
 			)}
 
 			{step === "idle" && !isEnabled && (

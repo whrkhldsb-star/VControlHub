@@ -12,6 +12,8 @@ import { useVisibilityInterval } from "@/lib/hooks/use-visibility-interval";
 import { TrafficSparkline, type TrafficSample } from "./traffic-sparkline";
 
 import { ActionButton } from "@/components/action-button";
+import { StatusBadge } from "@/components/status-badge";
+import { Notice } from "@/components/ui-primitives";
 import { getErrorMessage } from "@/lib/http/error-message";
 const HISTORY_LIMIT = 60; // ≈ 30 min at 30s polling cadence
 
@@ -282,8 +284,8 @@ export default function TrafficPage() {
         </div>
       </div>
 
-      {error && <div className="mb-4 rounded-lg bg-[var(--danger-bg)] px-4 py-3 text-sm text-[var(--danger)]">{error}</div>}
-      {historyError && <div role="alert" className="mb-4 rounded-lg bg-[var(--danger-bg)] px-4 py-3 text-sm text-[var(--danger)]">{historyError}</div>}
+      {error && <Notice tone="danger">{error}</Notice>}
+      {historyError && <Notice tone="danger">{historyError}</Notice>}
 
       <div className="mb-5 flex flex-wrap items-center gap-2">
         <button type="button" onClick={() => { setHistoryScope("24h"); void fetchHistory("24h"); }} className={`rounded-lg px-3 py-1.5 text-xs font-medium ${historyScope === "24h" ? "bg-[var(--color-action)]/15 text-[var(--text-secondary)]" : "bg-[var(--surface-elevated)] text-[var(--text-secondary)]"}`}>24h</button>
@@ -389,13 +391,16 @@ export default function TrafficPage() {
                       <div className="text-sm font-medium text-[var(--text-primary)]">{node.serverName}</div>
                       <div className="mt-1 text-[11px] text-[var(--text-muted)]">{node.host}</div>
                     </div>
-                    {node.error ? (
-                      <span className="rounded-full bg-[var(--danger-bg)] px-2 py-0.5 text-[10px] text-[var(--danger)]">{t("trafficPage.badge.samplingFailed")}</span>
-                    ) : node.primaryInterface ? (
-                      <span className="rounded-full bg-[var(--success-bg)] px-2 py-0.5 text-[10px] text-[var(--success)]">{t("trafficPage.badge.onlineIface", { iface: node.primaryInterface.iface })}</span>
-                    ) : (
-                      <span className="rounded-full bg-[var(--surface)] px-2 py-0.5 text-[10px] text-[var(--text-secondary)]">{t("trafficPage.badge.noIface")}</span>
-                    )}
+                    <StatusBadge
+                      tone={node.error ? "danger" : node.primaryInterface ? "success" : "neutral"}
+                      size="sm"
+                    >
+                      {node.error
+                        ? t("trafficPage.badge.samplingFailed")
+                        : node.primaryInterface
+                          ? t("trafficPage.badge.onlineIface", { iface: node.primaryInterface.iface })
+                          : t("trafficPage.badge.noIface")}
+                    </StatusBadge>
                   </div>
                   {node.error ? (
                     <div className="mt-3 break-all text-[11px] text-[var(--danger)]/80">{node.error}</div>
