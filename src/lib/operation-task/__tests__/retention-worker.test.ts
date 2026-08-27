@@ -89,6 +89,7 @@ describe("operation task retention worker", () => {
         backup: { scanned: 5, deleted: 1 },
         deployment: { scanned: 0, deleted: 0 },
       },
+      failedSources: [],
       durationMs: 42,
     });
     jobMocks.findFirst.mockResolvedValue(null);
@@ -177,6 +178,37 @@ describe("operation task retention worker", () => {
     expect(pruneHistoryMock).not.toHaveBeenCalled();
   });
 
+  it("某个来源裁剪失败时标记 job 失败, 不再报告成功", async () => {
+    jobMocks.claimNextJob.mockResolvedValueOnce({
+      id: "job-err",
+      type: "operation-task.retention",
+      payload: {},
+      status: "RUNNING",
+    });
+    // safeRun 吞掉每个来源的异常, 所以 pruneOperationTaskHistory 本身永不 throw。
+    pruneHistoryMock.mockResolvedValueOnce({
+      olderThan: "2026-03-17T00:00:00.000Z",
+      keepLatest: 100,
+      totalDeleted: 0,
+      perSource: {
+        command: { scanned: 0, deleted: 0, error: "connection reset" },
+        download: { scanned: 10, deleted: 0 },
+      },
+      failedSources: ["command"],
+      durationMs: 5,
+    });
+
+    await runOperationTaskRetentionJobWorkerOnce("failing-source");
+
+    expect(jobMocks.completeJob).not.toHaveBeenCalled();
+    expect(jobMocks.failJob).toHaveBeenCalledWith(
+      "job-err",
+      expect.stringContaining("operation-task-retention:"),
+      expect.stringContaining("command"),
+      expect.objectContaining({ retryAfterMs: expect.any(Number) }),
+    );
+  });
+
   it("新建任务首次领取为空时，短暂重试后仍在同一 tick 执行", async () => {
     jobMocks.claimNextJob
       .mockResolvedValueOnce(null)
@@ -228,7 +260,7 @@ describe("operation task retention worker", () => {
     let release!: () => void;
     pruneHistoryMock.mockReturnValueOnce(
       new Promise<unknown>((resolve) => {
-        release = () => resolve({ totalDeleted: 0, perSource: {} });
+        release = () => resolve({ totalDeleted: 0, perSource: {}, failedSources: [] });
       }),
     );
 

@@ -5,7 +5,7 @@ import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
 import Link from "next/link";
 import { EmptyState, ListPanel, ListRow, StatCard, StatGrid, SurfacePanel, Toolbar } from "@/components/page-shell";
 import { CONTROL_CLASS, Notice } from "@/components/ui-primitives";
-import type { OperationTask, OperationTaskFailureSummary, OperationTaskSourceSummary, OperationTaskStatus } from "@/lib/operation-task/dto";
+import type { OperationTask, OperationTaskFailureSummary, OperationTaskListResult, OperationTaskSourceSummary, OperationTaskStatus } from "@/lib/operation-task/dto";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { toDateLocale } from "@/lib/i18n/locale-format";
@@ -14,6 +14,7 @@ import { JobEventsDialog } from "./job-events-dialog";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 import { getDomainStatusLabel } from "@/lib/i18n/domain-labels";
+import { StatusBadge, type StatusTone } from "@/components/status-badge";
 
 const TASKS_PER_PAGE = 20;
 
@@ -28,7 +29,14 @@ function getSourceLabels(t: (k: string, vars?: Record<string, string | number>) 
     deployment: t("operationTasksPage.source.deployment"),
   };
 }
-const statusTone: Record<string, "accent" | "success" | "warning" | "danger" | "neutral"> = {
+/**
+ * globals.css only defines `--tone-bg` for the seven hue names
+ * (cyan/emerald/rose/amber/sky/blue/violet), so a hand-rolled
+ * `<span data-tone="warning" className="border">` got no background, no border
+ * colour and no text colour — all six statuses rendered identically. These names
+ * are StatusBadge tones, which map to a real hue and set the classes explicitly.
+ */
+const statusTone: Record<string, StatusTone> = {
   pending: "warning",
   running: "accent",
   completed: "success",
@@ -66,7 +74,7 @@ const TaskRow = memo(function TaskRow({ task, t, dateLocale, sourceLabels, onVie
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <span className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-2 py-1 text-xs text-[var(--text-muted)]">{sourceLabels[task.source] ?? task.source}</span>
-          <span data-tone={statusTone[task.status] ?? "neutral"} className="rounded-lg border px-2 py-1 text-xs font-semibold">{getDomainStatusLabel(t, task.status)}</span>
+          <StatusBadge tone={statusTone[task.status] ?? "neutral"}>{getDomainStatusLabel(t, task.status)}</StatusBadge>
           {task.taskType && <span className="rounded-lg border border-[var(--border)] px-2 py-1 text-xs text-[var(--text-muted)]">{task.taskType}</span>}
           {task.foldedCount && task.foldedCount > 1 && <span className="rounded-lg border border-[var(--accent-border)] bg-[var(--accent-bg)] px-2 py-1 text-xs text-[var(--accent)]">{t("operationTasksPage.folded", { count: task.foldedCount })}</span>}
           {task.workerId && <span title={task.workerHeartbeatAt ? t("operationTasksPage.worker.heartbeat", { time: new Date(task.workerHeartbeatAt).toLocaleString(dateLocale) }) : t("operationTasksPage.worker.noHeartbeat")} data-tone="accent" className="rounded-lg border px-2 py-1 text-xs font-medium">worker {task.workerId}</span>}
@@ -143,9 +151,10 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
     setRefreshing(true);
     setError(null);
     try {
-      const data = await csrfFetch(getRefreshPath(statusFilter, taskTypeFilter, sort), {
-        signal: controller.signal,
-      });
+      const data = await csrfFetch<Partial<OperationTaskListResult>>(
+        getRefreshPath(statusFilter, taskTypeFilter, sort),
+        { signal: controller.signal },
+      );
       if (
         refreshSequence !== refreshSequenceRef.current ||
         requestFilterKey !== `${statusFilter}:${taskTypeFilter}:${sort}`
@@ -216,7 +225,7 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
       </div>
       {failureSummary.length === 0 ? <p className="mt-3 text-sm text-[var(--text-muted)]">{t("operationTasks.summary.noFailures")}</p> : <div className="mt-4 grid gap-3 lg:grid-cols-2">
         {failureSummary.map((item) => <div key={item.reason} className="rounded-xl border border-[var(--danger-border)] bg-[var(--surface)] px-3 py-3">
-          <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-sm font-medium text-[var(--text-primary)]">{item.reason}</span><span className="rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] px-2 py-1 text-xs font-medium text-[var(--danger)]">{t("operationTasksPage.failures.itemCount", { count: item.total })}</span></div>
+          <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-sm font-medium text-[var(--text-primary)]">{item.reason}</span><StatusBadge tone="danger">{t("operationTasksPage.failures.itemCount", { count: item.total })}</StatusBadge></div>
           <p className="mt-2 text-xs text-[var(--text-muted)]">{t("operationTasksPage.failures.sourceAndLatest", { sources: item.sources.map((source) => sourceLabels[source] ?? source).join("、"), title: item.latestTitle })}</p>
         </div>)}
       </div>}

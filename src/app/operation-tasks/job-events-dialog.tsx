@@ -10,6 +10,7 @@ import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 import { Notice } from "@/components/ui-primitives";
 import { ModalShell } from "@/components/modal-shell";
+import { StatusBadge, type StatusTone } from "@/components/status-badge";
 
 type JobEventLevel = "info" | "warn" | "error";
 
@@ -52,11 +53,21 @@ function buildTypeLabels(t: (key: string, vars?: Record<string, string | number>
 	};
 }
 
-function levelTone(level: string): "info" | "warn" | "error" {
+function levelTone(level: string): JobEventLevel {
   if (level === "error") return "error";
   if (level === "warn") return "warn";
   return "info";
 }
+
+/**
+ * `data-tone` only carries a background for the seven hue names in globals.css,
+ * so `data-tone="warn"` styled nothing — every level badge looked the same.
+ */
+const LEVEL_BADGE_TONE: Record<JobEventLevel, StatusTone> = {
+  info: "info",
+  warn: "warning",
+  error: "danger",
+};
 
 function formatTime(value: string, locale?: Locale) {
   const date = new Date(value);
@@ -106,7 +117,7 @@ function displayEventMessage(
 }
 
 export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const levelLabels = buildLevelLabels(t);
   const typeLabels = buildTypeLabels(t);
   const [events, setEvents] = useState<JobEventRow[]>([]);
@@ -202,15 +213,12 @@ export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) 
                 return (
                   <li
                     key={event.id}
-                    data-tone={tone}
                     className="rounded-lg border border-[var(--border)]/[0.10] bg-[var(--surface-elevated)] px-3 py-2 text-xs text-[var(--text-primary)]"
                   >
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium text-[var(--text-primary)]">{typeLabel}</span>
-                      <span data-tone={tone} className="rounded-lg border px-1.5 py-0.5 text-[10px] font-medium">
-                        {levelLabels[tone]}
-                      </span>
-                      <span className="text-[var(--text-muted)]">{formatTime(event.createdAt)}</span>
+                      <StatusBadge tone={LEVEL_BADGE_TONE[tone]}>{levelLabels[tone]}</StatusBadge>
+                      <span className="text-[var(--text-muted)]">{formatTime(event.createdAt, locale)}</span>
                       {event.workerId ? (
                         <span className="font-mono text-[10px] text-[var(--text-muted)]" title={t("jobEventsDialog.workerIdTitle")}>
                           {event.workerId}

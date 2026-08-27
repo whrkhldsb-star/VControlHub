@@ -17,7 +17,15 @@ vi.mock("@/lib/runtime-settings/service", () => ({
   getOperationTaskListLimit: vi.fn(async () => 100),
 }));
 
-const { listOperationTasks, listOperationTaskResult } = await import("../service");
+const { listOperationTaskResult } = await import("../service");
+
+// A team manager: `teamWhere` collapses to `{}` for this role, which is the same
+// unfiltered `where` the old session-less overload produced — so the existing
+// where-shape assertions below still describe the same queries.
+const MANAGER = { userId: "admin-1", roles: ["admin"] as const, currentTeamId: "team-1" };
+type ListOptions = Parameters<typeof listOperationTaskResult>[0];
+const listTasks = async (options: ListOptions = {}) =>
+	(await listOperationTaskResult(options, { ...MANAGER, roles: [...MANAGER.roles] })).tasks;
 const { getOperationTaskListLimit } = await import("@/lib/runtime-settings/service");
 
 describe("operation task service", () => {
@@ -62,7 +70,7 @@ describe("operation task service", () => {
   });
 
   it("aggregates durable jobs with existing command/download/sync/scheduled jobs into a unified recent task list", async () => {
-    const tasks = await listOperationTasks({ limit: 10 });
+    const tasks = await listTasks({ limit: 10 });
 
     expect(tasks.map((task) => task.id)).toEqual(["job:job1", "download:dl1", "command:cmd1"]);
     expect(tasks[0]).toMatchObject({ source: "job", status: "running", progress: "25%", workerId: "worker-job" });
@@ -73,12 +81,12 @@ describe("operation task service", () => {
   it("uses the runtime setting as the default and maximum list limit", async () => {
     vi.mocked(getOperationTaskListLimit).mockResolvedValue(42);
 
-    await listOperationTasks();
+    await listTasks();
 
     expect(mockPrisma.commandRequest.findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 42 }));
     expect(mockPrisma.scheduledTask.findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 42 }));
 
-    await listOperationTasks({ limit: 500 });
+    await listTasks({ limit: 500 });
     expect(mockPrisma.commandRequest.findMany).toHaveBeenLastCalledWith(expect.objectContaining({ take: 42 }));
   });
 
@@ -153,7 +161,7 @@ describe("operation task service", () => {
     mockPrisma.commandRequest.findMany.mockResolvedValue([]);
     mockPrisma.downloadTask.findMany.mockResolvedValue([]);
 
-    const tasks = await listOperationTasks({ limit: 10 });
+    const tasks = await listTasks({ limit: 10 });
 
     expect(tasks.map((task) => task.id)).toEqual(["job:alert_new", "job:alert_failed"]);
     expect(tasks[0]).toMatchObject({
@@ -215,7 +223,7 @@ describe("operation task service", () => {
     mockPrisma.commandRequest.findMany.mockResolvedValue([]);
     mockPrisma.downloadTask.findMany.mockResolvedValue([]);
 
-    const tasks = await listOperationTasks({ limit: 10, status: "failed", taskType: "alert.evaluate" });
+    const tasks = await listTasks({ limit: 10, status: "failed", taskType: "alert.evaluate" });
 
     expect(tasks).toHaveLength(1);
     expect(tasks[0]).toMatchObject({ id: "job:alert_failed", status: "failed", taskType: "alert.evaluate", progress: "SMTP failed" });
@@ -261,7 +269,7 @@ describe("operation task service", () => {
     ]);
     mockPrisma.downloadTask.findMany.mockResolvedValue([]);
 
-    const result = await listOperationTaskResult({ limit: 10, status: ["failed", "pending", "running"] });
+    const result = await listOperationTaskResult({ limit: 10, status: ["failed", "pending", "running"] }, { ...MANAGER, roles: [...MANAGER.roles] });
 
     expect(result.tasks.map((task) => task.id)).toEqual(["job:job_failed", "command:cmd_pending"]);
     expect(result.sourceSummary).toEqual([
@@ -302,7 +310,7 @@ describe("operation task service", () => {
     mockPrisma.commandRequest.findMany.mockResolvedValue([]);
     mockPrisma.downloadTask.findMany.mockResolvedValue([]);
 
-    const result = await listOperationTaskResult({ limit: 10, status: "failed" });
+    const result = await listOperationTaskResult({ limit: 10, status: "failed" }, { ...MANAGER, roles: [...MANAGER.roles] });
 
     expect(result.failureSummary).toEqual([
       { reason: "通知发送失败", total: 1, sources: ["job"], latestTaskId: "job:alert_failed", latestTitle: "Alert rule evaluation", latestAt: "2026-01-04T00:00:00.000Z" },
@@ -342,7 +350,7 @@ describe("operation task service", () => {
     mockPrisma.commandRequest.findMany.mockResolvedValue([]);
     mockPrisma.downloadTask.findMany.mockResolvedValue([]);
 
-    const tasks = await listOperationTasks({ limit: 10, sort: "attention" });
+    const tasks = await listTasks({ limit: 10, sort: "attention" });
 
     expect(tasks.map((task) => task.id)).toEqual(["job:failed_old", "job:completed_new"]);
   });
@@ -365,7 +373,7 @@ describe("operation task service", () => {
     ]);
     mockPrisma.downloadTask.findMany.mockResolvedValue([]);
 
-    const tasks = await listOperationTasks({ limit: 10 });
+    const tasks = await listTasks({ limit: 10 });
 
     expect(tasks[0]).toMatchObject({
       id: "command:cmd_logs",
@@ -394,7 +402,7 @@ describe("operation task service", () => {
       },
     ]);
 
-    const tasks = await listOperationTasks({ limit: 10 });
+    const tasks = await listTasks({ limit: 10 });
 
     expect(tasks).toEqual([
       expect.objectContaining({

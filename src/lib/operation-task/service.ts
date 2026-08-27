@@ -205,12 +205,19 @@ function summarizeOperationTaskFailures(tasks: OperationTask[], t: (key: string,
     .sort((a, b) => b.total - a.total || new Date(b.latestAt).getTime() - new Date(a.latestAt).getTime() || a.reason.localeCompare(b.reason));
 }
 
-export async function listOperationTasks(options: OperationTaskListOptions = {}): Promise<OperationTask[]> {
-  const result = await listOperationTaskResult(options);
-  return result.tasks;
-}
+/**
+ * Caller identity is required, not optional: every `where` below is built from it,
+ * and a missing session collapsed the team scope to `{}` — i.e. every tenant's
+ * jobs, commands, downloads, backups and deployments in one list. The only
+ * callers were the HTTP route and the page (both pass a session) plus tests.
+ */
+export type OperationTaskSessionScope = {
+  userId: string;
+  roles: import("@/lib/auth/rbac").RoleKey[];
+  currentTeamId: string | null;
+};
 
-export async function listOperationTaskResult(options: OperationTaskListOptions = {}, session?: { userId: string; roles: import("@/lib/auth/rbac").RoleKey[]; currentTeamId: string | null }): Promise<OperationTaskListResult> {
+export async function listOperationTaskResult(options: OperationTaskListOptions, session: OperationTaskSessionScope): Promise<OperationTaskListResult> {
   const configuredLimit = await getOperationTaskListLimit();
   const requestedLimit = options.limit ?? configuredLimit;
   // `Math.trunc` is not cosmetic: `limit` becomes Prisma `take`, which rejects a
@@ -219,10 +226,10 @@ export async function listOperationTaskResult(options: OperationTaskListOptions 
   const limit = Math.trunc(
     Math.min(Math.max(Number.isFinite(requestedLimit) ? requestedLimit : configuredLimit, 1), configuredLimit),
   );
-  const teamScope = session ? teamWhere(session) : {};
-  const canReadTeamTasks = Boolean(session && sessionHasPermission(session, "team:manage"));
+  const teamScope = teamWhere(session);
+  const canReadTeamTasks = sessionHasPermission(session, "team:manage");
   const scopedWhere = (ownerField: string): Record<string, unknown> => {
-    if (!session || canReadTeamTasks) return teamScope;
+    if (canReadTeamTasks) return teamScope;
     return { AND: [teamScope, { [ownerField]: session.userId }] };
   };
   const [jobs, commands, scheduled, downloads, syncJobs, backups, deployments] = await Promise.all([

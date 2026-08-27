@@ -47,6 +47,12 @@ export type OperationTaskRetentionPerSourceResult = {
   scanned: number;
   deleted: number;
   error?: string;
+  /**
+   * True when this source is deliberately not pruned here (sync/backup below).
+   * Without the flag a `deleted: 0` row reads as "nothing needed pruning" when it
+   * actually means "another owner handles this table".
+   */
+  skipped?: true;
 };
 
 export type OperationTaskRetentionResult = {
@@ -54,6 +60,8 @@ export type OperationTaskRetentionResult = {
   keepLatest: number;
   totalDeleted: number;
   perSource: Record<string, OperationTaskRetentionPerSourceResult>;
+  /** Sources whose prune threw. Non-empty means the run did not do its job. */
+  failedSources: string[];
   durationMs: number;
 };
 
@@ -107,13 +115,13 @@ async function pruneSync(_keepLatest: number, _olderThan: Date): Promise<Operati
   // SyncJob rows are long-lived automation configs (source/target paths + schedule),
   // not disposable task history. Never delete them from operation-task retention.
   // SyncLog history can be pruned separately if needed; keepLatest is intentionally unused.
-  return { scanned: 0, deleted: 0 };
+  return { scanned: 0, deleted: 0, skipped: true };
 }
 
 async function pruneBackup(_keepLatest: number, _olderThan: Date): Promise<OperationTaskRetentionPerSourceResult> {
   // BackupRecord prune must unlink artifacts (+ offsite) via pruneOldBackupRecordsNow.
   // DB-only deleteMany here would orphan tarballs under backups/. Defer entirely.
-  return { scanned: 0, deleted: 0 };
+  return { scanned: 0, deleted: 0, skipped: true };
 }
 
 async function pruneDeployment(keepLatest: number, olderThan: Date): Promise<OperationTaskRetentionPerSourceResult> {
@@ -173,7 +181,17 @@ export async function pruneOperationTaskHistory(
   perSource.deployment = deployment;
 
   const totalDeleted = Object.values(perSource).reduce((sum, r) => sum + r.deleted, 0);
+  const failedSources = Object.entries(perSource)
+    .filter(([, result]) => result.error)
+    .map(([source]) => source);
   const durationMs = Date.now() - startedAt;
+
+  if (failedSources.length > 0) {
+    logger.warn("Operation task retention finished with failed sources", {
+      failedSources,
+      totalDeleted,
+    });
+  }
 
   if (totalDeleted > 0) {
     logger.info("Pruned operation task history", {
@@ -190,6 +208,7 @@ export async function pruneOperationTaskHistory(
     keepLatest,
     totalDeleted,
     perSource,
+    failedSources,
     durationMs,
   };
 }

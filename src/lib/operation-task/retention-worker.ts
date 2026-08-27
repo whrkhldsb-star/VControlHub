@@ -149,6 +149,15 @@ export async function runOperationTaskRetentionJobWorkerOnce(
         }),
         run: () => pruneOperationTaskHistory(),
       });
+      // `pruneOperationTaskHistory` isolates each source with try/catch, so it never
+      // throws — a run where every table failed used to be recorded as COMPLETED,
+      // i.e. the task centre showed a green retention job while history grew without
+      // bound. A failed source is a failed run: report it and let the retry path run.
+      if (result.failedSources.length > 0) {
+        throw new Error(
+          `Retention pruning failed for: ${result.failedSources.join(", ")}`,
+        );
+      }
       await completeJob(job.id, OPERATION_TASK_RETENTION_WORKER_ID, {
         totalDeleted: result.totalDeleted,
         perSource: result.perSource,
