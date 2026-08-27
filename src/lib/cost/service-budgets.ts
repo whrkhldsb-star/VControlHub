@@ -74,7 +74,13 @@ export async function deleteCostBudget(id: string, session?: TeamSession | null)
 }
 
 async function listCostBudgetAlertManagers(teamId: string | null | undefined) {
-	return prisma.user.findMany({ where: { roles: { some: { role: { permissions: { some: { permission: { key: "cost:manage" } } } } } }, ...(teamId ? { OR: [{ teamMemberships: { some: { teamId } } }, { roles: { some: { role: { permissions: { some: { permission: { key: "team:manage" } } } } } } }] } : {}) }, select: { id: true }, take: 1000 });
+	const teamManage = { roles: { some: { role: { permissions: { some: { permission: { key: "team:manage" } } } } } } };
+	// Team-scoped budgets notify same-team members plus global managers. Null-team
+	// (shared) budgets must NOT fan out to every tenant's cost managers — require
+	// team:manage in addition to cost:manage so only global managers are alerted
+	// (mirrors the notifyCommandPending null-team quarantine). Combined via AND so
+	// the outer cost:manage requirement is preserved rather than overwritten.
+	return prisma.user.findMany({ where: { roles: { some: { role: { permissions: { some: { permission: { key: "cost:manage" } } } } } }, ...(teamId ? { OR: [{ teamMemberships: { some: { teamId } } }, teamManage] } : { AND: [teamManage] }) }, select: { id: true }, take: 1000 });
 }
 export async function checkBudgetAlerts(now = new Date(), session?: TeamSession | null) {
 	const budgets = await listCostBudgets(now, session); let triggered = 0; let notificationsSent = 0; let duplicatesSkipped = 0;

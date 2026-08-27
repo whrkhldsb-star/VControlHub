@@ -347,6 +347,37 @@ describe("parseBillingCsv", () => {
       }),
     ).toThrow(/date|amount|CSV/);
   });
+
+  it("rejects an explicit unsupported currency instead of silently persisting it", () => {
+    expect(() =>
+      parseBillingCsv(
+        `date,amount,currency,category,product
+2026-07-01,10,GBP,vps,ec2`,
+        { currency: "USD", providerLabel: "CSV" },
+      ),
+    ).toThrow(/GBP|currency|币种/);
+  });
+
+  it("falls back to the account default currency when the column is empty", () => {
+    const items = parseBillingCsv(
+      `date,amount,currency,category,product
+2026-07-01,10,,vps,ec2`,
+      { currency: "JPY", providerLabel: "CSV" },
+    );
+    expect(items).toHaveLength(1);
+    expect(items[0]?.currency).toBe("JPY");
+  });
+
+  it("skips absurd/overflowing amounts (mirrors the manual 1e12 cap)", () => {
+    const items = parseBillingCsv(
+      `date,amount,currency,category,product
+2026-07-01,1000000000000,USD,vps,ec2
+2026-07-02,5,USD,vps,ec2`,
+      { currency: "USD", providerLabel: "CSV" },
+    );
+    expect(items).toHaveLength(1);
+    expect(items[0]?.amount).toBe("5.00");
+  });
 });
 
 describe("cloud billing service", () => {

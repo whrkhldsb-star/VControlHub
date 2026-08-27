@@ -29,6 +29,7 @@ import {
 } from "@/lib/http/response-body";
 
 import type { CostCategory, CostCurrency } from "../types";
+import { COST_CURRENCY_VALUES } from "../types";
 import { config } from "@/lib/config/env";
 import { t } from "@/lib/i18n/service-translations";
 import type {
@@ -139,11 +140,33 @@ export function parseBillingCsv(
     const amountRaw = cols[amountI] ?? "0";
     if (!/^\d{4}-\d{2}-\d{2}$/u.test(date)) continue;
     const amountNum = Number(amountRaw);
-    if (!Number.isFinite(amountNum) || amountNum < 0) continue;
+    // Mirror the manual entry cap (costAmountSchema: amount < 1e12). An
+    // absurd/overflowing CSV amount is treated as a malformed row and skipped
+    // rather than persisted, so it cannot poison per-currency totals.
+    if (!Number.isFinite(amountNum) || amountNum < 0 || amountNum >= 1e12)
+      continue;
     const amount = amountNum.toFixed(2);
-    const currency = (
-      (currencyI >= 0 ? cols[currencyI] : "") || defaults.currency
-    ).toUpperCase() as CostCurrency;
+    // The manual path validates currency against COST_CURRENCY_VALUES
+    // (costCurrencySchema). The CSV path must too: an out-of-enum token
+    // previously got cast straight to CostCurrency and persisted, so that spend
+    // silently dropped out of every per-currency summary and budget check. Fail
+    // loud on an explicit unsupported currency; fall back to the account
+    // default only when the column is absent/empty.
+    const currencyToken = (
+      currencyI >= 0 ? (cols[currencyI] ?? "").trim() : ""
+    ).toUpperCase();
+    let currency: CostCurrency;
+    if (!currencyToken) {
+      currency = defaults.currency;
+    } else if (
+      (COST_CURRENCY_VALUES as readonly string[]).includes(currencyToken)
+    ) {
+      currency = currencyToken as CostCurrency;
+    } else {
+      throw new ValidationError(
+        t("backend.cost.csvUnsupportedCurrency", { currency: currencyToken }),
+      );
+    }
     const categoryRaw = (categoryI >= 0 ? cols[categoryI] : "other") || "other";
     const product = productI >= 0 ? cols[productI] || "line" : "line";
     const category = resolveBillingCategory(
