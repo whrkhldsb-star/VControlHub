@@ -5,7 +5,7 @@ import { serverTeamWhere } from "@/lib/auth/team-scope";
 import { listDeploymentRuns, listDeploymentTemplates } from "@/lib/deployment/service";
 import { prisma } from "@/lib/db";
 import { PageShell, EmptyState, PageHeader, ListPanel, ListRow, SurfacePanel } from "@/components/page-shell";
-import { StatusBadge } from "@/components/status-badge";
+import { StatusBadge, type StatusTone } from "@/components/status-badge";
 import { Notice } from "@/components/ui-primitives";
 import { DeploymentLaunchForm } from "./deployment-launch-form";
 import { DeploymentExportPanel } from "./deployment-export-panel";
@@ -18,11 +18,12 @@ import { getServerTargetAvailability } from "@/lib/server/availability";
 
 export const dynamic = "force-dynamic";
 
-function deploymentStatusTone(status: string) {
-	if (["COMPLETED", "SUCCESS", "SUCCEEDED"].includes(status)) return "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]";
-	if (["FAILED", "CANCELLED", "REJECTED"].includes(status)) return "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)]";
-	if (["RUNNING", "APPROVED"].includes(status)) return "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]";
-	return "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)]";
+/** One mapping for every deployment/rollback status pill on this page. */
+function deploymentStatusTone(status: string): StatusTone {
+	if (["COMPLETED", "SUCCESS", "SUCCEEDED"].includes(status)) return "success";
+	if (["FAILED", "CANCELLED", "REJECTED"].includes(status)) return "danger";
+	if (["RUNNING", "APPROVED"].includes(status)) return "accent";
+	return "warning";
 }
 
 function deploymentNextStep(status: string, tr: (key: string) => string) {
@@ -53,7 +54,10 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 		Number.isSafeInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1,
 		10_000,
 	);
-	const formError = params?.error;
+	// Echoed straight from ?error=, so anyone can craft a link that puts arbitrary
+	// text inside this page's own danger banner. Keep the server's message but bound
+	// it, so a crafted link cannot paste a paragraph of fake system copy.
+	const formError = params?.error?.slice(0, 300);
 	const formSuccess = params?.success === "1" || params?.success === "true";
 	const [runs, templates, servers] = await Promise.all([
 		listDeploymentRuns(session, {
@@ -120,12 +124,10 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 				<p className="mt-3 text-xs text-[var(--text-muted)]">{tr("deploymentsPage.page.howItWorks.auditNote")}</p>
 			</details>
 			{formError && (
-				<Notice tone="danger">{tr("deploymentsPage.page.submitFailed")}{formError}</Notice>
+				<Notice tone="danger" className="mb-6">{tr("deploymentsPage.page.submitFailed")}{formError}</Notice>
 			)}
 			{formSuccess && !formError && latestRun && (
-				<div role="status" className="mb-6 rounded-xl border border-[var(--success-border)] bg-[var(--success-bg)] px-4 py-3 text-sm text-[var(--success)]">
-					{tr("deploymentsPage.page.submitSuccess")}
-				</div>
+				<Notice tone="success" className="mb-6">{tr("deploymentsPage.page.submitSuccess")}</Notice>
 			)}
 			{canRun && (
 				<div className="mb-5">
@@ -170,7 +172,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 							<h2 className="mt-1 text-sm font-semibold text-[var(--text-primary)]">{tr("deploymentsPage.page.latestDeploy.heading")}{latestRun.template.name}</h2>
 							<p className="mt-1 text-xs text-[var(--text-secondary)]">{trTpl("deploymentsPage.page.latestDeploy.meta", { count: String(latestRun.serverIds.length), date: latestRun.createdAt.toLocaleString(dateLocale), snapshot: latestRun.snapshotId || tr("deploymentsPage.page.latestDeploy.snapshotPending") })}</p>
 						</div>
-						<StatusBadge tone={["COMPLETED", "SUCCESS", "SUCCEEDED"].includes(latestRun.status) ? "success" : ["FAILED", "CANCELLED", "REJECTED"].includes(latestRun.status) ? "danger" : ["RUNNING", "APPROVED"].includes(latestRun.status) ? "accent" : "warning"} size="md">{getDomainStatusLabel(tr, latestRun.status)}</StatusBadge>
+						<StatusBadge tone={deploymentStatusTone(latestRun.status)} size="md">{getDomainStatusLabel(tr, latestRun.status)}</StatusBadge>
 					</div>
 					<code className="mt-4 block max-h-24 overflow-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] p-3 font-mono text-xs text-[var(--text-secondary)]">{latestRun.snapshot?.rollbackCommand || tr("deploymentsPage.page.latestDeploy.noRollback")}</code>
 					<div className="mt-4 flex flex-wrap items-center gap-3">
@@ -204,7 +206,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 									<h3 className="text-sm font-medium text-[var(--text-primary)]">{r.template.name}</h3>
 									<p className="mt-1 text-xs text-[var(--text-muted)]">{trTpl("deploymentsPage.page.runsSection.meta", { count: String(r.serverIds.length), date: r.createdAt.toLocaleString(dateLocale), request: r.commandRequestId || tr("deploymentsPage.page.runsSection.requestPending") })}</p>
 								</div>
-								<span className={`rounded-lg border px-2 py-1 text-xs ${deploymentStatusTone(r.status)}`}>{getDomainStatusLabel(tr, r.status)}</span>
+								<StatusBadge tone={deploymentStatusTone(r.status)}>{getDomainStatusLabel(tr, r.status)}</StatusBadge>
 							</div>
 							<p className="mt-2 text-xs text-[var(--text-secondary)]">{deploymentNextStep(r.status, tr)}</p>
 							<code className="mt-3 block overflow-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-3 font-mono text-xs text-[var(--text-secondary)]">{r.renderedCommand}</code>

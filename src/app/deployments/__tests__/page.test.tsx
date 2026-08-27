@@ -193,5 +193,17 @@ describe("DeploymentsPage deploy-export panel", () => {
 		for (const link of screen.getAllByRole("link", { name: "查看审批与执行记录" })) {
 			expect(link).toHaveAttribute("href", "/requests#command-req-1");
 		}
+		// Every status pill on the page comes from the shared badge, not a hand-rolled span.
+		expect(screen.getAllByText("等待审批").every((pill) => pill.hasAttribute("data-status-badge"))).toBe(true);
+	});
+
+	it("bounds the ?error= flash so a crafted link cannot fill the danger banner", async () => {
+		const crafted = "假".repeat(900);
+		wrap(await DeploymentsPage({ searchParams: Promise.resolve({ error: crafted }) }));
+
+		const banner = screen.getByRole("alert");
+		expect(banner).toHaveTextContent("部署提交失败：");
+		// 300 echoed characters, not the 900 the URL carried.
+		expect(banner.textContent?.match(/假/g)).toHaveLength(300);
 	});
 });

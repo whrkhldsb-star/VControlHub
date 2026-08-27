@@ -70,4 +70,22 @@ describe("RollbackDeployButton", () => {
     expect(mockedFetch).not.toHaveBeenCalled();
     expect(refresh).not.toHaveBeenCalled();
   });
+
+  it("announces a failed rollback to screen readers", async () => {
+    const user = userEvent.setup();
+    mockedFetch.mockRejectedValueOnce(new Error("回滚命令缺失"));
+
+    render(<RollbackDeployButton runId="run_1" templateName="Nginx" />, { wrapper });
+
+    await user.click(screen.getByRole("button", { name: /执行真实回滚/ }));
+    await user.click(screen.getByRole("button", { name: /确认回滚/ }));
+
+    // A bare <span> left the failure invisible to assistive tech; Notice(danger)
+    // carries role="alert" like every other failure surface in the app.
+    // The toast is an alert too, so assert the inline notice specifically.
+    const alerts = await screen.findAllByRole("alert");
+    expect(alerts.filter((el) => el.hasAttribute("data-notice-tone"))).toEqual([
+      expect.objectContaining({ textContent: "回滚命令缺失" }),
+    ]);
+  });
 });

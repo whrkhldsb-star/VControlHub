@@ -9,6 +9,7 @@ import { useToast } from "@/components/toast-provider";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
+import { Notice } from "@/components/ui-primitives";
 
 type DeploymentTemplateOption = {
 	id: string;
@@ -52,19 +53,18 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 
 	if (templates.length === 0) {
 		return (
-			<div data-tone="amber" className="mt-4 rounded-xl border border-[var(--warning-border)] px-4 py-3 text-sm text-[var(--warning)]">
+			<Notice tone="warning" className="mt-4">
 				{t("deploymentsPage.launch.noTemplateHint")}
-			</div>
+			</Notice>
 		);
 	}
 
 	if (servers.length === 0) {
 		return (
-			<div data-tone="amber" className="mt-4 rounded-xl border border-[var(--warning-border)] px-4 py-3 text-sm text-[var(--warning)]">
-				<p className="font-medium">{t("deploymentsPage.launch.noVpsTitle")}</p>
-				<p className="mt-1 text-xs text-[var(--warning)]/80">{t("deploymentsPage.launch.noVpsDesc")}</p>
+			<Notice tone="warning" title={t("deploymentsPage.launch.noVpsTitle")} className="mt-4">
+				<p className="text-xs">{t("deploymentsPage.launch.noVpsDesc")}</p>
 				<Link href="/servers" className="mt-3 inline-flex rounded-lg border border-[var(--warning-border)] px-3 py-1.5 text-xs font-semibold text-[var(--warning)] transition hover:bg-[var(--warning-bg)]">{t("deploymentsPage.launch.addVps")}</Link>
-			</div>
+			</Notice>
 		);
 	}
 
@@ -173,7 +173,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 				<code className="mt-3 block max-h-40 overflow-auto whitespace-pre-wrap rounded-lg border border-[var(--border)] bg-[var(--surface)]/70 p-3 font-mono text-xs text-[var(--text-secondary)]">{previewCommand(selectedTemplate, variables, t)}</code>
 			</details>
 
-			{error && <p className="text-xs text-[var(--danger)]">{error}</p>}
+			{error && <Notice tone="danger" compact>{error}</Notice>}
 			<ActionButton type="submit" variant="primary" disabled={pending} className="w-fit disabled:opacity-60">{pending ? t("deploymentsPage.launch.submitting") : t("deploymentsPage.launch.submit")}</ActionButton>
 		</form>
 	);
