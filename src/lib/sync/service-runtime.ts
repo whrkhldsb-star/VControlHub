@@ -355,8 +355,11 @@ export async function executeSyncJob(
 		let logStatus: "COMPLETED" | "FAILED" = "COMPLETED";
 		if (reverseError) {
 			logStatus = "FAILED";
+			// Keep the shape parseSyncResultMessage expects: "(<n> files, <size>,
+			// <secs>s)" — the report panel renders the parsed leg counts, and a
+			// partial run that parsed as "0 files" contradicted this very message.
 			lastSyncResult =
-				`Partial: forward completed (${forward.stats.transferredFiles} files, ${formatBytes(forward.stats.totalSize)}); ` +
+				`Partial: forward completed (${forward.stats.transferredFiles} files, ${formatBytes(forward.stats.totalSize)}, ${Math.round(duration / 1000)}s); ` +
 				`reverse failed: ${reverseError.slice(0, 180)}. Bidirectional sync is not transactional.`;
 		} else if (reverse) {
 			lastSyncResult = formatBidirectionalResult({

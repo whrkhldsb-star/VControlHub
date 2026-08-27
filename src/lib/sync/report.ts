@@ -20,6 +20,9 @@ export type SyncRunReport = {
 const BI_RE =
   /Bidirectional OK:\s*A→B\s+(\d+)\s+files\s*\/\s*B→A\s+(\d+)\s+files;\s*total\s+(\d+)\s+transferred,\s*(\d+)s/i;
 const ONE_RE = /Success:\s*(\d+)\s+files,\s*([^,]+),\s*(\d+)s/i;
+/** executeSyncJob's message when the forward leg landed but the reverse one failed. */
+const PARTIAL_RE =
+  /Partial:\s*forward completed\s*\((\d+)\s+files,[^,]+,\s*(\d+)s\);\s*reverse failed:\s*([\s\S]+)/i;
 const FAIL_RE = /Failed:\s*(.+)/i;
 
 export function parseSyncResultMessage(raw: string | null | undefined): SyncRunReport | null {
@@ -54,6 +57,28 @@ export function parseSyncResultMessage(raw: string | null | undefined): SyncRunR
         "newer-wins (rsync --update)",
         "no automatic orphan delete on either side",
         "same path on both sides with concurrent edits may keep both versions by mtime",
+      ],
+      raw: text,
+    };
+  }
+
+  // Before ONE_RE/FAIL_RE: a partial run transferred real files, and falling
+  // through to the generic branch reported "0 files" next to a message saying
+  // otherwise.
+  const partial = text.match(PARTIAL_RE);
+  if (partial) {
+    const fwd = Number(partial[1]);
+    return {
+      mode: "bidirectional",
+      legs: [
+        { direction: "forward", transferredFiles: fwd, totalFiles: fwd, totalSize: 0 },
+        { direction: "reverse", transferredFiles: 0, totalFiles: 0, totalSize: 0 },
+      ],
+      transferredFiles: fwd,
+      durationSec: Number(partial[2]),
+      notes: [
+        `reverse leg failed: ${partial[3]!.trim().slice(0, 300)}`,
+        "the forward leg is already applied — bidirectional sync is not transactional",
       ],
       raw: text,
     };

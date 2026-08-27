@@ -52,6 +52,20 @@ describe("sync report", () => {
     expect(r?.legs).toHaveLength(2);
   });
 
+  it("reports the forward leg of a partial bidirectional run instead of zero", () => {
+    const r = parseSyncResultMessage(
+      "Partial: forward completed (12 files, 4.2 MB, 37s); reverse failed: rsync failed (exit 23): permission denied. Bidirectional sync is not transactional.",
+    );
+    expect(r?.mode).toBe("bidirectional");
+    expect(r?.transferredFiles).toBe(12);
+    expect(r?.durationSec).toBe(37);
+    expect(r?.legs).toEqual([
+      { direction: "forward", transferredFiles: 12, totalFiles: 12, totalSize: 0 },
+      { direction: "reverse", transferredFiles: 0, totalFiles: 0, totalSize: 0 },
+    ]);
+    expect(r?.notes[0]).toContain("permission denied");
+  });
+
   it("builds conflict hints for BIDIRECTIONAL", () => {
     const view = buildSyncReportView({
       syncType: "BIDIRECTIONAL",
