@@ -126,7 +126,7 @@ describe("SFTP sync durable job worker", () => {
     expect(failJobMock).toHaveBeenCalledWith(
       "job_1",
       expect.stringContaining(":sftp-sync:"),
-      "连接超时",
+      "SFTP sync failed (synced 0, created 0, updated 0, deleted 0, 1 error(s)): 连接超时",
       { retryAfterMs: 60_000 },
     );
   });
@@ -146,11 +146,34 @@ describe("SFTP sync durable job worker", () => {
     );
 
     expect(completeJobMock).not.toHaveBeenCalled();
+    // The rows that did land must survive into the error, otherwise a partial
+    // scan is indistinguishable from one that synced nothing at all.
     expect(failJobMock).toHaveBeenCalledWith(
       "job_1",
       expect.stringContaining(":sftp-sync:"),
-      "/logs/private: permission denied",
+      "SFTP sync partially failed (synced 3, created 2, updated 1, deleted 0, 1 error(s)): /logs/private: permission denied",
       { retryAfterMs: 60_000 },
     );
+  });
+
+  it("caps the quoted errors so one message per failed file cannot grow the job row", async () => {
+    syncSftpDirectoryEntriesMock.mockResolvedValueOnce({
+      synced: 500,
+      created: 500,
+      updated: 0,
+      deleted: 0,
+      errors: Array.from({ length: 400 }, (_, index) => `/logs/f${index}: saving failed`),
+    });
+
+    await runSftpSyncJobWorkerOnce(
+      { started: true, running: false, timer: null },
+      "test",
+    );
+
+    const message = failJobMock.mock.calls[0]?.[2] as string;
+    expect(message).toContain("400 error(s)");
+    expect(message).toContain("; … 390 more");
+    expect(message).not.toContain("/logs/f10:");
+    expect(message.length).toBeLessThanOrEqual(2000);
   });
 });

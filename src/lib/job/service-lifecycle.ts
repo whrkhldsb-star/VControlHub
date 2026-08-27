@@ -10,6 +10,14 @@ import {
   type JobResult,
 } from "./service-internals";
 
+/**
+ * `Job.errorMessage` is persisted verbatim and the operation-task list ships it
+ * to the browser as the task's `progress`, so a worker that joins one message
+ * per failed item would put an unbounded string in both. Cap it here instead of
+ * relying on every call site to remember `.slice()`.
+ */
+const MAX_JOB_ERROR_MESSAGE = 2000;
+
 export async function heartbeatJob(
   jobId: string,
   workerId: string,
@@ -68,11 +76,12 @@ export async function failJob(
   });
   if (!job) return { count: 0 };
   const canRetry = job.attempts < job.maxAttempts;
+  const message = errorMessage.slice(0, MAX_JOB_ERROR_MESSAGE);
   const updated = await prisma.job.updateMany({
     where: { id: jobId, status: JobStatus.RUNNING, workerId },
     data: {
       status: canRetry ? JobStatus.PENDING : JobStatus.FAILED,
-      errorMessage,
+      errorMessage: message,
       availableAt: canRetry ? futureFrom(now, options.retryAfterMs ?? 30_000) : undefined,
       completedAt: canRetry ? null : now,
       workerId: null,
@@ -84,7 +93,7 @@ export async function failJob(
     safeRecordJobEvent({
       jobId,
       type: canRetry ? "retrying" : "failed",
-      message: errorMessage.slice(0, 2000),
+      message,
       level: canRetry ? "warn" : "error",
       workerId,
       payload: { attempts: job.attempts, maxAttempts: job.maxAttempts },
@@ -104,7 +113,7 @@ export async function failJobTerminal(
     where: { id: jobId, status: JobStatus.RUNNING, workerId },
     data: {
       status: JobStatus.FAILED,
-      errorMessage: errorMessage.slice(0, 2000),
+      errorMessage: errorMessage.slice(0, MAX_JOB_ERROR_MESSAGE),
       completedAt: now,
       workerId: null,
       workerHeartbeatAt: null,
@@ -116,7 +125,7 @@ export async function failJobTerminal(
     safeRecordJobEvent({
       jobId,
       type: "failed",
-      message: errorMessage.slice(0, 2000),
+      message: errorMessage.slice(0, MAX_JOB_ERROR_MESSAGE),
       level: "error",
       workerId,
       ...(options.result ? { payload: options.result as Prisma.InputJsonValue } : {}),

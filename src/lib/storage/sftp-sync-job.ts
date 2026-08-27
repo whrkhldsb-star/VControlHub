@@ -9,7 +9,7 @@ import {
   heartbeatJob,
 } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
-import { getSftpSyncNode, syncSftpDirectoryEntries } from "./sftp-sync";
+import { getSftpSyncNode, syncSftpDirectoryEntries, type SftpSyncResult } from "./sftp-sync";
 import { serviceT } from "@/lib/i18n/service-locale";
 import { t } from "@/lib/i18n/service-translations";
 import { runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
@@ -73,6 +73,34 @@ export function parseSftpSyncJobPayload(
   };
 }
 
+/** At most this many individual entry failures are quoted in the job error. */
+const MAX_REPORTED_SYNC_ERRORS = 10;
+
+/**
+ * A scan collects per-entry failures (an unreadable subdirectory, one row that
+ * would not upsert) next to the rows it did write, so the job error has to carry
+ * both halves: joining the raw list dropped the counts, leaving an operator
+ * unable to tell "nothing synced" from "9 998 synced, 2 directories
+ * unreadable", and one message per failed file made the string unbounded.
+ * Mirrors the synchronous `?wait=1` route, which answers 207 with counts plus
+ * errors when a run only partially succeeds.
+ */
+export function formatSftpSyncFailure(result: SftpSyncResult): string {
+  const wrote =
+    result.synced > 0 ||
+    result.created > 0 ||
+    result.updated > 0 ||
+    result.deleted > 0;
+  const shown = result.errors.slice(0, MAX_REPORTED_SYNC_ERRORS);
+  const omitted = result.errors.length - shown.length;
+  const summary =
+    `${wrote ? "SFTP sync partially failed" : "SFTP sync failed"} ` +
+    `(synced ${result.synced}, created ${result.created}, updated ${result.updated}, ` +
+    `deleted ${result.deleted}, ${result.errors.length} error(s))`;
+  const detail = shown.join("; ") + (omitted > 0 ? `; … ${omitted} more` : "");
+  return `${summary}: ${detail}`.slice(0, 2000);
+}
+
 async function executeSftpSyncJob(job: {
   id: string;
   payload: Prisma.JsonValue;
@@ -109,10 +137,8 @@ async function executeSftpSyncJob(job: {
       }),
   });
 
-  if (
-    result.errors.length > 0
-  ) {
-    throw new Error(result.errors.join("; "));
+  if (result.errors.length > 0) {
+    throw new Error(formatSftpSyncFailure(result));
   }
 
   await completeJob(
