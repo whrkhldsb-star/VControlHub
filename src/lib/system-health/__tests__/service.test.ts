@@ -66,6 +66,38 @@ describe("system health service", () => {
     expect(mockPrisma.storageNode.count).toHaveBeenCalledWith({ where: {} });
   });
 
+  it("hides platform-internal checks (services, env, git, notifications) from non-manager health:read users", async () => {
+    const result = await collectSystemHealthChecks({
+      projectRoot: process.cwd(),
+      session: { userId: "u1", roles: ["viewer"], currentTeamId: "team-x" },
+    });
+
+    const ids = result.checks.map((check) => check.id);
+    // Tenant-relevant reassurance checks remain visible…
+    expect(ids).toContain("database");
+    expect(ids).toContain("server-inventory");
+    expect(ids).toContain("runtime-directories");
+    // …but control-plane fingerprinting is withheld.
+    expect(ids).not.toContain("git-sync");
+    expect(ids).not.toContain("env-database-url");
+    expect(ids).not.toContain("next-service");
+    expect(ids).not.toContain("notification-settings");
+    // No systemctl / git probing is even attempted for a plain viewer.
+    expect(mockExecFileSync).not.toHaveBeenCalled();
+  });
+
+  it("exposes platform-internal checks to global managers", async () => {
+    const result = await collectSystemHealthChecks({
+      projectRoot: process.cwd(),
+      session: { userId: "admin", roles: ["admin"], currentTeamId: null },
+    });
+
+    const ids = result.checks.map((check) => check.id);
+    expect(ids).toContain("git-sync");
+    expect(ids).toContain("env-database-url");
+    expect(ids).toContain("next-service");
+  });
+
   it("summarizes warning and critical checks", () => {
     expect(summarizeSystemHealth([
       { id: "ok", label: "OK", status: "healthy", message: "ok" },

@@ -3,7 +3,7 @@ import { join, relative } from "node:path";
 
 import { prisma } from "@/lib/db";
 import { config } from "@/lib/config/env";
-import { serverTeamWhere, teamWhere, type TeamSession } from "@/lib/auth/team-scope";
+import { serverTeamWhere, teamWhere, isGlobalTeamManager, type TeamSession } from "@/lib/auth/team-scope";
 import { runHealthCheckCommand } from "./command-runner";
 
 export type SystemHealthStatus = "healthy" | "warning" | "critical";
@@ -115,7 +115,18 @@ export async function collectSystemHealthChecks(options: { projectRoot?: string;
   checks.push({ id: "runtime-directories", label: "Runtime directory baseline", status: dirOk < dirChecks.length ? "warning" : "healthy", message: `${dirOk}/${dirChecks.length} runtime directories available`, params: { ok: dirOk, total: dirChecks.length }, messageCode: dirOk < dirChecks.length ? "warning" : "healthy" });
   checks.push(...dirChecks);
 
-  const serviceChecks = SERVICE_CHECKS.map((service): SystemHealthCheck => {
+  // Platform-operator disclosure gate. systemd unit states, the DATABASE_URL
+  // env state, notification-channel config counts, and the deployed git commit
+  // (local + origin/main) are control-plane internals: they fingerprint the
+  // host topology and the exact running version, which aids targeting known
+  // CVEs. health:read is granted to every non-admin role, so a tenant
+  // viewer/operator would otherwise see them for a platform they do not
+  // operate. Restrict these to global managers, mirroring how the inventory
+  // counts above are team-scoped. A session-less (internal/worker) call is
+  // trusted and gets the full report.
+  const canSeePlatformInternals = options.session ? isGlobalTeamManager(options.session) : true;
+  if (canSeePlatformInternals) {
+    const serviceChecks = SERVICE_CHECKS.map((service): SystemHealthCheck => {
     const state = safeExecFile("systemctl", ["is-active", service.unit]);
     if (state === "active") {
       return { id: service.id, label: service.label, status: "healthy" as const, message: `${service.unit} is running`, params: { unit: service.unit }, messageCode: "running" };
@@ -204,6 +215,7 @@ export async function collectSystemHealthChecks(options: { projectRoot?: string;
       message: "Current directory is not a recognizable Git repository or HEAD cannot be read",
       messageCode: "no-git",
     });
+  }
   }
 
   return { generatedAt: new Date().toISOString(), summary: summarizeSystemHealth(checks), checks };
