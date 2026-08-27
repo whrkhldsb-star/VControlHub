@@ -56,7 +56,7 @@ describe("/api/dashboard/analytics", () => {
     expect(mocks.prisma.metricSnapshot.findMany).toHaveBeenCalled();
     expect(mocks.prisma.auditLog.findMany).not.toHaveBeenCalled();
   });
-	  it("scopes metric snapshots through denormalized teamId and downloads/audit/image-bed by teamId", async () => {
+	  it("scopes metric snapshots with the strict server filter and downloads/audit/image-bed by teamId", async () => {
     mocks.sessionHasPermission.mockImplementation(
       (_session, permission: string) =>
         permission === "server:read" ||
@@ -73,16 +73,14 @@ describe("/api/dashboard/analytics", () => {
     const response = await route.GET(new Request("http://local/api/dashboard/analytics?type=all"));
     expect(response.status).toBe(200);
 
+    // Metric snapshots follow their Server security root: strict team match, no
+    // implicit `teamId: null` sharing (serverTeamWhere, not teamWhere).
     expect(mocks.prisma.metricSnapshot.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({
-          OR: expect.arrayContaining([
-            { teamId: "team_a" },
-            { teamId: null },
-          ]),
-        }),
+        where: expect.objectContaining({ teamId: "team_a" }),
       }),
     );
+    expect(mocks.prisma.metricSnapshot.findMany.mock.calls[0]?.[0].where).not.toHaveProperty("OR");
     expect(mocks.prisma.downloadTask.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({

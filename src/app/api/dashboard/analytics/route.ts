@@ -7,7 +7,7 @@ import { z } from "zod";
 
 import { withApiRoute } from "@/lib/http/api-guard";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { teamWhere } from "@/lib/auth/team-scope";
+import { serverTeamWhere, teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { createLogger } from "@/lib/logging";
@@ -100,7 +100,12 @@ export async function GET(request: Request) {
     }
 
     const results: Record<string, unknown> = {};
-    const metricTeamFilter = teamWhere(session);
+    // Metric snapshots derive from Servers (a security root). Scope them with the
+    // strict server-quarantine filter — a null-team snapshot belongs to a
+    // quarantined legacy server that non-admins must not see, so it must NOT
+    // fall under the loose "null is shared" teamWhere used for genuinely
+    // team-owned resources below.
+    const metricTeamFilter = serverTeamWhere(session);
     const resourceTeamFilter = teamWhere(session);
 
     // Server metrics trend (last 24h). Use denormalized teamId on metric_snapshots

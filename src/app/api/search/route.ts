@@ -91,6 +91,17 @@ export async function GET(request: Request) {
 		if (session && sessionHasPermission(session, "docker:manage")) {
 			// Search across all instance keys (hub + remote VPS installs), not only hub-host.
 			const installed = await prisma.quickService.findMany({
+				where: {
+					// QuickService has no teamId of its own. Hub-host installs
+					// (serverId null) are platform-level and stay visible to any
+					// docker:manage holder; remote installs (serverId set) inherit
+					// their server's tenant, so scope them by the strict server root
+					// to stop a team operator enumerating another team's VPS inventory.
+					OR: [
+						{ serverId: null },
+						{ server: serverTeamWhere(session) },
+					],
+				},
 				orderBy: [{ category: "asc" }, { name: "asc" }],
 				take: 500,
 				select: { slug: true, name: true, description: true, status: true, instanceKey: true },
