@@ -8,8 +8,19 @@ import { formatBytes } from "@/lib/format/bytes";
 import { headers } from "next/headers";
 import { SharePasswordGate } from "./share-password-gate";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { checkRateLimitAsync } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * Per-IP throttle for the public share landing page. Unlike the download API
+ * route (which already runs withRateLimit), this server component was
+ * unthrottled while doing real work on every anonymous hit — a DB peek plus, for
+ * directories, a storage-node/SFTP directory listing. That let a single client
+ * hammer the storage backend for free. 30 renders/min/IP is generous for humans
+ * yet caps automated abuse.
+ */
+const SHARE_PAGE_RENDER_LIMIT = { maxRequests: 30, windowMs: 60_000 };
 
 function formatSize(locale: "zh" | "en", bytes: bigint | number | null) {
   return formatBytes(bytes, { fallback: t("sharePage.sizeUnknown", locale) });
@@ -32,21 +43,29 @@ export default async function SharePage({
   let files: Awaited<ReturnType<typeof listShareDirectoryFiles>> = [];
   let errorMessage = "";
 
-  try {
-    share = await peekShareToken(token, { ip: ip ?? undefined, userAgent: userAgent ?? undefined });
-    // Password-locked peeks return a redacted stub (locked=true). Never enumerate
-    // directory contents or expose node paths until the password gate succeeds via API.
-    if (
-      share.entryType === "DIRECTORY" &&
-      !share.hasPassword &&
-      !(share as { locked?: boolean }).locked &&
-      "storageNodeId" in share &&
-      typeof (share as { storageNodeId?: string }).storageNodeId === "string"
-    ) {
-      files = await listShareDirectoryFiles(share as { entryType: string; path: string; storageNodeId: string; storageNode?: { basePath?: string; driver?: string } | null });
+  // Throttle before any DB / storage work so anonymous floods cannot amplify
+  // into repeated backend I/O.
+  const rateLimitId = `share-page:${ip ?? "unknown"}`;
+  const rate = await checkRateLimitAsync(rateLimitId, SHARE_PAGE_RENDER_LIMIT);
+  if (!rate.allowed) {
+    errorMessage = t("sharePage.tooManyRequests", locale);
+  } else {
+    try {
+      share = await peekShareToken(token, { ip: ip ?? undefined, userAgent: userAgent ?? undefined });
+      // Password-locked peeks return a redacted stub (locked=true). Never enumerate
+      // directory contents or expose node paths until the password gate succeeds via API.
+      if (
+        share.entryType === "DIRECTORY" &&
+        !share.hasPassword &&
+        !(share as { locked?: boolean }).locked &&
+        "storageNodeId" in share &&
+        typeof (share as { storageNodeId?: string }).storageNodeId === "string"
+      ) {
+        files = await listShareDirectoryFiles(share as { entryType: string; path: string; storageNodeId: string; storageNode?: { basePath?: string; driver?: string } | null });
+      }
+    } catch (err) {
+      errorMessage = getErrorMessage(err, t("sharePage.invalidToken", locale));
     }
-  } catch (err) {
-    errorMessage = getErrorMessage(err, t("sharePage.invalidToken", locale));
   }
 
   const isPreviewOnly = share?.permissionLevel === "preview";

@@ -96,7 +96,7 @@ describe("share token file route", () => {
 
     let last: Response | null = null;
     for (let i = 0; i < 9; i++) {
-      last = await route.GET(new Request(`http://local/api/share/token?password=bad${i}`, { headers: { "cf-connecting-ip": "203.0.113.45" } }), {
+      last = await route.GET(new Request(`http://local/api/share/token`, { headers: { "cf-connecting-ip": "203.0.113.45", "x-share-password": `bad${i}` } }), {
         params: Promise.resolve({ token: "share-token-rate-limit" }),
       });
     }

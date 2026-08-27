@@ -171,13 +171,12 @@ export async function GET(
 
 	let share: Awaited<ReturnType<typeof resolveShareToken>>;
 	try {
-		const { password: queryPassword } = parseSearchParams(
-			request,
-			z.object({ password: z.string().min(1).max(128).optional() }),
-		);
-		// Prefer header so clients can avoid putting secrets in URLs / access logs.
-		const headerPassword = request.headers.get("x-share-password")?.trim() || undefined;
-		const password = headerPassword || queryPassword;
+		// Password travels in the x-share-password header, or (for browsers) the
+		// HttpOnly download-ticket cookie minted by the POST gate. It is NEVER read
+		// from the query string: a `?password=` secret leaks into proxy/access logs,
+		// the Referer header, and browser history. Programmatic callers use the
+		// header; the UI uses the POST→cookie flow (share-password-gate.tsx).
+		const password = request.headers.get("x-share-password")?.trim() || undefined;
 		const ticket = readCookie(request, getShareDownloadTicketCookieName());
 		const authorizedShareId = ticket ? verifyShareDownloadTicket(ticket, hashShareToken(token)) : null;
 		if (password) {

@@ -28,6 +28,7 @@ export const zh: Record<string, string> = {
 	"sharePage.permissionPreview": "仅查看目录/元数据",
 	"sharePage.permissionDownload": "可下载",
 	"sharePage.previewOnly": "此分享仅展示目录和文件元数据，不提供下载",
+	"sharePage.tooManyRequests": "请求过于频繁，请稍后再试",
 };
 
 export const en: Record<string, string> = {
@@ -56,4 +57,5 @@ export const en: Record<string, string> = {
 	"sharePage.downloadFile": "Download file",
 	"sharePage.passwordRequired": "This share requires a password. Enter it to download.",
 	"sharePage.brand": "VControlHub",
+	"sharePage.tooManyRequests": "Too many requests, please try again later",
 };
