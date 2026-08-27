@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { exportAuditLogs, type AuditLogEntry } from "@/lib/audit/service";
 import { withApiRoute } from "@/lib/http/api-guard";
+import { csvCell } from "@/lib/http/csv";
 import { GENERAL_READ_LIMIT } from "@/lib/http/rate-limit-presets";
 import { z } from "zod";
 import { t } from "@/lib/i18n/translations";
@@ -15,13 +16,6 @@ const exportQuerySchema = z.object({
   search: z.string().trim().min(1).optional(),
 });
 
-function csvEscape(value: string): string {
-  if (value.includes(",") || value.includes("\"") || value.includes("\n")) {
-    return `"${value.replace(/"/g, "\"\"")}"`;
-  }
-  return value;
-}
-
 function toCsv(logs: AuditLogEntry[]): string {
   const header = [
     t("backend.audit.export.timestamp"),
@@ -30,7 +24,7 @@ function toCsv(logs: AuditLogEntry[]): string {
     t("backend.audit.export.actor"),
     t("backend.audit.export.actorType"),
     t("backend.audit.export.details"),
-  ].map(csvEscape).join(",");
+  ].map(csvCell).join(",");
   const rows = logs.map((log) =>
     [
       new Date(log.createdAt).toISOString(),
@@ -42,7 +36,7 @@ function toCsv(logs: AuditLogEntry[]): string {
         .map(([k, v]) => `${k}=${String(v)}`)
         .join("; "),
     ]
-      .map(csvEscape)
+      .map(csvCell)
       .join(","),
   );
   return [header, ...rows].join("\n");

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withApiRoute } from "@/lib/http/api-guard";
+import { csvCell } from "@/lib/http/csv";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { listOperationTaskResult } from "@/lib/operation-task/service";
 import type { OperationTask, OperationTaskListSort, OperationTaskStatus } from "@/lib/operation-task/dto";
@@ -59,11 +60,6 @@ function parseTaskTypeFilter(value: string | null | undefined) {
 function parseSort(value: string | null | undefined): OperationTaskListSort | undefined {
   if (!value) return undefined;
   return value as OperationTaskListSort;
-}
-
-function csvCell(value: string | number | null | undefined) {
-  const text = String(value ?? "");
-  return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 }
 
 function taskToCsvRow(task: OperationTask) {

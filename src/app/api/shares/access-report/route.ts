@@ -5,6 +5,7 @@ import { auditUserAction } from "@/lib/audit/service";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { getShareAccessReport } from "@/lib/share-link/service";
+import { csvCell } from "@/lib/http/csv";
 
 const querySchema = z.object({
   days: z.coerce.number().int().min(1).max(365).optional(),
@@ -12,11 +13,6 @@ const querySchema = z.object({
   format: z.enum(["json", "csv"]).optional(),
   limit: z.coerce.number().int().min(1).max(500).optional(),
 });
-
-function csvCell(value: unknown) {
-  const text = value == null ? "" : String(value);
-  return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
-}
 
 export async function GET(request: Request) {
   return withApiRoute(request, { permission: "share:manage", errorMessage: "Failed to load share access report" }, async ({ session }) => {
