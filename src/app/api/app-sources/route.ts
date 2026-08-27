@@ -15,9 +15,10 @@ import {
 import { listQuickServices } from "@/lib/quick-service/service";
 import { normalizePublicHttpUrl } from "@/lib/storage/direct-access-url";
 
-import { AppError, ConflictError } from "@/lib/errors";
+import { AppError, ConflictError, NotFoundError } from "@/lib/errors";
 import { auditUserAction } from "@/lib/audit/service";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { t as serviceT } from "@/lib/i18n/service-translations";
 export const dynamic = "force-dynamic";
 
 /* ── GET /api/app-sources — list sources + remote apps ────────── */
@@ -189,10 +190,15 @@ export async function PATCH(request: Request) {
         return NextResponse.json({ results });
       }
 
-      await prisma.appSource.update({
+      // A nonexistent sourceId yields Prisma P2025 on a bare `update`, which the
+      // guard maps to a generic 500. Use updateMany + count so the caller gets 404.
+      const toggled = await prisma.appSource.updateMany({
         where: { id: body.sourceId },
         data: { enabled: body.enabled },
       });
+      if (toggled.count === 0) {
+        throw new NotFoundError(serviceT("backend.app-source.sourceNotFound"));
+      }
       await auditUserAction(session?.userId ?? "", "app-source.toggle", {
         sourceId: body.sourceId,
         enabled: body.enabled,
@@ -226,7 +232,11 @@ export async function DELETE(request: Request) {
         }),
       );
       const sourceId = (parsed.id ?? parsed.sourceId)!.trim();
-      await prisma.appSource.delete({ where: { id: sourceId } });
+      // deleteMany + count so an unknown id is a 404 rather than a Prisma P2025 500.
+      const deleted = await prisma.appSource.deleteMany({ where: { id: sourceId } });
+      if (deleted.count === 0) {
+        throw new NotFoundError(serviceT("backend.app-source.sourceNotFound"));
+      }
       await auditUserAction(session?.userId ?? "", "app-source.delete", { sourceId }, undefined, session?.currentTeamId);
       return NextResponse.json({ ok: true });
     },

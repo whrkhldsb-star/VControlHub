@@ -6,7 +6,9 @@ const { prismaMock, syncMock, listMock } = vi.hoisted(() => ({
       findMany: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
       delete: vi.fn(),
+      deleteMany: vi.fn(),
     },
   },
   syncMock: {
@@ -30,7 +32,17 @@ vi.mock("@/lib/http/api-guard", () => ({
       }
       body = parsed.data;
     }
-    return handler({ session: { userId: "u_admin" }, body });
+    try {
+      return await handler({ session: { userId: "u_admin" }, body });
+    } catch (error) {
+      // Mirror the real guard: an AppError carries its own HTTP status
+      // (NotFoundError → 404); anything else degrades to 500.
+      const status = (error as { status?: number }).status ?? 500;
+      return new Response(
+        JSON.stringify({ error: (error as Error).message }),
+        { status },
+      );
+    }
   }),
 }));
 vi.mock("@/lib/quick-service/app-source-sync", () => ({
@@ -242,7 +254,7 @@ describe("/api/app-sources", () => {
     });
 
     it("toggles source.enabled", async () => {
-      prismaMock.appSource.update.mockResolvedValue({});
+      prismaMock.appSource.updateMany.mockResolvedValue({ count: 1 });
       const response = await PATCH(
         new Request("http://local/api/app-sources", {
           method: "PATCH",
@@ -255,10 +267,27 @@ describe("/api/app-sources", () => {
         }),
       );
       expect(response.status).toBe(200);
-      expect(prismaMock.appSource.update).toHaveBeenCalledWith({
+      expect(prismaMock.appSource.updateMany).toHaveBeenCalledWith({
         where: { id: "src_1" },
         data: { enabled: false },
       });
+    });
+
+    it("returns 404 when toggling a source that does not exist", async () => {
+      prismaMock.appSource.updateMany.mockResolvedValue({ count: 0 });
+      const response = await PATCH(
+        new Request("http://local/api/app-sources", {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            action: "toggle",
+            sourceId: "missing",
+            enabled: true,
+          }),
+        }),
+      );
+      // Not a generic 500: an unknown id is a client-visible "not found".
+      expect(response.status).toBe(404);
     });
 
     it("rejects unknown action", async () => {
@@ -275,16 +304,39 @@ describe("/api/app-sources", () => {
 
   describe("DELETE", () => {
     it("deletes by id from query", async () => {
-      prismaMock.appSource.delete.mockResolvedValue({});
+      prismaMock.appSource.deleteMany.mockResolvedValue({ count: 1 });
       const response = await DELETE(
         new Request("http://local/api/app-sources?id=src_1", {
           method: "DELETE",
         }),
       );
       expect(response.status).toBe(200);
-      expect(prismaMock.appSource.delete).toHaveBeenCalledWith({
+      expect(prismaMock.appSource.deleteMany).toHaveBeenCalledWith({
         where: { id: "src_1" },
       });
+    });
+
+    it("accepts the legacy ?sourceId= parameter", async () => {
+      prismaMock.appSource.deleteMany.mockResolvedValue({ count: 1 });
+      const response = await DELETE(
+        new Request("http://local/api/app-sources?sourceId=src_2", {
+          method: "DELETE",
+        }),
+      );
+      expect(response.status).toBe(200);
+      expect(prismaMock.appSource.deleteMany).toHaveBeenCalledWith({
+        where: { id: "src_2" },
+      });
+    });
+
+    it("returns 404 when the source does not exist", async () => {
+      prismaMock.appSource.deleteMany.mockResolvedValue({ count: 0 });
+      const response = await DELETE(
+        new Request("http://local/api/app-sources?id=missing", {
+          method: "DELETE",
+        }),
+      );
+      expect(response.status).toBe(404);
     });
   });
 });
