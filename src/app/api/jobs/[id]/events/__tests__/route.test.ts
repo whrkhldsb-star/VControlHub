@@ -45,6 +45,34 @@ describe("GET /api/jobs/[id]/events ownership scope", () => {
     expect(mocks.jobFindFirst).toHaveBeenCalledWith({ where: { id: "job-1" }, select: { id: true } });
   });
 
+  it("passes a valid limit through and rejects a non-numeric one with 400", async () => {
+    const ok = await route.GET(
+      new Request("http://local/api/jobs/job-1/events?limit=25"),
+      { params: Promise.resolve({ id: "job-1" }) },
+    );
+    expect(ok.status).toBe(200);
+    expect(mocks.listJobEvents).toHaveBeenCalledWith({ jobId: "job-1", limit: 25, beforeId: undefined });
+
+    mocks.listJobEvents.mockClear();
+    // Previously `?limit=abc` was silently clamped to 100; a broken query string
+    // now gets the same 400 as every other list route.
+    const bad = await route.GET(
+      new Request("http://local/api/jobs/job-1/events?limit=abc"),
+      { params: Promise.resolve({ id: "job-1" }) },
+    );
+    expect(bad.status).toBe(400);
+    expect(mocks.listJobEvents).not.toHaveBeenCalled();
+  });
+
+  it("still treats an empty ?limit= as absent", async () => {
+    const response = await route.GET(
+      new Request("http://local/api/jobs/job-1/events?limit="),
+      { params: Promise.resolve({ id: "job-1" }) },
+    );
+    expect(response.status).toBe(200);
+    expect(mocks.listJobEvents).toHaveBeenCalledWith({ jobId: "job-1", limit: undefined, beforeId: undefined });
+  });
+
   it("returns not found without leaking events when the scoped job is inaccessible", async () => {
     mocks.jobFindFirst.mockResolvedValueOnce(null);
     const response = await route.GET(new Request("http://local/api/jobs/other/events"), { params: Promise.resolve({ id: "other" }) });

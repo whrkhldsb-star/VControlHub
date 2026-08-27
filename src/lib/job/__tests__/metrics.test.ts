@@ -22,7 +22,8 @@ describe("getJobBacklogMetrics", () => {
       .mockResolvedValueOnce(2)  // running
       .mockResolvedValueOnce(1)  // expiredLease
       .mockResolvedValueOnce(3)  // failed
-      .mockResolvedValueOnce(100); // completed
+      .mockResolvedValueOnce(100) // completed
+      .mockResolvedValueOnce(7); // cancelled
     mockPrisma.job.findFirst.mockResolvedValue({ availableAt: new Date(now.getTime() - 30_000) });
     mockPrisma.job.groupBy.mockResolvedValue([
       { type: "backup.create", status: "PENDING", _count: 2 },
@@ -36,13 +37,16 @@ describe("getJobBacklogMetrics", () => {
     expect(metrics.expiredLease).toBe(1);
     expect(metrics.failed).toBe(3);
     expect(metrics.completed).toBe(100);
-    expect(metrics.total).toBe(110);
+    expect(metrics.cancelled).toBe(7);
+    // All five JobStatus values; `expiredLease` is a subset of `running` and is
+    // deliberately not added in.
+    expect(metrics.total).toBe(117);
     expect(metrics.oldestPendingMs).toBeGreaterThanOrEqual(29_000);
     expect(metrics.byType).toHaveLength(1);
     expect(metrics.byType[0]).toEqual({ type: "backup.create", pending: 2, running: 1, failed: 0 });
     // One groupBy for byType — no per-type count fan-out after the global counts.
     expect(mockPrisma.job.groupBy).toHaveBeenCalledTimes(1);
-    expect(mockPrisma.job.count).toHaveBeenCalledTimes(5);
+    expect(mockPrisma.job.count).toHaveBeenCalledTimes(6);
   });
 
   it("returns null oldestPendingMs when no pending jobs exist", async () => {

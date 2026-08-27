@@ -12,6 +12,8 @@ export type JobBacklogMetrics = {
   expiredLease: number;
   failed: number;
   completed: number;
+  cancelled: number;
+  /** Every job row in scope, across all five JobStatus values. */
   total: number;
   oldestPendingMs: number | null;
   byType: Array<{ type: string; pending: number; running: number; failed: number }>;
@@ -28,12 +30,16 @@ export async function getJobBacklogMetrics(
   const now = new Date();
   const scope = session ? teamWhere(session) : {};
 
-  const [pending, running, expiredLease, failed, completed] = await Promise.all([
+  const [pending, running, expiredLease, failed, completed, cancelled] = await Promise.all([
     prisma.job.count({ where: { ...scope, status: JobStatus.PENDING } }),
     prisma.job.count({ where: { ...scope, status: JobStatus.RUNNING } }),
     prisma.job.count({ where: { ...scope, status: JobStatus.RUNNING, leaseExpiresAt: { lt: now } } }),
     prisma.job.count({ where: { ...scope, status: JobStatus.FAILED } }),
     prisma.job.count({ where: { ...scope, status: JobStatus.COMPLETED } }),
+    // CANCELLED is the fifth JobStatus. Leaving it out made `total` smaller than
+    // the actual row count, which is wrong for an observability endpoint that
+    // exists to be alerted on.
+    prisma.job.count({ where: { ...scope, status: JobStatus.CANCELLED } }),
   ]);
 
   const oldestPending = await prisma.job.findFirst({
@@ -68,7 +74,8 @@ export async function getJobBacklogMetrics(
     .sort((a, b) => (b.pending + b.running + b.failed) - (a.pending + a.running + a.failed))
     .slice(0, 20);
 
-  const total = pending + running + failed + completed;
+  // `expiredLease` is a subset of `running`, so it is deliberately not summed.
+  const total = pending + running + failed + completed + cancelled;
   logger.debug("job backlog metrics collected", { pending, running, expiredLease, failed, total });
-  return { pending, running, expiredLease, failed, completed, total, oldestPendingMs, byType };
+  return { pending, running, expiredLease, failed, completed, cancelled, total, oldestPendingMs, byType };
 }
