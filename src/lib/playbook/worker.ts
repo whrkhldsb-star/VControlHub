@@ -9,8 +9,7 @@ import { createLogger } from "@/lib/logging";
 import { auditSystemAction } from "@/lib/audit/service";
 
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
-import { loadApiTokenOwnerSession } from "@/lib/api-token/authorization";
-import { sessionHasPermission } from "@/lib/auth/authorization";
+import { assertRequesterMayExecuteCommand } from "@/lib/auth/command-execution-authz";
 import { executePlaybookChain } from "./executor";
 import type { PlaybookStep, PlaybookStepResult } from "./types";
 
@@ -29,37 +28,10 @@ export class PlaybookAuthorizationError extends Error {
 }
 
 /**
- * Live re-check that `requesterId` may execute a playbook's command steps:
- *   1. user exists, is enabled, not in must-change-password (loadApiTokenOwnerSession),
- *   2. holds command:execute,
- *   3. is a member of the run's team (when the run is team-scoped).
- * Returns a structured result so the caller can fail the run with a clear reason.
+ * Live re-check that `requesterId` may execute a playbook's command steps is
+ * delegated to the shared assertRequesterMayExecuteCommand (single source of
+ * truth also used by the scheduled-task dispatcher).
  */
-async function assertPlaybookCommandExecutionAllowed(
-  requesterId: string,
-  runTeamId: string | null,
-): Promise<{ ok: true } | { ok: false; reason: string }> {
-  const ownerSession = await loadApiTokenOwnerSession(requesterId);
-  if (!ownerSession) {
-    return { ok: false, reason: "playbook command requester is disabled or no longer valid" };
-  }
-  if (!sessionHasPermission(ownerSession, "command:execute")) {
-    return { ok: false, reason: "playbook command requester lacks command:execute permission" };
-  }
-  if (runTeamId) {
-    // team:manage (global) members are not bound to per-team membership rows.
-    if (!sessionHasPermission(ownerSession, "team:manage")) {
-      const membership = await prisma.teamMember.findUnique({
-        where: { teamId_userId: { teamId: runTeamId, userId: requesterId } },
-        select: { userId: true },
-      });
-      if (!membership) {
-        return { ok: false, reason: "playbook command requester is no longer a member of the run's team" };
-      }
-    }
-  }
-  return { ok: true };
-}
 const WORKER_ID = `${config.app.hostname || "vcontrolhub"}:playbook-run:${process.pid}`;
 const LEASE_MS = computeLeaseMs("playbook-run");
 const logger = createLogger("playbook-run-worker");
@@ -136,7 +108,7 @@ export async function processPlaybookRun(runId: string, jobId: string): Promise<
   // execution against the live DB, fail terminally if the requester no longer
   // qualifies.
   if (hasCommandStep && requesterId) {
-    const authz = await assertPlaybookCommandExecutionAllowed(requesterId, run.teamId);
+    const authz = await assertRequesterMayExecuteCommand(requesterId, run.teamId);
     if (!authz.ok) {
       throw new PlaybookAuthorizationError(authz.reason);
     }

@@ -2,6 +2,7 @@ import { JobStatus } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
 import { createCommandRequest } from "@/lib/command/service";
+import { assertRequesterMayExecuteCommand } from "@/lib/auth/command-execution-authz";
 import { config } from "@/lib/config/env";
 import { runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
 import { computeLeaseMs } from "@/lib/job/lease";
@@ -98,6 +99,25 @@ async function dispatchDueTask(task: {
 }): Promise<boolean> {
   if (task.serverIds.length === 0 || !task.createdById) {
     await recordTaskRun(task.id, "Skipped: no target server or no creator");
+    return false;
+  }
+
+  // Live authorization re-check before dispatch. The stored creator may have
+  // been disabled, demoted (lost command:execute), or removed from the task's
+  // team since the task was created; an unattended task
+  // (approvalRequired=false) would otherwise keep auto-executing commands under
+  // a revoked identity. The playbook worker performs the same recheck — both
+  // background execution paths now share assertRequesterMayExecuteCommand.
+  // Skip-and-record (leave the task ACTIVE) rather than dispatch; the state is
+  // durable, so recordTaskRun advancing nextRunAt avoids a tight retry loop.
+  const authz = await assertRequesterMayExecuteCommand(task.createdById, task.teamId);
+  if (!authz.ok) {
+    await recordTaskRun(task.id, `Skipped: ${authz.reason}`);
+    logger.warn("Scheduled task skipped: requester no longer authorized", {
+      taskId: task.id,
+      taskName: task.name,
+      reason: authz.reason,
+    });
     return false;
   }
 

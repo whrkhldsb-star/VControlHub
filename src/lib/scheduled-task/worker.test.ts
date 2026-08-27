@@ -17,6 +17,7 @@ const {
 	reconcileScheduledTaskRunsMock,
 	recordTaskDispatchMock,
   recordTaskRunMock,
+  assertRequesterMayExecuteCommandMock,
   infoMock,
   warnMock,
   errorMock,
@@ -36,6 +37,7 @@ const {
 	reconcileScheduledTaskRunsMock: vi.fn(),
 	recordTaskDispatchMock: vi.fn(),
   recordTaskRunMock: vi.fn(),
+  assertRequesterMayExecuteCommandMock: vi.fn(),
   infoMock: vi.fn(),
   warnMock: vi.fn(),
   errorMock: vi.fn(),
@@ -60,6 +62,10 @@ vi.mock("@/lib/concurrency/advisory-lock", () => ({
 
 vi.mock("@/lib/command/service", () => ({
   createCommandRequest: createCommandRequestMock,
+}));
+
+vi.mock("@/lib/auth/command-execution-authz", () => ({
+  assertRequesterMayExecuteCommand: assertRequesterMayExecuteCommandMock,
 }));
 
 vi.mock("./service", () => ({
@@ -129,6 +135,7 @@ describe("scheduled-task durable job worker", () => {
 		reconcileScheduledTaskRunsMock.mockResolvedValue({ inspected: 0, reconciled: 0 });
 		recordTaskDispatchMock.mockResolvedValue(undefined);
     recordTaskRunMock.mockResolvedValue(undefined);
+    assertRequesterMayExecuteCommandMock.mockResolvedValue({ ok: true });
 		tryAcquireAdvisoryLockMock.mockResolvedValue(releaseAdvisoryLockMock);
 		releaseAdvisoryLockMock.mockResolvedValue(undefined);
     stopScheduledTaskWorkerForTests();
@@ -242,6 +249,35 @@ describe("scheduled-task durable job worker", () => {
     // New-B (2026-06-15): both tasks short-circuited (no servers / no
     // creator) so they don't count as "dispatched" — only tasks that
     // actually went through createCommandRequest do.
+    expect(completeJobMock).toHaveBeenCalledWith(
+      "job-1",
+      expect.any(String),
+		{ dispatched: 0, reconciled: 0 },
+    );
+  });
+
+  it("skips dispatch when the creator is no longer authorized, without claiming the row", async () => {
+    claimNextJobMock.mockResolvedValueOnce(makeJob());
+    scheduledTaskFindManyMock.mockResolvedValueOnce([makeTask({ id: "revoked" })]);
+    assertRequesterMayExecuteCommandMock.mockResolvedValueOnce({
+      ok: false,
+      reason: "command requester is disabled or no longer valid",
+    });
+
+    await startScheduledTaskWorker();
+    await vi.runOnlyPendingTimersAsync();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    // No command is dispatched under a revoked identity...
+    expect(createCommandRequestMock).not.toHaveBeenCalled();
+    // ...the authz check runs before the CAS claim, so the row is never claimed...
+    expect(scheduledTaskUpdateManyMock).not.toHaveBeenCalled();
+    // ...and the skip reason is recorded (recordTaskRun advances nextRunAt).
+    expect(recordTaskRunMock).toHaveBeenCalledWith(
+      "revoked",
+      "Skipped: command requester is disabled or no longer valid",
+    );
     expect(completeJobMock).toHaveBeenCalledWith(
       "job-1",
       expect.any(String),
