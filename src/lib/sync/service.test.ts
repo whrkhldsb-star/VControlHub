@@ -238,9 +238,59 @@ describe("sync service command helpers", () => {
 
     expect(command).toContain("trap 'rm -f -- ");
     expect(command).toContain("rsync -avz --stats");
-    expect(command).toContain("ssh -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile='/dev/null' -p 2222 -i ");
+    // rsync splits -e on whitespace and execs it, so nothing inside may be
+    // shell-quoted: `-i '/tmp/k'` would reach ssh with the quotes attached and
+    // the key would be ignored ("Identity file not accessible").
+    expect(command).toContain(
+      '-e "ssh -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null -p 2222 -i /tmp/app-sync-rsync-job_1"',
+    );
     expect(command).toContain("deploy@[2001:db8::10]:");
     expect(command).not.toContain("TEST_KEY_PLACEHOLDER");
+  });
+
+  it("passes the sshpass password through the environment of rsync itself", () => {
+    const command = buildRsyncCommand({
+      flags: ["-avz"],
+      sourcePath: "/src",
+      targetPath: "/dst",
+      targetUser: "deploy",
+      targetHost: "example.com",
+      targetPort: 22,
+      password: "p@ss word",
+    });
+
+    // Inside -e it would be exec'd as a program name ("Failed to exec SSHPASS=…").
+    expect(command).toContain("SSHPASS='p@ss word' rsync -avz");
+    expect(command).toContain('-e "sshpass -e ssh -o StrictHostKeyChecking=accept-new');
+    expect(command).not.toContain('-e "SSHPASS=');
+  });
+
+  it("keeps the sshpass assignment inside the tar pipeline, where a shell reads it", () => {
+    const command = buildTarSyncCommand({
+      sourcePath: "/src",
+      targetPath: "/dst",
+      targetUser: "deploy",
+      targetHost: "example.com",
+      targetPort: 22,
+      password: "p@ss word",
+      deleteOrphans: false,
+    });
+
+    expect(command).toContain("| SSHPASS='p@ss word' sshpass -e ssh ");
+  });
+
+  it("refuses a transport path that rsync could not carry unquoted", () => {
+    expect(() =>
+      buildRsyncCommand({
+        flags: ["-avz"],
+        sourcePath: "/src",
+        targetPath: "/dst",
+        targetUser: "deploy",
+        targetHost: "example.com",
+        targetPort: 22,
+        keyPath: "/tmp/key'; rm -rf /",
+      }),
+    ).toThrow("不安全的 SSH 传输路径");
   });
 
   it("builds tar fallback commands with key cleanup and optional target purge", () => {
@@ -270,10 +320,15 @@ describe("sync service command helpers", () => {
 		const tar = buildTarSyncCommand({ ...common, deleteOrphans: false });
 		for (const command of [rsync, tar]) {
 			expect(command).toContain("StrictHostKeyChecking=yes");
-			expect(command).toContain("UserKnownHostsFile='/tmp/app-sync-known_hosts-job-1'");
 			expect(command).not.toContain("StrictHostKeyChecking=accept-new");
 			expect(command).toContain("/tmp/app-sync-known_hosts-job-1");
 		}
+		// rsync hands the -e tokens straight to ssh: a quoted file name would be
+		// missing, and StrictHostKeyChecking=yes then aborts the whole transfer.
+		expect(rsync).toContain("UserKnownHostsFile=/tmp/app-sync-known_hosts-job-1 ");
+		expect(rsync).not.toContain("UserKnownHostsFile='");
+		// The tar fallback is read by a remote shell, which consumes the quotes.
+		expect(tar).toContain("UserKnownHostsFile='/tmp/app-sync-known_hosts-job-1'");
 	});
 
   it("decrypts target credentials once before building remote sync commands", () => {
