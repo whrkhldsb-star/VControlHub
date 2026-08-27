@@ -73,34 +73,55 @@ export async function executeAria2RelayDownload(
  const tempDir = `/tmp/app-relay-${taskId}`;
  const teamId = await loadDownloadTeamId(taskId);
 
+ let gid: string;
  try {
-  await ensureAria2Daemon();
-  await fs.mkdir(tempDir, { recursive: true });
-
-  const options: Record<string, string> = {
-   dir: tempDir,
-   "seed-time": "0",
-   // Bound redirect following so enqueue-time DNS allowlist cannot be bypassed via long redirect chains.
-   "max-redirect": "3",
-  };
-  if (maxSpeedKb) options["max-download-limit"] = `${maxSpeedKb}K`;
-
-  const gid = await addUri(urls, options);
-
-  // CAS: only PENDING → RUNNING (cancel/other terminal must not flip back).
+  // Claim BEFORE starting the aria2 download. Historically addUri ran first and
+  // the PENDING→RUNNING CAS ran second: a retry (maxAttempts=3) or a concurrent
+  // tick would then (1) spawn a *duplicate* aria2 download into the shared
+  // tempDir and (2) on the CAS miss call cleanupTemp() — wiping the tempDir out
+  // from under the still-active first download. Claiming first makes the side
+  // effect exclusive to the winner; a loser resumes by the stored gid instead.
   const claimed = await prisma.downloadTask.updateMany({
    where: { id: taskId, status: "PENDING" },
-   data: { aria2Gid: gid, status: "RUNNING", progress: "Relay download in progress (aria2 RPC)..." },
+   data: { status: "RUNNING", progress: "Relay download starting (aria2 RPC)..." },
   });
-  if (claimed.count === 0) {
-   logError(`[DownloadAPI] Relay task ${taskId} was not PENDING; aborting after aria2 add`);
-   try {
-    await removeDownload(gid);
-   } catch {
-    /* best-effort */
+
+  await ensureAria2Daemon();
+
+  if (claimed.count > 0) {
+   // Fresh claim — we own this task; start the download.
+   await fs.mkdir(tempDir, { recursive: true });
+
+   const options: Record<string, string> = {
+    dir: tempDir,
+    "seed-time": "0",
+    // Bound redirect following so enqueue-time DNS allowlist cannot be bypassed via long redirect chains.
+    "max-redirect": "3",
+   };
+   if (maxSpeedKb) options["max-download-limit"] = `${maxSpeedKb}K`;
+
+   gid = await addUri(urls, options);
+
+   await prisma.downloadTask.updateMany({
+    where: { id: taskId, status: "RUNNING" },
+    data: { aria2Gid: gid, progress: "Relay download in progress (aria2 RPC)..." },
+   });
+  } else {
+   // Not PENDING — a retry or concurrent tick. Resume the download already
+   // started by the original dispatch (reuse its gid); never start a duplicate
+   // and never wipe the shared tempDir a live sibling worker may be writing to.
+   const current = await prisma.downloadTask.findUnique({
+    where: { id: taskId },
+    select: { status: true, aria2Gid: true },
+   });
+   if (!current || current.status !== "RUNNING" || !current.aria2Gid) {
+    logError(
+     `[DownloadAPI] Relay task ${taskId} not resumable (status=${current?.status ?? "missing"}, gid=${current?.aria2Gid ?? "none"}); skipping without touching tempDir`,
+    );
+    return;
    }
-   await cleanupTemp(tempDir);
-   return;
+   gid = current.aria2Gid;
+   await fs.mkdir(tempDir, { recursive: true });
   }
 
   let done = false;
@@ -228,12 +249,26 @@ export async function executeDirectDownload(
  const teamId = await loadDownloadTeamId(taskId);
 
  try {
-  const sshParams = await buildSshParamsFromServer(server, server.sshKey);
-  await execRemoteCommand({ ...sshParams, command: `mkdir -p -- ${shellQuote(targetPath)}`, timeout: 15000 });
-
   if (!sourceResolution) {
    throw new Error("Download source DNS resolution is missing; retry the download request");
   }
+
+  // Claim BEFORE spawning the remote downloader. Spawning first let a retry
+  // (maxAttempts=3) / concurrent tick launch a duplicate remote process against
+  // the same target file before the CAS could reject it; the loser then had to
+  // race to kill an already-writing orphan. Claiming first makes the spawn
+  // exclusive to the winner.
+  const claimed = await prisma.downloadTask.updateMany({
+   where: { id: taskId, status: "PENDING" },
+   data: { status: "RUNNING", progress: "Starting download..." },
+  });
+  if (claimed.count === 0) {
+   logError(`[DownloadAPI] Direct task ${taskId} was not PENDING; skipping duplicate remote spawn`);
+   return;
+  }
+
+  const sshParams = await buildSshParamsFromServer(server, server.sshKey);
+  await execRemoteCommand({ ...sshParams, command: `mkdir -p -- ${shellQuote(targetPath)}`, timeout: 15000 });
 
   const downloadCmd = buildDirectDownloadCommand({
    taskId,
@@ -246,32 +281,16 @@ export async function executeDirectDownload(
   const pid = parseInt(pidOutput.trim(), 10);
 
   if (exitCode === 0 && pid > 0) {
-   // FEAT-P1: CAS — only transition PENDING -> RUNNING
-  const claimed = await prisma.downloadTask.updateMany({
-    where: { id: taskId, status: "PENDING" },
-    data: { pid, status: "RUNNING", progress: "Downloading..." },
-  });
-  if (claimed.count === 0) {
-    logError(`[DownloadAPI] Task ${taskId} was not in PENDING state; killing orphan remote download`);
-    // Process already spawned via nohup — stop it by pid file / pid.
-    const safeTaskId = taskId.replace(/[^A-Za-z0-9_-]/g, "_");
-    const pidFile = `/tmp/app-dl-${safeTaskId}.pid`;
-    try {
-      await execRemoteCommand({
-        ...sshParams,
-        command: `kill ${pid} 2>/dev/null; kill -9 ${pid} 2>/dev/null; rm -f -- ${shellQuote(pidFile)} ${shellQuote(pidFile + ".exit")} 2>/dev/null; true`,
-        timeout: 10000,
-      });
-    } catch (err) {
-      logError("[DownloadAPI] Failed to kill orphan remote download after CAS miss:", err);
-    }
-    return;
-  }
+   // Record the pid on the row we already claimed to RUNNING above.
+   await prisma.downloadTask.updateMany({
+    where: { id: taskId, status: "RUNNING" },
+    data: { pid, progress: "Downloading..." },
+   });
    await indexDownloadedFileEntry({ storageNode: server.storageNode, targetPath, fileName, size: null });
   } else {
    const { stdout: logContent } = await execRemoteCommand({ ...sshParams, command: getDirectDownloadLogCommand(taskId), timeout: 8000 });
    const errMsg = logContent.trim() || "Failed to start download process";
-   await prisma.downloadTask.update({ where: { id: taskId }, data: { status: "FAILED", errorMessage: errMsg } });
+   await prisma.downloadTask.updateMany({ where: { id: taskId, status: "RUNNING" }, data: { status: "FAILED", errorMessage: errMsg } });
    if (userId) notifyDownloadResult(userId, url, "failed", errMsg, teamId).catch((err) => { notifyLogger.warn("notifyDownloadResult failed", { error: err instanceof Error ? err.message : String(err) }); });
   }
  } catch (error) {

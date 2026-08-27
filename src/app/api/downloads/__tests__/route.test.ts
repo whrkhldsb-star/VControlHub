@@ -474,9 +474,17 @@ describe("/api/downloads", () => {
     // downstream downloadTask.update that executeDirectDownload issues right
     // after.
     await vi.waitFor(() => expect(prismaMock.fileEntry.create).toHaveBeenCalled());
+    // Claim now happens BEFORE the remote spawn (PENDING -> RUNNING), and the
+    // pid is recorded on a second RUNNING-guarded update once the process is up.
+    // This ordering prevents a retry/concurrent tick from launching a duplicate
+    // remote downloader before the CAS could reject it.
     await vi.waitFor(() => expect(prismaMock.downloadTask.updateMany).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: "task_direct", status: "PENDING" },
-      data: expect.objectContaining({ pid: 12345, status: "RUNNING", progress: "Downloading..." }),
+      data: expect.objectContaining({ status: "RUNNING" }),
+    })));
+    await vi.waitFor(() => expect(prismaMock.downloadTask.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "task_direct", status: "RUNNING" },
+      data: expect.objectContaining({ pid: 12345, progress: "Downloading..." }),
     })));
     expect(prismaMock.fileEntry.create).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({
