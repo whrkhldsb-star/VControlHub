@@ -118,3 +118,50 @@ describe("deploy-export zip encoder", () => {
     expect(entries[0]!.name).toBe("systemd/app.service");
   });
 });
+
+describe("unix metadata", () => {
+	/** External attributes hold the mode in their high 16 bits; host 3 = UNIX. */
+	function centralFieldsFor(archive: Buffer, index: number) {
+		const eocdOffset = archive.length - 22;
+		const entryCount = archive.readUInt16LE(eocdOffset + 10);
+		expect(index).toBeLessThan(entryCount);
+		let cursor = archive.readUInt32LE(eocdOffset + 16);
+		for (let i = 0; i < index; i++) {
+			cursor +=
+				46 +
+				archive.readUInt16LE(cursor + 28) +
+				archive.readUInt16LE(cursor + 30) +
+				archive.readUInt16LE(cursor + 32);
+		}
+		const localHeaderOffset = archive.readUInt32LE(cursor + 42);
+		return {
+			madeBy: archive.readUInt16LE(cursor + 4),
+			centralFlags: archive.readUInt16LE(cursor + 8),
+			localFlags: archive.readUInt16LE(localHeaderOffset + 6),
+			mode: (archive.readUInt32LE(cursor + 38) >>> 16) & 0o7777,
+			fileType: (archive.readUInt32LE(cursor + 38) >>> 16) & 0o170000,
+		};
+	}
+
+	it("keeps an explicit mode so an extracted script stays executable", () => {
+		const archive = buildZip([
+			{ name: "deploy.sh", content: "#!/usr/bin/env bash\ntrue\n", mode: 0o755 },
+			{ name: "Caddyfile.example", content: "example.com {\n}\n" },
+		]);
+		const script = centralFieldsFor(archive, 0);
+		expect(script.mode).toBe(0o755);
+		expect(script.fileType).toBe(0o100000);
+		expect(script.madeBy >> 8).toBe(3);
+		// Everything else stays a plain 0644 file.
+		expect(centralFieldsFor(archive, 1).mode).toBe(0o644);
+	});
+
+	it("flags entry names as UTF-8 in both headers", () => {
+		const archive = buildZip([{ name: "配置/说明.md", content: "hi" }]);
+		const fields = centralFieldsFor(archive, 0);
+		expect(fields.localFlags & 0x0800).toBe(0x0800);
+		expect(fields.centralFlags & 0x0800).toBe(0x0800);
+		const { entries } = decodeZip(archive);
+		expect(entries[0]!.name).toBe("配置/说明.md");
+	});
+});

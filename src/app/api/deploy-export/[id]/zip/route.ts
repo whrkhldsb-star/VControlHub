@@ -74,7 +74,13 @@ export async function GET(
         throw new NotFoundError("Deployment export package not found");
       }
       const files = asStringRecord(record.files);
-      const entries = Object.entries(files).map(([name, content]) => ({ name, content }));
+      const entries = Object.entries(files).map(([name, content]) => ({
+        name,
+        content,
+        // deploy.sh is the package's entry point; shipping it non-executable
+        // means the first thing the operator has to do is chmod it.
+        ...(name.endsWith(".sh") ? { mode: 0o755 } : {}),
+      }));
       if (entries.length === 0) {
         throw new NotFoundError("Deployment export package has no downloadable files");
       }

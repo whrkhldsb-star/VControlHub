@@ -5,6 +5,11 @@ export type ZipEntryInput = {
   name: string;
   /** UTF-8 string or raw buffer payload. */
   content: string | Buffer;
+  /**
+   * Unix file mode recorded in the archive. Defaults to {@link DEFAULT_FILE_MODE};
+   * pass 0o755 for a script so it stays runnable after extraction.
+   */
+  mode?: number;
 };
 
 const ZIP_SIGNATURE_LOCAL = 0x04034b50;
@@ -13,6 +18,17 @@ const ZIP_SIGNATURE_EOCD = 0x06054b50;
 const ZIP_VERSION = 20;
 const ZIP_METHOD_DEFLATE = 8;
 const ZIP_METHOD_STORE = 0;
+/**
+ * Bit 11 of the general-purpose flags declares the entry name as UTF-8. Names
+ * are always encoded as UTF-8 below, and without this bit an extractor is
+ * entitled to read them as CP437 and mangle every non-ASCII character.
+ */
+const ZIP_FLAG_UTF8 = 0x0800;
+/** "Version made by" host 3 = UNIX, which is what makes the mode bits below meaningful. */
+const ZIP_MADE_BY_UNIX = (3 << 8) | ZIP_VERSION;
+/** S_IFREG — the archive only ever holds regular files. */
+const UNIX_REGULAR_FILE = 0o100000;
+const DEFAULT_FILE_MODE = 0o644;
 
 function dosDateTime(date: Date): { date: number; time: number } {
   const year = Math.max(1980, date.getFullYear());
@@ -80,7 +96,7 @@ function localHeader(
   const header = Buffer.alloc(30);
   header.writeUInt32LE(ZIP_SIGNATURE_LOCAL, 0);
   header.writeUInt16LE(ZIP_VERSION, 4);
-  header.writeUInt16LE(0, 6); // general purpose bit flag
+  header.writeUInt16LE(ZIP_FLAG_UTF8, 6); // general purpose bit flag
   header.writeUInt16LE(entry.method, 8);
   header.writeUInt16LE(time, 10);
   header.writeUInt16LE(date, 12);
@@ -98,12 +114,13 @@ function centralEntry(
   date: number,
   time: number,
   offset: number,
+  mode: number,
 ): Buffer {
   const head = Buffer.alloc(46);
   head.writeUInt32LE(ZIP_SIGNATURE_CENTRAL, 0);
-  head.writeUInt16LE(ZIP_VERSION, 4); // version made by
+  head.writeUInt16LE(ZIP_MADE_BY_UNIX, 4); // version made by
   head.writeUInt16LE(ZIP_VERSION, 6); // version needed
-  head.writeUInt16LE(0, 8); // general purpose
+  head.writeUInt16LE(ZIP_FLAG_UTF8, 8); // general purpose
   head.writeUInt16LE(entry.method, 10);
   head.writeUInt16LE(time, 12);
   head.writeUInt16LE(date, 14);
@@ -115,7 +132,9 @@ function centralEntry(
   head.writeUInt16LE(0, 32); // comment
   head.writeUInt16LE(0, 34); // disk
   head.writeUInt16LE(0, 36); // internal attrs
-  head.writeUInt32LE(0, 38); // external attrs
+  // Unix permissions live in the high 16 bits. Without them everything extracts
+  // as 0644 and the package's own deploy.sh cannot be executed.
+  head.writeUInt32LE(((UNIX_REGULAR_FILE | (mode & 0o7777)) * 0x10000) >>> 0, 38);
   head.writeUInt32LE(offset, 42); // relative offset of local header
   return Buffer.concat([head, name]);
 }
@@ -136,7 +155,9 @@ function endOfCentralDirectory(count: number, centralSize: number, centralOffset
 /**
  * Build a single-buffer zip archive. Uses DEFLATE for non-empty entries and
  * STORE for empty ones. No streaming, no zip64 — the deploy export package is
- * tiny (a handful of KB) so the whole archive fits in memory.
+ * tiny (a handful of KB) so the whole archive fits in memory. An entry larger
+ * than 4 GiB (or a 65 536th entry) makes the header writes throw rather than
+ * silently truncate.
  *
  * The output is a standard PKZIP file readable by `unzip`, macOS Archive
  * Utility, Windows Explorer, and the browser-side File System Access API.
@@ -153,7 +174,9 @@ export function buildZip(entries: ZipEntryInput[], options: { mtime?: Date } = {
     const compressed = compressEntry(entry.content);
     const local = localHeader(name, compressed, date, time);
     localParts.push(local);
-    centralParts.push(centralEntry(name, compressed, date, time, offset));
+    centralParts.push(
+      centralEntry(name, compressed, date, time, offset, entry.mode ?? DEFAULT_FILE_MODE),
+    );
     offset += local.length;
   }
 
