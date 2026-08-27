@@ -153,6 +153,22 @@ describe("requestRemoteDockerEngine", () => {
 		expect(Array.isArray(result.data)).toBe(true);
 	});
 
+	it("single-quotes the remote URL so & query params are not eaten by the shell", async () => {
+		vi.mocked(prisma.server.findUnique).mockResolvedValue(mockServer as never);
+		vi.mocked(execRemoteCommand).mockResolvedValue({ stdout: "logs\n200", stderr: "", exitCode: 0 });
+
+		await requestRemoteDockerEngine("srv-1", "/containers/abc/logs?stdout=true&stderr=true&tail=100", {
+			unavailableData: [],
+			loggerScope: "test",
+		});
+
+		const passedCommand = vi.mocked(execRemoteCommand).mock.calls[0]![0].command;
+		// The whole URL (including &-joined params) must be inside one single-quoted
+		// argument; otherwise the remote shell backgrounds at the first & and drops
+		// stderr + tail.
+		expect(passedCommand).toContain("'http://localhost/containers/abc/logs?stdout=true&stderr=true&tail=100'");
+	});
+
 	it("handles non-200 HTTP status from Docker daemon", async () => {
 		vi.mocked(prisma.server.findUnique).mockResolvedValue(mockServer as never);
 		vi.mocked(execRemoteCommand).mockResolvedValue({

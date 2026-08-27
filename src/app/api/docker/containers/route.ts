@@ -91,6 +91,20 @@ export async function GET(req: NextRequest) {
           { serverId, unavailableData: {}, loggerScope: "api:docker:containers" },
         );
         if (!statsResult.ok) return NextResponse.json(statsResult);
+        // Engine-unreachable is reported as ok:true + dockerAvailable:false with
+        // empty data; surfacing that as a parsed stats object shows fabricated
+        // 0% CPU/mem instead of an honest "Docker unavailable" signal.
+        if (statsResult.dockerAvailable === false) {
+          return NextResponse.json(
+            {
+              ok: false,
+              status: 503,
+              dockerAvailable: false,
+              message: statsResult.message ?? "Docker is unavailable",
+            },
+            { status: 503 },
+          );
+        }
         const { result: detailResult } = await dockerRequest(
           `/containers/${stats}/json`,
           { serverId, unavailableData: {}, loggerScope: "api:docker:containers" },

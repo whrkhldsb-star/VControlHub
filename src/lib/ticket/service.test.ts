@@ -371,7 +371,7 @@ describe("ticket service", () => {
     mockPrisma.ticket.updateMany.mockResolvedValueOnce({ count: 1 });
     const session = { userId: "u1", roles: ["admin"] as any, currentTeamId: "team_a" };
     await updateTicketStatus({ id: "tk1", status: "IN_PROGRESS", priority: "HIGH", session, skipItsmFanOut: true });
-    const data = mockPrisma.ticket.updateMany.mock.calls[0][0].data;
+    const data = mockPrisma.ticket.updateMany.mock.calls[0]![0].data;
     expect(data.slaDueAt).toBeInstanceOf(Date);
     expect(data.escalatedAt).toBeNull();
   });
@@ -385,7 +385,7 @@ describe("ticket service", () => {
     mockPrisma.ticket.updateMany.mockResolvedValueOnce({ count: 1 });
     const session = { userId: "u1", roles: ["admin"] as any, currentTeamId: "team_a" };
     await updateTicketStatus({ id: "tk1", status: "RESOLVED", priority: "HIGH", session, skipItsmFanOut: true });
-    const data = mockPrisma.ticket.updateMany.mock.calls[0][0].data;
+    const data = mockPrisma.ticket.updateMany.mock.calls[0]![0].data;
     expect(data.slaDueAt).toBeUndefined();
     expect("escalatedAt" in data).toBe(false);
   });

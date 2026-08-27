@@ -188,8 +188,13 @@ export async function requestRemoteDockerEngine(
 	// curl --unix-socket /var/run/docker.sock -s -w '\n%{http_code}' [-X METHOD] [-d @-] http://localhost{apiPath}
 	const methodFlag = method !== "GET" ? ` -X ${method}` : "";
 	const bodyFlag = body ? ` -d '${body.replace(/'/g, "'\\''")}'` : "";
-	// Use -s (silent), output body + HTTP status code separated by newline
-	const curlCmd = `curl --unix-socket /var/run/docker.sock -s -w '\\n%{http_code}'${methodFlag}${bodyFlag} http://localhost${apiPath}`;
+	// Use -s (silent), output body + HTTP status code separated by newline.
+	// The URL MUST be single-quoted: validateDockerApiPath permits `&` (needed
+	// for multi-param queries like logs?stdout=true&stderr=true&tail=N). Left
+	// unquoted, the remote shell reads `&` as a background operator and silently
+	// drops every param after the first (logs lose stderr + tail). The validator
+	// forbids single quotes, so wrapping in '...' cannot break out or inject.
+	const curlCmd = `curl --unix-socket /var/run/docker.sock -s -w '\\n%{http_code}'${methodFlag}${bodyFlag} 'http://localhost${apiPath}'`;
 
 	logger.debug("Remote Docker request", { serverId, serverName: server.name, apiPath, method });
 

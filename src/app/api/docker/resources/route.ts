@@ -104,7 +104,10 @@ export async function POST(req: NextRequest) {
         action === "delete" ? "WARNING" : "INFO",
         session.currentTeamId,
       );
-      return NextResponse.json(result, { status: result.ok ? 200 : result.status >= 400 ? result.status : 200 });
+      // A non-ok result with a sub-400 status is an upstream anomaly, not a
+      // success — coalescing it to 200 (the old behaviour) hid failed
+      // create/delete operations behind a green response. Map it to 502.
+      return NextResponse.json(result, { status: result.ok ? 200 : result.status >= 400 ? result.status : 502 });
     },
   );
 }
