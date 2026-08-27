@@ -109,6 +109,22 @@ function uploadForm(relativePath: string, file: File = new File(["hello world"],
   return formData;
 }
 
+/**
+ * Build the upload request the way a browser does: a multipart body plus a
+ * declared Content-Length. `new Request(url, { body: formData })` alone streams
+ * the body with no declared length, and the route answers 411 for that before
+ * it lets request.formData() buffer an unbounded body into memory (see
+ * requestContentLengthMissing in lib/http/request-body). Same pattern as
+ * api/images/upload's test.
+ */
+function uploadRequest(relativePath: string, file?: File) {
+  return new Request("https://example.com/api/storage/local", {
+    method: "POST",
+    headers: { "content-length": "1024" },
+    body: file ? uploadForm(relativePath, file) : uploadForm(relativePath),
+  });
+}
+
 describe("/api/storage/local", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -223,12 +239,7 @@ describe("/api/storage/local", () => {
     prismaMock.fileEntry.findFirst.mockResolvedValueOnce(null);
     prismaMock.fileEntry.create.mockResolvedValueOnce({ id: "file_1" });
 
-    const response = await POST(
-      new Request("https://example.com/api/storage/local", {
-        method: "POST",
-        body: uploadForm("docs\\notes.txt"),
-      }),
-    );
+    const response = await POST(uploadRequest("docs\\notes.txt"));
 
     expect(response.status).toBe(200);
     expect(assertStorageAccessMock).toHaveBeenCalledWith(
@@ -293,12 +304,7 @@ describe("/api/storage/local", () => {
     prismaMock.fileEntry.findFirst.mockResolvedValueOnce(null);
     prismaMock.fileEntry.create.mockResolvedValueOnce({ id: "file_1" });
 
-    const response = await POST(
-      new Request("https://example.com/api/storage/local", {
-        method: "POST",
-        body: uploadForm("nested/docs/notes.txt"),
-      }),
-    );
+    const response = await POST(uploadRequest("nested/docs/notes.txt"));
 
     expect(response.status).toBe(200);
     expect(assertStorageAccessMock).toHaveBeenCalledWith(
@@ -353,9 +359,12 @@ describe("/api/storage/local", () => {
       },
     };
 
+    // A declared Content-Length within the multipart allowance, so the request
+    // reaches the post-parse check on the *file's* claimed size — that is what
+    // this test covers. A length-less body would be refused with 411 first.
     const response = await POST({
       url: "https://example.com/api/storage/local",
-      headers: new Headers(),
+      headers: new Headers({ "content-length": "2048" }),
       formData: async () => formData,
     } as unknown as Request);
 
@@ -411,12 +420,7 @@ describe("/api/storage/local", () => {
     prismaMock.fileEntry.findFirst.mockResolvedValueOnce(null);
     prismaMock.fileEntry.create.mockRejectedValueOnce(new Error("db down"));
 
-    const response = await POST(
-      new Request("https://example.com/api/storage/local", {
-        method: "POST",
-        body: uploadForm("nested/docs/notes.txt"),
-      }),
-    );
+    const response = await POST(uploadRequest("nested/docs/notes.txt"));
 
     expect(response.status).toBe(500);
     await expect(response.json()).resolves.toMatchObject({
@@ -446,12 +450,7 @@ describe("/api/storage/local", () => {
     prismaMock.fileEntry.findFirst.mockResolvedValueOnce(null);
     prismaMock.fileEntry.create.mockRejectedValueOnce(new Error("db down"));
 
-    const response = await POST(
-      new Request("https://example.com/api/storage/local", {
-        method: "POST",
-        body: uploadForm("docs/notes.txt"),
-      }),
-    );
+    const response = await POST(uploadRequest("docs/notes.txt"));
 
     expect(response.status).toBe(500);
     await expect(response.json()).resolves.toMatchObject({
@@ -481,12 +480,7 @@ describe("/api/storage/local", () => {
     prismaMock.fileEntry.create.mockRejectedValueOnce(uniqueErr);
     prismaMock.fileEntry.update.mockResolvedValueOnce({ id: "file_winner" });
 
-    const response = await POST(
-      new Request("https://example.com/api/storage/local", {
-        method: "POST",
-        body: uploadForm("docs/notes.txt"),
-      }),
-    );
+    const response = await POST(uploadRequest("docs/notes.txt"));
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
@@ -500,12 +494,7 @@ describe("/api/storage/local", () => {
   });
 
   it("rejects unsafe upload relativePath before storage node lookup or writes", async () => {
-    const response = await POST(
-      new Request("https://example.com/api/storage/local", {
-        method: "POST",
-        body: uploadForm("/etc/passwd"),
-      }),
-    );
+    const response = await POST(uploadRequest("/etc/passwd"));
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toMatchObject({
