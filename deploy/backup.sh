@@ -3,6 +3,10 @@
 
 set -euo pipefail
 
+# Backups embed password hashes, encrypted SSH keys and 2FA secrets — keep the
+# archives 0600 so other local accounts on the host cannot read them.
+umask 077
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APP_DIR="${APP_DIR:-$(cd "${SCRIPT_DIR}/.." && pwd)}"
 BACKUP_DIR="${BACKUP_DIR:-/var/backups/${APP_NAME:-${APP_SLUG:-app}}}"

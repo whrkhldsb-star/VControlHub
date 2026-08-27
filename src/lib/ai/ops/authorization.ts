@@ -1,6 +1,7 @@
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import type { SessionPayload } from "@/lib/auth/session";
 import { ForbiddenError } from "@/lib/errors";
+import { t } from "@/lib/i18n/service-translations";
 
 /**
  * AI-ops scans collect fleet-health signals GLOBALLY (across every team) and the
@@ -15,6 +16,6 @@ import { ForbiddenError } from "@/lib/errors";
  */
 export function assertAiOpsPlatformReader(session: SessionPayload | null): void {
   if (!session || !sessionHasPermission(session, "team:manage")) {
-    throw new ForbiddenError("AI ops records are restricted to platform administrators");
+    throw new ForbiddenError(t("backend.ai.opsRecordsRequirePlatformAdmin"));
   }
 }

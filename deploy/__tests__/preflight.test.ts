@@ -6,6 +6,7 @@ import {
   mkdtemp,
   readFile,
   rm,
+  stat,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -1497,4 +1498,48 @@ describe("compressed archive deployment entrypoints", () => {
       await rm(outputDir, { force: true, recursive: true });
     }
   }, 90000);
+});
+
+describe("scripts/backup-db.sh", () => {
+  it("creates database dumps with 0600 permissions so other local accounts cannot read them", async () => {
+    const repoRoot = path.resolve(__dirname, "../..");
+    const appDir = await makeAppDir();
+    const envFile = path.join(appDir, ".env.local");
+    const binDir = path.join(appDir, "bin");
+    const backupDir = path.join(appDir, "backups");
+    await writeValidEnv(envFile);
+    await mkdir(binDir, { recursive: true });
+    await mkdir(backupDir, { recursive: true });
+    try {
+      // Stub pg_dump so the test never touches a real database.
+      await writeFile(
+        path.join(binDir, "pg_dump"),
+        "#!/usr/bin/env bash\nprintf 'stub-dump-content\\n'\n",
+      );
+      for (const command of ["pg_dump"]) {
+        await chmod(path.join(binDir, command), 0o755);
+      }
+
+      const outputFile = path.join(backupDir, "perm-check.sql.gz");
+      const result = await runScript(path.join(repoRoot, "scripts/backup-db.sh"), {
+        cwd: appDir,
+        args: [outputFile],
+        env: {
+          ...process.env,
+          PATH: `${binDir}:${process.env.PATH ?? ""}`,
+          APP_DIR: appDir,
+          ENV_FILE: envFile,
+          BACKUP_DIR: backupDir,
+        },
+        timeoutMs: 30000,
+      });
+
+      expect(result.code, result.stderr).toBe(0);
+      const { mode } = await stat(outputFile);
+      // 0o777 masks off the file-type bits; the dump must not be group/world readable.
+      expect(mode & 0o777).toBe(0o600);
+    } finally {
+      await rm(appDir, { force: true, recursive: true });
+    }
+  }, 60000);
 });

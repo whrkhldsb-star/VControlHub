@@ -505,6 +505,12 @@ export function buildUsage(
     "/api/dashboard/analytics",
     "/api/preferences",
     "/api/monitoring/stats",
+    // Every method is scoped to the caller's own rows via session.userId
+    // (listUserNotifications / markAsRead / deleteNotification all take it),
+    // so this is self-scoped rather than RBAC-gated. `notification:manage`
+    // governs alert-rule administration (/api/alert-rules), not a user
+    // reading their own notification feed.
+    "/api/notifications",
     // Session-authenticated browser beacon (requireAuth, no RBAC permission key).
     "/api/monitoring/web-vitals",
     "/api/ai/conversations/[id]",

@@ -8,6 +8,10 @@
 
 set -euo pipefail
 
+# Dumps contain password hashes, encrypted SSH private keys and 2FA secrets.
+# Create them 0600 so other local accounts cannot read them.
+umask 077
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APP_DIR="${APP_DIR:-$(cd "${SCRIPT_DIR}/.." && pwd)}"
 ENV_FILE="${ENV_FILE:-${APP_DIR}/.env.local}"

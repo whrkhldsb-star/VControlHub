@@ -1,6 +1,6 @@
 # VControlHub RBAC Audit Report
 
-> Generated: 2026-08-20T13:35:23.089Z | Permissions: 54 | Roles: 4 | API routes: 179 | Pages: 54 | Drift: 0
+> Generated: 2026-08-27T12:07:16.420Z | Permissions: 54 | Roles: 4 | API routes: 180 | Pages: 54 | Drift: 0
 
 This report cross-references four RBAC sources of truth:
 1. `src/lib/auth/rbac.ts` — `PERMISSIONS` tuple + `DEFAULT_ROLE_PERMISSIONS` map
@@ -29,7 +29,7 @@ This report cross-references four RBAC sources of truth:
 | `ai:manage` | admin, operator | 1 | 1 | 16 |
 | `ai:ops:autonomous` | admin | 1 | 1 | 2 |
 | `ai:ops:manage` | admin | 1 | 0 | 9 |
-| `ai:ops:read` | admin, operator, viewer | 0 | 0 | 8 |
+| `ai:ops:read` | admin | 0 | 0 | 8 |
 | `announcement:manage` | admin, operator | 1 | 1 | 8 |
 | `api-token:manage` | admin, operator | 1 | 0 | 6 |
 | `audit:read` | admin, operator, viewer, storage_manager | 2 | 1 | 11 |
@@ -51,7 +51,7 @@ This report cross-references four RBAC sources of truth:
 | `image:read` | admin | 0 | 1 | 7 |
 | `image:write` | admin | 1 | 1 | 9 |
 | `media:manage` | admin, operator, storage_manager | 1 | 6 | 11 |
-| `notification:manage` | admin, operator | 1 | 0 | 16 |
+| `notification:manage` | admin, operator | 1 | 0 | 14 |
 | `playbook:manage` | admin | 1 | 0 | 7 |
 | `playbook:read` | admin, operator | 1 | 1 | 8 |
 | `playbook:run` | admin, operator | 1 | 0 | 5 |
@@ -59,7 +59,7 @@ This report cross-references four RBAC sources of truth:
 | `server:read` | admin, operator, viewer, storage_manager | 0 | 2 | 18 |
 | `server:sftp:unrestricted` | admin | 0 | 0 | 0 |
 | `server:ssh` | admin, operator | 1 | 2 | 28 |
-| `server:write` | admin, operator | 1 | 1 | 19 |
+| `server:write` | admin, operator | 1 | 1 | 21 |
 | `share:create` | admin, operator, storage_manager | 2 | 1 | 5 |
 | `share:manage` | admin, operator, storage_manager | 1 | 0 | 5 |
 | `share:read` | admin, operator, viewer, storage_manager | 1 | 0 | 5 |

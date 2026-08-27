@@ -49,7 +49,10 @@ export async function POST(
 				select: { id: true, name: true, enabled: true, teamId: true },
 			});
 			if (!server) {
-				return Response.json({ error: "Server not found" }, { status: 404 });
+				return Response.json(
+					{ error: t("vpsBackupApi.errorServerNotFound", locale) },
+					{ status: 404 },
+				);
 			}
 			if (!server.enabled) {
 				return Response.json(

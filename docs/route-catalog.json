@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-25T15:03:48.544Z",
+  "generatedAt": "2026-08-27T12:05:55.521Z",
   "summary": {
     "sidebarMain": 30,
     "sidebarSystem": 5,
@@ -2068,13 +2068,10 @@
       "methods": [
         "DELETE",
         "GET",
-        "PATCH",
-        "POST"
+        "PATCH"
       ],
       "guardMode": "withApiRoute",
-      "declaredPermissions": [
-        "notification:manage"
-      ]
+      "declaredPermissions": []
     },
     {
       "path": "/api/operation-tasks",
