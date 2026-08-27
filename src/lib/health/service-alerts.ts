@@ -349,6 +349,24 @@ export async function evaluateAlerts(options?: { ruleWhere?: Record<string, unkn
       matchStateDirty = true;
     }
 
+    // Prune match stamps for servers that have left this rule's scope —
+    // deleted, disabled, removed from serverIds, or moved to another team.
+    // Their recovery branch never runs (they are no longer iterated), so
+    // without this the matchState JSON accretes dead serverId keys forever,
+    // and re-adding the same server later would inherit a stale match-start
+    // and skip its duration window. Guard on a non-empty fleet snapshot so a
+    // transient empty collectAllHealth() does not wipe in-progress timers.
+    if (health.servers.length > 0) {
+      const targetIds = new Set(targetServers.map((s) => s.serverId));
+      for (const key of Object.keys(matchState)) {
+        if (key === LEGACY_MATCH_KEY) continue;
+        if (!targetIds.has(key)) {
+          delete matchState[key];
+          matchStateDirty = true;
+        }
+      }
+    }
+
     if (matchStateDirty || ruleFiredThisPass) {
       await persistMatchState(
         rule.id,
