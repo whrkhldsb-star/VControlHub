@@ -27,7 +27,9 @@ const prismaMock = {
 };
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 
-const getSyncJob = vi.fn(async () => ({
+// The execution path reads the credential-bearing variant; `getSyncJobForExecution` (no
+// sshKey) is the display/ownership read used by the HTTP routes.
+const getSyncJobForExecution = vi.fn(async () => ({
   id: "job-1",
   syncType: "one-way",
   sourceServer: { sshKey: null },
@@ -37,7 +39,7 @@ const getSyncJob = vi.fn(async () => ({
   deleteOrphans: false,
   compress: false,
 }));
-vi.mock("../service-crud", () => ({ getSyncJob }));
+vi.mock("../service-crud", () => ({ getSyncJobForExecution }));
 
 // First external call inside runOneWayRsync — throw here so the job fails
 // fast right after onClaimed, without touching the real SSH/rsync layer.

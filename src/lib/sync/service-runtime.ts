@@ -24,7 +24,7 @@ import {
   rsyncFlagsForJob,
   type OneWaySyncStats,
 } from "./bidirectional";
-import { getSyncJob } from "./service-crud";
+import { getSyncJobForExecution } from "./service-crud";
 
 /* ── remote command result ─────────────────────────────────── */
 
@@ -167,8 +167,8 @@ async function executeTarSync(
 /** Push sourcePath → targetPath once (rsync or tar). Returns parsed stats + raw output. */
 async function runOneWayRsync(input: {
   jobId: string;
-  sourceServer: NonNullable<Awaited<ReturnType<typeof getSyncJob>>>["sourceServer"];
-  targetServer: NonNullable<Awaited<ReturnType<typeof getSyncJob>>>["targetServer"];
+  sourceServer: NonNullable<Awaited<ReturnType<typeof getSyncJobForExecution>>>["sourceServer"];
+  targetServer: NonNullable<Awaited<ReturnType<typeof getSyncJobForExecution>>>["targetServer"];
   sourcePath: string;
   targetPath: string;
   flags: string[];
@@ -282,7 +282,7 @@ export async function executeSyncJob(
 	jobId: string,
 	options?: { onClaimed?: () => void | Promise<void> },
 ): Promise<ExecuteSyncJobResult> {
-	const job = await getSyncJob(jobId);
+	const job = await getSyncJobForExecution(jobId);
 	if (!job) throw new Error("Sync job not found");
 
 	// CAS claim: only one runner can move IDLE/ERROR → RUNNING.

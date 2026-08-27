@@ -107,6 +107,20 @@ export async function listSyncJobs(
 	});
 }
 
+/** Endpoint fields the HTTP layer may show; deliberately no credential relation. */
+const SYNC_ENDPOINT_SELECT = {
+	select: { id: true, name: true, host: true, username: true },
+} as const;
+
+/**
+ * Read one sync job for display / ownership checks.
+ *
+ * The endpoint servers are `select`ed rather than `include`d: this row reaches
+ * three HTTP routes, and `include: { sshKey: true }` pulled the server's stored
+ * private key into every one of them — one `NextResponse.json(job)` away from
+ * shipping key material to the browser. Execution needs the credential and gets
+ * it from {@link getSyncJobForExecution}.
+ */
 export async function getSyncJob(
 	id: string,
 	session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">,
@@ -114,9 +128,25 @@ export async function getSyncJob(
 	return prisma.syncJob.findFirst({
 		where: { id, ...(session ? syncJobTeamWhere(session) : {}) },
 		include: {
+			sourceServer: SYNC_ENDPOINT_SELECT,
+			targetServer: SYNC_ENDPOINT_SELECT,
+			syncLogs: { orderBy: { startedAt: "desc" }, take: 20 },
+		},
+	});
+}
+
+/**
+ * Execution-only variant: carries the SSH credentials `runOneWayRsync` needs.
+ * Never hand the result to an HTTP response — use {@link getSyncJob} for that.
+ * Unscoped by design: the runner is a background worker acting on a job whose
+ * ownership was already checked when it was scheduled or triggered.
+ */
+export async function getSyncJobForExecution(id: string) {
+	return prisma.syncJob.findFirst({
+		where: { id },
+		include: {
 			sourceServer: { include: { sshKey: true } },
 			targetServer: { include: { sshKey: true } },
-			syncLogs: { orderBy: { startedAt: "desc" }, take: 20 },
 		},
 	});
 }

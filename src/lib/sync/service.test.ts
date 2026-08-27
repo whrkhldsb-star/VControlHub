@@ -23,7 +23,13 @@ import {
 	shellQuote,
 } from "@/lib/sync/service-commands";
 import { decryptSyncTargetCredentials } from "@/lib/sync/service-credentials";
-import { createSyncJob, listSyncJobs, updateSyncJob } from "@/lib/sync/service-crud";
+import {
+	createSyncJob,
+	getSyncJob,
+	getSyncJobForExecution,
+	listSyncJobs,
+	updateSyncJob,
+} from "@/lib/sync/service-crud";
 import { assertSyncRemoteSucceeded } from "@/lib/sync/service-runtime";
 
 beforeEach(() => {
@@ -435,5 +441,39 @@ describe("assertSyncRemoteSucceeded", () => {
 				"tar sync",
 			),
 		).toThrow(/tar sync failed \(exit 1\).*Permission denied/);
+	});
+});
+
+describe("sync job credential boundary", () => {
+	it("keeps the SSH key out of the row three HTTP routes hand back", async () => {
+		prismaMock.syncJob.findFirst.mockResolvedValueOnce(null);
+
+		await getSyncJob("job-1");
+
+		const args = prismaMock.syncJob.findFirst.mock.calls[0]![0] as {
+			include: { sourceServer: unknown; targetServer: unknown };
+		};
+		// `include: { sshKey: true }` here put the stored private key one
+		// `NextResponse.json(job)` away from the browser.
+		for (const endpoint of [args.include.sourceServer, args.include.targetServer]) {
+			expect(endpoint).toEqual({
+				select: { id: true, name: true, host: true, username: true },
+			});
+		}
+		expect(JSON.stringify(args.include)).not.toContain("sshKey");
+	});
+
+	it("still loads credentials for the execution path", async () => {
+		prismaMock.syncJob.findFirst.mockResolvedValueOnce(null);
+
+		await getSyncJobForExecution("job-1");
+
+		expect(prismaMock.syncJob.findFirst).toHaveBeenCalledWith({
+			where: { id: "job-1" },
+			include: {
+				sourceServer: { include: { sshKey: true } },
+				targetServer: { include: { sshKey: true } },
+			},
+		});
 	});
 });
