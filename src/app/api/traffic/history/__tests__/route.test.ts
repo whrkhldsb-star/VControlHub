@@ -12,7 +12,10 @@ const prismaMock = {
 
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 vi.mock("@/lib/auth/team-scope", () => ({
-  teamWhere: () => ({ OR: [{ teamId: "team_a" }, { teamId: null }] }),
+  serverTeamWhere: (session: { currentTeamId?: string | null }) =>
+    session.currentTeamId
+      ? { teamId: session.currentTeamId }
+      : { id: "__unassigned_servers_require_team_manage__" },
 }));
 vi.mock("@/lib/auth/require-api-permission", () => ({
   requireApiPermission: vi.fn(async () => ({ session: { userId: "u1", roles: ["viewer"], currentTeamId: "team_a", mustChangePassword: false } })),
@@ -46,7 +49,7 @@ describe("/api/traffic/history", () => {
     expect(response.status).toBe(200);
     expect(prismaMock.server.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { OR: [{ teamId: "team_a" }, { teamId: null }] },
+        where: { teamId: "team_a" },
         select: { id: true },
       }),
     );

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { teamWhere } from "@/lib/auth/team-scope";
+import { serverTeamWhere } from "@/lib/auth/team-scope";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { prisma } from "@/lib/db";
@@ -30,8 +30,11 @@ export async function GET(request: Request) {
       const { iface, source, hours } = parseSearchParams(request, trafficHistoryQuerySchema);
       const since = new Date(Date.now() - hours * 3600_000);
       // Multi-tenant: remote samples are tagged with serverId; only return
-      // samples for servers visible under teamWhere (+ local hub samples).
-      const teamFilter = session ? teamWhere(session) : {};
+      // samples for servers visible to the caller (+ local hub samples). Strict
+      // `serverTeamWhere`, matching /api/traffic/summary: a null-team server is
+      // quarantined legacy data, so neither its id nor its traffic curve is
+      // handed to every tenant.
+      const teamFilter = session ? serverTeamWhere(session) : {};
       const visibleServers = session
         ? await prisma.server.findMany({
             where: teamFilter,
