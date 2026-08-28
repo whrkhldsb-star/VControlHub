@@ -58,10 +58,19 @@ export type ListJobEventsOptions = {
 };
 
 export type PruneJobEventsOptions = {
+  /** Prune one job's stream. Omit to sweep every job (see pruneJobEvents). */
   jobId?: string;
+  /** Newest events to retain **per job**, never a platform-wide budget. */
   keepLatest?: number;
   olderThan?: Date;
 };
+
+/**
+ * Hard bound on how many jobs one global sweep touches. A backlog larger than
+ * this drains over successive maintenance ticks (each run's deletions shrink the
+ * set of jobs that still qualify), and hitting it is logged rather than silent.
+ */
+const MAX_PRUNE_JOB_SCOPES = 500;
 
 const DEFAULT_LIST_LIMIT = 100;
 const MAX_LIST_LIMIT = 500;
@@ -128,20 +137,63 @@ export async function listJobEvents(options: ListJobEventsOptions): Promise<JobE
   });
 }
 
-export async function pruneJobEvents(options: PruneJobEventsOptions = {}) {
-  const keepLatest = normalizeKeepLatest(options.keepLatest);
+async function pruneOneJobEvents(
+  jobId: string,
+  keepLatest: number,
+  olderThan: Date | undefined,
+): Promise<number> {
   const retained = await prisma.jobEvent.findMany({
-    where: options.jobId ? { jobId: options.jobId } : {},
+    where: { jobId },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     take: keepLatest,
     select: { id: true },
   });
   const retainedIds = retained.map((event) => event.id);
-  return prisma.jobEvent.deleteMany({
+  const result = await prisma.jobEvent.deleteMany({
     where: {
-      ...(options.jobId ? { jobId: options.jobId } : {}),
+      jobId,
       ...(retainedIds.length > 0 ? { id: { notIn: retainedIds } } : {}),
-      ...(options.olderThan ? { createdAt: { lt: options.olderThan } } : {}),
+      ...(olderThan ? { createdAt: { lt: olderThan } } : {}),
     },
   });
+  return result.count;
+}
+
+/**
+ * Drop old job events while keeping each job's newest `keepLatest`.
+ *
+ * `keepLatest` is per job. It used to be applied globally when no `jobId` was
+ * given: the sweep retained the platform-wide newest N ids, so one chatty job
+ * could fill the whole budget and have its own stale events protected while
+ * other jobs' equally-old events were deleted — the opposite of "recent
+ * timelines stay intact". It also meant a single `NOT IN` carrying thousands of
+ * ids. The global path now groups by job and prunes each stream on its own.
+ */
+export async function pruneJobEvents(
+  options: PruneJobEventsOptions = {},
+): Promise<{ count: number }> {
+  const keepLatest = normalizeKeepLatest(options.keepLatest);
+
+  if (options.jobId) {
+    return { count: await pruneOneJobEvents(options.jobId, keepLatest, options.olderThan) };
+  }
+
+  // Only jobs that actually have prunable events are worth visiting.
+  const groups = await prisma.jobEvent.groupBy({
+    by: ["jobId"],
+    where: options.olderThan ? { createdAt: { lt: options.olderThan } } : {},
+  });
+  const scopes = groups.slice(0, MAX_PRUNE_JOB_SCOPES);
+  if (groups.length > scopes.length) {
+    logger.warn("job event prune scope cap reached; remaining jobs prune on the next run", {
+      jobs: groups.length,
+      cap: MAX_PRUNE_JOB_SCOPES,
+    });
+  }
+
+  let count = 0;
+  for (const group of scopes) {
+    count += await pruneOneJobEvents(group.jobId, keepLatest, options.olderThan);
+  }
+  return { count };
 }

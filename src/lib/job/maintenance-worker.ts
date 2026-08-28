@@ -289,10 +289,12 @@ async function tick(reason: string) {
     });
 
     // Bound job_events growth: drop events older than 30d while always retaining
-    // the newest KEEP_LATEST rows so recent timelines stay intact.
+    // each job's newest events so its timeline stays readable. keepLatest is
+    // per job (it used to be a platform-wide budget, where one chatty job could
+    // consume all 5000 slots and starve every other job's recent history).
     await runStep("prune-job-events", async () => {
       const olderThan = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-      const pruned = await pruneJobEvents({ olderThan, keepLatest: 5000 });
+      const pruned = await pruneJobEvents({ olderThan, keepLatest: 200 });
       if (pruned.count > 0) {
         logger.info("pruned job events", {
           workerId: WORKER_ID,

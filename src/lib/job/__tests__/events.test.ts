@@ -1,22 +1,33 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockPrisma } = vi.hoisted(() => ({
+const { mockPrisma, warnMock } = vi.hoisted(() => ({
   mockPrisma: {
     jobEvent: {
       create: vi.fn(),
       findMany: vi.fn(),
       deleteMany: vi.fn(),
+      groupBy: vi.fn(),
     },
   },
+  warnMock: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
+vi.mock("@/lib/logging", () => ({
+  createLogger: () => ({
+    info: vi.fn(),
+    warn: warnMock,
+    error: vi.fn(),
+    debug: vi.fn(),
+  }),
+}));
 
 const { listJobEvents, pruneJobEvents, recordJobEvent } = await import("../events");
 
 describe("job events service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPrisma.jobEvent.groupBy.mockResolvedValue([]);
   });
 
   it("returns null when input is missing required fields", async () => {
@@ -103,29 +114,70 @@ describe("job events service", () => {
     }));
   });
 
-  it("prunes by keepLatest excluding the most recent ids", async () => {
-    mockPrisma.jobEvent.findMany.mockResolvedValueOnce([{ id: "keep-1" }, { id: "keep-2" }]);
-    mockPrisma.jobEvent.deleteMany.mockResolvedValueOnce({ count: 9 });
+  it("applies keepLatest per job, so a chatty job cannot consume another job's budget", async () => {
     const olderThan = new Date("2026-06-01T00:00:00Z");
+    mockPrisma.jobEvent.groupBy.mockResolvedValueOnce([
+      { jobId: "job-chatty" },
+      { jobId: "job-quiet" },
+    ]);
+    mockPrisma.jobEvent.findMany
+      .mockResolvedValueOnce([{ id: "chatty-1" }, { id: "chatty-2" }])
+      .mockResolvedValueOnce([{ id: "quiet-1" }]);
+    mockPrisma.jobEvent.deleteMany
+      .mockResolvedValueOnce({ count: 9 })
+      .mockResolvedValueOnce({ count: 3 });
 
     const result = await pruneJobEvents({ keepLatest: 2, olderThan });
 
+    // Only jobs holding prunable events are visited.
+    expect(mockPrisma.jobEvent.groupBy).toHaveBeenCalledWith({
+      by: ["jobId"],
+      where: { createdAt: { lt: olderThan } },
+    });
+    // Each job gets the full keepLatest, scoped to its own stream.
     expect(mockPrisma.jobEvent.findMany).toHaveBeenCalledWith({
-      where: {},
+      where: { jobId: "job-chatty" },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: 2,
+      select: { id: true },
+    });
+    expect(mockPrisma.jobEvent.findMany).toHaveBeenCalledWith({
+      where: { jobId: "job-quiet" },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: 2,
       select: { id: true },
     });
     expect(mockPrisma.jobEvent.deleteMany).toHaveBeenCalledWith({
-      where: { id: { notIn: ["keep-1", "keep-2"] }, createdAt: { lt: olderThan } },
+      where: {
+        jobId: "job-quiet",
+        id: { notIn: ["quiet-1"] },
+        createdAt: { lt: olderThan },
+      },
     });
-    expect(result).toEqual({ count: 9 });
+    expect(result).toEqual({ count: 12 });
+  });
+
+  it("caps how many jobs one global sweep visits and warns instead of skipping silently", async () => {
+    const groups = Array.from({ length: 501 }, (_, index) => ({ jobId: `job-${index}` }));
+    mockPrisma.jobEvent.groupBy.mockResolvedValueOnce(groups);
+    mockPrisma.jobEvent.findMany.mockResolvedValue([]);
+    mockPrisma.jobEvent.deleteMany.mockResolvedValue({ count: 0 });
+
+    await pruneJobEvents({ keepLatest: 10 });
+
+    expect(mockPrisma.jobEvent.findMany).toHaveBeenCalledTimes(500);
+    expect(warnMock).toHaveBeenCalledWith(
+      "job event prune scope cap reached; remaining jobs prune on the next run",
+      { jobs: 501, cap: 500 },
+    );
   });
 
   it("scopes prune to a single job when jobId is provided", async () => {
     mockPrisma.jobEvent.findMany.mockResolvedValueOnce([{ id: "keep-1" }]);
     mockPrisma.jobEvent.deleteMany.mockResolvedValueOnce({ count: 1 });
     await pruneJobEvents({ jobId: "job-1", keepLatest: 1 });
+    // No grouping pass needed when the caller already named the job.
+    expect(mockPrisma.jobEvent.groupBy).not.toHaveBeenCalled();
     expect(mockPrisma.jobEvent.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { jobId: "job-1" } }));
     expect(mockPrisma.jobEvent.deleteMany).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({ jobId: "job-1", id: { notIn: ["keep-1"] } }),

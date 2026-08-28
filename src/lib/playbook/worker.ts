@@ -235,14 +235,20 @@ async function handleJob(job: NonNullable<Awaited<ReturnType<typeof claimNextJob
     // identity would loop forever. Mark the run failed and terminal-fail the job.
     const isTerminal = error instanceof PlaybookAuthorizationError;
     if (payload) {
-      const current = await prisma.playbookRun.findUnique({ where: { id: payload.runId }, select: { stepResults: true } });
+      const willRetry = !isTerminal && job.attempts < job.maxAttempts;
+      // `stepResults` is deliberately not written here. This branch used to read
+      // the column and write the same value straight back, which is a no-op on a
+      // quiet row and a lost update on a live one: the executor's persistProgress
+      // can land between the read and this write, and then the stale snapshot
+      // overwrites the newer progress — losing exactly the step history an
+      // operator needs to see why the run died. The column already holds
+      // whatever the executor last persisted; leave it alone.
       await prisma.playbookRun.updateMany({
         where: { id: payload.runId, status: { in: ["queued", "running"] } },
         data: {
-          status: !isTerminal && job.attempts < job.maxAttempts ? "queued" : "failed",
+          status: willRetry ? "queued" : "failed",
           errorMessage: message.slice(0, 2000),
-          completedAt: !isTerminal && job.attempts < job.maxAttempts ? null : new Date(),
-          ...(current?.stepResults ? { stepResults: current.stepResults as Prisma.InputJsonValue } : {}),
+          completedAt: willRetry ? null : new Date(),
         },
       });
     }
