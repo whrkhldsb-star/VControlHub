@@ -15,7 +15,11 @@
  *    poll, which is acceptable for fleets of < ~20 nodes.
  *  - The previous-sample Map is global to the process. Restarts reset the
  *    rate to 0 for the first poll after restart — that is the same behaviour
- *    as the local /proc/net/dev sampler.
+ *    as the local /proc/net/dev sampler. Entries not refreshed within
+ *    PREVIOUS_SAMPLE_TTL_MS are evicted, so deleted servers and renamed
+ *    interfaces cannot accumulate in a long-lived process.
+ *  - SSH fan-out is chunked at REMOTE_SAMPLE_CONCURRENCY. `take: 200` at the
+ *    call site used to mean one poll could open 200 concurrent SSH handshakes.
  *  - SSH errors are caught per-server: one offline VPS does not break the
  *    whole /traffic page.
  */
@@ -68,6 +72,31 @@ export type RemoteServerTraffic = {
 const previousRemoteSamples = new Map<string, TrafficCounterSample>();
 
 const SAMPLE_TIMEOUT_MS = 10_000;
+
+/**
+ * Bound concurrent SSH sessions per sampling run (aligned with
+ * EXECUTE_TARGETS_CONCURRENCY in the command executor). Without this, one
+ * /traffic poll over a 200-server fleet opened 200 handshakes at once.
+ */
+const REMOTE_SAMPLE_CONCURRENCY = 5;
+
+/**
+ * Drop a cached counter that has not been refreshed within this window. A
+ * server deleted from the fleet (or an interface that disappeared) otherwise
+ * kept its entry for the lifetime of the process. It also stops a rate from
+ * being computed against an hours-old baseline, which would report a
+ * long-run average as if it were the current throughput.
+ */
+const PREVIOUS_SAMPLE_TTL_MS = 60 * 60 * 1000;
+
+function evictStalePreviousSamples(now: number): void {
+	for (const [key, sample] of previousRemoteSamples) {
+		const sampledAt = Date.parse(sample.sampledAt);
+		if (!Number.isFinite(sampledAt) || now - sampledAt > PREVIOUS_SAMPLE_TTL_MS) {
+			previousRemoteSamples.delete(key);
+		}
+	}
+}
 
 function sampleKey(serverId: string, iface: string): string {
 	return `remote:${serverId}:${iface}`;
@@ -145,9 +174,19 @@ export async function sampleRemoteServersTraffic(
 	servers: RemoteServerInput[],
 ): Promise<RemoteServerTraffic[]> {
 	if (servers.length === 0) return [];
-	const settled = await Promise.allSettled(
-		servers.map((server) => sampleRemoteServerTraffic(server)),
-	);
+	// Evict before sampling: this run refreshes every key it still owns, so
+	// whatever is stale now belongs to a server or interface that is gone.
+	evictStalePreviousSamples(Date.now());
+	const settled: PromiseSettledResult<RemoteServerTraffic>[] = new Array(servers.length);
+	for (let i = 0; i < servers.length; i += REMOTE_SAMPLE_CONCURRENCY) {
+		const chunk = servers.slice(i, i + REMOTE_SAMPLE_CONCURRENCY);
+		const chunkResults = await Promise.allSettled(
+			chunk.map((server) => sampleRemoteServerTraffic(server)),
+		);
+		for (let j = 0; j < chunkResults.length; j++) {
+			settled[i + j] = chunkResults[j]!;
+		}
+	}
 	return settled.map((result, index) => {
 		if (result.status === "fulfilled") return result.value;
 		const server = servers[index]!;

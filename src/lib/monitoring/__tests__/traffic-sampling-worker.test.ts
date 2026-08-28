@@ -148,10 +148,15 @@ describe("traffic sampling worker", () => {
       expect.any(String),
       expect.objectContaining({
         localSampled: true,
-        remoteSampled: 0,
         prunedSnapshots: 2,
       }),
     );
+    // Remote counters belong to the health collector; this job must not report
+    // hardcoded remote zeros that read as "all remote samples failed".
+    const [, , completedResult] = mocks.completeJob.mock.calls[0] as [string, string, Record<string, unknown>];
+    expect(completedResult).not.toHaveProperty("remoteAttempted");
+    expect(completedResult).not.toHaveProperty("remoteSampled");
+    expect(completedResult).not.toHaveProperty("remoteFailed");
   });
 
   it("fails the durable job when local sampling hard-fails", async () => {

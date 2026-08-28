@@ -190,12 +190,14 @@ async function processSample(jobId: string) {
   const local = await sampleLocalPrimary();
   const pruned = await pruneOldTrafficSnapshots();
 
+  // No remote counters here on purpose: remote NICs are persisted by the health
+  // collector from its own metrics payload (see the module header). The three
+  // `remote*: 0` fields this used to report were hardcoded zeros that never
+  // moved, so a reader of the job result could only read them as "every remote
+  // sample failed". Omitting them says the truth: this job samples local only.
   return {
     localSampled: local.sampled,
     localIface: local.iface,
-    remoteAttempted: 0,
-    remoteSampled: 0,
-    remoteFailed: 0,
     prunedSnapshots: pruned.count,
   };
 }
