@@ -72,6 +72,8 @@ const NAMESPACE_KEYS: Record<string, number> = {
 	"backup-schedule-enqueue": 45082,
 	/** Serialize idempotent inbound ITSM webhook side effects per external event. */
 	"itsm-inbound": 45083,
+	/** Serialize cloud billing import per account+month (concurrent upserts collide). */
+	"cloud-billing-sync": 45084,
 };
 
 function connectionStringForPg() {

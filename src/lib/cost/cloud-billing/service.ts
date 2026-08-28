@@ -4,13 +4,19 @@
  * - Credentials encrypted at rest (AES-256-GCM via encrypt/decrypt)
  * - Sync upserts CostEntry rows with sourceType=cloud_billing
  * - Unique key: sourceType + sourceRef + effectiveDate
- *   sourceRef = `${accountId}:${externalId}` (truncated to stay within index limits)
+ *   sourceRef = `${accountId}:${externalId}`; over-long values keep a prefix plus
+ *   a SHA-256 digest of the full value, so distinct items never collide
+ * - One import per account+month at a time (advisory lock): two concurrent runs
+ *   upsert the same unique keys and race each other's counters
  * - Team scope via teamWhere / teamCreateData (multi-tenant)
  */
+import { createHash } from "node:crypto";
+
 import { Prisma } from "@prisma/client";
 
 import type { SessionPayload } from "@/lib/auth/session";
 import { teamCreateData, teamWhere } from "@/lib/auth/team-scope";
+import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { encrypt, decrypt, isEncrypted } from "@/lib/crypto/service";
 import { prisma } from "@/lib/db";
 import { NotFoundError, ValidationError } from "@/lib/errors";
@@ -132,9 +138,16 @@ function currentMonthUtc(): string {
 }
 
 function sourceRefFor(accountId: string, externalId: string): string {
-	// Keep under ~190 chars for unique index safety
+	// Keep under ~190 chars for unique index safety.
 	const raw = `${accountId}:${externalId}`;
-	return raw.length <= 180 ? raw : `${raw.slice(0, 140)}:${tagValue(externalId).slice(0, 32)}`;
+	if (raw.length <= 180) return raw;
+	// The old fallback appended a *truncated, lowercased* slice of the same
+	// externalId, so two long ids sharing a 140-char prefix and a 32-char tail
+	// produced the same sourceRef — their cost entries then upserted over each
+	// other and one line item silently vanished from the month's total. A digest
+	// of the full value cannot collide that way.
+	const digest = createHash("sha256").update(raw).digest("hex").slice(0, 32);
+	return `${raw.slice(0, 140)}:${digest}`;
 }
 
 export async function createCloudBillingAccount(
@@ -240,6 +253,22 @@ export interface CloudBillingSyncResult {
 export async function syncCloudBillingAccount(
 	accountId: string,
 	month = currentMonthUtc(),
+	session?: SessionScope,
+): Promise<CloudBillingSyncResult> {
+	// Serialize per account+month. Two concurrent imports upsert the same
+	// (sourceType, sourceRef, effectiveDate) keys and then both write
+	// lastSync* on the account, so the surviving counters describe neither run.
+	const releaseLock = await acquireAdvisoryLock("cloud-billing-sync", `${accountId}:${month}`);
+	try {
+		return await runCloudBillingSync(accountId, month, session);
+	} finally {
+		await releaseLock();
+	}
+}
+
+async function runCloudBillingSync(
+	accountId: string,
+	month: string,
 	session?: SessionScope,
 ): Promise<CloudBillingSyncResult> {
 	const account = await prisma.cloudBillingAccount.findFirst({

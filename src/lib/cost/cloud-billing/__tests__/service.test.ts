@@ -15,6 +15,17 @@ function reset() {
   seq = 0;
 }
 
+const { acquireLockMock, lockAcquisitions } = vi.hoisted(() => {
+  const acquisitions: string[] = [];
+  return {
+    lockAcquisitions: acquisitions,
+    acquireLockMock: vi.fn(async (namespace: string, resourceId: string) => {
+      acquisitions.push(`${namespace}:${resourceId}`);
+      return async () => undefined;
+    }),
+  };
+});
+
 vi.mock("@/lib/db", () => ({
   prisma: {
     cloudBillingAccount: {
@@ -252,6 +263,12 @@ vi.mock("@/lib/logging", () => ({
     error: vi.fn(),
     debug: vi.fn(),
   }),
+}));
+
+// The real lock opens a dedicated pg connection; these tests run without a DB.
+// Recording acquisitions lets the serialization test below assert the key shape.
+vi.mock("@/lib/concurrency/advisory-lock", () => ({
+  acquireAdvisoryLock: acquireLockMock,
 }));
 
 vi.mock("@/lib/auth/authorization", () => ({
@@ -551,6 +568,60 @@ describe("cloud billing service", () => {
     ).rejects.toThrow(/requires config\.billingCsvUrl/);
     const runs = Array.from(runStore.values());
     expect(runs.some((r) => r.status === "error")).toBe(true);
+  });
+
+  it("serializes imports per account+month with an advisory lock", async () => {
+    const account = await createCloudBillingAccount(
+      {
+        name: "locked",
+        provider: "generic_csv",
+        credentials: {},
+        config: {
+          sampleCsv: `date,amount
+2026-07-01,1
+`,
+        },
+      },
+      null,
+    );
+    lockAcquisitions.length = 0;
+
+    await syncCloudBillingAccount(account.id, "2026-07");
+
+    // Two concurrent runs would upsert the same unique keys and then both write
+    // lastSync* on the account, leaving counters that describe neither run.
+    expect(lockAcquisitions).toEqual([`cloud-billing-sync:${account.id}:2026-07`]);
+  });
+
+  it("keeps distinct long external ids on distinct sourceRefs", async () => {
+    // Same 140-char prefix and same tail — the shape that used to collapse into
+    // one sourceRef, so the second line item overwrote the first.
+    const prefix = "A".repeat(200);
+    const account = await createCloudBillingAccount(
+      {
+        name: "long-ids",
+        provider: "generic_csv",
+        credentials: {},
+        config: {
+          sampleCsv: `date,amount,external_id
+2026-07-01,10.00,${prefix}-one-tail
+2026-07-01,20.00,${prefix}-two-tail
+`,
+        },
+      },
+      null,
+    );
+
+    const result = await syncCloudBillingAccount(account.id, "2026-07");
+
+    expect(result.imported).toBe(2);
+    // Both rows survive: one entry per item, not one overwriting the other.
+    expect(entryStore.size).toBe(2);
+    const refs = Array.from(entryStore.values()).map((row) => row.sourceRef as string);
+    expect(new Set(refs).size).toBe(2);
+    for (const ref of refs) {
+      expect(ref.length).toBeLessThanOrEqual(180);
+    }
   });
 
   it("deletes account", async () => {
