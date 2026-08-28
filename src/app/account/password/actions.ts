@@ -1,12 +1,20 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 
+import { config } from "@/lib/config/env";
 import { requireSession } from "@/lib/auth/require-session";
+import {
+  createSessionToken,
+  getConfiguredSessionTtlSeconds,
+  getSessionCookieName,
+} from "@/lib/auth/session";
 import { changePassword, skipPasswordChange } from "@/lib/auth/service";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { isRequestHttps } from "@/lib/http/request-https";
 
 export type AccountPasswordActionState = {
   error?: string;
@@ -34,6 +42,41 @@ export async function changePasswordAction(
         error: result.error ?? tr("accountPasswordPage.action.errorFallback"),
       } satisfies AccountPasswordActionState;
     }
+
+    // Session cookies are bound to the password they were minted against, so the
+    // change just invalidated every session of this account — including the one
+    // making this request. That is the point for the *other* sessions, but the
+    // user who typed their own new password must not be kicked to /login, so mint
+    // a replacement cookie for this session against the new credential.
+    const ttlSeconds = await getConfiguredSessionTtlSeconds(false);
+    const refreshedToken = await createSessionToken({
+      userId: session.userId,
+      username: session.username,
+      roles: session.roles,
+      // changePassword clears this flag; carry the post-change value, not the
+      // pre-change one, or a forced-reset user would be sent back to this page.
+      mustChangePassword: false,
+      currentTeamId: session.currentTeamId,
+    });
+    // Same Secure decision the login route makes. Server actions have no Request
+    // object, so hand isRequestHttps the incoming headers plus the configured
+    // public origin — that keeps proxy handling (x-forwarded-proto) in one place
+    // instead of a weaker inline copy.
+    const headerList = await headers();
+    const forwardedProto = headerList.get("x-forwarded-proto");
+    const cookieSecure = isRequestHttps(
+      new Request(config.app.baseUrl ?? "http://localhost", {
+        headers: forwardedProto ? { "x-forwarded-proto": forwardedProto } : {},
+      }),
+    );
+    const cookieStore = await cookies();
+    cookieStore.set(getSessionCookieName(), refreshedToken, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: cookieSecure,
+      path: "/",
+      maxAge: ttlSeconds,
+    });
 
     revalidatePath("/");
     revalidatePath("/account/password");

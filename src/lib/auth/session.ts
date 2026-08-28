@@ -81,6 +81,12 @@ type SessionTokenEnvelope = SessionPayload & {
   aud: string;
   iat: number;
   exp: number;
+  /**
+   * Fingerprint of the credential this session was minted against. See
+   * {@link credentialFingerprint} — this is what makes a password change
+   * invalidate every other session of that account.
+   */
+  cfp?: string;
 };
 
 /**
@@ -116,6 +122,31 @@ function signPayload(payload: string) {
   return createHmac("sha256", getSessionSecret()).update(payload).digest("base64url");
 }
 
+/**
+ * Bind a session to the password it was issued against.
+ *
+ * Sessions are stateless cookies, so changing a password used to leave every
+ * previously-issued cookie working until its own expiry — up to 30 days for a
+ * "remember me" login. That is the wrong behaviour for the single most common
+ * reason people change a password: they believe someone else has their old one.
+ *
+ * The fingerprint is an HMAC of the stored password hash, so a password change
+ * (which rewrites `passwordHash`) changes it and every cookie carrying the old
+ * value stops verifying. It is an HMAC rather than the hash itself so a leaked
+ * cookie never carries anything derived from the credential in the clear, and it
+ * is truncated because it only has to detect change, not resist preimage.
+ *
+ * Deliberately derived, not stored: this needs no column and no migration, and
+ * `verifySessionToken` already reads the user row on every request, so checking
+ * it costs one more selected field and no extra query.
+ */
+function credentialFingerprint(passwordHash: string): string {
+  return createHmac("sha256", getSessionSecret())
+    .update(`session-credential:${passwordHash}`)
+    .digest("base64url")
+    .slice(0, 22);
+}
+
 export function getSessionCookieName() {
   return config.auth.sessionCookieName || `${getAppSlug()}_session`;
 }
@@ -131,12 +162,19 @@ export async function createSessionToken(payload: SessionPayload, options: { rem
   const now = Date.now();
   const ttlMs = (await getConfiguredSessionTtlSeconds(options.remember === true)) * 1000;
   const { issuer, audience } = getSessionIdentity();
+  // Read here rather than taking it as a parameter so every existing call site
+  // keeps working unchanged. This runs once per login, not per request.
+  const credentialOwner = await prisma.user.findUnique({
+    where: { id: payload.userId },
+    select: { passwordHash: true },
+  });
   const envelope: SessionTokenEnvelope = {
     ...payload,
     iss: issuer,
     aud: audience,
     iat: now,
     exp: now + ttlMs,
+    ...(credentialOwner ? { cfp: credentialFingerprint(credentialOwner.passwordHash) } : {}),
   };
 
   const encodedPayload = encodeBase64Url(JSON.stringify(envelope));
@@ -191,12 +229,21 @@ export async function verifySessionToken(token: string) {
      status: true,
      mustChangePassword: true,
      currentTeamId: true,
+     passwordHash: true,
      roles: { select: { role: { select: { key: true } } } },
    },
  });
 
  if (!user || user.status === "DISABLED") {
    throw new AuthError("Session user is disabled or no longer exists");
+ }
+
+ // Reject a session minted against a password that has since been replaced.
+ // Fails closed on a missing `cfp`: tokens issued before this check existed
+ // carry no fingerprint, and honouring them would keep the hole open for the
+ // rest of their TTL. The visible effect is a one-time re-login on upgrade.
+ if (payload.cfp !== credentialFingerprint(user.passwordHash)) {
+   throw new AuthError("Session credentials have changed, please sign in again");
  }
 
  const assignedRoleKeys = user.roles.map((entry) => entry.role.key);

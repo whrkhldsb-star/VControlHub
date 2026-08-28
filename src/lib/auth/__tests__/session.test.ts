@@ -19,6 +19,32 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
+/**
+ * Rebuild a token in the pre-fingerprint format: same envelope and same HMAC,
+ * simply without `cfp`. Mirrors what a cookie issued by the previous release
+ * looks like, so the fail-closed behaviour is tested against the real shape.
+ */
+async function createLegacySessionTokenWithoutFingerprint(): Promise<string> {
+  const { createHmac } = await import("node:crypto");
+  const now = Date.now();
+  const envelope = {
+    userId: "u_1",
+    username: "admin",
+    roles: ["admin"],
+    mustChangePassword: false,
+    currentTeamId: null,
+    iss: "vcontrolhub",
+    aud: "vcontrolhub-console",
+    iat: now,
+    exp: now + 7 * 24 * 60 * 60 * 1000,
+  };
+  const encoded = Buffer.from(JSON.stringify(envelope)).toString("base64url");
+  const signature = createHmac("sha256", "dev-only-session-secret-change-me")
+    .update(encoded)
+    .digest("base64url");
+  return `${encoded}.${signature}`;
+}
+
 describe("session auth helpers", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
@@ -57,12 +83,13 @@ describe("session auth helpers", () => {
 	});
 
   it("round-trips a signed session token", async () => {
-    vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
       id: "u_1",
       username: "admin",
       status: "ACTIVE",
       mustChangePassword: false,
       currentTeamId: null,
+      passwordHash: "$2b$10$originalhash",
       roles: [{ role: { key: "viewer" } }],
     } as any);
     const token = await createSessionToken({
@@ -83,12 +110,13 @@ describe("session auth helpers", () => {
   });
 
   it("resolves the direct grants of a custom role into session.permissions", async () => {
-    vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
       id: "u_1",
       username: "alice",
       status: "ACTIVE",
       mustChangePassword: false,
       currentTeamId: null,
+      passwordHash: "$2b$10$originalhash",
       roles: [{ role: { key: "viewer" } }, { role: { key: "user:u_1:custom" } }],
     } as any);
     vi.mocked(prisma.rolePermission.findMany).mockResolvedValueOnce([
@@ -113,17 +141,70 @@ describe("session auth helpers", () => {
   });
 
   it("rejects signed sessions for disabled users", async () => {
-    vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
       id: "u_1",
       username: "admin",
       status: "DISABLED",
       mustChangePassword: false,
       currentTeamId: null,
+      passwordHash: "$2b$10$originalhash",
       roles: [{ role: { key: "admin" } }],
     } as any);
     const token = await createSessionToken({ userId: "u_1", username: "admin", roles: ["admin"], mustChangePassword: false, currentTeamId: null });
 
     await expect(verifySessionToken(token)).rejects.toThrow("disabled");
+  });
+
+  it("invalidates a session once the account's password has changed", async () => {
+    const row = {
+      id: "u_1",
+      username: "admin",
+      status: "ACTIVE",
+      mustChangePassword: false,
+      currentTeamId: null,
+      passwordHash: "$2b$10$originalhash",
+      roles: [{ role: { key: "admin" } }],
+    };
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(row as any);
+
+    const token = await createSessionToken({
+      userId: "u_1",
+      username: "admin",
+      roles: ["admin"],
+      mustChangePassword: false,
+      currentTeamId: null,
+    });
+    // Still valid against the password it was minted for.
+    await expect(verifySessionToken(token)).resolves.toMatchObject({ userId: "u_1" });
+
+    // changePassword rewrites passwordHash — every cookie carrying the old
+    // fingerprint must stop working, which is the whole point when the reason for
+    // the change is "someone else knows my old password".
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      ...row,
+      passwordHash: "$2b$10$rotatedhash",
+    } as any);
+
+    await expect(verifySessionToken(token)).rejects.toThrow(/credentials have changed/i);
+  });
+
+  it("rejects a legacy token that carries no credential fingerprint", async () => {
+    // Tokens minted before this check existed have no `cfp`. Honouring them would
+    // keep the hole open for the rest of their TTL (up to 30d for remember-me),
+    // so the check fails closed and those users re-login once.
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      id: "u_1",
+      username: "admin",
+      status: "ACTIVE",
+      mustChangePassword: false,
+      currentTeamId: null,
+      passwordHash: "$2b$10$originalhash",
+      roles: [{ role: { key: "admin" } }],
+    } as any);
+
+    const legacy = await createLegacySessionTokenWithoutFingerprint();
+
+    await expect(verifySessionToken(legacy)).rejects.toThrow(/credentials have changed/i);
   });
 
   it("round-trips a pending 2FA token and never accepts it as a full session", async () => {
