@@ -28,7 +28,7 @@ import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_READ_LIMIT } from "@/lib/http/rate-limit-presets";
-import { AuthError, ValidationError } from "@/lib/errors";
+import { AuthError, ValidationError, isAppError } from "@/lib/errors";
 
 import { apiError } from "@/lib/http/api-error";
 export const dynamic = "force-dynamic";
@@ -321,6 +321,12 @@ export async function GET(
         client?.end();
         const maybeResponse = (error as { response?: Response }).response;
         if (maybeResponse) return maybeResponse;
+        // Typed errors already carry the real reason and status — the agent-only
+        // read path throws BusinessError("agent-only reads are limited to 5 MB")
+        // at 422, and flattening that into the generic 502 below told the user
+        // the node could not be reached when in fact the file was simply too
+        // large for that transport. Let withApiRoute render them as-is.
+        if (isAppError(error)) throw error;
         logger.error("read remote media stream failed", error, {
           id,
           nodeId: node.id,

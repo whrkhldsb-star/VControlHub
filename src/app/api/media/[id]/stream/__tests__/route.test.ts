@@ -32,10 +32,19 @@ vi.mock("@/lib/http/api-guard", () => ({
     _request: Request,
     _options: unknown,
     handler: (ctx: { session: { userId: string; roles: string[]; currentTeamId: string | null } }) => Promise<Response>,
-  ) =>
-    handler({
-      session: { userId: "u1", roles: ["operator"], currentTeamId: null },
-    }),
+  ) => {
+    try {
+      return await handler({
+        session: { userId: "u1", roles: ["operator"], currentTeamId: null },
+      });
+    } catch (error) {
+      // Mirror the real guard's catch: handlers throw typed AppErrors and rely on
+      // apiCatch to render them with their own status. Without this the mock let
+      // throws escape, so a route that correctly rethrows looked like a crash.
+      const { apiCatch } = await import("@/lib/http/api-error");
+      return apiCatch(error);
+    }
+  },
 }));
 vi.mock("@/lib/logging", () => ({
   createLogger: () => ({ error: vi.fn(), warn: vi.fn(), info: vi.fn(), debug: vi.fn() }),
@@ -227,6 +236,51 @@ describe("media stream route", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("reports the agent-only size limit as its own error, not as an unreachable node", async () => {
+    const { BusinessError } = await import("@/lib/errors");
+    getMediaItemMock.mockResolvedValue(makeRemoteMediaItem());
+    // Agent-only credentials: no privateKey and no password, so the route takes
+    // the readRemoteFile branch instead of opening SFTP.
+    resolveStorageSshCredentialsMock.mockReturnValue({
+      host: "10.0.0.5",
+      port: 22,
+      username: "root",
+      connectionType: "AGENT",
+      agentServerId: "srv-agent",
+    });
+    readRemoteFileMock.mockRejectedValue(
+      new BusinessError("Agent-only file reads are limited to 5 MB per operation"),
+    );
+
+    const response = await GET(new Request("https://example.test/api/media/media-1/stream"), {
+      params: Promise.resolve({ id: "media-1" }),
+    });
+
+    // 422, not the generic 502 that told the user the node was unreachable when
+    // the file was simply too large for that transport.
+    expect(response.status).toBe(422);
+    const body = await response.json();
+    expect(String(body.error?.message ?? body.error ?? "")).toMatch(/5 MB/);
+  });
+
+  it("still reports an unreachable agent node as 502", async () => {
+    getMediaItemMock.mockResolvedValue(makeRemoteMediaItem());
+    resolveStorageSshCredentialsMock.mockReturnValue({
+      host: "10.0.0.5",
+      port: 22,
+      username: "root",
+      connectionType: "AGENT",
+      agentServerId: "srv-agent",
+    });
+    readRemoteFileMock.mockRejectedValue(new Error("ETIMEDOUT"));
+
+    const response = await GET(new Request("https://example.test/api/media/media-1/stream"), {
+      params: Promise.resolve({ id: "media-1" }),
+    });
+
+    expect(response.status).toBe(502);
   });
 
   it("rejects traversal-like media paths before touching local storage", async () => {

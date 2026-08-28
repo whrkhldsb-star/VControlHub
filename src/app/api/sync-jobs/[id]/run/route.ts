@@ -1,5 +1,14 @@
 /**
- * POST /api/sync-jobs/[id]/run — execute one sync job now
+ * POST /api/sync-jobs/[id]/run — execute one sync job now.
+ *
+ * KNOWN CONSTRAINT: the rsync runs inline, so this request stays open for the
+ * whole transfer. Mutual exclusion is safe (executeSyncJob's CAS claims
+ * IDLE/ERROR → RUNNING, and a request that dies mid-transfer is picked up by
+ * `reclaimStaleRunningSyncJobs`), but a large transfer can outlive the platform's
+ * request timeout — the sync then completes while the caller sees a network
+ * error. Moving this to the durable jobs table would fix that, and would change
+ * the response from "here is the result" to "queued", i.e. a product-visible
+ * change to the panel's UX. Left as-is pending that decision.
  */
 import { NextResponse } from "next/server";
 
