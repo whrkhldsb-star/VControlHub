@@ -18,6 +18,9 @@
  *     (alert.evaluate) + Job 系统自身 (其他 type) 共同管理
  *   - 单表 prune 用 "findMany ID 排序 + take N → deleteMany where id notIn"，
  *     跟 alert-worker 的 pruneCompletedJobsByType 同范式
+ *   - keepLatest 按 teamId 分组生效, 不是全平台前 N 条。全平台口径下
+ *     一个高频租户就能把 keepLatest 名额占满, 于此其他租户早于
+ *     olderThan 的历史会被全部删掉 —— 那是跨租户的数据互相挤占
  *   - 全部包 try/catch + logger.warn，任一来源失败不影响其他来源继续
  *   - 默认 90 天 / 100 条，可由参数覆盖
  */
@@ -31,13 +34,13 @@ export const OPERATION_TASK_RETENTION_JOB_TYPE = "operation-task.retention";
 /** 默认保留天数：早于这个天数的 completed 记录会被裁剪（只保留 keepLatest） */
 export const DEFAULT_OPERATION_TASK_RETENTION_DAYS = 90;
 
-/** 默认保留最新条数：每来源 completed 状态至少保留这么多条 */
+/** 默认保留最新条数：每来源、每个 teamId 的 completed 状态各保留这么多条 */
 export const DEFAULT_OPERATION_TASK_RETENTION_KEEP_LATEST = 100;
 
 export type OperationTaskRetentionOptions = {
   /** 早于这个时间的 completed 记录才会被裁剪（默认 = now - 90 days） */
   olderThan?: Date;
-  /** 每来源至少保留最新多少条（默认 100） */
+  /** 每来源、每个 teamId 至少保留最新多少条（默认 100） */
   keepLatest?: number;
   /** 跑时 now 注入（测试用） */
   now?: Date;
@@ -75,40 +78,121 @@ function resolveKeepLatest(options: OperationTaskRetentionOptions): number {
   return Math.max(1, Math.floor(options.keepLatest ?? DEFAULT_OPERATION_TASK_RETENTION_KEEP_LATEST));
 }
 
-async function pruneCommand(keepLatest: number, olderThan: Date): Promise<OperationTaskRetentionPerSourceResult> {
-  const retained = await prisma.commandRequest.findMany({
-    where: { status: { in: ["COMPLETED", "FAILED", "REJECTED", "CANCELLED"] } },
-    orderBy: [{ createdAt: "desc" }],
-    select: { id: true },
-    take: keepLatest,
-  });
-  const retainedIds = retained.map((row) => row.id);
-  const result = await prisma.commandRequest.deleteMany({
-    where: {
-      status: { in: ["COMPLETED", "FAILED", "REJECTED", "CANCELLED"] },
-      createdAt: { lt: olderThan },
-      ...(retainedIds.length > 0 ? { id: { notIn: retainedIds } } : {}),
-    },
-  });
-  return { scanned: retained.length, deleted: result.count };
+/**
+ * Hard upper bound on how many `teamId` scopes one source prunes per run.
+ * Team count is already small in practice; the cap only exists so a corrupted
+ * or unexpectedly wide grouping cannot turn one tick into thousands of queries.
+ * Hitting it is logged, never silent — the remaining scopes are pruned next run.
+ */
+const MAX_RETENTION_TEAM_SCOPES = 200;
+
+/**
+ * Apply "keep the newest `keepLatest`, delete everything else older than
+ * `olderThan`" **once per team scope** (plus the `teamId: null` legacy scope).
+ *
+ * The callbacks are per-source so each Prisma delegate keeps its own literal
+ * status union and stays type-checked at the call site.
+ */
+async function pruneTerminalHistoryPerTeam(input: {
+  source: string;
+  keepLatest: number;
+  olderThan: Date;
+  listTeamScopes: () => Promise<(string | null)[]>;
+  listRetainedIds: (teamId: string | null, take: number) => Promise<string[]>;
+  deleteOlderThan: (teamId: string | null, retainedIds: string[]) => Promise<number>;
+}): Promise<OperationTaskRetentionPerSourceResult> {
+  const allScopes = await input.listTeamScopes();
+  const scopes = allScopes.slice(0, MAX_RETENTION_TEAM_SCOPES);
+  if (allScopes.length > scopes.length) {
+    logger.warn("Retention team scope cap reached; remaining scopes prune on the next run", {
+      source: input.source,
+      scopes: allScopes.length,
+      cap: MAX_RETENTION_TEAM_SCOPES,
+    });
+  }
+
+  let scanned = 0;
+  let deleted = 0;
+  for (const teamId of scopes) {
+    const retainedIds = await input.listRetainedIds(teamId, input.keepLatest);
+    scanned += retainedIds.length;
+    deleted += await input.deleteOlderThan(teamId, retainedIds);
+  }
+  return { scanned, deleted };
 }
 
-async function pruneDownload(keepLatest: number, olderThan: Date): Promise<OperationTaskRetentionPerSourceResult> {
-  const retained = await prisma.downloadTask.findMany({
-    where: { status: { in: ["COMPLETED", "FAILED", "CANCELLED"] } },
-    orderBy: [{ createdAt: "desc" }],
-    select: { id: true },
-    take: keepLatest,
-  });
-  const retainedIds = retained.map((row) => row.id);
-  const result = await prisma.downloadTask.deleteMany({
-    where: {
-      status: { in: ["COMPLETED", "FAILED", "CANCELLED"] },
-      createdAt: { lt: olderThan },
-      ...(retainedIds.length > 0 ? { id: { notIn: retainedIds } } : {}),
+const COMMAND_TERMINAL_STATUSES = ["COMPLETED", "FAILED", "REJECTED", "CANCELLED"] as const;
+
+async function pruneCommand(keepLatest: number, olderThan: Date): Promise<OperationTaskRetentionPerSourceResult> {
+  return pruneTerminalHistoryPerTeam({
+    source: "command",
+    keepLatest,
+    olderThan,
+    listTeamScopes: async () => {
+      const groups = await prisma.commandRequest.groupBy({
+        by: ["teamId"],
+        where: { status: { in: [...COMMAND_TERMINAL_STATUSES] } },
+      });
+      return groups.map((group) => group.teamId);
+    },
+    listRetainedIds: async (teamId, take) => {
+      const rows = await prisma.commandRequest.findMany({
+        where: { status: { in: [...COMMAND_TERMINAL_STATUSES] }, teamId },
+        orderBy: [{ createdAt: "desc" }],
+        select: { id: true },
+        take,
+      });
+      return rows.map((row) => row.id);
+    },
+    deleteOlderThan: async (teamId, retainedIds) => {
+      const result = await prisma.commandRequest.deleteMany({
+        where: {
+          status: { in: [...COMMAND_TERMINAL_STATUSES] },
+          teamId,
+          createdAt: { lt: olderThan },
+          ...(retainedIds.length > 0 ? { id: { notIn: retainedIds } } : {}),
+        },
+      });
+      return result.count;
     },
   });
-  return { scanned: retained.length, deleted: result.count };
+}
+
+const DOWNLOAD_TERMINAL_STATUSES = ["COMPLETED", "FAILED", "CANCELLED"] as const;
+
+async function pruneDownload(keepLatest: number, olderThan: Date): Promise<OperationTaskRetentionPerSourceResult> {
+  return pruneTerminalHistoryPerTeam({
+    source: "download",
+    keepLatest,
+    olderThan,
+    listTeamScopes: async () => {
+      const groups = await prisma.downloadTask.groupBy({
+        by: ["teamId"],
+        where: { status: { in: [...DOWNLOAD_TERMINAL_STATUSES] } },
+      });
+      return groups.map((group) => group.teamId);
+    },
+    listRetainedIds: async (teamId, take) => {
+      const rows = await prisma.downloadTask.findMany({
+        where: { status: { in: [...DOWNLOAD_TERMINAL_STATUSES] }, teamId },
+        orderBy: [{ createdAt: "desc" }],
+        select: { id: true },
+        take,
+      });
+      return rows.map((row) => row.id);
+    },
+    deleteOlderThan: async (teamId, retainedIds) => {
+      const result = await prisma.downloadTask.deleteMany({
+        where: {
+          status: { in: [...DOWNLOAD_TERMINAL_STATUSES] },
+          teamId,
+          createdAt: { lt: olderThan },
+          ...(retainedIds.length > 0 ? { id: { notIn: retainedIds } } : {}),
+        },
+      });
+      return result.count;
+    },
+  });
 }
 
 async function pruneSync(_keepLatest: number, _olderThan: Date): Promise<OperationTaskRetentionPerSourceResult> {
@@ -124,25 +208,43 @@ async function pruneBackup(_keepLatest: number, _olderThan: Date): Promise<Opera
   return { scanned: 0, deleted: 0, skipped: true };
 }
 
+// DeploymentRun status is String. Live terminal set includes REJECTED (deployment service);
+// keep ROLLED_BACK for forward-compat even if writers do not emit it today.
+const DEPLOYMENT_TERMINAL_STATUSES = ["COMPLETED", "FAILED", "CANCELLED", "REJECTED", "ROLLED_BACK"] as const;
+
 async function pruneDeployment(keepLatest: number, olderThan: Date): Promise<OperationTaskRetentionPerSourceResult> {
-  // DeploymentRun status is String. Live terminal set includes REJECTED (deployment service);
-  // keep ROLLED_BACK for forward-compat even if writers do not emit it today.
-  const terminalStatuses = ["COMPLETED", "FAILED", "CANCELLED", "REJECTED", "ROLLED_BACK"] as const;
-  const retained = await prisma.deploymentRun.findMany({
-    where: { status: { in: [...terminalStatuses] } },
-    orderBy: [{ createdAt: "desc" }],
-    select: { id: true },
-    take: keepLatest,
-  });
-  const retainedIds = retained.map((row) => row.id);
-  const result = await prisma.deploymentRun.deleteMany({
-    where: {
-      status: { in: [...terminalStatuses] },
-      createdAt: { lt: olderThan },
-      ...(retainedIds.length > 0 ? { id: { notIn: retainedIds } } : {}),
+  return pruneTerminalHistoryPerTeam({
+    source: "deployment",
+    keepLatest,
+    olderThan,
+    listTeamScopes: async () => {
+      const groups = await prisma.deploymentRun.groupBy({
+        by: ["teamId"],
+        where: { status: { in: [...DEPLOYMENT_TERMINAL_STATUSES] } },
+      });
+      return groups.map((group) => group.teamId);
+    },
+    listRetainedIds: async (teamId, take) => {
+      const rows = await prisma.deploymentRun.findMany({
+        where: { status: { in: [...DEPLOYMENT_TERMINAL_STATUSES] }, teamId },
+        orderBy: [{ createdAt: "desc" }],
+        select: { id: true },
+        take,
+      });
+      return rows.map((row) => row.id);
+    },
+    deleteOlderThan: async (teamId, retainedIds) => {
+      const result = await prisma.deploymentRun.deleteMany({
+        where: {
+          status: { in: [...DEPLOYMENT_TERMINAL_STATUSES] },
+          teamId,
+          createdAt: { lt: olderThan },
+          ...(retainedIds.length > 0 ? { id: { notIn: retainedIds } } : {}),
+        },
+      });
+      return result.count;
     },
   });
-  return { scanned: retained.length, deleted: result.count };
 }
 
 async function safeRun(source: string, fn: () => Promise<OperationTaskRetentionPerSourceResult>): Promise<OperationTaskRetentionPerSourceResult> {

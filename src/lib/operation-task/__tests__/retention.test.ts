@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  *
  * 覆盖：
  *   - 5 个来源（command/download/sync/backup/deployment）正确裁剪 completed 状态
- *   - 保留最新 keepLatest 条不被删
+ *   - keepLatest 按 teamId 分组生效（一个租户占不满另一个租户的名额）
  *   - olderThan 过滤正确
  *   - 单来源失败不影响其他来源
  *   - 默认 90 天 / 100 条
@@ -13,11 +13,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { mockPrisma, infoMock, warnMock } = vi.hoisted(() => ({
   mockPrisma: {
-    commandRequest: { findMany: vi.fn(), deleteMany: vi.fn() },
-    downloadTask: { findMany: vi.fn(), deleteMany: vi.fn() },
-    syncJob: { findMany: vi.fn(), deleteMany: vi.fn() },
-    backupRecord: { findMany: vi.fn(), deleteMany: vi.fn() },
-    deploymentRun: { findMany: vi.fn(), deleteMany: vi.fn() },
+    commandRequest: { findMany: vi.fn(), deleteMany: vi.fn(), groupBy: vi.fn() },
+    downloadTask: { findMany: vi.fn(), deleteMany: vi.fn(), groupBy: vi.fn() },
+    syncJob: { findMany: vi.fn(), deleteMany: vi.fn(), groupBy: vi.fn() },
+    backupRecord: { findMany: vi.fn(), deleteMany: vi.fn(), groupBy: vi.fn() },
+    deploymentRun: { findMany: vi.fn(), deleteMany: vi.fn(), groupBy: vi.fn() },
   },
   infoMock: vi.fn(),
   warnMock: vi.fn(),
@@ -36,6 +36,13 @@ vi.mock("@/lib/logging", () => ({
 const { pruneOperationTaskHistory } = await import("../retention");
 
 function setupEmptyMocks() {
+  // One legacy null-team scope by default: enough for every source to run its
+  // prune exactly once, matching the pre-grouping single-pass expectations.
+  mockPrisma.commandRequest.groupBy.mockResolvedValue([{ teamId: null }]);
+  mockPrisma.downloadTask.groupBy.mockResolvedValue([{ teamId: null }]);
+  mockPrisma.syncJob.groupBy.mockResolvedValue([{ teamId: null }]);
+  mockPrisma.backupRecord.groupBy.mockResolvedValue([{ teamId: null }]);
+  mockPrisma.deploymentRun.groupBy.mockResolvedValue([{ teamId: null }]);
   mockPrisma.commandRequest.findMany.mockResolvedValue([]);
   mockPrisma.commandRequest.deleteMany.mockResolvedValue({ count: 0 });
   mockPrisma.downloadTask.findMany.mockResolvedValue([]);
@@ -80,7 +87,7 @@ describe("pruneOperationTaskHistory — TR-006 跨来源保留策略", () => {
     // findMany 用 status in (COMPLETED/FAILED/REJECTED/CANCELLED) + orderBy createdAt desc + take 3
     expect(mockPrisma.commandRequest.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { status: { in: ["COMPLETED", "FAILED", "REJECTED", "CANCELLED"] } },
+        where: { status: { in: ["COMPLETED", "FAILED", "REJECTED", "CANCELLED"] }, teamId: null },
         orderBy: [{ createdAt: "desc" }],
         take: 3,
       }),
@@ -102,16 +109,18 @@ describe("pruneOperationTaskHistory — TR-006 跨来源保留策略", () => {
     await pruneOperationTaskHistory({ now: new Date("2026-06-15T00:00:00Z") });
 
     expect(mockPrisma.downloadTask.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { status: { in: ["COMPLETED", "FAILED", "CANCELLED"] } } }),
+      expect.objectContaining({ where: { status: { in: ["COMPLETED", "FAILED", "CANCELLED"] }, teamId: null } }),
     );
     expect(mockPrisma.deploymentRun.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { status: { in: ["COMPLETED", "FAILED", "CANCELLED", "REJECTED", "ROLLED_BACK"] } },
+        where: { status: { in: ["COMPLETED", "FAILED", "CANCELLED", "REJECTED", "ROLLED_BACK"] }, teamId: null },
       }),
     );
     // SyncJob is long-lived config; BackupRecord is owned by backup retention with file unlink.
+    expect(mockPrisma.syncJob.groupBy).not.toHaveBeenCalled();
     expect(mockPrisma.syncJob.findMany).not.toHaveBeenCalled();
     expect(mockPrisma.syncJob.deleteMany).not.toHaveBeenCalled();
+    expect(mockPrisma.backupRecord.groupBy).not.toHaveBeenCalled();
     expect(mockPrisma.backupRecord.findMany).not.toHaveBeenCalled();
     expect(mockPrisma.backupRecord.deleteMany).not.toHaveBeenCalled();
   });
@@ -142,6 +151,7 @@ describe("pruneOperationTaskHistory — TR-006 跨来源保留策略", () => {
   it("单来源 throw → 不影响其他来源, perSource.command.error 被记录, warnMock 触发", async () => {
     mockPrisma.commandRequest.findMany.mockRejectedValue(new Error("DB down"));
     mockPrisma.downloadTask.findMany.mockResolvedValue([{ id: "d1" }]);
+    mockPrisma.downloadTask.deleteMany.mockResolvedValue({ count: 5 });
     mockPrisma.downloadTask.deleteMany.mockResolvedValue({ count: 5 });
 
     const result = await pruneOperationTaskHistory({ now: new Date("2026-06-15T00:00:00Z") });
@@ -179,5 +189,56 @@ describe("pruneOperationTaskHistory — TR-006 跨来源保留策略", () => {
   it("totalDeleted=0 → logger.info 不调 (避免噪音)", async () => {
     await pruneOperationTaskHistory({ now: new Date("2026-06-15T00:00:00Z") });
     expect(infoMock).not.toHaveBeenCalled();
+  });
+
+  it("keepLatest 按 teamId 分组: 每个租户各留满 N 条, 活跃租户占不掉别人的名额", async () => {
+    mockPrisma.commandRequest.groupBy.mockResolvedValue([
+      { teamId: "team_busy" },
+      { teamId: "team_quiet" },
+    ]);
+    mockPrisma.commandRequest.findMany
+      .mockResolvedValueOnce([{ id: "busy1" }, { id: "busy2" }])
+      .mockResolvedValueOnce([{ id: "quiet1" }]);
+    mockPrisma.commandRequest.deleteMany
+      .mockResolvedValueOnce({ count: 40 })
+      .mockResolvedValueOnce({ count: 2 });
+
+    const result = await pruneOperationTaskHistory({
+      now: new Date("2026-06-15T00:00:00Z"),
+      keepLatest: 2,
+    });
+
+    // 两个租户各跑一次 retain 查询, 各自的 take 都是完整的 keepLatest
+    expect(mockPrisma.commandRequest.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ teamId: "team_busy" }), take: 2 }),
+    );
+    expect(mockPrisma.commandRequest.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ teamId: "team_quiet" }), take: 2 }),
+    );
+    // team_quiet 的删除条件带自己的 teamId 且排除自己保留的 id,
+    // 不会因为 team_busy 抢满全平台前 N 名而被整段删掉
+    expect(mockPrisma.commandRequest.deleteMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          teamId: "team_quiet",
+          id: { notIn: ["quiet1"] },
+        }),
+      }),
+    );
+    expect(result.perSource.command?.scanned).toBe(3);
+    expect(result.perSource.command?.deleted).toBe(42);
+  });
+
+  it("teamId 分组数超过上限 → 只处理前 200 个并 warn, 其余留给下一轮", async () => {
+    const scopes = Array.from({ length: 201 }, (_, index) => ({ teamId: `team_${index}` }));
+    mockPrisma.commandRequest.groupBy.mockResolvedValue(scopes);
+
+    await pruneOperationTaskHistory({ now: new Date("2026-06-15T00:00:00Z") });
+
+    expect(mockPrisma.commandRequest.findMany).toHaveBeenCalledTimes(200);
+    expect(warnMock).toHaveBeenCalledWith(
+      "Retention team scope cap reached; remaining scopes prune on the next run",
+      { source: "command", scopes: 201, cap: 200 },
+    );
   });
 });
