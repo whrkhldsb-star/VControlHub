@@ -187,8 +187,20 @@ describe("command service execution flow", () => {
   });
 
   afterEach(async () => {
-    await Promise.allSettled([...pendingExecutions]);
+    // Restore real timers FIRST: a test that installed fake timers and did not
+    // undo it leaves any still-pending execution unable to advance, so awaiting
+    // it below would hang until the hook's 10s budget expires.
+    vi.useRealTimers();
+    const pending = [...pendingExecutions];
+    // Clear before awaiting. The previous order (`await` then `clear`) meant a
+    // single execution that never settled failed this hook AND stayed in the set,
+    // so every later test in the file failed its own afterEach too — 35 of the 37
+    // tests here reported "Test timed out" because of one leaked promise.
     pendingExecutions.clear();
+    await Promise.race([
+      Promise.allSettled(pending),
+      new Promise((resolve) => setTimeout(resolve, 2_000)),
+    ]);
   });
 
   it("enqueues user-initiated execution without blocking the API caller", async () => {
@@ -292,7 +304,11 @@ describe("command service execution flow", () => {
 
   it("refreshes RUNNING command requests while background SSH execution is still active", async () => {
     vi.useFakeTimers();
-    process.env.COMMAND_EXECUTION_HEARTBEAT_MS = "1000";
+    // 5_000 is `runtime.commandExecutionHeartbeatMs`'s declared min. An env
+    // override below the min is clamped up to it (getRuntimeSettingFallback),
+    // so a smaller value here would silently leave the real interval at 5s and
+    // the advance below would assert nothing.
+    process.env.COMMAND_EXECUTION_HEARTBEAT_MS = "5000";
     mockPrisma.commandRequest.create.mockResolvedValue({
       id: "req_heartbeat_1",
       status: "APPROVED",
@@ -335,7 +351,7 @@ describe("command service execution flow", () => {
 
     await vi.waitFor(() => expect(spawnMock).toHaveBeenCalled());
     const heartbeatCallsBeforeInterval = mockPrisma.commandRequest.updateMany.mock.calls.length;
-    await vi.advanceTimersByTimeAsync(1000);
+    await vi.advanceTimersByTimeAsync(5000);
 
     expect(mockPrisma.commandRequest.updateMany.mock.calls.length).toBeGreaterThan(heartbeatCallsBeforeInterval);
     expect(mockPrisma.commandRequest.updateMany).toHaveBeenCalledWith({
@@ -358,6 +374,8 @@ describe("command service execution flow", () => {
     const callsAfterFinish = mockPrisma.commandRequest.updateMany.mock.calls.length;
     await vi.advanceTimersByTimeAsync(3000);
     expect(mockPrisma.commandRequest.updateMany.mock.calls.length).toBe(callsAfterFinish);
+    // Hand the clock back before the hook awaits this request's execution promise.
+    vi.useRealTimers();
   });
 
   it("decrypts stored server password before password SSH execution", async () => {
@@ -860,7 +878,9 @@ describe("command service execution flow", () => {
 
   it("kills long-running SSH commands and marks the target failed with timeout output", async () => {
     vi.useFakeTimers();
-    process.env.COMMAND_EXECUTION_TIMEOUT_MS = "50";
+    // 5_000 is `runtime.commandExecutionTimeoutMs`'s declared min; a smaller
+    // override is clamped up to it, so the advance below must match the min.
+    process.env.COMMAND_EXECUTION_TIMEOUT_MS = "5000";
     mockPrisma.commandRequest.create.mockResolvedValue({
       id: "req_timeout_1",
       status: "APPROVED",
@@ -906,7 +926,7 @@ describe("command service execution flow", () => {
     });
 
     await vi.waitFor(() => expect(spawnMock).toHaveBeenCalled());
-    await vi.advanceTimersByTimeAsync(50);
+    await vi.advanceTimersByTimeAsync(5000);
 
     await vi.waitFor(() => expect(timeoutChild.kill).toHaveBeenCalledWith("SIGTERM"));
     await vi.waitFor(() =>
@@ -1154,7 +1174,10 @@ describe("command service execution flow", () => {
   });
 
   it("truncates oversized SSH output before persisting target logs", async () => {
-    process.env.COMMAND_OUTPUT_LIMIT_BYTES = "12";
+    // 4096 is `runtime.commandOutputLimitBytes`'s declared min; anything lower
+    // is clamped up to it, so the emitted payload below has to exceed 4 KiB for
+    // the truncation branch to run at all.
+    process.env.COMMAND_OUTPUT_LIMIT_BYTES = "4096";
     mockPrisma.commandRequest.create.mockResolvedValue({
       id: "req_output_1",
       status: "APPROVED",
@@ -1183,7 +1206,7 @@ describe("command service execution flow", () => {
       child.stderr = new EventEmitter();
       child.kill = vi.fn(() => true);
       queueMicrotask(() => {
-        child.stdout.emit("data", Buffer.from("abcdefghijklmnopqrstuvwxyz"));
+        child.stdout.emit("data", Buffer.from("abcdefghij".repeat(500)));
         child.emit("close", 0);
       });
       return child;
@@ -1509,8 +1532,11 @@ describe("command service execution flow", () => {
   });
 
   it("recovers stale running command requests that lost their in-process worker", async () => {
-    process.env.COMMAND_STALE_RUNNING_AFTER_MS = "1000";
-    process.env.COMMAND_EXECUTION_TIMEOUT_MS = "1000";
+    // Both keys clamp up to their declared min (30_000 / 5_000), and the
+    // effective window is max(stale, timeout) — so the cutoff below is
+    // now - 30s, not now - whatever number is written here.
+    process.env.COMMAND_STALE_RUNNING_AFTER_MS = "30000";
+    process.env.COMMAND_EXECUTION_TIMEOUT_MS = "5000";
     const now = new Date("2026-05-30T08:00:00Z");
     mockPrisma.commandRequest.findMany.mockResolvedValueOnce([
       {
@@ -1531,8 +1557,8 @@ describe("command service execution flow", () => {
       where: {
         status: "RUNNING",
         OR: [
-          { workerHeartbeatAt: { lt: new Date("2026-05-30T07:59:59Z") } },
-          { workerHeartbeatAt: null, updatedAt: { lt: new Date("2026-05-30T07:59:59Z") } },
+          { workerHeartbeatAt: { lt: new Date("2026-05-30T07:59:30Z") } },
+          { workerHeartbeatAt: null, updatedAt: { lt: new Date("2026-05-30T07:59:30Z") } },
         ],
       },
       take: 50,
@@ -1571,7 +1597,7 @@ describe("command service execution flow", () => {
   });
 
   it("archives stale running command requests from completed target state", async () => {
-    process.env.COMMAND_STALE_RUNNING_AFTER_MS = "1000";
+    process.env.COMMAND_STALE_RUNNING_AFTER_MS = "30000";
     mockPrisma.commandRequest.findMany.mockResolvedValueOnce([
       {
         id: "req_stale_done",
@@ -1605,8 +1631,8 @@ describe("command service execution flow", () => {
   });
 
   it("does not recover stale request when operator cancel already won CAS", async () => {
-    process.env.COMMAND_STALE_RUNNING_AFTER_MS = "1000";
-    process.env.COMMAND_EXECUTION_TIMEOUT_MS = "1000";
+    process.env.COMMAND_STALE_RUNNING_AFTER_MS = "30000";
+    process.env.COMMAND_EXECUTION_TIMEOUT_MS = "5000";
     const now = new Date("2026-05-30T08:00:00Z");
     mockPrisma.commandRequest.findMany.mockResolvedValueOnce([
       {
