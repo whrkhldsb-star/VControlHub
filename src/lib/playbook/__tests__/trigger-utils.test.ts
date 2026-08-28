@@ -40,8 +40,25 @@ describe("Playbook trigger utilities", () => {
       valid: { breached: true, sampleAt: "2026-08-20T00:00:00.000Z", value: 91 },
       badDate: { breached: true, sampleAt: "later", value: 91 },
       badValue: { breached: false, sampleAt: "2026-08-20T00:00:00.000Z", value: "91" },
-    })).toEqual({
+    }, new Date("2026-08-20T01:00:00.000Z"))).toEqual({
       valid: { breached: true, sampleAt: "2026-08-20T00:00:00.000Z", value: 91 },
     });
+  });
+
+  it("prunes edge state for servers that stopped reporting, so deleted keys cannot accumulate", () => {
+    const now = new Date("2026-08-28T00:00:00.000Z");
+
+    const state = parseMetricMatchState({
+      // Still reporting — kept.
+      live: { breached: true, sampleAt: "2026-08-27T23:00:00.000Z", value: 91 },
+      // Right at the edge of the 7-day window — kept.
+      edge: { breached: true, sampleAt: "2026-08-21T00:00:01.000Z", value: 88 },
+      // Server deleted from the fleet weeks ago. Keeping it would grow the column
+      // forever, and a re-added server would be compared against this stale
+      // `breached: true` and never fire its alert again.
+      deleted: { breached: true, sampleAt: "2026-08-01T00:00:00.000Z", value: 95 },
+    }, now);
+
+    expect(Object.keys(state).sort()).toEqual(["edge", "live"]);
   });
 });

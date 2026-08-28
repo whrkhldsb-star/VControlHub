@@ -363,7 +363,9 @@ async function dispatchMetricPlaybook(input: {
       }
 
       const config = playbook.triggerConfig;
-      const state = parseMetricMatchState(playbook.metricMatchState);
+      // `input.now` doubles as the prune clock: entries not refreshed within the
+      // TTL (deleted servers) are dropped rather than persisted again below.
+      const state = parseMetricMatchState(playbook.metricMatchState, input.now);
       const transitions: Array<{ serverId: string; value: number; sampleAt: string }> = [];
       let stateChanged = false;
       for (const reading of input.readings) {

@@ -106,9 +106,22 @@ export function metricMatchesThreshold(value: number, operator: Operator, thresh
   }
 }
 
-export function parseMetricMatchState(raw: unknown): MetricMatchState {
+/**
+ * Drop an edge-state entry once its last sample is this old. The map is keyed by
+ * serverId and only ever written for servers that appear in a fresh reading, so
+ * a server removed from the fleet leaves its key behind forever — the column
+ * grows without bound and a re-added server would be compared against a
+ * long-dead `breached` flag, suppressing the alert it should fire.
+ *
+ * A week is far longer than any real sampling gap, so a live server is never
+ * pruned; a gap that long means the previous edge is not worth trusting anyway.
+ */
+export const METRIC_MATCH_STATE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+export function parseMetricMatchState(raw: unknown, now: Date = new Date()): MetricMatchState {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
   const state: MetricMatchState = {};
+  const cutoff = now.getTime() - METRIC_MATCH_STATE_TTL_MS;
   for (const [serverId, candidate] of Object.entries(raw as Record<string, unknown>)) {
     if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) continue;
     const entry = candidate as Partial<MetricMatchStateEntry>;
@@ -121,6 +134,7 @@ export function parseMetricMatchState(raw: unknown): MetricMatchState {
     ) {
       continue;
     }
+    if (Date.parse(entry.sampleAt) < cutoff) continue;
     state[serverId] = {
       breached: entry.breached,
       sampleAt: new Date(entry.sampleAt).toISOString(),
