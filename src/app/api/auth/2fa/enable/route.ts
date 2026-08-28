@@ -1,11 +1,18 @@
 /**
  * 2FA Enable — after verifying the TOTP code, saves the secret to DB.
- * POST /api/auth/2fa/enable  { code, secret }
+ * POST /api/auth/2fa/enable  { code, enrollmentToken }
+ *
+ * The seed comes out of the signed enrollment ticket minted by
+ * `/api/auth/2fa/setup`, not out of the request body. Accepting a raw seed here
+ * meant a session could bind the account to an authenticator of its own
+ * choosing, and the TOTP check was self-referential: whoever supplied the seed
+ * could compute a code that matched it.
  */
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { verify as verifyTOTP } from "otplib";
 
+import { openTwoFactorEnrollmentToken } from "@/lib/auth/two-factor-enrollment";
 import { sealTwoFactorSecret } from "@/lib/auth/two-factor-secret";
 import { createTwoFactorRecoveryCodes } from "@/lib/auth/two-factor-recovery";
 import { auditUserAction } from "@/lib/audit/service";
@@ -17,7 +24,7 @@ import { getServerLocale, t } from "@/lib/i18n/translations";
 import { ValidationError } from "@/lib/errors";
 const enableSchema = z.object({
   code: z.string().min(1),
-  secret: z.string().min(1),
+  enrollmentToken: z.string().min(1),
 });
 
 export async function POST(request: Request) {
@@ -37,7 +44,7 @@ export async function POST(request: Request) {
           { status: 401 },
         );
 
-      const { code, secret } = body;
+      const { code, enrollmentToken } = body;
 
       // Refuse to overwrite an already-enabled 2FA secret. Re-setup requires
       // disable (with a valid current TOTP) first so a stolen session cannot
@@ -53,6 +60,16 @@ export async function POST(request: Request) {
           },
           { status: 400 },
         );
+      }
+
+      // Forged, expired, or issued-to-another-account tickets all land here.
+      // Reported as an invalid code on purpose: the distinction is not useful to
+      // a caller, and the recovery action is the same — restart setup.
+      const secret = openTwoFactorEnrollmentToken(enrollmentToken, {
+        userId: session.userId,
+      });
+      if (!secret) {
+        throw new ValidationError(t("api.auth.twoFactor.enrollmentExpired", locale));
       }
 
       const valid = (await verifyTOTP({ token: code, secret })).valid;

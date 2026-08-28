@@ -5,7 +5,7 @@ const { mocks } = vi.hoisted(() => ({
 		requireApiSession: vi.fn(),
 		userFindUnique: vi.fn(),
 		generateSecret: vi.fn(),
-		verifyTOTP: vi.fn(),
+		createEnrollmentToken: vi.fn(),
 	},
 }));
 
@@ -19,7 +19,9 @@ vi.mock("@/lib/db", () => ({
 }));
 vi.mock("otplib", () => ({
 	generateSecret: mocks.generateSecret,
-	verify: mocks.verifyTOTP,
+}));
+vi.mock("@/lib/auth/two-factor-enrollment", () => ({
+	createTwoFactorEnrollmentToken: mocks.createEnrollmentToken,
 }));
 
 const route = await import("../route");
@@ -32,11 +34,11 @@ describe("/api/auth/2fa/setup", () => {
 		mocks.requireApiSession.mockResolvedValue(session);
 		mocks.userFindUnique.mockResolvedValue({ twoFactorEnabled: false });
 		mocks.generateSecret.mockReturnValue("SECRETABC123");
-		mocks.verifyTOTP.mockReturnValue({ valid: true });
+		mocks.createEnrollmentToken.mockReturnValue("ticket.signature");
 	});
 
 	describe("POST", () => {
-		it("generates a new TOTP secret and otpauth URL", async () => {
+		it("generates a new TOTP secret, otpauth URL and enrollment ticket", async () => {
 			const res = await route.POST(new Request("http://local/api/auth/2fa/setup", { method: "POST" }));
 			const json = await res.json();
 			expect(res.status).toBe(200);
@@ -48,6 +50,13 @@ describe("/api/auth/2fa/setup", () => {
 			expect(json.otpauthUrl).toContain("otpauth://totp/");
 			expect(json.otpauthUrl).toContain("secret=SECRETABC123");
 			expect(json.qrDataUrl).toMatch(/^data:image\/png;base64,/);
+			// The ticket binds the generated seed to this user, so `enable` never has
+			// to trust a seed coming back from the browser.
+			expect(mocks.createEnrollmentToken).toHaveBeenCalledWith({
+				userId: "u1",
+				secret: "SECRETABC123",
+			});
+			expect(json.enrollmentToken).toBe("ticket.signature");
 		});
 
 		it("returns 400 when 2FA is already enabled", async () => {
@@ -56,6 +65,7 @@ describe("/api/auth/2fa/setup", () => {
 			expect(res.status).toBe(400);
 			const json = await res.json();
 			expect(json.error).toMatch(/双因素认证已启用|Two-factor authentication is already enabled/);
+			expect(mocks.createEnrollmentToken).not.toHaveBeenCalled();
 		});
 
 		it("returns 401 when not authenticated", async () => {
@@ -68,60 +78,10 @@ describe("/api/auth/2fa/setup", () => {
 		});
 	});
 
-	describe("PUT", () => {
-		it("verifies a TOTP code against a secret and returns valid=true", async () => {
-			const res = await route.PUT(
-				new Request("http://local/api/auth/2fa/setup", {
-					method: "PUT",
-					headers: { "content-type": "application/json" },
-					body: JSON.stringify({ code: "123456", secret: "SECRETABC123" }),
-				}),
-			);
-			const json = await res.json();
-			expect(res.status).toBe(200);
-			expect(mocks.verifyTOTP).toHaveBeenCalledWith({ token: "123456", secret: "SECRETABC123" });
-			expect(json.valid).toBe(true);
-		});
-
-		it("returns valid=false for an incorrect code", async () => {
-			mocks.verifyTOTP.mockReturnValueOnce({ valid: false });
-			const res = await route.PUT(
-				new Request("http://local/api/auth/2fa/setup", {
-					method: "PUT",
-					headers: { "content-type": "application/json" },
-					body: JSON.stringify({ code: "000000", secret: "SECRETABC123" }),
-				}),
-			);
-			const json = await res.json();
-			expect(res.status).toBe(200);
-			expect(json.valid).toBe(false);
-		});
-
-		it("returns 400 when code or secret is missing", async () => {
-			const res = await route.PUT(
-				new Request("http://local/api/auth/2fa/setup", {
-					method: "PUT",
-					headers: { "content-type": "application/json" },
-					body: JSON.stringify({ code: "" }),
-				}),
-			);
-			expect(res.status).toBe(400);
-			expect(mocks.verifyTOTP).not.toHaveBeenCalled();
-		});
-
-		it("returns 401 when not authenticated", async () => {
-			mocks.requireApiSession.mockResolvedValueOnce(
-				new Response(JSON.stringify({ error: "未登录" }), { status: 401 }),
-			);
-			const res = await route.PUT(
-				new Request("http://local/api/auth/2fa/setup", {
-					method: "PUT",
-					headers: { "content-type": "application/json" },
-					body: JSON.stringify({ code: "123456", secret: "SECRETABC123" }),
-				}),
-			);
-			expect(res.status).toBe(401);
-			expect(mocks.verifyTOTP).not.toHaveBeenCalled();
-		});
+	it("exposes no code-verification endpoint (the PUT oracle is gone)", () => {
+		// The old PUT answered `{ valid }` for any (code, secret) pair the caller
+		// chose: unlimited tries against arbitrary seeds, and self-referential when
+		// the caller picked the seed. `enable` does the verification now.
+		expect("PUT" in route).toBe(false);
 	});
 });

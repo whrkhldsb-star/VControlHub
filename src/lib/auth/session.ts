@@ -83,6 +83,15 @@ type SessionTokenEnvelope = SessionPayload & {
   exp: number;
 };
 
+/**
+ * The raw HMAC key behind every session-scoped token. Exported so sibling
+ * token helpers (e.g. two-factor-enrollment) derive their own audience key from
+ * the same root instead of introducing a second secret to configure.
+ */
+export function getSessionSigningSecret(): string {
+	return getSessionSecret();
+}
+
 function getSessionSecret() {
 	const secret = config.auth.sessionSecret;
 	if (!secret) {

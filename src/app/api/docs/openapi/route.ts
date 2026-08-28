@@ -166,26 +166,6 @@ function buildOpenApiSpec(t: TFunction) {
           summary: t("openapiSpec.paths./auth/2fa/setup.post.summary"),
           responses: { "200": { description: t("openapiSpec.paths./auth/2fa/setup.post.responses.200") } },
         },
-        put: {
-          tags: [t("openapiSpec.tags.auth.name")],
-          summary: t("openapiSpec.paths./auth/2fa/setup.put.summary"),
-          requestBody: {
-            required: true,
-            content: {
-              "application/json": {
-                schema: {
-                  type: "object",
-                  required: ["code", "secret"],
-                  properties: {
-                    code: { type: "string" },
-                    secret: { type: "string" },
-                  },
-                },
-              },
-            },
-          },
-          responses: { "200": { description: t("openapiSpec.paths./auth/2fa/setup.put.responses.200") } },
-        },
       },
       "/auth/2fa/enable": {
         post: {
@@ -197,10 +177,12 @@ function buildOpenApiSpec(t: TFunction) {
               "application/json": {
                 schema: {
                   type: "object",
-                  required: ["code", "secret"],
+                  required: ["code", "enrollmentToken"],
                   properties: {
                     code: { type: "string" },
-                    secret: { type: "string" },
+                    // Signed ticket from POST /auth/2fa/setup. The TOTP seed is
+                    // never accepted from the caller.
+                    enrollmentToken: { type: "string" },
                   },
                 },
               },

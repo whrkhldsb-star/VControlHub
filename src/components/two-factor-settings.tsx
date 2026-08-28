@@ -22,6 +22,10 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 	const isEnabled = enabledOverride ?? enabled;
 	const [step, setStep] = useState<Step>("idle");
 	const [secret, setSecret] = useState("");
+	// Signed ticket from /2fa/setup. The seed shown above is for the user's
+	// authenticator; this is what actually authorises the enable call, so the
+	// browser cannot substitute a seed of its own choosing.
+	const [enrollmentToken, setEnrollmentToken] = useState("");
 	const [qrDataUrl, setQrDataUrl] = useState("");
 	const [code, setCode] = useState("");
 	const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
@@ -40,12 +44,17 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 		try {
 			const data = await csrfFetch("/api/auth/2fa/setup", { method: "POST" });
 			if (data.error) { setError(data.error); return; }
-			if (typeof data.secret !== "string" || typeof data.qrDataUrl !== "string") {
+			if (
+				typeof data.secret !== "string" ||
+				typeof data.qrDataUrl !== "string" ||
+				typeof data.enrollmentToken !== "string"
+			) {
 				setError(t("auth.2fa-error-request-failed"));
 				return;
 			}
 			setSecret(data.secret);
 			setQrDataUrl(data.qrDataUrl);
+			setEnrollmentToken(data.enrollmentToken);
 			setStep("setup");
 		} catch (err) { setError(messageFromError(err, t("auth.2fa-error-request-failed"))); }
 		finally { setLoading(false); }
@@ -56,19 +65,13 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 		setLoading(true);
 		setError("");
 		try {
-			// First verify the code
-			const verifyData = await csrfFetch("/api/auth/2fa/setup", {
-				method: "PUT",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ code, secret }),
-			});
-			if (!verifyData.valid) { setError(t("auth.2fa-error-invalid-code")); return; }
-
-			// Then enable 2FA
+			// One call: /2fa/enable verifies the code against the seed inside the
+			// enrollment ticket. The old pre-flight PUT verified the code against a
+			// caller-supplied seed, which could not prove anything.
 			const enableData = await csrfFetch("/api/auth/2fa/enable", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ code, secret }),
+				body: JSON.stringify({ code, enrollmentToken }),
 			});
 			if (enableData.error) { setError(enableData.error); return; }
 			if (!Array.isArray(enableData.recoveryCodes) || enableData.recoveryCodes.some((item: unknown) => typeof item !== "string")) {
@@ -77,6 +80,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 			}
 			setSecret("");
 			setQrDataUrl("");
+			setEnrollmentToken("");
 			setCode("");
 			setRecoveryCodes(enableData.recoveryCodes);
 			setStep("recovery");
@@ -121,6 +125,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 			if (data.error) { setError(data.error); return; }
 			setSecret("");
 			setQrDataUrl("");
+			setEnrollmentToken("");
 			setCode("");
 			setStep("idle");
 			setEnabledOverride(false);
@@ -210,7 +215,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 					</div>
 					<button
 						type="button"
-						onClick={() => { setStep("idle"); setCode(""); setError(""); setQrDataUrl(""); setSecret(""); }}
+						onClick={() => { setStep("idle"); setCode(""); setError(""); setQrDataUrl(""); setSecret(""); setEnrollmentToken(""); }}
 						className="text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition"
 					>
 						{t("auth.2fa-cancel")}

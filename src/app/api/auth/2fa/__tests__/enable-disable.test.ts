@@ -69,6 +69,16 @@ vi.mock("otplib", () => ({
   verify: (...args: unknown[]) => verifyTotpMock(...args),
 }));
 
+vi.mock("@/lib/auth/two-factor-enrollment", () => ({
+  openTwoFactorEnrollmentToken: (token: string, input: { userId: string }) => {
+    // Stand-in for the HMAC ticket: "ticket:<userId>:<secret>" opens only for
+    // the user it names, anything else is an invalid ticket.
+    const parts = token.split(":");
+    if (parts[0] !== "ticket" || parts[1] !== input.userId) return null;
+    return parts[2] ?? null;
+  },
+}));
+
 vi.mock("@/lib/auth/two-factor-secret", () => ({
   sealTwoFactorSecret: (secret: string) => `sealed:${secret}`,
   openTwoFactorSecret: (stored: string) =>
@@ -108,7 +118,9 @@ describe("POST /api/auth/2fa/enable", () => {
 
   it("rejects unauthenticated requests with 401", async () => {
     requireSessionMock.mockReturnValueOnce(null);
-    const res = await enableRoute.POST(jsonRequest({ code: "000000", secret: "SECRET" }));
+    const res = await enableRoute.POST(
+      jsonRequest({ code: "000000", enrollmentToken: "ticket:u1:SECRET" }),
+    );
     expect(res.status).toBe(401);
   });
 
@@ -124,7 +136,9 @@ describe("POST /api/auth/2fa/enable", () => {
 
   it("rejects invalid TOTP code with 400", async () => {
     verifyTotpMock.mockReturnValueOnce({ valid: false });
-    const res = await enableRoute.POST(jsonRequest({ code: "111111", secret: "SECRET" }));
+    const res = await enableRoute.POST(
+      jsonRequest({ code: "111111", enrollmentToken: "ticket:u1:SECRET" }),
+    );
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.error).toMatch(/验证码无效|Invalid verification code/);
@@ -137,7 +151,9 @@ describe("POST /api/auth/2fa/enable", () => {
       twoFactorSecret: "EXISTING_SECRET",
     });
     verifyTotpMock.mockReturnValueOnce({ valid: true });
-    const res = await enableRoute.POST(jsonRequest({ code: "123456", secret: "NEW_SECRET" }));
+    const res = await enableRoute.POST(
+      jsonRequest({ code: "123456", enrollmentToken: "ticket:u1:NEW_SECRET" }),
+    );
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.error).toMatch(/已启用|already enabled/i);
@@ -145,10 +161,12 @@ describe("POST /api/auth/2fa/enable", () => {
     expect(prismaMock.user.update).not.toHaveBeenCalled();
   });
 
-  it("persists sealed secret and enables 2FA on valid code", async () => {
+  it("persists the seed carried by the enrollment ticket, sealed", async () => {
     verifyTotpMock.mockReturnValueOnce({ valid: true });
     prismaMock.user.update.mockResolvedValueOnce({});
-    const res = await enableRoute.POST(jsonRequest({ code: "123456", secret: "JBSWY3DPEHPK3PXP" }));
+    const res = await enableRoute.POST(
+      jsonRequest({ code: "123456", enrollmentToken: "ticket:u1:JBSWY3DPEHPK3PXP" }),
+    );
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.success).toBe(true);
@@ -162,6 +180,42 @@ describe("POST /api/auth/2fa/enable", () => {
         twoFactorRecoveryCodes: expect.any(Array),
       }),
     });
+    // The seed verified is the one from the ticket, never one taken from the body.
+    expect(verifyTotpMock).toHaveBeenCalledWith({
+      token: "123456",
+      secret: "JBSWY3DPEHPK3PXP",
+    });
+  });
+
+  it("refuses a raw secret in the body — the seed must come from a ticket", async () => {
+    verifyTotpMock.mockReturnValue({ valid: true });
+    const res = await enableRoute.POST(
+      jsonRequest({ code: "123456", secret: "ATTACKER_CHOSEN_SEED" }),
+    );
+    // Schema no longer has a `secret` field, so this is a 400 before any work.
+    expect(res.status).toBe(400);
+    expect(verifyTotpMock).not.toHaveBeenCalled();
+    expect(prismaMock.user.update).not.toHaveBeenCalled();
+  });
+
+  it("refuses a ticket minted for another account", async () => {
+    verifyTotpMock.mockReturnValue({ valid: true });
+    const res = await enableRoute.POST(
+      jsonRequest({ code: "123456", enrollmentToken: "ticket:u2:VICTIM_SEED" }),
+    );
+    expect(res.status).toBe(400);
+    // Rejected before the TOTP check: there is no seed to check against.
+    expect(verifyTotpMock).not.toHaveBeenCalled();
+    expect(prismaMock.user.update).not.toHaveBeenCalled();
+  });
+
+  it("refuses a forged or expired ticket", async () => {
+    verifyTotpMock.mockReturnValue({ valid: true });
+    const res = await enableRoute.POST(
+      jsonRequest({ code: "123456", enrollmentToken: "not-a-ticket" }),
+    );
+    expect(res.status).toBe(400);
+    expect(prismaMock.user.update).not.toHaveBeenCalled();
   });
 });
 

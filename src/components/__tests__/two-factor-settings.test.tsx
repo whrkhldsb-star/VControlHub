@@ -52,8 +52,7 @@ describe("TwoFactorSettings", () => {
 	it("keeps the setup panel open when enabling 2FA fails", async () => {
 		const user = userEvent.setup();
 		vi.mocked(csrfFetch)
-			.mockResolvedValueOnce({ secret: "ABC123", otpauthUrl: "otpauth://totp/demo", qrDataUrl: "data:image/png;base64,AAA" })
-			.mockResolvedValueOnce({ valid: true })
+			.mockResolvedValueOnce({ secret: "ABC123", otpauthUrl: "otpauth://totp/demo", qrDataUrl: "data:image/png;base64,AAA", enrollmentToken: "ticket.sig" })
 			.mockRejectedValueOnce(new Error("启用失败"));
 
 		render(<TwoFactorSettings enabled={false} />);
@@ -73,8 +72,7 @@ describe("TwoFactorSettings", () => {
 	it("refreshes server-rendered settings after successfully enabling 2FA without a full reload", async () => {
 		const user = userEvent.setup();
 		vi.mocked(csrfFetch)
-			.mockResolvedValueOnce({ secret: "ABC123", otpauthUrl: "otpauth://totp/demo", qrDataUrl: "data:image/png;base64,AAA" })
-			.mockResolvedValueOnce({ valid: true })
+			.mockResolvedValueOnce({ secret: "ABC123", otpauthUrl: "otpauth://totp/demo", qrDataUrl: "data:image/png;base64,AAA", enrollmentToken: "ticket.sig" })
 			.mockResolvedValueOnce({ success: true, recoveryCodes: ["ABCD-EFGH-JKLM", "MNPR-STUV-WXYZ"] });
 
 		render(<TwoFactorSettings enabled={false} />);
@@ -84,11 +82,36 @@ describe("TwoFactorSettings", () => {
 		await user.click(screen.getByRole("button", { name: "确认启用" }));
 
 		expect(await screen.findByText("ABCD-EFGH-JKLM")).toBeInTheDocument();
+		// Exactly two calls: setup then enable. The seed is never posted back — the
+		// signed enrollment ticket is what authorises the enable.
+		expect(csrfFetch).toHaveBeenCalledTimes(2);
+		expect(csrfFetch).toHaveBeenLastCalledWith("/api/auth/2fa/enable", expect.objectContaining({
+			method: "POST",
+			body: JSON.stringify({ code: "123456", enrollmentToken: "ticket.sig" }),
+		}));
 		expect(screen.getByText("这些恢复码只会显示这一次；离开此页面后无法再次查看。")).toBeInTheDocument();
 		await user.click(screen.getByRole("button", { name: "我已安全保存" }));
 		expect(screen.getByRole("button", { name: "关闭两步验证" })).toBeEnabled();
 		expect(refreshMock).toHaveBeenCalledTimes(1);
 		expect(window.location.reload).not.toHaveBeenCalled();
+	});
+
+	it("refuses to continue when the setup response carries no enrollment ticket", async () => {
+		const user = userEvent.setup();
+		vi.mocked(csrfFetch).mockResolvedValueOnce({
+			secret: "ABC123",
+			otpauthUrl: "otpauth://totp/demo",
+			qrDataUrl: "data:image/png;base64,AAA",
+		});
+
+		render(<TwoFactorSettings enabled={false} />);
+
+		await user.click(screen.getByRole("button", { name: "开启两步验证" }));
+
+		// Without a ticket there is nothing that could authorise `enable`, so the
+		// panel must not open at all rather than fail later at submit time.
+		expect(await screen.findByRole("alert")).toBeInTheDocument();
+		expect(screen.queryByText("密钥（手动输入）：")).not.toBeInTheDocument();
 	});
 
 	it("replaces recovery codes only after a current authenticator code", async () => {
