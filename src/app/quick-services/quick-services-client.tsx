@@ -269,7 +269,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 							);
 							if (!access) {
 								return (
-									<div key={item.slug} aria-label={t("qsPage.accessEntryUnconfigured", { name: item.name })} data-tone="neutral" className="rounded-xl border border-[var(--border)] p-3 opacity-80">
+									<div key={item.slug} aria-label={t("qsPage.accessEntryUnconfigured", { name: item.name })} className="rounded-xl border border-[var(--border)] bg-[var(--surface-subtle)] p-3 opacity-80">
 										{cardBody}
 									</div>
 								);

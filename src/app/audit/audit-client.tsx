@@ -139,7 +139,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
               setDebouncedSearch(searchQuery);
               fetchLogs();
             }}
-            data-tone="accent" className="!rounded-full"
+            className="!rounded-full"
           >
             {t("audit.search")}
           </ActionButton>
@@ -186,7 +186,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
           </select>
           <ActionButton variant="secondary"
             onClick={fetchLogs}
-            data-tone="accent" className="!rounded-full"
+            className="!rounded-full"
           >
             {t("audit.refresh")}
           </ActionButton>
@@ -212,8 +212,8 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
               onClick={() => {
                 setActionFilter(action);
               }}
-              data-tone={actionFilter === action ?"accent" : undefined}
-              className={`rounded-full border px-3 py-1 text-xs transition ${actionFilter === action ?"" :"border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"}`}
+              aria-pressed={actionFilter === action}
+              className={`rounded-full border px-3 py-1 text-xs transition ${actionFilter === action ? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]" : "border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"}`}
             >
               {formatAction(action, t)}
             </button>

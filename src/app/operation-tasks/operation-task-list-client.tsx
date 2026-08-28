@@ -77,7 +77,7 @@ const TaskRow = memo(function TaskRow({ task, t, dateLocale, sourceLabels, onVie
           <StatusBadge tone={statusTone[task.status] ?? "neutral"}>{getDomainStatusLabel(t, task.status)}</StatusBadge>
           {task.taskType && <span className="rounded-lg border border-[var(--border)] px-2 py-1 text-xs text-[var(--text-muted)]">{task.taskType}</span>}
           {task.foldedCount && task.foldedCount > 1 && <span className="rounded-lg border border-[var(--accent-border)] bg-[var(--accent-bg)] px-2 py-1 text-xs text-[var(--accent)]">{t("operationTasksPage.folded", { count: task.foldedCount })}</span>}
-          {task.workerId && <span title={task.workerHeartbeatAt ? t("operationTasksPage.worker.heartbeat", { time: new Date(task.workerHeartbeatAt).toLocaleString(dateLocale) }) : t("operationTasksPage.worker.noHeartbeat")} data-tone="accent" className="rounded-lg border px-2 py-1 text-xs font-medium">worker {task.workerId}</span>}
+          {task.workerId && <StatusBadge tone="info" title={task.workerHeartbeatAt ? t("operationTasksPage.worker.heartbeat", { time: new Date(task.workerHeartbeatAt).toLocaleString(dateLocale) }) : t("operationTasksPage.worker.noHeartbeat")} className="!rounded-lg">worker {task.workerId}</StatusBadge>}
         </div>
         <h3 className="mt-2 truncate text-sm font-semibold text-[var(--text-primary)]">{task.title}</h3>
         <p className="mt-1 text-xs text-[var(--text-muted)]">{new Date(task.createdAt).toLocaleString(dateLocale)} {task.actor ? ` · ${task.actor}` : ""} {task.progress ? ` · ${task.progress}` : ""}</p>

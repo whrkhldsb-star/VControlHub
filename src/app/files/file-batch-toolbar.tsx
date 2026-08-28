@@ -204,7 +204,7 @@ export function FileBatchToolbar({
                 disabled={
                   !moveTargetDir.trim() || isPending || moveProgress.done > 0
                 }
-                data-tone="accent" className="disabled:opacity-50"
+                className="disabled:opacity-50"
               >
                 {copy.confirmMove}
               </ActionButton>
@@ -245,18 +245,17 @@ export function FileBatchToolbar({
                 </ActionButton>
               ) : null}
               {selectedEntriesCanMove ? (
-                <button
-                  type="button"
+                <ActionButton
+                  variant="outline"
                   onClick={() => {
                     setMoveTargetDir("");
                     setMoveProgress({ done: 0, total: 0, errors: [] });
                     setBatchAction("moving");
                   }}
-                  data-tone="accent"
-                  className="rounded-lg border px-4 py-2 text-sm font-medium transition"
+                  className="px-4 py-2 text-sm"
                 >
                   {copy.moveSelected}
-                </button>
+                </ActionButton>
               ) : null}
             </>
           )}

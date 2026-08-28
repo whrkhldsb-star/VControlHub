@@ -18,6 +18,7 @@ import {
 } from "./users-forms";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
+import { StatusBadge } from "@/components/status-badge";
 
 type RoleInfo = { key: string; name: string };
 type UserInfo = {
@@ -205,9 +206,9 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
                 <div className="min-w-0">
                   <div className="flex items-center gap-3">
                     <span className="text-[var(--text-primary)] font-medium">{user.displayName ?? user.username}</span>
-                    <span data-tone={statusTone(user.status)} className="rounded-lg border px-2 py-0.5 text-[10px] font-medium">
+                    <StatusBadge tone={statusTone(user.status)}>
                       {statusLabel(user.status, t)}
-                    </span>
+                    </StatusBadge>
                   </div>
                   <div className="mt-1 flex items-center gap-2 text-xs text-[var(--text-secondary)]">
                     <span>@{user.username}</span>
@@ -216,54 +217,50 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
                   </div>
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {user.roles.map((role) => (
-                      <span key={role.key} data-tone={roleBadgeTone(role.key)} className="rounded-lg border px-2 py-0.5 text-[10px] font-medium">
+                      <StatusBadge key={role.key} tone={roleBadgeTone(role.key)}>
                         {t(`usersPage.role.${role.key}`)}
-                      </span>
+                      </StatusBadge>
                     ))}
                   </div>
                 </div>
                 <div className="flex gap-2 shrink-0">
                   {canManage ? (
                     <>
-                      <button
-                        type="button"
+                      <ActionButton
+                        variant="outline"
                         onClick={() => setEditingPermissionsUser(user)}
-                        data-tone="accent"
-                        className="rounded-lg border px-3 py-1.5 text-xs transition"
+                        className="!px-3 !py-1.5 !text-xs"
                       >
                         {t("usersPage.action.permissions")}
-                      </button>
-                      <button
-                        type="button"
+                      </ActionButton>
+                      <ActionButton
+                        variant="warning"
                         onClick={() => { setResetPasswordUser(user); setResetPasswordValue(""); }}
-                        data-tone="warning"
-                        className="rounded-lg border px-3 py-1.5 text-xs transition"
+                        className="!px-3 !py-1.5 !text-xs"
                       >
                         {t("usersPage.action.resetPassword")}
-                      </button>
+                      </ActionButton>
                       {user.status !== "DISABLED" ? (
                         user.id !== currentUserId && (
-                          <button
-                            type="button"
+                          <ActionButton
+                            variant="danger"
                             onClick={() => handleToggleStatus(user.id, user.status, user.username)}
-                            data-tone="danger"
                             disabled={togglingUserId !== null}
-                            className="rounded-lg border px-3 py-1.5 text-xs transition disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="!px-3 !py-1.5 !text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             {t("usersPage.action.disable")}
-                          </button>
+                          </ActionButton>
                         )
                       ) : (
                         user.id !== currentUserId && (
-                          <button
-                            type="button"
+                          <ActionButton
+                            variant="success"
                             onClick={() => handleToggleStatus(user.id, user.status, user.username)}
-                            data-tone="success"
                             disabled={togglingUserId !== null}
-                            className="rounded-lg border px-3 py-1.5 text-xs transition disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="!px-3 !py-1.5 !text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             {t("usersPage.action.enable")}
-                          </button>
+                          </ActionButton>
                         )
                       )}
                     </>

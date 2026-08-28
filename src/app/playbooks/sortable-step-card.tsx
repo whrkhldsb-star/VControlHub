@@ -71,15 +71,14 @@ export function SortableStepCard({
 					))}
 				</select>
 				{stepCount > 1 && (
-					<button
-						type="button"
+					<ActionButton
+						variant="danger"
 						onClick={() => onRemove(step.id)}
 						aria-label={t("playbooksPage.action.delete")}
-						data-tone="danger"
-						className="min-h-9 rounded-lg border px-2 py-1 text-xs"
+						className="min-h-9 !px-2 !py-1 !text-xs"
 					>
 						×
-					</button>
+					</ActionButton>
 				)}
 			</div>
 			<StepConfigEditor step={step} servers={servers} onConfigChange={(p) => onConfigChange(step.id, p)} />

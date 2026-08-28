@@ -111,9 +111,9 @@ function StorageNodeCard({
 					<p className="mt-2 text-sm leading-7 text-[var(--text-secondary)]">{node.connectionSummary}</p>
 				</div>
 					<div className="flex items-center gap-2">
-						<span data-tone="neutral" className="rounded-lg border border-[var(--border)] px-3 py-1 text-xs text-[var(--text-secondary)]">
+						<StatusBadge tone="neutral" className="!rounded-lg px-3 py-1 !text-xs">
 							{sourceLabel}
-						</span>
+						</StatusBadge>
 						<span data-tone="emerald" className="rounded-lg border border-[var(--success-border)] px-3 py-1 text-xs text-[var(--success)]">
 							{node.isDefault ? t("storagePage.list.defaultNode") : getStorageDriverLabel(t, node.driver)}
 					</span>

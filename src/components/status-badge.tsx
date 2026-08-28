@@ -19,6 +19,16 @@ const STATUS_TONE_CLASS: Record<StatusTone, string> = {
   danger: "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)]",
 };
 
+/**
+ * Semantic tone classes for elements that cannot be a StatusBadge — an
+ * interactive chip, say. Prefer the component; reach for this only when the
+ * element must stay a button/link. Hand-rolled `data-tone="warning"` does NOT
+ * work: globals.css maps `data-tone` to the seven hue names only.
+ */
+export function statusToneClass(tone: StatusTone): string {
+  return STATUS_TONE_CLASS[tone];
+}
+
 const STATUS_DATA_TONE: Record<StatusTone, string> = {
   neutral: "neutral",
   accent: "violet",

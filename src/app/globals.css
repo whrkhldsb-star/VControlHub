@@ -692,6 +692,17 @@ html.light { --surface-root: #eef2f7; }
 [data-action-button][data-variant="danger"]:hover:not(:disabled) {
 	background-color: var(--danger-bg);
 }
+/* Medium-risk actions (reset password, confirm a reversible but disruptive step).
+   Added because several call sites reached for `data-tone="warning"`, which only
+   maps to the seven hue names and therefore rendered no colour at all. */
+[data-action-button][data-variant="warning"] {
+	background-color: transparent;
+	color: var(--warning);
+	border: 1px solid var(--warning-border);
+}
+[data-action-button][data-variant="warning"]:hover:not(:disabled) {
+	background-color: var(--warning-bg);
+}
 /* Solid semantic fills — start service / destructive confirm */
 [data-action-button][data-variant="success-solid"] {
 	background-color: var(--success);

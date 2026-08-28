@@ -312,7 +312,7 @@ export function TeamWorkspaceSection({ capabilities }: { capabilities: TeamCapab
 						<h3 className="text-sm font-semibold text-[var(--text-primary)]">{t("settingsTeam.createTitle")}</h3>
 						<input value={name} aria-label={t("settingsTeam.namePlaceholder")} onChange={(e) => setName(e.target.value)} placeholder={t("settingsTeam.namePlaceholder")} className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm" />
 						<input value={slug} aria-label={t("settingsTeam.slugPlaceholder")} onChange={(e) => setSlug(e.target.value)} placeholder={t("settingsTeam.slugPlaceholder")} className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm" />
-						<ActionButton variant="primary" disabled={busy || !name.trim()} onClick={createTeam} data-tone="accent" className="min-h-10 disabled:opacity-60">{t("settingsTeam.createButton")}</ActionButton>
+						<ActionButton variant="primary" disabled={busy || !name.trim()} onClick={createTeam} className="min-h-10 disabled:opacity-60">{t("settingsTeam.createButton")}</ActionButton>
 					</div>
 					)}
 					{canManageMembers && manageableTeams.length > 0 && (
@@ -327,7 +327,7 @@ export function TeamWorkspaceSection({ capabilities }: { capabilities: TeamCapab
 							<option value="member">{t("settingsTeam.role.member")}</option>
 							<option value="admin">{t("settingsTeam.role.admin")}</option>
 						</select>
-						<ActionButton variant="primary" disabled={busy || !targetTeamId || !memberUsername.trim()} onClick={addMember} data-tone="accent" className="min-h-10 disabled:opacity-60">{t("settingsTeam.addMemberButton")}</ActionButton>
+						<ActionButton variant="primary" disabled={busy || !targetTeamId || !memberUsername.trim()} onClick={addMember} className="min-h-10 disabled:opacity-60">{t("settingsTeam.addMemberButton")}</ActionButton>
 					</div>
 					)}
 				</div>

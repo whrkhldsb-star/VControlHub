@@ -5,9 +5,11 @@ import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
 import { ActionButton } from "@/components/action-button";
 import { ModalShell } from "@/components/modal-shell";
+import { statusToneClass } from "@/components/status-badge";
 
 export const ROLE_KEYS = ["admin","operator","storage_manager","viewer"] as const;
 export type RoleKey = (typeof ROLE_KEYS)[number];
+/** Subset of StatusBadge's StatusTone that the users page uses. */
 export type Tone ="accent" |"success" |"warning" |"danger" |"neutral";
 
 export const ROLE_COLORS: Record<RoleKey,"danger" |"warning" |"success" |"accent"> = {
@@ -108,27 +110,27 @@ export function UsersCreateForm({
               key={key}
               type="button"
               onClick={() => onToggleRole(key)}
-              className={`rounded-full border px-3 py-1.5 text-xs transition ${
+              aria-pressed={createForm.roleKeys.includes(key)}
+              className={cn(
+                "rounded-full border px-3 py-1.5 text-xs transition",
                 createForm.roleKeys.includes(key)
-                  ?""
-                  :"border-[var(--border)]/10 bg-[var(--surface-subtle)] text-[var(--text-muted)]"
-              }`}
-              data-tone={createForm.roleKeys.includes(key) ? roleBadgeTone(key) : undefined}
+                  ? statusToneClass(roleBadgeTone(key))
+                  : "border-[var(--border)]/10 bg-[var(--surface-subtle)] text-[var(--text-muted)]",
+              )}
             >
               {t(`usersPage.role.${key}`)}
             </button>
           ))}
         </div>
       </div>
-      <button
-        type="button"
+      <ActionButton
+        variant="primary"
         onClick={onSubmit}
         disabled={creating || !createForm.username || !createForm.password}
-        data-tone="accent"
-        className="rounded-lg border px-6 py-2 text-sm font-medium transition disabled:opacity-50"
+        className="!px-6 disabled:opacity-50"
       >
         {creating ? t("usersPage.action.creating") : t("usersPage.action.confirm")}
-      </button>
+      </ActionButton>
     </SurfacePanel>
   );
 }
@@ -178,15 +180,14 @@ export function UsersResetPasswordDialog({
             onClick={onCancel} className="!px-4 !py-2 !text-sm">
             {t("usersPage.action.cancel")}
           </ActionButton>
-          <button
-            type="button"
+          <ActionButton
+            variant="warning"
             onClick={onConfirm}
             disabled={resetting || !password}
-            data-tone="warning"
-            className="rounded-xl border px-4 py-2 text-sm font-medium transition disabled:opacity-50"
+            className="disabled:opacity-50"
           >
             {resetting ? t("usersPage.action.resetting") : t("usersPage.action.confirmReset")}
-          </button>
+          </ActionButton>
         </div>
     </ModalShell>
   );

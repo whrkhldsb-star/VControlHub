@@ -36,6 +36,19 @@ const TONE_STYLES: Record<BadgeTone, string> = {
 	violet: "border-[var(--accent-border)] text-[var(--accent)]",
 };
 
+/**
+ * `data-tone` supplies the tinted background, and globals.css only defines
+ * `--tone-bg` for the seven hue names — so `tone="warning"` rendered the same
+ * border and text as `tone="amber"` but with no background at all. Map the
+ * semantic aliases onto their hue so the two spellings really are equivalent.
+ */
+const TONE_BACKGROUND_ALIAS: Partial<Record<BadgeTone, BadgeTone>> = {
+	accent: "cyan",
+	success: "emerald",
+	warning: "amber",
+	danger: "rose",
+};
+
 export function Badge({
 	tone = "neutral",
 	children,
@@ -47,7 +60,7 @@ export function Badge({
 } & HTMLAttributes<HTMLSpanElement>) {
 	return (
 		<span
-			data-tone={tone}
+			data-tone={TONE_BACKGROUND_ALIAS[tone] ?? tone}
 			className={cn(
 				"inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold tracking-wide",
 				TONE_STYLES[tone],

@@ -120,8 +120,9 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 					{downloadUrl ? (
 						<a
 							href={downloadUrl}
-							data-tone="accent"
-							className="rounded-lg border px-4 py-2 text-sm"
+							data-action-button
+							data-variant="outline"
+							className="px-4 py-2 text-sm"
 						>
 							{t("textPreview.preview.download", locale)}
 						</a>
@@ -188,8 +189,9 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 							{downloadUrl ? (
 								<a
 									href={downloadUrl}
-									data-tone="accent"
-							className="rounded-lg border px-4 py-2 text-sm"
+									data-action-button
+									data-variant="outline"
+									className="px-4 py-2 text-sm"
 								>
 									{t("textPreview.preview.downloadToView", locale)}
 								</a>

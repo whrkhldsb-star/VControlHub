@@ -280,14 +280,13 @@ export function CreatePlaybookForm({
 			<div className="space-y-2">
 				<div className="flex items-center justify-between">
 					<div className={fieldLabelClass}>{t("playbooksPage.createForm.stepsTitle")}</div>
-					<button
-						type="button"
+					<ActionButton
+						variant="outline"
 						onClick={addStep}
-						data-tone="accent"
-						className="min-h-9 rounded-lg border px-3 py-1 text-xs transition"
+						className="min-h-9 !px-3 !py-1 !text-xs"
 					>
 						{t("playbooksPage.createForm.addStep")}
-					</button>
+					</ActionButton>
 				</div>
 				<DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleStepDragEnd}>
 					<SortableContext items={steps.map((step) => step.id)} strategy={verticalListSortingStrategy}>

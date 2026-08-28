@@ -10,7 +10,7 @@ import { cn } from "@/lib/ui/cn";
  * Variants:
  *   - primary (default): filled brand cyan — main CTAs
  *   - outline / ghost: quieter brand actions
- *   - success / danger: soft outline semantic CTAs
+ *   - success / danger / warning: soft outline semantic CTAs
  *   - success-solid / danger-solid: solid fills for start/delete confirms
  *   - secondary: neutral surface button
  *
@@ -23,6 +23,7 @@ export type ActionButtonVariant =
 	| "ghost"
 	| "success"
 	| "danger"
+	| "warning"
 	| "success-solid"
 	| "danger-solid"
 	| "secondary";

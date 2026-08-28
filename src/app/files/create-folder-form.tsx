@@ -97,15 +97,14 @@ export function CreateFolderForm({
 
   if (!expanded) {
     return (
-      <button
-        type="button"
+      <ActionButton
+        variant="outline"
         onClick={handleToggle}
         disabled={disabled}
-        data-tone="accent"
-        className="rounded-lg border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
+        className="px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
       >
         {t("common.newFolder")}
-      </button>
+      </ActionButton>
     );
   }
 
@@ -154,7 +153,7 @@ export function CreateFolderForm({
       <ActionButton variant="primary"
         type="submit"
         disabled={disabled || !folderName.trim() || isPending || refreshing}
-        data-tone="accent" className="disabled:opacity-50"
+        className="disabled:opacity-50"
       >
         {isPending || refreshing ? t("common.submitting") : t("common.create")}
       </ActionButton>

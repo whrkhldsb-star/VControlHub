@@ -5,6 +5,7 @@ import { useState } from "react";
 import { StorageNodeList } from "@/app/storage/storage-node-list";
 import { StorageNodeCreateForm } from "@/app/storage/storage-node-create-form";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { ActionButton } from "@/components/action-button";
 
 type StorageNodeItem = {
 	id: string;
@@ -50,14 +51,14 @@ export function StorageNodeManager({
 						{t("storagePage.nodes.summary", { total: nodes.length, local: localCount, sftp: sftpCount })}
 					</p>
 				</div>
-				<button
-					type="button"
+				<ActionButton
+					variant="outline"
 					onClick={() => setExpanded((prev) => !prev)}
-					data-tone="accent"
-					className="rounded-lg border px-4 py-2 text-sm font-medium transition"
+					aria-expanded={expanded}
+					className="px-4 py-2 text-sm"
 				>
 					{expanded ? t("common.collapse") : t("common.expand")}
-				</button>
+				</ActionButton>
 			</div>
 
 			{expanded ? (

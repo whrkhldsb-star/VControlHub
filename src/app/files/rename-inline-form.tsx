@@ -157,7 +157,7 @@ export function RenameInlineForm({
       <ActionButton variant="primary"
         type="submit"
         disabled={pending || !newName.trim() || newName === currentName}
-        data-tone="accent" className="disabled:opacity-50"
+        className="disabled:opacity-50"
       >
         {t("renameInlineForm.confirm")}
       </ActionButton>

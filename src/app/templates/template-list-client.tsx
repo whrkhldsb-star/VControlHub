@@ -15,6 +15,7 @@ import { DeployButton } from "./template-deploy-button";
 import type { ServerOption, Template } from "./template-types";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
+import { StatusBadge } from "@/components/status-badge";
 
 type Props = {
 	templates: Template[];
@@ -131,7 +132,6 @@ export function TemplateListClient({
 						<button
 							type="button"
 							onClick={() => setFilterTag(null)}
-							data-tone={!filterTag ? "accent" : undefined}
 							className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${
 								!filterTag
 									? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]"
@@ -145,7 +145,6 @@ export function TemplateListClient({
 								key={tag}
 								type="button"
 								onClick={() => setFilterTag(filterTag === tag ? null : tag)}
-								data-tone={filterTag === tag ? "accent" : undefined}
 								className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${
 									filterTag === tag
 										? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]"
@@ -201,12 +200,9 @@ export function TemplateListClient({
 									)}
 								</div>
 								{tmpl.isBuiltin && (
-									<span
-										data-tone="accent"
-										className="shrink-0 rounded-lg border px-1.5 py-0.5 text-[9px] font-medium"
-									>
+									<StatusBadge tone="accent" className="shrink-0 !rounded-lg !text-[9px]">
 										{t("templatesPage.badge.builtin")}
-									</span>
+									</StatusBadge>
 								)}
 							</div>
 							<div className="mt-2.5 line-clamp-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-3 py-2 font-mono text-xs text-[var(--text-secondary)]">
@@ -226,13 +222,13 @@ export function TemplateListClient({
 							{tmpl.variables.length > 0 && (
 								<div className="mt-2 flex flex-wrap gap-1">
 									{tmpl.variables.map((v) => (
-										<span
+										<StatusBadge
 											key={v}
-											data-tone="warning"
-											className="rounded-lg border px-1.5 py-0.5 font-mono text-[10px]"
+											tone="warning"
+											className="!rounded-lg font-mono !text-[10px]"
 										>
 											{`{{${v}}}`}
-										</span>
+										</StatusBadge>
 									))}
 								</div>
 							)}
