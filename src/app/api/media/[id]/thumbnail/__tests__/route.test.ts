@@ -165,6 +165,21 @@ describe("media thumbnail route", () => {
     expect(connectSshMock).toHaveBeenCalledTimes(2);
   });
 
+  it("never lets a shared cache hold a placeholder for an authenticated media URL", async () => {
+    getMediaItemMock.mockResolvedValue(remoteItem("media-cache"));
+    const response = await call("media-cache");
+
+    expect(response.headers.get("x-thumbnail-placeholder")).toBe("offline");
+    const cacheControl = response.headers.get("cache-control") ?? "";
+    // `public` would let a proxy serve this per-media URL to another viewer, and
+    // a long max-age would pin a transient node outage for everyone.
+    expect(cacheControl).toContain("private");
+    expect(cacheControl).not.toContain("public");
+    const maxAge = Number(/max-age=(\d+)/.exec(cacheControl)?.[1] ?? -1);
+    expect(maxAge).toBeGreaterThan(0);
+    expect(maxAge).toBeLessThanOrEqual(30);
+  });
+
   it("opens the breaker when the node itself cannot be reached", async () => {
     connectSshMock.mockRejectedValue(new Error("ETIMEDOUT"));
     getMediaItemMock.mockResolvedValue(remoteItem("media-c"));
