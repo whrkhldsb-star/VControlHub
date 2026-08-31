@@ -207,6 +207,92 @@ describe("session auth helpers", () => {
     await expect(verifySessionToken(legacy)).rejects.toThrow(/credentials have changed/i);
   });
 
+  it("keeps currentTeamId while the membership behind it is live", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      id: "u_1",
+      username: "alice",
+      status: "ACTIVE",
+      mustChangePassword: false,
+      currentTeam: { id: "team_1", members: [{ userId: "u_1" }] },
+      passwordHash: "$2b$10$originalhash",
+      roles: [{ role: { key: "viewer" } }],
+    } as any);
+    const token = await createSessionToken({
+      userId: "u_1",
+      username: "alice",
+      roles: ["viewer"],
+      mustChangePassword: false,
+      currentTeamId: "team_1",
+    });
+
+    await expect(verifySessionToken(token)).resolves.toMatchObject({
+      currentTeamId: "team_1",
+    });
+  });
+
+  it("drops currentTeamId when the membership behind it is gone", async () => {
+    // `removeTeamMember` and `deleteTeam` clear the column themselves; this is
+    // the backstop for a row that outlived its membership anyway. It matters
+    // because the tenant pointer is re-read from the database on every request
+    // rather than carried in the token, so a stale value would keep granting
+    // that workspace's data through `teamWhere()`.
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      id: "u_1",
+      username: "alice",
+      status: "ACTIVE",
+      mustChangePassword: false,
+      currentTeam: { id: "team_1", members: [] },
+      passwordHash: "$2b$10$originalhash",
+      roles: [{ role: { key: "viewer" } }],
+    } as any);
+    const token = await createSessionToken({
+      userId: "u_1",
+      username: "alice",
+      roles: ["viewer"],
+      mustChangePassword: false,
+      currentTeamId: "team_1",
+    });
+
+    await expect(verifySessionToken(token)).resolves.toMatchObject({
+      currentTeamId: null,
+    });
+  });
+
+  it("scopes the membership probe to the session user in one round trip", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      id: "u_1",
+      username: "alice",
+      status: "ACTIVE",
+      mustChangePassword: false,
+      currentTeam: { id: "team_1", members: [{ userId: "u_1" }] },
+      passwordHash: "$2b$10$originalhash",
+      roles: [{ role: { key: "viewer" } }],
+    } as any);
+    const token = await createSessionToken({
+      userId: "u_1",
+      username: "alice",
+      roles: ["viewer"],
+      mustChangePassword: false,
+      currentTeamId: "team_1",
+    });
+
+    // Only count what verification itself queries; minting the token reads the
+    // credential owner too.
+    vi.mocked(prisma.user.findUnique).mockClear();
+
+    await verifySessionToken(token);
+
+    // The probe rides along in the user lookup: a separate membership query would
+    // double the session hot path, and dropping the `userId` filter would make any
+    // other member's row satisfy it for everyone in the team.
+    expect(prisma.user.findUnique).toHaveBeenCalledTimes(1);
+    const arg = vi.mocked(prisma.user.findUnique).mock.calls[0]?.[0] as any;
+    expect(arg.select.currentTeam.select.members).toMatchObject({
+      where: { userId: "u_1" },
+      take: 1,
+    });
+  });
+
   it("round-trips a pending 2FA token and never accepts it as a full session", async () => {
     const pending = await createPending2faToken({
       userId: "u_1",

@@ -48,7 +48,16 @@ export async function loadApiTokenOwnerSession(
 			username: true,
 			status: true,
 			mustChangePassword: true,
-			currentTeamId: true,
+			currentTeam: {
+				select: {
+					id: true,
+					members: {
+						where: { userId },
+						select: { userId: true },
+						take: 1,
+					},
+				},
+			},
 			roles: { select: { role: { select: { key: true } } } },
 		},
 	});
@@ -72,6 +81,12 @@ export async function loadApiTokenOwnerSession(
 		roles,
 		permissions,
 		mustChangePassword: false,
-		currentTeamId: user.currentTeamId ?? null,
+		// Same rule as the cookie-session path in `verifySessionToken`: the tenant
+		// pointer is only honoured while the membership behind it is still live, so
+		// a token cannot keep reaching a workspace its owner was removed from.
+		currentTeamId:
+			user.currentTeam && user.currentTeam.members.length > 0
+				? user.currentTeam.id
+				: null,
 	};
 }

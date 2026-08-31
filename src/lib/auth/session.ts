@@ -228,7 +228,19 @@ export async function verifySessionToken(token: string) {
      username: true,
      status: true,
      mustChangePassword: true,
-     currentTeamId: true,
+     // The tenant pointer is resolved through the relation rather than the raw
+     // `currentTeamId` column, so the membership check rides along in the same
+     // round trip — see where `currentTeamId` is computed below.
+     currentTeam: {
+       select: {
+         id: true,
+         members: {
+           where: { userId: payload.userId },
+           select: { userId: true },
+           take: 1,
+         },
+       },
+     },
      passwordHash: true,
      roles: { select: { role: { select: { key: true } } } },
    },
@@ -258,13 +270,26 @@ export async function verifySessionToken(token: string) {
    assignedRoleKeys,
  });
 
+ // `currentTeamId` is the entire tenant scope — `teamWhere()` honours it on
+ // every query — and it is read fresh from the database here rather than
+ // carried in the token, so a row that outlives its membership keeps granting
+ // access. Honour the pointer only while the membership backing it still
+ // exists: a removed member, or a workspace tombstoned by `deleteTeam` (which
+ // drops every membership), then falls back to no team instead of retaining
+ // the old one. Both writers clear the column themselves; this is the
+ // fail-closed backstop for a stale row they missed.
+ const currentTeamId =
+   user.currentTeam && user.currentTeam.members.length > 0
+     ? user.currentTeam.id
+     : null;
+
  return {
  userId: user.id,
  username: user.username,
  roles,
  permissions,
  mustChangePassword: user.mustChangePassword,
- currentTeamId: user.currentTeamId,
+ currentTeamId,
  } satisfies SessionPayload;
 }
 

@@ -43,7 +43,7 @@ describe("API token authorization", () => {
 			username: "alice",
 			status: "ACTIVE",
 			mustChangePassword: false,
-			currentTeamId: "team-1",
+			currentTeam: { id: "team-1", members: [{ userId: "user-1" }] },
 			roles: [{ role: { key: "viewer" } }, { role: { key: "removed-role" } }],
 		});
 
@@ -52,6 +52,26 @@ describe("API token authorization", () => {
 			roles: ["viewer"],
 			currentTeamId: "team-1",
 		});
+	});
+
+	it("drops the tenant pointer once the owner's membership is gone", async () => {
+		// A token outlives the removal that revoked its owner's team access, and
+		// `currentTeamId` is what `teamWhere()` scopes every query by — so the
+		// pointer has to be re-validated here, not trusted because the column is set.
+		findUniqueMock.mockResolvedValue({
+			id: "user-1",
+			username: "alice",
+			status: "ACTIVE",
+			mustChangePassword: false,
+			currentTeam: { id: "team-1", members: [] },
+			roles: [{ role: { key: "viewer" } }],
+		});
+
+		await expect(loadApiTokenOwnerSession("user-1")).resolves.toMatchObject({
+			currentTeamId: null,
+		});
+		const arg = findUniqueMock.mock.calls[0]?.[0];
+		expect(arg.select.currentTeam.select.members.where).toEqual({ userId: "user-1" });
 	});
 
 	it.each([
@@ -63,7 +83,7 @@ describe("API token authorization", () => {
 			username: "alice",
 			status,
 			mustChangePassword,
-			currentTeamId: null,
+			currentTeam: null,
 			roles: [],
 		});
 

@@ -109,7 +109,18 @@ export async function listTeamsForSession(session: SessionPayload) {
     where: { id: session.userId },
     select: { currentTeamId: true },
   });
-  return { teams, currentTeamId: current?.currentTeamId ?? null };
+  // Only report a current workspace that is actually in the list the switcher
+  // renders. `teams` is already filtered to this user's memberships (or, for
+  // `team:manage`, to every live workspace), so a stored id that is missing here
+  // is a stale pointer — a tombstoned workspace or a membership that is gone —
+  // and echoing it back would highlight a workspace the user cannot reach. The
+  // session resolves the same way; see `verifySessionToken`.
+  const currentTeamId =
+    current?.currentTeamId &&
+    teams.some((team) => team.id === current.currentTeamId)
+      ? current.currentTeamId
+      : null;
+  return { teams, currentTeamId };
 }
 
 export async function createTeam(
@@ -310,14 +321,20 @@ export async function removeTeamMember(
       }
     }
 
-    await prisma.teamMember.delete({
-      where: { teamId_userId: { teamId, userId } },
-    });
-
-    // If the removed user's currentTeamId was this team, clear it
-    await prisma.user.updateMany({
-      where: { id: userId, currentTeamId: teamId },
-      data: { currentTeamId: null },
+    // Both statements in one transaction, mirroring `deleteTeam`: clearing
+    // `currentTeamId` *is* the revocation, because `verifySessionToken` re-reads
+    // that column from the database on every request instead of trusting the
+    // token. If the membership delete committed and the clear did not, the
+    // removed member's next request would still carry this teamId and
+    // `teamWhere()` would still hand them the team's data.
+    await prisma.$transaction(async (tx) => {
+      await tx.teamMember.delete({
+        where: { teamId_userId: { teamId, userId } },
+      });
+      await tx.user.updateMany({
+        where: { id: userId, currentTeamId: teamId },
+        data: { currentTeamId: null },
+      });
     });
 
     await auditUserAction(
