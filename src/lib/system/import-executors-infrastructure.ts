@@ -300,8 +300,8 @@ export async function importUserStorageAccess(
           canRead: r.canRead,
           canWrite: r.canWrite,
           canDelete: r.canDelete,
-          quotaBytes: parseBigInt(r.quotaBytes),
-          maxFileBytes: parseBigInt(r.maxFileBytes),
+          quotaBytes: parseBigInt(r.quotaBytes, "userStorageAccess.quotaBytes"),
+          maxFileBytes: parseBigInt(r.maxFileBytes, "userStorageAccess.maxFileBytes"),
         },
       });
     }
@@ -341,8 +341,8 @@ export async function importUserStorageAccess(
         canRead: r.canRead,
         canWrite: r.canWrite,
         canDelete: r.canDelete,
-        quotaBytes: parseBigInt(r.quotaBytes),
-        maxFileBytes: parseBigInt(r.maxFileBytes),
+        quotaBytes: parseBigInt(r.quotaBytes, "userStorageAccess.quotaBytes"),
+        maxFileBytes: parseBigInt(r.maxFileBytes, "userStorageAccess.maxFileBytes"),
       })),
       skipDuplicates: true,
     });

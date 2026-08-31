@@ -318,7 +318,7 @@ export async function importUserRoles(
       data: validToCreate.map((r) => ({
         userId: r.userId,
         roleId: r.roleId,
-        assignedAt: parseDate(r.assignedAt),
+        assignedAt: parseDate(r.assignedAt, "userRoles.assignedAt"),
       })),
       skipDuplicates: true,
     });
