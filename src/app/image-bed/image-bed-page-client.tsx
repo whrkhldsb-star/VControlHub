@@ -197,6 +197,11 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 					</select>
 					<label className="sr-only" htmlFor="imageBedLegacyPath">{t("imageBedPage.legacy.pathLabel")}</label>
 					<input id="imageBedLegacyPath" type="text" value={publishForm.relativePath} onChange={(e) => setPublishForm(pf => ({ ...pf, relativePath: e.target.value }))} onClick={(e) => e.stopPropagation()} placeholder={t("imageBedPage.legacy.pathPlaceholder")} className={cn(UI_INPUT, "w-32 px-2 py-1 text-xs text-[var(--text-secondary)]")} />
+					<label className="sr-only" htmlFor="imageBedUploadAlbum">{t("imageBedPage.legacy.albumLabel")}</label>
+					{/* The upload album used to be taken from the search box, which is a
+					    substring query — searching "cover" then dropping files created an
+					    album named "cover". It is its own field now. */}
+					<input id="imageBedUploadAlbum" type="text" value={publishForm.album} onChange={(e) => setPublishForm(pf => ({ ...pf, album: e.target.value }))} onClick={(e) => e.stopPropagation()} placeholder={t("imageBedPage.legacy.albumPlaceholder")} className={cn(UI_INPUT, "w-28 px-2 py-1 text-xs text-[var(--text-secondary)]")} />
 					{!storageNodes.length && <button type="button" onClick={(e) => { e.stopPropagation(); fetchStorageNodes(); }} className="text-[var(--color-action)] hover:underline">{t("imageBedPage.legacy.loadNodes")}</button>}
 				</div>
 				<div

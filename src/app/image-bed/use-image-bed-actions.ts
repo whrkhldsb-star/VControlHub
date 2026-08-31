@@ -64,6 +64,7 @@ export function useImageBedActions({
 	const [batchAlbum, setBatchAlbum] = useState("");
 	const [showPublishModal, setShowPublishModal] = useState(false);
 	const [deleting, setDeleting] = useState(false);
+	const deletingRef = useRef(false);
 	const [batchBusy, setBatchBusy] = useState(false);
 	const [publishing, setPublishing] = useState(false);
 	const [showLegacyUpload, setShowLegacyUpload] = useState(false);
@@ -183,7 +184,13 @@ export function useImageBedActions({
 
 				const formData = new FormData();
 				formData.append("file", file);
-				if (search) formData.append("album", search);
+				// Upload album comes from the dedicated album field, NOT from the
+				// search box. `search` is a substring query matched against
+				// filename/relativePath/album (see /api/images/list), so reusing it
+				// here filed uploads into an album literally named after whatever the
+				// user last typed to *find* something — e.g. searching "cover" then
+				// dropping files created an album called "cover".
+				if (publishForm.album.trim()) formData.append("album", publishForm.album.trim());
 				if (publishForm.storageNodeId) formData.append("storageNodeId", publishForm.storageNodeId);
 				if (publishForm.relativePath) formData.append("relativePath", publishForm.relativePath);
 				try {
@@ -246,7 +253,7 @@ export function useImageBedActions({
 				);
 			}
 		},
-		[fetchImages, publishForm.relativePath, publishForm.storageNodeId, search, showToast, t],
+		[fetchImages, publishForm.album, publishForm.relativePath, publishForm.storageNodeId, showToast, t],
 	);
 
 	const requestDelete = useCallback((img: ImageItem) => {
@@ -298,7 +305,14 @@ export function useImageBedActions({
 	);
 
 	const confirmDelete = useCallback(async () => {
-		if (!pendingDelete || deleting) return;
+		// `deleting` is state, so it is stale for the whole tick in which the first
+		// confirm fired — two calls in one tick would both pass and issue two
+		// DELETEs for the same image (the second answering 404). `deletingRef` is
+		// synchronously correct. The dialog already disables its confirm button on
+		// `busy`, so this is not reachable through the UI; it hardens the hook for
+		// programmatic callers, and mirrors `batchBusyRef` two functions below.
+		if (!pendingDelete || deleting || deletingRef.current) return;
+		deletingRef.current = true;
 		setDeleting(true);
 		const target = pendingDelete;
 		// Keep pendingDelete until the request finishes so DeleteImageDialog
@@ -313,6 +327,7 @@ export function useImageBedActions({
 			} catch {
 				showToast(t("imageBed.toast.deleteError"));
 			} finally {
+				deletingRef.current = false;
 				setDeleting(false);
 			}
 			return;
@@ -321,6 +336,7 @@ export function useImageBedActions({
 			await runBatchAction("delete");
 			setPendingDelete(null);
 		} finally {
+			deletingRef.current = false;
 			setDeleting(false);
 		}
 	}, [deleting, fetchImages, page, pendingDelete, runBatchAction, showToast, t]);
