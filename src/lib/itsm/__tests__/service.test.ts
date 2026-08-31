@@ -332,6 +332,57 @@ describe("ITSM service", () => {
 		).rejects.toThrow();
 	});
 
+	it("keeps the stored config when a PATCH does not mention it", async () => {
+		// Regression: `itsmConfigSchema` carried `.default({})`, so a body that never
+		// mentioned `config` still parsed to `{ config: {} }` — the update then wrote
+		// that empty object over webhookUrl/chatId/headers. For an outbound
+		// connection the readiness check turned it into a confusing 4xx instead;
+		// for an inbound one the config was silently lost.
+		const conn = await createItsmConnection({
+			name: "Ops webhook",
+			provider: "generic_webhook",
+			direction: "bidirectional",
+			credentials: { webhookSecret: "abc" },
+			config: { webhookUrl: "https://hooks.example.com/x", createOnInbound: true },
+		});
+
+		const updated = await updateItsmConnection(conn.id, { enabled: false });
+
+		expect(updated.enabled).toBe(false);
+		expect(updated.config).toEqual({
+			webhookUrl: "https://hooks.example.com/x",
+			createOnInbound: true,
+		});
+	});
+
+	it("still replaces the config when one is supplied", async () => {
+		const conn = await createItsmConnection({
+			name: "Inbound only",
+			provider: "slack",
+			direction: "inbound",
+			credentials: { webhookSecret: "secret" },
+			config: { defaultCategory: "ops", createOnInbound: true },
+		});
+
+		const updated = await updateItsmConnection(conn.id, {
+			config: { defaultCategory: "billing" },
+		});
+
+		expect(updated.config).toEqual({ defaultCategory: "billing" });
+	});
+
+	it("rejects a PATCH with no fields at all", async () => {
+		const conn = await createItsmConnection({
+			name: "Inbound only",
+			provider: "slack",
+			direction: "inbound",
+			credentials: { webhookSecret: "secret" },
+			config: {},
+		});
+
+		await expect(updateItsmConnection(conn.id, {})).rejects.toThrow();
+	});
+
 	it("propagates non-unique event persistence failures", async () => {
 		forcedEventCreateError = Object.assign(new Error("foreign key unavailable"), {
 			code: "P2003",

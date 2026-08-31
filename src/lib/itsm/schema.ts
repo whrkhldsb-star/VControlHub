@@ -17,7 +17,18 @@ export const itsmCredentialsSchema = z
 	})
 	.strict();
 
-export const itsmConfigSchema = z
+/**
+ * The config object itself, with no `.default()`.
+ *
+ * `.default({})` inside `.optional()` still materialises the key: a body that
+ * never mentioned `config` parses to `{ config: {} }`. On update that is
+ * indistinguishable from "replace the config with an empty object", so a
+ * `PATCH { enabled: false }` used to clear webhookUrl/chatId/headers — and, for
+ * an outbound connection, get rejected by the outbound-readiness check instead.
+ * Create keeps the default (an absent config there really does mean `{}`);
+ * update uses this bare version so an absent key stays absent.
+ */
+const itsmConfigObjectSchema = z
 	.object({
 		webhookUrl: z.string().trim().max(2048).optional(),
 		chatId: z.string().trim().max(256).optional(),
@@ -29,8 +40,9 @@ export const itsmConfigSchema = z
 		headers: z.record(z.string(), z.string().max(512)).optional(),
 		workspace: z.string().trim().max(128).optional(),
 	})
-	.strict()
-	.default({});
+	.strict();
+
+export const itsmConfigSchema = itsmConfigObjectSchema.default({});
 
 export const createItsmConnectionSchema = z
 	.object({
@@ -87,7 +99,8 @@ export const updateItsmConnectionSchema = z
 		direction: itsmDirectionSchema.optional(),
 		enabled: z.boolean().optional(),
 		credentials: itsmCredentialsSchema.optional(),
-		config: itsmConfigSchema.optional(),
+		// Bare (undefaulted) so omitting `config` leaves the stored one alone.
+		config: itsmConfigObjectSchema.optional(),
 		teamId: z.string().trim().min(1).max(64).optional().nullable(),
 	})
 	.strict()
