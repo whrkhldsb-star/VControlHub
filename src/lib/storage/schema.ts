@@ -122,6 +122,15 @@ export const sftpOpsBodySchema = z.object({
   newPath: z.string().optional(),
   content: z.string().max(MAX_EDITABLE_FILE_SIZE_BYTES).optional(),
   isDirectory: z.boolean().optional(),
+  /**
+   * Optimistic-lock token for `action: "write"` — the remote mtime (ms) the
+   * editor loaded. When present, the write is refused with 409 if the remote
+   * file has changed since. Optional so non-editor callers (and older clients)
+   * keep working, exactly like `expectedLastModifiedMs` on the LOCAL editable
+   * route; the difference is that a *missing* token means "overwrite blind",
+   * so the editor must always send one.
+   */
+  expectedLastModifiedMs: z.number().int().nonnegative().optional(),
 });
 
 // SFTP stale inventory POST body: optional nodeId + maxDepth + dryRun +

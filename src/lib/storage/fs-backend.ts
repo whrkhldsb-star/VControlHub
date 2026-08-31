@@ -9,6 +9,7 @@ import {
   createRemoteDirectory,
   deleteRemoteFile,
   readRemoteFile,
+  statRemoteEntry,
   renameRemoteFile,
   writeRemoteFile,
 } from "@/lib/ssh/client";
@@ -219,6 +220,51 @@ export async function readBackingObject(input: {
 
   throw new ValidationError(
     `Unsupported storage driver for read: ${input.storageNode.driver}`,
+  );
+}
+
+/**
+ * Read a backing file's size and last-modified time without fetching its body.
+ *
+ * Used as the optimistic-lock probe for the online editor: the editor records
+ * `lastModifiedMs` when it loads a file and sends it back on save, so a write
+ * can be refused when someone else changed the file meanwhile. Returns null when
+ * the entry does not exist (a brand-new file has nothing to conflict with).
+ */
+export async function statBackingObject(input: {
+  storageNode: StorageNodeWithCredentials;
+  relativePath: string;
+}): Promise<{ size: number; lastModifiedMs: number } | null> {
+  if (input.storageNode.driver === "LOCAL") {
+    const { absolutePath } = await resolveManagedLocalEntryPath({
+      basePath: input.storageNode.basePath,
+      relativePath: input.relativePath,
+    });
+    try {
+      const { stat } = await import("node:fs/promises");
+      const fileStat = await stat(absolutePath);
+      return { size: fileStat.size, lastModifiedMs: fileStat.mtimeMs };
+    } catch {
+      return null;
+    }
+  }
+
+  if (input.storageNode.driver === "SFTP") {
+    const remotePath = normalizeRemoteTargetPath(
+      input.storageNode.basePath,
+      input.relativePath,
+    );
+    const credentials = resolveStorageSshCredentials(input.storageNode);
+    try {
+      const entry = await statRemoteEntry({ ...credentials, remotePath });
+      return { size: entry.size ?? 0, lastModifiedMs: entry.modifyTime ?? 0 };
+    } catch {
+      return null;
+    }
+  }
+
+  throw new ValidationError(
+    `Unsupported storage driver for stat: ${input.storageNode.driver}`,
   );
 }
 

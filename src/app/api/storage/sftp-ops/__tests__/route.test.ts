@@ -10,6 +10,7 @@ const {
   renameRemoteFileMock,
   readRemoteFileMock,
   writeRemoteFileMock,
+  statRemoteEntryMock,
 } = vi.hoisted(() => ({
   requireApiSessionMock: vi.fn(),
   sessionHasPermissionMock: vi.fn(() => true),
@@ -35,6 +36,7 @@ const {
   renameRemoteFileMock: vi.fn(),
   readRemoteFileMock: vi.fn(),
   writeRemoteFileMock: vi.fn(),
+  statRemoteEntryMock: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/api-session", () => ({
@@ -67,6 +69,7 @@ vi.mock("@/lib/ssh/client", () => ({
   renameRemoteFile: renameRemoteFileMock,
   readRemoteFile: readRemoteFileMock,
   writeRemoteFile: writeRemoteFileMock,
+  statRemoteEntry: statRemoteEntryMock,
 }));
 
 import { POST } from "../route";
@@ -101,6 +104,13 @@ function mockSftpNode() {
   prismaMock.storageNode.findFirst.mockResolvedValueOnce(node);
   prismaMock.storageNode.findUnique.mockResolvedValueOnce(node);
 }
+
+const session = {
+  userId: "u_1",
+  username: "alice",
+  roles: ["admin"],
+  currentTeamId: null,
+};
 
 describe("/api/storage/sftp-ops", () => {
   it("allows writing a new file under a nested directory so users can create files from the file manager", async () => {
@@ -640,5 +650,174 @@ describe("/api/storage/sftp-ops", () => {
     });
     expect(renameRemoteFileMock).not.toHaveBeenCalled();
     expect(prismaMock.fileEntry.update).not.toHaveBeenCalled();
+  });
+
+  describe("write optimistic lock", () => {
+    /**
+     * The LOCAL editable route (`PUT /api/files/editable/[id]`) has always
+     * refused a write whose `expectedLastModifiedMs` no longer matches the file
+     * on disk. This path had no equivalent, so two people editing the same
+     * remote file produced a silent lost update: whoever saved second overwrote
+     * the other's work from a stale read, with no version snapshot taken.
+     */
+    it("refuses the write when the remote file changed since load", async () => {
+      vi.clearAllMocks();
+      requireApiSessionMock.mockResolvedValueOnce(session);
+      sessionHasPermissionMock.mockReturnValue(true);
+      assertStorageAccessMock.mockResolvedValue({ allowed: true });
+      mockSftpNode();
+      prismaMock.fileEntry.findFirst.mockResolvedValue({ id: "fe_1" });
+      statRemoteEntryMock.mockResolvedValue({ size: 20, type: "file", modifyTime: 9_000, accessTime: 0, mode: 0 });
+
+      const response = await POST(
+        request({
+          nodeId: "node_1",
+          action: "write",
+          path: "notes.txt",
+          content: "my edit",
+          expectedLastModifiedMs: 5_000,
+        }),
+      );
+
+      expect(response.status).toBe(409);
+      // Critically: the remote file must not have been touched.
+      expect(writeRemoteFileMock).not.toHaveBeenCalled();
+    });
+
+    it("allows the write when the token still matches", async () => {
+      vi.clearAllMocks();
+      requireApiSessionMock.mockResolvedValueOnce(session);
+      sessionHasPermissionMock.mockReturnValue(true);
+      assertStorageAccessMock.mockResolvedValue({ allowed: true });
+      mockSftpNode();
+      prismaMock.fileEntry.findFirst.mockResolvedValue({ id: "fe_1" });
+      prismaMock.fileEntry.upsert.mockResolvedValue({ id: "fe_1" });
+      statRemoteEntryMock.mockResolvedValue({ size: 20, type: "file", modifyTime: 5_000, accessTime: 0, mode: 0 });
+
+      const response = await POST(
+        request({
+          nodeId: "node_1",
+          action: "write",
+          path: "notes.txt",
+          content: "my edit",
+          expectedLastModifiedMs: 5_000,
+        }),
+      );
+
+      expect(response.status).toBe(200);
+      expect(writeRemoteFileMock).toHaveBeenCalled();
+    });
+
+    it("tolerates sub-second mtime drift so a second-granular server does not false-positive", async () => {
+      vi.clearAllMocks();
+      requireApiSessionMock.mockResolvedValueOnce(session);
+      sessionHasPermissionMock.mockReturnValue(true);
+      assertStorageAccessMock.mockResolvedValue({ allowed: true });
+      mockSftpNode();
+      prismaMock.fileEntry.findFirst.mockResolvedValue({ id: "fe_1" });
+      prismaMock.fileEntry.upsert.mockResolvedValue({ id: "fe_1" });
+      statRemoteEntryMock.mockResolvedValue({ size: 20, type: "file", modifyTime: 5_400, accessTime: 0, mode: 0 });
+
+      const response = await POST(
+        request({
+          nodeId: "node_1",
+          action: "write",
+          path: "notes.txt",
+          content: "my edit",
+          expectedLastModifiedMs: 5_000,
+        }),
+      );
+
+      expect(response.status).toBe(200);
+    });
+
+    it("writes without a conflict check when no token is supplied", async () => {
+      // Non-editor callers (and older clients) keep working; the editor always
+      // sends a token, so only they get the protection.
+      vi.clearAllMocks();
+      requireApiSessionMock.mockResolvedValueOnce(session);
+      sessionHasPermissionMock.mockReturnValue(true);
+      assertStorageAccessMock.mockResolvedValue({ allowed: true });
+      mockSftpNode();
+      prismaMock.fileEntry.findFirst.mockResolvedValue({ id: "fe_1" });
+      prismaMock.fileEntry.upsert.mockResolvedValue({ id: "fe_1" });
+      statRemoteEntryMock.mockResolvedValue({ size: 20, type: "file", modifyTime: 9_999, accessTime: 0, mode: 0 });
+
+      const response = await POST(
+        request({ nodeId: "node_1", action: "write", path: "notes.txt", content: "my edit" }),
+      );
+
+      expect(response.status).toBe(200);
+      expect(writeRemoteFileMock).toHaveBeenCalled();
+    });
+
+    it("still writes a brand-new file whose stat fails", async () => {
+      // A path that does not exist yet has nothing to conflict with.
+      vi.clearAllMocks();
+      requireApiSessionMock.mockResolvedValueOnce(session);
+      sessionHasPermissionMock.mockReturnValue(true);
+      assertStorageAccessMock.mockResolvedValue({ allowed: true });
+      mockSftpNode();
+      prismaMock.fileEntry.findFirst.mockResolvedValue(null);
+      prismaMock.fileEntry.upsert.mockResolvedValue({ id: "fe_new" });
+      statRemoteEntryMock.mockRejectedValue(new Error("No such file"));
+
+      const response = await POST(
+        request({
+          nodeId: "node_1",
+          action: "write",
+          path: "fresh.txt",
+          content: "new",
+          expectedLastModifiedMs: 5_000,
+        }),
+      );
+
+      expect(response.status).toBe(200);
+      expect(writeRemoteFileMock).toHaveBeenCalled();
+    });
+
+    it("returns the post-write mtime so the next save's token matches", async () => {
+      // Falling back to the client clock here would make the following save 409
+      // against the user's own write.
+      vi.clearAllMocks();
+      requireApiSessionMock.mockResolvedValueOnce(session);
+      sessionHasPermissionMock.mockReturnValue(true);
+      assertStorageAccessMock.mockResolvedValue({ allowed: true });
+      mockSftpNode();
+      prismaMock.fileEntry.findFirst.mockResolvedValue({ id: "fe_1" });
+      prismaMock.fileEntry.upsert.mockResolvedValue({ id: "fe_1" });
+      statRemoteEntryMock
+        .mockResolvedValueOnce({ size: 20, type: "file", modifyTime: 5_000, accessTime: 0, mode: 0 })
+        .mockResolvedValueOnce({ size: 7, type: "file", modifyTime: 7_777, accessTime: 0, mode: 0 });
+
+      const response = await POST(
+        request({
+          nodeId: "node_1",
+          action: "write",
+          path: "notes.txt",
+          content: "my edit",
+          expectedLastModifiedMs: 5_000,
+        }),
+      );
+
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toMatchObject({ lastModifiedMs: 7_777 });
+    });
+
+    it("hands the editor a lock token on read", async () => {
+      vi.clearAllMocks();
+      requireApiSessionMock.mockResolvedValueOnce(session);
+      sessionHasPermissionMock.mockReturnValue(true);
+      assertStorageAccessMock.mockResolvedValue({ allowed: true });
+      mockSftpNode();
+      prismaMock.fileEntry.findFirst.mockResolvedValue({ id: "fe_1", size: BigInt(5) });
+      readRemoteFileMock.mockResolvedValue(Buffer.from("hello"));
+      statRemoteEntryMock.mockResolvedValue({ size: 5, type: "file", modifyTime: 4_242, accessTime: 0, mode: 0 });
+
+      const response = await POST(request({ nodeId: "node_1", action: "read", path: "notes.txt" }));
+
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toMatchObject({ content: "hello", lastModifiedMs: 4_242 });
+    });
   });
 });

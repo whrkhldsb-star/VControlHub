@@ -8,6 +8,7 @@ import {
   deleteBackingObject,
   readBackingObject,
   renameBackingObject,
+  statBackingObject,
   writeBackingObject,
 } from "@/lib/storage/fs-backend";
 import { getSftpNodeConnection } from "@/lib/storage/sftp-node";
@@ -26,7 +27,8 @@ import {
   type SftpOpsBody,
 } from "@/lib/storage/schema";
 
-import { AuthError, ForbiddenError, ValidationError, isAppError } from "@/lib/errors";
+import { AuthError, ConflictError, ForbiddenError, ValidationError, isAppError } from "@/lib/errors";
+import { t } from "@/lib/i18n/service-translations";
 import { getErrorMessage } from "@/lib/http/error-message";
 const logger = createLogger("api:storage:sftp-ops");
 
@@ -455,7 +457,21 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
           encoding = "base64";
         }
 
-        return NextResponse.json({ content, encoding, size: buffer.length });
+        // `lastModifiedMs` is the editor's optimistic-lock token: it sends the
+        // value back on save so a concurrent remote change is refused with 409
+        // instead of being silently overwritten. Best-effort — a node that cannot
+        // stat still serves the read, and the editor then saves without a token
+        // (same behaviour as before this was added).
+        const readStat = await statBackingObject({
+          storageNode: node,
+          relativePath: normalizedRelativePath,
+        });
+        return NextResponse.json({
+          content,
+          encoding,
+          size: buffer.length,
+          lastModifiedMs: readStat?.lastModifiedMs ?? null,
+        });
       }
 
       case "write": {
@@ -475,6 +491,30 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
             },
             { status: 413 },
           );
+        }
+        // Optimistic lock. The LOCAL editable route (`PUT /api/files/editable/[id]`)
+        // has always refused a write whose `expectedLastModifiedMs` no longer
+        // matches the file on disk; this path had no equivalent, so two people
+        // editing the same remote file silently produced a lost update — whoever
+        // saved second overwrote the other's work with a body derived from a stale
+        // read, and no version snapshot was taken either.
+        //
+        // The token is optional in the schema so non-editor callers keep working,
+        // but the editor always sends it. A 1 ms tolerance mirrors the LOCAL route
+        // (SFTP mtimes are second-granular on some servers, so an exact compare
+        // would false-positive).
+        if (typeof body.expectedLastModifiedMs === "number") {
+          const remoteStat = await statBackingObject({
+            storageNode: node,
+            relativePath: normalizedRelativePath,
+          });
+          if (
+            remoteStat &&
+            remoteStat.lastModifiedMs > 0 &&
+            Math.abs(remoteStat.lastModifiedMs - body.expectedLastModifiedMs) > 1000
+          ) {
+            throw new ConflictError(t("backend.storage.editableFileChangedOnDisk"));
+          }
         }
         // If an index row already exists this is an overwrite — never delete the
         // remote file when a later index upsert fails (would destroy the previous version).
@@ -522,7 +562,18 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
           }
           throw indexError;
         }
-        return NextResponse.json({ success: true, byteSize: writtenSize });
+        // Hand back the post-write mtime so the editor's *next* save carries a
+        // token matching what is now on the remote. Reusing the local clock here
+        // would make the following save 409 against the user's own write.
+        const afterWriteStat = await statBackingObject({
+          storageNode: node,
+          relativePath: normalizedRelativePath,
+        });
+        return NextResponse.json({
+          success: true,
+          byteSize: writtenSize,
+          lastModifiedMs: afterWriteStat?.lastModifiedMs ?? null,
+        });
       }
 
       default:
@@ -532,6 +583,11 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
         );
     }
   } catch (error) {
+    // An AppError carries its own status and product copy — rethrow so
+    // `withApiRoute`/`apiCatch` map it. Collapsing everything into 502 turned the
+    // write path's 409 (remote file changed since load) into "node unreachable",
+    // which tells the user to check their SSH config instead of reloading.
+    if (isAppError(error)) throw error;
     logger.error("remote file operation failed", error, { action, nodeId });
     return NextResponse.json(
       toClientStorageError("Remote file operation failed, please check node configuration, path or permissions"),

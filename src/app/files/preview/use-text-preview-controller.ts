@@ -142,6 +142,7 @@ export function useTextPreviewController(options: {
             const data = await csrfFetch<{
               content?: string;
               encoding?: "text" | "base64";
+              lastModifiedMs?: number | null;
               draft?: EditableDraft;
             }>("/api/storage/sftp-ops", {
               method: "POST",
@@ -159,6 +160,9 @@ export function useTextPreviewController(options: {
               throw new Error(t("textPreview.error.loadFailed"));
             }
             content = remoteContent;
+            // Optimistic-lock token for the save below. Without it a second
+            // editor's save would silently overwrite this one's work.
+            nextDraftVersion = { lastModifiedMs: data.lastModifiedMs ?? null };
           } else {
             const data = await csrfFetch<{ draft: EditableDraft }>(`/api/files/editable/${fileEntryId}`);
             content = data.draft.content;
@@ -359,20 +363,31 @@ export function useTextPreviewController(options: {
     setReloadMessage("");
     try {
       if (driver === "SFTP" && nodeId && relativePath) {
-        const response = await csrfFetch<{ success: boolean; byteSize: number }>(`/api/storage/sftp-ops`, {
+        const response = await csrfFetch<{
+          success: boolean;
+          byteSize: number;
+          lastModifiedMs?: number | null;
+        }>(`/api/storage/sftp-ops`, {
           method: "POST",
           body: JSON.stringify({
             action: "write",
             nodeId,
             path: relativePath,
             content: draft,
+            // Refused with 409 when the remote file changed since load.
+            ...(typeof draftVersion.lastModifiedMs === "number"
+              ? { expectedLastModifiedMs: draftVersion.lastModifiedMs }
+              : {}),
           }),
         });
         if (versionAtSave !== loadVersionRef.current || entryAtSave !== fileEntryId) return response.byteSize;
         setState({ loading: false, content: draft, error: null });
         setDraftVersion({
           updatedAt: new Date().toISOString(),
-          lastModifiedMs: Date.now(),
+          // Prefer the mtime the server observed after writing; falling back to
+          // the local clock would make the *next* save's token disagree with the
+          // remote file and 409 against the user's own write.
+          lastModifiedMs: response.lastModifiedMs ?? Date.now(),
         });
         setEditMode(false);
         setShowDiffReview(false);
