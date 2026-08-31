@@ -353,7 +353,7 @@ async function handlePreview() {
             <div className="space-y-1">
               {Object.entries(preview.summary).map(([table, counts]) => (
                 <div key={table} className="flex justify-between text-xs text-[var(--text-primary)]">
-                  <span>{table}</span>
+                  <span>{t(table)}</span>
                   <span className="text-[var(--text-secondary)]">
                     +{counts.create} ↻{counts.update} ⊘{counts.skip}
                   </span>
@@ -368,7 +368,7 @@ async function handlePreview() {
                   {t("systemConfig.import.preview.warnings")}
                 </span>
                 {preview.warnings.map((w, i) => (
-                  <p key={i} className="text-xs text-[var(--warning)] light:text-[var(--warning)]">⚠ {w}</p>
+                  <p key={i} className="text-xs text-[var(--warning)] light:text-[var(--warning)]">⚠ {t(w)}</p>
                 ))}
               </div>
             )}

@@ -35,6 +35,43 @@ import {
   previewSnippets,
 } from "./import-preview-tables";
 
+/**
+ * Both `summary` keys and `warnings` entries are i18n keys, not display text.
+ * The preview is rendered verbatim in the settings UI, and a server-side `t()`
+ * has no request locale here — it would pin every operator to zh. The client
+ * translates these with its own locale instead.
+ */
+const T = {
+  permissions: "systemConfig.import.preview.table.permissions",
+  roles: "systemConfig.import.preview.table.roles",
+  rolePermissions: "systemConfig.import.preview.table.rolePermissions",
+  users: "systemConfig.import.preview.table.users",
+  userRoles: "systemConfig.import.preview.table.userRoles",
+  sshKeys: "systemConfig.import.preview.table.sshKeys",
+  servers: "systemConfig.import.preview.table.servers",
+  storageNodes: "systemConfig.import.preview.table.storageNodes",
+  storageAccess: "systemConfig.import.preview.table.storageAccess",
+  commandTemplates: "systemConfig.import.preview.table.commandTemplates",
+  quickServices: "systemConfig.import.preview.table.quickServices",
+  playbooks: "systemConfig.import.preview.table.playbooks",
+  alertRules: "systemConfig.import.preview.table.alertRules",
+  settings: "systemConfig.import.preview.table.settings",
+  aiProviders: "systemConfig.import.preview.table.aiProviders",
+  announcements: "systemConfig.import.preview.table.announcements",
+  snippets: "systemConfig.import.preview.table.snippets",
+} as const;
+
+const W = {
+  usersSkipped: "systemConfig.import.preview.warning.usersSkipped",
+  settingsSkipped: "systemConfig.import.preview.warning.settingsSkipped",
+  passwordsStripped: "systemConfig.import.preview.warning.passwordsStripped",
+  sshKeysStripped: "systemConfig.import.preview.warning.sshKeysStripped",
+  serverPasswordsStripped: "systemConfig.import.preview.warning.serverPasswordsStripped",
+  aiKeysStripped: "systemConfig.import.preview.warning.aiKeysStripped",
+  settingsCleared: "systemConfig.import.preview.warning.settingsCleared",
+  fullModeSensitive: "systemConfig.import.preview.warning.fullModeSensitive",
+} as const;
+
 // ── 预览模式 ──────────────────────────────────────────────
 
 /**
@@ -53,21 +90,21 @@ export async function previewImport(
   // ── Permissions ──
   {
     const r = await previewPermissions(t, options);
-    summary["Permissions"] = r;
+    summary[T.permissions] = r;
     totalRecords += r.create + r.update;
   }
 
   // ── Roles ──
   {
     const r = await previewRoles(t, options);
-    summary["Roles"] = r;
+    summary[T.roles] = r;
     totalRecords += r.create + r.update;
   }
 
   // ── RolePermissions ──
   {
     const r = await previewRolePermissions(t);
-    summary["Role Permissions"] = r;
+    summary[T.rolePermissions] = r;
     totalRecords += r.create;
   }
 
@@ -75,74 +112,74 @@ export async function previewImport(
   {
     if (options.importUsers) {
       const r = await previewUsers(t, options);
-      summary["Users"] = r;
+      summary[T.users] = r;
       totalRecords += r.create + r.update;
     } else {
-      summary["Users"] = { create: 0, update: 0, skip: t.users.length };
-      warnings.push("User import skipped (per option setting)");
+      summary[T.users] = { create: 0, update: 0, skip: t.users.length };
+      warnings.push(W.usersSkipped);
     }
   }
 
   // ── UserRoles ──
   {
-    const r = await previewUserRoles(t);
-    summary["User Roles"] = r;
+    const r = await previewUserRoles(t, options);
+    summary[T.userRoles] = r;
     totalRecords += r.create;
   }
 
   // ── SshKeys ──
   {
     const r = await previewSshKeys(t, options);
-    summary["SSH Keys"] = r;
+    summary[T.sshKeys] = r;
     totalRecords += r.create + r.update;
   }
 
   // ── Servers ──
   {
     const r = await previewServers(t, options);
-    summary["Servers"] = r;
+    summary[T.servers] = r;
     totalRecords += r.create + r.update;
   }
 
   // ── StorageNodes ──
   {
     const r = await previewStorageNodes(t, options);
-    summary["Storage Nodes"] = r;
+    summary[T.storageNodes] = r;
     totalRecords += r.create + r.update;
   }
 
   // ── UserStorageAccess ──
   {
     const r = await previewUserStorageAccess(t, options);
-    summary["Storage Access"] = r;
+    summary[T.storageAccess] = r;
     totalRecords += r.create + r.update;
   }
 
   // ── CommandTemplates ──
   {
     const r = await previewCommandTemplates(t, options);
-    summary["Command Templates"] = r;
+    summary[T.commandTemplates] = r;
     totalRecords += r.create + r.update;
   }
 
   // ── QuickServices ──
   {
     const r = await previewQuickServices(t, options);
-    summary["Quick Services"] = r;
+    summary[T.quickServices] = r;
     totalRecords += r.create + r.update;
   }
 
   // ── Playbooks ──
   {
     const r = await previewPlaybooks(t, options);
-    summary["Playbook"] = r;
+    summary[T.playbooks] = r;
     totalRecords += r.create + r.update;
   }
 
   // ── AlertRules ──
   {
     const r = await previewAlertRules(t, options);
-    summary["Alert Rules"] = r;
+    summary[T.alertRules] = r;
     totalRecords += r.create + r.update;
   }
 
@@ -150,32 +187,32 @@ export async function previewImport(
   {
     if (options.importSettings) {
       const r = await previewSettings(t, options);
-      summary["System Settings"] = r;
+      summary[T.settings] = r;
       totalRecords += r.create + r.update;
     } else {
-      summary["System Settings"] = { create: 0, update: 0, skip: t.settings.length };
-      warnings.push("System settings import skipped (per option setting)");
+      summary[T.settings] = { create: 0, update: 0, skip: t.settings.length };
+      warnings.push(W.settingsSkipped);
     }
   }
 
   // ── AiProviders ──
   {
     const r = await previewAiProviders(t, options);
-    summary["AI Providers"] = r;
+    summary[T.aiProviders] = r;
     totalRecords += r.create + r.update;
   }
 
   // ── Announcements ──
   {
     const r = await previewAnnouncements(t, options);
-    summary["Announcements"] = r;
+    summary[T.announcements] = r;
     totalRecords += r.create + r.update;
   }
 
   // ── Snippets ──
   {
     const r = await previewSnippets(t, options);
-    summary["Snippets"] = r;
+    summary[T.snippets] = r;
     totalRecords += r.create + r.update;
   }
 
@@ -183,22 +220,22 @@ export async function previewImport(
   const isFullMode = file.exportMode === "full";
   if (!isFullMode) {
     if (t.users.length > 0) {
-      warnings.push("User password hashes have been stripped; passwords must be reset after import");
+      warnings.push(W.passwordsStripped);
     }
     if (t.sshKeys.length > 0) {
-      warnings.push("SSH private keys have been stripped; private keys must be re-uploaded or pasted after import");
+      warnings.push(W.sshKeysStripped);
     }
     if (t.servers.length > 0) {
-      warnings.push("Server passwords have been stripped; passwords must be re-entered after import (or use SSH keys)");
+      warnings.push(W.serverPasswordsStripped);
     }
     if (t.aiProviders.length > 0) {
-      warnings.push("AI provider API keys have been stripped; API keys must be re-entered after import");
+      warnings.push(W.aiKeysStripped);
     }
     if (t.settings.some((s) => s.value === "")) {
-      warnings.push("Some sensitive system setting values have been cleared; they must be reconfigured after import");
+      warnings.push(W.settingsCleared);
     }
   } else {
-    warnings.push("⚠ This file is in full export mode and contains sensitive information such as passwords and keys; please store it securely");
+    warnings.push(W.fullModeSensitive);
   }
 
   return { summary, warnings, totalRecords };
