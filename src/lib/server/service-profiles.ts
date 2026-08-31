@@ -129,7 +129,7 @@ export async function createServerProfile(
   let server: any;
   const releaseHostLock = await acquireAdvisoryLock("server-host", normalized.host.toLowerCase());
   try {
-  await assertNoDuplicateServerHost(normalized);
+  await assertNoDuplicateServerHost(normalized, { session: sessionForTeamWhere(session) });
 
   const pendingServerForPreflight: ServerWithRelations = {
     id: "__pending__",
@@ -470,7 +470,7 @@ export async function updateServerProfile(
   let updated: any;
   const releaseHostLock = await acquireAdvisoryLock("server-host", normalized.host.toLowerCase());
   try {
-  await assertNoDuplicateServerHost(normalized, { excludeId: serverId });
+  await assertNoDuplicateServerHost(normalized, { excludeId: serverId, session: sessionForTeamWhere(session) });
 
   const connectionChanged =
     normalized.host !== current.host ||

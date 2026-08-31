@@ -2,6 +2,8 @@ import { Prisma } from "@prisma/client";
 
 import { revalidatePath } from "next/cache";
 
+import type { SessionPayload } from "@/lib/auth/session";
+import { serverTeamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { BusinessError, ConflictError } from "@/lib/errors";
 import { getErrorMessage as getErrorMessageShared } from "@/lib/http/error-message";
@@ -208,11 +210,25 @@ export function buildDuplicateServerError(existing: ExistingServerForDuplicateCh
 
 export async function assertNoDuplicateServerHost(
   normalized: NormalizedServerInput,
-  options: { excludeId?: string } = {},
+  options: { excludeId?: string; session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId"> | null } = {},
 ) {
+  // The duplicate report names the colliding node and its `user@host:port`, so
+  // the lookup has to stay inside the caller's tenant. Unscoped, adding a VPS
+  // whose IP another team already manages answered with that team's node name
+  // and SSH user — an unauthenticated-by-design probe: `server:write` is an
+  // ordinary operator permission, and the host is the only input needed.
+  //
+  // `serverTeamWhere` (not the loose `teamWhere`) is the right filter here for
+  // the same reason it is everywhere else on this model: a `teamId: null` row is
+  // quarantined legacy data, not a node shared with every tenant. A caller with
+  // no team therefore collides with nothing, which is the safe direction — the
+  // uniqueness of `host` is a UX guard against managing one box twice, never a
+  // platform-wide invariant (the column has no @@unique).
+  const teamScope = options.session ? serverTeamWhere(options.session) : {};
   const duplicate = await prisma.server.findFirst({
     where: {
       host: normalized.host,
+      ...teamScope,
       ...(options.excludeId ? { id: { not: options.excludeId } } : {}),
     },
     select: {
