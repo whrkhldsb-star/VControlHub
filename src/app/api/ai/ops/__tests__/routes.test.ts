@@ -6,6 +6,7 @@
  *   - GET  /api/ai/ops/logs/[id]         (ai:ops:read, 404 on missing)
  *   - POST /api/ai/ops/scan              (ai:ops:manage, audit+latest log)
  *   - POST /api/ai/ops/logs/[id]/execute (ai:ops:manage + ai:ops:autonomous gate)
+ *   - POST /api/ai/ops/logs/[id]/approve (ai:ops:manage, ok=false stays a 200)
  *   - GET  /api/ai/ops/summary           (ai:ops:read)
  *   - GET  /api/ai/ops/settings          (ai:ops:read, default mode)
  *
@@ -26,6 +27,7 @@ const { mocks } = vi.hoisted(() => ({
 		getAiOpsLog: vi.fn(),
 		summariseAiOps: vi.fn(),
 		executeRecommendation: vi.fn(),
+		approveRecommendation: vi.fn(),
 		runAiOpsScanWorkerOnce: vi.fn(),
 		auditUserAction: vi.fn(),
 		sessionHasPermission: vi.fn(),
@@ -52,6 +54,7 @@ vi.mock("@/lib/ai/ops/service", async (importOriginal) => {
 		getAiOpsLog: mocks.getAiOpsLog,
 		summariseAiOps: mocks.summariseAiOps,
 		executeRecommendation: mocks.executeRecommendation,
+		approveRecommendation: mocks.approveRecommendation,
 	};
 });
 
@@ -82,6 +85,7 @@ const logsRoute = await import("../logs/route");
 const logIdRoute = await import("../logs/[id]/route");
 const scanRoute = await import("../scan/route");
 const executeRoute = await import("../logs/[id]/execute/route");
+const approveRoute = await import("../logs/[id]/approve/route");
 const summaryRoute = await import("../summary/route");
 const settingsRoute = await import("../settings/route");
 
@@ -122,6 +126,7 @@ describe("/api/ai/ops/* routes", () => {
 		mocks.getAiOpsLog.mockResolvedValue(SAMPLE_LOG);
 		mocks.summariseAiOps.mockResolvedValue(SAMPLE_SUMMARY);
 		mocks.executeRecommendation.mockResolvedValue({ ok: true, executed: false, errorMessage: "需要管理员审批" });
+		mocks.approveRecommendation.mockResolvedValue({ ok: true });
 		mocks.runAiOpsScanWorkerOnce.mockResolvedValue(true);
 		mocks.sessionHasPermission.mockReturnValue(true);
 		mocks.getSetting.mockImplementation(async (key: string) => {
@@ -310,6 +315,155 @@ describe("/api/ai/ops/* routes", () => {
 			const body = await res.json();
 			expect(body.result.executed).toBe(false);
 			expect(body.result.errorMessage).toContain("需要管理员审批");
+		});
+	});
+
+	// ── POST /api/ai/ops/logs/[id]/approve ──────────────────────────────
+	describe("POST /api/ai/ops/logs/[id]/approve", () => {
+		/**
+		 * Approval is the gate the autonomous executor reads: once an action is
+		 * marked `approved: true`, `execute` will run it without anyone passing
+		 * `forceAutonomous`. So the properties worth pinning are (a) that only an
+		 * `ai:ops:manage` holder can flip that bit, (b) that the logId comes from
+		 * the route segment rather than the body, and (c) that every refusal the
+		 * service reports — already-approved, unknown action, lost CAS race — stays
+		 * a 200 carrying `ok: false`, because the client renders that message and a
+		 * thrown status would replace it with a generic error.
+		 */
+		it("approves the action under ai:ops:manage and records an audit entry", async () => {
+			const res = await approveRoute.POST(
+				new Request("http://local/api/ai/ops/logs/log-1/approve", {
+					method: "POST",
+					body: JSON.stringify({ actionId: "a-1" }),
+				}),
+				{ params: Promise.resolve({ id: "log-1" }) },
+			);
+			expect(res.status).toBe(200);
+			await expect(res.json()).resolves.toEqual({ result: { ok: true } });
+			expect(mocks.approveRecommendation).toHaveBeenCalledWith({
+				logId: "log-1",
+				actionId: "a-1",
+			});
+			expect(mocks.auditUserAction).toHaveBeenCalledWith(
+				"u-admin",
+				"ai.ops.recommendation.approve",
+				{ logId: "log-1", actionId: "a-1", ok: true },
+				undefined,
+				null,
+			);
+		});
+
+		it("takes the logId from the route segment, ignoring one smuggled in the body", async () => {
+			// `logId` is not in the schema, so a body copy is stripped — otherwise a
+			// caller could approve an action on a different log than the URL names,
+			// and the audit entry would record the wrong one.
+			await approveRoute.POST(
+				new Request("http://local/api/ai/ops/logs/log-1/approve", {
+					method: "POST",
+					body: JSON.stringify({ actionId: "a-1", logId: "log-other" }),
+				}),
+				{ params: Promise.resolve({ id: "log-1" }) },
+			);
+			expect(mocks.approveRecommendation).toHaveBeenCalledWith({
+				logId: "log-1",
+				actionId: "a-1",
+			});
+		});
+
+		it("returns 403 when the caller lacks ai:ops:manage", async () => {
+			mocks.requireApiPermission.mockResolvedValueOnce(
+				NextResponse.json({ error: "缺少权限" }, { status: 403 }),
+			);
+			const res = await approveRoute.POST(
+				new Request("http://local/api/ai/ops/logs/log-1/approve", {
+					method: "POST",
+					body: JSON.stringify({ actionId: "a-1" }),
+				}),
+				{ params: Promise.resolve({ id: "log-1" }) },
+			);
+			expect(res.status).toBe(403);
+			expect(mocks.approveRecommendation).not.toHaveBeenCalled();
+			expect(mocks.auditUserAction).not.toHaveBeenCalled();
+		});
+
+		it("rejects a body with no actionId", async () => {
+			const res = await approveRoute.POST(
+				new Request("http://local/api/ai/ops/logs/log-1/approve", {
+					method: "POST",
+					body: JSON.stringify({}),
+				}),
+				{ params: Promise.resolve({ id: "log-1" }) },
+			);
+			expect(res.status).toBe(400);
+			expect(mocks.approveRecommendation).not.toHaveBeenCalled();
+		});
+
+		it("rejects an empty actionId", async () => {
+			const res = await approveRoute.POST(
+				new Request("http://local/api/ai/ops/logs/log-1/approve", {
+					method: "POST",
+					body: JSON.stringify({ actionId: "" }),
+				}),
+				{ params: Promise.resolve({ id: "log-1" }) },
+			);
+			expect(res.status).toBe(400);
+			expect(mocks.approveRecommendation).not.toHaveBeenCalled();
+		});
+
+		it("surfaces a lost approval race as a 200 with ok=false and the service message", async () => {
+			// The service resolves rather than throwing for the optimistic-lock miss;
+			// mapping that to a 5xx would hide the "refresh and try again" hint.
+			mocks.approveRecommendation.mockResolvedValueOnce({
+				ok: false,
+				errorMessage: "This recommendation was just approved by another approver; please refresh and try again",
+			});
+			const res = await approveRoute.POST(
+				new Request("http://local/api/ai/ops/logs/log-1/approve", {
+					method: "POST",
+					body: JSON.stringify({ actionId: "a-1" }),
+				}),
+				{ params: Promise.resolve({ id: "log-1" }) },
+			);
+			expect(res.status).toBe(200);
+			const body = await res.json();
+			expect(body.result.ok).toBe(false);
+			expect(body.result.errorMessage).toContain("another approver");
+		});
+
+		it("still audits ok=false so a refused approval leaves a trail", async () => {
+			mocks.approveRecommendation.mockResolvedValueOnce({
+				ok: false,
+				errorMessage: "This recommendation has already been approved",
+			});
+			await approveRoute.POST(
+				new Request("http://local/api/ai/ops/logs/log-1/approve", {
+					method: "POST",
+					body: JSON.stringify({ actionId: "a-1" }),
+				}),
+				{ params: Promise.resolve({ id: "log-1" }) },
+			);
+			expect(mocks.auditUserAction).toHaveBeenCalledWith(
+				"u-admin",
+				"ai.ops.recommendation.approve",
+				{ logId: "log-1", actionId: "a-1", ok: false },
+				undefined,
+				null,
+			);
+		});
+
+		it("masks an unexpected service failure as a 500", async () => {
+			mocks.approveRecommendation.mockRejectedValueOnce(new Error("connect ECONNREFUSED 10.0.0.9:5432"));
+			const res = await approveRoute.POST(
+				new Request("http://local/api/ai/ops/logs/log-1/approve", {
+					method: "POST",
+					body: JSON.stringify({ actionId: "a-1" }),
+				}),
+				{ params: Promise.resolve({ id: "log-1" }) },
+			);
+			expect(res.status).toBe(500);
+			const payload = (await res.json()) as { message?: string };
+			expect(payload.message ?? "").not.toContain("ECONNREFUSED");
+			expect(mocks.auditUserAction).not.toHaveBeenCalled();
 		});
 	});
 
