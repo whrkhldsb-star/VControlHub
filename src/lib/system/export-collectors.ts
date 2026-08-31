@@ -293,14 +293,25 @@ export async function exportStorageNodes(
   }));
 }
 
+/**
+ * Storage grants for a team export.
+ *
+ * Filtering by node alone is not enough: a team's nodes (and every legacy
+ * `teamId: null` node) also carry grants belonging to users outside the team, so
+ * a node-only filter hands the exporter those users' ids, path prefixes and
+ * quotas — the same cross-tenant leak `exportQuickServices` guards against, and
+ * a contradiction of `userDirectoryWhere`, which scopes a non-admin's view of
+ * users to their own team.
+ */
 export async function exportUserStorageAccess(
   scope: ExportScope,
   storageNodeIds: string[],
+  memberUserIds: string[],
 ) {
   if (scope === "team") {
-    if (storageNodeIds.length === 0) return [];
+    if (storageNodeIds.length === 0 || memberUserIds.length === 0) return [];
     const rows = await readAllPages(async (page) => prisma.userStorageAccess.findMany({
-      where: { storageNodeId: { in: storageNodeIds } },
+      where: { storageNodeId: { in: storageNodeIds }, userId: { in: memberUserIds } },
       orderBy: [{ storageNodeId: "asc" }, { id: "asc" }],
       ...page,
     }));

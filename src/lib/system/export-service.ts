@@ -136,7 +136,7 @@ export async function buildExportFile(options: ExportOptions): Promise<ExportFil
   ]);
 
   const storageNodeIds = storageNodes.map((n) => n.id);
-  const userStorageAccess = await exportUserStorageAccess(scope, storageNodeIds);
+  const userStorageAccess = await exportUserStorageAccess(scope, storageNodeIds, userIds);
 
   return {
     schemaVersion: EXPORT_SCHEMA_VERSION,

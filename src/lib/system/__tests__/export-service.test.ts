@@ -268,6 +268,37 @@ describe("export-service multi-tenant scope", () => {
     expect(prisma.teamMember.findMany).toHaveBeenCalled();
   });
 
+  it("scopes storage grants to the team's own members, not just its nodes", async () => {
+    const { prisma } = await import("@/lib/db");
+    vi.mocked(prisma.teamMember.findMany).mockResolvedValueOnce([
+      { userId: "u1" },
+    ] as never);
+    vi.mocked(prisma.storageNode.findMany).mockResolvedValueOnce([
+      { id: "n1", name: "n", teamId: "team_a", createdAt: new Date("2025-01-01") },
+    ] as never);
+
+    await buildExportFile({
+      sourceDomain: "test.example.com",
+      mode: "standard",
+      scope: "team",
+      teamId: "team_a",
+      session: {
+        userId: "u1",
+        username: "operator",
+        roles: ["operator"],
+        currentTeamId: "team_a",
+      } as never,
+    });
+
+    // A team's nodes — and every legacy teamId:null node — also carry grants
+    // belonging to users outside the team.
+    expect(prisma.userStorageAccess.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { storageNodeId: { in: ["n1"] }, userId: { in: ["u1"] } },
+      }),
+    );
+  });
+
   it("rejects full mode for non-admin", async () => {
     await expect(
       buildExportFile({
