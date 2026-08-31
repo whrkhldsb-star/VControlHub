@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { AGENT_POLL_LIMIT, withRateLimit } from "@/lib/http/rate-limit-presets";
 import {
   authenticateServerAgent,
   claimNextServerAgentJob,
@@ -26,6 +27,21 @@ const bodySchema = z.object({
 });
 
 export async function POST(request: Request) {
+  // `/api/agent/` is a public prefix in the proxy (the Bearer token is verified
+  // here instead), and the token regex is trivially matchable, so an anonymous
+  // caller could force one `server.findUnique` per request before auth rejects
+  // it. Limit by IP first, ahead of that lookup. The budget is well above a real
+  // agent's cadence — see AGENT_POLL_LIMIT.
+  const rateLimit = await withRateLimit(request, AGENT_POLL_LIMIT);
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: "Rate limit exceeded" }, // api-copy-audit: allow -- stable machine protocol
+      {
+        status: 429,
+        headers: { "Retry-After": String(Math.ceil(rateLimit.retryAfterMs / 1000)) },
+      },
+    );
+  }
   const authorization = request.headers.get("authorization") ?? "";
   const agent = await authenticateServerAgent(authorization.replace(/^Bearer\s+/i, ""));
   if (!agent) return NextResponse.json({ error: "Unauthorized agent" }, { status: 401 }); // api-copy-audit: allow -- stable machine protocol

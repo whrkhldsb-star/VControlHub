@@ -47,6 +47,15 @@ export const WEB_VITALS_WRITE_LIMIT: RateLimitConfig = { maxRequests: 1_000, win
 export const IMAGE_UPLOAD_LIMIT: RateLimitConfig = { maxRequests: 5, windowMs: 60_000 };
 
 /**
+ * Host-agent poll: deliberately high, because a legitimate agent's protocol is
+ * chatty — 5s idle polls, an immediate re-poll whenever a job is waiting, plus a
+ * 20s heartbeat during long commands. This is a floor against anonymous abuse of
+ * a public-prefix endpoint (each request costs a token lookup before auth can
+ * reject it), not a throttle on real agents.
+ */
+export const AGENT_POLL_LIMIT: RateLimitConfig = { maxRequests: 240, windowMs: 60_000 };
+
+/**
  * Check rate limit for a request. Returns the result with allowed/retryAfterMs.
  * Uses client IP as the identifier.
  */
