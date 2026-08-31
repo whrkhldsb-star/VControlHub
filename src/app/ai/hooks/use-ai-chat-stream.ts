@@ -159,7 +159,18 @@ export function useAiChatStream({
 
   const sendMessage = useCallback(
     async (args: SendArgs) => {
-      if (!activeConvId || streaming) return;
+      // `streaming` is state, so it is stale for the whole tick in which the
+      // first send was issued — two calls in one tick both pass that check and
+      // the second overwrites `abortControllerRef`, orphaning the first stream
+      // (it keeps reading and writing into the transcript with nothing able to
+      // abort it). `abortControllerRef` is a ref and is therefore already
+      // correct synchronously, so it is the reliable in-flight signal.
+      //
+      // The current UI cannot produce that interleaving — the textarea and both
+      // buttons are disabled on `streaming`, and real keypresses land in separate
+      // ticks — so this is hardening the hook's own contract rather than fixing a
+      // reachable bug. It matters for any programmatic caller (retry, macro).
+      if (!activeConvId || streaming || abortControllerRef.current) return;
       // Pin conversation for this generation so switch-away cannot write into another chat.
       const convIdAtSend = activeConvId;
       const abortController = new AbortController();
