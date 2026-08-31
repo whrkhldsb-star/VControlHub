@@ -1,6 +1,7 @@
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { prisma } from "@/lib/db";
 import { ConflictError } from "@/lib/errors";
+import { t } from "@/lib/i18n/service-translations";
 
 export async function withAdminInvariantLock<T>(operation: () => Promise<T>): Promise<T> {
   const release = await acquireAdvisoryLock("user-admin-invariant", "global");
@@ -26,6 +27,6 @@ export async function assertAdminAccessMayBeRemoved(userId: string): Promise<voi
     },
   });
   if (remainingActiveAdmins === 0) {
-    throw new ConflictError("The last active administrator cannot be disabled or stripped of the admin role");
+    throw new ConflictError(t("backend.user.cannotRemoveLastAdmin"));
   }
 }
