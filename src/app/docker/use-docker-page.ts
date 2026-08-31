@@ -17,7 +17,16 @@ import { getErrorMessage } from "@/lib/http/error-message";
 export type ContainerAction = "start" | "stop" | "restart" | "remove";
 export type ProjectAction = "up" | "down" | "start" | "stop" | "restart" | "ps";
 
-export function useDockerPage(initialServers: { id: string; name: string; host: string }[]) {
+export function useDockerPage(
+	initialServers: { id: string; name: string; host: string }[],
+	/**
+	 * Whether the viewer may act on the hub host's own Docker daemon. The API
+	 * answers 403 for everyone else (see `assertHubHostDockerAccess`), so a
+	 * tenant-level operator starts on their first server instead of on a scope
+	 * they cannot read.
+	 */
+	canManageHubHost = true,
+) {
 	const { t } = useI18n();
 	const [containers, setContainers] = useState<Container[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -35,7 +44,8 @@ export function useDockerPage(initialServers: { id: string; name: string; host: 
 	const [dockerScope, setDockerScope] = useState<DockerScope | null>(null);
 	const [serverList] = useState<ServerOption[]>(initialServers);
 	const { state: dockerUrl, setField: setDockerUrlField } = useUrlQueryState({ serverId: "" });
-	const selectedServerId = dockerUrl.serverId || "";
+	const fallbackServerId = canManageHubHost ? "" : (initialServers[0]?.id ?? "");
+	const selectedServerId = dockerUrl.serverId || fallbackServerId;
 	const selectedServerIdRef = useRef(selectedServerId);
 	const setSelectedServerId = (value: string) => {
 		selectedServerIdRef.current = value;

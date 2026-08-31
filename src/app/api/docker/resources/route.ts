@@ -8,6 +8,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { COMMAND_LIMIT } from "@/lib/http/rate-limit-presets";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
+import { assertHubHostDockerAccess } from "@/lib/docker/hub-host-access";
 
 const resourceKindSchema = z.enum(["networks", "volumes"]);
 const resourceNameSchema = z.string().min(1).max(128).regex(/^[a-zA-Z0-9_.-]+$/);
@@ -32,6 +33,10 @@ export async function GET(req: NextRequest) {
     if (serverId) {
       const teamAccess = await assertServerTeamAccess(session, serverId);
       if (!teamAccess.ok) return teamAccess.response;
+    } else {
+      // The hub host's networks/volumes describe shared platform plumbing.
+      const hubAccess = assertHubHostDockerAccess(session);
+      if (!hubAccess.ok) return hubAccess.response;
     }
     if (type === "networks") {
       const { result } = await dockerRequest(name ? `/networks/${encodeURIComponent(name)}` : "/networks", {
@@ -58,6 +63,10 @@ export async function POST(req: NextRequest) {
       if (serverId) {
         const teamAccess = await assertServerTeamAccess(session, serverId);
         if (!teamAccess.ok) return teamAccess.response;
+      } else {
+        // Removing a hub-host volume can delete another tenant's data.
+        const hubAccess = assertHubHostDockerAccess(session);
+        if (!hubAccess.ok) return hubAccess.response;
       }
 
       const isNetwork = type === "networks";

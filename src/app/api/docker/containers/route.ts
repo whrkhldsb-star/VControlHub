@@ -19,6 +19,7 @@ import { COMMAND_LIMIT } from "@/lib/http/rate-limit-presets";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { AuthError } from "@/lib/errors";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
+import { assertHubHostDockerAccess } from "@/lib/docker/hub-host-access";
 
 const containerActionSchema = z.object({
   id: z.string().min(1),
@@ -79,10 +80,14 @@ export async function GET(req: NextRequest) {
         );
       }
 
-      // Remote VPS Docker must stay inside the caller's team (same as SFTP/SSH).
+      // Remote VPS Docker must stay inside the caller's team (same as SFTP/SSH);
+      // the hub host belongs to no team, so it needs platform-manager rights.
       if (serverId) {
         const teamAccess = await assertServerTeamAccess(session, serverId);
         if (!teamAccess.ok) return teamAccess.response;
+      } else {
+        const hubAccess = assertHubHostDockerAccess(session);
+        if (!hubAccess.ok) return hubAccess.response;
       }
 
       if (stats) {
@@ -176,6 +181,10 @@ export async function POST(req: NextRequest) {
       if (serverId) {
         const teamAccess = await assertServerTeamAccess(session, serverId);
         if (!teamAccess.ok) return teamAccess.response;
+      } else {
+        // stop/remove against the hub host hits the platform's own containers.
+        const hubAccess = assertHubHostDockerAccess(session);
+        if (!hubAccess.ok) return hubAccess.response;
       }
 
       const actionMap: Record<string, { path: string; method: string }> = {

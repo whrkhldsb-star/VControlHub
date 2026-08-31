@@ -23,7 +23,13 @@ import { DockerContainerList } from "./docker-container-list";
 import { DockerRemovalDialog, DockerLogsDialog } from "./docker-dialogs";
 import { useDockerPage } from "./use-docker-page";
 
-export default function DockerPage({ initialServers }: { initialServers: { id: string; name: string; host: string }[] }) {
+export default function DockerPage({
+	initialServers,
+	canManageHubHost = true,
+}: {
+	initialServers: { id: string; name: string; host: string }[];
+	canManageHubHost?: boolean;
+}) {
 	const { t } = useI18n();
 	const {
 		containers,
@@ -64,7 +70,7 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 		fetchStats,
 		runningContainers,
 		projectCount,
-	} = useDockerPage(initialServers);
+	} = useDockerPage(initialServers, canManageHubHost);
 
 	const refreshLabel = getRefreshIntervalLabel(refreshIntervalSeconds);
 	const defaultSocket = t("dockerPage.scope.defaultSocket");
@@ -86,7 +92,9 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 						onChange={(e) => setSelectedServerId(e.target.value)}
 						className={UI_INPUT}
 					>
-						<option value="">{t("dockerPage.scope.hubHost")}</option>
+						{/* The hub host's daemon runs the shared platform; the API refuses
+						    it to anyone without platform-manager rights, so do not offer it. */}
+						{canManageHubHost && <option value="">{t("dockerPage.scope.hubHost")}</option>}
 						{serverList.map((s) => (
 							<option key={s.id} value={s.id}>{s.name} ({s.host})</option>
 						))}

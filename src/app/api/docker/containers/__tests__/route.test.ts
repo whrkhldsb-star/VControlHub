@@ -30,9 +30,18 @@ vi.mock("node:http", () => ({ default: { request: httpRequestMock } }));
 
 const route = await import("../route");
 
+// Requests without a serverId are served by the hub host's own daemon — shared
+// platform infrastructure — so the default fixture is a platform manager.
 const session = {
   userId: "u1",
   username: "alice",
+  permissions: ["docker:manage", "team:manage"],
+  currentTeamId: "team-a",
+};
+
+const tenantSession = {
+  userId: "u2",
+  username: "bob",
   permissions: ["docker:manage"],
   currentTeamId: "team-a",
 };
@@ -45,6 +54,31 @@ describe("/api/docker/containers audit coverage", () => {
       ok: true as const,
       server: { id: "srv-foreign", teamId: "team-a" },
     });
+  });
+
+  it("403s a hub-host container list from a tenant-level operator", async () => {
+    mocks.requireApiPermission.mockResolvedValue({ session: tenantSession });
+
+    const response = await route.GET(new NextRequest("http://local/api/docker/containers"));
+
+    expect(response.status).toBe(403);
+    expect(httpRequestMock).not.toHaveBeenCalled();
+  });
+
+  it("403s a hub-host container removal from a tenant-level operator", async () => {
+    mocks.requireApiPermission.mockResolvedValue({ session: tenantSession });
+
+    const response = await route.POST(
+      new NextRequest("http://local/api/docker/containers", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ id: "abc123def456", action: "remove" }),
+      }),
+    );
+
+    expect(response.status).toBe(403);
+    expect(httpRequestMock).not.toHaveBeenCalled();
+    expect(mocks.auditUserAction).not.toHaveBeenCalled();
   });
 
   it("returns an empty unavailable list without error logging when the Docker socket is missing", async () => {

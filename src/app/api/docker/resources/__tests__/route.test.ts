@@ -30,9 +30,19 @@ vi.mock("node:http", () => ({ default: { request: httpRequestMock } }));
 
 const route = await import("../route");
 
+// The hub-host scope (no serverId) is platform infrastructure, so these
+// existing cases run as a platform manager. `tenantSession` below is the
+// operator-shaped caller that must not reach it.
 const session = {
   userId: "u1",
   username: "alice",
+  permissions: ["docker:manage", "team:manage"],
+  currentTeamId: "team-a",
+};
+
+const tenantSession = {
+  userId: "u2",
+  username: "bob",
   permissions: ["docker:manage"],
   currentTeamId: "team-a",
 };
@@ -60,6 +70,35 @@ describe("/api/docker/resources", () => {
     mocks.assertServerTeamAccess.mockResolvedValue({
       ok: true as const,
       server: { id: "srv-1", teamId: "team-a" },
+    });
+  });
+
+  describe("hub-host scope", () => {
+    it("403s a request with no serverId from a tenant-level operator", async () => {
+      mocks.requireApiPermission.mockResolvedValue({ session: tenantSession });
+
+      const response = await route.GET(
+        new NextRequest("http://local/api/docker/resources?type=networks"),
+      );
+
+      expect(response.status).toBe(403);
+      // Never reaches the platform's own daemon.
+      expect(httpRequestMock).not.toHaveBeenCalled();
+    });
+
+    it("403s a hub-host volume removal from a tenant-level operator", async () => {
+      mocks.requireApiPermission.mockResolvedValue({ session: tenantSession });
+
+      const response = await route.POST(
+        new NextRequest("http://local/api/docker/resources", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ type: "volumes", action: "delete", name: "app_storage" }),
+        }),
+      );
+
+      expect(response.status).toBe(403);
+      expect(httpRequestMock).not.toHaveBeenCalled();
     });
   });
 

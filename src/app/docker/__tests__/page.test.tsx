@@ -68,6 +68,33 @@ describe("DockerPage", () => {
 		expect(screen.getByText(/\/var\/run\/docker\.sock/)).toBeInTheDocument();
 	});
 
+	it("offers the hub host only to a platform manager", async () => {
+		// The API answers 403 for the hub-host scope unless the caller holds
+		// team:manage, so a tenant-level operator must not be shown it — and must
+		// land on their own server instead of on a scope they cannot read.
+		render(
+			wrap(
+				<DockerPageClient
+					initialServers={[
+						{ id: "srv_1", name: "web-01", host: "10.0.0.1" },
+						{ id: "srv_2", name: "db-01", host: "10.0.0.2" },
+					]}
+					canManageHubHost={false}
+				/>,
+			),
+		);
+
+		const select = await screen.findByLabelText("Docker 目标");
+		expect(within(select).queryByRole("option", { name: "本机 (Hub Host)" })).toBeNull();
+		expect((select as HTMLSelectElement).value).toBe("srv_1");
+		await waitFor(() =>
+			expect(csrfFetch).toHaveBeenCalledWith(
+				"/api/docker/containers?serverId=srv_1",
+				expect.anything(),
+			),
+		);
+	});
+
 	it("manages Docker networks and volumes from the resources panel", async () => {
 		const user = userEvent.setup();
 		const confirmSpy = vi.spyOn(window, "confirm");

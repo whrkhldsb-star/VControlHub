@@ -16,6 +16,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { COMMAND_LIMIT, GENERAL_READ_LIMIT } from "@/lib/http/rate-limit-presets";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
+import { assertHubHostDockerAccess } from "@/lib/docker/hub-host-access";
 
 const listQuerySchema = z.object({
   serverId: z.string().trim().min(1).optional(),
@@ -42,6 +43,11 @@ export async function GET(request: Request) {
       if (serverId) {
         const teamAccess = await assertServerTeamAccess(session, serverId);
         if (!teamAccess.ok) return teamAccess.response;
+      } else {
+        // No serverId means the hub host's own daemon — shared platform
+        // infrastructure, not this tenant's.
+        const hubAccess = assertHubHostDockerAccess(session);
+        if (!hubAccess.ok) return hubAccess.response;
       }
       const result = await listComposeProjects(serverId);
       return NextResponse.json({
@@ -68,6 +74,10 @@ export async function POST(request: Request) {
       if (serverId) {
         const teamAccess = await assertServerTeamAccess(session, serverId);
         if (!teamAccess.ok) return teamAccess.response;
+      } else {
+        // `down` on a hub-host project can stop the platform itself.
+        const hubAccess = assertHubHostDockerAccess(session);
+        if (!hubAccess.ok) return hubAccess.response;
       }
       const result = await runComposeProjectAction({
         project: body.project,
