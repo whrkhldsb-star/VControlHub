@@ -180,20 +180,60 @@ export function toPropFindItem(
   };
 }
 
-export function isRootDirectChild(
-  entry: Pick<WebDavFileEntryItem, "relativePath">,
-): boolean {
-  return entry.relativePath.split("/").filter(Boolean).length === 1;
+/** Most children a single PROPFIND response will enumerate. */
+export const MAX_PROPFIND_CHILDREN = 5000;
+
+/** Escape the LIKE metacharacters in a literal path prefix. */
+function escapeLikePrefix(prefix: string): string {
+  return prefix.replace(/[\\%_]/g, (char) => `\\${char}`);
 }
 
-export function isDirectChildOf(
-  entry: Pick<WebDavFileEntryItem, "relativePath">,
+type DirectChildRow = {
+  id: string;
+  name: string;
+  relativePath: string;
+  entryType: string;
+  size: bigint | null;
+  mimeType: string | null;
+  updatedAt: Date | null;
+};
+
+/**
+ * Direct children of `parentPath` ("" = the storage node root).
+ *
+ * The depth test has to run in the database. A `relativePath LIKE 'parent/%'`
+ * query matches the WHOLE subtree, so the previous `take: 5000` + JS
+ * "is this a direct child?" filter silently dropped direct children as soon as a
+ * directory had more than 5000 descendants — the client got a short listing with
+ * no error, and a sync client reads a vanished entry as a remote deletion.
+ *
+ * `parentId` cannot be used instead: WebDAV's own `createFileEntry` calls never
+ * populate it and MOVE never rewrites it, so the path is the only source of
+ * truth (which is what DELETE/MOVE already assume).
+ *
+ * Returns `truncated: true` rather than a quietly shortened list when a single
+ * directory holds more than `limit` direct children.
+ */
+export async function listDirectChildren(
+  storageNodeId: string,
   parentPath: string,
-): boolean {
-  const prefix = `${parentPath}/`;
-  if (!entry.relativePath.startsWith(prefix)) return false;
-  const rest = entry.relativePath.slice(prefix.length);
-  return Boolean(rest) && !rest.includes("/");
+  limit: number = MAX_PROPFIND_CHILDREN,
+): Promise<{ rows: DirectChildRow[]; truncated: boolean }> {
+  const prefix = parentPath ? `${parentPath}/` : "";
+  const rows = await prisma.$queryRaw<DirectChildRow[]>`
+    SELECT id, name, "relativePath", "entryType"::text AS "entryType",
+           size, "mimeType", "updatedAt"
+    FROM file_entries
+    WHERE "storageNodeId" = ${storageNodeId}
+      AND "isDeleted" = false
+      AND "relativePath" LIKE ${`${escapeLikePrefix(prefix)}%`} ESCAPE '\\'
+      AND length("relativePath") > ${prefix.length}
+      AND position('/' in substring("relativePath" from ${prefix.length + 1})) = 0
+    ORDER BY "entryType" ASC, name ASC, id ASC
+    LIMIT ${limit + 1}
+  `;
+  if (rows.length > limit) return { rows: rows.slice(0, limit), truncated: true };
+  return { rows, truncated: false };
 }
 
 export async function ensureDirectoryIndexAndBacking(input: {

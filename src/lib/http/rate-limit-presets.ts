@@ -56,6 +56,16 @@ export const IMAGE_UPLOAD_LIMIT: RateLimitConfig = { maxRequests: 5, windowMs: 6
 export const AGENT_POLL_LIMIT: RateLimitConfig = { maxRequests: 240, windowMs: 60_000 };
 
 /**
+ * WebDAV: also reachable without a session (the route verifies its own API
+ * token, and `/api/webdav/` is exempted from the proxy's bearer checks), so an
+ * anonymous caller can force one indexed token lookup per request. The budget is
+ * high because a real client is crawl-heavy — one PROPFIND per directory on
+ * mount, plus ranged GETs — so this is a ceiling on anonymous abuse, not a
+ * throttle on mounted drives.
+ */
+export const WEBDAV_LIMIT: RateLimitConfig = { maxRequests: 1_200, windowMs: 60_000 };
+
+/**
  * Check rate limit for a request. Returns the result with allowed/retryAfterMs.
  * Uses client IP as the identifier.
  */

@@ -45,13 +45,13 @@ import { buildPropFindMultistatus, parseDepth, type PropFindItem } from "./xml";
 import { t } from "@/lib/i18n/service-translations";
 import {
   FILE_ENTRY_PAGE_SIZE,
+  MAX_PROPFIND_CHILDREN,
   buildWebDavHref,
   ensureDirectoryIndexAndBacking,
   entryName,
   findEntry,
   forEachFileEntryPage,
-  isDirectChildOf,
-  isRootDirectChild,
+  listDirectChildren,
   loadNode,
   normalizeWebDavRelativePath,
   parentRelativePath,
@@ -68,6 +68,25 @@ export {
 } from "./handler-internals";
 
 const MAX_WEBDAV_PUT_BYTES = 100 * 1024 * 1024;
+
+/**
+ * Size of a stored object whose FileEntry has no `size` recorded.
+ *
+ * `streamStorageFile` is the only size source, and it opens a handle (a LOCAL
+ * read stream, or an SSH client for SFTP) that the caller owns — probing without
+ * closing leaked one per request.
+ */
+async function probeStorageFileSize(
+  node: Parameters<typeof streamStorageFile>[0],
+  relativePath: string,
+): Promise<number> {
+  const probe = await streamStorageFile(node, relativePath);
+  try {
+    return probe.size;
+  } finally {
+    probe.close();
+  }
+}
 export async function handleWebDavOptions(): Promise<Response> {
   return new Response(null, {
     status: 204,
@@ -92,6 +111,7 @@ export async function handleWebDavPropFind(
   await requireAccess(ctx.session, ctx.storageNodeId, ctx.relativePath, "read");
   const node = await loadNode(ctx.storageNodeId, ctx.session);
   const items: PropFindItem[] = [];
+  let listParent: string | null = null;
 
   if (!ctx.relativePath) {
     items.push({
@@ -100,47 +120,30 @@ export async function handleWebDavPropFind(
       isCollection: true,
       lastModified: new Date(),
     });
-    if (depth === 1) {
-      const children = await prisma.fileEntry.findMany({
-        where: {
-          storageNodeId: ctx.storageNodeId,
-          isDeleted: false,
-          OR: [
-            { parentId: null },
-            // root children by path depth 1
-          ],
-        },
-        orderBy: [{ entryType: "asc" }, { name: "asc" }, { id: "asc" }],
-        take: FILE_ENTRY_PAGE_SIZE,
-      });
-      for (const child of children) {
-        if (!isRootDirectChild(child)) continue;
-        items.push(toPropFindItem(ctx.storageNodeId, child));
-      }
-    }
+    if (depth === 1) listParent = "";
   } else {
     const entry = await findEntry(ctx.storageNodeId, ctx.relativePath);
     if (!entry) throw new NotFoundError(t("backend.webdav.resourceNotFound"));
     items.push(toPropFindItem(ctx.storageNodeId, entry));
     if (depth === 1 && entry.entryType === "DIRECTORY") {
-      const children = await prisma.fileEntry.findMany({
-        where: {
-          storageNodeId: ctx.storageNodeId,
-          isDeleted: false,
-          OR: [
-            { parentId: entry.id },
-            {
-              relativePath: { startsWith: `${entry.relativePath}/` },
-            },
-          ],
-        },
-        orderBy: [{ entryType: "asc" }, { name: "asc" }, { id: "asc" }],
-        take: FILE_ENTRY_PAGE_SIZE,
-      });
-      for (const child of children) {
-        if (!isDirectChildOf(child, entry.relativePath)) continue;
-        items.push(toPropFindItem(ctx.storageNodeId, child));
-      }
+      listParent = entry.relativePath;
+    }
+  }
+
+  if (listParent !== null) {
+    const children = await listDirectChildren(ctx.storageNodeId, listParent);
+    if (children.truncated) {
+      // A silently short multistatus is worse than an error: sync clients read a
+      // missing entry as a remote deletion.
+      return new Response(
+        t("backend.webdav.collectionTooLargeToList", {
+          limit: String(MAX_PROPFIND_CHILDREN),
+        }),
+        { status: 507, headers: { "Content-Type": "text/plain; charset=utf-8" } },
+      );
+    }
+    for (const child of children.rows) {
+      items.push(toPropFindItem(ctx.storageNodeId, child));
     }
   }
 
@@ -181,7 +184,7 @@ export async function handleWebDavGetHead(
     "application/octet-stream";
   const fileSize =
     entry.size == null
-      ? (await streamStorageFile(node, ctx.relativePath)).size
+      ? await probeStorageFileSize(node, ctx.relativePath)
       : Number(entry.size);
   const range = parseStorageRange(ctx.rangeHeader ?? null, fileSize);
   if (range instanceof Response) return range;
@@ -695,7 +698,6 @@ export async function handleWebDavCopy(
   );
   if (!destPath)
     throw new ValidationError(t("backend.webdav.invalidDestination"));
-  await requireAccess(ctx.session, ctx.storageNodeId, destPath, "write");
 
   const entry = await findEntry(ctx.storageNodeId, ctx.relativePath);
   if (!entry) throw new NotFoundError(t("backend.webdav.resourceNotFound"));
@@ -705,6 +707,43 @@ export async function handleWebDavCopy(
     );
   }
 
+  const node = await loadNode(ctx.storageNodeId, ctx.session);
+  // COPY writes a second full copy of the bytes, so the destination grant has to
+  // be checked against that size. Without `writeBytes` neither `maxFileBytes` nor
+  // `quotaBytes` is evaluated at all (assertStorageAccess skips both), which let
+  // a read+write grant duplicate its way past its own capacity limit.
+  const sourceBytes =
+    entry.size == null
+      ? await probeStorageFileSize(node, ctx.relativePath)
+      : Number(entry.size);
+  const copyAccess = await requireAccess(
+    ctx.session,
+    ctx.storageNodeId,
+    destPath,
+    "write",
+    sourceBytes,
+  );
+  try {
+    return await performWebDavCopy({
+      ctx,
+      request,
+      entry,
+      node,
+      destPath,
+    });
+  } finally {
+    await releaseStorageQuotaGuard(copyAccess);
+  }
+}
+
+async function performWebDavCopy(input: {
+  ctx: WebDavContext;
+  request: Request;
+  entry: { id: string; entryType: string; mimeType: string | null };
+  node: Awaited<ReturnType<typeof loadNode>>;
+  destPath: string;
+}): Promise<Response> {
+  const { ctx, request, entry, node, destPath } = input;
   const existingDest = await findEntry(ctx.storageNodeId, destPath);
   const overwrite =
     (request.headers.get("overwrite") ?? "T").toUpperCase() !== "F";
@@ -714,7 +753,6 @@ export async function handleWebDavCopy(
     );
   }
 
-  const node = await loadNode(ctx.storageNodeId, ctx.session);
   const destName = entryName(destPath);
   const destMime = entry.mimeType || undefined;
   let copiedSize = 0;

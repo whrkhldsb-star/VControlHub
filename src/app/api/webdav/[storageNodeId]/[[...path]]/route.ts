@@ -25,6 +25,7 @@ import {
 } from "@/lib/webdav/handler";
 import { createLogger } from "@/lib/logging";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { WEBDAV_LIMIT, withRateLimit } from "@/lib/http/rate-limit-presets";
 
 const logger = createLogger("webdav:route");
 
@@ -47,6 +48,20 @@ async function dispatch(
 
   if (method === "OPTIONS") {
     return handleWebDavOptions();
+  }
+
+  // Before authentication on purpose: this route verifies its own token and is
+  // exempt from the proxy's bearer checks, so an anonymous caller would
+  // otherwise get one free token lookup per request.
+  const rateLimit = await withRateLimit(request, WEBDAV_LIMIT);
+  if (!rateLimit.allowed) {
+    return new Response("Too Many Requests", {
+      status: 429,
+      headers: {
+        "Retry-After": String(Math.max(1, Math.ceil(rateLimit.retryAfterMs / 1000))),
+        "Content-Type": "text/plain; charset=utf-8",
+      },
+    });
   }
 
   let auth;
