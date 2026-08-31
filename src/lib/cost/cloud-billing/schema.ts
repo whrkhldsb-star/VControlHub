@@ -20,17 +20,25 @@ export const cloudBillingCredentialsSchema = z
 	})
 	.strict();
 
-function normalizeBillingCsvUrl(value: string): string {
+function normalizeBillingCsvUrl(
+	value: string,
+): { ok: true; url: string } | { ok: false; reason: string } {
 	try {
-		return normalizePublicHttpUrl(
-			value,
-			"billingCsvUrl must be a public http(s) URL without credentials",
-		);
+		return {
+			ok: true,
+			url: normalizePublicHttpUrl(
+				value,
+				"billingCsvUrl must be a public http(s) URL without credentials",
+			),
+		};
 	} catch (error) {
-		if (error instanceof ValidationError) throw error;
-		throw new ValidationError(
-			error instanceof Error ? error.message : "billingCsvUrl is not a valid public URL",
-		);
+		return {
+			ok: false,
+			reason:
+				error instanceof ValidationError || error instanceof Error
+					? error.message
+					: "billingCsvUrl is not a valid public URL",
+		};
 	}
 }
 
@@ -54,13 +62,29 @@ export type CloudBillingConfigParsed = {
 };
 
 export const cloudBillingConfigSchema = cloudBillingConfigObjectSchema.transform(
-	(cfg): CloudBillingConfigParsed => {
+	(cfg, ctx): CloudBillingConfigParsed => {
 		const raw = cfg.billingCsvUrl?.trim();
+		// Report the SSRF/credential rejection as a zod issue rather than throwing
+		// out of the transform: a throw escapes `safeParse` itself, so every caller
+		// would have to wrap validation in try/catch to get a 400 instead of a 500.
+		let billingCsvUrl: string | undefined;
+		if (raw) {
+			const normalized = normalizeBillingCsvUrl(raw);
+			if (!normalized.ok) {
+				ctx.addIssue({
+					code: z.ZodIssueCode.custom,
+					path: ["billingCsvUrl"],
+					message: normalized.reason,
+				});
+			} else {
+				billingCsvUrl = normalized.url;
+			}
+		}
 		return {
 			region: cfg.region,
 			accountId: cfg.accountId,
 			sampleCsv: cfg.sampleCsv,
-			billingCsvUrl: raw ? normalizeBillingCsvUrl(raw) : undefined,
+			billingCsvUrl,
 			categoryMap: cfg.categoryMap,
 		};
 	},

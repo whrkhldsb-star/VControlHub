@@ -104,6 +104,32 @@ describe("createCloudBillingAccountSchema billingCsvUrl", () => {
 		).toThrow();
 	});
 
+	it("reports a private billingCsvUrl through safeParse instead of throwing", () => {
+		// The SSRF rejection used to `throw` from inside the transform, which
+		// escapes safeParse — every caller would need its own try/catch to answer
+		// 400 instead of 500.
+		const result = createCloudBillingAccountSchema.safeParse({
+			name: "Bad",
+			provider: "aws",
+			credentials: { accessKeyId: "AKIA", secretAccessKey: "secret" },
+			config: { billingCsvUrl: "http://127.0.0.1/bill.csv" },
+		});
+
+		expect(result.success).toBe(false);
+		if (result.success) return;
+		expect(result.error.issues.map((i) => i.path.join("."))).toContain("config.billingCsvUrl");
+	});
+
+	it("reports a URL carrying embedded credentials the same way", () => {
+		const result = createCloudBillingAccountSchema.safeParse({
+			name: "Bad",
+			provider: "aws",
+			credentials: { accessKeyId: "AKIA", secretAccessKey: "secret" },
+			config: { billingCsvUrl: "https://user:pw@example.com/bill.csv" },
+		});
+		expect(result.success).toBe(false);
+	});
+
 	it("allows generic_csv with only billingCsvUrl", () => {
 		const parsed = createCloudBillingAccountSchema.parse({
 			name: "CSV live",
