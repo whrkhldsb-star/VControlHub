@@ -26,6 +26,7 @@ import { HUB_HOST_INSTANCE_KEY, getDockerEnvironmentStatusFor, getRemoteUsedPort
 import { serverTeamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
+import { assertHubHostDockerAccess } from "@/lib/docker/hub-host-access";
 import { getErrorMessage } from "@/lib/http/error-message";
 
 export const dynamic = "force-dynamic";
@@ -39,6 +40,12 @@ export async function GET(request: Request) {
 		if (serverId) {
 			const access = await assertServerTeamAccess(session, serverId);
 			if (!access.ok) return access.response;
+		} else {
+			// No serverId means the hub host's own daemon — shared platform
+			// infrastructure. Its installed-service list alone discloses the control
+			// plane's topology.
+			const hubAccess = assertHubHostDockerAccess(session);
+			if (!hubAccess.ok) return hubAccess.response;
 		}
 		const installed = await listQuickServices(instanceKey);
 		const installedMap = new Map(installed.map((s) => [s.slug, s]));
@@ -139,6 +146,14 @@ export async function POST(request: Request) {
 		const { slug, customPort } = body;
 		const serverId = body.serverId?.trim() || "";
 		const instanceKey = serverId || HUB_HOST_INSTANCE_KEY;
+		if (!serverId) {
+			// Installing on the hub host runs `docker run` against the platform's own
+			// daemon, and two catalogue templates (Portainer, Gladys) mount that
+			// daemon's socket into the container — a container escape onto the control
+			// plane for any tenant operator holding docker:manage.
+			const hubAccess = assertHubHostDockerAccess(session);
+			if (!hubAccess.ok) return hubAccess.response;
+		}
 
 		// First try local catalog
 		let template = SERVICE_CATALOG.find((t) => t.slug === slug);

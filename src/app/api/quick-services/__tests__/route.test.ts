@@ -135,6 +135,139 @@ describe("/api/quick-services routes", () => {
     expect(json.usedPorts).toEqual([{ port: 3000, usedBy: "vcontrolhub" }]);
   });
 
+  describe("hub-host scope requires a platform manager", () => {
+    /**
+     * Omitting `serverId` targets the hub host — the platform's own Docker
+     * daemon. `docker:manage` alone must not reach it: the permission is part of
+     * the default `operator` role, and installing on the hub host runs
+     * `docker run` against the control plane's daemon. Two catalogue templates
+     * (Portainer, Gladys) declare `allowDockerSocket: true`, so a tenant
+     * operator could bind-mount that socket into a container they control — a
+     * container escape onto the host that holds every tenant's SSH keys.
+     * Uninstall with `deleteVolumes` additionally rm -rf's host paths.
+     *
+     * Same rule and same helper as `/api/docker/*`; these cases exist because
+     * the quick-service routes were missed when that guard was introduced.
+     */
+    const operatorSession = {
+      session: {
+        userId: "u2",
+        username: "ops",
+        roles: ["operator"],
+        permissions: ["docker:manage"],
+        mustChangePassword: false,
+        currentTeamId: "team_a",
+      },
+    };
+
+    beforeEach(() => {
+      mocks.requireApiPermission.mockResolvedValue(operatorSession);
+    });
+
+    it("refuses to list hub-host services", async () => {
+      const response = await rootRoute.GET(new Request("http://local/api/quick-services"));
+      expect(response.status).toBe(403);
+      expect(mocks.listQuickServices).not.toHaveBeenCalled();
+    });
+
+    it("refuses to install on the hub host without enqueueing a job", async () => {
+      const response = await rootRoute.POST(
+        new Request("http://local/api/quick-services", {
+          method: "POST",
+          body: JSON.stringify({ slug: "alist" }),
+        }),
+      );
+      expect(response.status).toBe(403);
+      expect(mocks.enqueueQuickServiceJob).not.toHaveBeenCalled();
+    });
+
+    it.each(["start", "stop", "sync", "update"])(
+      "refuses the hub-host %s lifecycle action",
+      async (action) => {
+        const response = await slugRoute.PATCH(
+          new Request("http://local/api/quick-services/alist", {
+            method: "PATCH",
+            body: JSON.stringify({ action }),
+          }),
+          { params: Promise.resolve({ slug: "alist" }) },
+        );
+        expect(response.status).toBe(403);
+        expect(mocks.enqueueQuickServiceJob).not.toHaveBeenCalled();
+      },
+    );
+
+    it("refuses to uninstall a hub-host service", async () => {
+      const response = await slugRoute.DELETE(
+        new Request("http://local/api/quick-services/alist", { method: "DELETE" }),
+        { params: Promise.resolve({ slug: "alist" }) },
+      );
+      expect(response.status).toBe(403);
+      expect(mocks.enqueueQuickServiceJob).not.toHaveBeenCalled();
+    });
+
+    it("refuses a hub-host uninstall that also asks to delete host volumes", async () => {
+      // The worst variant: rm -rf of host paths under /opt or /srv on the
+      // control plane.
+      const response = await slugRoute.DELETE(
+        new Request("http://local/api/quick-services/alist", {
+          method: "DELETE",
+          body: JSON.stringify({ deleteVolumes: true }),
+        }),
+        { params: Promise.resolve({ slug: "alist" }) },
+      );
+      expect(response.status).toBe(403);
+      expect(mocks.enqueueQuickServiceJob).not.toHaveBeenCalled();
+    });
+
+    it("refuses to enumerate hub-host ports", async () => {
+      // The used-port list is a port scan of the control plane.
+      const response = await checkPortRoute.GET(
+        new Request("http://local/api/quick-services/check-port?action=used-ports"),
+      );
+      expect(response.status).toBe(403);
+      expect(mocks.getUsedPorts).not.toHaveBeenCalled();
+    });
+
+    it("still allows the operator's own server for each verb", async () => {
+      mocks.serverFindUnique.mockResolvedValue({ id: "srv_a", teamId: "team_a", enabled: true, name: "vps-a" } as never);
+      mocks.enqueueQuickServiceJob.mockResolvedValue({ job: { id: "job1", status: "PENDING" }, taskId: "task1", reused: false });
+
+      const patch = await slugRoute.PATCH(
+        new Request("http://local/api/quick-services/alist", {
+          method: "PATCH",
+          body: JSON.stringify({ action: "stop", serverId: "srv_a" }),
+        }),
+        { params: Promise.resolve({ slug: "alist" }) },
+      );
+      expect(patch.status).toBe(202);
+
+      const del = await slugRoute.DELETE(
+        new Request("http://local/api/quick-services/alist", {
+          method: "DELETE",
+          body: JSON.stringify({ serverId: "srv_a" }),
+        }),
+        { params: Promise.resolve({ slug: "alist" }) },
+      );
+      expect(del.status).toBe(202);
+    });
+
+    it("lets a platform manager keep using the hub host", async () => {
+      mocks.requireApiPermission.mockResolvedValue({
+        session: {
+          userId: "u1",
+          username: "alice",
+          roles: ["admin"],
+          permissions: ["docker:manage", "team:manage"],
+          mustChangePassword: false,
+          currentTeamId: null,
+        },
+      });
+      const response = await rootRoute.GET(new Request("http://local/api/quick-services"));
+      expect(response.status).toBe(200);
+      expect(mocks.listQuickServices).toHaveBeenCalledWith("hub-host");
+    });
+  });
+
   it("excludes unassigned legacy servers from the non-admin install-target picker", async () => {
     mocks.requireApiPermission.mockResolvedValueOnce({
       session: {
@@ -149,7 +282,12 @@ describe("/api/quick-services routes", () => {
       { id: "srv_a", name: "team-a-vps", host: "10.0.0.1" },
     ]);
 
-    const response = await rootRoute.GET(new Request("http://local/api/quick-services"));
+    // A tenant operator must name one of their own servers: the hub-host scope
+    // (no serverId) is platform infrastructure and now answers 403.
+    mocks.serverFindUnique.mockResolvedValueOnce({ id: "srv_a", teamId: "team_a" } as never);
+    const response = await rootRoute.GET(
+      new Request("http://local/api/quick-services?serverId=srv_a"),
+    );
     const json = await body(response);
 
     expect(response.status).toBe(200);

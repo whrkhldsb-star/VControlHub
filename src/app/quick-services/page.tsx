@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
+import { isGlobalTeamManager } from "@/lib/auth/team-scope";
 import { PageShell, PageHeader } from "@/components/page-shell";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { QuickServicesClient } from "./quick-services-client";
@@ -21,7 +22,7 @@ export default async function QuickServicesPage() {
 					<Link href="/files" data-variant="secondary" className="rounded-xl px-3 py-1.5">{t("qsPage.filesLink", locale)}</Link>
 				</div>
 			</PageHeader>
-			<QuickServicesClient canManage={canManage} />
+			<QuickServicesClient canManage={canManage} canManageHubHost={isGlobalTeamManager(session)} />
 		</PageShell>
 	);
 }

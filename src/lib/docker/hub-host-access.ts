@@ -1,15 +1,23 @@
 /**
  * Guard for the hub-host Docker scope.
  *
- * All three Docker routes (`/api/docker/containers`, `/api/docker/resources`,
- * `/api/docker/compose`) accept an optional `serverId`. With one, the request is
- * scoped to a tenant's own VPS and `assertServerTeamAccess` decides. Without
- * one, the request is served by `hubHostDockerScope` — the platform's *own*
- * Docker daemon, reached through the mounted `/var/run/docker.sock`. That socket
- * runs the containers every tenant shares, so `docker compose down` or
- * `container remove` there is a platform-wide action, not a tenant one, and
- * `docker:manage` alone must not authorise it: the permission is part of the
- * default `operator` role.
+ * Every route that can address Docker takes an optional `serverId`: the three
+ * `/api/docker/*` routes (`containers`, `resources`, `compose`) and the three
+ * quick-service routes (`/api/quick-services`, `/api/quick-services/[slug]`,
+ * `/api/quick-services/check-port`). With a `serverId`, the request is scoped to
+ * a tenant's own VPS and `assertServerTeamAccess` decides. Without one, it falls
+ * through to the hub host — the platform's *own* Docker daemon, reached through
+ * the mounted `/var/run/docker.sock`. That socket runs the containers every
+ * tenant shares, so `docker compose down` or `container remove` there is a
+ * platform-wide action, not a tenant one, and `docker:manage` alone must not
+ * authorise it: the permission is part of the default `operator` role.
+ *
+ * The quick-service surface is the sharper case. `installService` on the hub host
+ * runs `docker run` against that daemon, and two catalogue templates (Portainer,
+ * Gladys) declare `allowDockerSocket: true` — installing one bind-mounts the
+ * daemon socket into a container the tenant then controls, which is a container
+ * escape onto the control plane. Uninstall with `deleteVolumes` additionally rm
+ * -rf's host paths under /opt and /srv.
  *
  * Note that mounting the socket `:ro` does not make the Docker API read-only —
  * a read-only bind mount protects the socket *file*, not the daemon behind it.

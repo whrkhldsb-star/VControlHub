@@ -24,7 +24,14 @@ import { ActionButton } from "@/components/action-button";
 
 /* ── Main Component ─────────────────────────────────────────────── */
 
-export function QuickServicesClient({ canManage }: { canManage: boolean }) {
+export function QuickServicesClient({
+	canManage,
+	canManageHubHost,
+}: {
+	canManage: boolean;
+	/** Only a platform manager may target the hub host (its Docker socket runs the control plane). */
+	canManageHubHost: boolean;
+}) {
 	const { t } = useI18n();
 	const categoryLabels = buildCategoryLabels(t);
 	const {
@@ -43,7 +50,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 		quickServicePublicHost,
 		fetchCatalog,
 		fetchSources,
-	} = useQuickServiceCatalog(t);
+	} = useQuickServiceCatalog(t, canManageHubHost);
 	const [tab, setTab] = useState<Tab>("store");
 	// Install dialog state (the dialog body ships in <InstallDialog />)
 	const [installDialog, setInstallDialog] = useState<CatalogItem | null>(null);
@@ -231,7 +238,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 					className={`${CONTROL_CLASS} min-w-[16rem] bg-[var(--surface)]`}
 					aria-label={t("qsPage.targetNode")}
 				>
-					<option value="">{t("qsPage.targetHubHost")}</option>
+					{canManageHubHost && <option value="">{t("qsPage.targetHubHost")}</option>}
 					{servers.map((server) => (
 						<option key={server.id} value={server.id}>
 							{server.name} ({server.host})

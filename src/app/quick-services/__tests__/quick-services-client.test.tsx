@@ -106,7 +106,7 @@ describe("QuickServicesClient", () => {
 			.mockResolvedValueOnce(availableCatalogResponse)
 			.mockResolvedValueOnce(sourcesResponse);
 
-		render(<QuickServicesClient canManage />);
+		render(<QuickServicesClient canManage canManageHubHost />);
 
 		expect(await screen.findByRole("tab", { name: /本地精选/ })).toHaveAttribute("aria-selected", "true");
 		expect(screen.getAllByRole("button", { name: "一键安装" }).length).toBeGreaterThan(0);
@@ -118,7 +118,7 @@ describe("QuickServicesClient", () => {
 			.mockResolvedValueOnce(availableCatalogResponse)
 			.mockRejectedValueOnce(new Error("source API unavailable"));
 
-		render(<QuickServicesClient canManage />);
+		render(<QuickServicesClient canManage canManageHubHost />);
 		expect(await screen.findByRole("alert")).toHaveTextContent("source API unavailable");
 		expect(screen.getAllByRole("button", { name: "一键安装" }).length).toBeGreaterThan(0);
 	});
@@ -136,7 +136,7 @@ describe("QuickServicesClient", () => {
 			.mockResolvedValueOnce(sourcesResponse)
 			.mockResolvedValueOnce({ available: true, usedBy: null });
 
-		render(<QuickServicesClient canManage />);
+		render(<QuickServicesClient canManage canManageHubHost />);
 
 		const targetSelect = await screen.findByRole("combobox", { name: "部署节点" });
 		const firstInstall = screen.getAllByRole("button", { name: "一键安装" })[0]!;
@@ -159,7 +159,7 @@ describe("QuickServicesClient", () => {
 		const confirmSpy = vi.spyOn(window, "confirm");
 		mockInitialLoads();
 
-		render(<QuickServicesClient canManage />);
+		render(<QuickServicesClient canManage canManageHubHost />);
 		await user.click(await screen.findByRole("tab", { name: /已安装/ }));
 		await user.click(screen.getByRole("button", { name: "卸载" }));
 
@@ -180,7 +180,7 @@ describe("QuickServicesClient", () => {
 			.mockResolvedValueOnce({ success: true, queued: true, taskId: "job:job_qs_1" })
 			.mockResolvedValueOnce(catalogResponse);
 
-		render(<QuickServicesClient canManage />);
+		render(<QuickServicesClient canManage canManageHubHost />);
 		await user.click(await screen.findByRole("tab", { name: /已安装/ }));
 		await user.click(screen.getByRole("button", { name: "卸载" }));
 		await user.click(screen.getByRole("button", { name: "确认卸载" }));
@@ -203,7 +203,7 @@ describe("QuickServicesClient", () => {
 			.mockResolvedValueOnce({ success: true, queued: true, taskId: "job:job_qs_2" })
 			.mockResolvedValueOnce(catalogResponse);
 
-		render(<QuickServicesClient canManage />);
+		render(<QuickServicesClient canManage canManageHubHost />);
 		await user.click(await screen.findByRole("tab", { name: /已安装/ }));
 		await user.click(screen.getByRole("button", { name: "卸载" }));
 		const dialog = screen.getByRole("dialog", { name: "确认卸载快捷服务" });
@@ -224,7 +224,7 @@ describe("QuickServicesClient", () => {
 		const user = userEvent.setup();
 		mockInitialLoads();
 
-		render(<QuickServicesClient canManage />);
+		render(<QuickServicesClient canManage canManageHubHost />);
 
 		const searchBox = await screen.findByRole("searchbox", { name: "搜索快捷服务" });
 		expect(searchBox).toHaveAttribute("placeholder", "应用名称、描述、镜像…");
@@ -239,7 +239,7 @@ describe("QuickServicesClient", () => {
 			.mockResolvedValueOnce({ success: true, queued: true, taskId: "job:job_qs_3" })
 			.mockResolvedValueOnce(catalogResponse);
 
-		render(<QuickServicesClient canManage />);
+		render(<QuickServicesClient canManage canManageHubHost />);
 		await user.click(await screen.findByRole("tab", { name: /已安装/ }));
 		await user.click(screen.getByRole("button", { name: "更新" }));
 
@@ -268,7 +268,7 @@ describe("QuickServicesClient", () => {
 			.mockResolvedValueOnce(sourcesResponse)
 			.mockResolvedValueOnce({ available: true, usedBy: null });
 
-		render(<QuickServicesClient canManage />);
+		render(<QuickServicesClient canManage canManageHubHost />);
 		await user.click(await screen.findByRole("tab", { name: /本地精选/ }));
 		await user.click(screen.getAllByRole("button", { name: "一键安装" })[0]!);
 		await waitFor(() => expect(screen.getByText("✓ 可用")).toBeInTheDocument());
@@ -292,7 +292,7 @@ describe("QuickServicesClient", () => {
 			.mockResolvedValueOnce({ success: true, queued: true, taskId: "job:job_qs_4" })
 			.mockResolvedValueOnce(catalogResponse);
 
-		render(<QuickServicesClient canManage />);
+		render(<QuickServicesClient canManage canManageHubHost />);
 		await user.click(await screen.findByRole("tab", { name: /本地精选/ }));
 		await user.click(screen.getAllByRole("button", { name: "一键安装" })[0]!);
 		await waitFor(() => expect(screen.getByText("✓ 可用")).toBeInTheDocument());
@@ -318,7 +318,7 @@ describe("QuickServicesClient", () => {
 		const confirmSpy = vi.spyOn(window, "confirm");
 		mockInitialLoads();
 
-		render(<QuickServicesClient canManage />);
+		render(<QuickServicesClient canManage canManageHubHost />);
 		await screen.findByText(/最近同步：LinuxServer/);
 		await user.click(screen.getByRole("tab", { name: /^⚙️ 应用源/ }));
 		await user.click(screen.getByRole("button", { name: "删除" }));
@@ -340,7 +340,7 @@ describe("QuickServicesClient", () => {
 			.mockResolvedValueOnce({ sources: [] })
 			.mockResolvedValueOnce(catalogResponse);
 
-		render(<QuickServicesClient canManage />);
+		render(<QuickServicesClient canManage canManageHubHost />);
 		await screen.findByText(/最近同步：LinuxServer/);
 		await user.click(screen.getByRole("tab", { name: /^⚙️ 应用源/ }));
 		await user.click(screen.getByRole("button", { name: "删除" }));
@@ -358,7 +358,7 @@ describe("QuickServicesClient", () => {
 			.mockResolvedValueOnce(sourcesResponse);
 		vi.spyOn(window, "location", "get").mockReturnValue({ ...window.location, hostname: "" } as Location);
 
-		render(<QuickServicesClient canManage />);
+		render(<QuickServicesClient canManage canManageHubHost />);
 
 		await screen.findByText(/最近同步：LinuxServer/);
 		expect(screen.queryByRole("link", { name: /访问.*未配置访问入口/ })).not.toBeInTheDocument();
@@ -369,7 +369,7 @@ describe("QuickServicesClient", () => {
 	it("shows a public direct-port access link for running services", async () => {
 		mockInitialLoads();
 
-		render(<QuickServicesClient canManage />);
+		render(<QuickServicesClient canManage canManageHubHost />);
 		await userEvent.click(await screen.findByRole("tab", { name: /已安装/ }));
 
 		const accessLink = await screen.findByRole("link", { name: "访问 AList（Public direct port）" });
@@ -382,7 +382,7 @@ describe("QuickServicesClient", () => {
 		const user = userEvent.setup();
 		mockInitialLoads();
 
-		render(<QuickServicesClient canManage />);
+		render(<QuickServicesClient canManage canManageHubHost />);
 		await user.click(await screen.findByRole("tab", { name: /已安装/ }));
 		await user.click(screen.getByRole("button", { name: "卸载" }));
 
@@ -408,7 +408,7 @@ describe("QuickServicesClient", () => {
 		const user = userEvent.setup();
 		mockInitialLoads();
 
-		render(<QuickServicesClient canManage />);
+		render(<QuickServicesClient canManage canManageHubHost />);
 		await user.click(await screen.findByRole("tab", { name: /已安装/ }));
 		await user.click(screen.getByRole("button", { name: "更新" }));
 
@@ -434,7 +434,7 @@ describe("QuickServicesClient", () => {
 		const user = userEvent.setup();
 		mockInitialLoads();
 
-		render(<QuickServicesClient canManage />);
+		render(<QuickServicesClient canManage canManageHubHost />);
 		await screen.findByText(/最近同步：LinuxServer/);
 		await user.click(screen.getByRole("tab", { name: /^⚙️ 应用源/ }));
 		await user.click(screen.getByRole("button", { name: "删除" }));
@@ -455,5 +455,48 @@ describe("QuickServicesClient", () => {
 		const footer = cancelButton.parentElement as HTMLElement;
 		expect(footer.className).toMatch(/flex-col-reverse/);
 		expect(footer.className).toMatch(/sm:flex-row/);
+	});
+
+	describe("hub-host target visibility", () => {
+		/**
+		 * The hub host is the control plane's own Docker daemon, and the API now
+		 * answers 403 for a non-platform-manager. If the option were still offered,
+		 * a tenant operator would land on it by default (the initial state is "")
+		 * and see an error instead of their own nodes, so the UI has to hide it and
+		 * pick one of their servers once the list arrives.
+		 */
+		const withServers = {
+			...catalogResponse,
+			servers: [
+				{ id: "srv_a", name: "team-a-vps", host: "10.0.0.1" },
+				{ id: "srv_b", name: "team-a-db", host: "10.0.0.2" },
+			],
+		};
+
+		it("hides the hub host from a tenant operator and selects their first server", async () => {
+			vi.mocked(csrfFetch)
+				.mockResolvedValueOnce(withServers)
+				.mockResolvedValueOnce(sourcesResponse)
+				.mockResolvedValue(withServers);
+
+			render(<QuickServicesClient canManage canManageHubHost={false} />);
+
+			const select = await screen.findByRole("combobox", { name: "部署节点" });
+			await waitFor(() => expect((select as HTMLSelectElement).value).toBe("srv_a"));
+			expect(within(select).queryByRole("option", { name: /本机/ })).toBeNull();
+		});
+
+		it("offers the hub host to a platform manager", async () => {
+			vi.mocked(csrfFetch)
+				.mockResolvedValueOnce(withServers)
+				.mockResolvedValueOnce(sourcesResponse)
+				.mockResolvedValue(withServers);
+
+			render(<QuickServicesClient canManage canManageHubHost />);
+
+			const select = await screen.findByRole("combobox", { name: "部署节点" });
+			expect(within(select).getByRole("option", { name: /本机/ })).toBeTruthy();
+			expect((select as HTMLSelectElement).value).toBe("");
+		});
 	});
 });

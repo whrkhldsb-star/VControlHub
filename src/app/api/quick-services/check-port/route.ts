@@ -6,6 +6,7 @@ import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { checkPort, allocatePort, getUsedPorts } from "@/lib/quick-service/service";
 import { getRemoteUsedPorts, isRemotePortAvailable } from "@/lib/quick-service/docker-cli";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
+import { assertHubHostDockerAccess } from "@/lib/docker/hub-host-access";
 
 import { AppError, ValidationError } from "@/lib/errors";
 import { getErrorMessage } from "@/lib/http/error-message";
@@ -32,6 +33,10 @@ export async function GET(request: Request) {
 		if (serverId) {
 			const access = await assertServerTeamAccess(session, serverId);
 			if (!access.ok) return access.response;
+		} else {
+			// The hub host's used-port list is a port scan of the control plane.
+			const hubAccess = assertHubHostDockerAccess(session);
+			if (!hubAccess.ok) return hubAccess.response;
 		}
 
 		// action=allocate: suggest a free port

@@ -21,7 +21,7 @@ export type QuickServiceServerOption = {
 
 type TFn = (key: string, vars?: Record<string, string | number>) => string;
 
-export function useQuickServiceCatalog(t: TFn) {
+export function useQuickServiceCatalog(t: TFn, canManageHubHost = true) {
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
   const [remoteCatalog, setRemoteCatalog] = useState<CatalogItem[]>([]);
   const [sources, setSources] = useState<AppSource[]>([]);
@@ -56,13 +56,19 @@ export function useQuickServiceCatalog(t: TFn) {
       setUsedPorts(Array.isArray(data.usedPorts) ? data.usedPorts : []);
       setDockerStatus(data.docker ?? null);
       if (Array.isArray(data.servers)) {
-        setServers(
-          data.servers.map((s: QuickServiceServerOption) => ({
-            id: s.id,
-            name: s.name,
-            host: s.host,
-          })),
-        );
+        const options = data.servers.map((s: QuickServiceServerOption) => ({
+          id: s.id,
+          name: s.name,
+          host: s.host,
+        }));
+        setServers(options);
+        // The hub host is platform infrastructure, so a tenant operator must not
+        // sit on it by default — the first catalog load would 403 and the page
+        // would render an error instead of their own nodes. The initial state is
+        // "" because the server list is not known until this response arrives.
+        if (!canManageHubHost && !catalogServerRef.current && options.length > 0) {
+          setSelectedServerId(options[0]!.id);
+        }
       }
       if (typeof data.publicHost === "string") setQuickServicePublicHost(data.publicHost);
     } catch (err) {
@@ -71,7 +77,7 @@ export function useQuickServiceCatalog(t: TFn) {
     } finally {
       if (catalogServerRef.current === serverAtFetch) setLoading(false);
     }
-  }, [selectedServerId, t]);
+  }, [selectedServerId, t, canManageHubHost]);
 
   const fetchSources = useCallback(async () => {
     try {
