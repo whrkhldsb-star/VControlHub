@@ -11,7 +11,7 @@ import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { handleInboundWebhook } from "@/lib/itsm/service";
 import { apiCatch } from "@/lib/http/api-error";
 import { createLogger } from "@/lib/logging";
-import { checkRateLimit } from "@/lib/rate-limit";
+import { checkRateLimitAsync, getClientIp } from "@/lib/rate-limit";
 import { getErrorMessage } from "@/lib/http/error-message";
 
 export const dynamic = "force-dynamic";
@@ -36,9 +36,28 @@ function pickSignature(headers: Headers): string | null {
 export async function POST(request: Request, context: RouteContext) {
 	const { connectionId } = await context.params;
 
-	const rl = checkRateLimit(`itsm-inbound:${connectionId}`, GENERAL_WRITE_LIMIT);
-	if (!rl.allowed) {
-		return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+	// Async (shared-store) limiter, not the legacy in-memory one. This was the last
+	// caller of `checkRateLimit`, and the only unauthenticated endpoint in the app:
+	// with REDIS_URL configured every other route limits across instances while this
+	// one silently counted per process, so N instances meant N× the intended budget
+	// on the one surface an anonymous caller can reach.
+	//
+	// Limit per connection AND per source IP: keyed on connectionId alone, anyone who
+	// learns one id can exhaust that connection's budget and lock out its real sender.
+	const clientIp = getClientIp(request);
+	const [connectionLimit, ipLimit] = await Promise.all([
+		checkRateLimitAsync(`itsm-inbound:conn:${connectionId}`, GENERAL_WRITE_LIMIT),
+		checkRateLimitAsync(`itsm-inbound:ip:${clientIp}`, GENERAL_WRITE_LIMIT),
+	]);
+	if (!connectionLimit.allowed || !ipLimit.allowed) {
+		const retryAfterMs = Math.max(connectionLimit.retryAfterMs, ipLimit.retryAfterMs);
+		return NextResponse.json(
+			{ error: "Rate limit exceeded" },
+			{
+				status: 429,
+				headers: { "Retry-After": String(Math.ceil(retryAfterMs / 1000)) },
+			},
+		);
 	}
 
 	const contentLengthHeader = request.headers.get("content-length");

@@ -1,10 +1,14 @@
 /**
  * Rate limiting helpers.
  *
- * `checkRateLimit` is the legacy synchronous in-memory helper used by a few
- * browser-form/auth paths. New API guards should use `checkRateLimitAsync`,
- * which delegates to the shared rate-limit store and therefore uses Redis when
- * REDIS_URL is configured.
+ * `checkRateLimitAsync` is the one to use: it delegates to the shared rate-limit
+ * store, so it limits across instances when REDIS_URL is configured.
+ *
+ * `checkRateLimit` is the legacy synchronous in-memory variant. Its counters are
+ * per process, which means N app instances allow N× the configured budget — do
+ * not use it on anything reachable without a session. It currently has no
+ * callers in `src/` and is kept only because the module is public API; prefer
+ * deleting it over adding a caller.
  */
 
 import { getRateLimitStore } from "@/lib/rate-limit-store";
