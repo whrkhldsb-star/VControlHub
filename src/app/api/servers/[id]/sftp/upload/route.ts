@@ -18,7 +18,7 @@ import { uploadFile, sanitizeRemotePath, sanitizeFileName } from "@/lib/ssh/sftp
 import { assertSftpPathAccess } from "@/lib/ssh/sftp-access-control";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
 import { auditUserAction } from "@/lib/audit/service";
-import { getErrorMessage } from "@/lib/http/error-message";
+import { apiCatch, apiError } from "@/lib/http/api-error";
 import { requestContentLengthExceeds, requestContentLengthMissing } from "@/lib/http/request-body";
 
 export const dynamic = "force-dynamic";
@@ -49,18 +49,20 @@ export async function POST(
       MAX_UPLOAD_SIZE + MAX_MULTIPART_OVERHEAD_BYTES,
     )
   ) {
-    return NextResponse.json(
-      { error: `File size exceeds ${MAX_UPLOAD_SIZE / 1024 / 1024}MB limit` },
-      { status: 413 },
-    );
+    return apiError({
+      code: "REQUEST_ENTITY_TOO_LARGE",
+      message: `File size exceeds ${MAX_UPLOAD_SIZE / 1024 / 1024}MB limit`,
+      status: 413,
+    });
   }
   // Without a declared length, request.formData() would buffer a chunked body
   // of unknown size into memory before any check — reject before parsing.
   if (requestContentLengthMissing(request)) {
-    return NextResponse.json(
-      { error: "Content-Length required for uploads" },
-      { status: 411 },
-    );
+    return apiError({
+      code: "BAD_REQUEST",
+      message: "Content-Length required for uploads",
+      status: 411,
+    });
   }
 
   try {
@@ -69,23 +71,26 @@ export async function POST(
     const remoteDir = formData.get("path");
 
     if (!file || !(file instanceof File)) {
-      return NextResponse.json(
-        { error: "Missing 'file' field in form data" },
-        { status: 400 },
-      );
+      return apiError({
+        code: "MISSING_FIELD",
+        message: "Missing 'file' field in form data",
+        status: 400,
+      });
     }
     if (!remoteDir || typeof remoteDir !== "string") {
-      return NextResponse.json(
-        { error: "Missing 'path' field in form data" },
-        { status: 400 },
-      );
+      return apiError({
+        code: "MISSING_FIELD",
+        message: "Missing 'path' field in form data",
+        status: 400,
+      });
     }
 
     if (file.size > MAX_UPLOAD_SIZE) {
-      return NextResponse.json(
-        { error: `File size exceeds ${MAX_UPLOAD_SIZE / 1024 / 1024}MB limit` },
-        { status: 413 },
-      );
+      return apiError({
+        code: "REQUEST_ENTITY_TOO_LARGE",
+        message: `File size exceeds ${MAX_UPLOAD_SIZE / 1024 / 1024}MB limit`,
+        status: 413,
+      });
     }
 
     const safeName = sanitizeFileName(file.name);
@@ -112,7 +117,12 @@ export async function POST(
       size: bytesWritten,
     });
   } catch (error) {
-    const message = getErrorMessage(error, "Upload failed");
-    return NextResponse.json({ error: message }, { status: 500 });
+    // `assertSftpPathAccess` throws ForbiddenError (path outside the SSH user's
+    // home root) and NotFoundError (server missing/disabled). Collapsing those
+    // into a blanket 500 told the client "our fault, retry" for what is in fact
+    // a permanent authorization decision — and diverged from the five sibling
+    // SFTP routes, which go through `withApiRoute` and therefore `apiCatch`.
+    // This route parses multipart itself, so it must call `apiCatch` directly.
+    return apiCatch(error, 500, "Upload failed");
   }
 }
