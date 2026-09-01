@@ -49,10 +49,26 @@ export function useAlertRuleActions({
 		[t],
 	);
 
+	/**
+	 * Re-read the rule list.
+	 *
+	 * Reports its own failure rather than only rejecting. Every caller inside this
+	 * hook wraps it in a try/catch, but the create-form's close handler calls it as
+	 * a bare `void refresh()` (alert-rule-list-client.tsx) — there a rejection was
+	 * swallowed entirely, so a rule the user had just created appeared to have not
+	 * been created at all, with no indication that only the refresh had failed.
+	 * Still rethrows so the wrapped callers keep attributing the error to their own
+	 * action ("failed to toggle") instead of the generic reload message.
+	 */
 	const refresh = useCallback(async () => {
-		const data = await csrfFetch("/api/alert-rules");
-		setRules(data?.rules ?? []);
-	}, []);
+		try {
+			const data = await csrfFetch("/api/alert-rules");
+			setRules(data?.rules ?? []);
+		} catch (error) {
+			setActionError(getErrorMessage(error, t("alertRulesPage.error.refresh")));
+			throw error;
+		}
+	}, [t]);
 
 	const loadIncidents = useCallback(async () => {
 		if (!canManage) return;
