@@ -32,7 +32,11 @@ export function ShareAccessLogsButton({ shareId }: { shareId: string }) {
     setError(null);
     try {
       const data = await csrfFetch<{ logs: AccessLog[] }>(`/api/shares/${encodeURIComponent(shareId)}/access-logs`);
-      setLogs(data.logs);
+      // `?? []` rather than a bare assignment: `logs.length` is read on the very
+      // next render, so a response without the key (a proxy error page, a future
+      // API shape change) turned a failed log fetch into a blank-screen crash
+      // instead of an empty list. Every sibling panel already coalesces.
+      setLogs(data.logs ?? []);
     } catch (e) {
       setError(getErrorMessage(e, t("sharesPage.accessLogs.error")));
     } finally {
