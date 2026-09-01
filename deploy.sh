@@ -71,6 +71,8 @@ chown -R "$APP_USER:$APP_USER" \
 	"$APP_DIR/e2e" \
 	"$APP_DIR/deploy" \
 	"$APP_DIR/storage" \
+	"$APP_DIR/docs" \
+	"$APP_DIR/coverage" \
 	"$APP_DIR/package.json" \
 	"$APP_DIR/package-lock.json" \
 	"$APP_DIR"/next.config.* \
@@ -86,7 +88,13 @@ if [ -d "$APP_DIR/src" ]; then
 	find "$APP_DIR/src" -type d -exec chmod 755 {} + 2>/dev/null || true
 	find "$APP_DIR/src" -type f -exec chmod 644 {} + 2>/dev/null || true
 fi
-for d in public scripts prisma e2e deploy storage; do
+# `docs` is writable output, not just source: `prebuild` (npm run route:catalog)
+# regenerates docs/route-catalog.json on every build, and `rbac:audit` writes
+# docs/rbac-audit.{json,md}. Running any of those as root once leaves a root-owned
+# file that the APP_USER build then cannot overwrite — the build dies with EACCES
+# in prebuild, before Next even starts. `coverage` is the same shape (vitest
+# --coverage run as root).
+for d in public scripts prisma e2e deploy storage docs coverage; do
 	if [ -d "$APP_DIR/$d" ]; then
 		find "$APP_DIR/$d" -type d -exec chmod 755 {} + 2>/dev/null || true
 		# Keep shell scripts / already-executable tools runnable.
