@@ -83,6 +83,22 @@ describe("SSH client host key verification", () => {
     expect(verifier(hex)).toBe(true);
   });
 
+  it("captures an unknown host key but rejects the first connection before authentication", () => {
+    const observed: string[] = [];
+    const config = createVerifiedSshConfig({
+      host: "203.0.113.10",
+      port: 22,
+      username: "root",
+      password: "secret",
+      onHostKeySha256: (fingerprint) => observed.push(fingerprint),
+      rejectUnknownHostKeyAfterCapture: true,
+    }) as ConnectConfig;
+    const verifier = config.hostVerifier as unknown as (hash: string) => boolean;
+
+    expect(verifier("abcdef")).toBe(false);
+    expect(observed).toEqual(["SHA256:abcdef"]);
+  });
+
   it("captures first-contact host key without accepting it and requires explicit fingerprint approval", async () => {
     await expect(requireApprovedSshHostKey({
       ssh: { host: "203.0.113.10", port: 22, username: "root" },

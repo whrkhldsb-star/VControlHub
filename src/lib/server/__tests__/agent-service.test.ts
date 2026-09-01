@@ -25,6 +25,7 @@ vi.mock("../monitor", () => ({ MONITOR_SCRIPT: "echo metrics" }));
 import {
   AGENT_CLEANUP_COMMAND,
   authenticateServerAgent,
+  completeServerAgentJob,
   executeCommandWithAgent,
   heartbeatServerAgentJob,
   issueServerAgentToken,
@@ -41,6 +42,40 @@ describe("server Agent authentication and routing", () => {
 
     mocks.serverFindUnique.mockResolvedValueOnce({ id: "srv1", managementMode: "AGENT", agentTokenHash: stored });
     await expect(authenticateServerAgent(token)).resolves.toMatchObject({ id: "srv1" });
+  });
+
+  it("rejects malformed, tampered, and non-Agent tokens before granting access", async () => {
+    await expect(authenticateServerAgent("not-an-agent-token")).resolves.toBeNull();
+
+    mocks.serverFindUnique.mockResolvedValueOnce({
+      id: "srv1",
+      managementMode: "AGENT",
+      agentTokenHash: "0".repeat(64),
+    });
+    await expect(authenticateServerAgent("vca_srv1_abcdefghijklmnopqrstuvwxyz0123456789")).resolves.toBeNull();
+
+    mocks.serverFindUnique.mockResolvedValueOnce({
+      id: "srv1",
+      managementMode: "SSH",
+      agentTokenHash: "0".repeat(64),
+    });
+    await expect(authenticateServerAgent("vca_srv1_abcdefghijklmnopqrstuvwxyz0123456789")).resolves.toBeNull();
+  });
+
+  it("caps Agent command output before persisting it", async () => {
+    mocks.agentJobUpdateMany.mockResolvedValueOnce({ count: 1 });
+    await completeServerAgentJob({
+      serverId: "srv1",
+      jobId: "job1",
+      stdout: "o".repeat(8 * 1_048_576 + 10),
+      stderr: "e".repeat(8 * 1_048_576 + 10),
+      exitCode: 0,
+    });
+
+    const call = mocks.agentJobUpdateMany.mock.calls.at(-1)?.[0];
+    expect(call.data.stdout).toHaveLength(8 * 1_048_576);
+    expect(call.data.stderr).toHaveLength(8 * 1_048_576);
+    expect(call.where).toEqual({ id: "job1", serverId: "srv1", status: "CLAIMED" });
   });
 
   it("falls back without enqueueing when the Agent heartbeat is stale", async () => {

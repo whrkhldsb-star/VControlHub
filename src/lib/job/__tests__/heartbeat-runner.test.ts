@@ -82,4 +82,38 @@ describe("runWithLeaseHeartbeat", () => {
     });
     expect(sawAbort).toBe(false);
   });
+
+  it("aborts once and reports a rejected heartbeat without overlapping retries", async () => {
+    vi.useFakeTimers();
+    let rejectHeartbeat!: (error: Error) => void;
+    const heartbeat = vi.fn(() => new Promise<never>((_, reject) => {
+      rejectHeartbeat = reject;
+    }));
+    const onHeartbeatFailure = vi.fn();
+    let release!: () => void;
+    const runPromise = new Promise<string>((resolve) => {
+      release = () => resolve("done");
+    });
+
+    const resultPromise = runWithLeaseHeartbeat({
+      jobId: "job-5",
+      leaseMs: 30_000,
+      heartbeat,
+      onHeartbeatFailure,
+      run: (_signal) => runPromise,
+    });
+
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(heartbeat).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(heartbeat).toHaveBeenCalledTimes(1);
+
+    const error = new Error("database unavailable");
+    rejectHeartbeat(error);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(onHeartbeatFailure).toHaveBeenCalledTimes(1);
+    release();
+    await expect(resultPromise).rejects.toBeInstanceOf(LeaseLostError);
+    vi.useRealTimers();
+  });
 });
