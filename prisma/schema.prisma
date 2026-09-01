@@ -762,35 +762,35 @@ model ScheduledTaskRun {
 // per-step, per-step timeouts, and a `dryRun` mode that walks the chain
 // without side effects.
 model Playbook {
-  id            String   @id @default(cuid())
-  name          String
-  description   String?
+  id               String    @id @default(cuid())
+  name             String
+  description      String?
   // "cron" | "metric" — initial version. Webhook trigger ships later.
-  triggerType   String
+  triggerType      String
   // Cron expression when triggerType="cron" (5-field standard cron), or
   // { metric: "cpu_usage" | "mem_usage" | "disk_usage", operator, threshold }
   // when triggerType="metric".
-  triggerConfig Json
+  triggerConfig    Json
   // Ordered list of PlaybookStep records: { id, type, config, retry, timeoutSec }.
   // Stored as JSON to avoid an extra join table; max 32 steps enforced at the
   // zod service layer.
-  steps         Json
+  steps            Json
   // Chain-wide retry budget (re-queue the whole chain on any step failure);
   // default 0 (no chain retry) so failed runs surface immediately.
-  chainRetry    Int      @default(0)
-  enabled       Boolean  @default(true)
+  chainRetry       Int       @default(0)
+  enabled          Boolean   @default(true)
   // Cron triggers are materialized into a due timestamp. Keeping this
   // separate from triggerConfig lets the worker claim one occurrence at a
   // time without re-parsing historical run rows or replaying missed periods.
-  nextRunAt     DateTime?
-  lastTriggeredAt DateTime?
+  nextRunAt        DateTime?
+  lastTriggeredAt  DateTime?
   // Per-server threshold-edge state for metric triggers. A playbook runs
   // when a fresh metric crosses into the configured range, not on every
   // sampling interval while a host remains above/below the threshold.
   metricMatchState Json?
-  createdById   String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdById      String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   creator User?         @relation(fields: [createdById], references: [id], onDelete: SetNull)
   runs    PlaybookRun[]
@@ -844,8 +844,8 @@ model PlaybookRun {
   teamId String? // TR-030: 多租户资源隔离
   team   Team?   @relation("TeamPlaybookRuns", fields: [teamId], references: [id], onDelete: SetNull)
 
-  @@index([playbookId, createdAt])
   @@unique([playbookId, triggerKey])
+  @@index([playbookId, createdAt])
   @@index([status, createdAt])
   @@index([teamId])
   @@map("playbook_runs")

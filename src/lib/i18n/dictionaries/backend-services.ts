@@ -11,6 +11,7 @@
 
 export const zh: Record<string, string> = {
 	"backend.common.unknownError": "未知错误",
+	"backend.auth.sessionCredentialsChanged": "会话凭据已变更，请重新登录",
 	// deploy-export/service.ts
 	"backend.deployExport.appNameInvalid": "应用名称只能包含小写字母、数字和连字符，且必须以字母开头",
 	"backend.deployExport.domainInvalid": "域名格式不合法",
@@ -581,6 +582,7 @@ export const zh: Record<string, string> = {
 
 export const en: Record<string, string> = {
 	"backend.common.unknownError": "Unknown error",
+	"backend.auth.sessionCredentialsChanged": "Session credentials have changed; please sign in again",
 	// deploy-export/service.ts
 	"backend.deployExport.appNameInvalid": "App name must contain only lowercase letters, digits, and hyphens, and must start with a letter",
 	"backend.deployExport.domainInvalid": "Invalid domain format",

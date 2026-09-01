@@ -261,15 +261,17 @@ export async function executeAria2RelayDownload(
 /* ── Direct download (HTTP/HTTPS) on remote VPS ────────── */
 
 export async function executeDirectDownload(
- taskId: string,
- server: DownloadServer,
- url: string,
- targetPath: string,
- fileName?: string | null,
- userId?: string,
- sourceResolution?: DownloadSourceResolution,
+taskId: string,
+server: DownloadServer,
+url: string,
+targetPath: string,
+fileName?: string | null,
+userId?: string,
+sourceResolution?: DownloadSourceResolution,
 ) {
  const teamId = await loadDownloadTeamId(taskId);
+ let sshParams: Awaited<ReturnType<typeof buildSshParamsFromServer>> | null = null;
+ let remotePid: number | null = null;
 
  try {
   if (!sourceResolution) {
@@ -290,7 +292,7 @@ export async function executeDirectDownload(
    return;
   }
 
-  const sshParams = await buildSshParamsFromServer(server, server.sshKey);
+  sshParams = await buildSshParamsFromServer(server, server.sshKey);
   await execRemoteCommand({ ...sshParams, command: `mkdir -p -- ${shellQuote(targetPath)}`, timeout: 15000 });
 
   const downloadCmd = buildDirectDownloadCommand({
@@ -304,6 +306,7 @@ export async function executeDirectDownload(
   const pid = parseInt(pidOutput.trim(), 10);
 
   if (exitCode === 0 && pid > 0) {
+   remotePid = pid;
    // Record the pid on the row we already claimed to RUNNING above.
    await prisma.downloadTask.updateMany({
     where: { id: taskId, status: "RUNNING" },
@@ -318,8 +321,35 @@ export async function executeDirectDownload(
   }
  } catch (error) {
   logError("[DownloadAPI] Direct download execution failed:", error);
+  // The remote process is detached by design. If a local indexing or database
+  // step fails after launch, terminate only the process and task-owned marker
+  // files that this invocation started; otherwise a failed row leaves a live
+  // curl writing into the target and a retry creates a duplicate download.
+  if (sshParams && remotePid) {
+   const safeTaskId = taskId.replace(/[^A-Za-z0-9_-]/g, "_");
+   const pidFile = `/tmp/app-dl-${safeTaskId}.pid`;
+   const exitFile = `${pidFile}.exit`;
+   try {
+    await execRemoteCommand({
+     ...sshParams,
+     command: [
+      `if [ -f ${shellQuote(pidFile)} ] && [ "$(cat ${shellQuote(pidFile)} 2>/dev/null)" = ${shellQuote(String(remotePid))} ]; then`,
+      `  kill ${shellQuote(String(remotePid))} 2>/dev/null || true`,
+      `  kill -9 ${shellQuote(String(remotePid))} 2>/dev/null || true`,
+      "fi",
+      `rm -f -- ${shellQuote(pidFile)} ${shellQuote(exitFile)}`,
+     ].join("\n"),
+     timeout: 10000,
+    });
+   } catch (cleanupError) {
+    logError("[DownloadAPI] Failed to stop remote direct download after local failure:", cleanupError);
+   }
+  }
   try {
-   await prisma.downloadTask.update({ where: { id: taskId }, data: { status: "FAILED", errorMessage: getPublicDownloadError(error) } });
+   await prisma.downloadTask.updateMany({
+    where: { id: taskId, status: "RUNNING" },
+    data: { status: "FAILED", errorMessage: getPublicDownloadError(error) },
+   });
    if (userId) notifyDownloadResult(userId, url, "failed", getPublicDownloadError(error), teamId).catch((err) => { notifyLogger.warn("notifyDownloadResult failed", { error: err instanceof Error ? err.message : String(err) }); });
   } catch (err) { logError("[DownloadAPI] Failed to update task status after direct download failure:", err); }
  }

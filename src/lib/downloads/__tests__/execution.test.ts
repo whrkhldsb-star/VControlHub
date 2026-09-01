@@ -158,4 +158,29 @@ describe("executeDirectDownload claim ordering", () => {
     );
     expect(pidUpdate).toBeTruthy();
   });
+
+  it("stops the detached remote process when local indexing fails", async () => {
+    ssh.execRemoteCommand
+      .mockResolvedValueOnce({ stdout: "", exitCode: 0 })
+      .mockResolvedValueOnce({ stdout: "4321", exitCode: 0 })
+      .mockResolvedValueOnce({ stdout: "", exitCode: 0 });
+    const { indexDownloadedFileEntry } = await import("@/lib/downloads/helpers");
+    vi.mocked(indexDownloadedFileEntry).mockRejectedValueOnce(new Error("index unavailable"));
+
+    await executeDirectDownload("task-5", server, "http://x/f", "/target", "f", undefined, {
+      hostname: "x",
+      address: "1.2.3.4",
+      port: 443,
+    });
+
+    expect(ssh.execRemoteCommand).toHaveBeenCalledTimes(3);
+    const cleanupCall = (ssh.execRemoteCommand.mock.calls as unknown[][])[2]?.[0];
+    expect(cleanupCall).toEqual(expect.objectContaining({
+      command: expect.stringContaining("kill"),
+    }));
+    expect(prismaMock.downloadTask.updateMany).toHaveBeenLastCalledWith(expect.objectContaining({
+      where: { id: "task-5", status: "RUNNING" },
+      data: expect.objectContaining({ status: "FAILED" }),
+    }));
+  });
 });

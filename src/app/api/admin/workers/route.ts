@@ -15,13 +15,15 @@ import { NextResponse } from "next/server";
 
 import { withApiRoute } from "@/lib/http/api-guard";
 import { getWorkerRuntimeHealth } from "@/lib/workers/runtime-health";
+import { getServerLocale, t } from "@/lib/i18n/translations";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
+  const locale = await getServerLocale();
   return withApiRoute(
     request,
-    { permission: "task:read", errorMessage: "Failed to fetch worker status" },
+    { permission: "task:read", errorMessage: t("api.admin.workers.fetchFailed", locale) },
     async () => {
       const workers = await getWorkerRuntimeHealth();
       const startedCount = workers.filter((w) => w.started).length;

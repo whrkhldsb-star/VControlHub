@@ -73,4 +73,3 @@ describe("compressFileToGz", () => {
 		await expect(compressFileToGz(src, dst)).rejects.toThrow(/ENOENT|no such file/);
 	});
 });
-

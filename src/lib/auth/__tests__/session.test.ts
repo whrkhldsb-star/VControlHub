@@ -185,7 +185,7 @@ describe("session auth helpers", () => {
       passwordHash: "$2b$10$rotatedhash",
     } as any);
 
-    await expect(verifySessionToken(token)).rejects.toThrow(/credentials have changed/i);
+    await expect(verifySessionToken(token)).rejects.toThrow(/credentials have changed|会话凭据已变更/i);
   });
 
   it("rejects a legacy token that carries no credential fingerprint", async () => {
@@ -204,7 +204,7 @@ describe("session auth helpers", () => {
 
     const legacy = await createLegacySessionTokenWithoutFingerprint();
 
-    await expect(verifySessionToken(legacy)).rejects.toThrow(/credentials have changed/i);
+    await expect(verifySessionToken(legacy)).rejects.toThrow(/credentials have changed|会话凭据已变更/i);
   });
 
   it("keeps currentTeamId while the membership behind it is live", async () => {

@@ -1,6 +1,6 @@
 # VControlHub RBAC Audit Report
 
-> Generated: 2026-08-27T12:07:16.420Z | Permissions: 54 | Roles: 4 | API routes: 180 | Pages: 54 | Drift: 0
+> Generated: 2026-09-01T13:02:05.989Z | Permissions: 54 | Roles: 4 | API routes: 180 | Pages: 54 | Drift: 0
 
 This report cross-references four RBAC sources of truth:
 1. `src/lib/auth/rbac.ts` — `PERMISSIONS` tuple + `DEFAULT_ROLE_PERMISSIONS` map
@@ -32,7 +32,7 @@ This report cross-references four RBAC sources of truth:
 | `ai:ops:read` | admin | 0 | 0 | 8 |
 | `announcement:manage` | admin, operator | 1 | 1 | 8 |
 | `api-token:manage` | admin, operator | 1 | 0 | 6 |
-| `audit:read` | admin, operator, viewer, storage_manager | 2 | 1 | 11 |
+| `audit:read` | admin, operator, viewer, storage_manager | 2 | 1 | 10 |
 | `backup:create` | admin, operator | 1 | 0 | 21 |
 | `backup:read` | admin, operator, viewer, storage_manager | 1 | 0 | 11 |
 | `backup:restore` | admin | 1 | 0 | 5 |
@@ -69,9 +69,9 @@ This report cross-references four RBAC sources of truth:
 | `storage:read` | admin, operator, viewer, storage_manager | 2 | 1 | 47 |
 | `storage:write` | admin, operator, storage_manager | 3 | 4 | 48 |
 | `task:read` | admin, operator, viewer, storage_manager | 1 | 0 | 7 |
-| `team:create` | admin, operator | 0 | 0 | 2 |
-| `team:manage` | admin | 1 | 8 | 13 |
-| `team:member:manage` | admin, operator | 0 | 0 | 4 |
+| `team:create` | admin, operator | 1 | 0 | 3 |
+| `team:manage` | admin | 2 | 8 | 10 |
+| `team:member:manage` | admin, operator | 1 | 0 | 5 |
 | `team:read` | admin, operator, viewer, storage_manager | 0 | 0 | 2 |
 | `ticket:create` | admin, operator, viewer, storage_manager | 1 | 1 | 4 |
 | `ticket:manage` | admin, operator, storage_manager | 3 | 3 | 31 |

@@ -61,7 +61,7 @@ function scan(): Finding[] {
     const lines = readFileSync(abs, "utf8").split(/\r?\n/);
     lines.forEach((line, idx) => {
       if (line.includes(ALLOW_INLINE)) return;
-      if (line.includes("t(") || line.includes("serverT(") || line.includes("getErrorMessage(")) return;
+      if (line.includes("t(") || line.includes("serverT(") || line.includes("serviceT(") || line.includes("getErrorMessage(")) return;
       for (const pattern of PATTERNS) {
         const match = line.match(pattern.re);
         const text = match?.[2] ?? "";

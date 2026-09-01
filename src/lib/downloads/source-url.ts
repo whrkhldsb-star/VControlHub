@@ -100,23 +100,23 @@ function isBlockedIpAddress(address: string): boolean {
   const normalized = address.trim().toLowerCase().replace(/^\[(.*)\]$/, "$1");
   if (!normalized) return true;
   if (normalized.includes(":")) {
-  	const parts = expandIpv6Address(normalized);
-  	if (!parts || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 0xffff)) return true;
-  	const allZero = parts.every((part) => part === 0);
-  	const loopback = parts.slice(0, 7).every((part) => part === 0) && parts[7]! === 1;
-  	const uniqueLocal = (parts[0]! & 0xfe00) === 0xfc00;
-  	const linkLocal = (parts[0]! & 0xffc0) === 0xfe80;
-  	const multicast = (parts[0]! & 0xff00) === 0xff00;
-  	const ipv4Mapped = parts.slice(0, 5).every((part) => part === 0) && parts[5]! === 0xffff;
-  	// Both IPv4-mapped (::ffff:a.b.c.d) and the deprecated IPv4-compatible
-  	// (::a.b.c.d — top 96 bits zero) form embed an IPv4 address in the low 32
-  	// bits. Evaluate under IPv4 rules so e.g. ::127.0.0.1 or ::169.254.169.254
-  	// cannot bypass the private-range block (mirrors security/webhook-url.ts).
-  	const ipv4Compatible = parts.slice(0, 6).every((part) => part === 0);
-  	if (ipv4Mapped || ipv4Compatible) {
-  		return isBlockedIpAddress(`${(parts[6]! >> 8) & 255}.${parts[6]! & 255}.${(parts[7]! >> 8) & 255}.${parts[7]! & 255}`);
-  	}
-  	return allZero || loopback || uniqueLocal || linkLocal || multicast;
+    const parts = expandIpv6Address(normalized);
+    if (!parts || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 0xffff)) return true;
+    const allZero = parts.every((part) => part === 0);
+    const loopback = parts.slice(0, 7).every((part) => part === 0) && parts[7]! === 1;
+    const uniqueLocal = (parts[0]! & 0xfe00) === 0xfc00;
+    const linkLocal = (parts[0]! & 0xffc0) === 0xfe80;
+    const multicast = (parts[0]! & 0xff00) === 0xff00;
+    const ipv4Mapped = parts.slice(0, 5).every((part) => part === 0) && parts[5]! === 0xffff;
+    // Both IPv4-mapped (::ffff:a.b.c.d) and the deprecated IPv4-compatible
+    // (::a.b.c.d — top 96 bits zero) form embed an IPv4 address in the low 32
+    // bits. Evaluate under IPv4 rules so e.g. ::127.0.0.1 or ::169.254.169.254
+    // cannot bypass the private-range block (mirrors security/webhook-url.ts).
+    const ipv4Compatible = parts.slice(0, 6).every((part) => part === 0);
+    if (ipv4Mapped || ipv4Compatible) {
+      return isBlockedIpAddress(`${(parts[6]! >> 8) & 255}.${parts[6]! & 255}.${(parts[7]! >> 8) & 255}.${parts[7]! & 255}`);
+    }
+    return allZero || loopback || uniqueLocal || linkLocal || multicast;
   }
 
   const ipv4 = parseIpv4(normalized);

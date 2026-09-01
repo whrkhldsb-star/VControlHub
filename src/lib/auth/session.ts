@@ -5,6 +5,7 @@ import { getAppSlug } from "@/lib/branding";
 import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
 import { AuthError } from "@/lib/errors";
+import { t } from "@/lib/i18n/service-translations";
 import type { Permission, RoleKey } from "./rbac";
 import { DEFAULT_ROLE_PERMISSIONS } from "./rbac";
 import { resolveEffectivePermissions } from "./effective-permissions";
@@ -255,7 +256,7 @@ export async function verifySessionToken(token: string) {
  // carry no fingerprint, and honouring them would keep the hole open for the
  // rest of their TTL. The visible effect is a one-time re-login on upgrade.
  if (payload.cfp !== credentialFingerprint(user.passwordHash)) {
-   throw new AuthError("Session credentials have changed, please sign in again");
+   throw new AuthError(t("backend.auth.sessionCredentialsChanged"));
  }
 
  const assignedRoleKeys = user.roles.map((entry) => entry.role.key);

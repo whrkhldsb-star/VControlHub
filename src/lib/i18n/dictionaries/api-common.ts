@@ -60,6 +60,7 @@ export const zh: Record<string, string> = {
 	"api.image.dimensionsTooLarge": "图片像素尺寸过大（超过 5000 万像素），可能是解压炸弹",
 	"api.image.storageCopyForbidden": "Bearer 上传不支持写入存储节点副本",
 	"api.image.storageWriteDenied": "没有写入该存储路径的权限",
+	"api.admin.workers.fetchFailed": "获取 Worker 状态失败",
 };
 
 export const en: Record<string, string> = {
@@ -119,4 +120,5 @@ export const en: Record<string, string> = {
 	"api.image.dimensionsTooLarge": "Image pixel dimensions are too large (exceeds 50 megapixels); possible decompression bomb",
 	"api.image.storageCopyForbidden": "Bearer uploads do not support writing to a storage node copy",
 	"api.image.storageWriteDenied": "No permission to write to the storage path",
+	"api.admin.workers.fetchFailed": "Failed to fetch worker status",
 };

@@ -128,4 +128,3 @@ describe("useUrlQueryState", () => {
 		expect(new URL(window.location.href).searchParams.get("q")).toBe("a b&c=d");
 	});
 });
-
