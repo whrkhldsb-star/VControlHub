@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-27T12:05:55.521Z",
+  "generatedAt": "2026-09-01T11:33:40.498Z",
   "summary": {
     "sidebarMain": 30,
     "sidebarSystem": 5,
@@ -655,9 +655,15 @@
       "inSidebarMain": true,
       "inSidebarSystem": false,
       "declaredPermissions": [
+        "team:create",
+        "team:manage",
+        "team:member:manage",
         "user:manage"
       ],
       "navigationPermissions": [
+        "team:create",
+        "team:manage",
+        "team:member:manage",
         "user:manage"
       ]
     },
@@ -1121,8 +1127,7 @@
       "path": "/api/auth/2fa/setup",
       "file": "src/app/api/auth/2fa/setup/route.ts",
       "methods": [
-        "POST",
-        "PUT"
+        "POST"
       ],
       "guardMode": "withApiRoute",
       "declaredPermissions": []
@@ -2769,9 +2774,7 @@
         "PATCH"
       ],
       "guardMode": "withApiRoute",
-      "declaredPermissions": [
-        "team:manage"
-      ]
+      "declaredPermissions": []
     },
     {
       "path": "/api/teams",
