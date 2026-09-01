@@ -1,5 +1,5 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
  * Tests for `useTextPreviewController` — the online file editor's controller.
@@ -56,7 +56,14 @@ describe("useTextPreviewController", () => {
 		vi.clearAllMocks();
 		mocks.csrfFetch.mockReset();
 		mocks.csrfFetch.mockResolvedValue({ content: "server {}", encoding: "text", lastModifiedMs: 5_000 });
+		// The non-editable branch reads through global `fetch`. Stub it, but restore
+		// in afterEach — test files share a worker, so a leaked stub breaks whichever
+		// unrelated file happens to run next in the same process.
 		vi.stubGlobal("fetch", mocks.fetch);
+	});
+
+	afterEach(() => {
+		vi.unstubAllGlobals();
 	});
 
 	describe("SFTP optimistic lock", () => {
