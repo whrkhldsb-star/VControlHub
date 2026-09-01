@@ -136,7 +136,7 @@ export function useAlertRuleActions({
 			setActionError(null);
 			setTestResult(null);
 			try {
-				await csrfFetch(`/api/alert-rules?id=${id}`, { method: "DELETE" });
+				await csrfFetch(`/api/alert-rules?id=${encodeURIComponent(id)}`, { method: "DELETE" });
 				setRulePendingDelete(null);
 				await refresh();
 			} catch (error) {

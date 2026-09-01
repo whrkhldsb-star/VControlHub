@@ -169,7 +169,7 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 	const deleteOne = useCallback(async (id: string) => {
 		setError(null);
 		try {
-			await csrfFetch(`/api/notifications?id=${id}`, { method: "DELETE" });
+			await csrfFetch(`/api/notifications?id=${encodeURIComponent(id)}`, { method: "DELETE" });
 			const deleted = notifications.find((n) => n.id === id);
 			setNotifications((prev) => prev.filter((n) => n.id !== id));
 			if (deleted && !deleted.isRead) {

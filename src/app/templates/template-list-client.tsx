@@ -59,7 +59,7 @@ export function TemplateListClient({
 		async (id: string) => {
 			setDeleteBusy(true);
 			try {
-				await csrfFetch(`/api/command-templates?id=${id}`, { method: "DELETE" });
+				await csrfFetch(`/api/command-templates?id=${encodeURIComponent(id)}`, { method: "DELETE" });
 				setTemplatePendingDelete(null);
 				await refresh();
 				addToast("success", t("templatesPage.toast.deleted"));

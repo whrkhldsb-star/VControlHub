@@ -117,7 +117,7 @@ export function AnnouncementList({
     setDeleteBusy(true);
     setDeleteError(null);
     try {
-      await csrfFetch(`/api/announcements?id=${pendingDelete.id}`, { method:"DELETE" });
+      await csrfFetch(`/api/announcements?id=${encodeURIComponent(pendingDelete.id)}`, { method:"DELETE" });
       setItems((prev) => prev.filter((a) => a.id !== pendingDelete.id));
       setPendingDelete(null);
       addToast("success", t("announcementsPage.toast.deleted"));
