@@ -2,6 +2,13 @@
  * i18n dictionary: `storagePage.*` (auto-generated).
  */
 export const zh: Record<string, string> = {
+  "storagePage.form.webdavUrl": "WebDAV 地址（HTTPS）",
+  "storagePage.form.webdavAuthType": "WebDAV 认证方式",
+  "storagePage.form.webdavUsername": "WebDAV 用户名",
+  "storagePage.form.webdavPassword": "WebDAV 密码",
+  "storagePage.form.webdavToken": "WebDAV 令牌",
+  "storagePage.form.webdavHint": "外部 WebDAV 仅在网页配置，不绑定 VPS。通过管理端代理访问，认证信息不会发送给下载者。根目录相对于 WebDAV 地址。",
+  "storagePage.form.webdavSecretHint": "编辑时密码/令牌留空保留原值；更换地址、账号或认证方式必须重新填写。",
 	"storagePage.list.empty": "暂无存储节点。",
 	"storagePage.nodes.title": "存储节点",
 	"storagePage.nodes.summary": "{total} 个节点 · 本机 {local} · SFTP {sftp}",
@@ -100,6 +107,13 @@ export const zh: Record<string, string> = {
 };
 
 export const en: Record<string, string> = {
+  "storagePage.form.webdavUrl": "WebDAV endpoint (HTTPS)",
+  "storagePage.form.webdavAuthType": "WebDAV authentication",
+  "storagePage.form.webdavUsername": "WebDAV username",
+  "storagePage.form.webdavPassword": "WebDAV password",
+  "storagePage.form.webdavToken": "WebDAV token",
+  "storagePage.form.webdavHint": "Configure external WebDAV in the web UI without binding a VPS. Access is proxied; credentials are never sent to downloaders. Base path is relative to the WebDAV endpoint.",
+  "storagePage.form.webdavSecretHint": "Leave secrets blank to keep them when editing. Changing endpoint, account or authentication requires a new secret.",
 	"storagePage.list.empty": "No storage nodes yet.",
 	"storagePage.nodes.title": "Storage nodes",
 	"storagePage.nodes.summary": "{total} node(s) · Local {local} · SFTP {sftp}",

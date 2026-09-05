@@ -9,6 +9,7 @@ import {
 } from "@/lib/storage/access-control";
 import { getStorageOverview } from "@/lib/storage/service";
 import { AuthError } from "@/lib/errors";
+import { getWebDavSyncNode, syncWebDavDirectoryEntries } from "@/lib/storage/webdav-sync";
 import { listFilesQuerySchema } from "@/lib/files/schema";
 import {
   getSftpSyncNode,
@@ -80,6 +81,13 @@ export async function GET(request: NextRequest) {
             } else {
               storage = await getStorageOverview(session);
             }
+          }
+        } else if (selectedNode?.driver === "WEBDAV") {
+          const syncNode = await getWebDavSyncNode(effectiveNodeId, session);
+          if (syncNode?.driver === "WEBDAV") {
+            const result = await syncWebDavDirectoryEntries({ node: syncNode, relativePath: effectiveSyncPath });
+            syncWarning = result.errors[0] ?? null;
+            if (!syncWarning) storage = await getStorageOverview(session);
           }
         } else if (selectedNode?.driver === "LOCAL") {
           const syncNode = await getLocalSyncNode(effectiveNodeId, session);

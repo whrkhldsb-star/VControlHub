@@ -38,6 +38,7 @@ export function getStorageDriverLabel(t: Translator, driver: string): string {
   const key = {
     LOCAL: "common.storageDriver.local",
     SFTP: "common.storageDriver.sftp",
+    WEBDAV: "common.storageDriver.webdav",
   }[driver.trim().toUpperCase()];
   return key ? t(key) : driver;
 }

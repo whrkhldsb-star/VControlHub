@@ -206,7 +206,7 @@ describe("moveBackingObject", () => {
   it("fails closed for unsupported drivers instead of silently succeeding", async () => {
     await expect(
       moveBackingObject({
-        storageNode: { ...localNode, driver: "WEBDAV" as never },
+        storageNode: { ...localNode, driver: "UNSUPPORTED" as never },
         oldRelativePath: "docs/old.txt",
         newRelativePath: "team/new.txt",
       }),

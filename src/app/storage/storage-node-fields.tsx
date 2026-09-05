@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { CheckboxField, FormField, FormGrid } from "@/components/ui-primitives";
 import { UI_INPUT } from "@/lib/ui/classes";
@@ -8,6 +8,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { getStorageDriverLabel } from "@/lib/i18n/domain-labels";
 
 export type StorageNodeFieldValues = {
+  webdavConfig?: { url: string; authType: "basic" | "bearer"; username?: string; hasPassword?: boolean; hasToken?: boolean } | null;
   name?: string;
   basePath?: string;
   serverId?: string | null;
@@ -37,6 +38,7 @@ export function StorageNodeFields({
 }) {
   const { t } = useI18n();
   const isSftp = driver === "SFTP";
+  const [webdavAuthType, setWebdavAuthType] = useState(values.webdavConfig?.authType ?? "basic");
   const serverRef = useRef<HTMLSelectElement>(null);
   const hostRef = useRef<HTMLInputElement>(null);
   const eitherOrMessage = t("storagePage.form.sftpEndpointEitherOr");
@@ -77,11 +79,36 @@ export function StorageNodeFields({
         <select id="storage-node-driver" name="driver" value={driver} className={UI_INPUT} disabled={lockDefault} onChange={(event) => onDriverChange(event.target.value)}>
           <option value="LOCAL">{getStorageDriverLabel(t, "LOCAL")}</option>
           <option value="SFTP">{getStorageDriverLabel(t, "SFTP")}</option>
+          <option value="WEBDAV">{getStorageDriverLabel(t, "WEBDAV")}</option>
         </select>
       </FormField>
       <FormField label={t("storagePage.form.fieldBasePath")} htmlFor="storage-node-base-path" className="md:col-span-2">
         <input id="storage-node-base-path" name="basePath" defaultValue={values.basePath} required className={UI_INPUT} placeholder={t("storagePage.form.basePathPlaceholder")} />
       </FormField>
+
+      {driver === "WEBDAV" ? <>
+        <p className="md:col-span-2 text-xs text-[var(--text-muted)]">{t("storagePage.form.webdavHint")}</p>
+        <input type="hidden" name="directAccessMode" value="PROXY" />
+        <FormField label={t("storagePage.form.webdavUrl")} htmlFor="storage-webdav-url" className="md:col-span-2">
+          <input id="storage-webdav-url" name="webdavUrl" type="url" pattern="https://.*" required defaultValue={values.webdavConfig?.url ?? ""} placeholder="https://dav.example.com/remote.php/dav/files/user/" className={UI_INPUT} />
+        </FormField>
+        <FormField label={t("storagePage.form.webdavAuthType")} htmlFor="storage-webdav-auth">
+          <select id="storage-webdav-auth" name="webdavAuthType" value={webdavAuthType} onChange={(event) => setWebdavAuthType(event.target.value as "basic" | "bearer")} className={UI_INPUT}>
+            <option value="basic">Basic</option><option value="bearer">Bearer token</option>
+          </select>
+        </FormField>
+        {webdavAuthType === "basic" ? <>
+          <FormField label={t("storagePage.form.webdavUsername")} htmlFor="storage-webdav-username">
+            <input id="storage-webdav-username" name="webdavUsername" defaultValue={values.webdavConfig?.username ?? ""} required autoComplete="off" className={UI_INPUT} />
+          </FormField>
+          <FormField label={t("storagePage.form.webdavPassword")} htmlFor="storage-webdav-password">
+            <input id="storage-webdav-password" name="webdavPassword" type="password" autoComplete="new-password" required={!values.webdavConfig?.hasPassword} className={UI_INPUT} />
+          </FormField>
+        </> : <FormField label={t("storagePage.form.webdavToken")} htmlFor="storage-webdav-token">
+          <input id="storage-webdav-token" name="webdavToken" type="password" autoComplete="new-password" required={!values.webdavConfig?.hasToken} className={UI_INPUT} />
+        </FormField>}
+        <p className="md:col-span-2 text-xs text-[var(--text-muted)]">{t("storagePage.form.webdavSecretHint")}</p>
+      </> : null}
 
       {isSftp ? <>
         <p className="md:col-span-2 text-xs text-[var(--text-muted)]" data-testid="sftp-endpoint-hint">

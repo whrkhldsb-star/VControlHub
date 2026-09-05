@@ -27,11 +27,13 @@ import {
 } from "@/lib/storage/remote-path";
 import { resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
 import { t } from "@/lib/i18n/service-translations";
+import { createWebDavClient } from "@/lib/storage/webdav-client";
 
 export type StorageFileNode = {
   id: string;
   driver: "LOCAL" | "SFTP" | string;
   basePath: string;
+  webdavConfigEncrypted?: string | null;
   host?: string | null;
   port?: number | null;
   username?: string | null;
@@ -54,6 +56,7 @@ export const storageFileNodeSelect = {
   id: true,
   driver: true,
   basePath: true,
+  webdavConfigEncrypted: true,
   host: true,
   port: true,
   username: true,
@@ -94,6 +97,7 @@ export async function readStorageFileBuffer(
   node: StorageFileNode,
   relativePath: string,
 ) {
+  if (node.driver === "WEBDAV") return createWebDavClient(node).read(relativePath);
   if (node.driver === "LOCAL") {
     const resolved = resolveStoragePathWithinBase(node.basePath, relativePath);
     if (!resolved.ok) throw new ValidationError(resolved.reason);
@@ -136,6 +140,27 @@ export async function streamStorageFile(
   relativePath: string,
   range?: { start: number; end: number },
 ) {
+  if (node.driver === "WEBDAV") {
+    const client = createWebDavClient(node);
+    const entry = await client.stat(relativePath);
+    if (!entry || entry.isDirectory) throw new ValidationError(t("backend.webdav.fileNotFound"));
+    const source = Readable.fromWeb(await client.stream(relativePath) as import("node:stream/web").ReadableStream);
+    // Slice locally: not every provider implements HTTP Range correctly.
+    const stream = range ? Readable.from((async function* () {
+      let offset = 0;
+      try {
+        for await (const chunk of source) {
+          const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+          const start = Math.max(0, range.start - offset);
+          const end = Math.min(buffer.length, range.end + 1 - offset);
+          if (end > start) yield buffer.subarray(start, end);
+          offset += buffer.length;
+          if (offset > range.end) break;
+        }
+      } finally { source.destroy(); }
+    })()) : source;
+    return { stream, size: entry.size, close: () => { stream.destroy(); source.destroy(); } };
+  }
   if (node.driver === "LOCAL") {
     const resolved = resolveStoragePathWithinBase(node.basePath, relativePath);
     if (!resolved.ok) throw new ValidationError(resolved.reason);
@@ -261,6 +286,21 @@ export async function writeStorageFileBuffer(
   relativePath: string,
   buffer: Buffer,
 ) {
+  if (node.driver === "WEBDAV") {
+    const client = createWebDavClient(node);
+    const parent = path.posix.dirname(relativePath);
+    if (parent !== ".") {
+      let directory = "";
+      for (const part of parent.split("/").filter(Boolean)) {
+        directory = directory ? `${directory}/${part}` : part;
+        const existing = await client.stat(directory);
+        if (existing && !existing.isDirectory) throw new ValidationError(t("backend.webdav.parentNotDirectory"));
+        if (!existing) await client.mkdir(directory);
+      }
+    }
+    await client.write(relativePath, buffer);
+    return relativePath;
+  }
   if (node.driver === "LOCAL") {
     const resolved = resolveStoragePathWithinBase(node.basePath, relativePath);
     if (!resolved.ok) throw new ValidationError(resolved.reason);
@@ -312,6 +352,10 @@ export async function deleteStorageFileBuffer(
   node: StorageFileNode,
   relativePath: string,
 ) {
+  if (node.driver === "WEBDAV") {
+    await createWebDavClient(node).delete(relativePath);
+    return relativePath;
+  }
   if (node.driver === "LOCAL") {
     const resolved = resolveStoragePathWithinBase(node.basePath, relativePath);
     if (!resolved.ok) throw new ValidationError(resolved.reason);
@@ -475,7 +519,10 @@ export function buildStorageFileDownloadUrl(
   if (download) params.set("download", "1");
   if (node.driver === "SFTP")
     return `/api/storage/sftp-download?${params.toString()}`;
-  return `/api/storage/local?${params.toString()}`;
+  if (node.driver === "WEBDAV")
+    return `/api/storage/webdav-download?${params.toString()}`;
+  if (node.driver === "LOCAL") return `/api/storage/local?${params.toString()}`;
+  throw new BusinessError(t("backend.storage.unsupportedNodeType"));
 }
 
 type TeamSession = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;

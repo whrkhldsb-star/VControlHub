@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AlertTriangle, Download, File, Folder } from "@/components/icons";
+import { AlertTriangle, Download, File, Folder, LinkIcon } from "@/components/icons";
 
 import { listShareDirectoryFiles, peekShareToken } from "@/lib/share-link/service";
 import { getServerLocale, t } from "@/lib/i18n/translations";
@@ -166,14 +166,16 @@ export default async function SharePage({
                   {t("sharePage.previewOnly", locale)}
                 </div>
               ) : (
-                <a
-                  href={`/api/share/${encodeURIComponent(token)}`}
-                  data-primary
-                  data-action-button data-variant="primary" className="flex items-center justify-center gap-2 px-4 py-3 text-center text-sm"
-                >
-                  <Download aria-hidden="true" className="h-4 w-4" />
-                  {t("sharePage.downloadFile", locale)}
-                </a>
+   <div className="grid gap-2 sm:grid-cols-2">
+     <a href={`/api/share/${encodeURIComponent(token)}?inline=1`} target="_blank" rel="noreferrer" data-primary data-action-button data-variant="primary" className="flex items-center justify-center gap-2 px-4 py-3 text-center text-sm">
+       <LinkIcon aria-hidden="true" className="h-4 w-4" />
+       {t("sharePage.openFile", locale)}
+     </a>
+     <a href={`/api/share/${encodeURIComponent(token)}`} data-action-button data-variant="secondary" className="flex items-center justify-center gap-2 px-4 py-3 text-center text-sm">
+       <Download aria-hidden="true" className="h-4 w-4" />
+       {t("sharePage.downloadFile", locale)}
+     </a>
+   </div>
               )
             )}
 
@@ -212,13 +214,16 @@ export default async function SharePage({
                           <div className="truncate text-xs text-[var(--text-muted)]" title={file.relativePath}>{file.relativePath} · {formatSize(locale, file.size)}</div>
                         </div>
                         {!share.hasPassword && !isPreviewOnly && (
-                          <a
-                            href={`/api/share/${encodeURIComponent(token)}?path=${encodeURIComponent(file.relativePath)}`}
-                            data-action-button data-variant="primary" className="inline-flex shrink-0 items-center gap-1.5 px-3 py-1.5 text-xs"
-                          >
-                            <Download aria-hidden="true" className="h-3.5 w-3.5" />
-                            {t("sharePage.download", locale)}
-                          </a>
+                          <div className="flex shrink-0 gap-2">
+                            <a href={`/api/share/${encodeURIComponent(token)}?path=${encodeURIComponent(file.relativePath)}&inline=1`} target="_blank" rel="noreferrer" data-action-button data-variant="secondary" className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs">
+                              <LinkIcon aria-hidden="true" className="h-3.5 w-3.5" />
+                              {t("sharePage.openFile", locale)}
+                            </a>
+                            <a href={`/api/share/${encodeURIComponent(token)}?path=${encodeURIComponent(file.relativePath)}`} data-action-button data-variant="primary" className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs">
+                              <Download aria-hidden="true" className="h-3.5 w-3.5" />
+                              {t("sharePage.download", locale)}
+                            </a>
+                          </div>
                         )}
                       </div>
                     ))}

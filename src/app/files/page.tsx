@@ -22,6 +22,7 @@ import {
 import { getStorageFormOptions } from "@/app/storage/actions";
 import { getSftpSyncNode, syncSftpDirectoryEntries } from "@/lib/storage/sftp-sync";
 import { getLocalSyncNode, syncLocalDirectoryEntries } from "@/lib/storage/local-sync";
+import { getWebDavSyncNode, syncWebDavDirectoryEntries } from "@/lib/storage/webdav-sync";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { FilesBrowserSpa } from "./files-browser-spa";
 import { PageShell, PageHeader } from "@/components/page-shell";
@@ -82,6 +83,13 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
         } else {
           storage = await getStorageOverview(session);
         }
+      }
+    } else if (selectedNode?.driver === "WEBDAV") {
+      const syncNode = await getWebDavSyncNode(effectiveNodeId, session);
+      if (syncNode?.driver === "WEBDAV") {
+        const result = await syncWebDavDirectoryEntries({ node: syncNode, relativePath: effectiveSyncPath });
+        syncWarning = result.errors[0] ?? null;
+        if (!syncWarning) storage = await getStorageOverview(session);
       }
     } else if (selectedNode?.driver === "LOCAL") {
       const syncNode = await getLocalSyncNode(effectiveNodeId, session);

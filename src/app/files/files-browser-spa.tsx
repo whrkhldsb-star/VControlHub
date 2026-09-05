@@ -76,7 +76,7 @@ export function FilesBrowserSpa({
   const { navigateToFolder } = useFolderNavigation(fetchFiles);
 
   const uploadNodes = data.nodes.filter(
-    (n) => n.driver === "LOCAL" || n.driver === "SFTP",
+    (n) => n.driver === "LOCAL" || n.driver === "SFTP" || n.driver === "WEBDAV",
   );
   const currentPathDisplay = getCurrentPathDisplay(
     t,

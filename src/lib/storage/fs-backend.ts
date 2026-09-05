@@ -5,6 +5,7 @@ import { resolveStorageSshCredentials } from "./ssh-credentials";
 import { expandStorageBasePath, resolveStoragePathWithinBase } from "./path-utils";
 import { normalizeRemoteTargetPath } from "./remote-path";
 import { t } from "@/lib/i18n/service-translations";
+import { createWebDavClient } from "./webdav-client";
 import {
   createRemoteDirectory,
   deleteRemoteFile,
@@ -26,6 +27,7 @@ export type StorageNodeWithCredentials = {
   port?: number | null;
   username?: string | null;
   hostKeySha256?: string | null;
+  webdavConfigEncrypted?: string | null;
   server?: {
     id?: string | null;
     managementMode?: string | null;
@@ -85,6 +87,7 @@ export async function createManagedFolder(input: {
   storageNode: StorageNodeWithCredentials;
   relativePath: string;
 }) {
+  if (input.storageNode.driver === "WEBDAV") { await createWebDavClient(input.storageNode).mkdir(input.relativePath); return; }
   if (input.storageNode.driver === "LOCAL") {
     const { absolutePath, allowedRoot } = await resolveManagedLocalEntryPath({
       basePath: input.storageNode.basePath,
@@ -128,6 +131,7 @@ export async function writeBackingObject(input: {
   relativePath: string;
   content: string | Buffer;
 }): Promise<{ byteSize: number }> {
+  if (input.storageNode.driver === "WEBDAV") return createWebDavClient(input.storageNode).write(input.relativePath, input.content);
   const buffer = Buffer.isBuffer(input.content)
     ? input.content
     : Buffer.from(input.content, "utf8");
@@ -188,6 +192,7 @@ export async function readBackingObject(input: {
   relativePath: string;
   maxBytes?: number;
 }): Promise<Buffer> {
+  if (input.storageNode.driver === "WEBDAV") return createWebDavClient(input.storageNode).read(input.relativePath, input.maxBytes);
   if (input.storageNode.driver === "LOCAL") {
     const { absolutePath } = await resolveManagedLocalEntryPath({
       basePath: input.storageNode.basePath,
@@ -235,6 +240,7 @@ export async function statBackingObject(input: {
   storageNode: StorageNodeWithCredentials;
   relativePath: string;
 }): Promise<{ size: number; lastModifiedMs: number } | null> {
+  if (input.storageNode.driver === "WEBDAV") { const entry = await createWebDavClient(input.storageNode).stat(input.relativePath); return entry ? { size: entry.size, lastModifiedMs: entry.lastModifiedMs } : null; }
   if (input.storageNode.driver === "LOCAL") {
     const { absolutePath } = await resolveManagedLocalEntryPath({
       basePath: input.storageNode.basePath,
@@ -282,6 +288,7 @@ export async function deleteBackingObject(input: {
   tolerateMissing: boolean;
 }) {
   try {
+    if (input.storageNode.driver === "WEBDAV") { await createWebDavClient(input.storageNode).delete(input.relativePath); return; }
     if (input.storageNode.driver === "LOCAL") {
       const { absolutePath } = await resolveManagedLocalEntryPath({
         basePath: input.storageNode.basePath,
@@ -330,6 +337,7 @@ export async function renameBackingObject(input: {
   oldRelativePath: string;
   newRelativePath: string;
 }) {
+  if (input.storageNode.driver === "WEBDAV") { await createWebDavClient(input.storageNode).rename(input.oldRelativePath, input.newRelativePath); return; }
   if (input.storageNode.driver === "LOCAL") {
     const oldPath = await resolveManagedLocalEntryPath({
       basePath: input.storageNode.basePath,

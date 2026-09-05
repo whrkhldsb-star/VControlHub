@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { MAX_EDITABLE_FILE_SIZE_BYTES } from "@/lib/storage/mime-constants";
+import { t } from "@/lib/i18n/service-translations";
 import { safeNormalizePublicBaseUrl } from "./direct-access-url";
 
 export const storageAccessModeSchema = z.enum(["PROXY", "DIRECT", "AUTO"]);
@@ -19,9 +20,44 @@ const publicBaseUrlSchema = z
     }
   });
 
+export const webdavConfigSchema = z.object({
+  url: z.string().trim().max(2048).refine((value) => {
+    try {
+      const url = new URL(value);
+      return /^https:\/\//i.test(value) && url.protocol === "https:" && Boolean(url.hostname)
+        && !url.username && !url.password && !url.search && !url.hash
+        && !/[\\\s\u0000-\u001f\u007f]/.test(value);
+    } catch { return false; }
+  }, "WebDAV requires an HTTPS URL without embedded credentials, query or fragment"),
+  authType: z.enum(["basic", "bearer"]),
+  username: z.string().trim().max(255).optional(),
+  password: z.string().max(4096).optional(),
+  token: z.string().max(8192).refine((value) => !/[\r\n]/.test(value), "Invalid bearer token").optional(),
+}).strict();
+
+export const completeWebdavConfigSchema = webdavConfigSchema.superRefine((value, ctx) => {
+  if (value.authType === "basic" && (!value.username || !value.password)) {
+    ctx.addIssue({ code: "custom", message: "WebDAV basic authentication requires username and password" });
+  }
+  if (value.authType === "bearer" && !value.token?.trim()) {
+    ctx.addIssue({ code: "custom", message: "WebDAV bearer authentication requires a token" });
+  }
+});
+
+function validateWebdavBoundary(value: { driver?: string; serverId?: string | null; directAccessMode?: string; publicBaseUrl?: string; webdavConfig?: unknown }, ctx: z.RefinementCtx) {
+  if (value.driver === "WEBDAV") {
+    if (value.serverId) ctx.addIssue({ code: "custom", path: ["serverId"], message: "WebDAV cannot be bound to a VPS" });
+    if (value.directAccessMode && value.directAccessMode !== "PROXY") ctx.addIssue({ code: "custom", path: ["directAccessMode"], message: "WebDAV only supports proxy access" });
+    if (value.publicBaseUrl) ctx.addIssue({ code: "custom", path: ["publicBaseUrl"], message: "WebDAV cannot expose a public base URL" });
+  } else if (value.driver && value.webdavConfig) {
+    ctx.addIssue({ code: "custom", path: ["webdavConfig"], message: "WebDAV configuration requires the WEBDAV driver" });
+  }
+}
+
 export const createStorageNodeSchema = z.object({
+  webdavConfig: completeWebdavConfigSchema.optional(),
   name: z.string().trim().min(2, "Storage node name must be at least 2 characters").max(64, "Storage node name must be at most 64 characters"),
-  driver: z.enum(["LOCAL", "SFTP"]),
+  driver: z.enum(["LOCAL", "SFTP", "WEBDAV"]),
   basePath: z.string().trim().min(1, "Storage root path is required").max(255, "Storage root path is too long"),
   directAccessMode: storageAccessModeSchema.optional().default("PROXY"),
   publicBaseUrl: publicBaseUrlSchema,
@@ -30,13 +66,18 @@ export const createStorageNodeSchema = z.object({
   host: z.string().trim().max(255, "Hostname is too long").optional(),
   port: z.coerce.number().int().min(1, "Port must be at least 1").max(65535, "Port must be at most 65535").optional(),
   username: z.string().trim().max(64, "Username is too long").optional(),
+  password: z.string().max(4096, "Password is too long").optional(),
   serverId: z.string().trim().optional(),
+}).superRefine((value, ctx) => {
+  validateWebdavBoundary(value, ctx);
+  if (value.driver === "WEBDAV" && !value.webdavConfig) ctx.addIssue({ code: "custom", path: ["webdavConfig"], message: t("backend.webdav.configurationRequired") });
 });
 
 export const updateStorageNodeSchema = z.object({
+  webdavConfig: webdavConfigSchema.optional(),
   storageNodeId: z.string().trim().min(1, "Storage node is required"),
   name: z.string().trim().min(2, "Storage node name must be at least 2 characters").max(64, "Storage node name must be at most 64 characters").optional(),
-  driver: z.enum(["LOCAL", "SFTP"]).optional(),
+  driver: z.enum(["LOCAL", "SFTP", "WEBDAV"]).optional(),
   basePath: z.string().trim().min(1, "Storage root path is required").max(255, "Storage root path is too long").optional(),
   directAccessMode: storageAccessModeSchema.optional(),
   publicBaseUrl: publicBaseUrlSchema,
@@ -45,8 +86,9 @@ export const updateStorageNodeSchema = z.object({
   host: z.string().trim().max(255, "Hostname is too long").optional().nullable(),
   port: z.coerce.number().int().min(1, "Port must be at least 1").max(65535, "Port must be at most 65535").optional().nullable(),
   username: z.string().trim().max(64, "Username is too long").optional().nullable(),
+  password: z.string().max(4096, "Password is too long").optional().nullable(),
   serverId: z.string().trim().optional().nullable(),
-});
+}).superRefine(validateWebdavBoundary);
 
 export const createFileEntrySchema = z.object({
   storageNodeId: z.string().trim().min(1, "Storage node is required"),

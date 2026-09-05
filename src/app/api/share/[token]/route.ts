@@ -142,12 +142,17 @@ async function openSftpFile(client: Client, remotePath: string) {
 	});
 }
 
-function fileResponse(stream: import("stream").Readable, input: { size: number; fileName: string }) {
+function fileResponse(stream: import("stream").Readable, input: { size: number; fileName: string; inline?: boolean }) {
 	const headers = new Headers();
 	headers.set("content-type", guessContentType(input.fileName));
 	headers.set("content-length", String(input.size));
 	headers.set("cache-control", "private, no-store");
-	headers.set("content-disposition", buildContentDisposition("attachment", input.fileName));
+	// Never execute shared HTML/SVG/other active documents on the application's origin.
+	const safeInline = input.inline && /^(?:image\/(?:png|jpeg|gif|webp|avif)|audio\/[\w.+-]+|video\/[\w.+-]+|text\/plain|application\/pdf)$/.test(guessContentType(input.fileName).split(';')[0]!.trim());
+	headers.set("x-content-type-options", "nosniff");
+	headers.set("content-security-policy", "sandbox; default-src 'none'; frame-ancestors 'none'");
+	headers.set("referrer-policy", "no-referrer");
+	headers.set("content-disposition", buildContentDisposition(safeInline ? "inline" : "attachment", input.fileName));
 	return new Response(nodeStreamToWeb(stream), { status: 200, headers });
 }
 
@@ -201,11 +206,15 @@ export async function GET(
 	};
 
 	let targetPath = share.path;
-	const { path: childPath, archive } = parseSearchParams(
+	const { path: childPath, archive, inline } = parseSearchParams(
 		request,
 		z.object({
 			path: z.string().trim().min(1).optional(),
 			archive: z
+				.string()
+				.optional()
+				.transform((value) => value === "1"),
+			inline: z
 				.string()
 				.optional()
 				.transform((value) => value === "1"),
@@ -255,7 +264,7 @@ export async function GET(
 				return archiveStreamResponse(stream, safeArchiveName(share.name || path.basename(absolutePath)));
 			}
 			if (!fileStat.isFile()) return denyAfterClaim(apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.notDownloadable", locale), status: 400 }));
-			return fileResponse(createReadStream(absolutePath), { size: fileStat.size, fileName });
+			return fileResponse(createReadStream(absolutePath), { size: fileStat.size, fileName, inline: inline && !wantsArchive });
 		} catch {
 			return denyAfterClaim(apiError({ code: "NOT_FOUND", message: t("apiShareToken.localNotFound", locale), status: 404 }));
 		}
@@ -289,7 +298,7 @@ export async function GET(
 				}
 				try {
 					const buffer = await readRemoteFile({ ...credentials, remotePath });
-					return fileResponse(Readable.from(buffer), { size: buffer.length, fileName });
+					return fileResponse(Readable.from(buffer), { size: buffer.length, fileName, inline: inline && !wantsArchive });
 				} catch {
 					return denyAfterClaim(apiError({
 						code: "VALIDATION_FAILED",
@@ -321,7 +330,7 @@ export async function GET(
 			const { stream, size } = await openSftpFile(client, remotePath);
 			stream.on("close", () => client?.end());
 			stream.on("error", () => client?.end());
-			return fileResponse(stream, { size, fileName });
+			return fileResponse(stream, { size, fileName, inline: inline && !wantsArchive });
 		} catch {
 			client?.end();
 			return denyAfterClaim(apiError({ code: "NOT_FOUND", message: t("apiShareToken.remoteNotFound", locale), status: 404 }));

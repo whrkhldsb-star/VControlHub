@@ -31,6 +31,12 @@ const baseFile: FileProp = {
 };
 
 describe("file-entry-utils", () => {
+  it("always proxies WebDAV and rejects unknown drivers rather than using LOCAL", () => {
+    const entry = toStorageEntry({ ...baseFile, storageNodeDriver: "WEBDAV", directAccessMode: "direct-url", directAccessHref: "https://cloud.example/private" });
+    expect(buildDownloadHref(entry)).toBe("/api/storage/webdav-download?nodeId=node_local&path=docs%2Freport.pdf");
+    expect(buildDirectDownloadHref(entry)).toBeNull();
+    expect(() => buildProxyDownloadHref(toStorageEntry({ ...baseFile, storageNodeDriver: "UNKNOWN" }))).toThrow("Unsupported storage driver");
+  });
 	it("builds file browser search URLs from path and filters", () => {
 		expect(buildSearchHref("photos", { nodeId: "node_1", q: "cat" })).toBe("/files?path=photos&nodeId=node_1&q=cat");
 		expect(buildSearchHref("", { nodeId: "" })).toBe("/files");

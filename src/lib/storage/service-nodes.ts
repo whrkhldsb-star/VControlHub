@@ -11,8 +11,11 @@ import { normalizePublicBaseUrl } from "@/lib/storage/direct-access-url";
 import { normalizeRemotePath } from "@/lib/storage/remote-path";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 import { expandStorageBasePath } from "@/lib/storage/path-utils";
+import { decrypt, encrypt } from "@/lib/crypto/service";
 
 import {
+  completeWebdavConfigSchema,
+  webdavConfigSchema,
   createStorageNodeSchema,
   updateStorageNodeSchema,
   type CreateStorageNodeInput,
@@ -24,6 +27,42 @@ import {
   buildStorageConnectionSummary,
   type StorageNodeListRow,
 } from "./service-direct-access";
+
+function readWebdavConfig(ciphertext?: string | null) {
+  if (!ciphertext) return undefined;
+  try { return webdavConfigSchema.parse(JSON.parse(decrypt(ciphertext))); }
+  catch { throw new ValidationError(t("backend.webdav.configurationInvalid")); }
+}
+
+function publicWebdavConfig(ciphertext?: string | null) {
+  // A damaged legacy configuration must not break the entire node list.
+  try {
+    const config = readWebdavConfig(ciphertext);
+    return config ? { url: config.url, authType: config.authType, username: config.username,
+      hasPassword: Boolean(config.password), hasToken: Boolean(config.token) } : null;
+  } catch { return null; }
+}
+
+function safeNodeDto<T extends { webdavConfigEncrypted?: string | null }>(node: T) {
+  const { webdavConfigEncrypted, ...safe } = node;
+  // Do not expose legacy password fields either, including rows read during rolling upgrades.
+  Reflect.deleteProperty(safe, "password");
+  Reflect.deleteProperty(safe, "webdavConfig");
+  return { ...safe, webdavConfig: publicWebdavConfig(webdavConfigEncrypted) };
+}
+
+function encryptWebdavConfig(input: NonNullable<UpdateStorageNodeInput["webdavConfig"]>, ciphertext?: string | null) {
+  const previous = ciphertext ? readWebdavConfig(ciphertext) : undefined;
+  // Never forward stored secrets to a new endpoint/account without explicit replacement.
+  const sameIdentity = previous?.url === input.url && previous?.authType === input.authType
+    && (input.authType !== "basic" || previous.username === input.username);
+  const config = completeWebdavConfigSchema.parse(input.authType === "basic"
+    ? { url: input.url, authType: input.authType, username: input.username,
+        password: input.password || (sameIdentity ? previous?.password : undefined) }
+    : { url: input.url, authType: input.authType,
+        token: input.token || (sameIdentity ? previous?.token : undefined) });
+  return encrypt(JSON.stringify(config));
+}
 
 export type StorageNodeHealthStatus = "UNKNOWN" | "HEALTHY" | "UNHEALTHY";
 
@@ -171,6 +210,9 @@ export async function checkStorageNodeHealth(
         password: credentials.password,
         remotePath: normalizeRemotePath(node.basePath, ""),
       });
+    } else {
+      healthStatus = "UNKNOWN";
+      lastHealthError = "WebDAV health probe is not available yet";
     }
   } catch (error) {
     healthStatus = "UNHEALTHY";
@@ -234,9 +276,11 @@ export async function createStorageNode(
         driver: payload.driver,
         basePath: payload.basePath,
         isDefault: payload.isDefault,
-        host: payload.host,
-        port: payload.port,
-        username: payload.username,
+        host: payload.driver === "SFTP" ? payload.host : null,
+        port: payload.driver === "SFTP" ? payload.port : null,
+        username: payload.driver === "SFTP" ? payload.username : null,
+        webdavConfigEncrypted: payload.driver === "WEBDAV" && payload.webdavConfig
+          ? encryptWebdavConfig(payload.webdavConfig) : null,
         serverId: payload.serverId,
         directAccessMode: payload.directAccessMode,
         publicBaseUrl: normalizePublicBaseUrl(payload.publicBaseUrl),
@@ -257,7 +301,7 @@ export async function createStorageNode(
   await ensureDefaultNodeState(payload.isDefault, session, storageNode.id);
 
   return {
-    ...storageNode,
+    ...safeNodeDto(storageNode),
     connectionSummary: buildStorageConnectionSummary({
       driver: storageNode.driver,
       basePath: storageNode.basePath,
@@ -299,6 +343,16 @@ export async function updateStorageNode(
   }
 
   const nextDriver = payload.driver ?? current.driver;
+  const driverChanged = nextDriver !== current.driver;
+  // Apply driver-specific constraints even when PATCH omitted the driver.
+  updateStorageNodeSchema.parse({ ...payload, driver: nextDriver });
+  const webdavConfigEncrypted = nextDriver === "WEBDAV"
+    ? payload.webdavConfig
+      ? encryptWebdavConfig(payload.webdavConfig, driverChanged ? null : current.webdavConfigEncrypted)
+      : driverChanged || !current.webdavConfigEncrypted
+        ? (() => { throw new ValidationError(t("backend.webdav.configurationRequired")); })()
+        : current.webdavConfigEncrypted
+    : null;
   if (current.isDefault && payload.isDefault === false) {
     throw new BusinessError(t("backend.storage.defaultMustBeReplacedFirst"));
   }
@@ -307,15 +361,15 @@ export async function updateStorageNode(
   }
   const nextServerId =
     payload.serverId === undefined
-      ? (current.serverId ?? undefined)
+      ? (driverChanged ? undefined : current.serverId ?? undefined)
       : (payload.serverId ?? undefined);
   const nextHost =
     payload.host === undefined
-      ? (current.host ?? undefined)
+      ? (driverChanged ? undefined : current.host ?? undefined)
       : (payload.host ?? undefined);
-  const nextPort = payload.port === undefined ? current.port : payload.port;
+  const nextPort = payload.port === undefined ? (driverChanged ? null : current.port) : payload.port;
   const nextUsername =
-    payload.username === undefined ? current.username : payload.username;
+    payload.username === undefined ? (driverChanged ? null : current.username) : payload.username;
 
   if (nextDriver === "SFTP" && !nextServerId && !nextHost) {
     throw new ValidationError(t("backend.storage.sftpNeedsHost"));
@@ -332,14 +386,14 @@ export async function updateStorageNode(
       driver: nextDriver,
       basePath: payload.basePath ?? current.basePath,
       isDefault: payload.isDefault ?? current.isDefault,
-      host: payload.host === undefined ? current.host : payload.host,
-      port: nextPort,
-      username: nextUsername,
-      serverId:
-        payload.serverId === undefined ? current.serverId : payload.serverId,
-      directAccessMode: payload.directAccessMode ?? current.directAccessMode,
+      host: nextDriver === "SFTP" ? nextHost ?? null : null,
+      port: nextDriver === "SFTP" ? nextPort : null,
+      username: nextDriver === "SFTP" ? nextUsername : null,
+      webdavConfigEncrypted,
+      serverId: nextDriver === "WEBDAV" ? null : nextServerId ?? null,
+      directAccessMode: nextDriver === "WEBDAV" ? "PROXY" : payload.directAccessMode ?? (driverChanged ? "PROXY" : current.directAccessMode),
       publicBaseUrl:
-        payload.publicBaseUrl === undefined
+        nextDriver === "WEBDAV" || driverChanged ? null : payload.publicBaseUrl === undefined
           ? current.publicBaseUrl
           : normalizePublicBaseUrl(payload.publicBaseUrl),
       directAccessExpiresSeconds:
@@ -361,7 +415,7 @@ export async function updateStorageNode(
   // Promote first, then retire the previous default. This preserves a usable
   // default even if the second database operation is interrupted.
   await ensureDefaultNodeState(payload.isDefault, session, payload.storageNodeId);
-  return updated;
+  return safeNodeDto(updated);
 }
 
 export async function deleteStorageNode(
@@ -424,6 +478,7 @@ export async function listStorageNodes(session?: TeamSession | null) {
     host: node.host,
     port: node.port,
     username: node.username,
+    webdavConfig: publicWebdavConfig(node.webdavConfigEncrypted),
     serverId: node.serverId,
     directAccessMode: node.directAccessMode,
     publicBaseUrl: node.publicBaseUrl,

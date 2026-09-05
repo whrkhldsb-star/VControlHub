@@ -87,7 +87,7 @@ export async function completeStorageFileUpload(params: {
 
   try {
   const storageNode = await getStorageFileNode(existing.storageNodeId, session);
-  if (!storageNode || (storageNode.driver !== "LOCAL" && storageNode.driver !== "SFTP")) {
+  if (!storageNode || !["LOCAL", "SFTP", "WEBDAV"].includes(storageNode.driver)) {
     throw new ValidationError(t("backend.storage.uploadNotSupported"));
   }
 

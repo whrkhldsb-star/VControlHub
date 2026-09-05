@@ -129,7 +129,7 @@ sudo -u "$APP_USER" env bash -lc 'umask 022; npm ci'
 # Without this, next build's type check fails on @prisma/client exports.
 sudo -u "$APP_USER" env bash -lc 'umask 022; npx prisma generate'
 # Explicit umask for the app-user build too (in case login.defs is strict).
-sudo -u "$APP_USER" env VCONTROLHUB_DEPLOY_BUILD=1 bash -lc 'umask 022; npm run build'
+sudo -u "$APP_USER" env VCONTROLHUB_DEPLOY_BUILD=1 NODE_OPTIONS="--max-old-space-size=4096" bash -lc 'umask 022; npm run build'
 sudo -u "$APP_USER" env bash -lc 'umask 022; npm run build:runtime'
 
 echo "==> [3/8] 应用 Prisma migration"

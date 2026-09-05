@@ -18,6 +18,19 @@ import { listServerProfiles } from "@/lib/server/service";
 import type { StorageActionState } from "./actions-helpers";
 import { getErrorMessage } from "@/lib/http/error-message";
 
+function webdavConfigFromForm(formData: FormData) {
+  if (!formData.has("webdavUrl")) return undefined;
+  const authType = String(formData.get("webdavAuthType") ?? "basic") as "basic" | "bearer";
+  return {
+    url: String(formData.get("webdavUrl") ?? "").trim(),
+    authType,
+    ...(authType === "basic" ? {
+      username: String(formData.get("webdavUsername") ?? "").trim(),
+      password: String(formData.get("webdavPassword") ?? ""),
+    } : { token: String(formData.get("webdavToken") ?? "") }),
+  };
+}
+
 export async function getStorageFormOptions() {
   // Called from files page for users with storage:write OR storage:manage-node.
   // Scope servers by session team; do not require manage-node here.
@@ -75,7 +88,8 @@ export async function createStorageNodeAction(
   try {
     const driver = String(formData.get("driver") ?? "LOCAL").toUpperCase() as
       | "LOCAL"
-      | "SFTP";
+      | "SFTP"
+      | "WEBDAV";
     const portRaw = String(formData.get("port") ?? "").trim();
     const serverIdRaw = String(formData.get("serverId") ?? "").trim();
     const hostRaw = String(formData.get("host") ?? "").trim();
@@ -85,6 +99,7 @@ export async function createStorageNodeAction(
       {
         name: String(formData.get("name") ?? ""),
         driver,
+        webdavConfig: driver === "WEBDAV" ? webdavConfigFromForm(formData) : undefined,
         isDefault: String(formData.get("isDefault") ?? "") === "on",
         basePath: String(formData.get("basePath") ?? ""),
         directAccessMode: String(formData.get("directAccessMode") ?? "PROXY") as
@@ -137,7 +152,7 @@ export async function updateStorageNodeAction(
     const storageNodeId = String(formData.get("storageNodeId") ?? "").trim();
     const driver = String(formData.get("driver") ?? "")
       .trim()
-      .toUpperCase() as "LOCAL" | "SFTP" | "";
+      .toUpperCase() as "LOCAL" | "SFTP" | "WEBDAV" | "";
     const portRaw = String(formData.get("port") ?? "").trim();
     const serverIdRaw = String(formData.get("serverId") ?? "").trim();
     const hostRaw = String(formData.get("host") ?? "").trim();
@@ -155,7 +170,8 @@ export async function updateStorageNodeAction(
       {
         storageNodeId,
         name: String(formData.get("name") ?? "").trim() || undefined,
-        driver: driver === "LOCAL" || driver === "SFTP" ? driver : undefined,
+        driver: driver === "LOCAL" || driver === "SFTP" || driver === "WEBDAV" ? driver : undefined,
+        webdavConfig: driver === "WEBDAV" ? webdavConfigFromForm(formData) : undefined,
         basePath: String(formData.get("basePath") ?? "").trim() || undefined,
         directAccessMode: ["PROXY", "DIRECT", "AUTO"].includes(
           String(formData.get("directAccessMode") ?? ""),

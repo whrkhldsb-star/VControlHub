@@ -288,7 +288,7 @@ describe("readBackingObject", () => {
   it("rejects unsupported drivers instead of returning empty success", async () => {
     await expect(
       readBackingObject({
-        storageNode: { ...localNode, driver: "WEBDAV" },
+        storageNode: { ...localNode, driver: "UNSUPPORTED" },
         relativePath: "x.txt",
       }),
     ).rejects.toThrow(/Unsupported storage driver for read/);

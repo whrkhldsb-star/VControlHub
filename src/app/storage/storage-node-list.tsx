@@ -10,8 +10,10 @@ import { StatusBadge, type StatusTone } from "@/components/status-badge";
 import { StorageNodeEditForm } from "./storage-node-edit-form";
 import { StorageNodeDeleteButton } from "./storage-node-delete-button";
 import { getStorageDriverLabel } from "@/lib/i18n/domain-labels";
+import type { StorageNodeFieldValues } from "./storage-node-fields";
 
 type StorageNodeItem = {
+  webdavConfig?: StorageNodeFieldValues["webdavConfig"];
 	id: string;
 	name: string;
 	driver: string;

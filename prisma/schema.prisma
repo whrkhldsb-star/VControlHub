@@ -48,6 +48,7 @@ enum ActorType {
 enum StorageDriver {
   LOCAL
   SFTP
+  WEBDAV
 }
 
 enum StorageAccessMode {
@@ -457,6 +458,7 @@ model StorageNode {
   host                       String?
   port                       Int?
   username                   String?
+  webdavConfigEncrypted      String?
   serverId                   String?              @unique
   healthStatus               StorageHealthStatus  @default(UNKNOWN)
   lastHealthCheckAt          DateTime?

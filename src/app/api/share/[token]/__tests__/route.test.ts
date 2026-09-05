@@ -63,6 +63,22 @@ describe("share token file route", () => {
     await expect(response.text()).resolves.toBe("hello share");
   });
 
+  it.each<[string, string]>([['hello.txt', 'inline'], ['attack.html', 'attachment'], ['attack.svg', 'attachment']])("restricts inline content for %s", async (name: string, disposition: string) => {
+    await writeFile(path.join(tempRoot, name), '<script>alert(1)</script>');
+    vi.mocked(resolveShareToken).mockResolvedValueOnce({
+      storageNode: { id: 'node_1', driver: 'LOCAL', basePath: tempRoot },
+      entryType: 'FILE', path: name, name,
+    } as never);
+    const response = await route.GET(new Request('http://local/api/share/token?inline=1'), {
+      params: Promise.resolve({ token: 'share-token-12345' }),
+    });
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-disposition')).toMatch(new RegExp(`^${disposition}`));
+    expect(response.headers.get('x-content-type-options')).toBe('nosniff');
+    expect(response.headers.get('content-security-policy')).toContain('sandbox');
+    await response.text();
+  });
+
   it("streams LOCAL directory shares as tar.gz archives", async () => {
     const expandedRoot = path.join(tempRoot, "vcontrolhub", "storage");
     await mkdir(path.join(expandedRoot, "docs"), { recursive: true });

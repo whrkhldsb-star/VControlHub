@@ -29,7 +29,7 @@ export type DirectAccessResult =
     };
 
 export function buildDirectAccessStrategy(input: {
-  driver: "LOCAL" | "SFTP";
+  driver: "LOCAL" | "SFTP" | "WEBDAV";
   nodeId: string;
   host?: string | null;
   port?: number | null;
@@ -81,7 +81,7 @@ export function buildDirectAccessStrategy(input: {
 }
 
 export function buildStorageConnectionSummary(input: {
-  driver: "LOCAL" | "SFTP";
+  driver: "LOCAL" | "SFTP" | "WEBDAV";
   basePath: string;
   host?: string | null;
   port?: number | null;

@@ -32,6 +32,7 @@ import { isUniqueViolation } from "@/lib/db";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { getServerLocale, t, type Locale } from "@/lib/i18n/translations";
 import { handleLocalStorageGet } from "./route-get";
+import { writeStorageFileBuffer, deleteStorageFileBuffer } from "@/lib/storage/file-content";
 
 type UploadLike = {
   arrayBuffer(): Promise<ArrayBuffer>;
@@ -142,6 +143,7 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
       name: true,
       driver: true,
       basePath: true,
+      webdavConfigEncrypted: true,
       host: true,
       port: true,
       username: true,
@@ -162,7 +164,7 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
     },
   });
 
-  if (!storageNode || !["LOCAL", "SFTP"].includes(storageNode.driver)) {
+  if (!storageNode || !["LOCAL", "SFTP", "WEBDAV"].includes(storageNode.driver)) {
     return NextResponse.json(
       { error: t("api.storage.unsupportedUploadNode", locale) },
       { status: 400 },
@@ -179,6 +181,8 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
         storageNode.basePath,
         normalizedUploadPath.path,
       ));
+    } else if (storageNode.driver === "WEBDAV") {
+      normalizedRelativePath = normalizedUploadPath.path;
     } else {
       normalizedRelativePath = normalizedUploadPath.path;
       remotePath = normalizeRemoteTargetPath(
@@ -228,6 +232,7 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
 
   let uploadedLocalPath: string | null = null;
   let uploadedRemotePath: string | null = null;
+  let uploadedWebDav = false;
   let sftpCredentials: ReturnType<typeof resolveStorageSshCredentials> | null =
     null;
 
@@ -259,6 +264,9 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
     await mkdir(parentDir, { recursive: true });
     await writeFile(absolutePath, fileBuffer);
     uploadedLocalPath = absolutePath;
+  } else if (storageNode.driver === "WEBDAV") {
+    await writeStorageFileBuffer(storageNode, normalizedRelativePath, fileBuffer);
+    uploadedWebDav = true;
   } else {
     if (!remotePath) {
       return NextResponse.json(
@@ -344,6 +352,11 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
     // Never cleanup on unique-constraint races — the competing request owns
     // a valid FileEntry that still points at this blob path.
     if (!isUniqueViolation(error)) {
+      if (uploadedWebDav && !existingEntryForVersion) {
+        await deleteStorageFileBuffer(storageNode, normalizedRelativePath).catch((cleanupError) => {
+          logError("WebDAV upload cleanup failed", cleanupError);
+        });
+      }
       if (uploadedLocalPath) {
         try {
           await unlink(uploadedLocalPath);

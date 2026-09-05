@@ -6,7 +6,7 @@ import { StorageNodeFields } from "../storage-node-fields";
 
 const servers = [{ id: "s1", name: "Tokyo", host: "10.0.0.1" }];
 
-function renderFields(driver: "LOCAL" | "SFTP", values = {}, lockDefault = false) {
+function renderFields(driver: "LOCAL" | "SFTP" | "WEBDAV", values = {}, lockDefault = false) {
   return render(
     <I18nProvider initialLocale="en">
       <StorageNodeFields driver={driver} onDriverChange={() => undefined} servers={servers} values={values} lockDefault={lockDefault} />
@@ -15,6 +15,13 @@ function renderFields(driver: "LOCAL" | "SFTP", values = {}, lockDefault = false
 }
 
 describe("StorageNodeFields", () => {
+  it("renders WebDAV configuration without VPS binding or a public URL, never prefills secrets", () => {
+    renderFields("WEBDAV", { webdavConfig: { url: "https://dav.example.com/", authType: "basic", username: "alice", hasPassword: true } });
+    expect(screen.getByLabelText("WebDAV endpoint (HTTPS)")).toHaveValue("https://dav.example.com/");
+    expect(screen.getByLabelText("WebDAV password")).toHaveValue("");
+    expect(screen.queryByLabelText(/Bind VPS/)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Public base URL/)).not.toBeInTheDocument();
+  });
   it("renders common fields without remote-only fields for local storage", () => {
     renderFields("LOCAL");
     expect(screen.getByLabelText("Node name")).toBeVisible();

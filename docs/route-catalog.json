@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-09-01T11:33:40.498Z",
+  "generatedAt": "2026-09-05T09:57:58.104Z",
   "summary": {
     "sidebarMain": 30,
     "sidebarSystem": 5,
     "sidebarMobile": 5,
     "pages": 54,
-    "apiRoutes": 180,
+    "apiRoutes": 181,
     "permissionsDefined": 54
   },
   "sidebar": {
@@ -2651,6 +2651,17 @@
       "guardMode": "withApiRoute",
       "declaredPermissions": [
         "storage:write"
+      ]
+    },
+    {
+      "path": "/api/storage/webdav-download",
+      "file": "src/app/api/storage/webdav-download/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "storage:read"
       ]
     },
     {

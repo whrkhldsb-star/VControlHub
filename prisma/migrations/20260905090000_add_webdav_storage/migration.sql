@@ -1,0 +1,2 @@
+ALTER TYPE "StorageDriver" ADD VALUE IF NOT EXISTS 'WEBDAV';
+ALTER TABLE "StorageNode" ADD COLUMN IF NOT EXISTS "webdavConfigEncrypted" TEXT;

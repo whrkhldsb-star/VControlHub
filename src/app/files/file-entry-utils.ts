@@ -74,6 +74,10 @@ export function buildSearchHref(path: string, extra?: Record<string, string>) {
 }
 
 export function buildProxyDownloadHref(entry: StorageEntry) {
+  if (entry.storageNode.driver === "WEBDAV") {
+    const params = new URLSearchParams({ nodeId: entry.storageNode.id, path: entry.relativePath });
+    return `/api/storage/webdav-download?${params.toString()}`;
+  }
   if (entry.storageNode.driver === "SFTP") {
     const params = new URLSearchParams({
       nodeId: entry.storageNode.id,
@@ -81,6 +85,7 @@ export function buildProxyDownloadHref(entry: StorageEntry) {
     });
     return `/api/storage/sftp-download?${params.toString()}`;
   }
+  if (entry.storageNode.driver !== "LOCAL") throw new Error("Unsupported storage driver");
   const params = new URLSearchParams({
     path: entry.relativePath,
     ...(entry.storageNode.id ? { nodeId: entry.storageNode.id } : {}),
