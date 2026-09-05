@@ -121,6 +121,8 @@ beforeEach(() => {
   vi.mocked(csrfFetch).mockReset();
   vi.mocked(csrfFetch).mockImplementation(async (input) => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    if (url.includes("/vps-backup/schedules")) return { schedules: [] };
+    if (url.includes("/vps-backup/records")) return { records: [] };
     if (url.endsWith("/api/preferences")) {
       return {
         autoProbeEnabled: false,
@@ -332,7 +334,9 @@ describe("ServersPage", () => {
     // 强制开启自动探测: mock /api/preferences 返回 enabled=true
     vi.mocked(csrfFetch).mockImplementation(async (input) => {
       const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
-      if (url.endsWith("/api/preferences")) {
+      if (url.includes("/vps-backup/schedules")) return { schedules: [] };
+    if (url.includes("/vps-backup/records")) return { records: [] };
+    if (url.endsWith("/api/preferences")) {
         return {
           autoProbeEnabled: true,
           autoProbeIntervalSec: 60,

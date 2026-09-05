@@ -92,7 +92,7 @@ export async function handleWebDavOptions(): Promise<Response> {
     status: 204,
     headers: {
       Allow: "OPTIONS, PROPFIND, GET, HEAD, PUT, DELETE, MKCOL, MOVE, COPY",
-      DAV: "1, 2",
+      DAV: "1",
       "MS-Author-Via": "DAV",
       "Accept-Ranges": "bytes",
     },
@@ -152,7 +152,7 @@ export async function handleWebDavPropFind(
     status: 207,
     headers: {
       "Content-Type": "application/xml; charset=utf-8",
-      DAV: "1, 2",
+      DAV: "1",
     },
   });
 }
@@ -209,7 +209,7 @@ export async function handleWebDavGetHead(
     ctx.relativePath,
     range.status === 206 ? range : undefined,
   );
-  headers["Content-Length"] = String(range.end - range.start + 1);
+  headers["Content-Length"] = String(fileSize === 0 ? 0 : range.end - range.start + 1);
   if (range.status === 206)
     headers["Content-Range"] = `bytes ${range.start}-${range.end}/${fileSize}`;
   const response = new Response(nodeStreamToWeb(streamed.stream), {

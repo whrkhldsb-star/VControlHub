@@ -48,7 +48,7 @@ export function StorageNodeManager({
 				<div>
 					<h2 className="text-2xl font-semibold text-[var(--text-primary)]">{t("storagePage.nodes.title")}</h2>
 					<p className="mt-2 text-sm leading-7 text-[var(--text-secondary)]">
-						{t("storagePage.nodes.summary", { total: nodes.length, local: localCount, sftp: sftpCount })}
+						{t("storagePage.nodes.summary", { total: nodes.length, local: localCount, sftp: sftpCount })} · WebDAV: {nodes.filter((node) => node.driver === "WEBDAV").length}
 					</p>
 				</div>
 				<ActionButton

@@ -144,22 +144,8 @@ export async function streamStorageFile(
     const client = createWebDavClient(node);
     const entry = await client.stat(relativePath);
     if (!entry || entry.isDirectory) throw new ValidationError(t("backend.webdav.fileNotFound"));
-    const source = Readable.fromWeb(await client.stream(relativePath) as import("node:stream/web").ReadableStream);
-    // Slice locally: not every provider implements HTTP Range correctly.
-    const stream = range ? Readable.from((async function* () {
-      let offset = 0;
-      try {
-        for await (const chunk of source) {
-          const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-          const start = Math.max(0, range.start - offset);
-          const end = Math.min(buffer.length, range.end + 1 - offset);
-          if (end > start) yield buffer.subarray(start, end);
-          offset += buffer.length;
-          if (offset > range.end) break;
-        }
-      } finally { source.destroy(); }
-    })()) : source;
-    return { stream, size: entry.size, close: () => { stream.destroy(); source.destroy(); } };
+    const stream = Readable.fromWeb(await client.stream(relativePath, range, entry.size) as import("node:stream/web").ReadableStream);
+    return { stream, size: entry.size, close: () => stream.destroy() };
   }
   if (node.driver === "LOCAL") {
     const resolved = resolveStoragePathWithinBase(node.basePath, relativePath);

@@ -145,6 +145,11 @@ describe("proxy auth guard", () => {
     expect(response.headers.get("X-Content-Type-Options")).toBe("nosniff");
   });
 
+  it("delegates WebDAV auth to its Basic/Bearer route without opening lookalike paths", () => {
+    expect(proxy(makeRequest("/api/webdav/node-1")).status).toBe(200);
+    expect(proxy(makeRequest("/api/webdav-admin/node-1")).status).toBe(401);
+  });
+
   it("lets anonymous browsers reach public share pages and share download APIs", () => {
     for (const pathname of ["/share/public-token", "/api/share/public-token"]) {
       const response = proxy(makeRequest(pathname));

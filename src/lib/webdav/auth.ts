@@ -99,7 +99,7 @@ export function webDavUnauthorizedResponse(realm = "VControlHub WebDAV"): Respon
     status: 401,
     headers: {
       "WWW-Authenticate": `Basic realm="${realm}", charset="UTF-8"`,
-      "DAV": "1, 2",
+      "DAV": "1",
       "MS-Author-Via": "DAV",
     },
   });

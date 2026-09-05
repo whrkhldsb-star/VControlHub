@@ -186,14 +186,15 @@ describe("webdav route dispatch", () => {
     expect(response.status).toBe(422);
   });
 
-  it("still falls back to message matching for an untyped access denial", async () => {
+  it("does not trust error names or access-denied text for untyped failures", async () => {
     const denial = new Error("storage access denied");
     denial.name = "BusinessError";
     mocks.getHead.mockRejectedValue(denial);
 
     const response = await GET(req("GET"), params(["a.txt"]));
 
-    expect(response.status).toBe(403);
+    expect(response.status).toBe(500);
+    expect(await response.text()).not.toContain("storage access denied");
   });
 
   it("falls back to 500 and logs for an untyped failure", async () => {

@@ -42,7 +42,7 @@ describe("ApiDocsPage", () => {
 		expect(await screen.findByText("健康检查")).toBeInTheDocument();
 		expect(screen.getByText("/api/health")).toBeInTheDocument();
 		expect(screen.getByRole("link", { name: "OpenAPI JSON" })).toHaveAttribute("href", "/api/docs/openapi.json");
-		await waitFor(() => expect(globalThis.fetch).toHaveBeenCalledWith("/api/docs/openapi.json", { credentials: "same-origin" }));
+		await waitFor(() => expect(globalThis.fetch).toHaveBeenCalledWith("/api/docs/openapi.json", expect.objectContaining({ credentials: "same-origin", method: "GET", signal: expect.any(AbortSignal) })));
 		// Count templates are now i18n-aware and produce "{count}/{total} 个接口" / "{count} 个接口" / "参数 {count}".
 		expect(await screen.findByText("2/2 个接口")).toBeInTheDocument();
 		expect(screen.getByText("2 个接口")).toBeInTheDocument();

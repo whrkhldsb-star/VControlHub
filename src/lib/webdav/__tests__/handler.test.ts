@@ -561,7 +561,7 @@ describe("webdav handlers", () => {
       const response = await handleWebDavOptions();
 
       expect(response.status).toBe(204);
-      expect(response.headers.get("DAV")).toContain("1");
+      expect(response.headers.get("DAV")).toBe("1");
       for (const verb of ["PROPFIND", "PUT", "DELETE", "MKCOL", "MOVE", "COPY"]) {
         expect(response.headers.get("Allow")).toContain(verb);
       }
@@ -590,6 +590,14 @@ describe("webdav handlers", () => {
       expect(response.status).toBe(200);
       expect(await response.text()).toBe("hello");
       expect(response.headers.get("ETag")).toMatch(/^W\//);
+    });
+
+    it("reports an empty GET body as zero bytes", async () => {
+      mocks.fileEntryFindFirst.mockResolvedValue({ id: "empty", name: "empty.txt", relativePath: "empty.txt", entryType: "FILE", size: BigInt(0), updatedAt: new Date() });
+      mocks.streamStorageFile.mockResolvedValue({ size: 0, stream: Readable.from([]), close: vi.fn() });
+      const response = await handleWebDavGetHead(context("empty.txt"), "GET");
+      expect(response.headers.get("Content-Length")).toBe("0");
+      expect(await response.text()).toBe("");
     });
 
     it("sends no body for HEAD even though it reports the length", async () => {

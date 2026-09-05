@@ -48,6 +48,9 @@ export function buildDirectAccessStrategy(input: {
     };
   }
 
+  if (input.driver === "WEBDAV") {
+    return { mode: "managed-download", description: "WebDAV proxy", href: input.relativePath ? `/api/storage/webdav-download?${new URLSearchParams({ nodeId: input.nodeId, path: input.relativePath })}` : null };
+  }
   const host = input.host ?? "unknown";
   const port = input.port ?? 22;
   const params = new URLSearchParams({
@@ -92,6 +95,7 @@ export function buildStorageConnectionSummary(input: {
     return `Local storage: ${input.basePath}`;
   }
 
+  if (input.driver === "WEBDAV") return `WebDAV: ${input.basePath}`;
   const remote = `${input.username ?? "root"}@${input.host ?? "unknown"}:${input.port ?? 22}`;
   const serverHint = input.serverName ? ` (bound node ${input.serverName})` : "";
   return `SFTP storage: ${remote}${serverHint}, root directory ${input.basePath}`;

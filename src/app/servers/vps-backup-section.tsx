@@ -124,15 +124,11 @@ export function VpsBackupSection({
 		const controller = new AbortController();
 		fetchAbortRef.current = controller;
 		try {
-			const [schedRes, recRes] = await Promise.all([
-				fetch(`/api/servers/${serverId}/vps-backup/schedules`, { signal: controller.signal }),
-				fetch(`/api/servers/${serverId}/vps-backup/records`, { signal: controller.signal }),
-			]);
-			if (!schedRes.ok || !recRes.ok) throw new Error(t("vpsBackup.error.fetch"));
 			const [schedData, recData] = await Promise.all([
-				schedRes.json(),
-				recRes.json(),
+				csrfFetch<{ schedules?: BackupSchedule[] }>(`/api/servers/${serverId}/vps-backup/schedules`, { signal: controller.signal }),
+				csrfFetch<{ records?: BackupRecord[] }>(`/api/servers/${serverId}/vps-backup/records`, { signal: controller.signal }),
 			]);
+			if (controller.signal.aborted) return;
 			setSchedules(schedData.schedules ?? []);
 			setRecords(recData.records ?? []);
 		} catch (err) {

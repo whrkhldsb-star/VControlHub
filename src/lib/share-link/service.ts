@@ -338,13 +338,13 @@ export async function releaseShareQuotaClaim(shareLinkId: string): Promise<void>
  */
 export async function peekShareToken(
   token: string,
-  context?: { ip?: string; userAgent?: string; password?: string },
+  context?: { ip?: string; userAgent?: string; password?: string; authorizedShareId?: string | null },
 ) {
   const t = await serviceT();
   const share = await loadActiveShare(token);
 
   const hasPassword = Boolean(share.passwordHash);
-  if (hasPassword) {
+  if (hasPassword && context?.authorizedShareId !== share.id) {
     if (!context?.password) {
       // Password-gated links must not leak path / node / directory listings on the landing page.
       await recordShareAccess({
@@ -509,6 +509,18 @@ async function refreshShareDirectoryIndex(share: DirectoryShareForList) {
         ? { basePath: share.storageNode.basePath }
         : undefined,
     });
+    return;
+  }
+  if (share.storageNode?.driver === "WEBDAV") {
+    const node = await prisma.storageNode.findUnique({
+      where: { id: share.storageNodeId },
+      select: { id: true, driver: true, basePath: true, webdavConfigEncrypted: true },
+    });
+    if (node) {
+      const { syncWebDavDirectoryEntries } = await import("@/lib/storage/webdav-sync");
+      const result = await syncWebDavDirectoryEntries({ node, relativePath: share.path });
+      if (result.errors.length) throw new ValidationError(result.errors[0]);
+    }
     return;
   }
   if (share.storageNode?.driver === "SFTP") {

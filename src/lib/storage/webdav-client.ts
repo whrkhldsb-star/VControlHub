@@ -1,3 +1,4 @@
+import { t } from "@/lib/i18n/service-translations";
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { Agent, fetch as undiciFetch } from "undici";
@@ -27,10 +28,16 @@ const safeTransport: WebDavTransport = async (url, init) => {
   if (!addresses.length || addresses.some(({ address }) => {
     // Allow only global unicast IPv6 (also excludes NAT64/IPv4-compatible/transition ranges).
     return isUnsafePublicHttpHost(address) || !validateWebhookUrlSyntax(`https://${isIP(address) === 6 ? `[${address}]` : address}`).ok ||
-      (isIP(address) === 6 && (!/^[23]/i.test(address) || /^200[12]:/i.test(address)));
+      (isIP(address) === 6 && (() => {
+        // Canonicalize expanded spellings before prefix checks. Do not block all
+        // of 2001::/16: it includes ordinary public networks (e.g. Google DNS).
+        const canonical = new URL(`https://[${address}]`).hostname.slice(1, -1);
+        return !/^[23][0-9a-f]{3}:/i.test(canonical) ||
+          /^(?:2002:|2001:(?::|0:|db8:)|3fff:)/i.test(canonical);
+      })());
   })) throw new ValidationError("WebDAV DNS resolved to a non-public address");
   const pinned = addresses[0]!;
-  const dispatcher = new Agent({ connect: {
+  const dispatcher = new Agent({ headersTimeout: 120_000, bodyTimeout: 120_000, connect: {
     rejectUnauthorized: true,
     timeout: 15_000,
     lookup(name, options, callback) {
@@ -92,9 +99,16 @@ export function createWebDavClient(node: WebDavStorageNode, dependencies: { tran
   async function request(method: string, path: string, headers: Record<string, string> = {}, body?: Buffer | string) {
     const url = target(path);
     let response: Response;
+    // Deadline only for DNS/connection/response headers; a progressing download
+    // must not be aborted after a fixed wall-clock duration. The pinned Agent
+    // separately enforces connect and body inactivity timeouts.
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 120_000);
+    timer.unref?.();
     try {
-      response = await transport(url, { method, headers: { Authorization: authorization, ...headers }, ...(body !== undefined ? { body: body as BodyInit } : {}), redirect: "manual", signal: AbortSignal.timeout(120_000) });
+      response = await transport(url, { method, headers: { Authorization: authorization, ...headers }, ...(body !== undefined ? { body: body as BodyInit } : {}), redirect: "manual", signal: controller.signal });
     } catch { throw new BusinessError("WebDAV connection, DNS policy or TLS verification failed"); }
+    finally { clearTimeout(timer); }
     if (!response.ok) { await response.body?.cancel().catch(() => undefined); throw new WebDavHttpError(response.status); }
     return response;
   }
@@ -145,10 +159,65 @@ export function createWebDavClient(node: WebDavStorageNode, dependencies: { tran
     if (response.status === 207) throw new BusinessError("WebDAV operation returned partial multistatus; completion not confirmed");
   }
   return {
-    async list(path = ""): Promise<WebDavEntry[]> { const key = segments(path).join("/"); return (await propfind(path, "1")).filter((e) => e.relativePath !== key); },
+    async list(path = ""): Promise<WebDavEntry[]> {
+      const key = segments(path).join("/");
+      const entries = await propfind(path, "1");
+      // A missing collection row is an incomplete inventory, not an empty directory.
+      if (!entries.some((e) => e.relativePath === key && e.isDirectory)) throw new WebDavHttpError(502);
+      return entries.filter((e) => e.relativePath !== key);
+    },
     async stat(path: string): Promise<WebDavEntry | null> { try { const entries = await propfind(path, "0"); if (!entries[0]) throw new BusinessError("Empty WebDAV stat response"); return entries[0]; } catch (e) { if (e instanceof WebDavHttpError && e.status === 404) return null; throw e; } },
     async read(path: string, maxBytes = READ_LIMIT): Promise<Buffer> { return limited(await request("GET", path), maxBytes); },
-    async stream(path: string): Promise<ReadableStream<Uint8Array>> { const response = await request("GET", path); return response.body ?? new ReadableStream({ start(c) { c.close(); } }); },
+    async stream(path: string, range?: { start: number; end: number }, expectedSize?: number): Promise<ReadableStream<Uint8Array>> {
+      if (range && (!Number.isSafeInteger(range.start) || !Number.isSafeInteger(range.end) || range.start < 0 || range.end < range.start || !Number.isSafeInteger(range.end + 1))) throw new ValidationError(t("backend.webdav.rangeInvalid"));
+      if (expectedSize !== undefined && (!Number.isSafeInteger(expectedSize) || expectedSize < 0 || (range && range.end >= expectedSize))) throw new ValidationError(t("backend.webdav.rangeInvalid"));
+      const response = await request("GET", path, { "Accept-Encoding": "identity", ...(range ? { Range: `bytes=${range.start}-${range.end}` } : {}) });
+      const reject = async () => { await response.body?.cancel().catch(() => undefined); throw new BusinessError(t("backend.webdav.rangeInvalid")); };
+      const encoding = response.headers.get("content-encoding");
+      if ((encoding && encoding.toLowerCase() !== "identity") || ![200, 206].includes(response.status)) return reject();
+      let skip = range?.start ?? 0;
+      let length = range ? range.end - range.start + 1 : expectedSize;
+      if (response.status === 206) {
+        const match = /^bytes (\d+)-(\d+)\/(\d+)$/.exec(response.headers.get("content-range") ?? "");
+        if (!range || !match) return reject();
+        const [start, end, total] = match.slice(1).map(Number) as [number, number, number];
+        if (![start, end, total].every(Number.isSafeInteger) || start !== range.start || end !== range.end || total <= end || (expectedSize !== undefined && total !== expectedSize)) return reject();
+        skip = 0;
+      } else if (response.headers.has("content-range")) return reject();
+      const contentLength = response.headers.get("content-length");
+      const fullLength = response.status === 206 ? length : expectedSize;
+      if (contentLength !== null && (!/^\d+$/.test(contentLength) || !Number.isSafeInteger(Number(contentLength)) || (fullLength !== undefined && Number(contentLength) !== fullLength))) return reject();
+      const reader = response.body?.getReader();
+      // 200 fallback skips locally with bounded memory and cancels as soon as
+      // the selection is complete. 206 must match both its headers and body.
+      const fallback = response.status === 200 && !!range;
+      return new ReadableStream<Uint8Array>({
+        async pull(controller) {
+          if (!reader) { if (length) controller.error(new BusinessError(t("backend.webdav.rangeTruncated"))); else controller.close(); return; }
+          try {
+            for (;;) {
+              const next = await reader.read();
+              if (next.done) {
+                if (skip || (length !== undefined && length !== 0)) throw new BusinessError(t("backend.webdav.rangeTruncated"));
+                controller.close(); return;
+              }
+              const discarded = Math.min(skip, next.value.length); skip -= discarded;
+              const bytes = next.value.subarray(discarded);
+              if (!fallback && length !== undefined && bytes.length > length) throw new BusinessError(t("backend.webdav.rangeOversized"));
+              const selected = length === undefined ? bytes : bytes.subarray(0, length);
+              if (length !== undefined) length -= selected.length;
+              if (selected.length) controller.enqueue(selected);
+              if (fallback && length === 0) { controller.close(); await reader.cancel().catch(() => undefined); return; }
+              if (selected.length) return;
+            }
+          } catch (error) {
+            controller.error(error instanceof BusinessError ? error : new BusinessError("WebDAV stream failed"));
+            await reader.cancel().catch(() => undefined);
+          }
+        },
+        async cancel() { await reader?.cancel().catch(() => undefined); },
+      });
+    },
     async write(path: string, content: string | Buffer): Promise<{ byteSize: number }> { const body = Buffer.isBuffer(content) ? content : Buffer.from(content); await mutate("PUT", path, { "Content-Type": "application/octet-stream" }, body); return { byteSize: body.length }; },
     async mkdir(path: string): Promise<void> { await mutate("MKCOL", path); },
     async delete(path: string): Promise<void> { await mutate("DELETE", path); },

@@ -123,6 +123,7 @@ describe("MediaImageUploadPanel", () => {
 					image: { id: "img_42", publicUrl: "/api/images/img_42/file" },
 				};
 			}
+			if (url.includes("/chunk")) return globalThis.fetch(input, { method: "PUT" });
 			throw new Error(`unexpected csrfFetch: ${url}`);
 		});
 

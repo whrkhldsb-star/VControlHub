@@ -10,7 +10,7 @@
  */
 "use client";
 
-import { csrfFetch, getCsrfTokenFromCookie } from "@/lib/auth/csrf-client";
+import { csrfFetch } from "@/lib/auth/csrf-client";
 import { DEFAULT_CHUNK_SIZE, type MediaUploadSessionView } from "@/lib/upload/types";
 
 export const STORAGE_CHUNKED_THRESHOLD_BYTES = DEFAULT_CHUNK_SIZE;
@@ -108,14 +108,13 @@ async function putChunk(
   size: number,
   buffer: ArrayBuffer,
 ): Promise<MediaUploadSessionView> {
-  const csrfToken = getCsrfTokenFromCookie();
-  const resp = await fetch(
+  const resp = await csrfFetch<Response>(
     `/api/images/upload/${encodeURIComponent(sessionId)}/chunk?index=${index}&size=${size}`,
     {
       method: "PUT",
+      raw: true,
       headers: {
         "Content-Type": "application/octet-stream",
-        ...(csrfToken ? { "X-CSRF-Token": csrfToken } : {}),
       },
       body: buffer,
     },

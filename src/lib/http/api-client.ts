@@ -25,6 +25,7 @@ function supportsNativeBody(body: unknown): body is BodyInit {
 		(typeof URLSearchParams !== "undefined" && body instanceof URLSearchParams) ||
 		(typeof ReadableStream !== "undefined" && body instanceof ReadableStream) ||
 		(typeof ArrayBuffer !== "undefined" && body instanceof ArrayBuffer) ||
+		(typeof ArrayBuffer !== "undefined" && ArrayBuffer.isView(body)) ||
 		typeof body === "string"
 	);
 }
@@ -43,13 +44,29 @@ function appendParams(input: RequestInfo | URL, params?: Record<string, string>)
 	return `${input}${input.includes("?") ? "&" : "?"}${query}`;
 }
 
+function isSameOrigin(input: RequestInfo | URL): boolean {
+	if (typeof window === "undefined") return false;
+	try {
+		const href = typeof input === "string" || input instanceof URL ? input : input.url;
+		return new URL(href, document.baseURI).origin === window.location.origin;
+	} catch {
+		return false;
+	}
+}
+
 export async function apiRequest<T>(input: RequestInfo | URL, init: ApiRequestInit = {}): Promise<T> {
 	const { params, raw = false, ...fetchInit } = init;
-	const method = (fetchInit.method ?? "GET").toUpperCase();
-	const headers = new Headers(fetchInit.headers);
+	const request = typeof Request !== "undefined" && input instanceof Request ? input : undefined;
+	const method = (fetchInit.method ?? request?.method ?? "GET").toUpperCase();
+	const headers = new Headers(fetchInit.headers ?? request?.headers);
 	const body = fetchInit.body;
+	const target = appendParams(input, params);
 
-	if (isStateChanging(method)) {
+	// Never leak the session's CSRF token to external/presigned storage URLs,
+	// including a token explicitly supplied by a legacy caller.
+	if (!isSameOrigin(target)) {
+		headers.delete(CSRF_HEADER_NAME);
+	} else if (isStateChanging(method)) {
 		const csrfToken = getCsrfTokenFromCookie();
 		if (csrfToken) headers.set(CSRF_HEADER_NAME, csrfToken);
 	}
@@ -57,7 +74,9 @@ export async function apiRequest<T>(input: RequestInfo | URL, init: ApiRequestIn
 		headers.set("Content-Type", "application/json");
 	}
 
-	const response = await fetch(appendParams(input, params), { ...fetchInit, method, headers });
+	// A redirect must not forward a custom CSRF header to another origin.
+	const redirect = headers.has(CSRF_HEADER_NAME) ? "error" : fetchInit.redirect;
+	const response = await fetch(target, { ...fetchInit, method, headers, ...(redirect ? { redirect } : {}) });
 	if (raw) return response as T;
 
 	if (!response.ok) {

@@ -197,10 +197,10 @@ describe("TextPreviewClient editable mode", () => {
 
   it("shows visible labels for search and line jump controls", async () => {
     const actor = userEvent.setup();
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+    vi.mocked(csrfFetch).mockResolvedValue({
       ok: true,
       text: async () => "alpha\nbeta\ngamma\n",
-    }));
+    });
 
     const scrollIntoView = vi.fn();
     Element.prototype.scrollIntoView = scrollIntoView;

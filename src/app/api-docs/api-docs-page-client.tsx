@@ -5,6 +5,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { PageShell, PageHeader, Toolbar } from "@/components/page-shell";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { Notice } from "@/components/ui-primitives";
+import { api } from "@/lib/http/api-client";
 
 type OpenApiOperation = {
 	tags?: string[];
@@ -60,11 +61,8 @@ export default function ApiDocsPage() {
 
 	useEffect(() => {
 		let cancelled = false;
-		fetch("/api/docs/openapi.json", { credentials: "same-origin" })
-			.then(async (response) => {
-				if (!response.ok) throw new Error(`${t("apiDocsPage.loadFailed")} (${response.status})`);
-				return response.json() as Promise<OpenApiSpec>;
-			})
+		const controller = new AbortController();
+		api.get<OpenApiSpec>("/api/docs/openapi.json", { credentials: "same-origin", signal: controller.signal })
 			.then((data) => {
 				if (!cancelled) setSpec(data);
 			})
@@ -73,6 +71,7 @@ export default function ApiDocsPage() {
 			});
 		return () => {
 			cancelled = true;
+			controller.abort();
 		};
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);

@@ -18,10 +18,31 @@ describe("WebDAV pinned TLS transport", () => {
     expect(mocks.fetch.mock.calls[0]![1]).toMatchObject({ redirect: "manual" });
     expect(mocks.destroy).toHaveBeenCalled();
   });
-  it.each(["127.0.0.1", "10.0.0.1", "169.254.169.254", "::ffff:7f00:1", "64:ff9b::7f00:1", "2002:7f00:1::"])("rejects DNS address %s before connecting", async (address) => {
+  it.each(["127.0.0.1", "10.0.0.1", "169.254.169.254", "::ffff:7f00:1", "64:ff9b::7f00:1", "2002:7f00:1::", "2002:4860::1", "2001::1", "2001:0000:4136:e378:8000:63bf:3fff:fdd2", "2001:db8::1", "2001:0db8:0:0:0:0:0:1", "3fff::1", "fc00::1", "fe80::1"])("rejects DNS address %s before connecting", async (address) => {
     mocks.lookup.mockResolvedValue([{ address, family: address.includes(":") ? 6 : 4 }]);
     await expect(createWebDavClient(node()).read("x")).rejects.toThrow(/DNS policy/);
     expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+  it.each(["2001:4860:4860::8888", "2001:4860:4860:0000:0000:0000:0000:8888", "2606:4700:4700::1111"])("allows and pins public IPv6 %s", async (address) => {
+    mocks.lookup.mockResolvedValue([{ address, family: 6 }]);
+    expect((await createWebDavClient(node()).read("x")).toString()).toBe("ok");
+    const options = mocks.options as { connect: { lookup: (host: string, options: object, callback: (...args: unknown[]) => void) => void } };
+    const cb = vi.fn(); options.connect.lookup("dav.example.com", {}, cb);
+    expect(cb).toHaveBeenCalledWith(null, address, 6);
+  });
+  it("does not abort a progressing stream at a fixed total deadline", async () => {
+    vi.useFakeTimers();
+    try {
+      const timeout = vi.spyOn(AbortSignal, "timeout");
+      const stream = await createWebDavClient(node()).stream("x");
+      // Advance beyond the former total deadline after response headers arrived.
+      const signal = mocks.fetch.mock.calls[0]![1].signal as AbortSignal;
+      expect(timeout).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(121_000);
+      expect(signal.aborted).toBe(false);
+      expect(await new Response(stream).text()).toBe("ok");
+      expect(mocks.options).toMatchObject({ headersTimeout: 120_000, bodyTimeout: 120_000 });
+    } finally { vi.restoreAllMocks(); vi.useRealTimers(); }
   });
   it("rejects mixed public/private DNS", async () => {
     mocks.lookup.mockResolvedValue([{ address: "93.184.216.34", family: 4 }, { address: "127.0.0.1", family: 4 }]);
@@ -44,6 +65,10 @@ describe("WebDAV pinned TLS transport", () => {
     const dav = createWebDavClient(node(), { transport: async () => new Response(new ReadableStream({ pull(c) { c.enqueue(new Uint8Array(10)); }, cancel })) });
     await expect(dav.read("x", 5)).rejects.toThrow(/too large/);
     expect(cancel).toHaveBeenCalled();
+  });
+  it("rejects incomplete empty inventories instead of pruning indexed files", async () => {
+    const dav = createWebDavClient(node(), { transport: async () => new Response("<multistatus/>", { status: 207 }) });
+    await expect(dav.list()).rejects.toThrow();
   });
   it("does not treat partial multistatus deletion as success", async () => {
     const dav = createWebDavClient(node(), { transport: async () => new Response("<multistatus/>", { status: 207 }) });

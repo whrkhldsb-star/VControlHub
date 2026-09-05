@@ -47,7 +47,7 @@ export function SharePasswordGate({ token, label, placeholder, submitLabel, entr
         setError(body.message || body.error || `Download failed (${res.status})`);
         return;
       }
-      window.location.assign(url);
+      window.location.assign(entryType === "DIRECTORY" ? `/share/${encodeURIComponent(token)}` : url);
     } catch (err) {
       setError(getErrorMessage(err, "Download failed"));
     } finally {

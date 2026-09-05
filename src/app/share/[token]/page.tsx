@@ -5,7 +5,9 @@ import { listShareDirectoryFiles, peekShareToken } from "@/lib/share-link/servic
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { formatDateTime } from "@/lib/datetime/format";
 import { formatBytes } from "@/lib/format/bytes";
-import { headers } from "next/headers";
+import { headers, cookies } from "next/headers";
+import { getShareDownloadTicketCookieName, verifyShareDownloadTicket } from "@/lib/share-link/download-ticket";
+import { hashShareToken } from "@/lib/share-link/service";
 import { SharePasswordGate } from "./share-password-gate";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { checkRateLimitAsync } from "@/lib/rate-limit";
@@ -51,12 +53,14 @@ export default async function SharePage({
     errorMessage = t("sharePage.tooManyRequests", locale);
   } else {
     try {
-      share = await peekShareToken(token, { ip: ip ?? undefined, userAgent: userAgent ?? undefined });
+      const ticket = (await cookies()).get(getShareDownloadTicketCookieName())?.value;
+      const authorizedShareId = ticket ? verifyShareDownloadTicket(ticket, hashShareToken(token)) : null;
+      share = await peekShareToken(token, { ip: ip ?? undefined, userAgent: userAgent ?? undefined, authorizedShareId });
       // Password-locked peeks return a redacted stub (locked=true). Never enumerate
       // directory contents or expose node paths until the password gate succeeds via API.
       if (
         share.entryType === "DIRECTORY" &&
-        !share.hasPassword &&
+        !share.locked &&
         !(share as { locked?: boolean }).locked &&
         "storageNodeId" in share &&
         typeof (share as { storageNodeId?: string }).storageNodeId === "string"
@@ -160,7 +164,7 @@ export default async function SharePage({
               </dl>
             </div>
 
-            {!share.hasPassword && share.entryType !== "DIRECTORY" && (
+            {!share.locked && share.entryType !== "DIRECTORY" && (
               isPreviewOnly ? (
                 <div data-tone="amber" className="rounded-lg border border-[var(--warning-border)] px-4 py-3 text-center text-sm text-[var(--warning)]">
                   {t("sharePage.previewOnly", locale)}
@@ -186,7 +190,7 @@ export default async function SharePage({
                     <h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("sharePage.downloadable", locale)}</h2>
                     <span className="text-xs text-[var(--text-muted)]">{t("sharePage.maxIndexed", locale)}</span>
                   </div>
-                  {!share.hasPassword && !isPreviewOnly && (
+                  {!share.locked && !isPreviewOnly && share.storageNode.driver !== "WEBDAV" && (
                     <a
                       href={`/api/share/${encodeURIComponent(token)}?archive=1`}
                       className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[var(--color-action-border)]/40 px-3 py-1.5 text-center text-xs font-medium text-[var(--text-primary)] transition hover:bg-[var(--accent-hover)]/10"
@@ -213,7 +217,7 @@ export default async function SharePage({
                           <div className="truncate text-sm font-medium text-[var(--text-primary)]">{file.name}</div>
                           <div className="truncate text-xs text-[var(--text-muted)]" title={file.relativePath}>{file.relativePath} · {formatSize(locale, file.size)}</div>
                         </div>
-                        {!share.hasPassword && !isPreviewOnly && (
+                        {!share.locked && !isPreviewOnly && (
                           <div className="flex shrink-0 gap-2">
                             <a href={`/api/share/${encodeURIComponent(token)}?path=${encodeURIComponent(file.relativePath)}&inline=1`} target="_blank" rel="noreferrer" data-action-button data-variant="secondary" className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs">
                               <LinkIcon aria-hidden="true" className="h-3.5 w-3.5" />

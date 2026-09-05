@@ -172,7 +172,7 @@ export function useTextPreviewController(options: {
             };
           }
         } else {
-          const res = await fetch(href);
+          const res = await csrfFetch<Response>(href, { raw: true });
           if (!res.ok) {
             throw new Error(
               t("textPreview.error.loadFailedStatus", { status: res.status }),

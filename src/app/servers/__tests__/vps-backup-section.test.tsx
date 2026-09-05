@@ -17,6 +17,12 @@ function mockInitialLoad(fetchMock: ReturnType<typeof vi.fn>, schedules: unknown
 describe("VpsBackupSection", () => {
   beforeEach(() => vi.restoreAllMocks());
 
+  it("shows the server error instead of hiding a failed load behind empty lists", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockImplementation(async () => new Response(JSON.stringify({ error: "Backup permission denied" }), { status: 403 })));
+    render(<VpsBackupSection serverId="srv-1" canManage />, { locale: "en" });
+    expect(await screen.findByText("Backup permission denied")).toBeInTheDocument();
+  });
+
   it("renders schedule guidance and opens a labelled quick-create form", async () => {
     const fetchMock = vi.fn();
     mockInitialLoad(fetchMock);

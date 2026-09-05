@@ -10,7 +10,7 @@ describe("SharePasswordGate", () => {
     vi.restoreAllMocks();
   });
 
-  it("authorizes the password with a small POST then lets the browser stream the GET", async () => {
+  it.each([undefined, "DIRECTORY"])("authorizes password then opens the appropriate destination for %s", async (entryType) => {
     const user = userEvent.setup();
     const fetchMock = vi.fn().mockResolvedValue({ ok: true });
     vi.stubGlobal("fetch", fetchMock);
@@ -19,6 +19,7 @@ describe("SharePasswordGate", () => {
 
     render(
       <SharePasswordGate
+        entryType={entryType}
         token="share-token-12345"
         label="需要密码"
         placeholder="••••••"
@@ -29,13 +30,13 @@ describe("SharePasswordGate", () => {
     await user.type(screen.getByLabelText("需要密码"), "correct-password");
     await user.click(screen.getByRole("button", { name: "下载文件" }));
 
-    expect(fetchMock).toHaveBeenCalledWith("/api/share/share-token-12345", {
+    expect(fetchMock).toHaveBeenCalledWith(`/api/share/share-token-12345${entryType ? "?archive=1" : ""}`, {
       method: "POST",
       credentials: "same-origin",
       cache: "no-store",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ password: "correct-password" }),
     });
-    expect(assign).toHaveBeenCalledWith("/api/share/share-token-12345");
+    expect(assign).toHaveBeenCalledWith(entryType ? "/share/share-token-12345" : "/api/share/share-token-12345");
   });
 });

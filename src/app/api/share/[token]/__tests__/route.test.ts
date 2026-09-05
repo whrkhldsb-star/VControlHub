@@ -1,4 +1,7 @@
+import { Readable } from "node:stream";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+
+vi.mock("@/lib/storage/file-content", () => ({ streamStorageFile: vi.fn() }));
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -34,6 +37,21 @@ describe("share token file route", () => {
     if (tempRoot) {
       await rm(tempRoot, { recursive: true, force: true });
     }
+  });
+
+  it("delivers an anonymous WebDAV share inline without exposing credentials", async () => {
+    const { streamStorageFile } = await import("@/lib/storage/file-content");
+    vi.mocked(streamStorageFile).mockResolvedValueOnce({ stream: Readable.from("dav text"), size: 8, close: vi.fn() } as never);
+    vi.mocked(resolveShareToken).mockResolvedValueOnce({
+      id: "dav_share", storageNodeId: "dav_node",
+      storageNode: { id: "dav_node", driver: "WEBDAV", basePath: "/", webdavConfigEncrypted: "secret-cipher" },
+      entryType: "FILE", path: "hello.txt", name: "hello.txt",
+    } as never);
+    const response = await route.GET(new Request("http://local/api/share/dav?inline=1"), { params: Promise.resolve({ token: "dav-public-token-12345" }) });
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-disposition")).toMatch(/^inline/);
+    expect(await response.text()).toBe("dav text");
+    expect([...response.headers.values()].join(" ")).not.toContain("secret-cipher");
   });
 
   it("resolves LOCAL share links against expanded app slug storage roots", async () => {
@@ -136,7 +154,7 @@ describe("share token file route", () => {
 		expect(authorizeShareDownload).toHaveBeenCalledWith(token, "correct-password", expect.any(Object));
 		const cookie = authorizeResponse.headers.getSetCookie().find((value) => value.includes("share_download_ticket="));
 		expect(cookie).toContain("HttpOnly");
-		expect(cookie).toContain(`Path=/api/share/${token}`);
+		expect(cookie).toContain("Path=/;");
 		expect(cookie).toContain("Secure");
 
 		vi.mocked(resolveShareToken).mockResolvedValueOnce({

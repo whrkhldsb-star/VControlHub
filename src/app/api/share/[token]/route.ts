@@ -119,7 +119,7 @@ export async function POST(
 			httpOnly: true,
 			sameSite: "lax",
 			secure: isRequestHttps(request),
-			path: `/api/share/${encodeURIComponent(token)}`,
+			path: "/",
 			maxAge: SHARE_DOWNLOAD_TICKET_MAX_AGE_SECONDS,
 		});
 		return response;
@@ -247,6 +247,20 @@ export async function GET(
 
 	const node = share.storageNode;
 	const fileName = targetPath.split("/").pop() || share.name || targetPath;
+
+	if (node.driver === "WEBDAV") {
+		if (wantsArchive) return denyAfterClaim(apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.unsupportedDriver", locale), status: 400 }));
+		try {
+			const { streamStorageFile } = await import("@/lib/storage/file-content");
+			const opened = await streamStorageFile(node, targetPath);
+			const stream = opened.stream as Readable;
+			stream.once("close", opened.close);
+			stream.once("error", opened.close);
+			return fileResponse(stream, { size: opened.size, fileName, inline });
+		} catch {
+			return denyAfterClaim(apiError({ code: "NOT_FOUND", message: t("apiShareToken.remoteNotFound", locale), status: 404 }));
+		}
+	}
 
 	if (node.driver === "LOCAL") {
 		const resolved = resolveStoragePathWithinBase(node.basePath, targetPath);

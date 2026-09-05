@@ -9,6 +9,8 @@ import { type Permission } from "@/lib/auth/rbac";
 import { filterByHrefPermissions } from "@/lib/auth/filter-by-href-permissions";
 import { useGateRoute } from "@/lib/auth/use-gate-route";
 import { ModalShell } from "@/components/modal-shell";
+import { api } from "@/lib/http/api-client";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 export interface SearchItem {
 	label: string;
@@ -132,6 +134,7 @@ export function GlobalSearch({
 	const [open, setOpen] = useState(false);
 	const [query, setQuery] = useState("");
 	const [dynamicResults, setDynamicResults] = useState<SearchItem[]>([]);
+	const [searchError, setSearchError] = useState<string | null>(null);
 	const [selectedIndex, setSelectedIndex] = useState(0);
 	const inputRef = useRef<HTMLInputElement>(null);
 	const returnFocusRef = useRef<HTMLElement | null>(null);
@@ -233,25 +236,28 @@ export function GlobalSearch({
 
 	useEffect(() => {
 		const normalized = query.trim();
+		setSearchError(null);
 		if (!open || normalized.length < 2) {
 			setDynamicResults([]);
 			return;
 		}
 		const controller = new AbortController();
 		const timeout = window.setTimeout(() => {
-			void fetch(`/api/search?q=${encodeURIComponent(normalized)}&limit=6`, { signal: controller.signal })
-				.then((response) => (response.ok ? response.json() : { results: [] }))
-				.then((data: DynamicSearchResponse) => setDynamicResults(Array.isArray(data.results) ? data.results : []))
+			void api.get<DynamicSearchResponse>(`/api/search?q=${encodeURIComponent(normalized)}&limit=6`, { signal: controller.signal })
+				.then((data) => {
+					if (!controller.signal.aborted) setDynamicResults(Array.isArray(data.results) ? data.results : []);
+				})
 				.catch((error) => {
-					if (error instanceof Error && error.name === "AbortError") return;
+					if (controller.signal.aborted || (error instanceof Error && error.name === "AbortError")) return;
 					setDynamicResults([]);
+					setSearchError(getErrorMessage(error, t("common.status.failed")));
 				});
 		}, 180);
 		return () => {
 			controller.abort();
 			window.clearTimeout(timeout);
 		};
-	}, [open, query]);
+	}, [open, query, t]);
 
 	const handleKeyDown = (e: React.KeyboardEvent) => {
 		if (e.key === "ArrowDown") {
@@ -315,6 +321,7 @@ export function GlobalSearch({
 						ESC
 					</kbd>
 				</div>
+				{searchError && <p role="alert" className="px-4 py-2 text-sm text-[var(--danger)]">{searchError}</p>}
 				<ul id="global-search-results" role="listbox" className="max-h-72 overflow-y-auto py-1.5">
 					{filtered.length === 0 && (
 						<li className="px-4 py-8 text-center text-sm text-[var(--text-muted)]">{t("search.no-results")}</li>

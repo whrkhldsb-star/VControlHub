@@ -38,6 +38,7 @@ const PUBLIC_PATH_PREFIXES = [
   "/api/public", // public API endpoints
   "/api/agent/", // outbound host agent (Bearer token verified by route)
   "/api/share/", // public share-token downloads (validated server-side)
+  "/api/webdav/", // Basic/Bearer API token authentication is enforced by the DAV route.
   // ITSM inbound webhooks: no session cookie; HMAC signature verified in route.
   "/api/itsm/inbound/",
   "/favicon.ico",

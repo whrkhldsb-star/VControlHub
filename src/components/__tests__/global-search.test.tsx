@@ -1,6 +1,6 @@
 import { render, screen, act, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { GlobalSearch, getSearchItems } from "../global-search";
 import { I18nProvider } from "@/lib/i18n/provider";
@@ -20,6 +20,19 @@ function renderGlobalSearch(locale: "zh" | "en" = "zh") {
 }
 
 describe("GlobalSearch", () => {
+  afterEach(() => vi.unstubAllGlobals());
+  it("makes remote search failures visible and aborts on close", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: "Search unavailable" }), { status: 503 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    renderGlobalSearch();
+    act(() => window.dispatchEvent(new Event("vcontrolhub:open-global-search")));
+    await user.type(await screen.findByRole("combobox"), "remote");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Search unavailable");
+    const signal = fetchMock.mock.calls[0]?.[1].signal as AbortSignal;
+    await user.keyboard("{Escape}");
+    expect(signal.aborted).toBe(true);
+  });
 	it("routes to existing application pages from search results", async () => {
 		pushMock.mockClear();
 		const user = userEvent.setup();

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { I18nProvider } from "@/lib/i18n/provider";
@@ -19,6 +19,9 @@ describe("StorageNodeFields", () => {
     renderFields("WEBDAV", { webdavConfig: { url: "https://dav.example.com/", authType: "basic", username: "alice", hasPassword: true } });
     expect(screen.getByLabelText("WebDAV endpoint (HTTPS)")).toHaveValue("https://dav.example.com/");
     expect(screen.getByLabelText("WebDAV password")).toHaveValue("");
+    expect(screen.getByLabelText("WebDAV password")).not.toBeRequired();
+    fireEvent.change(screen.getByLabelText("WebDAV endpoint (HTTPS)"), { target: { value: "https://other.example.com/" } });
+    expect(screen.getByLabelText("WebDAV password")).toBeRequired();
     expect(screen.queryByLabelText(/Bind VPS/)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/Public base URL/)).not.toBeInTheDocument();
   });

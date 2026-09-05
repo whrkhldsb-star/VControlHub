@@ -194,6 +194,6 @@ describe("webDavUnauthorizedResponse", () => {
 
     expect(response.status).toBe(401);
     expect(response.headers.get("WWW-Authenticate")).toContain('Basic realm="VControlHub WebDAV"');
-    expect(response.headers.get("DAV")).toBe("1, 2");
+    expect(response.headers.get("DAV")).toBe("1");
   });
 });

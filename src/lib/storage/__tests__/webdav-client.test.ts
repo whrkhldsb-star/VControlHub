@@ -1,12 +1,13 @@
 // @vitest-environment node
 import { createServer, type Server } from "node:http";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createWebDavClient, type WebDavTransport } from "../webdav-client";
 import { encryptWebDavConfig, resolveStorageWebDavCredentials, validateWebDavConfig } from "../webdav-credentials";
 
 const config = { endpoint: "https://dav.example.com/dav/", authType: "basic" as const, username: "alice", password: "secret-password" };
 let server: Server;
 let origin: string;
+let fallbackClosed = false;
 const objects = new Map<string, Buffer | null>([["/dav/root", null]]);
 const requests: Array<{ method: string; auth?: string; destination?: string }> = [];
 const transport: WebDavTransport = async (url, init) => fetch(origin + url.pathname, { ...init, redirect: "manual" });
@@ -18,6 +19,19 @@ beforeAll(async () => {
     requests.push({ method: req.method!, auth: req.headers.authorization, destination: req.headersDistinct.destination?.[0] });
     if (key.endsWith("/denied")) { res.writeHead(401); res.end("secret-password provider error"); return; }
     if (key.endsWith("/redirect")) { res.writeHead(302, { Location: "http://127.0.0.1/private" }); res.end(); return; }
+    if (req.method === "GET" && key.includes("/range-")) {
+      if (req.headers.range !== "bytes=3-6" || !(req.headers["accept-encoding"] ?? "").split(",").every((value) => value.trim() === "identity")) { res.writeHead(400); res.end(); return; }
+      const mode = key.split("/range-")[1];
+      if (mode === "ignored" || mode === "fallback-short") { res.writeHead(200); res.end(mode === "ignored" ? "0123456789" : "01234"); return; }
+      if (mode === "fallback-cancel") {
+        res.writeHead(200); res.write("0123456");
+        req.on("close", () => { fallbackClosed = true; });
+        return;
+      }
+      const contentRange = ({ valid: "bytes 3-6/10", wrong: "bytes 0-3/10", total: "bytes 3-6/11", unknown: "bytes 3-6/*", invalid: "bytes 3-10/10", short: "bytes 3-6/10", long: "bytes 3-6/10" } as Record<string, string>)[mode!];
+      res.writeHead(206, contentRange ? { "Content-Range": contentRange } : {});
+      res.end(mode === "short" ? "34" : mode === "long" ? "34567" : "3456"); return;
+    }
     if (req.method === "PUT") { const chunks = []; for await (const c of req) chunks.push(c); objects.set(key, Buffer.concat(chunks)); res.writeHead(201); }
     else if (req.method === "MKCOL") { objects.set(key, null); res.writeHead(201); }
     else if (!objects.has(key)) res.writeHead(404);
@@ -37,6 +51,16 @@ beforeAll(async () => {
 afterAll(async () => { await new Promise<void>((resolve) => server.close(() => resolve())); });
 
 describe("WebDAV actual HTTP adapter", () => {
+  it.each(["valid", "ignored"])("streams requested bytes with %s provider Range support", async (mode) => {
+    expect(await new Response(await client().stream(`range-${mode}`, { start: 3, end: 6 }, 10)).text()).toBe("3456");
+  });
+  it("cancels an unfinished 200 response once selected bytes arrive", async () => {
+    expect(await new Response(await client().stream("range-fallback-cancel", { start: 3, end: 6 }, 10)).text()).toBe("3456");
+    await vi.waitFor(() => expect(fallbackClosed).toBe(true));
+  });
+  it.each(["wrong", "total", "unknown", "invalid", "missing", "short", "long", "fallback-short"])("rejects malformed or inconsistent 206: %s", async (mode) => {
+    await expect((async () => new Response(await client().stream(`range-${mode}`, { start: 3, end: 6 }, 10)).text())()).rejects.toThrow(/WebDAV/);
+  });
   it("round trips mkdir/write/list/stat/read/stream/rename/delete against local fixture", async () => {
     const dav = client();
     await dav.mkdir("folder");

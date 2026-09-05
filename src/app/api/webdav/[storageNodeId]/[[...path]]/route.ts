@@ -113,27 +113,8 @@ async function dispatch(
     }
   } catch (error) {
     const message = getErrorMessage(error, "WebDAV error");
-    const name = error instanceof Error ? error.name : "";
-    let status = 500;
-    // Prefer typed AppError.status over English message matching.
-    if (error instanceof AppError) {
-      status = error.status;
-    } else if (name === "AuthError" || message.includes("authenticated"))
-      status = 401;
-    else if (name === "NotFoundError" || /not found/i.test(message))
-      status = 404;
-    else if (
-      name === "ConflictError" ||
-      /already exists|overwrite/i.test(message)
-    )
-      status = 409;
-    else if (name === "ValidationError" || /invalid|cannot/i.test(message))
-      status = 400;
-    else if (
-      name === "BusinessError" ||
-      /denied|not supported|access/i.test(message)
-    )
-      status = 403;
+    // All expected handler failures are typed; unknown failures stay 500.
+    const status = error instanceof AppError ? error.status : 500;
 
     if (status === 401) return webDavUnauthorizedResponse();
 
@@ -145,7 +126,7 @@ async function dispatch(
       error: message,
     });
 
-    return new Response(message, {
+    return new Response(error instanceof AppError && status < 500 ? message : "Internal Server Error", {
       status,
       headers: { "Content-Type": "text/plain; charset=utf-8" },
     });

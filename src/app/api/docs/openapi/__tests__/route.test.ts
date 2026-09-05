@@ -39,7 +39,8 @@ describe("GET /api/docs/openapi", () => {
     expect(body.paths["/images/upload"].post.security).toContainEqual({
       apiTokenAuth: [],
     });
-    expect(Object.keys(body.paths)).toHaveLength(180);
+    expect(Object.keys(body.paths)).toHaveLength(181);
+    expect(body.paths["/storage/webdav-download"]).toHaveProperty("get");
     expect(body.paths["/settings"]).toHaveProperty("patch");
     expect(body.paths["/settings"]).not.toHaveProperty("put");
     expect(body.paths["/storage/sftp"]).not.toHaveProperty("post");

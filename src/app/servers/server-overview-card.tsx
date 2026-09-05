@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { toDateLocale } from "@/lib/i18n/locale-format";
+import { api } from "@/lib/http/api-client";
 
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useVisibilityInterval } from "@/lib/hooks/use-visibility-interval";
@@ -98,7 +99,8 @@ export function ServerOverviewCard({
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => controller.abort(), 20_000);
     try {
-      const response = await fetch(`/api/servers/monitor?serverId=${encodeURIComponent(server.id)}`, {
+      const response = await api.get<Response>(`/api/servers/monitor?serverId=${encodeURIComponent(server.id)}`, {
+        raw: true,
         cache: "no-store",
         signal: controller.signal,
       });

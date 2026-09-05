@@ -39,6 +39,9 @@ export function StorageNodeFields({
   const { t } = useI18n();
   const isSftp = driver === "SFTP";
   const [webdavAuthType, setWebdavAuthType] = useState(values.webdavConfig?.authType ?? "basic");
+  const [davUrl, setDavUrl] = useState(values.webdavConfig?.url ?? "");
+  const [davUsername, setDavUsername] = useState(values.webdavConfig?.username ?? "");
+  const davIdentityChanged = davUrl.trim() !== (values.webdavConfig?.url ?? "") || webdavAuthType !== values.webdavConfig?.authType || (webdavAuthType === "basic" && davUsername.trim() !== (values.webdavConfig?.username ?? ""));
   const serverRef = useRef<HTMLSelectElement>(null);
   const hostRef = useRef<HTMLInputElement>(null);
   const eitherOrMessage = t("storagePage.form.sftpEndpointEitherOr");
@@ -90,7 +93,7 @@ export function StorageNodeFields({
         <p className="md:col-span-2 text-xs text-[var(--text-muted)]">{t("storagePage.form.webdavHint")}</p>
         <input type="hidden" name="directAccessMode" value="PROXY" />
         <FormField label={t("storagePage.form.webdavUrl")} htmlFor="storage-webdav-url" className="md:col-span-2">
-          <input id="storage-webdav-url" name="webdavUrl" type="url" pattern="https://.*" required defaultValue={values.webdavConfig?.url ?? ""} placeholder="https://dav.example.com/remote.php/dav/files/user/" className={UI_INPUT} />
+          <input id="storage-webdav-url" name="webdavUrl" type="url" pattern="https://.*" required value={davUrl} onChange={(event) => setDavUrl(event.target.value)} placeholder="https://dav.example.com/remote.php/dav/files/user/" className={UI_INPUT} />
         </FormField>
         <FormField label={t("storagePage.form.webdavAuthType")} htmlFor="storage-webdav-auth">
           <select id="storage-webdav-auth" name="webdavAuthType" value={webdavAuthType} onChange={(event) => setWebdavAuthType(event.target.value as "basic" | "bearer")} className={UI_INPUT}>
@@ -99,13 +102,13 @@ export function StorageNodeFields({
         </FormField>
         {webdavAuthType === "basic" ? <>
           <FormField label={t("storagePage.form.webdavUsername")} htmlFor="storage-webdav-username">
-            <input id="storage-webdav-username" name="webdavUsername" defaultValue={values.webdavConfig?.username ?? ""} required autoComplete="off" className={UI_INPUT} />
+            <input id="storage-webdav-username" name="webdavUsername" value={davUsername} onChange={(event) => setDavUsername(event.target.value)} required autoComplete="off" className={UI_INPUT} />
           </FormField>
           <FormField label={t("storagePage.form.webdavPassword")} htmlFor="storage-webdav-password">
-            <input id="storage-webdav-password" name="webdavPassword" type="password" autoComplete="new-password" required={!values.webdavConfig?.hasPassword} className={UI_INPUT} />
+            <input id="storage-webdav-password" name="webdavPassword" type="password" autoComplete="new-password" required={davIdentityChanged || !values.webdavConfig?.hasPassword} className={UI_INPUT} />
           </FormField>
         </> : <FormField label={t("storagePage.form.webdavToken")} htmlFor="storage-webdav-token">
-          <input id="storage-webdav-token" name="webdavToken" type="password" autoComplete="new-password" required={!values.webdavConfig?.hasToken} className={UI_INPUT} />
+          <input id="storage-webdav-token" name="webdavToken" type="password" autoComplete="new-password" required={davIdentityChanged || !values.webdavConfig?.hasToken} className={UI_INPUT} />
         </FormField>}
         <p className="md:col-span-2 text-xs text-[var(--text-muted)]">{t("storagePage.form.webdavSecretHint")}</p>
       </> : null}

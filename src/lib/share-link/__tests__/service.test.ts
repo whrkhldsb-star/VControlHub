@@ -231,6 +231,11 @@ describe("share link service", () => {
     expect((result as { locked?: boolean }).locked).toBe(true);
     expect(result.path).toBe("");
     expect(result.storageNode?.name).not.toBe("prod-node");
+    const wrongTicket = await peekShareToken("abc", { authorizedShareId: "different-share" });
+    expect(wrongTicket.locked).toBe(true);
+    const validTicket = await peekShareToken("abc", { authorizedShareId: "share-locked" });
+    expect(validTicket.locked).toBe(false);
+    expect(validTicket.storageNode?.name).toBe("prod-node");
   });
 
   it("claims maxDownloads atomically via updateMany", async () => {
