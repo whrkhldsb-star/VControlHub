@@ -24,8 +24,8 @@ if (packageJson.version !== "3.1.5") {
   throw new Error(`Unsupported legacy minimatch version: ${packageJson.version}`);
 }
 
-if (typeof braceExpansion.expand !== "function") {
-  throw new Error("brace-expansion 5.x does not expose the expected expand function");
+if (typeof braceExpansion !== "function" && typeof braceExpansion.expand !== "function") {
+  throw new Error("brace-expansion does not expose a compatible expand function");
 }
 
 if (packageJson.dependencies?.["brace-expansion"] !== "5.0.9") {
