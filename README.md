@@ -1,429 +1,179 @@
-<div align="center">
+# VControlHub
 
-# 🖥️ VPS 统一管控平台
+面向个人和小团队的自托管 VPS 管理平台。通过一个 Web 界面管理服务器、SSH 终端、文件存储、应用部署、监控和运维任务。
 
-**一站式 VPS 管理 · SSH 终端 · 分布式云盘 · 应用商店 · 智能运维**
+VControlHub 使用 Next.js、React、TypeScript、PostgreSQL 和 Prisma，生产环境由独立的 Web、后台 Worker 与 SSH WebSocket 进程组成。
 
-[![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
-[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react.dev)](https://react.dev/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14%2B-336791?logo=postgresql)](https://www.postgresql.org/)
-[![Prisma](https://img.shields.io/badge/Prisma-7.8-2D3748?logo=prisma.io)](https://www.prisma.org/)
-[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker.com)](https://www.docker.com/)
-![License](https://img.shields.io/badge/License-Private-red)
+## 主要功能
 
-</div>
+| 模块 | 能力 |
+| --- | --- |
+| 服务器 | 多 VPS 纳管、浏览器 SSH 终端、SFTP 文件操作、批量命令和审批 |
+| 云盘 | LOCAL / SFTP / WebDAV 存储节点、文件浏览与传输、分享链接和在线预览 |
+| 应用管理 | Quick Services 应用模板、Docker 与 Compose 项目管理 |
+| 监控 | 资源采样、历史趋势、告警规则和通知 |
+| 运维 | 定时任务、Playbook、备份、部署记录、工单与审计 |
+| AI 助手 | 模型配置、知识库检索和受权限控制的运维工具 |
+| 访问控制 | 用户与角色、团队隔离、API Token、可选 TOTP 双因子认证 |
+| 界面 | 中文与英文、深色与浅色主题、响应式布局 |
 
----
+不同存储驱动的能力并不完全相同，部署前请阅读下方的能力边界。
 
-## 🌟 项目简介
+## 安装
 
-一个面向个人和小团队的 **VPS 全生命周期管理平台**，将服务器管理、远程终端、文件操作、应用部署、监控告警和 AI 助手整合在统一 Web 界面中。开箱即用，一条命令完成部署。
+### 环境要求
 
-> 🎯 **核心理念**：把分散的 SSH 客户端、文件管理器、Docker 面板、监控工具 → 统一到一个浏览器标签页
+- Debian / Ubuntu 系 Linux；自动安装脚本依赖 `apt`、root 权限与 systemd。
+- PostgreSQL；具体依赖安装和运行配置见 [部署文档](deploy/README.md)。
+- 推荐使用域名和 HTTPS，公开 Web 入口使用 80/443。
+- Web 与 SSH WebSocket 服务默认仅监听本机回环端口 3000/3001，不应直接暴露公网。
 
----
+### 推荐方式
 
-## ✨ 功能全景
-
-> 能力边界与有意不做项见文末「[当前状态与路线](#-当前状态与路线)」。
-
-
-### 🖧 服务器管理
-
-- **多节点纳管** — 添加/管理多台 VPS，SSH 密钥认证
-- **多 Tab SSH 终端** — WebSocket 实时终端，支持多 tab 多会话并行连接，Ctrl/Cmd+Tab 切换，状态指示灯实时反馈
-- **SFTP 文件传输** — 终端面板内嵌 SFTP 文件管理器，拖拽上传/下载/删除/重命名/新建文件夹，面包屑导航
-- **批量命令** — 服务器多选 + 批量 SSH 命令执行
-- **审批流执行** — 敏感操作需管理员审批后才执行，全程审计
-
-### 📁 分布式云盘
-
-- **多节点挂载** — LOCAL/SFTP 统一浏览、上传/下载、回收站与分享
-- **断点续传 / 版本历史** — 大文件分片续传；覆盖前自动快照，可恢复
-- **WebDAV** — `/api/webdav/{nodeId}`，Bearer/Basic API Token，可挂载客户端
-- **在线预览与检索** — 预览常见格式；LOCAL/SFTP 全文检索
-- **媒体库 / 图床 / Aria2** — 媒体聚合、外链发布、下载中心
-
-### 🐳 应用商店与 Docker
-
-- **Quick Services** — 44+ 模板；可安装到**本机或远程 VPS**
-- **Compose 项目生命周期** — 按项目 ps/up/down/start/stop/restart（CLI 优先，Engine 标签回退）
-- **社区源 / 端口分配** — 第三方源同步；智能分配端口
-
-### 📊 监控与告警
-
-- **舰队监控** — 远程节点资源；后台 `health.sample` 采样与历史
-- **容量预测** — 跨节点 CPU/内存/磁盘趋势，估算逼近 85%/95% 天数
-- **告警** — 阈值/冷却/静默；多级升级、值班路由、事件确认
-- **通知中心** — 站内 + 邮件/Telegram/Webhook 等渠道
-
-### 🤖 AI 助手
-
-- **多模型 + 受控工具** — OpenAI / Anthropic / 本地；VPS/日志/Docker/文件等 hosted tools
-- **知识库 / RAG** — 文档分块入库，聊天自动检索注入
-- **AI Ops** — 低风险自动动作 + 可解释报告；高风险仍需审批
-
-### 🔐 安全与权限
-
-- **RBAC 权限体系** — 用户 / 角色 / 权限三级管理
-- **双因子认证 (2FA)** — TOTP 可选启用
-- **API Token** — 外部集成 Token 生成与管理
-- **操作审计日志** — 全操作留痕，可追溯
-- **CSRF 防护** — 全站 CSRF Token + SameSite Cookie
-- **API 限流** — 全局 + 端点级 Rate Limiting
-
-### 🛠️ 运维工具
-
-- **命令审批 / 模板 / Playbook** — 人在回路；Playbook durable 执行与崩溃续跑
-- **定时任务** — Cron 调度 + 执行日志
-- **备份** — DB/文件/全量；细粒度恢复；跨环境迁移包；演练不自动 restore
-- **工单** — SLA、看板；关联 VPS/命令；与审批执行双向时间线
-- **成本 / ITSM** — 预算与云账单账户（CSV/探针）；ITSM/IM 双向集成
-- **部署管理** — 导出版本、重发与快照级回滚
-
-### 🎨 用户体验
-
-- **深色 / 浅色主题** — 默认暗色 UI，Q-layer 兼容层自动映射旧硬编码到 CSS 变量，支持浅色模式
-- **多语言** — 中文 / 英文切换，78 个字典文件全覆盖
-- **响应式布局** — 适配桌面、平板和移动端
-- **全局搜索** — 快速跳转任意功能模块
-
----
-
-## 📸 功能模块一览
-
-| 模块         | 路径               | 说明                                                           |
-| ------------ | ------------------ | -------------------------------------------------------------- |
-| 仪表盘       | `/`                | 系统概览 + 统计卡片 + 趋势图                                   |
-| VPS 管理     | `/servers`         | 节点纳管、SSH 密钥、命令分发                                   |
-| SSH 终端     | 多 Tab 终端管理器  | 浏览器内 WebSocket 实时终端，多 tab 并行 + SFTP 文件管理       |
-| 文件管理     | `/files`           | 多节点文件浏览/上传/下载/解压，支持可搜索节点下拉切换          |
-| 云盘存储     | `/storage`         | 本地/SFTP 存储节点管理与同步                                   |
-| 应用商店     | `/quick-services`  | 精选商店 / 社区推荐 / 已安装 / 应用源                          |
-| Docker       | `/docker`          | 容器管理（通过应用商店安装）                                   |
-| 监控         | `/monitoring`      | 系统资源实时图表                                               |
-| 告警规则     | `/alert-rules`     | 自定义监控告警                                                 |
-| 通知         | `/notifications`   | 站内消息中心                                                   |
-| AI 助手      | `/ai`              | 多模型 AI 对话 + 工具调用，高风险操作需确认                    |
-| 智能运维     | `/ai-ops`          | AI 驱动的运维建议与诊断                                        |
-| 命令模板     | `/templates`       | 可复用 SSH/部署模板，提交后进入部署/审批记录                   |
-| Playbook     | `/playbooks`       | 多步骤命令编排，变量替换                                       |
-| 定时任务     | `/scheduled-tasks` | Cron 调度 + 执行日志                                           |
-| 备份         | `/backups`         | 数据库/文件/全量备份 + 恢复 + 定时备份调度                     |
-| 部署         | `/deployments`     | 应用部署运行记录、版本导出、最近部署重发与快照级真实回滚       |
-| 下载中心     | `/downloads`       | Aria2 任务管理                                                 |
-| 图床外链中心 | `/image-bed`       | 已发布图片外链复制、来源审计与兼容发布                         |
-| 媒体         | `/media`           | 在线媒体浏览                                                   |
-| 成本追踪     | `/cost-summary`    | 资源成本汇总与趋势分析                                         |
-| 公开状态页   | `/status`          | 公开服务健康状态                                               |
-| 工单         | `/tickets`         | 内部工单系统                                                   |
-| 公告         | `/announcements`   | 站内公告管理                                                   |
-| 分享         | `/shares`          | 文件分享链接                                                   |
-| 代码片段     | `/snippets`        | 代码片段收藏                                                   |
-| 用户管理     | `/users`           | 用户 / 角色 / 权限管理                                         |
-| 审计日志     | `/audit`           | 操作审计追溯                                                   |
-| API 文档     | `/api-docs`        | API 端点参考                                                   |
-| API Token    | `/api-tokens`      | 集成用 Token 管理                                              |
-| 系统设置     | `/settings`        | 全局配置                                                       |
-| 个人偏好     | `/preferences`     | 用户偏好设置                                                   |
-| 健康检查     | `/health`          | 舰队健康 + 容量预测                                            |
-| 知识库       | `/knowledge`       | AI RAG 文档入库与试检索                                        |
-| ITSM 集成    | `/itsm`            | Slack/Telegram/钉钉/飞书等双向连接                             |
-
----
-
-## 🚀 快速部署
-
-### 前置条件
-
-- **OS** — Debian 12 / Ubuntu 22.04+（root + systemd；一键安装基于 apt）
-- **域名** — 可选（无域名时自动配置 Apache/IP 直连模式）
-- **端口** — 对公网仅需 80/443（Web）；3000/3001 分别供 Next.js 与 SSH-WS 在本机回环地址监听，不应直接开放到公网
-
-### 一行生命周期入口（推荐）
-
-执行同一条命令后可选择安装/重装、备份后更新、彻底卸载、健康检查或查看凭据。安装会拉取仓库、安装依赖、生成生产环境变量、初始化 PostgreSQL、构建产物并启动服务（默认目录 `/opt/VControlHub`）：
+先下载并检查安装脚本，再执行。安装器会修改系统服务、数据库和反向代理配置，建议使用专用主机并提前备份。
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/whrkhldsb-star/VControlHub/main/deploy/bootstrap.sh | sudo DOMAIN=your.example.com bash
+curl -fsSL https://raw.githubusercontent.com/whrkhldsb-star/VControlHub/main/deploy/bootstrap.sh -o bootstrap.sh
+# 检查 bootstrap.sh 后执行
+sudo DOMAIN=cloud.example.com bash bootstrap.sh
 ```
 
-无域名安装时也可以省略 `DOMAIN`，脚本会走 IP 直连/本地代理模式：
+该入口提供安装、更新、健康检查等生命周期操作，默认目录为 `/opt/VControlHub`。无域名安装、离线包、自定义目录和卸载说明见 [deploy/README.md](deploy/README.md)。无域名模式不等于安全的公网部署，生产使用应配置 HTTPS。
+
+### 更新现有部署
+
+推荐使用安装器的更新流程；需要从现有检出目录手动部署时：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/whrkhldsb-star/VControlHub/main/deploy/bootstrap.sh | sudo bash
+cd /opt/VControlHub
+# 先备份数据库、配置、密钥及运行数据，并确认工作区没有未保存修改
+# 获取并审查需要部署的版本后：
+sudo bash deploy.sh
 ```
 
-可选自定义安装目录/品牌：
+`deploy.sh` 执行生产构建、数据库迁移、服务更新与 smoke checks。不要在正在提供服务的 `.next` 目录上直接运行普通构建替代部署流程。
+
+## 本地开发
+
+使用与项目工具链兼容的 Node.js 和可访问的 PostgreSQL。环境变量示例见 [`.env.example`](.env.example)，生产示例见 [`deploy/env.production.example`](deploy/env.production.example)。不要复用生产凭据或生产数据库进行开发测试。
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/whrkhldsb-star/VControlHub/main/deploy/bootstrap.sh | \
-  sudo APP_NAME="VControlHub" APP_SLUG=vcontrolhub APP_DIR=/opt/VControlHub DOMAIN=your.example.com bash
-```
-
-自动化环境通过 `VCONTROLHUB_ACTION` 明确选择操作；安装使用 `install`，彻底卸载还必须显式设置确认变量：
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/whrkhldsb-star/VControlHub/main/deploy/bootstrap.sh | \
-  sudo VCONTROLHUB_ASSUME_DEFAULTS=1 VCONTROLHUB_ACTION=install DOMAIN=your.example.com bash
-
-curl -fsSL https://raw.githubusercontent.com/whrkhldsb-star/VControlHub/main/deploy/bootstrap.sh | \
-  sudo VCONTROLHUB_ASSUME_DEFAULTS=1 VCONTROLHUB_ACTION=uninstall VCONTROLHUB_UNINSTALL_CONFIRM=1 bash
-```
-
-卸载始终是不可恢复的完整卸载：删除应用数据库/角色、密钥配置、运行数据、应用用户、unit、安装器管理的反代配置，以及本机 VControlHub Quick Service 容器和目录，不保留旧信息。建议先预览：
-
-```bash
-sudo /opt/VControlHub/deploy/uninstall.sh --dry-run
-sudo /opt/VControlHub/deploy/uninstall.sh --yes
-```
-
-共享的 Node.js、PostgreSQL、Caddy、Apache、Docker 软件包和无关 Docker 资源不会删除。
-
-### 传统手动安装（保留）
-
-```bash
-# 1. 克隆代码
-git clone https://github.com/whrkhldsb-star/VControlHub.git /opt/VControlHub
-
-# 2. 运行安装器（自动安装 Node.js 22、发行版 PostgreSQL、Caddy/Apache 等依赖）
-sudo APP_DIR=/opt/VControlHub /opt/VControlHub/deploy/install.sh
-
-# 3. 可选：检查或覆盖安装器自动生成的环境变量，然后重新运行以应用修改
-sudoedit /opt/VControlHub/.env.local
-sudo APP_DIR=/opt/VControlHub /opt/VControlHub/deploy/install.sh
-```
-
-> 首次运行会从生产模板创建 `.env.local`，自动生成数据库密码、Session/SSH/加密密钥和管理员初始密码，并继续完成安装；请保存安装输出的管理员密码。只有需要自定义数据库、端口或外部服务时才需要手动编辑后重跑。
-
-### 自定义品牌部署
-
-```bash
-sudo APP_NAME="MyCloud" APP_SLUG=mycloud SITE_NAME="My Cloud Platform" \
-  DOMAIN=cloud.example.com APP_DIR=/opt/mycloud \
-  /opt/mycloud/deploy/install.sh
-```
-
-### 更多部署方式
-
-| 方式             | 适用场景              | 说明                                        |
-| ---------------- | --------------------- | ------------------------------------------- |
-| Git 仓库拉取     | 有 GitHub/GitLab 仓库 | `install.sh` 直接从仓库部署                 |
-| 压缩包离线       | 无公网/内网交付       | `package.sh` 打包 → 传到新机 → `install.sh` |
-| rsync 同步       | 不入公网仓库          | 从旧服务器 rsync 源码 → `install.sh`        |
-| Caddy 自动 HTTPS | 有域名                | 默认启用；无域名自动切换 Apache             |
-
-详见 [deploy/README.md](deploy/README.md)
-
----
-
-## 📦 版本与发布
-
-项目采用语义化版本，`package.json` 是版本号的唯一来源，`package-lock.json` 和 `CHANGELOG.md` 必须与其一致。发布标签使用 `v<version>`，例如当前版本 `v0.1.0`。
-
-```bash
-# 修改版本时同步 package.json 与 package-lock.json
-npm version patch --no-git-tag-version  # 或 minor / major
-
-# 更新 CHANGELOG.md 后验证并生成只包含 Git 已跟踪文件的版本包
-npm run version:check
-npm run release:package
-
-# 提交后发布；标签会触发完整验证并创建 GitHub Release、tar.gz 与 SHA-256
-git tag -a v0.1.0 -m "VControlHub v0.1.0"
-git push origin main v0.1.0
-```
-
-发布工作流会拒绝标签、package/lockfile 或 Changelog 版本不一致的提交。版本包不读取工作区中的 `.env`、日志、数据库或运行数据。
-
-完整变更记录见 [CHANGELOG.md](CHANGELOG.md)。
-
----
-
-## ⚙️ 技术栈
-
-| 层级     | 技术                                        | 版本     |
-| -------- | ------------------------------------------- | -------- |
-| 框架     | Next.js (App Router)                        | 16.2.10  |
-| UI       | React + Tailwind CSS                        | 19 / 4   |
-| 数据库   | PostgreSQL + Prisma                         | 14+（Docker 模式为 16）/ 7.8 |
-| 认证     | 自定义 Session + bcryptjs                   | —        |
-| SSH      | ssh2 + WebSocket                            | 1.17     |
-| 下载     | Aria2 JSON-RPC                              | —        |
-| 反向代理 | Caddy (自动HTTPS) / Apache                  | —        |
-| 进程管理 | systemd                                     | —        |
-| 容器     | Docker (应用商店)                           | —        |
-| 代码量   | 以“项目规模”自动生成指标为准               | —        |
-
----
-
-## 📁 项目结构
-
-```
-├── src/
-│   ├── app/                    # Next.js App Router 页面与 API
-│   │   ├── api/                # API Routes (RESTful)
-│   │   ├── servers/            # VPS 管理
-│   │   ├── files/              # 文件管理
-│   │   ├── quick-services/     # 应用商店
-│   │   ├── monitoring/         # 监控面板
-│   │   ├── ai/                 # AI 助手
-│   │   └── ...                 # 其他功能模块
-│   ├── components/             # 共享 UI 组件（当前自动统计 37 个）
-│   └── lib/                    # 业务逻辑 + 工具库
-│       ├── auth/               # 认证 & 权限（自定义 Session + bcryptjs + RBAC）
-│       ├── ssh/                # SSH 客户端 + SFTP 服务
-│       ├── quick-service/      # 应用商店引擎
-│       ├── ai/                 # AI 服务 + 工具
-│       ├── backup/             # 备份 job worker + 调度
-│       ├── i18n/               # 国际化（78 字典文件）
-│       ├── storage/            # 分布式存储
-│       └── ...                 # 其他模块
-├── deploy/                     # 部署脚本 & 配置模板
-│   ├── bootstrap.sh            # fresh server 一行安装入口
-│   ├── install.sh              # 一键安装/升级核心脚本
-│   ├── upgrade.sh              # 升级（含备份+自检）
-│   ├── setup.sh                # 环境初始化（Node.js/PG/Caddy）
-│   ├── package.sh              # 打发布压缩包
-│   ├── check.sh                # 部署健康检查
-│   ├── preflight.sh            # 部署前校验
-│   ├── verify-assets.sh        # 部署模板/资产校验（无需 live install）
-│   ├── fakeroot-install-check.sh  # 安装回归测试（不修改宿主）
-│   ├── backup.sh               # 备份包装脚本（database/files/full）
-│   ├── smoke-test.sh           # 冒烟测试
-│   ├── systemd/                # systemd 服务模板
-│   ├── Caddyfile.example       # Caddy 配置示例
-│   ├── apache-next-proxy.example.conf  # Apache 配置示例
-│   └── env.production.example  # 环境变量模板
-├── prisma/                     # 数据库 Schema (60 模型) + 迁移
-├── scripts/                    # 运维脚本
-└── public/                     # 静态资源
-```
-
----
-
-## 🔧 开发与维护
-
-```bash
-# 安装依赖
+git clone https://github.com/whrkhldsb-star/VControlHub.git
+cd VControlHub
 npm ci
-
-# 开发模式 (http://localhost:3000)
+cp .env.example .env
+# 编辑 .env，填写开发数据库连接与必要密钥
+npm run prisma:generate
+npm run prisma:deploy
+npm run db:seed
 npm run dev
+```
 
-# 类型检查 / 代码检查 / 测试
+上述开发服务器用于页面和普通 API 开发。完整 WebDAV 非标准 HTTP 方法需要自定义 Node 服务器；普通 `next dev` / `next start` 不能替代完整生产入口。SSH 终端和后台任务也需要对应独立进程与配置。
+
+## 架构与目录
+
+```text
+浏览器 / API 客户端
+        │
+  HTTPS 反向代理
+        ├── Web / API（自定义 Node + Next.js）
+        └── SSH WebSocket 代理
+                    │
+       PostgreSQL + 后台 Worker
+                    │
+       VPS / 存储节点 / 外部服务
+```
+
+```text
+src/app/          页面、API 路由和页面相关逻辑
+src/components/   共享 UI 组件
+src/lib/          认证、存储、任务及其他业务模块
+src/server.ts     自定义 Web 服务入口
+src/worker.ts     后台任务入口
+src/ssh-ws-proxy.ts SSH WebSocket 入口
+prisma/           数据模型、迁移和初始化数据
+scripts/          检查与开发工具
+deploy/           安装、服务配置和发布工具
+docs/             功能设计、兼容性与维护文档
+```
+
+## 文件分享与 WebDAV
+
+分享链接的访问者无需登录平台账号；密码、有效期、访问限制与链接撤销仍由服务端校验。在线打开的能力取决于文件类型、浏览器支持和安全策略，不支持的格式应下载后查看。
+
+项目中的 WebDAV 分为两种用途：
+
+- **连接外部 WebDAV 存储**：通过服务端代理读取或写入远端节点，凭据不发送给浏览器。
+- **对外提供 WebDAV 接口**：通过 `/api/webdav/{nodeId}` 和 API Token 挂载受支持的节点，仍执行权限校验。
+
+### 能力边界
+
+- 不声明支持完整 DAV 2、锁或所有第三方客户端行为。
+- WebDAV 分享不提供整目录打包下载。
+- 远端支持 Range 时使用分段读取；忽略 Range 的服务采用流式截取回退，仍可能需要读取前置字节。
+- 远端缺失但具有版本历史或子项的索引保留并告警，避免破坏历史；此类记录可能继续显示。
+- 已有本地 HTTP fixture 和安全回归测试，不代表已完成 Nextcloud、群晖、坚果云等真实服务的全量兼容认证。
+- 反向代理、CDN 或防火墙必须允许 WebDAV HTTP 方法，不能对客户端施加浏览器交互挑战。
+
+详见 [WebDAV 兼容性说明](docs/webdav-compatibility.md) 和 [文件预览与分享](docs/file-preview-sharing.md)。
+
+## 检查与测试
+
+```bash
 npm run typecheck
 npm run lint
 npm test
-
-# 生产构建：Next.js + systemd 运行所需 runtime bundle
-npm run build
-npm run build:runtime
-
-# 一次性代码、测试、构建、部署资产和文档质量门禁
-npm run verify
+npm run route:verify
+npm run rbac:audit
+npm run i18n:key-check
+npm run api-copy:audit
+npm run docs:check
 ```
 
-> `npm run verify` 不启动浏览器 E2E；Playwright 需要可访问的应用和测试账号，按 `playwright.config.ts` 或设置 `PLAYWRIGHT_BASE_URL`、`E2E_USER`、`E2E_PASS` 后单独运行 `npx playwright test`。
->
-> 在 systemd 服务正从当前目录运行时，`npm run build` 会拒绝直接覆盖 `.next`，避免运行进程与 Client Manifest 不一致。生产更新请使用 `sudo bash deploy.sh`；脚本会先停服务再构建，构建失败时自动恢复服务，成功后执行 smoke test。
-
-生产服务器上推荐使用仓库自带 Makefile，避免忘记 runtime bundle 或 smoke：
+部署后可以验证 WebDAV 原始 HTTP 入口：
 
 ```bash
-# 查看可用入口
-make help
-
-# 构建、重启、检查、冒烟
-make verify
-sudo make restart
-make deploy-check
-make smoke DOMAIN=whrkhldsb.qzz.io SERVICE_PREFIX=vcontrolhub
-
-# 查看服务状态和日志
-make status SERVICE_PREFIX=vcontrolhub
-make logs SERVICE_PREFIX=vcontrolhub
+python3 scripts/webdav-http-smoke.py http://127.0.0.1:3000
 ```
 
-常用脚本用途：
+该检查不使用凭据、不执行存储写入，只验证方法路由和认证提示；不能替代已认证的端到端读写测试。
 
-| 文件                   | 用途                                                                                                                                             |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `deploy/bootstrap.sh`  | 一行生命周期入口，交互选择安装/重装、更新、彻底卸载、健康检查或查看凭据                                                                          |
-| `deploy/install.sh`    | 一键安装/重装/升级核心脚本，生成环境变量、构建、写 systemd 和反代                                                                                |
-| `deploy/uninstall.sh`  | 完全删除应用 unit、源码、数据库、密钥、运行数据、本机 Quick Service 容器/数据和安装器管理的反代配置                                                |
-| `deploy/setup.sh`      | 环境初始化（Node.js/PostgreSQL/Caddy 安装）                                                                                                       |
-| `deploy/upgrade.sh`    | 升级入口，默认升级前备份并在完成后自检                                                                                                           |
-| `deploy/check.sh`      | 不泄密的部署健康检查，可选 `RUN_NPM_CHECKS=1` 执行完整 npm 门禁                                                                                  |
-| `deploy/smoke-test.sh` | 线上冒烟测试，覆盖 systemd、端口、Caddy、登录页、静态资源和 SSH-WS                                                                               |
-| `deploy/verify-assets.sh` | 验证部署模板/资产完整性，无需 live install                                                                                                    |
-| `deploy/fakeroot-install-check.sh` | 安装流程回归测试，不修改宿主服务                                                                                                         |
-| `deploy/package.sh`    | 生成不含运行数据/密钥的发布压缩包                                                                                                                |
-| `deploy.sh`            | 修源 owner → 清 `.next` → 以 `vcontrolhub` 用户 build → chown `.next` → 重启服务 → smoke-test 一条龙（避免 root 跑 build 导致 service 启动失败） |
+## 安全与配置
 
----
+- 不要提交 `.env`、API Token、SSH 私钥、备份或运行数据。
+- 密钥和加密配置应独立备份；丢失密钥可能导致已保存的凭据无法解密。
+- 为外部集成创建最小权限 Token，并定期轮换。
+- 文件分享链接属于访问凭证，请仅发给预期接收者；不再使用时及时撤销。
+- 内部浏览器 API 请求使用统一客户端，CSRF 与特殊请求边界见 [前端请求规范](docs/frontend-fetch-policy.md)。
+- 不要在公开 Issue 中贴出凭据或包含敏感信息的日志。
 
-## 🔒 安全设计
+## 参与开发
 
-- ✅ 生产环境自动拒绝 demo/seed 环境变量
-- ✅ `.env.local` 不入库，安装脚本校验占位值
-- ✅ SSH 使用密钥认证，私钥 AES-256 加密存储
-- ✅ Session 密钥 ≥ 32 字符
-- ✅ 全站 CSRF Token + SameSite Cookie
-- ✅ API 全局限流 + 端点级限流
-- ✅ RBAC 权限体系，最小权限原则
-- ✅ 双因子认证 (TOTP) 可选
-- ✅ 完整操作审计日志
-- ✅ systemd 安全加固（NoNewPrivileges / ProtectSystem / MemoryMax）
+提交 Issue 时请提供复现步骤、部署方式、预期行为和脱敏日志。提交代码前运行相关测试及类型、lint 检查；涉及路由、权限或翻译时，同时运行对应审计。
 
----
+版本变更记录见 [CHANGELOG.md](CHANGELOG.md)。发布前可运行 `npm run version:check`；版本包生成见部署文档。
 
-## 📊 项目规模
+## 许可证
+
+当前仓库未包含独立的 LICENSE 文件。公开可见不等于授予开源许可证；使用、修改或分发前请向维护者确认授权范围。
+
+<details>
+<summary>仓库统计（自动生成，不代表运行验收结果）</summary>
 
 <!-- README_METRICS_START -->
 | 指标            | 数量                                             |
 | --------------- | ------------------------------------------------ |
 | 功能页面            | 54                                               |
-| API 路由文件        | 180                                              |
+| API 路由文件        | 181                                              |
 | 数据模型            | 76                                               |
 | UI 组件           | 45                                               |
-| 代码行数            | ~278,545（src 扫描）                                 |
-| 测试              | 633 文件                                           |
+| 代码行数            | ~280,145（src 扫描）                                 |
+| 测试              | 645 文件                                           |
 | Docker 应用模板     | 44 (本地) + 社区源实时同步                                |
 | i18n            | 245 useI18n() 调用点，82 字典文件                        |
 <!-- README_METRICS_END -->
 
----
+通过 `npm run readme:metrics:write` 更新。
 
-## 📌 当前状态与路线
-
-> 定位：单控制台管理 **VPS + 文件 + 运维审批**；主体能力已可作主力使用。  
-> 交付默认门禁：`tsc` / `lint --max-warnings=0` / i18n 成对 / RBAC 0 drift / `sudo bash deploy.sh` smoke 25/25。
-
-### 已具备（摘要）
-
-| 域 | 能力 |
-|---|---|
-| 安全 | RBAC、CSRF、限流、审计、advisory lock（restore / VPS schedule / playbook / compose / server-delete）、SSH host-key pin |
-| 多租户 | 核心模型 Team scope；含图床删除关联存储节点、分享链接 fileEntry/撤销、部署/定时任务目标 VPS、下载/存储访问、SSH WS、流量历史等 |
-| 远程运行时 | 远程 Docker；Quick Services 本机/VPS；Compose 项目生命周期 |
-| 监控告警 | 后台采样；容量预测；**预测指标可挂告警规则**（days-to-85）；升级/值班/确认 |
-| 命令 / Playbook | 审批与 durable 执行；**失败路径可观测**（job 不假成功、终端审计、结果通知、rejected target 收口） |
-| 文件 | 检索、断点续传、版本历史、WebDAV；**节点间双向/镜像同步**（较新优先、调度、报告/冲突说明）；sftp-ops → `fs-backend` |
-| 备份 | 细粒度恢复、演练、跨环境迁移向导（不自动 restore） |
-| 工单 / AI | 双向时间线；知识库 RAG；AI Ops 安全闭环 |
-| 集成 | 云账单账户（`teamId` + CSV/探针 + **HTTPS CSV URL live 导入**）；ITSM/IM 双向 |
-
-### 审查残留（仅未闭环）
-
-> 历史多轮深扫的已修复项已从 README 移除，避免与代码不同步。完整历史见 git log。
-
-| 项 | 说明 |
-|---|---|
-| API 路由层英文 `error:` 卫生债 | 鉴权/限流等路径仍有部分英文；按模块继续 i18n |
-| 平台级 job / prune 无 teamId | 有意全局（health/alert/cost 等 tick） |
-| 部署模板全局共享 | 产品设计，非租户资源 |
-| FE-17 多资源轮询 | **有意保持** `useVisibilityInterval`/`useRefreshInterval`；不硬套单资源 `useResourcePolling` |
-
-
-## 📄 许可
+</details>
