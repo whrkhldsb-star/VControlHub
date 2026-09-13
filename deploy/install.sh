@@ -468,13 +468,15 @@ sync_source() {
     fi
   else
  if have_cmd rsync; then
-			rsync -a --delete \
---exclude .git --exclude node_modules --exclude .next --exclude backups --exclude /storage --exclude tmp --exclude uploads --exclude downloads --exclude logs --exclude .env.local \
+		rsync -a --delete \
+--exclude .git --exclude 'node_modules*' --exclude '.next*' --exclude 'dist*' --exclude backups --exclude /storage --exclude tmp --exclude uploads --exclude downloads --exclude logs --exclude .env.local \
+--exclude /.cache --exclude /.npm --exclude /coverage --exclude /.playwright-output --exclude /.dast-output --exclude /tsconfig.tsbuildinfo --exclude /.env.runtime \
  "${SOURCE_DIR}/" "${APP_DIR}/"
     else
       warn "rsync not found; falling back to tar-based source sync"
       (cd "${SOURCE_DIR}" && tar \
-        --exclude ./.git --exclude ./node_modules --exclude ./.next --exclude ./backups --exclude ./storage --exclude ./tmp --exclude ./uploads --exclude ./downloads --exclude ./logs --exclude ./.env.local \
+        --exclude ./.git --exclude './node_modules*' --exclude './.next*' --exclude './dist*' --exclude ./backups --exclude ./storage --exclude ./tmp --exclude ./uploads --exclude ./downloads --exclude ./logs --exclude ./.env.local \
+        --exclude ./.cache --exclude ./.npm --exclude ./coverage --exclude ./.playwright-output --exclude ./.dast-output --exclude ./tsconfig.tsbuildinfo --exclude ./.env.runtime \
         -cf - .) | (cd "${APP_DIR}" && tar -xf -)
     fi
   fi

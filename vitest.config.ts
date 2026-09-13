@@ -9,7 +9,9 @@ export default defineConfig({
     setupFiles: ["./src/test/setup.ts"],
     globals: true,
     // Exclude Playwright e2e specs — they run via `npx playwright test`, not vitest.
-    exclude: ["**/node_modules/**", "**/dist/**", "**/.next/**", "e2e/**", "playwright.config.*"],
+    // Glob `node_modules**`/`dist**` (not bare names) so upgrade/rollback copies
+    // (node_modules.previous-*, dist.failed-*, …) are never picked up as tests.
+    exclude: ["**/node_modules*/**", "**/dist*/**", "**/.next*/**", "e2e/**", "playwright.config.*"],
     // Pool config (vitest 4 API: poolOptions removed, use top-level).
     // Keep the suite reliable on two-vCPU CI runners. Four V8 coverage workers
     // oversubscribe them and make timer-driven user-event and bcrypt tests
