@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { installDirectSession } from "./helpers/direct-session";
 import { loginWithCredentials } from "./helpers/login";
 
-test("WebDAV file lifecycle enforces token scopes over real HTTP methods", async ({ page, context, baseURL }) => {
+test("WebDAV file lifecycle enforces token scopes over real HTTP methods", async ({ page, context }) => {
 	test.setTimeout(60_000);
 	if (process.env.E2E_DIRECT_SESSION === "1") await installDirectSession(context);
 	else await loginWithCredentials(page, process.env.E2E_USER ?? "admin", process.env.E2E_PASS ?? "admin123");
@@ -40,7 +40,12 @@ test("WebDAV file lifecycle enforces token scopes over real HTTP methods", async
 		const denied = await context.request.delete(file, { headers: readHeaders });
 		expect([401, 403]).toContain(denied.status());
 		const moved = `${directory}/renamed.bin`;
-		const move = await context.request.fetch(file, { method: "MOVE", headers: { ...headers, Destination: new URL(moved, baseURL).href, Overwrite: "F" } });
+		// Destination must stay origin-agnostic: Next.js may normalize the
+		// request host (127.0.0.1 -> localhost) behind a custom server, so an
+		// absolute URL minted from the test baseURL can mismatch the origin
+		// the handler sees and trip the same-origin guard. A relative
+		// Destination is resolved against the request's own origin instead.
+		const move = await context.request.fetch(file, { method: "MOVE", headers: { ...headers, Destination: moved, Overwrite: "F" } });
 		expect(move.status(), `MOVE failed: ${await move.text()}`).toBe(201);
 		const listing = await context.request.fetch(directory, { method: "PROPFIND", headers: { ...readHeaders, Depth: "1" } });
 		expect(listing.status()).toBe(207);
