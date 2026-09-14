@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { installDirectSession } from "./helpers/direct-session";
 import { loginWithCredentials } from "./helpers/login";
+import { inspectDetailLayouts } from "./helpers/detail-layouts";
 
 const USER = process.env.E2E_USER ?? "admin";
 const PASS = process.env.E2E_PASS ?? "admin123";
@@ -81,7 +82,8 @@ test("command template create and delete without deployment", async ({ page }) =
 	await expect(page.getByText(marker, { exact: true })).toBeHidden();
 });
 
-test("ticket create and dynamic detail page", async ({ page }) => {
+test("ticket create and dynamic detail page", async ({ page }, testInfo) => {
+	test.setTimeout(180_000);
 	await page.goto("/tickets");
 	await page.getByRole("textbox", { name: /^(标题|Title)$/i }).fill(marker);
 	await page.getByRole("textbox", { name: /^(描述|Description)$/i }).fill("E2E ticket body");
@@ -91,6 +93,7 @@ test("ticket create and dynamic detail page", async ({ page }) => {
 	await link.click();
 	await expect(page).toHaveURL(/\/tickets\/[^/]+$/);
 	await expect(page.getByRole("heading", { name: marker, exact: true })).toBeVisible();
+	await inspectDetailLayouts(page, testInfo, "ticket-detail");
 });
 
 test("API token create, plaintext display and revoke", async ({ page }) => {
@@ -177,7 +180,7 @@ test("cost entry create, edit and delete", async ({ page }) => {
 	await edit.getByRole("button", { name: /保存条目|Save Entry/i }).click();
 	await expect(page.getByRole("row").filter({ hasText: marker })).toContainText("23.45");
 	await page.getByRole("row").filter({ hasText: marker }).getByRole("button", { name: /删除|Delete/i }).click();
-	await page.getByRole("alertdialog").getByRole("button", { name: /确认删除|Confirm Delete/i }).click();
+	await page.getByRole("dialog", { name: /删除条目|Delete Entry/i }).getByRole("button", { name: /确认删除|Confirm Delete/i }).click();
 	await expect(page.getByRole("row").filter({ hasText: marker })).toBeHidden();
 });
 

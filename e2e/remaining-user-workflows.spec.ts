@@ -1,10 +1,20 @@
 import { expect, test, type Page } from "@playwright/test";
 import { generate as generateTotp } from "otplib";
+import { getRemainingTime } from "@otplib/totp";
+import { setTimeout as delay } from "node:timers/promises";
 import { installDirectSession } from "./helpers/direct-session";
 import { loginWithCredentials } from "./helpers/login";
+import { inspectDetailLayouts } from "./helpers/detail-layouts";
 
 const USER = process.env.E2E_USER ?? "admin";
 const PASS = process.env.E2E_PASS ?? "admin123";
+
+async function freshTotp(secret: string) {
+	// Leave enough of the real server's 30-second window for browser input.
+	const remaining = getRemainingTime();
+	if (remaining < 10) await delay((remaining + 1) * 1000);
+	return generateTotp({ secret });
+}
 
 async function login(page: Page) {
 	if (process.env.E2E_DIRECT_SESSION === "1") {
@@ -14,6 +24,49 @@ async function login(page: Page) {
 	}
 	await loginWithCredentials(page, USER, PASS);
 }
+
+test("monitoring streams release connections and preserve the active limit", async ({ page, baseURL }) => {
+	await login(page);
+	const cookie = (await page.context().cookies(baseURL!))
+		.map(({ name, value }) => `${name}=${value}`).join("; ");
+	const active: Response[] = [];
+	const connect = () => fetch(new URL("/api/monitoring/stream", baseURL), {
+		headers: { cookie }, signal: AbortSignal.timeout(20_000),
+	});
+	const disconnect = async (response: Response) => {
+		await response.body?.cancel();
+		// Allow the HTTP disconnect to reach the server before opening another slot.
+		await delay(100);
+	};
+	try {
+		for (let index = 0; index < 6; index++) {
+			const response = await connect();
+			expect(response.status).toBe(200);
+			const reader = response.body!.getReader();
+			try {
+				expect(new TextDecoder().decode((await reader.read()).value)).toContain("event: stats");
+			} finally {
+				await reader.cancel();
+				reader.releaseLock();
+			}
+			await delay(100);
+		}
+		for (let index = 0; index < 3; index++) {
+			const response = await connect();
+			active.push(response);
+			expect(response.status).toBe(200);
+		}
+		const limited = await connect();
+		expect(limited.status).toBe(429);
+		expect(await limited.json()).toMatchObject({ message: "Too many active monitoring streams" });
+		await disconnect(active.shift()!);
+		const recovered = await connect();
+		active.push(recovered);
+		expect(recovered.status).toBe(200);
+	} finally {
+		await Promise.all(active.map(disconnect));
+	}
+});
 
 test("settings tabs and personal preference persistence", async ({ page }) => {
 	await login(page);
@@ -39,8 +92,8 @@ test("settings tabs and personal preference persistence", async ({ page }) => {
 	await expect(notificationSwitch).toHaveAttribute("aria-checked", original ?? "false");
 });
 
-test("two-factor setup, password login, TOTP verification and disable lifecycle", async ({ page, context }) => {
-	test.setTimeout(90_000);
+test("two-factor setup, password login, TOTP verification and disable lifecycle", async ({ page, context }, testInfo) => {
+	test.setTimeout(240_000);
 	await login(page);
 	// 2FA moved from the admin settings panel to the self-service account page.
 	// /settings#2fa still redirects there, so assert the redirect lands first.
@@ -53,7 +106,7 @@ test("two-factor setup, password login, TOTP verification and disable lifecycle"
 
 	const secret = (await section.locator("code").first().textContent())?.trim();
 	expect(secret).toBeTruthy();
-	const setupCode = await generateTotp({ secret: secret! });
+	const setupCode = await freshTotp(secret!);
 	await section.getByLabel(/6位验证码|6-digit code/i).fill(setupCode);
 	const enableResponse = page.waitForResponse((response) =>
 		new URL(response.url()).pathname === "/api/auth/2fa/enable" && response.request().method() === "POST",
@@ -61,6 +114,8 @@ test("two-factor setup, password login, TOTP verification and disable lifecycle"
 	await section.getByRole("button", { name: /确认启用|Confirm enable/i }).click();
 	const enabled = await enableResponse;
 	expect(enabled.status(), `2FA enable failed: ${await enabled.text()}`).toBe(200);
+	await expect(section.locator("code")).toHaveCount(10);
+	await section.getByRole("button", { name: /我已安全保存|I saved them securely/i }).click();
 	await expect(section.getByRole("button", { name: /关闭两步验证|Disable 2FA/i })).toBeVisible();
 
 	await context.clearCookies();
@@ -69,18 +124,24 @@ test("two-factor setup, password login, TOTP verification and disable lifecycle"
 	await page.getByLabel(/密码|Password/i).fill(PASS);
 	await page.getByRole("button", { name: /登录|Sign in|Log in/i }).click();
 	await page.waitForURL((url) => url.pathname === "/login/verify-2fa");
+	await inspectDetailLayouts(page, testInfo, "two-factor-login");
 
-	const loginCode = await generateTotp({ secret: secret! });
+	const loginCode = await freshTotp(secret!);
+	const verificationResponse = page.waitForResponse((response) =>
+		new URL(response.url()).pathname === "/api/auth/2fa/verify-login" && response.request().method() === "POST",
+	);
 	for (let index = 0; index < loginCode.length; index += 1) {
 		await page.getByLabel(new RegExp(`(?:验证码第 ${index + 1} 位|Verification code digit ${index + 1})`, "i")).fill(loginCode[index]!);
 	}
+	const verified = await verificationResponse;
+	expect(verified.status(), `2FA verification failed: ${await verified.text()}`).toBe(200);
 	await page.waitForURL((url) => !url.pathname.startsWith("/login"));
 
 	await page.goto("/account/security");
 	await expect(section).toBeVisible();
 	await section.getByRole("button", { name: /关闭两步验证|Disable 2FA/i }).click();
-	const disableCode = await generateTotp({ secret: secret! });
-	await section.getByLabel(/当前验证码|Current code/i).fill(disableCode);
+	const disableCode = await freshTotp(secret!);
+	await section.getByLabel(/验证码或恢复码|Authenticator or recovery code/i).fill(disableCode);
 	const disableResponse = page.waitForResponse((response) =>
 		new URL(response.url()).pathname === "/api/auth/2fa/disable" && response.request().method() === "POST",
 	);
