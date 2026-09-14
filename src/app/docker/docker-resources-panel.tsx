@@ -236,9 +236,9 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
               className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] p-3"
             >
               {" "}
-              <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
                 {" "}
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1 basis-40">
                   {" "}
                   <p className="truncate text-sm font-medium text-[var(--text-primary)]">
                     {itemName}
