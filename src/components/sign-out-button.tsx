@@ -17,6 +17,8 @@ export function SignOutButton() {
 				// fall through to redirect anyway — server clears cookie on success,
 				// and on failure we still want the user to leave the authed surface.
 			}
+			// A full navigation clears in-memory authenticated UI and router caches.
+			// eslint-disable-next-line @next/next/no-location-assign-relative-destination
 			window.location.href = "/login";
 		});
 	}
