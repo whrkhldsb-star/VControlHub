@@ -104,6 +104,9 @@ vi.mock("@/lib/ssh/client", () => ({
   createRemoteDirectory: createRemoteDirectoryMock,
   deleteRemoteFile: deleteRemoteFileMock,
   renameRemoteFile: renameRemoteFileMock,
+  statRemoteEntry: vi.fn(async () => {
+    throw Object.assign(new Error("no such file"), { code: "NO_SUCH_FILE" });
+  }),
 }));
 
 vi.mock("node:fs/promises", () => ({
@@ -111,11 +114,19 @@ vi.mock("node:fs/promises", () => ({
   rm: rmMock,
   unlink: unlinkMock,
   rename: renameFsMock,
+  readdir: vi.fn(async () => []),
+  lstat: vi.fn(async () => {
+    throw Object.assign(new Error("not found"), { code: "ENOENT" });
+  }),
   default: {
     mkdir: mkdirMock,
     rm: rmMock,
     unlink: unlinkMock,
     rename: renameFsMock,
+    readdir: vi.fn(async () => []),
+    lstat: vi.fn(async () => {
+      throw Object.assign(new Error("not found"), { code: "ENOENT" });
+    }),
   },
 }));
 
@@ -300,6 +311,8 @@ describe("createFolderAction", () => {
     expect(mkdirMock).toHaveBeenCalledWith("/srv/storage/docs/drafts", {
       recursive: false,
     });
+    // Compensation now only removes a folder confirmed still empty (fix for
+    // the rollback that could delete concurrently uploaded files).
     expect(rmMock).toHaveBeenCalledWith("/srv/storage/docs/drafts", {
       recursive: true,
       force: false,
@@ -345,12 +358,9 @@ describe("createFolderAction", () => {
         recursive: false,
       }),
     );
-    expect(deleteRemoteFileMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        remotePath: "/data/root/team/drafts",
-        isDirectory: true,
-      }),
-    );
+    // SFTP emptiness cannot be confirmed cheaply, so compensation keeps the
+    // directory rather than risk deleting concurrently written files.
+    expect(deleteRemoteFileMock).not.toHaveBeenCalled();
   });
 });
 
@@ -414,7 +424,7 @@ describe("SFTP file entry actions", () => {
     expect(prismaMock.fileEntry.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: "entry-1" },
-        data: { isDeleted: true },
+        data: expect.objectContaining({ isDeleted: true }),
       }),
     );
     // Physical delete is reserved for permanentDelete — restore must still find the file.
@@ -592,7 +602,6 @@ describe("SFTP file entry actions", () => {
       where: {
         storageNodeId: "node-sftp",
         relativePath: { startsWith: "docs/" },
-        isDeleted: false,
       },
       select: { id: true, relativePath: true },
       take: 10_001,
@@ -683,7 +692,7 @@ describe("SFTP file entry actions", () => {
     expect(prismaMock.fileEntry.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: "local-file" },
-        data: { isDeleted: true },
+        data: expect.objectContaining({ isDeleted: true }),
       }),
     );
     expect(result.success).toContain("report.txt");

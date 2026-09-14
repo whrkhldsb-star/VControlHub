@@ -1143,7 +1143,7 @@ describe("storage service", () => {
           id: "file_restore_local",
           storageNode: { teamId: "team-1" },
         },
-        data: { isDeleted: false },
+        data: { isDeleted: false, deleteBatchId: null },
       });
     } finally {
       await rm(tempRoot, { recursive: true, force: true });
@@ -1254,7 +1254,7 @@ describe("storage service", () => {
         id: "file_restore_sftp",
         storageNode: { teamId: "team-1" },
       },
-      data: { isDeleted: false },
+      data: { isDeleted: false, deleteBatchId: null },
     });
   });
 

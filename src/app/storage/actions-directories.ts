@@ -11,7 +11,10 @@ import {
   createManagedFolder,
   deleteBackingObject,
   renameBackingObject,
+  resolveManagedLocalEntryPath,
+  statBackingObject,
 } from "@/lib/storage/fs-backend";
+import { createWebDavClient } from "@/lib/storage/webdav-client";
 import {
   joinStoragePath,
   normalizeStorageEntryName,
@@ -145,13 +148,34 @@ export async function createFolderAction(
       });
     } catch (error) {
       if (folderCreated) {
+        // Only roll back a directory that is still empty. Between our create
+        // and this failed index write, another upload may have dropped a file
+        // into the folder; the recursive delete would destroy it. If the
+        // directory has any content (or emptiness cannot be confirmed),
+        // keep it and surface the original indexing failure.
         try {
-          await deleteBackingObject({
-            storageNode,
-            relativePath,
-            isDirectory: true,
-            tolerateMissing: true,
-          });
+          let isEmpty = false;
+          if (storageNode.driver === "LOCAL") {
+            const { absolutePath } = await resolveManagedLocalEntryPath({ basePath: storageNode.basePath, relativePath });
+            const { readdir } = await import("node:fs/promises");
+            isEmpty = (await readdir(absolutePath)).length === 0;
+          } else if (storageNode.driver === "WEBDAV") {
+            const entries = await createWebDavClient(storageNode).list(relativePath);
+            isEmpty = entries.length === 0;
+          } else {
+            // SFTP and unknown drivers: cannot cheaply confirm emptiness —
+            // keep the directory (fail-open) rather than risk destroying
+            // concurrently written files.
+            isEmpty = false;
+          }
+          if (isEmpty) {
+            await deleteBackingObject({
+              storageNode,
+              relativePath,
+              isDirectory: true,
+              tolerateMissing: true,
+            });
+          }
         } catch {
           // Best-effort compensation: preserve the original indexing failure for the UI.
         }
@@ -297,19 +321,31 @@ export async function renameFileEntryAction(
       } satisfies StorageActionState;
     }
 
+    // Guard against an un-indexed physical file at the destination (e.g. an
+    // in-flight upload or an SSH-written file not yet scanned). The DB check
+    // above cannot see it, and the raw rename would silently replace its
+    // bytes. Mirrors executeMoveFile's physical occupancy check.
+    if (await statBackingObject({ storageNode: entry.storageNode, relativePath: newRelativePath })) {
+      return {
+        error: t("storagePage.action.pathAlreadyExists", { path: newRelativePath }),
+      } satisfies StorageActionState;
+    }
+
     // Preload directory children and fail closed before physical rename so we
     // never leave a renamed remote tree with partial index rewrites.
     const DIRECTORY_CHILD_REWRITE_LIMIT = 10_000;
     let directoryChildren: Array<{ id: string; relativePath: string }> = [];
     if (entry.entryType === "DIRECTORY") {
       const oldPrefix = entry.relativePath + "/";
-      // Soft-deleted descendants stay under the old prefix in recycle-bin state.
-      // Moving them here would either resurrect trash or corrupt recycle paths.
+      // Include soft-deleted (recycle-bin) descendants: the physical rename
+      // moves the whole tree including recycled bytes, so their index rows
+      // must migrate to the new prefix too — otherwise archives filter on
+      // stale paths and re-include recycled files, and restore loses track
+      // of where the bytes actually live.
       directoryChildren = await prisma.fileEntry.findMany({
         where: {
           storageNodeId: entry.storageNodeId,
           relativePath: { startsWith: oldPrefix },
-          isDeleted: false,
         },
         select: { id: true, relativePath: true },
         take: DIRECTORY_CHILD_REWRITE_LIMIT + 1,

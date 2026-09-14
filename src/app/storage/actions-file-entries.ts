@@ -45,6 +45,7 @@ export async function restoreFileEntryAction(
         entryType: true,
         relativePath: true,
         storageNodeId: true,
+        deleteBatchId: true,
       },
     });
 
@@ -64,14 +65,18 @@ export async function restoreFileEntryAction(
 
     await restoreFileEntry({ fileEntryId }, session);
 
-    if (entry.entryType === "DIRECTORY") {
-      const prefix = entry.relativePath + "/";
+    if (entry.entryType === "DIRECTORY" && entry.deleteBatchId) {
+      // Revive only the descendants soft-deleted by the same batch as the
+      // directory itself. Rows deleted in earlier, separate operations keep
+      // their recycle-bin state instead of being resurrected wholesale.
       await prisma.fileEntry.updateMany({
         where: {
           storageNodeId: entry.storageNodeId,
-          relativePath: { startsWith: prefix },
+          deleteBatchId: entry.deleteBatchId,
+          isDeleted: true,
+          id: { not: fileEntryId },
         },
-        data: { isDeleted: false },
+        data: { isDeleted: false, deleteBatchId: null },
       });
     }
 

@@ -19,7 +19,7 @@ describe("WebDAV recycle-bin restore", () => {
     expect(mocks.stat).toHaveBeenCalledWith("docs/report.txt");
     expect(mocks.ssh).not.toHaveBeenCalled();
     expect(mocks.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: row.id, storageNode: { teamId: "team-a" } } }));
-    expect(mocks.update).toHaveBeenCalledWith({ where: { id: row.id, storageNode: { teamId: "team-a" } }, data: { isDeleted: false } });
+    expect(mocks.update).toHaveBeenCalledWith({ where: { id: row.id, storageNode: { teamId: "team-a" } }, data: { isDeleted: false, deleteBatchId: null } });
   });
   it.each([null, { isDirectory: true }])("rejects a missing or mismatched backing file (%s)", async (entry) => {
     mocks.stat.mockResolvedValue(entry);

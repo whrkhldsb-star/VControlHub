@@ -1,4 +1,5 @@
 import { auditUserAction } from "@/lib/audit/service";
+import crypto from "node:crypto";
 import type { SessionPayload } from "@/lib/auth/session";
 import { teamWhere } from "@/lib/auth/team-scope";
 import { assertStorageAccess } from "@/lib/storage/access-control";
@@ -141,6 +142,10 @@ export async function executeDeleteFile(
     // reached through an already-issued public token.
     if (entry.entryType === "DIRECTORY") {
       const prefix = entry.relativePath + "/";
+      // Tag every soft-deleted row with this operation's batch id so a later
+      // directory restore can revive exactly this batch — not descendants
+      // that were already sitting in the recycle bin before this delete.
+      const deleteBatchId = crypto.randomUUID();
       await prisma.$transaction([
         prisma.fileEntry.updateMany({
           where: {
@@ -148,11 +153,11 @@ export async function executeDeleteFile(
             relativePath: { startsWith: prefix },
             isDeleted: false,
           },
-          data: { isDeleted: true },
+          data: { isDeleted: true, deleteBatchId },
         }),
         prisma.fileEntry.update({
           where: { id: fileEntryId },
-          data: { isDeleted: true },
+          data: { isDeleted: true, deleteBatchId },
         }),
 		revokeShares,
       ]);
@@ -160,7 +165,7 @@ export async function executeDeleteFile(
 	  await prisma.$transaction([
 		prisma.fileEntry.update({
 		  where: { id: fileEntryId },
-		  data: { isDeleted: true },
+		  data: { isDeleted: true, deleteBatchId: crypto.randomUUID() },
 		}),
 		revokeShares,
 	  ]);

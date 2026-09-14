@@ -364,7 +364,7 @@ export async function restoreFileEntry(
       id: payload.fileEntryId,
       storageNode: { teamId: current.storageNode.teamId ?? null },
     },
-    data: { isDeleted: false },
+    data: { isDeleted: false, deleteBatchId: null },
   });
 }
 

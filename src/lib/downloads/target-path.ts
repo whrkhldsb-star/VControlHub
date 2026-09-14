@@ -11,6 +11,9 @@ function normalizeBasePath(basePath: string | null | undefined): string {
 }
 
 function isPathWithinBase(candidate: string, basePath: string): boolean {
+  // basePath "/" (whole-disk nodes) must contain every normalized absolute
+  // path; the naive `${basePath}/` concat would produce "//" and match nothing.
+  if (basePath === "/") return candidate.startsWith("/");
   return candidate === basePath || candidate.startsWith(`${basePath}/`);
 }
 
@@ -27,6 +30,12 @@ export function getDownloadTargetRelativePath(
 
   if (normalizedTarget === base) {
     return "";
+  }
+
+  // Whole-disk base ("/") has no prefix to strip; every other base strips
+  // `base + "/"` (safe: isPathWithinBase guarantees the separator).
+  if (base === "/") {
+    return normalizedTarget.slice(1);
   }
 
   return normalizedTarget.slice(base.length + 1);
