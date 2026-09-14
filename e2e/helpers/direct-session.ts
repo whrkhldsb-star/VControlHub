@@ -3,6 +3,8 @@ import { createHmac, randomBytes } from "node:crypto";
 import type { BrowserContext } from "@playwright/test";
 import bcrypt from "bcryptjs";
 import { Client } from "pg";
+import type { RoleKey } from "../../src/lib/auth/rbac";
+import { getAppSlug } from "../../src/lib/branding";
 
 function loadOptionalEnvLocal() {
 	// CI injects DATABASE_URL / AUTH_* via the workflow; local runs use .env.local.
@@ -15,9 +17,9 @@ function loadOptionalEnvLocal() {
 	}
 }
 
-export async function installDirectSession(context: BrowserContext) {
+export async function installDirectSession(context: BrowserContext, options: { username?: string } = {}) {
 	loadOptionalEnvLocal();
-	const username = process.env.E2E_DIRECT_USER ?? process.env.E2E_USER ?? "admin";
+	const username = options.username ?? process.env.E2E_DIRECT_USER ?? process.env.E2E_USER ?? "admin";
 	const password = process.env.E2E_PASS ?? "admin123";
 	const connectionString = process.env.DATABASE_URL;
 	if (!connectionString) throw new Error("DATABASE_URL is required for direct E2E sessions");
@@ -37,7 +39,7 @@ export async function installDirectSession(context: BrowserContext) {
 			passwordHash: string;
 			mustChangePassword: boolean;
 			currentTeamId: string | null;
-			roles: string[];
+			roles: RoleKey[];
 		}>(`SELECT u.id, u.username, u."passwordHash", u."mustChangePassword", u."currentTeamId",
 			COALESCE(array_agg(r.key) FILTER (WHERE r.key IS NOT NULL), '{}') AS roles
 			FROM "User" u
@@ -49,8 +51,10 @@ export async function installDirectSession(context: BrowserContext) {
 		if (!user || (!trustLocalDbSession && !(await bcrypt.compare(password, user.passwordHash)))) {
 			throw new Error(`Unable to create E2E session for ${username}`);
 		}
+		const appSlug = getAppSlug();
+		const secret = process.env.AUTH_SESSION_SECRET;
+		if (!secret) throw new Error("AUTH_SESSION_SECRET missing for direct E2E session");
 		const now = Date.now();
-		const appSlug = process.env.APP_SLUG?.trim() || "vcontrolhub";
 		const envelope = {
 			userId: user.id,
 			username: user.username,
@@ -61,10 +65,10 @@ export async function installDirectSession(context: BrowserContext) {
 			aud: process.env.AUTH_SESSION_AUDIENCE?.trim() || `${appSlug}-console`,
 			iat: now,
 			exp: now + 60 * 60 * 1000,
+			// Match the credential binding required by verifySessionToken.
+			cfp: createHmac("sha256", secret).update(`session-credential:${user.passwordHash}`).digest("base64url").slice(0, 22),
 		};
 		const encoded = Buffer.from(JSON.stringify(envelope)).toString("base64url");
-		const secret = process.env.AUTH_SESSION_SECRET;
-		if (!secret) throw new Error("AUTH_SESSION_SECRET missing for direct E2E session");
 		const token = `${encoded}.${createHmac("sha256", secret).update(encoded).digest("base64url")}`;
 		const url = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 		await context.addCookies([
