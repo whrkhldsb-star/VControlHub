@@ -247,7 +247,7 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
                     {resourceMeta(item)}
                   </p>{" "}
                 </div>{" "}
-                <div className="flex flex-wrap items-center justify-end gap-2">
+                <div className="flex min-w-0 shrink-0 flex-wrap items-center justify-end gap-2">
                   {" "}
                   <ActionButton
                     type="button"
@@ -358,7 +358,7 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
       </FormGrid>{" "}
       <div className="grid gap-4 lg:grid-cols-2">
         {" "}
-        <div>
+        <div className="min-w-0">
           <h3 className="mb-2 text-xs font-medium uppercase  text-[var(--text-muted)]">
             {formatCopy(t("dockerResources.group.networks"), {
               count: networks.length,
@@ -366,7 +366,7 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
           </h3>
           {renderList("networks", networks)}
         </div>{" "}
-        <div>
+        <div className="min-w-0">
           <h3 className="mb-2 text-xs font-medium uppercase  text-[var(--text-muted)]">
             {formatCopy(t("dockerResources.group.volumes"), {
               count: volumes.length,
