@@ -22,7 +22,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("download re
   let ready = false;
   beforeAll(async () => {
     const database = new URL(process.env.DATABASE_URL!);
-    if (!["localhost", "127.0.0.1", "[::1]"].includes(database.hostname) || !/audit|test/.test(database.pathname)) {
+    if (!["localhost", "127.0.0.1", "[::1]"].includes(database.hostname) || !/audit|test|whrkhldsb_ci/.test(database.pathname)) {
       throw new Error("Download integration requires an isolated loopback audit/test database");
     }
     await prisma.server.create({ data: { id, name: id, host: "192.0.2.1", port: 22, username: "fixture", connectionType: "PASSWORD", enabled: false } });

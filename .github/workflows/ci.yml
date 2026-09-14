@@ -65,6 +65,12 @@ jobs:
       - name: API copy audit
         run: npm run api-copy:audit
 
+      # Push the schema before the suite: the database integration tests
+      # (files/job/upload/downloads/server inventory) run against this
+      # isolated loopback database and need real tables to exist.
+      - name: Apply database schema
+        run: npx prisma db push --accept-data-loss
+
       # Fail fast with a clear message if someone adds a Prisma mock that
       # returns Promise instead of PrismaPromise — this was the long-running
       # red CI cause (move-file-action.test.ts). Keep typecheck above tests.

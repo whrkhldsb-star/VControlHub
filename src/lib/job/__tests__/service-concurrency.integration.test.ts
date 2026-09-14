@@ -9,7 +9,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("durable que
   let fixturesCreated = false;
   beforeAll(async () => {
     const database = new URL(process.env.DATABASE_URL!);
-    if (!["localhost", "127.0.0.1", "[::1]"].includes(database.hostname) || !/audit|test/.test(database.pathname)) {
+    if (!["localhost", "127.0.0.1", "[::1]"].includes(database.hostname) || !/audit|test|whrkhldsb_ci/.test(database.pathname)) {
       throw new Error("Queue tests require an isolated loopback audit/test database");
     }
     await prisma.user.create({ data: { id: prefix, username: prefix, passwordHash: "not-a-login-hash" } });

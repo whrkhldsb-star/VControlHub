@@ -16,7 +16,7 @@ describe.skipIf(!enabled)("File listing PostgreSQL integration", () => {
   });
   beforeAll(async () => {
     const database = new URL(process.env.DATABASE_URL!);
-    if (!["127.0.0.1","localhost","[::1]"].includes(database.hostname) || !/audit|test/.test(database.pathname)) {
+    if (!["127.0.0.1","localhost","[::1]"].includes(database.hostname) || !/audit|test|whrkhldsb_ci/.test(database.pathname)) {
       throw new Error("File listing integration requires a loopback audit/test database");
     }
     await prisma.storageNode.createMany({data:[nodeId,secondNodeId].map((id) => ({id,name:id,driver:"LOCAL",basePath:"/nonexistent-listing-fixture"}))});
