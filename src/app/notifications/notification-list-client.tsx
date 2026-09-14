@@ -81,7 +81,7 @@ const NotificationRow = memo(function NotificationRow({
 				<div className="flex-1 min-w-0">
 					<div className="flex items-center gap-2 min-w-0">
 						<h3 className={`text-sm font-medium truncate ${n.isRead ? "text-[var(--text-muted)]" : "text-[var(--text-primary)]"}`} title={n.title}>{n.title}</h3>
-						{!n.isRead && <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" aria-label={t("notificationsPage.unreadBadge")} />}
+						{!n.isRead && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" aria-hidden="true" />}
 					</div>
 					<p className="mt-1 text-xs text-[var(--text-muted)] leading-relaxed">{n.message}</p>
 					<div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
