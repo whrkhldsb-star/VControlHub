@@ -34,7 +34,10 @@ try {
           offenders,
         };
       });
+      if (result.overflow > 1) console.log(`::error title=overflow::${theme}/${width}/${state}: overflow ${result.overflow}px; offenders: ${result.offenders.join(" | ")}`);
       assert.ok(result.overflow <= 1, `${theme}/${width}/${state}: overflow ${result.overflow}; offenders: ${result.offenders.join(" | ")}`);
+      for (const v of result.violations) console.log(`::error title=a11y::${theme}/${width}/${state} axe violation: ${v}`);
+      if (result.violations.length > 0) console.log(`::error title=a11y::${theme}/${width}/${state}: ${JSON.stringify(result.violations)}`);
       assert.deepEqual(result.violations, [], `${theme}/${width}/${state}: accessibility ${JSON.stringify(result.violations)}`);
       await page.screenshot({ path: path.join(output, `${theme}-${width}-${state}.png`), fullPage: true });
       checks++;
