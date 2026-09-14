@@ -22,12 +22,20 @@ try {
         await page.keyboard.press("Escape");
         await page.getByRole("tab", { name: "States" }).click();
       }
-      const result = await page.evaluate(async () => ({
-        overflow: document.documentElement.scrollWidth - innerWidth,
-        violations: (await window.axe.run(document, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21aa"] } })).violations.map((item) => item.id),
-      }));
-      assert.ok(result.overflow <= 1, `${theme}/${width}/${state}: overflow ${result.overflow}`);
-      assert.deepEqual(result.violations, [], `${theme}/${width}/${state}: accessibility`);
+      const result = await page.evaluate(async () => {
+        const offenders = [...document.querySelectorAll("body *")]
+          .map((el) => ({ el, right: el.getBoundingClientRect().right }))
+          .filter(({ right }) => right > innerWidth + 1)
+          .slice(0, 8)
+          .map(({ el }) => `${el.tagName.toLowerCase()}.${(el.className || "").toString().split(" ").slice(0, 4).join(".")}`);
+        return {
+          overflow: document.documentElement.scrollWidth - innerWidth,
+          violations: (await window.axe.run(document, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21aa"] } })).violations.map((item) => item.id),
+          offenders,
+        };
+      });
+      assert.ok(result.overflow <= 1, `${theme}/${width}/${state}: overflow ${result.overflow}; offenders: ${result.offenders.join(" | ")}`);
+      assert.deepEqual(result.violations, [], `${theme}/${width}/${state}: accessibility ${JSON.stringify(result.violations)}`);
       await page.screenshot({ path: path.join(output, `${theme}-${width}-${state}.png`), fullPage: true });
       checks++;
     }
