@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -33,10 +34,10 @@ const patchSchema = z.union([
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { requireAuth: true, errorMessage: "Failed to fetch notifications" },
+    { requireAuth: true, errorMessage: apiCopy("apiCopy.failed.to.fetch.notifications.eb5f4282") },
     async ({ session }) => {
       if (!session)
-        throw new AuthError("Not authenticated");
+        throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
       const url = new URL(request.url);
       const limit = Math.min(100, Math.max(1, Number.parseInt(url.searchParams.get("limit") ?? "50", 10) || 50));
       const offset = Math.max(0, Number.parseInt(url.searchParams.get("offset") ?? "0", 10) || 0);
@@ -61,12 +62,12 @@ export async function PATCH(request: Request) {
     {
       requireAuth: true,
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "Operation failed",
+      errorMessage: apiCopy("apiCopy.operation.failed.4e1af7c7"),
       bodySchema: patchSchema,
     },
     async ({ session, body }) => {
       if (!session)
-        throw new AuthError("Not authenticated");
+        throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
 
       // Legacy format support
       if ("markAllAsRead" in body) {
@@ -123,11 +124,11 @@ export async function DELETE(request: Request) {
     {
       requireAuth: true,
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "Failed to delete notification",
+      errorMessage: apiCopy("apiCopy.failed.to.delete.notification.9e1b8991"),
     },
     async ({ session }) => {
       if (!session)
-        throw new AuthError("Not authenticated");
+        throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
       const { id: notificationId } = parseSearchParams(request, idQuerySchema);
       await deleteNotification(notificationId, session.userId);
       await auditUserAction(session?.userId ?? "", "notification.delete", { notificationId }, undefined, session?.currentTeamId);

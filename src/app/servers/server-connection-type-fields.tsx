@@ -24,7 +24,7 @@ export function ConnectionTypeFields({
       {" "}
       <fieldset className="space-y-1.5">
         {" "}
-        <legend className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide">
+        <legend className="text-xs font-medium text-[var(--text-primary)]/70 ">
           {t("serversPage.create.connectionType")}
         </legend>{" "}
         <div className="flex gap-2">
@@ -56,7 +56,7 @@ export function ConnectionTypeFields({
           <div className="space-y-1.5">
             {" "}
             <label
-              className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide"
+              className="text-xs font-medium text-[var(--text-primary)]/70 "
               htmlFor="sshKeyId"
             >
               {t("serversPage.create.sshKey")}
@@ -80,7 +80,7 @@ export function ConnectionTypeFields({
           <div className="space-y-1.5">
             {" "}
             <label
-              className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide"
+              className="text-xs font-medium text-[var(--text-primary)]/70 "
               htmlFor="serverUsername"
             >
               {t("serversPage.create.username")}
@@ -102,7 +102,7 @@ export function ConnectionTypeFields({
           <div className="space-y-1.5">
             {" "}
             <label
-              className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide"
+              className="text-xs font-medium text-[var(--text-primary)]/70 "
               htmlFor="serverUsername"
             >
               {t("serversPage.create.username")}
@@ -120,7 +120,7 @@ export function ConnectionTypeFields({
           <div className="space-y-1.5">
             {" "}
             <label
-              className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide"
+              className="text-xs font-medium text-[var(--text-primary)]/70 "
               htmlFor="serverPassword"
             >
               {t("serversPage.create.password")}
@@ -135,7 +135,7 @@ export function ConnectionTypeFields({
               placeholder={t("serversPage.create.passwordPlaceholder")}
               className={UI_INPUT}
             />{" "}
-            <p className="text-[11px] text-[var(--text-muted)]">
+            <p className="text-xs text-[var(--text-muted)]">
               {t("serversPage.create.passwordHint")}
             </p>{" "}
           </div>{" "}

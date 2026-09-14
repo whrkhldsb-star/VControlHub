@@ -25,7 +25,7 @@ export function WebDavSetupPanel({ nodes, origin }: { nodes: NodeOption[]; origi
     <div className="space-y-3 text-xs text-[var(--text-secondary)]">
       <p className="leading-relaxed">{t("filesPage.webdav.help")}</p>
       <label className="block">
-        <span className="text-[11px] text-[var(--text-muted)]">{t("filesPage.webdav.selectNode")}</span>
+        <span className="text-xs text-[var(--text-muted)]">{t("filesPage.webdav.selectNode")}</span>
         <select
           className={`${UI_INPUT} mt-1`}
           value={nodeId}
@@ -38,10 +38,10 @@ export function WebDavSetupPanel({ nodes, origin }: { nodes: NodeOption[]; origi
           ))}
         </select>
       </label>
-      <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-3 font-mono text-[11px] break-all">
+      <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-3 font-mono text-xs break-all">
         {url || t("filesPage.webdav.pickNode")}
       </div>
-      <ul className="list-disc space-y-1 pl-4 text-[11px] text-[var(--text-muted)]">
+      <ul className="list-disc space-y-1 pl-4 text-xs text-[var(--text-muted)]">
         <li>{t("filesPage.webdav.authBearer")}</li>
         <li>{t("filesPage.webdav.authBasic")}</li>
         <li>{t("filesPage.webdav.scopes")}</li>

@@ -81,8 +81,10 @@ export async function checkRateLimitAsync(
   const timestamps = await getRateLimitStore().addAndGetWindow(identifier, now, config.windowMs);
 
   if (timestamps.length > config.maxRequests) {
-    const oldestInWindow = timestamps[0] ?? now;
-    const retryAfterMs = oldestInWindow + config.windowMs - now;
+    // Rejected attempts also occupy the shared window. Leave room for the
+    // next request itself, not just for the oldest timestamp to expire.
+    const expiresForNextRequest = timestamps[timestamps.length - config.maxRequests] ?? now;
+    const retryAfterMs = expiresForNextRequest + config.windowMs - now;
     return { allowed: false, retryAfterMs: Math.max(retryAfterMs, 0), remaining: 0 };
   }
 

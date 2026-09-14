@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 
 import { withApiRoute } from "@/lib/http/api-guard";
@@ -11,7 +12,7 @@ export async function GET(
 ) {
   return withApiRoute(
     request,
-    { permission: "share:read", errorMessage: "Operation failed" },
+    { permission: "share:read", errorMessage: apiCopy("apiCopy.operation.failed.4e1af7c7") },
     async ({ session }) => {
       const { id } = await params;
       const logs = await listShareAccessLogs(id, session!);

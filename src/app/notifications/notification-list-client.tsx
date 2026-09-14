@@ -84,7 +84,7 @@ const NotificationRow = memo(function NotificationRow({
 						{!n.isRead && <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" aria-label={t("notificationsPage.unreadBadge")} />}
 					</div>
 					<p className="mt-1 text-xs text-[var(--text-muted)] leading-relaxed">{n.message}</p>
-					<div className="mt-2 flex flex-wrap items-center gap-3 text-[11px]">
+					<div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
 						<span className="text-[var(--text-muted)]">{timeAgo(n.createdAt, nowMs, t, locale)}</span>
 						{n.actionUrl && (
 							<Link href={getSafeNotificationActionUrl(n.actionUrl)} className="rounded-lg px-1 py-0.5 font-medium text-[var(--accent)] transition hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40">
@@ -218,7 +218,7 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 			{error && <Notice tone="danger" compact onDismiss={() => setError(null)} dismissLabel={t("common.close")}>{error}</Notice>}
 			{unreadCount > 0 && (
 				<div className="flex justify-end">
-					<ActionButton variant="ghost" onClick={markAllRead} className="!px-2 !py-1 !text-xs">
+					<ActionButton variant="ghost" onClick={markAllRead} className="!px-2 !py-1 !text-sm">
 						{t("notificationsPage.action.markAll")}
 					</ActionButton>
 				</div>
@@ -240,7 +240,7 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 						onClick={() => void loadMore()}
 						disabled={loadingMore}
 					
-						className="!px-3 !py-1.5 !text-xs disabled:opacity-50"
+						className="!px-3 !py-1.5 !text-sm disabled:opacity-50"
 					>
 						{loadingMore ? t("notificationsPage.loadingMore") : t("notificationsPage.loadMore")}
 					</ActionButton>

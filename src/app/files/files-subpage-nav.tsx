@@ -21,7 +21,7 @@ export function FilesSubpageNav() {
   return (
     <nav
       aria-label={t("filesPage.subNav.aria")}
-      className="mb-5 flex flex-wrap gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-2"
+      className="mb-5 flex flex-wrap gap-1 border-b border-[var(--border)] py-2"
     >
       {ITEMS.map((item) => {
         const active = item.exact
@@ -32,10 +32,10 @@ export function FilesSubpageNav() {
             key={item.href}
             href={item.href}
             aria-current={active ? "page" : undefined}
-            className={`rounded-xl px-3 py-2 text-sm font-medium transition ${
+            className={`inline-flex min-h-10 items-center rounded-md border px-3 py-2 text-sm font-medium transition ${
               active
-                ? "border border-[var(--color-action-border)] bg-[var(--color-action-bg)] text-[var(--color-action)]"
-                : "text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
+                ? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]"
+                : "border-transparent text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
             }`}
           >
             {t(item.labelKey)}

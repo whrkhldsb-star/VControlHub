@@ -27,6 +27,7 @@ const {
 vi.mock("@/lib/upload/service", () => ({
   assembleMediaUploadChunks: assembleMock,
   completeMediaUploadSession: completeMock,
+  cleanupMediaUploadTempDir: vi.fn(async () => undefined),
   MediaUploadError: class MediaUploadError extends Error {
     code: string;
     constructor(code: string, message: string) {
@@ -158,6 +159,7 @@ describe("completeStorageFileUpload", () => {
         id: "sess_1",
         userId: "user_1",
         status: { in: ["PENDING", "UPLOADING"] },
+        expiresAt: { gt: expect.any(Date) },
       },
       data: { status: "FINALIZING" },
     });
@@ -178,6 +180,15 @@ describe("completeStorageFileUpload", () => {
 
     expect(writeBufferMock).not.toHaveBeenCalled();
     expect(fileEntryCreateMock).not.toHaveBeenCalled();
+    expect(sessionUpdateManyMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not fail another request's session when node lookup throws before claiming", async () => {
+    getNodeMock.mockRejectedValueOnce(new Error("node lookup unavailable"));
+    await expect(completeStorageFileUpload({
+      sessionId: "sess_1", session: { userId: "user_1" } as never,
+    })).rejects.toThrow("node lookup unavailable");
+    expect(sessionUpdateManyMock).not.toHaveBeenCalled();
   });
 
   it("marks a claimed session failed when storage finalization throws", async () => {

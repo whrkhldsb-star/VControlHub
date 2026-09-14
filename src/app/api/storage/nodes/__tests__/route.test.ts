@@ -19,7 +19,7 @@ vi.mock("@/lib/auth/require-api-permission", () => ({
   requireApiPermission: requireApiPermissionMock,
 }));
 vi.mock("@/lib/storage/service", () => ({
-  getStorageOverview: getStorageOverviewMock,
+  listStorageNodes: async (...args: unknown[]) => (await getStorageOverviewMock(...args)).nodes,
 }));
 
 import { GET } from "../route";

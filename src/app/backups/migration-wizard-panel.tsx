@@ -147,7 +147,7 @@ export function MigrationWizardPanel({ completedBackups, canCreate }: Props) {
           <h3 className="text-xs font-semibold text-[var(--text-primary)]">
             {t("backupsPage.migration.exportTitle")}
           </h3>
-          <label className="block text-[11px] text-[var(--text-muted)]">
+          <label className="block text-xs text-[var(--text-muted)]">
             {t("backupsPage.migration.selectBackup")}
             <select
               value={backupId}
@@ -165,7 +165,7 @@ export function MigrationWizardPanel({ completedBackups, canCreate }: Props) {
               )}
             </select>
           </label>
-          <label className="block text-[11px] text-[var(--text-muted)]">
+          <label className="block text-xs text-[var(--text-muted)]">
             {t("backupsPage.migration.note")}
             <input
               value={note}
@@ -176,12 +176,12 @@ export function MigrationWizardPanel({ completedBackups, canCreate }: Props) {
           </label>
           <ActionButton variant="outline"
             disabled={!backupId || busy !== null}
-            onClick={() => void run("export")} className="!min-h-11 !px-3 !text-xs !font-semibold disabled:opacity-50"
+            onClick={() => void run("export")} className="!min-h-11 !px-3 !text-sm !font-semibold disabled:opacity-50"
           >
             {busy === "export" ? t("backupsPage.migration.working") : t("backupsPage.migration.export")}
           </ActionButton>
           {lastExport && (
-            <p className="text-[11px] text-[var(--text-secondary)]">
+            <p className="text-xs text-[var(--text-secondary)]">
               {t("backupsPage.migration.exportHint", { dir: lastExport.packageRelativeDir, tar: lastExport.tarballRelativePath ?? `${lastExport.packageRelativeDir}.tar.gz` })}
             </p>
           )}
@@ -191,37 +191,37 @@ export function MigrationWizardPanel({ completedBackups, canCreate }: Props) {
           <h3 className="text-xs font-semibold text-[var(--text-primary)]">
             {t("backupsPage.migration.importTitle")}
           </h3>
-          <label className="block text-[11px] text-[var(--text-muted)]">
+          <label className="block text-xs text-[var(--text-muted)]">
             {t("backupsPage.migration.packageRef")}
             <input
               value={packageRef}
               onChange={(e) => setPackageRef(e.target.value)}
-              className={`${UI_INPUT} mt-1 font-mono text-[11px]`}
+              className={`${UI_INPUT} mt-1 font-mono text-xs`}
               placeholder="migration-packages/mig-..."
             />
           </label>
           <div className="flex flex-wrap gap-2">
             <ActionButton variant="secondary"
               disabled={!packageRef.trim() || busy !== null}
-              onClick={() => void run("validate")} className="!min-h-11 !px-3 !text-xs !font-medium disabled:opacity-50"
+              onClick={() => void run("validate")} className="!min-h-11 !px-3 !text-sm !font-medium disabled:opacity-50"
             >
               {busy === "validate" ? t("backupsPage.migration.working") : t("backupsPage.migration.validate")}
             </ActionButton>
             <ActionButton variant="success"
               disabled={!packageRef.trim() || busy !== null}
-              onClick={() => void run("import")} className="!min-h-11 !px-3 !text-xs !font-semibold disabled:opacity-50"
+              onClick={() => void run("import")} className="!min-h-11 !px-3 !text-sm !font-semibold disabled:opacity-50"
             >
               {busy === "import" ? t("backupsPage.migration.working") : t("backupsPage.migration.import")}
             </ActionButton>
             <ActionButton variant="ghost"
               disabled={busy !== null}
-              onClick={() => void run("list")} className="!min-h-11 !px-3 !text-xs disabled:opacity-50"
+              onClick={() => void run("list")} className="!min-h-11 !px-3 !text-sm disabled:opacity-50"
             >
               {busy === "list" ? t("backupsPage.migration.working") : t("backupsPage.migration.list")}
             </ActionButton>
           </div>
           {packages.length > 0 && (
-            <ul className="max-h-40 space-y-1 overflow-auto text-[11px] text-[var(--text-secondary)]">
+            <ul className="max-h-40 space-y-1 overflow-auto text-xs text-[var(--text-secondary)]">
               {packages.map((pkg) => (
                 <li key={pkg.packageId}>
                   <button
@@ -242,7 +242,7 @@ export function MigrationWizardPanel({ completedBackups, canCreate }: Props) {
 
       {message && <p className="text-xs text-[var(--success)]">{message}</p>}
       {error && <p className="text-xs text-[var(--danger)]">{error}</p>}
-      <p className="text-[11px] text-[var(--text-muted)]">{t("backupsPage.migration.restoreNote")}</p>
+      <p className="text-xs text-[var(--text-muted)]">{t("backupsPage.migration.restoreNote")}</p>
     </div>
   );
 }

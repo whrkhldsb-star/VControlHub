@@ -1,4 +1,5 @@
 import path from "node:path";
+import type { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
 
@@ -9,7 +10,7 @@ export async function indexLinkedStorageImage(input: {
   mimeType: string;
   size: number;
   checksum: string;
-}) {
+}, db: Pick<Prisma.TransactionClient, "fileEntry"> = prisma) {
   const data = {
     name: input.originalName || path.posix.basename(input.relativePath),
     entryType: "FILE" as const,
@@ -20,7 +21,7 @@ export async function indexLinkedStorageImage(input: {
   };
 
   // Atomic on @@unique([storageNodeId, relativePath]) — avoids concurrent create P2002 races.
-  return prisma.fileEntry.upsert({
+  return db.fileEntry.upsert({
     where: {
       storageNodeId_relativePath: {
         storageNodeId: input.storageNodeId,

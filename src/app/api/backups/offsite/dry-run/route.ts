@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * TR-007 M03: 异地备份 (S3-compatible) dry-run API。
  *
@@ -23,7 +24,7 @@ export async function POST(request: Request) {
 			permission: "backup:create",
 			rateLimit: GENERAL_WRITE_LIMIT,
 			errorStatus: 500,
-			errorMessage: "dry-run failed",
+			errorMessage: apiCopy("apiCopy.dry.run.failed.870d0fd5"),
 		},
 		async () => {
 			try {

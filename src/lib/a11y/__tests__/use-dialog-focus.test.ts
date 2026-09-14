@@ -140,4 +140,61 @@ describe("useDialogFocus", () => {
     });
     expect(onClose).not.toHaveBeenCalled();
   });
+
+  it("ignores controls inside hidden and disabled containers", () => {
+    const container = document.createElement("div");
+    const hidden = document.createElement("div");
+    hidden.style.display = "none";
+    hidden.append(makeButton("hidden"));
+    const fieldset = document.createElement("fieldset");
+    fieldset.disabled = true;
+    fieldset.append(makeInput());
+    const visible = makeButton("visible");
+    container.append(hidden, fieldset, visible);
+    document.body.append(container);
+    const { result } = renderHook(() => useDialogFocus({open:true,onClose:vi.fn()}));
+    act(() => { result.current.current = container; vi.runAllTimers(); });
+    expect(visible).toHaveFocus();
+  });
+
+  it("recaptures tab navigation when focus escaped the dialog", () => {
+    const outside = makeButton("outside");
+    const container = document.createElement("div");
+    const inside = makeButton("inside");
+    container.append(inside);
+    document.body.append(outside, container);
+    const { result } = renderHook(() => useDialogFocus({open:true,onClose:vi.fn()}));
+    act(() => {
+      result.current.current = container;
+      outside.focus();
+      window.dispatchEvent(new KeyboardEvent("keydown", {key:"Tab"}));
+    });
+    expect(inside).toHaveFocus();
+  });
+
+  it("only dismisses the top dialog and restores scrolling after the last closes", () => {
+    document.body.style.overflow = "auto";
+    const parent = document.createElement("div");
+    const child = document.createElement("div");
+    const parentClose = vi.fn();
+    const childClose = vi.fn();
+    document.body.append(parent, child);
+    const first = renderHook(() => useDialogFocus({open:true,onClose:parentClose}));
+    const second = renderHook(() => useDialogFocus({open:true,onClose:childClose}));
+    act(() => {
+      first.result.current.current = parent;
+      second.result.current.current = child;
+      window.dispatchEvent(new KeyboardEvent("keydown", {key:"Escape"}));
+    });
+    expect(parentClose).not.toHaveBeenCalled();
+    expect(childClose).toHaveBeenCalledOnce();
+    expect(document.body.style.overflow).toBe("hidden");
+    second.unmount();
+    expect(document.body.style.overflow).toBe("hidden");
+    act(() => { window.dispatchEvent(new KeyboardEvent("keydown", {key:"Escape"})); });
+    expect(parentClose).toHaveBeenCalledOnce();
+    first.unmount();
+    expect(document.body.style.overflow).toBe("auto");
+    document.body.style.overflow = "";
+  });
 });

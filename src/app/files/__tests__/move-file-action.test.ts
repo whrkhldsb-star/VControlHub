@@ -39,7 +39,9 @@ vi.mock("@/lib/storage/access-control", () => ({
 
 vi.mock("@/lib/storage/fs-backend", () => ({
   moveBackingObject: moveBackingObjectMock,
+  statBackingObject: vi.fn().mockResolvedValue(null),
 }));
+vi.mock("@/lib/concurrency/advisory-lock", () => ({ tryAcquireAdvisoryLock: vi.fn().mockResolvedValue(async () => undefined) }));
 
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
@@ -86,6 +88,7 @@ describe("moveFileAction", () => {
     vi.mocked(assertStorageAccess).mockResolvedValue({ allowed: true });
     vi.mocked(prisma.fileEntry.findFirst).mockResolvedValue(null);
     shareLinkMock.findMany.mockResolvedValue([]);
+    fileEntryMock.findMany.mockResolvedValue([]);
     moveBackingObjectMock.mockResolvedValue(undefined);
   });
 
@@ -125,6 +128,35 @@ describe("moveFileAction", () => {
         operation: "write",
       }),
     );
+    expect(moveBackingObjectMock).not.toHaveBeenCalled();
+    expect(prisma.fileEntry.update).not.toHaveBeenCalled();
+  });
+
+  it("loads WebDAV credentials, pinned host keys and Agent routing for the backing move", async () => {
+    mockEntryLookup({ ...baseEntry, storageNode: { ...baseEntry.storageNode, driver: "WEBDAV", webdavConfigEncrypted: "encrypted" } });
+    const form = new FormData();
+    form.set("fileEntryId", "file-1");
+    form.set("targetDir", ".");
+    await moveFileAction(null, form);
+    expect(prisma.fileEntry.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      select: expect.objectContaining({ storageNode: { select: expect.objectContaining({
+        webdavConfigEncrypted: true, hostKeySha256: true,
+        server: { select: expect.objectContaining({ id: true, managementMode: true, hostKeySha256: true }) },
+      }) } }),
+    }));
+    expect(moveBackingObjectMock).toHaveBeenCalledWith(expect.objectContaining({
+      storageNode: expect.objectContaining({ webdavConfigEncrypted: "encrypted" }),
+      newRelativePath: "a.txt",
+    }));
+  });
+
+  it("rejects moving a directory inside itself before touching storage", async () => {
+    mockEntryLookup({ ...baseEntry, name: "docs", relativePath: "docs", entryType: "DIRECTORY" });
+    const form = new FormData();
+    form.set("fileEntryId", "file-1");
+    form.set("targetDir", "docs/nested");
+    const result = await moveFileAction(null, form);
+    expect(result.error).toBeTruthy();
     expect(moveBackingObjectMock).not.toHaveBeenCalled();
     expect(prisma.fileEntry.update).not.toHaveBeenCalled();
   });
@@ -347,7 +379,7 @@ describe("moveFileAction", () => {
     expect(prisma.fileEntry.update).not.toHaveBeenCalled();
   });
 
-  it("rewrites only live descendants when moving a directory (skips soft-deleted)", async () => {
+  it("rewrites all descendant paths because recycle-bin bytes move with their parent", async () => {
     const dirEntry = {
       ...baseEntry,
       id: "dir-1",
@@ -357,8 +389,9 @@ describe("moveFileAction", () => {
     };
     // mockPrismaFindFirstById handles entry load (string id) + collision probe ({ not })
     mockEntryLookup(dirEntry);
-    fileEntryMock.findMany.mockResolvedValueOnce([
+    fileEntryMock.findMany.mockResolvedValue([
       { id: "child-live", relativePath: "team-a/live.txt" },
+      { id: "child-trash", relativePath: "team-a/deleted.txt" },
     ]);
     fileEntryMock.update.mockResolvedValue({ id: "ok" });
 
@@ -374,7 +407,6 @@ describe("moveFileAction", () => {
       where: {
         storageNodeId: "node-1",
         relativePath: { startsWith: "team-a/" },
-        isDeleted: false,
       },
       select: { id: true, relativePath: true },
       take: 10_001,
@@ -383,6 +415,7 @@ describe("moveFileAction", () => {
       where: { id: "child-live" },
       data: { relativePath: "archive/team-a/live.txt" },
     });
+    expect(fileEntryMock.update).toHaveBeenCalledWith({ where: { id: "child-trash" }, data: { relativePath: "archive/team-a/deleted.txt" } });
   });
 
 });

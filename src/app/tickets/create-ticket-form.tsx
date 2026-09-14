@@ -54,7 +54,7 @@ export function CreateTicketForm({ locale: _locale, servers = [] }: Props = {}) 
       onChange={() => setDirty(true)} data-card className="space-y-4 p-5">
 			<div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
 				<div>
-					<p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--accent)]">
+					<p className="text-xs font-semibold uppercase  text-[var(--accent)]">
 						{t("ticketsPage.form.title")}
 					</p>
 					<h2 className="mt-1 text-sm font-semibold text-[var(--text-primary)]">{t("ticketsPage.form.title")}</h2>

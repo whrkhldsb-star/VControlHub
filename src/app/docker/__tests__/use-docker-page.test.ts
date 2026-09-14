@@ -1,4 +1,4 @@
-import { act, cleanup, renderHook } from "@testing-library/react";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
@@ -18,10 +18,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  *    containers under server B's name — which, for a destructive follow-up, means
  *    acting on a list that does not belong to the selected host.
  */
-const mocks = vi.hoisted(() => ({ csrfFetch: vi.fn() }));
+const mocks = vi.hoisted(() => ({ csrfFetch: vi.fn(), t: (key: string) => key }));
 
 vi.mock("@/lib/auth/csrf-client", () => ({ csrfFetch: mocks.csrfFetch }));
-vi.mock("@/lib/i18n/use-locale", () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+vi.mock("@/lib/i18n/use-locale", () => ({ useI18n: () => ({ t: mocks.t }) }));
 
 import { useDockerPage } from "../use-docker-page";
 
@@ -34,8 +34,10 @@ function listResponse(names: string[] = ["/web"]) {
 	};
 }
 
-function setup(servers: Array<{ id: string; name: string; host: string }> = [], canManageHubHost = true) {
-	return renderHook(() => useDockerPage(servers as never, canManageHubHost));
+async function setup(servers: Array<{ id: string; name: string; host: string }> = [], canManageHubHost = true) {
+	const hook = renderHook(() => useDockerPage(servers as never, canManageHubHost));
+	await waitFor(() => expect(hook.result.current.loading).toBe(false));
+	return hook;
 }
 
 describe("useDockerPage", () => {
@@ -51,7 +53,7 @@ describe("useDockerPage", () => {
 
 	describe("destructive confirmation", () => {
 		it("stages a container removal without calling the API", async () => {
-			const { result } = setup();
+			const { result } = await setup();
 			await act(async () => {});
 			mocks.csrfFetch.mockClear();
 			act(() => { result.current.requestRemoval(container); });
@@ -60,7 +62,7 @@ describe("useDockerPage", () => {
 		});
 
 		it("removes the container only after confirmation", async () => {
-			const { result } = setup();
+			const { result } = await setup();
 			await act(async () => {});
 			act(() => { result.current.requestRemoval(container); });
 			mocks.csrfFetch.mockClear();
@@ -72,7 +74,7 @@ describe("useDockerPage", () => {
 
 		it("stages a compose down instead of tearing the project down immediately", async () => {
 			// `down` stops and removes every container in the project.
-			const { result } = setup();
+			const { result } = await setup();
 			await act(async () => {});
 			mocks.csrfFetch.mockClear();
 			await act(async () => { await result.current.handleProjectAction("stack", "down"); });
@@ -81,7 +83,7 @@ describe("useDockerPage", () => {
 		});
 
 		it("runs non-destructive project actions without a confirm step", async () => {
-			const { result } = setup();
+			const { result } = await setup();
 			await act(async () => {});
 			mocks.csrfFetch.mockClear();
 			await act(async () => { await result.current.handleProjectAction("stack", "restart"); });
@@ -91,7 +93,7 @@ describe("useDockerPage", () => {
 		});
 
 		it("issues no mutating request when confirming with nothing staged", async () => {
-			const { result } = setup();
+			const { result } = await setup();
 			await act(async () => {});
 			mocks.csrfFetch.mockClear();
 			await act(async () => {
@@ -107,7 +109,7 @@ describe("useDockerPage", () => {
 	describe("server pin", () => {
 		it("omits serverId for the hub host and includes it for a remote node", async () => {
 			const servers = [{ id: "srv_1", name: "web", host: "10.0.0.1" }];
-			const { result } = setup(servers, true);
+			const { result } = await setup(servers, true);
 			await act(async () => {});
 			mocks.csrfFetch.mockClear();
 			await act(async () => { await result.current.handleAction(container, "restart"); });
@@ -131,7 +133,7 @@ describe("useDockerPage", () => {
 			// The hub host answers 403 for them (see assertHubHostDockerAccess), so
 			// defaulting there would render an error on page load.
 			const servers = [{ id: "srv_1", name: "web", host: "10.0.0.1" }];
-			const { result } = setup(servers, false);
+			const { result } = await setup(servers, false);
 			await act(async () => {});
 			expect(result.current.selectedServerId).toBe("srv_1");
 		});
@@ -140,7 +142,7 @@ describe("useDockerPage", () => {
 			mocks.csrfFetch.mockImplementation(async (_url: string, init?: { method?: string }) =>
 				init?.method === "POST" ? { ok: false, message: "container is already stopped" } : listResponse(),
 			);
-			const { result } = setup();
+			const { result } = await setup();
 			await act(async () => {});
 			await act(async () => { await result.current.handleAction(container, "stop"); });
 			expect(result.current.error).toBe("container is already stopped");
@@ -151,7 +153,7 @@ describe("useDockerPage", () => {
 				if (init?.method === "POST") throw new Error("daemon unreachable");
 				return listResponse();
 			});
-			const { result } = setup();
+			const { result } = await setup();
 			await act(async () => {});
 			await act(async () => { await result.current.handleAction(container, "stop"); });
 			expect(result.current.error).toContain("daemon unreachable");
@@ -160,7 +162,7 @@ describe("useDockerPage", () => {
 
 		it("clears the action spinner even when the request fails", async () => {
 			mocks.csrfFetch.mockRejectedValue(new Error("boom"));
-			const { result } = setup();
+			const { result } = await setup();
 			await act(async () => {});
 			await act(async () => { await result.current.handleAction(container, "stop"); });
 			expect(result.current.actionLoading).toBeNull();

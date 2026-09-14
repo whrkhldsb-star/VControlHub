@@ -60,7 +60,7 @@ export function dryRunStepCounts(run: Pick<RunSummary, "stepResults">): { ok: nu
 	};
 }
 
-export const fieldLabelClass = "text-xs font-medium text-[var(--text-secondary)] tracking-wide";
+export const fieldLabelClass = "text-xs font-medium text-[var(--text-secondary)] ";
 export const fieldInputClass = "w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--color-action-border)]/30";
 export const monoFieldInputClass = `${fieldInputClass} font-mono`;
 

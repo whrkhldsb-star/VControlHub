@@ -17,6 +17,7 @@
 import { useCallback, useEffect, useRef, type TransitionStartFunction } from "react";
 import type { useRouter } from "next/navigation";
 
+import { submitFileOperation } from "./file-operation-controls";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { deleteFileEntryAction } from "../storage/actions";
 import { moveFileAction } from "./move-file-action";
@@ -32,6 +33,7 @@ type ToastFn = (type: "success" | "error" | "info", message: string) => void;
 type Setter<T> = (value: T) => void;
 
 type CommonInput = {
+  background?: boolean;
   /** Read-only list of currently-effective selected file ids (string[] from getSelectionSummary). */
   effectiveSelectedIds: readonly string[];
   files: FileProp[];
@@ -83,21 +85,43 @@ export function useBatchDelete(input: UseBatchDeleteInput) {
     startTransition,
   } = input;
 
+  const background = input.background ?? false;
+  const attempt = useRef<{ key: string; id: string } | null>(null);
+  const running = useRef(false);
   return useCallback(() => {
-    setBatchAction("deleting");
     const ids = [...effectiveSelectedIds];
+    if (running.current || ids.length === 0) return;
+    running.current = true;
+    setBatchAction("deleting");
     setProgress({ done: 0, total: ids.length, errors: [] });
     let completed = 0;
     const errors: string[] = [];
+    const failedIds: string[] = [];
     startTransition(async () => {
+      try {
+      if (background) {
+        const key = JSON.stringify([ids, "."]);
+        if (attempt.current?.key !== key) attempt.current = { key, id: crypto.randomUUID() };
+        try {
+          await submitFileOperation({ action: "delete", fileEntryIds: ids, targetDir: ".", policy: "skip" }, attempt.current.id);
+          attempt.current = null; clearSelection(); showToast("info", t("fileOperations.queued"));
+        } catch (error) { setBatchAction("none"); showToast("error", getErrorMessage(error, t("filePreferences.failed"))); }
+        return;
+      }
       for (const id of ids) {
         const file = files.find((item) => item.id === id);
         const formData = new FormData();
         formData.set("fileEntryId", id);
-        const result = await deleteFileEntryAction(null, formData);
+        let error: string | undefined;
+        try {
+          error = (await deleteFileEntryAction(null, formData))?.error;
+        } catch (cause) {
+          error = getErrorMessage(cause, t("filesPage.batch.deletePartialFailure", { count: 1 }));
+        }
         completed++;
-        if (result?.error) {
-          errors.push(`${file?.name ?? id}: ${result.error}`);
+        if (error) {
+          failedIds.push(id);
+          errors.push(`${file?.name ?? id}: ${error}`);
         }
         setProgress({
           done: completed,
@@ -118,10 +142,14 @@ export function useBatchDelete(input: UseBatchDeleteInput) {
       showToast("error", t("filesPage.batch.deletePartialFailure", { count: errors.length }));
       setBatchAction("none");
       setSelectedScopeKey(currentSelectionScopeKey);
-      setSelectedIds(new Set(ids));
+      setSelectedIds(new Set(failedIds));
       setProgress({ done: completed, total: ids.length, errors: [...errors] });
+      } finally {
+        running.current = false;
+      }
     });
   }, [
+    background,
     effectiveSelectedIds,
     files,
     router,
@@ -161,17 +189,33 @@ export function useBatchMove(input: UseBatchMoveInput) {
     startTransition,
   } = input;
 
+  const background = input.background ?? false;
+  const attempt = useRef<{ key: string; id: string } | null>(null);
+  const running = useRef(false);
   return useCallback(() => {
     const ids = [...effectiveSelectedIds];
     const targetDir = moveTargetDir.trim();
-    if (!targetDir || ids.length === 0) return;
+    if (!targetDir || ids.length === 0 || running.current) return;
+    running.current = true;
     setMoveProgress({ done: 0, total: ids.length, errors: [] });
     let completed = 0;
     const errors: string[] = [];
+    const failedIds: string[] = [];
     startTransition(async () => {
+      try {
+      if (background) {
+        const key = JSON.stringify([ids, targetDir]);
+        if (attempt.current?.key !== key) attempt.current = { key, id: crypto.randomUUID() };
+        try {
+          await submitFileOperation({ action: "move", fileEntryIds: ids, targetDir: targetDir, policy: "skip" }, attempt.current.id);
+          attempt.current = null; clearSelection(); showToast("info", t("fileOperations.queued"));
+        } catch (error) { setBatchAction("none"); showToast("error", getErrorMessage(error, t("filePreferences.failed"))); }
+        return;
+      }
       for (const id of ids) {
         const file = files.find((f) => f.id === id);
         if (!file) {
+          failedIds.push(id);
           errors.push(t("filesPage.batch.fileMissing", { id }));
           completed++;
           setMoveProgress({
@@ -186,9 +230,17 @@ export function useBatchMove(input: UseBatchMoveInput) {
         formData.set("targetDir", targetDir);
         formData.set("currentRelativePath", file.relativePath);
         formData.set("storageNodeId", file.storageNodeId);
-        const result = await moveFileAction(null, formData);
+        let error: string | undefined;
+        try {
+          error = (await moveFileAction(null, formData))?.error;
+        } catch (cause) {
+          error = getErrorMessage(cause, t("filesPage.move.errorMoveFailed"));
+        }
         completed++;
-        if (result?.error) errors.push(`${file.name}: ${result.error}`);
+        if (error) {
+          failedIds.push(id);
+          errors.push(`${file.name}: ${error}`);
+        }
         setMoveProgress({
           done: completed,
           total: ids.length,
@@ -208,14 +260,18 @@ export function useBatchMove(input: UseBatchMoveInput) {
       showToast("error", t("filesPage.batch.movePartialFailure", { count: errors.length }));
       setBatchAction("none");
       setSelectedScopeKey(currentSelectionScopeKey);
-      setSelectedIds(new Set(ids));
+      setSelectedIds(new Set(failedIds));
       setMoveProgress({
         done: completed,
         total: ids.length,
         errors: [...errors],
       });
+      } finally {
+        running.current = false;
+      }
     });
   }, [
+    background,
     effectiveSelectedIds,
     moveTargetDir,
     files,

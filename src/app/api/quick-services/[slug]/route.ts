@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auditUserAction } from "@/lib/audit/service";
@@ -53,7 +54,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ sl
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ slug: string }> }) {
-	return withApiRoute(request, { permission: "docker:manage", rateLimit: GENERAL_WRITE_LIMIT, errorMessage: "Uninstall failed", bodySchema: uninstallSchema }, async ({ session, body }) => {
+	return withApiRoute(request, { permission: "docker:manage", rateLimit: GENERAL_WRITE_LIMIT, errorMessage: apiCopy("apiCopy.uninstall.failed.ecbcb52b"), bodySchema: uninstallSchema }, async ({ session, body }) => {
 		const { slug } = await params;
 		const deleteVolumes = body?.deleteVolumes === true;
 		const serverId = body?.serverId?.trim() || "";
@@ -69,7 +70,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ s
 			if (!access.ok) return access.response;
 			if (deleteVolumes) {
 				return NextResponse.json({
-					error: "Remote data-directory deletion is not supported because the host paths cannot be safely bounded; uninstall the container while retaining data.",
+					error: apiCopy("apiCopy.remote.data.directory.deletion.is.not.supported.because.the.host.d20afa43"),
 				}, { status: 400 });
 			}
 		}

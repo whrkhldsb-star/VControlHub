@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * GET /api/commands/[id]/tickets — reverse: tickets linked to a command request
  */
@@ -16,7 +17,7 @@ export async function GET(
     {
       permission: "command:read",
       rateLimit: GENERAL_READ_LIMIT,
-      errorMessage: "Failed to list linked tickets",
+      errorMessage: apiCopy("apiCopy.failed.to.list.linked.tickets.a09460bc"),
     },
     async ({ session }) => {
       const { id } = await context.params;

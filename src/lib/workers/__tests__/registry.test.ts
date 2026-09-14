@@ -1,5 +1,6 @@
 /** @vitest-environment node */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+vi.mock("@/lib/files/operation-job", () => ({ startFileOperationWorker: vi.fn(async () => undefined), stopFileOperationWorker: vi.fn() }));
 
 /**
  * TR-001 T13c: registry is the single source of truth for which workers
@@ -255,6 +256,7 @@ const EXPECTED_WORKER_IDS: WorkerId[] = [
   "quick-service",
   "scheduled-task",
   "sftp-sync",
+  "file-operations",
   "sftp-stale-inventory",
   "sync-schedule",
   "operation-task-retention",
@@ -287,7 +289,7 @@ describe("worker registry", () => {
 
   it("getWorkerStatuses reports every worker as not started initially", () => {
     const statuses = getWorkerStatuses();
-    expect(statuses).toHaveLength(23);
+    expect(statuses).toHaveLength(24);
     expect(statuses.every((s) => s.started === false)).toBe(true);
   });
 
@@ -318,6 +320,7 @@ describe("worker registry", () => {
         "quick-service",
         "scheduled-task",
         "sftp-sync",
+  "file-operations",
         "sftp-stale-inventory",
   "sync-schedule",
         "operation-task-retention",
@@ -328,7 +331,7 @@ describe("worker registry", () => {
     expect(result.started).not.toContain("backup");
     // Every worker except the injected failure should be reported started.
     const startedCount = getWorkerStatuses().filter((s) => s.started).length;
-    expect(startedCount).toBe(22);
+    expect(startedCount).toBe(23);
   });
 
   it("startAllWorkers starts every worker once", async () => {

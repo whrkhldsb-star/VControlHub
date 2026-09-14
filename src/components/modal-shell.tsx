@@ -73,7 +73,7 @@ export function ModalShell({
 	describedBy,
 	children,
 	overlayClassName = "fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] p-4 backdrop-blur-sm",
-	panelClassName = "w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-5 shadow-2xl",
+	panelClassName = "w-full max-w-md rounded-lg border border-[var(--border)] bg-[var(--modal-bg)] p-5 shadow-[var(--shadow-lg)]",
 	closeOnBackdrop = true,
 	busy = false,
 	initialFocusRef,
@@ -105,6 +105,7 @@ export function ModalShell({
 			onClick={allowBackdropClose ? onClose : undefined}
 		>
 			<Panel
+				data-modal-panel
 				ref={dialogRef}
 				role={role}
 				aria-modal="true"

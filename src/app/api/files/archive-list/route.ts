@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextRequest, NextResponse } from "next/server";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -29,17 +30,17 @@ type ArchiveEntry = {
 export async function GET(request: NextRequest) {
   return withApiRoute(
     request,
-    { permission: "storage:read", errorMessage: "Failed to read archive" },
+    { permission: "storage:read", errorMessage: apiCopy("apiCopy.failed.to.read.archive.27c0af4a") },
     async ({ session }) => {
       if (!session)
-        throw new AuthError("Unauthorized");
+        throw new AuthError(apiCopy("apiCopy.unauthorized.d089c8a9"));
       const { nodeId, relativePath, name } = parseSearchParams(
         request,
         archiveListQuerySchema,
       );
 
       if (!relativePath) {
-        throw new ValidationError("Missing file path");
+        throw new ValidationError(apiCopy("apiCopy.missing.file.path.76fdb830"));
       }
 
       const node = await prisma.storageNode.findFirst({
@@ -47,11 +48,11 @@ export async function GET(request: NextRequest) {
         select: { id: true, name: true, driver: true, basePath: true },
       });
       if (!node) {
-        throw new NotFoundError("Storage node not found");
+        throw new NotFoundError(apiCopy("apiCopy.storage.node.not.found.3b3ec488"));
       }
       if (node.driver !== "LOCAL") {
         return NextResponse.json(
-          { error: "Only local storage node archive viewing is supported" },
+          { error: apiCopy("apiCopy.only.local.storage.node.archive.viewing.is.supported.c4ef9adc") },
           { status: 400 },
         );
       }

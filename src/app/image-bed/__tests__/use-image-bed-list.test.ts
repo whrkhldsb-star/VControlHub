@@ -104,4 +104,39 @@ describe("useImageBedList", () => {
 		});
 		expect(result.current.page).toBe(3);
 	});
+
+	it("uses an explicit search immediately and clears it on reset", async () => {
+		csrfFetchMock.mockResolvedValue(sampleListResponse);
+		const { result } = renderHook(() => useImageBedList({ canWrite: true }));
+		await waitFor(() => expect(csrfFetchMock).toHaveBeenCalledTimes(1));
+		await act(async () => { await result.current.fetchImages(1, "latest query"); });
+		expect(new URL(csrfFetchMock.mock.calls.at(-1)![0], "http://localhost").searchParams.get("q")).toBe("latest query");
+		await act(async () => { await result.current.fetchImages(1, ""); });
+		expect(new URL(csrfFetchMock.mock.calls.at(-1)![0], "http://localhost").searchParams.has("q")).toBe(false);
+	});
+
+	it("uses the server's corrected page after the last page is emptied", async () => {
+		csrfFetchMock.mockResolvedValue({ ...sampleListResponse, page: 1 });
+		const { result } = renderHook(() => useImageBedList({ canWrite: true }));
+		await waitFor(() => expect(csrfFetchMock).toHaveBeenCalledTimes(1));
+		await act(async () => { await result.current.fetchImages(2); });
+		expect(result.current.page).toBe(1);
+		expect(result.current.images).toEqual(sampleListResponse.images);
+	});
+
+	it("aborts superseded and unmounted requests without stale updates", async () => {
+		let resolveFirst!: (data: typeof sampleListResponse) => void;
+		csrfFetchMock.mockImplementationOnce(() => new Promise((resolve) => { resolveFirst = resolve; })).mockResolvedValue(sampleListResponse);
+		const { result, unmount } = renderHook(() => useImageBedList({ canWrite: true }));
+		await waitFor(() => expect(csrfFetchMock).toHaveBeenCalledTimes(1));
+		const firstSignal = csrfFetchMock.mock.calls[0]![1].signal;
+		await act(async () => { await result.current.fetchImages(2); });
+		expect(firstSignal.aborted).toBe(true);
+		await act(async () => resolveFirst({ ...sampleListResponse, images: [], total: 0 }));
+		expect(result.current.page).toBe(2);
+		expect(result.current.total).toBe(1);
+		const latestSignal = csrfFetchMock.mock.calls.at(-1)![1].signal;
+		unmount();
+		expect(latestSignal.aborted).toBe(true);
+	});
 });

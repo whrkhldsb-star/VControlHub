@@ -23,7 +23,7 @@ export function MediaCover({
   const thumbHref = `/api/media/${encodeURIComponent(item.id)}/thumbnail`;
   const coverClass ="absolute inset-0 h-full w-full object-cover transition duration-300 group-hover:scale-105";
   const typeBadge = (
-    <span className="absolute left-2 top-2 z-10 rounded-lg border border-black/10 bg-[color-mix(in_srgb,var(--surface)_40%,#000)] px-2 py-0.5 text-[10px] font-medium text-[var(--text-primary)] backdrop-blur light:border-[var(--border)]/30">
+    <span className="absolute left-2 top-2 z-10 rounded-lg border border-black/10 bg-[color-mix(in_srgb,var(--surface)_40%,#000)] px-2 py-0.5 text-xs font-medium text-[var(--text-primary)] backdrop-blur light:border-[var(--border)]/30">
       {mediaTypeLabel(item.mediaType, t)}
     </span>
   );
@@ -69,7 +69,7 @@ export function MediaCover({
       {item.mediaType !=="audio" && (
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/70 to-transparent" />
       )}
-      <div className="absolute bottom-2 right-2 rounded-lg border border-[var(--border)]/10 bg-[color-mix(in_srgb,var(--surface)_40%,#000)] px-2 py-0.5 text-[10px] text-[var(--text-primary)] backdrop-blur">
+      <div className="absolute bottom-2 right-2 rounded-lg border border-[var(--border)]/10 bg-[color-mix(in_srgb,var(--surface)_40%,#000)] px-2 py-0.5 text-xs text-[var(--text-primary)] backdrop-blur">
         {formatSize(item.size, t)}
       </div>
     </>

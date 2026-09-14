@@ -106,6 +106,6 @@ export type StorageNodeListRow = Prisma.StorageNodeGetPayload<{
     server: {
       select: { id: true; name: true; host: true; port: true; username: true };
     };
-    fileEntries: { select: { id: true } };
+    _count: { select: { fileEntries: true } };
   };
 }>;

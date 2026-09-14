@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * Install/start-container helpers for quick services.
  *
@@ -102,7 +103,7 @@ async function installServiceUnlocked(opts: InstallOptions) {
 	// Pre-flight: ensure Docker is available on the selected target
 	const dockerStatus = await getDockerEnvironmentStatusFor(target);
 	if (!dockerStatus.available) {
-		throw new BusinessError(`${dockerStatus.message}. ${dockerStatus.installHint}`);
+		throw new BusinessError(apiCopy("apiCopy..b8832c6a", { v0: String(dockerStatus.message), v1: String(dockerStatus.installHint) }));
 	}
 
 	validateTemplate(template);

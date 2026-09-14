@@ -199,6 +199,25 @@ describe("ai provider-http adapter", () => {
   });
 
   describe("postProviderChat", () => {
+    it("does not contact a provider for an already cancelled request", async () => {
+      const controller = new AbortController();
+      controller.abort();
+      globalThis.fetch = vi.fn();
+      await expect(postProviderChat({ url: "https://api.example.com/chat/completions", body: {}, signal: controller.signal })).rejects.toMatchObject({ name: "AbortError" });
+      expect(fetch).not.toHaveBeenCalled();
+    });
+
+    it("cancels a pending upstream fetch without misreporting it as a timeout", async () => {
+      const controller = new AbortController();
+      globalThis.fetch = vi.fn((_url, init) => new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => reject(init.signal?.reason), { once: true });
+      }));
+      const pending = postProviderChat({ url: "https://api.example.com/chat/completions", body: {}, signal: controller.signal });
+      const assertion = expect(pending).rejects.toMatchObject({ name: "AbortError" });
+      await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+      controller.abort();
+      await assertion;
+    });
     it("POSTs JSON body with Content-Type + caller headers, returns Response on 2xx", async () => {
       const fetchMock = vi.fn(
         async () => new Response("ok-stream", { status: 200, headers: { "x-trace": "abc" } }),

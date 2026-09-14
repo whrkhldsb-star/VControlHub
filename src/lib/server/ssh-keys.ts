@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * Server / SSH-key sub-module (TR-038 R1).
  *
@@ -98,7 +99,7 @@ function computeSshPublicKeyFingerprint(publicKey: string) {
 
   if (parts.length < 2) {
     throw new ValidationError(
-      "SSH public key format is invalid; please paste the full authorized_keys public key content.",
+      apiCopy("apiCopy.ssh.public.key.format.is.invalid.please.paste.the.full.authorize.f37ba655"),
     );
   }
 
@@ -162,7 +163,7 @@ async function normalizeImportedSshKey(input: {
 
   if (format === "unknown") {
     throw new ValidationError(
-      "Unrecognized key file format. Supported formats: PuTTY .ppk, OpenSSH, PEM (PKCS#1/PKCS#8/SEC1).",
+      apiCopy("apiCopy.unrecognized.key.file.format.supported.formats.putty.ppk.openssh.844004e5"),
     );
   }
 

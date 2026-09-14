@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -26,7 +27,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { permission: "user:manage", errorMessage: "Server error" },
+    { permission: "user:manage", errorMessage: apiCopy("apiCopy.server.error.dfe0c2e8") },
     async () => {
       const { includeApps = true } = parseSearchParams(
         request,
@@ -127,7 +128,7 @@ export async function POST(request: Request) {
       onError: (error) => {
         const msg = getErrorMessage(error, "Failed to add source");
         if (msg.includes("Unique")) {
-          throw new ConflictError("Source name already exists");
+          throw new ConflictError(apiCopy("apiCopy.source.name.already.exists.69c17e32"));
         }
         throw new AppError({ code: "INTERNAL_ERROR", message: msg, status: 500 });
       },
@@ -169,7 +170,7 @@ export async function PATCH(request: Request) {
     {
       permission: "user:manage",
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "Operation failed",
+      errorMessage: apiCopy("apiCopy.operation.failed.4e1af7c7"),
       bodySchema: updateSchema,
     },
     async ({ session, body }) => {
@@ -216,7 +217,7 @@ export async function DELETE(request: Request) {
     {
       permission: "user:manage",
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "Failed to delete",
+      errorMessage: apiCopy("apiCopy.failed.to.delete.f625b14e"),
     },
     async ({ session }) => {
       // Client historically uses ?sourceId=; idQuerySchema only accepts ?id=.

@@ -22,7 +22,8 @@ vi.mock("next/image", () => ({
   ),
 }));
 
-vi.mock("@/components/page-shell", () => ({
+vi.mock("@/components/page-shell", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/components/page-shell")>(),
   PageShell: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   ),
@@ -32,11 +33,6 @@ vi.mock("@/components/page-shell", () => ({
       {icon ? <div aria-hidden="true">{icon}</div> : null}
       <div>{children}</div>
     </div>
-  ),
-  ToggleChip: ({ children, onClick, active }: { children?: React.ReactNode; onClick?: () => void; active?: boolean }) => (
-    <button type="button" onClick={onClick} aria-pressed={active}>
-      {children}
-    </button>
   ),
 }));
 
@@ -59,6 +55,18 @@ describe("ImageBedPage", () => {
     });
   });
 
+  it("only exposes the cross-user scope control to authorized viewers", async () => {
+    const { rerender } = render(<ImageBedPageClient canWrite canDelete canListAll={false} />);
+    await screen.findByTestId("empty-state");
+    expect(screen.queryByRole("button", { name: "切换仅自己/全部用户" })).not.toBeInTheDocument();
+    rerender(<ImageBedPageClient canWrite canDelete canListAll />);
+    const scope = screen.getByRole("button", { name: "切换仅自己/全部用户" });
+    expect(scope).toHaveAttribute("aria-pressed", "false");
+    await userEvent.click(scope);
+    expect(scope).toHaveAttribute("aria-pressed", "true");
+    await waitFor(() => expect(vi.mocked(csrfFetch).mock.calls.some(([url]) => String(url).includes("all=true"))).toBe(true));
+  });
+
   it("loads local storage nodes through the supported API when opening cloud publish", async () => {
     const user = userEvent.setup();
     render(<ImageBedPageClient canWrite canDelete />);
@@ -68,7 +76,7 @@ describe("ImageBedPage", () => {
     expect(screen.getByRole("heading", { name: "图片外链中心" })).toBeInTheDocument();
     expect(screen.getByRole("searchbox", { name: "图片搜索" })).toHaveAttribute("placeholder", "搜索文件名 / 路径 / 相册");
     expect(screen.getAllByRole("link", { name: /图片工作区/ })[0]).toHaveAttribute("href", "/media?type=image");
-    await user.click(screen.getByRole("button", { name: "☁️ 从云盘发布" }));
+    await user.click(screen.getByRole("button", { name: "从云盘发布" }));
 
     await waitFor(() =>
       expect(csrfFetch).toHaveBeenCalledWith("/api/storage/nodes"),
@@ -94,7 +102,7 @@ describe("ImageBedPage", () => {
 
     await screen.findByTestId("empty-state");
     expect(screen.getByText("暂无图片，上传第一张吧")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "☁️ 从云盘发布" }));
+    await user.click(screen.getByRole("button", { name: "从云盘发布" }));
 
     expect(await screen.findByText("缺少权限")).toBeInTheDocument();
   });
@@ -120,7 +128,7 @@ describe("ImageBedPage", () => {
 
     await screen.findByTestId("empty-state");
     expect(screen.getByText("暂无图片，上传第一张吧")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: /③ 兼容直传/ }));
+    await userEvent.click(screen.getByRole("button", { name: "兼容直传入口" }));
     expect(screen.getByText("兼容直传入口")).toBeInTheDocument();
     const input = document.querySelector(
       'input[type="file"]',
@@ -258,9 +266,9 @@ describe("ImageBedPage", () => {
     render(<ImageBedPageClient canWrite canDelete />);
 
     await screen.findByText("cat.png");
-    await user.click(screen.getByRole("button", { name: "☐ 批量模式" }));
+    await user.click(screen.getByRole("button", { name: "切换批量模式" }));
     await user.click(screen.getByText("全选"));
-    await user.click(screen.getByRole("button", { name: "🗑 批量删除" }));
+    await user.click(screen.getByRole("button", { name: "批量删除" }));
 
     const dialog = await screen.findByRole("dialog", {
       name: "确认批量删除图片",
@@ -274,7 +282,7 @@ describe("ImageBedPage", () => {
       expect.anything(),
     );
 
-    await user.click(screen.getByRole("button", { name: "🗑 批量删除" }));
+    await user.click(screen.getByRole("button", { name: "批量删除" }));
     await user.click(
       within(
         await screen.findByRole("dialog", { name: "确认批量删除图片" }),
@@ -416,7 +424,7 @@ describe("ImageBedPage", () => {
     render(<ImageBedPageClient canWrite canDelete />);
 
     await screen.findByText("cat.png");
-    await user.click(screen.getByRole("button", { name: "☐ 批量模式" }));
+    await user.click(screen.getByRole("button", { name: "切换批量模式" }));
 
     const bar = screen.getByRole("region", { name: "批量操作栏" });
     expect(bar.className).toMatch(/flex-wrap/);
@@ -469,7 +477,7 @@ describe("ImageBedPage", () => {
     render(<ImageBedPageClient canWrite canDelete />);
 
     await screen.findByText("private-cat.png");
-    expect(screen.getByText("来源：本机图片库 · 主节点 / image-bed/2026/private-cat.png")).toBeInTheDocument();
+    expect(screen.getByText("来源： 本机图片库 · 主节点 / image-bed/2026/private-cat.png")).toBeInTheDocument();
     expect(screen.getByText("私有")).toBeInTheDocument();
     const images = screen.getAllByTestId("mock-next-image");
     expect(images[0]).toHaveAttribute("src", "/api/images/img_private/file");

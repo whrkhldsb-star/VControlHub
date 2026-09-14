@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * GET /api/itsm/events — recent ITSM event log (ticket:manage)
  */
@@ -34,7 +35,7 @@ export async function GET(request: Request) {
 			permission: "ticket:manage",
 			rateLimit: GENERAL_READ_LIMIT,
 			errorStatus: 500,
-			errorMessage: "Failed to list ITSM events",
+			errorMessage: apiCopy("apiCopy.failed.to.list.itsm.events.18cabf07"),
 		},
 		async ({ session }) => {
 			const { connectionId, ticketId, limit } = parseSearchParams(

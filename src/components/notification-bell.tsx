@@ -228,14 +228,14 @@ export function NotificationBell() {
 						<span id="notification-popover-title" className="text-sm font-semibold text-[var(--text-primary)]">{notificationLabel}</span>
 						<div className="flex items-center gap-2">
 							{wsConnected ? (
-								<span className="text-[10px] text-[var(--success)]/70 light:text-[var(--success)]">{realtimeLabel}</span>
+								<span className="text-xs text-[var(--success)]/70 light:text-[var(--success)]">{realtimeLabel}</span>
 							) : refreshIntervalSeconds <= 0 ? (
-								<span className="text-[10px] text-[var(--text-muted)]">{manualLabel}</span>
+								<span className="text-xs text-[var(--text-muted)]">{manualLabel}</span>
 							) : (
-								<span className="text-[10px] text-[var(--text-muted)]">{pollingPrefix} {getRefreshIntervalLabel(refreshIntervalSeconds)}</span>
+								<span className="text-xs text-[var(--text-muted)]">{pollingPrefix} {getRefreshIntervalLabel(refreshIntervalSeconds)}</span>
 							)}
 							{effectiveUnread > 0 && (
-								<button type="button" onClick={markAllRead} className="text-[11px] font-medium text-[var(--accent)] transition hover:text-[var(--accent-hover)]">
+								<button type="button" onClick={markAllRead} className="text-xs font-medium text-[var(--accent)] transition hover:text-[var(--accent-hover)]">
 									{markAllReadLabel}
 								</button>
 							)}
@@ -260,7 +260,7 @@ export function NotificationBell() {
 											{!n.isRead && <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" aria-hidden="true" />}
 											<span className={`text-xs font-medium truncate ${n.isRead ? "text-[var(--text-secondary)]" : "text-[var(--text-primary)]"}`}>{n.title}</span>
 											</div>
-											<p className="mt-1 text-[11px] text-[var(--text-muted)] truncate">{n.message}</p>
+											<p className="mt-1 text-xs text-[var(--text-muted)] truncate">{n.message}</p>
 									</Link>
 								</li>
 							))}

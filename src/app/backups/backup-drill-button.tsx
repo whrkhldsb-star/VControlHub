@@ -20,7 +20,7 @@ export function BackupDrillButton({ backupId, disabled }: { backupId: string; di
     finally { setPending(false); }
   }
   return <div>
-    <ActionButton variant="outline" disabled={disabled || pending} onClick={run} className="!px-3 !py-2 !text-xs !font-medium disabled:opacity-50">{pending ? t("backupsPage.drill.pending") : t("backupsPage.drill.submit")}</ActionButton>
+    <ActionButton variant="outline" disabled={disabled || pending} onClick={run} className="!px-3 !py-2 !text-sm !font-medium disabled:opacity-50">{pending ? t("backupsPage.drill.pending") : t("backupsPage.drill.submit")}</ActionButton>
     {message ? <p className="mt-1 text-xs text-[var(--success)]">{message} <a href="/operation-tasks" className="underline">{t("backupsPage.drill.openTasks")}</a></p> : null}
     {error ? <p className="mt-1 text-xs text-[var(--danger)]">{error}</p> : null}
   </div>;

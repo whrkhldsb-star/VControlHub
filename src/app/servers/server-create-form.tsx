@@ -93,7 +93,7 @@ export function ServerCreateForm({
         <div className="space-y-1.5">
           {" "}
           <label
-            className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide"
+            className="text-xs font-medium text-[var(--text-primary)]/70 "
             htmlFor="serverName"
           >
             {t("serversPage.create.name")}
@@ -110,7 +110,7 @@ export function ServerCreateForm({
         <div className="space-y-1.5">
           {" "}
           <label
-            className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide"
+            className="text-xs font-medium text-[var(--text-primary)]/70 "
             htmlFor="serverDesc"
           >
             {t("serversPage.create.description")}
@@ -129,7 +129,7 @@ export function ServerCreateForm({
         <div className="space-y-1.5">
           {" "}
           <label
-            className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide"
+            className="text-xs font-medium text-[var(--text-primary)]/70 "
             htmlFor="serverHost"
           >
             {t("serversPage.create.host")}
@@ -146,7 +146,7 @@ export function ServerCreateForm({
         <div className="space-y-1.5">
           {" "}
           <label
-            className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide"
+            className="text-xs font-medium text-[var(--text-primary)]/70 "
             htmlFor="serverPort"
           >
             {t("serversPage.create.port")}
@@ -190,7 +190,7 @@ export function ServerCreateForm({
           <div className="space-y-1.5">
             {" "}
             <label
-              className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide"
+              className="text-xs font-medium text-[var(--text-primary)]/70 "
               htmlFor="serverCostMonthlyAmount"
             >
               {" "}
@@ -208,7 +208,7 @@ export function ServerCreateForm({
           <div className="space-y-1.5">
             {" "}
             <label
-              className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide"
+              className="text-xs font-medium text-[var(--text-primary)]/70 "
               htmlFor="serverCostCurrency"
             >
               {" "}
@@ -234,7 +234,7 @@ export function ServerCreateForm({
         <div className="space-y-1.5">
           {" "}
           <label
-            className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide"
+            className="text-xs font-medium text-[var(--text-primary)]/70 "
             htmlFor="serverCostProvider"
           >
             {" "}
@@ -294,7 +294,7 @@ export function ServerCreateForm({
       <div className="space-y-1.5">
         {" "}
         <label
-          className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide"
+          className="text-xs font-medium text-[var(--text-primary)]/70 "
           htmlFor="serverStoragePath"
         >
           {t("serversPage.create.storagePath")}
@@ -360,10 +360,10 @@ export function ServerCreateForm({
                 {t("serversPage.create.directGateway.protocolHttps")}
               </option>{" "}
             </select>
-            <p className="mt-1 text-[10px] leading-4 text-[var(--text-muted)]">
+            <p className="mt-1 text-xs leading-4 text-[var(--text-muted)]">
               {t("serversPage.create.directGateway.listenNote")}
             </p>
-            <p className="mt-1 text-[10px] leading-4 text-[var(--text-muted)]">
+            <p className="mt-1 text-xs leading-4 text-[var(--text-muted)]">
               {t("serversPage.create.directGateway.protocolHttpsHint")}
             </p>
             <label
@@ -381,7 +381,7 @@ export function ServerCreateForm({
               placeholder={t("serversPage.create.directGateway.publicDomainPlaceholder")}
               className="mt-1 w-full rounded-lg border border-[var(--color-action-border)]/20 bg-[var(--surface-subtle)] px-3 py-2 text-xs text-[var(--text-primary)]"
             />
-            <p className="mt-1 text-[10px] leading-4 text-[var(--text-muted)]">
+            <p className="mt-1 text-xs leading-4 text-[var(--text-muted)]">
               {t("serversPage.create.directGateway.publicDomainHint")}
             </p>{" "}
           </div>{" "}
@@ -407,7 +407,7 @@ export function ServerCreateForm({
       <div className="space-y-1.5">
         {" "}
         <label
-          className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide"
+          className="text-xs font-medium text-[var(--text-primary)]/70 "
           htmlFor="serverTags"
         >
           {t("serversPage.create.tags")}

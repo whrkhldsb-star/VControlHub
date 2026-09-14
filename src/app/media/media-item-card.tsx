@@ -152,12 +152,12 @@ export function MediaItemCard({
             </span>
           </div>
           <p
-            className="mt-1 truncate text-[11px] text-[var(--text-muted)]"
+            className="mt-1 truncate text-xs text-[var(--text-muted)]"
             title={item.relativePath}
           >
             📂 {item.relativePath}
           </p>
-          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 text-[10px] text-[var(--text-muted)]">
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 text-xs text-[var(--text-muted)]">
             <span>💾 {storageLabel(item, t)}</span>
           </div>
         </div>
@@ -229,7 +229,7 @@ export function MediaItemCard({
       {imageBedUrl ? (
         <div
           data-tone="emerald"
-          className="mt-2 rounded-lg border border-[var(--success-border)] px-2 py-1.5 text-[11px] text-[var(--success)]"
+          className="mt-2 rounded-lg border border-[var(--success-border)] px-2 py-1.5 text-xs text-[var(--success)]"
         >
           {t("mediaItemCard.imageBedUrlGenerated")}:
           <a
@@ -243,12 +243,12 @@ export function MediaItemCard({
         </div>
       ) : null}
       {publishError ? (
-        <p role="alert" className="mt-2 text-[11px] text-[var(--danger)]">
+        <p role="alert" className="mt-2 text-xs text-[var(--danger)]">
           {publishError}
         </p>
       ) : null}
       {mutationError ? (
-        <p role="alert" className="mt-2 text-[11px] text-[var(--danger)]">
+        <p role="alert" className="mt-2 text-xs text-[var(--danger)]">
           {mutationError}
         </p>
       ) : null}
@@ -258,7 +258,7 @@ export function MediaItemCard({
             <span
               key={tag}
               data-tone="cyan"
-              className="inline-flex items-center gap-1 rounded-lg border border-[var(--accent-border)] px-2 py-0.5 text-[10px] text-[var(--accent)]"
+              className="inline-flex items-center gap-1 rounded-lg border border-[var(--accent-border)] px-2 py-0.5 text-xs text-[var(--accent)]"
             >
               <Link
                 href={`/media?tag=${encodeURIComponent(tag)}`}
@@ -290,7 +290,7 @@ export function MediaItemCard({
                 if (newTag.trim()) void addTag();
                 else setShowTagInput(false);
               }}
-              className="w-20 rounded-full bg-[var(--surface-elevated)] px-2 py-0.5 text-[10px] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
+              className="w-20 rounded-full bg-[var(--surface-elevated)] px-2 py-0.5 text-xs text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
               placeholder={t("mediaItemCard.newTagPlaceholder")}
             />
           ) : (
@@ -298,7 +298,7 @@ export function MediaItemCard({
               type="button"
               onClick={() => setShowTagInput(true)}
               aria-label={t("mediaItemCard.addTag")}
-              className="inline-flex items-center gap-0.5 rounded-lg border border-dashed border-[var(--border)] px-2 py-0.5 text-[10px] text-[var(--text-muted)] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition hover:border-[var(--color-action-border)]/30 hover:text-[var(--color-action)]"
+              className="inline-flex items-center gap-0.5 rounded-lg border border-dashed border-[var(--border)] px-2 py-0.5 text-xs text-[var(--text-muted)] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition hover:border-[var(--color-action-border)]/30 hover:text-[var(--color-action)]"
             >
               <Tag size={10} /> {t("mediaItemCard.addTag")}
             </button>
@@ -312,7 +312,7 @@ export function MediaItemCard({
               key={tag}
               href={`/media?tag=${encodeURIComponent(tag)}`}
               data-tone="cyan"
-              className="rounded-lg border border-[var(--accent-border)] px-2 py-0.5 text-[10px] text-[var(--accent)] hover:underline"
+              className="rounded-lg border border-[var(--accent-border)] px-2 py-0.5 text-xs text-[var(--accent)] hover:underline"
             >
               #{tag}
             </Link>

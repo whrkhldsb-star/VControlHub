@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 
 import { auditUserAction } from "@/lib/audit/service";
@@ -11,7 +12,7 @@ import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { enqueueJob } from "@/lib/job/service";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  return withApiRoute(request, { permission: "backup:restore", rateLimit: GENERAL_WRITE_LIMIT, errorMessage: "Backup drill failed" }, async ({ session }) => {
+  return withApiRoute(request, { permission: "backup:restore", rateLimit: GENERAL_WRITE_LIMIT, errorMessage: apiCopy("apiCopy.backup.drill.failed.31051e85") }, async ({ session }) => {
       const locale = await getServerLocale();
     const { id } = await params;
     const backup = await getBackupRecord(id, session!);

@@ -71,7 +71,7 @@ export function FileDetailPanel({
     >
         <div className="flex items-start justify-between gap-4 border-b border-[var(--border)] px-5 py-4">
           <div className="min-w-0">
-            <p className="text-xs font-medium uppercase tracking-[0.2em] text-[var(--accent)]">
+            <p className="text-xs font-medium uppercase  text-[var(--accent)]">
               {t("common.fileDetails")}
             </p>
             <h2
@@ -85,7 +85,7 @@ export function FileDetailPanel({
             </p>
           </div>
           <ActionButton variant="secondary"
-            onClick={onClose} className="!px-3 !py-1.5 !text-xs">
+            onClick={onClose} className="!px-3 !py-1.5 !text-sm">
             {t("fileDetailPanel.close")}
           </ActionButton>
         </div>
@@ -192,6 +192,7 @@ export function FileDetailPanel({
               {entryCanWrite(detailEntry) ? (
                 <MoveInlineForm
                   fileEntryId={detailEntry.id}
+                  storageNodeId={detailEntry.storageNode.id}
                   name={detailEntry.name}
                   relativePath={detailEntry.relativePath}
                   onRefresh={onRefresh}

@@ -4,7 +4,7 @@ export function FloatingToast({ toast }: { toast: { message: string; tone: "stat
 	if (!toast) return null;
 	return (
 		<>
-			<div role={toast.tone} className="fixed bottom-6 right-6 z-50 animate-fade-in rounded-xl border border-[var(--border)] bg-[var(--modal-bg)] px-4 py-2.5 text-sm text-[var(--text-primary)] shadow-lg">
+			<div role={toast.tone} className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-3 z-[var(--z-toast)] max-w-[calc(100vw-1.5rem)] break-words animate-fade-in rounded-lg border border-[var(--border)] bg-[var(--modal-bg)] px-4 py-2.5 text-sm text-[var(--text-primary)] shadow-lg lg:bottom-6 lg:right-6">
 				{toast.message}
 			</div>
 			<style>{`

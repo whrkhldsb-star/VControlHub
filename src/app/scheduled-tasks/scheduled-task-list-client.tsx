@@ -65,7 +65,7 @@ function matchesTask(task: Task, query: string) {
 		.some((value) => String(value).toLowerCase().includes(needle));
 }
 
-const fieldLabelClass = "text-xs font-medium text-[var(--text-secondary)] tracking-wide";
+const fieldLabelClass = "text-xs font-medium text-[var(--text-secondary)] ";
 const fieldInputClass = UI_INPUT;
 const monoFieldInputClass = `${UI_INPUT} font-mono`;
 
@@ -211,7 +211,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, template
 										</StatusBadge>
 									</div>
 									<p className="mt-1 text-xs text-[var(--text-muted)]">{task.scheduleType === "ONCE" ? t("scheduledTasks.schedule.once") : <>Cron: <code className="font-mono text-[var(--accent)]">{task.cronExpression}</code> — {task.cronDescription}</>}</p>
-									<div className="mt-1 flex flex-wrap gap-2 text-[11px] text-[var(--text-muted)]">
+									<div className="mt-1 flex flex-wrap gap-2 text-xs text-[var(--text-muted)]">
 										<span>{task.source === "AI" ? t("scheduledTasks.source.ai") : t("scheduledTasks.source.manual")}</span>
 										<span>{task.approvalRequired ? t("scheduledTasks.approval.everyRun") : t("scheduledTasks.approval.once")}</span>
 										{task.runAt && <span>{t("scheduledTasks.runAt", { time: formatTime(task.runAt, locale) })}</span>}
@@ -227,7 +227,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, template
 										<div>{t("scheduledTasksPage.lastRun", { time: formatTime(task.lastRunAt, locale) })}</div>
 										<div>{t("scheduledTasksPage.nextRun", { time: formatTime(task.nextRunAt, locale) })}</div>
 									</div>
-									<div className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-3 py-2 text-[11px] text-[var(--text-muted)]">
+									<div className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-3 py-2 text-xs text-[var(--text-muted)]">
 										<div className="mb-1 font-medium text-[var(--text-secondary)]">{t("scheduledTasksPage.recentLogs")}</div>
 										<div className="whitespace-pre-wrap break-words">{task.lastResult || t("scheduledTasks.empty.lastResult")}</div>
 									</div>
@@ -237,7 +237,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, template
 										<ActionButton type="button" variant="outline"
 											onClick={() => retryTask(task.id)} disabled={busyId !== null}
 										
-											className="!min-h-11 !rounded-2xl !px-4 !py-2 !text-xs"
+											className="!min-h-11 !rounded-2xl !px-4 !py-2 !text-sm"
 										>
 											{t("scheduledTasksPage.retry")}
 										</ActionButton>
@@ -246,7 +246,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, template
 										<ActionButton type="button" variant={task.status === "ACTIVE" ? "outline" : "success"}
 											onClick={() => toggleTask(task.id)} disabled={busyId !== null}
 										
-											className="!min-h-11 !rounded-2xl !px-4 !py-2 !text-xs"
+											className="!min-h-11 !rounded-2xl !px-4 !py-2 !text-sm"
 										>
 											{task.status === "ACTIVE" ? t("scheduledTasks.pause") : t("scheduledTasks.resume")}
 										</ActionButton>
@@ -255,7 +255,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, template
 										<ActionButton type="button" variant="danger"
 											onClick={() => setTaskPendingDelete(task)} disabled={busyId !== null}
 										
-											className="!min-h-11 !rounded-2xl !px-4 !py-2 !text-xs"
+											className="!min-h-11 !rounded-2xl !px-4 !py-2 !text-sm"
 										>
 											{t("scheduledTasksPage.delete")}
 										</ActionButton>
@@ -374,11 +374,11 @@ function CreateTaskForm({ servers, templates, canApprove, onClose }: { servers: 
 				<label htmlFor="scheduled-task-cron" className={fieldLabelClass}>{t("scheduledTasksPage.cron")}</label>
 				<input id="scheduled-task-cron" value={cronExpression} onChange={(e) => setCron(e.target.value)} required placeholder="0 3 * * *" className={monoFieldInputClass} />
 				<p className="rounded-xl border border-[var(--accent-border)] bg-[var(--accent-bg)] px-3 py-2 text-xs text-[var(--text-primary)]">{t("scheduledTasksPage.preview.label", { value: cronPreview })}</p>
-				<p className="text-[11px] text-[var(--text-muted)]">{t("scheduledTasks.timezoneApp", { timezone: APP_TIME_ZONE })}</p>
+				<p className="text-xs text-[var(--text-muted)]">{t("scheduledTasks.timezoneApp", { timezone: APP_TIME_ZONE })}</p>
 				<div className="flex flex-wrap gap-1.5">
 					{presetCrons.map((p) => (
 						<button key={p.expr} type="button" onClick={() => setCron(p.expr)}
-							className={`min-h-11 rounded-lg border px-2.5 py-1 text-[11px] transition ${
+							className={`min-h-11 rounded-lg border px-2.5 py-1 text-xs transition ${
 								cronExpression === p.expr
 									? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]"
 									: "border-[var(--border)]/[0.10] bg-[var(--surface-elevated)] text-[var(--text-muted)] hover:bg-[var(--surface-elevated)]"
@@ -388,7 +388,7 @@ function CreateTaskForm({ servers, templates, canApprove, onClose }: { servers: 
 						</button>
 					))}
 				</div>
-			</div> : <div className="space-y-1.5"><label htmlFor="scheduled-task-run-at" className={fieldLabelClass}>{t("scheduledTasks.runAtLabel")}</label><input id="scheduled-task-run-at" type="datetime-local" value={runAt} onChange={(e) => setRunAt(e.target.value)} required className={fieldInputClass} /><p className="text-[11px] text-[var(--text-muted)]">{t("scheduledTasks.timezoneApp", { timezone: APP_TIME_ZONE })}</p></div>}
+			</div> : <div className="space-y-1.5"><label htmlFor="scheduled-task-run-at" className={fieldLabelClass}>{t("scheduledTasks.runAtLabel")}</label><input id="scheduled-task-run-at" type="datetime-local" value={runAt} onChange={(e) => setRunAt(e.target.value)} required className={fieldInputClass} /><p className="text-xs text-[var(--text-muted)]">{t("scheduledTasks.timezoneApp", { timezone: APP_TIME_ZONE })}</p></div>}
 
 			<div className="space-y-1.5">
 				<label htmlFor="scheduled-task-template" className={fieldLabelClass}>{t("scheduledTasks.template")}</label>
@@ -401,7 +401,7 @@ function CreateTaskForm({ servers, templates, canApprove, onClose }: { servers: 
 				<textarea id="scheduled-task-command" value={selectedTemplate ? renderedCommand : command} onChange={(e) => { if (!selectedTemplate) setCommand(e.target.value); }} readOnly={Boolean(selectedTemplate)} required rows={3} placeholder="df -h" className={`${monoFieldInputClass} resize-y`} />
 			</div>
 			<div className="grid gap-3 md:grid-cols-3"><div className="space-y-1.5"><label htmlFor="scheduled-task-plan" className={fieldLabelClass}>{t("scheduledTasks.plan")}</label><textarea id="scheduled-task-plan" value={plan} onChange={(e) => setPlan(e.target.value)} rows={2} className={`${fieldInputClass} resize-y`} /></div><div className="space-y-1.5"><label htmlFor="scheduled-task-verify" className={fieldLabelClass}>{t("scheduledTasks.verify")}</label><input id="scheduled-task-verify" value={verificationCommand} onChange={(e) => setVerificationCommand(e.target.value)} className={monoFieldInputClass} /></div><div className="space-y-1.5"><label htmlFor="scheduled-task-rollback" className={fieldLabelClass}>{t("scheduledTasks.rollback")}</label><input id="scheduled-task-rollback" value={renderedRollback} onChange={(e) => setRollbackCommand(e.target.value)} readOnly={Boolean(selectedTemplate?.rollbackCommand)} className={monoFieldInputClass} /></div></div>
-			<div className="flex flex-wrap items-center gap-2"><input id="scheduled-task-approval" type="checkbox" checked={approvalRequired} disabled={!canApprove} onChange={(e) => setApprovalRequired(e.target.checked)} className="accent-[var(--color-action)]" /><label htmlFor="scheduled-task-approval" className="text-xs text-[var(--text-secondary)]">{t("scheduledTasks.approval.everyRun")}</label>{!canApprove && <span className="text-[11px] text-[var(--text-muted)]">{t("scheduledTasks.approval.permissionHint")}</span>}</div>
+			<div className="flex flex-wrap items-center gap-2"><input id="scheduled-task-approval" type="checkbox" checked={approvalRequired} disabled={!canApprove} onChange={(e) => setApprovalRequired(e.target.checked)} className="accent-[var(--color-action)]" /><label htmlFor="scheduled-task-approval" className="text-xs text-[var(--text-secondary)]">{t("scheduledTasks.approval.everyRun")}</label>{!canApprove && <span className="text-xs text-[var(--text-muted)]">{t("scheduledTasks.approval.permissionHint")}</span>}</div>
 
 			<div className="space-y-1.5">
 				<label htmlFor="scheduled-task-reason" className={fieldLabelClass}>{t("scheduledTasksPage.reason")}</label>

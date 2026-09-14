@@ -61,7 +61,7 @@ export function FilterLink({
 	return (
 		<Link
 			href={href}
-			aria-pressed={active}
+			aria-current={active ? "true" : undefined}
 			title={title}
 			className={`${className ?? ""} ${active ? activeClassName : inactiveClassName}`.trim()}
 		>

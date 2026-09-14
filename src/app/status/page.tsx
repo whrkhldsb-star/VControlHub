@@ -1,3 +1,4 @@
+import { PageShell, PageHeader } from "@/components/page-shell";
 import { type SystemHealthCheck } from "@/lib/system-health/service";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { toDateLocale } from "@/lib/i18n/locale-format";
@@ -147,21 +148,9 @@ export default async function Page() {
   if (!session) {
     const status = await getPublicStatusSummary();
     return (
-      <main className="relative min-h-screen overflow-hidden text-[var(--text-primary)]">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,color-mix(in_srgb,var(--accent)_12%,transparent),transparent_55%),var(--page-bg)]"
-        />
-        <div className="relative mx-auto max-w-5xl px-6 py-14">
-          <header className="mb-8 border-b border-[var(--border-subtle)] pb-6">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">{t("statusPage.eyebrow", locale)}</p>
-            <h1 className="mt-2 break-words text-[1.75rem] font-semibold leading-snug tracking-[-0.02em] text-[var(--text-primary)] sm:text-[2rem]">
-              {t("statusPage.title", locale)}
-            </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--text-muted)]">
-              {t("statusPage.desc", locale)}
-            </p>
-          </header>
+      <PageShell maxW="max-w-5xl" navigation={Boolean(session)}>
+        <div>
+          <PageHeader eyebrow={t("statusPage.eyebrow", locale)} title={t("statusPage.title", locale)} description={t("statusPage.desc", locale)} />
 
           <div data-card className="mt-6 p-5">
             <div className="flex items-center gap-3">
@@ -193,7 +182,7 @@ export default async function Page() {
             VControlHub · {new Date().getFullYear()}
           </p>
         </div>
-      </main>
+      </PageShell>
     );
   }
 
@@ -201,21 +190,9 @@ export default async function Page() {
   const status = await getPublicStatus();
 
   return (
-    <main className="relative min-h-screen overflow-hidden text-[var(--text-primary)]">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,color-mix(in_srgb,var(--accent)_12%,transparent),transparent_55%),var(--page-bg)]"
-      />
-      <div className="relative mx-auto max-w-5xl px-6 py-14">
-        <header className="mb-8 border-b border-[var(--border-subtle)] pb-6">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">{t("statusPage.eyebrow", locale)}</p>
-          <h1 className="mt-2 break-words text-[1.75rem] font-semibold leading-snug tracking-[-0.02em] text-[var(--text-primary)] sm:text-[2rem]">
-            {t("statusPage.title", locale)}
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--text-muted)]">
-            {t("statusPage.desc", locale)}
-          </p>
-        </header>
+    <PageShell maxW="max-w-5xl" navigation={Boolean(session)}>
+      <div>
+        <PageHeader eyebrow={t("statusPage.eyebrow", locale)} title={t("statusPage.title", locale)} description={t("statusPage.desc", locale)} />
 
         <div data-card className="mt-6 p-5">
           <div className="flex items-center gap-3">
@@ -278,6 +255,6 @@ export default async function Page() {
           VControlHub · {new Date().getFullYear()}
         </p>
       </div>
-    </main>
+    </PageShell>
   );
 }

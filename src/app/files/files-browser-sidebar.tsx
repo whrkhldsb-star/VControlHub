@@ -27,7 +27,7 @@ export function FilesBrowserSidebar({
     <aside
       id="files-browser-sidebar"
       aria-label={t("filesBrowserSpa.sidebarAria")}
-      className={`w-full min-w-0 self-start rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow-sm)] xl:sticky xl:top-4 ${
+      className={`w-full min-w-0 self-start border-r border-[var(--border)] pr-4 xl:sticky xl:top-4 ${
         mobileSidebarOpen ? "block" : "hidden xl:block"
       }`}
     >
@@ -36,9 +36,6 @@ export function FilesBrowserSidebar({
           <h2 className="text-base font-semibold text-[var(--text-primary)]">
             {t("filesBrowserSpa.directoryTree")}
           </h2>
-          <p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">
-            {t("filesBrowserSpa.hierarchyDescription")}
-          </p>
         </div>
       </div>
 
@@ -57,7 +54,7 @@ export function FilesBrowserSidebar({
         </div>
       ) : null}
 
-      <div className="mt-4 max-h-[28rem] overflow-x-auto overflow-y-auto rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-3 pr-2">
+      <div className="mt-4 max-h-[28rem] overflow-x-auto overflow-y-auto pr-1">
         <button
           type="button"
           onClick={() => onTreeNavigate("")}

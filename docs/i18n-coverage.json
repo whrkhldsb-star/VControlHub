@@ -1,15 +1,35 @@
 {
-  "generatedAt": "2026-08-25T16:32:19.263Z",
+  "generatedAt": "2026-09-14T04:56:46.952Z",
   "summary": {
-    "files": 424,
-    "filesWithStrings": 0,
-    "totalStrings": 0,
+    "files": 433,
+    "filesWithStrings": 1,
+    "totalStrings": 1,
     "coveredStrings": 0,
-    "missingStrings": 0,
-    "coveragePercent": 100
+    "missingStrings": 1,
+    "coveragePercent": 0
   },
-  "perModule": [],
-  "missingByString": [],
+  "perModule": [
+    {
+      "module": "src/app/servers",
+      "total": 1,
+      "covered": 0,
+      "missing": 1,
+      "coveragePercent": 0
+    }
+  ],
+  "missingByString": [
+    {
+      "text": ",\n  },\n);\n\ntype ServerOverviewCardProps =  ;\n\nexport function ServerOverviewCard( : ServerOverviewCardProps)   = useI18n();\n  const [expanded, setExpanded] = useState(false);\n  const [portalReady, setPortalReady] = useState(false);\n  const closeDialog = useCallback(() =>  , []);\n  const openDialog = useCallback(() =>  , []);\n  const   = useServerDiagnostics(server.id, server.enabled);\n  const directLabel = server.directGateway?.statusLabel ?? t(\"serverOverviewCard.websiteRelay\");\n  const detailsId = `server-details-$ `;\n\n  useEffect(() =>  , []);\n\n  // Status badge reflects the latest live probe outcome instead of the static\n  // \"启用 · 待探测\" placeholder. This is what the user expects after clicking\n  // \"运行实时探测\" — they want to see the chip change to 在线/离线/检测中.\n  let listHealthLabel: string;\n  let listHealthToneClass: string;\n  let listHealthDescription: string;\n  if (!server.enabled)   else if (diagnosticRun.status === \"loading\")   else if (diagnosticRun.status === \"success\")   · $ `.trim();\n    listHealthToneClass =\n      \"border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)] light:border-[var(--success-border)]\";\n    listHealthDescription =\n      diagnosticRun.summary\n        ? t(\"serverOverviewCard.lastProbeSuccessWithSummary\",  )\n        : t(\"serverOverviewCard.lastProbeSuccess\",  );\n  } else if (diagnosticRun.status === \"error\")  );\n  } else  \n\n  return (",
+      "count": 1,
+      "files": [
+        {
+          "path": "src/app/servers/server-overview-card.tsx",
+          "line": 21,
+          "kind": "text"
+        }
+      ]
+    }
+  ],
   "reportsByFile": {
     "src/app/account/error.tsx": {
       "path": "src/app/account/error.tsx",
@@ -160,6 +180,13 @@
     },
     "src/app/ai/ai-message-list.tsx": {
       "path": "src/app/ai/ai-message-list.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/ai/ai-provider-fields.tsx": {
+      "path": "src/app/ai/ai-provider-fields.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -942,6 +969,20 @@
       "missing": 0,
       "candidates": []
     },
+    "src/app/files/file-operation-controls.tsx": {
+      "path": "src/app/files/file-operation-controls.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/files/file-preferences-client.tsx": {
+      "path": "src/app/files/file-preferences-client.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
     "src/app/files/file-row-actions.tsx": {
       "path": "src/app/files/file-row-actions.tsx",
       "total": 0,
@@ -986,6 +1027,13 @@
     },
     "src/app/files/files-subpage-nav.tsx": {
       "path": "src/app/files/files-subpage-nav.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/files/folder-destination-picker.tsx": {
+      "path": "src/app/files/folder-destination-picker.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -2104,6 +2152,13 @@
       "missing": 0,
       "candidates": []
     },
+    "src/app/servers/server-inventory.tsx": {
+      "path": "src/app/servers/server-inventory.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
     "src/app/servers/server-management-mode-fields.tsx": {
       "path": "src/app/servers/server-management-mode-fields.tsx",
       "total": 0,
@@ -2111,12 +2166,27 @@
       "missing": 0,
       "candidates": []
     },
-    "src/app/servers/server-overview-card.tsx": {
-      "path": "src/app/servers/server-overview-card.tsx",
+    "src/app/servers/server-operation-panel.tsx": {
+      "path": "src/app/servers/server-operation-panel.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
+    },
+    "src/app/servers/server-overview-card.tsx": {
+      "path": "src/app/servers/server-overview-card.tsx",
+      "total": 1,
+      "covered": 0,
+      "missing": 1,
+      "candidates": [
+        {
+          "text": ",\n  },\n);\n\ntype ServerOverviewCardProps =  ;\n\nexport function ServerOverviewCard( : ServerOverviewCardProps)   = useI18n();\n  const [expanded, setExpanded] = useState(false);\n  const [portalReady, setPortalReady] = useState(false);\n  const closeDialog = useCallback(() =>  , []);\n  const openDialog = useCallback(() =>  , []);\n  const   = useServerDiagnostics(server.id, server.enabled);\n  const directLabel = server.directGateway?.statusLabel ?? t(\"serverOverviewCard.websiteRelay\");\n  const detailsId = `server-details-$ `;\n\n  useEffect(() =>  , []);\n\n  // Status badge reflects the latest live probe outcome instead of the static\n  // \"启用 · 待探测\" placeholder. This is what the user expects after clicking\n  // \"运行实时探测\" — they want to see the chip change to 在线/离线/检测中.\n  let listHealthLabel: string;\n  let listHealthToneClass: string;\n  let listHealthDescription: string;\n  if (!server.enabled)   else if (diagnosticRun.status === \"loading\")   else if (diagnosticRun.status === \"success\")   · $ `.trim();\n    listHealthToneClass =\n      \"border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)] light:border-[var(--success-border)]\";\n    listHealthDescription =\n      diagnosticRun.summary\n        ? t(\"serverOverviewCard.lastProbeSuccessWithSummary\",  )\n        : t(\"serverOverviewCard.lastProbeSuccess\",  );\n  } else if (diagnosticRun.status === \"error\")  );\n  } else  \n\n  return (",
+          "line": 21,
+          "kind": "text",
+          "context": "<div className=\"min-h-[240px] rounded-xl border border-[var(--border-subtle)] bg",
+          "covered": false
+        }
+      ]
     },
     "src/app/servers/server-overview-detail-sections.tsx": {
       "path": "src/app/servers/server-overview-detail-sections.tsx",
@@ -2134,6 +2204,13 @@
     },
     "src/app/servers/server-tab-layout.tsx": {
       "path": "src/app/servers/server-tab-layout.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/servers/server-target-picker.tsx": {
+      "path": "src/app/servers/server-target-picker.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -2804,6 +2881,13 @@
       "missing": 0,
       "candidates": []
     },
+    "src/components/pagination.tsx": {
+      "path": "src/components/pagination.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
     "src/components/password-field.tsx": {
       "path": "src/components/password-field.tsx",
       "total": 0,
@@ -2925,6 +3009,13 @@
     },
     "src/components/storage/file-upload-dropzone.tsx": {
       "path": "src/components/storage/file-upload-dropzone.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/components/storage/storage-upload-provider.tsx": {
+      "path": "src/components/storage/storage-upload-provider.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,

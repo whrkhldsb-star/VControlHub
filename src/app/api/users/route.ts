@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 
 import { hashPassword } from "@/lib/auth/password";
@@ -67,7 +68,7 @@ export async function POST(request: Request) {
       rateLimit: GENERAL_WRITE_LIMIT,
       bodySchema: createUserSchema,
       errorStatus: 400,
-      errorMessage: "Failed to create user",
+      errorMessage: apiCopy("apiCopy.failed.to.create.user.2426e88a"),
     },
     async ({ session, body }) => {
       const passwordPolicyError = await validatePasswordPolicy(body.password);
@@ -156,7 +157,7 @@ export async function PATCH(request: Request) {
       permission: "user:manage",
       rateLimit: GENERAL_WRITE_LIMIT,
       bodySchema: updateUserSchema,
-      errorMessage: "Failed to update user",
+      errorMessage: apiCopy("apiCopy.failed.to.update.user.237db3c5"),
     },
     async ({ session, body }) => {
       const { userId, action: userAction, roleKeys, newPassword } = body;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -14,6 +14,9 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { type Permission } from "@/lib/auth/rbac";
 import { filterByHrefPermissions } from "@/lib/auth/filter-by-href-permissions";
 import { useGateRoute } from "@/lib/auth/use-gate-route";
+import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
+import { X } from "./icons";
+import { IconButton } from "./ui-primitives";
 import {
 	IconExternal,
 	IconKey,
@@ -99,6 +102,17 @@ export function AppSidebar({
 	const [mobileOpen, setMobileOpen] = useState(false);
 	const [passwordModalOpen, setPasswordModalOpen] = useState(false);
 	const [filter, setFilter] = useState("");
+	const mobileDialogRef = useDialogFocus<HTMLElement>({
+		open: mobileOpen,
+		onClose: () => setMobileOpen(false),
+	});
+	useEffect(() => {
+		const desktop = window.matchMedia?.("(min-width: 1024px)");
+		if (!desktop) return;
+		const closeOnDesktop = () => { if (desktop.matches) setMobileOpen(false); };
+		desktop.addEventListener("change", closeOnDesktop);
+		return () => desktop.removeEventListener("change", closeOnDesktop);
+	}, []);
 	// Only the current workspace opens by default. Explicit user toggles win,
 	// while global search remains the complete cross-workspace catalog.
 	const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
@@ -158,7 +172,7 @@ export function AppSidebar({
 				aria-current={active ? "page" : undefined}
 				className={`group relative flex min-w-0 items-center gap-2.5 rounded-xl px-2.5 py-2 text-sm transition-colors duration-150 ${
 					active
-						? "bg-[var(--sidebar-active)] font-semibold text-[var(--sidebar-active-fg)] shadow-[inset_3px_0_0_var(--accent)]"
+						? "bg-[var(--sidebar-active)] font-semibold text-[var(--sidebar-active-fg)]"
 						: "text-[var(--text-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-secondary)]"
 				}`}
 			>
@@ -180,7 +194,7 @@ export function AppSidebar({
 				<button
 					type="button"
 					onClick={() => setOpenGroups((prev) => ({ ...prev, [group.id]: !open }))}
-					className="flex min-h-9 w-full items-center gap-1.5 rounded-md px-2.5 py-1.5 text-left text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)] transition hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-secondary)]"
+					className="flex min-h-9 w-full items-center gap-1.5 rounded-md px-2.5 py-1.5 text-left text-xs font-semibold uppercase  text-[var(--text-muted)] transition hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-secondary)]"
 					aria-expanded={open}
 				>
 					<Chevron open={open} />
@@ -196,15 +210,18 @@ export function AppSidebar({
 		<nav className="flex h-full w-full flex-col" data-i18n-skip>
 			<div className="border-b border-[var(--sidebar-border)] px-4 pb-3 pt-4">
 				<div className="flex items-center gap-2.5">
-					<div className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)] shadow-[0_8px_24px_rgba(139,157,255,0.18)]">
+					<div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]">
 						<svg width="18" height="18" className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
 							<path d="M10.394 2.08a1 1 0 00-.788 0l-7 3a1 1 0 000 1.84L5.25 8.05 4.646 12.2a1 1 0 00.476 1.006l4.5 2.706a1 1 0 001.056 0l4.5-2.706a1 1 0 00.476-1.006L14.95 8.05l2.644-1.228a1 1 0 000-1.84l-7-3zM10 4.08l5.106 2.19L10 8.49 4.894 6.27 10 4.08z" />
 						</svg>
 					</div>
-					<div className="min-w-0">
-						<div className="truncate text-sm font-semibold tracking-tight text-[var(--text-primary)]">{getAppName()}</div>
+					<div className="min-w-0 flex-1">
+						<div className="truncate text-sm font-semibold  text-[var(--text-primary)]">{getAppName()}</div>
 						<p className="mt-0.5 truncate text-xs leading-none text-[var(--text-muted)]">{getPublicLabel()}</p>
 					</div>
+					<IconButton label={t("common.close")} onClick={() => setMobileOpen(false)} className="shrink-0 lg:hidden">
+						<X size={18} aria-hidden />
+					</IconButton>
 				</div>
 				<label className="mt-3 block">
 					<span className="sr-only">{t("nav.filter") === "nav.filter" ? "Filter menu" : t("nav.filter")}</span>
@@ -241,7 +258,7 @@ export function AppSidebar({
 						<button
 							type="button"
 							onClick={() => setOpenGroups((prev) => ({ ...prev, system: !open }))}
-							className="flex min-h-9 w-full items-center gap-1.5 rounded-md px-2.5 py-1.5 text-left text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)] transition hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-secondary)]"
+							className="flex min-h-9 w-full items-center gap-1.5 rounded-md px-2.5 py-1.5 text-left text-xs font-semibold uppercase  text-[var(--text-muted)] transition hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-secondary)]"
 							aria-expanded={open}
 						>
 							<Chevron open={open} />
@@ -255,7 +272,7 @@ export function AppSidebar({
 
 				{filteredQuick.length > 0 && (
 					<div className="mb-1 mt-2">
-						<div className="px-2.5 pb-1 pt-1 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+						<div className="px-2.5 pb-1 pt-1 text-xs font-semibold uppercase  text-[var(--text-muted)]">
 							{t("nav.quickservice")}
 						</div>
 						<div className="space-y-0.5">
@@ -286,9 +303,9 @@ export function AppSidebar({
 				) : null}
 			</div>
 
-			<div className="space-y-2 border-t border-[var(--sidebar-border)] bg-[color-mix(in_srgb,var(--surface)_55%,transparent)] px-3 py-3">
+			<div className="space-y-1 border-t border-[var(--sidebar-border)] px-3 py-3">
 				{/* Account row: full-width username so "admin" / long names stay readable */}
-				<div className="flex min-w-0 items-center gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-2.5 py-2 shadow-[var(--shadow-sm)]">
+				<div className="flex min-w-0 items-center gap-2 px-2.5 py-2">
 					<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--accent-bg)] text-xs font-semibold uppercase text-[var(--accent)]">
 						{iconInitial}
 					</div>
@@ -299,7 +316,7 @@ export function AppSidebar({
 					</div>
 				</div>
 				{/* Controls on their own row so they never crush the username */}
-				<div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] px-1.5 py-1">
+				<div className="px-1.5 py-1">
 					<SidebarControls />
 				</div>
 				<Link
@@ -330,16 +347,21 @@ export function AppSidebar({
 
 	return (
 		<>
+			<div data-mobile-app-header className="fixed inset-x-0 top-0 z-30 flex h-16 min-w-0 items-center gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-4 lg:hidden">
 			<button
 				type="button"
 				onClick={() => setMobileOpen(true)}
-				className="fixed left-4 top-4 z-50 rounded-xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_94%,transparent)] p-2.5 text-[var(--text-secondary)] shadow-[var(--shadow-md)] backdrop-blur transition hover:bg-[var(--surface-elevated)] lg:hidden"
+				className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-[var(--text-secondary)] transition hover:bg-[var(--surface-elevated)]"
 				aria-label={t("nav.openMenu")}
+				aria-expanded={mobileOpen}
+				aria-controls="mobile-app-navigation"
 			>
 				<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
 					<path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
 				</svg>
 			</button>
+				<span className="min-w-0 truncate text-sm font-semibold text-[var(--text-primary)]">{getAppName()}</span>
+			</div>
 
 			{mobileOpen && (
 				<div
@@ -349,6 +371,13 @@ export function AppSidebar({
 			)}
 
 			<aside
+				id="mobile-app-navigation"
+				data-app-sidebar
+				ref={mobileDialogRef}
+				role={mobileOpen ? "dialog" : undefined}
+				aria-modal={mobileOpen ? true : undefined}
+				aria-label={t("nav.openMenu")}
+				tabIndex={-1}
 				inert={!mobileOpen}
 				className={`fixed inset-y-0 left-0 z-50 w-[min(17.5rem,88vw)] transform border-r border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] shadow-[var(--shadow-lg)] transition-transform duration-200 lg:hidden ${
 					mobileOpen ? "translate-x-0" : "-translate-x-full"
@@ -359,7 +388,7 @@ export function AppSidebar({
 
 			{/* Desktop spacer + fixed rail */}
 			<div className="hidden w-[17.5rem] shrink-0 bg-[var(--sidebar-bg)] lg:block" aria-hidden="true" />
-			<aside className="hidden h-screen w-[17.5rem] shrink-0 border-r border-[var(--sidebar-border)] bg-[color-mix(in_srgb,var(--sidebar-bg)_96%,transparent)] shadow-[12px_0_40px_rgba(0,0,0,0.08)] backdrop-blur-xl lg:fixed lg:inset-y-0 lg:left-0 lg:z-40 lg:flex light:shadow-[8px_0_28px_rgba(99,102,241,0.05)]">
+			<aside data-app-sidebar className="hidden h-dvh w-[17.5rem] shrink-0 border-r border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] lg:fixed lg:inset-y-0 lg:left-0 lg:z-40 lg:flex">
 				{nav}
 			</aside>
 

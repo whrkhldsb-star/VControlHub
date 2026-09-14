@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * TR-032 E02: /api/ai/ops/logs/[id]/execute — execute a recommended action.
  *
@@ -35,14 +36,14 @@ export async function POST(
 			rateLimit: GENERAL_WRITE_LIMIT,
 			bodySchema: executeRecommendationSchema,
 			errorStatus: 500,
-			errorMessage: "Failed to execute recommendation",
+			errorMessage: apiCopy("apiCopy.failed.to.execute.recommendation.b113d006"),
 		},
 		async ({ session, body }) => {
 			if (!session) {
-				throw new ForbiddenError("Not authenticated or session expired");
+				throw new ForbiddenError(apiCopy("apiCopy.not.authenticated.or.session.expired.b1714d99"));
 			}
 			if (body.forceAutonomous && !sessionHasPermission(session, "ai:ops:autonomous")) {
-				throw new ForbiddenError("forceAutonomous Requires ai:ops:autonomous Permission");
+				throw new ForbiddenError(apiCopy("apiCopy.forceautonomous.requires.ai.ops.autonomous.permission.9466ebc3"));
 			}
 			const result = await executeRecommendation({
 				logId: id,

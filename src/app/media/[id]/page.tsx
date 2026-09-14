@@ -5,7 +5,7 @@ import { ArrowLeft, Download, FolderOpen, ImageIcon, Music2, Star, Tag, Video } 
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { getMediaItem, listMediaItems } from "@/lib/media/service";
-import { PageShell, PermissionDenied } from "@/components/page-shell";
+import { PageShell, PageHeader, PermissionDenied } from "@/components/page-shell";
 import { MediaPreviewClient } from "@/app/files/preview/media-preview-client";
 import {
   buildSearchHref,
@@ -127,40 +127,17 @@ export default async function MediaPlayerPage({
   return (
     <PageShell maxW="max-w-7xl">
       <div className="flex flex-col">
-        <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex min-w-0 flex-wrap items-center gap-3">
-            <Link
-              href={returnHref}
-              className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm text-[var(--text-secondary)] hover:border-[var(--color-action-border)]/50 hover:bg-[var(--surface-subtle)] light:hover:bg-[var(--surface)]"
-            >
-              <ArrowLeft size={16} /> {t("mediaPage.player.backToLibrary", locale)}
-            </Link>
-            <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--color-action)]">
-                {t("mediaPage.player.eyebrow", locale)}
-              </p>
-              <h1 className="truncate text-xl font-semibold text-[var(--text-primary)]">
-                {item.name}
-              </h1>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 text-sm">
-            <a
-              href={downloadHref}
-              data-action-button
-              data-variant="outline"
-              className="inline-flex items-center gap-1.5 !rounded-full px-4 py-2"
-            >
-              <Download size={16} /> {t("mediaPage.player.download", locale)}
-            </a>
-            <Link
-              href={sourceHref}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-4 py-2 text-[var(--text-secondary)] hover:bg-[var(--surface-subtle)] light:hover:bg-[var(--surface)]"
-            >
-              <FolderOpen size={16} /> {t("mediaPage.player.openSource", locale)}
-            </Link>
-          </div>
-        </header>
+        <PageHeader eyebrow={t("mediaPage.player.eyebrow", locale)} title={item.name}>
+          <Link href={returnHref} data-action-button data-variant="secondary">
+            <ArrowLeft size={16} aria-hidden /> {t("mediaPage.player.backToLibrary", locale)}
+          </Link>
+          <a href={downloadHref} data-action-button data-variant="outline">
+            <Download size={16} aria-hidden /> {t("mediaPage.player.download", locale)}
+          </a>
+          <Link href={sourceHref} data-action-button data-variant="secondary">
+            <FolderOpen size={16} aria-hidden /> {t("mediaPage.player.openSource", locale)}
+          </Link>
+        </PageHeader>
 
         <section className="grid flex-1 gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
           <div className="space-y-3">
@@ -248,7 +225,7 @@ export default async function MediaPlayerPage({
 
             <dl className="space-y-3 text-sm">
               <div>
-                <dt className="text-xs uppercase tracking-wide text-[var(--text-muted)]">
+                <dt className="text-xs uppercase  text-[var(--text-muted)]">
                   {t("mediaPage.player.sizeLabel", locale)}
                 </dt>
                 <dd className="mt-1 text-[var(--text-secondary)]">
@@ -256,7 +233,7 @@ export default async function MediaPlayerPage({
                 </dd>
               </div>
               <div>
-                <dt className="text-xs uppercase tracking-wide text-[var(--text-muted)]">
+                <dt className="text-xs uppercase  text-[var(--text-muted)]">
                   {t("mediaPage.player.storageLabel", locale)}
                 </dt>
                 <dd className="mt-1 text-[var(--text-secondary)]">
@@ -266,7 +243,7 @@ export default async function MediaPlayerPage({
                 </dd>
               </div>
               <div>
-                <dt className="text-xs uppercase tracking-wide text-[var(--text-muted)]">
+                <dt className="text-xs uppercase  text-[var(--text-muted)]">
                   {t("mediaPage.player.pathLabel", locale)}
                 </dt>
                 <dd className="mt-1 break-all rounded-2xl bg-[var(--input-bg)] p-3 font-mono text-xs text-[var(--text-secondary)]">
@@ -277,7 +254,7 @@ export default async function MediaPlayerPage({
 
             {item.tags.length > 0 ? (
               <div className="mt-5">
-                <div className="mb-2 inline-flex items-center gap-1 text-xs uppercase tracking-wide text-[var(--text-muted)]">
+                <div className="mb-2 inline-flex items-center gap-1 text-xs uppercase  text-[var(--text-muted)]">
                   <Tag size={12} /> {t("mediaPage.player.tagsLabel", locale)}
                 </div>
                 <div className="flex flex-wrap gap-1.5">

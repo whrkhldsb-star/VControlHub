@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { useI18n } from "@/lib/i18n/use-locale";
 import { type MoveFileActionState, moveFileAction } from "./move-file-action";
@@ -8,12 +9,15 @@ import { type MoveFileActionState, moveFileAction } from "./move-file-action";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
 import { ActionButton } from "@/components/action-button";
+import { FolderDestinationPicker } from "./folder-destination-picker";
+import { ChevronRight } from "@/components/icons";
 const initialState: MoveFileActionState = {};
 
 export function MoveInlineForm({
   fileEntryId,
   name,
   relativePath,
+  storageNodeId,
   variant = "icon",
   onRefresh,
   onNotify,
@@ -21,11 +25,13 @@ export function MoveInlineForm({
   fileEntryId: string;
   name: string;
   relativePath: string;
+  storageNodeId?: string;
   variant?: "icon" | "menu";
   onRefresh?: () => void;
   onNotify?: (type: "success" | "error" | "info", message: string) => void;
 }) {
   const { t } = useI18n();
+  const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [targetDir, setTargetDir] = useState("");
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -67,11 +73,11 @@ export function MoveInlineForm({
       submittedRef.current = false;
       if (state.error) return;
       setEditing(false);
-      onRefreshRef.current?.();
-      window.setTimeout(() => window.location.reload(), 250);
+      if (onRefreshRef.current) onRefreshRef.current();
+      else router.refresh();
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [pending, state.error]);
+  }, [pending, state.error, router]);
 
   useEffect(() => {
     if (!state.error) return;
@@ -91,19 +97,7 @@ export function MoveInlineForm({
             : "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)] transition hover:bg-[var(--success-bg)]"
         }
       >
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M5 12h14" />
-          <path d="m12 5 7 7-7 7" />
-        </svg>
+        <ChevronRight size={14} />
         {variant === "menu" ? <span>{t("common.move")}</span> : null}
       </button>
     );
@@ -113,7 +107,7 @@ export function MoveInlineForm({
   const currentDir =
     lastSlashIndex >= 0 ? relativePath.substring(0, lastSlashIndex) : "";
   const previewPath = targetDir.trim()
-    ? `${targetDir.trim()}/${name}`
+    ? [targetDir.trim() === "." ? "" : targetDir.trim(), name].filter(Boolean).join("/")
     : relativePath;
 
   return (
@@ -129,6 +123,7 @@ export function MoveInlineForm({
           ref={inputRef}
           name="targetDir"
           value={targetDir}
+          disabled={pending}
           onChange={(event) => setTargetDir(event.currentTarget.value)}
           required
           minLength={1}
@@ -136,17 +131,18 @@ export function MoveInlineForm({
           className={cn(UI_INPUT, "rounded-2xl py-1.5 text-xs")}
         />
       </label>
+      {storageNodeId ? <FolderDestinationPicker nodeId={storageNodeId} disabled={pending} onSelect={setTargetDir} /> : null}
       <span className="text-xs text-[var(--text-secondary)]">
         → /{previewPath}
       </span>
       <ActionButton variant="outline"
         type="submit"
-        disabled={pending || !targetDir.trim() || targetDir.trim() === currentDir} className="!px-3 !py-1.5 !text-xs disabled:cursor-not-allowed disabled:opacity-50">
+        disabled={pending || !targetDir.trim() || targetDir.trim() === currentDir} className="!px-3 !py-1.5 !text-sm disabled:cursor-not-allowed disabled:opacity-50">
         {pending ? t("common.executing") : t("common.confirm")}
       </ActionButton>
       <ActionButton variant="secondary"
         onClick={handleCancel}
-        disabled={pending} className="!px-3 !py-1.5 !text-xs disabled:cursor-not-allowed disabled:opacity-50">
+        disabled={pending} className="!px-3 !py-1.5 !text-sm disabled:cursor-not-allowed disabled:opacity-50">
         {t("common.cancel")}
       </ActionButton>
     </form>

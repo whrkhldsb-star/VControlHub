@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * TR-043: VPS backup schedule tick worker.
  *
@@ -52,7 +53,7 @@ export async function runVpsBackupScheduleTickOnce(): Promise<number> {
 			},
 			data: {
 				status: "FAILED",
-				errorMessage: "Stale VPS backup schedule tick lease expired",
+				errorMessage: apiCopy("apiCopy.stale.vps.backup.schedule.tick.lease.expired.8a209563"),
 			},
 		});
 

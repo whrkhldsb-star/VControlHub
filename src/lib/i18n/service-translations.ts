@@ -10,20 +10,32 @@ import { zh as serversFileProxyApiZh, en as serversFileProxyApiEn } from "./dict
 import { zh as serversReloadApiZh, en as serversReloadApiEn } from "./dictionaries/servers-reload-api";
 import { zh as shareTokenApiZh, en as shareTokenApiEn } from "./dictionaries/share-token-api";
 import { zh as vpsBackupApiZh, en as vpsBackupApiEn } from "./dictionaries/vps-backup-api";
+import { zh as apiCopyZh, en as apiCopyEn } from "./dictionaries/api-copy";
+import { zh as filesZh, en as filesEn } from "./dictionaries/files-page";
+import { zh as storageZh, en as storageEn } from "./dictionaries/storage-page";
 import { interpolate, type Locale } from "./core";
 
+const fileActionCopy = (files: Record<string, string>, storage: Record<string, string>) => Object.fromEntries([
+  ...Object.entries(files).filter(([key]) => key.startsWith("filesPage.move.")),
+  ...Object.entries(storage).filter(([key]) => key.startsWith("storagePage.action.")),
+]);
+
 const zh: Record<string, string> = {
+  ...fileActionCopy(filesZh, storageZh),
 	...aiChatApiZh, ...apiCommonZh, ...backendServicesZh, ...downloadsApiZh,
 	...downloadsPageZh, ...openApiSpecZh, ...serversDetectOsApiZh,
 	...serversFileProxyApiZh, ...serversReloadApiZh, ...shareTokenApiZh,
 	...vpsBackupApiZh,
+	...apiCopyZh,
 };
 
 const en: Record<string, string> = {
+  ...fileActionCopy(filesEn, storageEn),
 	...aiChatApiEn, ...apiCommonEn, ...backendServicesEn, ...downloadsApiEn,
 	...downloadsPageEn, ...openApiSpecEn, ...serversDetectOsApiEn,
 	...serversFileProxyApiEn, ...serversReloadApiEn, ...shareTokenApiEn,
 	...vpsBackupApiEn,
+	...apiCopyEn,
 };
 
 export const serviceTranslations: Record<Locale, Record<string, string>> = { zh, en };

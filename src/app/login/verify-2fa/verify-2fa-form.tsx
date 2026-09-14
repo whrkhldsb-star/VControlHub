@@ -4,6 +4,7 @@ import { useState, useRef, type KeyboardEvent, type ClipboardEvent } from "react
 import { useRouter } from "next/navigation";
 import { StateBox } from "@/components/ui-primitives";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { ApiError } from "@/lib/http/api-client-error";
 import { useI18n } from "@/lib/i18n/use-locale";
 
 type Verify2faFormProps = {
@@ -87,8 +88,8 @@ if (data.success) {
 				setDigits(Array(6).fill(""));
 				inputRefs.current[0]?.focus();
 			}
-		} catch {
-			setErrorMsg(t("login.verify2faNetworkError"));
+		} catch (error) {
+			setErrorMsg(error instanceof ApiError ? error.message : t("login.verify2faNetworkError"));
 		} finally {
 			setSubmitting(false);
 		}
@@ -157,7 +158,7 @@ if (data.success) {
 						onChange={(event) => setRecoveryCode(event.target.value.toUpperCase())}
 						placeholder="ABCD-EFGH-JKLM"
 						disabled={submitting}
-						className="h-12 w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 text-center font-mono text-sm font-semibold tracking-wide text-[var(--text-primary)] outline-none transition-[box-shadow,border-color] focus:border-[var(--color-action-border)] focus:bg-[var(--input-bg)] focus:ring-[var(--color-action-ring)] disabled:opacity-50"
+						className="h-12 w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 text-center font-mono text-sm font-semibold  text-[var(--text-primary)] outline-none transition-[box-shadow,border-color] focus:border-[var(--color-action-border)] focus:bg-[var(--input-bg)] focus:ring-[var(--color-action-ring)] disabled:opacity-50"
 					/>
 					<p className="text-xs text-[var(--text-muted)]">{t("login.verify2faRecoveryDescription")}</p>
 				</div>

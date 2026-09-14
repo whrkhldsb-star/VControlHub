@@ -465,7 +465,7 @@ export async function listStorageNodes(session?: TeamSession | null) {
     take: 500,
     include: {
       ...STORAGE_NODE_SERVER_INCLUDE,
-      fileEntries: { where: { isDeleted: false }, select: { id: true } },
+      _count: { select: { fileEntries: { where: { isDeleted: false } } } },
     },
   });
 
@@ -487,7 +487,7 @@ export async function listStorageNodes(session?: TeamSession | null) {
     updatedAt: node.updatedAt?.toISOString?.() ?? node.updatedAt,
     ...serializeHealthFields(node),
     server: node.server,
-    fileCount: node.fileEntries.length,
+    fileCount: node._count.fileEntries,
     connectionSummary: buildStorageConnectionSummary({
       driver: node.driver,
       basePath: node.basePath,

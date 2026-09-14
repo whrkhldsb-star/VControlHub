@@ -118,22 +118,22 @@ export function CostPageClient({
 				<div className="mb-4 flex flex-wrap items-center justify-between gap-3">
 					<h2 className="text-lg font-semibold text-[var(--text-primary)]">{t("costPage.summary.title")}</h2>
 					<div className="flex flex-wrap gap-2">
-						<label className={labelClass}>
+						<label className={`${labelClass} flex min-w-0 flex-col gap-1.5`}>
 							{t("costPage.actions.filterMonth")}
 							<input
 								type="month"
 								value={month}
 								onChange={(e) => void onChangeMonth(e.target.value)}
-								className={`${inputClass} ml-2 w-40`}
+								className={`${inputClass} w-40`}
 								aria-label={t("costPage.actions.filterMonth")}
 							/>
 						</label>
-						<label className={labelClass}>
+						<label className={`${labelClass} flex min-w-0 flex-col gap-1.5`}>
 							{t("costPage.summary.currency")}
 							<select
 								value={currency}
 								onChange={(e) => void onChangeCurrency(e.target.value as CostCurrency)}
-								className={`${inputClass} ml-2 w-32`}
+								className={`${inputClass} w-32`}
 								aria-label={t("costPage.summary.currency")}
 							>
 								{availableCurrencies.map((c) => (
@@ -146,7 +146,7 @@ export function CostPageClient({
 				{summary ? (
 					<div className="grid grid-cols-1 gap-4 md:grid-cols-3">
 						<div>
-							<div className="text-xs uppercase tracking-wide text-[var(--text-primary)]/70">{t("costPage.summary.total")}</div>
+							<div className="text-xs uppercase  text-[var(--text-primary)]/70">{t("costPage.summary.total")}</div>
 							<div className="mt-1 text-3xl font-semibold text-[var(--text-primary)]">{formatAmount(summary.totalAmount, summary.currency, localeTag)}</div>
 							<div className="mt-1 text-xs text-[var(--text-primary)]/70">
 								{t("costPage.summary.range", { start: summary.rangeStart, end: summary.rangeEnd })}
@@ -162,11 +162,11 @@ export function CostPageClient({
 							) : null}
 						</div>
 						<div>
-							<div className="text-xs uppercase tracking-wide text-[var(--text-primary)]/70">{t("costPage.summary.entryCount")}</div>
+							<div className="text-xs uppercase  text-[var(--text-primary)]/70">{t("costPage.summary.entryCount")}</div>
 							<div className="mt-1 text-3xl font-semibold text-[var(--text-primary)]">{summary.entryCount}</div>
 						</div>
 						<div className="space-y-1">
-							<div className="text-xs uppercase tracking-wide text-[var(--text-primary)]/70">{t("costPage.summary.title")}</div>
+							<div className="text-xs uppercase  text-[var(--text-primary)]/70">{t("costPage.summary.title")}</div>
 							{CATEGORIES.map((c) => (
 								<div key={c} className="flex justify-between text-sm text-[var(--text-primary)]">
 									<span>{t(`costPage.category.${c}`)}</span>
@@ -241,7 +241,7 @@ export function CostPageClient({
 					<div className="overflow-x-auto">
 						<table className="w-full text-sm text-[var(--text-primary)]">
 							<thead>
-								<tr className="border-b border-[var(--border)] bg-[var(--surface-elevated)] text-left text-xs uppercase tracking-wide text-[var(--text-muted)]">
+								<tr className="border-b border-[var(--border)] bg-[var(--surface-elevated)] text-left text-xs uppercase  text-[var(--text-muted)]">
 									<th className="px-3 py-2">{t("costPage.list.column.date")}</th>
 									<th className="px-3 py-2">{t("costPage.list.column.category")}</th>
 									<th className="px-3 py-2">{t("costPage.list.column.provider")}</th>

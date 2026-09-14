@@ -89,7 +89,7 @@ export const config = {
 		get url(): string { return readString("DATABASE_URL"); },
 		get poolSize(): number { return readInt("DB_POOL_SIZE", 10); },
 		get poolIdleTimeoutMs(): number { return readInt("DB_POOL_IDLE_TIMEOUT_MS", 30_000); },
-		/** Prisma engine-level connection limit (distinct from pg-adapter pool_max). */
+		/** Upper bound on the pg pool size, including legacy connection_limit URL overrides. */
 		get connectionLimit(): number { return readInt("DB_CONNECTION_LIMIT", 10); },
 	},
 
@@ -266,20 +266,17 @@ export const config = {
 	 * Durable job concurrency (TR-001 T13b).
 	 *
 	 * All three caps default to 0 (= unlimited) so existing deployments
-	 * keep working without any env change. Setting a positive value turns
-	 * on a soft guard inside `claimNextJob`: when the in-flight count is
-	 * already at the cap, the function returns `null` and the candidate
-	 * job stays in PENDING until a slot frees. This is a soft guard — the
-	 * check and the claim happen in the same transaction, but two workers
-	 * can still momentarily race past the cap by one job each; the cost of
-	 * a few extra in-flight dispatches is dwarfed by the simplicity of not
-	 * needing explicit row-level locks.
+	 * keep working without any env change. Enabled caps serialize budget checks
+	 * and claims with a PostgreSQL transaction advisory lock. Saturated owners
+	 * are filtered before candidate selection. Waiting work gains one priority
+	 * point per aging interval; equal scores favor less-active teams/owners.
 	 */
 	job: {
 		get maxConcurrentGlobal(): number { return readInt("JOB_MAX_CONCURRENT_GLOBAL", 0); },
 		get maxConcurrentPerUser(): number { return readInt("JOB_MAX_CONCURRENT_PER_USER", 0); },
 		get maxConcurrentPerNode(): number { return readInt("JOB_MAX_CONCURRENT_PER_NODE", 0); },
 		get defaultMaxAttempts(): number { return readInt("JOB_DEFAULT_MAX_ATTEMPTS", 3); },
+		get priorityAgingSeconds(): number { return readInt("JOB_PRIORITY_AGING_SECONDS", 60); },
 	},
 };
 

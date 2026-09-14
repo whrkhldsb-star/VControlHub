@@ -29,7 +29,7 @@ describe("LoginPage", () => {
 	it("uses light-theme readable surfaces while preserving the dark default", async () => {
 		const { container } = render(await LoginPage({ searchParams: Promise.resolve({}) }));
 
-		const main = container.querySelector("main");
+		const main = container.firstElementChild;
 		expect(main).toHaveClass("relative");
 		expect(main).toHaveClass("text-[var(--text-primary)]");
 		// R2: 冗余 light: 修饰符已删, light 主题可读性由 globals.css Q 层接管

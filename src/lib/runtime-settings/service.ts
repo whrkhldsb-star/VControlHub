@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { prisma } from "@/lib/db";
 import { ValidationError } from "@/lib/errors";
 
@@ -144,11 +145,11 @@ export function normalizeRuntimeSettingValue(key: RuntimeSettingKey, value: stri
   const definition = RUNTIME_SETTING_DEFINITIONS[key];
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) {
-    throw new ValidationError(`${definition.label} must be a number`);
+    throw new ValidationError(apiCopy("apiCopy.must.be.a.number.ab7c6a3d", { v0: String(definition.label) }));
   }
   const integer = Math.trunc(parsed);
   if (integer < definition.min || integer > definition.max) {
-    throw new ValidationError(`${definition.label} must be between ${definition.min} and ${definition.max} ${definition.unit}`);
+    throw new ValidationError(apiCopy("apiCopy.must.be.between.and.a3120c5a", { v0: String(definition.label), v1: String(definition.min), v2: String(definition.max), v3: String(definition.unit) }));
   }
   return String(integer);
 }

@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { execFile } from "node:child_process";
@@ -46,19 +47,19 @@ export async function POST(request: NextRequest) {
     {
       permission: "storage:write",
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "Extraction failed",
+      errorMessage: apiCopy("apiCopy.extraction.failed.ed874a99"),
       bodySchema: postSchema,
     },
     async ({ session, body }) => {
       if (!session)
-        throw new AuthError("Unauthorized");
+        throw new AuthError(apiCopy("apiCopy.unauthorized.d089c8a9"));
 
       const name = body.name ?? "archive";
       const nodeId = body.storageNodeId ?? body.nodeId ?? body.serverId;
       const relativePath = (body.remotePath ?? body.relativePath ?? "").replace(/^\/+/, "");
 
       if (!nodeId || !relativePath) {
-        throw new ValidationError("Missing required parameters");
+        throw new ValidationError(apiCopy("apiCopy.missing.required.parameters.656b8ae6"));
       }
 
       const node = await prisma.storageNode.findFirst({
@@ -66,11 +67,11 @@ export async function POST(request: NextRequest) {
         select: { id: true, name: true, driver: true, basePath: true },
       });
       if (!node) {
-        throw new NotFoundError("Storage node not found");
+        throw new NotFoundError(apiCopy("apiCopy.storage.node.not.found.3b3ec488"));
       }
       if (node.driver !== "LOCAL") {
         return NextResponse.json(
-          { error: "Only local storage node archive extraction is supported" },
+          { error: apiCopy("apiCopy.only.local.storage.node.archive.extraction.is.supported.05e9679f") },
           { status: 400 },
         );
       }
@@ -124,7 +125,7 @@ export async function POST(request: NextRequest) {
       try {
         await fs.access(fullPath);
       } catch {
-        throw new NotFoundError("File not found");
+        throw new NotFoundError(apiCopy("apiCopy.file.not.found.3521021a"));
       }
 
       // Prefer remote/relative path basename for format detection; client `name` is fallback only.
@@ -160,7 +161,7 @@ export async function POST(request: NextRequest) {
           });
           if (existingOutput) {
             return NextResponse.json(
-              { error: `Target file /${outputRelativePath} already exists` },
+              { error: apiCopy("apiCopy.target.file.already.exists.0c91e640", { v0: String(outputRelativePath) }) },
               { status: 409 },
             );
           }
@@ -168,7 +169,7 @@ export async function POST(request: NextRequest) {
           try {
             await fs.access(outputPath.path);
             return NextResponse.json(
-              { error: `Target file /${outputRelativePath} already exists` },
+              { error: apiCopy("apiCopy.target.file.already.exists.0c91e640", { v0: String(outputRelativePath) }) },
               { status: 409 },
             );
           } catch {
@@ -185,7 +186,7 @@ export async function POST(request: NextRequest) {
             outputStat = await fs.stat(outputPath.path);
           } catch {
             return NextResponse.json(
-              { error: "Extraction command completed but output file not found" },
+              { error: apiCopy("apiCopy.extraction.command.completed.but.output.file.not.found.29140104") },
               { status: 500 },
             );
           }
@@ -211,7 +212,7 @@ export async function POST(request: NextRequest) {
           return NextResponse.json(
             {
               error:
-                "To avoid symlink/hardlink traversal risks, online extraction of zip/jar is not supported. Please extract in a trusted environment first",
+                apiCopy("apiCopy.to.avoid.symlink.hardlink.traversal.risks.online.extraction.of.z.283ea5fc"),
             },
             { status: 400 },
           );
@@ -222,7 +223,7 @@ export async function POST(request: NextRequest) {
           return NextResponse.json(
             {
               error:
-                "To avoid symlink/hardlink traversal risks, online extraction of tar/tgz is not supported. Please extract in a trusted environment first",
+                apiCopy("apiCopy.to.avoid.symlink.hardlink.traversal.risks.online.extraction.of.t.48a2913a"),
             },
             { status: 400 },
           );
@@ -230,7 +231,7 @@ export async function POST(request: NextRequest) {
           return NextResponse.json(
             {
               error:
-                "To avoid symlink/hardlink traversal risks, online extraction of tar is not supported. Please extract in a trusted environment first",
+                apiCopy("apiCopy.to.avoid.symlink.hardlink.traversal.risks.online.extraction.of.t.6dd7a102"),
             },
             { status: 400 },
           );
@@ -238,24 +239,24 @@ export async function POST(request: NextRequest) {
           return NextResponse.json(
             {
               error:
-                "To avoid symlink/hardlink traversal risks, online extraction of 7z/RAR is not supported. Please extract in a trusted environment first",
+                apiCopy("apiCopy.to.avoid.symlink.hardlink.traversal.risks.online.extraction.of.7.f94ae3bb"),
             },
             { status: 400 },
           );
         } else {
           return NextResponse.json(
-            { error: `Unsupported archive format: ${ext}` },
+            { error: apiCopy("apiCopy.unsupported.archive.format.d8dab752", { v0: String(ext) }) },
             { status: 400 },
           );
         }
 
         return NextResponse.json({
-          message: `Extracted ${name} to the current directory, please refresh the file list to view`,
+          message: apiCopy("apiCopy.extracted.to.the.current.directory.please.refresh.the.file.list..1d9a38e3", { v0: String(name) }),
         });
       } catch (err) {
         const message = getErrorMessage(err, "Extraction failed");
         return NextResponse.json(
-          { error: `Extraction failed: ${message}` },
+          { error: apiCopy("apiCopy.extraction.failed.262e39d0", { v0: String(message) }) },
           { status: 500 },
         );
       }

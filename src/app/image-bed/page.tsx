@@ -8,5 +8,6 @@ export default async function ImageBedPage() {
 	const session = await requirePagePermission("image:read");
 	const canWrite = sessionHasPermission(session, "image:write");
 	const canDelete = sessionHasPermission(session, "storage:delete");
-	return <ImageBedPageClient canWrite={canWrite} canDelete={canDelete} />;
+	const canListAll = sessionHasPermission(session, "team:manage") || sessionHasPermission(session, "media:manage");
+	return <ImageBedPageClient canWrite={canWrite} canDelete={canDelete} canListAll={canListAll} />;
 }

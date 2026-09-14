@@ -6,6 +6,8 @@
  */
 
 export const zh: Record<string, string> = {
+	"common.loading": "加载中...",
+	"common.refresh": "刷新",
 	"common.colon": "：",
 	"common.noPermission": "缺少权限",
 	"common.insufficientPermissions": "权限不足",
@@ -81,6 +83,10 @@ export const zh: Record<string, string> = {
 	"common.pagination.range": "显示第 {start}-{end} 项，共 {total} 项",
 	"common.pagination.previous": "上一页",
 	"common.pagination.next": "下一页",
+	"common.pagination.label": "分页",
+	"common.pagination.pageSize": "每页条数",
+	"common.pagination.page": "页码",
+	"common.pagination.go": "跳转到指定页",
 
 	"common.unsaved.title": "放弃未保存的更改？",
   "common.unsaved.description": "当前内容尚未保存，离开后这些更改将丢失。",
@@ -103,6 +109,8 @@ export const zh: Record<string, string> = {
 };
 
 export const en: Record<string, string> = {
+	"common.loading": "Loading...",
+	"common.refresh": "Refresh",
 	"common.colon": ": ",
 	"common.noPermission": "Missing permission",
 	"common.backupType": "Backup type",
@@ -178,6 +186,10 @@ export const en: Record<string, string> = {
 	"common.pagination.range": "Showing {start}-{end} of {total}",
 	"common.pagination.previous": "Previous",
 	"common.pagination.next": "Next",
+	"common.pagination.label": "Pagination",
+	"common.pagination.pageSize": "Items per page",
+	"common.pagination.page": "Page number",
+	"common.pagination.go": "Go to page",
 
 	"common.unsaved.title": "Discard unsaved changes?",
   "common.unsaved.description":

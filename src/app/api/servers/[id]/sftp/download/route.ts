@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * GET /api/servers/[id]/sftp/download?path=... — download a file from remote server
  *
@@ -25,7 +26,7 @@ export async function GET(
     {
       permission: "server:ssh",
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "SFTP download failed",
+      errorMessage: apiCopy("apiCopy.sftp.download.failed.bec82f58"),
       querySchema: downloadQuerySchema,
     },
     async ({ query, session }) => {

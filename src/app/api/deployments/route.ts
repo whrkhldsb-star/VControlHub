@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -32,7 +33,7 @@ const createDeploymentSchema = z.object({
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { permission: "deploy:read", errorMessage: "Failed to fetch deployment list" },
+    { permission: "deploy:read", errorMessage: apiCopy("apiCopy.failed.to.fetch.deployment.list.fa66fa85") },
     async ({ session }) => {
       const [deployments, templates] = await Promise.all([
         listDeploymentRuns(session),
@@ -92,7 +93,7 @@ export async function POST(request: Request) {
   const options = {
     permission: "deploy:run" as const,
     rateLimit: GENERAL_WRITE_LIMIT,
-    errorMessage: "Operation failed",
+    errorMessage: apiCopy("apiCopy.operation.failed.4e1af7c7"),
     ...(isFormSubmission ? {} : { bodySchema: createDeploymentSchema }),
   };
   return withApiRoute(
@@ -101,7 +102,7 @@ export async function POST(request: Request) {
     async ({ session, body }) => {
       if (!session)
         return NextResponse.json(
-          { error: "Not authenticated or session expired" },
+          { error: apiCopy("apiCopy.not.authenticated.or.session.expired.b1714d99") },
           { status: 401 },
         );
       try {

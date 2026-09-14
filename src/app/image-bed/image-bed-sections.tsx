@@ -1,5 +1,8 @@
 "use client";
 
+import { X } from "@/components/icons";
+import { StatCard, StatGrid } from "@/components/page-shell";
+
 import type {
   ImageStats,
   UploadProgress,
@@ -32,12 +35,12 @@ export function ImageBedStatsPanel({
           type="button"
           onClick={onClose}
           aria-label={t("common.close")}
-          className="text-sm text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+          className="flex h-11 w-11 items-center justify-center rounded-lg text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-secondary)]"
         >
-          ✕
+          <X size={16} aria-hidden />
         </button>
       </div>
-      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <StatGrid>
         {[
           [t("imageBedPage.stats.totalCount"), stats.totalCount],
           [t("imageBedPage.stats.totalSize"), formatBytes(stats.totalSizeMB * 1024 * 1024)],
@@ -47,39 +50,31 @@ export function ImageBedStatsPanel({
             stats.uploadTrend.reduce((s, item) => s + item.count, 0),
           ],
         ].map(([label, value]) => (
-          <div
-            key={String(label)}
-            className="rounded-lg bg-[var(--surface-subtle)] p-3"
-          >
-            <div className="text-xs text-[var(--text-muted)]">{label}</div>
-            <div className="text-xl font-bold text-[var(--text-primary)]">
-              {value}
-            </div>
-          </div>
+          <StatCard key={String(label)} label={String(label)} value={value ?? "—"} />
         ))}
-      </div>
+      </StatGrid>
       {stats.uploadTrend.length > 0 && (
         <div className="mb-3">
           <div className="mb-1 text-xs text-[var(--text-secondary)]">
             {t("imageBedPage.stats.trend7d")}
           </div>
-          <div className="flex h-16 items-end gap-1">
+          <div className="flex min-h-28 items-end gap-1">
             {stats.uploadTrend.map((trend) => (
               <div
                 key={trend.date}
                 className="flex flex-1 flex-col items-center gap-0.5"
                 title={t("imageBedPage.stats.imageCountTitle", { date: trend.date, count: trend.count })}
               >
-                <div className="text-[9px] text-[var(--text-muted)]">
+                <div className="text-xs tabular-nums text-[var(--text-muted)]">
                   {trend.count}
                 </div>
                 <div
                   className="w-full rounded-t bg-[var(--color-action)]/60"
                   style={{
-                    height: `${Math.max((trend.count / maxCount) * 100, 8)}%`,
+                    height: `${Math.max((trend.count / maxCount) * 64, 2)}px`,
                   }}
                 />
-                <div className="text-[8px] text-[var(--text-muted)]">
+                <div className="text-xs text-[var(--text-muted)]">
                   {trend.date.slice(5)}
                 </div>
               </div>

@@ -220,6 +220,8 @@ export async function listDirectChildren(
   limit: number = MAX_PROPFIND_CHILDREN,
 ): Promise<{ rows: DirectChildRow[]; truncated: boolean }> {
   const prefix = parentPath ? `${parentPath}/` : "";
+  // length(text) supplies an integer substring offset and counts Unicode like
+  // PostgreSQL, avoiding both its regex overload and JavaScript UTF-16 offsets.
   const rows = await prisma.$queryRaw<DirectChildRow[]>`
     SELECT id, name, "relativePath", "entryType"::text AS "entryType",
            size, "mimeType", "updatedAt"
@@ -227,8 +229,8 @@ export async function listDirectChildren(
     WHERE "storageNodeId" = ${storageNodeId}
       AND "isDeleted" = false
       AND "relativePath" LIKE ${`${escapeLikePrefix(prefix)}%`} ESCAPE '\\'
-      AND length("relativePath") > ${prefix.length}
-      AND position('/' in substring("relativePath" from ${prefix.length + 1})) = 0
+      AND length("relativePath") > length(${prefix}::text)
+      AND position('/' in substring("relativePath" from (length(${prefix}::text) + 1))) = 0
     ORDER BY "entryType" ASC, name ASC, id ASC
     LIMIT ${limit + 1}
   `;

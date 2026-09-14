@@ -61,12 +61,60 @@ describe("useImageBedActions", () => {
 	});
 
 	afterEach(() => {
-		// `showToast` schedules an unguarded `setTimeout(..., 3000)` to clear the
-		// toast, so every test that surfaces one leaves a pending timer that fires
-		// against an unmounted hook and makes a *later* test's `result.current`
-		// read as null. Unmount and drain before moving on.
 		cleanup();
 		vi.clearAllTimers();
+		vi.useRealTimers();
+		vi.unstubAllGlobals();
+	});
+
+	describe("copy and feedback", () => {
+		it("keeps a replacement toast visible for its own duration and clears timers on unmount", () => {
+			vi.useFakeTimers();
+			const { args } = setup();
+			const { result, unmount } = renderHook(() => useImageBedActions(args as never));
+			act(() => { result.current.showToast("first"); });
+			act(() => { vi.advanceTimersByTime(2000); result.current.showToast("second"); });
+			act(() => { vi.advanceTimersByTime(1000); });
+			expect(result.current.toast?.message).toBe("second");
+			act(() => { vi.advanceTimersByTime(2000); });
+			expect(result.current.toast).toBeNull();
+			act(() => { result.current.showToast("third"); });
+			unmount();
+			expect(vi.getTimerCount()).toBe(0);
+		});
+
+		it("reports unavailable clipboard support without throwing", async () => {
+			vi.stubGlobal("navigator", { clipboard: undefined });
+			const { args } = setup();
+			const { result } = renderHook(() => useImageBedActions(args as never));
+			await act(async () => { await result.current.copyLink("/i/1"); });
+			expect(result.current.toast).toEqual({ message: "imageBed.toast.copyFailed", tone: "alert" });
+		});
+
+		it("escapes copied HTML so filenames cannot create attributes or elements", async () => {
+			const writeText = vi.fn().mockResolvedValue(undefined);
+			vi.stubGlobal("navigator", { clipboard: { writeText } });
+			const { args } = setup();
+			const { result } = renderHook(() => useImageBedActions(args as never));
+			const filename = '\" onload=\"alert(1)\"><script>bad</script>&.png';
+			await act(async () => { await result.current.copyHTML({ filename, publicUrl: "/i/1" } as never); });
+			const markup = document.createElement("div");
+			expect(writeText).toHaveBeenCalledTimes(1);
+			markup.innerHTML = writeText.mock.calls[0]![0];
+			expect(markup.children).toHaveLength(1);
+			expect(markup.firstElementChild?.tagName).toBe("IMG");
+			expect(markup.firstElementChild?.getAttributeNames().sort()).toEqual(["alt", "src"]);
+			expect(markup.firstElementChild?.getAttribute("alt")).toBe(filename);
+		});
+
+		it("escapes brackets and line breaks in copied Markdown labels", async () => {
+			const writeText = vi.fn().mockResolvedValue(undefined);
+			vi.stubGlobal("navigator", { clipboard: { writeText } });
+			const { args } = setup();
+			const { result } = renderHook(() => useImageBedActions(args as never));
+			await act(async () => { await result.current.copyMarkdown({ filename: "[cover]\\test\n.png", publicUrl: "/i/1" } as never); });
+			expect(writeText).toHaveBeenCalledWith(`![\\[cover\\]\\\\test .png](${window.location.origin}/i/1)`);
+		});
 	});
 
 	describe("upload album", () => {
@@ -189,6 +237,22 @@ describe("useImageBedActions", () => {
 			expect(result.current.pendingDelete).toBeNull();
 		});
 
+		it("retains the batch confirmation and selection after a failed request so it can be retried", async () => {
+			mocks.csrfFetch.mockRejectedValueOnce(new Error("unavailable")).mockResolvedValue({ deleted: 1 });
+			const { args } = setup();
+			const { result } = renderHook(() => useImageBedActions(args as never));
+			act(() => { result.current.toggleSelect("img_1"); });
+			act(() => { result.current.requestBatchDelete(); });
+			await act(async () => { await result.current.confirmDelete(); });
+			expect(result.current.pendingDelete).toMatchObject({ type: "batch", count: 1 });
+			expect(result.current.selectedIds.has("img_1")).toBe(true);
+			expect(result.current.deleting).toBe(false);
+			expect(result.current.toast?.tone).toBe("alert");
+			await act(async () => { await result.current.confirmDelete(); });
+			expect(result.current.pendingDelete).toBeNull();
+			expect(result.current.selectedIds.size).toBe(0);
+		});
+
 		it("clears the selection and leaves batch mode after a batch action", async () => {
 			const { args } = setup();
 			const { result } = renderHook(() => useImageBedActions(args as never));
@@ -252,6 +316,24 @@ describe("useImageBedActions", () => {
 				await Promise.all([first, second]);
 			});
 			expect(mocks.csrfFetch.mock.calls.filter((c) => c[0] === "/api/images/batch")).toHaveLength(1);
+		});
+
+		it("ignores overlapping uploads and permits a later upload after failure", async () => {
+			const gate = deferred();
+			mocks.csrfFetch.mockImplementationOnce(() => gate.promise).mockRejectedValueOnce(new Error("full"));
+			const { args } = setup();
+			const { result } = renderHook(() => useImageBedActions(args as never));
+			await act(async () => {
+				const first = result.current.handleUpload([imageFile()]);
+				const second = result.current.handleUpload([imageFile()]);
+				gate.resolve({});
+				await Promise.all([first, second]);
+			});
+			expect(mocks.csrfFetch).toHaveBeenCalledTimes(1);
+			await act(async () => { await result.current.handleUpload([imageFile()]); });
+			expect(result.current.uploading).toBe(false);
+			await act(async () => { await result.current.handleUpload([imageFile()]); });
+			expect(mocks.csrfFetch).toHaveBeenCalledTimes(3);
 		});
 	});
 });

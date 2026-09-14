@@ -30,23 +30,25 @@ declare global {
 
 function getPrismaAdapter() {
 	if (!global.__appPrismaAdapter__) {
-		// `config.db.url` throws with a clear "Missing required env var: DATABASE_URL"
-		// message if unset — equivalent to the old check.
 		const url = new URL(config.db.url);
-		// Ensure pool params are in the connection string for the pg adapter
-		if (!url.searchParams.has("pool_max")) {
-			url.searchParams.set("pool_max", String(config.db.poolSize));
-		}
-		if (!url.searchParams.has("pool_idle_timeout")) {
-			url.searchParams.set("pool_idle_timeout", String(config.db.poolIdleTimeoutMs));
-		}
-		// Prisma engine-level connection limit — critical for low-memory hosts (512MB).
-		// Default PostgreSQL allows 100 connections; without this cap Prisma may open
-		// up to pool_max per client × N workers, exhausting Pg's connection slots.
-		if (!url.searchParams.has("connection_limit")) {
-			url.searchParams.set("connection_limit", String(config.db.connectionLimit));
-		}
-		global.__appPrismaAdapter__ = new PrismaPg(url.toString());
+		const poolOption = (name: string, fallback: number, minimum = 1) => {
+			const raw = url.searchParams.get(name);
+			const value = raw === null ? fallback : Number(raw);
+			if (!Number.isSafeInteger(value) || value < minimum) {
+				throw new Error(`Invalid database pool option: ${name}`);
+			}
+			return value;
+		};
+		// pg.Pool ignores Prisma-style URL pool parameters. Pass driver options
+		// explicitly, preserving existing URL overrides and the connection cap.
+		global.__appPrismaAdapter__ = new PrismaPg({
+			connectionString: url.toString(),
+			max: Math.min(
+				poolOption("pool_max", config.db.poolSize),
+				poolOption("connection_limit", config.db.connectionLimit),
+			),
+			idleTimeoutMillis: poolOption("pool_idle_timeout", config.db.poolIdleTimeoutMs, 0),
+		});
 	}
 
 	return global.__appPrismaAdapter__;

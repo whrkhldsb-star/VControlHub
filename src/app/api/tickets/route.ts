@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { sessionHasPermission } from "@/lib/auth/authorization";
@@ -57,7 +58,7 @@ export async function GET(request: Request) {
     const slaStatus = url.searchParams.get("slaStatus") ?? undefined;
     const search = url.searchParams.get("search") ?? undefined;
 
-    if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    if (!session) return NextResponse.json({ error: apiCopy("apiCopy.not.authenticated.76d1efbe") }, { status: 401 });
 
     // FEAT-P1-1: Kanban view
     if (view === "kanban") {
@@ -94,7 +95,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   return withApiRoute(request, { permissions: ["ticket:create", "ticket:manage"], rateLimit: GENERAL_WRITE_LIMIT, bodySchema: ticketPostSchema }, async ({ session, body }) => {
     if (!session || !sessionHasPermission(session, "ticket:create")) {
-      throw new ForbiddenError("Missing permission");
+      throw new ForbiddenError(apiCopy("apiCopy.missing.permission.8af29748"));
     }
     const ticket = await createTicket({
       title: body.subject ?? body.title ?? "",

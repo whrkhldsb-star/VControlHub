@@ -5,6 +5,7 @@ import type {
 } from "./service-entries";
 import { listFileEntries, listDeletedFileEntries } from "./service-entries";
 import { listStorageNodes } from "./service-nodes";
+import { getFileIndexStatistics } from "./service-statistics";
 import type { StorageNodeListRow } from "./service-direct-access";
 
 type TeamSession = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
@@ -34,14 +35,15 @@ function buildDirectorySummaries(
       return;
     }
 
-    const existing = directories.get(normalizedPath);
+    const key = `${input.storageNodeId}:${normalizedPath}`;
+    const existing = directories.get(key);
     if (existing) {
       existing.itemCount += 1;
       return;
     }
 
     const segments = normalizedPath.split("/").filter(Boolean);
-    directories.set(normalizedPath, {
+    directories.set(key, {
       storageNodeId: input.storageNodeId,
       storageNodeName: input.storageNodeName,
       storageNodeDriver: input.storageNodeDriver,
@@ -76,13 +78,14 @@ function buildDirectorySummaries(
 
 export type { DirectorySummary };
 
-export async function getStorageOverview(session?: TeamSession | null) {
+export async function getStorageOverview(session?: TeamSession | null, options: {includeEntries?: boolean} = {}) {
   const [nodes, entries, deletedEntries] = await Promise.all([
     listStorageNodes(session),
-    listFileEntries(undefined, {}, session),
-    listDeletedFileEntries(undefined, {}, session),
+    options.includeEntries === false ? Promise.resolve([]) : listFileEntries(undefined, {}, session),
+    options.includeEntries === false ? Promise.resolve([]) : listDeletedFileEntries(undefined, {}, session),
   ]);
   const remoteDirectories = buildDirectorySummaries(entries);
+  const indexStats = await getFileIndexStatistics(nodes.map((node) => node.id));
 
   return {
     nodes,
@@ -90,6 +93,7 @@ export async function getStorageOverview(session?: TeamSession | null) {
     deletedEntries,
     remoteDirectories,
     stats: {
+      ...indexStats,
       totalNodes: nodes.length,
       defaultNodeName:
         nodes.find(
@@ -119,18 +123,6 @@ export async function getStorageOverview(session?: TeamSession | null) {
             : never,
         ) => node.driver === "SFTP",
       ).length,
-      totalEntries: entries.length,
-      previewableEntries: entries.filter(
-        (
-          entry: ReturnType<typeof listFileEntries> extends Promise<
-            Array<infer Row>
-          >
-            ? Row
-            : never,
-        ) => entry.previewable,
-      ).length,
-      deletedEntries: deletedEntries.length,
-      remoteDirectoryCount: remoteDirectories.length,
     },
   };
 }

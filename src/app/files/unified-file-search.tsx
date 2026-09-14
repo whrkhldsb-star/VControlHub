@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { ActionButton } from "@/components/action-button";
@@ -43,16 +43,21 @@ export function UnifiedFileSearch({
 	onFilenameSearch,
 	nodeId,
 	searchPath,
+	initialScope = "current",
+	inputRef,
 }: {
 	searchInput: string;
 	onSearchInputChange: (value: string) => void;
 	onFilenameSearch: (scope: "current" | "all") => void;
 	nodeId?: string;
 	searchPath?: string;
+	initialScope?: "current" | "all";
+	/** Allows the browser shell to implement the familiar `/` shortcut. */
+	inputRef?: RefObject<HTMLInputElement | null>;
 }) {
 	const { t } = useI18n();
 	const [mode, setMode] = useState<"filename" | "content">("filename");
-	const [scope, setScope] = useState<"current" | "all">("current");
+	const [scope, setScope] = useState<"current" | "all">(initialScope);
 	const [contentResults, setContentResults] = useState<ContentSearchHit[]>([]);
 	const [contentLoading, setContentLoading] = useState(false);
 	const [contentError, setContentError] = useState("");
@@ -61,7 +66,21 @@ export function UnifiedFileSearch({
 	const contentSearchAbortRef = useRef<AbortController | null>(null);
 	const contentSearchRequestRef = useRef(0);
 
-	useEffect(() => () => contentSearchAbortRef.current?.abort(), []);
+	const changeMode = (nextMode: "filename" | "content") => {
+		if (nextMode === mode) return;
+		contentSearchAbortRef.current?.abort();
+		contentSearchRequestRef.current += 1;
+		setContentLoading(false);
+		setContentError("");
+		setContentResults([]);
+		setLastQuery("");
+		setMode(nextMode);
+	};
+
+	useEffect(() => () => {
+		contentSearchAbortRef.current?.abort();
+		contentSearchRequestRef.current += 1;
+	}, []);
 
 	const handleSearch = useCallback(
 		(e: React.FormEvent) => {
@@ -120,7 +139,8 @@ export function UnifiedFileSearch({
 				<div className="flex gap-1 rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-1">
 					<button
 						type="button"
-						onClick={() => setMode("filename")}
+						onClick={() => changeMode("filename")}
+						aria-pressed={mode === "filename"}
 						className={`rounded-full px-3 py-1 text-xs font-medium transition ${
 							mode === "filename"
 								? "border border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]"
@@ -131,7 +151,8 @@ export function UnifiedFileSearch({
 					</button>
 					<button
 						type="button"
-						onClick={() => setMode("content")}
+						onClick={() => changeMode("content")}
+						aria-pressed={mode === "content"}
 						className={`rounded-full px-3 py-1 text-xs font-medium transition ${
 							mode === "content"
 								? "border border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]"
@@ -148,6 +169,7 @@ export function UnifiedFileSearch({
 						<button
 							type="button"
 							onClick={() => setScope("current")}
+							aria-pressed={scope === "current"}
 							className={`rounded-full px-3 py-1 text-xs font-medium transition ${
 								scope === "current"
 									? "border border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]"
@@ -159,6 +181,7 @@ export function UnifiedFileSearch({
 						<button
 							type="button"
 							onClick={() => setScope("all")}
+							aria-pressed={scope === "all"}
 							className={`rounded-full px-3 py-1 text-xs font-medium transition ${
 								scope === "all"
 									? "border border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]"
@@ -180,8 +203,9 @@ export function UnifiedFileSearch({
 							: t("filesBrowserSpa.searchModeContent")}
 					</label>
 					<input
+						ref={inputRef}
 						id="files-search-query"
-						type="text"
+						type="search"
 						value={searchInput}
 						onChange={(e) => onSearchInputChange(e.currentTarget.value)}
 						placeholder={
@@ -237,7 +261,7 @@ export function UnifiedFileSearch({
 								{hit.snippets.map((snippet, i) => (
 									<pre
 										key={i}
-										className="overflow-x-auto rounded-lg bg-[color-mix(in_srgb,var(--surface-subtle)_85%,#000)] p-2 text-[11px] text-[var(--text-secondary)] font-mono whitespace-pre-wrap"
+										className="overflow-x-auto rounded-lg bg-[color-mix(in_srgb,var(--surface-subtle)_85%,#000)] p-2 text-xs text-[var(--text-secondary)] font-mono whitespace-pre-wrap"
 									>
 										{snippet}
 									</pre>

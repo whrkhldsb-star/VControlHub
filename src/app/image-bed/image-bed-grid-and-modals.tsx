@@ -10,6 +10,7 @@ import { formatImageSize, type ImageBedT } from "./image-bed-sections";
 
 import { ActionButton } from "@/components/action-button";
 import { UI_INPUT } from "@/lib/ui/classes";
+import { LinkIcon, Trash2 } from "@/components/icons";
 
 type PublishForm = {
   storageNodeId: string;
@@ -61,7 +62,7 @@ export function ImageGrid({
                 role="checkbox"
                 tabIndex={0}
                 aria-checked={selectedIds.has(img.id)}
-                aria-label={selectedIds.has(img.id) ? "Unselect" : "Select"}
+                aria-label={t("imageBedPage.image.select", { name: img.filename })}
                 onClick={(e) => {
                   e.stopPropagation();
                   toggleSelect(img.id);
@@ -106,24 +107,24 @@ export function ImageGrid({
                 onClick={(event) => {
                   if (event.target === event.currentTarget) setPreviewImage(img);
                 }}
-                className="absolute inset-0 flex items-center justify-center gap-1 bg-[var(--overlay)] p-2 md:bg-[var(--overlay)] md:p-0 md:opacity-0 md:group-hover:opacity-100"
+                className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-1 bg-[var(--surface)] p-2 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100"
               >
                 <ActionButton type="button" variant="ghost"
                   onClick={() => copyLink(img.publicUrl)} className="min-h-11 min-w-11 px-2 text-xs"
                   title={t("imageBedPage.copy.title.url")}
                   aria-label={t("imageBedPage.copy.title.url")}
                 >
-                  🔗
+                  <LinkIcon size={16} aria-hidden />
                 </ActionButton>
                 <ActionButton type="button" variant="success"
-                  onClick={() => copyMarkdown(img)} className="!min-h-11 !min-w-11 !px-2 !text-xs"
+                  onClick={() => copyMarkdown(img)} className="!min-h-11 !min-w-11 !px-2 !text-sm"
                   title={t("imageBedPage.copy.title.markdown")}
                   aria-label={t("imageBedPage.copy.title.markdown")}
                 >
                   M↓
                 </ActionButton>
                 <ActionButton type="button" variant="outline"
-                  onClick={() => copyHTML(img)} className="!min-h-11 !min-w-11 !px-2 !text-xs"
+                  onClick={() => copyHTML(img)} className="!min-h-11 !min-w-11 !px-2 !text-sm"
                   title={t("imageBedPage.copy.title.html")}
                   aria-label={t("imageBedPage.copy.title.html")}
                 >
@@ -131,11 +132,11 @@ export function ImageGrid({
                 </ActionButton>
                 {canDelete && (
                   <ActionButton type="button" variant="danger"
-                    onClick={() => requestDelete(img)} className="!min-h-11 !min-w-11 !px-2 !text-xs"
+                    onClick={() => requestDelete(img)} className="!min-h-11 !min-w-11 !px-2 !text-sm"
                     title={t("imageBedPage.image.delete.aria")}
                     aria-label={t("imageBedPage.image.delete.aria")}
                   >
-                    🗑
+                    <Trash2 size={16} aria-hidden />
                   </ActionButton>
                 )}
               </div>
@@ -148,23 +149,23 @@ export function ImageGrid({
             {img.filename}
           </div>
           <div
-            className="mt-1 truncate text-[10px] text-[var(--text-muted)]"
+            className="mt-1 truncate text-xs text-[var(--text-muted)]"
             title={formatPublishSource(img)}
           >
-            {t("imageBedPage.image.source") + formatPublishSource(img)}
+            {t("imageBedPage.image.source")} {formatPublishSource(img)}
           </div>
-          <div className="mt-1 flex items-center justify-between">
-            <span className="text-[10px] text-[var(--text-muted)]">
+          <div className="mt-2 space-y-2">
+            <span className="block text-xs text-[var(--text-muted)]">
               {formatImageSize(img.sizeBytes)} · {formatDate(img.createdAt)}
             </span>
-            <div className="flex items-center gap-1">
+            <div className="flex min-w-0 items-start gap-1.5">
               {img.album && (
-                <span className="rounded-lg bg-[var(--surface-hover)] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]">
+                <span title={img.album} className="min-w-0 truncate rounded bg-[var(--surface-hover)] px-1.5 py-0.5 text-xs text-[var(--text-muted)]">
                   {img.album}
                 </span>
               )}
               <span
-                className={`rounded-lg px-1 py-0.5 text-[9px] ${img.isPublic ? "bg-[var(--success-bg)] text-[var(--success)]" : "bg-[var(--surface-hover)] text-[var(--text-muted)]"}`}
+                className={`shrink-0 rounded px-1.5 py-0.5 text-xs ${img.isPublic ? "bg-[var(--success-bg)] text-[var(--success)]" : "bg-[var(--surface-hover)] text-[var(--text-muted)]"}`}
               >
                 {img.isPublic
                   ? t("imageBedPage.image.public")
@@ -199,6 +200,7 @@ export function PublishFromStorageModal({
     <ModalShell
       open
       onClose={onClose}
+      busy={publishing}
       labelledBy="imageBedPublishTitle"
       overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay-strong)] p-4"
       panelClassName="w-full max-w-md rounded-xl border border-[var(--border)] bg-[var(--modal-bg)] p-6"

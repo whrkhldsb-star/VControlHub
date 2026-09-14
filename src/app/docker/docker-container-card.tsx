@@ -39,15 +39,15 @@ export function DockerContainerCard({
 					</StatusBadge>
 					<span className="truncate text-sm font-medium text-[var(--text-primary)]">{(c.Names?.[0] || c.Id?.slice(0, 12)).replace(/^\//,"")}</span>
 				</div>
-				<span className="ml-3 truncate text-[10px] text-[var(--text-muted)]">{c.Image}</span>
+				<span className="ml-3 truncate text-xs text-[var(--text-muted)]">{c.Image}</span>
 			</div>
-			<div className="mb-3 flex flex-wrap items-center gap-2 text-[11px] text-[var(--text-muted)]">
+			<div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-[var(--text-muted)]">
 				<span>{c.Status}</span>
 				{showComposeLabels && c.Labels?.["com.docker.compose.service"] ? <span>{t("dockerPage.label.service", { name: c.Labels["com.docker.compose.service"] })}</span> : null}
 				{showComposeLabels && c.Labels?.["com.docker.compose.version"] ? <span>{t("dockerPage.label.version", { version: c.Labels["com.docker.compose.version"] })}</span> : null}
 			</div>
 			{stat && (
-				<div className="mb-3 grid grid-cols-2 gap-2 text-[11px] md:grid-cols-4">
+				<div className="mb-3 grid grid-cols-2 gap-2 text-xs md:grid-cols-4">
 					<div className="rounded-lg bg-[var(--accent-bg)] px-2 py-1.5 text-[var(--accent)]">{t("dockerPage.stat.cpu", { percent: stat.cpuPercent.toFixed(1) })}</div>
 					<div className="rounded-lg bg-[var(--accent-bg)] px-2 py-1.5 text-[var(--accent)]">{t("dockerPage.stat.memory", { used: formatBytes(stat.memoryUsageBytes), percent: stat.memoryPercent.toFixed(1) })}</div>
 					<div className="rounded-lg bg-[var(--success-bg)] px-2 py-1.5 text-[var(--success)]">{t("dockerPage.stat.netRx", { bytes: formatBytes(stat.networkRxBytes) })}</div>
@@ -56,16 +56,16 @@ export function DockerContainerCard({
 			)}
 			<div className="flex flex-wrap items-center gap-2">
 				{c.State !=="running" && (
-					<ActionButton type="button" variant="success" onClick={() => handleAction(c,"start")} disabled={actionLoading === c.Id} className="!min-h-11 !px-2.5 !py-1 !text-[10px] disabled:opacity-50">{t("dockerPage.action.start")}</ActionButton>
+					<ActionButton type="button" variant="success" onClick={() => handleAction(c,"start")} disabled={actionLoading === c.Id} className="!min-h-11 !px-2.5 !py-1 !text-sm disabled:opacity-50">{t("dockerPage.action.start")}</ActionButton>
 				)}
 				{c.State ==="running" && (
 					<>
-						<ActionButton type="button" variant="outline" onClick={() => handleAction(c,"stop")} disabled={actionLoading === c.Id} className="!min-h-11 !px-2.5 !py-1 !text-[10px] disabled:opacity-50">{t("dockerPage.action.stop")}</ActionButton>
-						<ActionButton type="button" variant="outline" onClick={() => handleAction(c,"restart")} disabled={actionLoading === c.Id} className="!min-h-11 !px-2.5 !py-1 !text-[10px] disabled:opacity-50">{t("dockerPage.action.restart")}</ActionButton>
+						<ActionButton type="button" variant="outline" onClick={() => handleAction(c,"stop")} disabled={actionLoading === c.Id} className="!min-h-11 !px-2.5 !py-1 !text-sm disabled:opacity-50">{t("dockerPage.action.stop")}</ActionButton>
+						<ActionButton type="button" variant="outline" onClick={() => handleAction(c,"restart")} disabled={actionLoading === c.Id} className="!min-h-11 !px-2.5 !py-1 !text-sm disabled:opacity-50">{t("dockerPage.action.restart")}</ActionButton>
 					</>
 				)}
-				<ActionButton type="button" variant="secondary" onClick={() => fetchLogs(c.Id)} className="!min-h-11 !px-2.5 !py-1 !text-[10px]">{t("dockerPage.action.logs")}</ActionButton>
-				<ActionButton type="button" variant="danger" onClick={() => requestRemoval(c)} disabled={actionLoading === c.Id} className="!min-h-11 !px-2.5 !py-1 !text-[10px] disabled:opacity-50">{t("dockerPage.action.remove")}</ActionButton>
+				<ActionButton type="button" variant="secondary" onClick={() => fetchLogs(c.Id)} className="!min-h-11 !px-2.5 !py-1 !text-sm">{t("dockerPage.action.logs")}</ActionButton>
+				<ActionButton type="button" variant="danger" onClick={() => requestRemoval(c)} disabled={actionLoading === c.Id} className="!min-h-11 !px-2.5 !py-1 !text-sm disabled:opacity-50">{t("dockerPage.action.remove")}</ActionButton>
 			</div>
 		</div>
 	);

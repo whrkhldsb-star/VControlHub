@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * GET  /api/itsm/connections — list ITSM/IM connections (ticket:manage)
  * POST /api/itsm/connections — create connection (ticket:manage)
@@ -19,7 +20,7 @@ export async function GET(request: Request) {
 			permission: "ticket:manage",
 			rateLimit: GENERAL_READ_LIMIT,
 			errorStatus: 500,
-			errorMessage: "Failed to list ITSM connections",
+			errorMessage: apiCopy("apiCopy.failed.to.list.itsm.connections.d9cdfb0a"),
 		},
 		async ({ session }) => {
 			const connections = await listItsmConnections(session ?? undefined);
@@ -36,7 +37,7 @@ export async function POST(request: Request) {
 			rateLimit: GENERAL_WRITE_LIMIT,
 			bodySchema: createItsmConnectionSchema,
 			errorStatus: 400,
-			errorMessage: "Failed to create ITSM connection",
+			errorMessage: apiCopy("apiCopy.failed.to.create.itsm.connection.4353099e"),
 		},
 		async ({ session, body }) => {
 			const connection = await createItsmConnection(body, session ?? undefined);

@@ -31,10 +31,10 @@ export function FindBar({
 	const { t } = useI18n();
 	return (
 		<>
-			<div className="flex flex-col gap-1">
+			<div className="flex min-w-0 w-full flex-col gap-1 sm:w-36">
 				<label
 					htmlFor="text-preview-search"
-					className="text-[11px] font-medium text-[var(--text-secondary)]"
+					className="text-xs font-medium text-[var(--text-secondary)]"
 				>
 					{t("textPreview.find.searchLabel")}
 				</label>
@@ -44,14 +44,14 @@ export function FindBar({
 					value={searchQuery}
 					onChange={(e) => onSearchQueryChange(e.target.value)}
 					placeholder={t("textPreview.find.searchPlaceholder")}
-					className={cn(UI_INPUT, "w-36 px-2 py-1 text-xs text-[var(--text-secondary)]")}
+					className={cn(UI_INPUT, "px-2 py-1 text-sm text-[var(--text-secondary)]")}
 				/>
 			</div>
-			<div className="flex items-end gap-1">
-				<div className="flex flex-col gap-1">
+			<div className="flex w-full min-w-0 items-end gap-2 sm:w-auto">
+				<div className="flex min-w-0 flex-1 flex-col gap-1 sm:w-24 sm:flex-none">
 					<label
 						htmlFor="text-preview-jump-line"
-						className="text-[11px] font-medium text-[var(--text-secondary)]"
+						className="text-xs font-medium text-[var(--text-secondary)]"
 					>
 						{t("textPreview.find.jumpLabel")}
 					</label>
@@ -63,11 +63,11 @@ export function FindBar({
 						onChange={(e) => onJumpLineChange(e.target.value)}
 						onKeyDown={(e) => e.key === "Enter" && onJumpToLine()}
 						placeholder={t("textPreview.find.jumpPlaceholder")}
-						className={cn(UI_INPUT, "w-24 px-2 py-1 text-xs text-[var(--text-secondary)]")}
+						className={cn(UI_INPUT, "px-2 py-1 text-sm text-[var(--text-secondary)]")}
 					/>
 				</div>
 				<ActionButton variant="secondary"
-					onClick={onJumpToLine} className="!px-2 !py-1 !text-xs">
+					onClick={onJumpToLine} className="shrink-0 whitespace-nowrap !px-3 !py-1 !text-sm">
 					{t("textPreview.find.jumpButton")}
 				</ActionButton>
 			</div>

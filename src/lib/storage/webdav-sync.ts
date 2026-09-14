@@ -6,9 +6,9 @@ import { createLogger } from "@/lib/logging";
 import { createWebDavClient } from "./webdav-client";
 import type { StorageFileNode } from "./file-content";
 import { normalizeStorageTargetDirectory } from "./path-utils";
+import { readDirectoryIndex } from "./directory-index";
 
 const logger = createLogger("storage.webdav-sync");
-const PAGE_SIZE = 2000;
 const WRITE_BATCH_SIZE = 500;
 const inventorySelect = {
   id: true, relativePath: true, isDeleted: true,
@@ -37,25 +37,13 @@ export async function syncWebDavDirectoryEntries(input: { node: StorageFileNode;
     // Finish the remote read before opening a database transaction.
     const entries = [...new Map((await createWebDavClient(input.node).list(dir.path)).map((entry) => [entry.relativePath, entry])).values()];
     const paths = new Set(entries.map((entry) => entry.relativePath));
-    const prefix = dir.path ? `${dir.path}/` : "";
     phase = "index";
     const counts = await prisma.$transaction(async (tx) => {
       const counts = { synced: 0, created: 0, updated: 0, deleted: 0 };
       const indexed = new Map<string, IndexedEntry>();
-      let cursorId: string | undefined;
       // Include tombstones in the batch lookup. Read every page before pruning.
-      for (;;) {
-        const page = await tx.fileEntry.findMany({
-          where: { storageNodeId: input.node.id, ...(prefix ? { relativePath: { startsWith: prefix } } : {}) },
-          select: inventorySelect, orderBy: { id: "asc" }, take: PAGE_SIZE,
-          ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {}),
-        });
-        for (const entry of page) {
-          const remainder = entry.relativePath.slice(prefix.length);
-          if (remainder && !remainder.includes("/")) indexed.set(entry.relativePath, entry);
-        }
-        if (page.length < PAGE_SIZE) break;
-        cursorId = page.at(-1)!.id;
+      for await (const page of readDirectoryIndex(input.node.id, dir.path, tx)) {
+        for (const entry of page) indexed.set(entry.relativePath, entry);
       }
       const dataFor = (entry: (typeof entries)[number]) => ({
         name: entry.name, entryType: entry.isDirectory ? "DIRECTORY" as const : "FILE" as const,

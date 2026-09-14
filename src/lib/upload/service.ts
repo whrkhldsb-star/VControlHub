@@ -17,6 +17,7 @@ import {
 	mkdir,
 	readdir,
 	readFile,
+	rename,
 	rm,
 	writeFile,
 } from "node:fs/promises";
@@ -83,9 +84,10 @@ function toView(row: {
 	updatedAt: Date;
 }): MediaUploadSessionView {
 	const received = [...row.receivedChunks].sort((a, b) => a - b);
+	const receivedSet = new Set(received);
 	const missing: number[] = [];
 	for (let i = 0; i < row.totalChunks; i++) {
-		if (!received.includes(i)) missing.push(i);
+		if (!receivedSet.has(i)) missing.push(i);
 	}
 	return {
 		id: row.id,
@@ -198,7 +200,7 @@ export async function appendMediaUploadChunk(params: {
 	buffer: Buffer;
 }): Promise<MediaUploadSessionView> {
 	const { sessionId, userId, index, size, buffer } = params;
-	if (index < 0) {
+	if (!Number.isInteger(index) || index < 0) {
 		throw new MediaUploadError("chunk_index_invalid", "index cannot be negative");
 	}
 	if (buffer.byteLength !== size) {
@@ -216,6 +218,9 @@ export async function appendMediaUploadChunk(params: {
 	}
 	if (existing.status === "COMPLETED") {
 		throw new MediaUploadError("session_completed", "Session already completed, cannot append");
+	}
+	if (existing.status === "FINALIZING") {
+		throw new MediaUploadError("session_not_active", "Session is being finalized");
 	}
 	if (existing.status === "CANCELLED" || existing.status === "FAILED") {
 		throw new MediaUploadError(
@@ -250,13 +255,22 @@ export async function appendMediaUploadChunk(params: {
 	// Write chunk file (overwrites if duplicate). Disk write is idempotent
 	// per index; the race we care about is the receivedChunks array merge.
 	await mkdir(sessionDir(sessionId), { recursive: true });
-	await writeFile(chunkPath(sessionId, index), buffer);
+	const temporaryPath = `${chunkPath(sessionId, index)}.${crypto.randomUUID()}.tmp`;
+	try {
+		await writeFile(temporaryPath, buffer, { flag: "wx" });
+		await rename(temporaryPath, chunkPath(sessionId, index));
+	} finally {
+		await rm(temporaryPath, { force: true });
+	}
 
 	// CAS merge: re-read + updateMany with expected receivedChunks snapshot so
 	// concurrent appends of different indices cannot clobber each other.
 	const maxAttempts = 8;
 	let snapshot = existing;
 	for (let attempt = 0; attempt < maxAttempts; attempt++) {
+		if (snapshot.status === "FINALIZING") {
+			throw new MediaUploadError("session_not_active", "Session is being finalized");
+		}
 		if (snapshot.status === "COMPLETED") {
 			throw new MediaUploadError("session_completed", "Session already completed, cannot append");
 		}
@@ -286,6 +300,8 @@ export async function appendMediaUploadChunk(params: {
 			where: {
 				id: sessionId,
 				userId,
+				status: { in: ["PENDING", "UPLOADING"] },
+				expiresAt: { gt: new Date() },
 				receivedChunks: { equals: expectedChunks },
 			},
 			data: {
@@ -331,10 +347,17 @@ export async function assembleMediaUploadChunks(
 	if (!row) {
 		throw new MediaUploadError("session_not_found", "Upload session not found");
 	}
-	if (row.receivedChunks.length !== row.totalChunks) {
+	if (!["PENDING", "UPLOADING"].includes(row.status)) {
+		throw new MediaUploadError("session_not_active", "Session is not active");
+	}
+	if (row.expiresAt.getTime() < Date.now()) {
+		throw new MediaUploadError("session_expired", "Session has expired");
+	}
+	const received = new Set(row.receivedChunks);
+	if (received.size !== row.totalChunks) {
 		const missing: number[] = [];
 		for (let i = 0; i < row.totalChunks; i++) {
-			if (!row.receivedChunks.includes(i)) missing.push(i);
+			if (!received.has(i)) missing.push(i);
 		}
 		throw new MediaUploadError(
 			"chunks_incomplete",
@@ -342,14 +365,26 @@ export async function assembleMediaUploadChunks(
 		);
 	}
 
-	// Read chunks in order. Sequential reads avoid loading the whole
-	// file twice; for 200MB cap, total is well within 1GB of process RSS.
-	const buffers: Buffer[] = [];
+	const totalSize = Number(row.totalSize);
+	if (!Number.isSafeInteger(totalSize) || totalSize < 0 || totalSize > MAX_TOTAL_SIZE) {
+		throw new MediaUploadError("total_size_too_large", "Invalid assembled upload size");
+	}
+	// Keep one output buffer plus the current chunk, instead of two full copies.
+	const assembled = Buffer.allocUnsafe(totalSize);
+	let offset = 0;
 	for (let i = 0; i < row.totalChunks; i++) {
 		const buf = await readFile(chunkPath(sessionId, i));
-		buffers.push(buf);
+		const expected = Math.min(row.chunkSize, totalSize - offset);
+		if (!received.has(i) || buf.length !== expected) {
+			throw new MediaUploadError("chunk_size_unexpected", `Invalid stored chunk ${i}`);
+		}
+		buf.copy(assembled, offset);
+		offset += buf.length;
 	}
-	return Buffer.concat(buffers);
+	if (offset !== totalSize) {
+		throw new MediaUploadError("chunk_size_mismatch", "Assembled size does not match upload session");
+	}
+	return assembled;
 }
 
 /** Mark a session COMPLETED. Computes sha256 of the assembled buffer.
@@ -361,12 +396,14 @@ export async function completeMediaUploadSession(params: {
 	buffer: Buffer;
 	resultImageId?: string;
 	allowedStatuses?: Array<"PENDING" | "UPLOADING" | "FINALIZING">;
+	transaction?: Prisma.TransactionClient;
 }): Promise<MediaUploadSessionView> {
 	const { sessionId, userId, buffer, resultImageId } = params;
 	const allowedStatuses = params.allowedStatuses ?? ["PENDING", "UPLOADING"];
 	const checksum = crypto.createHash("sha256").update(buffer).digest("hex");
+	const db = params.transaction ?? prisma;
 	// Only active or explicitly claimed sessions may complete.
-	const updateResult = await prisma.mediaUploadSession.updateMany({
+	const updateResult = await db.mediaUploadSession.updateMany({
 		where: {
 			id: sessionId,
 			userId,
@@ -380,7 +417,7 @@ export async function completeMediaUploadSession(params: {
 		},
 	});
 	if (updateResult.count === 0) {
-		const existing = await prisma.mediaUploadSession.findFirst({
+		const existing = await db.mediaUploadSession.findFirst({
 			where: { id: sessionId, userId },
 			select: { status: true },
 		});
@@ -395,11 +432,11 @@ export async function completeMediaUploadSession(params: {
 			`Session status is ${existing.status}; only PENDING/UPLOADING sessions can be completed`,
 		);
 	}
-	const row = await prisma.mediaUploadSession.findUniqueOrThrow({
+	const row = await db.mediaUploadSession.findUniqueOrThrow({
 		where: { id: sessionId },
 	});
-	// Cleanup temp dir best-effort
-	await cleanupMediaUploadTempDir(sessionId).catch((err) => {
+	// Transaction callers clean up only after commit so rollback retains chunks.
+	if (!params.transaction) await cleanupMediaUploadTempDir(sessionId).catch((err) => {
 		logError("media-upload:cleanup-failed", err);
 	});
 	return toView(row);
@@ -462,16 +499,17 @@ export async function sweepExpiredMediaUploadSessions(): Promise<number> {
 		select: { id: true },
 		take: 1000, // P2: 单 sweep 过期 session 数,>1k 即异常
 	});
+	let cancelled = 0;
 	for (const row of expired) {
-		await cleanupMediaUploadTempDir(row.id).catch(() => undefined);
-	}
-	if (expired.length > 0) {
-		await prisma.mediaUploadSession.updateMany({
-			where: { id: { in: expired.map((r) => r.id) } },
+		const result = await prisma.mediaUploadSession.updateMany({
+			where: { id: row.id, status: { in: ["PENDING", "UPLOADING"] }, expiresAt: { lt: now } },
 			data: { status: "CANCELLED" },
 		});
+		if (result.count === 0) continue;
+		cancelled += result.count;
+		await cleanupMediaUploadTempDir(row.id).catch(() => undefined);
 	}
-	return expired.length;
+	return cancelled;
 }
 
 /** Read chunk files in a session temp dir. Test helper. */

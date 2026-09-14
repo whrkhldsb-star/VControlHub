@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * GET  /api/alert-incidents — list open/ack/resolved incidents
  * POST /api/alert-incidents — acknowledge an incident { incidentId }
@@ -28,7 +29,7 @@ export async function GET(request: Request) {
     {
       permission: "notification:manage",
       rateLimit: GENERAL_READ_LIMIT,
-      errorMessage: "Failed to list alert incidents",
+      errorMessage: apiCopy("apiCopy.failed.to.list.alert.incidents.ec5a7436"),
     },
     async ({ session }) => {
       const { status } = parseSearchParams(request, listQuerySchema);
@@ -76,7 +77,7 @@ export async function POST(request: Request) {
       permission: "notification:manage",
       rateLimit: GENERAL_WRITE_LIMIT,
       bodySchema: ackSchema,
-      errorMessage: "Failed to acknowledge alert incident",
+      errorMessage: apiCopy("apiCopy.failed.to.acknowledge.alert.incident.fc342151"),
     },
     async ({ session, body }) => {
       const result = await acknowledgeAlertIncident({

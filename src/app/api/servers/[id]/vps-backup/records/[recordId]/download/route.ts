@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * GET /api/servers/[id]/vps-backup/records/[recordId]/download — download a VPS backup archive
  *
@@ -79,7 +80,7 @@ export async function GET(
 				select: { id: true, localPath: true, backupType: true, status: true, offsiteKey: true },
 			});
 			if (!record) {
-				return Response.json({ error: "Record not found" }, { status: 404 });
+				return Response.json({ error: apiCopy("apiCopy.record.not.found.60de363f") }, { status: 404 });
 			}
 			if (record.status !== "COMPLETED" || !record.localPath) {
 				return Response.json(

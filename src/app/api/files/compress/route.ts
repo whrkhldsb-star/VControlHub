@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { execFile } from "node:child_process";
 import fs from "node:fs/promises";
 import os from "node:os";
@@ -26,11 +27,11 @@ export async function POST(request: NextRequest) {
     {
       permission: "storage:write",
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "Compression failed",
+      errorMessage: apiCopy("apiCopy.compression.failed.0dc061b7"),
       bodySchema: compressFilesBodySchema,
     },
     async ({ session, body }) => {
-      if (!session) throw new AuthError("Unauthorized");
+      if (!session) throw new AuthError(apiCopy("apiCopy.unauthorized.d089c8a9"));
 
       const { storageNodeId, relativePaths, targetDir } = body;
       const outputName = normalizeArchiveName(body.outputName);
@@ -41,9 +42,9 @@ export async function POST(request: NextRequest) {
         where: { id: storageNodeId, ...teamWhere(session) },
         select: { id: true, driver: true, basePath: true },
       });
-      if (!node) throw new NotFoundError("Storage node not found");
+      if (!node) throw new NotFoundError(apiCopy("apiCopy.storage.node.not.found.3b3ec488"));
       if (node.driver !== "LOCAL") {
-        return NextResponse.json({ error: "Only local storage node batch compression is supported" }, { status: 400 });
+        return NextResponse.json({ error: apiCopy("apiCopy.only.local.storage.node.batch.compression.is.supported.e0ba1ea9") }, { status: 400 });
       }
 
       const writeDecision = await assertStorageAccess({
@@ -64,14 +65,14 @@ export async function POST(request: NextRequest) {
         select: { id: true },
       });
       if (existingOutput || await pathExists(outputResolved.path)) {
-        return NextResponse.json({ error: `Target archive /${outputRelativePath} already exists` }, { status: 409 });
+        return NextResponse.json({ error: apiCopy("apiCopy.target.archive.already.exists.18a7a63f", { v0: String(outputRelativePath) }) }, { status: 409 });
       }
 
       const inputs: string[] = [];
       for (const rawRelativePath of relativePaths) {
         const relativePath = rawRelativePath.replace(/^\/+/, "");
         if (relativePath === outputRelativePath) {
-          return NextResponse.json({ error: "Cannot include the target archive in itself" }, { status: 400 });
+          return NextResponse.json({ error: apiCopy("apiCopy.cannot.include.the.target.archive.in.itself.42093cb4") }, { status: 400 });
         }
         const readDecision = await assertStorageAccess({
           session,
@@ -84,7 +85,7 @@ export async function POST(request: NextRequest) {
         }
         const resolved = resolveStoragePathWithinBase(node.basePath, relativePath);
         if (!resolved.ok) return NextResponse.json({ error: resolved.reason }, { status: 400 });
-        if (!await pathExists(resolved.path)) throw new NotFoundError(`File not found: /${relativePath}`);
+        if (!await pathExists(resolved.path)) throw new NotFoundError(apiCopy("apiCopy.file.not.found.c7066170", { v0: String(relativePath) }));
         inputs.push(relativePath);
       }
 
@@ -98,7 +99,7 @@ export async function POST(request: NextRequest) {
       } catch (error) {
         await fs.rm(outputResolved.path, { force: true });
         const message = getErrorMessage(error, "tar command failed");
-        return NextResponse.json({ error: `Compression failed: ${message}` }, { status: 500 });
+        return NextResponse.json({ error: apiCopy("apiCopy.compression.failed.ce90f433", { v0: String(message) }) }, { status: 500 });
       } finally {
         await fs.rm(tempDir, { recursive: true, force: true });
       }
@@ -119,7 +120,7 @@ export async function POST(request: NextRequest) {
       }
 
       return NextResponse.json({
-        message: `Created archive /${outputRelativePath}`,
+        message: apiCopy("apiCopy.created.archive.0d5ec1fd", { v0: String(outputRelativePath) }),
         relativePath: outputRelativePath,
         name: outputName,
         size: outputStat.size,

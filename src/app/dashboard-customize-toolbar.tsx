@@ -54,7 +54,7 @@ export function DashboardCustomizeToolbar({
 			<div className="mb-3 flex items-center justify-end gap-2">
 				<ActionButton variant="secondary"
 					onClick={onEnterEdit}
-					aria-label={t("dashboard.customize-edit")} className="!px-3 !py-1.5 !text-xs">
+					aria-label={t("dashboard.customize-edit")} className="!px-3 !py-1.5 !text-sm">
 					{t("dashboard.customize-edit")}
 				</ActionButton>
 			</div>
@@ -80,7 +80,7 @@ export function DashboardCustomizeToolbar({
 							onClick={handleToggle(id)}
 							aria-pressed={hidden}
 							data-testid={`toggle-widget-${id}`}
-							className={`rounded-lg border px-2.5 py-1 text-[11px] transition ${
+							className={`rounded-lg border px-2.5 py-1 text-xs transition ${
 								hidden
 									? "border-[var(--border)] bg-[var(--surface-hover)] text-[var(--text-muted)] line-through"
 									: "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]"
@@ -94,7 +94,7 @@ export function DashboardCustomizeToolbar({
 			</div>
 			<div className="flex items-center gap-2">
 				<ActionButton variant="secondary"
-					onClick={onReset} className="!px-3 !py-1.5 !text-xs"
+					onClick={onReset} className="!px-3 !py-1.5 !text-sm"
 				>
 					{t("dashboard.customize-reset")}
 				</ActionButton>

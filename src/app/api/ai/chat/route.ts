@@ -48,6 +48,7 @@ export async function POST(request: Request) {
         body: { ...body, conversationId: body.conversationId, content },
         session,
         locale,
+        signal: request.signal,
       });
     },
   );

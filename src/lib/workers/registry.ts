@@ -28,6 +28,7 @@ import { startScheduledTaskWorker, stopScheduledTaskWorkerForTests } from "@/lib
 import { startPlaybookRunWorker, stopPlaybookRunWorkerForTests } from "@/lib/playbook/worker";
 import { startPlaybookTriggerWorker, stopPlaybookTriggerWorkerForTests } from "@/lib/playbook/trigger-worker";
 import { startSftpSyncJobWorker, stopSftpSyncJobWorkerForTests } from "@/lib/storage/sftp-sync-job";
+import { startFileOperationWorker, stopFileOperationWorker } from "@/lib/files/operation-job";
 import { startSyncScheduleWorker, stopSyncScheduleWorkerForTests } from "@/lib/sync/sync-schedule-worker";
 import { startSftpStaleInventoryWorker, stopSftpStaleInventoryWorkerForTests } from "@/lib/storage/sftp-stale-inventory-job";
 import { startOperationTaskRetentionWorker, stopOperationTaskRetentionWorkerForTests } from "@/lib/operation-task/retention-worker";
@@ -53,6 +54,7 @@ export type WorkerId =
   | "quick-service"
   | "scheduled-task"
   | "sftp-sync"
+  | "file-operations"
   | "sync-schedule"
   | "sftp-stale-inventory"
   | "operation-task-retention"
@@ -106,6 +108,7 @@ function getRegistryState(): Record<WorkerId, { started: boolean }> {
       "quick-service": { started: false },
       "scheduled-task": { started: false },
       "sftp-sync": { started: false },
+      "file-operations": { started: false },
       "sync-schedule": { started: false },
       "sftp-stale-inventory": { started: false },
       "operation-task-retention": { started: false },
@@ -386,6 +389,7 @@ export const WORKER_REGISTRY: readonly WorkerSpec[] = Object.freeze([
   QUICK_SERVICE,
   SCHEDULED_TASK,
   SFTP_SYNC,
+  { id: "file-operations", label: "File operations", jobType: "storage.file-operation", start: startFileOperationWorker, stop: stopFileOperationWorker },
   SFTP_STALE_INVENTORY,
   SYNC_SCHEDULE,
   OPERATION_TASK_RETENTION,

@@ -84,10 +84,12 @@ export function useResourcePolling<T>(options: UseResourcePollingOptions<T>): Re
 	// fetcher identity is not silently dropped.
 	const pendingRefreshRef = useRef(false);
 	const fetcherRef = useRef(fetcher);
+	const fetcherVersionRef = useRef(0);
 	const getErrorMessageRef = useRef(getErrorMessage);
 
 	useEffect(() => {
 		fetcherRef.current = fetcher;
+		fetcherVersionRef.current += 1;
 	}, [fetcher]);
 
 	useEffect(() => {
@@ -110,18 +112,21 @@ export function useResourcePolling<T>(options: UseResourcePollingOptions<T>): Re
 		do {
 			pendingRefreshRef.current = false;
 			inFlightRef.current = true;
+			const fetcherVersion = fetcherVersionRef.current;
 			if (hasDataRef.current) setRefreshing(true);
 			try {
 				const next = await fetcherRef.current();
 				if (!mountedRef.current) return;
+				if (fetcherVersion !== fetcherVersionRef.current) continue;
 				setData(next);
 				hasDataRef.current = true;
 				setError(null);
 			} catch (err) {
 				if (!mountedRef.current) return;
+				if (fetcherVersion !== fetcherVersionRef.current) continue;
 				setError(getErrorMessageRef.current(err));
 			} finally {
-				if (mountedRef.current) {
+				if (mountedRef.current && fetcherVersion === fetcherVersionRef.current) {
 					setLoading(false);
 					setRefreshing(false);
 				}

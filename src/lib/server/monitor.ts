@@ -143,7 +143,8 @@ function isUsableMonitorOutput(stdout: string, metrics: ServerMetrics): boolean 
 }
 
 
-export async function collectServerMetrics(serverId: string): Promise<ServerMetrics | MonitorError> {
+export async function collectServerMetrics(serverId: string, signal?: AbortSignal): Promise<ServerMetrics | MonitorError> {
+	signal?.throwIfAborted();
 	const locale = await getServerLocale();
 	const tr = (key: string, vars?: Record<string, string | number>) => t(key, locale, vars);
 	try {
@@ -169,7 +170,7 @@ export async function collectServerMetrics(serverId: string): Promise<ServerMetr
 		}
 
 		const sshParams = await buildSshParamsFromServer(server, server.sshKey);
-		const { stdout, exitCode } = await execRemoteCommand({ ...sshParams, command: MONITOR_SCRIPT, timeout: 15_000 });
+		const { stdout, exitCode } = await execRemoteCommand({ ...sshParams, command: MONITOR_SCRIPT, timeout: 15_000, ...(signal ? { signal } : {}) });
 
 		if (exitCode !== 0 && !stdout) {
 			return { error: tr("backend.server.monitor.sshCommandFailed"), serverId };
@@ -181,6 +182,7 @@ export async function collectServerMetrics(serverId: string): Promise<ServerMetr
 		}
 		return metrics;
 	} catch (err) {
+		if (signal?.aborted) throw err;
 		const message = err instanceof Error ? err.message : tr("backend.server.monitor.unknownError");
 		return {
 			error: tr("backend.server.monitor.connectionFailed", { message }),

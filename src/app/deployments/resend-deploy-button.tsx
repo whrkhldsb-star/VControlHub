@@ -69,7 +69,7 @@ export function ResendDeployButton({ templateId, variables, serverIds, reason, l
 				onClick={handleResend}
 				disabled={pending}
 				aria-describedby={confirming ? `resend-deploy-${templateId}-warning` : undefined}
-				data-tone="cyan" className="!px-3 !py-1.5 !text-xs disabled:opacity-60"
+				data-tone="cyan" className="!px-3 !py-1.5 !text-sm disabled:opacity-60"
 			>
 				{pending
 					? t("deploymentsPage.resend.submitting")
@@ -85,7 +85,7 @@ export function ResendDeployButton({ templateId, variables, serverIds, reason, l
 					}}
 					disabled={pending}
 				
-					className="!px-3 !py-1.5 !text-xs !font-medium disabled:cursor-not-allowed disabled:opacity-60"
+					className="!px-3 !py-1.5 !text-sm !font-medium disabled:cursor-not-allowed disabled:opacity-60"
 				>
 					{t("common.cancel")}
 				</ActionButton>

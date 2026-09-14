@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * FEAT-P0-4: File content search API.
  *
@@ -19,9 +20,9 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
 	return withApiRoute(
 		req,
-		{ permission: "storage:read", errorMessage: "Content search failed" },
+		{ permission: "storage:read", errorMessage: apiCopy("apiCopy.content.search.failed.c08d0718") },
 		async ({ session }) => {
-			if (!session) throw new AuthError("Unauthorized");
+			if (!session) throw new AuthError(apiCopy("apiCopy.unauthorized.d089c8a9"));
 
 			const { q, nodeId, path: searchPath } = parseSearchParams(
 				req,

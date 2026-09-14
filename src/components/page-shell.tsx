@@ -43,7 +43,7 @@ export function ToggleChip({
 			onClick={onClick}
 			aria-pressed={active}
 			aria-label={ariaLabel}
-			className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition ${active ? activeCls : inactiveCls}`}
+			className={`inline-flex min-h-10 items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition ${active ? activeCls : inactiveCls}`}
 		>
 			{children}
 		</button>
@@ -55,24 +55,19 @@ export function ToggleChip({
 export function PageShell({
 	children,
 	maxW = "max-w-7xl",
+	navigation = true,
 }: {
 	children: ReactNode;
 	/** Tailwind max-width class – defaults to "max-w-7xl" */
 	maxW?: string;
+	/** Public pages have no fixed application navigation to clear. */
+	navigation?: boolean;
 }) {
 	return (
-		<div className="relative min-h-screen overflow-x-clip text-[var(--text-primary)]">
-			{/* Decorative wash only — never intercept layout/overflow for titles */}
+		<div data-page-shell className="min-h-screen min-w-0 text-[var(--text-primary)]">
+			{/* The mobile navigation remains visible through tablet widths. */}
 			<div
-				aria-hidden="true"
-				className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-[radial-gradient(ellipse_at_top,color-mix(in_srgb,var(--accent)_12%,transparent),transparent_65%)]"
-			/>
-			{/*
-			  Mobile needs extra top padding for the fixed hamburger (left-4 top-4).
-			  Keep overflow visible on the content column so large titles are not clipped.
-			*/}
-			<div
-				className={`relative mx-auto min-w-0 ${maxW} px-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-20 sm:px-6 sm:pb-16 sm:pt-8 lg:px-10 lg:py-10`}
+				className={`mx-auto min-w-0 ${maxW} px-4 sm:px-6 lg:px-8 ${navigation ? "pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-20 lg:py-8" : "py-10 sm:py-14"}`}
 			>
 				{children}
 			</div>
@@ -98,14 +93,12 @@ export function PageHeader({ eyebrow, title, description, children, className = 
 					{eyebrow ? (
 						<p
 							data-page-eyebrow
-							className="mb-2 inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]"
+							className="mb-2 text-xs font-medium text-[var(--accent)]"
 						>
-							<span className="h-1 w-1 rounded-full bg-[var(--accent)]" aria-hidden="true" />
 							{eyebrow}
 						</p>
 					) : null}
-					{/* leading-snug avoids Chinese glyph clipping from leading-tight + negative tracking */}
-					<h1 className="break-words text-[1.75rem] font-semibold leading-snug tracking-[-0.02em] text-[var(--text-primary)] sm:text-[2rem]">
+					<h1 className="break-words text-2xl font-semibold leading-snug text-[var(--text-primary)]">
 						{title}
 					</h1>
 					{description ? (
@@ -113,12 +106,12 @@ export function PageHeader({ eyebrow, title, description, children, className = 
 					) : null}
 				</div>
 				{children ? (
-					<div className="flex shrink-0 flex-wrap items-center gap-2" data-page-actions>
+					<div className="flex min-w-0 max-w-full flex-wrap items-center gap-2" data-page-actions>
 						{children}
 					</div>
 				) : null}
 			</div>
-			<div className="mt-5 h-px w-full bg-[linear-gradient(90deg,var(--border),transparent_90%)]" aria-hidden="true" />
+			<div className="mt-5 border-b border-[var(--border)]" aria-hidden="true" />
 		</header>
 	);
 }
@@ -130,7 +123,7 @@ export function Toolbar({ children, className = "" }: { children: ReactNode; cla
 	return (
 		<div
 			data-toolbar
-			className={`mb-5 flex flex-wrap items-center gap-2 rounded-2xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface)_88%,transparent)] p-2.5 shadow-[var(--shadow-sm)] backdrop-blur-md ${className}`}
+			className={`mb-5 flex min-w-0 flex-wrap items-center gap-2 border-b border-[var(--border-subtle)] pb-3 ${className}`}
 		>
 			{children}
 		</div>
@@ -170,7 +163,7 @@ export function EmptyState({
 		<>
 			{icon ? (
 				<div
-					className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-elevated)] text-2xl text-[var(--text-muted)]"
+					className="mb-3 flex h-10 w-10 items-center justify-center text-2xl text-[var(--text-muted)]"
 					aria-hidden="true"
 				>
 					{icon}
@@ -184,7 +177,7 @@ export function EmptyState({
 		return (
 			<div
 				data-empty-state="boxed"
-				className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_70%,transparent)] px-6 py-14 text-center"
+				className="flex flex-col items-center justify-center border border-dashed border-[var(--border)] bg-[var(--surface-subtle)] px-4 py-12 text-center"
 			>
 				{content}
 			</div>
@@ -226,14 +219,14 @@ export function StatCard({
 		<article
 			data-card
 			data-stat-card
-			className="relative overflow-hidden bg-[var(--surface)] transition-colors duration-150 hover:bg-[var(--surface-elevated)]"
+			className="relative overflow-hidden bg-[var(--surface)]"
 		>
 			<div className={`absolute inset-x-0 top-0 h-0.5 ${c ? c.bar : "bg-[var(--border)]"}`} aria-hidden="true" />
-			<div className="text-[11px] font-medium uppercase tracking-[0.14em] text-[var(--text-muted)]">{label}</div>
-			<div className={`mt-2 text-2xl font-semibold tabular-nums tracking-tight ${c ? c.value : "text-[var(--text-primary)]"}`}>
+			<div className="text-xs font-medium text-[var(--text-muted)]">{label}</div>
+			<div className={`mt-2 break-words text-2xl font-semibold tabular-nums ${c ? c.value : "text-[var(--text-primary)]"}`}>
 				{value}
 			</div>
-			{detail ? <p className="mt-1 text-[11px] leading-4 text-[var(--text-muted)]">{detail}</p> : null}
+			{detail ? <p className="mt-1 text-xs leading-4 text-[var(--text-muted)]">{detail}</p> : null}
 		</article>
 	);
 }
@@ -258,7 +251,7 @@ export function Section({
 			{(title || actions) && (
 				<div className="flex flex-wrap items-end justify-between gap-3">
 					<div className="min-w-0">
-						{title ? <h2 className="text-sm font-semibold text-[var(--text-primary)]">{title}</h2> : null}
+						{title ? <h2 className="text-base font-semibold text-[var(--text-primary)]">{title}</h2> : null}
 						{description ? <p className="mt-0.5 text-xs text-[var(--text-muted)]">{description}</p> : null}
 					</div>
 					{actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
@@ -325,7 +318,7 @@ export function ListPanel({
 	empty?: ReactNode;
 }) {
 	return (
-		<div data-list-panel data-card className={`overflow-hidden !p-0 ${className}`}>
+		<div data-list-panel className={`min-w-0 ${className}`}>
 			{(title != null || description != null || count != null || actions != null) && (
 				<div
 					data-list-panel-header
@@ -335,13 +328,13 @@ export function ListPanel({
 						<div className="flex min-w-0 items-center gap-2.5">
 							{title != null ? (
 								typeof title === "string" || typeof title === "number" ? (
-									<h2 className="text-sm font-semibold text-[var(--text-primary)]">{title}</h2>
+									<h2 className="text-base font-semibold text-[var(--text-primary)]">{title}</h2>
 								) : (
 									<div className="text-sm font-semibold text-[var(--text-primary)]">{title}</div>
 								)
 							) : null}
 							{count != null ? (
-								<span className="inline-flex min-w-6 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface-elevated)] px-2 py-0.5 text-[11px] font-medium tabular-nums text-[var(--text-secondary)]">
+								<span className="inline-flex min-w-6 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface-elevated)] px-2 py-0.5 text-xs font-medium tabular-nums text-[var(--text-secondary)]">
 									{count}
 								</span>
 							) : null}
@@ -354,12 +347,12 @@ export function ListPanel({
 							)
 						) : null}
 					</div>
-					{actions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
+					{actions ? <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">{actions}</div> : null}
 				</div>
 			)}
 			<div
 				data-list-panel-body
-				className={`divide-y divide-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-subtle)_55%,var(--surface))] ${bodyClassName}`}
+				className={`divide-y divide-[var(--border-subtle)] ${bodyClassName}`}
 			>
 				{empty ?? children}
 			</div>
@@ -420,16 +413,15 @@ export function SurfacePanel({
 	return (
 		<div
 			data-surface-panel
-			data-card
-			className={`space-y-4 p-4 sm:p-5 ${className}`}
+			className={`space-y-4 py-4 ${className}`}
 		>
 			{(title || actions) && (
 				<div className="flex flex-wrap items-start justify-between gap-3 border-b border-[var(--border-subtle)] pb-3">
 					<div className="min-w-0">
-						{title ? <h2 className="text-sm font-semibold text-[var(--text-primary)] sm:text-base">{title}</h2> : null}
+						{title ? <h2 className="text-base font-semibold text-[var(--text-primary)]">{title}</h2> : null}
 						{description ? <p className="mt-0.5 text-xs leading-5 text-[var(--text-muted)]">{description}</p> : null}
 					</div>
-					{actions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
+					{actions ? <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">{actions}</div> : null}
 				</div>
 			)}
 			{children}

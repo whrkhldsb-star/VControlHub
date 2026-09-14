@@ -1,19 +1,15 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { toDateLocale } from "@/lib/i18n/locale-format";
-import { api } from "@/lib/http/api-client";
 
 import { useI18n } from "@/lib/i18n/use-locale";
-import { useVisibilityInterval } from "@/lib/hooks/use-visibility-interval";
 import { ServerCardActions } from "./server-card-actions";
-import { useAutoProbeSettings } from "./auto-probe-context";
+import { useServerDiagnostics } from "./use-server-diagnostics";
 import { ActionButton } from "@/components/action-button";
 import { ModalShell } from "@/components/modal-shell";
 import type {
-  ServerOverviewDetailsProps,
   ServerOverviewDetailsServer,
 } from "./server-overview-details";
 
@@ -26,8 +22,6 @@ const ServerOverviewDetails = dynamic(
   },
 );
 
-type DiagnosticRunState = ServerOverviewDetailsProps["diagnosticRun"];
-
 type ServerOverviewCardProps = {
   server: ServerOverviewDetailsServer;
   canManageServers: boolean;
@@ -39,7 +33,7 @@ export function ServerOverviewCard({
   canManageServers,
   canUseSshTerminal,
 }: ServerOverviewCardProps) {
-  const { locale, t } = useI18n();
+  const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
   const [portalReady, setPortalReady] = useState(false);
   const closeDialog = useCallback(() => {
@@ -48,7 +42,7 @@ export function ServerOverviewCard({
   const openDialog = useCallback(() => {
     setExpanded(true);
   }, []);
-  const [diagnosticRun, setDiagnosticRun] = useState<DiagnosticRunState>({ status: "idle" });
+  const { diagnosticRun, runRealtimeDiagnostics } = useServerDiagnostics(server.id, server.enabled);
   const directLabel = server.directGateway?.statusLabel ?? t("serverOverviewCard.websiteRelay");
   const detailsId = `server-details-${server.id}`;
 
@@ -94,102 +88,14 @@ export function ServerOverviewCard({
       t("serverOverviewCard.enabledPendingProbeDescription");
   }
 
-  const runRealtimeDiagnostics = useCallback(async () => {
-    setDiagnosticRun({ status: "loading" });
-    const controller = new AbortController();
-    const timeoutId = window.setTimeout(() => controller.abort(), 20_000);
-    try {
-      const response = await api.get<Response>(`/api/servers/monitor?serverId=${encodeURIComponent(server.id)}`, {
-        raw: true,
-        cache: "no-store",
-        signal: controller.signal,
-      });
-      const payload = await response.json().catch(() => null);
-      const checkedAt = new Date().toLocaleString(toDateLocale(locale), { hour12: false });
-
-      if (!response.ok) {
-        setDiagnosticRun({
-          status: "error",
-          message: payload?.error ?? t("serverOverviewCard.monitorStatusReturned", { status: response.status }),
-          checkedAt,
-        });
-        return;
-      }
-      if (payload?.error) {
-        setDiagnosticRun({ status: "error", message: payload.error, checkedAt });
-        return;
-      }
-
-      const diskText = Array.isArray(payload?.disk) && payload.disk.length > 0
-        ? t("serverOverviewCard.diskSummary", { mount: payload.disk[0].mount, usage: payload.disk[0].usagePercent })
-        : "";
-      setDiagnosticRun({
-        status: "success",
-        summary: t("serverOverviewCard.resourceSummary", { cpu: payload?.cpu?.usagePercent ?? "--", memory: payload?.memory?.usagePercent ?? "--", disk: diskText }),
-        checkedAt,
-      });
-    } catch (error) {
-      setDiagnosticRun({
-        status: "error",
-        message:
-          error instanceof Error && error.name === "AbortError"
-            ? t("serverOverviewCard.realtimeProbeTimeout")
-            : error instanceof Error
-              ? error.message
-              : t("serverOverviewCard.realtimeProbeFailed"),
-        checkedAt: new Date().toLocaleString(toDateLocale(locale), { hour12: false }),
-      });
-    } finally {
-      window.clearTimeout(timeoutId);
-    }
-  }, [server.id, locale, t]);
-
-  // ---------------------------------------------------------------------
-  // 自动探测：受 AutoProbeContext 控制，挂载/切回页面时跑一次 + 周期刷新。
-  // 仅在节点启用、设置 hydrated、用户开启自动探测时生效。
-  // 用 ref 跟踪「是否正在跑」，避免周期触发与上次未完成请求并发。
-  // ---------------------------------------------------------------------
-  const { enabled: autoProbeEnabled, intervalSec, hydrated } = useAutoProbeSettings();
-  const inFlightRef = useRef(false);
-  const runRef = useRef(runRealtimeDiagnostics);
-  useEffect(() => {
-    runRef.current = runRealtimeDiagnostics;
-  }, [runRealtimeDiagnostics]);
-
-  useEffect(() => {
-    if (!hydrated) return;
-    if (!autoProbeEnabled) return;
-    if (!server.enabled) return;
-
-    const trigger = async () => {
-      if (inFlightRef.current) return;
-      inFlightRef.current = true;
-      try {
-        await runRef.current();
-      } finally {
-        inFlightRef.current = false;
-      }
-    };
-
-    void trigger();
-    return undefined;
-  }, [autoProbeEnabled, intervalSec, hydrated, server.enabled, server.id]);
-
-  useVisibilityInterval(() => {
-    if (inFlightRef.current) return;
-    inFlightRef.current = true;
-    void runRef.current().finally(() => { inFlightRef.current = false; });
-  }, hydrated && autoProbeEnabled && server.enabled ? Math.max(5, intervalSec) * 1000 : null);
-
   return (
     <article
       data-card
       data-server-card
       className="group relative overflow-hidden !p-0 transition-colors"
     >
-      <div className="absolute inset-x-0 top-0 h-0.5 bg-[linear-gradient(90deg,var(--accent),transparent)] opacity-70" aria-hidden="true" />
-      <div className="p-3.5">
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex h-full flex-col p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span
@@ -206,11 +112,11 @@ export function ServerOverviewCard({
               }`}
               aria-hidden="true"
             />
-            <h2 className="truncate text-sm font-semibold tracking-tight text-[var(--text-primary)]">
+            <h2 className="truncate text-sm font-semibold  text-[var(--text-primary)]">
               {server.name}
             </h2>
           </div>
-          <p className="mt-1.5 truncate font-mono text-[11px] text-[var(--text-muted)]" title={`${server.username}@${server.host}:${server.port}`}>
+          <p className="mt-1.5 break-all font-mono text-xs text-[var(--text-muted)]" title={`${server.username}@${server.host}:${server.port}`}>
             {server.username}@{server.host}:{server.port}
           </p>
         </div>
@@ -218,7 +124,7 @@ export function ServerOverviewCard({
           role="status"
           aria-label={t("serverOverviewCard.realtimeStatusAria", { status: listHealthLabel })}
           title={listHealthDescription}
-          className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[10px] font-semibold tracking-wide ${listHealthToneClass} ${diagnosticRun.status === "loading" ? "animate-pulse" : ""}`}
+          className={`max-w-full rounded-md border px-2 py-1 text-xs font-medium ${listHealthToneClass}`}
         >
           {diagnosticRun.status === "loading" ? (
             <span className="inline-flex items-center gap-1.5">
@@ -231,7 +137,7 @@ export function ServerOverviewCard({
         </span>
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-[var(--text-muted)]">
+      <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-xs text-[var(--text-muted)]">
         <CompactField label={t("serverOverviewCard.connection")} value={server.connectionTypeLabel} />
         <CompactField
           label={t("serversPage.management.title")}
@@ -249,7 +155,7 @@ export function ServerOverviewCard({
           value={`${server.pendingCommandCount} ${t("serverOverviewCard.itemsCount")}`}
         />
       </div>
-      <p className="mt-2.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-2.5 py-2 text-[11px] leading-5 text-[var(--text-muted)]">
+      <p className="mt-4 flex-1 break-words text-xs leading-5 text-[var(--text-muted)]">
         {listHealthDescription}
       </p>
 
@@ -277,7 +183,7 @@ export function ServerOverviewCard({
           aria-controls={detailsId}
           aria-haspopup="dialog"
          
-          className="!px-3 !py-1.5 !text-xs"
+          className="!px-3 !py-1.5 !text-sm"
         >
           {expanded ? t("serverOverviewCard.collapseDetails") : t("serverOverviewCard.viewDetails")}
         </ActionButton>
@@ -296,7 +202,7 @@ export function ServerOverviewCard({
             >
                 <div className="mb-3 flex items-center justify-between gap-3 border-b border-[var(--border)] pb-3">
                   <div className="min-w-0">
-                    <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--text-muted)]">{t("serverOverviewCard.eyebrow")}</p>
+                    <p className="text-xs uppercase  text-[var(--text-muted)]">{t("serverOverviewCard.eyebrow")}</p>
                     <h3 id={`${detailsId}-title`} className="truncate text-base font-semibold text-[var(--text-primary)]">
                       {server.name}
                     </h3>
@@ -304,7 +210,7 @@ export function ServerOverviewCard({
                   <ActionButton variant="secondary"
                     onClick={closeDialog}
                    
-                    className="shrink-0 !px-3 !py-1.5 !text-xs"
+                    className="shrink-0 !px-3 !py-1.5 !text-sm"
                   >
                     {t("serverOverviewCard.collapseDetails")}
                   </ActionButton>
@@ -330,9 +236,9 @@ export function ServerOverviewCard({
 
 function CompactField({ label, value }: { label: string; value: string }) {
   return (
-    <div className="min-w-0 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-2.5 py-1.5">
-      <div className="text-[10px] font-medium uppercase tracking-[0.08em] text-[var(--text-muted)]">{label}</div>
-      <div className="mt-0.5 truncate text-[11px] text-[var(--text-secondary)]">{value}</div>
+    <div className="min-w-0">
+      <div className="text-xs text-[var(--text-muted)]">{label}</div>
+      <div className="mt-1 break-words text-xs font-medium text-[var(--text-secondary)]">{value}</div>
     </div>
   );
 }

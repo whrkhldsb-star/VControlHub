@@ -146,7 +146,7 @@ export function ServerCardEditForm({
         <span className="block font-medium text-[var(--text-primary)]">
           {t("serverCardActions.edit.hostKeyTrustTitle")}
         </span>
-        <span className="block text-[11px] text-[var(--text-muted)]">
+        <span className="block text-xs text-[var(--text-muted)]">
           {t("serverCardActions.edit.hostKeyTrustDesc")}
         </span>
         {observedHostKeySha256 ? (
@@ -217,7 +217,7 @@ export function ServerCardEditForm({
             placeholder="/root/drive"
             className={UI_INPUT}
           />
-          <p className="text-[11px] leading-5 text-[var(--text-muted)]">
+          <p className="text-xs leading-5 text-[var(--text-muted)]">
             {t("serverCardActions.edit.storagePathHint")}
           </p>
           <label className="flex items-start gap-2 text-xs text-[var(--text-secondary)]">
@@ -243,7 +243,7 @@ export function ServerCardEditForm({
             <span className="block font-medium text-[var(--text-primary)]">
               {t("serverCardActions.edit.costAutoSync")}
             </span>
-            <span className="text-[11px] text-[var(--text-muted)]">
+            <span className="text-xs text-[var(--text-muted)]">
               {t("serverCardActions.edit.costHint")}
             </span>
           </span>
@@ -280,7 +280,7 @@ export function ServerCardEditForm({
           aria-label={t("serverCardActions.edit.costProvider")}
         />
         {costLastSyncedAt ? (
-          <p className="text-[11px] text-[var(--text-muted)]">
+          <p className="text-xs text-[var(--text-muted)]">
             {t("serverCardActions.edit.costLastSynced", { time: costLastSyncedAt })}
           </p>
         ) : null}

@@ -86,7 +86,7 @@ export function SshTerminalToolbar({
 				{(status ==="error" || status ==="closed") && (
 					<ActionButton variant="outline"
 						onClick={onReconnect}
-						data-tone="cyan" className="min-h-9 !rounded-full !px-3 !py-1 !text-xs"
+						data-tone="cyan" className="min-h-9 !rounded-full !px-3 !py-1 !text-sm"
 					>
 						{t("sshTerminalModal.reconnect")}
 					</ActionButton>
@@ -146,12 +146,12 @@ export function SshTerminalSearchBar({
 			</button>
 			<ActionButton variant="outline"
 				onClick={() => onSearch("next")}
-				data-tone="cyan" className="min-h-10 !px-3 !text-xs"
+				data-tone="cyan" className="min-h-10 !px-3 !text-sm"
 			>
 				{t("sshTerminalModal.searchNext")}
 			</ActionButton>
 			<ActionButton variant="secondary"
-				onClick={onClear} className="min-h-10 !px-3 !text-xs">
+				onClick={onClear} className="min-h-10 !px-3 !text-sm">
 				{t("sshTerminalModal.searchClear")}
 			</ActionButton>
 		</div>

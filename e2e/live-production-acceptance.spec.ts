@@ -340,12 +340,7 @@ test.describe("live production acceptance", () => {
       `/files?nodeId=${encodeURIComponent(nodeId)}${
         path ? `&path=${encodeURIComponent(path)}` : ""
       }`;
-    const browserArticle = () =>
-      page
-        .getByRole("heading", {
-          name: /当前目录操作|Current directory actions/i,
-        })
-        .locator("xpath=ancestor::article[1]");
+    const browserArticle = () => page.locator("[data-file-browser]");
     const rowFor = (name: string) =>
       browserArticle()
         .getByText(name, { exact: true })

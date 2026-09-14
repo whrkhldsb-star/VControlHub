@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * GET /api/knowledge/[id] — knowledge base detail + documents
  */
@@ -17,12 +18,12 @@ export async function GET(
     {
       permission: "ai:chat",
       rateLimit: GENERAL_READ_LIMIT,
-      errorMessage: "Failed to load knowledge base",
+      errorMessage: apiCopy("apiCopy.failed.to.load.knowledge.base.1f5f8377"),
     },
     async ({ session }) => {
       const { id } = await context.params;
       const base = await getKnowledgeBase(id, session!);
-      if (!base) throw new NotFoundError("Knowledge base not found");
+      if (!base) throw new NotFoundError(apiCopy("apiCopy.knowledge.base.not.found.0ac936d8"));
       return NextResponse.json({
         knowledgeBase: {
           id: base.id,

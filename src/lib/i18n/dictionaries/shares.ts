@@ -128,6 +128,7 @@ export const zh: Record<string, string> = {
 	"sharesPage.picker.copied": "已复制",
 	"sharesPage.picker.loadError": "加载文件列表失败",
 	"sharesPage.picker.createError": "创建分享失败",
+	"sharesPage.picker.copyError": "复制失败，请选择并复制链接",
 	"sharesPage.picker.storageNodeLabel": "存储节点",
 };
 
@@ -232,6 +233,7 @@ export const en: Record<string, string> = {
 	"sharesPage.picker.copied": "Copied",
 	"sharesPage.picker.loadError": "Failed to load file list",
 	"sharesPage.picker.createError": "Failed to create shares",
+	"sharesPage.picker.copyError": "Copy failed. Select and copy the link.",
 	"sharesPage.picker.storageNodeLabel": "Storage node",
 	"sharesPage.button.compact": "Share",
 	"sharesPage.button.title": "Create share link",

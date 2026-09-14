@@ -120,7 +120,7 @@ export const PlaybookCard = memo(function PlaybookCard({
                 onClick={() => onTrigger(playbook.id, "dry-run")}
                 disabled={isDryRunning || isRunning}
                
-                className="!min-h-11 !rounded-2xl !px-4 !py-2 !text-xs disabled:opacity-50"
+                className="!min-h-11 !rounded-2xl !px-4 !py-2 !text-sm disabled:opacity-50"
               >
                 {isDryRunning ? t("playbooksPage.action.dryRunRunning") : t("playbooksPage.action.dryRun")}
               </ActionButton>
@@ -128,7 +128,7 @@ export const PlaybookCard = memo(function PlaybookCard({
                 onClick={() => onTrigger(playbook.id, "run")}
                 disabled={!playbook.enabled || isRunning || isDryRunning}
                
-                className="!min-h-11 !rounded-2xl !px-4 !py-2 !text-xs disabled:opacity-50"
+                className="!min-h-11 !rounded-2xl !px-4 !py-2 !text-sm disabled:opacity-50"
               >
                 {isRunning ? t("playbooksPage.action.running") : t("playbooksPage.action.run")}
               </ActionButton>
@@ -139,7 +139,7 @@ export const PlaybookCard = memo(function PlaybookCard({
               onClick={() => onToggle(playbook)}
               disabled={isToggling}
              
-              className="!min-h-11 !rounded-2xl !px-4 !py-2 !text-xs disabled:opacity-50"
+              className="!min-h-11 !rounded-2xl !px-4 !py-2 !text-sm disabled:opacity-50"
             >
               {isToggling ? t("playbooksPage.action.toggling") : t("playbooksPage.action.toggle")}
             </ActionButton>
@@ -149,7 +149,7 @@ export const PlaybookCard = memo(function PlaybookCard({
               onClick={() => onDelete(playbook)}
               disabled={isDeleting}
              
-              className="!min-h-11 !rounded-2xl !px-4 !py-2 !text-xs disabled:opacity-50"
+              className="!min-h-11 !rounded-2xl !px-4 !py-2 !text-sm disabled:opacity-50"
             >
               {isDeleting ? t("playbooksPage.action.deleting") : t("playbooksPage.action.delete")}
             </ActionButton>

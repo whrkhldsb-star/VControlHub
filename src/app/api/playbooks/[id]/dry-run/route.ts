@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 
 import { runPlaybook } from "@/lib/playbook/service";
@@ -18,7 +19,7 @@ type PlaybookRouteContext = { params: Promise<{ id?: string }> };
 export async function POST(request: Request, { params }: PlaybookRouteContext) {
   return withApiRoute(
     request,
-    { permission: "playbook:run", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: "dry-run Failed" },
+    { permission: "playbook:run", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: apiCopy("apiCopy.dry.run.failed.389a6160") },
     async ({ session }) => {
       const id = await requirePlaybookId(params);
       const run = await runPlaybook({

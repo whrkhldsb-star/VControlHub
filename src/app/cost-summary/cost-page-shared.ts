@@ -1,11 +1,11 @@
 import type { CostCategory, CostCurrency } from "@/lib/cost/types";
+import { UI_INPUT } from "@/lib/ui/classes";
 
 export const CATEGORIES: CostCategory[] = ["vps", "bandwidth", "storage", "other"];
 
 export const cardClass = "rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)]";
-export const labelClass = "text-xs font-medium tracking-wide text-[var(--text-secondary)]";
-export const inputClass =
-	"w-full rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--accent-border)]";
+export const labelClass = "text-xs font-medium  text-[var(--text-secondary)]";
+export const inputClass = UI_INPUT;
 export const buttonPrimary =
 	"inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50 [data-action-button]:inline-flex";
 // Prefer data-action-button tokens for cost page chrome.
@@ -50,4 +50,3 @@ export function isValidDate(s: string): boolean {
 	const d = new Date(`${s}T00:00:00Z`);
 	return !Number.isNaN(d.getTime());
 }
-

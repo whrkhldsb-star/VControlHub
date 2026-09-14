@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * Cross-environment backup migration packages.
  *
@@ -289,14 +290,14 @@ export async function readMigrationManifest(packageDir: string): Promise<Migrati
   }
   const m = parsed as Partial<MigrationManifest>;
   if (m.version !== MIGRATION_MANIFEST_VERSION) {
-    throw new ValidationError(`Unsupported migration manifest version: ${String(m.version)}`);
+    throw new ValidationError(apiCopy("apiCopy.unsupported.migration.manifest.version.bceb6f90", { v0: String(String(m.version)) }));
   }
   if (!m.packageId || !m.backup?.type || !m.backup.payloadFileName || !m.backup.checksumSha256) {
     throw new ValidationError(t("backend.backup.manifestMissingFields"));
   }
   assertSafePackageId(m.packageId);
   if (!isBackupType(m.backup.type)) {
-    throw new ValidationError(`Invalid backup type in manifest: ${m.backup.type}`);
+    throw new ValidationError(apiCopy("apiCopy.invalid.backup.type.in.manifest.e328a818", { v0: String(m.backup.type) }));
   }
   if (
     basename(m.backup.payloadFileName) !== m.backup.payloadFileName ||
@@ -508,7 +509,7 @@ export async function importMigrationPackage(input: {
   try {
     if (!validated.ok) {
       throw new ValidationError(
-        `Migration package validation failed: ${validated.issues.join("; ")}`,
+        apiCopy("apiCopy.migration.package.validation.failed.d3ca05a5", { v0: String(validated.issues.join("; ")) }),
       );
     }
 

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 async function loadConstants() {
   vi.resetModules();
@@ -6,6 +6,9 @@ async function loadConstants() {
 }
 
 describe("image-bed constants", () => {
+  beforeEach(() => {
+    vi.stubEnv("IMAGE_UPLOAD_DIR", "");
+  });
   afterEach(() => {
     vi.unstubAllEnvs();
     vi.resetModules();

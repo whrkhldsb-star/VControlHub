@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * POST /api/servers/[id]/sftp/mkdir — create a directory on remote server
  */
@@ -22,7 +23,7 @@ export async function POST(
     {
       permission: "server:ssh",
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "SFTP mkdir failed",
+      errorMessage: apiCopy("apiCopy.sftp.mkdir.failed.e5265f34"),
       bodySchema: mkdirSchema,
     },
     async ({ body, session }) => {

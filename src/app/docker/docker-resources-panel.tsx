@@ -299,7 +299,7 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
         </div>{" "}
         <ActionButton variant="secondary"
           onClick={() => void fetchResources()}
-          disabled={loading} className="!min-h-11 !px-3 !py-1.5 !text-xs disabled:opacity-50"
+          disabled={loading} className="!min-h-11 !px-3 !py-1.5 !text-sm disabled:opacity-50"
         >
           {loading
             ? t("dockerResources.refreshBusy")
@@ -359,7 +359,7 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
       <div className="grid gap-4 lg:grid-cols-2">
         {" "}
         <div>
-          <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">
+          <h3 className="mb-2 text-xs font-medium uppercase  text-[var(--text-muted)]">
             {formatCopy(t("dockerResources.group.networks"), {
               count: networks.length,
             })}
@@ -367,7 +367,7 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
           {renderList("networks", networks)}
         </div>{" "}
         <div>
-          <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">
+          <h3 className="mb-2 text-xs font-medium uppercase  text-[var(--text-muted)]">
             {formatCopy(t("dockerResources.group.volumes"), {
               count: volumes.length,
             })}

@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
@@ -61,7 +62,7 @@ async function validateInput(input: unknown) {
   const validPermissionSet = new Set<string>(ALL_PERMISSIONS);
   const invalidPermissions = parsed.permissions.filter((key) => !validPermissionSet.has(key));
   if (invalidPermissions.length > 0) {
-    throw new ValidationError(`Unknown permissions: ${invalidPermissions.join(", ")}`);
+    throw new ValidationError(apiCopy("apiCopy.unknown.permissions.9b3e626f", { v0: String(invalidPermissions.join(", ")) }));
   }
   const knownRoles = await prisma.role.findMany({
     where: { key: { in: parsed.roleKeys } },
@@ -70,7 +71,7 @@ async function validateInput(input: unknown) {
   });
   const known = new Set(knownRoles.map((role) => role.key));
   const missingRoles = parsed.roleKeys.filter((key) => !known.has(key));
-  if (missingRoles.length > 0) throw new ValidationError(`Unknown roles: ${missingRoles.join(", ")}`);
+  if (missingRoles.length > 0) throw new ValidationError(apiCopy("apiCopy.unknown.roles.cf556dfb", { v0: String(missingRoles.join(", ")) }));
   const requestedNodeIds = Array.from(
     new Set(parsed.storageAccess.map((grant) => grant.storageNodeId).filter(Boolean)),
   );
@@ -82,7 +83,7 @@ async function validateInput(input: unknown) {
     });
     const validNodes = new Set(knownNodes.map((n) => n.id));
     const invalidNode = parsed.storageAccess.find((grant) => !validNodes.has(grant.storageNodeId));
-    if (invalidNode) throw new ValidationError(`Unknown storage node: ${invalidNode.storageNodeId}`);
+    if (invalidNode) throw new ValidationError(apiCopy("apiCopy.unknown.storage.node.f272cf95", { v0: String(invalidNode.storageNodeId) }));
   }
   return parsed;
 }

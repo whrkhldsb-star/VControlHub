@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 
 import { fetchModelsFromCredentials } from "@/lib/ai/service";
@@ -14,7 +15,7 @@ export async function POST(request: Request) {
       permission: "ai:manage",
       rateLimit: GENERAL_WRITE_LIMIT,
       errorStatus: 400,
-      errorMessage: "Failed to fetch model list",
+      errorMessage: apiCopy("apiCopy.failed.to.fetch.model.list.d5934edd"),
       bodySchema: probeModelsSchema,
     },
     async ({ body }) => {

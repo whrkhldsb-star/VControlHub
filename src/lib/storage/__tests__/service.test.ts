@@ -37,6 +37,10 @@ const { mockPrisma, listRemoteDirectoryMock, assertStorageAccessMock } =
     assertStorageAccessMock: vi.fn(),
   }));
 
+vi.mock("../service-statistics", () => ({
+  getFileIndexStatistics: vi.fn(async () => ({totalEntries:1208,deletedEntries:0,previewableEntries:1,remoteDirectoryCount:2})),
+}));
+
 vi.mock("@/lib/db", () => ({
   prisma: mockPrisma,
   isUniqueViolation: (e: unknown) =>
@@ -369,7 +373,7 @@ describe("storage service", () => {
         publicBaseUrl: null,
         directAccessExpiresSeconds: 300,
         server: null,
-        fileEntries: [{ id: "f_1" }],
+        _count: { fileEntries: 1208 },
         createdAt: new Date(),
         updatedAt: new Date(),
       } as any,
@@ -430,6 +434,7 @@ describe("storage service", () => {
     const result = await getStorageOverview();
 
     expect(result.stats.totalNodes).toBe(1);
+    expect(result.stats.totalEntries).toBe(1208);
     expect(result.stats.defaultNodeName).toBe("主控本机");
     expect(result.stats.previewableEntries).toBe(1);
     expect(

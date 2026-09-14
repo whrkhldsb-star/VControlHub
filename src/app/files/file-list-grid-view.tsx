@@ -93,9 +93,14 @@ export function FileListGridView({
       {sortedFolders.map((folder) => (
         <div
           key={folder.path}
+          draggable={!!folder.entryId && entryCanWrite(folder)}
+          data-file-entry-id={folder.entryId ?? undefined}
+          data-file-drop-path={folder.entryId && entryCanWrite(folder) ? folder.path : undefined}
+          data-file-node-id={folder.storageNodeId ?? folder.sourceKeys[0]}
           data-testid="folder-card"
           className="group flex min-h-[180px] flex-col overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)] text-center transition-colors duration-150 hover:border-[var(--warning-border)] hover:bg-[var(--warning)]/[0.04]"
         >
+          {folder.entryId && (entryCanWrite(folder) || entryCanDelete(folder)) ? <input type="checkbox" className="ml-3 mt-3 h-4 w-4" aria-label={t("fileListClient.selectFileAria", { name: folder.name })} checked={effectiveSelectedIdSet.has(folder.entryId)} onChange={() => toggleOne(folder.entryId!)} /> : null}
           <button
             type="button"
             onClick={() => navigateToFolder(folder.path)}
@@ -138,6 +143,9 @@ export function FileListGridView({
         return (
           <div
             key={entry.id}
+            draggable={entryCanWrite(entry)}
+            data-file-entry-id={entry.id}
+            data-file-node-id={entry.storageNode.id}
             className={`group relative flex flex-col rounded-2xl border border-[var(--border)] bg-[var(--surface)] text-center transition-colors duration-200 hover:border-[var(--color-action-border)]/20 hover:shadow-lg hover:shadow-[var(--color-action)]/5 overflow-hidden ${isChecked ? "ring-2 ring-[var(--color-action-ring)] bg-[var(--color-action-bg)]/[0.04] light:bg-[var(--color-action-bg)]" : ""}`}
           >
             {/* Selection checkbox */}

@@ -83,7 +83,7 @@ const TaskRow = memo(function TaskRow({ task, t, dateLocale, sourceLabels, onVie
         <p className="mt-1 text-xs text-[var(--text-muted)]">{new Date(task.createdAt).toLocaleString(dateLocale)} {task.actor ? ` · ${task.actor}` : ""} {task.progress ? ` · ${task.progress}` : ""}</p>
         {task.logPreview && task.logPreview.length > 0 && (
           <div aria-label={`Recent logs: ${task.title}`} className="mt-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-3 py-2">
-            <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-[var(--text-muted)]">{t("operationTasksPage.logs.recent")}</div>
+            <div className="text-xs font-medium uppercase  text-[var(--text-muted)]">{t("operationTasksPage.logs.recent")}</div>
             <ul className="mt-2 space-y-1 text-xs text-[var(--text-secondary)]">
               {task.logPreview.map((line, index) => <li key={`${task.id}-log-${index}`} className="break-words font-mono">{line}</li>)}
             </ul>
@@ -215,7 +215,7 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
       </div>}
     </SurfacePanel>
     </section>
-    <section aria-label={t("operationTasks.summary.failureGroup")} className="rounded-2xl border border-[var(--danger-border)] bg-[color-mix(in_srgb,var(--danger-bg)_35%,var(--surface))] p-4 shadow-[var(--shadow-sm)]">
+    <section aria-label={t("operationTasks.summary.failureGroup")} className={`rounded-xl border bg-[var(--surface)] p-4 shadow-[var(--shadow-sm)] ${failureSummary.length ? "border-[var(--danger-border)]" : "border-[var(--border)]"}`}>
       <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("operationTasks.summary.failureGroup")}</h2>
@@ -255,7 +255,7 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
               {sortOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </select>
           </label>
-          <ActionButton variant="secondary" onClick={refresh} disabled={refreshing} className="!px-3 !py-2 !text-xs disabled:opacity-50">{refreshing ? t("operationTasks.action.refreshing") : t("operationTasks.action.applyFilter")}</ActionButton>
+          <ActionButton variant="secondary" onClick={refresh} disabled={refreshing} className="!px-3 !py-2 !text-sm disabled:opacity-50">{refreshing ? t("operationTasks.action.refreshing") : t("operationTasks.action.applyFilter")}</ActionButton>
           <a href={getExportPath(statusFilter, taskTypeFilter, sort)} data-action-button data-variant="primary" className="px-3 py-2 text-xs">{t("operationTasksPage.export.csv")}</a>
         </Toolbar>
       }
@@ -276,7 +276,7 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
               variant="secondary"
               onClick={() => setPage((current) => Math.max(1, current - 1))}
               disabled={safePage === 1}
-              className="!px-3 !py-1.5 !text-xs disabled:opacity-40"
+              className="!px-3 !py-1.5 !text-sm disabled:opacity-40"
             >
               {t("operationTasksPage.pagination.previous")}
             </ActionButton>
@@ -287,7 +287,7 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
               variant="secondary"
               onClick={() => setPage((current) => Math.min(pageCount, current + 1))}
               disabled={safePage === pageCount}
-              className="!px-3 !py-1.5 !text-xs disabled:opacity-40"
+              className="!px-3 !py-1.5 !text-sm disabled:opacity-40"
             >
               {t("operationTasksPage.pagination.next")}
             </ActionButton>

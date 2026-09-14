@@ -78,29 +78,29 @@ export function OsDialectSection({
 		<div className="mt-2 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-2.5">
 			<div className="flex items-center justify-between gap-2">
 				<div className="min-w-0 flex-1">
-					<span className="text-[11px] text-[var(--text-muted)]">{t("serverOverviewDetails.osDialect")}</span>
+					<span className="text-xs text-[var(--text-muted)]">{t("serverOverviewDetails.osDialect")}</span>
 					<p className="mt-0.5 truncate text-sm text-[var(--text-primary)]">
 						{displayInfo || t("serverOverviewDetails.osNotDetected")}
 					</p>
 				</div>
 				<ActionButton variant="outline"
 					onClick={handleDetect}
-					disabled={detecting} className="shrink-0 !px-2.5 !py-1 !text-[11px] disabled:opacity-50">
+					disabled={detecting} className="shrink-0 !px-2.5 !py-1 !text-sm disabled:opacity-50">
 					{detecting ? t("serverOverviewDetails.detecting") : t("serverOverviewDetails.detectOs")}
 				</ActionButton>
 			</div>
 			{error ? (
-				<p className="mt-1.5 text-[11px] text-[var(--danger)]">{error}</p>
+				<p className="mt-1.5 text-xs text-[var(--danger)]">{error}</p>
 			) : null}
 			{hasDialect && (pm || sm) ? (
 				<div className="mt-1.5 flex flex-wrap gap-1.5">
 					{pm ? (
-						<span className="rounded border border-[var(--border)] bg-[var(--surface-elevated)] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]">
+						<span className="rounded border border-[var(--border)] bg-[var(--surface-elevated)] px-1.5 py-0.5 text-xs text-[var(--text-muted)]">
 							{t("serverOverviewDetails.packageManager")}: {pm}
 						</span>
 					) : null}
 					{sm ? (
-						<span className="rounded border border-[var(--border)] bg-[var(--surface-elevated)] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]">
+						<span className="rounded border border-[var(--border)] bg-[var(--surface-elevated)] px-1.5 py-0.5 text-xs text-[var(--text-muted)]">
 							{t("serverOverviewDetails.serviceManager")}: {sm}
 						</span>
 					) : null}
@@ -186,13 +186,13 @@ export function DirectGatewayAdviceList({
 					data-tone={item.tone ?? "amber"}
 					className={`rounded-lg border px-2 py-1.5 ${adviceToneClass(item.tone)}`}
 				>
-					<div className={`flex flex-wrap items-baseline gap-1.5 text-[11px] font-medium leading-5 ${adviceTitleClass(item.tone)}`}>
+					<div className={`flex flex-wrap items-baseline gap-1.5 text-xs font-medium leading-5 ${adviceTitleClass(item.tone)}`}>
 						<span
 							data-priority={item.priority}
 							className={
 								item.priority === "primary"
-									? `rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-wide ${adviceBadgeClass(item.tone)}`
-									: "rounded border border-[var(--border)] bg-[var(--surface)] px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-[var(--text-secondary)] light:border-[var(--border)]"
+									? `rounded border px-1.5 py-0.5 text-xs uppercase  ${adviceBadgeClass(item.tone)}`
+									: "rounded border border-[var(--border)] bg-[var(--surface)] px-1.5 py-0.5 text-xs uppercase  text-[var(--text-secondary)] light:border-[var(--border)]"
 							}
 						>
 							{item.priority === "primary" ? t("serverOverviewDetails.recommendation") : t("serverOverviewDetails.reference")}
@@ -208,7 +208,7 @@ export function DirectGatewayAdviceList({
 							</Link>
 						) : null}
 					</div>
-					<p className="mt-1 text-[11px] leading-5 text-[var(--text-muted)]">
+					<p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">
 						{item.detail}
 					</p>
 				</li>

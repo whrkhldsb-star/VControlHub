@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -46,7 +47,7 @@ export async function POST(request: Request) {
     permission: "backup:create" as const,
     rateLimit: GENERAL_WRITE_LIMIT,
     errorStatus: 500,
-    errorMessage: "Operation failed",
+    errorMessage: apiCopy("apiCopy.operation.failed.4e1af7c7"),
     ...(isFormSubmission ? {} : { bodySchema: createBackupSchema }),
   };
   return withApiRoute(request, options, async ({ session, body }) => {

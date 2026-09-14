@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * Backup service — prisma CRUD + lifecycle (R28 god-file split).
  *
@@ -145,7 +146,7 @@ export async function abandonStalePendingBackupRecords(input?: {
 			where: { id: row.id, status: "PENDING" },
 			data: {
 				status: "VOIDED",
-				errorMessage: `Voided: ${reason}`,
+				errorMessage: apiCopy("apiCopy.voided.991e85c4", { v0: String(reason) }),
 			},
 		});
 		if (claimed.count > 0) ids.push(row.id);

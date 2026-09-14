@@ -280,7 +280,7 @@ export function AiClient({
   return (
     <div
       data-ai-workspace
-      className="flex h-[calc(100dvh-5.5rem-env(safe-area-inset-bottom))] overflow-hidden bg-[var(--page-bg)] pt-16 md:h-screen md:pt-0"
+      className="flex h-[calc(100dvh-5.5rem-env(safe-area-inset-bottom))] min-h-80 overflow-hidden bg-[var(--page-bg)] pt-16 lg:h-screen lg:pt-0"
     >
       {confirm.copy && (
         <AiConfirmDialog

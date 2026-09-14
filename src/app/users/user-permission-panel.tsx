@@ -252,7 +252,7 @@ return data as PermissionsPayload;
     >
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs uppercase tracking-[0.3em] text-[var(--color-action)]/70">{t("usersPerm.title")}</p>
+            <p className="text-xs uppercase  text-[var(--color-action)]/70">{t("usersPerm.title")}</p>
             <h3 className="mt-1 text-xl font-semibold text-[var(--text-primary)]">{payload?.user.displayName ?? username}</h3>
             <p className="mt-1 text-sm text-[var(--text-muted)]">{t("usersPerm.desc")}</p>
           </div>
@@ -270,20 +270,20 @@ return data as PermissionsPayload;
                   <option value="">{t("usersPerm.template.select")}</option>
                   {templates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}
                 </select>
-                <ActionButton variant="outline" onClick={applyTemplate} disabled={!selectedTemplateId} className="!px-3 !py-2 !text-xs disabled:opacity-40">{t("usersPerm.template.apply")}</ActionButton>
+                <ActionButton variant="outline" onClick={applyTemplate} disabled={!selectedTemplateId} className="!px-3 !py-2 !text-sm disabled:opacity-40">{t("usersPerm.template.apply")}</ActionButton>
                 {/* Custom templates were creatable but never removable from the UI;
                     built-ins stay read-only because the API refuses to delete them. */}
                 {selectedTemplate && !selectedTemplate.isBuiltin && (confirmingTemplateDelete ? (
                   <>
-                    <ActionButton variant="danger-solid" onClick={deleteSelectedTemplate} disabled={deletingTemplate} className="!px-3 !py-2 !text-xs disabled:opacity-50">
+                    <ActionButton variant="danger-solid" onClick={deleteSelectedTemplate} disabled={deletingTemplate} className="!px-3 !py-2 !text-sm disabled:opacity-50">
                       {deletingTemplate ? "…" : t("usersPerm.template.deleteConfirm")}
                     </ActionButton>
-                    <ActionButton variant="secondary" onClick={() => setConfirmingTemplateDelete(false)} disabled={deletingTemplate} className="!px-3 !py-2 !text-xs disabled:opacity-50">
+                    <ActionButton variant="secondary" onClick={() => setConfirmingTemplateDelete(false)} disabled={deletingTemplate} className="!px-3 !py-2 !text-sm disabled:opacity-50">
                       {t("usersPerm.action.cancel")}
                     </ActionButton>
                   </>
                 ) : (
-                  <ActionButton variant="danger" onClick={() => setConfirmingTemplateDelete(true)} className="!px-3 !py-2 !text-xs">
+                  <ActionButton variant="danger" onClick={() => setConfirmingTemplateDelete(true)} className="!px-3 !py-2 !text-sm">
                     {t("usersPerm.template.delete")}
                   </ActionButton>
                 ))}
@@ -300,7 +300,7 @@ return data as PermissionsPayload;
                     onClick={saveTemplate}
                     disabled={savingTemplate || !templateNameDraft.trim()}
                    
-                    className="!px-3 !py-2 !text-xs disabled:opacity-50"
+                    className="!px-3 !py-2 !text-sm disabled:opacity-50"
                   >
                     {savingTemplate ? "…" : t("usersPerm.template.saveCurrent")}
                   </ActionButton>
@@ -342,7 +342,7 @@ return data as PermissionsPayload;
                   <h4 className="font-medium text-[var(--text-primary)]">{t("usersPerm.section.grants")}</h4>
                   <p className="mt-1 text-xs text-[var(--text-muted)]">{t("usersPerm.grants.hint")}</p>
                 </div>
-                <ActionButton variant="success" onClick={addGrant} className="!px-3 !py-1.5 !text-xs">{t("usersPerm.action.addGrant")}</ActionButton>
+                <ActionButton variant="success" onClick={addGrant} className="!px-3 !py-1.5 !text-sm">{t("usersPerm.action.addGrant")}</ActionButton>
               </div>
               <div className="mt-4 space-y-3">
                 {grants.length === 0 ? <EmptyState>{t("usersPerm.grants.empty")}</EmptyState> : grants.map((grant, index) => {

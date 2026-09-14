@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * POST /api/files/[id]/versions/[versionId]/restore — restore a historical version
  */
@@ -21,10 +22,10 @@ export async function POST(
       permission: "storage:write",
       rateLimit: GENERAL_WRITE_LIMIT,
       errorStatus: 400,
-      errorMessage: "Failed to restore file version",
+      errorMessage: apiCopy("apiCopy.failed.to.restore.file.version.dd230a16"),
     },
     async ({ session }) => {
-      if (!session) throw new AuthError("Unauthorized");
+      if (!session) throw new AuthError(apiCopy("apiCopy.unauthorized.d089c8a9"));
       const { id, versionId } = await params;
       const result = await restoreFileVersion({
         fileEntryId: id,

@@ -36,6 +36,7 @@ export interface ProviderChatRequest {
 	url: string;
 	body: Record<string, unknown>;
 	headers?: Record<string, string>;
+	signal?: AbortSignal;
 }
 
 const DEFAULT_AI_BASE_URL = "https://api.openai.com/v1";
@@ -107,10 +108,12 @@ async function fetchProviderResponse(
 	init: RequestInit,
 	kind: "models" | "chat",
 	timeoutMs: number,
+	callerSignal?: AbortSignal,
 ): Promise<Response> {
 	try {
 		return await fetch(url, init);
 	} catch (error) {
+		if (callerSignal?.aborted) throw callerSignal.reason;
 		const name =
 			typeof error === "object" && error && "name" in error
 				? String(error.name)
@@ -185,7 +188,9 @@ export async function fetchProviderModels(
 }
 
 export async function postProviderChat(input: ProviderChatRequest): Promise<Response> {
+	input.signal?.throwIfAborted();
 	await assertProviderUrlSafe(input.url);
+	input.signal?.throwIfAborted();
 	const response = await fetchProviderResponse(input.url, {
 		method: "POST",
 		redirect: "error",
@@ -194,8 +199,10 @@ export async function postProviderChat(input: ProviderChatRequest): Promise<Resp
 			...(input.headers ?? {}),
 		},
 		body: JSON.stringify(input.body),
-		signal: AbortSignal.timeout(AI_PROVIDER_CHAT_TIMEOUT_MS),
-	}, "chat", AI_PROVIDER_CHAT_TIMEOUT_MS);
+		signal: input.signal
+			? AbortSignal.any([input.signal, AbortSignal.timeout(AI_PROVIDER_CHAT_TIMEOUT_MS)])
+			: AbortSignal.timeout(AI_PROVIDER_CHAT_TIMEOUT_MS),
+	}, "chat", AI_PROVIDER_CHAT_TIMEOUT_MS, input.signal);
 	if (!response.ok) {
 		const errText = await readResponseTextLimited(
 			response,

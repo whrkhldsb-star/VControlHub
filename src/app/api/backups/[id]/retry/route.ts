@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 
 import { auditUserAction } from "@/lib/audit/service";
@@ -11,7 +12,7 @@ import { enqueueJob } from "@/lib/job/service";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  return withApiRoute(request, { permission: "backup:create", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 500, errorMessage: "Operation failed" }, async ({ session }) => {
+  return withApiRoute(request, { permission: "backup:create", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 500, errorMessage: apiCopy("apiCopy.operation.failed.4e1af7c7") }, async ({ session }) => {
     const { id } = await params;
     // Deduplicate in-flight create jobs for this backupId before CAS re-queue.
     // Double-click / concurrent retry would otherwise leave orphan PENDING jobs after the

@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import path from "node:path";
@@ -13,6 +14,8 @@ import { UPLOAD_DIR } from "@/lib/image-bed/constants";
 
 import { apiError } from "@/lib/http/api-error";
 import { withApiRoute } from "@/lib/http/api-guard";
+import { buildContentDisposition } from "@/lib/http/content-disposition";
+import { nodeStreamToWeb } from "@/lib/http/node-to-web-stream";
 export const dynamic = "force-dynamic";
 
 function resolveUploadPath(storageKey: string) {
@@ -49,7 +52,7 @@ export async function GET(
 
     if (!image) {
       return NextResponse.json(
-        { error: "Image not found or inaccessible" },
+        { error: apiCopy("apiCopy.image.not.found.or.inaccessible.034fcf62") },
         { status: 404 },
       );
     }
@@ -75,7 +78,7 @@ export async function GET(
 
       if (!canReadPrivateImage) {
         return NextResponse.json(
-          { error: "Image not found or inaccessible" },
+          { error: apiCopy("apiCopy.image.not.found.or.inaccessible.034fcf62") },
           { status: 404 },
         );
       }
@@ -85,7 +88,7 @@ export async function GET(
     if (!filePath) {
       return apiError({
         code: "VALIDATION_FAILED",
-        message: "Invalid file path",
+        message: apiCopy("apiCopy.invalid.file.path.5659e6b3"),
         status: 400,
       });
     }
@@ -96,24 +99,12 @@ export async function GET(
     } catch {
       return apiError({
         code: "NOT_FOUND",
-        message: "File is missing",
+        message: apiCopy("apiCopy.file.is.missing.35456012"),
         status: 404,
       });
     }
 
-    const stream = createReadStream(filePath);
-    const webStream = new ReadableStream({
-      start(controller) {
-        stream.on("data", (chunk) =>
-          controller.enqueue(new Uint8Array(chunk as Buffer)),
-        );
-        stream.on("end", () => controller.close());
-        stream.on("error", (err) => controller.error(err));
-      },
-      cancel() {
-        stream.destroy();
-      },
-    });
+    const webStream = nodeStreamToWeb(createReadStream(filePath));
 
     return new NextResponse(webStream, {
       status: 200,
@@ -123,7 +114,7 @@ export async function GET(
         "Cache-Control": image.isPublic
           ? "public, no-cache, must-revalidate"
           : "private, no-store",
-        "Content-Disposition": `inline; filename="${image.filename.replace(/["\r\n]/g, "_")}"`,
+        "Content-Disposition": buildContentDisposition("inline", image.filename),
         "X-Content-Type-Options": "nosniff",
         "Content-Security-Policy": "default-src 'none'; sandbox",
       },

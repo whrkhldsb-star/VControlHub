@@ -1,5 +1,5 @@
-import { QuickServicesPageSkeleton } from "@/components/skeleton";
+import { RouteLoading, QuickServicesPageSkeleton } from "@/components/skeleton";
 
 export default function Loading() {
-	return <QuickServicesPageSkeleton />;
+	return <RouteLoading><QuickServicesPageSkeleton /></RouteLoading>;
 }

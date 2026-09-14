@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { CronExpressionParser } from "cron-parser";
 import { prisma } from "@/lib/db";
 import { createCommandRequest } from "@/lib/command/service";
@@ -113,7 +114,7 @@ async function assertScheduledTaskServersInScope(
 	});
 	if (servers.length !== ids.length) {
 		throw new ValidationError(
-			"One or more target servers were not found or are outside your team scope",
+			apiCopy("apiCopy.one.or.more.target.servers.were.not.found.or.are.outside.your.te.8f5645a2"),
 		);
 	}
 }

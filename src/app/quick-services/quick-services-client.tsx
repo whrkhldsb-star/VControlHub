@@ -1,5 +1,7 @@
 "use client";
 
+import { X } from "@/components/icons";
+
 import Link from "next/link";
 import { useState, useMemo } from "react";
 import { buildQuickServiceAccessDescriptor } from "@/lib/quick-service/access-url";
@@ -226,7 +228,7 @@ export function QuickServicesClient({
 
 			<div className="flex flex-col gap-2 rounded-2xl border border-[var(--accent-border)] bg-[var(--accent-bg)] p-4 sm:flex-row sm:items-center sm:justify-between">
 				<div>
-					<p className="text-xs font-medium uppercase tracking-[0.16em] text-[var(--accent)]">{t("qsPage.targetNode")}</p>
+					<p className="text-xs font-medium uppercase  text-[var(--accent)]">{t("qsPage.targetNode")}</p>
 					<p className="mt-1 text-sm text-[var(--text-primary)]">{selectedTargetLabel}</p>
 					<p className="mt-1 text-xs text-[var(--text-secondary)]">
 						{selectedServerId ? t("qsPage.targetNodeRemoteHint") : t("qsPage.targetNodeHubHint")}
@@ -251,7 +253,7 @@ export function QuickServicesClient({
 				<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-elevated)] p-4">
 					<div className="flex items-start justify-between gap-3">
 						<div>
-							<p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">{t("qsPage.runningOverview")}</p>
+							<p className="text-xs uppercase  text-[var(--text-muted)]">{t("qsPage.runningOverview")}</p>
 							<h2 className="mt-1 text-base font-semibold text-[var(--text-primary)]">{runningItems.length > 0 ? t("qsPage.runningOnlineCount", { count: runningItems.length }) : t("qsPage.noRunningServicesYet")}</h2>
 							</div>
 							<button type="button" onClick={() => selectTab(nextAction.tab)}
@@ -291,7 +293,7 @@ export function QuickServicesClient({
 					</div>
 				</div>
 				<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-elevated)] p-4">
-					<p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">{t("qsPage.portsLabel")}</p>
+					<p className="text-xs uppercase  text-[var(--text-muted)]">{t("qsPage.portsLabel")}</p>
 					<h3 className="mt-1 text-base font-semibold text-[var(--text-primary)]">{t("qsPage.listeningPortsCount", { count: usedPorts.length })}</h3>
 					<p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{t("qsPage.portsHint")}</p>
 					<div className="mt-3 flex flex-wrap gap-1.5">
@@ -299,10 +301,10 @@ export function QuickServicesClient({
 					</div>
 				</div>
 				<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-elevated)] p-4">
-					<p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">{t("qsPage.sourcesLabel")}</p>
+					<p className="text-xs uppercase  text-[var(--text-muted)]">{t("qsPage.sourcesLabel")}</p>
 					<h3 className="mt-1 text-base font-semibold text-[var(--text-primary)]">{t("qsPage.sourcesEnabledCount", { enabled: sources.filter((s) => s.enabled).length, total: sources.length })}</h3>
 					<p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{lastSyncedSource ? t("qsPage.lastSynced", { name: lastSyncedSource.displayName }) : t("qsPage.noSyncRecord")}</p>
-					<ActionButton variant={staleSources.length > 0 ? "outline" : "secondary"} onClick={() => selectTab("sources")} className="!mt-3 !px-3 !py-1.5 !text-xs">
+					<ActionButton variant={staleSources.length > 0 ? "outline" : "secondary"} onClick={() => selectTab("sources")} className="!mt-3 !px-3 !py-1.5 !text-sm">
 						{staleSources.length > 0 ? t("qsPage.handleStaleSources", { count: staleSources.length }) : t("qsPage.manageSources")}
 					</ActionButton>
 				</div>
@@ -324,8 +326,8 @@ export function QuickServicesClient({
 							className={`${CONTROL_CLASS} pr-9`}
 						/>
 						{search ? (
-							<button type="button" onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]">
-								✕
+							<button type="button" aria-label={t("common.clear")} title={t("common.clear")} onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]">
+								<X size={16} aria-hidden />
 							</button>
 						) : null}
 					</div>
@@ -390,7 +392,7 @@ export function QuickServicesClient({
 				if (items.length === 0) return null;
 				return (
 					<div key={cat} className="space-y-3">
-						<h2 className="text-sm font-semibold text-[var(--text-primary)]/70 tracking-wide">{categoryLabels[cat] ?? cat}</h2>
+						<h2 className="text-sm font-semibold text-[var(--text-primary)]/70 ">{categoryLabels[cat] ?? cat}</h2>
 						<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 								{items.map((item) => renderServiceCard(item, tab))}
 						</div>

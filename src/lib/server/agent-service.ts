@@ -1,4 +1,5 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { setTimeout as delay } from "node:timers/promises";
 
 import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
@@ -140,7 +141,9 @@ export async function executeCommandWithAgent(input: {
   commandTargetId?: string;
   command: string;
   timeoutMs: number;
+  signal?: AbortSignal;
 }) {
+  input.signal?.throwIfAborted();
   const server = await prisma.server.findUnique({
     where: { id: input.serverId },
     select: { managementMode: true, agentLastSeenAt: true },
@@ -151,18 +154,21 @@ export async function executeCommandWithAgent(input: {
     Date.now() - server.agentLastSeenAt.getTime() > AGENT_FRESH_MS
   ) return null;
 
+  input.signal?.throwIfAborted();
   const job = await prisma.serverAgentJob.create({
     data: { serverId: input.serverId, commandTargetId: input.commandTargetId, command: input.command, timeoutMs: input.timeoutMs },
   });
+  try {
   const deadline = Date.now() + input.timeoutMs + 10_000;
   while (Date.now() < deadline) {
+    input.signal?.throwIfAborted();
     const current = await prisma.serverAgentJob.findUnique({ where: { id: job.id } });
     if (!current) return null;
     if (current.status === "COMPLETED" || current.status === "FAILED") {
       return { stdout: current.stdout ?? "", stderr: current.stderr ?? "", exitCode: current.exitCode ?? 255 };
     }
     if (current.status === "CANCELLED") return { stdout: "", stderr: "Agent job cancelled", exitCode: 130 };
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    await delay(500, undefined, { signal: input.signal });
   }
   const current = await prisma.serverAgentJob.findUnique({ where: { id: job.id } });
   if (!current) return null;
@@ -200,6 +206,16 @@ export async function executeCommandWithAgent(input: {
     stderr: "Agent command timed out after dispatch; SSH fallback was suppressed to avoid duplicate execution.",
     exitCode: 124,
   };
+  } finally {
+    if (input.signal?.aborted) {
+      // A claimed command may have external side effects. Stop waiting without
+      // pretending it was rolled back or replaying it through SSH.
+      await prisma.serverAgentJob.updateMany({
+        where: { id: job.id, serverId: input.serverId, status: "PENDING" },
+        data: { status: "CANCELLED", stderr: "Caller cancelled before dispatch", exitCode: 130, completedAt: new Date() },
+      });
+    }
+  }
 }
 
 function buildAgentPython(hubUrl: string, token: string) {

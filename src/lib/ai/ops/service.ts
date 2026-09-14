@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * TR-032 E02: Smart AI ops — service layer.
  *
@@ -252,17 +253,17 @@ export async function approveRecommendation(input: {
 }): Promise<{ ok: boolean; errorMessage?: string }> {
 	const log = await prisma.aiOpsLog.findUnique({ where: { id: input.logId } });
 	if (!log) {
-		return { ok: false, errorMessage: "Log not found" };
+		return { ok: false, errorMessage: apiCopy("apiCopy.log.not.found.5f8bc7f1") };
 	}
 	const actions = parseActions(log.actions, log.mode as AiOpsMode);
 	const match = actions.find(
 		(a) => (a as { id: string }).id === input.actionId,
 	) as AiOpsRecommendedAction | undefined;
 	if (!match) {
-		return { ok: false, errorMessage: "Recommendation not found" };
+		return { ok: false, errorMessage: apiCopy("apiCopy.recommendation.not.found.40263f52") };
 	}
 	if (!match.requiresApproval) {
-		return { ok: false, errorMessage: "This recommendation does not require approval" };
+		return { ok: false, errorMessage: apiCopy("apiCopy.this.recommendation.does.not.require.approval.e92dc5bf") };
 	}
 
 	// Atomic compare-and-swap: guard against two approvers acting on the
@@ -271,7 +272,7 @@ export async function approveRecommendation(input: {
 	// no other write has touched the row since our read.
 	const actionsAsPlain = actions as { id: string; approved?: boolean; requiresApproval?: boolean }[];
 	if (Boolean(actionsAsPlain.find((a) => a.id === input.actionId)?.approved)) {
-		return { ok: false, errorMessage: "This recommendation has already been approved" };
+		return { ok: false, errorMessage: apiCopy("apiCopy.this.recommendation.has.already.been.approved.e2dce49a") };
 	}
 
 	const updatedActions = actions.map((a) => {
@@ -291,7 +292,7 @@ export async function approveRecommendation(input: {
 	if (claimed.count === 0) {
 		return {
 			ok: false,
-			errorMessage: "This recommendation was just approved by another approver; please refresh and try again",
+			errorMessage: apiCopy("apiCopy.this.recommendation.was.just.approved.by.another.approver.please.562cacad"),
 		};
 	}
 
@@ -303,14 +304,14 @@ export async function executeRecommendation(
 ): Promise<ExecuteRecommendationResult> {
 	const log = await prisma.aiOpsLog.findUnique({ where: { id: input.logId } });
 	if (!log) {
-		return { ok: false, executed: false, errorMessage: "Log not found" };
+		return { ok: false, executed: false, errorMessage: apiCopy("apiCopy.log.not.found.5f8bc7f1") };
 	}
 	const actions = parseActions(log.actions, log.mode as AiOpsMode);
 	const match = actions.find(
 		(a) => (a as { id: string }).id === input.actionId,
 	) as AiOpsRecommendedAction | undefined;
 	if (!match) {
-		return { ok: false, executed: false, errorMessage: "Recommendation not found" };
+		return { ok: false, executed: false, errorMessage: apiCopy("apiCopy.recommendation.not.found.40263f52") };
 	}
 	if ("executedAt" in match && match.executedAt) {
 		const inProgress =
@@ -338,14 +339,14 @@ export async function executeRecommendation(
 		return {
 			ok: true,
 			executed: false,
-			errorMessage: "Admin approval required; will not execute automatically",
+			errorMessage: apiCopy("apiCopy.admin.approval.required.will.not.execute.automatically.97005455"),
 		};
 	}
 	if (input.forceAutonomous && !isSafe) {
 		return {
 			ok: true,
 			executed: false,
-			errorMessage: `Action ${match.action} is not in the autonomous safe set; manual execution required`,
+			errorMessage: apiCopy("apiCopy.action.is.not.in.the.autonomous.safe.set.manual.execution.requir.54b8adc7", { v0: String(match.action) }),
 		};
 	}
 
@@ -448,7 +449,7 @@ export async function executeRecommendation(
 			ok: false,
 			executed: false,
 			errorMessage:
-				"The action completed but its result could not be saved due to concurrent updates; refresh before retrying",
+				apiCopy("apiCopy.the.action.completed.but.its.result.could.not.be.saved.due.to.co.385bf3ad"),
 		};
 	}
 

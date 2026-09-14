@@ -46,11 +46,11 @@ export function PaginatedList({
             })}
           </span>
           <div className="flex items-center gap-2">
-            <ActionButton variant="secondary" onClick={() => changePage(safePage - 1)} disabled={safePage === 1} className="!px-3 !py-1.5 !text-xs disabled:opacity-50">
+            <ActionButton variant="secondary" onClick={() => changePage(safePage - 1)} disabled={safePage === 1} className="!px-3 !py-1.5 !text-sm disabled:opacity-50">
               {t("common.pagination.previous")}
             </ActionButton>
             <span className="min-w-16 text-center text-xs text-[var(--text-secondary)]">{safePage} / {pageCount}</span>
-            <ActionButton variant="secondary" onClick={() => changePage(safePage + 1)} disabled={safePage === pageCount} className="!px-3 !py-1.5 !text-xs disabled:opacity-50">
+            <ActionButton variant="secondary" onClick={() => changePage(safePage + 1)} disabled={safePage === pageCount} className="!px-3 !py-1.5 !text-sm disabled:opacity-50">
               {t("common.pagination.next")}
             </ActionButton>
           </div>

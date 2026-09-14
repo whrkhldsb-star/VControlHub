@@ -221,12 +221,16 @@ export function SettingsClient({
   useEffect(() => {
     if (typeof window === "undefined") return;
 
+    let scrollTimer: ReturnType<typeof setTimeout> | undefined;
     const openAndScrollToSection = (rawHashOrId: string) => {
+      clearTimeout(scrollTimer);
       const id = rawHashOrId.replace(/^#/, "");
       if (!id || !SETTINGS_SCHEMA.some((s) => s.id === id)) return;
       setOpenSections((prev) => ({ ...prev, [id]: true }));
+      // The unified page owns scrolling when it supplies the category rail.
+      if (!showCategoryNav) return;
       // Defer scroll so <details> has time to expand.
-      setTimeout(() => {
+      scrollTimer = setTimeout(() => {
         const el = document.getElementById(id);
         el?.scrollIntoView({ behavior: "smooth", block: "start" });
       }, 50);
@@ -248,8 +252,10 @@ export function SettingsClient({
       );
     };
 
-    handleHashChange();
-    window.addEventListener("hashchange", handleHashChange);
+    if (showCategoryNav) {
+      handleHashChange();
+      window.addEventListener("hashchange", handleHashChange);
+    }
     window.addEventListener(
       "vcontrolhub:settings-open-section",
       handleSectionNavigate,
@@ -263,6 +269,7 @@ export function SettingsClient({
       handleCollapseAll,
     );
     return () => {
+      clearTimeout(scrollTimer);
       window.removeEventListener("hashchange", handleHashChange);
       window.removeEventListener(
         "vcontrolhub:settings-open-section",
@@ -277,7 +284,7 @@ export function SettingsClient({
         handleCollapseAll,
       );
     };
-  }, []);
+  }, [showCategoryNav]);
 
   const updateField = (key: string, value: string) => {
     setSettings((prev) => ({ ...prev, [key]: value }));
@@ -410,11 +417,11 @@ export function SettingsClient({
             </div>
             <div className="flex gap-2">
               <ActionButton variant="secondary"
-                onClick={expandAll} className="!px-3 !py-1.5 !text-xs">
+                onClick={expandAll} className="!px-3 !py-1.5 !text-sm">
                 {t("settingsClient.expandAll")}
               </ActionButton>
               <ActionButton variant="secondary"
-                onClick={collapseAll} className="!px-3 !py-1.5 !text-xs">
+                onClick={collapseAll} className="!px-3 !py-1.5 !text-sm">
                 {t("settingsClient.collapseAll")}
               </ActionButton>
             </div>
@@ -436,7 +443,7 @@ export function SettingsClient({
                   <span className="block font-semibold text-[var(--text-primary)] truncate">
                     {item.title}
                   </span>
-                  <span className="block text-[11px] text-[var(--text-muted)] truncate">
+                  <span className="block text-xs text-[var(--text-muted)] truncate">
                     {item.subtitle}
                   </span>
                 </span>

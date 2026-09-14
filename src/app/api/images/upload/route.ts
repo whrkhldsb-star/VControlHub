@@ -5,15 +5,11 @@ import * as path from "node:path";
 import { NextResponse } from "next/server";
 
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { hasBearerAuthorization, verifyBearerToken } from "@/lib/auth/bearer-token";
+import { hasBearerAuthorization } from "@/lib/auth/bearer-token";
 import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
-import {
-  IMAGE_UPLOAD_LIMIT,
-  rateLimitResponse,
-  withRateLimit,
-} from "@/lib/http/rate-limit-presets";
+import { IMAGE_UPLOAD_LIMIT } from "@/lib/http/rate-limit-presets";
 import { UPLOAD_DIR } from "@/lib/image-bed/constants";
 import { indexLinkedStorageImage } from "@/lib/image-bed/linked-storage";
 import {
@@ -45,11 +41,6 @@ const ALLOWED_MIME_PREFIXES = ["image/"];
 const BLOCKED_MIME_TYPES = new Set(["image/svg+xml", "image/svg"]);
 const BLOCKED_EXTENSIONS = new Set([".svg", ".svgz"]);
 
-function generateStorageKey(originalName: string): string {
-  const ext = path.extname(originalName).toLowerCase() || ".png";
-  return `${crypto.randomUUID()}${ext}`;
-}
-
 function computeChecksum(buffer: Buffer): string {
   return crypto.createHash("sha256").update(buffer).digest("hex");
 }
@@ -71,31 +62,18 @@ function isUploadFile(v: unknown): v is UploadFile {
 
 export async function POST(request: Request) {
   const locale = await getServerLocale();
-  const rl = await withRateLimit(request, IMAGE_UPLOAD_LIMIT);
-  if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
-
-  const bearerRequested = hasBearerAuthorization(request);
-  const tokenAuth = await verifyBearerToken(request, "image:write");
-  if (tokenAuth) {
-    return handleUpload(request, tokenAuth.userId, tokenAuth.session, locale);
-  }
-  if (bearerRequested) {
-    return NextResponse.json(
-      { error: t("api.auth.invalidToken", locale) },
-      { status: 401 },
-    );
-  }
-
   return withApiRoute(
     request,
-    { permission: "image:write", errorMessage: t("api.image.uploadFailed", locale) },
+    { permission: "image:write", rateLimit: IMAGE_UPLOAD_LIMIT, errorMessage: t("api.image.uploadFailed", locale) },
     async ({ session }) => {
       if (!session)
         return NextResponse.json(
           { error: t("api.auth.sessionExpired", locale) },
           { status: 401 },
         );
-      if (!sessionHasPermission(session, "storage:write")) {
+      // Direct Token uploads only require image:write; linked storage below
+      // still checks the scoped session's storage permission and quota.
+      if (!hasBearerAuthorization(request) && !sessionHasPermission(session, "storage:write")) {
         throw new ForbiddenError(t("api.storage.writeDenied", locale));
       }
       return handleUpload(request, session.userId, session, locale);
@@ -104,6 +82,7 @@ export async function POST(request: Request) {
 }
 
 async function handleUpload(request: Request, userId: string, session: SessionPayload | undefined, locale: Locale) {
+  let storageAccess: Awaited<ReturnType<typeof assertStorageAccess>> | undefined;
   try {
     if (
       requestContentLengthExceeds(
@@ -155,7 +134,6 @@ async function handleUpload(request: Request, userId: string, session: SessionPa
     }
 
     const originalName = file.name || "untitled.png";
-    const storageKey = generateStorageKey(originalName);
     const checksum = computeChecksum(buffer);
 
     // Decode with sharp before persisting. MIME and extension are caller
@@ -163,6 +141,7 @@ async function handleUpload(request: Request, userId: string, session: SessionPa
     let imgWidth: number | null = null;
     let imgHeight: number | null = null;
     let detectedMime = "application/octet-stream";
+    let detectedFormat: string;
     try {
       const meta = await extractMetadata(buffer);
 			if (!meta.format || meta.format === "svg" || meta.width <= 0 || meta.height <= 0) throw new Error("Invalid image dimensions or format");
@@ -177,10 +156,15 @@ async function handleUpload(request: Request, userId: string, session: SessionPa
       // Trust sharp's byte-sniffed format for the stored MIME, never the
       // client-supplied Content-Type (which could spoof a benign type).
       detectedMime = canonicalImageMime(meta.format);
+      detectedFormat = meta.format;
     } catch (error) {
 			if (error instanceof ValidationError) throw error;
 			throw new ValidationError(t("api.image.invalidImage", locale));
     }
+
+    // Client extensions can collide with generated variants (PNG named .webp).
+    // Keep the display filename, but store the original under its decoded format.
+    const storageKey = `${crypto.randomUUID()}.${detectedFormat}`;
 
     // Ensure upload directory exists
     const uploadDir = UPLOAD_DIR;
@@ -252,20 +236,20 @@ async function handleUpload(request: Request, userId: string, session: SessionPa
 
     // If linked to a storage node, also copy there (cloud storage integration)
     if (storageNodeId && relativePath) {
-      if (!session) {
-        throw new ForbiddenError(t("api.image.storageCopyForbidden", locale));
-      }
-      const access = await assertStorageAccess({
-        session,
-        storageNodeId,
-        relativePath,
-        operation: "write",
-        writeBytes: buffer.byteLength,
-      });
-      if (!access.allowed) {
-        throw new ForbiddenError(access.reason ?? t("api.image.storageWriteDenied", locale));
-      }
       try {
+        if (!session) {
+          throw new ForbiddenError(t("api.image.storageCopyForbidden", locale));
+        }
+        storageAccess = await assertStorageAccess({
+          session,
+          storageNodeId,
+          relativePath,
+          operation: "write",
+          writeBytes: buffer.byteLength,
+        });
+        if (!storageAccess.allowed) {
+          throw new ForbiddenError(storageAccess.reason ?? t("api.image.storageWriteDenied", locale));
+        }
         const storageNode = await prisma.storageNode.findFirst({
           where: { id: storageNodeId, ...teamWhere(session) },
           select: storageFileNodeSelect,
@@ -287,8 +271,6 @@ async function handleUpload(request: Request, userId: string, session: SessionPa
             : Promise.resolve(),
         ]);
         throw error;
-      } finally {
-        await releaseStorageQuotaGuard(access);
       }
     }
 
@@ -352,5 +334,8 @@ async function handleUpload(request: Request, userId: string, session: SessionPa
     }
     logError("image-bed:upload", error);
     throw new AppError({ code: "INTERNAL_ERROR", message: t("api.image.uploadFailed", locale), status: 500 });
+  } finally {
+    // Quota readers must see the committed FileEntry, or completed rollback.
+    if (storageAccess) await releaseStorageQuotaGuard(storageAccess);
   }
 }

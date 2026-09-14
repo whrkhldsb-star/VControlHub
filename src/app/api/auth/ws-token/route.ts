@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -36,7 +37,7 @@ export async function POST(request: NextRequest) {
     },
     async ({ session, body }) => {
       if (!session)
-        throw new AuthError("Not authenticated");
+        throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
 
       // Multi-tenant: never mint a handshake for a server outside the caller's team.
       const teamAccess = await assertServerTeamAccess(session, body.serverId);
@@ -45,7 +46,7 @@ export async function POST(request: NextRequest) {
       const secret = config.ssh.wsSecret;
       if (!secret) {
         return NextResponse.json(
-          { error: "SSH_WS_SECRET not configured" },
+          { error: apiCopy("apiCopy.ssh.ws.secret.not.configured.588c1536") },
           { status: 503 },
         );
       }
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest) {
       // handshake be bound to a session other than the one being authenticated.
       const sessionId = request.cookies.get(getSessionCookieName())?.value;
       if (!sessionId) {
-        return NextResponse.json({ error: "Missing session" }, { status: 401 });
+        return NextResponse.json({ error: apiCopy("apiCopy.missing.session.01c10f66") }, { status: 401 });
       }
 
       const token = createSshWsHandshakeToken({

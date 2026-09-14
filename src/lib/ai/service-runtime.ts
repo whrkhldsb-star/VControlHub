@@ -253,7 +253,8 @@ export interface ChatCompletionRequest {
 	extraBody?: Record<string, unknown>;
 }
 
-export async function sendChatRequest(req: ChatCompletionRequest, userId: string) {
+export async function sendChatRequest(req: ChatCompletionRequest, userId: string, signal?: AbortSignal) {
+	signal?.throwIfAborted();
 	const provider = await prisma.aiProvider.findFirst({
 		where: { id: req.providerId, createdBy: userId, enabled: true },
 	});
@@ -360,6 +361,7 @@ export async function sendChatRequest(req: ChatCompletionRequest, userId: string
 		url,
 		body,
 		headers,
+		signal,
 	});
 
 	return { response, startTime, providerType: provider.type };

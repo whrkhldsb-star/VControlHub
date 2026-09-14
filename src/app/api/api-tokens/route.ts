@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -74,7 +75,7 @@ export async function GET(request: Request) {
     { permission: "api-token:manage" },
     async ({ session }) => {
       if (!session)
-        throw new AuthError("Unauthorized");
+        throw new AuthError(apiCopy("apiCopy.unauthorized.d089c8a9"));
       return withCacheHeaders(
         NextResponse.json({ tokens: await listApiTokens(session.userId) }),
         CachePresets.shortLived,
@@ -93,7 +94,7 @@ export async function POST(request: Request) {
     permission: "api-token:manage" as const,
     rateLimit: GENERAL_WRITE_LIMIT,
     errorStatus: 400,
-    errorMessage: "Failed to create token",
+    errorMessage: apiCopy("apiCopy.failed.to.create.token.f8a44ba9"),
     ...(isFormSubmission ? {} : { bodySchema: createTokenSchema }),
   };
   return withApiRoute(
@@ -101,7 +102,7 @@ export async function POST(request: Request) {
     options,
     async ({ session, body }) => {
       if (!session)
-        throw new AuthError("Unauthorized");
+        throw new AuthError(apiCopy("apiCopy.unauthorized.d089c8a9"));
 
       const parsed = isFormSubmission ? createTokenSchema.parse(await parseCreateBody(request)) : body;
       const scopes = normalizeScopes(parsed.scopes);
@@ -150,11 +151,11 @@ export async function DELETE(request: Request) {
     {
       permission: "api-token:manage",
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "Operation failed",
+      errorMessage: apiCopy("apiCopy.operation.failed.4e1af7c7"),
     },
     async ({ session }) => {
       if (!session)
-        throw new AuthError("Unauthorized");
+        throw new AuthError(apiCopy("apiCopy.unauthorized.d089c8a9"));
 
       const { id } = parseSearchParams(request, idQuerySchema);
       const token = await revokeApiToken({ userId: session.userId, id });

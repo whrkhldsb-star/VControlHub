@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * Docker Compose project lifecycle (FEAT-P0-2 completion).
  *
@@ -80,7 +81,7 @@ export function assertValidComposeProjectName(project: string): string {
   const name = project.trim();
   if (!PROJECT_NAME_RE.test(name)) {
     throw new ValidationError(
-      "Invalid compose project name (allowed: letters, digits, _ . - ; max 128)",
+      apiCopy("apiCopy.invalid.compose.project.name.allowed.letters.digits.max.128.fea319f2"),
     );
   }
   return name;
@@ -319,7 +320,7 @@ function buildComposeCliArgs(
       base.push("restart");
       break;
     default:
-      throw new ValidationError(`Unsupported compose action: ${action}`);
+      throw new ValidationError(apiCopy("apiCopy.unsupported.compose.action.ddb1db9c", { v0: String(action) }));
   }
 
   const remoteCommand = base.map(shellQuote).join(" ");
@@ -443,7 +444,7 @@ async function engineActionOnProjectContainers(
         result.data && typeof result.data === "object" && "message" in result.data
           ? String((result.data as { message?: unknown }).message ?? t("backend.docker.containerActionFailed", { action, status: result.status }))
           : t("backend.docker.containerActionFailed", { action, status: result.status });
-      throw new BusinessError(`${msg} [${id.slice(0, 12)}]`);
+      throw new BusinessError(apiCopy("apiCopy..542a0b4e", { v0: String(msg), v1: String(id.slice(0, 12)) }));
     }
   }
 

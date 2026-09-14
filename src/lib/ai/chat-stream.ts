@@ -20,6 +20,10 @@ type MutableChatStreamState = Omit<ChatStreamState, "toolCalls"> & {
 
 type JsonRecord = Record<string, unknown>;
 
+const MAX_EVENT_CHARS = 1024 * 1024;
+const MAX_STREAM_BYTES = 16 * 1024 * 1024;
+const MAX_TOOL_INDEX = 1023;
+
 function record(value: unknown): JsonRecord | undefined {
   return value !== null && typeof value === "object"
     ? (value as JsonRecord)
@@ -38,6 +42,9 @@ function numberValue(value: unknown): number | undefined {
 
 function toolIndex(value: unknown, fallback: number): number {
   const index = numberValue(value);
+  if ((index ?? fallback) > MAX_TOOL_INDEX) {
+    throw new Error("AI provider returned too many tool calls");
+  }
   return index !== undefined && Number.isInteger(index) && index >= 0
     ? index
     : fallback;
@@ -185,7 +192,13 @@ export async function consumeProviderChatStream(input: {
   };
   const reader = input.body.getReader();
   let timedOut = false;
+  let finished = false;
+  let reachedEof = false;
+  let receivedBytes = 0;
+  let cancelRequested = false;
   const cancelReader = () => {
+    if (cancelRequested) return;
+    cancelRequested = true;
     void reader.cancel().catch(() => undefined);
   };
   const timeout = input.timeoutMs
@@ -200,46 +213,79 @@ export async function consumeProviderChatStream(input: {
   let buffer = "";
 
   const consumeLine = (line: string) => {
+    if (line.length > MAX_EVENT_CHARS) {
+      throw new Error("AI provider stream event is too large");
+    }
     const trimmed = line.trim();
     if (!trimmed.startsWith("data:")) return;
     const data = trimmed.slice(5).trimStart();
-    if (!data || data === "[DONE]") return;
+    if (!data) return;
+    if (data === "[DONE]") {
+      finished = true;
+      return;
+    }
+    let event: JsonRecord | undefined;
     try {
-      const event = record(JSON.parse(data));
-      if (!event) return;
-      if (input.providerType === "ANTHROPIC") {
-        applyAnthropicEvent(event, state, input.onEvent);
-      } else {
-        applyOpenAiEvent(event, state, input.onEvent);
-      }
+      event = record(JSON.parse(data));
     } catch {
       // A malformed provider chunk must not terminate an otherwise valid stream.
+      return;
+    }
+    if (!event) return;
+    if (event.error || event.type === "error") {
+      const message = stringValue(record(event.error)?.message).slice(0, 500);
+      throw new Error(`AI provider stream failed${message ? `: ${message}` : ""}`);
+    }
+    if (input.providerType === "ANTHROPIC") {
+      if (event.type === "message_stop") finished = true;
+      else applyAnthropicEvent(event, state, input.onEvent);
+    } else {
+      applyOpenAiEvent(event, state, input.onEvent);
     }
   };
 
   let readError: unknown;
   try {
-    while (true) {
+    while (!finished && !cancelRequested) {
       const { done, value } = await reader.read();
-      if (done) break;
+      if (cancelRequested) break;
+      if (done) {
+        reachedEof = true;
+        buffer += decoder.decode();
+        if (buffer) consumeLine(buffer);
+        break;
+      }
+      receivedBytes += value.byteLength;
+      if (receivedBytes > MAX_STREAM_BYTES) {
+        throw new Error("AI provider stream is too large");
+      }
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split(/\r?\n/);
       buffer = lines.pop() ?? "";
-      lines.forEach(consumeLine);
+      for (const line of lines) {
+        consumeLine(line);
+        if (finished || cancelRequested) break;
+      }
+      if (!finished && buffer.length > MAX_EVENT_CHARS) {
+        throw new Error("AI provider stream event is too large");
+      }
     }
   } catch (error) {
     readError = error;
   } finally {
     if (timeout) clearTimeout(timeout);
     input.signal?.removeEventListener("abort", cancelReader);
+    if (!reachedEof) cancelReader();
+    reader.releaseLock();
   }
   if (timedOut && !readError) {
     readError = new Error(
       `AI provider stream timed out after ${input.timeoutMs! / 1000} seconds`,
     );
   }
-  buffer += decoder.decode();
-  if (buffer) consumeLine(buffer);
+  if (input.signal?.aborted && !readError) {
+    readError = input.signal.reason ?? new DOMException("The operation was aborted", "AbortError");
+  }
 
   return {
     ...state,

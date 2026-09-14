@@ -44,7 +44,7 @@ export function AiSettingsPanel({
         <div>
           <label
             htmlFor="ai-setting-temperature"
-            className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider"
+            className="text-xs text-[var(--text-muted)] uppercase "
           >
             Temperature{" "}
             <span className="text-[var(--color-action)]/70">
@@ -74,7 +74,7 @@ export function AiSettingsPanel({
         <div>
           <label
             htmlFor="ai-setting-max-tokens"
-            className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider"
+            className="text-xs text-[var(--text-muted)] uppercase "
           >
             Max Tokens
           </label>
@@ -103,7 +103,7 @@ export function AiSettingsPanel({
         <div>
           <label
             htmlFor="ai-setting-top-p"
-            className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider"
+            className="text-xs text-[var(--text-muted)] uppercase "
           >
             Top P{" "}
             <span className="text-[var(--color-action)]/70">
@@ -133,7 +133,7 @@ export function AiSettingsPanel({
         <div>
           <label
             htmlFor="ai-setting-freq-pen"
-            className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider"
+            className="text-xs text-[var(--text-muted)] uppercase "
           >
             {t("aiPage.frequencyPenalty")}{" "}
             <span className="text-[var(--color-action)]/70">
@@ -163,7 +163,7 @@ export function AiSettingsPanel({
         <div>
           <label
             htmlFor="ai-setting-pres-pen"
-            className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider"
+            className="text-xs text-[var(--text-muted)] uppercase "
           >
             {t("aiPage.presencePenalty")}{" "}
             <span className="text-[var(--color-action)]/70">
@@ -206,7 +206,7 @@ export function AiSettingsPanel({
             <span className="text-xs text-[var(--text-secondary)]">
               {t("aiPage.visionToggle")}
               {currentModelSupportsVision && (
-                <span className="text-[9px] text-[var(--color-action)]/60 ml-1">
+                <span className="text-xs text-[var(--color-action)]/60 ml-1">
                   {t("aiPage.recommended")}
                 </span>
               )}
@@ -230,7 +230,7 @@ export function AiSettingsPanel({
             />
             <span className="text-xs text-[var(--text-secondary)]">
               {t("aiPage.hostedMode")}
-              <span className="text-[9px] text-[var(--warning)]/60 ml-1">
+              <span className="text-xs text-[var(--warning)]/60 ml-1">
                 {t("aiPage.hostedHint")}
               </span>
             </span>
@@ -260,7 +260,7 @@ export function AiSettingsPanel({
                 </button>
               ))}
             </div>
-            <p className="text-[11px] leading-4 text-[var(--text-muted)]">
+            <p className="text-xs leading-4 text-[var(--text-muted)]">
               {t(settingsForm.automationMode === "ASSISTED" ? "aiPage.automationAssistedHint" : "aiPage.automationPlanOnlyHint")}
             </p>
           </fieldset>
@@ -281,7 +281,7 @@ export function AiSettingsPanel({
       {/* System prompt */}
       <div className="mt-3">
         <label
-          className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider"
+          className="text-xs text-[var(--text-muted)] uppercase "
           htmlFor="ai-setting-system-prompt"
         >
           {t("aiPage.systemPromptLabel")}

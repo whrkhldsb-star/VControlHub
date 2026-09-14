@@ -201,12 +201,12 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
       <div data-card className="p-5 sm:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
-            <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">{ticket.title}</h1>
+            <h1 className="text-xl font-semibold  text-[var(--text-primary)]">{ticket.title}</h1>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <StatusBadge tone={STATUS_TONE[ticket.status] ?? "neutral"} size="md">
                 {statusLabel(t, ticket.status)}
               </StatusBadge>
-              <span className={`text-xs font-semibold uppercase tracking-[0.08em] ${PRIORITY_TONE[ticket.priority] ?? ""}`}>
+              <span className={`text-xs font-semibold uppercase  ${PRIORITY_TONE[ticket.priority] ?? ""}`}>
                 {priorityLabel(t, ticket.priority)}
               </span>
             </div>
@@ -258,7 +258,7 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
             {timeline?.related.command ? (
               <div className="mt-1 space-y-1 text-[var(--text-secondary)]">
                 <div>{timeline.related.command.title} · {getDomainStatusLabel(t, timeline.related.command.status)}</div>
-                <code className="block break-all text-[11px] opacity-80">{timeline.related.command.command}</code>
+                <code className="block break-all text-xs opacity-80">{timeline.related.command.command}</code>
                 <Link href={`/commands?highlight=${timeline.related.command.id}`} className="text-[var(--accent)] underline-offset-2 hover:underline">
                   {t("ticketsDetail.openCommand")}
                 </Link>
@@ -270,20 +270,20 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
               <div className="mt-2 flex flex-wrap gap-2">
                 <input
                   aria-label={t("ticketsDetail.commandIdPlaceholder")}
-                  className={`${UI_INPUT} min-w-0 flex-1 !py-1.5 !text-[11px]`}
+                  className={`${UI_INPUT} min-w-0 flex-1 !py-1.5 !text-sm`}
                   value={commandIdInput}
                   onChange={(e) => setCommandIdInput(e.target.value)}
                   placeholder={t("ticketsDetail.commandIdPlaceholder")}
                 />
                 <ActionButton variant="outline"
                   disabled={saving || !commandIdInput.trim()}
-                  onClick={() => void runLink({ action: "link_command", commandRequestId: commandIdInput.trim() })} className="!px-2 !py-1 !text-[11px] !font-semibold disabled:opacity-50"
+                  onClick={() => void runLink({ action: "link_command", commandRequestId: commandIdInput.trim() })} className="!px-2 !py-1 !text-sm !font-semibold disabled:opacity-50"
                 >
                   {t("ticketsDetail.linkCommand")}
                 </ActionButton>
                 <ActionButton variant="secondary"
                   disabled={saving || !timeline?.related.command}
-                  onClick={() => void runLink({ action: "unlink_command" })} className="!px-2 !py-1 !text-[11px] disabled:opacity-50"
+                  onClick={() => void runLink({ action: "unlink_command" })} className="!px-2 !py-1 !text-sm disabled:opacity-50"
                 >
                   {t("ticketsDetail.unlinkCommand")}
                 </ActionButton>
@@ -306,20 +306,20 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
               <div className="mt-2 flex flex-wrap gap-2">
                 <input
                   aria-label={t("ticketsDetail.serverIdPlaceholder")}
-                  className={`${UI_INPUT} min-w-0 flex-1 !py-1.5 !text-[11px]`}
+                  className={`${UI_INPUT} min-w-0 flex-1 !py-1.5 !text-sm`}
                   value={serverIdInput}
                   onChange={(e) => setServerIdInput(e.target.value)}
                   placeholder={t("ticketsDetail.serverIdPlaceholder")}
                 />
                 <ActionButton variant="outline"
                   disabled={saving || !serverIdInput.trim()}
-                  onClick={() => void runLink({ action: "link_server", serverId: serverIdInput.trim() })} className="!px-2 !py-1 !text-[11px] !font-semibold disabled:opacity-50"
+                  onClick={() => void runLink({ action: "link_server", serverId: serverIdInput.trim() })} className="!px-2 !py-1 !text-sm !font-semibold disabled:opacity-50"
                 >
                   {t("ticketsDetail.linkServer")}
                 </ActionButton>
                 <ActionButton variant="secondary"
                   disabled={saving || !timeline?.related.server}
-                  onClick={() => void runLink({ action: "unlink_server" })} className="!px-2 !py-1 !text-[11px] disabled:opacity-50"
+                  onClick={() => void runLink({ action: "unlink_server" })} className="!px-2 !py-1 !text-sm disabled:opacity-50"
                 >
                   {t("ticketsDetail.unlinkServer")}
                 </ActionButton>
@@ -355,7 +355,7 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
             {timeline.events.map((ev) => (
               <li key={ev.id} className="relative pb-4">
                 <span className="absolute -left-[1.3rem] top-1.5 h-2.5 w-2.5 rounded-full border border-[var(--accent-border)] bg-[var(--accent-bg)]" />
-                <div className="flex flex-wrap items-center gap-2 text-[11px] text-[var(--text-muted)]">
+                <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--text-muted)]">
                   <span>{new Date(ev.at).toLocaleString(toDateLocale(locale))}</span>
                   <span className="rounded-full border border-[var(--border)] px-1.5 py-0.5">
                     {eventTypeLabel(ev.type)}

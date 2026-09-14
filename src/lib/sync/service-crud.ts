@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * Sync service — DB CRUD (R28 god-file split).
  *
@@ -57,7 +58,7 @@ async function assertSyncServersInScope(
 	});
 	if (servers.length !== unique.length) {
 		throw new ValidationError(
-			"One or more source/target servers were not found or are outside your team scope",
+			apiCopy("apiCopy.one.or.more.source.target.servers.were.not.found.or.are.outside..cf44bdaa"),
 		);
 	}
 }

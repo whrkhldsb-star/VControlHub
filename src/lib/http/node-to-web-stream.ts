@@ -9,56 +9,48 @@ export function nodeStreamToWeb(nodeStream: NodeJS.ReadableStream): ReadableStre
 		return nodeStream as unknown as ReadableStream;
 	}
 
+	let closed = false;
 	return new ReadableStream<Uint8Array>({
 		start(controller) {
-			let closed = false;
 			const cleanup = () => {
 				nodeStream.off("data", onData);
 				nodeStream.off("end", onEnd);
 				nodeStream.off("error", onError);
 				nodeStream.off("close", onClose);
 			};
-			const closeController = () => {
-				if (closed) return;
-				closed = true;
-				cleanup();
-				try {
-					controller.close();
-				} catch {
-					// Controller already closed or errored — nothing to do.
-				}
-			};
 			const onData = (chunk: Buffer | string) => {
 				if (closed) return;
-				try {
-					controller.enqueue(typeof chunk === "string" ? new TextEncoder().encode(chunk) : chunk);
-				} catch {
-					// Stream closed/erroring — tear down the underlying Node stream.
-					closed = true;
-					cleanup();
-					nodeStream.destroy();
-				}
+				controller.enqueue(typeof chunk === "string" ? new TextEncoder().encode(chunk) : chunk);
+				if ((controller.desiredSize ?? 0) <= 0) nodeStream.pause();
 			};
-			const onEnd = () => closeController();
-			const onClose = () => closeController();
-			const onError = (error: Error) => {
+			const onEnd = () => {
 				if (closed) return;
 				closed = true;
-				cleanup();
-				try {
+				controller.close();
+			};
+			const onError = (error: Error) => {
+				if (!closed) {
+					closed = true;
 					controller.error(error);
-				} catch {
-					// Controller already closed — cannot propagate the error further.
 				}
 			};
-
+			const onClose = () => { onEnd(); cleanup(); };
 			nodeStream.on("data", onData);
 			nodeStream.once("end", onEnd);
 			nodeStream.once("error", onError);
 			nodeStream.once("close", onClose);
 		},
+		pull() {
+			if (!closed) nodeStream.resume();
+		},
 		cancel() {
+			// Late SSH/file events can arrive before destroy emits close. Guard
+			// them immediately, retaining listeners until teardown completes.
+			closed = true;
 			nodeStream.destroy();
 		},
+	}, {
+		highWaterMark: 64 * 1024,
+		size: (chunk) => chunk.byteLength,
 	});
 }

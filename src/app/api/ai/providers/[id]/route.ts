@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 
 import {
@@ -46,10 +47,10 @@ export async function GET(
 ) {
   return withApiRoute(
     request,
-    { permission: "ai:manage", errorStatus: 404, errorMessage: "Not found" },
+    { permission: "ai:manage", errorStatus: 404, errorMessage: apiCopy("apiCopy.not.found.e3ebaa16") },
     async ({ session }) => {
       if (!session)
-        throw new AuthError("Not authenticated");
+        throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
       const { id } = await params;
       const provider = await getProviderById(id, session.userId);
       return NextResponse.json({ provider: serializeProvider(provider) });
@@ -67,12 +68,12 @@ export async function PATCH(
       permission: "ai:manage",
       rateLimit: GENERAL_WRITE_LIMIT,
       errorStatus: 400,
-      errorMessage: "Failed to update",
+      errorMessage: apiCopy("apiCopy.failed.to.update.8eb4917b"),
       bodySchema: updateProviderSchema,
     },
     async ({ session, body }) => {
       if (!session)
-        throw new AuthError("Not authenticated");
+        throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
       const { id } = await params;
 
       const updateBody = {
@@ -80,7 +81,7 @@ export async function PATCH(
         ...parseAvailableModels(body),
       };
       const provider = await updateProvider(id, session.userId, updateBody);
-      if (!provider) throw new NotFoundError("Provider not found");
+      if (!provider) throw new NotFoundError(apiCopy("apiCopy.provider.not.found.90c36c40"));
       await auditUserAction(session.userId, "ai.provider.update", { providerId: id }, undefined, session?.currentTeamId);
       return NextResponse.json({ provider: serializeProvider(provider) });
     },
@@ -97,11 +98,11 @@ export async function DELETE(
       permission: "ai:manage",
       rateLimit: GENERAL_WRITE_LIMIT,
       errorStatus: 400,
-      errorMessage: "Failed to delete",
+      errorMessage: apiCopy("apiCopy.failed.to.delete.f625b14e"),
     },
     async ({ session }) => {
       if (!session)
-        throw new AuthError("Not authenticated");
+        throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
       const { id } = await params;
       await deleteProvider(id, session.userId);
       await auditUserAction(session?.userId ?? "", "ai.provider.delete", { providerId: id }, undefined, session?.currentTeamId);

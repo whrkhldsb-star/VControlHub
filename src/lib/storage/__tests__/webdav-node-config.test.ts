@@ -7,7 +7,7 @@ import { createStorageNodeSchema, updateStorageNodeSchema } from "../schema";
 import { createStorageNode, updateStorageNode, listStorageNodes } from "../service-nodes";
 const config = { url: "https://dav.example.com/root", authType: "basic" as const, username: "alice", password: "secret" };
 const input = { name: "DAV node", driver: "WEBDAV" as const, basePath: "/", webdavConfig: config };
-const row = { id: "dav1", ...input, isDefault: false, serverId: null, server: null, fileEntries: [], webdavConfigEncrypted: `encrypted:${JSON.stringify(config)}` };
+const row = { id: "dav1", ...input, isDefault: false, serverId: null, server: null, fileEntries: [], _count: { fileEntries: 0 }, webdavConfigEncrypted: `encrypted:${JSON.stringify(config)}` };
 beforeEach(() => { vi.clearAllMocks(); db.storageNode.create.mockImplementation(async ({ data }) => ({ ...row, ...data })); db.storageNode.findUnique.mockResolvedValue(row); db.storageNode.findFirst.mockResolvedValue(row); db.storageNode.updateMany.mockResolvedValue({ count: 1 }); });
 describe("WebDAV node configuration boundary", () => {
   it.each(["http://dav.example.com", "https://user:secret@dav.example.com", "https://dav.example.com/?token=x", "https://dav.example.com/#secret"])("rejects unsafe endpoint %s", (url) => {
@@ -28,6 +28,10 @@ describe("WebDAV node configuration boundary", () => {
     expect(result).not.toHaveProperty("password");
     db.storageNode.findMany.mockResolvedValue([row]);
     const [dto] = await listStorageNodes();
+    expect(db.storageNode.findMany).toHaveBeenLastCalledWith(expect.objectContaining({
+      include: expect.objectContaining({ _count: { select: { fileEntries: { where: { isDeleted: false } } } } }),
+    }));
+    expect(db.storageNode.findMany.mock.calls.at(-1)![0].include).not.toHaveProperty("fileEntries");
     expect(dto).not.toHaveProperty("webdavConfigEncrypted");
     expect(dto?.webdavConfig).toEqual({ url: config.url, authType: "basic", username: "alice", hasPassword: true, hasToken: false });
   });

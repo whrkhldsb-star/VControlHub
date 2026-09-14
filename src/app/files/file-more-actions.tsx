@@ -203,6 +203,7 @@ export function FileMoreActions({
         {entryCanWrite(entry) ? (
           <MoveInlineForm
             fileEntryId={entry.id}
+            storageNodeId={entry.storageNode.id}
             name={entry.name}
             relativePath={entry.relativePath}
             variant="menu"

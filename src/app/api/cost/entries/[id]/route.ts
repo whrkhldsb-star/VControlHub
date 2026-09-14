@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * TR-031 E01: /api/cost/entries/[id] — get / update / delete a single entry.
  *
@@ -34,12 +35,12 @@ export async function GET(
 			permission: "cost:read",
 			rateLimit: GENERAL_READ_LIMIT,
 			errorStatus: 500,
-			errorMessage: "Failed to load cost entry",
+			errorMessage: apiCopy("apiCopy.failed.to.load.cost.entry.313305bd"),
 		},
 		async ({ session }) => {
 			const entry = await getCostEntry(id, session);
 			if (!entry) {
-				throw new NotFoundError(`Cost entry not found ${id}`);
+				throw new NotFoundError(apiCopy("apiCopy.cost.entry.not.found.ab85a464", { v0: String(id) }));
 			}
 			return NextResponse.json({ entry });
 		},
@@ -58,7 +59,7 @@ export async function PATCH(
 			rateLimit: GENERAL_WRITE_LIMIT,
 			bodySchema: updateCostEntrySchema,
 			errorStatus: 400,
-			errorMessage: "Failed to update cost entry",
+			errorMessage: apiCopy("apiCopy.failed.to.update.cost.entry.c0d4adea"),
 		},
 		async ({ session, body }) => {
 			const entry = await updateCostEntry(id, body, session);
@@ -82,7 +83,7 @@ export async function DELETE(
 			permission: "cost:manage",
 			rateLimit: GENERAL_WRITE_LIMIT,
 			errorStatus: 400,
-			errorMessage: "Failed to delete cost entry",
+			errorMessage: apiCopy("apiCopy.failed.to.delete.cost.entry.bfd4ca79"),
 		},
 		async ({ session }) => {
 			await deleteCostEntry(id, session);

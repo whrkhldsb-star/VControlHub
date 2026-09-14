@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import {
@@ -137,7 +138,7 @@ function normalizeSettingValue(key: string, value: string) {
 /* ── GET ──────────────────────────────────────────────────── */
 
 export async function GET(request: Request) {
-	return withApiRoute(request, { permission: "user:manage", errorStatus: 500, errorMessage: "Server error" }, async () => {
+	return withApiRoute(request, { permission: "user:manage", errorStatus: 500, errorMessage: apiCopy("apiCopy.server.error.dfe0c2e8") }, async () => {
 		// getAllSettingsMasked already masks sensitive values (***)
 		const settings = await getAllSettingsMasked();
 		return NextResponse.json({ settings });
@@ -147,7 +148,7 @@ export async function GET(request: Request) {
 /* ── PATCH ────────────────────────────────────────────────── */
 
 export async function PATCH(request: Request) {
-	return withApiRoute(request, { permission: "user:manage", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: "Failed to save", bodySchema: patchBodySchema }, async ({ session, body }) => {
+	return withApiRoute(request, { permission: "user:manage", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: apiCopy("apiCopy.failed.to.save.2c079972"), bodySchema: patchBodySchema }, async ({ session, body }) => {
 		// 1. Validate the body is a string→string record
 		const parsed = { data: body };
 

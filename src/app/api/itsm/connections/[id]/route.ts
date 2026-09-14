@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * GET/PATCH/DELETE /api/itsm/connections/[id]
  */
@@ -25,7 +26,7 @@ export async function GET(request: Request, context: RouteContext) {
 			permission: "ticket:manage",
 			rateLimit: GENERAL_READ_LIMIT,
 			errorStatus: 500,
-			errorMessage: "Failed to load ITSM connection",
+			errorMessage: apiCopy("apiCopy.failed.to.load.itsm.connection.b7f1d4a7"),
 		},
 		async ({ session }) => {
 			const connection = await getItsmConnection(id, session ?? undefined);
@@ -43,7 +44,7 @@ export async function PATCH(request: Request, context: RouteContext) {
 			rateLimit: GENERAL_WRITE_LIMIT,
 			bodySchema: updateItsmConnectionSchema,
 			errorStatus: 400,
-			errorMessage: "Failed to update ITSM connection",
+			errorMessage: apiCopy("apiCopy.failed.to.update.itsm.connection.74ecbc74"),
 		},
 		async ({ session, body }) => {
 			const connection = await updateItsmConnection(id, body, session ?? undefined);
@@ -64,7 +65,7 @@ export async function DELETE(request: Request, context: RouteContext) {
 			permission: "ticket:manage",
 			rateLimit: GENERAL_WRITE_LIMIT,
 			errorStatus: 400,
-			errorMessage: "Failed to delete ITSM connection",
+			errorMessage: apiCopy("apiCopy.failed.to.delete.itsm.connection.587ecabb"),
 		},
 		async ({ session }) => {
 			await deleteItsmConnection(id, session ?? undefined);

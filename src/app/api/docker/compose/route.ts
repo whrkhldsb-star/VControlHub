@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * GET  /api/docker/compose          — list compose projects on hub-host or remote VPS
  * POST /api/docker/compose          — project lifecycle: ps|up|down|start|stop|restart
@@ -36,7 +37,7 @@ export async function GET(request: Request) {
     {
       permission: "docker:manage",
       rateLimit: GENERAL_READ_LIMIT,
-      errorMessage: "Failed to list compose projects",
+      errorMessage: apiCopy("apiCopy.failed.to.list.compose.projects.02edfd31"),
     },
     async ({ session }) => {
       const { serverId } = parseSearchParams(request, listQuerySchema);
@@ -67,7 +68,7 @@ export async function POST(request: Request) {
       permission: "docker:manage",
       rateLimit: COMMAND_LIMIT,
       bodySchema: actionSchema,
-      errorMessage: "Compose project action failed",
+      errorMessage: apiCopy("apiCopy.compose.project.action.failed.aa46095b"),
     },
     async ({ session, body }) => {
       const serverId = body.serverId?.trim() || undefined;

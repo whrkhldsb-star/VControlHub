@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * TR-009 55c: PUT /api/images/upload/[id]/chunk — append a single chunk.
  *
@@ -44,11 +45,11 @@ export async function PUT(
       rateLimit: GENERAL_WRITE_LIMIT,
       querySchema: appendMediaChunkSchema,
       errorStatus: 500,
-      errorMessage: "Failed to upload chunk",
+      errorMessage: apiCopy("apiCopy.failed.to.upload.chunk.fe945af5"),
     },
     async ({ session, query }) => {
       if (!session) {
-        throw new ForbiddenError("Not authenticated or session expired");
+        throw new ForbiddenError(apiCopy("apiCopy.not.authenticated.or.session.expired.b1714d99"));
       }
       let buffer: Buffer;
       try {
@@ -56,11 +57,11 @@ export async function PUT(
       } catch (err) {
         if (err instanceof RequestBodyTooLargeError) {
           return NextResponse.json(
-            { error: `Chunk exceeds declared size of ${query.size} bytes` },
+            { error: apiCopy("apiCopy.chunk.exceeds.declared.size.of.bytes.53daec4c", { v0: String(query.size) }) },
             { status: 413 },
           );
         }
-        throw new ValidationError("Failed to read chunk content", {
+        throw new ValidationError(apiCopy("apiCopy.failed.to.read.chunk.content.890170e9"), {
           reason: getErrorMessage(err, String(err)),
         });
       }

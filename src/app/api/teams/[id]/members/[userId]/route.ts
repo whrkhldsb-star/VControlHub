@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 
 import { withApiRoute } from "@/lib/http/api-guard";
@@ -12,7 +13,7 @@ export async function DELETE(
 ) {
 	return withApiRoute(
 		request,
-		{ permission: "team:member:manage", rateLimit: GENERAL_WRITE_LIMIT, errorMessage: "Failed to remove team member" },
+		{ permission: "team:member:manage", rateLimit: GENERAL_WRITE_LIMIT, errorMessage: apiCopy("apiCopy.failed.to.remove.team.member.8a8fc863") },
 		async ({ session }) => {
 			const { id, userId } = await params;
 			await removeTeamMember(id, userId, session!);

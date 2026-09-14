@@ -82,17 +82,17 @@ function TicketCard({ ticket, locale, nowMs, compact = false }: { ticket: Ticket
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="truncate text-sm font-semibold text-[var(--text-primary)]">{ticket.title}</h3>
-            <span className={`text-[11px] font-semibold uppercase tracking-[0.08em] ${priorityTone[ticket.priority] ?? "text-[var(--text-muted)]"}`}>
+            <span className={`text-xs font-semibold uppercase  ${priorityTone[ticket.priority] ?? "text-[var(--text-muted)]"}`}>
               {label(locale,"ticketsPage.priority", ticket.priority)}
             </span>
             {ticket.category && (
-              <span className="rounded-full border border-[var(--border)] px-2 py-0.5 text-[10px] text-[var(--text-secondary)]">
+              <span className="rounded-full border border-[var(--border)] px-2 py-0.5 text-xs text-[var(--text-secondary)]">
                 {label(locale,"ticketsPage.category", ticket.category)}
               </span>
             )}
           </div>
           {!compact && <p className="mt-1.5 line-clamp-2 text-xs leading-5 text-[var(--text-muted)]">{ticket.description}</p>}
-          <div className="mt-2.5 flex flex-wrap items-center gap-2 text-[11px] text-[var(--text-muted)]">
+          <div className="mt-2.5 flex flex-wrap items-center gap-2 text-xs text-[var(--text-muted)]">
             <StatusBadge tone={slaTone[slaStatus]} size="sm">
               {t(`ticketsPage.sla.${slaStatus}`, locale)}
             </StatusBadge>

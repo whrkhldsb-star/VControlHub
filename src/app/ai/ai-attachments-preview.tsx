@@ -58,7 +58,7 @@ export function AiAttachmentsPreview({
                   onClick={() =>
                     setImageUrls((prev) => prev.filter((_, j) => j !== i))
                   }
-                  className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[var(--danger)] text-[var(--text-primary)] text-[8px] flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition"
+                  className="absolute -top-1 -right-1 w-7 h-7 rounded-full border border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)] text-sm flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition"
                 >
                   ×
                 </button>
@@ -120,7 +120,7 @@ export function AiAttachmentsPreview({
                   onClick={() =>
                     setFileAttachments((prev) => prev.filter((_, j) => j !== i))
                   }
-                  className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[var(--danger)] text-[var(--text-primary)] text-[8px] flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition"
+                  className="absolute -top-1 -right-1 w-7 h-7 rounded-full border border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)] text-sm flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition"
                 >
                   ×
                 </button>

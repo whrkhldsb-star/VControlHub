@@ -8,7 +8,8 @@ import { toDateLocale } from "@/lib/i18n/locale-format";
 import type { Locale } from "@/lib/i18n/translations";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
-import { Notice } from "@/components/ui-primitives";
+import { IconButton, InlineLoading, Notice } from "@/components/ui-primitives";
+import { RefreshCw, X } from "@/components/icons";
 import { ModalShell } from "@/components/modal-shell";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
 
@@ -125,48 +126,65 @@ export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) 
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const requestRef = useRef<AbortController | null>(null);
+  const cursorRef = useRef<string | null>(null);
 
   const load = useCallback(
     async (append: boolean) => {
       if (!jobId || !open) return;
+      if (append && requestRef.current) return;
+      requestRef.current?.abort();
+      const request = new AbortController();
+      requestRef.current = request;
       setLoading(true);
       setError(null);
       try {
         const params = new URLSearchParams();
         params.set("limit", "100");
-        if (append && events.length > 0) {
-          params.set("beforeId", events[events.length - 1]?.id ?? "");
+        if (append && cursorRef.current) {
+          params.set("beforeId", cursorRef.current);
         }
         const data = await csrfFetch<{ events: JobEventRow[] }>(
           `/api/jobs/${encodeURIComponent(jobId)}/events?${params.toString()}`,
+          { signal: request.signal },
         );
+        if (request.signal.aborted || requestRef.current !== request) return;
         const next = data.events ?? [];
+        cursorRef.current = next.at(-1)?.id ?? null;
         if (append) {
-          setEvents((prev) => [...prev, ...next]);
+          setEvents((prev) => Array.from(new Map([...prev, ...next].map((event) => [event.id, event])).values()));
         } else {
           setEvents(next);
         }
         setHasMore(next.length >= 100);
       } catch (err) {
+        if (request.signal.aborted || requestRef.current !== request) return;
         setError(getErrorMessage(err, t("jobEventsDialog.loadError")));
       } finally {
-        setLoading(false);
+        if (requestRef.current === request) {
+          requestRef.current = null;
+          setLoading(false);
+        }
       }
     },
-    [jobId, open, events, t],
+    [jobId, open, t],
   );
 
   useEffect(() => {
+    cursorRef.current = null;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- A different task owns a different event list.
+    setEvents([]);
+    setHasMore(false);
+    setError(null);
+    setLoading(false);
     if (open && jobId) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- open/jobId 变化时重新拉取, 业务上需要 setState-in-effect
       void load(false);
-    } else if (!open) {
-      setEvents([]);
-      setHasMore(false);
-      setError(null);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, jobId]);
+    return () => {
+      requestRef.current?.abort();
+      requestRef.current = null;
+    };
+  }, [open, jobId, load]);
 
   if (!open || !jobId) return null;
 
@@ -176,36 +194,36 @@ export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) 
       onClose={onClose}
       labelledBy="job-events-dialog-title"
       initialFocusRef={closeButtonRef}
-      overlayClassName="fixed inset-0 z-[60] flex items-start justify-center bg-[var(--overlay)] backdrop-blur-sm px-4 pt-[10vh] pb-8"
-      panelClassName="w-full max-w-3xl rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] shadow-2xl"
+      overlayClassName="fixed inset-0 z-[60] flex items-center justify-center bg-[var(--overlay)] p-4 backdrop-blur-sm"
+      panelClassName="flex max-h-[calc(100dvh-2rem)] w-full min-w-0 max-w-3xl flex-col overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--modal-bg)] shadow-[var(--shadow-lg)]"
     >
-        <div className="flex items-center justify-between border-b border-[var(--border)] px-5 py-4">
-          <div>
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[var(--border)] px-4 py-3 sm:px-5">
+          <div className="min-w-0">
             <h2 id="job-events-dialog-title" className="text-sm font-semibold text-[var(--text-primary)]">
               {t("jobEventsDialog.title")}
             </h2>
-            <p className="mt-1 text-xs text-[var(--text-muted)]">
+            <p className="mt-1 break-words text-xs text-[var(--text-muted)]">
               {t("jobEventsDialog.subtitle", { id: jobId })}
             </p>
           </div>
-          <ActionButton variant="secondary"
+          <ActionButton variant="ghost"
             ref={closeButtonRef}
             onClick={onClose}
-            aria-label={t("jobEventsDialog.closeAria")} className="!px-3 !py-1.5 !text-xs"
+            aria-label={t("jobEventsDialog.closeAria")} title={t("jobEventsDialog.closeAria")} className="h-10 w-10 shrink-0 !p-2"
           >
-            {t("jobEventsDialog.close")}
+            <X size={18} aria-hidden />
           </ActionButton>
         </div>
-        <div className="max-h-[60vh] overflow-y-auto px-5 py-4">
+        <div className="min-h-0 overflow-y-auto overscroll-contain px-4 py-3 sm:px-5" aria-busy={loading}>
           {error ? <Notice tone="danger" compact>{error}</Notice> : null}
           {loading && events.length === 0 ? (
-            <p className="text-sm text-[var(--text-muted)]">{t("jobEventsDialog.loading")}</p>
+            <InlineLoading label={t("jobEventsDialog.loading")} />
           ) : null}
           {!loading && !error && events.length === 0 ? (
             <p className="text-sm text-[var(--text-muted)]">{t("jobEventsDialog.empty")}</p>
           ) : null}
           {events.length > 0 ? (
-            <ol className="space-y-2">
+            <ol className="divide-y divide-[var(--border)]">
               {events.map((event) => {
                 const tone = levelTone(event.level);
                 const typeLabel = typeLabels[event.type] ?? event.type;
@@ -213,21 +231,21 @@ export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) 
                 return (
                   <li
                     key={event.id}
-                    className="rounded-lg border border-[var(--border)]/[0.10] bg-[var(--surface-elevated)] px-3 py-2 text-xs text-[var(--text-primary)]"
+                    className="min-w-0 py-3 text-xs text-[var(--text-primary)]"
                   >
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium text-[var(--text-primary)]">{typeLabel}</span>
                       <StatusBadge tone={LEVEL_BADGE_TONE[tone]}>{levelLabels[tone]}</StatusBadge>
                       <span className="text-[var(--text-muted)]">{formatTime(event.createdAt, locale)}</span>
                       {event.workerId ? (
-                        <span className="font-mono text-[10px] text-[var(--text-muted)]" title={t("jobEventsDialog.workerIdTitle")}>
+                        <span className="break-all font-mono text-xs text-[var(--text-muted)]" title={t("jobEventsDialog.workerIdTitle")}>
                           {event.workerId}
                         </span>
                       ) : null}
                     </div>
                     <p className="mt-1 break-words text-[var(--text-secondary)]">{displayEventMessage(event, t)}</p>
                     {summary ? (
-                      <pre className="mt-1 max-h-32 overflow-auto rounded-lg bg-[var(--surface-subtle)] px-2 py-1 text-[10px] text-[var(--text-muted)]">
+                      <pre tabIndex={0} aria-label={typeLabel} className="mt-2 max-h-32 overflow-auto rounded-md bg-[var(--surface-subtle)] px-3 py-2 text-xs text-[var(--text-secondary)]">
                         {summary}
                       </pre>
                     ) : null}
@@ -237,23 +255,20 @@ export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) 
             </ol>
           ) : null}
         </div>
-        <div className="flex items-center justify-between border-t border-[var(--border)]/[0.10] px-5 py-3 text-xs text-[var(--text-muted)]">
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-[var(--border)] px-4 py-3 text-xs text-[var(--text-muted)] sm:px-5">
           <span>{t("jobEventsDialog.totalCount", { count: events.length, more: hasMore ? t("jobEventsDialog.moreSuffix") : "" })}</span>
           <div className="flex gap-2">
-            <ActionButton variant="secondary"
+            <IconButton label={t("jobEventsDialog.refresh")}
               onClick={() => void load(false)}
               disabled={loading}
-             
-              className="!px-3 !py-1.5 !text-xs disabled:opacity-50"
+              className="h-10 w-10"
             >
-              {t("jobEventsDialog.refresh")}
-            </ActionButton>
+              <RefreshCw size={16} aria-hidden />
+            </IconButton>
             {hasMore ? (
               <ActionButton variant="secondary"
                 onClick={() => void load(true)}
                 disabled={loading}
-               
-                className="!px-3 !py-1.5 !text-xs disabled:opacity-50"
               >
                 {t("jobEventsDialog.loadMore")}
               </ActionButton>

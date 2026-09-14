@@ -115,7 +115,7 @@ export default function DockerPage({
 				<p className="mt-1 leading-relaxed">
 					{scopeWarning}
 				</p>
-				<p className="mt-2 text-xs text-[var(--warning)]/80">
+				<p className="mt-2 text-xs text-[var(--warning)]">
 					{scopeSocketText}
 				</p>
 			</section>
@@ -129,21 +129,21 @@ export default function DockerPage({
 					onClick={() => {
 						setLoading(true);
 						void fetchContainers();
-					}} className="!min-h-11 !rounded-xl !px-3 !py-1.5 !text-xs !font-semibold"
+					}} className="!min-h-11 !rounded-xl !px-3 !py-1.5 !text-sm !font-semibold"
 				>
 					{t("dockerPage.refresh.list")}
 				</ActionButton>
 				<ActionButton type="button" variant="secondary"
 					onClick={() => {
 						for (const container of runningContainers) void fetchStats(container.Id);
-					}} className="!min-h-11 !rounded-xl !px-3 !py-1.5 !text-xs !font-medium"
+					}} className="!min-h-11 !rounded-xl !px-3 !py-1.5 !text-sm !font-medium"
 				>
 					{t("dockerPage.refresh.stats")}
 				</ActionButton>
 				<ActionButton type="button" variant={statsAutoRefresh ? "success" : "secondary"}
 					onClick={() => setStatsAutoRefresh((v) => !v)}
 					disabled={refreshIntervalSeconds <= 0 || runningContainers.length === 0}
-					className="!min-h-11 !rounded-xl !px-3 !py-1.5 !text-xs !font-medium disabled:cursor-not-allowed disabled:opacity-50"
+					className="!min-h-11 !rounded-xl !px-3 !py-1.5 !text-sm !font-medium disabled:cursor-not-allowed disabled:opacity-50"
 				>
 					{statsAutoRefresh
 						? t("dockerPage.autoRefreshOn", { label: refreshLabel })

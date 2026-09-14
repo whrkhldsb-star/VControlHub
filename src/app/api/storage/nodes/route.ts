@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 
 import { z } from "zod";
@@ -6,7 +7,7 @@ import { sessionHasPermission } from "@/lib/auth/authorization";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
-import { getStorageOverview } from "@/lib/storage/service";
+import { listStorageNodes } from "@/lib/storage/service";
 
 export const dynamic = "force-dynamic";
 
@@ -25,11 +26,11 @@ const driverFilterSchema = z
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { permission: "storage:read", errorMessage: "Failed to read storage node" },
+    { permission: "storage:read", errorMessage: apiCopy("apiCopy.failed.to.read.storage.node.c8b339ff") },
     async ({ session }) => {
       const driverFilter = parseSearchParams(request, driverFilterSchema);
 
-      const storage = await getStorageOverview(session);
+      const storageNodes = await listStorageNodes(session);
       const canManageNodes = Boolean(session && sessionHasPermission(session, "storage:manage-node"));
       const readableNodeIds = canManageNodes || !session
         ? null
@@ -41,7 +42,7 @@ export async function GET(request: Request) {
               take: 500,
             })).map((grant) => grant.storageNodeId),
           );
-      const nodes = storage.nodes
+      const nodes = storageNodes
         .filter((node) => !driverFilter || node.driver === driverFilter)
         .filter((node) =>
           node.driver !== "SFTP" || Boolean(node.serverId || node.server || node.host),

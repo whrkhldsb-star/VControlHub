@@ -43,7 +43,7 @@ describe("checkRateLimitAsync", () => {
 
     const result = await checkRateLimitAsync("198.51.100.10", { maxRequests: 2, windowMs: 1_000 });
 
-    expect(result).toEqual({ allowed: false, retryAfterMs: 500, remaining: 0 });
+    expect(result).toEqual({ allowed: false, retryAfterMs: 750, remaining: 0 });
   });
 });
 

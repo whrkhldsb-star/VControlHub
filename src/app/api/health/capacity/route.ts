@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * GET /api/health/capacity
  *
@@ -44,7 +45,7 @@ export async function GET(request: Request) {
     {
       permission: "health:read",
       querySchema,
-      errorMessage: "Failed to compute capacity forecast",
+      errorMessage: apiCopy("apiCopy.failed.to.compute.capacity.forecast.d4f66cf3"),
     },
     async ({ session, query }) => {
       if (query.serverId && session) {

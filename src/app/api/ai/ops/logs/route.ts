@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * TR-032 E02: /api/ai/ops/logs — list AI ops scan logs.
  *
@@ -25,7 +26,7 @@ export async function GET(request: Request) {
 			rateLimit: GENERAL_READ_LIMIT,
 			querySchema: aiOpsLogsQuerySchema,
 			errorStatus: 500,
-			errorMessage: "Failed to load AI ops records",
+			errorMessage: apiCopy("apiCopy.failed.to.load.ai.ops.records.cf32bf1b"),
 		},
 		async ({ query, session }) => {
 			// AI-ops scans aggregate fleet health across ALL teams and logs are

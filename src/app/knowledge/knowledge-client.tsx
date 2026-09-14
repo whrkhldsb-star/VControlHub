@@ -223,8 +223,9 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
         >
           <div className="space-y-3">
             {canManage && <div className="flex flex-wrap gap-2">
-              <FormField label={t("knowledgePage.namePlaceholder")} className="min-w-[10rem] flex-1">
+              <FormField label={t("knowledgePage.namePlaceholder")} htmlFor="knowledge-base-name" className="min-w-[10rem] flex-1">
               <input
+                id="knowledge-base-name"
                 aria-label={t("knowledgePage.namePlaceholder")}
                 className={UI_INPUT}
                 value={name}
@@ -234,7 +235,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
               </FormField>
               <ActionButton variant="outline"
                 disabled={!name.trim() || busy !== null}
-                onClick={() => void createBase()} className="!min-h-11 !px-3 !text-xs !font-semibold disabled:opacity-50"
+                onClick={() => void createBase()} className="!min-h-11 !px-3 !text-sm !font-semibold disabled:opacity-50"
               >
                 {busy === "create" ? t("knowledgePage.working") : t("knowledgePage.create")}
               </ActionButton>
@@ -262,7 +263,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
                       }`}
                     >
                       <div className="font-semibold">{b.name}</div>
-                      <div className="mt-0.5 text-[11px] opacity-80">
+                      <div className="mt-0.5 text-xs opacity-80">
                         {t("knowledgePage.baseMeta", { docs: b.documentCount, chunks: b.chunkCount })}
                       </div>
                     </button>
@@ -272,7 +273,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
                         aria-label={t("knowledgePage.deleteBaseAria", { name: b.name })}
                         disabled={busy !== null}
                         onClick={() => setBasePendingDelete(b)}
-                        className="!px-3 !text-xs"
+                        className="!px-3 !text-sm"
                       >
                         {t("knowledgePage.delete")}
                       </ActionButton>
@@ -299,7 +300,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
             />}
             {canManage && <textarea
               aria-label={t("knowledgePage.docContentPlaceholder")}
-              className={`${UI_INPUT} min-h-40 font-mono text-[11px]`}
+              className={`${UI_INPUT} min-h-40 font-mono text-xs`}
               value={docContent}
               onChange={(e) => setDocContent(e.target.value)}
               placeholder={t("knowledgePage.docContentPlaceholder")}
@@ -307,7 +308,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
             />}
             {canManage && <ActionButton variant="success"
               disabled={!selectedId || !docTitle.trim() || !docContent.trim() || busy !== null}
-              onClick={() => void ingest()} className="!min-h-11 !px-3 !text-xs !font-semibold disabled:opacity-50"
+              onClick={() => void ingest()} className="!min-h-11 !px-3 !text-sm !font-semibold disabled:opacity-50"
             >
               {busy === "ingest" ? t("knowledgePage.working") : t("knowledgePage.ingest")}
             </ActionButton>}
@@ -315,7 +316,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
               {documents.map((d) => (
                 <div
                   key={d.id}
-                  className="flex items-start justify-between gap-2 rounded-lg border border-[var(--border-subtle)] px-2 py-1.5 text-[11px]"
+                  className="flex items-start justify-between gap-2 rounded-lg border border-[var(--border-subtle)] px-2 py-1.5 text-xs"
                 >
                   <div>
                     <div className="font-medium text-[var(--text-primary)]">{d.title}</div>
@@ -324,7 +325,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
                     </div>
                   </div>
                   {canManage && (
-                    <ActionButton variant="danger" className="!px-2 !py-1 !text-[11px]"
+                    <ActionButton variant="danger" className="!px-2 !py-1 !text-sm"
                       disabled={busy !== null}
                       onClick={() => setDocumentPendingDelete(d)}
                     >
@@ -349,7 +350,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
           />
           <ActionButton variant="outline"
             disabled={!query.trim() || busy !== null}
-            onClick={() => void search()} className="!min-h-11 !px-3 !text-xs !font-semibold disabled:opacity-50"
+            onClick={() => void search()} className="!min-h-11 !px-3 !text-sm !font-semibold disabled:opacity-50"
           >
             {busy === "search" ? t("knowledgePage.working") : t("knowledgePage.search")}
           </ActionButton>
@@ -362,7 +363,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
             >
               <div className="font-semibold text-[var(--text-primary)]">
                 [{idx + 1}] {hit.knowledgeBaseName} / {hit.documentTitle}#{hit.chunkIndex}
-                <span className="ml-2 text-[11px] font-normal text-[var(--text-muted)]">
+                <span className="ml-2 text-xs font-normal text-[var(--text-muted)]">
                   score {hit.score}
                 </span>
               </div>
@@ -374,7 +375,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
         </div>
       </SurfacePanel>
       {error && <Notice tone="danger" compact className="mt-3" onDismiss={() => setError(null)} dismissLabel={t("common.close")}>{error}</Notice>}
-      <p className="mt-4 text-[11px] text-[var(--text-muted)]">{t("knowledgePage.aiHint")}</p>
+      <p className="mt-4 text-xs text-[var(--text-muted)]">{t("knowledgePage.aiHint")}</p>
       <ConfirmDialog
         open={documentPendingDelete !== null}
         title={t("knowledgePage.deleteDocumentTitle")}

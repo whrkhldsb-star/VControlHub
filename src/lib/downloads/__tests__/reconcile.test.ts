@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  */
 
 const prismaMock = {
+  $transaction: vi.fn(),
   downloadTask: {
     findMany: vi.fn(),
     updateMany: vi.fn(),
@@ -59,6 +60,7 @@ function relayRow(over: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  prismaMock.$transaction.mockImplementation(async (callback) => callback(prismaMock));
   prismaMock.downloadTask.updateMany.mockResolvedValue({ count: 1 });
   ssh.buildSshParamsFromServer.mockResolvedValue({ host: "h", port: 22, username: "u" });
 });
@@ -75,6 +77,24 @@ describe("reconcileStaleRunningDownloadTasks — direct", () => {
     expect(call.where.status).toBe("RUNNING");
     expect(call.data.status).toBe("COMPLETED");
     expect(helpers.indexDownloadedFileEntry).toHaveBeenCalledTimes(1);
+    expect(helpers.indexDownloadedFileEntry).toHaveBeenCalledWith(expect.anything(), prismaMock);
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not report completion when indexing rejects the transaction", async () => {
+    prismaMock.downloadTask.findMany.mockResolvedValueOnce([directRow()]);
+    ssh.execRemoteCommand.mockResolvedValueOnce({ stdout: "COMPLETED\n12345\n/data/dl/f.bin", exitCode: 0 });
+    helpers.indexDownloadedFileEntry.mockRejectedValueOnce(new Error("index unavailable"));
+    expect(await reconcileStaleRunningDownloadTasks()).toEqual({ completed: 0, failed: 0, ids: [] });
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not index after a concurrent cancellation wins the status update", async () => {
+    prismaMock.downloadTask.findMany.mockResolvedValueOnce([directRow()]);
+    ssh.execRemoteCommand.mockResolvedValueOnce({ stdout: "COMPLETED\n0\n/data/dl/f.bin", exitCode: 0 });
+    prismaMock.downloadTask.updateMany.mockResolvedValueOnce({ count: 0 });
+    expect(await reconcileStaleRunningDownloadTasks()).toEqual({ completed: 0, failed: 0, ids: [] });
+    expect(helpers.indexDownloadedFileEntry).not.toHaveBeenCalled();
   });
 
   it("leaves a direct download whose pid is still alive untouched", async () => {
@@ -154,14 +174,15 @@ describe("reconcileStaleRunningDownloadTasks — relay", () => {
 });
 
 describe("reconcileStaleRunningDownloadTasks — neither pid nor gid", () => {
-  it("fails a very stale task that never recorded pid or gid", async () => {
+  it("probes remote markers before failing a task whose database pid was never recorded", async () => {
     prismaMock.downloadTask.findMany.mockResolvedValueOnce([
       directRow({ pid: null, aria2Gid: null, updatedAt: new Date(Date.now() - 7 * 60 * 60_000) }),
     ]);
 
+    ssh.execRemoteCommand.mockResolvedValueOnce({ stdout: "UNKNOWN\n0", exitCode: 0 });
     const res = await reconcileStaleRunningDownloadTasks();
 
     expect(res.failed).toBe(1);
-    expect(ssh.execRemoteCommand).not.toHaveBeenCalled();
+    expect(ssh.execRemoteCommand).toHaveBeenCalledTimes(1);
   });
 });

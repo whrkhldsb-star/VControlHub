@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * Docker containers API — list, inspect, start/stop/restart, logs.
  * Uses Docker Engine API via Node.js HTTP over unix socket /var/run/docker.sock
@@ -46,7 +47,7 @@ function isValidTail(value: string): boolean {
 export async function GET(req: NextRequest) {
   return withApiRoute(
     req,
-    { permission: "docker:manage", errorMessage: "Docker API RequestFailed" },
+    { permission: "docker:manage", errorMessage: apiCopy("apiCopy.docker.api.requestfailed.ddbf5845") },
     async ({ session }) => {
       const { id, logs, stats, tail: tailRaw, serverId } = parseSearchParams(
         req,
@@ -63,19 +64,19 @@ export async function GET(req: NextRequest) {
       // Validate container IDs to prevent path traversal
       if (id && !isValidDockerId(id)) {
         return NextResponse.json(
-          { error: "Invalid container ID format" },
+          { error: apiCopy("apiCopy.invalid.container.id.format.380f636e") },
           { status: 400 },
         );
       }
       if (logs && !isValidDockerId(logs)) {
         return NextResponse.json(
-          { error: "Invalid container ID format" },
+          { error: apiCopy("apiCopy.invalid.container.id.format.380f636e") },
           { status: 400 },
         );
       }
       if (stats && !isValidDockerId(stats)) {
         return NextResponse.json(
-          { error: "Invalid container ID format" },
+          { error: apiCopy("apiCopy.invalid.container.id.format.380f636e") },
           { status: 400 },
         );
       }
@@ -161,19 +162,19 @@ export async function POST(req: NextRequest) {
     {
       permission: "docker:manage",
       rateLimit: COMMAND_LIMIT,
-      errorMessage: "Docker operation failed",
+      errorMessage: apiCopy("apiCopy.docker.operation.failed.c1019727"),
       bodySchema: containerActionSchema,
     },
     async ({ session, body }) => {
       if (!session)
-        throw new AuthError("Not authenticated");
+        throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
 
       const { id, action, serverId } = body;
 
       // Validate container ID to prevent path traversal
       if (!isValidDockerId(id)) {
         return NextResponse.json(
-          { error: "Invalid container ID format" },
+          { error: apiCopy("apiCopy.invalid.container.id.format.380f636e") },
           { status: 400 },
         );
       }

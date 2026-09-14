@@ -39,7 +39,7 @@ export function StepConfigEditor({
 		return (
 			<div className="space-y-2">
 				<div className="space-y-1.5">
-					<label htmlFor={`${fieldId}-command`} className="text-[11px] text-[var(--text-secondary)]">
+					<label htmlFor={`${fieldId}-command`} className="text-xs text-[var(--text-secondary)]">
 						{t("playbooksPage.step.commandLabel")}
 					</label>
 					<textarea
@@ -54,14 +54,14 @@ export function StepConfigEditor({
 				</div>
 				<div className="space-y-1.5">
 					<div className="flex items-center justify-between gap-2">
-						<span id={`${fieldId}-servers-label`} className="text-[11px] text-[var(--text-secondary)]">
+						<span id={`${fieldId}-servers-label`} className="text-xs text-[var(--text-secondary)]">
 							{t("playbooksPage.step.serversLabel")}
 						</span>
 						{enabledServers.length > 0 && (
 							<button
 								type="button"
 								onClick={selectAllEnabled}
-								className="text-[11px] text-[var(--color-action)] hover:underline"
+								className="text-xs text-[var(--color-action)] hover:underline"
 							>
 								{selected.length === enabledServers.length
 									? t("playbooksPage.step.deselectAllServers")
@@ -70,7 +70,7 @@ export function StepConfigEditor({
 						)}
 					</div>
 					{servers.length === 0 ? (
-						<p role="alert" className="text-[11px] text-[var(--danger)]">
+						<p role="alert" className="text-xs text-[var(--danger)]">
 							{t("playbooksPage.step.noServers")}
 						</p>
 					) : (
@@ -100,7 +100,7 @@ export function StepConfigEditor({
 											<span className="ml-1 text-[var(--text-muted)]">({server.host})</span>
 										</span>
 										{!server.enabled && (
-											<span className="shrink-0 text-[10px] text-[var(--text-muted)]">
+											<span className="shrink-0 text-xs text-[var(--text-muted)]">
 												{t("playbooksPage.step.serverDisabled")}
 											</span>
 										)}
@@ -110,9 +110,9 @@ export function StepConfigEditor({
 						</div>
 					)}
 					{selected.length === 0 && servers.length > 0 && (
-						<p className="text-[11px] text-[var(--warn)]">{t("playbooksPage.step.serversRequired")}</p>
+						<p className="text-xs text-[var(--warn)]">{t("playbooksPage.step.serversRequired")}</p>
 					)}
-					<p className="text-[10px] text-[var(--text-muted)]">{t("playbooksPage.createForm.runCommandHint")}</p>
+					<p className="text-xs text-[var(--text-muted)]">{t("playbooksPage.createForm.runCommandHint")}</p>
 				</div>
 			</div>
 		);
@@ -120,7 +120,7 @@ export function StepConfigEditor({
 	if (step.type === "send_notification") {
 		return (
 			<div className="space-y-1.5">
-				<label htmlFor={`${fieldId}-recipient`} className="text-[11px] text-[var(--text-secondary)]">
+				<label htmlFor={`${fieldId}-recipient`} className="text-xs text-[var(--text-secondary)]">
 					recipientUserId
 				</label>
 				<input
@@ -130,7 +130,7 @@ export function StepConfigEditor({
 					onChange={(e) => onConfigChange({ recipientUserId: e.target.value })}
 					className={fieldInputClass}
 				/>
-				<label htmlFor={`${fieldId}-subject`} className="text-[11px] text-[var(--text-secondary)]">
+				<label htmlFor={`${fieldId}-subject`} className="text-xs text-[var(--text-secondary)]">
 					subject
 				</label>
 				<input
@@ -140,7 +140,7 @@ export function StepConfigEditor({
 					onChange={(e) => onConfigChange({ subject: e.target.value })}
 					className={fieldInputClass}
 				/>
-				<label htmlFor={`${fieldId}-body`} className="text-[11px] text-[var(--text-secondary)]">
+				<label htmlFor={`${fieldId}-body`} className="text-xs text-[var(--text-secondary)]">
 					body
 				</label>
 				<textarea
@@ -155,7 +155,7 @@ export function StepConfigEditor({
 	}
 	return (
 		<div className="space-y-1.5">
-			<label htmlFor={`${fieldId}-url`} className="text-[11px] text-[var(--text-secondary)]">
+			<label htmlFor={`${fieldId}-url`} className="text-xs text-[var(--text-secondary)]">
 				url
 			</label>
 			<input
@@ -166,7 +166,7 @@ export function StepConfigEditor({
 				placeholder="https://example.com/hook"
 				className={fieldInputClass}
 			/>
-			<label htmlFor={`${fieldId}-method`} className="text-[11px] text-[var(--text-secondary)]">
+			<label htmlFor={`${fieldId}-method`} className="text-xs text-[var(--text-secondary)]">
 				method
 			</label>
 			<select
@@ -181,7 +181,7 @@ export function StepConfigEditor({
 					</option>
 				))}
 			</select>
-			<label htmlFor={`${fieldId}-webhook-body`} className="text-[11px] text-[var(--text-secondary)]">
+			<label htmlFor={`${fieldId}-webhook-body`} className="text-xs text-[var(--text-secondary)]">
 				body (JSON, optional)
 			</label>
 			<textarea

@@ -93,6 +93,24 @@ and do **not** re-introduce a bare `process.exit(1)` on `uncaughtException`.
 
 ### Authenticated and product workflow gates
 
+Each E2E job also checks the shared component reference (18 states) and the
+whole-site UI plus populated AI workspace on Chromium, Firefox and WebKit.
+The regular route matrix uses English/light/320px and Chinese/dark/1440px.
+Nightly (02:23 UTC) and manually dispatched runs additionally inspect all 540
+Chromium route combinations. These suites run sequentially because their
+global setup/teardown share an isolated account. Artifacts use separate output
+directories so later suites do not erase earlier evidence. Long documents are
+captured in slices to respect Firefox/WebKit bitmap dimension limits.
+
+The server-inventory workflow exercises 513 nodes, searching beyond the former
+500-row limit, URL pagination/reload/back navigation and lazy batch targets.
+It leaves the PWA service worker enabled. Visual fixtures that intercept
+diagnostics block service workers, so worker activation does not compete with
+Playwright request routing. Search assertions wait for the submitted URL before
+checking the result count; equal page sizes alone do not prove a search ran.
+Local rollback trees (`.next.*`, `node_modules.*`, `dist.*`) are excluded from
+Git, TypeScript and ESLint inputs. Keep this exclusion when changing tooling.
+
 The E2E job runs `e2e/authenticated-flow.spec.ts` on Chromium, Firefox, and
 WebKit after public smoke:
 
@@ -108,6 +126,23 @@ media/image-bed, settings, monitoring, downloads, server diagnostics, and team
 workspaces against an isolated account and synthetic unreachable VPS. Missing
 fixtures are assertions, not silent skips. Full multi-browser coverage for all
 workflow specs remains available through `npm run test:e2e:cross-browser`.
+
+The workflow suite also includes populated provider/search/job-event dialogs
+at narrow widths and short heights, plus live tenant and role-revocation API
+checks. Tenant fixtures require a loopback audit/test database; CI additionally
+accepts the workflow's dedicated `whrkhldsb_ci` database. These checks must not
+target a production database.
+
+Responsive route sweeps use a fresh browser context per route with the signed
+test session restored. They wait for finite hydration/prefetch requests while
+allowing persistent EventSource connections. Navigation and authentication
+workflows retain their normal shared browser context. Avoid using unconditional
+`networkidle` for monitoring pages, or reusing unresolved request bookkeeping
+across hard navigations.
+
+Hook tests must preserve stable context function identities and await observable
+initial loading completion before testing actions. An empty `act` callback does
+not guarantee a zero-delay mount timer has completed.
 
 
 

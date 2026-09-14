@@ -1,4 +1,5 @@
 "use client";
+import { Plus, Trash2, X } from "@/components/icons";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -370,7 +371,7 @@ export function VpsBackupSection({
 						value={manualPaths}
 						onChange={(e) => setManualPaths(e.target.value)}
 					/>
-					<p className="mt-1 text-[11px] text-[var(--text-muted)]">{t("vpsBackup.manualCustomPathsHint")}</p>
+					<p className="mt-1 text-xs text-[var(--text-muted)]">{t("vpsBackup.manualCustomPathsHint")}</p>
 				</div>
 				<div className="flex flex-wrap gap-2">
 					{PRESET_OPTIONS.map((preset) => (
@@ -379,7 +380,7 @@ export function VpsBackupSection({
 							disabled={triggering !== null}
 							onClick={() => handleTrigger(preset)}
 						
-							className="!px-3 !py-1.5 !text-xs disabled:cursor-not-allowed disabled:opacity-50"
+							className="!px-3 !py-1.5 !text-sm disabled:cursor-not-allowed disabled:opacity-50"
 						>
 							{triggering === preset ? (
 								<span className="animate-pulse">⏳ {presetLabel(preset)}</span>
@@ -403,9 +404,10 @@ export function VpsBackupSection({
 							onClick={() => setShowCreate(!showCreate)}
 							aria-label={showCreate ? t("common.close") : t("vpsBackup.addSchedule")}
 						
-							className="!px-2.5 !py-1 !text-xs"
+							className="!px-2.5 !py-1 !text-sm"
 						>
-							{showCreate ? "✕" : `+ ${t("vpsBackup.addSchedule")}`}
+							{showCreate ? <X size={16} aria-hidden /> : <Plus size={16} aria-hidden />}
+							{showCreate ? t("common.cancel") : t("vpsBackup.addSchedule")}
 						</ActionButton>
 					) : null}
 				</div>
@@ -443,7 +445,7 @@ export function VpsBackupSection({
 								className={UI_INPUT}
 							/>
 						</div>
-						<p className="text-[11px] text-[var(--text-muted)]">
+						<p className="text-xs text-[var(--text-muted)]">
 							{t("vpsBackup.timezone", { timezone: APP_TIME_ZONE })}
 						</p>
 						{createForm.backupType === "custom" ? <textarea
@@ -500,7 +502,7 @@ export function VpsBackupSection({
 										setShowCreate(true);
 									}}
 								
-									className="!px-3 !py-1.5 !text-xs"
+									className="!px-3 !py-1.5 !text-sm"
 								>
 									{t("vpsBackup.quick.nginx")}
 								</ActionButton>
@@ -516,14 +518,14 @@ export function VpsBackupSection({
 										setShowCreate(true);
 									}}
 								
-									className="!px-3 !py-1.5 !text-xs"
+									className="!px-3 !py-1.5 !text-sm"
 								>
 									{t("vpsBackup.quick.website")}
 								</ActionButton>
 								<ActionButton variant="outline"
 									onClick={() => setShowCreate(true)}
 								
-									className="!px-3 !py-1.5 !text-xs"
+									className="!px-3 !py-1.5 !text-sm"
 								>
 									{t("vpsBackup.addSchedule")}
 								</ActionButton>
@@ -606,7 +608,7 @@ export function VpsBackupSection({
 													{isSaving ? t("common.submitting") : t("vpsBackup.save")}
 												</ActionButton>
 											</div>
-											<p className="text-[11px] text-[var(--text-muted)]">{t("vpsBackup.timezone", { timezone: APP_TIME_ZONE })}</p>
+											<p className="text-xs text-[var(--text-muted)]">{t("vpsBackup.timezone", { timezone: APP_TIME_ZONE })}</p>
 										</div>
 									) : (
 										<div className="flex items-start justify-between gap-3">
@@ -615,7 +617,7 @@ export function VpsBackupSection({
 												<div className="text-xs text-[var(--text-muted)]">
 													{presetLabel(s.backupType)} · {s.cronExpression} · {scheduleStatusLabel(s.status)} · {t("vpsBackup.retention")}: {s.retentionDays ? `${s.retentionDays}d` : t("vpsBackup.retentionNone")}
 												</div>
-												<div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-[var(--text-muted)]">
+												<div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-[var(--text-muted)]">
 													<span>{t("vpsBackup.lastRun", { time: formatDateTime(s.lastRunAt, locale) })}</span>
 													<span>{t("vpsBackup.nextRun", { time: s.status === "ACTIVE" ? formatDateTime(s.nextRunAt, locale) : t("vpsBackup.noNextRun") })}</span>
 												</div>
@@ -632,11 +634,11 @@ export function VpsBackupSection({
 														variant={s.status === "ACTIVE" ? "outline" : "success"}
 														onClick={() => void toggleScheduleStatus(s)}
 														disabled={isSaving}
-														className="!min-h-8 !px-2 !py-1 !text-[11px]"
+														className="!min-h-8 !px-2 !py-1 !text-sm"
 													>
 														{s.status === "ACTIVE" ? t("vpsBackup.pause") : t("vpsBackup.resume")}
 													</ActionButton>
-													<IconButton label={t("vpsBackup.deleteSchedule", { name: s.name })} tone="danger" onClick={() => setDeleteTarget({ kind: "schedule", id: s.id, name: s.name })} className="h-8 w-8 text-xs">✕</IconButton>
+													<IconButton label={t("vpsBackup.deleteSchedule", { name: s.name })} tone="danger" onClick={() => setDeleteTarget({ kind: "schedule", id: s.id, name: s.name })} className="h-8 w-8 text-xs"><Trash2 size={16} aria-hidden /></IconButton>
 												</div>
 											) : null}
 										</div>
@@ -671,7 +673,7 @@ export function VpsBackupSection({
 											{presetLabel(r.backupType)}
 										</span>
 										<span
-											className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
+											className={`rounded px-1.5 py-0.5 text-xs font-medium ${
 												r.status === "COMPLETED"
 													? "bg-[var(--success-bg)] text-[var(--success)]"
 													: r.status === "FAILED"
@@ -717,7 +719,7 @@ export function VpsBackupSection({
 										</IconButton>
 									) : null}
 									{canManage ? (
-										<IconButton label={t("vpsBackup.deleteRecord")} tone="danger" onClick={() => setDeleteTarget({ kind: "record", id: r.id })} className="h-8 w-8 text-xs">✕</IconButton>
+										<IconButton label={t("vpsBackup.deleteRecord")} tone="danger" onClick={() => setDeleteTarget({ kind: "record", id: r.id })} className="h-8 w-8 text-xs"><Trash2 size={16} aria-hidden /></IconButton>
 									) : null}
 								</div>
 							</div>

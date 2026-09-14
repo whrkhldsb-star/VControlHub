@@ -17,13 +17,13 @@ export default function OfflinePage() {
   const [retrying, setRetrying] = useState(false);
 
   return (
-    <main
+    <div
       className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-6 py-16 text-[var(--text-primary)]"
       aria-labelledby="offline-title"
     >
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(139,157,255,0.13),transparent_55%),var(--page-bg)]"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,color-mix(in_srgb,var(--accent)_10%,transparent),transparent_55%),var(--page-bg)]"
       />
       <div className="relative w-full max-w-md space-y-6 rounded-3xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-8 text-center shadow-[var(--shadow-lg)] backdrop-blur-xl">
         <div
@@ -34,8 +34,8 @@ export default function OfflinePage() {
         </div>
 
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">Offline</p>
-          <h1 id="offline-title" className="mt-2 text-2xl font-semibold tracking-tight">
+          <p className="text-xs font-semibold uppercase  text-[var(--accent)]">Offline</p>
+          <h1 id="offline-title" className="mt-2 text-2xl font-semibold ">
             {t("pwa.offline.title")}
           </h1>
           <p className="mt-3 text-sm leading-relaxed text-[var(--text-secondary)]">
@@ -59,6 +59,6 @@ export default function OfflinePage() {
           </a>
         </div>
       </div>
-    </main>
+    </div>
   );
 }

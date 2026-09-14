@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -15,13 +16,13 @@ const serverMonitorQuerySchema = z.object({
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { permission: "server:read", errorMessage: "Server error" },
+    { permission: "server:read", errorMessage: apiCopy("apiCopy.server.error.dfe0c2e8") },
     async ({ session }) => {
       const { serverId } = parseSearchParams(request, serverMonitorQuerySchema);
       const teamAccess = await assertServerTeamAccess(session, serverId);
       if (!teamAccess.ok) return teamAccess.response;
 
-      const result = await collectServerMetrics(serverId);
+      const result = await collectServerMetrics(serverId, request.signal);
       return NextResponse.json(result);
     },
   );

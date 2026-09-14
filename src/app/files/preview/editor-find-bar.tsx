@@ -1,5 +1,7 @@
 "use client";
 
+import { X } from "@/components/icons";
+
 import { useI18n } from "@/lib/i18n/use-locale";
 import type { EditorFindState } from "./text-preview-types";
 
@@ -59,7 +61,7 @@ export function EditorFindBar({ inputRef, find, onQueryChange, onMove, onClose }
 				onClick={() => onMove(-1)}
 				disabled={find.total === 0}
 				aria-label={t("textPreview.editor.findPrev")}
-				title={t("textPreview.editor.findPrev")} className="!px-2 !py-1 !text-xs disabled:opacity-40"
+				title={t("textPreview.editor.findPrev")} className="!px-2 !py-1 !text-sm disabled:opacity-40"
 			>
 				↑
 			</ActionButton>
@@ -67,15 +69,15 @@ export function EditorFindBar({ inputRef, find, onQueryChange, onMove, onClose }
 				onClick={() => onMove(1)}
 				disabled={find.total === 0}
 				aria-label={t("textPreview.editor.findNext")}
-				title={t("textPreview.editor.findNext")} className="!px-2 !py-1 !text-xs disabled:opacity-40"
+				title={t("textPreview.editor.findNext")} className="!px-2 !py-1 !text-sm disabled:opacity-40"
 			>
 				↓
 			</ActionButton>
 			<ActionButton variant="secondary"
 				onClick={onClose}
 				aria-label={t("textPreview.editor.findClose")}
-				title={t("textPreview.editor.findClose")} className="!px-2 !py-1 !text-xs">
-				✕
+				title={t("textPreview.editor.findClose")} className="!px-2 !py-1 !text-sm">
+				<X size={16} aria-hidden />
 			</ActionButton>
 		</div>
 	);

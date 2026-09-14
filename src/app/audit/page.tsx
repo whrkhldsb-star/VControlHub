@@ -78,8 +78,8 @@ export default async function AuditPage({ searchParams }: AuditPageProps) {
 		<PageShell maxW="max-w-7xl">
 			<PageHeader eyebrow={t("auditPage.eyebrow", locale)} title={copy.title} description={copy.description}>
 				<div className="flex flex-wrap gap-2 text-xs text-[var(--text-secondary)]">
-					<Link href="/" data-variant="secondary" className="rounded-xl px-3 py-1.5">{copy.backHome}</Link>
-					<Link href="/health" data-variant="secondary" className="rounded-xl px-3 py-1.5">{copy.healthCheck}</Link>
+					<Link href="/" data-action-button data-variant="secondary" className="rounded-xl px-3 py-1.5">{copy.backHome}</Link>
+					<Link href="/health" data-action-button data-variant="secondary" className="rounded-xl px-3 py-1.5">{copy.healthCheck}</Link>
 				</div>
 			</PageHeader>
 
@@ -112,7 +112,7 @@ export default async function AuditPage({ searchParams }: AuditPageProps) {
 												href={`/audit?action=${encodeURIComponent(action)}`}
 												data-action-button
 												data-variant="danger"
-												className="!px-2 !py-1 !text-[11px]"
+												className="!px-2 !py-1 !text-sm"
 											>
 												{copy.highRiskFilterPrefix} {formatAuditAction(action, locale)}
 											</Link>

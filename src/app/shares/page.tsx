@@ -4,7 +4,7 @@ import { sessionHasPermission } from "@/lib/auth/authorization";
 import { listShareLinks } from "@/lib/share-link/service";
 import { listStorageNodes } from "@/lib/storage/service";
 import { PageShell, EmptyState, PageHeader, ListPanel, ListRow } from "@/components/page-shell";
-import { t } from "@/lib/i18n/translations";
+import { t as translate, type TFn } from "@/lib/i18n/translations";
 import { formatDateTime } from "@/lib/datetime/format";
 import { StatusBadge } from "@/components/status-badge";
 import { CreateShareForm } from "./create-share-form";
@@ -18,6 +18,7 @@ export const dynamic = "force-dynamic";
 
 export default async function SharesPage() {
 	const locale = await getServerLocale();
+	const t: TFn = (key, vars) => translate(key, locale, vars);
 	const session = await requireSession("/shares");
 	if (!sessionHasPermission(session, "share:read")) {
 		return (
@@ -33,7 +34,7 @@ export default async function SharesPage() {
 	return (
 		<PageShell>
 			<PageHeader
-				eyebrow={t("sharesPage.eyebrow", locale)}
+				eyebrow={t("sharesPage.eyebrow")}
 				title={t("shares.title")}
 				description={t("shares.desc")}
 			/>
@@ -42,7 +43,7 @@ export default async function SharesPage() {
 			{canCreate ? (
 				<div className="mb-5 space-y-4">
 					<ShareFilePicker nodes={nodes.map((n) => ({ id: n.id, name: n.name, driver: n.driver }))} />
-					<CreateShareForm nodes={nodes.map((n) => ({ id: n.id, name: `${n.name} · ${getStorageDriverLabel((key, vars) => t(key, locale, vars), n.driver)}` }))} />
+					<CreateShareForm nodes={nodes.map((n) => ({ id: n.id, name: `${n.name} · ${getStorageDriverLabel(t, n.driver)}` }))} />
 				</div>
 			) : null}
 

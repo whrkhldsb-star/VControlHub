@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * TR-032: /api/ai/ops/logs/[id]/approve — approve a recommended action.
  *
@@ -30,11 +31,11 @@ export async function POST(
 			rateLimit: GENERAL_WRITE_LIMIT,
 			bodySchema: approveRecommendationSchema,
 			errorStatus: 500,
-			errorMessage: "Failed to approve recommendation",
+			errorMessage: apiCopy("apiCopy.failed.to.approve.recommendation.ee733a97"),
 		},
 		async ({ session, body }) => {
 			if (!session) {
-				throw new ForbiddenError("Not authenticated or session expired");
+				throw new ForbiddenError(apiCopy("apiCopy.not.authenticated.or.session.expired.b1714d99"));
 			}
 			const result = await approveRecommendation({
 				logId: id,

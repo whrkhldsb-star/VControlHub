@@ -189,13 +189,13 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
                 <code className="block flex-1 break-all text-xs text-[var(--success)]">{shareUrl || `/share/${result.token}`}</code>
                 <ActionButton variant="success"
                   onClick={handleCopy}
-                  data-tone="emerald" className="shrink-0 !px-3 !py-1.5 !text-xs"
+                  data-tone="emerald" className="shrink-0 !px-3 !py-1.5 !text-sm"
                 >
                   {copied ? <Check aria-hidden="true" className="h-4 w-4" /> : null}
                   {copied ? t("sharesPage.create.copied") : t("sharesPage.create.copy")}
                 </ActionButton>
               </div>
-              <p className="mt-1 text-[10px] text-[var(--text-muted)]">{t("sharesPage.create.tokenWarning")}</p>
+              <p className="mt-1 text-xs text-[var(--text-muted)]">{t("sharesPage.create.tokenWarning")}</p>
             </div>
           )}
 

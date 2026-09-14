@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * TR-032 E02: /api/ai/ops/summary — counts by status / mode + last scan info.
  *
@@ -24,7 +25,7 @@ export async function GET(request: Request) {
 			permission: "ai:ops:read",
 			rateLimit: GENERAL_WRITE_LIMIT,
 			errorStatus: 500,
-			errorMessage: "Failed to load AI ops summary",
+			errorMessage: apiCopy("apiCopy.failed.to.load.ai.ops.summary.c2b577b3"),
 		},
 		async ({ session }) => {
 			assertAiOpsPlatformReader(session);

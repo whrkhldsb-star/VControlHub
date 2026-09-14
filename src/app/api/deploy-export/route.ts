@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -37,7 +38,7 @@ export async function POST(request: Request) {
     { permission: "deploy:export", rateLimit: GENERAL_WRITE_LIMIT, bodySchema: deployExportPostSchema },
     async ({ session, body: data }) => {
       if (!session)
-        throw new AuthError("Unauthorized");
+        throw new AuthError(apiCopy("apiCopy.unauthorized.d089c8a9"));
 
       return NextResponse.json(
         {

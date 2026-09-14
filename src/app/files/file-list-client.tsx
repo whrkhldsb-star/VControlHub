@@ -20,7 +20,7 @@
  * itself is now ~200 lines of glue, which is what was needed for the
  * "Super-large client component split" item in the README.
  */
-import { useState, useCallback, useMemo, useTransition } from "react";
+import { useState, useCallback, useMemo, useTransition, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -36,6 +36,8 @@ import {
   sortFiles,
   sortFolders,
   type FolderProp,
+  type FileListSortKey,
+  type FileListSortDir,
 } from "./file-list-model";
 import { getParentPath } from "./files-browser-helpers";
 import { useFileListSort } from "./use-file-list-sort";
@@ -62,6 +64,10 @@ import {
 
 export type { FileProp } from "./file-entry-utils";
 export type { FolderProp } from "./file-list-model";
+import { recordFileOpen } from "./file-preferences-client";
+import { submitFileOperation } from "./file-operation-controls";
+import { ModalShell } from "@/components/modal-shell";
+import { ActionButton } from "@/components/action-button";
 
 type FileListClientProps = {
   folders: FolderProp[];
@@ -72,8 +78,10 @@ type FileListClientProps = {
   currentPath: string;
   searchQuery: string;
   selectionScopeSeed?: string;
+  selectionPage?: number;
   onFolderClick?: (path: string) => void;
   onRefresh?: () => void;
+  serverSort?: {key:FileListSortKey;dir:FileListSortDir;onChange:(key:FileListSortKey,dir:FileListSortDir) => void};
 };
 
 export function FileListClient({
@@ -85,8 +93,10 @@ export function FileListClient({
   currentPath,
   searchQuery,
   selectionScopeSeed,
+  selectionPage,
   onFolderClick,
   onRefresh,
+  serverSort,
 }: FileListClientProps) {
   const { t } = useI18n();
   const router = useRouter();
@@ -94,25 +104,33 @@ export function FileListClient({
 
   const navigateToFolder = useCallback(
     (path: string) => {
+      const entryId = folders.find((folder) => folder.path === path)?.entryId;
+      if (entryId) recordFileOpen(entryId);
       if (onFolderClick) {
         onFolderClick(path);
       } else {
         router.push(buildSearchHref(path), { scroll: false });
       }
     },
-    [onFolderClick, router],
+    [onFolderClick, router, folders],
   );
 
   const [viewMode, handleViewModeChange] = useViewMode();
-  const { sortKey, sortDir, toggleSort } = useFileListSort();
+  const localSort = useFileListSort();
+  const sortKey = serverSort?.key ?? localSort.sortKey;
+  const sortDir = serverSort?.dir ?? localSort.sortDir;
+  const toggleSort = (key:FileListSortKey) => {
+    if (serverSort) serverSort.onChange(key,key === sortKey && sortDir === "asc" ? "desc" : "asc");
+    else localSort.toggleSort(key);
+  };
 
   const capabilityFallbacks = useMemo(
     () => ({ canEditLocalFiles, canDelete }),
     [canEditLocalFiles, canDelete],
   );
   const sortedFolders = useMemo(
-    () => sortFolders(folders, sortKey, sortDir),
-    [folders, sortKey, sortDir],
+    () => serverSort ? folders : sortFolders(folders, sortKey, sortDir),
+    [folders, sortKey, sortDir, serverSort],
   );
   const visibleFiles = useMemo(() => getVisibleFiles(files), [files]);
   const currentSelectionScopeKey =
@@ -132,18 +150,22 @@ export function FileListClient({
       canDeleteEntry(entry, { canDelete }),
     [canDelete],
   );
-  const selectableFiles = useMemo(
-    () => getSelectableFiles(visibleFiles, capabilityFallbacks),
-    [visibleFiles, capabilityFallbacks],
-  );
+  const selectionEntries = useMemo(() => [...visibleFiles, ...folders.flatMap((folder): FileProp[] => {
+    const nodeId = folder.storageNodeId ?? (folder.sourceKeys.length === 1 ? folder.sourceKeys[0] : undefined);
+    if (!folder.entryId || !nodeId) return [];
+    return [{ id: folder.entryId, name: folder.name, entryType: "DIRECTORY", relativePath: folder.relativePath ?? folder.path,
+      storageNodeId: nodeId, storageNodeName: folder.sourceValues[0] ?? "", storageNodeDriver: "", sizeLabel: "", previewable: false,
+      directAccessMode: "", directAccessDescription: "", capabilities: folder.capabilities }];
+  })], [visibleFiles, folders]);
+  const selectableFiles = useMemo(() => getSelectableFiles(selectionEntries, capabilityFallbacks), [selectionEntries, capabilityFallbacks]);
   const folderCanWrite = useCallback(
     (folder: FolderProp) => canWriteFolder(folder, { canEditLocalFiles }),
     [canEditLocalFiles],
   );
 
   const sortedFiles = useMemo(
-    () => sortFiles(visibleFiles, sortKey, sortDir),
-    [visibleFiles, sortKey, sortDir],
+    () => serverSort ? visibleFiles : sortFiles(visibleFiles, sortKey, sortDir),
+    [visibleFiles, sortKey, sortDir, serverSort],
   );
 
   const {
@@ -164,18 +186,31 @@ export function FileListClient({
     clearSelection,
   } = useFileSelection({ currentSelectionScopeKey });
   const [isPending, startTransition] = useTransition();
+  const [dropMove, setDropMove] = useState<{ ids: string[]; path: string; requestId: string } | null>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const [selectionCache, setSelectionCache] = useState(() => ({ scope: currentSelectionScopeKey, page: selectionPage, visible: selectionEntries, entries: selectionEntries }));
+  let knownFiles = selectionCache.entries;
+  if (selectionCache.scope !== currentSelectionScopeKey || selectionCache.visible !== selectionEntries || selectionCache.page !== selectionPage) {
+    const oldVisibleIds = new Set(selectionCache.visible.map((file) => file.id));
+    const retained = selectionCache.scope === currentSelectionScopeKey && selectionPage !== undefined
+      ? selectionCache.entries.filter((file) => selectedIds.has(file.id) && (selectionCache.page !== selectionPage || !oldVisibleIds.has(file.id))) : [];
+    knownFiles = [...new Map([...retained, ...selectionEntries].map((file) => [file.id, file])).values()];
+    setSelectionCache({ scope: currentSelectionScopeKey, page: selectionPage, visible: selectionEntries, entries: knownFiles });
+  }
 
   const selectionSummary = useMemo(
     () =>
       getSelectionSummary({
-        visibleFiles,
+        visibleFiles: selectionEntries,
+        knownFiles,
         selectableFiles,
         selectedIds,
         selectedScopeMatches,
         fallbacks: capabilityFallbacks,
       }),
     [
-      visibleFiles,
+      selectionEntries,
+      knownFiles,
       selectableFiles,
       selectedIds,
       selectedScopeMatches,
@@ -196,9 +231,29 @@ export function FileListClient({
     toggleAllRaw(allFileIds, allSelected);
   }, [toggleAllRaw, allFileIds, allSelected]);
 
+  // Selection shortcuts belong to the focused list, never to an open dialog.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const editing = target?.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"]');
+      if (editing || event.defaultPrevented || event.isComposing || event.altKey || isPending || batchAction !== "none") return;
+      if (!listRef.current?.contains(target) || document.querySelector('[role="dialog"][aria-modal="true"]')) return;
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "a") {
+        event.preventDefault();
+        toggleAllRaw(allFileIds, false);
+      } else if (event.key === "Escape" && selectedCount > 0) {
+        event.preventDefault();
+        clearSelection();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [toggleAllRaw, allFileIds, selectedCount, clearSelection, isPending, batchAction]);
+
   const handleBatchDelete = useBatchDelete({
+    background: true,
     effectiveSelectedIds,
-    files,
+    files: knownFiles,
     router,
     clearSelection,
     onRefresh,
@@ -213,9 +268,10 @@ export function FileListClient({
   });
 
   const submitBatchMove = useBatchMove({
+    background: true,
     effectiveSelectedIds,
     moveTargetDir,
-    files,
+    files: knownFiles,
     router,
     clearSelection,
     onRefresh,
@@ -231,7 +287,7 @@ export function FileListClient({
 
   const handleBatchCompress = useBatchCompress({
     effectiveSelectedIds,
-    files,
+    files: knownFiles,
     router,
     clearSelection,
     onRefresh,
@@ -287,7 +343,34 @@ export function FileListClient({
     <>
       <FileListToasts toasts={toasts} onDismiss={dismissToast} />
 
-      <div className="mt-6 overflow-x-auto rounded-2xl border border-[var(--border)]">
+      <div ref={listRef} data-file-list tabIndex={0} className="mt-6 overflow-x-auto rounded-2xl border border-[var(--border)]"
+        onClickCapture={(event) => {
+          const target = event.target as HTMLElement;
+          if (!target.closest("a[href]")) return;
+          const entryId = target.closest<HTMLElement>("[data-file-entry-id]")?.dataset.fileEntryId;
+          if (entryId) recordFileOpen(entryId);
+        }}
+        onDragStartCapture={(event) => {
+          const row = (event.target as HTMLElement).closest<HTMLElement>("[data-file-entry-id]");
+          if (!row?.dataset.fileEntryId || isPending || batchAction !== "none") { event.preventDefault(); return; }
+          const ids = effectiveSelectedIdSet.has(row.dataset.fileEntryId) ? effectiveSelectedIds : [row.dataset.fileEntryId];
+          const entries = knownFiles.filter((entry) => ids.includes(entry.id));
+          if (entries.length !== ids.length || entries.some((entry) => !entryCanWrite(entry))) { event.preventDefault(); return; }
+          event.dataTransfer.setData("application/x-vcontrolhub-files", JSON.stringify({ ids, nodeIds: [...new Set(entries.map((entry) => entry.storageNodeId))] }));
+          event.dataTransfer.effectAllowed = "move";
+        }}
+        onDragOver={(event) => { if (event.dataTransfer.types.includes("application/x-vcontrolhub-files") && (event.target as HTMLElement).closest("[data-file-drop-path]")) { event.preventDefault(); event.dataTransfer.dropEffect = "move"; } }}
+        onDrop={(event) => {
+          if (!event.dataTransfer.types.includes("application/x-vcontrolhub-files")) return;
+          event.preventDefault(); event.stopPropagation();
+          const folder = (event.target as HTMLElement).closest<HTMLElement>("[data-file-drop-path]");
+          if (!folder || isPending) return;
+          try {
+            const payload = JSON.parse(event.dataTransfer.getData("application/x-vcontrolhub-files")) as { ids: string[]; nodeIds: string[] };
+            if (!Array.isArray(payload.ids) || !payload.ids.length || payload.ids.length > 1000 || payload.ids.some((id) => typeof id !== "string") || payload.nodeIds.length !== 1 || payload.nodeIds[0] !== folder.dataset.fileNodeId) throw new Error(t("fileOperations.sameNode"));
+            setDropMove({ ids: payload.ids, path: folder.dataset.fileDropPath!, requestId: crypto.randomUUID() });
+          } catch (error) { showToast("error", error instanceof Error ? error.message : t("filePreferences.failed")); }
+        }}>
         <FileListToolbar
           itemCount={sortedFolders.length + sortedFiles.length}
           selectedCount={selectedCount}
@@ -317,6 +400,10 @@ export function FileListClient({
           />
         )}
       </div>
+      <ModalShell open={dropMove !== null} busy={isPending} onClose={() => setDropMove(null)} label={t("fileOperations.move")}>
+        <p className="break-all text-sm">{t("fileOperations.confirmDrop", { count: dropMove?.ids.length ?? 0, path: dropMove?.path ?? "" })}</p>
+        <div className="mt-4 flex gap-3"><ActionButton disabled={isPending} onClick={() => { if (!dropMove) return; const target = dropMove; startTransition(async () => { try { await submitFileOperation({ action: "move", fileEntryIds: target.ids, targetDir: target.path, policy: "skip" }, target.requestId); setDropMove(null); clearSelection(); } catch (error) { showToast("error", error instanceof Error ? error.message : t("filePreferences.failed")); } }); }}>{t("common.confirm")}</ActionButton><ActionButton variant="outline" disabled={isPending} onClick={() => setDropMove(null)}>{t("common.cancel")}</ActionButton></div>
+      </ModalShell>
 
       {detailEntry ? (
         <FileDetailPanelLazy
@@ -333,6 +420,7 @@ export function FileListClient({
       ) : null}
 
       <FileBatchToolbarLazy
+        operationEntryIds={effectiveSelectedIds}
         selectedCount={selectedCount}
         batchAction={batchAction}
         setBatchAction={setBatchAction}
@@ -348,6 +436,8 @@ export function FileListClient({
         selectedEntriesCanCompress={selectedEntriesCanCompress}
         selectedScopeMatches={selectedScopeMatches}
         currentPath={currentPath}
+        moveNodeId={new Set(selectionSummary.selectedFileEntries.map((entry) => entry.storageNodeId)).size === 1
+          ? selectionSummary.selectedFileEntries[0]?.storageNodeId : undefined}
         onClearSelection={clearSelection}
         onConfirmDelete={handleBatchDelete}
         onSubmitMove={submitBatchMove}

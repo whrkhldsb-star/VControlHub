@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * GET  /api/servers/[id]/vps-backup/records — list VPS backup records
  * POST /api/servers/[id]/vps-backup/records — trigger a manual backup
@@ -41,7 +42,7 @@ export async function GET(
 		{ permission: "server:read", rateLimit: GENERAL_WRITE_LIMIT },
 		async ({ session }) => {
 			if (!session) {
-				return Response.json({ error: "Forbidden" }, { status: 403 });
+				return Response.json({ error: apiCopy("apiCopy.forbidden.78342a09") }, { status: 403 });
 			}
 
    const teamAccess = await assertServerTeamAccess(session, serverId);
@@ -52,7 +53,7 @@ export async function GET(
 				select: { id: true },
 			});
 			if (!server) {
-				return Response.json({ error: "Server not found" }, { status: 404 });
+				return Response.json({ error: apiCopy("apiCopy.server.not.found.d7783f94") }, { status: 404 });
 			}
 
 			const records = await listVpsBackupRecords(serverId);
@@ -86,7 +87,7 @@ export async function POST(
 				select: { id: true, name: true, enabled: true, teamId: true },
 			});
 			if (!server) {
-				return Response.json({ error: "Server not found" }, { status: 404 });
+				return Response.json({ error: apiCopy("apiCopy.server.not.found.d7783f94") }, { status: 404 });
 			}
 			if (!server.enabled) {
 				return Response.json(

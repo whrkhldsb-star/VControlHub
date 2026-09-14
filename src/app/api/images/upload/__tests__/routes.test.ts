@@ -12,7 +12,7 @@
  * audit + db prisma + image service + UPLOAD_DIR constant + filesystem
  * `node:fs/promises` for the complete route.
  */
-import { rm } from "node:fs/promises";
+import { mkdir, readFile, readdir, rm } from "node:fs/promises";
 import * as path from "node:path";
 import * as os from "node:os";
 
@@ -30,12 +30,24 @@ const { mocks } = vi.hoisted(() => ({
 		getMediaUploadSession: vi.fn(),
 		auditUserAction: vi.fn(),
 		imageCreate: vi.fn(),
+		imageDelete: vi.fn(),
+		sessionUpdateMany: vi.fn(),
+		storageFindFirst: vi.fn(),
+		assertStorageAccess: vi.fn(),
+		releaseStorageQuotaGuard: vi.fn(),
+		indexLinkedStorageImage: vi.fn(),
+		randomUUID: vi.fn(),
 		extractMetadata: vi.fn(),
 		generateThumbnail: vi.fn(),
 		convertToWebP: vi.fn(),
 		convertToAVIF: vi.fn(),
 	},
 }));
+
+vi.mock("node:crypto", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("node:crypto")>();
+	return { ...actual, randomUUID: () => mocks.randomUUID() ?? actual.randomUUID() };
+});
 
 vi.mock("@/lib/auth/require-api-permission", () => ({
 	requireApiPermission: mocks.requireApiPermission,
@@ -49,6 +61,7 @@ vi.mock("@/lib/upload/service", async (importOriginal) => {
 		appendMediaUploadChunk: mocks.appendMediaUploadChunk,
 		assembleMediaUploadChunks: mocks.assembleMediaUploadChunks,
 		completeMediaUploadSession: mocks.completeMediaUploadSession,
+		cleanupMediaUploadTempDir: vi.fn(async () => undefined),
 		cancelMediaUploadSession: mocks.cancelMediaUploadSession,
 		getMediaUploadSession: mocks.getMediaUploadSession,
 	};
@@ -58,11 +71,21 @@ vi.mock("@/lib/audit/service", () => ({
 	auditUserAction: mocks.auditUserAction,
 }));
 
-vi.mock("@/lib/db", () => ({
-	prisma: {
-		mediaUploadSession: { findFirst: vi.fn() },
-		imageUpload: { create: mocks.imageCreate },
-	},
+vi.mock("@/lib/db", () => {
+	const prisma = {
+		mediaUploadSession: { findFirst: vi.fn(), updateMany: mocks.sessionUpdateMany },
+		imageUpload: { create: mocks.imageCreate, delete: mocks.imageDelete },
+		storageNode: { findFirst: mocks.storageFindFirst },
+	};
+	return { prisma: { ...prisma, $transaction: vi.fn(async (callback) => callback(prisma)) } };
+});
+
+vi.mock("@/lib/storage/access-control", () => ({
+	assertStorageAccess: mocks.assertStorageAccess,
+	releaseStorageQuotaGuard: mocks.releaseStorageQuotaGuard,
+}));
+vi.mock("@/lib/image-bed/linked-storage", () => ({
+	indexLinkedStorageImage: mocks.indexLinkedStorageImage,
 }));
 
 vi.mock("@/lib/image/service", () => ({
@@ -160,6 +183,11 @@ beforeEach(async () => {
 	});
 	mocks.getMediaUploadSession.mockResolvedValue(SAMPLE_INIT_VIEW);
 	mocks.imageCreate.mockResolvedValue({ id: "img_1" });
+	mocks.imageDelete.mockResolvedValue({ id: "img_1" });
+	mocks.sessionUpdateMany.mockResolvedValue({ count: 1 });
+	mocks.assertStorageAccess.mockResolvedValue({ allowed: true });
+	mocks.releaseStorageQuotaGuard.mockResolvedValue(undefined);
+	mocks.indexLinkedStorageImage.mockResolvedValue(undefined);
 	mocks.extractMetadata.mockResolvedValue({ width: 10, height: 10, format: "png" });
 	mocks.generateThumbnail.mockResolvedValue(Buffer.from("thumb"));
 	mocks.convertToWebP.mockResolvedValue(Buffer.from("webp"));
@@ -353,6 +381,18 @@ describe("PUT /api/images/upload/[id]/chunk", () => {
 
 // ── POST /api/images/upload/[id]/complete ────────────────────────────────
 describe("POST /api/images/upload/[id]/complete", () => {
+	const complete = () => completeRoute.POST(
+		new Request("http://local/api/images/upload/sess_1/complete", { method: "POST" }),
+		{ params: Promise.resolve({ id: "sess_1" }) },
+	);
+	async function setStoredFile(filename: string, linked = false) {
+		const { prisma } = await import("@/lib/db");
+		vi.mocked(prisma.mediaUploadSession.findFirst).mockResolvedValueOnce({
+			filename, mimeType: "image/png", totalSize: BigInt(15),
+			storageNodeId: linked ? "node_1" : null,
+			relativePath: linked ? "gallery" : null,
+		} as never);
+	}
 	beforeEach(async () => {
 		const { prisma } = await import("@/lib/db");
 		vi.mocked(prisma.mediaUploadSession.findFirst).mockResolvedValue({
@@ -405,6 +445,84 @@ describe("POST /api/images/upload/[id]/complete", () => {
 		const body = await res.json();
 		expect(body.session.status).toBe("COMPLETED");
 		expect(body.image.publicUrl).toBe("/api/images/img_1/file");
+	});
+
+	it.each(["photo.webp", "photo.avif"])("keeps assembled PNG bytes when the filename is %s", async (filename) => {
+		await setStoredFile(filename);
+		expect((await complete()).status).toBe(200);
+		const { storageKey } = mocks.imageCreate.mock.calls[0]![0].data;
+		expect(await readFile(path.join(TMP_UPLOAD, storageKey))).toEqual(Buffer.from("assembled-bytes"));
+	});
+
+	it("rejects a competing finalizer before creating files or image rows", async () => {
+		mocks.sessionUpdateMany.mockResolvedValueOnce({ count: 0 });
+		expect((await complete()).status).toBe(400);
+		expect(mocks.imageCreate).not.toHaveBeenCalled();
+		expect(mocks.generateThumbnail).not.toHaveBeenCalled();
+		expect(mocks.sessionUpdateMany).toHaveBeenCalledTimes(1);
+	});
+
+	it("rolls back image artifacts when committing upload completion fails", async () => {
+		mocks.completeMediaUploadSession.mockRejectedValueOnce(new Error("completion failed"));
+		expect((await complete()).status).toBe(500);
+		expect(await readdir(TMP_UPLOAD)).toEqual([]);
+		expect(mocks.auditUserAction).not.toHaveBeenCalled();
+		expect(mocks.sessionUpdateMany).toHaveBeenLastCalledWith(expect.objectContaining({
+			where: { id: "sess_1", userId: "u-admin", status: "FINALIZING" },
+			data: expect.objectContaining({ status: "FAILED" }),
+		}));
+	});
+
+	it("waits for delayed variants before cleaning up a failed original write", async () => {
+		// An existing directory makes the original write fail on the real filesystem.
+		mocks.randomUUID.mockReturnValue("blocked-original");
+		await mkdir(path.join(TMP_UPLOAD, "blocked-original.png"), { recursive: true });
+		let thumbnailFinished = false;
+		const thumbnail = new Promise<Buffer>((resolve) => {
+			setTimeout(() => { thumbnailFinished = true; resolve(Buffer.from("thumb")); }, 50);
+		});
+		mocks.generateThumbnail.mockReturnValueOnce(thumbnail);
+		try {
+			expect((await complete()).status).toBe(500);
+			expect(thumbnailFinished).toBe(true);
+			expect(await readdir(TMP_UPLOAD)).toEqual(["blocked-original.png"]);
+			expect(mocks.imageCreate).not.toHaveBeenCalled();
+		} finally {
+			await thumbnail;
+			mocks.randomUUID.mockReset();
+		}
+	});
+
+	it.each(["denied", "throws"])("cleans original and variants when storage authorization %s", async (failure) => {
+		await setStoredFile("photo.png", true);
+		if (failure === "denied") mocks.assertStorageAccess.mockResolvedValueOnce({ allowed: false });
+		else mocks.assertStorageAccess.mockRejectedValueOnce(new Error("storage lookup failed"));
+		expect((await complete()).status).toBe(failure === "denied" ? 403 : 500);
+		expect(await readdir(TMP_UPLOAD)).toEqual([]);
+		expect(mocks.imageCreate).not.toHaveBeenCalled();
+		expect(mocks.completeMediaUploadSession).not.toHaveBeenCalled();
+	});
+
+	it("keeps the quota lock until linked file indexing commits", async () => {
+		await setStoredFile("photo.png", true);
+		const localRoot = path.join(os.tmpdir(), "vcontrolhub-chunk-upload-quota-test");
+		const access = { allowed: true, releaseQuotaGuard: vi.fn() };
+		mocks.assertStorageAccess.mockResolvedValueOnce(access);
+		mocks.storageFindFirst.mockResolvedValueOnce({ id: "node_1", driver: "LOCAL", basePath: localRoot });
+		let finishIndexing!: () => void;
+		mocks.indexLinkedStorageImage.mockReturnValueOnce(new Promise<void>((resolve) => { finishIndexing = resolve; }));
+		const pending = complete();
+		try {
+			await vi.waitFor(() => expect(mocks.indexLinkedStorageImage).toHaveBeenCalled());
+			expect(mocks.releaseStorageQuotaGuard).not.toHaveBeenCalled();
+			finishIndexing();
+			expect((await pending).status).toBe(200);
+			expect(mocks.releaseStorageQuotaGuard).toHaveBeenCalledExactlyOnceWith(access);
+		} finally {
+			finishIndexing();
+			await pending;
+			await rm(localRoot, { recursive: true, force: true });
+		}
 	});
 
 	it("returns 400 when assembly reports missing chunks", async () => {

@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -19,7 +20,7 @@ function parseHistoryHours(value: string | null) {
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { permission: "health:read", errorMessage: "Failed to fetch health data" },
+    { permission: "health:read", errorMessage: apiCopy("apiCopy.failed.to.fetch.health.data.aa2a84de") },
     async ({ session }) => handleHealthRequest(request, session),
   );
 }
@@ -39,7 +40,7 @@ async function handleHealthRequest(request: Request, session: SessionPayload | n
 
   if (historyFor) {
     if (!session) {
-      return apiError({ code: "AUTH_REQUIRED", message: "Unauthorized", status: 401 });
+      return apiError({ code: "AUTH_REQUIRED", message: apiCopy("apiCopy.unauthorized.d089c8a9"), status: 401 });
     }
     const access = await assertServerTeamAccess(session, historyFor);
     if (!access.ok) return access.response;
@@ -60,7 +61,7 @@ async function handleHealthRequest(request: Request, session: SessionPayload | n
   }
 
   if (!session) {
-    return apiError({ code: "AUTH_REQUIRED", message: "Unauthorized", status: 401 });
+    return apiError({ code: "AUTH_REQUIRED", message: apiCopy("apiCopy.unauthorized.d089c8a9"), status: 401 });
   }
 
   const overview = await collectAllHealth(session);

@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * GET  /api/files/[id]/versions          — list version history
  * POST /api/files/[id]/versions          — create manual snapshot
@@ -24,10 +25,10 @@ export async function GET(
     request,
     {
       permission: "storage:read",
-      errorMessage: "Failed to list file versions",
+      errorMessage: apiCopy("apiCopy.failed.to.list.file.versions.37755f85"),
     },
     async ({ session }) => {
-      if (!session) throw new AuthError("Unauthorized");
+      if (!session) throw new AuthError(apiCopy("apiCopy.unauthorized.d089c8a9"));
       const { id } = await params;
       const versions = await listFileVersions({
         fileEntryId: id,
@@ -49,10 +50,10 @@ export async function POST(
       rateLimit: GENERAL_WRITE_LIMIT,
       bodySchema: createFileVersionBodySchema,
       errorStatus: 400,
-      errorMessage: "Failed to create file version",
+      errorMessage: apiCopy("apiCopy.failed.to.create.file.version.aa835e70"),
     },
     async ({ session, body }) => {
-      if (!session) throw new AuthError("Unauthorized");
+      if (!session) throw new AuthError(apiCopy("apiCopy.unauthorized.d089c8a9"));
       const { id } = await params;
       const version = await createManualFileVersion({
         fileEntryId: id,

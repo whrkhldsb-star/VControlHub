@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { PageShell, PageHeader, SurfacePanel } from "@/components/page-shell";
+import { PageShell, PageHeader, SurfacePanel, Toolbar } from "@/components/page-shell";
+import { z } from "zod";
+import { RefreshCw } from "@/components/icons";
 import { ActionButton } from "@/components/action-button";
 import { Notice, ProgressBar } from "@/components/ui-primitives";
 import { StatusBadge } from "@/components/status-badge";
@@ -12,19 +14,15 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { toDateLocale } from "@/lib/i18n/locale-format";
 import { useVisibilityInterval } from "@/lib/hooks/use-visibility-interval";
 
-interface Stats {
-  hostname: string;
-  platform: string;
-  arch: string;
-  uptime: string;
-  cpu: { model: string; cores: number; usage: string; loadAvg: string[] };
-  memory: { total: string; used: string; free: string; usagePercent: string };
-  disk: string;
-  network: { iface: string; rx: string; tx: string }[];
-  topProcesses: { pid: string; cpu: string; mem: string; cmd: string }[];
-  tcpConnections: string;
-  timestamp: string;
-}
+const statsSchema = z.object({
+  hostname: z.string(), platform: z.string(), arch: z.string(), uptime: z.string(),
+  cpu: z.object({ model: z.string(), cores: z.number(), usage: z.string(), loadAvg: z.array(z.string()) }),
+  memory: z.object({ total: z.string(), used: z.string(), free: z.string(), usagePercent: z.string() }),
+  disk: z.string(), network: z.array(z.object({ iface: z.string(), rx: z.string(), tx: z.string() })),
+  topProcesses: z.array(z.object({ pid: z.string(), cpu: z.string(), mem: z.string(), cmd: z.string() })),
+  tcpConnections: z.string(), timestamp: z.string(),
+});
+type Stats = z.infer<typeof statsSchema>;
 
 /** Card wrapper — extracted to module top to avoid re-creation on every render */
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
@@ -70,7 +68,9 @@ export default function MonitoringPage() {
   const [sseConnected, setSseConnected] = useState(false);
   const [fallbackPolling, setFallbackPolling] = useState(false);
   const statsRequestRef = useRef<AbortController | null>(null);
+  const streamRevisionRef = useRef(0);
   const refreshIntervalSeconds = useRefreshInterval(30);
+  const autoRefreshActive = autoRefresh && refreshIntervalSeconds > 0;
 
   const getMonitoringErrorMessage = useCallback((error: unknown): string => {
     if (error instanceof Error && error.message.trim()) return error.message;
@@ -82,21 +82,35 @@ export default function MonitoringPage() {
     statsRequestRef.current?.abort();
     const controller = new AbortController();
     statsRequestRef.current = controller;
+    const streamRevision = streamRevisionRef.current;
     setRefreshing(true);
+    const timeout = window.setTimeout(() => {
+      if (statsRequestRef.current !== controller) return;
+      statsRequestRef.current = null;
+      controller.abort();
+      if (streamRevisionRef.current === streamRevision) setErrorMessage(t("monitoringPage.errorUnavailable"));
+      setLoading(false);
+      setRefreshing(false);
+    }, 20_000);
+    controller.signal.addEventListener("abort", () => window.clearTimeout(timeout), { once: true });
     try {
       const data = await csrfFetch("/api/monitoring/stats", {
         signal: controller.signal,
       }) as Stats & { error?: string; message?: string };
+      if (controller.signal.aborted || statsRequestRef.current !== controller || streamRevisionRef.current !== streamRevision) return;
       if (data.error) {
         setErrorMessage(data.error || data.message || t("monitoringPage.errorReturned"));
         return;
       }
-      setStats(data);
+      const parsed = statsSchema.safeParse(data);
+      if (!parsed.success) throw new Error(t("monitoringPage.errorReturned"));
+      setStats(parsed.data);
       setErrorMessage(null);
     } catch (error) {
-      if (controller.signal.aborted) return;
+      if (controller.signal.aborted || statsRequestRef.current !== controller || streamRevisionRef.current !== streamRevision) return;
       setErrorMessage(getMonitoringErrorMessage(error));
     } finally {
+      window.clearTimeout(timeout);
       if (statsRequestRef.current === controller) {
         statsRequestRef.current = null;
         setLoading(false);
@@ -105,7 +119,10 @@ export default function MonitoringPage() {
     }
   }, [getMonitoringErrorMessage, t]);
 
-  useEffect(() => () => statsRequestRef.current?.abort(), []);
+  useEffect(() => () => {
+    statsRequestRef.current?.abort();
+    statsRequestRef.current = null;
+  }, []);
 
   useEffect(() => {
     const timer = window.setTimeout(() => { void fetchStats(); }, 0);
@@ -114,51 +131,79 @@ export default function MonitoringPage() {
 
   useVisibilityInterval(
     () => { void fetchStats(); },
-    autoRefresh && fallbackPolling && refreshIntervalSeconds > 0
+    autoRefreshActive && fallbackPolling
       ? refreshIntervalSeconds * 1000
       : null,
   );
 
   // Prefer real-time SSE; the shared visibility interval handles degraded polling.
   useEffect(() => {
-    if (!autoRefresh) return;
+    if (!autoRefreshActive) return;
 
     let es: EventSource | null = null;
     let disposed = false;
+    let streamTimeout: ReturnType<typeof setTimeout> | undefined;
 
     function enableFallback() {
       if (disposed) return;
+      clearTimeout(streamTimeout);
       setSseConnected(false);
       setFallbackPolling(true);
     }
 
-    try {
-      es = new EventSource("/api/monitoring/stream");
-      es.addEventListener("stats", (e) => {
-        try {
-          const data = JSON.parse(e.data) as Stats;
-          setStats(data);
-          setErrorMessage(null);
-          setLoading(false);
-          setSseConnected(true);
-          setFallbackPolling(false);
-        } catch { /* malform → ignore, next tick will retry */ }
-      });
-      es.onerror = enableFallback;
-      es.onopen = () => {
-        if (disposed) return;
-        setSseConnected(true);
-        setFallbackPolling(false);
-      };
-    } catch {
-      enableFallback();
+    function armStreamTimeout() {
+      clearTimeout(streamTimeout);
+      // The server emits every five seconds. A silent connection should not
+      // leave the dashboard frozen while claiming that live updates work.
+      streamTimeout = setTimeout(enableFallback, 15_000);
     }
+
+    function connect() {
+      if (disposed || document.visibilityState === "hidden" || es) return;
+      try {
+        const source = new EventSource("/api/monitoring/stream");
+        es = source;
+        armStreamTimeout();
+        source.addEventListener("stats", (e) => {
+          if (disposed || es !== source || document.visibilityState === "hidden") return;
+          try {
+            const data = statsSchema.parse(JSON.parse(e.data));
+            armStreamTimeout();
+            streamRevisionRef.current++;
+            setStats(data);
+            setErrorMessage(null);
+            setLoading(false);
+            setSseConnected(true);
+            setFallbackPolling(false);
+          } catch {
+            enableFallback();
+            setErrorMessage(t("monitoringPage.errorReturned"));
+          }
+        });
+        source.onerror = () => { if (es === source) enableFallback(); };
+        // A connection alone does not prove that usable metrics arrived.
+      } catch {
+        enableFallback();
+      }
+    }
+    function handleVisibility() {
+      if (document.visibilityState === "hidden") {
+        es?.close();
+        es = null;
+        clearTimeout(streamTimeout);
+        setSseConnected(false);
+      } else connect();
+    }
+    connect();
+    document.addEventListener("visibilitychange", handleVisibility);
 
     return () => {
       disposed = true;
+      clearTimeout(streamTimeout);
       es?.close();
+      document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [autoRefresh]);
+  }, [autoRefreshActive, t]);
 
   const toggleAutoRefresh = () => {
     if (autoRefresh) {
@@ -187,7 +232,7 @@ export default function MonitoringPage() {
             onClick={fetchStats}
             disabled={refreshing}
             variant="danger-solid"
-            className="mt-4 !text-xs"
+            className="mt-4 !text-sm"
           >
             {refreshing ? t("monitoringPage.retrying") : t("monitoringPage.retry")}
           </ActionButton>
@@ -197,7 +242,7 @@ export default function MonitoringPage() {
   }
 
   const intervalLabel = getRefreshIntervalLabel(refreshIntervalSeconds);
-  const autoRefreshLabel = autoRefresh
+  const autoRefreshLabel = autoRefreshActive
     ? t("monitoringPage.autoRefreshActive", { interval: intervalLabel })
     : refreshIntervalSeconds <= 0
       ? t("monitoringPage.autoRefreshOff")
@@ -216,30 +261,30 @@ export default function MonitoringPage() {
         <Notice tone="warning">{t("monitoringPage.lastRefreshFailed", { message: errorMessage })}</Notice>
       ) : null}
 
-      <div className="mb-6 flex flex-wrap items-center gap-3" data-toolbar>
-        <button
+      <Toolbar>
+        <ActionButton variant="secondary"
           type="button"
           onClick={fetchStats}
           disabled={refreshing}
-          className="rounded-xl bg-[var(--accent-bg)] px-3 py-1.5 text-xs font-semibold text-[var(--accent)] transition hover:bg-[var(--accent-hover)] hover:text-[var(--on-accent)] disabled:cursor-not-allowed disabled:opacity-60"
         >
+          <RefreshCw size={16} aria-hidden className={refreshing ? "animate-spin" : undefined} />
           {refreshing ? t("monitoringPage.refreshing") : t("monitoringPage.refresh")}
-        </button>
-        <button
+        </ActionButton>
+        <ActionButton variant="secondary"
           type="button"
           onClick={toggleAutoRefresh}
           disabled={refreshIntervalSeconds <= 0}
-          className={`rounded-xl px-3 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${autoRefresh ? "border border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]" : "border border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-muted)]"}`}
+          aria-pressed={autoRefreshActive}
         >
           {autoRefreshLabel}
-        </button>
-        {sseConnected && autoRefresh && (
+        </ActionButton>
+        {sseConnected && autoRefreshActive && (
           <StatusBadge tone="success" size="sm" className="gap-1">
             <span className="h-1.5 w-1.5 rounded-full bg-[var(--success)] animate-pulse" />
             {t("monitoringPage.sseLabel")}
           </StatusBadge>
         )}
-      </div>
+      </Toolbar>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card title={t("monitoringPage.card.system")}>
@@ -260,11 +305,11 @@ export default function MonitoringPage() {
           <Row label={t("monitoringPage.field.used")} value={stats.memory.used} />
           <Row label={t("monitoringPage.field.free")} value={stats.memory.free} />
           <div className="mt-2">
-            <div className="mb-1 flex justify-between text-[10px] text-[var(--text-muted)]">
+            <div className="mb-1 flex justify-between text-xs text-[var(--text-muted)]">
               <span>{t("monitoringPage.field.usage")}</span>
               <span>{stats.memory.usagePercent}%</span>
             </div>
-            <ProgressBar value={Number(stats.memory.usagePercent)} height="sm" />
+            <ProgressBar label={t("monitoringPage.card.memory")} value={Number(stats.memory.usagePercent)} height="sm" />
           </div>
         </Card>
 
@@ -276,7 +321,7 @@ export default function MonitoringPage() {
           {stats.network.length > 0 ? stats.network.map((n) => (
             <div key={n.iface} className="py-1.5">
               <div className="font-mono text-xs text-[var(--text-primary)]">{n.iface}</div>
-              <div className="text-[10px] text-[var(--text-muted)]">↓ {t("monitoringPage.field.rx")} {n.rx} ↑ {t("monitoringPage.field.tx")} {n.tx}</div>
+              <div className="text-xs text-[var(--text-muted)]">↓ {t("monitoringPage.field.rx")} {n.rx} ↑ {t("monitoringPage.field.tx")} {n.tx}</div>
             </div>
           )) : <Row label={t("monitoringPage.field.noData")} value="-" />}
         </Card>
@@ -288,7 +333,7 @@ export default function MonitoringPage() {
 
       <div className="mt-4">
       <Card title={t("monitoringPage.card.topProcesses")}>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto" tabIndex={0} role="region" aria-label={t("monitoringPage.card.topProcesses")}>
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-muted)]">
@@ -313,7 +358,7 @@ export default function MonitoringPage() {
       </Card>
       </div>
 
-      <p className="mt-4 text-[10px] text-[var(--text-muted)]">
+      <p className="mt-4 text-xs text-[var(--text-muted)]">
         {t("monitoringPage.lastUpdated", { timestamp: formatTimestamp(stats.timestamp, locale) })}
       </p>
     </PageShell>

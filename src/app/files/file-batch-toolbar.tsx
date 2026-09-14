@@ -18,8 +18,11 @@ import { useId } from "react";
 import { useI18n } from "@/lib/i18n/use-locale";
 import type { BatchAction, BatchProgress } from "./use-file-selection";
 import { ActionButton } from "@/components/action-button";
+import { FolderDestinationPicker } from "./folder-destination-picker";
+import { CopyFileButton } from "./file-operation-controls";
 
 export type FileBatchToolbarProps = {
+  operationEntryIds?: string[];
   selectedCount: number;
   batchAction: BatchAction;
   setBatchAction: (action: BatchAction) => void;
@@ -35,6 +38,7 @@ export type FileBatchToolbarProps = {
   selectedEntriesCanCompress: boolean;
   selectedScopeMatches: boolean;
   currentPath: string;
+  moveNodeId?: string;
   onClearSelection: () => void;
   onConfirmDelete: () => void;
   onSubmitMove: () => void;
@@ -42,6 +46,7 @@ export type FileBatchToolbarProps = {
 };
 
 export function FileBatchToolbar({
+  operationEntryIds,
   selectedCount,
   batchAction,
   setBatchAction,
@@ -57,6 +62,7 @@ export function FileBatchToolbar({
   selectedEntriesCanCompress,
   selectedScopeMatches,
   currentPath,
+  moveNodeId,
   onClearSelection,
   onConfirmDelete,
   onSubmitMove,
@@ -116,7 +122,7 @@ export function FileBatchToolbar({
           role="region"
           aria-labelledby={batchToolbarTitleId}
           aria-describedby={batchToolbarDescriptionId}
-          className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-[var(--modal-bg)] backdrop-blur border border-[var(--border)] rounded-2xl shadow-2xl px-5 py-3"
+          className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex max-h-[70dvh] w-max max-w-[calc(100vw-2rem)] flex-wrap items-center justify-center gap-3 overflow-y-auto bg-[var(--modal-bg)] backdrop-blur border border-[var(--border)] rounded-lg shadow-2xl px-5 py-3"
         >
           <span id={batchToolbarTitleId} className="sr-only">
             {copy.regionTitle}
@@ -186,11 +192,13 @@ export function FileBatchToolbar({
               <input
                 type="text"
                 value={moveTargetDir}
+                disabled={isPending}
                 aria-label={t("filesPage.batchMove.targetPathAria")}
                 onChange={(e) => setMoveTargetDir(e.currentTarget.value)}
                 placeholder={currentPath || copy.targetPathPlaceholder}
                 className={cn(UI_INPUT,"w-40 rounded-2xl py-1.5")}
               />
+              {moveNodeId ? <FolderDestinationPicker nodeId={moveNodeId} disabled={isPending} onSelect={setMoveTargetDir} /> : null}
               {moveProgress.total > 0 ? (
                 <span className="text-sm text-[var(--text-secondary)]">
                   {formatCopy(copy.moveProgress, { done: moveProgress.done, total: moveProgress.total })}
@@ -215,7 +223,7 @@ export function FileBatchToolbar({
                   setMoveTargetDir("");
                   setMoveProgress({ done: 0, total: 0, errors: [] });
                 }}
-                disabled={isPending && moveProgress.done > 0}
+                disabled={isPending}
                 className="rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface-subtle)] disabled:opacity-50"
               >
                 {copy.cancel}
@@ -223,6 +231,7 @@ export function FileBatchToolbar({
             </>
           ) : (
             <>
+              {selectedEntriesCanMove && operationEntryIds ? <CopyFileButton ids={operationEntryIds} nodeId={moveNodeId} onSubmitted={onClearSelection} /> : null}
               <span className="text-sm text-[var(--text-secondary)]">
                 {formatCopy(copy.selectedCount, { count: selectedCount })}
               </span>

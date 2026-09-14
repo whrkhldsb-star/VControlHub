@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { createHmac, timingSafeEqual, randomBytes } from "node:crypto";
 
 import { createLogger } from "@/lib/logging";
@@ -187,7 +188,7 @@ export async function verifySessionToken(token: string) {
   const [encodedPayload, providedSignature] = token.split(".");
 
   if (!encodedPayload || !providedSignature) {
-    throw new AuthError("Invalid session token format");
+    throw new AuthError(apiCopy("apiCopy.invalid.session.token.format.ab35c21d"));
   }
 
   const expectedSignature = signPayload(encodedPayload);
@@ -195,12 +196,12 @@ export async function verifySessionToken(token: string) {
   const expectedBuffer = Buffer.from(expectedSignature, "utf8");
 
   if (providedBuffer.length !== expectedBuffer.length) {
-    throw new AuthError("Invalid session token signature");
+    throw new AuthError(apiCopy("apiCopy.invalid.session.token.signature.6f87b99a"));
   }
 
   const signaturesMatch = timingSafeEqual(providedBuffer, expectedBuffer);
   if (!signaturesMatch) {
-    throw new AuthError("Invalid session token signature");
+    throw new AuthError(apiCopy("apiCopy.invalid.session.token.signature.6f87b99a"));
   }
 
   const payload = JSON.parse(decodeBase64Url(encodedPayload)) as SessionTokenEnvelope & {
@@ -209,17 +210,17 @@ export async function verifySessionToken(token: string) {
 
   const { issuer, audience } = getSessionIdentity();
   if (payload.iss !== issuer || payload.aud !== audience) {
-    throw new AuthError("Invalid session token audience");
+    throw new AuthError(apiCopy("apiCopy.invalid.session.token.audience.e137b2d8"));
   }
 
   // Pending-2FA tokens must never authenticate as a full session. They share the
   // same HMAC secret historically; aud split + this flag check block cookie swap.
   if (payload.pending2fa === true) {
-    throw new AuthError("Pending 2FA token is not a session");
+    throw new AuthError(apiCopy("apiCopy.pending.2fa.token.is.not.a.session.712ea82f"));
   }
 
   if (payload.exp <= Date.now()) {
-    throw new AuthError("Session token expired");
+    throw new AuthError(apiCopy("apiCopy.session.token.expired.f1044201"));
   }
 
  const user = await prisma.user.findUnique({
@@ -248,7 +249,7 @@ export async function verifySessionToken(token: string) {
  });
 
  if (!user || user.status === "DISABLED") {
-   throw new AuthError("Session user is disabled or no longer exists");
+   throw new AuthError(apiCopy("apiCopy.session.user.is.disabled.or.no.longer.exists.6b046fab"));
  }
 
  // Reject a session minted against a password that has since been replaced.

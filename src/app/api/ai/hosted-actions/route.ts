@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * GET /api/ai/hosted-actions — 获取待审批的 AI 托管操作
  * POST /api/ai/hosted-actions — 创建托管操作（内部调用，AI chat route 使用）
@@ -14,7 +15,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   return withApiRoute(request, { permission: "ai:chat" }, async ({ session }) => {
     if (!session)
-      throw new AuthError("Not authenticated");
+      throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
     const actions = await getPendingActions(session.userId);
     return NextResponse.json({ actions });
   });

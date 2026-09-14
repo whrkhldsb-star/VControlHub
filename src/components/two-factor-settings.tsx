@@ -190,7 +190,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 						/>
 					) : null}
 					<div className="bg-[var(--surface-subtle)] rounded-lg p-3 border border-[var(--border)]">
-						<p className="text-[10px] text-[var(--text-muted)] mb-1">{t("auth.2fa-secret-label")}</p>
+						<p className="text-xs text-[var(--text-muted)] mb-1">{t("auth.2fa-secret-label")}</p>
 						<code className="text-xs text-[var(--color-action)] break-all select-all">{secret}</code>
 					</div>
 					<p className="text-xs text-[var(--text-secondary)]">
@@ -295,7 +295,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 					</div>
 					<div className="grid gap-2 sm:grid-cols-2">
 						{recoveryCodes.map((recoveryCode) => (
-							<code key={recoveryCode} className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-center text-sm font-semibold tracking-wide text-[var(--text-primary)] select-all">
+							<code key={recoveryCode} className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-center text-sm font-semibold  text-[var(--text-primary)] select-all">
 								{recoveryCode}
 							</code>
 						))}

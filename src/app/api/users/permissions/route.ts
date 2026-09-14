@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -85,7 +86,7 @@ async function serializeStorageAccessGrants(
 
 export async function GET(request: Request) {
   return withApiRoute(request, { permission: "user:read" }, async ({ session }) => {
-    if (!session) throw new AuthError("Unauthorized");
+    if (!session) throw new AuthError(apiCopy("apiCopy.unauthorized.d089c8a9"));
     const { userId } = parseSearchParams(
       request,
       z.object({ userId: z.string().trim().min(1, "Missing userId Parameter") }),
@@ -134,7 +135,7 @@ export async function GET(request: Request) {
     ]);
 
     if (!user) {
-      throw new NotFoundError("User not found");
+      throw new NotFoundError(apiCopy("apiCopy.user.not.found.4a1793e9"));
     }
 
     const customRoleKey = `user:${userId}:custom`;
@@ -197,17 +198,17 @@ export async function PATCH(request: Request) {
     {
       permission: "user:manage",
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "Operation failed",
+      errorMessage: apiCopy("apiCopy.operation.failed.4e1af7c7"),
       bodySchema: patchPermissionsSchema,
     },
     async ({ session, body: parsedData }) => {
       if (!session)
-        throw new AuthError("Not authenticated");
+        throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
 
       // Prevent self-modification of permissions (privilege escalation).
       if (parsedData.userId === session.userId) {
         return NextResponse.json(
-          { error: "Cannot modify your own permissions" },
+          { error: apiCopy("apiCopy.cannot.modify.your.own.permissions.4a69d473") },
           { status: 403 },
         );
       }
@@ -219,7 +220,7 @@ export async function PATCH(request: Request) {
         select: { id: true, username: true },
       });
       if (!targetUser) {
-        throw new NotFoundError("User not found");
+        throw new NotFoundError(apiCopy("apiCopy.user.not.found.4a1793e9"));
       }
 
       // Drop foreign/own auto custom role keys from assignable roleKeys; custom role is preserved below.
@@ -241,7 +242,7 @@ export async function PATCH(request: Request) {
       );
       if (unknownPermissionKeys && unknownPermissionKeys.length > 0) {
         throw new ValidationError(
-          `Unknown permission keys: ${unknownPermissionKeys.join(", ")}`,
+          apiCopy("apiCopy.unknown.permission.keys.68fbe9ad", { v0: String(unknownPermissionKeys.join(", ")) }),
         );
       }
       const permissionKeys = requestedPermissionKeys as Permission[] | undefined;

@@ -229,14 +229,14 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
                       <ActionButton
                         variant="outline"
                         onClick={() => setEditingPermissionsUser(user)}
-                        className="!px-3 !py-1.5 !text-xs"
+                        className="!px-3 !py-1.5 !text-sm"
                       >
                         {t("usersPage.action.permissions")}
                       </ActionButton>
                       <ActionButton
                         variant="warning"
                         onClick={() => { setResetPasswordUser(user); setResetPasswordValue(""); }}
-                        className="!px-3 !py-1.5 !text-xs"
+                        className="!px-3 !py-1.5 !text-sm"
                       >
                         {t("usersPage.action.resetPassword")}
                       </ActionButton>
@@ -246,7 +246,7 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
                             variant="danger"
                             onClick={() => handleToggleStatus(user.id, user.status, user.username)}
                             disabled={togglingUserId !== null}
-                            className="!px-3 !py-1.5 !text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="!px-3 !py-1.5 !text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             {t("usersPage.action.disable")}
                           </ActionButton>
@@ -257,7 +257,7 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
                             variant="success"
                             onClick={() => handleToggleStatus(user.id, user.status, user.username)}
                             disabled={togglingUserId !== null}
-                            className="!px-3 !py-1.5 !text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="!px-3 !py-1.5 !text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             {t("usersPage.action.enable")}
                           </ActionButton>
@@ -275,8 +275,8 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
             <div className="flex items-center justify-between gap-3 border-t border-[var(--border)] px-4 py-3 text-xs text-[var(--text-secondary)]">
               <span>{t("usersPage.pagination", { page, totalPages, total })}</span>
               <div className="flex gap-2">
-                <ActionButton variant="secondary" disabled={page <= 1} onClick={() => setPage(page - 1)} className="!px-2 !py-1 !text-xs disabled:opacity-50">{t("usersPage.prev")}</ActionButton>
-                <ActionButton variant="secondary" disabled={page >= totalPages} onClick={() => setPage(page + 1)} className="!px-2 !py-1 !text-xs disabled:opacity-50">{t("usersPage.next")}</ActionButton>
+                <ActionButton variant="secondary" disabled={page <= 1} onClick={() => setPage(page - 1)} className="!px-2 !py-1 !text-sm disabled:opacity-50">{t("usersPage.prev")}</ActionButton>
+                <ActionButton variant="secondary" disabled={page >= totalPages} onClick={() => setPage(page + 1)} className="!px-2 !py-1 !text-sm disabled:opacity-50">{t("usersPage.next")}</ActionButton>
               </div>
             </div>
           )}

@@ -1,5 +1,7 @@
 "use client";
 
+import { X } from "@/components/icons";
+
 import { useCallback, useEffect, useState } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
@@ -84,7 +86,7 @@ export function ActiveIncidentsBanner() {
 							onClick={() => setDismissed((prev) => new Set(prev).add(item.id))}
 							className="shrink-0 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]"
 						>
-							✕
+							<X size={16} aria-hidden />
 						</button>
 					</div>
 				</div>

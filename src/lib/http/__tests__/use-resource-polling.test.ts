@@ -143,6 +143,31 @@ describe("useResourcePolling — refresh", () => {
 	});
 });
 
+describe("useResourcePolling stale responses", () => {
+	it.each([false, true])("ignores a superseded request (failure=%s) while the new filter loads", async (failure) => {
+		let resolveFirst!: (value: string) => void;
+		let rejectFirst!: (error: Error) => void;
+		let resolveSecond!: (value: string) => void;
+		const first = () => new Promise<string>((resolve, reject) => { resolveFirst = resolve; rejectFirst = reject; });
+		const second = () => new Promise<string>((resolve) => { resolveSecond = resolve; });
+		const { result, rerender } = renderHook(
+			({ fetcher }) => useResourcePolling({ fetcher, intervalSeconds: 0 }),
+			{ initialProps: { fetcher: first } },
+		);
+		rerender({ fetcher: second });
+		await act(async () => {
+			if (failure) rejectFirst(new Error("old filter failed"));
+			else resolveFirst("old filter");
+		});
+		expect(result.current.data).toBeNull();
+		expect(result.current.error).toBeNull();
+		expect(result.current.loading).toBe(true);
+		await act(async () => { resolveSecond("new filter"); });
+		expect(result.current.data).toBe("new filter");
+		expect(result.current.loading).toBe(false);
+	});
+});
+
 describe("useResourcePolling — interval polling", () => {
 	it("polls on the interval when enabled", async () => {
 		vi.useFakeTimers();

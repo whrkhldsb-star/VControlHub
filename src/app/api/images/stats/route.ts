@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * Image bed statistics API.
  * GET /api/images/stats — returns usage stats for the current user (or all for admin).
@@ -15,11 +16,11 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { permission: "image:read", errorMessage: "Failed to fetch statistics" },
+    { permission: "image:read", errorMessage: apiCopy("apiCopy.failed.to.fetch.statistics.97cf5fdd") },
     async ({ session }) => {
       if (!session)
         return NextResponse.json(
-          { error: "Not authenticated or session expired" },
+          { error: apiCopy("apiCopy.not.authenticated.or.session.expired.b1714d99") },
           { status: 401 },
         );
       // Same bar as list showAll: user:read is too broad for fleet-wide stats.
@@ -48,25 +49,20 @@ export async function GET(request: Request) {
         }),
       ]);
 
-      // Upload trend: last 7 days
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-      const recentImages = await prisma.imageUpload.findMany({
-        where: { ...where, createdAt: { gte: sevenDaysAgo } },
-        orderBy: { createdAt: "asc" },
-        take: 5000,
-        select: { createdAt: true },
-      });
-
-      // Group by date manually
-      const trendMap = new Map<string, number>();
-      for (const img of recentImages) {
-        const dateKey = img.createdAt.toISOString().slice(0, 10);
-        trendMap.set(dateKey, (trendMap.get(dateKey) || 0) + 1);
-      }
-      const uploadTrend = Array.from(trendMap.entries())
-        .map(([date, count]) => ({ date, count }))
-        .sort((a, b) => a.date.localeCompare(b.date));
+      // Count seven UTC calendar days without loading/truncating image rows.
+      // Prisma predicates preserve the same owner/team scope as the totals.
+      const now = new Date();
+      const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+      const dayMs = 24 * 60 * 60 * 1000;
+      const dailyCounts = await Promise.all(Array.from({ length: 7 }, async (_, index) => {
+        const start = new Date(today - (6 - index) * dayMs);
+        const end = new Date(start.getTime() + dayMs);
+        const count = await prisma.imageUpload.count({
+          where: { ...where, createdAt: { gte: start, lt: end } },
+        });
+        return { date: start.toISOString().slice(0, 10), count };
+      }));
+      const uploadTrend = dailyCounts.filter(({ count }) => count > 0);
 
       const totalSizeBytes = totalSizeResult._sum.sizeBytes || 0;
 

@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * TR-009 55c: POST /api/images/upload/[id]/complete — finalize a chunked
  * upload session.
@@ -38,6 +39,7 @@ import { prisma } from "@/lib/db";
 import {
   assembleMediaUploadChunks,
   completeMediaUploadSession,
+  cleanupMediaUploadTempDir,
   MediaUploadError,
 } from "@/lib/upload/service";
 import { auditUserAction } from "@/lib/audit/service";
@@ -54,28 +56,24 @@ import {
 
 export const dynamic = "force-dynamic";
 
-function generateStorageKey(originalName: string): string {
-  const ext = path.extname(originalName).toLowerCase() || ".png";
-  return `${crypto.randomUUID()}${ext}`;
-}
-
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id: sessionId } = await params;
 	const locale = await getServerLocale();
+  let storageAccess: Awaited<ReturnType<typeof assertStorageAccess>> | undefined;
   return withApiRoute(
     request,
     {
       permission: "storage:write",
       rateLimit: IMAGE_UPLOAD_LIMIT,
       errorStatus: 500,
-      errorMessage: "Failed to complete upload session",
+      errorMessage: apiCopy("apiCopy.failed.to.complete.upload.session.dae9f71c"),
     },
     async ({ session }) => {
       if (!session) {
-        throw new ForbiddenError("Not authenticated or session expired");
+        throw new ForbiddenError(apiCopy("apiCopy.not.authenticated.or.session.expired.b1714d99"));
       }
 
       // Reject legacy sessions created before the image-specific cap without
@@ -91,13 +89,13 @@ export async function POST(
         },
       });
       if (!existing) {
-        throw new ValidationError("Upload session not found or does not belong to the current user", {
+        throw new ValidationError(apiCopy("apiCopy.upload.session.not.found.or.does.not.belong.to.the.current.user.134b524c"), {
           code: "session_not_found",
         });
       }
       if (Number(existing.totalSize) > MAX_IMAGE_UPLOAD_BYTES) {
         throw new ValidationError(
-          `Image upload exceeds ${MAX_IMAGE_UPLOAD_BYTES} bytes`,
+          apiCopy("apiCopy.image.upload.exceeds.bytes.fdabc347", { v0: String(MAX_IMAGE_UPLOAD_BYTES) }),
           { code: "total_size_too_large" },
         );
       }
@@ -113,7 +111,7 @@ export async function POST(
       }
       if (assembled.byteLength > MAX_IMAGE_UPLOAD_BYTES) {
         throw new ValidationError(
-          `Image upload exceeds ${MAX_IMAGE_UPLOAD_BYTES} bytes`,
+          apiCopy("apiCopy.image.upload.exceeds.bytes.fdabc347", { v0: String(MAX_IMAGE_UPLOAD_BYTES) }),
           { code: "total_size_too_large" },
         );
       }
@@ -121,7 +119,6 @@ export async function POST(
       const { filename } = existing;
 
       // Mirror the single-shot /api/images/upload/route.ts pipeline.
-      const storageKey = generateStorageKey(filename);
       const checksum = crypto
         .createHash("sha256")
         .update(assembled)
@@ -130,6 +127,7 @@ export async function POST(
       let imgWidth: number | null = null;
       let imgHeight: number | null = null;
       let detectedMime = "application/octet-stream";
+      let detectedFormat: string;
       try {
         const meta = await extractMetadata(assembled);
 				if (!meta.format || meta.format === "svg" || meta.width <= 0 || meta.height <= 0) throw new Error("Invalid image dimensions or format");
@@ -142,11 +140,30 @@ export async function POST(
         imgHeight = meta.height || null;
         // Persist sharp's byte-sniffed MIME, not the session-declared type.
         detectedMime = canonicalImageMime(meta.format);
+        detectedFormat = meta.format;
       } catch (err) {
 				if (err instanceof ValidationError) throw err;
 				throw new ValidationError(t("api.image.invalidImage", locale));
       }
 
+      const claimed = await prisma.mediaUploadSession.updateMany({
+        where: {
+          id: sessionId, userId: session.userId,
+          status: { in: ["PENDING", "UPLOADING"] },
+          expiresAt: { gt: new Date() },
+        },
+        data: { status: "FINALIZING" },
+      });
+      if (claimed.count === 0) {
+        throw new ValidationError(t("backend.storage.uploadSessionNotActive", locale), {
+          code: "session_not_active",
+        });
+      }
+
+      try {
+
+      // Match the direct upload path: variants must never overwrite the original.
+      const storageKey = `${crypto.randomUUID()}.${detectedFormat}`;
       const ext = path.extname(storageKey).toLowerCase();
       const base = path.basename(storageKey, ext);
       const thumbName = `${base}_thumb.webp`;
@@ -161,7 +178,7 @@ export async function POST(
       let linkedStorageRelativePath: string | null = null;
       let linkedStorageNode: StorageFileNode | null = null;
       try {
-        await Promise.all([
+        const [originalResult] = await Promise.allSettled([
           writeFile(originalPath, assembled).then(() => {
             writtenPaths.push(originalPath);
           }),
@@ -197,6 +214,7 @@ export async function POST(
             }
           })(),
         ]);
+        if (originalResult.status === "rejected") throw originalResult.reason;
       } catch (err) {
         await Promise.allSettled(
           writtenPaths.map((filePath) => rm(filePath, { force: true })),
@@ -205,23 +223,23 @@ export async function POST(
       }
 
       if (existing.storageNodeId && existing.relativePath) {
-        const access = await assertStorageAccess({
-          session,
-          storageNodeId: existing.storageNodeId,
-          relativePath: existing.relativePath,
-          operation: "write",
-          writeBytes: assembled.byteLength,
-        });
-        if (!access.allowed) {
-          throw new ForbiddenError(access.reason ?? "No permission to write to the storage path");
-        }
         try {
+          storageAccess = await assertStorageAccess({
+            session,
+            storageNodeId: existing.storageNodeId,
+            relativePath: existing.relativePath,
+            operation: "write",
+            writeBytes: assembled.byteLength,
+          });
+          if (!storageAccess.allowed) {
+            throw new ForbiddenError(storageAccess.reason ?? "No permission to write to the storage path");
+          }
           const storageNode = await prisma.storageNode.findFirst({
             where: { id: existing.storageNodeId, ...teamWhere(session) },
             select: storageFileNodeSelect,
           });
           if (!storageNode || (storageNode.driver !== "LOCAL" && storageNode.driver !== "SFTP")) {
-            throw new ValidationError("Storage node does not support media uploads");
+            throw new ValidationError(apiCopy("apiCopy.storage.node.does.not.support.media.uploads.0d4e9d55"));
           }
           linkedStorageRelativePath = `${existing.relativePath.replace(/\/$/, "")}/${storageKey}`;
           linkedStorageNode = storageNode;
@@ -240,14 +258,13 @@ export async function POST(
               : Promise.resolve(),
           ]);
           throw err;
-        } finally {
-          await releaseStorageQuotaGuard(access);
         }
       }
 
-      let image;
+      let result;
       try {
-        image = await prisma.imageUpload.create({
+        result = await prisma.$transaction(async (tx) => {
+        const image = await tx.imageUpload.create({
           data: {
             filename,
             storageKey,
@@ -271,13 +288,20 @@ export async function POST(
             mimeType: detectedMime,
             size: assembled.byteLength,
             checksum,
-          });
+          }, tx);
         }
+        const view = await completeMediaUploadSession({
+          sessionId,
+          userId: session.userId,
+          buffer: assembled,
+          resultImageId: image.id,
+          allowedStatuses: ["FINALIZING"],
+          transaction: tx,
+        });
+        return { image, view };
+        });
       } catch (err) {
         await Promise.allSettled([
-          image?.id
-            ? prisma.imageUpload.delete({ where: { id: image.id } })
-            : Promise.resolve(),
           ...writtenPaths.map((filePath) => rm(filePath, { force: true })),
           linkedStorageNode && linkedStorageRelativePath
             ? deleteStorageFileBuffer(linkedStorageNode, linkedStorageRelativePath).catch((cleanupErr) => {
@@ -288,11 +312,9 @@ export async function POST(
         throw err;
       }
 
-      const view = await completeMediaUploadSession({
-        sessionId,
-        userId: session.userId,
-        buffer: assembled,
-        resultImageId: image.id,
+      const { image, view } = result;
+      await cleanupMediaUploadTempDir(sessionId).catch((error) => {
+        logError("media-upload:cleanup-failed", error);
       });
 
       await auditUserAction(
@@ -316,6 +338,17 @@ export async function POST(
           publicUrl: `/api/images/${image.id}/file`,
         },
       });
+      } catch (error) {
+        await prisma.mediaUploadSession.updateMany({
+          where: { id: sessionId, userId: session.userId, status: "FINALIZING" },
+          data: {
+            status: "FAILED",
+            errorMessage: error instanceof Error ? error.message.slice(0, 1000) : "Image upload finalization failed",
+          },
+        }).catch((failure) => logError("media-upload:failure-status-update-failed", failure));
+        await cleanupMediaUploadTempDir(sessionId).catch((failure) => logError("media-upload:cleanup-failed", failure));
+        throw error;
+      }
     },
-  );
+  ).finally(() => releaseStorageQuotaGuard(storageAccess));
 }

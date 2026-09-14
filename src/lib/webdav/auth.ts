@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * WebDAV authentication — Bearer API token or Basic (password = API token).
  * Builds a SessionPayload from the token owner so storage grants/RBAC apply.
@@ -72,7 +73,7 @@ export async function authenticateWebDavRequest(
   if (header.startsWith("Bearer ")) {
     const token = header.slice(7).trim();
     const auth = token ? await authFromToken(token, needed) : null;
-    if (!auth) throw new AuthError("Invalid or insufficient WebDAV token");
+    if (!auth) throw new AuthError(apiCopy("apiCopy.invalid.or.insufficient.webdav.token.2632f324"));
     return auth;
   }
 
@@ -83,15 +84,15 @@ export async function authenticateWebDavRequest(
       const colon = decoded.indexOf(":");
       const password = colon >= 0 ? decoded.slice(colon + 1) : decoded;
       const auth = password ? await authFromToken(password.trim(), needed) : null;
-      if (!auth) throw new AuthError("Invalid or insufficient WebDAV credentials");
+      if (!auth) throw new AuthError(apiCopy("apiCopy.invalid.or.insufficient.webdav.credentials.fda12ceb"));
       return auth;
     } catch (error) {
       if (error instanceof AuthError) throw error;
-      throw new AuthError("Invalid Basic authorization");
+      throw new AuthError(apiCopy("apiCopy.invalid.basic.authorization.688c3a3e"));
     }
   }
 
-  throw new AuthError("WebDAV requires Bearer or Basic authentication");
+  throw new AuthError(apiCopy("apiCopy.webdav.requires.bearer.or.basic.authentication.14b159c7"));
 }
 
 export function webDavUnauthorizedResponse(realm = "VControlHub WebDAV"): Response {

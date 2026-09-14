@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * POST /api/backups/migration
  *
@@ -28,7 +29,7 @@ export async function POST(request: Request) {
       permission: "backup:create",
       rateLimit: GENERAL_WRITE_LIMIT,
       bodySchema: backupMigrationBodySchema,
-      errorMessage: "Migration wizard action failed",
+      errorMessage: apiCopy("apiCopy.migration.wizard.action.failed.cdc57e7a"),
     },
     async ({ session, body }) => {
       if (body.action === "list") {
@@ -105,7 +106,7 @@ export async function GET(request: Request) {
     {
       permission: "backup:read",
       rateLimit: GENERAL_READ_LIMIT,
-      errorMessage: "Failed to list migration packages",
+      errorMessage: apiCopy("apiCopy.failed.to.list.migration.packages.4d50850f"),
     },
     async ({ session }) => {
       const packages = await listMigrationPackages(undefined, session);

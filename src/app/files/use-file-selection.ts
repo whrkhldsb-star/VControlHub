@@ -85,9 +85,13 @@ export function useFileSelection({
     (allFileIds: string[], allSelected: boolean) => {
       setSelectedScopeKey(currentSelectionScopeKey);
       resetTransient();
-      setSelectedIds(allSelected ? new Set() : new Set(allFileIds));
+      setSelectedIds((prev) => {
+        const next = selectedScopeMatches ? new Set(prev) : new Set<string>();
+        for (const id of allFileIds) { if (allSelected) next.delete(id); else if (next.size < 1000) next.add(id); }
+        return next;
+      });
     },
-    [currentSelectionScopeKey, resetTransient],
+    [currentSelectionScopeKey, selectedScopeMatches, resetTransient],
   );
 
   const toggleOne = useCallback(
@@ -100,7 +104,7 @@ export function useFileSelection({
         if (next.has(id)) {
           next.delete(id);
         } else {
-          next.add(id);
+          if (next.size < 1000) next.add(id);
         }
         return next;
       });

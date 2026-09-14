@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -26,7 +27,7 @@ export async function POST(request: Request) {
 			requireAuth: true,
 			rateLimit: WEB_VITALS_WRITE_LIMIT,
 			bodySchema: webVitalSchema,
-			errorMessage: "Failed to record web vital",
+			errorMessage: apiCopy("apiCopy.failed.to.record.web.vital.7fe8ff4e"),
 		},
 		async ({ body }) => {
 			recordWebVital({

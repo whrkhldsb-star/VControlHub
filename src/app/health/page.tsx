@@ -13,10 +13,10 @@ export default async function HealthPage() {
 			<PageShell>
 				<section className="rounded-2xl border border-[var(--warning-border)] bg-[color-mix(in_srgb,var(--warning-bg)_45%,var(--surface))] p-6 text-sm text-[var(--warning)]">
 					<p className="text-base font-semibold text-[var(--warning)]">
-						{t("healthPage.noPermission")}
+						{t("healthPage.noPermission", locale)}
 					</p>
 					<p className="mt-2 text-[var(--warning)] opacity-80">
-						{t("healthPage.noPermissionHint")}
+						{t("healthPage.noPermissionHint", locale)}
 					</p>
 				</section>
 			</PageShell>

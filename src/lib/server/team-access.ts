@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * Team-scope guard for server-scoped resources.
  *
@@ -47,7 +48,7 @@ export async function assertServerTeamAccess(
   if (!session) {
     return {
       ok: false,
-      response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+      response: NextResponse.json({ error: apiCopy("apiCopy.unauthorized.d089c8a9") }, { status: 401 }),
     };
   }
 
@@ -59,7 +60,7 @@ export async function assertServerTeamAccess(
   if (!server) {
     return {
       ok: false,
-      response: NextResponse.json({ error: "Server not found" }, { status: 404 }),
+      response: NextResponse.json({ error: apiCopy("apiCopy.server.not.found.d7783f94") }, { status: 404 }),
     };
   }
 
@@ -77,6 +78,6 @@ export async function assertServerTeamAccess(
   // leaking existence of resources outside the user's scope.
   return {
     ok: false,
-    response: NextResponse.json({ error: "Server not found" }, { status: 404 }),
+    response: NextResponse.json({ error: apiCopy("apiCopy.server.not.found.d7783f94") }, { status: 404 }),
   };
 }

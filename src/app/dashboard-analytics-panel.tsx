@@ -223,7 +223,7 @@ function SparkBars({ points, color, locale: _locale = "zh" }: { points: Array<{ 
             style={{ height: `${Math.max(6, (point.value / max) * 88)}px` }}
             title={`${point.label}: ${point.value}`}
           />
-          <span className="whitespace-nowrap text-[10px] text-[var(--text-muted)]">{showLabel ? point.label : ""}</span>
+          <span className="whitespace-nowrap text-xs text-[var(--text-muted)]">{showLabel ? point.label : ""}</span>
         </div>
         );
       })}
@@ -253,7 +253,7 @@ function StackedDownloadBars({ points, locale: _locale = "zh" }: { points: Downl
               <Segment value={point.pending} total={total} className="bg-[var(--warning-bg)]" />
               <Segment value={point.completed} total={total} className="bg-[var(--success-bg)]" />
             </div>
-            <span className="whitespace-nowrap text-[10px] text-[var(--text-muted)]">{showLabel ? formatShortDate(point.date) : ""}</span>
+            <span className="whitespace-nowrap text-xs text-[var(--text-muted)]">{showLabel ? formatShortDate(point.date) : ""}</span>
           </div>
         );
       })}
@@ -275,7 +275,7 @@ function MiniStat({ label, value, color }: { label: string; value: number; color
   };
   return (
     <div className={`rounded-lg border px-3 py-2 ${colors[color]}`}>
-      <div className="text-[11px] opacity-75">{label}</div>
+      <div className="text-xs opacity-75">{label}</div>
       <div className="text-base font-semibold">{value}</div>
     </div>
   );

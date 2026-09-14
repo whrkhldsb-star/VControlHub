@@ -210,6 +210,7 @@ export function CostBudgetPanel({
                 )}
               </div>
               <ProgressBar
+                label={budget.name}
                 value={budget.usagePercent}
                 tone={budget.usagePercent >= 100 ? "danger" : budget.usagePercent >= budget.alertThresholdPercent ? "warning" : "success"}
                 className="mt-3"

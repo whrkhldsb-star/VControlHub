@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { mkdir, readFile, rename, rm, unlink, writeFile } from "node:fs/promises";
 
 import { BusinessError, ValidationError } from "@/lib/errors";
@@ -113,7 +114,7 @@ export async function createManagedFolder(input: {
   }
 
   throw new ValidationError(
-    `Unsupported storage driver for create: ${input.storageNode.driver}`,
+    apiCopy("apiCopy.unsupported.storage.driver.for.create.38fea12e", { v0: String(input.storageNode.driver) }),
   );
 }
 
@@ -175,7 +176,7 @@ export async function writeBackingObject(input: {
   }
 
   throw new ValidationError(
-    `Unsupported storage driver for write: ${input.storageNode.driver}`,
+    apiCopy("apiCopy.unsupported.storage.driver.for.write.b1442a38", { v0: String(input.storageNode.driver) }),
   );
 }
 
@@ -224,7 +225,7 @@ export async function readBackingObject(input: {
   }
 
   throw new ValidationError(
-    `Unsupported storage driver for read: ${input.storageNode.driver}`,
+    apiCopy("apiCopy.unsupported.storage.driver.for.read.b2c82a5f", { v0: String(input.storageNode.driver) }),
   );
 }
 
@@ -247,11 +248,12 @@ export async function statBackingObject(input: {
       relativePath: input.relativePath,
     });
     try {
-      const { stat } = await import("node:fs/promises");
-      const fileStat = await stat(absolutePath);
+      const { lstat } = await import("node:fs/promises");
+      const fileStat = await lstat(absolutePath);
       return { size: fileStat.size, lastModifiedMs: fileStat.mtimeMs };
-    } catch {
-      return null;
+    } catch (error) {
+      if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") return null;
+      throw error;
     }
   }
 
@@ -264,13 +266,14 @@ export async function statBackingObject(input: {
     try {
       const entry = await statRemoteEntry({ ...credentials, remotePath });
       return { size: entry.size ?? 0, lastModifiedMs: entry.modifyTime ?? 0 };
-    } catch {
-      return null;
+    } catch (error) {
+      if (isMissingBackingObjectError(error)) return null;
+      throw error;
     }
   }
 
   throw new ValidationError(
-    `Unsupported storage driver for stat: ${input.storageNode.driver}`,
+    apiCopy("apiCopy.unsupported.storage.driver.for.stat.8a21e7e0", { v0: String(input.storageNode.driver) }),
   );
 }
 
@@ -317,7 +320,7 @@ export async function deleteBackingObject(input: {
     }
 
     throw new ValidationError(
-      `Unsupported storage driver for delete: ${input.storageNode.driver}`,
+      apiCopy("apiCopy.unsupported.storage.driver.for.delete.960924c3", { v0: String(input.storageNode.driver) }),
     );
   } catch (error) {
     if (input.tolerateMissing && isMissingBackingObjectError(error)) return;
@@ -382,7 +385,7 @@ export async function renameBackingObject(input: {
   }
 
   throw new ValidationError(
-    `Unsupported storage driver for rename: ${input.storageNode.driver}`,
+    apiCopy("apiCopy.unsupported.storage.driver.for.rename.b9ceac0e", { v0: String(input.storageNode.driver) }),
   );
 }
 

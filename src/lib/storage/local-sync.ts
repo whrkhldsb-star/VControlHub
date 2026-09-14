@@ -5,7 +5,8 @@ import { Prisma } from "@prisma/client";
 
 import type { SessionPayload } from "@/lib/auth/session";
 import { teamWhere } from "@/lib/auth/team-scope";
-import { prisma, isUniqueViolation } from "@/lib/db";
+import { prisma } from "@/lib/db";
+import { readDirectoryIndex, type DirectoryIndexEntry } from "./directory-index";
 import { guessMimeType } from "@/lib/image-bed/constants";
 import {
   expandStorageBasePath,
@@ -23,7 +24,7 @@ type LocalSyncNode = Prisma.StorageNodeGetPayload<{
   };
 }>;
 
-const DB_ENTRY_PAGE_SIZE = 2_000;
+const WRITE_BATCH_SIZE = 500;
 
 export interface LocalSyncResult {
   synced: number;
@@ -39,7 +40,7 @@ async function upsertLocalEntry(input: {
   relativePath: string;
   entryType: "DIRECTORY" | "FILE";
   size: bigint | null;
-}) {
+}, existing: DirectoryIndexEntry) {
   const data = {
     name: input.name,
     entryType: input.entryType,
@@ -48,89 +49,32 @@ async function upsertLocalEntry(input: {
         ? guessMimeType(input.name)
         : "inode/directory",
     size: input.size,
-    isDeleted: false as const,
   };
-  const existing = await prisma.fileEntry.findFirst({
-    where: {
-      storageNodeId: input.nodeId,
-      relativePath: input.relativePath,
-    },
-  });
-
   // A recycle-bin row must stay deleted while its backing object still exists.
-  if (existing?.isDeleted) return "skipped" as const;
-  if (existing) {
-    await prisma.fileEntry.update({ where: { id: existing.id }, data });
-    return "updated" as const;
-  }
-
-  try {
-    await prisma.fileEntry.create({
-      data: {
-        storageNodeId: input.nodeId,
-        relativePath: input.relativePath,
-        ...data,
-      },
-    });
-    return "created" as const;
-  } catch (error) {
-    if (!isUniqueViolation(error)) throw error;
-    const raced = await prisma.fileEntry.findFirst({
-      where: {
-        storageNodeId: input.nodeId,
-        relativePath: input.relativePath,
-      },
-    });
-    if (!raced) throw error;
-    if (raced.isDeleted) return "skipped" as const;
-    await prisma.fileEntry.update({ where: { id: raced.id }, data });
-    return "updated" as const;
-  }
+  if (existing.isDeleted) return 0;
+  if (existing.name === data.name && existing.entryType === data.entryType &&
+      existing.mimeType === data.mimeType && existing.size === data.size) return 0;
+  const updated = await prisma.fileEntry.updateMany({
+    where: { id: existing.id, isDeleted: false, updatedAt: existing.updatedAt }, data,
+  });
+  return updated.count;
 }
 
 async function pruneStaleEntries(
   nodeId: string,
-  relativeDir: string,
+  indexed: Map<string, DirectoryIndexEntry>,
   diskRelativePaths: Set<string>,
 ) {
-  const prefix = relativeDir ? `${relativeDir}/` : "";
-  const staleIds: string[] = [];
-  let cursorId: string | undefined;
-
-  for (;;) {
-    const existing = await prisma.fileEntry.findMany({
-      where: {
-        storageNodeId: nodeId,
-        isDeleted: false,
-        ...(relativeDir
-          ? { relativePath: { startsWith: `${relativeDir}/` } }
-          : {}),
-      },
-      select: { id: true, relativePath: true },
-      orderBy: { id: "asc" },
-      take: DB_ENTRY_PAGE_SIZE,
-      ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {}),
+  const stale = [...indexed.values()].filter((entry) => !entry.isDeleted && !diskRelativePaths.has(entry.relativePath));
+  let deleted = 0;
+  for (let offset = 0; offset < stale.length; offset += WRITE_BATCH_SIZE) {
+    const result = await prisma.fileEntry.updateMany({
+      where: { storageNodeId: nodeId, isDeleted: false, OR: stale.slice(offset, offset + WRITE_BATCH_SIZE).map((entry) => ({ id: entry.id, updatedAt: entry.updatedAt })) },
+      data: { isDeleted: true },
     });
-
-    for (const entry of existing) {
-      if (!entry.relativePath.startsWith(prefix)) continue;
-      const remainder = entry.relativePath.slice(prefix.length);
-      const isDirectChild = remainder.length > 0 && !remainder.includes("/");
-      if (isDirectChild && !diskRelativePaths.has(entry.relativePath)) {
-        staleIds.push(entry.id);
-      }
-    }
-
-    if (existing.length < DB_ENTRY_PAGE_SIZE) break;
-    cursorId = existing.at(-1)?.id;
+    deleted += result.count;
   }
-
-  if (staleIds.length === 0) return 0;
-  const result = await prisma.fileEntry.updateMany({
-    where: { id: { in: staleIds } },
-    data: { isDeleted: true },
-  });
-  return result.count;
+  return deleted;
 }
 
 export async function syncLocalDirectoryEntries(input: {
@@ -163,6 +107,13 @@ export async function syncLocalDirectoryEntries(input: {
     return result;
   }
 
+  // Capture prune candidates before scanning disk: uploads created during the
+  // scan must never be deleted by an older directory inventory.
+  const indexed = new Map<string, DirectoryIndexEntry>();
+  for await (const page of readDirectoryIndex(input.node.id, normalizedDir.path)) {
+    for (const entry of page) indexed.set(entry.relativePath, entry);
+  }
+
   let entries;
   try {
     entries = await readdir(directoryPath.path, { withFileTypes: true });
@@ -173,6 +124,7 @@ export async function syncLocalDirectoryEntries(input: {
   }
 
   const diskRelativePaths = new Set<string>();
+  const missing: Prisma.FileEntryCreateManyInput[] = [];
   for (const entry of entries) {
     // Symlinks and special files are intentionally not exposed by the file manager.
     if (!entry.isDirectory() && !entry.isFile()) continue;
@@ -213,17 +165,38 @@ export async function syncLocalDirectoryEntries(input: {
     diskRelativePaths.add(relativePath.path);
     result.synced += 1;
     try {
-      const action = await upsertLocalEntry({
+      const data = {
         nodeId: input.node.id,
         name: entry.name,
         relativePath: relativePath.path,
-        entryType: entry.isDirectory() ? "DIRECTORY" : "FILE",
+        entryType: entry.isDirectory() ? "DIRECTORY" as const : "FILE" as const,
         size,
-      });
-      if (action !== "skipped") result[action] += 1;
+      };
+      const existing = indexed.get(relativePath.path);
+      if (existing) {
+        result.updated += await upsertLocalEntry(data, existing);
+      } else {
+        missing.push({
+          storageNodeId: input.node.id, relativePath: data.relativePath, name: data.name,
+          entryType: data.entryType, size: data.size,
+          mimeType: data.entryType === "DIRECTORY" ? "inode/directory" : guessMimeType(data.name),
+          isDeleted: false,
+        });
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
       result.errors.push(`Saving ${relativePath.path} failed: ${message}`);
+    }
+  }
+
+  for (let offset = 0; offset < missing.length; offset += WRITE_BATCH_SIZE) {
+    try {
+      // Concurrent inserts or tombstones win; a later refresh reconciles live metadata.
+      const created = await prisma.fileEntry.createMany({ data: missing.slice(offset, offset + WRITE_BATCH_SIZE), skipDuplicates: true });
+      result.created += created.count;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      result.errors.push(`Saving directory entries failed: ${message}`);
     }
   }
 
@@ -232,7 +205,7 @@ export async function syncLocalDirectoryEntries(input: {
   if (result.errors.length === 0) {
     result.deleted = await pruneStaleEntries(
       input.node.id,
-      normalizedDir.path,
+      indexed,
       diskRelativePaths,
     );
   }

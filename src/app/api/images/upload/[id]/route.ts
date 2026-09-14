@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * TR-009 55c: GET / DELETE /api/images/upload/[id] — query or cancel a
  * chunked upload session.
@@ -34,15 +35,15 @@ export async function GET(
       permission: "storage:write",
       rateLimit: IMAGE_UPLOAD_LIMIT,
       errorStatus: 500,
-      errorMessage: "Failed to query upload session",
+      errorMessage: apiCopy("apiCopy.failed.to.query.upload.session.1a09e395"),
     },
     async ({ session }) => {
       if (!session) {
-        throw new ForbiddenError("Not authenticated or session expired");
+        throw new ForbiddenError(apiCopy("apiCopy.not.authenticated.or.session.expired.b1714d99"));
       }
       const view = await getMediaUploadSession(sessionId, session.userId);
       if (!view) {
-        throw new NotFoundError(`Upload session not found: ${sessionId}`);
+        throw new NotFoundError(apiCopy("apiCopy.upload.session.not.found.84c8bec0", { v0: String(sessionId) }));
       }
       return NextResponse.json({ session: view });
     },
@@ -60,11 +61,11 @@ export async function DELETE(
       permission: "storage:write",
       rateLimit: IMAGE_UPLOAD_LIMIT,
       errorStatus: 500,
-      errorMessage: "Failed to cancel upload session",
+      errorMessage: apiCopy("apiCopy.failed.to.cancel.upload.session.5d0932f1"),
     },
     async ({ session }) => {
       if (!session) {
-        throw new ForbiddenError("Not authenticated or session expired");
+        throw new ForbiddenError(apiCopy("apiCopy.not.authenticated.or.session.expired.b1714d99"));
       }
       try {
         const view = await cancelMediaUploadSession(

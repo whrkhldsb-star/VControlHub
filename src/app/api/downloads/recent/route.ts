@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 
 import { teamWhere } from "@/lib/auth/team-scope";
@@ -12,9 +13,9 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { permission: "storage:read", errorMessage: "Failed to fetch recent downloads" },
+    { permission: "storage:read", errorMessage: apiCopy("apiCopy.failed.to.fetch.recent.downloads.a2df5c2c") },
     async ({ session }) => {
-      if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      if (!session) return NextResponse.json({ error: apiCopy("apiCopy.unauthorized.d089c8a9") }, { status: 401 });
 
       const tasks = await prisma.downloadTask.findMany({
         where: {

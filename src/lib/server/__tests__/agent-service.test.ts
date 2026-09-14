@@ -1,5 +1,5 @@
 /** @vitest-environment node */
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   serverFindUnique: vi.fn(),
@@ -32,6 +32,20 @@ import {
 } from "../agent-service";
 
 describe("server Agent authentication and routing", () => {
+  beforeEach(() => vi.clearAllMocks());
+  it.each(["PENDING", "CLAIMED"])("cancels waiting for a %s job without replaying claimed work", async (status) => {
+    const controller = new AbortController();
+    mocks.serverFindUnique.mockResolvedValueOnce({ managementMode: "AGENT", agentLastSeenAt: new Date() });
+    mocks.agentJobCreate.mockResolvedValueOnce({ id: "cancel-job" });
+    mocks.agentJobFindUnique.mockImplementationOnce(async () => { controller.abort(); return { status }; });
+    mocks.agentJobUpdateMany.mockResolvedValueOnce({ count: status === "PENDING" ? 1 : 0 });
+    await expect(executeCommandWithAgent({ serverId: "srv1", command: "read status", timeoutMs: 1000, signal: controller.signal })).rejects.toMatchObject({ name: "AbortError" });
+    expect(mocks.agentJobUpdateMany).toHaveBeenLastCalledWith(expect.objectContaining({
+      where: { id: "cancel-job", serverId: "srv1", status: "PENDING" },
+      data: expect.objectContaining({ status: "CANCELLED", exitCode: 130 }),
+    }));
+  });
+
   it("stores only a token digest and authenticates the issued bearer token", async () => {
     mocks.serverUpdate.mockResolvedValueOnce({ id: "srv1" });
     const token = await issueServerAgentToken("srv1");

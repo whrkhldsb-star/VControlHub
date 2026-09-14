@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * TR-032 E02: /api/ai/ops/scan — manually trigger an AI ops scan.
  *
@@ -29,7 +30,7 @@ export async function POST(request: Request) {
 			rateLimit: GENERAL_WRITE_LIMIT,
 			bodySchema: triggerAiOpsScanSchema,
 			errorStatus: 500,
-			errorMessage: "Failed to trigger scan",
+			errorMessage: apiCopy("apiCopy.failed.to.trigger.scan.c41a3220"),
 		},
 		async ({ session, body }) => {
 			const triggered = await runAiOpsScanWorkerOnce("manual", {

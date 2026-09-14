@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -55,7 +56,7 @@ export async function GET(
     async ({ session }) => {
       if (!session) {
         // Guarded by `deploy:export` already; this is a type narrowing only.
-        throw new NotFoundError("Deployment export package not found");
+        throw new NotFoundError(apiCopy("apiCopy.deployment.export.package.not.found.0c0028e2"));
       }
       const { id } = await params;
       const parsedId = idSchema.safeParse(id);
@@ -64,14 +65,14 @@ export async function GET(
       }
       const record = await prisma.deploymentExport.findUnique({ where: { id: parsedId.data } });
       if (!record) {
-        throw new NotFoundError("Deployment export package not found");
+        throw new NotFoundError(apiCopy("apiCopy.deployment.export.package.not.found.0c0028e2"));
       }
       // Exports can contain deployment templates for this install — do not let
       // arbitrary deploy:export holders download another user's package by id.
       const isOwner = record.createdBy != null && record.createdBy === session.userId;
       const isManager = sessionHasPermission(session, "team:manage");
       if (!isOwner && !isManager) {
-        throw new NotFoundError("Deployment export package not found");
+        throw new NotFoundError(apiCopy("apiCopy.deployment.export.package.not.found.0c0028e2"));
       }
       const files = asStringRecord(record.files);
       const entries = Object.entries(files).map(([name, content]) => ({
@@ -82,7 +83,7 @@ export async function GET(
         ...(name.endsWith(".sh") ? { mode: 0o755 } : {}),
       }));
       if (entries.length === 0) {
-        throw new NotFoundError("Deployment export package has no downloadable files");
+        throw new NotFoundError(apiCopy("apiCopy.deployment.export.package.has.no.downloadable.files.e58f041f"));
       }
       const zip = buildZip(entries, { mtime: record.createdAt });
       await auditUserAction(session.userId, "deployment.export.download", {

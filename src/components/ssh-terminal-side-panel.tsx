@@ -1,5 +1,7 @@
 "use client";
 
+import { X } from "@/components/icons";
+
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
 import { ActionButton } from "@/components/action-button";
@@ -59,7 +61,7 @@ export function SshTerminalSidePanel({
 					</ActionButton>
 				</div>
 				{favoriteCommands.length === 0 ? (
-					<p className="text-[10px] text-[var(--text-muted)]">
+					<p className="text-xs text-[var(--text-muted)]">
 						{t("sshTerminalModal.favoritesEmpty")}
 					</p>
 				) : (
@@ -76,7 +78,7 @@ export function SshTerminalSidePanel({
 									onClick={() => removeFavorite(cmd)}
 									aria-label={t("sshTerminalModal.favoritesRemove", { cmd })} className="!min-h-11 !min-w-11 !shrink-0 !rounded-lg !px-1 !text-[12px] text-[var(--danger)] group-hover:opacity-100"
 								>
-									✕
+									<X size={16} aria-hidden />
 								</ActionButton>
 							</div>
 						))}
@@ -88,7 +90,7 @@ export function SshTerminalSidePanel({
 					{t("sshTerminalModal.historyTitle")}
 				</h4>
 				{commandHistory.length === 0 ? (
-					<p className="text-[10px] text-[var(--text-muted)]">
+					<p className="text-xs text-[var(--text-muted)]">
 						{t("sshTerminalModal.historyEmpty")}
 					</p>
 				) : (

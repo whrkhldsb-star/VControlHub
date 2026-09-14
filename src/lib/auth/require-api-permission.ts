@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import type { Permission } from "./rbac";
 import { sessionHasPermission } from "./authorization";
@@ -19,7 +20,7 @@ export async function requireApiPermission(
     return sessionOrResponse;
   }
   if (!sessionHasPermission(sessionOrResponse, permission)) {
-    return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 });
+    return NextResponse.json({ error: apiCopy("apiCopy.insufficient.permissions.37e6815b") }, { status: 403 });
   }
   return { session: sessionOrResponse };
 }

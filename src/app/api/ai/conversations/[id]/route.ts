@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 
 import {
@@ -21,11 +22,11 @@ export async function GET(
 ) {
   return withApiRoute(
     request,
-    { permission: "ai:chat", errorMessage: "Not found", errorStatus: 404 },
+    { permission: "ai:chat", errorMessage: apiCopy("apiCopy.not.found.e3ebaa16"), errorStatus: 404 },
     async ({ session }) => {
       if (!session)
         return NextResponse.json(
-          { error: "Not authenticated or session expired" },
+          { error: apiCopy("apiCopy.not.authenticated.or.session.expired.b1714d99") },
           { status: 401 },
         );
       const { id } = await params;
@@ -44,14 +45,14 @@ export async function PATCH(
     {
       permission: "ai:chat",
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "Failed to update",
+      errorMessage: apiCopy("apiCopy.failed.to.update.8eb4917b"),
       errorStatus: 400,
       bodySchema: updateConversationSchema,
     },
     async ({ session, body }) => {
       if (!session)
         return NextResponse.json(
-          { error: "Not authenticated or session expired" },
+          { error: apiCopy("apiCopy.not.authenticated.or.session.expired.b1714d99") },
           { status: 401 },
         );
       const { id } = await params;
@@ -64,7 +65,7 @@ export async function PATCH(
       }
 
       const conv = await updateConversation(id, session.userId, body);
-      if (!conv) throw new NotFoundError("Conversation not found");
+      if (!conv) throw new NotFoundError(apiCopy("apiCopy.conversation.not.found.d8e4dcef"));
       await auditUserAction(session?.userId ?? "", "conversation.update", { conversationId: id }, undefined, session?.currentTeamId);
       return NextResponse.json({
         conversation: {
@@ -86,13 +87,13 @@ export async function DELETE(
     {
       permission: "ai:chat",
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "Failed to delete",
+      errorMessage: apiCopy("apiCopy.failed.to.delete.f625b14e"),
       errorStatus: 400,
     },
     async ({ session }) => {
       if (!session)
         return NextResponse.json(
-          { error: "Not authenticated or session expired" },
+          { error: apiCopy("apiCopy.not.authenticated.or.session.expired.b1714d99") },
           { status: 401 },
         );
       const { id } = await params;

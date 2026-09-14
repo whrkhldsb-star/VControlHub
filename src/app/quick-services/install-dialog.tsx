@@ -214,7 +214,7 @@ export function InstallDialog({
 						</div>
 					</div>
 
-					<div className="flex items-center gap-2 text-[10px] text-[var(--text-muted)]">
+					<div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
 						<span>{t("qsPage.recommendedPort", { port: open.defaultPort })}</span>
 						<button
 							type="button"

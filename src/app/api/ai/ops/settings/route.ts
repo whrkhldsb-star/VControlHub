@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * TR-032 E02: /api/ai/ops/settings — read/write the current AI ops mode + provider.
  *
@@ -38,7 +39,7 @@ export async function GET(request: Request) {
 			permission: "ai:ops:read",
 			rateLimit: GENERAL_READ_LIMIT,
 			errorStatus: 500,
-			errorMessage: "Failed to load AI ops settings",
+			errorMessage: apiCopy("apiCopy.failed.to.load.ai.ops.settings.1d0fb3fc"),
 		},
 		async ({ session }) => {
 			assertAiOpsPlatformReader(session);
@@ -61,7 +62,7 @@ export async function PATCH(request: Request) {
 			rateLimit: GENERAL_WRITE_LIMIT,
 			bodySchema: aiOpsModeSettingSchema,
 			errorStatus: 500,
-			errorMessage: "Failed to save AI ops settings",
+			errorMessage: apiCopy("apiCopy.failed.to.save.ai.ops.settings.81755ded"),
 		},
 		async ({ session, body }) => {
 			const previousMode = await getSetting("ai.ops.mode");
@@ -77,7 +78,7 @@ export async function PATCH(request: Request) {
 				return NextResponse.json(
 					{
 						error:
-							"providerId can only contain letters/digits/dots/underscores/colons/hyphens, up to 64 characters",
+							apiCopy("apiCopy.providerid.can.only.contain.letters.digits.dots.underscores.colo.634437fd"),
 					},
 					{ status: 400 },
 				);
@@ -94,7 +95,7 @@ export async function PATCH(request: Request) {
 				});
 				if (!provider) {
 					throw new ValidationError(
-						"The selected AI provider was not found, is disabled, or belongs to another user",
+						apiCopy("apiCopy.the.selected.ai.provider.was.not.found.is.disabled.or.belongs.to.62229a8e"),
 					);
 				}
 			}

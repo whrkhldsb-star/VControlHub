@@ -113,7 +113,7 @@ function StorageNodeCard({
 					<p className="mt-2 text-sm leading-7 text-[var(--text-secondary)]">{node.connectionSummary}</p>
 				</div>
 					<div className="flex items-center gap-2">
-						<StatusBadge tone="neutral" className="!rounded-lg px-3 py-1 !text-xs">
+						<StatusBadge tone="neutral" className="!rounded-lg px-3 py-1 !text-sm">
 							{sourceLabel}
 						</StatusBadge>
 						<span data-tone="emerald" className="rounded-lg border border-[var(--success-border)] px-3 py-1 text-xs text-[var(--success)]">

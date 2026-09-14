@@ -271,7 +271,7 @@ export function ItsmPageClient({
 					</h2>
 					<ActionButton variant="ghost"
 						onClick={() => void reload()}
-						className="!px-2 !py-1 !text-xs"
+						className="!px-2 !py-1 !text-sm"
 					>
 						{t("itsmPage.list.refresh")}
 					</ActionButton>
@@ -301,13 +301,13 @@ export function ItsmPageClient({
 									</div>
 									{canManage && (
 										<div className="flex flex-wrap gap-2">
-											<ActionButton variant="secondary" className="!rounded-md !px-2 !py-1 !text-xs"
+											<ActionButton variant="secondary" className="!rounded-md !px-2 !py-1 !text-sm"
 												disabled={busy}
 												onClick={() => void toggleEnabled(row)}
 											>
 												{row.enabled ? t("itsmPage.action.disable") : t("itsmPage.action.enable")}
 											</ActionButton>
-											<ActionButton variant="secondary" className="!rounded-md !px-2 !py-1 !text-xs"
+											<ActionButton variant="secondary" className="!rounded-md !px-2 !py-1 !text-sm"
 												disabled={testingId === row.id}
 												onClick={() => void test(row.id)}
 											>
@@ -318,7 +318,7 @@ export function ItsmPageClient({
 											<ActionButton variant="danger"
 												disabled={busy}
 												onClick={() => setPendingDelete(row)}
-												className="!rounded-md !px-2 !py-1 !text-xs"
+												className="!rounded-md !px-2 !py-1 !text-sm"
 											>
 												{t("itsmPage.action.delete")}
 											</ActionButton>

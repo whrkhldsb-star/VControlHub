@@ -283,7 +283,7 @@ export function CreatePlaybookForm({
 					<ActionButton
 						variant="outline"
 						onClick={addStep}
-						className="min-h-9 !px-3 !py-1 !text-xs"
+						className="min-h-9 !px-3 !py-1 !text-sm"
 					>
 						{t("playbooksPage.createForm.addStep")}
 					</ActionButton>

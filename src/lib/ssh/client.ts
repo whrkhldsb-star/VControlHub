@@ -1,6 +1,7 @@
 import { Client, type ConnectConfig } from "ssh2";
 import type { SFTPWrapper } from "ssh2";
 import { createHash } from "node:crypto";
+import { StringDecoder } from "node:string_decoder";
 import { BusinessError } from "@/lib/errors";
 import { config as appConfig } from "@/lib/config/env";
 import { shellQuote } from "@/lib/shell-quote";
@@ -182,14 +183,8 @@ async function acquirePooledSsh(input: SshConnectionParams) {
   return { key, entry };
 }
 
-function releasePooledSsh(key: string, entry: PooledSsh, invalidate = false) {
+function releasePooledSsh(key: string, entry: PooledSsh) {
   entry.active = Math.max(0, entry.active - 1);
-  if (invalidate) {
-    entry.closed = true;
-    sshPool.delete(key);
-    entry.client.end();
-    return;
-  }
   if (entry.active === 0 && !entry.closed) {
     entry.idleTimer = setTimeout(() => {
       if (entry.active === 0 && sshPool.get(key)) {
@@ -206,7 +201,12 @@ export async function closeSshPool() {
   const entries = [...sshPool.values()];
   sshPool.clear();
   sshFailureBackoff.clear();
-  await Promise.allSettled(entries.map(async (pending) => (await pending).client.end()));
+  await Promise.allSettled(entries.map(async (pending) => {
+    const entry = await pending;
+    entry.closed = true;
+    if (entry.idleTimer) clearTimeout(entry.idleTimer);
+    entry.client.end();
+  }));
 }
 
 async function withReusableSshClient<T>(
@@ -233,10 +233,11 @@ function usesAgentOnly(input: SshConnectionParams) {
   return Boolean(input.agentServerId && !input.privateKey && !input.password);
 }
 
-async function execAgentOnly(input: SshConnectionParams, command: string, timeoutMs = 60_000) {
+async function execAgentOnly(input: SshConnectionParams, command: string, timeoutMs = 60_000, signal?: AbortSignal) {
+  signal?.throwIfAborted();
   if (!input.agentServerId) throw new BusinessError(t("backend.server.agentIdentityMissing"));
   const { executeCommandWithAgent } = await import("@/lib/server/agent-service");
-  const result = await executeCommandWithAgent({ serverId: input.agentServerId, command, timeoutMs });
+  const result = await executeCommandWithAgent({ serverId: input.agentServerId, command, timeoutMs, signal });
   if (!result) throw new BusinessError(t("backend.server.agentOfflineNoFallback"));
   if (result.exitCode !== 0) {
     throw new BusinessError(result.stderr || result.stdout || t("backend.server.agentCommandFailed", { code: result.exitCode }));
@@ -421,6 +422,7 @@ function execCommandOnClient(
   client: Client,
   command: string,
   timeoutMs = 120_000,
+  signal?: AbortSignal,
 ): Promise<{ stdout: string; stderr: string; exitCode: number | null }> {
   // Cap accumulated output. execRemoteCommand is only used for small control
   // output (pids, statuses, `tail -5`); without a bound a chatty or misbehaving
@@ -428,66 +430,77 @@ function execCommandOnClient(
   // OOMs the Node process. Mirrors the maxBytes guard in readRemoteFile.
   const MAX_OUTPUT_BYTES = 16 * 1024 * 1024;
   return new Promise((resolve, reject) => {
+    signal?.throwIfAborted();
     let commandStream: { close?: () => void; destroy?: () => void } | null = null;
     let settled = false;
-    const timer = setTimeout(() => {
-      // Only tear down THIS command's channel, never `client.end()`: the client
-      // may be a pooled connection shared by concurrent operations on the same
-      // host, and ending it would abort all of them. The pooled caller
-      // (execRemoteCommand) already invalidates the pool entry on rejection.
+    const cleanup = () => {
+      clearTimeout(timer);
+      signal?.removeEventListener("abort", aborted);
+      client.off("close", disconnected);
+      client.off("end", disconnected);
+      client.off("error", fail);
+    };
+    const fail = (error: Error) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
       try {
         commandStream?.close?.();
         commandStream?.destroy?.();
-      } catch {
-        /* best-effort channel teardown */
-      }
-      if (settled) return;
-      settled = true;
-      reject(new Error(`Command timed out after ${timeoutMs / 1000}s`));
+      } catch { /* best-effort channel teardown */ }
+      reject(error);
+    };
+    const disconnected = () => fail(new Error("SSH connection closed before command completion"));
+    const aborted = () => fail(new DOMException("SSH command cancelled", "AbortError"));
+    const timer = setTimeout(() => {
+      fail(new Error(`Command timed out after ${timeoutMs / 1000}s`));
     }, timeoutMs);
+    client.once("close", disconnected);
+    client.once("end", disconnected);
+    client.on("error", fail);
+    signal?.addEventListener("abort", aborted, { once: true });
 
     const failOversized = () => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      try {
-        commandStream?.close?.();
-        commandStream?.destroy?.();
-      } catch {
-        /* best-effort channel teardown */
-      }
-      reject(new Error(`Command output exceeded ${MAX_OUTPUT_BYTES} bytes; aborted`));
+      fail(new Error(`Command output exceeded ${MAX_OUTPUT_BYTES} bytes; aborted`));
     };
 
     client.exec(command, (err, stream) => {
       if (err) {
-        clearTimeout(timer);
-        if (settled) return;
-        settled = true;
-        reject(err);
+        fail(err);
         return;
       }
       commandStream = stream as unknown as { close?: () => void; destroy?: () => void };
+      stream.on("error", fail);
+      if (settled) {
+        try { commandStream.close?.(); commandStream.destroy?.(); } catch { /* late channel cleanup */ }
+        return;
+      }
       let stdout = "";
       let stderr = "";
+      const stdoutDecoder = new StringDecoder("utf8");
+      const stderrDecoder = new StringDecoder("utf8");
       let bytes = 0;
       stream.on("data", (data: Buffer) => {
         if (settled) return;
         bytes += data.length;
         if (bytes > MAX_OUTPUT_BYTES) return failOversized();
-        stdout += data.toString();
+        stdout += stdoutDecoder.write(data);
       });
       stream.stderr.on("data", (data: Buffer) => {
         if (settled) return;
         bytes += data.length;
         if (bytes > MAX_OUTPUT_BYTES) return failOversized();
-        stderr += data.toString();
+        stderr += stderrDecoder.write(data);
       });
       stream.on("close", (code: number | null) => {
-        clearTimeout(timer);
         if (settled) return;
+        if (typeof code !== "number" || !Number.isInteger(code)) {
+          fail(new Error("SSH command channel closed without an exit status"));
+          return;
+        }
         settled = true;
-        resolve({ stdout, stderr, exitCode: code });
+        cleanup();
+        resolve({ stdout: stdout + stdoutDecoder.end(), stderr: stderr + stderrDecoder.end(), exitCode: code });
       });
     });
   });
@@ -673,29 +686,41 @@ export async function writeRemoteFile(input: SshConnectionParams & { remotePath:
 }
 
 /** Execute a command on a remote server via SSH and return stdout/stderr/exit code */
+function waitForSshResource<T>(resource: Promise<T>, signal: AbortSignal | undefined, release: (value: T) => void): Promise<T> {
+  if (!signal) return resource;
+  return new Promise((resolve, reject) => {
+    let cancelled = false;
+    const abort = () => { cancelled = true; reject(new DOMException("SSH connection wait cancelled", "AbortError")); };
+    signal.addEventListener("abort", abort, { once: true });
+    if (signal.aborted) abort();
+    resource.then((value) => {
+      signal.removeEventListener("abort", abort);
+      if (cancelled) release(value);
+      else resolve(value);
+    }, (error) => { signal.removeEventListener("abort", abort); reject(error); });
+  });
+}
+
 export async function execRemoteCommand(
- input: SshConnectionParams & { command: string; timeout?: number },
+ input: SshConnectionParams & { command: string; timeout?: number; signal?: AbortSignal },
 ): Promise<{ stdout: string; stderr: string; exitCode: number | null }> {
+ input.signal?.throwIfAborted();
  if (usesAgentOnly(input)) {
-   return execAgentOnly(input, input.command, input.timeout ?? 120_000);
+   return execAgentOnly(input, input.command, input.timeout ?? 120_000, input.signal);
  }
  if (!shouldPoolSsh(input)) {
-   const client = await connectSsh(createSshConfig(input));
+   const client = await waitForSshResource(connectSsh(createSshConfig(input)), input.signal, (client) => { client.end(); });
    try {
-     return await execCommandOnClient(client, input.command, input.timeout ?? 120_000);
+     return await execCommandOnClient(client, input.command, input.timeout ?? 120_000, input.signal);
    } finally {
      client.end();
    }
  }
- const { key, entry } = await acquirePooledSsh(input);
- let invalidate = false;
+ const { key, entry } = await waitForSshResource(acquirePooledSsh(input), input.signal, ({ key, entry }) => releasePooledSsh(key, entry));
  try {
-   return await execCommandOnClient(entry.client, input.command, input.timeout ?? 120_000);
- } catch (error) {
-   invalidate = true;
-   throw error;
+   return await execCommandOnClient(entry.client, input.command, input.timeout ?? 120_000, input.signal);
  } finally {
-   releasePooledSsh(key, entry, invalidate);
+   releasePooledSsh(key, entry);
  }
 }
 

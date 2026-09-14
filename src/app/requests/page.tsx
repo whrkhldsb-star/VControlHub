@@ -132,7 +132,7 @@ export default async function RequestsPage() {
 											<p className="mt-2.5 rounded-lg bg-[var(--surface-subtle)] px-3 py-2 font-mono text-xs text-[var(--text-muted)] border border-[var(--border)]">{t("requestsPage.card.approvalOnly", locale)}</p>
 										)}
 										{request.reason && <p className="mt-2 text-sm text-[var(--text-secondary)]">{t("requestsPage.card.reason", locale)}{request.reason}</p>}
-										<p className="mt-1 text-[11px] text-[var(--text-muted)]">{t("requestsPage.card.requester", locale)}{request.requester.displayName || request.requester.username}</p>
+										<p className="mt-1 text-xs text-[var(--text-muted)]">{t("requestsPage.card.requester", locale)}{request.requester.displayName || request.requester.username}</p>
 										</div>
 										<div className="shrink-0 rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2 text-xs text-[var(--text-secondary)]">
 										{t("requestsPage.card.targetCount", locale, { count: request.targets.length })}
@@ -145,7 +145,7 @@ export default async function RequestsPage() {
 											{request.targets.map((target: (typeof request.targets)[number]) => (
 												<InfoItem key={target.id}>
 													<div className="text-sm font-medium text-[var(--text-primary)]">{target.server.name}</div>
-											<div className="text-[11px] text-[var(--text-muted)]">{target.server.host}:{target.server.port} · {getDomainStatusLabel((key) => t(key, locale), target.status)}</div>
+											<div className="text-xs text-[var(--text-muted)]">{target.server.host}:{target.server.port} · {getDomainStatusLabel((key) => t(key, locale), target.status)}</div>
 												</InfoItem>
 											))}
 										</div>
@@ -157,7 +157,7 @@ export default async function RequestsPage() {
 												<div className={`font-medium ${request.latestApproval.approved ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>
 													{t(request.latestApproval.approved ? "requestsPage.status.APPROVED" : "requestsPage.status.REJECTED", locale)}
 												</div>
-												<div className="mt-1 text-[11px] text-[var(--text-muted)]">
+												<div className="mt-1 text-xs text-[var(--text-muted)]">
 													{request.latestApproval.approver.displayName || request.latestApproval.approver.username}
 												</div>
 												{request.latestApproval.comment && <div className="mt-1.5 text-xs text-[var(--text-secondary)]">{request.latestApproval.comment}</div>}
@@ -173,7 +173,7 @@ export default async function RequestsPage() {
 												{request.executionLogs.map((log: (typeof request.executionLogs)[number], index: number) => (
 													<InfoItem key={log.id ?? `${request.id}-log-${index}`} className="text-xs text-[var(--text-secondary)]">
 														<div>{log.summary}</div>
-														{log.createdAt && <div className="mt-1 text-[11px] text-[var(--text-muted)]">{new Date(log.createdAt).toLocaleString(dateLocale)}</div>}
+														{log.createdAt && <div className="mt-1 text-xs text-[var(--text-muted)]">{new Date(log.createdAt).toLocaleString(dateLocale)}</div>}
 													</InfoItem>
 												))}
 											</div>
@@ -245,7 +245,7 @@ function InitiatorBadge({ assistant, label }: { assistant: boolean; label: strin
 function InfoSection({ title, children }: { title: string; children: ReactNode }) {
 	return (
 		<section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-4">
-			<h4 className="text-xs font-medium text-[var(--text-primary)]/70 uppercase tracking-wider mb-3">{title}</h4>
+			<h4 className="text-xs font-medium text-[var(--text-primary)]/70 uppercase  mb-3">{title}</h4>
 			{children}
 		</section>
 	);

@@ -111,7 +111,7 @@ function RuntimeSummaryPanel({
   return (
     <div
       id={id}
-      className="rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-2.5 py-2 text-[11px] leading-5 text-[var(--text-secondary)]"
+      className="rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-2.5 py-2 text-xs leading-5 text-[var(--text-secondary)]"
     >
       <p>
         {t("settingsClient.runtimeValueLabel")}
@@ -145,7 +145,7 @@ function HighRiskBlurWarning({ id }: { id: string }) {
       id={id}
       role="alert"
       data-testid="high-risk-blur-warning"
-      className="rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] px-2.5 py-1.5 text-[11px] leading-5 text-[var(--danger)]"
+      className="rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] px-2.5 py-1.5 text-xs leading-5 text-[var(--danger)]"
     >
       <span aria-hidden className="mr-1">
         ⚠
@@ -211,7 +211,7 @@ export function SelectField({
       <div className="flex items-center justify-between gap-2">
         <label
           htmlFor={inputId}
-          className="flex flex-1 items-center gap-1.5 text-xs font-semibold text-[var(--text-primary)] tracking-wide"
+          className="flex flex-1 items-center gap-1.5 text-xs font-semibold text-[var(--text-primary)] "
         >
           {t(field.labelKey)}
         </label>
@@ -287,7 +287,7 @@ export function InputField({
       <div className="flex items-center justify-between gap-2">
         <label
           htmlFor={inputId}
-          className="flex flex-1 items-center gap-1.5 text-xs font-semibold text-[var(--text-primary)] tracking-wide"
+          className="flex flex-1 items-center gap-1.5 text-xs font-semibold text-[var(--text-primary)] "
         >
           {t(field.labelKey)}
         </label>
@@ -350,7 +350,7 @@ export function TextAreaField({
       <div className="flex items-center justify-between gap-2">
         <label
           htmlFor={inputId}
-          className="flex flex-1 items-center gap-1.5 text-xs font-semibold text-[var(--text-primary)] tracking-wide"
+          className="flex flex-1 items-center gap-1.5 text-xs font-semibold text-[var(--text-primary)] "
         >
           {t(field.labelKey)}
         </label>

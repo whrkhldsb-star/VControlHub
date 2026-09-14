@@ -29,21 +29,21 @@ export function AiChatHeader({
 }: ChatHeaderProps) {
   const { t } = useI18n();
   return (
-    <div className="flex items-center gap-2 border-b border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_96%,transparent)] px-3 py-2.5 shadow-[var(--shadow-sm)] backdrop-blur sm:gap-3 sm:px-4 sm:py-3">
+    <header className="flex flex-wrap items-center gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-4 py-3">
       {/* Mobile sidebar toggle */}
       <button
 		type="button"
         onClick={onToggleSidebar}
-        className="flex-shrink-0 text-[var(--text-secondary)] transition hover:text-[var(--text-primary)] md:hidden"
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] md:hidden"
         aria-label={t("common.openSidebar")}
       >
         <svg className="h-5 w-5" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 12h16M4 18h16" />
         </svg>
       </button>
-      <div className="min-w-0 flex-1">
-        <h3 className="truncate text-sm font-semibold text-[var(--text-primary)]">{activeConv.title}</h3>
-        <p className="mt-0.5 text-[10px] text-[var(--text-muted)]">
+      <div className="min-w-0 flex-1 basis-[calc(100%-3.5rem)] md:basis-64">
+        <h1 className="line-clamp-2 break-words text-base font-semibold text-[var(--text-primary)]" title={activeConv.title}>{activeConv.title}</h1>
+        <p className="mt-0.5 break-words text-xs text-[var(--text-muted)]">
           {t("aiPage.modelCaps", { provider: activeProvider?.name || t("aiPage.unknown"), model: activeConv.model })}
           {activeConv.enableVision && t("aiPage.vision")}
           {currentModelCaps.video && t("aiPage.videoCap")}
@@ -51,12 +51,12 @@ export function AiChatHeader({
           {currentModelCaps.document && t("aiPage.documentCap")}
         </p>
       </div>
-      <div className="flex shrink-0 items-center gap-1.5">
+      <div className="flex max-w-full flex-wrap items-center gap-2">
         <ActionButton type="button" variant="secondary"
           onClick={onToggleSettings}
           aria-label={t("aiPage.settings")}
           title={t("aiPage.settings")}
-          className="flex h-9 w-9 shrink-0 items-center justify-center !p-0 lg:h-8 lg:w-auto lg:!px-2.5 lg:!text-xs">
+          className="flex h-9 w-9 shrink-0 items-center justify-center !p-0 lg:h-8 lg:w-auto lg:!px-2.5 lg:!text-sm">
           <Settings size={15} aria-hidden="true" />
           <span className="hidden lg:ml-1.5 lg:inline">{t("aiPage.settings")}</span>
         </ActionButton>
@@ -64,7 +64,7 @@ export function AiChatHeader({
           onClick={onClearMessages}
           aria-label={t("aiPage.clearMessagesTitle")}
           title={t("aiPage.clearMessagesTitle")}
-          className="flex h-9 w-9 shrink-0 items-center justify-center !p-0 lg:h-8 lg:w-auto lg:!px-2.5 lg:!text-xs">
+          className="flex h-9 w-9 shrink-0 items-center justify-center !p-0 lg:h-8 lg:w-auto lg:!px-2.5 lg:!text-sm">
           <Trash2 size={15} aria-hidden="true" />
           <span className="hidden lg:ml-1.5 lg:inline">{t("aiPage.clear")}</span>
         </ActionButton>
@@ -72,7 +72,7 @@ export function AiChatHeader({
           onClick={onRenameConv}
           aria-label={t("aiPage.rename")}
           title={t("aiPage.rename")}
-          className="flex h-9 w-9 shrink-0 items-center justify-center !p-0 lg:h-8 lg:w-auto lg:!px-2.5 lg:!text-xs">
+          className="flex h-9 w-9 shrink-0 items-center justify-center !p-0 lg:h-8 lg:w-auto lg:!px-2.5 lg:!text-sm">
           <Pencil size={15} aria-hidden="true" />
           <span className="hidden lg:ml-1.5 lg:inline">{t("aiPage.rename")}</span>
         </ActionButton>
@@ -80,11 +80,11 @@ export function AiChatHeader({
           onClick={onExportConv}
           aria-label={t("aiPage.exportTitle")}
           title={t("aiPage.exportTitle")}
-          className="flex h-9 w-9 shrink-0 items-center justify-center !p-0 lg:h-8 lg:w-auto lg:!px-2.5 lg:!text-xs">
+          className="flex h-9 w-9 shrink-0 items-center justify-center !p-0 lg:h-8 lg:w-auto lg:!px-2.5 lg:!text-sm">
           <Download size={15} aria-hidden="true" />
           <span className="hidden lg:ml-1.5 lg:inline">{t("aiPage.export")}</span>
         </ActionButton>
       </div>
-    </div>
+    </header>
   );
 }

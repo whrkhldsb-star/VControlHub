@@ -23,6 +23,7 @@ const { mockPrisma, configState } = vi.hoisted(() => ({
       updateMany: vi.fn(async () => ({ count: 0 })),
     },
     $transaction: vi.fn(async (callback: any) => callback(mockPrisma)),
+    $executeRaw: vi.fn(async () => 1),
     $queryRaw: vi.fn(async () => { throw new Error("queryRaw not available in unit test"); }),
   },
   // TR-001 T13b: each test opts into specific cap values via `configState`;
@@ -71,12 +72,14 @@ describe("durable job service", () => {
     // defaults below for every test.
     vi.resetAllMocks();
     // Re-set default implementations (resetAllMocks wiped them).
-    mockPrisma.job.findFirst.mockResolvedValue(null);
+    mockPrisma.job.findUnique.mockResolvedValue(null);
     mockPrisma.job.findUniqueOrThrow.mockResolvedValue(null);
     mockPrisma.job.updateMany.mockResolvedValue({ count: 0 });
     mockPrisma.job.create.mockResolvedValue({ id: "job-default" });
     mockPrisma.job.count.mockResolvedValue(0);
     mockPrisma.$transaction.mockImplementation(async (callback: any) => callback(mockPrisma));
+    mockPrisma.$executeRaw.mockResolvedValue(1);
+    mockPrisma.$queryRaw.mockResolvedValue([{ id: "job1" }] as never);
     configState.jobMaxConcurrentGlobal = 0;
     configState.jobMaxConcurrentPerUser = 0;
     configState.jobMaxConcurrentPerNode = 0;
@@ -101,16 +104,13 @@ describe("durable job service", () => {
 
   it("claims the oldest available pending or expired job with a worker lease", async () => {
     const now = new Date("2026-06-08T09:00:00Z");
-    mockPrisma.job.findFirst.mockResolvedValue({ id: "job1", startedAt: null });
+    mockPrisma.job.findUnique.mockResolvedValue({ id: "job1", startedAt: null });
     mockPrisma.job.updateMany.mockResolvedValue({ count: 1 });
     mockPrisma.job.findUniqueOrThrow.mockResolvedValue({ id: "job1", workerId: "worker-a" });
 
     const claimed = await claimNextJob({ workerId: "worker-a", types: ["backup.full"], leaseMs: 60_000, now });
 
-    expect(mockPrisma.job.findFirst).toHaveBeenCalledWith(expect.objectContaining({
-      where: expect.objectContaining({ type: { in: ["backup.full"] } }),
-      orderBy: [{ priority: "desc" }, { availableAt: "asc" }, { createdAt: "asc" }],
-    }));
+    expect(mockPrisma.job.findUnique).toHaveBeenCalledWith({ where: { id: "job1" } });
     expect(mockPrisma.job.updateMany).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({ id: "job1" }),
       data: expect.objectContaining({ workerId: "worker-a", workerHeartbeatAt: now, leaseExpiresAt: new Date("2026-06-08T09:01:00Z") }),
@@ -390,7 +390,7 @@ describe("durable job service", () => {
       expect(claimed).toBeNull();
       // We must NOT have run findFirst/updateMany, otherwise we'd be
       // claiming past the cap.
-      expect(mockPrisma.job.findFirst).not.toHaveBeenCalled();
+      expect(mockPrisma.job.findUnique).not.toHaveBeenCalled();
       expect(mockPrisma.job.updateMany).not.toHaveBeenCalled();
     });
 
@@ -401,7 +401,7 @@ describe("durable job service", () => {
       // version of this test queued Once(0) "for global"; that Once
       // then leaked into the per-user check, returning 0 instead of 3
       // and the test claimed the job when it should have bailed.)
-      mockPrisma.job.findFirst.mockResolvedValueOnce({
+      mockPrisma.job.findUnique.mockResolvedValueOnce({
         id: "job1",
         startedAt: null,
         createdBy: "u-1",
@@ -415,7 +415,7 @@ describe("durable job service", () => {
       expect(claimed).toBeNull();
       // We must have run the global count + findFirst (we picked a candidate
       // and decided to bail) but NOT the actual updateMany claim.
-      expect(mockPrisma.job.findFirst).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.job.findUnique).toHaveBeenCalledTimes(1);
       expect(mockPrisma.job.updateMany).not.toHaveBeenCalled();
     });
 
@@ -425,7 +425,7 @@ describe("durable job service", () => {
       // count call happens. Do NOT queue a Once for the skipped checks;
       // a leftover Once would get consumed by the per-node call and
       // return the wrong value.
-      mockPrisma.job.findFirst.mockResolvedValueOnce({
+      mockPrisma.job.findUnique.mockResolvedValueOnce({
         id: "job1",
         startedAt: null,
         createdBy: "u-1",
@@ -449,7 +449,7 @@ describe("durable job service", () => {
         .mockResolvedValueOnce(3) // global check: 3 in-flight, cap=5, OK
         .mockResolvedValueOnce(0) // per-user check: 0 in-flight for u-1, cap=2, OK
         .mockResolvedValueOnce(0); // per-node check: 0 in-flight for node-A, cap=1, OK
-      mockPrisma.job.findFirst.mockResolvedValueOnce({
+      mockPrisma.job.findUnique.mockResolvedValueOnce({
         id: "job1",
         startedAt: null,
         createdBy: "u-1",
@@ -474,7 +474,7 @@ describe("durable job service", () => {
       // `if (maxPerUser > 0 && candidate.createdBy)` and the per-node
       // check is skipped because targetStorageNodeId is null. Net
       // effect: no `count()` call at all on this code path.
-      mockPrisma.job.findFirst.mockResolvedValueOnce({
+      mockPrisma.job.findUnique.mockResolvedValueOnce({
         id: "job-sys",
         startedAt: null,
         createdBy: null, // system job (alert.evaluate / scheduled-task.tick)

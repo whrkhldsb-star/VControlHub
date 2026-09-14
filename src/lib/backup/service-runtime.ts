@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * Backup service — execution / orchestration layer (R28 god-file split).
  *
@@ -87,7 +88,7 @@ export async function runExistingBackupRecord(input: { id: string; projectRoot?:
 			if (!latest.offsiteKey) await logOffsiteUploadResult(record.id, projectRoot);
 			return latest;
 		}
-		throw new ConflictError(`Backup cannot start from status ${latest?.status ?? "unknown"}`);
+		throw new ConflictError(apiCopy("apiCopy.backup.cannot.start.from.status.366dbbfc", { v0: String(latest?.status ?? "unknown") }));
 	}
 
 	try {
@@ -101,7 +102,7 @@ export async function runExistingBackupRecord(input: { id: string; projectRoot?:
 		const MIN_LOCAL_BACKUP_BYTES = 32;
 		if (!Number.isFinite(fileInfo.size) || fileInfo.size < MIN_LOCAL_BACKUP_BYTES) {
 			throw new BusinessError(
-				`Backup artifact is empty or too small (${fileInfo.size} bytes); treating as failed`,
+				apiCopy("apiCopy.backup.artifact.is.empty.or.too.small.bytes.treating.as.failed.f5213af8", { v0: String(fileInfo.size) }),
 			);
 		}
 		const checksumSha256 = await calculateFileSha256(outputPath);

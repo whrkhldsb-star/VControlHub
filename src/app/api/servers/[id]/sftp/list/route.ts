@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * POST /api/servers/[id]/sftp/list — list directory contents on remote server
  */
@@ -22,7 +23,7 @@ export async function POST(
       permission: "server:ssh",
       // Directory listing is a read path; do not share the write bucket with mkdir/upload.
       rateLimit: GENERAL_READ_LIMIT,
-      errorMessage: "SFTP list failed",
+      errorMessage: apiCopy("apiCopy.sftp.list.failed.e07eb727"),
       bodySchema: listDirSchema,
     },
     async ({ body, session }) => {

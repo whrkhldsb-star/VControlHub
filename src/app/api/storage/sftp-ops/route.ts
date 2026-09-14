@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import type { SessionPayload } from "@/lib/auth/session";
@@ -102,7 +103,7 @@ async function softDeleteSftpIndex(storageNodeId: string, relativePath: string, 
     });
     if (childCount > DIRECTORY_CHILD_REWRITE_LIMIT) {
       throw new ValidationError(
-        `Directory has too many indexed children to soft-delete safely (limit ${DIRECTORY_CHILD_REWRITE_LIMIT}); reindex or split first`,
+        apiCopy("apiCopy.directory.has.too.many.indexed.children.to.soft.delete.safely.li.22d140d8", { v0: String(DIRECTORY_CHILD_REWRITE_LIMIT) }),
       );
     }
   }
@@ -169,7 +170,7 @@ async function renameSftpIndex(storageNodeId: string, oldRelativePath: string, n
     });
     if (children.length > DIRECTORY_CHILD_REWRITE_LIMIT) {
       throw new ValidationError(
-        `Directory has too many indexed children to rename safely (limit ${DIRECTORY_CHILD_REWRITE_LIMIT}); reindex or split first`,
+        apiCopy("apiCopy.directory.has.too.many.indexed.children.to.rename.safely.limit.r.a9701b8f", { v0: String(DIRECTORY_CHILD_REWRITE_LIMIT) }),
       );
     }
     // N+1 acceptable: non-uniform per-item writes (each row gets a computed relativePath)
@@ -205,11 +206,11 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
   const { action, nodeId, path: remotePath } = body;
 
   if (!nodeId) {
-    throw new ValidationError("Missing nodeId parameter");
+    throw new ValidationError(apiCopy("apiCopy.missing.nodeid.parameter.6d98c74c"));
   }
 
   if (!remotePath) {
-    throw new ValidationError("Missing path parameter");
+    throw new ValidationError(apiCopy("apiCopy.missing.path.parameter.352f3af2"));
   }
 
   // Resolve storage node (credentials resolved inside fs-backend for SFTP).
@@ -237,7 +238,7 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
         ? "storage:delete"
         : "storage:write";
   if (!sessionHasPermission(session, requiredPermission)) {
-    throw new ForbiddenError("Missing permission");
+    throw new ForbiddenError(apiCopy("apiCopy.missing.permission.8af29748"));
   }
   const accessDecision = await assertStorageAccess({
     session,
@@ -308,7 +309,7 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
       case "rename": {
         if (!body.newPath) {
           return NextResponse.json(
-            { error: "Missing newPath Parameter" },
+            { error: apiCopy("apiCopy.missing.newpath.parameter.9ea59987") },
             { status: 400 },
           );
         }
@@ -392,7 +393,7 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
         if (indexedSize !== null && indexedSize > BigInt(MAX_INLINE_REMOTE_READ_BYTES)) {
           return NextResponse.json(
             {
-              error: "File exceeds 1 MB, online reading is temporarily unsupported, please use the download feature",
+              error: apiCopy("apiCopy.file.exceeds.1.mb.online.reading.is.temporarily.unsupported.plea.01cb31d7"),
               maxInlineBytes: MAX_INLINE_REMOTE_READ_BYTES,
               size: Number(indexedSize),
             },
@@ -417,7 +418,7 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
           if (isAppError(readError) && readError.status === 422) {
             return NextResponse.json(
               {
-                error: "File exceeds 1 MB, online reading is temporarily unsupported, please use the download feature",
+                error: apiCopy("apiCopy.file.exceeds.1.mb.online.reading.is.temporarily.unsupported.plea.01cb31d7"),
                 maxInlineBytes: MAX_INLINE_REMOTE_READ_BYTES,
               },
               { status: 413 },
@@ -429,7 +430,7 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
         if (buffer.byteLength > MAX_INLINE_REMOTE_READ_BYTES) {
           return NextResponse.json(
             {
-              error: "File exceeds 1 MB, online reading is temporarily unsupported, please use the download feature",
+              error: apiCopy("apiCopy.file.exceeds.1.mb.online.reading.is.temporarily.unsupported.plea.01cb31d7"),
               maxInlineBytes: MAX_INLINE_REMOTE_READ_BYTES,
               size: buffer.byteLength,
             },
@@ -477,7 +478,7 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
       case "write": {
         if (body.content === undefined || body.content === null) {
           return NextResponse.json(
-            { error: "Missing content Parameter" },
+            { error: apiCopy("apiCopy.missing.content.parameter.23941f39") },
             { status: 400 },
           );
         }
@@ -485,7 +486,7 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
         if (writeBytes > MAX_EDITABLE_FILE_SIZE_BYTES) {
           return NextResponse.json(
             {
-              error: `File exceeds ${MAX_EDITABLE_FILE_SIZE_BYTES} bytes, online editing is temporarily unsupported`,
+              error: apiCopy("apiCopy.file.exceeds.bytes.online.editing.is.temporarily.unsupported.4686f955", { v0: String(MAX_EDITABLE_FILE_SIZE_BYTES) }),
               maxInlineBytes: MAX_EDITABLE_FILE_SIZE_BYTES,
               size: writeBytes,
             },
@@ -578,7 +579,7 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
 
       default:
         return NextResponse.json(
-          { error: `Unsupported'sOperation: ${action}` },
+          { error: apiCopy("apiCopy.unsupported.soperation.e8006bb1", { v0: String(action) }) },
           { status: 400 },
         );
     }
@@ -605,12 +606,12 @@ export async function POST(request: Request) {
     {
       permissions: ["storage:read", "storage:write", "storage:delete"],
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "Remote file operation failed",
+      errorMessage: apiCopy("apiCopy.remote.file.operation.failed.711098ba"),
       bodySchema: postSchema,
     },
     async ({ session, body }) => {
       if (!session)
-        throw new AuthError("Not authenticated");
+        throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
       return handlePost(body, session);
     },
   );

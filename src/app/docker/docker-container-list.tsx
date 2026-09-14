@@ -60,7 +60,7 @@ export function DockerContainerList({
 					<div className="mb-3 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
 						<div>
 							<h2 className="text-sm font-medium text-[var(--text-primary)]">{group.project}</h2>
-							<p className="text-[11px] text-[var(--text-muted)]">
+							<p className="text-xs text-[var(--text-muted)]">
 								{t("dockerPage.group.subtitle", { count: group.containers.length })}
 								{" ·"}
 							{t("dockerPage.project.runningOf", { running: group.containers.filter((c) => c.State ==="running").length, total: group.containers.length })}
@@ -85,7 +85,7 @@ export function DockerContainerList({
 										onClick={() => void handleProjectAction(group.project, action)}
 										disabled={projectActionLoading !== null}
 									
-										className="!min-h-11 !rounded-lg !px-2.5 !py-1 !text-[10px] !font-medium disabled:opacity-50"
+										className="!min-h-11 !rounded-lg !px-2.5 !py-1 !text-sm !font-medium disabled:opacity-50"
 									>
 										{busy ? t("dockerPage.project.busy") : t(labelKey)}
 									</ActionButton>

@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * Cloud billing adapters (FEAT-COST-CLOUD-BILLING).
  *
@@ -45,7 +46,7 @@ function monthBounds(month: string): { start: string; end: string } {
   const y = Number(ys);
   const m = Number(ms);
   if (!Number.isFinite(y) || !Number.isFinite(m) || m < 1 || m > 12) {
-    throw new ValidationError(`Invalid billing month: ${month}`);
+    throw new ValidationError(apiCopy("apiCopy.invalid.billing.month.677bfd1d", { v0: String(month) }));
   }
   const start = `${ys}-${ms}-01`;
   const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
@@ -270,7 +271,7 @@ async function fetchBillingCsvFromUrl(
   } catch (error) {
     if (error instanceof ValidationError) {
       throw new ValidationError(
-        `billingCsvUrl host is not allowed (SSRF protection): ${error.message}`,
+        apiCopy("apiCopy.billingcsvurl.host.is.not.allowed.ssrf.protection.e392d2ad", { v0: String(error.message) }),
       );
     }
     throw error;
@@ -293,7 +294,7 @@ async function fetchBillingCsvFromUrl(
       headers: { Accept: "text/csv,text/plain,*/*" },
     });
     if (!res.ok) {
-      throw new ValidationError(`billingCsvUrl HTTP ${res.status}`);
+      throw new ValidationError(apiCopy("apiCopy.billingcsvurl.http.1960beef", { v0: String(res.status) }));
     }
     let text: string;
     try {
@@ -315,7 +316,7 @@ async function fetchBillingCsvFromUrl(
   } catch (error) {
     if (error instanceof ValidationError) throw error;
     const msg = error instanceof Error ? error.message : String(error);
-    throw new ValidationError(`Failed to fetch billingCsvUrl: ${msg}`);
+    throw new ValidationError(apiCopy("apiCopy.failed.to.fetch.billingcsvurl.394a2afb", { v0: String(msg) }));
   } finally {
     clearTimeout(timer);
   }
@@ -340,7 +341,7 @@ async function fetchLiveItems(
     );
   }
   throw new ValidationError(
-    `${provider} billing import requires config.billingCsvUrl or config.sampleCsv with date,amount columns.`,
+    apiCopy("apiCopy.billing.import.requires.config.billingcsvurl.or.config.samplecsv.596def5b", { v0: String(provider) }),
   );
 }
 

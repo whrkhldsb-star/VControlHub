@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * GET /api/files/[id]/versions/[versionId]/download — download a version blob
  */
@@ -25,10 +26,10 @@ export async function GET(
     request,
     {
       permission: "storage:read",
-      errorMessage: "Failed to download file version",
+      errorMessage: apiCopy("apiCopy.failed.to.download.file.version.0b96b819"),
     },
     async ({ session }) => {
-      if (!session) throw new AuthError("Unauthorized");
+      if (!session) throw new AuthError(apiCopy("apiCopy.unauthorized.d089c8a9"));
       const { id, versionId } = await params;
       const { version, stream } = await getFileVersionForDownload({
         fileEntryId: id,

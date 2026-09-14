@@ -8,6 +8,9 @@ import {
 } from "@/lib/media/service";
 import {
   PageShell,
+  PageHeader,
+  StatGrid,
+  StatCard,
   PermissionDenied,
   EmptyState,
 } from "@/components/page-shell";
@@ -100,46 +103,20 @@ export default async function Page({
   const modeDescriptionText = modeDescription(locale, mediaType);
   return (
     <PageShell>
-      <header className="mb-6 overflow-hidden rounded-3xl border border-[var(--border)] bg-[linear-gradient(145deg,color-mix(in_srgb,var(--accent-bg)_40%,var(--surface)),var(--surface))] p-5 shadow-[var(--shadow-sm)] sm:p-6">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div className="min-w-0">
-            <p
-              data-page-eyebrow
-              className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]"
-            >
-              {t("mediaPage.eyebrow", locale)}
-            </p>
-            <h1 className="mt-2 break-words text-[1.75rem] font-semibold leading-snug tracking-[-0.02em] text-[var(--text-primary)] sm:text-[2rem]">
-              {t("mediaPage.title", locale)}
-            </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--text-muted)]">
-              {t("mediaPage.desc", locale)}
-            </p>
-          </div>
-          <div className="grid min-w-[240px] grid-cols-3 gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] p-2 text-center">
-            <div className="rounded-xl bg-[var(--info-bg)] px-3 py-2">
-              <div className="text-lg font-semibold text-[var(--info)]">{imageCount}</div>
-              <div className="text-[10px] text-[var(--info)]/70">{t("mediaPage.stat.image", locale)}</div>
-            </div>
-            <div className="rounded-xl bg-[var(--accent-bg)] px-3 py-2">
-              <div className="text-lg font-semibold text-[var(--accent)]">{videoCount}</div>
-              <div className="text-[10px] text-[var(--accent)]/70">{t("mediaPage.stat.video", locale)}</div>
-            </div>
-            <div className="rounded-xl bg-[var(--success-bg)] px-3 py-2">
-              <div className="text-lg font-semibold text-[var(--success)]">{audioCount}</div>
-              <div className="text-[10px] text-[var(--success)]/70">{t("mediaPage.stat.audio", locale)}</div>
-            </div>
-          </div>
-        </div>
-      </header>
-      <section className="mb-5 grid gap-3 lg:grid-cols-[1.2fr_0.8fr]">
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow-sm)]">
+      <PageHeader eyebrow={t("mediaPage.eyebrow", locale)} title={t("mediaPage.title", locale)} />
+      <StatGrid cols={3}>
+        <StatCard label={t("mediaPage.stat.image", locale)} value={imageCount} />
+        <StatCard label={t("mediaPage.stat.video", locale)} value={videoCount} />
+        <StatCard label={t("mediaPage.stat.audio", locale)} value={audioCount} />
+      </StatGrid>
+      <section className="mb-5 min-w-0 border-b border-[var(--border)] pb-4">
+        <div className="min-w-0">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">
+              <p className="text-xs font-semibold uppercase  text-[var(--accent)]">
                 {t("mediaPage.workspace.label", locale)}
               </p>
-              <h2 className="mt-1 text-xl font-semibold text-[var(--text-primary)]">
+              <h2 className="mt-1 text-base font-semibold text-[var(--text-primary)]">
                 {modeTitleText}
               </h2>
               <p className="mt-1 text-sm text-[var(--text-muted)]">
@@ -165,9 +142,9 @@ export default async function Page({
             </div>
           </div>
           <div
-            role="tablist"
+            role="navigation"
             aria-label={t("mediaPage.aria.mediaType", locale)}
-            className="mt-4 grid gap-2 text-sm sm:grid-cols-4"
+            className="mt-4 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4"
           >
 
             <FilterLink
@@ -189,7 +166,7 @@ export default async function Page({
               href={toggleTypeHref(filters,"image")}
               active={mediaType ==="image"}
               activeClassName="border-[var(--info-border)] bg-[var(--info-bg)] text-[var(--info)]"
-              inactiveClassName="border-[var(--info-border)] bg-[var(--info-bg)] text-[var(--info)] hover:bg-[var(--info-bg)]"
+              inactiveClassName="border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
               className="rounded-2xl border px-4 py-3 transition"
               title={
                 mediaType ==="image"
@@ -202,7 +179,7 @@ export default async function Page({
                 <span>{t("mediaPage.filter.imageTab", locale)}</span>
                 <span>{imageCount}</span>
               </span>
-              <span className="mt-1 block text-xs opacity-70">
+              <span className="mt-1 block text-xs text-[var(--text-muted)]">
                 {t("mediaPage.filter.imageDesc", locale)}
                 {mediaType ==="image"
                   ? t("mediaPage.filter.toggleOff", locale)
@@ -213,7 +190,7 @@ export default async function Page({
               href={toggleTypeHref(filters,"video")}
               active={mediaType ==="video"}
               activeClassName="border-[var(--accent-border)] bg-[var(--accent-bg)]/80 text-[var(--accent)]"
-              inactiveClassName="border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)] hover:bg-[var(--accent-bg)]"
+              inactiveClassName="border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
               className="rounded-2xl border px-4 py-3 transition"
               title={
                 mediaType ==="video"
@@ -226,7 +203,7 @@ export default async function Page({
                 <span>{t("mediaPage.filter.videoTab", locale)}</span>
                 <span>{videoCount}</span>
               </span>
-              <span className="mt-1 block text-xs opacity-70">
+              <span className="mt-1 block text-xs text-[var(--text-muted)]">
                 {t("mediaPage.filter.videoDesc", locale)}
                 {mediaType ==="video"
                   ? t("mediaPage.filter.toggleOff", locale)
@@ -237,7 +214,7 @@ export default async function Page({
               href={toggleTypeHref(filters,"audio")}
               active={mediaType ==="audio"}
               activeClassName="border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]"
-              inactiveClassName="border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)] hover:bg-[var(--success-bg)] hover:text-[var(--success)]"
+              inactiveClassName="border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
               className="rounded-2xl border px-4 py-3 transition"
               title={
                 mediaType ==="audio"
@@ -250,7 +227,7 @@ export default async function Page({
                 <span>{t("mediaPage.filter.audioTab", locale)}</span>
                 <span>{audioCount}</span>
               </span>
-              <span className="mt-1 block text-xs opacity-70">
+              <span className="mt-1 block text-xs text-[var(--text-muted)]">
                 {t("mediaPage.filter.audioDesc", locale)}
                 {mediaType ==="audio"
                   ? t("mediaPage.filter.toggleOff", locale)
@@ -259,38 +236,11 @@ export default async function Page({
             </FilterLink>
           </div>
         </div>
-        <aside className="rounded-2xl border border-[var(--border)]/[0.07] bg-[var(--surface-elevated)] p-4">
-
-          <h2 className="text-sm font-semibold text-[var(--text-primary)]">
-            {t("mediaPage.flow.title", locale)}
-          </h2>
-          <ol className="mt-3 space-y-3 text-sm text-[var(--text-muted)]">
-
-            <li className="flex gap-3">
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-action-bg)]/15 text-xs text-[var(--text-secondary)]">
-                1
-              </span>
-              <span>{t("mediaPage.flow.step1", locale)}</span>
-            </li>
-            <li className="flex gap-3">
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-action-bg)]/15 text-xs text-[var(--text-secondary)]">
-                2
-              </span>
-              <span>{t("mediaPage.flow.step2", locale)}</span>
-            </li>
-            <li className="flex gap-3">
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-action-bg)]/15 text-xs text-[var(--text-secondary)]">
-                3
-              </span>
-              <span>{t("mediaPage.flow.step3", locale)}</span>
-            </li>
-          </ol>
-        </aside>
       </section>
       <form
         method="GET"
         action="/media"
-        className="mb-4 flex flex-wrap items-center gap-2 rounded-2xl border border-[var(--border)]/[0.07] bg-[var(--surface-elevated)] p-3"
+        className="mb-4 flex flex-wrap items-end gap-2"
       >
 
         {mediaType && (
@@ -338,8 +288,8 @@ export default async function Page({
         <FilterLink
           href={toggleFavoriteHref(filters)}
           active={favorite === true}
-          activeClassName="border-[var(--warning-border)] bg-[var(--warning)] text-[var(--warning)]"
-          inactiveClassName="border-[var(--warning-border)] bg-[var(--warning)]/[0.10] text-[var(--warning)] hover:bg-[var(--warning)]"
+          activeClassName="border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)]"
+          inactiveClassName="border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
           className="rounded-full border px-3 py-1 transition"
           title={
             favorite
@@ -352,7 +302,7 @@ export default async function Page({
         </FilterLink>
       </div>
       {tagCloud.length > 0 && (
-        <div data-card className="mb-5 p-3">
+        <div className="mb-5 border-b border-[var(--border)] py-3">
 
           <div className="mb-2 text-xs font-semibold text-[var(--text-muted)]">
             {t("mediaPage.tagFilter.title", locale)}
@@ -428,7 +378,7 @@ export default async function Page({
             <h2 className="text-sm font-semibold text-[var(--text-primary)]">
               {serverName}
             </h2>
-            <span className="rounded-lg border border-[var(--border)] px-2 py-0.5 text-[10px] text-[var(--text-muted)]">
+            <span className="rounded-lg border border-[var(--border)] px-2 py-0.5 text-xs text-[var(--text-muted)]">
               {t("mediaPage.itemCount", locale, { count: items.length })}
             </span>
           </div>

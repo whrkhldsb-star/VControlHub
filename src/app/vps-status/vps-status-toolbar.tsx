@@ -8,6 +8,7 @@
 import Link from "next/link";
 
 import { ActionButton } from "@/components/action-button";
+import { Toolbar, ToggleChip } from "@/components/page-shell";
 import { StatusBadge } from "@/components/status-badge";
 
 import type { VpsStatusFilter, VpsStatusViewMode } from "./use-vps-status-view";
@@ -42,7 +43,7 @@ export function VpsStatusToolbar({
 	loading: boolean;
 }) {
 	return (
-		<div className="flex flex-col gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_1px_0_rgba(255,255,255,0.03)_inset] sm:flex-row sm:items-center sm:justify-between">
+		<Toolbar className="justify-between">
 			<div className="flex flex-wrap items-center gap-2">
 				{(
 					[
@@ -51,23 +52,14 @@ export function VpsStatusToolbar({
 						["issue", t("vpsStatusPage.filter.issue")],
 					] as const
 				).map(([key, label]) => (
-					<button
-						key={key}
-						type="button"
-						onClick={() => setFilter(key)}
-						className={`rounded-full px-3 py-1 text-xs font-medium transition ${
-							filter === key
-								? "bg-[var(--color-action)] text-[var(--on-accent,white)]"
-								: "bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-						}`}
-					>
-						{label}
-					</button>
+                    <ToggleChip key={key} active={filter === key} onClick={() => setFilter(key)}>
+                      {label}
+                    </ToggleChip>
 				))}
 				<span className="ml-1 text-xs text-[var(--text-muted)]">
 					{tt("vpsStatusPage.showing", { count: filteredCount })}
 				</span>
-				<div className="ml-2 inline-flex rounded-full border border-[var(--border)] bg-[var(--surface-elevated)] p-0.5">
+				<div className="ml-2 inline-flex rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-0.5">
 					{(
 						[
 							["cards", t("vpsStatusPage.view.cards")],
@@ -79,7 +71,7 @@ export function VpsStatusToolbar({
 							type="button"
 							onClick={() => setViewModePersist(key)}
 							aria-pressed={viewMode === key}
-							className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition ${
+							className={`min-h-10 rounded-lg px-3 py-2 text-sm font-medium transition ${
 								viewMode === key
 									? "bg-[var(--surface)] text-[var(--text-primary)] shadow-sm"
 									: "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
@@ -103,7 +95,7 @@ export function VpsStatusToolbar({
 					href="/health"
 					data-action-button
 					data-variant="outline"
-					className="!px-3 !text-xs"
+					className="!px-3 !text-sm"
 				>
 					{t("vpsStatusPage.gotoSystemHealth")}
 				</Link>
@@ -112,11 +104,11 @@ export function VpsStatusToolbar({
 					disabled={isRefreshing || loading}
 					aria-label={t("healthPage.ui.refreshAria")}
 				
-					className="inline-flex min-h-11 items-center !px-3 !text-xs disabled:cursor-not-allowed disabled:opacity-60"
+					className="inline-flex min-h-11 items-center !px-3 !text-sm disabled:cursor-not-allowed disabled:opacity-60"
 				>
 					{isRefreshing || loading ? t("healthPage.ui.refreshing") : t("healthPage.ui.refresh")}
 				</ActionButton>
 			</div>
-		</div>
+		</Toolbar>
 	);
 }

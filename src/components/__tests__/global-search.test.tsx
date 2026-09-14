@@ -21,6 +21,21 @@ function renderGlobalSearch(locale: "zh" | "en" = "zh") {
 
 describe("GlobalSearch", () => {
   afterEach(() => vi.unstubAllGlobals());
+  it("hides previous remote matches immediately when the query changes", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({ results: [{ label: "Old remote result", href: "/servers", category: "Server" }] })))
+      .mockImplementation(() => new Promise(() => {}));
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    renderGlobalSearch("en");
+    act(() => window.dispatchEvent(new Event("vcontrolhub:open-global-search")));
+    const input = await screen.findByRole("combobox");
+    await user.type(input, "remote-old");
+    expect(await screen.findByText("Old remote result")).toBeVisible();
+    await user.type(input, "-new");
+    expect(screen.queryByText("Old remote result")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Close" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
   it("makes remote search failures visible and aborts on close", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: "Search unavailable" }), { status: 503 }));
     vi.stubGlobal("fetch", fetchMock);
@@ -42,7 +57,7 @@ describe("GlobalSearch", () => {
 			window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true }));
 		});
 		await user.type(await screen.findByPlaceholderText("搜索页面、操作..."), "快捷服务");
-		await user.click(await screen.findByRole("button", { name: /快捷服务/ }));
+		await user.click(await screen.findByRole("option", { name: /快捷服务/ }));
 
 		expect(pushMock).toHaveBeenCalledWith("/quick-services");
 	});
@@ -178,7 +193,7 @@ describe("GlobalSearch", () => {
 			window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true }));
 		});
 		await user.type(await screen.findByPlaceholderText("搜索页面、操作..."), "两步验证");
-		await user.click(await screen.findByRole("button", { name: /两步验证/ }));
+		await user.click(await screen.findByRole("option", { name: /两步验证/ }));
 
 		expect(pushMock).toHaveBeenCalledWith("/account/security");
 		expect(dispatchSpy).not.toHaveBeenCalledWith(expect.objectContaining({ type: "open-2fa-modal" }));
@@ -201,10 +216,10 @@ describe("GlobalSearch", () => {
 		expect(input).toHaveAttribute("placeholder", "Search pages, actions...");
 		expect(screen.getByRole("option", { name: /Dashboard.*Page/ })).toBeInTheDocument();
 		expect(screen.queryByText("仪表盘")).not.toBeInTheDocument();
-		expect(screen.getByText("↑↓ Select")).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Close" })).toBeInTheDocument();
 
 		await user.type(input, "Quick Services");
-		await user.click(await screen.findByRole("button", { name: /Quick Apps/ }));
+		await user.click(await screen.findByRole("option", { name: /Quick Apps/ }));
 		expect(pushMock).toHaveBeenCalledWith("/quick-services");
 	});
 });

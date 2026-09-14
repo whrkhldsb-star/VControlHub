@@ -40,7 +40,7 @@ describe("ToastProvider", () => {
 		renderToast();
 		fireEvent.click(screen.getByText("Show Success"));
 		expect(screen.getByText("Saved successfully")).toBeInTheDocument();
-		expect(screen.getByText("✓")).toBeInTheDocument();
+		expect(screen.getByRole("status")).toHaveTextContent("Saved successfully");
 	});
 
 	it("shows error and warning toasts with correct icons", () => {
@@ -72,6 +72,20 @@ describe("ToastProvider", () => {
 		});
 
 		expect(screen.queryByText("Saved successfully")).not.toBeInTheDocument();
+	});
+
+	it("clears dismissal timers when removed early or unmounted", () => {
+		vi.useFakeTimers();
+		const { unmount } = renderToast();
+		fireEvent.click(screen.getByText("Show Success"));
+		expect(vi.getTimerCount()).toBe(1);
+		fireEvent.click(screen.getByRole("button", { name: "Close" }));
+		expect(vi.getTimerCount()).toBe(0);
+		fireEvent.click(screen.getByText("Show Success"));
+		fireEvent.click(screen.getByText("Show Warning"));
+		expect(vi.getTimerCount()).toBe(2);
+		unmount();
+		expect(vi.getTimerCount()).toBe(0);
 	});
 
 	it("does not auto-dismiss when duration is 0", () => {

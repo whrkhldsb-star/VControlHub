@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
@@ -13,10 +14,10 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { permission: "ai:chat", errorStatus: 400, errorMessage: "Failed to fetch model list" },
+    { permission: "ai:chat", errorStatus: 400, errorMessage: apiCopy("apiCopy.failed.to.fetch.model.list.d5934edd") },
     async ({ session }) => {
       if (!session)
-        throw new AuthError("Not authenticated");
+        throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
 
       const { providerId } = parseSearchParams(request, aiModelsQuerySchema);
 

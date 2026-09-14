@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * TR-042: 系统配置导出服务
  *
@@ -74,7 +75,7 @@ export function resolveExportAuthorization(input: {
     throw new ForbiddenError(t("backend.system.globalExportRequiresPlatformAdmin"));
   }
   if (scope === "team" && !teamId) {
-    throw new ValidationError("No current team selected for team export", { field: "teamId" });
+    throw new ValidationError(apiCopy("apiCopy.no.current.team.selected.for.team.export.a4844e53"), { field: "teamId" });
   }
   if (!isPlatformAdmin(session)) {
     scope = "team";

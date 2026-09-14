@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { escapeHtml } from "@/lib/sanitize/escape-html";
 
 import {
 	getErrorMessage,
@@ -75,10 +76,19 @@ export function useImageBedActions({
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const batchBusyRef = useRef(false);
 	const publishingRef = useRef(false);
+	const uploadingRef = useRef(false);
+	const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	useEffect(() => () => {
+		if (toastTimerRef.current !== null) clearTimeout(toastTimerRef.current);
+	}, []);
 
 	const showToast = useCallback((msg: string, tone: ToastTone = "status") => {
+		if (toastTimerRef.current !== null) clearTimeout(toastTimerRef.current);
 		setToast({ message: msg, tone });
-		setTimeout(() => setToast(null), 3000);
+		toastTimerRef.current = setTimeout(() => {
+			setToast(null);
+			toastTimerRef.current = null;
+		}, 3000);
 	}, []);
 
 	const fetchStats = useCallback(async () => {
@@ -109,9 +119,11 @@ export function useImageBedActions({
 
 	const handleUpload = useCallback(
 		async (files: FileList | File[]) => {
+			if (uploadingRef.current) return;
 			const uploadItems = Array.from(files);
 			if (uploadItems.length === 0) return;
 
+			uploadingRef.current = true;
 			setUploading(true);
 			setUploadProgress({
 				total: uploadItems.length,
@@ -235,6 +247,7 @@ export function useImageBedActions({
 				}
 			}
 
+			uploadingRef.current = false;
 			setUploading(false);
 			if (fileInputRef.current) fileInputRef.current.value = "";
 			if (success > 0 && failure === 0) {
@@ -272,9 +285,9 @@ export function useImageBedActions({
 		async (action: "delete" | "moveAlbum" | "togglePublic") => {
 			if (selectedIds.size === 0) {
 				showToast(t("imageBed.toast.selectFirst"));
-				return;
+				return false;
 			}
-			if (batchBusyRef.current) return;
+			if (batchBusyRef.current) return false;
 			batchBusyRef.current = true;
 			setBatchBusy(true);
 			try {
@@ -294,8 +307,10 @@ export function useImageBedActions({
 				setSelectedIds(new Set());
 				setBatchMode(false);
 				void fetchImages(page);
+				return true;
 			} catch {
-				showToast(t("imageBed.toast.batchError"));
+				showToast(t("imageBed.toast.batchError"), "alert");
+				return false;
 			} finally {
 				batchBusyRef.current = false;
 				setBatchBusy(false);
@@ -333,8 +348,7 @@ export function useImageBedActions({
 			return;
 		}
 		try {
-			await runBatchAction("delete");
-			setPendingDelete(null);
+			if (await runBatchAction("delete")) setPendingDelete(null);
 		} finally {
 			deletingRef.current = false;
 			setDeleting(false);
@@ -388,43 +402,33 @@ export function useImageBedActions({
 		});
 	}, []);
 
-	const copyLink = useCallback(
-		(url: string) => {
-			const fullUrl = `${window.location.origin}${url}`;
-			void navigator.clipboard
-				.writeText(fullUrl)
-				.then(
-					() => showToast(t("imageBed.toast.urlCopied")),
-					() => showToast(t("imageBed.toast.copyFailed")),
-				);
-		},
-		[showToast, t],
-	);
+	const copyText = useCallback(async (text: string, successKey: string) => {
+		try {
+			await navigator.clipboard.writeText(text);
+			showToast(t(successKey));
+		} catch {
+			showToast(t("imageBed.toast.copyFailed"), "alert");
+		}
+	}, [showToast, t]);
+
+	const copyLink = useCallback((url: string) =>
+		copyText(`${window.location.origin}${url}`, "imageBed.toast.urlCopied"), [copyText]);
 
 	const copyMarkdown = useCallback(
 		(img: ImageItem) => {
 			const fullUrl = `${window.location.origin}${img.publicUrl}`;
-			void navigator.clipboard
-				.writeText(`![${img.filename}](${fullUrl})`)
-				.then(
-					() => showToast(t("imageBed.toast.markdownCopied")),
-					() => showToast(t("imageBed.toast.copyFailed")),
-				);
+			const label = escapeHtml(img.filename).replace(/[[\]\\]/g, "\\$&").replace(/[\r\n]/g, " ");
+			return copyText(`![${label}](${fullUrl})`, "imageBed.toast.markdownCopied");
 		},
-		[showToast, t],
+		[copyText],
 	);
 
 	const copyHTML = useCallback(
 		(img: ImageItem) => {
 			const fullUrl = `${window.location.origin}${img.publicUrl}`;
-			void navigator.clipboard
-				.writeText(`<img src="${fullUrl}" alt="${img.filename}" />`)
-				.then(
-					() => showToast(t("imageBed.toast.htmlCopied")),
-					() => showToast(t("imageBed.toast.copyFailed")),
-				);
+			return copyText(`<img src="${escapeHtml(fullUrl)}" alt="${escapeHtml(img.filename)}" />`, "imageBed.toast.htmlCopied");
 		},
-		[showToast, t],
+		[copyText],
 	);
 
 	const openPublishModal = useCallback(() => {

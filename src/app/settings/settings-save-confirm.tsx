@@ -110,7 +110,7 @@ export function SaveButtonWithDiff({
             aria-expanded={expanded}
             aria-label={t("settingsClient.expandAria", { count, expanded: expanded ? t("settingsClient.collapsed") : t("settingsClient.expanded") })}
             data-pending-count={count}
-            className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition ${
+            className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium transition ${
               highCount > 0
                 ? "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)] hover:bg-[var(--danger-bg)]"
                 : mediumCount > 0
@@ -150,7 +150,7 @@ export function SaveButtonWithDiff({
           className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)]"
         >
           <table className="w-full text-xs">
-            <thead className="border-b border-[var(--border)] bg-[var(--surface-elevated)] text-left text-[11px] uppercase tracking-wide text-[var(--text-muted)] light:bg-[var(--surface)]/70">
+            <thead className="border-b border-[var(--border)] bg-[var(--surface-elevated)] text-left text-xs uppercase  text-[var(--text-muted)] light:bg-[var(--surface)]/70">
               <tr>
                 <th className="px-3 py-2 font-medium">{t("settingsClient.diffTableField")}</th>
                 <th className="px-3 py-2 font-medium">{t("settingsClient.diffTableOriginal")}</th>
@@ -166,7 +166,7 @@ export function SaveButtonWithDiff({
                   data-pending-risk={change.riskLevel}
                   className="border-t border-[var(--border)] align-top"
                 >
-                  <td className="px-3 py-2 font-mono text-[11px] text-[var(--text-primary)]">{t(change.labelKey)}</td>
+                  <td className="px-3 py-2 font-mono text-xs text-[var(--text-primary)]">{t(change.labelKey)}</td>
                   <td className="px-3 py-2 text-[var(--text-muted)] line-through">
                     {renderDiffValue(change.oldValue, t, 60, change.fieldType)}
                   </td>
@@ -241,10 +241,10 @@ export function HighRiskConfirmModal({
               className="rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] p-3 text-xs"
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="font-mono text-[11px] text-[var(--text-primary)]">{t(change.labelKey)}</span>
+                <span className="font-mono text-xs text-[var(--text-primary)]">{t(change.labelKey)}</span>
                 <FieldRiskBadge level={change.riskLevel} />
               </div>
-              <div className="mt-1.5 grid grid-cols-1 gap-1 text-[11px] sm:grid-cols-2">
+              <div className="mt-1.5 grid grid-cols-1 gap-1 text-xs sm:grid-cols-2">
                 <div>
                   <span className="text-[var(--text-muted)]">{t("settingsClient.confirmOriginal")}</span>
                   <span className="text-[var(--text-secondary)] line-through">
@@ -265,7 +265,7 @@ export function HighRiskConfirmModal({
           <ActionButton variant="secondary"
             onClick={onCancel}
             disabled={busy}
-            data-action="cancel" className="!px-4 !py-1.5 !text-xs disabled:opacity-50">
+            data-action="cancel" className="!px-4 !py-1.5 !text-sm disabled:opacity-50">
             {t("settingsClient.confirmCancel")}
           </ActionButton>
           <ActionButton variant="danger-solid"
@@ -280,7 +280,7 @@ export function HighRiskConfirmModal({
             disabled={busy}
             data-action="confirm"
            
-            className="!px-4 !py-1.5 !text-xs disabled:opacity-50"
+            className="!px-4 !py-1.5 !text-sm disabled:opacity-50"
           >
             {busy ? t("settingsClient.saving") : t("settingsClient.confirmSaveAction")}
           </ActionButton>

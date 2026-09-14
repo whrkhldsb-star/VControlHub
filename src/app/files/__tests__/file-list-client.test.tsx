@@ -245,6 +245,64 @@ describe("FileListClient", () => {
     );
   });
 
+  it("preserves selection across pages and only toggles the current page", () => {
+    const props = { folders: [], canEditLocalFiles: true, canDelete: true, currentPath: "photos", searchQuery: "", selectionScopeSeed: "same-folder" };
+    const { rerender } = render(<FileListClient {...props} files={[imageFile]} selectionPage={1} />);
+    fireEvent.click(firstFileCheckbox("cover.jpg"));
+    rerender(<FileListClient {...props} files={[archiveFile]} selectionPage={2} />);
+    expect(screen.getByText("· 已选 1 个")).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("全选文件"));
+    expect(screen.getByText("· 已选 2 个")).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("全选文件"));
+    expect(screen.getByText("· 已选 1 个")).toBeInTheDocument();
+    rerender(<FileListClient {...props} files={[imageFile]} selectionPage={1} />);
+    expect(firstFileCheckbox("cover.jpg")).toBeChecked();
+  });
+
+  it.each(["list", "grid", "details"])("rejects virtual folder drop targets in %s view", (mode) => {
+    window.localStorage.setItem("app-file-view-mode", mode);
+    const { container } = renderFileList({ folders: [{ ...folder, entryId: undefined }] });
+    expect(container.querySelector("[data-file-drop-path]")).toBeNull();
+  });
+
+  it("dragging a file to an actual folder opens confirmation before moving", async () => {
+    const { container } = renderFileList();
+    const row = container.querySelector('[data-file-entry-id="file_1"][draggable]')!;
+    const target = container.querySelector('[data-file-drop-path="photos"]')!;
+    const data = new Map<string, string>();
+    const transfer = { types: ["application/x-vcontrolhub-files"], setData: (key: string, value: string) => data.set(key, value), getData: (key: string) => data.get(key) ?? "" };
+    fireEvent.dragStart(row, { dataTransfer: transfer });
+    expect(JSON.parse(data.get("application/x-vcontrolhub-files")!)).toEqual({ ids: ["file_1"], nodeIds: ["node_1"] });
+    fireEvent.drop(target, { dataTransfer: transfer });
+    expect(await screen.findByRole("dialog")).toHaveTextContent("photos");
+    expect(csrfFetchMock).not.toHaveBeenCalledWith("/api/files/operations", expect.objectContaining({ method: "POST" }));
+  });
+
+  it("keeps all files selected when Ctrl+A is pressed twice inside the list", () => {
+    const { container } = renderFileList();
+    const list = container.querySelector('[data-file-list]')!;
+    fireEvent.keyDown(list, { key: "a", ctrlKey: true });
+    expect(firstFileCheckbox("cover.jpg")).toBeChecked();
+    fireEvent.keyDown(list, { key: "a", ctrlKey: true });
+    expect(firstFileCheckbox("cover.jpg")).toBeChecked();
+    fireEvent.keyDown(list, { key: "Escape" });
+    expect(firstFileCheckbox("cover.jpg")).not.toBeChecked();
+  });
+
+  it("does not intercept page selection or selection inside a modal", () => {
+    const { container } = renderFileList();
+    fireEvent.keyDown(document.body, { key: "a", ctrlKey: true });
+    expect(firstFileCheckbox("cover.jpg")).not.toBeChecked();
+    const dialog = document.createElement("div");
+    dialog.setAttribute("role", "dialog");
+    dialog.setAttribute("aria-modal", "true");
+    document.body.append(dialog);
+    try {
+      fireEvent.keyDown(container.querySelector('[data-file-list]')!, { key: "a", ctrlKey: true });
+      expect(firstFileCheckbox("cover.jpg")).not.toBeChecked();
+    } finally { dialog.remove(); }
+  });
+
   it("renders folder entries only once when directory entries also arrive in the files payload", () => {
     window.localStorage.setItem("app-file-view-mode", "grid");
 
@@ -255,12 +313,12 @@ describe("FileListClient", () => {
     expect(screen.getByText("cover.jpg")).toBeInTheDocument();
   });
 
-  it("excludes hidden directory payload entries from batch selection", async () => {
+  it("selects displayed folders and files without duplicating hidden directory payload entries", async () => {
     renderFileList({ files: [directoryFile, directoryMimeFile, imageFile] });
 
     fireEvent.click(screen.getByLabelText("全选文件"));
 
-    expect(await screen.findByText("已选 1 个文件")).toBeInTheDocument();
+    expect(await screen.findByText("已选 2 个文件")).toBeInTheDocument();
     expect(firstFileCheckbox("cover.jpg")).toBeChecked();
   });
 
@@ -573,6 +631,7 @@ describe("FileListClient", () => {
 
   it("hides preview, download, delete, and batch selection when entry capabilities deny access", () => {
     renderFileList({
+      folders: [],
       files: [
         {
           ...imageFile,
@@ -683,73 +742,26 @@ describe("FileListClient", () => {
     expect(screen.queryByText("已选 2 个文件")).not.toBeInTheDocument();
   });
 
-  it("keeps batch delete selection open and reports per-file failures", async () => {
+  it.each(["delete", "move"] as const)("retains all selected files when background %s submission fails", async (action) => {
+    csrfFetchMock.mockRejectedValueOnce(new Error("任务创建失败"));
     const onRefresh = vi.fn();
-    deleteFileEntryActionMock
-      .mockResolvedValueOnce({ success: "ok" })
-      .mockResolvedValueOnce({ error: "节点不可写" });
-
-    renderFileList({ files: [imageFile, archiveFile], onRefresh });
-
+    renderFileList({ files: [imageFile, archiveFile], folders: [], onRefresh });
     fireEvent.click(firstFileCheckbox("cover.jpg"));
     fireEvent.click(firstFileCheckbox("archive.zip"));
-    fireEvent.click(await screen.findByRole("button", { name: "批量删除" }));
-    fireEvent.click(await screen.findByRole("button", { name: "确认删除" }));
-
-    await waitFor(() =>
-      expect(deleteFileEntryActionMock).toHaveBeenCalledTimes(2),
-    );
-    expect(
-      await screen.findByRole("alert", { name: /批量操作完成/ }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("region", { name: "文件批量操作" }),
-    ).toHaveAccessibleDescription(
-      "已选择 2 个文件，可取消选择或执行当前权限允许的批量操作。",
-    );
-    expect(onRefresh).toHaveBeenCalledTimes(1);
-    expect(screen.getByText("已选 2 个文件")).toBeInTheDocument();
-    expect(screen.getByText(/节点不可写/)).toBeInTheDocument();
-  });
-
-  it("keeps batch move selection open and reports per-file failures", async () => {
-    const onRefresh = vi.fn();
-    moveFileActionMock
-      .mockResolvedValueOnce({ success: "ok" })
-      .mockResolvedValueOnce({ error: "目标目录不存在" })
-      .mockResolvedValueOnce({ success: "ok" });
-
-    renderFileList({ files: [imageFile, archiveFile, docFile], onRefresh });
-
-    fireEvent.click(firstFileCheckbox("cover.jpg"));
-    fireEvent.click(firstFileCheckbox("archive.zip"));
-    fireEvent.click(firstFileCheckbox("report.pdf"));
-    fireEvent.click(await screen.findByRole("button", { name: "批量移动" }));
-    fireEvent.change(
-      await screen.findByRole("textbox", { name: "批量移动目标路径" }),
-      { target: { value: "archive" } },
-    );
-    fireEvent.click(await screen.findByRole("button", { name: "确认移动" }));
-
-    await waitFor(() => expect(moveFileActionMock).toHaveBeenCalledTimes(3));
-    expect(
-      await screen.findByRole("alert", { name: /批量操作完成/ }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("region", { name: "文件批量操作" }),
-    ).toHaveAccessibleDescription(
-      "已选择 3 个文件，可取消选择或执行当前权限允许的批量操作。",
-    );
-    expect(onRefresh).toHaveBeenCalledTimes(1);
-    expect(screen.getByText("已选 3 个文件")).toBeInTheDocument();
-    expect(
-      screen.getByText(/archive\.zip: 目标目录不存在/),
-    ).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: action === "delete" ? "批量删除" : "批量移动" }));
+    if (action === "move") fireEvent.change(await screen.findByRole("textbox", { name: "批量移动目标路径" }), { target: { value: "archive" } });
+    fireEvent.click(await screen.findByRole("button", { name: action === "delete" ? "确认删除" : "确认移动" }));
+    await waitFor(() => expect(csrfFetchMock).toHaveBeenCalledTimes(1));
+    expect(csrfFetchMock.mock.calls[0]![0]).toBe("/api/files/operations");
+    expect(JSON.parse(csrfFetchMock.mock.calls[0]![1].body)).toMatchObject({ action, fileEntryIds: ["file_1", "file_2"], requestId: expect.any(String) });
+    expect(await screen.findByText("任务创建失败")).toBeInTheDocument();
+    expect(firstFileCheckbox("cover.jpg")).toBeChecked();
+    expect(firstFileCheckbox("archive.zip")).toBeChecked();
+    expect(onRefresh).not.toHaveBeenCalled();
   });
 
   it("drops stale batch UI when the selection scope seed changes", async () => {
     const onRefresh = vi.fn();
-    deleteFileEntryActionMock.mockResolvedValueOnce({ error: "节点不可写" });
     const { rerender } = render(
       <FileListClient
         folders={[]}
@@ -766,16 +778,6 @@ describe("FileListClient", () => {
 
     fireEvent.click(firstFileCheckbox("cover.jpg"));
     fireEvent.click(await screen.findByRole("button", { name: "批量删除" }));
-    fireEvent.click(await screen.findByRole("button", { name: "确认删除" }));
-
-    await waitFor(() =>
-      expect(deleteFileEntryActionMock).toHaveBeenCalledTimes(1),
-    );
-    expect(
-      await screen.findByRole("alert", { name: /批量操作完成/ }),
-    ).toBeInTheDocument();
-    expect(screen.getByText(/节点不可写/)).toBeInTheDocument();
-
     rerender(
       <FileListClient
         folders={[]}

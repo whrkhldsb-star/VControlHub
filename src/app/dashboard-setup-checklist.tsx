@@ -53,7 +53,7 @@ export function DashboardSetupChecklist({ items }: Props) {
 		>
 			<div className="flex flex-wrap items-start justify-between gap-3">
 				<div className="min-w-0">
-					<p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--warning)]">
+					<p className="text-xs font-semibold uppercase  text-[var(--warning)]">
 						{t("dashboard.setup.eyebrow")}
 					</p>
 					<h2 className="mt-0.5 text-sm font-semibold text-[var(--text-primary)]">
@@ -66,7 +66,7 @@ export function DashboardSetupChecklist({ items }: Props) {
 				<ActionButton variant="ghost"
 					onClick={dismiss}
 				
-					className="!min-h-11 !px-3 !text-xs"
+					className="!min-h-11 !px-3 !text-sm"
 				>
 					{t("dashboard.setup.dismiss")}
 				</ActionButton>
@@ -84,9 +84,9 @@ export function DashboardSetupChecklist({ items }: Props) {
 							}`}
 						>
 							<span
-								className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
+								className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
 									item.done
-										? "bg-[var(--success)] text-white"
+										? "bg-[var(--success-bg)] text-[var(--success)]"
 										: "bg-[var(--surface-elevated)] text-[var(--text-muted)]"
 								}`}
 								aria-hidden
@@ -95,7 +95,7 @@ export function DashboardSetupChecklist({ items }: Props) {
 							</span>
 							<span className="min-w-0">
 								<span className="block font-medium">{t(ITEM_LABEL_KEY[item.id])}</span>
-								<span className="mt-0.5 block text-[11px] text-[var(--text-muted)]">
+								<span className="mt-0.5 block text-xs text-[var(--text-muted)]">
 									{t(ITEM_HINT_KEY[item.id])}
 								</span>
 							</span>

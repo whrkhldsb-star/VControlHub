@@ -12,6 +12,8 @@
  * only render UI here.
  */
 import Link from "next/link";
+import { FilePreferenceButton, recordFileOpen } from "./file-preferences-client";
+import { CopyFileButton } from "./file-operation-controls";
 
 import { useI18n } from "@/lib/i18n/use-locale";
 import { FileMoreActionsLazy } from "./file-more-actions-lazy";
@@ -50,7 +52,7 @@ export function DetailActionButton({
       type="button"
       title={t("fileListClient.detailTitle")}
       aria-label={`${t("fileListClient.detailTitle")} ${entry.name}`}
-      onClick={() => onOpen(entry.id)}
+      onClick={() => { recordFileOpen(entry.id); onOpen(entry.id); }}
       className={
         compact
           ?"inline-flex h-11 w-11 items-center justify-center rounded-lg border border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)] transition hover:bg-[var(--accent-bg)]"
@@ -98,6 +100,7 @@ export function DownloadActionLink({
   return (
     <a
       href={downloadUrl}
+      onClick={() => recordFileOpen(entry.id)}
       title={t("fileListClient.downloadTitle")}
       aria-label={`${t("fileListClient.downloadTitle")} ${entry.name}`}
       download={downloadUrl.startsWith("/") ? true : undefined}
@@ -173,6 +176,8 @@ export function FolderRowActions({
 
   return (
     <div className="flex flex-wrap items-center gap-1">
+      {entryId && entryCanRead(folder) ? <FilePreferenceButton fileEntryId={entryId} /> : null}
+      {entryId && canWrite && entryCanRead(folder) ? <CopyFileButton ids={[entryId]} nodeId={folder.storageNodeId ?? folder.sourceKeys[0]} /> : null}
       <FolderDownloadActionLink
         folder={folder}
         entryCanRead={entryCanRead}
@@ -190,6 +195,7 @@ export function FolderRowActions({
       {canWrite && entryId ? (
         <MoveInlineForm
           fileEntryId={entryId}
+          storageNodeId={folder.storageNodeId ?? folder.sourceKeys[0]}
           name={name}
           relativePath={folder.path}
           onRefresh={onRefresh}
@@ -245,10 +251,13 @@ export function FileRowActions({
   const previewAction = getPreviewActionCopy(entry, t);
   return (
     <div className="flex items-center gap-1 flex-wrap">
+      {entryCanRead(entry) ? <FilePreferenceButton fileEntryId={entry.id} /> : null}
+      {entryCanRead(entry) && entryCanWrite(entry) ? <CopyFileButton ids={[entry.id]} nodeId={entry.storageNode.id} /> : null}
       <DetailActionButton entry={entry} onOpen={onOpenDetail} compact={compact} />
       {entry.previewable && entryCanRead(entry) ? (
         <Link
           href={previewHref}
+          onClick={() => recordFileOpen(entry.id)}
           title={previewAction.title}
           aria-label={previewAction.label}
           data-tone="cyan"

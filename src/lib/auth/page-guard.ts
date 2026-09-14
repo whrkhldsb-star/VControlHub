@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * TR-030 / 56 multi-tenant: page-level permission guard.
  *
@@ -33,7 +34,7 @@ export async function requirePagePermission(
 ): Promise<SessionPayload> {
 	const session = await requireSession(options?.redirectTo);
 	if (!sessionHasPermission(session, permission)) {
-		throw new ForbiddenError(`Missing permission: ${permission}`, {
+		throw new ForbiddenError(apiCopy("apiCopy.missing.permission.db2e4ec2", { v0: String(permission) }), {
 			permission,
 		});
 	}

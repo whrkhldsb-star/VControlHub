@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 /**
  * GET /api/sync-jobs/[id]/report — last result + logs + conflict hints
@@ -22,7 +23,7 @@ export async function GET(
     {
       permission: "storage:read",
       rateLimit: GENERAL_READ_LIMIT,
-      errorMessage: "Failed to load sync report",
+      errorMessage: apiCopy("apiCopy.failed.to.load.sync.report.3d26044d"),
     },
     async ({ session }) => {
       const job = await getSyncJob(id, session ?? undefined);

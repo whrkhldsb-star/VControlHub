@@ -227,8 +227,8 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
 
       <ListPanel title={t("audit.details")} count={data?.total ?? (loading ?"…" : 0)}>
         {/* Desktop */}
-        <div className="hidden md:block">
-          <div className="grid grid-cols-[140px_100px_120px_minmax(0,1.5fr)_minmax(0,2fr)_160px] border-b border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-4 py-3 text-xs uppercase tracking-[0.14em] text-[var(--text-muted)]">
+        <div className="hidden xl:block">
+          <div className="grid grid-cols-[140px_100px_120px_minmax(0,1.5fr)_minmax(0,2fr)_160px] gap-4 border-b border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-4 py-3 text-xs uppercase  text-[var(--text-muted)]">
             <div>{t("audit.header.time")}</div>
             <div>{t("audit.header.level")}</div>
             <div>{t("audit.header.type")}</div>
@@ -269,7 +269,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
         </div>
 
         {/* Mobile */}
-        <div className="divide-y divide-[var(--border-subtle)] md:hidden">
+        <div className="divide-y divide-[var(--border-subtle)] xl:hidden">
           {loading ? (
             <EmptyState>{t("audit.loading")}</EmptyState>
           ) : error && !data ? (

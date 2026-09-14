@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 
 import { withApiRoute } from "@/lib/http/api-guard";
@@ -18,10 +19,10 @@ export async function DELETE(
       permission: "backup:create",
       rateLimit: GENERAL_WRITE_LIMIT,
       errorStatus: 400,
-      errorMessage: "Failed to delete backup schedule",
+      errorMessage: apiCopy("apiCopy.failed.to.delete.backup.schedule.9dda5ed0"),
     },
     async ({ session }) => {
-      if (!id) return NextResponse.json({ error: "Missing schedule ID" }, { status: 400 });
+      if (!id) return NextResponse.json({ error: apiCopy("apiCopy.missing.schedule.id.19c58202") }, { status: 400 });
       const result = await deleteBackupSchedule(id, session!);
       await auditUserAction(session?.userId ?? "", "backup-schedule.delete", { scheduleId: id }, undefined, session?.currentTeamId);
       return NextResponse.json(result);

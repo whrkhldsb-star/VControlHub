@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * SSE stream for real-time monitoring stats.
  * GET /api/monitoring/stream
@@ -41,7 +42,7 @@ function getSharedMonitoringStats() {
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { permission: "health:read", errorMessage: "Monitoring SSE authentication failed", rateLimit: { maxRequests: 30, windowMs: 60_000 } },
+    { permission: "health:read", errorMessage: apiCopy("apiCopy.monitoring.sse.authentication.failed.75339d30"), rateLimit: { maxRequests: 30, windowMs: 60_000 } },
     async ({ session }) => {
 			const userId = session!.userId;
 			const activeCount = activeConnectionsByUser.get(userId) ?? 0;
@@ -49,8 +50,8 @@ export async function GET(request: Request) {
 				return Response.json(
 					{
 						code: "RATE_LIMITED",
-						message: "Too many active monitoring streams",
-						error: "Too many active monitoring streams",
+						message: apiCopy("apiCopy.too.many.active.monitoring.streams.f2c04de1"),
+						error: apiCopy("apiCopy.too.many.active.monitoring.streams.f2c04de1"),
 					},
 					{ status: 429 },
 				);
@@ -62,12 +63,14 @@ export async function GET(request: Request) {
 			let timer: ReturnType<typeof setInterval> | undefined;
 			let keepAlive: ReturnType<typeof setInterval> | undefined;
 			let maxAgeTimer: ReturnType<typeof setTimeout> | undefined;
+			let onAbort: (() => void) | undefined;
 			const release = () => {
 				if (released) return;
 				released = true;
 				if (timer) clearInterval(timer);
 				if (keepAlive) clearInterval(keepAlive);
 				if (maxAgeTimer) clearTimeout(maxAgeTimer);
+				if (onAbort) request.signal.removeEventListener("abort", onAbort);
 				const current = activeConnectionsByUser.get(userId) ?? 1;
 				if (current <= 1) activeConnectionsByUser.delete(userId);
 				else activeConnectionsByUser.set(userId, current - 1);
@@ -76,24 +79,41 @@ export async function GET(request: Request) {
       const stream = new ReadableStream({
         start(controller) {
           const encoder = new TextEncoder();
+          const close = () => {
+            release();
+            try { controller.close(); } catch { /* already closed */ }
+          };
+          onAbort = close;
+          request.signal.addEventListener("abort", onAbort, { once: true });
+          // Authorization can finish after the browser has already disconnected.
+          if (request.signal.aborted) {
+            close();
+            return;
+          }
 
-          function sendEvent(event: string, data: unknown) {
+          function sendStats(initial = false) {
+            if (released || (controller.desiredSize ?? 0) <= 0) return;
             try {
-              controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
-            } catch {
-						release();
+              const data = getSharedMonitoringStats();
+              controller.enqueue(encoder.encode(`event: stats\ndata: ${JSON.stringify(data)}\n\n`));
+            } catch (error) {
+              release();
+              if (initial) throw error;
+              try { controller.error(error); } catch { /* already closed */ }
             }
           }
 
           // Send initial snapshot immediately.
-          sendEvent("stats", getSharedMonitoringStats());
+          sendStats(true);
+          if (released) return;
 
 				timer = setInterval(() => {
-            sendEvent("stats", getSharedMonitoringStats());
+            sendStats();
           }, intervalSeconds * 1000);
 
           // Keep-alive comment every 15s to prevent idle proxy close.
 				keepAlive = setInterval(() => {
+            if (released || (controller.desiredSize ?? 0) <= 0) return;
             try {
               controller.enqueue(encoder.encode(":keep-alive\n\n"));
             } catch {
@@ -101,16 +121,7 @@ export async function GET(request: Request) {
             }
           }, 15_000);
 
-          // Client disconnected → clean up.
-          request.signal.addEventListener("abort", () => {
-					release();
-            try { controller.close(); } catch { /* already closed */ }
-          }, { once: true });
-
-					maxAgeTimer = setTimeout(() => {
-						release();
-						try { controller.close(); } catch { /* already closed */ }
-					}, MAX_SSE_CONNECTION_AGE_MS);
+					maxAgeTimer = setTimeout(close, MAX_SSE_CONNECTION_AGE_MS);
         },
 			cancel() {
 				release();

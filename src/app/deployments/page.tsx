@@ -95,28 +95,28 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 			<details className="mb-5 border-y border-[var(--border)] py-4">
 				<summary className="cursor-pointer text-sm font-semibold text-[var(--text-primary)]">{tr("deploymentsPage.page.howItWorks.title")}</summary>
 				<div className="mt-3 grid gap-2 text-xs text-[var(--text-secondary)] md:grid-cols-5">
-					<div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] p-3 text-center">
-						<div className="text-lg mb-1">📝</div>
+					<div className="border-l-2 border-[var(--border)] px-3 py-2">
+						<div className="mb-2 text-xs font-semibold tabular-nums text-[var(--text-muted)]" aria-hidden>01</div>
 						<div className="font-medium text-[var(--text-primary)]">{tr("deploymentsPage.page.howItWorks.step1.title")}</div>
 						<div className="mt-1">{tr("deploymentsPage.page.howItWorks.step1.desc").replace("{{\u53d8\u91cf\u540d}}", "{{variable}}")}</div>
 					</div>
-					<div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] p-3 text-center">
-						<div className="text-lg mb-1">🎯</div>
+					<div className="border-l-2 border-[var(--border)] px-3 py-2">
+						<div className="mb-2 text-xs font-semibold tabular-nums text-[var(--text-muted)]" aria-hidden>02</div>
 						<div className="font-medium text-[var(--text-primary)]">{tr("deploymentsPage.page.howItWorks.step2.title")}</div>
 						<div className="mt-1">{tr("deploymentsPage.page.howItWorks.step2.desc")}</div>
 					</div>
-					<div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] p-3 text-center">
-						<div className="text-lg mb-1">⚙️</div>
+					<div className="border-l-2 border-[var(--border)] px-3 py-2">
+						<div className="mb-2 text-xs font-semibold tabular-nums text-[var(--text-muted)]" aria-hidden>03</div>
 						<div className="font-medium text-[var(--text-primary)]">{tr("deploymentsPage.page.howItWorks.step3.title")}</div>
 						<div className="mt-1">{tr("deploymentsPage.page.howItWorks.step3.desc")}</div>
 					</div>
-					<div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] p-3 text-center">
-						<div className="text-lg mb-1">🖥️</div>
+					<div className="border-l-2 border-[var(--border)] px-3 py-2">
+						<div className="mb-2 text-xs font-semibold tabular-nums text-[var(--text-muted)]" aria-hidden>04</div>
 						<div className="font-medium text-[var(--text-primary)]">{tr("deploymentsPage.page.howItWorks.step4.title")}</div>
 						<div className="mt-1">{tr("deploymentsPage.page.howItWorks.step4.desc")}</div>
 					</div>
-					<div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] p-3 text-center">
-						<div className="text-lg mb-1">🚀</div>
+					<div className="border-l-2 border-[var(--border)] px-3 py-2">
+						<div className="mb-2 text-xs font-semibold tabular-nums text-[var(--text-muted)]" aria-hidden>05</div>
 						<div className="font-medium text-[var(--text-primary)]">{tr("deploymentsPage.page.howItWorks.step5.title")}</div>
 						<div className="mt-1">{tr("deploymentsPage.page.howItWorks.step5.desc")}</div>
 					</div>
@@ -168,7 +168,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 				<section className="mb-5 rounded-2xl border border-[var(--success-border)] bg-[color-mix(in_srgb,var(--success-bg)_40%,var(--surface))] p-5 shadow-[var(--shadow-sm)]">
 					<div className="flex flex-wrap items-start justify-between gap-3">
 						<div>
-							<p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--success)]/70">{tr("deploymentsPage.page.latestDeploy.eyebrow")}</p>
+							<p className="text-xs font-semibold uppercase  text-[var(--success)]/70">{tr("deploymentsPage.page.latestDeploy.eyebrow")}</p>
 							<h2 className="mt-1 text-sm font-semibold text-[var(--text-primary)]">{tr("deploymentsPage.page.latestDeploy.heading")}{latestRun.template.name}</h2>
 							<p className="mt-1 text-xs text-[var(--text-secondary)]">{trTpl("deploymentsPage.page.latestDeploy.meta", { count: String(latestRun.serverIds.length), date: latestRun.createdAt.toLocaleString(dateLocale), snapshot: latestRun.snapshotId || tr("deploymentsPage.page.latestDeploy.snapshotPending") })}</p>
 						</div>

@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { readFileSync } from "node:fs";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -182,10 +183,10 @@ function describeStorageTrafficSource(node: {
 export async function GET(req: NextRequest) {
   return withApiRoute(
     req,
-    { permission: "server:read", errorMessage: "Failed to fetch traffic summary" },
+    { permission: "server:read", errorMessage: apiCopy("apiCopy.failed.to.fetch.traffic.summary.0ac2f2fb") },
     async (ctx) => {
       const session = ctx.session;
-      if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      if (!session) return NextResponse.json({ error: apiCopy("apiCopy.unauthorized.d089c8a9") }, { status: 401 });
       const q = parseSearchParams(req, trafficSummaryQuerySchema);
       const selectedIface = q.iface ?? "";
       const includeRemote =

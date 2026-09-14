@@ -2,7 +2,7 @@ import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { buildBackupRestoreCommand, buildPortableBackupCommand, formatBackupSize, isBackupType, listBackupRecords, summarizeBackupPolicy } from "@/lib/backup/service";
 import { config } from "@/lib/config/env";
-import { t } from "@/lib/i18n/translations";
+import { getServerLocale, t as translate, type TFn } from "@/lib/i18n/translations";
 import { PageShell, EmptyState, PageHeader, StatCard, StatGrid, SurfacePanel, ListPanel, ListRow } from "@/components/page-shell";
 import { StatusBadge } from "@/components/status-badge";
 import { Badge, Notice } from "@/components/ui-primitives";
@@ -27,6 +27,8 @@ const projectRoot = config.app.appDir || process.cwd();
 const logger = createLogger("backups:page");
 
 export default async function BackupsPage() {
+	const locale = await getServerLocale();
+	const t: TFn = (key, vars) => translate(key, locale, vars);
 	const session = await requireSession("/backups");
 	if (!sessionHasPermission(session, "backup:read")) return <PageShell><EmptyState text={t("backupsPage.noPermission")} variant="boxed" /></PageShell>;
 	const canCreate = sessionHasPermission(session, "backup:create");

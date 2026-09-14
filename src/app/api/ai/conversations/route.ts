@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 
 import {
@@ -14,11 +15,11 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { permission: "ai:chat", errorMessage: "Server error" },
+    { permission: "ai:chat", errorMessage: apiCopy("apiCopy.server.error.dfe0c2e8") },
     async ({ session }) => {
       if (!session)
         return NextResponse.json(
-          { error: "Not authenticated or session expired" },
+          { error: apiCopy("apiCopy.not.authenticated.or.session.expired.b1714d99") },
           { status: 401 },
         );
       const conversations = await listConversations(session.userId);
@@ -35,13 +36,13 @@ export async function POST(request: Request) {
     {
       permission: "ai:chat",
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "Failed to create",
+      errorMessage: apiCopy("apiCopy.failed.to.create.99af0e81"),
       bodySchema: createConversationSchema,
     },
     async ({ session, body }) => {
       if (!session)
         return NextResponse.json(
-          { error: "Not authenticated or session expired" },
+          { error: apiCopy("apiCopy.not.authenticated.or.session.expired.b1714d99") },
           { status: 401 },
         );
 

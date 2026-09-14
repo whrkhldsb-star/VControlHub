@@ -30,7 +30,7 @@ export function VpsStatusTable({
 	return (
 		<div className="overflow-x-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-[0_1px_0_rgba(255,255,255,0.03)_inset]">
 			<table className="min-w-full border-collapse text-left text-xs">
-				<thead className="bg-[var(--surface-elevated)] text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
+				<thead className="bg-[var(--surface-elevated)] text-xs uppercase  text-[var(--text-muted)]">
 					<tr>
 						<th className="px-3 py-2.5 font-medium">{t("vpsStatusPage.table.name")}</th>
 						<th className="px-3 py-2.5 font-medium">{t("vpsStatusPage.table.status")}</th>
@@ -59,7 +59,7 @@ export function VpsStatusTable({
 											<div className="truncate font-medium text-[var(--text-primary)]">
 												{server.serverName}
 											</div>
-											<div className="truncate font-mono text-[10px] text-[var(--text-muted)]">
+											<div className="truncate font-mono text-xs text-[var(--text-muted)]">
 												{server.host}
 											</div>
 										</div>
@@ -76,7 +76,7 @@ export function VpsStatusTable({
 								<td className={`px-3 py-2.5 font-mono tabular-nums ${usageColor(server.mem)}`}>
 									{server.mem !== undefined ? `${server.mem.toFixed(1)}%` : "—"}
 									{server.memUsedMb !== undefined ? (
-										<div className="text-[10px] font-normal text-[var(--text-muted)]">
+										<div className="text-xs font-normal text-[var(--text-muted)]">
 											{formatMem(server.memUsedMb, server.memTotalMb)}
 										</div>
 									) : null}
@@ -84,7 +84,7 @@ export function VpsStatusTable({
 								<td className={`px-3 py-2.5 font-mono tabular-nums ${usageColor(server.diskMax)}`}>
 									{server.diskMax !== undefined ? `${server.diskMax.toFixed(1)}%` : "—"}
 									{server.diskUsedLabel ? (
-										<div className="text-[10px] font-normal text-[var(--text-muted)]">
+										<div className="text-xs font-normal text-[var(--text-muted)]">
 											{formatDisk(server.diskUsedLabel, server.diskTotalLabel)}
 										</div>
 									) : null}

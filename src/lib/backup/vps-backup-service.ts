@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * TR-043: VPS remote backup service.
  *
@@ -252,7 +253,7 @@ export async function runVpsBackupRecord(
       checksumSha256: null,
       localPath: null,
       remotePath: null,
-      errorMessage: `VpsBackupRecord ${recordId} not found`,
+      errorMessage: apiCopy("apiCopy.vpsbackuprecord.not.found.54bb3bdf", { v0: String(recordId) }),
     };
   }
 
@@ -283,7 +284,7 @@ export async function runVpsBackupRecord(
       checksumSha256: null,
       localPath: null,
       remotePath: null,
-      errorMessage: `VpsBackupRecord ${recordId} is already running or completed`,
+      errorMessage: apiCopy("apiCopy.vpsbackuprecord.is.already.running.or.completed.89d5fb78", { v0: String(recordId) }),
     };
   }
 
@@ -437,7 +438,7 @@ export async function runVpsBackupRecord(
         localPath: portablePath,
         remotePath: remoteFilePath,
         errorMessage:
-          "Backup finished but its record was already moved to a terminal state (reclaimed); not overwriting",
+          apiCopy("apiCopy.backup.finished.but.its.record.was.already.moved.to.a.terminal.s.51d91311"),
       };
     }
 

@@ -46,11 +46,11 @@ export function TextPreviewToolbar(props: ToolbarProps) {
 			{saveMessage ? <span role={saveStatus === "error" ? "alert" : "status"} className={`text-xs ${saveStatus === "error" ? "text-[var(--danger)]" : "text-[var(--success)]"}`}>{saveMessage}{reloadMessage ? <span className="ml-2 text-[var(--text-secondary)]">· {reloadMessage}</span> : null}</span> : null}
 			<div className="flex-1" />
 			{canEdit ? <div className="flex items-center gap-1">{editMode ? <>
-				<ActionButton variant="success" onClick={onPreviewSave} disabled={busy || !hasUnsavedChanges} className="!px-3 !py-1.5 !text-xs disabled:opacity-50">{saveStatus === "saving" ? t("textPreview.button.saving") : t("textPreview.button.previewSave")}</ActionButton>
+				<ActionButton variant="success" onClick={onPreviewSave} disabled={busy || !hasUnsavedChanges} className="!px-3 !py-1.5 !text-sm disabled:opacity-50">{saveStatus === "saving" ? t("textPreview.button.saving") : t("textPreview.button.previewSave")}</ActionButton>
 				{canReloadAfterSave ? <button type="button" onClick={onSaveAndReload} disabled={busy || !hasUnsavedChanges} data-tone="amber" className="rounded-lg border border-[var(--warning-border)] px-3 py-1.5 text-xs text-[var(--warning)] hover:bg-[var(--warning-bg)] disabled:opacity-50" title={reloadKind === "systemd" ? t("textPreview.reloadHint.systemd", { unit: reloadUnit ?? "" }) : t("textPreview.reloadHint.docker", { unit: reloadUnit ?? "" })}>{saveStatus === "saving" ? t("textPreview.button.saving") : saveStatus === "reloading" ? t("textPreview.button.reloading") : t("textPreview.button.saveAndReload", { unit: reloadUnit ?? "" })}</button> : null}
-				<ActionButton variant="secondary" onClick={onCancelEdit} disabled={busy} className="!px-3 !py-1.5 !text-xs disabled:opacity-50">{t("textPreview.button.cancel")}</ActionButton>
-				<ActionButton variant="secondary" onClick={onOpenEditorFind} aria-label={t("textPreview.editor.findToggle")} title={t("textPreview.editor.findToggle")} className="!px-3 !py-1.5 !text-xs"><Search size={14} aria-hidden="true" /></ActionButton>
-			</> : <ActionButton variant="outline" onClick={onEnterEditMode} className="!px-3 !py-1.5 !text-xs">{t("textPreview.button.edit")}</ActionButton>}</div> : null}
+				<ActionButton variant="secondary" onClick={onCancelEdit} disabled={busy} className="!px-3 !py-1.5 !text-sm disabled:opacity-50">{t("textPreview.button.cancel")}</ActionButton>
+				<ActionButton variant="secondary" onClick={onOpenEditorFind} aria-label={t("textPreview.editor.findToggle")} title={t("textPreview.editor.findToggle")} className="!px-3 !py-1.5 !text-sm"><Search size={14} aria-hidden="true" /></ActionButton>
+			</> : <ActionButton variant="outline" onClick={onEnterEditMode} className="!px-3 !py-1.5 !text-sm">{t("textPreview.button.edit")}</ActionButton>}</div> : null}
 			{!editMode ? <FindBarLazy searchQuery={searchQuery} onSearchQueryChange={setSearchQuery} jumpLine={jumpLine} onJumpLineChange={setJumpLine} onJumpToLine={onJumpToLine} /> : null}
 		</div>
 	);
@@ -97,8 +97,8 @@ export function TextPreviewBody(props: BodyProps) {
 		);
 	}
 	return (
-		<div ref={containerRef} className="max-h-[75vh] overflow-auto rounded-2xl bg-[var(--surface)] p-4 text-sm leading-relaxed">
-			<pre className="font-mono text-[var(--text-secondary)]"><code>{lines.map((line, i) => { let html = highlightLine(line, lang); html = highlightSearch(html); html = sanitizeHighlight(html); return <div key={i} ref={(el) => { if (el) lineRef.current.set(i, el); else lineRef.current.delete(i); }} className="flex transition-colors duration-500"><span className="mr-4 inline-block w-12 shrink-0 select-none text-right text-[var(--text-muted)]">{i + 1}</span><span className="whitespace-pre-wrap break-all" dangerouslySetInnerHTML={{ __html: html }} /></div>; })}</code></pre>
+		<div ref={containerRef} className="max-h-[75vh] overflow-auto rounded-xl bg-[var(--surface)] p-3 text-sm leading-relaxed sm:p-4">
+			<pre className="font-mono text-[var(--text-secondary)]"><code>{lines.map((line, i) => { let html = highlightLine(line, lang); html = highlightSearch(html); html = sanitizeHighlight(html); return <div key={i} ref={(el) => { if (el) lineRef.current.set(i, el); else lineRef.current.delete(i); }} className="flex transition-colors duration-500"><span className="mr-3 inline-block w-6 shrink-0 select-none text-right text-[var(--text-muted)] sm:mr-4 sm:w-12">{i + 1}</span><span className="whitespace-pre-wrap break-all" dangerouslySetInnerHTML={{ __html: html }} /></div>; })}</code></pre>
 		</div>
 	);
 }

@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * TR-032 E02: /api/ai/ops/logs/[id] — get a single AI ops scan log.
  *
@@ -25,13 +26,13 @@ export async function GET(
 			permission: "ai:ops:read",
 			rateLimit: GENERAL_READ_LIMIT,
 			errorStatus: 500,
-			errorMessage: "Failed to load AI ops records",
+			errorMessage: apiCopy("apiCopy.failed.to.load.ai.ops.records.cf32bf1b"),
 		},
 		async ({ session }) => {
 			assertAiOpsPlatformReader(session);
 			const log = await getAiOpsLog(id);
 			if (!log) {
-				throw new NotFoundError(`AI ops record not found ${id}`);
+				throw new NotFoundError(apiCopy("apiCopy.ai.ops.record.not.found.70e83060", { v0: String(id) }));
 			}
 			return NextResponse.json({ log });
 		},

@@ -54,8 +54,10 @@ export function ShareFileButton({
         copiedTimerRef.current = null;
         setCopied(false);
       }, 1800);
+      return true;
     } catch {
       setCopied(false);
+      return false;
     }
   }
 
@@ -73,8 +75,8 @@ export function ShareFileButton({
       });
       const url = `${window.location.origin}/share/${data.token}`;
       setShareUrl(url);
-      await copy(url);
-      onNotify?.("success", t("sharesPage.button.copiedNotify"));
+      const didCopy = await copy(url);
+      onNotify?.("success", t(didCopy ? "sharesPage.button.copiedNotify" : "sharesPage.button.generated"));
     } catch (err) {
       const message = getErrorMessage(err, t("sharesPage.button.errorFallback"));
       setError(message);

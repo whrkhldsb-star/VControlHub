@@ -25,6 +25,34 @@ describe("useFileBrowserListing", () => {
     vi.restoreAllMocks();
   });
 
+  it("preserves the current page on refresh and resets it for a different directory",async () => {
+    const initialData = {...baseInitial,pagination:{page:12,pageSize:50},sort:"size" as const,direction:"desc" as const};
+    vi.mocked(csrfFetch).mockResolvedValue(initialData);
+    const {result} = renderHook(() => useFileBrowserListing({initialData}));
+    await act(async () => {await result.current.fetchFiles("/foo","","current","node_1");});
+    expect(String(vi.mocked(csrfFetch).mock.calls[0]![0])).toContain("page=12&pageSize=50&sort=size&direction=desc");
+    await act(async () => {await result.current.fetchFiles("/other");});
+    expect(new URL(String(vi.mocked(csrfFetch).mock.calls[1]![0]),"https://example.test").searchParams.has("page")).toBe(false);
+  });
+
+  it("writes the clamped page returned by the server into browser history",async () => {
+    const initialData = {...baseInitial,pagination:{page:12,pageSize:50}};
+    vi.mocked(csrfFetch).mockResolvedValue({...initialData,pagination:{page:3,pageSize:50}});
+    const {result} = renderHook(() => useFileBrowserListing({initialData}));
+    await act(async () => {await result.current.fetchFiles("/foo","","current","node_1",{page:12,resetSelection:true});});
+    expect(new URLSearchParams(window.location.search).get("page")).toBe("3");
+    expect(result.current.selectionEpoch).toBe(1);
+  });
+
+  it("restores the unfiltered root when Back reaches a URL without nodeId",async () => {
+    vi.mocked(csrfFetch).mockResolvedValue({...baseInitial,currentPath:"",nodeIdFilter:""});
+    renderHook(() => useFileBrowserListing({initialData:baseInitial}));
+    window.history.replaceState(null,"","/files");
+    act(() => {window.dispatchEvent(new PopStateEvent("popstate"));});
+    await waitFor(() => expect(vi.mocked(csrfFetch)).toHaveBeenCalled());
+    expect(new URL(String(vi.mocked(csrfFetch).mock.calls[0]![0]),"https://example.test").searchParams.has("nodeId")).toBe(false);
+  });
+
   it("exposes the initial data and a fresh selectionEpoch", () => {
     const { result } = renderHook(() =>
       useFileBrowserListing({ initialData: baseInitial }),
@@ -155,6 +183,20 @@ describe("useFileBrowserListing", () => {
     expect(result.current.selectionEpoch).toBe(1);
   });
 
+  it("aborts on unmount and cannot overwrite the destination page URL", async () => {
+    let resolve!: (value: typeof baseInitial) => void;
+    vi.mocked(csrfFetch).mockImplementationOnce(() => new Promise((r) => { resolve = r; }));
+    const { result, unmount } = renderHook(() => useFileBrowserListing({ initialData: baseInitial }));
+    let request!: Promise<void>;
+    act(() => { request = result.current.fetchFiles("/slow-folder"); });
+    const signal = vi.mocked(csrfFetch).mock.calls[0]![1]!.signal;
+    unmount();
+    window.history.replaceState(null, "", "/settings");
+    expect(signal?.aborted).toBe(true);
+    await act(async () => { resolve(baseInitial); await request; });
+    expect(window.location.pathname).toBe("/settings");
+  });
+
   it("fetchFiles does not bump selectionEpoch when resetSelection is omitted", async () => {
     vi.mocked(csrfFetch).mockResolvedValueOnce({ ...baseInitial });
     const { result } = renderHook(() =>
@@ -279,7 +321,7 @@ describe("useFileBrowserListing", () => {
     });
     await waitFor(() =>
       expect(vi.mocked(csrfFetch)).toHaveBeenCalledWith(
-        "/api/files/list?path=%2Fpop&q=fresh&scope=all&nodeId=node_2",
+        "/api/files/list?path=%2Fpop&q=fresh&scope=all&nodeId=node_2&pageSize=100&sort=name&direction=asc&sync=0",
         expect.objectContaining({ signal: expect.any(Object) }),
       ),
     );

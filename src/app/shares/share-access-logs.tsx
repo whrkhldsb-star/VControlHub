@@ -47,7 +47,7 @@ export function ShareAccessLogsButton({ shareId }: { shareId: string }) {
   return (
     <div>
       <ActionButton variant="secondary"
-        onClick={toggle} className="!px-2.5 !py-1 !text-xs"
+        onClick={toggle} className="!px-2.5 !py-1 !text-sm"
       >
         {t("sharesPage.accessLogs.view")}
       </ActionButton>
@@ -73,7 +73,7 @@ export function ShareAccessLogsButton({ shareId }: { shareId: string }) {
                   {logs.map((log) => (
                     <tr key={log.id} className="border-b border-[var(--border-subtle)] last:border-0">
                       <td className="py-1.5 pr-3">
-                        <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                        <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${
                           log.action === "download" ? "bg-[var(--accent-bg)] text-[var(--accent)]"
                           : log.action === "view" ? "bg-[var(--surface-hover)] text-[var(--text-secondary)]"
                           : "bg-[var(--warning-bg)] text-[var(--warning)]"

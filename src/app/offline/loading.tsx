@@ -1,1 +1,1 @@
-export { PageSkeleton as default } from "@/components/skeleton";
+export { RouteLoading as default } from "@/components/skeleton";

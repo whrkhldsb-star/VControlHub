@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * DELETE /api/servers/[id]/sftp/delete?path=... — delete a file on remote server
  */
@@ -22,7 +23,7 @@ export async function DELETE(
     {
       permission: "server:ssh",
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "SFTP delete failed",
+      errorMessage: apiCopy("apiCopy.sftp.delete.failed.7fbec7a6"),
       querySchema: deleteQuerySchema,
     },
     async ({ query, session }) => {

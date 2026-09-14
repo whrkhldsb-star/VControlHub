@@ -62,6 +62,7 @@ const KNOWN_JOB_TYPES = new Set([
   "quick_service.lifecycle",
   "quick-service.lifecycle",
   "storage.sftp-sync",
+  "storage.file-operation",
   "sftp.sync",
   "storage.sftp-stale-inventory",
   "sftp.stale-inventory",

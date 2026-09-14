@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { ForbiddenError } from "@/lib/errors";
 import type { Permission, RoleKey } from "./rbac";
 import { getPermissionsFromRoles } from "./rbac";
@@ -22,7 +23,7 @@ export async function requirePermission(permission: Permission) {
   const session = await requireSession();
 
   if (!sessionHasPermission(session, permission)) {
-    throw new ForbiddenError(`Missing permission: ${permission}`);
+    throw new ForbiddenError(apiCopy("apiCopy.missing.permission.db2e4ec2", { v0: String(permission) }));
   }
 
   return session;

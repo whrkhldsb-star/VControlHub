@@ -15,7 +15,7 @@ import { cn } from "@/lib/ui/cn";
  *   - secondary: neutral surface button
  *
  * Prefer this (or SubmitButton) over hand-rolled color-action class strings.
- * Keep `className` for layout only (`w-full`, `min-h-11`, `!px-3 !text-xs`).
+ * Keep `className` for layout only (`w-full`, `min-h-11`, `!px-3 !text-sm`).
  */
 export type ActionButtonVariant =
 	| "primary"

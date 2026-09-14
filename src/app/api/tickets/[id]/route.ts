@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -36,15 +37,15 @@ const CommentBodySchema = z
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   return withApiRoute(_request, { permission: "ticket:read" }, async ({ session }) => {
     const { id } = await params;
-    if (!session) throw new ForbiddenError("Missing permission");
+    if (!session) throw new ForbiddenError(apiCopy("apiCopy.missing.permission.8af29748"));
     // Team-scoped load first (ticket:manage is not cross-tenant).
     const ticket = await getTicketById(id, session);
-    if (!ticket) throw new NotFoundError("Ticket not found");
+    if (!ticket) throw new NotFoundError(apiCopy("apiCopy.ticket.not.found.795b9ff3"));
     if (
       !sessionHasPermission(session, "ticket:manage") &&
       !(await canViewTicket(id, session.userId, session))
     ) {
-      throw new ForbiddenError("Missing permission");
+      throw new ForbiddenError(apiCopy("apiCopy.missing.permission.8af29748"));
     }
     return NextResponse.json({ ticket });
   });
@@ -79,7 +80,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         !session ||
         (!sessionHasPermission(session, "ticket:manage") && !(await canViewTicket(id, session.userId, session)))
       ) {
-        throw new ForbiddenError("Missing permission");
+        throw new ForbiddenError(apiCopy("apiCopy.missing.permission.8af29748"));
       }
       const comment = await addTicketComment({
         ticketId: id,

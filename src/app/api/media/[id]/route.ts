@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -26,7 +27,7 @@ export async function PATCH(
     {
       permission: "media:manage",
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "Operation failed",
+      errorMessage: apiCopy("apiCopy.operation.failed.4e1af7c7"),
       bodySchema: patchSchema,
     },
     async ({ session, body }) => {

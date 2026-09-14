@@ -1,5 +1,5 @@
 /** @vitest-environment node */
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Readable } from "node:stream";
 
 /**
@@ -393,6 +393,12 @@ describe("webdav handlers", () => {
   });
 
   describe("Destination header", () => {
+    beforeEach(() => {
+      vi.stubEnv("NEXT_PUBLIC_APP_URL", "");
+      vi.stubEnv("APP_BASE_URL", "https://public.example");
+    });
+    afterEach(() => vi.unstubAllEnvs());
+
     function moveWith(destination: string) {
       return handleWebDavMove(
         context("a.txt"),
@@ -422,6 +428,19 @@ describe("webdav handlers", () => {
       );
     });
 
+    it("keeps node boundaries on the configured public origin", async () => {
+      await expect(moveWith("https://public.example/api/webdav/n2/b.txt")).rejects.toThrow(
+        "backend.webdav.destinationMustStayOnTheSameStorageNode",
+      );
+    });
+
+    it("does not trust a malformed configured public origin", async () => {
+      vi.stubEnv("APP_BASE_URL", "not a URL");
+      await expect(moveWith("https://evil.example/api/webdav/n1/b.txt")).rejects.toThrow(
+        "backend.webdav.destinationMustStayOnTheSameOrigin",
+      );
+    });
+
     it("requires the header at all", async () => {
       await expect(
         handleWebDavMove(
@@ -431,7 +450,7 @@ describe("webdav handlers", () => {
       ).rejects.toThrow("backend.webdav.destinationHeaderRequired");
     });
 
-    it("accepts a same-node destination and checks write access on both ends", async () => {
+    it.each(["/api/webdav/n1/moved/b.txt", "https://public.example/api/webdav/n1/moved/b.txt"])("accepts a same-node destination with both access checks: %s", async (destination) => {
       mocks.fileEntryFindFirst.mockImplementation(async (args: { where: { relativePath: string } }) =>
         args.where.relativePath === "a.txt"
           ? { id: "f1", entryType: "FILE", relativePath: "a.txt" }
@@ -441,7 +460,7 @@ describe("webdav handlers", () => {
         fn({ fileEntry: { update: vi.fn(), updateMany: vi.fn(), findMany: vi.fn().mockResolvedValue([]) } }),
       );
 
-      const response = await moveWith("/api/webdav/n1/moved/b.txt");
+      const response = await moveWith(destination);
 
       expect(response.status).toBe(201);
       expect(accessCalls().map((call) => `${call.operation}:${call.relativePath}`)).toEqual([

@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import type { z } from "zod";
 import { randomUUID } from "node:crypto";
 
@@ -16,6 +17,7 @@ import { searchParamsToObject, zodIssueDetails } from "@/lib/http/parse-search-p
 import { type RateLimitConfig, rateLimitResponse, withRateLimit } from "@/lib/http/rate-limit-presets";
 import { createLogger } from "@/lib/logging";
 import { t } from "@/lib/i18n/service-translations";
+import { localizeApiCopy, withApiCopyLocale, type Locale } from "@/lib/i18n/api-copy";
 import {
   readRequestBodyBuffer,
   RequestBodyTooLargeError,
@@ -121,7 +123,26 @@ function methodMayHaveBody(method: string): boolean {
   return m === "POST" || m === "PUT" || m === "PATCH" || m === "DELETE";
 }
 
+export function requestLocale(request: Request): Locale {
+  const cookie = request.headers?.get?.("cookie") ?? "";
+  if (/(?:^|;\s*)vps-locale=en(?:;|$)/.test(cookie)) return "en";
+  if (/(?:^|;\s*)vps-locale=zh(?:;|$)/.test(cookie) || /^zh(?:-|$)/i.test(request.headers?.get?.("accept-language") ?? "")) return "zh";
+  return "en";
+}
+
 export async function withApiRoute<TBody = unknown, TQuery = unknown>(
+	request: Request,
+	options: ApiRouteOptions<TBody, TQuery>,
+	handler: (context: ApiRouteContext<TBody, TQuery>) => Promise<Response>,
+): Promise<Response> {
+	const locale = requestLocale(request);
+	return withApiCopyLocale(locale, () => runApiRoute(request, {
+		...options,
+		errorMessage: options.errorMessage ? localizeApiCopy(options.errorMessage, locale) : options.errorMessage,
+	}, handler));
+}
+
+async function runApiRoute<TBody = unknown, TQuery = unknown>(
   request: Request,
   options: ApiRouteOptions<TBody, TQuery>,
   handler: (context: ApiRouteContext<TBody, TQuery>) => Promise<Response>,
@@ -158,7 +179,7 @@ export async function withApiRoute<TBody = unknown, TQuery = unknown>(
         const dur = performance.now() - startTime;
         const rejected = apiSession instanceof Response
           ? apiSession
-          : apiError({ code: "AUTH_REQUIRED", message: "Not authenticated", status: 401 });
+          : apiError({ code: "AUTH_REQUIRED", message: apiCopy("apiCopy.not.authenticated.76d1efbe"), status: 401 });
         apiLogger.info("request auth rejected", { method, path, status: rejected.status, durationMs: Math.round(dur), requestId });
         return attachRequestId(rejected, requestId, dur);
       }
@@ -167,7 +188,7 @@ export async function withApiRoute<TBody = unknown, TQuery = unknown>(
         const dur = performance.now() - startTime;
         apiLogger.info("request permission rejected", { method, path, status: 403, durationMs: Math.round(dur), requestId });
         return attachRequestId(
-          apiError({ code: "FORBIDDEN", message: "Insufficient permissions", status: 403 }),
+          apiError({ code: "FORBIDDEN", message: apiCopy("apiCopy.insufficient.permissions.37e6815b"), status: 403 }),
           requestId,
           dur,
         );
@@ -199,7 +220,7 @@ export async function withApiRoute<TBody = unknown, TQuery = unknown>(
         if (contentLengthHeader) {
           const declared = Number(contentLengthHeader);
           if (Number.isFinite(declared) && declared > maxBodyBytes) {
-            throw new ValidationError("Request body too large", {
+            throw new ValidationError(apiCopy("apiCopy.request.body.too.large.c49c1143"), {
               field: "body",
               maxBodyBytes,
             });
@@ -212,13 +233,13 @@ export async function withApiRoute<TBody = unknown, TQuery = unknown>(
           raw = text.length === 0 ? undefined : JSON.parse(text);
         } catch (err) {
           if (err instanceof RequestBodyTooLargeError) {
-            throw new ValidationError("Request body too large", {
+            throw new ValidationError(apiCopy("apiCopy.request.body.too.large.c49c1143"), {
               field: "body",
               maxBodyBytes,
             });
           }
           if (err instanceof ValidationError) throw err;
-          throw new ValidationError("Request body is not valid JSON", { field: "body" });
+          throw new ValidationError(apiCopy("apiCopy.request.body.is.not.valid.json.a7ac0ee3"), { field: "body" });
         }
       }
       const parsed = options.bodySchema.safeParse(raw);

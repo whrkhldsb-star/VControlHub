@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * Sync service — execution layer (R28 god-file split).
  *
@@ -465,7 +466,7 @@ export async function reclaimStaleRunningSyncJobs(options?: {
       where: { syncJobId: job.id, status: "RUNNING" },
       data: {
         status: "FAILED",
-        errorMessage: "Reclaimed stale RUNNING sync after process loss",
+        errorMessage: apiCopy("apiCopy.reclaimed.stale.running.sync.after.process.loss.8aa169ca"),
         completedAt: now,
       },
     });

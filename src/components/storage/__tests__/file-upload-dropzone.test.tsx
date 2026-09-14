@@ -228,9 +228,7 @@ describe("FileUploadDropzone", () => {
       ).toBeInTheDocument(),
     );
     expect(onUploadComplete).toHaveBeenCalledTimes(2);
-    expect(screen.getByText(/bad\.txt/)).toHaveTextContent(
-      "失败：磁盘空间不足",
-    );
+    expect(screen.getByText(/bad\.txt/).closest("li")).toHaveTextContent("磁盘空间不足");
     expect(refreshMock).not.toHaveBeenCalled();
   });
 
@@ -418,11 +416,7 @@ describe("FileUploadDropzone", () => {
     expect(
       screen.getByPlaceholderText("docs or media/videos"),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "Drag files here or select multiple files; use folder mode below for folders.",
-      ),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Select files" })).toBeEnabled();
     expect(
       screen.getByRole("button", { name: "Select folder" }),
     ).toBeInTheDocument();
@@ -441,7 +435,7 @@ describe("FileUploadDropzone", () => {
       ).toBeInTheDocument(),
     );
     expect(
-      screen.getByText(/Completed: docs\/report\.txt/),
+      screen.getByText("docs/report.txt"),
     ).toBeInTheDocument();
     expect(screen.getByText("Done")).toBeInTheDocument();
   });

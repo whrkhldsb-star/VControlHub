@@ -6,7 +6,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import type { DirEntry, UploadProgress } from "./ssh-file-manager-parts";
 import { formatSshFileDate, formatSshFileSize } from "./ssh-file-manager-parts";
 import { ActionButton } from "@/components/action-button";
-import { Download, File, Folder, LinkIcon, Pencil, Trash2 } from "@/components/icons";
+import { Download, File, Folder, LinkIcon, Pencil, Trash2, X } from "@/components/icons";
 
 type UploadsProps = {
   uploads: UploadProgress[];
@@ -28,7 +28,7 @@ export function SshUploadProgressList({ uploads }: UploadsProps) {
             </div>
           )}
           {u.status ==="done" && <span className="text-[var(--success)]">✓</span>}
-          {u.status ==="error" && <span className="text-[var(--danger)] text-[10px]">{u.error}</span>}
+          {u.status ==="error" && <span className="text-[var(--danger)] text-xs">{u.error}</span>}
         </div>
       ))}
     </div>
@@ -98,7 +98,7 @@ export function SshFileList({
             <ActionButton variant="secondary"
               onClick={onGoUp}
               data-testid="ssh-files-up-level"
-              aria-label={t("sshFileManager.upLevelAria")} className="inline-flex items-center gap-1 !px-3 !py-1.5 !text-xs">
+              aria-label={t("sshFileManager.upLevelAria")} className="inline-flex items-center gap-1 !px-3 !py-1.5 !text-sm">
               <span aria-hidden="true">↑</span>
               {t("sshFileManager.upLevel")}
             </ActionButton>
@@ -119,7 +119,7 @@ export function SshFileList({
           ) : (
             <div className="min-w-0 flex-1">
               <span title={entry.name} className={`block truncate ${entry.isDirectory ?"text-[var(--text-primary)]" :"text-[var(--text-secondary)]"}`}>{entry.name}</span>
-              <span className="block truncate text-[10px] text-[var(--text-muted)]">
+              <span className="block truncate text-xs text-[var(--text-muted)]">
                 {[entry.isFile ? formatSshFileSize(entry.size) : null, formatSshFileDate(entry.modifyTime, locale)].filter(Boolean).join(" · ")}
               </span>
             </div>
@@ -133,7 +133,7 @@ export function SshFileList({
           )}
         </div>
       ))}
-      {!dragOver && !loading && entries.length > 0 && <div className="mt-2 border-t border-[var(--border-subtle)] pt-1 text-center text-[10px] text-[var(--text-muted)]">{t("sshFileManager.dragHint")}</div>}
+      {!dragOver && !loading && entries.length > 0 && <div className="mt-2 border-t border-[var(--border-subtle)] pt-1 text-center text-xs text-[var(--text-muted)]">{t("sshFileManager.dragHint")}</div>}
     </div>
   );
 }
@@ -147,7 +147,7 @@ function RenameInlineEditor({ onRename, renameValue, setRenameTarget, setRenameV
     <div className="flex flex-1 items-center gap-1">
       <input value={renameValue} aria-label={t("sshFileManager.rename")} onChange={(e) => setRenameValue(e.target.value)} onKeyDown={(e) => { if (e.key ==="Enter") onRename(); if (e.key ==="Escape") { setRenameTarget(null); setRenameValue(""); } }} className="min-h-7 min-w-0 flex-1 rounded border border-[var(--color-action-border)]/30 bg-[var(--surface-hover)] px-2 text-xs text-[var(--text-primary)] outline-none" autoFocus onClick={(e) => e.stopPropagation()} />
       <button type="button" onClick={(e) => { e.stopPropagation(); onRename(); }} aria-label={t("common.confirm")} className="text-[var(--color-action)] hover:text-[var(--color-action)]">✓</button>
-      <button type="button" onClick={(e) => { e.stopPropagation(); setRenameTarget(null); setRenameValue(""); }} aria-label={t("common.cancel")} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)]">✕</button>
+      <button type="button" onClick={(e) => { e.stopPropagation(); setRenameTarget(null); setRenameValue(""); }} aria-label={t("common.cancel")} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)]"><X size={16} aria-hidden /></button>
     </div>
   );
 }

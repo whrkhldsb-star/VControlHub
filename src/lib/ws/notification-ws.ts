@@ -67,6 +67,7 @@ export function broadcastToUser(userId: string, message: WsMessage) {
 
 /* ── WebSocket Server Setup ──────────────────────────────── */
 let wss: WebSocketServer | null = null;
+let detachUpgradeHandler: (() => void) | null = null;
 
 export function getWsServer(): WebSocketServer | null {
 	return wss;
@@ -74,6 +75,8 @@ export function getWsServer(): WebSocketServer | null {
 
 export function closeWebSocketServer(): void {
 	if (!wss) return;
+	detachUpgradeHandler?.();
+	detachUpgradeHandler = null;
 	for (const client of wss.clients) {
 		client.terminate();
 	}
@@ -111,12 +114,20 @@ function resolveUpgradeSessionToken(request: IncomingMessage, url: URL): string 
 export function setupWebSocketServer(server: import("node:http").Server) {
 	if (wss) return; // already initialized
 
-	wss = new WebSocketServer({ noServer: true });
+	const instance = new WebSocketServer({ noServer: true, maxPayload: 16 * 1024 });
+	wss = instance;
 
 	// Handle HTTP upgrade requests
-	server.on("upgrade", (request: IncomingMessage, socket: import("node:stream").Duplex, head: Buffer) => {
+	const handleUpgrade = (request: IncomingMessage, socket: import("node:stream").Duplex, head: Buffer) => {
 		// Only handle /ws path
-		const url = new URL(request.url || "/", `http://${request.headers.host || "localhost"}`);
+		let url: URL;
+		try {
+			url = new URL(request.url || "/", "http://localhost");
+		} catch {
+			recordWsEvent("notification", "reject");
+			socket.end("HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n");
+			return;
+		}
 		if (url.pathname !== "/ws") {
 			socket.write("HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n");
 			socket.destroy();
@@ -135,14 +146,14 @@ export function setupWebSocketServer(server: import("node:http").Server) {
 		(async () => {
 			try {
 				const session = await verifySessionToken(token);
-				if (!session) {
+				if (!session || wss !== instance || socket.destroyed) {
 					recordWsEvent("notification", "reject");
 					socket.destroy();
 					return;
 				}
 
-				wss!.handleUpgrade(request, socket, head, (ws) => {
-					wss!.emit("connection", ws, request, session);
+				instance.handleUpgrade(request, socket, head, (ws) => {
+					instance.emit("connection", ws, request, session);
 				});
 			} catch {
 				// Upgrade failed (bad session, protocol error, etc.) — drop the socket.
@@ -150,9 +161,11 @@ export function setupWebSocketServer(server: import("node:http").Server) {
 				socket.destroy();
 			}
 		})();
-	});
+	};
+	server.on("upgrade", handleUpgrade);
+	detachUpgradeHandler = () => server.off("upgrade", handleUpgrade);
 
-	wss.on("connection", (ws: WebSocket, _req: IncomingMessage, session: SessionPayload) => {
+	instance.on("connection", (ws: WebSocket, _req: IncomingMessage, session: SessionPayload) => {
 		const userId = session.userId;
 		addConnection(userId, ws);
 

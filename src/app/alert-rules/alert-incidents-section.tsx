@@ -36,7 +36,7 @@ export function AlertIncidentsSection({
 			<div className="flex items-center justify-between gap-2">
 				<h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("alertRulesPage.incidents.title")}</h2>
 				<ActionButton variant="secondary"
-					onClick={() => void loadIncidents()} className="!min-h-11 !px-3 !text-xs"
+					onClick={() => void loadIncidents()} className="!min-h-11 !px-3 !text-sm"
 				>
 					{incidentsLoading ? "…" : t("alertRulesPage.incidents.refresh")}
 				</ActionButton>
@@ -57,7 +57,7 @@ export function AlertIncidentsSection({
 											{t("alertRulesPage.incidents.level", { level: incident.level })}
 										</StatusBadge>
 										<span className="text-sm font-medium text-[var(--text-primary)]">{incident.title}</span>
-										<span className="text-[10px] text-[var(--text-muted)]">
+										<span className="text-xs text-[var(--text-muted)]">
 											{incident.status === "ACKNOWLEDGED"
 												? t("alertRulesPage.incidents.acked")
 												: t("alertRulesPage.incidents.open")}
@@ -68,7 +68,7 @@ export function AlertIncidentsSection({
 								{incident.status === "OPEN" && (
 									<ActionButton variant="primary"
 										disabled={busyAction === `ack:${incident.id}`}
-										onClick={() => void ackIncident(incident.id)} className="!min-h-11 !px-3 !text-xs !font-semibold disabled:opacity-50"
+										onClick={() => void ackIncident(incident.id)} className="!min-h-11 !px-3 !text-sm !font-semibold disabled:opacity-50"
 									>
 										{t("alertRulesPage.incidents.ack")}
 									</ActionButton>

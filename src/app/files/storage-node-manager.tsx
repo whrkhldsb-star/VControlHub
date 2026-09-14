@@ -43,10 +43,10 @@ export function StorageNodeManager({
 	const serversWithoutStorage = servers.filter((server) => !server.storageNodeId);
 
 	return (
-		<section id="storage-nodes" className="scroll-mt-24 rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6">
-			<div className="flex items-center justify-between gap-4">
-				<div>
-					<h2 className="text-2xl font-semibold text-[var(--text-primary)]">{t("storagePage.nodes.title")}</h2>
+		<section id="storage-nodes" className="scroll-mt-24 border-y border-[var(--border)] py-4">
+			<div className="flex items-center justify-between gap-3">
+				<div className="min-w-0">
+					<h2 className="text-base font-semibold text-[var(--text-primary)]">{t("storagePage.nodes.title")}</h2>
 					<p className="mt-2 text-sm leading-7 text-[var(--text-secondary)]">
 						{t("storagePage.nodes.summary", { total: nodes.length, local: localCount, sftp: sftpCount })} · WebDAV: {nodes.filter((node) => node.driver === "WEBDAV").length}
 					</p>
@@ -55,7 +55,7 @@ export function StorageNodeManager({
 					variant="outline"
 					onClick={() => setExpanded((prev) => !prev)}
 					aria-expanded={expanded}
-					className="px-4 py-2 text-sm"
+					className="shrink-0 px-3 py-2 text-sm"
 				>
 					{expanded ? t("common.collapse") : t("common.expand")}
 				</ActionButton>

@@ -123,20 +123,22 @@ export function getSelectionSummary({
 	selectedIds,
 	selectedScopeMatches,
 	fallbacks,
+  knownFiles,
 }: {
 	visibleFiles: FileProp[];
 	selectableFiles: FileProp[];
 	selectedIds: Set<string>;
 	selectedScopeMatches: boolean;
 	fallbacks: FileEntryCapabilityFallbacks;
+  knownFiles?: FileProp[];
 }): FileSelectionSummary {
 	const selectableFileIds = selectableFiles.map((file) => file.id);
-	const selectableFileIdSet = new Set(selectableFileIds);
+	const selectableFileIdSet = new Set(knownFiles ? getSelectableFiles(knownFiles, fallbacks).map((file) => file.id) : selectableFileIds);
 	const effectiveSelectedIds = selectedScopeMatches
 		? [...selectedIds].filter((id) => selectableFileIdSet.has(id))
 		: [];
 	const effectiveSelectedIdSet = new Set(effectiveSelectedIds);
-	const selectedFileEntries = visibleFiles.filter((file) =>
+	const selectedFileEntries = (knownFiles ?? visibleFiles).filter((file) =>
 		effectiveSelectedIdSet.has(file.id),
 	);
 	const selectedCount = effectiveSelectedIds.length;
@@ -153,7 +155,7 @@ export function getSelectionSummary({
 	// offer a path that always fails with 400 after the user clicks.
 	const selectedEntriesCanCompress =
 		selectedEntriesCanMove &&
-		selectedFileEntries.every((entry) => entry.storageNodeDriver === "LOCAL");
+		selectedFileEntries.every((entry) => entry.storageNodeDriver === "LOCAL" && entry.entryType === "FILE");
 	const allSelected =
 		selectableFiles.length > 0 &&
 		selectableFileIds.every((id) => effectiveSelectedIdSet.has(id));

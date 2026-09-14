@@ -3,13 +3,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   requireApiSessionMock,
   sessionHasPermissionMock,
-  verifyBearerTokenMock,
+  authenticateBearerMock,
   imageFindManyMock,
   imageCountMock,
 } = vi.hoisted(() => ({
   requireApiSessionMock: vi.fn(),
   sessionHasPermissionMock: vi.fn(),
-  verifyBearerTokenMock: vi.fn(),
+  authenticateBearerMock: vi.fn(),
   imageFindManyMock: vi.fn(),
   imageCountMock: vi.fn(),
 }));
@@ -23,13 +23,14 @@ vi.mock("@/lib/auth/authorization", () => ({
   sessionHasPermission: sessionHasPermissionMock,
 }));
 vi.mock("@/lib/auth/bearer-token", () => ({
-  verifyBearerToken: verifyBearerTokenMock,
+  authenticateBearerForPermissions: authenticateBearerMock,
   hasBearerAuthorization: (request: Request) =>
     /^Bearer\s+/i.test(request.headers.get("authorization") ?? ""),
 }));
 vi.mock("@/lib/db", () => ({
   prisma: {
     imageUpload: { findMany: imageFindManyMock, count: imageCountMock },
+    $transaction: (callback: (tx: unknown) => unknown) => callback({ imageUpload: { findMany: imageFindManyMock, count: imageCountMock } }),
   },
 }));
 
@@ -49,7 +50,7 @@ describe("GET /api/images/list", () => {
     sessionHasPermissionMock.mockImplementation(
       (_session: unknown, permission: string) => permission === "image:read",
     );
-    verifyBearerTokenMock.mockResolvedValue(null);
+    authenticateBearerMock.mockResolvedValue(null);
     imageFindManyMock.mockResolvedValue([{ id: "img_1" }]);
     imageCountMock.mockResolvedValue(1);
   });
@@ -66,7 +67,7 @@ describe("GET /api/images/list", () => {
   });
 
   it("keeps Bearer token image:read access without requiring a session", async () => {
-    verifyBearerTokenMock.mockResolvedValueOnce({
+    authenticateBearerMock.mockResolvedValueOnce({
       userId: "api_user",
       tokenId: "tok_1",
       scopes: ["image:read"],
@@ -150,5 +151,63 @@ describe("GET /api/images/list", () => {
     expect(imageFindManyMock).toHaveBeenCalledWith(
       expect.objectContaining({ where: { userId: "u1" } }),
     );
+  });
+
+  it("clamps a stale page and sorts ties consistently after deletion", async () => {
+    imageCountMock.mockResolvedValueOnce(31);
+    const response = await GET(new Request("http://local/api/images/list?page=999&limit=30"));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ page: 2, totalPages: 2, total: 31 });
+    expect(imageFindManyMock).toHaveBeenCalledWith(expect.objectContaining({ skip: 30, take: 30, orderBy: [{ createdAt: "desc" }, { id: "asc" }] }));
+  });
+
+  it("returns page one for an empty result set", async () => {
+    imageCountMock.mockResolvedValueOnce(0);
+    imageFindManyMock.mockResolvedValueOnce([]);
+    const response = await GET(new Request("http://local/api/images/list?page=2"));
+    expect(await response.json()).toMatchObject({ images: [], page: 1, totalPages: 1, total: 0 });
+    expect(imageFindManyMock).toHaveBeenCalledWith(expect.objectContaining({ skip: 0 }));
+  });
+
+  it.each(["page=0", "page=1000001", "page=invalid", "limit=101"])("normalizes invalid Bearer query %s to a 400 response", async (query) => {
+    authenticateBearerMock.mockResolvedValueOnce({ session });
+    const response = await GET(new Request(`http://local/api/images/list?${query}`, {
+      headers: { authorization: "Bearer valid-token" },
+    }));
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ code: "VALIDATION_FAILED" });
+    expect(response.headers.get("x-request-id")).toBeTruthy();
+    expect(imageCountMock).not.toHaveBeenCalled();
+    expect(requireApiSessionMock).not.toHaveBeenCalled();
+  });
+
+  it("returns a sanitized JSON error when a Bearer listing fails", async () => {
+    authenticateBearerMock.mockResolvedValueOnce({ session });
+    imageCountMock.mockRejectedValueOnce(new Error("private database connection details"));
+    const response = await GET(new Request("http://local/api/images/list", {
+      headers: { authorization: "Bearer valid-token" },
+    }));
+    expect(response.status).toBe(500);
+    expect(await response.json()).toMatchObject({ code: "INTERNAL_ERROR", message: "Failed to fetch image list" });
+  });
+
+  it("keeps elevated Bearer callers restricted to their own images", async () => {
+    authenticateBearerMock.mockResolvedValueOnce({ session });
+    sessionHasPermissionMock.mockReturnValue(true);
+    const response = await GET(new Request("http://local/api/images/list?all=true", {
+      headers: { authorization: "Bearer valid-token" },
+    }));
+    expect(response.status).toBe(200);
+    expect(imageFindManyMock).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: "u1" } }));
+  });
+
+  it("preserves an insufficient-scope rejection without cookie fallback", async () => {
+    authenticateBearerMock.mockResolvedValueOnce(Response.json({ error: "Insufficient scope" }, { status: 403 }));
+    const response = await GET(new Request("http://local/api/images/list", {
+      headers: { authorization: "Bearer insufficient-scope" },
+    }));
+    expect(response.status).toBe(403);
+    expect(requireApiSessionMock).not.toHaveBeenCalled();
+    expect(imageCountMock).not.toHaveBeenCalled();
   });
 });

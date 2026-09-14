@@ -28,7 +28,7 @@ export function DeployButton({
 
 	if (!open) {
 		return (
-			<ActionButton type="button" onClick={() => setOpen(true)} className="min-h-11 px-3 text-[11px]">
+			<ActionButton type="button" onClick={() => setOpen(true)} className="min-h-11 px-3 text-xs">
 				{t("templatesPage.action.deploy")}
 			</ActionButton>
 		);
@@ -45,7 +45,7 @@ export function DeployButton({
 					<div key={v} className="flex items-center gap-2">
 						<label
 							htmlFor={variableInputId}
-							className="w-24 shrink-0 font-mono text-[11px] text-[var(--warning)]"
+							className="w-24 shrink-0 font-mono text-xs text-[var(--warning)]"
 						>
 							{variableLabel}
 						</label>
@@ -54,7 +54,7 @@ export function DeployButton({
 							value={vars[v] ?? ""}
 							onChange={(e) => setVars((prev) => ({ ...prev, [v]: e.target.value }))}
 							placeholder={`{{${v}}}`}
-							className={cn(UI_INPUT, "flex-1 py-1 font-mono text-[11px]")}
+							className={cn(UI_INPUT, "flex-1 py-1 font-mono text-xs")}
 						/>
 					</div>
 				);
@@ -63,7 +63,7 @@ export function DeployButton({
 				{enabledServers.map((s) => (
 					<label
 						key={s.id}
-						className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-2 py-1 text-[11px] transition ${
+						className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-2 py-1 text-xs transition ${
 							selectedIds.has(s.id)
 								? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--text-primary)]"
 								: "border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-muted)]"
@@ -91,7 +91,7 @@ export function DeployButton({
 					type="button"
 					onClick={() => onDeploy(template, [...selectedIds], vars)}
 					disabled={loading || selectedIds.size === 0}
-					className="min-h-11 px-3 text-[11px]"
+					className="min-h-11 px-3 text-xs"
 				>
 					{loading ? t("templatesPage.action.submitting") : t("templatesPage.action.submit")}
 				</ActionButton>
@@ -99,7 +99,7 @@ export function DeployButton({
 					type="button"
 					variant="secondary"
 					onClick={() => setOpen(false)}
-					className="min-h-11 px-3 text-[11px]"
+					className="min-h-11 px-3 text-xs"
 				>
 					{t("templatesPage.action.cancel")}
 				</ActionButton>

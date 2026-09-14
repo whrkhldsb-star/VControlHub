@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 
 import { withApiRoute } from "@/lib/http/api-guard";
@@ -10,7 +11,7 @@ export const dynamic = "force-dynamic";
 export async function POST(request: Request) {
 	return withApiRoute(
 		request,
-		{ requireAuth: true, rateLimit: GENERAL_WRITE_LIMIT, bodySchema: switchTeamSchema, errorMessage: "Failed to switch team workspace" },
+		{ requireAuth: true, rateLimit: GENERAL_WRITE_LIMIT, bodySchema: switchTeamSchema, errorMessage: apiCopy("apiCopy.failed.to.switch.team.workspace.72eeb9fa") },
 		async ({ session, body }) => {
 			const team = await switchCurrentTeam(body.teamId, session!);
 			// Audit is recorded inside switchCurrentTeam (includes slug).

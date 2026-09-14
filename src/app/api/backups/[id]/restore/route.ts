@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -21,7 +22,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     {
       permission: "backup:restore",
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "Restore failed",
+      errorMessage: apiCopy("apiCopy.restore.failed.b8476cee"),
       bodySchema: restoreBackupSchema,
     },
     async ({ session, body }) => {

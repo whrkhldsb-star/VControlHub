@@ -38,7 +38,7 @@ export function SshKeyCreateForm() {
       <div className="space-y-1.5">
         {" "}
         <label
-          className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide"
+          className="text-xs font-medium text-[var(--text-primary)]/70 "
           htmlFor="sshKeyName"
         >
           {t("common.name")}
@@ -55,7 +55,7 @@ export function SshKeyCreateForm() {
       <div className="space-y-1.5">
         {" "}
         <label
-          className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide"
+          className="text-xs font-medium text-[var(--text-primary)]/70 "
           htmlFor="sshKeyDesc"
         >
           {t("serversPage.create.description")}
@@ -77,7 +77,7 @@ export function SshKeyCreateForm() {
       <div className="space-y-1.5">
         {" "}
         <label
-          className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide"
+          className="text-xs font-medium text-[var(--text-primary)]/70 "
           htmlFor="privateKey"
         >
           {t("serversPage.sshKeyCreate.privateKeyLabel")}
@@ -93,7 +93,7 @@ export function SshKeyCreateForm() {
       <div className="space-y-1.5">
         {" "}
         <label
-          className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide"
+          className="text-xs font-medium text-[var(--text-primary)]/70 "
           htmlFor="publicKey"
         >
           {t("serversPage.sshKeyCreate.publicKeyLabel")}
@@ -109,7 +109,7 @@ export function SshKeyCreateForm() {
       <div className="space-y-1.5">
         {" "}
         <label
-          className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide"
+          className="text-xs font-medium text-[var(--text-primary)]/70 "
           htmlFor="passphrase"
         >
           {t("serversPage.sshKeyCreate.passphraseLabel")}
@@ -129,7 +129,7 @@ export function SshKeyCreateForm() {
       <div className="space-y-1.5">
         {" "}
         <label
-          className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide"
+          className="text-xs font-medium text-[var(--text-primary)]/70 "
           htmlFor="ppkPassphrase"
         >
           {t("serversPage.sshKeyCreate.ppkPassphraseLabel")}
@@ -145,7 +145,7 @@ export function SshKeyCreateForm() {
       </div>{" "}
       <div className="space-y-1.5">
         {" "}
-        <label className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide">
+        <label className="text-xs font-medium text-[var(--text-primary)]/70 ">
           {t("serversPage.sshKeyCreate.fileUploadLabel")}
         </label>{" "}
         <div className="flex items-center gap-3">

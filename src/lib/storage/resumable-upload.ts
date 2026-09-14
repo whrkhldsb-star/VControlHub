@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * Storage-file resumable upload finalize.
  *
@@ -17,12 +18,14 @@ import { normalizeStorageRelativePath } from "@/lib/storage/path-utils";
 import {
   assembleMediaUploadChunks,
   completeMediaUploadSession,
+  cleanupMediaUploadTempDir,
   MediaUploadError,
 } from "@/lib/upload/service";
 import { snapshotFileVersionBeforeOverwrite } from "@/lib/storage/file-versions";
 import type { MediaUploadSessionView } from "@/lib/upload/types";
 import type { SessionPayload } from "@/lib/auth/session";
 import { t } from "@/lib/i18n/service-translations";
+import { logError } from "@/lib/logging";
 
 export type CompleteStorageUploadResult = {
   session: MediaUploadSessionView;
@@ -38,6 +41,7 @@ export async function completeStorageFileUpload(params: {
   const { sessionId, session } = params;
 
   let assembled: Buffer;
+  let ownsFinalization = false;
   try {
     assembled = await assembleMediaUploadChunks(sessionId, session.userId);
   } catch (err) {
@@ -58,12 +62,12 @@ export async function completeStorageFileUpload(params: {
     },
   });
   if (!existing) {
-    throw new ValidationError("Upload session not found or does not belong to the current user", {
+    throw new ValidationError(apiCopy("apiCopy.upload.session.not.found.or.does.not.belong.to.the.current.user.134b524c"), {
       code: "session_not_found",
     });
   }
   if (!existing.storageNodeId || !existing.relativePath) {
-    throw new ValidationError("Storage upload session is missing storageNodeId/relativePath", {
+    throw new ValidationError(apiCopy("apiCopy.storage.upload.session.is.missing.storagenodeid.relativepath.352d0848"), {
       code: "storage_target_missing",
     });
   }
@@ -92,7 +96,7 @@ export async function completeStorageFileUpload(params: {
   }
 
   const claimed = await prisma.mediaUploadSession.updateMany({
-    where: { id: sessionId, userId: session.userId, status: { in: ["PENDING", "UPLOADING"] } },
+    where: { id: sessionId, userId: session.userId, status: { in: ["PENDING", "UPLOADING"] }, expiresAt: { gt: new Date() } },
     data: { status: "FINALIZING" },
   });
   if (claimed.count === 0) {
@@ -100,6 +104,7 @@ export async function completeStorageFileUpload(params: {
       code: "session_not_active",
     });
   }
+  ownsFinalization = true;
 
   // Snapshot existing body before overwrite when index already exists.
   const existingEntry = await prisma.fileEntry.findFirst({
@@ -178,13 +183,16 @@ export async function completeStorageFileUpload(params: {
     storageNodeId: existing.storageNodeId,
   };
   } catch (error) {
+    if (ownsFinalization) {
     await prisma.mediaUploadSession.updateMany({
       where: { id: sessionId, userId: session.userId, status: "FINALIZING" },
       data: {
         status: "FAILED",
         errorMessage: error instanceof Error ? error.message.slice(0, 1000) : "Storage upload finalization failed",
       },
-    });
+    }).catch((failure) => logError("storage-upload:failure-status-update-failed", failure));
+    await cleanupMediaUploadTempDir(sessionId).catch((failure) => logError("storage-upload:cleanup-failed", failure));
+    }
     throw error;
   } finally {
     await releaseStorageQuotaGuard(access);

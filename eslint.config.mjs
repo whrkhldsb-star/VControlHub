@@ -77,6 +77,9 @@ const eslintConfig = defineConfig([
     rules: { "react-hooks/set-state-in-effect": "off" },
   },
   globalIgnores([
+    "node_modules.*/**",
+    ".next.*/**",
+    "dist.*/**",
     // Default ignores of eslint-config-next:
     ".next/**",
     "out/**",

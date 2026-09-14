@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { listTemplates, createTemplate, updateTemplate, deleteTemplate } from "@/lib/command-template/service";
 import { auditUserAction } from "@/lib/audit/service";
@@ -30,7 +31,7 @@ function templateActor(session: { userId?: string | null; roles?: string[] } | n
 }
 
 export async function GET(request: Request) {
-	return withApiRoute(request, { permission: "command:read", errorStatus: 500, errorMessage: "Server error" }, async ({ session }) => {
+	return withApiRoute(request, { permission: "command:read", errorStatus: 500, errorMessage: apiCopy("apiCopy.server.error.dfe0c2e8") }, async ({ session }) => {
 		const templates = await listTemplates(200, session);
 		const serialized = templates.map((t) => ({
 			id: t.id, name: t.name, description: t.description,
@@ -44,7 +45,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-	return withApiRoute(request, { permission: "command:create", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: "Creation failed", bodySchema: createCommandTemplateSchema }, async ({ session, body }) => {
+	return withApiRoute(request, { permission: "command:create", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: apiCopy("apiCopy.creation.failed.f81581a7"), bodySchema: createCommandTemplateSchema }, async ({ session, body }) => {
 		const template = await createTemplate({
 			name: body.name, description: body.description, command: body.command, rollbackCommand: body.rollbackCommand,
 			tags: body.tags, createdById: session?.userId || undefined, teamId: session?.currentTeamId ?? null,
@@ -55,7 +56,7 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-	return withApiRoute(request, { permission: "command:create", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: "Update failed", bodySchema: updateCommandTemplateSchema }, async ({ session, body }) => {
+	return withApiRoute(request, { permission: "command:create", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: apiCopy("apiCopy.update.failed.e58282fd"), bodySchema: updateCommandTemplateSchema }, async ({ session, body }) => {
 		const { id, ...updates } = body;
 		const result = await updateTemplate(id, updates, templateActor(session), session);
 		await auditUserAction(session?.userId ?? "", "command_template.update", auditTemplateDetail(result), undefined, session?.currentTeamId);
@@ -64,9 +65,9 @@ export async function PATCH(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-	return withApiRoute(request, { permission: "command:create", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: "Delete failed" }, async ({ session }) => {
+	return withApiRoute(request, { permission: "command:create", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: apiCopy("apiCopy.delete.failed.8727e2ba") }, async ({ session }) => {
 		const { id } = parseSearchParams(request, idQuerySchema);
-		if (!id) throw new ValidationError("Missing template ID");
+		if (!id) throw new ValidationError(apiCopy("apiCopy.missing.template.id.14620eb3"));
 		const deleted = await deleteTemplate(id, templateActor(session), session);
 		await auditUserAction(session?.userId ?? "", "command_template.delete", auditTemplateDetail(deleted), undefined, session?.currentTeamId);
 		return NextResponse.json({ success: true });

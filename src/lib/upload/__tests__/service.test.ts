@@ -14,6 +14,8 @@ import * as fs from "node:fs/promises";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.hoisted(() => vi.stubEnv("MEDIA_UPLOAD_TMP_DIR", `/tmp/vch-upload-service-${process.pid}`));
+
 type SessionRow = {
 	id: string;
 	userId: string;
@@ -187,7 +189,7 @@ function makePrismaMock() {
 					if (where.status?.in) {
 						rows = rows.filter((r) => where.status!.in!.includes(r.status));
 					}
-					return rows.map((r) => ({ id: r.id }));
+					return rows.map((r) => ({ id: r.id, status: r.status }));
 				},
 			),
 		},
@@ -426,6 +428,40 @@ describe("appendMediaUploadChunk", () => {
 });
 
 describe("assembleMediaUploadChunks", () => {
+	it("rejects a truncated chunk on disk instead of completing a partial file", async () => {
+		const view = await initMediaUploadSession({
+			userId: TEST_USER, filename: "a.png", mimeType: "image/png", totalSize: 10, chunkSize: 10,
+		});
+		await appendMediaUploadChunk({ sessionId: view.id, userId: TEST_USER, index: 0, size: 10, buffer: Buffer.alloc(10) });
+		await fs.writeFile(`${UPLOAD_TMP_DIR}/${view.id}/chunk-0`, Buffer.alloc(5));
+		await expect(assembleMediaUploadChunks(view.id, TEST_USER)).rejects.toMatchObject({ code: "chunk_size_unexpected" });
+	});
+
+	it("rejects overwrites after a finalizer claims the session", async () => {
+		const view = await initMediaUploadSession({
+			userId: TEST_USER, filename: "a.png", mimeType: "image/png", totalSize: 10, chunkSize: 10,
+		});
+		await appendMediaUploadChunk({ sessionId: view.id, userId: TEST_USER, index: 0, size: 10, buffer: Buffer.alloc(10, 1) });
+		store.sessions.get(view.id)!.status = "FINALIZING";
+		await expect(appendMediaUploadChunk({ sessionId: view.id, userId: TEST_USER, index: 0, size: 10, buffer: Buffer.alloc(10, 2) })).rejects.toMatchObject({ code: "session_not_active" });
+		expect(await fs.readFile(`${UPLOAD_TMP_DIR}/${view.id}/chunk-0`)).toEqual(Buffer.alloc(10, 1));
+	});
+
+	it("does not resurrect cancellation that races the chunk status update", async () => {
+		const view = await initMediaUploadSession({
+			userId: TEST_USER, filename: "a.png", mimeType: "image/png", totalSize: 10, chunkSize: 10,
+		});
+		const { prisma } = await import("@/lib/db");
+		const update = vi.mocked(prisma.mediaUploadSession.updateMany);
+		const original = update.getMockImplementation()!;
+		update.mockImplementationOnce((...args) => {
+			store.sessions.set(view.id, { ...store.sessions.get(view.id)!, status: "CANCELLED" });
+			return original(...args);
+		});
+		await expect(appendMediaUploadChunk({ sessionId: view.id, userId: TEST_USER, index: 0, size: 10, buffer: Buffer.alloc(10) })).rejects.toMatchObject({ code: "session_cancelled" });
+		expect(store.sessions.get(view.id)!.status).toBe("CANCELLED");
+	});
+
 	it("concatenates chunks in order, throws on missing", async () => {
 		const view = await initMediaUploadSession({
 			userId: TEST_USER,
@@ -600,6 +636,19 @@ describe("cancelMediaUploadSession", () => {
 });
 
 describe("sweepExpiredMediaUploadSessions", () => {
+	it("does not remove chunks or overwrite a session claimed after the expired scan", async () => {
+		const view = await initMediaUploadSession({ userId: TEST_USER, filename: "a.png", mimeType: "image/png", totalSize: 10, chunkSize: 10 });
+		await appendMediaUploadChunk({ sessionId: view.id, userId: TEST_USER, index: 0, size: 10, buffer: Buffer.alloc(10) });
+		const { prisma } = await import("@/lib/db");
+		vi.mocked(prisma.mediaUploadSession.findMany).mockImplementationOnce(() => {
+			store.sessions.get(view.id)!.status = "FINALIZING";
+			return Promise.resolve([{ id: view.id, status: "UPLOADING" }]) as never;
+		});
+		expect(await sweepExpiredMediaUploadSessions()).toBe(0);
+		expect(store.sessions.get(view.id)!.status).toBe("FINALIZING");
+		expect(await readSessionTempDir(view.id)).toEqual(["chunk-0"]);
+	});
+
 	it("cancels PENDING/UPLOADING sessions past expiresAt", async () => {
 		const view = await initMediaUploadSession({
 			userId: TEST_USER,

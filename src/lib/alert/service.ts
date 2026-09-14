@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import type { RoleKey } from "@/lib/auth/rbac";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { playbookTeamWhere, serverTeamWhere, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
@@ -416,14 +417,14 @@ async function assertOnCallUserIdsInTeam(userIds: string[], session?: TeamSessio
   if (sessionHasPermission(session, "team:manage")) return;
   const teamId = session.currentTeamId;
   if (!teamId) {
-    throw new ValidationError("onCallUserIds require a team context");
+    throw new ValidationError(apiCopy("apiCopy.oncalluserids.require.a.team.context.895b2a56"));
   }
   const members = await prisma.teamMember.findMany({
     where: { teamId, userId: { in: userIds } },
     select: { userId: true },
   });
   if (members.length !== new Set(userIds).size) {
-    throw new ValidationError("onCallUserIds must be members of the current team");
+    throw new ValidationError(apiCopy("apiCopy.oncalluserids.must.be.members.of.the.current.team.28c63b6c"));
   }
 }
 

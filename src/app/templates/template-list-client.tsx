@@ -132,7 +132,7 @@ export function TemplateListClient({
 						<button
 							type="button"
 							onClick={() => setFilterTag(null)}
-							className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${
+							className={`rounded-full border px-2.5 py-1 text-xs font-medium transition ${
 								!filterTag
 									? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]"
 									: "border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-muted)] hover:bg-[var(--surface-hover)]"
@@ -145,7 +145,7 @@ export function TemplateListClient({
 								key={tag}
 								type="button"
 								onClick={() => setFilterTag(filterTag === tag ? null : tag)}
-								className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${
+								className={`rounded-full border px-2.5 py-1 text-xs font-medium transition ${
 									filterTag === tag
 										? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]"
 										: "border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-muted)] hover:bg-[var(--surface-hover)]"
@@ -194,13 +194,13 @@ export function TemplateListClient({
 										{tmpl.name}
 									</h3>
 									{tmpl.description && (
-										<p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
+										<p className="mt-0.5 text-xs text-[var(--text-muted)]">
 											{tmpl.description}
 										</p>
 									)}
 								</div>
 								{tmpl.isBuiltin && (
-									<StatusBadge tone="accent" className="shrink-0 !rounded-lg !text-[9px]">
+									<StatusBadge tone="accent" className="shrink-0 !rounded-lg !text-xs">
 										{t("templatesPage.badge.builtin")}
 									</StatusBadge>
 								)}
@@ -213,7 +213,7 @@ export function TemplateListClient({
 									data-tone="emerald"
 									className="mt-2 line-clamp-2 rounded-lg border border-[var(--success-border)] px-3 py-2 font-mono text-xs text-[var(--success)] light:border-[var(--success-border)]"
 								>
-									<span className="mr-2 font-sans text-[10px] uppercase tracking-[0.2em] text-[var(--success)]">
+									<span className="mr-2 font-sans text-xs uppercase  text-[var(--success)]">
 										{t("templatesPage.badge.rollback")}
 									</span>
 									{tmpl.rollbackCommand}
@@ -225,7 +225,7 @@ export function TemplateListClient({
 										<StatusBadge
 											key={v}
 											tone="warning"
-											className="!rounded-lg font-mono !text-[10px]"
+											className="!rounded-lg font-mono !text-sm"
 										>
 											{`{{${v}}}`}
 										</StatusBadge>
@@ -237,7 +237,7 @@ export function TemplateListClient({
 									{tmpl.tags.map((tag) => (
 										<span
 											key={tag}
-											className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]"
+											className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-1.5 py-0.5 text-xs text-[var(--text-muted)]"
 										>
 											#{tag}
 										</span>
@@ -255,7 +255,7 @@ export function TemplateListClient({
 								)}
 								{canCreate && !tmpl.isBuiltin && (
 									<ActionButton variant="ghost"
-										onClick={() => setTemplatePendingDelete(tmpl)} className="!min-h-11 !min-w-11 !text-[11px] text-[var(--danger)]"
+										onClick={() => setTemplatePendingDelete(tmpl)} className="!min-h-11 !min-w-11 !text-sm text-[var(--danger)]"
 									>
 										{t("templatesPage.delete.action")}
 									</ActionButton>

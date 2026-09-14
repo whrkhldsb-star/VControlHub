@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { auditUserAction } from "@/lib/audit/service";
 
@@ -23,7 +24,7 @@ function parseModels(data: { availableModels?: string[]; models?: string }) {
 export async function GET(request: Request) {
   return withApiRoute(request, { permission: "ai:manage" }, async ({ session }) => {
     if (!session)
-      throw new AuthError("Not authenticated");
+      throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
     const providers = await listProviders(session.userId);
     return NextResponse.json({ providers: providers.map(serializeProvider) });
   });
@@ -35,7 +36,7 @@ export async function POST(request: Request) {
     { permission: "ai:manage", rateLimit: GENERAL_WRITE_LIMIT, bodySchema: createProviderSchema },
     async ({ session, body }) => {
       if (!session)
-        throw new AuthError("Not authenticated");
+        throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
 
       const provider = await createProvider({
         ...body,

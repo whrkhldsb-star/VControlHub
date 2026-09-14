@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import type { SessionPayload } from "@/lib/auth/session";
 
@@ -25,7 +26,7 @@ async function handleGet(request: Request, session: SessionPayload) {
     sftpListQuerySchema,
   );
   if (!nodeId) {
-    throw new ValidationError("Missing nodeId parameter");
+    throw new ValidationError(apiCopy("apiCopy.missing.nodeid.parameter.6d98c74c"));
   }
 
   const { node, credentials: connectionCredentials } = await getSftpNodeConnection(nodeId, session);
@@ -88,10 +89,10 @@ async function handleGet(request: Request, session: SessionPayload) {
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { permission: "storage:read", errorMessage: "Failed to list remote directory" },
+    { permission: "storage:read", errorMessage: apiCopy("apiCopy.failed.to.list.remote.directory.4ccd5b6f") },
     async ({ session }) => {
       if (!session)
-        throw new AuthError("Not authenticated");
+        throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
       return handleGet(request, session);
     },
   );

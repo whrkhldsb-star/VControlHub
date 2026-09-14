@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * GET  /api/sync-jobs — list team-scoped sync jobs
  * POST /api/sync-jobs — create (MIRROR | BACKUP | INCREMENTAL | BIDIRECTIONAL)
@@ -36,7 +37,7 @@ export async function GET(request: Request) {
     {
       permission: "storage:read",
       rateLimit: GENERAL_READ_LIMIT,
-      errorMessage: "Failed to list sync jobs",
+      errorMessage: apiCopy("apiCopy.failed.to.list.sync.jobs.293dd5ca"),
     },
     async ({ session }) => {
       const jobs = await listSyncJobs(session ?? undefined);
@@ -73,11 +74,11 @@ export async function POST(request: Request) {
       permission: "storage:write",
       rateLimit: GENERAL_WRITE_LIMIT,
       bodySchema: createSchema,
-      errorMessage: "Failed to create sync job",
+      errorMessage: apiCopy("apiCopy.failed.to.create.sync.job.87fb8a7f"),
     },
     async ({ session, body }) => {
       if (body.schedule != null && body.schedule !== "" && !isValidSyncSchedule(body.schedule)) {
-        throw new ValidationError("Invalid schedule (use manual, every:15m|1h|6h|24h, or 5-field cron)");
+        throw new ValidationError(apiCopy("apiCopy.invalid.schedule.use.manual.every.15m.1h.6h.24h.or.5.field.cron.2a660f19"));
       }
       const job = await createSyncJob({
         name: body.name,

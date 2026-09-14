@@ -41,7 +41,7 @@ export async function DashboardContent({ sessionPath }: { sessionPath: "/" | "/d
 		serversWithMonthlyCost,
 	] = await Promise.all([
 		listServerProfiles(session),
-		getStorageOverview(session),
+		getStorageOverview(session, { includeEntries: false }),
 		listCommandRequests(session),
 		prisma.auditLog.findMany({
 			where: teamScope,

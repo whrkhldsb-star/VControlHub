@@ -111,8 +111,8 @@ function RateBadge({ label, value, color }: { label: string; value: string; colo
   const styles = color === "cyan" ? "border border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]" : "border border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]";
   return (
     <div className={`rounded-2xl px-4 py-3 ${styles}`}>
-      <div className="text-[11px] font-medium opacity-80">{label}</div>
-      <div className="mt-1 text-lg font-semibold tabular-nums tracking-tight">{value}</div>
+      <div className="text-xs font-medium">{label}</div>
+      <div className="mt-1 text-lg font-semibold tabular-nums ">{value}</div>
     </div>
   );
 }
@@ -352,7 +352,7 @@ export default function TrafficPage() {
                   <option value="">{t("trafficPage.iface.auto")}</option>
                   {summary.currentServer.interfaces.map((item) => <option key={item.iface} value={item.iface}>{item.iface}</option>)}
                 </select>
-                <span className="text-[11px] text-[var(--text-muted)]">{t("trafficPage.lastUpdated", { date: new Date(summary.timestamp).toLocaleString(toDateLocale(locale)) })}</span>
+                <span className="text-xs text-[var(--text-muted)]">{t("trafficPage.lastUpdated", { date: new Date(summary.timestamp).toLocaleString(toDateLocale(locale)) })}</span>
               </div>
               {primary ? (
                 <>
@@ -410,7 +410,7 @@ export default function TrafficPage() {
           {loading && !summary ? (
             <div className="text-sm text-[var(--text-muted)]">{t("trafficPage.loading")}</div>
           ) : summary ? (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto" tabIndex={0}>
               <table className="w-full text-xs">
                 <thead className="text-[var(--text-muted)]"><tr><th className="py-2 text-left">{t("trafficPage.th.iface")}</th><th className="text-right">{t("trafficPage.th.rxRate")}</th><th className="text-right">{t("trafficPage.th.txRate")}</th><th className="text-right">{t("trafficPage.th.rxTotal")}</th><th className="text-right">{t("trafficPage.th.txTotal")}</th></tr></thead>
                 <tbody>
@@ -436,7 +436,7 @@ export default function TrafficPage() {
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <div className="text-sm font-medium text-[var(--text-primary)]">{node.serverName}</div>
-                      <div className="mt-1 text-[11px] text-[var(--text-muted)]">{node.host}</div>
+                      <div className="mt-1 text-xs text-[var(--text-muted)]">{node.host}</div>
                     </div>
                     <StatusBadge
                       tone={node.error ? "danger" : node.primaryInterface ? "success" : "neutral"}
@@ -450,26 +450,26 @@ export default function TrafficPage() {
                     </StatusBadge>
                   </div>
                   {node.error ? (
-                    <div className="mt-3 break-all text-[11px] text-[var(--danger)]/80">{node.error}</div>
+                    <div className="mt-3 break-all text-xs text-[var(--danger)]">{node.error}</div>
                   ) : node.primaryInterface ? (
                     <>
                       <div className="mt-3 grid grid-cols-2 gap-2">
                         <div className="rounded-lg bg-[var(--color-action)]/10 px-3 py-2 text-[var(--color-action)]">
-                          <div className="text-[10px] opacity-70">{t("trafficPage.rxShort")}</div>
+                          <div className="text-xs opacity-70">{t("trafficPage.rxShort")}</div>
                           <div className="text-sm font-semibold tabular-nums">{node.primaryInterface.rxRateLabel}</div>
                         </div>
                         <div className="rounded-lg bg-[var(--success-bg)] px-3 py-2 text-[var(--success)]">
-                          <div className="text-[10px] opacity-70">{t("trafficPage.txShort")}</div>
+                          <div className="text-xs opacity-70">{t("trafficPage.txShort")}</div>
                           <div className="text-sm font-semibold tabular-nums">{node.primaryInterface.txRateLabel}</div>
                         </div>
                       </div>
-                      <div className="mt-2 grid grid-cols-2 gap-2 text-[11px] text-[var(--text-secondary)]">
+                      <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-[var(--text-secondary)]">
                         <div>{t("trafficPage.rxTotal", { value: node.primaryInterface.rxLabel })}<span className="font-mono text-[var(--text-secondary)]"> </span></div>
                         <div>{t("trafficPage.txTotal", { value: node.primaryInterface.txLabel })}<span className="font-mono text-[var(--text-secondary)]"> </span></div>
                       </div>
                     </>
                   ) : (
-                    <div className="mt-3 text-[11px] text-[var(--text-muted)]">{t("trafficPage.noPrimaryIface")}</div>
+                    <div className="mt-3 text-xs text-[var(--text-muted)]">{t("trafficPage.noPrimaryIface")}</div>
                   )}
                 </div>
               ))}

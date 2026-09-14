@@ -1,5 +1,5 @@
-import { HealthPageSkeleton } from "@/components/skeleton";
+import { RouteLoading, HealthPageSkeleton } from "@/components/skeleton";
 
 export default function Loading() {
-	return <HealthPageSkeleton />;
+	return <RouteLoading><HealthPageSkeleton /></RouteLoading>;
 }

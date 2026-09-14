@@ -1,7 +1,9 @@
 "use client";
 
-import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from "react";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { AlertTriangle, Bell, Check, X } from "./icons";
+import { IconButton } from "./ui-primitives";
 
 type ToastType = "success" | "error" | "info" | "warning";
 
@@ -52,18 +54,28 @@ const TOAST_STYLES: Record<ToastType, { container: string; icon: string }> = {
   },
 };
 
-const TOAST_ICONS: Record<ToastType, string> = {
-  success: "✓",
-  error: "✕",
-  warning: "⚠",
-  info: "ℹ",
+const TOAST_ICONS = {
+  success: Check,
+  error: X,
+  warning: AlertTriangle,
+  info: Bell,
 };
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const { t } = useI18n();
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  useEffect(() => {
+    const activeTimers = timers.current;
+    return () => {
+      for (const timer of activeTimers.values()) clearTimeout(timer);
+      activeTimers.clear();
+    };
+  }, []);
 
   const removeToast = useCallback((id: string) => {
+    clearTimeout(timers.current.get(id));
+    timers.current.delete(id);
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
@@ -74,7 +86,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       setToasts((prev) => [...prev, toast]);
 
       if (duration > 0) {
-        setTimeout(() => removeToast(id), duration);
+        timers.current.set(id, setTimeout(() => removeToast(id), duration));
       }
     },
     [removeToast],
@@ -84,27 +96,25 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={{ toasts, addToast, removeToast }}>
       {children}
       {/* Toast container */}
-      <div className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-3 z-[var(--z-toast,60)] flex max-w-[min(24rem,calc(100vw-1.5rem))] flex-col gap-2 pointer-events-none md:bottom-4 md:right-4">
+      <div className="pointer-events-none fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-3 z-[var(--z-toast,60)] flex max-h-[calc(100dvh-6rem)] max-w-[min(24rem,calc(100vw-1.5rem))] flex-col gap-2 overflow-y-auto md:bottom-4 md:right-4">
         {toasts.map((toast) => {
           const style = TOAST_STYLES[toast.type];
+          const Icon = TOAST_ICONS[toast.type];
           return (
             <div
               key={toast.id}
               role={toast.type === "error" ? "alert" : "status"}
-              className={`pointer-events-auto flex items-center gap-3 rounded-xl border px-4 py-3 text-sm backdrop-blur-md transition-all duration-300 animate-in slide-in-from-right ${style.container}`}
+              className={`pointer-events-auto flex shrink-0 items-center gap-3 rounded-lg border px-4 py-3 text-sm transition-all duration-300 animate-in slide-in-from-right ${style.container}`}
             >
-              <span className={`text-base font-bold ${style.icon}`}>
-                {TOAST_ICONS[toast.type]}
-              </span>
-              <span className="text-[var(--text-primary)]">{toast.message}</span>
-              <button
-                type="button"
+              <Icon size={18} aria-hidden className={`shrink-0 ${style.icon}`} />
+              <span className="min-w-0 flex-1 break-words text-[var(--text-primary)]">{toast.message}</span>
+              <IconButton
                 onClick={() => removeToast(toast.id)}
-                className="ml-1 text-[var(--text-muted)] transition hover:text-[var(--text-primary)]"
-                aria-label={t("common.close")}
+                className="h-8 w-8 shrink-0"
+                label={t("common.close")}
               >
-                ✕
-              </button>
+                <X size={16} aria-hidden />
+              </IconButton>
             </div>
           );
         })}

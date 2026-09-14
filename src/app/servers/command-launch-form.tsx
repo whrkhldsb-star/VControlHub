@@ -11,6 +11,7 @@ import { api } from "@/lib/http/api-client";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { UI_INPUT } from "@/lib/ui/classes";
+import { ServerTargetPicker, type ServerTarget } from "./server-target-picker";
 
 export type CommandTargetOption = {
 	id: string;
@@ -29,7 +30,7 @@ function newIdempotencyKey() {
 	return `command-ui:${suffix}`;
 }
 
-export function CommandLaunchForm({ servers, allowDirectExecution }: { servers: CommandTargetOption[]; allowDirectExecution: boolean }) {
+export function CommandLaunchForm({ servers, allowDirectExecution, remoteTargets = false }: { servers: CommandTargetOption[]; allowDirectExecution: boolean; remoteTargets?: boolean }) {
 	const { t } = useI18n();
 	const { addToast } = useToast();
 	const router = useRouter();
@@ -38,6 +39,7 @@ export function CommandLaunchForm({ servers, allowDirectExecution }: { servers: 
 	const [reason, setReason] = useState("");
 	const [approvalRequired, setApprovalRequired] = useState(true);
 	const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+	const [remoteSelection, setRemoteSelection] = useState<ServerTarget[]>([]);
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [confirmingDirect, setConfirmingDirect] = useState(false);
@@ -46,8 +48,8 @@ export function CommandLaunchForm({ servers, allowDirectExecution }: { servers: 
 	const allSelected = availableServers.length > 0 && selectedIds.size === availableServers.length;
 	const canSubmit = title.trim().length > 0 && command.trim().length > 0 && selectedIds.size > 0 && !submitting;
 	const selectedNames = useMemo(
-		() => servers.filter((server) => selectedIds.has(server.id)).map((server) => server.name),
-		[servers, selectedIds],
+		() => (remoteTargets ? remoteSelection : servers).filter((server) => selectedIds.has(server.id)).map((server) => server.name),
+		[servers, selectedIds, remoteTargets, remoteSelection],
 	);
 
 	function toggleServer(serverId: string) {
@@ -174,13 +176,14 @@ export function CommandLaunchForm({ servers, allowDirectExecution }: { servers: 
 				/>
 			</label>
 
-			<fieldset className="space-y-3">
+			{remoteTargets ? <ServerTargetPicker kind="command" selected={remoteSelection.filter((row) => selectedIds.has(row.id))}
+				onChange={(rows) => { setRemoteSelection(rows); setSelectedIds(new Set(rows.map((row) => row.id))); }} /> : <fieldset className="space-y-3">
 				<div className="flex flex-wrap items-center justify-between gap-3">
 					<legend className="text-sm font-medium text-[var(--text-secondary)]">{t("serversPage.command.targetNodes")}</legend>
 					<ActionButton
 						variant="secondary"
 						onClick={() => setSelectedIds(allSelected ? new Set() : new Set(availableServers.map((server) => server.id)))}
-						className="!px-3 !py-1.5 !text-xs"
+						className="!px-3 !py-1.5 !text-sm"
 					>
 						{t(allSelected ? "serversPage.command.deselectAll" : "serversPage.command.selectAllEnabled")}
 					</ActionButton>
@@ -203,7 +206,7 @@ export function CommandLaunchForm({ servers, allowDirectExecution }: { servers: 
 						</label>
 					))}
 				</div>
-			</fieldset>
+			</fieldset>}
 
 			<div className="flex flex-col gap-3 border-t border-[var(--border)] pt-4 sm:flex-row sm:items-center sm:justify-between">
 				<p className="text-xs text-[var(--text-muted)]">

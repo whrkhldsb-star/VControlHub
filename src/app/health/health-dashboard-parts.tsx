@@ -1,5 +1,6 @@
 "use client";
 
+import { StatCard } from "@/components/page-shell";
 import type { HealthOverview } from "./health-types";
 import { usageBarTone, usageColor, type TFunc } from "./health-dashboard-helpers";
 import { ProgressBar } from "@/components/ui-primitives";
@@ -13,41 +14,15 @@ export function SummaryCard({
 	value: number | string;
 	color: string;
 }) {
-	const colorMap: Record<string, string> = {
-		slate: "text-[var(--text-primary)]",
-		emerald: "text-[var(--success)]",
-		amber: "text-[var(--warning)]",
-		rose: "text-[var(--danger)]",
-	};
-	const barMap: Record<string, string> = {
-		slate: "bg-[var(--border)]",
-		emerald: "bg-[var(--success)]",
-		amber: "bg-[var(--warning)]",
-		rose: "bg-[var(--danger)]",
-	};
-	return (
-		<article data-card data-stat-card className="relative overflow-hidden p-4">
-			<div
-				className={`absolute inset-x-0 top-0 h-0.5 ${barMap[color] ?? barMap.slate}`}
-				aria-hidden="true"
-			/>
-			<div className="text-[11px] font-medium uppercase tracking-[0.14em] text-[var(--text-muted)]">
-				{label}
-			</div>
-			<div
-				className={`mt-2 text-2xl font-semibold tabular-nums tracking-tight sm:text-3xl ${colorMap[color] ?? "text-[var(--text-primary)]"}`}
-			>
-				{value}
-			</div>
-		</article>
-	);
+  const accentColor = color === "emerald" || color === "amber" || color === "rose" ? color : undefined;
+  return <StatCard label={label} value={value} accent={Boolean(accentColor)} accentColor={accentColor} />;
 }
 
-export function UsageCell({ value }: { value: number | undefined }) {
+export function UsageCell({ value, label }: { value: number | undefined; label: string }) {
 	if (value === undefined) return <span className="text-xs text-[var(--text-muted)]">—</span>;
 	return (
 		<div className="flex min-w-[100px] items-center gap-2">
-			<ProgressBar value={value} height="sm" tone={usageBarTone(value)} className="flex-1" />
+			<ProgressBar label={label} value={value} height="sm" tone={usageBarTone(value)} className="flex-1" />
 			<span className={`w-12 text-right font-mono text-xs tabular-nums ${usageColor(value)}`}>
 				{value.toFixed(1)}%
 			</span>
@@ -59,13 +34,13 @@ function FleetMetricBar({ label, value, unit }: { label: string; value: number; 
 	return (
 		<div className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-3">
 			<div className="flex items-baseline justify-between">
-				<p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">{label}</p>
+				<p className="text-xs uppercase  text-[var(--text-muted)]">{label}</p>
 				<p className={`text-xl font-bold ${usageColor(value)}`}>
 					{value}
 					{unit}
 				</p>
 			</div>
-			<ProgressBar value={value} height="sm" tone={usageBarTone(value)} className="mt-2" />
+			<ProgressBar label={label} value={value} height="sm" tone={usageBarTone(value)} className="mt-2" />
 		</div>
 	);
 }
@@ -122,7 +97,7 @@ export function FleetResourceSummary({
 		<section className="space-y-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
 			<div className="flex items-center justify-between">
 				<div>
-					<p className="text-xs uppercase tracking-[0.25em] text-[var(--text-muted)]">
+					<p className="text-xs uppercase  text-[var(--text-muted)]">
 						{t("healthPage.fleet.eyebrow")}
 					</p>
 					<h2 className="mt-1 text-lg font-semibold text-[var(--text-primary)]">
@@ -138,7 +113,7 @@ export function FleetResourceSummary({
 				<FleetMetricBar label={t("healthPage.fleet.avgMem")} value={avgMem} unit="%" />
 				<FleetMetricBar label={t("healthPage.fleet.avgDisk")} value={avgDisk} unit="%" />
 				<div className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-3">
-					<p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">
+					<p className="text-xs uppercase  text-[var(--text-muted)]">
 						{t("healthPage.fleet.avgLoad")}
 					</p>
 					<p className="mt-1 text-xl font-bold text-[var(--text-primary)]">{avgLoad}</p>
@@ -156,7 +131,7 @@ export function FleetResourceSummary({
 			</div>
 			{top5.length > 0 && (
 				<div className="space-y-1.5">
-					<p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">
+					<p className="text-xs uppercase  text-[var(--text-muted)]">
 						{t("healthPage.fleet.top5")}
 					</p>
 					{top5.map((s, i) => {

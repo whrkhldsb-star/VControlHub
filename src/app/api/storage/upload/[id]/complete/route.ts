@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * POST /api/storage/upload/[id]/complete — finalize a storage file
  * chunked upload session into LOCAL/SFTP storage + FileEntry index.
@@ -23,11 +24,11 @@ export async function POST(
       permission: "storage:write",
       rateLimit: GENERAL_WRITE_LIMIT,
       errorStatus: 500,
-      errorMessage: "Failed to complete storage upload session",
+      errorMessage: apiCopy("apiCopy.failed.to.complete.storage.upload.session.6b48ebf4"),
     },
     async ({ session }) => {
       if (!session) {
-        throw new ForbiddenError("Not authenticated or session expired");
+        throw new ForbiddenError(apiCopy("apiCopy.not.authenticated.or.session.expired.b1714d99"));
       }
 
       const result = await completeStorageFileUpload({

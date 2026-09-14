@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 
 import { withApiRoute } from "@/lib/http/api-guard";
@@ -12,7 +13,7 @@ type Context = { params: Promise<{ id?: string }> };
 export async function GET(request: Request, { params }: Context) {
   return withApiRoute(
     request,
-    { permission: "playbook:read", rateLimit: GENERAL_READ_LIMIT, errorMessage: "Failed to load playbook runs" },
+    { permission: "playbook:read", rateLimit: GENERAL_READ_LIMIT, errorMessage: apiCopy("apiCopy.failed.to.load.playbook.runs.4443c703") },
     async ({ session }) => {
       const id = await requirePlaybookId(params);
       const runs = await listPlaybookRuns(id, session ?? undefined);

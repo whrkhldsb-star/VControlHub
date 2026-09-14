@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { unlink } from "node:fs/promises";
 import path from "node:path";
 
@@ -63,12 +64,12 @@ export async function DELETE(
     {
       permission: "image:write",
       rateLimit: IMAGE_UPLOAD_LIMIT,
-      errorMessage: "Delete failed",
+      errorMessage: apiCopy("apiCopy.delete.failed.8727e2ba"),
     },
     async ({ session }) => {
       if (!session)
         return NextResponse.json(
-          { error: "Not authenticated or session expired" },
+          { error: apiCopy("apiCopy.not.authenticated.or.session.expired.b1714d99") },
           { status: 401 },
         );
       const { id } = await params;
@@ -99,7 +100,7 @@ export async function DELETE(
           session,
         })
       ) {
-        throw new ForbiddenError("No permission to delete");
+        throw new ForbiddenError(apiCopy("apiCopy.no.permission.to.delete.7246baf4"));
       }
 
       // Resolve physical cleanup targets before revoking the database record.

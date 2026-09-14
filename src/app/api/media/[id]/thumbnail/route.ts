@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { createHash } from "node:crypto";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { createReadStream } from "node:fs";
@@ -243,10 +244,10 @@ export async function GET(
     {
       permission: "storage:read",
       rateLimit: GENERAL_READ_LIMIT,
-      errorMessage: "Failed to read media thumbnail",
+      errorMessage: apiCopy("apiCopy.failed.to.read.media.thumbnail.5158317a"),
     },
     async ({ session }) => {
-      if (!session) throw new AuthError("Not authenticated");
+      if (!session) throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
       const { id } = await params;
       const item = await getMediaItem(id, session ?? undefined, {
         includeCredentials: true,
@@ -254,7 +255,7 @@ export async function GET(
       if (!item || !item.storageNode)
         return apiError({
           code: "NOT_FOUND",
-          message: "Media not found",
+          message: apiCopy("apiCopy.media.not.found.287cb4d8"),
           status: 404,
         });
 
@@ -264,7 +265,7 @@ export async function GET(
         // generic kind icon (and avoids hammering /stream for big videos).
         return apiError({
           code: "UNSUPPORTED_MEDIA_TYPE",
-          message: "This media type does not support thumbnails",
+          message: apiCopy("apiCopy.this.media.type.does.not.support.thumbnails.885a4cf2"),
           status: 415,
         });
       }
@@ -415,7 +416,7 @@ export async function GET(
           if (message === "THUMBNAIL_SOURCE_TOO_LARGE") {
             return apiError({
               code: "REQUEST_ENTITY_TOO_LARGE",
-              message: "Original image is too large, cannot generate thumbnail",
+              message: apiCopy("apiCopy.original.image.is.too.large.cannot.generate.thumbnail.3728da55"),
               status: 413,
             });
           }
@@ -471,7 +472,7 @@ export async function GET(
         ) {
           return apiError({
             code: "INTERNAL_ERROR",
-            message: "Failed to generate thumbnail",
+            message: apiCopy("apiCopy.failed.to.generate.thumbnail.06deb9b6"),
             status: 500,
           });
         }

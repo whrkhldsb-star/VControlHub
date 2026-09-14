@@ -26,7 +26,7 @@ export function AiEmptyState({
   const { t } = useI18n();
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-6 text-center text-[var(--text-muted)]">
-      <div className="w-full max-w-md rounded-3xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-8 shadow-[var(--shadow-md)] backdrop-blur">
+      <div className="w-full max-w-lg rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-5 py-8 shadow-[var(--shadow-sm)] sm:p-8">
         <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--accent)]">
           <svg
             className="h-7 w-7 opacity-80"
@@ -45,10 +45,10 @@ export function AiEmptyState({
         </div>
         {!hasProviders ? (
           <>
-            <p className="text-sm font-semibold text-[var(--text-primary)]">
+            <h1 className="text-2xl font-semibold text-[var(--text-primary)]">
               {t("aiPage.emptyNoProvider")}
-            </p>
-            <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">
+            </h1>
+            <p className="mt-3 text-sm leading-6 text-[var(--text-muted)]">
               {t("aiPage.emptyNoProviderHint")}
             </p>
             <ActionButton variant="primary"
@@ -60,7 +60,7 @@ export function AiEmptyState({
           </>
         ) : (
           <>
-            <p className="mb-3 text-sm font-semibold text-[var(--text-primary)]">{t("aiPage.emptySelectConv")}</p>
+            <h1 className="mb-6 text-2xl font-semibold text-[var(--text-primary)]">{t("aiPage.emptySelectConv")}</h1>
             <div className="flex flex-col justify-center gap-2 sm:flex-row">
               <ActionButton variant="secondary" onClick={onOpenSidebar} className="min-h-11 px-4 text-sm">
                 {t("aiPage.openConversations")}

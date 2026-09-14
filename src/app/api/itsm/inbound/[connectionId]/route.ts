@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * POST /api/itsm/inbound/[connectionId]
  *
@@ -52,7 +53,7 @@ export async function POST(request: Request, context: RouteContext) {
 	if (!connectionLimit.allowed || !ipLimit.allowed) {
 		const retryAfterMs = Math.max(connectionLimit.retryAfterMs, ipLimit.retryAfterMs);
 		return NextResponse.json(
-			{ error: "Rate limit exceeded" },
+			{ error: apiCopy("apiCopy.rate.limit.exceeded.95a111e3") },
 			{
 				status: 429,
 				headers: { "Retry-After": String(Math.ceil(retryAfterMs / 1000)) },
@@ -64,20 +65,20 @@ export async function POST(request: Request, context: RouteContext) {
 	if (contentLengthHeader) {
 		const declared = Number(contentLengthHeader);
 		if (Number.isFinite(declared) && declared > MAX_INBOUND_BODY_BYTES) {
-			return NextResponse.json({ error: "Request body too large" }, { status: 413 });
+			return NextResponse.json({ error: apiCopy("apiCopy.request.body.too.large.c49c1143") }, { status: 413 });
 		}
 	}
 
 	const rawBody = await request.text();
 	if (Buffer.byteLength(rawBody, "utf8") > MAX_INBOUND_BODY_BYTES) {
-		return NextResponse.json({ error: "Request body too large" }, { status: 413 });
+		return NextResponse.json({ error: apiCopy("apiCopy.request.body.too.large.c49c1143") }, { status: 413 });
 	}
 
 	let json: Record<string, unknown> = {};
 	try {
 		json = rawBody ? (JSON.parse(rawBody) as Record<string, unknown>) : {};
 	} catch {
-		return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+		return NextResponse.json({ error: apiCopy("apiCopy.invalid.json.body.7ea5df57") }, { status: 400 });
 	}
 
 	// Prefer earliest admin-linked user, else first user for system-authored inbound tickets
@@ -100,7 +101,7 @@ export async function POST(request: Request, context: RouteContext) {
 
 	if (!systemUser) {
 		return NextResponse.json(
-			{ error: "No system user available for inbound tickets" },
+			{ error: apiCopy("apiCopy.no.system.user.available.for.inbound.tickets.42bc58a7") },
 			{ status: 503 },
 		);
 	}

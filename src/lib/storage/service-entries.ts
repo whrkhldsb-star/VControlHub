@@ -26,6 +26,7 @@ import {
   type FileEntryMutationInput,
 } from "./schema";
 import { buildDirectAccessStrategy } from "./service-direct-access";
+import { createWebDavClient } from "./webdav-client";
 
 type TeamSession = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
 
@@ -203,6 +204,7 @@ type DeletedFileEntryWithNode = Prisma.FileEntryGetPayload<{
         id: true;
         driver: true;
         basePath: true;
+        webdavConfigEncrypted: true;
         host: true;
         port: true;
         username: true;
@@ -229,6 +231,22 @@ export type { DeletedFileEntryWithNode };
 
 async function assertDeletedEntryStillExists(entry: DeletedFileEntryWithNode) {
   const t = await serviceT();
+  if (entry.storageNode.driver === "WEBDAV") {
+    let remoteEntry;
+    try {
+      remoteEntry = await createWebDavClient(entry.storageNode).stat(entry.relativePath);
+    } catch {
+      throw new BusinessError(t("backend.storage.remoteFileCheckFailed"));
+    }
+    if (!remoteEntry) throw new BusinessError(t("backend.storage.remoteFileMissing"));
+    if (entry.entryType === "DIRECTORY" && !remoteEntry.isDirectory) {
+      throw new BusinessError(t("backend.storage.remotePathNotDirectory"));
+    }
+    if (entry.entryType === "FILE" && remoteEntry.isDirectory) {
+      throw new BusinessError(t("backend.storage.remotePathNotFile"));
+    }
+    return;
+  }
   if (entry.storageNode.driver === "LOCAL") {
     const absolutePath = resolveLocalAbsolutePath(
       entry.storageNode.basePath,
@@ -306,6 +324,7 @@ export async function restoreFileEntry(
           teamId: true,
           driver: true,
           basePath: true,
+          webdavConfigEncrypted: true,
           host: true,
           port: true,
           username: true,
@@ -351,12 +370,13 @@ export async function restoreFileEntry(
 
 export async function listFileEntries(
   storageNodeId?: string,
-  options: { take?: number; skip?: number; cursor?: string } = {},
+  options: { take?: number; skip?: number; cursor?: string; ids?: string[] } = {},
   session?: TeamSession | null,
 ) {
   const where = {
     isDeleted: false,
     ...(storageNodeId ? { storageNodeId } : {}),
+    ...(options.ids ? { id: { in: options.ids } } : {}),
     ...storageNodeTeamFilter(session),
   };
 

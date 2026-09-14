@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * TR-043: VPS backup schedule service — CRUD + due dispatch.
  */
@@ -72,7 +73,7 @@ export async function createVpsBackupSchedule(input: {
 	if (name.length > 100) throw new ValidationError(t("backend.backup.scheduleNameTooLong"));
 	const paths = (input.paths ?? []).map((path) => path.trim()).filter(Boolean);
 	if (!isVpsBackupPresetType(input.backupType)) {
-		throw new ValidationError(`Invalid backupType: ${input.backupType}`);
+		throw new ValidationError(apiCopy("apiCopy.invalid.backuptype.d98f6f5a", { v0: String(input.backupType) }));
 	}
 	if (input.backupType === "custom" && paths.length === 0) {
 		throw new ValidationError(t("vpsBackupApi.errorCustomPathsRequired"));
@@ -138,7 +139,7 @@ export async function updateVpsBackupSchedule(
 	}
 	if (input.backupType !== undefined) {
 		if (!isVpsBackupPresetType(input.backupType)) {
-			throw new ValidationError(`Invalid backupType: ${input.backupType}`);
+			throw new ValidationError(apiCopy("apiCopy.invalid.backuptype.d98f6f5a", { v0: String(input.backupType) }));
 		}
 		data.backupType = input.backupType;
 	}

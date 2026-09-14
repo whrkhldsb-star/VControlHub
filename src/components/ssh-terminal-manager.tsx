@@ -1,5 +1,7 @@
 "use client";
 
+import { X } from "@/components/icons";
+
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { SshTerminalPanel, type TerminalStatus } from "@/components/ssh-terminal-panel";
@@ -226,9 +228,9 @@ export function SshTerminalManager({
 							aria-label={t("sshTerminalModal.ariaClose")}
 							title={t("sshTerminalModal.close")}
 						
-							className="min-h-9 min-w-9 !px-3 !py-1.5 !text-xs"
+							className="min-h-9 min-w-9 !px-3 !py-1.5 !text-sm"
 						>
-							✕
+							<X size={16} aria-hidden />
 						</ActionButton>
 					</div>
 				</div>
@@ -270,7 +272,7 @@ export function SshTerminalManager({
 									aria-label={t("sshTerminalManager.closeTab", { serverName: tab.serverName })}
 									className="ml-1 shrink-0 rounded p-1.5 min-h-11 min-w-11 text-[var(--text-muted)] opacity-100 transition hover:bg-[var(--surface-elevated)] light:hover:bg-[var(--surface-hover)] hover:text-[var(--danger)] sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
 								>
-									✕
+									<X size={16} aria-hidden />
 								</button>
 							</div>
 						);

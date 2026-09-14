@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * GET    /api/knowledge                 — list knowledge bases
  * POST   /api/knowledge                 — create base | ingest doc | search
@@ -49,7 +50,7 @@ export async function GET(request: Request) {
     {
       permission: "ai:chat",
       rateLimit: GENERAL_READ_LIMIT,
-      errorMessage: "Failed to list knowledge bases",
+      errorMessage: apiCopy("apiCopy.failed.to.list.knowledge.bases.fcb21705"),
     },
     async ({ session }) => {
       const bases = await listKnowledgeBases(session!);
@@ -77,14 +78,14 @@ export async function POST(request: Request) {
       permission: "ai:chat",
       rateLimit: GENERAL_WRITE_LIMIT,
       bodySchema: postSchema,
-      errorMessage: "Knowledge action failed",
+      errorMessage: apiCopy("apiCopy.knowledge.action.failed.b714a38d"),
     },
     async ({ session, body }) => {
       // create_base/ingest require ai:manage; search only needs ai:chat.
       if (body.action === "create_base" || body.action === "ingest") {
         if (!sessionHasPermission(session!, "ai:manage")) {
           return NextResponse.json(
-            { error: "Insufficient permissions to manage knowledge base" },
+            { error: apiCopy("apiCopy.insufficient.permissions.to.manage.knowledge.base.c0a425b3") },
             { status: 403 },
           );
         }
@@ -142,7 +143,7 @@ export async function DELETE(request: Request) {
     {
       permission: "ai:manage",
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "Knowledge delete failed",
+      errorMessage: apiCopy("apiCopy.knowledge.delete.failed.313df9c8"),
     },
     async ({ session }) => {
       const { id, documentId } = parseSearchParams(
@@ -159,7 +160,7 @@ export async function DELETE(request: Request) {
         }, undefined, session?.currentTeamId);
         return NextResponse.json({ success: true, documentId: result.id });
       }
-      if (!id) throw new ValidationError("id or documentId is required");
+      if (!id) throw new ValidationError(apiCopy("apiCopy.id.or.documentid.is.required.f3d0d22b"));
       const result = await deleteKnowledgeBase(id, session!);
       await auditUserAction(session!.userId, "knowledge.base.delete", {
         knowledgeBaseId: result.id,

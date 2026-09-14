@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -208,7 +209,7 @@ export async function POST(request: Request) {
     permission: "notification:manage" as const,
     rateLimit: GENERAL_WRITE_LIMIT,
     errorStatus: 400,
-    errorMessage: "Failed to create",
+    errorMessage: apiCopy("apiCopy.failed.to.create.99af0e81"),
     ...(isFormSubmission ? {} : { bodySchema: alertRuleSchema }),
   };
   return withApiRoute(
@@ -216,7 +217,7 @@ export async function POST(request: Request) {
     options,
     async ({ session, body }) => {
       if (!session)
-        throw new AuthError("Not authenticated");
+        throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
       const input = isFormSubmission
         ? alertRuleSchema.parse(await parseBody(request))
         : body;
@@ -242,12 +243,12 @@ export async function PATCH(request: Request) {
       permission: "notification:manage",
       rateLimit: GENERAL_WRITE_LIMIT,
       errorStatus: 400,
-      errorMessage: "Failed to update",
+      errorMessage: apiCopy("apiCopy.failed.to.update.8eb4917b"),
       bodySchema: patchAlertRuleSchema,
     },
     async ({ session, body }) => {
       if (!session)
-        throw new AuthError("Not authenticated");
+        throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
       if ("toggleId" in body) {
         const result = await toggleAlertRule(body.toggleId, session);
         await auditUserAction(session.userId, "alert_rule.toggle", {
@@ -291,11 +292,11 @@ export async function DELETE(request: Request) {
     { permission: "notification:manage", rateLimit: GENERAL_WRITE_LIMIT },
     async ({ session }) => {
       if (!session)
-        throw new AuthError("Not authenticated");
+        throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
       try {
         const { id: alertRuleId } = parseSearchParams(request, idQuerySchema);
         if (!alertRuleId)
-          throw new ValidationError("Missing rule ID");
+          throw new ValidationError(apiCopy("apiCopy.missing.rule.id.be309df5"));
         await deleteAlertRule(alertRuleId, session);
         await auditUserAction(session.userId, "alert_rule.delete", { ruleId: alertRuleId }, undefined, session?.currentTeamId);
         return NextResponse.json({ success: true });
@@ -313,7 +314,7 @@ export async function PUT(request: Request) {
     { permission: "notification:manage", rateLimit: GENERAL_WRITE_LIMIT },
     async ({ session }) => {
       if (!session)
-        throw new AuthError("Not authenticated");
+        throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
       try {
         // Scope the manual "evaluate now" to the caller's team. Left unscoped,
         // any notification:manage operator could drive every tenant's alert

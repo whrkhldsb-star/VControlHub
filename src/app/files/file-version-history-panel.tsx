@@ -177,7 +177,7 @@ export function FileVersionHistoryPanel({
           <ActionButton variant="outline"
             disabled={busyId === "manual"}
             onClick={() => void createManual()}
-            data-tone="cyan" className="!px-3 !py-2 !text-xs disabled:opacity-50"
+            data-tone="cyan" className="!px-3 !py-2 !text-sm disabled:opacity-50"
           >
             {busyId === "manual"
               ? t("fileVersionHistory.snapshotPending")
@@ -215,7 +215,7 @@ export function FileVersionHistoryPanel({
                       {v.note}
                     </p>
                   ) : null}
-                  <p className="mt-1 truncate font-mono text-[10px] text-[var(--text-muted)]">
+                  <p className="mt-1 truncate font-mono text-xs text-[var(--text-muted)]">
                     sha256:{v.checksumSha256.slice(0, 16)}…
                   </p>
                 </div>

@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
@@ -62,10 +62,14 @@ describe("SystemHealthClient (split health surface)", () => {
 		expect(screen.getByRole("button", { name: /重试|Retry/i })).toBeEnabled();
 	});
 
-	it("does not expose VPS-style refresh / auto-refresh controls on the system surface", async () => {
+	it("refreshes the system report manually while leaving fleet polling on the VPS surface", async () => {
 		renderSystem();
 		expect(await screen.findByText("GitHub 同步状态")).toBeInTheDocument();
-		expect(screen.queryByRole("button", { name: "刷新健康状态" })).not.toBeInTheDocument();
+		const refresh = screen.getByRole("button", { name: "刷新" });
+		await waitFor(() => expect(refresh).toBeEnabled());
+		vi.mocked(csrfFetch).mockClear();
+		fireEvent.click(refresh);
+		await waitFor(() => expect(csrfFetch).toHaveBeenCalledWith("/api/system-health"));
 		expect(screen.queryByRole("button", { name: "切换健康状态自动刷新" })).not.toBeInTheDocument();
 		expect(screen.queryByText("自动刷新")).not.toBeInTheDocument();
 		expect(screen.getByRole("link", { name: /VPS|舰队|Fleet|状态/i })).toBeInTheDocument();
@@ -93,7 +97,7 @@ describe("SystemHealthClient (split health surface)", () => {
 		expect(setIntervalSpy).not.toHaveBeenCalledWith(expect.any(Function), 30_000);
 	});
 
-	it("stacks the header row on mobile without a refresh toolbar", async () => {
+	it("keeps fleet navigation and manual refresh in the shared wrapping toolbar", async () => {
 		renderSystem();
 		expect(await screen.findByText("GitHub 同步状态")).toBeInTheDocument();
 		const auditLink = screen.getByRole("link", { name: /审计|Audit/i });
@@ -104,8 +108,8 @@ describe("SystemHealthClient (split health surface)", () => {
 		const vpsLink = screen.getByRole("link", { name: /VPS|舰队|Fleet|状态/i });
 		const topRow = vpsLink.parentElement?.parentElement as HTMLElement;
 		const topTokens = topRow.className.split(/\s+/);
-		expect(topTokens).toContain("flex-col");
-		expect(topTokens).toContain("sm:flex-row");
+		expect(topTokens).toContain("flex-wrap");
+		expect(topRow).toHaveAttribute("data-toolbar");
 	});
 
 	it("localizes system self-check in English", async () => {

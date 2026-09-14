@@ -122,6 +122,7 @@ describe("/api/storage/sftp-ops", () => {
       currentTeamId: null,
     });
     mockSftpNode();
+    statRemoteEntryMock.mockRejectedValueOnce(Object.assign(new Error("No such file"), { code: 2 }));
 
     const response = await POST(
       request({
@@ -335,6 +336,7 @@ describe("/api/storage/sftp-ops", () => {
       size: BigInt(5),
     });
     readRemoteFileMock.mockResolvedValueOnce(Buffer.from("hello"));
+    statRemoteEntryMock.mockResolvedValueOnce({ size: 5, modifyTime: 1000 });
 
     const response = await POST(
       request({

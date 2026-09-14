@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * Download execution strategies — aria2 relay and direct download.
  * Extracted from route.ts for maintainability.
@@ -33,6 +34,8 @@ import {
 import { BusinessError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 import type { DownloadSourceResolution } from "@/lib/downloads/source-url";
+import { randomUUID, createHash } from "node:crypto";
+import { hashTransferFile, parseTransferManifest, type TransferManifest } from "./transfer-manifest";
 
 
 
@@ -81,6 +84,7 @@ export async function executeAria2RelayDownload(
  // DB row tracking it. Stays null on the resume path — that gid belongs to a
  // live sibling worker and must not be removed here.
  let ownedGid: string | null = null;
+ let preparedManifest: TransferManifest | null = null;
  try {
   // Claim BEFORE starting the aria2 download. Historically addUri ran first and
   // the PENDING→RUNNING CAS ran second: a retry (maxAttempts=3) or a concurrent
@@ -93,9 +97,8 @@ export async function executeAria2RelayDownload(
    data: { status: "RUNNING", progress: "Relay download starting (aria2 RPC)..." },
   });
 
-  await ensureAria2Daemon();
-
   if (claimed.count > 0) {
+   await ensureAria2Daemon();
    // Fresh claim — we own this task; start the download.
    await fs.mkdir(tempDir, { recursive: true });
 
@@ -120,8 +123,15 @@ export async function executeAria2RelayDownload(
    // and never wipe the shared tempDir a live sibling worker may be writing to.
    const current = await prisma.downloadTask.findUnique({
     where: { id: taskId },
-    select: { status: true, aria2Gid: true },
+    select: { status: true, aria2Gid: true, transferManifest: true },
    });
+   if (current?.status === "RUNNING") preparedManifest = parseTransferManifest(current.transferManifest);
+   if (preparedManifest) {
+    await publishRelayFiles(taskId, server, tempDir, targetPath, preparedManifest, signal);
+    if (userId) notifyDownloadResult(userId, urls[0]!, "completed", undefined, teamId).catch((error) => notifyLogger.warn("notifyDownloadResult failed", { error: String(error) }));
+    await cleanupTemp(tempDir);
+    return;
+   }
    if (!current || current.status !== "RUNNING" || !current.aria2Gid) {
     logError(
      `[DownloadAPI] Relay task ${taskId} not resumable (status=${current?.status ?? "missing"}, gid=${current?.aria2Gid ?? "none"}); skipping without touching tempDir`,
@@ -129,6 +139,7 @@ export async function executeAria2RelayDownload(
     return;
    }
    gid = current.aria2Gid;
+   await ensureAria2Daemon();
    await fs.mkdir(tempDir, { recursive: true });
   }
 
@@ -177,7 +188,7 @@ export async function executeAria2RelayDownload(
     } else if (st.status === "error" || st.status === "removed") {
      await prisma.downloadTask.updateMany({
       where: { id: taskId, status: "RUNNING" },
-      data: { status: "FAILED", errorMessage: `aria2 download failed: ${st.status}` },
+      data: { status: "FAILED", errorMessage: apiCopy("apiCopy.aria2.download.failed.3098e047", { v0: String(st.status) }) },
      });
      if (userId) notifyDownloadResult(userId, urls[0]!, "failed", `aria2 download failed: ${st.status}`, teamId).catch((err) => { notifyLogger.warn("notifyDownloadResult failed", { error: err instanceof Error ? err.message : String(err) }); });
      await cleanupTemp(tempDir);
@@ -198,7 +209,7 @@ export async function executeAria2RelayDownload(
 
   if (!done) {
    try { await removeDownload(gid, true); } catch (err) { logError("[DownloadAPI] Failed to remove aria2 download on timeout:", err); }
-   await prisma.downloadTask.updateMany({ where: { id: taskId, status: "RUNNING" }, data: { status: "FAILED", errorMessage: "Download timed out (2 hour limit)" } });
+   await prisma.downloadTask.updateMany({ where: { id: taskId, status: "RUNNING" }, data: { status: "FAILED", errorMessage: apiCopy("apiCopy.download.timed.out.2.hour.limit.1edecc2e") } });
    if (userId) notifyDownloadResult(userId, urls[0]!, "failed", "Download timed out (2 hour limit)", teamId).catch((err) => { notifyLogger.warn("notifyDownloadResult failed", { error: err instanceof Error ? err.message : String(err) }); });
    await cleanupTemp(tempDir);
    return;
@@ -210,40 +221,36 @@ export async function executeAria2RelayDownload(
   const filesToTransfer = downloadedFiles.filter((f) => !f.endsWith(".aria2") && !f.startsWith("."));
 
   if (filesToTransfer.length === 0) {
-   await prisma.downloadTask.updateMany({ where: { id: taskId, status: "RUNNING" }, data: { status: "FAILED", errorMessage: "Download completed but file not found" } });
+   await prisma.downloadTask.updateMany({ where: { id: taskId, status: "RUNNING" }, data: { status: "FAILED", errorMessage: apiCopy("apiCopy.download.completed.but.file.not.found.191e1079") } });
    if (userId) notifyDownloadResult(userId, urls[0]!, "failed", "Download completed but file not found", teamId).catch((err) => { notifyLogger.warn("notifyDownloadResult failed", { error: err instanceof Error ? err.message : String(err) }); });
    await cleanupTemp(tempDir);
    return;
   }
 
-  let totalSize = 0;
+  const files: TransferManifest["files"] = [];
   for (const f of filesToTransfer) {
-   try { const stat = await fs.stat(path.join(tempDir, f)); totalSize += stat.size; } catch (err) { logError("[DownloadAPI] Failed to stat file:", err); }
+   signal?.throwIfAborted();
+   const stat = await fs.stat(path.join(tempDir, f));
+   if (!stat.isFile()) throw new Error("Relay output contains a non-file entry");
+   files.push({ name: f, size: stat.size, sha256: await hashTransferFile(path.join(tempDir, f), signal) });
   }
-
-  const sshParams = await buildSshParamsFromServer(server, server.sshKey);
-  await execRemoteCommand({ ...sshParams, command: `mkdir -p -- ${shellQuote(targetPath)}`, timeout: 15000 });
-
-  for (const file of filesToTransfer) {
-   const localFilePath = path.join(tempDir, file);
-   const remoteFilePath = toRemoteChildPath(targetPath, file);
-   await transferFileViaSsh2(server, localFilePath, remoteFilePath, taskId);
-  }
-
-  for (const file of filesToTransfer) {
-   const stat = await fs.stat(path.join(tempDir, file));
-   await indexDownloadedFileEntry({ storageNode: server.storageNode, targetPath, fileName: file, size: stat.size });
-  }
-
-  await prisma.downloadTask.updateMany({
+  const manifest = parseTransferManifest({ version: 1, files })!;
+  const journaled = await prisma.downloadTask.updateMany({
    where: { id: taskId, status: "RUNNING" },
-   data: { status: "COMPLETED", progress: "Download and transfer completed", fileSize: String(totalSize), totalBytes: String(totalSize), completedBytes: String(totalSize) },
+   data: { transferManifest: manifest },
   });
+  if (!journaled.count) return;
+  preparedManifest = manifest;
+  await publishRelayFiles(taskId, server, tempDir, targetPath, manifest, signal);
   if (userId) notifyDownloadResult(userId, urls[0]!, "completed", undefined, teamId).catch((err) => { notifyLogger.warn("notifyDownloadResult failed", { error: err instanceof Error ? err.message : String(err) }); });
 
   await cleanupTemp(tempDir);
  } catch (error) {
   logError("[DownloadAPI] Relay download execution failed:", error);
+  // Preserve the durable manifest and local files for a replacement worker.
+  // A lost lease must never publish, delete data or mark another owner's task failed.
+  if (signal?.aborted) throw error;
+  if (preparedManifest) throw error;
   // Force-remove the download we started so a mid-dispatch throw (e.g. the
   // gid-persist updateMany failing right after addUri) can't orphan a live
   // aria2 job. Best-effort; never masks the original error.
@@ -256,6 +263,29 @@ export async function executeAria2RelayDownload(
   } catch (err) { logError("[DownloadAPI] Failed to update task status after relay failure:", err); }
   await cleanupTemp(tempDir);
  }
+}
+
+async function publishRelayFiles(taskId: string, server: DownloadServer, tempDir: string,
+ targetPath: string, manifest: TransferManifest, signal?: AbortSignal) {
+ const sshParams = await buildSshParamsFromServer(server, server.sshKey);
+ signal?.throwIfAborted();
+ await execRemoteCommand({ ...sshParams, command: `mkdir -p -- ${shellQuote(targetPath)}`, timeout: 15000, signal });
+ for (const file of manifest.files) {
+  signal?.throwIfAborted();
+  const task = await prisma.downloadTask.findUnique({ where: { id: taskId }, select: { status: true } });
+  if (task?.status !== "RUNNING") throw new Error("Relay task is no longer running");
+  await transferFileViaSsh2(server, path.join(tempDir, file.name), toRemoteChildPath(targetPath, file.name), taskId, signal, file.sha256);
+ }
+ signal?.throwIfAborted();
+ const totalSize = manifest.files.reduce((sum, file) => sum + BigInt(file.size), BigInt(0)).toString();
+ await prisma.$transaction(async (tx) => {
+  const completed = await tx.downloadTask.updateMany({ where: { id: taskId, status: "RUNNING" },
+   data: { status: "COMPLETED", progress: "Download and transfer completed", fileSize: totalSize, totalBytes: totalSize, completedBytes: totalSize } });
+  if (!completed.count) throw new Error("Relay task changed before finalization");
+  for (const file of manifest.files) {
+   await indexDownloadedFileEntry({ storageNode: server.storageNode, targetPath, fileName: file.name, size: file.size }, tx);
+  }
+ });
 }
 
 /* ── Direct download (HTTP/HTTPS) on remote VPS ────────── */
@@ -362,12 +392,28 @@ export async function transferFileViaSsh2(
  localFilePath: string,
  remoteFilePath: string,
  taskId: string,
+ signal?: AbortSignal,
+ expectedSha256?: string,
 ): Promise<void> {
- void taskId;
  if (!server.hostKeySha256?.trim()) {
   throw new BusinessError(t("backend.downloads.hostKeyFingerprintRequiredForRelay"));
  }
+ signal?.throwIfAborted();
+ const expected = expectedSha256 ?? await hashTransferFile(localFilePath, signal);
+ if (!/^[a-f0-9]{64}$/.test(expected)) throw new Error("Invalid relay file digest");
  const sshParams = await buildSshParamsFromServer(server, server.sshKey);
+ const operation = createHash("sha256").update(`${taskId}\0${remoteFilePath}`).digest("hex").slice(0, 24);
+ const cleanStaging = `find ${shellQuote(path.posix.dirname(remoteFilePath))} -maxdepth 1 -type f -name ${shellQuote(`.vch-${operation}-*.part`)} -delete`;
+ const verified = await execRemoteCommand({ ...sshParams, signal, timeout: 120000,
+  command: `command -v sha256sum >/dev/null || exit 127\nif [ -f ${shellQuote(remoteFilePath)} ] && [ "$(sha256sum -- ${shellQuote(remoteFilePath)} | cut -d ' ' -f 1)" = ${shellQuote(expected)} ]; then echo COMMITTED; fi` });
+ if (verified.exitCode !== 0) throw new Error("Remote file verification failed");
+ // Covers process death after rename but before the database commit, even
+ // when the local relay temp file has already disappeared.
+ if (verified.stdout.trim() === "COMMITTED") {
+  await execRemoteCommand({ ...sshParams, command: cleanStaging, timeout: 10000, signal });
+  return;
+ }
+ const staging = path.posix.join(path.posix.dirname(remoteFilePath), `.vch-${operation}-${randomUUID()}.part`);
   const config = createVerifiedSshConfig({
    ...sshParams,
    enforceHostKeyPin: true,
@@ -377,8 +423,8 @@ export async function transferFileViaSsh2(
    await new Promise<void>((resolve, reject) => {
     client.sftp((err, sftp) => {
      if (err) return reject(err);
-     const read = createReadStream(localFilePath);
-     const write = sftp.createWriteStream(remoteFilePath);
+     const read = createReadStream(localFilePath, { signal });
+     const write = sftp.createWriteStream(staging, { flags: "wx", mode: 0o644 });
      let settled = false;
      let idleTimer: NodeJS.Timeout | undefined;
      // Abort a stalled transfer (remote stops ACKing) so it can't hang forever —
@@ -411,6 +457,15 @@ export async function transferFileViaSsh2(
      read.pipe(write);
     });
    });
+   signal?.throwIfAborted();
+   const published = await execRemoteCommand({ ...sshParams, signal, timeout: 120000,
+    command: `set -e\n[ "$(sha256sum -- ${shellQuote(staging)} | cut -d ' ' -f 1)" = ${shellQuote(expected)} ]\nmv -f -- ${shellQuote(staging)} ${shellQuote(remoteFilePath)}` });
+   if (published.exitCode !== 0) throw new Error("Relay file checksum or atomic publication failed");
+   await execRemoteCommand({ ...sshParams, command: cleanStaging, timeout: 10000, signal });
+  } catch (error) {
+   try { await execRemoteCommand({ ...sshParams, command: `rm -f -- ${shellQuote(staging)}`, timeout: 10000 }); }
+   catch (cleanupError) { logError("[DownloadAPI] Failed to clean staging file:", cleanupError); }
+   throw error;
   } finally {
    client.end();
   }

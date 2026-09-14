@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { z } from "zod";
 
 import { NextResponse } from "next/server";
@@ -28,7 +29,7 @@ const checkPortQuerySchema = z
 
 /** GET /api/quick-services/check-port?port=XXX — real-time port availability check */
 export async function GET(request: Request) {
-	return withApiRoute(request, { permission: "docker:manage", errorStatus: 500, errorMessage: "Server error" }, async ({ session }) => {
+	return withApiRoute(request, { permission: "docker:manage", errorStatus: 500, errorMessage: apiCopy("apiCopy.server.error.dfe0c2e8") }, async ({ session }) => {
 		const { action, port, preferred, serverId } = parseSearchParams(request, checkPortQuerySchema);
 		if (serverId) {
 			const access = await assertServerTeamAccess(session, serverId);
@@ -68,7 +69,7 @@ export async function GET(request: Request) {
 
 		// Default: check a specific port
 		if (port === undefined) {
-			throw new ValidationError("Please provide the port parameter");
+			throw new ValidationError(apiCopy("apiCopy.please.provide.the.port.parameter.b3868220"));
 		}
 
 		const result = serverId

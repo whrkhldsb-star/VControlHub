@@ -4,8 +4,8 @@
  * TR-036: The full-size preview only renders when the user clicks an
  * image card. Routing it through `next/dynamic` defers the modal
  * chunk (full Image component, copy / delete action handlers) until
- * that interaction. The stub matches the modal's max-w-4xl / 85vh
- * footprint so the user doesn't see a layout shift on the first
+ * that interaction. The stub matches the modal's bounded dimensions
+ * so the user doesn't see a layout shift on the first
  * open while the chunk loads.
  *
  * `ssr: false` is correct: the modal is purely an interaction
@@ -33,9 +33,9 @@ function ImagePreviewModalStub() {
 		<div
 			aria-hidden
 			data-modal-overlay
-			className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)]"
+			className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] p-4"
 		>
-			<div className="h-[60vh] w-full max-w-4xl animate-pulse rounded-lg bg-[var(--surface-hover)]" />
+			<div className="h-[min(44rem,calc(100dvh-2rem))] w-full max-w-4xl animate-pulse rounded-lg bg-[var(--modal-bg)]" />
 		</div>,
 		document.body,
 	);

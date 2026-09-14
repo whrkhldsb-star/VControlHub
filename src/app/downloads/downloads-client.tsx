@@ -372,7 +372,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 						<span className="text-xs text-[var(--text-muted)]">{t("downloadsPage.stats.globalLimit")}</span>
 						{canManageNode ? [0, 1024, 5120, 10240].map((kb) => (
 							<button type="button" key={kb} onClick={() => handleGlobalSpeedLimit(kb)}
-								className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-2.5 py-1 text-[11px] text-[var(--text-muted)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
+								className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-2.5 py-1 text-xs text-[var(--text-muted)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
 							>
 								{kb === 0 ? t("downloadsPage.stats.unlimited") : `${kb >= 1024 ? (kb / 1024) + "M" : kb + "K"}`}
 							</button>
@@ -404,7 +404,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 					<div className="h-4 w-px bg-[var(--border)]" />
 					{categories.map((c) => (
 						<button key={c.value} type="button" onClick={() => setCategoryFilter(categoryFilter === c.value ? null : c.value)}
-							className={`rounded-full border px-2.5 py-1 text-[11px] transition ${
+							className={`rounded-full border px-2.5 py-1 text-xs transition ${
 								categoryFilter === c.value ? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--text-primary)]" : "border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-muted)] hover:bg-[var(--surface-hover)]"
 							}`}
 						>
@@ -474,7 +474,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
               variant="secondary"
               disabled={loadingMore}
               onClick={() => void fetchTasks(true)}
-              className="!px-4 !py-2 !text-xs disabled:opacity-60"
+              className="!px-4 !py-2 !text-sm disabled:opacity-60"
             >
               {loadingMore
                 ? t("downloadsPage.loadingMore")

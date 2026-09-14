@@ -44,7 +44,7 @@ export function SortableStepCard({
 				<ActionButton variant="secondary"
 					aria-label={t("playbooksPage.createForm.dragHandleAria", { index: index + 1 })}
 					{...attributes}
-					{...listeners} className="min-h-9 cursor-grab !px-2 !py-1 !text-xs">
+					{...listeners} className="min-h-9 cursor-grab !px-2 !py-1 !text-sm">
 					☰ #{index + 1}
 				</ActionButton>
 				<input
@@ -75,7 +75,7 @@ export function SortableStepCard({
 						variant="danger"
 						onClick={() => onRemove(step.id)}
 						aria-label={t("playbooksPage.action.delete")}
-						className="min-h-9 !px-2 !py-1 !text-xs"
+						className="min-h-9 !px-2 !py-1 !text-sm"
 					>
 						×
 					</ActionButton>
@@ -84,7 +84,7 @@ export function SortableStepCard({
 			<StepConfigEditor step={step} servers={servers} onConfigChange={(p) => onConfigChange(step.id, p)} />
 			<div className="grid gap-2 md:grid-cols-2">
 				<div className="space-y-1">
-					<label className="text-[11px] text-[var(--text-secondary)]">{t("playbooksPage.createForm.retry")}</label>
+					<label className="text-xs text-[var(--text-secondary)]">{t("playbooksPage.createForm.retry")}</label>
 					<input
 						type="number"
 						min={0}
@@ -96,7 +96,7 @@ export function SortableStepCard({
 					/>
 				</div>
 				<div className="space-y-1">
-					<label className="text-[11px] text-[var(--text-secondary)]">{t("playbooksPage.createForm.timeoutSec")}</label>
+					<label className="text-xs text-[var(--text-secondary)]">{t("playbooksPage.createForm.timeoutSec")}</label>
 					<input
 						type="number"
 						min={1}

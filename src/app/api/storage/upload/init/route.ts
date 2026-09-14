@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * POST /api/storage/upload/init — open a chunked upload session for ordinary
  * file-manager uploads (any MIME, requires storageNodeId + relativePath).
@@ -28,11 +29,11 @@ export async function POST(request: Request) {
       rateLimit: GENERAL_WRITE_LIMIT,
       bodySchema: initStorageUploadSchema,
       errorStatus: 500,
-      errorMessage: "Failed to initialize storage upload session",
+      errorMessage: apiCopy("apiCopy.failed.to.initialize.storage.upload.session.7033f934"),
     },
     async ({ session, body }) => {
       if (!session) {
-        throw new ForbiddenError("Not authenticated or session expired");
+        throw new ForbiddenError(apiCopy("apiCopy.not.authenticated.or.session.expired.b1714d99"));
       }
 
       const normalized = normalizeStorageRelativePath(body.relativePath);

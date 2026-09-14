@@ -129,8 +129,8 @@ describe("DownloadsClient", () => {
     await actor.click(screen.getByRole("button", { name: "🔄 刷新" }));
 
     await screen.findAllByText("已完成");
-    expect(screen.getByText("📦 2.0 KB")).toBeInTheDocument();
-    expect(screen.getByText("🔁 当前：直连")).toBeInTheDocument();
+    expect(screen.getByText("2.0 KB")).toBeInTheDocument();
+    expect(screen.getByText("当前：直连")).toBeInTheDocument();
     const downloadLink = screen.getByRole("link", { name: "⬇ 下载文件" });
     expect(downloadLink).toHaveAttribute("href", "/api/storage/direct-access?nodeId=store_1&path=downloads%2Fa.iso&download=1");
     expect(screen.queryByText("0.1% ·")).not.toBeInTheDocument();

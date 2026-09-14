@@ -1,4 +1,17 @@
 /* ── Skeleton / Loading Components ─────────────────────────── */
+import type { ReactNode } from "react";
+import { PageShell } from "./page-shell";
+import { LocalizedText } from "./localized-text";
+
+/** Route fallbacks keep the same gutters as the completed page. */
+export function RouteLoading({ children }: { children?: ReactNode }) {
+	return <PageShell>
+		<div role="status" className="mb-4 text-sm text-[var(--text-muted)]">
+			<LocalizedText textKey="common.loading" fallback="Loading..." />
+		</div>
+		<div aria-hidden="true" className="min-w-0 overflow-hidden">{children ?? <PageSkeleton />}</div>
+	</PageShell>;
+}
 
 export function SkeletonCard({ className }: { className?: string }) {
 	return (
@@ -312,4 +325,3 @@ export function QuickServicesPageSkeleton() {
 		</div>
 	);
 }
-

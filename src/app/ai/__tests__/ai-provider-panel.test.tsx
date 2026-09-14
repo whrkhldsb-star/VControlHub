@@ -1,5 +1,5 @@
 import { renderWithI18n as render } from "@/lib/i18n/__tests__/test-helpers";
-import { screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -35,6 +35,43 @@ const providerFixture = {
 describe("AiProviderPanel", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it("discards a model probe after the credentials change", async () => {
+    let resolve!: (value: unknown) => void;
+    vi.mocked(csrfFetch).mockReturnValueOnce(new Promise((done) => { resolve = done; }));
+    const props = {
+      show: true, providers: [], provForm: { ...DEFAULT_PROV_FORM, apiKey: "old-key" },
+      onClose: vi.fn(), onCreateProvider: vi.fn(), onDeleteProvider: vi.fn(),
+      onRefreshProviders: vi.fn(), setProvForm: vi.fn(),
+    };
+    const { rerender } = render(<AiProviderPanel {...props} />);
+    await userEvent.click(screen.getByRole("button", { name: /获取模型清单/ }));
+    const signal = vi.mocked(csrfFetch).mock.calls[0]?.[1]?.signal;
+    rerender(<AiProviderPanel {...props} provForm={{ ...props.provForm, apiKey: "new-key" }} />);
+    await act(async () => resolve({ models: [{ id: "obsolete-model" }] }));
+    expect(props.setProvForm).not.toHaveBeenCalled();
+    expect(screen.queryByText("obsolete-model")).not.toBeInTheDocument();
+    expect(signal?.aborted).toBe(true);
+  });
+
+  it("locks editing and dismissal until a save finishes and prevents repeated PATCH requests", async () => {
+    let resolve!: (value: unknown) => void;
+    vi.mocked(csrfFetch).mockReturnValueOnce(new Promise((done) => { resolve = done; }));
+    const onClose = vi.fn();
+    render(<AiProviderPanel show providers={[providerFixture]} provForm={DEFAULT_PROV_FORM}
+      onClose={onClose} onCreateProvider={vi.fn()} onDeleteProvider={vi.fn()}
+      onRefreshProviders={vi.fn()} setProvForm={vi.fn()} />);
+    await userEvent.click(screen.getByRole("button", { name: "编辑 OpenAI" }));
+    const save = screen.getByRole("button", { name: "保存修改" });
+    await userEvent.click(save);
+    await userEvent.click(save);
+    expect(csrfFetch).toHaveBeenCalledTimes(1);
+    expect(screen.getByLabelText("名称")).toBeDisabled();
+    await userEvent.keyboard("{Escape}");
+    expect(onClose).not.toHaveBeenCalled();
+    await act(async () => resolve({}));
+    expect(screen.queryByRole("heading", { name: "编辑提供商" })).not.toBeInTheDocument();
   });
 
   it("shows a toast when toggling a provider fails instead of silently swallowing the error", async () => {

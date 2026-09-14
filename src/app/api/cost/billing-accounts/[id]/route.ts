@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * GET    /api/cost/billing-accounts/[id]
  * PATCH  /api/cost/billing-accounts/[id]
@@ -27,7 +28,7 @@ export async function GET(request: Request, context: RouteContext) {
 			permission: "cost:read",
 			rateLimit: GENERAL_READ_LIMIT,
 			errorStatus: 500,
-			errorMessage: "Failed to load cloud billing account",
+			errorMessage: apiCopy("apiCopy.failed.to.load.cloud.billing.account.5c00eddf"),
 		},
 		async ({ session }) => {
 			const account = await getCloudBillingAccount(id, session ?? undefined);
@@ -45,7 +46,7 @@ export async function PATCH(request: Request, context: RouteContext) {
 			rateLimit: GENERAL_WRITE_LIMIT,
 			bodySchema: updateCloudBillingAccountSchema,
 			errorStatus: 400,
-			errorMessage: "Failed to update cloud billing account",
+			errorMessage: apiCopy("apiCopy.failed.to.update.cloud.billing.account.2707ee43"),
 		},
 		async ({ session, body }) => {
 			const account = await updateCloudBillingAccount(id, body, session ?? undefined);
@@ -67,7 +68,7 @@ export async function DELETE(request: Request, context: RouteContext) {
 			permission: "cost:manage",
 			rateLimit: GENERAL_WRITE_LIMIT,
 			errorStatus: 400,
-			errorMessage: "Failed to delete cloud billing account",
+			errorMessage: apiCopy("apiCopy.failed.to.delete.cloud.billing.account.7c0c6fa6"),
 		},
 		async ({ session }) => {
 			await deleteCloudBillingAccount(id, session ?? undefined);

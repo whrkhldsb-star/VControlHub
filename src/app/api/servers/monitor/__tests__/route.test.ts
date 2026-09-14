@@ -71,7 +71,7 @@ describe("/api/servers/monitor", () => {
 
     expect(response.status).toBe(200);
     expect(requireApiPermissionMock).toHaveBeenCalledWith("server:read");
-    expect(collectServerMetricsMock).toHaveBeenCalledWith("srv_1");
+    expect(collectServerMetricsMock).toHaveBeenCalledWith("srv_1", expect.any(AbortSignal));
     await expect(response.json()).resolves.toMatchObject({ ok: true });
   });
 });

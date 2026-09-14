@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * GET  /api/tickets/[id]/timeline — unified ticket ↔ command timeline
  * POST /api/tickets/[id]/timeline — link/unlink command or server
@@ -39,10 +40,10 @@ const postSchema = z.discriminatedUnion("action", [
 async function assertCanAccess(ticketId: string, session: SessionPayload) {
   // Team-scoped existence first — ticket:manage is not a cross-tenant superpower.
   const ticket = await getTicketById(ticketId, session);
-  if (!ticket) throw new ForbiddenError("You cannot access this ticket");
+  if (!ticket) throw new ForbiddenError(apiCopy("apiCopy.you.cannot.access.this.ticket.bd7d15a8"));
   const canManage = sessionHasPermission(session, "ticket:manage");
   if (!canManage && !(await canViewTicket(ticketId, session.userId, session))) {
-    throw new ForbiddenError("You cannot access this ticket");
+    throw new ForbiddenError(apiCopy("apiCopy.you.cannot.access.this.ticket.bd7d15a8"));
   }
   return canManage;
 }
@@ -56,7 +57,7 @@ export async function GET(
     {
       permission: "ticket:read",
       rateLimit: GENERAL_READ_LIMIT,
-      errorMessage: "Failed to load ticket timeline",
+      errorMessage: apiCopy("apiCopy.failed.to.load.ticket.timeline.bb19306b"),
     },
     async ({ session }) => {
       const { id } = await context.params;
@@ -77,7 +78,7 @@ export async function POST(
       permission: "ticket:manage",
       rateLimit: GENERAL_WRITE_LIMIT,
       bodySchema: postSchema,
-      errorMessage: "Failed to update ticket links",
+      errorMessage: apiCopy("apiCopy.failed.to.update.ticket.links.8dac3e02"),
     },
     async ({ session, body }) => {
       const { id } = await context.params;

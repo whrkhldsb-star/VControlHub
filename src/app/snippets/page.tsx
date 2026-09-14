@@ -19,8 +19,8 @@ export default async function Page() {
 		<PageShell maxW="max-w-7xl">
 			<PageHeader
 				eyebrow={t("snippetsPage.eyebrow", locale)}
-				title={t("snippetsPage.pageTitle")}
-				description={t("snippetsPage.pageDescription")}
+				title={t("snippetsPage.pageTitle", locale)}
+				description={t("snippetsPage.pageDescription", locale)}
 			/>
 			<SnippetList snippets={serialized} />
 		</PageShell>

@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 
 import { withApiRoute } from "@/lib/http/api-guard";
@@ -56,7 +57,7 @@ async function mergeSshWsMetrics(snapshot: ReturnType<typeof getObservabilitySna
 export async function GET(request: Request) {
 	return withApiRoute(
 		request,
-		{ permission: "audit:read", errorMessage: "Failed to fetch observability metrics" },
+		{ permission: "audit:read", errorMessage: apiCopy("apiCopy.failed.to.fetch.observability.metrics.b9fb0882") },
 		async () => {
 			const metrics = await mergeSshWsMetrics(getObservabilitySnapshot());
 			return NextResponse.json({ metrics });

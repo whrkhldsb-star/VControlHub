@@ -51,7 +51,7 @@ type SshParams = Awaited<ReturnType<typeof buildSshParamsFromServer>>;
  */
 export async function probeDirectDownloadRemote(input: {
   taskId: string;
-  pid: number;
+  pid: number | null;
   url: string;
   fileName: string | null;
   targetPath: string;
@@ -60,23 +60,26 @@ export async function probeDirectDownloadRemote(input: {
   const safeTaskFileStem = input.taskId.replace(/[^A-Za-z0-9_-]/g, "_");
   const pidFile = `/tmp/app-dl-${safeTaskFileStem}.pid`;
   const exitFile = `${pidFile}.exit`;
-  const outputPath = input.fileName
-    ? `${input.targetPath.replace(/\/$/, "")}/${input.fileName}`
+  const resolvedName = input.fileName || deriveDownloadFileNameFromUrl(input.url);
+  const outputPath = resolvedName
+    ? `${input.targetPath.replace(/\/$/, "")}/${resolvedName}`
     : "";
   const statSnippet = outputPath
     ? `if [ -f ${shellQuote(outputPath)} ]; then stat -c %s -- ${shellQuote(outputPath)} 2>/dev/null || echo 0; else echo 0; fi`
     : "echo 0";
   const probeCommand = [
+    `remote_pid=$(cat ${shellQuote(pidFile)} 2>/dev/null || true)`,
+    `case "$remote_pid" in ''|*[!0-9]*) remote_pid=${shellQuote(input.pid && input.pid > 0 ? String(input.pid) : "")} ;; esac`,
     `if [ -f ${shellQuote(exitFile)} ]; then`,
     "  status=$(cat " + shellQuote(exitFile) + " 2>/dev/null || echo 1)",
     '  if [ "$status" = "0" ]; then echo COMPLETED; else echo FAILED; fi',
     `  ${statSnippet}`,
     outputPath ? `  echo ${shellQuote(outputPath)}` : "  echo",
-    `elif kill -0 ${input.pid} 2>/dev/null; then`,
+    'elif [ -n "$remote_pid" ] && [ "$remote_pid" -gt 0 ] && kill -0 "$remote_pid" 2>/dev/null; then',
     "  echo RUNNING",
     "  echo 0",
     "else",
-    "  echo FAILED",
+    `  echo ${input.pid ? "FAILED" : "UNKNOWN"}`,
     "  echo 0",
     "fi",
   ].join("\n");
@@ -109,7 +112,7 @@ async function failRunningTask(taskId: string, errorMessage: string): Promise<bo
 }
 
 async function reconcileDirectTask(
-  task: { id: string; url: string; fileName: string | null; targetPath: string; pid: number; updatedAt: Date; server: ReconcileServer },
+  task: { id: string; url: string; fileName: string | null; targetPath: string; pid: number | null; updatedAt: Date; server: ReconcileServer },
 ): Promise<"completed" | "failed" | "running" | "skipped"> {
   const sshParams = await buildSshParamsFromServer(task.server, task.server.sshKey);
   let probe: ProbeResult;
@@ -144,13 +147,14 @@ async function reconcileDirectTask(
   }
   // COMPLETED: finish the task the way a user refresh would have.
   const size = probe.size;
-  const claimed = await prisma.downloadTask.updateMany({
+  return prisma.$transaction(async (tx) => {
+  const claimed = await tx.downloadTask.updateMany({
     where: { id: task.id, status: "RUNNING" },
     data: {
       status: "COMPLETED",
       progress: "Download completed",
       ...(probe.resolvedFileName && !task.fileName ? { fileName: probe.resolvedFileName } : {}),
-      ...(size ? { fileSize: size, totalBytes: size, completedBytes: size } : {}),
+      ...(size != null ? { fileSize: size, totalBytes: size, completedBytes: size } : {}),
     },
   });
   if (claimed.count === 0) return "skipped";
@@ -158,9 +162,10 @@ async function reconcileDirectTask(
     storageNode: task.server.storageNode,
     targetPath: task.targetPath,
     fileName: probe.resolvedFileName,
-    size: size ? BigInt(size) : null,
+    size: size != null ? BigInt(size) : null,
+  }, tx);
+  return "completed" as const;
   });
-  return "completed";
 }
 
 type StaleTaskRow = Prisma.DownloadTaskGetPayload<{
@@ -201,11 +206,12 @@ async function reconcileRelayTask(
 
 export async function reconcileStaleRunningDownloadTasks(input?: {
   limit?: number;
+  taskIds?: string[];
 }): Promise<{ completed: number; failed: number; ids: string[] }> {
   const limit = Math.min(Math.max(input?.limit ?? DEFAULT_LIMIT, 1), 100);
   const cutoff = new Date(Date.now() - DIRECT_STALE_MS);
   const rows = await prisma.downloadTask.findMany({
-    where: { status: "RUNNING", updatedAt: { lt: cutoff } },
+    where: { status: "RUNNING", updatedAt: { lt: cutoff }, ...(input?.taskIds ? { id: { in: input.taskIds } } : {}) },
     include: { server: { include: { sshKey: true, storageNode: true } } },
     orderBy: { updatedAt: "asc" },
     take: limit,
@@ -225,15 +231,15 @@ export async function reconcileStaleRunningDownloadTasks(input?: {
       let outcome: "completed" | "failed" | "running" | "skipped";
       if (task.aria2Gid) {
         outcome = await reconcileRelayTask({ id: task.id, aria2Gid: task.aria2Gid, updatedAt: task.updatedAt });
-      } else if (task.pid) {
+      } else if (!task.relayMode) {
         outcome = await reconcileDirectTask({
           id: task.id, url: task.url, fileName: task.fileName,
           targetPath: task.targetPath, pid: task.pid, updatedAt: task.updatedAt,
           server: task.server,
         });
       } else {
-        // Claimed RUNNING but neither pid nor gid recorded — worker died in the
-        // pre-side-effect window. Nothing ever started; fail once very stale.
+        // A relay without a durable gid cannot be assumed never to have started.
+        // Direct tasks always inspect remote markers, including a missing DB pid.
         outcome = Date.now() - task.updatedAt.getTime() > UNREACHABLE_FAIL_MS
           ? ((await failRunningTask(task.id, "Download never started (worker lost); retry")) ? "failed" : "skipped")
           : "skipped";

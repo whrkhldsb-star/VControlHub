@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * Publish a file from storage node to image bed.
  * POST /api/images/publish-from-storage
@@ -42,13 +43,13 @@ export async function POST(request: Request) {
     {
       permission: "storage:read",
       rateLimit: IMAGE_UPLOAD_LIMIT,
-      errorMessage: "Failed to publish from storage",
+      errorMessage: apiCopy("apiCopy.failed.to.publish.from.storage.b1d93bfc"),
       bodySchema: publishSchema,
     },
     async ({ session, body }) => {
       if (!session)
         return NextResponse.json(
-          { error: "Not authenticated or session expired" },
+          { error: apiCopy("apiCopy.not.authenticated.or.session.expired.b1714d99") },
           { status: 401 },
         );
       const { storageNodeId, relativePath, filename, album } = body;
@@ -60,13 +61,13 @@ export async function POST(request: Request) {
       });
       if (!storageNode) {
         return NextResponse.json(
-          { error: "Storage node not found" },
+          { error: apiCopy("apiCopy.storage.node.not.found.3b3ec488") },
           { status: 404 },
         );
       }
       if (storageNode.driver !== "LOCAL" && storageNode.driver !== "SFTP") {
         return NextResponse.json(
-          { error: "Only LOCAL or SFTP storage nodes are supported" },
+          { error: apiCopy("apiCopy.only.local.or.sftp.storage.nodes.are.supported.9b2a16c9") },
           { status: 400 },
         );
       }
@@ -74,7 +75,7 @@ export async function POST(request: Request) {
       const ext = path.extname(relativePath).toLowerCase();
       if (!IMAGE_EXTENSIONS.has(ext) || BLOCKED_IMAGE_EXTENSIONS.has(ext))
         return NextResponse.json(
-          { error: "Unsupported file type" },
+          { error: apiCopy("apiCopy.unsupported.file.type.c24bdea9") },
           { status: 400 },
         );
 
@@ -119,7 +120,7 @@ export async function POST(request: Request) {
         return NextResponse.json({
           image: existing,
           publicUrl: `/api/images/${existing.id}/file`,
-          message: "File already exists (checksum matched), skipping upload",
+          message: apiCopy("apiCopy.file.already.exists.checksum.matched.skipping.upload.e8e53f41"),
         });
       }
 

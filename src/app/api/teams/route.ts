@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 
 import { withApiRoute } from "@/lib/http/api-guard";
@@ -17,7 +18,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
 	return withApiRoute(
 		request,
-		{ permission: "team:create", rateLimit: GENERAL_WRITE_LIMIT, bodySchema: createTeamSchema, errorMessage: "Failed to create team workspace" },
+		{ permission: "team:create", rateLimit: GENERAL_WRITE_LIMIT, bodySchema: createTeamSchema, errorMessage: apiCopy("apiCopy.failed.to.create.team.workspace.cbc63c23") },
 		async ({ session, body }) => {
 			const team = await createTeam(body, session!);
 			// Audit is recorded inside createTeam (richer metadata: slug/name).

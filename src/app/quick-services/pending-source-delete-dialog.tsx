@@ -38,12 +38,12 @@ export function PendingSourceDeleteDialog({
 				</p>
 				<div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
 					<ActionButton variant="secondary"
-						onClick={onCancel} className="min-h-11 !text-xs"
+						onClick={onCancel} className="min-h-11 !text-sm"
 					>
 						{t("qsPage.cancel")}
 					</ActionButton>
 					<ActionButton variant="danger"
-						onClick={onConfirm} className="min-h-11 !text-xs"
+						onClick={onConfirm} className="min-h-11 !text-sm"
 					>
 						{t("qsPage.confirmDelete")}
 					</ActionButton>

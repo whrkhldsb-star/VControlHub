@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { csrfFetch } from "@/lib/auth/csrf-client";
@@ -46,6 +46,7 @@ function riskLabel(t: (k: string, vars?: Record<string, string | number>) => str
  * not `approve` (requires ai:action:approve and executes immediately as admin).
  */
 export function AiHostedApprovalCard({ action }: AiHostedApprovalCardProps) {
+  const reasonId = useId();
   const { t } = useI18n();
   const router = useRouter();
   const [status, setStatus] = useState<"pending" | "confirming" | "rejecting" | "confirmed" | "rejected">("pending");
@@ -96,24 +97,25 @@ export function AiHostedApprovalCard({ action }: AiHostedApprovalCardProps) {
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-base font-semibold text-[var(--text-primary)]">{action.actionName}</h3>
-            <span data-tone="cyan" className="rounded-lg border border-[var(--color-action-border)]/20 px-2 py-0.5 text-[11px] font-medium text-[var(--text-secondary)]">{t("aiHostedApproval.badge")}</span>
-            <span data-tone="amber" className="rounded-lg border border-[var(--warning-border)] px-2 py-0.5 text-[11px] font-medium text-[var(--warning)]">{riskLabel(t, action.riskLevel)}</span>
+            <span data-tone="cyan" className="rounded-lg border border-[var(--color-action-border)]/20 px-2 py-0.5 text-xs font-medium text-[var(--text-secondary)]">{t("aiHostedApproval.badge")}</span>
+            <span data-tone="amber" className="rounded-lg border border-[var(--warning-border)] px-2 py-0.5 text-xs font-medium text-[var(--warning)]">{riskLabel(t, action.riskLevel)}</span>
           </div>
           <p className="mt-1 text-xs text-[var(--text-secondary)]">{t("aiHostedApproval.description")}</p>
           <div className="mt-3 grid gap-2 text-xs text-[var(--text-secondary)] sm:grid-cols-2">
             <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-3 py-2">
-              <div className="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">{t("aiHostedApproval.actionType")}</div>
+              <div className="text-xs uppercase  text-[var(--text-muted)]">{t("aiHostedApproval.actionType")}</div>
               <div className="mt-1 font-mono text-[var(--text-primary)]">{action.actionType}</div>
             </div>
             <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-3 py-2">
-              <div className="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">{t("aiHostedApproval.targetVps")}</div>
+              <div className="text-xs uppercase  text-[var(--text-muted)]">{t("aiHostedApproval.targetVps")}</div>
               <div className="mt-1 text-[var(--text-secondary)]">{action.server ? `${action.server.name} · ${action.server.host}` : t("aiHostedApproval.notSpecified")}</div>
             </div>
           </div>
-          <pre className="mt-3 max-h-32 overflow-auto rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-3 text-[11px] text-[var(--text-secondary)]">{formatParams(action.params)}</pre>
+          <pre className="mt-3 max-h-32 overflow-auto rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-3 text-xs text-[var(--text-secondary)]">{formatParams(action.params)}</pre>
           {!disabled ? (
-            <FormField label={t("aiHostedApproval.rejectReasonLabel")} className="mt-3">
+            <FormField label={t("aiHostedApproval.rejectReasonLabel")} htmlFor={reasonId} className="mt-3">
               <input
+                id={reasonId}
                 type="text"
                 aria-label={t("aiHostedApproval.rejectReasonLabel")}
                 value={rejectReason}
@@ -131,7 +133,7 @@ export function AiHostedApprovalCard({ action }: AiHostedApprovalCardProps) {
             disabled={disabled}
             onClick={() => void confirm()}
            
-            className="!px-3 !py-2 !text-xs disabled:opacity-60"
+            className="!px-3 !py-2 !text-sm disabled:opacity-60"
           >
             {status === "confirming"
               ? t("aiHostedApproval.confirming")
@@ -142,7 +144,7 @@ export function AiHostedApprovalCard({ action }: AiHostedApprovalCardProps) {
           <ActionButton variant="secondary"
             disabled={disabled}
             onClick={() => void reject()}
-            className="!px-3 !py-2 !text-xs disabled:cursor-not-allowed disabled:opacity-60"
+            className="!px-3 !py-2 !text-sm disabled:cursor-not-allowed disabled:opacity-60"
           >
             {status === "rejecting"
               ? t("aiHostedApproval.rejecting")

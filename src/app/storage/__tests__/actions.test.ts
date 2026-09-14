@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+vi.mock("@/lib/concurrency/advisory-lock", () => ({ tryAcquireAdvisoryLock: vi.fn().mockResolvedValue(async () => undefined) }));
 
 const {
   requirePermissionMock,

@@ -49,22 +49,31 @@ export function buildDirectDownloadCommand({
     `pid_file=${shellQuote(pidFile)}`,
     `exit_file=${shellQuote(exitFile)}`,
     `resolve_entry=${shellQuote(resolveEntry)}`,
+    // The detached process persists its own identity, even if the controller
+    // dies before it can store the SSH response in PostgreSQL.
+    'echo $$ >"$pid_file"',
     "if [ -z \"$output_path\" ]; then",
     "  clean_url=${download_url%%[?#]*}",
     "  base_name=${clean_url##*/}",
     "  if [ -z \"$base_name\" ] || [ \"$base_name\" = \"$clean_url\" ]; then base_name=download; fi",
     "  output_path=${target_dir%/}/$base_name",
     "fi",
+    `partial_suffix=${shellQuote(`.vch-${safeTaskId}.part`)}`,
+    'partial_path=$output_path$partial_suffix',
     "if command -v curl >/dev/null 2>&1; then",
     // Pin the public DNS result and fail on any redirect. A redirect target
     // has not passed the controller's DNS allowlist and may be an intranet IP.
-    "  curl --fail --show-error -L --max-redirs 0 --proto =https,http --proto-redir =https,http --resolve \"$resolve_entry\" -o \"$output_path\" \"$download_url\" >\"$log_file\" 2>&1",
+    "  curl --fail --show-error -L --max-redirs 0 --proto =https,http --proto-redir =https,http --resolve \"$resolve_entry\" -o \"$partial_path\" \"$download_url\" >\"$log_file\" 2>&1",
     "else",
     "  echo \"ERROR: curl is required for DNS-pinned downloads\" >\"$log_file\"",
     "  false",
     "fi",
     "status=$?",
-    "echo $status >\"$exit_file\"",
+    // Publish only complete files. Interrupted downloads never truncate the
+    // destination; a retry uses its own task-owned staging file.
+    'if [ "$status" = 0 ]; then mv -f -- "$partial_path" "$output_path"; status=$?; fi',
+    'if [ "$status" != 0 ]; then rm -f -- "$partial_path"; fi',
+    'echo $status >"$exit_file.tmp" && mv -f -- "$exit_file.tmp" "$exit_file"',
     "rm -f \"$pid_file\"",
     "exit $status",
   ].join("\n");

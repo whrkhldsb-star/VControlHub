@@ -67,13 +67,10 @@ function Section({
 	const title = summary ? t(summary.title) : summaryId;
 	const subtitle = summary ? t(summary.subtitle) : "";
 	return (
-		<section id={summaryId} className="scroll-mt-28" data-card>
-			<div className="space-y-4 p-5 sm:p-6">
+		<section id={summaryId} className="scroll-mt-28 border-b border-[var(--border)] pb-6">
+			<div className="space-y-4 py-3">
 				<div className="flex flex-col gap-1 border-b border-[var(--border-subtle)] pb-3">
-					<div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">
-						<span>{t("preferencesPage.group.personal")}</span>
-					</div>
-					<h2 className="flex flex-wrap items-center gap-2 text-base font-semibold text-[var(--text-primary)] sm:text-lg">
+					<h2 className="flex flex-wrap items-center gap-2 text-base font-semibold text-[var(--text-primary)]">
 						{summary?.icon && <span aria-hidden>{summary.icon}</span>}
 						<span>{title}</span>
 					</h2>
@@ -143,7 +140,7 @@ export const PREFERENCES_CATEGORY_SUMMARIES: PreferencesCategorySummary[] = [
 function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
 	const sanitizedId = `preference-toggle-${hashLabel(label)}`;
 	return (
-		<div className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-subtle)_50%,var(--surface))] px-3.5 py-3">
+		<div className="flex items-center justify-between gap-3 border-b border-[var(--border-subtle)] py-3 last:border-0">
 			<span id={`${sanitizedId}-label`} className="text-sm text-[var(--text-secondary)]">
 				{label}
 			</span>

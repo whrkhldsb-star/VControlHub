@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * TR-009 55c: POST /api/images/upload/init — open a chunked upload session.
  *
@@ -33,11 +34,11 @@ export async function POST(request: Request) {
       rateLimit: IMAGE_UPLOAD_LIMIT,
       bodySchema: initMediaUploadSchema,
       errorStatus: 500,
-      errorMessage: "Failed to initialize upload session",
+      errorMessage: apiCopy("apiCopy.failed.to.initialize.upload.session.ede9e883"),
     },
     async ({ session, body }) => {
       if (!session) {
-        throw new ForbiddenError("Not authenticated or session expired");
+        throw new ForbiddenError(apiCopy("apiCopy.not.authenticated.or.session.expired.b1714d99"));
       }
       try {
         const view = await initMediaUploadSession({

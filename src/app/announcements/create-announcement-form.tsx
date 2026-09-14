@@ -64,7 +64,7 @@ export function CreateAnnouncementForm() {
 				<div className="grid gap-1.5">
 					<label htmlFor={titleId} className="text-xs font-medium text-[var(--text-secondary)]">{t("announcementsPage.create.titleLabel")}</label>
 					<input id={titleId} name="title" required aria-describedby={`${titleId}-hint`} className={UI_INPUT} />
-					<p id={`${titleId}-hint`} className="text-[11px] text-[var(--text-muted)]">{t("announcementsPage.create.titleHint")}</p>
+					<p id={`${titleId}-hint`} className="text-xs text-[var(--text-muted)]">{t("announcementsPage.create.titleHint")}</p>
 				</div>
 				<div className="grid gap-1.5">
 					<label htmlFor={typeId} className="text-xs font-medium text-[var(--text-secondary)]">{t("announcementsPage.create.typeLabel")}</label>
@@ -73,24 +73,24 @@ export function CreateAnnouncementForm() {
 						<option value="warning">{t("announcementsPage.level.warning")}</option>
 						<option value="urgent">{t("announcementsPage.level.urgent")}</option>
 					</select>
-					<p className="text-[11px] text-[var(--text-muted)]">{t("announcementsPage.create.typeHint")}</p>
+					<p className="text-xs text-[var(--text-muted)]">{t("announcementsPage.create.typeHint")}</p>
 				</div>
 			</div>
 			<div className="grid gap-1.5">
 				<label htmlFor={contentId} className="text-xs font-medium text-[var(--text-secondary)]">{t("announcementsPage.create.contentLabel")}</label>
 				<textarea id={contentId} name="content" required rows={3} aria-describedby={`${contentId}-hint`} className={cn(UI_INPUT, "resize-y")} />
-				<p id={`${contentId}-hint`} className="text-[11px] text-[var(--text-muted)]">{t("announcementsPage.create.contentHint")}</p>
+				<p id={`${contentId}-hint`} className="text-xs text-[var(--text-muted)]">{t("announcementsPage.create.contentHint")}</p>
 			</div>
 			<div className="grid gap-3 md:grid-cols-2">
 				<div className="grid gap-1.5">
 					<label htmlFor={startsAtId} className="text-xs font-medium text-[var(--text-secondary)]">{t("announcementsPage.create.startsAtLabel")}</label>
 					<input id={startsAtId} type="datetime-local" name="startsAt" aria-describedby={`${startsAtId}-hint`} className={UI_INPUT} />
-					<p id={`${startsAtId}-hint`} className="text-[11px] text-[var(--text-muted)]">{t("announcementsPage.create.startsAtHint")}</p>
+					<p id={`${startsAtId}-hint`} className="text-xs text-[var(--text-muted)]">{t("announcementsPage.create.startsAtHint")}</p>
 				</div>
 				<div className="grid gap-1.5">
 					<label htmlFor={expiresAtId} className="text-xs font-medium text-[var(--text-secondary)]">{t("common.expiration")}</label>
 					<input id={expiresAtId} type="datetime-local" name="expiresAt" aria-describedby={`${expiresAtId}-hint`} className={UI_INPUT} />
-					<p id={`${expiresAtId}-hint`} className="text-[11px] text-[var(--text-muted)]">{t("announcementsPage.create.expiresAtHint")}</p>
+					<p id={`${expiresAtId}-hint`} className="text-xs text-[var(--text-muted)]">{t("announcementsPage.create.expiresAtHint")}</p>
 				</div>
 			</div>
 			<ActionButton type="submit" variant="primary" disabled={loading} className="w-fit disabled:opacity-60">

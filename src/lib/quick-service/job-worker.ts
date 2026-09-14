@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { JobStatus, Prisma } from "@prisma/client";
 
 import { tryAcquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
@@ -178,9 +179,9 @@ export async function enqueueQuickServiceJob(input: {
 					|| input.payload.action !== "uninstall"
 					|| Boolean(activePayload.deleteVolumes) === Boolean(input.payload.deleteVolumes));
 			if (sameOperation) return { job: activeJob, taskId: `job:${activeJob.id}`, reused: true };
-			throw new ConflictError(`Service ${input.payload.slug} already has a different lifecycle task in progress`);
+			throw new ConflictError(apiCopy("apiCopy.service.already.has.a.different.lifecycle.task.in.progress.8f008320", { v0: String(input.payload.slug) }));
 		}
-		throw new ConflictError(`Service ${input.payload.slug} lifecycle task is being scheduled; retry shortly`);
+		throw new ConflictError(apiCopy("apiCopy.service.lifecycle.task.is.being.scheduled.retry.shortly.2073b6a5", { v0: String(input.payload.slug) }));
 	}
 
 	try {
@@ -192,7 +193,7 @@ export async function enqueueQuickServiceJob(input: {
 					|| input.payload.action !== "uninstall"
 					|| Boolean(activePayload.deleteVolumes) === Boolean(input.payload.deleteVolumes));
 			if (sameOperation) return { job: activeJob, taskId: `job:${activeJob.id}`, reused: true };
-			throw new ConflictError(`Service ${input.payload.slug} already has a different lifecycle task in progress`);
+			throw new ConflictError(apiCopy("apiCopy.service.already.has.a.different.lifecycle.task.in.progress.8f008320", { v0: String(input.payload.slug) }));
 		}
 
 		const job = await enqueueJob({

@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -45,6 +45,19 @@ describe("ShareFilePicker", () => {
 		// Reset i18n to default Chinese after a test that flipped to English
 		setI18nLocale("zh");
 	});
+	it("keeps selections while browsing later file pages",async () => {
+		const user = userEvent.setup();
+		const response = (page:number,name:string) => ({currentPath:"",nodeIdFilter:"node_1",folders:[],nodes:[],pagination:{page,pageSize:100,totalItems:1208,totalPages:13},
+			files:[{id:name,name,relativePath:name,entryType:"FILE",storageNodeId:"node_1"}]});
+		mockedFetch.mockResolvedValueOnce(response(1,"first.txt")).mockResolvedValueOnce(response(2,"later.txt"));
+		render(<ShareFilePicker nodes={[{id:"node_1",name:"Storage",driver:"LOCAL"}]} />);
+		await user.click(await screen.findByLabelText("选择文件 first.txt"));
+		await user.click(screen.getByRole("button",{name:"下一页"}));
+		await user.click(await screen.findByLabelText("选择文件 later.txt"));
+		expect(screen.getByRole("heading",{name:"已选择 2 项"})).toBeVisible();
+		expect(mockedFetch.mock.calls[1]?.[0]).toBe("/api/files/list?nodeId=node_1&page=2&sync=0");
+	});
+
 	it("browses files in share center and creates links for selected folders and files", async () => {
 		const user = userEvent.setup();
 		mockedFetch
@@ -93,9 +106,71 @@ describe("ShareFilePicker", () => {
 
 		expect(await screen.findByRole("heading", { name: "Choose files in Shares" })).toBeInTheDocument();
 		expect(screen.getByText("本机默认存储 · Local storage")).toBeInTheDocument();
-		expect(screen.getByText("No shareable items in this folder")).toBeInTheDocument();
+		expect(await screen.findByText("No shareable items in this folder")).toBeInTheDocument();
 		expect(screen.getByText("Selected 0 items")).toBeInTheDocument();
 		expect(screen.getByText("Select files or folders on the left")).toBeInTheDocument();
+	});
+
+	it("keeps successful links after a partial failure and retries only remaining selections", async () => {
+		const user = userEvent.setup();
+		mockedFetch.mockResolvedValueOnce({
+			currentPath: "", nodeIdFilter: "node_1", folders: [], nodes: [],
+			files: ["first", "second"].map((name) => ({ id: name, name, relativePath: name, storageNodeId: "node_1", entryType: "FILE" })),
+		}).mockResolvedValueOnce({ token: "first-link" }).mockRejectedValueOnce(new Error("second failed"))
+			.mockResolvedValueOnce({ token: "second-link" });
+		render(<ShareFilePicker nodes={[{ id: "node_1", name: "Storage" }]} />);
+		await user.click(await screen.findByLabelText("选择文件 first"));
+		await user.click(screen.getByLabelText("选择文件 second"));
+		await user.click(screen.getByRole("button", { name: "创建分享链接" }));
+		expect(await screen.findByText("second failed")).toBeInTheDocument();
+		expect(screen.getByText(/\/share\/first-link/)).toBeInTheDocument();
+		expect(screen.getByLabelText("选择文件 first")).not.toBeChecked();
+		expect(screen.getByLabelText("选择文件 second")).toBeChecked();
+		expect(refresh).toHaveBeenCalledTimes(1);
+		await user.click(screen.getByRole("button", { name: "创建分享链接" }));
+		expect(await screen.findByText(/\/share\/second-link/)).toBeInTheDocument();
+		expect(screen.getByText(/\/share\/first-link/)).toBeInTheDocument();
+		expect(mockedFetch).toHaveBeenCalledTimes(4);
+		expect(JSON.parse(String(mockedFetch.mock.calls[3]?.[1]?.body)).path).toBe("second");
+	});
+
+	it("cancels manual refresh when the node changes and ignores its late response", async () => {
+		const user = userEvent.setup();
+		const listing = (nodeId: string, name: string) => ({
+			currentPath: "", nodeIdFilter: nodeId, folders: [], nodes: [],
+			files: [{ id: name, name, relativePath: name, storageNodeId: nodeId, entryType: "FILE" }],
+		});
+		let resolveOld!: (value: unknown) => void;
+		let resolveNew!: (value: unknown) => void;
+		mockedFetch.mockResolvedValueOnce(listing("node_1", "initial"))
+			.mockImplementationOnce(() => new Promise((resolve) => { resolveOld = resolve; }))
+			.mockImplementationOnce(() => new Promise((resolve) => { resolveNew = resolve; }));
+		render(<ShareFilePicker nodes={[{ id: "node_1", name: "First" }, { id: "node_2", name: "Second" }]} />);
+		await screen.findByLabelText("选择文件 initial");
+		await user.click(screen.getByRole("button", { name: "刷新当前目录" }));
+		await user.selectOptions(screen.getByRole("combobox"), "node_2");
+		expect(mockedFetch.mock.calls[1]?.[1]?.signal?.aborted).toBe(true);
+		await act(async () => { resolveOld(listing("node_1", "stale")); });
+		expect(screen.queryByLabelText("选择文件 stale")).not.toBeInTheDocument();
+		await act(async () => { resolveNew(listing("node_2", "current")); });
+		expect(await screen.findByLabelText("选择文件 current")).toBeInTheDocument();
+		expect(screen.queryByLabelText("选择文件 stale")).not.toBeInTheDocument();
+	});
+
+	it("does not claim clipboard success when browser access is denied", async () => {
+		const user = userEvent.setup();
+		vi.spyOn(navigator.clipboard, "writeText").mockRejectedValue(new Error("denied"));
+		mockedFetch.mockResolvedValueOnce({
+			currentPath: "", nodeIdFilter: "node_1", folders: [], nodes: [],
+			files: [{ id: "f", name: "file", relativePath: "file", storageNodeId: "node_1", entryType: "FILE" }],
+		}).mockResolvedValueOnce({ token: "copy-link" });
+		render(<ShareFilePicker nodes={[{ id: "node_1", name: "Storage" }]} />);
+		await user.click(await screen.findByLabelText("选择文件 file"));
+		await user.click(screen.getByRole("button", { name: "创建分享链接" }));
+		await user.click(await screen.findByRole("button", { name: "复制" }));
+		expect(await screen.findByText("复制失败，请选择并复制链接")).toBeInTheDocument();
+		expect(screen.queryByRole("button", { name: "已复制" })).not.toBeInTheDocument();
+		expect(screen.getByText(/\/share\/copy-link/)).toBeInTheDocument();
 	});
 
 	describe("touch targets (TR-022 R19.B mobile)", () => {

@@ -70,9 +70,14 @@ export function FileListListViewMobile(props: FileListListViewMobileProps) {
       {sortedFolders.map((folder) => (
         <div
           key={folder.path}
+          draggable={!!folder.entryId && entryCanWrite(folder)}
+          data-file-entry-id={folder.entryId ?? undefined}
+          data-file-drop-path={folder.entryId && entryCanWrite(folder) ? folder.path : undefined}
+          data-file-node-id={folder.storageNodeId ?? folder.sourceKeys[0]}
           className="px-4 py-3 hover:bg-[var(--surface-elevated)] transition"
         >
           <div className="flex items-center gap-3">
+            {folder.entryId && (entryCanWrite(folder) || entryCanDelete(folder)) ? <input type="checkbox" aria-label={t("fileListClient.selectFileAria", { name: folder.name })} checked={effectiveSelectedIdSet.has(folder.entryId)} onChange={() => toggleOne(folder.entryId!)} /> : null}
             <div className="rounded-lg bg-[var(--warning-bg)] p-1.5">
               <FileTypeIcon entry={{ entryType: "DIRECTORY" }} size={20} />
             </div>
@@ -93,7 +98,7 @@ export function FileListListViewMobile(props: FileListListViewMobileProps) {
             </div>
             <ActionButton variant="secondary"
               onClick={() => navigateToFolder(folder.path)}
-              data-tone="cyan" className="shrink-0 !inline-flex !items-center !gap-1.5 !px-3 !py-1.5 !text-xs"
+              data-tone="cyan" className="shrink-0 !inline-flex !items-center !gap-1.5 !px-3 !py-1.5 !text-sm"
             >
               {t("fileListClient.open")}
             </ActionButton>
@@ -122,6 +127,9 @@ export function FileListListViewMobile(props: FileListListViewMobileProps) {
         return (
           <div
             key={entry.id}
+            draggable={entryCanWrite(entry)}
+            data-file-entry-id={entry.id}
+            data-file-node-id={entry.storageNode.id}
             className={`px-4 py-3 ${isChecked ? "bg-[var(--color-action-bg)]/[0.04]" : ""}`}
           >
             <div className="flex items-start gap-3">

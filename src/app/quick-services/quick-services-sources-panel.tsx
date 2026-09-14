@@ -106,7 +106,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 			<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-elevated)] p-4 space-y-4">
 				<div className="flex items-center justify-between gap-3">
 					<div>
-						<p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">{t("quickServicesPage.sources.header")}</p>
+						<p className="text-xs uppercase  text-[var(--text-muted)]">{t("quickServicesPage.sources.header")}</p>
 						<p className="mt-1 text-sm text-[var(--text-muted)]">{t("quickServicesPage.sources.headerDesc")}</p>
 					</div>
 					<span className="rounded-lg border border-[var(--border)] px-2 py-1 text-xs text-[var(--text-muted)]">{t("quickServicesPage.sources.tapToFill")}</span>
@@ -122,7 +122,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 								className={`rounded-xl border p-3 text-left transition ${active ?"border-[var(--color-action-border)]/30 bg-[var(--color-action-bg)]/10 text-[var(--text-primary)]" :"border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] light:hover:bg-[var(--surface)]"}`}
 							>
 								<div className="flex items-center justify-between gap-2">
-									<span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">{preset.badge}</span>
+									<span className="text-xs font-semibold uppercase  text-[var(--text-muted)]">{preset.badge}</span>
 									<span className={`rounded-full border px-2 py-0.5 text-xs ${active ?"border-[var(--color-action-border)]/30 text-[var(--text-primary)]" :"border-[var(--border)] text-[var(--text-muted)]"}`}>{preset.type}</span>
 								</div>
 								<h4 className="mt-2 text-sm font-semibold text-[var(--text-primary)]">{preset.label}</h4>
@@ -221,7 +221,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 					<div className="flex items-center gap-2 pt-1">
 						<ActionButton variant="secondary"
 							onClick={() => actions.doSync(src.id)}
-							disabled={actions.syncing !== null} className="!px-3 !py-1.5 !text-xs disabled:opacity-50"
+							disabled={actions.syncing !== null} className="!px-3 !py-1.5 !text-sm disabled:opacity-50"
 						>
 							{actions.syncing === src.id ? t("quickServicesPage.sources.syncing") : t("quickServicesPage.sources.syncNow")}
 						</ActionButton>
@@ -233,7 +233,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 							{src.enabled ? t("quickServicesPage.sources.disable") : t("quickServicesPage.sources.enable")}
 						</button>
 						<ActionButton variant="danger"
-							onClick={() => onRequestDeleteSource(src)} className="!ml-auto !px-3 !py-1.5 !text-xs disabled:opacity-50"
+							onClick={() => onRequestDeleteSource(src)} className="!ml-auto !px-3 !py-1.5 !text-sm disabled:opacity-50"
 						>
 							{t("common.delete")}
 						</ActionButton>

@@ -1,5 +1,5 @@
-import { DownloadsPageSkeleton } from "@/components/skeleton";
+import { RouteLoading, DownloadsPageSkeleton } from "@/components/skeleton";
 
 export default function Loading() {
-	return <DownloadsPageSkeleton />;
+	return <RouteLoading><DownloadsPageSkeleton /></RouteLoading>;
 }

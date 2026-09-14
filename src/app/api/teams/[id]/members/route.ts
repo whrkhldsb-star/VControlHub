@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 
 import { withApiRoute } from "@/lib/http/api-guard";
@@ -10,7 +11,7 @@ export const dynamic = "force-dynamic";
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
 	return withApiRoute(
 		request,
-		{ permission: "team:member:manage", rateLimit: GENERAL_WRITE_LIMIT, bodySchema: addTeamMemberSchema, errorMessage: "Failed to add team member" },
+		{ permission: "team:member:manage", rateLimit: GENERAL_WRITE_LIMIT, bodySchema: addTeamMemberSchema, errorMessage: apiCopy("apiCopy.failed.to.add.team.member.75d0df98") },
 		async ({ session, body }) => {
 			const { id } = await params;
 			const member = await addTeamMember(id, body, session!);

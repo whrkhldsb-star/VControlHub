@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * POST /api/cost/billing-accounts/[id]/sync
  * Body: { month?: "YYYY-MM" }
@@ -24,7 +25,7 @@ export async function POST(request: Request, context: RouteContext) {
 			rateLimit: GENERAL_WRITE_LIMIT,
 			bodySchema: syncCloudBillingSchema,
 			errorStatus: 400,
-			errorMessage: "Failed to sync cloud billing account",
+			errorMessage: apiCopy("apiCopy.failed.to.sync.cloud.billing.account.abbc5a5c"),
 		},
 		async ({ session, body }) => {
 			const result = await syncCloudBillingAccount(id, body.month, session ?? undefined);

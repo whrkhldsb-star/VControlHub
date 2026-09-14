@@ -58,7 +58,7 @@ export function CancelCommandButton({ commandRequestId, commandTitle }: Props) {
   return (
     <div className="mt-3 space-y-2">
       <ActionButton variant="danger"
-        onClick={() => setOpen(true)} className="!px-3 !py-1.5 !text-xs !font-medium"
+        onClick={() => setOpen(true)} className="!px-3 !py-1.5 !text-sm !font-medium"
         aria-label={`${t("requestsPage.cancel.ariaLabel")}: ${commandTitle}`}
       >
         {t("requestsPage.cancel.title")}

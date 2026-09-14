@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -58,7 +58,48 @@ const viewerTeamCapabilities = {
 };
 
 describe("UnifiedSettingsPageClient", () => {
+  it("keeps restricted bookmarks on personal preferences", async () => {
+    window.history.replaceState(null, "", "#runtime");
+    render(<UnifiedSettingsPageClient settings={{}} canManage={false} teamCapabilities={viewerTeamCapabilities} />);
+    expect(await screen.findByRole("button", { name: "仪表盘" })).toBeVisible();
+    expect(screen.getByRole("tab", { name: /个人偏好/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.queryByRole("tab", { name: /高级配置/ })).not.toBeInTheDocument();
+  });
+
+  it("preserves unsaved platform fields and router history across tab changes", async () => {
+    window.history.replaceState({ marker: "router" }, "", "#platform");
+    render(<UnifiedSettingsPageClient settings={{ "platform.name": "Original", ...runtimeDefaults }} canManage teamCapabilities={adminTeamCapabilities} />);
+    const input = await screen.findByLabelText("平台名称");
+    fireEvent.change(input, { target: { value: "Unsaved draft" } });
+    fireEvent.click(screen.getByRole("tab", { name: /个人偏好/ }));
+    fireEvent.click(screen.getByRole("tab", { name: /安全与账户/ }));
+    expect(screen.getByLabelText("平台名称")).toHaveValue("Unsaved draft");
+    expect(window.history.state).toEqual({ marker: "router" });
+    expect(csrfFetch).not.toHaveBeenCalledWith("/api/settings", expect.anything());
+  });
+
+  it("cancels pending section events on tab changes and unmount", async () => {
+    const events: string[] = [];
+    const listener = (event: Event) => events.push((event as CustomEvent<{ id: string }>).detail.id);
+    window.addEventListener("vcontrolhub:settings-open-section", listener);
+    try {
+      window.history.replaceState(null, "", "#runtime");
+      const view = render(<UnifiedSettingsPageClient settings={{ ...runtimeDefaults }} canManage teamCapabilities={adminTeamCapabilities} />);
+      fireEvent.click(screen.getByRole("tab", { name: /个人偏好/ }));
+      await act(async () => { await new Promise((resolve) => setTimeout(resolve, 120)); });
+      expect(events).toEqual([]);
+      act(() => {
+        window.history.replaceState(null, "", "#smtp");
+        window.dispatchEvent(new Event("hashchange"));
+      });
+      view.unmount();
+      await act(async () => { await new Promise((resolve) => setTimeout(resolve, 120)); });
+      expect(events).toEqual([]);
+    } finally { window.removeEventListener("vcontrolhub:settings-open-section", listener); }
+  });
+
   beforeEach(() => {
+    Element.prototype.scrollIntoView = vi.fn();
     vi.mocked(csrfFetch).mockReset();
     refreshMock.mockReset();
     localStorage.clear();

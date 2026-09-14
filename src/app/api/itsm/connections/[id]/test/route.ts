@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * POST /api/itsm/connections/[id]/test — outbound connectivity probe
  */
@@ -30,7 +31,7 @@ export async function POST(request: Request, context: RouteContext) {
 			rateLimit: GENERAL_WRITE_LIMIT,
 			bodySchema,
 			errorStatus: 400,
-			errorMessage: "Failed to test ITSM connection",
+			errorMessage: apiCopy("apiCopy.failed.to.test.itsm.connection.59690fa3"),
 		},
 		async ({ session, body }) => {
 			const result = await testItsmConnection(id, body?.message, session ?? undefined);

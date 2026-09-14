@@ -43,7 +43,7 @@ export function AiSettingsModelSelector({
 
   return (
     <div className="col-span-2 md:col-span-2 relative">
-      <label className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">
+      <label className="text-xs text-[var(--text-muted)] uppercase ">
         {t("aiPage.model")}
         {modelsLoading && (
           <span className="ml-2 text-[var(--color-action)] animate-pulse">
@@ -60,7 +60,7 @@ export function AiSettingsModelSelector({
           <span className="truncate flex items-center gap-1.5">
             {settingsForm.model}
             {currentModelSupportsVision && (
-              <span className="text-[9px] text-[var(--color-action)] bg-[var(--color-action-bg)]/10 px-1 py-0.5 rounded-lg">
+              <span className="text-xs text-[var(--color-action)] bg-[var(--color-action-bg)]/10 px-1 py-0.5 rounded-lg">
                 <Eye size={10} aria-hidden="true" />
               </span>
             )}
@@ -129,7 +129,7 @@ export function AiSettingsModelSelector({
                   <span className="flex items-center gap-0.5 flex-shrink-0">
                     {(m.capabilities?.vision || m.vision) && (
                       <span
-                        className="text-[9px] text-[var(--color-action)]/60"
+                        className="text-xs text-[var(--color-action)]/60"
                         title={t("aiPage.visionCap")}
                       >
                         <Eye size={10} aria-hidden="true" />
@@ -137,7 +137,7 @@ export function AiSettingsModelSelector({
                     )}
                     {m.capabilities?.video && (
                       <span
-                        className="text-[9px] text-[var(--info)]/60"
+                        className="text-xs text-[var(--info)]/60"
                         title={t("aiPage.videoCapSetting")}
                       >
                         <Video size={10} aria-hidden="true" />
@@ -145,7 +145,7 @@ export function AiSettingsModelSelector({
                     )}
                     {m.capabilities?.audio && (
                       <span
-                        className="text-[9px] text-[var(--accent)]"
+                        className="text-xs text-[var(--accent)]"
                         title={t("aiPage.audioCapSetting")}
                       >
                         <Music2 size={10} aria-hidden="true" />
@@ -153,7 +153,7 @@ export function AiSettingsModelSelector({
                     )}
                     {m.capabilities?.document && (
                       <span
-                        className="text-[9px] text-[var(--success)]/60"
+                        className="text-xs text-[var(--success)]/60"
                         title={t("aiPage.documentCapSetting")}
                       >
                         <File size={10} aria-hidden="true" />
@@ -161,12 +161,12 @@ export function AiSettingsModelSelector({
                     )}
                   </span>
                   {m.context_length && (
-                    <span className="text-[9px] text-[var(--text-muted)] flex-shrink-0">
+                    <span className="text-xs text-[var(--text-muted)] flex-shrink-0">
                       {(m.context_length / 1000).toFixed(0)}k
                     </span>
                   )}
                   {m.owned_by && (
-                    <span className="text-[9px] text-[var(--text-muted)] flex-shrink-0 truncate max-w-[60px]">
+                    <span className="text-xs text-[var(--text-muted)] flex-shrink-0 truncate max-w-[60px]">
                       {m.owned_by}
                     </span>
                   )}
@@ -203,7 +203,7 @@ export function AiSettingsModelSelector({
                       setModelSearch("");
                     }
                   }}
-                  className="px-2 py-1 text-[10px]"
+                  className="px-2 py-1 text-xs"
                  
                 >
                   {t("aiPage.apply")}

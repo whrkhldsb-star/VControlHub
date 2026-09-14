@@ -269,7 +269,7 @@ export function MediaImageUploadPanel() {
 				</div>
 			</div>
 
-			<p className="mt-2 text-[11px] text-[var(--text-muted)]">{t("mediaUploadPanel.chunkedSizeHint")}</p>
+			<p className="mt-2 text-xs text-[var(--text-muted)]">{t("mediaUploadPanel.chunkedSizeHint")}</p>
 
 			<input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => e.target.files && void uploadFiles(e.target.files)} />
 
@@ -292,7 +292,7 @@ export function MediaImageUploadPanel() {
 									<span className="truncate">{item.name} · {showChunkedDetail
 										? t("mediaUploadPanel.chunkedProgress", { current: chunkedProgress.receivedChunks.length, total: chunkedProgress.totalChunks, pct: chunkedProgress.percent })
 										: item.message}
-										{isChunked ? <span data-tone="emerald" className="ml-2 inline-block rounded border border-[var(--success-border)] px-1.5 py-0.5 text-[10px] text-[var(--success)]">{t("mediaUploadPanel.chunkedBadge")}</span> : null}
+										{isChunked ? <span data-tone="emerald" className="ml-2 inline-block rounded border border-[var(--success-border)] px-1.5 py-0.5 text-xs text-[var(--success)]">{t("mediaUploadPanel.chunkedBadge")}</span> : null}
 									</span>
 									<span>{statusBadgeLabel(t, item.status)}</span>
 								</div>
@@ -300,7 +300,7 @@ export function MediaImageUploadPanel() {
 						})}
 					</div>
 					{chunked.progress && chunked.progress.resumed && chunked.progress.skipped > 0 ? (
-						<p className="mt-2 text-[11px] text-[var(--success)]/80">{t("mediaUploadPanel.chunkedResumeNotice", { skipped: chunked.progress.skipped })}</p>
+						<p className="mt-2 text-xs text-[var(--success)]/80">{t("mediaUploadPanel.chunkedResumeNotice", { skipped: chunked.progress.skipped })}</p>
 					) : null}
 				</div>
 			) : null}

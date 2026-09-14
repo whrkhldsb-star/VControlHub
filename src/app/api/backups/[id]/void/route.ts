@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 
 import { auditUserAction } from "@/lib/audit/service";
@@ -15,7 +16,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       permission: "backup:create",
       rateLimit: GENERAL_WRITE_LIMIT,
       errorStatus: 500,
-      errorMessage: "Operation failed",
+      errorMessage: apiCopy("apiCopy.operation.failed.4e1af7c7"),
       bodySchema: voidBackupSchema,
     },
     async ({ session, body }) => {

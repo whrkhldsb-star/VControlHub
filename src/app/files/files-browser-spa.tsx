@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef, type ReactNode } from "react";
+import Link from "next/link";
 
 import { useI18n } from "@/lib/i18n/use-locale";
 import { FileListClient } from "./file-list-client";
@@ -19,6 +20,13 @@ import { FilesBrowserSidebar } from "./files-browser-sidebar";
 import { ActionButton } from "@/components/action-button";
 import { Notice } from "@/components/ui-primitives";
 import { ModalShell } from "@/components/modal-shell";
+import { Pagination } from "@/components/pagination";
+import { ChevronRight, Plus, RefreshCw, X } from "@/components/icons";
+import { IconButton } from "@/components/ui-primitives";
+import { StatCard, StatGrid, Toolbar } from "@/components/page-shell";
+import { useStorageUploads } from "@/components/storage/storage-upload-provider";
+import { readDroppedFiles } from "@/components/storage/storage-drop-files";
+import { getBrowserRelativePath, normalizeRelativePath } from "@/components/storage/file-upload-helpers";
 
 /* ── Navigation hook ────────────────────────────────────────────── */
 
@@ -53,8 +61,10 @@ function useFolderNavigation(
 
 export function FilesBrowserSpa({
   initialData,
+  children,
 }: {
   initialData: FilesApiResponse;
+  children?: ReactNode;
 }) {
   const { t } = useI18n();
   // Listing state (data / loading / listError / search / selection epoch /
@@ -72,6 +82,30 @@ export function FilesBrowserSpa({
   } = useFileBrowserListing({ initialData });
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
+  const uploads = useStorageUploads();
+  const [dropError, setDropError] = useState("");
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Keep the browser feeling like a desktop drive: `/` focuses search and
+  // Escape closes transient UI. Ignore shortcuts while typing in another
+  // control so normal file-name entry is never interrupted.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const editing = target?.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"]');
+      if (event.defaultPrevented || event.isComposing || document.querySelector('[role="dialog"][aria-modal="true"]')) return;
+      if (event.key === "/" && !editing && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        event.preventDefault();
+        searchInputRef.current?.focus();
+        return;
+      }
+      if (event.key === "Escape") {
+        if (mobileSidebarOpen) setMobileSidebarOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [mobileSidebarOpen]);
 
   const { navigateToFolder } = useFolderNavigation(fetchFiles);
 
@@ -89,15 +123,24 @@ export function FilesBrowserSpa({
     ? data.nodeIdFilter
     : uploadNodes[0]?.id ?? data.nodes[0]?.id;
   const refreshLabel = selectedNode?.driver === "SFTP" ? t("filesBrowserSpa.refreshRemoteFiles") : t("filesBrowserSpa.refreshList");
-  const [expandedTreePaths, setExpandedTreePaths] = useState<Set<string>>(() =>
-    getInitialExpandedTreePaths(initialData.tree, initialData.currentPath),
-  );
+  const treeLocation = `${data.nodeIdFilter}:${data.currentPath}`;
+  const [treeExpansion, setTreeExpansion] = useState(() => ({
+    location: treeLocation,
+    paths: getInitialExpandedTreePaths(initialData.tree, initialData.currentPath),
+  }));
+  if (treeExpansion.location !== treeLocation) {
+    setTreeExpansion({
+      location: treeLocation,
+      paths: new Set([...treeExpansion.paths, ...getInitialExpandedTreePaths(data.tree, data.currentPath)]),
+    });
+  }
+  const expandedTreePaths = treeExpansion.paths;
   const toggleTreePath = useCallback((path: string) => {
-    setExpandedTreePaths((current) => {
-      const next = new Set(current);
+    setTreeExpansion((current) => {
+      const next = new Set(current.paths);
       if (next.has(path)) next.delete(path);
       else next.add(path);
-      return next;
+      return { ...current, paths: next };
     });
   }, []);
   const refreshCurrentListing = useCallback(
@@ -116,6 +159,18 @@ export function FilesBrowserSpa({
       fetchFiles,
     ],
   );
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const onCompleted = (event: Event) => {
+      if (uploadOpen || (data.nodeIdFilter && (event as CustomEvent<{ nodeId: string }>).detail.nodeId !== data.nodeIdFilter)) return;
+      clearTimeout(timer);
+      timer = setTimeout(() => { void refreshCurrentListing(); }, 350);
+    };
+    window.addEventListener("storage-upload-completed", onCompleted);
+    const onOperationCompleted = () => { clearTimeout(timer); timer = setTimeout(() => { void refreshCurrentListing(); }, 350); };
+    window.addEventListener("file-operation-completed", onOperationCompleted);
+    return () => { clearTimeout(timer); window.removeEventListener("storage-upload-completed", onCompleted); window.removeEventListener("file-operation-completed", onOperationCompleted); };
+  }, [data.nodeIdFilter, refreshCurrentListing, uploadOpen]);
 
   // Node filter handler
   const handleNodeFilterChange = useCallback(
@@ -143,7 +198,41 @@ export function FilesBrowserSpa({
   );
 
   return (
-    <section className="mt-8 grid min-w-0 gap-6 xl:grid-cols-[300px_minmax(0,1fr)]">
+    <>
+    <StatGrid>
+      <StatCard label={t("filesPage.statTotalNodes")} value={data.stats.totalNodes} />
+      <StatCard label={t("filesPage.statActiveFiles")} value={data.stats.totalEntries} />
+      <StatCard label={t("filesPage.statCurrentDirectory")} value={data.stats.totalItems} />
+      <Link href="/files/recycle-bin" data-stat-card data-card className="transition hover:bg-[var(--surface-hover)]">
+        <div className="text-xs font-medium text-[var(--text-muted)]">{t("filesPage.statRecycleBin")}</div>
+        <div className="mt-2 text-2xl font-semibold tabular-nums">{data.stats.deletedEntries}</div>
+      </Link>
+    </StatGrid>
+    {children}
+    {dropError ? <Notice tone="danger">{dropError}</Notice> : null}
+    <section className="mt-6 grid min-w-0 gap-5 xl:grid-cols-[240px_minmax(0,1fr)]"
+      onDragOver={(event) => { if (event.dataTransfer.types.includes("Files")) event.preventDefault(); }}
+      onDrop={async (event) => {
+        if (!event.dataTransfer.types.includes("Files")) return;
+        event.preventDefault();
+        const nodeId = data.nodeIdFilter;
+        const directory = data.currentPath;
+        try {
+          if (!data.permissions.canEditLocalFiles) throw new Error(t("filesBrowserSpa.cannotCreateFolderNoPermission"));
+          if (!nodeId) throw new Error(t("fileUploadDropzone.errorNoNode"));
+          const files = await readDroppedFiles(event.dataTransfer);
+          const entries = files.map((file) => {
+            const path = normalizeRelativePath([directory, getBrowserRelativePath(file)].filter(Boolean).join("/"));
+            if (!path.ok) throw new Error(t(`fileUploadDropzone.pathError.${path.reason}`));
+            return { file, path: path.path };
+          });
+          uploads.enqueue(entries, nodeId);
+          setDropError("");
+        } catch (error) {
+          const message = error instanceof Error ? error.message : t("fileUploadDropzone.errorUpload");
+          setDropError(message.startsWith("storageUpload.") ? t(message) : message);
+        }
+      }}>
       {/* Mobile-only sidebar toggle (hidden on xl+) */}
       <button
         type="button"
@@ -153,9 +242,7 @@ export function FilesBrowserSpa({
         className="flex min-h-11 w-full items-center justify-between rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-hover)] active:bg-[var(--surface-elevated)] xl:hidden"
       >
         <span>{mobileSidebarOpen ? t("filesBrowserSpa.collapseDirectoryTree") : t("filesBrowserSpa.expandDirectoryTree")}</span>
-        <span aria-hidden="true" className="text-xs">
-          {mobileSidebarOpen ? "▴" : "▾"}
-        </span>
+        <ChevronRight size={18} aria-hidden className={mobileSidebarOpen ? "-rotate-90" : "rotate-90"} />
       </button>
       {/* Sidebar: Directory tree */}
       <FilesBrowserSidebar
@@ -169,12 +256,12 @@ export function FilesBrowserSpa({
       />
 
       {/* Main content area — cloud-drive style browser only */}
-      <section className="min-w-0 space-y-5">
+      <section data-file-browser className="min-w-0 space-y-5">
         {/* Search + Toolbar */}
-        <article className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow-sm)] sm:p-5">
+        <div className="min-w-0">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div>
-              <h2 className="text-lg font-semibold tracking-tight text-[var(--text-primary)]">
+            <div className="min-w-0">
+              <h2 className="break-words text-base font-semibold text-[var(--text-primary)]">
                 {currentPathDisplay.title}
                 {loading ? (
                   <span className="ml-2 text-sm text-[var(--accent)] animate-pulse">
@@ -182,7 +269,7 @@ export function FilesBrowserSpa({
                   </span>
                 ) : null}
               </h2>
-              <p className="mt-2 text-sm leading-7 text-[var(--text-secondary)]">
+              <p className="mt-1 break-all text-xs leading-5 text-[var(--text-secondary)]">
                 {currentPathDisplay.label ? t("filesBrowserSpa.currentPathPrefix") + currentPathDisplay.label : t("filesBrowserSpa.currentPathAllNodes")}
               </p>
               {selectedNode?.driver === "LOCAL" && selectedNode.basePath ? (
@@ -201,7 +288,10 @@ export function FilesBrowserSpa({
 
           {/* Unified search bar (replaces old split scope toggle + content panel) */}
           <UnifiedFileSearch
+            key={`${data.nodeIdFilter}:${data.currentPath}:${data.searchScope}`}
+            initialScope={data.searchScope}
             searchInput={searchInput}
+            inputRef={searchInputRef}
             onSearchInputChange={setSearchInput}
             onFilenameSearch={(scope) => {
               void fetchFiles(data.currentPath, searchInput, scope, data.nodeIdFilter, {
@@ -222,27 +312,21 @@ export function FilesBrowserSpa({
               onClick={() => {
                 setSearchInput("");
                 fetchFiles(data.currentPath);
-              }} className="mt-2 !text-xs"
+              }} className="mt-2 !text-sm"
             >
               {t("filesBrowserSpa.clear")}
             </ActionButton>
           ) : null}
 
-          <div data-tone="cyan" className="mt-6 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)]">
-            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-              <div>
-                <h3 className="text-xl font-semibold text-[var(--text-primary)]">
-                  {t("filesBrowserSpa.currentDirectoryOps")}
-                </h3>
-                <p className="mt-2 text-sm text-[var(--text-secondary)]">
-                  {t("filesBrowserSpa.currentPathPrefix")}{currentPathDisplay.label}
-                </p>
-                <p className="mt-1 text-sm text-[var(--text-secondary)]">
+          <Toolbar className="mt-4 !mb-0 border-t pt-3">
+            <div className="flex w-full min-w-0 flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+              <div className="min-w-0">
+                <p className="text-xs text-[var(--text-secondary)]">
                   {t("filesBrowserSpa.itemCountWithSource", { count: data.stats.totalItems, sources: data.sourceSummary.join(t("filesBrowserSpa.sourceListSeparator")) })}
                 </p>
               </div>
-              <div className="flex flex-wrap gap-3">
-                <ActionButton variant="success"
+              <div className="flex flex-wrap gap-2">
+                <IconButton label={loading ? t("filesBrowserSpa.refreshing") : refreshLabel}
                   onClick={() =>
                     fetchFiles(
                       data.currentPath,
@@ -253,20 +337,20 @@ export function FilesBrowserSpa({
                   }
                   disabled={loading} className="disabled:opacity-60"
                 >
-                  {loading ? t("filesBrowserSpa.refreshing") : `↻ ${refreshLabel}`}
-                </ActionButton>
+                  <RefreshCw size={18} className={loading ? "animate-spin" : undefined} aria-hidden />
+                </IconButton>
                 {data.permissions.canEditLocalFiles ? (
-                  <button
+                  <ActionButton
                     type="button"
                     onClick={() => setUploadOpen(true)}
                     disabled={loading}
-                    data-action-button
-                    data-variant="primary"
+                    variant="primary"
                     aria-haspopup="dialog"
                     className="px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
                   >
+                    <Plus size={18} aria-hidden />
                     {t("filesBrowserSpa.uploadFiles")}
-                  </button>
+                  </ActionButton>
                 ) : null}
                 {data.permissions.canEditLocalFiles && data.nodes.length > 0 ? (
                   <CreateFolderForm
@@ -291,7 +375,7 @@ export function FilesBrowserSpa({
                 )}
               </div>
             </div>
-          </div>
+          </Toolbar>
 
           {/* File list with batch operations */}
           {listError ? (
@@ -304,6 +388,10 @@ export function FilesBrowserSpa({
           ) : null}
           <FileListClient
             selectionScopeSeed={`${selectionEpoch}\u0000${data.currentPath}\u0000${data.searchQuery}\u0000${data.searchScope}\u0000${data.nodeIdFilter ?? ""}`}
+            selectionPage={data.pagination?.page}
+            serverSort={data.pagination ? {key:data.sort ?? "name",dir:data.direction ?? "asc",onChange:(sort,direction) => {
+              void fetchFiles(data.currentPath,data.searchQuery,data.searchScope,data.nodeIdFilter,{sort,direction,page:1,resetSelection:true});
+            }} : undefined}
             folders={data.folders}
             files={data.files}
             canEditLocalFiles={data.permissions.canEditLocalFiles}
@@ -314,7 +402,11 @@ export function FilesBrowserSpa({
             onFolderClick={navigateToFolder}
             onRefresh={refreshCurrentListing}
           />
-        </article>
+          {data.pagination ? <Pagination page={data.pagination.page} pageSize={data.pagination.pageSize} totalItems={data.pagination.totalItems} loading={loading}
+            onPageChange={(page) => { void fetchFiles(data.currentPath,data.searchQuery,data.searchScope,data.nodeIdFilter,{page,history:"push"}); }}
+            onPageSizeChange={(pageSize) => { void fetchFiles(data.currentPath,data.searchQuery,data.searchScope,data.nodeIdFilter,{page:1,pageSize,resetSelection:true}); }}
+          /> : null}
+        </div>
 
         {/* Keep the expensive upload widget out of the browsing flow until requested. */}
         {data.permissions.canEditLocalFiles ? (
@@ -331,9 +423,7 @@ export function FilesBrowserSpa({
                 </h2>
                 <p className="mt-1 text-sm text-[var(--text-muted)]">{t("filesBrowserSpa.uploadDescription")}</p>
               </div>
-              <ActionButton variant="ghost" onClick={() => setUploadOpen(false)} aria-label={t("common.close")} className="!px-2 !py-1">
-                <span aria-hidden="true">✕</span>
-              </ActionButton>
+              <IconButton onClick={() => setUploadOpen(false)} label={t("common.close")}><X size={18} aria-hidden /></IconButton>
             </div>
             <FileUploadDropzoneLazy
               nodes={data.nodes}
@@ -359,5 +449,6 @@ export function FilesBrowserSpa({
         ) : null}
       </section>
     </section>
+    </>
   );
 }

@@ -66,3 +66,8 @@ Shared UI primitives live here. Prefer these exports before adding one-off Tailw
 - `cn` — tiny className combiner (no clsx dependency).
 - `classes` — reusable token-backed Tailwind fragments (`UI_BTN_PRIMARY`, `UI_INPUT`, …).
 - Prefer `ActionButton` / `page-shell` / `ui-primitives` components over copying fragment strings when a full control fits.
+
+## UI System Reference
+
+See [the UI system guide](../../docs/ui-system.md) for the shared tokens,
+representative pages, standalone component examples and browser verification.

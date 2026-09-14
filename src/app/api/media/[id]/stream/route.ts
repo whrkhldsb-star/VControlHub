@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { Readable } from "node:stream";
@@ -101,10 +102,10 @@ export async function GET(
     {
       permission: "storage:read",
       rateLimit: GENERAL_READ_LIMIT,
-      errorMessage: "Failed to read media",
+      errorMessage: apiCopy("apiCopy.failed.to.read.media.b0e4a112"),
     },
     async ({ session }) => {
-      if (!session) throw new AuthError("Not authenticated");
+      if (!session) throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
       const { id } = await params;
       const { download } = parseSearchParams(
         request,
@@ -121,7 +122,7 @@ export async function GET(
       if (!item || !item.storageNode)
         return apiError({
           code: "NOT_FOUND",
-          message: "Media not found",
+          message: apiCopy("apiCopy.media.not.found.287cb4d8"),
           status: 404,
         });
 
@@ -152,7 +153,7 @@ export async function GET(
           if (!fileStat.isFile())
             return apiError({
               code: "VALIDATION_FAILED",
-              message: "Target is not a playable file",
+              message: apiCopy("apiCopy.target.is.not.a.playable.file.a829624f"),
               status: 400,
             });
           const range = parseStorageRange(
@@ -176,7 +177,7 @@ export async function GET(
           logger.error("read local media stream failed", error, { id });
           return apiError({
             code: "NOT_FOUND",
-            message: "File not found or temporarily cannot be read",
+            message: apiCopy("apiCopy.file.not.found.or.temporarily.cannot.be.read.3cc644d2"),
             status: 404,
           });
         }
@@ -185,7 +186,7 @@ export async function GET(
       if (node.driver !== "SFTP") {
         return apiError({
           code: "VALIDATION_FAILED",
-          message: "This storage node does not support media streaming",
+          message: apiCopy("apiCopy.this.storage.node.does.not.support.media.streaming.48198857"),
           status: 400,
         });
       }

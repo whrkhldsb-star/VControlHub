@@ -11,6 +11,8 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import type { ViewMode } from "./use-view-mode";
 import { ActionButton } from "@/components/action-button";
 import { StatusBadge } from "@/components/status-badge";
+import { FileCollections } from "./file-preferences-client";
+import { FileOperationTasks } from "./file-operation-controls";
 
 export type FileListToolbarProps = {
   itemCount: number;
@@ -66,11 +68,13 @@ export function FileListToolbar({
       className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] px-4 py-2.5 sm:px-5"
     >
       <div className="flex flex-wrap items-center gap-2 text-sm text-[var(--text-muted)]">
+        <FileCollections />
+        <FileOperationTasks />
         {onGoUp ? (
           <ActionButton variant="secondary"
             onClick={onGoUp}
             data-testid="files-list-up-level"
-            title={t("fileListClient.upLevel")} className="inline-flex items-center gap-1.5 !px-2.5 !py-1 !text-xs">
+            title={t("fileListClient.upLevel")} className="inline-flex items-center gap-1.5 !px-2.5 !py-1 !text-sm">
             <span aria-hidden="true">↑</span>
             {t("fileListClient.upLevel")}
           </ActionButton>

@@ -53,17 +53,17 @@ function MetricBar({
 	if (value === undefined) {
 		return (
 			<div className="space-y-1.5">
-				<div className="flex items-center justify-between gap-2 text-[11px]">
+				<div className="flex items-center justify-between gap-2 text-xs">
 					<span className="text-[var(--text-muted)]">{label}</span>
 					<span className="font-mono text-[var(--text-muted)]">—</span>
 				</div>
-				<ProgressBar value={0} />
+				<ProgressBar label={label} value={0} />
 			</div>
 		);
 	}
 	return (
 		<div className="space-y-1.5">
-			<div className="flex items-center justify-between gap-2 text-[11px]">
+			<div className="flex items-center justify-between gap-2 text-xs">
 				<span className="text-[var(--text-muted)]">{label}</span>
 				<span className={`shrink-0 font-mono tabular-nums ${usageColor(value)}`}>
 					{value.toFixed(1)}%
@@ -72,7 +72,7 @@ function MetricBar({
 					) : null}
 				</span>
 			</div>
-			<ProgressBar value={value} tone={usageBarTone(value)} />
+			<ProgressBar label={label} value={value} tone={usageBarTone(value)} />
 		</div>
 	);
 }
@@ -133,11 +133,11 @@ export function VpsNodeCard({
 							/>
 							<span className={`relative inline-flex h-2.5 w-2.5 rounded-full ${sc.dot}`} />
 						</span>
-						<h3 className="truncate text-sm font-semibold tracking-tight text-[var(--text-primary)]">
+						<h3 className="truncate text-sm font-semibold  text-[var(--text-primary)]">
 							{server.serverName}
 						</h3>
 					</div>
-					<p className="mt-1 truncate font-mono text-[11px] text-[var(--text-muted)]">{server.host}</p>
+					<p className="mt-1 truncate font-mono text-xs text-[var(--text-muted)]">{server.host}</p>
 				</div>
 				<StatusBadge tone={healthStatusBadgeTone(server.status)} className="shrink-0">
 					{t(statusLabelKey(server.status))}
@@ -158,7 +158,7 @@ export function VpsNodeCard({
 				/>
 			</div>
 
-			<div className="mt-auto grid grid-cols-2 gap-x-3 gap-y-2 border-t border-[var(--border-subtle)] bg-[var(--surface-elevated)]/40 px-4 py-3 text-[11px]">
+			<div className="mt-auto grid grid-cols-2 gap-x-3 gap-y-2 border-t border-[var(--border-subtle)] bg-[var(--surface-elevated)]/40 px-4 py-3 text-xs">
 				<div className="flex justify-between gap-2">
 					<span className="text-[var(--text-muted)]">{t("healthPage.ui.uptime")}</span>
 					<span className="truncate font-medium text-[var(--text-secondary)]">{server.uptime ?? "—"}</span>
@@ -190,13 +190,13 @@ export function VpsNodeCard({
 			</div>
 
 			{server.error ? (
-				<p className="border-t border-[var(--danger-border)] bg-[var(--danger-bg)] px-4 py-2 text-[11px] text-[var(--danger)]">
+				<p className="border-t border-[var(--danger-border)] bg-[var(--danger-bg)] px-4 py-2 text-xs text-[var(--danger)]">
 					{server.error}
 				</p>
 			) : null}
 
 			<div className="flex items-center justify-between border-t border-[var(--border-subtle)] px-4 py-2.5">
-				<span className="text-[10px] text-[var(--text-muted)]">
+				<span className="text-xs text-[var(--text-muted)]">
 					{t("healthPage.ui.lastRefresh")}:{" "}
 					{server.lastCheck
 						? new Date(server.lastCheck).toLocaleString(toDateLocale(locale), {
@@ -211,7 +211,7 @@ export function VpsNodeCard({
 				<button
 					type="button"
 					onClick={onToggle}
-					className="rounded-full px-2 py-1 text-[11px] font-medium text-[var(--text-muted)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--text-secondary)]"
+					className="rounded-full px-2 py-1 text-xs font-medium text-[var(--text-muted)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--text-secondary)]"
 				>
 					{expanded ? t("healthPage.ui.collapse") : t("healthPage.ui.trend")}
 				</button>

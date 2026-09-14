@@ -11,6 +11,19 @@
  */
 
 export const zh: Record<string, string> = {
+	"serversPage.inventory.search": "搜索名称、主机或标签",
+	"serversPage.inventory.status": "节点状态",
+	"serversPage.inventory.allStatuses": "全部状态",
+	"serversPage.inventory.allModes": "全部管理通道",
+	"serversPage.inventory.enabled": "已启用",
+	"serversPage.inventory.clear": "清除筛选",
+	"serversPage.inventory.noResults": "没有匹配的节点",
+	"serversPage.inventory.loadFailed": "节点加载失败，请重试",
+	"serversPage.targets.selectPage": "选择本页",
+	"serversPage.targets.clearPage": "取消本页选择",
+	"serversPage.targets.search": "搜索",
+	"serversPage.targets.summary": "已选择 {count} 个 · 匹配 {total} 个节点",
+	"serverOverviewCard.invalidMonitorResponse": "探测返回的指标数据无效",
 	"serversPage.create.title": "添加 VPS 节点",
 	"serversPage.sshKeyCreate.title": "添加 SSH 密钥",
 	"serversPage.sshKeyCreate.desc": "用于节点纳管的 SSH 密钥对",

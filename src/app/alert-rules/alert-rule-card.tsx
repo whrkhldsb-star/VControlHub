@@ -45,7 +45,7 @@ export function AlertRuleCard({
 					</h2>
 					<p className="mt-1 text-xs text-[var(--text-muted)]">
 						{t("alertRulesPage.condition.when")}{" "}
-						<span className="text-[var(--color-action)]/80">
+						<span className="text-[var(--color-action)]">
 							{metricLabel(t, rule.metric)}
 						</span>{" "}
 						{rule.metric !== "server_offline" && (
@@ -82,7 +82,7 @@ export function AlertRuleCard({
 						{rule.notifyChannels.map((ch) => (
 							<span
 								key={ch}
-								className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]"
+								className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-1.5 py-0.5 text-xs text-[var(--text-muted)]"
 							>
 								{channelLabel(t, ch)}
 							</span>
@@ -90,27 +90,27 @@ export function AlertRuleCard({
 						{rule.webhookConfigured && (
 							<span
 								data-tone="emerald"
-								className="rounded-lg border border-[var(--success-border)] px-1.5 py-0.5 text-[10px] text-[var(--success)]"
+								className="rounded-lg border border-[var(--success-border)] px-1.5 py-0.5 text-xs text-[var(--success)]"
 							>
 								{t("alertRulesPage.badge.webhookConfigured")}
 							</span>
 						)}
 						{rule.cooldownMinutes > 0 && (
-							<span className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]">
+							<span className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-1.5 py-0.5 text-xs text-[var(--text-muted)]">
 								{t("alertRulesPage.badge.cooldown").replace(
 									"{minutes}",
 									String(rule.cooldownMinutes),
 								)}
 							</span>
 						)}
-						<span className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface)] px-2 py-0.5 text-[10px] text-[var(--text-muted)]">
+						<span className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface)] px-2 py-0.5 text-xs text-[var(--text-muted)]">
 							{t("alertRulesPage.badge.escalation").replace(
 								"{minutes}",
 								String(rule.escalationMinutes ?? 30),
 							)}
 						</span>
 						{(rule.silenceWindows?.length ?? 0) > 0 && (
-							<span className="rounded-lg border border-[var(--accent-border)] bg-[var(--accent-bg)] px-1.5 py-0.5 text-[10px] text-[var(--accent)]">
+							<span className="rounded-lg border border-[var(--accent-border)] bg-[var(--accent-bg)] px-1.5 py-0.5 text-xs text-[var(--accent)]">
 								{t("alertRulesPage.badge.silence").replace(
 									"{windows}",
 									rule.silenceWindows?.join(
@@ -120,7 +120,7 @@ export function AlertRuleCard({
 							</span>
 						)}
 						{(rule.playbookIds?.length ?? 0) > 0 && (
-							<span className="rounded-lg border border-[var(--color-action-border)]/20 bg-[var(--color-action-bg)]/10 px-1.5 py-0.5 text-[10px] text-[var(--color-action)]">
+							<span className="rounded-lg border border-[var(--color-action-border)]/20 bg-[var(--color-action-bg)]/10 px-1.5 py-0.5 text-xs text-[var(--color-action)]">
 								{t("alertRulesPage.badge.playbooks").replace(
 									"{count}",
 									String(rule.playbookIds?.length ?? 0),
@@ -129,7 +129,7 @@ export function AlertRuleCard({
 						)}
 					</div>
 					{rule.lastTriggeredAt && (
-						<p className="mt-1 text-[11px] text-[var(--text-muted)]">
+						<p className="mt-1 text-xs text-[var(--text-muted)]">
 							{t("alertRulesPage.lastTriggered").replace(
 								"{date}",
 								new Date(rule.lastTriggeredAt).toLocaleString(

@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * TR-031 E01: /api/cost/entries — list / create cost entries.
  *
@@ -38,7 +39,7 @@ export async function GET(request: Request) {
 			rateLimit: GENERAL_READ_LIMIT,
 			querySchema: costQuerySchema,
 			errorStatus: 500,
-			errorMessage: "Failed to load cost entry",
+			errorMessage: apiCopy("apiCopy.failed.to.load.cost.entry.313305bd"),
 		},
 		async ({ session, query }) => {
 			const entries = await listCostEntries({
@@ -60,7 +61,7 @@ export async function POST(request: Request) {
 			rateLimit: GENERAL_WRITE_LIMIT,
 			bodySchema: createCostEntrySchema,
 			errorStatus: 400,
-			errorMessage: "Failed to create cost entry",
+			errorMessage: apiCopy("apiCopy.failed.to.create.cost.entry.e6784a5c"),
 		},
 		async ({ session, body }) => {
 			const createdById = session?.userId ?? null;

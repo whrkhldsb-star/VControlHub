@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * TR-023 M04: Playbook service — CRUD + chain execution entry point.
  *
@@ -66,7 +67,7 @@ async function assertPlaybookCommandServersInScope(
   });
   if (servers.length !== serverIds.length) {
     throw new ValidationError(
-      "One or more playbook command targets were not found or are outside your team scope",
+      apiCopy("apiCopy.one.or.more.playbook.command.targets.were.not.found.or.are.outsi.b0efee60"),
     );
   }
 }
@@ -98,7 +99,7 @@ async function assertPlaybookNotificationRecipientsInScope(
     } catch (error) {
       if (error instanceof NotFoundError) {
         throw new ValidationError(
-          "One or more playbook notification recipients were not found or are outside your team scope",
+          apiCopy("apiCopy.one.or.more.playbook.notification.recipients.were.not.found.or.a.69400842"),
         );
       }
       throw error;
@@ -121,7 +122,7 @@ function assertPlaybookCommandAuthoring(
   const hasCommandStep = steps.some((step) => step.type === "run_command");
   if (hasCommandStep && !sessionHasPermission(session, "command:execute")) {
     throw new ForbiddenError(
-      "Playbooks with command steps require the command:execute permission",
+      apiCopy("apiCopy.playbooks.with.command.steps.require.the.command.execute.permiss.e411b7bc"),
     );
   }
 }

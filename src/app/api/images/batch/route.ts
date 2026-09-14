@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * Batch operations for image-bed: bulk delete, bulk move album, bulk toggle public.
  * POST /api/images/batch  { action: "delete"|"moveAlbum"|"togglePublic", ids: string[], album?: string }
@@ -28,13 +29,13 @@ export async function POST(request: Request) {
     {
       permission: "image:write",
       rateLimit: IMAGE_UPLOAD_LIMIT,
-      errorMessage: "Batch operation failed",
+      errorMessage: apiCopy("apiCopy.batch.operation.failed.07434a82"),
       bodySchema: batchSchema,
     },
     async ({ session, body }) => {
       if (!session)
         return NextResponse.json(
-          { error: "Not authenticated or session expired" },
+          { error: apiCopy("apiCopy.not.authenticated.or.session.expired.b1714d99") },
           { status: 401 },
         );
       const { action, ids, album } = body;
@@ -124,7 +125,7 @@ export async function POST(request: Request) {
         case "moveAlbum": {
           if (!album || typeof album !== "string")
             return NextResponse.json(
-              { error: "album parameter is required" },
+              { error: apiCopy("apiCopy.album.parameter.is.required.29fbd1dd") },
               { status: 400 },
             );
           const result = await prisma.imageUpload.updateMany({
@@ -190,7 +191,7 @@ export async function POST(request: Request) {
           return NextResponse.json(
             {
               error:
-                "Unsupported operation, options: delete / moveAlbum / togglePublic",
+                apiCopy("apiCopy.unsupported.operation.options.delete.movealbum.togglepublic.dc637510"),
             },
             { status: 400 },
           );

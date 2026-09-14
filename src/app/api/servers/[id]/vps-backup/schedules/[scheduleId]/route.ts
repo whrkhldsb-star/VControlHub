@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * PATCH  /api/servers/[id]/vps-backup/schedules/[scheduleId] — update schedule
  * DELETE /api/servers/[id]/vps-backup/schedules/[scheduleId] — delete schedule
@@ -83,7 +84,7 @@ export async function DELETE(
 				select: { id: true },
 			});
 			if (!existing) {
-				return Response.json({ error: "Schedule not found" }, { status: 404 });
+				return Response.json({ error: apiCopy("apiCopy.schedule.not.found.54f9551a") }, { status: 404 });
 			}
 
 			try {

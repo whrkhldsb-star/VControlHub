@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * TR-031 E01: /api/cost/snapshots — recent daily snapshots for the trend chart.
  *
@@ -34,7 +35,7 @@ export async function GET(request: Request) {
 			rateLimit: GENERAL_READ_LIMIT,
 			querySchema,
 			errorStatus: 500,
-			errorMessage: "Failed to load historical snapshots",
+			errorMessage: apiCopy("apiCopy.failed.to.load.historical.snapshots.75008ea0"),
 		},
 		async ({ query, session }) => {
 			const snapshots = await listRecentSnapshots(
@@ -56,7 +57,7 @@ export async function POST(request: Request) {
 			rateLimit: GENERAL_WRITE_LIMIT,
 			bodySchema: syncSchema,
 			errorStatus: 500,
-			errorMessage: "Failed to sync VPS monthly cost",
+			errorMessage: apiCopy("apiCopy.failed.to.sync.vps.monthly.cost.87e48a9e"),
 		},
 		async ({ body, session }) => {
 			const result = await syncServerMonthlyCosts(body.month, session);

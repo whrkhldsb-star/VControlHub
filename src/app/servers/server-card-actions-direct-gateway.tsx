@@ -58,7 +58,7 @@ export function ServerCardDirectGatewayForm({
         <div className="space-y-2">
           <div className="space-y-1">
             <label
-              className="block text-[11px] font-medium text-[var(--text-muted)]"
+              className="block text-xs font-medium text-[var(--text-muted)]"
               htmlFor={`direct-gateway-protocol-${serverId}`}
             >
               {t("serverCardActions.directGateway.protocol")}
@@ -79,10 +79,10 @@ export function ServerCardDirectGatewayForm({
                 {t("serverCardActions.directGateway.protocolHttps")}
               </option>
             </select>
-            <p className="text-[10px] leading-4 text-[var(--text-muted)]">
+            <p className="text-xs leading-4 text-[var(--text-muted)]">
               {t("serverCardActions.directGateway.enableListenNote")}
             </p>
-            <p className="text-[10px] leading-4 text-[var(--text-muted)]">
+            <p className="text-xs leading-4 text-[var(--text-muted)]">
               {t("serverCardActions.directGateway.protocolHttpsHint")}
             </p>
           </div>
@@ -90,7 +90,7 @@ export function ServerCardDirectGatewayForm({
           {protocol === "https" ? (
             <div className="space-y-1">
               <label
-                className="block text-[11px] font-medium text-[var(--text-muted)]"
+                className="block text-xs font-medium text-[var(--text-muted)]"
                 htmlFor={`direct-gateway-domain-${serverId}`}
               >
                 {t("serverCardActions.directGateway.publicDomain")}
@@ -106,7 +106,7 @@ export function ServerCardDirectGatewayForm({
                 )}
                 className="w-full rounded-lg border border-[var(--color-action-border)]/20 bg-[var(--surface-subtle)] px-3 py-2 text-xs text-[var(--text-primary)]"
               />
-              <p className="text-[10px] leading-4 text-[var(--text-muted)]">
+              <p className="text-xs leading-4 text-[var(--text-muted)]">
                 {t("serverCardActions.directGateway.publicDomainHint")}
               </p>
             </div>
@@ -131,13 +131,13 @@ export function ServerCardDirectGatewayForm({
             {directGateway.publicUrl}
           </a>
         ) : (
-          <div className="text-[11px] text-[var(--text-muted)]">
+          <div className="text-xs text-[var(--text-muted)]">
             {t("serverCardActions.directGateway.relayHint")}
           </div>
         )}
       </div>
 
-      <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-subtle)] p-3 text-[11px] leading-5 text-[var(--text-muted)] light:border-[var(--color-action-border)]/15">
+      <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-subtle)] p-3 text-xs leading-5 text-[var(--text-muted)] light:border-[var(--color-action-border)]/15">
         {directGateway.enabled ? (
           <>
             <p className="font-medium text-[var(--text-primary)]">

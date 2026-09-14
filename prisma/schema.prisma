@@ -143,6 +143,7 @@ model User {
   aiOpsLogs                  AiOpsLog[]              @relation("AiOpsLogTriggeredBy")
   mediaUploadSessions        MediaUploadSession[]
   fileVersions               FileVersion[]
+  filePreferences            FilePreference[]
   ownedTeams                 Team[]                  @relation("TeamOwner")
   teamMemberships            TeamMember[]
   currentTeamId              String?
@@ -504,7 +505,7 @@ model UserStorageAccess {
 }
 
 model FileEntry {
-  id             String        @id @default(cuid())
+  id             String           @id @default(cuid())
   name           String
   entryType      FileEntryType
   mimeType       String?
@@ -513,13 +514,14 @@ model FileEntry {
   relativePath   String
   storageNodeId  String
   parentId       String?
-  isDeleted      Boolean       @default(false)
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  storageNode    StorageNode   @relation(fields: [storageNodeId], references: [id], onDelete: Cascade)
-  parent         FileEntry?    @relation("FileEntryChildren", fields: [parentId], references: [id], onDelete: SetNull)
-  children       FileEntry[]   @relation("FileEntryChildren")
+  isDeleted      Boolean          @default(false)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  storageNode    StorageNode      @relation(fields: [storageNodeId], references: [id], onDelete: Cascade)
+  parent         FileEntry?       @relation("FileEntryChildren", fields: [parentId], references: [id], onDelete: SetNull)
+  children       FileEntry[]      @relation("FileEntryChildren")
   versions       FileVersion[]
+  preferences    FilePreference[]
 
   @@unique([storageNodeId, relativePath])
   @@index([parentId])
@@ -532,6 +534,22 @@ enum FileVersionReason {
   EDIT
   MANUAL
   RESTORE_POINT
+}
+
+model FilePreference {
+  userId       String
+  fileEntryId  String
+  favorite     Boolean   @default(false)
+  tags         String[]  @default([])
+  lastOpenedAt DateTime?
+  updatedAt    DateTime  @updatedAt
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fileEntry    FileEntry @relation(fields: [fileEntryId], references: [id], onDelete: Cascade)
+
+  @@id([userId, fileEntryId])
+  @@index([userId, favorite, updatedAt])
+  @@index([userId, lastOpenedAt])
+  @@map("file_preferences")
 }
 
 /// Immutable historical snapshot of a file body, stored on the control plane.
@@ -1095,7 +1113,8 @@ model DownloadTask {
   /**
    * ── Aria2 RPC integration ──────────────────────
    */
-  aria2Gid String?
+  aria2Gid         String?
+  transferManifest Json? // Immutable relay file hashes persisted before remote writes.
 
   /**
    * ── Enhanced metadata ─────────────────────────

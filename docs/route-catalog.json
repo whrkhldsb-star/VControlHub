@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-09-05T09:57:58.104Z",
+  "generatedAt": "2026-09-11T13:35:14.080Z",
   "summary": {
     "sidebarMain": 30,
     "sidebarSystem": 5,
     "sidebarMobile": 5,
     "pages": 54,
-    "apiRoutes": 181,
+    "apiRoutes": 183,
     "permissionsDefined": 54
   },
   "sidebar": {
@@ -354,8 +354,6 @@
       "inSidebarMain": true,
       "inSidebarSystem": false,
       "declaredPermissions": [
-        "share:create",
-        "storage:delete",
         "storage:manage-node",
         "storage:read",
         "storage:write"
@@ -386,10 +384,11 @@
       "inSidebarMain": false,
       "inSidebarSystem": false,
       "declaredPermissions": [
-        "storage:delete"
+        "storage:delete",
+        "storage:read"
       ],
       "navigationPermissions": [
-        "storage:delete"
+        "storage:read"
       ]
     },
     {
@@ -442,7 +441,9 @@
       "declaredPermissions": [
         "image:read",
         "image:write",
-        "storage:delete"
+        "media:manage",
+        "storage:delete",
+        "team:manage"
       ],
       "navigationPermissions": [
         "image:read"
@@ -1691,11 +1692,34 @@
       ],
       "guardMode": "withApiRoute",
       "declaredPermissions": [
-        "share:create",
+        "storage:read"
+      ]
+    },
+    {
+      "path": "/api/files/operations",
+      "file": "src/app/api/files/operations/route.ts",
+      "methods": [
+        "GET",
+        "PATCH",
+        "POST"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
         "storage:delete",
-        "storage:manage-node",
         "storage:read",
         "storage:write"
+      ]
+    },
+    {
+      "path": "/api/files/preferences",
+      "file": "src/app/api/files/preferences/route.ts",
+      "methods": [
+        "GET",
+        "PATCH"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "storage:read"
       ]
     },
     {

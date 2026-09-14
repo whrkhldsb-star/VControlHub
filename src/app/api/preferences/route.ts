@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * User preferences API — per-user settings stored in localStorage on client,
  * with optional server-side persistence via the User model.
@@ -32,10 +33,10 @@ const defaultPreferences = defaultUserPreferences;
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { requireAuth: true, errorMessage: "Failed to fetch preferences" },
+    { requireAuth: true, errorMessage: apiCopy("apiCopy.failed.to.fetch.preferences.ffdd88c2") },
     async ({ session }) => {
       if (!session)
-        throw new AuthError("Unauthorized");
+        throw new AuthError(apiCopy("apiCopy.unauthorized.d089c8a9"));
 
       const user = await prisma.user.findUnique({
         where: { id: session.userId },
@@ -64,11 +65,11 @@ export async function PUT(request: Request) {
       requireAuth: true,
       rateLimit: GENERAL_WRITE_LIMIT,
       bodySchema: prefsSchema,
-      errorMessage: "Failed to save preferences",
+      errorMessage: apiCopy("apiCopy.failed.to.save.preferences.7cb9dce5"),
     },
     async ({ session, body }) => {
       if (!session)
-        throw new AuthError("Unauthorized");
+        throw new AuthError(apiCopy("apiCopy.unauthorized.d089c8a9"));
 
       // Partial PUT: merge into existing preferences so clients that only send
       // autoProbe* / one field (e.g. servers AutoProbeProvider) do not wipe

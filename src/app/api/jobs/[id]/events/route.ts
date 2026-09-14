@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -35,12 +36,12 @@ export async function GET(
 ) {
   return withApiRoute(
     request,
-    { permission: "task:read", errorMessage: "Failed to fetch task events" },
+    { permission: "task:read", errorMessage: apiCopy("apiCopy.failed.to.fetch.task.events.b6f1aa39") },
     async ({ session }) => {
       const { id: rawId } = await params;
       const id = rawId?.trim();
       if (!id) {
-        throw new ValidationError("Missing task ID");
+        throw new ValidationError(apiCopy("apiCopy.missing.task.id.802f7a13"));
       }
       const teamScope = teamWhere(session!);
       const where = sessionHasPermission(session!, "team:manage")
@@ -48,7 +49,7 @@ export async function GET(
         : { AND: [{ id }, teamScope, { createdBy: session!.userId }] };
       const job = await prisma.job.findFirst({ where, select: { id: true } });
       if (!job) {
-        throw new NotFoundError("Task not found");
+        throw new NotFoundError(apiCopy("apiCopy.task.not.found.b19fa293"));
       }
       const { limit, beforeId } = parseSearchParams(request, eventsQuerySchema);
       const events = await listJobEvents({ jobId: id, limit, beforeId });

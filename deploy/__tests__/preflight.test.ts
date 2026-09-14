@@ -777,7 +777,7 @@ describe("deploy/install.sh", () => {
     }
     await writeFile(
       path.join(binDir, "rsync"),
-      `#!/usr/bin/env bash\nsrc=""\ndest=""\nfor arg in "$@"; do\n  case "$arg" in\n    --*) ;;\n    *) src="$dest"; dest="$arg" ;;\n  esac\ndone\nmkdir -p "$dest"\n(cd "$src" && tar --exclude=.git --exclude=node_modules --exclude=.next --exclude=backups --exclude=storage --exclude=tmp --exclude=uploads --exclude=downloads --exclude=logs --exclude=.env.local -cf - .) | (cd "$dest" && tar -xf -)\n`,
+      `#!/usr/bin/env bash\nsrc=""\ndest=""\nexcludes=()\nwhile [ "$#" -gt 0 ]; do\n  case "$1" in\n    --exclude) shift; pattern="$1"; excludes+=("--exclude=./\${pattern#/}") ;;\n    -*) ;;\n    *) src="$dest"; dest="$1" ;;\n  esac\n  shift\ndone\nmkdir -p "$dest"\n(cd "$src" && tar "\${excludes[@]}" -cf - .) | (cd "$dest" && tar -xf -)\n`,
     );
     await writeFile(path.join(binDir, "git"), "#!/usr/bin/env bash\nexit 0\n");
     await writeFile(

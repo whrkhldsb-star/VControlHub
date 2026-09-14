@@ -190,6 +190,7 @@ async function processHostedTools(input: {
 }
 
 function createStreamingResponse(input: {
+  signal?: AbortSignal;
   upstream: Response;
   providerType: string;
   startTime: number;
@@ -219,8 +220,15 @@ function createStreamingResponse(input: {
   presencePenalty: number;
 }): Response {
   let cancelled = false;
+  let consumerCancelled = false;
   let assistantPersisted = false;
   const abortController = new AbortController();
+  const onRequestAbort = () => {
+    cancelled = true;
+    abortController.abort(input.signal?.reason);
+  };
+  if (input.signal?.aborted) onRequestAbort();
+  else input.signal?.addEventListener("abort", onRequestAbort, { once: true });
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       const send = (payload: unknown) => {
@@ -229,11 +237,12 @@ function createStreamingResponse(input: {
           controller.enqueue(encodeSse(payload));
         } catch {
           cancelled = true;
+          consumerCancelled = true;
           abortController.abort();
         }
       };
       const close = () => {
-        if (!cancelled) {
+        if (!consumerCancelled) {
           cancelled = true;
           controller.close();
         }
@@ -289,7 +298,7 @@ function createStreamingResponse(input: {
                 ? ""
                 : t("apiAiChat.emptyContent", input.locale)),
             reasoningContent: result.reasoning || undefined,
-            toolCalls: JSON.stringify(result.toolCalls),
+            toolCalls: JSON.stringify(result.readError ? [] : result.toolCalls),
             model: input.model,
             inputTokens: result.inputTokens,
             outputTokens: result.outputTokens,
@@ -297,6 +306,9 @@ function createStreamingResponse(input: {
           },
         });
         assistantPersisted = true;
+        // Partial text is useful history, but an interrupted tool request must
+        // never execute or leave an unanswered tool call in the next prompt.
+        if (result.readError || cancelled) return;
         const toolResults = input.hostingEnabled
           ? await processHostedTools({
               toolCalls: result.toolCalls,
@@ -342,6 +354,7 @@ function createStreamingResponse(input: {
                 stream: true,
               },
               input.session.userId,
+              abortController.signal,
             );
             if (followUp.response.body) {
               const followUpResult = await consumeProviderChatStream({
@@ -441,11 +454,13 @@ function createStreamingResponse(input: {
           ),
         });
       } finally {
+        input.signal?.removeEventListener("abort", onRequestAbort);
         close();
       }
     },
     cancel() {
       cancelled = true;
+      consumerCancelled = true;
       abortController.abort();
     },
   });
@@ -502,7 +517,9 @@ export async function createAiChatResponse(input: {
   body: ChatRequestBody & { conversationId: string; content: string };
   session: SessionPayload;
   locale: Locale;
+  signal?: AbortSignal;
 }): Promise<Response> {
+  input.signal?.throwIfAborted();
   let conversation: Awaited<ReturnType<typeof getConversationById>>;
   try {
     conversation = await getConversationById(
@@ -555,6 +572,7 @@ export async function createAiChatResponse(input: {
   }
 
   try {
+    input.signal?.throwIfAborted();
     const chat = await sendChatRequest(
       {
         providerId: conversation.provider.id,
@@ -571,8 +589,10 @@ export async function createAiChatResponse(input: {
           : undefined,
       },
       input.session.userId,
+      ...(input.signal ? [input.signal] : []),
     );
     return createStreamingResponse({
+      signal: input.signal,
       upstream: chat.response,
       providerType: chat.providerType,
       startTime: chat.startTime,

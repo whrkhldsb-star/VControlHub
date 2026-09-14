@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { prisma } from "@/lib/db";
 import type { SessionPayload } from "@/lib/auth/session";
 import { serverTeamWhere } from "@/lib/auth/team-scope";
@@ -23,7 +24,7 @@ export function getConfiguredDirectAccessSecret() {
   const secret = config.auth.storageGatewaySecret ?? "";
   if (!secret) {
     throw new ValidationError(
-      "STORAGE_DIRECT_ACCESS_SECRET is not configured; cannot enable target server direct connection. Please configure the same direct connection signing key in the runtime environment first.",
+      apiCopy("apiCopy.storage.direct.access.secret.is.not.configured.cannot.enable.tar.a6c59b3a"),
     );
   }
   return secret;

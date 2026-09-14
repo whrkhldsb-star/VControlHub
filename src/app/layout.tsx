@@ -4,6 +4,7 @@ import "./globals.css";
 
 import { SidebarLoader } from "@/components/sidebar-loader";
 import { ToastProvider } from "@/components/toast-provider";
+import { StorageUploadProvider, StorageUploadStatus } from "@/components/storage/storage-upload-provider";
 import { MobileNav } from "@/components/mobile-nav";
 import { GlobalSearch } from "@/components/global-search";
 import { mainNavItems, systemNavItems } from "@/components/nav-items";
@@ -90,6 +91,7 @@ export default async function RootLayout({
 						<SentryProvider />
 						{shouldRenderAuthenticatedChrome ? <WebVitalsReporter /> : null}
 						<ToastProvider>
+							<StorageUploadProvider key={`${session?.userId ?? "anonymous"}:${session?.currentTeamId ?? "personal"}`} scope={`${session?.userId ?? "anonymous"}:${session?.currentTeamId ?? "personal"}`}>
 							<SshTerminalProvider>
 							{shouldRenderAuthenticatedChrome && (
 								<SessionGateProvider value={sessionGate}>
@@ -98,6 +100,7 @@ export default async function RootLayout({
 							)}
 							<PwaRegister />
 							<main className="min-h-screen min-w-0 flex-1 overflow-x-clip pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-0">
+								<StorageUploadStatus />
 								{children}
 							</main>
 							{shouldRenderAuthenticatedChrome && (
@@ -107,6 +110,7 @@ export default async function RootLayout({
 								</SessionGateProvider>
 							)}
 							</SshTerminalProvider>
+							</StorageUploadProvider>
 						</ToastProvider>
 					</I18nProvider>
 				</ThemeProvider>

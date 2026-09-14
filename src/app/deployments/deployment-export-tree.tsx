@@ -1,6 +1,7 @@
 "use client";
 
 import { useI18n } from "@/lib/i18n/use-locale";
+import { Folder } from "@/components/icons";
 
 import { nodeKey, type TreeNode } from "./deployment-export-helpers";
 
@@ -17,7 +18,7 @@ export function DeploymentExportTree({ tree, activePath, onSelect }: TreeProps) 
       data-testid="deploy-export-tree"
       className="rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] p-3 font-mono text-xs text-[var(--text-secondary)]"
     >
-      <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--text-secondary)]/70">
+      <p className="mb-2 text-xs font-semibold uppercase  text-[var(--text-secondary)]/70">
         {t("deploymentsPage.export.fileTree")}
       </p>
       {tree.length === 0 ? (
@@ -55,7 +56,7 @@ function TreeRow({
     return (
       <li>
         <div className="flex items-center gap-1" style={{ paddingLeft: depth * 12 }}>
-          <span aria-hidden>📁</span>
+          <Folder size={14} aria-hidden className="shrink-0" />
           <span className="font-semibold text-[var(--text-secondary)]">{node.name || "/"}</span>
         </div>
         {node.children.length > 0 && (
@@ -91,7 +92,7 @@ function TreeRow({
         <span aria-hidden>📄</span>
         <span className="truncate">{node.name}</span>
         {isActive ? (
-          <span className="ml-auto text-[10px] text-[var(--text-secondary)]">
+          <span className="ml-auto text-xs text-[var(--text-secondary)]">
             {t("deploymentsPage.export.viewing")}
           </span>
         ) : null}

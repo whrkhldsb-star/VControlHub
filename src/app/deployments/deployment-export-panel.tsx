@@ -131,7 +131,7 @@ export function DeploymentExportPanel() {
     <section data-card className="mb-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-secondary)]/70">
+          <p className="text-xs font-semibold uppercase  text-[var(--text-secondary)]/70">
             {t("deploymentsPage.export.eyebrow")}
           </p>
           <h2 className="mt-1 text-sm font-semibold text-[var(--text-primary)]">
@@ -193,7 +193,7 @@ export function DeploymentExportPanel() {
             <ActionButton variant="outline"
               onClick={() => void handleZipDownload()}
               disabled={zipPending || !result.id}
-              data-testid="deploy-export-zip" className="!px-3 !py-1.5 !text-xs disabled:opacity-60"
+              data-testid="deploy-export-zip" className="!px-3 !py-1.5 !text-sm disabled:opacity-60"
             >
               {zipPending ? t("deploymentsPage.export.packaging") : t("deploymentsPage.export.downloadZip")}
             </ActionButton>

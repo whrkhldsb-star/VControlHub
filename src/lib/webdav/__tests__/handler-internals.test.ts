@@ -196,15 +196,14 @@ describe("listDirectChildren", () => {
     // exactly the direct children; without it the prefix matches the whole tree.
     expect(sql()).toContain("position('/' in substring");
     expect(sql()).toContain('"isDeleted" = false');
-    // "docs/2026/" is 10 chars: the row must be longer than that and carry no
-    // separator from position 11 onwards.
-    expect(boundValues()).toEqual(["n1", "docs/2026/%", 10, 11, MAX_PROPFIND_CHILDREN + 1]);
+    // PostgreSQL computes the character offset and selects substring(text, int).
+    expect(boundValues()).toEqual(["n1", "docs/2026/%", "docs/2026/", "docs/2026/", MAX_PROPFIND_CHILDREN + 1]);
   });
 
   it("lists the node root with an empty prefix", async () => {
     await listDirectChildren("n1", "");
 
-    expect(boundValues()).toEqual(["n1", "%", 0, 1, MAX_PROPFIND_CHILDREN + 1]);
+    expect(boundValues()).toEqual(["n1", "%", "", "", MAX_PROPFIND_CHILDREN + 1]);
   });
 
   it("escapes LIKE metacharacters in the directory name", async () => {

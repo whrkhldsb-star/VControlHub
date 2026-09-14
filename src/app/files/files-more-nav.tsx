@@ -51,10 +51,10 @@ export function FilesMoreNav() {
         aria-controls={menuId}
         onClick={() => setOpen((value) => !value)}
        
-        className="!px-3 !py-1.5 !text-xs"
+        className="!px-3 !py-1.5 !text-sm"
       >
         {t("filesPage.moreFeatures")}
-        <span aria-hidden className="ml-1.5 text-[10px] opacity-70">
+        <span aria-hidden className="ml-1.5 text-xs opacity-70">
           {open ? "▴" : "▾"}
         </span>
       </ActionButton>

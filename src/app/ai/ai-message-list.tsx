@@ -111,7 +111,7 @@ export function AiMessageList({
             />
           </svg>
           <p className="text-sm">{t("aiPage.placeholder")}</p>
-          <p className="text-xs mt-1 text-[var(--text-disabled)]">
+          <p className="text-xs mt-1 text-[var(--text-muted)]">
             {t("aiPage.dragPasteHint").replace(
               "{types}",
               formatAllowedTypes(currentModelCaps, t),
@@ -156,7 +156,7 @@ export function AiMessageList({
           >
             {msg.reasoningContent && (
               <details className="mb-2">
-                <summary className="text-[10px] text-[var(--text-muted)] cursor-pointer hover:text-[var(--text-muted)]">
+                <summary className="text-xs text-[var(--text-muted)] cursor-pointer hover:text-[var(--text-muted)]">
                   {t("aiPage.thinkingProcess")}
                 </summary>
                 <div className="mt-1 p-2 bg-[var(--input-bg)] rounded-lg text-xs text-[var(--text-muted)] whitespace-pre-wrap">
@@ -169,7 +169,7 @@ export function AiMessageList({
             )}
             {hostedActions.length > 0 && (
               <div className="mt-2 space-y-2 border-t border-[var(--border-subtle)] pt-2">
-                <div className="text-[10px] font-medium uppercase text-[var(--text-muted)]">
+                <div className="text-xs font-medium uppercase text-[var(--text-muted)]">
                   {t("aiPage.toolActivity")}
                 </div>
                 {hostedActions.map((action) => (
@@ -185,7 +185,7 @@ export function AiMessageList({
                         )}
                       </span>
                       <span
-                        className={`text-[10px] font-semibold ${actionStatusClass(action.status)}`}
+                        className={`text-xs font-semibold ${actionStatusClass(action.status)}`}
                       >
                         {t(
                           action.status === "APPROVED" &&
@@ -195,7 +195,7 @@ export function AiMessageList({
                         )}
                       </span>
                     </div>
-                    <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-[var(--text-muted)]">
+                    <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-1 text-xs text-[var(--text-muted)]">
                       <span>{action.actionType}</span>
                       <span>
                         {t("aiPage.riskLabel")}
@@ -217,7 +217,7 @@ export function AiMessageList({
                         <summary className="cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-primary)]">
                           {t("aiPage.actionResult")}
                         </summary>
-                        <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-all border-l border-[var(--border)] pl-2 text-[10px] text-[var(--text-secondary)]">
+                        <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-all border-l border-[var(--border)] pl-2 text-xs text-[var(--text-secondary)]">
                           {formatActionResult(action.result)}
                         </pre>
                       </details>
@@ -258,7 +258,7 @@ export function AiMessageList({
             })()}
             {msg.role === "assistant" &&
               (msg.inputTokens || msg.outputTokens || msg.latencyMs) && (
-                <div className="mt-2 flex gap-3 text-[10px] text-[var(--text-muted)]">
+                <div className="mt-2 flex gap-3 text-xs text-[var(--text-muted)]">
                   {msg.model && <span>{msg.model}</span>}
                   {msg.inputTokens != null && <span>↑{msg.inputTokens}</span>}
                   {msg.outputTokens != null && <span>↓{msg.outputTokens}</span>}
@@ -278,7 +278,7 @@ export function AiMessageList({
                   setTimeout(() => setCopyFeedback(null), 2000);
                 }
               }}
-              className="mt-1.5 flex items-center gap-1 text-[10px] text-[var(--text-muted)] transition hover:text-[var(--accent)]"
+              className="mt-1.5 flex items-center gap-1 text-xs text-[var(--text-muted)] transition hover:text-[var(--accent)]"
             >
               <svg
                 className="w-3 h-3"
@@ -300,7 +300,7 @@ export function AiMessageList({
             )}
           </div>
           {msg.role === "user" && (
-            <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] text-[11px] font-semibold uppercase text-[var(--accent)]">
+            <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] text-xs font-semibold uppercase text-[var(--accent)]">
               U
             </div>
           )}
@@ -328,7 +328,7 @@ export function AiMessageList({
           <div className="max-w-[88%] rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-3 py-2 text-sm leading-relaxed text-[var(--text-secondary)] sm:max-w-[80%] sm:px-4 sm:py-2.5">
             {streamReasoning && (
               <details open className="mb-2">
-                <summary className="text-[10px] text-[var(--color-action)]/60 cursor-pointer">
+                <summary className="text-xs text-[var(--color-action)]/60 cursor-pointer">
                   {t("aiPage.thinking")}
                 </summary>
                 <div className="mt-1 p-2 bg-[var(--input-bg)] rounded-lg text-xs text-[var(--text-muted)] whitespace-pre-wrap">
@@ -408,13 +408,13 @@ export function AiMessageList({
                         {typeof approval.params.templateName === "string" && <span>{t("aiPage.automationTemplate")}: {approval.params.templateName}</span>}
                       </div>
                       {typeof approval.params.plan === "string" && <p className="whitespace-pre-wrap break-words leading-5">{approval.params.plan}</p>}
-                      {typeof approval.params.command === "string" && <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-md border border-[var(--border)] bg-[var(--surface-subtle)] p-2 font-mono text-[11px] text-[var(--text-primary)]">{approval.params.command}</pre>}
-                      {(typeof approval.params.verificationCommand === "string" || typeof approval.params.rollbackCommand === "string") && <div className="space-y-1 font-mono text-[11px]">{typeof approval.params.verificationCommand === "string" && <p>{t("aiPage.automationVerify")}: {approval.params.verificationCommand}</p>}{typeof approval.params.rollbackCommand === "string" && <p>{t("aiPage.automationRollback")}: {approval.params.rollbackCommand}</p>}</div>}
+                      {typeof approval.params.command === "string" && <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-md border border-[var(--border)] bg-[var(--surface-subtle)] p-2 font-mono text-xs text-[var(--text-primary)]">{approval.params.command}</pre>}
+                      {(typeof approval.params.verificationCommand === "string" || typeof approval.params.rollbackCommand === "string") && <div className="space-y-1 font-mono text-xs">{typeof approval.params.verificationCommand === "string" && <p>{t("aiPage.automationVerify")}: {approval.params.verificationCommand}</p>}{typeof approval.params.rollbackCommand === "string" && <p>{t("aiPage.automationRollback")}: {approval.params.rollbackCommand}</p>}</div>}
                     </div>
                   )}
                 </div>
                 <div className="flex w-full gap-2 sm:ml-3 sm:w-auto">
-                  <ActionButton variant="danger-solid" className="flex-1 !px-3 !py-1 !text-xs disabled:opacity-50 sm:flex-none"
+                  <ActionButton variant="danger-solid" className="flex-1 !px-3 !py-1 !text-sm disabled:opacity-50 sm:flex-none"
                     disabled={approvalBusyById[approval.actionId]}
                     aria-busy={
                       approvalBusyById[approval.actionId] ? "true" : undefined
@@ -423,7 +423,7 @@ export function AiMessageList({
                   >
                     {t("aiPage.reject")}
                   </ActionButton>
-                  <ActionButton variant="success-solid" className="flex-1 !px-3 !py-1 !text-xs disabled:opacity-50 sm:flex-none"
+                  <ActionButton variant="success-solid" className="flex-1 !px-3 !py-1 !text-sm disabled:opacity-50 sm:flex-none"
                     disabled={approvalBusyById[approval.actionId]}
                     aria-busy={
                       approvalBusyById[approval.actionId] ? "true" : undefined

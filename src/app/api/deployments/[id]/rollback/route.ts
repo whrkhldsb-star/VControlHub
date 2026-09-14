@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -20,11 +21,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     {
       permission: "deploy:run",
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "Rollback failed",
+      errorMessage: apiCopy("apiCopy.rollback.failed.69b0b69b"),
       bodySchema: rollbackSchema,
     },
     async ({ session, body }) => {
-      if (!session) throw new AuthError("Not authenticated or session expired");
+      if (!session) throw new AuthError(apiCopy("apiCopy.not.authenticated.or.session.expired.b1714d99"));
       const { id } = await params;
       try {
         const rollback = await createDeploymentRollbackRun({

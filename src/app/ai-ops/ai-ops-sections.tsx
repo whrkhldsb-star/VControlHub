@@ -22,9 +22,9 @@ export type AiOpsSettings = {
 };
 
 const cardClass =
-	"rounded-2xl border border-[var(--border)] bg-[var(--surface-elevated)] p-5";
+	"rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5";
 const labelClass =
-	"text-xs font-medium text-[var(--text-secondary)] tracking-wide";
+	"text-xs font-medium text-[var(--text-secondary)] ";
 const selectClass = UI_INPUT;
 const buttonPrimary =
 	"text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50";
@@ -58,30 +58,30 @@ export function AiOpsSummarySection({ summary, t }: { summary: AiOpsSummary; t: 
 	const { locale } = useI18n();
 	return (
 		<section aria-label="ai-ops-summary" className={cardClass}>
-			<h2 className={`${labelClass} mb-4`}>{t("aiOpsPage.summary.title")}</h2>
-			<div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+			<h2 className="mb-4 text-base font-semibold text-[var(--text-primary)]">{t("aiOpsPage.summary.title")}</h2>
+			<div className="grid grid-cols-1 gap-4 min-[400px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 [&>div]:min-w-0 [&>div]:break-words">
 				<div>
-					<div className={`${labelClass} opacity-60`}>{t("aiOpsPage.summary.total")}</div>
+					<div className={labelClass}>{t("aiOpsPage.summary.total")}</div>
 					<div className="mt-1 text-2xl font-semibold text-[var(--text-primary)]">{summary.total}</div>
 				</div>
 				<div>
-					<div className={`${labelClass} opacity-60`}>{t("aiOpsPage.summary.byStatus")}</div>
+					<div className={labelClass}>{t("aiOpsPage.summary.byStatus")}</div>
 					<div className="mt-1 text-sm text-[var(--text-primary)]">
 						{Object.entries(summary.byStatus).map(([k, v]) => `${t(`aiOpsPage.status.${k}`)}=${v}`).join(" · ") || "—"}
 					</div>
 				</div>
 				<div>
-					<div className={`${labelClass} opacity-60`}>{t("aiOpsPage.summary.byMode")}</div>
+					<div className={labelClass}>{t("aiOpsPage.summary.byMode")}</div>
 					<div className="mt-1 text-sm text-[var(--text-primary)]">
 						{Object.entries(summary.byMode).map(([k, v]) => `${t(`aiOpsPage.mode.${k}`)}=${v}`).join(" · ") || "—"}
 					</div>
 				</div>
 				<div>
-					<div className={`${labelClass} opacity-60`}>{t("aiOpsPage.summary.lastScanAt")}</div>
+					<div className={labelClass}>{t("aiOpsPage.summary.lastScanAt")}</div>
 					<div className="mt-1 text-sm text-[var(--text-primary)]">{formatAiOpsTime(summary.lastScanAt, t("aiOpsPage.summary.never"), locale)}</div>
 				</div>
 				<div>
-					<div className={`${labelClass} opacity-60`}>{t("aiOpsPage.summary.lastErrorAt")}</div>
+					<div className={labelClass}>{t("aiOpsPage.summary.lastErrorAt")}</div>
 					<div className="mt-1 text-sm text-[var(--text-primary)]">{formatAiOpsTime(summary.lastErrorAt, t("aiOpsPage.summary.never"), locale)}</div>
 				</div>
 			</div>
@@ -122,7 +122,7 @@ export function AiOpsActionsToolbar({
 				</ActionButton>
 			)}
 			<ActionButton variant="secondary" className={buttonGhost} onClick={onReload}>{t("aiOpsPage.actions.refresh")}</ActionButton>
-			<label className={`${labelClass} flex items-center gap-2`}>
+			<label className={`${labelClass} flex min-w-0 flex-col items-start gap-2`}>
 				<span>{t("aiOpsPage.filter.mode")}</span>
 				<select className={selectClass} value={modeFilter} onChange={(e) => setModeFilter(e.target.value as "all" | AiOpsMode)}>
 					<option value="all">{t("aiOpsPage.filter.all")}</option>
@@ -130,7 +130,7 @@ export function AiOpsActionsToolbar({
 					<option value="autonomous">{t("aiOpsPage.mode.autonomous")}</option>
 				</select>
 			</label>
-			<label className={`${labelClass} flex items-center gap-2`}>
+			<label className={`${labelClass} flex min-w-0 flex-col items-start gap-2`}>
 				<span>{t("aiOpsPage.filter.status")}</span>
 				<select className={selectClass} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as "all" | AiOpsStatus)}>
 					<option value="all">{t("aiOpsPage.filter.all")}</option>
@@ -141,7 +141,7 @@ export function AiOpsActionsToolbar({
 					<option value="running">{t("aiOpsPage.status.running")}</option>
 				</select>
 			</label>
-			<label className={`${labelClass} flex items-center gap-2`}>
+			<label className={`${labelClass} flex min-w-0 flex-col items-start gap-2`}>
 				<span>{t("aiOpsPage.filter.triggerType")}</span>
 				<select className={selectClass} value={triggerFilter} onChange={(e) => setTriggerFilter(e.target.value as "all" | AiOpsTriggerType)}>
 					<option value="all">{t("aiOpsPage.filter.all")}</option>
@@ -177,7 +177,7 @@ export function AiOpsSettingsSection({
 }) {
 	return (
 		<section aria-label="ai-ops-settings" className={cardClass}>
-			<h2 className={`${labelClass} mb-4`}>{t("aiOpsPage.settings.title")}</h2>
+			<h2 className="mb-4 text-base font-semibold text-[var(--text-primary)]">{t("aiOpsPage.settings.title")}</h2>
 			<div className="grid gap-4 sm:grid-cols-2">
 				<label className="flex flex-col gap-2">
 					<span className={labelClass}>{t("aiOpsPage.settings.mode")}</span>
@@ -247,7 +247,7 @@ export function AiOpsLogsSection({
 	return (
 		<section aria-label="ai-ops-logs" className={`${cardClass} relative`} aria-busy={loading}>
 			<div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-				<h2 className={labelClass}>{t("aiOpsPage.table.title")}</h2>
+				<h2 className="text-base font-semibold text-[var(--text-primary)]">{t("aiOpsPage.table.title")}</h2>
 				{logs.length > 0 ? (
 					<span className="text-xs text-[var(--text-muted)]">
 						{t("aiOpsPage.pagination.info", {
@@ -263,7 +263,7 @@ export function AiOpsLogsSection({
 			) : (
 				<div className="overflow-x-auto overscroll-x-contain" tabIndex={0}>
 					<table className="w-full min-w-[860px] table-fixed text-left text-sm text-[var(--text-primary)]">
-						<thead className="text-xs uppercase tracking-wide text-[var(--text-primary)]/70">
+						<thead className="text-xs uppercase  text-[var(--text-primary)]/70">
 							<tr>
 								<th className="w-40 py-2">{t("aiOpsPage.table.time")}</th>
 								<th className="py-2">{t("aiOpsPage.table.mode")}</th>
@@ -335,7 +335,7 @@ export function AiOpsDetailSection({
 }) {
 	return (
 		<section aria-label="ai-ops-detail" className={cardClass}>
-			<h2 className={`${labelClass} mb-4`}>{t("aiOpsPage.detail.title")}</h2>
+			<h2 className="mb-4 text-base font-semibold text-[var(--text-primary)]">{t("aiOpsPage.detail.title")}</h2>
 			<div className="grid gap-4 lg:grid-cols-2">
 				<div>
 					<h3 className={`${labelClass} mb-2`}>{t("aiOpsPage.detail.findings")}</h3>

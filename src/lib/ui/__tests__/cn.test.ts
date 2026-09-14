@@ -31,7 +31,8 @@ describe("ui classes", () => {
 		expect(UI_BTN_PRIMARY).toContain("var(--color-action)");
 		expect(UI_BTN_PRIMARY).toContain("var(--color-action-fg)");
 		expect(UI_BTN_PRIMARY).not.toMatch(/text-white|border-white|bg-black/);
-		expect(UI_BTN_SUCCESS).toContain("var(--success)");
+  expect(UI_BTN_SUCCESS).toContain("var(--color-success-action)");
+  expect(UI_BTN_SUCCESS).toContain("var(--solid-action-fg)");
 		expect(UI_INPUT).toContain("var(--input-bg)");
 		expect(UI_INPUT).toContain("var(--input-border)");
 		expect(UI_INPUT).toContain("placeholder:text-[var(--text-muted)]");

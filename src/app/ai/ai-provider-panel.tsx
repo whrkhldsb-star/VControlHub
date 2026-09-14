@@ -1,12 +1,15 @@
 "use client";
 
 import type { Provider, ModelInfo } from "./ai-types";
-import { PROVIDER_TYPES, COMMON_BASE_URLS } from "./ai-types";
+import { PROVIDER_TYPES } from "./ai-types";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useToast } from "@/components/toast-provider";
 import { useI18n } from "@/lib/i18n/use-locale";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ModalShell } from "@/components/modal-shell";
+import { Badge, IconButton } from "@/components/ui-primitives";
+import { Pencil, Trash2, X } from "@/components/icons";
+import { AiProviderFields } from "./ai-provider-fields";
 
 import { ActionButton } from "@/components/action-button";
 import { getErrorMessage } from "@/lib/http/error-message";
@@ -49,6 +52,19 @@ export function AiProviderPanel({
   const [modelsLoading, setModelsLoading] = useState(false);
   const [editingProviderId, setEditingProviderId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<ProviderFormState | null>(null);
+  const [saving, setSaving] = useState(false);
+  const mutationRef = useRef(false);
+  const probeRef = useRef<AbortController | null>(null);
+  const busy = creatingProvider || saving;
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Probe results belong to the current credentials and open panel.
+    setFetchedModels([]);
+    setModelsLoading(false);
+    return () => {
+      probeRef.current?.abort();
+      probeRef.current = null;
+    };
+  }, [show, provForm.type, provForm.apiKey, provForm.baseUrl]);
   const modelOptions = useMemo(() => {
     const fromFetch = fetchedModels.map((m) => m.id).filter(Boolean);
     const fromForm = provForm.availableModels.split(",").map((m) => m.trim()).filter(Boolean);
@@ -56,15 +72,19 @@ export function AiProviderPanel({
   }, [fetchedModels, provForm.availableModels]);
 
   const fetchProviderModels = async () => {
+    if (probeRef.current) return;
     const baseUrl = provForm.baseUrl.trim();
     if (!provForm.apiKey.trim()) {
       addToast("error", t("aiPage.apiKeyRequiredHint"));
       return;
     }
     setModelsLoading(true);
+    const probe = new AbortController();
+    probeRef.current = probe;
     try {
       const data = await csrfFetch("/api/ai/models/probe", {
         method: "POST",
+        signal: probe.signal,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           type: provForm.type,
@@ -72,6 +92,7 @@ export function AiProviderPanel({
           ...(baseUrl ? { baseUrl } : {}),
         }),
       });
+      if (probe.signal.aborted || probeRef.current !== probe) return;
       const models = Array.isArray(data.models) ? data.models as ModelInfo[] : [];
       setFetchedModels(models);
       const ids = models.map((m) => m.id).filter(Boolean);
@@ -82,13 +103,20 @@ export function AiProviderPanel({
       }));
       addToast("success", ids.length > 0 ? t("aiPage.modelsFetched", { count: ids.length }) : t("aiPage.modelsFetchedEmpty"));
     } catch (e: unknown) {
+      if (probe.signal.aborted || probeRef.current !== probe) return;
       addToast("error", getErrorMessage(e, t("aiPage.modelsFetchFailed")));
     } finally {
-      setModelsLoading(false);
+      if (probeRef.current === probe) {
+        probeRef.current = null;
+        setModelsLoading(false);
+      }
     }
   };
 
   const startEditing = (provider: Provider) => {
+    probeRef.current?.abort();
+    probeRef.current = null;
+    setModelsLoading(false);
     setEditingProviderId(provider.id);
     setEditForm({
       name: provider.name,
@@ -107,7 +135,9 @@ export function AiProviderPanel({
   };
 
   const saveEditing = async () => {
-    if (!editingProviderId || !editForm) return;
+    if (!editingProviderId || !editForm || mutationRef.current) return;
+    mutationRef.current = true;
+    setSaving(true);
     const availableModels = editForm.availableModels
       .split(",")
       .map((model) => model.trim())
@@ -132,6 +162,9 @@ export function AiProviderPanel({
       onRefreshProviders();
     } catch (e: unknown) {
       addToast("error", getErrorMessage(e, t("aiPage.providerUpdateFailed")));
+    } finally {
+      mutationRef.current = false;
+      setSaving(false);
     }
   };
 
@@ -142,37 +175,36 @@ export function AiProviderPanel({
       open={show}
       onClose={onClose}
       labelledBy="ai-provider-panel-title"
-      overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] backdrop-blur-sm max-sm:items-end"
-      panelClassName="w-full max-w-lg overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-lg)] max-sm:max-w-none max-sm:rounded-b-none"
+      busy={busy}
+      panelClassName="flex max-h-[calc(100dvh-2rem)] w-full min-w-0 max-w-xl flex-col overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--modal-bg)] shadow-[var(--shadow-lg)]"
     >
-        <div className="px-5 py-4 border-b border-[var(--border)] flex items-center justify-between">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-3 sm:px-5">
           <h3 id="ai-provider-panel-title" className="text-sm font-semibold text-[var(--text-primary)]">{t("aiPage.providerPanelTitle")}</h3>
-          <button
-            type="button"
+          <IconButton
             onClick={onClose}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-[var(--text-muted)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--text-secondary)]"
-            aria-label={t("aiPage.closeProviderAria")}
+            disabled={busy}
+            className="h-10 w-10 shrink-0"
+            label={t("aiPage.closeProviderAria")}
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+            <X size={18} aria-hidden />
+          </IconButton>
         </div>
 
-        <div className="p-5 space-y-4 max-h-[min(70vh,640px)] max-sm:max-h-[80vh] overflow-y-auto">
+        <div className="min-h-0 space-y-5 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5">
+          <fieldset disabled={busy} className="min-w-0 space-y-5">
           {providers.length > 0 && (
-            <div className="space-y-2">
-              <h4 className="text-xs text-[var(--text-muted)] uppercase tracking-wider">{t("aiPage.addedProviders")}</h4>
+            <div className="divide-y divide-[var(--border)]">
+              <h4 className="text-xs text-[var(--text-muted)] uppercase ">{t("aiPage.addedProviders")}</h4>
               {providers.map((p) => (
-                <div key={p.id} className="flex items-center gap-3 p-3 rounded-xl bg-[var(--input-bg)] border border-[var(--border-subtle)] max-sm:flex-col max-sm:items-stretch">
+                <div key={p.id} className="flex flex-wrap items-center gap-3 py-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm text-[var(--text-primary)] font-medium">{p.name}</span>
-                      <span className="text-xs text-[var(--text-muted)] bg-[var(--surface-elevated)] px-1.5 py-0.5 rounded-lg">
+                      <Badge tone="neutral">
                         {PROVIDER_TYPES[p.type] || p.type}
-                      </span>
-                      {p.isDefault && <span className="text-xs text-[var(--color-action)] bg-[var(--color-action-bg)]/10 px-1.5 py-0.5 rounded-lg">{t("common.default")}</span>}
-                      {!p.enabled && <span className="text-xs text-[var(--danger)] bg-[var(--danger-bg)] px-1.5 py-0.5 rounded-lg">{t("aiPage.disabledBadge")}</span>}
+                      </Badge>
+                      {p.isDefault && <Badge tone="accent">{t("common.default")}</Badge>}
+                      {!p.enabled && <Badge tone="danger">{t("aiPage.disabledBadge")}</Badge>}
                     </div>
                     <p className="mt-1 truncate text-xs leading-5 text-[var(--text-muted)]">{p.baseUrl} · {p.defaultModel}</p>
                   </div>
@@ -180,6 +212,9 @@ export function AiProviderPanel({
                     <button
                       type="button"
                       onClick={async () => {
+                        if (mutationRef.current) return;
+                        mutationRef.current = true;
+                        setSaving(true);
                         try {
                           await csrfFetch(`/api/ai/providers/${p.id}`, {
                             method: "PATCH",
@@ -189,28 +224,29 @@ export function AiProviderPanel({
                           onRefreshProviders();
                         } catch (e: unknown) {
                           addToast("error", getErrorMessage(e, t("aiPage.providerUpdateFailed")));
+                        } finally {
+                          mutationRef.current = false;
+                          setSaving(false);
                         }
                       }}
                       className={`min-h-9 rounded-lg px-2 text-xs font-medium transition ${p.enabled ? "text-[var(--warning)] hover:bg-[var(--warning-bg)]" : "text-[var(--success)] hover:bg-[var(--success-bg)]"}`}
                     >
                       {p.enabled ? t("aiPage.disableAction") : t("aiPage.enableAction")}
                     </button>
-                    <button
-                      type="button"
+                    <IconButton
                       onClick={() => startEditing(p)}
-                      className="min-h-9 rounded-lg px-2 text-xs font-medium text-[var(--color-action)] transition hover:bg-[var(--color-action-bg)]"
-                      aria-label={t("aiPage.editProviderAria", { name: p.name })}
+                      tone="accent"
+                      label={t("aiPage.editProviderAria", { name: p.name })}
                     >
-                      {t("aiPage.editAction")}
-                    </button>
-                    <button
-                      type="button"
+                      <Pencil size={16} aria-hidden />
+                    </IconButton>
+                    <IconButton
                       onClick={() => onDeleteProvider(p.id)}
-                      className="min-h-9 rounded-lg px-2 text-xs font-medium text-[var(--danger)] transition hover:bg-[var(--danger-bg)]"
-                      aria-label={t("aiPage.deleteProviderAria2", { name: p.name })}
+                      tone="danger"
+                      label={t("aiPage.deleteProviderAria2", { name: p.name })}
                     >
-                      {t("aiPage.deleteAction")}
-                    </button>
+                      <Trash2 size={16} aria-hidden />
+                    </IconButton>
                   </div>
                 </div>
               ))}
@@ -218,104 +254,33 @@ export function AiProviderPanel({
           )}
 
           {editForm ? (
-            <div data-tone="cyan" className="space-y-3 rounded-xl border border-[var(--color-action-border)]/20 p-3">
-              <div className="flex items-center justify-between gap-3">
-                <h4 className="text-xs text-[var(--text-secondary)] uppercase tracking-wider">{t("aiPage.editProviderTitle")}</h4>
-                <button type="button" onClick={cancelEditing} className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-secondary)] light:hover:text-[var(--text-disabled)]">{t("aiPage.cancelEditing")}</button>
+            <form className="space-y-4 border-t border-[var(--border)] pt-4" onSubmit={(event) => { event.preventDefault(); void saveEditing(); }}>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h4 className="text-sm font-semibold text-[var(--text-primary)]">{t("aiPage.editProviderTitle")}</h4>
+                <ActionButton type="button" variant="ghost" onClick={cancelEditing}>{t("aiPage.cancelEditing")}</ActionButton>
               </div>
-              <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
-                <div>
-                  <label className="text-xs text-[var(--text-muted)]" htmlFor="ai-provider-edit-name">{t("aiPage.nameLabel")}</label>
-                  <input id="ai-provider-edit-name" value={editForm.name} onChange={(e) => setEditForm((f) => f ? ({ ...f, name: e.target.value }) : f)} data-input className="mt-1 w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-2.5 py-1.5 text-xs text-[var(--text-primary)]" />
-                </div>
-                <div>
-                  <label className="text-xs text-[var(--text-muted)]" htmlFor="ai-provider-edit-type">{t("aiPage.typeLabel")}</label>
-                  <select id="ai-provider-edit-type" value={editForm.type} onChange={(e) => setEditForm((f) => f ? ({ ...f, type: e.target.value, baseUrl: COMMON_BASE_URLS[e.target.value] || f.baseUrl, availableModels: "", defaultModel: "" }) : f)} data-input className="mt-1 w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-2.5 py-1.5 text-xs text-[var(--text-primary)]">
-                    {Object.entries(PROVIDER_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                  </select>
-                </div>
-                <div className="col-span-2 max-sm:col-span-1">
-                  <label className="text-xs text-[var(--text-muted)]" htmlFor="ai-provider-edit-key">API Key</label>
-                  <input id="ai-provider-edit-key" type="password" autoComplete="off" value={editForm.apiKey} onChange={(e) => setEditForm((f) => f ? ({ ...f, apiKey: e.target.value }) : f)} placeholder={t("aiPage.apiKeyPlaceholder")} data-input className="mt-1 w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-2.5 py-1.5 font-mono text-xs text-[var(--text-primary)]" />
-                </div>
-                <div>
-                  <label className="text-xs text-[var(--text-muted)]" htmlFor="ai-provider-edit-base-url">Base URL</label>
-                  <input id="ai-provider-edit-base-url" value={editForm.baseUrl} onChange={(e) => setEditForm((f) => f ? ({ ...f, baseUrl: e.target.value }) : f)} data-input className="mt-1 w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-2.5 py-1.5 text-xs text-[var(--text-primary)]" />
-                </div>
-                <div>
-                  <label className="text-xs text-[var(--text-muted)]" htmlFor="ai-provider-edit-default-model">{t("aiPage.defaultModelLabel")}</label>
-                  <input id="ai-provider-edit-default-model" aria-label={t("aiPage.defaultModelLabel")} value={editForm.defaultModel} onChange={(e) => setEditForm((f) => f ? ({ ...f, defaultModel: e.target.value }) : f)} data-input className="mt-1 w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-2.5 py-1.5 text-xs text-[var(--text-primary)]" />
-                </div>
-                <label className="flex items-center gap-2 col-span-2 max-sm:col-span-1 cursor-pointer">
-                  <input type="checkbox" checked={editForm.isDefault} onChange={(e) => setEditForm((f) => f ? ({ ...f, isDefault: e.target.checked }) : f)} className="rounded-lg border-[var(--border)] bg-[var(--input-bg)] text-[var(--color-action)] focus:ring-[var(--color-action-ring)]" />
-                  <span className="text-xs text-[var(--text-secondary)]">{t("common.setAsDefault")}</span>
-                </label>
-              </div>
-              <ActionButton type="button" onClick={saveEditing} className="h-9 w-full text-sm">{t("common.saveChanges")}</ActionButton>
-            </div>
+              <AiProviderFields form={editForm} editing onChange={(patch) => setEditForm((form) => form ? { ...form, ...patch } : form)} />
+              <ActionButton type="submit" disabled={busy} className="w-full">{t("common.saveChanges")}</ActionButton>
+            </form>
           ) : (
-            <div className="space-y-3">
-              <h4 className="text-xs text-[var(--text-muted)] uppercase tracking-wider">{t("aiPage.addNewProvider")}</h4>
-              <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
-                <div>
-                  <label className="text-xs text-[var(--text-muted)]" htmlFor="ai-provider-name">{t("aiPage.nameLabel")}</label>
-                  <input id="ai-provider-name" value={provForm.name} onChange={(e) => setProvForm((f) => ({ ...f, name: e.target.value }))} placeholder={t("aiPage.providerNamePlaceholder")} data-input className="mt-1 w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-2.5 py-1.5 text-xs text-[var(--text-primary)]" />
+            <form className="space-y-4" onSubmit={(event) => { event.preventDefault(); onCreateProvider(); }}>
+              <h4 className="text-sm font-semibold text-[var(--text-primary)]">{t("aiPage.addNewProvider")}</h4>
+              <AiProviderFields form={provForm} models={modelOptions} onChange={(patch) => setProvForm((form) => ({ ...form, ...patch }))} />
+              <div className="space-y-2 border-y border-[var(--border)] py-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-sm text-[var(--text-secondary)]">{t("aiPage.modelListLabel")}</span>
+                  <ActionButton type="button" variant="secondary" onClick={fetchProviderModels} disabled={modelsLoading}>
+                    {modelsLoading ? t("aiPage.fetchingModels") : t("aiPage.fetchModels")}
+                  </ActionButton>
                 </div>
-                <div>
-                  <label className="text-xs text-[var(--text-muted)]" htmlFor="ai-provider-type">{t("aiPage.typeLabel")}</label>
-                  <select id="ai-provider-type" value={provForm.type} onChange={(e) => {
-                    const t = e.target.value;
-                    setFetchedModels([]);
-                    setProvForm((f) => ({ ...f, type: t, baseUrl: COMMON_BASE_URLS[t] || f.baseUrl, availableModels: "" }));
-                  }} data-input className="mt-1 w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-2.5 py-1.5 text-xs text-[var(--text-primary)]">
-                    {Object.entries(PROVIDER_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                  </select>
-                </div>
-                <div className="col-span-2 max-sm:col-span-1">
-                  <label className="text-xs text-[var(--text-muted)]" htmlFor="ai-provider-key">API Key</label>
-                  <input id="ai-provider-key" type="password" autoComplete="off" value={provForm.apiKey} onChange={(e) => setProvForm((f) => ({ ...f, apiKey: e.target.value }))} placeholder="sk-..." data-input className="mt-1 w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-2.5 py-1.5 font-mono text-xs text-[var(--text-primary)]" />
-                </div>
-                <div>
-                  <label className="text-xs text-[var(--text-muted)]" htmlFor="ai-provider-base-url">Base URL</label>
-                  <input id="ai-provider-base-url" value={provForm.baseUrl} onChange={(e) => setProvForm((f) => ({ ...f, baseUrl: e.target.value }))} placeholder="https://api.openai.com/v1" data-input className="mt-1 w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-2.5 py-1.5 text-xs text-[var(--text-primary)]" />
-                </div>
-                <div>
-                  <label className="text-xs text-[var(--text-muted)]" htmlFor="ai-provider-default-model">{t("aiPage.defaultModelLabel")}</label>
-                  {modelOptions.length > 0 ? (
-                    <select id="ai-provider-default-model" aria-label={t("aiPage.defaultModelLabel")} value={provForm.defaultModel || modelOptions[0]} onChange={(e) => setProvForm((f) => ({ ...f, defaultModel: e.target.value }))} data-input className="mt-1 w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-2.5 py-1.5 text-xs text-[var(--text-primary)]">
-                      {modelOptions.map((model) => <option key={model} value={model}>{model}</option>)}
-                    </select>
-                  ) : (
-                    <input id="ai-provider-default-model" aria-label={t("aiPage.defaultModelLabel")} value={provForm.defaultModel} onChange={(e) => setProvForm((f) => ({ ...f, defaultModel: e.target.value }))} placeholder={t("aiPage.modelListHint")} data-input className="mt-1 w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-2.5 py-1.5 text-xs text-[var(--text-primary)]" />
-                  )}
-                </div>
-                <div className="col-span-2 max-sm:col-span-1 rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] p-3 space-y-2">
-                  <div className="flex items-center justify-between gap-3 max-sm:flex-col max-sm:items-stretch">
-                    <div>
-                      <div className="text-xs text-[var(--text-secondary)]">{t("aiPage.modelListLabel")}</div>
-                      <p className="text-xs leading-5 text-[var(--text-muted)]">{t("aiPage.modelListHint")}</p>
-                    </div>
-                    <ActionButton type="button" variant="ghost" onClick={fetchProviderModels} disabled={modelsLoading} className="h-8 px-3 text-xs">
-                      {modelsLoading ? t("aiPage.fetchingModels") : t("aiPage.fetchModels")}
-                    </ActionButton>
-                  </div>
-                  {modelOptions.length > 0 && <div className="max-h-24 overflow-y-auto rounded-lg bg-[var(--input-bg)] p-2 text-xs leading-5 text-[var(--text-secondary)]">{modelOptions.slice(0, 20).join("、")}{modelOptions.length > 20 ? t("aiPage.modelsMore", { count: modelOptions.length }) : ""}</div>}
-                </div>
-                <label className="flex items-center gap-2 col-span-2 max-sm:col-span-1 cursor-pointer">
-                  <input type="checkbox" checked={provForm.isDefault} onChange={(e) => setProvForm((f) => ({ ...f, isDefault: e.target.checked }))} className="rounded-lg border-[var(--border)] bg-[var(--input-bg)] text-[var(--color-action)] focus:ring-[var(--color-action-ring)]" />
-                  <span className="text-xs text-[var(--text-secondary)]">{t("common.setAsDefault")}</span>
-                </label>
+                {modelOptions.length > 0 && <p className="max-h-24 overflow-y-auto break-words text-xs leading-5 text-[var(--text-secondary)]">{modelOptions.slice(0, 20).join(", ")}{modelOptions.length > 20 ? t("aiPage.modelsMore", { count: modelOptions.length }) : ""}</p>}
               </div>
-              <ActionButton
-                type="button"
-                onClick={onCreateProvider}
-                disabled={creatingProvider}
-                className="h-9 w-full text-sm"
-              >
+              <ActionButton type="submit" disabled={busy} className="w-full">
                 {creatingProvider ? t("aiPage.processing") : t("aiPage.addProviderButton")}
               </ActionButton>
-            </div>
+            </form>
           )}
+          </fieldset>
         </div>
     </ModalShell>
   );

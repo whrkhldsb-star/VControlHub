@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * Service-internal helpers shared by every quick-service code path. The
  * previous `lib/quick-service/service.ts` god-file bundled these private
@@ -35,7 +36,7 @@ export async function withServiceOperationLock<T>(
 ): Promise<T> {
 	const normalizedSlug = slug.trim();
 	if (serviceOperationLocks.has(normalizedSlug)) {
-		throw new ConflictError(`Service ${normalizedSlug} is busy with another operation, please retry shortly`);
+		throw new ConflictError(apiCopy("apiCopy.service.is.busy.with.another.operation.please.retry.shortly.e2a3583e", { v0: String(normalizedSlug) }));
 	}
 	serviceOperationLocks.add(normalizedSlug);
 	try {
@@ -55,7 +56,7 @@ export function resetQuickServiceProcessStateForTests() {
 /** Throws if the service is mid-install (the only state that should block other ops). */
 export function assertServiceNotBusy(svc: { slug: string; status?: string | null }, operation: string) {
 	if (svc.status === "installing") {
-		throw new ConflictError(`Service ${svc.slug} is installing, cannot ${operation}, please retry shortly`);
+		throw new ConflictError(apiCopy("apiCopy.service.is.installing.cannot.please.retry.shortly.21843751", { v0: String(svc.slug), v1: String(operation) }));
 	}
 }
 
@@ -76,7 +77,7 @@ export function safeContainerName(slug: string): string {
 
 export function assertTcpPort(port: number, label = "Port") {
 	if (!Number.isInteger(port) || port < 1 || port > 65535) {
-		throw new ValidationError(`${label} ${port} is invalid, please use a port in the range 1-65535.`);
+		throw new ValidationError(apiCopy("apiCopy.is.invalid.please.use.a.port.in.the.range.1.65535.9d95d0ea", { v0: String(label), v1: String(port) }));
 	}
 }
 
@@ -87,7 +88,7 @@ export function assertImage(image: string) {
 function normalizeVolumeEndpoint(value: string, label: string) {
 	const trimmed = value.trim();
 	if (!trimmed.startsWith("/") || trimmed.includes("\0") || trimmed.includes("..")) {
-		throw new ValidationError(`${label} path is invalid`);
+		throw new ValidationError(apiCopy("apiCopy.path.is.invalid.fd173ea1", { v0: String(label) }));
 	}
 	return trimmed.replace(/\/+$/, "") || "/";
 }
@@ -96,7 +97,7 @@ function splitContainerPathAndOptions(raw: string) {
 	const [containerPath, ...options] = raw.split(":");
 	const normalizedPath = normalizeVolumeEndpoint(containerPath!, "Container mount");
 	for (const option of options) {
-		if (!SAFE_VOLUME_OPTION_RE.test(option)) throw new ValidationError(`Mount option ${option} is invalid`);
+		if (!SAFE_VOLUME_OPTION_RE.test(option)) throw new ValidationError(apiCopy("apiCopy.mount.option.is.invalid.4d595790", { v0: String(option) }));
 	}
 	return [normalizedPath, ...options].join(":");
 }
@@ -146,7 +147,7 @@ export function validateTemplate(template: ServiceTemplate) {
 		assertTcpPort(ep.container, "Extra container port");
 	}
 	for (const key of Object.keys(template.envJson)) {
-		if (!SAFE_ENV_KEY_RE.test(key)) throw new ValidationError(`Environment variable name ${key} is invalid`);
+		if (!SAFE_ENV_KEY_RE.test(key)) throw new ValidationError(apiCopy("apiCopy.environment.variable.name.is.invalid.fb97e0f0", { v0: String(key) }));
 	}
 	for (const vol of template.volumesJson) {
 		const host = normalizeVolumeEndpoint(vol.host, "Host mount");
@@ -411,7 +412,7 @@ export function parseListeningPorts(output: string): Set<number> {
 export function assertPortAvailable(port: number, label = "Port") {
 	assertTcpPort(port, label);
 	if (!isPortAvailableSync(port)) {
-		throw new ConflictError(`${label} ${port} is already in use, please use a different port and retry.`);
+		throw new ConflictError(apiCopy("apiCopy.is.already.in.use.please.use.a.different.port.and.retry.4305736a", { v0: String(label), v1: String(port) }));
 	}
 }
 
@@ -421,14 +422,14 @@ export function assertPortAvailable(port: number, label = "Port") {
  */
 export function assertTemplatePortsAvailable(template: ServiceTemplate, hostPort: number) {
 	if (!reservedPorts.has(hostPort) && !reservePortSync(hostPort)) {
-		throw new ConflictError(`Port ${hostPort} is already in use, please use a different port and retry.`);
+		throw new ConflictError(apiCopy("apiCopy.port.is.already.in.use.please.use.a.different.port.and.retry.fd0f30e2", { v0: String(hostPort) }));
 	}
 	const reservedExtras: number[] = [];
 	try {
 		for (const ep of template.extraPorts ?? []) {
 			if (reservedPorts.has(ep.host)) continue;
 			if (!reservePortSync(ep.host)) {
-				throw new ConflictError(`Extra port ${ep.host} is already in use, please use a different port and retry.`);
+				throw new ConflictError(apiCopy("apiCopy.extra.port.is.already.in.use.please.use.a.different.port.and.ret.73defe8c", { v0: String(ep.host) }));
 			}
 			reservedExtras.push(ep.host);
 		}

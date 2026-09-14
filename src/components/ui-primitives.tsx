@@ -1,5 +1,6 @@
 import { cn } from "@/lib/ui/cn";
 import { UI_INPUT } from "@/lib/ui/classes";
+import { Children, cloneElement, isValidElement, Fragment } from "react";
 import type {
 	ButtonHTMLAttributes,
 	HTMLAttributes,
@@ -62,7 +63,7 @@ export function Badge({
 		<span
 			data-tone={TONE_BACKGROUND_ALIAS[tone] ?? tone}
 			className={cn(
-				"inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold tracking-wide",
+				"inline-flex max-w-full items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium",
 				TONE_STYLES[tone],
 				className,
 			)}
@@ -118,18 +119,22 @@ export function InlineLoading({
 
 export function ProgressBar({
 	value,
+	label,
 	max = 100,
 	tone = "accent",
 	height = "md",
 	className,
 }: {
 	value: number;
+	label?: string;
 	max?: number;
 	tone?: BadgeTone;
 	height?: "sm" | "md";
 	className?: string;
 }) {
-	const percentage = max > 0 ? Math.min(100, Math.max(0, (value / max) * 100)) : 0;
+	const safeMax = Number.isFinite(max) && max > 0 ? max : 100;
+	const safeValue = Number.isFinite(value) ? Math.min(safeMax, Math.max(0, value)) : 0;
+	const percentage = (safeValue / safeMax) * 100;
 	const color = {
 		accent: "var(--accent)",
 		success: "var(--success)",
@@ -148,9 +153,10 @@ export function ProgressBar({
 		<div
 			className={`${height === "sm" ? "h-1.5" : "h-2"} w-full overflow-hidden rounded-full bg-[var(--surface-elevated)] ${className ?? ""}`}
 			role="progressbar"
-			aria-valuenow={value}
+			aria-label={label}
+			aria-valuenow={safeValue}
 			aria-valuemin={0}
-			aria-valuemax={max}
+			aria-valuemax={safeMax}
 		>
 			<div
 				className="h-full rounded-full transition-[width] duration-300 ease-out"
@@ -286,6 +292,9 @@ export type SegmentedTabItem = {
 	icon?: ReactNode;
 	badge?: ReactNode;
 	disabled?: boolean;
+	/** Connect to an existing tabpanel without imposing page-specific IDs. */
+	panelId?: string;
+	tabId?: string;
 };
 
 /** Horizontal segmented control / tab strip — settings & list filters. */
@@ -307,7 +316,21 @@ export function SegmentedTabs({
 			role="tablist"
 			aria-label={ariaLabel}
 			data-segmented-tabs
-			className={`grid grid-cols-2 gap-1 rounded-2xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_94%,transparent)] p-1.5 shadow-[var(--shadow-sm)] backdrop-blur-md md:flex md:flex-wrap ${className ?? ""}`}
+			className={`flex min-w-0 gap-1 overflow-x-auto border-b border-[var(--border)] bg-[var(--background)] py-1 ${className ?? ""}`}
+			onKeyDown={(event) => {
+				const tabs = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]:not(:disabled)'));
+				const index = tabs.indexOf(event.target as HTMLButtonElement);
+				if (index < 0 || tabs.length === 0) return;
+				let next: number;
+				if (event.key === "ArrowRight") next = (index + 1) % tabs.length;
+				else if (event.key === "ArrowLeft") next = (index - 1 + tabs.length) % tabs.length;
+				else if (event.key === "Home") next = 0;
+				else if (event.key === "End") next = tabs.length - 1;
+				else return;
+				event.preventDefault();
+				tabs[next]?.focus();
+				tabs[next]?.click();
+			}}
 		>
 			{items.map((item) => {
 				const active = item.id === value;
@@ -316,12 +339,15 @@ export function SegmentedTabs({
 						key={item.id}
 						type="button"
 						role="tab"
+						id={item.tabId}
 						aria-selected={active}
+						aria-controls={item.panelId}
+						tabIndex={item.id === (items.find((tab) => tab.id === value && !tab.disabled)?.id ?? items.find((tab) => !tab.disabled)?.id) ? 0 : -1}
 						disabled={item.disabled}
 						onClick={() => onChange(item.id)}
-						className={`group relative flex min-w-0 items-center gap-2 rounded-xl px-2.5 py-2.5 text-left text-sm font-medium transition md:min-w-[9.5rem] md:flex-1 md:px-3.5 ${
+						className={`group relative flex min-h-11 min-w-0 shrink-0 items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-medium transition md:flex-1 ${
 							active
-								? "bg-[var(--accent-bg)] text-[var(--accent)] shadow-[var(--shadow-sm)]"
+								? "bg-[var(--accent-bg)] text-[var(--accent)]"
 								: "text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
 						} disabled:cursor-not-allowed disabled:opacity-50`}
 					>
@@ -331,10 +357,10 @@ export function SegmentedTabs({
 							</span>
 						) : null}
 						<span className="flex min-w-0 flex-1 flex-col items-start leading-tight">
-							<span className="truncate">{item.label}</span>
+								<span className="whitespace-normal">{item.label}</span>
 							{item.description ? (
 								<span
-									className={`mt-0.5 hidden w-full truncate text-[10px] font-normal sm:block ${
+									className={`mt-0.5 hidden w-full truncate text-xs font-normal sm:block ${
 										active ? "text-[var(--accent)] opacity-75" : "text-[var(--text-muted)]"
 									}`}
 								>
@@ -344,7 +370,7 @@ export function SegmentedTabs({
 						</span>
 						{item.badge != null ? (
 							<span
-								className={`ml-auto inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold ${
+								className={`ml-auto inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 text-xs font-semibold ${
 									active
 										? "bg-[var(--accent)] text-[var(--on-accent)]"
 										: "bg-[var(--surface-elevated)] text-[var(--text-muted)]"
@@ -378,7 +404,7 @@ export function SideNav({
 		<nav
 			aria-label={ariaLabel}
 			data-side-nav
-			className={`space-y-1 rounded-2xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_96%,transparent)] p-2 shadow-[var(--shadow-sm)] ${className ?? ""}`}
+			className={`space-y-1 border-r border-[var(--border)] pr-3 ${className ?? ""}`}
 		>
 			{items.map((item) => {
 				const active = item.id === activeId;
@@ -387,7 +413,8 @@ export function SideNav({
 						key={item.id}
 						type="button"
 						onClick={() => onSelect(item.id)}
-						className={`flex w-full items-start gap-2.5 rounded-xl px-3 py-2.5 text-left transition ${
+						aria-current={active ? "location" : undefined}
+						className={`flex w-full items-start gap-2.5 rounded-md px-3 py-2.5 text-left transition ${
 							active
 								? "bg-[var(--accent-bg)] text-[var(--accent)]"
 								: "text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
@@ -402,8 +429,8 @@ export function SideNav({
 							<span className="block text-sm font-medium">{item.label}</span>
 							{item.description ? (
 								<span
-									className={`mt-0.5 block text-[11px] leading-4 ${
-										active ? "text-[var(--accent)] opacity-80" : "text-[var(--text-muted)]"
+									className={`mt-0.5 block text-xs leading-4 ${
+										active ? "text-[var(--accent)]" : "text-[var(--text-muted)]"
 									}`}
 								>
 									{item.description}
@@ -455,21 +482,35 @@ export function FormField({
 	children: ReactNode;
 	className?: string;
 }) {
+	const descriptionId = htmlFor && (error ? `${htmlFor}-error` : hint ? `${htmlFor}-hint` : undefined);
+	const associate = (nodes: ReactNode): ReactNode => Children.map(nodes, (child) => {
+		if (!isValidElement<{ id?: string; children?: ReactNode; "aria-describedby"?: string; "aria-invalid"?: boolean | "true" | "false" | "grammar" | "spelling" }>(child)) return child;
+		if (htmlFor && child.props.id === htmlFor) {
+			return cloneElement(child, {
+				"aria-describedby": [child.props["aria-describedby"], descriptionId].filter(Boolean).join(" ") || undefined,
+				"aria-invalid": error ? true : child.props["aria-invalid"],
+			});
+		}
+		if ((typeof child.type === "string" || child.type === Fragment) && child.props.children) {
+			return cloneElement(child, { children: associate(child.props.children) });
+		}
+		return child;
+	});
 	return (
 		<div
 			data-form-field
-			className={`space-y-1.5 rounded-xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-subtle)_55%,var(--surface))] p-3.5 transition focus-within:border-[var(--accent-border)] focus-within:bg-[var(--surface)] ${className ?? ""}`}
+			className={`min-w-0 space-y-1.5 ${className ?? ""}`}
 		>
 			<div className="flex items-center justify-between gap-2">
 				<label
 					htmlFor={htmlFor}
-					className="text-xs font-semibold tracking-wide text-[var(--text-primary)]"
+					className="text-sm font-medium text-[var(--text-primary)]"
 				>
 					{label}
 				</label>
 				{actions ? <div className="flex shrink-0 items-center gap-1.5">{actions}</div> : null}
 			</div>
-			{children}
+			{associate(children)}
 			{error ? <p id={htmlFor ? `${htmlFor}-error` : undefined} role="alert" className="text-xs text-[var(--danger)]">{error}</p> : null}
 			{!error && hint ? <p id={htmlFor ? `${htmlFor}-hint` : undefined} className="text-xs leading-5 text-[var(--text-muted)]">{hint}</p> : null}
 		</div>

@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * GET  /api/cost/billing-accounts — list cloud billing accounts (cost:read)
  * POST /api/cost/billing-accounts — create account (cost:manage)
@@ -22,7 +23,7 @@ export async function GET(request: Request) {
 			permission: "cost:read",
 			rateLimit: GENERAL_READ_LIMIT,
 			errorStatus: 500,
-			errorMessage: "Failed to list cloud billing accounts",
+			errorMessage: apiCopy("apiCopy.failed.to.list.cloud.billing.accounts.8331aa1c"),
 		},
 		async ({ session }) => {
 			const accounts = await listCloudBillingAccounts(session ?? undefined);
@@ -39,7 +40,7 @@ export async function POST(request: Request) {
 			rateLimit: GENERAL_WRITE_LIMIT,
 			bodySchema: createCloudBillingAccountSchema,
 			errorStatus: 400,
-			errorMessage: "Failed to create cloud billing account",
+			errorMessage: apiCopy("apiCopy.failed.to.create.cloud.billing.account.3ad801e0"),
 		},
 		async ({ session, body }) => {
 			const account = await createCloudBillingAccount(body, session ?? null);

@@ -53,7 +53,7 @@ export function PasswordField({ label, name, autoComplete, placeholder, descript
 				</button>
 			</div>
 			{description ? (
-				<p id={descriptionId} className="text-[11px] text-[var(--text-muted)]">{description}</p>
+				<p id={descriptionId} className="text-xs text-[var(--text-muted)]">{description}</p>
 			) : null}
 		</div>
 	);

@@ -38,7 +38,9 @@ describe("AiSidebar", () => {
     const user = userEvent.setup();
     const { onSelectConv, onToggleSidebar } = renderSidebar(true);
 
-    await user.click(screen.getByText("生产排障助手"));
+    const conversationButton = screen.getByRole("button", { name: "生产排障助手" });
+    conversationButton.focus();
+    await user.keyboard("{Enter}");
 
     expect(onSelectConv).toHaveBeenCalledWith("conv-1");
     expect(onToggleSidebar).toHaveBeenCalledWith(false);

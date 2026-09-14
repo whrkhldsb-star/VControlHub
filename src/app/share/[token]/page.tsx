@@ -78,10 +78,10 @@ export default async function SharePage({
   return (
     <div className="min-h-screen bg-[var(--page-bg)] px-4 py-12 text-[var(--text-primary)] sm:py-16">
       <div className="relative mx-auto w-full max-w-3xl">
-          {/* FEAT-P1: Share watermark — traceable token ID overlay */}
+          {/* Keep the traceable share marker readable without covering the heading. */}
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute right-4 top-4 select-none text-[10px] font-medium tracking-wider text-[var(--text-muted)] opacity-40"
+            className="pointer-events-none mb-4 select-none break-all text-right text-xs font-medium text-[var(--text-muted)]"
           >
             {token.slice(0, 8)} · {new Date().toISOString().slice(0, 10)}
           </div>
@@ -98,7 +98,7 @@ export default async function SharePage({
           <p className="text-xs font-semibold uppercase text-[var(--accent)]">
             {t("sharePage.brand", locale)}
           </p>
-          <h1 className="mt-2 text-xl font-semibold text-[var(--text-primary)]">
+          <h1 className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">
             {errorMessage ? t("sharePage.errorTitle", locale) : share?.entryType === "DIRECTORY" ? t("sharePage.directoryTitle", locale) : t("sharePage.fileTitle", locale)}
           </h1>
         </div>
@@ -175,7 +175,7 @@ export default async function SharePage({
        <LinkIcon aria-hidden="true" className="h-4 w-4" />
        {t("sharePage.openFile", locale)}
      </a>
-     <a href={`/api/share/${encodeURIComponent(token)}`} data-action-button data-variant="secondary" className="flex items-center justify-center gap-2 px-4 py-3 text-center text-sm">
+     <a href={`/api/share/${encodeURIComponent(token)}`} download data-action-button data-variant="secondary" className="flex items-center justify-center gap-2 px-4 py-3 text-center text-sm">
        <Download aria-hidden="true" className="h-4 w-4" />
        {t("sharePage.downloadFile", locale)}
      </a>
@@ -193,6 +193,7 @@ export default async function SharePage({
                   {!share.locked && !isPreviewOnly && share.storageNode.driver !== "WEBDAV" && (
                     <a
                       href={`/api/share/${encodeURIComponent(token)}?archive=1`}
+                      download
                       className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[var(--color-action-border)]/40 px-3 py-1.5 text-center text-xs font-medium text-[var(--text-primary)] transition hover:bg-[var(--accent-hover)]/10"
                     >
                       <Download aria-hidden="true" className="h-3.5 w-3.5" />
@@ -223,7 +224,7 @@ export default async function SharePage({
                               <LinkIcon aria-hidden="true" className="h-3.5 w-3.5" />
                               {t("sharePage.openFile", locale)}
                             </a>
-                            <a href={`/api/share/${encodeURIComponent(token)}?path=${encodeURIComponent(file.relativePath)}`} data-action-button data-variant="primary" className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs">
+                            <a href={`/api/share/${encodeURIComponent(token)}?path=${encodeURIComponent(file.relativePath)}`} download data-action-button data-variant="primary" className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs">
                               <Download aria-hidden="true" className="h-3.5 w-3.5" />
                               {t("sharePage.download", locale)}
                             </a>

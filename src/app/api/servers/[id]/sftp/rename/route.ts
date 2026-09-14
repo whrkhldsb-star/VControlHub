@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * POST /api/servers/[id]/sftp/rename — rename a file/directory on remote server
  */
@@ -22,7 +23,7 @@ export async function POST(
     {
       permission: "server:ssh",
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "SFTP rename failed",
+      errorMessage: apiCopy("apiCopy.sftp.rename.failed.50877aa6"),
       bodySchema: renameSchema,
     },
     async ({ body, session }) => {

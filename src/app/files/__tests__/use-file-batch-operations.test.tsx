@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * The move flow had no tests of its own. The property worth pinning is what
  * happens on a *partial* failure: all three hooks return `batchAction` to
  * `"none"`, dropping back to the selection toolbar with the attempted files
- * re-selected and the per-file errors still listed. Retry is reachable because
+ * filtered to failures and the per-file errors still listed. Retry is reachable because
  * the toolbar's "batch move" button resets `moveProgress` when it reopens the
  * panel — so the confirm button's `moveProgress.done > 0` guard only blocks an
  * immediate duplicate submit inside one open panel, never a fresh attempt.
@@ -104,7 +104,7 @@ describe("useBatchMove", () => {
 		expect(mocks.moveFileAction).not.toHaveBeenCalled();
 	});
 
-	it("returns to the selection toolbar after a partial failure, re-selecting the attempted files", async () => {
+	it("returns to the selection toolbar after a partial failure, selecting only failures", async () => {
 		// Closing the panel is intentional: the errors are rendered by the toolbar's
 		// own summary, and the files stay selected so the user can retry.
 		mocks.moveFileAction
@@ -119,7 +119,7 @@ describe("useBatchMove", () => {
 		// `done` counts *attempts*, not successes — 2/2 with one error listed. The
 		// error list, not the counter, is what reports the failures.
 		expect(state.moveProgress).toMatchObject({ done: 2, total: 2 });
-		expect([...state.selectedIds]).toEqual(["f1", "f2"]);
+		expect([...state.selectedIds]).toEqual(["f2"]);
 		expect(state.scopeKey).toBe("scope-1");
 	});
 
@@ -205,7 +205,7 @@ describe("useBatchDelete", () => {
 		const { result } = renderHook(() => useBatchDelete(input as never));
 		await act(async () => { result.current(); });
 		expect(state.batchAction).toBe("none");
-		expect([...state.selectedIds]).toEqual(["f1", "f2"]);
+		expect([...state.selectedIds]).toEqual(["f2"]);
 		expect(state.progress.errors).toHaveLength(1);
 	});
 
@@ -215,6 +215,36 @@ describe("useBatchDelete", () => {
 		const { result } = renderHook(() => useBatchDelete(input as never));
 		await act(async () => { result.current(); });
 		expect(state.progress.errors[0]).toContain("a.txt");
+	});
+});
+
+describe.each([
+	["move", useBatchMove, mocks.moveFileAction, "moveProgress"],
+	["delete", useBatchDelete, mocks.deleteFileEntryAction, "progress"],
+] as const)("%s transport failures", (_name, hook, action, progressKey) => {
+	beforeEach(() => action.mockReset());
+
+	it("continues after a rejected request and retains only the failed item", async () => {
+		action.mockRejectedValueOnce(new Error("network unavailable")).mockResolvedValueOnce(null);
+		const { input, state } = harness();
+		const { result } = renderHook(() => hook(input as never));
+		await act(async () => { result.current(); });
+		expect(action).toHaveBeenCalledTimes(2);
+		expect(state[progressKey]).toMatchObject({ done: 2, total: 2 });
+		expect(state[progressKey].errors).toEqual(["a.txt: network unavailable"]);
+		expect([...state.selectedIds]).toEqual(["f1"]);
+		expect(state.batchAction).toBe("none");
+	});
+
+	it("ignores rapid duplicate submissions until the batch settles", async () => {
+		let resolve!: () => void;
+		action.mockImplementationOnce(() => new Promise<void>((done) => { resolve = done; })).mockResolvedValue(null);
+		const { input } = harness();
+		const { result } = renderHook(() => hook(input as never));
+		act(() => { result.current(); result.current(); });
+		expect(action).toHaveBeenCalledTimes(1);
+		await act(async () => { resolve(); });
+		expect(action).toHaveBeenCalledTimes(2);
 	});
 });
 

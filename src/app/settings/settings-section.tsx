@@ -102,17 +102,17 @@ export function CollapsibleSection({
   const { t } = useI18n();
   const Inner = asForm ? "form" : "div";
   return (
-    <section id={id} className="scroll-mt-28" data-card>
+    <section id={id} className="scroll-mt-28 border-b border-[var(--border)]">
       <details open={open} onToggle={onToggle} className="group">
         <summary
-          className="cursor-pointer list-none rounded-xl p-5 transition hover:bg-[var(--surface-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--accent)]"
+          className="cursor-pointer list-none rounded-md py-4 transition hover:bg-[var(--surface-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--accent)]"
           aria-label={`${open ? t("settingsClient.collapse") : t("settingsClient.expand")} ${title} ${t("settingsClient.sectionSuffix")}`}
         >
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div className="flex min-w-0 flex-1 items-start gap-3">
               <span
                 aria-hidden
-                className="mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-subtle)] text-[10px] text-[var(--text-muted)] transition group-open:rotate-90"
+                className="mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-subtle)] text-xs text-[var(--text-muted)] transition group-open:rotate-90"
               >
                 ▶
               </span>
@@ -129,23 +129,19 @@ export function CollapsibleSection({
                 <p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">{description}</p>
               </div>
             </div>
-            {headerExtra && (
-              <div
-                onClick={(e) => e.stopPropagation()}
-                onKeyDown={(e) => e.stopPropagation()}
-                className="lg:flex-shrink-0"
-              >
-                {headerExtra}
-              </div>
-            )}
           </div>
         </summary>
         <Inner
-          className="space-y-4 border-t border-[var(--border-subtle)] px-5 pb-5 pt-4"
+          className="space-y-4 border-t border-[var(--border-subtle)] pb-5 pt-4"
           {...(asForm
             ? { onSubmit: (event: React.FormEvent) => event.preventDefault() }
             : {})}
         >
+          {headerExtra ? (
+            <div className="flex justify-end border-b border-[var(--border-subtle)] pb-3">
+              {headerExtra}
+            </div>
+          ) : null}
           {children}
         </Inner>
       </details>

@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 
 import { withApiRoute } from "@/lib/http/api-guard";
@@ -18,9 +19,9 @@ export async function GET(
 ) {
   return withApiRoute(
     request,
-    { permission: "storage:read", errorMessage: "Failed to fetch file draft" },
+    { permission: "storage:read", errorMessage: apiCopy("apiCopy.failed.to.fetch.file.draft.2a13c7b3") },
     async ({ session }) => {
-      if (!session) throw new AuthError("Unauthorized");
+      if (!session) throw new AuthError(apiCopy("apiCopy.unauthorized.d089c8a9"));
       const { id } = await params;
       const draft = await getLocalEditableFileDraft({ fileEntryId: id, session });
       return NextResponse.json({ draft });
@@ -38,11 +39,11 @@ export async function PUT(
       permission: "storage:write",
       rateLimit: GENERAL_WRITE_LIMIT,
       errorStatus: 400,
-      errorMessage: "Failed to save file",
+      errorMessage: apiCopy("apiCopy.failed.to.save.file.a11e2c2c"),
       bodySchema: saveEditableFileBodySchema,
     },
     async ({ session, body }) => {
-      if (!session) throw new AuthError("Unauthorized");
+      if (!session) throw new AuthError(apiCopy("apiCopy.unauthorized.d089c8a9"));
       const { id } = await params;
 
       const result = await saveLocalEditableFileDraft({

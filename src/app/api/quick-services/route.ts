@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -33,7 +34,7 @@ export const dynamic = "force-dynamic";
 
 /** GET /api/quick-services — list catalog + installed + remote services */
 export async function GET(request: Request) {
-	return withApiRoute(request, { permission: "docker:manage", errorStatus: 500, errorMessage: "Server error" }, async ({ session }) => {
+	return withApiRoute(request, { permission: "docker:manage", errorStatus: 500, errorMessage: apiCopy("apiCopy.server.error.dfe0c2e8") }, async ({ session }) => {
 		const url = new URL(request.url);
 		const serverId = url.searchParams.get("serverId")?.trim() || "";
 		const instanceKey = serverId || HUB_HOST_INSTANCE_KEY;
@@ -167,19 +168,19 @@ export async function POST(request: Request) {
 			}
 		}
 
-		if (!template) throw new ValidationError("Unknown service");
+		if (!template) throw new ValidationError(apiCopy("apiCopy.unknown.service.f4ff8c32"));
 
 		// Validate custom port if provided
 		if (customPort !== undefined) {
 			if (isNaN(customPort) || customPort < 1 || customPort > 65535) {
-				throw new ValidationError("Invalid port, please enter a number between 1-65535");
+				throw new ValidationError(apiCopy("apiCopy.invalid.port.please.enter.a.number.between.1.65535.0b227f0a"));
 			}
 			// Host port probe is only reliable for hub-host.
 			if (!serverId) {
 				const check = checkPort(customPort);
 				if (!check.available) {
 					return NextResponse.json(
-						{ error: `port ${customPort} is already in use (${check.usedBy}), please change port and retry`, portConflict: true, usedBy: check.usedBy },
+						{ error: apiCopy("apiCopy.port.is.already.in.use.please.change.port.and.retry.07290591", { v0: String(customPort), v1: String(check.usedBy) }), portConflict: true, usedBy: check.usedBy },
 						{ status: 409 },
 					);
 				}
@@ -189,7 +190,7 @@ export async function POST(request: Request) {
 			const access = await assertServerTeamAccess(session, serverId);
 			if (!access.ok) return access.response;
 			const server = await prisma.server.findUnique({ where: { id: serverId }, select: { id: true, enabled: true, name: true } });
-			if (!server || !server.enabled) throw new ValidationError("Target VPS not found or disabled");
+			if (!server || !server.enabled) throw new ValidationError(apiCopy("apiCopy.target.vps.not.found.or.disabled.398d5671"));
 		}
 
 		const prepared = prepareInstallSecrets(template);

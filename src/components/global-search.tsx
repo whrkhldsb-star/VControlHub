@@ -11,11 +11,18 @@ import { useGateRoute } from "@/lib/auth/use-gate-route";
 import { ModalShell } from "@/components/modal-shell";
 import { api } from "@/lib/http/api-client";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { Search, X } from "./icons";
+import { IconButton } from "./ui-primitives";
+
+const navigationIcons = new Map([...mainNavItems, ...systemNavItems].map((item) => [item.href, item.icon]));
+function searchIcon(href: string) {
+	const pathname = href.split(/[?#]/)[0] ?? "/";
+	return navigationIcons.get(pathname) ?? navigationIcons.get(`/${pathname.split("/")[1]}`) ?? <Search size={18} />;
+}
 
 export interface SearchItem {
 	label: string;
 	href: string;
-	icon: string;
 	category: string;
 	keywords?: string[];
 }
@@ -24,38 +31,38 @@ type DynamicSearchResponse = {
 	results?: SearchItem[];
 };
 
-type SearchMetadata = { icon: string; keywordsKey?: string };
+type SearchMetadata = { keywordsKey?: string };
 
 const searchItemMetadata: Record<string, SearchMetadata> = {
-	"/": { icon: "📊", keywordsKey: "search.keywords.root" },
-	"/servers": { icon: "🖥️", keywordsKey: "search.keywords.servers" },
-	"/health": { icon: "💚", keywordsKey: "search.keywords.health" },
-	"/vps-status": { icon: "📡", keywordsKey: "search.keywords.vpsStatus" },
-	"/traffic": { icon: "📈", keywordsKey: "search.keywords.traffic" },
-	"/files": { icon: "📁", keywordsKey: "search.keywords.files" },
-	"/downloads": { icon: "📥", keywordsKey: "search.keywords.downloads" },
-	"/operation-tasks": { icon: "🧾", keywordsKey: "search.keywords.operationTasks" },
-	"/shares": { icon: "🔗", keywordsKey: "search.keywords.shares" },
-	"/backups": { icon: "💾", keywordsKey: "search.keywords.backups" },
-	"/templates": { icon: "🧩", keywordsKey: "search.keywords.templates" },
-	"/deployments": { icon: "🚀", keywordsKey: "search.keywords.deployments" },
-	"/quick-services": { icon: "⚡", keywordsKey: "search.keywords.quickServices" },
-	"/snippets": { icon: "💻", keywordsKey: "search.keywords.snippets" },
-	"/media": { icon: "🎞️", keywordsKey: "search.keywords.media" },
-	"/image-bed": { icon: "🖼️", keywordsKey: "search.keywords.imageBed" },
-	"/ai": { icon: "🤖", keywordsKey: "search.keywords.ai" },
-	"/knowledge": { icon: "📚", keywordsKey: "search.keywords.knowledge" },
-	"/announcements": { icon: "📣", keywordsKey: "search.keywords.announcements" },
-	"/tickets": { icon: "🎫", keywordsKey: "search.keywords.tickets" },
-	"/requests": { icon: "✅", keywordsKey: "search.keywords.requests" },
-	"/scheduled-tasks": { icon: "⏰", keywordsKey: "search.keywords.scheduledTasks" },
-	"/alert-rules": { icon: "🚨", keywordsKey: "search.keywords.alertRules" },
-	"/notifications": { icon: "🔔", keywordsKey: "search.keywords.notifications" },
-	"/settings": { icon: "⚙️", keywordsKey: "search.keywords.settings" },
-	"/users": { icon: "👥", keywordsKey: "search.keywords.users" },
-	"/api-tokens": { icon: "🔑", keywordsKey: "search.keywords.apiTokens" },
-	"/status": { icon: "📡", keywordsKey: "search.keywords.status" },
-	"/audit": { icon: "📋", keywordsKey: "search.keywords.audit" },
+	"/": { keywordsKey: "search.keywords.root" },
+	"/servers": { keywordsKey: "search.keywords.servers" },
+	"/health": { keywordsKey: "search.keywords.health" },
+	"/vps-status": { keywordsKey: "search.keywords.vpsStatus" },
+	"/traffic": { keywordsKey: "search.keywords.traffic" },
+	"/files": { keywordsKey: "search.keywords.files" },
+	"/downloads": { keywordsKey: "search.keywords.downloads" },
+	"/operation-tasks": { keywordsKey: "search.keywords.operationTasks" },
+	"/shares": { keywordsKey: "search.keywords.shares" },
+	"/backups": { keywordsKey: "search.keywords.backups" },
+	"/templates": { keywordsKey: "search.keywords.templates" },
+	"/deployments": { keywordsKey: "search.keywords.deployments" },
+	"/quick-services": { keywordsKey: "search.keywords.quickServices" },
+	"/snippets": { keywordsKey: "search.keywords.snippets" },
+	"/media": { keywordsKey: "search.keywords.media" },
+	"/image-bed": { keywordsKey: "search.keywords.imageBed" },
+	"/ai": { keywordsKey: "search.keywords.ai" },
+	"/knowledge": { keywordsKey: "search.keywords.knowledge" },
+	"/announcements": { keywordsKey: "search.keywords.announcements" },
+	"/tickets": { keywordsKey: "search.keywords.tickets" },
+	"/requests": { keywordsKey: "search.keywords.requests" },
+	"/scheduled-tasks": { keywordsKey: "search.keywords.scheduledTasks" },
+	"/alert-rules": { keywordsKey: "search.keywords.alertRules" },
+	"/notifications": { keywordsKey: "search.keywords.notifications" },
+	"/settings": { keywordsKey: "search.keywords.settings" },
+	"/users": { keywordsKey: "search.keywords.users" },
+	"/api-tokens": { keywordsKey: "search.keywords.apiTokens" },
+	"/status": { keywordsKey: "search.keywords.status" },
+	"/audit": { keywordsKey: "search.keywords.audit" },
 };
 
 type SearchItemDefinition = Omit<SearchItem, "label" | "category" | "keywords"> & {
@@ -85,7 +92,6 @@ const navigationSearchItems: SearchItemDefinition[] = [...mainNavItems, ...syste
 		labelKey: item.labelKey,
 		fallbackLabel: item.fallbackLabel,
 		href: item.href,
-		icon: metadata?.icon ?? "🔎",
 		categoryKey: category.key,
 		fallbackCategory: category.fallback,
 		keywordsKey: metadata?.keywordsKey,
@@ -94,10 +100,10 @@ const navigationSearchItems: SearchItemDefinition[] = [...mainNavItems, ...syste
 
 const searchItemDefinitions: SearchItemDefinition[] = [
 	...navigationSearchItems,
-	{ labelKey: "nav.ssh", fallbackLabel: "SSH Terminal", href: "/servers", icon: "🔑", categoryKey: "search.category.tool", fallbackCategory: "Tool", keywordsKey: "search.keywords.ssh", requiredPermission: "server:ssh" },
-	{ labelKey: "auth.change-password", fallbackLabel: "Change password", href: "/account/password", icon: "🔐", categoryKey: "search.category.action", fallbackCategory: "Action", keywordsKey: "search.keywords.changePassword" },
-	{ labelKey: "auth.two-factor", fallbackLabel: "Two-factor authentication", href: "/account/security", icon: "🛡️", categoryKey: "search.category.action", fallbackCategory: "Action", keywordsKey: "search.keywords.twoFactor" },
-	{ labelKey: "preferencesPage.category.personal.title", fallbackLabel: "Personal preferences", href: "/settings#personal-preferences", icon: "👤", categoryKey: "search.category.action", fallbackCategory: "Action", keywordsKey: "search.keywords.personalPreferences" },
+	{ labelKey: "nav.ssh", fallbackLabel: "SSH Terminal", href: "/servers", categoryKey: "search.category.tool", fallbackCategory: "Tool", keywordsKey: "search.keywords.ssh", requiredPermission: "server:ssh" },
+	{ labelKey: "auth.change-password", fallbackLabel: "Change password", href: "/account/password", categoryKey: "search.category.action", fallbackCategory: "Action", keywordsKey: "search.keywords.changePassword" },
+	{ labelKey: "auth.two-factor", fallbackLabel: "Two-factor authentication", href: "/account/security", categoryKey: "search.category.action", fallbackCategory: "Action", keywordsKey: "search.keywords.twoFactor" },
+	{ labelKey: "preferencesPage.category.personal.title", fallbackLabel: "Personal preferences", href: "/settings#personal-preferences", categoryKey: "search.category.action", fallbackCategory: "Action", keywordsKey: "search.keywords.personalPreferences" },
 ];
 
 function getKeywords(key: string | undefined, locale: Locale): string[] {
@@ -110,7 +116,6 @@ function localizeSearchItems(locale: Locale): LocalSearchItem[] {
 	return searchItemDefinitions.map((item) => ({
 		label: translate(item.labelKey, locale) === item.labelKey ? item.fallbackLabel : translate(item.labelKey, locale),
 		href: item.href,
-		icon: item.icon,
 		category: translate(item.categoryKey, locale) === item.categoryKey ? item.fallbackCategory : translate(item.categoryKey, locale),
 		keywords: getKeywords(item.keywordsKey, locale),
 		requiredPermission: item.requiredPermission,
@@ -133,7 +138,7 @@ export function GlobalSearch({
 }) {
 	const [open, setOpen] = useState(false);
 	const [query, setQuery] = useState("");
-	const [dynamicResults, setDynamicResults] = useState<SearchItem[]>([]);
+	const [dynamicResults, setDynamicResults] = useState<{ query: string; items: SearchItem[] }>({ query: "", items: [] });
 	const [searchError, setSearchError] = useState<string | null>(null);
 	const [selectedIndex, setSelectedIndex] = useState(0);
 	const inputRef = useRef<HTMLInputElement>(null);
@@ -164,7 +169,7 @@ export function GlobalSearch({
 				}
 			)
 		: searchItems;
-	const filtered = query ? [...filteredLocal, ...dynamicResults] : filteredLocal;
+	const filtered = query ? [...filteredLocal, ...(dynamicResults.query === query.trim() ? dynamicResults.items : [])] : filteredLocal;
 
 	const closeSearch = useCallback(() => {
 		setOpen(false);
@@ -222,11 +227,13 @@ export function GlobalSearch({
 
 	useEffect(() => {
 		if (open) {
-			setTimeout(() => inputRef.current?.focus(), 50);
-
 			setSelectedIndex(0);
 		}
 	}, [open]);
+
+	useEffect(() => {
+		if (open) document.getElementById(`global-search-result-${selectedIndex}`)?.scrollIntoView?.({ block: "nearest" });
+	}, [open, selectedIndex]);
 
 
 
@@ -238,18 +245,18 @@ export function GlobalSearch({
 		const normalized = query.trim();
 		setSearchError(null);
 		if (!open || normalized.length < 2) {
-			setDynamicResults([]);
+			setDynamicResults({ query: "", items: [] });
 			return;
 		}
 		const controller = new AbortController();
 		const timeout = window.setTimeout(() => {
 			void api.get<DynamicSearchResponse>(`/api/search?q=${encodeURIComponent(normalized)}&limit=6`, { signal: controller.signal })
 				.then((data) => {
-					if (!controller.signal.aborted) setDynamicResults(Array.isArray(data.results) ? data.results : []);
+					if (!controller.signal.aborted) setDynamicResults({ query: normalized, items: Array.isArray(data.results) ? data.results : [] });
 				})
 				.catch((error) => {
 					if (controller.signal.aborted || (error instanceof Error && error.name === "AbortError")) return;
-					setDynamicResults([]);
+					setDynamicResults({ query: normalized, items: [] });
 					setSearchError(getErrorMessage(error, t("common.status.failed")));
 				});
 		}, 180);
@@ -279,33 +286,18 @@ export function GlobalSearch({
 			open={open}
 			onClose={closeSearch}
 			label={t("search.dialog")}
-			overlayClassName="fixed inset-0 z-[70] flex items-start justify-center bg-[var(--overlay)] pb-[env(safe-area-inset-bottom)] pt-[12vh] backdrop-blur-sm sm:pt-[15vh]"
-			panelClassName="mx-4 w-full max-w-lg overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] shadow-[var(--shadow-lg)]"
+			overlayClassName="fixed inset-0 z-[70] flex items-start justify-center bg-[var(--overlay)] p-4 pt-[min(12dvh,4rem)]"
+			panelClassName="flex max-h-[calc(88dvh-1rem)] w-full max-w-lg flex-col overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--modal-bg)] shadow-[var(--shadow-lg)]"
 			initialFocusRef={inputRef}
 		>
-				<div className="flex items-center gap-2 border-b border-[var(--border)] px-4">
-					<svg
-						className="h-4 w-4 shrink-0 text-[var(--text-muted)]"
-						fill="none"
-						stroke="currentColor"
-						width="24"
-						height="24"
-						viewBox="0 0 24 24"
-						aria-hidden="true"
-					>
-						<path
-							strokeLinecap="round"
-							strokeLinejoin="round"
-							strokeWidth={2}
-							d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-						/>
-					</svg>
+				<div className="flex shrink-0 items-center gap-2 border-b border-[var(--border)] px-4">
+					<Search size={16} aria-hidden className="shrink-0 text-[var(--text-muted)]" />
 					<input
 						ref={inputRef}
 						type="text"
 						role="combobox"
 						aria-label={t("search.input-label")}
-						aria-expanded="true"
+						aria-expanded={filtered.length > 0}
 						aria-controls="global-search-results"
 						aria-activedescendant={
 							filtered[selectedIndex] ? `global-search-result-${selectedIndex}` : undefined
@@ -317,24 +309,25 @@ export function GlobalSearch({
 						placeholder={t("search.placeholder")}
 						className="min-w-0 flex-1 bg-transparent py-3.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none"
 					/>
-					<kbd className="hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--text-muted)] sm:inline">
-						ESC
-					</kbd>
+					<IconButton label={t("common.close")} onClick={closeSearch}><X size={16} aria-hidden /></IconButton>
 				</div>
-				{searchError && <p role="alert" className="px-4 py-2 text-sm text-[var(--danger)]">{searchError}</p>}
-				<ul id="global-search-results" role="listbox" className="max-h-72 overflow-y-auto py-1.5">
-					{filtered.length === 0 && (
-						<li className="px-4 py-8 text-center text-sm text-[var(--text-muted)]">{t("search.no-results")}</li>
-					)}
+				{searchError && <p role="alert" className="shrink-0 break-words px-4 py-2 text-sm text-[var(--danger)]">{searchError}</p>}
+				{filtered.length === 0 && (
+					<p role="status" className="px-4 py-8 text-center text-sm text-[var(--text-muted)]">{t("search.no-results")}</p>
+				)}
+				<ul id="global-search-results" role="listbox" hidden={filtered.length === 0} className="min-h-0 max-h-72 overflow-y-auto py-1.5">
 					{filtered.map((item, i) => (
 						<li
 							key={item.href + item.label}
-							id={`global-search-result-${i}`}
-							role="option"
-							aria-selected={i === selectedIndex}
+							role="presentation"
 						>
 							<button
 								type="button"
+								id={`global-search-result-${i}`}
+								role="option"
+								aria-selected={i === selectedIndex}
+								tabIndex={-1}
+								onMouseDown={(event) => event.preventDefault()}
 								onClick={() => navigate(item)}
 								className={`flex w-full items-center gap-3 px-4 py-2.5 text-sm transition ${
 									i === selectedIndex
@@ -343,28 +336,19 @@ export function GlobalSearch({
 								}`}
 							>
 								<span
-									className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border text-base ${
-										i === selectedIndex
-											? "border-[var(--accent-border)] bg-[var(--surface-elevated)]"
-											: "border-[var(--border-subtle)] bg-[var(--surface-elevated)]"
-									}`}
+									className="flex h-8 w-8 shrink-0 items-center justify-center text-[var(--text-muted)]"
 									aria-hidden="true"
 								>
-									{item.icon}
+									{searchIcon(item.href)}
 								</span>
 								<span className="min-w-0 flex-1 truncate text-left font-medium">{item.label}</span>
-								<span className="shrink-0 rounded-full border border-[var(--border-subtle)] bg-[var(--surface)] px-2 py-0.5 text-[10px] text-[var(--text-muted)]">
+								<span className="max-w-[30%] shrink-0 truncate text-xs text-[var(--text-muted)]">
 									{item.category}
 								</span>
 							</button>
 						</li>
 					))}
 				</ul>
-				<div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface)_50%,transparent)] px-4 py-2.5 text-[10px] text-[var(--text-muted)]">
-					<span>{t("search.shortcut-select")}</span>
-					<span>{t("search.shortcut-confirm")}</span>
-					<span>{t("search.shortcut-close")}</span>
-				</div>
 		</ModalShell>
 	);
 }

@@ -4,6 +4,7 @@
  */
 
 import { prisma, isUniqueViolation } from "@/lib/db";
+import type { Prisma } from "@prisma/client";
 import { type Aria2Status, formatBytes, formatSpeed, computeProgress } from "@/lib/aria2/service";
 import { ValidationError } from "@/lib/errors";
 import { resolveDownloadTargetPath } from "@/lib/downloads/target-path";
@@ -62,12 +63,26 @@ export async function indexDownloadedFileEntry(input: {
  targetPath: string;
  fileName: string | null | undefined;
  size: number | bigint | null | undefined;
-}) {
+}, db?: Pick<Prisma.TransactionClient, "fileEntry">) {
  const safeFileName = normalizeDownloadFileName(input.fileName);
  if (!input.storageNode?.id || !safeFileName) return;
 
  const relativePath = relativePathFromDownloadTarget(input.storageNode.basePath, input.targetPath, safeFileName);
  if (!relativePath) return;
+
+ if (db) {
+  // A caught unique violation would leave the surrounding transaction aborted.
+  const data = {
+   name: safeFileName, entryType: "FILE" as const,
+   size: input.size == null ? null : BigInt(input.size), isDeleted: false,
+  };
+  await db.fileEntry.upsert({
+   where: { storageNodeId_relativePath: { storageNodeId: input.storageNode.id, relativePath } },
+   create: { storageNodeId: input.storageNode.id, relativePath, ...data },
+   update: data,
+  });
+  return;
+ }
 
  const existingEntry = await prisma.fileEntry.findFirst({
   where: { storageNodeId: input.storageNode.id, relativePath },

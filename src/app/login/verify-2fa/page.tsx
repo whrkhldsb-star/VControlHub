@@ -1,21 +1,22 @@
 import { getPending2faCookieName } from "@/lib/auth/session";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { t } from "@/lib/i18n/translations";
+import { getServerLocale, t, type Locale } from "@/lib/i18n/translations";
 import { Verify2faForm } from "./verify-2fa-form";
 
 type Verify2faPageProps = {
 	searchParams?: Promise<{ next?: string; error?: string }>;
 };
 
-function resolveErrorMessage(error?: string) {
-	if (error === "expired") return t("login.verify2faExpired");
-	if (error === "invalid") return t("login.verify2faInvalid");
-	if (error === "rate_limited") return t("login.verify2faRateLimited");
+function resolveErrorMessage(locale: Locale, error?: string) {
+	if (error === "expired") return t("login.verify2faExpired", locale);
+	if (error === "invalid") return t("login.verify2faInvalid", locale);
+	if (error === "rate_limited") return t("login.verify2faRateLimited", locale);
 	return undefined;
 }
 
 export default async function Verify2faPage({ searchParams }: Verify2faPageProps) {
+	const locale = await getServerLocale();
 	const resolvedSearchParams = (await searchParams) ?? {};
 
 	// Check if the pending 2FA cookie exists — if not, redirect to login
@@ -31,10 +32,10 @@ export default async function Verify2faPage({ searchParams }: Verify2faPageProps
 		typeof rawNext === "string" && rawNext.startsWith("/") && !rawNext.startsWith("//")
 			? rawNext
 			: "/";
-	const error = resolveErrorMessage(resolvedSearchParams.error);
+	const error = resolveErrorMessage(locale, resolvedSearchParams.error);
 
 	return (
-		<main className="relative flex min-h-screen items-center justify-center overflow-hidden text-[var(--text-primary)]">
+		<div className="relative flex min-h-screen items-center justify-center overflow-hidden text-[var(--text-primary)]">
 			{/* Background effects */}
 			<div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,var(--accent-bg),transparent_50%),radial-gradient(circle_at_bottom_left,rgba(99,102,241,0.06),transparent_35%),var(--page-bg)]" />
 			<div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[var(--border-strong)] to-transparent" />
@@ -47,9 +48,9 @@ export default async function Verify2faPage({ searchParams }: Verify2faPageProps
 								<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
 							</svg>
 						</div>
-						<p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">2FA</p>
-						<h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-[var(--text-primary)]">{t("auth.two-factor")}</h2>
-						<p className="mt-2 text-sm text-[var(--text-secondary)]">{t("login.verify2faDescription")}</p>
+						<p className="text-xs font-semibold uppercase  text-[var(--accent)]">2FA</p>
+						<h1 className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{t("auth.two-factor", locale)}</h1>
+						<p className="mt-2 text-sm text-[var(--text-secondary)]">{t("login.verify2faDescription", locale)}</p>
 					</div>
 
 					<Verify2faForm nextPath={nextPath} error={error} />
@@ -59,11 +60,11 @@ export default async function Verify2faPage({ searchParams }: Verify2faPageProps
 							href="/login"
 							className="text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]"
 						>
-							{t("login.verify2faBackToLogin")}
+							{t("login.verify2faBackToLogin", locale)}
 						</a>
 					</div>
 				</div>
 			</div>
-		</main>
+		</div>
 	);
 }

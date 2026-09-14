@@ -8,6 +8,8 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 import { IconButton, Notice } from "@/components/ui-primitives";
+import { UI_INPUT } from "@/lib/ui/classes";
+import { X } from "@/components/icons";
 
 type TeamMemberDto = {
 	role: string;
@@ -66,6 +68,7 @@ export function TeamWorkspaceSection({ capabilities }: { capabilities: TeamCapab
 	const [editName, setEditName] = useState("");
 	const [editDesc, setEditDesc] = useState("");
 	const [pendingConfirm, setPendingConfirm] = useState<PendingConfirm>(null);
+	const [expandedTeamIds, setExpandedTeamIds] = useState<Set<string>>(new Set());
 
 	function viewerRoleIn(team: TeamDto) {
 		return team.members.find((member) => member.user.id === viewerId)?.role ?? null;
@@ -230,11 +233,10 @@ export function TeamWorkspaceSection({ capabilities }: { capabilities: TeamCapab
 		: "";
 
 	return (
-		<section id="team-workspaces" data-card className="rounded-xl border border-[var(--border)] bg-[var(--surface)] space-y-4 p-5">
+		<section id="team-workspaces" className="min-w-0 space-y-4 border-t border-[var(--border)] py-5">
 			<div>
-				<p className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--color-action)]/80">{t("settingsTeam.eyebrow")}</p>
+				<p className="text-xs font-semibold uppercase text-[var(--color-action)]">{t("settingsTeam.eyebrow")}</p>
 				<h2 className="mt-1 text-xl font-semibold text-[var(--text-primary)]">{t("settingsTeam.title")}</h2>
-				<p className="mt-1 text-sm text-[var(--text-secondary)]">{t("settingsTeam.desc")}</p>
 			</div>
 
 			{error && <Notice tone="danger">{error}</Notice>}
@@ -247,13 +249,13 @@ export function TeamWorkspaceSection({ capabilities }: { capabilities: TeamCapab
 			) : (
 				<div className="grid gap-3 md:grid-cols-2">
 					{teams.map((team) => (
-						<article key={team.id} className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-4">
+						<article key={team.id} className="min-w-0 rounded-lg border border-[var(--border)] p-4">
 							<div className="flex items-start justify-between gap-3">
-								<div className="flex-1">
+								<div className="min-w-0 flex-1 break-words">
 									{editingTeamId === team.id ? (
 										<div className="space-y-1">
-											<input value={editName} aria-label={t("settingsTeam.namePlaceholder")} onChange={(e) => setEditName(e.target.value)} className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-sm" />
-											<input value={editDesc} aria-label={t("settingsTeam.descriptionPlaceholder")} onChange={(e) => setEditDesc(e.target.value)} placeholder={t("settingsTeam.descriptionPlaceholder")} className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-xs" />
+											<input value={editName} aria-label={t("settingsTeam.namePlaceholder")} onChange={(e) => setEditName(e.target.value)} className={UI_INPUT} />
+											<input value={editDesc} aria-label={t("settingsTeam.descriptionPlaceholder")} onChange={(e) => setEditDesc(e.target.value)} placeholder={t("settingsTeam.descriptionPlaceholder")} className={UI_INPUT} />
 										</div>
 									) : (
 										<>
@@ -264,40 +266,41 @@ export function TeamWorkspaceSection({ capabilities }: { capabilities: TeamCapab
 									)}
 								</div>
 								<div className="flex flex-col gap-1">
-									<ActionButton variant="secondary" disabled={busy || currentTeamId === team.id} onClick={() => switchTeam(team.id)} className="!min-h-9 !px-3 !py-1 !text-xs disabled:opacity-60">
+									<ActionButton variant="secondary" disabled={busy || currentTeamId === team.id} onClick={() => switchTeam(team.id)} className="!min-h-9 !px-3 !py-1 !text-sm disabled:opacity-60">
 										{currentTeamId === team.id ? t("settingsTeam.current") : t("settingsTeam.switch")}
 									</ActionButton>
 									{canEditTeam(team) && editingTeamId !== team.id && (
-										<ActionButton variant="secondary" disabled={busy} onClick={() => startEditTeam(team)} className="!min-h-9 !px-3 !py-1 !text-xs disabled:opacity-60">
+										<ActionButton variant="secondary" disabled={busy} onClick={() => startEditTeam(team)} className="!min-h-9 !px-3 !py-1 !text-sm disabled:opacity-60">
 											{t("settingsTeam.edit")}
 										</ActionButton>
 									)}
 									{canEditTeam(team) && editingTeamId === team.id && (
-										<ActionButton variant="success" disabled={busy} onClick={() => saveEditTeam(team.id)} className="!min-h-9 !px-3 !py-1 !text-xs disabled:opacity-60">
+										<ActionButton variant="success" disabled={busy || !editName.trim()} onClick={() => saveEditTeam(team.id)} className="!min-h-9 !px-3 !py-1 !text-sm disabled:opacity-60">
 											{t("settingsTeam.save")}
 										</ActionButton>
 									)}
+									{editingTeamId === team.id && <ActionButton variant="secondary" disabled={busy} onClick={() => setEditingTeamId(null)}>{t("settingsTeam.confirm.cancel")}</ActionButton>}
 									{canDeleteTeam(team) && (
-										<ActionButton variant="danger" disabled={busy} onClick={() => deleteTeamSpace(team.id, team.name)} className="!min-h-9 !px-3 !py-1 !text-xs disabled:opacity-60">
+										<ActionButton variant="danger" disabled={busy} onClick={() => deleteTeamSpace(team.id, team.name)} className="!min-h-9 !px-3 !py-1 !text-sm disabled:opacity-60">
 											{t("settingsTeam.delete")}
 										</ActionButton>
 									)}
 								</div>
 							</div>
 							<ul className="mt-3 space-y-1 text-xs text-[var(--text-secondary)]">
-								{team.members.slice(0, 10).map((member) => (
+								{(expandedTeamIds.has(team.id) ? team.members : team.members.slice(0, 10)).map((member) => (
 									<li key={member.user.id} className="flex items-center justify-between gap-2">
-										<span>{member.user.displayName || member.user.username}</span>
+										<span className="min-w-0 break-words">{member.user.displayName || member.user.username}</span>
 										<span className="flex items-center gap-2">
 											<span className="text-[var(--text-muted)]">{member.role}</span>
 											{canManageMembers && canEditTeam(team) && member.role !== "owner" && (
-												<IconButton label={t("settingsTeam.confirm.removeMember.title")} tone="danger" disabled={busy} onClick={() => removeMember(team.id, member.user.id, member.user.displayName || member.user.username)} className="h-7 w-7 text-xs">✕</IconButton>
+												<IconButton label={t("settingsTeam.confirm.removeMember.title")} tone="danger" disabled={busy} onClick={() => removeMember(team.id, member.user.id, member.user.displayName || member.user.username)}><X size={14} aria-hidden /></IconButton>
 											)}
 										</span>
 									</li>
 								))}
-								{team.members.length > 10 && (
-									<li className="text-[var(--text-muted)]">{formatCopy(t("settingsTeam.moreMembers"), { count: team.members.length - 10 })}</li>
+								{team.members.length > 10 && !expandedTeamIds.has(team.id) && (
+									<li><ActionButton variant="ghost" onClick={() => setExpandedTeamIds((previous) => new Set(previous).add(team.id))}>{formatCopy(t("settingsTeam.moreMembers"), { count: team.members.length - 10 })}</ActionButton></li>
 								)}
 							</ul>
 						</article>
@@ -310,20 +313,20 @@ export function TeamWorkspaceSection({ capabilities }: { capabilities: TeamCapab
 					{canCreate && (
 					<div className="space-y-2">
 						<h3 className="text-sm font-semibold text-[var(--text-primary)]">{t("settingsTeam.createTitle")}</h3>
-						<input value={name} aria-label={t("settingsTeam.namePlaceholder")} onChange={(e) => setName(e.target.value)} placeholder={t("settingsTeam.namePlaceholder")} className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm" />
-						<input value={slug} aria-label={t("settingsTeam.slugPlaceholder")} onChange={(e) => setSlug(e.target.value)} placeholder={t("settingsTeam.slugPlaceholder")} className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm" />
+						<input value={name} aria-label={t("settingsTeam.namePlaceholder")} onChange={(e) => setName(e.target.value)} placeholder={t("settingsTeam.namePlaceholder")} className={UI_INPUT} />
+						<input value={slug} aria-label={t("settingsTeam.slugPlaceholder")} onChange={(e) => setSlug(e.target.value)} placeholder={t("settingsTeam.slugPlaceholder")} className={UI_INPUT} />
 						<ActionButton variant="primary" disabled={busy || !name.trim()} onClick={createTeam} className="min-h-10 disabled:opacity-60">{t("settingsTeam.createButton")}</ActionButton>
 					</div>
 					)}
 					{canManageMembers && manageableTeams.length > 0 && (
 					<div className="space-y-2">
 						<h3 className="text-sm font-semibold text-[var(--text-primary)]">{t("settingsTeam.addMemberTitle")}</h3>
-						<select aria-label={t("settingsTeam.addMemberTitle")} value={targetTeamId} onChange={(e) => setTargetTeamId(e.target.value)} className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm">
+						<select aria-label={t("settingsTeam.addMemberTitle")} value={targetTeamId} onChange={(e) => setTargetTeamId(e.target.value)} className={UI_INPUT}>
 							{/* Only workspaces the viewer can actually manage — the API 403s otherwise. */}
 							{manageableTeams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
 						</select>
-						<input value={memberUsername} aria-label={t("settingsTeam.usernamePlaceholder")} onChange={(e) => setMemberUsername(e.target.value)} placeholder={t("settingsTeam.usernamePlaceholder")} className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm" />
-						<select aria-label={t("settingsTeam.roleAria")} value={memberRole} onChange={(e) => setMemberRole(e.target.value as "admin" | "member")} className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm">
+						<input value={memberUsername} aria-label={t("settingsTeam.usernamePlaceholder")} onChange={(e) => setMemberUsername(e.target.value)} placeholder={t("settingsTeam.usernamePlaceholder")} className={UI_INPUT} />
+						<select aria-label={t("settingsTeam.roleAria")} value={memberRole} onChange={(e) => setMemberRole(e.target.value as "admin" | "member")} className={UI_INPUT}>
 							<option value="member">{t("settingsTeam.role.member")}</option>
 							<option value="admin">{t("settingsTeam.role.admin")}</option>
 						</select>

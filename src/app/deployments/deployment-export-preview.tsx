@@ -36,7 +36,7 @@ export function DeploymentFilePreview({
       <div className="flex flex-wrap items-center gap-2">
         <label
           htmlFor="deploy-export-file-select"
-          className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--text-secondary)]/70"
+          className="text-xs font-semibold uppercase  text-[var(--text-secondary)]/70"
         >
           {t("deploymentsPage.export.rollbackFile")}
         </label>
@@ -55,7 +55,7 @@ export function DeploymentFilePreview({
         </select>
         <ActionButton variant="outline"
           data-testid="deploy-export-rollback"
-          onClick={() => onCopy(content, activePath)} className="!px-2 !py-1 !text-xs"
+          onClick={() => onCopy(content, activePath)} className="!px-2 !py-1 !text-sm"
         >
           {justCopied ? t("deploymentsPage.export.copied") : t("deploymentsPage.export.copyRollback")}
         </ActionButton>

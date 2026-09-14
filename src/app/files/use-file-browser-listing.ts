@@ -18,11 +18,18 @@ export type ListingFilesApiResponse = {
   searchQuery: string;
   searchScope: string;
   syncWarning?: string | null;
+  pagination?: {page:number;pageSize:number};
+  sort?: "name" | "size" | "source" | "updated";
+  direction?: "asc" | "desc";
 };
 
 export type FetchFilesOptions = {
   resetSelection?: boolean;
   history?: "push" | "replace" | "none";
+  page?: number;
+  pageSize?: number;
+  sort?: "name" | "size" | "source" | "updated";
+  direction?: "asc" | "desc";
 };
 
 export type FetchFilesFn = (
@@ -83,6 +90,12 @@ export function useFileBrowserListing<TData extends ListingFilesApiResponse>({
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
+  useEffect(() => () => {
+    abortRef.current?.abort();
+    // A transport may resolve despite cancellation; invalidate its history writes too.
+    abortRef.current = null;
+  }, []);
+
   const fetchFiles = useCallback<FetchFilesFn>(
     async (path, q, scope, nodeId, options) => {
       // Cancel previous request
@@ -103,6 +116,16 @@ export function useFileBrowserListing<TData extends ListingFilesApiResponse>({
         if (scope && scope !== "current") params.set("scope", scope);
         const effectiveNodeId = nodeId ?? data.nodeIdFilter;
         if (effectiveNodeId) params.set("nodeId", effectiveNodeId);
+        const sameLocation = path === data.currentPath && (q ?? "") === data.searchQuery && (scope ?? "current") === data.searchScope && effectiveNodeId === data.nodeIdFilter;
+        const page = options?.page ?? (sameLocation && !options?.resetSelection ? data.pagination?.page ?? 1 : 1);
+        const pageSize = options?.pageSize ?? data.pagination?.pageSize;
+        const sort = options?.sort ?? data.sort;
+        const direction = options?.direction ?? data.direction;
+        if (page > 1) params.set("page",String(page));
+        if (pageSize) params.set("pageSize",String(pageSize));
+        if (sort) params.set("sort",sort);
+        if (direction) params.set("direction",direction);
+        if (options?.page !== undefined || options?.pageSize !== undefined || options?.sort !== undefined) params.set("sync","0");
 
         const url = `/api/files/list${params.toString() ? `?${params.toString()}` : ""}`;
         const json = await csrfFetch<TData>(url, {
@@ -120,10 +143,14 @@ export function useFileBrowserListing<TData extends ListingFilesApiResponse>({
         }
 
         const newUrl = buildFilesPageUrl({
-          path,
-          q,
-          scope,
-          nodeId: effectiveNodeId,
+          path:nextData.currentPath,
+          q:nextData.searchQuery,
+          scope:nextData.searchScope,
+          nodeId:nextData.nodeIdFilter,
+          page:nextData.pagination?.page,
+          pageSize:nextData.pagination?.pageSize,
+          sort:nextData.sort,
+          direction:nextData.direction,
         });
         if (historyMode === "push") {
           window.history.pushState(null, "", newUrl);
@@ -146,22 +173,26 @@ export function useFileBrowserListing<TData extends ListingFilesApiResponse>({
         }
       }
     },
-    [data.nodeIdFilter, t],
+    [data.nodeIdFilter, data.currentPath, data.searchQuery, data.searchScope, data.pagination, data.sort, data.direction, t],
   );
 
   // popstate: re-fetch from the URL without pushing a new history entry
   useEffect(() => {
     const handlePopState = () => {
-      const next = getFilesStateFromLocation(initialData.nodeIdFilter);
+      const next = getFilesStateFromLocation();
       setSearchInput(next.q);
       void fetchFiles(next.path, next.q, next.scope, next.nodeId, {
         resetSelection: true,
         history: "none",
+        page:next.page,
+        pageSize:next.pageSize,
+        sort:next.sort,
+        direction:next.direction,
       });
     };
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
-  }, [fetchFiles, initialData.nodeIdFilter]);
+  }, [fetchFiles]);
 
   const handleSearch = useCallback(
     (e: React.FormEvent) => {
@@ -215,17 +246,29 @@ function buildFilesPageUrl({
   q,
   scope,
   nodeId,
+  page,
+  pageSize,
+  sort,
+  direction,
 }: {
   path: string;
   q?: string;
   scope?: string;
   nodeId?: string;
+  page?: number;
+  pageSize?: number;
+  sort?: string;
+  direction?: string;
 }) {
   const params = new URLSearchParams();
   if (path) params.set("path", path);
   if (q) params.set("q", q);
   if (scope && scope !== "current") params.set("scope", scope);
   if (nodeId) params.set("nodeId", nodeId);
+  if (page && page > 1) params.set("page",String(page));
+  if (pageSize) params.set("pageSize",String(pageSize));
+  if (sort) params.set("sort",sort);
+  if (direction) params.set("direction",direction);
   const qs = params.toString();
   return qs ? `/files?${qs}` : "/files";
 }
@@ -235,12 +278,16 @@ function buildFilesPageUrl({
  * a `{ path, q, scope, nodeId }` snapshot.  Used to wire
  * back/forward navigation back into the listing hook.
  */
-function getFilesStateFromLocation(defaultNodeId: string) {
+function getFilesStateFromLocation() {
   const params = new URLSearchParams(window.location.search);
   return {
     path: params.get("path") ?? "",
     q: params.get("q") ?? "",
     scope: params.get("scope") === "all" ? "all" : "current",
-    nodeId: params.get("nodeId") ?? defaultNodeId,
+    nodeId: params.get("nodeId") ?? "",
+    page: Math.max(1,Number(params.get("page")) || 1),
+    pageSize: Math.min(200,Math.max(1,Number(params.get("pageSize")) || 100)),
+    sort: (["name","size","source","updated"].includes(params.get("sort") ?? "") ? params.get("sort") : "name") as "name" | "size" | "source" | "updated",
+    direction: params.get("direction") === "desc" ? "desc" as const : "asc" as const,
   };
 }

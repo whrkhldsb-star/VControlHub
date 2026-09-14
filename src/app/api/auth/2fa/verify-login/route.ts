@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * 2FA Login Verification — exchange a pending-2fa token + TOTP code for a full session.
  * POST /api/auth/2fa/verify-login { code }
@@ -27,7 +28,7 @@ export async function POST(request: Request) {
 		if (!rateCheck.allowed) {
 			return apiError({
 				code: "RATE_LIMITED",
-				message: "Too many verification attempts, please try again later",
+				message: apiCopy("apiCopy.too.many.verification.attempts.please.try.again.later.a8754aa7"),
 				status: 429,
 			});
 		}
@@ -36,7 +37,7 @@ export async function POST(request: Request) {
 		if (!parsed.success) {
 			return apiError({
 				code: "VALIDATION_FAILED",
-				message: "Invalid input parameter",
+				message: apiCopy("apiCopy.invalid.input.parameter.d64ebcd8"),
 				status: 400,
 				details: parsed.error.flatten().fieldErrors,
 			});
@@ -45,7 +46,7 @@ export async function POST(request: Request) {
 		if (!isAcceptableTwoFactorCodeShape(code)) {
 			return apiError({
 				code: "VALIDATION_FAILED",
-				message: "Please enter a valid verification or recovery code",
+				message: apiCopy("apiCopy.please.enter.a.valid.verification.or.recovery.code.a10445f6"),
 				status: 400,
 				details: { fieldErrors: { code: ["format must be a 6-digit authenticator code or recovery code"] } },
 			});
@@ -57,7 +58,7 @@ export async function POST(request: Request) {
 		if (!pendingCookie?.value) {
 			return apiError({
 				code: "PENDING_2FA_EXPIRED",
-				message: "Session expired, please log in again",
+				message: apiCopy("apiCopy.session.expired.please.log.in.again.dd2b79a4"),
 				status: 401,
 			});
 		}
@@ -68,7 +69,7 @@ export async function POST(request: Request) {
 			cookieStore.delete(getPending2faCookieName());
 			return apiError({
 				code: "PENDING_2FA_EXPIRED",
-				message: "Session expired, please log in again",
+				message: apiCopy("apiCopy.session.expired.please.log.in.again.dd2b79a4"),
 				status: 401,
 			});
 		}
@@ -94,7 +95,7 @@ export async function POST(request: Request) {
 			cookieStore.delete(getPending2faCookieName());
 			return apiError({
 				code: "PENDING_2FA_EXPIRED",
-				message: "Session expired, please log in again",
+				message: apiCopy("apiCopy.session.expired.please.log.in.again.dd2b79a4"),
 				status: 401,
 			});
 		}
@@ -103,7 +104,7 @@ export async function POST(request: Request) {
 			cookieStore.delete(getPending2faCookieName());
 			return apiError({
 				code: "TWO_FACTOR_DISABLED",
-				message: "Two-factor verification is not enabled",
+				message: apiCopy("apiCopy.two.factor.verification.is.not.enabled.268de26d"),
 				status: 400,
 			});
 		}
@@ -121,7 +122,7 @@ export async function POST(request: Request) {
 			await auditSystemAction("auth.2fa_failed", { userId: sessionPayload.userId, ip: clientIp }, "WARNING", user.currentTeamId);
 			return apiError({
 				code: "TWO_FACTOR_INVALID_CODE",
-				message: "VerifycodeError",
+				message: apiCopy("apiCopy.verifycodeerror.11ef6ba1"),
 				status: 400,
 			});
 		}

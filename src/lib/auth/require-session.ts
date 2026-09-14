@@ -1,23 +1,15 @@
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { getSessionCookieName, verifySessionToken, type SessionPayload } from "@/lib/auth/session";
+import type { SessionPayload } from "@/lib/auth/session";
+import { getCurrentSession } from "@/lib/auth/server-session";
 
 const PASSWORD_CHANGE_PATH = "/account/password";
 
 export async function requireSession(nextPath = "/"): Promise<SessionPayload> {
-  const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get(getSessionCookieName());
-
-  if (!sessionCookie?.value) {
-    redirect(`/login?next=${encodeURIComponent(nextPath)}`);
-  }
-
-  let session: SessionPayload;
-  try {
-    session = await verifySessionToken(sessionCookie.value);
-  } catch {
-    cookieStore.delete(getSessionCookieName());
+  // Server Components cannot mutate cookies. Share the request-cached session
+  // lookup with the layout/sidebar and let login replace invalid credentials.
+  const session = await getCurrentSession();
+  if (!session) {
     redirect(`/login?next=${encodeURIComponent(nextPath)}`);
   }
 

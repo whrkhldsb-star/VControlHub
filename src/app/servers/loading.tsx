@@ -1,5 +1,5 @@
-import { ServersPageSkeleton } from "@/components/skeleton";
+import { RouteLoading, ServersPageSkeleton } from "@/components/skeleton";
 
 export default function Loading() {
-	return <ServersPageSkeleton />;
+	return <RouteLoading><ServersPageSkeleton /></RouteLoading>;
 }

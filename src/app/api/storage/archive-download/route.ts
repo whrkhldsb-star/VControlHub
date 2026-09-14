@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { stat } from "node:fs/promises";
 import path from "node:path";
 
@@ -106,7 +107,7 @@ async function findDirectoryEntry(
 export async function GET(request: Request) {
   return withApiRoute(request, { permission: "storage:read" }, async ({ session }) => {
     if (!session) {
-      throw new AuthError("Not authenticated");
+      throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
     }
 
     const { nodeId, path: requestedPath } = parseSearchParams(
@@ -115,10 +116,10 @@ export async function GET(request: Request) {
     );
 
     if (!nodeId) {
-      throw new ValidationError("Missing nodeId parameter");
+      throw new ValidationError(apiCopy("apiCopy.missing.nodeid.parameter.6d98c74c"));
     }
     if (!requestedPath) {
-      throw new ValidationError("Missing path parameter");
+      throw new ValidationError(apiCopy("apiCopy.missing.path.parameter.352f3af2"));
     }
 
     const normalizedPath = normalizeStorageRelativePath(requestedPath);
@@ -128,10 +129,10 @@ export async function GET(request: Request) {
 
     const entry = await findDirectoryEntry(nodeId, normalizedPath.path, session);
     if (!entry) {
-      throw new NotFoundError("Directory entry not found");
+      throw new NotFoundError(apiCopy("apiCopy.directory.entry.not.found.ddf8c64a"));
     }
     if (!isDirectoryEntry(entry)) {
-      throw new ValidationError("Target is not a directory");
+      throw new ValidationError(apiCopy("apiCopy.target.is.not.a.directory.b74f7510"));
     }
 
     const accessDecision = await assertStorageAccess({
@@ -156,14 +157,14 @@ export async function GET(request: Request) {
       }
       const directoryStat = await stat(resolved.path).catch(() => null);
       if (!directoryStat?.isDirectory()) {
-        throw new NotFoundError("Local directory not found or cannot be read");
+        throw new NotFoundError(apiCopy("apiCopy.local.directory.not.found.or.cannot.be.read.fddf033b"));
       }
       const stream = streamLocalTarGz(resolved.path, path.basename(resolved.path));
       return archiveStreamResponse(stream, archiveName);
     }
 
     if (entry.storageNode.driver !== "SFTP") {
-      throw new ValidationError("This storage node does not support directory download");
+      throw new ValidationError(apiCopy("apiCopy.this.storage.node.does.not.support.directory.download.9454c3ca"));
     }
 
     const credentials = (() => {
@@ -178,7 +179,7 @@ export async function GET(request: Request) {
     }
     if (credentials.agentServerId && !credentials.privateKey && !credentials.password) {
       throw new ValidationError(
-        "Pure Agent nodes require target direct access or an SSH fallback credential for directory archive downloads",
+        apiCopy("apiCopy.pure.agent.nodes.require.target.direct.access.or.an.ssh.fallback.3c9ade65"),
       );
     }
 

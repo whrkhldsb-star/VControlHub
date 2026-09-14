@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, useId, type ReactNode } from "react";
+import { Bell, Settings, User } from "@/components/icons";
+import { IconKey } from "@/components/nav-items";
 import { PageHeader } from "@/components/page-shell";
-import { SegmentedTabs, SideNav, SplitPane, Callout } from "@/components/ui-primitives";
+import { SegmentedTabs, SideNav, SplitPane } from "@/components/ui-primitives";
 import type { RuntimeSettingSummaryDto as RuntimeSettingSummary } from "@/lib/runtime-settings/dto";
 import type { SettingUpdateMetadata } from "@/lib/settings/service";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -13,6 +15,7 @@ import { TeamWorkspaceSection, type TeamCapabilities } from "./team-workspace-se
 import { SETTINGS_SCHEMA } from "./field-schema";
 import { TOC_SUBTITLE_KEYS } from "./settings-toc";
 import { DEFAULT_PAGE_OPTIONS, type DefaultPageOption } from "@/lib/preferences/user-preferences";
+import { UI_INPUT } from "@/lib/ui/classes";
 
 type Props = {
   settings: Record<string, string>;
@@ -50,6 +53,7 @@ const SECTION_TO_TAB: Record<string, SettingsTab> = {
   "preferences-auto-refresh": "personal",
   "preferences-auto-probe": "personal",
   security: "security",
+  "system-config": "advanced",
   ...Object.fromEntries(
     Object.entries(TAB_SECTION_IDS).flatMap(([tab, ids]) =>
       ids.map((id) => [id, tab] as const),
@@ -59,14 +63,14 @@ const SECTION_TO_TAB: Record<string, SettingsTab> = {
 
 const TAB_META: {
   id: SettingsTab;
-  icon: string;
+  icon: ReactNode;
   labelKey: string;
   descKey: string;
 }[] = [
-  { id: "personal", icon: "👤", labelKey: "settingsPage.tab.personal", descKey: "settingsPage.tab.personal.desc" },
-  { id: "security", icon: "🔒", labelKey: "settingsPage.tab.security", descKey: "settingsPage.tab.security.desc" },
-  { id: "notifications", icon: "📢", labelKey: "settingsPage.tab.notifications", descKey: "settingsPage.tab.notifications.desc" },
-  { id: "advanced", icon: "⚙️", labelKey: "settingsPage.tab.advanced", descKey: "settingsPage.tab.advanced.desc" },
+  { id: "personal", icon: <User size={18} aria-hidden />, labelKey: "settingsPage.tab.personal", descKey: "settingsPage.tab.personal.desc" },
+  { id: "security", icon: <IconKey />, labelKey: "settingsPage.tab.security", descKey: "settingsPage.tab.security.desc" },
+  { id: "notifications", icon: <Bell size={18} aria-hidden />, labelKey: "settingsPage.tab.notifications", descKey: "settingsPage.tab.notifications.desc" },
+  { id: "advanced", icon: <Settings size={18} aria-hidden />, labelKey: "settingsPage.tab.advanced", descKey: "settingsPage.tab.advanced.desc" },
 ];
 
 export function UnifiedSettingsPageClient({
@@ -79,21 +83,41 @@ export function UnifiedSettingsPageClient({
 	defaultPageOptions = DEFAULT_PAGE_OPTIONS,
 }: Props) {
   const { t } = useI18n();
-  const [activeTab, setActiveTab] = useState<SettingsTab>("personal");
+  const [selectedTab, setActiveTab] = useState<SettingsTab>("personal");
+  const activeTab = canManage ? selectedTab : "personal";
+  const panelId = useId();
   const [activeSection, setActiveSection] = useState<string>("preferences-default-page");
+  const navigationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelNavigation = useCallback(() => {
+    if (navigationTimer.current !== null) clearTimeout(navigationTimer.current);
+    navigationTimer.current = null;
+  }, []);
+  const revealSection = useCallback((sectionId: string, tab: SettingsTab) => {
+    cancelNavigation();
+    navigationTimer.current = setTimeout(() => {
+      navigationTimer.current = null;
+      if (tab !== "personal") window.dispatchEvent(new CustomEvent("vcontrolhub:settings-open-section", { detail: { id: sectionId } }));
+      navigationTimer.current = setTimeout(() => {
+        navigationTimer.current = null;
+        document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 50);
+    }, 80);
+  }, [cancelNavigation]);
 
   const resolveHash = useCallback((hash: string): { tab: SettingsTab; sectionId: string } | null => {
     const id = hash.replace(/^#/, "");
     if (!id) return null;
     const tab = SECTION_TO_TAB[id];
     if (!tab) return null;
+    if (!canManage && tab !== "personal") return { tab: "personal", sectionId: "preferences-default-page" };
     return { tab, sectionId: id };
-  }, []);
+  }, [canManage]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
 
     const applyHash = () => {
+      cancelNavigation();
       if (window.location.hash === "#2fa") {
         // Legacy deep links used the administrator-only settings panel. 2FA
         // belongs to the signed-in account, so preserve the bookmark intent
@@ -105,62 +129,38 @@ export function UnifiedSettingsPageClient({
       if (resolved) {
         setActiveTab(resolved.tab);
         setActiveSection(resolved.sectionId);
-        if (resolved.tab !== "personal") {
-          setTimeout(() => {
-            window.dispatchEvent(
-              new CustomEvent("vcontrolhub:settings-open-section", {
-                detail: { id: resolved.sectionId },
-              }),
-            );
-          }, 80);
-        } else {
-          // Scroll personal section into view
-          setTimeout(() => {
-            document.getElementById(resolved.sectionId)?.scrollIntoView({
-              behavior: "smooth",
-              block: "start",
-            });
-          }, 80);
-        }
+        revealSection(resolved.sectionId, resolved.tab);
       }
     };
 
     applyHash();
     window.addEventListener("hashchange", applyHash);
-    return () => window.removeEventListener("hashchange", applyHash);
-  }, [resolveHash]);
+    return () => {
+      window.removeEventListener("hashchange", applyHash);
+      cancelNavigation();
+    };
+  }, [resolveHash, revealSection, cancelNavigation]);
 
   const handleTabClick = useCallback((tab: SettingsTab) => {
+    cancelNavigation();
     setActiveTab(tab);
     const firstSection =
       tab === "personal" ? "preferences-default-page" : TAB_SECTION_IDS[tab]?.[0] ?? "";
     if (firstSection && typeof window !== "undefined") {
       setActiveSection(firstSection);
-      window.history.replaceState(null, "", `#${firstSection}`);
+      window.history.replaceState(window.history.state, "", `#${firstSection}`);
     }
-  }, []);
+  }, [cancelNavigation]);
 
   const handleSectionSelect = useCallback(
     (sectionId: string) => {
       setActiveSection(sectionId);
       if (typeof window !== "undefined") {
-        window.history.replaceState(null, "", `#${sectionId}`);
+        window.history.replaceState(window.history.state, "", `#${sectionId}`);
       }
-      if (activeTab !== "personal") {
-        window.dispatchEvent(
-          new CustomEvent("vcontrolhub:settings-open-section", {
-            detail: { id: sectionId },
-          }),
-        );
-      }
-      setTimeout(() => {
-        document.getElementById(sectionId)?.scrollIntoView({
-          behavior: "smooth",
-          block: "start",
-        });
-      }, 40);
+      revealSection(sectionId, activeTab);
     },
-    [activeTab],
+    [activeTab, revealSection],
   );
 
   const tabs = canManage ? TAB_META : TAB_META.filter((tab) => tab.id === "personal");
@@ -182,13 +182,12 @@ export function UnifiedSettingsPageClient({
       return PREFERENCES_CATEGORY_SUMMARIES.filter((s) => s.id !== "personal-preferences").map(
         (s) => ({
           id: s.id,
-          icon: s.icon,
           label: t(s.title),
           description: t(s.subtitle),
         }),
       );
     }
-    const ids = TAB_SECTION_IDS[activeTab] ?? [];
+    const ids = [...TAB_SECTION_IDS[activeTab], ...(activeTab === "advanced" ? ["system-config"] : [])];
     return ids.map((id) => {
       const section = SETTINGS_SCHEMA.find((s) => s.id === id);
       let description: string | undefined;
@@ -205,8 +204,7 @@ export function UnifiedSettingsPageClient({
       }
       return {
         id,
-        icon: section?.icon ?? "•",
-        label: section ? t(section.titleKey) : id,
+        label: section ? t(section.titleKey) : t("systemConfig.title"),
         description,
       };
     });
@@ -220,25 +218,23 @@ export function UnifiedSettingsPageClient({
         description={t("settingsPage.unified.description")}
       />
 
-      <Callout tone="accent" title={t("settingsPage.layout.tipTitle")}>
-        {t("settingsPage.layout.tipBody")}
-      </Callout>
-
-      <div className="sticky top-2 z-30 -mx-1 px-1 sm:top-3">
+      <div className="min-w-0">
         <SegmentedTabs
           ariaLabel={t("settingsClient.tabsAria")}
           value={activeTab}
           onChange={(id) => handleTabClick(id as SettingsTab)}
           items={tabs.map((tab) => ({
             id: tab.id,
+            tabId: `${panelId}-${tab.id}-tab`,
+            panelId: `${panelId}-panel`,
             icon: tab.icon,
             label: t(tab.labelKey),
-            description: t(tab.descKey),
             badge: tabCounts[tab.id],
           }))}
         />
       </div>
 
+      <div role="tabpanel" id={`${panelId}-panel`} aria-labelledby={`${panelId}-${activeTab}-tab`} tabIndex={0} className="min-w-0">
       <SplitPane
         rail={
           <SideNav
@@ -250,29 +246,13 @@ export function UnifiedSettingsPageClient({
           />
         }
       >
-        {/* Mobile section chips — same destinations as side rail */}
-        <div className="flex gap-1.5 overflow-x-auto pb-1 lg:hidden" role="navigation" aria-label={t("settingsClient.categoryNav")}>
-          {sideItems.map((item) => {
-            const active = item.id === activeSection;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => handleSectionSelect(item.id)}
-                className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
-                  active
-                    ? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]"
-                    : "border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)]"
-                }`}
-              >
-                {item.label}
-              </button>
-            );
-          })}
-        </div>
+        <select className={`${UI_INPUT} lg:hidden`} aria-label={t("settingsClient.categoryNav")}
+          value={sideItems.some((item) => item.id === activeSection) ? activeSection : sideItems[0]?.id}
+          onChange={(event) => handleSectionSelect(event.target.value)}>
+          {sideItems.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+        </select>
 
-        {activeTab === "personal" && (
-          <div className="space-y-5">
+          <div className={activeTab === "personal" ? "space-y-5" : "hidden"}>
             <PreferencesSettingsContent
               showHeader={false}
               wrapInShell={false}
@@ -280,7 +260,6 @@ export function UnifiedSettingsPageClient({
             />
             <TeamWorkspaceSection capabilities={teamCapabilities} />
           </div>
-        )}
 
         <div className={activeTab === "personal" ? "hidden" : "space-y-5"}>
           <SettingsClient
@@ -291,11 +270,12 @@ export function UnifiedSettingsPageClient({
 			showCategoryNav={false}
             visibleSectionIds={visibleSectionIds}
           />
-          {activeTab === "advanced" && canManage && (
+          {canManage && <div id="system-config" className={activeTab === "advanced" ? "scroll-mt-24" : "hidden"}>
             <SystemConfigSection isPlatformAdmin={isPlatformAdmin} />
-          )}
+          </div>}
         </div>
       </SplitPane>
+      </div>
     </div>
   );
 }

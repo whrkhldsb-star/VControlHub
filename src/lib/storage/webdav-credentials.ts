@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { z } from "zod";
 import { decrypt, encrypt } from "@/lib/crypto/service";
 import { ValidationError } from "@/lib/errors";
@@ -22,15 +23,15 @@ export function validateWebDavConfig(input: unknown): WebDavConfig {
     normalized = { ...rest, endpoint: url };
   }
   const result = webDavConfigSchema.safeParse(normalized);
-  if (!result.success) throw new ValidationError("Invalid WebDAV configuration");
+  if (!result.success) throw new ValidationError(apiCopy("apiCopy.invalid.webdav.configuration.e517461f"));
   const config = result.data;
   const safe = validateWebhookUrlSyntax(config.endpoint);
-  if (!safe.ok || /[#?\\\s]/.test(config.endpoint)) throw new ValidationError("WebDAV endpoint must be a public HTTPS URL without credentials, query or fragment");
+  if (!safe.ok || /[#?\\\s]/.test(config.endpoint)) throw new ValidationError(apiCopy("apiCopy.webdav.endpoint.must.be.a.public.https.url.without.credentials.q.3cf5212c"));
   const url = new URL(config.endpoint);
-  if (isUnsafePublicHttpHost(url.hostname)) throw new ValidationError("WebDAV endpoint must be public HTTPS");
+  if (isUnsafePublicHttpHost(url.hostname)) throw new ValidationError(apiCopy("apiCopy.webdav.endpoint.must.be.public.https.3b48c05b"));
   // Reject encoded traversal/separators before URL/path normalization can hide them.
   const rawPath = config.endpoint.replace(/^https:\/\/[^/]+/i, "");
-  if (rawPath.split("/").some((part) => part === "." || part === "..") || /%(?:2e|2f|5c|25|00)/i.test(rawPath)) throw new ValidationError("Invalid WebDAV endpoint path");
+  if (rawPath.split("/").some((part) => part === "." || part === "..") || /%(?:2e|2f|5c|25|00)/i.test(rawPath)) throw new ValidationError(apiCopy("apiCopy.invalid.webdav.endpoint.path.7f11dbe9"));
   return config;
 }
 export function encryptWebDavConfig(input: unknown): string {
@@ -41,6 +42,6 @@ export function resolveStorageWebDavCredentials(node: { webdavConfigEncrypted?: 
     if (!node.webdavConfigEncrypted) throw new Error();
     return validateWebDavConfig(JSON.parse(decrypt(node.webdavConfigEncrypted)));
   } catch {
-    throw new ValidationError("Invalid or unavailable WebDAV encrypted configuration");
+    throw new ValidationError(apiCopy("apiCopy.invalid.or.unavailable.webdav.encrypted.configuration.8e1fa025"));
   }
 }

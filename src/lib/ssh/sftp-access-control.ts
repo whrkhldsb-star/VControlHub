@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import path from "node:path/posix";
 
 import type { SessionPayload } from "@/lib/auth/session";
@@ -80,7 +81,7 @@ export async function assertSftpPathAccess(input: {
 		const safePath = sanitizeRemotePath(rawPath);
 		// First a cheap lexical check to reject the obvious before touching SSH.
 		if (!isInsideRoot(safePath, homeRoot)) {
-			throw new ForbiddenError(`SFTP path is outside the allowed home directory: ${homeRoot}`);
+			throw new ForbiddenError(apiCopy("apiCopy.sftp.path.is.outside.the.allowed.home.directory.c83fded2", { v0: String(homeRoot) }));
 		}
 		// Then resolve symlinks on the host and re-check the canonical path.
 		let realPath: string;

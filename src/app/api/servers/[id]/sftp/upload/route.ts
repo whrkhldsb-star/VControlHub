@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * POST /api/servers/[id]/sftp/upload — upload a file to remote server
  *
@@ -51,7 +52,7 @@ export async function POST(
   ) {
     return apiError({
       code: "REQUEST_ENTITY_TOO_LARGE",
-      message: `File size exceeds ${MAX_UPLOAD_SIZE / 1024 / 1024}MB limit`,
+      message: apiCopy("apiCopy.file.size.exceeds.mb.limit.da2978bf", { v0: String(MAX_UPLOAD_SIZE / 1024 / 1024) }),
       status: 413,
     });
   }
@@ -60,7 +61,7 @@ export async function POST(
   if (requestContentLengthMissing(request)) {
     return apiError({
       code: "BAD_REQUEST",
-      message: "Content-Length required for uploads",
+      message: apiCopy("apiCopy.content.length.required.for.uploads.085be099"),
       status: 411,
     });
   }
@@ -73,14 +74,14 @@ export async function POST(
     if (!file || !(file instanceof File)) {
       return apiError({
         code: "MISSING_FIELD",
-        message: "Missing 'file' field in form data",
+        message: apiCopy("apiCopy.missing.file.field.in.form.data.28009398"),
         status: 400,
       });
     }
     if (!remoteDir || typeof remoteDir !== "string") {
       return apiError({
         code: "MISSING_FIELD",
-        message: "Missing 'path' field in form data",
+        message: apiCopy("apiCopy.missing.path.field.in.form.data.9dbcad95"),
         status: 400,
       });
     }
@@ -88,7 +89,7 @@ export async function POST(
     if (file.size > MAX_UPLOAD_SIZE) {
       return apiError({
         code: "REQUEST_ENTITY_TOO_LARGE",
-        message: `File size exceeds ${MAX_UPLOAD_SIZE / 1024 / 1024}MB limit`,
+        message: apiCopy("apiCopy.file.size.exceeds.mb.limit.da2978bf", { v0: String(MAX_UPLOAD_SIZE / 1024 / 1024) }),
         status: 413,
       });
     }

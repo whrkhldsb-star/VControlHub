@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -28,7 +29,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { permission: "server:read", errorMessage: "Failed to fetch traffic history" },
+    { permission: "server:read", errorMessage: apiCopy("apiCopy.failed.to.fetch.traffic.history.5d4f512b") },
     async ({ session }) => {
       const { iface, source, hours } = parseSearchParams(request, trafficHistoryQuerySchema);
       const since = new Date(Date.now() - hours * 3600_000);

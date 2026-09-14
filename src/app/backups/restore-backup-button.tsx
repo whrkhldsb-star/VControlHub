@@ -94,7 +94,7 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
     <div className="grid gap-1">
       <ActionButton variant="danger"
         disabled={disabled || pending}
-        onClick={openConfirm} className="w-fit !px-3 !py-1.5 !text-xs disabled:cursor-not-allowed disabled:opacity-50">
+        onClick={openConfirm} className="w-fit !px-3 !py-1.5 !text-sm disabled:cursor-not-allowed disabled:opacity-50">
         {pending ? t("backupsPage.restore.pending") : t("common.restore")}
       </ActionButton>
       {message && (

@@ -44,10 +44,15 @@ export type ArchiveListQuery = z.infer<typeof archiveListQuerySchema>;
  * narrows the listing to a single storage node.
  */
 export const listFilesQuerySchema = z.object({
-  path: z.string().trim().min(1).optional(),
-  q: z.string().trim().optional(),
+  path: z.string().trim().min(1).max(4096).optional(),
+  q: z.string().trim().max(200).optional(),
   scope: z.enum(["all", "current"]).default("current"),
   nodeId: z.string().trim().optional(),
+  page: z.coerce.number().int().min(1).max(1000000).default(1),
+  pageSize: z.coerce.number().int().min(1).max(200).default(100),
+  sort: z.enum(["name", "size", "source", "updated"]).default("name"),
+  direction: z.enum(["asc", "desc"]).default("asc"),
+  sync: z.enum(["0", "1"]).default("1"),
 });
 
 export type ListFilesQuery = z.infer<typeof listFilesQuerySchema>;

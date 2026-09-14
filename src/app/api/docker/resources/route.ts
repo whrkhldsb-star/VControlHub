@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -28,7 +29,7 @@ const postBodySchema = z.object({
 
 
 export async function GET(req: NextRequest) {
-  return withApiRoute(req, { permission: "docker:manage", errorMessage: "Failed to fetch Docker resources" }, async ({ session }) => {
+  return withApiRoute(req, { permission: "docker:manage", errorMessage: apiCopy("apiCopy.failed.to.fetch.docker.resources.60665bd6") }, async ({ session }) => {
     const { type, name, serverId } = parseSearchParams(req, getQuerySchema);
     if (serverId) {
       const teamAccess = await assertServerTeamAccess(session, serverId);
@@ -55,9 +56,9 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   return withApiRoute(
     req,
-    { permission: "docker:manage", rateLimit: COMMAND_LIMIT, errorMessage: "Docker resource operation failed", bodySchema: postBodySchema },
+    { permission: "docker:manage", rateLimit: COMMAND_LIMIT, errorMessage: apiCopy("apiCopy.docker.resource.operation.failed.6769d4ca"), bodySchema: postBodySchema },
     async ({ session, body: input }) => {
-      if (!session) throw new AuthError("Not authenticated");
+      if (!session) throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
       const { type, action, name, driver = "local", serverId } = input;
 
       if (serverId) {

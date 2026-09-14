@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * Knowledge Base / RAG — chunking + lexical retrieval.
  *
@@ -279,7 +280,7 @@ export async function ingestKnowledgeDocument(input: {
   if (!title) throw new ValidationError(t("backend.ai.documentTitleIsRequired"));
   if (!content.trim()) throw new ValidationError(t("backend.ai.documentContentIsRequired"));
   if (content.length > MAX_DOCUMENT_CHARS) {
-    throw new ValidationError(`Document exceeds ${MAX_DOCUMENT_CHARS} characters`);
+    throw new ValidationError(apiCopy("apiCopy.document.exceeds.characters.32f5385e", { v0: String(MAX_DOCUMENT_CHARS) }));
   }
 
   const contentHash = hashKnowledgeContent(content);

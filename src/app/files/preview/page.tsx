@@ -1,6 +1,6 @@
 import { requireSession } from "@/lib/auth/require-session";
 import { OFFICE_MIME_TYPES, ARCHIVE_MIME_TYPES, CSV_MIME_TYPES, MARKDOWN_MIME_TYPES, EXTENDED_TEXT_MIME_TYPES } from "@/lib/storage/mime-constants";
-import { PageShell } from "@/components/page-shell";
+import { PageHeader, PageShell } from "@/components/page-shell";
 import { Notice } from "@/components/ui-primitives";
 import { File as FileIcon } from "@/components/icons";
 import { MediaPreviewClient } from "./media-preview-client";
@@ -103,31 +103,14 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 
 	return (
 		<PageShell maxW="max-w-6xl">
-				{/* Header */}
-				<div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-					<div className="flex items-center gap-3">
-						<a
-							href="/files"
-							data-action-button data-variant="secondary"
-						>
-							{t("textPreview.preview.backToFiles", locale)}
-						</a>
-						<h1 className="truncate text-xl font-semibold text-[var(--text-primary)]">{name}</h1>
-						<span className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-1 text-xs text-[var(--text-secondary)]">
-							{getStorageDriverLabel((key, vars) => t(key, locale, vars), driver)}
-						</span>
-					</div>
-					{downloadUrl ? (
-						<a
-							href={downloadUrl}
-							data-action-button
-							data-variant="outline"
-							className="px-4 py-2 text-sm"
-						>
-							{t("textPreview.preview.download", locale)}
-						</a>
-					) : null}
-			</div>
+        <PageHeader eyebrow={getStorageDriverLabel((key, vars) => t(key, locale, vars), driver)} title={name}>
+          <a href="/files" data-action-button data-variant="secondary">
+            {t("textPreview.preview.backToFiles", locale)}
+          </a>
+          {downloadUrl ? <a href={downloadUrl} data-action-button data-variant="outline">
+            {t("textPreview.preview.download", locale)}
+          </a> : null}
+        </PageHeader>
 
 				{/* Large file warning */}
 				{invalidHref ? (
@@ -144,7 +127,7 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 				) : null}
 
 				{/* Preview content */}
-				<div className="rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6">
+				<div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 sm:p-6">
 					{isImage && href ? (
 						<div className="flex items-center justify-center">
 							{/* eslint-disable-next-line @next/next/no-img-element */}

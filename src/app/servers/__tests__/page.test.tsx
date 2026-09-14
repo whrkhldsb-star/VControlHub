@@ -108,8 +108,11 @@ vi.mock("../ssh-terminal-context", () => ({
   }),
 }));
 
-vi.mock("@/lib/server/service", () => ({
-  listServerProfiles: serviceMocks.listServerProfilesMock,
+vi.mock("@/lib/server/inventory", () => ({
+  getServerInventory: async () => {
+    const servers = await serviceMocks.listServerProfilesMock();
+    return { servers, stats: { total: servers.length, matching: servers.length, enabled: servers.filter((s: { enabled: boolean }) => s.enabled).length, storage: servers.filter((s: { storageNode?: unknown }) => s.storageNode).length }, query: { query: "", status: "all", mode: "all", page: 1 }, pageSize: 12 };
+  },
 }));
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
@@ -153,13 +156,13 @@ describe("ServersPage", () => {
   it("renders managed server cards and management form", async () => {
     serviceMocks.listServerProfilesMock.mockResolvedValueOnce([defaultServer]);
 
-    renderPage(await ServersPage());
+    renderPage(await ServersPage({}));
     await waitForAutoProbePreferences();
 
     expect(
       screen.getByRole("heading", { name: "VPS 管理" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("VPS 状态优先")).toBeInTheDocument();
+    expect(screen.getByRole("searchbox", { name: "搜索名称、主机或标签" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "命令下发" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "审批与执行记录" })).toHaveAttribute(
       "href",
@@ -205,7 +208,7 @@ describe("ServersPage", () => {
     const user = userEvent.setup();
     serviceMocks.listServerProfilesMock.mockResolvedValueOnce([defaultServer]);
 
-    renderPage(await ServersPage());
+    renderPage(await ServersPage({}));
     await waitForAutoProbePreferences();
     await user.click(screen.getByRole("button", { name: /查看详情/ }));
 
@@ -260,7 +263,7 @@ describe("ServersPage", () => {
     vi.stubGlobal("fetch", fetchMock);
     serviceMocks.listServerProfilesMock.mockResolvedValueOnce([defaultServer]);
 
-    renderPage(await ServersPage());
+    renderPage(await ServersPage({}));
     await waitForAutoProbePreferences();
     await user.click(screen.getByRole("button", { name: /查看详情/ }));
     await user.click(screen.getByRole("button", { name: "运行实时探测" }));
@@ -290,7 +293,7 @@ describe("ServersPage", () => {
     }));
     serviceMocks.listServerProfilesMock.mockResolvedValueOnce([defaultServer]);
 
-    renderPage(await ServersPage());
+    renderPage(await ServersPage({}));
     await waitForAutoProbePreferences();
     await user.click(screen.getByRole("button", { name: /查看详情/ }));
     await user.click(screen.getByRole("button", { name: "运行实时探测" }));
@@ -319,7 +322,7 @@ describe("ServersPage", () => {
       },
     ]);
 
-    renderPage(await ServersPage());
+    renderPage(await ServersPage({}));
     await waitForAutoProbePreferences();
 
     expect(screen.getAllByText("local-node").length).toBeGreaterThan(0);
@@ -356,7 +359,7 @@ describe("ServersPage", () => {
     vi.stubGlobal("fetch", fetchMock);
     serviceMocks.listServerProfilesMock.mockResolvedValueOnce([defaultServer]);
 
-    renderPage(await ServersPage());
+    renderPage(await ServersPage({}));
     await waitForAutoProbePreferences();
 
     await waitFor(() => {
@@ -382,7 +385,7 @@ describe("ServersPage", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
-    renderPage(await ServersPage());
+    renderPage(await ServersPage({}));
     await waitForAutoProbePreferences();
 		expect(screen.getByTestId("server-create-form")).toBeInTheDocument();
 		expect(screen.queryByText("VPS 状态优先")).not.toBeInTheDocument();

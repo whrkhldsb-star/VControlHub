@@ -1,22 +1,28 @@
-import { readdir, rm } from "node:fs/promises";
+// @vitest-environment node
+import { readFile, readdir, rm } from "node:fs/promises";
+import { createHash } from "node:crypto";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   requireApiSessionMock,
   sessionHasPermissionMock,
-  verifyBearerTokenMock,
+  authenticateBearerMock,
   imageCreateMock,
   storageFindFirstMock,
   assertStorageAccessMock,
+	indexLinkedStorageImageMock,
+	releaseStorageQuotaGuardMock,
 	extractMetadataMock,
 } = vi.hoisted(() => ({
   requireApiSessionMock: vi.fn(),
   sessionHasPermissionMock: vi.fn(),
-  verifyBearerTokenMock: vi.fn(),
+  authenticateBearerMock: vi.fn(),
   imageCreateMock: vi.fn(),
   storageFindFirstMock: vi.fn(),
   assertStorageAccessMock: vi.fn(),
+	indexLinkedStorageImageMock: vi.fn(),
+	releaseStorageQuotaGuardMock: vi.fn(),
 	extractMetadataMock: vi.fn(),
 }));
 
@@ -29,13 +35,16 @@ vi.mock("@/lib/auth/authorization", () => ({
   sessionHasPermission: sessionHasPermissionMock,
 }));
 vi.mock("@/lib/auth/bearer-token", () => ({
-  verifyBearerToken: verifyBearerTokenMock,
+  authenticateBearerForPermissions: authenticateBearerMock,
   hasBearerAuthorization: (request: Request) =>
     /^Bearer\s+/i.test(request.headers.get("authorization") ?? ""),
 }));
 vi.mock("@/lib/storage/access-control", () => ({
   assertStorageAccess: assertStorageAccessMock,
-  releaseStorageQuotaGuard: vi.fn(async () => undefined),
+  releaseStorageQuotaGuard: releaseStorageQuotaGuardMock,
+}));
+vi.mock("@/lib/image-bed/linked-storage", () => ({
+  indexLinkedStorageImage: indexLinkedStorageImageMock,
 }));
 vi.mock("@/lib/db", () => ({
   prisma: {
@@ -65,12 +74,13 @@ let requestSequence = 0;
 function uploadRequest(
   extra?: Record<string, string>,
   headers?: Record<string, string>,
+  filename = "photo.png",
 ) {
   const formData = new FormData();
   formData.set(
     "file",
     new Blob([Buffer.from("png")], { type: "image/png" }),
-    "photo.png",
+    filename,
   );
   for (const [key, value] of Object.entries(extra ?? {})) {
     formData.set(key, value);
@@ -101,9 +111,11 @@ describe("POST /api/images/upload", () => {
     vi.clearAllMocks();
     requireApiSessionMock.mockResolvedValue(session);
     sessionHasPermissionMock.mockReturnValue(true);
-    verifyBearerTokenMock.mockResolvedValue(null);
+    authenticateBearerMock.mockResolvedValue(null);
     imageCreateMock.mockResolvedValue({ id: "img_1", filename: "photo.png" });
     assertStorageAccessMock.mockResolvedValue({ allowed: true });
+		indexLinkedStorageImageMock.mockResolvedValue(undefined);
+		releaseStorageQuotaGuardMock.mockResolvedValue(undefined);
 		extractMetadataMock.mockResolvedValue({ width: 2, height: 2, format: "png", sizeBytes: 3 });
   });
 
@@ -127,7 +139,7 @@ describe("POST /api/images/upload", () => {
   });
 
   it("keeps Bearer token image:write uploads without a session", async () => {
-    verifyBearerTokenMock.mockResolvedValueOnce({
+    authenticateBearerMock.mockResolvedValueOnce({
       userId: "api_user",
       tokenId: "tok_1",
       scopes: ["image:write"],
@@ -140,9 +152,10 @@ describe("POST /api/images/upload", () => {
       },
     });
 
-    const response = await POST(uploadRequest());
+    const response = await POST(uploadRequest(undefined, { authorization: "Bearer upload-token" }));
     expect(response.status).toBe(201);
     expect(requireApiSessionMock).not.toHaveBeenCalled();
+    expect(sessionHasPermissionMock).not.toHaveBeenCalledWith(expect.anything(), "storage:write");
     expect(imageCreateMock).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -163,11 +176,62 @@ describe("POST /api/images/upload", () => {
     expect(imageCreateMock).not.toHaveBeenCalled();
   });
 
+  it("returns a JSON validation error and request ID for invalid Bearer upload bytes", async () => {
+    const token = { userId: session.userId, session, scopes: ["image:write"] };
+    authenticateBearerMock.mockResolvedValueOnce(token);
+    extractMetadataMock.mockRejectedValueOnce(new Error("decoder internal details"));
+
+    const response = await POST(uploadRequest(undefined, { authorization: "Bearer upload-token" }));
+
+    expect(response.status).toBe(400);
+    expect(response.headers.get("x-request-id")).toBeTruthy();
+    expect(response.headers.get("content-type")).toContain("application/json");
+    expect(await response.text()).not.toContain("decoder internal details");
+    expect(imageCreateMock).not.toHaveBeenCalled();
+    expect(await listFiles(uploadRoot)).toEqual([]);
+  });
+
+  it("returns a sanitized JSON error and removes files after a Bearer database failure", async () => {
+    const token = { userId: session.userId, session, scopes: ["image:write"] };
+    authenticateBearerMock.mockResolvedValueOnce(token);
+    imageCreateMock.mockRejectedValueOnce(new Error("private database connection details"));
+
+    const response = await POST(uploadRequest(undefined, { authorization: "Bearer upload-token" }));
+
+    expect(response.status).toBe(500);
+    expect(response.headers.get("x-request-id")).toBeTruthy();
+    expect(await response.text()).not.toContain("private database connection details");
+    expect(await listFiles(uploadRoot)).toEqual([]);
+  });
+
   it("rejects session callers without storage write permission", async () => {
-    sessionHasPermissionMock.mockReturnValueOnce(false);
+    sessionHasPermissionMock.mockImplementation((_session, permission) => permission !== "storage:write");
 
     const response = await POST(uploadRequest());
     expect(response.status).toBe(403);
+  });
+
+  it("preserves insufficient Token scope responses without cookie fallback", async () => {
+    authenticateBearerMock.mockResolvedValueOnce(Response.json({ error: "Insufficient scope" }, { status: 403 }));
+
+    const response = await POST(uploadRequest(undefined, { authorization: "Bearer read-only-token" }));
+
+    expect(response.status).toBe(403);
+    expect(response.headers.get("x-request-id")).toBeTruthy();
+    expect(requireApiSessionMock).not.toHaveBeenCalled();
+    expect(imageCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("contains Token authentication failures within the JSON error boundary", async () => {
+    authenticateBearerMock.mockRejectedValueOnce(new Error("private token lookup failure"));
+
+    const response = await POST(uploadRequest(undefined, { authorization: "Bearer upload-token" }));
+
+    expect(response.status).toBe(500);
+    expect(response.headers.get("x-request-id")).toBeTruthy();
+    expect(await response.text()).not.toContain("private token lookup failure");
+    expect(requireApiSessionMock).not.toHaveBeenCalled();
+    expect(imageCreateMock).not.toHaveBeenCalled();
   });
 
 	it("rejects MIME-spoofed bytes that cannot be decoded as an image", async () => {
@@ -218,6 +282,19 @@ describe("POST /api/images/upload", () => {
 		);
 	});
 
+  it.each(["photo.webp", "photo.avif"])("preserves original bytes when a PNG is named %s", async (filename) => {
+    const response = await POST(uploadRequest(undefined, undefined, filename));
+
+    expect(response.status).toBe(201);
+    const { storageKey, checksum } = imageCreateMock.mock.calls[0]![0].data;
+    const original = await readFile(`${uploadRoot}/${storageKey}`);
+    expect(original).toEqual(Buffer.from("png"));
+    expect(createHash("sha256").update(original).digest("hex")).toBe(checksum);
+    expect(imageCreateMock).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ filename, mimeType: "image/png" }),
+    }));
+  });
+
   it("removes written image-bed files when image record creation fails", async () => {
     imageCreateMock.mockRejectedValueOnce(new Error("database unavailable"));
 
@@ -225,6 +302,39 @@ describe("POST /api/images/upload", () => {
 
     expect(response.status).toBe(500);
     expect(await listFiles(uploadRoot)).toEqual([]);
+  });
+
+  it.each(["denied", "throws"])("removes image files when linked storage authorization %s", async (failure) => {
+    if (failure === "denied") assertStorageAccessMock.mockResolvedValueOnce({ allowed: false });
+    else assertStorageAccessMock.mockRejectedValueOnce(new Error("storage lookup failed"));
+
+    const response = await POST(uploadRequest({ storageNodeId: "node_1", relativePath: "gallery" }));
+
+    expect(response.status).toBe(failure === "denied" ? 403 : 500);
+    expect(imageCreateMock).not.toHaveBeenCalled();
+    expect(storageFindFirstMock).not.toHaveBeenCalled();
+    expect(await listFiles(uploadRoot)).toEqual([]);
+  });
+
+  it("holds the linked storage quota guard until file indexing commits", async () => {
+    const localRoot = "/tmp/vcontrolhub-image-upload-quota-test";
+    const access = { allowed: true, releaseQuotaGuard: vi.fn() };
+    assertStorageAccessMock.mockResolvedValueOnce(access);
+    storageFindFirstMock.mockResolvedValueOnce({ id: "node_1", driver: "LOCAL", basePath: localRoot });
+    let finishIndexing!: () => void;
+    indexLinkedStorageImageMock.mockReturnValueOnce(new Promise<void>((resolve) => { finishIndexing = resolve; }));
+    const pending = POST(uploadRequest({ storageNodeId: "node_1", relativePath: "gallery" }));
+    try {
+      await vi.waitFor(() => expect(indexLinkedStorageImageMock).toHaveBeenCalled());
+      expect(releaseStorageQuotaGuardMock).not.toHaveBeenCalled();
+      finishIndexing();
+      expect((await pending).status).toBe(201);
+      expect(releaseStorageQuotaGuardMock).toHaveBeenCalledExactlyOnceWith(access);
+    } finally {
+      finishIndexing();
+      await pending;
+      await rm(localRoot, { recursive: true, force: true });
+    }
   });
 
   it("removes image-bed and LOCAL storage copies when linked image record creation fails", async () => {

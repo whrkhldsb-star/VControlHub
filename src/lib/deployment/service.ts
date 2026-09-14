@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { prisma } from "@/lib/db";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { createCommandRequest } from "@/lib/command/service";
@@ -91,7 +92,7 @@ async function loadDeploymentServersInScope(
   });
   if (servers.length !== serverIds.length) {
     throw new ValidationError(
-      "One or more target servers were not found or are outside your team scope",
+      apiCopy("apiCopy.one.or.more.target.servers.were.not.found.or.are.outside.your.te.8f5645a2"),
     );
   }
   return servers;
@@ -149,7 +150,7 @@ function assertTemplateVariables(
   ).filter(Boolean);
   const missing = required.filter((name) => !variables[name]?.trim());
   if (missing.length > 0)
-    throw new ValidationError(`Deployment template variables not fully filled in: ${missing.join(", ")}`);
+    throw new ValidationError(apiCopy("apiCopy.deployment.template.variables.not.fully.filled.in.a18cdd6c", { v0: String(missing.join(", ")) }));
 }
 
 export async function listDeploymentTemplates(session?: SessionScope | null) {

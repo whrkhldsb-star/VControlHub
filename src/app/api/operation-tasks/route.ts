@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withApiRoute } from "@/lib/http/api-guard";
@@ -83,7 +84,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { permission: "task:read", errorMessage: "Failed to fetch task list" },
+    { permission: "task:read", errorMessage: apiCopy("apiCopy.failed.to.fetch.task.list.b6825ee7") },
     async ({ session }) => {
       const q = parseSearchParams(request, operationTasksQuerySchema);
       const result = await listOperationTaskResult({

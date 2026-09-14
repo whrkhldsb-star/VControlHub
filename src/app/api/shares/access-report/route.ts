@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -15,7 +16,7 @@ const querySchema = z.object({
 });
 
 export async function GET(request: Request) {
-  return withApiRoute(request, { permission: "share:manage", errorMessage: "Failed to load share access report" }, async ({ session }) => {
+  return withApiRoute(request, { permission: "share:manage", errorMessage: apiCopy("apiCopy.failed.to.load.share.access.report.d4a65b76") }, async ({ session }) => {
     const query = parseSearchParams(request, querySchema);
     const report = await getShareAccessReport({ session: session!, days: query.days, action: query.action, take: query.limit });
     if (query.format === "csv") {

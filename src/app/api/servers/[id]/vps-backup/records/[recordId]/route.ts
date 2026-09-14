@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * DELETE /api/servers/[id]/vps-backup/records/[recordId] — delete a VPS backup record + local file
  *
@@ -36,7 +37,7 @@ export async function DELETE(
 				select: { id: true },
 			});
 			if (!existing) {
-				return Response.json({ error: "Record not found" }, { status: 404 });
+				return Response.json({ error: apiCopy("apiCopy.record.not.found.60de363f") }, { status: 404 });
 			}
 
 			try {

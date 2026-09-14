@@ -6,21 +6,26 @@ import { SubmitButton } from "@/components/submit-button";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { batchToggleServerAction, type ServerActionState } from "./actions";
 import { ActionButton } from "@/components/action-button";
+import { ServerTargetPicker, type ServerTarget } from "./server-target-picker";
 
 const initialState: ServerActionState = {};
 
 type BatchServerActionPanelProps = {
   servers: { id: string; name: string; enabled: boolean }[];
   enabledCount: number;
+  remoteTargets?: boolean;
 };
 
 export function BatchServerActionPanel({
   servers,
   enabledCount,
+  remoteTargets = false,
 }: BatchServerActionPanelProps) {
   const { t } = useI18n();
   const [state, formAction] = useActionState(batchToggleServerAction, initialState);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [remoteSelection, setRemoteSelection] = useState<ServerTarget[]>([]);
+  const [remoteEnabledCount, setRemoteEnabledCount] = useState(0);
   const [disableConfirming, setDisableConfirming] = useState(false);
 
   // After a successful batch toggle, clear multi-select and danger confirm so a
@@ -32,8 +37,8 @@ export function BatchServerActionPanel({
   }, [state.success]);
 
   const selectedServers = useMemo(
-    () => servers.filter((server) => selectedIds.includes(server.id)),
-    [servers, selectedIds],
+    () => (remoteTargets ? remoteSelection : servers).filter((server) => selectedIds.includes(server.id)),
+    [servers, selectedIds, remoteTargets, remoteSelection],
   );
   const enabledSelectedCount = selectedServers.filter((server) => server.enabled).length;
   const disabledSelectedCount = selectedServers.length - enabledSelectedCount;
@@ -66,7 +71,7 @@ export function BatchServerActionPanel({
           </p>
         </div>
         <div className="text-xs text-[var(--text-muted)]">
-          {t("serversPage.batchPanel.summary", { enabledCount, selectedCount: selectedServers.length })}
+          {t("serversPage.batchPanel.summary", { enabledCount: remoteTargets ? remoteEnabledCount : enabledCount, selectedCount: selectedServers.length })}
         </div>
       </div>
 
@@ -81,6 +86,9 @@ export function BatchServerActionPanel({
         </div>
       ) : null}
 
+      {remoteTargets ? <div className="mt-4"><ServerTargetPicker kind="batch" onEnabledCount={setRemoteEnabledCount}
+        selected={remoteSelection.filter((row) => selectedIds.includes(row.id))}
+        onChange={(rows) => { setRemoteSelection(rows); setSelectedIds(rows.map((row) => row.id)); setDisableConfirming(false); }} /></div> : <>
       <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-[var(--text-muted)]">
         <ActionButton variant="secondary"
           onClick={toggleAll}
@@ -115,6 +123,7 @@ export function BatchServerActionPanel({
         })}
       </div>
 
+      </>}
       <p className="mt-4 rounded-xl border border-[var(--info-border)] bg-[var(--info-bg)] px-3 py-2 text-xs text-[var(--text-secondary)]">
         {t("serversPage.batchPanel.enableIndividual")}
       </p>

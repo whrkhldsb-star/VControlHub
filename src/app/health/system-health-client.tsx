@@ -19,6 +19,9 @@ import { getDomainStatusLabel } from "@/lib/i18n/domain-labels";
 import type { SystemHealthReport } from "./health-types";
 import { useHealthData } from "./use-health-data";
 import { Badge, Notice } from "@/components/ui-primitives";
+import { Toolbar, StatCard, StatGrid } from "@/components/page-shell";
+import { ActionButton } from "@/components/action-button";
+import { RefreshCw } from "@/components/icons";
 
 type Props = { initialSystemHealth?: SystemHealthReport | null };
 
@@ -52,7 +55,7 @@ export function SystemHealthClient({ initialSystemHealth }: Props) {
 
 			{loadError ? <Notice tone="danger" action={{ label: isRefreshing ? t("healthPage.ui.retrying") : t("healthPage.ui.retryLoad"), onClick: () => void fetchSystemHealth(), disabled: isRefreshing }}>{loadError}</Notice> : null}
 
-			<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+			<Toolbar className="justify-between">
 				<div className="text-xs text-[var(--text-muted)]">
 					{t("healthPage.ui.lastRefresh")}: {lastRefresh || "—"}
 					{systemHealth
@@ -64,17 +67,26 @@ export function SystemHealthClient({ initialSystemHealth }: Props) {
 						: ""}
 				</div>
 				<div className="flex flex-wrap items-center gap-3">
-					{/* Manual refresh + auto-refresh live on /vps-status (fleet probe surface). */}
+					<ActionButton variant="secondary" onClick={() => void fetchSystemHealth()} disabled={isRefreshing}>
+						<RefreshCw size={16} aria-hidden className={isRefreshing ? "animate-spin" : undefined} />
+						{t("common.refresh")}
+					</ActionButton>
 					<Link
 						href="/vps-status"
 						data-action-button
 						data-variant="outline"
-						className="!px-3 !text-xs"
+						className="!px-3 !text-sm"
 					>
 						{t("healthPage.ui.gotoVpsStatus")}
 					</Link>
 				</div>
-			</div>
+			</Toolbar>
+
+			{systemHealth ? <StatGrid cols={3}>
+				<StatCard label={t("healthPage.status.healthy")} value={systemHealth.summary.healthy} accent accentColor="emerald" />
+				<StatCard label={t("healthPage.status.warning")} value={systemHealth.summary.warning} accent={systemHealth.summary.warning > 0} accentColor="amber" />
+				<StatCard label={t("healthPage.status.critical")} value={systemHealth.summary.critical} accent={systemHealth.summary.critical > 0} accentColor="rose" />
+			</StatGrid> : null}
 
 			{loading ? (
 				<section
@@ -82,7 +94,7 @@ export function SystemHealthClient({ initialSystemHealth }: Props) {
 					aria-busy="true"
 					aria-label={t("healthPage.ui.selfCheck")}
 				>
-					<p className="text-xs uppercase tracking-[0.25em] text-[var(--text-muted)]">
+					<p className="text-xs uppercase  text-[var(--text-muted)]">
 						{t("healthPage.ui.selfCheck")}
 					</p>
 					<div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -97,10 +109,10 @@ export function SystemHealthClient({ initialSystemHealth }: Props) {
 			) : null}
 
 			{systemHealth ? (
-				<section className="space-y-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
+				<section className="space-y-4">
 					<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 						<div className="min-w-0">
-							<p className="text-xs uppercase tracking-[0.25em] text-[var(--text-muted)]">
+							<p className="text-xs uppercase  text-[var(--text-muted)]">
 								{t("healthPage.ui.selfCheck")}
 							</p>
 							<h2 className="mt-1 text-lg font-semibold text-[var(--text-primary)]">
@@ -115,7 +127,7 @@ export function SystemHealthClient({ initialSystemHealth }: Props) {
 								href="/audit"
 								data-action-button
 								data-variant="secondary"
-								className="!px-3 !py-1.5 !text-xs"
+								className="!px-3 !py-1.5 !text-sm"
 							>
 								{t("healthPage.ui.auditLog")}
 							</Link>
@@ -123,7 +135,7 @@ export function SystemHealthClient({ initialSystemHealth }: Props) {
 								href="/"
 								data-action-button
 								data-variant="secondary"
-								className="!px-3 !py-1.5 !text-xs"
+								className="!px-3 !py-1.5 !text-sm"
 							>
 								{t("healthPage.ui.home")}
 							</Link>
@@ -135,7 +147,7 @@ export function SystemHealthClient({ initialSystemHealth }: Props) {
 							return (
 								<article
 									key={item.id}
-									className={`rounded-xl border p-4 ${tone.border} ${tone.bg}`}
+									className={`rounded-xl border bg-[var(--surface)] p-4 ${tone.border}`}
 								>
 									<div className="flex items-center justify-between gap-3">
 										<h3 className="text-sm font-semibold text-[var(--text-primary)]">
@@ -188,7 +200,7 @@ export function SystemHealthClient({ initialSystemHealth }: Props) {
 										)}
 									</p>
 									{check.detail ? (
-										<p className="mt-1 break-all text-[11px] text-[var(--text-muted)]">
+										<p className="mt-1 break-all text-xs text-[var(--text-muted)]">
 											{check.detail}
 										</p>
 									) : null}

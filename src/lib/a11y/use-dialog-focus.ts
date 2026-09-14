@@ -11,6 +11,9 @@ const FOCUSABLE_SELECTOR = [
 	"[tabindex]:not([tabindex='-1'])",
 ].join(",");
 
+const dialogStack: symbol[] = [];
+let bodyOverflow = "";
+
 type DialogFocusOptions = {
 	open: boolean;
 	onClose: () => void;
@@ -22,7 +25,15 @@ type DialogFocusOptions = {
 
 function getFocusableElements(container: HTMLElement) {
 	return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
-		(element) => !element.hasAttribute("disabled") && element.getAttribute("aria-hidden") !== "true" && element.tabIndex !== -1,
+		(element) => {
+			if (element.matches(':disabled, [type="hidden"]') || element.tabIndex < 0 || element.closest('[inert], [hidden], [aria-hidden="true"]')) return false;
+			for (let parent: HTMLElement | null = element; parent; parent = parent.parentElement) {
+				const style = window.getComputedStyle(parent);
+				if (style.display === "none" || style.visibility === "hidden" || style.visibility === "collapse") return false;
+				if (parent === container) break;
+			}
+			return true;
+		},
 	);
 }
 
@@ -48,11 +59,19 @@ export function useDialogFocus<TElement extends HTMLElement>({
 
 	useEffect(() => {
 		if (!open) return;
+		const stackId = Symbol("dialog");
+		if (dialogStack.length === 0) {
+			bodyOverflow = document.body.style.overflow;
+			document.body.style.overflow = "hidden";
+		}
+		dialogStack.push(stackId);
+		const isTopDialog = () => dialogStack.at(-1) === stackId;
 
 		const activeElement = document.activeElement;
 		returnFocusRef.current = activeElement instanceof HTMLElement ? activeElement : null;
 
 		const focusTimer = window.setTimeout(() => {
+			if (!isTopDialog()) return;
 			const dialog = dialogRef.current;
 			if (!dialog) return;
 			const focusTarget = initialFocusRef?.current ?? getFocusableElements(dialog)[0] ?? dialog;
@@ -60,6 +79,7 @@ export function useDialogFocus<TElement extends HTMLElement>({
 		}, 0);
 
 		const handleKeyDown = (event: KeyboardEvent) => {
+			if (!isTopDialog()) return;
 			const dialog = dialogRef.current;
 			if (!dialog) return;
 
@@ -83,7 +103,10 @@ export function useDialogFocus<TElement extends HTMLElement>({
 			const last = focusableElements[focusableElements.length - 1]!;
 			const active = document.activeElement;
 
-			if (event.shiftKey && active === first) {
+			if (!dialog.contains(active)) {
+				event.preventDefault();
+				(event.shiftKey ? last : first).focus();
+			} else if (event.shiftKey && (active === first || active === dialog)) {
 				event.preventDefault();
 				last.focus();
 			} else if (!event.shiftKey && active === last) {
@@ -97,10 +120,17 @@ export function useDialogFocus<TElement extends HTMLElement>({
 		return () => {
 			window.clearTimeout(focusTimer);
 			window.removeEventListener("keydown", handleKeyDown, true);
-			if (restoreFocus) {
+			const wasTopDialog = isTopDialog();
+			const index = dialogStack.indexOf(stackId);
+			if (index >= 0) dialogStack.splice(index, 1);
+			if (dialogStack.length === 0) document.body.style.overflow = bodyOverflow;
+			if (restoreFocus && wasTopDialog) {
 				const returnTarget = returnFocusRef.current;
 				returnFocusRef.current = null;
-				window.setTimeout(() => returnTarget?.focus(), 0);
+				const previousDialog = dialogStack.at(-1);
+				window.setTimeout(() => {
+					if (dialogStack.at(-1) === previousDialog && returnTarget?.isConnected) returnTarget.focus();
+				}, 0);
 			}
 		};
 	}, [initialFocusRef, open, restoreFocus]);

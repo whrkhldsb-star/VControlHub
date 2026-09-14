@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * Session verification for API routes.
  * Unlike `requireSession()` (which redirects to /login), this returns
@@ -46,12 +47,12 @@ export async function getApiSession(): Promise<SessionPayload | null> {
 export async function requireApiSession(): Promise<SessionPayload | NextResponse> {
 	const session = await getApiSession();
 	if (!session) {
-		return NextResponse.json({ error: "Not authenticated or session expired" }, { status: 401 });
+		return NextResponse.json({ error: apiCopy("apiCopy.not.authenticated.or.session.expired.b1714d99") }, { status: 401 });
 	}
 	if (session.mustChangePassword) {
 		return NextResponse.json(
 			{
-				error: "Password change required",
+				error: apiCopy("apiCopy.password.change.required.77288ba7"),
 				code: "MUST_CHANGE_PASSWORD",
 				redirectTo: "/account/password",
 			},

@@ -67,8 +67,8 @@ function getCategories(t: (k: string, vars?: Record<string, string | number>) =>
 
 function urlTypeLabel(url: string, t: (k: string, vars?: Record<string, string | number>) => string) {
 	if (url.startsWith("magnet:?")) return t("downloadsPage.form.linkType.magnet");
-	if (url.startsWith("https://")) return "🔒 HTTPS";
-	if (url.startsWith("http://")) return "🔓 HTTP";
+	if (url.startsWith("https://")) return "HTTPS";
+	if (url.startsWith("http://")) return "HTTP";
 	return t("downloadsPage.form.linkType.unknown");
 }
 
@@ -112,7 +112,7 @@ export function CreateDownloadForm({
 				<div className="space-y-1.5">
 					<label
 						htmlFor="download-batch-links"
-						className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide"
+						className="text-xs font-medium text-[var(--text-primary)]/70 "
 					>
 						{t("downloadsPage.form.linkLabel.batch")}
 					</label>
@@ -124,16 +124,16 @@ export function CreateDownloadForm({
 						placeholder={"https://example.com/file1.zip\nhttps://example.com/file2.zip\nhttps://example.com/file3.iso"}
 						className={UI_INPUT}
 					/>
-					<p className="text-[11px] text-[var(--text-muted)]">
+					<p className="text-xs text-[var(--text-muted)]">
 						{t("downloadsPage.form.batchNotice")}
 					</p>
-					{batchModeError && <p className="text-[11px] text-[var(--danger)]">{batchModeError}</p>}
+					{batchModeError && <p className="text-xs text-[var(--danger)]">{batchModeError}</p>}
 				</div>
 			) : (
 				<div className="space-y-1.5">
 					<label
 						htmlFor="download-url"
-						className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide"
+						className="text-xs font-medium text-[var(--text-primary)]/70 "
 					>
 						{t("downloadsPage.form.linkLabel.single")}
 					</label>
@@ -149,13 +149,13 @@ export function CreateDownloadForm({
 						placeholder={t("downloadsPage.form.linkPlaceholder")}
 						className={UI_INPUT}
 					/>
-					{form.url && <p className="text-[11px] text-[var(--text-muted)]">{urlTypeLabel(form.url, t)}</p>}
+					{form.url && <p className="text-xs text-[var(--text-muted)]">{urlTypeLabel(form.url, t)}</p>}
 				</div>
 			)}
 
 			<div className="grid gap-4 sm:grid-cols-2">
 				<div className="space-y-1.5">
-					<label className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide" htmlFor="downloadServer">{t("downloadsPage.form.targetVps")}</label>
+					<label className="text-xs font-medium text-[var(--text-primary)]/70 " htmlFor="downloadServer">{t("downloadsPage.form.targetVps")}</label>
 					<select
 						id="downloadServer"
 						value={form.serverId}
@@ -170,7 +170,7 @@ export function CreateDownloadForm({
 					</select>
 					{selectedServer && (
 						<div
-							className={`rounded-lg border px-3 py-2 text-[11px] leading-5 ${
+							className={`rounded-lg border px-3 py-2 text-xs leading-5 ${
 								selectedServer.accessTransport === "direct"
 									? "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]"
 									: "border-[var(--warning-border)] bg-[var(--warning)]/[0.10] text-[var(--warning)]"
@@ -182,7 +182,7 @@ export function CreateDownloadForm({
 					)}
 				</div>
 				<div className="space-y-1.5">
-					<label className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide" htmlFor="downloadTargetPath">{t("downloadsPage.form.savePath")}</label>
+					<label className="text-xs font-medium text-[var(--text-primary)]/70 " htmlFor="downloadTargetPath">{t("downloadsPage.form.savePath")}</label>
 					<input
 						id="downloadTargetPath"
 						value={form.targetPath}
@@ -195,7 +195,7 @@ export function CreateDownloadForm({
 
 			<div className="grid gap-4 sm:grid-cols-3">
 				<div className="space-y-1.5">
-					<label className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide" htmlFor="downloadFileName">{t("common.filenameOptional")}</label>
+					<label className="text-xs font-medium text-[var(--text-primary)]/70 " htmlFor="downloadFileName">{t("common.filenameOptional")}</label>
 					<input
 						id="downloadFileName"
 						value={form.fileName}
@@ -205,7 +205,7 @@ export function CreateDownloadForm({
 					/>
 				</div>
 				<div className="space-y-1.5">
-					<label className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide" htmlFor="downloadCategory">{t("downloadsPage.form.category")}</label>
+					<label className="text-xs font-medium text-[var(--text-primary)]/70 " htmlFor="downloadCategory">{t("downloadsPage.form.category")}</label>
 					<select
 						id="downloadCategory"
 						value={form.category}
@@ -214,13 +214,13 @@ export function CreateDownloadForm({
 					>
 						{getCategories(t).map((c) => (
 							<option key={c.value} value={c.value}>
-								{c.icon} {c.label}
+								{c.label}
 							</option>
 						))}
 					</select>
 				</div>
 				<div className="space-y-1.5">
-					<label className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide" htmlFor="downloadMaxSpeed">{t("downloadsPage.form.speedLimit")}</label>
+					<label className="text-xs font-medium text-[var(--text-primary)]/70 " htmlFor="downloadMaxSpeed">{t("downloadsPage.form.speedLimit")}</label>
 					<input
 						id="downloadMaxSpeed"
 						value={form.maxSpeedKb}

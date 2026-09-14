@@ -193,12 +193,12 @@ export function ServerOverviewDetails({
 				</div>
 				<p
 					data-tone="cyan"
-					className="mt-3 rounded-lg border border-[var(--color-action-border)]/10 p-2 text-[11px] leading-5 text-[var(--text-muted)] light:border-[var(--color-action-border)]/15 light:bg-[var(--color-action-bg)]"
+					className="mt-3 rounded-lg border border-[var(--color-action-border)]/10 p-2 text-xs leading-5 text-[var(--text-muted)] light:border-[var(--color-action-border)]/15 light:bg-[var(--color-action-bg)]"
 				>
 					{t("serverOverviewDetails.banner.description")}
 				</p>
 				{server.sshKey?.fingerprint ? (
-					<p className="mt-2 truncate text-[11px] text-[var(--text-muted)]">
+					<p className="mt-2 truncate text-xs text-[var(--text-muted)]">
 						{t("serverOverviewDetails.fingerprintPrefix")}{server.sshKey.fingerprint}
 					</p>
 				) : null}
@@ -207,7 +207,7 @@ export function ServerOverviewDetails({
 						{(server.tags ?? []).map((tag) => (
 							<span
 								key={tag}
-								className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-2 py-0.5 text-[11px] text-[var(--text-muted)]"
+								className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-2 py-0.5 text-xs text-[var(--text-muted)]"
 							>
 								#{tag}
 							</span>
@@ -246,7 +246,7 @@ export function ServerOverviewDetails({
 					{/* TR-043: VPS Remote Backup */}
 					{canManageServers ? (
 					<div className="mt-4">
-						<div className="mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+						<div className="mb-2 text-xs font-semibold uppercase  text-[var(--text-muted)]">
 							{t("vpsBackup.sectionTitle")}
 						</div>
 						<VpsBackupSection
@@ -288,7 +288,7 @@ export function ServerOverviewDetails({
 				<div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
 					<div>
 						<h3 className="text-sm font-medium text-[var(--text-primary)]">{t("serverOverviewDetails.diagnosticsNext")}</h3>
-						<p className="mt-1 text-[11px] leading-5 text-[var(--text-muted)]">
+						<p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">
 							{t("serverOverviewDetails.diagnosticsDescription")}
 						</p>
 					</div>
@@ -303,13 +303,13 @@ export function ServerOverviewDetails({
 					<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
 						<div>
 							<div className="text-xs font-medium text-[var(--text-primary)]">{t("serverOverviewDetails.realtimeProbe")}</div>
-							<p className="mt-1 text-[11px] leading-5 text-[var(--text-muted)]">
+							<p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">
 								{t("serverOverviewDetails.realtimeProbeDescription")}
 							</p>
 						</div>
 						<ActionButton variant="success"
 							onClick={onRunRealtimeDiagnostics}
-							disabled={diagnosticRun.status === "loading" || !server.enabled} className="inline-flex shrink-0 items-center justify-center !px-3 !py-1.5 !text-xs disabled:cursor-not-allowed disabled:opacity-60">
+							disabled={diagnosticRun.status === "loading" || !server.enabled} className="inline-flex shrink-0 items-center justify-center !px-3 !py-1.5 !text-sm disabled:cursor-not-allowed disabled:opacity-60">
 							{diagnosticRun.status === "loading" ? t("serverOverviewDetails.diagnosing") : t("serverOverviewDetails.runRealtimeDiagnostics")}
 						</ActionButton>
 					</div>
@@ -317,7 +317,7 @@ export function ServerOverviewDetails({
 						<div
 							role="status"
 							data-tone="emerald"
-							className="mt-3 rounded-lg border border-[var(--success-border)] p-2 text-[11px] leading-5 text-[var(--success)] light:border-[var(--success-border)]"
+							className="mt-3 rounded-lg border border-[var(--success-border)] p-2 text-xs leading-5 text-[var(--success)] light:border-[var(--success-border)]"
 						>
 							{t("serverOverviewDetails.diagnosticSuccess", { summary: diagnosticRun.summary, checkedAt: diagnosticRun.checkedAt })}
 						</div>
@@ -340,13 +340,13 @@ export function ServerOverviewDetails({
 									{item.status}
 								</StatusBadge>
 							</div>
-							<div className="mt-2 text-[11px] leading-5 text-[var(--text-muted)]">
+							<div className="mt-2 text-xs leading-5 text-[var(--text-muted)]">
 								{item.detail}
 							</div>
 							{item.href ? (
 								<Link
 									href={item.href}
-									className="mt-2 inline-flex text-[11px] font-medium text-[var(--text-secondary)] underline-offset-4 hover:underline"
+									className="mt-2 inline-flex text-xs font-medium text-[var(--text-secondary)] underline-offset-4 hover:underline"
 								>
 									{t("serverOverviewDetails.openRelatedEntry")}
 								</Link>
@@ -371,11 +371,11 @@ export function ServerOverviewDetails({
 									<span className="truncate text-sm font-medium text-[var(--text-primary)]">
 										{command.title}
 									</span>
-									<span className="shrink-0 text-[11px] text-[var(--text-muted)]">
+									<span className="shrink-0 text-xs text-[var(--text-muted)]">
 										{command.initiatedByType === "ASSISTANT" ? t("serverOverviewDetails.assistant") : t("serverOverviewDetails.user")}
 									</span>
 								</div>
-								<div className="mt-1 text-[11px] text-[var(--text-muted)]">
+								<div className="mt-1 text-xs text-[var(--text-muted)]">
 									{command.requestStatus} · {command.targetStatus}
 								</div>
 							</div>

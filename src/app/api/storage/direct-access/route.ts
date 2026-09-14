@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import crypto from "node:crypto";
 import posixPath from "node:path/posix";
 
@@ -159,7 +160,7 @@ async function resolveDirectAccessPayload(input: {
   });
 
   if (!node) {
-    throw new NotFoundError("Storage node not found");
+    throw new NotFoundError(apiCopy("apiCopy.storage.node.not.found.3b3ec488"));
   }
 
   let normalizedRelativePath: string;
@@ -168,7 +169,7 @@ async function resolveDirectAccessPayload(input: {
     normalizedRelativePath = normalizeRemoteRelativePath(relativePath);
   } catch {
     return NextResponse.json(
-      { error: "Requested path exceeds storage node root directory" },
+      { error: apiCopy("apiCopy.requested.path.exceeds.storage.node.root.directory.d786fee2") },
       { status: 400 },
     );
   }
@@ -244,11 +245,11 @@ export async function GET(request: Request) {
     { permission: "storage:read" },
     async ({ session }) => {
       if (!session)
-        throw new AuthError("Not authenticated");
+        throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
       const parsed = parseDirectAccessQuery(request);
       if (!parsed.success)
         return NextResponse.json(
-          { error: "Missing nodeId or relativePath" },
+          { error: apiCopy("apiCopy.missing.nodeid.or.relativepath.3659e972") },
           { status: 400 },
         );
 
@@ -280,7 +281,7 @@ export async function POST(request: Request) {
     { permission: "storage:read", rateLimit: UPLOAD_LIMIT, bodySchema: directAccessSchema },
     async ({ session, body }) => {
       if (!session)
-        throw new AuthError("Not authenticated");
+        throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
 
       const payload = await resolveDirectAccessPayload({
         ...body,

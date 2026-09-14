@@ -10,6 +10,7 @@
 import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/db";
 import { createLogger } from "@/lib/logging";
+import { config } from "@/lib/config/env";
 import {
   BusinessError,
   ConflictError,
@@ -495,8 +496,17 @@ function destinationRelativePath(
   } catch {
     throw new ValidationError(t("backend.webdav.invalidDestinationHeader"));
   }
-  // Refuse cross-origin Destination (clients may send absolute URLs).
-  if (destUrl.origin !== requestUrl.origin) {
+  // Next/proxies can expose an internal origin here. Only the explicitly
+  // configured public site is an additional trusted origin, never forwarded headers.
+  let publicOrigin: string | undefined;
+  const publicBaseUrl = config.app.baseUrl;
+  if (publicBaseUrl) {
+    try {
+      const publicUrl = new URL(publicBaseUrl);
+      if (["http:", "https:"].includes(publicUrl.protocol)) publicOrigin = publicUrl.origin;
+    } catch { /* Invalid optional configuration must not broaden accepted origins. */ }
+  }
+  if (destUrl.origin !== requestUrl.origin && destUrl.origin !== publicOrigin) {
     throw new ValidationError(
       t("backend.webdav.destinationMustStayOnTheSameOrigin"),
     );

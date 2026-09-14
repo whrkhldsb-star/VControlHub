@@ -9,6 +9,8 @@ export type ImageItem = {
 	filename: string;
 	mimeType: string;
 	sizeBytes: number;
+	width?: number | null;
+	height?: number | null;
 	album: string | null;
 	isPublic: boolean;
 	createdAt: string;

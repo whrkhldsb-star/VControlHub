@@ -1,47 +1,35 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { hasBearerAuthorization, verifyBearerToken } from "@/lib/auth/bearer-token";
+import { hasBearerAuthorization } from "@/lib/auth/bearer-token";
 import { imageTeamWhere, type TeamSession } from "@/lib/auth/team-scope";
 import { withCacheHeaders, CachePresets } from "@/lib/cache";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
-import { t } from "@/lib/i18n/translations";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  const bearerRequested = hasBearerAuthorization(request);
-  const tokenAuth = await verifyBearerToken(request, "image:read");
-  if (tokenAuth) {
-    return listImages(
-      request,
-      tokenAuth.userId,
-      false,
-      tokenAuth.session,
-    );
-  }
-  if (bearerRequested) {
-    return NextResponse.json({ error: t("api.auth.invalidToken") }, { status: 401 });
-  }
-
   return withApiRoute(
     request,
-    { permission: "image:read", errorMessage: "Failed to fetch image list" },
+    { permission: "image:read", errorMessage: apiCopy("apiCopy.failed.to.fetch.image.list.c85269a9") },
     async ({ session }) => {
       if (!session)
         return NextResponse.json(
-          { error: "Not authenticated or session expired" },
+          { error: apiCopy("apiCopy.not.authenticated.or.session.expired.b1714d99") },
           { status: 401 },
         );
       // showAll must not use broad user:read (many roles have it).
       // Only global team managers or media managers may list everyone's images.
       // media:manage is still team-scoped (not fleet-wide) via teamWhere.
       const canListAll =
-        sessionHasPermission(session, "team:manage") ||
-        sessionHasPermission(session, "media:manage");
+        !hasBearerAuthorization(request) && (
+          sessionHasPermission(session, "team:manage") ||
+          sessionHasPermission(session, "media:manage")
+        );
       return listImages(request, session.userId, canListAll, session);
     },
   );
@@ -58,7 +46,7 @@ async function listImages(
     z.object({
       album: z.string().trim().min(1).optional(),
       q: z.string().trim().min(1).optional(),
-      page: z.coerce.number().int().min(1).default(1),
+      page: z.coerce.number().int().min(1).max(1_000_000).default(1),
       limit: z.coerce.number().int().min(1).max(100).default(30),
       all: z
         .string()
@@ -84,11 +72,14 @@ async function listImages(
     Object.assign(where, imageTeamWhere(session));
   }
 
-  const [images, total] = await Promise.all([
-    prisma.imageUpload.findMany({
+  const result = await prisma.$transaction(async (tx) => {
+    const total = await tx.imageUpload.count({ where });
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    const currentPage = Math.min(page, totalPages);
+    const images = await tx.imageUpload.findMany({
       where,
-      orderBy: { createdAt: "desc" },
-      skip: (page - 1) * limit,
+      orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+      skip: (currentPage - 1) * limit,
       take: limit,
       include: {
         user: { select: { id: true, username: true, displayName: true } },
@@ -101,11 +92,11 @@ async function listImages(
           },
         },
       },
-    }),
-    prisma.imageUpload.count({ where }),
-  ]);
+    });
+    return { images, total, page: currentPage, totalPages };
+  }, { isolationLevel: "RepeatableRead" });
 
-  const imagesWithUrl = images.map((img) => ({
+  const imagesWithUrl = result.images.map((img) => ({
     ...img,
     publicUrl: `/api/images/${img.id}/file`,
   }));
@@ -113,10 +104,10 @@ async function listImages(
   return withCacheHeaders(
     NextResponse.json({
       images: imagesWithUrl,
-      total,
-      page,
+      total: result.total,
+      page: result.page,
       limit,
-      totalPages: Math.ceil(total / limit),
+      totalPages: result.totalPages,
     }),
     CachePresets.noStore,
   );

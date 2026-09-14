@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { sessionHasPermission } from "@/lib/auth/authorization";
@@ -46,7 +47,7 @@ export async function POST(request: Request) {
         (parsed.approvalRequired === undefined && parsed.submissionMode === "user");
       if (executesWithoutApproval && !sessionHasPermission(session!, "command:execute")) {
         throw new ForbiddenError(
-          "command:execute permission is required for submissions that bypass approval",
+          apiCopy("apiCopy.command.execute.permission.is.required.for.submissions.that.bypa.123f619f"),
         );
       }
       const command = await createCommandRequest(parsed, session!);

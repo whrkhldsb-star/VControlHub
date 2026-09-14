@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "23 2 * * *"
 
 permissions:
   contents: read
@@ -85,7 +88,7 @@ jobs:
   e2e-public-cross-browser:
     name: E2E public smoke (Chromium + Firefox + WebKit)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 90
     needs: test
     env:
       NEXT_TELEMETRY_DISABLED: 1
@@ -229,6 +232,40 @@ jobs:
           set -euo pipefail
           curl -fsS http://127.0.0.1:3000/login >/dev/null
           npm run test:e2e:workflows -- --retries=1
+
+      - name: Verify shared UI components
+        run: |
+          npm run ui:showcase -- .playwright-output/components
+          npm run ui:check -- .playwright-output/components
+
+      - name: Run whole-site UI and populated AI checks across browsers
+        env:
+          NODE_ENV: production
+          E2E_DIRECT_SESSION: "1"
+          E2E_TRUST_LOCAL_DB_SESSION: "1"
+          E2E_ISOLATED_ACCOUNT: "1"
+          E2E_USER: vcontrolhub_e2e
+          E2E_PASS: VControlHub-E2E-2026!
+          E2E_DIRECT_USER: vcontrolhub_e2e
+          PLAYWRIGHT_OUTPUT_DIR: .playwright-output/site-ui
+        run: |
+          npx playwright test e2e/ui-site.spec.ts e2e/ui-workspace.spec.ts \
+            --project=chromium --project=firefox --project=webkit \
+            --workers=2 --retries=1
+
+      - name: Run exhaustive Chromium UI matrix nightly or on demand
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        env:
+          NODE_ENV: production
+          UI_FULL_MATRIX: "1"
+          E2E_DIRECT_SESSION: "1"
+          E2E_TRUST_LOCAL_DB_SESSION: "1"
+          E2E_ISOLATED_ACCOUNT: "1"
+          E2E_USER: vcontrolhub_e2e
+          E2E_PASS: VControlHub-E2E-2026!
+          E2E_DIRECT_USER: vcontrolhub_e2e
+          PLAYWRIGHT_OUTPUT_DIR: .playwright-output/full-site-ui
+        run: npx playwright test e2e/ui-site.spec.ts --project=chromium --workers=2 --retries=1
 
       - name: Dump server log on failure
         if: failure()

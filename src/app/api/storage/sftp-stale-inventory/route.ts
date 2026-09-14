@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * TR-005 T34a: SFTP 远端索引定期校验 API 入口。
  *
@@ -54,17 +55,17 @@ export async function POST(request: NextRequest) {
     request,
     { permission: "storage:manage-node", rateLimit: GENERAL_WRITE_LIMIT },
     async ({ session, body }) => {
-      if (!session) throw new AuthError("Not authenticated");
+      if (!session) throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
       const input = (body ?? {}) as StaleInventoryInput;
       const parsed = staleInventorySchema.safeParse(input);
-      if (!parsed.success) throw new ValidationError("Invalid input parameter");
+      if (!parsed.success) throw new ValidationError(apiCopy("apiCopy.invalid.input.parameter.d64ebcd8"));
       const data = parsed.data;
 
       const { wait } = parseSearchParams(request, sftpWaitQuerySchema);
 
       if (data.nodeId) {
         const target = await findSftpNodeForStaleInventory(data.nodeId, session);
-        if (!target) throw new NotFoundError("Storage node not found");
+        if (!target) throw new NotFoundError(apiCopy("apiCopy.storage.node.not.found.3b3ec488"));
       }
 
       if (wait) {
@@ -120,7 +121,7 @@ export async function POST(request: NextRequest) {
           jobId: job.id,
           taskId: `job:${job.id}`,
           status: job.status,
-          message: "SFTP stale inventory has been added as a background task, you can check progress in the task center.",
+          message: apiCopy("apiCopy.sftp.stale.inventory.has.been.added.as.a.background.task.you.can.f8a40d74"),
         },
         { status: 202 },
       );
@@ -130,7 +131,7 @@ export async function POST(request: NextRequest) {
 
 async function scanOneNode(input: StaleInventoryInput, session: TeamSession) {
   const node = await findSftpNodeForStaleInventory(input.nodeId!, session);
-  if (!node) throw new NotFoundError("Storage node not found");
+  if (!node) throw new NotFoundError(apiCopy("apiCopy.storage.node.not.found.3b3ec488"));
   return detectAndPruneSftpStaleInventory({
     node: node as unknown as Parameters<typeof detectAndPruneSftpStaleInventory>[0]["node"],
     maxDepth: input.maxDepth,

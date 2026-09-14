@@ -114,13 +114,18 @@ for (const f of DICT_FILES) {
   // Each dict exports zh and en (or locale consts). Find sections.
   // Match "key": 'value' or "key": "value" — both quote styles allowed.
   const keyValue = /"([a-zA-Z][a-zA-Z0-9_.]+)"\s*:\s*['"]/g;
-  // Heuristic: assume zh comes first; track section by looking for
-  // "export const zh" / "export const en" markers.
-  const zhStart = src.indexOf("export const zh");
-  const enStart = src.indexOf("export const en");
+  // Track locale sections regardless of declaration order. Generated
+  // dictionaries may declare `en` before `zh`, while legacy dictionaries
+  // generally use the opposite order.
+  const findSection = (name: string) => {
+    const patterns = [`export const ${name}`, `const ${name}`];
+    return patterns.map((p) => src.indexOf(p)).find((i) => i >= 0) ?? -1;
+  };
+  const zhStart = findSection("zh");
+  const enStart = findSection("en");
   const sets: { set: Set<string>; start: number; end: number }[] = [];
-  if (zhStart >= 0) sets.push({ set: definedZh, start: zhStart, end: enStart > 0 ? enStart : src.length });
-  if (enStart >= 0) sets.push({ set: definedEn, start: enStart, end: src.length });
+  if (zhStart >= 0) sets.push({ set: definedZh, start: zhStart, end: enStart > zhStart ? enStart : src.length });
+  if (enStart >= 0) sets.push({ set: definedEn, start: enStart, end: zhStart > enStart ? zhStart : src.length });
   for (const { set, start, end } of sets) {
     const slice = src.slice(start, end);
     for (const m of slice.matchAll(keyValue)) {

@@ -86,8 +86,13 @@ export function FileListDetailsView({
       {sortedFolders.map((folder) => (
         <div
           key={folder.path}
+          draggable={!!folder.entryId && entryCanWrite(folder)}
+          data-file-entry-id={folder.entryId ?? undefined}
+          data-file-drop-path={folder.entryId && entryCanWrite(folder) ? folder.path : undefined}
+          data-file-node-id={folder.storageNodeId ?? folder.sourceKeys[0]}
           className="flex items-center gap-4 px-5 py-4 hover:bg-[var(--surface-elevated)] transition group"
         >
+          {folder.entryId && (entryCanWrite(folder) || entryCanDelete(folder)) ? <input type="checkbox" aria-label={t("fileListClient.selectFileAria", { name: folder.name })} checked={effectiveSelectedIdSet.has(folder.entryId)} onChange={() => toggleOne(folder.entryId!)} /> : null}
           <div className="shrink-0">
             <div className="rounded-xl bg-[var(--warning-bg)] p-2">
               <FileTypeIcon entry={{ entryType: "DIRECTORY" }} size={28} />
@@ -150,6 +155,9 @@ export function FileListDetailsView({
         return (
           <div
             key={entry.id}
+            draggable={entryCanWrite(entry)}
+            data-file-entry-id={entry.id}
+            data-file-node-id={entry.storageNode.id}
             className={`flex items-center gap-4 px-5 py-4 hover:bg-[var(--surface-elevated)] transition ${isChecked ? "bg-[var(--color-action-bg)]/[0.04]" : ""}`}
           >
             {/* Checkbox */}

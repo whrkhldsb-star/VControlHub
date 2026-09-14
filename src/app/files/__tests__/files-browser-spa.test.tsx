@@ -177,7 +177,7 @@ describe("FilesBrowserSpa", () => {
     );
 
     expect(screen.getByText("搜索文件名")).toBeVisible();
-    expect(screen.getByRole("textbox", { name: "搜索文件名" })).toHaveAttribute(
+    expect(screen.getByRole("searchbox", { name: "搜索文件名" })).toHaveAttribute(
       "placeholder",
       "在当前目录搜索…",
     );
@@ -461,7 +461,7 @@ describe("FilesBrowserSpa", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "↻ 刷新远端文件" }));
+    fireEvent.click(screen.getByRole("button", { name: "刷新远端文件" }));
 
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
@@ -519,7 +519,7 @@ describe("FilesBrowserSpa", () => {
 
     await waitFor(() =>
       expect(fetchMock).toHaveBeenLastCalledWith(
-        "/api/files/list?path=photos&nodeId=node_1",
+        "/api/files/list?path=photos&nodeId=node_1&pageSize=100&sort=name&direction=asc&sync=0",
         expect.any(Object),
       ),
     );

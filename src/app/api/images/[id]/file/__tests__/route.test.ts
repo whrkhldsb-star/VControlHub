@@ -129,6 +129,14 @@ describe("GET /api/images/[id]/file", () => {
     expect(response.headers.get("Cache-Control")).toBe("private, no-store");
   });
 
+  it("streams images with Unicode filenames using an encoded disposition", async () => {
+    imageFindUniqueMock.mockResolvedValue(image({ filename: "项目截图.png" }));
+    const response = await GET(new Request("http://local/api/images/img_1/file"), params);
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Content-Disposition")).toContain(encodeURIComponent("项目截图.png"));
+    expect(await response.text()).toBe("png");
+  });
+
   it("lets a Bearer token owner preview their private team image", async () => {
     verifyBearerTokenMock.mockResolvedValueOnce({
       userId: "u1",

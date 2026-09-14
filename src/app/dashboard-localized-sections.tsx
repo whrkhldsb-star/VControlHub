@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 
-import { EmptyState, StatCard, SurfacePanel, ListPanel, ListRow } from "@/components/page-shell";
+import { PageHeader, EmptyState, StatCard, SurfacePanel, ListPanel, ListRow } from "@/components/page-shell";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
 import { useI18n } from "@/lib/i18n/use-locale";
 
@@ -45,59 +45,46 @@ export function DashboardLocalizedHeader({ username }: { username: string }) {
   const title = t("dashboard.title");
   const currentUser = t("dashboard.current-user");
   return (
-    <header className="mb-6 border-b border-[var(--border-subtle)] pb-5" data-page-header>
-      <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">
-        {t("nav.dashboard") === "nav.dashboard" ? "Overview" : t("nav.dashboard")}
-      </p>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="break-words text-[1.75rem] font-semibold leading-snug tracking-[-0.02em] text-[var(--text-primary)] sm:text-[2rem]">{title}</h1>
-          <p className="mt-1.5 text-sm text-[var(--text-muted)]">
-            {currentUser}: <span className="font-medium text-[var(--text-secondary)]">{username}</span>
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link href="/servers" data-variant="primary" className="rounded-xl px-3.5 py-2 text-sm font-medium">
+    <PageHeader eyebrow={t("nav.dashboard")} title={title} description={`${currentUser}: ${username}`}>
+          <Link href="/servers" data-action-button data-variant="primary">
             {t("dashboard.manage-vps-keys") === "dashboard.manage-vps-keys" ? "Manage VPS" : t("dashboard.manage-vps-keys")}
           </Link>
-          <Link href="/operation-tasks" data-variant="secondary" className="rounded-xl px-3.5 py-2 text-sm">
+          <Link href="/operation-tasks" data-action-button data-variant="secondary">
             {t("nav.operation-tasks") === "nav.operation-tasks" ? "Tasks" : t("nav.operation-tasks")}
           </Link>
-        </div>
-      </div>
-    </header>
+    </PageHeader>
   );
 }
 
 export function DashboardServerHero({ summary }: { summary: DashboardServerSummary }) {
   const { t } = useI18n();
   const eyebrow = t("dashboard.server-overview");
-  const onlineSuffix = t("dashboard.online-vps-suffix");
+  const onlineSuffix = t("dashboard.enabled-nodes");
   const managedPrefix = t("dashboard.managed-nodes-prefix");
   const managedSuffix = t("dashboard.managed-nodes-suffix");
   const sshSuffix = t("dashboard.ssh-bound-suffix");
-  const gatewaySuffix = t("dashboard.direct-gateway-online-suffix");
+  const gatewaySuffix = t("dashboard.direct-gateway");
   const cta = t("dashboard.manage-vps-keys");
-  const onlineLabel = t("dashboard.online-vps");
-  const disabledLabel = t("dashboard.offline-disabled");
+  const onlineLabel = t("dashboard.enabled-nodes");
+  const disabledLabel = t("dashboard.disabled-nodes");
   const sshLabel = t("dashboard.ssh-key-bound");
   const gatewayLabel = t("dashboard.direct-gateway");
 
   return (
-    <section data-dashboard-widget="server-status" className="mb-6 overflow-hidden rounded-2xl border border-[var(--border)] bg-[linear-gradient(145deg,color-mix(in_srgb,var(--accent-bg)_55%,var(--surface)),var(--surface))] p-5 shadow-[var(--shadow-sm)]">
+    <section data-dashboard-widget="server-status" className="mb-6 min-w-0 border-b border-[var(--border)] pb-5">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">{eyebrow}</p>
-          <h2 className="mt-2 text-2xl font-semibold tracking-tight text-[var(--text-primary)]">{summary.enabled} {onlineSuffix}</h2>
+          <p className="text-xs font-semibold uppercase  text-[var(--accent)]">{eyebrow}</p>
+          <h2 className="mt-2 text-lg font-semibold text-[var(--text-primary)]">{summary.enabled} {onlineSuffix}</h2>
           <p className="mt-1 max-w-2xl text-sm leading-6 text-[var(--text-secondary)]">
             {managedPrefix} {summary.total} {managedSuffix}, {summary.sshKey} {sshSuffix}, {summary.directGateway} {gatewaySuffix}.
           </p>
         </div>
-        <Link href="/servers" data-variant="primary" className="rounded-xl px-4 py-2.5 text-sm font-semibold">
+        <Link href="/servers" data-action-button data-variant="secondary">
           {cta}
         </Link>
       </div>
-      <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-5 grid grid-cols-2 gap-3 max-[340px]:grid-cols-1 lg:grid-cols-4">
         <StatCard label={onlineLabel} value={String(summary.enabled)} accent={summary.enabled > 0} accentColor="emerald" />
         <StatCard label={disabledLabel} value={String(summary.disabled)} accent={summary.disabled > 0} accentColor="amber" />
         <StatCard label={sshLabel} value={`${summary.sshKey}/${summary.total}`} accent={summary.sshKey > 0} accentColor="cyan" />

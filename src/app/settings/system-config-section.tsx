@@ -50,6 +50,25 @@ export function SystemConfigSection({
 
   const [exportMode, setExportMode] = useState<"standard" | "full">("standard");
   const [exportScope, setExportScope] = useState<"team" | "global">("team");
+  const readerRef = useRef<FileReader | null>(null);
+  const previewRequest = useRef<AbortController | null>(null);
+  const executingRef = useRef(false);
+
+  const invalidatePreview = () => {
+    previewRequest.current?.abort();
+    previewRequest.current = null;
+    setPreview(null);
+    setPreviewing(false);
+    setImportError(null);
+    setResult(null);
+  };
+
+  useEffect(() => () => {
+    readerRef.current?.abort();
+    readerRef.current = null;
+    previewRequest.current?.abort();
+    previewRequest.current = null;
+  }, []);
 
   // ── Export ──────────────────────────────────────────────
 
@@ -79,16 +98,21 @@ export function SystemConfigSection({
   // ── File selection ───────────────────────────────────────
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    if (executingRef.current) return;
+    readerRef.current?.abort();
+    readerRef.current = null;
+    invalidatePreview();
+    setSelectedFile(null);
+    setFileError(null);
     const file = e.target.files?.[0];
+    setSelectedFileName(file?.name ?? "");
     if (!file) return;
 
-    setSelectedFileName(file.name);
-    setFileError(null);
-    setPreview(null);
-    setResult(null);
-
     const reader = new FileReader();
+    readerRef.current = reader;
     reader.onload = () => {
+      if (readerRef.current !== reader) return;
+      readerRef.current = null;
       try {
         const json = JSON.parse(reader.result as string);
         if (json.schemaVersion !== EXPORT_SCHEMA_VERSION) {
@@ -105,20 +129,20 @@ export function SystemConfigSection({
         setSelectedFile(null);
       }
     };
-    reader.onerror = () => setFileError(t("systemConfig.import.invalidFile"));
+    reader.onerror = () => {
+      if (readerRef.current !== reader) return;
+      readerRef.current = null;
+      setFileError(t("systemConfig.import.invalidFile"));
+    };
     reader.readAsText(file);
   }
 
   // ── Import preview ───────────────────────────────────────
 
-  
-  // Options change invalidates a prior dry-run so Execute cannot use a stale preview.
-  useEffect(() => {
-    setPreview(null);
-  }, [overwrite, importUsers, importSettings]);
-
-async function handlePreview() {
-    if (!selectedFile) return;
+  async function handlePreview() {
+    if (!selectedFile || previewRequest.current || executingRef.current) return;
+    const controller = new AbortController();
+    previewRequest.current = controller;
     setPreviewing(true);
     setPreview(null);
     setImportError(null);
@@ -126,6 +150,7 @@ async function handlePreview() {
       // csrfFetch returns parsed JSON (throws on !ok) — do not treat as Response.
       const data = await csrfFetch<{ preview?: ImportPreview; error?: string }>("/api/system/import", {
         method: "POST",
+        signal: controller.signal,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           file: selectedFile,
@@ -135,19 +160,25 @@ async function handlePreview() {
           importSettings,
         }),
       });
+      if (previewRequest.current !== controller) return;
       if (!data.preview) throw new Error(data.error || t("systemConfig.import.previewFailed"));
       setPreview(data.preview);
     } catch (err) {
+      if (previewRequest.current !== controller) return;
       setImportError(getErrorMessage(err, t("systemConfig.import.result.error")));
     } finally {
-      setPreviewing(false);
+      if (previewRequest.current === controller) {
+        previewRequest.current = null;
+        setPreviewing(false);
+      }
     }
   }
 
   // ── Execute import ───────────────────────────────────────
 
   async function handleExecute() {
-    if (!selectedFile) return;
+    if (!selectedFile || !preview || executingRef.current) return;
+    executingRef.current = true;
     setExecuting(true);
     setResult(null);
     setImportError(null);
@@ -174,6 +205,8 @@ async function handlePreview() {
     } catch (err) {
       setImportError(getErrorMessage(err, t("systemConfig.import.result.error")));
     } finally {
+      executingRef.current = false;
+      setPreview(null);
       setExecuting(false);
     }
   }
@@ -181,7 +214,7 @@ async function handlePreview() {
   // ── Render ───────────────────────────────────────────────
 
   return (
-    <div className="space-y-4 rounded-lg border border-[var(--border)] p-4 bg-[var(--surface)]">
+    <div className="space-y-4 border-t border-[var(--border)] py-4">
       {/* Title */}
       <div>
         <span className="text-xs text-[var(--text-muted)]">{t("systemConfig.eyebrow")}</span>
@@ -299,6 +332,7 @@ async function handlePreview() {
             type="file"
             accept=".json"
             onChange={handleFileSelect}
+            disabled={executing}
             data-action-button data-variant="primary" className="w-full"
           />
           {selectedFileName && (
@@ -315,19 +349,19 @@ async function handlePreview() {
             <span className="text-sm font-medium text-[var(--text-primary)]">{t("systemConfig.import.options")}</span>
 
             <label className="flex items-center gap-2 text-sm text-[var(--text-primary)]">
-              <input type="checkbox" checked={overwrite} onChange={(e) => setOverwrite(e.target.checked)} className="accent-[var(--accent)]" />
+              <input type="checkbox" checked={overwrite} disabled={executing} onChange={(e) => { invalidatePreview(); setOverwrite(e.target.checked); }} className="accent-[var(--accent)]" />
               {t("systemConfig.import.overwrite")}
               <span className="text-xs text-[var(--text-muted)]">{t("systemConfig.import.overwriteHint")}</span>
             </label>
 
             <label className="flex items-center gap-2 text-sm text-[var(--text-primary)]">
-              <input type="checkbox" checked={importUsers} onChange={(e) => setImportUsers(e.target.checked)} className="accent-[var(--accent)]" />
+              <input type="checkbox" checked={importUsers} disabled={executing} onChange={(e) => { invalidatePreview(); setImportUsers(e.target.checked); }} className="accent-[var(--accent)]" />
               {t("systemConfig.import.importUsers")}
               <span className="text-xs text-[var(--text-muted)]">{t("systemConfig.import.importUsersHint")}</span>
             </label>
 
             <label className="flex items-center gap-2 text-sm text-[var(--text-primary)]">
-              <input type="checkbox" checked={importSettings} onChange={(e) => setImportSettings(e.target.checked)} className="accent-[var(--accent)]" />
+              <input type="checkbox" checked={importSettings} disabled={executing} onChange={(e) => { invalidatePreview(); setImportSettings(e.target.checked); }} className="accent-[var(--accent)]" />
               {t("systemConfig.import.importSettings")}
               <span className="text-xs text-[var(--text-muted)]">{t("systemConfig.import.importSettingsHint")}</span>
             </label>
@@ -335,7 +369,7 @@ async function handlePreview() {
             {/* Preview button */}
             <ActionButton type="button" variant="secondary"
               onClick={handlePreview}
-              disabled={previewing} className="!px-4 !py-2 !text-sm disabled:opacity-50">
+              disabled={previewing || executing} className="!px-4 !py-2 !text-sm disabled:opacity-50">
               {previewing ? t("systemConfig.import.previewing") : t("systemConfig.import.previewButton")}
             </ActionButton>
           </div>

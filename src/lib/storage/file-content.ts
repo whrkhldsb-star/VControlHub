@@ -395,6 +395,14 @@ export async function copyStorageFile(
     throw new ValidationError(t("backend.storage.copySourceDestinationMustDiffer"));
   }
 
+  if (node.driver === "WEBDAV") {
+    const client = createWebDavClient(node);
+    await client.copy(sourceRelativePath, destinationRelativePath);
+    const result = await client.stat(destinationRelativePath);
+    if (!result || result.isDirectory) throw new ValidationError(t("backend.storage.unsupportedNodeType"));
+    return { size: result.size };
+  }
+
   if (node.driver === "LOCAL") {
     const source = resolveStoragePathWithinBase(
       node.basePath,

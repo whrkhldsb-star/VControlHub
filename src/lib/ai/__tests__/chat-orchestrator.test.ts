@@ -114,6 +114,21 @@ describe("createAiChatResponse", () => {
     });
   });
 
+  it("closes and releases the upstream when the HTTP request is aborted", async () => {
+    const controller = new AbortController();
+    const cancel = vi.fn();
+    const body = new ReadableStream<Uint8Array>({ cancel });
+    mocks.sendChatRequest.mockResolvedValueOnce({ response: new Response(body), providerType: "OPENAI", startTime: Date.now() });
+    const response = await createAiChatResponse({ body: { conversationId: conversation.id, content: "question" }, session, locale: "en", signal: controller.signal });
+    const completion = response.text();
+    controller.abort();
+    expect(await completion).not.toContain('"type":"done"');
+    expect(cancel).toHaveBeenCalledTimes(1);
+    expect(body.locked).toBe(false);
+    expect(mocks.sendChatRequest.mock.calls[0]?.[2]).toBe(controller.signal);
+    expect(mocks.createHostedAction).not.toHaveBeenCalled();
+  });
+
   it("emits an error and closes the stream when final persistence fails", async () => {
     mocks.prisma.aiMessage.create.mockRejectedValueOnce(new Error("database unavailable"));
 
@@ -250,6 +265,24 @@ describe("createAiChatResponse", () => {
       }),
     );
     expect(mocks.createHostedAction).not.toHaveBeenCalled();
+  });
+
+  it("does not execute tool calls from a provider stream that failed", async () => {
+    mocks.getConversationById.mockResolvedValueOnce({ ...conversation, hostingEnabled: true });
+    mocks.sendChatRequest.mockResolvedValueOnce({
+      response: new Response(
+        'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"tool-1","function":{"name":"list_servers","arguments":"{}"}}]}}]}\n' +
+        'data: {"error":{"message":"provider interrupted"}}\n',
+      ),
+      providerType: "OPENAI", startTime: Date.now(),
+    });
+    const response = await createAiChatResponse({ body: { conversationId: conversation.id, content: "question" }, session, locale: "en" });
+    const body = await response.text();
+    expect(body).toContain('"type":"error"');
+    expect(mocks.parseToolCall).not.toHaveBeenCalled();
+    expect(mocks.createHostedAction).not.toHaveBeenCalled();
+    expect(mocks.executeSafeAction).not.toHaveBeenCalled();
+    expect(body).not.toContain('"type":"done"');
   });
 
   it("executes safe hosted tools and persists the result atomically", async () => {

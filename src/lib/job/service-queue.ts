@@ -61,64 +61,69 @@ export async function enqueueJob(
 export async function claimNextJob(options: ClaimJobOptions) {
   const now = options.now ?? new Date();
   const leaseExpiresAt = futureFrom(now, options.leaseMs ?? DEFAULT_LEASE_MS);
-  const typeFilter = options.types?.length ? { type: { in: options.types } } : {};
   const maxGlobal = config.job.maxConcurrentGlobal;
   const maxPerUser = config.job.maxConcurrentPerUser;
   const maxPerNode = config.job.maxConcurrentPerNode;
+  const agingSeconds = Math.max(1, config.job.priorityAgingSeconds ?? 60);
+  const runningWhere: Prisma.JobWhereInput = {
+    status: JobStatus.RUNNING,
+    OR: [{ leaseExpiresAt: null }, { leaseExpiresAt: { gte: now } }],
+  };
 
   return prisma.$transaction(async (tx) => {
+    // Serialize count-and-claim only when caps are enabled. Row locks alone
+    // cannot protect a shared budget when workers claim different jobs.
+    if (maxGlobal > 0 || maxPerUser > 0 || maxPerNode > 0) {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(45085, 0)`;
+    }
     if (maxGlobal > 0) {
-      const inFlight = await tx.job.count({ where: { status: JobStatus.RUNNING } });
+      const inFlight = await tx.job.count({ where: runningWhere });
       if (inFlight >= maxGlobal) return null;
     }
     const candidates: Array<NonNullable<Awaited<ReturnType<typeof tx.job.findFirst>>>> = [];
-    try {
       const typeClause =
         options.types && options.types.length > 0
-          ? Prisma.sql`AND type IN (${Prisma.join(options.types)})`
+          ? Prisma.sql`AND j.type IN (${Prisma.join(options.types)})`
           : Prisma.empty;
+      const active = Prisma.sql`r.status = 'RUNNING' AND (r."leaseExpiresAt" IS NULL OR r."leaseExpiresAt" >= ${now})`;
+      // Apply budgets BEFORE LIMIT. A saturated owner/node must not hide all
+      // eligible work behind the first few queue entries.
+      const userBudget = maxPerUser > 0 ? Prisma.sql`AND (j."createdBy" IS NULL OR
+        (SELECT count(*) FROM jobs r WHERE ${active} AND r."createdBy" = j."createdBy") < ${maxPerUser})` : Prisma.empty;
+      const nodeBudget = maxPerNode > 0 ? Prisma.sql`AND (j."targetStorageNodeId" IS NULL OR
+        (SELECT count(*) FROM jobs r WHERE ${active} AND r."targetStorageNodeId" = j."targetStorageNodeId") < ${maxPerNode})` : Prisma.empty;
       const rows = await tx.$queryRaw<Array<{ id: string }>>`
-        SELECT id FROM jobs
-        WHERE attempts < "maxAttempts"
+        SELECT j.id FROM jobs j
+        WHERE j.attempts < j."maxAttempts"
           AND (
-            (status = 'PENDING' AND "availableAt" <= ${now})
-            OR (status = 'RUNNING' AND "leaseExpiresAt" < ${now})
+            (j.status = 'PENDING' AND j."availableAt" <= ${now})
+            OR (j.status = 'RUNNING' AND j."leaseExpiresAt" < ${now})
           )
-          ${typeClause}
-        ORDER BY priority DESC, "availableAt" ASC, "createdAt" ASC
-        FOR UPDATE SKIP LOCKED
-        LIMIT 8
+          ${typeClause} ${userBudget} ${nodeBudget}
+        ORDER BY (j.priority::numeric + floor(greatest(extract(epoch FROM (${now}::timestamptz - j."availableAt")), 0) / ${agingSeconds})) DESC,
+          (SELECT count(*) FROM jobs r WHERE ${active}
+            AND ((j."teamId" IS NOT NULL AND r."teamId" = j."teamId")
+              OR (j."teamId" IS NULL AND r."teamId" IS NULL AND r."createdBy" IS NOT DISTINCT FROM j."createdBy"))) ASC,
+          j."availableAt" ASC, j."createdAt" ASC, j.id ASC
+        FOR UPDATE OF j SKIP LOCKED
+        LIMIT 1
       `;
       for (const row of rows) {
         const full = await tx.job.findUnique({ where: { id: row.id } });
         if (full) candidates.push(full);
       }
-    } catch {
-      const one = await tx.job.findFirst({
-        where: {
-          ...typeFilter,
-          OR: [
-            { status: JobStatus.PENDING, availableAt: { lte: now } },
-            { status: JobStatus.RUNNING, leaseExpiresAt: { lt: now } },
-          ],
-          attempts: { lt: prisma.job.fields.maxAttempts },
-        },
-        orderBy: [{ priority: "desc" }, { availableAt: "asc" }, { createdAt: "asc" }],
-      });
-      if (one) candidates.push(one);
-    }
 
     for (const candidate of candidates) {
       if (maxPerUser > 0 && candidate.createdBy) {
         const inFlightForUser = await tx.job.count({
-          where: { status: JobStatus.RUNNING, createdBy: candidate.createdBy },
+          where: { ...runningWhere, createdBy: candidate.createdBy },
         });
         if (inFlightForUser >= maxPerUser) continue;
       }
       if (maxPerNode > 0 && candidate.targetStorageNodeId) {
         const inFlightForNode = await tx.job.count({
           where: {
-            status: JobStatus.RUNNING,
+            ...runningWhere,
             targetStorageNodeId: candidate.targetStorageNodeId,
           },
         });

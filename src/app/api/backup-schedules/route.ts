@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 
 import { withApiRoute } from "@/lib/http/api-guard";
@@ -26,7 +27,7 @@ export async function POST(request: Request) {
       permission: "backup:create",
       rateLimit: GENERAL_WRITE_LIMIT,
       errorStatus: 400,
-      errorMessage: "Failed to create backup schedule",
+      errorMessage: apiCopy("apiCopy.failed.to.create.backup.schedule.e2ba58e9"),
       bodySchema: createBackupScheduleSchema,
     },
     async ({ session, body }) => {
@@ -51,7 +52,7 @@ export async function PATCH(request: Request) {
       permission: "backup:create",
       rateLimit: GENERAL_WRITE_LIMIT,
       errorStatus: 400,
-      errorMessage: "Failed to update backup schedule",
+      errorMessage: apiCopy("apiCopy.failed.to.update.backup.schedule.4fa77962"),
       bodySchema: patchBackupScheduleSchema,
     },
     async ({ session, body }) => {

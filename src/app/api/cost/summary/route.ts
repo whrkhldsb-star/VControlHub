@@ -1,3 +1,4 @@
+import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * TR-031 E01: /api/cost/summary?month=YYYY-MM[&currency=CNY]
  *
@@ -30,7 +31,7 @@ export async function GET(request: Request) {
 			rateLimit: GENERAL_READ_LIMIT,
 			querySchema: summaryQuerySchema,
 			errorStatus: 500,
-			errorMessage: "Failed to load cost summary",
+			errorMessage: apiCopy("apiCopy.failed.to.load.cost.summary.bb53fb4d"),
 		},
 		async ({ session, query }) => {
 			const summary = await summarizeMonth(query.month, query.currency, session);
@@ -38,4 +39,3 @@ export async function GET(request: Request) {
 		},
 	);
 }
-

@@ -41,8 +41,8 @@ export function AiSidebar({
           {/* Header */}
           <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--accent)]">AI</p>
-              <h1 className="text-sm font-semibold text-[var(--text-primary)]">{t("aiPage.sidebarTitle")}</h1>
+              <p className="text-xs font-semibold uppercase  text-[var(--accent)]">AI</p>
+              <h2 className="text-base font-semibold text-[var(--text-primary)]">{t("aiPage.sidebarTitle")}</h2>
             </div>
             <ActionButton variant="primary"
               onClick={onNewConv}
@@ -60,12 +60,15 @@ export function AiSidebar({
             {conversations.map((conv) => (
               <div
                 key={conv.id}
-                className={`group flex cursor-pointer items-center gap-2 rounded-xl px-3 py-2 transition ${
+                className={`group flex items-center gap-2 rounded-xl px-3 py-2 transition ${
                   activeConvId === conv.id
                     ? "border border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]"
                     : "border border-transparent text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
  }`}
-                onClick={() => {
+              >
+                <button type="button" aria-pressed={activeConvId === conv.id}
+                  className="flex min-h-11 min-w-0 flex-1 items-center gap-2 text-left"
+                  onClick={() => {
                   onSelectConv(conv.id);
                   if (window.matchMedia?.("(max-width: 767px)").matches) {
                     onToggleSidebar(false);
@@ -75,7 +78,8 @@ export function AiSidebar({
                 <svg className="h-4 w-4 flex-shrink-0 opacity-50" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                 </svg>
-                <span className="flex-1 truncate text-xs font-medium">{conv.title}</span>
+                <span className="flex-1 truncate text-sm font-medium">{conv.title}</span>
+                </button>
                 <button
                   type="button"
                   onClick={(e) => {

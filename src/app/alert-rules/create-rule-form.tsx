@@ -224,7 +224,7 @@ export function CreateRuleForm({
 					/>
 				</FormField>
 				<div className="space-y-1.5">
-					<label className="text-xs font-medium tracking-wide text-[var(--text-primary)]/70">
+					<label className="text-xs font-medium  text-[var(--text-primary)]/70">
 						{t("alertRulesPage.createForm.targetNodes")}
 					</label>
 					<div className="flex flex-wrap gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-2">
@@ -238,7 +238,7 @@ export function CreateRuleForm({
 									type="button"
 									onClick={() => setSelectedServerIds([])}
 									className={cn(
-										"rounded-lg border px-2.5 py-1 text-[11px] transition",
+										"rounded-lg border px-2.5 py-1 text-xs transition",
 										selectedServerIds.length === 0 ? chipActive : chipIdle,
 									)}
 								>
@@ -250,7 +250,7 @@ export function CreateRuleForm({
 										type="button"
 										onClick={() => toggleServer(server.id)}
 										className={cn(
-											"rounded-lg border px-2.5 py-1 text-[11px] transition",
+											"rounded-lg border px-2.5 py-1 text-xs transition",
 											selectedServerIds.includes(server.id) ? chipActive : chipIdle,
 										)}
 									>
@@ -264,7 +264,7 @@ export function CreateRuleForm({
 			</div>
 
 			<div className="space-y-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-3">
-				<label className="text-xs font-medium tracking-wide text-[var(--text-primary)]/70">
+				<label className="text-xs font-medium  text-[var(--text-primary)]/70">
 					{t("alertRulesPage.createForm.playbooks")}
 				</label>
 				<p className="text-xs text-[var(--text-muted)]">
@@ -283,7 +283,7 @@ export function CreateRuleForm({
 								onClick={() => togglePlaybook(playbook.id)}
 								disabled={!playbook.enabled}
 								className={cn(
-									"rounded-lg border px-2.5 py-1 text-[11px] transition disabled:cursor-not-allowed disabled:opacity-50",
+									"rounded-lg border px-2.5 py-1 text-xs transition disabled:cursor-not-allowed disabled:opacity-50",
 									selectedPlaybookIds.includes(playbook.id) ? chipActive : chipIdle,
 								)}
 							>
@@ -298,7 +298,7 @@ export function CreateRuleForm({
 			</div>
 
 			<div className="space-y-1.5">
-				<label className="text-xs font-medium tracking-wide text-[var(--text-primary)]/70">
+				<label className="text-xs font-medium  text-[var(--text-primary)]/70">
 					{t("alertRulesPage.createForm.channels")}
 				</label>
 				<div className="flex flex-wrap gap-2">

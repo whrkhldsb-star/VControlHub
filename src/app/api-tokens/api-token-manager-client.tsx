@@ -127,10 +127,10 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
               <p className="mt-1 text-sm text-[var(--warning)]/75">{t("apiTokensPage.plaintext.copyHint")}</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <ActionButton variant="outline" onClick={() => navigator.clipboard?.writeText(createdPlaintext)} className="!px-3 !py-2 !text-xs !font-medium">
+              <ActionButton variant="outline" onClick={() => navigator.clipboard?.writeText(createdPlaintext)} className="!px-3 !py-2 !text-sm !font-medium">
                 {t("apiTokensPage.plaintext.copy")}
               </ActionButton>
-              <ActionButton variant="secondary" onClick={() => setCreatedPlaintext(null)} className="!px-3 !py-2 !text-xs !font-medium">
+              <ActionButton variant="secondary" onClick={() => setCreatedPlaintext(null)} className="!px-3 !py-2 !text-sm !font-medium">
                 {t("apiTokensPage.plaintext.dismiss")}
               </ActionButton>
             </div>
@@ -155,7 +155,7 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
           </FormGrid>
 
           <div className="space-y-2">
-            <div className="text-xs font-medium tracking-wide text-[var(--text-primary)]/70">{t("apiTokensPage.create.scopesLabel")}</div>
+            <div className="text-xs font-medium  text-[var(--text-primary)]/70">{t("apiTokensPage.create.scopesLabel")}</div>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {allowedScopes.map((scope) => (
                 <CheckboxField key={scope} aria-label={scope} checked={selectedScopes.includes(scope)} onChange={() => toggleScope(scope)} label={<span className="font-mono text-xs">{scope}</span>} hint={scopeLabel(t, scope)} className={`rounded-xl border px-3 py-2 transition ${selectedScopes.includes(scope) ? "border-[var(--accent-border)] bg-[var(--accent-bg)]" : "border-[var(--border)] bg-[var(--surface-elevated)] hover:bg-[var(--surface-hover)]"}`} />
@@ -192,7 +192,7 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
                       </div>
                       <p className="mt-2 font-mono text-xs text-[var(--text-secondary)]">{token.tokenPrefix}…{token.tokenSuffix}</p>
                       <div className="mt-3 flex flex-wrap gap-1.5">
-                        {token.scopes.map((scope) => <span key={scope} className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-2 py-0.5 font-mono text-[11px] text-[var(--text-secondary)]">{scope}</span>)}
+                        {token.scopes.map((scope) => <span key={scope} className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-2 py-0.5 font-mono text-xs text-[var(--text-secondary)]">{scope}</span>)}
                       </div>
                       <dl className="mt-3 grid gap-2 text-xs text-[var(--text-muted)] sm:grid-cols-3">
                         <div><dt className="text-[var(--text-muted)]">{t("apiTokensPage.list.createdAt")}</dt><dd>{formatDateTime(token.createdAt, locale)}</dd></div>
@@ -201,7 +201,7 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
                       </dl>
                     </div>
                     {!token.revokedAt && (
-                      <ActionButton variant="danger" aria-label={t("apiTokensPage.revoke.aria", { name: token.name })} disabled={revokingId === token.id} onClick={() => setTokenPendingRevoke(token)} className="!px-4 !py-2 !text-xs !font-medium disabled:opacity-60">
+                      <ActionButton variant="danger" aria-label={t("apiTokensPage.revoke.aria", { name: token.name })} disabled={revokingId === token.id} onClick={() => setTokenPendingRevoke(token)} className="!px-4 !py-2 !text-sm !font-medium disabled:opacity-60">
                         {revokingId === token.id ? t("apiTokensPage.revoke.revoking") : t("apiTokensPage.revoke.button")}
                       </ActionButton>
                     )}
