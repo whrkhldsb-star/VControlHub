@@ -1,3 +1,4 @@
+vi.mock("@/lib/concurrency/advisory-lock", () => ({tryAcquireAdvisoryLock: async () => async () => {}}));
 import { PassThrough } from "node:stream";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -16,6 +17,7 @@ const {
   prismaMock: {
     fileEntry: {
       findFirst: vi.fn(),
+      findMany: vi.fn(async () => []),
     },
   },
   spawnMock: vi.fn(),

@@ -121,6 +121,18 @@ describe.skipIf(!process.env.VCH_TEST_SSH_CONFIG)("copyFileEntry over isolated O
     expect(await readFile(path.join(root, renamed.path), "utf8")).toBe("source bytes");
     expect((await readdir(path.join(root, "destination"))).some((name) => name.startsWith(".vch-"))).toBe(false);
   }, 30000);
+  it("keeps remote directory creation unconfirmed if indexing fails", async () => {
+    const server = JSON.parse(await readFile(process.env.VCH_TEST_SSH_CONFIG!, "utf8"));
+    expect(server.host).toBe("127.0.0.1");
+    expect(server.port).not.toBe(22);
+    await mkdir(path.join(root, "folder"));
+    mocks.first.mockResolvedValue({id:"source",storageNodeId:"node",relativePath:"folder",name:"folder",entryType:"DIRECTORY",storageNode:{id:"node",driver:"SFTP",basePath:root,server}});
+    mocks.upsert.mockRejectedValueOnce(new Error("database unavailable"));
+    const { FileOperationUncertainError } = await import("../operation-schema");
+    await expect(copy()).rejects.toBeInstanceOf(FileOperationUncertainError);
+    expect(await readdir(path.join(root,"destination"))).toEqual(["folder"]);
+    expect(index.has("destination/folder")).toBe(false);
+  });
   it("copies remote nested files and empty directories", async () => {
     const server = JSON.parse(await readFile(process.env.VCH_TEST_SSH_CONFIG!, "utf8"));
     expect(server.host).toBe("127.0.0.1");
@@ -277,4 +289,30 @@ describe("copyFileEntry with real local files", () => {
     );
     expect(copyCandidateName("folder.name", 2, true)).toBe("folder.name (2)");
   });
+});
+
+// Regression: preserve the filesystem/index invariant on failed directory copy.
+it("directory metadata failure must roll back created root or be unconfirmed", async () => {
+  await mkdir(path.join(root, "folder"));
+  mocks.first.mockResolvedValue({ id: "source", storageNodeId: "node", relativePath: "folder", name: "folder", entryType: "DIRECTORY", storageNode: { id: "node", driver: "LOCAL", basePath: root } });
+  mocks.upsert.mockRejectedValueOnce(new Error("database offline"));
+  const { FileOperationUncertainError } = await import("../operation-schema");
+  let failure: unknown;
+  try { await copy(); } catch (error) { failure = error; }
+  const remaining = await readdir(path.join(root, "destination"));
+  expect(remaining.length === 0 || failure instanceof FileOperationUncertainError).toBe(true);
+});
+
+it.each(["contents", "index"])("preserves a newly created directory when %s prevents safe compensation", async (conflict) => {
+  await mkdir(path.join(root, "folder"));
+  mocks.first.mockResolvedValue({ id: "source", storageNodeId: "node", relativePath: "folder", name: "folder", entryType: "DIRECTORY", storageNode: { id: "node", driver: "LOCAL", basePath: root } });
+  mocks.upsert.mockImplementationOnce(async () => {
+    if (conflict === "contents") await writeFile(path.join(root, "destination/folder/new.txt"), "preserve");
+    else index.set("destination/folder", {id:"committed", relativePath:"destination/folder",name:"folder",entryType:"DIRECTORY",isDeleted:false});
+    throw new Error("database response lost");
+  });
+  const { FileOperationUncertainError } = await import("../operation-schema");
+  await expect(copy()).rejects.toBeInstanceOf(FileOperationUncertainError);
+  expect(await readdir(path.join(root, "destination"))).toContain("folder");
+  if (conflict === "contents") expect(await readFile(path.join(root, "destination/folder/new.txt"), "utf8")).toBe("preserve");
 });

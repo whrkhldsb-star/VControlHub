@@ -92,6 +92,21 @@ describe("moveFileAction", () => {
     moveBackingObjectMock.mockResolvedValue(undefined);
   });
 
+  it("rollback failure must retain an unconfirmed outcome", async () => {
+    mockEntryLookup(baseEntry);
+    moveBackingObjectMock.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error("rollback connection lost"));
+    fileEntryMock.update.mockRejectedValueOnce(new Error("database offline"));
+    const form = new FormData();
+    form.set("fileEntryId", "file-1");
+    form.set("targetDir", "team-b");
+    const { executeMoveFile } = await import("@/lib/files/move-operation");
+    const { FileOperationUncertainError } = await import("@/lib/files/operation-schema");
+    let failure: unknown;
+    try { await executeMoveFile({userId: "user-1", currentTeamId: "team-1", roles: ["operator"]} as never, form); } catch (error) { failure = error; }
+    expect(moveBackingObjectMock).toHaveBeenCalledTimes(2);
+    expect(failure).toBeInstanceOf(FileOperationUncertainError);
+  });
+
   it("validates destination ACL before updating DB", async () => {
     mockEntryLookup({
       ...baseEntry,
@@ -365,7 +380,7 @@ describe("moveFileAction", () => {
     );
   });
 
-  it("surfaces SFTP adapter errors with a remote driver label", async () => {
+  it("keeps untyped remote failures unconfirmed instead of offering a replay", async () => {
     mockEntryLookup(baseEntry);
     moveBackingObjectMock.mockRejectedValueOnce(new Error("permission denied"));
 
@@ -375,7 +390,7 @@ describe("moveFileAction", () => {
 
     const result = await moveFileAction(null, formData);
 
-    expect(result).toEqual({ error: "远端文件移动失败：permission denied" });
+    expect(result).toMatchObject({ needsReconcile: true, error: expect.stringContaining("permission denied") });
     expect(prisma.fileEntry.update).not.toHaveBeenCalled();
   });
 

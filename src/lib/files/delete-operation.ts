@@ -58,6 +58,7 @@ export async function executeDeleteFile(
     const entry = await prisma.fileEntry.findFirst({
       where: {
         id: fileEntryId,
+        isDeleted: false,
         storageNode: {
           ...teamWhere(session),
         },
@@ -97,6 +98,14 @@ export async function executeDeleteFile(
     }
     release = await tryAcquireAdvisoryLock("storage-file-operation", entry.storageNodeId);
     if (!release) throw new Error(apiCopy("apiCopy.files.op.busy"));
+    const current = await prisma.fileEntry.findFirst({
+      where: { id: fileEntryId, isDeleted: false, storageNode: teamWhere(session) },
+      select: { relativePath: true, storageNodeId: true, entryType: true },
+    });
+    if (!current || current.relativePath !== entry.relativePath ||
+        current.storageNodeId !== entry.storageNodeId || current.entryType !== entry.entryType) {
+      throw new Error(apiCopy("apiCopy.files.op.changed"));
+    }
 
     const deleteAccess = await assertStorageAccess({
       session,

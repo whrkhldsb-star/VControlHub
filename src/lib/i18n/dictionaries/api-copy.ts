@@ -1,6 +1,8 @@
 /** Typed API/backend copy. English remains stable outside a request locale. */
 export const en = {
   "apiCopy.files.op.failedCount": "{v0} item(s) failed",
+  "apiCopy.files.op.moveUnconfirmed": "Move result is unconfirmed. Check source /{v0} and destination /{v1} before trying again: {v2}",
+  "apiCopy.files.op.directoryUnconfirmed": "Directory copy result is unconfirmed. Inspect /{v0} before trying again: {v1}",
   "apiCopy.files.op.recovery": "Recovery needs inspection. Backup: {v0}; destination: {v1}; reason: {v2}",
   "apiCopy.files.op.partial": "{v0} entries were copied before the operation stopped. Inspect the destination before retrying: {v1}",
   "apiCopy.files.op.denied": "Operation not allowed",
@@ -22,7 +24,7 @@ export const en = {
   "apiCopy.files.op.names": "No available destination name",
   "apiCopy.files.op.ancestor": "Cannot overwrite a source ancestor",
   "apiCopy.files.op.quota": "Quota exceeded",
-  "apiCopy.files.op.changed": "Source changed during copy",
+  "apiCopy.files.op.changed": "Source changed during operation",
   "apiCopy.files.op.revoked": "Operation permission revoked",
   "apiCopy.files.op.membership": "Workspace membership revoked",
   "apiCopy.files.op.lease": "Job lease lost",
@@ -403,6 +405,8 @@ export const en = {
 
 export const zh: Record<keyof typeof en, string> = {
   "apiCopy.files.op.failedCount": "{v0} 个条目失败或结果待确认",
+  "apiCopy.files.op.moveUnconfirmed": "移动结果待确认，请检查源位置 /{v0} 和目标位置 /{v1}，核对完成前不要重试：{v2}",
+  "apiCopy.files.op.directoryUnconfirmed": "目录复制结果待确认，请检查 /{v0}，核对完成前不要重试：{v1}",
   "apiCopy.files.op.recovery": "需要检查恢复结果。备份位置：{v0}；目标位置：{v1}；原因：{v2}",
   "apiCopy.files.op.partial": "操作中断前已复制 {v0} 个条目，请检查目标目录后再操作：{v1}",
   "apiCopy.files.op.denied": "无权执行该操作",
@@ -424,7 +428,7 @@ export const zh: Record<keyof typeof en, string> = {
   "apiCopy.files.op.names": "无法生成可用的目标名称",
   "apiCopy.files.op.ancestor": "不能覆盖源目录的上级目录",
   "apiCopy.files.op.quota": "存储配额不足",
-  "apiCopy.files.op.changed": "复制期间源文件发生变化",
+  "apiCopy.files.op.changed": "操作期间源文件发生变化",
   "apiCopy.files.op.revoked": "操作权限已被撤销",
   "apiCopy.files.op.membership": "工作区成员资格已被撤销",
   "apiCopy.files.op.lease": "任务执行租约已失效",

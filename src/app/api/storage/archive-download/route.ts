@@ -1,3 +1,4 @@
+import { openManagedArchive } from "@/lib/storage/archive-access";
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { stat } from "node:fs/promises";
 import path from "node:path";
@@ -159,7 +160,10 @@ export async function GET(request: Request) {
       if (!directoryStat?.isDirectory()) {
         throw new NotFoundError(apiCopy("apiCopy.local.directory.not.found.or.cannot.be.read.fddf033b"));
       }
-      const stream = streamLocalTarGz(resolved.path, path.basename(resolved.path));
+      const stream = await openManagedArchive({
+        storageNodeId: entry.storageNode.id, relativePath: entry.relativePath, signal: request.signal,
+        open: (excluded) => streamLocalTarGz(resolved.path, path.basename(resolved.path), excluded),
+      });
       return archiveStreamResponse(stream, archiveName);
     }
 
@@ -197,7 +201,11 @@ export async function GET(request: Request) {
         readyTimeout: 15000,
         timeout: 10000,
       });
-      const stream = await streamRemoteTarGz(client, remotePath);
+      const archiveClient = client;
+      const stream = await openManagedArchive({
+        storageNodeId: entry.storageNode.id, relativePath: entry.relativePath, signal: request.signal,
+        open: (excluded) => streamRemoteTarGz(archiveClient, remotePath, excluded),
+      });
       closeSshClientOnStreamEnd(stream, client);
       client = null;
       return archiveStreamResponse(stream, archiveName);

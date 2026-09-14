@@ -231,14 +231,17 @@ export function useBatchMove(input: UseBatchMoveInput) {
         formData.set("currentRelativePath", file.relativePath);
         formData.set("storageNodeId", file.storageNodeId);
         let error: string | undefined;
+        let needsReconcile = false;
         try {
-          error = (await moveFileAction(null, formData))?.error;
+          const outcome = await moveFileAction(null, formData);
+          error = outcome?.error;
+          needsReconcile = Boolean(outcome?.needsReconcile);
         } catch (cause) {
           error = getErrorMessage(cause, t("filesPage.move.errorMoveFailed"));
         }
         completed++;
         if (error) {
-          failedIds.push(id);
+          if (!needsReconcile) failedIds.push(id);
           errors.push(`${file.name}: ${error}`);
         }
         setMoveProgress({

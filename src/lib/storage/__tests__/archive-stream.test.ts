@@ -245,3 +245,27 @@ describe("closeSshClientOnStreamEnd", () => {
 		expect(client.end).toHaveBeenCalledTimes(1);
 	});
 });
+
+it("cancellation escalates if SIGTERM is sent but child remains alive", async () => {
+  vi.useFakeTimers();
+  armSpawn();
+  const stream = streamLocalTarGz("/srv/data/reports", "reports");
+  const child = mocks.lastChild!;
+  child.kill.mockImplementation(() => { child.killed = true; return true; });
+  stream.destroy?.();
+  await vi.advanceTimersByTimeAsync(2100);
+  expect(child.kill).toHaveBeenCalledWith("SIGKILL");
+});
+
+it("clears cancellation escalation when the child exits during the grace period", async () => {
+  vi.useFakeTimers();
+  armSpawn();
+  const stream = streamLocalTarGz("/srv/data/reports", "reports");
+  const child = mocks.lastChild!;
+  child.kill.mockImplementation(() => { child.killed = true; return true; });
+  stream.destroy?.();
+  child.exitCode = 0;
+  child.emit("exit", 0);
+  await vi.advanceTimersByTimeAsync(2100);
+  expect(child.kill).toHaveBeenCalledTimes(1);
+});

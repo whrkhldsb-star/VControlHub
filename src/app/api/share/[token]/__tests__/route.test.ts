@@ -1,3 +1,6 @@
+vi.mock("@/lib/storage/archive-access", () => ({
+  openManagedArchive: async ({open}: {open: (excluded: string[]) => unknown}) => open([]),
+}));
 import { Readable } from "node:stream";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 

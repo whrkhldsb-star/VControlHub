@@ -152,3 +152,17 @@ describe("durable file operation worker", () => {
     expect(mocks.copy).not.toHaveBeenCalled();
   });
 });
+
+it("keeps an uncertain move excluded from normal failed-item retries", async () => {
+  const movePayload = { ...payload, action: "move" };
+  mocks.claim.mockResolvedValue({ id: "job", payload: movePayload, createdBy: "user", teamId: "original-team" });
+  mocks.latest.mockResolvedValue({ status: "RUNNING", payload: movePayload });
+  mocks.move.mockRejectedValueOnce(new FileOperationUncertainError("inspect both paths")).mockResolvedValueOnce({success:"ok"});
+  await runFileOperationWorkerOnce();
+  expect(mocks.checkpoint.mock.calls.at(-1)?.[0].data.result.items).toEqual([
+    expect.objectContaining({id:"a",state:"running",error:"inspect both paths"}),
+    expect.objectContaining({id:"b",state:"success"}),
+  ]);
+  expect(mocks.fail).toHaveBeenCalled();
+  expect(mocks.complete).not.toHaveBeenCalled();
+});

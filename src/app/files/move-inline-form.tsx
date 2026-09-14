@@ -113,7 +113,10 @@ export function MoveInlineForm({
   return (
     <form
       action={formAction}
-      onSubmit={() => { submittedRef.current = true; }}
+      onSubmit={(event) => {
+        if (state.needsReconcile) { event.preventDefault(); return; }
+        submittedRef.current = true;
+      }}
       className="flex flex-wrap items-center gap-2"
     >
       <input type="hidden" name="fileEntryId" value={fileEntryId} />
@@ -137,9 +140,10 @@ export function MoveInlineForm({
       </span>
       <ActionButton variant="outline"
         type="submit"
-        disabled={pending || !targetDir.trim() || targetDir.trim() === currentDir} className="!px-3 !py-1.5 !text-sm disabled:cursor-not-allowed disabled:opacity-50">
+        disabled={pending || state.needsReconcile || !targetDir.trim() || targetDir.trim() === currentDir} className="!px-3 !py-1.5 !text-sm disabled:cursor-not-allowed disabled:opacity-50">
         {pending ? t("common.executing") : t("common.confirm")}
       </ActionButton>
+      {state.needsReconcile ? <p role="alert" className="w-full text-xs text-[var(--danger)]">{state.error}</p> : null}
       <ActionButton variant="secondary"
         onClick={handleCancel}
         disabled={pending} className="!px-3 !py-1.5 !text-sm disabled:cursor-not-allowed disabled:opacity-50">

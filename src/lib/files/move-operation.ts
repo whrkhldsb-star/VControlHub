@@ -13,14 +13,15 @@ import {
   normalizeStorageTargetDirectory,
 } from "@/lib/storage/path-utils";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { FileOperationUncertainError } from "./operation-schema";
 
-export type MoveFileActionState = { error?: string; success?: string };
+export type MoveFileActionState = { error?: string; success?: string; needsReconcile?: boolean };
 
 export async function executeMoveFile(
   session: SessionPayload,
   formData: FormData,
   locale?: Locale,
-) {
+): Promise<MoveFileActionState> {
   const tr = await serviceT(locale);
   let release: (() => Promise<void>) | null = null;
   try {
@@ -184,6 +185,14 @@ export async function executeMoveFile(
         newRelativePath,
       });
     } catch (error) {
+      // A remote rename may have committed before its acknowledgement was lost.
+      // Do not replay it against a path which might now contain another object.
+      if (entry.storageNode.driver !== "LOCAL") {
+        throw new FileOperationUncertainError(apiCopy("apiCopy.files.op.moveUnconfirmed", {
+          v0: normalizedCurrentPath.path, v1: newRelativePath,
+          v2: getErrorMessage(error, tr("filesPage.move.errorUnknown")),
+        }));
+      }
       const driverLabel =
         entry.storageNode.driver === "LOCAL" ? tr("filesPage.move.driverLocal") : tr("filesPage.move.driverRemote");
       return {
@@ -269,9 +278,10 @@ export async function executeMoveFile(
           newRelativePath: normalizedCurrentPath.path,
         });
       } catch (compensationError) {
-        throw new Error(
-          `Database update failed and backing move rollback also failed: ${getErrorMessage(databaseError, String(databaseError))}; rollback: ${getErrorMessage(compensationError, String(compensationError))}`,
-        );
+        throw new FileOperationUncertainError(apiCopy("apiCopy.files.op.moveUnconfirmed", {
+          v0: normalizedCurrentPath.path, v1: newRelativePath,
+          v2: `${getErrorMessage(databaseError, String(databaseError))}; ${getErrorMessage(compensationError, String(compensationError))}`,
+        }));
       }
       throw databaseError;
     }
@@ -280,6 +290,7 @@ export async function executeMoveFile(
       success: tr("filesPage.move.success", { path: `/${newRelativePath}` }),
     } satisfies MoveFileActionState;
   } catch (error) {
+    if (error instanceof FileOperationUncertainError) throw error;
     return {
       error: getErrorMessage(error, tr("filesPage.move.errorMoveFailed")),
     } satisfies MoveFileActionState;

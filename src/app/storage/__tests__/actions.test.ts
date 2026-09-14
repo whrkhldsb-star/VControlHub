@@ -404,7 +404,7 @@ describe("SFTP file entry actions", () => {
   });
 
   it("soft-deletes the indexed SFTP entry without removing remote backing (recycle bin)", async () => {
-    prismaMock.fileEntry.findFirst.mockResolvedValueOnce(sftpEntry());
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce(sftpEntry()).mockResolvedValueOnce(sftpEntry());
     prismaMock.fileEntry.update.mockResolvedValueOnce({ id: "entry-1" });
 
     const result = await deleteFileEntryAction(null, entryForm("entry-1"));
@@ -422,7 +422,7 @@ describe("SFTP file entry actions", () => {
   });
 
 	it("revokes direct and parent-directory shares when a file enters the recycle bin", async () => {
-	  prismaMock.fileEntry.findFirst.mockResolvedValueOnce(sftpEntry());
+	  prismaMock.fileEntry.findFirst.mockResolvedValueOnce(sftpEntry()).mockResolvedValueOnce(sftpEntry());
 	  prismaMock.shareLink.findMany.mockResolvedValueOnce([
 		{ id: "share-file", path: "docs/old.txt", entryType: "FILE" },
 		{ id: "share-parent", path: "docs", entryType: "DIRECTORY" },
@@ -438,7 +438,7 @@ describe("SFTP file entry actions", () => {
 	});
 
   it("does not delete the backing file when recycle-bin indexing fails", async () => {
-    prismaMock.fileEntry.findFirst.mockResolvedValueOnce(sftpEntry());
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce(sftpEntry()).mockResolvedValueOnce(sftpEntry());
     prismaMock.fileEntry.update.mockRejectedValueOnce(new Error("database unavailable"));
 
     const result = await deleteFileEntryAction(null, entryForm("entry-1"));
@@ -660,7 +660,7 @@ describe("SFTP file entry actions", () => {
   });
 
   it("soft-deletes LOCAL entries without unlinking the disk file (recycle bin)", async () => {
-    prismaMock.fileEntry.findFirst.mockResolvedValueOnce({
+    prismaMock.fileEntry.findFirst.mockResolvedValue({
       id: "local-file",
       name: "report.txt",
       entryType: "FILE",

@@ -1,3 +1,4 @@
+import { openManagedArchive } from "@/lib/storage/archive-access";
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import path from "node:path";
@@ -274,7 +275,12 @@ export async function GET(
 				if (share.entryType !== "DIRECTORY" || !fileStat.isDirectory()) {
 					return denyAfterClaim(apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.notPackagable", locale), status: 400 }));
 				}
-				const stream = streamLocalTarGz(absolutePath, path.basename(absolutePath));
+				const stream = await openManagedArchive({
+					storageNodeId: node.id,
+					relativePath: targetPath,
+					signal: request.signal,
+					open: (excluded) => streamLocalTarGz(absolutePath, path.basename(absolutePath), excluded),
+				});
 				return archiveStreamResponse(stream, safeArchiveName(share.name || path.basename(absolutePath)));
 			}
 			if (!fileStat.isFile()) return denyAfterClaim(apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.notDownloadable", locale), status: 400 }));
@@ -336,7 +342,13 @@ export async function GET(
 				if (share.entryType !== "DIRECTORY") {
 					return denyAfterClaim(apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.notPackagable", locale), status: 400 }));
 				}
-				const stream = await streamRemoteTarGz(client, remotePath);
+				const archiveClient = client;
+				const stream = await openManagedArchive({
+					storageNodeId: node.id,
+					relativePath: targetPath,
+					signal: request.signal,
+					open: (excluded) => streamRemoteTarGz(archiveClient, remotePath, excluded),
+				});
 				closeSshClientOnStreamEnd(stream, client);
 				client = null;
 				return archiveStreamResponse(stream, safeArchiveName(share.name || fileName));

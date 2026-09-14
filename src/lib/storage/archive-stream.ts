@@ -53,7 +53,7 @@ function killSpawnedProcess(child: ReturnType<typeof spawn>, reason: string) {
 	}
 	// Escalate if the child ignores SIGTERM (e.g. stuck tar/gzip).
 	const timer = setTimeout(() => {
-		if (child.exitCode !== null || child.signalCode !== null || child.killed) return;
+		if (child.exitCode !== null || child.signalCode !== null) return;
 		try {
 			child.kill("SIGKILL");
 		} catch (error) {
@@ -64,16 +64,31 @@ function killSpawnedProcess(child: ReturnType<typeof spawn>, reason: string) {
 		}
 	}, 2_000);
 	timer.unref?.();
+	child.once("exit", () => clearTimeout(timer));
 }
 
-export function streamLocalTarGz(directoryPath: string, entryName: string) {
-	const tar = spawn("tar", ["-czf", "-", "-C", path.dirname(directoryPath), "--", entryName], {
-		stdio: ["ignore", "pipe", "pipe"],
+
+function archiveExclusionInput(excluded: string[]) {
+	if (excluded.some((name) => /[\r\n\0]/.test(name))) throw new Error("Invalid archive exclusion");
+	const input = excluded.length ? `${excluded.join("\n")}\n` : "";
+	if (Buffer.byteLength(input) > 1024 * 1024) throw new Error("Archive exclusion list is too large");
+	return input;
+}
+const EXCLUDE_OPTIONS = ["--no-wildcards", "--anchored", "--exclude-from=-"];
+
+export function streamLocalTarGz(directoryPath: string, entryName: string, excluded: string[] = []) {
+	const input = archiveExclusionInput(excluded);
+	const tar = spawn("tar", ["-czf", "-", "-C", path.dirname(directoryPath), ...(input ? EXCLUDE_OPTIONS : []), "--", entryName], {
+		stdio: [input ? "pipe" : "ignore", "pipe", "pipe"],
 	});
-	tar.stderr.on("data", (chunk) => {
+	if (input) {
+		tar.stdin?.on("error", (error) => destroyReadableWithError(tar.stdout!, error));
+		tar.stdin?.end(input);
+	}
+	tar.stderr!.on("data", (chunk) => {
 		logger.warn("local archive tar stderr", { message: String(chunk).slice(0, 500) });
 	});
-	const out = tar.stdout;
+	const out = tar.stdout!;
 	// Client abort / Response cancel destroys stdout via nodeStreamToWeb; kill the
 	// tar child so cancelled downloads do not leave orphan tar/gzip processes.
 	const originalDestroy = out.destroy.bind(out);
@@ -109,11 +124,12 @@ export function connectArchiveSsh(config: ConnectConfig | SshConnectionParams): 
 	return connectSsh(config);
 }
 
-export function streamRemoteTarGz(client: Client, remoteDirectoryPath: string) {
+export function streamRemoteTarGz(client: Client, remoteDirectoryPath: string, excluded: string[] = []) {
+	const input = archiveExclusionInput(excluded);
 	return new Promise<NodeJS.ReadableStream>((resolve, reject) => {
 		const parent = path.posix.dirname(remoteDirectoryPath);
 		const name = path.posix.basename(remoteDirectoryPath);
-		const command = `tar -czf - -C ${shellQuote(parent)} -- ${shellQuote(name)}`;
+		const command = `tar -czf - -C ${shellQuote(parent)}${input ? ` ${EXCLUDE_OPTIONS.join(" ")}` : ""} -- ${shellQuote(name)}`;
 		client.exec(command, (err, stream) => {
 			if (err) return reject(err);
 			stream.stderr.on("data", (chunk: Buffer) => {
@@ -133,6 +149,7 @@ export function streamRemoteTarGz(client: Client, remoteDirectoryPath: string) {
 				destroyReadableWithError(stream, error);
 			});
 			resolve(stream);
+			if (input) stream.end(input);
 		});
 	});
 }

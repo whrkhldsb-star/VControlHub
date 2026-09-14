@@ -1,6 +1,6 @@
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { randomUUID } from "node:crypto";
-import { readdir, link, unlink } from "node:fs/promises";
+import { readdir, link, unlink, lstat, rmdir } from "node:fs/promises";
 import path from "node:path";
 import { prisma } from "@/lib/db";
 import { teamWhere } from "@/lib/auth/team-scope";
@@ -260,31 +260,66 @@ export async function copyFileEntry(input: {
         relativePath: destination,
       });
       if (item.directory) {
-        if (!physical)
-          await createManagedFolder({
-            storageNode: node,
-            relativePath: destination,
-          });
-        else if (!occupant || input.policy !== "overwrite")
-          throw new Error(
-            apiCopy("apiCopy.files.op.exists", { v0: destination }),
-          );
-        await prisma.fileEntry.upsert({
-          where: {
-            storageNodeId_relativePath: {
+        let createdIdentity: { dev: number; ino: number } | undefined;
+        let creationAttempted = false;
+        let created = false;
+        try {
+          if (!physical) {
+            creationAttempted = true;
+            await createManagedFolder({
+              storageNode: node,
+              relativePath: destination,
+            });
+            created = true;
+            if (node.driver === "LOCAL") {
+              const resolved = await resolveManagedLocalEntryPath({ basePath: node.basePath, relativePath: destination });
+              createdIdentity = await lstat(resolved.absolutePath);
+            }
+          } else if (!occupant || input.policy !== "overwrite")
+            throw new Error(
+              apiCopy("apiCopy.files.op.exists", { v0: destination }),
+            );
+          await prisma.fileEntry.upsert({
+            where: {
+              storageNodeId_relativePath: {
+                storageNodeId: node.id,
+                relativePath: destination,
+              },
+            },
+            create: {
               storageNodeId: node.id,
               relativePath: destination,
+              name: path.posix.basename(destination),
+              entryType: "DIRECTORY",
+              mimeType: "inode/directory",
             },
-          },
-          create: {
-            storageNodeId: node.id,
-            relativePath: destination,
-            name: path.posix.basename(destination),
-            entryType: "DIRECTORY",
-            mimeType: "inode/directory",
-          },
-          update: {},
-        });
+            update: {},
+          });
+        } catch (error) {
+          if (creationAttempted && node.driver !== "LOCAL") {
+            // Remote mkdir/DB responses may be lost after commit. Never use a
+            // recursive delete to compensate a directory that could have changed.
+            throw new FileOperationUncertainError(apiCopy("apiCopy.files.op.directoryUnconfirmed", { v0: destination, v1: String(error) }));
+          }
+          if (created) {
+            try {
+              const indexed = await prisma.fileEntry.findUnique({
+                where: { storageNodeId_relativePath: { storageNodeId: node.id, relativePath: destination } },
+                select: { id: true },
+              });
+              if (indexed) throw new Error(apiCopy("apiCopy.files.op.changed"));
+              const resolved = await resolveManagedLocalEntryPath({ basePath: node.basePath, relativePath: destination });
+              const current = await lstat(resolved.absolutePath);
+              if (!createdIdentity || current.dev !== createdIdentity.dev || current.ino !== createdIdentity.ino)
+                throw new Error(apiCopy("apiCopy.files.op.changed"));
+              // rmdir only removes an empty directory: preserve any new contents.
+              await rmdir(resolved.absolutePath);
+            } catch (recoveryError) {
+              throw new FileOperationUncertainError(apiCopy("apiCopy.files.op.directoryUnconfirmed", { v0: destination, v1: String(recoveryError) }));
+            }
+          }
+          throw error;
+        }
       } else {
         if ((occupant || physical) && input.policy !== "overwrite")
           throw new Error(
