@@ -7,6 +7,8 @@ import { prisma } from "@/lib/db";
 import { serverT } from "@/lib/i18n/server-locale";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { createFileEntry } from "@/lib/storage/service";
+import { tryAcquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
+import { apiCopy } from "@/lib/i18n/api-copy";
 import {
   createManagedFolder,
   deleteBackingObject,
@@ -125,18 +127,28 @@ export async function createFolderAction(
       } satisfies StorageActionState;
     }
 
-    let folderCreated = false;
+    // Serialize against move/copy/delete/rename on the same node so the
+    // create + index write cannot interleave with a tree rewrite.
+    const release = await tryAcquireAdvisoryLock("storage-file-operation", storageNodeId);
     try {
-      await createManagedFolder({
-        storageNode,
-        relativePath,
-      });
-      folderCreated = true;
-    } catch (error) {
-      return {
-        error: getErrorMessage(error, t("storagePage.action.folderCreateFailed")),
-      } satisfies StorageActionState;
-    }
+      if (!release) {
+        return {
+          error: apiCopy("apiCopy.files.op.busy"),
+        } satisfies StorageActionState;
+      }
+
+      let folderCreated = false;
+      try {
+        await createManagedFolder({
+          storageNode,
+          relativePath,
+        });
+        folderCreated = true;
+      } catch (error) {
+        return {
+          error: getErrorMessage(error, t("storagePage.action.folderCreateFailed")),
+        } satisfies StorageActionState;
+      }
 
     try {
       await createFileEntry({
@@ -194,6 +206,9 @@ export async function createFolderAction(
     return {
       success: t("storagePage.action.folderCreated", { path: relativePath }),
     } satisfies StorageActionState;
+    } finally {
+      void release?.();
+    }
   } catch (error) {
     return {
       error: getErrorMessage(error, t("storagePage.action.folderCreateFailed")),
@@ -298,6 +313,25 @@ export async function renameFileEntryAction(
         error: destinationAccess.reason ?? t("storagePage.action.fileEntryNotFound"),
       } satisfies StorageActionState;
     }
+
+    // Serialize against move/copy/delete on the same node: the physical
+    // rename + index rewrite below is not atomic with respect to those
+    // operations, and the advisory lock is the established coordination
+    // point (executeMoveFile / executeCopyFile / executeDeleteFile).
+    const release = await tryAcquireAdvisoryLock("storage-file-operation", entry.storageNodeId);
+    let lockReleased = false;
+    const releaseOnce = () => {
+      if (!lockReleased) {
+        lockReleased = true;
+        void release?.();
+      }
+    };
+    try {
+      if (!release) {
+        return {
+          error: apiCopy("apiCopy.files.op.busy"),
+        } satisfies StorageActionState;
+      }
 
     // Include soft-deleted (recycle-bin) rows: the physical rename overwrites
     // the target bytes, but a soft-deleted occupant's file is still on disk.
@@ -426,6 +460,9 @@ export async function renameFileEntryAction(
     );
 
     return { success: t("storagePage.action.fileRenamed", { name: normalizedNewName }) } satisfies StorageActionState;
+    } finally {
+      releaseOnce();
+    }
   } catch (error) {
     return {
       error: getErrorMessage(error, t("storagePage.action.fileRenameFailed")),

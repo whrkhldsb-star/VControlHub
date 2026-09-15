@@ -135,6 +135,9 @@ export async function completeStorageFileUpload(params: {
     mimeType,
     size: BigInt(byteSize),
     isDeleted: false as const,
+    // The row leaves the recycle bin on this overwrite — clear the batch
+    // marker so a later directory restore cannot revive a stale copy of it.
+    deleteBatchId: null,
   };
 
   if (existingEntry) {

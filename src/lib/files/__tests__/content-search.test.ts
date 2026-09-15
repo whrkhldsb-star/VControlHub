@@ -1,12 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { findManyMock, teamWhereMock } = vi.hoisted(() => ({
+const { findManyMock, entryFindManyMock, teamWhereMock } = vi.hoisted(() => ({
 	findManyMock: vi.fn(),
+	entryFindManyMock: vi.fn().mockResolvedValue([]),
 	teamWhereMock: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
-	prisma: { storageNode: { findMany: findManyMock } },
+	prisma: { storageNode: { findMany: findManyMock }, fileEntry: { findMany: entryFindManyMock } },
 }));
 vi.mock("@/lib/auth/team-scope", () => ({ teamWhere: teamWhereMock }));
 vi.mock("@/lib/logging", () => ({
@@ -62,6 +63,34 @@ describe("searchFileContents", () => {
 		expect(result.results).toEqual([]);
 		expect(result.totalMatches).toBe(0);
 		expect(result.truncated).toBe(false);
+	});
+
+	it("filters soft-deleted entries out of results", async () => {
+		entryFindManyMock.mockResolvedValue([
+			{ storageNodeId: "node-a", relativePath: "docs/recycled.txt" },
+		]);
+		vi.doMock("node:fs/promises", () => ({
+			readdir: vi.fn(async () => [
+				{ name: "recycled.txt", isDirectory: () => false, isFile: () => true },
+				{ name: "live.txt", isDirectory: () => false, isFile: () => true },
+			]),
+			stat: vi.fn(async () => ({ size: 10 })),
+			readFile: vi.fn(async () => "match here\nnothing\nmatch again\n"),
+		}));
+		vi.doMock("@/lib/storage/path-utils", () => ({
+			isSearchableFile: (name: string) => name.endsWith(".txt"),
+			// resolveLocalAbsolutePath comes from service-entries in prod; the
+			// local walker imports path helpers indirectly, keep the mock minimal.
+		}));
+		const { searchFileContents: freshSearch } = await import("../content-search");
+		const result = await freshSearch({
+			query: "match",
+			nodeId: "node-a",
+			session: { userId: "u1", roles: ["operator"], currentTeamId: "team-a" },
+		});
+		expect(
+			result.results.some((r) => r.relativePath === "docs/recycled.txt"),
+		).toBe(false);
 	});
 
 	it("applies teamWhere when session is provided", async () => {

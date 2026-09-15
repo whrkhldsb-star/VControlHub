@@ -72,9 +72,11 @@ export async function indexDownloadedFileEntry(input: {
 
  if (db) {
   // A caught unique violation would leave the surrounding transaction aborted.
+  // deleteBatchId:null — the row leaves the recycle bin, so the batch marker
+  // must go too, or a later directory restore would revive a stale copy of it.
   const data = {
    name: safeFileName, entryType: "FILE" as const,
-   size: input.size == null ? null : BigInt(input.size), isDeleted: false,
+   size: input.size == null ? null : BigInt(input.size), isDeleted: false, deleteBatchId: null,
   };
   await db.fileEntry.upsert({
    where: { storageNodeId_relativePath: { storageNodeId: input.storageNode.id, relativePath } },
@@ -100,7 +102,8 @@ export async function indexDownloadedFileEntry(input: {
  if (existingEntry) {
   await prisma.fileEntry.update({
    where: { id: existingEntry.id },
-   data: { name: data.name, entryType: data.entryType, size: data.size, isDeleted: false },
+   // deleteBatchId:null — see the transactional branch above.
+   data: { name: data.name, entryType: data.entryType, size: data.size, isDeleted: false, deleteBatchId: null },
   });
  } else {
   try {
@@ -110,7 +113,7 @@ export async function indexDownloadedFileEntry(input: {
    if (!isUnique) throw error;
    const winner = await prisma.fileEntry.findFirst({ where: { storageNodeId: data.storageNodeId, relativePath: data.relativePath }, select: { id: true } });
    if (!winner) throw error;
-   await prisma.fileEntry.update({ where: { id: winner.id }, data: { name: data.name, entryType: data.entryType, size: data.size, isDeleted: false } });
+   await prisma.fileEntry.update({ where: { id: winner.id }, data: { name: data.name, entryType: data.entryType, size: data.size, isDeleted: false, deleteBatchId: null } });
   }
  }
 }

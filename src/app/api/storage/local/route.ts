@@ -310,6 +310,9 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
     mimeType,
     size: BigInt(byteSize),
     isDeleted: false as const,
+    // The row leaves the recycle bin on this overwrite — clear the batch
+    // marker so a later directory restore cannot revive a stale copy of it.
+    deleteBatchId: null,
   };
 
   try {

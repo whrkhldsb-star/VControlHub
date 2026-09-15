@@ -9,6 +9,8 @@ import { serverT } from "@/lib/i18n/server-locale";
 import { restoreFileEntry } from "@/lib/storage/service";
 import { deleteBackingObject } from "@/lib/storage/fs-backend";
 import { purgeAllFileVersionBlobs } from "@/lib/storage/file-versions";
+import { tryAcquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
+import { apiCopy } from "@/lib/i18n/api-copy";
 
 import type { StorageActionState, StorageDeleteActionState } from "./actions-helpers";
 import { getErrorMessage } from "@/lib/http/error-message";
@@ -63,21 +65,32 @@ export async function restoreFileEntryAction(
       return { error: restoreAccess.reason ?? t("storagePage.action.fileEntryNotFound") } satisfies StorageActionState;
     }
 
-    await restoreFileEntry({ fileEntryId }, session);
+    // Serialize against move/copy/delete/rename on the same node: restore
+    // flips index rows back to live while those operations may be rewriting
+    // the same prefixes.
+    const release = await tryAcquireAdvisoryLock("storage-file-operation", entry.storageNodeId);
+    if (!release) {
+      return { error: apiCopy("apiCopy.files.op.busy") } satisfies StorageActionState;
+    }
+    try {
+      await restoreFileEntry({ fileEntryId }, session);
 
-    if (entry.entryType === "DIRECTORY" && entry.deleteBatchId) {
-      // Revive only the descendants soft-deleted by the same batch as the
-      // directory itself. Rows deleted in earlier, separate operations keep
-      // their recycle-bin state instead of being resurrected wholesale.
-      await prisma.fileEntry.updateMany({
-        where: {
-          storageNodeId: entry.storageNodeId,
-          deleteBatchId: entry.deleteBatchId,
-          isDeleted: true,
-          id: { not: fileEntryId },
-        },
-        data: { isDeleted: false, deleteBatchId: null },
-      });
+      if (entry.entryType === "DIRECTORY" && entry.deleteBatchId) {
+        // Revive only the descendants soft-deleted by the same batch as the
+        // directory itself. Rows deleted in earlier, separate operations keep
+        // their recycle-bin state instead of being resurrected wholesale.
+        await prisma.fileEntry.updateMany({
+          where: {
+            storageNodeId: entry.storageNodeId,
+            deleteBatchId: entry.deleteBatchId,
+            isDeleted: true,
+            id: { not: fileEntryId },
+          },
+          data: { isDeleted: false, deleteBatchId: null },
+        });
+      }
+    } finally {
+      void release();
     }
 
     await auditUserAction(
@@ -161,7 +174,15 @@ export async function permanentDeleteFileEntryAction(
       return { error: permDeleteAccess.reason ?? t("storagePage.action.fileEntryNotFound") } satisfies StorageActionState;
     }
 
-	const affectedShareIds = await findAffectedShareIds({
+    // Serialize against move/copy/delete/rename/restore on the same node:
+    // permanent delete removes backing bytes AND index rows; interleaving
+    // with a tree rewrite would corrupt the other operation's assumptions.
+    const permRelease = await tryAcquireAdvisoryLock("storage-file-operation", entry.storageNodeId);
+    if (!permRelease) {
+      return { error: apiCopy("apiCopy.files.op.busy") } satisfies StorageActionState;
+    }
+    try {
+    const affectedShareIds = await findAffectedShareIds({
 	  storageNodeId: entry.storageNodeId,
 	  relativePath: entry.relativePath,
 	  isDirectory: entry.entryType === "DIRECTORY",
@@ -226,6 +247,9 @@ export async function permanentDeleteFileEntryAction(
     );
 
     return { success: t("storagePage.action.filePermanentlyDeleted", { name: entry.name }) } satisfies StorageActionState;
+    } finally {
+      void permRelease();
+    }
   } catch (error) {
     return {
       error: getErrorMessage(error, t("storagePage.action.filePermanentlyDeleteFailed")),

@@ -379,11 +379,27 @@ export async function searchFileContents(params: {
 		}
 	}
 
-	// Sort: most snippets first
-	allResults.sort((a, b) => b.snippets.length - a.snippets.length);
+	// Filter soft-deleted (recycle-bin) entries: their bytes are still on
+	// disk / on the SFTP host, so a raw grep hits them, but the UI never
+	// shows deleted files — surfacing their content would leak deleted data.
+	const tombstoned = new Set(
+		(
+			await prisma.fileEntry.findMany({
+				where: { isDeleted: true },
+				select: { storageNodeId: true, relativePath: true },
+				take: 10_000,
+			})
+		).map((row) => `${row.storageNodeId}\0${row.relativePath}`),
+	);
+	const visibleResults = allResults.filter(
+		(result) => !tombstoned.has(`${result.nodeId}\0${result.relativePath}`),
+	);
 
-	const truncated = allResults.length > MAX_RESULTS;
-	const results = allResults.slice(0, MAX_RESULTS);
+	// Sort: most snippets first
+	visibleResults.sort((a, b) => b.snippets.length - a.snippets.length);
+
+	const truncated = visibleResults.length > MAX_RESULTS;
+	const results = visibleResults.slice(0, MAX_RESULTS);
 
 	return {
 		results,
