@@ -5,9 +5,29 @@ import { X } from "@/components/icons";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
 import { ActionButton } from "@/components/action-button";
+import { QuickKeyBuilder } from "@/components/ssh-quick-key-builder";
+import type { QuickKeyPreset } from "@/components/ssh-quick-keys";
 
 const QUICK_COMMANDS = ["ls -la","df -h","free -m","top -bn1 | head -20","uptime","whoami","cat /etc/os-release","ps aux --sort=-%mem | head -10",
 ] as const;
+
+/** Raw key sequences sent as-is (no Enter appended) — the on-screen stand-ins
+ *  for keys mobile keyboards cannot type, e.g. interrupt, line editing, arrows.
+ *  Used only when the user has no customized presets stored. */
+const QUICK_KEYS: ReadonlyArray<{ label: string; data: string }> = [
+	{ label: "Ctrl+C", data: "\u0003" },
+	{ label: "Ctrl+D", data: "\u0004" },
+	{ label: "Ctrl+Z", data: "\u001a" },
+	{ label: "Tab", data: "	" },
+	{ label: "Ctrl+L", data: "\u000c" },
+	{ label: "Ctrl+U", data: "\u0015" },
+	{ label: "Ctrl+W", data: "\u0017" },
+	{ label: "Esc", data: "\u001b" },
+	{ label: "↑", data: "\u001b[A" },
+	{ label: "↓", data: "\u001b[B" },
+	{ label: "←", data: "\u001b[D" },
+	{ label: "→", data: "\u001b[C" },
+];
 
 type TFn = (key: string, vars?: Record<string, string | number>) => string;
 
@@ -21,6 +41,10 @@ export function SshTerminalSidePanel({
 	removeFavorite,
 	commandHistory,
 	sendCommand,
+	sendKeys,
+	customQuickKeys,
+	onAddQuickKey,
+	onResetQuickKeys,
 }: {
 	serverId: string;
 	t: TFn;
@@ -31,6 +55,11 @@ export function SshTerminalSidePanel({
 	removeFavorite: (cmd: string) => void;
 	commandHistory: string[];
 	sendCommand: (cmd: string) => void;
+	sendKeys: (data: string) => void;
+	/** User-composable presets; null/undefined → show the fixed defaults. */
+	customQuickKeys?: ReadonlyArray<{ label: string; data: string }> | null;
+	onAddQuickKey: (preset: QuickKeyPreset) => void;
+	onResetQuickKeys: () => void;
 }) {
 	return (
 		<div className="flex max-h-[50vh] w-full shrink-0 flex-col gap-3 overflow-y-auto lg:ml-3 lg:max-h-none lg:w-56">
@@ -84,6 +113,35 @@ export function SshTerminalSidePanel({
 						))}
 					</div>
 				)}
+			</section>
+			<section className="rounded-xl border border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface-subtle)] light:bg-[var(--surface)] p-3">
+				<h4 className="mb-2 text-xs font-medium text-[var(--text-muted)]/60 light:text-[var(--text-primary)]/60">
+					{t("sshTerminalModal.quickKeysTitle")}
+				</h4>
+				<div className="grid grid-cols-4 gap-1">
+					{(customQuickKeys ?? QUICK_KEYS).map((key) => (
+						<ActionButton variant="ghost"
+							key={key.label}
+							onClick={() => sendKeys(key.data)} className="!min-h-11 !rounded-lg !px-1 !py-1 !text-center !text-[12px] !font-mono text-[var(--text-muted)]"
+							title={key.label}
+						>
+							{key.label}
+						</ActionButton>
+					))}
+				</div>
+				{customQuickKeys && customQuickKeys.length > 0 && (
+					<p className="mt-1 text-[10px] text-[var(--text-muted)]/50 light:text-[var(--text-primary)]/50">
+						{t("sshTerminalModal.quickKeysResetHint")}
+						<button
+							type="button"
+							onClick={onResetQuickKeys}
+							className="underline underline-offset-2 hover:text-[var(--text-muted)]"
+						>
+							{t("sshTerminalModal.quickKeysReset")}
+						</button>
+					</p>
+				)}
+				<QuickKeyBuilder t={t} onAdd={onAddQuickKey} />
 			</section>
 			<section className="rounded-xl border border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface-subtle)] light:bg-[var(--surface)] p-3">
 				<h4 className="mb-2 text-xs font-medium text-[var(--text-muted)]/60 light:text-[var(--text-primary)]/60">

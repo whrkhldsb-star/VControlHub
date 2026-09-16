@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-09-15T00:10:20.043Z",
+  "generatedAt": "2026-09-16T02:48:53.372Z",
   "summary": {
-    "files": 433,
+    "files": 434,
     "filesWithStrings": 1,
     "totalStrings": 1,
     "coveredStrings": 0,
@@ -2960,6 +2960,13 @@
     },
     "src/components/ssh-file-manager.tsx": {
       "path": "src/components/ssh-file-manager.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/components/ssh-quick-key-builder.tsx": {
+      "path": "src/components/ssh-quick-key-builder.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,

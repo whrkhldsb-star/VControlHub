@@ -1,5 +1,5 @@
 /**
- * i18n dictionary: `sshTerminalModal.*` (28 keys) + `sshTerminalManager.*` (5 keys) + `sshFileManager.*` (21 keys).
+ * i18n dictionary: `sshTerminalModal.*` (35 keys) + `sshTerminalManager.*` (5 keys) + `sshFileManager.*` (21 keys).
  *
  * Used by:
  *   - src/components/ssh-terminal-modal.tsx (client component)
@@ -52,6 +52,17 @@ export const zh: Record<string, string> = {
 
 	// Side panel — quick commands (⚡ 快捷命令)
 	"sshTerminalModal.quickCommandsTitle": "快捷命令",
+
+	// Side panel — quick keys (⌨ 快捷按键：Ctrl+C、方向键等，原样发送不附加回车)
+	"sshTerminalModal.quickKeysTitle": "快捷按键",
+
+	// Side panel — custom quick key presets (⌨ 自定义组合键：Ctrl/Shift/Alt + 键)
+	"sshTerminalModal.quickKeysCustomize": "自定义组合键",
+	"sshTerminalModal.quickKeysClose": "关闭自定义组合键",
+	"sshTerminalModal.quickKeysPickKey": "选择按键",
+	"sshTerminalModal.quickKeysAdd": "添加",
+	"sshTerminalModal.quickKeysResetHint": "已启用自定义按键，",
+	"sshTerminalModal.quickKeysReset": "恢复默认",
 
 	// Multi-tab manager (TR-039)
 	"sshTerminalManager.title": "SSH 终端",
@@ -125,6 +136,17 @@ export const en: Record<string, string> = {
 
 	// Side panel — quick commands (⚡ Quick commands)
 	"sshTerminalModal.quickCommandsTitle": "Quick commands",
+
+	// Side panel — quick keys (⌨ sent raw without appending Enter)
+	"sshTerminalModal.quickKeysTitle": "Quick keys",
+
+	// Side panel — custom quick key presets (⌨ composable Ctrl/Shift/Alt + key)
+	"sshTerminalModal.quickKeysCustomize": "Custom key",
+	"sshTerminalModal.quickKeysClose": "Close custom key builder",
+	"sshTerminalModal.quickKeysPickKey": "Pick a key",
+	"sshTerminalModal.quickKeysAdd": "Add",
+	"sshTerminalModal.quickKeysResetHint": "Custom keys in use, ",
+	"sshTerminalModal.quickKeysReset": "reset to defaults",
 
 	// Multi-tab manager (TR-039)
 	"sshTerminalManager.title": "SSH Terminal",

@@ -1,6 +1,7 @@
 "use client";
 
 import { decodeBase64, encodeBase64 } from "@/components/ssh-terminal-codec";
+import { parseQuickKeyPresets, quickKeyPresetsToEntries, serializeQuickKeyPresets, type QuickKeyPreset } from "@/components/ssh-quick-keys";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
@@ -16,11 +17,16 @@ import { AlertTriangle } from "@/components/icons";
 export type { TerminalStatus } from "@/components/ssh-terminal-types";
 
 const FAVORITE_COMMANDS_KEY = "ssh-favorite-commands";
+const QUICK_KEY_PRESETS_KEY = "ssh-quick-key-presets";
 const MAX_AUTO_RECONNECT_ATTEMPTS = 5;
 const AUTO_RECONNECT_BASE_DELAY_MS = 1_000;
 
 function readFavoriteCommands(storage: Storage): string | null {
 	return storage.getItem(FAVORITE_COMMANDS_KEY);
+}
+
+function readQuickKeyPresets(storage: Storage): string | null {
+	return storage.getItem(QUICK_KEY_PRESETS_KEY);
 }
 
 function parseFavoriteCommands(raw: string | null): string[] {
@@ -71,6 +77,12 @@ export function SshTerminalPanel({ serverId, serverName, host, visible, onClose,
 	const storedFavoriteCommands = useBrowserStorageSnapshot(FAVORITE_COMMANDS_KEY, readFavoriteCommands, null);
 	const favoriteCommands = useMemo(() => parseFavoriteCommands(storedFavoriteCommands), [storedFavoriteCommands]);
 	const [newFavorite, setNewFavorite] = useState("");
+	const storedQuickKeyPresets = useBrowserStorageSnapshot(QUICK_KEY_PRESETS_KEY, readQuickKeyPresets, null);
+	const quickKeyPresets = useMemo(() => parseQuickKeyPresets(storedQuickKeyPresets), [storedQuickKeyPresets]);
+	const customQuickKeys = useMemo(
+		() => (quickKeyPresets ? quickKeyPresetsToEntries(quickKeyPresets) : null),
+		[quickKeyPresets],
+	);
 
 	// Notify parent of status changes
 	useEffect(() => {
@@ -219,6 +231,49 @@ export function SshTerminalPanel({ serverId, serverName, host, visible, onClose,
 			fitAddonRef.current = fitAddon;
 			searchAddonRef.current = searchAddon;
 
+			// Mobile touch scrolling: xterm's scrollable viewport is an underlay
+			// beneath the screen canvas, so finger drags never reach it natively
+			// and would only scroll the surrounding panel. Translate single-finger
+			// drags into term.scrollLines() and consume the gesture only while the
+			// scrollback can still move in that direction.
+			const surface = termRef.current;
+			const screenEl = surface.querySelector<HTMLElement>(".xterm-screen");
+			let touchLastY = 0;
+			let touchAccumPx = 0;
+			const onTouchStart = (event: TouchEvent) => {
+				if (event.touches.length !== 1) return;
+				touchLastY = event.touches[0]?.clientY ?? 0;
+				touchAccumPx = 0;
+			};
+			const onTouchMove = (event: TouchEvent) => {
+				if (event.touches.length !== 1 || event.defaultPrevented) return;
+				const y = event.touches[0]?.clientY ?? touchLastY;
+				const deltaPx = y - touchLastY;
+				touchLastY = y;
+				if (deltaPx === 0) return;
+				const buffer = term.buffer.normal;
+				const canConsume =
+					(deltaPx > 0 && buffer.viewportY > 0)
+					|| (deltaPx < 0 && buffer.viewportY + term.rows < buffer.length);
+				if (!canConsume) {
+					// At a scrollback edge — let the surrounding panel scroll instead.
+					touchAccumPx = 0;
+					return;
+				}
+				event.preventDefault();
+				const cellHeight = screenEl && term.rows > 0 ? screenEl.clientHeight / term.rows : 16;
+				if (cellHeight <= 0) return;
+				// Finger moving down reveals older lines → negative scrollLines.
+				touchAccumPx += -deltaPx;
+				const lines = Math.trunc(touchAccumPx / cellHeight);
+				if (lines !== 0) {
+					touchAccumPx -= lines * cellHeight;
+					term.scrollLines(lines);
+				}
+			};
+			surface.addEventListener("touchstart", onTouchStart, { passive: true });
+			surface.addEventListener("touchmove", onTouchMove, { passive: false });
+
 			const finalWsUrl = buildSshWebSocketUrl({
 				pageProtocol: window.location.protocol,
 				host: window.location.host,
@@ -298,7 +353,11 @@ export function SshTerminalPanel({ serverId, serverName, host, visible, onClose,
 			};
 
 			window.addEventListener("resize", handleResize);
-			return () => window.removeEventListener("resize", handleResize);
+			return () => {
+				window.removeEventListener("resize", handleResize);
+				surface.removeEventListener("touchstart", onTouchStart);
+				surface.removeEventListener("touchmove", onTouchMove);
+			};
 		}
 
 		let removeResizeListener: (() => void) | undefined;
@@ -331,9 +390,32 @@ export function SshTerminalPanel({ serverId, serverName, host, visible, onClose,
 		saveFavorites(next);
 	};
 
+	const addQuickKeyPreset = (preset: QuickKeyPreset) => {
+		const current = quickKeyPresets ?? [];
+		if (current.some((p) => p.label === preset.label)) return;
+		const next = [...current, preset];
+		writeLocalStorageValue(QUICK_KEY_PRESETS_KEY, serializeQuickKeyPresets(next));
+	};
+
+	const resetQuickKeyPresets = () => {
+		writeLocalStorageValue(QUICK_KEY_PRESETS_KEY, serializeQuickKeyPresets([]));
+	};
+
 	const sendCommand = (cmd: string) => {
 		if (wsRef.current?.readyState === WebSocket.OPEN) {
 			wsRef.current.send(JSON.stringify({ type: "input", data: encodeBase64(cmd + "\r") }));
+		}
+	};
+
+	/** Send raw key sequences (Ctrl+C, arrows, …) without appending Enter. */
+	const sendKeys = (data: string) => {
+		if (wsRef.current?.readyState === WebSocket.OPEN) {
+			wsRef.current.send(JSON.stringify({ type: "input", data: encodeBase64(data) }));
+		}
+		// Keys that rewrite or discard the pending input line invalidate the
+		// tracked current command; keep the panel's history accurate for them.
+		if (data === "\u0003" || data === "\u0015" || data === "\u001b[A" || data === "\u001b[B") {
+			currentCommandRef.current = "";
 		}
 	};
 
@@ -419,6 +501,10 @@ export function SshTerminalPanel({ serverId, serverName, host, visible, onClose,
 						removeFavorite={removeFavorite}
 						commandHistory={commandHistory}
 						sendCommand={sendCommand}
+						sendKeys={sendKeys}
+						customQuickKeys={customQuickKeys}
+						onAddQuickKey={addQuickKeyPreset}
+						onResetQuickKeys={resetQuickKeyPresets}
 					/>
 				)}
 			</div>
