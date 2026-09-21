@@ -13,7 +13,7 @@ import { apiCopy } from "@/lib/i18n/api-copy";
 
 import { createHash } from "node:crypto";
 import { createWriteStream, mkdirSync, statSync, unlinkSync } from "node:fs";
-import { dirname, join, resolve as resolvePath } from "node:path";
+import path, { dirname, join, relative as relativePath, resolve as resolvePath } from "node:path";
 import { Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 
@@ -761,9 +761,13 @@ export function resolveVpsBackupFilePath(localPath: string): string {
   const portable = assertPortableVpsBackupPath(localPath);
   const root = resolvePath(config.storage.root || process.cwd());
   const abs = resolvePath(root, portable);
-  const prefix = root.endsWith("/") ? root : root + "/";
-  if (abs !== root && !abs.startsWith(prefix)) {
-    throw new Error("VPS backup path escapes storage root");
+  // Containment via path.relative: a leading "../" (or an absolute result,
+  // which happens on Windows when abs is on another drive) means escape.
+  if (abs !== root) {
+    const rel = relativePath(root, abs);
+    if (rel === "" || rel.startsWith("..") || path.isAbsolute(rel)) {
+      throw new Error("VPS backup path escapes storage root");
+    }
   }
   return abs;
 }

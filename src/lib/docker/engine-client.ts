@@ -3,8 +3,8 @@ import http from "node:http";
 import { createLogger } from "@/lib/logging";
 import { execRemoteCommand, buildSshParamsFromServer } from "@/lib/ssh/client";
 import { prisma } from "@/lib/db";
+import { dockerEngineEndpoint, dockerEngineSocketPath } from "@/lib/runtime/platform-paths";
 
-const DOCKER_SOCKET = "/var/run/docker.sock";
 const UNAVAILABLE_CODES = new Set(["ENOENT", "ECONNREFUSED", "EACCES"]);
 
 export type DockerEngineResult = {
@@ -23,10 +23,10 @@ export type DockerScope = {
 	warning: string;
 };
 
-/** Hub-host scope (local Docker socket) */
+/** Hub-host scope (local Docker socket / named pipe, or DOCKER_HOST) */
 export const hubHostDockerScope: DockerScope = {
 	scope: "hub-host",
-	socketPath: DOCKER_SOCKET,
+	get socketPath() { return dockerEngineSocketPath(); },
 	warning:
 		"The Docker module only operates on the VControlHub host's Docker socket; it is not a cross-VPS container console. Users with docker:manage permission can manage local containers.",
 };
@@ -35,7 +35,7 @@ export const hubHostDockerScope: DockerScope = {
 export function remoteVpsDockerScope(serverId: string, serverName: string): DockerScope {
 	return {
 		scope: "remote-vps",
-		socketPath: DOCKER_SOCKET,
+		socketPath: "/var/run/docker.sock",
 		serverId,
 		serverName,
 		warning: `Managing Docker on remote VPS "${serverName}" via SSH. Container operations are executed on the remote host.`,
@@ -53,7 +53,8 @@ function isMutationMethod(method: string): boolean {
 }
 
 /**
- * Request Docker Engine API via local unix socket (original implementation).
+ * Request Docker Engine API via the local unix socket / named pipe
+ * (original implementation; endpoint resolved per platform and DOCKER_HOST).
  */
 export function requestDockerEngine(
 	apiPath: string,
@@ -71,15 +72,22 @@ export function requestDockerEngine(
 		options.timeoutMs ??
 		(isMutationMethod(method) ? DEFAULT_MUTATION_LOCAL_TIMEOUT_MS : DEFAULT_LOCAL_TIMEOUT_MS);
 	const logger = createLogger(loggerScope);
+	const endpoint = dockerEngineEndpoint();
+	const requestOptions: http.RequestOptions = {
+		path: apiPath,
+		method,
+		timeout: timeoutMs,
+		headers: body ? { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(body) } : {},
+	};
+	if (endpoint.kind === "socket") {
+		requestOptions.socketPath = endpoint.socketPath;
+		requestOptions.host = "localhost";
+	} else {
+		requestOptions.host = endpoint.host;
+		requestOptions.port = endpoint.port;
+	}
 	return new Promise((resolve) => {
-		const request = http.request({
-			socketPath: DOCKER_SOCKET,
-			path: apiPath,
-			method,
-			host: "localhost",
-			timeout: timeoutMs,
-			headers: body ? { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(body) } : {},
-		}, (response) => {
+		const request = http.request(requestOptions, (response) => {
 			const chunks: Buffer[] = [];
 			response.on("data", (chunk: Buffer) => chunks.push(chunk));
 			response.on("end", () => {

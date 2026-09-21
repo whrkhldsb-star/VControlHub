@@ -7,10 +7,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  * per refresh, per open tab) and rows whose rate was diffed over a sub-second
  * window between two polls sharing the process-wide previous-sample slot.
  *
- * The local counters come from the real /proc/net/dev, as everywhere else in the
- * traffic tests — only the cadence is asserted here, never the byte values.
+ * Local counters are stubbed: cadence is asserted here, never the byte values
+ * (stubbing also keeps the suite fast on Windows, where sampling spawns
+ * PowerShell).
  */
 const trafficSnapshotCreate = vi.fn(async () => ({ id: "snap" }));
+
+vi.mock("@/lib/monitoring/local-network", () => ({
+	readLocalNetworkDeviceStats: () => [{ iface: "eth0", rxBytes: 1000, txBytes: 2000 }],
+}));
 
 vi.mock("@/lib/auth/require-api-permission", () => ({
 	requireApiPermission: vi.fn(async () => ({

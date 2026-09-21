@@ -1,10 +1,11 @@
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
+import { createReadStream, createWriteStream } from "node:fs";
 import path from "node:path";
 import fs from "node:fs/promises";
+import { pipeline } from "node:stream/promises";
+import { createGunzip } from "node:zlib";
 import { resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -15,7 +16,6 @@ import { createFileEntry } from "@/lib/storage/service";
 
 import { AuthError, NotFoundError, ValidationError } from "@/lib/errors";
 import { getErrorMessage } from "@/lib/http/error-message";
-const execFileAsync = promisify(execFile);
 
 export const dynamic = "force-dynamic";
 
@@ -176,10 +176,14 @@ export async function POST(request: NextRequest) {
             // Expected: gunzip should create this file.
           }
 
-          await execFileAsync("gunzip", ["-k", fullPath], {
-            maxBuffer: 10 * 1024 * 1024,
-            timeout: 60000,
-          });
+          // Decompress with Node's zlib instead of the gunzip binary: same
+          // "keep original, write output beside it" semantics without a
+          // platform-specific executable (Windows/minimal images have no gzip).
+          await pipeline(
+            createReadStream(fullPath),
+            createGunzip(),
+            createWriteStream(outputPath.path),
+          );
 
           let outputStat;
           try {

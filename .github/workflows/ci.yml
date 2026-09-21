@@ -91,6 +91,56 @@ jobs:
       - name: Build runtime bundle
         run: npm run build:runtime
 
+  # Windows compatibility gate: the same unit/type/lint/build chain on
+  # windows-latest so cross-platform regressions (path handling, native
+  # spawns, shell-only scripts) fail PRs instead of only Windows users.
+  # No PostgreSQL service here — GitHub service containers do not run on
+  # Windows runners; the DB integration tests gate on
+  # RUN_DATABASE_INTEGRATION_TESTS and skip, the rest of the suite is mocked.
+  test-windows:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/whrkhldsb_ci
+      NODE_ENV: test
+      NEXT_TELEMETRY_DISABLED: 1
+    steps:
+      # Keep the working tree byte-identical to the Linux job: the default
+      # autocrlf=true checkout rewrites sources to CRLF and can skew
+      # source-scanning scripts and tests that assume LF.
+      - name: Disable autocrlf (LF working tree)
+        run: git config --global core.autocrlf false
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Build runtime bundle
+        run: npm run build:runtime
+
   e2e-public-cross-browser:
     name: E2E public smoke (Chromium + Firefox + WebKit)
     runs-on: ubuntu-latest

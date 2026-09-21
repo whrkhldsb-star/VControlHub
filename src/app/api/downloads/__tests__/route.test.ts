@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { StorageAccessDecision } from "@/lib/storage/access-control";
+import { relayTempDir } from "@/lib/runtime/platform-paths";
 
 const {
   lookupMock,
@@ -1086,7 +1087,7 @@ describe("/api/downloads", () => {
 
     expect(response.status).toBe(200);
     expect(removeDownloadMock).toHaveBeenCalledWith("gid_1", true);
-    expect(rmMock).toHaveBeenCalledWith(expect.stringContaining("/tmp/app-relay-task_relay"), { recursive: true, force: true });
+    expect(rmMock).toHaveBeenCalledWith(expect.stringContaining(relayTempDir("task_relay")), { recursive: true, force: true });
     expect(prismaMock.downloadTask.update).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: "task_relay" },
       data: expect.objectContaining({ status: "CANCELLED" }),

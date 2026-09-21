@@ -13,6 +13,11 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
+// The scripts under test (check/preflight/install/uninstall/package) are bash
+// entrypoints of the Linux installer chain (systemd/apt); they cannot execute
+// on Windows and are gated by the Linux CI job.
+const describeOrSkip = process.platform === "win32" ? describe.skip : describe;
+
 async function runScript(
   script: string,
   args: {
@@ -109,7 +114,7 @@ async function writeValidEnv(envFile: string, extraLines: string[] = []) {
   await chmod(envFile, 0o600);
 }
 
-describe("deploy/check.sh", () => {
+describeOrSkip("deploy/check.sh", () => {
   it("can run static checks before services are restarted", async () => {
     const repoRoot = path.resolve(__dirname, "../..");
     const appDir = await makeAppDir();
@@ -155,7 +160,7 @@ describe("deploy/check.sh", () => {
     }
   });
 });
-describe("deploy/preflight.sh", () => {
+describeOrSkip("deploy/preflight.sh", () => {
   const dbUrlKey = "DATABASE_" + "URL";
   const sessionSecretKey = "AUTH_SESSION_" + "SECRET";
   const initialPasswordKey = "ADMIN_INITIAL_" + "PASSWORD";
@@ -463,7 +468,7 @@ describe("deploy/preflight.sh", () => {
   });
 });
 
-describe("deploy/install.sh", () => {
+describeOrSkip("deploy/install.sh", () => {
   it("maps executable probes correctly and preserves the built dependency tree", async () => {
     const repoRoot = path.resolve(__dirname, "../..");
     const script = await readFile(path.join(repoRoot, "deploy/install.sh"), "utf8");
@@ -1365,7 +1370,7 @@ describe("deploy/install.sh", () => {
   });
 });
 
-describe("deploy/uninstall.sh", () => {
+describeOrSkip("deploy/uninstall.sh", () => {
   it("always removes application data while protecting unrelated host resources", async () => {
     const repoRoot = path.resolve(__dirname, "../..");
     const script = await readFile(path.join(repoRoot, "deploy/uninstall.sh"), "utf8");
@@ -1387,7 +1392,7 @@ describe("deploy/uninstall.sh", () => {
   });
 });
 
-describe("compressed archive deployment entrypoints", () => {
+describeOrSkip("compressed archive deployment entrypoints", () => {
   it("includes a root one-click installer, bootstrap installer, and archive packaging script", async () => {
     const repoRoot = path.resolve(__dirname, "../..");
     const rootInstaller = path.join(repoRoot, "install.sh");
@@ -1500,7 +1505,7 @@ describe("compressed archive deployment entrypoints", () => {
   }, 90000);
 });
 
-describe("scripts/backup-db.sh", () => {
+describeOrSkip("scripts/backup-db.sh", () => {
   it("creates database dumps with 0600 permissions so other local accounts cannot read them", async () => {
     const repoRoot = path.resolve(__dirname, "../..");
     const appDir = await makeAppDir();

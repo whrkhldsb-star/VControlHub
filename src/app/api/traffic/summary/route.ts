@@ -1,5 +1,4 @@
 import { apiCopy } from "@/lib/i18n/api-copy";
-import { readFileSync } from "node:fs";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -11,10 +10,10 @@ import {
   calculateTrafficRate,
   formatBytes,
   formatBytesPerSecond,
-  parseNetworkDeviceStats,
   selectPrimaryInterface,
   type NetworkDeviceStats,
 } from "@/lib/monitoring/traffic";
+import { readLocalNetworkDeviceStats } from "@/lib/monitoring/local-network";
 import { sampleRemoteServersTraffic } from "@/lib/monitoring/remote-traffic";
 import { t } from "@/lib/i18n/translations";
 
@@ -71,14 +70,6 @@ function shouldPersistLocalSample(iface: string, intervalSeconds: number) {
   // Claim the slot synchronously: two concurrent polls must not both pass.
   lastPersistedAt.set(iface, now);
   return true;
-}
-
-function readProcNetDev() {
-  try {
-    return readFileSync("/proc/net/dev", "utf-8");
-  } catch {
-    return "";
-  }
 }
 
 function summarizeInterface(targetKey: string, sample: NetworkDeviceStats) {
@@ -192,7 +183,7 @@ export async function GET(req: NextRequest) {
       const includeRemote =
         (q.include ?? "").split(",").map((token) => token.trim()).includes("remote");
 
-      const interfaces = parseNetworkDeviceStats(readProcNetDev());
+      const interfaces = readLocalNetworkDeviceStats();
       const primary = selectedIface
         ? (interfaces.find((item) => item.iface === selectedIface) ?? selectPrimaryInterface(interfaces))
         : selectPrimaryInterface(interfaces);

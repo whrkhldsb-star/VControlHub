@@ -8,7 +8,9 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 const runFile = promisify(execFile);
 
-describe("restore-files archive safety", () => {
+// scripts/restore-files.sh is a Linux restore entrypoint (bash + POSIX tar
+// semantics + symlink privilege handling); it is not runnable on Windows.
+describe.skipIf(process.platform === "win32")("restore-files archive safety", () => {
   let tmp: string;
   let source: string;
   let target: string;

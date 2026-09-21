@@ -1,6 +1,6 @@
 # VControlHub RBAC Audit Report
 
-> Generated: 2026-09-11T14:10:39.807Z | Permissions: 54 | Roles: 4 | API routes: 183 | Pages: 54 | Drift: 0
+> Generated: 2026-09-21T17:49:24.981Z | Permissions: 54 | Roles: 4 | API routes: 184 | Pages: 55 | Drift: 0
 
 This report cross-references four RBAC sources of truth:
 1. `src/lib/auth/rbac.ts` — `PERMISSIONS` tuple + `DEFAULT_ROLE_PERMISSIONS` map
@@ -58,7 +58,7 @@ This report cross-references four RBAC sources of truth:
 | `role:manage` | admin | 0 | 4 | 12 |
 | `server:read` | admin, operator, viewer, storage_manager | 0 | 3 | 19 |
 | `server:sftp:unrestricted` | admin | 0 | 0 | 0 |
-| `server:ssh` | admin, operator | 1 | 2 | 28 |
+| `server:ssh` | admin, operator | 1 | 3 | 31 |
 | `server:write` | admin, operator | 1 | 1 | 21 |
 | `share:create` | admin, operator, storage_manager | 1 | 0 | 3 |
 | `share:manage` | admin, operator, storage_manager | 1 | 0 | 5 |

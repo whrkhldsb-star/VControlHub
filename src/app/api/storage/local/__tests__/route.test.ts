@@ -1,3 +1,5 @@
+import path from "node:path";
+
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
@@ -456,7 +458,7 @@ describe("/api/storage/local", () => {
     await expect(response.json()).resolves.toMatchObject({
       error: expect.stringMatching(/写入上传索引失败|Failed to write upload index/),
     });
-    expect(unlinkMock).toHaveBeenCalledWith("/tmp/storage/docs/notes.txt");
+    expect(unlinkMock).toHaveBeenCalledWith(path.resolve("/tmp/storage/docs/notes.txt"));
   });
 
   it("recovers concurrent first-time LOCAL upload index races without unlinking winner blob", async () => {

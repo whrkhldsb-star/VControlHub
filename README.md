@@ -23,7 +23,7 @@ VControlHub 使用 Next.js、React、TypeScript、PostgreSQL 和 Prisma，生产
 
 ### 环境要求
 
-- Debian / Ubuntu 系 Linux；自动安装脚本依赖 `apt`、root 权限与 systemd。
+- Debian / Ubuntu 系 Linux；自动安装脚本依赖 `apt`、root 权限与 systemd。Windows 开发与运行见 [Windows 指南](docs/windows-development.md)。
 - PostgreSQL；具体依赖安装和运行配置见 [部署文档](deploy/README.md)。
 - 推荐使用域名和 HTTPS，公开 Web 入口使用 80/443。
 - Web 与 SSH WebSocket 服务默认仅监听本机回环端口 3000/3001，不应直接暴露公网。
@@ -70,6 +70,8 @@ npm run dev
 ```
 
 上述开发服务器用于页面和普通 API 开发。完整 WebDAV 非标准 HTTP 方法需要自定义 Node 服务器；普通 `next dev` / `next start` 不能替代完整生产入口。SSH 终端和后台任务也需要对应独立进程与配置。
+
+Windows 上的开发、构建与运行同样受支持（平台差异与功能边界见 [Windows 指南](docs/windows-development.md)）；所有 `tsx` 驱动的脚本会自动加载项目根目录的 `.env`。
 
 ## 架构与目录
 
@@ -164,14 +166,14 @@ python3 scripts/webdav-http-smoke.py http://127.0.0.1:3000
 <!-- README_METRICS_START -->
 | 指标            | 数量                                             |
 | --------------- | ------------------------------------------------ |
-| 功能页面            | 54                                               |
-| API 路由文件        | 183                                              |
-| 数据模型            | 77                                               |
-| UI 组件           | 49                                               |
-| 代码行数            | ~288,387（src 扫描）                                 |
-| 测试              | 688 文件                                           |
+| 功能页面            | 0                                                |
+| API 路由文件        | 0                                                |
+| 数据模型            | 78                                               |
+| UI 组件           | 91                                               |
+| 代码行数            | ~292,236（src 扫描）                                 |
+| 测试              | 706 文件                                           |
 | Docker 应用模板     | 44 (本地) + 社区源实时同步                                |
-| i18n            | 259 useI18n() 调用点，83 字典文件                        |
+| i18n            | 262 useI18n() 调用点，84 字典文件                        |
 <!-- README_METRICS_END -->
 
 通过 `npm run readme:metrics:write` 更新。

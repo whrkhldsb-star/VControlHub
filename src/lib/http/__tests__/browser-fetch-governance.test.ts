@@ -14,7 +14,8 @@ const nativeFetchExceptions = new Set(["src/app/share/[token]/share-password-gat
 function sources(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     if (entry.name === "api" || entry.name === "__tests__") return [];
-    const file = path.join(dir, entry.name);
+    // Normalize to "/" so the exception list below is platform-independent.
+    const file = path.join(dir, entry.name).split(path.sep).join("/");
     return entry.isDirectory() ? sources(file) : /\.tsx?$/.test(file) ? [file] : [];
   });
 }

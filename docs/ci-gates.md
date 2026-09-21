@@ -35,6 +35,7 @@ In **Settings → Branches → Branch protection rules → main**:
 2. Require these status checks (names match the workflow job `name:` fields):
    - `test`
    - `E2E public smoke (Chromium + Firefox + WebKit)`
+   - `test-windows` (Windows compatibility: typecheck/lint/unit/build on windows-latest)
 3. Optionally require `DAST baseline (optional surface probe)` on `main` only
    (it already only runs on push to main).
 4. Enable **Do not allow bypassing the above settings** for admins if the team

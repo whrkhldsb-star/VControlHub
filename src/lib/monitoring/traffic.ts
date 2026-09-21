@@ -16,7 +16,7 @@ export type TrafficRate = {
 	intervalSeconds: number;
 };
 
-const VIRTUAL_INTERFACE_PREFIXES = ["docker", "br-", "veth", "virbr", "tun", "tap"];
+const VIRTUAL_INTERFACE_PREFIXES = ["docker", "br-", "veth", "virbr", "tun", "tap", "vEthernet", "Loopback"];
 
 export function parseNetworkDeviceStats(content: string, options: { includeLoopback?: boolean } = {}): NetworkDeviceStats[] {
 	return content

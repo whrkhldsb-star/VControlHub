@@ -1,3 +1,5 @@
+import path from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -14,9 +16,9 @@ describe("aria2 runtime config", () => {
 
     expect(config.rpcHost).toBe("127.0.0.1");
     expect(config.rpcPort).toBe(6800);
-    expect(config.rpcDir).toBe("/opt/whrkhldsb/tmp/aria2");
-    expect(config.rpcConf).toBe("/opt/whrkhldsb/tmp/aria2/aria2.conf");
-    expect(config.rpcSession).toBe("/opt/whrkhldsb/tmp/aria2/aria2.session");
+    expect(config.rpcDir).toBe(path.join("/opt/whrkhldsb", "tmp", "aria2"));
+    expect(config.rpcConf).toBe(path.join("/opt/whrkhldsb", "tmp", "aria2", "aria2.conf"));
+    expect(config.rpcSession).toBe(path.join("/opt/whrkhldsb", "tmp", "aria2", "aria2.session"));
   });
 
   it("honors explicit RPC host, port, secret, and directory overrides", () => {
@@ -52,8 +54,9 @@ describe("aria2 runtime config", () => {
     expect(text).toContain("rpc-listen-port=16800");
     expect(text).not.toContain("custom-token");
     expect(text).not.toContain("rpc-secret=");
-    expect(text).toContain("dir=/opt/whrkhldsb/tmp/aria2");
+    expect(text).toContain(`dir=${path.join("/opt/whrkhldsb", "tmp", "aria2")}`);
     expect(text).not.toContain("/tmp/whrkhldsb-aria2");
+    expect(text).not.toContain("\\tmp\\whrkhldsb-aria2");
     const launchConfig = buildAria2LaunchConfig(config);
     expect(launchConfig).toContain("rpc-secret=custom-token");
     expect(buildAria2SpawnArgs("/opt/whrkhldsb/tmp/aria2/.aria2.launch.conf")).toEqual([

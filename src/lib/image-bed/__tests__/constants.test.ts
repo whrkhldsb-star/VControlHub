@@ -1,3 +1,5 @@
+import path from "node:path";
+
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 async function loadConstants() {
@@ -19,7 +21,7 @@ describe("image-bed constants", () => {
 
     const { UPLOAD_DIR } = await loadConstants();
 
-    expect(UPLOAD_DIR).toBe("/srv/example-app/uploads/image-bed");
+    expect(UPLOAD_DIR).toBe(path.join("/srv/example-app", "uploads", "image-bed"));
   });
 
 	it("uses the current application directory as the default upload root", async () => {
@@ -27,7 +29,7 @@ describe("image-bed constants", () => {
 
 		const { UPLOAD_DIR } = await loadConstants();
 
-    expect(UPLOAD_DIR).toBe(`${process.cwd()}/uploads/image-bed`);
+    expect(UPLOAD_DIR).toBe(path.join(process.cwd(), "uploads", "image-bed"));
   });
 
   it("allows IMAGE_UPLOAD_DIR to override the default upload location", async () => {

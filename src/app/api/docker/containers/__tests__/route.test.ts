@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { dockerEngineSocketPath } from "@/lib/runtime/platform-paths";
 
 const { mocks, httpRequestMock, loggerMock } = vi.hoisted(() => ({
   mocks: {
@@ -117,7 +118,7 @@ describe("/api/docker/containers audit coverage", () => {
       message: "Docker is not installed or Docker socket is unavailable",
       dockerScope: {
         scope: "hub-host",
-        socketPath: "/var/run/docker.sock",
+        socketPath: dockerEngineSocketPath(),
         warning: expect.stringContaining("not a cross-VPS container console"),
       },
     });

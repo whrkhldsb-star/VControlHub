@@ -55,7 +55,7 @@ describe("storage path utils", () => {
 
   it("resolves paths only inside the configured storage root", () => {
     const resolved = resolveStoragePathWithinBase("/srv/storage", "team-a/docs/a.txt");
-    expect(resolved).toEqual({ ok: true, path: "/srv/storage/team-a/docs/a.txt" });
+    expect(resolved).toEqual({ ok: true, path: path.resolve("/srv/storage", "team-a/docs/a.txt") });
     expect(resolveStoragePathWithinBase("/srv/storage", "../secret.png").ok).toBe(false);
     expect(resolveStoragePathWithinBase("/srv/storage", "/etc/passwd").ok).toBe(false);
   });
@@ -91,7 +91,7 @@ describe("storage path utils", () => {
       expect(resolveStoragePathWithinBase(
         "/var/lib/${APP_SLUG:-vcontrolhub}/storage",
         "uploads/a.txt",
-      )).toEqual({ ok: true, path: "/var/lib/vcontrolhub/storage/uploads/a.txt" });
+      )).toEqual({ ok: true, path: path.resolve("/var/lib/vcontrolhub/storage", "uploads/a.txt") });
     } finally {
       if (previousSlug === undefined) {
         delete process.env.APP_SLUG;

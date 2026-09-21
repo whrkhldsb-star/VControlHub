@@ -1,4 +1,5 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { gzipSync } from "node:zlib";
 import os from "node:os";
 import path from "node:path";
 import { NextRequest } from "next/server";
@@ -56,15 +57,11 @@ async function createTarGz() {
 
 async function createGz() {
   tempDir = await mkdtemp(path.join(os.tmpdir(), "vch-extract-gz-"));
-  const sourcePath = path.join(tempDir, "notes.txt");
-  await writeFile(sourcePath, "hello gzip");
-  const { execFile } = await import("node:child_process");
-  await new Promise<void>((resolve, reject) => {
-    execFile("gzip", ["-k", sourcePath], (error) =>
-      error ? reject(error) : resolve(),
-    );
-  });
-  await rm(sourcePath, { force: true });
+  // Build the fixture with zlib so the test does not depend on a gzip binary.
+  await writeFile(
+    path.join(tempDir, "notes.txt.gz"),
+    gzipSync(Buffer.from("hello gzip", "utf8")),
+  );
 }
 
 describe("POST /api/files/extract", () => {

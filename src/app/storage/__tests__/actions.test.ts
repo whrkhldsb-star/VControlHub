@@ -1,5 +1,10 @@
+import path from "node:path";
+
 import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/concurrency/advisory-lock", () => ({ tryAcquireAdvisoryLock: vi.fn().mockResolvedValue(async () => undefined) }));
+
+/** LOCAL driver paths resolve through node:path — build expectations natively. */
+const localPath = (...segments: string[]) => path.resolve("/srv/storage", ...segments);
 
 const {
   requirePermissionMock,
@@ -308,12 +313,12 @@ describe("createFolderAction", () => {
     );
 
     expect(result).toEqual({ error: "Index write failed" });
-    expect(mkdirMock).toHaveBeenCalledWith("/srv/storage/docs/drafts", {
+    expect(mkdirMock).toHaveBeenCalledWith(localPath("docs/drafts"), {
       recursive: false,
     });
     // Compensation now only removes a folder confirmed still empty (fix for
     // the rollback that could delete concurrently uploaded files).
-    expect(rmMock).toHaveBeenCalledWith("/srv/storage/docs/drafts", {
+    expect(rmMock).toHaveBeenCalledWith(localPath("docs/drafts"), {
       recursive: true,
       force: false,
     });
@@ -739,12 +744,12 @@ describe("SFTP file entry actions", () => {
         operation: "write",
       }),
     );
-    expect(mkdirMock).toHaveBeenCalledWith("/srv/storage/docs", {
+    expect(mkdirMock).toHaveBeenCalledWith(localPath("docs"), {
       recursive: true,
     });
     expect(renameFsMock).toHaveBeenCalledWith(
-      "/srv/storage/docs/old.txt",
-      "/srv/storage/docs/new.txt",
+      localPath("docs/old.txt"),
+      localPath("docs/new.txt"),
     );
     expect(prismaMock.fileEntry.update).toHaveBeenCalledWith(
       expect.objectContaining({

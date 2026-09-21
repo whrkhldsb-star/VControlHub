@@ -1,3 +1,5 @@
+import path from "node:path";
+
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
 const {
@@ -152,8 +154,8 @@ describe("pruneOldBackupRecordsNow — runtime orchestrator", () => {
     expect(result.deletedRecords).toBe(1);
     expect(result.filesDeleted).toBe(1);
     expect(result.candidateIds).toEqual(["bak_old"]);
-    expect(statMock).toHaveBeenCalledWith("/var/backups/vcontrolhub/backups/db.sql.gz");
-    expect(rmMock).toHaveBeenCalledWith("/var/backups/vcontrolhub/backups/db.sql.gz", { force: true });
+    expect(statMock).toHaveBeenCalledWith(path.join("/var/backups/vcontrolhub", "backups/db.sql.gz"));
+    expect(rmMock).toHaveBeenCalledWith(path.join("/var/backups/vcontrolhub", "backups/db.sql.gz"), { force: true });
     expect(mockPrisma.backupRecord.delete).toHaveBeenCalledWith({ where: { id: "bak_old" } });
   });
 

@@ -1,3 +1,5 @@
+import path from "node:path";
+
 import { describe, expect, it, vi } from "vitest";
 
 const {
@@ -211,10 +213,10 @@ describe("/api/images/batch", () => {
       },
     });
     expect(unlinkMock).toHaveBeenCalledWith(
-      "/tmp/vcontrolhub-image-batch-test/albums/remote.png",
+      path.join("/tmp/vcontrolhub-image-batch-test/albums", "remote.png"),
     );
     expect(unlinkMock).toHaveBeenCalledWith(
-      "/tmp/vcontrolhub-image-batch-test/albums/remote_thumb.webp",
+      path.join("/tmp/vcontrolhub-image-batch-test/albums", "remote_thumb.webp"),
     );
     await expect(response.json()).resolves.toEqual({
       deleted: 1,

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const readFileSyncMock = vi.fn<(path: string) => string>();
 
@@ -17,6 +17,16 @@ vi.mock("node:fs", () => {
 });
 
 import { __resetCpuBaselineForTests, collectMonitoringStats } from "../collector";
+
+// The fixtures below are /proc/stat content: pin the platform to linux so the
+// collector exercises the /proc code path even when the suite runs on Windows.
+beforeEach(() => {
+	vi.spyOn(process, "platform", "get").mockReturnValue("linux");
+});
+
+afterEach(() => {
+	vi.restoreAllMocks();
+});
 
 /** Aggregate /proc/stat line: user nice system idle iowait … */
 function procStat(busy: number, idle: number) {

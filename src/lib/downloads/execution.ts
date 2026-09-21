@@ -33,6 +33,7 @@ import {
 } from "@/lib/downloads/helpers";
 import { BusinessError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
+import { relayTempDir } from "@/lib/runtime/platform-paths";
 import type { DownloadSourceResolution } from "@/lib/downloads/source-url";
 import { randomUUID, createHash } from "node:crypto";
 import { hashTransferFile, parseTransferManifest, type TransferManifest } from "./transfer-manifest";
@@ -74,7 +75,7 @@ export async function executeAria2RelayDownload(
  signal?: AbortSignal,
 ) {
  void _fileName;
- const tempDir = `/tmp/app-relay-${taskId}`;
+ const tempDir = relayTempDir(taskId);
  const teamId = await loadDownloadTeamId(taskId);
 
  let gid: string;

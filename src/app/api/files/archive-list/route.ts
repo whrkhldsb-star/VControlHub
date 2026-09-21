@@ -127,6 +127,14 @@ async function listArchiveContents(
 }
 
 async function listZip(filePath: string): Promise<ArchiveEntry[]> {
+  // Windows has no unzip.exe; System32 bsdtar reads zip archives natively.
+  if (process.platform === "win32") {
+    const { stdout } = await execFileAsync("tar", ["-tvf", filePath], {
+      maxBuffer: 10 * 1024 * 1024,
+      timeout: 15000,
+    });
+    return parseTarOutput(stdout);
+  }
   const { stdout } = await execFileAsync("unzip", ["-l", filePath], {
     maxBuffer: 10 * 1024 * 1024,
     timeout: 15000,
@@ -197,9 +205,36 @@ function parseTarOutput(output: string): ArchiveEntry[] {
         isDirectory,
         modified: match[4]!,
       });
+      continue;
     }
+    // bsdtar (Windows tar.exe / macOS) columns: perms uid gid dev SIZE month day
+    // HH:MM name — month names are locale-dependent, so anchor on the HH:MM
+    // token and take the name as everything after it (names may contain
+    // spaces). tokens: [perms, uid, gid, dev, size, month, day, time, ...name]
+    const bsdtar = parseBsdtarLine(line);
+    if (bsdtar) entries.push(bsdtar);
   }
   return entries;
+}
+
+function parseBsdtarLine(line: string): ArchiveEntry | null {
+  const trimmed = line.trim();
+  if (!/^[dlcbps-][rwxsStT-]{9}\s/.test(trimmed)) return null;
+  const tokens = trimmed.split(/\s+/);
+  const timeIdx = tokens.findIndex((token, i) => i >= 5 && /^\d{1,2}:\d{2}$/.test(token));
+  if (timeIdx < 7 || timeIdx + 1 >= tokens.length) return null;
+  const size = Number.parseInt(tokens[timeIdx - 3]!, 10);
+  if (!Number.isFinite(size)) return null;
+  const typeChar = trimmed[0]!;
+  const name = tokens.slice(timeIdx + 1).join(" ").trim();
+  if (!name) return null;
+  const isDirectory = typeChar === "d" || name.endsWith("/");
+  return {
+    name: isDirectory ? name.replace(/\/$/, "") : name,
+    size,
+    isDirectory,
+    modified: `${tokens[timeIdx - 2]!} ${tokens[timeIdx - 1]!} ${tokens[timeIdx]!}`,
+  };
 }
 
 async function listGz(

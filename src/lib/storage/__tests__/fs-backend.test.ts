@@ -1,4 +1,9 @@
+import path from "node:path";
+
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+/** LOCAL driver paths resolve through node:path — build expectations natively. */
+const localPath = (...segments: string[]) => path.resolve("/srv/storage", ...segments);
 
 const {
   createRemoteDirectoryMock,
@@ -163,7 +168,7 @@ describe("resolveManagedLocalEntryPath", () => {
       basePath: "/srv/storage",
       relativePath: "team/docs/file.txt",
     });
-    expect(result.absolutePath).toBe("/srv/storage/team/docs/file.txt");
+    expect(result.absolutePath).toBe(localPath("team/docs/file.txt"));
   });
 
   it("rejects relative paths that escape the base path", async () => {
@@ -180,7 +185,7 @@ describe("resolveManagedLocalEntryPath", () => {
       basePath: "/srv/storage",
       relativePath: "/team/docs",
     });
-    expect(result.absolutePath).toBe("/srv/storage/team/docs");
+    expect(result.absolutePath).toBe(localPath("team/docs"));
   });
 });
 
@@ -204,10 +209,10 @@ describe("createManagedFolder", () => {
       storageNode: localNode,
       relativePath: "team/drafts",
     });
-    expect(mkdirMock).toHaveBeenNthCalledWith(1, "/srv/storage", {
+    expect(mkdirMock).toHaveBeenNthCalledWith(1, localPath(), {
       recursive: true,
     });
-    expect(mkdirMock).toHaveBeenNthCalledWith(2, "/srv/storage/team/drafts", {
+    expect(mkdirMock).toHaveBeenNthCalledWith(2, localPath("team/drafts"), {
       recursive: false,
     });
     expect(createRemoteDirectoryMock).not.toHaveBeenCalled();
@@ -263,7 +268,7 @@ describe("readBackingObject", () => {
       storageNode: localNode,
       relativePath: "team/docs/a.txt",
     });
-    expect(readFileMock).toHaveBeenCalledWith("/srv/storage/team/docs/a.txt");
+    expect(readFileMock).toHaveBeenCalledWith(localPath("team/docs/a.txt"));
     expect(buffer.toString("utf8")).toBe("hello local");
     expect(readRemoteFileMock).not.toHaveBeenCalled();
   });
@@ -317,7 +322,7 @@ describe("deleteBackingObject", () => {
       isDirectory: false,
       tolerateMissing: false,
     });
-    expect(unlinkMock).toHaveBeenCalledWith("/srv/storage/docs/file.txt");
+    expect(unlinkMock).toHaveBeenCalledWith(localPath("docs/file.txt"));
     expect(rmMock).not.toHaveBeenCalled();
     expect(deleteRemoteFileMock).not.toHaveBeenCalled();
   });
@@ -329,7 +334,7 @@ describe("deleteBackingObject", () => {
       isDirectory: true,
       tolerateMissing: false,
     });
-    expect(rmMock).toHaveBeenCalledWith("/srv/storage/docs/drafts", {
+    expect(rmMock).toHaveBeenCalledWith(localPath("docs/drafts"), {
       recursive: true,
       force: false,
     });
@@ -415,12 +420,12 @@ describe("renameBackingObject", () => {
       oldRelativePath: "docs/old.txt",
       newRelativePath: "team/new.txt",
     });
-    expect(mkdirMock).toHaveBeenCalledWith("/srv/storage/team", {
+    expect(mkdirMock).toHaveBeenCalledWith(localPath("team"), {
       recursive: true,
     });
     expect(renameFsMock).toHaveBeenCalledWith(
-      "/srv/storage/docs/old.txt",
-      "/srv/storage/team/new.txt",
+      localPath("docs/old.txt"),
+      localPath("team/new.txt"),
     );
     expect(renameRemoteFileMock).not.toHaveBeenCalled();
   });
@@ -464,11 +469,11 @@ describe("writeBackingObject", () => {
       content: "hello",
     });
     expect(result).toEqual({ byteSize: 5 });
-    expect(mkdirMock).toHaveBeenCalledWith("/srv/storage/team/docs", {
+    expect(mkdirMock).toHaveBeenCalledWith(localPath("team/docs"), {
       recursive: true,
     });
     expect(writeFileMock).toHaveBeenCalledWith(
-      "/srv/storage/team/docs/note.txt",
+      localPath("team/docs/note.txt"),
       Buffer.from("hello", "utf8"),
     );
     expect(writeRemoteFileMock).not.toHaveBeenCalled();
@@ -509,7 +514,7 @@ describe("writeBackingObject", () => {
     });
     expect(result).toEqual({ byteSize: 3 });
     expect(writeFileMock).toHaveBeenCalledWith(
-      "/srv/storage/bin/data.bin",
+      localPath("bin/data.bin"),
       buf,
     );
   });

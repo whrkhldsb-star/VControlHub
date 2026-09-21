@@ -1,4 +1,9 @@
+import path from "node:path";
+
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+/** LOCAL driver paths resolve through node:path — build expectations natively. */
+const localPath = (...segments: string[]) => path.resolve("/srv/storage", ...segments);
 
 const {
   createRemoteDirectoryMock,
@@ -118,12 +123,12 @@ describe("moveBackingObject", () => {
       oldRelativePath: "docs/old.txt",
       newRelativePath: "team/sub/new.txt",
     });
-    expect(mkdirMock).toHaveBeenCalledWith("/srv/storage/team/sub", {
+    expect(mkdirMock).toHaveBeenCalledWith(localPath("team/sub"), {
       recursive: true,
     });
     expect(renameFsMock).toHaveBeenCalledWith(
-      "/srv/storage/docs/old.txt",
-      "/srv/storage/team/sub/new.txt",
+      localPath("docs/old.txt"),
+      localPath("team/sub/new.txt"),
     );
     expect(createRemoteDirectoryMock).not.toHaveBeenCalled();
     expect(renameRemoteFileMock).not.toHaveBeenCalled();

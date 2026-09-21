@@ -1,6 +1,7 @@
 /**
  * Unit tests for VPS backup presets + cron parser (TR-043)
  */
+import path from "node:path";
 import { describe, it, expect } from "vitest";
 
 import {
@@ -135,8 +136,9 @@ describe("resolveVpsBackupFilePath", () => {
 	it("accepts portable storage/vps-backups paths", async () => {
 		const { resolveVpsBackupFilePath } = await import("../vps-backup-service");
 		const abs = resolveVpsBackupFilePath("storage/vps-backups/srv1/mysql-rec1.tar.gz");
-		expect(abs).toContain("storage/vps-backups/srv1/mysql-rec1.tar.gz");
-		expect(abs.startsWith("/")).toBe(true);
+		// Compare in POSIX form so the assertion holds on Windows paths too.
+		expect(abs.split(path.sep).join("/")).toContain("storage/vps-backups/srv1/mysql-rec1.tar.gz");
+		expect(path.isAbsolute(abs)).toBe(true);
 	});
 
 	it("rejects path traversal and absolute paths", async () => {

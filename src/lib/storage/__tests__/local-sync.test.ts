@@ -112,7 +112,9 @@ describe("local storage directory sync", () => {
     expect(prismaMock.$queryRaw.mock.calls[0]![0].values).toContain("photos/");
   });
 
-  it("does not prune indexed rows when the disk inventory is incomplete", async () => {
+  // The fixture needs a ":" in a file name, which NTFS cannot represent
+  // (it becomes an alternate data stream); the guard is exercised on Linux CI.
+  it.skipIf(process.platform === "win32")("does not prune indexed rows when the disk inventory is incomplete", async () => {
     await writeFile(path.join(root, "unsupported:name.txt"), "keep");
 
     const result = await syncLocalDirectoryEntries({

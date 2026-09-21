@@ -21,6 +21,11 @@ import {
   systemNavItems,
 } from '../src/components/nav-items';
 
+/** Route paths in the catalog are POSIX-style on every OS. */
+function toPosix(p: string): string {
+  return p.split('\\').join('/');
+}
+
 function walk(dir: string): string[] {
   const out: string[] = [];
   for (const ent of readdirSync(dir, { withFileTypes: true })) {
@@ -51,12 +56,12 @@ const pagePaths = new Set(catalog.pages.map((p) => p.path));
 const permSet = new Set(catalog.permissions);
 
 function pagePathFor(file: string): string {
-  const rel = relative(join(ROOT, 'src', 'app'), file);
+  const rel = toPosix(relative(join(ROOT, 'src', 'app'), file));
   return rel === 'page.tsx' ? '/' : '/' + rel.slice(0, -'/page.tsx'.length);
 }
 
 function apiPathFor(file: string): string {
-  const rel = relative(join(ROOT, 'src', 'app', 'api'), file);
+  const rel = toPosix(relative(join(ROOT, 'src', 'app', 'api'), file));
   return '/api/' + rel.slice(0, -'/route.ts'.length);
 }
 
@@ -73,7 +78,7 @@ verifySourceParity(
   'page',
   new Set(
     walk(join(ROOT, 'src', 'app'))
-      .filter((file) => file.endsWith('/page.tsx'))
+      .filter((file) => toPosix(file).endsWith('/page.tsx'))
       .map(pagePathFor),
   ),
   pagePaths,
@@ -82,7 +87,7 @@ verifySourceParity(
   'api',
   new Set(
     walk(join(ROOT, 'src', 'app', 'api'))
-      .filter((file) => file.endsWith('/route.ts'))
+      .filter((file) => toPosix(file).endsWith('/route.ts'))
       .map(apiPathFor),
   ),
   new Set(catalog.apiRoutes.map((route) => route.path)),

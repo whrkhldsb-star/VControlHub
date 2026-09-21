@@ -1,7 +1,9 @@
+import { execFileSync, type SpawnSyncOptionsWithStringEncoding } from "node:child_process";
 import { readFileSync, readdirSync, statfsSync } from "node:fs";
 import os from "os";
 
 import { formatBytes } from "@/lib/format/bytes";
+import { readLocalNetworkDeviceStats } from "@/lib/monitoring/local-network";
 
 /**
  * Upper bound on /proc entries inspected per collection tick. The previous cap
@@ -55,7 +57,7 @@ let previousCpuTotals: CpuTotals | null = null;
 let lastCpuPercent = "N/A";
 
 function cpuUsagePercent() {
-	const current = parseCpuTotals(readProc("/proc/stat"));
+	const current = process.platform === "win32" ? cpuTotalsFromOs() : parseCpuTotals(readProc("/proc/stat"));
 	if (!current) return lastCpuPercent;
 	const previous = previousCpuTotals;
 	if (!previous) {
@@ -72,6 +74,23 @@ function cpuUsagePercent() {
 	return lastCpuPercent;
 }
 
+/** Windows has no /proc/stat: aggregate os.cpus() millisecond counters instead. */
+function cpuTotalsFromOs(): CpuTotals | null {
+	const cpus = os.cpus();
+	if (cpus.length === 0) return null;
+	let total = 0;
+	let idle = 0;
+	for (const cpu of cpus) {
+		// Partial mocks (and exotic hosts) may omit times — skip those entries.
+		const times = cpu?.times;
+		if (!times || typeof times.user !== "number") continue;
+		total += times.user + times.nice + times.sys + times.idle + times.irq;
+		idle += times.idle;
+	}
+	if (total <= 0) return null;
+	return { total, idle };
+}
+
 /** The UI prints this verbatim, so an unavailable reading must not become "N/A%". */
 function formatCpuUsage(percent: string) {
 	return percent === "N/A" ? percent : `${percent}%`;
@@ -84,6 +103,8 @@ export function __resetCpuBaselineForTests() {
 }
 
 export type ProcessStat = { memKb: number; cmd: string; cpuPercent: number };
+
+export type TopProcessRow = { pid: string; cpu: string; mem: string; cmd: string };
 
 /**
  * Parse one /proc/[pid]/stat line. `comm` may contain spaces and parentheses, so
@@ -122,7 +143,8 @@ export function parseProcessStat(
 	};
 }
 
-function topProcesses() {
+function topProcesses(): TopProcessRow[] {
+	if (process.platform === "win32") return topProcessesWindows();
 	const processes: Array<ProcessStat & { pid: number }> = [];
 	try {
 		const totalMemKb = Math.max(os.totalmem() / 1024, 1);
@@ -150,6 +172,77 @@ function topProcesses() {
 	} catch { return []; }
 }
 
+/** PowerShell spawn cost is nontrivial and the UI polls every 5s — cache briefly. */
+const WINDOWS_STATS_CACHE_TTL_MS = 2_000;
+let windowsProcessCache: { at: number; rows: TopProcessRow[] } | null = null;
+
+const POWERSHELL_SPAWN: SpawnSyncOptionsWithStringEncoding = {
+	encoding: "utf-8",
+	timeout: 10_000,
+	windowsHide: true,
+};
+
+/**
+ * Windows top list via `Get-Process`: memory is WS, CPU% mirrors the Linux
+ * lifetime-average semantics (total CPU seconds over process age × cores).
+ * Process rows whose StartTime is inaccessible (protected system processes)
+ * fall back to the host uptime as the denominator, understating their CPU%.
+ */
+function topProcessesWindows(): TopProcessRow[] {
+	const now = Date.now();
+	if (windowsProcessCache && now - windowsProcessCache.at < WINDOWS_STATS_CACHE_TTL_MS) {
+		return windowsProcessCache.rows;
+	}
+	let rows: TopProcessRow[] = [];
+	try {
+		const totalMemKb = Math.max(os.totalmem() / 1024, 1);
+		const cores = Math.max(os.cpus().length, 1);
+		const uptimeSeconds = Math.max(os.uptime(), 1);
+		const output = execFileSync(
+			"powershell",
+			[
+				"-NoProfile",
+				"-NonInteractive",
+				"-Command",
+				"Get-Process | Sort-Object WS -Descending | Select-Object -First 8 " +
+					"@{n='Pid';e={$_.Id}}, @{n='WS';e={[math]::Round($_.WS/1KB)}}, " +
+					"@{n='Cpu';e={ if ($_.CPU -ne $null) { [math]::Round($_.CPU,3) } else { 0 } }}, " +
+					"@{n='Age';e={ try { [math]::Round(((Get-Date) - $_.StartTime).TotalSeconds) } catch { 0 } }}, " +
+					"@{n='Name';e={$_.ProcessName}} | ConvertTo-Csv -NoTypeInformation",
+			],
+			POWERSHELL_SPAWN,
+		);
+		const parsed = output
+			.split(/\r?\n/)
+			.slice(1)
+			.filter((line) => line.trim())
+			.map((line) => line.split(",").map((cell) => cell.trim().replace(/^"|"$/g, "")))
+			.filter((cells) => cells.length >= 5)
+			.map((cells) => {
+				const pid = cells[0]!;
+				const memKb = Number(cells[1]);
+				const cpuSeconds = Number(cells[2]);
+				const ageSeconds = Number(cells[3]);
+				const cmd = cells.slice(4).join(",").slice(0, 40);
+				const lifetime = ageSeconds > 0 ? ageSeconds : uptimeSeconds;
+				const cpuPercent = Math.min(100, Math.max(0, (cpuSeconds / (lifetime * cores)) * 100));
+				return {
+					pid,
+					cpu: cpuPercent.toFixed(1),
+					mem: `${((memKb / totalMemKb) * 100).toFixed(1)}%`,
+					cmd,
+				};
+			})
+			.filter((row) => Number.isFinite(Number(row.cpu)))
+			.slice(0, 5);
+		rows = parsed;
+	} catch {
+		// Keep rows empty — monitoring response must not fail on PS hiccups.
+	}
+	windowsProcessCache = { at: now, rows };
+	return rows;
+}
+
 /** Sockets in state `01` (ESTABLISHED) in a /proc/net/tcp{,6} table. */
 export function countEstablishedSockets(table: string) {
 	return table
@@ -159,6 +252,14 @@ export function countEstablishedSockets(table: string) {
 }
 
 function tcpConnectionCount() {
+	if (process.platform === "win32") {
+		try {
+			const output = execFileSync("netstat", ["-n"], POWERSHELL_SPAWN);
+			return output
+				.split(/\r?\n/)
+				.filter((line) => line.trim().endsWith("ESTABLISHED")).length;
+		} catch { return 0; }
+	}
 	// IPv6 sockets live in their own table: counting only /proc/net/tcp reported
 	// a near-empty connection list on a dual-stack host served over IPv6.
 	return (
@@ -178,14 +279,12 @@ function diskInfo() {
 }
 
 function networkInfo() {
-	const rows: Array<{ iface: string; rx: string; tx: string }> = [];
-	for (const line of readProc("/proc/net/dev").split("\n").slice(2)) {
-		const parts = line.trim().split(/\s+/);
-		if (parts.length >= 10 && !parts[0]!.startsWith("lo:")) {
-			rows.push({ iface: parts[0]!.replace(":", ""), rx: formatBytes(Number(parts[1])), tx: formatBytes(Number(parts[9])) });
-		}
-	}
-	return rows;
+	// Shared sampler: /proc/net/dev on POSIX, Get-NetAdapterStatistics on Windows.
+	return readLocalNetworkDeviceStats().map((stats) => ({
+		iface: stats.iface,
+		rx: formatBytes(stats.rxBytes),
+		tx: formatBytes(stats.txBytes),
+	}));
 }
 
 export function collectMonitoringStats() {

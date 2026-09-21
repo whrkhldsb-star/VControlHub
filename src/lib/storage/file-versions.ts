@@ -33,11 +33,12 @@ import {
   type StorageFileNode,
 } from "@/lib/storage/file-content";
 import { expandStorageBasePath } from "@/lib/storage/path-utils";
+import { defaultDataRoot } from "@/lib/runtime/platform-paths";
 import { t } from "@/lib/i18n/service-translations";
 
 export const DEFAULT_FILE_VERSION_DIR =
   config.fileVersion.dir ||
-  path.join("/var/lib/vcontrolhub", "file-versions");
+  path.join(defaultDataRoot(), "file-versions");
 
 /** Bodies larger than this are skipped for automatic snapshots (still listable history stays). */
 export const DEFAULT_FILE_VERSION_MAX_BYTES = Number(

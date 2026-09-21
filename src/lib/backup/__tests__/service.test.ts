@@ -1,5 +1,19 @@
+import path from "node:path";
+
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { Readable } from "node:stream";
+
+/**
+ * Backup artifacts live on the hub host, so expected paths must be built with
+ * the platform's separators (POSIX literals would never match on Windows).
+ */
+const backupPath = (...segments: string[]) => path.join("/var/backups/vcontrolhub", ...segments);
+
+/** Adapt a POSIX-literal path regex to the platform path separator. */
+function pathAwareStringMatching(posixSource: string) {
+  const source = posixSource.replace(/\\\//g, path.sep === "/" ? "/" : "\\\\");
+  return expect.stringMatching(new RegExp(source));
+}
 
 const { mockPrisma, runBackupCommandMock, statMock, createReadStreamMock } = vi.hoisted(() => ({
   mockPrisma: {
@@ -124,7 +138,7 @@ describe("backup service", () => {
 
     expect(runBackupCommandMock.mock.calls[0]![0]).toEqual(expect.objectContaining({
       file: "bash",
-      args: ["deploy/backup.sh", "--full", expect.stringMatching(/\/var\/backups\/vcontrolhub\/backups\/full-.*\.tar\.gz$/)],
+      args: ["deploy/backup.sh", "--full", pathAwareStringMatching("\\/var\\/backups\\/vcontrolhub\\/backups\\/full-.*\\.tar\\.gz$")],
       options: expect.objectContaining({ cwd: "/opt/app", env: expect.objectContaining({ APP_DIR: "/opt/app" }) }),
     }));
     expect(mockPrisma.backupRecord.updateMany).toHaveBeenCalledWith({
@@ -145,7 +159,7 @@ describe("backup service", () => {
 
     expect(runBackupCommandMock.mock.calls[0]![0]).toEqual(expect.objectContaining({
       file: "bash",
-      args: ["deploy/backup.sh", "--files", expect.stringMatching(/\/var\/backups\/vcontrolhub\/backups\/files-.*\.tar\.gz$/)],
+      args: ["deploy/backup.sh", "--files", pathAwareStringMatching("\\/var\\/backups\\/vcontrolhub\\/backups\\/files-.*\\.tar\\.gz$")],
     }));
     expect(record.status).toBe("FAILED");
     expect(record.errorMessage).toContain("tar failed");
@@ -184,7 +198,7 @@ describe("backup service", () => {
     for (const unsafe of ["/tmp/app.dump", "../app.dump", "backups/../app.dump", "backups//app.dump", "backups/app\\evil.dump", "", "."]) {
       expect(() => resolveBackupPath("/opt/whrkhldsb", unsafe)).toThrow("备份路径必须是可移植的相对路径");
     }
-    expect(resolveBackupPath("/opt/whrkhldsb", "backups/app.dump")).toBe("/var/backups/vcontrolhub/backups/app.dump");
+    expect(resolveBackupPath("/opt/whrkhldsb", "backups/app.dump")).toBe(backupPath("backups/app.dump"));
   });
 
   it("updates status metadata without requiring callers to know prisma fields", async () => {
@@ -337,15 +351,15 @@ describe("backup service", () => {
     const result = await restoreBackupRecord({ id: "bak1", confirm: "RESTORE", projectRoot: "/opt/app" });
 
     expect(mockPrisma.backupRecord.findUnique).toHaveBeenCalledWith({ where: { id: "bak1" } });
-    expect(statMock).toHaveBeenCalledWith("/var/backups/vcontrolhub/backups/database.sql.gz");
+    expect(statMock).toHaveBeenCalledWith(backupPath("backups/database.sql.gz"));
     expect(runBackupCommandMock.mock.calls[0]![0]).toEqual(expect.objectContaining({
       file: "bash",
-      args: ["deploy/backup.sh", expect.stringMatching(/\/backups\/pre-restore-bak1-\d+\.sql\.gz$/)],
+      args: ["deploy/backup.sh", pathAwareStringMatching("\\/backups\\/pre-restore-bak1-\\d+\\.sql\\.gz$")],
       options: expect.objectContaining({ cwd: "/opt/app", env: expect.objectContaining({ APP_DIR: "/opt/app" }) }),
     }));
     expect(runBackupCommandMock.mock.calls[1]![0]).toEqual(expect.objectContaining({
       file: "bash",
-      args: ["scripts/restore-db.sh", "/var/backups/vcontrolhub/backups/database.sql.gz"],
+      args: ["scripts/restore-db.sh", backupPath("backups/database.sql.gz")],
       options: expect.objectContaining({ cwd: "/opt/app", env: expect.objectContaining({ APP_DIR: "/opt/app", CONFIRM_RESTORE: "1" }) }),
     }));
 		expect(mockPrisma.backupRecord.create).toHaveBeenCalledWith(expect.objectContaining({
@@ -364,14 +378,14 @@ describe("backup service", () => {
 
     await restoreBackupRecord({ id: "bak2", confirm: "RESTORE", projectRoot: "/opt/app" });
 
-    expect(statMock).toHaveBeenCalledWith("/var/backups/vcontrolhub/backups/files.tar.gz");
+    expect(statMock).toHaveBeenCalledWith(backupPath("backups/files.tar.gz"));
     expect(runBackupCommandMock.mock.calls[0]![0]).toEqual(expect.objectContaining({
       file: "bash",
-      args: ["deploy/backup.sh", "--files", expect.stringMatching(/\/backups\/pre-restore-bak2-\d+\.tar\.gz$/)],
+      args: ["deploy/backup.sh", "--files", pathAwareStringMatching("\\/backups\\/pre-restore-bak2-\\d+\\.tar\\.gz$")],
     }));
     expect(runBackupCommandMock.mock.calls[1]![0]).toEqual(expect.objectContaining({
       file: "bash",
-      args: ["scripts/restore-files.sh", "/var/backups/vcontrolhub/backups/files.tar.gz", "/opt/app"],
+      args: ["scripts/restore-files.sh", backupPath("backups/files.tar.gz"), "/opt/app"],
       options: expect.objectContaining({ cwd: "/opt/app" }),
     }));
   });
@@ -390,11 +404,11 @@ describe("backup service", () => {
     expect(runBackupCommandMock).toHaveBeenCalledTimes(2);
     expect(runBackupCommandMock.mock.calls[0]![0]).toEqual(expect.objectContaining({
       file: "bash",
-      args: ["deploy/backup.sh", "--full", expect.stringMatching(/\/backups\/pre-restore-bak-full-\d+\.tar\.gz$/)],
+      args: ["deploy/backup.sh", "--full", pathAwareStringMatching("\\/backups\\/pre-restore-bak-full-\\d+\\.tar\\.gz$")],
     }));
     expect(runBackupCommandMock.mock.calls[1]![0]).toEqual(expect.objectContaining({
       file: "bash",
-      args: ["scripts/restore-full.sh", "/var/backups/vcontrolhub/backups/full.tar.gz", "all", "/opt/app"],
+      args: ["scripts/restore-full.sh", backupPath("backups/full.tar.gz"), "all", "/opt/app"],
     }));
   });
 
@@ -411,11 +425,11 @@ describe("backup service", () => {
 
     expect(runBackupCommandMock.mock.calls[0]![0]).toEqual(expect.objectContaining({
       file: "bash",
-      args: ["deploy/backup.sh", expect.stringMatching(/\/backups\/pre-restore-bak-full-db-\d+\.sql\.gz$/)],
+      args: ["deploy/backup.sh", pathAwareStringMatching("\\/backups\\/pre-restore-bak-full-db-\\d+\\.sql\\.gz$")],
     }));
     expect(runBackupCommandMock.mock.calls[1]![0]).toEqual(expect.objectContaining({
       file: "bash",
-      args: ["scripts/restore-full.sh", "/var/backups/vcontrolhub/backups/full.tar.gz", "database", "/opt/app"],
+      args: ["scripts/restore-full.sh", backupPath("backups/full.tar.gz"), "database", "/opt/app"],
     }));
   });
 

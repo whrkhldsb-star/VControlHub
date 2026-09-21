@@ -1,4 +1,5 @@
 vi.mock("@/lib/concurrency/advisory-lock", () => ({tryAcquireAdvisoryLock: async () => async () => {}}));
+import path from "node:path";
 import { PassThrough } from "node:stream";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -129,8 +130,8 @@ describe("/api/storage/archive-download", () => {
     expect(assertStorageAccessMock).toHaveBeenCalledWith(
       expect.objectContaining({ storageNodeId: "node_1", relativePath: "photos", operation: "read" }),
     );
-    expect(statMock).toHaveBeenCalledWith("/srv/storage/photos");
-    expect(spawnMock).toHaveBeenCalledWith("tar", ["-czf", "-", "-C", "/srv/storage", "--", "photos"], expect.any(Object));
+    expect(statMock).toHaveBeenCalledWith(path.resolve("/srv/storage/photos"));
+    expect(spawnMock).toHaveBeenCalledWith("tar", ["-czf", "-", "-C", path.resolve("/srv/storage"), "--", "photos"], expect.any(Object));
     expect(response.headers.get("content-disposition")).toContain("photos.tar.gz");
   });
 

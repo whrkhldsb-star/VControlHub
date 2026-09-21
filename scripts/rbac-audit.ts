@@ -147,7 +147,9 @@ export function walk(dir: string, out: string[]): void {
       if (SKIP_DIR_NAMES.has(entry.name)) continue;
       walk(join(dir, entry.name), out);
     } else if (entry.isFile() && /\.(ts|tsx)$/.test(entry.name)) {
-      out.push(join(dir, entry.name));
+      // Keep forward slashes on every OS: downstream checks compare
+      // "/route.ts"-style suffixes and the committed audit JSON uses POSIX paths.
+      out.push(join(dir, entry.name).split('\\').join('/'));
     }
   }
 }
@@ -285,7 +287,7 @@ export function scanCallSites(files: string[]): CallSite[] {
 		// Route options are sometimes assembled in a local variable before being
 		// passed to withApiRoute(), or enforced through enforceApiGuard(). Treat
 		// permission literals in those guarded route files as real enforcement.
-		if (file.endsWith("/route.ts") && (text.includes("withApiRoute(") || text.includes("enforceApiGuard("))) {
+		if (/[\\/]route\.ts$/.test(file) && (text.includes("withApiRoute(") || text.includes("enforceApiGuard("))) {
 			for (const match of text.matchAll(permArgRe)) {
 				const lineNum = text.slice(0, match.index ?? 0).split("\n").length;
 				sites.push({ permission: match[1]!, kind: "withApiRoutePermission", file, line: lineNum });
@@ -631,6 +633,15 @@ export function buildUsage(
         });
       }
     }
+  }
+
+  // Deterministic output: file-scan order differs between platforms
+  // (Linux readdir is hash-ordered, Windows is alphabetical), so sort the
+  // per-permission lists to keep generated docs identical everywhere.
+  for (const u of usageMap.values()) {
+    u.files.sort((a, b) => (a.path === b.path ? a.line - b.line : a.path < b.path ? -1 : 1));
+    u.pages.sort();
+    u.apiRoutes.sort();
   }
 
   return { usage: Array.from(usageMap.values()).sort((a, b) => a.permission.localeCompare(b.permission)), drifts };

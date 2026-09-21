@@ -3,6 +3,7 @@ import path from "node:path";
 
 import { Client, type ConnectConfig } from "ssh2";
 import { connectSsh, type SshConnectionParams } from "@/lib/ssh/client";
+import { IS_WINDOWS } from "@/lib/runtime/platform-paths";
 
 import { buildContentDisposition } from "@/lib/http/content-disposition";
 import { nodeStreamToWeb } from "@/lib/http/node-to-web-stream";
@@ -76,12 +77,39 @@ function archiveExclusionInput(excluded: string[]) {
 }
 const EXCLUDE_OPTIONS = ["--no-wildcards", "--anchored", "--exclude-from=-"];
 
+/**
+ * Windows ships bsdtar (System32\tar.exe), which has no `--exclude-from=-`,
+ * `--no-wildcards` or `--anchored`: exclusions become repeated `--exclude`
+ * argv entries instead. bsdtar matches them as glob patterns, so a literal
+ * name containing glob metacharacters (`*?[`) may fail to match — accepted
+ * trade-off; argv is also capped by the Windows command-line length limit.
+ */
+function buildLocalTarArgs(directoryPath: string, entryName: string, excluded: string[]): string[] {
+	const base = ["-czf", "-", "-C", path.dirname(directoryPath)];
+	if (!excluded.length) return [...base, "--", entryName];
+	if (IS_WINDOWS) {
+		const excludeArgs: string[] = [];
+		for (const name of excluded) {
+			const arg = `--exclude=${name}`;
+			if (excludeArgs.join(" ").length + arg.length > 30_000) {
+				throw new Error("Archive exclusion list is too large for the Windows tar command line; use the Linux runtime or reduce exclusions");
+			}
+			excludeArgs.push(arg);
+		}
+		return [...base, ...excludeArgs, "--", entryName];
+	}
+	return [...base, ...EXCLUDE_OPTIONS, "--", entryName];
+}
+
 export function streamLocalTarGz(directoryPath: string, entryName: string, excluded: string[] = []) {
 	const input = archiveExclusionInput(excluded);
-	const tar = spawn("tar", ["-czf", "-", "-C", path.dirname(directoryPath), ...(input ? EXCLUDE_OPTIONS : []), "--", entryName], {
-		stdio: [input ? "pipe" : "ignore", "pipe", "pipe"],
+	// POSIX GNU tar reads the exclusion list from stdin; Windows bsdtar gets it
+	// as argv, so stdin stays closed there.
+	const useStdinExcludes = Boolean(input) && !IS_WINDOWS;
+	const tar = spawn("tar", buildLocalTarArgs(directoryPath, entryName, excluded), {
+		stdio: [useStdinExcludes ? "pipe" : "ignore", "pipe", "pipe"],
 	});
-	if (input) {
+	if (useStdinExcludes) {
 		tar.stdin?.on("error", (error) => destroyReadableWithError(tar.stdout!, error));
 		tar.stdin?.end(input);
 	}

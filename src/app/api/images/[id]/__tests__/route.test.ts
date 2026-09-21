@@ -1,4 +1,12 @@
+import path from "node:path";
+
 import { describe, expect, it, vi } from "vitest";
+
+/** Matches the mocked UPLOAD_DIR below; resolved natively per platform. */
+const uploadDir = (...segments: string[]) =>
+  path.join("/tmp/vcontrolhub-image-delete-test", ...segments);
+const linkedStoragePath = (...segments: string[]) =>
+  path.resolve("/srv/images", ...segments);
 
 const {
   requireApiSessionMock,
@@ -105,7 +113,7 @@ describe("/api/images/[id]", () => {
     expect(response.status).toBe(200);
     expect(requireApiSessionMock).toHaveBeenCalled();
     expect(unlinkMock).toHaveBeenCalledWith(
-      "/tmp/vcontrolhub-image-delete-test/img.png",
+      uploadDir("img.png"),
     );
     expect(imageDeleteMock).toHaveBeenCalledWith({ where: { id: "img_1" } });
     expect(imageDeleteMock.mock.invocationCallOrder[0]).toBeLessThan(
@@ -180,9 +188,9 @@ describe("/api/images/[id]", () => {
 
     expect(response.status).toBe(200);
     expect(unlinkMock).toHaveBeenCalledWith(
-      "/tmp/vcontrolhub-image-delete-test/img.png",
+      uploadDir("img.png"),
     );
-    expect(unlinkMock).toHaveBeenCalledWith("/srv/images/album/img.png");
+    expect(unlinkMock).toHaveBeenCalledWith(linkedStoragePath("album/img.png"));
     expect(mediaDeleteManyMock).toHaveBeenCalledWith({
       where: { storageNodeId: "node_1", relativePath: "album/img.png" },
     });
@@ -215,7 +223,7 @@ describe("/api/images/[id]", () => {
       basePath: "/srv/images",
     });
     unlinkMock.mockImplementation((filePath: string) =>
-      filePath.startsWith("/srv/images")
+      filePath.startsWith(path.resolve("/srv/images"))
         ? Promise.reject(Object.assign(new Error("EACCES"), { code: "EACCES" }))
         : Promise.resolve(),
     );
@@ -320,7 +328,7 @@ describe("/api/images/[id]", () => {
 
     expect(response.status).toBe(200);
     expect(unlinkMock).toHaveBeenCalledWith(
-      "/tmp/vcontrolhub-image-delete-test/nested/img_thumb.webp",
+      uploadDir("nested/img_thumb.webp"),
     );
     expect(imageDeleteMock).toHaveBeenCalledWith({ where: { id: "img_2" } });
   });

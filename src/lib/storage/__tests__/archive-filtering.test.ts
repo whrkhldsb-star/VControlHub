@@ -11,7 +11,12 @@ import {
   streamRemoteTarGz,
 } from "../archive-stream";
 
-it.each(["LOCAL", "SFTP"])(
+// Windows tar (bsdtar) matches --exclude as globs, so the literal
+// "[draft].txt" exclusion this test asserts cannot be expressed; the SFTP
+// variant also needs /bin/sh. GNU-tar semantics are enforced on Linux CI.
+const itGnuTar = process.platform === "win32" ? it.skip : it;
+
+itGnuTar.each(["LOCAL", "SFTP"])(
   "%s tar excludes literal deleted paths and entire deleted subtrees",
   async (driver) => {
     const root = await mkdtemp(path.join(os.tmpdir(), "archive-filter-"));

@@ -19,6 +19,11 @@ const APP = join(ROOT, 'src', 'app');
 const RBAC_FILE = join(ROOT, 'src', 'lib', 'auth', 'rbac.ts');
 const OUT = join(ROOT, 'docs', 'route-catalog.json');
 
+/** Catalog paths are always POSIX-style so output is identical on every OS. */
+function toPosix(p: string): string {
+  return p.split('\\').join('/');
+}
+
 function walk(dir: string): string[] {
   const out: string[] = [];
   for (const ent of readdirSync(dir, { withFileTypes: true })) {
@@ -91,7 +96,7 @@ function navigationPerms(text: string, fallback: string[]): string[] {
 }
 
 function pagePathFor(fileAbs: string): string {
-  const rel = relative(APP, fileAbs);
+  const rel = toPosix(relative(APP, fileAbs));
   if (rel === 'page.tsx') return '/';
   return '/' + rel.slice(0, -'/page.tsx'.length);
 }
@@ -154,10 +159,10 @@ function main() {
   const mobileHrefs = mobileNavItems.map(({ href }) => href);
 
   const pages = walk(APP)
-    .filter((f) => f.endsWith('/page.tsx'))
+    .filter((f) => toPosix(f).endsWith('/page.tsx'))
     .sort()
     .map((f) => {
-      const rel = relative(ROOT, f);
+      const rel = toPosix(relative(ROOT, f));
       const text = readFileSync(f, 'utf8');
       const path = pagePathFor(f);
       const permissions = declaredPerms(text);
@@ -172,12 +177,12 @@ function main() {
     });
 
   const apiRoutes = walk(join(APP, 'api'))
-    .filter((f) => f.endsWith('/route.ts'))
+    .filter((f) => toPosix(f).endsWith('/route.ts'))
     .sort()
     .map((f) => {
-      const rel = relative(ROOT, f);
+      const rel = toPosix(relative(ROOT, f));
       const text = readFileSync(f, 'utf8');
-      const routeRel = relative(join(APP, 'api'), f);
+      const routeRel = toPosix(relative(join(APP, 'api'), f));
       const path = '/api/' + routeRel.slice(0, -'/route.ts'.length);
       return {
         path,
