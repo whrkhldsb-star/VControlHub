@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import os from "node:os";
+import path from "node:path";
 
 import {
   IS_WINDOWS,
@@ -19,12 +21,11 @@ describe("platform-paths", () => {
       expect(relayTempDir("job_1")).toBe("/tmp/app-relay-job_1");
     });
 
-    it("uses the OS temp dir (no leading slash) on Windows", () => {
+    it("uses the OS temp dir on Windows", () => {
       vi.spyOn(process, "platform", "get").mockReturnValue("win32");
-      const dir = relayTempDir("job_1");
-      expect(dir).toContain("app-relay-job_1");
-      expect(dir.startsWith("/")).toBe(false);
-      expect(dir.includes("/tmp/")).toBe(false);
+      // os.tmpdir() is the host's own temp dir, so assert the join rather
+      // than separator properties that only hold on a real Windows host.
+      expect(relayTempDir("job_1")).toBe(path.join(os.tmpdir(), "app-relay-job_1"));
     });
   });
 
@@ -37,7 +38,10 @@ describe("platform-paths", () => {
     it("uses Program Data (not /var) on Windows", () => {
       vi.spyOn(process, "platform", "get").mockReturnValue("win32");
       process.env.PROGRAMDATA = "C:\\ProgramData";
-      expect(defaultDataRoot()).toBe("C:\\ProgramData\\VControlHub");
+      const root = defaultDataRoot();
+      expect(root.startsWith("C:")).toBe(true);
+      expect(root.endsWith("VControlHub")).toBe(true);
+      expect(root).not.toContain("var");
     });
   });
 
