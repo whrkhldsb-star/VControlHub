@@ -28,17 +28,30 @@ try {
           .filter(({ right }) => right > innerWidth + 1)
           .slice(0, 8)
           .map(({ el }) => `${el.tagName.toLowerCase()}.${(el.className || "").toString().split(" ").slice(0, 4).join(".")}`);
+        const describe = (node) => {
+          const el = node.element instanceof Element ? node.element : document.querySelector(node.target?.[0] ?? "*");
+          if (!el) return String(node.target);
+          const style = getComputedStyle(el);
+          const label = (el.textContent || "").trim().slice(0, 40);
+          return `${el.tagName.toLowerCase()}.${(el.className || "").toString().split(" ").slice(0, 3).join(".")} "${label}" color=${style.color} bg=${style.backgroundColor}`;
+        };
+        const axe = await window.axe.run(document, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21aa"] } });
         return {
           overflow: document.documentElement.scrollWidth - innerWidth,
-          violations: (await window.axe.run(document, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21aa"] } })).violations.map((item) => item.id),
+          violations: axe.violations.map((item) => item.id),
+          // Per-node detail so a CI-only a11y failure names the element and
+          // its computed colors instead of just the rule id.
+          violationNodes: axe.violations.flatMap((item) =>
+            item.nodes.slice(0, 5).map((node) => `${item.id}: ${describe(node)}`)),
           offenders,
         };
       });
       if (result.overflow > 1) console.log(`::error title=overflow::${theme}/${width}/${state}: overflow ${result.overflow}px; offenders: ${result.offenders.join(" | ")}`);
       assert.ok(result.overflow <= 1, `${theme}/${width}/${state}: overflow ${result.overflow}; offenders: ${result.offenders.join(" | ")}`);
       for (const v of result.violations) console.log(`::error title=a11y::${theme}/${width}/${state} axe violation: ${v}`);
+      for (const n of result.violationNodes) console.log(`::error title=a11y-node::${theme}/${width}/${state} ${n}`);
       if (result.violations.length > 0) console.log(`::error title=a11y::${theme}/${width}/${state}: ${JSON.stringify(result.violations)}`);
-      assert.deepEqual(result.violations, [], `${theme}/${width}/${state}: accessibility ${JSON.stringify(result.violations)}`);
+      assert.deepEqual(result.violations, [], `${theme}/${width}/${state}: accessibility ${JSON.stringify(result.violations)}; nodes: ${result.violationNodes.join(" | ")}`);
       await page.screenshot({ path: path.join(output, `${theme}-${width}-${state}.png`), fullPage: true });
       checks++;
     }

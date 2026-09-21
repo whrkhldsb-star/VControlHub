@@ -119,14 +119,18 @@ html.light {
 	--accent-hover: #174887;
 	--accent-bg: #eaf2ff;
 	--accent-border: #b6cdf0;
-	--color-action: #087b68;
-	--color-action-hover: #066354;
+	/* Darkened from #087b68: on --color-action-bg the old value measured
+	   4.63:1 — one color-management rounding away from failing axe
+	   color-contrast in headless CI chromium. #066f5e keeps the teal and
+	   measures 5.44:1 there and 6.10:1 for solid-button white text. */
+	--color-action: #066f5e;
+	--color-action-hover: #055f51;
 	--color-action-strong: #075949;
 	--color-action-fg: #ffffff;
 	--color-action-bg: #e7f5f0;
 	--color-action-bg-hover: #d1ece3;
 	--color-action-border: #98cabe;
-	--color-action-ring: #087b6840;
+	--color-action-ring: #066f5e40;
 	--success: #236d40;
 	--success-bg: #eaf6ee;
 	--success-border: #acd2b7;
