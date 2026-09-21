@@ -3,6 +3,8 @@ import { setTimeout as delay } from "node:timers/promises";
 
 import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
+import { BusinessError } from "@/lib/errors";
+import { t } from "@/lib/i18n/service-translations";
 import { shellQuote } from "@/lib/shell-quote";
 import { buildSshParamsFromServer, execRemoteCommand } from "@/lib/ssh/client";
 import { MONITOR_SCRIPT } from "./monitor";
@@ -22,13 +24,16 @@ export async function authenticateServerAgent(token: string) {
   const match = /^vca_([^_]+)_([A-Za-z0-9_-]{32,})$/.exec(token);
   if (!match) return null;
   const server = await prisma.server.findUnique({ where: { id: match[1] } });
-  if (!server?.agentTokenHash || server.managementMode !== "AGENT") return null;
+  if (!server?.agentTokenHash || server.operatingSystem === "WINDOWS" || server.managementMode !== "AGENT") return null;
   const actual = Buffer.from(tokenHash(token), "hex");
   const expected = Buffer.from(server.agentTokenHash, "hex");
   return actual.length === expected.length && timingSafeEqual(actual, expected) ? server : null;
 }
 
 export async function issueServerAgentToken(serverId: string) {
+  const server = await prisma.server.findUnique({ where: { id: serverId }, select: { operatingSystem: true } });
+  if (!server) throw new Error("Server not found");
+  if (server.operatingSystem === "WINDOWS") throw new BusinessError(t("backend.server.linuxOnly"));
   const token = `vca_${serverId}_${randomBytes(32).toString("base64url")}`;
   await prisma.server.update({
     where: { id: serverId },
@@ -146,8 +151,9 @@ export async function executeCommandWithAgent(input: {
   input.signal?.throwIfAborted();
   const server = await prisma.server.findUnique({
     where: { id: input.serverId },
-    select: { managementMode: true, agentLastSeenAt: true },
+    select: { operatingSystem: true, managementMode: true, agentLastSeenAt: true },
   });
+  if (server?.operatingSystem === "WINDOWS") throw new BusinessError(t("backend.server.linuxOnly"));
   if (
     server?.managementMode !== "AGENT" ||
     !server.agentLastSeenAt ||
@@ -327,6 +333,7 @@ export async function uninstallServerAgent(serverId: string) {
     include: { sshKey: { select: { privateKey: true, passphrase: true } } },
   });
   if (!server) return { removed: false };
+  if (server.operatingSystem === "WINDOWS") throw new BusinessError(t("backend.server.linuxOnly"));
   const cleanupCommand = AGENT_CLEANUP_COMMAND;
   let removed = false;
   if (server.agentLastSeenAt && Date.now() - server.agentLastSeenAt.getTime() < AGENT_FRESH_MS) {

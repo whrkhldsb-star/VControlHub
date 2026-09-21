@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { WindowsServerCard } from "./windows-server-card";
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
@@ -42,7 +43,7 @@ export function ServerOverviewCard({
   const openDialog = useCallback(() => {
     setExpanded(true);
   }, []);
-  const { diagnosticRun, runRealtimeDiagnostics } = useServerDiagnostics(server.id, server.enabled);
+  const { diagnosticRun, runRealtimeDiagnostics } = useServerDiagnostics(server.id, server.enabled && server.operatingSystem !== "WINDOWS");
   const directLabel = server.directGateway?.statusLabel ?? t("serverOverviewCard.websiteRelay");
   const detailsId = `server-details-${server.id}`;
 
@@ -87,6 +88,8 @@ export function ServerOverviewCard({
     listHealthDescription =
       t("serverOverviewCard.enabledPendingProbeDescription");
   }
+
+  if (server.operatingSystem === "WINDOWS") return <WindowsServerCard server={server} canManageServers={canManageServers} canUseSshTerminal={canUseSshTerminal} />;
 
   return (
     <article

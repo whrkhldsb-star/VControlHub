@@ -47,6 +47,7 @@ describe("server Agent authentication and routing", () => {
   });
 
   it("stores only a token digest and authenticates the issued bearer token", async () => {
+    mocks.serverFindUnique.mockResolvedValueOnce({ operatingSystem: "LINUX" });
     mocks.serverUpdate.mockResolvedValueOnce({ id: "srv1" });
     const token = await issueServerAgentToken("srv1");
     const stored = mocks.serverUpdate.mock.calls[0]?.[0]?.data.agentTokenHash as string;

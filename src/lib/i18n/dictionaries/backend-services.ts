@@ -10,6 +10,11 @@
  */
 
 export const zh: Record<string, string> = {
+  "backend.server.linuxOnly": "此操作仅支持 Linux 节点",
+  "backend.server.osImmutable": "节点操作系统不可更改，请创建新节点",
+  "backend.rdp.notEnabled": "此节点未启用 RDP",
+  "backend.rdp.unavailable": "RDP 网关未配置或不可用",
+  "backend.rdp.publicHost": "RDP 仅支持公网 IPv4 地址，不支持私网、本机和域名",
 	"backend.common.unknownError": "未知错误",
 	"backend.auth.sessionCredentialsChanged": "会话凭据已变更，请重新登录",
 	// deploy-export/service.ts
@@ -588,6 +593,11 @@ export const zh: Record<string, string> = {
 
 
 export const en: Record<string, string> = {
+  "backend.server.linuxOnly": "This operation supports Linux nodes only",
+  "backend.server.osImmutable": "The node operating system cannot be changed; create a new node",
+  "backend.rdp.notEnabled": "RDP is not enabled for this node",
+  "backend.rdp.unavailable": "RDP gateway is not configured or unavailable",
+  "backend.rdp.publicHost": "RDP requires a public IPv4 address; private, local and DNS targets are unsupported",
 	"backend.common.unknownError": "Unknown error",
 	"backend.auth.sessionCredentialsChanged": "Session credentials have changed; please sign in again",
 	// deploy-export/service.ts

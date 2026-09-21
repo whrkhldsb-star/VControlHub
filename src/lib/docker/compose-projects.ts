@@ -257,6 +257,7 @@ async function runRemoteDockerCommand(
   if (!server.enabled) throw new ValidationError(t("backend.docker.targetVpsIsDisabled"));
   const ssh = await buildSshParamsFromServer(
     {
+      operatingSystem: server.operatingSystem,
       host: server.host,
       port: server.port,
       username: server.username,

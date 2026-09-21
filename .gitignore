@@ -94,3 +94,6 @@ make_*.py
 .hermes/
 .cache/
 .config/
+
+# python bytecode
+__pycache__/

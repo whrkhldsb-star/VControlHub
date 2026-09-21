@@ -7,6 +7,7 @@ import { ConnectionTypeFields } from "./server-connection-type-fields";
 import { ServerManagementModeFields } from "./server-management-mode-fields";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { UI_INPUT } from "@/lib/ui/classes";
+import { RdpCredentialFields } from "./rdp-credential-fields";
 import { Notice } from "@/components/ui-primitives";
 import { usePreservedActionForm } from "@/lib/forms/use-preserved-action-form";
 import { useUnsavedChangesGuard } from "@/lib/forms/use-unsaved-changes-guard";
@@ -27,6 +28,8 @@ export function ServerCreateForm({
 }) {
   const { t } = useI18n();
   const router = useRouter();
+  const [operatingSystem, setOperatingSystem] = useState("LINUX");
+  const windows = operatingSystem === "WINDOWS";
   const [state, formAction] = useActionState(createServerAction, initialState);
   const [observedHostKeySha256, setObservedHostKeySha256] = useState(
     () => state.hostKeySha256 ?? "",
@@ -76,7 +79,7 @@ export function ServerCreateForm({
           {t("serversPage.create.title")}
         </h2>{" "}
         <p className="mt-1 text-xs text-[var(--text-muted)]">
-          {t("serversPage.create.desc")}
+          {t(windows ? "serversPage.windows.hint" : "serversPage.create.desc")}
         </p>{" "}
       </div>{" "}
       {state.error && !observedHostKeySha256 && (
@@ -88,6 +91,10 @@ export function ServerCreateForm({
           {state.success}{" "}
         </div>
       )}{" "}
+      <label htmlFor="serverOperatingSystem">{t("serversPage.windows.os")}</label>
+      <select id="serverOperatingSystem" name="operatingSystem" className={UI_INPUT} value={operatingSystem} onChange={(event) => { setOperatingSystem(event.target.value); setObservedHostKeySha256(""); setHostKeyConfirmed(false); }}>
+        <option value="LINUX">Linux</option><option value="WINDOWS">Windows</option>
+      </select>
       <div className="grid gap-3 sm:grid-cols-2">
         {" "}
         <div className="space-y-1.5">
@@ -149,19 +156,21 @@ export function ServerCreateForm({
             className="text-xs font-medium text-[var(--text-primary)]/70 "
             htmlFor="serverPort"
           >
-            {t("serversPage.create.port")}
+            {t(windows ? "serversPage.windows.port" : "serversPage.create.port")}
           </label>{" "}
           <input
             id="serverPort"
             name="port"
             type="number"
-            defaultValue={22}
+            key={operatingSystem}
+            defaultValue={windows ? 3389 : 22}
             min={1}
             max={65535}
             className={UI_INPUT}
           />{" "}
         </div>{" "}
       </div>{" "}
+      {windows ? <RdpCredentialFields idPrefix="create-rdp" /> : <>
       <details className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-4">
         <summary className="cursor-pointer text-sm font-medium text-[var(--text-primary)]">
           {t("serversPage.create.costAdvancedTitle")}
@@ -404,6 +413,7 @@ export function ServerCreateForm({
           </span>
         </span>
       </label>
+      </>}
       <div className="space-y-1.5">
         {" "}
         <label
@@ -421,9 +431,9 @@ export function ServerCreateForm({
         />{" "}
       </div>{" "}
       <SubmitButton
-        pendingLabel={t(observedHostKeySha256 ? "serversPage.create.submitting" : "serversPage.create.detecting")}
+        pendingLabel={t(windows ? "serversPage.create.submitting" : observedHostKeySha256 ? "serversPage.create.submitting" : "serversPage.create.detecting")}
       >
-        {t(observedHostKeySha256 ? "serversPage.create.submitConfirmed" : "serversPage.create.submit")}
+        {t(windows ? "serversPage.windows.save" : observedHostKeySha256 ? "serversPage.create.submitConfirmed" : "serversPage.create.submit")}
       </SubmitButton>{" "}
       {discardDialog}
     </form>

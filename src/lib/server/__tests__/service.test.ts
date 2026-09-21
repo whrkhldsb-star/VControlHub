@@ -167,6 +167,29 @@ describe("server service", () => {
     vi.mocked(prisma.vpsBackupRecord.count).mockResolvedValue(0);
   });
 
+  it("saves Windows encrypted without SSH or storage onboarding", async () => {
+    const { decrypt } = await import("@/lib/crypto/service");
+    vi.mocked(prisma.server.findFirst).mockResolvedValueOnce(null);
+    vi.mocked(prisma.server.create).mockImplementationOnce(({ data }) => Promise.resolve({...data, id: "win", commandTargets: [], createdAt: new Date(), updatedAt: new Date()}) as unknown as ReturnType<typeof prisma.server.create>);
+    const result = await createServerProfile({ operatingSystem: "WINDOWS", name: "Windows", host: "8.8.8.8", username: "Admin", rdpPassword: " exact " });
+    const data = vi.mocked(prisma.server.create).mock.calls[0]![0].data;
+    expect(decrypt(data.rdpPassword!)).toBe(" exact ");
+    expect(result).not.toHaveProperty("rdpPassword");
+    expect(prisma.storageNode.create).not.toHaveBeenCalled();
+    expect(execRemoteCommandMock).not.toHaveBeenCalled();
+  });
+
+  it("updates Windows domain while retaining encrypted password", async () => {
+    const current = { id:"win", operatingSystem:"WINDOWS", host:"8.8.8.8", port:3389, name:"Windows", username:"Admin", rdpPassword:"ciphertext", rdpDomain:"OLD", rdpIgnoreCertificate:false, tags:[], teamId:null, commandTargets:[], createdAt:new Date(), updatedAt:new Date(), enabled:true };
+    vi.mocked(prisma.server.findUnique).mockResolvedValueOnce(current as any);
+    vi.mocked(prisma.server.findFirst).mockResolvedValueOnce(null);
+    vi.mocked(prisma.server.update).mockImplementationOnce(({data})=>Promise.resolve({...current,...data}) as unknown as ReturnType<typeof prisma.server.update>);
+    const result = await updateServerProfile("win", { operatingSystem:"WINDOWS", rdpDomain:"NEW" });
+    expect(prisma.server.update).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({rdpPassword:"ciphertext",rdpDomain:"NEW"})}));
+    expect(result).not.toHaveProperty("rdpPassword");
+    expect(execRemoteCommandMock).not.toHaveBeenCalled();
+  });
+
   it("creates an ssh key from manual public/private key input", async () => {
     vi.mocked(prisma.sshKey.create).mockResolvedValueOnce({
       id: "key_2",

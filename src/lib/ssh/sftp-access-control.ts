@@ -43,6 +43,7 @@ export async function assertSftpPathAccess(input: {
 		where: { id: input.serverId },
 		select: {
 			id: true,
+			operatingSystem: true,
 			host: true,
 			port: true,
 			username: true,
@@ -65,6 +66,7 @@ export async function assertSftpPathAccess(input: {
 	const params = await buildSshParamsFromServer(
 		{
 			id: server.id,
+			operatingSystem: server.operatingSystem,
 			host: server.host,
 			port: server.port,
 			username: server.username,

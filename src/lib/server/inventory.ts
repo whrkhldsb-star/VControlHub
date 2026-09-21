@@ -6,10 +6,11 @@ import { enrichServer } from "./service-internals";
 import { getServerTargetAvailability } from "./availability";
 
 export const SERVER_PAGE_SIZE = 12;
-export type InventoryQuery = { query: string; status: "all" | "enabled" | "disabled"; mode: "all" | "DIRECT" | "AGENT"; page: number };
+export type InventoryQuery = { query: string; operatingSystem: "all" | "LINUX" | "WINDOWS"; status: "all" | "enabled" | "disabled"; mode: "all" | "DIRECT" | "AGENT"; page: number };
 export function normalizeInventoryQuery(input: Record<string, unknown> = {}): InventoryQuery {
   const page = Number(input.page);
   return {
+    operatingSystem: input.operatingSystem === "LINUX" || input.operatingSystem === "WINDOWS" ? input.operatingSystem : "all",
     query: typeof input.query === "string" ? input.query.trim().slice(0, 200) : "",
     status: input.status === "enabled" || input.status === "disabled" ? input.status : "all",
     mode: input.mode === "DIRECT" || input.mode === "AGENT" ? input.mode : "all",
@@ -27,16 +28,17 @@ export async function getServerInventory(session: TeamSession, input: Record<str
     OR EXISTS (SELECT 1 FROM unnest(s.tags) AS tag WHERE tag ILIKE ${pattern}))` : Prisma.sql`TRUE`;
   const status = query.status === "all" ? Prisma.sql`TRUE` : Prisma.sql`s.enabled = ${query.status === "enabled"}`;
   const mode = query.mode === "all" ? Prisma.sql`TRUE` : Prisma.sql`s."managementMode"::text = ${query.mode}`;
+  const os = query.operatingSystem === "all" ? Prisma.sql`TRUE` : Prisma.sql`s."operatingSystem"::text = ${query.operatingSystem}`;
   return prisma.$transaction(async (tx) => {
     const [counts] = await tx.$queryRaw<{ total: number; enabled: number; storage: number; matching: number }[]>(Prisma.sql`
       SELECT count(*)::int AS total, count(*) FILTER (WHERE s.enabled)::int AS enabled,
         count(*) FILTER (WHERE EXISTS (SELECT 1 FROM "StorageNode" n WHERE n."serverId" = s.id))::int AS storage,
-        count(*) FILTER (WHERE ${search} AND ${status} AND ${mode})::int AS matching
+        count(*) FILTER (WHERE ${search} AND ${status} AND ${mode} AND ${os})::int AS matching
       FROM servers s WHERE ${scope}`);
     const stats = counts!;
     const page = Math.min(query.page, Math.max(1, Math.ceil(stats.matching / SERVER_PAGE_SIZE)));
     const ids = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`SELECT s.id FROM servers s
-      WHERE ${scope} AND ${search} AND ${status} AND ${mode}
+      WHERE ${scope} AND ${search} AND ${status} AND ${mode} AND ${os}
       ORDER BY s."createdAt" DESC, s.id DESC LIMIT ${SERVER_PAGE_SIZE} OFFSET ${(page - 1) * SERVER_PAGE_SIZE}`);
     const rows = ids.length ? await tx.server.findMany({
       where: { AND: [serverTeamWhere(session), { id: { in: ids.map(({ id }) => id) } }] },

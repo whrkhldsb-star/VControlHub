@@ -231,6 +231,7 @@ export async function runVpsBackupRecord(
       server: {
         select: {
           id: true,
+          operatingSystem: true,
           host: true,
           port: true,
           username: true,

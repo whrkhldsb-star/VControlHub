@@ -7,7 +7,7 @@ import type { ServerInventoryData } from "@/lib/server/inventory";
 const push = vi.hoisted(() => vi.fn());
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 vi.mock("../server-overview-card", () => ({ ServerOverviewCard: ({ server }: { server: { name: string } }) => <article>{server.name}</article> }));
-const inventory = { servers: [{ id: "node-512", name: "Node beyond old limit" }], stats: { total: 600, matching: 600, enabled: 300, storage: 0 }, query: { query: "", status: "all", mode: "all", page: 2 }, pageSize: 12 } as ServerInventoryData;
+const inventory = { servers: [{ id: "node-512", name: "Node beyond old limit" }], stats: { total: 600, matching: 600, enabled: 300, storage: 0 }, query: { operatingSystem: "all", query: "", status: "all", mode: "all", page: 2 }, pageSize: 12 } as ServerInventoryData;
 beforeEach(() => { push.mockReset(); window.history.replaceState({}, "", "/servers?page=2#servers-nodes"); });
 describe("server inventory navigation", () => {
   it("uses server counts and preserves panel location while paging", () => {
@@ -24,7 +24,7 @@ describe("server inventory navigation", () => {
     expect(push).toHaveBeenCalledWith("/servers?query=Production#servers-nodes", { scroll: false });
   });
   it("keeps filters available after an empty result and resets them", () => {
-    renderWithI18n(<ServerInventory inventory={{ ...inventory, servers: [], stats: { ...inventory.stats, matching: 0 }, query: { query: "none", status: "disabled", mode: "AGENT", page: 1 } }} canManageServers canUseSshTerminal />);
+    renderWithI18n(<ServerInventory inventory={{ ...inventory, servers: [], stats: { ...inventory.stats, matching: 0 }, query: { operatingSystem: "all", query: "none", status: "disabled", mode: "AGENT", page: 1 } }} canManageServers canUseSshTerminal />);
     expect(screen.getByText("没有匹配的节点")).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "清除筛选" }));
     expect(push).toHaveBeenCalledWith("/servers#servers-nodes", { scroll: false });

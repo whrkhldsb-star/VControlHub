@@ -8,7 +8,9 @@ import type { ServerActionState } from "./actions";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { usePreservedActionForm } from "@/lib/forms/use-preserved-action-form";
 import { ServerManagementModeFields } from "./server-management-mode-fields";
+import { RdpCredentialFields } from "./rdp-credential-fields";
 type Props = {
+  operatingSystem?: string; rdpDomain?: string; rdpIgnoreCertificate?: boolean; rdpCertificateSha256?: string;
   serverId: string;
   serverName: string;
   host: string;
@@ -32,6 +34,7 @@ type Props = {
 };
 
 export function ServerCardEditForm({
+  operatingSystem = "LINUX", rdpDomain, rdpIgnoreCertificate, rdpCertificateSha256,
   serverId,
   serverName,
   host,
@@ -53,6 +56,7 @@ export function ServerCardEditForm({
   editState,
 }: Props) {
   const { t } = useI18n();
+  const windows = operatingSystem === "WINDOWS";
   const [observedHostKeySha256, setObservedHostKeySha256] = useState(
     () => editState.hostKeySha256 ?? "",
   );
@@ -89,6 +93,9 @@ export function ServerCardEditForm({
       }}
     >
       <input type="hidden" name="serverId" value={serverId} />
+      <input type="hidden" name="operatingSystem" value={operatingSystem} />
+      <p className="text-xs text-[var(--text-muted)]">{t("serversPage.windows.os")}: {windows ? "Windows" : "Linux"}</p>
+      {!windows && <>
       <input type="hidden" name="connectionType" value={connectionType} />
       <ServerManagementModeFields
         defaultValue={managementMode}
@@ -100,6 +107,7 @@ export function ServerCardEditForm({
           <span><span className="block font-medium text-[var(--text-primary)]">{t("serversPage.management.removeCredential")}</span><span className="mt-1 block text-[var(--text-muted)]">{t("serversPage.management.removeCredentialHint")}</span></span>
         </label>
       ) : null}
+      </>}
       <label className="block text-xs text-[var(--text-muted)]" htmlFor={`edit-name-${serverId}`}>
         {t("serverCardActions.edit.name")}
       </label>
@@ -121,7 +129,7 @@ export function ServerCardEditForm({
         className={UI_INPUT}
       />
       <label className="block text-xs text-[var(--text-muted)]" htmlFor={`edit-port-${serverId}`}>
-        {t("serverCardActions.edit.port")}
+        {t(windows ? "serversPage.windows.port" : "serverCardActions.edit.port")}
       </label>
       <input
         id={`edit-port-${serverId}`}
@@ -133,7 +141,7 @@ export function ServerCardEditForm({
         className={UI_INPUT}
       />
       <label className="block text-xs text-[var(--text-muted)]" htmlFor={`edit-username-${serverId}`}>
-        {t("serverCardActions.edit.username")}
+        {t(windows ? "serversPage.windows.username" : "serverCardActions.edit.username")}
       </label>
       <input
         id={`edit-username-${serverId}`}
@@ -142,6 +150,7 @@ export function ServerCardEditForm({
         defaultValue={username}
         className={UI_INPUT}
       />
+      {windows ? <RdpCredentialFields idPrefix={`edit-rdp-${serverId}`} editing certificateSha256={rdpCertificateSha256} domain={rdpDomain} ignoreCertificate={rdpIgnoreCertificate} /> : <>
       <div className="grid gap-2 rounded-xl border border-[var(--warning-border)] bg-[var(--warning-bg)] p-3 text-xs text-[var(--text-secondary)]">
         <span className="block font-medium text-[var(--text-primary)]">
           {t("serverCardActions.edit.hostKeyTrustTitle")}
@@ -184,6 +193,7 @@ export function ServerCardEditForm({
           />
         </>
       ) : null}
+      </>}
       <label className="block text-xs text-[var(--text-muted)]" htmlFor={`edit-description-${serverId}`}>
         {t("serverCardActions.edit.description")}
       </label>
@@ -204,6 +214,7 @@ export function ServerCardEditForm({
         defaultValue={(tags ?? []).join(",")}
         className={UI_INPUT}
       />
+      {!windows && <>
       {storageNodeId ? (
         <div className="space-y-2 rounded-xl border border-[var(--border)] bg-[var(--surface-subtle)] p-3">
           <label className="block text-xs text-[var(--text-muted)]" htmlFor={`edit-storage-path-${serverId}`}>
@@ -285,6 +296,7 @@ export function ServerCardEditForm({
           </p>
         ) : null}
       </div>
+      </>}
       <SubmitButton pendingLabel={t("serverCardActions.edit.pending")} variant="success" className="w-full">
         {t(observedHostKeySha256 ? "serverCardActions.edit.submitConfirmed" : "serverCardActions.edit.submit")}
       </SubmitButton>

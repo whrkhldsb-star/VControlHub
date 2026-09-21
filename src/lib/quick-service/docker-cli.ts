@@ -68,6 +68,7 @@ async function loadRemoteSshParams(serverId: string) {
     );
   const ssh = await buildSshParamsFromServer(
     {
+      operatingSystem: server.operatingSystem,
       host: server.host,
       port: server.port,
       username: server.username,

@@ -280,6 +280,11 @@ model SshKey {
 }
 
 model Server {
+  operatingSystem              String                 @default("LINUX")
+  rdpCertificateSha256          String?
+  rdpDomain                    String?
+  rdpPassword                  String?
+  rdpIgnoreCertificate         Boolean                @default(false)
   id                           String                 @id @default(cuid())
   name                         String
   host                         String
@@ -332,12 +337,27 @@ model Server {
   vpsBackupSchedules           VpsBackupSchedule[]
   vpsBackupRecords             VpsBackupRecord[]
   uptimeSnapshots              ServerUptimeSnapshot[]
+  rdpTickets                   RdpTicket[]
   agentJobs                    ServerAgentJob[]
 
   @@index([host, port])
   @@index([enabled])
   @@index([teamId])
   @@map("servers")
+}
+
+model RdpTicket {
+  hash String @id
+  serverId String
+  userId String
+  teamId String?
+  sessionHash String
+  origin String
+  endpointHash String
+  expiresAt DateTime
+  server Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  @@index([expiresAt])
+  @@map("rdp_tickets")
 }
 
 model ServerAgentJob {

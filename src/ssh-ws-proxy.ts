@@ -5,6 +5,7 @@
  * Session auth prefers the HttpOnly cookie; query token is legacy fallback only.
  */
 
+import { setupRdpWebSocket } from "@/lib/rdp/ws";
 import { createServer } from "http";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -127,6 +128,7 @@ async function resolveServerConnection(
    port: true,
    username: true,
    enabled: true,
+   operatingSystem: true,
    connectionType: true,
    password: true,
    hostKeySha256: true,
@@ -134,7 +136,7 @@ async function resolveServerConnection(
    sshKey: { select: { privateKey: true, passphrase: true } },
   },
  });
- if (!srv || !srv.enabled) return null;
+ if (!srv || !srv.enabled || srv.operatingSystem === "WINDOWS") return null;
 
  if (srv.connectionType === "SSH_KEY" && !srv.sshKey?.privateKey) return null;
  if (srv.connectionType === "PASSWORD" && !srv.password) return null;
@@ -207,9 +209,9 @@ const server = createServer((req, res) => {
 	res.end();
 });
 
+const closeRdp = setupRdpWebSocket(server);
 const wss = new WebSocketServer({
-	server,
-	path: "/ssh",
+	noServer: true,
 	verifyClient(info, callback) {
 		if (!isOriginAllowed(info.req)) {
 			recordWsEvent("ssh", "reject");
@@ -224,6 +226,12 @@ const wss = new WebSocketServer({
 		}
 		callback(true);
 	},
+});
+server.on("upgrade", (req, socket, head) => {
+ let path: string;
+ try { path = new URL(req.url ?? "/", "http://localhost").pathname; } catch { socket.destroy(); return; }
+ if (path === "/ssh") wss.handleUpgrade(req, socket, head, ws => wss.emit("connection", ws, req));
+ else if (path !== "/rdp") socket.destroy();
 });
 sshWss = wss;
 
@@ -482,6 +490,7 @@ if (shouldStartServer) {
 }
 
 function shutdown() {
+ closeRdp();
 	if (wsHeartbeatTimer) clearInterval(wsHeartbeatTimer);
 	wss.close();
 	server.close();

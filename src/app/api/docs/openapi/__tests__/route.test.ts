@@ -39,7 +39,8 @@ describe("GET /api/docs/openapi", () => {
     expect(body.paths["/images/upload"].post.security).toContainEqual({
       apiTokenAuth: [],
     });
-    expect(Object.keys(body.paths)).toHaveLength(183);
+    expect(Object.keys(body.paths)).toHaveLength(184);
+    expect(body.paths["/auth/rdp-ticket"]).toHaveProperty("post");
     expect(body.paths["/files/operations"]).toHaveProperty("post");
     expect(body.paths["/files/operations"]).toHaveProperty("patch");
     expect(body.paths["/files/preferences"]).toHaveProperty("get");

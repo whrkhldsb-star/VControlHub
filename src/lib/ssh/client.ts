@@ -726,6 +726,7 @@ export async function execRemoteCommand(
 
 /** Build SSH connection params from a Server + SshKey record */
 export async function buildSshParamsFromServer(server: {
+ operatingSystem?: string;
  host: string;
  port: number;
  username: string;
@@ -736,6 +737,7 @@ export async function buildSshParamsFromServer(server: {
   id?: string;
   managementMode?: string;
 }, sshKey?: { privateKey: string | null; passphrase?: string | null } | null): Promise<SshConnectionParams> {
+  if (server.operatingSystem === "WINDOWS") throw new BusinessError(t("backend.server.linuxOnly"));
   const base = {
     host: server.host,
     port: server.port,

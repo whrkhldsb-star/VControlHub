@@ -31,6 +31,20 @@ vi.mock("../actions", () => ({
   createServerAction: vi.fn() }));
 
 describe("ServerCreateForm", () => {
+  it("switches the unified form to RDP without Linux fields", () => {
+    render(<ServerCreateForm sshKeys={[]} />);
+    fireEvent.change(screen.getByLabelText("操作系统"), { target: { value: "WINDOWS" } });
+    expect(screen.getByLabelText("RDP 端口")).toHaveValue(3389);
+    expect(screen.getByLabelText("Windows 用户名")).toHaveValue("Administrator");
+    expect(screen.getByLabelText("RDP 密码")).toBeRequired();
+    expect(document.querySelector('[name="sshKeyId"]')).toBeNull();
+    expect(document.querySelector('[name="storagePath"]')).toBeNull();
+    expect(screen.queryByRole("group", { name: "连接方式" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "保存 Windows VPS" })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("操作系统"), { target: { value: "LINUX" } });
+    expect(document.querySelector('[name="port"]')).toHaveValue(22);
+    expect(screen.getByRole("group", { name: "连接方式" })).toBeInTheDocument();
+  });
   beforeEach(() => {
     actionStateMock.current = {};
   });

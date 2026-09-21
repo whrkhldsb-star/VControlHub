@@ -29,6 +29,10 @@ import { StatusBadge } from "@/components/status-badge";
 import { Notice } from "@/components/ui-primitives";
 
 export type ServerOverviewDetailsServer = {
+	operatingSystem?: string;
+	rdpDomain?: string;
+	rdpIgnoreCertificate?: boolean;
+	rdpCertificateSha256?: string;
 	id: string;
 	name: string;
 	host: string;

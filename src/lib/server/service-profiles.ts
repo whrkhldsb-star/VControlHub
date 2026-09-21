@@ -1,4 +1,6 @@
 import { Prisma } from "@prisma/client";
+import { encrypt } from "@/lib/crypto/service";
+import { rdpProfileSchema } from "@/lib/rdp/protocol";
 import { mkdir } from "node:fs/promises";
 
 import type { SessionPayload } from "@/lib/auth/session";
@@ -75,6 +77,23 @@ export async function createServerProfile(
 ) {
   const t = await serviceT();
   const payload = createServerSchema.parse(input);
+  if (payload.operatingSystem === "WINDOWS") {
+    const release = await acquireAdvisoryLock("server-host", payload.host);
+    try {
+      await assertNoDuplicateServerHost(payload, { session: sessionForTeamWhere(session) });
+      const server = await prisma.server.create({ data: {
+        name: payload.name, host: payload.host, port: payload.port, username: payload.username,
+        operatingSystem: "WINDOWS", connectionType: "PASSWORD", managementMode: "DIRECT",
+        password: null, sshKeyId: null, rdpPassword: encrypt(payload.rdpPassword),
+        rdpDomain: payload.rdpDomain || null, rdpIgnoreCertificate: payload.rdpIgnoreCertificate,
+        rdpCertificateSha256: payload.rdpCertificateSha256 || null,
+        description: payload.description, tags: payload.tags, enabled: true,
+        onboardingStatus: "NEEDS_ATTENTION", onboardingLastError: null,
+        ...(session ? teamCreateData(session) : {}),
+      }, include: SERVER_PROFILE_INCLUDE });
+      return { ...enrichServer(server), onboardingWarnings: [] as string[], draftReason: null };
+    } finally { await release(); }
+  }
   const normalized = normalizeServerInput(payload);
   const onboardingWarnings: string[] = [];
   let draftReason: string | null = null;
@@ -384,6 +403,37 @@ export async function updateServerProfile(
   const t = await serviceT();
   if (!current) throw new NotFoundError(t("backend.server.nodeNotFound"));
 
+  if (input.operatingSystem && input.operatingSystem !== (current.operatingSystem ?? "LINUX")) {
+    throw new ValidationError(t("backend.server.osImmutable"));
+  }
+  if (current.operatingSystem === "WINDOWS") {
+    if (input.managementMode === "AGENT" || input.enableDirectGateway || input.repairStoragePath || input.removeSshCredential || input.sshKeyId || input.password) {
+      throw new ValidationError(t("backend.server.linuxOnly"));
+    }
+    const rdpInput = input as Partial<Extract<CreateServerInput, { operatingSystem: "WINDOWS" }>>;
+    const payload = rdpProfileSchema.parse({
+      ...current, ...input, password: rdpInput.rdpPassword ?? "retained",
+      domain: rdpInput.rdpDomain ?? current.rdpDomain ?? "",
+      ignoreCertificate: rdpInput.rdpIgnoreCertificate ?? current.rdpIgnoreCertificate,
+      certificateSha256: rdpInput.rdpCertificateSha256 ?? current.rdpCertificateSha256 ?? "",
+      description: input.description ?? current.description ?? "",
+    });
+    if (rdpInput.rdpPassword === undefined && !current.rdpPassword) throw new ValidationError();
+    const release = await acquireAdvisoryLock("server-host", payload.host);
+    try {
+      await assertNoDuplicateServerHost(payload, { excludeId: serverId, session: sessionForTeamWhere(session) });
+      const updated = await prisma.server.update({ where: { id: serverId, teamId: current.teamId }, data: {
+        name: payload.name, host: payload.host, port: payload.port, username: payload.username,
+        description: payload.description, tags: payload.tags,
+        rdpPassword: rdpInput.rdpPassword === undefined ? current.rdpPassword : encrypt(payload.password),
+        rdpDomain: payload.domain || null, rdpIgnoreCertificate: payload.ignoreCertificate,
+        rdpCertificateSha256: payload.certificateSha256 || null,
+        enabled: input.enabled ?? current.enabled,
+      }, include: SERVER_PROFILE_INCLUDE });
+      return { ...enrichServer(updated), onboardingWarnings: [] as string[] };
+    } finally { await release(); }
+  }
+
   const removeSshCredential = input.removeSshCredential === true;
   const requestedManagementMode = input.managementMode ?? current.managementMode;
   if (removeSshCredential) {
@@ -627,6 +677,11 @@ export async function toggleServerEnabled(
   if (!current) throw new NotFoundError(t("backend.server.nodeNotFound"));
 
   if (!current.enabled) {
+    if (current.operatingSystem === "WINDOWS") {
+      if (!current.rdpPassword) throw new ValidationError();
+      const updated = await prisma.server.update({ where: { id: serverId, teamId: current.teamId }, data: { enabled: true }, include: SERVER_PROFILE_INCLUDE });
+      return { ...enrichServer(updated), onboardingWarnings: [] as string[] };
+    }
     const hasSshCredential = current.connectionType === "SSH_KEY"
       ? Boolean(current.sshKeyId && current.sshKey?.privateKey)
       : Boolean(current.password);

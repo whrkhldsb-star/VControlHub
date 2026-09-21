@@ -69,7 +69,15 @@ export async function createServerAction(
     const saveAsDraftOnConnectionFailure =
       formData.get("saveAsDraftOnConnectionFailure") === "on";
 
-    const created = await createServerProfile({
+    const windows = formData.get("operatingSystem") === "WINDOWS";
+    const created = await createServerProfile(windows ? {
+      operatingSystem: "WINDOWS", name, host,
+      port: Number(formData.get("port") ?? 3389), username: username ?? "", description, tags,
+      rdpPassword: String(formData.get("rdpPassword") ?? ""),
+      rdpDomain: String(formData.get("rdpDomain") ?? ""),
+      rdpIgnoreCertificate: formData.get("rdpIgnoreCertificate") === "on",
+      rdpCertificateSha256: String(formData.get("rdpCertificateSha256") ?? ""),
+    } : {
       name,
       host,
       port,
@@ -142,7 +150,16 @@ export async function updateServerAction(
 
     const storagePathRaw = String(formData.get("storagePath") ?? "").trim();
     const repairStoragePath = formData.get("repairStoragePath") === "on";
-    const changes = {
+    const changes = formData.get("operatingSystem") === "WINDOWS" ? {
+      operatingSystem: "WINDOWS" as const,
+      name: String(formData.get("name") ?? ""), host: String(formData.get("host") ?? ""),
+      port: Number(formData.get("port") ?? 3389), username: String(formData.get("username") ?? ""),
+      description: String(formData.get("description") ?? ""), tags: parseTags(String(formData.get("tags") ?? "")),
+      rdpPassword: String(formData.get("rdpPassword") ?? "") || undefined,
+      rdpDomain: String(formData.get("rdpDomain") ?? ""),
+      rdpIgnoreCertificate: formData.get("rdpIgnoreCertificate") === "on",
+      rdpCertificateSha256: String(formData.get("rdpCertificateSha256") ?? ""),
+    } : {
       name: String(formData.get("name") ?? ""),
       host: String(formData.get("host") ?? ""),
       port: Number(String(formData.get("port") ?? "22")),

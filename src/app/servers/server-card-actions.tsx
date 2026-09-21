@@ -25,6 +25,10 @@ const initialState: ServerActionState = {
 };
 
 type ServerCardActionsProps = {
+	operatingSystem?: string;
+	rdpDomain?: string;
+	rdpIgnoreCertificate?: boolean;
+ rdpCertificateSha256?: string;
 	serverId: string;
 	serverName: string;
 	host: string;
@@ -55,6 +59,7 @@ type ServerCardActionsProps = {
 };
 
 export function ServerCardActions({
+	operatingSystem = "LINUX", rdpDomain, rdpIgnoreCertificate, rdpCertificateSha256,
 	serverId,
 	serverName,
 	host,
@@ -109,7 +114,7 @@ export function ServerCardActions({
 
 	return (
 		<div className="space-y-3">
-			{enabled && canUseSshTerminal ? (
+			{operatingSystem !== "WINDOWS" && enabled && canUseSshTerminal ? (
 				<ActionButton variant="ghost"
 					onClick={handleOpenTerminal}
 					aria-label={t("serverCardActions.sshTerminalAria", { name: serverName })}
@@ -122,7 +127,7 @@ export function ServerCardActions({
 				</ActionButton>
 			) : null}
 
-			{canManageServers && directGateway ? (
+			{operatingSystem !== "WINDOWS" && canManageServers && directGateway ? (
 				<ServerCardDirectGatewayForm serverId={serverId} directGateway={directGateway} />
 			) : null}
 
@@ -140,6 +145,7 @@ export function ServerCardActions({
 
 			{canManageServers && showEdit ? (
 				<ServerCardEditForm
+					operatingSystem={operatingSystem} rdpDomain={rdpDomain} rdpIgnoreCertificate={rdpIgnoreCertificate} rdpCertificateSha256={rdpCertificateSha256}
 					serverId={serverId}
 					serverName={serverName}
 					host={host}

@@ -29,6 +29,10 @@ type ServerCommandTarget = {
 };
 
 export type ServerWithRelations = {
+  operatingSystem?: string;
+  rdpDomain?: string | null;
+  rdpIgnoreCertificate?: boolean;
+  rdpCertificateSha256?: string | null;
   id: string;
   name: string;
   host: string;
@@ -209,7 +213,7 @@ export function buildDuplicateServerError(existing: ExistingServerForDuplicateCh
 }
 
 export async function assertNoDuplicateServerHost(
-  normalized: NormalizedServerInput,
+  normalized: Pick<NormalizedServerInput, "host">,
   options: { excludeId?: string; session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId"> | null } = {},
 ) {
   // The duplicate report names the colliding node and its `user@host:port`, so
@@ -297,6 +301,10 @@ export function enrichServer(server: ServerWithRelations) {
   );
   return {
     id: server.id,
+    operatingSystem: server.operatingSystem ?? "LINUX",
+    rdpDomain: server.rdpDomain ?? "",
+    rdpIgnoreCertificate: server.rdpIgnoreCertificate ?? false,
+    rdpCertificateSha256: server.rdpCertificateSha256 ?? "",
     name: server.name,
     host: server.host,
     port: server.port,

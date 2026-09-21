@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { rdpProfileSchema } from "@/lib/rdp/protocol";
 
 const serverTagSchema = z
   .string()
@@ -16,8 +17,9 @@ const storagePathSchema = z
   .refine((value) => !["/", "/proc", "/sys", "/dev"].includes(value.replace(/\/+$/, "") || "/"), "Storage path must not target a system root")
   .default("/root/drive");
 
-export const createServerSchema = z
+const linuxServerSchema = z
   .object({
+    operatingSystem: z.enum(["LINUX", "WINDOWS"]).default("LINUX"),
     name: z
       .string()
       .trim()
@@ -78,6 +80,7 @@ export const createServerSchema = z
   })
   .refine(
     (data) => {
+      if (data.operatingSystem === "WINDOWS") return true;
       if (data.connectionType === "SSH_KEY" && !data.sshKeyId) return false;
       if (data.connectionType === "PASSWORD" && !data.password) return false;
       return true;
@@ -85,4 +88,23 @@ export const createServerSchema = z
     { message: "SSH key connection requires selecting a key; password connection requires entering a password" },
   );
 
+// Union keeps legacy Linux input compatible while giving Windows its own defaults.
+export const createServerSchema = z.union([
+  linuxServerSchema.safeExtend({ operatingSystem: z.literal("LINUX").default("LINUX") }),
+  linuxServerSchema.safeExtend({
+    host: rdpProfileSchema.shape.host,
+    port: rdpProfileSchema.shape.port,
+    username: rdpProfileSchema.shape.username,
+    operatingSystem: z.literal("WINDOWS"),
+    rdpPassword: rdpProfileSchema.shape.password,
+    rdpDomain: rdpProfileSchema.shape.domain,
+    rdpIgnoreCertificate: rdpProfileSchema.shape.ignoreCertificate,
+    rdpCertificateSha256: rdpProfileSchema.shape.certificateSha256,
+    managementMode: z.literal("DIRECT").default("DIRECT"),
+    enableDirectGateway: z.literal(false).default(false),
+    connectionType: z.literal("PASSWORD").default("PASSWORD"),
+    sshKeyId: z.never().optional(),
+    password: z.never().optional(),
+  }).refine(data => !data.rdpCertificateSha256 || !data.rdpIgnoreCertificate, { message: "Certificate pinning cannot be combined with ignore certificate", path: ["rdpIgnoreCertificate"] }),
+]);
 export type CreateServerInput = z.input<typeof createServerSchema>;

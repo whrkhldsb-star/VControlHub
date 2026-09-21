@@ -1,6 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
+import { ActionButton } from "@/components/action-button";
 import { useRouter } from "next/navigation";
 import { Search, X } from "@/components/icons";
 import { EmptyState, Toolbar } from "@/components/page-shell";
@@ -18,7 +19,8 @@ export function ServerInventory({ inventory, canManageServers, canUseSshTerminal
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const { servers, stats, query, pageSize } = inventory;
-  const navigate = (change: Partial<InventoryQuery>) => {
+  const operatingSystem = (query as InventoryQuery & { operatingSystem?: string }).operatingSystem ?? "all";
+  const navigate = (change: Partial<InventoryQuery> & { operatingSystem?: string }) => {
     const next = { ...query, ...change };
     const url = new URL(window.location.href);
     for (const [name, value] of Object.entries(next)) {
@@ -28,6 +30,9 @@ export function ServerInventory({ inventory, canManageServers, canUseSshTerminal
     startTransition(() => router.push(`${url.pathname}${url.search}${url.hash}`, { scroll: false }));
   };
   return <div className="space-y-4" aria-busy={pending}>
+    <div role="tablist" aria-label={t("serversPage.windows.os")} className="flex gap-2">
+      {(["all", "LINUX", "WINDOWS"] as const).map((os) => <ActionButton key={os} role="tab" aria-selected={operatingSystem === os} disabled={pending} variant={operatingSystem === os ? "primary" : "secondary"} onClick={() => navigate({ operatingSystem: os, page: 1 })}>{os === "all" ? t("serversPage.windows.all") : os === "LINUX" ? "Linux" : "Windows"}</ActionButton>)}
+    </div>
     {stats.total > 0 && <Toolbar className="!mb-0">
       <form key={query.query} className="flex min-w-0 flex-1 basis-64 gap-2" onSubmit={(event) => {
         event.preventDefault();

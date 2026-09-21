@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-09-11T13:35:14.080Z",
+  "generatedAt": "2026-09-21T14:18:35.245Z",
   "summary": {
     "sidebarMain": 30,
     "sidebarSystem": 5,
     "sidebarMobile": 5,
-    "pages": 54,
-    "apiRoutes": 183,
+    "pages": 55,
+    "apiRoutes": 184,
     "permissionsDefined": 54
   },
   "sidebar": {
@@ -632,6 +632,18 @@
       ]
     },
     {
+      "path": "/servers/[id]/remote-desktop",
+      "file": "src/app/servers/[id]/remote-desktop/page.tsx",
+      "inSidebarMain": false,
+      "inSidebarSystem": false,
+      "declaredPermissions": [
+        "server:ssh"
+      ],
+      "navigationPermissions": [
+        "server:ssh"
+      ]
+    },
+    {
       "path": "/servers",
       "file": "src/app/servers/page.tsx",
       "inSidebarMain": true,
@@ -1141,6 +1153,17 @@
       ],
       "guardMode": "login",
       "declaredPermissions": []
+    },
+    {
+      "path": "/api/auth/rdp-ticket",
+      "file": "src/app/api/auth/rdp-ticket/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "server:ssh"
+      ]
     },
     {
       "path": "/api/auth/signout",
