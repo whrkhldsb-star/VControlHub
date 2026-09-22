@@ -22,6 +22,7 @@ import {
 } from "@/lib/ssh/client";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { t } from "@/lib/i18n/service-translations";
+import { shellQuote } from "@/lib/shell-quote";
 import {
   dockerRequest,
   type DockerScope,
@@ -85,10 +86,6 @@ export function assertValidComposeProjectName(project: string): string {
     );
   }
   return name;
-}
-
-function shellQuote(arg: string): string {
-  return `'${arg.replace(/'/g, `'\\''`)}'`;
 }
 
 function containerName(raw: unknown): string {

@@ -1,11 +1,8 @@
 import { serviceCommand, type OsDialect } from "@/lib/ssh/os-dialect";
+import { shellQuote } from "@/lib/shell-quote";
 import type { HostedActionType } from "./hosted-tools";
 
 // ── 根据操作类型构建 shell 命令 ─────────────────────────────
-
-function shellQuote(value: string): string {
-  return `'${value.replace(/'/g, `'\\''`)}'`;
-}
 
 function normalizeTail(value: unknown): number | null {
   const parsed = typeof value === "number" ? value : Number(value ?? 50);

@@ -1,3 +1,5 @@
+import { shellQuote } from "@/lib/shell-quote";
+
 export const DIRECT_GATEWAY_DEFAULT_PORT = 31888;
 export const DIRECT_GATEWAY_HTTPS_PUBLIC_PORT = 443;
 export const DIRECT_GATEWAY_SERVICE_NAME = "vcontrolhub-direct.service";
@@ -113,10 +115,6 @@ export function getResolvedDirectGatewayProtocol(input: {
   } catch {
     return "unknown";
   }
-}
-
-function shellQuote(value: string | number) {
-  return `'${String(value).replace(/'/g, `'"'"'`)}'`;
 }
 
 function pythonGatewaySource() {

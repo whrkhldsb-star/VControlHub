@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { getCommandRuntimeConfig } from "@/lib/runtime-settings/service";
-import { NULL_DEVICE } from "@/lib/runtime/platform-paths";
+import { IS_WINDOWS, NULL_DEVICE } from "@/lib/runtime/platform-paths";
 import { scanPinnedKnownHost } from "@/lib/ssh/known-hosts";
 import { runSshCommandProcess, type SshExecutionResult } from "./ssh-executor";
 import { runSsh2Command } from "./ssh2-executor";
@@ -35,7 +35,75 @@ export function setPasswordExecutorMode(mode: PasswordExecutorMode): void {
 export function shouldUseSsh2PasswordExecutor(): boolean {
   if (passwordExecutorMode === "ssh2") return true;
   if (passwordExecutorMode === "sshpass") return false;
-  return process.platform === "win32";
+  return IS_WINDOWS;
+}
+
+type SshTargetInput = {
+  host: string;
+  port: number;
+  username: string;
+  hostKeySha256?: string | null;
+};
+
+/**
+ * Stage the pinned known_hosts file inside one temp dir. Returns the
+ * trimmed pin fingerprint (empty when unpinned) and the file path ¡ª the
+ * same pair every local-binary ssh invocation needs.
+ */
+async function stagePinnedKnownHosts(
+  tempDir: string,
+  target: SshTargetInput,
+): Promise<{ pin: string | undefined; knownHostsPath: string }> {
+  const knownHostsPath = join(tempDir, "known_hosts");
+  const pin = target.hostKeySha256?.trim();
+  if (pin) {
+    const knownHostLine = await scanPinnedKnownHost({
+      host: target.host,
+      port: target.port,
+      expectedFingerprint: pin,
+    });
+    await writeFile(knownHostsPath, `${knownHostLine}\n`, { mode: 0o600 });
+  }
+  return { pin, knownHostsPath };
+}
+
+/** Strict pinning when a fingerprint is known; accept-new for bootstrap connections. */
+function hostKeyModeFlags(pin: string | undefined): string[] {
+  return pin ? ["-o", "StrictHostKeyChecking=yes"] : ["-o", "StrictHostKeyChecking=accept-new"];
+}
+
+/**
+ * Option spine shared by every local ssh invocation: host-key mode, the
+ * known-hosts sink (pinned file or the platform null device), quiet logs, a
+ * bounded connect timeout, and the `--` destination guard. `--` terminates
+ * ssh option parsing: without it, a destination that begins with `-`
+ * (e.g. a maliciously-set username `-oProxyCommand=¡­`) would be parsed as a
+ * local ssh option ¡ú arbitrary command execution on the control-plane host.
+ * Charset validation at the schema layer is the primary guard; this is
+ * defense-in-depth for any pre-existing rows.
+ */
+function buildSshCommonArgs(target: SshTargetInput, pinned: { pin: string | undefined; knownHostsPath: string }): string[] {
+  return [
+    ...hostKeyModeFlags(pinned.pin),
+    "-o",
+    `UserKnownHostsFile=${pinned.pin ? pinned.knownHostsPath : NULL_DEVICE}`,
+    "-o",
+    "LogLevel=ERROR",
+    "-o",
+    "ConnectTimeout=15",
+    "--",
+    `${target.username}@${target.host}`,
+  ];
+}
+
+/** Per-use temp dir that is always removed, even when the executor rejects. */
+async function withSshTempDir<T>(prefix: string, run: (tempDir: string) => Promise<T>): Promise<T> {
+  const tempDir = await mkdtemp(join(tmpdir(), prefix));
+  try {
+    return await run(tempDir);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
 }
 
 async function executeCommandOverSshWithKey(input: {
@@ -47,23 +115,10 @@ async function executeCommandOverSshWithKey(input: {
   targetId?: string;
   hostKeySha256?: string | null;
 }): Promise<SshExecutionResult> {
-  const tempDir = await mkdtemp(join(tmpdir(), "app-ssh-"));
-  const keyPath = join(tempDir, "id_key");
-  const knownHostsPath = join(tempDir, "known_hosts");
-  try {
+  return withSshTempDir("app-ssh-", async (tempDir) => {
+    const keyPath = join(tempDir, "id_key");
     await writeFile(keyPath, `${input.privateKey.trim()}\n`, { mode: 0o600 });
-    const pin = input.hostKeySha256?.trim();
-    if (pin) {
-      const knownHostLine = await scanPinnedKnownHost({
-        host: input.host,
-        port: input.port,
-        expectedFingerprint: pin,
-      });
-      await writeFile(knownHostsPath, `${knownHostLine}\n`, { mode: 0o600 });
-    }
-    const hostKeyMode = pin
-      ? (["-o", "StrictHostKeyChecking=yes"] as const)
-      : (["-o", "StrictHostKeyChecking=accept-new"] as const);
+    const pinned = await stagePinnedKnownHosts(tempDir, input);
     const args = [
       "-i",
       keyPath,
@@ -71,20 +126,7 @@ async function executeCommandOverSshWithKey(input: {
       String(input.port),
       "-o",
       "BatchMode=yes",
-      ...hostKeyMode,
-      "-o",
-      `UserKnownHostsFile=${pin ? knownHostsPath : NULL_DEVICE}`,
-      "-o",
-      "LogLevel=ERROR",
-      "-o",
-      "ConnectTimeout=15",
-      // `--` terminates ssh option parsing: without it, a destination that
-      // begins with `-` (e.g. a maliciously-set username `-oProxyCommand=â€¦`)
-      // would be parsed as a local ssh option â†?arbitrary command execution on
-      // the control-plane host. Charset validation at the schema layer is the
-      // primary guard; this is defense-in-depth for any pre-existing rows.
-      "--",
-      `${input.username}@${input.host}`,
+      ...buildSshCommonArgs(input, pinned),
       input.command,
     ];
     return await runSshCommandProcess({
@@ -94,9 +136,7 @@ async function executeCommandOverSshWithKey(input: {
       targetId: input.targetId,
       runtimeConfig: await getCommandRuntimeConfigValues(),
     });
-  } finally {
-    await rm(tempDir, { recursive: true, force: true });
-  }
+  });
 }
 
 async function executeCommandOverSshWithPassword(input: {
@@ -120,21 +160,8 @@ async function executeCommandOverSshWithPassword(input: {
       runtimeConfig: await getCommandRuntimeConfigValues(),
     });
   }
-  const tempDir = await mkdtemp(join(tmpdir(), "app-ssh-known-hosts-"));
-  const knownHostsPath = join(tempDir, "known_hosts");
-  const pin = input.hostKeySha256?.trim();
-  try {
-    if (pin) {
-      const knownHostLine = await scanPinnedKnownHost({
-        host: input.host,
-        port: input.port,
-        expectedFingerprint: pin,
-      });
-      await writeFile(knownHostsPath, `${knownHostLine}\n`, { mode: 0o600 });
-    }
-    const hostKeyMode = pin
-      ? (["-o", "StrictHostKeyChecking=yes"] as const)
-      : (["-o", "StrictHostKeyChecking=accept-new"] as const);
+  return withSshTempDir("app-ssh-known-hosts-", async (tempDir) => {
+    const pinned = await stagePinnedKnownHosts(tempDir, input);
     const args = [
       "-p",
       String(input.port),
@@ -146,17 +173,7 @@ async function executeCommandOverSshWithPassword(input: {
       "PubkeyAuthentication=no",
       "-o",
       "NumberOfPasswordPrompts=1",
-      ...hostKeyMode,
-      "-o",
-      `UserKnownHostsFile=${pin ? knownHostsPath : NULL_DEVICE}`,
-      "-o",
-      "LogLevel=ERROR",
-      "-o",
-      "ConnectTimeout=15",
-      // See the key-auth path: `--` terminates option parsing so a `-`-leading
-      // destination cannot be reinterpreted as a local ssh option.
-      "--",
-      `${input.username}@${input.host}`,
+      ...buildSshCommonArgs(input, pinned),
       input.command,
     ];
     return await runSshCommandProcess({
@@ -166,9 +183,7 @@ async function executeCommandOverSshWithPassword(input: {
       targetId: input.targetId,
       runtimeConfig: await getCommandRuntimeConfigValues(),
     });
-  } finally {
-    await rm(tempDir, { recursive: true, force: true });
-  }
+  });
 }
 
 export async function executeCommandOverSsh(input: {

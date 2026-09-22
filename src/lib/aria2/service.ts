@@ -2,7 +2,7 @@ import { writeFile, readFile, mkdir, unlink, chmod } from "fs/promises";
 import { access, constants } from "fs/promises";
 import path from "path";
 import { getAppSlug } from "@/lib/branding";
-import { findExecutable } from "@/lib/runtime/platform-paths";
+import { findExecutable, IS_WINDOWS } from "@/lib/runtime/platform-paths";
 import {
   getMissingAria2BinaryMessage,
   isMissingAria2BinaryError,
@@ -186,7 +186,7 @@ export async function ensureAria2Daemon(): Promise<void> {
 	} else {
 		aria2Bin = await findExecutable("aria2c");
 		if (!aria2Bin) {
-			const fallbackDirs = process.platform === "win32"
+			const fallbackDirs = IS_WINDOWS
 				? [path.join(process.env.ProgramFiles ?? "C:\\Program Files", "aria2", "aria2c.exe")]
 				: ["/usr/bin/aria2c", "/usr/local/bin/aria2c", "/opt/homebrew/bin/aria2c"];
 			for (const candidate of fallbackDirs) {

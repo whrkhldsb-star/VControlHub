@@ -8,13 +8,10 @@
  * formatter and the runtime argv executor cannot drift.
  */
 import { IS_WINDOWS } from "@/lib/runtime/platform-paths";
+import { shellQuote } from "@/lib/shell-quote";
 import type { BackupType } from "./service-types";
 import { assertPortableBackupPath } from "./service-types";
 import { backupRunnerSpec, restoreRunnerSpec } from "./platform-runner";
-
-function shellQuote(value: string) {
-	return `'${value.replace(/'/g, `'\\''`)}'`;
-}
 
 export type BackupRestoreStep = { file: string; args: string[] };
 

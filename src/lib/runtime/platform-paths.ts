@@ -52,8 +52,12 @@ async function pathExists(target: string): Promise<boolean> {
   }
 }
 
-/** Read the platform live (mockable in tests, unlike the IS_WINDOWS const). */
-function isWindows(): boolean {
+/**
+ * Read the platform live instead of the IS_WINDOWS const. Use this in
+ * collectors/loops that tests stub via `vi.spyOn(process, "platform", "get")`
+ * — the const is frozen at module load and cannot see such stubs.
+ */
+export function isWindows(): boolean {
   return process.platform === "win32";
 }
 

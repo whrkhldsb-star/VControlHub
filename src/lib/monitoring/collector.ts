@@ -4,6 +4,7 @@ import os from "os";
 
 import { formatBytes } from "@/lib/format/bytes";
 import { readLocalNetworkDeviceStats } from "@/lib/monitoring/local-network";
+import { isWindows } from "@/lib/runtime/platform-paths";
 
 /**
  * Upper bound on /proc entries inspected per collection tick. The previous cap
@@ -57,7 +58,8 @@ let previousCpuTotals: CpuTotals | null = null;
 let lastCpuPercent = "N/A";
 
 function cpuUsagePercent() {
-	const current = process.platform === "win32" ? cpuTotalsFromOs() : parseCpuTotals(readProc("/proc/stat"));
+	// Live platform read: tests stub process.platform to pin the /proc path.
+	const current = isWindows() ? cpuTotalsFromOs() : parseCpuTotals(readProc("/proc/stat"));
 	if (!current) return lastCpuPercent;
 	const previous = previousCpuTotals;
 	if (!previous) {
@@ -144,7 +146,7 @@ export function parseProcessStat(
 }
 
 function topProcesses(): TopProcessRow[] {
-	if (process.platform === "win32") return topProcessesWindows();
+	if (isWindows()) return topProcessesWindows();
 	const processes: Array<ProcessStat & { pid: number }> = [];
 	try {
 		const totalMemKb = Math.max(os.totalmem() / 1024, 1);
@@ -252,7 +254,7 @@ export function countEstablishedSockets(table: string) {
 }
 
 function tcpConnectionCount() {
-	if (process.platform === "win32") {
+	if (isWindows()) {
 		try {
 			const output = execFileSync("netstat", ["-n"], POWERSHELL_SPAWN);
 			return output

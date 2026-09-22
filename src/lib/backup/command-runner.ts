@@ -1,6 +1,8 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
+import { IS_WINDOWS } from "@/lib/runtime/platform-paths";
+
 /**
  * Async wrapper around `execFile` used by the backup module to run
  * `deploy/backup.sh` (database / files / full) and `scripts/restore-db.sh`
@@ -14,8 +16,8 @@ import { promisify } from "node:util";
 
 const runFile = promisify(execFile);
 
-export const BACKUP_DEFAULT_TIMEOUT_MS = 30 * 60 * 1000;
-export const BACKUP_DEFAULT_MAX_BUFFER_BYTES = 1024 * 1024;
+const BACKUP_DEFAULT_TIMEOUT_MS = 30 * 60 * 1000;
+const BACKUP_DEFAULT_MAX_BUFFER_BYTES = 1024 * 1024;
 
 export type RunBackupCommandOptions = {
   cwd?: string;
@@ -55,7 +57,7 @@ export function backupCommandErrorMessage(error: unknown): string {
   if (isMissingBackupBinaryError(error)) {
     // POSIX runs deploy/backup.sh through bash; Windows runs scripts/backup.mjs
     // through the Node executable. Point the operator at whichever is missing.
-    return process.platform === "win32"
+    return IS_WINDOWS
       ? "The Node executable used to run scripts/backup.mjs is unavailable. Please ask the administrator to fix the service configuration and retry."
       : "bash is not installed or not in PATH. Please ask the administrator to install bash or fix PATH and retry.";
   }

@@ -10,6 +10,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 
 import { parseNetworkDeviceStats, type NetworkDeviceStats } from "./traffic";
+import { isWindows } from "@/lib/runtime/platform-paths";
 
 const WINDOWS_CACHE_TTL_MS = 2_000;
 let windowsCache: { sampledAt: number; rows: NetworkDeviceStats[] } | null = null;
@@ -51,7 +52,7 @@ function sampleWindowsNetworkAdapters(): NetworkDeviceStats[] {
 
 /** Cumulative rx/tx counters for every local interface, excluding loopback. */
 export function readLocalNetworkDeviceStats(): NetworkDeviceStats[] {
-	if (process.platform === "win32") return sampleWindowsNetworkAdapters();
+	if (isWindows()) return sampleWindowsNetworkAdapters();
 	try {
 		return parseNetworkDeviceStats(readFileSync("/proc/net/dev", "utf-8"));
 	} catch {

@@ -12,6 +12,7 @@ import { prisma } from "@/lib/db";
 import { BusinessError } from "@/lib/errors";
 import { createLogger } from "@/lib/logging";
 import { t } from "@/lib/i18n/service-translations";
+import { shellQuote } from "@/lib/shell-quote";
 import {
   buildSshParamsFromServer,
   execRemoteCommand,
@@ -38,10 +39,6 @@ export function targetFromService(svc: {
     return { kind: "local" };
   }
   return { kind: "remote", serverId: svc.serverId || svc.instanceKey };
-}
-
-function shellQuote(arg: string): string {
-  return `'${arg.replace(/'/g, `'\\''`)}'`;
 }
 
 function buildDockerCommand(args: string[]): string {

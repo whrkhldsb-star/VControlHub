@@ -4,6 +4,7 @@ import path from "node:path";
 import { Client, type ConnectConfig } from "ssh2";
 import { connectSsh, type SshConnectionParams } from "@/lib/ssh/client";
 import { IS_WINDOWS } from "@/lib/runtime/platform-paths";
+import { shellQuote } from "@/lib/shell-quote";
 
 import { buildContentDisposition } from "@/lib/http/content-disposition";
 import { nodeStreamToWeb } from "@/lib/http/node-to-web-stream";
@@ -142,10 +143,6 @@ export function streamLocalTarGz(directoryPath: string, entryName: string, exclu
 		destroyReadableWithError(out, error);
 	});
 	return out;
-}
-
-function shellQuote(value: string) {
-	return "'" + value.replace(/'/g, "'\"'\"'") + "'";
 }
 
 export function connectArchiveSsh(config: ConnectConfig | SshConnectionParams): Promise<Client> {
