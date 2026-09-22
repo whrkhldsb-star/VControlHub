@@ -55,7 +55,7 @@ async function rollbackInstallToSnapshot(
 		try {
 			await prisma.quickService.delete({ where });
 		} catch {
-			// Record no longer exists (concurrent delete) â€?mark as errored instead.
+			// Record no longer exists (concurrent delete) â€” mark as errored instead.
 			await prisma.quickService.update({ where, data: { status: "error", error } }).catch((err) => { qsLogger.warn("quickService status update failed", { error: err instanceof Error ? err.message : String(err) }); });
 		}
 		return { status: "deleted", reason: "fresh-install-failed" };
@@ -218,7 +218,7 @@ async function installServiceUnlocked(opts: InstallOptions) {
 		});
 	} catch (err) {
 		// Upsert itself failed (db connectivity / unique constraint edge
-		// case) â€?record a "failed" audit with the pre-install snapshot so
+		// case) â€” record a "failed" audit with the pre-install snapshot so
 		// operators can see what state was supposed to be transitioned to.
 		const msg = err instanceof Error ? err.message.slice(0, 500) : String(err);
 		await writeQuickServiceAudit({
@@ -269,7 +269,7 @@ async function installServiceUnlocked(opts: InstallOptions) {
 
 /**
  * Package-internal recreate helper (rename/rm then create). Not re-exported from
- * the public quick-service barrel â€?use installService / startService / updateService.
+ * the public quick-service barrel â€” use installService / startService / updateService.
  */
 export async function recreateDockerContainer(
 	serviceId: string,
@@ -298,7 +298,7 @@ export async function recreateDockerContainer(
 		try {
 			await dockerExec(target, ["rename", containerName, backupName], 15_000);
 		} catch {
-			// Rename failed â€?fall back to destructive remove.
+			// Rename failed â€” fall back to destructive remove.
 			await dockerExec(target, ["rm", "-f", containerName], 15_000);
 			hadExisting = false;
 		}
@@ -431,7 +431,7 @@ async function notifyQuickServiceInstallSuccess(userId: string | undefined, tmpl
 			// The access URL is an external http://host:port link; the notification
 			// action guard (getSafeNotificationActionUrl) rejects off-origin URLs, so
 			// linking it here would dead-end at /notifications. The URL is already
-			// shown as text in the message body â€?click-through goes to the internal
+			// shown as text in the message body â€” click-through goes to the internal
 			// service list instead.
 			actionUrl: "/quick-services",
 		});

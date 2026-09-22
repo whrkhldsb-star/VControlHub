@@ -47,7 +47,7 @@ type SshTargetInput = {
 
 /**
  * Stage the pinned known_hosts file inside one temp dir. Returns the
- * trimmed pin fingerprint (empty when unpinned) and the file path ¡ª the
+ * trimmed pin fingerprint (empty when unpinned) and the file path â€” the
  * same pair every local-binary ssh invocation needs.
  */
 async function stagePinnedKnownHosts(
@@ -77,8 +77,8 @@ function hostKeyModeFlags(pin: string | undefined): string[] {
  * known-hosts sink (pinned file or the platform null device), quiet logs, a
  * bounded connect timeout, and the `--` destination guard. `--` terminates
  * ssh option parsing: without it, a destination that begins with `-`
- * (e.g. a maliciously-set username `-oProxyCommand=¡­`) would be parsed as a
- * local ssh option ¡ú arbitrary command execution on the control-plane host.
+ * (e.g. a maliciously-set username `-oProxyCommand=â€¦`) would be parsed as a
+ * local ssh option â†’ arbitrary command execution on the control-plane host.
  * Charset validation at the schema layer is the primary guard; this is
  * defense-in-depth for any pre-existing rows.
  */

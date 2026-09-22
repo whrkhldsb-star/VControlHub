@@ -1,9 +1,10 @@
 import { AlertTriangle } from "@/components/icons";
+import { InlineLoading } from "@/components/ui-primitives";
 
 export function TextPreviewLoading({ label }: { label: string }) {
 	return (
-		<div className="flex items-center justify-center py-16 text-[var(--text-secondary)]">
-			<span className="animate-pulse text-sm">{label}</span>
+		<div className="py-16">
+			<InlineLoading label={label} />
 		</div>
 	);
 }

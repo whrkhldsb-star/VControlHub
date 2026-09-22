@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronRight, Copy, File, Folder, Loader2, RefreshCw, Share2 } from "@/components/icons";
+import { InlineLoading } from "@/components/ui-primitives";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { EmptyState } from "@/components/page-shell";
@@ -307,9 +308,9 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 						<span>{copyText.size}</span>
 					</div>
 					{loading ? (
-						<div className="flex items-center justify-center gap-2 p-8 text-sm text-[var(--text-muted)]"><Loader2 size={16} className="animate-spin" /> {copyText.loading}</div>
+						<div className="p-8"><InlineLoading label={copyText.loading} /></div>
 					) : (data?.folders.length || data?.files.length) ? (
-						<div className="divide-y divide-white/[0.10] light:divide-[var(--border)]">
+						<div className="divide-y divide-[var(--border-subtle)]">
 							{data?.folders.map((folder) => {
 								const item: SelectedEntry = {
 									key: entryKey({ storageNodeId: folder.storageNodeId || nodeId, path: folderPath(folder), entryType: "DIRECTORY" }),

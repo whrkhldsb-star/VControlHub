@@ -153,7 +153,7 @@ export async function ensureAria2Daemon(): Promise<void> {
 
 		return;
 	} catch {
-		// Not running â€?fall through to spawn
+		// Not running â€” fall through to spawn
 	}
 
 	const config = getAria2RuntimeConfig();
@@ -163,7 +163,7 @@ export async function ensureAria2Daemon(): Promise<void> {
 
 	// Create empty session file if not exists
 	try { await readFile(config.rpcSession); } catch {
-		// Session file does not exist yet â€?create an empty one.
+		// Session file does not exist yet â€” create an empty one.
 		await writeFile(config.rpcSession, "");
 	}
 
@@ -216,7 +216,7 @@ export async function ensureAria2Daemon(): Promise<void> {
 
 				return;
 			} catch {
-				// Daemon not ready yet â€?retry after a short delay.
+				// Daemon not ready yet â€” retry after a short delay.
 				continue;
 			}
 		}

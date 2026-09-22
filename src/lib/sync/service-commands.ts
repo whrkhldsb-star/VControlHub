@@ -83,13 +83,21 @@ function assertSafeSshPort(targetPort: number): void {
 	}
 }
 
+/**
+ * Sink for unpinned `UserKnownHostsFile=` in the sync transport. This
+ * literal is deliberate: unlike the hub-local NULL_DEVICE (platform-paths),
+ * these ssh argv run on the REMOTE source host — always POSIX, always
+ * /dev/null. Do not "unify" it with the local null device.
+ */
+const REMOTE_NULL_DEVICE = "/dev/null";
+
 function buildSshOptions(targetPort: number, hostKeySha256: string | null | undefined, knownHostsPath: string | undefined, quote: TransportQuote): string {
 	assertSafeSshPort(targetPort);
 	const pinned = Boolean(hostKeySha256?.trim());
 	if (pinned && !knownHostsPath) throw new ValidationError(t("backend.sync.pinnedSshSyncRequiresAKnownHostsPath"));
 	return [
 		`-o StrictHostKeyChecking=${pinned ? "yes" : "accept-new"}`,
-		`-o UserKnownHostsFile=${quote(pinned ? knownHostsPath! : "/dev/null")}`,
+		`-o UserKnownHostsFile=${quote(pinned ? knownHostsPath! : REMOTE_NULL_DEVICE)}`,
 		`-p ${targetPort}`,
 	].join(" ");
 }

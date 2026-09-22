@@ -10,6 +10,8 @@ All notable changes to VControlHub are documented here. Versions follow Semantic
 - Hub-host monitoring and traffic stats on Windows: CPU via `os.cpus()` window diff, per-process top list and TCP connection count via PowerShell/`netstat`, interface counters via `Get-NetAdapterStatistics` (shared sampler with short cache, also used by the traffic route).
 - `docs/windows-development.md` — Windows environment setup, production run, and per-feature platform boundaries.
 - CI `test-windows` job (windows-latest): typecheck + lint + unit tests + build, guarding cross-platform regressions.
+- Cross-platform CLI backup/restore entry points: `npm run backup` / `npm run restore` wrap the Node runners (`scripts/backup.mjs` / `scripts/restore.mjs`, sharing `scripts/lib/backup-common.mjs`); artifact formats, exit codes, and log prefixes match the bash scripts, so Windows and Linux share one command surface.
+- `src/lib/ssh/server-target.ts` — the single "load server → require enabled → build SSH params" step with typed errors and canonical `backend.ssh.*` copy (zh/en), plus a credential-free variant for scope descriptors.
 
 ### Changed
 
@@ -17,9 +19,17 @@ All notable changes to VControlHub are documented here. Versions follow Semantic
 - Archive listing (`/api/files/archive-list`) parses both GNU tar and bsdtar `-tv` output, and reads zip archives via bsdtar on Windows (no `unzip` needed); `.gz` extraction now decompresses with Node `zlib` instead of the `gunzip` binary.
 - Route catalog / RBAC audit / verification scripts normalize path separators, producing identical output on every OS (previously the catalog generated zero routes on Windows, which broke `next build`); rbac-audit output lists are sorted for deterministic diffs.
 - `verify:deploy-assets` runs through a cross-platform wrapper (explicit skip on Windows) so `npm run verify` completes everywhere.
+- One platform abstraction: `src/lib/runtime/platform-paths.ts` now also exports `NULL_DEVICE`, `findExecutable`, `hubHostDockerSocketMount()`, `tempRoot()` and the live-read `isWindows()`; a parallel draft module was merged in and deleted.
+- Password-auth SSH commands on Windows run over the bundled ssh2 client in-process (Windows ships no `sshpass`); bounded output, timeout/cancel codes, and host-key pinning match the sshpass transport, and tests can pin either transport explicitly.
+- Backup/restore argv planning is spec-driven per platform (`backup/platform-runner.ts`); backup drills verify gzip integrity and PostgreSQL format in-process via Node `zlib` instead of `gzip -t` / `head` shell pipelines. aria2 binary resolution searches PATH plus platform install roots (with `ARIA2_BIN` override) instead of hard-coded `/usr/bin`.
+- One shell-quoting implementation: six local `shellQuote` copies (three textual variants of a shell-injection guard) now import `@/lib/shell-quote`.
+- One SSH server loader: quick-service docker, docker compose, and SFTP previously each inlined the lookup with three different failure shapes (422/400/500) for the same condition; all resolve through `server-target.ts` with typed errors.
+- API-facing raw `Error` throws converted to typed errors — VPS backup record deletion (404/409/400 instead of 500), quick-service remote docker and catalog adapters, archive exclusion validation — so clients receive real status codes and messages.
+- Frontend consistency: the image-bed page rides the global toast system (its page-local FloatingToast with private state/timer is deleted); sparkline and diff-review colors resolve from design tokens (zero raw palette classes remain); Spinner/Notice can no longer fall back to English labels in the zh locale; seven pure presentational components dropped needless `"use client"`; inline loading standardized on `InlineLoading`.
 
 ### Fixed
 
+- Pinned host-key fingerprints silently read as `null` in the quick-service docker and docker-compose remote loaders (their prisma projections never selected `hostKeySha256`); the unified loader selects it, so host-key pinning works for those paths.
 - VPS backup download paths on Windows: containment used POSIX string prefixes against native `path.resolve` results and always reported "escapes storage root"; now uses `path.relative`.
 - Windows path handling across unit tests (platform-native expectations); Linux installer/restore-script tests skip explicitly on Windows instead of failing with `spawn bash ENOENT`.
 

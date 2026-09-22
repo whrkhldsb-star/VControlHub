@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { shellQuote } from "@/lib/shell-quote";
 import {
   buildDirectGatewayPublicBaseUrl,
   buildInstallDirectGatewayCommand,
@@ -17,7 +18,8 @@ describe("direct gateway auto https", () => {
     expect(c).toContain("<<'VCH_DIRECT_PROXY_HEALTH'");
     expect(c).toContain("https://127.0.0.1:443/__vch_health");
     expect(c).toContain("DIRECT_BIND='127.0.0.1'");
-    expect(c).toContain("DIRECT_SECRET='a'\"'\"'b'");
+    // Hostile secrets cannot break out of the canonical single-quote idiom.
+    expect(c).toContain(`DIRECT_SECRET=${shellQuote("a'b")}`);
     expect(c).toContain("vcontrolhub-direct-caddy.service");
     expect(c).toContain("reverse_proxy 127.0.0.1:31888");
     expect(c).toContain("openssl req -x509 -newkey rsa:2048 -nodes");
