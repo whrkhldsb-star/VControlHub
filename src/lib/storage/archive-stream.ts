@@ -5,6 +5,7 @@ import { Client, type ConnectConfig } from "ssh2";
 import { connectSsh, type SshConnectionParams } from "@/lib/ssh/client";
 import { IS_WINDOWS } from "@/lib/runtime/platform-paths";
 import { shellQuote } from "@/lib/shell-quote";
+import { ValidationError } from "@/lib/errors";
 
 import { buildContentDisposition } from "@/lib/http/content-disposition";
 import { nodeStreamToWeb } from "@/lib/http/node-to-web-stream";
@@ -71,9 +72,9 @@ function killSpawnedProcess(child: ReturnType<typeof spawn>, reason: string) {
 
 
 function archiveExclusionInput(excluded: string[]) {
-	if (excluded.some((name) => /[\r\n\0]/.test(name))) throw new Error("Invalid archive exclusion");
+	if (excluded.some((name) => /[\r\n\0]/.test(name))) throw new ValidationError("Invalid archive exclusion");
 	const input = excluded.length ? `${excluded.join("\n")}\n` : "";
-	if (Buffer.byteLength(input) > 1024 * 1024) throw new Error("Archive exclusion list is too large");
+	if (Buffer.byteLength(input) > 1024 * 1024) throw new ValidationError("Archive exclusion list is too large");
 	return input;
 }
 const EXCLUDE_OPTIONS = ["--no-wildcards", "--anchored", "--exclude-from=-"];
@@ -93,7 +94,7 @@ function buildLocalTarArgs(directoryPath: string, entryName: string, excluded: s
 		for (const name of excluded) {
 			const arg = `--exclude=${name}`;
 			if (excludeArgs.join(" ").length + arg.length > 30_000) {
-				throw new Error("Archive exclusion list is too large for the Windows tar command line; use the Linux runtime or reduce exclusions");
+				throw new ValidationError("Archive exclusion list is too large for the Windows tar command line; use the Linux runtime or reduce exclusions");
 			}
 			excludeArgs.push(arg);
 		}

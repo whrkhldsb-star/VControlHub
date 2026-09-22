@@ -18,6 +18,7 @@ import { Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 
 import { prisma } from "@/lib/db";
+import { ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 import { buildSshParamsFromServer, execRemoteCommand } from "@/lib/ssh/client";
 import {
   buildRemoteBackupCommand,
@@ -696,12 +697,12 @@ export async function deleteVpsBackupRecord(recordId: string): Promise<void> {
     select: { localPath: true, status: true, offsiteKey: true },
   });
   if (!record) {
-    throw new Error(`VpsBackupRecord ${recordId} not found`);
+    throw new NotFoundError(`VpsBackupRecord ${recordId} not found`);
   }
   // Refuse mid-flight deletes: worker may still write COMPLETED after row gone,
   // or leave orphan remote temp + half-downloaded local files.
   if (record.status === "RUNNING") {
-    throw new Error(
+    throw new ConflictError(
       "Cannot delete a RUNNING VPS backup record; wait for completion or failure",
     );
   }
@@ -750,7 +751,7 @@ export async function deleteVpsBackupRecord(recordId: string): Promise<void> {
     where: { id: recordId, status: { not: "RUNNING" } },
   });
   if (deleted.count === 0) {
-    throw new Error(
+    throw new ConflictError(
       "Cannot delete a RUNNING VPS backup record; wait for completion or failure",
     );
   }
@@ -766,7 +767,7 @@ export function resolveVpsBackupFilePath(localPath: string): string {
   if (abs !== root) {
     const rel = relativePath(root, abs);
     if (rel === "" || rel.startsWith("..") || path.isAbsolute(rel)) {
-      throw new Error("VPS backup path escapes storage root");
+      throw new ValidationError("VPS backup path escapes storage root");
     }
   }
   return abs;

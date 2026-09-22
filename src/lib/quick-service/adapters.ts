@@ -10,6 +10,7 @@
 
 import { SERVICE_CATALOG } from "./catalog";
 import { createLogger } from "@/lib/logging";
+import { BusinessError, ValidationError } from "@/lib/errors";
 import {
 	assertPublicBaseUrlResolvesPublic,
 	normalizePublicHttpUrl,
@@ -26,7 +27,7 @@ const APP_SOURCE_MAX_APPS = 5_000;
 
 function sourceSlug(value: string) {
 	const slug = value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-	if (!slug) throw new Error("App source name cannot produce a safe slug");
+	if (!slug) throw new ValidationError("App source name cannot produce a safe slug");
 	return slug.slice(0, 64);
 }
 
@@ -44,25 +45,25 @@ async function fetchCatalogJson(url: string): Promise<unknown> {
 		} catch {
 			// The body helper cancels oversized/error streams; preserve the HTTP status.
 		}
-		throw new Error(`Source returned ${res.status}${errorText ? `: ${errorText.slice(0, 300)}` : ""}`);
+		throw new BusinessError(`Source returned ${res.status}${errorText ? `: ${errorText.slice(0, 300)}` : ""}`);
 	}
 	const declaredSize = Number(res.headers.get("content-length"));
 	if (Number.isFinite(declaredSize) && declaredSize > APP_SOURCE_MAX_BYTES) {
-		throw new Error("App source response is too large");
+		throw new BusinessError("App source response is too large");
 	}
 	let text: string;
 	try {
 		text = await readResponseTextLimited(res, APP_SOURCE_MAX_BYTES);
 	} catch (error) {
 		if (error instanceof ResponseBodyTooLargeError) {
-			throw new Error("App source response is too large");
+			throw new BusinessError("App source response is too large");
 		}
 		throw error;
 	}
 	try {
 		return JSON.parse(text);
 	} catch {
-		throw new Error("App source returned invalid JSON");
+		throw new BusinessError("App source returned invalid JSON");
 	}
 }
 

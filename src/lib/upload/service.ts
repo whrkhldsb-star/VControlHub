@@ -4,8 +4,8 @@ import { config } from "@/lib/config/env";
  * TR-009 55c: Media resumable upload — service.
  *
  * Manages MediaUploadSession lifecycle: init / get / append chunk /
- * complete / cancel / sweep expired. Chunks live in /tmp under
- * UPLOAD_TMP_DIR/<sessionId>/chunk-N.
+ * complete / cancel / sweep expired. Chunks live under the platform temp
+ * root in UPLOAD_TMP_DIR/<sessionId>/chunk-N.
  *
  * Image processing (sharp / thumbnail / webp / avif + ImageUpload row
  * creation) is the API route's job — this service exposes
@@ -27,6 +27,7 @@ import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
 import { logError } from "@/lib/logging";
+import { tempRoot } from "@/lib/runtime/platform-paths";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 
 import {
@@ -40,7 +41,7 @@ import {
 /** Where chunk files are kept between init and complete. */
 export const UPLOAD_TMP_DIR =
 	config.media.uploadTmpDir ||
-	path.join("/tmp", "vcontrolhub-media-uploads");
+	path.join(tempRoot(), "vcontrolhub-media-uploads");
 
 class MediaUploadError extends Error {
 	readonly code: string;

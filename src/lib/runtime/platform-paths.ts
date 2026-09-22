@@ -62,6 +62,15 @@ export function isWindows(): boolean {
 }
 
 /**
+ * Hub-local temp root for scratch directories. POSIX keeps the historical
+ * `/tmp` layout; Windows resolves a leading `/` against the current drive,
+ * so the per-user temp directory is used instead.
+ */
+export function tempRoot(): string {
+  return IS_WINDOWS ? os.tmpdir() : "/tmp";
+}
+
+/**
  * Local aria2 relay scratch directory: a relay download lands here before it
  * is uploaded to the target server over SFTP.
  *
