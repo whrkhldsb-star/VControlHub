@@ -13,13 +13,10 @@ import { apiCopy } from "@/lib/i18n/api-copy";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
-import { prisma } from "@/lib/db";
 import { BusinessError, ValidationError } from "@/lib/errors";
 import { createLogger } from "@/lib/logging";
-import {
-  buildSshParamsFromServer,
-  execRemoteCommand,
-} from "@/lib/ssh/client";
+import { execRemoteCommand } from "@/lib/ssh/client";
+import { loadEnabledServerForSsh, loadEnabledServerRef } from "@/lib/ssh/server-target";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { t } from "@/lib/i18n/service-translations";
 import { shellQuote } from "@/lib/shell-quote";
@@ -201,12 +198,9 @@ export async function listComposeProjects(serverId?: string): Promise<{
 
 async function resolveScope(serverId?: string): Promise<DockerScope> {
   if (!serverId) return hubHostDockerScope;
-  const server = await prisma.server.findUnique({
-    where: { id: serverId },
-    select: { id: true, name: true, enabled: true },
-  });
-  if (!server) throw new ValidationError(t("backend.docker.targetVpsNotFound"));
-  if (!server.enabled) throw new ValidationError(t("backend.docker.targetVpsIsDisabled"));
+  // Unified loader errors (typed, canonical copy) without decrypting creds:
+  // the scope descriptor only needs id + name.
+  const { server } = await loadEnabledServerRef(serverId);
   return remoteVpsDockerScope(server.id, server.name);
 }
 
@@ -244,26 +238,8 @@ async function runRemoteDockerCommand(
   command: string,
   timeoutMs: number,
 ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-  const server = await prisma.server.findUnique({
-    where: { id: serverId },
-    include: {
-      sshKey: { select: { privateKey: true, passphrase: true } },
-    },
-  });
-  if (!server) throw new ValidationError(t("backend.docker.targetVpsNotFound"));
-  if (!server.enabled) throw new ValidationError(t("backend.docker.targetVpsIsDisabled"));
-  const ssh = await buildSshParamsFromServer(
-    {
-      operatingSystem: server.operatingSystem,
-      host: server.host,
-      port: server.port,
-      username: server.username,
-      sshKeyId: server.sshKeyId,
-      password: server.password,
-      hostKeySha256: (server as { hostKeySha256?: string | null }).hostKeySha256 ?? null,
-    },
-    server.sshKey,
-  );
+  // Unified SSH-target loader (typed not-found/disabled errors).
+  const { ssh } = await loadEnabledServerForSsh(serverId);
   const result = await execRemoteCommand({
     ...ssh,
     command,

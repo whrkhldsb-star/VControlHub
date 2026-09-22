@@ -22,8 +22,10 @@ import {
 } from "@/lib/ssh/client";
 import type { Stats } from "ssh2";
 import { Readable, PassThrough } from "node:stream";
-import { prisma } from "@/lib/db";
-import { decryptServerPassword, decryptSshPrivateKey, decryptSshKeyPassphrase } from "@/lib/ssh/ssh-key-crypto";
+import {
+  assertDirectCredentialsConfigured,
+  loadEnabledServerForSsh,
+} from "@/lib/ssh/server-target";
 import { createLogger } from "@/lib/logging";
 import {
   AppError,
@@ -165,53 +167,20 @@ export function sanitizeFileName(raw: string): string {
 // ── Connection resolution ──────────────────────────────────────────
 
 async function resolveServerConnection(serverId: string): Promise<ResolvedConnection> {
-  const srv = await prisma.server.findUnique({
-    where: { id: serverId },
-    select: {
-      id: true,
-      host: true,
-      port: true,
-      username: true,
-      enabled: true,
-      connectionType: true,
-      password: true,
-      managementMode: true,
-      hostKeySha256: true,
-      sshKey: { select: { privateKey: true, passphrase: true } },
-    },
-  });
-
-  if (!srv || !srv.enabled) {
-    throw new Error("Server not found or disabled");
-  }
-
-  const agentServerId = srv.managementMode === "AGENT" ? srv.id : undefined;
-  if (srv.connectionType === "SSH_KEY" && !srv.sshKey?.privateKey && !agentServerId) {
-    throw new Error("SSH key not configured for this server");
-  }
-  if (srv.connectionType === "PASSWORD" && !srv.password && !agentServerId) {
-    throw new Error("Password not configured for this server");
-  }
-
+  // Unified SSH-target loader: typed not-found/disabled errors, credential
+  // presence checks, and one decryption path shared with every other module.
+  const { server, ssh } = await loadEnabledServerForSsh(serverId);
+  assertDirectCredentialsConfigured(server);
   return {
-    host: srv.host,
-    port: srv.port,
-    username: srv.username,
-    connectionType: srv.connectionType,
-    hostKeySha256: srv.hostKeySha256,
-    privateKey:
-      srv.connectionType === "SSH_KEY" && srv.sshKey?.privateKey
-        ? decryptSshPrivateKey(srv.sshKey!.privateKey ?? "")
-        : undefined,
-    passphrase:
-      srv.connectionType === "SSH_KEY" && srv.sshKey?.passphrase
-        ? decryptSshKeyPassphrase(srv.sshKey!.passphrase)
-        : undefined,
-    password:
-      srv.connectionType === "PASSWORD"
-        ? decryptServerPassword(srv.password ?? "")
-        : undefined,
-    ...(agentServerId ? { agentServerId } : {}),
+    host: server.host,
+    port: server.port,
+    username: server.username,
+    connectionType: server.connectionType,
+    hostKeySha256: server.hostKeySha256,
+    ...(ssh.privateKey ? { privateKey: ssh.privateKey } : {}),
+    ...(ssh.passphrase ? { passphrase: ssh.passphrase } : {}),
+    ...(ssh.password ? { password: ssh.password } : {}),
+    ...(ssh.agentServerId ? { agentServerId: ssh.agentServerId } : {}),
   };
 }
 

@@ -8,15 +8,12 @@
 import { execFile, execFileSync, spawnSync } from "child_process";
 import { promisify } from "util";
 
-import { prisma } from "@/lib/db";
 import { BusinessError } from "@/lib/errors";
 import { createLogger } from "@/lib/logging";
 import { t } from "@/lib/i18n/service-translations";
 import { shellQuote } from "@/lib/shell-quote";
-import {
-  buildSshParamsFromServer,
-  execRemoteCommand,
-} from "@/lib/ssh/client";
+import { loadEnabledServerForSsh, type SshServerTarget } from "@/lib/ssh/server-target";
+import { execRemoteCommand } from "@/lib/ssh/client";
 
 const runFile = promisify(execFile);
 const logger = createLogger("quick-service-docker");
@@ -45,37 +42,9 @@ function buildDockerCommand(args: string[]): string {
   return ["docker", ...args.map(shellQuote)].join(" ");
 }
 
-async function loadRemoteSshParams(serverId: string) {
-  const server = await prisma.server.findUnique({
-    where: { id: serverId },
-    include: {
-      sshKey: {
-        select: {
-          privateKey: true,
-          passphrase: true,
-        },
-      },
-    },
-  });
-  if (!server) throw new BusinessError(
-      t("backend.quick-service.targetServerNotFound", { serverId }),
-    );
-  if (!server.enabled) throw new BusinessError(
-      t("backend.quick-service.targetServerDisabled", { name: server.name }),
-    );
-  const ssh = await buildSshParamsFromServer(
-    {
-      operatingSystem: server.operatingSystem,
-      host: server.host,
-      port: server.port,
-      username: server.username,
-      sshKeyId: server.sshKeyId,
-      password: server.password,
-      hostKeySha256: (server as { hostKeySha256?: string | null }).hostKeySha256 ?? null,
-    },
-    server.sshKey,
-  );
-  return { server, ssh };
+async function loadRemoteSshParams(serverId: string): Promise<SshServerTarget> {
+  // Unified loader: typed not-found/disabled errors, one decryption path.
+  return loadEnabledServerForSsh(serverId);
 }
 
 /** Local-only sync helper (historical API, used by unit tests). */
@@ -110,7 +79,7 @@ export async function dockerExec(
   } as Parameters<typeof execRemoteCommand>[0]);
   if (result.exitCode !== 0 && result.exitCode !== null) {
     const msg = (result.stderr || result.stdout || `exit ${result.exitCode}`).trim();
-    throw new Error(msg || `Remote docker failed on ${server.name}`);
+    throw new BusinessError(msg || `Remote docker failed on ${server.name}`);
   }
   return result.stdout;
 }
@@ -135,7 +104,7 @@ export async function dockerRun(
   } as Parameters<typeof execRemoteCommand>[0]);
   if (result.exitCode !== 0 && result.exitCode !== null) {
     const msg = (result.stderr || result.stdout || `exit ${result.exitCode}`).trim();
-    throw new Error(msg || `Remote docker run failed on ${server.name}`);
+    throw new BusinessError(msg || `Remote docker run failed on ${server.name}`);
   }
   return { stdout: result.stdout, stderr: result.stderr };
 }

@@ -57,6 +57,26 @@ vi.mock("ssh2", () => {
 
 vi.mock("@/lib/ssh/client", () => ({
   createVerifiedSshConfig: (input: Record<string, unknown>) => input,
+  // Mirrors production credential selection without touching crypto: the
+  // crypto module is separately mocked to identity below.
+  buildSshParamsFromServer: async (
+    server: Record<string, unknown>,
+    sshKey?: { privateKey?: string | null; passphrase?: string | null } | null,
+  ) => ({
+    host: server.host,
+    port: server.port,
+    username: server.username,
+    hostKeySha256: server.hostKeySha256 ?? null,
+    ...(server.connectionType === "SSH_KEY" && sshKey?.privateKey
+      ? {
+          privateKey: sshKey.privateKey,
+          ...(sshKey.passphrase ? { passphrase: sshKey.passphrase } : {}),
+        }
+      : {}),
+    ...(server.connectionType === "PASSWORD" && server.password
+      ? { password: server.password }
+      : {}),
+  }),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -157,10 +177,14 @@ describe("uploadFile session lifecycle", () => {
     vi.clearAllMocks();
     findUniqueMock.mockResolvedValue({
       id: "srv1",
+      name: "srv1",
       host: "10.0.0.1",
       port: 22,
       username: "alice",
       enabled: true,
+      operatingSystem: "LINUX",
+      managementMode: "DIRECT",
+      sshKeyId: null,
       connectionType: "PASSWORD",
       password: "secret",
       hostKeySha256: "SHA256:pin",
@@ -215,10 +239,14 @@ describe("downloadFile session lifecycle", () => {
     vi.clearAllMocks();
     findUniqueMock.mockResolvedValue({
       id: "srv1",
+      name: "srv1",
       host: "10.0.0.1",
       port: 22,
       username: "alice",
       enabled: true,
+      operatingSystem: "LINUX",
+      managementMode: "DIRECT",
+      sshKeyId: null,
       connectionType: "PASSWORD",
       password: "secret",
       hostKeySha256: "SHA256:pin",

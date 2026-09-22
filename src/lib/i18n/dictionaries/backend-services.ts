@@ -280,6 +280,10 @@ export const zh: Record<string, string> = {
 	"backend.announcement.expiresAtMustBeAfterStartsAt": "过期时间必须晚于生效时间",
 	"backend.ssh.failedToReadSshHostKeyFingerprintPlease": "无法读取 SSH 主机密钥指纹，请确认目标 SSH 服务支持主机密钥协商",
 	"backend.ssh.serverNotFoundOrDisabled": "服务器不存在或已禁用",
+	"backend.ssh.serverNotFound": "目标服务器不存在：{serverId}",
+	"backend.ssh.serverDisabled": "目标服务器已禁用：{name}",
+	"backend.ssh.keyNotConfigured": "该服务器未配置 SSH 密钥",
+	"backend.ssh.passwordNotConfigured": "该服务器未配置密码",
 	"backend.ssh.invalidIdentifierLeadingDash": "无效的 SSH {kind}：不能以 '-' 开头",
 	"backend.ssh.invalidIdentifierChars": "无效的 SSH {kind}：包含不允许的字符",
 	"backend.sftp.remotePathNotFound": "远程路径不存在",
@@ -383,8 +387,6 @@ export const zh: Record<string, string> = {
 	"backend.downloads.relayStatusVerificationFailed": "无法确认中转下载状态，任务已失败",
 	"backend.downloads.downloadFilenameCannotContain": "下载文件名不能包含 ..",
 	"backend.downloads.downloadFilenameInvalid": "下载文件名无效",
-	"backend.docker.targetVpsNotFound": "目标 VPS 不存在",
-	"backend.docker.targetVpsIsDisabled": "目标 VPS 已禁用",
 	"backend.docker.hubHostRequiresPlatformManager": "宿主机 Docker 由平台共享，需平台管理员权限；请选择本团队的服务器",
 	"backend.ai.providerNameIsRequired": "提供商名称不能为空",
 	"backend.ai.apiKeyIsRequired": "必须填写 API Key",
@@ -453,8 +455,6 @@ export const zh: Record<string, string> = {
   "backend.ai.noTrafficSamplesInPeriod": "所选时间范围内没有流量样本",
   "backend.ai.approvalRejected": "审批已拒绝",
   "backend.ai.confirmationCancelled": "用户已取消确认",
-  "backend.quick-service.targetServerNotFound": "目标 VPS 不存在：{serverId}",
-  "backend.quick-service.targetServerDisabled": "目标 VPS 已禁用：{name}",
   "backend.quick-service.portInUseOnTarget":
     "目标 VPS 上的端口 {port} 已被占用，请选择其他端口",
   "backend.quick-service.extraPortInUseOnTarget":
@@ -868,6 +868,10 @@ export const en: Record<string, string> = {
 	"backend.announcement.expiresAtMustBeAfterStartsAt": "expiresAt must be after startsAt",
 	"backend.ssh.failedToReadSshHostKeyFingerprintPlease": "Failed to read SSH host key fingerprint. Please verify the target SSH service supports host key negotiation.",
 	"backend.ssh.serverNotFoundOrDisabled": "Server not found or disabled",
+	"backend.ssh.serverNotFound": "Target server not found: {serverId}",
+	"backend.ssh.serverDisabled": "Target server is disabled: {name}",
+	"backend.ssh.keyNotConfigured": "SSH key not configured for this server",
+	"backend.ssh.passwordNotConfigured": "Password not configured for this server",
 	"backend.ssh.invalidIdentifierLeadingDash": "Invalid SSH {kind}: must not begin with '-'",
 	"backend.ssh.invalidIdentifierChars": "Invalid SSH {kind}: contains disallowed characters",
 	"backend.sftp.remotePathNotFound": "Remote path not found",
@@ -971,8 +975,6 @@ export const en: Record<string, string> = {
 	"backend.downloads.relayStatusVerificationFailed": "Unable to verify relay download status; the task failed",
 	"backend.downloads.downloadFilenameCannotContain": "Download filename cannot contain ..",
 	"backend.downloads.downloadFilenameInvalid": "Download filename invalid",
-	"backend.docker.targetVpsNotFound": "Target VPS not found",
-	"backend.docker.targetVpsIsDisabled": "Target VPS is disabled",
 	"backend.docker.hubHostRequiresPlatformManager": "The hub host's Docker is shared platform infrastructure and requires platform-manager permission; pick one of your team's servers instead",
 	"backend.ai.providerNameIsRequired": "Provider name is required",
 	"backend.ai.apiKeyIsRequired": "API Key is required",
@@ -1054,10 +1056,6 @@ export const en: Record<string, string> = {
     "No traffic samples were found in the selected period",
   "backend.ai.approvalRejected": "Approval rejected",
   "backend.ai.confirmationCancelled": "User cancelled confirmation",
-  "backend.quick-service.targetServerNotFound":
-    "Target VPS not found: {serverId}",
-  "backend.quick-service.targetServerDisabled":
-    "Target VPS is disabled: {name}",
   "backend.quick-service.portInUseOnTarget":
     "Port {port} is already in use on the target VPS; choose another port",
   "backend.quick-service.extraPortInUseOnTarget":
