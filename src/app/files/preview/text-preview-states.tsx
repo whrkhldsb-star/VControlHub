@@ -1,5 +1,3 @@
-"use client";
-
 import { AlertTriangle } from "@/components/icons";
 
 export function TextPreviewLoading({ label }: { label: string }) {

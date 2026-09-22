@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { ActionButton } from "@/components/action-button";
 import { UI_INPUT } from "@/lib/ui/classes";
@@ -14,7 +15,7 @@ import { ImagePreviewModalLazy } from "./image-preview-modal-lazy";
 import { ImageBedStatsPanel, UploadProgressPanel } from "./image-bed-sections";
 import { formatImageDate, formatImageSize, formatPublishSource } from "./image-bed-format";
 import { DeleteImageDialog, ImageGrid, PublishFromStorageModal } from "./image-bed-grid-and-modals";
-import { FloatingToast } from "./floating-toast";
+import { useToast } from "@/components/toast-provider";
 import { Check, ClipboardList, Folder, HardDrive, ImageIcon, LayoutDashboard, Plus, RefreshCw, Search, Share2, Trash2, User } from "@/components/icons";
 import { Pagination } from "@/components/pagination";
 
@@ -32,6 +33,7 @@ export default function ImageBedPage({ canWrite, canDelete, canListAll = false }
 		setShowAll,
 	} = useImageBedList({ canWrite });
 	const { t, locale } = useI18n();
+	const { addToast } = useToast();
 	const refreshImages = (nextPage = 1, query = search) => fetchImages(nextPage, query).catch(() => {
 		// The list hook exposes this failure through the page's visible toast.
 	});
@@ -39,7 +41,6 @@ export default function ImageBedPage({ canWrite, canDelete, canListAll = false }
 		uploading,
 		dragOver,
 		setDragOver,
-		toast,
 		previewImage,
 		setPreviewImage,
 		selectedIds,
@@ -80,11 +81,10 @@ export default function ImageBedPage({ canWrite, canDelete, canListAll = false }
 		openPublishModal,
 	} = useImageBedActions({ t, search, page, showAll, images, fetchImages: refreshImages });
 
-	const listToast =
-		listError != null
-			? { message: t("imageBed.toast.fetchListFailed"), tone: "alert" as const }
-			: null;
-	const activeToast = toast ?? listToast;
+	// Surface list failures through the same global toast the actions use.
+	useEffect(() => {
+		if (listError != null) addToast("error", t("imageBed.toast.fetchListFailed"));
+	}, [listError, addToast, t]);
 
 	const formatSize = formatImageSize;
 	const formatDate = (iso: string) => formatImageDate(iso, locale);
@@ -286,8 +286,6 @@ export default function ImageBedPage({ canWrite, canDelete, canListAll = false }
 				/>
 			)}
 
-			<FloatingToast toast={activeToast} />
-
-		</PageShell>
+			</PageShell>
 	);
 }

@@ -1,5 +1,3 @@
-"use client";
-
 import { StatCard } from "@/components/page-shell";
 import type { HealthOverview } from "./health-types";
 import { usageBarTone, usageColor, type TFunc } from "./health-dashboard-helpers";

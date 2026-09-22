@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { useToast } from "@/components/toast-provider";
 import { escapeHtml } from "@/lib/sanitize/escape-html";
 
 import {
@@ -14,7 +15,6 @@ import {
 } from "./image-bed-types";
 
 type TFn = (key: string, vars?: Record<string, string | number>) => string;
-type ToastTone = "status" | "alert";
 
 export type PublishForm = {
 	storageNodeId: string;
@@ -52,7 +52,6 @@ export function useImageBedActions({
 }) {
 	const [uploading, setUploading] = useState(false);
 	const [dragOver, setDragOver] = useState(false);
-	const [toast, setToast] = useState<{ message: string; tone: ToastTone } | null>(null);
 	const [previewImage, setPreviewImage] = useState<ImageItem | null>(null);
 	const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 	// Clear batch selection when page/filter changes so counts stay page-scoped.
@@ -77,19 +76,13 @@ export function useImageBedActions({
 	const batchBusyRef = useRef(false);
 	const publishingRef = useRef(false);
 	const uploadingRef = useRef(false);
-	const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-	useEffect(() => () => {
-		if (toastTimerRef.current !== null) clearTimeout(toastTimerRef.current);
-	}, []);
+	// Global toast system (root ToastProvider) — same surface every other page
+	// uses, instead of a page-local floating toast with its own timer.
+	const { addToast } = useToast();
 
-	const showToast = useCallback((msg: string, tone: ToastTone = "status") => {
-		if (toastTimerRef.current !== null) clearTimeout(toastTimerRef.current);
-		setToast({ message: msg, tone });
-		toastTimerRef.current = setTimeout(() => {
-			setToast(null);
-			toastTimerRef.current = null;
-		}, 3000);
-	}, []);
+	const showToast = useCallback((msg: string, tone: "status" | "alert" = "status") => {
+		addToast(tone === "alert" ? "error" : "success", msg);
+	}, [addToast]);
 
 	const fetchStats = useCallback(async () => {
 		try {
@@ -441,7 +434,6 @@ export function useImageBedActions({
 		uploading,
 		dragOver,
 		setDragOver,
-		toast,
 		previewImage,
 		setPreviewImage,
 		selectedIds,

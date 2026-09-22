@@ -1,5 +1,3 @@
-"use client";
-
 import { CommandLaunchForm } from "./command-launch-form";
 import { BatchServerActionPanel } from "./batch-server-action-panel";
 

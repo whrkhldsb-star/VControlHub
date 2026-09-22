@@ -1,5 +1,6 @@
 import { cn } from "@/lib/ui/cn";
 import { UI_INPUT } from "@/lib/ui/classes";
+import { browserT } from "@/lib/i18n/browser-translations";
 import { Children, cloneElement, isValidElement, Fragment } from "react";
 import type {
 	ButtonHTMLAttributes,
@@ -77,12 +78,15 @@ export function Badge({
 export function Spinner({
 	size = "md",
 	className,
-	label = "Loading…",
+	label,
 }: {
 	size?: "sm" | "md" | "lg";
 	className?: string;
-	/** Accessible name; pass a localized loading string from client call sites. */
-	label?: string;
+	/**
+	 * Accessible name — required so no English default can leak into the zh
+	 * locale; call sites pass their localized loading string.
+	 */
+	label: string;
 }) {
 	const sizeClass = { sm: "h-4 w-4 border-2", md: "h-6 w-6 border-2", lg: "h-8 w-8 border-3" }[size];
 	return (
@@ -528,13 +532,14 @@ const NOTICE_STYLES: Record<NoticeTone, string> = {
 };
 
 export function Notice({
-	tone = "info", title, children, action, onDismiss, dismissLabel = "Dismiss", compact = false, className,
+	tone = "info", title, children, action, onDismiss, dismissLabel, compact = false, className,
 }: {
 	tone?: NoticeTone;
 	title?: ReactNode;
 	children?: ReactNode;
 	action?: { label: ReactNode; onClick: () => void; disabled?: boolean };
 	onDismiss?: () => void;
+	/** Accessible name of the dismiss button — required when onDismiss is set. */
 	dismissLabel?: string;
 	compact?: boolean;
 	className?: string;
@@ -547,7 +552,7 @@ export function Notice({
 			</div>
 			{action || onDismiss ? <div className="flex shrink-0 items-center gap-2">
 				{action ? <button type="button" onClick={action.onClick} disabled={action.disabled} className="font-semibold underline underline-offset-2 disabled:opacity-50">{action.label}</button> : null}
-				{onDismiss ? <IconButton label={dismissLabel} onClick={onDismiss} className="h-7 w-7">×</IconButton> : null}
+				{onDismiss ? <IconButton label={dismissLabel ?? browserT("common.close")} onClick={onDismiss} className="h-7 w-7">×</IconButton> : null}
 			</div> : null}
 		</div>
 	);

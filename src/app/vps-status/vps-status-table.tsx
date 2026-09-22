@@ -1,5 +1,3 @@
-"use client";
-
 /**
  * Table view of the VPS fleet. Extracted 1:1 from `vps-status-client.tsx`.
  */

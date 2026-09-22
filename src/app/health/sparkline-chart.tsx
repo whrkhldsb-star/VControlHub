@@ -34,6 +34,7 @@ export function SparklineChart({ data, locale }: SparklineChartProps) {
 	}
 
 	const labels = {
+		cpu: t("healthPage.ui.cpu", locale),
 		memory: t("healthPage.ui.memory", locale),
 		disk: t("healthPage.ui.disk", locale),
 		localeCode: toDateLocale(locale),
@@ -60,28 +61,28 @@ export function SparklineChart({ data, locale }: SparklineChartProps) {
 	return (
 		<div className="overflow-x-auto">
 			<svg viewBox={`0 0 ${width} ${height}`} className="w-full min-w-[500px]" style={{ height: "auto" }}>
-				<line x1={padX} y1={warnY} x2={width - padX} y2={warnY} stroke="rgba(251,191,36,0.2)" strokeWidth={1} strokeDasharray="4,4" />
-				<line x1={padX} y1={critY} x2={width - padX} y2={critY} stroke="rgba(244,63,94,0.2)" strokeWidth={1} strokeDasharray="4,4" />
-				<text x={padX - 4} y={warnY + 4} textAnchor="end" fill="rgba(251,191,36,0.5)" fontSize={9}>80%</text>
-				<text x={padX - 4} y={critY + 4} textAnchor="end" fill="rgba(244,63,94,0.5)" fontSize={9}>95%</text>
+				<line x1={padX} y1={warnY} x2={width - padX} y2={warnY} stroke="var(--warning)" strokeWidth={1} strokeDasharray="4,4" opacity={0.4} />
+				<line x1={padX} y1={critY} x2={width - padX} y2={critY} stroke="var(--danger)" strokeWidth={1} strokeDasharray="4,4" opacity={0.4} />
+				<text x={padX - 4} y={warnY + 4} textAnchor="end" fill="var(--warning)" opacity={0.7} fontSize={9}>80%</text>
+				<text x={padX - 4} y={critY + 4} textAnchor="end" fill="var(--danger)" opacity={0.7} fontSize={9}>95%</text>
 
-				<path d={cpuPath} fill="none" stroke="#4ade80" strokeWidth={1.5} />
-				<path d={memPath} fill="none" stroke="#60a5fa" strokeWidth={1.5} />
-				<path d={diskPath} fill="none" stroke="#a78bfa" strokeWidth={1.5} />
+				<path d={cpuPath} fill="none" stroke="var(--success)" strokeWidth={1.5} />
+				<path d={memPath} fill="none" stroke="var(--accent)" strokeWidth={1.5} />
+				<path d={diskPath} fill="none" stroke="var(--purple)" strokeWidth={1.5} />
 
 				{data.filter((_, index) => index % Math.ceil(data.length / 6) === 0).map((point) => {
 					const x = toX(new Date(point.t).getTime());
 					return (
-						<text key={point.t} x={x} y={height - 4} textAnchor="middle" fill="rgba(148,163,184,0.6)" fontSize={9}>
+						<text key={point.t} x={x} y={height - 4} textAnchor="middle" fill="var(--text-muted)" opacity={0.7} fontSize={9}>
 							{new Date(point.t).toLocaleTimeString(labels.localeCode, { hour: "2-digit", minute: "2-digit" })}
 						</text>
 					);
 				})}
 			</svg>
 			<div className="mt-2 flex gap-4 text-xs text-[var(--text-muted)]">
-				<span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-[#4ade80]" />CPU</span>
-				<span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-[#60a5fa]" />{labels.memory}</span>
-				<span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-[#a78bfa]" />{labels.disk}</span>
+				<span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-[var(--success)]" />{labels.cpu}</span>
+				<span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-[var(--accent)]" />{labels.memory}</span>
+				<span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-[var(--purple)]" />{labels.disk}</span>
 			</div>
 		</div>
 	);

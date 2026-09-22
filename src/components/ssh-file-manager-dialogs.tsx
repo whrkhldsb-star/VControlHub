@@ -1,5 +1,3 @@
-"use client";
-
 type TFunction = (key: string, vars?: Record<string, string | number>) => string;
 
 import type { DirEntry } from "./ssh-file-manager-parts";

@@ -9,7 +9,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import ImageBedPageClient from "../image-bed-page-client";
 import { csrfFetch } from "@/lib/auth/csrf-client";
-import { renderWithI18n as render } from "@/lib/i18n/__tests__/test-helpers";
+import { renderWithI18n } from "@/lib/i18n/__tests__/test-helpers";
+import { ToastProvider } from "@/components/toast-provider";
+import type { ReactElement } from "react";
+
+/** Wrap in the real ToastProvider: page feedback now rides the global toast. */
+function render(ui: ReactElement) {
+  return renderWithI18n(<ToastProvider>{ui}</ToastProvider>);
+}
 
 vi.mock("next/image", () => ({
   default: ({

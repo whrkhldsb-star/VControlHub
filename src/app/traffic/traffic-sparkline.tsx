@@ -1,5 +1,3 @@
-"use client";
-
 /**
  * Lightweight dual-line SVG sparkline for /traffic page.
  *

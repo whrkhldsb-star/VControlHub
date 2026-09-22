@@ -87,7 +87,7 @@ export function DiffReviewDialog({
 				{diffRows.length === 0 ? (
 					<p className="px-3 py-2 text-xs text-[var(--text-secondary)]">{t("textPreview.diffEmpty")}</p>
 				) : (
-					<ul className="divide-y divide-white/[0.10] light:divide-slate-200">
+					<ul className="divide-y divide-[var(--border-subtle)]">
 						{diffRows.slice(0, 80).map((row) => (
 							<li key={`${row.line}-${row.kind}`} className="grid gap-1 px-3 py-2 text-xs md:grid-cols-[80px_1fr_1fr]">
 								<span className="font-mono text-[var(--text-muted)]">L{row.line} · {row.kind === "added" ? t("textPreview.diffKind.added") : row.kind === "removed" ? t("textPreview.diffKind.removed") : t("textPreview.diffKind.changed")}</span>

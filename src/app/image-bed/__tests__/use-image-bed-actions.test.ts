@@ -15,9 +15,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  * an empty selection, must not fire twice on a double click, and a failed single
  * delete must leave the dialog dismissible rather than wedging `deleting`.
  */
-const mocks = vi.hoisted(() => ({ csrfFetch: vi.fn() }));
+const mocks = vi.hoisted(() => ({ csrfFetch: vi.fn(), addToast: vi.fn() }));
 
 vi.mock("@/lib/auth/csrf-client", () => ({ csrfFetch: mocks.csrfFetch }));
+vi.mock("@/components/toast-provider", () => ({ useToast: () => ({ addToast: mocks.addToast }) }));
 
 import { useImageBedActions } from "../use-image-bed-actions";
 
@@ -68,19 +69,13 @@ describe("useImageBedActions", () => {
 	});
 
 	describe("copy and feedback", () => {
-		it("keeps a replacement toast visible for its own duration and clears timers on unmount", () => {
-			vi.useFakeTimers();
+		it("surfaces feedback through the global toast provider", () => {
 			const { args } = setup();
-			const { result, unmount } = renderHook(() => useImageBedActions(args as never));
+			const { result } = renderHook(() => useImageBedActions(args as never));
 			act(() => { result.current.showToast("first"); });
-			act(() => { vi.advanceTimersByTime(2000); result.current.showToast("second"); });
-			act(() => { vi.advanceTimersByTime(1000); });
-			expect(result.current.toast?.message).toBe("second");
-			act(() => { vi.advanceTimersByTime(2000); });
-			expect(result.current.toast).toBeNull();
-			act(() => { result.current.showToast("third"); });
-			unmount();
-			expect(vi.getTimerCount()).toBe(0);
+			expect(mocks.addToast).toHaveBeenCalledWith("success", "first");
+			act(() => { result.current.showToast("second", "alert"); });
+			expect(mocks.addToast).toHaveBeenLastCalledWith("error", "second");
 		});
 
 		it("reports unavailable clipboard support without throwing", async () => {
@@ -88,7 +83,7 @@ describe("useImageBedActions", () => {
 			const { args } = setup();
 			const { result } = renderHook(() => useImageBedActions(args as never));
 			await act(async () => { await result.current.copyLink("/i/1"); });
-			expect(result.current.toast).toEqual({ message: "imageBed.toast.copyFailed", tone: "alert" });
+			expect(mocks.addToast).toHaveBeenCalledWith("error", "imageBed.toast.copyFailed");
 		});
 
 		it("escapes copied HTML so filenames cannot create attributes or elements", async () => {
@@ -247,7 +242,7 @@ describe("useImageBedActions", () => {
 			expect(result.current.pendingDelete).toMatchObject({ type: "batch", count: 1 });
 			expect(result.current.selectedIds.has("img_1")).toBe(true);
 			expect(result.current.deleting).toBe(false);
-			expect(result.current.toast?.tone).toBe("alert");
+			expect(mocks.addToast).toHaveBeenCalledWith("error", "imageBed.toast.batchError");
 			await act(async () => { await result.current.confirmDelete(); });
 			expect(result.current.pendingDelete).toBeNull();
 			expect(result.current.selectedIds.size).toBe(0);
