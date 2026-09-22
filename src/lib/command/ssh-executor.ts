@@ -24,6 +24,12 @@ export type SshCommandInput = {
 
 const activeCommandChildren = new Map<string, ChildProcess>();
 const cancelledCommandTargets = new Set<string>();
+/**
+ * Non-child-process executions (ssh2 in-process transport on Windows) register
+ * a cancel callback under the same target id so `cancelRunningCommandChild`
+ * stays the single cancellation entry point for the command module.
+ */
+const cancellableCommandTargets = new Map<string, () => boolean>();
 
 export function appendBoundedOutput(current: string, chunk: unknown, limitBytes: number): string {
   if (Buffer.byteLength(current, "utf8") >= limitBytes) return current;
@@ -44,14 +50,32 @@ function unregisterCommandChild(targetId: string | undefined, child: ChildProces
   }
 }
 
+export function registerCancellableTarget(targetId: string | undefined, cancel: () => boolean) {
+  if (!targetId) return;
+  cancellableCommandTargets.set(targetId, cancel);
+}
+
+export function unregisterCancellableTarget(targetId: string | undefined, cancel: () => boolean) {
+  if (!targetId) return;
+  if (cancellableCommandTargets.get(targetId) === cancel) {
+    cancellableCommandTargets.delete(targetId);
+  }
+}
+
 export function markCommandTargetCancelled(targetId: string): void {
   cancelledCommandTargets.add(targetId);
 }
 
+export function consumeCommandTargetCancellation(targetId: string): boolean {
+  return cancelledCommandTargets.delete(targetId);
+}
+
 export function cancelRunningCommandChild(targetId: string): boolean {
   const child = activeCommandChildren.get(targetId);
-  if (!child) return false;
-  return child.kill("SIGTERM");
+  if (child) return child.kill("SIGTERM");
+  const cancel = cancellableCommandTargets.get(targetId);
+  if (cancel) return cancel();
+  return false;
 }
 
 export function runSshCommandProcess(input: SshCommandInput): Promise<SshExecutionResult> {
@@ -103,7 +127,7 @@ export function runSshCommandProcess(input: SshCommandInput): Promise<SshExecuti
     child.on("close", (code) => {
       clearTimeout(timeout);
       unregisterCommandChild(targetId, child);
-      const cancelled = targetId ? cancelledCommandTargets.delete(targetId) : false;
+      const cancelled = targetId ? consumeCommandTargetCancellation(targetId) : false;
       resolve({
         stdout,
         stderr: cancelled ? appendBoundedOutput(stderr, "\nCommand has been cancelled; SSH subprocess terminated.", outputLimitBytes) : stderr,

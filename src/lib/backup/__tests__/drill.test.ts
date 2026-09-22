@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { gzipSync } from "node:zlib";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ getBackupRecord: vi.fn(), runBackupCommand: vi.fn() }));
@@ -21,19 +22,19 @@ describe("non-destructive backup drill", () => {
     const root = await mkdtemp(path.join(tmpdir(), "backup-drill-"));
     const backupDir = path.join(root, "backups");
     await import("node:fs/promises").then(({ mkdir }) => mkdir(backupDir));
-    const bytes = Buffer.from("compressed-placeholder");
+    // The gzip integrity + format probes run in-process (Node zlib), so the
+    // artifact must be a real gzip stream carrying PostgreSQL SQL.
+    const bytes = gzipSync(Buffer.from("-- PostgreSQL database dump\nSET statement_timeout = 0;\n"));
     await writeFile(path.join(backupDir, "database.sql.gz"), bytes);
     const checksum = createHash("sha256").update(bytes).digest("hex");
     mocks.getBackupRecord.mockResolvedValue({ id: "b1", type: "DATABASE", status: "COMPLETED", filePath: "database.sql.gz", checksumSha256: checksum });
-    mocks.runBackupCommand.mockResolvedValueOnce({ stdout: "", stderr: "" }).mockResolvedValueOnce({ stdout: "-- PostgreSQL database dump\nSET statement_timeout = 0;", stderr: "" });
+    mocks.runBackupCommand.mockResolvedValue({ stdout: "", stderr: "" });
     const report = await drillBackupRecord({ id: "b1", projectRoot: root });
     expect(report.safe).toBe(true);
     expect(report.checksum.matched).toBe(true);
     expect(report.checks.map((check) => check.name)).toEqual(["artifact", "sha256", "gzip", "database-format"]);
-    expect(mocks.runBackupCommand).toHaveBeenNthCalledWith(2, expect.objectContaining({
-      file: "bash",
-      args: ["-c", expect.stringContaining("head -c 8192; cat >/dev/null"), "backup-drill", path.join(backupDir, "database.sql.gz")],
-    }));
+    // No shell pipeline: the database drill stays entirely in-process.
+    expect(mocks.runBackupCommand).not.toHaveBeenCalled();
     expect(mocks.runBackupCommand).not.toHaveBeenCalledWith(expect.objectContaining({ args: expect.arrayContaining(["scripts/restore-db.sh"]) }));
   });
 
@@ -51,7 +52,9 @@ describe("non-destructive backup drill", () => {
     const root = await mkdtemp(path.join(tmpdir(), "backup-drill-files-"));
     const backupDir = path.join(root, "backups");
     await import("node:fs/promises").then(({ mkdir }) => mkdir(backupDir));
-    const bytes = Buffer.from("files-archive-placeholder");
+    // Real gzip wrapper so the in-process integrity probe passes; the tar
+    // listing itself stays mocked.
+    const bytes = gzipSync(Buffer.from("files-archive-placeholder"));
     const archiveRel = "files.tar.gz";
     const archiveAbs = path.join(backupDir, archiveRel);
     await writeFile(archiveAbs, bytes);
@@ -64,7 +67,6 @@ describe("non-destructive backup drill", () => {
       checksumSha256: checksum,
     });
     mocks.runBackupCommand.mockImplementation(async (input: { file: string; args: string[] }) => {
-      if (input.file === "gzip") return { stdout: "", stderr: "" };
       if (input.file === "tar") {
         expect(input.args).toEqual(["-tzf", archiveAbs]);
         return { stdout: "./\na.txt\n", stderr: "" };

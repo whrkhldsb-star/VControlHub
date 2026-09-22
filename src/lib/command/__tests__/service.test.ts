@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EventEmitter } from "node:events";
 
+import { setPasswordExecutorMode } from "../service-ssh";
+
 type MockChildProcess = EventEmitter & {
   stdout: EventEmitter;
   stderr: EventEmitter;
@@ -122,6 +124,9 @@ describe("command service execution flow", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useRealTimers();
+    // Pin the local sshpass transport so argv assertions are identical on every
+    // OS; the ssh2 Windows fallback has its own dispatch tests.
+    setPasswordExecutorMode("sshpass");
     process.env.COMMAND_DEMO_FALLBACK = "false";
     delete process.env.NEXT_PUBLIC_DEMO_MODE;
     delete process.env.DEMO_MODE;
@@ -191,6 +196,7 @@ describe("command service execution flow", () => {
     // undo it leaves any still-pending execution unable to advance, so awaiting
     // it below would hang until the hook's 10s budget expires.
     vi.useRealTimers();
+    setPasswordExecutorMode("auto");
     const pending = [...pendingExecutions];
     // Clear before awaiting. The previous order (`await` then `clear`) meant a
     // single execution that never settled failed this hook AND stayed in the set,

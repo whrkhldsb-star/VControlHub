@@ -2,6 +2,8 @@ import { renderWithI18n as render } from "@/lib/i18n/__tests__/test-helpers";
 import { screen, act } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { backupRunnerSpec, restoreRunnerSpec } from "@/lib/backup/platform-runner";
+
 const { loadOffsiteConfigMock } = vi.hoisted(() => ({
   loadOffsiteConfigMock: vi.fn(),
 }));
@@ -144,12 +146,19 @@ describe("BackupsPage", () => {
     expect(screen.getByText(/选择备份类型与 Cron 表达式后/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "创建备份计划" })).toBeInTheDocument();
 
-    expect(screen.getByText(/deploy\/backup\.sh 'backups\/database\.sql\.gz'/)).toBeInTheDocument();
-    expect(screen.getByText(/deploy\/backup\.sh --files 'backups\/files\.tar\.gz'/)).toBeInTheDocument();
-    expect(screen.getByText(/deploy\/backup\.sh --full 'backups\/full\.tar\.gz'/)).toBeInTheDocument();
-    expect(screen.getByText(/restore-db\.sh 'backups\/database\.sql\.gz'/)).toBeInTheDocument();
-    expect(screen.getByText(/restore-files\.sh.*'backups\/files\.tar\.gz'/)).toBeInTheDocument();
-    expect(screen.getByText(/restore-full\.sh.*'backups\/full\.tar\.gz'/)).toBeInTheDocument();
+    // Displayed commands come from the platform runner specs: bash deploy/
+    // scripts on POSIX, the Node scripts/*.mjs runner on Windows (where the
+    // invoker and script are shell-quoted).
+    const esc = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const win32 = process.platform === "win32";
+    const backupScript = esc(backupRunnerSpec().script) + (win32 ? "'" : "");
+    const restoreScript = (type: "DATABASE" | "FILES" | "FULL") => esc(restoreRunnerSpec(type).script);
+    expect(screen.getByText(new RegExp(`${backupScript} 'backups/database\\.sql\\.gz'`))).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(`${backupScript} --files 'backups/files\\.tar\\.gz'`))).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(`${backupScript} --full 'backups/full\\.tar\\.gz'`))).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(win32 ? `${restoreScript("DATABASE")} 'database' 'backups/database\\.sql\\.gz'` : `${restoreScript("DATABASE")} 'backups/database\\.sql\\.gz'`))).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(win32 ? `${restoreScript("FILES")} 'files'.*'backups/files\\.tar\\.gz'` : `${restoreScript("FILES")}.*'backups/files\\.tar\\.gz'`))).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(win32 ? `${restoreScript("FULL")} 'full'.*'backups/full\\.tar\\.gz'` : `${restoreScript("FULL")}.*'backups/full\\.tar\\.gz'`))).toBeInTheDocument();
 		expect(screen.getAllByText("查看命令与高级信息")[0]?.closest("details")).not.toHaveAttribute("open");
     expect(screen.getAllByRole("button", { name: "恢复" })).toHaveLength(5);
     expect(screen.getAllByRole("button", { name: "标记作废" })).toHaveLength(2);

@@ -3,8 +3,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { getCommandRuntimeConfig } from "@/lib/runtime-settings/service";
+import { NULL_DEVICE } from "@/lib/runtime/platform-paths";
 import { scanPinnedKnownHost } from "@/lib/ssh/known-hosts";
 import { runSshCommandProcess, type SshExecutionResult } from "./ssh-executor";
+import { runSsh2Command } from "./ssh2-executor";
 
 export async function getCommandRuntimeConfigValues() {
   const config = await getCommandRuntimeConfig();
@@ -14,6 +16,26 @@ export async function getCommandRuntimeConfigValues() {
     staleRunningAfterMs: Math.max(config.staleRunningAfterMs, config.executionTimeoutMs),
     executionHeartbeatMs: config.executionHeartbeatMs,
   };
+}
+
+/**
+ * Windows ships `ssh.exe` but no `sshpass`, so password-authenticated command
+ * execution rides the in-process ssh2 transport there. POSIX keeps the exact
+ * local-binary argv (sshpass + ssh) existing deployments and tests expect.
+ * The override lets tests pin a transport and ops force one deliberately.
+ */
+export type PasswordExecutorMode = "auto" | "sshpass" | "ssh2";
+
+let passwordExecutorMode: PasswordExecutorMode = "auto";
+
+export function setPasswordExecutorMode(mode: PasswordExecutorMode): void {
+  passwordExecutorMode = mode;
+}
+
+export function shouldUseSsh2PasswordExecutor(): boolean {
+  if (passwordExecutorMode === "ssh2") return true;
+  if (passwordExecutorMode === "sshpass") return false;
+  return process.platform === "win32";
 }
 
 async function executeCommandOverSshWithKey(input: {
@@ -51,14 +73,14 @@ async function executeCommandOverSshWithKey(input: {
       "BatchMode=yes",
       ...hostKeyMode,
       "-o",
-      `UserKnownHostsFile=${pin ? knownHostsPath : "/dev/null"}`,
+      `UserKnownHostsFile=${pin ? knownHostsPath : NULL_DEVICE}`,
       "-o",
       "LogLevel=ERROR",
       "-o",
       "ConnectTimeout=15",
       // `--` terminates ssh option parsing: without it, a destination that
       // begins with `-` (e.g. a maliciously-set username `-oProxyCommand=…`)
-      // would be parsed as a local ssh option → arbitrary command execution on
+      // would be parsed as a local ssh option �?arbitrary command execution on
       // the control-plane host. Charset validation at the schema layer is the
       // primary guard; this is defense-in-depth for any pre-existing rows.
       "--",
@@ -86,6 +108,18 @@ async function executeCommandOverSshWithPassword(input: {
   targetId?: string;
   hostKeySha256?: string | null;
 }): Promise<SshExecutionResult> {
+  if (shouldUseSsh2PasswordExecutor()) {
+    return runSsh2Command({
+      host: input.host,
+      port: input.port,
+      username: input.username,
+      password: input.password,
+      command: input.command,
+      targetId: input.targetId,
+      hostKeySha256: input.hostKeySha256 ?? null,
+      runtimeConfig: await getCommandRuntimeConfigValues(),
+    });
+  }
   const tempDir = await mkdtemp(join(tmpdir(), "app-ssh-known-hosts-"));
   const knownHostsPath = join(tempDir, "known_hosts");
   const pin = input.hostKeySha256?.trim();
@@ -114,7 +148,7 @@ async function executeCommandOverSshWithPassword(input: {
       "NumberOfPasswordPrompts=1",
       ...hostKeyMode,
       "-o",
-      `UserKnownHostsFile=${pin ? knownHostsPath : "/dev/null"}`,
+      `UserKnownHostsFile=${pin ? knownHostsPath : NULL_DEVICE}`,
       "-o",
       "LogLevel=ERROR",
       "-o",

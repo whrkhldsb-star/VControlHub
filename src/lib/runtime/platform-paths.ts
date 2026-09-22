@@ -7,10 +7,50 @@
  * resolving native Windows equivalents, so existing Linux deployments are
  * unaffected.
  */
+import { access, constants } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
 export const IS_WINDOWS = process.platform === "win32";
+
+/**
+ * Null device used for OpenSSH `UserKnownHostsFile=` and similar sink paths.
+ * Windows OpenSSH resolves the DOS device name `NUL`; POSIX uses /dev/null.
+ */
+export const NULL_DEVICE = IS_WINDOWS ? "NUL" : "/dev/null";
+
+/**
+ * Resolve an executable without spawning a shell.
+ *
+ * Bare names are searched across PATH with the platform executable
+ * extensions (`.exe`/`.com` on Windows). Absolute/relative candidates are
+ * checked as-is. Returns the first existing hit, or null when nothing
+ * resolves. Heavier needs (extra search roots, `.bat`/`.cmd`) belong to the
+ * standalone `scripts/lib/backup-common.mjs` runner, not app code.
+ */
+export async function findExecutable(command: string): Promise<string | null> {
+  if (command.includes("/") || command.includes("\\")) {
+    return (await pathExists(command)) ? command : null;
+  }
+  const dirs = (process.env.PATH ?? "").split(path.delimiter).filter(Boolean);
+  const candidates = IS_WINDOWS ? [command, `${command}.exe`, `${command}.com`] : [command];
+  for (const dir of dirs) {
+    for (const candidate of candidates) {
+      const full = path.join(dir, candidate);
+      if (await pathExists(full)) return full;
+    }
+  }
+  return null;
+}
+
+async function pathExists(target: string): Promise<boolean> {
+  try {
+    await access(target, constants.F_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 /** Read the platform live (mockable in tests, unlike the IS_WINDOWS const). */
 function isWindows(): boolean {
@@ -93,4 +133,14 @@ export function dockerEngineSocketPath(): string {
   const endpoint = dockerEngineEndpoint();
   if (endpoint.kind === "socket") return endpoint.socketPath;
   return `tcp://${endpoint.host}:${endpoint.port}`;
+}
+
+/**
+ * Host-side bind for templates that mount the control-plane Docker socket.
+ * Templates declare the POSIX literal (`/var/run/docker.sock`); Docker
+ * Desktop on Windows cannot mount it and needs the named pipe instead. The
+ * container side stays POSIX either way.
+ */
+export function hubHostDockerSocketMount(): string {
+  return IS_WINDOWS ? "\\\\.\\pipe\\docker_engine" : "/var/run/docker.sock";
 }

@@ -36,6 +36,7 @@ vi.mock("child_process", () => ({
 
 import { checkPort, installService, listQuickServiceHistory, resetQuickServiceProcessStateForTests, startService, stopService, syncServiceStatus, uninstallService, updateService } from "../service";
 import { getDockerEnvironmentStatus } from "../docker-cli";
+import { hubHostDockerSocketMount } from "@/lib/runtime/platform-paths";
 import type { ServiceTemplate } from "../types";
 
 const template: ServiceTemplate = {
@@ -172,7 +173,9 @@ describe("quick service docker lifecycle", () => {
 		});
 
 		const dockerArgs = execFileMock.mock.calls[0]![1] as string[];
-		expect(dockerArgs).toContain("/var/run/docker.sock:/var/run/docker.sock");
+		// The host side of the socket mount is platform-resolved (named pipe on
+		// Windows Docker Desktop, unix socket on POSIX); container side stays POSIX.
+		expect(dockerArgs).toContain(`${hubHostDockerSocketMount()}:/var/run/docker.sock`);
 	});
 
 	it("rolls back a failed fresh install container attempt and records the error state", async () => {

@@ -19,8 +19,8 @@ export function getMissingAria2BinaryMessage(locale: "zh" | "en" = "zh"): string
 
 export const MISSING_ARIA2_BINARY_MESSAGE = getMissingAria2BinaryMessage("zh");
 
-export function spawnAria2Detached(args: string[]): ChildProcess {
-  return spawn("aria2c", args, { detached: true, stdio: "ignore" });
+export function spawnAria2Detached(args: string[], command: string = "aria2c"): ChildProcess {
+  return spawn(command, args, { detached: true, stdio: "ignore" });
 }
 
 export function isMissingAria2BinaryError(error: unknown): boolean {

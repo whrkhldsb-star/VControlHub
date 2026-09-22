@@ -38,6 +38,7 @@ import {
 } from "./service-internals";
 import type { ServiceTemplate } from "./types";
 import { createLogger } from "@/lib/logging";
+import { hubHostDockerSocketMount } from "@/lib/runtime/platform-paths";
 
 const qsLogger = createLogger("quick-service-lifecycle");
 
@@ -54,7 +55,7 @@ async function rollbackInstallToSnapshot(
 		try {
 			await prisma.quickService.delete({ where });
 		} catch {
-			// Record no longer exists (concurrent delete) â€” mark as errored instead.
+			// Record no longer exists (concurrent delete) â€?mark as errored instead.
 			await prisma.quickService.update({ where, data: { status: "error", error } }).catch((err) => { qsLogger.warn("quickService status update failed", { error: err instanceof Error ? err.message : String(err) }); });
 		}
 		return { status: "deleted", reason: "fresh-install-failed" };
@@ -165,6 +166,9 @@ async function installServiceUnlocked(opts: InstallOptions) {
 	if (target.kind === "local") {
 		for (const vol of template.volumesJson) {
 			const host = normalizeVolumeEndpoint(vol.host, "Host mount");
+			// The docker socket "host path" is a device/pipe, not a directory: on
+			// POSIX it is the unix socket literal, on Windows Docker Desktop the
+			// named pipe. mkdir would create a bogus directory either way.
 			if (host !== DOCKER_SOCKET && !TRUSTED_HOST_MOUNTS.has(host)) {
 				mkdirSync(host, { recursive: true });
 			}
@@ -214,7 +218,7 @@ async function installServiceUnlocked(opts: InstallOptions) {
 		});
 	} catch (err) {
 		// Upsert itself failed (db connectivity / unique constraint edge
-		// case) â€” record a "failed" audit with the pre-install snapshot so
+		// case) â€?record a "failed" audit with the pre-install snapshot so
 		// operators can see what state was supposed to be transitioned to.
 		const msg = err instanceof Error ? err.message.slice(0, 500) : String(err);
 		await writeQuickServiceAudit({
@@ -265,7 +269,7 @@ async function installServiceUnlocked(opts: InstallOptions) {
 
 /**
  * Package-internal recreate helper (rename/rm then create). Not re-exported from
- * the public quick-service barrel â€” use installService / startService / updateService.
+ * the public quick-service barrel â€?use installService / startService / updateService.
  */
 export async function recreateDockerContainer(
 	serviceId: string,
@@ -294,7 +298,7 @@ export async function recreateDockerContainer(
 		try {
 			await dockerExec(target, ["rename", containerName, backupName], 15_000);
 		} catch {
-			// Rename failed â€” fall back to destructive remove.
+			// Rename failed â€?fall back to destructive remove.
 			await dockerExec(target, ["rm", "-f", containerName], 15_000);
 			hadExisting = false;
 		}
@@ -336,6 +340,12 @@ export async function recreateDockerContainer(
 		const host = normalizeVolumeEndpoint(vol.host, "Host mount");
 		if (target.kind === "remote" && host === DOCKER_SOCKET) {
 			// Avoid binding control-plane docker socket semantics onto remote hosts by default.
+			continue;
+		}
+		if (target.kind === "local" && host === DOCKER_SOCKET) {
+			// Templates declare the POSIX socket literal; Docker Desktop on
+			// Windows needs the host side as the named pipe instead.
+			args.push("-v", `${hubHostDockerSocketMount()}:${splitContainerPathAndOptions(vol.container)}`);
 			continue;
 		}
 		args.push("-v", `${host}:${splitContainerPathAndOptions(vol.container)}`);
@@ -421,7 +431,7 @@ async function notifyQuickServiceInstallSuccess(userId: string | undefined, tmpl
 			// The access URL is an external http://host:port link; the notification
 			// action guard (getSafeNotificationActionUrl) rejects off-origin URLs, so
 			// linking it here would dead-end at /notifications. The URL is already
-			// shown as text in the message body â€” click-through goes to the internal
+			// shown as text in the message body â€?click-through goes to the internal
 			// service list instead.
 			actionUrl: "/quick-services",
 		});

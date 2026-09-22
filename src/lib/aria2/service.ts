@@ -2,6 +2,7 @@ import { writeFile, readFile, mkdir, unlink, chmod } from "fs/promises";
 import { access, constants } from "fs/promises";
 import path from "path";
 import { getAppSlug } from "@/lib/branding";
+import { findExecutable } from "@/lib/runtime/platform-paths";
 import {
   getMissingAria2BinaryMessage,
   isMissingAria2BinaryError,
@@ -152,7 +153,7 @@ export async function ensureAria2Daemon(): Promise<void> {
 
 		return;
 	} catch {
-		// Not running â€” fall through to spawn
+		// Not running â€?fall through to spawn
 	}
 
 	const config = getAria2RuntimeConfig();
@@ -162,7 +163,7 @@ export async function ensureAria2Daemon(): Promise<void> {
 
 	// Create empty session file if not exists
 	try { await readFile(config.rpcSession); } catch {
-		// Session file does not exist yet â€” create an empty one.
+		// Session file does not exist yet â€?create an empty one.
 		await writeFile(config.rpcSession, "");
 	}
 
@@ -175,20 +176,36 @@ export async function ensureAria2Daemon(): Promise<void> {
 	await writeFile(launchConf, buildAria2LaunchConfig(config), { mode: 0o600 });
 	await chmod(launchConf, 0o600).catch(() => undefined);
 
-	try {
-		await access("/usr/bin/aria2c", constants.X_OK);
-	} catch (error) {
-		try {
-			await access("/usr/local/bin/aria2c", constants.X_OK);
-		} catch {
-			// aria2c not found in either standard location â€” re-throw the original error.
-			throw Object.assign(new Error("spawn aria2c ENOENT"), { code: "ENOENT", cause: error });
+	// Resolve the aria2c binary without assuming a POSIX layout: PATH first,
+	// then the platform's conventional install locations. `ARIA2_BIN` lets an
+	// operator pin an explicit binary (e.g. a per-app Windows build).
+	let aria2Bin: string | null = null;
+	const override = process.env.ARIA2_BIN?.trim();
+	if (override) {
+		aria2Bin = await access(override, constants.F_OK).then(() => override).catch(() => null);
+	} else {
+		aria2Bin = await findExecutable("aria2c");
+		if (!aria2Bin) {
+			const fallbackDirs = process.platform === "win32"
+				? [path.join(process.env.ProgramFiles ?? "C:\\Program Files", "aria2", "aria2c.exe")]
+				: ["/usr/bin/aria2c", "/usr/local/bin/aria2c", "/opt/homebrew/bin/aria2c"];
+			for (const candidate of fallbackDirs) {
+				if (await access(candidate, constants.F_OK).then(() => true).catch(() => false)) {
+					aria2Bin = candidate;
+					break;
+				}
+			}
 		}
+	}
+	if (!aria2Bin) {
+		// Keep the historical error shape so isMissingAria2BinaryError() maps it
+		// to the actionable "aria2c not installed" message.
+		throw Object.assign(new Error("spawn aria2c ENOENT"), { code: "ENOENT" });
 	}
 
 	try {
 		// Launch aria2c daemon. Keep the RPC secret out of the persisted config and argv.
-		const proc = spawnAria2Detached(buildAria2SpawnArgs(launchConf));
+		const proc = spawnAria2Detached(buildAria2SpawnArgs(launchConf), aria2Bin);
 		proc.unref();
 
 		// Wait for RPC to become available
@@ -199,7 +216,7 @@ export async function ensureAria2Daemon(): Promise<void> {
 
 				return;
 			} catch {
-				// Daemon not ready yet â€” retry after a short delay.
+				// Daemon not ready yet â€?retry after a short delay.
 				continue;
 			}
 		}

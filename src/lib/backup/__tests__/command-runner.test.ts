@@ -121,7 +121,12 @@ describe("backup command-runner adapter", () => {
   describe("backupCommandErrorMessage", () => {
     it("returns the documented missing-binary message when the error code is ENOENT", () => {
       const err = Object.assign(new Error("spawn bash ENOENT"), { code: "ENOENT" });
-      expect(backupCommandErrorMessage(err)).toBe("bash is not installed or not in PATH. Please ask the administrator to install bash or fix PATH and retry.");
+      // The message points at the runner the platform actually dispatches:
+      // bash deploy scripts on POSIX, the Node scripts/*.mjs runner on Windows.
+      const expected = process.platform === "win32"
+        ? "The Node executable used to run scripts/backup.mjs is unavailable. Please ask the administrator to fix the service configuration and retry."
+        : "bash is not installed or not in PATH. Please ask the administrator to install bash or fix PATH and retry.";
+      expect(backupCommandErrorMessage(err)).toBe(expected);
     });
 
     it("returns the original Error message for any non-ENOENT error", () => {

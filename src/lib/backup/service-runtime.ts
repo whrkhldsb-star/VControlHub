@@ -14,9 +14,12 @@ import { apiCopy } from "@/lib/i18n/api-copy";
  * `getBackupPolicySummary` is a thin aggregate over `listBackupRecords`
  * + the pure `summarizeBackupPolicy` reducer.
  */
-import { rm, stat } from "node:fs/promises";
+import { mkdtemp, rm, stat } from "node:fs/promises";
 import { createReadStream } from "node:fs";
 import { createHash } from "node:crypto";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { createGunzip } from "node:zlib";
 
 import { prisma } from "@/lib/db";
 import { config } from "@/lib/config/env";
@@ -25,7 +28,8 @@ import { createLogger } from "@/lib/logging";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import type { SessionPayload } from "@/lib/auth/session";
 
-import { backupCommandErrorMessage, runBackupCommand } from "./command-runner";
+import { backupCommandErrorMessage, runBackupCommand, type RunBackupCommandInput } from "./command-runner";
+import { backupRunnerSpec } from "./platform-runner";
 import {
 	isBackupType,
 	resolveBackupPath,
@@ -52,6 +56,81 @@ async function calculateFileSha256(filePath: string): Promise<string> {
 		stream.on("data", (chunk) => hash.update(chunk));
 		stream.on("end", () => resolve(hash.digest("hex")));
 		stream.on("error", reject);
+	});
+}
+
+/**
+ * Platform dispatch for invoking the backup script: bash `deploy/backup.sh` on
+ * POSIX, the current Node executable running `scripts/backup.mjs` on Windows.
+ */
+function buildBackupInvocation(extraArgs: string[]): Pick<RunBackupCommandInput, "file" | "args"> {
+	const { file, script } = backupRunnerSpec();
+	return { file, args: [script, ...extraArgs] };
+}
+
+/**
+ * Verify a gzip stream end-to-end via Node zlib — replaces the external
+ * `gzip -t` probe so drills work wherever the app itself runs.
+ */
+function verifyGzipIntegrity(filePath: string, timeoutMs: number): Promise<void> {
+	return new Promise((resolve, reject) => {
+		const timer = setTimeout(() => {
+			stream.destroy();
+			reject(new Error(`gzip integrity check timed out after ${timeoutMs}ms`));
+		}, timeoutMs);
+		const stream = createReadStream(filePath);
+		const gunzip = createGunzip();
+		let settled = false;
+		const settle = (error?: Error) => {
+			if (settled) return;
+			settled = true;
+			clearTimeout(timer);
+			if (error) reject(error);
+			else resolve();
+		};
+		stream.on("error", settle);
+		gunzip.on("error", settle);
+		gunzip.on("end", () => settle());
+		// Drain the decompressed bytes; only stream integrity matters here.
+		gunzip.resume();
+		stream.pipe(gunzip);
+	});
+}
+
+/**
+ * Decompress the first `maxBytes` of a gzip file — replaces the
+ * `gzip -cd | head -c 8192` shell probe. The stream is then drained so the
+ * file read finishes cleanly instead of dying on a broken pipe.
+ */
+function probeGunzipHead(filePath: string, maxBytes: number, timeoutMs: number): Promise<string> {
+	return new Promise((resolve, reject) => {
+		const timer = setTimeout(() => {
+			stream.destroy();
+			reject(new Error(`gzip probe timed out after ${timeoutMs}ms`));
+		}, timeoutMs);
+		const stream = createReadStream(filePath);
+		const gunzip = createGunzip();
+		const decoder = new TextDecoder("utf-8", { fatal: false });
+		const headChunks: Buffer[] = [];
+		let headBytes = 0;
+		let settled = false;
+		const settle = (error?: Error, value?: string) => {
+			if (settled) return;
+			settled = true;
+			clearTimeout(timer);
+			if (error) reject(error);
+			else resolve(value ?? "");
+		};
+		stream.on("error", settle);
+		gunzip.on("error", settle);
+		gunzip.on("data", (chunk: Buffer) => {
+			if (headBytes < maxBytes) {
+				headChunks.push(chunk);
+				headBytes += chunk.length;
+			}
+		});
+		gunzip.on("end", () => settle(undefined, decoder.decode(Buffer.concat(headChunks).subarray(0, maxBytes))));
+		stream.pipe(gunzip);
 	});
 }
 
@@ -93,8 +172,7 @@ export async function runExistingBackupRecord(input: { id: string; projectRoot?:
 
 	try {
 		await runBackupCommand({
-			file: "bash",
-			args: ["deploy/backup.sh", ...args],
+			...buildBackupInvocation(args),
 			options: { cwd: projectRoot, env: { ...process.env, APP_DIR: projectRoot } },
 		});
 		const fileInfo = await stat(outputPath);
@@ -221,8 +299,7 @@ export async function restoreBackupRecord(input: { id: string; confirm: string; 
 			projectRoot,
 		});
 		await runBackupCommand({
-			file: "bash",
-			args: ["deploy/backup.sh", ...snapshot.args],
+			...buildBackupInvocation(snapshot.args),
 			options: { cwd: projectRoot, env: { ...process.env, APP_DIR: projectRoot } },
 		});
 		const snapshotInfo = await stat(snapshot.absolutePath);
@@ -300,13 +377,12 @@ export async function drillBackupRecord(input: { id: string; projectRoot?: strin
 		{ name: "artifact", status: "passed", detail: `Readable regular file (${info.size} bytes)` },
 		{ name: "sha256", status: "passed", detail: actualChecksum },
 	];
-	await runBackupCommand({ file: "gzip", args: ["-t", backupPath], options: { cwd: projectRoot, timeout: 5 * 60 * 1000 } });
+	await verifyGzipIntegrity(backupPath, 5 * 60 * 1000);
 	checks.push({ name: "gzip", status: "passed", detail: "Compressed stream integrity verified" });
 	if (record.type === "DATABASE") {
-		// Keep consuming the stream after sampling so gzip exits normally instead of
-		// receiving SIGPIPE from head on dumps larger than the probe window.
-		const probe = await runBackupCommand({ file: "bash", args: ["-c", "set -o pipefail; gzip -cd -- \"$1\" | { head -c 8192; cat >/dev/null; }", "backup-drill", backupPath], options: { cwd: projectRoot, timeout: 5 * 60 * 1000, maxBuffer: 16 * 1024 } });
-		if (!/PostgreSQL|SET |CREATE |DROP |COPY /i.test(probe.stdout)) throw new BusinessError(t("backend.backup.drillNotPostgres"));
+		// Node zlib head probe — no shell pipeline, works wherever the app runs.
+		const head = await probeGunzipHead(backupPath, 8192, 5 * 60 * 1000);
+		if (!/PostgreSQL|SET |CREATE |DROP |COPY /i.test(head)) throw new BusinessError(t("backend.backup.drillNotPostgres"));
 		checks.push({ name: "database-format", status: "passed", detail: "PostgreSQL SQL stream detected" });
 	} else {
 		// Use execFile argv (no shell). Do NOT put `--` between -f and the archive:
@@ -316,11 +392,19 @@ export async function drillBackupRecord(input: { id: string; projectRoot?: strin
 			await runBackupCommand({ file: "tar", args: ["-tzf", backupPath], options: { cwd: projectRoot, timeout: 10 * 60 * 1000 } });
 			checks.push({ name: "archive-index", status: "passed", detail: "tar archive index parsed without extraction" });
 			if (record.type === "FULL") {
-				await runBackupCommand({
-					file: "bash",
-					args: ["-c", "set -o pipefail; tar -xOzf \"$1\" database.sql.gz | gzip -t", "backup-drill", backupPath],
-					options: { cwd: projectRoot, timeout: 10 * 60 * 1000 },
-				});
+				// Extract the embedded dump to a staging file and verify it with Node
+				// zlib — same guarantee as `tar -xOzf | gzip -t`, no shell pipeline.
+				const staging = await mkdtemp(join(tmpdir(), "vch-drill-"));
+				try {
+					await runBackupCommand({
+						file: "tar",
+						args: ["-xzf", backupPath, "-C", staging, "database.sql.gz"],
+						options: { cwd: projectRoot, timeout: 10 * 60 * 1000 },
+					});
+					await verifyGzipIntegrity(join(staging, "database.sql.gz"), 10 * 60 * 1000);
+				} finally {
+					await rm(staging, { recursive: true, force: true }).catch(() => undefined);
+				}
 				checks.push({ name: "full-database", status: "passed", detail: "Embedded PostgreSQL dump stream verified" });
 			}
 	}

@@ -1,15 +1,21 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ scanPinnedKnownHost: vi.fn(), runSshCommandProcess: vi.fn(), runtime: vi.fn() }));
+import { NULL_DEVICE } from "@/lib/runtime/platform-paths";
+
+const mocks = vi.hoisted(() => ({ scanPinnedKnownHost: vi.fn(), runSshCommandProcess: vi.fn(), runSsh2Command: vi.fn(), runtime: vi.fn() }));
 vi.mock("@/lib/ssh/known-hosts", () => ({ scanPinnedKnownHost: mocks.scanPinnedKnownHost }));
 vi.mock("../ssh-executor", () => ({ runSshCommandProcess: mocks.runSshCommandProcess, cancelRunningCommandChild: vi.fn(), markCommandTargetCancelled: vi.fn() }));
+vi.mock("../ssh2-executor", () => ({ runSsh2Command: mocks.runSsh2Command }));
 vi.mock("@/lib/runtime-settings/service", () => ({ getCommandRuntimeConfig: mocks.runtime }));
 vi.mock("@/lib/db", () => ({ prisma: {} }));
 
-import { executeCommandOverSsh } from "../service-execution";
+import { executeCommandOverSsh, setPasswordExecutorMode } from "../service-execution";
 
 describe("command OpenSSH host-key pin execution", () => {
-  afterEach(() => vi.clearAllMocks());
+  afterEach(() => {
+    vi.clearAllMocks();
+    setPasswordExecutorMode("auto");
+  });
 
   it("writes a matched known_hosts line and uses it for the actual key-based SSH process", async () => {
     mocks.scanPinnedKnownHost.mockResolvedValue("example.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEexample");
@@ -21,10 +27,13 @@ describe("command OpenSSH host-key pin execution", () => {
     expect(call.command).toBe("ssh");
     expect(call.args).toContain("BatchMode=yes");
     expect(call.args).toContain("StrictHostKeyChecking=yes");
-    expect(call.args.some((arg: string) => arg.startsWith("UserKnownHostsFile=") && !arg.endsWith("/dev/null"))).toBe(true);
+    expect(call.args.some((arg: string) => arg.startsWith("UserKnownHostsFile=") && !arg.endsWith("/dev/null") && !arg.endsWith("NUL"))).toBe(true);
   });
 
   it("keeps accept-new only for explicitly unpinned bootstrap connections", async () => {
+    // Pin the sshpass transport: the argv below is the POSIX contract; the
+    // Windows ssh2 fallback is covered by its own dispatch test.
+    setPasswordExecutorMode("sshpass");
     mocks.runtime.mockResolvedValue({ executionTimeoutMs: 1000, outputLimitBytes: 1000, staleRunningAfterMs: 1000, executionHeartbeatMs: 100 });
     mocks.runSshCommandProcess.mockResolvedValue({ stdout: "ok", stderr: "", exitCode: 0, timedOut: false, cancelled: false });
     await executeCommandOverSsh({ host: "example.com", port: 22, username: "root", password: "secret", command: "uptime" });
@@ -37,6 +46,23 @@ describe("command OpenSSH host-key pin execution", () => {
     expect(call.args).toContain("PubkeyAuthentication=no");
     expect(call.args).toContain("NumberOfPasswordPrompts=1");
     expect(call.args).toContain("StrictHostKeyChecking=accept-new");
-    expect(call.args).toContain("UserKnownHostsFile=/dev/null");
+    // Null device sink is platform-resolved (NUL on Windows, /dev/null on POSIX).
+    expect(call.args).toContain(`UserKnownHostsFile=${NULL_DEVICE}`);
+  });
+
+  it("routes password execution through the in-process ssh2 transport when the sshpass mode is unavailable", async () => {
+    setPasswordExecutorMode("ssh2");
+    mocks.runtime.mockResolvedValue({ executionTimeoutMs: 1000, outputLimitBytes: 1000, staleRunningAfterMs: 1000, executionHeartbeatMs: 100 });
+    mocks.runSsh2Command.mockResolvedValue({ stdout: "ok", stderr: "", exitCode: 0, timedOut: false, cancelled: false });
+    await executeCommandOverSsh({ host: "example.com", port: 22, username: "root", password: "secret", command: "uptime", hostKeySha256: "SHA256:pin" });
+    expect(mocks.runSshCommandProcess).not.toHaveBeenCalled();
+    expect(mocks.runSsh2Command).toHaveBeenCalledWith(expect.objectContaining({
+      host: "example.com",
+      port: 22,
+      username: "root",
+      password: "secret",
+      command: "uptime",
+      hostKeySha256: "SHA256:pin",
+    }));
   });
 });

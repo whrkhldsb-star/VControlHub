@@ -14,7 +14,7 @@ import { enqueueCommandExecutionJob } from "./execution-queue";
 import { executeCommandOverSsh, getCommandRuntimeConfigValues } from "./service-ssh";
 import { executeCommandWithAgent } from "@/lib/server/agent-service";
 
-export { executeCommandOverSsh, getCommandRuntimeConfigValues } from "./service-ssh";
+export { executeCommandOverSsh, getCommandRuntimeConfigValues, setPasswordExecutorMode, shouldUseSsh2PasswordExecutor } from "./service-ssh";
 
 const cmdExecLogger = createLogger("command-execution");
 

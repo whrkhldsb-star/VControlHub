@@ -7,8 +7,10 @@
  * Restore policy lives in `planBackupRestoreSteps` so the UI/docs shell
  * formatter and the runtime argv executor cannot drift.
  */
+import { IS_WINDOWS } from "@/lib/runtime/platform-paths";
 import type { BackupType } from "./service-types";
 import { assertPortableBackupPath } from "./service-types";
+import { backupRunnerSpec, restoreRunnerSpec } from "./platform-runner";
 
 function shellQuote(value: string) {
 	return `'${value.replace(/'/g, `'\\''`)}'`;
@@ -20,6 +22,11 @@ export type BackupRestoreStep = { file: string; args: string[] };
  * Shared restore planner: type + component → argv steps.
  * `backupPath` is whatever the caller already resolved (portable relative for
  * display commands, absolute for runtime execution).
+ *
+ * Both platforms resolve their entrypoint through `restoreRunnerSpec`:
+ * Windows dispatches on the component argument of scripts/restore.mjs, POSIX
+ * gets the matching scripts/restore-*.sh — the component semantics are the
+ * same either way.
  */
 export function planBackupRestoreSteps(input: {
 	projectRoot: string;
@@ -28,30 +35,37 @@ export function planBackupRestoreSteps(input: {
 	component?: "database" | "files" | "all";
 }): BackupRestoreStep[] {
 	const component = input.component ?? "all";
-	const type = input.type;
+	// Unknown/missing type defaults to database restore on both platforms.
+	const type: BackupType = input.type ?? "DATABASE";
+	const { file, script } = restoreRunnerSpec(type);
 
-	// FEAT-P1: 细粒度恢复 — 允许只恢复数据库或只恢复文件
+	if (IS_WINDOWS) {
+		// FEAT-P1: 细粒度恢复 — 允许只恢复数据库或只恢复文件
+		if (type === "DATABASE") {
+			return [{ file, args: [script, "database", input.backupPath] }];
+		}
+		if (type === "FILES") {
+			return [{ file, args: [script, "files", input.backupPath, input.projectRoot] }];
+		}
+		return [{ file, args: [script, "full", input.backupPath, component, input.projectRoot] }];
+	}
+
 	if (type === "DATABASE") {
-		return [{ file: "bash", args: ["scripts/restore-db.sh", input.backupPath] }];
+		return [{ file, args: [script, input.backupPath] }];
 	}
 	if (type === "FILES") {
-		return [{ file: "bash", args: ["scripts/restore-files.sh", input.backupPath, input.projectRoot] }];
+		return [{ file, args: [script, input.backupPath, input.projectRoot] }];
 	}
-	if (type === "FULL") {
-		return [{ file: "bash", args: ["scripts/restore-full.sh", input.backupPath, component, input.projectRoot] }];
-	}
-	// Unknown type: default to database restore
-	return [{ file: "bash", args: ["scripts/restore-db.sh", input.backupPath] }];
+	return [{ file, args: [script, input.backupPath, component, input.projectRoot] }];
 }
 
 function formatRestoreStepsAsShell(projectRoot: string, steps: BackupRestoreStep[]) {
 	const parts = steps.map((step) => {
-		// Keep fixed binaries/flags unquoted for readable docs; quote only path args.
-		if (step.file === "bash" && step.args[0] === "scripts/restore-db.sh" && step.args.length === 2) {
-			return `bash scripts/restore-db.sh ${shellQuote(step.args[1]!)}`;
-		}
-		const argv = [step.file, ...step.args].map(shellQuote).join(" ");
-		return argv;
+		// Invoker + script stay unquoted for readable docs; every value after
+		// them (paths, components) is shell-quoted.
+		const [head, script, ...rest] = [step.file, ...step.args];
+		const tail = rest.map(shellQuote).join(" ");
+		return tail ? `${head} ${script} ${tail}` : `${head} ${script}`;
 	});
 	return `cd ${shellQuote(projectRoot)} && ${parts.join(" && ")}`;
 }
@@ -59,7 +73,9 @@ function formatRestoreStepsAsShell(projectRoot: string, steps: BackupRestoreStep
 export function buildPortableBackupCommand(input: { projectRoot: string; outputPath: string; type?: BackupType }) {
 	const outputPath = assertPortableBackupPath(input.outputPath);
 	const modeFlag = input.type === "FILES" ? " --files" : input.type === "FULL" ? " --full" : "";
-	return `cd ${shellQuote(input.projectRoot)} && bash deploy/backup.sh${modeFlag} ${shellQuote(outputPath)}`;
+	const { file, script } = backupRunnerSpec();
+	const quotedScript = IS_WINDOWS ? [file, script].map(shellQuote).join(" ") : `${file} ${script}`;
+	return `cd ${shellQuote(input.projectRoot)} && ${quotedScript}${modeFlag} ${shellQuote(outputPath)}`;
 }
 
 export function buildBackupRestoreCommand(input: {

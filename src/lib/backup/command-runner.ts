@@ -53,7 +53,11 @@ export function isMissingBackupBinaryError(error: unknown): boolean {
 
 export function backupCommandErrorMessage(error: unknown): string {
   if (isMissingBackupBinaryError(error)) {
-    return "bash is not installed or not in PATH. Please ask the administrator to install bash or fix PATH and retry.";
+    // POSIX runs deploy/backup.sh through bash; Windows runs scripts/backup.mjs
+    // through the Node executable. Point the operator at whichever is missing.
+    return process.platform === "win32"
+      ? "The Node executable used to run scripts/backup.mjs is unavailable. Please ask the administrator to fix the service configuration and retry."
+      : "bash is not installed or not in PATH. Please ask the administrator to install bash or fix PATH and retry.";
   }
   if (error instanceof Error) {
     return error.message;
