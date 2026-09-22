@@ -12,12 +12,10 @@ import { t } from "@/lib/i18n/service-translations";
  * leaking that knowledge into every caller.
  */
 
-/** @deprecated Prefer t("backend.aria2.missingBinary") — kept for call sites that need a sync constant. */
+/** Localized "aria2c not installed" copy — resolved per call, per locale. */
 export function getMissingAria2BinaryMessage(locale: "zh" | "en" = "zh"): string {
   return t("backend.aria2.missingBinary", locale);
 }
-
-export const MISSING_ARIA2_BINARY_MESSAGE = getMissingAria2BinaryMessage("zh");
 
 export function spawnAria2Detached(args: string[], command: string = "aria2c"): ChildProcess {
   return spawn(command, args, { detached: true, stdio: "ignore" });

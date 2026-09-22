@@ -18,7 +18,7 @@ vi.mock("child_process", async (importOriginal) => {
 });
 
 import {
-  MISSING_ARIA2_BINARY_MESSAGE,
+  getMissingAria2BinaryMessage,
   isMissingAria2BinaryError,
   spawnAria2Detached,
 } from "../command-runner";
@@ -93,9 +93,9 @@ describe("aria2 command-runner adapter", () => {
     });
   });
 
-  describe("MISSING_ARIA2_BINARY_MESSAGE", () => {
+  describe("getMissingAria2BinaryMessage", () => {
     it("documents the actionable dependency error shown when aria2c is not installed", () => {
-      expect(MISSING_ARIA2_BINARY_MESSAGE).toBe(
+      expect(getMissingAria2BinaryMessage("zh")).toBe(
         "未安装 aria2c，无法进行磁力/BT 中继下载。请在服务器上安装 aria2。",
       );
     });
