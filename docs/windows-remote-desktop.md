@@ -42,4 +42,4 @@ Sessions are closed after 30 minutes with no browser traffic at all (crashed or 
 - Verify cross-team access, ticket replay and foreign Origin requests are rejected.
 - Verify Linux SSH continues working and Windows nodes never enter Linux onboarding.
 
-RDP alone does not provide Windows CPU/memory monitoring or Linux-style agent management. Those capabilities are not part of this feature.
+RDP alone does not provide Windows CPU/memory monitoring or command execution. Those capabilities come from the Windows Agent channel instead — see [Windows Agent 设计](windows-agent.md).

@@ -7,15 +7,28 @@ import { useI18n } from "@/lib/i18n/use-locale";
 export function ServerManagementModeFields({
   defaultValue = "DIRECT",
   onChange,
+  platform = "LINUX",
 }: {
   defaultValue?: "DIRECT" | "AGENT";
   onChange?: (value: "DIRECT" | "AGENT") => void;
+  /** Windows nodes have different channel semantics (no SSH fallback). */
+  platform?: "LINUX" | "WINDOWS";
 }) {
   const { t } = useI18n();
   const [value, setValue] = useState<"DIRECT" | "AGENT">(defaultValue);
   const options = [
-    { value: "DIRECT" as const, Icon: Server, title: t("serversPage.management.direct"), detail: t("serversPage.management.directHint") },
-    { value: "AGENT" as const, Icon: Radio, title: t("serversPage.management.agent"), detail: t("serversPage.management.agentHint") },
+    {
+      value: "DIRECT" as const,
+      Icon: Server,
+      title: t("serversPage.management.direct"),
+      detail: t(platform === "WINDOWS" ? "serversPage.management.directHintWindows" : "serversPage.management.directHint"),
+    },
+    {
+      value: "AGENT" as const,
+      Icon: Radio,
+      title: t("serversPage.management.agent"),
+      detail: t(platform === "WINDOWS" ? "serversPage.management.agentHintWindows" : "serversPage.management.agentHint"),
+    },
   ];
   return (
     <fieldset className="space-y-2">

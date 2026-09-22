@@ -169,6 +169,18 @@ export async function collectServerMetrics(serverId: string, signal?: AbortSigna
 			return agentMetrics;
 		}
 
+		// Windows has no SSH channel to collect from: the only metrics source is
+		// the agent. Report that instead of falling through to buildSshParamsFromServer,
+		// whose "Linux only" rejection would read as a bug here.
+		if (server.operatingSystem === "WINDOWS") {
+			return {
+				error: server.managementMode === "AGENT"
+					? tr("backend.server.agentOfflineNoFallback")
+					: tr("backend.server.linuxOnly"),
+				serverId,
+			};
+		}
+
 		const sshParams = await buildSshParamsFromServer(server, server.sshKey);
 		const { stdout, exitCode } = await execRemoteCommand({ ...sshParams, command: MONITOR_SCRIPT, timeout: 15_000, ...(signal ? { signal } : {}) });
 

@@ -95,19 +95,18 @@ export function ServerCardEditForm({
       <input type="hidden" name="serverId" value={serverId} />
       <input type="hidden" name="operatingSystem" value={operatingSystem} />
       <p className="text-xs text-[var(--text-muted)]">{t("serversPage.windows.os")}: {windows ? "Windows" : "Linux"}</p>
-      {!windows && <>
       <input type="hidden" name="connectionType" value={connectionType} />
       <ServerManagementModeFields
         defaultValue={managementMode}
         onChange={setSelectedManagementMode}
+        platform={windows ? "WINDOWS" : "LINUX"}
       />
-      {selectedManagementMode === "AGENT" && hasSshCredential ? (
+      {!windows && selectedManagementMode === "AGENT" && hasSshCredential ? (
         <label className="flex items-start gap-2 rounded-lg border border-[var(--warning-border)] bg-[var(--warning-bg)] p-3 text-xs text-[var(--text-secondary)]">
           <input name="removeSshCredential" type="checkbox" className="mt-0.5 h-4 w-4" />
           <span><span className="block font-medium text-[var(--text-primary)]">{t("serversPage.management.removeCredential")}</span><span className="mt-1 block text-[var(--text-muted)]">{t("serversPage.management.removeCredentialHint")}</span></span>
         </label>
       ) : null}
-      </>}
       <label className="block text-xs text-[var(--text-muted)]" htmlFor={`edit-name-${serverId}`}>
         {t("serverCardActions.edit.name")}
       </label>

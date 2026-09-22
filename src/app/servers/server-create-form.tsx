@@ -170,7 +170,10 @@ export function ServerCreateForm({
           />{" "}
         </div>{" "}
       </div>{" "}
-      {windows ? <RdpCredentialFields idPrefix="create-rdp" /> : <>
+      {windows ? <>
+      <ServerManagementModeFields platform="WINDOWS" />
+      <RdpCredentialFields idPrefix="create-rdp" />
+      </> : <>
       <details className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-4">
         <summary className="cursor-pointer text-sm font-medium text-[var(--text-primary)]">
           {t("serversPage.create.costAdvancedTitle")}

@@ -83,7 +83,10 @@ export async function createServerProfile(
       await assertNoDuplicateServerHost(payload, { session: sessionForTeamWhere(session) });
       const server = await prisma.server.create({ data: {
         name: payload.name, host: payload.host, port: payload.port, username: payload.username,
-        operatingSystem: "WINDOWS", connectionType: "PASSWORD", managementMode: "DIRECT",
+        operatingSystem: "WINDOWS", connectionType: "PASSWORD",
+        // AGENT mode on Windows is connected manually afterwards via the
+        // PowerShell install command shown on the node card.
+        managementMode: payload.managementMode,
         password: null, sshKeyId: null, rdpPassword: encrypt(payload.rdpPassword),
         rdpDomain: payload.rdpDomain || null, rdpIgnoreCertificate: payload.rdpIgnoreCertificate,
         rdpCertificateSha256: payload.rdpCertificateSha256 || null,
@@ -91,7 +94,10 @@ export async function createServerProfile(
         onboardingStatus: "NEEDS_ATTENTION", onboardingLastError: null,
         ...(session ? teamCreateData(session) : {}),
       }, include: SERVER_PROFILE_INCLUDE });
-      return { ...enrichServer(server), onboardingWarnings: [] as string[], draftReason: null };
+      const onboardingWarnings = payload.managementMode === "AGENT"
+        ? [t("backend.server.agentInstallPending")]
+        : [];
+      return { ...enrichServer(server), onboardingWarnings, draftReason: null };
     } finally { await release(); }
   }
   const normalized = normalizeServerInput(payload);
@@ -362,7 +368,7 @@ export async function createServerProfile(
     try {
       await installServerAgent(server.id);
     } catch (error) {
-      onboardingWarnings.push(`Agent installation failed; direct SSH fallback remains available: ${getErrorMessage(error)}`);
+      onboardingWarnings.push(t("backend.server.agentInstallFailed", { error: getErrorMessage(error) }));
     }
   }
 
@@ -407,7 +413,7 @@ export async function updateServerProfile(
     throw new ValidationError(t("backend.server.osImmutable"));
   }
   if (current.operatingSystem === "WINDOWS") {
-    if (input.managementMode === "AGENT" || input.enableDirectGateway || input.repairStoragePath || input.removeSshCredential || input.sshKeyId || input.password) {
+    if (input.enableDirectGateway || input.repairStoragePath || input.removeSshCredential || input.sshKeyId || input.password) {
       throw new ValidationError(t("backend.server.linuxOnly"));
     }
     const rdpInput = input as Partial<Extract<CreateServerInput, { operatingSystem: "WINDOWS" }>>;
@@ -419,18 +425,30 @@ export async function updateServerProfile(
       description: input.description ?? current.description ?? "",
     });
     if (rdpInput.rdpPassword === undefined && !current.rdpPassword) throw new ValidationError();
+    const nextManagementMode = input.managementMode ?? current.managementMode;
     const release = await acquireAdvisoryLock("server-host", payload.host);
     try {
       await assertNoDuplicateServerHost(payload, { excludeId: serverId, session: sessionForTeamWhere(session) });
       const updated = await prisma.server.update({ where: { id: serverId, teamId: current.teamId }, data: {
         name: payload.name, host: payload.host, port: payload.port, username: payload.username,
         description: payload.description, tags: payload.tags,
+        managementMode: nextManagementMode,
         rdpPassword: rdpInput.rdpPassword === undefined ? current.rdpPassword : encrypt(payload.password),
         rdpDomain: payload.domain || null, rdpIgnoreCertificate: payload.ignoreCertificate,
         rdpCertificateSha256: payload.certificateSha256 || null,
         enabled: input.enabled ?? current.enabled,
       }, include: SERVER_PROFILE_INCLUDE });
-      return { ...enrichServer(updated), onboardingWarnings: [] as string[] };
+      const onboardingWarnings: string[] = [];
+      if (nextManagementMode !== current.managementMode) {
+        if (nextManagementMode === "AGENT") {
+          // Agent is installed manually on Windows via the node card command.
+          onboardingWarnings.push(t("backend.server.agentInstallPending"));
+        } else if (current.managementMode === "AGENT") {
+          const cleanup = await uninstallServerAgent(serverId);
+          if (!cleanup.removed) onboardingWarnings.push(t("backend.server.agentCleanupPending"));
+        }
+      }
+      return { ...enrichServer(updated), onboardingWarnings };
     } finally { await release(); }
   }
 
@@ -610,11 +628,11 @@ export async function updateServerProfile(
       try {
         await installServerAgent(serverId);
       } catch (error) {
-        onboardingWarnings.push(`Agent installation failed; direct SSH fallback remains available: ${getErrorMessage(error)}`);
+        onboardingWarnings.push(t("backend.server.agentInstallFailed", { error: getErrorMessage(error) }));
       }
     } else if (current.managementMode === "AGENT") {
       const cleanup = await uninstallServerAgent(serverId);
-      if (!cleanup.removed) onboardingWarnings.push("Agent token was revoked, but the offline remote service could not be removed.");
+      if (!cleanup.removed) onboardingWarnings.push(t("backend.server.agentCleanupPendingLinux"));
     }
   }
 
@@ -789,7 +807,7 @@ export async function toggleServerEnabled(
       try {
         await installServerAgent(serverId);
       } catch (error) {
-        onboardingWarnings.push(`Agent installation failed; direct SSH fallback remains available: ${getErrorMessage(error)}`);
+        onboardingWarnings.push(t("backend.server.agentInstallFailed", { error: getErrorMessage(error) }));
       }
     }
     if (current.storageNode) {

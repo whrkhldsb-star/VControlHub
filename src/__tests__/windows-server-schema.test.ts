@@ -10,7 +10,11 @@ describe("unified server profile validation", () => {
  it("keeps legacy Linux defaults", () => {
   expect(createServerSchema.parse({name: "Linux", host: "example.com", sshKeyId: "key"})).toMatchObject({ operatingSystem: "LINUX", port: 22 });
  });
- it.each([{rdpPassword:""}, {host:"127.0.0.1"}, {host:"internal.example"}, {port:0}, {managementMode:"AGENT"}, {enableDirectGateway:true}])("rejects invalid Windows %j", bad => {
+ it("accepts Windows Agent mode (manual PowerShell bootstrap, no SSH channel)", () => {
+  const value = createServerSchema.parse({ ...windows, managementMode: "AGENT" });
+  expect(value).toMatchObject({ operatingSystem: "WINDOWS", managementMode: "AGENT" });
+ });
+ it.each([{rdpPassword:""}, {host:"127.0.0.1"}, {host:"internal.example"}, {port:0}, {enableDirectGateway:true}])("rejects invalid Windows %j", bad => {
   expect(createServerSchema.safeParse({...windows,...bad}).success).toBe(false);
  });
 });

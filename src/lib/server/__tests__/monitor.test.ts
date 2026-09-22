@@ -122,6 +122,71 @@ describe("collectServerMetrics", () => {
 		expect(execRemoteCommandMock).not.toHaveBeenCalled();
 	});
 
+	it("parses the Windows agent's ===SECTION=== payload (no loadavg, no users in uptime, drive-letter mounts)", async () => {
+		// Exact shape emitted by buildAgentPowerShell's Get-AgentMetrics.
+		const raw = [
+			"===CPU===", "8", "0 0 0", "37.5 100",
+			"===MEM===", "32695 20123 12572", "===SWAP===", "0 0",
+			"===DISK===", "100G 50G 50 C:", "===LOAD===", "up 3 days, 2:07",
+			"===NET===", "Ethernet 3212 1123",
+		].join("\n");
+		prismaMock.server.findUnique.mockResolvedValueOnce({
+			id: "server_win_agent",
+			enabled: true,
+			operatingSystem: "WINDOWS",
+			managementMode: "AGENT",
+			agentMetricsRaw: raw,
+			agentMetricsAt: new Date(),
+		});
+
+		const result = await collectServerMetrics("server_win_agent");
+
+		expect(result).toMatchObject({
+			cpu: { usagePercent: 62.5, cores: 8, loadAvg: [0, 0, 0] },
+			memory: { totalMb: 32695, usedMb: 20123, availableMb: 12572, usagePercent: 61.5 },
+			disk: [{ mount: "C:", totalGb: "100G", usedGb: "50G", usagePercent: 50 }],
+			network: [{ iface: "Ethernet", rxBytes: 3212, txBytes: 1123 }],
+			uptime: "up 3 days, 2:07",
+		});
+		expect(execRemoteCommandMock).not.toHaveBeenCalled();
+	});
+
+	it("reports the agent as offline for a Windows AGENT node with stale metrics instead of attempting SSH", async () => {
+		prismaMock.server.findUnique.mockResolvedValueOnce({
+			id: "server_win_stale",
+			enabled: true,
+			operatingSystem: "WINDOWS",
+			managementMode: "AGENT",
+			agentMetricsRaw: "===CPU===",
+			agentMetricsAt: new Date(Date.now() - 10 * 60_000),
+		});
+
+		const result = await collectServerMetrics("server_win_stale");
+
+		// Windows has no SSH fallback channel; the error must say so rather than
+		// surfacing buildSshParamsFromServer's "Linux only" rejection.
+		expect(result).toEqual({
+			serverId: "server_win_stale",
+			error: "Agent is offline and no SSH fallback credential is configured",
+		});
+		expect(buildSshParamsFromServerMock).not.toHaveBeenCalled();
+		expect(execRemoteCommandMock).not.toHaveBeenCalled();
+	});
+
+	it("keeps rejecting monitoring for DIRECT-mode Windows nodes (RDP only, no agent)", async () => {
+		prismaMock.server.findUnique.mockResolvedValueOnce({
+			id: "server_win_direct",
+			enabled: true,
+			operatingSystem: "WINDOWS",
+			managementMode: "DIRECT",
+		});
+
+		const result = await collectServerMetrics("server_win_direct");
+
+		expect(result).toEqual({ serverId: "server_win_direct", error: "This operation supports Linux nodes only" });
+		expect(buildSshParamsFromServerMock).not.toHaveBeenCalled();
+	});
+
 	it("reports metrics unavailable instead of a false-healthy all-zero reading when SSH output is truncated", async () => {
 		prismaMock.server.findUnique.mockResolvedValueOnce({
 			id: "server_trunc",

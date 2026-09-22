@@ -76,6 +76,7 @@ export async function executeTarget(
       username: string;
       connectionType: string;
       managementMode: string;
+      operatingSystem?: string;
       agentLastSeenAt: Date | null;
       password: string | null;
       sshKey: { id: string; name: string; privateKey: string | null } | null;
@@ -135,6 +136,32 @@ export async function executeTarget(
           : `Agent unavailable on ${target.server.name}; falling back to direct SSH.`,
       },
     });
+  }
+
+  if (!result && target.server.operatingSystem === "WINDOWS") {
+    // Windows has no SSH fallback channel: an unavailable agent is terminal for
+    // this target, and the generic fallback checks below would misreport it as
+    // a missing-password / missing-host-key SSH problem.
+    const summary = `Agent unavailable on ${target.server.name}; Windows nodes have no SSH fallback channel.`;
+    const failed = await prisma.commandTarget.updateMany({
+      where: {
+        id: target.id,
+        status: { in: ["RUNNING", "APPROVED", "PENDING_APPROVAL"] },
+      },
+      data: {
+        status: "FAILED",
+        stdout: null,
+        stderr: summary,
+        exitCode: 255,
+        finishedAt: new Date(),
+      },
+    });
+    if (failed.count > 0) {
+      await prisma.executionLog.create({
+        data: { commandRequestId, serverId: target.server.id, summary },
+      });
+    }
+    return false;
   }
 
   if (!result && connectionType === "SSH_KEY" && !privateKey) {
@@ -301,6 +328,7 @@ export async function executeTargets(commandRequestId: string) {
           username: true,
           connectionType: true,
           managementMode: true,
+          operatingSystem: true,
           agentLastSeenAt: true,
           password: true,
           hostKeySha256: true,

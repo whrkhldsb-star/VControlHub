@@ -100,7 +100,9 @@ export const createServerSchema = z.union([
     rdpDomain: rdpProfileSchema.shape.domain,
     rdpIgnoreCertificate: rdpProfileSchema.shape.ignoreCertificate,
     rdpCertificateSha256: rdpProfileSchema.shape.certificateSha256,
-    managementMode: z.literal("DIRECT").default("DIRECT"),
+    // Windows nodes support Agent mode (installed manually via the PowerShell
+    // bootstrap one-liner; there is no SSH channel to push it).
+    managementMode: z.enum(["DIRECT", "AGENT"]).default("DIRECT"),
     enableDirectGateway: z.literal(false).default(false),
     connectionType: z.literal("PASSWORD").default("PASSWORD"),
     sshKeyId: z.never().optional(),

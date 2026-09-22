@@ -9,6 +9,7 @@ VControlHub 使用 Next.js、React、TypeScript、PostgreSQL 和 Prisma，生产
 | 模块 | 能力 |
 | --- | --- |
 | 服务器 | 多 VPS 纳管、浏览器 SSH 终端、SFTP 文件操作、批量命令和审批 |
+| Windows 节点 | 浏览器 RDP 远程桌面、Agent 接入（监控指标与命令执行，见 [Windows Agent 设计](docs/windows-agent.md)） |
 | 云盘 | LOCAL / SFTP / WebDAV 存储节点、文件浏览与传输、分享链接和在线预览 |
 | 应用管理 | Quick Services 应用模板、Docker 与 Compose 项目管理 |
 | 监控 | 资源采样、历史趋势、告警规则和通知 |
@@ -166,14 +167,14 @@ python3 scripts/webdav-http-smoke.py http://127.0.0.1:3000
 <!-- README_METRICS_START -->
 | 指标            | 数量                                             |
 | --------------- | ------------------------------------------------ |
-| 功能页面            | 0                                                |
-| API 路由文件        | 0                                                |
+| 功能页面            | 55                                               |
+| API 路由文件        | 185                                              |
 | 数据模型            | 78                                               |
 | UI 组件           | 91                                               |
-| 代码行数            | ~292,870（src 扫描）                                 |
-| 测试              | 707 文件                                           |
+| 代码行数            | ~293,684（src 扫描）                                 |
+| 测试              | 708 文件                                           |
 | Docker 应用模板     | 44 (本地) + 社区源实时同步                                |
-| i18n            | 262 useI18n() 调用点，84 字典文件                        |
+| i18n            | 263 useI18n() 调用点，84 字典文件                        |
 <!-- README_METRICS_END -->
 
 通过 `npm run readme:metrics:write` 更新。

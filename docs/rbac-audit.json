@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-09-21T17:49:24.981Z",
+  "generatedAt": "2026-09-22T04:31:32.603Z",
   "summary": {
     "permissionsInList": 54,
     "rolesDefined": 4,
-    "apiRoutesAudited": 184,
+    "apiRoutesAudited": 185,
     "pagesAudited": 55,
-    "callSitesAudited": 643,
+    "callSitesAudited": 644,
     "driftCount": 0,
     "driftByCode": {
       "perm-not-in-list": 0,
@@ -1832,11 +1832,11 @@
         },
         {
           "path": "src/app/api/traffic/summary/route.ts",
-          "line": 186
+          "line": 177
         },
         {
           "path": "src/app/api/traffic/summary/route.ts",
-          "line": 186
+          "line": 177
         },
         {
           "path": "src/app/servers/inventory-actions.ts",
@@ -2059,35 +2059,39 @@
         },
         {
           "path": "src/app/servers/actions.ts",
-          "line": 43
+          "line": 45
         },
         {
           "path": "src/app/servers/actions.ts",
-          "line": 138
+          "line": 141
         },
         {
           "path": "src/app/servers/actions.ts",
-          "line": 222
+          "line": 226
         },
         {
           "path": "src/app/servers/actions.ts",
-          "line": 274
+          "line": 278
         },
         {
           "path": "src/app/servers/actions.ts",
-          "line": 314
+          "line": 318
         },
         {
           "path": "src/app/servers/actions.ts",
-          "line": 361
+          "line": 365
         },
         {
           "path": "src/app/servers/actions.ts",
-          "line": 412
+          "line": 416
         },
         {
           "path": "src/app/servers/actions.ts",
-          "line": 485
+          "line": 492
+        },
+        {
+          "path": "src/app/servers/actions.ts",
+          "line": 531
         },
         {
           "path": "src/app/servers/page.tsx",

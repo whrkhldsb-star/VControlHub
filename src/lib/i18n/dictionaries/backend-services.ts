@@ -12,6 +12,12 @@
 export const zh: Record<string, string> = {
   "backend.server.linuxOnly": "此操作仅支持 Linux 节点",
   "backend.server.osImmutable": "节点操作系统不可更改，请创建新节点",
+  "backend.server.agentManualInstall": "Windows 节点请在节点卡片中获取 PowerShell 安装命令以接入 Agent",
+  "backend.server.agentModeRequired": "请先将管理通道切换为节点 Agent 模式",
+  "backend.server.agentInstallPending": "Windows Agent 尚未安装：请在节点卡片获取 PowerShell 安装命令并在该机器上以管理员身份执行",
+  "backend.server.agentCleanupPending": "Windows Agent 令牌已吊销，但离线主机上的计划任务未能移除，请在主机恢复后手动清理",
+  "backend.server.agentInstallFailed": "Agent 安装失败；SSH 直连回退仍可用：{error}",
+  "backend.server.agentCleanupPendingLinux": "Agent 令牌已吊销，但离线主机上的 systemd 服务未能移除，请在主机恢复后手动清理",
   "backend.rdp.notEnabled": "此节点未启用 RDP",
   "backend.rdp.unavailable": "RDP 网关未配置或不可用",
   "backend.rdp.publicHost": "RDP 仅支持公网 IPv4 地址，不支持私网、本机和域名",
@@ -36,6 +42,10 @@ export const zh: Record<string, string> = {
 	"backend.storage.remotePathNotDirectory": "原始远端路径已不是目录，无法恢复索引",
 	"backend.storage.remotePathNotFile": "原始远端路径已不是文件，无法恢复索引",
 	"backend.storage.fileEntryNotInRecycleBin": "文件条目未在回收站中",
+	"backend.storage.archiveExclusionInvalid": "归档排除项包含非法字符",
+	"backend.storage.archiveExclusionTooLarge": "归档排除列表过大",
+	"backend.storage.archiveExclusionTooLargeWindows":
+		"归档排除列表超出 Windows tar 命令行长度限制；请使用 Linux 运行时或减少排除项",
 
 	// storage/service-editable.ts
 	"backend.storage.editableEntryNotFound": "文件条目不存在或已删除",
@@ -475,6 +485,10 @@ export const zh: Record<string, string> = {
   "backend.quick-service.stopFailedWithMessage": "停止失败：{message}",
   "backend.quick-service.hostMountOutsideAllowedRoots":
     "主机挂载路径 {path} 不在允许范围内",
+  "backend.quick-service.appSourceUnsafeName": "应用源名称无法生成安全的标识符",
+  "backend.quick-service.appSourceHttpError": "应用源返回错误：{status}{detail}",
+  "backend.quick-service.appSourceResponseTooLarge": "应用源响应过大",
+  "backend.quick-service.appSourceInvalidJson": "应用源返回了无效的 JSON",
   "backend.docker.composeNoContainers": "Compose 项目“{project}”中没有找到容器",
   "backend.docker.composeUnsupportedAction": "不支持的 Compose 操作：{action}",
   "backend.docker.composeActionFailed": "Compose 操作失败：{action}",
@@ -594,6 +608,12 @@ export const zh: Record<string, string> = {
 
 export const en: Record<string, string> = {
   "backend.server.linuxOnly": "This operation supports Linux nodes only",
+  "backend.server.agentManualInstall": "For Windows nodes, fetch the PowerShell install command from the node card to connect the Agent",
+  "backend.server.agentModeRequired": "Switch the management channel to Node Agent mode first",
+  "backend.server.agentInstallPending": "The Windows Agent is not installed yet: fetch the PowerShell install command from the node card and run it as Administrator on the machine",
+  "backend.server.agentCleanupPending": "The Windows Agent token was revoked, but the scheduled task on the offline host could not be removed; clean it up manually once the host is back",
+  "backend.server.agentInstallFailed": "Agent installation failed; direct SSH fallback remains available: {error}",
+  "backend.server.agentCleanupPendingLinux": "The agent token was revoked, but the systemd service on the offline host could not be removed; clean it up manually once the host is back",
   "backend.server.osImmutable": "The node operating system cannot be changed; create a new node",
   "backend.rdp.notEnabled": "RDP is not enabled for this node",
   "backend.rdp.unavailable": "RDP gateway is not configured or unavailable",
@@ -619,6 +639,10 @@ export const en: Record<string, string> = {
 	"backend.storage.remotePathNotDirectory": "The original remote path is no longer a directory; cannot restore the index",
 	"backend.storage.remotePathNotFile": "The original remote path is no longer a file; cannot restore the index",
 	"backend.storage.fileEntryNotInRecycleBin": "File entry is not in the recycle bin",
+	"backend.storage.archiveExclusionInvalid": "Archive exclusion contains invalid characters",
+	"backend.storage.archiveExclusionTooLarge": "Archive exclusion list is too large",
+	"backend.storage.archiveExclusionTooLargeWindows":
+		"Archive exclusion list is too large for the Windows tar command line; use the Linux runtime or reduce exclusions",
 
 	// storage/service-editable.ts
 	"backend.storage.editableEntryNotFound": "File entry not found or has been deleted",
@@ -1078,6 +1102,10 @@ export const en: Record<string, string> = {
   "backend.quick-service.stopFailedWithMessage": "Stop failed: {message}",
   "backend.quick-service.hostMountOutsideAllowedRoots":
     "Host mount path {path} is outside the allowed roots",
+  "backend.quick-service.appSourceUnsafeName": "App source name cannot produce a safe slug",
+  "backend.quick-service.appSourceHttpError": "App source returned {status}{detail}",
+  "backend.quick-service.appSourceResponseTooLarge": "App source response is too large",
+  "backend.quick-service.appSourceInvalidJson": "App source returned invalid JSON",
   "backend.docker.composeNoContainers":
     'No containers were found for Compose project "{project}"',
   "backend.docker.composeUnsupportedAction":

@@ -529,6 +529,7 @@ export function buildUsage(
     "/api/itsm/inbound/[connectionId]",
     // Host Agent authenticates with a per-server bearer token hash, not user RBAC.
     "/api/agent/v1/poll",
+    "/api/agent/v1/bootstrap",
     // WebDAV Basic/session auth via authenticateWebDavRequest, not PERMISSIONS keys.
     "/api/webdav/[storageNodeId]/[[...path]]",
   ]);

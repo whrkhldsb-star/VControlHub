@@ -22,6 +22,8 @@ export type ServerActionState = {
   relatedStorageCount?: number;
   deleteBlockerSummary?: string;
   hostKeySha256?: string;
+  /** Windows agent bootstrap one-liner, shown once after issuing a token. */
+  installCommand?: string;
 };
 
 function parseTags(raw: string) {
@@ -73,6 +75,7 @@ export async function createServerAction(
     const created = await createServerProfile(windows ? {
       operatingSystem: "WINDOWS", name, host,
       port: Number(formData.get("port") ?? 3389), username: username ?? "", description, tags,
+      managementMode,
       rdpPassword: String(formData.get("rdpPassword") ?? ""),
       rdpDomain: String(formData.get("rdpDomain") ?? ""),
       rdpIgnoreCertificate: formData.get("rdpIgnoreCertificate") === "on",
@@ -155,6 +158,7 @@ export async function updateServerAction(
       name: String(formData.get("name") ?? ""), host: String(formData.get("host") ?? ""),
       port: Number(formData.get("port") ?? 3389), username: String(formData.get("username") ?? ""),
       description: String(formData.get("description") ?? ""), tags: parseTags(String(formData.get("tags") ?? "")),
+      managementMode,
       rdpPassword: String(formData.get("rdpPassword") ?? "") || undefined,
       rdpDomain: String(formData.get("rdpDomain") ?? ""),
       rdpIgnoreCertificate: formData.get("rdpIgnoreCertificate") === "on",
@@ -477,6 +481,48 @@ export async function deleteServerAction(
   } catch (error) {
     return {
       error: getErrorMessage(error, tr("serversPage.action.deleteFailed")),
+    } as ServerActionState;
+  }
+}
+
+export async function getWindowsAgentInstallCommandAction(
+  _prevState: ServerActionState | null,
+  formData: FormData,
+) {
+  const session = await requirePermission("server:write");
+  const tr = await serverActionTranslator();
+
+  try {
+    const serverId = String(formData.get("serverId") ?? "");
+    const { prisma } = await import("@/lib/db");
+    const { serverTeamWhere } = await import("@/lib/auth/team-scope");
+    // Scope the existence check the same way as edits, so the command cannot
+    // be requested for a node outside the caller's team.
+    const current = await prisma.server.findFirst({
+      where: { id: serverId, ...serverTeamWhere(session) },
+      select: { operatingSystem: true, managementMode: true },
+    });
+    if (!current) {
+      return { error: tr("serversPage.action.notFound") } as ServerActionState;
+    }
+
+    const { prepareWindowsAgentInstall } = await import("@/lib/server/agent-service");
+    const { installCommand } = await prepareWindowsAgentInstall(serverId);
+
+    await auditUserAction(
+      session.userId,
+      "server.agent_install_command",
+      { serverId },
+      undefined,
+      session.currentTeamId,
+    );
+
+    // The token is embedded in the one-liner; issuing a new one revokes the
+    // previous token, so this command is the only valid install command.
+    return { success: tr("serversPage.action.agentCommandIssued"), installCommand } as ServerActionState;
+  } catch (error) {
+    return {
+      error: getErrorMessage(error, tr("serversPage.action.agentCommandFailed")),
     } as ServerActionState;
   }
 }

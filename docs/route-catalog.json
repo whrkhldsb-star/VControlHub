@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-09-21T17:48:46.049Z",
+  "generatedAt": "2026-09-22T04:00:00.865Z",
   "summary": {
     "sidebarMain": 30,
     "sidebarSystem": 5,
     "sidebarMobile": 5,
     "pages": 55,
-    "apiRoutes": 184,
+    "apiRoutes": 185,
     "permissionsDefined": 54
   },
   "sidebar": {
@@ -824,6 +824,15 @@
       "declaredPermissions": [
         "task:read"
       ]
+    },
+    {
+      "path": "/api/agent/v1/bootstrap",
+      "file": "src/app/api/agent/v1/bootstrap/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "guardMode": "unspecified",
+      "declaredPermissions": []
     },
     {
       "path": "/api/agent/v1/poll",

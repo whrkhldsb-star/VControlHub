@@ -43,7 +43,12 @@ export function ServerOverviewCard({
   const openDialog = useCallback(() => {
     setExpanded(true);
   }, []);
-  const { diagnosticRun, runRealtimeDiagnostics } = useServerDiagnostics(server.id, server.enabled && server.operatingSystem !== "WINDOWS");
+  // Windows nodes have no SSH channel; realtime probing works for them only
+  // once the Agent (which reports metrics through the poll protocol) is active.
+  const { diagnosticRun, runRealtimeDiagnostics } = useServerDiagnostics(
+    server.id,
+    server.enabled && (server.operatingSystem !== "WINDOWS" || server.managementMode === "AGENT"),
+  );
   const directLabel = server.directGateway?.statusLabel ?? t("serverOverviewCard.websiteRelay");
   const detailsId = `server-details-${server.id}`;
 
@@ -89,7 +94,7 @@ export function ServerOverviewCard({
       t("serverOverviewCard.enabledPendingProbeDescription");
   }
 
-  if (server.operatingSystem === "WINDOWS") return <WindowsServerCard server={server} canManageServers={canManageServers} canUseSshTerminal={canUseSshTerminal} />;
+  if (server.operatingSystem === "WINDOWS") return <WindowsServerCard server={server} canManageServers={canManageServers} canUseSshTerminal={canUseSshTerminal} diagnosticRun={diagnosticRun} onRunDiagnostics={runRealtimeDiagnostics} />;
 
   return (
     <article

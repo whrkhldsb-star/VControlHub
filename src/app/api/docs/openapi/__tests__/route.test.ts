@@ -39,7 +39,10 @@ describe("GET /api/docs/openapi", () => {
     expect(body.paths["/images/upload"].post.security).toContainEqual({
       apiTokenAuth: [],
     });
-    expect(Object.keys(body.paths)).toHaveLength(184);
+    expect(Object.keys(body.paths)).toHaveLength(185);
+    // Machine protocol endpoints: agent bearer token, not session RBAC.
+    expect(body.paths["/agent/v1/poll"]).toHaveProperty("post");
+    expect(body.paths["/agent/v1/bootstrap"]).toHaveProperty("get");
     expect(body.paths["/auth/rdp-ticket"]).toHaveProperty("post");
     expect(body.paths["/files/operations"]).toHaveProperty("post");
     expect(body.paths["/files/operations"]).toHaveProperty("patch");
