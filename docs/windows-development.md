@@ -88,6 +88,22 @@ node dist/ssh-ws-proxy.js          # SSH WebSocket 代理（默认 127.0.0.1:300
 - RDP 网关依赖的 guacd 没有 Windows 原生构建。
 - Windows 的 `tar.exe`（bsdtar）与 GNU tar 的排除语义有细微差别（见上表）。
 
+## 备份与恢复（Windows 与 Linux 统一入口）
+
+`bash deploy/backup.sh` 是 Linux 的传统入口；Windows 上的应用内备份走 Node 运行器（`scripts/backup.mjs` / `scripts/restore.mjs`）。两个运行器本身是跨平台的（PATH 搜索 pg_dump/psql/tar，Windows 额外探测 Program Files 的 PostgreSQL 目录），因此命令行入口已经统一：
+
+```powershell
+npm run backup -- --full                       # 完整备份（数据库 + 文件）
+npm run backup -- --files backups/files.tar.gz # 仅文件
+npm run backup                                 # 仅数据库，输出到 backups/
+npm run restore -- database backups/database.sql.gz
+npm run restore -- full backups/full.tar.gz all .
+```
+
+- 退出码、日志前缀（`[backup]` / `[restore]`）与 bash 版保持一致，产物（gzip SQL / tar.gz 归档）格式互通。
+- 恢复操作是破坏性的：需要环境变量 `CONFIRM_RESTORE=1`（应用内恢复会自动带上）。
+- Linux 部署可以继续使用 bash 脚本，也可以用同一组 npm 命令——两者产物格式一致。
+
 ## 测试
 
 ```powershell

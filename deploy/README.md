@@ -184,6 +184,8 @@ sudo DOMAIN=your.example.com APP_DIR=/opt/VControlHub deploy/install.sh
 | `deploy/backup.sh` | 备份数据库到 `BACKUP_DIR`，内部调用 `scripts/backup-db.sh` | `sudo APP_DIR=/opt/VControlHub BACKUP_DIR=/var/backups/vcontrolhub deploy/backup.sh` |
 | `scripts/restore-db.sh` | 从 `.sql` 或 `.sql.gz` 恢复数据库；默认需要 `CONFIRM_RESTORE=1` 防误操作 | `CONFIRM_RESTORE=1 APP_DIR=/opt/VControlHub scripts/restore-db.sh /var/backups/vcontrolhub/xxx.sql.gz` |
 
+备份/恢复的跨平台等价入口是 `npm run backup` / `npm run restore`（Node 运行器 `scripts/backup.mjs` / `scripts/restore.mjs`，产物格式与 bash 脚本互通）。Windows 主机没有 bash，只能使用 npm 入口；见 `docs/windows-development.md`。
+
 `deploy/check.sh` 默认只做轻量运行检查；如需在目标机器上执行完整质量门禁，可加：
 
 ```bash
