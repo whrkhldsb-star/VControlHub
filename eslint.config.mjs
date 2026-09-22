@@ -90,6 +90,9 @@ const eslintConfig = defineConfig([
     "_test_*.js",
     // k6 load scripts are not Next/React modules; run under k6 runtime only.
     "scripts/load/**",
+    // Scratch/diagnostic scripts (gitignored, never shipped) — one-off CI/API
+    // probes written in plain CJS; not part of the linted source tree.
+    "tmp/**",
   ]),
 ]);
 
