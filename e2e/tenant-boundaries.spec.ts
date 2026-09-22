@@ -6,7 +6,7 @@ import { installDirectSession } from "./helpers/direct-session";
 test("live API permissions follow team switching, membership removal and role changes", async ({ browser, baseURL }) => {
   test.setTimeout(120_000);
   const database = new URL(process.env.DATABASE_URL!);
-  const dedicatedDatabase = /audit|test/.test(database.pathname) || (process.env.CI === "true" && database.pathname === "/whrkhldsb_ci");
+  const dedicatedDatabase = /audit|test/.test(database.pathname) || (process.env.CI === "true" && /_ci$/.test(database.pathname));
   if (!["127.0.0.1", "localhost", "[::1]"].includes(database.hostname) || !dedicatedDatabase) {
     throw new Error("Tenant regression requires a loopback audit/test database");
   }

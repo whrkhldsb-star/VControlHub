@@ -9,7 +9,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("server inve
   const session = { userId: prefix, roles: ["viewer"] as ["viewer"], currentTeamId: prefix };
   beforeAll(async () => {
     const db = new URL(process.env.DATABASE_URL!);
-    if (!["127.0.0.1", "localhost", "[::1]"].includes(db.hostname) || !/audit|test|whrkhldsb_ci/.test(db.pathname)) throw new Error("Isolated database required");
+    if (!["127.0.0.1", "localhost", "[::1]"].includes(db.hostname) || !/audit|test|_ci/.test(db.pathname)) throw new Error("Isolated database required");
     await prisma.user.create({ data: { id: prefix, username: prefix, passwordHash: "fixture-unused" } });
     await prisma.team.create({ data: { id: prefix, name: prefix, slug: prefix, ownerId: prefix } });
     await prisma.server.createMany({ data: Array.from({ length: 526 }, (_, i) => ({

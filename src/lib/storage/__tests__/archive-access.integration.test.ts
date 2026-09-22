@@ -18,7 +18,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")(
       const database = new URL(process.env.DATABASE_URL!);
       if (
         !["127.0.0.1", "localhost", "[::1]"].includes(database.hostname) ||
-        !/audit|test|whrkhldsb_ci/.test(database.pathname)
+        !/audit|test|_ci/.test(database.pathname)
       )
         throw new Error(
           "Archive integration requires a loopback test database",

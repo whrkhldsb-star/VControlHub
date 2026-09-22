@@ -41,7 +41,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("image final
   let ready = false;
   beforeAll(async () => {
     const database = new URL(process.env.DATABASE_URL!);
-    if (!["localhost", "127.0.0.1", "[::1]"].includes(database.hostname) || !/audit|test|whrkhldsb_ci/.test(database.pathname)) {
+    if (!["localhost", "127.0.0.1", "[::1]"].includes(database.hostname) || !/audit|test|_ci/.test(database.pathname)) {
       throw new Error("Upload integration requires an isolated loopback audit/test database");
     }
     fixture.userId = id;
