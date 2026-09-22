@@ -1187,7 +1187,7 @@ describeOrSkip("deploy/install.sh", () => {
     const installer = await readFile(path.join(repoRoot, "deploy/install.sh"), "utf8");
 
     expect(envExample).toContain('ARIA2_RPC_SECRET="REPLACE_WITH_RANDOM_ARIA2_RPC_SECRET"');
-    expect(envExample).toContain('ARIA2_RPC_DIR="/var/lib/${APP_SLUG:-whrkhldsb}/aria2"');
+    expect(envExample).toContain('ARIA2_RPC_DIR="/var/lib/${APP_SLUG:-vcontrolhub}/aria2"');
     expect(installer).toContain('set_env_var HOSTNAME "${NEXT_HOST}"');
   });
 

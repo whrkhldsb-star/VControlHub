@@ -992,6 +992,9 @@ install_systemd() {
 	local svc
 	for svc in next worker ssh-ws; do
 		local src="${APP_DIR}/deploy/systemd/${APP_SLUG}-${svc}.service.example"
+		# Custom APP_SLUG installs have no slug-named templates in the repo;
+		# fall back to the canonical shipped templates.
+		[ -f "${src}" ] || src="${APP_DIR}/deploy/systemd/vcontrolhub-${svc}.service.example"
 		[ -f "${src}" ] || fail "Systemd template not found: ${src}"
 		if [ -n "${DESTDIR}" ]; then
 			case "${src}" in
