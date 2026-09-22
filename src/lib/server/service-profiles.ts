@@ -20,7 +20,7 @@ import {
 import { encryptServerPasswordIfPlain } from "@/lib/ssh/ssh-key-crypto";
 import { checkStorageNodeHealth } from "@/lib/storage/service-nodes";
 import { normalizeServerInput } from "./config";
-import { SERVER_PROFILE_INCLUDE } from "./service-profile-includes";
+import { SERVER_PROFILE_INCLUDE, type ServerProfileRecord } from "./service-profile-includes";
 import { createServerSchema, type CreateServerInput } from "./schema";
 import { applyServerDirectGatewayState } from "./service-direct-gateway";
 import { installServerAgent, uninstallServerAgent } from "./agent-service";
@@ -150,8 +150,7 @@ export async function createServerProfile(
   let configuredPath = "";
   let createdStorageNodeId = "";
   // Assigned under host lock before mkdir/onboarding uses them.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let server: any;
+  let server!: ServerProfileRecord;
   const releaseHostLock = await acquireAdvisoryLock("server-host", normalized.host.toLowerCase());
   try {
   await assertNoDuplicateServerHost(normalized, { session: sessionForTeamWhere(session) });
@@ -534,8 +533,8 @@ export async function updateServerProfile(
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let updated: any;
+  // Assigned under host lock before post-update onboarding uses it.
+  let updated!: ServerProfileRecord;
   const releaseHostLock = await acquireAdvisoryLock("server-host", normalized.host.toLowerCase());
   try {
   await assertNoDuplicateServerHost(normalized, { excludeId: serverId, session: sessionForTeamWhere(session) });

@@ -1,3 +1,5 @@
+import type { Prisma } from "@prisma/client";
+
 export const SERVER_PROFILE_INCLUDE = {
   sshKey: {
     select: {
@@ -45,3 +47,6 @@ export const SERVER_PROFILE_INCLUDE = {
     take: 1,
   },
 } as const;
+
+/** Full server record as loaded by SERVER_PROFILE_INCLUDE (sshKey, storageNode, …). */
+export type ServerProfileRecord = Prisma.ServerGetPayload<{ include: typeof SERVER_PROFILE_INCLUDE }>;
