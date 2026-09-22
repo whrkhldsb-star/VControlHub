@@ -19,7 +19,7 @@ if [ -n "${TEST_DATABASE_URL:-}" ]; then
   export DATABASE_URL="$TEST_DATABASE_URL"
   export RUN_DATABASE_INTEGRATION_TESTS=1
 else
-  export DATABASE_URL="${DATABASE_URL:-postgresql://postgres:postgres@127.0.0.1:5432/whrkhldsb_ci}"
+  export DATABASE_URL="${DATABASE_URL:-postgresql://postgres:postgres@127.0.0.1:5432/vcontrolhub_ci}"
   export RUN_DATABASE_INTEGRATION_TESTS="${RUN_DATABASE_INTEGRATION_TESTS:-0}"
 fi
 

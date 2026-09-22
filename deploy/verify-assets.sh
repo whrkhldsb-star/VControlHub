@@ -28,9 +28,9 @@ render_unit() {
     "$src" > "$dst"
 }
 
-render_unit "${ROOT}/deploy/systemd/whrkhldsb-next.service.example" "${TMP_DIR}/vcontrolhub-next.service"
-render_unit "${ROOT}/deploy/systemd/whrkhldsb-worker.service.example" "${TMP_DIR}/vcontrolhub-worker.service"
-render_unit "${ROOT}/deploy/systemd/whrkhldsb-ssh-ws.service.example" "${TMP_DIR}/vcontrolhub-ssh-ws.service"
+render_unit "${ROOT}/deploy/systemd/vcontrolhub-next.service.example" "${TMP_DIR}/vcontrolhub-next.service"
+render_unit "${ROOT}/deploy/systemd/vcontrolhub-worker.service.example" "${TMP_DIR}/vcontrolhub-worker.service"
+render_unit "${ROOT}/deploy/systemd/vcontrolhub-ssh-ws.service.example" "${TMP_DIR}/vcontrolhub-ssh-ws.service"
 grep -q '^ExecStart=/usr/bin/rclone mount' "${ROOT}/deploy/systemd/rclone-alist.service.example"
 systemd-analyze verify "${TMP_DIR}/vcontrolhub-next.service" "${TMP_DIR}/vcontrolhub-worker.service" "${TMP_DIR}/vcontrolhub-ssh-ws.service"
 

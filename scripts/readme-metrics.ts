@@ -40,8 +40,10 @@ function srcLines(): number {
 
 function metrics(): Metric[] {
   const srcApp = join(ROOT, "src/app");
-  const pages = walk(srcApp, (p) => /\/page\.tsx$/.test(p)).length;
-  const apiRoutes = walk(srcApp, (p) => /\/api\/.*\/route\.ts$/.test(p)).length;
+  // Path separators differ between POSIX and Windows — match both so the
+  // counts do not silently collapse to 0 on a Windows checkout.
+  const pages = walk(srcApp, (p) => /[/\\]page\.tsx$/.test(p)).length;
+  const apiRoutes = walk(srcApp, (p) => /[/\\]api[/\\].*[/\\]route\.ts$/.test(p)).length;
   const components = walk(join(ROOT, "src/components"), (p) => /\.[tj]sx?$/.test(p) && !p.includes("/__tests__/")).length;
   const tests = walk(ROOT, (p) => /(__tests__\/.*\.(test|spec)\.[tj]sx?$)|(\.(test|spec)\.[tj]sx?$)/.test(p)).length;
   const dictionaries = walk(join(ROOT, "src/lib/i18n/dictionaries"), (p) => p.endsWith(".ts")).length;

@@ -992,9 +992,6 @@ install_systemd() {
 	local svc
 	for svc in next worker ssh-ws; do
 		local src="${APP_DIR}/deploy/systemd/${APP_SLUG}-${svc}.service.example"
-		if [ ! -f "${src}" ]; then
-			src="${APP_DIR}/deploy/systemd/whrkhldsb-${svc}.service.example"
-		fi
 		[ -f "${src}" ] || fail "Systemd template not found: ${src}"
 		if [ -n "${DESTDIR}" ]; then
 			case "${src}" in

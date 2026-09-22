@@ -5,6 +5,8 @@ import os from "node:os";
 import path from "node:path";
 import type { Client } from "ssh2";
 import { expect, it } from "vitest";
+
+import { ValidationError } from "@/lib/errors";
 import {
   archiveStreamResponse,
   streamLocalTarGz,
@@ -78,5 +80,5 @@ itGnuTar.each(["LOCAL", "SFTP"])(
 it("rejects newline exclusions before spawning a process", () => {
   expect(() =>
     streamLocalTarGz("/unused", "unused", ["unused/one\nother"]),
-  ).toThrow("Invalid archive exclusion");
+  ).toThrow(ValidationError);
 });

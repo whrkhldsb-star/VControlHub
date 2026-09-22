@@ -296,15 +296,15 @@ describeOrSkip("deploy/preflight.sh", () => {
       `#!/usr/bin/env bash\nprintf 'backup %s\\n' "$*" >> ${JSON.stringify(logFile)}\n`,
     );
     await writeFile(
-      path.join(appDir, "deploy/systemd/whrkhldsb-next.service.example"),
+      path.join(appDir, "deploy/systemd/vcontrolhub-next.service.example"),
       "[Unit]\nDescription=test next\n[Service]\nWorkingDirectory={{APP_DIR}}\nEnvironmentFile={{RUNTIME_ENV_FILE}}\nUser={{APP_USER}}\nGroup={{APP_USER}}\nExecStart=/bin/true\n",
     );
     await writeFile(
-      path.join(appDir, "deploy/systemd/whrkhldsb-worker.service.example"),
+      path.join(appDir, "deploy/systemd/vcontrolhub-worker.service.example"),
       "[Unit]\nDescription=test worker\n[Service]\nWorkingDirectory={{APP_DIR}}\nEnvironmentFile={{RUNTIME_ENV_FILE}}\nUser={{APP_USER}}\nGroup={{APP_USER}}\nExecStart=/bin/true\n",
     );
     await writeFile(
-      path.join(appDir, "deploy/systemd/whrkhldsb-ssh-ws.service.example"),
+      path.join(appDir, "deploy/systemd/vcontrolhub-ssh-ws.service.example"),
       "[Unit]\nDescription=test ws\n[Service]\nWorkingDirectory={{APP_DIR}}\nEnvironmentFile={{RUNTIME_ENV_FILE}}\nUser={{APP_USER}}\nGroup={{APP_USER}}\nExecStart=/bin/true\n",
     );
     await writeFile(
@@ -402,11 +402,11 @@ describeOrSkip("deploy/preflight.sh", () => {
     ]);
 
     await writeFile(
-      path.join(appDir, "deploy/systemd/whrkhldsb-next.service.example"),
+      path.join(appDir, "deploy/systemd/vcontrolhub-next.service.example"),
       "[Unit]\nWorkingDirectory=/tmp\n[Service]\nExecStart=/bin/true\n",
     );
     await writeFile(
-      path.join(appDir, "deploy/systemd/whrkhldsb-ssh-ws.service.example"),
+      path.join(appDir, "deploy/systemd/vcontrolhub-ssh-ws.service.example"),
       "[Unit]\nDescription=ok\n[Service]\nExecStart=/bin/true\n",
     );
     for (const command of [
@@ -588,15 +588,15 @@ describeOrSkip("deploy/install.sh", () => {
       ].join("\n"),
     );
     await writeFile(
-      path.join(appDir, "deploy/systemd/whrkhldsb-next.service.example"),
+      path.join(appDir, "deploy/systemd/vcontrolhub-next.service.example"),
       "[Unit]\nDescription=test next\n[Service]\nWorkingDirectory={{APP_DIR}}\nEnvironmentFile={{ENV_FILE}}\nUser={{APP_USER}}\nGroup={{APP_USER}}\nExecStart=/bin/true\n",
     );
     await writeFile(
-      path.join(appDir, "deploy/systemd/whrkhldsb-worker.service.example"),
+      path.join(appDir, "deploy/systemd/vcontrolhub-worker.service.example"),
       "[Unit]\nDescription=test worker\n[Service]\nWorkingDirectory={{APP_DIR}}\nEnvironmentFile={{ENV_FILE}}\nUser={{APP_USER}}\nGroup={{APP_USER}}\nExecStart=/bin/true\n",
     );
     await writeFile(
-      path.join(appDir, "deploy/systemd/whrkhldsb-ssh-ws.service.example"),
+      path.join(appDir, "deploy/systemd/vcontrolhub-ssh-ws.service.example"),
       "[Unit]\nDescription=test ws\n[Service]\nWorkingDirectory={{APP_DIR}}\nEnvironmentFile={{ENV_FILE}}\nUser={{APP_USER}}\nGroup={{APP_USER}}\nExecStart=/bin/true\n",
     );
     await writeFile(
@@ -880,7 +880,7 @@ describeOrSkip("deploy/install.sh", () => {
         "portable_initial_value",
       );
       expect(result.stdout + result.stderr).not.toContain(
-        "whrkhldsb-next.service",
+        "vcontrolhub-next.service",
       );
     } finally {
       await rm(appDir, { force: true, recursive: true });
@@ -1029,15 +1029,15 @@ describeOrSkip("deploy/install.sh", () => {
       "PG_DB_PASSWORD=12345678901234567890123456789012\nDATABASE_URL=postgresql://u:pass@localhost:5432/db\nAUTH_SESSION_SECRET=12345678901234567890123456789012\nSSH_WS_SECRET=12345678901234567890123456789012\nSSH_WS_ALLOWED_ORIGINS=http://localhost\nENCRYPTION_KEY=12345678901234567890123456789012\nADMIN_INITIAL_PASSWORD=12345678901234567890123456789012\n",
     );
     await writeFile(
-      path.join(appDir, "deploy/systemd/whrkhldsb-next.service.example"),
+      path.join(appDir, "deploy/systemd/vcontrolhub-next.service.example"),
       "[Unit]\nDescription=test next\n[Service]\nWorkingDirectory={{APP_DIR}}\nEnvironmentFile={{ENV_FILE}}\nUser={{APP_USER}}\nGroup={{APP_USER}}\nExecStart=/bin/true\n",
     );
     await writeFile(
-      path.join(appDir, "deploy/systemd/whrkhldsb-worker.service.example"),
+      path.join(appDir, "deploy/systemd/vcontrolhub-worker.service.example"),
       "[Unit]\nDescription=test worker\n[Service]\nWorkingDirectory={{APP_DIR}}\nEnvironmentFile={{ENV_FILE}}\nUser={{APP_USER}}\nGroup={{APP_USER}}\nExecStart=/bin/true\n",
     );
     await writeFile(
-      path.join(appDir, "deploy/systemd/whrkhldsb-ssh-ws.service.example"),
+      path.join(appDir, "deploy/systemd/vcontrolhub-ssh-ws.service.example"),
       "[Unit]\nDescription=test ws\n[Service]\nWorkingDirectory={{APP_DIR}}\nEnvironmentFile={{ENV_FILE}}\nUser={{APP_USER}}\nGroup={{APP_USER}}\nExecStart=/bin/true\n",
     );
     await writeFile(

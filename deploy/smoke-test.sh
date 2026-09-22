@@ -4,7 +4,7 @@
 # Usage:
 #   bash deploy/smoke-test.sh [EXTERNAL_IP_OR_DOMAIN] [APP_SLUG]
 #   SMOKE_SCOPE=systemd bash deploy/smoke-test.sh "" vcontrolhub
-#   SMOKE_SCOPE=http bash deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub
+#   SMOKE_SCOPE=http bash deploy/smoke-test.sh your-domain.example vcontrolhub
 #
 # Scopes:
 #   full    — systemd/local checks + public HTTP checks (default, backwards-compatible)

@@ -4,6 +4,8 @@ import { mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
+import { ConflictError } from "@/lib/errors";
+
 const mocks = vi.hoisted(() => ({
   findUnique: vi.fn(),
   updateMany: vi.fn(),
@@ -279,7 +281,8 @@ describe("deleteVpsBackupRecord", () => {
       localPath: "storage/vps-backups/srv_1/nginx-config-rec_1.tar.gz",
       status: "RUNNING",
     });
-    await expect(deleteVpsBackupRecord("rec_1")).rejects.toThrow(/RUNNING/);
+    // Service translations default to zh; assert on the ConflictError, not copy.
+    await expect(deleteVpsBackupRecord("rec_1")).rejects.toThrow(ConflictError);
     expect(mocks.delete).not.toHaveBeenCalled();
   });
 

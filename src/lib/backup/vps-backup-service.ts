@@ -1,4 +1,5 @@
 import { apiCopy } from "@/lib/i18n/api-copy";
+import { t } from "@/lib/i18n/service-translations";
 /**
  * TR-043: VPS remote backup service.
  *
@@ -697,14 +698,12 @@ export async function deleteVpsBackupRecord(recordId: string): Promise<void> {
     select: { localPath: true, status: true, offsiteKey: true },
   });
   if (!record) {
-    throw new NotFoundError(`VpsBackupRecord ${recordId} not found`);
+    throw new NotFoundError(t("vpsBackupApi.errorRecordNotFound"));
   }
   // Refuse mid-flight deletes: worker may still write COMPLETED after row gone,
   // or leave orphan remote temp + half-downloaded local files.
   if (record.status === "RUNNING") {
-    throw new ConflictError(
-      "Cannot delete a RUNNING VPS backup record; wait for completion or failure",
-    );
+    throw new ConflictError(t("vpsBackupApi.errorDeleteRunningRecord"));
   }
 
   if (record.localPath) {
@@ -751,9 +750,7 @@ export async function deleteVpsBackupRecord(recordId: string): Promise<void> {
     where: { id: recordId, status: { not: "RUNNING" } },
   });
   if (deleted.count === 0) {
-    throw new ConflictError(
-      "Cannot delete a RUNNING VPS backup record; wait for completion or failure",
-    );
+    throw new ConflictError(t("vpsBackupApi.errorDeleteRunningRecord"));
   }
 }
 
@@ -767,7 +764,7 @@ export function resolveVpsBackupFilePath(localPath: string): string {
   if (abs !== root) {
     const rel = relativePath(root, abs);
     if (rel === "" || rel.startsWith("..") || path.isAbsolute(rel)) {
-      throw new ValidationError("VPS backup path escapes storage root");
+      throw new ValidationError(t("vpsBackupApi.errorPathEscapesRoot"));
     }
   }
   return abs;

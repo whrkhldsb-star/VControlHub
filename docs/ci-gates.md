@@ -131,7 +131,7 @@ workflow specs remains available through `npm run test:e2e:cross-browser`.
 The workflow suite also includes populated provider/search/job-event dialogs
 at narrow widths and short heights, plus live tenant and role-revocation API
 checks. Tenant fixtures require a loopback audit/test database; CI additionally
-accepts the workflow's dedicated `whrkhldsb_ci` database. These checks must not
+accepts the workflow's dedicated `vcontrolhub_ci` database. These checks must not
 target a production database.
 
 Responsive route sweeps use a fresh browser context per route with the signed

@@ -18,6 +18,8 @@ export const zh = {
 	"vpsBackupApi.errorRecordNotFound": "备份记录不存在",
 	"vpsBackupApi.errorRetryNotFailed": "只有失败的备份记录才能重试",
 	"vpsBackupApi.errorRetentionRange": "保留天数必须在 1 到 365 之间",
+	"vpsBackupApi.errorDeleteRunningRecord": "备份正在运行，无法删除；请等待其完成或失败",
+	"vpsBackupApi.errorPathEscapesRoot": "备份文件路径超出存储根目录",
 };
 
 export const en = {
@@ -36,4 +38,6 @@ export const en = {
 	"vpsBackupApi.errorRecordNotFound": "Backup record not found",
 	"vpsBackupApi.errorRetryNotFailed": "Only failed backup records can be retried",
 	"vpsBackupApi.errorRetentionRange": "Retention days must be between 1 and 365",
+	"vpsBackupApi.errorDeleteRunningRecord": "Cannot delete a RUNNING backup record; wait for completion or failure",
+	"vpsBackupApi.errorPathEscapesRoot": "Backup file path escapes the storage root",
 };

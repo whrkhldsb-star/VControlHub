@@ -39,7 +39,7 @@ describe("ownership / deploy lock hardening", () => {
   });
 
   it("sandboxes the SSH WebSocket proxy without blocking outbound SSH", () => {
-    const unit = read("deploy/systemd/whrkhldsb-ssh-ws.service.example");
+    const unit = read("deploy/systemd/vcontrolhub-ssh-ws.service.example");
     expect(unit).toMatch(/^PrivateDevices=true$/m);
     expect(unit).toMatch(/^ProtectKernelTunables=true$/m);
     expect(unit).toMatch(/^ProtectKernelModules=true$/m);

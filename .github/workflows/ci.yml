@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/whrkhldsb_ci
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/vcontrolhub_ci
       RUN_DATABASE_INTEGRATION_TESTS: "1"
       NODE_ENV: test
       NEXT_TELEMETRY_DISABLED: 1
@@ -24,13 +24,13 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_DB: whrkhldsb_ci
+          POSTGRES_DB: vcontrolhub_ci
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
         ports:
           - 5432:5432
         options: >-
-          --health-cmd="pg_isready -U postgres -d whrkhldsb_ci"
+          --health-cmd="pg_isready -U postgres -d vcontrolhub_ci"
           --health-interval=5s
           --health-timeout=5s
           --health-retries=20
@@ -101,7 +101,7 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 45
     env:
-      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/whrkhldsb_ci
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/vcontrolhub_ci
       NODE_ENV: test
       NEXT_TELEMETRY_DISABLED: 1
     steps:
@@ -155,7 +155,7 @@ jobs:
       # devDependencies (@tailwindcss/postcss) and next build fails.
       NEXT_HOST: 127.0.0.1
       PORT: "3000"
-      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/whrkhldsb_ci
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/vcontrolhub_ci
       AUTH_SECRET: ci-e2e-auth-secret-at-least-32-bytes-long
       AUTH_SESSION_SECRET: ci-e2e-session-secret-at-least-32-bytes
       ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
@@ -167,13 +167,13 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_DB: whrkhldsb_ci
+          POSTGRES_DB: vcontrolhub_ci
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
         ports:
           - 5432:5432
         options: >-
-          --health-cmd="pg_isready -U postgres -d whrkhldsb_ci"
+          --health-cmd="pg_isready -U postgres -d vcontrolhub_ci"
           --health-interval=5s
           --health-timeout=5s
           --health-retries=20
@@ -354,7 +354,7 @@ jobs:
       # NODE_ENV only on server start — npm ci must install devDependencies.
       NEXT_HOST: 127.0.0.1
       PORT: "3000"
-      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/whrkhldsb_ci
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/vcontrolhub_ci
       AUTH_SECRET: ci-dast-auth-secret-at-least-32-bytes-long
       AUTH_SESSION_SECRET: ci-dast-session-secret-at-least-32-bytes
       ENCRYPTION_KEY: fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210
@@ -363,13 +363,13 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_DB: whrkhldsb_ci
+          POSTGRES_DB: vcontrolhub_ci
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
         ports:
           - 5432:5432
         options: >-
-          --health-cmd="pg_isready -U postgres -d whrkhldsb_ci"
+          --health-cmd="pg_isready -U postgres -d vcontrolhub_ci"
           --health-interval=5s
           --health-timeout=5s
           --health-retries=20
