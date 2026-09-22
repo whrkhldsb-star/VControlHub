@@ -4,6 +4,7 @@ import path from "node:path";
 import { Client, type ConnectConfig } from "ssh2";
 import { connectSsh, type SshConnectionParams } from "@/lib/ssh/client";
 import { IS_WINDOWS } from "@/lib/runtime/platform-paths";
+import { resolveLocalTarBinary } from "@/lib/runtime/tar-binary";
 import { shellQuote } from "@/lib/shell-quote";
 import { ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
@@ -86,6 +87,8 @@ const EXCLUDE_OPTIONS = ["--no-wildcards", "--anchored", "--exclude-from=-"];
  * argv entries instead. bsdtar matches them as glob patterns, so a literal
  * name containing glob metacharacters (`*?[`) may fail to match — accepted
  * trade-off; argv is also capped by the Windows command-line length limit.
+ * resolveLocalTarBinary() pins the System32 bsdtar so a PATH-shadowing GNU
+ * tar (which reads "C:\..." as a remote host) can never be picked here.
  */
 function buildLocalTarArgs(directoryPath: string, entryName: string, excluded: string[]): string[] {
 	const base = ["-czf", "-", "-C", path.dirname(directoryPath)];
@@ -109,7 +112,7 @@ export function streamLocalTarGz(directoryPath: string, entryName: string, exclu
 	// POSIX GNU tar reads the exclusion list from stdin; Windows bsdtar gets it
 	// as argv, so stdin stays closed there.
 	const useStdinExcludes = Boolean(input) && !IS_WINDOWS;
-	const tar = spawn("tar", buildLocalTarArgs(directoryPath, entryName, excluded), {
+	const tar = spawn(resolveLocalTarBinary(), buildLocalTarArgs(directoryPath, entryName, excluded), {
 		stdio: [useStdinExcludes ? "pipe" : "ignore", "pipe", "pipe"],
 	});
 	if (useStdinExcludes) {

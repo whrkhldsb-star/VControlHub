@@ -1,4 +1,5 @@
 import { apiCopy } from "@/lib/i18n/api-copy";
+import { resolveLocalTarBinary } from "@/lib/runtime/tar-binary";
 import { NextRequest, NextResponse } from "next/server";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -129,7 +130,7 @@ async function listArchiveContents(
 async function listZip(filePath: string): Promise<ArchiveEntry[]> {
   // Windows has no unzip.exe; System32 bsdtar reads zip archives natively.
   if (process.platform === "win32") {
-    const { stdout } = await execFileAsync("tar", ["-tvf", filePath], {
+    const { stdout } = await execFileAsync(resolveLocalTarBinary(), ["-tvf", filePath], {
       maxBuffer: 10 * 1024 * 1024,
       timeout: 15000,
     });
@@ -171,7 +172,7 @@ function parseUnzipOutput(output: string): ArchiveEntry[] {
 }
 
 async function listTarGz(filePath: string): Promise<ArchiveEntry[]> {
-  const { stdout } = await execFileAsync("tar", ["-tzvf", filePath], {
+  const { stdout } = await execFileAsync(resolveLocalTarBinary(), ["-tzvf", filePath], {
     maxBuffer: 10 * 1024 * 1024,
     timeout: 15000,
   });

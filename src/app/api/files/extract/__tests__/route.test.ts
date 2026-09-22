@@ -46,9 +46,10 @@ async function createTarGz() {
   await writeFile(path.join(tempDir, "hello.txt"), "hello");
   const archivePath = path.join(tempDir, "backup.tar.gz");
   const { execFile } = await import("node:child_process");
+  const { resolveLocalTarBinary } = await import("@/lib/runtime/tar-binary");
   await new Promise<void>((resolve, reject) => {
     execFile(
-      "tar",
+      resolveLocalTarBinary(),
       ["-czf", archivePath, "-C", tempDir, "hello.txt"],
       (error) => (error ? reject(error) : resolve()),
     );

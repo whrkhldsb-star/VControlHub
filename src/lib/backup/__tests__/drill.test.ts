@@ -5,6 +5,8 @@ import path from "node:path";
 import { gzipSync } from "node:zlib";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { resolveLocalTarBinary } from "@/lib/runtime/tar-binary";
+
 const mocks = vi.hoisted(() => ({ getBackupRecord: vi.fn(), runBackupCommand: vi.fn() }));
 vi.mock("../service-crud", () => ({ getBackupRecord: mocks.getBackupRecord, createBackupRecord: vi.fn(), listBackupRecords: vi.fn(), updateBackupRecordStatus: vi.fn() }));
 vi.mock("../command-runner", () => ({ runBackupCommand: mocks.runBackupCommand, backupCommandErrorMessage: (e: Error) => e.message }));
@@ -67,7 +69,7 @@ describe("non-destructive backup drill", () => {
       checksumSha256: checksum,
     });
     mocks.runBackupCommand.mockImplementation(async (input: { file: string; args: string[] }) => {
-      if (input.file === "tar") {
+      if (input.file === resolveLocalTarBinary()) {
         expect(input.args).toEqual(["-tzf", archiveAbs]);
         return { stdout: "./\na.txt\n", stderr: "" };
       }
@@ -76,7 +78,7 @@ describe("non-destructive backup drill", () => {
     const report = await drillBackupRecord({ id: "b3", projectRoot: root });
     expect(report.checks.map((c) => c.name)).toEqual(["artifact", "sha256", "gzip", "archive-index"]);
     expect(mocks.runBackupCommand).toHaveBeenCalledWith(
-      expect.objectContaining({ file: "tar", args: ["-tzf", archiveAbs] }),
+      expect.objectContaining({ file: resolveLocalTarBinary(), args: ["-tzf", archiveAbs] }),
     );
     // Regression: never invoke shell form that treats `--` as the archive name.
     expect(mocks.runBackupCommand).not.toHaveBeenCalledWith(

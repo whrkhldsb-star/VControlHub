@@ -1,5 +1,7 @@
 import { PassThrough, Readable } from "node:stream";
 
+import { resolveLocalTarBinary } from "@/lib/runtime/tar-binary";
+
 import { describe, expect, it, vi } from "vitest";
 
 /**
@@ -154,7 +156,7 @@ describe("streamLocalTarGz", () => {
 		armSpawn();
 		streamLocalTarGz("/srv/data/reports", "reports");
 		expect(mocks.spawn).toHaveBeenCalledWith(
-			"tar",
+			resolveLocalTarBinary(),
 			["-czf", "-", "-C", "/srv/data", "--", "reports"],
 			{ stdio: ["ignore", "pipe", "pipe"] },
 		);

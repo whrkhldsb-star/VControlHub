@@ -3,6 +3,8 @@ import path from "node:path";
 import { PassThrough } from "node:stream";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { resolveLocalTarBinary } from "@/lib/runtime/tar-binary";
+
 const {
   assertStorageAccessMock,
   prismaMock,
@@ -131,7 +133,7 @@ describe("/api/storage/archive-download", () => {
       expect.objectContaining({ storageNodeId: "node_1", relativePath: "photos", operation: "read" }),
     );
     expect(statMock).toHaveBeenCalledWith(path.resolve("/srv/storage/photos"));
-    expect(spawnMock).toHaveBeenCalledWith("tar", ["-czf", "-", "-C", path.resolve("/srv/storage"), "--", "photos"], expect.any(Object));
+    expect(spawnMock).toHaveBeenCalledWith(resolveLocalTarBinary(), ["-czf", "-", "-C", path.resolve("/srv/storage"), "--", "photos"], expect.any(Object));
     expect(response.headers.get("content-disposition")).toContain("photos.tar.gz");
   });
 

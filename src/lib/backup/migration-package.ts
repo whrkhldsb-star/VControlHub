@@ -1,4 +1,5 @@
 import { apiCopy } from "@/lib/i18n/api-copy";
+import { resolveLocalTarBinary } from "@/lib/runtime/tar-binary";
 /**
  * Cross-environment backup migration packages.
  *
@@ -190,11 +191,13 @@ export async function resolveMigrationPackageDir(
   await mkdir(extractDir, { recursive: true });
   try {
     const [{ stdout: memberNames }, { stdout: memberDetails }] = await Promise.all([
-      runFile("tar", ["-tzf", candidate], {
+      runFile(
+      resolveLocalTarBinary(), ["-tzf", candidate], {
         timeout: 30_000,
         maxBuffer: 8 * 1024 * 1024,
       }),
-      runFile("tar", ["-tvzf", candidate], {
+      runFile(
+      resolveLocalTarBinary(), ["-tvzf", candidate], {
         timeout: 30_000,
         maxBuffer: 8 * 1024 * 1024,
       }),
@@ -213,14 +216,16 @@ export async function resolveMigrationPackageDir(
     }
 
     // Prefer GNU tar --restrict when available; always re-verify no path escape after extract.
-    await runFile("tar", ["-xzf", candidate, "-C", extractDir, "--restrict"], {
+    await runFile(
+      resolveLocalTarBinary(), ["-xzf", candidate, "-C", extractDir, "--restrict"], {
       timeout: 120_000,
       maxBuffer: 2 * 1024 * 1024,
     }).catch(async () => {
       // BusyBox/older tar may not support --restrict; fall back then verify members.
       await rm(extractDir, { recursive: true, force: true });
       await mkdir(extractDir, { recursive: true });
-      await runFile("tar", ["-xzf", candidate, "-C", extractDir, "--no-same-owner", "--no-same-permissions"], {
+      await runFile(
+      resolveLocalTarBinary(), ["-xzf", candidate, "-C", extractDir, "--no-same-owner", "--no-same-permissions"], {
         timeout: 120_000,
         maxBuffer: 2 * 1024 * 1024,
       });
@@ -470,7 +475,7 @@ export async function exportMigrationPackage(input: {
   const tarAbsolute = join(getBackupStorageRoot(root), tarRelative);
   try {
     await runFile(
-      "tar",
+      resolveLocalTarBinary(),
       ["-czf", tarAbsolute, "-C", dirname(absoluteDir), basename(absoluteDir)],
       { timeout: 180_000, maxBuffer: 2 * 1024 * 1024 },
     );

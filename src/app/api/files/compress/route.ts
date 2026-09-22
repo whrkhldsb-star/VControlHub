@@ -1,4 +1,5 @@
 import { apiCopy } from "@/lib/i18n/api-copy";
+import { resolveLocalTarBinary } from "@/lib/runtime/tar-binary";
 import { execFile } from "node:child_process";
 import fs from "node:fs/promises";
 import os from "node:os";
@@ -92,7 +93,7 @@ export async function POST(request: NextRequest) {
       await fs.mkdir(path.dirname(outputResolved.path), { recursive: true });
       const { listPath, tempDir } = await writeTarList(inputs);
       try {
-        await execFileAsync("tar", ["-czf", outputResolved.path, "-C", node.basePath, "--null", "-T", listPath], {
+        await execFileAsync(resolveLocalTarBinary(), ["-czf", outputResolved.path, "-C", node.basePath, "--null", "-T", listPath], {
           maxBuffer: 10 * 1024 * 1024,
           timeout: 120_000,
         });

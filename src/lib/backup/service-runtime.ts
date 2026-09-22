@@ -1,4 +1,5 @@
 import { apiCopy } from "@/lib/i18n/api-copy";
+import { resolveLocalTarBinary } from "@/lib/runtime/tar-binary";
 /**
  * Backup service — execution / orchestration layer (R28 god-file split).
  *
@@ -389,7 +390,7 @@ export async function drillBackupRecord(input: { id: string; projectRoot?: strin
 		// GNU tar treats the next token after -f as the archive name, so
 		// `tar -tzf -- "$path"` opens an archive literally named `--`.
 		// Path is already constrained by resolveBackupPath (portable under backups/).
-			await runBackupCommand({ file: "tar", args: ["-tzf", backupPath], options: { cwd: projectRoot, timeout: 10 * 60 * 1000 } });
+			await runBackupCommand({ file: resolveLocalTarBinary(), args: ["-tzf", backupPath], options: { cwd: projectRoot, timeout: 10 * 60 * 1000 } });
 			checks.push({ name: "archive-index", status: "passed", detail: "tar archive index parsed without extraction" });
 			if (record.type === "FULL") {
 				// Extract the embedded dump to a staging file and verify it with Node
@@ -397,7 +398,7 @@ export async function drillBackupRecord(input: { id: string; projectRoot?: strin
 				const staging = await mkdtemp(join(tmpdir(), "vch-drill-"));
 				try {
 					await runBackupCommand({
-						file: "tar",
+						file: resolveLocalTarBinary(),
 						args: ["-xzf", backupPath, "-C", staging, "database.sql.gz"],
 						options: { cwd: projectRoot, timeout: 10 * 60 * 1000 },
 					});

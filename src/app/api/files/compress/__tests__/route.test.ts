@@ -2,6 +2,7 @@ import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { execFile } from "node:child_process";
+import { resolveLocalTarBinary } from "@/lib/runtime/tar-binary";
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -103,7 +104,7 @@ describe("POST /api/files/compress", () => {
 
     const archivePath = path.join(tempDir, "docs", "selected.tar.gz");
     await new Promise<void>((resolve, reject) => {
-      execFile("tar", ["-tzf", archivePath], (error, stdout) => {
+      execFile(resolveLocalTarBinary(), ["-tzf", archivePath], (error, stdout) => {
         if (error) return reject(error);
         expect(stdout).toContain("docs/a.txt");
         expect(stdout).toContain("docs/b.txt");
