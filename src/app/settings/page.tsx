@@ -3,6 +3,7 @@ import { sessionHasPermission } from "@/lib/auth/authorization";
 import { getAllSettings, getSettingUpdateMetadata } from "@/lib/settings/service";
 import { getRuntimeSettingSummaries } from "@/lib/runtime-settings/service";
 import { getAvailableDefaultPageOptions } from "@/lib/preferences/user-preferences";
+import { isPlatformAdmin as checkPlatformAdmin } from "@/lib/system/platform-admin";
 
 import { UnifiedSettingsPageClient } from "./unified-settings-page-client";
 import { PageShell } from "@/components/page-shell";
@@ -47,7 +48,7 @@ export default async function SettingsPage() {
 	// Config import, cross-team export and secret-bearing export are reserved for
 	// the built-in admin role — `user:manage` can also arrive as a direct grant,
 	// and the API refuses those callers (see lib/system/platform-admin.ts).
-	const isPlatformAdmin = session.roles.includes("admin");
+	const isPlatformAdmin = checkPlatformAdmin(session);
 	// Team workspaces authorize per workspace, not via the admin-only `user:manage`
 	// gate that guards the rest of this page.
 	const teamCapabilities = {

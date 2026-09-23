@@ -6,6 +6,7 @@ const { prismaMock, listRemoteDirectoryMock } = vi.hoisted(() => ({
       findFirst: vi.fn(),
       findMany: vi.fn(),
       create: vi.fn(),
+      createMany: vi.fn(),
       update: vi.fn(),
       updateMany: vi.fn(),
     },
@@ -101,9 +102,8 @@ describe("sftp sync service", () => {
       { name: "logs", longname: "drwxr-xr-x logs", type: "directory", size: 4096, modifyTime: 1, accessTime: 1 },
       { name: "demo.mp4", longname: "-rw-r--r-- demo.mp4", type: "file", size: 1024, modifyTime: 1, accessTime: 1 },
     ]);
-    prismaMock.fileEntry.findFirst.mockResolvedValue(null);
     prismaMock.fileEntry.findMany.mockResolvedValue([]);
-    prismaMock.fileEntry.create.mockResolvedValue({});
+    prismaMock.fileEntry.createMany.mockResolvedValue({ count: 2 });
     prismaMock.fileEntry.updateMany.mockResolvedValue({ count: 0 });
 
     const result = await syncSftpDirectoryEntries({ node, recursive: false, maxDepth: 1 });
@@ -120,27 +120,80 @@ describe("sftp sync service", () => {
         remotePath: "/data/files",
       }),
     );
-    expect(prismaMock.fileEntry.create).toHaveBeenCalledWith({
-      data: {
-        storageNodeId: "node_1",
-        name: "logs",
-        entryType: "DIRECTORY",
-        mimeType: "inode/directory",
-        size: null,
-        isDeleted: false,
-        relativePath: "logs",
-      },
+    // One batched insert replaces one `create` per remote entry.
+    expect(prismaMock.fileEntry.createMany).toHaveBeenCalledTimes(1);
+    expect(prismaMock.fileEntry.createMany).toHaveBeenCalledWith({
+      data: [
+        {
+          storageNodeId: "node_1",
+          name: "logs",
+          entryType: "DIRECTORY",
+          mimeType: "inode/directory",
+          size: null,
+          isDeleted: false,
+          relativePath: "logs",
+        },
+        {
+          storageNodeId: "node_1",
+          name: "demo.mp4",
+          entryType: "FILE",
+          mimeType: "video/mp4",
+          size: BigInt(1024),
+          isDeleted: false,
+          relativePath: "demo.mp4",
+        },
+      ],
+      skipDuplicates: true,
     });
-    expect(prismaMock.fileEntry.create).toHaveBeenCalledWith({
-      data: {
-        storageNodeId: "node_1",
-        name: "demo.mp4",
-        entryType: "FILE",
-        mimeType: "video/mp4",
-        size: BigInt(1024),
-        isDeleted: false,
-        relativePath: "demo.mp4",
+  });
+
+  it("indexes a whole listing with one lookup per batch and writes nothing when unchanged", async () => {
+    vi.clearAllMocks();
+    const node = {
+      id: "node_batch",
+      name: "remote",
+      driver: "SFTP",
+      basePath: "/data/files",
+      host: null,
+      port: null,
+      username: null,
+      hostKeySha256: null,
+      server: {
+        id: "srv_batch",
+        host: "203.0.113.20",
+        port: 22,
+        username: "root",
+        connectionType: "PASSWORD",
+        managementMode: "DIRECT",
+        password: "secret",
+        hostKeySha256: null,
+        sshKey: null,
       },
+    } as const;
+
+    listRemoteDirectoryMock.mockResolvedValueOnce([
+      { name: "a.txt", longname: "-rw-r--r-- a.txt", type: "file", size: 10, modifyTime: 1, accessTime: 1 },
+      { name: "b.txt", longname: "-rw-r--r-- b.txt", type: "file", size: 20, modifyTime: 1, accessTime: 1 },
+      { name: "c.txt", longname: "-rw-r--r-- c.txt", type: "file", size: 30, modifyTime: 1, accessTime: 1 },
+    ]);
+    prismaMock.fileEntry.findMany.mockResolvedValue([
+      { id: "a", relativePath: "a.txt", isDeleted: false, name: "a.txt", entryType: "FILE", mimeType: "text/plain", size: BigInt(10) },
+      { id: "b", relativePath: "b.txt", isDeleted: false, name: "b.txt", entryType: "FILE", mimeType: "text/plain", size: BigInt(20) },
+      { id: "c", relativePath: "c.txt", isDeleted: false, name: "c.txt", entryType: "FILE", mimeType: "text/plain", size: BigInt(99) },
+    ]);
+    prismaMock.fileEntry.updateMany.mockResolvedValue({ count: 1 });
+
+    const result = await syncSftpDirectoryEntries({ node, recursive: false });
+
+    expect(result).toEqual({ synced: 3, created: 0, updated: 1, deleted: 0, errors: [] });
+    // Index lookup + prune only: no per-entry lookups, no inserts.
+    expect(prismaMock.fileEntry.findMany).toHaveBeenCalledTimes(2);
+    expect(prismaMock.fileEntry.createMany).not.toHaveBeenCalled();
+    // Only c.txt actually changed — a and b are left untouched.
+    expect(prismaMock.fileEntry.updateMany).toHaveBeenCalledTimes(1);
+    expect(prismaMock.fileEntry.updateMany).toHaveBeenCalledWith({
+      where: { id: "c", isDeleted: false },
+      data: expect.objectContaining({ name: "c.txt", size: BigInt(30) }),
     });
   });
 
@@ -210,14 +263,16 @@ describe("sftp sync service", () => {
 	listRemoteDirectoryMock.mockResolvedValueOnce([
 	  { name: "deleted.txt", longname: "-rw-r--r-- deleted.txt", type: "file", size: 12, modifyTime: 1, accessTime: 1 },
 	]);
-	prismaMock.fileEntry.findFirst.mockResolvedValueOnce({ id: "deleted_1", isDeleted: true });
-	prismaMock.fileEntry.findMany.mockResolvedValue([]);
+	prismaMock.fileEntry.findMany.mockResolvedValueOnce([
+	  { id: "deleted_1", relativePath: "deleted.txt", isDeleted: true, name: "deleted.txt", entryType: "FILE", mimeType: "text/plain", size: BigInt(12) },
+	]);
 	prismaMock.fileEntry.updateMany.mockResolvedValue({ count: 0 });
 
 	const result = await syncSftpDirectoryEntries({ node });
 
 	expect(result).toEqual({ synced: 1, created: 0, updated: 0, deleted: 0, errors: [] });
 	expect(prismaMock.fileEntry.update).not.toHaveBeenCalled();
+	expect(prismaMock.fileEntry.createMany).not.toHaveBeenCalled();
   });
 
   it("marks stale entries under the synced directory as deleted", async () => {
@@ -246,14 +301,17 @@ describe("sftp sync service", () => {
     listRemoteDirectoryMock.mockResolvedValueOnce([
       { name: "live.txt", longname: "-rw-r--r-- live.txt", type: "file", size: 11, modifyTime: 1, accessTime: 1 },
     ]);
-    prismaMock.fileEntry.findFirst.mockResolvedValue(null);
-    prismaMock.fileEntry.findMany.mockResolvedValue([
-      { id: "stale_1", relativePath: "team-a/old.txt" },
-      { id: "live_1", relativePath: "team-a/live.txt" },
-      { id: "nested_1", relativePath: "team-a/sub/keep.txt" },
-      { id: "outside_1", relativePath: "other/old.txt" },
-    ]);
-    prismaMock.fileEntry.create.mockResolvedValue({});
+    // First call indexes the listing (nothing known yet), second prunes.
+    prismaMock.fileEntry
+      .findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        { id: "stale_1", relativePath: "team-a/old.txt" },
+        { id: "live_1", relativePath: "team-a/live.txt" },
+        { id: "nested_1", relativePath: "team-a/sub/keep.txt" },
+        { id: "outside_1", relativePath: "other/old.txt" },
+      ]);
+    prismaMock.fileEntry.createMany.mockResolvedValue({ count: 1 });
     prismaMock.fileEntry.updateMany.mockResolvedValue({ count: 1 });
 
     const result = await syncSftpDirectoryEntries({ node, remotePath: "team-a", recursive: false });

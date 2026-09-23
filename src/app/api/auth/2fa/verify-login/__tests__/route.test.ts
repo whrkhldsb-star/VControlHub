@@ -47,7 +47,6 @@ vi.mock("@/lib/audit/service", () => ({
 }));
 vi.mock("@/lib/rate-limit", () => ({
 	LOGIN_RATE_LIMIT: { windowMs: 1, max: 5 },
-	checkRateLimit: checkRateLimitMock,
 	checkRateLimitAsync: checkRateLimitMock,
 	getClientIp: getClientIpMock,
 }));

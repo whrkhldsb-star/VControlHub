@@ -6,6 +6,7 @@ import { auditUserAction } from "@/lib/audit/service";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
+import { buildContentDisposition } from "@/lib/http/content-disposition";
 import { buildZip } from "@/lib/deploy-export/zip";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 
@@ -96,7 +97,9 @@ export async function GET(
         headers: {
           "content-type": "application/zip",
           "content-length": String(zip.length),
-          "content-disposition": `attachment; filename="${exportNameFor(record)}"`,
+          // `slug` comes from the stored manifest / export name, i.e. user
+          // controlled — a raw quote or CR/LF there is header injection.
+          "content-disposition": buildContentDisposition("attachment", exportNameFor(record)),
           "cache-control": "no-store",
         },
       });

@@ -38,7 +38,11 @@ type JobTaskRow = Job & {
   creator?: { username: string; displayName: string | null } | null;
   _count?: { events: number };
 };
-type CommandTaskRow = Prisma.CommandRequestGetPayload<{ include: { requester: { select: { username: true; displayName: true } }; targets: { select: { stdout: true; stderr: true; status: true; finishedAt: true; startedAt: true }; take: 2; orderBy: { finishedAt: "desc" } }; executionLogs: { select: { summary: true; createdAt: true }; take: 2; orderBy: { createdAt: "desc" } } } }>;
+// Output columns are deliberately NOT selected here: stdout/stderr are capped
+// at 256 KB each by the command output limit, and a page of 200 requests used
+// to drag ~200 MB out of Postgres for a three-line preview. The bounded tails
+// are fetched separately by `fetchTargetOutputTails`.
+type CommandTaskRow = Prisma.CommandRequestGetPayload<{ include: { requester: { select: { username: true; displayName: true } }; targets: { select: { id: true; status: true; finishedAt: true; startedAt: true }; take: 2; orderBy: { finishedAt: "desc" } }; executionLogs: { select: { summary: true; createdAt: true }; take: 2; orderBy: { createdAt: "desc" } } } }>;
 type ScheduledTaskRow = Prisma.ScheduledTaskGetPayload<{ include: { creator: { select: { username: true; displayName: true } } } }>;
 type DownloadTaskRow = Prisma.DownloadTaskGetPayload<{ include: { creator: { select: { username: true; displayName: true } } } }>;
 type SyncJobTaskRow = Prisma.SyncJobGetPayload<{ include: { creator: { select: { username: true; displayName: true } } } }>;
@@ -74,6 +78,44 @@ function formatWorkerProgress(input: { workerId?: string | null; workerHeartbeat
   const heartbeat = input.workerHeartbeatAt ?? input.updatedAt;
   const heartbeatText = heartbeat ? `heartbeat ${new Date(heartbeat).toISOString()}` : "heartbeat unknown";
   return `backend executor ${input.workerId ?? "unknown"} · ${heartbeatText}`;
+}
+
+/**
+ * Characters of stdout/stderr kept per target for the list preview. The list
+ * shows the last three trimmed lines capped at 180 chars each, so ~1 KB of tail
+ * is plenty while still being 250× smaller than a full output column.
+ */
+const COMMAND_OUTPUT_TAIL_CHARS = 1_024;
+
+type OutputTail = { stdout: string | null; stderr: string | null };
+
+/**
+ * Bounded tails of command output for the task list.
+ *
+ * Selecting `stdout`/`stderr` inline meant every list load transferred up to
+ * 256 KB × 2 columns × 2 targets per request row — tens of MB per page for a
+ * three-line preview. `right()` trims the transfer in SQL without a schema
+ * change. Best effort by design: if the raw read is unavailable the preview
+ * simply falls back to execution logs and worker progress.
+ */
+async function fetchTargetOutputTails(ids: string[]): Promise<Map<string, OutputTail>> {
+  const tails = new Map<string, OutputTail>();
+  if (ids.length === 0) return tails;
+  try {
+    const rows = await prisma.$queryRaw<Array<{ id: string; stdout: string | null; stderr: string | null }>>(
+      Prisma.sql`
+        SELECT id,
+               right(coalesce(stdout, ''), ${COMMAND_OUTPUT_TAIL_CHARS}::int) AS stdout,
+               right(coalesce(stderr, ''), ${COMMAND_OUTPUT_TAIL_CHARS}::int) AS stderr
+        FROM command_targets
+        WHERE id = ANY(${ids}::text[])
+      `,
+    );
+    for (const row of rows) tails.set(row.id, { stdout: row.stdout, stderr: row.stderr });
+  } catch {
+    // Preview enrichment only — never fail the whole list over it.
+  }
+  return tails;
 }
 
 function compactLogPreview(parts: Array<string | null | undefined>) {
@@ -234,7 +276,7 @@ export async function listOperationTaskResult(options: OperationTaskListOptions,
   };
   const [jobs, commands, scheduled, downloads, syncJobs, backups, deployments] = await Promise.all([
     prisma.job.findMany({ where: scopedWhere("createdBy"), take: limit, orderBy: { createdAt: "desc" }, include: { creator: { select: { username: true, displayName: true } }, _count: { select: { events: true } } } }),
-    prisma.commandRequest.findMany({ where: scopedWhere("requesterId"), take: limit, orderBy: { createdAt: "desc" }, include: { requester: { select: { username: true, displayName: true } }, targets: { take: 2, orderBy: { finishedAt: "desc" }, select: { stdout: true, stderr: true, status: true, finishedAt: true, startedAt: true } }, executionLogs: { take: 2, orderBy: { createdAt: "desc" }, select: { summary: true, createdAt: true } } } }),
+    prisma.commandRequest.findMany({ where: scopedWhere("requesterId"), take: limit, orderBy: { createdAt: "desc" }, include: { requester: { select: { username: true, displayName: true } }, targets: { take: 2, orderBy: { finishedAt: "desc" }, select: { id: true, status: true, finishedAt: true, startedAt: true } }, executionLogs: { take: 2, orderBy: { createdAt: "desc" }, select: { summary: true, createdAt: true } } } }),
     prisma.scheduledTask.findMany({ where: scopedWhere("createdById"), take: limit, orderBy: { createdAt: "desc" }, include: { creator: { select: { username: true, displayName: true } } } }),
     prisma.downloadTask.findMany({ where: scopedWhere("createdBy"), take: limit, orderBy: { createdAt: "desc" }, include: { creator: { select: { username: true, displayName: true } } } }),
     prisma.syncJob.findMany({ where: scopedWhere("createdBy"), take: limit, orderBy: { createdAt: "desc" }, include: { creator: { select: { username: true, displayName: true } } } }),
@@ -242,9 +284,13 @@ export async function listOperationTaskResult(options: OperationTaskListOptions,
     prisma.deploymentRun.findMany({ where: scopedWhere("createdBy"), take: limit, orderBy: { createdAt: "desc" }, include: { creator: { select: { username: true, displayName: true } }, template: { select: { name: true } }, commandRequest: { select: { status: true, workerId: true, workerHeartbeatAt: true, updatedAt: true } } } }),
   ]);
 
+  const targetOutputTails = await fetchTargetOutputTails(
+    commands.flatMap((item) => (item.targets ?? []).map((target) => target.id)),
+  );
+
   const tasks: OperationTask[] = [
     ...jobs.map((item: JobTaskRow) => ({ id: `job:${item.id}`, source: "job" as const, sourceId: item.id, title: item.title, status: mapOperationStatus(item.status), createdAt: toIso(item.createdAt), updatedAt: toIso(item.updatedAt), actor: actorName(item.creator), progress: item.progress ?? item.errorMessage, logPreview: compactLogPreview([item.progress, item.errorMessage]), workerId: item.workerId, workerHeartbeatAt: item.workerHeartbeatAt ? toIso(item.workerHeartbeatAt) : null, taskType: item.type, eventCount: item._count?.events ?? 0 })),
-    ...commands.map((item: CommandTaskRow) => ({ id: `command:${item.id}`, source: "command" as const, sourceId: item.id, title: item.title, status: mapOperationStatus(item.status), createdAt: toIso(item.createdAt), updatedAt: toIso(item.updatedAt), actor: actorName(item.requester), progress: formatWorkerProgress(item), logPreview: compactLogPreview([(item.executionLogs ?? []).map((log) => log.summary).join("\n"), (item.targets ?? []).map((target) => [target.stdout, target.stderr].filter(Boolean).join("\n")).join("\n"), formatWorkerProgress(item)]), workerId: item.workerId, workerHeartbeatAt: item.workerHeartbeatAt ? toIso(item.workerHeartbeatAt) : null, href: "/requests" })),
+    ...commands.map((item: CommandTaskRow) => ({ id: `command:${item.id}`, source: "command" as const, sourceId: item.id, title: item.title, status: mapOperationStatus(item.status), createdAt: toIso(item.createdAt), updatedAt: toIso(item.updatedAt), actor: actorName(item.requester), progress: formatWorkerProgress(item), logPreview: compactLogPreview([(item.executionLogs ?? []).map((log) => log.summary).join("\n"), (item.targets ?? []).map((target) => { const tail = targetOutputTails.get(target.id); return [tail?.stdout, tail?.stderr].filter(Boolean).join("\n"); }).join("\n"), formatWorkerProgress(item)]), workerId: item.workerId, workerHeartbeatAt: item.workerHeartbeatAt ? toIso(item.workerHeartbeatAt) : null, href: "/requests" })),
     ...scheduled.map((item: ScheduledTaskRow) => ({ id: `scheduled:${item.id}`, source: "scheduled" as const, sourceId: item.id, title: item.name, status: mapOperationStatus(item.status), createdAt: toIso(item.createdAt), updatedAt: toIso(item.updatedAt), actor: actorName(item.creator), progress: item.lastResult, logPreview: compactLogPreview([item.lastResult]), href: "/scheduled-tasks" })),
     ...downloads.map((item: DownloadTaskRow) => ({ id: `download:${item.id}`, source: "download" as const, sourceId: item.id, title: item.fileName || item.url, status: mapOperationStatus(item.status), createdAt: toIso(item.createdAt), updatedAt: toIso(item.updatedAt), actor: actorName(item.creator), progress: item.progress, logPreview: compactLogPreview([item.progress, item.targetPath]), href: "/downloads" })),
     ...syncJobs.map((item: SyncJobTaskRow) => ({ id: `sync:${item.id}`, source: "sync" as const, sourceId: item.id, title: item.name, status: mapOperationStatus(item.status), createdAt: toIso(item.createdAt), updatedAt: toIso(item.updatedAt), actor: actorName(item.creator), progress: item.lastSyncResult, logPreview: compactLogPreview([item.lastSyncResult]), href: "/files" })),

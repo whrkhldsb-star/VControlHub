@@ -2,7 +2,11 @@ import { auditUserAction } from "@/lib/audit/service";
 import crypto from "node:crypto";
 import type { SessionPayload } from "@/lib/auth/session";
 import { teamWhere } from "@/lib/auth/team-scope";
-import { assertStorageAccess } from "@/lib/storage/access-control";
+import {
+  assertStorageAccess,
+  getStorageAccessCapabilities,
+  getStorageAccessCapabilityKey,
+} from "@/lib/storage/access-control";
 import { prisma } from "@/lib/db";
 import { serviceT } from "@/lib/i18n/service-locale";
 import type { Locale } from "@/lib/i18n/core";
@@ -121,9 +125,25 @@ export async function executeDeleteFile(
     if (entry.entryType === "DIRECTORY") {
       const descendants = await prisma.fileEntry.findMany({ where: { storageNodeId: entry.storageNodeId, relativePath: { startsWith: `${entry.relativePath}/` }, isDeleted: false }, select: { relativePath: true }, take: 10001 });
       if (descendants.length > 10000) throw new Error("Directory has more than 10000 children; split the deletion");
+      // Authorize every descendant in ONE batched check instead of one
+      // `assertStorageAccess` round-trip per child — that loop ran up to 10k
+      // queries (node lookup + paged grants each) for a single delete and was
+      // the slowest write path in the file manager.
+      const capabilities = await getStorageAccessCapabilities({
+        session,
+        targets: descendants.map((child) => ({
+          storageNodeId: entry.storageNodeId,
+          relativePath: child.relativePath,
+        })),
+      });
       for (const child of descendants) {
-        const access = await assertStorageAccess({ session, storageNodeId: entry.storageNodeId, relativePath: child.relativePath, operation: "delete" });
-        if (!access.allowed) throw new Error(access.reason ?? t("storagePage.action.fileEntryNotFound"));
+        const key = getStorageAccessCapabilityKey({
+          storageNodeId: entry.storageNodeId,
+          relativePath: child.relativePath,
+        });
+        if (key && capabilities.get(key)?.canDelete === false) {
+          throw new Error(t("storagePage.action.fileEntryNotFound"));
+        }
       }
     }
 

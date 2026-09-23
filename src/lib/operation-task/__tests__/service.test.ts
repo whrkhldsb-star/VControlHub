@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 
 const { mockPrisma } = vi.hoisted(() => ({
   mockPrisma: {
+    $queryRaw: vi.fn(),
     job: { findMany: vi.fn() },
     commandRequest: { findMany: vi.fn() },
     scheduledTask: { findMany: vi.fn() },
@@ -67,6 +68,7 @@ describe("operation task service", () => {
     mockPrisma.syncJob.findMany.mockResolvedValue([]);
     mockPrisma.backupRecord.findMany.mockResolvedValue([]);
     mockPrisma.deploymentRun.findMany.mockResolvedValue([]);
+    mockPrisma.$queryRaw.mockResolvedValue([]);
   });
 
   it("aggregates durable jobs with existing command/download/sync/scheduled jobs into a unified recent task list", async () => {
@@ -368,10 +370,13 @@ describe("operation task service", () => {
         workerHeartbeatAt: new Date("2026-01-04T00:01:00Z"),
         requester: { username: "ops", displayName: null },
         executionLogs: [{ summary: "Execution started" }, { summary: "Target returned error" }],
-        targets: [{ stdout: "line 1\nline 2", stderr: "fatal: service unavailable" }],
+        targets: [{ id: "tgt_1", status: "FAILED" }],
       },
     ]);
     mockPrisma.downloadTask.findMany.mockResolvedValue([]);
+    mockPrisma.$queryRaw.mockResolvedValueOnce([
+      { id: "tgt_1", stdout: "line 1\nline 2", stderr: "fatal: service unavailable" },
+    ]);
 
     const tasks = await listTasks({ limit: 10 });
 
@@ -379,6 +384,12 @@ describe("operation task service", () => {
       id: "command:cmd_logs",
       logPreview: ["line 2", "fatal: service unavailable", expect.stringMatching(/backend executor worker-command/)],
     });
+    // The preview must not drag the full output columns out of Postgres.
+    const commandQuery = mockPrisma.commandRequest.findMany.mock.calls.at(-1)?.[0] as {
+      include?: { targets?: { select?: Record<string, unknown> } };
+    };
+    expect(commandQuery.include?.targets?.select).not.toHaveProperty("stdout");
+    expect(commandQuery.include?.targets?.select).not.toHaveProperty("stderr");
   });
 
   it("maps active deployment command requests as running operation tasks", async () => {

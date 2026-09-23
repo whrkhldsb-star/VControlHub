@@ -15,10 +15,11 @@ const mocks = vi.hoisted(() => ({
   userFindFirst: vi.fn(),
 }));
 
-vi.mock("@/lib/rate-limit", () => ({
+// Keep the real `getClientIp` — the IP bucket is the whole point of the
+// per-IP limit below, and it is now proxy-aware (reads N hops from the right).
+vi.mock("@/lib/rate-limit", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/rate-limit")>()),
   checkRateLimitAsync: mocks.checkRateLimitAsync,
-  getClientIp: (request: Request) =>
-    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown",
 }));
 vi.mock("@/lib/db", () => ({
   prisma: {

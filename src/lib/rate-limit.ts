@@ -4,18 +4,13 @@
  * `checkRateLimitAsync` is the one to use: it delegates to the shared rate-limit
  * store, so it limits across instances when REDIS_URL is configured.
  *
- * `checkRateLimit` is the legacy synchronous in-memory variant. Its counters are
- * per process, which means N app instances allow N× the configured budget — do
- * not use it on anything reachable without a session. It currently has no
- * callers in `src/` and is kept only because the module is public API; prefer
- * deleting it over adding a caller.
+ * There is deliberately no synchronous in-memory variant any more: its counters
+ * were per process, so N app instances allowed N× the configured budget. All
+ * callers use the shared store.
  */
 
+import { config } from "@/lib/config/env";
 import { getRateLimitStore } from "@/lib/rate-limit-store";
-
-type RateLimitEntry = {
-  timestamps: number[];
-};
 
 type RateLimitConfig = {
   /** Max requests allowed within the window */
@@ -28,50 +23,6 @@ const DEFAULT_CONFIG: RateLimitConfig = {
   maxRequests: 10,
   windowMs: 60 * 1000, // 1 minute
 };
-
-const store = new Map<string, RateLimitEntry>();
-
-// Clean up stale entries every 5 minutes
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, entry] of store) {
-    const recent = entry.timestamps.filter((t) => now - t < DEFAULT_CONFIG.windowMs);
-    if (recent.length === 0) {
-      store.delete(key);
-    } else {
-      entry.timestamps = recent;
-    }
-  }
-}, 5 * 60 * 1000);
-
-/**
- * Check if a request from the given identifier should be allowed.
- * Returns { allowed: boolean, retryAfterMs: number }
- */
-export function checkRateLimit(
-  identifier: string,
-  config: RateLimitConfig = DEFAULT_CONFIG,
-): { allowed: boolean; retryAfterMs: number; remaining: number } {
-  const now = Date.now();
-  let entry = store.get(identifier);
-
-  if (!entry) {
-    entry = { timestamps: [] };
-    store.set(identifier, entry);
-  }
-
-  // Filter to only timestamps within the window
-  entry.timestamps = entry.timestamps.filter((t) => now - t < config.windowMs);
-
-  if (entry.timestamps.length >= config.maxRequests) {
-    const oldestInWindow = entry.timestamps[0]!;
-    const retryAfterMs = oldestInWindow + config.windowMs - now;
-    return { allowed: false, retryAfterMs: Math.max(retryAfterMs, 0), remaining: 0 };
-  }
-
-  entry.timestamps.push(now);
-  return { allowed: true, retryAfterMs: 0, remaining: config.maxRequests - entry.timestamps.length };
-}
 
 export async function checkRateLimitAsync(
   identifier: string,
@@ -91,14 +42,62 @@ export async function checkRateLimitAsync(
   return { allowed: true, retryAfterMs: 0, remaining: Math.max(config.maxRequests - timestamps.length, 0) };
 }
 
-/** Extract client IP from request headers (handles Cloudflare/proxy) */
+/**
+ * Extract the client IP for rate-limit buckets and audit records.
+ *
+ * Forwarded headers are only trusted when the deployment declares how many
+ * proxies sit in front of the app (`TRUSTED_PROXY_HOPS`, default 1 for the
+ * shipped Caddy reverse_proxy). Reading the *leftmost* X-Forwarded-For entry
+ * (the historical behaviour) is spoofable: a reverse proxy appends the peer
+ * address, so the leftmost entry is whatever the client chose to send, letting
+ * one attacker rotate a fresh rate-limit bucket per request and disable every
+ * IP-scoped limit (share-link password throttling, login throttling) while
+ * poisoning audit IPs. Walk `hops` entries from the right instead.
+ *
+ * Returns "unknown" when no trusted header is present — callers already treat
+ * that as a shared bucket, which is safe (conservative), unlike a spoofed one.
+ */
 export function getClientIp(request: Request): string {
-  return (
-    request.headers.get("cf-connecting-ip") ??
-    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    request.headers.get("x-real-ip") ??
-    "unknown"
-  );
+  const hops = config.http.trustedProxyHops;
+  if (hops <= 0) return "unknown";
+
+  if (config.http.trustCloudflareHeader) {
+    const cfIp = normalizeClientIp(request.headers.get("cf-connecting-ip") ?? "");
+    if (cfIp) return cfIp;
+  }
+
+  const forwardedFor = request.headers.get("x-forwarded-for");
+  if (forwardedFor) {
+    const entries = forwardedFor
+      .split(",")
+      .map((entry) => normalizeClientIp(entry))
+      .filter((entry): entry is string => entry !== null);
+    // Rightmost entry is contributed by the nearest trusted proxy.
+    const candidate = entries[entries.length - hops];
+    if (candidate) return candidate;
+  }
+  return "unknown";
+}
+
+/**
+ * Trim, strip a trailing port and bound the length. The value lands in
+ * rate-limit store keys and audit rows, so an attacker-supplied header must not
+ * be able to inject unbounded or multi-line data.
+ */
+function normalizeClientIp(raw: string): string | null {
+  let candidate = raw.trim();
+  if (!candidate) return null;
+  if (candidate.startsWith("[")) {
+    // "[2001:db8::1]:443" → "2001:db8::1"
+    const close = candidate.indexOf("]");
+    if (close > 0) candidate = candidate.slice(1, close);
+  } else if (candidate.split(":").length === 2) {
+    // "203.0.113.10:54321" → "203.0.113.10"
+    candidate = candidate.slice(0, candidate.lastIndexOf(":"));
+  }
+  candidate = candidate.trim();
+  if (!candidate || candidate.length > 64 || /[\r\n\s]/.test(candidate)) return null;
+  return candidate;
 }
 
 /** Login-specific rate limit: 5 attempts per minute per IP */

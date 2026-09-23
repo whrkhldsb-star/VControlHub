@@ -37,6 +37,7 @@ import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
 import { BusinessError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import { createLogger } from "@/lib/logging";
+import { isPlatformAdmin } from "@/lib/system/platform-admin";
 
 import { t } from "@/lib/i18n/service-translations";
 import {
@@ -326,7 +327,10 @@ function assertMigrationTeamAccess(
   manifest: MigrationManifest,
   session?: MigrationSession | null,
 ) {
-  if (!session || session.roles.includes("admin")) return;
+  // A platform admin may open any package; everyone else is held to the
+  // team stamp. Go through the shared helper so the definition of "platform
+  // admin" stays in one place (it must never be a direct permission grant).
+  if (!session || isPlatformAdmin(session)) return;
   const sourceTeamId = manifest.source?.teamId ?? null;
   // Legacy null-team packages follow the existing shared backup policy. A
   // stamped package is visible only from the matching current team.

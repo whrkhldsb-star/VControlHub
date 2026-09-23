@@ -7,9 +7,36 @@ import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { collectAllHealth, getMetricHistory } from "@/lib/health/service";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
 import type { SessionPayload } from "@/lib/auth/session";
+import { config } from "@/lib/config/env";
+import { createSingleFlight } from "@/lib/concurrency/single-flight";
+import type { HealthOverview } from "@/lib/health/service-types";
 
 import { apiError } from "@/lib/http/api-error";
 export const dynamic = "force-dynamic";
+
+/**
+ * One health sweep opens a TCP probe + SSH session per managed server. With N
+ * dashboard tabs polling on their own interval, N sweeps ran concurrently —
+ * a fleet of 50 servers behind 10 tabs meant 500 SSH sessions per tick.
+ * Single-flight collapses concurrent callers onto one sweep and reuses its
+ * result for a short TTL; failures are never cached, so a broken sweep does
+ * not stick.
+ *
+ * Keys are per user + team + role set, so a cached overview can never be
+ * served to a caller with different visibility.
+ */
+const healthOverviewFlight = createSingleFlight<HealthOverview>({
+	ttlMs: () => config.health.overviewCacheTtlMs,
+	maxKeys: 128,
+});
+
+function healthOverviewKey(session: SessionPayload): string {
+	return [
+		session.userId,
+		session.currentTeamId ?? "-",
+		[...session.roles].sort().join(","),
+	].join("|");
+}
 
 function parseHistoryHours(value: string | null) {
   const parsed = Number.parseInt(value ?? "24", 10);
@@ -64,6 +91,8 @@ async function handleHealthRequest(request: Request, session: SessionPayload | n
     return apiError({ code: "AUTH_REQUIRED", message: apiCopy("apiCopy.unauthorized.d089c8a9"), status: 401 });
   }
 
-  const overview = await collectAllHealth(session);
+  const overview = await healthOverviewFlight.run(healthOverviewKey(session), () =>
+    collectAllHealth(session),
+  );
   return NextResponse.json(overview);
 }

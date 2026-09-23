@@ -205,6 +205,44 @@ export const config = {
 		get publicQuickServiceHost(): string | undefined { return readOptionalString("NEXT_PUBLIC_QUICK_SERVICE_PUBLIC_HOST"); },
 	},
 
+	/** Client-IP trust for rate-limit buckets and audit IPs. */
+	http: {
+		/**
+		 * Number of trusted reverse proxies in front of the app that append to
+		 * X-Forwarded-For. 0 = trust no forwarded header (app directly exposed);
+		 * 1 = the shipped Caddy reverse_proxy deployment. The client IP is read
+		 * `hops` entries from the RIGHT of the chain, because every proxy
+		 * appends — the leftmost entry is whatever the client sent.
+		 */
+		get trustedProxyHops(): number {
+			const hops = readInt("TRUSTED_PROXY_HOPS", 1);
+			return Math.max(0, Math.min(hops, 8));
+		},
+		/**
+		 * Trust `cf-connecting-ip`. Only enable when the app really sits behind
+		 * Cloudflare; otherwise the header is client-controlled and gives every
+		 * attacker a fresh rate-limit bucket.
+		 */
+		get trustCloudflareHeader(): boolean { return readBool("TRUST_CLOUDFLARE_IP_HEADER", false); },
+	},
+
+	/**
+	 * Health overview collection. One collection = one TCP probe + one SSH
+	 * session per managed server, so it is the single most expensive read in
+	 * the app and must not run per dashboard poll / per open tab.
+	 */
+	health: {
+		/**
+		 * How long a collected overview is reused before a new sweep starts.
+		 * Concurrent pollers inside this window share one collection instead of
+		 * each fanning out over the whole fleet. 0 = dedupe concurrent calls
+		 * only, no reuse (previous behaviour).
+		 */
+		get overviewCacheTtlMs(): number {
+			return Math.max(0, readInt("HEALTH_OVERVIEW_CACHE_TTL_MS", 15_000));
+		},
+	},
+
 	/** Worker poll intervals (command execution, download execution). */
 	worker: {
 		get commandExecutionIntervalMs(): number { return readInt("COMMAND_EXECUTION_INTERVAL_MS", 2_000); },

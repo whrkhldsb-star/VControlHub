@@ -236,6 +236,10 @@ export async function getRuntimeSettingSummaries(): Promise<RuntimeSettingSummar
 
 type RuntimeSettingDelegate = {
   findUnique?: (args: { where: { key: string }; select: { value: true } }) => Promise<{ value: string | null } | null>;
+  findMany?: (args: {
+    where: { key: { in: string[] } };
+    select: { key: true; value: true };
+  }) => Promise<Array<{ key: string; value: string | null }> | null | undefined>;
 };
 
 export async function getRuntimeSettingNumber(key: RuntimeSettingKey): Promise<number> {
@@ -251,16 +255,77 @@ export async function getRuntimeSettingNumber(key: RuntimeSettingKey): Promise<n
   }
 }
 
+/**
+ * Read several settings in ONE query.
+ *
+ * `getCommandRuntimeConfig` used to be four sequential round-trips, and it runs
+ * on every command execution and once per row of the operation-task list —
+ * the cheapest win in the whole runtime-settings layer. Returns null when the
+ * batch read is unavailable so callers keep the per-key behaviour.
+ */
+async function readRuntimeSettingValues(
+  keys: readonly RuntimeSettingKey[],
+): Promise<Map<string, string> | null> {
+  try {
+    const settingDelegate = (prisma as unknown as { setting?: RuntimeSettingDelegate }).setting;
+    if (!settingDelegate?.findMany) return null;
+    const rows = await settingDelegate.findMany({
+      where: { key: { in: [...keys] } },
+      select: { key: true, value: true },
+    });
+    if (!Array.isArray(rows)) return null;
+    const values = new Map<string, string>();
+    for (const row of rows) {
+      if (row?.key && row.value) values.set(row.key, row.value);
+    }
+    return values;
+  } catch {
+    return null;
+  }
+}
+
+function runtimeSettingNumberFrom(key: RuntimeSettingKey, raw: string | undefined): number {
+  if (!raw) return getRuntimeSettingFallback(key);
+  try {
+    const parsed = Number(normalizeRuntimeSettingValue(key, raw));
+    return Number.isFinite(parsed) ? parsed : getRuntimeSettingFallback(key);
+  } catch {
+    return getRuntimeSettingFallback(key);
+  }
+}
+
+/** Batch read of N runtime settings, falling back per key when unavailable. */
+export async function getRuntimeSettingNumbers(
+  keys: readonly RuntimeSettingKey[],
+): Promise<Record<RuntimeSettingKey, number>> {
+  const resolved = {} as Record<RuntimeSettingKey, number>;
+  const values = await readRuntimeSettingValues(keys);
+  if (!values) {
+    await Promise.all(
+      keys.map(async (key) => {
+        resolved[key] = await getRuntimeSettingNumber(key);
+      }),
+    );
+    return resolved;
+  }
+  for (const key of keys) {
+    resolved[key] = runtimeSettingNumberFrom(key, values.get(key));
+  }
+  return resolved;
+}
+
 export async function getCommandRuntimeConfig() {
-  const executionTimeoutMs = await getRuntimeSettingNumber("runtime.commandExecutionTimeoutMs");
-  const outputLimitBytes = await getRuntimeSettingNumber("runtime.commandOutputLimitBytes");
-  const staleRunningAfterMs = await getRuntimeSettingNumber("runtime.commandStaleRunningAfterMs");
-  const executionHeartbeatMs = await getRuntimeSettingNumber("runtime.commandExecutionHeartbeatMs");
+  const values = await getRuntimeSettingNumbers([
+    "runtime.commandExecutionTimeoutMs",
+    "runtime.commandOutputLimitBytes",
+    "runtime.commandStaleRunningAfterMs",
+    "runtime.commandExecutionHeartbeatMs",
+  ]);
   return {
-    executionTimeoutMs,
-    outputLimitBytes,
-    staleRunningAfterMs,
-    executionHeartbeatMs,
+    executionTimeoutMs: values["runtime.commandExecutionTimeoutMs"],
+    outputLimitBytes: values["runtime.commandOutputLimitBytes"],
+    staleRunningAfterMs: values["runtime.commandStaleRunningAfterMs"],
+    executionHeartbeatMs: values["runtime.commandExecutionHeartbeatMs"],
   };
 }
 
@@ -269,8 +334,12 @@ export async function getSftpSyncDirectoryTimeoutMs(): Promise<number> {
 }
 
 export async function getSshTerminalRuntimeConfig() {
-  const wsHeartbeatIntervalMs = await getRuntimeSettingNumber("runtime.sshWsHeartbeatIntervalMs");
-  const sshIdleTimeoutSec = await getRuntimeSettingNumber("runtime.sshIdleTimeoutSec");
+  const values = await getRuntimeSettingNumbers([
+    "runtime.sshWsHeartbeatIntervalMs",
+    "runtime.sshIdleTimeoutSec",
+  ]);
+  const wsHeartbeatIntervalMs = values["runtime.sshWsHeartbeatIntervalMs"];
+  const sshIdleTimeoutSec = values["runtime.sshIdleTimeoutSec"];
   // SSH 空闲超时 0 = 永不(强保活, 60 次容忍 ≈ 30 分钟); 其它值按 30s 间隔计算容忍次数, 最多 60 次。
   // interval 固定 30s, 避免误改既有行为。
   const SSH_KEEPALIVE_INTERVAL_MS = 30_000;

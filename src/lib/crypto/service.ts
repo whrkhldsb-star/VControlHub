@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "crypto";
+import { createCipheriv, createDecipheriv, createHash, randomBytes, scryptSync } from "crypto";
 import { createLogger } from "@/lib/logging";
 import { config } from "@/lib/config/env";
 
@@ -25,8 +25,46 @@ function getPassphrase(): string {
 	return generated;
 }
 
+/**
+ * Derived-key cache.
+ *
+ * scryptSync is ~90ms per call and blocks the *whole* event loop, and the same
+ * ciphertext is decrypted over and over in hot paths: one SSH key shared by N
+ * servers is derived N times per health sweep, and every server-card poll
+ * decrypts the same stored credential again. Caching the derivation (keyed by
+ * passphrase + salt, which is exactly what scrypt depends on) collapses those
+ * repeats to a Map lookup without changing the encryption scheme.
+ *
+ * Bounded LRU: encrypt() uses a fresh random salt per call, so the cache would
+ * otherwise grow without limit under write-heavy workloads.
+ */
+const DERIVED_KEY_CACHE_MAX = 256;
+const derivedKeyCache = new Map<string, Buffer>();
+
+function derivedKeyCacheKey(passphrase: string, salt: Buffer | string): string {
+	// Hash the passphrase so the raw secret is not retained as a Map key.
+	const passphraseDigest = createHash("sha256").update(passphrase).digest("base64");
+	const saltDigest = typeof salt === "string" ? salt : salt.toString("base64");
+	return `${passphraseDigest}:${saltDigest}`;
+}
+
 function deriveKey(passphrase: string, salt: Buffer | string): Buffer {
-	return scryptSync(passphrase, salt, 32);
+	const cacheKey = derivedKeyCacheKey(passphrase, salt);
+	const cached = derivedKeyCache.get(cacheKey);
+	if (cached) {
+		// Re-insert to mark the entry as most-recently used.
+		derivedKeyCache.delete(cacheKey);
+		derivedKeyCache.set(cacheKey, cached);
+		return cached;
+	}
+	const derived = scryptSync(passphrase, salt, 32);
+	derivedKeyCache.set(cacheKey, derived);
+	while (derivedKeyCache.size > DERIVED_KEY_CACHE_MAX) {
+		const oldest = derivedKeyCache.keys().next();
+		if (oldest.done) break;
+		derivedKeyCache.delete(oldest.value);
+	}
+	return derived;
 }
 
 /**

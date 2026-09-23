@@ -37,6 +37,9 @@ const session = { userId: "user_1", username: "viewer", roles: ["viewer"] };
 describe("/api/health", () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    // Route-level single-flight would otherwise reuse a sweep between the
+    // tests below and hide calls the assertions expect.
+    process.env.HEALTH_OVERVIEW_CACHE_TTL_MS = "0";
     requireApiPermissionMock.mockResolvedValue({ session });
     hasBearerAuthorizationMock.mockImplementation(
       (request: Request) => request.headers.has("authorization"),
@@ -218,5 +221,75 @@ describe("/api/health", () => {
     expect(body.message).toBe("Failed to fetch health data");
     expect(body.message).not.toContain("database connection lost");
     expect(body.error).toBe(body.message);
+  });
+});
+
+describe("/api/health single-flight", () => {
+  const overview = { total: 1, online: 1, warning: 0, critical: 0, offline: 0, servers: [] };
+
+  function sessionFor(userId: string) {
+    return { userId, username: userId, roles: ["viewer"] };
+  }
+
+  beforeEach(() => {
+    vi.resetAllMocks();
+    process.env.HEALTH_OVERVIEW_CACHE_TTL_MS = "10000";
+    hasBearerAuthorizationMock.mockImplementation(
+      (request: Request) => request.headers.has("authorization"),
+    );
+    collectAllHealthMock.mockResolvedValue(overview);
+  });
+
+  it("collapses concurrent polls onto a single fleet sweep", async () => {
+    const session = sessionFor("user_concurrent");
+    requireApiPermissionMock.mockResolvedValue({ session });
+    authenticateBearerForPermissionsMock.mockResolvedValue({
+      session,
+      tokenId: "tok_1",
+      scopes: ["health:read"],
+    });
+
+    const [first, second] = await Promise.all([
+      GET(new Request("https://example.com/api/health")),
+      GET(new Request("https://example.com/api/health")),
+    ]);
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect(collectAllHealthMock).toHaveBeenCalledOnce();
+  });
+
+  it("reuses a fresh sweep for subsequent polls inside the TTL", async () => {
+    const session = sessionFor("user_reuse");
+    requireApiPermissionMock.mockResolvedValue({ session });
+
+    await GET(new Request("https://example.com/api/health"));
+    await GET(new Request("https://example.com/api/health"));
+
+    expect(collectAllHealthMock).toHaveBeenCalledOnce();
+  });
+
+  it("never serves one user's overview to another user", async () => {
+    requireApiPermissionMock
+      .mockResolvedValueOnce({ session: sessionFor("user_a") })
+      .mockResolvedValueOnce({ session: sessionFor("user_b") });
+
+    await GET(new Request("https://example.com/api/health"));
+    await GET(new Request("https://example.com/api/health"));
+
+    expect(collectAllHealthMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not cache a failed sweep", async () => {
+    const session = sessionFor("user_failure");
+    requireApiPermissionMock.mockResolvedValue({ session });
+    collectAllHealthMock.mockRejectedValueOnce(new Error("ssh pool exhausted"));
+
+    const failed = await GET(new Request("https://example.com/api/health"));
+    const retried = await GET(new Request("https://example.com/api/health"));
+
+    expect(failed.status).toBe(500);
+    expect(retried.status).toBe(200);
+    expect(collectAllHealthMock).toHaveBeenCalledTimes(2);
   });
 });

@@ -58,6 +58,22 @@ describe("runtime settings", () => {
     });
   });
 
+  it("reads the whole command runtime config in a single query", async () => {
+    prismaMock.setting.findMany.mockResolvedValueOnce([
+      { key: "runtime.commandExecutionTimeoutMs", value: "60000" },
+      { key: "runtime.commandStaleRunningAfterMs", value: "30000" },
+    ]);
+
+    await expect(getCommandRuntimeConfig()).resolves.toMatchObject({
+      executionTimeoutMs: 60000,
+      staleRunningAfterMs: 30000,
+    });
+    expect(prismaMock.setting.findMany).toHaveBeenCalledOnce();
+    expect(prismaMock.setting.findUnique).not.toHaveBeenCalled();
+    // Keys absent from the batch fall back instead of throwing.
+    expect(prismaMock.setting.findMany.mock.calls[0]?.[0]?.where?.key?.in).toHaveLength(4);
+  });
+
   it("rejects out-of-range runtime values", () => {
     expect(() => normalizeRuntimeSettingValue("runtime.commandExecutionTimeoutMs", "1")).toThrow(/must be between/);
   });
