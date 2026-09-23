@@ -1,10 +1,27 @@
-import { execFileSync, type SpawnSyncOptionsWithStringEncoding } from "node:child_process";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { readFileSync, readdirSync, statfsSync } from "node:fs";
 import os from "os";
 
 import { formatBytes } from "@/lib/format/bytes";
 import { readLocalNetworkDeviceStats } from "@/lib/monitoring/local-network";
 import { isWindows } from "@/lib/runtime/platform-paths";
+
+/**
+ * execFile promisified so Windows collectors (PowerShell, netstat) never block
+ * the event loop — /api/monitoring/stats and the SSE stream poll every 5s, and
+ * an execFileSync spawn stalls every concurrent request for the child's whole
+ * runtime. The timeout still kills a hung child; on timeout/failure the
+ * promise rejects and the collector degrades to its empty reading.
+ *
+ * promisify() loses the string-encoding overload, so the utf-8 result shape is
+ * asserted here once instead of at every call site.
+ */
+const execFileText = promisify(execFile) as (
+	file: string,
+	args: readonly string[],
+	options: { encoding: "utf-8"; timeout?: number; windowsHide?: boolean },
+) => Promise<{ stdout: string; stderr: string }>;
 
 /**
  * Upper bound on /proc entries inspected per collection tick. The previous cap
@@ -145,10 +162,9 @@ export function parseProcessStat(
 	};
 }
 
-function topProcesses(): TopProcessRow[] {
+async function topProcesses(): Promise<TopProcessRow[]> {
 	if (isWindows()) return topProcessesWindows();
-	const processes: Array<ProcessStat & { pid: number }> = [];
-	try {
+	const processes: Array<ProcessStat & { pid: number }> = [];	try {
 		const totalMemKb = Math.max(os.totalmem() / 1024, 1);
 		const uptime = os.uptime();
 		const cores = os.cpus().length;
@@ -178,8 +194,8 @@ function topProcesses(): TopProcessRow[] {
 const WINDOWS_STATS_CACHE_TTL_MS = 2_000;
 let windowsProcessCache: { at: number; rows: TopProcessRow[] } | null = null;
 
-const POWERSHELL_SPAWN: SpawnSyncOptionsWithStringEncoding = {
-	encoding: "utf-8",
+const POWERSHELL_SPAWN = {
+	encoding: "utf-8" as const,
 	timeout: 10_000,
 	windowsHide: true,
 };
@@ -190,7 +206,7 @@ const POWERSHELL_SPAWN: SpawnSyncOptionsWithStringEncoding = {
  * Process rows whose StartTime is inaccessible (protected system processes)
  * fall back to the host uptime as the denominator, understating their CPU%.
  */
-function topProcessesWindows(): TopProcessRow[] {
+async function topProcessesWindows(): Promise<TopProcessRow[]> {
 	const now = Date.now();
 	if (windowsProcessCache && now - windowsProcessCache.at < WINDOWS_STATS_CACHE_TTL_MS) {
 		return windowsProcessCache.rows;
@@ -200,7 +216,7 @@ function topProcessesWindows(): TopProcessRow[] {
 		const totalMemKb = Math.max(os.totalmem() / 1024, 1);
 		const cores = Math.max(os.cpus().length, 1);
 		const uptimeSeconds = Math.max(os.uptime(), 1);
-		const output = execFileSync(
+		const { stdout: output } = await execFileText(
 			"powershell",
 			[
 				"-NoProfile",
@@ -253,14 +269,31 @@ export function countEstablishedSockets(table: string) {
 		.filter((line) => line.trim().split(/\s+/)[3] === "01").length;
 }
 
-function tcpConnectionCount() {
+/** Short-lived cache for the Windows netstat spawn, mirroring the PowerShell TTL. */
+const NETSTAT_CACHE_TTL_MS = 2_500;
+let netstatEstablishedCache: { at: number; count: number } | null = null;
+
+async function tcpConnectionCount(): Promise<number> {
 	if (isWindows()) {
+		const now = Date.now();
+		if (netstatEstablishedCache && now - netstatEstablishedCache.at < NETSTAT_CACHE_TTL_MS) {
+			return netstatEstablishedCache.count;
+		}
 		try {
-			const output = execFileSync("netstat", ["-n"], POWERSHELL_SPAWN);
-			return output
+			const { stdout: output } = await execFileText("netstat", ["-n"], POWERSHELL_SPAWN);
+			const count = output
 				.split(/\r?\n/)
 				.filter((line) => line.trim().endsWith("ESTABLISHED")).length;
-		} catch { return 0; }
+			netstatEstablishedCache = { at: now, count };
+			return count;
+		} catch {
+			// Keep the previous reading if we have one; otherwise report zero —
+			// a netstat hiccup must not fail the monitoring response.
+			if (netstatEstablishedCache) {
+				netstatEstablishedCache = { at: now, count: netstatEstablishedCache.count };
+			}
+			return netstatEstablishedCache?.count ?? 0;
+		}
 	}
 	// IPv6 sockets live in their own table: counting only /proc/net/tcp reported
 	// a near-empty connection list on a dual-stack host served over IPv6.
@@ -289,11 +322,15 @@ function networkInfo() {
 	}));
 }
 
-export function collectMonitoringStats() {
+export async function collectMonitoringStats() {
 	const cpus = os.cpus();
 	const totalMem = os.totalmem();
 	const freeMem = os.freemem();
 	const uptime = os.uptime();
+	const [topProcessRows, tcpConnections] = await Promise.all([
+		topProcesses(),
+		tcpConnectionCount(),
+	]);
 	return {
 		hostname: os.hostname(),
 		platform: os.platform(),
@@ -308,8 +345,8 @@ export function collectMonitoringStats() {
 		},
 		disk: diskInfo(),
 		network: networkInfo(),
-		topProcesses: topProcesses(),
-		tcpConnections: String(tcpConnectionCount()),
+		topProcesses: topProcessRows,
+		tcpConnections: String(tcpConnections),
 		timestamp: new Date().toISOString(),
 	};
 }

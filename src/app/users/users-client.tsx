@@ -5,6 +5,7 @@ import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
 import { UserPermissionPanel } from "./user-permission-panel";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { EmptyState, ListPanel, ListRow, Toolbar } from "@/components/page-shell";
+import { Pagination } from "@/components/pagination";
 import { toDateLocale } from "@/lib/i18n/locale-format";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useToast } from "@/components/toast-provider";
@@ -31,6 +32,9 @@ type UserInfo = {
   roles: RoleInfo[];
 };
 
+/** Fixed page size for the users list (matches the API request below). */
+const USER_PAGE_SIZE = 50;
+
 export function UserManagementClient({ canManage = false, currentUserId = "" }: { canManage?: boolean; currentUserId?: string }) {
   const { t, locale } = useI18n();
 	const { addToast } = useToast();
@@ -38,7 +42,6 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
   const page = Math.max(1, Number.parseInt(urlState.page || "1", 10) || 1);
   const setPage = (value: number) => setUrlField("page", String(Math.max(1, value)));
   const [users, setUsers] = useState<UserInfo[]>([]);
-  const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -54,17 +57,15 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
 		const gen = ++fetchGenRef.current;
 		setLoadFailed(false);
 		try {
-			const data = await csrfFetch(`/api/users?page=${page}&pageSize=50`) as { users?: UserInfo[]; total?: number; totalPages?: number } | UserInfo[];
+			const data = await csrfFetch(`/api/users?page=${page}&pageSize=${USER_PAGE_SIZE}`) as { users?: UserInfo[]; total?: number } | UserInfo[];
 			// Ignore out-of-order responses from rapid pagination.
 			if (gen !== fetchGenRef.current) return;
 			if (Array.isArray(data)) {
 				setUsers(data);
 				setTotal(data.length);
-				setTotalPages(1);
 			} else {
 				setUsers(data.users ?? []);
 				setTotal(data.total ?? (data.users ?? []).length);
-				setTotalPages(data.totalPages ?? 1);
 			}
 		} catch (err) {
 			if (gen !== fetchGenRef.current) return;
@@ -271,14 +272,8 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
               </ListRow>
             ))}
       
-          {!loading && !loadFailed && totalPages > 1 && (
-            <div className="flex items-center justify-between gap-3 border-t border-[var(--border)] px-4 py-3 text-xs text-[var(--text-secondary)]">
-              <span>{t("usersPage.pagination", { page, totalPages, total })}</span>
-              <div className="flex gap-2">
-                <ActionButton variant="secondary" disabled={page <= 1} onClick={() => setPage(page - 1)} className="!px-2 !py-1 !text-sm disabled:opacity-50">{t("usersPage.prev")}</ActionButton>
-                <ActionButton variant="secondary" disabled={page >= totalPages} onClick={() => setPage(page + 1)} className="!px-2 !py-1 !text-sm disabled:opacity-50">{t("usersPage.next")}</ActionButton>
-              </div>
-            </div>
+          {!loading && !loadFailed && (
+            <Pagination page={page} pageSize={USER_PAGE_SIZE} totalItems={total} loading={loading} onPageChange={setPage} />
           )}
 		</ListPanel>
       {editingPermissionsUser && (

@@ -14,6 +14,8 @@ import {
   isAcceptableTwoFactorCodeShape,
   verifyTwoFactorChallenge,
 } from "@/lib/auth/two-factor-challenge";
+import { bumpUserSessionEpoch, createSessionToken, getConfiguredSessionTtlSeconds, getSessionCookieName } from "@/lib/auth/session";
+import { isRequestHttps } from "@/lib/http/request-https";
 import { auditUserAction } from "@/lib/audit/service";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
@@ -74,6 +76,11 @@ export async function POST(request: Request) {
         data: { twoFactorEnabled: false, twoFactorSecret: null, twoFactorRecoveryCodes: Prisma.DbNull },
       });
 
+      // A security posture downgrade: retire every session of the account
+      // (including possibly stolen cookies), then re-mint this browser's so
+      // the operator is not bounced to the login screen by their own action.
+      await bumpUserSessionEpoch(session.userId);
+
       await auditUserAction(
         session.userId,
         "auth.2fa.disable",
@@ -82,7 +89,22 @@ export async function POST(request: Request) {
         session.currentTeamId,
       );
 
-      return NextResponse.json({ success: true });
+      const refreshedToken = await createSessionToken({
+        userId: session.userId,
+        username: session.username,
+        roles: session.roles,
+        mustChangePassword: session.mustChangePassword,
+        currentTeamId: session.currentTeamId,
+      });
+      const response = NextResponse.json({ success: true });
+      response.cookies.set(getSessionCookieName(), refreshedToken, {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: isRequestHttps(request),
+        path: "/",
+        maxAge: await getConfiguredSessionTtlSeconds(false),
+      });
+      return response;
     },
   );
 }

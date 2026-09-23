@@ -45,7 +45,6 @@ interface TicketDetailClientProps {
   initial: Ticket;
   canManage: boolean;
   users?: TicketUser[];
-  locale?: string;
 }
 
 const STATUS_TONE: Record<string, StatusTone> = {

@@ -218,7 +218,7 @@ describe("executeTarget", () => {
     expect(mocks.prisma.commandTarget.updateMany).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({
         status: "FAILED",
-        stderr: expect.stringContaining("lacks a private key"),
+        stderr: expect.stringMatching(/缺少私钥|lacks a private key/),
       }),
     }));
   });
@@ -241,7 +241,7 @@ describe("executeTarget", () => {
     expect(mocks.prisma.commandTarget.updateMany).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({
         status: "FAILED",
-        stderr: expect.stringContaining("lacks a password"),
+        stderr: expect.stringMatching(/未配置密码，无法执行|lacks a password/),
       }),
     }));
   });
@@ -264,7 +264,7 @@ describe("executeTarget", () => {
     expect(mocks.prisma.commandTarget.updateMany).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({
         status: "FAILED",
-        stderr: expect.stringContaining("no pinned SSH host key"),
+        stderr: expect.stringMatching(/未固定 SSH 主机密钥指纹|no pinned SSH host key/),
       }),
     }));
   });

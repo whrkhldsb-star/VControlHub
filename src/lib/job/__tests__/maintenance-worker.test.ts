@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   findMany: vi.fn(),
   updateMany: vi.fn(),
+  deleteMany: vi.fn(),
   recoverStaleRunningJobs: vi.fn(async (
     _options: { staleBefore: Date; heartbeatStaleBefore?: Date },
   ): Promise<{ count: number; recovered: string[]; failed: string[] }> => ({
@@ -10,6 +11,8 @@ const mocks = vi.hoisted(() => ({
     recovered: [],
     failed: [],
   })),
+  pruneTerminalJobs: vi.fn(async (_options?: { olderThan?: Date }) => ({ count: 0 })),
+  pruneCompletedJobsByType: vi.fn(async (_options?: { type?: string; keepLatest?: number }) => ({ count: 0 })),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -17,6 +20,7 @@ vi.mock("@/lib/db", () => ({
     job: {
       findMany: mocks.findMany,
       updateMany: mocks.updateMany,
+      deleteMany: mocks.deleteMany,
     },
   },
 }));
@@ -31,6 +35,11 @@ vi.mock("@/lib/logging", () => ({
 
 vi.mock("@/lib/job/service", () => ({
   recoverStaleRunningJobs: mocks.recoverStaleRunningJobs,
+}));
+
+vi.mock("@/lib/job/service-maintenance", () => ({
+  pruneTerminalJobs: mocks.pruneTerminalJobs,
+  pruneCompletedJobsByType: mocks.pruneCompletedJobsByType,
 }));
 
 vi.mock("@/lib/job/events", () => ({
@@ -173,6 +182,41 @@ describe("abandonOrphanPendingJobs", () => {
     await startJobMaintenanceWorker({ intervalMs: 60_000 });
     await new Promise((r) => setTimeout(r, 20));
     expect(vi.mocked(abandonStaleRunningBackupRecords)).toHaveBeenCalled();
+    stopJobMaintenanceWorkerForTests();
+  });
+
+  it("startup tick sweeps terminal FAILED/CANCELLED jobs fleet-wide", async () => {
+    mocks.findMany.mockResolvedValueOnce([]);
+    mocks.pruneTerminalJobs.mockClear();
+    mocks.pruneTerminalJobs.mockResolvedValueOnce({ count: 12 });
+    await startJobMaintenanceWorker({ intervalMs: 60_000 });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(mocks.pruneTerminalJobs).toHaveBeenCalledTimes(1);
+    expect(mocks.pruneTerminalJobs).toHaveBeenCalledWith();
+    stopJobMaintenanceWorkerForTests();
+  });
+
+  it("startup tick prunes COMPLETED history for high-frequency types without an in-worker prune", async () => {
+    mocks.findMany.mockResolvedValueOnce([]);
+    mocks.pruneCompletedJobsByType.mockClear();
+    await startJobMaintenanceWorker({ intervalMs: 60_000 });
+    await new Promise((r) => setTimeout(r, 20));
+    const prunedTypes = mocks.pruneCompletedJobsByType.mock.calls.map(
+      ([options]) => (options as { type: string }).type,
+    );
+    // Types whose own workers already prune (download.execute, playbook.run,
+    // alert.evaluate, health.sample, …) must NOT be doubled up here.
+    expect(prunedTypes).toContain("command.execution");
+    expect(prunedTypes).toContain("storage.sftp-sync");
+    expect(prunedTypes).toContain("storage.file-operation");
+    expect(prunedTypes).toContain("backup.create");
+    expect(prunedTypes).toContain("cost.snapshot");
+    expect(prunedTypes).toContain("itsm.outbound");
+    expect(prunedTypes).not.toContain("download.execute");
+    expect(prunedTypes).not.toContain("playbook.run");
+    for (const [options] of mocks.pruneCompletedJobsByType.mock.calls) {
+      expect((options as { keepLatest?: number }).keepLatest).toBe(25);
+    }
     stopJobMaintenanceWorkerForTests();
   });
 });

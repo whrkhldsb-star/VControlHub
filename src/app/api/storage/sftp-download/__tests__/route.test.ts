@@ -40,6 +40,11 @@ vi.mock("ssh2", () => ({
 			queueMicrotask(() => this.handlers.get("ready")?.());
 		}
 
+		// The shared SSH client now caps listeners on the client instance.
+		setMaxListeners(_max: number) {
+			return this;
+		}
+
 		sftp(callback: (err: Error | undefined, sftp: unknown) => void) {
 			callback(undefined, {
 				stat: sftpStatMock,

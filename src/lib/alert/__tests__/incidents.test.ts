@@ -364,6 +364,75 @@ describe("alert incidents", () => {
     );
   });
 
+  it("paginates escalation with a stable keyset cursor instead of a mutating offset", async () => {
+    const older = new Date("2026-05-01T00:00:00.000Z");
+    const newer = new Date("2026-05-02T00:00:00.000Z");
+    const base = {
+      ruleId: "r1",
+      status: "OPEN",
+      level: 1,
+      title: "Alert",
+      message: "cpu high",
+      serverName: "vps-1",
+      metric: "cpu_usage",
+      createdAt: older,
+      lastNotifiedAt: older,
+      rule: {
+        id: "r1",
+        name: "High CPU",
+        escalationMinutes: 15,
+        onCallUserIds: ["oncall1"],
+        notifyChannels: ["in_app"],
+        webhookUrl: null,
+        enabled: true,
+      },
+    };
+    // Page 1 is a full 200-row page (so the scan continues), page 2 is empty.
+    // Escalating a row stamps updatedAt=now, which under the old skip/limit
+    // pagination shifted rows behind the offset — the keyset cursor must
+    // advance past the last row of the previous page instead.
+    const fullPage = Array.from({ length: 200 }, (_, index) => ({
+      ...base,
+      id: `inc${index}`,
+      updatedAt: index === 199 ? newer : older,
+    }));
+    // The orphan-resolution scan runs first and shares the mock; route by args
+    // (only the escalation query includes the rule relation).
+    let escalationPage = 0;
+    prismaMock.alertIncident.findMany.mockImplementation(
+      async (args: { include?: { rule?: unknown } }) => {
+        if (!args?.include?.rule) return [];
+        escalationPage += 1;
+        return escalationPage === 1 ? fullPage : [];
+      },
+    );
+    prismaMock.alertIncident.updateMany.mockResolvedValue({ count: 1 });
+    prismaMock.user.findMany.mockResolvedValue([{ id: "oncall1" }]);
+
+    const result = await escalateOverdueAlertIncidents();
+    expect(result.escalated).toBe(200);
+
+    const escalationCalls = prismaMock.alertIncident.findMany.mock.calls.filter(
+      ([args]) => (args as { include?: { rule?: unknown } })?.include?.rule,
+    );
+    expect(escalationCalls).toHaveLength(2);
+    const firstArgs = escalationCalls[0]?.[0] as {
+      orderBy?: Array<Record<string, string>>;
+      skip?: number;
+      where?: { OR?: Array<Record<string, unknown>> };
+    };
+    const secondArgs = escalationCalls[1]?.[0] as {
+      where?: { OR?: Array<Record<string, unknown>> };
+    };
+    expect(firstArgs?.orderBy).toEqual([{ updatedAt: "asc" }, { id: "asc" }]);
+    expect(firstArgs?.skip).toBeUndefined();
+    // The cursor is derived from the last row of the previous page.
+    expect(secondArgs?.where?.OR).toEqual([
+      { updatedAt: { gt: newer } },
+      { updatedAt: newer, id: { gt: "inc199" } },
+    ]);
+  });
+
   it("skips escalate notify when conditional claim loses the race", async () => {
     const old = new Date(Date.now() - 60 * 60_000);
     prismaMock.alertIncident.findMany.mockResolvedValue([

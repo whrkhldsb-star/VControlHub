@@ -57,6 +57,11 @@ export type SshTerminalPanelProps = {
 
 export function SshTerminalPanel({ serverId, serverName, host, visible, onClose, onStatusChange }: SshTerminalPanelProps) {
 	const { t } = useI18n();
+	// Keep the translator reachable from async WS callbacks without adding `t`
+	// to the connection effect deps — a locale switch must NOT tear down live
+	// terminals (WebSocket + xterm lifecycle depends on [serverId, reconnectKey]).
+	const tRef = useRef(t);
+	useEffect(() => { tRef.current = t; }, [t]);
 	const termRef = useRef<HTMLDivElement>(null);
 	const wsRef = useRef<WebSocket | null>(null);
 	const terminalRef = useRef<import("@xterm/xterm").Terminal | null>(null);
@@ -175,7 +180,7 @@ export function SshTerminalPanel({ serverId, serverName, host, visible, onClose,
 				// Token fetch failed — surface the error to the user and abort the connection.
 				if (!disposed && nonce === connectionNonceRef.current) {
 					setStatus("error");
-					setErrorMsg(t("sshTerminalModal.errTokenFetchFailed"));
+					setErrorMsg(tRef.current("sshTerminalModal.errTokenFetchFailed"));
 				}
 				return;
 			}
@@ -183,7 +188,7 @@ export function SshTerminalPanel({ serverId, serverName, host, visible, onClose,
 			if (!handshakeToken) {
 				if (!disposed && nonce === connectionNonceRef.current) {
 					setStatus("error");
-					setErrorMsg(t("sshTerminalModal.errTokenEmpty"));
+					setErrorMsg(tRef.current("sshTerminalModal.errTokenEmpty"));
 				}
 				return;
 			}
@@ -302,12 +307,12 @@ export function SshTerminalPanel({ serverId, serverName, host, visible, onClose,
 					} else if (msg.type === "error") {
 						if (!disposed && nonce === connectionNonceRef.current) {
 							setStatus("error");
-							setErrorMsg(msg.data || t("sshTerminalModal.errUnknown"));
+							setErrorMsg(msg.data || tRef.current("sshTerminalModal.errUnknown"));
 						}
 					} else if (msg.type === "closed") {
 						if (!disposed && nonce === connectionNonceRef.current) {
 							setStatus("closed");
-							setErrorMsg(msg.data || t("sshTerminalModal.errClosed"));
+							setErrorMsg(msg.data || tRef.current("sshTerminalModal.errClosed"));
 						}
 					}
 				} catch {}
@@ -316,7 +321,7 @@ export function SshTerminalPanel({ serverId, serverName, host, visible, onClose,
 			ws.onclose = () => {
 				if (!disposed && nonce === connectionNonceRef.current) {
 					setStatus("closed");
-					setErrorMsg(t("sshTerminalModal.errDisconnected"));
+					setErrorMsg(tRef.current("sshTerminalModal.errDisconnected"));
 					scheduleReconnect();
 				}
 			};
@@ -324,7 +329,7 @@ export function SshTerminalPanel({ serverId, serverName, host, visible, onClose,
 			ws.onerror = () => {
 				if (!disposed && nonce === connectionNonceRef.current) {
 					setStatus("error");
-					setErrorMsg(t("sshTerminalModal.errConnectionFailed"));
+					setErrorMsg(tRef.current("sshTerminalModal.errConnectionFailed"));
 				}
 			};
 
@@ -371,7 +376,7 @@ export function SshTerminalPanel({ serverId, serverName, host, visible, onClose,
 			fitAddonRef.current = null;
 			searchAddonRef.current = null;
 		};
-	}, [serverId, reconnectKey, t]);
+	}, [serverId, reconnectKey]);
 
 	const saveFavorites = (items: string[]) => {
 		writeLocalStorageValue(FAVORITE_COMMANDS_KEY, JSON.stringify(items));

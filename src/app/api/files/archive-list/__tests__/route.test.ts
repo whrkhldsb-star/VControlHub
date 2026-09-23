@@ -87,7 +87,7 @@ describe("GET /api/files/archive-list", () => {
     await createTarGz();
     assertStorageAccessMock.mockResolvedValueOnce({
       allowed: false,
-      reason: "没有该存储节点或路径的访问授权",
+      reason: "no_access",
     });
     prismaMock.storageNode.findFirst.mockResolvedValue({
       id: "node_1",
@@ -103,8 +103,10 @@ describe("GET /api/files/archive-list", () => {
     );
 
     expect(response.status).toBe(403);
+    // Denials surface the localized copy for the reason code, not the raw
+    // reason string.
     await expect(response.json()).resolves.toMatchObject({
-      error: "没有该存储节点或路径的访问授权",
+      error: expect.any(String),
     });
   });
 

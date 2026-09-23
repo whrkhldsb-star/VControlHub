@@ -157,8 +157,8 @@ async function installServiceUnlocked(opts: InstallOptions) {
 				t("backend.quick-service.noAvailablePortOnTarget"),
 			);
 		}
-		const port = customPort ?? allocatePort(template.defaultPort);
-		assertTemplatePortsAvailable(template, port);
+		const port = customPort ?? (await allocatePort(template.defaultPort));
+		await assertTemplatePortsAvailable(template, port);
 		reservedPorts = templateReservedPorts(template, port);
 		return port;
 	});

@@ -102,16 +102,59 @@ function extractCookie(cookieHeader: string | undefined, name: string): string |
 	return null;
 }
 
-function resolveUpgradeSessionToken(request: IncomingMessage, url: URL): string | null {
-	// Prefer HttpOnly session cookie (never readable by document.cookie).
-	const fromCookie = extractCookie(request.headers.cookie, getSessionCookieName());
-	if (fromCookie) return fromCookie;
-	// Legacy/query fallback for non-browser clients that cannot send cookies.
-	const fromQuery = url.searchParams.get("token");
-	return fromQuery && fromQuery.trim() ? fromQuery.trim() : null;
+function resolveUpgradeSessionToken(request: IncomingMessage): string | null {
+	// HttpOnly session cookie only. A `?token=` query fallback was removed: the
+	// full session credential in the URL lands in reverse-proxy access logs,
+	// browser history and Referer, and this upgrade path has no rate limiter.
+	// Browser clients always send cookies on same-origin upgrades; scripted
+	// clients can send the same cookie header.
+	return extractCookie(request.headers.cookie, getSessionCookieName());
 }
 
-export function setupWebSocketServer(server: import("node:http").Server) {
+/**
+ * This endpoint only ever serves same-origin browser clients, so an Origin
+ * header naming a different host means a cross-site page is attempting the
+ * handshake. The HttpOnly cookie is SameSite=Lax and would not be sent on a
+ * cross-site upgrade in modern browsers, but enforcing it here is cheap
+ * defense-in-depth (and covers browsers without SameSite enforcement).
+ * Requests with no Origin / opaque "null" (non-browser clients, some tooling)
+ * are authenticated by the cookie alone.
+ */
+function isCrossOriginUpgrade(request: IncomingMessage): boolean {
+	const origin = request.headers.origin;
+	if (!origin || origin === "null") return false;
+	let originHost: string;
+	try {
+		originHost = new URL(origin).host.toLowerCase();
+	} catch {
+		return true;
+	}
+	if (!originHost) return true;
+	const forwarded = request.headers["x-forwarded-host"];
+	const expected = (
+		(typeof forwarded === "string" && forwarded.split(",")[0]?.trim()) ||
+		request.headers.host ||
+		""
+	)
+		.toString()
+		.trim()
+		.toLowerCase();
+	if (!expected) return false;
+	return originHost !== expected;
+}
+
+export function setupWebSocketServer(
+	server: import("node:http").Server,
+	options: {
+		/**
+		 * Handler for upgrade requests this server does not own (any path other
+		 * than /ws). Wired to Next's own upgrade handler so `/_next/webpack-hmr`
+		 * keeps working in dev when running through the custom server; without
+		 * it every foreign upgrade was hard-destroyed.
+		 */
+		onForeignUpgrade?: (request: IncomingMessage, socket: import("node:stream").Duplex, head: Buffer) => void;
+	} = {},
+) {
 	if (wss) return; // already initialized
 
 	const instance = new WebSocketServer({ noServer: true, maxPayload: 16 * 1024 });
@@ -129,13 +172,24 @@ export function setupWebSocketServer(server: import("node:http").Server) {
 			return;
 		}
 		if (url.pathname !== "/ws") {
+			if (options.onForeignUpgrade) {
+				options.onForeignUpgrade(request, socket, head);
+				return;
+			}
 			socket.write("HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n");
 			socket.destroy();
 			return;
 		}
 
-		// Authenticate via HttpOnly session cookie first; query token is legacy fallback only.
-		const token = resolveUpgradeSessionToken(request, url);
+		if (isCrossOriginUpgrade(request)) {
+			recordWsEvent("notification", "reject");
+			socket.write("HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n");
+			socket.destroy();
+			return;
+		}
+
+		// Authenticate via HttpOnly session cookie (see resolveUpgradeSessionToken).
+		const token = resolveUpgradeSessionToken(request);
 		if (!token) {
 			recordWsEvent("notification", "reject");
 			socket.write("HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n");

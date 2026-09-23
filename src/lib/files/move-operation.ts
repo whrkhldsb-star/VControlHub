@@ -4,6 +4,8 @@ import { apiCopy } from "@/lib/i18n/api-copy";
 import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { assertStorageAccess } from "@/lib/storage/access-control";
+import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
+import { BusinessError, ForbiddenError } from "@/lib/errors";
 import { moveBackingObject, statBackingObject } from "@/lib/storage/fs-backend";
 import { serviceT } from "@/lib/i18n/service-locale";
 import type { Locale } from "@/lib/i18n/core";
@@ -116,7 +118,7 @@ export async function executeMoveFile(
     });
     if (!sourceAccess.allowed) {
       return {
-        error: sourceAccess.reason ?? tr("filesPage.move.errorNoAccess"),
+        error: storageAccessDeniedCopy(sourceAccess.reason, locale),
       } satisfies MoveFileActionState;
     }
 
@@ -129,7 +131,7 @@ export async function executeMoveFile(
 
     if (!destinationAccess.allowed) {
       return {
-        error: destinationAccess.reason ?? tr("filesPage.move.errorNoAccess"),
+        error: storageAccessDeniedCopy(destinationAccess.reason, locale),
       } satisfies MoveFileActionState;
     }
 
@@ -169,11 +171,13 @@ export async function executeMoveFile(
       where: { storageNodeId: entry.storageNodeId, relativePath: { startsWith: `${entry.relativePath}/` } },
       select: { id: true, relativePath: true }, take: 10001,
     }) : [];
-    if (descendants.length > 10000) throw new Error("Directory has more than 10000 children; split the move");
+    if (descendants.length > 10000) {
+      throw new BusinessError(tr("backend.storageHardening.files.tooManyChildren"));
+    }
     for (const child of descendants) {
       for (const relativePath of [child.relativePath, newRelativePath + child.relativePath.slice(entry.relativePath.length)]) {
         const access = await assertStorageAccess({ session, storageNodeId: entry.storageNodeId, relativePath, operation: "write" });
-        if (!access.allowed) throw new Error(access.reason ?? tr("filesPage.move.errorNoAccess"));
+        if (!access.allowed) throw new ForbiddenError(storageAccessDeniedCopy(access.reason, locale));
       }
     }
 
@@ -226,7 +230,7 @@ export async function executeMoveFile(
           take: 10_001,
         });
         if (activeShares.length > 10_000) {
-          throw new Error("Moved entry has more than 10000 active share links");
+          throw new BusinessError(tr("backend.storageHardening.files.tooManyShares"));
         }
         for (const share of activeShares) {
           await tx.shareLink.update({
@@ -254,8 +258,8 @@ export async function executeMoveFile(
             take: CHILD_CAP + 1,
           });
           if (children.length > CHILD_CAP) {
-            throw new Error(
-              `Directory has more than ${CHILD_CAP} children; split the move`,
+            throw new BusinessError(
+              tr("backend.storageHardening.files.tooManyChildren"),
             );
           }
 

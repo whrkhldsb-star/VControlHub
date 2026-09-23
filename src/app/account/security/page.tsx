@@ -6,6 +6,8 @@ import { requireSession } from "@/lib/auth/require-session";
 import { prisma } from "@/lib/db";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 
+import { SignOutAllDevices } from "./sign-out-all-devices";
+
 export const dynamic = "force-dynamic";
 
 export default async function AccountSecurityPage() {
@@ -26,6 +28,7 @@ export default async function AccountSecurityPage() {
       />
       <div className="space-y-4">
         <TwoFactorSettings enabled={user?.twoFactorEnabled ?? false} />
+        <SignOutAllDevices />
         <Link
           href="/account/password"
           className="inline-flex rounded-xl border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-bg)] hover:text-[var(--accent)]"

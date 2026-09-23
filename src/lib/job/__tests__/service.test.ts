@@ -58,7 +58,7 @@ vi.mock("@/lib/config/env", () => ({
   },
 }));
 
-const { cancelJob, claimNextJob, completeJob, enqueueJob, failJob, failJobTerminal, heartbeatJob, pruneCompletedJobsByType, recoverStaleRunningJobs } = await import("../service");
+const { cancelJob, claimNextJob, completeJob, enqueueJob, failJob, failJobTerminal, heartbeatJob, pruneCompletedJobsByType, pruneTerminalJobs, pruneTerminalJobsByType, recoverStaleRunningJobs } = await import("../service");
 
 describe("durable job service", () => {
   beforeEach(() => {
@@ -371,6 +371,78 @@ describe("durable job service", () => {
       },
     });
     expect(result).toEqual({ count: 8 });
+  });
+
+  it("pruneTerminalJobsByType scopes the retained set to the caller's status list", async () => {
+    mockPrisma.job.findMany.mockResolvedValue([{ id: "keep-1" }]);
+    mockPrisma.job.deleteMany.mockResolvedValue({ count: 4 });
+
+    const result = await pruneTerminalJobsByType({
+      type: "download.execute",
+      statuses: ["COMPLETED"],
+      keepLatest: 1,
+    });
+
+    expect(mockPrisma.job.findMany).toHaveBeenCalledWith({
+      where: { type: "download.execute", status: { in: ["COMPLETED"] } },
+      select: { id: true },
+      orderBy: [{ completedAt: "desc" }, { createdAt: "desc" }],
+      take: 1,
+    });
+    expect(mockPrisma.job.deleteMany).toHaveBeenCalledWith({
+      where: {
+        type: "download.execute",
+        status: { in: ["COMPLETED"] },
+        id: { notIn: ["keep-1"] },
+      },
+    });
+    expect(result).toEqual({ count: 4 });
+  });
+
+  it("pruneTerminalJobsByType ignores empty status sets and blank types", async () => {
+    await pruneTerminalJobsByType({ type: "  ", statuses: ["COMPLETED"] });
+    await pruneTerminalJobsByType({ type: "download.execute", statuses: ["RUNNING"] });
+    expect(mockPrisma.job.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it("pruneTerminalJobs deletes FAILED/CANCELLED rows older than the retention window in batches", async () => {
+    const now = new Date("2026-06-08T09:00:00Z");
+    const cutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    // First batch selects 2 ids (below batch size → loop ends after one round).
+    mockPrisma.job.findMany.mockResolvedValueOnce([{ id: "j-failed" }, { id: "j-cancelled" }]);
+    mockPrisma.job.deleteMany.mockResolvedValueOnce({ count: 2 });
+
+    const result = await pruneTerminalJobs({ now, batchSize: 5 });
+
+    expect(mockPrisma.job.findMany).toHaveBeenCalledWith({
+      where: { status: { in: ["FAILED", "CANCELLED"] }, updatedAt: { lt: cutoff } },
+      select: { id: true },
+      orderBy: { updatedAt: "asc" },
+      take: 5,
+    });
+    expect(mockPrisma.job.deleteMany).toHaveBeenCalledWith({
+      where: {
+        status: { in: ["FAILED", "CANCELLED"] },
+        updatedAt: { lt: cutoff },
+        id: { in: ["j-failed", "j-cancelled"] },
+      },
+    });
+    expect(result).toEqual({ count: 2 });
+  });
+
+  it("pruneTerminalJobs keeps batching until a short page and re-asserts the terminal predicate", async () => {
+    const now = new Date("2026-06-08T09:00:00Z");
+    mockPrisma.job.findMany
+      .mockResolvedValueOnce([{ id: "full-0" }, { id: "full-1" }, { id: "full-2" }])
+      .mockResolvedValueOnce([{ id: "tail-1" }]);
+    mockPrisma.job.deleteMany.mockResolvedValue({ count: 3 });
+
+    const result = await pruneTerminalJobs({ now, batchSize: 3 });
+
+    // Full page → second round; short page (1 < 3) → stop.
+    expect(mockPrisma.job.findMany).toHaveBeenCalledTimes(2);
+    expect(mockPrisma.job.deleteMany).toHaveBeenCalledTimes(2);
+    expect(result).toEqual({ count: 6 });
   });
 
   // TR-001 T13b: concurrency caps. The three caps are independent and

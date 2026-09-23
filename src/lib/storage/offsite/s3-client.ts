@@ -193,6 +193,43 @@ function signV4(req: SignableRequest, secretAccessKey: string): { headers: Recor
 
 /* ── Client ──────────────────────────────────────────────── */
 
+/**
+ * An abort signal whose deadline resets on activity ("connect + idle" budget)
+ * instead of running from a fixed start time.
+ *
+ * `AbortSignal.timeout(ms)` caps the WHOLE request, which kills large
+ * streaming uploads that are still making progress. The signal produced here
+ * aborts only when nothing has called `noteActivity()` for `timeoutMs` —
+ * covering DNS/TCP/TLS (no activity before the first chunk) and a stalled
+ * body, while letting a slow but advancing transfer run to completion.
+ * `dispose()` must be called once the request settles to drop the timer.
+ */
+function createIdleTimeoutSignal(timeoutMs: number): {
+	signal: AbortSignal;
+	noteActivity: () => void;
+	dispose: () => void;
+} {
+	const controller = new AbortController();
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	const disarm = () => {
+		if (timer !== undefined) {
+			clearTimeout(timer);
+			timer = undefined;
+		}
+	};
+	const arm = () => {
+		disarm();
+		timer = setTimeout(() => controller.abort(), timeoutMs);
+	};
+	arm();
+	return {
+		signal: controller.signal,
+		noteActivity: arm,
+		dispose: disarm,
+	};
+}
+
+
 export class S3Client {
 	private readonly cfg: S3ClientConfig;
 	private readonly fetchImpl: typeof fetch;
@@ -245,19 +282,38 @@ export class S3Client {
 			"x-amz-server-side-encryption": "AES256",
 		};
 		const signed = this.signWithBodyHash("PUT", url, headers, bodyHash);
-		const body = Readable.toWeb(createReadStream(filePath)) as ReadableStream<Uint8Array>;
+		// A total-deadline AbortSignal.timeout() aborts a large streaming upload
+		// mid-flight even while it makes steady progress. For the streaming PUT
+		// the budget is a connect + idle deadline instead: the clock resets on
+		// every body chunk, so a slow-but-advancing upload runs as long as it
+		// keeps moving, while a stalled connection still fails in-budget.
+		const { signal, noteActivity, dispose } = createIdleTimeoutSignal(this.timeoutMs);
+		const body = (
+			Readable.toWeb(createReadStream(filePath)) as ReadableStream<Uint8Array>
+		).pipeThrough(
+			new TransformStream<Uint8Array, Uint8Array>({
+				transform(chunk, controller) {
+					noteActivity();
+					controller.enqueue(chunk);
+				},
+			}),
+		);
 		const request = {
 			method: "PUT",
 			redirect: "error",
 			headers: signed.headers,
 			body,
 			duplex: "half",
-			signal: AbortSignal.timeout(this.timeoutMs),
+			signal,
 		} as RequestInit & { duplex: "half" };
-		const res = await this.fetchImpl(url.toString(), request);
-		await this.assertOk(res, "PUT", key);
-		const etag = res.headers.get("etag") ?? "";
-		return { etag: etag.replace(/"/g, "") };
+		try {
+			const res = await this.fetchImpl(url.toString(), request);
+			await this.assertOk(res, "PUT", key);
+			const etag = res.headers.get("etag") ?? "";
+			return { etag: etag.replace(/"/g, ""), versionId: undefined };
+		} finally {
+			dispose();
+		}
 	}
 
 	/** HEAD an object; returns metadata or null if not found. */

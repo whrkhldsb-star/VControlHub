@@ -7,6 +7,8 @@ import {
   getStorageAccessCapabilities,
   getStorageAccessCapabilityKey,
 } from "@/lib/storage/access-control";
+import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
+import { ForbiddenError, BusinessError } from "@/lib/errors";
 import { prisma } from "@/lib/db";
 import { serviceT } from "@/lib/i18n/service-locale";
 import type { Locale } from "@/lib/i18n/core";
@@ -119,12 +121,14 @@ export async function executeDeleteFile(
       operation: "delete",
     });
     if (!deleteAccess.allowed) {
-      return { error: deleteAccess.reason ?? t("storagePage.action.fileEntryNotFound") } satisfies StorageDeleteActionState;
+      return { error: storageAccessDeniedCopy(deleteAccess.reason, locale) } satisfies StorageDeleteActionState;
     }
 
     if (entry.entryType === "DIRECTORY") {
       const descendants = await prisma.fileEntry.findMany({ where: { storageNodeId: entry.storageNodeId, relativePath: { startsWith: `${entry.relativePath}/` }, isDeleted: false }, select: { relativePath: true }, take: 10001 });
-      if (descendants.length > 10000) throw new Error("Directory has more than 10000 children; split the deletion");
+      if (descendants.length > 10000) {
+        throw new BusinessError(t("backend.storageHardening.files.tooManyChildren"));
+      }
       // Authorize every descendant in ONE batched check instead of one
       // `assertStorageAccess` round-trip per child — that loop ran up to 10k
       // queries (node lookup + paged grants each) for a single delete and was
@@ -142,7 +146,9 @@ export async function executeDeleteFile(
           relativePath: child.relativePath,
         });
         if (key && capabilities.get(key)?.canDelete === false) {
-          throw new Error(t("storagePage.action.fileEntryNotFound"));
+          // Distinguish "no permission on a child" from "entry not found" —
+          // the old not-found copy told the user the directory had vanished.
+          throw new ForbiddenError(t("backend.storageHardening.files.childDeleteDenied"));
         }
       }
     }

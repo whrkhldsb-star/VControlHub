@@ -231,6 +231,9 @@ export async function getMediaItem(
   });
 }
 
+/** Deterministic page ordering shared by the scan loops below. */
+const SCAN_ORDER_BY = [{ updatedAt: "asc" }, { id: "asc" }] as const;
+
 export async function scanMediaFromFileEntries(
   userId?: string,
   session?: TeamSession | null,
@@ -238,58 +241,86 @@ export async function scanMediaFromFileEntries(
   const nodeScope = session ? teamWhere(session) : {};
   const scopedNode =
     Object.keys(nodeScope).length > 0 ? { storageNode: nodeScope } : {};
-  const entries = await prisma.fileEntry.findMany({
-    where: {
-      entryType: "FILE",
-      isDeleted: false,
-      ...scopedNode,
-      OR: [
-        { mimeType: { startsWith: "image/" } },
-        { mimeType: { startsWith: "video/" } },
-        { mimeType: { startsWith: "audio/" } },
-        { name: { endsWith: ".jpg", mode: "insensitive" } },
-        { name: { endsWith: ".jpeg", mode: "insensitive" } },
-        { name: { endsWith: ".png", mode: "insensitive" } },
-        { name: { endsWith: ".gif", mode: "insensitive" } },
-        { name: { endsWith: ".webp", mode: "insensitive" } },
-        { name: { endsWith: ".avif", mode: "insensitive" } },
-        { name: { endsWith: ".mp4", mode: "insensitive" } },
-        { name: { endsWith: ".m4v", mode: "insensitive" } },
-        { name: { endsWith: ".webm", mode: "insensitive" } },
-        { name: { endsWith: ".mkv", mode: "insensitive" } },
-        { name: { endsWith: ".mov", mode: "insensitive" } },
-        { name: { endsWith: ".avi", mode: "insensitive" } },
-        { name: { endsWith: ".mp3", mode: "insensitive" } },
-        { name: { endsWith: ".m4a", mode: "insensitive" } },
-        { name: { endsWith: ".aac", mode: "insensitive" } },
-        { name: { endsWith: ".flac", mode: "insensitive" } },
-        { name: { endsWith: ".wav", mode: "insensitive" } },
-        { name: { endsWith: ".ogg", mode: "insensitive" } },
-        { name: { endsWith: ".opus", mode: "insensitive" } },
-      ],
-    },
-    take: 1000,
-    include: {
-      storageNode: {
-        select: {
-          id: true,
-          name: true,
-          basePath: true,
-          server: { select: { name: true } },
+  // Cursor-paginate with a deterministic orderBy until exhausted. A bare
+  // `take: 1000` without ordering returned an arbitrary page, so once a
+  // library passed 1000 media files the same subset was rescanned forever
+  // and everything beyond it never entered the media library.
+  const fetchScanPage = (cursor?: { id: string }) =>
+    prisma.fileEntry.findMany({
+      where: {
+        entryType: "FILE",
+        isDeleted: false,
+        ...scopedNode,
+        OR: [
+          { mimeType: { startsWith: "image/" } },
+          { mimeType: { startsWith: "video/" } },
+          { mimeType: { startsWith: "audio/" } },
+          { name: { endsWith: ".jpg", mode: "insensitive" } },
+          { name: { endsWith: ".jpeg", mode: "insensitive" } },
+          { name: { endsWith: ".png", mode: "insensitive" } },
+          { name: { endsWith: ".gif", mode: "insensitive" } },
+          { name: { endsWith: ".webp", mode: "insensitive" } },
+          { name: { endsWith: ".avif", mode: "insensitive" } },
+          { name: { endsWith: ".mp4", mode: "insensitive" } },
+          { name: { endsWith: ".m4v", mode: "insensitive" } },
+          { name: { endsWith: ".webm", mode: "insensitive" } },
+          { name: { endsWith: ".mkv", mode: "insensitive" } },
+          { name: { endsWith: ".mov", mode: "insensitive" } },
+          { name: { endsWith: ".avi", mode: "insensitive" } },
+          { name: { endsWith: ".mp3", mode: "insensitive" } },
+          { name: { endsWith: ".m4a", mode: "insensitive" } },
+          { name: { endsWith: ".aac", mode: "insensitive" } },
+          { name: { endsWith: ".flac", mode: "insensitive" } },
+          { name: { endsWith: ".wav", mode: "insensitive" } },
+          { name: { endsWith: ".ogg", mode: "insensitive" } },
+          { name: { endsWith: ".opus", mode: "insensitive" } },
+        ],
+      },
+      orderBy: [...SCAN_ORDER_BY],
+      take: 1000,
+      ...(cursor ? { cursor, skip: 1 } : {}),
+      include: {
+        storageNode: {
+          select: {
+            id: true,
+            name: true,
+            basePath: true,
+            server: { select: { name: true } },
+          },
         },
       },
-    },
-  });
+    });
+  const pages: Array<Awaited<ReturnType<typeof fetchScanPage>>> = [];
+  let scanCursor: { id: string } | undefined;
+  for (;;) {
+    const page = await fetchScanPage(scanCursor);
+    pages.push(page);
+    if (page.length < 1000) break;
+    scanCursor = { id: page[page.length - 1]!.id };
+  }
+  const entries = pages.flat();
 
-  const staleFileEntries = await prisma.fileEntry.findMany({
-    where: {
-      OR: [{ isDeleted: true }, { entryType: { not: "FILE" } }],
-      ...scopedNode,
-    },
-    select: { id: true },
-    take: 1000,
-  });
-  const staleFileEntryIds = staleFileEntries.map((entry) => entry.id);
+  // Same cursor discipline for the stale-row cleanup: without ordering the
+  // cleanup only ever saw the first arbitrary 1000 stale rows.
+  const staleFileEntryIds: string[] = [];
+  {
+    let cursor: { id: string } | undefined;
+    for (;;) {
+      const page = await prisma.fileEntry.findMany({
+        where: {
+          OR: [{ isDeleted: true }, { entryType: { not: "FILE" } }],
+          ...scopedNode,
+        },
+        orderBy: [...SCAN_ORDER_BY],
+        take: 1000,
+        ...(cursor ? { cursor, skip: 1 } : {}),
+        select: { id: true },
+      });
+      staleFileEntryIds.push(...page.map((entry) => entry.id));
+      if (page.length < 1000) break;
+      cursor = { id: page[page.length - 1]!.id };
+    }
+  }
   const cleanup = staleFileEntryIds.length
     ? await prisma.mediaItem.deleteMany({
         where: { fileEntryId: { in: staleFileEntryIds } },

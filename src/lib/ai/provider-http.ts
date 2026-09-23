@@ -44,7 +44,16 @@ const MODELS_PATH = "/models";
 const CHAT_PATH_SUFFIX = "/chat/completions";
 /** Bound hung upstream AI hosts so model-list / chat routes cannot stall until platform kill. */
 const AI_PROVIDER_MODELS_TIMEOUT_MS = 30_000;
+/** Non-streaming chat: total cap covering headers + body (short, bounded payloads). */
 const AI_PROVIDER_CHAT_TIMEOUT_MS = 90_000;
+/**
+ * Streaming chat: cap only the time-to-first-byte (headers arrival). A total
+ * cap on the fetch signal also aborts the response body mid-read, which
+ * truncated any reply that streamed longer than the cap; after headers the
+ * stream watchdogs in consumeProviderChatStream (idle + generous total) own
+ * the lifecycle instead.
+ */
+const AI_PROVIDER_CHAT_FIRST_BYTE_TIMEOUT_MS = 45_000;
 const AI_PROVIDER_MODELS_MAX_BYTES = 5 * 1024 * 1024;
 const AI_PROVIDER_ERROR_MAX_BYTES = 64 * 1024;
 const AI_PROVIDER_MODELS_MAX_ROWS = 10_000;
@@ -191,26 +200,60 @@ export async function postProviderChat(input: ProviderChatRequest): Promise<Resp
 	input.signal?.throwIfAborted();
 	await assertProviderUrlSafe(input.url);
 	input.signal?.throwIfAborted();
-	const response = await fetchProviderResponse(input.url, {
-		method: "POST",
-		redirect: "error",
-		headers: {
-			"Content-Type": "application/json",
-			...(input.headers ?? {}),
-		},
-		body: JSON.stringify(input.body),
-		signal: input.signal
-			? AbortSignal.any([input.signal, AbortSignal.timeout(AI_PROVIDER_CHAT_TIMEOUT_MS)])
-			: AbortSignal.timeout(AI_PROVIDER_CHAT_TIMEOUT_MS),
-	}, "chat", AI_PROVIDER_CHAT_TIMEOUT_MS, input.signal);
-	if (!response.ok) {
-		const errText = await readResponseTextLimited(
-			response,
-			AI_PROVIDER_ERROR_MAX_BYTES,
-		).catch(() => "");
-		throw new Error(aiHttpErrorMessage(response.status, errText, "chat"));
+	const isStreaming = input.body?.stream === true;
+	const timeoutMs = isStreaming
+		? AI_PROVIDER_CHAT_FIRST_BYTE_TIMEOUT_MS
+		: AI_PROVIDER_CHAT_TIMEOUT_MS;
+	// Streaming: AbortController + manual timer so the timeout can be disarmed
+	// the moment headers arrive (an AbortSignal.timeout cannot be cleared, and
+	// leaving it armed would abort the body mid-stream). The caller's signal
+	// stays live for the whole body via the composite signal.
+	let disarmFirstByteTimeout: (() => void) | undefined;
+	let requestSignal: AbortSignal;
+	if (isStreaming) {
+		const firstByteController = new AbortController();
+		const forwardAbort = () => firstByteController.abort(input.signal?.reason);
+		if (input.signal?.aborted) forwardAbort();
+		else input.signal?.addEventListener("abort", forwardAbort, { once: true });
+		const timer = setTimeout(
+			() => firstByteController.abort(new DOMException("The operation timed out", "TimeoutError")),
+			AI_PROVIDER_CHAT_FIRST_BYTE_TIMEOUT_MS,
+		);
+		disarmFirstByteTimeout = () => {
+			clearTimeout(timer);
+			input.signal?.removeEventListener("abort", forwardAbort);
+		};
+		requestSignal = input.signal
+			? AbortSignal.any([input.signal, firstByteController.signal])
+			: firstByteController.signal;
+	} else {
+		requestSignal = input.signal
+			? AbortSignal.any([input.signal, AbortSignal.timeout(timeoutMs)])
+			: AbortSignal.timeout(timeoutMs);
 	}
-	return response;
+	try {
+		const response = await fetchProviderResponse(input.url, {
+			method: "POST",
+			redirect: "error",
+			headers: {
+				"Content-Type": "application/json",
+				...(input.headers ?? {}),
+			},
+			body: JSON.stringify(input.body),
+			signal: requestSignal,
+		}, "chat", timeoutMs, input.signal);
+		if (!response.ok) {
+			const errText = await readResponseTextLimited(
+				response,
+				AI_PROVIDER_ERROR_MAX_BYTES,
+			).catch(() => "");
+			throw new Error(aiHttpErrorMessage(response.status, errText, "chat"));
+		}
+		return response;
+	} finally {
+		// Headers arrived: hand the body's lifecycle to the stream watchdogs.
+		disarmFirstByteTimeout?.();
+	}
 }
 
 export { CHAT_PATH_SUFFIX };

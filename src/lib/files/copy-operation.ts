@@ -7,8 +7,11 @@ import { teamWhere } from "@/lib/auth/team-scope";
 import type { SessionPayload } from "@/lib/auth/session";
 import {
   assertStorageAccess,
+  getStorageAccessCapabilities,
+  getStorageAccessCapabilityKey,
   releaseStorageQuotaGuard,
 } from "@/lib/storage/access-control";
+import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import {
   copyStorageFile,
   storageFileNodeSelect,
@@ -35,6 +38,46 @@ import { FileOperationUncertainError } from "./operation-schema";
 
 export type ConflictPolicy = "skip" | "rename" | "overwrite";
 type CopyItem = { path: string; directory: boolean };
+
+/**
+ * Per-directory name index for LOCAL nodes: one `readdir` per distinct parent
+ * directory answers "does this path exist?" for every candidate/destination
+ * inside it, replacing one lstat (or one remote stat round-trip) per path —
+ * the destination-probe loop alone could stat the same directory hundreds of
+ * times. Listings are loaded lazily and cached; a path is only ever probed
+ * before the copy creates that exact name, and names within one copy are
+ * unique, so cache staleness cannot flip an answer.
+ */
+class LocalExistenceIndex {
+  private readonly dirs = new Map<string, Promise<Set<string>>>();
+
+  constructor(private readonly node: StorageFileNode) {}
+
+  exists(relativePath: string): Promise<boolean> {
+    const dir = path.posix.dirname(relativePath);
+    let names = this.dirs.get(dir);
+    if (!names) {
+      names = this.loadDir(dir);
+      this.dirs.set(dir, names);
+    }
+    return names.then((set) => set.has(path.posix.basename(relativePath)));
+  }
+
+  private async loadDir(relativeDir: string): Promise<Set<string>> {
+    const resolved = await resolveManagedLocalEntryPath({
+      basePath: this.node.basePath,
+      relativePath: relativeDir,
+    });
+    try {
+      return new Set(await readdir(resolved.absolutePath));
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        return new Set();
+      }
+      throw error;
+    }
+  }
+}
 
 export function copyCandidateName(
   name: string,
@@ -154,7 +197,36 @@ export async function copyFileEntry(input: {
         operation,
       });
       if (!access.allowed)
-        throw new Error(access.reason ?? apiCopy("apiCopy.files.op.access"));
+        throw new Error(storageAccessDeniedCopy(access.reason));
+    };
+    // Batched pre-flight: ONE capabilities lookup covers a whole set of paths
+    // instead of one assertStorageAccess round-trip (node lookup + paged
+    // grants) per path. Quota-bearing writes still go through
+    // assertStorageAccess individually — capability checks cannot serialize
+    // quota against concurrent writers.
+    const ensureAccessBatched = async (
+      targets: Array<{ path: string; operation: "read" | "write" }>,
+    ) => {
+      if (targets.length === 0) return;
+      const capabilities = await getStorageAccessCapabilities({
+        session: input.session,
+        targets: targets.map((target) => ({
+          storageNodeId: node.id,
+          relativePath: target.path,
+        })),
+      });
+      for (const target of targets) {
+        const key = getStorageAccessCapabilityKey({
+          storageNodeId: node.id,
+          relativePath: target.path,
+        });
+        const capability = key ? capabilities.get(key) : undefined;
+        const allowed =
+          target.operation === "read"
+            ? capability?.canRead
+            : capability?.canWrite;
+        if (!allowed) throw new Error(storageAccessDeniedCopy());
+      }
     };
     await ensureAccess(source.path, "read");
     const items: CopyItem[] = [
@@ -176,10 +248,12 @@ export async function copyFileEntry(input: {
     for (let index = 0; index < items.length; index++) {
       input.signal?.throwIfAborted();
       const current = items[index]!;
-      await ensureAccess(current.path, "read");
       if (!current.directory) continue;
       if (current.path.split("/").length - source.path.split("/").length >= 64)
         throw new Error(apiCopy("apiCopy.files.op.depth"));
+      // `current` entered `items` only after its own read access was verified
+      // (the source root is checked above), so listing it is authorized.
+      const accepted: CopyItem[] = [];
       for (const child of await listChildren(node, current.path)) {
         const normalized = normalizeStorageRelativePath(child.path);
         if (
@@ -194,11 +268,33 @@ export async function copyFileEntry(input: {
         if (seen.has(child.path))
           throw new Error(apiCopy("apiCopy.files.op.repeated"));
         seen.add(child.path);
-        items.push(child);
-        if (items.length > 10000)
-          throw new Error(apiCopy("apiCopy.files.op.entries"));
+        accepted.push(child);
       }
+      // ONE capabilities lookup authorizes every child discovered in this
+      // directory before any of them is listed or queued.
+      await ensureAccessBatched(
+        accepted.map((child) => ({
+          path: child.path,
+          operation: "read" as const,
+        })),
+      );
+      items.push(...accepted);
+      if (items.length > 10000)
+        throw new Error(apiCopy("apiCopy.files.op.entries"));
     }
+    // Existence probing for candidate/destination paths. On LOCAL one readdir
+    // per distinct parent directory replaces one stat per path; remote
+    // drivers keep the per-path stat (each is a round-trip on a pooled
+    // connection).
+    const localExistence = node.driver === "LOCAL"
+      ? new LocalExistenceIndex(node)
+      : null;
+    const physicalExists = (relativePath: string): Promise<boolean> =>
+      localExistence
+        ? localExistence.exists(relativePath)
+        : statBackingObject({ storageNode: node, relativePath }).then(
+            (stat) => stat !== null,
+          );
     let root = "";
     for (let index = 0; index < 1000; index++) {
       root = [
@@ -209,7 +305,6 @@ export async function copyFileEntry(input: {
         .join("/");
       const normalized = normalizeStorageRelativePath(root);
       if (!normalized.ok) throw new Error(normalized.reason);
-      await ensureAccess(root, "write");
       const indexed = await prisma.fileEntry.findUnique({
         where: {
           storageNodeId_relativePath: {
@@ -218,10 +313,7 @@ export async function copyFileEntry(input: {
           },
         },
       });
-      const physical = await statBackingObject({
-        storageNode: node,
-        relativePath: root,
-      });
+      const physical = await physicalExists(root);
       if (!indexed && !physical) break;
       if (input.policy === "skip")
         return { path: root, skipped: true, copied: 0 };
@@ -236,29 +328,50 @@ export async function copyFileEntry(input: {
     }
     if (source.path.startsWith(`${root}/`))
       throw new Error(apiCopy("apiCopy.files.op.ancestor"));
+    const destinations = items.map((item) => root + item.path.slice(source.path.length));
+    // ONE batched pre-flight for the chosen root, every source read, and
+    // every destination write — the loop below previously ran two
+    // assertStorageAccess round-trips per item.
+    await ensureAccessBatched([
+      { path: root, operation: "write" },
+      ...items.map((item) => ({ path: item.path, operation: "read" as const })),
+      ...destinations.map((destination) => ({
+        path: destination,
+        operation: "write" as const,
+      })),
+    ]);
+    // Prefetch every indexed occupant in one paged query instead of one
+    // findUnique per destination.
+    const occupantRows: Array<{
+      id: string;
+      relativePath: string;
+      entryType: string;
+      isDeleted: boolean;
+    }> = [];
+    for (let offset = 0; offset < destinations.length; offset += 500) {
+      const page = await prisma.fileEntry.findMany({
+        where: {
+          storageNodeId: node.id,
+          relativePath: { in: destinations.slice(offset, offset + 500) },
+        },
+        select: { id: true, relativePath: true, entryType: true, isDeleted: true },
+      });
+      occupantRows.push(...page);
+    }
+    const occupantsByPath = new Map(
+      occupantRows.map((row) => [row.relativePath, row]),
+    );
     for (const item of items) {
       input.signal?.throwIfAborted();
       const destination = root + item.path.slice(source.path.length);
-      await ensureAccess(item.path, "read");
-      await ensureAccess(destination, "write");
-      const occupant = await prisma.fileEntry.findUnique({
-        where: {
-          storageNodeId_relativePath: {
-            storageNodeId: node.id,
-            relativePath: destination,
-          },
-        },
-      });
+      const occupant = occupantsByPath.get(destination);
       if (occupant?.isDeleted)
         throw new Error(
           apiCopy("apiCopy.files.op.trashPath", { v0: destination }),
         );
       if (occupant && (occupant.entryType === "DIRECTORY") !== item.directory)
         throw new Error(apiCopy("apiCopy.files.op.type", { v0: destination }));
-      const physical = await statBackingObject({
-        storageNode: node,
-        relativePath: destination,
-      });
+      const physical = await physicalExists(destination);
       if (item.directory) {
         let createdIdentity: { dev: number; ino: number } | undefined;
         let creationAttempted = false;
@@ -341,7 +454,7 @@ export async function copyFileEntry(input: {
           writeBytes: sourceStat.size,
         });
         if (!access.allowed)
-          throw new Error(access.reason ?? apiCopy("apiCopy.files.op.quota"));
+          throw new Error(storageAccessDeniedCopy(access.reason));
         const parent = path.posix.dirname(destination);
         const stage = path.posix.join(parent, `.vch-copy-${randomUUID()}`);
         const backup = path.posix.join(parent, `.vch-backup-${randomUUID()}`);

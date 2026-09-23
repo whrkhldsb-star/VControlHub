@@ -141,13 +141,17 @@ async function main() {
   const envFile = await loadEnvFile();
 
   if (mode === "database") {
-    const output = resolveOutputPath(positional, "sql.gz");
+    // Mode, not extension: resolveOutputPath branches on "database" to emit
+    // <app>_<ts>.sql.gz (a raw gzipped SQL dump). Passing "sql.gz" fell into
+    // the archive branch and produced a misnamed .tar.gz that the retention
+    // pruner never matches — so default DB backups accumulated forever.
+    const output = resolveOutputPath(positional, "database");
     await dumpDatabase(output, envFile);
     await pruneOldBackups(envFile);
     return;
   }
 
-  const output = resolveOutputPath(positional, "tar.gz");
+  const output = resolveOutputPath(positional, mode === "full" ? "full" : "files");
   await fs.mkdir(path.dirname(output), { recursive: true });
   if (mode === "files") {
     log(`Starting files backup: ${output}`);

@@ -32,6 +32,12 @@ services:
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:?set ENCRYPTION_KEY in .env}
       SSH_WS_SECRET: ${SSH_WS_SECRET:?set SSH_WS_SECRET in .env}
       SSH_WS_ALLOWED_ORIGINS: ${SSH_WS_ALLOWED_ORIGINS:-http://localhost:3000}
+      # Ports 3000/3001 are published directly (no reverse-proxy container in
+      # this compose file), so client-supplied X-Forwarded-For must NOT be
+      # trusted for rate-limit identity — the default of 1 hop would let any
+      # caller rotate a fresh rate-limit bucket per request. Put an explicit
+      # reverse proxy in front and raise this to its hop count instead.
+      TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-0}
       NEXT_PUBLIC_APP_PUBLIC_LABEL: ${NEXT_PUBLIC_APP_PUBLIC_LABEL:-VControlHub}
       RUN_MIGRATIONS_ON_START: ${RUN_MIGRATIONS_ON_START:-true}
       SEED_ON_START: ${SEED_ON_START:-true}

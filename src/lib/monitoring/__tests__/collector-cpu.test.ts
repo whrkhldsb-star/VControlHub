@@ -45,36 +45,36 @@ describe("collectMonitoringStats CPU usage", () => {
 		__resetCpuBaselineForTests();
 	});
 
-	it("reports the boot average for the very first sample", () => {
+	it("reports the boot average for the very first sample", async () => {
 		withStat(procStat(200, 800));
-		expect(collectMonitoringStats().cpu.usage).toBe("20.0%");
+		expect((await collectMonitoringStats()).cpu.usage).toBe("20.0%");
 	});
 
-	it("diffs against the previous sample instead of the whole uptime", () => {
+	it("diffs against the previous sample instead of the whole uptime", async () => {
 		// Boot average is 1% busy, but the last window was 90% busy. Reading
 		// /proc/stat once reported 1% — a gauge that never moves off idle.
 		withStat(procStat(100, 9900));
-		expect(collectMonitoringStats().cpu.usage).toBe("1.0%");
+		expect((await collectMonitoringStats()).cpu.usage).toBe("1.0%");
 		withStat(procStat(1000, 10_000));
-		expect(collectMonitoringStats().cpu.usage).toBe("90.0%");
+		expect((await collectMonitoringStats()).cpu.usage).toBe("90.0%");
 	});
 
-	it("keeps the previous window when two calls land in the same jiffy", () => {
+	it("keeps the previous window when two calls land in the same jiffy", async () => {
 		withStat(procStat(100, 900));
-		collectMonitoringStats();
+		(await collectMonitoringStats());
 		withStat(procStat(600, 900));
-		expect(collectMonitoringStats().cpu.usage).toBe("100.0%");
+		expect((await collectMonitoringStats()).cpu.usage).toBe("100.0%");
 		// No counter movement: report the last measured window rather than N/A,
 		// and keep the baseline so the next real tick still has a window.
-		expect(collectMonitoringStats().cpu.usage).toBe("100.0%");
+		expect((await collectMonitoringStats()).cpu.usage).toBe("100.0%");
 		withStat(procStat(600, 1400));
-		expect(collectMonitoringStats().cpu.usage).toBe("0.0%");
+		expect((await collectMonitoringStats()).cpu.usage).toBe("0.0%");
 	});
 
-	it("falls back to N/A, not N/A%, when /proc/stat is unreadable", () => {
+	it("falls back to N/A, not N/A%, when /proc/stat is unreadable", async () => {
 		readFileSyncMock.mockImplementation(() => {
 			throw new Error("EACCES");
 		});
-		expect(collectMonitoringStats().cpu.usage).toBe("N/A");
+		expect((await collectMonitoringStats()).cpu.usage).toBe("N/A");
 	});
 });

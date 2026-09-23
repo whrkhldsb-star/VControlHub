@@ -74,7 +74,7 @@ describe("notification WebSocket lifecycle", () => {
 		const { server, port } = await listen();
 		let finish!: (value: unknown) => void;
 		verifySessionTokenMock.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
-		const client = new WebSocket(`ws://127.0.0.1:${port}/ws?token=valid`);
+		const client = new WebSocket(`ws://127.0.0.1:${port}/ws`, { headers: { cookie: "test_session=valid" } });
 		client.on("error", () => {});
 		const closed = new Promise<void>((resolve) => client.once("close", () => resolve()));
 		await vi.waitFor(() => expect(verifySessionTokenMock).toHaveBeenCalled());
@@ -85,6 +85,17 @@ describe("notification WebSocket lifecycle", () => {
 		finish({ userId: "user-1" });
 		await closed;
 		expect(onConnection).not.toHaveBeenCalled();
+	});
+
+	it("rejects upgrades that try to authenticate via the query string", async () => {
+		const { port } = await listen();
+		const client = new WebSocket(`ws://127.0.0.1:${port}/ws?token=valid`);
+		client.on("error", () => {});
+		const closed = new Promise<void>((resolve) => client.once("close", () => resolve()));
+		await closed;
+		// The token-in-URL fallback is gone: the credential must ride the
+		// HttpOnly cookie, where proxies/logs/Referer cannot capture it.
+		expect(verifySessionTokenMock).not.toHaveBeenCalled();
 	});
 
 	it("authenticates, responds to heartbeats, broadcasts and releases the connection", async () => {
@@ -106,7 +117,7 @@ describe("notification WebSocket lifecycle", () => {
 
 	it("closes an oversized incoming message with code 1009", async () => {
 		const { port } = await listen();
-		const client = new WebSocket(`ws://127.0.0.1:${port}/ws?token=valid`);
+		const client = new WebSocket(`ws://127.0.0.1:${port}/ws`, { headers: { cookie: "test_session=valid" } });
 		await once(client, "message");
 		const closed = once(client, "close");
 		client.send("x".repeat(16 * 1024 + 1));

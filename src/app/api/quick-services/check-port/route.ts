@@ -54,7 +54,7 @@ export async function GET(request: Request) {
 					}
 					throw new Error("No available remote port found");
 				}
-				const port = allocatePort(preferred);
+				const port = await allocatePort(preferred);
 				return NextResponse.json({ port, available: true });
 			} catch (err) {
 				const msg = getErrorMessage(err, "Configuration check failed");
@@ -64,7 +64,7 @@ export async function GET(request: Request) {
 
 		// action=used-ports: list all currently used ports
 		if (action === "used-ports") {
-			return NextResponse.json({ usedPorts: serverId ? await getRemoteUsedPorts(serverId) : getUsedPorts() });
+			return NextResponse.json({ usedPorts: serverId ? await getRemoteUsedPorts(serverId) : await getUsedPorts() });
 		}
 
 		// Default: check a specific port
@@ -77,7 +77,7 @@ export async function GET(request: Request) {
 					available: await isRemotePortAvailable(serverId, port),
 					usedBy: null as string | null,
 				}
-			: checkPort(port);
+			: await checkPort(port);
 		return NextResponse.json({ port, ...result });
 	});
 }

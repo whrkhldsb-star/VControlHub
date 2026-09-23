@@ -244,8 +244,18 @@ describe("scheduled-task durable job worker", () => {
     await Promise.resolve();
 
     expect(createCommandRequestMock).not.toHaveBeenCalled();
-    expect(recordTaskRunMock).toHaveBeenCalledWith("no-srv", "Skipped: no target server or no creator");
-    expect(recordTaskRunMock).toHaveBeenCalledWith("no-creator", "Skipped: no target server or no creator");
+    // Skip copy is localised (ops-hardening-api.ts) and carries a structured
+    // outcome so failure detection never parses the display string.
+    expect(recordTaskRunMock).toHaveBeenCalledWith(
+      "no-srv",
+      "已跳过：任务缺少目标服务器或创建者",
+      "skipped",
+    );
+    expect(recordTaskRunMock).toHaveBeenCalledWith(
+      "no-creator",
+      "已跳过：任务缺少目标服务器或创建者",
+      "skipped",
+    );
     // New-B (2026-06-15): both tasks short-circuited (no servers / no
     // creator) so they don't count as "dispatched" — only tasks that
     // actually went through createCommandRequest do.
@@ -273,10 +283,12 @@ describe("scheduled-task durable job worker", () => {
     expect(createCommandRequestMock).not.toHaveBeenCalled();
     // ...the authz check runs before the CAS claim, so the row is never claimed...
     expect(scheduledTaskUpdateManyMock).not.toHaveBeenCalled();
-    // ...and the skip reason is recorded (recordTaskRun advances nextRunAt).
+    // ...and the localised skip reason is recorded with a structured outcome
+    // (recordTaskRun advances nextRunAt).
     expect(recordTaskRunMock).toHaveBeenCalledWith(
       "revoked",
-      "Skipped: command requester is disabled or no longer valid",
+      "已跳过：创建者已无执行权限（command requester is disabled or no longer valid）",
+      "skipped",
     );
     expect(completeJobMock).toHaveBeenCalledWith(
       "job-1",
@@ -301,7 +313,7 @@ describe("scheduled-task durable job worker", () => {
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(recordTaskRunMock).toHaveBeenCalledWith("bad", "Execution failed: boom");
+    expect(recordTaskRunMock).toHaveBeenCalledWith("bad", "Execution failed: boom", "failed");
 		expect(recordTaskDispatchMock).toHaveBeenCalledWith("good", "cmd-good");
     // New-B (2026-06-15): only the `good` task actually went through
     // createCommandRequest; `bad` failed and was caught by the per-task
@@ -401,6 +413,7 @@ describe("scheduled-task durable job worker", () => {
     expect(recordTaskRunMock).toHaveBeenCalledWith(
       "claim-rollback",
       "Execution failed: downstream API 503",
+      "failed",
     );
     // Tick job still completes — per-task failures don't fail the whole
     // tick. The `dispatched` counter is the number of tasks that actually

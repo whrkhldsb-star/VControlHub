@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPoi
 import { useI18n } from "@/lib/i18n/use-locale";
 import { SshTerminalPanel, type TerminalStatus } from "@/components/ssh-terminal-panel";
 import { ActionButton } from "@/components/action-button";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 
 /* ------------------------------------------------------------------ */
 /* SshTerminalManager — multi-tab SSH terminal floating workbench     */
@@ -38,8 +39,12 @@ export type SshTerminalManagerProps = {
 	onTabClose: (index: number) => void;
 	/** Called when the manager is closed (close button). */
 	onClose: () => void;
-	/** Called when a tab's status changes (for parent state sync). */
-	onStatusChange: (index: number, status: TerminalStatus) => void;
+	/**
+	 * Called when a tab's status changes (for parent state sync). Keyed by the
+	 * stable tab id so a status arriving after a tab shift cannot land on the
+	 * wrong tab.
+	 */
+	onStatusChange: (tabId: string, status: TerminalStatus) => void;
 };
 
 export function SshTerminalManager({
@@ -52,6 +57,7 @@ export function SshTerminalManager({
 }: SshTerminalManagerProps) {
 	const { t } = useI18n();
 	const [minimized, setMinimized] = useState(false);
+	const [confirmCloseAll, setConfirmCloseAll] = useState(false);
 	const [mobileHeight, setMobileHeight] = useState<number | null>(null);
 	const dragStateRef = useRef<{ startY: number; startHeight: number } | null>(null);
 
@@ -224,7 +230,13 @@ export function SshTerminalManager({
 							▬
 						</button>
 						<ActionButton variant="secondary"
-							onClick={onClose}
+							onClick={() => {
+								// The X kills every session at once — one misclick
+								// (especially on mobile) must not drop every PTY.
+								// Escape intentionally closes only the active tab.
+								if (tabs.length > 1) setConfirmCloseAll(true);
+								else onClose();
+							}}
 							aria-label={t("sshTerminalModal.ariaClose")}
 							title={t("sshTerminalModal.close")}
 						
@@ -255,6 +267,27 @@ export function SshTerminalManager({
 								aria-selected={isActive}
 								tabIndex={isActive ? 0 : -1}
 								onClick={() => onTabSelect(i)}
+								onKeyDown={(e) => {
+									// Only act when the tab itself has focus — the close
+									// button inside handles its own activation.
+									if (e.target !== e.currentTarget) return;
+									if (e.key === "Enter" || e.key === " ") {
+										e.preventDefault();
+										onTabSelect(i);
+										return;
+									}
+									// Roving focus: arrows move between adjacent tabs.
+									if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+										e.preventDefault();
+										const tablist = e.currentTarget.parentElement;
+										if (!tablist) return;
+										const tabEls = Array.from(tablist.querySelectorAll<HTMLElement>('[role="tab"]'));
+										const current = tabEls.indexOf(e.currentTarget);
+										if (current === -1 || tabEls.length === 0) return;
+										const delta = e.key === "ArrowRight" ? 1 : -1;
+										tabEls[(current + delta + tabEls.length) % tabEls.length]?.focus();
+									}
+								}}
 								className={`group flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-xs transition ${
 									isActive
 										? "bg-[var(--surface-elevated)] light:bg-[var(--surface-hover)] text-[var(--text-primary)]"
@@ -292,11 +325,24 @@ export function SshTerminalManager({
 							// layout fit only — connection lifecycle ignores `visible`.
 							visible={!minimized && i === activeTabIndex}
 							onClose={() => onTabClose(i)}
-							onStatusChange={(status) => onStatusChange(i, status)}
+							onStatusChange={(status) => onStatusChange(tab.id, status)}
 						/>
 					))}
 				</div>
 			</div>
+
+			<ConfirmDialog
+				open={confirmCloseAll && tabs.length > 1}
+				title={t("sshTerminalManager.closeAllTitle")}
+				description={t("sshTerminalManager.closeAllDescription", { count: tabs.length })}
+				confirmLabel={t("sshTerminalManager.closeAllConfirm")}
+				cancelLabel={t("common.cancel")}
+				onConfirm={() => {
+					setConfirmCloseAll(false);
+					onClose();
+				}}
+				onCancel={() => setConfirmCloseAll(false)}
+			/>
 		</div>
 	);
 }

@@ -302,6 +302,131 @@ describe("compose project helpers", () => {
     expect(removeCall?.[1]).toEqual(expect.objectContaining({ method: "DELETE" }));
   });
 
+  it("merges the engine fallback into one bulk docker CLI command when it succeeds", async () => {
+    dockerRequestMock
+      // initial label list in runComposeProjectAction
+      .mockResolvedValueOnce({
+        result: {
+          ok: true,
+          status: 200,
+          data: [
+            container({ id: "abc123", project: "site", state: "exited" }),
+            container({ id: "def456", project: "site", state: "exited" }),
+          ],
+        },
+        scope: hubScope,
+      })
+      // list inside engineActionOnProjectContainers
+      .mockResolvedValueOnce({
+        result: {
+          ok: true,
+          status: 200,
+          data: [
+            container({ id: "abc123", project: "site", state: "exited" }),
+            container({ id: "def456", project: "site", state: "exited" }),
+          ],
+        },
+        scope: hubScope,
+      })
+      // after list inside engineAction
+      .mockResolvedValueOnce({
+        result: {
+          ok: true,
+          status: 200,
+          data: [
+            container({ id: "abc123", project: "site", state: "running" }),
+            container({ id: "def456", project: "site", state: "running" }),
+          ],
+        },
+        scope: hubScope,
+      });
+
+    runFileImpl.mockImplementation(async (_file: string, argv: string[]) => {
+      if (argv.includes("compose")) {
+        // compose CLI missing → engine fallback path
+        throw Object.assign(new Error("not found"), {
+          code: 1,
+          stdout: "",
+          stderr: "docker: unknown command: docker compose\nunknown shorthand flag: 'p' in -p",
+        });
+      }
+      // Bulk lifecycle command succeeds (docker start abc123 def456).
+      return { stdout: "", stderr: "" };
+    });
+
+    const result = await runComposeProjectAction({ project: "site", action: "start" });
+    expect(result.mode).toBe("engine-fallback");
+    expect(result.containers).toHaveLength(2);
+
+    // runLocalCommand passes argv.slice(1) to execFile, so the bulk call is
+    // recorded as ("docker", ["start", "abc123", "def456"]).
+    const bulkCall = runFileImpl.mock.calls.find(
+      ([, argv]) => (argv as string[])[0] === "start",
+    );
+    expect(bulkCall).toBeTruthy();
+    expect(bulkCall?.[1]).toEqual(["start", "abc123", "def456"]);
+    // No per-container Engine requests were issued alongside the bulk command.
+    const engineStartCalls = dockerRequestMock.mock.calls.filter(
+      ([path]) => typeof path === "string" && String(path).includes("/start"),
+    );
+    expect(engineStartCalls).toHaveLength(0);
+  });
+
+  it("falls back per-container through the Engine API when the bulk CLI command fails", async () => {
+    dockerRequestMock
+      // initial label list
+      .mockResolvedValueOnce({
+        result: {
+          ok: true,
+          status: 200,
+          data: [container({ id: "abc123", project: "site", state: "exited" })],
+        },
+        scope: hubScope,
+      })
+      // list inside engineAction
+      .mockResolvedValueOnce({
+        result: {
+          ok: true,
+          status: 200,
+          data: [container({ id: "abc123", project: "site", state: "exited" })],
+        },
+        scope: hubScope,
+      })
+      // per-container start
+      .mockResolvedValueOnce({
+        result: { ok: true, status: 204, data: null },
+        scope: hubScope,
+      })
+      // after list
+      .mockResolvedValueOnce({
+        result: {
+          ok: true,
+          status: 200,
+          data: [container({ id: "abc123", project: "site", state: "running" })],
+        },
+        scope: hubScope,
+      });
+
+    runFileImpl.mockImplementation(async (_file: string, argv: string[]) => {
+      // Every CLI attempt fails: compose missing AND the bulk start errors.
+      throw Object.assign(new Error("daemon busy"), {
+        code: 1,
+        stdout: "",
+        stderr: argv.includes("compose")
+          ? "docker: unknown command: docker compose\nunknown shorthand flag: 'p' in -p"
+          : "Error response from daemon",
+      });
+    });
+
+    const result = await runComposeProjectAction({ project: "site", action: "start" });
+    expect(result.mode).toBe("engine-fallback");
+    expect(result.containers?.[0]?.state).toBe("running");
+    const engineStartCalls = dockerRequestMock.mock.calls.filter(
+      ([path]) => typeof path === "string" && String(path).includes("/start"),
+    );
+    expect(engineStartCalls).toHaveLength(1);
+  });
+
   it("does not fall back when compose fails with a business error containing 'not found'", async () => {
     dockerRequestMock.mockResolvedValueOnce({
       result: {

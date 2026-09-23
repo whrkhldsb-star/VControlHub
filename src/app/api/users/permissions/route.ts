@@ -10,7 +10,7 @@ import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import {
   assertUserInActorScope,
-  teamWhere,
+  isGlobalTeamManager,
 } from "@/lib/auth/team-scope";
 import { AuthError, NotFoundError, ValidationError } from "@/lib/errors";
 import { getStorageAccessUsage } from "@/lib/storage/access-control";
@@ -92,7 +92,12 @@ export async function GET(request: Request) {
       z.object({ userId: z.string().trim().min(1, "Missing userId Parameter") }),
     );
     await assertUserInActorScope(session, userId);
-    const nodeScope = teamWhere(session);
+    // Same security-root scoping as the PATCH path (route-patch.ts): storage
+    // nodes are quarantined for non-global actors — legacy `teamId: null`
+    // nodes are not offered for grant.
+    const nodeScope = isGlobalTeamManager(session)
+      ? {}
+      : { teamId: session.currentTeamId ?? "__no_team_no_grants__" };
 
     const [user, roles, permissions, storageNodes] = await Promise.all([
       prisma.user.findUnique({

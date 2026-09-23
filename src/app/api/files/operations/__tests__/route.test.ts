@@ -89,6 +89,7 @@ describe("file operation task listing", () => {
     ).json();
     expect(result.jobs).toHaveLength(1);
     expect(result.jobs[0].status).toBe("COMPLETED");
+    expect(result.jobs[0]).toMatchObject({ action: "copy", count: 4 });
   });
   it("retains old active jobs when many newer jobs have completed", async () => {
     mocks.list

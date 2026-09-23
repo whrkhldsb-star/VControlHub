@@ -1,6 +1,9 @@
 /** Typed API/backend copy. English remains stable outside a request locale. */
 export const en = {
   "apiCopy.files.op.failedCount": "{v0} item(s) failed",
+  "apiCopy.apiTokens.expiryTimezoneRequired": "Expiration time must include a timezone (send ISO-8601, e.g. 2026-07-22T10:00:00.000Z)",
+  "apiCopy.apiTokens.expiryInvalidFormat": "Invalid expiration time format",
+  "apiCopy.apiTokens.expiryMustBeFuture": "Expiration time must be in the future",
   "apiCopy.files.op.moveUnconfirmed": "Move result is unconfirmed. Check source /{v0} and destination /{v1} before trying again: {v2}",
   "apiCopy.files.op.directoryUnconfirmed": "Directory copy result is unconfirmed. Inspect /{v0} before trying again: {v1}",
   "apiCopy.files.op.recovery": "Recovery needs inspection. Backup: {v0}; destination: {v1}; reason: {v2}",
@@ -405,6 +408,9 @@ export const en = {
 
 export const zh: Record<keyof typeof en, string> = {
   "apiCopy.files.op.failedCount": "{v0} 个条目失败或结果待确认",
+  "apiCopy.apiTokens.expiryTimezoneRequired": "过期时间必须包含时区（请使用 ISO-8601 格式，如 2026-07-22T10:00:00.000Z）",
+  "apiCopy.apiTokens.expiryInvalidFormat": "过期时间格式无效",
+  "apiCopy.apiTokens.expiryMustBeFuture": "过期时间必须晚于当前时间",
   "apiCopy.files.op.moveUnconfirmed": "移动结果待确认，请检查源位置 /{v0} 和目标位置 /{v1}，核对完成前不要重试：{v2}",
   "apiCopy.files.op.directoryUnconfirmed": "目录复制结果待确认，请检查 /{v0}，核对完成前不要重试：{v1}",
   "apiCopy.files.op.recovery": "需要检查恢复结果。备份位置：{v0}；目标位置：{v1}；原因：{v2}",

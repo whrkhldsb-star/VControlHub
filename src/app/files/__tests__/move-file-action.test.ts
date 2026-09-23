@@ -116,7 +116,7 @@ describe("moveFileAction", () => {
       .mockResolvedValueOnce({ allowed: true }) // source
       .mockResolvedValueOnce({
         allowed: false,
-        reason: "没有该存储节点或路径的访问授权",
+        reason: "no_access",
       }); // destination
 
     const formData = new FormData();
@@ -125,7 +125,9 @@ describe("moveFileAction", () => {
 
     const result = await moveFileAction(null, formData);
 
-    expect(result).toEqual({ error: "没有该存储节点或路径的访问授权" });
+    // Denials render through storageAccessDeniedCopy: stable reason codes map
+    // to localized copy at the boundary.
+    expect(result).toEqual({ error: "没有此存储节点或路径的访问授权" });
     expect(assertStorageAccess).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({
@@ -180,7 +182,7 @@ describe("moveFileAction", () => {
     mockEntryLookup(baseEntry);
     vi.mocked(assertStorageAccess).mockResolvedValueOnce({
       allowed: false,
-      reason: "source grant missing",
+      reason: "path_not_allowed",
     });
 
     const formData = new FormData();
@@ -189,7 +191,8 @@ describe("moveFileAction", () => {
 
     const result = await moveFileAction(null, formData);
 
-    expect(result).toEqual({ error: "source grant missing" });
+    // Reason codes map to their own localized copy at the boundary.
+    expect(result).toEqual({ error: "请求路径无效或超出授权范围" });
     expect(assertStorageAccess).toHaveBeenCalledTimes(1);
     expect(assertStorageAccess).toHaveBeenCalledWith(
       expect.objectContaining({

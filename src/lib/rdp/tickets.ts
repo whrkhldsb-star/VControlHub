@@ -5,13 +5,22 @@ import type { Server } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { serverTeamWhere, type TeamSession } from "@/lib/auth/team-scope";
 import { BusinessError, ForbiddenError, NotFoundError } from "@/lib/errors";
+import { config } from "@/lib/config/env";
 import { assertPublicRdpHost } from "./protocol";
 import { t } from "@/lib/i18n/service-translations";
 
 export const hashRdpValue = (value: string) => createHash("sha256").update(value).digest("hex");
 export const rdpEndpointHash = (server: Server) => hashRdpValue(JSON.stringify([server.host, server.port, server.username, server.rdpPassword, server.rdpDomain, server.rdpIgnoreCertificate, server.rdpCertificateSha256, server.teamId, server.updatedAt]));
+// Compare origins case-insensitively through the same centralized config the
+// SSH terminal uses (config.ssh.wsAllowedOrigins). A literal env re-read with
+// a case-sensitive compare here drifted from ssh-ws-proxy's lowercased match:
+// "https://Example.com" was accepted by one and rejected by the other.
 export function rdpOriginAllowed(origin: string) {
- return Boolean(origin && (process.env.SSH_WS_ALLOWED_ORIGINS ?? "").split(",").map(v => v.trim()).includes(origin));
+	const normalized = origin.trim().toLowerCase();
+	return Boolean(
+		normalized &&
+			config.ssh.wsAllowedOrigins.some((allowed) => allowed.trim().toLowerCase() === normalized),
+	);
 }
 export async function getRdpServer(serverId: string, session: TeamSession) {
  const server = await prisma.server.findFirst({ where: { AND: [{ id: serverId }, serverTeamWhere(session)] } });

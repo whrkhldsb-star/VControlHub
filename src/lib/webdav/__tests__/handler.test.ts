@@ -18,6 +18,8 @@ const mocks = vi.hoisted(() => ({
   storageNodeFindFirst: vi.fn(),
   fileEntryFindFirst: vi.fn(),
   fileEntryUpdate: vi.fn(),
+  fileEntryUpdateMany: vi.fn(),
+  executeRaw: vi.fn(),
   queryRaw: vi.fn(),
   transaction: vi.fn(),
   streamStorageFile: vi.fn(),
@@ -218,9 +220,23 @@ describe("webdav handlers", () => {
 
       expect(mocks.queryRaw).not.toHaveBeenCalled();
     });
+    });
   });
 
   describe("GET/HEAD", () => {
+    it("checks read access before touching the index", async () => {
+      // Once-only: the beforeEach default (allowed) must keep serving the
+      // sibling tests in this describe.
+      mocks.assertStorageAccess.mockResolvedValueOnce({ allowed: false, reason: "no_access" });
+
+      // The denial code renders through storageAccessDeniedCopy (the i18n
+      // barrel is mocked to identity), never the raw decision code.
+      await expect(handleWebDavGetHead(context("a.bin"), "GET")).rejects.toThrow(
+        "backend.storageHardening.access.noAccess",
+      );
+      expect(mocks.fileEntryFindFirst).not.toHaveBeenCalled();
+    });
+
     it("closes the size probe when the index has no recorded size", async () => {
       const close = vi.fn();
       mocks.fileEntryFindFirst.mockResolvedValue({
@@ -265,13 +281,6 @@ describe("webdav handlers", () => {
       expect(response.status).toBe(206);
       expect(response.headers.get("Content-Range")).toBe("bytes 10-19/100");
       expect(response.headers.get("Content-Length")).toBe("10");
-    });
-
-    it("checks read access before touching the index", async () => {
-      mocks.assertStorageAccess.mockResolvedValue({ allowed: false, reason: "no grant" });
-
-      await expect(handleWebDavGetHead(context("a.bin"), "GET")).rejects.toThrow("no grant");
-      expect(mocks.fileEntryFindFirst).not.toHaveBeenCalled();
     });
   });
 
@@ -357,13 +366,44 @@ describe("webdav handlers", () => {
         relativePath: "a.txt",
       });
       mocks.transaction.mockImplementation(async (fn: (tx: unknown) => Promise<void>) =>
-        fn({ fileEntry: { findMany: vi.fn().mockResolvedValue([]), update: vi.fn() } }),
+        fn({ fileEntry: { update: vi.fn(), updateMany: vi.fn() } }),
       );
 
       const response = await handleWebDavDelete(context("a.txt"));
 
       expect(response.status).toBe(204);
       expect(accessCalls()[0]?.operation).toBe("delete");
+    });
+
+    it("soft-deletes a directory subtree with ONE batched updateMany", async () => {
+      mocks.fileEntryFindFirst.mockResolvedValue({
+        id: "d1",
+        entryType: "DIRECTORY",
+        relativePath: "docs",
+      });
+      mocks.transaction.mockImplementation(async (fn: (tx: unknown) => Promise<void>) =>
+        fn({ fileEntry: { update: mocks.fileEntryUpdate, updateMany: mocks.fileEntryUpdateMany } }),
+      );
+
+      const response = await handleWebDavDelete(context("docs"));
+
+      expect(response.status).toBe(204);
+      // Regression: the subtree used to be tombstoned with one UPDATE per
+      // child inside the transaction; it must be a single batched statement
+      // tagged with the recycle-batch id (same contract as the file manager).
+      expect(mocks.fileEntryUpdateMany).toHaveBeenCalledTimes(1);
+      expect(mocks.fileEntryUpdateMany).toHaveBeenCalledWith({
+        where: {
+          storageNodeId: "n1",
+          relativePath: { startsWith: "docs/" },
+          isDeleted: false,
+        },
+        data: { isDeleted: true, deleteBatchId: expect.any(String) },
+      });
+      expect(mocks.fileEntryUpdate).toHaveBeenCalledWith({
+        where: { id: "d1" },
+        data: { isDeleted: true, deleteBatchId: expect.any(String) },
+      });
     });
 
     it("restores the staged bytes when the index transaction fails", async () => {
@@ -457,7 +497,7 @@ describe("webdav handlers", () => {
           : null,
       );
       mocks.transaction.mockImplementation(async (fn: (tx: unknown) => Promise<void>) =>
-        fn({ fileEntry: { update: vi.fn(), updateMany: vi.fn(), findMany: vi.fn().mockResolvedValue([]) } }),
+        fn({ fileEntry: { update: vi.fn(), updateMany: vi.fn() }, $executeRaw: mocks.executeRaw }),
       );
 
       const response = await moveWith(destination);
@@ -467,6 +507,36 @@ describe("webdav handlers", () => {
         "write:a.txt",
         "write:moved/b.txt",
       ]);
+      // File moves rewrite no descendants.
+      expect(mocks.executeRaw).not.toHaveBeenCalled();
+    });
+
+    it("rewrites a moved directory's descendants in ONE statement", async () => {
+      mocks.fileEntryFindFirst.mockImplementation(async (args: { where: { relativePath: string } }) =>
+        args.where.relativePath === "docs"
+          ? { id: "d1", entryType: "DIRECTORY", relativePath: "docs" }
+          : null,
+      );
+      mocks.transaction.mockImplementation(async (fn: (tx: unknown) => Promise<void>) =>
+        fn({ fileEntry: { update: vi.fn(), updateMany: vi.fn() }, $executeRaw: mocks.executeRaw }),
+      );
+      mocks.executeRaw.mockResolvedValue(3);
+
+      const response = await handleWebDavMove(
+        context("docs"),
+        new Request("https://hub.example/api/webdav/n1/docs", {
+          method: "POST",
+          headers: { destination: "/api/webdav/n1/manuals" },
+        }),
+      );
+
+      expect(response.status).toBe(201);
+      // Regression: descendant rewrites used to be one UPDATE round-trip per
+      // child inside the transaction; they must now be one statement.
+      expect(mocks.executeRaw).toHaveBeenCalledTimes(1);
+      const sql = String(mocks.executeRaw.mock.calls[0]![0]);
+      expect(sql).toContain("UPDATE file_entries");
+      expect(sql).toContain("regexp_replace");
     });
   });
 
@@ -749,4 +819,4 @@ describe("webdav handlers", () => {
       );
     });
   });
-});
+

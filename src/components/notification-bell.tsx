@@ -222,7 +222,7 @@ export function NotificationBell() {
 						maxHeight: popoverPos ? `${popoverPos.maxHeight}px` : "60vh",
 						visibility: popoverPos ? "visible" : "hidden",
 					}}
-					className="z-[9999] w-80 overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] shadow-[var(--shadow-lg)] backdrop-blur-xl"
+					className="z-[var(--z-popover)] w-80 overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] shadow-[var(--shadow-lg)] backdrop-blur-xl"
 					>
 					<div className="sticky top-0 flex items-center justify-between border-b border-[var(--border)] bg-[color-mix(in_srgb,var(--modal-bg)_92%,transparent)] px-4 py-3 backdrop-blur">
 						<span id="notification-popover-title" className="text-sm font-semibold text-[var(--text-primary)]">{notificationLabel}</span>

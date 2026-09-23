@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-const { prismaMock, execFileSyncMock, execFileMock, spawnSyncMock, mkdirSyncMock, rmSyncMock, writeAuditLogMock } = vi.hoisted(() => ({
+const { prismaMock, execFileSyncMock, execFileMock, spawnSyncMock, mkdirSyncMock, rmSyncMock, writeAuditLogMock, busyPorts } = vi.hoisted(() => ({
 	prismaMock: {
 		quickService: {
 			findMany: vi.fn(),
@@ -19,6 +19,8 @@ const { prismaMock, execFileSyncMock, execFileMock, spawnSyncMock, mkdirSyncMock
 	mkdirSyncMock: vi.fn(),
 	rmSyncMock: vi.fn(),
 	writeAuditLogMock: vi.fn(),
+	// Ports the in-process net.createServer probe reports as busy (EADDRINUSE).
+	busyPorts: new Set<number>(),
 }));
 
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
@@ -33,6 +35,36 @@ vi.mock("child_process", () => ({
 	execFile: execFileMock,
 	spawnSync: spawnSyncMock,
 }));
+// Port availability is probed in-process (net.createServer) — no `node -e`
+// child spawn anymore. The mock resolves listening vs EADDRINUSE from the
+// shared busyPorts fixture set.
+vi.mock("node:net", () => {
+	const createServer = () => {
+		const handlers: Record<string, Array<(...args: unknown[]) => void>> = {};
+		const server = {
+			once(event: string, cb: (...args: unknown[]) => void) {
+				(handlers[event] ??= []).push(cb);
+				return server;
+			},
+			listen(port: number, _host: string, onListening?: () => void) {
+				queueMicrotask(() => {
+					if (busyPorts.has(port)) {
+						for (const cb of handlers.error ?? []) cb(new Error("EADDRINUSE"));
+						return;
+					}
+					onListening?.();
+				});
+				return server;
+			},
+			close(onClosed?: () => void) {
+				queueMicrotask(() => onClosed?.());
+				return server;
+			},
+		};
+		return server;
+	};
+	return { default: { createServer }, createServer };
+});
 
 import { checkPort, installService, listQuickServiceHistory, resetQuickServiceProcessStateForTests, startService, stopService, syncServiceStatus, uninstallService, updateService } from "../service";
 import { getDockerEnvironmentStatus } from "../docker-cli";
@@ -52,10 +84,38 @@ const template: ServiceTemplate = {
 	volumesJson: [{ host: "/opt/demo/data", container: "/data" }],
 };
 
+/**
+ * Find the argv of the `docker run` execFile call. installService now probes
+ * the daemon (`docker --version` / `docker info`) through the same execFile
+ * mock before any run, so tests must not assume calls[0] is the container
+ * creation.
+ */
+function dockerRunArgs(): string[] {
+	const call = execFileMock.mock.calls.find(
+		(c) => c[0] === "docker" && Array.isArray(c[1]) && c[1][0] === "run",
+	);
+	return call?.[1] as string[];
+}
+
+/** execFile routing helper: default success, with per-argv overrides. */
+function routeExecFile(overrides: Record<string, (cb: (error: Error | null, result?: { stdout: string; stderr: string }) => void) => void>) {
+	execFileMock.mockImplementation(
+		(file: string, args: string[], _opts: unknown, cb: (error: Error | null, result?: { stdout: string; stderr: string }) => void) => {
+			if (file === "docker" && args[0] && overrides[args[0]]) {
+				overrides[args[0]]!(cb);
+				return {};
+			}
+			cb(null, { stdout: "abcdef1234567890\n", stderr: "" });
+			return {};
+		},
+	);
+}
+
 describe("quick service docker lifecycle", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		resetQuickServiceProcessStateForTests();
+		busyPorts.clear();
 		execFileSyncMock.mockReturnValue("");
 		spawnSyncMock.mockImplementation((file: string, args: string[]) => {
 			// Route docker logs through the same fixture surface as execFileSync
@@ -88,7 +148,7 @@ describe("quick service docker lifecycle", () => {
 			expect.objectContaining({ timeout: 300_000 }),
 			expect.any(Function),
 		);
-		const dockerArgs = execFileMock.mock.calls[0]![1] as string[];
+		const dockerArgs = dockerRunArgs();
 		expect(dockerArgs).toEqual(expect.arrayContaining(["--label", "com.vcontrolhub.quick-service=true"]));
 		expect(dockerArgs).not.toContain("EMPTY=");
 		expect(dockerArgs.join(" ")).not.toContain("'qs-demo'");
@@ -122,16 +182,14 @@ describe("quick service docker lifecycle", () => {
 
 		await startService("demo");
 
-		const dockerArgs = execFileMock.mock.calls[0]![1] as string[];
+		const dockerArgs = dockerRunArgs();
 		expect(dockerArgs).toEqual(expect.arrayContaining(["-p", "18080:8080", "-p", "19090:9090"]));
 		expect(dockerArgs.slice(-3)).toEqual(["example/demo:latest", "serve", "--safe"]);
 	});
 
 	it("preflights extra host ports before installing a template", async () => {
-		execFileSyncMock.mockImplementation((file: string, args: string[]) => {
-			if (file === "node" && args.includes("19090")) throw new Error("port busy");
-			return "";
-		});
+		// The in-process net probe reports this port as already bound.
+		busyPorts.add(19090);
 
 		await expect(
 			installService({
@@ -153,7 +211,9 @@ describe("quick service docker lifecycle", () => {
 				customPort: 12345,
 			}),
 		).rejects.toThrow(/Environment variable name|Docker socket/);
-		expect(execFileMock).not.toHaveBeenCalled();
+		// The validation rejection must happen before any docker run is issued
+		// (the daemon preflight probe is allowed).
+		expect(execFileMock).not.toHaveBeenCalledWith("docker", expect.arrayContaining(["run"]), expect.anything(), expect.anything());
 		expect(prismaMock.quickService.upsert).not.toHaveBeenCalled();
 	});
 
@@ -172,7 +232,7 @@ describe("quick service docker lifecycle", () => {
 			customPort: 9443,
 		});
 
-		const dockerArgs = execFileMock.mock.calls[0]![1] as string[];
+		const dockerArgs = dockerRunArgs();
 		// The host side of the socket mount is platform-resolved (named pipe on
 		// Windows Docker Desktop, unix socket on POSIX); container side stays POSIX.
 		expect(dockerArgs).toContain(`${hubHostDockerSocketMount()}:/var/run/docker.sock`);
@@ -182,9 +242,9 @@ describe("quick service docker lifecycle", () => {
 		prismaMock.quickService.findUnique.mockResolvedValueOnce(null);
 		prismaMock.quickService.upsert.mockResolvedValueOnce({ id: "svc-failed-install", slug: "demo", port: 12345 });
 		prismaMock.quickService.delete.mockResolvedValueOnce({});
-		execFileMock.mockImplementationOnce((_file: string, _args: string[], _opts: unknown, cb: (error: Error | null, result?: { stdout: string; stderr: string }) => void) => {
-			cb(Object.assign(new Error("docker run failed"), { stderr: "image pull denied" }));
-			return {};
+		routeExecFile({
+			// Fail only the container creation; the daemon preflight still succeeds.
+			run: (cb) => cb(Object.assign(new Error("docker run failed"), { stderr: "image pull denied" })),
 		});
 
 		await expect(installService({ template, userId: "user-1", customPort: 12345 })).rejects.toThrow("安装失败：image pull denied");
@@ -205,9 +265,8 @@ describe("quick service docker lifecycle", () => {
 		prismaMock.quickService.findUnique.mockResolvedValueOnce(null);
 		prismaMock.quickService.upsert.mockResolvedValueOnce({ id: "svc-cleanup-failed", slug: "demo", port: 12345 });
 		prismaMock.quickService.delete.mockResolvedValueOnce({});
-		execFileMock.mockImplementationOnce((_file: string, _args: string[], _opts: unknown, cb: (error: Error | null, result?: { stdout: string; stderr: string }) => void) => {
-			cb(new Error("network timeout"));
-			return {};
+		routeExecFile({
+			run: (cb) => cb(new Error("network timeout")),
 		});
 		execFileSyncMock.mockImplementation((file: string, args: string[]) => {
 			if (file === "docker" && args[0] === "rm") throw new Error("cleanup denied");
@@ -240,9 +299,8 @@ describe("quick service docker lifecycle", () => {
 		};
 		prismaMock.quickService.findUnique.mockResolvedValueOnce(before);
 		prismaMock.quickService.upsert.mockResolvedValueOnce({ id: "svc-existing", slug: "demo", port: 12345 });
-		execFileMock.mockImplementationOnce((_file: string, _args: string[], _opts: unknown, cb: (error: Error | null, result?: { stdout: string; stderr: string }) => void) => {
-			cb(Object.assign(new Error("docker run failed"), { stderr: "image pull denied" }));
-			return {};
+		routeExecFile({
+			run: (cb) => cb(Object.assign(new Error("docker run failed"), { stderr: "image pull denied" })),
 		});
 		prismaMock.quickService.update.mockResolvedValueOnce({});
 
@@ -411,9 +469,13 @@ describe("quick service docker lifecycle", () => {
 
 	it("rejects concurrent operations on the same service slug", async () => {
 		let releaseInstall!: () => void;
-		execFileMock.mockImplementationOnce((_file: string, _args: string[], _opts: unknown, cb: (error: Error | null, result?: { stdout: string; stderr: string }) => void) => {
-			releaseInstall = () => cb(null, { stdout: "abcdef1234567890\n", stderr: "" });
-			return {};
+		// Pause only the container creation so install holds the lock at the
+		// docker run stage; the daemon preflight still resolves.
+		routeExecFile({
+			run: (cb) => {
+				releaseInstall = () => cb(null, { stdout: "abcdef1234567890\n", stderr: "" });
+				// deliberately do not call cb yet
+			},
 		});
 		prismaMock.quickService.upsert.mockResolvedValueOnce({ id: "svc-lock", slug: "demo", port: 12345 });
 		prismaMock.quickService.update.mockResolvedValue({});
@@ -526,33 +588,46 @@ describe("quick service docker lifecycle", () => {
 		expect(prismaMock.quickService.delete).not.toHaveBeenCalled();
 	});
 
-	it("reports actionable Docker environment guidance before install attempts", () => {
-		execFileSyncMock.mockImplementationOnce(() => {
-			throw Object.assign(new Error("spawn docker ENOENT"), { code: "ENOENT" });
-		});
+	it("reports actionable Docker environment guidance before install attempts", async () => {
+		execFileMock.mockImplementationOnce(
+			(_file: string, _args: string[], _opts: unknown, cb: (error: Error | null) => void) => {
+				cb(Object.assign(new Error("spawn docker ENOENT"), { code: "ENOENT" }));
+				return {};
+			},
+		);
 
-		expect(getDockerEnvironmentStatus()).toEqual(expect.objectContaining({
+		await expect(getDockerEnvironmentStatus()).resolves.toEqual(expect.objectContaining({
 			available: false,
 			message: expect.stringMatching(/Docker is not installed|尚未安装 Docker/),
 			installHint: expect.stringContaining("get.docker.com"),
 		}));
 	});
 
-	it("returns invalid for out-of-range port checks without shelling out", () => {
-		expect(checkPort(70000)).toEqual({ available: false, usedBy: null });
+	it("returns invalid for out-of-range port checks without shelling out", async () => {
+		await expect(checkPort(70000)).resolves.toEqual({ available: false, usedBy: null });
+		expect(execFileMock).not.toHaveBeenCalled();
 		expect(execFileSyncMock).not.toHaveBeenCalled();
 	});
 
-	it("checks listening ports with argv-based ss execution instead of shell grep", () => {
-		execFileSyncMock.mockImplementation((file: string, args: string[]) => {
-			if (file === "ss" && args[0] === "-tlnpH") return "LISTEN 0 128 0.0.0.0:12345 0.0.0.0:* users:((\"node\",pid=4242,fd=18))\n";
-			if (file === "tr") return "node server.js ";
-			return "";
-		});
+	it("checks listening ports with argv-based ss execution instead of shell grep", async () => {
+		execFileMock.mockImplementation(
+			(file: string, _args: string[], _opts: unknown, cb: (error: Error | null, result?: { stdout: string; stderr: string }) => void) => {
+				if (file === "ss") {
+					cb(null, { stdout: "LISTEN 0 128 0.0.0.0:12345 0.0.0.0:* users:((\"node\",pid=4242,fd=18))\n", stderr: "" });
+					return {};
+				}
+				if (file === "tr") {
+					cb(null, { stdout: "node server.js ", stderr: "" });
+					return {};
+				}
+				cb(null, { stdout: "", stderr: "" });
+				return {};
+			},
+		);
 
-		expect(checkPort(12345)).toEqual({ available: false, usedBy: "node server.js" });
-		expect(execFileSyncMock).toHaveBeenCalledWith("ss", ["-tlnpH"], expect.any(Object));
-		expect(execFileSyncMock).not.toHaveBeenCalledWith(expect.stringContaining("grep"), expect.anything(), expect.anything());
+		await expect(checkPort(12345)).resolves.toEqual({ available: false, usedBy: "node server.js" });
+		expect(execFileMock).toHaveBeenCalledWith("ss", ["-tlnpH"], expect.any(Object), expect.any(Function));
+		expect(execFileMock).not.toHaveBeenCalledWith(expect.stringContaining("grep"), expect.anything(), expect.anything(), expect.anything());
 	});
 
 	it("treats missing quick-service containers as stopped during status sync instead of surfacing docker inspect noise", async () => {

@@ -48,6 +48,14 @@ const DEFAULT_REMOTE_TIMEOUT_MS = 30_000;
 const DEFAULT_MUTATION_LOCAL_TIMEOUT_MS = 120_000;
 const DEFAULT_MUTATION_REMOTE_TIMEOUT_MS = 120_000;
 
+/**
+ * Cap on a single local Engine API response. Mirrors (2x) the 16MB remote
+ * execRemoteCommand output bound: without it a chatty endpoint (e.g. a huge
+ * /containers/{id}/logs or events stream) buffers unbounded chunks into
+ * memory before anyone parses them.
+ */
+const MAX_LOCAL_ENGINE_RESPONSE_BYTES = 32 * 1024 * 1024;
+
 function isMutationMethod(method: string): boolean {
 	return !["GET", "HEAD", "OPTIONS"].includes(method.toUpperCase());
 }
@@ -89,8 +97,33 @@ export function requestDockerEngine(
 	return new Promise((resolve) => {
 		const request = http.request(requestOptions, (response) => {
 			const chunks: Buffer[] = [];
-			response.on("data", (chunk: Buffer) => chunks.push(chunk));
+			let received = 0;
+			let oversized = false;
+			response.on("data", (chunk: Buffer) => {
+				if (oversized) return;
+				received += chunk.length;
+				if (received > MAX_LOCAL_ENGINE_RESPONSE_BYTES) {
+					// Abort the transfer instead of buffering an unbounded stream;
+					// the promise settles once here, later error events are ignored.
+					oversized = true;
+					chunks.length = 0;
+					logger.error("Docker Engine response exceeded byte cap; aborting", undefined, {
+						apiPath,
+						method,
+						limitBytes: MAX_LOCAL_ENGINE_RESPONSE_BYTES,
+					});
+					request.destroy();
+					resolve({
+						ok: false,
+						status: 502,
+						data: { message: `Docker Engine response exceeded ${MAX_LOCAL_ENGINE_RESPONSE_BYTES} bytes limit` },
+					});
+					return;
+				}
+				chunks.push(chunk);
+			});
 			response.on("end", () => {
+				if (oversized) return;
 				const raw = Buffer.concat(chunks).toString("utf-8");
 				let data: unknown = raw || null;
 				try { data = raw ? JSON.parse(raw) : null; } catch { /* preserve raw daemon response */ }

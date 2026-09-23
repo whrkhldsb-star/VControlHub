@@ -262,24 +262,37 @@ async function searchSftpNode(
 
 		if (matchedFiles.length === 0) return [];
 
-		// For each matched file, fetch matching lines with context
+		// For each matched file, fetch matching lines with context in ONE
+		// remote command — one grep per file meant one sequential SSH exec per
+		// result (up to 20 round-trips per search on the node).
 		const results: ContentSearchResult[] = [];
 		const batch = matchedFiles.slice(0, 20); // Limit to 20 files for snippet fetching
 
-		for (const filePath of batch) {
-			// grep -n to get line numbers + content, max 5 matches per file
-			const snippetCmd = `grep -nIF --max-count=${MAX_SNIPPETS_PER_FILE} -- ${shellQuote(sanitizedQuery)} ${shellQuote(filePath)} 2>/dev/null | head -${MAX_SNIPPETS_PER_FILE}`;
+		if (batch.length > 0) {
+			// -H prefixes every match line with its filename so a single grep
+			// run covers the whole batch and lines can be attributed back.
+			const snippetCmd = `grep -HnIF --max-count=${MAX_SNIPPETS_PER_FILE} -- ${shellQuote(sanitizedQuery)} ${batch
+				.map((filePath) => shellQuote(filePath))
+				.join(" ")} 2>/dev/null | head -${batch.length * MAX_SNIPPETS_PER_FILE}`;
+			let snippetLines: string[] = [];
 			try {
 				const snippetResult = await execRemoteCommand({
 					...sshParams,
 					command: snippetCmd,
-					timeout: 10_000,
+					timeout: 15_000,
 				});
+				snippetLines = snippetResult.stdout.split("\n").filter(Boolean);
+			} catch {
+				// Whole-batch transport failure: report nothing rather than
+				// falling back to the per-file exec storm.
+				return [];
+			}
 
-				const snippets = snippetResult.stdout
-					.split("\n")
-					.filter(Boolean)
-					.map((line) => truncateSnippet(line))
+			for (const filePath of batch) {
+				const linePrefix = `${filePath}:`;
+				const snippets = snippetLines
+					.filter((line) => line.startsWith(linePrefix))
+					.map((line) => truncateSnippet(line.slice(linePrefix.length)))
 					.slice(0, MAX_SNIPPETS_PER_FILE);
 
 				if (snippets.length > 0) {
@@ -295,8 +308,6 @@ async function searchSftpNode(
 						snippets,
 					});
 				}
-			} catch {
-				// Skip files we can't read snippets for
 			}
 		}
 
@@ -383,15 +394,32 @@ export async function searchFileContents(params: {
 	// Filter soft-deleted (recycle-bin) entries: their bytes are still on
 	// disk / on the SFTP host, so a raw grep hits them, but the UI never
 	// shows deleted files — surfacing their content would leak deleted data.
-	const tombstoned = new Set(
-		(
-			await prisma.fileEntry.findMany({
-				where: { isDeleted: true },
-				select: { storageNodeId: true, relativePath: true },
-				take: 10_000,
-			})
-		).map((row) => `${row.storageNodeId}\0${row.relativePath}`),
-	);
+	// Scope the tombstone lookup to the exact (node, path) pairs this search
+	// produced — the previous global scan pulled every tenant's tombstones
+	// with no node/team filter and silently truncated at 10k rows, letting
+	// deleted content from beyond the cap slip back into results.
+	const pathsByNode = new Map<string, Set<string>>();
+	for (const result of allResults) {
+		const paths = pathsByNode.get(result.nodeId) ?? new Set<string>();
+		paths.add(result.relativePath);
+		pathsByNode.set(result.nodeId, paths);
+	}
+	const tombstoned = new Set<string>();
+	if (pathsByNode.size > 0) {
+		const rows = await prisma.fileEntry.findMany({
+			where: {
+				isDeleted: true,
+				OR: [...pathsByNode.entries()].map(([nodeId, paths]) => ({
+					storageNodeId: nodeId,
+					relativePath: { in: [...paths] },
+				})),
+			},
+			select: { storageNodeId: true, relativePath: true },
+		});
+		for (const row of rows) {
+			tombstoned.add(`${row.storageNodeId}\0${row.relativePath}`);
+		}
+	}
 	const visibleResults = allResults.filter(
 		(result) => !tombstoned.has(`${result.nodeId}\0${result.relativePath}`),
 	);

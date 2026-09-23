@@ -52,7 +52,11 @@ async function restoreDatabase(backupFile, envFile) {
 
   log(`Restoring ${backupFile} into configured database`);
   await new Promise((resolve, reject) => {
-    const child = spawn(psql, connArgs, { stdio: ["pipe", "ignore", "pipe"], env: childEnv });
+    // ON_ERROR_STOP: without it psql continues past SQL errors and exits 0, so
+    // a truncated/corrupt dump would "restore" as a half-dropped half-restored
+    // database while this tool reports success — the worst failure mode during
+    // incident recovery.
+    const child = spawn(psql, ["-v", "ON_ERROR_STOP=1", ...connArgs], { stdio: ["pipe", "ignore", "pipe"], env: childEnv });
     let stderr = "";
     child.stderr.on("data", (chunk) => {
       stderr = (stderr + String(chunk)).slice(-16 * 1024);

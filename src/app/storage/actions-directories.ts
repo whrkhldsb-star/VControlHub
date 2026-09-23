@@ -6,6 +6,7 @@ import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { serverT } from "@/lib/i18n/server-locale";
 import { assertStorageAccess } from "@/lib/storage/access-control";
+import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { createFileEntry } from "@/lib/storage/service";
 import { tryAcquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { apiCopy } from "@/lib/i18n/api-copy";
@@ -123,7 +124,7 @@ export async function createFolderAction(
     });
     if (!folderAccess.allowed) {
       return {
-        error: folderAccess.reason ?? t("storagePage.action.nodeNotFound"),
+        error: storageAccessDeniedCopy(folderAccess.reason),
       } satisfies StorageActionState;
     }
 
@@ -298,7 +299,7 @@ export async function renameFileEntryAction(
     });
     if (!sourceAccess.allowed) {
       return {
-        error: sourceAccess.reason ?? t("storagePage.action.fileEntryNotFound"),
+        error: storageAccessDeniedCopy(sourceAccess.reason),
       } satisfies StorageActionState;
     }
 
@@ -310,7 +311,7 @@ export async function renameFileEntryAction(
     });
     if (!destinationAccess.allowed) {
       return {
-        error: destinationAccess.reason ?? t("storagePage.action.fileEntryNotFound"),
+        error: storageAccessDeniedCopy(destinationAccess.reason),
       } satisfies StorageActionState;
     }
 

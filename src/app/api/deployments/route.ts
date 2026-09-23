@@ -16,6 +16,7 @@ import { getErrorMessage } from "@/lib/http/error-message";
 import {
   MAX_NON_FILE_FORM_BYTES,
   requestContentLengthExceeds,
+  requestContentLengthMissing,
 } from "@/lib/http/request-body";
 import { t } from "@/lib/i18n/service-translations";
 export const dynamic = "force-dynamic";
@@ -67,8 +68,14 @@ async function readRequestBody(request: Request) {
     try {
       variables = JSON.parse(variablesJson) as Record<string, string>;
     } catch {
-      // Invalid JSON in form data — start with empty variables and let per-field entries override.
-      variables = {};
+      // A malformed variablesJson must not fall back to an empty set: the
+      // deployment would run its template with unset variables — the worst
+      // failure mode for a deploy pipeline (commands execute with missing
+      // values and per-field overrides would silently mix in). Fail loudly.
+      throw new ValidationError(t("backend.deployment.invalidVariablesJson"));
+    }
+    if (!variables || typeof variables !== "object" || Array.isArray(variables)) {
+      throw new ValidationError(t("backend.deployment.invalidVariablesJson"));
     }
   }
   for (const [key, value] of formData.entries()) {
@@ -89,6 +96,11 @@ export async function POST(request: Request) {
   const isFormSubmission = contentType.includes("application/x-www-form-urlencoded") || contentType.includes("multipart/form-data");
   if (isFormSubmission && requestContentLengthExceeds(request, MAX_NON_FILE_FORM_BYTES)) {
     return NextResponse.json({ error: t("backend.request.bodyTooLarge") }, { status: 413 });
+  }
+  // Chunked form posts with no declared length would buffer unbounded bytes in
+  // request.formData() before any check — mirror the upload routes' 411.
+  if (isFormSubmission && requestContentLengthMissing(request)) {
+    return NextResponse.json({ error: t("backend.request.bodyTooLarge") }, { status: 411 });
   }
   const options = {
     permission: "deploy:run" as const,

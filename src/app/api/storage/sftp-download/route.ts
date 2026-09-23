@@ -1,5 +1,6 @@
 import path from "node:path";
 import { Readable } from "node:stream";
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { guessContentType } from "@/lib/http/mime-types";
 
 import { Client } from "ssh2";
@@ -10,6 +11,7 @@ import { parseSearchParams } from "@/lib/http/parse-search-params";
 
 import { createLogger } from "@/lib/logging";
 import { assertStorageAccess } from "@/lib/storage/access-control";
+import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { getSftpNodeConnection } from "@/lib/storage/sftp-node";
 import {
   normalizeRemoteTargetPath,
@@ -20,8 +22,8 @@ import { contentDownloadQuerySchema } from "@/lib/storage/schema";
 import { prisma } from "@/lib/db";
 import { parseStorageRange, storageStreamResponse, type StorageByteRange } from "@/lib/storage/streaming";
 
-import { AuthError, ValidationError } from "@/lib/errors";
-import { getServerLocale, t } from "@/lib/i18n/translations";
+import { AuthError, ValidationError, isAppError } from "@/lib/errors";
+import { getServerLocale, t, type Locale } from "@/lib/i18n/translations";
 const logger = createLogger("api:storage:sftp-download");
 
 export const dynamic = "force-dynamic";
@@ -30,6 +32,7 @@ function getSftpStream(
   client: Client,
   remotePath: string,
   rangeHeader: string | null,
+  locale: Locale,
 ): Promise<{ stream: import("stream").Readable; stat: { size: number }; range: StorageByteRange } | Response> {
   return new Promise((resolve, reject) => {
     client.sftp((err, sftp) => {
@@ -37,7 +40,11 @@ function getSftpStream(
 
       sftp.stat(remotePath, (statErr, stats) => {
         if (statErr) return reject(statErr);
-        if (!stats.isFile()) return reject(new Error("TargetnotiscanDownloadFile"));
+        if (!stats.isFile()) {
+          // Typed so the route's catch-all can let it through instead of
+          // flattening it into the generic 502 (was a garbled bare string).
+          return reject(new ValidationError(t("backend.storageHardening.sftp.targetNotFile", locale)));
+        }
 
         const range = parseStorageRange(rangeHeader, stats.size);
         if (range instanceof Response) return resolve(range);
@@ -90,7 +97,9 @@ export async function GET(request: Request) {
         normalizedRelativePath = normalizeRemoteRelativePath(remotePath);
       } catch {
         return NextResponse.json(
-          toClientStorageError("Requested path exceeds storage node root directory"),
+          toClientStorageError(
+            apiCopy("apiCopy.requested.path.exceeds.storage.node.root.directory.d786fee2"),
+          ),
           { status: 400 },
         );
       }
@@ -103,7 +112,7 @@ export async function GET(request: Request) {
       });
       if (!accessDecision.allowed) {
         return NextResponse.json(
-          { error: accessDecision.reason ?? t("api.storage.accessDenied", locale) },
+          { error: storageAccessDeniedCopy(accessDecision.reason, locale) },
           { status: 403 },
         );
       }
@@ -154,6 +163,7 @@ export async function GET(request: Request) {
           client,
           normalizedRemotePath,
           request.headers.get("range"),
+          locale,
         );
         if (streamResult instanceof Response) {
           client.end();
@@ -181,6 +191,10 @@ export async function GET(request: Request) {
         // 确保出错时关闭连接
         client?.end();
 
+        // Typed errors carry the real reason and status (e.g. the 400 for a
+        // non-file target above); flattening them into the generic 502 would
+        // tell the user the node is unreachable when it answered just fine.
+        if (isAppError(error)) throw error;
         logger.error("read remote file for download failed", error, { nodeId });
         return NextResponse.json(
           toClientStorageError(

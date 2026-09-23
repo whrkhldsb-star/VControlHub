@@ -1,5 +1,5 @@
 import { apiCopy } from "@/lib/i18n/api-copy";
-import { resolveLocalTarBinary } from "@/lib/runtime/tar-binary";
+import { localTarForceLocalArgs, resolveLocalTarBinary } from "@/lib/runtime/tar-binary";
 import { execFile } from "node:child_process";
 import fs from "node:fs/promises";
 import os from "node:os";
@@ -14,6 +14,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { compressFilesBodySchema } from "@/lib/files/schema";
 import { assertStorageAccess } from "@/lib/storage/access-control";
+import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { createFileEntry } from "@/lib/storage/service";
 import { resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
 import { getErrorMessage } from "@/lib/http/error-message";
@@ -55,7 +56,7 @@ export async function POST(request: NextRequest) {
         operation: "write",
       });
       if (!writeDecision.allowed) {
-        return NextResponse.json({ error: writeDecision.reason ?? "No write permission for target directory" }, { status: 403 });
+        return NextResponse.json({ error: storageAccessDeniedCopy(writeDecision.reason) }, { status: 403 });
       }
 
       const outputResolved = resolveStoragePathWithinBase(node.basePath, outputRelativePath);
@@ -82,7 +83,7 @@ export async function POST(request: NextRequest) {
           operation: "read",
         });
         if (!readDecision.allowed) {
-          return NextResponse.json({ error: readDecision.reason ?? `No read permission for /${relativePath}` }, { status: 403 });
+          return NextResponse.json({ error: storageAccessDeniedCopy(readDecision.reason) }, { status: 403 });
         }
         const resolved = resolveStoragePathWithinBase(node.basePath, relativePath);
         if (!resolved.ok) return NextResponse.json({ error: resolved.reason }, { status: 400 });
@@ -93,7 +94,10 @@ export async function POST(request: NextRequest) {
       await fs.mkdir(path.dirname(outputResolved.path), { recursive: true });
       const { listPath, tempDir } = await writeTarList(inputs);
       try {
-        await execFileAsync(resolveLocalTarBinary(), ["-czf", outputResolved.path, "-C", node.basePath, "--null", "-T", listPath], {
+        // --force-local (GNU tar): the -T list entries come from user-named
+        // files, and GNU tar would otherwise parse `name:colon` members as
+        // remote-tape specs and attempt an outbound connection.
+        await execFileAsync(resolveLocalTarBinary(), ["-czf", outputResolved.path, "-C", node.basePath, ...localTarForceLocalArgs(), "--null", "-T", listPath], {
           maxBuffer: 10 * 1024 * 1024,
           timeout: 120_000,
         });

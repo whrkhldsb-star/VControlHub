@@ -3,7 +3,24 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { loadSshWsRuntimeEnv, resolveSshWsListenConfig } from "../ssh-ws-proxy";
+import { loadSshWsRuntimeEnv, parseSshWsRequestPath, resolveSshWsListenConfig } from "../ssh-ws-proxy";
+
+describe("parseSshWsRequestPath", () => {
+	it("extracts the pathname of ordinary requests", () => {
+		expect(parseSshWsRequestPath("/metrics")).toBe("/metrics");
+		expect(parseSshWsRequestPath("/ssh?serverId=a&handshake=b")).toBe("/ssh");
+		expect(parseSshWsRequestPath(undefined)).toBe("/");
+	});
+
+	it("answers null instead of throwing for hostile request targets", () => {
+		// These make the WHATWG URL constructor throw; an uncaught throw in a
+		// request listener would crash the whole proxy (regression: a single
+		// unauthenticated malformed packet took down the container).
+		expect(parseSshWsRequestPath("http://exa mple.com/")).toBeNull();
+		expect(parseSshWsRequestPath("//x y")).toBeNull();
+		expect(() => parseSshWsRequestPath("http://exa mple.com/")).not.toThrow();
+	});
+});
 
 describe("resolveSshWsListenConfig", () => {
 	it("defaults to loopback host and port 3001", () => {

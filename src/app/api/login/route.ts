@@ -8,6 +8,8 @@ import { createLogger } from "@/lib/logging";
 import { checkRateLimitAsync, getClientIp, LOGIN_RATE_LIMIT, LOGIN_SLOW_RATE_LIMIT, isAccountLockedAsync, recordLoginFailureAsync, clearLoginFailureAsync } from "@/lib/rate-limit";
 import { generateCsrfToken, getCsrfCookieName } from "@/lib/auth/csrf";
 import { isRequestHttps } from "@/lib/http/request-https";
+import { isCrossSiteFormPost } from "@/lib/http/request-origin";
+import { safeRelativeRedirectPath } from "@/lib/http/redirect-path";
 import {
 	MAX_NON_FILE_FORM_BYTES,
 	requestContentLengthExceeds,
@@ -26,8 +28,10 @@ const loginFormSchema = z.object({
 });
 
 function safeNextPath(nextValue: FormDataEntryValue | null) {
-	const next = typeof nextValue === "string" ? nextValue : "/";
-	return next.startsWith("/") && !next.startsWith("//") ? next : "/";
+	// Rejects protocol-relative forms in either slash direction (`//host`,
+	// `/\host` — WHATWG normalizes backslashes) plus control characters; see
+	// safeRelativeRedirectPath.
+	return safeRelativeRedirectPath(typeof nextValue === "string" ? nextValue : "/");
 }
 
 function redirectWithRelativeLocation(path: string, status: 303 = 303) {
@@ -37,9 +41,20 @@ function redirectWithRelativeLocation(path: string, status: 303 = 303) {
 }
 
 export async function POST(request: Request) {
-	try {
-		// Rate limiting — check both fast and slow windows
-		const clientIp = getClientIp(request);
+  try {
+    // Login-CSRF guard: /api/login is exempt from the double-submit CSRF
+    // check in proxy.ts (no session exists yet to mint a token from), so a
+    // cross-site top-level form post with the attacker's credentials could
+    // otherwise install their session on the victim's browser. Reject any
+    // request that explicitly identifies as cross-site; non-browser clients
+    // (no Sec-Fetch-Site/Origin/Referer) are unaffected.
+    if (isCrossSiteFormPost(request)) {
+      const params = new URLSearchParams({ error: "invalid" });
+      return redirectWithRelativeLocation(`/login?${params.toString()}`);
+    }
+
+    // Rate limiting — check both fast and slow windows
+    const clientIp = getClientIp(request);
 		// Keep the fast and slow windows in separate buckets. Sharing the raw IP
 		// makes one login consume two entries and causes premature lockouts.
 		const fastCheck = await checkRateLimitAsync(`login:fast:${clientIp}`, LOGIN_RATE_LIMIT);
@@ -119,14 +134,16 @@ export async function POST(request: Request) {
 			? normalizeUserPreferencesForSession(user.preferences, user).defaultPage
 			: requestedNextPath;
 
-		// Log successful login & clear any previous failure count
-		await clearLoginFailureAsync(username);
+		// Log successful password stage
 		await auditUserAction(user.id, "auth.login_password_ok", { username, ip: clientIp }, undefined, user.currentTeamId);
 
 		// ── 2FA Check ──
 		// If the user has 2FA enabled, redirect to the verification page
 		// instead of creating a full session right away.
 		if (user.twoFactorEnabled && user.hasTwoFactorSecret) {
+			// Do NOT clear the failure counter yet: the login is not complete
+			// until the second factor passes, and verify-login counts its own
+			// misses into the same account-lockout bucket.
 			const pendingToken = await createPending2faToken({
 				userId: user.id,
 				username: user.username,
@@ -149,6 +166,9 @@ export async function POST(request: Request) {
 		}
 
 		// ── No 2FA — create full session ──
+		// Password login is complete only on this branch; clear the lockout
+		// counter here (2FA users get it cleared by verify-login instead).
+		await clearLoginFailureAsync(username);
 
 		const token = await createSessionToken({
 			userId: user.id,

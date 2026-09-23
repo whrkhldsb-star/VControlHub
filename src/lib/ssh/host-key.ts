@@ -7,7 +7,7 @@ export class SshHostKeyApprovalRequiredError extends BusinessError {
 
   constructor(hostKeySha256: string) {
     super(
-      `First connection requires confirming the SSH host fingerprint: ${hostKeySha256}. Please check "I have verified and trust this SSH host fingerprint" and resubmit.`,
+      t("backend.ssh.hostKeyApprovalRequired", { fingerprint: hostKeySha256 }),
       { hostKeySha256 },
     );
     this.name = "SshHostKeyApprovalRequiredError";
@@ -18,7 +18,7 @@ export class SshHostKeyApprovalRequiredError extends BusinessError {
 export class SshHostKeyChangedError extends ConflictError {
   constructor(expected: string, actual: string) {
     super(
-      `The SSH host fingerprint does not match the saved record; connection blocked. Saved: ${expected}; current: ${actual}. This may indicate a server reinstall or man-in-the-middle attack; please verify before updating the fingerprint.`,
+      t("backend.ssh.hostKeyChanged", { expected, actual }),
       { expected, actual },
     );
     this.name = "SshHostKeyChangedError";

@@ -6,6 +6,7 @@ import { guessContentType } from "@/lib/http/mime-types";
 import { AuthError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import { prisma } from "@/lib/db";
 import { assertStorageAccess } from "@/lib/storage/access-control";
+import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { contentDownloadQuerySchema } from "@/lib/storage/schema";
 import { getStorageFileNode, streamStorageFile } from "@/lib/storage/file-content";
 import { normalizeStorageRelativePath } from "@/lib/storage/path-utils";
@@ -24,7 +25,7 @@ export async function GET(request: Request) {
     const node = await getStorageFileNode(query.nodeId, session);
     if (!node || node.driver !== "WEBDAV") throw new NotFoundError(apiCopy("apiCopy.webdav.node.not.found.ac1b2fce"));
     const access = await assertStorageAccess({ session, storageNodeId: node.id, relativePath: normalized.path, operation: "read" });
-    if (!access.allowed) throw new ForbiddenError(access.reason ?? "Storage access denied");
+    if (!access.allowed) throw new ForbiddenError(storageAccessDeniedCopy(access.reason));
     const indexed = await prisma.fileEntry.findFirst({ where: { storageNodeId: node.id, relativePath: normalized.path }, select: { isDeleted: true } });
     if (indexed?.isDeleted) throw new NotFoundError(apiCopy("apiCopy.file.unavailable.b3b9efed"));
     const entry = await createWebDavClient(node).stat(normalized.path);

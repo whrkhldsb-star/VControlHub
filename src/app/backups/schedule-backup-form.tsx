@@ -5,7 +5,7 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import type { BackupType } from "@/lib/backup/service";
-import { formatZhDateTime } from "@/lib/datetime/format";
+import { formatDateTime } from "@/lib/datetime/format";
 import { APP_TIME_ZONE } from "@/lib/datetime/time-zone";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
@@ -71,7 +71,7 @@ function statusLabel(t: (k: string, vars?: Record<string, string | number>) => s
 /* ── Form + List Component ────────────────────────────────── */
 
 export function ScheduleBackupForm() {
-	const { t } = useI18n();
+	const { t, locale } = useI18n();
 
 	const [type, setType] = useState<BackupType>("DATABASE");
 	const [name, setName] = useState("");
@@ -256,10 +256,10 @@ export function ScheduleBackupForm() {
 										</div>
 										<div className="mt-1 flex flex-wrap gap-3 text-xs text-[var(--text-muted)]">
 											{s.lastRunAt
-												? <span>{t("backupsPage.schedule.lastRun", { time: formatZhDateTime(s.lastRunAt) })}</span>
+												? <span>{t("backupsPage.schedule.lastRun", { time: formatDateTime(s.lastRunAt, locale) })}</span>
 												: <span>{t("backupsPage.schedule.lastRunNone")}</span>}
 											{s.status ==="ACTIVE" && s.nextRunAt
-												? <span>{t("backupsPage.schedule.nextRun", { time: formatZhDateTime(s.nextRunAt) })}</span>
+												? <span>{t("backupsPage.schedule.nextRun", { time: formatDateTime(s.nextRunAt, locale) })}</span>
 												: <span>{t("backupsPage.schedule.nextRunPaused")}</span>}
 										</div>
 										{s.lastResult && (

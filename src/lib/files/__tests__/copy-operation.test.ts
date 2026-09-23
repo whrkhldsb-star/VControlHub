@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
   many: vi.fn(),
   upsert: vi.fn(),
   access: vi.fn(),
+  capabilities: vi.fn(),
   releaseQuota: vi.fn(),
   releaseLock: vi.fn(),
   lock: vi.fn(),
@@ -40,6 +41,9 @@ vi.mock("@/lib/auth/team-scope", () => ({
 vi.mock("@/lib/storage/access-control", () => ({
   assertStorageAccess: mocks.access,
   releaseStorageQuotaGuard: mocks.releaseQuota,
+  getStorageAccessCapabilities: mocks.capabilities,
+  getStorageAccessCapabilityKey: (input: { storageNodeId: string; relativePath?: string | null }) =>
+    `${input.storageNodeId}:${input.relativePath ?? ""}`,
 }));
 vi.mock("@/lib/concurrency/advisory-lock", () => ({
   tryAcquireAdvisoryLock: mocks.lock,
@@ -80,7 +84,32 @@ beforeEach(async () => {
     async ({ where }) =>
       index.get(where.storageNodeId_relativePath.relativePath) ?? null,
   );
-  mocks.many.mockResolvedValue([]);
+  mocks.many.mockImplementation(async ({ where }: { where?: { relativePath?: { in?: string[] } } }) => {
+    // The copy loop now prefetches indexed occupants in one paged findMany
+    // instead of one findUnique per destination — serve it from the index map.
+    const wanted = where?.relativePath?.in;
+    if (!wanted) return [];
+    return wanted
+      .map((relativePath) => index.get(relativePath))
+      .filter((entry): entry is Entry => Boolean(entry))
+      .map((entry) => ({
+        id: entry.id,
+        relativePath: entry.relativePath,
+        entryType: entry.entryType,
+        isDeleted: entry.isDeleted,
+      }));
+  });
+  // Default capability answer: everything readable/writable/deletable. Tests
+  // that exercise the batched pre-flight override this per key.
+  mocks.capabilities.mockImplementation(
+    async ({ targets }: { targets: Array<{ storageNodeId: string; relativePath?: string | null }> }) =>
+      new Map(
+        targets.map((target) => [
+          `${target.storageNodeId}:${target.relativePath ?? ""}`,
+          { canRead: true, canWrite: true, canDelete: true },
+        ]),
+      ),
+  );
   mocks.upsert.mockImplementation(async ({ create, update }) => {
     const entry = {
       ...(index.get(create.relativePath) ?? {
@@ -247,11 +276,20 @@ describe("copyFileEntry with real local files", () => {
       entryType: "DIRECTORY",
       storageNode: { id: "node", driver: "LOCAL", basePath: root },
     });
-    mocks.access.mockImplementation(async ({ relativePath }) => ({
-      allowed: relativePath !== "folder/private.txt",
-      reason: "denied",
-    }));
-    await expect(copy()).rejects.toThrow("denied");
+    // The traversal loop authorizes discovered children through the BATCHED
+    // capability lookup, not one assertStorageAccess per path.
+    mocks.capabilities.mockImplementation(
+      async ({ targets }: { targets: Array<{ storageNodeId: string; relativePath?: string | null }> }) =>
+        new Map(
+          targets.map((target) => [
+            `${target.storageNodeId}:${target.relativePath ?? ""}`,
+            target.relativePath === "folder/private.txt"
+              ? { canRead: false, canWrite: false, canDelete: false }
+              : { canRead: true, canWrite: true, canDelete: true },
+          ]),
+        ),
+    );
+    await expect(copy()).rejects.toThrow("没有此存储节点或路径的访问授权");
     expect(await readdir(path.join(root, "destination"))).toEqual([]);
   });
   it("refuses symbolic links during recursive copy", async () => {

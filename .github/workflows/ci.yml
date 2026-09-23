@@ -56,6 +56,19 @@ jobs:
       - name: Generate Prisma client
         run: npx prisma generate
 
+      # The migration chain is hand-written and only exercised by
+      # `prisma migrate deploy` (docker-entrypoint, deploy.sh, install.sh) —
+      # every other CI schema step uses `db push`, which never replays the
+      # migrations. A migration that fails on a clean database therefore
+      # passed CI green and then broke every deployment. Apply the full chain
+      # to a scratch database so that class of break fails here.
+      - name: Verify migration chain applies to a fresh database
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/vcontrolhub_migrate
+        run: |
+          PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -d vcontrolhub_ci -v ON_ERROR_STOP=1 -c 'CREATE DATABASE vcontrolhub_migrate;'
+          npx prisma migrate deploy
+
       - name: Typecheck
         run: npm run typecheck
 

@@ -1,7 +1,7 @@
 import type { SessionPayload } from "@/lib/auth/session";
-import { isGlobalTeamManager, teamWhere } from "@/lib/auth/team-scope";
+import { isGlobalTeamManager } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
-import { ValidationError } from "@/lib/errors";
+import { ForbiddenError, ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/translations";
 import { parseNullableBigIntInput } from "@/lib/storage/access-control";
 
@@ -38,12 +38,17 @@ export async function applyUserPermissionPatch(input: {
   storageAccess: PermissionPatch["storageAccess"] | undefined;
 }) {
   const { session, parsedData, targetUsername, roleKeys, permissionKeys, storageAccess } = input;
+  // Delegation rule: a non-global manager may only hand out what they already
+  // hold. Without this, any delegated `user:manage` could mint an `admin`
+  // (or any superset) for a colluding account — a full platform takeover.
+  const actorIsGlobalManager = isGlobalTeamManager(session);
+  const actorPermissions = new Set<string>(session.permissions ?? []);
   await prisma.$transaction(async (tx) => {
     if (roleKeys) {
       const customRoleKey = `user:${parsedData.userId}:custom`;
       const roles = await tx.role.findMany({
         where: { key: { in: roleKeys } },
-        select: { id: true, key: true },
+        select: { id: true, key: true, permissions: { select: { permission: { select: { key: true } } } } },
         take: roleKeys.length,
       });
       const foundRoleKeys = new Set(roles.map((role: { key: string }) => role.key));
@@ -54,6 +59,19 @@ export async function applyUserPermissionPatch(input: {
         throw new ValidationError(
           t("backend.user.unknownRoleKeys", { keys: missingRoleKeys.join(", ") }),
         );
+      }
+      if (!actorIsGlobalManager) {
+        if (roles.some((role) => role.key === "admin")) {
+          throw new ForbiddenError(t("backend.user.cannotGrantAdminRole"));
+        }
+        const beyondActor = roles.filter((role) =>
+          role.permissions.some((grant) => !actorPermissions.has(grant.permission.key)),
+        );
+        if (beyondActor.length > 0) {
+          throw new ForbiddenError(
+            t("backend.user.cannotGrantBeyondOwnPermissions", { roles: beyondActor.map((role) => role.key).join(", ") }),
+          );
+        }
       }
       await tx.userRole.deleteMany({
         where: { userId: parsedData.userId, role: { key: { not: customRoleKey } } },
@@ -98,6 +116,16 @@ export async function applyUserPermissionPatch(input: {
           t("backend.user.unknownPermissionKeys", { keys: missingPermissionKeys.join(", ") }),
         );
       }
+      if (!actorIsGlobalManager) {
+        const beyondActor = permissionRows.filter(
+          (permission: { key: string }) => !actorPermissions.has(permission.key),
+        );
+        if (beyondActor.length > 0) {
+          throw new ForbiddenError(
+            t("backend.user.cannotGrantBeyondOwnPermissions", { roles: beyondActor.map((permission) => permission.key).join(", ") }),
+          );
+        }
+      }
       await tx.rolePermission.deleteMany({ where: { roleId: customRole.id } });
       if (permissionRows.length > 0) {
         await tx.rolePermission.createMany({
@@ -116,7 +144,14 @@ export async function applyUserPermissionPatch(input: {
     }
 
     if (storageAccess) {
-      const nodeScope = teamWhere(session);
+      // Storage nodes are security roots (they carry connection credentials
+      // and user data) like servers: for a non-global actor, only nodes
+      // assigned to the actor's *current team* are grantable. The generic
+      // teamWhere() would also expose legacy `teamId: null` nodes to every
+      // tenant manager — quarantined here like serverTeamWhere() does.
+      const nodeScope = actorIsGlobalManager
+        ? {}
+        : { teamId: session.currentTeamId ?? "__no_team_no_grants__" };
       const validNodeIds = new Set(
         (
           await tx.storageNode.findMany({

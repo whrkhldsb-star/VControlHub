@@ -181,7 +181,20 @@ export async function consumeProviderChatStream(input: {
   providerType: ProviderType;
   onEvent: (event: ChatStreamEvent) => void;
   signal?: AbortSignal;
+  /**
+   * Total-duration cap on the whole read. Long streaming replies legitimately
+   * run for minutes, so callers should pass a generous value (or prefer
+   * `idleTimeoutMs`) — a short total cap truncates healthy responses.
+   */
   timeoutMs?: number;
+  /**
+   * Idle watchdog: abort when no chunk arrives for this long. The timer resets
+   * on every received chunk, so a steadily-dripping stream is never cut while
+   * a black-holed one is bounded.
+   */
+  idleTimeoutMs?: number;
+  /** Alias for {@link timeoutMs}; both set means the larger one wins. */
+  totalTimeoutMs?: number;
 }): Promise<ChatStreamState> {
   const state: MutableChatStreamState = {
     content: "",
@@ -192,6 +205,7 @@ export async function consumeProviderChatStream(input: {
   };
   const reader = input.body.getReader();
   let timedOut = false;
+  let stalled = false;
   let finished = false;
   let reachedEof = false;
   let receivedBytes = 0;
@@ -201,12 +215,27 @@ export async function consumeProviderChatStream(input: {
     cancelRequested = true;
     void reader.cancel().catch(() => undefined);
   };
-  const timeout = input.timeoutMs
+  const totalTimeoutMs = Math.max(input.timeoutMs ?? 0, input.totalTimeoutMs ?? 0);
+  const total = totalTimeoutMs
     ? setTimeout(() => {
         timedOut = true;
         cancelReader();
-      }, input.timeoutMs)
+      }, totalTimeoutMs)
     : undefined;
+  let idleTimer: ReturnType<typeof setTimeout> | undefined;
+  const clearIdleTimer = () => {
+    if (idleTimer) clearTimeout(idleTimer);
+  };
+  const idleTimeoutMs = input.idleTimeoutMs ?? 0;
+  const resetIdleTimer = () => {
+    if (!idleTimeoutMs) return;
+    clearIdleTimer();
+    idleTimer = setTimeout(() => {
+      stalled = true;
+      cancelReader();
+    }, idleTimeoutMs);
+  };
+  resetIdleTimer();
   if (input.signal?.aborted) cancelReader();
   input.signal?.addEventListener("abort", cancelReader, { once: true });
   const decoder = new TextDecoder();
@@ -249,6 +278,8 @@ export async function consumeProviderChatStream(input: {
     while (!finished && !cancelRequested) {
       const { done, value } = await reader.read();
       if (cancelRequested) break;
+      // Any read resolution is forward progress: re-arm the idle watchdog.
+      resetIdleTimer();
       if (done) {
         reachedEof = true;
         buffer += decoder.decode();
@@ -273,14 +304,20 @@ export async function consumeProviderChatStream(input: {
   } catch (error) {
     readError = error;
   } finally {
-    if (timeout) clearTimeout(timeout);
+    if (total) clearTimeout(total);
+    clearIdleTimer();
     input.signal?.removeEventListener("abort", cancelReader);
     if (!reachedEof) cancelReader();
     reader.releaseLock();
   }
+  if (stalled && !readError) {
+    readError = new Error(
+      `AI provider stream stalled for ${idleTimeoutMs / 1000} seconds without data`,
+    );
+  }
   if (timedOut && !readError) {
     readError = new Error(
-      `AI provider stream timed out after ${input.timeoutMs! / 1000} seconds`,
+      `AI provider stream timed out after ${totalTimeoutMs / 1000} seconds`,
     );
   }
   if (input.signal?.aborted && !readError) {

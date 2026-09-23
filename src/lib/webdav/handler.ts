@@ -45,13 +45,12 @@ import { parseStorageRange } from "@/lib/storage/streaming";
 import { buildPropFindMultistatus, parseDepth, type PropFindItem } from "./xml";
 import { t } from "@/lib/i18n/service-translations";
 import {
-  FILE_ENTRY_PAGE_SIZE,
   MAX_PROPFIND_CHILDREN,
   buildWebDavHref,
   ensureDirectoryIndexAndBacking,
   entryName,
+  escapeLikePrefix,
   findEntry,
-  forEachFileEntryPage,
   listDirectChildren,
   loadNode,
   normalizeWebDavRelativePath,
@@ -237,7 +236,12 @@ export async function handleWebDavPut(
     body = await readRequestBodyBuffer(request, MAX_WEBDAV_PUT_BYTES);
   } catch (error) {
     if (error instanceof RequestBodyTooLargeError) {
-      return new Response("Payload too large (max 100MB)", { status: 413 });
+      return new Response(
+        t("backend.storageHardening.webdav.payloadTooLarge", {
+          max: `${Math.round(MAX_WEBDAV_PUT_BYTES / (1024 * 1024))}MB`,
+        }),
+        { status: 413 },
+      );
     }
     throw error;
   }
@@ -423,34 +427,27 @@ export async function handleWebDavDelete(
   });
 
   try {
+    // Tag every soft-deleted row with this operation's batch id so a later
+    // recycle-bin restore can revive exactly this batch — same contract as
+    // the file-manager delete (delete-operation.ts).
+    const deleteBatchId = randomUUID();
     await prisma.$transaction(async (tx) => {
       if (entry.entryType === "DIRECTORY") {
-        await forEachFileEntryPage(
-          (cursorId) =>
-            tx.fileEntry.findMany({
-              where: {
-                storageNodeId: ctx.storageNodeId,
-                isDeleted: false,
-                relativePath: { startsWith: `${entry.relativePath}/` },
-              },
-              select: { id: true },
-              orderBy: { id: "asc" },
-              take: FILE_ENTRY_PAGE_SIZE,
-              ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {}),
-            }),
-          async (children) => {
-            for (const child of children) {
-              await tx.fileEntry.update({
-                where: { id: child.id },
-                data: { isDeleted: true },
-              });
-            }
+        // One statement for the whole subtree: a per-row update loop kept the
+        // transaction open for one round-trip per child, serializing with every
+        // other index write on the node (the staged bytes also stayed locked).
+        await tx.fileEntry.updateMany({
+          where: {
+            storageNodeId: ctx.storageNodeId,
+            relativePath: { startsWith: `${entry.relativePath}/` },
+            isDeleted: false,
           },
-        );
+          data: { isDeleted: true, deleteBatchId },
+        });
       }
       await tx.fileEntry.update({
         where: { id: entry.id },
-        data: { isDeleted: true },
+        data: { isDeleted: true, deleteBatchId },
       });
     });
   } catch (databaseError) {
@@ -623,29 +620,26 @@ export async function handleWebDavMove(
         data: { relativePath: destPath, name: entryName(destPath) },
       });
       if (entry.entryType !== "DIRECTORY") return;
-      await forEachFileEntryPage(
-        (cursorId) =>
-          tx.fileEntry.findMany({
-            where: {
-              storageNodeId: ctx.storageNodeId,
-              isDeleted: false,
-              relativePath: { startsWith: `${oldPrefix}/` },
-            },
-            select: { id: true, relativePath: true },
-            orderBy: { id: "asc" },
-            take: FILE_ENTRY_PAGE_SIZE,
-            ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {}),
-          }),
-        async (descendants) => {
-          for (const child of descendants) {
-            const nextPath = `${newPrefix}${child.relativePath.slice(oldPrefix.length)}`;
-            await tx.fileEntry.update({
-              where: { id: child.id },
-              data: { relativePath: nextPath, name: entryName(nextPath) },
-            });
-          }
-        },
-      );
+      // Rewrite every descendant's path (and its basename) in ONE statement.
+      // The previous per-row loop issued one UPDATE round-trip per child while
+      // holding the transaction — a directory with thousands of entries kept
+      // the index locked for the whole walk. The root row is updated first so
+      // the unique constraint reserves the target prefix before descendants.
+      const oldPrefixLength = oldPrefix.length;
+      // Backslashes are escape metacharacters in regexp_replace's replacement.
+      const replacementPrefix = newPrefix.replace(/\\/g, "\\\\");
+      await tx.$executeRaw`
+        UPDATE file_entries
+        SET "relativePath" = ${replacementPrefix} || substring("relativePath" from ${oldPrefixLength + 1}),
+            "name" = regexp_replace(
+              ${replacementPrefix} || substring("relativePath" from ${oldPrefixLength + 1}),
+              '^.*/', ''
+            ),
+            "updatedAt" = now()
+        WHERE "storageNodeId" = ${ctx.storageNodeId}
+          AND "isDeleted" = false
+          AND "relativePath" LIKE ${`${escapeLikePrefix(`${oldPrefix}/`)}%`} ESCAPE '\\'
+      `;
     });
   } catch (databaseError) {
     const rollbackErrors: unknown[] = [];

@@ -209,7 +209,27 @@ function assertSafeDirectGatewayRoot(rootPath: string) {
   if (normalized === "/" || normalized.includes("/../") || normalized.endsWith("/..") || normalized.includes("/./") || normalized.endsWith("/.")) {
     throw new Error("Direct Gateway rootPath is outside the allowed file boundary");
   }
+  // The rootPath is interpolated verbatim into a systemd unit (ReadWritePaths)
+  // that systemd parses as root on the target VPS. Restrict to a conservative
+  // path charset so no whitespace, control character, or expansion syntax can
+  // smuggle additional unit directives into the file.
+  if (!/^\/[A-Za-z0-9._/@-]*$/.test(normalized)) {
+    throw new Error("Direct Gateway rootPath contains unsupported characters");
+  }
   return normalized;
+}
+
+/**
+ * bindAddress is interpolated into `Environment=DIRECT_BIND=...` inside the
+ * systemd unit heredoc. Only host/IP literals (digits, letters, dots, colons,
+ * brackets, dashes) are accepted — anything else could break out of the
+ * directive and inject unit content.
+ */
+function assertSafeDirectGatewayBind(bind: string) {
+  if (!/^[A-Za-z0-9.:[\]-]{1,64}$/.test(bind)) {
+    throw new Error("Direct Gateway bind address contains unsupported characters");
+  }
+  return bind;
 }
 
 function buildAutoHttpsReverseProxySnippet(input: {
@@ -421,7 +441,7 @@ export function buildInstallDirectGatewayCommand(input: {
   const autoProxy = input.autoReverseProxy === true;
   const bind = autoProxy
     ? "127.0.0.1"
-    : (input.bindAddress ?? DIRECT_GATEWAY_BIND_DEFAULT);
+    : assertSafeDirectGatewayBind(input.bindAddress ?? DIRECT_GATEWAY_BIND_DEFAULT);
   const publicPort = input.publicPort ?? DIRECT_GATEWAY_HTTPS_PUBLIC_PORT;
   const tlsHost = (input.tlsHost ?? "").trim() || "127.0.0.1";
   const rootPath = assertSafeDirectGatewayRoot(input.rootPath);

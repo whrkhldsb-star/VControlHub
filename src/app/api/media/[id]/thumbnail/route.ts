@@ -12,16 +12,17 @@ import { createLogger } from "@/lib/logging";
 import { getMediaItem } from "@/lib/media/service";
 import { thumbnailCacheRoot } from "@/lib/media/thumbnail-cache";
 import { assertStorageAccess } from "@/lib/storage/access-control";
+import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import {
   normalizeStorageRelativePath,
   resolveStoragePathWithinBase,
 } from "@/lib/storage/path-utils";
 import {
-  normalizeRemoteRelativePath,
   normalizeRemoteTargetPath,
   toClientStorageError,
 } from "@/lib/storage/remote-path";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
+import { getServerLocale } from "@/lib/i18n/translations";
 
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_READ_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -248,6 +249,7 @@ export async function GET(
     },
     async ({ session }) => {
       if (!session) throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
+      const locale = await getServerLocale();
       const { id } = await params;
       const item = await getMediaItem(id, session ?? undefined, {
         includeCredentials: true,
@@ -270,17 +272,29 @@ export async function GET(
         });
       }
 
+      // Normalize once and authorize once — on the NORMALIZED path. The
+      // previous flow ran the ACL on the raw stored path and a second time
+      // inside the SFTP branch after normalization, doubling every
+      // node/grant lookup per request.
+      const normalizedRelative = normalizeStorageRelativePath(item.relativePath);
+      if (!normalizedRelative.ok) {
+        return NextResponse.json(
+          toClientStorageError(
+            apiCopy("apiCopy.requested.path.exceeds.storage.node.root.directory.d786fee2"),
+          ),
+          { status: 400 },
+        );
+      }
       const accessDecision = await assertStorageAccess({
         session,
         storageNodeId: item.storageNode.id,
-        relativePath: item.relativePath,
+        relativePath: normalizedRelative.path,
         operation: "read",
       });
       if (!accessDecision.allowed) {
         return apiError({
           code: "FORBIDDEN",
-          message:
-            accessDecision.reason ?? "Missing storage access authorization",
+          message: storageAccessDeniedCopy(accessDecision.reason, locale),
           status: 403,
         });
       }
@@ -292,7 +306,7 @@ export async function GET(
           id: item.id,
           size: THUMB_SIZE,
           updatedAt: item.updatedAt ?? null,
-          relativePath: item.relativePath,
+          relativePath: normalizedRelative.path,
         }),
       );
 
@@ -326,7 +340,7 @@ export async function GET(
           if (node.driver === "LOCAL") {
             const absolutePath = resolveManagedLocalPath(
               node.basePath,
-              item.relativePath,
+              normalizedRelative.path,
             );
             sourceBuffer = await readLocalIntoBuffer(
               absolutePath,
@@ -337,36 +351,18 @@ export async function GET(
               return placeholderResponse("offline");
             }
             let normalizedRemotePath: string;
-            let normalizedRelativePath: string;
             try {
               normalizedRemotePath = normalizeRemoteTargetPath(
                 node.basePath,
-                item.relativePath,
-              );
-              normalizedRelativePath = normalizeRemoteRelativePath(
-                item.relativePath,
+                normalizedRelative.path,
               );
             } catch {
               return NextResponse.json(
                 toClientStorageError(
-                  "Requested path exceeds storage node root directory",
+                  apiCopy("apiCopy.requested.path.exceeds.storage.node.root.directory.d786fee2"),
                 ),
                 { status: 400 },
               );
-            }
-            const remoteAccess = await assertStorageAccess({
-              session,
-              storageNodeId: node.id,
-              relativePath: normalizedRelativePath,
-              operation: "read",
-            });
-            if (!remoteAccess.allowed) {
-              return apiError({
-                code: "FORBIDDEN",
-                message:
-                  remoteAccess.reason ?? "Missing storage access authorization",
-                status: 403,
-              });
             }
             const credentials = (() => {
               try {

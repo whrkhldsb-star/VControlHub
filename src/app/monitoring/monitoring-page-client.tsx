@@ -297,7 +297,7 @@ export default function MonitoringPage() {
           <Row label={t("monitoringPage.field.model")} value={stats.cpu.model} />
           <Row label={t("monitoringPage.field.cores")} value={String(stats.cpu.cores)} />
           <Row label={t("monitoringPage.field.usage")} value={stats.cpu.usage} />
-          <Row label={t("monitoringPage.field.load")} value={stats.cpu.loadAvg.join(" /")} />
+          <Row label={t("monitoringPage.field.load")} value={stats.cpu.loadAvg.join(" / ")} />
         </Card>
 
         <Card title={t("monitoringPage.card.memory")}>

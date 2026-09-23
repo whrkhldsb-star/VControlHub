@@ -65,7 +65,7 @@ export function AiInputArea({
     <div className="border-t border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_94%,transparent)] px-4 py-3 backdrop-blur">
       {/* File rejection toast */}
       {fileRejectionMsg && (
-        <Notice tone="danger" compact className="mb-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+        <Notice tone="danger" compact className="mb-2 animate-notice-in">
           <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>

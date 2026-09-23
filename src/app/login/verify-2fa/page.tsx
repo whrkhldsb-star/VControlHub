@@ -2,6 +2,7 @@ import { getPending2faCookieName } from "@/lib/auth/session";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getServerLocale, t, type Locale } from "@/lib/i18n/translations";
+import { safeRelativeRedirectPath } from "@/lib/http/redirect-path";
 import { Verify2faForm } from "./verify-2fa-form";
 
 type Verify2faPageProps = {
@@ -27,11 +28,9 @@ export default async function Verify2faPage({ searchParams }: Verify2faPageProps
 	}
 
 	const rawNext = resolvedSearchParams.next ?? "/";
-	// Same guard as /api/login: only same-origin relative paths (block open redirects).
-	const nextPath =
-		typeof rawNext === "string" && rawNext.startsWith("/") && !rawNext.startsWith("//")
-			? rawNext
-			: "/";
+	// Same guard as /api/login: only same-origin relative paths (block open
+	// redirects, including the backslash `/\host` form).
+	const nextPath = safeRelativeRedirectPath(rawNext);
 	const error = resolveErrorMessage(locale, resolvedSearchParams.error);
 
 	return (

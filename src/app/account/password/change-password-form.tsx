@@ -6,22 +6,18 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { SubmitButton } from "@/components/submit-button";
 import { PasswordField } from "@/components/password-field";
 import { Notice } from "@/components/ui-primitives";
+import { safeRelativeRedirectPath } from "@/lib/http/redirect-path";
 import { useI18n } from "@/lib/i18n/use-locale";
 
 import {
-	changePasswordAction,
-	skipPasswordChangeAction,
-	type AccountPasswordActionState,
+  changePasswordAction,
+  type AccountPasswordActionState,
 } from "./actions";
 
 const initialState: AccountPasswordActionState = {};
 const POST_SUCCESS_REDIRECT_DELAY_MS = 1500;
 
-function getSafeNextPath(value: string | null) {
-	return value && value.startsWith("/") && !value.startsWith("//") ? value : "/";
-}
-
-export function ChangePasswordForm({ allowSkip = false }: { allowSkip?: boolean }) {
+export function ChangePasswordForm() {
 	const { t } = useI18n();
 	const [state, formAction] = useActionState(changePasswordAction, initialState);
 	const router = useRouter();
@@ -31,7 +27,7 @@ export function ChangePasswordForm({ allowSkip = false }: { allowSkip?: boolean 
 	// TR-052: 改密成功后自动跳到 dashboard (默认 "/", 尊重 ?next=). 给用户 1.5s 看 success message 再跳.
 	useEffect(() => {
 		if (!state.success) return;
-		const safeNext = getSafeNextPath(searchParams.get("next"));
+		const safeNext = safeRelativeRedirectPath(searchParams.get("next"));
 		// eslint-disable-next-line react-hooks/set-state-in-effect -- success → 启动 countdown + 1.5s 后的 setTimeout 跳转; 业务上需要 setState-in-effect 来同步启动客户端计时器
 		setCountdown(POST_SUCCESS_REDIRECT_DELAY_MS / 1000);
 		const interval = setInterval(() => {
@@ -47,7 +43,7 @@ export function ChangePasswordForm({ allowSkip = false }: { allowSkip?: boolean 
 		};
 	}, [state.success, router, searchParams]);
 
-	const safeNext = getSafeNextPath(searchParams.get("next"));
+	const safeNext = safeRelativeRedirectPath(searchParams.get("next"));
 
 	return (
 		<div className="grid gap-3">
@@ -113,24 +109,6 @@ export function ChangePasswordForm({ allowSkip = false }: { allowSkip?: boolean 
 				<SubmitButton pendingLabel={t("changePassword.saving")}>{t("common.saveNewPassword")}</SubmitButton>
 			</div>
 		</form>
-		{allowSkip ? (
-			<form
-				action={skipPasswordChangeAction}
-				className="flex flex-col gap-3 rounded-2xl border border-[var(--warning-border)] bg-[var(--warning-bg)] p-4 sm:flex-row sm:items-center sm:justify-between"
-			>
-				<input type="hidden" name="next" value={safeNext} />
-				<p className="text-sm leading-6 text-[var(--text-secondary)]">
-					{t("accountPasswordPage.skipDescription")}
-				</p>
-				<SubmitButton
-					pendingLabel={t("accountPasswordPage.skipping")}
-					variant="secondary"
-					className="shrink-0"
-				>
-					{t("accountPasswordPage.skip")}
-				</SubmitButton>
-			</form>
-		) : null}
-		</div>
+	</div>
 	);
 }

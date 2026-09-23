@@ -25,7 +25,6 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("../actions", () => ({
   changePasswordAction: vi.fn(),
-  skipPasswordChangeAction: vi.fn(),
 }));
 
 beforeEach(() => {
@@ -63,12 +62,9 @@ describe("ChangePasswordForm", () => {
     }
   });
 
-  it("only offers the optional first-login skip when explicitly enabled", () => {
-    const { rerender } = render(<ChangePasswordForm />);
+  it("never offers a skip control — the forced change can only be cleared by setting a new password", () => {
+    render(<ChangePasswordForm />);
     expect(screen.queryByRole("button", { name: "暂时跳过" })).not.toBeInTheDocument();
-
-    rerender(<ChangePasswordForm allowSkip />);
-    expect(screen.getByRole("button", { name: "暂时跳过" })).toBeInTheDocument();
   });
 });
 

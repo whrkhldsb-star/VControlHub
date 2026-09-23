@@ -165,7 +165,7 @@ export function AiMessageList({
               </details>
             )}
             {!hasToolOnlyContent && (
-              <div className="break-words">{renderContent(msg.content)}</div>
+              <div className="break-words">{renderContent(msg.content, { copyLabel: t("aiPage.copyCode") })}</div>
             )}
             {hostedActions.length > 0 && (
               <div className="mt-2 space-y-2 border-t border-[var(--border-subtle)] pt-2">

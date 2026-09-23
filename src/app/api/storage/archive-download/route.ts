@@ -1,5 +1,6 @@
 import { openManagedArchive } from "@/lib/storage/archive-access";
 import { apiCopy } from "@/lib/i18n/api-copy";
+import { getServerLocale, t } from "@/lib/i18n/translations";
 import { stat } from "node:fs/promises";
 import path from "node:path";
 
@@ -13,6 +14,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { createLogger } from "@/lib/logging";
 import { assertStorageAccess } from "@/lib/storage/access-control";
+import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import {
   archiveStreamResponse,
   closeSshClientOnStreamEnd,
@@ -106,6 +108,7 @@ async function findDirectoryEntry(
 }
 
 export async function GET(request: Request) {
+  const locale = await getServerLocale();
   return withApiRoute(request, { permission: "storage:read" }, async ({ session }) => {
     if (!session) {
       throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
@@ -144,7 +147,7 @@ export async function GET(request: Request) {
     });
     if (!accessDecision.allowed) {
       return NextResponse.json(
-        { error: accessDecision.reason ?? "Missing storage access authorization" },
+        { error: storageAccessDeniedCopy(accessDecision.reason, locale) },
         { status: 403 },
       );
     }
@@ -171,15 +174,17 @@ export async function GET(request: Request) {
       throw new ValidationError(apiCopy("apiCopy.this.storage.node.does.not.support.directory.download.9454c3ca"));
     }
 
-    const credentials = (() => {
-      try {
-        return resolveStorageSshCredentials(entry.storageNode);
-      } catch (error) {
-        return error instanceof Error ? error : new Error("Missingremoteconnectioncredentials");
-      }
-    })();
-    if (credentials instanceof Error) {
-      throw new ValidationError(credentials.message);
+    // Never echo resolveStorageSshCredentials' internal failure text to the
+    // client (it can embed host/credential details); answer with the stable
+    // translated copy instead. The previous code also leaked whatever the
+    // resolver threw wrapped in a 400 ValidationError.
+    let credentials: Awaited<ReturnType<typeof resolveStorageSshCredentials>>;
+    try {
+      credentials = resolveStorageSshCredentials(entry.storageNode);
+    } catch {
+      throw new ValidationError(
+        t("backend.storageHardening.storage.missingConnectionCredentials", locale),
+      );
     }
     if (credentials.agentServerId && !credentials.privateKey && !credentials.password) {
       throw new ValidationError(

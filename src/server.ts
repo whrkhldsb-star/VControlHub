@@ -58,6 +58,10 @@ const port = parseTcpPort(process.env.PORT, 3000, "PORT");
 async function main() {
 	const app = next({ dev, hostname, port });
 	const handle = app.getRequestHandler();
+	// Next's own upgrade handler (dev HMR websocket). Passed to the WS layer so
+	// upgrades this server does not own (`/_next/webpack-hmr` in dev) reach
+	// Next instead of being destroyed.
+	const nextUpgrade = app.getUpgradeHandler();
 
 	await app.prepare();
 
@@ -83,8 +87,15 @@ async function main() {
 		await handle(req, res);
 	});
 
-	// Attach WebSocket notification server (handles /ws upgrade)
-	setupWebSocketServer(server);
+	// Attach WebSocket notification server (handles /ws upgrade, forwards the
+	// rest — e.g. the dev HMR websocket — to Next's upgrade handler).
+	setupWebSocketServer(server, {
+		onForeignUpgrade: (req, socket, head) => {
+			Promise.resolve(nextUpgrade(req, socket, head)).catch(() => {
+				if (!socket.destroyed) socket.destroy();
+			});
+		},
+	});
 
 	server.listen(port, hostname, () => {
 		logger.info(`Next.js (${dev ? "dev" : "prod"}) + WS listening on http://${hostname}:${port}`);

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import type { SessionPayload } from "@/lib/auth/session";
 
 import { assertStorageAccess } from "@/lib/storage/access-control";
+import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { listRemoteDirectory } from "@/lib/ssh/client";
 import { getSftpNodeConnection } from "@/lib/storage/sftp-node";
 import {
@@ -38,7 +39,9 @@ async function handleGet(request: Request, session: SessionPayload) {
     normalizedRelativePath = normalizeRemoteRelativePath(remotePath);
   } catch {
     return NextResponse.json(
-      toClientStorageError("Requested path exceeds storage node root directory"),
+      toClientStorageError(
+        apiCopy("apiCopy.requested.path.exceeds.storage.node.root.directory.d786fee2"),
+      ),
       { status: 400 },
     );
   }
@@ -51,7 +54,7 @@ async function handleGet(request: Request, session: SessionPayload) {
   });
   if (!accessDecision.allowed) {
     return NextResponse.json(
-      { error: accessDecision.reason ?? "Missing storage access authorization" },
+      { error: storageAccessDeniedCopy(accessDecision.reason) },
       { status: 403 },
     );
   }

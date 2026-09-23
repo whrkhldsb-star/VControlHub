@@ -11,14 +11,20 @@ import { apiCopy } from "@/lib/i18n/api-copy";
  * module and the rest of the codebase continue to import these helpers
  * from `./service-internals` directly without behaviour changes.
  */
-import { execFileSync } from "child_process";
+import { execFile } from "child_process";
+import net from "node:net";
 import { mkdirSync, rmSync } from "node:fs";
+import { promisify } from "node:util";
 
 import { writeAuditLog } from "@/lib/audit/service";
 import { prisma } from "@/lib/db";
 import { BusinessError, ConflictError, ValidationError } from "@/lib/errors";
+import { createLogger } from "@/lib/logging";
 import type { ServiceTemplate } from "./types";
 import { t } from "@/lib/i18n/service-translations";
+
+const runFile = promisify(execFile);
+const logger = createLogger("quick-service-internals");
 
 /* -- Concurrency / state guards ----------------------------------------- */
 
@@ -313,7 +319,7 @@ const PORT_MAX_ATTEMPTS = 50;
 
 /**
  * In-process port leases held from allocate/assert until docker -p binds
- * (or install aborts). Combined with isPortAvailableSync OS probe this closes
+ * (or install aborts). Combined with the isPortAvailable OS probe this closes
  * the common concurrent-install TOCTOU on a single Node process.
  */
 const reservedPorts = new Set<number>();
@@ -330,63 +336,79 @@ export function templateReservedPorts(template: ServiceTemplate, hostPort: numbe
 	return [hostPort, ...((template.extraPorts ?? []).map((ep) => ep.host))];
 }
 
-export function isPortAvailableSync(port: number): boolean {
+/**
+ * Probe whether a TCP port is free on the hub host by binding it in-process
+ * with net.createServer. The previous implementation spawned a `node -e`
+ * child per probe, which blocked the event loop (execFileSync) and paid a
+ * full process startup per port. Errors (EADDRINUSE, EACCES, ...) resolve
+ * false — same swallow semantics as the child probe.
+ */
+export async function isPortAvailable(port: number): Promise<boolean> {
 	assertTcpPort(port);
 	if (reservedPorts.has(port)) return false;
-	try {
-		execFileSync(
-			/*turbopackIgnore: true*/ "node",
-			[
-				/*turbopackIgnore: true*/ "-e",
-				"const n=require('net');const p=Number(process.argv[1]);const s=n.createServer();s.on('error',()=>process.exit(1));s.listen(p,'0.0.0.0',()=>s.close(()=>process.exit(0)))",
-				String(port),
-			],
-			{ timeout: 5000 },
-		);
-		return true;
-	} catch {
-		return false;
-	}
+	return await new Promise<boolean>((resolve) => {
+		const server = net.createServer();
+		server.once("error", () => resolve(false));
+		server.listen(port, "0.0.0.0", () => {
+			server.close(() => resolve(true));
+		});
+	});
 }
 
 /** Probe free + mark reserved until releasePortReservation. */
-export function reservePortSync(port: number): boolean {
+export async function reservePort(port: number): Promise<boolean> {
 	assertTcpPort(port);
 	if (reservedPorts.has(port)) return false;
-	if (!isPortAvailableSync(port)) return false;
+	if (!(await isPortAvailable(port))) return false;
 	reservedPorts.add(port);
 	return true;
 }
 
-export function allocatePort(preferredPort?: number): number {
+export async function allocatePort(preferredPort?: number): Promise<number> {
 	if (preferredPort) {
 		assertTcpPort(preferredPort);
-		if (reservePortSync(preferredPort)) return preferredPort;
+		if (await reservePort(preferredPort)) return preferredPort;
 	}
 	const tried = new Set<number>();
 	for (let i = 0; i < PORT_MAX_ATTEMPTS; i++) {
 		const port = PORT_RANGE_MIN + Math.floor(Math.random() * (PORT_RANGE_MAX - PORT_RANGE_MIN + 1));
 		if (tried.has(port)) continue;
 		tried.add(port);
-		if (reservePortSync(port)) return port;
+		if (await reservePort(port)) return port;
 	}
 	throw new BusinessError(t("backend.quick-service.unableToAllocateAnAvailablePortPleaseSpecify"));
 }
 
-export function getUsedPorts(): number[] {
+/**
+ * Hub-host listening-port inventory. `ss(8)` only exists on Linux; on any
+ * other platform the probe fails and we return an empty list — warn once per
+ * process so operators notice the blind spot without per-request log spam.
+ */
+let warnedNonLinuxPortInventory = false;
+
+export async function getUsedPorts(): Promise<number[]> {
 	try {
-		const out = readListeningSockets();
+		const out = await readListeningSockets();
 		return Array.from(parseListeningPorts(out)).sort((a, b) => a - b);
 	} catch {
+		if (process.platform !== "linux" && !warnedNonLinuxPortInventory) {
+			warnedNonLinuxPortInventory = true;
+			logger.warn(
+				"`ss` listening-port inventory is unavailable on this platform; hub-host used-port list returns empty",
+				{ platform: process.platform },
+			);
+		}
 		return [];
 	}
 }
 
-export function readListeningSockets(): string {
+export async function readListeningSockets(): Promise<string> {
 	try {
-		return execFileSync("ss", ["-tlnpH"], { timeout: 5000, encoding: "utf8" });
+		const { stdout } = await runFile("ss", ["-tlnpH"], { timeout: 5000, encoding: "utf8" });
+		return String(stdout);
 	} catch {
-		return execFileSync("ss", ["-tlnp"], { timeout: 5000, encoding: "utf8" });
+		const { stdout } = await runFile("ss", ["-tlnp"], { timeout: 5000, encoding: "utf8" });
+		return String(stdout);
 	}
 }
 
@@ -409,9 +431,9 @@ export function parseListeningPorts(output: string): Set<number> {
 	return ports;
 }
 
-export function assertPortAvailable(port: number, label = "Port") {
+export async function assertPortAvailable(port: number, label = "Port") {
 	assertTcpPort(port, label);
-	if (!isPortAvailableSync(port)) {
+	if (!(await isPortAvailable(port))) {
 		throw new ConflictError(apiCopy("apiCopy.is.already.in.use.please.use.a.different.port.and.retry.4305736a", { v0: String(label), v1: String(port) }));
 	}
 }
@@ -420,15 +442,15 @@ export function assertPortAvailable(port: number, label = "Port") {
  * Local hub only: probe and reserve host + template extra ports until docker binds.
  * Callers for remote targets must skip this and probe the VPS instead.
  */
-export function assertTemplatePortsAvailable(template: ServiceTemplate, hostPort: number) {
-	if (!reservedPorts.has(hostPort) && !reservePortSync(hostPort)) {
+export async function assertTemplatePortsAvailable(template: ServiceTemplate, hostPort: number) {
+	if (!reservedPorts.has(hostPort) && !(await reservePort(hostPort))) {
 		throw new ConflictError(apiCopy("apiCopy.port.is.already.in.use.please.use.a.different.port.and.retry.fd0f30e2", { v0: String(hostPort) }));
 	}
 	const reservedExtras: number[] = [];
 	try {
 		for (const ep of template.extraPorts ?? []) {
 			if (reservedPorts.has(ep.host)) continue;
-			if (!reservePortSync(ep.host)) {
+			if (!(await reservePort(ep.host))) {
 				throw new ConflictError(apiCopy("apiCopy.extra.port.is.already.in.use.please.use.a.different.port.and.ret.73defe8c", { v0: String(ep.host) }));
 			}
 			reservedExtras.push(ep.host);

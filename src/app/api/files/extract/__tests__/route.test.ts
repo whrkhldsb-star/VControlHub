@@ -226,7 +226,7 @@ describe("POST /api/files/extract", () => {
       .mockResolvedValueOnce({ allowed: true })
       .mockResolvedValueOnce({
         allowed: false,
-        reason: "没有目标目录写入授权",
+        reason: "no_access",
       });
 
     const response = await POST(
@@ -243,8 +243,10 @@ describe("POST /api/files/extract", () => {
     );
 
     expect(response.status).toBe(403);
+    // Denials surface the localized copy for the reason code, not the raw
+    // reason string.
     await expect(response.json()).resolves.toMatchObject({
-      error: "没有目标目录写入授权",
+      error: expect.any(String),
     });
     expect(createFileEntryMock).not.toHaveBeenCalled();
   });
@@ -281,5 +283,30 @@ describe("POST /api/files/extract", () => {
         fs.access(path.join(tempDir, "notes.txt")),
       ),
     ).rejects.toThrow();
+  });
+
+  it("destroys the pipeline with a typed 413 once decompressed output crosses the cap", async () => {
+    const { GunzipOutputLimiter, MAX_GUNZIP_OUTPUT_BYTES } = await import("@/lib/storage/gunzip-limiter");
+    expect(MAX_GUNZIP_OUTPUT_BYTES).toBe(1024 * 1024 * 1024);
+
+    // The route wires this Transform between gunzip and the output file; a
+    // 1 GiB budget cannot be exercised end-to-end in a unit test, so drive
+    // the limiter directly with a tiny budget and assert the fail semantics.
+    const passed: Buffer[] = [];
+    const failure = new Promise<unknown>((resolve) => {
+      const limiter = new GunzipOutputLimiter(1024, "解压输出过大");
+      limiter.on("data", (chunk: Buffer) => passed.push(chunk));
+      limiter.on("error", resolve);
+      limiter.write(Buffer.alloc(512));
+      limiter.write(Buffer.alloc(512));
+      limiter.write(Buffer.alloc(512));
+      limiter.end();
+    });
+    const error = await failure;
+    expect(error).toBeInstanceOf(Error);
+    expect((error as { status?: number }).status).toBe(413);
+    expect((error as { message?: string }).message).toBe("解压输出过大");
+    // The first 1024 bytes flowed before the third write crossed the cap.
+    expect(passed.reduce((total, chunk) => total + chunk.length, 0)).toBe(1024);
   });
 });

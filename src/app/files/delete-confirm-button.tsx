@@ -1,9 +1,8 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { startTransition, useActionState, useEffect, useRef, useState } from "react";
 
-import { ActionButton } from "@/components/action-button";
-import { SubmitButton } from "@/components/submit-button";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useI18n } from "@/lib/i18n/use-locale";
 import {
   deleteFileEntryAction,
@@ -28,7 +27,7 @@ export function DeleteConfirmButton({
   onNotify?: (type: "success" | "error" | "info", message: string) => void;
 }) {
   const { t } = useI18n();
-  const [confirming, setConfirming] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [state, formAction, pending] = useActionState(
     deleteFileEntryAction,
     initialState,
@@ -43,10 +42,6 @@ export function DeleteConfirmButton({
     onRefreshRef.current = onRefresh;
   }, [onNotify, onRefresh]);
 
-  function handleCancel() {
-    setConfirming(false);
-  }
-
   useEffect(() => {
     if (!state.success) {
       handledSuccessRef.current = null;
@@ -57,14 +52,16 @@ export function DeleteConfirmButton({
     onNotifyRef.current?.("success", state.success);
   }, [state.success]);
 
+  // Close + refresh once the submitted action settles without an error.
+  // (The former version force-reloaded the whole page here; the shared
+  // refresh callback keeps the SPA state instead.)
   useEffect(() => {
     if (pending || !submittedRef.current) return;
     const timer = window.setTimeout(() => {
       submittedRef.current = false;
       if (state.error) return;
-      setConfirming(false);
+      setConfirmOpen(false);
       onRefreshRef.current?.();
-      window.setTimeout(() => window.location.reload(), 250);
     }, 0);
     return () => window.clearTimeout(timer);
   }, [pending, state.error]);
@@ -74,11 +71,22 @@ export function DeleteConfirmButton({
     onNotify?.("error", state.error);
   }, [onNotify, state.error]);
 
-  if (!confirming) {
-    return (
+  function handleConfirm() {
+    const formData = new FormData();
+    formData.set("fileEntryId", fileEntryId);
+    submittedRef.current = true;
+    // useActionState's dispatch must run inside a transition so that
+    // `pending` (the dialog's busy flag) tracks the async action correctly.
+    startTransition(() => {
+      formAction(formData);
+    });
+  }
+
+  return (
+    <>
       <button
         type="button"
-        onClick={() => setConfirming(true)}
+        onClick={() => setConfirmOpen(true)}
         title={t("common.delete")}
         aria-label={t("filesPage.actions.deleteAria", { name: entryName })}
         className={
@@ -105,33 +113,23 @@ export function DeleteConfirmButton({
         </svg>
         {variant === "menu" ? <span>{t("common.delete")}</span> : null}
       </button>
-    );
-  }
-
-  return (
-    <form
-      action={formAction}
-      onSubmit={() => { submittedRef.current = true; }}
-      className="flex flex-wrap items-center gap-3"
-    >
-      <input type="hidden" name="fileEntryId" value={fileEntryId} />
-      <span className="text-sm text-[var(--danger)]">
-        {t("filesPage.actions.confirmDelete", { name: entryName, contents: entryType === "DIRECTORY" ? t("filesPage.actions.directoryContents") : "" })}
-      </span>
-      <SubmitButton
-        pendingLabel={t("common.confirm")}
-        variant="danger"
-      >
-        {t("common.confirm")}
-      </SubmitButton>
-      <ActionButton
-        type="button"
-        variant="secondary"
-        onClick={handleCancel}
-        className="!px-4 !py-2 !text-sm"
-      >
-        {t("common.cancel")}
-      </ActionButton>
-    </form>
+      <ConfirmDialog
+        open={confirmOpen}
+        title={t("common.delete")}
+        description={t("filesPage.actions.confirmDelete", {
+          name: entryName,
+          contents:
+            entryType === "DIRECTORY"
+              ? t("filesPage.actions.directoryContents")
+              : "",
+        })}
+        cancelLabel={t("common.cancel")}
+        confirmLabel={t("common.confirm")}
+        onCancel={() => setConfirmOpen(false)}
+        onConfirm={handleConfirm}
+        busy={pending}
+        error={state.error ?? undefined}
+      />
+    </>
   );
 }

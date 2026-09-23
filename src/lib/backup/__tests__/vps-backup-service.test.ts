@@ -1,10 +1,35 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { Readable } from "node:stream";
-import { mkdirSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { dirname, join, resolve as resolvePath } from "node:path";
 import { tmpdir } from "node:os";
 
 import { ConflictError } from "@/lib/errors";
+import { config } from "@/lib/config/env";
+import type { OffsiteConfig } from "@/lib/storage/offsite/schema";
+
+const offsiteMocks = vi.hoisted(() => ({
+  // Default matches the real disabled-config behaviour so existing run tests
+  // keep skipping the best-effort offsite step.
+  loadConfig: vi.fn(async (): Promise<Record<string, unknown>> => ({ enabled: false, failureAlertRecipient: null })),
+  putFile: vi.fn(),
+  constructedWith: [] as Array<Record<string, unknown>>,
+}));
+
+/** Complete enabled S3 config — every field of OffsiteConfig is required at use time. */
+const ENABLE_OFFSITE_CONFIG: OffsiteConfig = {
+  enabled: true,
+  provider: "s3",
+  endpoint: "https://s3.example.com",
+  region: "us-east-1",
+  bucket: "backups",
+  accessKeyId: "ak",
+  secretAccessKey: "sk",
+  pathPrefix: "vps-backups/",
+  dailyWindowHour: 2,
+  retentionDays: 30,
+  failureAlertRecipient: "",
+};
 
 const mocks = vi.hoisted(() => ({
   findUnique: vi.fn(),
@@ -21,6 +46,20 @@ const mocks = vi.hoisted(() => ({
   buildRemoteBackupCommand: vi.fn(),
   buildRemoteCleanupCommand: vi.fn(),
   generateRemoteBackupPath: vi.fn(),
+}));
+
+vi.mock("@/lib/storage/offsite/schema", () => ({
+  loadOffsiteConfig: offsiteMocks.loadConfig,
+  validateOffsiteConfigForUse: () => [],
+}));
+
+vi.mock("@/lib/storage/offsite/s3-client", () => ({
+  S3Client: class {
+    constructor(clientConfig: Record<string, unknown>) {
+      offsiteMocks.constructedWith.push(clientConfig);
+    }
+    putFile = offsiteMocks.putFile;
+  },
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -325,5 +364,46 @@ describe("retryPendingVpsOffsiteUploads", () => {
       2,
       expect.objectContaining({ cursor: { id: "vps-099" }, skip: 1 }),
     );
+  });
+});
+
+describe("uploadVpsBackupToOffsite", () => {
+  it("streams with a 30-minute S3 budget instead of the 30s default", async () => {
+    vi.clearAllMocks();
+    offsiteMocks.constructedWith.length = 0;
+    // Place the artifact under the same portable root the service resolves.
+    const artifactRoot = resolvePath(config.storage.root || process.cwd());
+    const localPath = "storage/vps-backups/srv_1/nginx-config-rec_to.tar.gz";
+    const artifactPath = join(artifactRoot, localPath);
+    mkdirSync(dirname(artifactPath), { recursive: true });
+    writeFileSync(artifactPath, "artifact-bytes");
+    try {
+      mocks.findUnique.mockResolvedValueOnce({
+        id: "rec_to",
+        serverId: "srv_1",
+        backupType: "nginx-config",
+        status: "COMPLETED",
+        localPath,
+        offsiteKey: null,
+      });
+      offsiteMocks.loadConfig.mockResolvedValueOnce(ENABLE_OFFSITE_CONFIG);
+      offsiteMocks.putFile.mockResolvedValueOnce({ etag: "etag-1" });
+
+      const { uploadVpsBackupToOffsite } = await import("../vps-backup-service");
+      const result = await uploadVpsBackupToOffsite("rec_to");
+
+      expect(result).toMatchObject({ ok: true, skipped: false, key: "vps-backups/srv_1/nginx-config-rec_to.tar.gz" });
+      // Regression: the default 30s AbortSignal budget aborted large-artifact
+      // uploads mid-stream. The client must be built with the 30-minute
+      // streaming allowance (same as the control-plane offsite uploader).
+      expect(offsiteMocks.constructedWith).toHaveLength(1);
+      expect(offsiteMocks.constructedWith[0]).toMatchObject({
+        endpoint: "https://s3.example.com",
+        timeoutMs: 30 * 60 * 1000,
+      });
+      expect(offsiteMocks.putFile).toHaveBeenCalledTimes(1);
+    } finally {
+      rmSync(artifactPath, { force: true });
+    }
   });
 });

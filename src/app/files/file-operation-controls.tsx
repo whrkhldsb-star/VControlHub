@@ -152,6 +152,10 @@ export function CopyFileButton({
 type Job = {
   id: string;
   title: string;
+  /** Structured action from the server (payload-derived); null on unparsable rows. */
+  action: "copy" | "move" | "delete" | null;
+  /** Number of entries the job covers; null on unparsable rows. */
+  count: number | null;
   status: string;
   progress: string | null;
   errorMessage: string | null;
@@ -266,9 +270,10 @@ export function FileOperationTasks() {
               <li key={job.id} className="py-3 text-sm">
                 <div className="flex items-center justify-between gap-2">
                   <p>
-                    {t(`fileOperations.${job.title.split(" ")[0]}`)}{" "}
-                    {job.title.split(" ")[1]} ·{" "}
-                    {t(`fileOperations.status.${job.status}`)} {job.progress}
+                    {job.action
+                      ? `${t(`fileOperations.${job.action}`)}${job.count !== null ? ` ${job.count}` : ""}`
+                      : job.title}{" "}
+                    · {t(`fileOperations.status.${job.status}`)} {job.progress}
                   </p>
                   {["RUNNING", "PENDING"].includes(job.status) ? (
                     <button

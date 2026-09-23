@@ -98,6 +98,11 @@ model User {
   passwordHash               String
   status                     UserStatus              @default(PENDING_PASSWORD_RESET)
   mustChangePassword         Boolean                 @default(true)
+  // Session-revocation epoch: embedded in session tokens at mint time and
+  // re-checked on every verification. Advanced by security-relevant account
+  // events (2FA enable/disable, sign-out-everywhere) so previously issued
+  // cookies stop working immediately instead of living out their TTL.
+  sessionEpoch               Int                     @default(0)
   createdAt                  DateTime                @default(now())
   updatedAt                  DateTime                @updatedAt
   roles                      UserRole[]
@@ -343,6 +348,8 @@ model Server {
   @@index([host, port])
   @@index([enabled])
   @@index([teamId])
+  // FK index: SshKey deletion (SetNull) would otherwise full-scan servers.
+  @@index([sshKeyId])
   @@map("servers")
 }
 
@@ -1089,6 +1096,9 @@ model SyncJob {
   team   Team?   @relation("TeamSyncJobs", fields: [teamId], references: [id], onDelete: SetNull)
 
   @@index([teamId])
+  // FK indexes: deleting a Server (VPS decommission) must not full-scan sync_jobs twice.
+  @@index([sourceServerId])
+  @@index([targetServerId])
   @@map("sync_jobs")
 }
 
@@ -1385,6 +1395,9 @@ model DeploymentRun {
   @@index([snapshotId])
   @@index([rollbackOfRunId])
   @@index([teamId])
+  // FK indexes for the template / command-request cascade paths.
+  @@index([templateId])
+  @@index([commandRequestId])
   @@map("deployment_runs")
 }
 
@@ -1784,6 +1797,10 @@ model AiHostedAction {
   @@index([toolCallId])
   @@index([serverId, status])
   @@index([teamId, status, createdAt])
+  // FK indexes: PostgreSQL does not index foreign keys automatically — without
+  // these, deleting an AiMessage or a User full-scans this ever-growing table.
+  @@index([messageId])
+  @@index([requesterId])
   @@map("ai_hosted_actions")
 }
 

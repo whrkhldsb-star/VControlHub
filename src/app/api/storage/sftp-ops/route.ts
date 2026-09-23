@@ -5,6 +5,7 @@ import type { SessionPayload } from "@/lib/auth/session";
 
 import { prisma } from "@/lib/db";
 import { assertStorageAccess, releaseStorageQuotaGuard } from "@/lib/storage/access-control";
+import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import {
   deleteBackingObject,
   readBackingObject,
@@ -224,7 +225,9 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
     normalizedRelativePath = normalizeRemoteRelativePath(remotePath);
   } catch {
     return NextResponse.json(
-      toClientStorageError("Requested path exceeds storage node root directory"),
+      toClientStorageError(
+        apiCopy("apiCopy.requested.path.exceeds.storage.node.root.directory.d786fee2"),
+      ),
       { status: 400 },
     );
   }
@@ -252,7 +255,7 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
   });
   if (!accessDecision.allowed) {
     return NextResponse.json(
-      { error: accessDecision.reason ?? "Missing storage access authorization" },
+      { error: storageAccessDeniedCopy(accessDecision.reason) },
       { status: 403 },
     );
   }

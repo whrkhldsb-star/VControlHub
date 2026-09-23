@@ -13,6 +13,11 @@ import { zh as vpsBackupApiZh, en as vpsBackupApiEn } from "./dictionaries/vps-b
 import { zh as apiCopyZh, en as apiCopyEn } from "./dictionaries/api-copy";
 import { zh as filesZh, en as filesEn } from "./dictionaries/files-page";
 import { zh as storageZh, en as storageEn } from "./dictionaries/storage-page";
+// Hardening-copy dictionaries — one per backend area so parallel work on
+// separate domains never edits the same file.
+import { zh as storageHardeningZh, en as storageHardeningEn } from "./dictionaries/storage-hardening-api";
+import { zh as sshHardeningZh, en as sshHardeningEn } from "./dictionaries/ssh-hardening-api";
+import { zh as opsHardeningZh, en as opsHardeningEn } from "./dictionaries/ops-hardening-api";
 import { interpolate, type Locale } from "./core";
 
 const fileActionCopy = (files: Record<string, string>, storage: Record<string, string>) => Object.fromEntries([
@@ -26,6 +31,7 @@ const zh: Record<string, string> = {
 	...downloadsPageZh, ...openApiSpecZh, ...serversDetectOsApiZh,
 	...serversFileProxyApiZh, ...serversReloadApiZh, ...shareTokenApiZh,
 	...vpsBackupApiZh,
+	...storageHardeningZh, ...sshHardeningZh, ...opsHardeningZh,
 	...apiCopyZh,
 };
 
@@ -35,6 +41,7 @@ const en: Record<string, string> = {
 	...downloadsPageEn, ...openApiSpecEn, ...serversDetectOsApiEn,
 	...serversFileProxyApiEn, ...serversReloadApiEn, ...shareTokenApiEn,
 	...vpsBackupApiEn,
+	...storageHardeningEn, ...sshHardeningEn, ...opsHardeningEn,
 	...apiCopyEn,
 };
 

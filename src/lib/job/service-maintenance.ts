@@ -2,7 +2,12 @@ import { JobStatus, Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
 import { t } from "@/lib/i18n/service-translations";
-import { futureFrom, type PruneCompletedJobsByTypeOptions } from "./service-internals";
+import {
+  futureFrom,
+  type PruneCompletedJobsByTypeOptions,
+  type PruneTerminalJobsByTypeOptions,
+  type PruneTerminalJobsOptions,
+} from "./service-internals";
 
 // Persist stable English machine/audit strings while sourcing them from i18n.
 const REQUEUED_ERROR = t("backend.job.executorHeartbeatExpiredRequeued", "en");
@@ -219,4 +224,99 @@ export async function pruneCompletedJobsByType(options: PruneCompletedJobsByType
     },
     { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
   );
+}
+
+/**
+ * Generalised {@link pruneCompletedJobsByType}: prune a job type's terminal
+ * rows (COMPLETED / FAILED / CANCELLED as the caller scopes) down to the
+ * newest `keepLatest`. Every terminal writer stamps `completedAt`, so the
+ * ordering stays well-defined for mixed status sets.
+ *
+ * Workers whose job volume is high (command execution, downloads, playbook
+ * runs, quick-service lifecycle, sftp sync, file operations, backups, cost
+ * snapshots, itsm outbound) call this after each handled job — on both the
+ * success and failure path — so their history cannot grow unbounded between
+ * maintenance ticks.
+ */
+export async function pruneTerminalJobsByType(options: PruneTerminalJobsByTypeOptions) {
+  const type = options.type.trim();
+  const statuses = options.statuses.filter((status) =>
+    status === JobStatus.COMPLETED
+    || status === JobStatus.FAILED
+    || status === JobStatus.CANCELLED,
+  );
+  if (!type || statuses.length === 0) return { count: 0 };
+  const keepLatest = Math.max(1, Math.floor(options.keepLatest ?? 25));
+  return prisma.$transaction(
+    async (tx) => {
+      const retained = await tx.job.findMany({
+        where: { type, status: { in: statuses } },
+        select: { id: true },
+        orderBy: [{ completedAt: "desc" }, { createdAt: "desc" }],
+        take: keepLatest,
+      });
+      const retainedIds = retained.map((job) => job.id);
+      return tx.job.deleteMany({
+        where: {
+          type,
+          status: { in: statuses },
+          ...(retainedIds.length > 0 ? { id: { notIn: retainedIds } } : {}),
+          ...(options.olderThan ? { completedAt: { lt: options.olderThan } } : {}),
+        },
+      });
+    },
+    { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+  );
+}
+
+/** Default retention for terminal job rows, aligned with pruneJobEvents' 30d window. */
+export const TERMINAL_JOB_RETENTION_DAYS = 30;
+/** Hard cap on rows deleted per round so one sweep cannot lock the table for minutes. */
+export const TERMINAL_JOB_PRUNE_BATCH = 5_000;
+
+/**
+ * Fleet-wide sweep of terminal job rows (default: FAILED + CANCELLED older
+ * than 30 days, every type). `pruneCompletedJobsByType` / in-worker pruning
+ * bounds COMPLETED history for high-frequency types, but FAILED/CANCELLED
+ * rows of *any* type — including types whose worker cannot self-prune
+ * (command.execution, storage.*, backup.*, itsm.outbound, …) — had no
+ * cleanup path at all and grew unbounded.
+ *
+ * deleteMany has no LIMIT in Prisma, so batches are selected by id first and
+ * the delete re-asserts the terminal predicate: a row that transitioned back
+ * to PENDING (lease recovery) between the two queries is never deleted.
+ */
+export async function pruneTerminalJobs(
+  options?: PruneTerminalJobsOptions,
+): Promise<{ count: number }> {
+  const now = options?.now ?? new Date();
+  const statuses = options?.statuses ?? [JobStatus.FAILED, JobStatus.CANCELLED];
+  if (statuses.length === 0) return { count: 0 };
+  const olderThan =
+    options?.olderThan ??
+    new Date(now.getTime() - TERMINAL_JOB_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+  const batchSize = Math.min(Math.max(options?.batchSize ?? TERMINAL_JOB_PRUNE_BATCH, 1), TERMINAL_JOB_PRUNE_BATCH);
+  const where = {
+    status: { in: statuses },
+    updatedAt: { lt: olderThan },
+  };
+  let count = 0;
+  for (;;) {
+    const batch = await prisma.job.findMany({
+      where,
+      select: { id: true },
+      orderBy: { updatedAt: "asc" },
+      take: batchSize,
+    });
+    if (batch.length === 0) break;
+    const deleted = await prisma.job.deleteMany({
+      where: {
+        ...where,
+        id: { in: batch.map((job) => job.id) },
+      },
+    });
+    count += deleted.count;
+    if (batch.length < batchSize) break;
+  }
+  return { count };
 }

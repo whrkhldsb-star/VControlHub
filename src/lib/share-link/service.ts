@@ -2,7 +2,7 @@ import { createHash, randomBytes, scryptSync, timingSafeEqual } from "node:crypt
 import type { Dirent } from "node:fs";
 import { readdir, stat } from "node:fs/promises";
 import path from "node:path";
-import { teamCreateData, teamWhere } from "@/lib/auth/team-scope";
+import { teamCreateData, shareLinkTeamWhere, isGlobalTeamManager } from "@/lib/auth/team-scope";
 
 import { prisma } from "@/lib/db";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
@@ -168,7 +168,12 @@ export async function createShareLink(input: {
       ...teamData,
     },
   });
-  return { share, token };
+  // The row carries credential material (tokenHash locates the public token's
+  // storage; passwordHash is an offline-dictionary-attack target). Strip both
+  // from anything a caller might serialize — the plaintext token in the return
+  // value is the only credential the creator needs.
+  const { tokenHash: _tokenHash, passwordHash: _passwordHash, ...safeShare } = share;
+  return { share: safeShare, token };
 }
 
 export async function createShareLinkFromFileEntry(input: {
@@ -182,11 +187,16 @@ export async function createShareLinkFromFileEntry(input: {
 }) {
   const t = await serviceT();
   // Scope file entry by storage node team so guessing another team's fileEntryId cannot open a share.
+  // Storage nodes are security roots (they carry credentials and user data), so
+  // the pre-lookup uses the same quarantine assertStorageAccess enforces — a
+  // null-team node is not visible to non-global actors.
   const entry = await prisma.fileEntry.findFirst({
     where: {
       id: input.fileEntryId,
       isDeleted: false,
-      storageNode: teamWhere(input.session),
+      storageNode: isGlobalTeamManager(input.session)
+        ? {}
+        : { teamId: input.session.currentTeamId ?? "__unassigned_storage_nodes_require_team_manage__" },
     },
     include: { storageNode: true },
   });
@@ -236,14 +246,32 @@ export async function listShareLinks(userId?: string, session?: { userId: string
   // When session is present without an explicit userId filter, return the team-
   // scoped catalogue (matches /shares page). Pass userId only when intentionally
   // restricting to a creator (e.g. personal history widgets).
-  const teamFilter = session ? teamWhere(session) : {};
+  const teamFilter = session ? shareLinkTeamWhere(session) : {};
   const where: Record<string, unknown> = userId ? { createdBy: userId } : {};
   if (session) Object.assign(where, teamFilter);
+  // Explicit select: `include` returned every scalar column, leaking
+  // passwordHash (scrypt of a share password — offline dictionary target) and
+  // tokenHash to any viewer holding share:read. Keep the field list in sync
+  // with the /shares page UI.
   return prisma.shareLink.findMany({
     where,
     orderBy: { createdAt: "desc" },
     take: 200,
-    include: {
+    select: {
+      id: true,
+      storageNodeId: true,
+      path: true,
+      entryType: true,
+      name: true,
+      expiresAt: true,
+      revokedAt: true,
+      accessCount: true,
+      maxDownloads: true,
+      permissionLevel: true,
+      createdAt: true,
+      updatedAt: true,
+      createdBy: true,
+      teamId: true,
       storageNode: { select: { id: true, name: true, driver: true } },
       creator: { select: { username: true, displayName: true } },
     },
@@ -255,12 +283,13 @@ export async function revokeShareLink(
   userId?: string,
   session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId"> | null,
 ) {
-  // Team managers (share:manage) may revoke any share inside teamWhere.
-  // Non-managers must own the link (createdBy). Always keep teamWhere when
-  // session is present so cross-tenant IDOR stays closed.
+  // Team managers (share:manage) may revoke any share inside their team scope.
+  // Non-managers must own the link (createdBy). shareLinkTeamWhere quarantines
+  // null-team links to global managers so one tenant cannot revoke another
+  // tenant's unassigned link (availability attack).
   const where: Record<string, unknown> = { id };
   if (session) {
-    Object.assign(where, teamWhere(session));
+    Object.assign(where, shareLinkTeamWhere(session));
     const canManageTeam = sessionHasPermission(session, "share:manage");
     if (!canManageTeam) {
       where.createdBy = userId ?? session.userId;
@@ -558,7 +587,7 @@ export async function listShareAccessLogs(
   take = 100,
 ) {
   const share = await prisma.shareLink.findFirst({
-    where: { id: shareLinkId, ...teamWhere(session) },
+    where: { id: shareLinkId, ...shareLinkTeamWhere(session) },
     select: { id: true, createdBy: true },
   });
   if (!share) throw new NotFoundError(t("backend.shareLink.notFound"));
@@ -588,7 +617,7 @@ export async function getShareAccessReport(input: {
   const where = {
     accessedAt: { gte: since },
     ...(action === "all" ? {} : { action }),
-    shareLink: teamWhere(input.session),
+    shareLink: shareLinkTeamWhere(input.session),
   };
   const [logs, grouped, uniqueIpGroups] = await Promise.all([
     prisma.shareAccessLog.findMany({
@@ -610,7 +639,7 @@ export async function getShareAccessReport(input: {
   ]);
   const shareIds = Array.from(new Set(grouped.map((row) => row.shareLinkId)));
   const shares = shareIds.length > 0 ? await prisma.shareLink.findMany({
-    where: { id: { in: shareIds }, ...teamWhere(input.session) },
+    where: { id: { in: shareIds }, ...shareLinkTeamWhere(input.session) },
     select: { id: true, name: true, path: true, permissionLevel: true, revokedAt: true },
   }) : [];
   const shareMap = new Map(shares.map((share) => [share.id, share]));

@@ -204,6 +204,19 @@ describe("uploadFile session lifecycle", () => {
     expect(clientEndMock).toHaveBeenCalled();
   });
 
+  it("opens the SFTP session with fail-closed host-key pinning (enforceHostKeyPin)", async () => {
+    // The fixture server has no hostKeySha256 pin; the session config must
+    // still request enforcement so an unpinned host key fails the handshake
+    // instead of being silently accepted (parity with command execution).
+    const writeStream = new PassThrough();
+    createWriteStreamMock.mockReturnValue(writeStream);
+
+    const source = Readable.from([Buffer.from("hello-upload")]);
+    await uploadFile("srv1", "/home/alice/out.txt", source);
+
+    expect(connectMock).toHaveBeenCalledWith(expect.objectContaining({ enforceHostKeyPin: true }));
+  });
+
   it("closes the SSH/SFTP session when the write stream errors", async () => {
     const writeStream = new PassThrough();
     // Prevent unhandled 'error' if destroy races slightly ahead of listeners.

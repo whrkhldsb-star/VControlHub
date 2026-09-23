@@ -45,6 +45,7 @@ export type ApiErrorCode =
   | "PRECONDITION_FAILED"
   // 429 — rate limit
   | "RATE_LIMITED"
+  | "ACCOUNT_LOCKED"
   // 5xx — server errors
   | "INTERNAL_ERROR"
   | "DATABASE_ERROR"
@@ -83,6 +84,7 @@ export const ApiErrorCodeValues: ReadonlyArray<ApiErrorCode> = Object.freeze(
     "QUOTA_EXCEEDED",
     "PRECONDITION_FAILED",
     "RATE_LIMITED",
+    "ACCOUNT_LOCKED",
     "INTERNAL_ERROR",
     "DATABASE_ERROR",
     "EXTERNAL_SERVICE_ERROR",
@@ -144,6 +146,7 @@ const CODE_CATEGORY: Readonly<Record<ApiErrorCode, ApiErrorCategory>> = Object.f
   QUOTA_EXCEEDED: "business",
   PRECONDITION_FAILED: "business",
   RATE_LIMITED: "ratelimit",
+  ACCOUNT_LOCKED: "ratelimit",
   INTERNAL_ERROR: "server",
   DATABASE_ERROR: "server",
   EXTERNAL_SERVICE_ERROR: "server",

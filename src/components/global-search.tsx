@@ -286,7 +286,7 @@ export function GlobalSearch({
 			open={open}
 			onClose={closeSearch}
 			label={t("search.dialog")}
-			overlayClassName="fixed inset-0 z-[70] flex items-start justify-center bg-[var(--overlay)] p-4 pt-[min(12dvh,4rem)]"
+			overlayClassName="fixed inset-0 z-[var(--z-popover)] flex items-start justify-center bg-[var(--overlay)] p-4 pt-[min(12dvh,4rem)]"
 			panelClassName="flex max-h-[calc(88dvh-1rem)] w-full max-w-lg flex-col overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--modal-bg)] shadow-[var(--shadow-lg)]"
 			initialFocusRef={inputRef}
 		>

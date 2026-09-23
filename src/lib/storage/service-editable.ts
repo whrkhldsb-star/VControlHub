@@ -14,6 +14,7 @@ import {
   assertStorageAccess,
   releaseStorageQuotaGuard,
 } from "@/lib/storage/access-control";
+import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { MAX_EDITABLE_FILE_SIZE_BYTES } from "./mime-constants";
 import {
   isEditableTextFile,
@@ -59,9 +60,7 @@ async function resolveLocalEditableFileEntry(input: {
     writeBytes: input.writeBytes,
   });
   if (!storageAccess.allowed) {
-    throw new ForbiddenError(
-      storageAccess.reason ?? t("backend.storage.editableNoAccess"),
-    );
+    throw new ForbiddenError(storageAccessDeniedCopy(storageAccess.reason));
   }
 
   if (

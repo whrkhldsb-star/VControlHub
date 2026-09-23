@@ -112,6 +112,19 @@ export async function assertWebhookUrlSafeForServerFetch(value: string) {
 const WEBHOOK_RESPONSE_MAX_BYTES = 256 * 1024;
 
 /**
+ * Per-stage timeouts for alert/ITSM webhook delivery. Without these the custom
+ * Agent only had undici's generous defaults (headers 300s / body 300s), so a
+ * black-holed endpoint could pin the alert worker for minutes per delivery —
+ * telegram already caps at 15s and SMTP at 10/30s. The overall fetch signal is
+ * slightly above the sum of the agent stages so the agent's own error surfaces
+ * first (a TimeoutError from the agent reads the same as any other failure).
+ */
+const WEBHOOK_CONNECT_TIMEOUT_MS = 10_000;
+const WEBHOOK_HEADERS_TIMEOUT_MS = 10_000;
+const WEBHOOK_BODY_TIMEOUT_MS = 10_000;
+const WEBHOOK_FETCH_TIMEOUT_MS = 15_000;
+
+/**
  * Drain a webhook response into a detached Response.
  *
  * `Agent.close()` waits for in-flight bodies to finish; when a caller only
@@ -173,7 +186,10 @@ export async function fetchWebhookSafely(url: string, init: Omit<Dispatcher.Requ
 	}
 	const pinned = addresses[0]!;
 	const dispatcher = new Agent({
+		headersTimeout: WEBHOOK_HEADERS_TIMEOUT_MS,
+		bodyTimeout: WEBHOOK_BODY_TIMEOUT_MS,
 		connect: {
+			timeout: WEBHOOK_CONNECT_TIMEOUT_MS,
 			lookup(hostname, options, callback) {
 				if (hostname !== parsed.hostname) {
 					callback(new Error("Webhook URL redirect target is not verified"), undefined as never, undefined as never);
@@ -188,7 +204,20 @@ export async function fetchWebhookSafely(url: string, init: Omit<Dispatcher.Requ
 		},
 	});
 	try {
-		const requestInit = { ...init, dispatcher, redirect: "error" } as unknown as Parameters<typeof undiciFetch>[1];
+		const callerSignal = "signal" in init && init.signal instanceof AbortSignal ? init.signal : undefined;
+		const requestInit = {
+			...init,
+			dispatcher,
+			redirect: "error",
+			// Belt-and-braces overall cap: the agent stages already bound connect /
+			// headers / body, but a slow-drip body would otherwise only be cut by
+			// bodyTimeout — this guarantees the whole delivery settles. Callers that
+			// pass their own signal (playbook steps, ITSM adapters) keep their
+			// cancellation path via AbortSignal.any.
+			signal: callerSignal
+				? AbortSignal.any([callerSignal, AbortSignal.timeout(WEBHOOK_FETCH_TIMEOUT_MS)])
+				: AbortSignal.timeout(WEBHOOK_FETCH_TIMEOUT_MS),
+		} as unknown as Parameters<typeof undiciFetch>[1];
 		const response = await undiciFetch(safe.url, requestInit);
 		// Detach before the dispatcher goes away: an unread body makes
 		// Agent.close() hang forever and Agent.destroy() would abort the read.

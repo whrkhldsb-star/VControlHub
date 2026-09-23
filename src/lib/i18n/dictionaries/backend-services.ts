@@ -266,6 +266,7 @@ export const zh: Record<string, string> = {
 
 	// B5 pass2 auto
 	"backend.deployment.deploymentTemplateIsRequired": "必须选择部署模板",
+	"backend.deployment.invalidVariablesJson": "部署变量 JSON 格式无效，无法安全启动部署",
 	"backend.deployment.targetUnavailable": "一个或多个目标 VPS 已禁用、尚未完成初始化或最近监控为离线；请先恢复节点可用性",
 	"backend.deployment.requesterIsRequired": "必须指定请求人",
 	"backend.deployment.atLeast1TargetVpsMustBeSelected": "至少选择 1 台目标 VPS",
@@ -335,6 +336,9 @@ export const zh: Record<string, string> = {
 	"backend.user.rolesMustUsePermissionsEndpoint": "角色分配必须通过用户权限接口修改",
 	"backend.user.missingAction": "缺少要执行的操作（disable / enable / reset_password）",
 	"backend.user.missingNewPassword": "重置密码必须提供新密码",
+	"backend.user.cannotGrantAdminRole": "不能授予 admin 角色；只有平台管理员可以分配管理员权限",
+	"backend.user.cannotGrantBeyondOwnPermissions": "不能授予你自己未持有的权限（超出范围：{roles}）",
+	"backend.user.cannotModifyPlatformAdmin": "平台管理员账户只能由拥有团队管理权限的管理员重置密码或禁用",
 	"backend.ticket.ticketStatusTransitionInvalid": "工单状态不能从 {from} 变更为 {to}",
 	"backend.ticket.ticketNotFound": "工单不存在",
 	"backend.ticket.ticketStatusChangedConcurrentlyPleaseRetry": "工单状态已被他人修改，请重试",
@@ -868,6 +872,7 @@ export const en: Record<string, string> = {
 
 	// B5 pass2 auto
 	"backend.deployment.deploymentTemplateIsRequired": "Deployment template is required",
+	"backend.deployment.invalidVariablesJson": "Deployment variables JSON is malformed; refusing to start the deployment",
 	"backend.deployment.targetUnavailable": "One or more target VPS nodes are disabled, have incomplete setup, or were recently reported offline; restore node availability first",
 	"backend.deployment.requesterIsRequired": "Requester is required",
 	"backend.deployment.atLeast1TargetVpsMustBeSelected": "At least 1 target VPS must be selected",
@@ -937,6 +942,9 @@ export const en: Record<string, string> = {
 	"backend.user.rolesMustUsePermissionsEndpoint": "Role assignments must be changed through the user permissions endpoint",
 	"backend.user.missingAction": "Missing action to perform (disable / enable / reset_password)",
 	"backend.user.missingNewPassword": "Resetting a password requires a new password",
+	"backend.user.cannotGrantAdminRole": "The admin role cannot be granted; only platform administrators may assign administrator privileges",
+	"backend.user.cannotGrantBeyondOwnPermissions": "You cannot grant permissions you do not hold yourself (out of scope: {roles})",
+	"backend.user.cannotModifyPlatformAdmin": "Platform administrator accounts can only be reset or disabled by operators with team management permission",
 	"backend.ticket.ticketStatusTransitionInvalid": "Ticket status cannot change from {from} to {to}",
 	"backend.ticket.ticketNotFound": "Ticket not found",
 	"backend.ticket.ticketStatusChangedConcurrentlyPleaseRetry": "Ticket status changed concurrently; please retry",

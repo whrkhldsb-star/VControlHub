@@ -4,6 +4,7 @@ import { auditUserAction } from "@/lib/audit/service";
 import { requirePermission } from "@/lib/auth/authorization";
 import { teamWhere } from "@/lib/auth/team-scope";
 import { assertStorageAccess } from "@/lib/storage/access-control";
+import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { prisma } from "@/lib/db";
 import { serverT } from "@/lib/i18n/server-locale";
 import { restoreFileEntry } from "@/lib/storage/service";
@@ -62,7 +63,7 @@ export async function restoreFileEntryAction(
       operation: "delete",
     });
     if (!restoreAccess.allowed) {
-      return { error: restoreAccess.reason ?? t("storagePage.action.fileEntryNotFound") } satisfies StorageActionState;
+      return { error: storageAccessDeniedCopy(restoreAccess.reason) } satisfies StorageActionState;
     }
 
     // Serialize against move/copy/delete/rename on the same node: restore
@@ -171,7 +172,7 @@ export async function permanentDeleteFileEntryAction(
       operation: "delete",
     });
     if (!permDeleteAccess.allowed) {
-      return { error: permDeleteAccess.reason ?? t("storagePage.action.fileEntryNotFound") } satisfies StorageActionState;
+      return { error: storageAccessDeniedCopy(permDeleteAccess.reason) } satisfies StorageActionState;
     }
 
     // Serialize against move/copy/delete/rename/restore on the same node:

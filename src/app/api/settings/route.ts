@@ -12,6 +12,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { auditUserAction } from "@/lib/audit/service";
 import { t } from "@/lib/i18n/translations";
+import { ValidationError } from "@/lib/errors";
 
 export const dynamic = "force-dynamic";
 
@@ -33,18 +34,18 @@ function normalizeIntegerSetting(
 ) {
 	const parsed = Number(value);
 	if (!Number.isFinite(parsed)) {
-		throw new Error(t("backend.settings.mustBeNumber", { label }));
+		throw new ValidationError(t("backend.settings.mustBeNumber", { label }));
 	}
 	const integer = Math.trunc(parsed);
 	if (integer < min || integer > max) {
-		throw new Error(t("backend.settings.mustBeBetween", { label, min, max }));
+		throw new ValidationError(t("backend.settings.mustBeBetween", { label, min, max }));
 	}
 	return { key, value: String(integer) };
 }
 
 function normalizeBooleanSetting(key: string, value: string) {
 	if (value !== "true" && value !== "false") {
-		throw new Error(t("backend.settings.mustBeBoolean", { key }));
+		throw new ValidationError(t("backend.settings.mustBeBoolean", { key }));
 	}
 	return { key, value };
 }
@@ -56,10 +57,10 @@ function normalizeOptionalHttpUrl(key: string, value: string) {
 	try {
 		const parsed = new URL(trimmed);
 		if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-			throw new Error(t("backend.settings.logoUrlInvalid"));
+			throw new ValidationError(t("backend.settings.logoUrlInvalid"));
 		}
 	} catch {
-		throw new Error(t("backend.settings.logoUrlInvalid"));
+		throw new ValidationError(t("backend.settings.logoUrlInvalid"));
 	}
 	return { key, value: trimmed };
 }
@@ -71,8 +72,8 @@ function normalizeSettingValue(key: string, value: string) {
 	switch (key) {
 		case "platform.name": {
 			const trimmed = value.trim();
-			if (!trimmed) throw new Error(t("backend.settings.platformNameRequired"));
-			if (trimmed.length > 80) throw new Error(t("backend.settings.platformNameTooLong"));
+			if (!trimmed) throw new ValidationError(t("backend.settings.platformNameRequired"));
+			if (trimmed.length > 80) throw new ValidationError(t("backend.settings.platformNameTooLong"));
 			return { key, value: trimmed };
 		}
 		case "platform.logo":
@@ -91,7 +92,7 @@ function normalizeSettingValue(key: string, value: string) {
 		case "smtp.from": {
 			const trimmed = value.trim();
 			if (trimmed && !/^.+@.+\..+$/.test(trimmed)) {
-				throw new Error(t("backend.settings.smtpFromInvalid"));
+				throw new ValidationError(t("backend.settings.smtpFromInvalid"));
 			}
 			return { key, value: trimmed };
 		}
@@ -102,7 +103,7 @@ function normalizeSettingValue(key: string, value: string) {
 				.filter(Boolean);
 			const invalid = recipients.find((recipient) => !/^.+@.+\..+$/.test(recipient));
 			if (invalid) {
-				throw new Error(t("backend.settings.smtpRecipientInvalid", { email: invalid }));
+				throw new ValidationError(t("backend.settings.smtpRecipientInvalid", { email: invalid }));
 			}
 			return { key, value: recipients.join(",") };
 		}
@@ -122,11 +123,11 @@ function normalizeSettingValue(key: string, value: string) {
 				.map((item) => item.trim())
 				.filter(Boolean);
 			if (tokens.length === 0) {
-				throw new Error(t("backend.settings.telegramChatIdRequired"));
+				throw new ValidationError(t("backend.settings.telegramChatIdRequired"));
 			}
 			const invalid = tokens.find((token) => !/^-?\d+$/.test(token) && !/^@[A-Za-z0-9_]{4,}$/.test(token));
 			if (invalid) {
-				throw new Error(t("backend.settings.telegramChatIdInvalid", { value: invalid }));
+				throw new ValidationError(t("backend.settings.telegramChatIdInvalid", { value: invalid }));
 			}
 			return { key, value: tokens.join(",") };
 		}

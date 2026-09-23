@@ -216,6 +216,10 @@ export async function GET(request: Request) {
               : [];
             return {
               ...job,
+              // Structured action + count so clients never have to parse the
+              // display title (`"${action} ${count}"`) to derive i18n keys.
+              action: parsed.success ? parsed.data.action : null,
+              count: parsed.success ? parsed.data.fileEntryIds.length : null,
               cancelRequested: Boolean(
                 (payload as Record<string, unknown>).cancelRequested,
               ),

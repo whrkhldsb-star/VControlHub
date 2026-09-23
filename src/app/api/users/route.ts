@@ -5,6 +5,7 @@ import { hashPassword } from "@/lib/auth/password";
 import { validatePasswordPolicy } from "@/lib/auth/password-policy";
 import {
   assertUserInActorScope,
+  isGlobalTeamManager,
   userDirectoryWhere,
 } from "@/lib/auth/team-scope";
 import { auditUserAction } from "@/lib/audit/service";
@@ -12,11 +13,25 @@ import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { createUserSchema, updateUserSchema } from "@/lib/user/schema";
+import { DEFAULT_ROLE_PERMISSIONS } from "@/lib/auth/rbac";
 
-import { NotFoundError, ValidationError } from "@/lib/errors";
+import { NotFoundError, ValidationError, ForbiddenError } from "@/lib/errors";
 import { t } from "@/lib/i18n/translations";
 import { assertAdminAccessMayBeRemoved, withAdminInvariantLock } from "@/lib/user/admin-invariant";
 export const dynamic = "force-dynamic";
+
+/** True when the user effectively holds `team:manage` (platform admin tier). */
+async function userHoldsTeamManage(userId: string): Promise<boolean> {
+  const rows = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { roles: { select: { role: { select: { key: true } } } } },
+  });
+  if (!rows) return false;
+  return rows.roles.some((entry) => {
+    const perms = DEFAULT_ROLE_PERMISSIONS[entry.role.key as keyof typeof DEFAULT_ROLE_PERMISSIONS];
+    return perms?.includes("team:manage") ?? false;
+  });
+}
 
 /** GET: List users visible in the actor's team scope */
 export async function GET(request: Request) {
@@ -172,6 +187,20 @@ export async function PATCH(request: Request) {
       });
       if (!targetUser) {
         throw new NotFoundError(t("backend.user.notFound"));
+      }
+
+      // Credential/status changes on a platform administrator are reserved for
+      // global team managers. A delegated team `user:manage` who pulled the
+      // admin into their workspace must not be able to reset the admin's
+      // password (account takeover) or disable them (platform lockout).
+      if (
+        (userAction === "reset_password" || userAction === "disable") &&
+        !isGlobalTeamManager(session!)
+      ) {
+        const targetIsPlatformAdmin = await userHoldsTeamManage(userId);
+        if (targetIsPlatformAdmin) {
+          throw new ForbiddenError(t("backend.user.cannotModifyPlatformAdmin"));
+        }
       }
 
       if (userId === session!.userId && userAction === "disable") {

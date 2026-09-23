@@ -14,6 +14,7 @@ import { apiCatch } from "@/lib/http/api-error";
 import { createLogger } from "@/lib/logging";
 import { checkRateLimitAsync, getClientIp } from "@/lib/rate-limit";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { readRequestBodyBuffer, RequestBodyTooLargeError } from "@/lib/http/request-body";
 
 export const dynamic = "force-dynamic";
 
@@ -61,22 +62,22 @@ export async function POST(request: Request, context: RouteContext) {
 		);
 	}
 
-	const contentLengthHeader = request.headers.get("content-length");
-	if (contentLengthHeader) {
-		const declared = Number(contentLengthHeader);
-		if (Number.isFinite(declared) && declared > MAX_INBOUND_BODY_BYTES) {
+	// Stream-read with a hard in-memory cap: `request.text()` buffers the whole
+	// body first, so a chunked request without Content-Length would bypass the
+	// declared-length check above and allocate unbounded memory.
+	let rawBody: Buffer;
+	try {
+		rawBody = await readRequestBodyBuffer(request, MAX_INBOUND_BODY_BYTES);
+	} catch (error) {
+		if (error instanceof RequestBodyTooLargeError) {
 			return NextResponse.json({ error: apiCopy("apiCopy.request.body.too.large.c49c1143") }, { status: 413 });
 		}
-	}
-
-	const rawBody = await request.text();
-	if (Buffer.byteLength(rawBody, "utf8") > MAX_INBOUND_BODY_BYTES) {
-		return NextResponse.json({ error: apiCopy("apiCopy.request.body.too.large.c49c1143") }, { status: 413 });
+		throw error;
 	}
 
 	let json: Record<string, unknown> = {};
 	try {
-		json = rawBody ? (JSON.parse(rawBody) as Record<string, unknown>) : {};
+		json = rawBody.length > 0 ? (JSON.parse(rawBody.toString("utf8")) as Record<string, unknown>) : {};
 	} catch {
 		return NextResponse.json({ error: apiCopy("apiCopy.invalid.json.body.7ea5df57") }, { status: 400 });
 	}
@@ -109,7 +110,7 @@ export async function POST(request: Request, context: RouteContext) {
 	try {
 		const result = await handleInboundWebhook({
 			connectionId,
-			rawBody,
+			rawBody: rawBody.toString("utf8"),
 			signatureHeader: pickSignature(request.headers),
 			json,
 			systemUserId: systemUser.id,

@@ -74,6 +74,10 @@ vi.mock("ssh2", () => ({
     connect(config: unknown) {
       connectMock(config);
     }
+    // The shared SSH client now caps listeners on the client instance.
+    setMaxListeners(_max: number) {
+      return this;
+    }
     exec(command: string, callback: (err: Error | null, stream: PassThrough & { stderr: PassThrough }) => void) {
       execMock(command);
       const stream = new PassThrough() as PassThrough & { stderr: PassThrough };
@@ -151,7 +155,7 @@ describe("/api/storage/archive-download", () => {
 
   it("rejects denied read access before touching local disk", async () => {
     prismaMock.fileEntry.findFirst.mockResolvedValueOnce(localDirectoryEntry());
-    assertStorageAccessMock.mockResolvedValueOnce({ allowed: false, reason: "forbidden" } as unknown as never);
+    assertStorageAccessMock.mockResolvedValueOnce({ allowed: false, reason: "no_access" } as unknown as never);
 
     const response = await GET(
       new Request("https://example.com/api/storage/archive-download?nodeId=node_1&path=photos"),
@@ -161,7 +165,8 @@ describe("/api/storage/archive-download", () => {
     expect(statMock).not.toHaveBeenCalled();
     expect(spawnMock).not.toHaveBeenCalled();
     expect(connectMock).not.toHaveBeenCalled();
-    await expect(response.json()).resolves.toMatchObject({ error: "forbidden" });
+    // Denial codes render localized copy via storageAccessDeniedCopy.
+    await expect(response.json()).resolves.toMatchObject({ error: "没有此存储节点或路径的访问授权" });
   });
 
   it("rejects unsafe directory paths before lookup or side effects", async () => {

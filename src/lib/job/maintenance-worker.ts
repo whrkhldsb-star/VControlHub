@@ -14,6 +14,10 @@ import { prisma } from "@/lib/db";
 import { createLogger } from "@/lib/logging";
 import { pruneJobEvents } from "@/lib/job/events";
 import { recoverStaleRunningJobs } from "@/lib/job/service";
+import {
+  pruneCompletedJobsByType,
+  pruneTerminalJobs,
+} from "@/lib/job/service-maintenance";
 import { MAX_LEASE_MS } from "@/lib/job/lease";
 import {
   abandonStalePendingVpsBackupRecords,
@@ -75,6 +79,42 @@ const KNOWN_JOB_TYPES = new Set([
 const DEFAULT_INTERVAL_MS = 15 * 60_000;
 const STALE_PENDING_MS = 24 * 60 * 60 * 1000;
 const WORKER_ID = `${config.app.hostname || "vcontrolhub"}:job-maintenance:${process.pid}`;
+
+/**
+ * High-frequency job types whose OWN worker does not (or, for forbidden
+ * shared-infra modules, cannot) call pruneCompletedJobsByType after handling
+ * a job. The maintenance tick prunes their COMPLETED history so the rows
+ * stay bounded even when that worker is idle or disabled.
+ *
+ * Types covered by an in-worker prune call are intentionally absent:
+ *   - download.execute, playbook.run (their workers prune after every job)
+ *   - alert.evaluate, health.sample, traffic.sample, scheduled-task.tick,
+ *     playbook.trigger.tick, ticket.sla-escalate, backup-schedule.tick,
+ *     vps-backup-schedule.tick, ai.ops.scan (each worker already prunes)
+ */
+const MAINTENANCE_PRUNE_COMPLETED_TYPES = [
+  "command.execution",
+  "quick_service.lifecycle",
+  // Historical hyphenated spelling — see KNOWN_JOB_TYPES note.
+  "quick-service.lifecycle",
+  "storage.sftp-sync",
+  "sftp.sync",
+  "storage.file-operation",
+  "storage.sftp-stale-inventory",
+  "sftp.stale-inventory",
+  "backup.create",
+  "backup.restore",
+  "backup.retention",
+  "backup.drill",
+  "backup.offsite-sync",
+  "vps-backup.create",
+  "cost.snapshot",
+  "itsm.outbound",
+  "sync.schedule.tick",
+  "sync.schedule",
+] as const;
+
+const MAINTENANCE_PRUNE_COMPLETED_KEEP_LATEST = 25;
 
 type State = { started: boolean; running: boolean; timer: NodeJS.Timeout | null };
 type G = typeof globalThis & { __vcontrolhubJobMaintenanceWorker?: State };
@@ -301,6 +341,40 @@ async function tick(reason: string) {
           workerId: WORKER_ID,
           deleted: pruned.count,
           olderThan: olderThan.toISOString(),
+        });
+      }
+    });
+
+    // Terminal FAILED/CANCELLED job rows had no cleanup path for types whose
+    // worker cannot self-prune (command.execution, storage.*, backup.*, …),
+    // so every failed/cancelled row lived forever. Sweep all types at once,
+    // batched so a large backlog cannot monopolise the table.
+    await runStep("prune-terminal-jobs", async () => {
+      const pruned = await pruneTerminalJobs();
+      if (pruned.count > 0) {
+        logger.info("pruned terminal (FAILED/CANCELLED) jobs", {
+          workerId: WORKER_ID,
+          deleted: pruned.count,
+        });
+      }
+    });
+
+    // COMPLETED history for the high-frequency types listed above: keep the
+    // newest 25 rows per type, mirroring what their sibling workers do
+    // in-band (see alert-worker.ts / sampling-worker.ts).
+    await runStep("prune-high-frequency-completed-jobs", async () => {
+      let deleted = 0;
+      for (const type of MAINTENANCE_PRUNE_COMPLETED_TYPES) {
+        const pruned = await pruneCompletedJobsByType({
+          type,
+          keepLatest: MAINTENANCE_PRUNE_COMPLETED_KEEP_LATEST,
+        });
+        deleted += pruned.count;
+      }
+      if (deleted > 0) {
+        logger.info("pruned high-frequency completed jobs", {
+          workerId: WORKER_ID,
+          deleted,
         });
       }
     });

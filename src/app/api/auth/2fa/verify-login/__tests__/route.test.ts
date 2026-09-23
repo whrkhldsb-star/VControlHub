@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { cookiesMock, verifyPending2faTokenMock, createSessionTokenMock, getConfiguredSessionTtlSecondsMock, generateCsrfTokenMock, verifyTotpMock, prismaMock, auditUserActionMock, auditSystemActionMock, checkRateLimitMock, getClientIpMock } = vi.hoisted(() => ({
+const { cookiesMock, verifyPending2faTokenMock, createSessionTokenMock, getConfiguredSessionTtlSecondsMock, generateCsrfTokenMock, verifyTotpMock, prismaMock, auditUserActionMock, auditSystemActionMock, checkRateLimitMock, getClientIpMock, isAccountLockedMock, recordLoginFailureMock, clearLoginFailureMock } = vi.hoisted(() => ({
 	cookiesMock: vi.fn(),
 	verifyPending2faTokenMock: vi.fn(),
 	createSessionTokenMock: vi.fn(),
@@ -12,6 +12,9 @@ const { cookiesMock, verifyPending2faTokenMock, createSessionTokenMock, getConfi
 	auditSystemActionMock: vi.fn(),
 	checkRateLimitMock: vi.fn(),
 	getClientIpMock: vi.fn(),
+	isAccountLockedMock: vi.fn(),
+	recordLoginFailureMock: vi.fn(),
+	clearLoginFailureMock: vi.fn(),
 }));
 
 vi.mock("next/headers", () => ({ cookies: cookiesMock }));
@@ -49,6 +52,9 @@ vi.mock("@/lib/rate-limit", () => ({
 	LOGIN_RATE_LIMIT: { windowMs: 1, max: 5 },
 	checkRateLimitAsync: checkRateLimitMock,
 	getClientIp: getClientIpMock,
+	isAccountLockedAsync: isAccountLockedMock,
+	recordLoginFailureAsync: recordLoginFailureMock,
+	clearLoginFailureAsync: clearLoginFailureMock,
 }));
 vi.mock("@/lib/logging", () => ({ createLogger: () => ({ error: vi.fn() }) }));
 
@@ -84,6 +90,9 @@ describe("POST /api/auth/2fa/verify-login", () => {
 		createSessionTokenMock.mockResolvedValue("session-token");
 		getConfiguredSessionTtlSecondsMock.mockResolvedValue(7 * 24 * 60 * 60);
 		generateCsrfTokenMock.mockReturnValue("csrf-token");
+		isAccountLockedMock.mockResolvedValue({ locked: false });
+		recordLoginFailureMock.mockResolvedValue({ locked: false, failCount: 1 });
+		clearLoginFailureMock.mockResolvedValue(undefined);
 	});
 
 	it("sets session, csrf and pending-clear cookies as separate Set-Cookie headers", async () => {

@@ -366,6 +366,45 @@ export function isComposeCliFallbackError(combinedLower: string): boolean {
   return false;
 }
 
+/**
+ * Bulk container lifecycle through the docker CLI: `docker start|stop|restart
+ * c1 c2 ...` (or `docker rm -f` for remove) is one process / one SSH
+ * round-trip instead of N serial Engine requests (the previous per-container
+ * loop made project start/stop/restart/down O(n) sequential HTTP calls).
+ * Returns true when the bulk command succeeded; false when it failed or the
+ * CLI could not run at all, so the caller can retry per-container through the
+ * Engine API with the original error aggregation.
+ */
+async function tryEngineBulkActionViaCli(
+  action: "start" | "stop" | "restart" | "remove",
+  ids: string[],
+  serverId: string | undefined,
+): Promise<boolean> {
+  if (ids.length === 0) return true;
+  const argv = ["docker", ...(action === "remove" ? ["rm", "-f"] : [action]), ...ids];
+  try {
+    const result = serverId
+      ? await runRemoteDockerCommand(serverId, argv.map(shellQuote).join(" "), 120_000)
+      : await runLocalCommand(argv, 120_000);
+    if (result.exitCode === 0) return true;
+    logger.warn("bulk container action failed via docker CLI; falling back to per-container Engine API", {
+      action,
+      count: ids.length,
+      scope: serverId ?? "hub-host",
+      stderr: result.stderr.slice(0, 300),
+    });
+    return false;
+  } catch (error) {
+    // e.g. docker CLI missing locally (ENOENT) — the Engine API path may still work.
+    logger.warn("bulk container action could not run via docker CLI; falling back to per-container Engine API", {
+      action,
+      scope: serverId ?? "hub-host",
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return false;
+  }
+}
+
 async function engineActionOnProjectContainers(
   project: string,
   action: Exclude<ComposeProjectAction, "ps" | "up" | "down"> | "start" | "stop" | "restart" | "remove",
@@ -387,38 +426,43 @@ async function engineActionOnProjectContainers(
       t( "backend.docker.composeNoContainers",{project}));
   }
 
-  for (const c of targets) {
-    const id = c.Id;
-    if (!id) continue;
-    let path = "";
-    let method: "POST" | "DELETE" = "POST";
-    if (action === "start") path = `/containers/${id}/start`;
-    else if (action === "stop") path = `/containers/${id}/stop`;
-    else if (action === "restart") path = `/containers/${id}/restart`;
-    else if (action === "remove") {
-      // Docker Engine ContainerRemove is DELETE (match api/docker/containers).
-      path = `/containers/${id}?force=true`;
-      method = "DELETE";
-    } else continue;
+  // Single bulk CLI command per action first; per-container Engine requests
+  // remain as the fallback so a partial CLI failure still surfaces per-id.
+  const targetIds = targets.map((c) => c.Id).filter((id): id is string => Boolean(id));
+  if (!(await tryEngineBulkActionViaCli(action, targetIds, serverId))) {
+    for (const c of targets) {
+      const id = c.Id;
+      if (!id) continue;
+      let path = "";
+      let method: "POST" | "DELETE" = "POST";
+      if (action === "start") path = `/containers/${id}/start`;
+      else if (action === "stop") path = `/containers/${id}/stop`;
+      else if (action === "restart") path = `/containers/${id}/restart`;
+      else if (action === "remove") {
+        // Docker Engine ContainerRemove is DELETE (match api/docker/containers).
+        path = `/containers/${id}?force=true`;
+        method = "DELETE";
+      } else continue;
 
-    const { result } = await dockerRequest(path, {
-      method,
-      unavailableData: {},
-      loggerScope: "docker:compose:fallback",
-      serverId,
-    });
-    if (result.dockerAvailable === false) {
-      throw new BusinessError(
-        result.message ?? t("backend.docker.unavailable"),
-      );
-    }
-    // 304 = already started/stopped — treat as success
-    if (!result.ok && result.status !== 304 && result.status !== 204) {
-      const msg =
-        result.data && typeof result.data === "object" && "message" in result.data
-          ? String((result.data as { message?: unknown }).message ?? t("backend.docker.containerActionFailed", { action, status: result.status }))
-          : t("backend.docker.containerActionFailed", { action, status: result.status });
-      throw new BusinessError(apiCopy("apiCopy..542a0b4e", { v0: String(msg), v1: String(id.slice(0, 12)) }));
+      const { result } = await dockerRequest(path, {
+        method,
+        unavailableData: {},
+        loggerScope: "docker:compose:fallback",
+        serverId,
+      });
+      if (result.dockerAvailable === false) {
+        throw new BusinessError(
+          result.message ?? t("backend.docker.unavailable"),
+        );
+      }
+      // 304 = already started/stopped — treat as success
+      if (!result.ok && result.status !== 304 && result.status !== 204) {
+        const msg =
+          result.data && typeof result.data === "object" && "message" in result.data
+            ? String((result.data as { message?: unknown }).message ?? t("backend.docker.containerActionFailed", { action, status: result.status }))
+            : t("backend.docker.containerActionFailed", { action, status: result.status });
+        throw new BusinessError(apiCopy("apiCopy..542a0b4e", { v0: String(msg), v1: String(id.slice(0, 12)) }));
+      }
     }
   }
 

@@ -10,6 +10,7 @@ import path from "node:path";
 import { prisma, isUniqueViolation } from "@/lib/db";
 import { ForbiddenError, ValidationError } from "@/lib/errors";
 import { assertStorageAccess, releaseStorageQuotaGuard } from "@/lib/storage/access-control";
+import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import {
   getStorageFileNode,
   writeStorageFileBuffer,
@@ -86,7 +87,7 @@ export async function completeStorageFileUpload(params: {
     writeBytes: assembled.byteLength,
   });
   if (!access.allowed) {
-    throw new ForbiddenError(access.reason ?? "No permission to write to the storage path");
+    throw new ForbiddenError(storageAccessDeniedCopy(access.reason));
   }
 
   try {

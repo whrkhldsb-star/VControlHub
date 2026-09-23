@@ -99,6 +99,46 @@ describe("media service", () => {
     });
   });
 
+  it("scans past the first 1000 entries with deterministic cursor pagination", async () => {
+    // Regression: a bare take:1000 with no orderBy re-read the same arbitrary
+    // page forever, so media libraries over 1000 files were never fully scanned.
+    const makeEntry = (index: number) => ({
+      id: `f${index}`,
+      name: `a${index}.png`,
+      relativePath: `a${index}.png`,
+      storageNodeId: "n1",
+      mimeType: "image/png",
+      size: BigInt(1),
+      updatedAt: new Date(index),
+    });
+    const fullPage = Array.from({ length: 1000 }, (_, index) => makeEntry(index));
+    const tail = [makeEntry(1000)];
+    mockPrisma.fileEntry.findMany
+      .mockResolvedValueOnce(fullPage)
+      .mockResolvedValueOnce(tail)
+      .mockResolvedValueOnce([]) // stale page 1 (empty → loop ends)
+      .mockResolvedValue([]);
+    mockPrisma.mediaItem.upsert.mockResolvedValue({});
+
+    const res = await scanMediaFromFileEntries("u1");
+
+    expect(res.scanned).toBe(1001);
+    // Every scan page must be deterministically ordered and follow the cursor.
+    const scanCalls = mockPrisma.fileEntry.findMany.mock.calls.slice(0, 2);
+    for (const [arg] of scanCalls) {
+      expect(arg.orderBy).toEqual([{ updatedAt: "asc" }, { id: "asc" }]);
+    }
+    expect(scanCalls[1]![0]).toMatchObject({
+      cursor: { id: "f999" },
+      skip: 1,
+    });
+    // The stale cleanup shares the same ordering discipline.
+    expect(mockPrisma.fileEntry.findMany.mock.calls[2]![0].orderBy).toEqual([
+      { updatedAt: "asc" },
+      { id: "asc" },
+    ]);
+  });
+
   it("builds a practical image search across name, path and tags", async () => {
     mockPrisma.mediaItem.findMany.mockResolvedValue([]);
 

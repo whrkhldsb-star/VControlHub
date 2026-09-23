@@ -382,4 +382,68 @@ describe("scheduled task service", () => {
     ).rejects.toThrow(/outside your team scope/);
     expect(mockPrisma.scheduledTask.update).not.toHaveBeenCalled();
   });
+
+  describe("recordTaskRun structured failure detection", () => {
+    function mockTaskRow() {
+      mockPrisma.scheduledTask.findUnique.mockResolvedValue({
+        name: "Clean logs",
+        cronExpression: "0 2 * * *",
+        scheduleType: "CRON",
+        runCount: 3,
+        createdById: "u1",
+        teamId: "team_a",
+      });
+      mockPrisma.scheduledTask.update.mockResolvedValue({ id: "task1" });
+    }
+
+    it("notifies on consecutive failures using ScheduledTaskRun.status, not result prefixes", async () => {
+      mockTaskRow();
+      mockPrisma.scheduledTaskRun.findFirst.mockResolvedValue({ status: "FAILED" });
+      mockNotifyTaskConsecutiveFailed.mockResolvedValue(undefined);
+
+      await service.recordTaskRun("task1", "执行失败：脚本退出码 1", "failed");
+
+      expect(mockPrisma.scheduledTaskRun.findFirst).toHaveBeenCalledWith({
+        where: { scheduledTaskId: "task1", completedAt: { not: null } },
+        orderBy: { dispatchedAt: "desc" },
+        select: { status: true },
+      });
+      // A localised failure string still triggers the consecutive-failure path.
+      expect(mockNotifyTaskConsecutiveFailed).toHaveBeenCalledWith(
+        "u1",
+        "Clean logs",
+        2,
+        "执行失败：脚本退出码 1",
+        "team_a",
+      );
+    });
+
+    it("does not notify when the previous run completed successfully", async () => {
+      mockTaskRow();
+      mockPrisma.scheduledTaskRun.findFirst.mockResolvedValue({ status: "COMPLETED" });
+
+      await service.recordTaskRun("task1", "Execution failed: boom", "failed");
+
+      expect(mockNotifyTaskConsecutiveFailed).not.toHaveBeenCalled();
+    });
+
+    it("treats skipped runs as non-failures even after a failed previous run", async () => {
+      mockTaskRow();
+      mockPrisma.scheduledTaskRun.findFirst.mockResolvedValue({ status: "REJECTED" });
+
+      await service.recordTaskRun("task1", "已跳过：任务缺少目标服务器或创建者", "skipped");
+
+      expect(mockPrisma.scheduledTaskRun.findFirst).not.toHaveBeenCalled();
+      expect(mockNotifyTaskConsecutiveFailed).not.toHaveBeenCalled();
+    });
+
+    it("does not notify without any previous run rows", async () => {
+      mockTaskRow();
+      mockPrisma.scheduledTaskRun.findFirst.mockResolvedValue(null);
+
+      await service.recordTaskRun("task1", "Execution failed: first ever dispatch", "failed");
+
+      expect(mockNotifyTaskConsecutiveFailed).not.toHaveBeenCalled();
+    });
+  });
 });

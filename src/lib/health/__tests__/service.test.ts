@@ -8,6 +8,7 @@ const { prismaMock, collectServerMetricsMock, tcpProbeMock, createNotificationMo
 		alertRule: {
 			findMany: vi.fn(),
 			update: vi.fn(),
+			updateMany: vi.fn(),
 		},
 		alertIncident: {
 			findUnique: vi.fn(),
@@ -67,6 +68,7 @@ describe("evaluateAlerts", () => {
 		prismaMock.server.findMany.mockResolvedValue([{ id: "srv1", name: "Prod", host: "10.0.0.1", port: 22, enabled: true }]);
 		prismaMock.user.findMany.mockResolvedValue([{ id: "admin1" }]);
 		prismaMock.alertRule.update.mockResolvedValue({});
+		prismaMock.alertRule.updateMany.mockResolvedValue({ count: 1 });
 		prismaMock.alertIncident.findUnique.mockResolvedValue(null);
 		prismaMock.alertIncident.findMany.mockResolvedValue([]);
 		prismaMock.alertIncident.create.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({
@@ -107,7 +109,7 @@ describe("evaluateAlerts", () => {
 		await evaluateAlerts();
 
 		expect(createNotificationMock).not.toHaveBeenCalled();
-		expect(prismaMock.alertRule.update).toHaveBeenCalledWith({
+		expect(prismaMock.alertRule.updateMany).toHaveBeenCalledWith({
 			where: { id: "rule1" },
 			data: expect.objectContaining({
 				matchState: { srv1: "2026-05-25T00:00:00.000Z" },
@@ -116,7 +118,7 @@ describe("evaluateAlerts", () => {
 		});
 
 		vi.setSystemTime(new Date("2026-05-25T00:01:01.000Z"));
-		prismaMock.alertRule.update.mockClear();
+		prismaMock.alertRule.updateMany.mockClear();
 		prismaMock.alertRule.findMany.mockResolvedValueOnce([
 			{
 				id: "rule1",
@@ -140,7 +142,7 @@ describe("evaluateAlerts", () => {
 		await evaluateAlerts();
 
 		expect(createNotificationMock).toHaveBeenCalledWith(expect.objectContaining({ userId: "admin1", type: "server_alert" }));
-		expect(prismaMock.alertRule.update).toHaveBeenCalledWith({
+		expect(prismaMock.alertRule.updateMany).toHaveBeenCalledWith({
 			where: { id: "rule1" },
 			data: expect.objectContaining({
 				lastTriggeredAt: new Date("2026-05-25T00:01:01.000Z"),
@@ -187,7 +189,7 @@ describe("evaluateAlerts", () => {
 				value: 95,
 			}),
 		}));
-		expect(prismaMock.alertRule.update).toHaveBeenCalledWith({
+		expect(prismaMock.alertRule.updateMany).toHaveBeenCalledWith({
 			where: { id: "rule_auto" },
 			data: expect.objectContaining({ lastTriggeredAt: new Date("2026-05-25T00:01:30.000Z") }),
 		});
@@ -230,7 +232,7 @@ describe("evaluateAlerts", () => {
 
 		// Alert resolved — in-app notification should be sent
 		expect(createNotificationMock).toHaveBeenCalledWith(expect.objectContaining({ userId: "admin1", type: "alert_resolved" }));
-		expect(prismaMock.alertRule.update).toHaveBeenCalledWith({
+		expect(prismaMock.alertRule.updateMany).toHaveBeenCalledWith({
 			where: { id: "rule1" },
 			data: expect.objectContaining({
 				matchState: {},
@@ -331,7 +333,7 @@ describe("evaluateAlerts", () => {
 			expect.objectContaining({ title: expect.stringContaining("Cool") }),
 		);
 		// matchState should drop only srv1
-		expect(prismaMock.alertRule.update).toHaveBeenCalledWith({
+		expect(prismaMock.alertRule.updateMany).toHaveBeenCalledWith({
 			where: { id: "rule_scope" },
 			data: expect.objectContaining({
 				matchState: {},
@@ -383,7 +385,7 @@ describe("evaluateAlerts", () => {
 			}),
 		);
 		// Final persist should keep both server keys
-		const updates = prismaMock.alertRule.update.mock.calls.map((c) => c[0]);
+		const updates = prismaMock.alertRule.updateMany.mock.calls.map((c) => c[0]);
 		const withMatch = updates.find(
 			(u) => u?.data?.matchState && typeof u.data.matchState === "object" && "srv2" in u.data.matchState,
 		);
@@ -436,7 +438,7 @@ describe("evaluateAlerts", () => {
 				"Incident: inc1",
 			]),
 		}));
-		expect(prismaMock.alertRule.update).toHaveBeenCalledWith({
+		expect(prismaMock.alertRule.updateMany).toHaveBeenCalledWith({
 			where: { id: "rule_email" },
 			data: expect.objectContaining({ lastTriggeredAt: new Date("2026-05-25T00:03:00.000Z") }),
 		});
@@ -472,7 +474,7 @@ describe("evaluateAlerts", () => {
 			message: "CPU telegram: cpu_usage gte 80 (current: 95)",
 			contextLines: expect.arrayContaining(["Server: Prod", "Current: 95", "Metric: cpu_usage"]),
 		}));
-		expect(prismaMock.alertRule.update).toHaveBeenCalledWith({
+		expect(prismaMock.alertRule.updateMany).toHaveBeenCalledWith({
 			where: { id: "rule_telegram" },
 			data: expect.objectContaining({ lastTriggeredAt: new Date("2026-05-25T00:04:00.000Z") }),
 		});
@@ -506,7 +508,7 @@ describe("evaluateAlerts", () => {
 
 		expect(sendAlertTelegramMock).toHaveBeenCalled();
 		// lastTriggeredAt 仍然要被更新 (best-effort 投递)
-		expect(prismaMock.alertRule.update).toHaveBeenCalledWith({
+		expect(prismaMock.alertRule.updateMany).toHaveBeenCalledWith({
 			where: { id: "rule_tg_fail" },
 			data: expect.objectContaining({ lastTriggeredAt: new Date("2026-05-25T00:05:00.000Z") }),
 		});
@@ -539,6 +541,78 @@ describe("evaluateAlerts", () => {
 
 		expect(createNotificationMock).not.toHaveBeenCalled();
 		expect(fetchWebhookSafelyMock).not.toHaveBeenCalled();
-		expect(prismaMock.alertRule.update).not.toHaveBeenCalled();
+		expect(prismaMock.alertRule.updateMany).not.toHaveBeenCalled();
+	});
+
+	it("persists match state with a compare-and-set on the rule's updatedAt", async () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date("2026-05-25T00:06:00.000Z"));
+		const ruleUpdatedAt = new Date("2026-05-25T00:05:59.000Z");
+		prismaMock.alertRule.findMany.mockResolvedValue([
+			{
+				id: "rule_cas",
+				name: "CPU cas",
+				metric: "cpu_usage",
+				threshold: 80,
+				operator: "gte",
+				durationSeconds: 0,
+				enabled: true,
+				lastTriggeredAt: null,
+				lastMatchedAt: null,
+				matchState: {},
+				cooldownMinutes: 0,
+				silenceWindows: [],
+				serverIds: [],
+				notifyChannels: ["in_app"],
+				webhookUrl: null,
+				updatedAt: ruleUpdatedAt,
+			},
+		]);
+		collectServerMetricsMock.mockResolvedValue(cpuMetrics(95));
+
+		await evaluateAlerts();
+
+		expect(prismaMock.alertRule.updateMany).toHaveBeenCalledWith({
+			where: { id: "rule_cas", updatedAt: ruleUpdatedAt },
+			data: expect.objectContaining({
+				matchState: { srv1: "2026-05-25T00:06:00.000Z" },
+			}),
+		});
+	});
+
+	it("loses the CAS race gracefully: no throw, no retry, in-memory state still drives this pass", async () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date("2026-05-25T00:07:00.000Z"));
+		// Another evaluator won the write between our read and persist.
+		prismaMock.alertRule.updateMany.mockResolvedValueOnce({ count: 0 });
+		prismaMock.alertRule.findMany.mockResolvedValue([
+			{
+				id: "rule_cas_lost",
+				name: "CPU cas lost",
+				metric: "cpu_usage",
+				threshold: 80,
+				operator: "gte",
+				durationSeconds: 0,
+				enabled: true,
+				lastTriggeredAt: null,
+				lastMatchedAt: null,
+				matchState: {},
+				cooldownMinutes: 0,
+				silenceWindows: [],
+				serverIds: [],
+				notifyChannels: ["in_app"],
+				webhookUrl: null,
+				updatedAt: new Date("2026-05-25T00:06:59.000Z"),
+			},
+		]);
+		collectServerMetricsMock.mockResolvedValue(cpuMetrics(95));
+
+		// Must not reject — a lost race is expected under concurrency.
+		await evaluateAlerts();
+
+		expect(prismaMock.alertRule.updateMany).toHaveBeenCalledTimes(1);
+		// Exactly one persist attempt: the loser gives up instead of retrying
+		// (a retry would clobber the winner's newer state).
+		expect(createNotificationMock).toHaveBeenCalledTimes(1);
 	});
 });

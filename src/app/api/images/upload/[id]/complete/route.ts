@@ -47,6 +47,7 @@ import { ForbiddenError, ValidationError } from "@/lib/errors";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { MAX_IMAGE_UPLOAD_BYTES } from "@/lib/upload/types";
 import { assertStorageAccess, releaseStorageQuotaGuard } from "@/lib/storage/access-control";
+import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import {
   deleteStorageFileBuffer,
   storageFileNodeSelect,
@@ -232,7 +233,7 @@ export async function POST(
             writeBytes: assembled.byteLength,
           });
           if (!storageAccess.allowed) {
-            throw new ForbiddenError(storageAccess.reason ?? "No permission to write to the storage path");
+            throw new ForbiddenError(storageAccessDeniedCopy(storageAccess.reason));
           }
           const storageNode = await prisma.storageNode.findFirst({
             where: { id: existing.storageNodeId, ...teamWhere(session) },

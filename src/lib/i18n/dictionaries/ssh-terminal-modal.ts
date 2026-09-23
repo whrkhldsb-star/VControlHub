@@ -71,6 +71,9 @@ export const zh: Record<string, string> = {
 	"sshTerminalManager.minimize": "最小化",
 	"sshTerminalManager.expand": "展开",
 	"sshTerminalManager.resizeHandle": "拖动调整 SSH 终端高度",
+	"sshTerminalManager.closeAllTitle": "关闭全部终端会话？",
+	"sshTerminalManager.closeAllDescription": "即将断开 {count} 个 SSH 会话（包括正在运行的进程与回滚内容），且无法恢复。",
+	"sshTerminalManager.closeAllConfirm": "全部关闭",
 
 	// File manager (SFTP)
 	"sshFileManager.toggle": "文件",
@@ -155,6 +158,9 @@ export const en: Record<string, string> = {
 	"sshTerminalManager.minimize": "Minimize",
 	"sshTerminalManager.expand": "Expand",
 	"sshTerminalManager.resizeHandle": "Drag to resize the SSH terminal",
+	"sshTerminalManager.closeAllTitle": "Close all terminal sessions?",
+	"sshTerminalManager.closeAllDescription": "This disconnects {count} SSH sessions (including running processes and scrollback) and cannot be undone.",
+	"sshTerminalManager.closeAllConfirm": "Close all",
 
 	// File manager (SFTP)
 	"sshFileManager.toggle": "Files",

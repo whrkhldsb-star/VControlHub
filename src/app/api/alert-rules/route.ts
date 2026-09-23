@@ -20,10 +20,10 @@ import { validateWebhookUrlSyntax } from "@/lib/security/webhook-url";
 
 import { AuthError, ValidationError } from "@/lib/errors";
 import { teamWhere } from "@/lib/auth/team-scope";
-import { getErrorMessage } from "@/lib/http/error-message";
 import {
   MAX_NON_FILE_FORM_BYTES,
   requestContentLengthExceeds,
+  requestContentLengthMissing,
 } from "@/lib/http/request-body";
 import { t } from "@/lib/i18n/service-translations";
 export const dynamic = "force-dynamic";
@@ -205,6 +205,12 @@ export async function POST(request: Request) {
   if (isFormSubmission && requestContentLengthExceeds(request, MAX_NON_FILE_FORM_BYTES)) {
     return NextResponse.json({ error: t("backend.request.bodyTooLarge") }, { status: 413 });
   }
+  // A chunked form post with no Content-Length would buffer unbounded bytes in
+  // request.formData() before any check — the declared-length test above
+  // cannot see it. Same guard the upload routes apply.
+  if (isFormSubmission && requestContentLengthMissing(request)) {
+    return NextResponse.json({ error: t("backend.request.bodyTooLarge") }, { status: 411 });
+  }
   const options = {
     permission: "notification:manage" as const,
     rateLimit: GENERAL_WRITE_LIMIT,
@@ -293,17 +299,16 @@ export async function DELETE(request: Request) {
     async ({ session }) => {
       if (!session)
         throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
-      try {
-        const { id: alertRuleId } = parseSearchParams(request, idQuerySchema);
-        if (!alertRuleId)
-          throw new ValidationError(apiCopy("apiCopy.missing.rule.id.be309df5"));
-        await deleteAlertRule(alertRuleId, session);
-        await auditUserAction(session.userId, "alert_rule.delete", { ruleId: alertRuleId }, undefined, session?.currentTeamId);
-        return NextResponse.json({ success: true });
-      } catch (err) {
-        const message = getErrorMessage(err, "Failed to delete");
-        throw new ValidationError(message);
-      }
+      // No catch-and-flatten here: deleteAlertRule throws NotFoundError (404)
+      // for missing/cross-team rules and Prisma errors (500) otherwise —
+      // wrapping either in ValidationError turned both into a 400 and told the
+      // client a valid request was malformed. apiCatch maps AppError statuses.
+      const { id: alertRuleId } = parseSearchParams(request, idQuerySchema);
+      if (!alertRuleId)
+        throw new ValidationError(apiCopy("apiCopy.missing.rule.id.be309df5"));
+      await deleteAlertRule(alertRuleId, session);
+      await auditUserAction(session.userId, "alert_rule.delete", { ruleId: alertRuleId }, undefined, session?.currentTeamId);
+      return NextResponse.json({ success: true });
     },
   );
 }
@@ -315,21 +320,18 @@ export async function PUT(request: Request) {
     async ({ session }) => {
       if (!session)
         throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
-      try {
-        // Scope the manual "evaluate now" to the caller's team. Left unscoped,
-        // any notification:manage operator could drive every tenant's alert
-        // lifecycle — opening/escalating incidents, paging their on-call, and
-        // running their playbooks. teamWhere({}) for a global manager keeps the
-        // fleet-wide behaviour; the background worker still calls it with no arg.
-        await evaluateAlerts({ ruleWhere: teamWhere(session) });
-        await auditUserAction(session.userId, "alert_rule.evaluate", {
-          manual: true,
-        }, undefined, session?.currentTeamId);
-        return NextResponse.json({ success: true });
-      } catch (err) {
-        const message = getErrorMessage(err, "Detection failed");
-        throw new ValidationError(message);
-      }
+      // Same contract as DELETE: worker/DB failures are 5xx, not validation
+      // errors — see the DELETE note.
+      // Scope the manual "evaluate now" to the caller's team. Left unscoped,
+      // any notification:manage operator could drive every tenant's alert
+      // lifecycle — opening/escalating incidents, paging their on-call, and
+      // running their playbooks. teamWhere({}) for a global manager keeps the
+      // fleet-wide behaviour; the background worker still calls it with no arg.
+      await evaluateAlerts({ ruleWhere: teamWhere(session) });
+      await auditUserAction(session.userId, "alert_rule.evaluate", {
+        manual: true,
+      }, undefined, session?.currentTeamId);
+      return NextResponse.json({ success: true });
     },
   );
 }

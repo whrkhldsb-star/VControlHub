@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { cookies, headers } from "next/headers";
-import { redirect } from "next/navigation";
 
 import { config } from "@/lib/config/env";
 import { requireSession } from "@/lib/auth/require-session";
@@ -11,7 +10,7 @@ import {
   getConfiguredSessionTtlSeconds,
   getSessionCookieName,
 } from "@/lib/auth/session";
-import { changePassword, skipPasswordChange } from "@/lib/auth/service";
+import { changePassword } from "@/lib/auth/service";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { isRequestHttps } from "@/lib/http/request-https";
@@ -91,19 +90,3 @@ export async function changePasswordAction(
   }
 }
 
-export async function skipPasswordChangeAction(formData: FormData) {
-  const session = await requireSession("/account/password");
-  if (session.mustChangePassword) {
-    await skipPasswordChange(session.userId);
-  }
-
-  revalidatePath("/");
-  revalidatePath("/account/password");
-
-  const requestedNext = String(formData.get("next") ?? "");
-  const safeNext =
-    requestedNext.startsWith("/") && !requestedNext.startsWith("//")
-      ? requestedNext
-      : "/";
-  redirect(safeNext);
-}

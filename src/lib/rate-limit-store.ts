@@ -43,8 +43,10 @@ class MemoryRateLimitStore implements RateLimitStore {
   >();
 
   constructor() {
-    // Periodic cleanup
-    setInterval(() => this.cleanup(), 5 * 60 * 1000);
+    // Periodic cleanup — unref'd so the timer never keeps a process (tests,
+    // one-shot CLI scripts) alive solely for rate-limit housekeeping.
+    const timer = setInterval(() => this.cleanup(), 5 * 60 * 1000);
+    timer.unref?.();
   }
 
   async addAndGetWindow(
@@ -144,12 +146,21 @@ class RedisRateLimitStore implements RateLimitStore {
     } catch {
       throw new Error("redis package is not installed. Run: npm install redis");
     }
-    this._client = (
+    const client = (
       redisModule as unknown as {
         createClient: (opts: { url: string }) => RedisClientLike;
       }
     ).createClient({ url: this._url }) as RedisClientLike;
-    await this._client.connect();
+    try {
+      await client.connect();
+    } catch (error) {
+      // A half-initialized client must not be remembered: every later call
+      // would see isOpen === false and construct yet another client, leaking
+      // sockets for the duration of a Redis outage.
+      this._client = null;
+      throw error;
+    }
+    this._client = client;
     return this._client;
   }
 

@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { JobStatus, Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
 import { createLogger } from "@/lib/logging";
@@ -70,4 +70,22 @@ export type PruneCompletedJobsByTypeOptions = {
   type: string;
   keepLatest?: number;
   olderThan?: Date;
+};
+
+export type PruneTerminalJobsByTypeOptions = {
+  type: string;
+  /** Terminal statuses in scope. Ordering uses completedAt, which every terminal writer stamps. */
+  statuses: JobStatus[];
+  keepLatest?: number;
+  olderThan?: Date;
+};
+
+export type PruneTerminalJobsOptions = {
+  /** Terminal statuses in scope (default FAILED + CANCELLED). */
+  statuses?: JobStatus[];
+  /** Terminal rows whose updatedAt is older than this are deleted (default now - 30d). */
+  olderThan?: Date;
+  now?: Date;
+  /** Cap on rows deleted per deleteMany round (default 5000). */
+  batchSize?: number;
 };

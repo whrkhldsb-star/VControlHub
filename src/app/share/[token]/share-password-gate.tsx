@@ -9,6 +9,10 @@ interface SharePasswordGateProps {
   label: string;
   placeholder: string;
   submitLabel: string;
+  /** Translated generic failure fallback for network errors (from the server page). */
+  failedLabel: string;
+  /** Translated "…({status})" template — "{status}" is replaced client-side. */
+  failedStatusTemplate: string;
   /** DIRECTORY shares need archive=1 (or a child path) after password auth. */
   entryType?: string;
 }
@@ -19,8 +23,12 @@ interface SharePasswordGateProps {
  * Password is posted in a same-origin JSON request and exchanged for a short-
  * lived HttpOnly cookie. The actual download then uses a normal browser GET,
  * preserving streaming and the native download manager for large files.
+ *
+ * This is a public page rendered for anonymous visitors in any locale: every
+ * user-visible fallback string arrives translated from the server page (which
+ * owns t() + locale) — no English fallbacks live here.
  */
-export function SharePasswordGate({ token, label, placeholder, submitLabel, entryType }: SharePasswordGateProps) {
+export function SharePasswordGate({ token, label, placeholder, submitLabel, failedLabel, failedStatusTemplate, entryType }: SharePasswordGateProps) {
   const [pw, setPw] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,12 +52,12 @@ export function SharePasswordGate({ token, label, placeholder, submitLabel, entr
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { message?: string; error?: string };
-        setError(body.message || body.error || `Download failed (${res.status})`);
+        setError(body.message || body.error || failedStatusTemplate.replace("{status}", String(res.status)));
         return;
       }
       window.location.assign(entryType === "DIRECTORY" ? `/share/${encodeURIComponent(token)}` : url);
     } catch (err) {
-      setError(getErrorMessage(err, "Download failed"));
+      setError(getErrorMessage(err, failedLabel));
     } finally {
       setBusy(false);
     }

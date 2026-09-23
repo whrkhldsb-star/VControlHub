@@ -27,6 +27,8 @@ import {
 } from "@/lib/errors";
 import { logError } from "@/lib/logging";
 import { assertStorageAccess } from "@/lib/storage/access-control";
+import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
+import { statBackingObject } from "@/lib/storage/fs-backend";
 import {
   readStorageFileBuffer,
   writeStorageFileBuffer,
@@ -160,7 +162,7 @@ async function resolveAccessibleFileEntry(input: {
     operation: input.operation,
   });
   if (!access.allowed) {
-    throw new ForbiddenError(access.reason ?? "No permission for this file");
+    throw new ForbiddenError(storageAccessDeniedCopy(access.reason));
   }
   return entry;
 }
@@ -261,13 +263,37 @@ export async function snapshotFileVersionBeforeOverwrite(input: {
   });
   if (!entry || entry.isDeleted || entry.entryType !== "FILE") return null;
 
+  const node = entry.storageNode as StorageFileNode;
+  // expand LOCAL basePath placeholders
+  if (node.driver === "LOCAL") {
+    node.basePath = expandStorageBasePath(node.basePath);
+  }
+
+  // Size pre-check BEFORE buffering: reading a multi-GB overwrite source into
+  // memory only to discard it over the cap would OOM the control plane. The
+  // stat is metadata-only (fs.stat / sftp.stat / WebDAV HEAD).
+  let sourceStat: { size: number; lastModifiedMs: number } | null;
+  try {
+    sourceStat = await statBackingObject({
+      storageNode: node,
+      relativePath: entry.relativePath,
+    });
+  } catch (err) {
+    logError("file-version:stat-source-failed", err);
+    return null;
+  }
+  if (!sourceStat) return null; // backing object already gone — nothing to snapshot
+  if (sourceStat.size > maxBytes) {
+    logError("file-version:skip-oversize", {
+      fileEntryId: entry.id,
+      size: sourceStat.size,
+      maxBytes,
+    });
+    return null;
+  }
+
   let buffer: Buffer;
   try {
-    const node = entry.storageNode as StorageFileNode;
-    // expand LOCAL basePath placeholders
-    if (node.driver === "LOCAL") {
-      node.basePath = expandStorageBasePath(node.basePath);
-    }
     buffer = await readStorageFileBuffer(node, entry.relativePath);
   } catch (err) {
     logError("file-version:read-source-failed", err);

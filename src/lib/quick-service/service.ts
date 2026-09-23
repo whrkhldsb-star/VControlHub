@@ -7,7 +7,7 @@
  *     stopService / updateService / syncServiceStatus / checkPort
  *   - read-only helpers: listQuickServices / listQuickServiceHistory /
  *     getQuickService
- *   - port utilities: isPortAvailableSync / allocatePort / getUsedPorts
+ *   - port utilities: isPortAvailable / allocatePort / getUsedPorts
  *   - option types: InstallOptions / UninstallServiceOptions
  *   - re-exported ServiceTemplate type (kept here for back-compat with
  *     code that still imports it from `./service`)

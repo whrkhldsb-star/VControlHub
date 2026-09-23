@@ -1,4 +1,5 @@
 import { apiCopy } from "@/lib/i18n/api-copy";
+import { getServerLocale } from "@/lib/i18n/translations";
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { Readable } from "node:stream";
@@ -11,12 +12,12 @@ import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { createLogger } from "@/lib/logging";
 import { getMediaItem } from "@/lib/media/service";
 import { assertStorageAccess } from "@/lib/storage/access-control";
+import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import {
   normalizeStorageRelativePath,
   resolveStoragePathWithinBase,
 } from "@/lib/storage/path-utils";
 import {
-  normalizeRemoteRelativePath,
   normalizeRemoteTargetPath,
   toClientStorageError,
 } from "@/lib/storage/remote-path";
@@ -106,6 +107,7 @@ export async function GET(
     },
     async ({ session }) => {
       if (!session) throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
+      const locale = await getServerLocale();
       const { id } = await params;
       const { download } = parseSearchParams(
         request,
@@ -127,17 +129,29 @@ export async function GET(
         });
 
       const node = item.storageNode;
+      // Normalize once and authorize once — on the NORMALIZED path. The
+      // previous flow ran a first ACL on the raw stored path and a second one
+      // after normalization, doubling every node/grant lookup per request (and
+      // authorizing the pre-normalization path in the first pass).
+      const normalizedRelative = normalizeStorageRelativePath(item.relativePath);
+      if (!normalizedRelative.ok) {
+        return NextResponse.json(
+          toClientStorageError(
+            apiCopy("apiCopy.requested.path.exceeds.storage.node.root.directory.d786fee2"),
+          ),
+          { status: 400 },
+        );
+      }
       const accessDecision = await assertStorageAccess({
         session,
         storageNodeId: node.id,
-        relativePath: item.relativePath,
+        relativePath: normalizedRelative.path,
         operation: "read",
       });
       if (!accessDecision.allowed) {
         return apiError({
           code: "FORBIDDEN",
-          message:
-            accessDecision.reason ?? "Missing storage access authorization",
+          message: storageAccessDeniedCopy(accessDecision.reason, locale),
           status: 403,
         });
       }
@@ -147,7 +161,7 @@ export async function GET(
         try {
           ({ absolutePath: localPath } = resolveManagedLocalPath(
             node.basePath,
-            item.relativePath,
+            normalizedRelative.path,
           ));
           const fileStat = await stat(localPath);
           if (!fileStat.isFile())
@@ -192,35 +206,18 @@ export async function GET(
       }
 
       let normalizedRemotePath: string;
-      let normalizedRelativePath: string;
       try {
         normalizedRemotePath = normalizeRemoteTargetPath(
           node.basePath,
-          item.relativePath,
+          normalizedRelative.path,
         );
-        normalizedRelativePath = normalizeRemoteRelativePath(item.relativePath);
       } catch {
         return NextResponse.json(
           toClientStorageError(
-            "Requested path exceeds storage node root directory",
+            apiCopy("apiCopy.requested.path.exceeds.storage.node.root.directory.d786fee2"),
           ),
           { status: 400 },
         );
-      }
-
-      const remoteAccess = await assertStorageAccess({
-        session,
-        storageNodeId: node.id,
-        relativePath: normalizedRelativePath,
-        operation: "read",
-      });
-      if (!remoteAccess.allowed) {
-        return apiError({
-          code: "FORBIDDEN",
-          message:
-            remoteAccess.reason ?? "Missing storage access authorization",
-          status: 403,
-        });
       }
 
       const connectionCredentials = (() => {

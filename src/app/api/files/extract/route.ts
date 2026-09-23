@@ -1,4 +1,5 @@
 import { apiCopy } from "@/lib/i18n/api-copy";
+import { getServerLocale, t } from "@/lib/i18n/translations";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createReadStream, createWriteStream } from "node:fs";
@@ -10,11 +11,15 @@ import { resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { assertStorageAccess } from "@/lib/storage/access-control";
+import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { createFileEntry } from "@/lib/storage/service";
+// Next.js route modules may only export route handlers and route config —
+// the bomb-cap limiter lives in lib (unit-testable, importable).
+import { GunzipOutputLimiter, MAX_GUNZIP_OUTPUT_BYTES } from "@/lib/storage/gunzip-limiter";
 
-import { AuthError, NotFoundError, ValidationError } from "@/lib/errors";
+import { AuthError, NotFoundError, ValidationError, isAppError } from "@/lib/errors";
 import { getErrorMessage } from "@/lib/http/error-message";
 
 export const dynamic = "force-dynamic";
@@ -53,6 +58,7 @@ export async function POST(request: NextRequest) {
     async ({ session, body }) => {
       if (!session)
         throw new AuthError(apiCopy("apiCopy.unauthorized.d089c8a9"));
+      const locale = await getServerLocale();
 
       const name = body.name ?? "archive";
       const nodeId = body.storageNodeId ?? body.nodeId ?? body.serverId;
@@ -95,7 +101,7 @@ export async function POST(request: NextRequest) {
       });
       if (!accessDecision.allowed) {
         return NextResponse.json(
-          { error: accessDecision.reason ?? "No access permission for this storage node or path" },
+          { error: storageAccessDeniedCopy(accessDecision.reason) },
           { status: 403 },
         );
       }
@@ -111,11 +117,7 @@ export async function POST(request: NextRequest) {
       });
       if (!writeAccessDecision.allowed) {
         return NextResponse.json(
-          {
-            error:
-              writeAccessDecision.reason ??
-              "No write permission for this storage node or target directory",
-          },
+          { error: storageAccessDeniedCopy(writeAccessDecision.reason) },
           { status: 403 },
         );
       }
@@ -179,11 +181,22 @@ export async function POST(request: NextRequest) {
           // Decompress with Node's zlib instead of the gunzip binary: same
           // "keep original, write output beside it" semantics without a
           // platform-specific executable (Windows/minimal images have no gzip).
-          await pipeline(
-            createReadStream(fullPath),
-            createGunzip(),
-            createWriteStream(outputPath.path),
-          );
+          // The counting limiter aborts the pipeline mid-stream when the
+          // decompressed size blows the cap; the partial file is removed below.
+          try {
+            await pipeline(
+              createReadStream(fullPath),
+              createGunzip(),
+              new GunzipOutputLimiter(
+                MAX_GUNZIP_OUTPUT_BYTES,
+                t("backend.storageHardening.extract.gzOutputTooLarge", locale),
+              ),
+              createWriteStream(outputPath.path),
+            );
+          } catch (error) {
+            await fs.unlink(outputPath.path).catch(() => undefined);
+            throw error;
+          }
 
           let outputStat;
           try {
@@ -258,6 +271,10 @@ export async function POST(request: NextRequest) {
           message: apiCopy("apiCopy.extracted.to.the.current.directory.please.refresh.the.file.list..1d9a38e3", { v0: String(name) }),
         });
       } catch (err) {
+        // Typed errors (e.g. the 413 from the gunzip output limiter above)
+        // already carry the real status and copy — let withApiRoute render
+        // them instead of flattening everything into the generic 500.
+        if (isAppError(err)) throw err;
         const message = getErrorMessage(err, "Extraction failed");
         return NextResponse.json(
           { error: apiCopy("apiCopy.extraction.failed.262e39d0", { v0: String(message) }) },

@@ -24,33 +24,26 @@ export type AuthenticatedUser = {
 };
 
 export type ChangePasswordResult = {
- success: boolean;
- error?: string;
+  success: boolean;
+  error?: string;
 };
 
-export async function skipPasswordChange(userId: string): Promise<void> {
-	await prisma.user.update({
-		where: { id: userId },
-		data: {
-			mustChangePassword: false,
-			status: "ACTIVE",
-		},
-	});
-
-	// No teamId by design: this is an account-level credential event, not a
-	// workspace one, and the detail carries no tenant-owned content. See
-	// buildAuditWhere in lib/audit/service for why null-team rows stay shared.
-	await auditUserAction(
-		userId,
-		"auth.password_change_skipped",
-		{ userId },
-		"WARNING",
-	);
-}
+// `skipPasswordChange` was removed deliberately: every writer of
+// `mustChangePassword = true` (bootstrap admin, admin-provisioned accounts,
+// admin-forced resets) distributes a credential somebody else already knows,
+// so the flag must only ever be cleared by the owner setting a new password.
 
 function deriveRoleKeys(keys: string[]): RoleKey[] {
  return keys.filter((key): key is RoleKey => key in DEFAULT_ROLE_PERMISSIONS);
 }
+
+/**
+ * Fixed cost-12 bcrypt hash of a random placeholder. Compared against when a
+ * username does not exist so failed logins take the same time whether or not
+ * the account is real. Not a credential: it hashes no secret anyone can use.
+ */
+const DUMMY_PASSWORD_HASH_FOR_TIMING =
+	"$2b$12$iyxLnESNwAUrz8qhz2FYCOwXhUeOv1zwowkGuJsB6xvaXjKuKzGN.";
 
 export async function authenticateUser(input: LoginInput): Promise<AuthenticatedUser | null> {
  const parsed = loginSchema.safeParse(input);
@@ -71,7 +64,12 @@ export async function authenticateUser(input: LoginInput): Promise<Authenticated
  });
 
  if (!user) {
- return null;
+  // Username-enumeration timing: an existing account costs a full bcrypt
+  // compare (SALT_ROUNDS = 12, hundreds of ms) while a missing one returned
+  // immediately. Burn the same cost on a fixed dummy hash so the response
+  // time cannot be used to probe which usernames exist.
+  await verifyPassword(payload.password, DUMMY_PASSWORD_HASH_FOR_TIMING);
+  return null;
  }
 
  const passwordMatches = await verifyPassword(payload.password, user.passwordHash);

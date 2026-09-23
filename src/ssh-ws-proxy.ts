@@ -16,10 +16,12 @@ import { config } from "@/lib/config/env";
 import { decryptServerPassword, decryptSshPrivateKey, decryptSshKeyPassphrase } from "@/lib/ssh/ssh-key-crypto";
 import { createVerifiedSshConfig } from "@/lib/ssh/client";
 
-import { DEFAULT_ROLE_PERMISSIONS } from "./lib/auth/rbac";
+import { type RoleKey } from "./lib/auth/rbac";
 import { canUseSshTerminal } from "./lib/auth/ssh-access";
+import { sessionHasPermission } from "./lib/auth/authorization";
 import { getSessionCookieName, verifySessionToken } from "./lib/auth/session";
 import { createLogger } from "./lib/logging";
+import { t } from "./lib/i18n/service-translations";
 import { parseTcpPort } from "./lib/runtime/listen-port";
 import { verifySshWsHandshakeToken } from "./lib/auth/ssh-ws-token";
 import { getSshTerminalRuntimeConfig } from "./lib/runtime-settings/service";
@@ -88,19 +90,21 @@ const SSH_WS_SECRET = requireSshWsSecret();
 type SessionPayload = {
   userId: string;
   username: string;
-  roles: string[];
+  roles: RoleKey[];
   mustChangePassword: boolean;
   currentTeamId: string | null;
 };
 
 // ── Resolve server SSH connection ───────────────────────────────────
 
-/** team:manage may connect to any server; others only own team + legacy null. */
-function canBypassTeamScope(roles: string[]): boolean {
-  return roles.some((role) => {
-    const known = role as keyof typeof DEFAULT_ROLE_PERMISSIONS;
-    return DEFAULT_ROLE_PERMISSIONS[known]?.includes("team:manage") ?? false;
-  });
+/**
+ * `team:manage` may connect to any server; others only own team + legacy null.
+ * Resolved through `sessionHasPermission` so a direct per-user `team:manage`
+ * grant counts here exactly as it does on the HTTP surface — the static role
+ * map alone would silently deny a delegated platform manager a terminal.
+ */
+function canBypassTeamScope(session: SessionPayload): boolean {
+  return sessionHasPermission(session, "team:manage");
 }
 
 async function resolveServerConnection(
@@ -115,7 +119,7 @@ async function resolveServerConnection(
  const srv = await prisma.server.findFirst({
   where: {
    id: serverId,
-   ...(canBypassTeamScope(session.roles)
+   ...(canBypassTeamScope(session)
      ? {}
      : session.currentTeamId
        ? { teamId: session.currentTeamId }
@@ -151,6 +155,50 @@ async function resolveServerConnection(
 	passphrase: srv.connectionType === "SSH_KEY" && srv.sshKey?.passphrase ? decryptSshKeyPassphrase(srv.sshKey.passphrase) : undefined,
 	password: srv.connectionType === "PASSWORD" ? decryptServerPassword(srv.password ?? "") : undefined,
  };
+}
+
+// ── Terminal SSH config ─────────────────────────────────────────────
+
+type TerminalConnParams = Awaited<ReturnType<typeof resolveServerConnection>>;
+
+/**
+ * Build the ssh2 connect config for a terminal session.
+ *
+ * `enforceHostKeyPin: true` keeps the terminal channel fail-closed, matching
+ * the command-execution path (service-execution refuses unpinned targets):
+ * a server whose host key was never pinned is rejected during the handshake
+ * instead of being silently accepted (TOFU).
+ */
+export function buildTerminalSshConfig(
+	connParams: NonNullable<TerminalConnParams>,
+	terminalRuntimeConfig: { sshKeepaliveIntervalMs: number; sshKeepaliveCountMax: number },
+) {
+	const sshConfig = createVerifiedSshConfig({
+		host: connParams.host,
+		port: connParams.port,
+		username: connParams.username,
+		hostKeySha256: connParams.hostKeySha256,
+		enforceHostKeyPin: true,
+		...(connParams.connectionType === "SSH_KEY" ? { privateKey: connParams.privateKey, ...(connParams.passphrase ? { passphrase: connParams.passphrase } : {}) } : { password: connParams.password }),
+	});
+	sshConfig.readyTimeout = 15000;
+	sshConfig.timeout = 10000;
+	sshConfig.keepaliveInterval = terminalRuntimeConfig.sshKeepaliveIntervalMs;
+	sshConfig.keepaliveCountMax = terminalRuntimeConfig.sshKeepaliveCountMax;
+	return sshConfig;
+}
+
+/**
+ * Translate a terminal handshake failure for the browser. Host-key
+ * verification failures (an unpinned or changed host key rejected by the
+ * enforced pin) get an actionable message that tells the operator to pin the
+ * fingerprint first; anything else keeps the raw ssh2 detail.
+ */
+export function describeTerminalSshError(err: Error): string {
+	if (/host key verification|host verifier/i.test(err.message)) {
+		return t("backend.ssh.hostKeyNotPinned");
+	}
+	return `SSH connection error: ${err.message}`;
 }
 
 // ── WebSocket server ────────────────────────────────────────────────
@@ -195,10 +243,32 @@ function startWsHeartbeat(intervalMs: number) {
 	wsHeartbeatTimer.unref();
 }
 
+/**
+ * Parse only the pathname of an incoming request URL, anchored to a fixed
+ * base. A malformed request-target (or a hostile `Host` header, when the
+ * caller is tempted to use it as the base) must not be able to make the URL
+ * constructor throw inside a request/upgrade listener: Node does not catch
+ * handler exceptions, so the throw would reach the process level and kill the
+ * proxy from a single unauthenticated packet. Returns null for unparseable
+ * targets so callers can answer 400 and drop the socket.
+ */
+export function parseSshWsRequestPath(rawUrl: string | undefined): string | null {
+	try {
+		return new URL(rawUrl || "/", "http://localhost").pathname;
+	} catch {
+		return null;
+	}
+}
+
 const server = createServer((req, res) => {
-	const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
+	const pathname = parseSshWsRequestPath(req.url);
+	if (pathname === null) {
+		res.writeHead(400);
+		res.end();
+		return;
+	}
 	// Local-only observability scrape endpoint for the main app.
-	if (req.method === "GET" && url.pathname === "/metrics") {
+	if (req.method === "GET" && pathname === "/metrics") {
 		const active = sshWss?.clients.size ?? 0;
 		setWsActive("ssh", active);
 		res.writeHead(200, { "Content-Type": "application/json" });
@@ -228,8 +298,8 @@ const wss = new WebSocketServer({
 	},
 });
 server.on("upgrade", (req, socket, head) => {
- let path: string;
- try { path = new URL(req.url ?? "/", "http://localhost").pathname; } catch { socket.destroy(); return; }
+ const path = parseSshWsRequestPath(req.url);
+ if (path === null) { socket.destroy(); return; }
  if (path === "/ssh") wss.handleUpgrade(req, socket, head, ws => wss.emit("connection", ws, req));
  else if (path !== "/rdp") socket.destroy();
 });
@@ -301,33 +371,35 @@ wss.on("connection", async (ws, req) => {
 
 	if (!isOriginAllowed(req)) {
 		recordWsEvent("ssh", "reject");
-		ws.send(JSON.stringify({ type: "error", data: "Origin not allowed" }));
+		ws.send(JSON.stringify({ type: "error", data: t("backend.sshTerminal.originNotAllowed") }));
 		ws.close();
 		return;
 	}
 
-	const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
+	// Fixed base — see the request handler above for why the Host header must
+	// not feed the URL constructor here.
+	const url = new URL(req.url || "/", "http://localhost");
 	const serverId = url.searchParams.get("serverId");
 	const handshake = url.searchParams.get("handshake");
 	const token = resolveSshSessionToken(req);
 
  if (!serverId || !token || !handshake) {
- ws.send(JSON.stringify({ type: "error", data: "Missing serverId, session, or handshake parameter" }));
- ws.close();
- return;
- }
+	 ws.send(JSON.stringify({ type: "error", data: t("backend.sshTerminal.missingParams") }));
+	 ws.close();
+	 return;
+	 }
 
   let session: SessionPayload;
   try {
     session = await verifySessionToken(token);
   } catch {
-    ws.send(JSON.stringify({ type: "error", data: "Authentication failed, please log in again" }));
+    ws.send(JSON.stringify({ type: "error", data: t("backend.sshTerminal.authFailed") }));
     ws.close();
     return;
   }
 
   if (!canUseSshTerminal(session)) {
-    ws.send(JSON.stringify({ type: "error", data: "Missing SSH terminal permission" }));
+    ws.send(JSON.stringify({ type: "error", data: t("backend.sshTerminal.permissionDenied") }));
     ws.close();
     return;
   }
@@ -341,7 +413,7 @@ wss.on("connection", async (ws, req) => {
       secret: SSH_WS_SECRET,
     });
     if (!handshakePayload || handshakePayload.userId !== session.userId) {
-      ws.send(JSON.stringify({ type: "error", data: "SSH WebSocket temporary token is invalid or expired" }));
+      ws.send(JSON.stringify({ type: "error", data: t("backend.sshTerminal.handshakeTokenInvalid") }));
       ws.close();
       return;
     }
@@ -352,12 +424,12 @@ wss.on("connection", async (ws, req) => {
     connParams = await resolveServerConnection(serverId, session);
   } catch (error) {
     logger.error("failed to resolve SSH connection", error, { serverId, userId: session.userId });
-    ws.send(JSON.stringify({ type: "error", data: "Unable to decrypt or read VPS connection info, please check node credential configuration" }));
+    ws.send(JSON.stringify({ type: "error", data: t("backend.sshTerminal.connectionInfoDecryptFailed") }));
     ws.close();
     return;
   }
   if (!connParams) {
-    ws.send(JSON.stringify({ type: "error", data: "Unable to get VPS connection info, please check node configuration" }));
+    ws.send(JSON.stringify({ type: "error", data: t("backend.sshTerminal.connectionInfoMissing") }));
     ws.close();
     return;
   }
@@ -382,7 +454,7 @@ wss.on("connection", async (ws, req) => {
 		if (idleTimer) clearTimeout(idleTimer);
 		idleTimer = setTimeout(() => {
 			if (ws.readyState === WebSocket.OPEN) {
-				ws.send(JSON.stringify({ type: "closed", data: `Session closed after ${WS_IDLE_TIMEOUT_MS / 60_000} min of inactivity` }));
+				ws.send(JSON.stringify({ type: "closed", data: t("backend.sshTerminal.idleClosed", { minutes: WS_IDLE_TIMEOUT_MS / 60_000 }) }));
 				ws.close();
 			}
 			try { sshStream?.close(); } catch { /* best-effort */ }
@@ -394,7 +466,7 @@ wss.on("connection", async (ws, req) => {
   sshClient.on("ready", () => {
     sshClient.shell({ term: "xterm-256color" }, (err, stream) => {
       if (err) {
-        ws.send(JSON.stringify({ type: "error", data: `Shell creation failed: ${err.message}` }));
+        ws.send(JSON.stringify({ type: "error", data: t("backend.sshTerminal.shellCreationFailed", { message: err.message }) }));
         ws.close();
         return;
       }
@@ -411,7 +483,7 @@ wss.on("connection", async (ws, req) => {
 
       stream.on("close", () => {
         if (ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: "closed", data: "SSH connection closed" }));
+          ws.send(JSON.stringify({ type: "closed", data: t("backend.sshTerminal.connectionClosed") }));
           ws.close();
         }
       });
@@ -427,7 +499,7 @@ wss.on("connection", async (ws, req) => {
 
   sshClient.on("error", (err) => {
     if (ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: "error", data: `SSH connection error: ${err.message}` }));
+      ws.send(JSON.stringify({ type: "error", data: describeTerminalSshError(err) }));
       ws.close();
     }
   });
@@ -467,18 +539,9 @@ wss.on("connection", async (ws, req) => {
  }
  });
 
- const sshConfig = createVerifiedSshConfig({
- host: connParams.host,
- port: connParams.port,
- username: connParams.username,
- hostKeySha256: connParams.hostKeySha256,
- ...(connParams.connectionType === "SSH_KEY" ? { privateKey: connParams.privateKey, ...(connParams.passphrase ? { passphrase: connParams.passphrase } : {}) } : { password: connParams.password }),
- });
- sshConfig.readyTimeout = 15000;
- sshConfig.timeout = 10000;
- sshConfig.keepaliveInterval = terminalRuntimeConfig.sshKeepaliveIntervalMs;
- sshConfig.keepaliveCountMax = terminalRuntimeConfig.sshKeepaliveCountMax;
- sshClient.connect(sshConfig);
+ // OPEN-1: buildTerminalSshConfig pins enforceHostKeyPin, so an unpinned
+ // host key fails the handshake here instead of being silently accepted.
+ sshClient.connect(buildTerminalSshConfig(connParams, terminalRuntimeConfig));
 });
 
 const shouldStartServer = process.env.NODE_ENV !== "test";
@@ -505,6 +568,18 @@ process.on("unhandledRejection", (reason) => {
 	logger.error("Unhandled rejection:", reason);
 });
 process.on("uncaughtException", (err) => {
+	// A crash must not report a clean exit: systemd `Restart=on-failure` units
+	// and container supervisors key on non-zero exit codes. Best-effort
+	// cleanup, then exit 1 so the failure is observable and restarted.
 	logger.error("Uncaught exception:", err);
-	shutdown();
+	try {
+		closeRdp();
+		if (wsHeartbeatTimer) clearInterval(wsHeartbeatTimer);
+		wss.close();
+		server.close();
+		void prisma.$disconnect().catch(() => {});
+	} catch {
+		// best-effort only
+	}
+	process.exit(1);
 });

@@ -818,7 +818,7 @@ describe("storage service", () => {
     } as any);
     assertStorageAccessMock.mockResolvedValueOnce({
       allowed: false,
-      reason: "没有该存储节点或路径的访问授权",
+      reason: "no_access",
     });
 
     await expect(
@@ -826,7 +826,8 @@ describe("storage service", () => {
         fileEntryId: "file_denied",
         session: storageSession,
       }),
-    ).rejects.toThrow("没有该存储节点或路径的访问授权");
+      // Denial codes render localized copy via storageAccessDeniedCopy.
+    ).rejects.toThrow("没有此存储节点或路径的访问授权");
     expect(assertStorageAccessMock).toHaveBeenCalledWith({
       session: storageSession,
       storageNodeId: "node_1",

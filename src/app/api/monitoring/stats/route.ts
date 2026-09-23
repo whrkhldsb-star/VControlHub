@@ -8,6 +8,6 @@ export async function GET(request: Request) {
 	return withApiRoute(
 		request,
 		{ permission: "health:read", errorMessage: apiCopy("apiCopy.failed.to.fetch.monitoring.data.5627c156") },
-		async () => NextResponse.json(collectMonitoringStats()),
+		async () => NextResponse.json(await collectMonitoringStats()),
 	);
 }

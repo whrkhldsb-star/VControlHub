@@ -80,7 +80,7 @@ describe("storage access control", () => {
       storageNodeId: "node-1",
       relativePath: "docs/a.txt",
       operation: "read",
-    })).resolves.toMatchObject({ allowed: false, reason: "No access authorization for this storage node or path" });
+    })).resolves.toMatchObject({ allowed: false, reason: "no_access" });
   });
 
   it("allows no-grant role-based access only when the legacy fallback flag is enabled", async () => {
@@ -153,7 +153,7 @@ describe("storage access control", () => {
       relativePath: "team-a/new.txt",
       operation: "write",
       writeBytes: 55,
-    })).resolves.toMatchObject({ allowed: false, reason: "Write will exceed the capacity quota of this authorization" });
+    })).resolves.toMatchObject({ allowed: false, reason: "quota_exceeded" });
     expect(prisma.fileEntry.aggregate).toHaveBeenCalledWith({
       where: {
         storageNodeId: "node-1",
@@ -250,5 +250,40 @@ describe("storage access control", () => {
     expect(parseNullableBigIntInput(12.8)).toBe(BigInt(12));
     expect(parseNullableBigIntInput("")).toBeNull();
     expect(parseNullableBigIntInput("bad")).toBeNull();
+  });
+});
+
+describe("storageAccessDeniedCopy", () => {
+  // Regression: decisions carry stable codes, and every code (plus the
+  // fallback for unknown/missing codes) must render localized copy — never
+  // the raw code or English prose.
+  it("maps every denial code to translated copy in both locales", async () => {
+    const { storageAccessDeniedCopy } = await import("../access-denied");
+    const { serviceTranslations } = await import("@/lib/i18n/service-translations");
+
+    const cases: Array<[string, string]> = [
+      ["no_permission", "backend.storageHardening.access.noPermission"],
+      ["no_access", "backend.storageHardening.access.noAccess"],
+      ["path_not_allowed", "backend.storageHardening.access.pathNotAllowed"],
+      ["file_too_large", "backend.storageHardening.access.fileTooLarge"],
+      ["quota_exceeded", "backend.storageHardening.access.quotaExceeded"],
+    ];
+    for (const [code, key] of cases) {
+      for (const locale of ["zh", "en"] as const) {
+        expect(serviceTranslations[locale][key]).toBeTruthy();
+        expect(storageAccessDeniedCopy(code, locale)).toBe(
+          serviceTranslations[locale][key],
+        );
+      }
+    }
+  });
+
+  it("falls back to the generic copy for unknown or missing codes", async () => {
+    const { storageAccessDeniedCopy } = await import("../access-denied");
+    const { serviceTranslations } = await import("@/lib/i18n/service-translations");
+    const fallback = serviceTranslations.zh["backend.storageHardening.access.noAccess"];
+    expect(storageAccessDeniedCopy("no grant")).toBe(fallback);
+    expect(storageAccessDeniedCopy(undefined)).toBe(fallback);
+    expect(storageAccessDeniedCopy(null)).toBe(fallback);
   });
 });

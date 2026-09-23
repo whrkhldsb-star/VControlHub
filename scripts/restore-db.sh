@@ -37,8 +37,11 @@ else
 fi
 
 log "Restoring ${BACKUP_FILE} into configured database"
+# ON_ERROR_STOP: without it psql continues past SQL errors and exits 0, so a
+# truncated/corrupt dump would "restore" as a half-dropped half-restored
+# database while this script reports success.
 case "${BACKUP_FILE}" in
-  *.gz) gzip -dc "${BACKUP_FILE}" | psql "${PSQL_ARGS[@]}" ;;
-  *) psql "${PSQL_ARGS[@]}" < "${BACKUP_FILE}" ;;
+  *.gz) gzip -dc "${BACKUP_FILE}" | psql -v ON_ERROR_STOP=1 "${PSQL_ARGS[@]}" ;;
+  *) psql -v ON_ERROR_STOP=1 "${PSQL_ARGS[@]}" < "${BACKUP_FILE}" ;;
 esac
 log "Restore completed"

@@ -97,7 +97,8 @@ export function StorageNodeFields({
         </FormField>
         <FormField label={t("storagePage.form.webdavAuthType")} htmlFor="storage-webdav-auth">
           <select id="storage-webdav-auth" name="webdavAuthType" value={webdavAuthType} onChange={(event) => setWebdavAuthType(event.target.value as "basic" | "bearer")} className={UI_INPUT}>
-            <option value="basic">Basic</option><option value="bearer">Bearer token</option>
+            <option value="basic">{t("storagePage.form.webdavAuthBasic")}</option>
+            <option value="bearer">{t("storagePage.form.webdavAuthBearer")}</option>
           </select>
         </FormField>
         {webdavAuthType === "basic" ? <>

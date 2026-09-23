@@ -15,6 +15,12 @@ vi.mock("@/lib/auth/team-scope", () => ({
     session.currentTeamId
       ? { OR: [{ teamId: session.currentTeamId }, { teamId: null }] }
       : {},
+  shareLinkTeamWhere: (session: { currentTeamId?: string | null }) =>
+    session.currentTeamId
+      ? { teamId: session.currentTeamId }
+      : { id: "__unassigned_share_links_require_team_manage__" },
+  isGlobalTeamManager: (session: { roles?: string[] }) =>
+    Array.isArray(session.roles) && session.roles.includes("admin"),
   teamCreateData: (session: { currentTeamId?: string | null }) => ({
     teamId: session.currentTeamId ?? null,
   }),

@@ -11,6 +11,7 @@ import {
 } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 import { assertStorageAccess } from "@/lib/storage/access-control";
+import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import {
   createManagedFolder,
   deleteBackingObject,
@@ -25,8 +26,6 @@ import {
 } from "@/lib/storage/path-utils";
 import { createFileEntry } from "@/lib/storage/service-entries";
 import type { PropFindItem } from "./xml";
-
-export const FILE_ENTRY_PAGE_SIZE = 5000;
 
 export type WebDavContext = {
   session: SessionPayload;
@@ -45,20 +44,6 @@ export type WebDavFileEntryItem = {
   mimeType?: string | null;
   updatedAt?: Date | null;
 };
-
-export async function forEachFileEntryPage<T extends { id: string }>(
-  query: (cursorId: string | undefined) => Promise<T[]>,
-  visit: (rows: T[]) => Promise<void>,
-): Promise<void> {
-  let cursorId: string | undefined;
-  for (;;) {
-    const rows = await query(cursorId);
-    if (rows.length === 0) break;
-    await visit(rows);
-    if (rows.length < FILE_ENTRY_PAGE_SIZE) break;
-    cursorId = rows[rows.length - 1]!.id;
-  }
-}
 
 function encodeHrefPath(segments: string[]): string {
   return segments.map((segment) => encodeURIComponent(segment)).join("/");
@@ -128,7 +113,7 @@ export async function requireAccess(
   });
   if (!decision.allowed) {
     throw new BusinessError(
-      decision.reason ?? t("backend.webdav.storageAccessDenied"),
+      storageAccessDeniedCopy(decision.reason),
     );
   }
   return decision;
@@ -184,7 +169,7 @@ export function toPropFindItem(
 export const MAX_PROPFIND_CHILDREN = 5000;
 
 /** Escape the LIKE metacharacters in a literal path prefix. */
-function escapeLikePrefix(prefix: string): string {
+export function escapeLikePrefix(prefix: string): string {
   return prefix.replace(/[\\%_]/g, (char) => `\\${char}`);
 }
 

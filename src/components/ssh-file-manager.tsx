@@ -135,7 +135,10 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
       }
 
       loadDir(currentPath);
-      setTimeout(() => setUploads((prev) => prev.filter((u) => u.status === "uploading")), 3000);
+      // Keep failed rows past the auto-clear window — success rows are
+      // noise once the refresh lands, but an error the user glanced away
+      // from must stay visible (this list is the only error surface).
+      setTimeout(() => setUploads((prev) => prev.filter((u) => u.status === "uploading" || u.status === "error")), 3000);
     },
     [currentPath, serverId, loadDir, t],
   );

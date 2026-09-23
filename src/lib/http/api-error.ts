@@ -116,13 +116,24 @@ export function apiCatch(
 			details: e.details,
 		};
 	} else if (e instanceof Error) {
-		// Never leak raw internal exception text on 5xx to clients.
+		// Plain `Error`s are internal faults (Prisma, fs, fetch…): their
+		// messages carry server paths, SQL fragments and stack context, and
+		// must never reach the client — regardless of the route's configured
+		// fallbackStatus. Routes that want to show copy for an expected
+		// failure must throw a typed AppError (ValidationError et al).
 		const isServerError = fallbackStatus >= 500;
 		opts = {
 			code: isServerError ? "INTERNAL_ERROR" : "GENERIC_ERROR",
-			message: isServerError ? fallbackMessage : e.message || fallbackMessage,
+			message: fallbackMessage,
 			status: fallbackStatus,
 		};
+		if (isServerError) {
+			logger.error(fallbackMessage, e);
+		} else {
+			// A 4xx fallback swallowing an unexpected internal exception hides a
+			// real fault behind a client-looking status — keep it observable.
+			logger.warn(`unexpected non-AppError on a ${fallbackStatus} route: ${e.message}`);
+		}
 	} else {
 		opts = {
 			code: "INTERNAL_ERROR",

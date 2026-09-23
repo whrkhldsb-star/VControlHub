@@ -279,19 +279,19 @@ export type DockerEnvironmentStatus = {
   serverName?: string;
 };
 
-/** Local sync status (historical API used by tests + local install preflight). */
-export function getDockerEnvironmentStatus(): DockerEnvironmentStatus {
+/** Local async status (route-facing preflight; used by tests + local install preflight). */
+export async function getDockerEnvironmentStatus(): Promise<DockerEnvironmentStatus> {
   const dockerInstallHint = t("backend.quick-service.dockerInstallHintLocal");
   try {
-    const version = execFileSync("docker", ["--version"], {
+    const { stdout } = await runFile("docker", ["--version"], {
       timeout: 5_000,
       encoding: "utf8",
-    }).trim();
-    execFileSync("docker", ["info"], { timeout: 10_000, stdio: "pipe" });
+    });
+    await runFile("docker", ["info"], { timeout: 10_000, encoding: "utf8" });
     return {
       available: true,
       running: true,
-      version,
+      version: String(stdout).trim(),
       message: null,
       installHint: null,
       scope: "hub-host",

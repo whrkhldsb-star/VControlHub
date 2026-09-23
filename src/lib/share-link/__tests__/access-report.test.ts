@@ -38,6 +38,8 @@ describe("share access aggregate report", () => {
 
   it("applies action filters and bounds report inputs", async () => {
     await getShareAccessReport({ session: { userId: "viewer", roles: ["viewer"], currentTeamId: "team-1" }, days: 999, action: "download", take: 999 });
-    expect(mocks.logFindMany).toHaveBeenNthCalledWith(1, expect.objectContaining({ take: 500, where: expect.objectContaining({ action: "download", shareLink: { OR: [{ teamId: "team-1" }, { teamId: null }] } }) }));
+    // Null-team share links are quarantined for non-global actors: the report
+    // scope is the viewer's own team only, never { OR: [team, null] }.
+    expect(mocks.logFindMany).toHaveBeenNthCalledWith(1, expect.objectContaining({ take: 500, where: expect.objectContaining({ action: "download", shareLink: { teamId: "team-1" } }) }));
   });
 });

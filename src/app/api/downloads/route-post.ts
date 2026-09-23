@@ -15,6 +15,7 @@ import {
   resolveDownloadTargetPath,
 } from "@/lib/downloads/target-path";
 import { assertStorageAccess } from "@/lib/storage/access-control";
+import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { AuthError, NotFoundError } from "@/lib/errors";
@@ -25,6 +26,14 @@ import { getErrorMessage } from "@/lib/http/error-message";
 
 /* ── POST: Create download task ───────────────────────────── */
 
+/**
+ * Upper bound for one batch request. Every URL costs a DNS resolution
+ * (assertDownloadSourceUrlSafe), a downloadTask row and a durable job — an
+ * unbounded array would hold the request open arbitrarily long and flood the
+ * job table from a single call. The UI submits batches well below this.
+ */
+const MAX_BATCH_URLS = 50;
+
 const postDownloadSchema = z.object({
   url: z.string().url(t("apiDownloads.urlInvalid", "en")),
   serverId: z.string().min(1, t("apiDownloads.missingServerId", "en")),
@@ -33,7 +42,7 @@ const postDownloadSchema = z.object({
   category: z.string().optional(),
   maxSpeedKb: z.number().optional(),
   isBatch: z.boolean().optional(),
-  batchUrls: z.array(z.string()).optional(),
+  batchUrls: z.array(z.string().trim().min(1).max(2048)).max(MAX_BATCH_URLS, "Too many URLs in one batch request").optional(),
 });
 
 export async function POST(request: Request) {
@@ -60,7 +69,11 @@ export async function POST(request: Request) {
         batchUrls,
       } = body;
 
-      const allUrls = isBatch && batchUrls?.length ? batchUrls : [url];
+      // Dedupe: identical links in one paste would each burn a DNS lookup,
+      // a task row and a durable job for the same result.
+      const allUrls = isBatch && batchUrls?.length
+        ? Array.from(new Set(batchUrls))
+        : [url];
       // Batch mode semantics:
       //  - HTTP/HTTPS batch with >1 URL → create one independent download task
       //    per URL (looped below). Each link is fetched separately.
@@ -143,7 +156,7 @@ export async function POST(request: Request) {
       });
       if (!accessDecision.allowed) {
         return NextResponse.json(
-          { error: accessDecision.reason ?? t("apiDownloads.accessDenied", locale) },
+          { error: storageAccessDeniedCopy(accessDecision.reason, locale) },
           { status: 403 },
         );
       }

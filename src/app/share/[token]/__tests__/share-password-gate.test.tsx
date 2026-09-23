@@ -24,6 +24,8 @@ describe("SharePasswordGate", () => {
         label="需要密码"
         placeholder="••••••"
         submitLabel="下载文件"
+        failedLabel="下载失败"
+        failedStatusTemplate="下载失败（{status}）"
       />,
     );
 
@@ -38,5 +40,30 @@ describe("SharePasswordGate", () => {
       body: JSON.stringify({ password: "correct-password" }),
     });
     expect(assign).toHaveBeenCalledWith(entryType ? "/share/share-token-12345" : "/api/share/share-token-12345");
+  });
+
+  it("renders the localized failure fallback when the API rejects without a message", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 429, json: () => Promise.resolve({}) });
+    vi.stubGlobal("fetch", fetchMock);
+    const assign = vi.fn();
+    Object.defineProperty(window, "location", { value: { assign }, writable: true });
+
+    render(
+      <SharePasswordGate
+        token="share-token-12345"
+        label="需要密码"
+        placeholder="••••••"
+        submitLabel="下载文件"
+        failedLabel="下载失败"
+        failedStatusTemplate="下载失败（{status}）"
+      />,
+    );
+
+    await user.type(screen.getByLabelText("需要密码"), "wrong-password");
+    await user.click(screen.getByRole("button", { name: "下载文件" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("下载失败（429）");
+    expect(assign).not.toHaveBeenCalled();
   });
 });

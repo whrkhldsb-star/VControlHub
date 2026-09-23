@@ -11,8 +11,12 @@ dist
 *.pem
 *.key
 *.ppk
-.env.local
-.env.*.local
+# Live secrets must never enter the build context (docker build COPY . . would
+# bake them into builder-stage layers, recoverable via docker history/save).
+# .env.example stays committable and is negated below.
+.env
+.env.*
+!.env.example
 _test_*.js
 _test_*.ts
 check_*.py

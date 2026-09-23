@@ -10,6 +10,7 @@ const { mocks } = vi.hoisted(() => ({
     testAlertRule: vi.fn(),
     toggleAlertRule: vi.fn(),
     evaluateAlerts: vi.fn(),
+    ensureDefaultAlertRules: vi.fn(),
     auditUserAction: vi.fn(),
   },
 }));
@@ -24,6 +25,7 @@ vi.mock("@/lib/alert/service", () => ({
   deleteAlertRule: mocks.deleteAlertRule,
   testAlertRule: mocks.testAlertRule,
   toggleAlertRule: mocks.toggleAlertRule,
+  ensureDefaultAlertRules: mocks.ensureDefaultAlertRules,
 }));
 vi.mock("@/lib/health/service", () => ({
   evaluateAlerts: mocks.evaluateAlerts,
@@ -58,7 +60,7 @@ describe("/api/alert-rules", () => {
     mocks.toggleAlertRule.mockResolvedValue({ id: "rule1", enabled: false });
     mocks.testAlertRule.mockResolvedValue({
       rule: { id: "rule1", name: "CPU", webhookUrl: "https://hooks.example.com/secret" },
-      deliveries: [{ channel: "webhook", status: "sent", message: "Webhook 测试请求已发送" }],
+      deliveries: [{ channel: "webhook", status: "sent", message: "Webhook test request sent" }],
     });
     mocks.deleteAlertRule.mockResolvedValue({ id: "rule1" });
     mocks.evaluateAlerts.mockResolvedValue(undefined);
@@ -197,6 +199,9 @@ describe("/api/alert-rules", () => {
       method: "POST",
       headers: {
         "content-type": "application/x-www-form-urlencoded",
+        // Browser form posts always declare a length; without it the route
+        // answers 411 before parsing (see requestContentLengthMissing).
+        "content-length": "1024",
         accept: "text/html",
       },
       body: new URLSearchParams([

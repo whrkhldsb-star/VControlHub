@@ -1,5 +1,5 @@
 /**
- * i18n dictionary: `sharePage.*` (25 keys).
+ * i18n dictionary: `sharePage.*` (29 keys).
  */
 
 export const zh: Record<string, string> = {
@@ -24,6 +24,8 @@ export const zh: Record<string, string> = {
 	"sharePage.downloadFile": "下载文件",
 	"sharePage.openFile": "打开文件",
 	"sharePage.passwordRequired": "此分享链接需要密码访问，请在下载时输入密码",
+	"sharePage.downloadFailed": "下载失败",
+	"sharePage.downloadFailedStatus": "下载失败（{status}）",
 	"sharePage.brand": "VControlHub",
 	"sharePage.permissionLevel": "权限级别",
 	"sharePage.permissionPreview": "仅查看目录/元数据",
@@ -58,6 +60,8 @@ export const en: Record<string, string> = {
 	"sharePage.downloadFile": "Download file",
 	"sharePage.openFile": "Open file",
 	"sharePage.passwordRequired": "This share requires a password. Enter it to download.",
+	"sharePage.downloadFailed": "Download failed",
+	"sharePage.downloadFailedStatus": "Download failed ({status})",
 	"sharePage.brand": "VControlHub",
 	"sharePage.tooManyRequests": "Too many requests, please try again later",
 };

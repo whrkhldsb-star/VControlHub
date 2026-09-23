@@ -29,6 +29,7 @@ import { prisma } from "@/lib/db";
 import { logError } from "@/lib/logging";
 import { tempRoot } from "@/lib/runtime/platform-paths";
 import { assertStorageAccess } from "@/lib/storage/access-control";
+import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 
 import {
 	DEFAULT_CHUNK_SIZE,
@@ -143,7 +144,7 @@ export async function initMediaUploadSession(
 		if (!access.allowed) {
 			throw new MediaUploadError(
 				"storage_access_denied",
-				access.reason ?? "Missing storage access authorization",
+				storageAccessDeniedCopy(access.reason),
 			);
 		}
 		// No FileEntry yet — release any quota advisory lock immediately.

@@ -15,6 +15,7 @@ import {
   pruneCompletedJobsByType,
 } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
+import { t } from "@/lib/i18n/service-translations";
 import { tryAcquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 
 import { reconcileScheduledTaskRuns, recordTaskDispatch, recordTaskRun } from "./service";
@@ -98,7 +99,7 @@ async function dispatchDueTask(task: {
   teamId: string | null;
 }): Promise<boolean> {
   if (task.serverIds.length === 0 || !task.createdById) {
-    await recordTaskRun(task.id, "Skipped: no target server or no creator");
+    await recordTaskRun(task.id, t("backend.scheduled-task.skippedMissingTargetOrCreator"), "skipped");
     return false;
   }
 
@@ -112,7 +113,11 @@ async function dispatchDueTask(task: {
   // durable, so recordTaskRun advancing nextRunAt avoids a tight retry loop.
   const authz = await assertRequesterMayExecuteCommand(task.createdById, task.teamId);
   if (!authz.ok) {
-    await recordTaskRun(task.id, `Skipped: ${authz.reason}`);
+    await recordTaskRun(
+      task.id,
+      t("backend.scheduled-task.skippedRequesterNotAuthorized", { reason: authz.reason }),
+      "skipped",
+    );
     logger.warn("Scheduled task skipped: requester no longer authorized", {
       taskId: task.id,
       taskName: task.name,
@@ -222,7 +227,9 @@ async function dispatchDueScheduledTasks(reason: string) {
       const message = error instanceof Error ? error.message : String(error);
       logger.error("Scheduled task execution failed", { reason, taskId: task.id, error: message });
       try {
-        await recordTaskRun(task.id, `Execution failed: ${message}`);
+        // Structured "failed" outcome — the prefix on this string is display
+        // copy only; failure detection must never parse it (see recordTaskRun).
+        await recordTaskRun(task.id, `Execution failed: ${message}`, "failed");
       } catch (recordError) {
         logger.error("Failed to record scheduled task run after failure", {
           reason,

@@ -16,7 +16,7 @@ import { OffsiteDryRunButton } from "./offsite-dry-run-button";
 import { BackupDrillButton } from "./backup-drill-button";
 import { MigrationWizardPanel } from "./migration-wizard-panel";
 import { loadOffsiteConfig } from "@/lib/storage/offsite/service";
-import { formatZhDateTime } from "@/lib/datetime/format";
+import { formatDateTime } from "@/lib/datetime/format";
 import { getBackupTypeLabel, getDomainStatusLabel } from "@/lib/i18n/domain-labels";
 import { PaginatedList } from "@/components/paginated-list";
 import { createLogger } from "@/lib/logging";
@@ -67,7 +67,7 @@ export default async function BackupsPage() {
 				<SurfacePanel
 					title={t("backupsPage.overview.title")}
 					description={t("backupsPage.overview.description")}
-					actions={<span className="text-xs text-[var(--text-muted)]">{t("backupsPage.overview.latestCompleted", { date: formatZhDateTime(summary.latestCompletedAt, t("backupsPage.overview.latestNone")) })}</span>}
+					actions={<span className="text-xs text-[var(--text-muted)]">{t("backupsPage.overview.latestCompleted", { date: formatDateTime(summary.latestCompletedAt, locale, t("backupsPage.overview.latestNone")) })}</span>}
 				>
 					<div className="grid gap-3 md:grid-cols-3">
 						{(["DATABASE", "FILES", "FULL"] as const).map((type) => (
@@ -202,13 +202,13 @@ export default async function BackupsPage() {
 							<div className="flex items-center justify-between gap-3">
 								<div>
 									<h3 className="text-sm font-medium text-[var(--text-primary)]">{t("backupsPage.records.typeStatus", { type: getBackupTypeLabel(t, b.type), status: getDomainStatusLabel(t, b.status) })}</h3>
-									<p className="mt-1 text-xs text-[var(--text-muted)]">{t("backupsPage.records.pathTime", { path: b.filePath, time: formatZhDateTime(b.createdAt) })}</p>
+									<p className="mt-1 text-xs text-[var(--text-muted)]">{t("backupsPage.records.pathTime", { path: b.filePath, time: formatDateTime(b.createdAt, locale) })}</p>
 								</div>
 								<span className="rounded-lg border border-[var(--border)] px-2 py-1 text-xs text-[var(--text-muted)]">{b.creator?.displayName || b.creator?.username || t("backupsPage.records.creatorSystem")}</span>
 							</div>
 							<div className="mt-2 flex flex-wrap gap-3 text-xs text-[var(--text-muted)]">
 								<span>{t("backupsPage.records.size", { size: formatBackupSize(b.fileSize) })}</span>
-								<span>{b.completedAt ? t("backupsPage.records.completedAt", { time: formatZhDateTime(b.completedAt) }) : t("backupsPage.records.notCompleted")}</span>
+								<span>{b.completedAt ? t("backupsPage.records.completedAt", { time: formatDateTime(b.completedAt, locale) }) : t("backupsPage.records.notCompleted")}</span>
 								{b.errorMessage && <span className="text-[var(--danger)]">{t("backupsPage.records.error", { message: b.errorMessage })}</span>}
 							</div>
 							{b.note && <p className="mt-2 text-xs text-[var(--text-muted)]">{b.note}</p>}

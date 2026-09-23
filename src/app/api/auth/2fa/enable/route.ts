@@ -15,6 +15,8 @@ import { verify as verifyTOTP } from "otplib";
 import { openTwoFactorEnrollmentToken } from "@/lib/auth/two-factor-enrollment";
 import { sealTwoFactorSecret } from "@/lib/auth/two-factor-secret";
 import { createTwoFactorRecoveryCodes } from "@/lib/auth/two-factor-recovery";
+import { bumpUserSessionEpoch, createSessionToken, getConfiguredSessionTtlSeconds, getSessionCookieName } from "@/lib/auth/session";
+import { isRequestHttps } from "@/lib/http/request-https";
 import { auditUserAction } from "@/lib/audit/service";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
@@ -89,6 +91,11 @@ export async function POST(request: Request) {
         },
       });
 
+      // Sessions minted before this upgrade never passed a second factor.
+      // Advancing the epoch retires them all; a replacement cookie minted
+      // against the new epoch keeps *this* browser logged in.
+      await bumpUserSessionEpoch(session.userId);
+
       await auditUserAction(
         session.userId,
         "auth.2fa.enable",
@@ -97,9 +104,25 @@ export async function POST(request: Request) {
         session.currentTeamId,
       );
 
+      const refreshedToken = await createSessionToken({
+        userId: session.userId,
+        username: session.username,
+        roles: session.roles,
+        mustChangePassword: session.mustChangePassword,
+        currentTeamId: session.currentTeamId,
+      });
+
       // Plaintext recovery codes are returned once, over the authenticated
       // response. Only HMAC fingerprints are persisted.
-      return NextResponse.json({ success: true, recoveryCodes: recovery.codes });
+      const response = NextResponse.json({ success: true, recoveryCodes: recovery.codes });
+      response.cookies.set(getSessionCookieName(), refreshedToken, {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: isRequestHttps(request),
+        path: "/",
+        maxAge: await getConfiguredSessionTtlSeconds(false),
+      });
+      return response;
     },
   );
 }

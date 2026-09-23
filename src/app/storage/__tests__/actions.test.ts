@@ -263,7 +263,7 @@ describe("createFolderAction", () => {
     });
     vi.mocked(assertStorageAccess).mockResolvedValueOnce({
       allowed: false,
-      reason: "path grant missing",
+      reason: "path_not_allowed",
     });
 
     const result = await createFolderAction(
@@ -275,7 +275,7 @@ describe("createFolderAction", () => {
       }),
     );
 
-    expect(result).toEqual({ error: "path grant missing" });
+    expect(result).toEqual({ error: "请求路径无效或超出授权范围" });
     expect(assertStorageAccess).toHaveBeenCalledWith(
       expect.objectContaining({
         storageNodeId: "node-1",
@@ -625,7 +625,7 @@ describe("SFTP file entry actions", () => {
     prismaMock.fileEntry.findFirst.mockResolvedValueOnce(sftpEntry());
     vi.mocked(assertStorageAccess).mockResolvedValueOnce({
       allowed: false,
-      reason: "source grant missing",
+      reason: "no_access",
     });
 
     const result = await renameFileEntryAction(
@@ -633,7 +633,7 @@ describe("SFTP file entry actions", () => {
       entryForm("entry-1", { newName: "new.txt" }),
     );
 
-    expect(result).toEqual({ error: "source grant missing" });
+    expect(result).toEqual({ error: "没有此存储节点或路径的访问授权" });
     expect(assertStorageAccess).toHaveBeenCalledTimes(1);
     expect(assertStorageAccess).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -652,7 +652,7 @@ describe("SFTP file entry actions", () => {
       .mockResolvedValueOnce({ allowed: true })
       .mockResolvedValueOnce({
         allowed: false,
-        reason: "destination grant missing",
+        reason: "no_access",
       });
 
     const result = await renameFileEntryAction(
@@ -660,7 +660,7 @@ describe("SFTP file entry actions", () => {
       entryForm("entry-1", { newName: "new.txt" }),
     );
 
-    expect(result).toEqual({ error: "destination grant missing" });
+    expect(result).toEqual({ error: "没有此存储节点或路径的访问授权" });
     expect(assertStorageAccess).toHaveBeenCalledTimes(2);
     expect(assertStorageAccess).toHaveBeenNthCalledWith(
       2,

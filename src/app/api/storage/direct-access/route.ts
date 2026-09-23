@@ -10,9 +10,9 @@ import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { UPLOAD_LIMIT } from "@/lib/http/rate-limit-presets";
-import { auditUserAction } from "@/lib/audit/service";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { assertStorageAccess } from "@/lib/storage/access-control";
+import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { assertPublicBaseUrlResolvesPublic, normalizePublicBaseUrl } from "@/lib/storage/direct-access-url";
 import { AuthError, ForbiddenError, NotFoundError } from "@/lib/errors";
 import {
@@ -182,7 +182,7 @@ async function resolveDirectAccessPayload(input: {
     operation: "read",
   });
   if (!access.allowed) {
-    throw new ForbiddenError(access.reason);
+    throw new ForbiddenError(storageAccessDeniedCopy(access.reason));
   }
 
   if (node.driver !== "SFTP") {
@@ -297,8 +297,11 @@ export async function DELETE(request: Request) {
   return withApiRoute(
     request,
     { permission: "storage:read", rateLimit: UPLOAD_LIMIT },
-    async ({ session }) => {
-      await auditUserAction(session?.userId ?? "", "storage.direct-access.stop", {}, undefined, session?.currentTeamId);
+    async () => {
+      // Compatibility no-op for old clients (direct-access mode is a
+      // per-storage-node setting managed through the node endpoints). It must
+      // not write an audit entry: "storage.direct-access.stop" events for a
+      // stop that never happened poison the compliance trail.
       return NextResponse.json({ stopped: true, mode: "managed-download" });
     },
   );

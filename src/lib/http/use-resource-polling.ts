@@ -1,6 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+import { useI18n } from "@/lib/i18n/use-locale";
 
 export type ResourcePollingState<T> = {
 	/** Latest successfully-fetched data, or null before the first success. */
@@ -38,10 +40,10 @@ export type UseResourcePollingOptions<T> = {
 	getErrorMessage?: (error: unknown) => string;
 };
 
-function defaultErrorMessage(error: unknown): string {
+function defaultErrorMessage(error: unknown, fallback: string): string {
 	if (error instanceof Error && error.message.trim()) return error.message;
 	if (typeof error === "string" && error.trim()) return error;
-	return "Request failed";
+	return fallback;
 }
 
 /**
@@ -63,13 +65,18 @@ function defaultErrorMessage(error: unknown): string {
  * effect that (re)starts polling.
  */
 export function useResourcePolling<T>(options: UseResourcePollingOptions<T>): ResourcePollingState<T> {
-	const {
-		fetcher,
-		intervalSeconds,
-		enabled = true,
-		pauseWhenHidden = true,
-		getErrorMessage = defaultErrorMessage,
-	} = options;
+	const { fetcher, intervalSeconds, enabled = true, pauseWhenHidden = true } = options;
+	// Localized fallback for fetch errors whose thrown value carries no
+	// message — the hook is client-side and always renders under the
+	// I18nProvider, so t() is available here.
+	const { t } = useI18n();
+	const fallbackMessage = t("common.requestFailed");
+	const getErrorMessage = useMemo(
+		() => options.getErrorMessage ?? ((error: unknown) => defaultErrorMessage(error, fallbackMessage)),
+		// fallbackMessage is the only reactive input; options.getErrorMessage is
+		// a stable prop from the caller. Keep both in deps honest.
+		[options.getErrorMessage, fallbackMessage],
+	);
 
 	const [data, setData] = useState<T | null>(null);
 	const [loading, setLoading] = useState(true);

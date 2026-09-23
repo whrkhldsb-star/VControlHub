@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { AGENT_POLL_LIMIT, withRateLimit } from "@/lib/http/rate-limit-presets";
+import { readRequestBodyBuffer } from "@/lib/http/request-body";
 import {
   authenticateServerAgent,
   claimNextServerAgentJob,
@@ -26,6 +27,9 @@ const bodySchema = z.object({
   }).optional(),
 });
 
+/** Schema ceilings (8 MiB stdout + 1 MiB stderr) plus JSON framing headroom. */
+const MAX_AGENT_POLL_BODY_BYTES = 10 * 1_048_576;
+
 export async function POST(request: Request) {
   // `/api/agent/` is a public prefix in the proxy (the Bearer token is verified
   // here instead), and the token regex is trivially matchable, so an anonymous
@@ -45,7 +49,18 @@ export async function POST(request: Request) {
   const authorization = request.headers.get("authorization") ?? "";
   const agent = await authenticateServerAgent(authorization.replace(/^Bearer\s+/i, ""));
   if (!agent) return NextResponse.json({ error: "Unauthorized agent" }, { status: 401 }); // api-copy-audit: allow -- stable machine protocol
-  const parsed = bodySchema.safeParse(await request.json().catch(() => null));
+  // Bounded read instead of request.json(): the schema allows ~9 MiB of
+  // stdout/stderr, but a chunked body with no Content-Length must not turn
+  // the public prefix into an unbounded memory sink.
+  let rawPayload: unknown;
+  try {
+    rawPayload = JSON.parse(
+      (await readRequestBodyBuffer(request, MAX_AGENT_POLL_BODY_BYTES)).toString("utf8"),
+    );
+  } catch {
+    rawPayload = null;
+  }
+  const parsed = bodySchema.safeParse(rawPayload);
   if (!parsed.success) return NextResponse.json({ error: "Invalid agent payload" }, { status: 400 }); // api-copy-audit: allow -- stable machine protocol
   if (parsed.data.result) {
     await completeServerAgentJob({ serverId: agent.id, ...parsed.data.result });

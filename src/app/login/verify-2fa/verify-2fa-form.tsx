@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { StateBox } from "@/components/ui-primitives";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { ApiError } from "@/lib/http/api-client-error";
+import { safeRelativeRedirectPath } from "@/lib/http/redirect-path";
 import { useI18n } from "@/lib/i18n/use-locale";
 
 type Verify2faFormProps = {
@@ -75,11 +76,7 @@ export function Verify2faForm({ nextPath, error }: Verify2faFormProps) {
 				body: JSON.stringify({ code }),
 			});
 if (data.success) {
-				const safe =
-					typeof nextPath === "string" && nextPath.startsWith("/") && !nextPath.startsWith("//")
-						? nextPath
-						: "/";
-				router.push(safe);
+				router.push(safeRelativeRedirectPath(nextPath));
 				return;
 			}
 

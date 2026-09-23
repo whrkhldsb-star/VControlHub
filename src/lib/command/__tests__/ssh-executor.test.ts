@@ -4,6 +4,7 @@ import { EventEmitter } from "node:events";
 type MockChildProcess = EventEmitter & {
   stdout: EventEmitter;
   stderr: EventEmitter;
+  exitCode: number | null;
   kill: ReturnType<typeof vi.fn>;
 };
 
@@ -26,7 +27,7 @@ vi.mock("node:child_process", async (importOriginal) => {
 });
 
 import {
-  appendBoundedOutput,
+  BoundedOutputCollector,
   cancelRunningCommandChild,
   markCommandTargetCancelled,
   runSshCommandProcess,
@@ -41,6 +42,8 @@ function makeChild(): MockChildProcess {
   const child = new EventEmitter() as MockChildProcess;
   child.stdout = new EventEmitter();
   child.stderr = new EventEmitter();
+  // Mirror the real ChildProcess: exitCode stays null until the process dies.
+  child.exitCode = null;
   child.kill = vi.fn(() => true);
   return child;
 }
@@ -127,6 +130,16 @@ describe("command ssh-executor adapter", () => {
     expect(result.exitCode).toBe(1);
   });
 
+  it("does not re-copy output for every chunk (collector keeps O(1) appends)", () => {
+    const collector = new BoundedOutputCollector(1024 * 1024);
+    const chunk = Buffer.alloc(64 * 1024, "x");
+    for (let i = 0; i < 16; i++) collector.push(chunk);
+    expect(collector.finish()).toHaveLength(1024 * 1024);
+    // Sealed after finish: later pushes cannot change the settled output.
+    collector.push("late");
+    expect(collector.finish()).toHaveLength(1024 * 1024);
+  });
+
   it("kills the child and reports exitCode 124 + timedOut=true when the timeout fires", async () => {
     vi.useFakeTimers();
     spawnMock.mockImplementation(() => {
@@ -151,6 +164,56 @@ describe("command ssh-executor adapter", () => {
     expect(result.timedOut).toBe(true);
     expect(result.cancelled).toBe(false);
     expect(result.stderr).toContain("Command execution exceeded 200ms");
+  });
+
+  it("escalates to SIGKILL when the child survives SIGTERM past the grace window", async () => {
+    vi.useFakeTimers();
+    spawnMock.mockImplementation(() => makeChild());
+
+    const promise = runSshCommandProcess({
+      command: "ssh",
+      args: ["user@host", "sleep 5"],
+      targetId: "target_timeout_sigkill_1",
+      runtimeConfig: { ...RUNTIME_CONFIG, executionTimeoutMs: 200 },
+    });
+
+    await vi.advanceTimersByTimeAsync(200);
+    const child = spawnMock.mock.results[0]!.value as MockChildProcess;
+    expect(child.kill).toHaveBeenCalledWith("SIGTERM");
+    // Child ignores SIGTERM: 5s later the escalation timer must fire SIGKILL.
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(child.kill).toHaveBeenCalledWith("SIGKILL");
+
+    child.emit("close", null);
+    child.exitCode = null;
+    const result = await promise;
+    vi.useRealTimers();
+
+    expect(result.exitCode).toBe(124);
+    expect(result.timedOut).toBe(true);
+  });
+
+  it("does not escalate to SIGKILL after close already fired (no leaked timers)", async () => {
+    vi.useFakeTimers();
+    spawnMock.mockImplementation(() => makeChild());
+
+    const promise = runSshCommandProcess({
+      command: "ssh",
+      args: ["user@host", "sleep 5"],
+      targetId: "target_timeout_clean_1",
+      runtimeConfig: { ...RUNTIME_CONFIG, executionTimeoutMs: 200 },
+    });
+
+    await vi.advanceTimersByTimeAsync(200);
+    const child = spawnMock.mock.results[0]!.value as MockChildProcess;
+    // SIGTERM works: process exits (exitCode set) and close fires.
+    child.exitCode = null;
+    child.emit("close", null);
+    await promise;
+
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(child.kill).not.toHaveBeenCalledWith("SIGKILL");
+    vi.useRealTimers();
   });
 
   it("reports exitCode 130 + cancelled=true when the target was pre-marked cancelled", async () => {
@@ -217,21 +280,44 @@ describe("command ssh-executor adapter", () => {
   });
 });
 
-describe("command ssh-executor appendBoundedOutput", () => {
-  it("returns current unchanged when already at the limit", () => {
-    const initial = "A".repeat(80);
-    const next = appendBoundedOutput(initial, "more data", 80);
-    expect(next).toBe(initial);
+describe("command ssh-executor BoundedOutputCollector", () => {
+  it("keeps output exactly at the limit verbatim (no marker)", () => {
+    const collector = new BoundedOutputCollector(80);
+    collector.push("A".repeat(80));
+    expect(collector.finish()).toBe("A".repeat(80));
   });
 
   it("appends chunk when total stays within the limit", () => {
-    const next = appendBoundedOutput("abc", "def", 80);
-    expect(next).toBe("abcdef");
+    const collector = new BoundedOutputCollector(80);
+    collector.push("abc");
+    collector.push("def");
+    expect(collector.finish()).toBe("abcdef");
   });
 
   it("truncates and appends marker when total exceeds the limit", () => {
-    const next = appendBoundedOutput("A".repeat(70), "B".repeat(20), 80);
-    expect(next.endsWith("\n[output truncated, exceeded 80 bytes limit]")).toBe(true);
-    expect(Buffer.byteLength(next, "utf8")).toBeGreaterThan(80);
+    const collector = new BoundedOutputCollector(80);
+    collector.push("A".repeat(70));
+    collector.push("B".repeat(20));
+    const result = collector.finish();
+    expect(result.endsWith("\n[output truncated, exceeded 80 bytes limit]")).toBe(true);
+    expect(Buffer.byteLength(result, "utf8")).toBeGreaterThan(80);
+    // The kept payload is cut at exactly the limit.
+    expect(result.startsWith("A".repeat(70) + "B".repeat(10))).toBe(true);
+  });
+
+  it("stops collecting further chunks once the cap is exceeded", () => {
+    const collector = new BoundedOutputCollector(10);
+    collector.push("0123456789AAAA");
+    collector.push("BBBBBBBBBBBBBBBB");
+    const result = collector.finish();
+    expect(result.startsWith("0123456789")).toBe(true);
+    expect(result).not.toContain("B");
+  });
+
+  it("marks truncation only for non-empty pushes past the cap", () => {
+    const collector = new BoundedOutputCollector(10);
+    collector.push("0123456789");
+    collector.push("");
+    expect(collector.finish()).toBe("0123456789");
   });
 });

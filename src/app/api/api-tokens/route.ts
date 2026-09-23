@@ -14,7 +14,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { withCacheHeaders, CachePresets } from "@/lib/cache";
 
-import { AuthError, ForbiddenError } from "@/lib/errors";
+import { AuthError, ForbiddenError, ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/translations";
 import { idQuerySchema, parseSearchParams } from "@/lib/http/parse-search-params";
 import {
@@ -58,14 +58,12 @@ function parseExpiresAt(value?: string | null) {
   // ambiguous across browser vs server TZ and should be normalized client-side.
   const hasTimezone = /([zZ]|[+-]\d{2}:?\d{2})$/.test(trimmed);
   if (!hasTimezone) {
-    throw new Error(
-      "Expiration time must include a timezone (send ISO-8601, e.g. 2026-07-22T10:00:00.000Z)",
-    );
+    throw new ValidationError(apiCopy("apiCopy.apiTokens.expiryTimezoneRequired"));
   }
   const expiresAt = new Date(trimmed);
-  if (Number.isNaN(expiresAt.getTime())) throw new Error("Invalid expiration time format");
+  if (Number.isNaN(expiresAt.getTime())) throw new ValidationError(apiCopy("apiCopy.apiTokens.expiryInvalidFormat"));
   if (expiresAt.getTime() <= Date.now())
-    throw new Error("Expiration time must be in the future");
+    throw new ValidationError(apiCopy("apiCopy.apiTokens.expiryMustBeFuture"));
   return expiresAt;
 }
 

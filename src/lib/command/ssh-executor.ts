@@ -1,6 +1,8 @@
 import type { ChildProcess } from "node:child_process";
 import { spawn } from "node:child_process";
 
+import { t } from "@/lib/i18n/service-translations";
+
 export type SshExecutionResult = {
   stdout: string;
   stderr: string;
@@ -31,11 +33,51 @@ const cancelledCommandTargets = new Set<string>();
  */
 const cancellableCommandTargets = new Map<string, () => boolean>();
 
-export function appendBoundedOutput(current: string, chunk: unknown, limitBytes: number): string {
-  if (Buffer.byteLength(current, "utf8") >= limitBytes) return current;
-  const next = Buffer.concat([Buffer.from(current), Buffer.from(String(chunk))]);
-  if (next.byteLength <= limitBytes) return next.toString("utf8");
-  return `${next.subarray(0, limitBytes).toString("utf8")}\n[output truncated, exceeded ${limitBytes} bytes limit]`;
+/**
+ * Streaming output collector with a hard byte cap.
+ *
+ * Chunks are buffered as Buffers and concatenated once at settle time, so
+ * appending is O(1) per chunk instead of re-copying the whole accumulated
+ * string on every data event (the previous string-concat helper was O(n²)
+ * for chatty commands). Cap semantics are unchanged: output is cut at
+ * exactly `limitBytes` and a trailing truncation marker is appended once the
+ * cap is exceeded; output that lands exactly on the cap is kept verbatim.
+ */
+export class BoundedOutputCollector {
+  private chunks: Buffer[] = [];
+  private bytes = 0;
+  private truncated = false;
+  private settled: string | null = null;
+
+  constructor(private readonly limitBytes: number) {}
+
+  push(chunk: unknown): void {
+    if (this.settled !== null || this.truncated) return;
+    const buffer =
+      typeof chunk === "string"
+        ? Buffer.from(chunk)
+        : Buffer.isBuffer(chunk)
+          ? chunk
+          : Buffer.from(String(chunk));
+    if (buffer.length === 0) return;
+    if (this.bytes >= this.limitBytes) {
+      this.truncated = true;
+      return;
+    }
+    this.chunks.push(buffer);
+    this.bytes += buffer.length;
+    if (this.bytes > this.limitBytes) this.truncated = true;
+  }
+
+  /** Concat + decode once; the collector is sealed afterwards. */
+  finish(): string {
+    if (this.settled !== null) return this.settled;
+    const whole = Buffer.concat(this.chunks).subarray(0, this.limitBytes).toString("utf8");
+    this.settled = this.truncated
+      ? `${whole}\n[output truncated, exceeded ${this.limitBytes} bytes limit]`
+      : whole;
+    return this.settled;
+  }
 }
 
 function registerCommandChild(targetId: string | undefined, child: ChildProcess) {
@@ -82,6 +124,8 @@ export function runSshCommandProcess(input: SshCommandInput): Promise<SshExecuti
   const { command, args, env, targetId, runtimeConfig } = input;
   const timeoutMs = runtimeConfig.executionTimeoutMs;
   const outputLimitBytes = runtimeConfig.outputLimitBytes;
+  // Grace window between SIGTERM and SIGKILL escalation on timeout.
+  const SIGKILL_GRACE_MS = 5_000;
 
   return new Promise<SshExecutionResult>((resolve, reject) => {
     const child = spawn(command, args, {
@@ -90,24 +134,45 @@ export function runSshCommandProcess(input: SshCommandInput): Promise<SshExecuti
     });
     registerCommandChild(targetId, child);
 
-    let stdout = "";
-    let stderr = "";
+    const stdoutCollector = new BoundedOutputCollector(outputLimitBytes);
+    const stderrCollector = new BoundedOutputCollector(outputLimitBytes);
     let timedOut = false;
+    let closed = false;
+    let killTimer: NodeJS.Timeout | null = null;
+
+    const clearTimers = () => {
+      clearTimeout(timeout);
+      if (killTimer) {
+        clearTimeout(killTimer);
+        killTimer = null;
+      }
+    };
+
     const timeout = setTimeout(() => {
       timedOut = true;
-      stderr = appendBoundedOutput(stderr, `\nCommand execution exceeded ${timeoutMs}ms, terminated.`, outputLimitBytes);
+      stderrCollector.push(`\nCommand execution exceeded ${timeoutMs}ms, terminated.`);
       child.kill("SIGTERM");
+      // Escalate to SIGKILL when the child survives SIGTERM (or an orphaned
+      // grandchild still holds the stdio pipes), so the promise always
+      // settles and no child handle leaks.
+      killTimer = setTimeout(() => {
+        if (!closed && child.exitCode === null) {
+          child.kill("SIGKILL");
+        }
+      }, SIGKILL_GRACE_MS);
+      killTimer.unref?.();
     }, timeoutMs);
 
     child.stdout?.on("data", (chunk) => {
-      stdout = appendBoundedOutput(stdout, chunk, outputLimitBytes);
+      stdoutCollector.push(chunk);
     });
     child.stderr?.on("data", (chunk) => {
-      stderr = appendBoundedOutput(stderr, chunk, outputLimitBytes);
+      stderrCollector.push(chunk);
     });
 
     child.on("error", (error) => {
-      clearTimeout(timeout);
+      closed = true;
+      clearTimers();
       unregisterCommandChild(targetId, child);
       if (
         command === "sshpass" &&
@@ -115,22 +180,22 @@ export function runSshCommandProcess(input: SshCommandInput): Promise<SshExecuti
         "code" in error &&
         (error as NodeJS.ErrnoException).code === "ENOENT"
       ) {
-        reject(
-          new Error(
-            "Password connection requires the sshpass tool, but sshpass is not installed on the system. Please install sshpass or switch to SSH key connection.",
-          ),
-        );
+        reject(new Error(t("backend.command.sshpassMissing")));
         return;
       }
       reject(error);
     });
     child.on("close", (code) => {
-      clearTimeout(timeout);
+      closed = true;
+      clearTimers();
       unregisterCommandChild(targetId, child);
       const cancelled = targetId ? consumeCommandTargetCancellation(targetId) : false;
+      if (cancelled) {
+        stderrCollector.push("\nCommand has been cancelled; SSH subprocess terminated.");
+      }
       resolve({
-        stdout,
-        stderr: cancelled ? appendBoundedOutput(stderr, "\nCommand has been cancelled; SSH subprocess terminated.", outputLimitBytes) : stderr,
+        stdout: stdoutCollector.finish(),
+        stderr: stderrCollector.finish(),
         exitCode: cancelled ? 130 : timedOut ? 124 : (code ?? 255),
         timedOut,
         cancelled,

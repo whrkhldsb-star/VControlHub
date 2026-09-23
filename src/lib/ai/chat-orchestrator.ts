@@ -21,8 +21,15 @@ import { createMessage, getConversationById, sendChatRequest } from "./service";
 
 const logger = createLogger("ai:chat");
 const encoder = new TextEncoder();
-const PRIMARY_STREAM_TIMEOUT_MS = 90_000;
-const TOOL_FOLLOW_UP_TIMEOUT_MS = 30_000;
+/**
+ * Stream watchdogs use idle semantics, not total duration: a healthy long
+ * reply can stream for many minutes, and the old 90s/30s total caps truncated
+ * it mid-sentence. A stall (no chunk for IDLE) or a hard hang (TOTAL) is still
+ * bounded — 10 minutes comfortably exceeds any provider's max generation time.
+ */
+const PRIMARY_STREAM_IDLE_TIMEOUT_MS = 90_000;
+const TOOL_FOLLOW_UP_IDLE_TIMEOUT_MS = 60_000;
+const STREAM_TOTAL_TIMEOUT_MS = 10 * 60_000;
 
 type ToolResult = {
   toolCallId: string;
@@ -266,7 +273,8 @@ function createStreamingResponse(input: {
           providerType: input.providerType,
           onEvent: (event: ChatStreamEvent) => send(event),
           signal: abortController.signal,
-          timeoutMs: PRIMARY_STREAM_TIMEOUT_MS,
+          idleTimeoutMs: PRIMARY_STREAM_IDLE_TIMEOUT_MS,
+          totalTimeoutMs: STREAM_TOTAL_TIMEOUT_MS,
         });
         if (cancelled) {
           const persisted = await persistInterruptedAssistant(input);
@@ -362,7 +370,8 @@ function createStreamingResponse(input: {
                 providerType: followUp.providerType,
                 onEvent: (event: ChatStreamEvent) => send(event),
                 signal: abortController.signal,
-                timeoutMs: TOOL_FOLLOW_UP_TIMEOUT_MS,
+                idleTimeoutMs: TOOL_FOLLOW_UP_IDLE_TIMEOUT_MS,
+                totalTimeoutMs: STREAM_TOTAL_TIMEOUT_MS,
               });
               if (followUpResult.content || followUpResult.reasoning) {
                 await prisma.aiMessage.create({

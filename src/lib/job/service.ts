@@ -9,6 +9,8 @@ export {
 } from "./service-lifecycle";
 export {
   pruneCompletedJobsByType,
+  pruneTerminalJobs,
+  pruneTerminalJobsByType,
   recoverStaleRunningJobs,
 } from "./service-maintenance";
 export type {
@@ -17,4 +19,6 @@ export type {
   JobPayload,
   JobResult,
   PruneCompletedJobsByTypeOptions,
+  PruneTerminalJobsByTypeOptions,
+  PruneTerminalJobsOptions,
 } from "./service-internals";

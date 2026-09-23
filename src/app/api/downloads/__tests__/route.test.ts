@@ -422,7 +422,7 @@ describe("/api/downloads", () => {
   });
 
   it("checks storage path grants before creating a download task", async () => {
-    assertStorageAccessMock.mockResolvedValueOnce({ allowed: false, reason: "没有该存储节点或路径的访问授权" });
+    assertStorageAccessMock.mockResolvedValueOnce({ allowed: false, reason: "没有此存储节点或路径的访问授权" });
 
     const response = await POST(request({
       url: "https://example.com/file.iso",
@@ -432,7 +432,7 @@ describe("/api/downloads", () => {
     }));
 
     expect(response.status).toBe(403);
-    await expect(response.json()).resolves.toMatchObject({ error: "没有该存储节点或路径的访问授权" });
+    await expect(response.json()).resolves.toMatchObject({ error: "没有此存储节点或路径的访问授权" });
     expect(assertStorageAccessMock).toHaveBeenCalledWith(expect.objectContaining({
       session,
       storageNodeId: "store_1",
@@ -860,7 +860,7 @@ describe("/api/downloads", () => {
       targetPath: "/srv/cloud/private/file.iso",
       server: { ...serverFixture(), storageNode: { id: "store_1", basePath: "/srv/cloud" } },
     });
-    assertStorageAccessMock.mockResolvedValueOnce({ allowed: false, reason: "没有该存储节点或路径的访问授权" });
+    assertStorageAccessMock.mockResolvedValueOnce({ allowed: false, reason: "没有此存储节点或路径的访问授权" });
 
     const response = await PATCH(new Request("https://example.com/api/downloads", {
       method: "PATCH",
@@ -891,7 +891,7 @@ describe("/api/downloads", () => {
       targetPath: "/srv/cloud/private/file.iso",
       server: { ...serverFixture(), storageNode: { id: "store_1", basePath: "/srv/cloud" } },
     });
-    assertStorageAccessMock.mockResolvedValueOnce({ allowed: false, reason: "没有该存储节点或路径的访问授权" });
+    assertStorageAccessMock.mockResolvedValueOnce({ allowed: false, reason: "没有此存储节点或路径的访问授权" });
 
     const response = await DELETE(new Request("https://example.com/api/downloads?taskId=task_private", { method: "DELETE" }));
 

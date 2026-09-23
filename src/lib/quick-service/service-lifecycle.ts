@@ -8,7 +8,8 @@
  * validation, audit writer, op lock) now live in `./service-internals`
  * and are imported here.
  */
-import { execFileSync } from "child_process";
+import { execFile } from "child_process";
+import { promisify } from "node:util";
 
 import { prisma } from "@/lib/db";
 import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
@@ -37,6 +38,7 @@ import type { ServiceTemplate } from "./types";
 import { createLogger } from "@/lib/logging";
 
 const qsLogger = createLogger("quick-service-lifecycle");
+const runFile = promisify(execFile);
 
 const { rmSync } = __internals;
 
@@ -405,12 +407,12 @@ export async function syncServiceStatus(slug: string, instanceKey: string = HUB_
 	}
 }
 
-export function checkPort(port: number): { available: boolean; usedBy: string | null } {
+export async function checkPort(port: number): Promise<{ available: boolean; usedBy: string | null }> {
 	if (!Number.isInteger(port) || port < 1 || port > 65535) {
 		return { available: false, usedBy: null };
 	}
 	try {
-		const found = findPortLine(readListeningSockets(), port);
+		const found = findPortLine(await readListeningSockets(), port);
 		if (found) {
 			const pidMatch = found.match(/pid=(\d+)/);
 			let usedBy = "Unknown process";
@@ -418,11 +420,11 @@ export function checkPort(port: number): { available: boolean; usedBy: string | 
 				const pid = pidMatch[1]!;
 				if (!/^\d+$/.test(pid)) throw new ValidationError(t("backend.quick-service.invalidPid"));
 				try {
-					const cmdLine = execFileSync("tr", ["\0", " ", `/proc/${pid}/cmdline`], {
+					const { stdout } = await runFile("tr", ["\0", " ", `/proc/${pid}/cmdline`], {
 						timeout: 3000,
 						encoding: "utf8",
 					});
-					usedBy = cmdLine.trim().substring(0, 80) || `PID ${pid}`;
+					usedBy = String(stdout).trim().substring(0, 80) || `PID ${pid}`;
 				} catch {
 					// /proc/<pid>/cmdline unreadable (process exited, permission) — use PID as label.
 					usedBy = `PID ${pid}`;

@@ -18,6 +18,7 @@ import { IMAGE_UPLOAD_LIMIT } from "@/lib/http/rate-limit-presets";
 import { mimeTypeFromExt, UPLOAD_DIR } from "@/lib/image-bed/constants";
 import { logError } from "@/lib/logging";
 import { assertStorageAccess } from "@/lib/storage/access-control";
+import { statBackingObject } from "@/lib/storage/fs-backend";
 import { readStorageFileBuffer, storageFileNodeSelect } from "@/lib/storage/file-content";
 import { IMAGE_EXTENSIONS } from "@/lib/storage/mime-constants";
 import { extractMetadata } from "@/lib/image/service";
@@ -87,6 +88,17 @@ export async function POST(request: Request) {
       });
       if (!readAccess.allowed) {
         throw new ForbiddenError(readAccess.reason);
+      }
+
+      // Size pre-check BEFORE buffering the file: reading a multi-GB storage
+      // object into memory only to reject it over the cap would OOM the route.
+      // statBackingObject is metadata-only (fs.stat / sftp.stat).
+      const sourceStat = await statBackingObject({
+        storageNode,
+        relativePath,
+      });
+      if (sourceStat && sourceStat.size > MAX_IMAGE_BYTES) {
+        throw new ValidationError(t("api.image.fileTooLarge", locale));
       }
 
       // Read file from storage after the exact storage path has been authorized.

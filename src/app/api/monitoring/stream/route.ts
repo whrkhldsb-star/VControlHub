@@ -25,16 +25,32 @@ const MAX_SSE_CONNECTIONS_PER_USER = 3;
 const MAX_SSE_CONNECTION_AGE_MS = 30 * 60_000;
 const MIN_COLLECT_INTERVAL_MS = 5_000;
 const activeConnectionsByUser = new Map<string, number>();
-let cachedStats: ReturnType<typeof collectMonitoringStats> | null = null;
+type MonitoringStats = Awaited<ReturnType<typeof collectMonitoringStats>>;
+let cachedStats: MonitoringStats | null = null;
 let cachedStatsAt = 0;
+let inflightStats: Promise<MonitoringStats> | null = null;
 
-function getSharedMonitoringStats() {
+/**
+ * Shared async sampler. Collection is now async (Windows spawns PowerShell /
+ * netstat via execFile), so concurrent SSE connections share one in-flight
+ * collection instead of each spawning their own child processes.
+ */
+function getSharedMonitoringStats(): Promise<MonitoringStats> {
   const now = Date.now();
-  if (!cachedStats || now - cachedStatsAt >= MIN_COLLECT_INTERVAL_MS) {
-    cachedStats = collectMonitoringStats();
-    cachedStatsAt = now;
+  if (cachedStats && now - cachedStatsAt < MIN_COLLECT_INTERVAL_MS) {
+    return Promise.resolve(cachedStats);
   }
-  return cachedStats;
+  if (inflightStats) return inflightStats;
+  inflightStats = collectMonitoringStats()
+    .then((stats) => {
+      cachedStats = stats;
+      cachedStatsAt = Date.now();
+      return stats;
+    })
+    .finally(() => {
+      inflightStats = null;
+    });
+  return inflightStats;
 }
 
 // ---- SSE Route ----
@@ -91,24 +107,25 @@ export async function GET(request: Request) {
             return;
           }
 
-          function sendStats(initial = false) {
+          async function sendStats() {
             if (released || (controller.desiredSize ?? 0) <= 0) return;
             try {
-              const data = getSharedMonitoringStats();
+              const data = await getSharedMonitoringStats();
+              if (released || (controller.desiredSize ?? 0) <= 0) return;
               controller.enqueue(encoder.encode(`event: stats\ndata: ${JSON.stringify(data)}\n\n`));
             } catch (error) {
               release();
-              if (initial) throw error;
+              // start() has already returned by the time an async collect
+              // fails, so the consumer is signalled through the stream itself.
               try { controller.error(error); } catch { /* already closed */ }
             }
           }
 
           // Send initial snapshot immediately.
-          sendStats(true);
-          if (released) return;
+          void sendStats();
 
-				timer = setInterval(() => {
-            sendStats();
+					timer = setInterval(() => {
+            void sendStats();
           }, intervalSeconds * 1000);
 
           // Keep-alive comment every 15s to prevent idle proxy close.

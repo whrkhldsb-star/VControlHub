@@ -133,6 +133,11 @@ export function useTextPreviewController(options: {
 
   useEffect(() => {
     let cancelled = false;
+    // Abort obsolete reads: rapid file switching would otherwise keep the
+    // previous href's SFTP read running server-side (the cancelled flag only
+    // suppresses stale setState). Every sibling hook aborts properly — this
+    // one was the outlier.
+    const controller = new AbortController();
     const load = async () => {
       try {
         let content: string;
@@ -146,6 +151,7 @@ export function useTextPreviewController(options: {
               draft?: EditableDraft;
             }>("/api/storage/sftp-ops", {
               method: "POST",
+              signal: controller.signal,
               body: JSON.stringify({
                 action: "read",
                 nodeId,
@@ -164,7 +170,9 @@ export function useTextPreviewController(options: {
             // editor's save would silently overwrite this one's work.
             nextDraftVersion = { lastModifiedMs: data.lastModifiedMs ?? null };
           } else {
-            const data = await csrfFetch<{ draft: EditableDraft }>(`/api/files/editable/${fileEntryId}`);
+            const data = await csrfFetch<{ draft: EditableDraft }>(`/api/files/editable/${fileEntryId}`, {
+              signal: controller.signal,
+            });
             content = data.draft.content;
             nextDraftVersion = {
               updatedAt: data.draft.updatedAt,
@@ -172,7 +180,7 @@ export function useTextPreviewController(options: {
             };
           }
         } else {
-          const res = await csrfFetch<Response>(href, { raw: true });
+          const res = await csrfFetch<Response>(href, { raw: true, signal: controller.signal });
           if (!res.ok) {
             throw new Error(
               t("textPreview.error.loadFailedStatus", { status: res.status }),
@@ -186,7 +194,9 @@ export function useTextPreviewController(options: {
           setDraftVersion(nextDraftVersion);
         }
       } catch (err) {
-        if (!cancelled) {
+        // An aborted request is this effect's own cleanup, not a user-visible
+        // error — the replacement load will set the real state.
+        if (!cancelled && !(err instanceof DOMException && err.name === "AbortError")) {
           setState({
             loading: false,
             content: null,
@@ -198,6 +208,7 @@ export function useTextPreviewController(options: {
     void load();
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [href, fileEntryId, canEdit, driver, nodeId, relativePath, loadVersion, t]);
 

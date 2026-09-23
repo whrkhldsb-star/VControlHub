@@ -89,6 +89,13 @@ type SessionTokenEnvelope = SessionPayload & {
    * invalidate every other session of that account.
    */
   cfp?: string;
+  /**
+   * Session-revocation epoch (`User.sessionEpoch`) at mint time. Advancing the
+   * column (2FA enable/disable, "sign out everywhere") invalidates every token
+   * carrying an older epoch. Missing on pre-epoch tokens and read as 0, which
+   * matches the column default, so the upgrade does not force a mass re-login.
+   */
+  sep?: number;
 };
 
 /**
@@ -153,6 +160,19 @@ export function getSessionCookieName() {
   return config.auth.sessionCookieName || `${getAppSlug()}_session`;
 }
 
+/**
+ * Advance the account's session-revocation epoch. Every session token minted
+ * against an older epoch stops verifying on its next request — the "sign out
+ * everywhere" primitive, and the hook 2FA enable/disable uses so a cookie
+ * stolen before 2FA cannot outlive the upgrade.
+ */
+export async function bumpUserSessionEpoch(userId: string): Promise<void> {
+  await prisma.user.update({
+    where: { id: userId },
+    data: { sessionEpoch: { increment: 1 } },
+  });
+}
+
 function getSessionIdentity() {
   const appSlug = getAppSlug();
   const issuer = config.auth.sessionIssuer || appSlug;
@@ -168,7 +188,7 @@ export async function createSessionToken(payload: SessionPayload, options: { rem
   // keeps working unchanged. This runs once per login, not per request.
   const credentialOwner = await prisma.user.findUnique({
     where: { id: payload.userId },
-    select: { passwordHash: true },
+    select: { passwordHash: true, sessionEpoch: true },
   });
   const envelope: SessionTokenEnvelope = {
     ...payload,
@@ -177,6 +197,7 @@ export async function createSessionToken(payload: SessionPayload, options: { rem
     iat: now,
     exp: now + ttlMs,
     ...(credentialOwner ? { cfp: credentialFingerprint(credentialOwner.passwordHash) } : {}),
+    sep: credentialOwner?.sessionEpoch ?? 0,
   };
 
   const encodedPayload = encodeBase64Url(JSON.stringify(envelope));
@@ -230,6 +251,7 @@ export async function verifySessionToken(token: string) {
      username: true,
      status: true,
      mustChangePassword: true,
+     sessionEpoch: true,
      // The tenant pointer is resolved through the relation rather than the raw
      // `currentTeamId` column, so the membership check rides along in the same
      // round trip — see where `currentTeamId` is computed below.
@@ -257,6 +279,16 @@ export async function verifySessionToken(token: string) {
  // carry no fingerprint, and honouring them would keep the hole open for the
  // rest of their TTL. The visible effect is a one-time re-login on upgrade.
  if (payload.cfp !== credentialFingerprint(user.passwordHash)) {
+   throw new AuthError(t("backend.auth.sessionCredentialsChanged"));
+ }
+
+ // Same fail-closed check for the revocation epoch. Unlike `cfp`, a missing
+ // `sep` maps to the column default (0) rather than rejecting: every existing
+ // user row starts at 0, so pre-epoch tokens stay valid and the upgrade is
+ // invisible. The first `bumpUserSessionEpoch` retires them all at once.
+ // (`user.sessionEpoch ?? 0` only smooths partial rows — the column itself
+ // is NOT NULL DEFAULT 0 after the migration.)
+ if ((payload.sep ?? 0) !== (user.sessionEpoch ?? 0)) {
    throw new AuthError(t("backend.auth.sessionCredentialsChanged"));
  }
 

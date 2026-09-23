@@ -1,10 +1,10 @@
-import { Prisma } from "@prisma/client";
+import { JobStatus, Prisma } from "@prisma/client";
 
 import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
 import { runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
 import { computeLeaseMs } from "@/lib/job/lease";
-import { claimNextJob, completeJob, failJob, failJobTerminal, heartbeatJob } from "@/lib/job/service";
+import { claimNextJob, completeJob, failJob, failJobTerminal, heartbeatJob, pruneTerminalJobsByType } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
 import { auditSystemAction } from "@/lib/audit/service";
 
@@ -35,6 +35,11 @@ export class PlaybookAuthorizationError extends Error {
 const WORKER_ID = `${config.app.hostname || "vcontrolhub"}:playbook-run:${process.pid}`;
 const LEASE_MS = computeLeaseMs("playbook-run");
 const logger = createLogger("playbook-run-worker");
+// Durable playbook chains run frequently (every alert rule with playbooks can
+// spawn one); keep only the newest COMPLETED rows so the jobs table stays
+// bounded. FAILED/CANCELLED rows keep their 30d window via the job-maintenance
+// terminal sweep (pruneTerminalJobs).
+const PLAYBOOK_RUN_KEEP_LATEST = 25;
 
 type Payload = { runId: string };
 type ExecutionState = { schemaVersion: 1; stepsSnapshot: PlaybookStep[] };
@@ -270,7 +275,23 @@ export async function runPlaybookRunWorkerOnce(): Promise<boolean> {
   state.running = true;
   try {
     const job = await claimNextJob({ workerId: WORKER_ID, types: [PLAYBOOK_RUN_JOB_TYPE], leaseMs: LEASE_MS });
-    return job ? handleJob(job) : false;
+    if (!job) return false;
+    const handled = await handleJob(job);
+    // Runs on both the success and the failure path (handleJob always resolves
+    // the job to a terminal state or requeues it); best-effort so a prune
+    // hiccup never masks the real job outcome.
+    try {
+      await pruneTerminalJobsByType({
+        type: PLAYBOOK_RUN_JOB_TYPE,
+        statuses: [JobStatus.COMPLETED],
+        keepLatest: PLAYBOOK_RUN_KEEP_LATEST,
+      });
+    } catch (pruneError) {
+      logger.warn("Failed to prune playbook.run completed jobs", {
+        error: pruneError instanceof Error ? pruneError.message : String(pruneError),
+      });
+    }
+    return handled;
   } finally {
     state.running = false;
   }

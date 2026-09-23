@@ -9,6 +9,7 @@ import type { SessionPayload } from "@/lib/auth/session";
 import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { assertStorageAccess, releaseStorageQuotaGuard } from "@/lib/storage/access-control";
+import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { logError } from "@/lib/logging";
 import { snapshotFileVersionBeforeOverwrite } from "@/lib/storage/file-versions";
 import {
@@ -222,7 +223,7 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
   });
   if (!accessDecision.allowed) {
     return NextResponse.json(
-      { error: accessDecision.reason ?? t("api.storage.writeDenied", locale) },
+      { error: storageAccessDeniedCopy(accessDecision.reason, locale) },
       { status: 403 },
     );
   }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -7,6 +8,7 @@ import { enqueueJob } from "@/lib/job/service";
 import { SFTP_SYNC_JOB_TYPE } from "@/lib/storage/sftp-sync-job";
 
 import { assertStorageAccess } from "@/lib/storage/access-control";
+import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { AuthError, NotFoundError } from "@/lib/errors";
 import { auditUserAction } from "@/lib/audit/service";
 import {
@@ -67,7 +69,9 @@ export async function POST(request: Request) {
         normalizedRelativePath = normalizeRemoteRelativePath(remotePath);
       } catch {
         return NextResponse.json(
-          toClientStorageError("Sync path exceeds the storage node root directory"),
+          toClientStorageError(
+            apiCopy("apiCopy.requested.path.exceeds.storage.node.root.directory.d786fee2"),
+          ),
           { status: 400 },
         );
       }
@@ -80,7 +84,7 @@ export async function POST(request: Request) {
       });
       if (!accessDecision.allowed) {
         return NextResponse.json(
-          { error: accessDecision.reason ?? t("api.storage.accessDenied", locale) },
+          { error: storageAccessDeniedCopy(accessDecision.reason, locale) },
           { status: 403 },
         );
       }

@@ -3,17 +3,6 @@ import { APP_TIME_ZONE } from "./time-zone";
 
 export { APP_TIME_ZONE } from "./time-zone";
 
-const dateTimeFormatter = new Intl.DateTimeFormat("zh-CN", {
-  timeZone: APP_TIME_ZONE,
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-  second: "2-digit",
-  hour12: false,
-});
-
 // Locale-aware formatter cache — fixed keys only (date/time/datetime × locale).
 // Avoids unbounded growth from ad-hoc option object literals.
 type FormatterKind = "date" | "time" | "datetime" | "short-date" | "short-time";
@@ -67,11 +56,6 @@ function toDate(value: Date | string | number | null | undefined) {
   if (value === null || value === undefined || value === "") return null;
   const date = value instanceof Date ? value : new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
-}
-
-export function formatZhDateTime(value: Date | string | number | null | undefined, fallback = "—") {
-  const date = toDate(value);
-  return date ? dateTimeFormatter.format(date) : fallback;
 }
 
 /** Locale-aware date-time format */

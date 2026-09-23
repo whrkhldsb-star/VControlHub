@@ -98,6 +98,7 @@ vi.mock("@/lib/db", () => ({
       count: backupFailureCountMock,
     },
     aiOpsLog: {
+      findFirst: vi.fn(async () => null),
       create: vi.fn(({ data }: { data: Record<string, unknown> }) => {
         const id = `log_${Date.now()}_${Math.random().toString(16).slice(2)}`;
         return Promise.resolve({
@@ -158,16 +159,33 @@ import {
   startAiOpsScanWorker,
   stopAiOpsScanWorkerForTests,
 } from "../scan-worker";
+import { APP_TIME_ZONE } from "@/lib/datetime/time-zone";
 import { prisma } from "@/lib/db";
 
 describe("millisecondsUntilNextLocalHour", () => {
-  it("targets the next local schedule time before and after the daily hour", () => {
+  // APP_TIME_ZONE is Asia/Shanghai (UTC+8, no DST) — 02:00 wall clock is
+  // 18:00 UTC of the previous day. Build instants in UTC so the expectation
+  // holds regardless of the test host's local timezone.
+  it("targets the next schedule hour in APP_TIME_ZONE before and after the daily hour", () => {
+    // 01:30 Shanghai (17:30 UTC) → 30min until 02:00 Shanghai (18:00 UTC).
     expect(
-      millisecondsUntilNextLocalHour(2, new Date(2026, 5, 17, 1, 30)),
+      millisecondsUntilNextLocalHour(2, new Date("2026-06-16T17:30:00Z")),
     ).toBe(30 * 60 * 1000);
+    // 02:30 Shanghai (18:30 UTC) → 23.5h until tomorrow's 02:00 Shanghai.
     expect(
-      millisecondsUntilNextLocalHour(2, new Date(2026, 5, 17, 2, 30)),
+      millisecondsUntilNextLocalHour(2, new Date("2026-06-16T18:30:00Z")),
     ).toBe(23.5 * 60 * 60 * 1000);
+  });
+
+  it("is independent of the host's local timezone (uses APP_TIME_ZONE)", () => {
+    expect(APP_TIME_ZONE).toBe("Asia/Shanghai");
+    // Same instant as above expressed via a different host-local reading:
+    // regardless of how the host renders it, the target instant is 18:00 UTC.
+    const now = new Date("2026-06-16T17:30:00Z");
+    const ms = millisecondsUntilNextLocalHour(2, now);
+    expect(new Date(now.getTime() + ms).toISOString()).toBe(
+      "2026-06-16T18:00:00.000Z",
+    );
   });
 });
 
@@ -300,5 +318,50 @@ describe("startAiOpsScanWorker / stopAiOpsScanWorkerForTests", () => {
     // Same state reference.
     expect(a).toBe(b);
     stopAiOpsScanWorkerForTests();
+  });
+
+  it("skips the startup scan when a scan completed within the guard window", async () => {
+    const aiOpsLogFindFirst = prisma.aiOpsLog.findFirst as ReturnType<typeof vi.fn>;
+    aiOpsLogFindFirst.mockReset();
+    aiOpsLogFindFirst.mockResolvedValueOnce({
+      id: "log_recent",
+      completedAt: new Date(Date.now() - 60 * 60 * 1000),
+    });
+    jobMocks.enqueueJob.mockClear();
+
+    await startAiOpsScanWorker();
+    // startAiOpsScanWorker fires the guard chain un-awaited; flush microtasks
+    // so the assertions observe the settled outcome.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    stopAiOpsScanWorkerForTests();
+
+    expect(aiOpsLogFindFirst).toHaveBeenCalledTimes(1);
+    expect(aiOpsLogFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          status: { in: ["ok", "warning"] },
+        }),
+        orderBy: { completedAt: "desc" },
+      }),
+    );
+    // No scan job was enqueued for the startup reason.
+    expect(jobMocks.enqueueJob).not.toHaveBeenCalled();
+  });
+
+  it("runs the startup scan when the last successful scan is older than the guard window", async () => {
+    const aiOpsLogFindFirst = prisma.aiOpsLog.findFirst as ReturnType<typeof vi.fn>;
+    aiOpsLogFindFirst.mockReset();
+    aiOpsLogFindFirst.mockResolvedValueOnce(null);
+    jobMocks.enqueueJob.mockClear();
+
+    await startAiOpsScanWorker();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    stopAiOpsScanWorkerForTests();
+
+    expect(jobMocks.enqueueJob).toHaveBeenCalledTimes(1);
+    const payload = jobMocks.enqueueJob.mock.calls[0]?.[0] as {
+      payload?: { reason?: string };
+    };
+    expect(payload?.payload?.reason).toBe("startup");
   });
 });

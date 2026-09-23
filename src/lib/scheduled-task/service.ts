@@ -294,7 +294,7 @@ export async function retryScheduledTask(
 	const task = await getScheduledTaskForSession(id, session);
 	if (!task) throw new NotFoundError(t("backend.scheduled-task.scheduledTaskNotFound"));
 	if (task.serverIds.length === 0 || !task.createdById) {
-		await recordTaskRun(task.id, "Manual retry failed: no target server or no creator");
+		await recordTaskRun(task.id, t("backend.scheduled-task.manualRetryMissingTargetOrCreator"), "failed");
 		throw new BusinessError(t("backend.scheduled-task.scheduledTaskMissingTargetServerOrCreatorCannot"));
 	}
 
@@ -402,17 +402,46 @@ export async function reconcileScheduledTaskRuns(limit = 500) {
 	return { inspected: pendingRuns.length, reconciled };
 }
 
-export async function recordTaskRun(id: string, result: string) {
+/**
+ * Structured outcome for {@link recordTaskRun}. The human-readable `result`
+ * string is localised and must never be parsed back to detect failure — the
+ * old `startsWith("Execution failed")` checks silently stopped matching the
+ * moment the copy changed language or wording.
+ */
+export type ScheduledTaskRunOutcome = "completed" | "failed" | "skipped";
+
+/**
+ * Whether the previous *recorded* run of a task failed, from the structured
+ * ScheduledTaskRun.status column (the same source reconcile uses). Returns
+ * false when no run row exists — a task that only ever failed at dispatch
+ * (no CommandRequest → no run row) cannot have "two consecutive" failures.
+ */
+async function wasPreviousRunFailed(taskId: string): Promise<boolean> {
+	const previous = await prisma.scheduledTaskRun.findFirst({
+		where: { scheduledTaskId: taskId, completedAt: { not: null } },
+		orderBy: { dispatchedAt: "desc" },
+		select: { status: true },
+	});
+	if (!previous) return false;
+	return previous.status !== "COMPLETED";
+}
+
+export async function recordTaskRun(
+	id: string,
+	result: string,
+	outcome: ScheduledTaskRunOutcome = "completed",
+) {
 	const task = await prisma.scheduledTask.findUnique({
 		where: { id },
-		select: { name: true, cronExpression: true, scheduleType: true, runCount: true, createdById: true, lastResult: true, teamId: true },
+		select: { name: true, cronExpression: true, scheduleType: true, runCount: true, createdById: true, teamId: true },
 	});
 	if (!task) return;
 
-	// Detect consecutive failures and notify the creator
-	const isFailure = result.startsWith("Execution failed") || result.startsWith("Manual retry failed");
-	if (isFailure && task.createdById) {
-		const prevWasFailure = task.lastResult?.startsWith("Execution failed") || task.lastResult?.startsWith("Manual retry failed");
+	// Detect consecutive failures and notify the creator. Failure comes from
+	// the structured `outcome` (current run) + ScheduledTaskRun.status
+	// (previous run) — not from parsing the localised result string.
+	if (outcome === "failed" && task.createdById) {
+		const prevWasFailure = await wasPreviousRunFailed(id);
 		if (prevWasFailure) {
 			// At least 2 consecutive failures (current + previous) — fire alert
 			notifyTaskConsecutiveFailed(task.createdById, task.name, 2, result.slice(0, 200), task.teamId).catch((err) => { taskLogger.warn("notifyTaskConsecutiveFailed failed", { error: err instanceof Error ? err.message : String(err) }); });

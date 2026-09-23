@@ -1,6 +1,6 @@
 # VControlHub RBAC Audit Report
 
-> Generated: 2026-09-22T04:31:32.603Z | Permissions: 54 | Roles: 4 | API routes: 185 | Pages: 55 | Drift: 0
+> Generated: 2026-09-23T12:09:33.336Z | Permissions: 54 | Roles: 4 | API routes: 185 | Pages: 55 | Drift: 0
 
 This report cross-references four RBAC sources of truth:
 1. `src/lib/auth/rbac.ts` — `PERMISSIONS` tuple + `DEFAULT_ROLE_PERMISSIONS` map

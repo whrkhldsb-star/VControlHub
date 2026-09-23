@@ -1,7 +1,9 @@
 /**
  * TR-032 E02: Smart AI ops — daily scan worker.
  *
- * Schedules a `ai.ops.scan` durable job for the next local 02:00. The scan logic
+ * Schedules a `ai.ops.scan` durable job for the next 02:00 in APP_TIME_ZONE
+ * (the deployment's wall clock, not the host's local zone — see
+ * src/lib/datetime/time-zone.ts). The scan logic
  * (calling the AI provider, collecting findings) is intentionally
  * minimal for v1: it surfaces known system-health signals (CPU, memory,
  * disk, alert-rule noise) and writes a `AiOpsLog` row so the UI has
@@ -18,6 +20,7 @@
 import { prisma } from "@/lib/db";
 import { config } from "@/lib/config/env";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
+import { APP_TIME_ZONE, zonedDateTimeToDate } from "@/lib/datetime/time-zone";
 import { runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
 import { computeLeaseMs } from "@/lib/job/lease";
 import {
@@ -641,29 +644,124 @@ export async function startAiOpsScanWorker() {
   if (state.started) return state;
   state.started = true;
 
-  void runAiOpsScanWorkerOnce("startup").catch((error) => {
-    logger.error("AI ops scan worker tick failed", {
-      reason: "startup",
-      error: error instanceof Error ? error.message : String(error),
-    });
-  });
+  // A restart must not re-bill a provider call for a scan that just ran (the
+  // worker used to fire a real scan on every boot). Skip when a scan already
+  // completed within the guard window; the next scheduled slot still runs.
+  void maybeRunStartupScan();
   scheduleNextAiOpsScan();
 
   logger.info("AI ops scan durable job worker started", {
     workerId: AI_OPS_SCAN_WORKER_ID,
     scheduleHourLocal: AI_OPS_DEFAULT_SCHEDULE_HOUR,
+    timeZone: APP_TIME_ZONE,
   });
   return state;
+}
+
+/** How recently a successful scan may have completed for the startup run to skip. */
+const AI_OPS_STARTUP_SKIP_WITHIN_MS = 6 * 60 * 60 * 1000;
+
+async function maybeRunStartupScan() {
+  try {
+    const recent = await prisma.aiOpsLog.findFirst({
+      where: {
+        status: { in: ["ok", "warning"] },
+        completedAt: { gte: new Date(Date.now() - AI_OPS_STARTUP_SKIP_WITHIN_MS) },
+      },
+      select: { id: true, completedAt: true },
+      orderBy: { completedAt: "desc" },
+    });
+    if (recent) {
+      logger.info("AI ops startup scan skipped; a scan completed recently", {
+        lastCompletedAt: recent.completedAt?.toISOString() ?? null,
+        withinMs: AI_OPS_STARTUP_SKIP_WITHIN_MS,
+      });
+      return;
+    }
+  } catch (error) {
+    // A guard lookup failure must not suppress the scheduled scan cadence —
+    // fall through and run the startup scan as before.
+    logger.warn("AI ops startup-scan guard lookup failed; running startup scan", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+  await runAiOpsScanWorkerOnce("startup").catch((error) => {
+    logger.error("AI ops scan worker tick failed", {
+      reason: "startup",
+      error: error instanceof Error ? error.message : String(error),
+    });
+  });
+}
+
+/**
+ * Wall-clock fields of `now` rendered in APP_TIME_ZONE, so the daily schedule
+ * fires at the same civil hour regardless of the host's local zone (a UTC host
+ * used to scan at 02:00 UTC = 10:00 Beijing).
+ */
+function wallClockInAppTimeZone(now: Date): {
+  year: number;
+  month: number;
+  day: number;
+} {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: APP_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(now);
+  const record: Record<string, number> = {};
+  for (const part of parts) {
+    if (part.type !== "literal") record[part.type] = Number(part.value);
+  }
+  return {
+    year: record.year!,
+    month: record.month!,
+    day: record.day!,
+  };
+}
+
+const APP_TIME_ZONE_WALL_CLOCK_RE = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/;
+
+function instantOfWallClock(
+  year: number,
+  month: number,
+  day: number,
+  hour: number,
+): Date | null {
+  const value = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}T${String(hour).padStart(2, "0")}:00`;
+  if (!APP_TIME_ZONE_WALL_CLOCK_RE.test(value)) return null;
+  try {
+    return zonedDateTimeToDate(value);
+  } catch {
+    // Nonexistent wall-clock time (DST spring-forward) — treat as unschedulable.
+    return null;
+  }
 }
 
 export function millisecondsUntilNextLocalHour(
   hour: number,
   now = new Date(),
 ): number {
-  const next = new Date(now);
-  next.setHours(hour, 0, 0, 0);
-  if (next.getTime() <= now.getTime()) next.setDate(next.getDate() + 1);
-  return next.getTime() - now.getTime();
+  const { year, month, day } = wallClockInAppTimeZone(now);
+  const today = instantOfWallClock(year, month, day, hour);
+  if (today && today.getTime() > now.getTime()) {
+    return today.getTime() - now.getTime();
+  }
+  // Tomorrow's wall-clock date in APP_TIME_ZONE (UTC-safe day arithmetic).
+  const tomorrowUtc = new Date(Date.UTC(year, month - 1, day + 1));
+  const tomorrow = instantOfWallClock(
+    tomorrowUtc.getUTCFullYear(),
+    tomorrowUtc.getUTCMonth() + 1,
+    tomorrowUtc.getUTCDate(),
+    hour,
+  );
+  if (tomorrow) return tomorrow.getTime() - now.getTime();
+  // Unreachable for fixed-offset zones; kept so a DST edge can never wedge the
+  // scheduler (a day of drift is better than no scan at all).
+  return 24 * 60 * 60 * 1000;
 }
 
 function scheduleNextAiOpsScan() {

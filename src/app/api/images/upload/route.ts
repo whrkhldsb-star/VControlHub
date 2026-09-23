@@ -22,6 +22,7 @@ import {
 } from "@/lib/image/service";
 import { logError } from "@/lib/logging";
 import { assertStorageAccess, releaseStorageQuotaGuard } from "@/lib/storage/access-control";
+import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import {
   deleteStorageFileBuffer,
   storageFileNodeSelect,
@@ -248,7 +249,7 @@ async function handleUpload(request: Request, userId: string, session: SessionPa
           writeBytes: buffer.byteLength,
         });
         if (!storageAccess.allowed) {
-          throw new ForbiddenError(storageAccess.reason ?? t("api.image.storageWriteDenied", locale));
+          throw new ForbiddenError(storageAccessDeniedCopy(storageAccess.reason, locale));
         }
         const storageNode = await prisma.storageNode.findFirst({
           where: { id: storageNodeId, ...teamWhere(session) },

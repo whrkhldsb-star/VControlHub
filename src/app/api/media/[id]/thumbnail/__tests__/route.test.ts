@@ -142,9 +142,15 @@ describe("media thumbnail route", () => {
     expect((await call()).status).toBe(415);
   });
 
-  it("returns 403 when storage access is denied", async () => {
-    assertStorageAccessMock.mockResolvedValue({ allowed: false, reason: "no grant" });
-    expect((await call()).status).toBe(403);
+  it("returns 403 with localized copy after a single ACL check when storage access is denied", async () => {
+    assertStorageAccessMock.mockResolvedValue({ allowed: false, reason: "no_access" });
+    const response = await call();
+    expect(response.status).toBe(403);
+    // Denial codes render localized copy — never the raw code or English prose.
+    expect(await response.json()).toMatchObject({
+      error: "没有此存储节点或路径的访问授权",
+    });
+    expect(assertStorageAccessMock).toHaveBeenCalledTimes(1);
   });
 
   it("returns 404 for a media item outside the caller's scope", async () => {
@@ -163,6 +169,9 @@ describe("media thumbnail route", () => {
     const second = await call("media-b");
     expect(second.headers.get("x-thumbnail-placeholder")).toBe("offline");
     expect(connectSshMock).toHaveBeenCalledTimes(2);
+    // Regression: the SFTP branch used to run a SECOND full ACL check after
+    // path normalization — one authorization per request is the contract.
+    expect(assertStorageAccessMock).toHaveBeenCalledTimes(2);
   });
 
   it("never lets a shared cache hold a placeholder for an authenticated media URL", async () => {

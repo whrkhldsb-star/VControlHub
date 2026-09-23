@@ -112,8 +112,10 @@ describe("/api/users/permissions", () => {
       expect.objectContaining({
         where: { id: "user1" },
         select: expect.objectContaining({
+          // Storage nodes are security roots: for non-global actors only the
+          // current team's nodes are offered (null-team nodes quarantined).
           storageAccess: expect.objectContaining({
-            where: { storageNode: { OR: [{ teamId: "team-a" }, { teamId: null }] } },
+            where: { storageNode: { teamId: "team-a" } },
           }),
         }),
       }),
@@ -154,7 +156,7 @@ describe("/api/users/permissions", () => {
     expect(mocks.prisma.userStorageAccess.deleteMany).toHaveBeenCalledWith({
       where: {
         userId: "user1",
-        storageNode: { OR: [{ teamId: "team-a" }, { teamId: null }] },
+        storageNode: { teamId: "team-a" },
       },
     });
     expect(mocks.prisma.userStorageAccess.createMany).toHaveBeenCalled();
@@ -176,7 +178,8 @@ describe("/api/users/permissions", () => {
   });
 
 	it("PATCH checks the active-admin invariant before removing the admin role", async () => {
-		mocks.prisma.role.findMany.mockResolvedValueOnce([{ id: "r1", key: "viewer" }]);
+		// The delegation check reads role.permissions, so the mock must carry it.
+		mocks.prisma.role.findMany.mockResolvedValueOnce([{ id: "r1", key: "viewer", permissions: [] }]);
 		const res = await route.PATCH(new Request("http://local/api/users/permissions", {
 			method: "PATCH",
 			headers: { "content-type": "application/json" },

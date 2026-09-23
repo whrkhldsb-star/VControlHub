@@ -46,7 +46,7 @@ type TerminalAction =
 	| { type: "close"; index: number }
 	| { type: "closeAll" }
 	| { type: "select"; index: number }
-	| { type: "status"; index: number; status: TerminalStatus };
+	| { type: "status"; tabId: string; status: TerminalStatus };
 
 function terminalReducer(state: TerminalState, action: TerminalAction): TerminalState {
 	switch (action.type) {
@@ -91,8 +91,13 @@ function terminalReducer(state: TerminalState, action: TerminalAction): Terminal
 			return { ...state, activeTabIndex: action.index };
 		}
 		case "status": {
-			const { index, status } = action;
-			if (index < 0 || index >= state.tabs.length) return state;
+			// Match by tab id, not array index: a ws.onclose → setStatus →
+			// dispatch that fires between a "close" dispatch and the re-render
+			// would otherwise write the old index — which now points at a
+			// different tab after the shift.
+			const index = state.tabs.findIndex((tab) => tab.id === action.tabId);
+			if (index < 0) return state;
+			const { status } = action;
 			const tab = state.tabs[index]!;
 			if (tab.status === status) return state;
 			const next = [...state.tabs];
@@ -126,8 +131,8 @@ export function SshTerminalProvider({ children }: { children: ReactNode }) {
 		dispatch({ type: "closeAll" });
 	}, []);
 
-	const handleStatusChange = useCallback((index: number, status: TerminalStatus) => {
-		dispatch({ type: "status", index, status });
+	const handleStatusChange = useCallback((tabId: string, status: TerminalStatus) => {
+		dispatch({ type: "status", tabId, status });
 	}, []);
 
 	const value = useMemo<SshTerminalContextValue>(

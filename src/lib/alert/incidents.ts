@@ -619,6 +619,22 @@ export async function resolveOrphanedAlertIncidents(options?: {
  * sweep and escalation to incidents whose rule is visible to that tenant, so one
  * team's "evaluate now" never drives another team's incident lifecycle.
  */
+/**
+ * Keyset filter for {@link escalateOverdueAlertIncidents} pagination. A named
+ * helper (rather than an inline ternary) breaks TypeScript's inference cycle:
+ * the query result feeds the cursor, whose narrowed type would otherwise feed
+ * the very query that produces it (TS7022).
+ */
+function keysetCursorFilter(cursor: { updatedAt: Date; id: string } | null) {
+  if (!cursor) return {};
+  return {
+    OR: [
+      { updatedAt: { gt: cursor.updatedAt } },
+      { updatedAt: cursor.updatedAt, id: { gt: cursor.id } },
+    ],
+  };
+}
+
 export async function escalateOverdueAlertIncidents(options?: {
   ruleTeamWhere?: Record<string, unknown>;
 }): Promise<{ escalated: number; notifyFailures: number; orphansResolved: number }> {
@@ -631,10 +647,21 @@ export async function escalateOverdueAlertIncidents(options?: {
   // Escalations that reached zero channels — the caller/cron can surface this.
   let notifyFailures = 0;
   const nowMs = Date.now();
-  // Paginate until a short page so older rows beyond the first 200 are not starved.
+  // Keyset pagination on (updatedAt, id). The previous skip/limit pagination
+  // iterated an offset while the loop itself MUTATED the ordering key
+  // (escalating an incident stamps lastNotifiedAt/updatedAt, reshuffling the
+  // result set), so rows could shift behind the offset and skip a round.
+  // Keyset ordering also puts just-escalated rows (updatedAt = now) beyond the
+  // cursor, so claimed rows are never revisited within one pass; not-due rows
+  // are passed over exactly once. Safety cap ≈ 4000 rows per pass as before.
+  let cursor: { updatedAt: Date; id: string } | null = null;
   for (let page = 0; page < 20; page += 1) {
     const open = await prisma.alertIncident.findMany({
-      where: { status: "OPEN", ...ruleFilter },
+      where: {
+        status: "OPEN",
+        ...ruleFilter,
+        ...keysetCursorFilter(cursor),
+      },
       include: {
         rule: {
           select: {
@@ -650,8 +677,7 @@ export async function escalateOverdueAlertIncidents(options?: {
         },
       },
       take: 200,
-      skip: page * 200,
-      orderBy: [{ lastNotifiedAt: "asc" }, { createdAt: "asc" }],
+      orderBy: [{ updatedAt: "asc" }, { id: "asc" }],
     });
     if (open.length === 0) break;
 
@@ -723,6 +749,8 @@ export async function escalateOverdueAlertIncidents(options?: {
       escalated += 1;
     }
 
+    const last: { updatedAt: Date; id: string } = open[open.length - 1]!;
+    cursor = { updatedAt: last.updatedAt, id: last.id };
     if (open.length < 200) break;
   }
 

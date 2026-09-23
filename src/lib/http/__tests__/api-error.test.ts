@@ -87,12 +87,17 @@ describe("lib/http/api-error", () => {
 			expect(body.code).toBe("BUSINESS_RULE_FAILED");
 		});
 
-		it("plain Error → fallbackStatus / GENERIC_ERROR for 4xx", async () => {
+		it("plain Error → fallbackStatus / GENERIC_ERROR for 4xx, message masked", async () => {
+			// Plain Errors are internal faults: their messages can carry paths,
+			// SQL fragments and stack context, so they never reach the client
+			// regardless of the route's fallback status. Routes that want to
+			// surface copy for an expected failure throw a typed AppError.
 			const res = apiCatch(new Error("oops"), 400);
 			expect(res.status).toBe(400);
 			const body = await readJson(res);
 			expect(body.code).toBe("GENERIC_ERROR");
-			expect(body.message).toBe("oops");
+			expect(body.message).toBe("Operation failed");
+			expect(body.error).toBe("Operation failed");
 		});
 
 		it("plain Error → INTERNAL_ERROR for 5xx fallback and does not leak message", async () => {

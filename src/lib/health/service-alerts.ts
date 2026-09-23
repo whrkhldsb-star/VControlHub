@@ -12,12 +12,15 @@
  * would skip duration or clear pending state across unrelated hosts.
  */
 import { prisma } from "@/lib/db";
+import { createLogger } from "@/lib/logging";
 import {
   escalateOverdueAlertIncidents,
   openOrRefreshAlertIncident,
   resolveAlertIncident,
 } from "@/lib/alert/incidents";
 import { runPlaybook } from "@/lib/playbook/service";
+
+const logger = createLogger("health:service-alerts");
 
 import { collectAllHealth } from "./service-collect";
 import { isNowInAlertSilenceWindow } from "./service-types";
@@ -64,21 +67,37 @@ function deriveLegacyLastMatchedAt(state: AlertMatchState): Date | null {
   return latest;
 }
 
+/**
+ * Persist a rule's per-server match state with a compare-and-set on
+ * `updatedAt`. Two concurrent evaluators (background worker + a manual
+ * team-scoped "evaluate now", or two workers after a deploy) used to
+ * unconditionally `update`, so the slower pass overwrote whatever the faster
+ * pass had just written — resetting duration windows or resurrecting cleared
+ * stamps. With the CAS the loser sees count===0, keeps its in-memory state for
+ * the rest of its own pass (the in-pass judgment stays self-consistent), and
+ * logs; the next evaluation re-reads whichever version committed last.
+ */
 async function persistMatchState(
-  ruleId: string,
+  rule: { id: string; updatedAt: Date },
   state: AlertMatchState,
   extra: { lastTriggeredAt?: Date } = {},
 ) {
   const cleaned: AlertMatchState = { ...state };
   delete cleaned[LEGACY_MATCH_KEY];
-  await prisma.alertRule.update({
-    where: { id: ruleId },
+  const updated = await prisma.alertRule.updateMany({
+    where: { id: rule.id, updatedAt: rule.updatedAt },
     data: {
       matchState: cleaned,
       lastMatchedAt: deriveLegacyLastMatchedAt(cleaned),
       ...extra,
     },
   });
+  if (updated.count === 0) {
+    logger.warn(
+      "alert rule match-state persistence lost a concurrent write; keeping in-memory state for this pass",
+      { ruleId: rule.id },
+    );
+  }
 }
 
 /**
@@ -118,6 +137,7 @@ export async function evaluateAlerts(options?: { ruleWhere?: Record<string, unkn
         escalationMinutes: true,
         onCallUserIds: true,
         teamId: true,
+        updatedAt: true,
       },
       orderBy: { id: "asc" },
       take: 200,
@@ -383,7 +403,7 @@ export async function evaluateAlerts(options?: { ruleWhere?: Record<string, unkn
 
     if (matchStateDirty || ruleFiredThisPass) {
       await persistMatchState(
-        rule.id,
+        rule,
         matchState,
         ruleFiredThisPass && latestFireAt
           ? { lastTriggeredAt: latestFireAt }

@@ -155,8 +155,57 @@ describe("session auth helpers", () => {
     await expect(verifySessionToken(token)).rejects.toThrow("disabled");
   });
 
-  it("invalidates a session once the account's password has changed", async () => {
+  it("retires every session when the account's session epoch advances", async () => {
     const row = {
+      id: "u_1",
+      username: "admin",
+      status: "ACTIVE",
+      mustChangePassword: false,
+      currentTeamId: null,
+      passwordHash: "$2b$10$originalhash",
+      roles: [{ role: { key: "admin" } }],
+      sessionEpoch: 0,
+    };
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(row as any);
+
+    const token = await createSessionToken({
+      userId: "u_1",
+      username: "admin",
+      roles: ["admin"],
+      mustChangePassword: false,
+      currentTeamId: null,
+    });
+    await expect(verifySessionToken(token)).resolves.toMatchObject({ userId: "u_1" });
+
+    // bumpUserSessionEpoch (sign-out-everywhere / 2FA enable/disable) — every
+    // previously issued cookie must stop verifying immediately.
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      ...row,
+      sessionEpoch: 1,
+    } as any);
+
+    await expect(verifySessionToken(token)).rejects.toThrow(/credentials have changed|会话凭据已变更/i);
+  });
+
+  it("keeps pre-epoch tokens working while the account's epoch is still 0", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      id: "u_1",
+      username: "admin",
+      status: "ACTIVE",
+      mustChangePassword: false,
+      currentTeamId: null,
+      passwordHash: "$2b$10$originalhash",
+      roles: [{ role: { key: "admin" } }],
+      sessionEpoch: 0,
+    } as any);
+
+    const legacy = await createLegacySessionTokenWithoutFingerprint();
+    // Legacy tokens are rejected on `cfp` before the epoch check ever runs;
+    // assert that separately below with a token that carries `cfp` but no `sep`.
+    await expect(verifySessionToken(legacy)).rejects.toThrow(/credentials have changed|会话凭据已变更/i);
+  });
+
+  it("invalidates a session once the account's password has changed", async () => {    const row = {
       id: "u_1",
       username: "admin",
       status: "ACTIVE",

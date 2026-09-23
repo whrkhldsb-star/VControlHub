@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { formatBytes as formatBytesShared } from "@/lib/format/bytes";
 import { EmptyState } from "@/components/page-shell";
@@ -83,6 +83,10 @@ function toBytes(value: string): { ok: true; value: string | null } | { ok: fals
 
 export function UserPermissionPanel({ userId, username, onClose, onSaved }: Props) {
   const { t } = useI18n();
+  // Reach the translator from the load effect without putting `t` in its deps:
+  // a locale switch must not refetch and overwrite unsaved admin edits.
+  const tRef = useRef(t);
+  useEffect(() => { tRef.current = t; }, [t]);
   const [payload, setPayload] = useState<PermissionsPayload | null>(null);
   const [roleKeys, setRoleKeys] = useState<string[]>([]);
   const [permissionKeys, setPermissionKeys] = useState<string[]>([]);
@@ -110,10 +114,10 @@ return data as PermissionsPayload;
         setPermissionKeys(data.user.directPermissionKeys ?? []);
         setGrants(data.user.storageAccess.map((grant) => ({ ...grant })));
       })
-      .catch((error) => !cancelled && setMessage({ type: "error", text: getErrorMessage(error, t("usersPerm.error.loadFailed")) }))
+      .catch((error) => !cancelled && setMessage({ type: "error", text: getErrorMessage(error, tRef.current("usersPerm.error.loadFailed")) }))
       .finally(() => !cancelled && setLoading(false));
     return () => { cancelled = true; };
-  }, [userId, t]);
+  }, [userId]);
 
   useEffect(() => {
     csrfFetch("/api/role-templates")

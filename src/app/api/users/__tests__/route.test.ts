@@ -9,6 +9,7 @@ const { mocks } = vi.hoisted(() => ({
 		withAdminInvariantLock: vi.fn(),
     assertUserInActorScope: vi.fn(),
     userDirectoryWhere: vi.fn(),
+    isGlobalTeamManager: vi.fn(),
     prisma: {
       user: {
         findMany: vi.fn(),
@@ -54,6 +55,7 @@ vi.mock("@/lib/user/admin-invariant", () => ({
 vi.mock("@/lib/auth/team-scope", () => ({
   assertUserInActorScope: mocks.assertUserInActorScope,
   userDirectoryWhere: mocks.userDirectoryWhere,
+  isGlobalTeamManager: mocks.isGlobalTeamManager,
 }));
 vi.mock("@/lib/db", () => ({
   prisma: mocks.prisma,
@@ -76,6 +78,10 @@ describe("/api/users", () => {
     mocks.requireApiPermission.mockResolvedValue({ session });
     mocks.hashPassword.mockResolvedValue("hashed-password");
     mocks.assertUserInActorScope.mockResolvedValue(undefined);
+    // The route's platform-admin guard treats non-global managers specially;
+    // these tests use an admin session, which a real isGlobalTeamManager call
+    // would classify as global.
+    mocks.isGlobalTeamManager.mockReturnValue(true);
 		mocks.assertAdminAccessMayBeRemoved.mockResolvedValue(undefined);
 		mocks.withAdminInvariantLock.mockImplementation(async (operation) => operation());
     mocks.userDirectoryWhere.mockReturnValue({

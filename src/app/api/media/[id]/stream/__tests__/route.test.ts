@@ -143,6 +143,9 @@ describe("media stream route", () => {
     expect(response.headers.get("accept-ranges")).toBe("bytes");
     expect(response.headers.get("cache-control")).toBe("private, no-store");
     expect(response.headers.get("content-disposition")).toContain("inline");
+    // One authorization on the NORMALIZED path per request — the old flow ran
+    // a second full ACL after SFTP path normalization.
+    expect(assertStorageAccessMock).toHaveBeenCalledTimes(1);
     expect(assertStorageAccessMock).toHaveBeenCalledWith(
       expect.objectContaining({
         storageNodeId: "node-local",
@@ -174,17 +177,19 @@ describe("media stream route", () => {
   });
 
   it("fails closed before reading the file when storage authorization denies access", async () => {
-    assertStorageAccessMock.mockResolvedValueOnce({ allowed: false, reason: "no grant" });
+    assertStorageAccessMock.mockResolvedValueOnce({ allowed: false, reason: "no_access" });
 
     const response = await GET(new Request("https://example.test/api/media/media-1/stream"), {
       params: Promise.resolve({ id: "media-1" }),
     });
 
     expect(response.status).toBe(403);
-    expect(await response.json()).toEqual({
+    // The denial code renders localized copy via storageAccessDeniedCopy —
+    // never the raw code, never English prose.
+    expect(await response.json()).toMatchObject({
       code: "FORBIDDEN",
-      message: "no grant",
-      error: "no grant",
+      message: "没有此存储节点或路径的访问授权",
+      error: "没有此存储节点或路径的访问授权",
     });
   });
 
@@ -290,6 +295,12 @@ describe("media stream route", () => {
       params: Promise.resolve({ id: "media-1" }),
     });
 
-    expect(response.status).toBe(404);
+    // Normalization happens up front now, so an escaping path is a 400 with
+    // the shared path-exceeds copy (apiCopy defaults to en in tests) instead
+    // of falling through to the generic local-read 404.
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "Requested path exceeds storage node root directory",
+    });
   });
 });

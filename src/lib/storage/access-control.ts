@@ -10,6 +10,19 @@ import { normalizeStorageTargetDirectory } from "@/lib/storage/path-utils";
 
 export type StorageAccessOperation = "read" | "write" | "delete";
 
+/**
+ * Stable machine-readable denial codes carried in `StorageAccessDecision.reason`.
+ * Render them for clients via `storageAccessDeniedCopy()` (access-denied.ts) —
+ * never return them (or English prose) straight to the API surface.
+ */
+export const STORAGE_ACCESS_DENIED_REASONS = {
+  missingPermission: "no_permission",
+  noAccess: "no_access",
+  pathNotAllowed: "path_not_allowed",
+  fileTooLarge: "file_too_large",
+  quotaExceeded: "quota_exceeded",
+} as const;
+
 export type StorageAccessDecision = {
   allowed: boolean;
   reason?: string;
@@ -121,7 +134,7 @@ export async function assertStorageAccess(input: {
 }): Promise<StorageAccessDecision> {
   const requiredPermission = input.operation === "delete" ? "storage:delete" : input.operation === "read" ? "storage:read" : "storage:write";
   if (!sessionHasPermission(input.session, requiredPermission)) {
-    return { allowed: false, reason: "Missing operation permission" };
+    return { allowed: false, reason: STORAGE_ACCESS_DENIED_REASONS.missingPermission };
   }
 
   // Multi-tenant: node must be visible under teamWhere (team:manage sees all).
@@ -132,7 +145,7 @@ export async function assertStorageAccess(input: {
     select: { id: true },
   });
   if (!node) {
-    return { allowed: false, reason: "No access authorization for this storage node or path" };
+    return { allowed: false, reason: STORAGE_ACCESS_DENIED_REASONS.noAccess };
   }
 
   // Storage managers retain full path access within their team scope (or all if team:manage).
@@ -157,18 +170,18 @@ export async function assertStorageAccess(input: {
     if (isLegacyGrantFallbackEnabled()) {
       return { allowed: true };
     }
-    return { allowed: false, reason: "No access authorization for this storage node or path" };
+    return { allowed: false, reason: STORAGE_ACCESS_DENIED_REASONS.noAccess };
   }
 
   const targetPath = normalizeAccessPath(input.relativePath);
   if (targetPath === null) {
-    return { allowed: false, reason: "Invalid request path" };
+    return { allowed: false, reason: STORAGE_ACCESS_DENIED_REASONS.pathNotAllowed };
   }
   const matchingGrants = grants.filter((grant: StorageAccessGrantRow) => pathMatchesGrant(targetPath, grant.pathPrefix));
   const operationGrant = matchingGrants.find((grant: StorageAccessGrantRow) => grantAllowsOperation(grant, input.operation));
 
   if (!operationGrant) {
-    return { allowed: false, reason: "No access authorization for this storage node or path" };
+    return { allowed: false, reason: STORAGE_ACCESS_DENIED_REASONS.noAccess };
   }
 
   const writeBytes = input.writeBytes === null || input.writeBytes === undefined
@@ -179,7 +192,7 @@ export async function assertStorageAccess(input: {
 
   if (input.operation === "write" && writeBytes !== null) {
     if (operationGrant.maxFileBytes !== null && writeBytes > operationGrant.maxFileBytes) {
-      return { allowed: false, reason: "Uploaded file exceeds the single file size limit of this authorization", matchedGrantId: operationGrant.id };
+      return { allowed: false, reason: STORAGE_ACCESS_DENIED_REASONS.fileTooLarge, matchedGrantId: operationGrant.id };
     }
 
     if (operationGrant.quotaBytes !== null) {
@@ -199,7 +212,7 @@ export async function assertStorageAccess(input: {
           await releaseQuotaGuard();
           return {
             allowed: false,
-            reason: "Write will exceed the capacity quota of this authorization",
+            reason: STORAGE_ACCESS_DENIED_REASONS.quotaExceeded,
             matchedGrantId: operationGrant.id,
           };
         }

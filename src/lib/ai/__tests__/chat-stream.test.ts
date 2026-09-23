@@ -124,6 +124,75 @@ describe("consumeProviderChatStream", () => {
     );
   });
 
+  it("aborts a stalled stream via the idle watchdog even when the total cap is generous", async () => {
+    vi.useFakeTimers();
+    try {
+      let cancelled = false;
+      const body = new ReadableStream<Uint8Array>({
+        // First chunk arrives; the second never does.
+        start(controller) {
+          controller.enqueue(encoder.encode('data: {"choices":[{"delta":{"content":"partial"}}]}\n\n'));
+        },
+        cancel() {
+          cancelled = true;
+        },
+      });
+
+      const pending = consumeProviderChatStream({
+        providerType: "OPENAI",
+        body,
+        onEvent: vi.fn(),
+        idleTimeoutMs: 500,
+        totalTimeoutMs: 10 * 60_000,
+      });
+      await vi.advanceTimersByTimeAsync(600);
+      const result = await pending;
+
+      expect(cancelled).toBe(true);
+      expect(result.content).toBe("partial");
+      expect(result.readError).toEqual(
+        new Error("AI provider stream stalled for 0.5 seconds without data"),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("resets the idle watchdog on every chunk so a long but steady stream survives", async () => {
+    vi.useFakeTimers();
+    try {
+      const chunks = ["first\n", "second\n", "third\n"];
+      const body = new ReadableStream<Uint8Array>({
+        async pull(controller) {
+          // Each chunk waits just under the idle budget: no single gap trips
+          // the watchdog, but the total (3 × 80ms) would exceed one window.
+          await new Promise((resolve) => setTimeout(resolve, 80));
+          const chunk = chunks.shift();
+          if (chunk === undefined) {
+            controller.close();
+            return;
+          }
+          controller.enqueue(encoder.encode(`data: {"choices":[{"delta":{"content":"${chunk.trim()}"}}]}\n\n`));
+        },
+      });
+
+      const pending = consumeProviderChatStream({
+        providerType: "OPENAI",
+        body,
+        onEvent: vi.fn(),
+        idleTimeoutMs: 100,
+        totalTimeoutMs: 10 * 60_000,
+      });
+      await vi.advanceTimersByTimeAsync(500);
+      const result = await pending;
+
+      expect(result.readError).toBeUndefined();
+      expect(result.content).toBe("firstsecondthird");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("skips malformed chunks without dropping later valid events", async () => {
     const result = await consumeProviderChatStream({
       providerType: "OPENAI",

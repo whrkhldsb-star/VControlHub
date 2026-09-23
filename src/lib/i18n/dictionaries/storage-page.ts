@@ -4,6 +4,8 @@
 export const zh: Record<string, string> = {
   "storagePage.form.webdavUrl": "WebDAV 地址（HTTPS）",
   "storagePage.form.webdavAuthType": "WebDAV 认证方式",
+  "storagePage.form.webdavAuthBasic": "基础认证（Basic）",
+  "storagePage.form.webdavAuthBearer": "令牌认证（Bearer）",
   "storagePage.form.webdavUsername": "WebDAV 用户名",
   "storagePage.form.webdavPassword": "WebDAV 密码",
   "storagePage.form.webdavToken": "WebDAV 令牌",
@@ -109,6 +111,8 @@ export const zh: Record<string, string> = {
 export const en: Record<string, string> = {
   "storagePage.form.webdavUrl": "WebDAV endpoint (HTTPS)",
   "storagePage.form.webdavAuthType": "WebDAV authentication",
+  "storagePage.form.webdavAuthBasic": "Basic",
+  "storagePage.form.webdavAuthBearer": "Bearer token",
   "storagePage.form.webdavUsername": "WebDAV username",
   "storagePage.form.webdavPassword": "WebDAV password",
   "storagePage.form.webdavToken": "WebDAV token",

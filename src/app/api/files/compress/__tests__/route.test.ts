@@ -133,7 +133,9 @@ describe("POST /api/files/compress", () => {
 
   it("checks write access before read access", async () => {
     await setupLocalNode();
-    assertStorageAccessMock.mockResolvedValueOnce({ allowed: false, reason: "没有目标目录写入授权" });
+    // Denials surface the localized copy for the reason code, not the raw
+    // reason — use a real code (no_access) and check shape + call count.
+    assertStorageAccessMock.mockResolvedValueOnce({ allowed: false, reason: "no_access" });
 
     const response = await request({
       storageNodeId: "node_1",
@@ -143,8 +145,14 @@ describe("POST /api/files/compress", () => {
     });
 
     expect(response.status).toBe(403);
-    await expect(response.json()).resolves.toMatchObject({ error: "没有目标目录写入授权" });
+    await expect(response.json()).resolves.toMatchObject({ error: expect.any(String) });
     expect(assertStorageAccessMock).toHaveBeenCalledTimes(1);
+    // The single call is the write check on the target directory, proving
+    // write access is verified before any per-file read checks run.
+    expect(assertStorageAccessMock).toHaveBeenCalledWith(expect.objectContaining({
+      operation: "write",
+      relativePath: "docs",
+    }));
   });
 
   it("rejects unsafe output names", async () => {

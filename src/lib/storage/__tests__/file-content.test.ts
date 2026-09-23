@@ -25,6 +25,10 @@ vi.mock("ssh2", () => ({
 		connect(config: unknown) {
 			connectMock(config);
 		}
+		// The shared SSH client now caps listeners on the client instance.
+		setMaxListeners(_max: number) {
+			return this;
+		}
 		sftp(callback: (error: Error | null, sftp?: unknown) => void) {
 			callback(null, {
 				readFile: sftpReadFileMock,

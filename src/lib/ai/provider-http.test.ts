@@ -265,10 +265,71 @@ describe("ai provider-http adapter", () => {
 
 		await expect(
 			postProviderChat({
-				url: "https://api.openai.com/v1/chat/completions",
+				url: "https://api.example.com/v1/chat/completions",
 				body: { model: "gpt-4o" },
 			}),
 		).rejects.toThrow("AI provider chat request timed out after 90 seconds");
+	});
+
+	it("bounds only time-to-first-byte for streaming chat requests", async () => {
+		globalThis.fetch = vi.fn(async () => {
+			throw new DOMException("timed out", "TimeoutError");
+		}) as unknown as typeof fetch;
+
+		await expect(
+			postProviderChat({
+				url: "https://api.example.com/v1/chat/completions",
+				body: { model: "gpt-4o", stream: true },
+			}),
+		).rejects.toThrow("AI provider chat request timed out after 45 seconds");
+	});
+
+	it("disarms the first-byte timer once streaming headers arrive so a slow body is not aborted", async () => {
+		vi.useFakeTimers();
+		try {
+			let capturedSignal: AbortSignal | null | undefined;
+			const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+				capturedSignal = init?.signal ?? undefined;
+				return new Response("stream-body", { status: 200 });
+			});
+			globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+			await postProviderChat({
+				url: "https://api.example.com/v1/chat/completions",
+				body: { model: "gpt-4o", stream: true },
+			});
+
+			// Past the 45s first-byte window (and even past the old 90s total
+			// cap): the signal must stay live so the body can stream on.
+			await vi.advanceTimersByTimeAsync(120_000);
+			expect(capturedSignal).toBeInstanceOf(AbortSignal);
+			expect(capturedSignal!.aborted).toBe(false);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it("still forwards a late caller abort on the non-streaming path after headers arrive", async () => {
+		// AbortSignal.timeout is native and not driven by vitest's fake timers,
+		// so the total cap itself is covered by the TimeoutError tests above;
+		// here we verify the caller's cancellation keeps propagating once the
+		// composite signal has been handed to fetch.
+		const controller = new AbortController();
+		let capturedSignal: AbortSignal | null | undefined;
+		globalThis.fetch = vi.fn(async (_url: string, init?: RequestInit) => {
+			capturedSignal = init?.signal ?? undefined;
+			return new Response("json-body", { status: 200 });
+		}) as unknown as typeof fetch;
+
+		await postProviderChat({
+			url: "https://api.example.com/v1/chat/completions",
+			body: { model: "gpt-4o" },
+			signal: controller.signal,
+		});
+
+		expect(capturedSignal!.aborted).toBe(false);
+		controller.abort();
+		expect(capturedSignal!.aborted).toBe(true);
 	});
 
     it("falls back to Unknown error when error body cannot be read", async () => {

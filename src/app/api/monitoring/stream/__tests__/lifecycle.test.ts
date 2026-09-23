@@ -7,7 +7,7 @@ vi.mock("@/lib/http/api-guard", () => ({ withApiRoute: mocks.guard }));
 beforeEach(() => {
   vi.resetModules();
   vi.useFakeTimers();
-  mocks.collect.mockReset().mockReturnValue({ timestamp: 1, cpu: 0 });
+  mocks.collect.mockReset().mockResolvedValue({ timestamp: 1, cpu: 0 });
   mocks.guard.mockReset().mockImplementation((_request, _options, handler) => handler({ session: { userId: "lifecycle-user" } }));
 });
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
@@ -56,11 +56,15 @@ describe("monitoring stream lifecycle", () => {
     }
   });
 
-  it("releases the slot when the initial collector throws", async () => {
+  it("releases the slot when the initial collector fails", async () => {
     const { GET } = await import("../route");
     for (let index = 0; index < 6; index++) {
-      mocks.collect.mockImplementationOnce(() => { throw new Error("collector failed"); });
-      await expect(GET(new Request("http://local/api/monitoring/stream"))).rejects.toThrow("collector failed");
+      // Collection is async now, so the failure surfaces through the stream
+      // (controller.error), not as a rejected GET promise.
+      mocks.collect.mockImplementationOnce(() => Promise.reject(new Error("collector failed")));
+      const response = await GET(new Request("http://local/api/monitoring/stream"));
+      expect(response.status).toBe(200);
+      await expect(response.body!.getReader().read()).rejects.toThrow("collector failed");
       expect(vi.getTimerCount()).toBe(0);
     }
   });

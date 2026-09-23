@@ -102,7 +102,7 @@ export async function GET(request: Request) {
 		// install target picker. Admins (team:manage) still see everything via
 		// serverTeamWhere(); unassigned legacy hosts are manager-only.
 		const [usedPorts, docker, servers] = await Promise.all([
-			serverId ? getRemoteUsedPorts(serverId) : Promise.resolve(getUsedPorts()),
+			serverId ? getRemoteUsedPorts(serverId) : getUsedPorts(),
 			getDockerEnvironmentStatusFor(serverId ? { kind: "remote", serverId } : { kind: "local" }),
 			prisma.server.findMany({
 				where: { enabled: true, ...serverTeamWhere(session!) },
@@ -177,7 +177,7 @@ export async function POST(request: Request) {
 			}
 			// Host port probe is only reliable for hub-host.
 			if (!serverId) {
-				const check = checkPort(customPort);
+				const check = await checkPort(customPort);
 				if (!check.available) {
 					return NextResponse.json(
 						{ error: apiCopy("apiCopy.port.is.already.in.use.please.change.port.and.retry.07290591", { v0: String(customPort), v1: String(check.usedBy) }), portConflict: true, usedBy: check.usedBy },

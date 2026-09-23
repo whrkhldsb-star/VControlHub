@@ -13,15 +13,29 @@ import { generateCsrfToken, getCsrfCookieName } from "@/lib/auth/csrf";
 import { isAcceptableTwoFactorCodeShape, verifyTwoFactorChallenge } from "@/lib/auth/two-factor-challenge";
 import { DEFAULT_ROLE_PERMISSIONS, type RoleKey } from "@/lib/auth/rbac";
 import { auditUserAction, auditSystemAction } from "@/lib/audit/service";
-import { checkRateLimitAsync, getClientIp, LOGIN_RATE_LIMIT } from "@/lib/rate-limit";
+import { checkRateLimitAsync, getClientIp, LOGIN_RATE_LIMIT, isAccountLockedAsync, recordLoginFailureAsync, clearLoginFailureAsync } from "@/lib/rate-limit";
 import { apiCatch, apiError } from "@/lib/http/api-error";
 import { isRequestHttps } from "@/lib/http/request-https";
+import { isCrossSiteFormPost } from "@/lib/http/request-origin";
+import { readRequestBodyBuffer } from "@/lib/http/request-body";
 
 const verifyLoginSchema = z.object({ code: z.string().min(1) });
 // guardMode: login
 
+const MAX_VERIFY_LOGIN_BODY_BYTES = 4 * 1024;
+
 export async function POST(request: Request) {
 	try {
+		// Defence in depth for the login-CSRF window this route shares with
+		// /api/login (both skip the double-submit CSRF check pre-session).
+		if (isCrossSiteFormPost(request)) {
+			return apiError({
+				code: "GENERIC_ERROR",
+				message: apiCopy("apiCopy.invalid.input.parameter.d64ebcd8"),
+				status: 400,
+			});
+		}
+
 		// Rate limit 2FA attempts
 		const clientIp = getClientIp(request);
 		const rateCheck = await checkRateLimitAsync(clientIp, LOGIN_RATE_LIMIT);
@@ -33,7 +47,19 @@ export async function POST(request: Request) {
 			});
 		}
 
-		const parsed = verifyLoginSchema.safeParse(await request.json());
+		// request.json() buffers without any byte cap; read bounded instead so a
+		// chunked body cannot turn this pre-session endpoint into a memory sink.
+		let rawBody: unknown;
+		try {
+			rawBody = JSON.parse((await readRequestBodyBuffer(request, MAX_VERIFY_LOGIN_BODY_BYTES)).toString("utf8"));
+		} catch {
+			return apiError({
+				code: "VALIDATION_FAILED",
+				message: apiCopy("apiCopy.invalid.input.parameter.d64ebcd8"),
+				status: 400,
+			});
+		}
+		const parsed = verifyLoginSchema.safeParse(rawBody);
 		if (!parsed.success) {
 			return apiError({
 				code: "VALIDATION_FAILED",
@@ -109,6 +135,21 @@ export async function POST(request: Request) {
 			});
 		}
 
+		// The password stage of this login was already paid for — the pending
+		// cookie proves it — so hold the account-lockout gate here as well:
+		// an attacker holding the password (and a stolen pending cookie) must
+		// not get unlimited TOTP guesses just by rotating IPs past the per-IP
+		// limiter above.
+		const twoFactorLock = await isAccountLockedAsync(user.username);
+		if (twoFactorLock.locked) {
+			cookieStore.delete(getPending2faCookieName());
+			return apiError({
+				code: "ACCOUNT_LOCKED",
+				message: apiCopy("apiCopy.too.many.verification.attempts.please.try.again.later.a8754aa7"),
+				status: 429,
+			});
+		}
+
 		// An authenticator code first (sealed seed; legacy plaintext still
 		// accepted), then a one-use recovery code, consumed atomically. Shared with
 		// the 2FA disable / regenerate routes so the two factors stay interchangeable.
@@ -120,12 +161,27 @@ export async function POST(request: Request) {
 		});
 		if (!valid) {
 			await auditSystemAction("auth.2fa_failed", { userId: sessionPayload.userId, ip: clientIp }, "WARNING", user.currentTeamId);
+			// Count 2FA misses against the account lockout (same counter the
+			// password stage uses). Without this, a leaked password plus IP
+			// rotation reduces 2FA to an offline guess of a 6-digit space.
+			const lockResult = await recordLoginFailureAsync(user.username);
+			if (lockResult.locked) {
+				cookieStore.delete(getPending2faCookieName());
+				await auditSystemAction("auth.account_locked", { username: user.username, ip: clientIp, stage: "2fa", failCount: lockResult.failCount }, "WARNING");
+				return apiError({
+					code: "ACCOUNT_LOCKED",
+					message: apiCopy("apiCopy.too.many.verification.attempts.please.try.again.later.a8754aa7"),
+					status: 429,
+				});
+			}
 			return apiError({
 				code: "TWO_FACTOR_INVALID_CODE",
 				message: apiCopy("apiCopy.verifycodeerror.11ef6ba1"),
 				status: 400,
 			});
 		}
+		// Full success — the login (password + second factor) is complete.
+		await clearLoginFailureAsync(user.username);
 
 		// ── 2FA verified — create full session from live DB state ──
 		const liveRoles = user.roles

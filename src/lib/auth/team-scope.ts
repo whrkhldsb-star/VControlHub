@@ -124,6 +124,18 @@ export function imageTeamWhere(session: TeamSession): Record<string, unknown> {
 		: { id: "__unassigned_images_require_team_manage__" };
 }
 
+/** A share link publishes a storage path on a node (and its access logs expose
+ * downloader IPs/UAs). A null teamId is quarantined legacy data — under the
+ * loose {@link teamWhere} every tenant's managers could list, read access
+ * analytics for, and revoke another tenant's unassigned links. Mirrors
+ * {@link serverTeamWhere}. */
+export function shareLinkTeamWhere(session: TeamSession): Record<string, unknown> {
+	if (isGlobalTeamManager(session)) return {};
+	return session.currentTeamId
+		? { teamId: session.currentTeamId }
+		: { id: "__unassigned_share_links_require_team_manage__" };
+}
+
 /**
  * Prisma `where` for listing users in the directory UI/API.
  *

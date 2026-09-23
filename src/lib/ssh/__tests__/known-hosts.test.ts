@@ -22,6 +22,10 @@ describe("known_hosts pin selection", () => {
   it("normalizes prefixes and fails closed when no scanned key matches", () => {
     const line = keyLine("example.com");
     expect(normalizeHostKeyFingerprint("sha256:abc")).toBe("SHA256:abc");
-    expect(() => selectPinnedKnownHostsLine(line, "SHA256:not-the-key")).toThrow(/does not match/);
+    // SshHostKeyChangedError copy is server-translated (zh/en) — match the
+    // mismatch semantics, not one locale's wording.
+    expect(() => selectPinnedKnownHostsLine(line, "SHA256:not-the-key")).toThrow(
+      /不一致|fingerprint does not match/,
+    );
   });
 });

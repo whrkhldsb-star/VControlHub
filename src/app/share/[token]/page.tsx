@@ -116,6 +116,8 @@ export default async function SharePage({
                 label={t("sharePage.passwordRequired", locale)}
                 placeholder="••••••"
                 submitLabel={t("sharePage.downloadFile", locale)}
+                failedLabel={t("sharePage.downloadFailed", locale)}
+                failedStatusTemplate={t("sharePage.downloadFailedStatus", locale)}
               />
             )}
 

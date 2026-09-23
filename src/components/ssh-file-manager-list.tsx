@@ -106,7 +106,30 @@ export function SshFileList({
         </div>
       )}
       {!dragOver && !loading && entries.map((entry) => (
-        <div key={entry.name} data-ssh-file-entry={entry.name} data-ssh-file-kind={entry.isDirectory ? "directory" : entry.isSymlink ? "symlink" : "file"} className={`group flex min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-xs transition hover:bg-[var(--surface-hover)] ${selectedEntry === entry.name ?"bg-[var(--surface-elevated)]" :""}`} onClick={() => setSelectedEntry(entry.name)} onDoubleClick={() => { if (entry.isDirectory) onNavigateInto(entry.name); else onDownload(entry); }}>
+        <div
+          key={entry.name}
+          role="button"
+          tabIndex={0}
+          aria-pressed={selectedEntry === entry.name}
+          data-ssh-file-entry={entry.name}
+          data-ssh-file-kind={entry.isDirectory ? "directory" : entry.isSymlink ? "symlink" : "file"}
+          className={`group flex min-w-0 cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-xs transition hover:bg-[var(--surface-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--accent)] ${selectedEntry === entry.name ?"bg-[var(--surface-elevated)]" :""}`}
+          onClick={() => setSelectedEntry(entry.name)}
+          onDoubleClick={() => { if (entry.isDirectory) onNavigateInto(entry.name); else onDownload(entry); }}
+          onKeyDown={(e) => {
+            // Only act when the row itself has focus — inline editor inputs and
+            // row action buttons handle their own keys.
+            if (e.target !== e.currentTarget) return;
+            if (e.key === "Enter") {
+              e.preventDefault();
+              if (entry.isDirectory) onNavigateInto(entry.name);
+              else onDownload(entry);
+            } else if (e.key === " ") {
+              e.preventDefault();
+              setSelectedEntry(entry.name);
+            }
+          }}
+        >
           <span className="shrink-0 text-[var(--text-muted)]" aria-hidden="true">{entry.isDirectory ? <Folder size={14} /> : entry.isSymlink ? <LinkIcon size={14} /> : <File size={14} />}</span>
           {renameTarget === entry.name ? (
             <RenameInlineEditor

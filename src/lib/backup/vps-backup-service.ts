@@ -128,7 +128,13 @@ export async function uploadVpsBackupToOffsite(
       "",
     );
     const offsiteKey = `${prefix}/${record.serverId}/${record.backupType}-${record.id}.tar.gz`;
-    const s3 = new S3Client(offsiteConfig);
+    // Backup artifacts are streamed to S3 and can legitimately take many
+    // minutes. The default 30s request budget would abort mid-upload; match
+    // the 30-minute allowance the control-plane offsite uploader uses.
+    const s3 = new S3Client({
+      ...offsiteConfig,
+      timeoutMs: 30 * 60 * 1000,
+    });
     await s3.putFile(offsiteKey, localAbsolutePath, "application/gzip");
     await prisma.vpsBackupRecord.update({
       where: { id: record.id },

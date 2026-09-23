@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { EventEmitter } from "node:events";
 
 // Mock prisma and ssh client
 vi.mock("@/lib/db", () => ({
@@ -23,9 +24,37 @@ vi.mock("@/lib/logging", () => ({
 	}),
 }));
 
-import { requestRemoteDockerEngine, validateDockerApiPath } from "../engine-client";
+const { httpRequestMock } = vi.hoisted(() => ({ httpRequestMock: vi.fn() }));
+
+vi.mock("node:http", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("node:http")>();
+	return {
+		...actual,
+		default: { ...actual, request: httpRequestMock },
+		request: httpRequestMock,
+	};
+});
+
+import { requestDockerEngine, requestRemoteDockerEngine, validateDockerApiPath } from "../engine-client";
 import { prisma } from "@/lib/db";
 import { execRemoteCommand } from "@/lib/ssh/client";
+
+type FakeResponse = EventEmitter & { statusCode: number };
+type FakeRequest = EventEmitter & { destroy: () => void; write: () => void; end: () => void };
+
+function fakeHttpPair(statusCode = 200): { request: FakeRequest; response: FakeResponse } {
+	const request = new EventEmitter() as FakeRequest;
+	request.destroy = vi.fn();
+	request.write = vi.fn();
+	request.end = vi.fn();
+	const response = new EventEmitter() as FakeResponse;
+	response.statusCode = statusCode;
+	httpRequestMock.mockImplementationOnce((_options: unknown, cb: (res: FakeResponse) => void) => {
+		queueMicrotask(() => cb(response));
+		return request;
+	});
+	return { request, response };
+}
 
 const mockServer = {
 	id: "srv-1",
@@ -60,6 +89,46 @@ describe("validateDockerApiPath", () => {
 
 	it("rejects paths not starting with /", () => {
 		expect(validateDockerApiPath("containers/json")).toBe(false);
+	});
+});
+
+describe("requestDockerEngine (local socket)", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it("parses a JSON daemon response into data", async () => {
+		const { response } = fakeHttpPair(200);
+
+		const promise = requestDockerEngine("/containers/json", {
+			unavailableData: [],
+			loggerScope: "test",
+		});
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		response.emit("data", Buffer.from('[{"Id":"abc"}]'));
+		response.emit("end");
+
+		await expect(promise).resolves.toEqual({ ok: true, status: 200, data: [{ Id: "abc" }] });
+	});
+
+	it("aborts and reports 502 when the response exceeds the byte cap", async () => {
+		const { request, response } = fakeHttpPair(200);
+
+		const promise = requestDockerEngine("/containers/abc/logs", {
+			unavailableData: [],
+			loggerScope: "test",
+		});
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		// Two 17MB chunks push the total past the 32MB cap.
+		response.emit("data", Buffer.alloc(17 * 1024 * 1024, "x"));
+		response.emit("data", Buffer.alloc(17 * 1024 * 1024, "x"));
+
+		await expect(promise).resolves.toMatchObject({
+			ok: false,
+			status: 502,
+			data: { message: expect.stringContaining("exceeded") },
+		});
+		expect(request.destroy).toHaveBeenCalled();
 	});
 });
 

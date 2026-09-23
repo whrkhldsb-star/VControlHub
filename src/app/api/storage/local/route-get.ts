@@ -13,6 +13,7 @@ import type { Locale } from "@/lib/i18n/translations";
 import { t } from "@/lib/i18n/translations";
 import { logError } from "@/lib/logging";
 import { assertStorageAccess } from "@/lib/storage/access-control";
+import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { resolveManagedLocalEntryPath } from "@/lib/storage/fs-backend";
 import { normalizeStorageRelativePath } from "@/lib/storage/path-utils";
 import { contentDownloadQuerySchema } from "@/lib/storage/schema";
@@ -58,7 +59,7 @@ export async function handleLocalStorageGet(
   });
   if (!accessDecision.allowed) {
     return NextResponse.json(
-      { error: accessDecision.reason ?? t("api.storage.accessDenied", locale) },
+      { error: storageAccessDeniedCopy(accessDecision.reason, locale) },
       { status: 403 },
     );
   }

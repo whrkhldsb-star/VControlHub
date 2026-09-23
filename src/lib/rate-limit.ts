@@ -174,18 +174,33 @@ export async function isAccountLockedAsync(
 }
 
 /**
+ * Per-key mutation chain: concurrent failed logins for the same username must
+ * not interleave their read-modify-write (two parallel misses both reading
+ * failCount=4 and both writing 5 lose an increment, letting an attacker
+ * exceed the 5-attempt threshold). Serializing mutations per key inside the
+ * process closes the single-instance race completely and narrows the
+ * multi-instance (Redis) window to cross-instance concurrency only.
+ */
+const lockoutMutations = new Map<string, Promise<unknown>>();
+
+/**
  * Record a failed login against the shared store.
  */
 export async function recordLoginFailureAsync(
 	username: string,
 ): Promise<{ locked: boolean; lockedUntil: number | null; failCount: number }> {
 	const key = lockoutKey(username);
-	const now = Date.now();
-	const store = getRateLimitStore();
-	const previous = await store.getLockout(key);
-	const entry = applyLoginFailure(previous, now);
-	await store.setLockout(key, entry, lockoutTtlMs(entry, now));
-	return { locked: !!entry.lockedUntil, lockedUntil: entry.lockedUntil, failCount: entry.failCount };
+	const previous = lockoutMutations.get(key) ?? Promise.resolve();
+	const operation = previous.catch(() => {}).then(async () => {
+		const now = Date.now();
+		const store = getRateLimitStore();
+		const previousEntry = await store.getLockout(key);
+		const entry = applyLoginFailure(previousEntry, now);
+		await store.setLockout(key, entry, lockoutTtlMs(entry, now));
+		return { locked: !!entry.lockedUntil, lockedUntil: entry.lockedUntil, failCount: entry.failCount };
+	});
+	lockoutMutations.set(key, operation);
+	return operation;
 }
 
 /**
@@ -193,5 +208,11 @@ export async function recordLoginFailureAsync(
  */
 export async function clearLoginFailureAsync(username: string): Promise<void> {
 	const key = lockoutKey(username);
-	await getRateLimitStore().deleteLockout(key);
+	const previous = lockoutMutations.get(key) ?? Promise.resolve();
+	const operation = previous.catch(() => {}).then(async () => {
+		await getRateLimitStore().deleteLockout(key);
+	});
+	lockoutMutations.set(key, operation);
+	await operation;
+	lockoutMutations.delete(key);
 }

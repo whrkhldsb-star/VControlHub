@@ -11,6 +11,7 @@ import {
 import { withApiRoute } from "@/lib/http/api-guard";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { assertStorageAccess } from "@/lib/storage/access-control";
+import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { archiveListQuerySchema } from "@/lib/files/schema";
@@ -77,7 +78,7 @@ export async function GET(request: NextRequest) {
       });
       if (!accessDecision.allowed) {
         return NextResponse.json(
-          { error: accessDecision.reason ?? "No access permission for this storage node or path" },
+          { error: storageAccessDeniedCopy(accessDecision.reason) },
           { status: 403 },
         );
       }

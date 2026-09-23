@@ -201,6 +201,21 @@ function isAgentOnly(conn: ResolvedConnection) {
   return Boolean(conn.agentServerId && !conn.privateKey && !conn.password);
 }
 
+/**
+ * Map a raw SSH transport error from session setup into a typed AppError.
+ * Host-key verification failures (enforced pinning rejecting an unpinned or
+ * changed host key) become a BusinessError whose message tells the operator
+ * to pin the fingerprint first; other transport errors keep the original
+ * detail appended to a translated prefix.
+ */
+function mapSshConnectError(error: unknown): Error {
+  const message = error instanceof Error ? error.message : String(error);
+  if (/host key verification|host verifier/i.test(message)) {
+    return new BusinessError(t("backend.ssh.hostKeyNotPinned"));
+  }
+  return new Error(`SSH connection error: ${message}`);
+}
+
 // ── SFTP session helper ────────────────────────────────────────────
 
 type SftpSession = {
@@ -216,7 +231,7 @@ async function openSftpSession(serverId: string): Promise<SftpSession> {
   return new Promise<SftpSession>((resolve, reject) => {
     const timeout = setTimeout(() => {
       try { client.end(); } catch { /* best-effort cleanup on timeout */ }
-      reject(new Error("SSH connection timed out"));
+      reject(new Error(t("backend.ssh.connectionTimedOut")));
     }, 15000);
 
     client.on("ready", () => {
@@ -224,7 +239,7 @@ async function openSftpSession(serverId: string): Promise<SftpSession> {
         clearTimeout(timeout);
         if (err) {
           try { client.end(); } catch { /* best-effort cleanup on SFTP error */ }
-          reject(new Error(`SFTP subsystem error: ${err.message}`));
+          reject(new Error(t("backend.ssh.sftpSubsystemError", { message: err.message })));
           return;
         }
         resolve({
@@ -240,7 +255,7 @@ async function openSftpSession(serverId: string): Promise<SftpSession> {
 
     client.on("error", (err) => {
       clearTimeout(timeout);
-      reject(new Error(`SSH connection error: ${err.message}`));
+      reject(mapSshConnectError(err));
     });
 
     const config = createVerifiedSshConfig({
@@ -248,6 +263,10 @@ async function openSftpSession(serverId: string): Promise<SftpSession> {
       port: conn.port,
       username: conn.username,
       hostKeySha256: conn.hostKeySha256,
+      // OPEN-1 parity with the command-execution path: refuse SFTP sessions
+      // against servers whose host key has never been pinned (fail-closed)
+      // instead of silently accepting whatever key the host presents.
+      enforceHostKeyPin: true,
       ...(conn.connectionType === "SSH_KEY"
         ? { privateKey: conn.privateKey, ...(conn.passphrase ? { passphrase: conn.passphrase } : {}) }
         : { password: conn.password }),
@@ -369,7 +388,7 @@ export async function uploadFile(
       const resetIdle = () => {
         if (idleTimer) clearTimeout(idleTimer);
         idleTimer = setTimeout(
-          () => fail(new Error(`SFTP upload stalled (no data for ${SFTP_TRANSFER_IDLE_TIMEOUT_MS / 1000}s)`)),
+          () => fail(new Error(t("backend.ssh.uploadStalled", { seconds: SFTP_TRANSFER_IDLE_TIMEOUT_MS / 1000 }))),
           SFTP_TRANSFER_IDLE_TIMEOUT_MS,
         );
       };
@@ -478,7 +497,7 @@ export async function downloadFile(
     if (idleTimer) clearTimeout(idleTimer);
     idleTimer = setTimeout(() => {
       passthrough.destroy(
-        new Error(`SFTP download stalled (no data for ${SFTP_TRANSFER_IDLE_TIMEOUT_MS / 1000}s)`),
+        new Error(t("backend.ssh.downloadStalled", { seconds: SFTP_TRANSFER_IDLE_TIMEOUT_MS / 1000 })),
       );
     }, SFTP_TRANSFER_IDLE_TIMEOUT_MS);
   };

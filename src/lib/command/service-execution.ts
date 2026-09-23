@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { auditSystemAction } from "@/lib/audit/service";
 import { prisma } from "@/lib/db";
+import { t } from "@/lib/i18n/service-translations";
 import { createLogger } from "@/lib/logging";
 import { notifyCommandResult } from "@/lib/notification/service";
 import { decryptServerPassword, decryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
@@ -165,7 +166,9 @@ export async function executeTarget(
   }
 
   if (!result && connectionType === "SSH_KEY" && !privateKey) {
-    const summary = `The SSH key bound to node ${target.server.name} lacks a private key; cannot execute real SSH command.`;
+    // Surfaced to the requesting client as target stderr (and mirrored into
+    // the execution log) — translate like the other client-facing copy.
+    const summary = t("backend.command.sshKeyLacksPrivateKey", { name: target.server.name });
     const failed = await prisma.commandTarget.updateMany({
       where: {
         id: target.id,
@@ -192,7 +195,7 @@ export async function executeTarget(
   }
 
   if (!result && connectionType === "PASSWORD" && !password) {
-    const summary = `Node ${target.server.name} is configured for password connection but lacks a password; cannot execute real SSH command.`;
+    const summary = t("backend.command.passwordMissing", { name: target.server.name });
     const failed = await prisma.commandTarget.updateMany({
       where: {
         id: target.id,
@@ -225,7 +228,9 @@ export async function executeTarget(
   // legacy/draft row ever reaches execution without one.
   const pinnedHostKey = (target.server as { hostKeySha256?: string | null }).hostKeySha256;
   if (!result && !pinnedHostKey?.trim()) {
-    const summary = `Node ${target.server.name} has no pinned SSH host key; refusing to execute without host-key verification.`;
+    // Fail-closed summary goes straight to the client as target stderr; the
+    // wording guides the operator to pin the host fingerprint first.
+    const summary = t("backend.command.hostKeyNotPinnedRefused", { name: target.server.name });
     const failed = await prisma.commandTarget.updateMany({
       where: {
         id: target.id,

@@ -8,6 +8,7 @@ import {
   createBackupRecord,
   listBackupRecords,
   runBackupRecord,
+  updateBackupRecordStatus,
 } from "@/lib/backup/service";
 import { BACKUP_CREATE_JOB_TYPE } from "@/lib/backup/job-worker";
 import { createBackupSchema } from "@/lib/backup/schema";
@@ -19,6 +20,7 @@ import { auditUserAction } from "@/lib/audit/service";
 import {
   MAX_NON_FILE_FORM_BYTES,
   requestContentLengthExceeds,
+  requestContentLengthMissing,
 } from "@/lib/http/request-body";
 import { t } from "@/lib/i18n/service-translations";
 export const dynamic = "force-dynamic";
@@ -42,6 +44,11 @@ export async function POST(request: Request) {
   const isFormSubmission = contentType.includes("application/x-www-form-urlencoded") || contentType.includes("multipart/form-data");
   if (isFormSubmission && requestContentLengthExceeds(request, MAX_NON_FILE_FORM_BYTES)) {
     return NextResponse.json({ error: t("backend.request.bodyTooLarge") }, { status: 413 });
+  }
+  // Chunked form posts with no declared length would buffer unbounded bytes in
+  // request.formData() before any check — mirror the upload routes' 411.
+  if (isFormSubmission && requestContentLengthMissing(request)) {
+    return NextResponse.json({ error: t("backend.request.bodyTooLarge") }, { status: 411 });
   }
   const options = {
     permission: "backup:create" as const,
@@ -77,14 +84,27 @@ export async function POST(request: Request) {
     }
 
     const backup = await createBackupRecord({ type: parsed.data.type, createdBy: session?.userId ?? null, note: parsed.data.note, teamId: session?.currentTeamId ?? null });
-    const job = await enqueueJob({
-      type: BACKUP_CREATE_JOB_TYPE,
-      title: `Create ${parsed.data.type} backup`,
-      payload: { backupId: backup.id, teamId: session?.currentTeamId ?? backup.teamId ?? null },
-      createdBy: session?.userId ?? null,
-      teamId: session?.currentTeamId ?? null,
-      maxAttempts: 1,
-    });
+    let job;
+    try {
+      job = await enqueueJob({
+        type: BACKUP_CREATE_JOB_TYPE,
+        title: `Create ${parsed.data.type} backup`,
+        payload: { backupId: backup.id, teamId: session?.currentTeamId ?? backup.teamId ?? null },
+        createdBy: session?.userId ?? null,
+        teamId: session?.currentTeamId ?? null,
+        maxAttempts: 1,
+      });
+    } catch (enqueueError) {
+      // Compensate the orphan PENDING row (same contract as the vps-backup
+      // routes): without a durable job nothing will ever pick the record up,
+      // and the UI would show a stuck "PENDING" backup forever.
+      await updateBackupRecordStatus(backup.id, {
+        status: "FAILED",
+        errorMessage: enqueueError instanceof Error ? enqueueError.message : "Failed to enqueue backup job",
+        completedAt: new Date(),
+      }).catch(() => undefined);
+      throw enqueueError;
+    }
     await auditUserAction(session?.userId ?? "", "backup.create", {
       backupId: backup.id,
       jobId: job.id,

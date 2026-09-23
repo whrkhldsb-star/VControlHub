@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { JobStatus, Prisma } from "@prisma/client";
 
 import { config } from "@/lib/config/env";
 import { computeLeaseMs } from "@/lib/job/lease";
@@ -10,6 +10,7 @@ import {
   failJob,
   failJobTerminal,
   heartbeatJob,
+  pruneTerminalJobsByType,
 } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
 import { decryptServerPassword, decryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
@@ -38,6 +39,9 @@ export const DOWNLOAD_EXECUTION_JOB_TYPE = "download.execute";
 // TR-002 R2: 跨 worker lease 公式统一。computeLeaseMs 默认返 preset (= DOWNLOAD_EXECUTION_LEASE_MS 等同原值)。
 const DOWNLOAD_EXECUTION_LEASE_MS = computeLeaseMs("download-execution");
 const DOWNLOAD_EXECUTION_WORKER_ID = `${config.app.hostname || "vcontrolhub"}:download-execution:${process.pid}`;
+// Downloads run frequently; keep only the newest terminal job rows so the
+// jobs table cannot grow unbounded (mirrors alert-worker's prune pattern).
+const DOWNLOAD_EXECUTION_KEEP_LATEST = 25;
 
 type DownloadExecutionMode = "aria2_relay" | "direct";
 
@@ -425,7 +429,24 @@ export async function runDownloadExecutionJobWorkerOnce() {
       leaseMs: DOWNLOAD_EXECUTION_LEASE_MS,
     });
     if (!job) return false;
-    return await handleClaimedJob(job);
+    const handled = await handleClaimedJob(job);
+    // Runs on both the success and the failure path (handleClaimedJob always
+    // resolves the job to a terminal state); best-effort so a prune hiccup
+    // never turns a finished download into a worker error. FAILED/CANCELLED
+    // rows keep their full 30d window via the job-maintenance terminal sweep
+    // (pruneTerminalJobs) — failure history must not vanish after 25 jobs.
+    try {
+      await pruneTerminalJobsByType({
+        type: DOWNLOAD_EXECUTION_JOB_TYPE,
+        statuses: [JobStatus.COMPLETED],
+        keepLatest: DOWNLOAD_EXECUTION_KEEP_LATEST,
+      });
+    } catch (pruneError) {
+      logger.warn("Failed to prune download.execute terminal jobs", {
+        error: pruneError instanceof Error ? pruneError.message : String(pruneError),
+      });
+    }
+    return handled;
   } catch (error) {
     logger.error("Download execution worker tick failed", {
       error: error instanceof Error ? error.message : String(error),

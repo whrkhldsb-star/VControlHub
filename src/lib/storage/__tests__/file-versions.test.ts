@@ -21,11 +21,13 @@ const {
   readBufferMock,
   writeBufferMock,
   getNodeMock,
+  statMock,
 } = vi.hoisted(() => ({
   assertAccessMock: vi.fn(),
   readBufferMock: vi.fn(),
   writeBufferMock: vi.fn(),
   getNodeMock: vi.fn(),
+  statMock: vi.fn(),
 }));
 
 vi.mock("@/lib/storage/access-control", () => ({
@@ -37,6 +39,10 @@ vi.mock("@/lib/storage/file-content", () => ({
   getStorageFileNode: getNodeMock,
   readStorageFileBuffer: readBufferMock,
   writeStorageFileBuffer: writeBufferMock,
+}));
+
+vi.mock("@/lib/storage/fs-backend", () => ({
+  statBackingObject: statMock,
 }));
 
 vi.mock("@/lib/logging", () => ({
@@ -109,6 +115,8 @@ describe("file-versions service", () => {
     process.env.FILE_VERSION_KEEP = "2";
     process.env.FILE_VERSION_MAX_BYTES = String(1024 * 1024);
     assertAccessMock.mockResolvedValue({ allowed: true });
+    statMock.mockReset();
+    statMock.mockResolvedValue({ size: 16, lastModifiedMs: 1_000 });
     store.entries.set("fe_1", {
       id: "fe_1",
       name: "notes.txt",
@@ -194,10 +202,38 @@ describe("file-versions service", () => {
     expect(result.newRestorePoint?.reason).toBe("RESTORE_POINT");
   });
 
-  it("skips oversize automatic snapshots", async () => {
+  it("skips oversize automatic snapshots BEFORE reading the body", async () => {
     process.env.FILE_VERSION_MAX_BYTES = "4";
     const mod = await import("@/lib/storage/file-versions");
     readBufferMock.mockResolvedValue(Buffer.from("too-big-content"));
+    statMock.mockResolvedValue({ size: 10_000_000_000, lastModifiedMs: 1 });
+    const snap = await mod.snapshotFileVersionBeforeOverwrite({
+      fileEntryId: "fe_1",
+      reason: "UPLOAD",
+    });
+    expect(snap).toBeNull();
+    // Regression: a multi-GB overwrite source used to be buffered whole via
+    // readStorageFileBuffer before the cap was applied (OOM). The stat
+    // pre-check must reject it without reading a single byte.
+    expect(readBufferMock).not.toHaveBeenCalled();
+  });
+
+  it("skips the snapshot when the backing object is already gone", async () => {
+    const mod = await import("@/lib/storage/file-versions");
+    statMock.mockResolvedValue(null);
+    const snap = await mod.snapshotFileVersionBeforeOverwrite({
+      fileEntryId: "fe_1",
+      reason: "UPLOAD",
+    });
+    expect(snap).toBeNull();
+    expect(readBufferMock).not.toHaveBeenCalled();
+  });
+
+  it("still enforces the cap on the bytes actually read (stat can be stale)", async () => {
+    process.env.FILE_VERSION_MAX_BYTES = "4";
+    const mod = await import("@/lib/storage/file-versions");
+    statMock.mockResolvedValue({ size: 1, lastModifiedMs: 1_000 });
+    readBufferMock.mockResolvedValue(Buffer.from("grew-between-stat-and-read"));
     const snap = await mod.snapshotFileVersionBeforeOverwrite({
       fileEntryId: "fe_1",
       reason: "UPLOAD",

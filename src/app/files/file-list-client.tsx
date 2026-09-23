@@ -11,13 +11,14 @@
  *   - FileListListView      (list view, default)
  *   - FileListGridView      (grid view)
  *   - FileListDetailsView   (details view)
- *   - FileListToasts        (toast stack)
  *   - FileBatchToolbarLazy  (bottom batch action bar — unchanged)
  *   - FileDetailPanelLazy   (right-side detail panel — unchanged)
  *
  * Batch handlers live in `use-file-batch-operations`; selection state in
- * `use-file-selection`; toast state in `use-file-toast`. The component
- * itself is now ~200 lines of glue, which is what was needed for the
+ * `use-file-selection`; notifications ride the global toast system from
+ * `@/components/toast-provider` (the former private `use-file-toast` /
+ * `FileListToasts` stack was removed). The component itself is now
+ * ~200 lines of glue, which is what was needed for the
  * "Super-large client component split" item in the README.
  */
 import { useState, useCallback, useMemo, useTransition, useEffect, useRef } from "react";
@@ -42,7 +43,6 @@ import {
 import { getParentPath } from "./files-browser-helpers";
 import { useFileListSort } from "./use-file-list-sort";
 import { useFileSelection } from "./use-file-selection";
-import { useFileToast } from "./use-file-toast";
 import { useViewMode } from "./use-view-mode";
 import {
   useBatchCompress,
@@ -54,7 +54,6 @@ import { FileDetailPanelLazy } from "./file-detail-panel-lazy";
 import { FileListGridView } from "./file-list-grid-view";
 import { FileListDetailsView } from "./file-list-details-view";
 import { FileListListView } from "./file-list-list-view";
-import { FileListToasts } from "./file-list-toasts";
 import { FileListToolbar } from "./file-list-toolbar";
 import {
   buildSearchHref,
@@ -68,6 +67,7 @@ import { recordFileOpen } from "./file-preferences-client";
 import { submitFileOperation } from "./file-operation-controls";
 import { ModalShell } from "@/components/modal-shell";
 import { ActionButton } from "@/components/action-button";
+import { useToast } from "@/components/toast-provider";
 
 type FileListClientProps = {
   folders: FolderProp[];
@@ -100,7 +100,9 @@ export function FileListClient({
 }: FileListClientProps) {
   const { t } = useI18n();
   const router = useRouter();
-  const { toasts, showToast, dismissToast } = useFileToast();
+  // Global toast system (root ToastProvider) — replaces the former private
+  // file-list toast stack (use-file-toast + FileListToasts).
+  const { addToast: showToast } = useToast();
 
   const navigateToFolder = useCallback(
     (path: string) => {
@@ -341,8 +343,6 @@ export function FileListClient({
 
   return (
     <>
-      <FileListToasts toasts={toasts} onDismiss={dismissToast} />
-
       <div ref={listRef} data-file-list tabIndex={0} className="mt-6 overflow-x-auto rounded-2xl border border-[var(--border)]"
         onClickCapture={(event) => {
           const target = event.target as HTMLElement;

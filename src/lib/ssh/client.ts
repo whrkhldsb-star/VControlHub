@@ -105,6 +105,11 @@ export function createVerifiedSshConfig(input: SshConnectionParams): ConnectConf
 export function connectSsh(config: ConnectConfig | SshConnectionParams): Promise<Client> {
   return new Promise((resolve, reject) => {
     const client = new Client();
+    // Pooled connections multiplex concurrent operations, each registering its
+    // own close/end/error listeners (removed on settle — see
+    // execCommandOnClient). The default 10-listener cap produces spurious
+    // MaxListenersExceededWarning noise from ~4 concurrent commands.
+    client.setMaxListeners(0);
     client.on("ready", () => resolve(client));
     client.on("error", (err) => reject(err));
     client.connect("hostKeySha256" in config ? createSshConfig(config) : config);
@@ -142,7 +147,7 @@ async function acquirePooledSsh(input: SshConnectionParams) {
   const key = sshPoolKey(input);
   const backoff = sshFailureBackoff.get(key);
   if (backoff && backoff.until > Date.now()) {
-    throw new Error(`SSH reconnect temporarily paused after a connection failure: ${backoff.message}`);
+    throw new Error(t("backend.ssh.reconnectPaused", { message: backoff.message }));
   }
   if (backoff) sshFailureBackoff.delete(key);
 

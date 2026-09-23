@@ -94,7 +94,8 @@ export const renderInline = (text: string): React.ReactNode[] => {
 };
 
 /* ── Render Message Content (full markdown: headings, lists, links, code, tables) ─ */
-export const renderContent = (content: string) => {
+export const renderContent = (content: string, options?: { copyLabel?: string }) => {
+ const copyLabel = options?.copyLabel ?? "Copy";
  // 1. Extract fenced code blocks first (they must not be processed)
  const codeBlocks: string[] = [];
  const withoutCode = content.replace(/(```[\s\S]*?```)/g, (m) => {
@@ -177,7 +178,7 @@ export const renderContent = (content: string) => {
  <svg className="w-3 h-3" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24">
  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
  </svg>
- Copy
+ {copyLabel}
  </button>
  </div>
  <pre className="p-3 overflow-x-auto text-xs leading-relaxed">

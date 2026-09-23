@@ -84,7 +84,9 @@ describe("/api/backups", () => {
   it("accepts browser form submissions and redirects back to backups page", async () => {
     const req = new Request("http://local/api/backups", {
       method: "POST",
-      headers: { "content-type": "application/x-www-form-urlencoded", accept: "text/html" },
+      // Browser form posts always declare a length; without it the route
+      // answers 411 before parsing (see requestContentLengthMissing).
+      headers: { "content-type": "application/x-www-form-urlencoded", "content-length": "1024", accept: "text/html" },
       body: new URLSearchParams({ type: "DATABASE", note: "pre upgrade" }),
     });
     const res = await route.POST(req);

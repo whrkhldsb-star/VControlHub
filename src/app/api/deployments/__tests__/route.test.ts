@@ -114,6 +114,9 @@ describe("/api/deployments", () => {
       method: "POST",
       headers: {
         "content-type": "application/x-www-form-urlencoded",
+        // Browser form posts always declare a length; without it the route
+        // answers 411 before parsing (see requestContentLengthMissing).
+        "content-length": "1024",
         accept: "text/html",
       },
       body: new URLSearchParams([
@@ -145,6 +148,7 @@ describe("/api/deployments", () => {
       method: "POST",
       headers: {
         "content-type": "application/x-www-form-urlencoded",
+        "content-length": "1024",
         accept: "text/html",
       },
       body: new URLSearchParams([

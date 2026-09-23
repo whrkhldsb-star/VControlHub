@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { execFileSyncMock, spawnSyncMock } = vi.hoisted(() => ({
+const { execFileSyncMock, execFileMock, spawnSyncMock } = vi.hoisted(() => ({
 	execFileSyncMock: vi.fn(),
+	execFileMock: vi.fn(),
 	spawnSyncMock: vi.fn(),
 }));
 
@@ -10,6 +11,7 @@ vi.mock("child_process", async (importOriginal) => {
 	const mockedModule = {
 		...actual,
 		execFileSync: execFileSyncMock,
+		execFile: execFileMock,
 		spawnSync: spawnSyncMock,
 	};
 
@@ -177,12 +179,15 @@ describe("quick-service docker-cli adapter", () => {
 	});
 
 	describe("getDockerEnvironmentStatus", () => {
-		it("reports available + running + version when docker is healthy", () => {
-			execFileSyncMock
-				.mockReturnValueOnce("Docker version 24.0.7, build afdd53b")
-				.mockReturnValueOnce("Server: Docker Engine\n");
+		it("reports available + running + version when docker is healthy", async () => {
+			execFileMock.mockImplementation(
+				(file: string, _args: string[], _opts: unknown, cb: (error: Error | null, result?: { stdout: string; stderr: string }) => void) => {
+					cb(null, { stdout: file === "docker" && _args[0] === "--version" ? "Docker version 24.0.7, build afdd53b" : "", stderr: "" });
+					return {};
+				},
+			);
 
-			const status = getDockerEnvironmentStatus();
+			const status = await getDockerEnvironmentStatus();
 
 			expect(status).toEqual({
 				available: true,
@@ -192,16 +197,19 @@ describe("quick-service docker-cli adapter", () => {
 				installHint: null,
 				scope: "hub-host",
 			});
-			expect(execFileSyncMock).toHaveBeenNthCalledWith(1, "docker", ["--version"], expect.any(Object));
-			expect(execFileSyncMock).toHaveBeenNthCalledWith(2, "docker", ["info"], expect.any(Object));
+			expect(execFileMock).toHaveBeenNthCalledWith(1, "docker", ["--version"], expect.any(Object), expect.any(Function));
+			expect(execFileMock).toHaveBeenNthCalledWith(2, "docker", ["info"], expect.any(Object), expect.any(Function));
 		});
 
-		it("classifies ENOENT / not-found errors as Docker not installed", () => {
-			execFileSyncMock.mockImplementationOnce(() => {
-				throw Object.assign(new Error("spawn docker ENOENT"), { code: "ENOENT" });
-			});
+		it("classifies ENOENT / not-found errors as Docker not installed", async () => {
+			execFileMock.mockImplementationOnce(
+				(_file: string, _args: string[], _opts: unknown, cb: (error: Error | null) => void) => {
+					cb(Object.assign(new Error("spawn docker ENOENT"), { code: "ENOENT" }));
+					return {};
+				},
+			);
 
-			expect(getDockerEnvironmentStatus()).toEqual(
+			await expect(getDockerEnvironmentStatus()).resolves.toEqual(
 				expect.objectContaining({
 					available: false,
 					running: false,
@@ -212,12 +220,15 @@ describe("quick-service docker-cli adapter", () => {
 			);
 		});
 
-		it("classifies non-ENOENT errors as Docker not running / daemon unreachable", () => {
-			execFileSyncMock.mockImplementationOnce(() => {
-				throw Object.assign(new Error("Cannot connect to the Docker daemon"), { code: "EACCES" });
-			});
+		it("classifies non-ENOENT errors as Docker not running / daemon unreachable", async () => {
+			execFileMock.mockImplementationOnce(
+				(_file: string, _args: string[], _opts: unknown, cb: (error: Error | null) => void) => {
+					cb(Object.assign(new Error("Cannot connect to the Docker daemon"), { code: "EACCES" }));
+					return {};
+				},
+			);
 
-			expect(getDockerEnvironmentStatus()).toEqual(
+			await expect(getDockerEnvironmentStatus()).resolves.toEqual(
 				expect.objectContaining({
 					available: false,
 					running: false,
@@ -228,12 +239,15 @@ describe("quick-service docker-cli adapter", () => {
 			);
 		});
 
-		it("also treats 'not found' / 'no such file' substrings as Docker not installed", () => {
-			execFileSyncMock.mockImplementationOnce(() => {
-				throw new Error("docker: not found");
-			});
+		it("also treats 'not found' / 'no such file' substrings as Docker not installed", async () => {
+			execFileMock.mockImplementationOnce(
+				(_file: string, _args: string[], _opts: unknown, cb: (error: Error | null) => void) => {
+					cb(new Error("docker: not found"));
+					return {};
+				},
+			);
 
-			expect(getDockerEnvironmentStatus()).toEqual(
+			await expect(getDockerEnvironmentStatus()).resolves.toEqual(
 				expect.objectContaining({
 					message: expect.stringMatching(/Docker is not installed|尚未安装 Docker/),
 				}),
