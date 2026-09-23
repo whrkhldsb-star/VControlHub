@@ -17,7 +17,7 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(request: Request) {
   return withApiRoute(request, { permission: "backup:read" }, async ({ session }) => {
-    const summary = await getBackupPolicySummary(session!);
+    const summary = await getBackupPolicySummary(session);
     return NextResponse.json({ summary });
   });
 }
@@ -33,15 +33,15 @@ export async function POST(request: Request) {
     const job = await enqueueJob({
       type: BACKUP_RETENTION_JOB_TYPE,
       title: "Clean up old backups (automatic retention policy)",
-      payload: { ...body, teamId: session?.currentTeamId ?? null },
-      createdBy: session?.userId ?? null,
-      teamId: session?.currentTeamId ?? null,
+      payload: { ...body, teamId: session.currentTeamId ?? null },
+      createdBy: session.userId,
+      teamId: session.currentTeamId ?? null,
       maxAttempts: 1,
     });
-    await auditUserAction(session?.userId ?? "", "backup.retention.enqueue", {
+    await auditUserAction(session.userId, "backup.retention.enqueue", {
       jobId: job.id,
       payload: body,
-    }, undefined, session?.currentTeamId);
+    }, undefined, session.currentTeamId);
     return NextResponse.json({ jobId: job.id, taskId: `job:${job.id}` }, { status: 202 });
   });
 }

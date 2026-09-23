@@ -16,9 +16,9 @@ export async function POST(request: Request) {
     request,
     { permission: "ticket:manage", rateLimit: GENERAL_WRITE_LIMIT },
     async ({ session }) => {
-      const teamId = sessionHasPermission(session!, "team:manage") ? undefined : session?.currentTeamId ?? null;
+      const teamId = sessionHasPermission(session, "team:manage") ? undefined : session.currentTeamId ?? null;
       const escalatedCount = await escalateBreachedTickets({ teamId });
-      await auditUserAction(session?.userId ?? "", "ticket.sla_escalate", { escalatedCount }, undefined, session?.currentTeamId);
+      await auditUserAction(session.userId, "ticket.sla_escalate", { escalatedCount }, undefined, session.currentTeamId);
       return NextResponse.json({ escalated: escalatedCount });
     },
   );

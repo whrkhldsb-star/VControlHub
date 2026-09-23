@@ -36,12 +36,6 @@ export async function POST(request: Request) {
       bodySchema: disableSchema,
     },
     async ({ session, body }) => {
-      if (!session)
-        return NextResponse.json(
-          { error: t("api.auth.sessionExpired", locale) },
-          { status: 401 },
-        );
-
       const { code } = body;
 
       if (!isAcceptableTwoFactorCodeShape(code)) {

@@ -22,7 +22,7 @@ import { contentDownloadQuerySchema } from "@/lib/storage/schema";
 import { prisma } from "@/lib/db";
 import { parseStorageRange, storageStreamResponse, type StorageByteRange } from "@/lib/storage/streaming";
 
-import { AuthError, ValidationError, isAppError } from "@/lib/errors";
+import { ValidationError, isAppError } from "@/lib/errors";
 import { getServerLocale, t, type Locale } from "@/lib/i18n/translations";
 const logger = createLogger("api:storage:sftp-download");
 
@@ -66,9 +66,6 @@ export async function GET(request: Request) {
     request,
     { permission: "storage:read" },
     async ({ session }) => {
-      if (!session)
-        throw new AuthError(t("api.auth.sessionExpired", locale));
-
       const { nodeId, path: remotePath, download } = parseSearchParams(
         request,
         contentDownloadQuerySchema,

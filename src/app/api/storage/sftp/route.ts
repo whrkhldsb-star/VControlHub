@@ -16,7 +16,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { sftpListQuerySchema } from "@/lib/storage/schema";
 
-import { AuthError, ValidationError } from "@/lib/errors";
+import { ValidationError } from "@/lib/errors";
 const logger = createLogger("api:storage:sftp");
 
 export const dynamic = "force-dynamic";
@@ -94,8 +94,6 @@ export async function GET(request: Request) {
     request,
     { permission: "storage:read", errorMessage: apiCopy("apiCopy.failed.to.list.remote.directory.4ccd5b6f") },
     async ({ session }) => {
-      if (!session)
-        throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
       return handleGet(request, session);
     },
   );

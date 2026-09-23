@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
 	return withApiRoute(request, { permission: "team:read" }, async ({ session }) => {
-		const result = await listTeamsForSession(session!);
+		const result = await listTeamsForSession(session);
 		return NextResponse.json(result);
 	});
 }
@@ -20,7 +20,7 @@ export async function POST(request: Request) {
 		request,
 		{ permission: "team:create", rateLimit: GENERAL_WRITE_LIMIT, bodySchema: createTeamSchema, errorMessage: apiCopy("apiCopy.failed.to.create.team.workspace.cbc63c23") },
 		async ({ session, body }) => {
-			const team = await createTeam(body, session!);
+			const team = await createTeam(body, session);
 			// Audit is recorded inside createTeam (richer metadata: slug/name).
 			return NextResponse.json({ success: true, team });
 		},

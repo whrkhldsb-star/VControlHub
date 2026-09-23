@@ -49,7 +49,7 @@ export async function POST(request: Request) {
 		},
 		async ({ session, body }) => {
 			const next = await saveOffsiteConfig(body);
-			await auditUserAction(session?.userId ?? "", "backup.offsite.update", {
+			await auditUserAction(session.userId, "backup.offsite.update", {
 				enabled: next.enabled,
 				provider: next.provider,
 				bucket: next.bucket,
@@ -61,7 +61,7 @@ export async function POST(request: Request) {
 				// never log secretAccessKey / accessKeyId values
 				hasAccessKeyId: Boolean(next.accessKeyId),
 				hasSecretAccessKey: Boolean(next.secretAccessKey),
-			}, undefined, session?.currentTeamId);
+			}, undefined, session.currentTeamId);
 			return NextResponse.json({ config: maskConfig(next) });
 		},
 	);

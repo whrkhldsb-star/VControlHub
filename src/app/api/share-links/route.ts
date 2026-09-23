@@ -43,7 +43,6 @@ export async function GET(request: Request) {
     request,
     { permission: "share:read", errorMessage: t("api.share.operationFailed", locale) },
     async ({ session }) => {
-      if (!session) return NextResponse.json({ error: t("api.auth.sessionExpired", locale) }, { status: 401 });
       return NextResponse.json({ shares: await listShareLinks(undefined, session) });
     },
   );
@@ -60,11 +59,6 @@ export async function POST(request: Request) {
       bodySchema: shareLinkPostSchema,
     },
     async ({ session, body: data }) => {
-      if (!session)
-        return NextResponse.json(
-          { error: t("api.auth.sessionExpired", locale) },
-          { status: 401 },
-        );
       // The one-click file-manager action is deliberately a short public
       // link. Advanced sharing remains the explicit route for custom expiry.
       const expiresInHours = data.quick
@@ -91,7 +85,7 @@ export async function POST(request: Request) {
             password: data.password,
             permissionLevel: data.permissionLevel,
           });
-      await auditUserAction(session!.userId, "share-link.create", { shareId: result.share.id }, undefined, session?.currentTeamId);
+      await auditUserAction(session.userId, "share-link.create", { shareId: result.share.id }, undefined, session.currentTeamId);
       return NextResponse.json(
         { share: result.share, token: result.token },
         { status: 201 },
@@ -110,10 +104,9 @@ export async function DELETE(request: Request) {
       errorMessage: t("api.share.operationFailed", locale),
     },
     async ({ session }) => {
-      if (!session) return NextResponse.json({ error: t("api.auth.sessionExpired", locale) }, { status: 401 });
       const { id } = parseSearchParams(request, idQuerySchema);
       const share = await revokeShareLink(id, session.userId, session);
-      await auditUserAction(session.userId, "share-link.delete", { shareId: id }, undefined, session?.currentTeamId);
+      await auditUserAction(session.userId, "share-link.delete", { shareId: id }, undefined, session.currentTeamId);
       return NextResponse.json({ share });
     },
   );

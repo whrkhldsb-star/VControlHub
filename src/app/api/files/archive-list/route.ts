@@ -16,7 +16,7 @@ import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { archiveListQuerySchema } from "@/lib/files/schema";
 
-import { AppError, AuthError, NotFoundError, ValidationError } from "@/lib/errors";
+import { AppError, NotFoundError, ValidationError } from "@/lib/errors";
 import { getErrorMessage } from "@/lib/http/error-message";
 const execFileAsync = promisify(execFile);
 
@@ -34,8 +34,6 @@ export async function GET(request: NextRequest) {
     request,
     { permission: "storage:read", errorMessage: apiCopy("apiCopy.failed.to.read.archive.27c0af4a") },
     async ({ session }) => {
-      if (!session)
-        throw new AuthError(apiCopy("apiCopy.unauthorized.d089c8a9"));
       const { nodeId, relativePath, name } = parseSearchParams(
         request,
         archiveListQuerySchema,

@@ -15,7 +15,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   return withApiRoute(request, { permission: "backup:restore", rateLimit: GENERAL_WRITE_LIMIT, errorMessage: apiCopy("apiCopy.backup.drill.failed.31051e85") }, async ({ session }) => {
       const locale = await getServerLocale();
     const { id } = await params;
-    const backup = await getBackupRecord(id, session!);
+    const backup = await getBackupRecord(id, session);
     if (!backup) throw new NotFoundError(t("api.backupNotFound", locale));
     if (backup.status !== "COMPLETED") throw new ValidationError(t("api.onlyCompletedCanDrill", locale));
     const existing = await prisma.job.findFirst({
@@ -23,8 +23,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       select: { id: true },
     });
     if (existing) return NextResponse.json({ jobId: existing.id, taskId: `job:${existing.id}`, deduped: true }, { status: 202 });
-    const job = await enqueueJob({ type: BACKUP_DRILL_JOB_TYPE, title: `Drill ${backup.type} backup`, payload: { backupId: id, teamId: session!.currentTeamId ?? backup.teamId ?? null }, createdBy: session!.userId, teamId: session!.currentTeamId, maxAttempts: 1 });
-    await auditUserAction(session!.userId, "backup.drill", { backupId: id, jobId: job.id, destructive: false }, undefined, session?.currentTeamId);
+    const job = await enqueueJob({ type: BACKUP_DRILL_JOB_TYPE, title: `Drill ${backup.type} backup`, payload: { backupId: id, teamId: session.currentTeamId ?? backup.teamId ?? null }, createdBy: session.userId, teamId: session.currentTeamId, maxAttempts: 1 });
+    await auditUserAction(session.userId, "backup.drill", { backupId: id, jobId: job.id, destructive: false }, undefined, session.currentTeamId);
     return NextResponse.json({ jobId: job.id, taskId: `job:${job.id}`, deduped: false }, { status: 202 });
   });
 }

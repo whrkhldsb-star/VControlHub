@@ -60,7 +60,7 @@ export async function GET(request: Request) {
     request,
     { permission: "health:read", errorMessage: apiCopy("apiCopy.monitoring.sse.authentication.failed.75339d30"), rateLimit: { maxRequests: 30, windowMs: 60_000 } },
     async ({ session }) => {
-			const userId = session!.userId;
+			const userId = session.userId;
 			const activeCount = activeConnectionsByUser.get(userId) ?? 0;
 			if (activeCount >= MAX_SSE_CONNECTIONS_PER_USER) {
 				return Response.json(

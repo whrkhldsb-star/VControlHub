@@ -17,7 +17,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
 	return withApiRoute(request, { permission: "cost:manage", rateLimit: GENERAL_WRITE_LIMIT, bodySchema: createCostBudgetSchema, errorStatus: 400, errorMessage: apiCopy("apiCopy.failed.to.create.cost.budget.bba96dd8") }, async ({ session, body }) => {
 		const budget = await createCostBudget(body, session);
-		await auditUserAction(session?.userId ?? "anonymous", "cost.budget.create", { budgetId: budget.id, category: budget.category, limitAmount: budget.limitAmount, currency: budget.currency }, undefined, session?.currentTeamId);
+		await auditUserAction(session.userId, "cost.budget.create", { budgetId: budget.id, category: budget.category, limitAmount: budget.limitAmount, currency: budget.currency }, undefined, session.currentTeamId);
 		return NextResponse.json({ budget });
 	});
 }

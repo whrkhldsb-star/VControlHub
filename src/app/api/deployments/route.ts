@@ -112,11 +112,6 @@ export async function POST(request: Request) {
     request,
     options,
     async ({ session, body }) => {
-      if (!session)
-        return NextResponse.json(
-          { error: apiCopy("apiCopy.not.authenticated.or.session.expired.b1714d99") },
-          { status: 401 },
-        );
       try {
         const parsed = isFormSubmission ? createDeploymentSchema.safeParse(await readRequestBody(request)) : { success: true as const, data: body };
         if (!parsed.success) {
@@ -136,7 +131,7 @@ export async function POST(request: Request) {
           templateId: parsed.data.templateId,
           serverIds: parsed.data.serverIds,
           reason: parsed.data.reason ?? null,
-        }, undefined, session?.currentTeamId);
+        }, undefined, session.currentTeamId);
         if (wantsHtmlResponse(request)) {
           return redirectToDeployments(request, { success: true });
         }

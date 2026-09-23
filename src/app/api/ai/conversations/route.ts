@@ -17,11 +17,6 @@ export async function GET(request: Request) {
     request,
     { permission: "ai:chat", errorMessage: apiCopy("apiCopy.server.error.dfe0c2e8") },
     async ({ session }) => {
-      if (!session)
-        return NextResponse.json(
-          { error: apiCopy("apiCopy.not.authenticated.or.session.expired.b1714d99") },
-          { status: 401 },
-        );
       const conversations = await listConversations(session.userId);
       return NextResponse.json({
         conversations: conversations.map(serializeConversationListItem),
@@ -40,12 +35,6 @@ export async function POST(request: Request) {
       bodySchema: createConversationSchema,
     },
     async ({ session, body }) => {
-      if (!session)
-        return NextResponse.json(
-          { error: apiCopy("apiCopy.not.authenticated.or.session.expired.b1714d99") },
-          { status: 401 },
-        );
-
       const conv = await createConversation({
         ...body,
         createdBy: session.userId,

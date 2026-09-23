@@ -87,7 +87,6 @@ export async function GET(request: Request) {
       return apiCatch(error, 500, t("backend.dashboard.analyticsFetchFailed"));
     },
   }, async ({ session }) => {
-    if (!session) return NextResponse.json({ error: t("backend.dashboard.notAuthenticated") }, { status: 401 });
     const { type } = parseSearchParams(
       request,
       z.object({

@@ -13,7 +13,7 @@ export async function POST(request: Request) {
 		request,
 		{ requireAuth: true, rateLimit: GENERAL_WRITE_LIMIT, bodySchema: switchTeamSchema, errorMessage: apiCopy("apiCopy.failed.to.switch.team.workspace.72eeb9fa") },
 		async ({ session, body }) => {
-			const team = await switchCurrentTeam(body.teamId, session!);
+			const team = await switchCurrentTeam(body.teamId, session);
 			// Audit is recorded inside switchCurrentTeam (includes slug).
 			return NextResponse.json({ success: true, team });
 		},

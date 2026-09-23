@@ -40,7 +40,7 @@ export async function GET(request: Request) {
       errorMessage: apiCopy("apiCopy.failed.to.list.sync.jobs.293dd5ca"),
     },
     async ({ session }) => {
-      const jobs = await listSyncJobs(session ?? undefined);
+      const jobs = await listSyncJobs(session);
       return NextResponse.json({
         jobs: jobs.map((j) => ({
           id: j.id,
@@ -90,15 +90,15 @@ export async function POST(request: Request) {
         schedule: normalizeSyncSchedule(body.schedule) ?? undefined,
         deleteOrphans: effectiveDeleteOrphans(body.syncType, body.deleteOrphans),
         compress: body.compress,
-        createdBy: session?.userId,
-        session: session ?? undefined,
+        createdBy: session.userId,
+        session,
       });
-      await auditUserAction(session?.userId ?? "anonymous", "sync_job.create", {
+      await auditUserAction(session.userId, "sync_job.create", {
         jobId: job.id,
         syncType: job.syncType,
         sourceServerId: job.sourceServerId,
         targetServerId: job.targetServerId,
-      }, undefined, session?.currentTeamId);
+      }, undefined, session.currentTeamId);
       return NextResponse.json({ job }, { status: 201 });
     },
   );

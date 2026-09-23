@@ -4,7 +4,6 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { fetchModelsFromProvider } from "@/lib/ai/service";
 import { aiModelsQuerySchema } from "@/lib/ai/schema";
-import { AuthError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
 
 /**
@@ -16,9 +15,6 @@ export async function GET(request: Request) {
     request,
     { permission: "ai:chat", errorStatus: 400, errorMessage: apiCopy("apiCopy.failed.to.fetch.model.list.d5934edd") },
     async ({ session }) => {
-      if (!session)
-        throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
-
       const { providerId } = parseSearchParams(request, aiModelsQuerySchema);
 
       const models = await fetchModelsFromProvider(providerId, session.userId);

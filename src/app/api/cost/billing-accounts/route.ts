@@ -26,7 +26,7 @@ export async function GET(request: Request) {
 			errorMessage: apiCopy("apiCopy.failed.to.list.cloud.billing.accounts.8331aa1c"),
 		},
 		async ({ session }) => {
-			const accounts = await listCloudBillingAccounts(session ?? undefined);
+			const accounts = await listCloudBillingAccounts(session);
 			return NextResponse.json({ accounts });
 		},
 	);
@@ -43,13 +43,13 @@ export async function POST(request: Request) {
 			errorMessage: apiCopy("apiCopy.failed.to.create.cloud.billing.account.3ad801e0"),
 		},
 		async ({ session, body }) => {
-			const account = await createCloudBillingAccount(body, session ?? null);
-			await auditUserAction(session?.userId ?? "anonymous", "cost.billing_account.create", {
+			const account = await createCloudBillingAccount(body, session);
+			await auditUserAction(session.userId, "cost.billing_account.create", {
 				accountId: account.id,
 				provider: account.provider,
 				name: account.name,
 				teamId: account.teamId,
-			}, undefined, session?.currentTeamId);
+			}, undefined, session.currentTeamId);
 			return NextResponse.json({ account }, { status: 201 });
 		},
 	);

@@ -18,11 +18,6 @@ export async function GET(request: Request) {
     request,
     { permission: "image:read", errorMessage: apiCopy("apiCopy.failed.to.fetch.statistics.97cf5fdd") },
     async ({ session }) => {
-      if (!session)
-        return NextResponse.json(
-          { error: apiCopy("apiCopy.not.authenticated.or.session.expired.b1714d99") },
-          { status: 401 },
-        );
       // Same bar as list showAll: user:read is too broad for fleet-wide stats.
       // media:manage may see others' images but only in the current team.
       const canListAll =

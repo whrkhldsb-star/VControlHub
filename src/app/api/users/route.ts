@@ -40,7 +40,7 @@ export async function GET(request: Request) {
     const page = Math.max(1, Number.parseInt(url.searchParams.get("page") ?? "1", 10) || 1);
     const pageSize = Math.min(100, Math.max(1, Number.parseInt(url.searchParams.get("pageSize") ?? "50", 10) || 50));
     const skip = (page - 1) * pageSize;
-    const where = userDirectoryWhere(session!);
+    const where = userDirectoryWhere(session);
     const [users, total] = await Promise.all([
     prisma.user.findMany({
       where,
@@ -133,7 +133,7 @@ export async function POST(request: Request) {
         }
 
         // Non-global managers create users into the current team workspace.
-        if (session?.currentTeamId) {
+        if (session.currentTeamId) {
           await tx.teamMember.upsert({
             where: {
               teamId_userId: {
@@ -153,11 +153,11 @@ export async function POST(request: Request) {
         return createdUser;
       });
 
-      await auditUserAction(session!.userId, "user.create", {
+      await auditUserAction(session.userId, "user.create", {
         targetUsername: username,
         roles: roleKeys,
-        teamId: session?.currentTeamId ?? null,
-      }, undefined, session?.currentTeamId);
+        teamId: session.currentTeamId ?? null,
+      }, undefined, session.currentTeamId);
 
       return NextResponse.json({ success: true, userId: user.id });
     },
@@ -180,7 +180,7 @@ export async function PATCH(request: Request) {
 				throw new ValidationError(t("backend.user.rolesMustUsePermissionsEndpoint"));
 			}
 
-      await assertUserInActorScope(session!, userId);
+      await assertUserInActorScope(session, userId);
 
       const targetUser = await prisma.user.findUnique({
         where: { id: userId },
@@ -195,7 +195,7 @@ export async function PATCH(request: Request) {
       // password (account takeover) or disable them (platform lockout).
       if (
         (userAction === "reset_password" || userAction === "disable") &&
-        !isGlobalTeamManager(session!)
+        !isGlobalTeamManager(session)
       ) {
         const targetIsPlatformAdmin = await userHoldsTeamManage(userId);
         if (targetIsPlatformAdmin) {
@@ -203,7 +203,7 @@ export async function PATCH(request: Request) {
         }
       }
 
-      if (userId === session!.userId && userAction === "disable") {
+      if (userId === session.userId && userAction === "disable") {
         throw new ValidationError(t("backend.user.cannotDisableSelf"));
       }
 
@@ -215,17 +215,17 @@ export async function PATCH(request: Request) {
 						data: { status: "DISABLED" },
 					});
 				});
-        await auditUserAction(session!.userId, "user.disable", {
+        await auditUserAction(session.userId, "user.disable", {
           targetUsername: targetUser.username,
-        }, undefined, session?.currentTeamId);
+        }, undefined, session.currentTeamId);
       } else if (userAction === "enable") {
         await prisma.user.update({
           where: { id: userId },
           data: { status: "ACTIVE" },
         });
-        await auditUserAction(session!.userId, "user.enable", {
+        await auditUserAction(session.userId, "user.enable", {
           targetUsername: targetUser.username,
-        }, undefined, session?.currentTeamId);
+        }, undefined, session.currentTeamId);
       } else if (userAction === "reset_password") {
         // The schema refines reset_password ⇒ newPassword, but narrow it here too
         // so a future schema change cannot turn this into a silent no-op.
@@ -246,11 +246,11 @@ export async function PATCH(request: Request) {
           },
         });
         await auditUserAction(
-          session!.userId,
+          session.userId,
           "user.password_reset",
           { targetUsername: targetUser.username },
           "WARNING",
-          session?.currentTeamId,
+          session.currentTeamId,
         );
       } else {
         // `action` is optional in the schema (it also accepts roleKeys/newPassword

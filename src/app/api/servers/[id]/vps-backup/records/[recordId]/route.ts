@@ -42,7 +42,7 @@ export async function DELETE(
 
 			try {
 				await deleteVpsBackupRecord(recordId);
-				await auditUserAction(session!.userId, "vps-backup.record.delete", { serverId, recordId }, undefined, session?.currentTeamId);
+				await auditUserAction(session.userId, "vps-backup.record.delete", { serverId, recordId }, undefined, session.currentTeamId);
 				return Response.json({ success: true });
 			} catch (err) {
 				const message = getErrorMessage(err, String(err));

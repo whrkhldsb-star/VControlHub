@@ -28,7 +28,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { MAX_STORAGE_UPLOAD_BYTES } from "@/lib/storage/mime-constants";
 import { requestContentLengthExceeds, requestContentLengthMissing } from "@/lib/http/request-body";
 
-import { AuthError, ValidationError } from "@/lib/errors";
+import { ValidationError } from "@/lib/errors";
 import { isUniqueViolation } from "@/lib/db";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { getServerLocale, t, type Locale } from "@/lib/i18n/translations";
@@ -406,8 +406,6 @@ export async function GET(request: Request) {
     request,
     { permission: "storage:read", errorMessage: t("api.storage.fileUnavailable", locale) },
     async ({ session }) => {
-      if (!session)
-        throw new AuthError(t("api.auth.sessionExpired", locale));
       return handleLocalStorageGet(request, session, locale);
     },
   );
@@ -423,8 +421,6 @@ export async function POST(request: Request) {
       errorMessage: t("api.image.uploadFailed", locale),
     },
     async ({ session }) => {
-      if (!session)
-        throw new AuthError(t("api.auth.sessionExpired", locale));
       return handlePost(request, session, locale);
     },
   );

@@ -21,7 +21,7 @@ import {
 } from "@/lib/downloads/helpers";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
-import { AppError, AuthError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
+import { AppError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import { teamAccessFilter } from "@/lib/auth/team-scope";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { canAccessDownloadTask, taskDownloadAccess } from "@/lib/downloads/route-helpers";
@@ -46,8 +46,6 @@ export async function PATCH(request: Request) {
       bodySchema: patchDownloadSchema,
     },
     async ({ session, body }) => {
-      if (!session)
-        throw new AuthError(t("apiDownloads.unauthorized", locale));
       const { taskId, action, maxSpeedKb, globalMaxSpeedKb } = body;
 
       // Global speed limit

@@ -18,12 +18,12 @@ const querySchema = z.object({
 export async function GET(request: Request) {
   return withApiRoute(request, { permission: "share:manage", errorMessage: apiCopy("apiCopy.failed.to.load.share.access.report.d4a65b76") }, async ({ session }) => {
     const query = parseSearchParams(request, querySchema);
-    const report = await getShareAccessReport({ session: session!, days: query.days, action: query.action, take: query.limit });
+    const report = await getShareAccessReport({ session: session, days: query.days, action: query.action, take: query.limit });
     if (query.format === "csv") {
       const header = ["accessedAt", "action", "shareId", "shareName", "path", "permissionLevel", "ip", "userAgent"];
       const rows = report.logs.map((log) => [log.accessedAt, log.action, log.share.id, log.share.name || log.share.path, log.share.path, log.share.permissionLevel, log.ip, log.userAgent]);
       const csv = [header, ...rows].map((row) => row.map(csvCell).join(",")).join("\n");
-      await auditUserAction(session!.userId, "share.access-report.export", { days: report.range.days, action: report.range.action, rows: report.logs.length }, undefined, session?.currentTeamId);
+      await auditUserAction(session.userId, "share.access-report.export", { days: report.range.days, action: report.range.action, rows: report.logs.length }, undefined, session.currentTeamId);
       return new Response(csv, { headers: { "content-type": "text/csv; charset=utf-8", "content-disposition": 'attachment; filename="share-access-report.csv"', "cache-control": "no-store" } });
     }
     return NextResponse.json({ report });

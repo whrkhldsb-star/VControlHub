@@ -18,7 +18,6 @@ import { hostedActionDecisionSchema } from "@/lib/ai/schema";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
-import { AuthError } from "@/lib/errors";
 import { auditUserAction } from "@/lib/audit/service";
 export const dynamic = "force-dynamic";
 
@@ -36,8 +35,6 @@ export async function PATCH(
       bodySchema: hostedActionDecisionSchema,
     },
     async ({ session, body }) => {
-      if (!session)
-        throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
       const { id } = await params;
 
       if (body.action === "confirm") {

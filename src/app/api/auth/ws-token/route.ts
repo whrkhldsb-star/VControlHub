@@ -8,7 +8,6 @@ import { config } from "@/lib/config/env";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
-import { AuthError } from "@/lib/errors";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
 const HANDSHAKE_TTL_MS = 60_000;
 
@@ -36,9 +35,6 @@ export async function POST(request: NextRequest) {
       bodySchema: requestSchema,
     },
     async ({ session, body }) => {
-      if (!session)
-        throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
-
       // Multi-tenant: never mint a handshake for a server outside the caller's team.
       const teamAccess = await assertServerTeamAccess(session, body.serverId);
       if (!teamAccess.ok) return teamAccess.response;

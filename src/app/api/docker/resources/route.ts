@@ -4,7 +4,6 @@ import { z } from "zod";
 
 import { auditUserAction } from "@/lib/audit/service";
 import { dockerRequest } from "@/lib/docker/engine-client";
-import { AuthError } from "@/lib/errors";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { COMMAND_LIMIT } from "@/lib/http/rate-limit-presets";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
@@ -58,7 +57,6 @@ export async function POST(req: NextRequest) {
     req,
     { permission: "docker:manage", rateLimit: COMMAND_LIMIT, errorMessage: apiCopy("apiCopy.docker.resource.operation.failed.6769d4ca"), bodySchema: postBodySchema },
     async ({ session, body: input }) => {
-      if (!session) throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
       const { type, action, name, driver = "local", serverId } = input;
 
       if (serverId) {

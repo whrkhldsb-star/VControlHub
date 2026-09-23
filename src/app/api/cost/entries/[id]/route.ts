@@ -63,10 +63,10 @@ export async function PATCH(
 		},
 		async ({ session, body }) => {
 			const entry = await updateCostEntry(id, body, session);
-			await auditUserAction(session?.userId ?? "anonymous", "cost.update", {
+			await auditUserAction(session.userId, "cost.update", {
 				entryId: entry.id,
 				updatedFields: Object.keys(body),
-			}, undefined, session?.currentTeamId);
+			}, undefined, session.currentTeamId);
 			return NextResponse.json({ entry });
 		},
 	);
@@ -87,9 +87,9 @@ export async function DELETE(
 		},
 		async ({ session }) => {
 			await deleteCostEntry(id, session);
-			await auditUserAction(session?.userId ?? "anonymous", "cost.delete", {
+			await auditUserAction(session.userId, "cost.delete", {
 				entryId: id,
-			}, undefined, session?.currentTeamId);
+			}, undefined, session.currentTeamId);
 			return NextResponse.json({ success: true });
 		},
 	);

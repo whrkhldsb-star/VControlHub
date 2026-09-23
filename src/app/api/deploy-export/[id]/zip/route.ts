@@ -55,10 +55,6 @@ export async function GET(
     request,
     { permission: "deploy:export" },
     async ({ session }) => {
-      if (!session) {
-        // Guarded by `deploy:export` already; this is a type narrowing only.
-        throw new NotFoundError(apiCopy("apiCopy.deployment.export.package.not.found.0c0028e2"));
-      }
       const { id } = await params;
       const parsedId = idSchema.safeParse(id);
       if (!parsedId.success) {
@@ -91,7 +87,7 @@ export async function GET(
         exportId: record.id,
         fileCount: entries.length,
         size: zip.length,
-      }, undefined, session?.currentTeamId);
+      }, undefined, session.currentTeamId);
       return new NextResponse(new Uint8Array(zip), {
         status: 200,
         headers: {

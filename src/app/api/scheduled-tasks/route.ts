@@ -5,7 +5,7 @@ import { auditUserAction } from "@/lib/audit/service";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { idQuerySchema, parseSearchParams } from "@/lib/http/parse-search-params";
-import { AuthError, ValidationError } from "@/lib/errors";
+import { ValidationError } from "@/lib/errors";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import {
@@ -94,8 +94,6 @@ export async function GET(request: Request) {
       errorMessage: t("api.serverError", "zh"),
     },
     async ({ session }) => {
-      const locale = await getServerLocale();
-      if (!session) throw new AuthError(t("api.unauthorized", locale));
       const tasks = await listScheduledTasks(200, session);
       const serialized = tasks.map((task) => ({
         id: task.id,
@@ -138,8 +136,6 @@ export async function POST(request: Request) {
     },
     async ({ session, body: data }) => {
       const locale = await getServerLocale();
-      if (!session)
-        throw new AuthError(t("api.unauthorized", locale));
 		const cronExpression = data.cronExpression ?? data.cron;
 		if (data.scheduleType !== "ONCE" && !cronExpression)
         throw new ValidationError(t("api.cronRequired", locale));
@@ -167,7 +163,7 @@ export async function POST(request: Request) {
       await auditUserAction(
         session.userId,
         "scheduled_task.create",
-        auditScheduledTaskDetail(task), undefined, session?.currentTeamId);
+        auditScheduledTaskDetail(task), undefined, session.currentTeamId);
       return NextResponse.json({ task });
     },
   );
@@ -185,14 +181,12 @@ export async function PATCH(request: Request) {
     },
     async ({ session, body: data }) => {
       const locale = await getServerLocale();
-      if (!session)
-        throw new AuthError(t("api.unauthorized", locale));
       if (data.toggleId) {
         const result = await toggleScheduledTask(data.toggleId, session);
         await auditUserAction(
           session.userId,
           "scheduled_task.toggle",
-          auditScheduledTaskDetail(result), undefined, session?.currentTeamId);
+          auditScheduledTaskDetail(result), undefined, session.currentTeamId);
         return NextResponse.json({ task: result });
       }
       if (data.retryId) {
@@ -200,7 +194,7 @@ export async function PATCH(request: Request) {
         await auditUserAction(
           session.userId,
           "scheduled_task.retry",
-          auditScheduledTaskDetail(result), undefined, session?.currentTeamId);
+          auditScheduledTaskDetail(result), undefined, session.currentTeamId);
         return NextResponse.json({ task: result });
       }
 		if (!data.id)
@@ -230,7 +224,7 @@ export async function PATCH(request: Request) {
       await auditUserAction(
         session.userId,
         "scheduled_task.update",
-        auditScheduledTaskDetail(result), undefined, session?.currentTeamId);
+        auditScheduledTaskDetail(result), undefined, session.currentTeamId);
       return NextResponse.json({ task: result });
     },
   );
@@ -246,9 +240,6 @@ export async function DELETE(request: Request) {
       errorMessage: t("api.deleteFailed", "zh"),
     },
     async ({ session }) => {
-      const locale = await getServerLocale();
-      if (!session)
-        throw new AuthError(t("api.unauthorized", locale));
       const { id } = parseSearchParams(request, idQuerySchema);
       const deleted = await deleteScheduledTask(id, session);
       await auditUserAction(
@@ -256,7 +247,7 @@ export async function DELETE(request: Request) {
         "scheduled_task.delete",
         auditScheduledTaskDetail(deleted),
         "WARNING",
-        session?.currentTeamId,
+        session.currentTeamId,
       );
       return NextResponse.json({ success: true });
     },

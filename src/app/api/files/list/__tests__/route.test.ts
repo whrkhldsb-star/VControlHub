@@ -19,7 +19,9 @@ describe("GET /api/files/list",() => {
     expect(mocks.listing).not.toHaveBeenCalled();
   });
   it("does not query listings without a session",async () => {
-    mocks.permission.mockResolvedValue({session:null});
+    // Real requireApiPermission answers an absent session with a 401 Response
+    // (never { session: null }) — the guard rejects before the handler runs.
+    mocks.permission.mockResolvedValue(new Response(JSON.stringify({error:"not authenticated"}),{status:401}));
     const response = await GET(new NextRequest("https://app.example.test/api/files/list"));
     expect(response.status).toBe(401);
     expect(mocks.listing).not.toHaveBeenCalled();

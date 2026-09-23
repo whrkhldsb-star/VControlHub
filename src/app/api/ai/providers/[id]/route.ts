@@ -14,7 +14,7 @@ import { serializeProvider } from "@/lib/ai/service-serialize";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
-import { AuthError, NotFoundError } from "@/lib/errors";
+import { NotFoundError } from "@/lib/errors";
 import { auditUserAction } from "@/lib/audit/service";
 export const dynamic = "force-dynamic";
 
@@ -49,8 +49,6 @@ export async function GET(
     request,
     { permission: "ai:manage", errorStatus: 404, errorMessage: apiCopy("apiCopy.not.found.e3ebaa16") },
     async ({ session }) => {
-      if (!session)
-        throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
       const { id } = await params;
       const provider = await getProviderById(id, session.userId);
       return NextResponse.json({ provider: serializeProvider(provider) });
@@ -72,8 +70,6 @@ export async function PATCH(
       bodySchema: updateProviderSchema,
     },
     async ({ session, body }) => {
-      if (!session)
-        throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
       const { id } = await params;
 
       const updateBody = {
@@ -82,7 +78,7 @@ export async function PATCH(
       };
       const provider = await updateProvider(id, session.userId, updateBody);
       if (!provider) throw new NotFoundError(apiCopy("apiCopy.provider.not.found.90c36c40"));
-      await auditUserAction(session.userId, "ai.provider.update", { providerId: id }, undefined, session?.currentTeamId);
+      await auditUserAction(session.userId, "ai.provider.update", { providerId: id }, undefined, session.currentTeamId);
       return NextResponse.json({ provider: serializeProvider(provider) });
     },
   );
@@ -101,11 +97,9 @@ export async function DELETE(
       errorMessage: apiCopy("apiCopy.failed.to.delete.f625b14e"),
     },
     async ({ session }) => {
-      if (!session)
-        throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
       const { id } = await params;
       await deleteProvider(id, session.userId);
-      await auditUserAction(session?.userId ?? "", "ai.provider.delete", { providerId: id }, undefined, session?.currentTeamId);
+      await auditUserAction(session.userId, "ai.provider.delete", { providerId: id }, undefined, session.currentTeamId);
       return NextResponse.json({ ok: true });
     },
   );

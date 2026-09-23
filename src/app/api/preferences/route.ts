@@ -17,7 +17,6 @@ import {
 } from "@/lib/preferences/user-preferences";
 import { withCacheHeaders, CachePresets } from "@/lib/cache";
 
-import { AuthError } from "@/lib/errors";
 const prefsSchema = z.object({
   defaultPage: z.string().optional(),
   dashboardWidgets: z.array(z.string()).optional(),
@@ -35,9 +34,6 @@ export async function GET(request: Request) {
     request,
     { requireAuth: true, errorMessage: apiCopy("apiCopy.failed.to.fetch.preferences.ffdd88c2") },
     async ({ session }) => {
-      if (!session)
-        throw new AuthError(apiCopy("apiCopy.unauthorized.d089c8a9"));
-
       const user = await prisma.user.findUnique({
         where: { id: session.userId },
         select: { preferences: true },
@@ -68,9 +64,6 @@ export async function PUT(request: Request) {
       errorMessage: apiCopy("apiCopy.failed.to.save.preferences.7cb9dce5"),
     },
     async ({ session, body }) => {
-      if (!session)
-        throw new AuthError(apiCopy("apiCopy.unauthorized.d089c8a9"));
-
       // Partial PUT: merge into existing preferences so clients that only send
       // autoProbe* / one field (e.g. servers AutoProbeProvider) do not wipe
       // defaultPage, widgets, refresh interval, etc. back to defaults.

@@ -11,7 +11,6 @@ import { config } from "@/lib/config/env";
 import { createSingleFlight } from "@/lib/concurrency/single-flight";
 import type { HealthOverview } from "@/lib/health/service-types";
 
-import { apiError } from "@/lib/http/api-error";
 export const dynamic = "force-dynamic";
 
 /**
@@ -52,7 +51,7 @@ export async function GET(request: Request) {
   );
 }
 
-async function handleHealthRequest(request: Request, session: SessionPayload | null) {
+async function handleHealthRequest(request: Request, session: SessionPayload) {
   const { historyFor, hours } = parseSearchParams(
     request,
     z.object({
@@ -66,9 +65,6 @@ async function handleHealthRequest(request: Request, session: SessionPayload | n
   );
 
   if (historyFor) {
-    if (!session) {
-      return apiError({ code: "AUTH_REQUIRED", message: apiCopy("apiCopy.unauthorized.d089c8a9"), status: 401 });
-    }
     const access = await assertServerTeamAccess(session, historyFor);
     if (!access.ok) return access.response;
     const history = await getMetricHistory(historyFor, hours);
@@ -85,10 +81,6 @@ async function handleHealthRequest(request: Request, session: SessionPayload | n
       latestSampleAt: serialized.at(-1)?.t ?? null,
       samplingIntervalSeconds: 300,
     });
-  }
-
-  if (!session) {
-    return apiError({ code: "AUTH_REQUIRED", message: apiCopy("apiCopy.unauthorized.d089c8a9"), status: 401 });
   }
 
   const overview = await healthOverviewFlight.run(healthOverviewKey(session), () =>

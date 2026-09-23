@@ -14,7 +14,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 		{ permission: "team:member:manage", rateLimit: GENERAL_WRITE_LIMIT, bodySchema: addTeamMemberSchema, errorMessage: apiCopy("apiCopy.failed.to.add.team.member.75d0df98") },
 		async ({ session, body }) => {
 			const { id } = await params;
-			const member = await addTeamMember(id, body, session!);
+			const member = await addTeamMember(id, body, session);
 			// Audit is recorded inside addTeamMember (team.member.upsert + username/role).
 			return NextResponse.json({ success: true, member });
 		},

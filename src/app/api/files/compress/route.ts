@@ -9,7 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
-import { AuthError, NotFoundError } from "@/lib/errors";
+import { NotFoundError } from "@/lib/errors";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { compressFilesBodySchema } from "@/lib/files/schema";
@@ -33,8 +33,6 @@ export async function POST(request: NextRequest) {
       bodySchema: compressFilesBodySchema,
     },
     async ({ session, body }) => {
-      if (!session) throw new AuthError(apiCopy("apiCopy.unauthorized.d089c8a9"));
-
       const { storageNodeId, relativePaths, targetDir } = body;
       const outputName = normalizeArchiveName(body.outputName);
       const targetRelativeDir = normalizeDir(targetDir ?? path.posix.dirname(relativePaths[0] ?? ""));

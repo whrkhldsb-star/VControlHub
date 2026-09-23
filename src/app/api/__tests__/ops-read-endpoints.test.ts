@@ -42,6 +42,12 @@ let currentSession: typeof session | null = null;
 vi.mock("@/lib/http/api-guard", () => ({
 	withApiRoute: vi.fn(async (_request: Request, options: any, handler: any) => {
 		mocks.guardCalls.push(options);
+		// Mirrors the real guard's contract: routes declaring an auth option
+		// never see a null session — an anonymous caller is rejected here.
+		const authed = Boolean(options?.permission ?? options?.permissions ?? options?.requireAuth);
+		if (authed && !currentSession) {
+			return Response.json({ error: "not authenticated" }, { status: 401 });
+		}
 		try {
 			return await handler({ session: currentSession });
 		} catch (error) {
@@ -188,9 +194,9 @@ describe("read-only ops endpoints", () => {
 		});
 
 		it("401s without reading uptime data when the session is absent", async () => {
-			// Defence in depth: the permission guard already rejects an anonymous
-			// caller, so this branch only fires if that ever regresses — but it must
-			// not degrade into an unfiltered query.
+			// The route keeps declaring the permission, so the (mocked) guard
+			// rejects the anonymous caller before the handler — the service
+			// must never see a session-less request.
 			currentSession = null;
 			const res = await uptimeAll.GET(req("https://a.test/api/system/uptime/all") as never);
 			expect(res.status).toBe(401);

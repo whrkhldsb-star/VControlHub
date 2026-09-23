@@ -15,8 +15,6 @@ export async function GET(request: Request) {
     request,
     { permission: "storage:read", errorMessage: apiCopy("apiCopy.failed.to.fetch.recent.downloads.a2df5c2c") },
     async ({ session }) => {
-      if (!session) return NextResponse.json({ error: apiCopy("apiCopy.unauthorized.d089c8a9") }, { status: 401 });
-
       const tasks = await prisma.downloadTask.findMany({
         where: {
           status: "COMPLETED",

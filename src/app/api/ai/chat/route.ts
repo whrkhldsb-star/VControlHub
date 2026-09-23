@@ -33,13 +33,6 @@ export async function POST(request: Request) {
       bodySchema: chatRequestSchema,
     },
     async ({ session, body }) => {
-      if (!session) {
-        return NextResponse.json(
-          { error: t("apiAiChat.unauthorized", locale) },
-          { status: 401 },
-        );
-      }
-
       const content = (body.content ?? body.message ?? "").trim();
       if (!body.conversationId || !content) {
         throw new ValidationError(t("apiAiChat.missingParams", locale));

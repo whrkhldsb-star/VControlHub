@@ -73,10 +73,6 @@ export async function POST(
       errorMessage: apiCopy("apiCopy.failed.to.complete.upload.session.dae9f71c"),
     },
     async ({ session }) => {
-      if (!session) {
-        throw new ForbiddenError(apiCopy("apiCopy.not.authenticated.or.session.expired.b1714d99"));
-      }
-
       // Reject legacy sessions created before the image-specific cap without
       // assembling their chunks into memory.
       const existing = await prisma.mediaUploadSession.findFirst({

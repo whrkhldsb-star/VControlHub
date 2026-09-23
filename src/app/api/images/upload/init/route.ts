@@ -22,8 +22,6 @@ import {
   MediaUploadError,
 } from "@/lib/upload/service";
 import { auditUserAction } from "@/lib/audit/service";
-import { ForbiddenError } from "@/lib/errors";
-
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
@@ -37,9 +35,6 @@ export async function POST(request: Request) {
       errorMessage: apiCopy("apiCopy.failed.to.initialize.upload.session.ede9e883"),
     },
     async ({ session, body }) => {
-      if (!session) {
-        throw new ForbiddenError(apiCopy("apiCopy.not.authenticated.or.session.expired.b1714d99"));
-      }
       try {
         const view = await initMediaUploadSession({
           userId: session.userId,

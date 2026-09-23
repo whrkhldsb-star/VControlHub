@@ -30,7 +30,7 @@ export async function POST(
       const { id } = await params;
       const teamAccess = await assertServerTeamAccess(session, id);
       if (!teamAccess.ok) return teamAccess.response;
-			await assertSftpPathAccess({ session: session!, serverId: id, paths: [body.path] });
+			await assertSftpPathAccess({ session, serverId: id, paths: [body.path] });
       const entries = await listDirectory(id, body.path);
       return NextResponse.json({ path: body.path, entries });
     },

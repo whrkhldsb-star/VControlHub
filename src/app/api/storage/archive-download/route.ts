@@ -29,7 +29,7 @@ import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 import { storageFileQuerySchema } from "@/lib/storage/schema";
 import { isDirectoryEntry } from "@/lib/files/tree";
 
-import { AuthError, NotFoundError, ValidationError } from "@/lib/errors";
+import { NotFoundError, ValidationError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
 
 const logger = createLogger("api:storage:archive-download");
@@ -110,10 +110,6 @@ async function findDirectoryEntry(
 export async function GET(request: Request) {
   const locale = await getServerLocale();
   return withApiRoute(request, { permission: "storage:read" }, async ({ session }) => {
-    if (!session) {
-      throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
-    }
-
     const { nodeId, path: requestedPath } = parseSearchParams(
       request,
       storageFileQuerySchema,

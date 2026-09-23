@@ -27,7 +27,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   return withApiRoute(request, { permission: "backup:read" }, async ({ session }) => {
-    return NextResponse.json({ backups: await listBackupRecords(session!) });
+    return NextResponse.json({ backups: await listBackupRecords(session) });
   });
 }
 
@@ -71,7 +71,7 @@ export async function POST(request: Request) {
     );
     const waitForCompletion = wait;
     if (waitForCompletion) {
-      const backup = await runBackupRecord({ type: parsed.data.type, createdBy: session?.userId ?? null, note: parsed.data.note, teamId: session?.currentTeamId ?? null });
+      const backup = await runBackupRecord({ type: parsed.data.type, createdBy: session.userId, note: parsed.data.note, teamId: session.currentTeamId ?? null });
       // runBackupRecord returns FAILED records without throwing — surface as BusinessError.
       if (backup.status !== "COMPLETED") {
         throw new BusinessError(backup.errorMessage?.slice(0, 500) || `Backup finished with status ${backup.status}`);
@@ -79,19 +79,19 @@ export async function POST(request: Request) {
       if ((request.headers.get("accept") || "").includes("text/html")) {
         return NextResponse.redirect(new URL("/backups", request.url), { status: 303 });
       }
-      await auditUserAction(session?.userId ?? "", "backup.create", { backupId: backup.id }, undefined, session?.currentTeamId);
+      await auditUserAction(session.userId, "backup.create", { backupId: backup.id }, undefined, session.currentTeamId);
       return NextResponse.json({ backup }, { status: 201 });
     }
 
-    const backup = await createBackupRecord({ type: parsed.data.type, createdBy: session?.userId ?? null, note: parsed.data.note, teamId: session?.currentTeamId ?? null });
+    const backup = await createBackupRecord({ type: parsed.data.type, createdBy: session.userId, note: parsed.data.note, teamId: session.currentTeamId ?? null });
     let job;
     try {
       job = await enqueueJob({
         type: BACKUP_CREATE_JOB_TYPE,
         title: `Create ${parsed.data.type} backup`,
-        payload: { backupId: backup.id, teamId: session?.currentTeamId ?? backup.teamId ?? null },
-        createdBy: session?.userId ?? null,
-        teamId: session?.currentTeamId ?? null,
+        payload: { backupId: backup.id, teamId: session.currentTeamId ?? backup.teamId ?? null },
+        createdBy: session.userId,
+        teamId: session.currentTeamId ?? null,
         maxAttempts: 1,
       });
     } catch (enqueueError) {
@@ -105,11 +105,11 @@ export async function POST(request: Request) {
       }).catch(() => undefined);
       throw enqueueError;
     }
-    await auditUserAction(session?.userId ?? "", "backup.create", {
+    await auditUserAction(session.userId, "backup.create", {
       backupId: backup.id,
       jobId: job.id,
       async: true,
-    }, undefined, session?.currentTeamId);
+    }, undefined, session.currentTeamId);
     if ((request.headers.get("accept") || "").includes("text/html")) {
       return NextResponse.redirect(new URL("/backups", request.url), { status: 303 });
     }

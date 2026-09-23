@@ -20,7 +20,7 @@ import {
   MediaUploadError,
 } from "@/lib/upload/service";
 import { auditUserAction } from "@/lib/audit/service";
-import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
+import { NotFoundError, ValidationError } from "@/lib/errors";
 
 export const dynamic = "force-dynamic";
 
@@ -38,9 +38,6 @@ export async function GET(
       errorMessage: apiCopy("apiCopy.failed.to.query.upload.session.1a09e395"),
     },
     async ({ session }) => {
-      if (!session) {
-        throw new ForbiddenError(apiCopy("apiCopy.not.authenticated.or.session.expired.b1714d99"));
-      }
       const view = await getMediaUploadSession(sessionId, session.userId);
       if (!view) {
         throw new NotFoundError(apiCopy("apiCopy.upload.session.not.found.84c8bec0", { v0: String(sessionId) }));
@@ -64,9 +61,6 @@ export async function DELETE(
       errorMessage: apiCopy("apiCopy.failed.to.cancel.upload.session.5d0932f1"),
     },
     async ({ session }) => {
-      if (!session) {
-        throw new ForbiddenError(apiCopy("apiCopy.not.authenticated.or.session.expired.b1714d99"));
-      }
       try {
         const view = await cancelMediaUploadSession(
           sessionId,

@@ -6,7 +6,6 @@ import { NextResponse } from "next/server";
 
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
-import { AuthError } from "@/lib/errors";
 import { auditUserAction } from "@/lib/audit/service";
 import { restoreFileVersion } from "@/lib/storage/file-versions";
 
@@ -25,7 +24,6 @@ export async function POST(
       errorMessage: apiCopy("apiCopy.failed.to.restore.file.version.dd230a16"),
     },
     async ({ session }) => {
-      if (!session) throw new AuthError(apiCopy("apiCopy.unauthorized.d089c8a9"));
       const { id, versionId } = await params;
       const result = await restoreFileVersion({
         fileEntryId: id,

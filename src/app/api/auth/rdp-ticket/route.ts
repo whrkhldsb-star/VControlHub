@@ -14,7 +14,6 @@ export async function POST(request: NextRequest) {
   permission: "server:ssh", rateLimit: GENERAL_WRITE_LIMIT,
   bodySchema: z.object({ serverId: z.string().min(1).max(128) }).strict(),
  }, async ({session, body}) => {
-  if (!session) throw new AuthError();
   const origin = request.headers.get("origin") ?? "";
   // TLS may terminate at the trusted reverse proxy; request.url can be internal HTTP.
   // Trust only explicitly configured public origins, never arbitrary forwarded headers.

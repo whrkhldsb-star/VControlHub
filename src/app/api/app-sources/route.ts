@@ -143,7 +143,7 @@ export async function POST(request: Request) {
         },
       });
 
-      await auditUserAction(session?.userId ?? "", "app-source.create", { sourceId: source.id }, undefined, session?.currentTeamId);
+      await auditUserAction(session.userId, "app-source.create", { sourceId: source.id }, undefined, session.currentTeamId);
       return NextResponse.json({ source }, { status: 201 });
     },
   );
@@ -177,17 +177,17 @@ export async function PATCH(request: Request) {
       if (body.action === "sync") {
         if (body.sourceId) {
           const result = await syncSource(body.sourceId);
-          await auditUserAction(session?.userId ?? "", "app-source.sync", {
+          await auditUserAction(session.userId, "app-source.sync", {
             sourceId: body.sourceId,
             mode: "single",
-          }, undefined, session?.currentTeamId);
+          }, undefined, session.currentTeamId);
           return NextResponse.json({ result });
         }
         const results = await syncAllSources();
-        await auditUserAction(session?.userId ?? "", "app-source.sync", {
+        await auditUserAction(session.userId, "app-source.sync", {
           mode: "all",
           resultCount: Array.isArray(results) ? results.length : null,
-        }, undefined, session?.currentTeamId);
+        }, undefined, session.currentTeamId);
         return NextResponse.json({ results });
       }
 
@@ -200,10 +200,10 @@ export async function PATCH(request: Request) {
       if (toggled.count === 0) {
         throw new NotFoundError(serviceT("backend.app-source.sourceNotFound"));
       }
-      await auditUserAction(session?.userId ?? "", "app-source.toggle", {
+      await auditUserAction(session.userId, "app-source.toggle", {
         sourceId: body.sourceId,
         enabled: body.enabled,
-      }, undefined, session?.currentTeamId);
+      }, undefined, session.currentTeamId);
       return NextResponse.json({ ok: true });
     },
   );
@@ -238,7 +238,7 @@ export async function DELETE(request: Request) {
       if (deleted.count === 0) {
         throw new NotFoundError(serviceT("backend.app-source.sourceNotFound"));
       }
-      await auditUserAction(session?.userId ?? "", "app-source.delete", { sourceId }, undefined, session?.currentTeamId);
+      await auditUserAction(session.userId, "app-source.delete", { sourceId }, undefined, session.currentTeamId);
       return NextResponse.json({ ok: true });
     },
   );

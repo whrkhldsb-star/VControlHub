@@ -28,14 +28,14 @@ export async function POST(request: Request, context: RouteContext) {
 			errorMessage: apiCopy("apiCopy.failed.to.sync.cloud.billing.account.abbc5a5c"),
 		},
 		async ({ session, body }) => {
-			const result = await syncCloudBillingAccount(id, body.month, session ?? undefined);
-			await auditUserAction(session?.userId ?? "anonymous", "cost.billing_account.sync", {
+			const result = await syncCloudBillingAccount(id, body.month, session);
+			await auditUserAction(session.userId, "cost.billing_account.sync", {
 				accountId: id,
 				month: result.run.month,
 				imported: result.imported,
 				skipped: result.skipped,
 				status: result.run.status,
-			}, undefined, session?.currentTeamId);
+			}, undefined, session.currentTeamId);
 			return NextResponse.json({ result });
 		},
 	);

@@ -67,11 +67,6 @@ export async function DELETE(
       errorMessage: apiCopy("apiCopy.delete.failed.8727e2ba"),
     },
     async ({ session }) => {
-      if (!session)
-        return NextResponse.json(
-          { error: apiCopy("apiCopy.not.authenticated.or.session.expired.b1714d99") },
-          { status: 401 },
-        );
       const { id } = await params;
 
       const image = await prisma.imageUpload.findUnique({
@@ -183,11 +178,11 @@ export async function DELETE(
       });
 
       await auditUserAction(
-        session?.userId ?? "",
+        session.userId,
         "image.delete",
         { imageId: id, cleanupFailures },
         cleanupFailures.length > 0 ? "WARNING" : undefined,
-        session?.currentTeamId,
+        session.currentTeamId,
       );
       if (cleanupFailures.length > 0) {
         return NextResponse.json(

@@ -8,7 +8,6 @@ import { GENERAL_READ_LIMIT, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-p
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { listMediaItems, scanMediaFromFileEntries } from "@/lib/media/service";
 
-import { AuthError } from "@/lib/errors";
 import { auditUserAction } from "@/lib/audit/service";
 export const dynamic = "force-dynamic";
 
@@ -36,7 +35,7 @@ export async function GET(request: Request) {
           q,
           favorite: favorite ? true : undefined,
           tag,
-          session: session ?? undefined,
+          session,
         }),
       });
     },
@@ -52,8 +51,6 @@ export async function POST(request: Request) {
       errorMessage: apiCopy("apiCopy.operation.failed.4e1af7c7"),
     },
     async ({ session }) => {
-      if (!session)
-        throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
       const result = await scanMediaFromFileEntries(session.userId, session);
       await auditUserAction(session.userId, "media.scan", {
         scanned: typeof result === "object" && result !== null && "scanned" in result
@@ -62,7 +59,7 @@ export async function POST(request: Request) {
         created: typeof result === "object" && result !== null && "created" in result
           ? Number((result as { created?: unknown }).created ?? 0)
           : null,
-      }, undefined, session?.currentTeamId);
+      }, undefined, session.currentTeamId);
       return NextResponse.json(result);
     },
   );

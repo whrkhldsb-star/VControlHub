@@ -83,9 +83,6 @@ export async function POST(
     },
     async ({ session }) => {
       const locale = await getServerLocale();
-      if (!session) {
-        return Response.json({ error: t("apiServersDetectOs.unauthorized", locale) }, { status: 401 });
-      }
       if (!sessionHasPermission(session, "server:ssh")) {
         return Response.json({ error: t("apiServersDetectOs.missingSshPermission", locale) }, { status: 403 });
       }

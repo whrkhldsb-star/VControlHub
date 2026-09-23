@@ -48,7 +48,7 @@ export async function GET(request: Request) {
       errorMessage: apiCopy("apiCopy.failed.to.compute.capacity.forecast.d4f66cf3"),
     },
     async ({ session, query }) => {
-      if (query.serverId && session) {
+      if (query.serverId) {
         const access = await assertServerTeamAccess(session, query.serverId);
         if (!access.ok) return access.response;
       }
@@ -57,7 +57,7 @@ export async function GET(request: Request) {
         windowHours: query.windowHours,
         horizonDays: query.horizonDays,
         serverId: query.serverId,
-        session: session ?? undefined,
+        session,
       });
 
       return NextResponse.json(result);

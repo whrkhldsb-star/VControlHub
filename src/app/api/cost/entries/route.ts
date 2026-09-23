@@ -64,15 +64,14 @@ export async function POST(request: Request) {
 			errorMessage: apiCopy("apiCopy.failed.to.create.cost.entry.e6784a5c"),
 		},
 		async ({ session, body }) => {
-			const createdById = session?.userId ?? null;
-			const entry = await createCostEntry(body, createdById, session);
-			await auditUserAction(createdById ?? "anonymous", "cost.create", {
+			const entry = await createCostEntry(body, session.userId, session);
+			await auditUserAction(session.userId, "cost.create", {
 				entryId: entry.id,
 				category: entry.category,
 				provider: entry.provider,
 				amount: entry.amount,
 				currency: entry.currency,
-			}, undefined, session?.currentTeamId);
+			}, undefined, session.currentTeamId);
 			return NextResponse.json({ entry });
 		},
 	);

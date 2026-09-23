@@ -31,8 +31,8 @@ export async function POST(request: Request) {
     async ({ session, body }) => {
       const allowed =
         body.action === "delete"
-          ? sessionHasPermission(session!, "storage:delete")
-          : sessionHasPermission(session!, "storage:write");
+          ? sessionHasPermission(session, "storage:delete")
+          : sessionHasPermission(session, "storage:write");
       if (!allowed)
         throw new ForbiddenError(apiCopy("apiCopy.files.op.denied"));
       const target = normalizeStorageTargetDirectory(body.targetDir);
@@ -47,8 +47,8 @@ export async function POST(request: Request) {
         const saved = job.payload as Record<string, unknown>;
         const requestedIds = saved.requestedFileEntryIds ?? saved.fileEntryIds;
         return (
-          job.createdBy === session!.userId &&
-          job.teamId === (session!.currentTeamId ?? null) &&
+          job.createdBy === session.userId &&
+          job.teamId === (session.currentTeamId ?? null) &&
           job.type === FILE_OPERATION_JOB_TYPE &&
           saved.action === body.action &&
           saved.targetDir === body.targetDir &&
@@ -70,7 +70,7 @@ export async function POST(request: Request) {
         where: {
           id: { in: body.fileEntryIds },
           isDeleted: false,
-          storageNode: teamWhere(session!),
+          storageNode: teamWhere(session),
         },
         select: {
           id: true,
@@ -85,7 +85,7 @@ export async function POST(request: Request) {
         const access = await Promise.all(
           entries.slice(offset, offset + 20).map((entry) =>
             assertStorageAccess({
-              session: session!,
+              session: session,
               storageNodeId: entry.storageNodeId,
               relativePath: entry.relativePath,
               operation:
@@ -131,11 +131,11 @@ export async function POST(request: Request) {
             throw new ValidationError(apiCopy("apiCopy.files.op.requestUsed"));
           return existing;
         }
-        await tx.$executeRaw`SELECT pg_advisory_xact_lock(45088, ${hashToInt32(session!.userId)})`;
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(45088, ${hashToInt32(session.userId)})`;
         const pending = await tx.job.count({
           where: {
             type: FILE_OPERATION_JOB_TYPE,
-            createdBy: session!.userId,
+            createdBy: session.userId,
             status: { in: ["PENDING", "RUNNING"] },
           },
         });
@@ -147,8 +147,8 @@ export async function POST(request: Request) {
             type: FILE_OPERATION_JOB_TYPE,
             title: `${body.action} ${ids.length}`,
             payload,
-            createdBy: session!.userId,
-            teamId: session!.currentTeamId,
+            createdBy: session.userId,
+            teamId: session.currentTeamId,
             maxAttempts: 1,
             targetStorageNodeId: entries[0]?.storageNodeId,
           },
@@ -166,8 +166,8 @@ export async function GET(request: Request) {
     async ({ session }) => {
       const scope = {
         type: FILE_OPERATION_JOB_TYPE,
-        createdBy: session!.userId,
-        ...teamWhere(session!),
+        createdBy: session.userId,
+        ...teamWhere(session),
       };
       const select = {
         id: true,
@@ -250,9 +250,9 @@ export async function PATCH(request: Request) {
       const job = await prisma.job.findFirst({
         where: {
           id: body.id,
-          createdBy: session!.userId,
+          createdBy: session.userId,
           type: FILE_OPERATION_JOB_TYPE,
-          ...teamWhere(session!),
+          ...teamWhere(session),
           status: { in: ["PENDING", "RUNNING"] },
         },
       });

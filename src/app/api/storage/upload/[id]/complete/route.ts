@@ -8,7 +8,6 @@ import { NextResponse } from "next/server";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { auditUserAction } from "@/lib/audit/service";
-import { ForbiddenError } from "@/lib/errors";
 import { completeStorageFileUpload } from "@/lib/storage/resumable-upload";
 
 export const dynamic = "force-dynamic";
@@ -27,10 +26,6 @@ export async function POST(
       errorMessage: apiCopy("apiCopy.failed.to.complete.storage.upload.session.6b48ebf4"),
     },
     async ({ session }) => {
-      if (!session) {
-        throw new ForbiddenError(apiCopy("apiCopy.not.authenticated.or.session.expired.b1714d99"));
-      }
-
       const result = await completeStorageFileUpload({
         sessionId,
         session,

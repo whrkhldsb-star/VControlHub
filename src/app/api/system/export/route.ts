@@ -1,4 +1,3 @@
-import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * TR-042: 系统配置导出 API
  * GET /api/system/export → 下载 .vch.json
@@ -27,10 +26,6 @@ export async function GET(request: Request) {
     request,
     { permission: "user:manage", rateLimit: GENERAL_WRITE_LIMIT },
     async ({ session }) => {
-      if (!session) {
-        return NextResponse.json({ error: apiCopy("apiCopy.not.authenticated.76d1efbe") }, { status: 401 });
-      }
-
       const url = new URL(request.url);
       const sourceDomain = url.host || "unknown";
       const mode = (url.searchParams.get("mode") === "full" ? "full" : "standard") as ExportMode;

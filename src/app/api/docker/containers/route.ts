@@ -18,7 +18,6 @@ import { parseDockerStats } from "@/lib/docker/stats";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { COMMAND_LIMIT } from "@/lib/http/rate-limit-presets";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
-import { AuthError } from "@/lib/errors";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
 import { assertHubHostDockerAccess } from "@/lib/docker/hub-host-access";
 
@@ -166,9 +165,6 @@ export async function POST(req: NextRequest) {
       bodySchema: containerActionSchema,
     },
     async ({ session, body }) => {
-      if (!session)
-        throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
-
       const { id, action, serverId } = body;
 
       // Validate container ID to prevent path traversal

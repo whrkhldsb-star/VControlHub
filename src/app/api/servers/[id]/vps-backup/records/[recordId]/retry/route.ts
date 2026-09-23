@@ -34,12 +34,6 @@ export async function POST(
 		{ permission: "server:write", rateLimit: GENERAL_WRITE_LIMIT },
 		async ({ session }) => {
 			const locale = await getServerLocale();
-			if (!session) {
-				return Response.json(
-					{ error: t("vpsBackupApi.errorForbidden", locale) },
-					{ status: 403 },
-				);
-			}
 
 			const teamAccess = await assertServerTeamAccess(session, serverId);
 			if (!teamAccess.ok) return teamAccess.response;

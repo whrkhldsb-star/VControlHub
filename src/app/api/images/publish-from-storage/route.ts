@@ -48,11 +48,6 @@ export async function POST(request: Request) {
       bodySchema: publishSchema,
     },
     async ({ session, body }) => {
-      if (!session)
-        return NextResponse.json(
-          { error: apiCopy("apiCopy.not.authenticated.or.session.expired.b1714d99") },
-          { status: 401 },
-        );
       const { storageNodeId, relativePath, filename, album } = body;
 
       // Verify the storage node exists, is in team scope, and is a supported driver.

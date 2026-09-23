@@ -24,11 +24,6 @@ export async function GET(
     request,
     { permission: "ai:chat", errorMessage: apiCopy("apiCopy.not.found.e3ebaa16"), errorStatus: 404 },
     async ({ session }) => {
-      if (!session)
-        return NextResponse.json(
-          { error: apiCopy("apiCopy.not.authenticated.or.session.expired.b1714d99") },
-          { status: 401 },
-        );
       const { id } = await params;
       const conv = await getConversationById(id, session.userId);
       return NextResponse.json({ conversation: serializeConversation(conv) });
@@ -50,11 +45,6 @@ export async function PATCH(
       bodySchema: updateConversationSchema,
     },
     async ({ session, body }) => {
-      if (!session)
-        return NextResponse.json(
-          { error: apiCopy("apiCopy.not.authenticated.or.session.expired.b1714d99") },
-          { status: 401 },
-        );
       const { id } = await params;
 
       // Special action: clear all messages in the conversation
@@ -66,7 +56,7 @@ export async function PATCH(
 
       const conv = await updateConversation(id, session.userId, body);
       if (!conv) throw new NotFoundError(apiCopy("apiCopy.conversation.not.found.d8e4dcef"));
-      await auditUserAction(session?.userId ?? "", "conversation.update", { conversationId: id }, undefined, session?.currentTeamId);
+      await auditUserAction(session.userId, "conversation.update", { conversationId: id }, undefined, session.currentTeamId);
       return NextResponse.json({
         conversation: {
           ...conv,
@@ -91,14 +81,9 @@ export async function DELETE(
       errorStatus: 400,
     },
     async ({ session }) => {
-      if (!session)
-        return NextResponse.json(
-          { error: apiCopy("apiCopy.not.authenticated.or.session.expired.b1714d99") },
-          { status: 401 },
-        );
       const { id } = await params;
       await deleteConversation(id, session.userId);
-      await auditUserAction(session?.userId ?? "", "conversation.delete", { conversationId: id }, undefined, session?.currentTeamId);
+      await auditUserAction(session.userId, "conversation.delete", { conversationId: id }, undefined, session.currentTeamId);
       return NextResponse.json({ ok: true });
     },
   );

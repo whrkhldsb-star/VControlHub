@@ -27,8 +27,8 @@ export async function GET(request: Request) {
     async ({ session, query }) => {
       if (query.id) {
         const actor = {
-          userId: session?.userId,
-          canManageAll: session ? sessionHasPermission(session, "role:manage") : false,
+          userId: session.userId,
+          canManageAll: sessionHasPermission(session, "role:manage"),
         };
         try {
           const snippet = await getSnippet(query.id, actor);
@@ -39,8 +39,8 @@ export async function GET(request: Request) {
       }
       return NextResponse.json({
         snippets: await listSnippets({
-          userId: session?.userId,
-          q: query.q,
+        userId: session.userId,
+        q: query.q,
           language: query.language,
         }),
       });
@@ -57,8 +57,8 @@ export async function POST(request: Request) {
       bodySchema: createSnippetSchema,
     },
     async ({ session, body }) => {
-      const snippet = await createSnippet({ ...body, createdBy: session?.userId });
-      await auditUserAction(session?.userId ?? "", "snippet.create", { snippetId: snippet.id }, undefined, session?.currentTeamId);
+      const snippet = await createSnippet({ ...body, createdBy: session.userId });
+      await auditUserAction(session.userId, "snippet.create", { snippetId: snippet.id }, undefined, session.currentTeamId);
       return NextResponse.json(
         { snippet },
         { status: 201 },
@@ -78,12 +78,12 @@ export async function PATCH(request: Request) {
     async ({ session, body }) => {
       const { id, ...data } = body;
       const actor = {
-        userId: session?.userId,
-        canManageAll: session ? sessionHasPermission(session, "role:manage") : false,
+        userId: session.userId,
+        canManageAll: sessionHasPermission(session, "role:manage"),
       };
       try {
         const snippet = await updateSnippet(id, data, actor);
-        await auditUserAction(session?.userId ?? "", "snippet.update", { snippetId: id }, undefined, session?.currentTeamId);
+        await auditUserAction(session.userId, "snippet.update", { snippetId: id }, undefined, session.currentTeamId);
         return NextResponse.json({ snippet });
       } catch (err) {
         // AppError (Forbidden/NotFound/Validation) must map to status — do not
@@ -104,12 +104,12 @@ export async function DELETE(request: Request) {
     },
     async ({ session, query }) => {
       const actor = {
-        userId: session?.userId,
-        canManageAll: session ? sessionHasPermission(session, "role:manage") : false,
+        userId: session.userId,
+        canManageAll: sessionHasPermission(session, "role:manage"),
       };
       try {
         await deleteSnippet(query.id, actor);
-        await auditUserAction(session?.userId ?? "", "snippet.delete", { snippetId: query.id }, undefined, session?.currentTeamId);
+        await auditUserAction(session.userId, "snippet.delete", { snippetId: query.id }, undefined, session.currentTeamId);
         return NextResponse.json({ success: true });
       } catch (err) {
         return apiCatch(err);

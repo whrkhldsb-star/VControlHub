@@ -130,9 +130,6 @@ export async function POST(
     },
     async ({ session, body }) => {
       const locale = await getServerLocale();
-      if (!session) {
-        return Response.json({ error: t("apiServersReload.unauthorized", locale) }, { status: 401 });
-      }
 
       const teamAccess = await assertServerTeamAccess(session, id);
       if (!teamAccess.ok) return teamAccess.response;

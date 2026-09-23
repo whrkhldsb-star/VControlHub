@@ -33,14 +33,14 @@ export async function GET(
       const { id } = await params;
       const teamAccess = await assertServerTeamAccess(session, id);
       if (!teamAccess.ok) return teamAccess.response;
-			await assertSftpPathAccess({ session: session!, serverId: id, paths: [query.path] });
+			await assertSftpPathAccess({ session: session, serverId: id, paths: [query.path] });
       const { stream, size } = await downloadFile(id, query.path);
       await auditUserAction(
-        session!.userId,
+        session.userId,
         "sftp.download",
         { serverId: id, path: query.path, size },
         undefined,
-        session?.currentTeamId,
+        session.currentTeamId,
       );
 
       // Preserve non-ASCII (e.g. Chinese) filenames via RFC 5987 instead of

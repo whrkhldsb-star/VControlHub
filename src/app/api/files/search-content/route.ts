@@ -11,7 +11,6 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { withApiRoute } from "@/lib/http/api-guard";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
-import { AuthError } from "@/lib/errors";
 import { searchFileContents } from "@/lib/files/content-search";
 import { searchFileContentQuerySchema } from "@/lib/files/schema";
 
@@ -22,8 +21,6 @@ export async function GET(req: NextRequest) {
 		req,
 		{ permission: "storage:read", errorMessage: apiCopy("apiCopy.content.search.failed.c08d0718") },
 		async ({ session }) => {
-			if (!session) throw new AuthError(apiCopy("apiCopy.unauthorized.d089c8a9"));
-
 			const { q, nodeId, path: searchPath } = parseSearchParams(
 				req,
 				searchFileContentQuerySchema,

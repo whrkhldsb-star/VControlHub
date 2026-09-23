@@ -37,8 +37,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ sl
 		}
 		const { job, taskId, reused } = await enqueueQuickServiceJob({
 			title: `QuickService ${action}: ${slug} @ ${instanceKey}`,
-			teamId: session?.currentTeamId ?? null,
-			createdBy: session?.userId ?? null,
+			teamId: session.currentTeamId ?? null,
+			createdBy: session.userId,
 			payload: { action, slug, instanceKey, serverId: serverId || null },
 		});
 		return NextResponse.json({
@@ -76,11 +76,11 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ s
 		}
 		const { job, taskId, reused } = await enqueueQuickServiceJob({
 			title: `Uninstall quick service: ${slug} @ ${instanceKey}`,
-			teamId: session?.currentTeamId ?? null,
-			createdBy: session?.userId ?? null,
+			teamId: session.currentTeamId ?? null,
+			createdBy: session.userId,
 			payload: { action: "uninstall", slug, deleteVolumes, instanceKey, serverId: serverId || null },
 		});
-		await auditUserAction(session!.userId, "quick_service.uninstall", { slug, instanceKey, serverId: serverId || null }, undefined, session?.currentTeamId);
+		await auditUserAction(session.userId, "quick_service.uninstall", { slug, instanceKey, serverId: serverId || null }, undefined, session.currentTeamId);
 		return NextResponse.json({
 			success: true,
 			queued: true,

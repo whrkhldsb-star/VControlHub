@@ -1,4 +1,3 @@
-import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { sessionHasPermission } from "@/lib/auth/authorization";
@@ -57,8 +56,6 @@ export async function GET(request: Request) {
     const slaStatus = url.searchParams.get("slaStatus") ?? undefined;
     const search = url.searchParams.get("search") ?? undefined;
 
-    if (!session) return NextResponse.json({ error: apiCopy("apiCopy.not.authenticated.76d1efbe") }, { status: 401 });
-
     // FEAT-P1-1: Kanban view
     if (view === "kanban") {
       const columns = await getTicketKanban({ session });
@@ -83,9 +80,9 @@ export async function GET(request: Request) {
     // Default: backward-compatible list
     return NextResponse.json({
       tickets: await listTickets({
-        userId: session?.userId,
-        includeAll: Boolean(session && sessionHasPermission(session, "ticket:manage")),
-        session: session ?? undefined,
+        userId: session.userId,
+        includeAll: Boolean(sessionHasPermission(session, "ticket:manage")),
+        session,
       }),
     });
   });
@@ -98,13 +95,13 @@ export async function POST(request: Request) {
       description: body.description,
       priority: normalizePriority(body.priority),
       category: body.category,
-      createdBy: session?.userId ?? "",
+      createdBy: session.userId,
       // Prefer explicit relatedServerId; fall back to serverId alias so clients are not silently dropped.
       relatedServerId: body.relatedServerId ?? body.serverId,
       relatedCommandId: body.relatedCommandId,
       session,
     });
-    await auditUserAction(session?.userId ?? "", "ticket.create", { ticketId: ticket.id, title: ticket.title }, undefined, session?.currentTeamId);
+    await auditUserAction(session.userId, "ticket.create", { ticketId: ticket.id, title: ticket.title }, undefined, session.currentTeamId);
     return NextResponse.json({ ticket }, { status: 201 });
   });
 }
@@ -116,9 +113,9 @@ export async function PATCH(request: Request) {
       status: normalizeStatus(body.status),
       assigneeId: body.assigneeId,
       priority: normalizePriority(body.priority),
-      session: session ?? undefined,
+      session,
     });
-    await auditUserAction(session?.userId ?? "", "ticket.update", { ticketId: body.id, status: body.status }, undefined, session?.currentTeamId);
+    await auditUserAction(session.userId, "ticket.update", { ticketId: body.id, status: body.status }, undefined, session.currentTeamId);
     return NextResponse.json({ ticket });
   });
 }

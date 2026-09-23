@@ -43,10 +43,6 @@ export async function GET(
 		request,
 		{ permission: "server:read", rateLimit: GENERAL_WRITE_LIMIT },
 		async ({ session }) => {
-			if (!session) {
-				return Response.json({ error: apiCopy("apiCopy.forbidden.78342a09") }, { status: 403 });
-			}
-
    const teamAccess = await assertServerTeamAccess(session, serverId);
    if (!teamAccess.ok) return teamAccess.response;
 
@@ -78,12 +74,6 @@ export async function POST(
 		},
 		async ({ session, body }) => {
 			const locale = await getServerLocale();
-			if (!session) {
-				return Response.json(
-					{ error: t("vpsBackupApi.errorForbidden", locale) },
-					{ status: 403 },
-				);
-			}
 
 			const teamAccess = await assertServerTeamAccess(session, serverId);
 			if (!teamAccess.ok) return teamAccess.response;
@@ -107,7 +97,7 @@ export async function POST(
 					session.userId,
 					"vps-backup.schedule.create",
 					{ serverId, scheduleId: schedule.id, name: body.name },
-				undefined, session?.currentTeamId);
+				undefined, session.currentTeamId);
 
 				return Response.json({ schedule }, { status: 201 });
 			} catch (err) {

@@ -9,7 +9,7 @@ import { SFTP_SYNC_JOB_TYPE } from "@/lib/storage/sftp-sync-job";
 
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
-import { AuthError, NotFoundError } from "@/lib/errors";
+import { NotFoundError } from "@/lib/errors";
 import { auditUserAction } from "@/lib/audit/service";
 import {
   getSftpSyncNode,
@@ -40,9 +40,6 @@ export async function POST(request: Request) {
     request,
     { permission: "storage:write", rateLimit: GENERAL_WRITE_LIMIT, bodySchema: sftpSyncSchema },
     async ({ session, body }) => {
-      if (!session)
-        throw new AuthError(t("api.auth.sessionExpired", locale));
-
       const {
         nodeId,
         remotePath,
@@ -126,7 +123,7 @@ export async function POST(request: Request) {
         teamId: session.currentTeamId ?? node.teamId ?? null,
         maxAttempts: 3,
       });
-      await auditUserAction(session.userId, "storage.sftp-sync", { nodeId, remotePath: normalizedRelativePath || null }, undefined, session?.currentTeamId);
+      await auditUserAction(session.userId, "storage.sftp-sync", { nodeId, remotePath: normalizedRelativePath || null }, undefined, session.currentTeamId);
       return NextResponse.json({
         success: true,
         queued: true,

@@ -14,7 +14,7 @@ import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { assertPublicBaseUrlResolvesPublic, normalizePublicBaseUrl } from "@/lib/storage/direct-access-url";
-import { AuthError, ForbiddenError, NotFoundError } from "@/lib/errors";
+import { ForbiddenError, NotFoundError } from "@/lib/errors";
 import {
   normalizeRemoteTargetPath,
   normalizeRemoteRelativePath,
@@ -244,8 +244,6 @@ export async function GET(request: Request) {
     request,
     { permission: "storage:read" },
     async ({ session }) => {
-      if (!session)
-        throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
       const parsed = parseDirectAccessQuery(request);
       if (!parsed.success)
         return NextResponse.json(
@@ -280,9 +278,6 @@ export async function POST(request: Request) {
     request,
     { permission: "storage:read", rateLimit: UPLOAD_LIMIT, bodySchema: directAccessSchema },
     async ({ session, body }) => {
-      if (!session)
-        throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
-
       const payload = await resolveDirectAccessPayload({
         ...body,
         session,

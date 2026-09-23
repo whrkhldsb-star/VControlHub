@@ -40,12 +40,6 @@ export async function POST(request: Request) {
       bodySchema: enableSchema,
     },
     async ({ session, body }) => {
-      if (!session)
-        return NextResponse.json(
-          { error: t("api.auth.sessionExpired", locale) },
-          { status: 401 },
-        );
-
       const { code, enrollmentToken } = body;
 
       // Refuse to overwrite an already-enabled 2FA secret. Re-setup requires

@@ -17,11 +17,6 @@ export async function GET(request: Request) {
     request,
     { permission: "image:read", errorMessage: apiCopy("apiCopy.failed.to.fetch.image.list.c85269a9") },
     async ({ session }) => {
-      if (!session)
-        return NextResponse.json(
-          { error: apiCopy("apiCopy.not.authenticated.or.session.expired.b1714d99") },
-          { status: 401 },
-        );
       // showAll must not use broad user:read (many roles have it).
       // Only global team managers or media managers may list everyone's images.
       // media:manage is still team-scoped (not fleet-wide) via teamWhere.

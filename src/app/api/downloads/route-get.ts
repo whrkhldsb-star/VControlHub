@@ -6,7 +6,6 @@ import { ensureAria2Daemon, tellStatus, getGlobalStat } from "@/lib/aria2/servic
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { buildProgressText } from "@/lib/downloads/helpers";
 import { withApiRoute } from "@/lib/http/api-guard";
-import { AuthError } from "@/lib/errors";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { teamWhere } from "@/lib/auth/team-scope";
 import { canAccessDownloadTask, taskDownloadAccess } from "@/lib/downloads/route-helpers";
@@ -21,8 +20,6 @@ export async function GET(request: Request) {
     request,
     { permission: "storage:read", errorMessage: t("apiDownloads.fetchTasksFailed", locale) },
     async ({ session }) => {
-      if (!session)
-        throw new AuthError(t("apiDownloads.unauthorized", locale));
       const { serverId, category, status, cursor } = parseSearchParams(
         request,
         z.object({

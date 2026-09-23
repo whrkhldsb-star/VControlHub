@@ -3,7 +3,7 @@ import path from "node:path";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { guessContentType } from "@/lib/http/mime-types";
-import { AuthError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
+import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import { prisma } from "@/lib/db";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
@@ -17,7 +17,6 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   return withApiRoute(request, { permission: "storage:read", errorMessage: apiCopy("apiCopy.webdav.download.failed.06b49c4b") }, async ({ session }) => {
-    if (!session) throw new AuthError(apiCopy("apiCopy.unauthorized.d089c8a9"));
     const query = parseSearchParams(request, contentDownloadQuerySchema);
     if (!query.nodeId || !query.path) throw new ValidationError(apiCopy("apiCopy.nodeid.and.path.are.required.873193de"));
     const normalized = normalizeStorageRelativePath(query.path);

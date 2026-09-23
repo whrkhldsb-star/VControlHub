@@ -105,7 +105,7 @@ export async function GET(request: Request) {
 			serverId ? getRemoteUsedPorts(serverId) : getUsedPorts(),
 			getDockerEnvironmentStatusFor(serverId ? { kind: "remote", serverId } : { kind: "local" }),
 			prisma.server.findMany({
-				where: { enabled: true, ...serverTeamWhere(session!) },
+				where: { enabled: true, ...serverTeamWhere(session) },
 				orderBy: { name: "asc" },
 				take: 200,
 				select: { id: true, name: true, host: true },
@@ -196,8 +196,8 @@ export async function POST(request: Request) {
 		const prepared = prepareInstallSecrets(template);
 		const { job, taskId, reused } = await enqueueQuickServiceJob({
 			title: `Installed quick service: ${template.name}`,
-			teamId: session?.currentTeamId ?? null,
-			createdBy: session?.userId ?? null,
+				teamId: session.currentTeamId ?? null,
+				createdBy: session.userId,
 			payload: {
 				action: "install",
 				slug: template.slug,
@@ -209,12 +209,12 @@ export async function POST(request: Request) {
 				installNoticeNotes: prepared.notes,
 			},
 		});
-		await auditUserAction(session!.userId, "quick_service.install", {
+		await auditUserAction(session.userId, "quick_service.install", {
 			slug: template.slug,
 			templateName: template.name,
 			instanceKey,
 			serverId: serverId || null,
-		}, undefined, session?.currentTeamId);
+		}, undefined, session.currentTeamId);
 		return NextResponse.json({
 			success: true,
 			queued: true,

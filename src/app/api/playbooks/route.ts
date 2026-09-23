@@ -16,7 +16,7 @@ export async function GET(request: Request) {
     request,
     { permission: "playbook:read", rateLimit: GENERAL_READ_LIMIT, errorStatus: 500, errorMessage: apiCopy("apiCopy.server.error.dfe0c2e8") },
     async (ctx) => {
-      const playbooks = await listPlaybooks(ctx.session ?? undefined);
+      const playbooks = await listPlaybooks(ctx.session);
       return NextResponse.json({ playbooks });
     },
   );
@@ -27,9 +27,9 @@ export async function POST(request: Request) {
     request,
     { permission: "playbook:manage", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: apiCopy("apiCopy.failed.to.create.99af0e81"), bodySchema: createPlaybookSchema },
     async ({ session, body }) => {
-      const createdById = session?.userId ?? "";
+      const createdById = session.userId;
       // createPlaybook already audits playbook.create — do not double-audit here.
-      const playbook = await createPlaybook(body, createdById, session ?? undefined);
+      const playbook = await createPlaybook(body, createdById, session);
       return NextResponse.json({ playbook });
     },
   );

@@ -31,7 +31,7 @@ export async function GET(request: Request, context: RouteContext) {
 			errorMessage: apiCopy("apiCopy.failed.to.load.cloud.billing.account.5c00eddf"),
 		},
 		async ({ session }) => {
-			const account = await getCloudBillingAccount(id, session ?? undefined);
+			const account = await getCloudBillingAccount(id, session);
 			return NextResponse.json({ account });
 		},
 	);
@@ -49,12 +49,12 @@ export async function PATCH(request: Request, context: RouteContext) {
 			errorMessage: apiCopy("apiCopy.failed.to.update.cloud.billing.account.2707ee43"),
 		},
 		async ({ session, body }) => {
-			const account = await updateCloudBillingAccount(id, body, session ?? undefined);
-			await auditUserAction(session?.userId ?? "anonymous", "cost.billing_account.update", {
+			const account = await updateCloudBillingAccount(id, body, session);
+			await auditUserAction(session.userId, "cost.billing_account.update", {
 				accountId: account.id,
 				provider: account.provider,
 				teamId: account.teamId,
-			}, undefined, session?.currentTeamId);
+			}, undefined, session.currentTeamId);
 			return NextResponse.json({ account });
 		},
 	);
@@ -71,10 +71,10 @@ export async function DELETE(request: Request, context: RouteContext) {
 			errorMessage: apiCopy("apiCopy.failed.to.delete.cloud.billing.account.7c0c6fa6"),
 		},
 		async ({ session }) => {
-			await deleteCloudBillingAccount(id, session ?? undefined);
-			await auditUserAction(session?.userId ?? "anonymous", "cost.billing_account.delete", {
+			await deleteCloudBillingAccount(id, session);
+			await auditUserAction(session.userId, "cost.billing_account.delete", {
 				accountId: id,
-			}, undefined, session?.currentTeamId);
+			}, undefined, session.currentTeamId);
 			return NextResponse.json({ ok: true });
 		},
 	);

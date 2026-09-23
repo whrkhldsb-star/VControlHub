@@ -26,7 +26,7 @@ export async function GET(
       errorMessage: apiCopy("apiCopy.failed.to.load.sync.report.3d26044d"),
     },
     async ({ session }) => {
-      const job = await getSyncJob(id, session ?? undefined);
+      const job = await getSyncJob(id, session);
       if (!job) throw new NotFoundError(t("api.syncJobNotFound", await getServerLocale()));
       const logs = (job.syncLogs ?? []).map((l) => ({
         id: l.id,

@@ -12,7 +12,7 @@ import {
   assertUserInActorScope,
   isGlobalTeamManager,
 } from "@/lib/auth/team-scope";
-import { AuthError, NotFoundError, ValidationError } from "@/lib/errors";
+import { NotFoundError, ValidationError } from "@/lib/errors";
 import { getStorageAccessUsage } from "@/lib/storage/access-control";
 import { applyUserPermissionPatch } from "./route-patch";
 import { assertAdminAccessMayBeRemoved, withAdminInvariantLock } from "@/lib/user/admin-invariant";
@@ -86,7 +86,6 @@ async function serializeStorageAccessGrants(
 
 export async function GET(request: Request) {
   return withApiRoute(request, { permission: "user:read" }, async ({ session }) => {
-    if (!session) throw new AuthError(apiCopy("apiCopy.unauthorized.d089c8a9"));
     const { userId } = parseSearchParams(
       request,
       z.object({ userId: z.string().trim().min(1, "Missing userId Parameter") }),
@@ -207,9 +206,6 @@ export async function PATCH(request: Request) {
       bodySchema: patchPermissionsSchema,
     },
     async ({ session, body: parsedData }) => {
-      if (!session)
-        throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
-
       // Prevent self-modification of permissions (privilege escalation).
       if (parsedData.userId === session.userId) {
         return NextResponse.json(

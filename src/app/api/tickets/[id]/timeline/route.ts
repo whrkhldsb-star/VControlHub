@@ -61,8 +61,8 @@ export async function GET(
     },
     async ({ session }) => {
       const { id } = await context.params;
-      await assertCanAccess(id, session!);
-      const timeline = await getTicketTimeline(id, session!);
+      await assertCanAccess(id, session);
+      const timeline = await getTicketTimeline(id, session);
       return NextResponse.json(timeline);
     },
   );
@@ -82,53 +82,53 @@ export async function POST(
     },
     async ({ session, body }) => {
       const { id } = await context.params;
-      await assertCanAccess(id, session!);
+      await assertCanAccess(id, session);
 
       if (body.action === "link_command") {
         await linkTicketCommand({
           ticketId: id,
           commandRequestId: body.commandRequestId,
-          actorId: session!.userId,
-          session: session!,
+          actorId: session.userId,
+          session: session,
         });
-        await auditUserAction(session!.userId, "ticket.link_command", {
+        await auditUserAction(session.userId, "ticket.link_command", {
           ticketId: id,
           commandRequestId: body.commandRequestId,
-        }, undefined, session?.currentTeamId);
+        }, undefined, session.currentTeamId);
       } else if (body.action === "unlink_command") {
         await linkTicketCommand({
           ticketId: id,
           commandRequestId: null,
-          actorId: session!.userId,
-          session: session!,
+          actorId: session.userId,
+          session: session,
         });
-        await auditUserAction(session!.userId, "ticket.unlink_command", {
+        await auditUserAction(session.userId, "ticket.unlink_command", {
           ticketId: id,
-        }, undefined, session?.currentTeamId);
+        }, undefined, session.currentTeamId);
       } else if (body.action === "link_server") {
         await linkTicketServer({
           ticketId: id,
           serverId: body.serverId,
-          actorId: session!.userId,
-          session: session!,
+          actorId: session.userId,
+          session: session,
         });
-        await auditUserAction(session!.userId, "ticket.link_server", {
+        await auditUserAction(session.userId, "ticket.link_server", {
           ticketId: id,
           serverId: body.serverId,
-        }, undefined, session?.currentTeamId);
+        }, undefined, session.currentTeamId);
       } else {
         await linkTicketServer({
           ticketId: id,
           serverId: null,
-          actorId: session!.userId,
-          session: session!,
+          actorId: session.userId,
+          session: session,
         });
-        await auditUserAction(session!.userId, "ticket.unlink_server", {
+        await auditUserAction(session.userId, "ticket.unlink_server", {
           ticketId: id,
-        }, undefined, session?.currentTeamId);
+        }, undefined, session.currentTeamId);
       }
 
-      const timeline = await getTicketTimeline(id, session!);
+      const timeline = await getTicketTimeline(id, session);
       return NextResponse.json(timeline);
     },
   );

@@ -26,8 +26,8 @@ export async function POST(request: Request, { params }: PlaybookRouteContext) {
         playbookId: id,
         dryRun: true,
         triggerContext: { source: "dry-run", at: new Date().toISOString() },
-        createdById: session?.userId ?? undefined,
-        session: session ?? undefined,
+        createdById: session.userId,
+        session,
       });
       return NextResponse.json({ run }, { status: 202 });
     },

@@ -53,7 +53,7 @@ export async function GET(request: Request) {
       errorMessage: apiCopy("apiCopy.failed.to.list.knowledge.bases.fcb21705"),
     },
     async ({ session }) => {
-      const bases = await listKnowledgeBases(session!);
+      const bases = await listKnowledgeBases(session);
       return NextResponse.json({
         knowledgeBases: bases.map((b) => ({
           id: b.id,
@@ -83,7 +83,7 @@ export async function POST(request: Request) {
     async ({ session, body }) => {
       // create_base/ingest require ai:manage; search only needs ai:chat.
       if (body.action === "create_base" || body.action === "ingest") {
-        if (!sessionHasPermission(session!, "ai:manage")) {
+        if (!sessionHasPermission(session, "ai:manage")) {
           return NextResponse.json(
             { error: apiCopy("apiCopy.insufficient.permissions.to.manage.knowledge.base.c0a425b3") },
             { status: 403 },
@@ -94,12 +94,12 @@ export async function POST(request: Request) {
         const base = await createKnowledgeBase({
           name: body.name,
           description: body.description,
-          session: session!,
+          session: session,
         });
-        await auditUserAction(session!.userId, "knowledge.base.create", {
+        await auditUserAction(session.userId, "knowledge.base.create", {
           knowledgeBaseId: base.id,
           name: base.name,
-        }, undefined, session?.currentTeamId);
+        }, undefined, session.currentTeamId);
         return NextResponse.json({ knowledgeBase: base }, { status: 201 });
       }
 
@@ -109,13 +109,13 @@ export async function POST(request: Request) {
           title: body.title,
           content: body.content,
           sourceType: body.sourceType,
-          session: session!,
+          session: session,
         });
-        await auditUserAction(session!.userId, "knowledge.document.ingest", {
+        await auditUserAction(session.userId, "knowledge.document.ingest", {
           knowledgeBaseId: body.knowledgeBaseId,
           documentId: result.document.id,
           chunkCount: result.chunkCount,
-        }, undefined, session?.currentTeamId);
+        }, undefined, session.currentTeamId);
         return NextResponse.json(
           {
             document: result.document,
@@ -130,7 +130,7 @@ export async function POST(request: Request) {
         query: body.query,
         knowledgeBaseId: body.knowledgeBaseId,
         limit: body.limit,
-        session: session!,
+        session: session,
       });
       return NextResponse.json({ hits, count: hits.length });
     },
@@ -154,17 +154,17 @@ export async function DELETE(request: Request) {
         }),
       );
       if (documentId) {
-        const result = await deleteKnowledgeDocument(documentId, session!);
-        await auditUserAction(session!.userId, "knowledge.document.delete", {
+        const result = await deleteKnowledgeDocument(documentId, session);
+        await auditUserAction(session.userId, "knowledge.document.delete", {
           documentId: result.id,
-        }, undefined, session?.currentTeamId);
+        }, undefined, session.currentTeamId);
         return NextResponse.json({ success: true, documentId: result.id });
       }
       if (!id) throw new ValidationError(apiCopy("apiCopy.id.or.documentid.is.required.f3d0d22b"));
-      const result = await deleteKnowledgeBase(id, session!);
-      await auditUserAction(session!.userId, "knowledge.base.delete", {
+      const result = await deleteKnowledgeBase(id, session);
+      await auditUserAction(session.userId, "knowledge.base.delete", {
         knowledgeBaseId: result.id,
-      }, undefined, session?.currentTeamId);
+      }, undefined, session.currentTeamId);
       return NextResponse.json({ success: true, id: result.id });
     },
   );

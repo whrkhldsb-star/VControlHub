@@ -94,7 +94,7 @@ export async function GET(request: Request) {
         // narrowed to the enum, by `operationTasksQuerySchema` above.
         taskType: q.taskType,
         sort: q.sort,
-      }, session!);
+      }, session);
       if (q.format === "csv") {
         return new Response(operationTasksCsv(result.tasks), {
           headers: {

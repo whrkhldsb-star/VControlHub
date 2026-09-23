@@ -34,11 +34,11 @@ export async function POST(request: Request, context: RouteContext) {
 			errorMessage: apiCopy("apiCopy.failed.to.test.itsm.connection.59690fa3"),
 		},
 		async ({ session, body }) => {
-			const result = await testItsmConnection(id, body?.message, session ?? undefined);
-			await auditUserAction(session?.userId ?? "anonymous", "itsm.connection.test", {
+			const result = await testItsmConnection(id, body?.message, session);
+			await auditUserAction(session.userId, "itsm.connection.test", {
 				connectionId: id,
 				ok: result.ok,
-			}, undefined, session?.currentTeamId);
+			}, undefined, session.currentTeamId);
 			return NextResponse.json(result, { status: result.ok ? 200 : 502 });
 		},
 	);

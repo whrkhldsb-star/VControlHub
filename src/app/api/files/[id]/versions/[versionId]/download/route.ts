@@ -6,7 +6,6 @@ import { NextResponse } from "next/server";
 import { Readable } from "node:stream";
 
 import { withApiRoute } from "@/lib/http/api-guard";
-import { AuthError } from "@/lib/errors";
 import { getFileVersionForDownload } from "@/lib/storage/file-versions";
 import { guessContentType } from "@/lib/http/mime-types";
 
@@ -29,7 +28,6 @@ export async function GET(
       errorMessage: apiCopy("apiCopy.failed.to.download.file.version.0b96b819"),
     },
     async ({ session }) => {
-      if (!session) throw new AuthError(apiCopy("apiCopy.unauthorized.d089c8a9"));
       const { id, versionId } = await params;
       const { version, stream } = await getFileVersionForDownload({
         fileEntryId: id,

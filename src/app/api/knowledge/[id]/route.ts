@@ -22,7 +22,7 @@ export async function GET(
     },
     async ({ session }) => {
       const { id } = await context.params;
-      const base = await getKnowledgeBase(id, session!);
+      const base = await getKnowledgeBase(id, session);
       if (!base) throw new NotFoundError(apiCopy("apiCopy.knowledge.base.not.found.0ac936d8"));
       return NextResponse.json({
         knowledgeBase: {

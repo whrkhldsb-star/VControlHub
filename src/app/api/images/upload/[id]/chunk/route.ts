@@ -24,7 +24,7 @@ import {
   appendMediaUploadChunk,
   MediaUploadError,
 } from "@/lib/upload/service";
-import { ForbiddenError, ValidationError } from "@/lib/errors";
+import { ValidationError } from "@/lib/errors";
 import { getErrorMessage } from "@/lib/http/error-message";
 import {
   readRequestBodyBuffer,
@@ -48,9 +48,6 @@ export async function PUT(
       errorMessage: apiCopy("apiCopy.failed.to.upload.chunk.fe945af5"),
     },
     async ({ session, query }) => {
-      if (!session) {
-        throw new ForbiddenError(apiCopy("apiCopy.not.authenticated.or.session.expired.b1714d99"));
-      }
       let buffer: Buffer;
       try {
         buffer = await readRequestBodyBuffer(request, query.size);

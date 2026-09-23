@@ -146,11 +146,6 @@ export async function GET(
     request,
     { permission: "server:ssh", errorMessage: t("apiServersFileProxy.getErrorMessage", locale) },
     async ({ session }) => {
-      if (!session)
-        return NextResponse.json(
-          { error: t("apiServersFileProxy.unauthorized", locale) },
-          { status: 401 },
-        );
       if (!sessionHasPermission(session, "server:ssh")) {
         return NextResponse.json(
           { error: t("apiServersFileProxy.missingSshPermission", locale) },
@@ -238,11 +233,6 @@ export async function POST(
     request,
     { permission: "server:ssh", errorMessage: t("apiServersFileProxy.startErrorMessage", locale) },
     async ({ session }) => {
-      if (!session)
-        return NextResponse.json(
-          { error: t("apiServersFileProxy.unauthorized", locale) },
-          { status: 401 },
-        );
       if (!sessionHasPermission(session, "server:ssh")) {
         return NextResponse.json(
           { error: t("apiServersFileProxy.missingSshPermission", locale) },
@@ -465,11 +455,6 @@ export async function DELETE(
     request,
     { permission: "server:ssh", errorMessage: t("apiServersFileProxy.stopErrorMessage", locale) },
     async ({ session }) => {
-      if (!session)
-        return NextResponse.json(
-          { error: t("apiServersFileProxy.unauthorized", locale) },
-          { status: 401 },
-        );
       if (!sessionHasPermission(session, "server:ssh")) {
         return NextResponse.json(
           { error: t("apiServersFileProxy.missingSshPermission", locale) },

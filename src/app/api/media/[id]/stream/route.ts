@@ -30,7 +30,7 @@ import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_READ_LIMIT } from "@/lib/http/rate-limit-presets";
-import { AuthError, ValidationError, isAppError } from "@/lib/errors";
+import { ValidationError, isAppError } from "@/lib/errors";
 
 import { apiError } from "@/lib/http/api-error";
 export const dynamic = "force-dynamic";
@@ -106,7 +106,6 @@ export async function GET(
       errorMessage: apiCopy("apiCopy.failed.to.read.media.b0e4a112"),
     },
     async ({ session }) => {
-      if (!session) throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
       const locale = await getServerLocale();
       const { id } = await params;
       const { download } = parseSearchParams(
@@ -118,7 +117,7 @@ export async function GET(
             .transform((value) => value === "1"),
         }),
       );
-      const item = await getMediaItem(id, session ?? undefined, {
+      const item = await getMediaItem(id, session, {
         includeCredentials: true,
       });
       if (!item || !item.storageNode)

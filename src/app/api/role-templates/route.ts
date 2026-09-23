@@ -15,8 +15,8 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   return withApiRoute(request, { permission: "role:manage", rateLimit: GENERAL_WRITE_LIMIT, bodySchema: roleTemplateInputSchema }, async ({ session, body }) => {
-    const template = await createRoleTemplate(body, session!.userId);
-    await auditUserAction(session!.userId, "role_template.create", { templateId: template.id, name: template.name }, undefined, session?.currentTeamId);
+    const template = await createRoleTemplate(body, session.userId);
+    await auditUserAction(session.userId, "role_template.create", { templateId: template.id, name: template.name }, undefined, session.currentTeamId);
     return NextResponse.json({ template }, { status: 201 });
   });
 }

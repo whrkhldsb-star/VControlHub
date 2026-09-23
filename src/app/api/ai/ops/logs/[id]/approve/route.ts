@@ -14,7 +14,6 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { approveRecommendation } from "@/lib/ai/ops/service";
 import { auditUserAction } from "@/lib/audit/service";
-import { ForbiddenError } from "@/lib/errors";
 import { approveRecommendationSchema } from "@/lib/ai/schema";
 
 export const dynamic = "force-dynamic";
@@ -34,22 +33,19 @@ export async function POST(
 			errorMessage: apiCopy("apiCopy.failed.to.approve.recommendation.ee733a97"),
 		},
 		async ({ session, body }) => {
-			if (!session) {
-				throw new ForbiddenError(apiCopy("apiCopy.not.authenticated.or.session.expired.b1714d99"));
-			}
 			const result = await approveRecommendation({
 				logId: id,
 				actionId: body.actionId,
 			});
 			await auditUserAction(
-				session?.userId ?? "anonymous",
+				session.userId,
 				"ai.ops.recommendation.approve",
 				{
 					logId: id,
 					actionId: body.actionId,
 					ok: result.ok,
 				},
-			undefined, session?.currentTeamId);
+			undefined, session.currentTeamId);
 			return NextResponse.json({ result });
 		},
 	);

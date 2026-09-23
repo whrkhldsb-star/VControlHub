@@ -26,19 +26,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       select: { id: true },
     });
     if (existing) {
-      await auditUserAction(session!.userId, "backup.retry", { backupId: id, jobId: existing.id, deduped: true }, undefined, session?.currentTeamId);
+      await auditUserAction(session.userId, "backup.retry", { backupId: id, jobId: existing.id, deduped: true }, undefined, session.currentTeamId);
       return NextResponse.json({ jobId: existing.id, taskId: `job:${existing.id}`, deduped: true }, { status: 202 });
     }
-    const backup = await prepareBackupRecordRetry({ id, session: session! });
+    const backup = await prepareBackupRecordRetry({ id, session: session });
     const job = await enqueueJob({
       type: BACKUP_CREATE_JOB_TYPE,
       title: `Retry ${backup.type} backup`,
-      payload: { backupId: backup.id, teamId: session?.currentTeamId ?? backup.teamId ?? null },
-      createdBy: session?.userId ?? null,
-      teamId: session?.currentTeamId ?? null,
+      payload: { backupId: backup.id, teamId: session.currentTeamId ?? backup.teamId ?? null },
+      createdBy: session.userId,
+      teamId: session.currentTeamId ?? null,
       maxAttempts: 1,
     });
-    await auditUserAction(session!.userId, "backup.retry", { backupId: id, jobId: job.id }, undefined, session?.currentTeamId);
+    await auditUserAction(session.userId, "backup.retry", { backupId: id, jobId: job.id }, undefined, session.currentTeamId);
     return NextResponse.json({ backup, jobId: job.id, taskId: `job:${job.id}`, deduped: false }, { status: 202 });
   });
 }

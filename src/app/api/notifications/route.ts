@@ -5,7 +5,6 @@ import { z } from "zod";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { idQuerySchema, parseSearchParams } from "@/lib/http/parse-search-params";
-import { AuthError } from "@/lib/errors";
 import { auditUserAction } from "@/lib/audit/service";
 import {
   deleteNotification,
@@ -36,8 +35,6 @@ export async function GET(request: Request) {
     request,
     { requireAuth: true, errorMessage: apiCopy("apiCopy.failed.to.fetch.notifications.eb5f4282") },
     async ({ session }) => {
-      if (!session)
-        throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
       const url = new URL(request.url);
       const limit = Math.min(100, Math.max(1, Number.parseInt(url.searchParams.get("limit") ?? "50", 10) || 50));
       const offset = Math.max(0, Number.parseInt(url.searchParams.get("offset") ?? "0", 10) || 0);
@@ -66,13 +63,10 @@ export async function PATCH(request: Request) {
       bodySchema: patchSchema,
     },
     async ({ session, body }) => {
-      if (!session)
-        throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
-
       // Legacy format support
       if ("markAllAsRead" in body) {
         await markAllAsRead(session.userId);
-        await auditUserAction(session?.userId ?? "", "notification.update", { scope: "markAllAsRead" }, undefined, session?.currentTeamId);
+        await auditUserAction(session.userId, "notification.update", { scope: "markAllAsRead" }, undefined, session.currentTeamId);
         return NextResponse.json({ success: true });
       }
       if (!("action" in body) && "notificationId" in body) {
@@ -127,11 +121,9 @@ export async function DELETE(request: Request) {
       errorMessage: apiCopy("apiCopy.failed.to.delete.notification.9e1b8991"),
     },
     async ({ session }) => {
-      if (!session)
-        throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
       const { id: notificationId } = parseSearchParams(request, idQuerySchema);
       await deleteNotification(notificationId, session.userId);
-      await auditUserAction(session?.userId ?? "", "notification.delete", { notificationId }, undefined, session?.currentTeamId);
+      await auditUserAction(session.userId, "notification.delete", { notificationId }, undefined, session.currentTeamId);
       return NextResponse.json({ success: true });
     },
   );

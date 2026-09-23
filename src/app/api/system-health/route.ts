@@ -7,6 +7,6 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   return withApiRoute(request, { permission: "health:read" }, async ({ session }) => {
-    return NextResponse.json(await collectSystemHealthChecks({ session: session ?? undefined }));
+    return NextResponse.json(await collectSystemHealthChecks({ session }));
   });
 }

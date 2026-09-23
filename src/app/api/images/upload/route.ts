@@ -67,11 +67,6 @@ export async function POST(request: Request) {
     request,
     { permission: "image:write", rateLimit: IMAGE_UPLOAD_LIMIT, errorMessage: t("api.image.uploadFailed", locale) },
     async ({ session }) => {
-      if (!session)
-        return NextResponse.json(
-          { error: t("api.auth.sessionExpired", locale) },
-          { status: 401 },
-        );
       // Direct Token uploads only require image:write; linked storage below
       // still checks the scoped session's storage permission and quota.
       if (!hasBearerAuthorization(request) && !sessionHasPermission(session, "storage:write")) {

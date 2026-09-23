@@ -41,11 +41,11 @@ export async function PATCH(
         session,
       });
 
-      await auditUserAction(session?.userId ?? "", "media.update", {
+      await auditUserAction(session.userId, "media.update", {
         mediaId: id,
         favorite: body.favorite ?? null,
         tagsUpdated: body.tags !== undefined,
-      }, undefined, session?.currentTeamId);
+      }, undefined, session.currentTeamId);
       return NextResponse.json({ item: updated });
     },
   );

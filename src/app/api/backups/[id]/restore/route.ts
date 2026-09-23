@@ -40,11 +40,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         );
         const waitForCompletion = wait;
         if (waitForCompletion) {
-          const restore = await restoreBackupRecord({ id, confirm: body.confirm, component: body.component, session: session! });
-          await auditUserAction(session!.userId, "backup.restore", { backupId: id }, undefined, session?.currentTeamId);
+          const restore = await restoreBackupRecord({ id, confirm: body.confirm, component: body.component, session: session });
+          await auditUserAction(session.userId, "backup.restore", { backupId: id }, undefined, session.currentTeamId);
           return NextResponse.json({ restore });
         }
-        const backup = await getBackupRecord(id, session!);
+        const backup = await getBackupRecord(id, session);
         if (!backup) throw new NotFoundError(t("api.backupNotFound", locale));
         if (backup.status !== "COMPLETED") {
           return NextResponse.json({ error: t("api.onlyCompletedCanRestore", locale) }, { status: 400 });
@@ -61,11 +61,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           select: { id: true },
         });
         if (existing) {
-          await auditUserAction(session!.userId, "backup.restore", {
+          await auditUserAction(session.userId, "backup.restore", {
             backupId: id,
             jobId: existing.id,
             deduped: true,
-          }, undefined, session?.currentTeamId);
+          }, undefined, session.currentTeamId);
           return NextResponse.json({ jobId: existing.id, taskId: `job:${existing.id}`, deduped: true }, { status: 202 });
         }
         const job = await enqueueJob({
@@ -75,13 +75,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
             backupId: id,
             confirm: body.confirm,
             component: body.component,
-            teamId: session?.currentTeamId ?? backup.teamId ?? null,
+            teamId: session.currentTeamId ?? backup.teamId ?? null,
           },
-          createdBy: session?.userId ?? null,
-          teamId: session?.currentTeamId ?? null,
+          createdBy: session.userId,
+          teamId: session.currentTeamId ?? null,
           maxAttempts: 1,
         });
-        await auditUserAction(session!.userId, "backup.restore", { backupId: id, jobId: job.id }, undefined, session?.currentTeamId);
+        await auditUserAction(session.userId, "backup.restore", { backupId: id, jobId: job.id }, undefined, session.currentTeamId);
         return NextResponse.json({ jobId: job.id, taskId: `job:${job.id}` }, { status: 202 });
       } catch (error) {
         // Prefer typed AppError status codes over fragile English message matching.

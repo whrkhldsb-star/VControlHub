@@ -28,7 +28,7 @@ const cancelCommandRequestBodySchema = z.object({
 export async function GET(request: Request) {
   return withApiRoute(request, { permission: "command:read" }, async (ctx) => {
     await recoverStaleRunningCommandRequests();
-    return NextResponse.json({ requests: await listCommandRequests(ctx.session ?? undefined) });
+    return NextResponse.json({ requests: await listCommandRequests(ctx.session) });
   });
 }
 
@@ -39,26 +39,26 @@ export async function POST(request: Request) {
     async ({ session, body }) => {
       const parsed = createCommandSchema.parse({
         ...body,
-        requesterId: session!.userId,
+        requesterId: session.userId,
         submissionMode: body.submissionMode ?? "user",
       });
       const executesWithoutApproval =
         parsed.approvalRequired === false ||
         (parsed.approvalRequired === undefined && parsed.submissionMode === "user");
-      if (executesWithoutApproval && !sessionHasPermission(session!, "command:execute")) {
+      if (executesWithoutApproval && !sessionHasPermission(session, "command:execute")) {
         throw new ForbiddenError(
           apiCopy("apiCopy.command.execute.permission.is.required.for.submissions.that.bypa.123f619f"),
         );
       }
-      const command = await createCommandRequest(parsed, session!);
-      await auditUserAction(session!.userId, "command.submit", {
+      const command = await createCommandRequest(parsed, session);
+      await auditUserAction(session.userId, "command.submit", {
         commandRequestId: command.id,
         title: command.title,
         status: command.status,
         targetCount: parsed.serverIds.length,
         requiresApproval: Boolean(command.requiresApproval),
         submissionMode: parsed.submissionMode,
-      }, undefined, session?.currentTeamId);
+      }, undefined, session.currentTeamId);
       return NextResponse.json({ command }, { status: 201 });
     },
   );
@@ -72,14 +72,14 @@ export async function PATCH(request: Request) {
       const commandRequestId = body.commandRequestId ?? body.id!;
       const command = await cancelCommandRequest({
         commandRequestId,
-        actorId: session!.userId,
+        actorId: session.userId,
         reason: body.reason,
-        session: session!,
+        session: session,
       });
-      await auditUserAction(session!.userId, "command.cancel", {
+      await auditUserAction(session.userId, "command.cancel", {
         commandRequestId: command.id,
         status: command.status,
-      }, undefined, session?.currentTeamId);
+      }, undefined, session.currentTeamId);
       return NextResponse.json({ command });
     },
   );

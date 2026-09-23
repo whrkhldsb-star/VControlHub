@@ -40,14 +40,14 @@ export async function POST(request: Request) {
       if (body.action === "export") {
         const result = await exportMigrationPackage({
           backupId: body.backupId,
-          session: session!,
+          session: session,
           note: body.note,
         });
-        await auditUserAction(session!.userId, "backup.migration.export", {
+        await auditUserAction(session.userId, "backup.migration.export", {
           backupId: body.backupId,
           packageId: result.packageId,
           type: result.manifest.backup.type,
-        }, undefined, session?.currentTeamId);
+        }, undefined, session.currentTeamId);
         return NextResponse.json({
           success: true,
           packageId: result.packageId,
@@ -78,15 +78,15 @@ export async function POST(request: Request) {
       // import
       const imported = await importMigrationPackage({
         packageRef: body.packageRef,
-        session: session!,
+        session: session,
         note: body.note,
       });
-      await auditUserAction(session!.userId, "backup.migration.import", {
+      await auditUserAction(session.userId, "backup.migration.import", {
         packageId: imported.packageId,
         backupId: imported.backupId,
         type: imported.type,
         fileSize: imported.fileSize,
-      }, undefined, session?.currentTeamId);
+      }, undefined, session.currentTeamId);
       return NextResponse.json({
         success: true,
         backupId: imported.backupId,

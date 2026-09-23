@@ -11,7 +11,7 @@ import { cleanupTemp } from "@/lib/downloads/execution";
 import { relayTempDir } from "@/lib/runtime/platform-paths";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
-import { AuthError, ForbiddenError, NotFoundError } from "@/lib/errors";
+import { ForbiddenError, NotFoundError } from "@/lib/errors";
 import { teamAccessFilter } from "@/lib/auth/team-scope";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { canAccessDownloadTask } from "@/lib/downloads/route-helpers";
@@ -28,8 +28,6 @@ export async function DELETE(request: Request) {
       errorMessage: t("apiDownloads.cancelTaskFailed", locale),
     },
     async ({ session }) => {
-      if (!session)
-        throw new AuthError(t("apiDownloads.unauthorized", locale));
       const { taskId, purge } = parseSearchParams(
         request,
         z.object({
@@ -65,7 +63,7 @@ export async function DELETE(request: Request) {
         await auditUserAction(session.userId, "download.purge", {
           taskId,
           url: task.url,
-        }, undefined, session?.currentTeamId);
+        }, undefined, session.currentTeamId);
         return NextResponse.json({ success: true, purged: true });
       }
 
@@ -124,7 +122,7 @@ export async function DELETE(request: Request) {
       await auditUserAction(session.userId, "download.cancel", {
         taskId,
         url: task.url,
-      }, undefined, session?.currentTeamId);
+      }, undefined, session.currentTeamId);
       return NextResponse.json({ success: true });
     },
   );

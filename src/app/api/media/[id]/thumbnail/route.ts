@@ -26,7 +26,7 @@ import { getServerLocale } from "@/lib/i18n/translations";
 
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_READ_LIMIT } from "@/lib/http/rate-limit-presets";
-import { AuthError, ValidationError } from "@/lib/errors";
+import { ValidationError } from "@/lib/errors";
 
 import { apiError } from "@/lib/http/api-error";
 import { getErrorMessage } from "@/lib/http/error-message";
@@ -248,10 +248,9 @@ export async function GET(
       errorMessage: apiCopy("apiCopy.failed.to.read.media.thumbnail.5158317a"),
     },
     async ({ session }) => {
-      if (!session) throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
       const locale = await getServerLocale();
       const { id } = await params;
-      const item = await getMediaItem(id, session ?? undefined, {
+      const item = await getMediaItem(id, session, {
         includeCredentials: true,
       });
       if (!item || !item.storageNode)

@@ -16,7 +16,7 @@ import {
   MediaUploadError,
 } from "@/lib/upload/service";
 import { auditUserAction } from "@/lib/audit/service";
-import { ForbiddenError, ValidationError } from "@/lib/errors";
+import { ValidationError } from "@/lib/errors";
 import { normalizeStorageRelativePath } from "@/lib/storage/path-utils";
 
 export const dynamic = "force-dynamic";
@@ -32,10 +32,6 @@ export async function POST(request: Request) {
       errorMessage: apiCopy("apiCopy.failed.to.initialize.storage.upload.session.7033f934"),
     },
     async ({ session, body }) => {
-      if (!session) {
-        throw new ForbiddenError(apiCopy("apiCopy.not.authenticated.or.session.expired.b1714d99"));
-      }
-
       const normalized = normalizeStorageRelativePath(body.relativePath);
       if (normalized.ok !== true) {
         throw new ValidationError(normalized.reason);

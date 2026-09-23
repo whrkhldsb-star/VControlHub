@@ -43,10 +43,10 @@ export async function GET(
       if (!id) {
         throw new ValidationError(apiCopy("apiCopy.missing.task.id.802f7a13"));
       }
-      const teamScope = teamWhere(session!);
-      const where = sessionHasPermission(session!, "team:manage")
+      const teamScope = teamWhere(session);
+      const where = sessionHasPermission(session, "team:manage")
         ? { id, ...teamScope }
-        : { AND: [{ id }, teamScope, { createdBy: session!.userId }] };
+        : { AND: [{ id }, teamScope, { createdBy: session.userId }] };
       const job = await prisma.job.findFirst({ where, select: { id: true } });
       if (!job) {
         throw new NotFoundError(apiCopy("apiCopy.task.not.found.b19fa293"));

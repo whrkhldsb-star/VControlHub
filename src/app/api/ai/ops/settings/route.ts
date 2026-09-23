@@ -88,7 +88,7 @@ export async function PATCH(request: Request) {
 				const provider = await prisma.aiProvider.findFirst({
 					where: {
 						id: normalizedProviderId,
-						createdBy: session!.userId,
+						createdBy: session.userId,
 						enabled: true,
 					},
 					select: { id: true },
@@ -118,7 +118,7 @@ export async function PATCH(request: Request) {
 						? body.providerId
 						: null;
 			await auditUserAction(
-				session?.userId ?? "anonymous",
+				session.userId,
 				"ai.ops.settings.update",
 				{
 					keys: ["ai.ops.mode", "ai.ops.provider"],
@@ -127,7 +127,7 @@ export async function PATCH(request: Request) {
 						? { from: previousProvider, to: body.providerId ?? null }
 						: null,
 				},
-			undefined, session?.currentTeamId);
+			undefined, session.currentTeamId);
 
 			return NextResponse.json({
 				mode: body.mode,

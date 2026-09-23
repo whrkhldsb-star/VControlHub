@@ -19,7 +19,7 @@ import { createFileEntry } from "@/lib/storage/service";
 // the bomb-cap limiter lives in lib (unit-testable, importable).
 import { GunzipOutputLimiter, MAX_GUNZIP_OUTPUT_BYTES } from "@/lib/storage/gunzip-limiter";
 
-import { AuthError, NotFoundError, ValidationError, isAppError } from "@/lib/errors";
+import { NotFoundError, ValidationError, isAppError } from "@/lib/errors";
 import { getErrorMessage } from "@/lib/http/error-message";
 
 export const dynamic = "force-dynamic";
@@ -56,8 +56,6 @@ export async function POST(request: NextRequest) {
       bodySchema: postSchema,
     },
     async ({ session, body }) => {
-      if (!session)
-        throw new AuthError(apiCopy("apiCopy.unauthorized.d089c8a9"));
       const locale = await getServerLocale();
 
       const name = body.name ?? "archive";

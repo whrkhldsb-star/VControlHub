@@ -38,14 +38,14 @@ export async function POST(request: Request) {
 			});
 			const latest = await listAiOpsLogs({ limit: 1 });
 			await auditUserAction(
-				session?.userId ?? "anonymous",
+				session.userId,
 				"ai.ops.scan.manual",
 				{
 					triggered,
 					logId: latest[0]?.id ?? null,
 					notes: body.notes ?? null,
 				},
-			undefined, session?.currentTeamId);
+			undefined, session.currentTeamId);
 			return NextResponse.json({ triggered, latestLog: latest[0] ?? null });
 		},
 	);

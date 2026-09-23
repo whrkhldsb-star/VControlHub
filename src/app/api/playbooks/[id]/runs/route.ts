@@ -16,7 +16,7 @@ export async function GET(request: Request, { params }: Context) {
     { permission: "playbook:read", rateLimit: GENERAL_READ_LIMIT, errorMessage: apiCopy("apiCopy.failed.to.load.playbook.runs.4443c703") },
     async ({ session }) => {
       const id = await requirePlaybookId(params);
-      const runs = await listPlaybookRuns(id, session ?? undefined);
+      const runs = await listPlaybookRuns(id, session);
       return NextResponse.json({ runs });
     },
   );

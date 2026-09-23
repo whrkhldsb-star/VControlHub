@@ -53,12 +53,12 @@ export async function PATCH(
             : {}),
           ...(body.compress !== undefined ? { compress: body.compress } : {}),
         },
-        session ?? undefined,
+        session,
       );
-      await auditUserAction(session?.userId ?? "anonymous", "sync_job.update", {
+      await auditUserAction(session.userId, "sync_job.update", {
         jobId: id,
         schedule: body.schedule ?? null,
-      }, undefined, session?.currentTeamId);
+      }, undefined, session.currentTeamId);
       return NextResponse.json({ success: true, job });
     },
   );
@@ -77,10 +77,10 @@ export async function DELETE(
       errorMessage: apiCopy("apiCopy.failed.to.delete.sync.job.5c1dd345"),
     },
     async ({ session }) => {
-      await deleteSyncJob(id, session ?? undefined);
-      await auditUserAction(session?.userId ?? "anonymous", "sync_job.delete", {
+      await deleteSyncJob(id, session);
+      await auditUserAction(session.userId, "sync_job.delete", {
         jobId: id,
-      }, undefined, session?.currentTeamId);
+      }, undefined, session.currentTeamId);
       return NextResponse.json({ success: true });
     },
   );

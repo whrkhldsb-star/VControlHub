@@ -33,7 +33,7 @@ export async function GET(request: Request) {
     },
     async ({ session }) => {
       const { status } = parseSearchParams(request, listQuerySchema);
-      const incidents = await listAlertIncidents({ status, session: session ?? undefined });
+      const incidents = await listAlertIncidents({ status, session });
       return NextResponse.json({
         incidents: incidents.map((i) => ({
           id: i.id,
@@ -82,13 +82,13 @@ export async function POST(request: Request) {
     async ({ session, body }) => {
       const result = await acknowledgeAlertIncident({
         incidentId: body.incidentId,
-        userId: session!.userId,
-        session: session ?? undefined,
+        userId: session.userId,
+        session,
       });
-      await auditUserAction(session!.userId, "alert_incident.acknowledge", {
+      await auditUserAction(session.userId, "alert_incident.acknowledge", {
         incidentId: result.id,
         status: result.status,
-      }, undefined, session?.currentTeamId);
+      }, undefined, session.currentTeamId);
       return NextResponse.json({ success: true, incident: result });
     },
   );

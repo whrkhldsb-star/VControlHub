@@ -62,7 +62,7 @@ export async function POST(request: Request) {
 		async ({ body, session }) => {
 			const result = await syncServerMonthlyCosts(body.month, session);
 			await auditUserAction(
-				session?.userId ?? "anonymous",
+				session.userId,
 				"cost.sync_server_monthly",
 				{
 					month: result.month,
@@ -70,7 +70,7 @@ export async function POST(request: Request) {
 					skipped: result.skipped,
 				},
 				undefined,
-				session?.currentTeamId,
+				session.currentTeamId,
 			);
 			return NextResponse.json({ result });
 		},

@@ -39,12 +39,6 @@ export async function POST(request: Request) {
       errorMessage: t("api.auth.twoFactor.setupFailed", locale),
     },
     async ({ session }) => {
-      if (!session)
-        return NextResponse.json(
-          { error: t("api.auth.sessionExpired", locale) },
-          { status: 401 },
-        );
-
       const user = await prisma.user.findUnique({
         where: { id: session.userId },
         select: { twoFactorEnabled: true },

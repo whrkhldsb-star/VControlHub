@@ -37,7 +37,6 @@ const CommentBodySchema = z
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   return withApiRoute(_request, { permission: "ticket:read" }, async ({ session }) => {
     const { id } = await params;
-    if (!session) throw new ForbiddenError(apiCopy("apiCopy.missing.permission.8af29748"));
     // Team-scoped load first (ticket:manage is not cross-tenant).
     const ticket = await getTicketById(id, session);
     if (!ticket) throw new NotFoundError(apiCopy("apiCopy.ticket.not.found.795b9ff3"));
@@ -59,12 +58,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       const { id } = await params;
       const updates: { id: string; status?: string; assigneeId?: string | null; session?: typeof session } = {
         id,
-        session: session ?? undefined,
+        session,
       };
       if (body.status) updates.status = body.status;
       if (body.assigneeId !== undefined) updates.assigneeId = body.assigneeId;
       const ticket = await updateTicketStatus(updates);
-      await auditUserAction(session?.userId ?? "", "ticket.update", { ticketId: id }, undefined, session?.currentTeamId);
+      await auditUserAction(session.userId, "ticket.update", { ticketId: id }, undefined, session.currentTeamId);
       return NextResponse.json({ ticket });
     },
   );
@@ -77,8 +76,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     async ({ session, body }) => {
       const { id } = await params;
       if (
-        !session ||
-        (!sessionHasPermission(session, "ticket:manage") && !(await canViewTicket(id, session.userId, session)))
+        !sessionHasPermission(session, "ticket:manage") && !(await canViewTicket(id, session.userId, session))
       ) {
         throw new ForbiddenError(apiCopy("apiCopy.missing.permission.8af29748"));
       }
@@ -88,7 +86,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         body: body.body,
         session,
       });
-      await auditUserAction(session?.userId ?? "", "ticket.comment", { ticketId: id }, undefined, session?.currentTeamId);
+      await auditUserAction(session.userId, "ticket.comment", { ticketId: id }, undefined, session.currentTeamId);
       return NextResponse.json({ comment }, { status: 201 });
     },
   );

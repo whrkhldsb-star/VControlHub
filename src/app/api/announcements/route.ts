@@ -21,7 +21,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   return withApiRoute(request, { requireAuth: true }, async ({ session }) => {
-    const manage = session ? sessionHasPermission(session, "announcement:manage") : false;
+    const manage = sessionHasPermission(session, "announcement:manage");
     return NextResponse.json({ announcements: manage ? await listAnnouncements() : await listActiveAnnouncements() });
   });
 }
@@ -41,11 +41,11 @@ export async function POST(request: Request) {
         level: body.type,
         pinned: body.pinned,
         published: body.published,
-        createdBy: session?.userId,
+        createdBy: session.userId,
         startsAt: body.startsAt ? new Date(body.startsAt) : undefined,
         expiresAt: body.expiresAt ? new Date(body.expiresAt) : null,
       });
-      await auditUserAction(session?.userId ?? "", "announcement.create", { announcementId: created.id }, undefined, session?.currentTeamId);
+      await auditUserAction(session.userId, "announcement.create", { announcementId: created.id }, undefined, session.currentTeamId);
       return NextResponse.json({ announcement: created }, { status: 201 });
     },
   );
@@ -68,7 +68,7 @@ export async function PATCH(request: Request) {
         expiresAt: expiresAt === undefined ? undefined : expiresAt === null ? null : new Date(expiresAt),
       });
       await auditUserAction(
-        session?.userId ?? "",
+        session.userId,
         "announcement.update",
         {
           announcementId: id,
@@ -77,7 +77,7 @@ export async function PATCH(request: Request) {
           level: result.level,
         },
         undefined,
-        session?.currentTeamId,
+        session.currentTeamId,
       );
       return NextResponse.json({ announcement: result });
     },
@@ -94,7 +94,7 @@ export async function DELETE(request: Request) {
     },
     async ({ query, session }) => {
       await deleteAnnouncement(query.id);
-      await auditUserAction(session?.userId ?? "", "announcement.delete", { announcementId: query.id }, undefined, session?.currentTeamId);
+      await auditUserAction(session.userId, "announcement.delete", { announcementId: query.id }, undefined, session.currentTeamId);
       return NextResponse.json({ success: true });
     },
   );

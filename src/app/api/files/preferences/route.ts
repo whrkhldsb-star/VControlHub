@@ -26,7 +26,7 @@ export async function GET(request: Request) {
       errorMessage: apiCopy("apiCopy.failed.to.fetch.preferences.ffdd88c2"),
     },
     async ({ session, query }) => {
-      return NextResponse.json(await listFilePreferences(session!, query), {
+      return NextResponse.json(await listFilePreferences(session, query), {
         headers: { "Cache-Control": "private, no-store" },
       });
     },
@@ -43,7 +43,7 @@ export async function PATCH(request: Request) {
       errorMessage: apiCopy("apiCopy.failed.to.save.preferences.7cb9dce5"),
     },
     async ({ session, body }) => {
-      return NextResponse.json(await updateFilePreference(session!, body));
+      return NextResponse.json(await updateFilePreference(session, body));
     },
   );
 }

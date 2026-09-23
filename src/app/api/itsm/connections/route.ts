@@ -23,7 +23,7 @@ export async function GET(request: Request) {
 			errorMessage: apiCopy("apiCopy.failed.to.list.itsm.connections.d9cdfb0a"),
 		},
 		async ({ session }) => {
-			const connections = await listItsmConnections(session ?? undefined);
+			const connections = await listItsmConnections(session);
 			return NextResponse.json({ connections });
 		},
 	);
@@ -40,12 +40,12 @@ export async function POST(request: Request) {
 			errorMessage: apiCopy("apiCopy.failed.to.create.itsm.connection.4353099e"),
 		},
 		async ({ session, body }) => {
-			const connection = await createItsmConnection(body, session ?? undefined);
-			await auditUserAction(session?.userId ?? "anonymous", "itsm.connection.create", {
+			const connection = await createItsmConnection(body, session);
+			await auditUserAction(session.userId, "itsm.connection.create", {
 				connectionId: connection.id,
 				provider: connection.provider,
 				name: connection.name,
-			}, undefined, session?.currentTeamId);
+			}, undefined, session.currentTeamId);
 			return NextResponse.json({ connection }, { status: 201 });
 		},
 	);

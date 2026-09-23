@@ -29,7 +29,7 @@ export async function GET(request: Request, context: RouteContext) {
 			errorMessage: apiCopy("apiCopy.failed.to.load.itsm.connection.b7f1d4a7"),
 		},
 		async ({ session }) => {
-			const connection = await getItsmConnection(id, session ?? undefined);
+			const connection = await getItsmConnection(id, session);
 			return NextResponse.json({ connection });
 		},
 	);
@@ -47,11 +47,11 @@ export async function PATCH(request: Request, context: RouteContext) {
 			errorMessage: apiCopy("apiCopy.failed.to.update.itsm.connection.74ecbc74"),
 		},
 		async ({ session, body }) => {
-			const connection = await updateItsmConnection(id, body, session ?? undefined);
-			await auditUserAction(session?.userId ?? "anonymous", "itsm.connection.update", {
+			const connection = await updateItsmConnection(id, body, session);
+			await auditUserAction(session.userId, "itsm.connection.update", {
 				connectionId: connection.id,
 				provider: connection.provider,
-			}, undefined, session?.currentTeamId);
+			}, undefined, session.currentTeamId);
 			return NextResponse.json({ connection });
 		},
 	);
@@ -68,10 +68,10 @@ export async function DELETE(request: Request, context: RouteContext) {
 			errorMessage: apiCopy("apiCopy.failed.to.delete.itsm.connection.587ecabb"),
 		},
 		async ({ session }) => {
-			await deleteItsmConnection(id, session ?? undefined);
-			await auditUserAction(session?.userId ?? "anonymous", "itsm.connection.delete", {
+			await deleteItsmConnection(id, session);
+			await auditUserAction(session.userId, "itsm.connection.delete", {
 				connectionId: id,
-			}, undefined, session?.currentTeamId);
+			}, undefined, session.currentTeamId);
 			return NextResponse.json({ ok: true });
 		},
 	);

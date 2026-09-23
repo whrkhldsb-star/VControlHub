@@ -17,7 +17,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 		{ requireAuth: true, rateLimit: GENERAL_WRITE_LIMIT, bodySchema: updateTeamSchema, errorMessage: apiCopy("apiCopy.failed.to.update.team.fe685a88") },
 		async ({ session, body }) => {
 			const { id } = await params;
-			const team = await updateTeam(id, body, session!);
+			const team = await updateTeam(id, body, session);
 			// Audit is recorded inside updateTeam (includes fields + slug).
 			return NextResponse.json({ success: true, team });
 		},
@@ -31,7 +31,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 		{ requireAuth: true, rateLimit: GENERAL_WRITE_LIMIT, errorMessage: apiCopy("apiCopy.failed.to.delete.team.1e03bcc2") },
 		async ({ session }) => {
 			const { id } = await params;
-			await deleteTeam(id, session!);
+			await deleteTeam(id, session);
 			// Audit is recorded inside deleteTeam (includes slug/name).
 			return NextResponse.json({ success: true });
 		},

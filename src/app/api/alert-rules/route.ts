@@ -18,7 +18,7 @@ import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { idQuerySchema, parseSearchParams } from "@/lib/http/parse-search-params";
 import { validateWebhookUrlSyntax } from "@/lib/security/webhook-url";
 
-import { AuthError, ValidationError } from "@/lib/errors";
+import { ValidationError } from "@/lib/errors";
 import { teamWhere } from "@/lib/auth/team-scope";
 import {
   MAX_NON_FILE_FORM_BYTES,
@@ -188,9 +188,7 @@ export async function GET(request: Request) {
     async ({ session }) => {
       // Fresh installs previously left alert evaluation as a pure no-op.
       // Bootstrap a small starter pack the first time the page/API is loaded.
-      if (session) {
-        await ensureDefaultAlertRules(session);
-      }
+      await ensureDefaultAlertRules(session);
       const rules = await listAlertRules(session);
       return NextResponse.json({ rules });
     },
@@ -222,8 +220,6 @@ export async function POST(request: Request) {
     request,
     options,
     async ({ session, body }) => {
-      if (!session)
-        throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
       const input = isFormSubmission
         ? alertRuleSchema.parse(await parseBody(request))
         : body;
@@ -231,7 +227,7 @@ export async function POST(request: Request) {
       await auditUserAction(
         session.userId,
         "alert_rule.create",
-        auditRuleDetail(rule), undefined, session?.currentTeamId);
+        auditRuleDetail(rule), undefined, session.currentTeamId);
       if (wantsHtml(request)) {
         return NextResponse.redirect(new URL("/alert-rules", request.url), {
           status: 303,
@@ -253,14 +249,12 @@ export async function PATCH(request: Request) {
       bodySchema: patchAlertRuleSchema,
     },
     async ({ session, body }) => {
-      if (!session)
-        throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
       if ("toggleId" in body) {
         const result = await toggleAlertRule(body.toggleId, session);
         await auditUserAction(session.userId, "alert_rule.toggle", {
           ruleId: body.toggleId,
           enabled: Boolean(result.enabled),
-        }, undefined, session?.currentTeamId);
+        }, undefined, session.currentTeamId);
         return NextResponse.json({ rule: result });
       }
       if ("testId" in body) {
@@ -270,7 +264,7 @@ export async function PATCH(request: Request) {
           name: result.rule.name,
           channels: result.deliveries.map((delivery) => delivery.channel),
           statuses: result.deliveries.map((delivery) => delivery.status),
-        }, undefined, session?.currentTeamId);
+        }, undefined, session.currentTeamId);
         return NextResponse.json(result);
       }
       if ("ensureDefaults" in body) {
@@ -278,7 +272,7 @@ export async function PATCH(request: Request) {
         await auditUserAction(session.userId, "alert_rule.ensure_defaults", {
           created: result.created,
           skipped: result.skipped,
-        }, undefined, session?.currentTeamId);
+        }, undefined, session.currentTeamId);
         const rules = await listAlertRules(session);
         return NextResponse.json({ ...result, rules });
       }
@@ -286,7 +280,7 @@ export async function PATCH(request: Request) {
       await auditUserAction(
         session.userId,
         "alert_rule.update",
-        auditRuleDetail(result), undefined, session?.currentTeamId);
+        auditRuleDetail(result), undefined, session.currentTeamId);
       return NextResponse.json({ rule: result });
     },
   );
@@ -297,8 +291,6 @@ export async function DELETE(request: Request) {
     request,
     { permission: "notification:manage", rateLimit: GENERAL_WRITE_LIMIT },
     async ({ session }) => {
-      if (!session)
-        throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
       // No catch-and-flatten here: deleteAlertRule throws NotFoundError (404)
       // for missing/cross-team rules and Prisma errors (500) otherwise —
       // wrapping either in ValidationError turned both into a 400 and told the
@@ -307,7 +299,7 @@ export async function DELETE(request: Request) {
       if (!alertRuleId)
         throw new ValidationError(apiCopy("apiCopy.missing.rule.id.be309df5"));
       await deleteAlertRule(alertRuleId, session);
-      await auditUserAction(session.userId, "alert_rule.delete", { ruleId: alertRuleId }, undefined, session?.currentTeamId);
+      await auditUserAction(session.userId, "alert_rule.delete", { ruleId: alertRuleId }, undefined, session.currentTeamId);
       return NextResponse.json({ success: true });
     },
   );
@@ -318,8 +310,6 @@ export async function PUT(request: Request) {
     request,
     { permission: "notification:manage", rateLimit: GENERAL_WRITE_LIMIT },
     async ({ session }) => {
-      if (!session)
-        throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
       // Same contract as DELETE: worker/DB failures are 5xx, not validation
       // errors — see the DELETE note.
       // Scope the manual "evaluate now" to the caller's team. Left unscoped,
@@ -330,7 +320,7 @@ export async function PUT(request: Request) {
       await evaluateAlerts({ ruleWhere: teamWhere(session) });
       await auditUserAction(session.userId, "alert_rule.evaluate", {
         manual: true,
-      }, undefined, session?.currentTeamId);
+      }, undefined, session.currentTeamId);
       return NextResponse.json({ success: true });
     },
   );

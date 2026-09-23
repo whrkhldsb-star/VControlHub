@@ -29,7 +29,7 @@ import {
   type SftpOpsBody,
 } from "@/lib/storage/schema";
 
-import { AuthError, ConflictError, ForbiddenError, ValidationError, isAppError } from "@/lib/errors";
+import { ConflictError, ForbiddenError, ValidationError, isAppError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 import { getErrorMessage } from "@/lib/http/error-message";
 const logger = createLogger("api:storage:sftp-ops");
@@ -613,8 +613,6 @@ export async function POST(request: Request) {
       bodySchema: postSchema,
     },
     async ({ session, body }) => {
-      if (!session)
-        throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
       return handlePost(body, session);
     },
   );

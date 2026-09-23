@@ -38,14 +38,12 @@ export async function GET(request: Request) {
       // `serverTeamWhere`, matching /api/traffic/summary: a null-team server is
       // quarantined legacy data, so neither its id nor its traffic curve is
       // handed to every tenant.
-      const teamFilter = session ? serverTeamWhere(session) : {};
-      const visibleServers = session
-        ? await prisma.server.findMany({
-            where: teamFilter,
-            select: { id: true },
-            take: 5000,
-          })
-        : [];
+      const teamFilter = serverTeamWhere(session);
+      const visibleServers = await prisma.server.findMany({
+        where: teamFilter,
+        select: { id: true },
+        take: 5000,
+      });
       const visibleServerIds = visibleServers.map((s) => s.id);
       const rows = await prisma.trafficSnapshot.findMany({
         where: {

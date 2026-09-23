@@ -48,9 +48,9 @@ export async function POST(request: Request) {
 	return withApiRoute(request, { permission: "command:create", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: apiCopy("apiCopy.creation.failed.f81581a7"), bodySchema: createCommandTemplateSchema }, async ({ session, body }) => {
 		const template = await createTemplate({
 			name: body.name, description: body.description, command: body.command, rollbackCommand: body.rollbackCommand,
-			tags: body.tags, createdById: session?.userId || undefined, teamId: session?.currentTeamId ?? null,
+			tags: body.tags, createdById: session.userId || undefined, teamId: session.currentTeamId ?? null,
 		});
-		await auditUserAction(session?.userId ?? "", "command_template.create", auditTemplateDetail(template), undefined, session?.currentTeamId);
+		await auditUserAction(session.userId, "command_template.create", auditTemplateDetail(template), undefined, session.currentTeamId);
 		return NextResponse.json({ template });
 	});
 }
@@ -59,7 +59,7 @@ export async function PATCH(request: Request) {
 	return withApiRoute(request, { permission: "command:create", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: apiCopy("apiCopy.update.failed.e58282fd"), bodySchema: updateCommandTemplateSchema }, async ({ session, body }) => {
 		const { id, ...updates } = body;
 		const result = await updateTemplate(id, updates, templateActor(session), session);
-		await auditUserAction(session?.userId ?? "", "command_template.update", auditTemplateDetail(result), undefined, session?.currentTeamId);
+		await auditUserAction(session.userId, "command_template.update", auditTemplateDetail(result), undefined, session.currentTeamId);
 		return NextResponse.json({ template: result });
 	});
 }
@@ -69,7 +69,7 @@ export async function DELETE(request: Request) {
 		const { id } = parseSearchParams(request, idQuerySchema);
 		if (!id) throw new ValidationError(apiCopy("apiCopy.missing.template.id.14620eb3"));
 		const deleted = await deleteTemplate(id, templateActor(session), session);
-		await auditUserAction(session?.userId ?? "", "command_template.delete", auditTemplateDetail(deleted), undefined, session?.currentTeamId);
+		await auditUserAction(session.userId, "command_template.delete", auditTemplateDetail(deleted), undefined, session.currentTeamId);
 		return NextResponse.json({ success: true });
 	});
 }

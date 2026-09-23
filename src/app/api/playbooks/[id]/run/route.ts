@@ -25,9 +25,9 @@ export async function POST(request: Request, { params }: PlaybookRouteContext) {
       const run = await runPlaybook({
         playbookId: id,
         dryRun: false,
-        triggerContext: { source: "manual", at: new Date().toISOString(), userId: session?.userId ?? null },
-        createdById: session?.userId ?? undefined,
-        session: session ?? undefined,
+        triggerContext: { source: "manual", at: new Date().toISOString(), userId: session.userId },
+        createdById: session.userId,
+        session,
       });
       return NextResponse.json({ run }, { status: 202 });
     },

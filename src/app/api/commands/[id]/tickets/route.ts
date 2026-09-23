@@ -21,7 +21,7 @@ export async function GET(
     },
     async ({ session }) => {
       const { id } = await context.params;
-      const tickets = await listTicketsForCommand(id, session ?? undefined);
+      const tickets = await listTicketsForCommand(id, session);
       return NextResponse.json({
         commandRequestId: id,
         tickets: tickets.map((t) => ({

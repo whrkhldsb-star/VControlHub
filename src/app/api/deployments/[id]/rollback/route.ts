@@ -8,7 +8,6 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { apiCatch } from "@/lib/http/api-error";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
-import { AuthError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
 
 const rollbackSchema = z.object({
@@ -25,7 +24,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       bodySchema: rollbackSchema,
     },
     async ({ session, body }) => {
-      if (!session) throw new AuthError(apiCopy("apiCopy.not.authenticated.or.session.expired.b1714d99"));
       const { id } = await params;
       try {
         const rollback = await createDeploymentRollbackRun({
@@ -38,7 +36,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           rollbackId: rollback.id,
           commandRequestId: rollback.commandRequestId,
           reason: body.reason ?? null,
-        }, undefined, session?.currentTeamId);
+        }, undefined, session.currentTeamId);
         return NextResponse.json({ rollback }, { status: 201 });
       } catch (error) {
         return apiCatch(error);

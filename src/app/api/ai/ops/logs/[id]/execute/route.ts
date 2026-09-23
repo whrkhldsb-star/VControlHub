@@ -39,9 +39,6 @@ export async function POST(
 			errorMessage: apiCopy("apiCopy.failed.to.execute.recommendation.b113d006"),
 		},
 		async ({ session, body }) => {
-			if (!session) {
-				throw new ForbiddenError(apiCopy("apiCopy.not.authenticated.or.session.expired.b1714d99"));
-			}
 			if (body.forceAutonomous && !sessionHasPermission(session, "ai:ops:autonomous")) {
 				throw new ForbiddenError(apiCopy("apiCopy.forceautonomous.requires.ai.ops.autonomous.permission.9466ebc3"));
 			}
@@ -51,7 +48,7 @@ export async function POST(
 				forceAutonomous: body.forceAutonomous,
 			});
 			await auditUserAction(
-				session?.userId ?? "anonymous",
+				session.userId,
 				"ai.ops.recommendation.execute",
 				{
 					logId: id,
@@ -61,7 +58,7 @@ export async function POST(
 					executed: result.executed,
 					errorMessage: result.errorMessage ?? null,
 				},
-			undefined, session?.currentTeamId);
+			undefined, session.currentTeamId);
 			return NextResponse.json({ result });
 		},
 	);

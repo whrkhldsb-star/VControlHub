@@ -16,7 +16,7 @@ export async function DELETE(
 		{ permission: "team:member:manage", rateLimit: GENERAL_WRITE_LIMIT, errorMessage: apiCopy("apiCopy.failed.to.remove.team.member.8a8fc863") },
 		async ({ session }) => {
 			const { id, userId } = await params;
-			await removeTeamMember(id, userId, session!);
+			await removeTeamMember(id, userId, session);
 			// Audit is recorded inside removeTeamMember (includes slug + removedUserId).
 			return NextResponse.json({ success: true });
 		},

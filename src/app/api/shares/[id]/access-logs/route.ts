@@ -15,7 +15,7 @@ export async function GET(
     { permission: "share:read", errorMessage: apiCopy("apiCopy.operation.failed.4e1af7c7") },
     async ({ session }) => {
       const { id } = await params;
-      const logs = await listShareAccessLogs(id, session!);
+      const logs = await listShareAccessLogs(id, session);
       return NextResponse.json({ logs });
     },
   );

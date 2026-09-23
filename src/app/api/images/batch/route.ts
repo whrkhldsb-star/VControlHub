@@ -33,11 +33,6 @@ export async function POST(request: Request) {
       bodySchema: batchSchema,
     },
     async ({ session, body }) => {
-      if (!session)
-        return NextResponse.json(
-          { error: apiCopy("apiCopy.not.authenticated.or.session.expired.b1714d99") },
-          { status: 401 },
-        );
       const { action, ids, album } = body;
 
       const canManageImages =
@@ -106,7 +101,7 @@ export async function POST(request: Request) {
                 })),
             },
             "WARNING",
-            session?.currentTeamId,
+            session.currentTeamId,
           );
           const payload = {
             deleted: result.count,
@@ -141,7 +136,7 @@ export async function POST(request: Request) {
               album: album.trim() || null,
             },
             undefined,
-            session?.currentTeamId,
+            session.currentTeamId,
           );
           return NextResponse.json({ updated: result.count });
         }
@@ -182,7 +177,7 @@ export async function POST(request: Request) {
               toPrivateCount: toPrivate.length,
             },
             undefined,
-            session?.currentTeamId,
+            session.currentTeamId,
           );
           return NextResponse.json({ updated: images.length });
         }

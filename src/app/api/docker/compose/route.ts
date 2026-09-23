@@ -88,12 +88,12 @@ export async function POST(request: Request) {
       });
 
       if (body.action !== "ps") {
-        await auditUserAction(session!.userId, `docker.compose.${body.action}`, {
+        await auditUserAction(session.userId, `docker.compose.${body.action}`, {
           project: result.project,
           mode: result.mode,
           serverId: serverId ?? "hub-host",
           removeVolumes: body.removeVolumes === true,
-        }, undefined, session?.currentTeamId);
+        }, undefined, session.currentTeamId);
       }
 
       return NextResponse.json({

@@ -14,7 +14,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { withCacheHeaders, CachePresets } from "@/lib/cache";
 
-import { AuthError, ForbiddenError, ValidationError } from "@/lib/errors";
+import { ForbiddenError, ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/translations";
 import { idQuerySchema, parseSearchParams } from "@/lib/http/parse-search-params";
 import {
@@ -72,8 +72,6 @@ export async function GET(request: Request) {
     request,
     { permission: "api-token:manage" },
     async ({ session }) => {
-      if (!session)
-        throw new AuthError(apiCopy("apiCopy.unauthorized.d089c8a9"));
       return withCacheHeaders(
         NextResponse.json({ tokens: await listApiTokens(session.userId) }),
         CachePresets.shortLived,
@@ -99,9 +97,6 @@ export async function POST(request: Request) {
     request,
     options,
     async ({ session, body }) => {
-      if (!session)
-        throw new AuthError(apiCopy("apiCopy.unauthorized.d089c8a9"));
-
       const parsed = isFormSubmission ? createTokenSchema.parse(await parseCreateBody(request)) : body;
       const scopes = normalizeScopes(parsed.scopes);
       const unauthorizedScopes = scopes.filter(
@@ -127,7 +122,7 @@ export async function POST(request: Request) {
         expiresAt: result.apiToken.expiresAt
           ? result.apiToken.expiresAt.toISOString()
           : null,
-      }, undefined, session?.currentTeamId);
+      }, undefined, session.currentTeamId);
 
       if (wantsHtml(request)) {
         return NextResponse.redirect(
@@ -152,16 +147,13 @@ export async function DELETE(request: Request) {
       errorMessage: apiCopy("apiCopy.operation.failed.4e1af7c7"),
     },
     async ({ session }) => {
-      if (!session)
-        throw new AuthError(apiCopy("apiCopy.unauthorized.d089c8a9"));
-
       const { id } = parseSearchParams(request, idQuerySchema);
       const token = await revokeApiToken({ userId: session.userId, id });
       await auditUserAction(session.userId, "api_token.revoke", {
         tokenId: token.id,
         tokenPrefix: token.tokenPrefix,
         tokenSuffix: token.tokenSuffix,
-      }, undefined, session?.currentTeamId);
+      }, undefined, session.currentTeamId);
       return NextResponse.json({ token });
     },
   );

@@ -46,7 +46,7 @@ export async function GET(request: Request) {
 				connectionId,
 				ticketId,
 				limit,
-				session: session ?? undefined,
+				session,
 			});
 			return NextResponse.json({ events });
 		},

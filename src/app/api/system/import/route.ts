@@ -39,22 +39,22 @@ export async function POST(request: Request) {
       if (options.dryRun) {
         // 预览模式：不写入
         const preview = await previewImport(file, options);
-        await auditUserAction(session!.userId, "system.import.preview", {
+        await auditUserAction(session.userId, "system.import.preview", {
           totalRecords: preview.totalRecords,
           schemaVersion: file.schemaVersion,
-        }, undefined, session!.currentTeamId);
+        }, undefined, session.currentTeamId);
         return NextResponse.json({ preview });
       }
 
       // 实际导入
       const result = await executeImport(file, options);
-      await auditUserAction(session!.userId, "system.import", {
+      await auditUserAction(session.userId, "system.import", {
         created: result.created,
         updated: result.updated,
         skipped: result.skipped,
         errors: result.errors,
         sourceDomain: file.sourceDomain,
-      }, undefined, session!.currentTeamId);
+      }, undefined, session.currentTeamId);
 
       if (result.rolledBack) {
         return NextResponse.json(

@@ -24,7 +24,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { enqueueJob } from "@/lib/job/service";
-import { AuthError, NotFoundError, ValidationError } from "@/lib/errors";
+import { NotFoundError, ValidationError } from "@/lib/errors";
 import {
   findSftpNodeForStaleInventory,
   listSftpNodesForStaleInventory,
@@ -55,7 +55,6 @@ export async function POST(request: NextRequest) {
     request,
     { permission: "storage:manage-node", rateLimit: GENERAL_WRITE_LIMIT },
     async ({ session, body }) => {
-      if (!session) throw new AuthError(apiCopy("apiCopy.not.authenticated.76d1efbe"));
       const input = (body ?? {}) as StaleInventoryInput;
       const parsed = staleInventorySchema.safeParse(input);
       if (!parsed.success) throw new ValidationError(apiCopy("apiCopy.invalid.input.parameter.d64ebcd8"));
@@ -72,7 +71,7 @@ export async function POST(request: NextRequest) {
         const results = data.nodeId
           ? [await scanOneNode(data, session)]
           : await scanAllNodes(data, session);
-        await auditUserAction(session?.userId ?? "", "storage.sftp-stale-cleanup", { nodeId: data.nodeId ?? "all", dryRun: data.dryRun ?? false }, undefined, session?.currentTeamId);
+        await auditUserAction(session.userId, "storage.sftp-stale-cleanup", { nodeId: data.nodeId ?? "all", dryRun: data.dryRun ?? false }, undefined, session.currentTeamId);
         return NextResponse.json({
           success: true,
           queued: false,
