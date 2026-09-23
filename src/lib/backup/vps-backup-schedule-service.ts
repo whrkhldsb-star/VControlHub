@@ -8,10 +8,10 @@ import { enqueueJob } from "@/lib/job/service";
 import { createVpsBackupRecord, VPS_BACKUP_CREATE_JOB_TYPE, pruneOldVpsBackupRecords } from "./vps-backup-service";
 import { isVpsBackupPresetType } from "./vps-backup-presets";
 import { createLogger } from "@/lib/logging";
-import { CronExpressionParser } from "cron-parser";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
-import { APP_TIME_ZONE } from "@/lib/datetime/time-zone";
+import { computeNextRun as sharedComputeNextRun } from "@/lib/scheduled-task/service";
+import { validateCronExpression as sharedValidateCronExpression } from "./schedule-service";
 
 const vpsSchedLogger = createLogger("vps-backup-schedule");
 const VPS_BACKUP_SCHEDULE_STATUSES = ["ACTIVE", "PAUSED"] as const;
@@ -22,16 +22,7 @@ type VpsBackupScheduleStatus = (typeof VPS_BACKUP_SCHEDULE_STATUSES)[number];
  * Previously create/update accepted garbage cron and computeNextRun silently
  * fell back to +24h — schedules appeared "saved" but never fired as intended.
  */
-export function validateVpsCronExpression(expr: string): string {
-	const trimmed = expr.trim();
-	if (!trimmed) throw new ValidationError(t("backend.backup.cronRequired"));
-	try {
-		CronExpressionParser.parse(trimmed, { currentDate: new Date(), tz: APP_TIME_ZONE });
-	} catch {
-		throw new ValidationError(t("backend.backup.cronInvalid"));
-	}
-	return trimmed;
-}
+export const validateVpsCronExpression = sharedValidateCronExpression;
 
 // Defense-in-depth: the HTTP routes already zod-validate retentionDays to
 // 1..365, but the service must not trust callers (future internal callers,
@@ -326,23 +317,18 @@ export async function dispatchDueVpsBackupSchedules(): Promise<number> {
 	return dispatched;
 }
 
-/* ── Cron expression parser ──────────────────────────────── */
+/* ── Cron next-run ────────────────────────────────────────── */
 
 /**
- * Simple cron next-run calculator.
- * Supports standard 5-field cron: minute hour day month weekday
- * Does NOT support special strings (@daily, star-slash-N, ranges with steps).
- * For simplicity, uses a brute-force minute-by-minute scan.
+ * Shared scheduled-task parser, wrapped so the dispatch loop never throws:
+ * legacy rows written before write-time validation may hold invalid cron, and
+ * retrying in 24h keeps the schedule observable instead of wedging it at the
+ * CAS far-future sentinel.
  */
 export function computeNextRun(cronExpression: string, from: Date = new Date()): Date {
-	const trimmed = cronExpression.trim();
-	// Support @daily / @hourly / @weekly / @monthly aliases (cron-parser).
 	try {
-		const expr = CronExpressionParser.parse(trimmed, { currentDate: from, tz: APP_TIME_ZONE });
-		const next = expr.next().toDate();
-		return next;
+		return sharedComputeNextRun(cronExpression, from);
 	} catch {
-		// Invalid expression: fail closed to 24h (same as previous custom parser fallback).
 		return new Date(from.getTime() + 24 * 60 * 60 * 1000);
 	}
 }

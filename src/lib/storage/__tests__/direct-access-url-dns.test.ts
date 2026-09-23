@@ -31,3 +31,15 @@ describe("IPv4-mapped IPv6 host safety", () => {
 		expect(() => normalizePublicBaseUrl("https://[::ffff:7f00:1]/media")).toThrow();
 	});
 });
+
+describe("IPv4-compatible IPv6 host safety (regression: former storage-copy bypass)", () => {
+	it("rejects the IPv4-compatible form of metadata and loopback addresses", () => {
+		expect(isUnsafePublicHttpHost("::169.254.169.254")).toBe(true);
+		expect(isUnsafePublicHttpHost("::127.0.0.1")).toBe(true);
+		expect(isUnsafePublicHttpHost("[::169.254.169.254]")).toBe(true);
+	});
+
+	it("rejects normalizePublicBaseUrl for IPv4-compatible metadata addresses", () => {
+		expect(() => normalizePublicBaseUrl("https://[::169.254.169.254]/media")).toThrow();
+	});
+});

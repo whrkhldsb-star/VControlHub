@@ -50,7 +50,7 @@ const silenceWindowSchema = z
   .regex(/^([01]\d|2[0-3]):[0-5]\d-([01]\d|2[0-3]):[0-5]\d$/, "Silence period format should be HH:mm-HH:mm, e.g. 22:00-08:00");
 
 const alertRuleSchemaBase = z.object({
-  name: z.string().trim().min(1, "RuleNameis required").max(100, "RuleNameToo long"),
+  name: z.string().trim().min(1, "Rule name is required").max(100, "Rule name is too long"),
   metric: z.enum(metrics),
   operator: z.enum(operators),
   threshold: z.coerce.number().finite().min(0).max(100000),
@@ -68,7 +68,7 @@ const alertRuleSchemaBase = z.object({
       .string()
       .trim()
       .url()
-      .startsWith("https://", "Webhook URL Mustusing https://")
+      .startsWith("https://", "Webhook URL must use https://")
       .refine(
         (value) => validateWebhookUrlSyntax(value).ok,
         "Webhook URL is not allowed to point to localhost or internal network address",

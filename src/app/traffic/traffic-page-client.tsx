@@ -117,15 +117,6 @@ function RateBadge({ label, value, color }: { label: string; value: string; colo
   );
 }
 
-export function formatStorageHealthStatus(t: (key: string, vars?: Record<string, string | number>) => string, status: string) {
-  const normalized = status.trim().toUpperCase();
-  if (normalized === "HEALTHY" || normalized === "ONLINE") return t("trafficPage.health.online");
-  if (normalized === "WARNING") return t("trafficPage.health.attention");
-  if (normalized === "CRITICAL" || normalized === "OFFLINE") return t("trafficPage.health.abnormal");
-  if (normalized === "UNKNOWN" || normalized === "") return t("trafficPage.health.unsampled");
-  return status;
-}
-
 /**
  * One curve per interface (24h) or per interface and local calendar day (7d).
  * The interface has to be part of the key: two interfaces interleaved into one

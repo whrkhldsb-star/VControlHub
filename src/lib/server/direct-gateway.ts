@@ -266,7 +266,6 @@ if ! command -v caddy >/dev/null 2>&1; then
   echo "caddy is not installed and apt package install failed; install caddy from your distro package and retry" >&2
   exit 1
 fi
-command -v caddy >/dev/null 2>&1 || { echo "caddy install failed" >&2; exit 1; }
 cat > ${shellQuote(caddyfile)} <<VCH_DIRECT_CADDY
 {
   admin off

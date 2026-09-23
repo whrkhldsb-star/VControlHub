@@ -3,69 +3,9 @@ import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 
 import { recordDelivery } from "@/lib/monitoring/runtime-metrics";
+import { isBlockedIpAddress } from "@/lib/security/ip-blocklist";
 
 const BLOCKED_HOSTS = new Set(["localhost", "localhost.localdomain"]);
-
-function expandIpv6Address(address: string) {
-	const normalized = address.toLowerCase();
-	if (!normalized.includes(":")) return null;
-	const [headRaw, tailRaw] = normalized.split("::", 2);
-	const head = headRaw ? headRaw.split(":").filter(Boolean) : [];
-	const tail = tailRaw ? tailRaw.split(":").filter(Boolean) : [];
-	const ipv4Tail = [...head, ...tail].at(-1);
-	if (ipv4Tail?.includes(".")) {
-		const octets = ipv4Tail.split(".").map((part) => Number.parseInt(part, 10));
-		if (octets.length !== 4 || octets.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) return null;
-		const first = ((octets[0]! << 8) | octets[1]!).toString(16);
-		const second = ((octets[2]! << 8) | octets[3]!).toString(16);
-		if (tail.length && tail.at(-1) === ipv4Tail) tail.splice(tail.length - 1, 1, first, second);
-		else head.splice(head.length - 1, 1, first, second);
-	}
-	if (normalized.includes("::")) {
-		const missing = 8 - head.length - tail.length;
-		if (missing < 0) return null;
-		return [...head, ...Array(missing).fill("0"), ...tail].map((part) => Number.parseInt(part || "0", 16));
-	}
-	const parts = head.map((part) => Number.parseInt(part || "0", 16));
-	return parts.length === 8 ? parts : null;
-}
-
-function isBlockedIpAddress(address: string) {
-	const normalized = address.trim().toLowerCase().replace(/^\[(.*)\]$/, "$1");
-	if (!normalized) return true;
-	if (normalized.includes(":")) {
-		const parts = expandIpv6Address(normalized);
-		if (!parts || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 0xffff)) return true;
-		const allZero = parts.every((part) => part === 0);
-		const loopback = parts.slice(0, 7).every((part) => part === 0) && parts[7] === 1;
-		const uniqueLocal = (parts[0]! & 0xfe00) === 0xfc00;
-		const linkLocal = (parts[0]! & 0xffc0) === 0xfe80;
-		const multicast = (parts[0]! & 0xff00) === 0xff00;
-		const ipv4Mapped = parts.slice(0, 5).every((part) => part === 0) && parts[5] === 0xffff;
-		// Both IPv4-mapped (::ffff:a.b.c.d) and the deprecated IPv4-compatible
-		// (::a.b.c.d — top 96 bits zero) form embed an IPv4 address in the low 32
-		// bits. Evaluate it under the IPv4 rules so e.g. ::127.0.0.1 or
-		// ::ffff:169.254.169.254 cannot bypass the private-range block.
-		const ipv4Compatible = parts.slice(0, 6).every((part) => part === 0);
-		if (ipv4Mapped || ipv4Compatible) {
-			return isBlockedIpAddress(`${(parts[6]! >> 8) & 255}.${parts[6]! & 255}.${(parts[7]! >> 8) & 255}.${parts[7]! & 255}`);
-		}
-		return allZero || loopback || uniqueLocal || linkLocal || multicast;
-	}
-
-	const parts = normalized.split(".").map((part) => Number.parseInt(part, 10));
-	if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) return false;
-	const [a, b] = parts;
-	return a === 0
-		|| a === 10
-		|| a === 127
-		|| (a === 100 && b! >= 64 && b! <= 127)
-		|| (a === 169 && b === 254)
-		|| (a === 172 && b! >= 16 && b! <= 31)
-		|| (a === 192 && b === 168)
-		|| (a === 198 && (b === 18 || b === 19))
-		|| a! >= 224;
-}
 
 export function validateWebhookUrlSyntax(value: string) {
 	let url: URL;

@@ -82,6 +82,25 @@ export type ApiRouteContext<TBody = unknown, TQuery = unknown> = {
   requestId: string;
 };
 
+/**
+ * Context for routes that declare `permission` / `permissions` / `requireAuth`:
+ * the guard rejects unauthenticated requests before the handler runs, so
+ * `session` is always present — handlers no longer need dead `if (!session)`
+ * guards (which used to be copy-pasted into nearly every route).
+ */
+export type AuthedApiRouteContext<TBody = unknown, TQuery = unknown> = {
+  session: SessionPayload;
+  body: TBody;
+  query: TQuery;
+  requestId: string;
+};
+
+/** Options subset that guarantees an authenticated handler context. */
+type AuthedRouteOptions<TBody, TQuery> =
+  | (ApiRouteOptions<TBody, TQuery> & { permission: Permission })
+  | (ApiRouteOptions<TBody, TQuery> & { permissions: Permission[] })
+  | (ApiRouteOptions<TBody, TQuery> & { requireAuth: true });
+
 function attachRequestId(response: Response, requestId: string, durationMs?: number) {
   const headers = new Headers(response.headers);
   headers.set("x-request-id", requestId);
@@ -132,14 +151,30 @@ export function requestLocale(request: Request): Locale {
 
 export async function withApiRoute<TBody = unknown, TQuery = unknown>(
 	request: Request,
+	options: AuthedRouteOptions<TBody, TQuery>,
+	handler: (context: AuthedApiRouteContext<TBody, TQuery>) => Promise<Response>,
+): Promise<Response>;
+export async function withApiRoute<TBody = unknown, TQuery = unknown>(
+	request: Request,
+	options: AuthedRouteOptions<TBody, TQuery>,
+	handler: (context: AuthedApiRouteContext<TBody, TQuery>) => Promise<Response>,
+): Promise<Response>;
+export async function withApiRoute<TBody = unknown, TQuery = unknown>(
+	request: Request,
 	options: ApiRouteOptions<TBody, TQuery>,
 	handler: (context: ApiRouteContext<TBody, TQuery>) => Promise<Response>,
+): Promise<Response>;
+export async function withApiRoute(
+	request: Request,
+	options: ApiRouteOptions<unknown, unknown>,
+	handler: (context: never) => Promise<Response>,
 ): Promise<Response> {
 	const locale = requestLocale(request);
-	return withApiCopyLocale(locale, () => runApiRoute(request, {
-		...options,
-		errorMessage: options.errorMessage ? localizeApiCopy(options.errorMessage, locale) : options.errorMessage,
-	}, handler));
+	return withApiCopyLocale(locale, () => runApiRoute(
+		request,
+		{ ...options, errorMessage: options.errorMessage ? localizeApiCopy(options.errorMessage, locale) : options.errorMessage },
+		handler as unknown as (context: ApiRouteContext<unknown, unknown>) => Promise<Response>,
+	));
 }
 
 async function runApiRoute<TBody = unknown, TQuery = unknown>(

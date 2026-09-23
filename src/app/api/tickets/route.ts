@@ -8,7 +8,6 @@ import { listTicketsAdvanced, getTicketKanban } from "@/lib/ticket/sla";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_READ_LIMIT, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
-import { ForbiddenError } from "@/lib/errors";
 const ticketCreateSchema = z.object({
   subject: z.string().min(1).optional(),
   title: z.string().min(1).optional(),
@@ -93,10 +92,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  return withApiRoute(request, { permissions: ["ticket:create", "ticket:manage"], rateLimit: GENERAL_WRITE_LIMIT, bodySchema: ticketPostSchema }, async ({ session, body }) => {
-    if (!session || !sessionHasPermission(session, "ticket:create")) {
-      throw new ForbiddenError(apiCopy("apiCopy.missing.permission.8af29748"));
-    }
+  return withApiRoute(request, { permission: "ticket:create", rateLimit: GENERAL_WRITE_LIMIT, bodySchema: ticketPostSchema }, async ({ session, body }) => {
     const ticket = await createTicket({
       title: body.subject ?? body.title ?? "",
       description: body.description,

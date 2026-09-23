@@ -16,16 +16,6 @@ export function InfoRow({ label, value }: { label: string; value: string }) {
 	);
 }
 
-export function statusToneClass(tone: "success" | "warning" | "info") {
-	if (tone === "success") {
-		return "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)] light:border-[var(--success-border)]";
-	}
-	if (tone === "warning") {
-		return "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)] light:border-[var(--warning-border)]";
-	}
-	return "border-[var(--info-border)] bg-[var(--info-bg)] text-[var(--info)]";
-}
-
 // TR-041: OS dialect display + detect button
 export function OsDialectSection({
 	serverId,

@@ -54,8 +54,10 @@ describe("/api/tickets", () => {
     }));
 
     expect(response.status).toBe(201);
-    expect(mocks.requireApiPermission).not.toHaveBeenCalled();
-    expect(mocks.requireApiSession).toHaveBeenCalled();
+    // POST declares the single `ticket:create` permission: enforced through
+    // requireApiPermission (managers without ticket:create no longer slip
+    // past the guard only to hit an inner 403).
+    expect(mocks.requireApiPermission).toHaveBeenCalledWith("ticket:create");
     expect(mocks.createTicket).toHaveBeenCalledWith(expect.objectContaining({
       title: "Need help",
       description: "Please check",

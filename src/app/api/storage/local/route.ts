@@ -211,9 +211,6 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
   }
   // Always charge quota against the real body length — never trust client-declared size.
   const byteSize = fileBuffer.byteLength;
-  if (declaredFileSize !== null && declaredFileSize !== byteSize) {
-    // Soft consistency: ignore mismatch for quota; actual bytes win.
-  }
   const accessDecision = await assertStorageAccess({
     session,
     storageNodeId,
