@@ -30,6 +30,7 @@ import {
 } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
 import { tryAcquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
+import { createSingletonIntervalWorker } from "@/lib/workers/singleton-interval-worker";
 
 import { dispatchDueSchedule, recordScheduleRun } from "./schedule-service";
 
@@ -42,25 +43,24 @@ const BACKUP_SCHEDULE_TICK_LEASE_MS = computeLeaseMs("backup-schedule");
 const BACKUP_SCHEDULE_WORKER_ID = `${config.app.hostname || "vcontrolhub"}:backup-schedule:${process.pid}`;
 const BACKUP_SCHEDULE_TICK_KEEP_LATEST = 50;
 
-type BackupScheduleWorkerState = {
-  started: boolean;
-  running: boolean;
-  timer: NodeJS.Timeout | null;
-};
-
-type BackupScheduleWorkerGlobal = typeof globalThis & {
-  __vcontrolhubBackupScheduleWorker?: BackupScheduleWorkerState;
-};
-
-function getWorkerState() {
-  const globalState = globalThis as BackupScheduleWorkerGlobal;
-  globalState.__vcontrolhubBackupScheduleWorker ??= {
-    started: false,
-    running: false,
-    timer: null,
-  };
-  return globalState.__vcontrolhubBackupScheduleWorker;
-}
+const backupScheduleWorker = createSingletonIntervalWorker({
+  globalKey: "__vcontrolhubBackupScheduleWorker",
+  resolveIntervalMs: () => BACKUP_SCHEDULE_TICK_INTERVAL_MS,
+  tick: (_state, reason) => {
+    void runBackupScheduleTickJobWorkerOnce(reason).catch((error) => {
+      logger.error("Backup schedule worker tick failed", {
+        reason,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
+  },
+  onStarted: (_state, intervalMs) => {
+    logger.info("backup-schedule durable job worker started", {
+      intervalMs,
+      workerId: BACKUP_SCHEDULE_WORKER_ID,
+    });
+  },
+});
 
 async function hasActiveTickJob() {
 	const existing = await prisma.job.findFirst({
@@ -267,7 +267,7 @@ async function dispatchDueBackupSchedules(reason: string) {
 }
 
 export async function runBackupScheduleTickJobWorkerOnce(reason = "manual") {
-  const state = getWorkerState();
+  const state = backupScheduleWorker.getState();
   if (state.running) {
     logger.warn("Skipping backup schedule tick because a previous tick is still running", { reason });
     return false;
@@ -336,41 +336,9 @@ export async function runBackupScheduleTickJobWorkerOnce(reason = "manual") {
 }
 
 export async function startBackupScheduleWorker() {
-  const state = getWorkerState();
-  if (state.started) return state;
-
-  state.started = true;
-  const intervalMs = BACKUP_SCHEDULE_TICK_INTERVAL_MS;
-
-  void runBackupScheduleTickJobWorkerOnce("startup").catch((error) => {
-    logger.error("Backup schedule worker tick failed", {
-      reason: "startup",
-      error: error instanceof Error ? error.message : String(error),
-    });
-  });
-  state.timer = setInterval(() => {
-    void runBackupScheduleTickJobWorkerOnce("interval").catch((error) => {
-      logger.error("Backup schedule worker tick failed", {
-        reason: "interval",
-        error: error instanceof Error ? error.message : String(error),
-      });
-    });
-  }, intervalMs);
-  state.timer.unref?.();
-
-  logger.info("backup-schedule durable job worker started", {
-    intervalMs,
-    workerId: BACKUP_SCHEDULE_WORKER_ID,
-  });
-  return state;
+  return (await backupScheduleWorker.start()).state;
 }
 
 export function stopBackupScheduleWorkerForTests() {
-  const state = getWorkerState();
-  if (state.timer) {
-    clearInterval(state.timer);
-  }
-  state.started = false;
-  state.running = false;
-  state.timer = null;
+  backupScheduleWorker.stopForTests();
 }

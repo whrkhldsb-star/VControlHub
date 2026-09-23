@@ -18,7 +18,8 @@ import { zh as storageZh, en as storageEn } from "./dictionaries/storage-page";
 import { zh as storageHardeningZh, en as storageHardeningEn } from "./dictionaries/storage-hardening-api";
 import { zh as sshHardeningZh, en as sshHardeningEn } from "./dictionaries/ssh-hardening-api";
 import { zh as opsHardeningZh, en as opsHardeningEn } from "./dictionaries/ops-hardening-api";
-import { interpolate, type Locale } from "./core";
+import { type Locale } from "./core";
+import { makeT } from "./make-t";
 
 const fileActionCopy = (files: Record<string, string>, storage: Record<string, string>) => Object.fromEntries([
   ...Object.entries(files).filter(([key]) => key.startsWith("filesPage.move.")),
@@ -47,14 +48,6 @@ const en: Record<string, string> = {
 
 export const serviceTranslations: Record<Locale, Record<string, string>> = { zh, en };
 
-export function t(
-	key: string,
-	localeOrVars?: Locale | Record<string, string | number>,
-	maybeVars?: Record<string, string | number>,
-): string {
-	const locale: Locale = typeof localeOrVars === "string" ? localeOrVars : "zh";
-	const vars = typeof localeOrVars === "object" ? localeOrVars : maybeVars;
-	return interpolate(serviceTranslations[locale]?.[key] || key, vars);
-}
+export const t = makeT(serviceTranslations);
 
 export type { Locale } from "./core";

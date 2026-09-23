@@ -13,6 +13,7 @@ import { getSftpSyncNode, syncSftpDirectoryEntries, type SftpSyncResult } from "
 import { serviceT } from "@/lib/i18n/service-locale";
 import { t } from "@/lib/i18n/service-translations";
 import { runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
+import { createSingletonIntervalWorker } from "@/lib/workers/singleton-interval-worker";
 
 const logger = createLogger("sftp-sync-job-worker");
 
@@ -29,24 +30,22 @@ type SftpSyncJobPayload = {
   maxDepth?: number;
 };
 
-type SftpSyncWorkerState = {
-  started: boolean;
-  running: boolean;
-  timer: NodeJS.Timeout | null;
-};
-
-type SftpSyncWorkerGlobal = typeof globalThis & {
-  __vcontrolhubSftpSyncWorker?: SftpSyncWorkerState;
-};
+const sftpSyncWorker = createSingletonIntervalWorker({
+  globalKey: "__vcontrolhubSftpSyncWorker",
+  resolveIntervalMs: () => SFTP_SYNC_WORKER_INTERVAL_MS,
+  tick: (state, reason) => {
+    void runSftpSyncJobWorkerOnce(state, reason);
+  },
+  onStarted: (_state, intervalMs) => {
+    logger.info("SFTP sync job worker started", {
+      intervalMs,
+      workerId: SFTP_SYNC_WORKER_ID,
+    });
+  },
+});
 
 function getWorkerState() {
-  const globalState = globalThis as SftpSyncWorkerGlobal;
-  globalState.__vcontrolhubSftpSyncWorker ??= {
-    started: false,
-    running: false,
-    timer: null,
-  };
-  return globalState.__vcontrolhubSftpSyncWorker;
+  return sftpSyncWorker.getState();
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -193,29 +192,9 @@ export async function runSftpSyncJobWorkerOnce(
 }
 
 export async function startSftpSyncJobWorker() {
-  const state = getWorkerState();
-  if (state.started) return state;
-
-  state.started = true;
-  const intervalMs = SFTP_SYNC_WORKER_INTERVAL_MS;
-
-  void runSftpSyncJobWorkerOnce(state, "startup");
-  state.timer = setInterval(() => {
-    void runSftpSyncJobWorkerOnce(state, "interval");
-  }, intervalMs);
-  state.timer.unref?.();
-
-  logger.info("SFTP sync job worker started", {
-    intervalMs,
-    workerId: SFTP_SYNC_WORKER_ID,
-  });
-  return state;
+  return (await sftpSyncWorker.start()).state;
 }
 
 export function stopSftpSyncJobWorkerForTests() {
-  const state = getWorkerState();
-  if (state.timer) clearInterval(state.timer);
-  state.started = false;
-  state.running = false;
-  state.timer = null;
+  sftpSyncWorker.stopForTests();
 }

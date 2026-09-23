@@ -7,6 +7,7 @@ import { runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
 import { computeLeaseMs } from "@/lib/job/lease";
 import { claimNextJob, completeJob, enqueueJob, failJob, heartbeatJob, pruneCompletedJobsByType } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
+import { createSingletonIntervalWorker } from "@/lib/workers/singleton-interval-worker";
 
 import { escalateBreachedTickets } from "./sla";
 
@@ -18,14 +19,18 @@ const TICKET_SLA_LEASE_MS = computeLeaseMs("ticket-sla");
 const TICKET_SLA_WORKER_ID = `${config.app.hostname || "vcontrolhub"}:ticket-sla:${process.pid}`;
 const RETENTION_KEEP_LATEST = 25;
 
-type WorkerState = { started: boolean; running: boolean; timer: NodeJS.Timeout | null };
-type WorkerGlobal = typeof globalThis & { __vcontrolhubTicketSlaWorker?: WorkerState };
-
-function getWorkerState(): WorkerState {
-  const globalState = globalThis as WorkerGlobal;
-  globalState.__vcontrolhubTicketSlaWorker ??= { started: false, running: false, timer: null };
-  return globalState.__vcontrolhubTicketSlaWorker;
-}
+const ticketSlaWorker = createSingletonIntervalWorker({
+  globalKey: "__vcontrolhubTicketSlaWorker",
+  resolveIntervalMs: () => TICKET_SLA_INTERVAL_MS,
+  tick: (_state, reason) => {
+    void runTicketSlaJobWorkerOnce(reason).catch((error) => {
+      logger.error("Ticket SLA worker tick failed", { reason, error: error instanceof Error ? error.message : String(error) });
+    });
+  },
+  onStarted: () => {
+    logger.info("ticket SLA durable job worker started", { workerId: TICKET_SLA_WORKER_ID, intervalMs: TICKET_SLA_INTERVAL_MS });
+  },
+});
 
 async function hasActiveJob(): Promise<boolean> {
   const existing = await prisma.job.findFirst({
@@ -68,7 +73,7 @@ async function pruneCompletedJobs() {
 }
 
 export async function runTicketSlaJobWorkerOnce(reason = "manual") {
-  const state = getWorkerState();
+  const state = ticketSlaWorker.getState();
   if (state.running) {
     logger.warn("Skipping ticket SLA tick because a previous tick is still running", { reason });
     return false;
@@ -109,28 +114,9 @@ export async function runTicketSlaJobWorkerOnce(reason = "manual") {
 }
 
 export async function startTicketSlaWorker() {
-  const state = getWorkerState();
-  if (state.started) return state;
-  state.started = true;
-
-  void runTicketSlaJobWorkerOnce("startup").catch((error) => {
-    logger.error("Ticket SLA worker tick failed", { reason: "startup", error: error instanceof Error ? error.message : String(error) });
-  });
-  state.timer = setInterval(() => {
-    void runTicketSlaJobWorkerOnce("interval").catch((error) => {
-      logger.error("Ticket SLA worker tick failed", { reason: "interval", error: error instanceof Error ? error.message : String(error) });
-    });
-  }, TICKET_SLA_INTERVAL_MS);
-  state.timer.unref?.();
-
-  logger.info("ticket SLA durable job worker started", { workerId: TICKET_SLA_WORKER_ID, intervalMs: TICKET_SLA_INTERVAL_MS });
-  return state;
+  return (await ticketSlaWorker.start()).state;
 }
 
 export function stopTicketSlaWorkerForTests() {
-  const state = getWorkerState();
-  if (state.timer) clearInterval(state.timer);
-  state.started = false;
-  state.running = false;
-  state.timer = null;
+  ticketSlaWorker.stopForTests();
 }

@@ -3,6 +3,7 @@ import { runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
 import { computeLeaseMs } from "@/lib/job/lease";
 import { claimNextJob, completeJob, failJob, heartbeatJob } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
+import { createSingletonIntervalWorker } from "@/lib/workers/singleton-interval-worker";
 import { fanOutTicketEvent } from "./service-outbound";
 
 export const ITSM_OUTBOUND_JOB_TYPE = "itsm.outbound";
@@ -11,13 +12,16 @@ const LEASE_MS = computeLeaseMs("itsm-outbound");
 const WORKER_ID = `${config.app.hostname || "vcontrolhub"}:itsm-outbound:${process.pid}`;
 const logger = createLogger("itsm-outbound-worker");
 
-type State = { started: boolean; running: boolean; timer: NodeJS.Timeout | null };
-type WorkerGlobal = typeof globalThis & { __vcontrolhubItsmOutboundWorker?: State };
+const itsmOutboundWorker = createSingletonIntervalWorker({
+  globalKey: "__vcontrolhubItsmOutboundWorker",
+  resolveIntervalMs: () => INTERVAL_MS,
+  tick: () => {
+    void runItsmOutboundWorkerOnce().catch((error) => logger.error("ITSM outbound worker tick failed", { error: error instanceof Error ? error.message : String(error) }));
+  },
+});
 
-function state(): State {
-  const target = globalThis as WorkerGlobal;
-  target.__vcontrolhubItsmOutboundWorker ??= { started: false, running: false, timer: null };
-  return target.__vcontrolhubItsmOutboundWorker;
+function state() {
+  return itsmOutboundWorker.getState();
 }
 
 function parsePayload(payload: unknown) {
@@ -73,21 +77,9 @@ export async function runItsmOutboundWorkerOnce(): Promise<boolean> {
 }
 
 export async function startItsmOutboundWorker() {
-  const current = state();
-  if (current.started) return current;
-  current.started = true;
-  void runItsmOutboundWorkerOnce().catch((error) => logger.error("ITSM outbound worker tick failed", { error: error instanceof Error ? error.message : String(error) }));
-  current.timer = setInterval(() => {
-    void runItsmOutboundWorkerOnce().catch((error) => logger.error("ITSM outbound worker tick failed", { error: error instanceof Error ? error.message : String(error) }));
-  }, INTERVAL_MS);
-  current.timer.unref?.();
-  return current;
+  return itsmOutboundWorker.start();
 }
 
 export function stopItsmOutboundWorkerForTests() {
-  const current = state();
-  if (current.timer) clearInterval(current.timer);
-  current.started = false;
-  current.running = false;
-  current.timer = null;
+  itsmOutboundWorker.stopForTests();
 }

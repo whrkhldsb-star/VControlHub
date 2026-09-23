@@ -34,6 +34,7 @@ import {
 import { createLogger } from "@/lib/logging";
 import { getSetting } from "@/lib/settings/service";
 import { sendChatRequest } from "@/lib/ai/service-runtime";
+import { getSingletonIntervalWorkerState, type SingletonIntervalWorkerState } from "@/lib/workers/singleton-interval-worker";
 
 import {
   AI_OPS_DEFAULT_SCHEDULE_HOUR,
@@ -53,24 +54,12 @@ const logger = createLogger("ai-ops-scan-worker");
 export const AI_OPS_SCAN_LEASE_MS = computeLeaseMs("ai-ops-scan");
 const AI_OPS_SCAN_WORKER_ID = `${config.app.hostname || "vcontrolhub"}:ai-ops-scan:${process.pid}`;
 
-type AiOpsScanWorkerState = {
-  started: boolean;
-  running: boolean;
-  timer: NodeJS.Timeout | null;
-};
-
-type AiOpsScanWorkerGlobal = typeof globalThis & {
-  __vcontrolhubAiOpsScanWorker?: AiOpsScanWorkerState;
-};
+type AiOpsScanWorkerState = SingletonIntervalWorkerState;
 
 function getWorkerState(): AiOpsScanWorkerState {
-  const g = globalThis as AiOpsScanWorkerGlobal;
-  g.__vcontrolhubAiOpsScanWorker ??= {
-    started: false,
-    running: false,
-    timer: null,
-  };
-  return g.__vcontrolhubAiOpsScanWorker;
+  // Same singleton-state pattern as the interval workers; this worker instead
+  // schedules a setTimeout chain toward the next daily slot (scheduleNextAiOpsScan).
+  return getSingletonIntervalWorkerState("__vcontrolhubAiOpsScanWorker");
 }
 
 async function hasActiveScanJob(): Promise<boolean> {

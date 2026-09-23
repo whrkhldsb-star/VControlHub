@@ -1,8 +1,7 @@
 import { Prisma } from "@prisma/client";
 
-import { decrypt, encrypt, isEncrypted } from "@/lib/crypto/service";
+import { decryptJsonCredentials, encryptJsonCredentials } from "@/lib/crypto/json-credentials";
 import { prisma } from "@/lib/db";
-import { ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 
 import type {
@@ -25,18 +24,12 @@ export function parseConfig(raw: Prisma.JsonValue | null | undefined): ItsmConne
 }
 
 export function encryptCredentials(creds: ItsmCredentials): string {
-  return encrypt(JSON.stringify(creds ?? {}));
+  return encryptJsonCredentials(creds);
 }
 
 export function decryptCredentials(enc: string): ItsmCredentials {
   if (!enc) return {};
-  const plain = isEncrypted(enc) ? decrypt(enc) : enc;
-  try {
-    const parsed = JSON.parse(plain) as ItsmCredentials;
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch {
-    throw new ValidationError(t("backend.itsm.storedItsmCredentialsAreCorrupt"));
-  }
+  return decryptJsonCredentials<ItsmCredentials>(enc, t("backend.itsm.storedItsmCredentialsAreCorrupt"));
 }
 
 export function toConnectionRecord(row: {

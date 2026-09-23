@@ -13,6 +13,7 @@ import { promisify } from "node:util";
 
 import { prisma } from "@/lib/db";
 import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
+import { isValidTcpPort } from "@/lib/runtime/listen-port";
 import { t } from "@/lib/i18n/service-translations";
 import {
 	dockerErrorMessage,
@@ -408,7 +409,7 @@ export async function syncServiceStatus(slug: string, instanceKey: string = HUB_
 }
 
 export async function checkPort(port: number): Promise<{ available: boolean; usedBy: string | null }> {
-	if (!Number.isInteger(port) || port < 1 || port > 65535) {
+	if (!isValidTcpPort(port)) {
 		return { available: false, usedBy: null };
 	}
 	try {

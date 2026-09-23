@@ -39,7 +39,8 @@ export function toRecord(entry: {
 	};
 }
 
-function tagValue(value: string): string {
+/** Normalise a free-text value into a tag slug (shared by cost entries and cloud-billing tags). */
+export function tagValue(value: string): string {
 	return value.trim().toLocaleLowerCase().replace(/\s+/gu, "-").slice(0, 128);
 }
 

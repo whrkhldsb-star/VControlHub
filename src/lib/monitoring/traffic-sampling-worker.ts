@@ -31,6 +31,7 @@ import {
 } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
+import { createSingletonIntervalWorker } from "@/lib/workers/singleton-interval-worker";
 import {
   calculateTrafficRate,
   parseNetworkDeviceStats,
@@ -55,24 +56,29 @@ const logger = createLogger("traffic-sampling-worker");
 
 const previousLocalSamples = new Map<string, TrafficCounterSample>();
 
-type WorkerState = {
-  started: boolean;
-  running: boolean;
-  timer: NodeJS.Timeout | null;
-};
+const trafficSamplingWorker = createSingletonIntervalWorker({
+  globalKey: "__vcontrolhubTrafficSamplingWorker",
+  resolveIntervalMs: () => TRAFFIC_SAMPLE_INTERVAL_MS,
+  tick: (_state, reason) => {
+    void runTrafficSamplingWorkerOnce(reason).catch((error) => {
+      logger.error(
+        reason === "startup" ? "Traffic sampling worker startup tick failed" : "Traffic sampling worker interval tick failed",
+        {
+          error: error instanceof Error ? error.message : String(error),
+        },
+      );
+    });
+  },
+  onStarted: (_state, intervalMs) => {
+    logger.info("traffic sampling durable job worker started", {
+      intervalMs,
+      workerId: TRAFFIC_SAMPLE_WORKER_ID,
+    });
+  },
+});
 
-type WorkerGlobal = typeof globalThis & {
-  __vcontrolhubTrafficSamplingWorker?: WorkerState;
-};
-
-function getWorkerState(): WorkerState {
-  const globalState = globalThis as WorkerGlobal;
-  globalState.__vcontrolhubTrafficSamplingWorker ??= {
-    started: false,
-    running: false,
-    timer: null,
-  };
-  return globalState.__vcontrolhubTrafficSamplingWorker;
+function getWorkerState() {
+  return trafficSamplingWorker.getState();
 }
 
 function readProcNetDev() {
@@ -266,37 +272,10 @@ export async function runTrafficSamplingWorkerOnce(reason = "manual") {
 }
 
 export async function startTrafficSamplingWorker() {
-  const state = getWorkerState();
-  if (state.started) return state;
-
-  state.started = true;
-  void runTrafficSamplingWorkerOnce("startup").catch((error) => {
-    logger.error("Traffic sampling worker startup tick failed", {
-      error: error instanceof Error ? error.message : String(error),
-    });
-  });
-
-  state.timer = setInterval(() => {
-    void runTrafficSamplingWorkerOnce("interval").catch((error) => {
-      logger.error("Traffic sampling worker interval tick failed", {
-        error: error instanceof Error ? error.message : String(error),
-      });
-    });
-  }, TRAFFIC_SAMPLE_INTERVAL_MS);
-  state.timer.unref?.();
-
-  logger.info("traffic sampling durable job worker started", {
-    intervalMs: TRAFFIC_SAMPLE_INTERVAL_MS,
-    workerId: TRAFFIC_SAMPLE_WORKER_ID,
-  });
-  return state;
+  return (await trafficSamplingWorker.start()).state;
 }
 
 export function stopTrafficSamplingWorkerForTests() {
-  const state = getWorkerState();
-  if (state.timer) clearInterval(state.timer);
-  state.timer = null;
-  state.started = false;
-  state.running = false;
+  trafficSamplingWorker.stopForTests();
   previousLocalSamples.clear();
 }

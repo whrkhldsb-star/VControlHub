@@ -6,7 +6,7 @@ import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
 import { notifyTaskConsecutiveFailed } from "@/lib/notification/service";
 import { createLogger } from "@/lib/logging";
 import type { SessionPayload } from "@/lib/auth/session";
-import { serverTeamWhere, isGlobalTeamManager, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
+import { serverTeamWhere, isGlobalTeamManager, teamCreateData, teamScopeWhere } from "@/lib/auth/team-scope";
 import { t } from "@/lib/i18n/service-translations";
 import { APP_TIME_ZONE } from "@/lib/datetime/time-zone";
 
@@ -117,10 +117,6 @@ async function assertScheduledTaskServersInScope(
 			apiCopy("apiCopy.one.or.more.target.servers.were.not.found.or.are.outside.your.te.8f5645a2"),
 		);
 	}
-}
-
-function teamScopeWhere(session?: SessionScope | null): Record<string, unknown> {
-	return session ? teamWhere(session) : {};
 }
 
 /**

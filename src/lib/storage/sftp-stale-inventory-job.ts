@@ -28,6 +28,7 @@ import {
 } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
 import { runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
+import { createSingletonIntervalWorker } from "@/lib/workers/singleton-interval-worker";
 
 import {
   detectAndPruneSftpStaleInventory,
@@ -60,24 +61,22 @@ type SftpStaleInventoryJobPayload = {
   reason?: string;
 };
 
-type SftpStaleInventoryWorkerState = {
-  started: boolean;
-  running: boolean;
-  timer: NodeJS.Timeout | null;
-};
-
-type SftpStaleInventoryWorkerGlobal = typeof globalThis & {
-  __vcontrolhubSftpStaleInventoryWorker?: SftpStaleInventoryWorkerState;
-};
+const sftpStaleInventoryWorker = createSingletonIntervalWorker({
+  globalKey: "__vcontrolhubSftpStaleInventoryWorker",
+  resolveIntervalMs: () => SFTP_STALE_INVENTORY_INTERVAL_MS,
+  tick: (state, reason) => {
+    void runSftpStaleInventoryJobWorkerOnce(state, reason);
+  },
+  onStarted: (_state, intervalMs) => {
+    logger.info("SFTP stale inventory worker started", {
+      intervalMs,
+      workerId: SFTP_STALE_INVENTORY_WORKER_ID,
+    });
+  },
+});
 
 function getWorkerState() {
-  const globalState = globalThis as SftpStaleInventoryWorkerGlobal;
-  globalState.__vcontrolhubSftpStaleInventoryWorker ??= {
-    started: false,
-    running: false,
-    timer: null,
-  };
-  return globalState.__vcontrolhubSftpStaleInventoryWorker;
+  return sftpStaleInventoryWorker.getState();
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -145,6 +144,29 @@ async function scanOneNode(input: {
   });
 }
 
+/**
+ * Scan one node under the lease-heartbeat wrapper (TR: two verbatim copies
+ * used to sit inline in the single-node and multi-node sweep branches).
+ * Keeps the durable-job lease renewed while a full-tree scan runs long.
+ */
+function scanNodeWithHeartbeat(
+  job: { id: string },
+  node: Awaited<ReturnType<typeof listSftpNodesForStaleInventory>>[number],
+  maxDepth: number,
+  dryRun: boolean,
+): Promise<SftpStaleInventoryResult> {
+  return runWithLeaseHeartbeat({
+    jobId: job.id,
+    leaseMs: SFTP_STALE_INVENTORY_LEASE_MS,
+    heartbeat: () =>
+      heartbeatJob(job.id, SFTP_STALE_INVENTORY_WORKER_ID, {
+        leaseMs: SFTP_STALE_INVENTORY_LEASE_MS,
+        progress: `Scanning ${node.name}`,
+      }),
+    run: () => scanOneNode({ node, maxDepth, dryRun }),
+  });
+}
+
 async function executeStaleInventoryJob(job: {
   id: string;
   payload: Prisma.JsonValue;
@@ -169,16 +191,7 @@ async function executeStaleInventoryJob(job: {
     if (!node) {
       throw new Error(`Storage node not found: ${payload.nodeId}`);
     }
-    const result = await runWithLeaseHeartbeat({
-      jobId: job.id,
-      leaseMs: SFTP_STALE_INVENTORY_LEASE_MS,
-      heartbeat: () =>
-        heartbeatJob(job.id, SFTP_STALE_INVENTORY_WORKER_ID, {
-          leaseMs: SFTP_STALE_INVENTORY_LEASE_MS,
-          progress: `Scanning ${node.name}`,
-        }),
-      run: () => scanOneNode({ node, maxDepth, dryRun }),
-    });
+    const result = await scanNodeWithHeartbeat(job, node, maxDepth, dryRun);
     logSweepNodeErrors(job.id, "single", [result]);
     await completeJob(job.id, SFTP_STALE_INVENTORY_WORKER_ID, {
       mode: "single",
@@ -210,16 +223,7 @@ async function executeStaleInventoryJob(job: {
       leaseMs: SFTP_STALE_INVENTORY_LEASE_MS,
       progress: `Scanning ${node.name} (${nodes.indexOf(node) + 1}/${nodes.length})`,
     });
-    const result = await runWithLeaseHeartbeat({
-      jobId: job.id,
-      leaseMs: SFTP_STALE_INVENTORY_LEASE_MS,
-      heartbeat: () =>
-        heartbeatJob(job.id, SFTP_STALE_INVENTORY_WORKER_ID, {
-          leaseMs: SFTP_STALE_INVENTORY_LEASE_MS,
-          progress: `Scanning ${node.name}`,
-        }),
-      run: () => scanOneNode({ node, maxDepth, dryRun }),
-    });
+    const result = await scanNodeWithHeartbeat(job, node, maxDepth, dryRun);
     results.push(result);
   }
 
@@ -378,29 +382,9 @@ export async function runSftpStaleInventoryJobWorkerOnce(
 }
 
 export async function startSftpStaleInventoryWorker() {
-  const state = getWorkerState();
-  if (state.started) return state;
-
-  state.started = true;
-  const intervalMs = SFTP_STALE_INVENTORY_INTERVAL_MS;
-
-  void runSftpStaleInventoryJobWorkerOnce(state, "startup");
-  state.timer = setInterval(() => {
-    void runSftpStaleInventoryJobWorkerOnce(state, "interval");
-  }, intervalMs);
-  state.timer.unref?.();
-
-  logger.info("SFTP stale inventory worker started", {
-    intervalMs,
-    workerId: SFTP_STALE_INVENTORY_WORKER_ID,
-  });
-  return state;
+  return (await sftpStaleInventoryWorker.start()).state;
 }
 
 export function stopSftpStaleInventoryWorkerForTests() {
-  const state = getWorkerState();
-  if (state.timer) clearInterval(state.timer);
-  state.started = false;
-  state.running = false;
-  state.timer = null;
+  sftpStaleInventoryWorker.stopForTests();
 }

@@ -9,6 +9,7 @@
  * - reverse: other tickets that point at the same command
  */
 import type { RoleKey } from "@/lib/auth/rbac";
+import type { Prisma } from "@prisma/client";
 import { commandRequestTeamWhere, serverTeamWhere, teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { NotFoundError, ValidationError } from "@/lib/errors";
@@ -19,6 +20,27 @@ type TeamSession = { userId: string; roles: RoleKey[]; currentTeamId: string | n
 function ticketTeamFilter(session?: TeamSession | null): Record<string, unknown> {
   return session ? teamWhere(session) : {};
 }
+
+/**
+ * Include shape for a related command request on the timeline (TR: used to be
+ * duplicated verbatim in the team-scoped findFirst and unscoped findUnique
+ * branches below — approvals, execution logs and targets all render events).
+ */
+const relatedCommandInclude = {
+  requester: { select: { username: true, displayName: true } },
+  approvals: {
+    include: { approver: { select: { username: true, displayName: true } } },
+    orderBy: { createdAt: "asc" },
+  },
+  executionLogs: { orderBy: { createdAt: "asc" }, take: 50 },
+  targets: {
+    include: { server: { select: { id: true, name: true, host: true } } },
+    orderBy: { startedAt: "asc" },
+  },
+} satisfies Prisma.CommandRequestInclude;
+
+/** Select shape for the optional related server card (both scoped/unscoped branches). */
+const relatedServerSelect = { id: true, name: true, host: true } satisfies Prisma.ServerSelect;
 
 
 export type TimelineEventType =
@@ -44,9 +66,14 @@ export type TimelineEvent = {
   meta?: Record<string, unknown>;
 };
 
-function actorName(user?: { username: string; displayName: string | null } | null): string | null {
+/**
+ * Human-facing actor label for timeline/audit rows (TR: operation-task used
+ * to carry an identical local copy). Display name wins, username falls back,
+ * null when neither exists.
+ */
+export function actorName(user?: { username?: string | null; displayName?: string | null } | null): string | null {
   if (!user) return null;
-  return user.displayName || user.username;
+  return user.displayName || user.username || null;
 }
 
 export async function linkTicketCommand(input: {
@@ -303,11 +330,11 @@ export async function getTicketTimeline(ticketId: string, session?: TeamSession 
     const server = session
       ? await prisma.server.findFirst({
           where: { id: ticket.relatedServerId, ...serverTeamWhere(session) },
-          select: { id: true, name: true, host: true },
+          select: relatedServerSelect,
         })
       : await prisma.server.findUnique({
           where: { id: ticket.relatedServerId },
-          select: { id: true, name: true, host: true },
+          select: relatedServerSelect,
         });
     if (server) relatedServer = server;
   }
@@ -327,33 +354,11 @@ export async function getTicketTimeline(ticketId: string, session?: TeamSession 
           // logs — strict scope, so a null-team (quarantined) request is not
           // rendered into another tenant's ticket timeline.
           where: { id: ticket.relatedCommandId, ...commandRequestTeamWhere(session) },
-          include: {
-            requester: { select: { username: true, displayName: true } },
-            approvals: {
-              include: { approver: { select: { username: true, displayName: true } } },
-              orderBy: { createdAt: "asc" },
-            },
-            executionLogs: { orderBy: { createdAt: "asc" }, take: 50 },
-            targets: {
-              include: { server: { select: { id: true, name: true, host: true } } },
-              orderBy: { startedAt: "asc" },
-            },
-          },
+          include: relatedCommandInclude,
         })
       : await prisma.commandRequest.findUnique({
           where: { id: ticket.relatedCommandId },
-          include: {
-            requester: { select: { username: true, displayName: true } },
-            approvals: {
-              include: { approver: { select: { username: true, displayName: true } } },
-              orderBy: { createdAt: "asc" },
-            },
-            executionLogs: { orderBy: { createdAt: "asc" }, take: 50 },
-            targets: {
-              include: { server: { select: { id: true, name: true, host: true } } },
-              orderBy: { startedAt: "asc" },
-            },
-          },
+          include: relatedCommandInclude,
         });
 
     if (cmd) {

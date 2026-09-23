@@ -1,5 +1,6 @@
 import { serviceCommand, type OsDialect } from "@/lib/ssh/os-dialect";
 import { shellQuote } from "@/lib/shell-quote";
+import { isValidTcpPort } from "@/lib/runtime/listen-port";
 import type { HostedActionType } from "./hosted-tools";
 
 // ── 根据操作类型构建 shell 命令 ─────────────────────────────
@@ -100,7 +101,7 @@ function normalizePortMappings(value: unknown): string | null {
     const container = containerWithProto?.split("/")[0];
     const hostPort = Number(host);
     const containerPort = Number(container);
-    if (!Number.isInteger(hostPort) || !Number.isInteger(containerPort) || hostPort < 1 || hostPort > 65535 || containerPort < 1 || containerPort > 65535) return null;
+    if (!isValidTcpPort(hostPort) || !isValidTcpPort(containerPort)) return null;
   }
   return mappings.join(" ");
 }

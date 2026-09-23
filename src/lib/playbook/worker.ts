@@ -7,6 +7,7 @@ import { computeLeaseMs } from "@/lib/job/lease";
 import { claimNextJob, completeJob, failJob, failJobTerminal, heartbeatJob, pruneTerminalJobsByType } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
 import { auditSystemAction } from "@/lib/audit/service";
+import { createSingletonIntervalWorker, type SingletonIntervalWorkerState } from "@/lib/workers/singleton-interval-worker";
 
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { assertRequesterMayExecuteCommand } from "@/lib/auth/command-execution-authz";
@@ -43,13 +44,23 @@ const PLAYBOOK_RUN_KEEP_LATEST = 25;
 
 type Payload = { runId: string };
 type ExecutionState = { schemaVersion: 1; stepsSnapshot: PlaybookStep[] };
-type State = { started: boolean; running: boolean; timer: NodeJS.Timeout | null };
-type WorkerGlobal = typeof globalThis & { __vcontrolhubPlaybookRunWorker?: State };
+type State = SingletonIntervalWorkerState;
+
+const playbookRunWorker = createSingletonIntervalWorker({
+  globalKey: "__vcontrolhubPlaybookRunWorker",
+  resolveIntervalMs: () => config.worker.playbookRunIntervalMs,
+  tick: (_state, reason) => {
+    void runPlaybookRunWorkerOnce().catch((error) =>
+      logger.error(reason === "startup" ? "playbook startup tick failed" : "playbook worker tick failed", error),
+    );
+  },
+  onStarted: (_state, intervalMs) => {
+    logger.info("playbook run worker started", { workerId: WORKER_ID, intervalMs });
+  },
+});
 
 function getState(): State {
-  const globalState = globalThis as WorkerGlobal;
-  globalState.__vcontrolhubPlaybookRunWorker ??= { started: false, running: false, timer: null };
-  return globalState.__vcontrolhubPlaybookRunWorker;
+  return playbookRunWorker.getState();
 }
 
 function parsePayload(value: Prisma.JsonValue): Payload {
@@ -298,23 +309,9 @@ export async function runPlaybookRunWorkerOnce(): Promise<boolean> {
 }
 
 export async function startPlaybookRunWorker(options: { intervalMs?: number } = {}): Promise<State> {
-  const state = getState();
-  if (state.started) return state;
-  state.started = true;
-  const intervalMs = options.intervalMs ?? config.worker.playbookRunIntervalMs;
-  void runPlaybookRunWorkerOnce().catch((error) => logger.error("playbook startup tick failed", error));
-  state.timer = setInterval(() => {
-    void runPlaybookRunWorkerOnce().catch((error) => logger.error("playbook worker tick failed", error));
-  }, intervalMs);
-  state.timer.unref?.();
-  logger.info("playbook run worker started", { workerId: WORKER_ID, intervalMs });
-  return state;
+  return (await playbookRunWorker.start(options)).state;
 }
 
 export function stopPlaybookRunWorkerForTests(): void {
-  const state = getState();
-  if (state.timer) clearInterval(state.timer);
-  state.started = false;
-  state.running = false;
-  state.timer = null;
+  playbookRunWorker.stopForTests();
 }

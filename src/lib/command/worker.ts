@@ -1,5 +1,6 @@
 import { createLogger } from "@/lib/logging";
 import { getRuntimeSettingNumber } from "@/lib/runtime-settings/service";
+import { createSingletonIntervalWorker } from "@/lib/workers/singleton-interval-worker";
 
 import {
   recoverQueuedApprovedCommandRequests,
@@ -8,31 +9,25 @@ import {
 
 const logger = createLogger("command-maintenance-worker");
 
-type CommandMaintenanceWorkerState = {
-  started: boolean;
-  running: boolean;
-  timer: NodeJS.Timeout | null;
-};
-
-type CommandMaintenanceWorkerGlobal = typeof globalThis & {
-  __vcontrolhubCommandMaintenanceWorker?: CommandMaintenanceWorkerState;
-};
-
-function getWorkerState() {
-  const globalState = globalThis as CommandMaintenanceWorkerGlobal;
-  globalState.__vcontrolhubCommandMaintenanceWorker ??= {
-    started: false,
-    running: false,
-    timer: null,
-  };
-  return globalState.__vcontrolhubCommandMaintenanceWorker;
-}
+const commandMaintenanceWorker = createSingletonIntervalWorker({
+  globalKey: "__vcontrolhubCommandMaintenanceWorker",
+  resolveIntervalMs: () => getRuntimeSettingNumber("runtime.commandReconcileIntervalMs"),
+  tick: (state, reason) => {
+    void reconcileStaleCommandsOnce(state, reason);
+  },
+  onStarted: (_state, intervalMs) => {
+    logger.info("Command maintenance worker started", { intervalMs });
+  },
+});
 
 async function getCommandReconcileIntervalMs() {
   return getRuntimeSettingNumber("runtime.commandReconcileIntervalMs");
 }
 
-async function reconcileStaleCommandsOnce(state: CommandMaintenanceWorkerState, reason: string) {
+async function reconcileStaleCommandsOnce(
+  state: ReturnType<typeof commandMaintenanceWorker.getState>,
+  reason: string,
+) {
   if (state.running) {
     logger.warn("Skipping command reconciliation because a previous tick is still running", { reason });
     return;
@@ -60,10 +55,7 @@ async function reconcileStaleCommandsOnce(state: CommandMaintenanceWorkerState, 
 }
 
 export async function startCommandMaintenanceWorker() {
-  const state = getWorkerState();
-  if (state.started) return state;
-
-  // Resolve interval BEFORE marking started so a settings/DB failure does not
+  // Resolve interval BEFORE starting so a settings/DB failure does not
   // permanently latch started=true with timer=null (no recovery forever).
   let intervalMs: number;
   try {
@@ -75,23 +67,9 @@ export async function startCommandMaintenanceWorker() {
     throw error;
   }
 
-  state.started = true;
-  void reconcileStaleCommandsOnce(state, "startup");
-  state.timer = setInterval(() => {
-    void reconcileStaleCommandsOnce(state, "interval");
-  }, intervalMs);
-  state.timer.unref?.();
-
-  logger.info("Command maintenance worker started", { intervalMs });
-  return state;
+  return (await commandMaintenanceWorker.start({ intervalMs })).state;
 }
 
 export function stopCommandMaintenanceWorkerForTests() {
-  const state = getWorkerState();
-  if (state.timer) {
-    clearInterval(state.timer);
-  }
-  state.started = false;
-  state.running = false;
-  state.timer = null;
+  commandMaintenanceWorker.stopForTests();
 }

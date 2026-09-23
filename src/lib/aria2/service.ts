@@ -3,6 +3,7 @@ import { access, constants } from "fs/promises";
 import path from "path";
 import { getAppSlug } from "@/lib/branding";
 import { findExecutable, IS_WINDOWS } from "@/lib/runtime/platform-paths";
+import { isValidTcpPort } from "@/lib/runtime/listen-port";
 import {
   getMissingAria2BinaryMessage,
   isMissingAria2BinaryError,
@@ -30,7 +31,7 @@ export function getAria2RuntimeConfig(env: Partial<NodeJS.ProcessEnv> = process.
 	const rpcPortText = env.ARIA2_RPC_PORT?.trim() || String(DEFAULT_RPC_PORT);
 	const rpcPort = Number(rpcPortText);
 
-	if (!Number.isInteger(rpcPort) || rpcPort < 1 || rpcPort > 65535) {
+	if (!isValidTcpPort(rpcPort)) {
 		throw new Error("ARIA2_RPC_PORT must be a valid TCP port");
 	}
 

@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { serverTeamWhere, type TeamSession } from "@/lib/auth/team-scope";
 import { BusinessError, ForbiddenError, NotFoundError } from "@/lib/errors";
 import { config } from "@/lib/config/env";
+import { isValidTcpPort } from "@/lib/runtime/listen-port";
 import { assertPublicRdpHost } from "./protocol";
 import { t } from "@/lib/i18n/service-translations";
 
@@ -32,7 +33,7 @@ export async function getRdpServer(serverId: string, session: TeamSession) {
 }
 export function guacdPort() {
  const port = Number(process.env.GUACD_PORT ?? 4822);
- if (!Number.isInteger(port) || port < 1 || port > 65535) throw new BusinessError(t("backend.rdp.unavailable"), undefined, 503);
+ if (!isValidTcpPort(port)) throw new BusinessError(t("backend.rdp.unavailable"), undefined, 503);
  return port;
 }
 /** Only checks daemon availability, NEVER claims successful Windows authentication. */

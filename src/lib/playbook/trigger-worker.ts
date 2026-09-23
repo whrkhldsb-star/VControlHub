@@ -21,6 +21,7 @@ import {
   pruneCompletedJobsByType,
 } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
+import { createSingletonIntervalWorker, type SingletonIntervalWorkerState } from "@/lib/workers/singleton-interval-worker";
 
 import {
   dispatchDueCronPlaybooks,
@@ -35,13 +36,26 @@ const KEEP_LATEST = 50;
 const WORKER_ID = `${config.app.hostname || "vcontrolhub"}:playbook-trigger:${process.pid}`;
 const logger = createLogger("playbook-trigger-worker");
 
-type State = { started: boolean; running: boolean; timer: NodeJS.Timeout | null };
-type WorkerGlobal = typeof globalThis & { __vcontrolhubPlaybookTriggerWorker?: State };
+type State = SingletonIntervalWorkerState;
 
-function getState(): State {
-  const globalState = globalThis as WorkerGlobal;
-  globalState.__vcontrolhubPlaybookTriggerWorker ??= { started: false, running: false, timer: null };
-  return globalState.__vcontrolhubPlaybookTriggerWorker;
+const playbookTriggerWorker = createSingletonIntervalWorker({
+  globalKey: "__vcontrolhubPlaybookTriggerWorker",
+  resolveIntervalMs: () => INTERVAL_MS,
+  tick: (_state, reason) => {
+    void runPlaybookTriggerTickJobWorkerOnce(reason).catch((error) =>
+      logger.error(
+        reason === "startup" ? "Playbook trigger startup tick failed" : "Playbook trigger interval tick failed",
+        error,
+      ),
+    );
+  },
+  onStarted: (_state, intervalMs) => {
+    logger.info("Playbook trigger worker started", { workerId: WORKER_ID, intervalMs });
+  },
+});
+
+function getState() {
+  return playbookTriggerWorker.getState();
 }
 
 async function enqueueTickIfIdle(reason: string) {
@@ -131,27 +145,9 @@ export async function runPlaybookTriggerTickJobWorkerOnce(reason = "manual"): Pr
 export async function startPlaybookTriggerWorker(
   options: { intervalMs?: number } = {},
 ): Promise<State> {
-  const state = getState();
-  if (state.started) return state;
-  state.started = true;
-  const intervalMs = options.intervalMs ?? INTERVAL_MS;
-  void runPlaybookTriggerTickJobWorkerOnce("startup").catch((error) =>
-    logger.error("Playbook trigger startup tick failed", error),
-  );
-  state.timer = setInterval(() => {
-    void runPlaybookTriggerTickJobWorkerOnce("interval").catch((error) =>
-      logger.error("Playbook trigger interval tick failed", error),
-    );
-  }, intervalMs);
-  state.timer.unref?.();
-  logger.info("Playbook trigger worker started", { workerId: WORKER_ID, intervalMs });
-  return state;
+  return (await playbookTriggerWorker.start(options)).state;
 }
 
 export function stopPlaybookTriggerWorkerForTests(): void {
-  const state = getState();
-  if (state.timer) clearInterval(state.timer);
-  state.started = false;
-  state.running = false;
-  state.timer = null;
+  playbookTriggerWorker.stopForTests();
 }

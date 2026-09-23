@@ -40,6 +40,9 @@ vi.mock("@/lib/notification/service", () => ({
 }));
 vi.mock("@/lib/auth/team-scope", () => ({
   teamWhere: mockTeamWhere,
+  // Mirrors the real teamScopeWhere: session ? teamWhere(session) : {}.
+  teamScopeWhere: (session?: { roles?: string[]; currentTeamId?: string | null } | null) =>
+    session ? mockTeamWhere(session) : {},
   serverTeamWhere: (session: { roles?: string[]; currentTeamId?: string | null }) => {
     if (session.roles?.includes("admin")) return {};
     return session.currentTeamId

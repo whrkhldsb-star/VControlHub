@@ -26,6 +26,7 @@
 import { execRemoteCommand, buildSshParamsFromServer } from "@/lib/ssh/client";
 import {
 	calculateTrafficRate,
+	evictStaleTrafficSamples,
 	formatBytes,
 	formatBytesPerSecond,
 	parseNetworkDeviceStats,
@@ -79,24 +80,6 @@ const SAMPLE_TIMEOUT_MS = 10_000;
  * /traffic poll over a 200-server fleet opened 200 handshakes at once.
  */
 const REMOTE_SAMPLE_CONCURRENCY = 5;
-
-/**
- * Drop a cached counter that has not been refreshed within this window. A
- * server deleted from the fleet (or an interface that disappeared) otherwise
- * kept its entry for the lifetime of the process. It also stops a rate from
- * being computed against an hours-old baseline, which would report a
- * long-run average as if it were the current throughput.
- */
-const PREVIOUS_SAMPLE_TTL_MS = 60 * 60 * 1000;
-
-function evictStalePreviousSamples(now: number): void {
-	for (const [key, sample] of previousRemoteSamples) {
-		const sampledAt = Date.parse(sample.sampledAt);
-		if (!Number.isFinite(sampledAt) || now - sampledAt > PREVIOUS_SAMPLE_TTL_MS) {
-			previousRemoteSamples.delete(key);
-		}
-	}
-}
 
 function sampleKey(serverId: string, iface: string): string {
 	return `remote:${serverId}:${iface}`;
@@ -176,7 +159,7 @@ export async function sampleRemoteServersTraffic(
 	if (servers.length === 0) return [];
 	// Evict before sampling: this run refreshes every key it still owns, so
 	// whatever is stale now belongs to a server or interface that is gone.
-	evictStalePreviousSamples(Date.now());
+	evictStaleTrafficSamples(previousRemoteSamples, Date.now());
 	const settled: PromiseSettledResult<RemoteServerTraffic>[] = new Array(servers.length);
 	for (let i = 0; i < servers.length; i += REMOTE_SAMPLE_CONCURRENCY) {
 		const chunk = servers.slice(i, i + REMOTE_SAMPLE_CONCURRENCY);

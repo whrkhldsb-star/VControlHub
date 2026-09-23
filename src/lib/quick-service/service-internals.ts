@@ -20,6 +20,7 @@ import { writeAuditLog } from "@/lib/audit/service";
 import { prisma } from "@/lib/db";
 import { BusinessError, ConflictError, ValidationError } from "@/lib/errors";
 import { createLogger } from "@/lib/logging";
+import { isValidTcpPort } from "@/lib/runtime/listen-port";
 import type { ServiceTemplate } from "./types";
 import { t } from "@/lib/i18n/service-translations";
 
@@ -82,7 +83,7 @@ export function safeContainerName(slug: string): string {
 }
 
 export function assertTcpPort(port: number, label = "Port") {
-	if (!Number.isInteger(port) || port < 1 || port > 65535) {
+	if (!isValidTcpPort(port)) {
 		throw new ValidationError(apiCopy("apiCopy.is.invalid.please.use.a.port.in.the.range.1.65535.9d95d0ea", { v0: String(label), v1: String(port) }));
 	}
 }
@@ -426,7 +427,7 @@ export function parseListeningPorts(output: string): Set<number> {
 		const match = line.match(/(?:^|\s)(?:\[.*?\]|[^\s:]+):(\d+)\b/);
 		if (!match) continue;
 		const port = Number(match[1]);
-		if (Number.isInteger(port) && port >= 1 && port <= 65535) ports.add(port);
+		if (isValidTcpPort(port)) ports.add(port);
 	}
 	return ports;
 }

@@ -9,6 +9,7 @@ import { runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
 import { enqueueJob, claimNextJob, completeJob, failJob, heartbeatJob } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
 import { ConflictError } from "@/lib/errors";
+import { createSingletonIntervalWorker } from "@/lib/workers/singleton-interval-worker";
 import type { QuickServiceCredential } from "@/lib/quick-service/install-notice";
 import type { ServiceTemplate } from "@/lib/quick-service/types";
 import {
@@ -52,24 +53,19 @@ type QuickServiceExistingJobPayload = {
 
 export type QuickServiceJobPayload = QuickServiceInstallJobPayload | QuickServiceExistingJobPayload;
 
-type QuickServiceWorkerState = {
-	started: boolean;
-	running: boolean;
-	timer: NodeJS.Timeout | null;
-};
-
-type QuickServiceWorkerGlobal = typeof globalThis & {
-	__vcontrolhubQuickServiceWorker?: QuickServiceWorkerState;
-};
+const quickServiceWorker = createSingletonIntervalWorker({
+	globalKey: "__vcontrolhubQuickServiceWorker",
+	resolveIntervalMs: () => QUICK_SERVICE_WORKER_INTERVAL_MS,
+	tick: (state, reason) => {
+		void runQuickServiceJobWorkerOnce(state, reason);
+	},
+	onStarted: (_state, intervalMs) => {
+		logger.info("QuickService job worker started", { intervalMs, workerId: QUICK_SERVICE_WORKER_ID });
+	},
+});
 
 function getWorkerState() {
-	const globalState = globalThis as QuickServiceWorkerGlobal;
-	globalState.__vcontrolhubQuickServiceWorker ??= {
-		started: false,
-		running: false,
-		timer: null,
-	};
-	return globalState.__vcontrolhubQuickServiceWorker;
+	return quickServiceWorker.getState();
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -403,24 +399,9 @@ export async function runQuickServiceJobWorkerOnce(state = getWorkerState(), rea
 }
 
 export async function startQuickServiceJobWorker() {
-	const state = getWorkerState();
-	if (state.started) return state;
-
-	state.started = true;
-	void runQuickServiceJobWorkerOnce(state, "startup");
-	state.timer = setInterval(() => {
-		void runQuickServiceJobWorkerOnce(state, "interval");
-	}, QUICK_SERVICE_WORKER_INTERVAL_MS);
-	state.timer.unref?.();
-
-	logger.info("QuickService job worker started", { intervalMs: QUICK_SERVICE_WORKER_INTERVAL_MS, workerId: QUICK_SERVICE_WORKER_ID });
-	return state;
+	return (await quickServiceWorker.start()).state;
 }
 
 export function stopQuickServiceJobWorkerForTests() {
-	const state = getWorkerState();
-	if (state.timer) clearInterval(state.timer);
-	state.started = false;
-	state.running = false;
-	state.timer = null;
+	quickServiceWorker.stopForTests();
 }

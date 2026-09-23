@@ -1,4 +1,6 @@
-import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHmac, randomBytes } from "node:crypto";
+
+import { decodeBase64Url, signHmacToken, timingSafeEqualString, verifyHmacTokenSignature } from "./hmac-token";
 
 const SSH_WS_HANDSHAKE_AUDIENCE = "ssh-ws-handshake";
 const DEFAULT_TTL_MS = 60_000;
@@ -32,30 +34,12 @@ type VerifySshWsHandshakeTokenInput = {
   now?: number;
 };
 
-function encodeBase64Url(input: string) {
-  return Buffer.from(input, "utf8").toString("base64url");
-}
-
-function decodeBase64Url(input: string) {
-  return Buffer.from(input, "base64url").toString("utf8");
-}
-
-function signPayload(payload: string, secret: string) {
-  return createHmac("sha256", secret).update(payload).digest("base64url");
-}
-
 function hashSession(sessionId: string, secret: string) {
   return createHmac("sha256", secret).update(sessionId).digest("base64url");
 }
 
 function normalizeOrigin(origin: string) {
   return origin.trim().toLowerCase();
-}
-
-function safeEqual(a: string, b: string) {
-  const left = Buffer.from(a, "utf8");
-  const right = Buffer.from(b, "utf8");
-  return left.length === right.length && timingSafeEqual(left, right);
 }
 
 export function createSshWsHandshakeToken(input: CreateSshWsHandshakeTokenInput) {
@@ -71,9 +55,7 @@ export function createSshWsHandshakeToken(input: CreateSshWsHandshakeTokenInput)
     iat: now,
     exp: now + ttlMs,
   };
-  const encodedPayload = encodeBase64Url(JSON.stringify(payload));
-  const signature = signPayload(encodedPayload, input.secret);
-  return `${encodedPayload}.${signature}`;
+  return signHmacToken(payload, input.secret);
 }
 
 export function verifySshWsHandshakeToken(token: string, input: VerifySshWsHandshakeTokenInput) {
@@ -83,15 +65,14 @@ export function verifySshWsHandshakeToken(token: string, input: VerifySshWsHands
     const [encodedPayload, providedSignature] = parts;
     if (!encodedPayload || !providedSignature) return null;
 
-    const expectedSignature = signPayload(encodedPayload, input.secret);
-    if (!safeEqual(providedSignature, expectedSignature)) return null;
+    if (!verifyHmacTokenSignature(encodedPayload, providedSignature, input.secret)) return null;
 
     const payload = JSON.parse(decodeBase64Url(encodedPayload)) as SshWsHandshakePayload;
     if (payload.aud !== SSH_WS_HANDSHAKE_AUDIENCE) return null;
     if (payload.exp <= (input.now ?? Date.now())) return null;
     if (payload.serverId !== input.serverId) return null;
     if (payload.origin !== normalizeOrigin(input.origin)) return null;
-    if (!safeEqual(payload.sessionHash, hashSession(input.sessionId, input.secret))) return null;
+    if (!timingSafeEqualString(payload.sessionHash, hashSession(input.sessionId, input.secret))) return null;
 
     return {
       userId: payload.userId,

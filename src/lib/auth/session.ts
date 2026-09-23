@@ -1,5 +1,5 @@
 import { apiCopy } from "@/lib/i18n/api-copy";
-import { createHmac, timingSafeEqual, randomBytes } from "node:crypto";
+import { createHmac, randomBytes } from "node:crypto";
 
 import { createLogger } from "@/lib/logging";
 import { getAppSlug } from "@/lib/branding";
@@ -10,6 +10,7 @@ import { t } from "@/lib/i18n/service-translations";
 import type { Permission, RoleKey } from "./rbac";
 import { DEFAULT_ROLE_PERMISSIONS } from "./rbac";
 import { resolveEffectivePermissions } from "./effective-permissions";
+import { decodeBase64Url, signHmacToken, verifyHmacTokenSignature } from "./hmac-token";
 
 const logger = createLogger("auth:session");
 
@@ -119,18 +120,6 @@ function getSessionSecret() {
 	return secret;
 }
 
-function encodeBase64Url(input: string) {
-  return Buffer.from(input).toString("base64url");
-}
-
-function decodeBase64Url(input: string) {
-  return Buffer.from(input, "base64url").toString("utf8");
-}
-
-function signPayload(payload: string) {
-  return createHmac("sha256", getSessionSecret()).update(payload).digest("base64url");
-}
-
 /**
  * Bind a session to the password it was issued against.
  *
@@ -200,9 +189,7 @@ export async function createSessionToken(payload: SessionPayload, options: { rem
     sep: credentialOwner?.sessionEpoch ?? 0,
   };
 
-  const encodedPayload = encodeBase64Url(JSON.stringify(envelope));
-  const signature = signPayload(encodedPayload);
-  return `${encodedPayload}.${signature}`;
+  return signHmacToken(envelope, getSessionSecret());
 }
 
 export async function verifySessionToken(token: string) {
@@ -212,16 +199,7 @@ export async function verifySessionToken(token: string) {
     throw new AuthError(apiCopy("apiCopy.invalid.session.token.format.ab35c21d"));
   }
 
-  const expectedSignature = signPayload(encodedPayload);
-  const providedBuffer = Buffer.from(providedSignature, "utf8");
-  const expectedBuffer = Buffer.from(expectedSignature, "utf8");
-
-  if (providedBuffer.length !== expectedBuffer.length) {
-    throw new AuthError(apiCopy("apiCopy.invalid.session.token.signature.6f87b99a"));
-  }
-
-  const signaturesMatch = timingSafeEqual(providedBuffer, expectedBuffer);
-  if (!signaturesMatch) {
+  if (!verifyHmacTokenSignature(encodedPayload, providedSignature, getSessionSecret())) {
     throw new AuthError(apiCopy("apiCopy.invalid.session.token.signature.6f87b99a"));
   }
 
@@ -363,9 +341,7 @@ export async function createPending2faToken(payload: Pending2faSessionPayload): 
 		iat: now,
 		exp: now + PENDING_2FA_TTL_MS,
 	};
-	const encodedPayload = encodeBase64Url(JSON.stringify(envelope));
-	const signature = signPayload(encodedPayload);
-	return `${encodedPayload}.${signature}`;
+	return signHmacToken(envelope, getSessionSecret());
 }
 
 export async function verifyPending2faToken(token: string): Promise<Pending2faSessionPayload | null> {
@@ -373,12 +349,7 @@ export async function verifyPending2faToken(token: string): Promise<Pending2faSe
 		const [encodedPayload, providedSignature] = token.split(".");
 		if (!encodedPayload || !providedSignature) return null;
 
-		const expectedSignature = signPayload(encodedPayload);
-		const providedBuffer = Buffer.from(providedSignature, "utf8");
-		const expectedBuffer = Buffer.from(expectedSignature, "utf8");
-
-		if (providedBuffer.length !== expectedBuffer.length) return null;
-		if (!timingSafeEqual(providedBuffer, expectedBuffer)) return null;
+		if (!verifyHmacTokenSignature(encodedPayload, providedSignature, getSessionSecret())) return null;
 
 		const payload = JSON.parse(decodeBase64Url(encodedPayload)) as Pending2faPayload & { iss: string; aud: string; iat: number; exp: number };
 

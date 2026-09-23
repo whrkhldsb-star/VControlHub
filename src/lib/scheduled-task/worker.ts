@@ -17,6 +17,7 @@ import {
 import { createLogger } from "@/lib/logging";
 import { t } from "@/lib/i18n/service-translations";
 import { tryAcquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
+import { createSingletonIntervalWorker } from "@/lib/workers/singleton-interval-worker";
 
 import { reconcileScheduledTaskRuns, recordTaskDispatch, recordTaskRun } from "./service";
 
@@ -35,24 +36,24 @@ const SCHEDULED_TASK_WORKER_ID = `${config.app.hostname || "vcontrolhub"}:schedu
 // Keep only a small diagnostic window; successful minute ticks are not business records.
 const SCHEDULED_TASK_TICK_KEEP_LATEST = 50;
 
-type ScheduledTaskWorkerState = {
-  started: boolean;
-  running: boolean;
-  timer: NodeJS.Timeout | null;
-};
-
-type ScheduledTaskWorkerGlobal = typeof globalThis & {
-  __vcontrolhubScheduledTaskWorker?: ScheduledTaskWorkerState;
-};
+const scheduledTaskWorker = createSingletonIntervalWorker({
+  globalKey: "__vcontrolhubScheduledTaskWorker",
+  resolveIntervalMs: () => SCHEDULED_TASK_INTERVAL_MS,
+  tick: (_state, reason) => {
+    void runScheduledTaskTickJobWorkerOnce(reason).catch((error) => {
+      logger.error("Scheduled task worker tick failed", {
+        reason,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
+  },
+  onStarted: (_state, intervalMs) => {
+    logger.info("scheduled-task durable job worker started", { intervalMs, workerId: SCHEDULED_TASK_WORKER_ID });
+  },
+});
 
 function getWorkerState() {
-  const globalState = globalThis as ScheduledTaskWorkerGlobal;
-  globalState.__vcontrolhubScheduledTaskWorker ??= {
-    started: false,
-    running: false,
-    timer: null,
-  };
-  return globalState.__vcontrolhubScheduledTaskWorker;
+  return scheduledTaskWorker.getState();
 }
 
 async function hasActiveScheduledTaskTickJob() {
@@ -303,38 +304,9 @@ export async function runScheduledTaskTickJobWorkerOnce(reason = "manual") {
 }
 
 export async function startScheduledTaskWorker() {
-  const state = getWorkerState();
-  if (state.started) return state;
-
-  state.started = true;
-  const intervalMs = SCHEDULED_TASK_INTERVAL_MS;
-
-  void runScheduledTaskTickJobWorkerOnce("startup").catch((error) => {
-    logger.error("Scheduled task worker tick failed", {
-      reason: "startup",
-      error: error instanceof Error ? error.message : String(error),
-    });
-  });
-  state.timer = setInterval(() => {
-    void runScheduledTaskTickJobWorkerOnce("interval").catch((error) => {
-      logger.error("Scheduled task worker tick failed", {
-        reason: "interval",
-        error: error instanceof Error ? error.message : String(error),
-      });
-    });
-  }, intervalMs);
-  state.timer.unref?.();
-
-  logger.info("scheduled-task durable job worker started", { intervalMs, workerId: SCHEDULED_TASK_WORKER_ID });
-  return state;
+  return (await scheduledTaskWorker.start()).state;
 }
 
 export function stopScheduledTaskWorkerForTests() {
-  const state = getWorkerState();
-  if (state.timer) {
-    clearInterval(state.timer);
-  }
-  state.started = false;
-  state.running = false;
-  state.timer = null;
+  scheduledTaskWorker.stopForTests();
 }

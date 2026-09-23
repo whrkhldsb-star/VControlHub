@@ -32,7 +32,13 @@ export type SshHostKeyProbeResult = {
   exitCode: number | null;
 };
 
-function normalizeHostKeySha256(value?: string | null) {
+/**
+ * Canonicalise an OpenSSH fingerprint: trim, and normalise a `SHA256:` prefix
+ * (any case) to the canonical uppercase form. Returns null for empty input.
+ * (The inverse of `stripHostKeyFingerprintPrefix` in ./client, which removes
+ * the prefix — same old name, opposite behaviour, hence the split names.)
+ */
+function canonicalHostKeyFingerprint(value?: string | null) {
   const trimmed = value?.trim();
   if (!trimmed) return null;
   return trimmed.replace(/^SHA256:/i, "SHA256:");
@@ -45,7 +51,7 @@ export async function probeSshHostKey(input: SshConnectionParams): Promise<SshHo
       ...input,
       hostKeySha256: null,
       onHostKeySha256: (fingerprint) => {
-        captured = normalizeHostKeySha256(fingerprint);
+        captured = canonicalHostKeyFingerprint(fingerprint);
       },
       rejectUnknownHostKeyAfterCapture: true,
       command: "printf vcontrolhub-ssh-host-key-probe",
@@ -73,10 +79,10 @@ export async function requireApprovedSshHostKey(input: {
   pinnedHostKeySha256?: string | null;
   approvedHostKeySha256?: string | null;
 }): Promise<string | null> {
-  const pinned = normalizeHostKeySha256(input.pinnedHostKeySha256);
+  const pinned = canonicalHostKeyFingerprint(input.pinnedHostKeySha256);
   if (pinned) return pinned;
 
-  const approved = normalizeHostKeySha256(input.approvedHostKeySha256);
+  const approved = canonicalHostKeyFingerprint(input.approvedHostKeySha256);
   if (approved) {
     return approved;
   }

@@ -2,6 +2,7 @@ import { Prisma, type Job } from "@prisma/client";
 
 import { teamWhere } from "@/lib/auth/team-scope";
 import { sessionHasPermission } from "@/lib/auth/authorization";
+import { actorName } from "@/lib/ticket/timeline";
 import { prisma } from "@/lib/db";
 import { getOperationTaskListLimit } from "@/lib/runtime-settings/service";
 import { serviceT } from "@/lib/i18n/service-locale";
@@ -51,10 +52,6 @@ type DeploymentTaskRow = Prisma.DeploymentRunGetPayload<{ include: { creator: { 
 
 function toIso(value: Date | string | null | undefined) {
   return value ? new Date(value).toISOString() : new Date(0).toISOString();
-}
-
-function actorName(actor: { username?: string | null; displayName?: string | null } | null | undefined) {
-  return actor?.displayName || actor?.username || null;
 }
 
 export function mapOperationStatus(status: string): OperationTaskStatus {

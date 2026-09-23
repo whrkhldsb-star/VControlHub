@@ -6,6 +6,7 @@
  * Re-exports `shellQuote` for callers that need a stable import path.
  */
 import { ValidationError } from "@/lib/errors";
+import { isValidTcpPort } from "@/lib/runtime/listen-port";
 import { shellQuote } from "@/lib/shell-quote";
 import { t } from "@/lib/i18n/service-translations";
 
@@ -78,7 +79,7 @@ function buildSshTargetAddress(targetUser: string, targetHost: string): string {
 }
 
 function assertSafeSshPort(targetPort: number): void {
-	if (!Number.isInteger(targetPort) || targetPort < 1 || targetPort > 65535) {
+	if (!isValidTcpPort(targetPort)) {
 		throw new ValidationError(t("backend.sync.unsafeSshPort"));
 	}
 }

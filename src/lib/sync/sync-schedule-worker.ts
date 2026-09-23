@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { config } from "@/lib/config/env";
 import { createLogger } from "@/lib/logging";
 import { tryAcquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
+import { createSingletonIntervalWorker, type SingletonIntervalWorkerState } from "@/lib/workers/singleton-interval-worker";
 
 import { isSyncJobDue } from "./schedule";
 import { executeSyncJob, reclaimStaleRunningSyncJobs } from "./service-runtime";
@@ -27,13 +28,23 @@ const INTERVAL_MS = 60_000;
 const DISPATCH_CONCURRENCY = 5;
 const WORKER_ID = `${config.app.hostname || "vcontrolhub"}:sync-schedule:${process.pid}`;
 
-type State = { started: boolean; running: boolean; timer: NodeJS.Timeout | null };
-type G = typeof globalThis & { __vcontrolhubSyncScheduleWorker?: State };
+type State = SingletonIntervalWorkerState;
+
+const syncScheduleWorker = createSingletonIntervalWorker({
+  globalKey: "__vcontrolhubSyncScheduleWorker",
+  resolveIntervalMs: () => INTERVAL_MS,
+  tick: (_state, reason) => {
+    void runSyncScheduleWorkerOnce(reason).catch((e) =>
+      logger.error(reason === "startup" ? "sync schedule startup failed" : "sync schedule tick failed", e),
+    );
+  },
+  onStarted: () => {
+    logger.info("sync schedule worker started", { workerId: WORKER_ID, intervalMs: INTERVAL_MS });
+  },
+});
 
 function getState(): State {
-  const g = globalThis as G;
-  g.__vcontrolhubSyncScheduleWorker ??= { started: false, running: false, timer: null };
-  return g.__vcontrolhubSyncScheduleWorker;
+  return syncScheduleWorker.getState();
 }
 
 type DueJob = {
@@ -126,26 +137,9 @@ export async function runSyncScheduleWorkerOnce(reason = "manual"): Promise<numb
 }
 
 export async function startSyncScheduleWorker() {
-  const state = getState();
-  if (state.started) return state;
-  state.started = true;
-  void runSyncScheduleWorkerOnce("startup").catch((e) =>
-    logger.error("sync schedule startup failed", e),
-  );
-  state.timer = setInterval(() => {
-    void runSyncScheduleWorkerOnce("interval").catch((e) =>
-      logger.error("sync schedule tick failed", e),
-    );
-  }, INTERVAL_MS);
-  state.timer.unref?.();
-  logger.info("sync schedule worker started", { workerId: WORKER_ID, intervalMs: INTERVAL_MS });
-  return state;
+  return (await syncScheduleWorker.start()).state;
 }
 
 export function stopSyncScheduleWorkerForTests() {
-  const state = getState();
-  if (state.timer) clearInterval(state.timer);
-  state.started = false;
-  state.running = false;
-  state.timer = null;
+  syncScheduleWorker.stopForTests();
 }

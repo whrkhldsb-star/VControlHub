@@ -15,8 +15,7 @@ import { resolveLocalTarBinary } from "@/lib/runtime/tar-binary";
  * 3) Wizard never auto-restores; restore still requires RESTORE confirm
  *    via the existing restore pipeline.
  */
-import { createHash, randomUUID } from "node:crypto";
-import { createReadStream } from "node:fs";
+import { randomUUID } from "node:crypto";
 import {
   access,
   copyFile,
@@ -38,6 +37,7 @@ import { prisma } from "@/lib/db";
 import { BusinessError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import { createLogger } from "@/lib/logging";
 import { isPlatformAdmin } from "@/lib/system/platform-admin";
+import { sha256File } from "@/lib/crypto/sha256-file";
 
 import { t } from "@/lib/i18n/service-translations";
 import {
@@ -117,16 +117,6 @@ function projectRoot(): string {
 
 function packagesRoot(root = projectRoot()): string {
   return join(getBackupStorageRoot(root), MIGRATION_PACKAGE_DIR);
-}
-
-async function sha256File(filePath: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const hash = createHash("sha256");
-    const stream = createReadStream(filePath);
-    stream.on("data", (chunk) => hash.update(chunk));
-    stream.on("end", () => resolve(hash.digest("hex")));
-    stream.on("error", reject);
-  });
 }
 
 function payloadExtension(type: BackupType, originalPath: string): string {

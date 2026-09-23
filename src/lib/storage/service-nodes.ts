@@ -2,7 +2,7 @@ import { constants as fsConstants } from "node:fs";
 import { access, stat } from "node:fs/promises";
 
 import type { SessionPayload } from "@/lib/auth/session";
-import { serverTeamWhere, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
+import { serverTeamWhere, teamCreateData, teamWhere, teamScopeWhere } from "@/lib/auth/team-scope";
 import { isUniqueViolation, prisma } from "@/lib/db";
 import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
 import { serviceT } from "@/lib/i18n/service-locale";
@@ -105,10 +105,6 @@ function serializeHealthFields(node: {
     lastHealthError: node.lastHealthError ?? null,
     lastHealthLatencyMs: node.lastHealthLatencyMs ?? null,
   };
-}
-
-function teamScopeWhere(session?: TeamSession | null): Record<string, unknown> {
-  return session ? teamWhere(session) : {};
 }
 
 async function assertServerInTeamScope(

@@ -22,6 +22,10 @@ import {
 } from "./service-metrics";
 import { rollupRecentServerUptime } from "@/lib/uptime/rollup";
 import { dispatchMetricPlaybooksForHealthOverview } from "@/lib/playbook/trigger-service";
+import {
+  createSingletonIntervalWorker,
+  type SingletonIntervalWorkerState,
+} from "@/lib/workers/singleton-interval-worker";
 
 export const HEALTH_SAMPLING_JOB_TYPE = "health.sample";
 const WORKER_ID = `${config.app.hostname || "vcontrolhub"}:health-sampling:${process.pid}`;
@@ -31,23 +35,29 @@ const RETENTION_MS = 30 * 24 * 60 * 60_000;
 const HEALTH_SAMPLE_JOB_KEEP_LATEST = 50;
 const logger = createLogger("health-sampling-worker");
 
-type State = {
-  started: boolean;
-  running: boolean;
-  timer: NodeJS.Timeout | null;
-};
-type WorkerGlobal = typeof globalThis & {
-  __vcontrolhubHealthSamplingWorker?: State;
-};
+type State = SingletonIntervalWorkerState;
+
+const healthSamplingWorker = createSingletonIntervalWorker({
+  globalKey: "__vcontrolhubHealthSamplingWorker",
+  resolveIntervalMs: () => DEFAULT_INTERVAL_MS,
+  tick: (_state, reason) => {
+    void runHealthSamplingWorkerOnce(reason).catch((error) =>
+      logger.error(
+        reason === "startup" ? "health sampling startup failed" : "health sampling tick failed",
+        error,
+      ),
+    );
+  },
+  onStarted: (_state, intervalMs) => {
+    logger.info("health sampling worker started", {
+      workerId: WORKER_ID,
+      intervalMs,
+    });
+  },
+});
 
 function getState(): State {
-  const globalState = globalThis as WorkerGlobal;
-  globalState.__vcontrolhubHealthSamplingWorker ??= {
-    started: false,
-    running: false,
-    timer: null,
-  };
-  return globalState.__vcontrolhubHealthSamplingWorker;
+  return healthSamplingWorker.getState();
 }
 
 export async function enqueueHealthSampleIfIdle(
@@ -173,30 +183,9 @@ export async function runHealthSamplingWorkerOnce(
 export async function startHealthSamplingWorker(
   options: { intervalMs?: number } = {},
 ): Promise<State> {
-  const state = getState();
-  if (state.started) return state;
-  state.started = true;
-  const intervalMs = options.intervalMs ?? DEFAULT_INTERVAL_MS;
-  void runHealthSamplingWorkerOnce("startup").catch((error) =>
-    logger.error("health sampling startup failed", error),
-  );
-  state.timer = setInterval(() => {
-    void runHealthSamplingWorkerOnce().catch((error) =>
-      logger.error("health sampling tick failed", error),
-    );
-  }, intervalMs);
-  state.timer.unref?.();
-  logger.info("health sampling worker started", {
-    workerId: WORKER_ID,
-    intervalMs,
-  });
-  return state;
+  return (await healthSamplingWorker.start(options)).state;
 }
 
 export function stopHealthSamplingWorkerForTests(): void {
-  const state = getState();
-  if (state.timer) clearInterval(state.timer);
-  state.started = false;
-  state.running = false;
-  state.timer = null;
+  healthSamplingWorker.stopForTests();
 }

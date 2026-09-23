@@ -27,6 +27,7 @@ import {
   heartbeatJob,
 } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
+import { createSingletonIntervalWorker } from "@/lib/workers/singleton-interval-worker";
 
 import { COST_CATEGORY_VALUES, type CostCategory } from "./types";
 import {
@@ -44,25 +45,24 @@ const COST_SNAPSHOT_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24h
 const COST_SNAPSHOT_LEASE_MS = computeLeaseMs("cost-snapshot");
 const COST_SNAPSHOT_WORKER_ID = `${config.app.hostname || "vcontrolhub"}:cost-snapshot:${process.pid}`;
 
-type CostSnapshotWorkerState = {
-  started: boolean;
-  running: boolean;
-  timer: NodeJS.Timeout | null;
-};
-
-type CostSnapshotWorkerGlobal = typeof globalThis & {
-  __vcontrolhubCostSnapshotWorker?: CostSnapshotWorkerState;
-};
-
-function getWorkerState(): CostSnapshotWorkerState {
-  const globalState = globalThis as CostSnapshotWorkerGlobal;
-  globalState.__vcontrolhubCostSnapshotWorker ??= {
-    started: false,
-    running: false,
-    timer: null,
-  };
-  return globalState.__vcontrolhubCostSnapshotWorker;
-}
+const costSnapshotWorker = createSingletonIntervalWorker({
+  globalKey: "__vcontrolhubCostSnapshotWorker",
+  resolveIntervalMs: () => COST_SNAPSHOT_INTERVAL_MS,
+  tick: (_state, reason) => {
+    void runCostSnapshotWorkerOnce(reason).catch((error) => {
+      logger.error("Cost snapshot worker tick failed", {
+        reason,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
+  },
+  onStarted: (_state, intervalMs) => {
+    logger.info("Cost snapshot durable job worker started", {
+      workerId: COST_SNAPSHOT_WORKER_ID,
+      intervalMs,
+    });
+  },
+});
 
 async function hasActiveSnapshotJob(): Promise<boolean> {
   const existing = await prisma.job.findFirst({
@@ -150,7 +150,7 @@ async function buildTodaySnapshot(today: Date) {
 export async function runCostSnapshotWorkerOnce(
   reason = "manual",
 ): Promise<boolean> {
-  const state = getWorkerState();
+  const state = costSnapshotWorker.getState();
   if (state.running) {
     logger.warn(
       "Skipping cost snapshot tick because a previous tick is still running",
@@ -237,39 +237,9 @@ export async function runCostSnapshotWorkerOnce(
 }
 
 export async function startCostSnapshotWorker() {
-  const state = getWorkerState();
-  if (state.started) return state;
-
-  state.started = true;
-  const intervalMs = COST_SNAPSHOT_INTERVAL_MS;
-
-  void runCostSnapshotWorkerOnce("startup").catch((error) => {
-    logger.error("Cost snapshot worker tick failed", {
-      reason: "startup",
-      error: error instanceof Error ? error.message : String(error),
-    });
-  });
-  state.timer = setInterval(() => {
-    void runCostSnapshotWorkerOnce("interval").catch((error) => {
-      logger.error("Cost snapshot worker tick failed", {
-        reason: "interval",
-        error: error instanceof Error ? error.message : String(error),
-      });
-    });
-  }, intervalMs);
-  state.timer.unref?.();
-
-  logger.info("Cost snapshot durable job worker started", {
-    workerId: COST_SNAPSHOT_WORKER_ID,
-    intervalMs,
-  });
-  return state;
+  return (await costSnapshotWorker.start()).state;
 }
 
 export function stopCostSnapshotWorkerForTests() {
-  const state = getWorkerState();
-  if (state.timer) clearInterval(state.timer);
-  state.started = false;
-  state.running = false;
-  state.timer = null;
+  costSnapshotWorker.stopForTests();
 }

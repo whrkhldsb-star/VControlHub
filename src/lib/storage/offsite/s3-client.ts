@@ -19,6 +19,7 @@ import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { Readable } from "node:stream";
 import { readResponseTextLimited } from "@/lib/http/response-body";
+import { sha256File } from "@/lib/crypto/sha256-file";
 
 /* ── Public types ────────────────────────────────────────── */
 
@@ -447,16 +448,6 @@ export class S3Client {
 		const message = msgMatch?.[1] ?? (text.slice(0, 200) || `${op} ${key} failed with status ${res.status}`);
 		throw new S3Error(`${op} ${key} failed: ${message}`, res.status, code, requestId);
 	}
-}
-
-async function sha256File(filePath: string): Promise<string> {
-	return new Promise((resolve, reject) => {
-		const hash = createHash("sha256");
-		const stream = createReadStream(filePath);
-		stream.on("data", (chunk) => hash.update(chunk));
-		stream.on("error", reject);
-		stream.on("end", () => resolve(hash.digest("hex")));
-	});
 }
 
 /* ── Lightweight XML parser (list-type=2 only) ────────────── */

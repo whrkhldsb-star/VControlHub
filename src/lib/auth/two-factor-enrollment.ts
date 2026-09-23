@@ -18,9 +18,10 @@
  * enrollment needs no column of its own, so this closes the hole without a
  * schema migration.
  */
-import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHmac, randomBytes } from "node:crypto";
 
 import { getSessionSigningSecret } from "./session";
+import { decodeBase64Url, signHmacToken, verifyHmacTokenSignature } from "./hmac-token";
 
 const ENROLLMENT_AUDIENCE = "2fa-enrollment";
 
@@ -39,30 +40,15 @@ type EnrollmentPayload = {
   exp: number;
 };
 
-function encodeBase64Url(input: string) {
-  return Buffer.from(input, "utf8").toString("base64url");
-}
-
-function decodeBase64Url(input: string) {
-  return Buffer.from(input, "base64url").toString("utf8");
-}
-
 /**
  * Derive a distinct key from the session secret. Sharing the raw session key
  * across audiences would let a token minted for one purpose be replayed at
  * another verifier that happens to accept the same shape.
  */
-function signPayload(payload: string) {
-  const key = createHmac("sha256", getSessionSigningSecret())
+function enrollmentKey() {
+  return createHmac("sha256", getSessionSigningSecret())
     .update(ENROLLMENT_AUDIENCE)
     .digest();
-  return createHmac("sha256", key).update(payload).digest("base64url");
-}
-
-function safeEqual(a: string, b: string) {
-  const left = Buffer.from(a, "utf8");
-  const right = Buffer.from(b, "utf8");
-  return left.length === right.length && timingSafeEqual(left, right);
 }
 
 /** Mint a ticket binding a freshly generated seed to the user setting it up. */
@@ -80,8 +66,7 @@ export function createTwoFactorEnrollmentToken(input: {
     iat: now,
     exp: now + ENROLLMENT_TTL_MS,
   };
-  const encoded = encodeBase64Url(JSON.stringify(payload));
-  return `${encoded}.${signPayload(encoded)}`;
+  return signHmacToken(payload, enrollmentKey());
 }
 
 /**
@@ -96,7 +81,7 @@ export function openTwoFactorEnrollmentToken(
   try {
     const [encoded, providedSignature] = token.split(".");
     if (!encoded || !providedSignature) return null;
-    if (!safeEqual(providedSignature, signPayload(encoded))) return null;
+    if (!verifyHmacTokenSignature(encoded, providedSignature, enrollmentKey())) return null;
 
     const payload = JSON.parse(decodeBase64Url(encoded)) as EnrollmentPayload;
     if (payload.aud !== ENROLLMENT_AUDIENCE) return null;

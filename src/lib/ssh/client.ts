@@ -45,7 +45,13 @@ export type SftpStatEntry = {
   accessTime: number;
 };
 
-function normalizeHostKeySha256(fingerprint?: string | null): string | null {
+/**
+ * Strip the optional `SHA256:` prefix from an OpenSSH fingerprint so the raw
+ * base64 digest can be compared with ssh2's hostkey.format().digest output.
+ * (The inverse of `canonicalHostKeyFingerprint` in ./host-key, which keeps the
+ * prefix — same old name, opposite behaviour, hence the split names.)
+ */
+function stripHostKeyFingerprintPrefix(fingerprint?: string | null): string | null {
  const value = fingerprint?.trim();
  if (!value) return null;
  return value.replace(/^SHA256:/i, "");
@@ -73,7 +79,7 @@ function createSshConfig(input: SshConnectionParams): ConnectConfig {
   config.password = input.password;
  }
 
- const expectedHostKey = normalizeHostKeySha256(input.hostKeySha256);
+ const expectedHostKey = stripHostKeyFingerprintPrefix(input.hostKeySha256);
  const enforceHostKeyPin = input.enforceHostKeyPin ?? appConfig.ssh.enforceHostKeyPin;
  const needsVerifier = expectedHostKey || input.onHostKeySha256 || enforceHostKeyPin;
  if (needsVerifier) {
@@ -134,7 +140,7 @@ function sshPoolKey(input: SshConnectionParams) {
     privateKey: input.privateKey ?? null,
     passphrase: input.passphrase ?? null,
     password: input.password ?? null,
-    hostKeySha256: normalizeHostKeySha256(input.hostKeySha256),
+    hostKeySha256: stripHostKeyFingerprintPrefix(input.hostKeySha256),
     enforceHostKeyPin: input.enforceHostKeyPin ?? appConfig.ssh.enforceHostKeyPin,
   })).digest("hex");
 }

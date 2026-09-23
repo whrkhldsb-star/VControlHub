@@ -12,6 +12,7 @@ import { SERVICE_CATALOG } from "./catalog";
 import { createLogger } from "@/lib/logging";
 import { BusinessError, ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
+import { isValidTcpPort } from "@/lib/runtime/listen-port";
 import {
 	assertPublicBaseUrlResolvesPublic,
 	normalizePublicHttpUrl,
@@ -224,7 +225,7 @@ async function fetchLinuxServer(url: string, sourceName: string): Promise<Normal
 			const category = mapCategory(img.category);
 			const ports = (img.config?.ports ?? [])
 				.map((port) => ({ host: Number(port.external), container: Number(port.internal) }))
-				.filter((port) => Number.isInteger(port.host) && port.host > 0 && port.host <= 65535 && Number.isInteger(port.container) && port.container > 0 && port.container <= 65535);
+				.filter((port) => isValidTcpPort(port.host) && isValidTcpPort(port.container));
 			const primaryPort = ports[0]!;
 			const extraPorts = ports.slice(1);
 			const volumes = (img.config?.volumes ?? [])

@@ -66,6 +66,39 @@ const TERMINAL_REQUEST_STATUSES = new Set([
   "REJECTED",
 ]);
 
+/**
+ * CAS-fail one target with a client-facing summary (TR: one helper, four
+ * verbatim copies inline below). Only transitions still-queued statuses to
+ * FAILED (a concurrent CANCELLED/COMPLETED wins), mirrors the summary into
+ * the execution log when the CAS matched, and always yields `false` so the
+ * caller can `return failTarget(...)`.
+ */
+async function failTarget(
+  commandRequestId: string,
+  target: { id: string; server: { id: string } },
+  summary: string,
+): Promise<boolean> {
+  const failed = await prisma.commandTarget.updateMany({
+    where: {
+      id: target.id,
+      status: { in: ["RUNNING", "APPROVED", "PENDING_APPROVAL"] },
+    },
+    data: {
+      status: "FAILED",
+      stdout: null,
+      stderr: summary,
+      exitCode: 255,
+      finishedAt: new Date(),
+    },
+  });
+  if (failed.count > 0) {
+    await prisma.executionLog.create({
+      data: { commandRequestId, serverId: target.server.id, summary },
+    });
+  }
+  return false;
+}
+
 export async function executeTarget(
   commandRequestId: string,
   target: Awaited<ReturnType<typeof prisma.commandTarget.findMany>>[number] & {
@@ -144,81 +177,17 @@ export async function executeTarget(
     // this target, and the generic fallback checks below would misreport it as
     // a missing-password / missing-host-key SSH problem.
     const summary = `Agent unavailable on ${target.server.name}; Windows nodes have no SSH fallback channel.`;
-    const failed = await prisma.commandTarget.updateMany({
-      where: {
-        id: target.id,
-        status: { in: ["RUNNING", "APPROVED", "PENDING_APPROVAL"] },
-      },
-      data: {
-        status: "FAILED",
-        stdout: null,
-        stderr: summary,
-        exitCode: 255,
-        finishedAt: new Date(),
-      },
-    });
-    if (failed.count > 0) {
-      await prisma.executionLog.create({
-        data: { commandRequestId, serverId: target.server.id, summary },
-      });
-    }
-    return false;
+    return failTarget(commandRequestId, target, summary);
   }
 
   if (!result && connectionType === "SSH_KEY" && !privateKey) {
     // Surfaced to the requesting client as target stderr (and mirrored into
     // the execution log) — translate like the other client-facing copy.
-    const summary = t("backend.command.sshKeyLacksPrivateKey", { name: target.server.name });
-    const failed = await prisma.commandTarget.updateMany({
-      where: {
-        id: target.id,
-        status: { in: ["RUNNING", "APPROVED", "PENDING_APPROVAL"] },
-      },
-      data: {
-        status: "FAILED",
-        stdout: null,
-        stderr: summary,
-        exitCode: 255,
-        finishedAt: new Date(),
-      },
-    });
-    if (failed.count > 0) {
-      await prisma.executionLog.create({
-        data: {
-          commandRequestId,
-          serverId: target.server.id,
-          summary,
-        },
-      });
-    }
-    return false;
+    return failTarget(commandRequestId, target, t("backend.command.sshKeyLacksPrivateKey", { name: target.server.name }));
   }
 
   if (!result && connectionType === "PASSWORD" && !password) {
-    const summary = t("backend.command.passwordMissing", { name: target.server.name });
-    const failed = await prisma.commandTarget.updateMany({
-      where: {
-        id: target.id,
-        status: { in: ["RUNNING", "APPROVED", "PENDING_APPROVAL"] },
-      },
-      data: {
-        status: "FAILED",
-        stdout: null,
-        stderr: summary,
-        exitCode: 255,
-        finishedAt: new Date(),
-      },
-    });
-    if (failed.count > 0) {
-      await prisma.executionLog.create({
-        data: {
-          commandRequestId,
-          serverId: target.server.id,
-          summary,
-        },
-      });
-    }
-    return false;
+    return failTarget(commandRequestId, target, t("backend.command.passwordMissing", { name: target.server.name }));
   }
 
   // Fail closed on unpinned DIRECT SSH targets. Without a pinned host key the
@@ -230,26 +199,7 @@ export async function executeTarget(
   if (!result && !pinnedHostKey?.trim()) {
     // Fail-closed summary goes straight to the client as target stderr; the
     // wording guides the operator to pin the host fingerprint first.
-    const summary = t("backend.command.hostKeyNotPinnedRefused", { name: target.server.name });
-    const failed = await prisma.commandTarget.updateMany({
-      where: {
-        id: target.id,
-        status: { in: ["RUNNING", "APPROVED", "PENDING_APPROVAL"] },
-      },
-      data: {
-        status: "FAILED",
-        stdout: null,
-        stderr: summary,
-        exitCode: 255,
-        finishedAt: new Date(),
-      },
-    });
-    if (failed.count > 0) {
-      await prisma.executionLog.create({
-        data: { commandRequestId, serverId: target.server.id, summary },
-      });
-    }
-    return false;
+    return failTarget(commandRequestId, target, t("backend.command.hostKeyNotPinnedRefused", { name: target.server.name }));
   }
 
   result ??= await executeCommandOverSsh({

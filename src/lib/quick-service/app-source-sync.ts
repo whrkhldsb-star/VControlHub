@@ -47,15 +47,15 @@ export async function syncSource(sourceId: string): Promise<{ synced: number; er
 
 		// Bounded concurrency: chunked Promise.all over SYNC_UPSERT_CONCURRENCY.
 		// Per-row try/catch isolates failures so one bad slug never aborts the rest.
-		const outcomes: Array<"ok" | "err"> = [];
-		for (let i = 0; i < apps.length; i += SYNC_UPSERT_CONCURRENCY) {
-			const chunk = apps.slice(i, i + SYNC_UPSERT_CONCURRENCY);
-			const chunkOutcomes = await Promise.all(
-				chunk.map(async (app) => {
-					try {
-						await prisma.appSourceApp.upsert({
-							where: { slug: app.slug },
-							update: {
+			const outcomes: Array<"ok" | "err"> = [];
+			for (let i = 0; i < apps.length; i += SYNC_UPSERT_CONCURRENCY) {
+				const chunk = apps.slice(i, i + SYNC_UPSERT_CONCURRENCY);
+				const chunkOutcomes = await Promise.all(
+					chunk.map(async (app) => {
+						try {
+							// Shared column payload (TR: update/create used to duplicate
+							// these 14 fields verbatim); only slug/sourceId are create-only.
+							const fields = {
 								name: app.name,
 								category: app.category,
 								icon: app.icon,
@@ -70,35 +70,21 @@ export async function syncSource(sourceId: string): Promise<{ synced: number; er
 								extraPortsJson: JSON.stringify(app.extraPorts ?? []),
 								rawJson: app.rawJson ?? null,
 								sourceVersion: app.sourceVersion ?? null,
-							},
-							create: {
-								slug: app.slug,
-								sourceId: source.id,
-								name: app.name,
-								category: app.category,
-								icon: app.icon,
-								description: app.description,
-								image: app.image,
-								defaultPort: app.defaultPort,
-								internalPort: app.internalPort ?? null,
-								path: app.path,
-								envJson: JSON.stringify(app.envJson),
-								volumesJson: JSON.stringify(app.volumesJson),
-								command: app.command ?? null,
-								extraPortsJson: JSON.stringify(app.extraPorts ?? []),
-								rawJson: app.rawJson ?? null,
-								sourceVersion: app.sourceVersion ?? null,
-							},
-						});
-						return "ok" as const;
-					} catch (err) {
-						logger.error(`Failed to upsert app ${app.slug}: ${err}`);
-						return "err" as const;
-					}
-				}),
-			);
-			outcomes.push(...chunkOutcomes);
-		}
+							};
+							await prisma.appSourceApp.upsert({
+								where: { slug: app.slug },
+								update: fields,
+								create: { slug: app.slug, sourceId: source.id, ...fields },
+							});
+							return "ok" as const;
+						} catch (err) {
+							logger.error(`Failed to upsert app ${app.slug}: ${err}`);
+							return "err" as const;
+						}
+					}),
+				);
+				outcomes.push(...chunkOutcomes);
+			}
 		for (const r of outcomes) {
 			if (r === "ok") synced++;
 			else errors++;

@@ -2,6 +2,7 @@ import { config } from "@/lib/config/env";
 import { computeLeaseMs } from "@/lib/job/lease";
 import { claimNextJob, completeJob, failJob, heartbeatJob } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
+import { createSingletonIntervalWorker } from "@/lib/workers/singleton-interval-worker";
 
 import { executeAndFinalizeCommand, markCommandExecutionFailed } from "./service-execution";
 import {
@@ -28,24 +29,29 @@ const logger = createLogger("command-execution-worker");
 const COMMAND_EXECUTION_LEASE_MS = computeLeaseMs("command-execution");
 const COMMAND_EXECUTION_WORKER_ID = `${config.app.hostname || "vcontrolhub"}:command-execution:${process.pid}`;
 
-type CommandExecutionWorkerState = {
-  started: boolean;
-  running: boolean;
-  timer: NodeJS.Timeout | null;
-};
-
-type CommandExecutionWorkerGlobal = typeof globalThis & {
-  __vcontrolhubCommandExecutionWorker?: CommandExecutionWorkerState;
-};
+const commandExecutionWorker = createSingletonIntervalWorker({
+  globalKey: "__vcontrolhubCommandExecutionWorker",
+  resolveIntervalMs: () => config.worker.commandExecutionIntervalMs,
+  tick: (_state, reason) => {
+    void runCommandExecutionJobWorkerOnce().catch((error) => {
+      logger.error(
+        reason === "startup" ? "Command execution worker startup tick failed" : "Command execution worker interval tick failed",
+        {
+          error: error instanceof Error ? error.message : String(error),
+        },
+      );
+    });
+  },
+  onStarted: (_state, intervalMs) => {
+    logger.info("command execution durable job worker started", {
+      intervalMs,
+      workerId: COMMAND_EXECUTION_WORKER_ID,
+    });
+  },
+});
 
 function getWorkerState() {
-  const globalState = globalThis as CommandExecutionWorkerGlobal;
-  globalState.__vcontrolhubCommandExecutionWorker ??= {
-    started: false,
-    running: false,
-    timer: null,
-  };
-  return globalState.__vcontrolhubCommandExecutionWorker;
+  return commandExecutionWorker.getState();
 }
 
 async function handleClaimedJob(
@@ -154,47 +160,17 @@ export async function runCommandExecutionJobWorkerOnce() {
 }
 
 export async function startCommandExecutionWorker(options: { intervalMs?: number } = {}) {
-  const state = getWorkerState();
-  if (state.started) return state;
-
-  state.started = true;
-  const intervalMs = options.intervalMs ?? config.worker.commandExecutionIntervalMs;
-
-  void runCommandExecutionJobWorkerOnce().catch((error) => {
-    logger.error("Command execution worker startup tick failed", {
-      error: error instanceof Error ? error.message : String(error),
-    });
-  });
-  state.timer = setInterval(() => {
-    void runCommandExecutionJobWorkerOnce().catch((error) => {
-      logger.error("Command execution worker interval tick failed", {
-        error: error instanceof Error ? error.message : String(error),
-      });
-    });
-  }, intervalMs);
-  state.timer.unref?.();
-
-  logger.info("command execution durable job worker started", {
-    intervalMs,
-    workerId: COMMAND_EXECUTION_WORKER_ID,
-  });
-  return state;
+  return (await commandExecutionWorker.start(options)).state;
 }
 
 export function stopCommandExecutionWorkerForTests() {
-  const state = getWorkerState();
-  if (state.timer) {
-    clearInterval(state.timer);
-  }
-  state.started = false;
-  state.running = false;
-  state.timer = null;
+  commandExecutionWorker.stopForTests();
 }
 
 // Internal helper used by tests to peek at the live worker state without
 // leaking the global symbol across module boundaries.
-export function getCommandExecutionWorkerStateForTests(): CommandExecutionWorkerState {
-  return getWorkerState();
+export function getCommandExecutionWorkerStateForTests() {
+  return commandExecutionWorker.getState();
 }
 
 // Internal helper used by tests / recovery scripts to verify there is no

@@ -56,6 +56,15 @@ export function teamWhere(session: TeamSession): Record<string, unknown> {
 	return { teamId: null };
 }
 
+/**
+ * Optional-session wrapper around {@link teamWhere} (TR: scheduled-task and
+ * storage/service-nodes used to carry identical local copies): a missing
+ * session means "no team filter at all" ({}), not "unassigned only".
+ */
+export function teamScopeWhere(session?: TeamSession | null): Record<string, unknown> {
+	return session ? teamWhere(session) : {};
+}
+
 /** Server records are security roots (SSH, SFTP, backups and file proxy).
  * A null teamId is quarantined legacy data, never an implicit shared VPS. */
 export function serverTeamWhere(session: TeamSession): Record<string, unknown> {

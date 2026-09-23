@@ -17,12 +17,13 @@ import { Prisma } from "@prisma/client";
 import type { SessionPayload } from "@/lib/auth/session";
 import { teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
-import { encrypt, decrypt, isEncrypted } from "@/lib/crypto/service";
+import { decryptJsonCredentials, encryptJsonCredentials } from "@/lib/crypto/json-credentials";
 import { prisma } from "@/lib/db";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { createLogger } from "@/lib/logging";
 
 import type { CostCurrency } from "../types";
+import { tagValue } from "../service-internals";
 import { fetchCloudBillingItems } from "./adapters";
 import {
 	createCloudBillingAccountSchema,
@@ -44,10 +45,6 @@ const SOURCE_TYPE = "cloud_billing";
 
 type SessionScope = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
 
-function tagValue(value: string): string {
-	return value.trim().toLocaleLowerCase().replace(/\s+/gu, "-").slice(0, 128);
-}
-
 function iso(d: Date | null | undefined): string | null {
 	return d ? d.toISOString() : null;
 }
@@ -58,17 +55,11 @@ function parseConfig(raw: Prisma.JsonValue | null | undefined): CloudBillingAcco
 }
 
 function encryptCredentials(creds: CloudBillingCredentials): string {
-	return encrypt(JSON.stringify(creds));
+	return encryptJsonCredentials(creds);
 }
 
 function decryptCredentials(enc: string): CloudBillingCredentials {
-	const plain = isEncrypted(enc) ? decrypt(enc) : enc;
-	try {
-		const parsed = JSON.parse(plain) as CloudBillingCredentials;
-		return parsed && typeof parsed === "object" ? parsed : {};
-	} catch {
-		throw new ValidationError(t("backend.cost.storedCloudBillingCredentialsAreCorrupt"));
-	}
+	return decryptJsonCredentials<CloudBillingCredentials>(enc, t("backend.cost.storedCloudBillingCredentialsAreCorrupt"));
 }
 
 function toAccountRecord(row: {

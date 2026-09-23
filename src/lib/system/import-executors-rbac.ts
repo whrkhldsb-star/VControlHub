@@ -8,6 +8,7 @@
 import { Prisma } from "@prisma/client";
 
 import type { ExportFile, ImportOptions } from "@/lib/system/config-schema";
+import { upsertByIdWithSecondaryUnique } from "./import-executors-helpers";
 import { parseDate } from "./import-executors-helpers";
 import type { Tx, Counts } from "./import-executors-helpers";
 
@@ -18,64 +19,42 @@ export async function importPermissions(
   options: ImportOptions,
   counts: Counts,
 ): Promise<void> {
-  const records = t.permissions;
-  if (records.length === 0) return;
-  const ids = records.map((r) => r.id);
-  const existing = await tx.permission.findMany({
-    where: { id: { in: ids } },
-    select: { id: true },
-  });
-  const existingIds = new Set(existing.map((e) => e.id));
-  let toCreate = records.filter((r) => !existingIds.has(r.id));
-  const toUpdate = records.filter((r) => existingIds.has(r.id));
-
-  if (toCreate.length > 0) {
-    // Secondary unique: permission.key
-    const values = [...new Set(toCreate.map((r) => r.key).filter(Boolean))];
-    if (values.length > 0) {
-      const hits = await tx.permission.findMany({
-        where: { key: { in: values } },
-        select: { id: true, key: true },
-      });
-      const taken = new Set(hits.map((h) => h.key));
-      const skippedSecondary = toCreate.filter((r) => r.key && taken.has(r.key));
-      toCreate = toCreate.filter((r) => !(r.key && taken.has(r.key)));
-      counts.skipped += skippedSecondary.length;
-    }
-  }
-
-  if (toCreate.length > 0) {
-    const result = await tx.permission.createMany({
-      data: toCreate.map((r) => ({
-        id: r.id,
-        key: r.key,
-        name: r.name,
-        description: r.description,
-      })),
-      skipDuplicates: true,
-    });
-    counts.created += result.count;
-  }
-
-  if (options.overwriteExisting) {
-    for (const r of toUpdate) {
-      const clash = await tx.permission.findFirst({
-        where: { key: r.key, NOT: { id: r.id } },
-        select: { id: true },
-      });
-      if (clash) {
-        counts.skipped += 1;
-        continue;
-      }
+  await upsertByIdWithSecondaryUnique(t.permissions, options, counts, {
+    listExistingIds: async (ids) =>
+      new Set(
+        (await tx.permission.findMany({ where: { id: { in: ids } }, select: { id: true } })).map((e) => e.id),
+      ),
+    listTakenSecondaryValues: async (values) =>
+      new Set(
+        (await tx.permission.findMany({ where: { key: { in: values } }, select: { key: true } })).map((h) => h.key),
+      ),
+    secondaryValueOf: (r) => r.key,
+    createManySkipDuplicates: async (rows) =>
+      (
+        await tx.permission.createMany({
+          data: rows.map((r) => ({
+            id: r.id,
+            key: r.key,
+            name: r.name,
+            description: r.description,
+          })),
+          skipDuplicates: true,
+        })
+      ).count,
+    hasSecondaryClash: async (r) =>
+      Boolean(
+        await tx.permission.findFirst({
+          where: { key: r.key, NOT: { id: r.id } },
+          select: { id: true },
+        }),
+      ),
+    updateById: async (r) => {
       await tx.permission.update({
         where: { id: r.id },
         data: { key: r.key, name: r.name, description: r.description },
       });
-      counts.updated += 1;
-    }
-  } else {
-    counts.skipped += toUpdate.length;
-  }
+    },
+  });
 }
 
 // 2. Roles
@@ -85,64 +64,42 @@ export async function importRoles(
   options: ImportOptions,
   counts: Counts,
 ): Promise<void> {
-  const records = t.roles;
-  if (records.length === 0) return;
-  const ids = records.map((r) => r.id);
-  const existing = await tx.role.findMany({
-    where: { id: { in: ids } },
-    select: { id: true },
-  });
-  const existingIds = new Set(existing.map((e) => e.id));
-  let toCreate = records.filter((r) => !existingIds.has(r.id));
-  const toUpdate = records.filter((r) => existingIds.has(r.id));
-
-  if (toCreate.length > 0) {
-    // Secondary unique: role.key
-    const values = [...new Set(toCreate.map((r) => r.key).filter(Boolean))];
-    if (values.length > 0) {
-      const hits = await tx.role.findMany({
-        where: { key: { in: values } },
-        select: { id: true, key: true },
-      });
-      const taken = new Set(hits.map((h) => h.key));
-      const skippedSecondary = toCreate.filter((r) => r.key && taken.has(r.key));
-      toCreate = toCreate.filter((r) => !(r.key && taken.has(r.key)));
-      counts.skipped += skippedSecondary.length;
-    }
-  }
-
-  if (toCreate.length > 0) {
-    const result = await tx.role.createMany({
-      data: toCreate.map((r) => ({
-        id: r.id,
-        key: r.key,
-        name: r.name,
-        description: r.description,
-      })),
-      skipDuplicates: true,
-    });
-    counts.created += result.count;
-  }
-
-  if (options.overwriteExisting) {
-    for (const r of toUpdate) {
-      const clash = await tx.role.findFirst({
-        where: { key: r.key, NOT: { id: r.id } },
-        select: { id: true },
-      });
-      if (clash) {
-        counts.skipped += 1;
-        continue;
-      }
+  await upsertByIdWithSecondaryUnique(t.roles, options, counts, {
+    listExistingIds: async (ids) =>
+      new Set(
+        (await tx.role.findMany({ where: { id: { in: ids } }, select: { id: true } })).map((e) => e.id),
+      ),
+    listTakenSecondaryValues: async (values) =>
+      new Set(
+        (await tx.role.findMany({ where: { key: { in: values } }, select: { key: true } })).map((h) => h.key),
+      ),
+    secondaryValueOf: (r) => r.key,
+    createManySkipDuplicates: async (rows) =>
+      (
+        await tx.role.createMany({
+          data: rows.map((r) => ({
+            id: r.id,
+            key: r.key,
+            name: r.name,
+            description: r.description,
+          })),
+          skipDuplicates: true,
+        })
+      ).count,
+    hasSecondaryClash: async (r) =>
+      Boolean(
+        await tx.role.findFirst({
+          where: { key: r.key, NOT: { id: r.id } },
+          select: { id: true },
+        }),
+      ),
+    updateById: async (r) => {
       await tx.role.update({
         where: { id: r.id },
         data: { key: r.key, name: r.name, description: r.description },
       });
-      counts.updated += 1;
-    }
-  } else {
-    counts.skipped += toUpdate.length;
-  }
+    },
+  });
 }
 
 // 3. RolePermissions (create-only junction table, no try/catch)
@@ -188,61 +145,44 @@ export async function importUsers(
     counts.skipped += t.users.length;
     return;
   }
-  const records = t.users;
-  if (records.length === 0) return;
-  const ids = records.map((r) => r.id);
-  const existing = await tx.user.findMany({
-    where: { id: { in: ids } },
-    select: { id: true },
-  });
-  const existingIds = new Set(existing.map((e) => e.id));
-  let toCreate = records.filter((r) => !existingIds.has(r.id));
-  const toUpdate = records.filter((r) => existingIds.has(r.id));
-
-  if (toCreate.length > 0) {
-    // Secondary unique: user.username
-    const values = [...new Set(toCreate.map((r) => r.username).filter(Boolean))];
-    if (values.length > 0) {
-      const hits = await tx.user.findMany({
-        where: { username: { in: values } },
-        select: { id: true, username: true },
-      });
-      const taken = new Set(hits.map((h) => h.username));
-      const skippedSecondary = toCreate.filter((r) => r.username && taken.has(r.username));
-      toCreate = toCreate.filter((r) => !(r.username && taken.has(r.username)));
-      counts.skipped += skippedSecondary.length;
-    }
-  }
-
-  if (toCreate.length > 0) {
-    const result = await tx.user.createMany({
-      data: toCreate.map((r) => ({
-        id: r.id,
-        username: r.username,
-        displayName: r.displayName,
-        // Full mode: restore actual hash; Standard: force password reset
-        passwordHash: r.passwordHash ?? "DISABLED_IMPORT_RESET",
-        status: (r.passwordHash ? r.status : "PENDING_PASSWORD_RESET") as never,
-        mustChangePassword: r.passwordHash ? r.mustChangePassword : true,
-        twoFactorEnabled: r.twoFactorEnabled,
-        twoFactorSecret: r.twoFactorSecret,
-        preferences: r.preferences as Prisma.InputJsonValue | undefined,
-      })),
-      skipDuplicates: true,
-    });
-    counts.created += result.count;
-  }
-
-  if (options.overwriteExisting) {
-    for (const r of toUpdate) {
-      const clash = await tx.user.findFirst({
-        where: { username: r.username, NOT: { id: r.id } },
-        select: { id: true },
-      });
-      if (clash) {
-        counts.skipped += 1;
-        continue;
-      }
+  await upsertByIdWithSecondaryUnique(t.users, options, counts, {
+    listExistingIds: async (ids) =>
+      new Set(
+        (await tx.user.findMany({ where: { id: { in: ids } }, select: { id: true } })).map((e) => e.id),
+      ),
+    listTakenSecondaryValues: async (values) =>
+      new Set(
+        (await tx.user.findMany({ where: { username: { in: values } }, select: { username: true } })).map(
+          (h) => h.username,
+        ),
+      ),
+    secondaryValueOf: (r) => r.username,
+    createManySkipDuplicates: async (rows) =>
+      (
+        await tx.user.createMany({
+          data: rows.map((r) => ({
+            id: r.id,
+            username: r.username,
+            displayName: r.displayName,
+            // Full mode: restore actual hash; Standard: force password reset
+            passwordHash: r.passwordHash ?? "DISABLED_IMPORT_RESET",
+            status: (r.passwordHash ? r.status : "PENDING_PASSWORD_RESET") as never,
+            mustChangePassword: r.passwordHash ? r.mustChangePassword : true,
+            twoFactorEnabled: r.twoFactorEnabled,
+            twoFactorSecret: r.twoFactorSecret,
+            preferences: r.preferences as Prisma.InputJsonValue | undefined,
+          })),
+          skipDuplicates: true,
+        })
+      ).count,
+    hasSecondaryClash: async (r) =>
+      Boolean(
+        await tx.user.findFirst({
+          where: { username: r.username, NOT: { id: r.id } },
+          select: { id: true },
+        }),
+      ),
+    updateById: async (r) => {
       await tx.user.update({
         where: { id: r.id },
         data: {
@@ -261,11 +201,8 @@ export async function importUsers(
             : {}),
         },
       });
-      counts.updated += 1;
-    }
-  } else {
-    counts.skipped += toUpdate.length;
-  }
+    },
+  });
 }
 
 // 5. UserRoles (create-only junction table, FK try/catch → pre-filter FK validity)

@@ -27,6 +27,7 @@ import { abandonStaleRunningBackupRecords } from "@/lib/backup/service";
 import { reconcileStaleRunningDownloadTasks } from "@/lib/downloads/reconcile";
 import { sweepExpiredMediaUploadSessions } from "@/lib/upload/service";
 import { pruneThumbnailCache } from "@/lib/media/thumbnail-cache";
+import { createSingletonIntervalWorker } from "@/lib/workers/singleton-interval-worker";
 
 const logger = createLogger("job-maintenance-worker");
 
@@ -117,12 +118,20 @@ const MAINTENANCE_PRUNE_COMPLETED_TYPES = [
 const MAINTENANCE_PRUNE_COMPLETED_KEEP_LATEST = 25;
 
 type State = { started: boolean; running: boolean; timer: NodeJS.Timeout | null };
-type G = typeof globalThis & { __vcontrolhubJobMaintenanceWorker?: State };
+
+const jobMaintenanceWorker = createSingletonIntervalWorker({
+  globalKey: "__vcontrolhubJobMaintenanceWorker",
+  resolveIntervalMs: () => DEFAULT_INTERVAL_MS,
+  tick: (_state, reason) => {
+    void tick(reason);
+  },
+  onStarted: (_state, intervalMs) => {
+    logger.info("job maintenance worker started", { workerId: WORKER_ID, intervalMs });
+  },
+});
 
 function getState(): State {
-  const g = globalThis as G;
-  g.__vcontrolhubJobMaintenanceWorker ??= { started: false, running: false, timer: null };
-  return g.__vcontrolhubJobMaintenanceWorker;
+  return jobMaintenanceWorker.getState();
 }
 
 /**
@@ -391,25 +400,11 @@ async function tick(reason: string) {
 }
 
 export async function startJobMaintenanceWorker(options?: { intervalMs?: number }) {
-  const state = getState();
-  if (state.started) return state;
-  state.started = true;
-  const intervalMs = options?.intervalMs ?? DEFAULT_INTERVAL_MS;
-  void tick("startup");
-  state.timer = setInterval(() => {
-    void tick("interval");
-  }, intervalMs);
-  state.timer.unref?.();
-  logger.info("job maintenance worker started", { workerId: WORKER_ID, intervalMs });
-  return state;
+  return (await jobMaintenanceWorker.start(options)).state;
 }
 
 export function stopJobMaintenanceWorkerForTests() {
-  const state = getState();
-  if (state.timer) clearInterval(state.timer);
-  state.started = false;
-  state.running = false;
-  state.timer = null;
+  jobMaintenanceWorker.stopForTests();
 }
 
 /** Test helper */

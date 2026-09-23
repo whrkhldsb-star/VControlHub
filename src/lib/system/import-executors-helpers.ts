@@ -73,3 +73,71 @@ export function parseBigInt(s: string | null, field = "size"): bigint | null {
   }
   return parsed;
 }
+
+/**
+ * Shared id-upsert scaffold for imports whose table has a SECONDARY unique key
+ * besides `id` (permission.key, role.key, user.username — TR: three importers
+ * used to duplicate these ~45 lines verbatim).
+ *
+ * Pipeline: existence check by id → drop to-create rows whose secondary key is
+ * already taken (counted as skipped) → createMany with skipDuplicates → on
+ * `overwriteExisting`, per-row secondary-clash check then update, else the
+ * existing rows are counted as skipped. All Prisma calls stay in the caller's
+ * `ops` closures so each model keeps its own delegate typing and payload
+ * shape; only the control flow and the bookkeeping live here.
+ */
+export async function upsertByIdWithSecondaryUnique<TRecord extends { id: string }>(
+  records: TRecord[],
+  options: { overwriteExisting: boolean },
+  counts: Counts,
+  ops: {
+    listExistingIds(ids: string[]): Promise<Set<string>>;
+    listTakenSecondaryValues(values: string[]): Promise<Set<string>>;
+    secondaryValueOf(record: TRecord): string | undefined;
+    createManySkipDuplicates(records: TRecord[]): Promise<number>;
+    hasSecondaryClash(record: TRecord): Promise<boolean>;
+    updateById(record: TRecord): Promise<void>;
+  },
+): Promise<void> {
+  if (records.length === 0) return;
+
+  const existingIds = await ops.listExistingIds(records.map((r) => r.id));
+  let toCreate = records.filter((r) => !existingIds.has(r.id));
+  const toUpdate = records.filter((r) => existingIds.has(r.id));
+
+  if (toCreate.length > 0) {
+    // Secondary unique: only rows carrying a non-empty secondary value compete.
+    const values = [
+      ...new Set(toCreate.map((r) => ops.secondaryValueOf(r)).filter((value): value is string => Boolean(value))),
+    ];
+    if (values.length > 0) {
+      const taken = await ops.listTakenSecondaryValues(values);
+      const skippedSecondary = toCreate.filter((r) => {
+        const value = ops.secondaryValueOf(r);
+        return value !== undefined && taken.has(value);
+      });
+      toCreate = toCreate.filter((r) => {
+        const value = ops.secondaryValueOf(r);
+        return value === undefined || !taken.has(value);
+      });
+      counts.skipped += skippedSecondary.length;
+    }
+  }
+
+  if (toCreate.length > 0) {
+    counts.created += await ops.createManySkipDuplicates(toCreate);
+  }
+
+  if (options.overwriteExisting) {
+    for (const r of toUpdate) {
+      if (await ops.hasSecondaryClash(r)) {
+        counts.skipped += 1;
+        continue;
+      }
+      await ops.updateById(r);
+      counts.updated += 1;
+    }
+  } else {
+    counts.skipped += toUpdate.length;
+  }
+}

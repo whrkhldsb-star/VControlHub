@@ -1,3 +1,5 @@
+import { isValidTcpPort } from "@/lib/runtime/listen-port";
+
 export type QuickServiceAccessMode = "direct-port" | "reverse-proxy";
 
 export type QuickServiceAccessDescriptor = {
@@ -36,7 +38,7 @@ export function buildQuickServiceAccessDescriptor(input: {
 	path?: string | null;
 }): QuickServiceAccessDescriptor | null {
 	const port = input.port ?? input.defaultPort;
-	if (!Number.isInteger(port) || port < 1 || port > 65535) return null;
+	if (!isValidTcpPort(port)) return null;
 
 	const configured = normalizeQuickServicePublicHost(input.configuredHost);
 	const host = configured ?? normalizeQuickServicePublicHost(input.browserHost);

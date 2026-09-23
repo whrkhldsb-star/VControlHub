@@ -12,6 +12,7 @@ import { BusinessError } from "@/lib/errors";
 import { createLogger } from "@/lib/logging";
 import { t } from "@/lib/i18n/service-translations";
 import { shellQuote } from "@/lib/shell-quote";
+import { isValidTcpPort } from "@/lib/runtime/listen-port";
 import { loadEnabledServerForSsh, type SshServerTarget } from "@/lib/ssh/server-target";
 import { execRemoteCommand } from "@/lib/ssh/client";
 
@@ -123,7 +124,7 @@ export function dockerErrorMessage(error: unknown): string {
 
 /** Probe whether a TCP port is free on a remote VPS (ss via SSH). */
 export async function isRemotePortAvailable(serverId: string, port: number): Promise<boolean> {
-  if (!Number.isInteger(port) || port < 1 || port > 65535) return false;
+  if (!isValidTcpPort(port)) return false;
   const { server, ssh } = await loadRemoteSshParams(serverId);
   const command =
     `PORT=${port}; ` +

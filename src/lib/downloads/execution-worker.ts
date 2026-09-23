@@ -13,6 +13,7 @@ import {
   pruneTerminalJobsByType,
 } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
+import { createSingletonIntervalWorker } from "@/lib/workers/singleton-interval-worker";
 import { decryptServerPassword, decryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
 
 import {
@@ -53,24 +54,30 @@ type DownloadExecutionJobPayload = {
   sourceResolution?: DownloadSourceResolution;
 };
 
-type DownloadExecutionWorkerState = {
-  started: boolean;
-  running: boolean;
-  timer: NodeJS.Timeout | null;
-};
-
-type DownloadExecutionWorkerGlobal = typeof globalThis & {
-  __vcontrolhubDownloadExecutionWorker?: DownloadExecutionWorkerState;
-};
+const downloadExecutionWorker = createSingletonIntervalWorker({
+  globalKey: "__vcontrolhubDownloadExecutionWorker",
+  resolveIntervalMs: () => config.worker.downloadExecutionIntervalMs,
+  tick: (_state, reason) => {
+    void runDownloadExecutionJobWorkerOnce().catch((error) => {
+      logger.error(
+        reason === "startup" ? "Download execution worker startup tick failed" : "Download execution worker interval tick failed",
+        {
+          error: error instanceof Error ? error.message : String(error),
+        },
+      );
+    });
+  },
+  onStarted: (_state, intervalMs) => {
+    logger.info("download execution durable job worker started", {
+      intervalMs,
+      workerId: DOWNLOAD_EXECUTION_WORKER_ID,
+      leaseMs: DOWNLOAD_EXECUTION_LEASE_MS,
+    });
+  },
+});
 
 function getWorkerState() {
-  const globalState = globalThis as DownloadExecutionWorkerGlobal;
-  globalState.__vcontrolhubDownloadExecutionWorker ??= {
-    started: false,
-    running: false,
-    timer: null,
-  };
-  return globalState.__vcontrolhubDownloadExecutionWorker;
+  return downloadExecutionWorker.getState();
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -458,48 +465,17 @@ export async function runDownloadExecutionJobWorkerOnce() {
 }
 
 export async function startDownloadJobWorker(options: { intervalMs?: number } = {}) {
-  const state = getWorkerState();
-  if (state.started) return state;
-
-  state.started = true;
-  const intervalMs = options.intervalMs ?? config.worker.downloadExecutionIntervalMs;
-
-  void runDownloadExecutionJobWorkerOnce().catch((error) => {
-    logger.error("Download execution worker startup tick failed", {
-      error: error instanceof Error ? error.message : String(error),
-    });
-  });
-  state.timer = setInterval(() => {
-    void runDownloadExecutionJobWorkerOnce().catch((error) => {
-      logger.error("Download execution worker interval tick failed", {
-        error: error instanceof Error ? error.message : String(error),
-      });
-    });
-  }, intervalMs);
-  state.timer.unref?.();
-
-  logger.info("download execution durable job worker started", {
-    intervalMs,
-    workerId: DOWNLOAD_EXECUTION_WORKER_ID,
-    leaseMs: DOWNLOAD_EXECUTION_LEASE_MS,
-  });
-  return state;
+  return (await downloadExecutionWorker.start(options)).state;
 }
 
 export function stopDownloadJobWorkerForTests() {
-  const state = getWorkerState();
-  if (state.timer) {
-    clearInterval(state.timer);
-  }
-  state.started = false;
-  state.running = false;
-  state.timer = null;
+  downloadExecutionWorker.stopForTests();
 }
 
 // Internal helper used by tests to peek at the live worker state without
 // leaking the global symbol across module boundaries.
-export function getDownloadExecutionWorkerStateForTests(): DownloadExecutionWorkerState {
-  return getWorkerState();
+export function getDownloadExecutionWorkerStateForTests() {
+  return downloadExecutionWorker.getState();
 }
 
 // Internal helper used by tests / recovery scripts to verify there is no

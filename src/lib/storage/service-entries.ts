@@ -116,6 +116,96 @@ type DeletedFileEntryRow = Prisma.FileEntryGetPayload<{
 
 export type { FileEntryListRow, DeletedFileEntryRow };
 
+/**
+ * Shared pagination builder for fileEntry list queries (TR: two verbatim
+ * copies used to sit inline in listFileEntries / listDeletedFileEntries).
+ *
+ * take defaults to a 1000-row cap (P2 收敛: caller can override explicitly so
+ * an ever-growing fileEntry table cannot blow up memory in one pull). Cursor
+ * semantics: `cursor` alone starts AT the cursor (inclusive); with `skip` too,
+ * Prisma skips N past the cursor, so skip is bumped by one to keep the cursor
+ * row included.
+ */
+function buildPaginationArgs(options: { take?: number; skip?: number; cursor?: string }): {
+  take: number;
+  skip?: number;
+  cursor?: { id: string };
+} {
+  const paginationArgs: { take: number; skip?: number; cursor?: { id: string } } = {
+    take: typeof options.take === "number" ? options.take : 1000,
+  };
+  if (typeof options.skip === "number") {
+    paginationArgs.skip = options.skip;
+    if (options.cursor) {
+      // With both `cursor` and `skip` set, Prisma positions *at* the cursor
+      // and then skips N more. We always want the cursor row included, so
+      // bump skip by one to offset the cursor row being skipped internally.
+      paginationArgs.cursor = { id: options.cursor };
+      paginationArgs.skip = options.skip + 1;
+    }
+  } else if (options.cursor) {
+    // Prisma's `cursor` alone (no skip) returns rows starting at the cursor
+    // (inclusive). That matches the "give me the page starting at this id"
+    // semantic callers expect.
+    paginationArgs.cursor = { id: options.cursor };
+  }
+  return paginationArgs;
+}
+
+/**
+ * Field-identical summary prefix shared by the list and deleted-list row
+ * mappers (TR: two verbatim copies). Generic so each caller's distinct
+ * storageNode include shape flows through unchanged; the explicit return type
+ * keeps T["storageNode"] deferred instead of widening to unknown.
+ */
+function toEntrySummary<
+  T extends {
+    id: string;
+    storageNodeId: string;
+    name: string;
+    entryType: "FILE" | "DIRECTORY";
+    mimeType: string | null;
+    size: bigint | null;
+    checksumSha256: string | null;
+    relativePath: string;
+    parentId: string | null;
+    isDeleted: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+    storageNode: unknown;
+  },
+>(entry: T): {
+  id: T["id"];
+  storageNodeId: T["storageNodeId"];
+  name: T["name"];
+  entryType: T["entryType"];
+  mimeType: T["mimeType"];
+  size: T["size"];
+  checksumSha256: T["checksumSha256"];
+  relativePath: T["relativePath"];
+  parentId: T["parentId"];
+  isDeleted: T["isDeleted"];
+  createdAt: string;
+  updatedAt: string;
+  storageNode: T["storageNode"];
+} {
+  return {
+    id: entry.id,
+    storageNodeId: entry.storageNodeId,
+    name: entry.name,
+    entryType: entry.entryType,
+    mimeType: entry.mimeType,
+    size: entry.size,
+    checksumSha256: entry.checksumSha256,
+    relativePath: entry.relativePath,
+    parentId: entry.parentId,
+    isDeleted: entry.isDeleted,
+    createdAt: entry.createdAt?.toISOString?.() ?? entry.createdAt,
+    updatedAt: entry.updatedAt?.toISOString?.() ?? entry.updatedAt,
+    storageNode: entry.storageNode,
+  };
+}
+
 export async function createFileEntry(input: CreateFileEntryInput) {
   const payload = createFileEntrySchema.parse(input);
 
@@ -381,25 +471,7 @@ export async function listFileEntries(
   };
 
   // P2 收敛: 默认 take=1000 上界, caller 传 take 显式覆盖。防止 fileEntry 表无界增长后单次拉爆内存。
-  const paginationArgs: { take: number; skip?: number; cursor?: { id: string } } = {
-    take: typeof options.take === "number" ? options.take : 1000,
-  };
-  if (typeof options.skip === "number") {
-    paginationArgs.skip = options.skip;
-    if (options.cursor) {
-      // With both `cursor` and `skip` set, Prisma positions *at* the cursor
-      // and then skips N more. We always want the cursor row included, so
-      // bump skip by one to offset the cursor row being skipped internally.
-      paginationArgs.cursor = { id: options.cursor };
-      paginationArgs.skip = options.skip + 1;
-    }
-  } else if (options.cursor) {
-    // Prisma's `cursor` alone (no skip) returns rows starting at the cursor
-    // (inclusive). That matches the "give me the page starting at this id"
-    // semantic callers expect.
-    paginationArgs.cursor = { id: options.cursor };
-  }
-
+  const paginationArgs = buildPaginationArgs(options);
 
   const entries = await prisma.fileEntry.findMany({
     where,
@@ -438,19 +510,7 @@ export async function listFileEntries(
     });
 
     return {
-      id: entry.id,
-      storageNodeId: entry.storageNodeId,
-      name: entry.name,
-      entryType: entry.entryType,
-      mimeType: entry.mimeType,
-      size: entry.size,
-      checksumSha256: entry.checksumSha256,
-      relativePath: entry.relativePath,
-      parentId: entry.parentId,
-      isDeleted: entry.isDeleted,
-      createdAt: entry.createdAt?.toISOString?.() ?? entry.createdAt,
-      updatedAt: entry.updatedAt?.toISOString?.() ?? entry.updatedAt,
-      storageNode: entry.storageNode,
+      ...toEntrySummary<FileEntryListRow>(entry),
       sizeLabel: entry.size == null ? "-" : formatFileSize(Number(entry.size)),
       directAccess,
       // LOCAL drafts use /api/files/editable; SFTP drafts use sftp-ops.
@@ -484,18 +544,7 @@ export async function listDeletedFileEntries(
   };
 
   // P2 收敛: 默认 take=1000 上界, caller 传 take 显式覆盖。
-  const paginationArgs: { take: number; skip?: number; cursor?: { id: string } } = {
-    take: typeof options.take === "number" ? options.take : 1000,
-  };
-  if (typeof options.skip === "number") {
-    paginationArgs.skip = options.skip;
-    if (options.cursor) {
-      paginationArgs.cursor = { id: options.cursor };
-      paginationArgs.skip = options.skip + 1;
-    }
-  } else if (options.cursor) {
-    paginationArgs.cursor = { id: options.cursor };
-  }
+  const paginationArgs = buildPaginationArgs(options);
 
   const entries = await prisma.fileEntry.findMany({
     where,
@@ -516,19 +565,7 @@ export async function listDeletedFileEntries(
   });
 
   return entries.map((entry: DeletedFileEntryRow) => ({
-    id: entry.id,
-    storageNodeId: entry.storageNodeId,
-    name: entry.name,
-    entryType: entry.entryType,
-    mimeType: entry.mimeType,
-    size: entry.size,
-    checksumSha256: entry.checksumSha256,
-    relativePath: entry.relativePath,
-    parentId: entry.parentId,
-    isDeleted: entry.isDeleted,
-    createdAt: entry.createdAt?.toISOString?.() ?? entry.createdAt,
-    updatedAt: entry.updatedAt?.toISOString?.() ?? entry.updatedAt,
-    storageNode: entry.storageNode,
+    ...toEntrySummary<DeletedFileEntryRow>(entry),
     sizeLabel: entry.size == null ? "-" : formatFileSize(Number(entry.size)),
   }));
 }

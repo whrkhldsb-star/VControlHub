@@ -30,6 +30,7 @@ import {
   heartbeatJob,
 } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
+import { createSingletonIntervalWorker } from "@/lib/workers/singleton-interval-worker";
 
 import {
   OPERATION_TASK_RETENTION_JOB_TYPE,
@@ -45,24 +46,27 @@ const OPERATION_TASK_RETENTION_LEASE_MS = computeLeaseMs(
 );
 const OPERATION_TASK_RETENTION_WORKER_ID = `${config.app.hostname || "vcontrolhub"}:operation-task-retention:${process.pid}`;
 
-type OperationTaskRetentionWorkerState = {
-  started: boolean;
-  running: boolean;
-  timer: NodeJS.Timeout | null;
-};
-
-type OperationTaskRetentionWorkerGlobal = typeof globalThis & {
-  __vcontrolhubOperationTaskRetentionWorker?: OperationTaskRetentionWorkerState;
-};
+const operationTaskRetentionWorker = createSingletonIntervalWorker({
+  globalKey: "__vcontrolhubOperationTaskRetentionWorker",
+  resolveIntervalMs: () => OPERATION_TASK_RETENTION_INTERVAL_MS,
+  tick: (_state, reason) => {
+    void runOperationTaskRetentionJobWorkerOnce(reason).catch((error) => {
+      logger.error("Operation task retention worker tick failed", {
+        reason,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
+  },
+  onStarted: (_state, intervalMs) => {
+    logger.info("operation-task retention durable job worker started", {
+      workerId: OPERATION_TASK_RETENTION_WORKER_ID,
+      intervalMs,
+    });
+  },
+});
 
 function getWorkerState() {
-  const globalState = globalThis as OperationTaskRetentionWorkerGlobal;
-  globalState.__vcontrolhubOperationTaskRetentionWorker ??= {
-    started: false,
-    running: false,
-    timer: null,
-  };
-  return globalState.__vcontrolhubOperationTaskRetentionWorker;
+  return operationTaskRetentionWorker.getState();
 }
 
 async function hasActiveRetentionJob() {
@@ -192,41 +196,9 @@ export async function runOperationTaskRetentionJobWorkerOnce(
 }
 
 export async function startOperationTaskRetentionWorker() {
-  const state = getWorkerState();
-  if (state.started) return state;
-
-  state.started = true;
-  const intervalMs = OPERATION_TASK_RETENTION_INTERVAL_MS;
-
-  void runOperationTaskRetentionJobWorkerOnce("startup").catch((error) => {
-    logger.error("Operation task retention worker tick failed", {
-      reason: "startup",
-      error: error instanceof Error ? error.message : String(error),
-    });
-  });
-  state.timer = setInterval(() => {
-    void runOperationTaskRetentionJobWorkerOnce("interval").catch((error) => {
-      logger.error("Operation task retention worker tick failed", {
-        reason: "interval",
-        error: error instanceof Error ? error.message : String(error),
-      });
-    });
-  }, intervalMs);
-  state.timer.unref?.();
-
-  logger.info("operation-task retention durable job worker started", {
-    workerId: OPERATION_TASK_RETENTION_WORKER_ID,
-    intervalMs,
-  });
-  return state;
+  return (await operationTaskRetentionWorker.start()).state;
 }
 
 export function stopOperationTaskRetentionWorkerForTests() {
-  const state = getWorkerState();
-  if (state.timer) {
-    clearInterval(state.timer);
-  }
-  state.started = false;
-  state.running = false;
-  state.timer = null;
+  operationTaskRetentionWorker.stopForTests();
 }

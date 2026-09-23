@@ -6,6 +6,8 @@
  * collector reads one Prisma table and strips secrets according to mode/scope.
  */
 
+import type { Prisma } from "@prisma/client";
+
 import { prisma } from "@/lib/db";
 import { isSensitiveSettingKey } from "@/lib/system/config-schema";
 
@@ -80,6 +82,9 @@ export async function exportUsers(
   scope: ExportScope,
   teamId: string | null,
 ) {
+  // Team scope narrows the WHERE only: select and row mapping are shared with
+  // the all-users export below (TR: the two branches used to duplicate both).
+  let where: Prisma.UserWhereInput = {};
   if (scope === "team" && teamId) {
     const memberUserIds = (
       await readAllPages(async (page) => prisma.teamMember.findMany({
@@ -90,38 +95,11 @@ export async function exportUsers(
       }))
     ).map((m) => m.userId);
     if (memberUserIds.length === 0) return [];
-    const rows = await readAllPages(async (page) => prisma.user.findMany({
-      where: { id: { in: memberUserIds } },
-      orderBy: { username: "asc" },
-      select: {
-        id: true,
-        username: true,
-        displayName: true,
-        status: true,
-        mustChangePassword: true,
-        twoFactorEnabled: true,
-        preferences: true,
-        createdAt: true,
-        passwordHash: mode === "full",
-        twoFactorSecret: mode === "full",
-      },
-      ...page,
-    }));
-    return rows.map((r) => ({
-      id: r.id,
-      username: r.username,
-      displayName: r.displayName,
-      passwordHash: mode === "full" ? r.passwordHash : null,
-      status: r.status,
-      mustChangePassword: r.mustChangePassword,
-      twoFactorEnabled: r.twoFactorEnabled,
-      twoFactorSecret: mode === "full" ? r.twoFactorSecret : null,
-      preferences: r.preferences,
-      createdAt: dateToISO(r.createdAt)!,
-    }));
+    where = { id: { in: memberUserIds } };
   }
 
   const rows = await readAllPages(async (page) => prisma.user.findMany({
+    where,
     orderBy: { username: "asc" },
     select: {
       id: true,

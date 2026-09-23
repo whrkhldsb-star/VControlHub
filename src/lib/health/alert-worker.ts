@@ -15,6 +15,7 @@ import {
   pruneCompletedJobsByType,
 } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
+import { createSingletonIntervalWorker } from "@/lib/workers/singleton-interval-worker";
 
 import { evaluateAlerts } from "./service";
 
@@ -28,25 +29,24 @@ const ALERT_EVALUATION_LEASE_MS = computeLeaseMs("alert-evaluation");
 const ALERT_EVALUATION_RETENTION_KEEP_LATEST = 25;
 const ALERT_EVALUATION_WORKER_ID = `${config.app.hostname || "vcontrolhub"}:alert:${process.pid}`;
 
-type AlertEvaluationWorkerState = {
-  started: boolean;
-  running: boolean;
-  timer: NodeJS.Timeout | null;
-};
-
-type AlertEvaluationWorkerGlobal = typeof globalThis & {
-  __vcontrolhubAlertEvaluationWorker?: AlertEvaluationWorkerState;
-};
-
-function getWorkerState() {
-  const globalState = globalThis as AlertEvaluationWorkerGlobal;
-  globalState.__vcontrolhubAlertEvaluationWorker ??= {
-    started: false,
-    running: false,
-    timer: null,
-  };
-  return globalState.__vcontrolhubAlertEvaluationWorker;
-}
+const alertEvaluationWorker = createSingletonIntervalWorker({
+  globalKey: "__vcontrolhubAlertEvaluationWorker",
+  resolveIntervalMs: () => ALERT_EVALUATION_INTERVAL_MS,
+  tick: (_state, reason) => {
+    void runAlertEvaluationJobWorkerOnce(reason).catch((error) => {
+      logger.error("Alert evaluation worker tick failed", {
+        reason,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
+  },
+  onStarted: (_state, intervalMs) => {
+    logger.info("alert evaluation durable job worker started", {
+      workerId: ALERT_EVALUATION_WORKER_ID,
+      intervalMs,
+    });
+  },
+});
 
 async function hasActiveEvaluationJob() {
   const existing = await prisma.job.findFirst({
@@ -116,7 +116,7 @@ async function processAlertEvaluation(jobId: string) {
 }
 
 export async function runAlertEvaluationJobWorkerOnce(reason = "manual") {
-  const state = getWorkerState();
+  const state = alertEvaluationWorker.getState();
   if (state.running) {
     logger.warn(
       "Skipping alert evaluation tick because a previous tick is still running",
@@ -174,41 +174,9 @@ export async function runAlertEvaluationJobWorkerOnce(reason = "manual") {
 }
 
 export async function startAlertEvaluationWorker() {
-  const state = getWorkerState();
-  if (state.started) return state;
-
-  state.started = true;
-  const intervalMs = ALERT_EVALUATION_INTERVAL_MS;
-
-  void runAlertEvaluationJobWorkerOnce("startup").catch((error) => {
-    logger.error("Alert evaluation worker tick failed", {
-      reason: "startup",
-      error: error instanceof Error ? error.message : String(error),
-    });
-  });
-  state.timer = setInterval(() => {
-    void runAlertEvaluationJobWorkerOnce("interval").catch((error) => {
-      logger.error("Alert evaluation worker tick failed", {
-        reason: "interval",
-        error: error instanceof Error ? error.message : String(error),
-      });
-    });
-  }, intervalMs);
-  state.timer.unref?.();
-
-  logger.info("alert evaluation durable job worker started", {
-    workerId: ALERT_EVALUATION_WORKER_ID,
-    intervalMs,
-  });
-  return state;
+  return (await alertEvaluationWorker.start()).state;
 }
 
 export function stopAlertEvaluationWorkerForTests() {
-  const state = getWorkerState();
-  if (state.timer) {
-    clearInterval(state.timer);
-  }
-  state.started = false;
-  state.running = false;
-  state.timer = null;
+  alertEvaluationWorker.stopForTests();
 }

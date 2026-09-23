@@ -228,6 +228,54 @@ export async function executeSafeAction(
 
 // ── 审批操作 ──────────────────────────────────────────────
 
+/**
+ * The tool wrapper approveHostedAction / confirmHostedAction both hand to
+ * buildAssistantCommandRequestPayload (TR: duplicated verbatim in both tails).
+ * Every field except name/description/parameters comes straight off the action
+ * row so the assistant-issued metadata survives the approval hop.
+ */
+function hostedActionTool(action: {
+  actionType: string;
+  actionName: string;
+  riskLevel: string;
+  autoApproved: boolean;
+}): HostedTool {
+  return {
+    name: action.actionType,
+    description: "",
+    parameters: {},
+    riskLevel: action.riskLevel as HostedTool["riskLevel"],
+    autoApproved: action.autoApproved,
+    // Both call sites have passed isHostedActionType() before reaching here.
+    actionType: action.actionType as HostedTool["actionType"],
+    actionName: action.actionName,
+  };
+}
+
+/**
+ * Persist the outcome of an APPROVED hosted action that produced a durable
+ * CommandRequest: write the request pointer onto the action row and mirror it
+ * into the assistant tool-message. Shared by approveHostedAction (admin
+ * approval) and confirmHostedAction (requester self-confirmation), which keep
+ * their own permission checks and CAS ordering.
+ */
+async function persistApprovedCommandRequestOutcome(
+  actionId: string,
+  action: Parameters<typeof persistHostedToolOutcome>[0],
+  request: { id: string; requiresApproval: boolean },
+): Promise<void> {
+  const commandRequest = { commandRequestId: request.id, requiresApproval: request.requiresApproval };
+  await prisma.aiHostedAction.update({
+    where: { id: actionId },
+    data: { result: JSON.stringify(commandRequest) },
+  });
+  await persistHostedToolOutcome(action, {
+    success: true,
+    status: "APPROVED",
+    ...commandRequest,
+  });
+}
+
 async function persistHostedToolOutcome(
   action: {
     id: string;
@@ -404,15 +452,7 @@ export async function approveHostedAction(actionId: string, approver: HostedActi
 
   const params = JSON.parse(action.params) as Record<string, unknown>;
   const commandRequestPayload = await buildAssistantCommandRequestPayload({
-    tool: {
-      name: action.actionType,
-      description: "",
-      parameters: {},
-      riskLevel: action.riskLevel as HostedTool["riskLevel"],
-      autoApproved: action.autoApproved,
-      actionType: action.actionType,
-      actionName: action.actionName,
-    },
+    tool: hostedActionTool(action),
     args: params,
     userId: action.requesterId,
     serverId: action.serverId,
@@ -438,21 +478,7 @@ export async function approveHostedAction(actionId: string, approver: HostedActi
     throw new BusinessError(t("backend.ai.actionIsNotPendingApproval"));
   }
 
-  await prisma.aiHostedAction.update({
-    where: { id: actionId },
-    data: {
-      result: JSON.stringify({
-        commandRequestId: request.id,
-        requiresApproval: request.requiresApproval,
-      }),
-    },
-  });
-  await persistHostedToolOutcome(action, {
-    success: true,
-    status: "APPROVED",
-    commandRequestId: request.id,
-    requiresApproval: request.requiresApproval,
-  });
+  await persistApprovedCommandRequestOutcome(actionId, action, request);
 }
 
 export async function confirmHostedAction(actionId: string, requester: HostedActionSession) {
@@ -551,15 +577,7 @@ export async function confirmHostedAction(actionId: string, requester: HostedAct
   if (!action.serverId) throw new BusinessError(t("backend.ai.noTargetVpsBoundCannotCreateCommandRequest"));
 
   const commandRequestPayload = await buildAssistantCommandRequestPayload({
-    tool: {
-      name: action.actionType,
-      description: "",
-      parameters: {},
-      riskLevel: action.riskLevel as HostedTool["riskLevel"],
-      autoApproved: action.autoApproved,
-      actionType: action.actionType,
-      actionName: action.actionName,
-    },
+    tool: hostedActionTool(action),
     args: params,
     userId: requester.userId,
     serverId: action.serverId,
@@ -585,17 +603,8 @@ export async function confirmHostedAction(actionId: string, requester: HostedAct
     roles: requester.roles,
     currentTeamId: requester.currentTeamId ?? null,
   });
-  const commandRequest = { commandRequestId: request.id, requiresApproval: request.requiresApproval };
 
-  await prisma.aiHostedAction.update({
-    where: { id: actionId },
-    data: { result: JSON.stringify(commandRequest) },
-  });
-  await persistHostedToolOutcome(action, {
-    success: true,
-    status: "APPROVED",
-    ...commandRequest,
-  });
+  await persistApprovedCommandRequestOutcome(actionId, action, request);
 }
 
 export async function rejectHostedAction(actionId: string, actor: HostedActionSession, reason?: string) {

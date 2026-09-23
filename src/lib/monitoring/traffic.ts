@@ -58,4 +58,30 @@ export function calculateTrafficRate(previous: TrafficCounterSample | null, curr
 	};
 }
 
+/**
+ * How long a cached counter stays usable as a rate baseline (TR: one constant,
+ * two former copies in remote-traffic.ts and server-traffic-snapshot.ts).
+ *
+ * One hour is far longer than the 5-minute sampling cadence, so a healthy
+ * server never loses its baseline; beyond it, a rate computed against the
+ * stored counter would divide the delta by the whole gap and report a
+ * long-run average as if it were current throughput.
+ */
+export const PREVIOUS_SAMPLE_TTL_MS = 60 * 60 * 1000;
+
+/**
+ * Drop cached counters not refreshed within {@link PREVIOUS_SAMPLE_TTL_MS}
+ * (or with an unparseable timestamp). Keeps the previous-sample maps bounded:
+ * a server deleted from the fleet (or a renamed/disappeared interface)
+ * otherwise kept its entry for the lifetime of the process.
+ */
+export function evictStaleTrafficSamples(samples: Map<string, TrafficCounterSample>, now: number): void {
+	for (const [key, sample] of samples) {
+		const sampledAt = Date.parse(sample.sampledAt);
+		if (!Number.isFinite(sampledAt) || now - sampledAt > PREVIOUS_SAMPLE_TTL_MS) {
+			samples.delete(key);
+		}
+	}
+}
+
 export { formatBytes, formatBytesPerSecond } from "@/lib/format/bytes";
