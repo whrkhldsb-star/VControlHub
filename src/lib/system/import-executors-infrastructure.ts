@@ -6,72 +6,54 @@
  */
 
 import type { ExportFile, ImportOptions } from "@/lib/system/config-schema";
-import { parseBigInt } from "./import-executors-helpers";
-import type { Tx, Counts } from "./import-executors-helpers";
+import { parseBigInt, upsertById, upsertByIdWithSecondaryUnique, type Tx, type Counts } from "./import-executors-helpers";
 
-// 6. SshKeys
+// 6. SshKeys (fingerprint is a secondary unique key)
 export async function importSshKeys(
   tx: Tx,
   t: ExportFile["tables"],
   options: ImportOptions,
   counts: Counts,
 ): Promise<void> {
-  const records = t.sshKeys;
-  if (records.length === 0) return;
-  const ids = records.map((r) => r.id);
-  const existing = await tx.sshKey.findMany({
-    where: { id: { in: ids } },
-    select: { id: true },
-  });
-  const existingIds = new Set(existing.map((e) => e.id));
-  let toCreate = records.filter((r) => !existingIds.has(r.id));
-  const toUpdate = records.filter((r) => existingIds.has(r.id));
-
-  if (toCreate.length > 0) {
-    // Secondary unique: SshKey.fingerprint
-    const fps = [...new Set(toCreate.map((r) => r.fingerprint).filter(Boolean))];
-    if (fps.length > 0) {
-      const fpHits = await tx.sshKey.findMany({
-        where: { fingerprint: { in: fps } },
-        select: { id: true, fingerprint: true },
-      });
-      const taken = new Set(fpHits.map((h) => h.fingerprint));
-      const skippedSecondary = toCreate.filter((r) => r.fingerprint && taken.has(r.fingerprint));
-      toCreate = toCreate.filter((r) => !(r.fingerprint && taken.has(r.fingerprint)));
-      counts.skipped += skippedSecondary.length;
-    }
-  }
-
-  if (toCreate.length > 0) {
-    const result = await tx.sshKey.createMany({
-      data: toCreate.map((r) => ({
-        id: r.id,
-        name: r.name,
-        fingerprint: r.fingerprint,
-        publicKey: r.publicKey,
-        privateKey: r.privateKey,
-        passphrase: r.passphrase,
-        description: r.description,
-        // Multi-tenant: preserve export teamId (null stays legacy-shared)
-        teamId: r.teamId ?? null,
-      })),
-      skipDuplicates: true,
-    });
-    counts.created += result.count;
-  }
-
-  if (options.overwriteExisting) {
-    for (const r of toUpdate) {
-      if (r.fingerprint) {
-        const clash = await tx.sshKey.findFirst({
+  await upsertByIdWithSecondaryUnique(t.sshKeys, options, counts, {
+    listExistingIds: async (ids) =>
+      new Set(
+        (await tx.sshKey.findMany({ where: { id: { in: ids } }, select: { id: true } })).map((e) => e.id),
+      ),
+    listTakenSecondaryValues: async (values) =>
+      new Set(
+        (await tx.sshKey.findMany({ where: { fingerprint: { in: values } }, select: { fingerprint: true } })).map(
+          (h) => h.fingerprint,
+        ),
+      ),
+    secondaryValueOf: (r) => r.fingerprint || undefined,
+    createManySkipDuplicates: async (rows) =>
+      (
+        await tx.sshKey.createMany({
+          data: rows.map((r) => ({
+            id: r.id,
+            name: r.name,
+            fingerprint: r.fingerprint,
+            publicKey: r.publicKey,
+            privateKey: r.privateKey,
+            passphrase: r.passphrase,
+            description: r.description,
+            // Multi-tenant: preserve export teamId (null stays legacy-shared)
+            teamId: r.teamId ?? null,
+          })),
+          skipDuplicates: true,
+        })
+      ).count,
+    hasSecondaryClash: async (r) => {
+      if (!r.fingerprint) return false;
+      return Boolean(
+        await tx.sshKey.findFirst({
           where: { fingerprint: r.fingerprint, NOT: { id: r.id } },
           select: { id: true },
-        });
-        if (clash) {
-          counts.skipped += 1;
-          continue;
-        }
-      }
+        }),
+      );
+    },
+    updateById: async (r) => {
       await tx.sshKey.update({
         where: { id: r.id },
         data: {
@@ -87,11 +69,8 @@ export async function importSshKeys(
           teamId: r.teamId ?? null,
         },
       });
-      counts.updated += 1;
-    }
-  } else {
-    counts.skipped += toUpdate.length;
-  }
+    },
+  });
 }
 
 // 7. Servers
@@ -101,72 +80,62 @@ export async function importServers(
   options: ImportOptions,
   counts: Counts,
 ): Promise<void> {
-  const records = t.servers;
-  if (records.length === 0) return;
-  const ids = records.map((r) => r.id);
-  const existing = await tx.server.findMany({
-    where: { id: { in: ids } },
-    select: { id: true },
+  // Create carries the exported password verbatim (null in Standard mode);
+  // update only replaces it when the export actually carries one.
+  const toCreateData = (r: ExportFile["tables"]["servers"][number]) => ({
+    id: r.id,
+    name: r.name,
+    host: r.host,
+    port: r.port,
+    username: r.username,
+    sshKeyId: r.sshKeyId,
+    // Full mode: restore actual password; Standard: null
+    password: r.password,
+    description: r.description,
+    tags: r.tags,
+    enabled: r.enabled,
+    connectionType: r.connectionType as never,
+    publicUrl: r.publicUrl,
+    fileProxyPort: r.fileProxyPort,
+    osDialect: r.osDialect,
+    osInfo: r.osInfo,
+    // Multi-tenant: preserve export teamId (null stays legacy-shared)
+    teamId: r.teamId ?? null,
   });
-  const existingIds = new Set(existing.map((e) => e.id));
-  const toCreate = records.filter((r) => !existingIds.has(r.id));
-  const toUpdate = records.filter((r) => existingIds.has(r.id));
-
-  if (toCreate.length > 0) {
-    const result = await tx.server.createMany({
-      data: toCreate.map((r) => ({
-        id: r.id,
-        name: r.name,
-        host: r.host,
-        port: r.port,
-        username: r.username,
-        sshKeyId: r.sshKeyId,
-        // Full mode: restore actual password; Standard: null
-        password: r.password,
-        description: r.description,
-        tags: r.tags,
-        enabled: r.enabled,
-        connectionType: r.connectionType as never,
-        publicUrl: r.publicUrl,
-        fileProxyPort: r.fileProxyPort,
-        osDialect: r.osDialect,
-        osInfo: r.osInfo,
-        // Multi-tenant: preserve export teamId (null stays legacy-shared)
-        teamId: r.teamId ?? null,
-      })),
-      skipDuplicates: true,
-    });
-    counts.created += result.count;
-  }
-
-  if (options.overwriteExisting) {
-    for (const r of toUpdate) {
-      await tx.server.update({
-        where: { id: r.id },
-        data: {
-          name: r.name,
-          host: r.host,
-          port: r.port,
-          username: r.username,
-          // Full mode: restore password; Standard: keep existing
-          ...(r.password ? { password: r.password } : {}),
-          sshKeyId: r.sshKeyId,
-          description: r.description,
-          tags: r.tags,
-          enabled: r.enabled,
-          connectionType: r.connectionType as never,
-          publicUrl: r.publicUrl,
-          fileProxyPort: r.fileProxyPort,
-          osDialect: r.osDialect,
-          osInfo: r.osInfo,
-          teamId: r.teamId ?? null,
-        },
-      });
-    }
-    counts.updated += toUpdate.length;
-  } else {
-    counts.skipped += toUpdate.length;
-  }
+  const toUpdateData = (r: ExportFile["tables"]["servers"][number]) => ({
+    name: r.name,
+    host: r.host,
+    port: r.port,
+    username: r.username,
+    // Full mode: restore password; Standard: keep existing
+    ...(r.password ? { password: r.password } : {}),
+    sshKeyId: r.sshKeyId,
+    description: r.description,
+    tags: r.tags,
+    enabled: r.enabled,
+    connectionType: r.connectionType as never,
+    publicUrl: r.publicUrl,
+    fileProxyPort: r.fileProxyPort,
+    osDialect: r.osDialect,
+    osInfo: r.osInfo,
+    teamId: r.teamId ?? null,
+  });
+  await upsertById(t.servers, options, counts, {
+    listExistingIds: async (ids) =>
+      new Set(
+        (await tx.server.findMany({ where: { id: { in: ids } }, select: { id: true } })).map((e) => e.id),
+      ),
+    createManySkipDuplicates: async (rows) =>
+      (
+        await tx.server.createMany({
+          data: rows.map(toCreateData),
+          skipDuplicates: true,
+        })
+      ).count,
+    updateById: async (r) => {
+      await tx.server.update({ where: { id: r.id }, data: toUpdateData(r) });
+    },
+  });
 }
 
 // 8. StorageNodes
@@ -208,64 +177,39 @@ export async function importStorageNodes(
 ): Promise<void> {
   const records = t.storageNodes;
   if (records.length === 0) return;
-  const ids = records.map((r) => r.id);
-  const existing = await tx.storageNode.findMany({
-    where: { id: { in: ids } },
-    select: { id: true },
+
+  const toData = (r: ExportFile["tables"]["storageNodes"][number]) => ({
+    name: r.name,
+    driver: r.driver as never,
+    isDefault: r.isDefault,
+    basePath: r.basePath,
+    directAccessMode: r.directAccessMode as never,
+    publicBaseUrl: r.publicBaseUrl,
+    directAccessExpiresSeconds: r.directAccessExpiresSeconds,
+    host: r.host,
+    port: r.port,
+    username: r.username,
+    serverId: r.serverId,
+    healthStatus: r.healthStatus,
+    // Multi-tenant: preserve export teamId (null stays legacy-shared)
+    teamId: r.teamId ?? null,
   });
-  const existingIds = new Set(existing.map((e) => e.id));
-  const toCreate = records.filter((r) => !existingIds.has(r.id));
-  const toUpdate = records.filter((r) => existingIds.has(r.id));
-
-  if (toCreate.length > 0) {
-    const result = await tx.storageNode.createMany({
-      data: toCreate.map((r) => ({
-        id: r.id,
-        name: r.name,
-        driver: r.driver as never,
-        isDefault: r.isDefault,
-        basePath: r.basePath,
-        directAccessMode: r.directAccessMode as never,
-        publicBaseUrl: r.publicBaseUrl,
-        directAccessExpiresSeconds: r.directAccessExpiresSeconds,
-        host: r.host,
-        port: r.port,
-        username: r.username,
-        serverId: r.serverId,
-        healthStatus: r.healthStatus,
-        // Multi-tenant: preserve export teamId (null stays legacy-shared)
-        teamId: r.teamId ?? null,
-      })),
-      skipDuplicates: true,
-    });
-    counts.created += result.count;
-  }
-
-  if (options.overwriteExisting) {
-    for (const r of toUpdate) {
-      await tx.storageNode.update({
-        where: { id: r.id },
-        data: {
-          name: r.name,
-          driver: r.driver as never,
-          isDefault: r.isDefault,
-          basePath: r.basePath,
-          directAccessMode: r.directAccessMode as never,
-          publicBaseUrl: r.publicBaseUrl,
-          directAccessExpiresSeconds: r.directAccessExpiresSeconds,
-          host: r.host,
-          port: r.port,
-          username: r.username,
-          serverId: r.serverId,
-          healthStatus: r.healthStatus,
-          teamId: r.teamId ?? null,
-        },
-      });
-    }
-    counts.updated += toUpdate.length;
-  } else {
-    counts.skipped += toUpdate.length;
-  }
+  await upsertById(records, options, counts, {
+    listExistingIds: async (ids) =>
+      new Set(
+        (await tx.storageNode.findMany({ where: { id: { in: ids } }, select: { id: true } })).map((e) => e.id),
+      ),
+    createManySkipDuplicates: async (rows) =>
+      (
+        await tx.storageNode.createMany({
+          data: rows.map((r) => ({ id: r.id, ...toData(r) })),
+          skipDuplicates: true,
+        })
+      ).count,
+    updateById: async (r) => {
+      await tx.storageNode.update({ where: { id: r.id }, data: toData(r) });
+    },
+  });
 
   // Ensure at most one isDefault=true per team scope (null team = global/legacy pool).
   await normalizeStorageNodeDefaults(tx);

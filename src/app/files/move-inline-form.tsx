@@ -4,6 +4,7 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { useI18n } from "@/lib/i18n/use-locale";
+import { useActionStateNotifications } from "./use-action-state-notifications";
 import { type MoveFileActionState, moveFileAction } from "./move-file-action";
 
 import { UI_INPUT } from "@/lib/ui/classes";
@@ -36,15 +37,8 @@ export function MoveInlineForm({
   const [targetDir, setTargetDir] = useState("");
   const inputRef = useRef<HTMLInputElement | null>(null);
   const submittedRef = useRef(false);
-  const handledSuccessRef = useRef<string | null>(null);
   const [state, formAction, pending] = useActionState(moveFileAction, initialState);
-  const onNotifyRef = useRef(onNotify);
-  const onRefreshRef = useRef(onRefresh);
-
-  useEffect(() => {
-    onNotifyRef.current = onNotify;
-    onRefreshRef.current = onRefresh;
-  }, [onNotify, onRefresh]);
+  const { onRefreshRef } = useActionStateNotifications(state, onNotify, onRefresh);
 
   function handleToggle() {
     setEditing(true);
@@ -58,16 +52,6 @@ export function MoveInlineForm({
   }
 
   useEffect(() => {
-    if (!state.success) {
-      handledSuccessRef.current = null;
-      return;
-    }
-    if (handledSuccessRef.current === state.success) return;
-    handledSuccessRef.current = state.success;
-    onNotifyRef.current?.("success", state.success);
-  }, [state.success]);
-
-  useEffect(() => {
     if (pending || !submittedRef.current) return;
     const timer = window.setTimeout(() => {
       submittedRef.current = false;
@@ -77,12 +61,7 @@ export function MoveInlineForm({
       else router.refresh();
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [pending, state.error, router]);
-
-  useEffect(() => {
-    if (!state.error) return;
-    onNotify?.("error", state.error);
-  }, [state.error, onNotify]);
+  }, [pending, state.error, router, onRefreshRef]);
 
   if (!editing) {
     return (

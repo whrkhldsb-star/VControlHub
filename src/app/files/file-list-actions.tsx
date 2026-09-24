@@ -29,10 +29,7 @@ import {
   type StorageEntry,
 } from "./file-entry-utils";
 import type { FolderProp } from "./file-list-model";
-import type { FileProp } from "./file-entry-utils";
-
-type ToastFn = (type:"success" |"error" |"info", message: string) => void;
-type EntryGuard = (entry: { capabilities?: FileProp["capabilities"] }) => boolean;
+import type { EntryGuard, ToastFn } from "./file-list-view-props";
 
 /** Compact (icon-only) toggle for action buttons rendered in dense grids. */
 type CompactProp = { compact?: boolean };

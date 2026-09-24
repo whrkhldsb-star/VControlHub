@@ -75,6 +75,46 @@ export function parseBigInt(s: string | null, field = "size"): bigint | null {
 }
 
 /**
+ * Shared id-upsert scaffold for imports keyed by `id` alone (TR: one copy,
+ * ~8 former copies across the domain executor modules).
+ *
+ * Pipeline: existence check by id → createMany with skipDuplicates → on
+ * `overwriteExisting`, per-row update (counted as updated), else the existing
+ * rows are counted as skipped. All Prisma calls stay in the caller's `ops`
+ * closures so each model keeps its own delegate typing and payload shape —
+ * same contract as `upsertByIdWithSecondaryUnique` below.
+ */
+export async function upsertById<TRecord extends { id: string }>(
+  records: TRecord[],
+  options: { overwriteExisting: boolean },
+  counts: Counts,
+  ops: {
+    listExistingIds(ids: string[]): Promise<Set<string>>;
+    createManySkipDuplicates(records: TRecord[]): Promise<number>;
+    updateById(record: TRecord): Promise<void>;
+  },
+): Promise<void> {
+  if (records.length === 0) return;
+
+  const existingIds = await ops.listExistingIds(records.map((r) => r.id));
+  const toCreate = records.filter((r) => !existingIds.has(r.id));
+  const toUpdate = records.filter((r) => existingIds.has(r.id));
+
+  if (toCreate.length > 0) {
+    counts.created += await ops.createManySkipDuplicates(toCreate);
+  }
+
+  if (options.overwriteExisting) {
+    for (const r of toUpdate) {
+      await ops.updateById(r);
+    }
+    counts.updated += toUpdate.length;
+  } else {
+    counts.skipped += toUpdate.length;
+  }
+}
+
+/**
  * Shared id-upsert scaffold for imports whose table has a SECONDARY unique key
  * besides `id` (permission.key, role.key, user.username — TR: three importers
  * used to duplicate these ~45 lines verbatim).

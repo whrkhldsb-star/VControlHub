@@ -27,8 +27,7 @@ import type {
   BatchProgress,
 } from "./use-file-selection";
 import { getErrorMessage } from "@/lib/http/error-message";
-
-type ToastFn = (type: "success" | "error" | "info", message: string) => void;
+import type { ToastFn } from "./file-list-view-props";
 
 type Setter<T> = (value: T) => void;
 

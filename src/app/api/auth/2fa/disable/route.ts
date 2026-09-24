@@ -6,7 +6,6 @@
  * recovery code has to be accepted here: it is enough to sign in, and this is
  * the only self-service way off 2FA once the authenticator device is gone.
  */
-import { NextResponse } from "next/server";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 
@@ -14,8 +13,8 @@ import {
   isAcceptableTwoFactorCodeShape,
   verifyTwoFactorChallenge,
 } from "@/lib/auth/two-factor-challenge";
-import { bumpUserSessionEpoch, createSessionToken, getConfiguredSessionTtlSeconds, getSessionCookieName } from "@/lib/auth/session";
-import { isRequestHttps } from "@/lib/http/request-https";
+import { bumpUserSessionEpoch } from "@/lib/auth/session";
+import { refreshedSessionResponse } from "@/lib/auth/refreshed-session-response";
 import { auditUserAction } from "@/lib/audit/service";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
@@ -83,22 +82,7 @@ export async function POST(request: Request) {
         session.currentTeamId,
       );
 
-      const refreshedToken = await createSessionToken({
-        userId: session.userId,
-        username: session.username,
-        roles: session.roles,
-        mustChangePassword: session.mustChangePassword,
-        currentTeamId: session.currentTeamId,
-      });
-      const response = NextResponse.json({ success: true });
-      response.cookies.set(getSessionCookieName(), refreshedToken, {
-        httpOnly: true,
-        sameSite: "lax",
-        secure: isRequestHttps(request),
-        path: "/",
-        maxAge: await getConfiguredSessionTtlSeconds(false),
-      });
-      return response;
+      return refreshedSessionResponse(session, request, { success: true });
     },
   );
 }

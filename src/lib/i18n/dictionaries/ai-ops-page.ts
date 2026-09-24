@@ -53,9 +53,6 @@ export const zh: Record<string, string> = {
 	"aiOpsPage.table.actions": "动作",
 	"aiOpsPage.table.duration": "耗时",
 	"aiOpsPage.table.viewDetail": "查看详情",
-	"aiOpsPage.pagination.info": "显示 {start}–{end}，共 {total} 条",
-	"aiOpsPage.pagination.previous": "上一页",
-	"aiOpsPage.pagination.next": "下一页",
 	// Mode labels
 	"aiOpsPage.mode.recommendation": "建议模式",
 	"aiOpsPage.mode.autonomous": "自主模式",
@@ -140,9 +137,6 @@ export const en: Record<string, string> = {
 	"aiOpsPage.table.actions": "Actions",
 	"aiOpsPage.table.duration": "Duration",
 	"aiOpsPage.table.viewDetail": "View detail",
-	"aiOpsPage.pagination.info": "Showing {start}–{end} of {total}",
-	"aiOpsPage.pagination.previous": "Previous",
-	"aiOpsPage.pagination.next": "Next",
 	// Mode labels
 	"aiOpsPage.mode.recommendation": "Recommendation",
 	"aiOpsPage.mode.autonomous": "Autonomous",

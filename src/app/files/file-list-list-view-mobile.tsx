@@ -10,33 +10,13 @@ import {
   formatDate,
   getPreviewHref,
   toStorageEntry,
-  type FileProp,
   type StorageEntry,
 } from "./file-entry-utils";
-import type { FolderProp } from "./file-list-model";
 import { FileListEmptyState } from "./file-list-empty-state";
 import { ActionButton } from "@/components/action-button";
+import type { FileListViewSharedProps, FolderGuard } from "./file-list-view-props";
 
-type ToastFn = (type: "success" | "error" | "info", message: string) => void;
-type EntryGuard = (entry: { capabilities?: FileProp["capabilities"] }) => boolean;
-type FolderGuard = (folder: FolderProp) => boolean;
-
-export type FileListListViewMobileProps = {
-  sortedFolders: FolderProp[];
-  sortedFiles: FileProp[];
-  emptyMessage: string;
-  onGoUp?: () => void;
-  effectiveSelectedIdSet: Set<string>;
-  toggleOne: (id: string) => void;
-  navigateToFolder: (path: string) => void;
-  canShare: boolean;
-  canDelete: boolean;
-  onRefresh?: () => void;
-  onNotify: ToastFn;
-  onOpenDetail: (id: string) => void;
-  entryCanRead: EntryGuard;
-  entryCanWrite: EntryGuard;
-  entryCanDelete: EntryGuard;
+export type FileListListViewMobileProps = Omit<FileListViewSharedProps, "parentPath"> & {
   folderCanWrite: FolderGuard;
 };
 

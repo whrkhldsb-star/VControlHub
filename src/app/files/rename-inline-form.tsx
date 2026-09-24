@@ -7,6 +7,7 @@ import {
   type StorageActionState,
 } from "../storage/actions";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { useActionStateNotifications } from "./use-action-state-notifications";
 import { ActionButton } from "@/components/action-button";
 
 const initialState: StorageActionState = {};
@@ -35,14 +36,7 @@ export function RenameInlineForm({
     initialState,
   );
   const submittedRef = useRef(false);
-  const handledSuccessRef = useRef<string | null>(null);
-  const onNotifyRef = useRef(onNotify);
-  const onRefreshRef = useRef(onRefresh);
-
-  useEffect(() => {
-    onNotifyRef.current = onNotify;
-    onRefreshRef.current = onRefresh;
-  }, [onNotify, onRefresh]);
+  const { onRefreshRef } = useActionStateNotifications(state, onNotify, onRefresh);
   const canRename = Boolean(fileEntryId?.trim());
 
   function handleToggle() {
@@ -58,16 +52,6 @@ export function RenameInlineForm({
   }
 
   useEffect(() => {
-    if (!state.success) {
-      handledSuccessRef.current = null;
-      return;
-    }
-    if (handledSuccessRef.current === state.success) return;
-    handledSuccessRef.current = state.success;
-    onNotifyRef.current?.("success", state.success);
-  }, [state.success]);
-
-  useEffect(() => {
     if (pending || !submittedRef.current) return;
     const timer = window.setTimeout(() => {
       submittedRef.current = false;
@@ -77,12 +61,7 @@ export function RenameInlineForm({
       window.setTimeout(() => window.location.reload(), 250);
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [pending, state.error]);
-
-  useEffect(() => {
-    if (!state.error) return;
-    onNotify?.("error", state.error);
-  }, [state.error, onNotify]);
+  }, [pending, state.error, onRefreshRef]);
 
   if (!canRename) {
     return null;

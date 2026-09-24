@@ -15,8 +15,8 @@ import { verify as verifyTOTP } from "otplib";
 import { openTwoFactorEnrollmentToken } from "@/lib/auth/two-factor-enrollment";
 import { sealTwoFactorSecret } from "@/lib/auth/two-factor-secret";
 import { createTwoFactorRecoveryCodes } from "@/lib/auth/two-factor-recovery";
-import { bumpUserSessionEpoch, createSessionToken, getConfiguredSessionTtlSeconds, getSessionCookieName } from "@/lib/auth/session";
-import { isRequestHttps } from "@/lib/http/request-https";
+import { bumpUserSessionEpoch } from "@/lib/auth/session";
+import { refreshedSessionResponse } from "@/lib/auth/refreshed-session-response";
 import { auditUserAction } from "@/lib/audit/service";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
@@ -98,25 +98,12 @@ export async function POST(request: Request) {
         session.currentTeamId,
       );
 
-      const refreshedToken = await createSessionToken({
-        userId: session.userId,
-        username: session.username,
-        roles: session.roles,
-        mustChangePassword: session.mustChangePassword,
-        currentTeamId: session.currentTeamId,
-      });
-
       // Plaintext recovery codes are returned once, over the authenticated
       // response. Only HMAC fingerprints are persisted.
-      const response = NextResponse.json({ success: true, recoveryCodes: recovery.codes });
-      response.cookies.set(getSessionCookieName(), refreshedToken, {
-        httpOnly: true,
-        sameSite: "lax",
-        secure: isRequestHttps(request),
-        path: "/",
-        maxAge: await getConfiguredSessionTtlSeconds(false),
+      return refreshedSessionResponse(session, request, {
+        success: true,
+        recoveryCodes: recovery.codes,
       });
-      return response;
     },
   );
 }

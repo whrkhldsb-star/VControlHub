@@ -20,44 +20,24 @@ import {
   formatDate,
   getPreviewHref,
   toStorageEntry,
-  type FileProp,
   type StorageEntry,
 } from "./file-entry-utils";
-import type { FolderProp } from "./file-list-model";
 import { FileListEmptyState } from "./file-list-empty-state";
 import { FileListListViewMobile } from "./file-list-list-view-mobile";
 import { ActionButton } from "@/components/action-button";
+import type { FileListViewSharedProps, FolderGuard } from "./file-list-view-props";
 
-type ToastFn = (type:"success" |"error" |"info", message: string) => void;
-type EntryGuard = (entry: { capabilities?: FileProp["capabilities"] }) => boolean;
-type FolderGuard = (folder: FolderProp) => boolean;
 type SortDir ="asc" |"desc";
 type SortKey ="name" |"size" |"source" |"updated";
 
-export type FileListListViewProps = {
-  sortedFolders: FolderProp[];
-  sortedFiles: FileProp[];
+export type FileListListViewProps = FileListViewSharedProps & {
   visibleFilesCount: number;
-  emptyMessage: string;
-  parentPath?: string | null;
-  onGoUp?: () => void;
   allSelected: boolean;
   someSelected: boolean;
-  effectiveSelectedIdSet: Set<string>;
   toggleAll: () => void;
-  toggleOne: (id: string) => void;
   sortKey: SortKey;
   sortDir: SortDir;
   toggleSort: (key: SortKey) => void;
-  navigateToFolder: (path: string) => void;
-  canShare: boolean;
-  canDelete: boolean;
-  onRefresh?: () => void;
-  onNotify: ToastFn;
-  onOpenDetail: (id: string) => void;
-  entryCanRead: EntryGuard;
-  entryCanWrite: EntryGuard;
-  entryCanDelete: EntryGuard;
   folderCanWrite: FolderGuard;
 };
 

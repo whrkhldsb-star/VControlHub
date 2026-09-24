@@ -1,3 +1,5 @@
+import type { DockerContainerStats } from "@/lib/docker/stats";
+
 export interface Container {
 	Id: string;
 	Names: string[];
@@ -13,19 +15,11 @@ export type ComposeGroup = {
 	containers: Container[];
 };
 
-export type ContainerStats = {
-	id: string;
-	name: string;
-	cpuPercent: number;
-	memoryUsageBytes: number;
-	memoryLimitBytes: number;
-	memoryPercent: number;
-	networkRxBytes: number;
-	networkTxBytes: number;
-	blockReadBytes: number;
-	blockWriteBytes: number;
-	pids: number;
-};
+/**
+ * Stats shape served by the docker stats API (`parseDockerStats` in
+ * lib/docker/stats) — one source of truth for both the API and the UI.
+ */
+export type ContainerStats = DockerContainerStats;
 
 export type DockerScope = {
 	scope: "hub-host" | "remote-vps";

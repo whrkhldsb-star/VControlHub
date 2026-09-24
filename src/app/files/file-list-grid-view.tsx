@@ -19,33 +19,12 @@ import {
   getPreviewHref,
   getThumbnailUrl,
   toStorageEntry,
-  type FileProp,
   type StorageEntry,
 } from "./file-entry-utils";
-import type { FolderProp } from "./file-list-model";
 import { FileListEmptyState } from "./file-list-empty-state";
+import type { FileListViewSharedProps } from "./file-list-view-props";
 
-type ToastFn = (type: "success" | "error" | "info", message: string) => void;
-type EntryGuard = (entry: { capabilities?: FileProp["capabilities"] }) => boolean;
-
-export type FileListGridViewProps = {
-  sortedFolders: FolderProp[];
-  sortedFiles: FileProp[];
-  emptyMessage: string;
-  parentPath?: string | null;
-  onGoUp?: () => void;
-  effectiveSelectedIdSet: Set<string>;
-  toggleOne: (id: string) => void;
-  navigateToFolder: (path: string) => void;
-  canShare: boolean;
-  canDelete: boolean;
-  onRefresh?: () => void;
-  onNotify: ToastFn;
-  onOpenDetail: (id: string) => void;
-  entryCanRead: EntryGuard;
-  entryCanWrite: EntryGuard;
-  entryCanDelete: EntryGuard;
-};
+export type FileListGridViewProps = FileListViewSharedProps;
 
 export function FileListGridView({
   sortedFolders,

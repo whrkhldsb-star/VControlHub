@@ -3,7 +3,7 @@
 import type { Dispatch, SetStateAction } from "react";
 
 import { useI18n } from "@/lib/i18n/use-locale";
-import { toDateLocale } from "@/lib/i18n/locale-format";
+import { formatDateTime } from "@/lib/datetime/format";
 import type {
 	AiOpsLogRecord,
 	AiOpsMode,
@@ -35,9 +35,7 @@ const buttonDanger =
 
 export function formatAiOpsTime(iso: string | null, fallback: string, locale: "zh" | "en"): string {
 	if (!iso) return fallback;
-	const date = new Date(iso);
-	if (Number.isNaN(date.getTime())) return fallback;
-	return date.toLocaleString(toDateLocale(locale));
+	return formatDateTime(iso, locale, fallback);
 }
 
 function isExecutedAction(
@@ -250,7 +248,7 @@ export function AiOpsLogsSection({
 				<h2 className="text-base font-semibold text-[var(--text-primary)]">{t("aiOpsPage.table.title")}</h2>
 				{logs.length > 0 ? (
 					<span className="text-xs text-[var(--text-muted)]">
-						{t("aiOpsPage.pagination.info", {
+						{t("common.pagination.range", {
 							start: page * 20 + 1,
 							end: page * 20 + logs.length,
 							total,
@@ -300,7 +298,7 @@ export function AiOpsLogsSection({
 						disabled={loading || page === 0}
 						onClick={onPrevious}
 					>
-						{t("aiOpsPage.pagination.previous")}
+						{t("common.pagination.previous")}
 					</ActionButton>
 					<ActionButton
 						variant="secondary"
@@ -308,7 +306,7 @@ export function AiOpsLogsSection({
 						disabled={loading || !hasMore}
 						onClick={onNext}
 					>
-						{t("aiOpsPage.pagination.next")}
+						{t("common.pagination.next")}
 					</ActionButton>
 				</div>
 			) : null}

@@ -8,8 +8,7 @@
 import { Prisma } from "@prisma/client";
 
 import { isSensitiveSettingKey, type ExportFile, type ImportOptions } from "@/lib/system/config-schema";
-import { parseDate } from "./import-executors-helpers";
-import type { Tx, Counts } from "./import-executors-helpers";
+import { parseDate, upsertById, type Tx, type Counts } from "./import-executors-helpers";
 
 // 14. Settings (可选，key-based where，敏感 key 空值不覆盖)
 export async function importSettings(
@@ -144,37 +143,29 @@ export async function importAnnouncements(
   options: ImportOptions,
   counts: Counts,
 ): Promise<void> {
-  const records = t.announcements;
-  if (records.length === 0) return;
-  const ids = records.map((r) => r.id);
-  const existing = await tx.announcement.findMany({
-    where: { id: { in: ids } },
-    select: { id: true },
-  });
-  const existingIds = new Set(existing.map((e) => e.id));
-  const toCreate = records.filter((r) => !existingIds.has(r.id));
-  const toUpdate = records.filter((r) => existingIds.has(r.id));
-
-  if (toCreate.length > 0) {
-    const result = await tx.announcement.createMany({
-      data: toCreate.map((r) => ({
-        id: r.id,
-        title: r.title,
-        body: r.body,
-        level: r.level,
-        pinned: r.pinned,
-        published: r.published,
-        startsAt: r.startsAt ? parseDate(r.startsAt, "announcements.startsAt") : new Date(),
-        expiresAt: r.expiresAt ? parseDate(r.expiresAt, "announcements.expiresAt") : null,
-        createdBy: r.createdBy,
-      })),
-      skipDuplicates: true,
-    });
-    counts.created += result.count;
-  }
-
-  if (options.overwriteExisting) {
-    for (const r of toUpdate) {
+  await upsertById(t.announcements, options, counts, {
+    listExistingIds: async (ids) =>
+      new Set(
+        (await tx.announcement.findMany({ where: { id: { in: ids } }, select: { id: true } })).map((e) => e.id),
+      ),
+    createManySkipDuplicates: async (rows) =>
+      (
+        await tx.announcement.createMany({
+          data: rows.map((r) => ({
+            id: r.id,
+            title: r.title,
+            body: r.body,
+            level: r.level,
+            pinned: r.pinned,
+            published: r.published,
+            startsAt: r.startsAt ? parseDate(r.startsAt, "announcements.startsAt") : new Date(),
+            expiresAt: r.expiresAt ? parseDate(r.expiresAt, "announcements.expiresAt") : null,
+            createdBy: r.createdBy,
+          })),
+          skipDuplicates: true,
+        })
+      ).count,
+    updateById: async (r) => {
       await tx.announcement.update({
         where: { id: r.id },
         data: {
@@ -188,11 +179,8 @@ export async function importAnnouncements(
           createdBy: r.createdBy,
         },
       });
-    }
-    counts.updated += toUpdate.length;
-  } else {
-    counts.skipped += toUpdate.length;
-  }
+    },
+  });
 }
 
 // 17. Snippets
@@ -202,51 +190,29 @@ export async function importSnippets(
   options: ImportOptions,
   counts: Counts,
 ): Promise<void> {
-  const records = t.snippets;
-  if (records.length === 0) return;
-  const ids = records.map((r) => r.id);
-  const existing = await tx.snippet.findMany({
-    where: { id: { in: ids } },
-    select: { id: true },
+  const toData = (r: ExportFile["tables"]["snippets"][number]) => ({
+    title: r.title,
+    description: r.description,
+    language: r.language,
+    content: r.content,
+    tags: r.tags,
+    isPrivate: r.isPrivate,
+    createdBy: r.createdBy,
   });
-  const existingIds = new Set(existing.map((e) => e.id));
-  const toCreate = records.filter((r) => !existingIds.has(r.id));
-  const toUpdate = records.filter((r) => existingIds.has(r.id));
-
-  if (toCreate.length > 0) {
-    const result = await tx.snippet.createMany({
-      data: toCreate.map((r) => ({
-        id: r.id,
-        title: r.title,
-        description: r.description,
-        language: r.language,
-        content: r.content,
-        tags: r.tags,
-        isPrivate: r.isPrivate,
-        createdBy: r.createdBy,
-      })),
-      skipDuplicates: true,
-    });
-    counts.created += result.count;
-  }
-
-  if (options.overwriteExisting) {
-    for (const r of toUpdate) {
-      await tx.snippet.update({
-        where: { id: r.id },
-        data: {
-          title: r.title,
-          description: r.description,
-          language: r.language,
-          content: r.content,
-          tags: r.tags,
-          isPrivate: r.isPrivate,
-          createdBy: r.createdBy,
-        },
-      });
-    }
-    counts.updated += toUpdate.length;
-  } else {
-    counts.skipped += toUpdate.length;
-  }
+  await upsertById(t.snippets, options, counts, {
+    listExistingIds: async (ids) =>
+      new Set(
+        (await tx.snippet.findMany({ where: { id: { in: ids } }, select: { id: true } })).map((e) => e.id),
+      ),
+    createManySkipDuplicates: async (rows) =>
+      (
+        await tx.snippet.createMany({
+          data: rows.map((r) => ({ id: r.id, ...toData(r) })),
+          skipDuplicates: true,
+        })
+      ).count,
+    updateById: async (r) => {
+      await tx.snippet.update({ where: { id: r.id }, data: toData(r) });
+    },
+  });
 }

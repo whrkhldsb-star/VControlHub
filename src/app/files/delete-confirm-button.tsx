@@ -4,6 +4,7 @@ import { startTransition, useActionState, useEffect, useRef, useState } from "re
 
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { useActionStateNotifications } from "./use-action-state-notifications";
 import {
   deleteFileEntryAction,
   type StorageActionState,
@@ -33,24 +34,7 @@ export function DeleteConfirmButton({
     initialState,
   );
   const submittedRef = useRef(false);
-  const handledSuccessRef = useRef<string | null>(null);
-  const onNotifyRef = useRef(onNotify);
-  const onRefreshRef = useRef(onRefresh);
-
-  useEffect(() => {
-    onNotifyRef.current = onNotify;
-    onRefreshRef.current = onRefresh;
-  }, [onNotify, onRefresh]);
-
-  useEffect(() => {
-    if (!state.success) {
-      handledSuccessRef.current = null;
-      return;
-    }
-    if (handledSuccessRef.current === state.success) return;
-    handledSuccessRef.current = state.success;
-    onNotifyRef.current?.("success", state.success);
-  }, [state.success]);
+  const { onRefreshRef } = useActionStateNotifications(state, onNotify, onRefresh);
 
   // Close + refresh once the submitted action settles without an error.
   // (The former version force-reloaded the whole page here; the shared
@@ -64,12 +48,7 @@ export function DeleteConfirmButton({
       onRefreshRef.current?.();
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [pending, state.error]);
-
-  useEffect(() => {
-    if (!state.error) return;
-    onNotify?.("error", state.error);
-  }, [onNotify, state.error]);
+  }, [pending, state.error, onRefreshRef]);
 
   function handleConfirm() {
     const formData = new FormData();
