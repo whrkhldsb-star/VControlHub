@@ -40,7 +40,8 @@ export async function installDirectSession(context: BrowserContext, options: { u
 			mustChangePassword: boolean;
 			currentTeamId: string | null;
 			roles: RoleKey[];
-		}>(`SELECT u.id, u.username, u."passwordHash", u."mustChangePassword", u."currentTeamId",
+			sessionEpoch: number;
+		}>(`SELECT u.id, u.username, u."passwordHash", u."mustChangePassword", u."currentTeamId", u."sessionEpoch",
 			COALESCE(array_agg(r.key) FILTER (WHERE r.key IS NOT NULL), '{}') AS roles
 			FROM "User" u
 			LEFT JOIN "UserRole" ur ON ur."userId" = u.id
@@ -67,6 +68,13 @@ export async function installDirectSession(context: BrowserContext, options: { u
 			exp: now + 60 * 60 * 1000,
 			// Match the credential binding required by verifySessionToken.
 			cfp: createHmac("sha256", secret).update(`session-credential:${user.passwordHash}`).digest("base64url").slice(0, 22),
+			// Match the session-revocation epoch binding. verifySessionToken
+			// rejects any token whose `sep` is older than User.sessionEpoch, and
+			// a token minted without `sep` reads as 0 — so once a spec advances
+			// the epoch (the 2FA enable/disable lifecycle does, twice), every
+			// later direct session was rejected and the browser bounced to
+			// /login. Always mint against the account's current epoch.
+			sep: user.sessionEpoch ?? 0,
 		};
 		const encoded = Buffer.from(JSON.stringify(envelope)).toString("base64url");
 		const token = `${encoded}.${createHmac("sha256", secret).update(encoded).digest("base64url")}`;

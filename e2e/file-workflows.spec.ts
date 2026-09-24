@@ -149,6 +149,11 @@ test("local file lifecycle: folder, upload, search, preview, share and delete", 
 		await fileRow.getByRole("button", { name: /更多操作 vcontrolhub-e2e\.txt|More actions vcontrolhub-e2e\.txt/i }).click();
 	}
 	await moreActions.getByRole("button", { name: /删除|Delete/i }).click();
-	await moreActions.getByRole("button", { name: /^确认$|^Confirm$/i }).click();
+	// Delete now confirms through the shared ConfirmDialog, which is portalled
+	// to <body> (exactly like the share dialog above) instead of expanding an
+	// inline confirm inside the row's action group.
+	const deleteDialog = page.getByRole("dialog", { name: /删除|Delete/i });
+	await expect(deleteDialog).toBeVisible();
+	await deleteDialog.getByRole("button", { name: /^确认$|^Confirm$/i }).click();
 	await expect(page.getByRole("link", { name: "vcontrolhub-e2e.txt", exact: true })).toBeHidden();
 });
