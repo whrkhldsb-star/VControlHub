@@ -288,7 +288,8 @@ jobs:
             --project=chromium --project=firefox --project=webkit \
             --workers=1 --retries=1
 
-      - name: Run complete product workflows on Chromium
+      - name: BISECT crud-workflows
+        if: always()
         env:
           NODE_ENV: production
           E2E_DIRECT_SESSION: "1"
@@ -300,8 +301,147 @@ jobs:
         run: |
           set -euo pipefail
           curl -fsS http://127.0.0.1:3000/login >/dev/null
-          npm run test:e2e:workflows -- --retries=1
-
+          npx playwright test e2e/crud-workflows.spec.ts --project=chromium --workers=1 --retries=0
+      - name: BISECT dense-dialogs
+        if: always()
+        env:
+          NODE_ENV: production
+          E2E_DIRECT_SESSION: "1"
+          E2E_TRUST_LOCAL_DB_SESSION: "1"
+          E2E_ISOLATED_ACCOUNT: "1"
+          E2E_USER: vcontrolhub_e2e
+          E2E_PASS: VControlHub-E2E-2026!
+          E2E_DIRECT_USER: vcontrolhub_e2e
+        run: |
+          set -euo pipefail
+          curl -fsS http://127.0.0.1:3000/login >/dev/null
+          npx playwright test e2e/dense-dialogs.spec.ts --project=chromium --workers=1 --retries=0
+      - name: BISECT exploratory-ui
+        if: always()
+        env:
+          NODE_ENV: production
+          E2E_DIRECT_SESSION: "1"
+          E2E_TRUST_LOCAL_DB_SESSION: "1"
+          E2E_ISOLATED_ACCOUNT: "1"
+          E2E_USER: vcontrolhub_e2e
+          E2E_PASS: VControlHub-E2E-2026!
+          E2E_DIRECT_USER: vcontrolhub_e2e
+        run: |
+          set -euo pipefail
+          curl -fsS http://127.0.0.1:3000/login >/dev/null
+          npx playwright test e2e/exploratory-ui.spec.ts --project=chromium --workers=1 --retries=0
+      - name: BISECT file-workflows
+        if: always()
+        env:
+          NODE_ENV: production
+          E2E_DIRECT_SESSION: "1"
+          E2E_TRUST_LOCAL_DB_SESSION: "1"
+          E2E_ISOLATED_ACCOUNT: "1"
+          E2E_USER: vcontrolhub_e2e
+          E2E_PASS: VControlHub-E2E-2026!
+          E2E_DIRECT_USER: vcontrolhub_e2e
+        run: |
+          set -euo pipefail
+          curl -fsS http://127.0.0.1:3000/login >/dev/null
+          npx playwright test e2e/file-workflows.spec.ts --project=chromium --workers=1 --retries=0
+      - name: BISECT frontend-quality
+        if: always()
+        env:
+          NODE_ENV: production
+          E2E_DIRECT_SESSION: "1"
+          E2E_TRUST_LOCAL_DB_SESSION: "1"
+          E2E_ISOLATED_ACCOUNT: "1"
+          E2E_USER: vcontrolhub_e2e
+          E2E_PASS: VControlHub-E2E-2026!
+          E2E_DIRECT_USER: vcontrolhub_e2e
+        run: |
+          set -euo pipefail
+          curl -fsS http://127.0.0.1:3000/login >/dev/null
+          npx playwright test e2e/frontend-quality.spec.ts --project=chromium --workers=1 --retries=0
+      - name: BISECT media-image-workflows
+        if: always()
+        env:
+          NODE_ENV: production
+          E2E_DIRECT_SESSION: "1"
+          E2E_TRUST_LOCAL_DB_SESSION: "1"
+          E2E_ISOLATED_ACCOUNT: "1"
+          E2E_USER: vcontrolhub_e2e
+          E2E_PASS: VControlHub-E2E-2026!
+          E2E_DIRECT_USER: vcontrolhub_e2e
+        run: |
+          set -euo pipefail
+          curl -fsS http://127.0.0.1:3000/login >/dev/null
+          npx playwright test e2e/media-image-workflows.spec.ts --project=chromium --workers=1 --retries=0
+      - name: BISECT remaining-user-workflows
+        if: always()
+        env:
+          NODE_ENV: production
+          E2E_DIRECT_SESSION: "1"
+          E2E_TRUST_LOCAL_DB_SESSION: "1"
+          E2E_ISOLATED_ACCOUNT: "1"
+          E2E_USER: vcontrolhub_e2e
+          E2E_PASS: VControlHub-E2E-2026!
+          E2E_DIRECT_USER: vcontrolhub_e2e
+        run: |
+          set -euo pipefail
+          curl -fsS http://127.0.0.1:3000/login >/dev/null
+          npx playwright test e2e/remaining-user-workflows.spec.ts --project=chromium --workers=1 --retries=0
+      - name: BISECT responsive-layout
+        if: always()
+        env:
+          NODE_ENV: production
+          E2E_DIRECT_SESSION: "1"
+          E2E_TRUST_LOCAL_DB_SESSION: "1"
+          E2E_ISOLATED_ACCOUNT: "1"
+          E2E_USER: vcontrolhub_e2e
+          E2E_PASS: VControlHub-E2E-2026!
+          E2E_DIRECT_USER: vcontrolhub_e2e
+        run: |
+          set -euo pipefail
+          curl -fsS http://127.0.0.1:3000/login >/dev/null
+          npx playwright test e2e/responsive-layout.spec.ts --project=chromium --workers=1 --retries=0
+      - name: BISECT server-inventory
+        if: always()
+        env:
+          NODE_ENV: production
+          E2E_DIRECT_SESSION: "1"
+          E2E_TRUST_LOCAL_DB_SESSION: "1"
+          E2E_ISOLATED_ACCOUNT: "1"
+          E2E_USER: vcontrolhub_e2e
+          E2E_PASS: VControlHub-E2E-2026!
+          E2E_DIRECT_USER: vcontrolhub_e2e
+        run: |
+          set -euo pipefail
+          curl -fsS http://127.0.0.1:3000/login >/dev/null
+          npx playwright test e2e/server-inventory.spec.ts --project=chromium --workers=1 --retries=0
+      - name: BISECT tenant-boundaries
+        if: always()
+        env:
+          NODE_ENV: production
+          E2E_DIRECT_SESSION: "1"
+          E2E_TRUST_LOCAL_DB_SESSION: "1"
+          E2E_ISOLATED_ACCOUNT: "1"
+          E2E_USER: vcontrolhub_e2e
+          E2E_PASS: VControlHub-E2E-2026!
+          E2E_DIRECT_USER: vcontrolhub_e2e
+        run: |
+          set -euo pipefail
+          curl -fsS http://127.0.0.1:3000/login >/dev/null
+          npx playwright test e2e/tenant-boundaries.spec.ts --project=chromium --workers=1 --retries=0
+      - name: BISECT webdav-workflows
+        if: always()
+        env:
+          NODE_ENV: production
+          E2E_DIRECT_SESSION: "1"
+          E2E_TRUST_LOCAL_DB_SESSION: "1"
+          E2E_ISOLATED_ACCOUNT: "1"
+          E2E_USER: vcontrolhub_e2e
+          E2E_PASS: VControlHub-E2E-2026!
+          E2E_DIRECT_USER: vcontrolhub_e2e
+        run: |
+          set -euo pipefail
+          curl -fsS http://127.0.0.1:3000/login >/dev/null
+          npx playwright test e2e/webdav-workflows.spec.ts --project=chromium --workers=1 --retries=0
       - name: Verify shared UI components
         run: |
           npm run ui:showcase -- .playwright-output/components
