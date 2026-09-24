@@ -167,7 +167,16 @@ export async function isAccountLockedAsync(
 	const entry = await store.getLockout(key);
 	if (!entry || !entry.lockedUntil) return { locked: false, lockedUntil: null };
 	if (entry.lockedUntil < Date.now()) {
-		await store.deleteLockout(key);
+		// Delete through the per-key chain so a concurrent
+		// recordLoginFailureAsync that rewrote the entry between our get and
+		// delete cannot be wiped out by this stale expiry cleanup; re-check
+		// inside the chain and only delete what is still an expired lock.
+		await chainLockoutMutation(key, async () => {
+			const current = await store.getLockout(key);
+			if (current?.lockedUntil && current.lockedUntil < Date.now()) {
+				await store.deleteLockout(key);
+			}
+		});
 		return { locked: false, lockedUntil: null };
 	}
 	return { locked: true, lockedUntil: entry.lockedUntil };

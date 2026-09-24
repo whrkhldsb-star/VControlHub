@@ -14,7 +14,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { enqueueJob } from "@/lib/job/service";
 import { getServerLocale, t } from "@/lib/i18n/translations";
-import { NotFoundError, ValidationError } from "@/lib/errors";
+import { NotFoundError, ValidationError, AppError } from "@/lib/errors";
 import {
 	listVpsBackupRecords,
 	createVpsBackupRecord,
@@ -109,7 +109,8 @@ export async function POST(
 				});
 			} catch (enqueueErr) {
 				// Compensate orphan PENDING row so UI does not show stuck backups;
-				// re-throw and let the guard's apiCatch serve the 500 envelope.
+				// re-throw as a typed error so the guard serves the localized 500
+				// copy (a plain error would fall back to "Operation failed").
 				await prisma.vpsBackupRecord.update({
 					where: { id: recordId },
 					data: {
@@ -121,7 +122,7 @@ export async function POST(
 						completedAt: new Date(),
 					},
 				}).catch(() => undefined);
-				throw enqueueErr;
+				throw new AppError({ code: "INTERNAL_ERROR", message: t("vpsBackupApi.errorTriggerFailed", locale), status: 500, cause: enqueueErr });
 			}
 
 			await auditUserAction(

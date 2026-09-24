@@ -11,7 +11,12 @@ import { assertPublicRdpHost } from "./protocol";
 import { t } from "@/lib/i18n/service-translations";
 
 export const hashRdpValue = (value: string) => createHash("sha256").update(value).digest("hex");
-export const rdpEndpointHash = (server: Server) => hashRdpValue(JSON.stringify([server.host, server.port, server.username, server.rdpPassword, server.rdpDomain, server.rdpIgnoreCertificate, server.rdpCertificateSha256, server.teamId, server.updatedAt]));
+// Hash only connection-bearing fields. updatedAt must NOT participate: agent
+// heartbeats and cost sync rewrite unrelated columns and bump @updatedAt, which
+// would invalidate the endpoint hash and tear down every live RDP session on
+// the server within one 5s revalidation cycle. Enabled/OS state is rechecked
+// by getRdpServer on each revalidation, so dropping updatedAt loses nothing.
+export const rdpEndpointHash = (server: Server) => hashRdpValue(JSON.stringify([server.host, server.port, server.username, server.rdpPassword, server.rdpDomain, server.rdpIgnoreCertificate, server.rdpCertificateSha256, server.teamId]));
 // Compare origins case-insensitively through the same centralized config the
 // SSH terminal uses (config.ssh.wsAllowedOrigins). A literal env re-read with
 // a case-sensitive compare here drifted from ssh-ws-proxy's lowercased match:

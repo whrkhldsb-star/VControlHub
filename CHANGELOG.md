@@ -4,6 +4,15 @@ All notable changes to VControlHub are documented here. Versions follow Semantic
 
 ## [Unreleased]
 
+### Fixed
+
+- SFTP media streaming/thumbnails were broken for DIRECT-managed nodes: the credential select behind `mediaStreamItemSelect` did not include `hostKeySha256`, so the routes' `enforceHostKeyPin` failed host-key verification on every connection (even for pinned nodes). The pin column is now selected on both the storage node and its server.
+- Live RDP sessions were torn down by unrelated server-row writes: `rdpEndpointHash` included `updatedAt`, so agent heartbeats and cost auto-sync (which bump `@updatedAt` without touching the endpoint) invalidated the hash and disconnected every session within one 5s revalidation cycle. The hash now covers only connection-bearing fields; enabled/OS state is still rechecked on every revalidation via `getRdpServer`.
+- RDP bridge hardening: concurrently open client clipboard streams are capped (16) instead of growing without bound; the 20-session cap is enforced at ticket-claim time (unauthenticated sockets can no longer squat it — the upgrade gate keeps 3× headroom for in-flight handshakes and ticket-less sockets are dropped after 10s).
+- `fetchWithPinnedDns` now returns the full validated address set in undici's `all:true` lookup mode instead of only the first record — providers with multiple A records regain connect-time failover while every returned address still passed the blocklist/public-IP validation.
+- Account-lockout expiry cleanup (`isAccountLockedAsync`) deletes through the same per-key mutation chain as failure recording, so a concurrent failed-login write can no longer be wiped by a stale expired-entry delete.
+- VPS backup API routes serve their localized 500 copy again (`vpsBackupApi.errorTriggerFailed` et al.) — the dedup sweep had let these fall through to the guard's generic "Operation failed", orphaning five translation keys. Business-rule 4xx statuses are unchanged.
+
 ### Added
 
 - RDP clipboard sync (rdclient/mstsc parity): the `/rdp` bridge accepts Guacamole clipboard streams — strictly `text/plain`, base64-bounded blobs, stream-index tracking and a ~1.5 MB per-session cap — and the browser client syncs both directions (Ctrl+V sends the local clipboard into the desktop; remote copies land in the local clipboard when the browser allows it). Opt out with `RDP_ENABLE_CLIPBOARD=false`; drive/printing/pipe channels stay blocked. Optional remote audio passthrough is available behind `RDP_AUDIO_ENABLED=true` (off by default; guacamole-common-js plays it natively).

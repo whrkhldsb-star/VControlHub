@@ -9,10 +9,11 @@ import { auditUserAction } from "@/lib/audit/service";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
-import { NotFoundError, ConflictError } from "@/lib/errors";
+import { NotFoundError, ConflictError, AppError } from "@/lib/errors";
 import { deleteVpsBackupRecord } from "@/lib/backup/vps-backup-service";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { getServerLocale, t } from "@/lib/i18n/translations";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,7 @@ export async function DELETE(
 		request,
 		{ permission: "server:write", rateLimit: GENERAL_WRITE_LIMIT },
 		async ({ session }) => {
+			const locale = await getServerLocale();
 			const teamAccess = await assertServerTeamAccess(session, serverId);
 			if (!teamAccess.ok) return teamAccess.response;
 
@@ -45,7 +47,9 @@ export async function DELETE(
 				if (/RUNNING/i.test(message)) {
 					throw new ConflictError(message);
 				}
-				throw err;
+				// Typed error keeps the localized 500 copy instead of the
+				// guard's generic "Operation failed" fallback.
+				throw new AppError({ code: "INTERNAL_ERROR", message: t("vpsBackupApi.errorDeleteRecordFailed", locale), status: 500, cause: err });
 			}
 			await auditUserAction(session.userId, "vps-backup.record.delete", { serverId, recordId }, undefined, session.currentTeamId);
 			return Response.json({ success: true });

@@ -76,7 +76,11 @@ export async function fetchWithPinnedDns(
 					return;
 				}
 				if (typeof opts === "object" && opts?.all) {
-					callback(null, [pinned], undefined as never);
+					// Every address in `addresses` passed the public-IP validation
+					// above, so the whole set is safe to return — net then keeps its
+					// multi-address failover instead of dying when the first A
+					// record is unreachable.
+					callback(null, addresses, undefined as never);
 					return;
 				}
 				callback(null, pinned.address, pinned.family);

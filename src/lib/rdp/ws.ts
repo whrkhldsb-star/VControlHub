@@ -24,17 +24,32 @@ function cookie(req: IncomingMessage) {
 const DEAD_TRANSPORT_MS = 10 * 60_000;
 /** Bounds clipboard sync abuse: ~256 base64 chunks ≈ 1.5 MB of text per session. */
 const MAX_CLIPBOARD_BLOBS = 256;
+/** Concurrently open client→guacd clipboard streams; the protocol uses one. */
+const MAX_CLIPBOARD_STREAMS = 16;
+/** Concurrent authenticated RDP sessions per process. */
+const MAX_RDP_SESSIONS = 20;
+/**
+ * Credential-less sockets must not be able to squat the session cap: the
+ * upgrade gate only keeps a generous headroom for in-flight handshakes, the
+ * real MAX_RDP_SESSIONS cap is enforced at authentication, and a socket that
+ * never presents a ticket is dropped after this window (well under the 30s
+ * ticket TTL — a healthy browser connects immediately after minting).
+ */
+const PRE_AUTH_WINDOW_MS = 10_000;
 /** Shares the existing loopback SSH service, but never its protocol or credentials. */
 export function setupRdpWebSocket(server: HttpServer) {
  const wss = new WebSocketServer({ noServer: true, maxPayload: 16_384, perMessageDeflate: false,
   handleProtocols: protocols => protocols.has("guacamole") ? "guacamole" : false });
  const users = new Map<string, number>();
+ let authedSessions = 0;
  server.on("upgrade", (req, socket, head) => {
   let path: string;
   try { path = new URL(req.url ?? "/", "http://localhost").pathname; } catch { socket.destroy(); return; }
   if (path !== "/rdp") return;
   if (!req.headers["sec-websocket-protocol"]?.split(",").some(v => v.trim() === "guacamole")) { socket.destroy(); return; }
-  if (process.env.RDP_ENABLED !== "true" || !rdpOriginAllowed(req.headers.origin ?? "") || wss.clients.size >= 20) { socket.destroy(); return; }
+  // Headroom backstop only (MAX_RDP_SESSIONS authed sessions + handshakes in
+  // flight); the session cap itself is enforced once the ticket is claimed.
+  if (process.env.RDP_ENABLED !== "true" || !rdpOriginAllowed(req.headers.origin ?? "") || wss.clients.size >= MAX_RDP_SESSIONS * 3) { socket.destroy(); return; }
   wss.handleUpgrade(req, socket, head, ws => { wss.emit("connection", ws, req); });
  });
  wss.on("connection", (ws, req) => {
@@ -69,6 +84,7 @@ export function setupRdpWebSocket(server: HttpServer) {
   const handshakeTimeout = setTimeout(() => close("RDP handshake timed out"), 30_000);
   const timer = setInterval(() => {
    if (stopped) return;
+   if (!authenticated && Date.now() - openedAt > PRE_AUTH_WINDOW_MS) { close("RDP authentication timed out", 1008); return; }
    if (revalidate && !validating) {
     validating = true;
     void revalidate().catch(() => close("RDP session authorization expired", 1008)).finally(() => { validating = false; });
@@ -93,7 +109,7 @@ export function setupRdpWebSocket(server: HttpServer) {
   ws.on("close", () => {
    stopped = true;
    clearTimeout(handshakeTimeout); clearInterval(timer); tunnel?.destroy();
-   if (userId && authenticated) { const count = (users.get(userId) ?? 1) - 1; if (count) users.set(userId, count); else users.delete(userId); }
+   if (userId && authenticated) { authedSessions--; const count = (users.get(userId) ?? 1) - 1; if (count) users.set(userId, count); else users.delete(userId); }
    audit(started ? "server.rdp.closed" : "server.rdp.failed");
   });
   const input = new GuacParser(row => {
@@ -108,7 +124,13 @@ export function setupRdpWebSocket(server: HttpServer) {
    // stay on an index a clipboard instruction allocated this session.
    if (clipboardAllowed && (row[0] === "clipboard" || row[0] === "blob" || row[0] === "end")) {
     const index = Number(row[1]);
-    if (row[0] === "clipboard") clipboardStreams.add(index);
+    if (row[0] === "clipboard") {
+     // A client may only keep a handful of clipboard streams open at once;
+     // without the cap each instruction could allocate an arbitrary index and
+     // grow the set (and guacd state) without bound.
+     if (clipboardStreams.size >= MAX_CLIPBOARD_STREAMS) { close("RDP clipboard limit reached", 1008); return; }
+     clipboardStreams.add(index);
+    }
     else if (!clipboardStreams.has(index)) { close("Unsupported RDP input", 1008); return; }
     if (row[0] === "blob" && ++clipboardBlobs > MAX_CLIPBOARD_BLOBS) { close("RDP clipboard limit reached", 1008); return; }
     if (row[0] === "end") clipboardStreams.delete(index);
@@ -143,10 +165,10 @@ export function setupRdpWebSocket(server: HttpServer) {
      if (current.mustChangePassword || !sessionHasPermission(current, "server:ssh") || current.userId !== session.userId || current.currentTeamId !== session.currentTeamId) throw new Error("Denied");
      if (rdpEndpointHash(await getRdpServer(target.id, current)) !== endpointHash) throw new Error("Changed");
     };
-    // Recheck after async authentication to make the process-local cap atomic.
-    if ((users.get(session.userId) ?? 0) >= 2) throw new Error("Denied");
+    // Recheck after async authentication to make the process-local caps atomic.
+    if ((users.get(session.userId) ?? 0) >= 2 || authedSessions >= MAX_RDP_SESSIONS) throw new Error("Denied");
     userId = session.userId; serverId = target.id; teamId = target.teamId;
-    users.set(userId, (users.get(userId) ?? 0) + 1); authenticated = true;
+    users.set(userId, (users.get(userId) ?? 0) + 1); authedSessions++; authenticated = true;
     audit("server.rdp.connecting");
     let phase: "args" | "ready" | "stream" = "args";
     const options: Record<string, string> = {

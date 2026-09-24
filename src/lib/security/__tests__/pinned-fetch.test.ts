@@ -65,11 +65,18 @@ describe("fetchWithPinnedDns", () => {
 			cbResult = { err, address, family };
 		});
 		expect(cbResult).toEqual({ err: null, address: "203.0.113.10", family: 4 });
-		// all:true form pins the same single entry — never the second A record.
+		// all:true form returns the full validated set — no unverified address
+		// can appear, and net keeps its multi-address failover.
 		lookup("api.example.com", { all: true }, (err, entries) => {
 			cbResult = { err, entries };
 		});
-		expect(cbResult).toEqual({ err: null, entries: [{ address: "203.0.113.10", family: 4 }] });
+		expect(cbResult).toEqual({
+			err: null,
+			entries: [
+				{ address: "203.0.113.10", family: 4 },
+				{ address: "198.51.100.20", family: 4 },
+			],
+		});
 	});
 
 	it("refuses a connect-time lookup for any other host (redirect rebind)", async () => {

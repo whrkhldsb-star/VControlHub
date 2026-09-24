@@ -107,6 +107,7 @@ const mediaStreamItemSelect = {
       directAccessMode: true,
       publicBaseUrl: true,
       serverId: true,
+      hostKeySha256: true,
       server: {
         select: {
           id: true,
@@ -117,6 +118,10 @@ const mediaStreamItemSelect = {
           connectionType: true,
           managementMode: true,
           password: true,
+          // Without the pin the streaming routes' enforceHostKeyPin would fail
+          // every connection — resolveStorageSshCredentials can only forward
+          // what this select returns.
+          hostKeySha256: true,
           sshKey: { select: { privateKey: true } },
         },
       },

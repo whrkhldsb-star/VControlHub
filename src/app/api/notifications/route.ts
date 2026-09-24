@@ -17,8 +17,9 @@ import {
 export const dynamic = "force-dynamic";
 
 // limit/offset paging (not the shared page/pageSize shape): default 50 items,
-// capped at 100; offset is non-negative. Same defaults the hand-rolled
-// parseInt version used.
+// capped at 100; offset is non-negative. Unlike the hand-rolled parseInt
+// version (which clamped out-of-range values), invalid input is rejected with
+// 400 — external callers must send values inside the bounds.
 const listNotificationsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(50),
   offset: z.coerce.number().int().min(0).default(0),

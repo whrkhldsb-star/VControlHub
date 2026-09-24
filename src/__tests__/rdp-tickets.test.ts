@@ -13,6 +13,16 @@ describe("RDP ticket security",()=>{
  beforeEach(()=>{vi.resetAllMocks();process.env.SSH_WS_ALLOWED_ORIGINS=origin;db.server.findFirst.mockResolvedValue(server);db.rdpTicket.findUnique.mockResolvedValue(ticket());db.rdpTicket.deleteMany.mockResolvedValue({count:1});});
  it("atomically claims once and rejects replay",async()=>{await expect(consumeRdpTicket(token,session,cookie,origin)).resolves.toBe(server);db.rdpTicket.deleteMany.mockResolvedValue({count:0});await expect(consumeRdpTicket(token,session,cookie,origin)).rejects.toMatchObject({status:403});});
  it.each([{userId:"other"},{teamId:"other"},{sessionHash:"other"},{origin:"https://evil.example"},{expiresAt:new Date(0)},{endpointHash:"stale"}])("rejects invalid binding %j",async bad=>{db.rdpTicket.findUnique.mockResolvedValue({...ticket(),...bad});await expect(consumeRdpTicket(token,session,cookie,origin)).rejects.toMatchObject({status:403});expect(db.rdpTicket.deleteMany).not.toHaveBeenCalled();});
+ it("ignores unrelated row updates but rejects endpoint changes",async()=>{
+  db.rdpTicket.findUnique.mockResolvedValue(ticket());
+  // Heartbeat/cost-sync writes bump @updatedAt without touching the endpoint —
+  // the session must survive them.
+  db.server.findFirst.mockResolvedValue({...server,updatedAt:new Date()} as Server);
+  await expect(consumeRdpTicket(token,session,cookie,origin)).resolves.toBeDefined();
+  // A changed host is a changed endpoint — reject and keep the ticket claimable-free.
+  db.server.findFirst.mockResolvedValue({...server,host:"8.8.4.4"} as Server);
+  await expect(consumeRdpTicket(token,session,cookie,origin)).rejects.toMatchObject({status:403});
+ });
  it("rejects out-of-team resource",async()=>{db.server.findFirst.mockResolvedValue(null);await expect(consumeRdpTicket(token,session,cookie,origin)).rejects.toMatchObject({status:404});});
  it("fails closed for missing or foreign origin",async()=>{await expect(consumeRdpTicket(token,session,cookie,"")).rejects.toMatchObject({status:403});});
 });

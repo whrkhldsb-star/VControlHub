@@ -12,13 +12,14 @@ import { auditUserAction } from "@/lib/audit/service";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
-import { NotFoundError } from "@/lib/errors";
+import { NotFoundError, AppError, isAppError } from "@/lib/errors";
 import {
 	updateVpsBackupSchedule,
 	deleteVpsBackupSchedule,
 } from "@/lib/backup/vps-backup-schedule-service";
 import { VALID_PRESET_TYPES } from "@/lib/backup/vps-backup-presets";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
+import { getServerLocale, t } from "@/lib/i18n/translations";
 
 export const dynamic = "force-dynamic";
 
@@ -45,8 +46,16 @@ export async function PATCH(
 			if (!teamAccess.ok) return teamAccess.response;
 
 			// Service AppErrors (invalid cron → ValidationError) keep their own
-			// 4xx status; anything else degrades to the guard's 500 envelope.
-			const updated = await updateVpsBackupSchedule(scheduleId, serverId, body);
+			// 4xx status; anything else is rethrown as a typed error so the
+			// guard serves the localized 500 copy.
+			const locale = await getServerLocale();
+			let updated: Awaited<ReturnType<typeof updateVpsBackupSchedule>>;
+			try {
+				updated = await updateVpsBackupSchedule(scheduleId, serverId, body);
+			} catch (error) {
+				if (isAppError(error)) throw error;
+				throw new AppError({ code: "INTERNAL_ERROR", message: t("vpsBackupApi.errorUpdateFailed", locale), status: 500, cause: error });
+			}
 			await auditUserAction(session.userId, "vps-backup.schedule.update", { serverId, scheduleId }, undefined, session.currentTeamId);
 			return Response.json({ schedule: updated });
 		},
@@ -73,7 +82,13 @@ export async function DELETE(
 				throw new NotFoundError(apiCopy("apiCopy.schedule.not.found.54f9551a"));
 			}
 
-			await deleteVpsBackupSchedule(scheduleId, serverId);
+			const locale = await getServerLocale();
+			try {
+				await deleteVpsBackupSchedule(scheduleId, serverId);
+			} catch (error) {
+				if (isAppError(error)) throw error;
+				throw new AppError({ code: "INTERNAL_ERROR", message: t("vpsBackupApi.errorDeleteFailed", locale), status: 500, cause: error });
+			}
 			await auditUserAction(session.userId, "vps-backup.schedule.delete", { serverId, scheduleId }, undefined, session.currentTeamId);
 			return Response.json({ success: true });
 		},

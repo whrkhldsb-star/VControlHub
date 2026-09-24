@@ -16,9 +16,10 @@ import {
 	listVpsBackupSchedules,
 	createVpsBackupSchedule,
 } from "@/lib/backup/vps-backup-schedule-service";
-import { NotFoundError } from "@/lib/errors";
+import { NotFoundError, AppError, isAppError } from "@/lib/errors";
 import { VALID_PRESET_TYPES } from "@/lib/backup/vps-backup-presets";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
+import { getServerLocale, t } from "@/lib/i18n/translations";
 
 export const dynamic = "force-dynamic";
 
@@ -82,13 +83,20 @@ export async function POST(
 			}
 
 			// Service AppErrors (invalid cron / custom paths → ValidationError)
-			// keep their own 4xx status; anything else degrades to the guard's
-			// 500 envelope.
-			const schedule = await createVpsBackupSchedule({
-				serverId,
-				...body,
-				createdById: session.userId,
-			});
+			// keep their own 4xx status; anything else is rethrown as a typed
+			// error so the guard serves the localized 500 copy.
+			const locale = await getServerLocale();
+			let schedule: Awaited<ReturnType<typeof createVpsBackupSchedule>>;
+			try {
+				schedule = await createVpsBackupSchedule({
+					serverId,
+					...body,
+					createdById: session.userId,
+				});
+			} catch (error) {
+				if (isAppError(error)) throw error;
+				throw new AppError({ code: "INTERNAL_ERROR", message: t("vpsBackupApi.errorCreateFailed", locale), status: 500, cause: error });
+			}
 
 			await auditUserAction(
 				session.userId,
