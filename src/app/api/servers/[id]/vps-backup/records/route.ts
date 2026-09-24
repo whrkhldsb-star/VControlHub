@@ -12,9 +12,9 @@ import { auditUserAction } from "@/lib/audit/service";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
-import { createLogger } from "@/lib/logging";
 import { enqueueJob } from "@/lib/job/service";
 import { getServerLocale, t } from "@/lib/i18n/translations";
+import { NotFoundError, ValidationError } from "@/lib/errors";
 import {
 	listVpsBackupRecords,
 	createVpsBackupRecord,
@@ -24,7 +24,6 @@ import { VALID_PRESET_TYPES } from "@/lib/backup/vps-backup-presets";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
 
 export const dynamic = "force-dynamic";
-const logger = createLogger("api:servers:vps-backup:records");
 
 const triggerSchema = z.object({
 	backupType: z.enum(VALID_PRESET_TYPES as [string, ...string[]]),
@@ -41,15 +40,15 @@ export async function GET(
 		request,
 		{ permission: "server:read", rateLimit: GENERAL_WRITE_LIMIT },
 		async ({ session }) => {
-   const teamAccess = await assertServerTeamAccess(session, serverId);
-   if (!teamAccess.ok) return teamAccess.response;
+			const teamAccess = await assertServerTeamAccess(session, serverId);
+			if (!teamAccess.ok) return teamAccess.response;
 
 			const server = await prisma.server.findUnique({
 				where: { id: serverId },
 				select: { id: true },
 			});
 			if (!server) {
-				return Response.json({ error: apiCopy("apiCopy.server.not.found.d7783f94") }, { status: 404 });
+				throw new NotFoundError(apiCopy("apiCopy.server.not.found.d7783f94"));
 			}
 
 			const records = await listVpsBackupRecords(serverId);
@@ -69,82 +68,69 @@ export async function POST(
 		async ({ session, body }) => {
 			const locale = await getServerLocale();
 
-   const teamAccess = await assertServerTeamAccess(session, serverId);
-   if (!teamAccess.ok) return teamAccess.response;
+			const teamAccess = await assertServerTeamAccess(session, serverId);
+			if (!teamAccess.ok) return teamAccess.response;
 
 			const server = await prisma.server.findUnique({
 				where: { id: serverId },
 				select: { id: true, name: true, enabled: true, teamId: true },
 			});
 			if (!server) {
-				return Response.json({ error: apiCopy("apiCopy.server.not.found.d7783f94") }, { status: 404 });
+				throw new NotFoundError(apiCopy("apiCopy.server.not.found.d7783f94"));
 			}
 			if (!server.enabled) {
-				return Response.json(
-					{ error: t("vpsBackupApi.errorServerDisabled", locale) },
-					{ status: 400 },
-				);
+				throw new ValidationError(t("vpsBackupApi.errorServerDisabled", locale));
 			}
+
+			if (body.backupType === "custom" && (!body.paths || body.paths.length === 0)) {
+				throw new ValidationError(t("vpsBackupApi.errorCustomPathsRequired", locale));
+			}
+
+			const { id: recordId } = await createVpsBackupRecord({
+				serverId,
+				backupType: body.backupType,
+				createdBy: session.userId,
+				...(body.paths?.length ? { paths: body.paths } : {}),
+			});
 
 			try {
-				if (body.backupType === "custom" && (!body.paths || body.paths.length === 0)) {
-					return Response.json(
-						{ error: t("vpsBackupApi.errorCustomPathsRequired", locale) },
-						{ status: 400 },
-					);
-				}
-
-				const { id: recordId } = await createVpsBackupRecord({
-					serverId,
-					backupType: body.backupType,
-					createdBy: session.userId,
-					...(body.paths?.length ? { paths: body.paths } : {}),
-				});
-
-				try {
-					await enqueueJob({
-						type: VPS_BACKUP_CREATE_JOB_TYPE,
-						title: `VPS backup: ${body.backupType} (${server.name})`,
-						payload: {
-							recordId,
-							serverId,
-							teamId: session.currentTeamId ?? server.teamId ?? null,
-							...(body.paths?.length ? { paths: body.paths } : {}),
-						},
-						createdBy: session.userId,
+				await enqueueJob({
+					type: VPS_BACKUP_CREATE_JOB_TYPE,
+					title: `VPS backup: ${body.backupType} (${server.name})`,
+					payload: {
+						recordId,
+						serverId,
 						teamId: session.currentTeamId ?? server.teamId ?? null,
-						maxAttempts: 1,
-					});
-				} catch (enqueueErr) {
-					// Compensate orphan PENDING row so UI does not show stuck backups.
-					await prisma.vpsBackupRecord.update({
-						where: { id: recordId },
-						data: {
-							status: "FAILED",
-							errorMessage:
-								enqueueErr instanceof Error
-									? enqueueErr.message
-									: "Failed to enqueue VPS backup job",
-							completedAt: new Date(),
-						},
-					}).catch(() => undefined);
-					throw enqueueErr;
-				}
+						...(body.paths?.length ? { paths: body.paths } : {}),
+					},
+					createdBy: session.userId,
+					teamId: session.currentTeamId ?? server.teamId ?? null,
+					maxAttempts: 1,
+				});
+			} catch (enqueueErr) {
+				// Compensate orphan PENDING row so UI does not show stuck backups;
+				// re-throw and let the guard's apiCatch serve the 500 envelope.
+				await prisma.vpsBackupRecord.update({
+					where: { id: recordId },
+					data: {
+						status: "FAILED",
+						errorMessage:
+							enqueueErr instanceof Error
+								? enqueueErr.message
+								: "Failed to enqueue VPS backup job",
+						completedAt: new Date(),
+					},
+				}).catch(() => undefined);
+				throw enqueueErr;
+			}
 
-				await auditUserAction(
-					session.userId,
-					"vps-backup.record.trigger",
-					{ serverId, recordId, backupType: body.backupType },
+			await auditUserAction(
+				session.userId,
+				"vps-backup.record.trigger",
+				{ serverId, recordId, backupType: body.backupType },
 				undefined, session.currentTeamId);
 
-				return Response.json({ recordId, status: "PENDING" }, { status: 202 });
-			} catch (err) {
-				logger.error("Failed to trigger VPS backup", { error: err, serverId });
-				return Response.json(
-					{ error: t("vpsBackupApi.errorTriggerFailed", locale) },
-					{ status: 500 },
-				);
-			}
+			return Response.json({ recordId, status: "PENDING" }, { status: 202 });
 		},
 	);
 }

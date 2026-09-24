@@ -8,6 +8,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { formatDate } from "@/app/files/file-entry-utils";
 import { formatBytes } from "@/lib/format/bytes";
 import { ActionButton } from "@/components/action-button";
+import { InlineLoading } from "@/components/ui-primitives";
 
 type VersionItem = {
   id: string;
@@ -188,9 +189,7 @@ export function FileVersionHistoryPanel({
 
       <div className="mt-3 space-y-2">
         {loading ? (
-          <p className="text-xs text-[var(--text-muted)]">
-            {t("fileVersionHistory.loading")}
-          </p>
+          <InlineLoading label={t("fileVersionHistory.loading")} />
         ) : versions.length === 0 ? (
           <p className="rounded-2xl border border-dashed border-[var(--border)] px-3 py-4 text-xs text-[var(--text-muted)]">
             {t("fileVersionHistory.empty")}

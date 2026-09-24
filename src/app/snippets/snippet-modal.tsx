@@ -3,6 +3,7 @@
 import { useRef, useState, type Dispatch, type SetStateAction } from "react";
 
 import { ModalShell } from "@/components/modal-shell";
+import { UI_OVERLAY_CENTER } from "@/components/ui-overlay-classes";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useToast } from "@/components/toast-provider";
@@ -114,7 +115,7 @@ export function SnippetModal({
 			onClose={requestClose}
 			labelledBy={`${prefix}-snippet-title`}
 			closeOnBackdrop={false}
-			overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] backdrop-blur-sm"
+			overlayClassName={UI_OVERLAY_CENTER}
 			panelClassName="w-full max-w-lg rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-6 shadow-2xl"
 		>
 				<h3 id={`${prefix}-snippet-title`} className="text-lg font-semibold text-[var(--text-primary)]">

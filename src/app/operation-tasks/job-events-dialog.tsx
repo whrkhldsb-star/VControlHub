@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
-import { toDateLocale } from "@/lib/i18n/locale-format";
+import { formatDateTime } from "@/lib/datetime/format";
 import type { Locale } from "@/lib/i18n/translations";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
@@ -73,7 +73,7 @@ const LEVEL_BADGE_TONE: Record<JobEventLevel, StatusTone> = {
 function formatTime(value: string, locale?: Locale) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString(toDateLocale(locale ?? "zh"), { hour12: false });
+  return formatDateTime(date, locale ?? "zh", value);
 }
 
 function summarizePayload(payload: unknown): string | null {

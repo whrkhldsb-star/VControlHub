@@ -1,6 +1,6 @@
 # VControlHub RBAC Audit Report
 
-> Generated: 2026-09-23T12:09:33.336Z | Permissions: 54 | Roles: 4 | API routes: 185 | Pages: 55 | Drift: 0
+> Generated: 2026-09-24T00:35:20.372Z | Permissions: 54 | Roles: 4 | API routes: 186 | Pages: 55 | Drift: 2
 
 This report cross-references four RBAC sources of truth:
 1. `src/lib/auth/rbac.ts` — `PERMISSIONS` tuple + `DEFAULT_ROLE_PERMISSIONS` map
@@ -15,8 +15,8 @@ This report cross-references four RBAC sources of truth:
 | `perm-not-in-list` | low | 0 |
 | `perm-without-role` | low | 0 |
 | `role-grants-unknown` | low | 0 |
-| `api-no-declared-perm` | low | 0 |
-| `api-decl-perm-unused` | low | 0 |
+| `api-no-declared-perm` | low | 1 |
+| `api-decl-perm-unused` | medium | 1 |
 | `api-route-missing` | low | 0 |
 | `page-button-perm-unused` | low | 0 |
 
@@ -55,10 +55,10 @@ This report cross-references four RBAC sources of truth:
 | `playbook:manage` | admin | 1 | 0 | 7 |
 | `playbook:read` | admin, operator | 1 | 1 | 8 |
 | `playbook:run` | admin, operator | 1 | 0 | 5 |
-| `role:manage` | admin | 0 | 4 | 12 |
+| `role:manage` | admin | 0 | 4 | 10 |
 | `server:read` | admin, operator, viewer, storage_manager | 0 | 3 | 19 |
 | `server:sftp:unrestricted` | admin | 0 | 0 | 0 |
-| `server:ssh` | admin, operator | 1 | 3 | 31 |
+| `server:ssh` | admin, operator | 1 | 1 | 27 |
 | `server:write` | admin, operator | 1 | 1 | 22 |
 | `share:create` | admin, operator, storage_manager | 1 | 0 | 3 |
 | `share:manage` | admin, operator, storage_manager | 1 | 0 | 5 |
@@ -73,10 +73,35 @@ This report cross-references four RBAC sources of truth:
 | `team:manage` | admin | 3 | 8 | 11 |
 | `team:member:manage` | admin, operator | 1 | 0 | 5 |
 | `team:read` | admin, operator, viewer, storage_manager | 0 | 0 | 2 |
-| `ticket:create` | admin, operator, viewer, storage_manager | 1 | 1 | 4 |
-| `ticket:manage` | admin, operator, storage_manager | 3 | 3 | 31 |
+| `ticket:create` | admin, operator, viewer, storage_manager | 1 | 0 | 4 |
+| `ticket:manage` | admin, operator, storage_manager | 3 | 3 | 30 |
 | `ticket:read` | admin, operator, viewer, storage_manager | 1 | 0 | 8 |
 | `user:manage` | admin | 2 | 0 | 24 |
 | `user:read` | admin, operator, viewer, storage_manager | 1 | 0 | 7 |
 
-## ✅ No drift detected
+## Drift details
+
+### `api-no-declared-perm` (low)
+API route /api/auth/signout-all has no declaredPermissions (could be intentionally public)
+
+```json
+{
+  "path": "/api/auth/signout-all",
+  "file": "src/app/api/auth/signout-all/route.ts",
+  "methods": [
+    "POST"
+  ]
+}
+```
+
+### `api-decl-perm-unused` (medium)
+API route /api/users declares "team:manage" but the route handler doesn't enforce it via requirePermission("team:manage") or withApiRoute(..., { permission: "team:manage" }, ...)
+
+```json
+{
+  "path": "/api/users",
+  "declaredPermission": "team:manage",
+  "file": "src/app/api/users/route.ts"
+}
+```
+

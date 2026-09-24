@@ -5,7 +5,7 @@ import Link from "next/link";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
-import { toDateLocale } from "@/lib/i18n/locale-format";
+import { formatDateTime } from "@/lib/datetime/format";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 import { FormField, Notice } from "@/components/ui-primitives";
@@ -211,9 +211,9 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
             </div>
           </div>
           <div className="text-left text-xs text-[var(--text-muted)] sm:text-right">
-            <p>{t("ticketsDetail.createdAt", { time: new Date(ticket.createdAt).toLocaleString(toDateLocale(locale)) })}</p>
-            <p>{t("ticketsDetail.updatedAt", { time: new Date(ticket.updatedAt).toLocaleString(toDateLocale(locale)) })}</p>
-            {ticket.closedAt && <p>{t("ticketsDetail.closedAt", { time: new Date(ticket.closedAt).toLocaleString(toDateLocale(locale)) })}</p>}
+            <p>{t("ticketsDetail.createdAt", { time: formatDateTime(ticket.createdAt, locale) })}</p>
+            <p>{t("ticketsDetail.updatedAt", { time: formatDateTime(ticket.updatedAt, locale) })}</p>
+            {ticket.closedAt && <p>{t("ticketsDetail.closedAt", { time: formatDateTime(ticket.closedAt, locale) })}</p>}
           </div>
         </div>
 
@@ -355,7 +355,7 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
               <li key={ev.id} className="relative pb-4">
                 <span className="absolute -left-[1.3rem] top-1.5 h-2.5 w-2.5 rounded-full border border-[var(--accent-border)] bg-[var(--accent-bg)]" />
                 <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--text-muted)]">
-                  <span>{new Date(ev.at).toLocaleString(toDateLocale(locale))}</span>
+                  <span>{formatDateTime(ev.at, locale)}</span>
                   <span className="rounded-full border border-[var(--border)] px-1.5 py-0.5">
                     {eventTypeLabel(ev.type)}
                   </span>
@@ -396,7 +396,7 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
               <div key={c.id} className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-4">
                 <div className="mb-2 flex items-center justify-between gap-3">
                   <span className="text-sm font-medium text-[var(--text-primary)]">{c.author.displayName || c.author.username}</span>
-                  <span className="text-xs text-[var(--text-muted)]">{new Date(c.createdAt).toLocaleString(toDateLocale(locale))}</span>
+                  <span className="text-xs text-[var(--text-muted)]">{formatDateTime(c.createdAt, locale)}</span>
                 </div>
                 <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--text-secondary)]">{c.body}</p>
               </div>

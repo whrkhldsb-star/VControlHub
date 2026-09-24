@@ -70,7 +70,6 @@ export function DashboardWidgetDetailDialog({
 			open={openId !== null}
 			onClose={onClose}
 			labelledBy="dashboard-widget-detail-title"
-			overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] p-4 backdrop-blur-sm"
 			panelClassName="relative max-h-[88vh] w-full max-w-3xl overflow-auto rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-5 shadow-[var(--shadow-lg)] sm:p-6"
 			initialFocusRef={closeRef}
 			panelProps={{ "data-testid": "dashboard-widget-detail-dialog" }}

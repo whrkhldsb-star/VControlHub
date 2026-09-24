@@ -4,11 +4,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
-import { toDateLocale } from "@/lib/i18n/locale-format";
+import { formatDateTime } from "@/lib/datetime/format";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 import { ModalShell } from "@/components/modal-shell";
+import { UI_OVERLAY_SHEET_SURFACE } from "@/components/ui-overlay-classes";
 import { getBackupTypeLabel } from "@/lib/i18n/domain-labels";
 
 type Props = {
@@ -67,7 +68,7 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
       const restoredAt = result.restore?.restoredAt ?? result.restoredAt;
       if (restoredAt) {
         setMessage(
-          t("backupsPage.restore.successWithTime", { time: new Date(restoredAt).toLocaleString(toDateLocale(locale)) }),
+          t("backupsPage.restore.successWithTime", { time: formatDateTime(restoredAt, locale) }),
         );
         setQueuedTaskLink(false);
       } else if (result.taskId || result.jobId) {
@@ -115,7 +116,7 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
           labelledBy="restore-backup-title"
           describedBy="restore-backup-description"
           closeOnBackdrop={false}
-          overlayClassName="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-[var(--surface)]/75 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+          overlayClassName={UI_OVERLAY_SHEET_SURFACE}
           panelClassName="mx-0 w-full max-w-md rounded-t-2xl border border-[var(--danger-border)] bg-[var(--modal-bg)] p-5 shadow-2xl shadow-black/30 sm:mx-4 sm:rounded-2xl"
         >
             <h3 id="restore-backup-title" className="text-base font-semibold text-[var(--text-primary)]">{t("backupsPage.restore.confirmTitle")}</h3>

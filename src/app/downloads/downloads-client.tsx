@@ -14,7 +14,7 @@ import { CreateDownloadFormLazy } from "./create-download-form-lazy";
 import { DownloadTaskRow } from "./downloads-task-row";
 import { getCategories, getErrorMessage, getStatusLabel, formatSpeed, type DownloadTask, type GlobalStat, type ServerOption } from "./downloads-shared";
 import { ActionButton } from "@/components/action-button";
-import { Notice } from "@/components/ui-primitives";
+import { InlineLoading, Notice } from "@/components/ui-primitives";
 export type { ServerOption } from "./downloads-shared";
 const UNCATEGORIZED_FILTER = "__uncategorized";
 
@@ -441,7 +441,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 				count={loading ? "…" : filteredTasks.length}
 				empty={
 					loading ? (
-						<EmptyState>{t("downloadsPage.loading")}</EmptyState>
+						<InlineLoading label={t("downloadsPage.loading")} />
 					) : filteredTasks.length === 0 && !loadFailed ? (
 						<EmptyState variant="boxed" icon={<Download size={32} className="text-[var(--text-muted)]" />}>
 							{filter === "ALL"

@@ -349,8 +349,11 @@ describe("VPS backup routes", () => {
 
 			const response = await recordItem.DELETE(json("https://a.test/r", "DELETE"), recordParams);
 
+			// The plain Error now bubbles to the guard's apiCatch, which serves the
+			// generic 500 envelope (INTERNAL_ERROR + fallback copy). This mock
+			// guard mirrors status but uses error.message for the body, so only
+			// the status is asserted here — the real guard never leaks ENOSPC.
 			expect(response.status).toBe(500);
-			await expect(response.json()).resolves.toEqual({ error: "vpsBackupApi.errorDeleteRecordFailed" });
 		});
 
 		it("deletes and audits a record it owns", async () => {
@@ -528,8 +531,9 @@ describe("VPS backup routes", () => {
 
 			const response = await scheduleItem.PATCH(json("https://a.test/s", "PATCH", { name: "n" }), scheduleParams);
 
+			// Plain Error → guard's apiCatch generic 500 envelope (the mock guard
+			// mirrors status only; body copy is the real guard's fallback).
 			expect(response.status).toBe(500);
-			await expect(response.json()).resolves.toEqual({ error: "vpsBackupApi.errorUpdateFailed" });
 		});
 
 		it("passes the server id into the update so the schedule cannot be borrowed", async () => {

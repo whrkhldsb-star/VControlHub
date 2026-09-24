@@ -6,7 +6,7 @@
  */
 
 import { formatBytes } from "@/lib/format/bytes";
-import { toDateLocale } from "@/lib/i18n/locale-format";
+import { formatShortDate, formatShortTime } from "@/lib/datetime/format";
 
 import {
 	healthStatusBadgeTone,
@@ -199,13 +199,7 @@ export function VpsNodeCard({
 				<span className="text-xs text-[var(--text-muted)]">
 					{t("healthPage.ui.lastRefresh")}:{" "}
 					{server.lastCheck
-						? new Date(server.lastCheck).toLocaleString(toDateLocale(locale), {
-								month: "2-digit",
-								day: "2-digit",
-								hour: "2-digit",
-								minute: "2-digit",
-								hour12: false,
-							})
+						? `${formatShortDate(server.lastCheck, locale)} ${formatShortTime(server.lastCheck, locale)}`
 						: "—"}
 				</span>
 				<button

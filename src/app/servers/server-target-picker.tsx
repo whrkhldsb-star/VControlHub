@@ -3,6 +3,7 @@
 import { useEffect, useId, useState } from "react";
 import { ActionButton } from "@/components/action-button";
 import { EmptyState } from "@/components/page-shell";
+import { InlineLoading } from "@/components/ui-primitives";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { loadServerOperationTargets } from "./inventory-actions";
@@ -58,7 +59,7 @@ export function ServerTargetPicker({ kind, selected, onChange, onEnabledCount }:
       <ActionButton variant="secondary" disabled={!selected.length} onClick={() => onChange([])}>{t("serversPage.command.deselectAll")}</ActionButton>
       <span role="status">{t("serversPage.targets.summary", { count: selected.length, total: data?.total ?? 0 })}</span>
     </div>
-    {pending ? <p role="status">{t("common.loading")}</p> : state.error ? <div role="alert">
+    {pending ? <InlineLoading label={t("common.loading")} /> : state.error ? <div role="alert">
       <p>{t("serversPage.inventory.loadFailed")}</p>
       <ActionButton variant="secondary" onClick={() => setRequest({ ...request, attempt: request.attempt + 1 })}>{t("common.retry")}</ActionButton>
     </div> : !rows.length ? <EmptyState text={t("serversPage.inventory.noResults")} /> : <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">

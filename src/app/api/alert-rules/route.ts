@@ -20,11 +20,8 @@ import { validateWebhookUrlSyntax } from "@/lib/security/webhook-url";
 
 import { ValidationError } from "@/lib/errors";
 import { teamWhere } from "@/lib/auth/team-scope";
-import {
-  MAX_NON_FILE_FORM_BYTES,
-  requestContentLengthExceeds,
-  requestContentLengthMissing,
-} from "@/lib/http/request-body";
+import { rejectOversizedFormBody } from "@/lib/http/form-body-limit";
+import { MAX_NON_FILE_FORM_BYTES } from "@/lib/http/request-body";
 import { t } from "@/lib/i18n/service-translations";
 export const dynamic = "force-dynamic";
 
@@ -200,15 +197,15 @@ export async function POST(request: Request) {
   const isFormSubmission =
     contentType.includes("application/x-www-form-urlencoded") ||
     contentType.includes("multipart/form-data");
-  if (isFormSubmission && requestContentLengthExceeds(request, MAX_NON_FILE_FORM_BYTES)) {
-    return NextResponse.json({ error: t("backend.request.bodyTooLarge") }, { status: 413 });
-  }
-  // A chunked form post with no Content-Length would buffer unbounded bytes in
-  // request.formData() before any check — the declared-length test above
-  // cannot see it. Same guard the upload routes apply.
-  if (isFormSubmission && requestContentLengthMissing(request)) {
-    return NextResponse.json({ error: t("backend.request.bodyTooLarge") }, { status: 411 });
-  }
+  // Form posts are parsed manually below, so the shared bodySchema byte cap
+  // cannot apply — reject oversized / length-undeclared bodies up front
+  // (a chunked post would otherwise buffer unbounded bytes in formData()).
+  const rejected = isFormSubmission
+    ? rejectOversizedFormBody(request, MAX_NON_FILE_FORM_BYTES, {
+        tooLargeMessage: t("backend.request.bodyTooLarge"),
+      })
+    : null;
+  if (rejected) return rejected;
   const options = {
     permission: "notification:manage" as const,
     rateLimit: GENERAL_WRITE_LIMIT,

@@ -19,10 +19,10 @@ import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
  * permission, conflating the two would hand every operator write access to every
  * private snippet in the install.
  *
- * The second property is error mapping: three of the four handlers wrap their
- * service call in a local `try/catch → apiCatch(err)` precisely so an AppError
- * keeps its own status. The route's own comment says it: "do not string-match
- * English messages (messages are not stable error codes)."
+ * The second property is error mapping: service AppErrors bubble straight to
+ * the guard's `apiCatch`, which keeps each AppError's own status (the route's
+ * own comment says it: "do not string-match English messages — messages are
+ * not stable error codes").
  */
 const mocks = vi.hoisted(() => ({
 	listSnippets: vi.fn(),

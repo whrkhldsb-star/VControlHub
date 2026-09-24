@@ -50,22 +50,19 @@ export function ChangePasswordModal({
       overlayClassName="fixed inset-0 z-[100] flex items-center justify-center bg-[var(--overlay)] backdrop-blur-sm"
       panelClassName="relative z-10 w-full max-w-md mx-4 rounded-3xl border border-[var(--border)] bg-[var(--modal-bg)] p-6 shadow-2xl"
     >
-        {" "}
         <div className="flex items-center justify-between mb-4">
-          {" "}
           <h2
             id={titleId}
             className="text-xl font-semibold text-[var(--text-primary)]"
           >
             {titleText}
-          </h2>{" "}
+          </h2>
           <button
             type="button"
             onClick={onClose}
             className="rounded-xl p-2 text-[var(--text-secondary)] hover:bg-[var(--surface-elevated)] hover:text-[var(--text-primary)] transition"
             aria-label={closeModalLabel}
           >
-            {" "}
             <svg
               width="18"
               height="18"
@@ -73,25 +70,22 @@ export function ChangePasswordModal({
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
             >
-              {" "}
               <path
                 d="M4 4l10 10M14 4L4 14"
                 stroke="currentColor"
                 strokeWidth="1.5"
                 strokeLinecap="round"
-              />{" "}
-            </svg>{" "}
-          </button>{" "}
-        </div>{" "}
+              />
+            </svg>
+          </button>
+        </div>
         <p
           id={descriptionId}
           className="mb-4 text-sm text-[var(--text-secondary)]"
         >
-          {" "}
-          {changePasswordDescription}{" "}
-        </p>{" "}
+          {changePasswordDescription}
+        </p>
         <form key={formKey} action={formAction} className="grid gap-4">
-          {" "}
           <input
             type="text"
             name="username"
@@ -99,41 +93,32 @@ export function ChangePasswordModal({
             className="hidden"
             tabIndex={-1}
             aria-hidden="true"
-          />{" "}
+          />
           <PasswordField
             label={t("changePassword.currentPassword")}
             name="currentPassword"
             autoComplete="current-password"
             placeholder={t("changePassword.currentPasswordPlaceholder")}
             description={t("changePassword.currentPasswordDesc")}
-          />{" "}
+          />
           <PasswordField
             label={t("changePassword.newPassword")}
             name="newPassword"
             autoComplete="new-password"
             placeholder={t("changePassword.newPasswordPlaceholder")}
             description={t("changePassword.newPasswordDesc")}
-          />{" "}
+          />
           <PasswordField
             label={t("changePassword.confirmPassword")}
             name="confirmPassword"
             autoComplete="new-password"
             placeholder={t("changePassword.confirmPasswordPlaceholder")}
             description={t("changePassword.confirmPasswordDesc")}
-          />{" "}
+          />
           {state.error ? (
             <Notice tone="danger">{state.error}</Notice>
-          ) : null}{" "}
-          {state.success ? (
-            <div
-              role="status"
-              aria-live="polite"
-              data-tone="emerald"
-              className="rounded-2xl border border-[var(--success-border)] px-4 py-3 text-sm text-[var(--success)]"
-            >
-              {state.success}
-            </div>
-          ) : null}{" "}
+          ) : null}
+          {state.success ? <Notice tone="success">{state.success}</Notice> : null}
           <div className="flex justify-end gap-3 pt-2">
             <ActionButton
               type="button"
@@ -147,7 +132,7 @@ export function ChangePasswordModal({
               {t("common.saveNewPassword")}
             </SubmitButton>
           </div>
-        </form>{" "}
+        </form>
     </ModalShell>
   );
 }

@@ -13,11 +13,8 @@ import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
 import { AppError, isAppError, ValidationError } from "@/lib/errors";
 import { getErrorMessage } from "@/lib/http/error-message";
-import {
-  MAX_NON_FILE_FORM_BYTES,
-  requestContentLengthExceeds,
-  requestContentLengthMissing,
-} from "@/lib/http/request-body";
+import { rejectOversizedFormBody } from "@/lib/http/form-body-limit";
+import { MAX_NON_FILE_FORM_BYTES } from "@/lib/http/request-body";
 import { t } from "@/lib/i18n/service-translations";
 export const dynamic = "force-dynamic";
 
@@ -94,14 +91,14 @@ async function readRequestBody(request: Request) {
 export async function POST(request: Request) {
   const contentType = request.headers.get("content-type") || "";
   const isFormSubmission = contentType.includes("application/x-www-form-urlencoded") || contentType.includes("multipart/form-data");
-  if (isFormSubmission && requestContentLengthExceeds(request, MAX_NON_FILE_FORM_BYTES)) {
-    return NextResponse.json({ error: t("backend.request.bodyTooLarge") }, { status: 413 });
-  }
-  // Chunked form posts with no declared length would buffer unbounded bytes in
-  // request.formData() before any check — mirror the upload routes' 411.
-  if (isFormSubmission && requestContentLengthMissing(request)) {
-    return NextResponse.json({ error: t("backend.request.bodyTooLarge") }, { status: 411 });
-  }
+  // Form posts are parsed manually below — reject oversized / chunked bodies
+  // up front (formData() would otherwise buffer unbounded bytes).
+  const rejected = isFormSubmission
+    ? rejectOversizedFormBody(request, MAX_NON_FILE_FORM_BYTES, {
+        tooLargeMessage: t("backend.request.bodyTooLarge"),
+      })
+    : null;
+  if (rejected) return rejected;
   const options = {
     permission: "deploy:run" as const,
     rateLimit: GENERAL_WRITE_LIMIT,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { toDateLocale } from "@/lib/i18n/locale-format";
+import { formatDateTime } from "@/lib/datetime/format";
 import { useI18n } from "@/lib/i18n/use-locale";
 
 import { checkStorageNodeHealthAction } from "./actions";
@@ -66,11 +66,11 @@ function getHealthPresentation(status: string | null | undefined, t: (k: string,
 	}
 }
 
-function formatHealthTime(value: string | null | undefined, locale:"zh" |"en") {
-	if (!value) return"";
+function formatHealthTime(value: string | null | undefined, locale: "zh" | "en") {
+	if (!value) return "";
 	const date = new Date(value);
 	if (Number.isNaN(date.getTime())) return value;
-	return date.toLocaleString(toDateLocale(locale), { hour12: false });
+	return formatDateTime(date, locale, value);
 }
 
 function StorageNodeCard({

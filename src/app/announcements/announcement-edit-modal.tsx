@@ -6,6 +6,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 import { ModalShell } from "@/components/modal-shell";
+import { UI_OVERLAY_CENTER } from "@/components/ui-overlay-classes";
 import { useUnsavedChangesGuard } from "@/lib/forms/use-unsaved-changes-guard";
 
 interface Announcement {
@@ -73,7 +74,7 @@ export function AnnouncementEditModal({
       onClose={requestDiscard}
       labelledBy="announcement-edit-title"
       closeOnBackdrop={false}
-      overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] backdrop-blur-sm"
+      overlayClassName={UI_OVERLAY_CENTER}
       panelClassName="w-full max-w-lg rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-6 shadow-2xl"
     >
         <h3 id="announcement-edit-title" className="text-lg font-semibold text-[var(--text-primary)]">{t("announcementsPage.edit.title")}</h3>

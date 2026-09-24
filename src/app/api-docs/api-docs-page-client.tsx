@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { PageShell, PageHeader, Toolbar } from "@/components/page-shell";
 import { getErrorMessage } from "@/lib/http/error-message";
-import { Notice } from "@/components/ui-primitives";
+import { InlineLoading, Notice } from "@/components/ui-primitives";
 import { api } from "@/lib/http/api-client";
 
 type OpenApiOperation = {
@@ -143,8 +143,8 @@ export default function ApiDocsPage() {
 				{error ? <Notice tone="danger">{error}</Notice> : null}
 
 				{!spec && !error ? (
-					<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] p-8 text-sm text-[var(--text-muted)]">
-						{t("apiDocsPage.loading")}
+					<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] p-8">
+						<InlineLoading label={t("apiDocsPage.loading")} />
 					</div>
 				) : null}
 

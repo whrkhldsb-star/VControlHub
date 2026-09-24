@@ -6,6 +6,7 @@ import { formatDateTime } from "@/lib/datetime/format";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
+import { InlineLoading } from "@/components/ui-primitives";
 
 interface AccessLog {
   id: string;
@@ -54,7 +55,7 @@ export function ShareAccessLogsButton({ shareId }: { shareId: string }) {
       {open && (
         <div className="mt-2 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-3">
           {loading ? (
-            <p className="text-xs text-[var(--text-muted)]">{t("sharesPage.accessLogs.loading")}</p>
+            <InlineLoading label={t("sharesPage.accessLogs.loading")} />
           ) : error ? (
             <p className="text-xs text-[var(--danger)]">{error}</p>
           ) : logs.length === 0 ? (

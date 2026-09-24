@@ -16,6 +16,14 @@ import {
 
 export const dynamic = "force-dynamic";
 
+// limit/offset paging (not the shared page/pageSize shape): default 50 items,
+// capped at 100; offset is non-negative. Same defaults the hand-rolled
+// parseInt version used.
+const listNotificationsQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+
 const patchSchema = z.union([
   z.discriminatedUnion("action", [
     z.object({ action: z.literal("markAllAsRead") }),
@@ -35,9 +43,7 @@ export async function GET(request: Request) {
     request,
     { requireAuth: true, errorMessage: apiCopy("apiCopy.failed.to.fetch.notifications.eb5f4282") },
     async ({ session }) => {
-      const url = new URL(request.url);
-      const limit = Math.min(100, Math.max(1, Number.parseInt(url.searchParams.get("limit") ?? "50", 10) || 50));
-      const offset = Math.max(0, Number.parseInt(url.searchParams.get("offset") ?? "0", 10) || 0);
+      const { limit, offset } = parseSearchParams(request, listNotificationsQuerySchema);
       const [notifications, unreadCount] = await Promise.all([
         listUserNotifications(session.userId, { limit, skip: offset }),
         getUnreadCount(session.userId),

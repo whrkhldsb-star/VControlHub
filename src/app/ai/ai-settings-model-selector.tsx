@@ -10,6 +10,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import type { ModelInfo } from "./ai-types";
 import type { SettingsFormState } from "./ai-settings-types";
 import { ActionButton } from "@/components/action-button";
+import { Spinner } from "@/components/ui-primitives";
 
 type Props = {
   settingsForm: SettingsFormState;
@@ -46,8 +47,9 @@ export function AiSettingsModelSelector({
       <label className="text-xs text-[var(--text-muted)] uppercase ">
         {t("aiPage.model")}
         {modelsLoading && (
-          <span className="ml-2 text-[var(--color-action)] animate-pulse">
-            {t("aiPage.loading")}
+          <span className="ml-2 inline-flex items-center gap-2 align-middle text-[var(--text-muted)]">
+            <Spinner size="sm" label={t("aiPage.loading")} />
+            <span aria-hidden>{t("aiPage.loading")}</span>
           </span>
         )}
       </label>

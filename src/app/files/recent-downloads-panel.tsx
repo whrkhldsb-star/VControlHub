@@ -4,7 +4,7 @@ import { useCallback } from "react";
 
 import { useI18n } from "@/lib/i18n/use-locale";
 import { RefreshCw } from "@/components/icons";
-import { IconButton, Notice } from "@/components/ui-primitives";
+import { IconButton, InlineLoading, Notice } from "@/components/ui-primitives";
 import { formatDateTime } from "@/lib/datetime/format";
 import { api } from "@/lib/http/api-client";
 import { useResourcePolling } from "@/lib/http/use-resource-polling";
@@ -54,7 +54,7 @@ export function RecentDownloadsPanel({
         </IconButton>
       </div>
 
-      {loading ? <p className="mt-4 text-sm text-[var(--text-muted)]">{t("filesPage.recentDownloads.loading")}</p> : null}
+      {loading ? <InlineLoading label={t("filesPage.recentDownloads.loading")} className="mt-4" /> : null}
       {!loading && error ? (
         <Notice tone="danger" className="mt-4" action={{ label: t("filesPage.recentDownloads.retry"), onClick: () => void refresh() }}>{error}</Notice>
       ) : null}

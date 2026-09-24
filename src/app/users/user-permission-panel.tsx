@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { formatBytes as formatBytesShared } from "@/lib/format/bytes";
 import { EmptyState } from "@/components/page-shell";
-import { Notice } from "@/components/ui-primitives";
+import { Notice, InlineLoading } from "@/components/ui-primitives";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { ModalShell } from "@/components/modal-shell";
 import { getErrorMessage } from "@/lib/http/error-message";
@@ -264,7 +264,7 @@ return data as PermissionsPayload;
         </div>
 
         {message && <Notice tone={message.type === "success" ? "success" : "danger"} className="mb-4">{message.text}</Notice>}
-        {loading || !payload ? <EmptyState>{t("usersPerm.loading")}</EmptyState> : (
+        {loading || !payload ? <InlineLoading label={t("usersPerm.loading")} /> : (
           <div className="space-y-6">
             <section className="rounded-2xl border border-[var(--accent-border)] bg-[var(--accent-bg)] p-4">
               <h4 className="font-medium text-[var(--text-primary)]">{t("usersPerm.template.title")}</h4>

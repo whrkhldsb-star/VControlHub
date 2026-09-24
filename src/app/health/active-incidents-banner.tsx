@@ -5,7 +5,7 @@ import { X } from "@/components/icons";
 import { useCallback, useEffect, useState } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
-import { toDateLocale } from "@/lib/i18n/locale-format";
+import { formatDateTime } from "@/lib/datetime/format";
 import { useI18n } from "@/lib/i18n/use-locale";
 
 type ActiveAnnouncement = {
@@ -76,8 +76,8 @@ export function ActiveIncidentsBanner() {
 							</div>
 							<p className="mt-1.5 line-clamp-3 text-sm leading-6 text-[var(--text-secondary)]">{item.body}</p>
 							<p className="mt-1 text-xs text-[var(--text-muted)]">
-								{t("healthPage.incident.started", { time: new Date(item.startsAt).toLocaleString(toDateLocale(locale)) })}
-								{item.expiresAt ? ` · ${t("healthPage.incident.expectedEnd", { time: new Date(item.expiresAt).toLocaleString(toDateLocale(locale)) })}` : ""}
+								{t("healthPage.incident.started", { time: formatDateTime(item.startsAt, locale) })}
+								{item.expiresAt ? ` · ${t("healthPage.incident.expectedEnd", { time: formatDateTime(item.expiresAt, locale) })}` : ""}
 							</p>
 						</div>
 						<button

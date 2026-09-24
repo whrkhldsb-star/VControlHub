@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { formatBytes } from "@/lib/format/bytes";
 import { Pagination } from "@/components/pagination";
+import { InlineLoading } from "@/components/ui-primitives";
 import { RestoreButton } from "./restore-button";
 import { PermanentDeleteButton } from "./permanent-delete-button";
 
@@ -52,7 +53,11 @@ export function RecycleBinSectionClient({ deletedEntries, canDelete, onRefresh, 
     <section aria-label={t("recycleBinSection.title")} aria-busy={loading} className="mt-6 min-w-0">
       <p className="mb-4 text-sm text-[var(--text-secondary)]">{t("recycleBinSection.summary", { count: totalItems })}</p>
       {visibleEntries.length === 0 ? (
-        <p className="border-y border-[var(--border)] py-8 text-sm text-[var(--text-muted)]">{totalItems === 0 ? t("recycleBinSection.empty") : t("common.loading")}</p>
+        totalItems === 0 ? (
+          <p className="border-y border-[var(--border)] py-8 text-sm text-[var(--text-muted)]">{t("recycleBinSection.empty")}</p>
+        ) : (
+          <InlineLoading label={t("common.loading")} className="border-y border-[var(--border)] py-8" />
+        )
       ) : (
         <>
           <div className="hidden overflow-x-auto md:block">

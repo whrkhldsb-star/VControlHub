@@ -5,7 +5,7 @@ import { PageShell, PageHeader, SurfacePanel, Toolbar } from "@/components/page-
 import { z } from "zod";
 import { RefreshCw } from "@/components/icons";
 import { ActionButton } from "@/components/action-button";
-import { Notice, ProgressBar } from "@/components/ui-primitives";
+import { InlineLoading, Notice, ProgressBar } from "@/components/ui-primitives";
 import { StatusBadge } from "@/components/status-badge";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
@@ -216,7 +216,7 @@ export default function MonitoringPage() {
   if (loading) {
     return (
       <PageShell>
-        <div className="text-sm text-[var(--text-muted)]">{t("monitoringPage.loading")}</div>
+        <InlineLoading label={t("monitoringPage.loading")} />
       </PageShell>
     );
   }

@@ -19,7 +19,7 @@
 import { type ReactNode, type SyntheticEvent } from "react";
 
 import { useI18n } from "@/lib/i18n/use-locale";
-import { toDateLocale } from "@/lib/i18n/locale-format";
+import { formatDateTime } from "@/lib/datetime/format";
 import type { Locale } from "@/lib/i18n/translations";
 import type { RuntimeSettingSummaryDto as RuntimeSettingSummary } from "@/lib/runtime-settings/dto";
 import type { SettingUpdateMetadata } from "@/lib/settings/service";
@@ -44,9 +44,7 @@ export function formatMetadataDate(
   locale: Locale = "zh",
 ) {
   if (!value) return t("settingsClient.metadataNoRecord");
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) return t("settingsClient.metadataNoRecord");
-  return date.toLocaleString(toDateLocale(locale), { hour12: false });
+  return formatDateTime(value, locale, t("settingsClient.metadataNoRecord"));
 }
 
 export function latestSectionMetadata(

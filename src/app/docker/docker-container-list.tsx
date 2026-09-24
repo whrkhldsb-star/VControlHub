@@ -1,6 +1,7 @@
 "use client";
 
 import { EmptyState } from "@/components/page-shell";
+import { InlineLoading } from "@/components/ui-primitives";
 import { ActionButton } from "@/components/action-button";
 import { DockerContainerCard } from "./docker-container-card";
 import { type Container, type ContainerStats } from "./docker-helpers";
@@ -48,7 +49,7 @@ export function DockerContainerList({
 	);
 
 	if (loading) {
-		return <div className="text-sm text-[var(--text-muted)]">{t("dockerPage.loading")}</div>;
+		return <InlineLoading label={t("dockerPage.loading")} />;
 	}
 	if (containers.length === 0) {
 		return <EmptyState text={t("dockerPage.empty")} variant="boxed" />;

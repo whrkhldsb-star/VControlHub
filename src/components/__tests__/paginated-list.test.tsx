@@ -17,7 +17,7 @@ describe("PaginatedList", () => {
 
     expect(screen.getByText("记录 1")).toBeVisible();
     expect(screen.queryByText("记录 3")).not.toBeInTheDocument();
-    expect(screen.getByText("显示第 1-2 项，共 3 项")).toBeVisible();
+    expect(screen.getByText("显示 1–2，共 3 条")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "下一页" }));
     expect(screen.getByText("记录 3")).toBeVisible();
     expect(screen.getByRole("button", { name: "下一页" })).toBeDisabled();

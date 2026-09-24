@@ -26,7 +26,7 @@ import { normalizeRemoteTargetPath } from "@/lib/storage/remote-path";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { MAX_STORAGE_UPLOAD_BYTES } from "@/lib/storage/mime-constants";
-import { requestContentLengthExceeds, requestContentLengthMissing } from "@/lib/http/request-body";
+import { rejectOversizedFormBody } from "@/lib/http/form-body-limit";
 
 import { ValidationError } from "@/lib/errors";
 import { isUniqueViolation } from "@/lib/db";
@@ -66,31 +66,17 @@ function resolveManagedLocalPath(basePath: string, relativePath: string) {
 }
 
 async function handlePost(request: Request, session: SessionPayload, locale: Locale) {
-  if (
-    requestContentLengthExceeds(
-      request,
-      MAX_STORAGE_UPLOAD_BYTES + MAX_MULTIPART_OVERHEAD_BYTES,
-    )
-  ) {
-    return NextResponse.json(
-      {
-        error: t("api.storage.uploadTooLarge", locale),
-        maxUploadBytes: MAX_STORAGE_UPLOAD_BYTES,
-      },
-      { status: 413 },
-    );
-  }
-  // A chunked/omitted Content-Length would let request.formData() buffer an
-  // unbounded body into memory before any size check — reject before parsing.
-  if (requestContentLengthMissing(request)) {
-    return NextResponse.json(
-      {
-        error: t("api.storage.uploadTooLarge", locale),
-        maxUploadBytes: MAX_STORAGE_UPLOAD_BYTES,
-      },
-      { status: 411 },
-    );
-  }
+  // formData() buffers the whole body before the per-file size checks below,
+  // so refuse an oversized / length-undeclared (chunked) body up front.
+  const rejected = rejectOversizedFormBody(
+    request,
+    MAX_STORAGE_UPLOAD_BYTES + MAX_MULTIPART_OVERHEAD_BYTES,
+    {
+      tooLargeMessage: t("api.storage.uploadTooLarge", locale),
+      fields: { maxUploadBytes: MAX_STORAGE_UPLOAD_BYTES },
+    },
+  );
+  if (rejected) return rejected;
   const formData = await request.formData();
   const storageNodeId = String(formData.get("storageNodeId") ?? "").trim();
   const relativePath = String(formData.get("relativePath") ?? "").trim();

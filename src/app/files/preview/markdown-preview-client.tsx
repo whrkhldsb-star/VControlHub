@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useAbortableTextResource } from "@/lib/http/use-abortable-text-resource";
 import { AlertTriangle } from "@/components/icons";
+import { InlineLoading } from "@/components/ui-primitives";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { escapeHtml } from "@/lib/sanitize/escape-html";
 
@@ -307,13 +308,7 @@ export function MarkdownPreviewClient({ href }: { href: string }) {
   );
 
   if (state.loading) {
-    return (
-      <div className="flex items-center justify-center py-16 text-[var(--text-secondary)]">
-        <span className="animate-pulse text-sm">
-          {t("markdownPreview.loading")}
-        </span>
-      </div>
-    );
+    return <InlineLoading label={t("markdownPreview.loading")} className="py-16" />;
   }
 
   if (state.error) {
@@ -326,13 +321,7 @@ export function MarkdownPreviewClient({ href }: { href: string }) {
   }
 
   if (!sanitizeFn) {
-    return (
-      <div className="flex items-center justify-center py-16 text-[var(--text-secondary)]">
-        <span className="animate-pulse text-sm">
-          {t("markdownPreview.loading")}
-        </span>
-      </div>
-    );
+    return <InlineLoading label={t("markdownPreview.loading")} className="py-16" />;
   }
 
   return (

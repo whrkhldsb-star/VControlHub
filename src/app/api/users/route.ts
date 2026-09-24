@@ -11,14 +11,26 @@ import {
 import { auditUserAction } from "@/lib/audit/service";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
+import { paginationQuerySchema, parseSearchParams } from "@/lib/http/parse-search-params";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { createUserSchema, updateUserSchema } from "@/lib/user/schema";
 import { DEFAULT_ROLE_PERMISSIONS } from "@/lib/auth/rbac";
 
 import { NotFoundError, ValidationError, ForbiddenError } from "@/lib/errors";
 import { t } from "@/lib/i18n/translations";
+import { z } from "zod";
 import { assertAdminAccessMayBeRemoved, withAdminInvariantLock } from "@/lib/user/admin-invariant";
 export const dynamic = "force-dynamic";
+
+// Shared page/pageSize shape; this directory historically defaulted to 50 per
+// page with a 100 cap (not the schema's 20/200), so keep those exact values.
+// `limit` is omitted — this route never accepted it, and keeping it would turn
+// a previously-ignored `?limit=` into a 400.
+const usersListQuerySchema = paginationQuerySchema
+  .omit({ limit: true })
+  .extend({
+    pageSize: z.coerce.number().int().min(1).max(100).default(50),
+  });
 
 /** True when the user effectively holds `team:manage` (platform admin tier). */
 async function userHoldsTeamManage(userId: string): Promise<boolean> {
@@ -36,9 +48,7 @@ async function userHoldsTeamManage(userId: string): Promise<boolean> {
 /** GET: List users visible in the actor's team scope */
 export async function GET(request: Request) {
   return withApiRoute(request, { permission: "user:read" }, async ({ session }) => {
-    const url = new URL(request.url);
-    const page = Math.max(1, Number.parseInt(url.searchParams.get("page") ?? "1", 10) || 1);
-    const pageSize = Math.min(100, Math.max(1, Number.parseInt(url.searchParams.get("pageSize") ?? "50", 10) || 50));
+    const { page, pageSize } = parseSearchParams(request, usersListQuerySchema);
     const skip = (page - 1) * pageSize;
     const where = userDirectoryWhere(session);
     const [users, total] = await Promise.all([

@@ -9,14 +9,12 @@ import { auditUserAction } from "@/lib/audit/service";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
-import { createLogger } from "@/lib/logging";
-import { getServerLocale, t } from "@/lib/i18n/translations";
+import { NotFoundError, ConflictError } from "@/lib/errors";
 import { deleteVpsBackupRecord } from "@/lib/backup/vps-backup-service";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
 import { getErrorMessage } from "@/lib/http/error-message";
 
 export const dynamic = "force-dynamic";
-const logger = createLogger("api:servers:vps-backup:record");
 
 export async function DELETE(
 	request: Request,
@@ -27,8 +25,6 @@ export async function DELETE(
 		request,
 		{ permission: "server:write", rateLimit: GENERAL_WRITE_LIMIT },
 		async ({ session }) => {
-			const locale = await getServerLocale();
-
 			const teamAccess = await assertServerTeamAccess(session, serverId);
 			if (!teamAccess.ok) return teamAccess.response;
 
@@ -37,25 +33,22 @@ export async function DELETE(
 				select: { id: true },
 			});
 			if (!existing) {
-				return Response.json({ error: apiCopy("apiCopy.record.not.found.60de363f") }, { status: 404 });
+				throw new NotFoundError(apiCopy("apiCopy.record.not.found.60de363f"));
 			}
 
 			try {
 				await deleteVpsBackupRecord(recordId);
-				await auditUserAction(session.userId, "vps-backup.record.delete", { serverId, recordId }, undefined, session.currentTeamId);
-				return Response.json({ success: true });
 			} catch (err) {
 				const message = getErrorMessage(err, String(err));
-				// RUNNING delete is a conflict/business rule, not an internal failure.
+				// RUNNING delete is a conflict/business rule, not an internal
+				// failure; the service raises it as a plain Error.
 				if (/RUNNING/i.test(message)) {
-					return Response.json({ error: message }, { status: 409 });
+					throw new ConflictError(message);
 				}
-				logger.error("Failed to delete VPS backup record", { error: err, recordId });
-				return Response.json(
-					{ error: t("vpsBackupApi.errorDeleteRecordFailed", locale) },
-					{ status: 500 },
-				);
+				throw err;
 			}
+			await auditUserAction(session.userId, "vps-backup.record.delete", { serverId, recordId }, undefined, session.currentTeamId);
+			return Response.json({ success: true });
 		},
 	);
 }

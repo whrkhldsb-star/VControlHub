@@ -130,7 +130,6 @@ export function DashboardAnalyticsPanel() {
                 <SparkBars
                   points={data.servers.map((point) => ({ label: formatShortTime(point.time, locale), value: Math.max(point.cpu, point.memory, point.disk) }))}
                   color="cyan"
-                  locale={locale}
                 />
               </div>
             ) : (
@@ -148,7 +147,7 @@ export function DashboardAnalyticsPanel() {
                   <MiniStat label={t("dashboard.running")} value={downloadTotals.running} color="cyan" />
                   <MiniStat label={t("dashboard.analytics.pending")} value={downloadTotals.pending} color="amber" />
                 </div>
-                <StackedDownloadBars points={data.downloads} locale={locale} />
+                <StackedDownloadBars points={data.downloads} />
               </div>
             ) : (
               <EmptyAnalyticsState text={t("dashboard.analytics.no-downloads")} />
@@ -158,7 +157,7 @@ export function DashboardAnalyticsPanel() {
           <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-elevated)] p-4">
             <h3 className="text-sm font-medium text-[var(--text-primary)]">{t("dashboard.analytics.audit-activity")}</h3>
             {data.audit?.length ? (
-              <SparkBars points={data.audit.map((point) => ({ label: formatShortDate(point.date), value: point.total }))} color="violet" locale={locale} />
+              <SparkBars points={data.audit.map((point) => ({ label: formatShortDate(point.date), value: point.total }))} color="violet" />
             ) : (
               <EmptyAnalyticsState text={t("dashboard.analytics.no-audit")} />
             )}
@@ -168,7 +167,7 @@ export function DashboardAnalyticsPanel() {
             <h3 className="text-sm font-medium text-[var(--text-primary)]">{t("dashboard.analytics.image-bed")}</h3>
             {data.imageBed?.length ? (
               <div className="mt-4">
-                <SparkBars points={data.imageBed.map((point) => ({ label: formatShortDate(point.date), value: point.count }))} color="pink" locale={locale} />
+                <SparkBars points={data.imageBed.map((point) => ({ label: formatShortDate(point.date), value: point.count }))} color="pink" />
                 <p className="mt-3 text-xs text-[var(--text-muted)]">
                   {t("dashboard.analytics.image-total-prefix")} {data.imageBed.reduce((sum, point) => sum + point.count, 0)} {t("dashboard.analytics.image-total-count-suffix")} / {formatBytes(data.imageBed.reduce((sum, point) => sum + point.size, 0))}
                 </p>
@@ -202,7 +201,12 @@ function MetricLine({ label, value, color }: { label: string; value: number; col
   );
 }
 
-function SparkBars({ points, color, locale: _locale = "zh" }: { points: Array<{ label: string; value: number }>; color: "cyan" | "violet" | "pink"; locale?: "zh" | "en" }) {
+/** Thin out x labels: show at most ~7 to prevent truncation on dense charts. */
+function labelInterval(pointCount: number) {
+  return Math.ceil(pointCount / 7);
+}
+
+function SparkBars({ points, color }: { points: Array<{ label: string; value: number }>; color: "cyan" | "violet" | "pink" }) {
   const { t } = useI18n();
   const max = Math.max(1, ...points.map((point) => point.value));
   const colors = {
@@ -213,9 +217,7 @@ function SparkBars({ points, color, locale: _locale = "zh" }: { points: Array<{ 
   return (
     <div className="mt-4 flex h-24 items-end gap-1" aria-label={t("dashboardAnalytics.trendChart")}>
       {points.map((point, index) => {
-        // Thin out labels: show at most ~7 labels to prevent truncation on dense charts
-        const labelInterval = Math.ceil(points.length / 7);
-        const showLabel = index % labelInterval === 0 || index === points.length - 1;
+        const showLabel = index % labelInterval(points.length) === 0 || index === points.length - 1;
         return (
         <div key={`${point.label}-${index}`} className="flex min-w-0 flex-1 flex-col items-center gap-1">
           <div
@@ -231,7 +233,7 @@ function SparkBars({ points, color, locale: _locale = "zh" }: { points: Array<{ 
   );
 }
 
-function StackedDownloadBars({ points, locale: _locale = "zh" }: { points: DownloadTrendPoint[]; locale?: "zh" | "en" }) {
+function StackedDownloadBars({ points }: { points: DownloadTrendPoint[] }) {
   const { t } = useI18n();
   const max = Math.max(
     1,
@@ -242,9 +244,7 @@ function StackedDownloadBars({ points, locale: _locale = "zh" }: { points: Downl
       {points.map((point, index) => {
         const total = point.completed + point.failed + point.running + point.pending;
         const height = Math.max(6, (total / max) * 88);
-        // Thin out labels: show at most ~7 labels to prevent truncation on dense charts
-        const labelInterval = Math.ceil(points.length / 7);
-        const showLabel = index % labelInterval === 0 || index === points.length - 1;
+        const showLabel = index % labelInterval(points.length) === 0 || index === points.length - 1;
         return (
           <div key={point.date} className="flex min-w-0 flex-1 flex-col items-center gap-1">
             <div className="flex w-full flex-col justify-end overflow-hidden rounded-t bg-[var(--surface-hover)]" style={{ height: `${height}px` }} title={`${point.date}: ${total}`}>

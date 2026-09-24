@@ -10,7 +10,7 @@ import { APP_TIME_ZONE, formatDateTime } from "@/lib/datetime/format";
 
 import { ActionButton } from "@/components/action-button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
-import { IconButton, Notice } from "@/components/ui-primitives";
+import { IconButton, InlineLoading, Notice } from "@/components/ui-primitives";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { getDomainStatusLabel } from "@/lib/i18n/domain-labels";
@@ -346,9 +346,7 @@ export function VpsBackupSection({
 	if (loading) {
 		return (
 			<div className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-3">
-				<div className="text-sm text-[var(--text-muted)]">
-					{t("vpsBackup.loading")}
-				</div>
+				<InlineLoading label={t("vpsBackup.loading")} />
 			</div>
 		);
 	}

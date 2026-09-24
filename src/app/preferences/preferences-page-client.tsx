@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { PageShell, PageHeader } from "@/components/page-shell";
-import { Notice, Switch } from "@/components/ui-primitives";
+import { InlineLoading, Notice, Switch } from "@/components/ui-primitives";
 import { Bell, Home, LayoutDashboard, Radio, RefreshCw, User } from "@/components/icons";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { REFRESH_INTERVAL_OPTIONS } from "@/lib/preferences/refresh-interval";
@@ -407,7 +407,7 @@ export function PreferencesSettingsContent({
 	);
 
 	if (loading) {
-		const loadingContent = <div className="text-sm text-[var(--text-muted)]">{t("preferencesPage.loading")}</div>;
+		const loadingContent = <InlineLoading label={t("preferencesPage.loading")} />;
 		return wrapInShell ? <PageShell>{loadingContent}</PageShell> : loadingContent;
 	}
 

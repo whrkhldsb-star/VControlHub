@@ -14,7 +14,6 @@
  */
 
 import { auditUserAction } from "@/lib/audit/service";
-import { sessionHasPermission } from "@/lib/auth/authorization";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -83,9 +82,6 @@ export async function POST(
     },
     async ({ session }) => {
       const locale = await getServerLocale();
-      if (!sessionHasPermission(session, "server:ssh")) {
-        return Response.json({ error: t("apiServersDetectOs.missingSshPermission", locale) }, { status: 403 });
-      }
 
       const teamAccess = await assertServerTeamAccess(session, id);
       if (!teamAccess.ok) return teamAccess.response;

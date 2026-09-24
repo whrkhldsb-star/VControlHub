@@ -10,14 +10,12 @@ import { sessionHasPermission } from "@/lib/auth/authorization";
 import { serverTeamWhere, teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
-import { createLogger } from "@/lib/logging";
 
-import { apiError, apiCatch } from "@/lib/http/api-error";
+import { apiError } from "@/lib/http/api-error";
 import { CachePresets, withCacheHeaders } from "@/lib/cache";
 import { GENERAL_READ_LIMIT } from "@/lib/http/rate-limit-presets";
 import type { SessionPayload } from "@/lib/auth/session";
 import { t } from "@/lib/i18n/translations";
-const logger = createLogger("api:dashboard:analytics");
 
 export const dynamic = "force-dynamic";
 
@@ -82,10 +80,9 @@ export async function GET(request: Request) {
   return withApiRoute(request, {
     requireAuth: true,
     rateLimit: GENERAL_READ_LIMIT,
-    onError: (error) => {
-      logger.error("[dashboard/analytics]", error);
-      return apiCatch(error, 500, t("backend.dashboard.analyticsFetchFailed"));
-    },
+    // Guard's default catch path (apiCatch + logging) covers this; the
+    // errorMessage keeps the route-specific fallback copy for 5xx bodies.
+    errorMessage: t("backend.dashboard.analyticsFetchFailed"),
   }, async ({ session }) => {
     const { type } = parseSearchParams(
       request,

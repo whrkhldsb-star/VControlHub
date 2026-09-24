@@ -20,6 +20,8 @@ import dynamic from "next/dynamic";
 import type { ComponentProps, ComponentType } from "react";
 import { createPortal } from "react-dom";
 
+import { UI_OVERLAY_CENTER } from "@/components/ui-overlay-classes";
+
 /* ── Stubs ──────────────────────────────────────────────────────── */
 
 function DialogStub({ label }: { label: string }) {
@@ -29,31 +31,13 @@ function DialogStub({ label }: { label: string }) {
 			aria-hidden
 			data-modal-overlay
 			data-testid={`quick-service-${label}-loading`}
-			className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] backdrop-blur-sm"
+			className={UI_OVERLAY_CENTER}
 		>
 			<div className="h-48 w-full max-w-md animate-pulse rounded-2xl border border-[var(--border)] bg-[var(--surface-root)]" />
 		</div>,
 		document.body,
 	);
 }
-
-/* ── Source-delete confirmation ──────────────────────────────────── */
-
-type PendingSourceDeleteDialogProps = ComponentProps<
-	typeof import("./pending-source-delete-dialog").PendingSourceDeleteDialog
->;
-export const PendingSourceDeleteDialogLazy: ComponentType<PendingSourceDeleteDialogProps> =
-	dynamic(
-		() =>
-			import("./pending-source-delete-dialog").then(
-				(m) => m.PendingSourceDeleteDialog,
-			),
-		{
-			ssr: false,
-			loading: () => <DialogStub label="source-delete" />,
-		},
-	);
-export type { PendingSourceDeleteDialogProps };
 
 /* ── Uninstall confirmation ─────────────────────────────────────── */
 

@@ -4,11 +4,12 @@ import { useCallback, useEffect, useState } from "react";
 import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { EmptyState, ListPanel, Toolbar } from "@/components/page-shell";
-import { CONTROL_CLASS, Notice } from "@/components/ui-primitives";
+import { CONTROL_CLASS, InlineLoading, Notice } from "@/components/ui-primitives";
+import { Pagination } from "@/components/pagination";
+import { formatDateTime, formatShortDate, formatShortTime } from "@/lib/datetime/format";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { formatAuditDetail } from "@/lib/audit/detail-format";
 import { useResourcePolling } from "@/lib/http/use-resource-polling";
-import { toDateLocale } from "@/lib/i18n/locale-format";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { ActionButton } from "@/components/action-button";
 import { StatusBadge } from "@/components/status-badge";
@@ -238,7 +239,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
           </div>
           <div className="divide-y divide-[var(--border-subtle)]">
             {loading ? (
-              <EmptyState>{t("audit.loading")}</EmptyState>
+              <InlineLoading label={t("audit.loading")} />
             ) : error && !data ? (
               <div className="px-4 py-10 text-sm text-[var(--danger)]">{t("audit.load-error")}</div>
             ) : !data || data.logs.length === 0 ? (
@@ -247,7 +248,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
               data.logs.map((log) => (
                 <div key={log.id} className="grid grid-cols-[140px_100px_120px_minmax(0,1.5fr)_minmax(0,2fr)_160px] items-center gap-4 px-4 py-3 text-sm">
                   <div className="text-xs text-[var(--text-muted)]">
-                    {new Date(log.createdAt).toLocaleString(toDateLocale(locale), { month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit" })}
+                    {`${formatShortDate(log.createdAt, locale)} ${formatShortTime(log.createdAt, locale)}`}
                   </div>
                   <div>
                     <StatusBadge tone={severityTone(log.severity)} size="sm">
@@ -271,7 +272,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
         {/* Mobile */}
         <div className="divide-y divide-[var(--border-subtle)] xl:hidden">
           {loading ? (
-            <EmptyState>{t("audit.loading")}</EmptyState>
+            <InlineLoading label={t("audit.loading")} />
           ) : error && !data ? (
             <div className="px-4 py-10 text-sm text-[var(--danger)]">{t("audit.load-error")}</div>
           ) : !data || data.logs.length === 0 ? (
@@ -286,7 +287,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
                   </StatusBadge>
                 </div>
                 <div className="text-xs text-[var(--text-muted)]">
-                  {log.actor ? (log.actor.displayName ?? log.actor.username) : enumLabel(t, "audit.actorType", log.actorType)} · {new Date(log.createdAt).toLocaleString(toDateLocale(locale))}
+                  {log.actor ? (log.actor.displayName ?? log.actor.username) : enumLabel(t, "audit.actorType", log.actorType)} · {formatDateTime(log.createdAt, locale)}
                 </div>
                 <div className="text-xs text-[var(--text-muted)] font-mono truncate">
                   {formatAuditDetail(log.detail)}
@@ -297,30 +298,18 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
         </div>
       </ListPanel>
 
-      {/* Pagination */}
-      {data && data.totalPages > 1 && (
-        <div className="mt-6 flex items-center justify-center gap-2">
-          <button
-            type="button"
-            disabled={page <= 1}
-            onClick={() => setPage(Math.max(1, page - 1))}
-            className="rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface-subtle)] disabled:opacity-30"
-          >
-            {t("audit.pagination.prev")}
-          </button>
-          <span className="text-sm text-[var(--text-muted)]">
-            {t("audit.pagination.info", { page: data.page, totalPages: data.totalPages, total: data.total })}
-          </span>
-          <button
-            type="button"
-            disabled={page >= data.totalPages}
-            onClick={() => setPage(page + 1)}
-            className="rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface-subtle)] disabled:opacity-30"
-          >
-            {t("audit.pagination.next")}
-          </button>
+      {/* Pagination — server-side; keep hidden on single pages as before */}
+      {data && data.totalPages > 1 ? (
+        <div className="mt-6">
+          <Pagination
+            page={page}
+            pageSize={data.pageSize}
+            totalItems={data.total}
+            loading={loading}
+            onPageChange={setPage}
+          />
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

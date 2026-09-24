@@ -5,6 +5,7 @@ import { getErrorMessage } from "@/lib/http/error-message";
 import { useAbortableTextResource } from "@/lib/http/use-abortable-text-resource";
 import { AlertTriangle, File } from "@/components/icons";
 import { StatusBadge } from "@/components/status-badge";
+import { InlineLoading } from "@/components/ui-primitives";
 
 
 function parseCsv(text: string): string[][] {
@@ -93,11 +94,7 @@ export function CsvPreviewClient({ href }: { href: string }) {
 	const colCount = header.length || (displayRows[0]?.length ?? 0);
 
 	if (state.loading) {
-		return (
-			<div className="flex items-center justify-center py-16 text-[var(--text-secondary)]">
-				<span className="animate-pulse text-sm">{t("csvPreview.loading")}</span>
-			</div>
-		);
+		return <InlineLoading label={t("csvPreview.loading")} className="py-16" />;
 	}
 
 	if (state.error) {

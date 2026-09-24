@@ -6,6 +6,7 @@ import { UserPermissionPanel } from "./user-permission-panel";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { EmptyState, ListPanel, ListRow, Toolbar } from "@/components/page-shell";
 import { Pagination } from "@/components/pagination";
+import { InlineLoading } from "@/components/ui-primitives";
 import { toDateLocale } from "@/lib/i18n/locale-format";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useToast } from "@/components/toast-provider";
@@ -194,7 +195,7 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
         count={loading ? "…" : total || users.length}
         empty={
           loading ? (
-            <EmptyState>{t("usersPage.loading")}</EmptyState>
+            <InlineLoading label={t("usersPage.loading")} />
           ) : loadFailed ? (
             <EmptyState variant="boxed">{t("usersPage.loadFailedHint")}</EmptyState>
           ) : users.length === 0 ? (

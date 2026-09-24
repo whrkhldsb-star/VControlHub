@@ -22,6 +22,7 @@ import {
 } from "@/lib/storage/remote-path";
 import { createLogger } from "@/lib/logging";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { guessContentType } from "@/lib/http/mime-types";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { MAX_EDITABLE_FILE_SIZE_BYTES, MAX_INLINE_REMOTE_READ_BYTES } from "@/lib/storage/mime-constants";
 import {
@@ -33,22 +34,6 @@ import { ConflictError, ForbiddenError, ValidationError, isAppError } from "@/li
 import { t } from "@/lib/i18n/service-translations";
 import { getErrorMessage } from "@/lib/http/error-message";
 const logger = createLogger("api:storage:sftp-ops");
-
-function guessMimeType(relativePath: string) {
-  const ext = path.posix.extname(relativePath).toLowerCase();
-  if (ext === ".txt") return "text/plain; charset=utf-8";
-  if (ext === ".json") return "application/json; charset=utf-8";
-  if (ext === ".md") return "text/markdown; charset=utf-8";
-  if ([".jpg", ".jpeg"].includes(ext)) return "image/jpeg";
-  if (ext === ".png") return "image/png";
-  if (ext === ".webp") return "image/webp";
-  if (ext === ".gif") return "image/gif";
-  if (ext === ".svg") return "image/svg+xml";
-  if (ext === ".mp4") return "video/mp4";
-  if (ext === ".mp3") return "audio/mpeg";
-  if (ext === ".pdf") return "application/pdf";
-  return "application/octet-stream";
-}
 
 async function upsertSftpFileIndex(params: {
   storageNodeId: string;
@@ -69,7 +54,7 @@ async function upsertSftpFileIndex(params: {
     update: {
       name,
       entryType: "FILE",
-      mimeType: guessMimeType(params.relativePath),
+      mimeType: guessContentType(params.relativePath),
       size: BigInt(size),
       isDeleted: false,
     },
@@ -77,7 +62,7 @@ async function upsertSftpFileIndex(params: {
       storageNodeId: params.storageNodeId,
       name,
       entryType: "FILE",
-      mimeType: guessMimeType(params.relativePath),
+      mimeType: guessContentType(params.relativePath),
       size: BigInt(size),
       relativePath: params.relativePath,
     },
@@ -195,13 +180,6 @@ async function renameSftpIndex(storageNodeId: string, oldRelativePath: string, n
 }
 
 export const dynamic = "force-dynamic";
-
-// `postSchema` is a local alias of the shared boundary schema in
-// `src/lib/storage/schema.ts`. Behaviour is identical to the inline version
-// (`nodeId` + `action` enum + `path`, with optional `newPath`/`content`/
-// `isDirectory`). The exported `SftpOpsBody` type comes from the same module
-// and is re-imported above for downstream call-sites.
-const postSchema = sftpOpsBodySchema;
 
 async function handlePost(body: SftpOpsBody, session: SessionPayload) {
   const { action, nodeId, path: remotePath } = body;
@@ -610,7 +588,7 @@ export async function POST(request: Request) {
       permissions: ["storage:read", "storage:write", "storage:delete"],
       rateLimit: GENERAL_WRITE_LIMIT,
       errorMessage: apiCopy("apiCopy.remote.file.operation.failed.711098ba"),
-      bodySchema: postSchema,
+      bodySchema: sftpOpsBodySchema,
     },
     async ({ session, body }) => {
       return handlePost(body, session);

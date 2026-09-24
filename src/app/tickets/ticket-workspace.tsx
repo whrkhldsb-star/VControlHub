@@ -4,10 +4,12 @@ import Link from "next/link";
 import { useMemo } from "react";
 import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
 
-import { toDateLocale } from "@/lib/i18n/locale-format";
-import { browserT as t, type Locale } from "@/lib/i18n/browser-translations";
+import { useI18n } from "@/lib/i18n/use-locale";
+import { formatDateTime } from "@/lib/datetime/format";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
+import { Badge } from "@/components/ui-primitives";
+import { Pagination } from "@/components/pagination";
 
 export type TicketWorkspaceTicket = {
   id: string;
@@ -26,91 +28,90 @@ export type TicketWorkspaceTicket = {
 type Props = {
   initialTickets: TicketWorkspaceTicket[];
   canManage: boolean;
-  locale: Locale;
   now: string;
 };
 
-type SlaStatus ="ok" |"warning" |"breached" |"none";
-type ViewMode ="list" |"board";
+type SlaStatus = "ok" | "warning" | "breached" | "none";
+type ViewMode = "list" | "board";
 
-const STATUSES = ["OPEN","IN_PROGRESS","RESOLVED","CLOSED"] as const;
-const PRIORITIES = ["LOW","NORMAL","HIGH","URGENT"] as const;
-const CATEGORIES = ["incident","request","question","feedback"] as const;
-const SLA_STATUSES: SlaStatus[] = ["ok","warning","breached","none"];
+const STATUSES = ["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"] as const;
+const PRIORITIES = ["LOW", "NORMAL", "HIGH", "URGENT"] as const;
+const CATEGORIES = ["incident", "request", "question", "feedback"] as const;
+const SLA_STATUSES: SlaStatus[] = ["ok", "warning", "breached", "none"];
 
 const statusTone: Record<string, StatusTone> = {
-  OPEN:"accent",
-  IN_PROGRESS:"warning",
-  RESOLVED:"success",
-  CLOSED:"neutral",
+  OPEN: "accent",
+  IN_PROGRESS: "warning",
+  RESOLVED: "success",
+  CLOSED: "neutral",
 };
 
 const priorityTone: Record<string, string> = {
-  LOW:"text-[var(--text-muted)]",
-  NORMAL:"text-[var(--text-secondary)]",
-  HIGH:"text-[var(--warning)]",
-  URGENT:"text-[var(--danger)]",
+  LOW: "text-[var(--text-muted)]",
+  NORMAL: "text-[var(--text-secondary)]",
+  HIGH: "text-[var(--warning)]",
+  URGENT: "text-[var(--danger)]",
 };
 
 const slaTone: Record<SlaStatus, StatusTone> = {
-  ok:"success",
-  warning:"warning",
-  breached:"danger",
-  none:"neutral",
+  ok: "success",
+  warning: "warning",
+  breached: "danger",
+  none: "neutral",
 };
 
 function getSlaStatus(ticket: TicketWorkspaceTicket, nowMs: number): SlaStatus {
-  if (!ticket.slaDueAt || ticket.status ==="CLOSED" || ticket.status ==="RESOLVED") return"none";
+  if (!ticket.slaDueAt || ticket.status === "CLOSED" || ticket.status === "RESOLVED") return "none";
   const remaining = new Date(ticket.slaDueAt).getTime() - nowMs;
-  if (remaining < 0) return"breached";
-  if (remaining < 60 * 60 * 1000) return"warning";
-  return"ok";
+  if (remaining < 0) return "breached";
+  if (remaining < 60 * 60 * 1000) return "warning";
+  return "ok";
 }
 
-function label(locale: Locale, prefix: string, value: string): string {
+type Translate = (key: string, vars?: Record<string, string | number>) => string;
+
+function label(t: Translate, prefix: string, value: string): string {
   const key = `${prefix}.${value}`;
-  const translated = t(key, locale);
-  return translated === key ? value.replaceAll("_","") : translated;
+  const translated = t(key);
+  return translated === key ? value.replaceAll("_", "") : translated;
 }
 
-function TicketCard({ ticket, locale, nowMs, compact = false }: { ticket: TicketWorkspaceTicket; locale: Locale; nowMs: number; compact?: boolean }) {
+function TicketCard({ ticket, nowMs, compact = false }: { ticket: TicketWorkspaceTicket; nowMs: number; compact?: boolean }) {
+  const { t, locale } = useI18n();
   const slaStatus = getSlaStatus(ticket, nowMs);
-  const dateLocale = toDateLocale(locale);
   return (
-    <Link href={`/tickets/${ticket.id}`} className={`block transition hover:bg-[var(--surface-hover)] ${compact ?"rounded-xl border border-[var(--border)] p-3" :"px-5 py-4"}`}>
+    <Link href={`/tickets/${ticket.id}`} className={`block transition hover:bg-[var(--surface-hover)] ${compact ? "rounded-xl border border-[var(--border)] p-3" : "px-5 py-4"}`}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="truncate text-sm font-semibold text-[var(--text-primary)]">{ticket.title}</h3>
-            <span className={`text-xs font-semibold uppercase  ${priorityTone[ticket.priority] ?? "text-[var(--text-muted)]"}`}>
-              {label(locale,"ticketsPage.priority", ticket.priority)}
+            <span className={`text-xs font-semibold uppercase ${priorityTone[ticket.priority] ?? "text-[var(--text-muted)]"}`}>
+              {label(t, "ticketsPage.priority", ticket.priority)}
             </span>
             {ticket.category && (
-              <span className="rounded-full border border-[var(--border)] px-2 py-0.5 text-xs text-[var(--text-secondary)]">
-                {label(locale,"ticketsPage.category", ticket.category)}
-              </span>
+              <Badge tone="neutral">{label(t, "ticketsPage.category", ticket.category)}</Badge>
             )}
           </div>
           {!compact && <p className="mt-1.5 line-clamp-2 text-xs leading-5 text-[var(--text-muted)]">{ticket.description}</p>}
           <div className="mt-2.5 flex flex-wrap items-center gap-2 text-xs text-[var(--text-muted)]">
             <StatusBadge tone={slaTone[slaStatus]} size="sm">
-              {t(`ticketsPage.sla.${slaStatus}`, locale)}
+              {t(`ticketsPage.sla.${slaStatus}`)}
             </StatusBadge>
             {ticket.slaDueAt && (
-              <span>{t("ticketsPage.sla.due", locale, { time: new Date(ticket.slaDueAt).toLocaleString(dateLocale) })}</span>
+              <span>{t("ticketsPage.sla.due", { time: formatDateTime(ticket.slaDueAt, locale) })}</span>
             )}
             {!compact && ticket.creator && (
-              <span>{t("ticketsPage.creator", locale, { name: ticket.creator.displayName || ticket.creator.username })}</span>
+              <span>{t("ticketsPage.creator", { name: ticket.creator.displayName || ticket.creator.username })}</span>
             )}
             {!compact && ticket.assignee && (
-              <span>{t("ticketsPage.assignee", locale, { name: ticket.assignee.displayName || ticket.assignee.username })}</span>
+              <span>{t("ticketsPage.assignee", { name: ticket.assignee.displayName || ticket.assignee.username })}</span>
             )}
-            {!compact && <span>{t("ticketsPage.createdAt", locale, { time: new Date(ticket.createdAt).toLocaleString(dateLocale) })}</span>}
+            {!compact && <span>{t("ticketsPage.createdAt", { time: formatDateTime(ticket.createdAt, locale) })}</span>}
           </div>
         </div>
         {!compact && (
           <StatusBadge tone={statusTone[ticket.status] ?? "neutral"} size="md" className="shrink-0">
-            {label(locale,"ticketsPage.status", ticket.status)}
+            {label(t, "ticketsPage.status", ticket.status)}
           </StatusBadge>
         )}
       </div>
@@ -118,7 +119,8 @@ function TicketCard({ ticket, locale, nowMs, compact = false }: { ticket: Ticket
   );
 }
 
-export function TicketWorkspace({ initialTickets, canManage, locale, now }: Props) {
+export function TicketWorkspace({ initialTickets, canManage, now }: Props) {
+  const { t, locale } = useI18n();
   const { state: urlState, setField: setUrlField, patch: patchUrl } = useUrlQueryState({
     view: "list",
     status: "",
@@ -146,13 +148,13 @@ export function TicketWorkspace({ initialTickets, canManage, locale, now }: Prop
   const nowMs = useMemo(() => new Date(now).getTime(), [now]);
 
   const filteredTickets = useMemo(() => {
-    const query = search.trim().toLocaleLowerCase(locale ==="zh" ?"zh-CN" :"en-US");
+    const query = search.trim().toLocaleLowerCase(locale === "zh" ? "zh-CN" : "en-US");
     return initialTickets.filter((ticket) => {
       if (status && ticket.status !== status) return false;
       if (priority && ticket.priority !== priority) return false;
       if (category && ticket.category !== category) return false;
       if (slaStatus && getSlaStatus(ticket, nowMs) !== slaStatus) return false;
-      if (query && !`${ticket.title}\n${ticket.description}`.toLocaleLowerCase(locale ==="zh" ?"zh-CN" :"en-US").includes(query)) return false;
+      if (query && !`${ticket.title}\n${ticket.description}`.toLocaleLowerCase(locale === "zh" ? "zh-CN" : "en-US").includes(query)) return false;
       return true;
     });
   }, [category, initialTickets, locale, nowMs, priority, search, slaStatus, status]);
@@ -174,52 +176,44 @@ export function TicketWorkspace({ initialTickets, canManage, locale, now }: Prop
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <div className="text-sm font-semibold text-[var(--text-primary)]">
-              {t("ticketsPage.listHeader", locale, { count: filteredTickets.length })}
+              {t("ticketsPage.listHeader", { count: filteredTickets.length })}
             </div>
             <p className="mt-0.5 text-xs text-[var(--text-muted)]">
-              {canManage ? t("ticketsPage.workspace.manageHint", locale) : t("ticketsPage.workspace.personalHint", locale)}
+              {canManage ? t("ticketsPage.workspace.manageHint") : t("ticketsPage.workspace.personalHint")}
             </p>
           </div>
           <div className="inline-flex w-fit rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-1">
-            {(["list","board"] as const).map((mode) => (
+            {(["list", "board"] as const).map((mode) => (
               <button type="button" data-action-button={view === mode ? "" : undefined} data-variant={view === mode ? "primary" : undefined} key={mode} onClick={() => setView(mode)} aria-pressed={view === mode} className={`rounded-lg px-3 py-2 text-xs font-semibold ${view === mode ? "" : "text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"}`}>
-                {t(mode ==="list" ?"ticketsPage.kanban.list" :"ticketsPage.kanban.toggle", locale)}
+                {t(mode === "list" ? "ticketsPage.kanban.list" : "ticketsPage.kanban.toggle")}
               </button>
             ))}
           </div>
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <label className="grid gap-1 text-xs text-[var(--text-secondary)]">
-            {t("ticketsPage.filter.search", locale)}
-            <input aria-label={t("ticketsPage.filter.search", locale)} value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("ticketsPage.filter.search", locale)} className={UI_INPUT} />
+            {t("ticketsPage.filter.search")}
+            <input aria-label={t("ticketsPage.filter.search")} value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("ticketsPage.filter.search")} className={UI_INPUT} />
           </label>
-          <FilterSelect labelText={t("ticketsPage.filter.status", locale)} value={status} onChange={setStatus} allLabel={t("ticketsPage.filter.all", locale)} options={STATUSES.map((value) => ({ value, label: label(locale,"ticketsPage.status", value) }))} />
-          <FilterSelect labelText={t("ticketsPage.filter.priority", locale)} value={priority} onChange={setPriority} allLabel={t("ticketsPage.filter.all", locale)} options={PRIORITIES.map((value) => ({ value, label: label(locale,"ticketsPage.priority", value) }))} />
-          <FilterSelect labelText={t("ticketsPage.filter.category", locale)} value={category} onChange={setCategory} allLabel={t("ticketsPage.filter.all", locale)} options={CATEGORIES.map((value) => ({ value, label: label(locale,"ticketsPage.category", value) }))} />
-          <FilterSelect labelText={t("ticketsPage.filter.slaStatus", locale)} value={slaStatus} onChange={setSlaStatus} allLabel={t("ticketsPage.filter.all", locale)} options={SLA_STATUSES.map((value) => ({ value, label: t(`ticketsPage.sla.${value}`, locale) }))} />
+          <FilterSelect labelText={t("ticketsPage.filter.status")} value={status} onChange={setStatus} allLabel={t("ticketsPage.filter.all")} options={STATUSES.map((value) => ({ value, label: label(t, "ticketsPage.status", value) }))} />
+          <FilterSelect labelText={t("ticketsPage.filter.priority")} value={priority} onChange={setPriority} allLabel={t("ticketsPage.filter.all")} options={PRIORITIES.map((value) => ({ value, label: label(t, "ticketsPage.priority", value) }))} />
+          <FilterSelect labelText={t("ticketsPage.filter.category")} value={category} onChange={setCategory} allLabel={t("ticketsPage.filter.all")} options={CATEGORIES.map((value) => ({ value, label: label(t, "ticketsPage.category", value) }))} />
+          <FilterSelect labelText={t("ticketsPage.filter.slaStatus")} value={slaStatus} onChange={setSlaStatus} allLabel={t("ticketsPage.filter.all")} options={SLA_STATUSES.map((value) => ({ value, label: t(`ticketsPage.sla.${value}`) }))} />
         </div>
         <div className="mt-3 flex justify-end">
           <button type="button" onClick={clearFilters} className="rounded-lg px-3 py-2 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]">
-            {t("ticketsPage.filter.clear", locale)}
+            {t("ticketsPage.filter.clear")}
           </button>
         </div>
       </div>
 
       {filteredTickets.length === 0 ? (
-        <div className="px-5 py-12 text-center text-sm text-[var(--text-muted)]">{t("ticketsPage.emptyFiltered", locale)}</div>
-      ) : view ==="list" ? (
+        <div className="px-5 py-12 text-center text-sm text-[var(--text-muted)]">{t("ticketsPage.emptyFiltered")}</div>
+      ) : view === "list" ? (
         <>
-          <div className="divide-y divide-[var(--border-subtle)]">{pagedTickets.map((ticket) => <TicketCard key={ticket.id} ticket={ticket} locale={locale} nowMs={nowMs} />)}</div>
+          <div className="divide-y divide-[var(--border-subtle)]">{pagedTickets.map((ticket) => <TicketCard key={ticket.id} ticket={ticket} nowMs={nowMs} />)}</div>
           {filteredTickets.length > PAGE_SIZE ? (
-            <div className="flex items-center justify-between gap-3 border-t border-[var(--border)] px-4 py-3 text-xs text-[var(--text-secondary)]">
-              <span>
-                {t("ticketsPage.pagination", locale, { page: Math.min(page, totalPages), totalPages, total: filteredTickets.length })}
-              </span>
-              <div className="flex gap-2">
-                <button type="button" disabled={page <= 1} onClick={() => setPage(page - 1)} className="rounded-lg border border-[var(--border)] px-2 py-1 disabled:opacity-50">{t("ticketsPage.prev", locale)}</button>
-                <button type="button" disabled={page >= totalPages} onClick={() => setPage(page + 1)} className="rounded-lg border border-[var(--border)] px-2 py-1 disabled:opacity-50">{t("ticketsPage.next", locale)}</button>
-              </div>
-            </div>
+            <Pagination page={Math.min(page, totalPages)} pageSize={PAGE_SIZE} totalItems={filteredTickets.length} onPageChange={setPage} />
           ) : null}
         </>
       ) : (
@@ -229,9 +223,9 @@ export function TicketWorkspace({ initialTickets, canManage, locale, now }: Prop
             return (
               <div key={columnStatus} data-testid={`ticket-column-${columnStatus}`} className="min-w-64 rounded-2xl border border-[var(--border)] bg-[var(--surface-elevated)] p-3">
                 <div className="mb-3 flex items-center justify-between text-xs font-semibold text-[var(--text-secondary)]">
-                  <span>{label(locale,"ticketsPage.status", columnStatus)}</span><span>{columnTickets.length}</span>
+                  <span>{label(t, "ticketsPage.status", columnStatus)}</span><span>{columnTickets.length}</span>
                 </div>
-                <div className="space-y-3">{columnTickets.map((ticket) => <TicketCard key={ticket.id} ticket={ticket} locale={locale} nowMs={nowMs} compact />)}</div>
+                <div className="space-y-3">{columnTickets.map((ticket) => <TicketCard key={ticket.id} ticket={ticket} nowMs={nowMs} compact />)}</div>
               </div>
             );
           })}

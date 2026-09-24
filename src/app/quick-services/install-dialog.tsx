@@ -1,8 +1,9 @@
 "use client";
 
 import { ActionButton } from "@/components/action-button";
-import { Notice } from "@/components/ui-primitives";
+import { Notice, Spinner } from "@/components/ui-primitives";
 import { ModalShell } from "@/components/modal-shell";
+import { UI_OVERLAY_CENTER } from "@/components/ui-overlay-classes";
 /**
  * `InstallDialog` — port-picker modal shown when the user clicks
  * "一键安装" on a Quick Service card. Lets the user override the
@@ -153,7 +154,7 @@ export function InstallDialog({
 			open
 			onClose={onClose}
 			label={t("qsPage.installTitle", { name: open.name })}
-			overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] backdrop-blur-sm"
+			overlayClassName={UI_OVERLAY_CENTER}
 			panelClassName="w-full max-w-md mx-4 rounded-2xl border border-[var(--border)] bg-[var(--surface-root)] p-6 shadow-2xl"
 		>
 				<h3 className="text-lg font-semibold text-[var(--text-primary)] mb-1">{t("qsPage.installTitle", { name: open.name })}</h3>
@@ -183,7 +184,7 @@ export function InstallDialog({
 							/>
 							{portCheck?.checking && (
 								<div className="absolute right-3 top-1/2 -translate-y-1/2">
-									<div className="w-4 h-4 border-2 border-[var(--color-action-border)]/30 border-t-[var(--color-action)] rounded-full animate-spin" />
+									<Spinner size="sm" label={t("common.loading")} />
 								</div>
 							)}
 							{portCheck && !portCheck.checking && (

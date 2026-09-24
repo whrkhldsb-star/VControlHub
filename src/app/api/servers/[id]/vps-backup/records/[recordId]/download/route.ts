@@ -12,6 +12,7 @@ import { nodeStreamToWeb } from "@/lib/http/node-to-web-stream";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { createLogger } from "@/lib/logging";
 import { getServerLocale, t } from "@/lib/i18n/translations";
+import { NotFoundError, ValidationError } from "@/lib/errors";
 import { resolveVpsBackupFilePath } from "@/lib/backup/vps-backup-service";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
 
@@ -80,13 +81,10 @@ export async function GET(
 				select: { id: true, localPath: true, backupType: true, status: true, offsiteKey: true },
 			});
 			if (!record) {
-				return Response.json({ error: apiCopy("apiCopy.record.not.found.60de363f") }, { status: 404 });
+				throw new NotFoundError(apiCopy("apiCopy.record.not.found.60de363f"));
 			}
 			if (record.status !== "COMPLETED" || !record.localPath) {
-				return Response.json(
-					{ error: t("vpsBackupApi.errorNotCompleted", locale) },
-					{ status: 400 },
-				);
+				throw new ValidationError(t("vpsBackupApi.errorNotCompleted", locale));
 			}
 
 			const filename = `${record.backupType}-${recordId}.tar.gz`;
@@ -118,10 +116,7 @@ export async function GET(
 				const offsite = await streamOffsiteFallback(record.offsiteKey, filename);
 				if (offsite) return offsite;
 				logger.error("Failed to stream VPS backup file (no offsite fallback)", { error: err, recordId });
-				return Response.json(
-					{ error: t("vpsBackupApi.errorFileNotFound", locale) },
-					{ status: 404 },
-				);
+				throw new NotFoundError(t("vpsBackupApi.errorFileNotFound", locale));
 			}
 		},
 	);

@@ -3,8 +3,7 @@
 import type { ReactNode } from "react";
 import { ActionButton } from "@/components/action-button";
 import { ModalShell } from "@/components/modal-shell";
-import { UI_MODAL_PANEL, UI_OVERLAY } from "@/lib/ui/classes";
-import { cn } from "@/lib/ui/cn";
+import { UI_OVERLAY_SHEET } from "@/components/ui-overlay-classes";
 
 type ConfirmDialogProps = {
 	open: boolean;
@@ -38,8 +37,8 @@ export function ConfirmDialog({
 			open={open}
 			onClose={onCancel}
 			{...(ariaLabel ? { label: ariaLabel } : { labelledBy: "confirm-dialog-title" })}
-			overlayClassName={cn(UI_OVERLAY, "flex items-center justify-center px-4")}
-			panelClassName={cn(UI_MODAL_PANEL, "w-full max-w-md border-[var(--danger-border)] p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]")}
+			overlayClassName={UI_OVERLAY_SHEET}
+			panelClassName="mx-0 w-full max-w-md rounded-t-2xl border border-[var(--danger-border)] bg-[var(--modal-bg)] p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)] sm:mx-4 sm:rounded-2xl"
 			closeOnBackdrop={closeOnBackdrop}
 			busy={busy}
 			as="section"

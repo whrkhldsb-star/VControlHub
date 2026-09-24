@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { api } from "@/lib/http/api-client";
-import { toDateLocale } from "@/lib/i18n/locale-format";
+import { formatDateTime } from "@/lib/datetime/format";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useVisibilityInterval } from "@/lib/hooks/use-visibility-interval";
 import { useAutoProbeSettings } from "./auto-probe-context";
@@ -41,7 +41,7 @@ export function useServerDiagnostics(serverId: string, enabled: boolean) {
     const controller = new AbortController();
     requestRef.current = controller;
     setDiagnosticRun({ status: "loading" });
-    const checkedAt = () => new Date().toLocaleString(toDateLocale(locale), { hour12: false });
+    const checkedAt = () => formatDateTime(new Date(), locale);
     // Expire state even when a transport fails to reject after an abort.
     const timeout = window.setTimeout(() => {
       if (requestRef.current !== controller) return;

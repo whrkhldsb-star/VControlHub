@@ -7,7 +7,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
-import { IconButton, Notice } from "@/components/ui-primitives";
+import { IconButton, InlineLoading, Notice } from "@/components/ui-primitives";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { X } from "@/components/icons";
 
@@ -243,7 +243,7 @@ export function TeamWorkspaceSection({ capabilities }: { capabilities: TeamCapab
 			{message && <Notice tone="success">{message}</Notice>}
 
 			{loading ? (
-				<p className="text-sm text-[var(--text-muted)]">{t("settingsTeam.loading")}</p>
+				<InlineLoading label={t("settingsTeam.loading")} />
 			) : teams.length === 0 ? (
 				<p className="text-sm text-[var(--text-muted)]">{t("settingsTeam.empty")}</p>
 			) : (

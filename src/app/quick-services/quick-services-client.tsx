@@ -6,14 +6,13 @@ import Link from "next/link";
 import { useState, useMemo } from "react";
 import { buildQuickServiceAccessDescriptor } from "@/lib/quick-service/access-url";
 import { EmptyState, Toolbar, StatCard, StatGrid } from "@/components/page-shell";
-import { CONTROL_CLASS, Notice, SegmentedTabs } from "@/components/ui-primitives";
+import { CONTROL_CLASS, InlineLoading, Notice, SegmentedTabs } from "@/components/ui-primitives";
 import { useI18n } from "@/lib/i18n/use-locale";
 import {
   useQuickServiceActions,
   type ConfigPreview,
 } from "./use-quick-service-actions";
 import {
-	PendingSourceDeleteDialogLazy,
 	PendingUninstallDialogLazy,
 	ConfigPreviewDialogLazy,
 } from "./quick-services-dialogs-lazy";
@@ -23,6 +22,7 @@ import { SourcesPanel } from "./quick-services-sources-panel";
 import { CATEGORY_ORDER, buildCategoryLabels, buildQuickServiceViewModel, getEnvCount, getPrimaryContainerPort, getVolumeMounts, type AppSource, type CatalogItem, type Tab } from "./quick-services-shared";
 import { useQuickServiceCatalog } from "./use-quick-service-catalog";
 import { ActionButton } from "@/components/action-button";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 
 /* ── Main Component ─────────────────────────────────────────────── */
 
@@ -154,7 +154,7 @@ export function QuickServicesClient({
 	);
 	const categoryCounts = Object.fromEntries(CATEGORY_ORDER.map((category) => [category, grouped[category]?.length ?? 0]));
 
-	if (loading) return <div className="text-sm text-[var(--text-muted)] py-12 text-center">{t("qsPage.loading")}</div>;
+	if (loading) return <InlineLoading label={t("qsPage.loading")} className="py-12" />;
 	if (error) return <Notice tone="danger" action={{ label: t("common.retry"), onClick: () => void fetchCatalog() }}>{error}</Notice>;
 
 	if (!canManage) {
@@ -448,10 +448,16 @@ export function QuickServicesClient({
 				}
 			/>
 
-			<PendingSourceDeleteDialogLazy
-				pending={pendingSourceDelete}
+			{/* Source-delete confirmation — shared ConfirmDialog (was a hand-rolled clone) */}
+			<ConfirmDialog
+				open={pendingSourceDelete !== null}
+				title={t("qsPage.deleteSourceTitle")}
+				description={pendingSourceDelete ? t("qsPage.deleteSourceBody", { name: pendingSourceDelete.displayName }) : undefined}
+				cancelLabel={t("qsPage.cancel")}
+				confirmLabel={t("qsPage.confirmDelete")}
 				onCancel={() => setPendingSourceDelete(null)}
 				onConfirm={doDeleteSource}
+				ariaLabel={t("qsPage.deleteSourceAria")}
 			/>
 		</div>
 	);

@@ -12,18 +12,15 @@ import { auditUserAction } from "@/lib/audit/service";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
-import { createLogger } from "@/lib/logging";
-import { getServerLocale, t } from "@/lib/i18n/translations";
+import { NotFoundError } from "@/lib/errors";
 import {
 	updateVpsBackupSchedule,
 	deleteVpsBackupSchedule,
 } from "@/lib/backup/vps-backup-schedule-service";
 import { VALID_PRESET_TYPES } from "@/lib/backup/vps-backup-presets";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
-import { isAppError } from "@/lib/errors";
 
 export const dynamic = "force-dynamic";
-const logger = createLogger("api:servers:vps-backup:schedule");
 
 const updateSchema = z.object({
 	name: z.string().min(1).max(100).optional(),
@@ -44,23 +41,14 @@ export async function PATCH(
 		request,
 		{ permission: "server:write", rateLimit: GENERAL_WRITE_LIMIT, bodySchema: updateSchema },
 		async ({ session, body }) => {
-			const locale = await getServerLocale();
-
 			const teamAccess = await assertServerTeamAccess(session, serverId);
 			if (!teamAccess.ok) return teamAccess.response;
 
-			try {
-				const updated = await updateVpsBackupSchedule(scheduleId, serverId, body);
-				await auditUserAction(session.userId, "vps-backup.schedule.update", { serverId, scheduleId }, undefined, session.currentTeamId);
-				return Response.json({ schedule: updated });
-			} catch (err) {
-				if (isAppError(err)) throw err;
-				logger.error("Failed to update VPS backup schedule", { error: err, scheduleId });
-				return Response.json(
-					{ error: t("vpsBackupApi.errorUpdateFailed", locale) },
-					{ status: 500 },
-				);
-			}
+			// Service AppErrors (invalid cron → ValidationError) keep their own
+			// 4xx status; anything else degrades to the guard's 500 envelope.
+			const updated = await updateVpsBackupSchedule(scheduleId, serverId, body);
+			await auditUserAction(session.userId, "vps-backup.schedule.update", { serverId, scheduleId }, undefined, session.currentTeamId);
+			return Response.json({ schedule: updated });
 		},
 	);
 }
@@ -74,8 +62,6 @@ export async function DELETE(
 		request,
 		{ permission: "server:write", rateLimit: GENERAL_WRITE_LIMIT },
 		async ({ session }) => {
-			const locale = await getServerLocale();
-
 			const teamAccess = await assertServerTeamAccess(session, serverId);
 			if (!teamAccess.ok) return teamAccess.response;
 
@@ -84,20 +70,12 @@ export async function DELETE(
 				select: { id: true },
 			});
 			if (!existing) {
-				return Response.json({ error: apiCopy("apiCopy.schedule.not.found.54f9551a") }, { status: 404 });
+				throw new NotFoundError(apiCopy("apiCopy.schedule.not.found.54f9551a"));
 			}
 
-			try {
-				await deleteVpsBackupSchedule(scheduleId, serverId);
-				await auditUserAction(session.userId, "vps-backup.schedule.delete", { serverId, scheduleId }, undefined, session.currentTeamId);
-				return Response.json({ success: true });
-			} catch (err) {
-				logger.error("Failed to delete VPS backup schedule", { error: err, scheduleId });
-				return Response.json(
-					{ error: t("vpsBackupApi.errorDeleteFailed", locale) },
-					{ status: 500 },
-				);
-			}
+			await deleteVpsBackupSchedule(scheduleId, serverId);
+			await auditUserAction(session.userId, "vps-backup.schedule.delete", { serverId, scheduleId }, undefined, session.currentTeamId);
+			return Response.json({ success: true });
 		},
 	);
 }

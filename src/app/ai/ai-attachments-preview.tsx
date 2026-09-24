@@ -8,7 +8,7 @@
  * Extracted from ai-client.tsx in R31.
  */
 import Image from "next/image";
-import type { Dispatch, SetStateAction } from "react";
+import type { Dispatch, ReactNode, SetStateAction } from "react";
 
 import { useI18n } from "@/lib/i18n/use-locale";
 import { Video, Music2, File } from "@/components/icons";
@@ -23,6 +23,35 @@ type Props = {
   fileAttachments: FileAttachment[];
   setFileAttachments: Dispatch<SetStateAction<FileAttachment[]>>;
 };
+
+/**
+ * One preview tile: `children` renders the 48×48 thumbnail (image or
+ * file-type icon block); the hover-reveal remove button is shared by the
+ * image-URL and file-attachment lists.
+ */
+function AttachmentThumb({
+  removeLabel,
+  onRemove,
+  children,
+}: {
+  removeLabel: string;
+  onRemove: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div className="relative group">
+      {children}
+      <button
+        type="button"
+        aria-label={removeLabel}
+        onClick={onRemove}
+        className="absolute -top-1 -right-1 w-7 h-7 rounded-full border border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)] text-sm flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition"
+      >
+        ×
+      </button>
+    </div>
+  );
+}
 
 export function AiAttachmentsPreview({
   enableVision,
@@ -42,7 +71,11 @@ export function AiAttachmentsPreview({
         <div className="px-4 pb-1.5 border-t border-[var(--border)] bg-[var(--surface-subtle)]">
           <div className="flex flex-wrap gap-2 py-2">
             {imageUrls.map((url, i) => (
-              <div key={`url-${i}`} className="relative group">
+              <AttachmentThumb
+                key={`url-${i}`}
+                removeLabel={t("aiPage.removeAttachmentAria")}
+                onRemove={() => setImageUrls((prev) => prev.filter((_, j) => j !== i))}
+              >
                 <Image
                   src={url}
                   alt=""
@@ -52,20 +85,14 @@ export function AiAttachmentsPreview({
                   unoptimized
                   className="w-12 h-12 rounded object-cover border border-[var(--border)]"
                 />
-                <button
-                  type="button"
-                  aria-label={t("aiPage.removeAttachmentAria")}
-                  onClick={() =>
-                    setImageUrls((prev) => prev.filter((_, j) => j !== i))
-                  }
-                  className="absolute -top-1 -right-1 w-7 h-7 rounded-full border border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)] text-sm flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition"
-                >
-                  ×
-                </button>
-              </div>
+              </AttachmentThumb>
             ))}
             {fileAttachments.map((file, i) => (
-              <div key={`file-${i}`} className="relative group">
+              <AttachmentThumb
+                key={`file-${i}`}
+                removeLabel={t("aiPage.removeAttachmentAria")}
+                onRemove={() => setFileAttachments((prev) => prev.filter((_, j) => j !== i))}
+              >
                 {file.type === "image" && file.preview ? (
                   <Image
                     src={file.preview}
@@ -114,17 +141,7 @@ export function AiAttachmentsPreview({
                     </span>
                   </div>
                 )}
-                <button
-                  type="button"
-                  aria-label={t("aiPage.removeAttachmentAria")}
-                  onClick={() =>
-                    setFileAttachments((prev) => prev.filter((_, j) => j !== i))
-                  }
-                  className="absolute -top-1 -right-1 w-7 h-7 rounded-full border border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)] text-sm flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition"
-                >
-                  ×
-                </button>
-              </div>
+              </AttachmentThumb>
             ))}
           </div>
         </div>

@@ -8,14 +8,11 @@
  */
 
 import { NextResponse } from "next/server";
-import { sessionHasPermission } from "@/lib/auth/authorization";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { randomUUID } from "crypto";
 import { AppError, NotFoundError } from "@/lib/errors";
 import {
-  withRateLimit,
-  rateLimitResponse,
   UPLOAD_LIMIT,
   GENERAL_READ_LIMIT,
 } from "@/lib/http/rate-limit-presets";
@@ -138,20 +135,16 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  // Polling status can SSH `ps -p` each call — bound fan-out (POST/DELETE already use UPLOAD_LIMIT).
-  const rl = await withRateLimit(request, GENERAL_READ_LIMIT);
-  if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
   const locale = await getServerLocale();
   return withApiRoute(
     request,
-    { permission: "server:ssh", errorMessage: t("apiServersFileProxy.getErrorMessage", locale) },
+    {
+      permission: "server:ssh",
+      // Polling status can SSH `ps -p` each call — bound fan-out (POST/DELETE already use UPLOAD_LIMIT).
+      rateLimit: GENERAL_READ_LIMIT,
+      errorMessage: t("apiServersFileProxy.getErrorMessage", locale),
+    },
     async ({ session }) => {
-      if (!sessionHasPermission(session, "server:ssh")) {
-        return NextResponse.json(
-          { error: t("apiServersFileProxy.missingSshPermission", locale) },
-          { status: 403 },
-        );
-      }
       const { id } = await params;
 
       const teamAccess = await assertServerTeamAccess(session, id);
@@ -226,19 +219,11 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const rl = await withRateLimit(request, UPLOAD_LIMIT);
-  if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
   const locale = await getServerLocale();
   return withApiRoute(
     request,
-    { permission: "server:ssh", errorMessage: t("apiServersFileProxy.startErrorMessage", locale) },
+    { permission: "server:ssh", rateLimit: UPLOAD_LIMIT, errorMessage: t("apiServersFileProxy.startErrorMessage", locale) },
     async ({ session }) => {
-      if (!sessionHasPermission(session, "server:ssh")) {
-        return NextResponse.json(
-          { error: t("apiServersFileProxy.missingSshPermission", locale) },
-          { status: 403 },
-        );
-      }
       const { id } = await params;
       const teamAccessPost = await assertServerTeamAccess(session, id);
       if (!teamAccessPost.ok) return teamAccessPost.response;
@@ -448,19 +433,11 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const rl = await withRateLimit(request, UPLOAD_LIMIT);
-  if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
   const locale = await getServerLocale();
   return withApiRoute(
     request,
-    { permission: "server:ssh", errorMessage: t("apiServersFileProxy.stopErrorMessage", locale) },
+    { permission: "server:ssh", rateLimit: UPLOAD_LIMIT, errorMessage: t("apiServersFileProxy.stopErrorMessage", locale) },
     async ({ session }) => {
-      if (!sessionHasPermission(session, "server:ssh")) {
-        return NextResponse.json(
-          { error: t("apiServersFileProxy.missingSshPermission", locale) },
-          { status: 403 },
-        );
-      }
       const { id } = await params;
       const teamAccessDelete = await assertServerTeamAccess(session, id);
       if (!teamAccessDelete.ok) return teamAccessDelete.response;

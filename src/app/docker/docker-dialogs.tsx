@@ -3,6 +3,7 @@
 import type { RefObject } from "react";
 import { ActionButton } from "@/components/action-button";
 import { ModalShell } from "@/components/modal-shell";
+import { UI_OVERLAY_SHEET } from "@/components/ui-overlay-classes";
 import { type Container, getContainerName } from "./docker-helpers";
 
 export function DockerRemovalDialog({
@@ -26,7 +27,7 @@ export function DockerRemovalDialog({
 			open
 			onClose={closeRemovalDialog}
 			labelledBy="docker-remove-confirm-title"
-			overlayClassName="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-[var(--overlay)] p-0 backdrop-blur-sm sm:items-center sm:p-4"
+			overlayClassName={UI_OVERLAY_SHEET}
 			panelClassName="w-full max-w-md mx-0 rounded-t-2xl border border-[var(--danger-border)] bg-[var(--modal-bg)] p-5 shadow-2xl sm:mx-4 sm:rounded-2xl"
 			initialFocusRef={removeCancelButtonRef}
 		>
@@ -70,7 +71,7 @@ export function DockerLogsDialog({
 			open
 			onClose={closeLogsDialog}
 			labelledBy="docker-logs-dialog-title"
-			overlayClassName="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-[var(--overlay)] p-0 backdrop-blur-sm sm:items-center sm:p-4"
+			overlayClassName={UI_OVERLAY_SHEET}
 			panelClassName="flex w-full max-w-2xl mx-0 max-h-[92vh] flex-col rounded-t-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-5 shadow-2xl sm:mx-4 sm:max-h-[80vh] sm:rounded-2xl"
 			initialFocusRef={logsCloseButtonRef}
 		>

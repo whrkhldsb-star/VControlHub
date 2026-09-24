@@ -12,9 +12,9 @@ import { auditUserAction } from "@/lib/audit/service";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
-import { createLogger } from "@/lib/logging";
 import { enqueueJob } from "@/lib/job/service";
 import { getServerLocale, t } from "@/lib/i18n/translations";
+import { ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 import {
 	createVpsBackupRecord,
 	VPS_BACKUP_CREATE_JOB_TYPE,
@@ -22,7 +22,6 @@ import {
 import { assertServerTeamAccess } from "@/lib/server/team-access";
 
 export const dynamic = "force-dynamic";
-const logger = createLogger("api:servers:vps-backup:record:retry");
 
 export async function POST(
 	request: Request,
@@ -43,16 +42,10 @@ export async function POST(
 				select: { id: true, name: true, enabled: true, teamId: true },
 			});
 			if (!server) {
-				return Response.json(
-					{ error: t("vpsBackupApi.errorServerNotFound", locale) },
-					{ status: 404 },
-				);
+				throw new NotFoundError(t("vpsBackupApi.errorServerNotFound", locale));
 			}
 			if (!server.enabled) {
-				return Response.json(
-					{ error: t("vpsBackupApi.errorServerDisabled", locale) },
-					{ status: 400 },
-				);
+				throw new ValidationError(t("vpsBackupApi.errorServerDisabled", locale));
 			}
 
 			const original = await prisma.vpsBackupRecord.findFirst({
@@ -60,77 +53,64 @@ export async function POST(
 				select: { id: true, status: true, backupType: true, paths: true },
 			});
 			if (!original) {
-				return Response.json(
-					{ error: t("vpsBackupApi.errorRecordNotFound", locale) },
-					{ status: 404 },
-				);
+				throw new NotFoundError(t("vpsBackupApi.errorRecordNotFound", locale));
 			}
 			// Only FAILED records may be retried. RUNNING/PENDING are in flight;
 			// COMPLETED has nothing to retry (trigger a new backup instead).
 			if (original.status !== "FAILED") {
-				return Response.json(
-					{ error: t("vpsBackupApi.errorRetryNotFailed", locale) },
-					{ status: 409 },
-				);
+				throw new ConflictError(t("vpsBackupApi.errorRetryNotFailed", locale));
 			}
+
+			const { id: newRecordId } = await createVpsBackupRecord({
+				serverId,
+				backupType: original.backupType,
+				createdBy: session.userId,
+				...(original.paths?.length ? { paths: original.paths } : {}),
+			});
 
 			try {
-				const { id: newRecordId } = await createVpsBackupRecord({
-					serverId,
-					backupType: original.backupType,
-					createdBy: session.userId,
-					...(original.paths?.length ? { paths: original.paths } : {}),
-				});
-
-				try {
-					await enqueueJob({
-						type: VPS_BACKUP_CREATE_JOB_TYPE,
-						title: `VPS backup retry: ${original.backupType} (${server.name})`,
-						payload: {
-							recordId: newRecordId,
-							serverId,
-							teamId: session.currentTeamId ?? server.teamId ?? null,
-							...(original.paths?.length ? { paths: original.paths } : {}),
-						},
-						createdBy: session.userId,
+				await enqueueJob({
+					type: VPS_BACKUP_CREATE_JOB_TYPE,
+					title: `VPS backup retry: ${original.backupType} (${server.name})`,
+					payload: {
+						recordId: newRecordId,
+						serverId,
 						teamId: session.currentTeamId ?? server.teamId ?? null,
-						maxAttempts: 1,
-					});
-				} catch (enqueueErr) {
-					// Compensate the orphan PENDING row so the UI does not show a
-					// second stuck backup when enqueue fails.
-					await prisma.vpsBackupRecord
-						.update({
-							where: { id: newRecordId },
-							data: {
-								status: "FAILED",
-								errorMessage:
-									enqueueErr instanceof Error
-										? enqueueErr.message
-										: "Failed to enqueue VPS backup retry job",
-								completedAt: new Date(),
-							},
-						})
-						.catch(() => undefined);
-					throw enqueueErr;
-				}
-
-				await auditUserAction(
-					session.userId,
-					"vps-backup.record.retry",
-					{ serverId, originalRecordId: recordId, newRecordId, backupType: original.backupType },
-					undefined,
-					session.currentTeamId,
-				);
-
-				return Response.json({ recordId: newRecordId, status: "PENDING" }, { status: 202 });
-			} catch (err) {
-				logger.error("Failed to retry VPS backup", { error: err, serverId, recordId });
-				return Response.json(
-					{ error: t("vpsBackupApi.errorTriggerFailed", locale) },
-					{ status: 500 },
-				);
+						...(original.paths?.length ? { paths: original.paths } : {}),
+					},
+					createdBy: session.userId,
+					teamId: session.currentTeamId ?? server.teamId ?? null,
+					maxAttempts: 1,
+				});
+			} catch (enqueueErr) {
+				// Compensate the orphan PENDING row so the UI does not show a
+				// second stuck backup when enqueue fails; re-throw for the
+				// guard's 500 envelope.
+				await prisma.vpsBackupRecord
+					.update({
+						where: { id: newRecordId },
+						data: {
+							status: "FAILED",
+							errorMessage:
+								enqueueErr instanceof Error
+									? enqueueErr.message
+									: "Failed to enqueue VPS backup retry job",
+							completedAt: new Date(),
+						},
+					})
+					.catch(() => undefined);
+				throw enqueueErr;
 			}
+
+			await auditUserAction(
+				session.userId,
+				"vps-backup.record.retry",
+				{ serverId, originalRecordId: recordId, newRecordId, backupType: original.backupType },
+				undefined,
+				session.currentTeamId,
+			);
+
+			return Response.json({ recordId: newRecordId, status: "PENDING" }, { status: 202 });
 		},
 	);
 }

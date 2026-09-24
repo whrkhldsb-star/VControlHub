@@ -5,7 +5,7 @@ import { ChevronRight, Folder, X } from "@/components/icons";
 import { ActionButton } from "@/components/action-button";
 import { ModalShell } from "@/components/modal-shell";
 import { Pagination } from "@/components/pagination";
-import { IconButton, Notice } from "@/components/ui-primitives";
+import { IconButton, InlineLoading, Notice } from "@/components/ui-primitives";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -83,7 +83,7 @@ function FolderDestinationBrowser({ nodeId, onClose, onSelect }: {
     } }}>{error}</Notice> : null}
     {data?.syncWarning ? <Notice tone="warning">{data.syncWarning}</Notice> : null}
     <div aria-busy={loading} className="min-h-40 max-h-72 overflow-y-auto border-y border-[var(--border)]">
-      {loading ? <p role="status" className="p-3 text-sm">{t("common.loading")}</p> : !error && data?.folders.length === 0 ?
+      {loading ? <InlineLoading label={t("common.loading")} className="p-3" /> : !error && data?.folders.length === 0 ?
         <p className="p-3 text-sm text-[var(--text-muted)]">{t("filesPage.move.noFoldersOnPage")}</p> : null}
       {!loading && !error ? data?.folders.map((folder) => <button key={folder.path} type="button"
         className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-sm hover:bg-[var(--surface-hover)]"

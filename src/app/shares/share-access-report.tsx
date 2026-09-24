@@ -5,6 +5,7 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { formatDateTime } from "@/lib/datetime/format";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { InlineLoading } from "@/components/ui-primitives";
 
 type Report = {
   range: { days: number; action: string };
@@ -63,7 +64,7 @@ export function ShareAccessReport() {
         <a href={exportHref} data-action-button data-variant="outline" className="!px-3 !py-2 !text-sm !font-medium">{t("sharesPage.report.export")}</a>
       </div>
     </div>
-    {loading ? <p className="py-5 text-sm text-[var(--text-muted)]">{t("sharesPage.accessLogs.loading")}</p> : error ? <p role="alert" className="py-5 text-sm text-[var(--danger)]">{error}</p> : report ? <div className="py-5">
+    {loading ? <InlineLoading label={t("sharesPage.accessLogs.loading")} className="py-5" /> : error ? <p role="alert" className="py-5 text-sm text-[var(--danger)]">{error}</p> : report ? <div className="py-5">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         {([ ["total", report.totals.total], ["view", report.totals.view], ["download", report.totals.download], ["passwordAttempt", report.totals.passwordAttempt], ["uniqueIps", report.totals.uniqueIps] ] as const).map(([key, value]) => <div key={key} className="min-w-0 border-l border-[var(--border)] pl-3"><p className="text-xs text-[var(--text-muted)]">{t(`sharesPage.report.${key}`)}</p><p className="mt-1 text-xl font-semibold tabular-nums">{value}</p></div>)}
       </div>

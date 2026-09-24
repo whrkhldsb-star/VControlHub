@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Star, Tag, X, RefreshCw } from "@/components/icons";
 import { ModalShell } from "@/components/modal-shell";
 import { ActionButton } from "@/components/action-button";
-import { Notice } from "@/components/ui-primitives";
+import { InlineLoading, Notice } from "@/components/ui-primitives";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -299,9 +299,7 @@ export function FileCollections() {
           </Notice>
         ) : null}
         {busy ? (
-          <p role="status" className="py-4 text-sm">
-            {t("filesBrowserSpa.loading")}
-          </p>
+          <InlineLoading label={t("filesBrowserSpa.loading")} className="py-4" />
         ) : !page.items.length ? (
           <p className="py-6 text-sm text-[var(--text-muted)]">
             {t("filePreferences.empty")}

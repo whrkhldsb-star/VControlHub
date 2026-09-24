@@ -4,6 +4,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 
 import { ActionButton } from "@/components/action-button";
 import { ModalShell } from "@/components/modal-shell";
+import { UI_OVERLAY_SHEET } from "@/components/ui-overlay-classes";
 /**
  * `ConfigPreviewDialog` — final confirmation modal shown after the user
  * picks a port in the install dialog (or hits "更新" on an installed
@@ -84,7 +85,7 @@ export function ConfigPreviewDialog({
 			open
 			onClose={onCancel}
 			label={title}
-			overlayClassName="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-[var(--overlay)] p-0 backdrop-blur-sm sm:items-center sm:p-4"
+			overlayClassName={UI_OVERLAY_SHEET}
 			panelClassName="mx-0 w-full max-w-lg rounded-t-2xl border border-[var(--color-action-border)]/20 bg-[var(--surface-root)] p-6 shadow-2xl sm:mx-4 sm:rounded-2xl"
 		>
 				<h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">{title}</h3>

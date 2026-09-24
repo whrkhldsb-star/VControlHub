@@ -7,13 +7,13 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
 import { useRefreshInterval } from "@/lib/preferences/use-refresh-interval";
 import { useI18n } from "@/lib/i18n/use-locale";
-import { toDateLocale } from "@/lib/i18n/locale-format";
+import { formatDateTime } from "@/lib/datetime/format";
 import { useVisibilityInterval } from "@/lib/hooks/use-visibility-interval";
 import { TrafficSparkline, type TrafficSample } from "./traffic-sparkline";
 
 import { ActionButton } from "@/components/action-button";
 import { StatusBadge } from "@/components/status-badge";
-import { Notice } from "@/components/ui-primitives";
+import { Notice, InlineLoading } from "@/components/ui-primitives";
 import { getErrorMessage } from "@/lib/http/error-message";
 const HISTORY_LIMIT = 60; // ≈ 30 min at 30s polling cadence
 
@@ -334,7 +334,7 @@ export default function TrafficPage() {
       <div className="space-y-5">
         <Card title={t("trafficPage.card.realtime")}>
           {loading && !summary ? (
-            <div className="text-sm text-[var(--text-muted)]">{t("trafficPage.loading")}</div>
+            <InlineLoading label={t("trafficPage.loading")} />
           ) : summary ? (
             <>
               <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -343,7 +343,7 @@ export default function TrafficPage() {
                   <option value="">{t("trafficPage.iface.auto")}</option>
                   {summary.currentServer.interfaces.map((item) => <option key={item.iface} value={item.iface}>{item.iface}</option>)}
                 </select>
-                <span className="text-xs text-[var(--text-muted)]">{t("trafficPage.lastUpdated", { date: new Date(summary.timestamp).toLocaleString(toDateLocale(locale)) })}</span>
+                <span className="text-xs text-[var(--text-muted)]">{t("trafficPage.lastUpdated", { date: formatDateTime(summary.timestamp, locale) })}</span>
               </div>
               {primary ? (
                 <>
@@ -399,7 +399,7 @@ export default function TrafficPage() {
 
         <Card title={t("trafficPage.card.detail")}>
           {loading && !summary ? (
-            <div className="text-sm text-[var(--text-muted)]">{t("trafficPage.loading")}</div>
+            <InlineLoading label={t("trafficPage.loading")} />
           ) : summary ? (
             <div className="overflow-x-auto" tabIndex={0}>
               <table className="w-full text-xs">

@@ -20,7 +20,7 @@ import { assertSftpPathAccess } from "@/lib/ssh/sftp-access-control";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
 import { auditUserAction } from "@/lib/audit/service";
 import { apiCatch, apiError } from "@/lib/http/api-error";
-import { requestContentLengthExceeds, requestContentLengthMissing } from "@/lib/http/request-body";
+import { rejectOversizedFormBody } from "@/lib/http/form-body-limit";
 
 export const dynamic = "force-dynamic";
 // guardMode: manual
@@ -44,27 +44,24 @@ export async function POST(
   const teamAccess = await assertServerTeamAccess(session, id);
   if (!teamAccess.ok) return teamAccess.response;
 
-  if (
-    requestContentLengthExceeds(
-      request,
-      MAX_UPLOAD_SIZE + MAX_MULTIPART_OVERHEAD_BYTES,
-    )
-  ) {
-    return apiError({
-      code: "REQUEST_ENTITY_TOO_LARGE",
-      message: apiCopy("apiCopy.file.size.exceeds.mb.limit.da2978bf", { v0: String(MAX_UPLOAD_SIZE / 1024 / 1024) }),
-      status: 413,
-    });
-  }
-  // Without a declared length, request.formData() would buffer a chunked body
-  // of unknown size into memory before any check — reject before parsing.
-  if (requestContentLengthMissing(request)) {
-    return apiError({
-      code: "BAD_REQUEST",
-      message: apiCopy("apiCopy.content.length.required.for.uploads.085be099"),
-      status: 411,
-    });
-  }
+  // formData() buffers the whole multipart body before the per-file size
+  // check below, so refuse an oversized / length-undeclared body up front
+  // (keeping this route's apiError envelope).
+  const rejected = rejectOversizedFormBody(
+    request,
+    MAX_UPLOAD_SIZE + MAX_MULTIPART_OVERHEAD_BYTES,
+    {
+      tooLargeMessage: apiCopy("apiCopy.file.size.exceeds.mb.limit.da2978bf", { v0: String(MAX_UPLOAD_SIZE / 1024 / 1024) }),
+      lengthRequiredMessage: apiCopy("apiCopy.content.length.required.for.uploads.085be099"),
+      build: (status, message) =>
+        apiError({
+          code: status === 413 ? "REQUEST_ENTITY_TOO_LARGE" : "BAD_REQUEST",
+          message,
+          status,
+        }),
+    },
+  );
+  if (rejected) return rejected;
 
   try {
     const formData = await request.formData();

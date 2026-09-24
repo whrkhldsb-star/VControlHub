@@ -2,6 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
+import { I18nProvider } from "@/lib/i18n/provider";
 import { TicketWorkspace, type TicketWorkspaceTicket } from "../ticket-workspace";
 
 const tickets: TicketWorkspaceTicket[] = [
@@ -36,7 +37,11 @@ const tickets: TicketWorkspaceTicket[] = [
 describe("TicketWorkspace", () => {
   it("filters tickets by search, status, priority, category and SLA", async () => {
     const user = userEvent.setup();
-    render(<TicketWorkspace initialTickets={tickets} canManage locale="en" now="2026-01-02T00:00:00.000Z" />);
+    render(
+      <I18nProvider initialLocale="en">
+        <TicketWorkspace initialTickets={tickets} canManage now="2026-01-02T00:00:00.000Z" />
+      </I18nProvider>,
+    );
 
     expect(screen.getByText("Database outage")).toBeInTheDocument();
     expect(screen.getByText("Add staging VPS")).toBeInTheDocument();
@@ -57,7 +62,11 @@ describe("TicketWorkspace", () => {
 
   it("switches between list and board and renders SLA due information", async () => {
     const user = userEvent.setup();
-    render(<TicketWorkspace initialTickets={tickets} canManage={false} locale="en" now="2026-01-02T00:00:00.000Z" />);
+    render(
+      <I18nProvider initialLocale="en">
+        <TicketWorkspace initialTickets={tickets} canManage={false} now="2026-01-02T00:00:00.000Z" />
+      </I18nProvider>,
+    );
 
     expect(screen.getAllByText("SLA breached").length).toBeGreaterThan(0);
     expect(screen.getAllByText(/SLA due:/).length).toBeGreaterThan(0);

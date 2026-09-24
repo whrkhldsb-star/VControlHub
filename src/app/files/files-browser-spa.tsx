@@ -18,7 +18,7 @@ import {
 import { BreadcrumbsClient } from "./breadcrumbs-client";
 import { FilesBrowserSidebar } from "./files-browser-sidebar";
 import { ActionButton } from "@/components/action-button";
-import { Notice } from "@/components/ui-primitives";
+import { Notice, Spinner } from "@/components/ui-primitives";
 import { ModalShell } from "@/components/modal-shell";
 import { Pagination } from "@/components/pagination";
 import { ChevronRight, Plus, RefreshCw, X } from "@/components/icons";
@@ -128,12 +128,21 @@ export function FilesBrowserSpa({
     location: treeLocation,
     paths: getInitialExpandedTreePaths(initialData.tree, initialData.currentPath),
   }));
-  if (treeExpansion.location !== treeLocation) {
-    setTreeExpansion({
-      location: treeLocation,
-      paths: new Set([...treeExpansion.paths, ...getInitialExpandedTreePaths(data.tree, data.currentPath)]),
+  // Derived state sync: fold newly-ancestral tree paths in when the location
+  // changes. Runs in an effect (not during render) so navigation renders once.
+  /* eslint-disable react-hooks/set-state-in-effect -- one-shot derived-state sync, same intentional pattern as install-dialog.tsx */
+  useEffect(() => {
+    setTreeExpansion((current) => {
+      if (current.location === treeLocation) return current;
+      return {
+        location: treeLocation,
+        paths: new Set([...current.paths, ...getInitialExpandedTreePaths(data.tree, data.currentPath)]),
+      };
     });
-  }
+    // Re-derive only on location change, mirroring the previous render-time check.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [treeLocation]);
+  /* eslint-enable react-hooks/set-state-in-effect */
   const expandedTreePaths = treeExpansion.paths;
   const toggleTreePath = useCallback((path: string) => {
     setTreeExpansion((current) => {
@@ -264,8 +273,9 @@ export function FilesBrowserSpa({
               <h2 className="break-words text-base font-semibold text-[var(--text-primary)]">
                 {currentPathDisplay.title}
                 {loading ? (
-                  <span className="ml-2 text-sm text-[var(--accent)] animate-pulse">
-                    {t("filesBrowserSpa.loading")}
+                  <span className="ml-2 inline-flex items-center gap-2 align-middle text-sm text-[var(--text-muted)]">
+                    <Spinner size="sm" label={t("filesBrowserSpa.loading")} />
+                    <span aria-hidden>{t("filesBrowserSpa.loading")}</span>
                   </span>
                 ) : null}
               </h2>

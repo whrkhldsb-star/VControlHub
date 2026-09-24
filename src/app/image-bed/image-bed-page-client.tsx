@@ -18,6 +18,7 @@ import { DeleteImageDialog, ImageGrid, PublishFromStorageModal } from "./image-b
 import { useToast } from "@/components/toast-provider";
 import { Check, ClipboardList, Folder, HardDrive, ImageIcon, LayoutDashboard, Plus, RefreshCw, Search, Share2, Trash2, User } from "@/components/icons";
 import { Pagination } from "@/components/pagination";
+import { InlineLoading } from "@/components/ui-primitives";
 
 export default function ImageBedPage({ canWrite, canDelete, canListAll = false }: { canWrite: boolean; canDelete: boolean; canListAll?: boolean }) {
 	const {
@@ -218,7 +219,7 @@ export default function ImageBedPage({ canWrite, canDelete, canListAll = false }
 
 			{/* Image Grid */}
 			{loading ? (
-				<EmptyState>{t("imageBedPage.loading")}</EmptyState>
+				<InlineLoading label={t("imageBedPage.loading")} />
 			) : images.length === 0 ? (
 				<EmptyState icon={<ImageIcon size={24} aria-hidden />}>
 					{t("imageBedPage.empty")}

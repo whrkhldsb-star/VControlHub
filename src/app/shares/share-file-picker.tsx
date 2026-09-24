@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronRight, Copy, File, Folder, Loader2, RefreshCw, Share2 } from "@/components/icons";
-import { InlineLoading } from "@/components/ui-primitives";
+import { ChevronRight, Copy, File, Folder, RefreshCw, Share2 } from "@/components/icons";
+import { InlineLoading, Spinner } from "@/components/ui-primitives";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { EmptyState } from "@/components/page-shell";
@@ -378,7 +378,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 						disabled={creating || selectedItems.length === 0}
 						className="mt-4 min-h-11 w-full gap-2 text-sm"
 					>
-						{creating ? <Loader2 size={16} className="animate-spin" /> : <Share2 size={16} />}
+						{creating ? <Spinner size="sm" label={copyText.creating} /> : <Share2 size={16} />}
 						{creating ? copyText.creating : copyText.create}
 					</ActionButton>
 

@@ -5,10 +5,12 @@ import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
 import Link from "next/link";
 import { EmptyState, ListPanel, ListRow, StatCard, StatGrid, SurfacePanel, Toolbar } from "@/components/page-shell";
 import { CONTROL_CLASS, Notice } from "@/components/ui-primitives";
+import { PaginatedList } from "@/components/paginated-list";
+import { formatDateTime } from "@/lib/datetime/format";
+import type { Locale } from "@/lib/i18n/core";
 import type { OperationTask, OperationTaskFailureSummary, OperationTaskListResult, OperationTaskSourceSummary, OperationTaskStatus } from "@/lib/operation-task/dto";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
-import { toDateLocale } from "@/lib/i18n/locale-format";
 
 import { JobEventsDialog } from "./job-events-dialog";
 import { getErrorMessage } from "@/lib/http/error-message";
@@ -63,12 +65,12 @@ function getExportPath(statusFilter: string, taskTypeFilter: string, sort: strin
 type TaskRowProps = {
   task: OperationTask;
   t: (k: string, vars?: Record<string, string | number>) => string;
-  dateLocale: string;
+  locale: Locale;
   sourceLabels: Record<string, string>;
   onViewEvents: (sourceId: string) => void;
 };
 
-const TaskRow = memo(function TaskRow({ task, t, dateLocale, sourceLabels, onViewEvents }: TaskRowProps) {
+const TaskRow = memo(function TaskRow({ task, t, locale, sourceLabels, onViewEvents }: TaskRowProps) {
   return (
     <ListRow className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
       <div className="min-w-0 flex-1">
@@ -77,10 +79,10 @@ const TaskRow = memo(function TaskRow({ task, t, dateLocale, sourceLabels, onVie
           <StatusBadge tone={statusTone[task.status] ?? "neutral"}>{getDomainStatusLabel(t, task.status)}</StatusBadge>
           {task.taskType && <span className="rounded-lg border border-[var(--border)] px-2 py-1 text-xs text-[var(--text-muted)]">{task.taskType}</span>}
           {task.foldedCount && task.foldedCount > 1 && <span className="rounded-lg border border-[var(--accent-border)] bg-[var(--accent-bg)] px-2 py-1 text-xs text-[var(--accent)]">{t("operationTasksPage.folded", { count: task.foldedCount })}</span>}
-          {task.workerId && <StatusBadge tone="info" title={task.workerHeartbeatAt ? t("operationTasksPage.worker.heartbeat", { time: new Date(task.workerHeartbeatAt).toLocaleString(dateLocale) }) : t("operationTasksPage.worker.noHeartbeat")} className="!rounded-lg">worker {task.workerId}</StatusBadge>}
+          {task.workerId && <StatusBadge tone="info" title={task.workerHeartbeatAt ? t("operationTasksPage.worker.heartbeat", { time: formatDateTime(task.workerHeartbeatAt, locale) }) : t("operationTasksPage.worker.noHeartbeat")} className="!rounded-lg">worker {task.workerId}</StatusBadge>}
         </div>
         <h3 className="mt-2 truncate text-sm font-semibold text-[var(--text-primary)]">{task.title}</h3>
-        <p className="mt-1 text-xs text-[var(--text-muted)]">{new Date(task.createdAt).toLocaleString(dateLocale)} {task.actor ? ` · ${task.actor}` : ""} {task.progress ? ` · ${task.progress}` : ""}</p>
+        <p className="mt-1 text-xs text-[var(--text-muted)]">{formatDateTime(task.createdAt, locale)} {task.actor ? ` · ${task.actor}` : ""} {task.progress ? ` · ${task.progress}` : ""}</p>
         {task.logPreview && task.logPreview.length > 0 && (
           <div aria-label={`Recent logs: ${task.title}`} className="mt-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-3 py-2">
             <div className="text-xs font-medium uppercase  text-[var(--text-muted)]">{t("operationTasksPage.logs.recent")}</div>
@@ -100,11 +102,10 @@ const TaskRow = memo(function TaskRow({ task, t, dateLocale, sourceLabels, onVie
       </div>
     </ListRow>
   );
-}, (prev, next) => prev.task === next.task && prev.t === next.t && prev.dateLocale === next.dateLocale && prev.sourceLabels === next.sourceLabels && prev.onViewEvents === next.onViewEvents);
+}, (prev, next) => prev.task === next.task && prev.t === next.t && prev.locale === next.locale && prev.sourceLabels === next.sourceLabels && prev.onViewEvents === next.onViewEvents);
 
 export function OperationTaskListClient({ initialTasks, initialSourceSummary = [], initialFailureSummary = [] }: { initialTasks: OperationTask[]; initialSourceSummary?: OperationTaskSourceSummary[]; initialFailureSummary?: OperationTaskFailureSummary[] }) {
   const { t, locale } = useI18n();
-  const dateLocale = toDateLocale(locale);
   const sourceLabels = useMemo(() => getSourceLabels(t), [t]);
   const statusFilters = [
     { label: t("operationTasks.filter.all"), value: "all" },
@@ -136,7 +137,9 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [eventsJobId, setEventsJobId] = useState<string | null>(null);
-  const [page, setPage] = useState(1);
+  // Bumped after every successful refresh so PaginatedList's resetKey changes
+  // and the page snaps back to 1, matching the pre-PaginatedList behavior.
+  const [refreshTick, setRefreshTick] = useState(0);
   const handleViewEvents = useCallback((sourceId: string) => setEventsJobId(sourceId), []);
   const taskTypeOptions = useMemo(() => Array.from(new Set(tasks.map((task) => task.taskType).filter((value): value is string => Boolean(value)))).sort(), [tasks]);
   const refreshSequenceRef = useRef(0);
@@ -164,7 +167,7 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
       setTasks(data.tasks ?? []);
       setSourceSummary(data.sourceSummary ?? []);
       setFailureSummary(data.failureSummary ?? []);
-      setPage(1);
+      setRefreshTick((tick) => tick + 1);
     } catch (err) {
       if (controller.signal.aborted || refreshSequence !== refreshSequenceRef.current) return;
       setError(getErrorMessage(err, t("operationTasks.refreshFailed")));
@@ -189,10 +192,6 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
     refreshAbortRef.current?.abort();
   }, []);
   const counts = tasks.reduce<Record<OperationTaskStatus, number>>((acc, task) => { acc[task.status] = (acc[task.status] ?? 0) + 1; return acc; }, {} as Record<OperationTaskStatus, number>);
-  const pageCount = Math.max(1, Math.ceil(tasks.length / TASKS_PER_PAGE));
-  const safePage = Math.min(page, pageCount);
-  const pageStart = (safePage - 1) * TASKS_PER_PAGE;
-  const visibleTasks = tasks.slice(pageStart, pageStart + TASKS_PER_PAGE);
   return <div className="space-y-5">
     {error && <Notice tone="danger">{error}</Notice>}
     <StatGrid cols={4} className="mb-0">
@@ -261,39 +260,9 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
       }
       empty={tasks.length === 0 ? <EmptyState text={t("operationTasks.tasks.empty")} /> : undefined}
     >
-      {visibleTasks.map((task) => <TaskRow key={task.id} task={task} t={t} dateLocale={dateLocale} sourceLabels={sourceLabels} onViewEvents={handleViewEvents} />)}
-      {pageCount > 1 ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border)] px-4 py-3 sm:px-5">
-          <span className="text-xs text-[var(--text-muted)]" aria-live="polite">
-            {t("operationTasksPage.pagination.range", {
-              start: pageStart + 1,
-              end: Math.min(pageStart + TASKS_PER_PAGE, tasks.length),
-              total: tasks.length,
-            })}
-          </span>
-          <div className="flex items-center gap-2">
-            <ActionButton
-              variant="secondary"
-              onClick={() => setPage((current) => Math.max(1, current - 1))}
-              disabled={safePage === 1}
-              className="!px-3 !py-1.5 !text-sm disabled:opacity-40"
-            >
-              {t("operationTasksPage.pagination.previous")}
-            </ActionButton>
-            <span className="min-w-16 text-center text-xs tabular-nums text-[var(--text-secondary)]">
-              {t("operationTasksPage.pagination.page", { page: safePage, pages: pageCount })}
-            </span>
-            <ActionButton
-              variant="secondary"
-              onClick={() => setPage((current) => Math.min(pageCount, current + 1))}
-              disabled={safePage === pageCount}
-              className="!px-3 !py-1.5 !text-sm disabled:opacity-40"
-            >
-              {t("operationTasksPage.pagination.next")}
-            </ActionButton>
-          </div>
-        </div>
-      ) : null}
+      <PaginatedList pageSize={TASKS_PER_PAGE} resetKey={`${filterKey}:${refreshTick}`}>
+        {tasks.map((task) => <TaskRow key={task.id} task={task} t={t} locale={locale} sourceLabels={sourceLabels} onViewEvents={handleViewEvents} />)}
+      </PaginatedList>
     </ListPanel>
     <JobEventsDialog jobId={eventsJobId} open={eventsJobId !== null} onClose={() => setEventsJobId(null)} />
   </div>;
