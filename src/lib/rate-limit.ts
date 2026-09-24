@@ -184,14 +184,34 @@ export async function isAccountLockedAsync(
 const lockoutMutations = new Map<string, Promise<unknown>>();
 
 /**
+ * Queue `run` behind any in-flight mutation for the same key.
+ *
+ * The map entry is dropped as soon as its own operation settles, so the map
+ * only ever holds in-flight keys and is self-bounding. Without that cleanup
+ * every username that ever failed a login would leave a permanent entry — an
+ * attacker spraying distinct usernames could grow it without bound.
+ * The guard `get(key) === operation` keeps a queued successor's chain intact:
+ * it only removes the entry when nothing newer has replaced it yet.
+ */
+function chainLockoutMutation<T>(key: string, run: () => Promise<T>): Promise<T> {
+	const previous = lockoutMutations.get(key) ?? Promise.resolve();
+	const operation = previous.catch(() => undefined).then(run);
+	lockoutMutations.set(key, operation);
+	const drop = () => {
+		if (lockoutMutations.get(key) === operation) lockoutMutations.delete(key);
+	};
+	operation.then(drop, drop);
+	return operation;
+}
+
+/**
  * Record a failed login against the shared store.
  */
 export async function recordLoginFailureAsync(
 	username: string,
 ): Promise<{ locked: boolean; lockedUntil: number | null; failCount: number }> {
 	const key = lockoutKey(username);
-	const previous = lockoutMutations.get(key) ?? Promise.resolve();
-	const operation = previous.catch(() => {}).then(async () => {
+	return chainLockoutMutation(key, async () => {
 		const now = Date.now();
 		const store = getRateLimitStore();
 		const previousEntry = await store.getLockout(key);
@@ -199,8 +219,6 @@ export async function recordLoginFailureAsync(
 		await store.setLockout(key, entry, lockoutTtlMs(entry, now));
 		return { locked: !!entry.lockedUntil, lockedUntil: entry.lockedUntil, failCount: entry.failCount };
 	});
-	lockoutMutations.set(key, operation);
-	return operation;
 }
 
 /**
@@ -208,11 +226,7 @@ export async function recordLoginFailureAsync(
  */
 export async function clearLoginFailureAsync(username: string): Promise<void> {
 	const key = lockoutKey(username);
-	const previous = lockoutMutations.get(key) ?? Promise.resolve();
-	const operation = previous.catch(() => {}).then(async () => {
+	await chainLockoutMutation(key, async () => {
 		await getRateLimitStore().deleteLockout(key);
 	});
-	lockoutMutations.set(key, operation);
-	await operation;
-	lockoutMutations.delete(key);
 }

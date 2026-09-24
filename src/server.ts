@@ -58,12 +58,16 @@ const port = parseTcpPort(process.env.PORT, 3000, "PORT");
 async function main() {
 	const app = next({ dev, hostname, port });
 	const handle = app.getRequestHandler();
+
+	await app.prepare();
+
 	// Next's own upgrade handler (dev HMR websocket). Passed to the WS layer so
 	// upgrades this server does not own (`/_next/webpack-hmr` in dev) reach
 	// Next instead of being destroyed.
+	// Must be read after prepare(): NextCustomServer throws
+	// "prepare() must be called before performing this operation" otherwise,
+	// which made the production server exit(1) before it ever bound a port.
 	const nextUpgrade = app.getUpgradeHandler();
-
-	await app.prepare();
 
 	// Next.js App Router only dispatches standard HTTP methods. Map WebDAV
 	// verbs to POST + X-HTTP-Method-Override so /api/webdav/* can handle them.
