@@ -204,7 +204,9 @@ export function describeTerminalSshError(err: Error): string {
 // ── WebSocket server ────────────────────────────────────────────────
 
 const MAX_WS_CONNECTIONS = config.ssh.wsMaxConnections;
-const WS_IDLE_TIMEOUT_MS = config.ssh.wsIdleTimeoutMs;
+// Legacy env fallback only: when the runtime-settings DB read fails at boot,
+// the old SSH_WS_IDLE_TIMEOUT_MS behavior keeps the reaper bounded.
+const LEGACY_WS_IDLE_TIMEOUT_MS = config.ssh.wsIdleTimeoutMs;
 const DEFAULT_WS_HEARTBEAT_INTERVAL_MS = config.ssh.wsHeartbeatIntervalMs;
 const DEFAULT_SSH_KEEPALIVE_INTERVAL_MS = config.ssh.keepaliveIntervalMs;
 const DEFAULT_SSH_KEEPALIVE_COUNT_MAX = config.ssh.keepaliveCountMax;
@@ -221,6 +223,7 @@ async function getSshTerminalRuntimeConfigWithFallback() {
 			wsHeartbeatIntervalMs: DEFAULT_WS_HEARTBEAT_INTERVAL_MS,
 			sshKeepaliveIntervalMs: DEFAULT_SSH_KEEPALIVE_INTERVAL_MS,
 			sshKeepaliveCountMax: DEFAULT_SSH_KEEPALIVE_COUNT_MAX,
+			sshIdleTimeoutMs: LEGACY_WS_IDLE_TIMEOUT_MS,
 		};
 	}
 }
@@ -443,23 +446,26 @@ wss.on("connection", async (ws, req) => {
 	// shell left behind pins an SSH connection + PTY on the target and consumes a
 	// slot from the global cap. The clock resets on real activity in EITHER
 	// direction (client keystrokes/resize OR server output), so a user watching
-	// `tail -f` is never disconnected; only true silence trips it.
+	// `tail -f` is never disconnected; only true silence trips it. The limit
+	// comes from runtime.sshIdleTimeoutSec (0 = never reap), the same setting
+	// the settings page shows — NOT the legacy env-only WS idle value.
+	const idleTimeoutMs = terminalRuntimeConfig.sshIdleTimeoutMs ?? 0;
 	let idleTimer: NodeJS.Timeout | undefined;
 	const clearIdle = () => {
 		if (idleTimer) clearTimeout(idleTimer);
 		idleTimer = undefined;
 	};
 	const resetIdle = () => {
-		if (WS_IDLE_TIMEOUT_MS <= 0) return;
+		if (idleTimeoutMs <= 0) return;
 		if (idleTimer) clearTimeout(idleTimer);
 		idleTimer = setTimeout(() => {
 			if (ws.readyState === WebSocket.OPEN) {
-				ws.send(JSON.stringify({ type: "closed", data: t("backend.sshTerminal.idleClosed", { minutes: WS_IDLE_TIMEOUT_MS / 60_000 }) }));
+				ws.send(JSON.stringify({ type: "closed", data: t("backend.sshTerminal.idleClosed", { minutes: idleTimeoutMs / 60_000 }) }));
 				ws.close();
 			}
 			try { sshStream?.close(); } catch { /* best-effort */ }
 			try { sshClient.end(); } catch { /* best-effort */ }
-		}, WS_IDLE_TIMEOUT_MS);
+		}, idleTimeoutMs);
 		idleTimer.unref?.();
 	};
 
@@ -541,6 +547,11 @@ wss.on("connection", async (ws, req) => {
 
  // OPEN-1: buildTerminalSshConfig pins enforceHostKeyPin, so an unpinned
  // host key fails the handshake here instead of being silently accepted.
+ // The awaits above (session verify, runtime config) can outlive the client
+ // (tab closed mid-handshake): connecting then would open an SSH shell that
+ // only the idle reaper — or nothing, when the idle timeout is disabled —
+ // would ever close. Bail instead.
+ if (ws.readyState !== WebSocket.OPEN) return;
  sshClient.connect(buildTerminalSshConfig(connParams, terminalRuntimeConfig));
 });
 
@@ -557,8 +568,12 @@ function shutdown() {
 	if (wsHeartbeatTimer) clearInterval(wsHeartbeatTimer);
 	wss.close();
 	server.close();
-	prisma.$disconnect();
-	process.exit(0);
+	// $disconnect is async; without waiting (or bounding the wait) the old
+	// synchronous process.exit(0) cut it off mid-flight every time. The force
+	// timer mirrors server.ts so a stuck handle can never hang the exit.
+	const forceExit = setTimeout(() => process.exit(0), 15_000);
+	forceExit.unref?.();
+	void prisma.$disconnect().finally(() => process.exit(0));
 }
 
 process.on("SIGTERM", shutdown);

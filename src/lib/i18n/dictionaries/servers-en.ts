@@ -8,6 +8,7 @@ export const en: Record<string, string> = {
   "serversPage.windows.domain": "Windows domain (optional)",
   "serversPage.windows.ignoreCertificate": "Ignore RDP certificate validation (unsafe; trusted hosts only)",
   "serversPage.windows.hint": "Windows connects via RDP using a public IPv4 address. Saving does not verify connectivity.",
+  "serversPage.windows.credentialsTitle": "Remote desktop credentials",
   "serversPage.windows.save": "Save Windows VPS",
   "serversPage.windows.ready": "Enabled · RDP connectivity not verified",
   "serversPage.windows.capabilities": "Remote desktop only. Linux commands, SSH, SFTP, agents and backups are unavailable.",

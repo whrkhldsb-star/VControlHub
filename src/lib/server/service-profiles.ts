@@ -90,6 +90,12 @@ export async function createServerProfile(
         password: null, sshKeyId: null, rdpPassword: encrypt(payload.rdpPassword),
         rdpDomain: payload.rdpDomain || null, rdpIgnoreCertificate: payload.rdpIgnoreCertificate,
         rdpCertificateSha256: payload.rdpCertificateSha256 || null,
+        // Windows VPS nodes carry the same billing fields as Linux ones so the
+        // cost pages can cover the whole fleet.
+        costAutoSync: payload.costAutoSync,
+        costMonthlyAmount: payload.costMonthlyAmount ? new Prisma.Decimal(payload.costMonthlyAmount) : null,
+        costCurrency: payload.costCurrency,
+        costProvider: payload.costProvider || null,
         description: payload.description, tags: payload.tags, enabled: true,
         onboardingStatus: "NEEDS_ATTENTION", onboardingLastError: null,
         ...(session ? teamCreateData(session) : {}),
@@ -435,6 +441,16 @@ export async function updateServerProfile(
         rdpPassword: rdpInput.rdpPassword === undefined ? current.rdpPassword : encrypt(payload.password),
         rdpDomain: payload.domain || null, rdpIgnoreCertificate: payload.ignoreCertificate,
         rdpCertificateSha256: payload.certificateSha256 || null,
+        // Cost fields are shared with the Linux edit form; empty amount/provider clears.
+        costAutoSync: input.costAutoSync ?? current.costAutoSync,
+        costMonthlyAmount:
+          input.costMonthlyAmount !== undefined
+            ? input.costMonthlyAmount
+              ? new Prisma.Decimal(input.costMonthlyAmount)
+              : null
+            : current.costMonthlyAmount,
+        costCurrency: input.costCurrency ?? current.costCurrency,
+        costProvider: input.costProvider !== undefined ? input.costProvider || null : current.costProvider,
         enabled: input.enabled ?? current.enabled,
       }, include: SERVER_PROFILE_INCLUDE });
       const onboardingWarnings: string[] = [];

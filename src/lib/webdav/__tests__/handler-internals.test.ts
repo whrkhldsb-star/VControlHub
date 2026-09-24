@@ -20,6 +20,7 @@ const mocks = vi.hoisted(() => ({
   fileEntryFindFirst: vi.fn(),
   queryRaw: vi.fn(),
   teamWhere: vi.fn(),
+  storageNodeTeamWhere: vi.fn(),
   assertStorageAccess: vi.fn(),
   createManagedFolder: vi.fn(),
   deleteBackingObject: vi.fn(),
@@ -36,7 +37,10 @@ vi.mock("@/lib/db", () => ({
     $queryRaw: mocks.queryRaw,
   },
 }));
-vi.mock("@/lib/auth/team-scope", () => ({ teamWhere: mocks.teamWhere }));
+vi.mock("@/lib/auth/team-scope", () => ({
+  teamWhere: mocks.teamWhere,
+  storageNodeTeamWhere: mocks.storageNodeTeamWhere,
+}));
 vi.mock("@/lib/i18n/service-translations", () => ({
   t: (key: string) => key,
 }));
@@ -140,14 +144,15 @@ describe("loadNode", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.teamWhere.mockReturnValue({ teamId: "team_a" });
+    mocks.storageNodeTeamWhere.mockReturnValue({ teamId: "team_a" });
   });
 
-  it("scopes the lookup with teamWhere so another team's node is invisible", async () => {
+  it("scopes the lookup with storageNodeTeamWhere so another team's node is invisible", async () => {
     mocks.storageNodeFindFirst.mockResolvedValue({ id: "n1", driver: "LOCAL", name: "docs" });
 
     await loadNode("n1", session);
 
-    expect(mocks.teamWhere).toHaveBeenCalledWith(session);
+    expect(mocks.storageNodeTeamWhere).toHaveBeenCalledWith(session);
     expect(mocks.storageNodeFindFirst.mock.calls[0]?.[0]?.where).toMatchObject({
       id: "n1",
       teamId: "team_a",
@@ -155,6 +160,19 @@ describe("loadNode", () => {
     // findUnique takes only the primary key, so it cannot carry the team filter —
     // reaching for it here would silently expose another tenant's node.
     expect(mocks.storageNodeFindUnique).not.toHaveBeenCalled();
+  });
+
+  it("quarantines unassigned nodes instead of matching the null-team arm", async () => {
+    mocks.storageNodeTeamWhere.mockReturnValueOnce({
+      id: "__unassigned_storage_nodes_require_team_manage__",
+    });
+    mocks.storageNodeFindFirst.mockResolvedValue(null);
+
+    await expect(loadNode("legacy-node", { ...session, currentTeamId: null })).rejects.toThrow();
+
+    expect(mocks.storageNodeFindFirst.mock.calls[0]?.[0]?.where).toEqual({
+      id: "__unassigned_storage_nodes_require_team_manage__",
+    });
   });
 
   it("refuses a driver that has no WebDAV backend", async () => {

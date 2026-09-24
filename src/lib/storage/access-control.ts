@@ -3,7 +3,7 @@ import { Prisma } from "@prisma/client";
 import { config } from "@/lib/config/env";
 import type { SessionPayload } from "@/lib/auth/session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { teamWhere } from "@/lib/auth/team-scope";
+import { storageNodeTeamWhere } from "@/lib/auth/team-scope";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { prisma } from "@/lib/db";
 import { normalizeStorageTargetDirectory } from "@/lib/storage/path-utils";
@@ -137,9 +137,11 @@ export async function assertStorageAccess(input: {
     return { allowed: false, reason: STORAGE_ACCESS_DENIED_REASONS.missingPermission };
   }
 
-  // Multi-tenant: node must be visible under teamWhere (team:manage sees all).
-  // Prevents grants / legacy fallback from authorizing a foreign team's node by id.
-  const nodeScope = teamWhere(input.session);
+  // Multi-tenant: node must be visible under storageNodeTeamWhere (team:manage
+  // sees all). Unassigned (teamId null) nodes are quarantined legacy data, so a
+  // foreign team's storage_manager cannot authorize them by id — grants and the
+  // legacy fallback cannot reach a quarantined node either.
+  const nodeScope = storageNodeTeamWhere(input.session);
   const node = await prisma.storageNode.findFirst({
     where: { id: input.storageNodeId, ...nodeScope },
     select: { id: true },
@@ -272,7 +274,7 @@ export async function getStorageAccessCapabilities(input: {
   if (uniqueTargets.size === 0) return result;
 
   const candidateNodeIds = [...new Set([...uniqueTargets.values()].map((target) => target.storageNodeId))];
-  const nodeScope = teamWhere(input.session);
+  const nodeScope = storageNodeTeamWhere(input.session);
   const visibleNodes = await prisma.storageNode.findMany({
     where: { id: { in: candidateNodeIds }, ...nodeScope },
     select: { id: true },

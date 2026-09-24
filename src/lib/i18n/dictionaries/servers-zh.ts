@@ -20,6 +20,7 @@ export const zh: Record<string, string> = {
   "serversPage.windows.domain": "Windows 域（可选）",
   "serversPage.windows.ignoreCertificate": "忽略 RDP 证书验证（不安全，仅用于可信主机）",
   "serversPage.windows.hint": "Windows 通过公网 IPv4 使用 RDP 连接。保存配置不代表已验证连接。",
+  "serversPage.windows.credentialsTitle": "远程桌面凭据",
   "serversPage.windows.save": "保存 Windows VPS",
   "serversPage.windows.ready": "已启用 · RDP 连接尚未验证",
   "serversPage.windows.capabilities": "仅支持远程桌面，不提供 Linux 命令、SSH、SFTP、Agent 和备份操作。",

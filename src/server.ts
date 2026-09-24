@@ -84,7 +84,14 @@ async function main() {
 			req.headers["x-http-method-override"] = method;
 			req.method = "POST";
 		}
-		await handle(req, res);
+		// A rejection inside Next's handler is otherwise only logged (the
+		// unhandledRejection handler is log-only) and the socket is left
+		// dangling until the client times out — destroy it so the connection
+		// resolves instead of hanging.
+		await handle(req, res).catch((error) => {
+			logger.error("Next request handler rejected", error, { url, method });
+			if (!res.destroyed) res.destroy();
+		});
 	});
 
 	// Attach WebSocket notification server (handles /ws upgrade, forwards the

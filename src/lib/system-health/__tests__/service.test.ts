@@ -1,22 +1,24 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-const { mockPrisma, mockExecFileSync } = vi.hoisted(() => ({
+const { mockPrisma, mockExecFile } = vi.hoisted(() => ({
   mockPrisma: {
     $queryRaw: vi.fn(),
     server: { count: vi.fn() },
     storageNode: { count: vi.fn() },
     setting: { findMany: vi.fn() },
   },
-  mockExecFileSync: vi.fn(),
+  mockExecFile: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
 vi.mock("node:child_process", () => ({
-  execFileSync: mockExecFileSync,
-  default: { execFileSync: mockExecFileSync },
+  execFile: mockExecFile,
+  default: { execFile: mockExecFile },
 }));
 
 const { collectSystemHealthChecks, summarizeSystemHealth } = await import("../service");
+
+type ExecFileCallback = (error: Error | null, stdout?: string, stderr?: string) => void;
 
 describe("system health service", () => {
   beforeEach(() => {
@@ -25,10 +27,10 @@ describe("system health service", () => {
     mockPrisma.server.count.mockResolvedValue(2);
     mockPrisma.storageNode.count.mockResolvedValue(1);
     mockPrisma.setting.findMany.mockResolvedValue([]);
-    mockExecFileSync.mockImplementation((file: string, args: string[]) => {
-      if (file === "git" && args.includes("rev-parse")) return "abc123\n";
-      if (file === "git" && args.includes("ls-remote")) return "abc123456789\trefs/heads/main\n";
-      return "";
+    mockExecFile.mockImplementation((file: string, args: string[], _options: unknown, cb: ExecFileCallback) => {
+      if (file === "git" && args.includes("rev-parse")) { cb(null, "abc123\n", ""); return; }
+      if (file === "git" && args.includes("ls-remote")) { cb(null, "abc123456789\trefs/heads/main\n", ""); return; }
+      cb(null, "", "");
     });
   });
 
@@ -83,7 +85,7 @@ describe("system health service", () => {
     expect(ids).not.toContain("next-service");
     expect(ids).not.toContain("notification-settings");
     // No systemctl / git probing is even attempted for a plain viewer.
-    expect(mockExecFileSync).not.toHaveBeenCalled();
+    expect(mockExecFile).not.toHaveBeenCalled();
   });
 
   it("exposes platform-internal checks to global managers", async () => {
@@ -107,23 +109,23 @@ describe("system health service", () => {
   });
 
   it("checks the production VControlHub service units instead of legacy whrkhldsb units", async () => {
-    mockExecFileSync.mockImplementation((file: string, args: string[]) => {
-      if (file === "systemctl" && args.join(" ") === "is-active vcontrolhub-next.service") return "active\n";
-      if (file === "systemctl" && args.join(" ") === "is-active vcontrolhub-worker.service") return "active\n";
-      if (file === "systemctl" && args.join(" ") === "is-active vcontrolhub-ssh-ws.service") return "active\n";
-      if (file === "systemctl" && args.join(" ") === "is-active whrkhldsb-next.service") return "inactive\n";
-      if (file === "systemctl" && args.join(" ") === "is-active whrkhldsb-ssh-ws.service") return "inactive\n";
-      if (file === "git" && args.includes("rev-parse")) return "abc123\n";
-      if (file === "git" && args.includes("ls-remote")) return "abc123456789\trefs/heads/main\n";
-      return "";
+    mockExecFile.mockImplementation((file: string, args: string[], _options: unknown, cb: ExecFileCallback) => {
+      if (file === "systemctl" && args.join(" ") === "is-active vcontrolhub-next.service") { cb(null, "active\n", ""); return; }
+      if (file === "systemctl" && args.join(" ") === "is-active vcontrolhub-worker.service") { cb(null, "active\n", ""); return; }
+      if (file === "systemctl" && args.join(" ") === "is-active vcontrolhub-ssh-ws.service") { cb(null, "active\n", ""); return; }
+      if (file === "systemctl" && args.join(" ") === "is-active whrkhldsb-next.service") { cb(null, "inactive\n", ""); return; }
+      if (file === "systemctl" && args.join(" ") === "is-active whrkhldsb-ssh-ws.service") { cb(null, "inactive\n", ""); return; }
+      if (file === "git" && args.includes("rev-parse")) { cb(null, "abc123\n", ""); return; }
+      if (file === "git" && args.includes("ls-remote")) { cb(null, "abc123456789\trefs/heads/main\n", ""); return; }
+      cb(null, "", "");
     });
 
     const result = await collectSystemHealthChecks({ projectRoot: process.cwd() });
 
-    expect(mockExecFileSync).toHaveBeenCalledWith("systemctl", ["is-active", "vcontrolhub-next.service"], expect.any(Object));
-    expect(mockExecFileSync).toHaveBeenCalledWith("systemctl", ["is-active", "vcontrolhub-worker.service"], expect.any(Object));
-    expect(mockExecFileSync).toHaveBeenCalledWith("systemctl", ["is-active", "vcontrolhub-ssh-ws.service"], expect.any(Object));
-    expect(mockExecFileSync).not.toHaveBeenCalledWith("systemctl", ["is-active", "whrkhldsb-next.service"], expect.any(Object));
+    expect(mockExecFile).toHaveBeenCalledWith("systemctl", ["is-active", "vcontrolhub-next.service"], expect.any(Object), expect.any(Function));
+    expect(mockExecFile).toHaveBeenCalledWith("systemctl", ["is-active", "vcontrolhub-worker.service"], expect.any(Object), expect.any(Function));
+    expect(mockExecFile).toHaveBeenCalledWith("systemctl", ["is-active", "vcontrolhub-ssh-ws.service"], expect.any(Object), expect.any(Function));
+    expect(mockExecFile).not.toHaveBeenCalledWith("systemctl", ["is-active", "whrkhldsb-next.service"], expect.any(Object), expect.any(Function));
     expect(result.checks.find((check) => check.id === "next-service")).toMatchObject({
       status: "healthy",
       message: expect.stringContaining("vcontrolhub-next.service"),
@@ -139,10 +141,10 @@ describe("system health service", () => {
   });
 
   it("marks git sync as warning when origin/main differs from local head", async () => {
-    mockExecFileSync.mockImplementation((file: string, args: string[]) => {
-      if (file === "git" && args.includes("rev-parse")) return "abc123\n";
-      if (file === "git" && args.includes("ls-remote")) return "def456789012\trefs/heads/main\n";
-      return "";
+    mockExecFile.mockImplementation((file: string, args: string[], _options: unknown, cb: ExecFileCallback) => {
+      if (file === "git" && args.includes("rev-parse")) { cb(null, "abc123\n", ""); return; }
+      if (file === "git" && args.includes("ls-remote")) { cb(null, "def456789012\trefs/heads/main\n", ""); return; }
+      cb(null, "", "");
     });
 
     const result = await collectSystemHealthChecks({ projectRoot: process.cwd() });

@@ -64,6 +64,9 @@ export function runSsh2Command(input: Ssh2ExecutionInput): Promise<SshExecutionR
       username,
       password,
       hostKeySha256: hostKeySha256 ?? null,
+      // Defense in depth: dispatch refuses unpinned targets before reaching
+      // here, but a future caller must not silently fall back to TOFU.
+      enforceHostKeyPin: true,
     });
     // Mirror the sshpass argv: password first, then keyboard-interactive.
     config.tryKeyboard = true;

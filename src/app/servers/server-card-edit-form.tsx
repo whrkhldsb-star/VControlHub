@@ -213,8 +213,7 @@ export function ServerCardEditForm({
         defaultValue={(tags ?? []).join(",")}
         className={UI_INPUT}
       />
-      {!windows && <>
-      {storageNodeId ? (
+      {!windows && storageNodeId ? (
         <div className="space-y-2 rounded-xl border border-[var(--border)] bg-[var(--surface-subtle)] p-3">
           <label className="block text-xs text-[var(--text-muted)]" htmlFor={`edit-storage-path-${serverId}`}>
             {t("serverCardActions.edit.storagePath")}
@@ -295,7 +294,6 @@ export function ServerCardEditForm({
           </p>
         ) : null}
       </div>
-      </>}
       <SubmitButton pendingLabel={t("serverCardActions.edit.pending")} variant="success" className="w-full">
         {t(observedHostKeySha256 ? "serverCardActions.edit.submitConfirmed" : "serverCardActions.edit.submit")}
       </SubmitButton>

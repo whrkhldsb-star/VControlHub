@@ -112,7 +112,8 @@ export function WindowsServerCard({ server, canManageServers, canUseSshTerminal,
             {t("serversPage.windows.remoteDesktop")}
           </Link>
         )}
-        <ServerCardActions operatingSystem="WINDOWS" serverId={server.id} serverName={server.name} host={server.host} port={server.port} username={server.username} enabled={server.enabled} description={server.description} tags={server.tags} rdpCertificateSha256={server.rdpCertificateSha256} rdpDomain={server.rdpDomain} rdpIgnoreCertificate={server.rdpIgnoreCertificate} managementMode={server.managementMode} canManageServers={canManageServers} canUseSshTerminal={false} />
+        <ServerCardActions operatingSystem="WINDOWS" serverId={server.id} serverName={server.name} host={server.host} port={server.port} username={server.username} enabled={server.enabled} description={server.description} tags={server.tags} rdpCertificateSha256={server.rdpCertificateSha256} rdpDomain={server.rdpDomain} rdpIgnoreCertificate={server.rdpIgnoreCertificate} managementMode={server.managementMode} canManageServers={canManageServers} canUseSshTerminal={false}
+          costAutoSync={server.costAutoSync} costMonthlyAmount={server.costMonthlyAmount} costCurrency={server.costCurrency} costProvider={server.costProvider} costLastSyncedAt={server.costLastSyncedAt} />
       </div>
     </div>
   </article>;

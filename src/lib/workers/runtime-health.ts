@@ -18,8 +18,13 @@ export type WorkerRuntimeHealth = {
 
 export async function getWorkerRuntimeHealth(now = new Date()): Promise<WorkerRuntimeHealth[]> {
   const definitions = getWorkerDefinitions();
+  // Hard upper bound so a retention gap in the heartbeat reaper cannot turn
+  // this admin route into a full-table read. The table holds one row per
+  // worker × instance (upserted), and rows are ordered by lastHeartbeatAt so
+  // the first row seen per workerId below stays the freshest instance.
   const rows = await prisma.workerRuntime.findMany({
     orderBy: { lastHeartbeatAt: "desc" },
+    take: 500,
     select: {
       workerId: true,
       instanceId: true,

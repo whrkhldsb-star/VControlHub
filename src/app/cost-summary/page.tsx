@@ -34,13 +34,15 @@ export default async function CostSummaryPage() {
 
 	// Always pass session into team-scoped cost services so SSR matches API
 	// teamWhere (cost:read alone must not hydrate fleet-wide entries/budgets).
-	const summary = canRead
-		? await summarizeMonth(month, defaultCurrency, session)
-		: null;
-	const entries = canRead ? await listCostEntries({ limit: 200, month, session }) : [];
-	const snapshots = canRead ? await listRecentSnapshots(31, session, defaultCurrency, month) : [];
-	const budgets = canRead ? await listCostBudgets(new Date(), session) : [];
-	const billingAccounts = canRead ? await listCloudBillingAccounts(session) : [];
+	// The five reads are independent — run them concurrently so page TTFB is
+	// the slowest query, not the sum of all five.
+	const [summary, entries, snapshots, budgets, billingAccounts] = await Promise.all([
+		canRead ? summarizeMonth(month, defaultCurrency, session) : null,
+		canRead ? listCostEntries({ limit: 200, month, session }) : [],
+		canRead ? listRecentSnapshots(31, session, defaultCurrency, month) : [],
+		canRead ? listCostBudgets(new Date(), session) : [],
+		canRead ? listCloudBillingAccounts(session) : [],
+	]);
 
 	return (
 		<PageShell maxW="max-w-7xl">

@@ -17,6 +17,7 @@ import {
 	assertPublicBaseUrlResolvesPublic,
 	isUnsafePublicHttpHost,
 } from "@/lib/storage/direct-access-url";
+import { fetchWithPinnedDns } from "@/lib/security/pinned-fetch";
 import { t } from "@/lib/i18n/service-translations";
 import { readResponseTextLimited } from "@/lib/http/response-body";
 
@@ -120,7 +121,10 @@ async function fetchProviderResponse(
 	callerSignal?: AbortSignal,
 ): Promise<Response> {
 	try {
-		return await fetch(url, init);
+		// Pinned dispatch: assertProviderUrlSafe validated this URL a moment
+		// ago; the fetch itself must connect to the address that validation
+		// saw, not whatever DNS answers on a second resolution (rebinding).
+		return await fetchWithPinnedDns(url, init);
 	} catch (error) {
 		if (callerSignal?.aborted) throw callerSignal.reason;
 		const name =

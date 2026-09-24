@@ -2,6 +2,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import * as directAccessUrl from "@/lib/storage/direct-access-url";
 
+// These tests stub the global fetch; the real pinned dispatcher is covered
+// by src/lib/security/__tests__/pinned-fetch.test.ts.
+vi.mock("@/lib/security/pinned-fetch", () => ({
+	fetchWithPinnedDns: (url: string | URL, init?: RequestInit) => globalThis.fetch(url, init),
+}));
+
 import { fetchCloudBillingItems } from "../adapters";
 import { createCloudBillingAccountSchema } from "../schema";
 

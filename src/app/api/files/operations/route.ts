@@ -23,7 +23,9 @@ export async function POST(request: Request) {
   return withApiRoute(
     request,
     {
-      permission: "storage:read",
+      // Session-only guard here: the action-specific storage:write/delete
+      // check below is the single permission gate for this route.
+      requireAuth: true,
       rateLimit: GENERAL_WRITE_LIMIT,
       bodySchema: fileOperationSchema,
       errorMessage: errorMessage(),

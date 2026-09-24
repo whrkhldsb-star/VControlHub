@@ -45,7 +45,7 @@ function sanitizeDetail(value: string) {
   return SECRET_PATTERNS.reduce((text, pattern) => text.replace(pattern, (_match, key) => key ? `${key}=[REDACTED]` : "[REDACTED]"), value);
 }
 
-function safeExecFile(file: string, args: string[]): string | null {
+function safeExecFile(file: string, args: string[]): Promise<string | null> {
   return runHealthCheckCommand({ file, args });
 }
 
@@ -126,8 +126,8 @@ export async function collectSystemHealthChecks(options: { projectRoot?: string;
   // trusted and gets the full report.
   const canSeePlatformInternals = options.session ? isGlobalTeamManager(options.session) : true;
   if (canSeePlatformInternals) {
-    const serviceChecks = SERVICE_CHECKS.map((service): SystemHealthCheck => {
-    const state = safeExecFile("systemctl", ["is-active", service.unit]);
+    const serviceChecks = await Promise.all(SERVICE_CHECKS.map(async (service): Promise<SystemHealthCheck> => {
+    const state = await safeExecFile("systemctl", ["is-active", service.unit]);
     if (state === "active") {
       return { id: service.id, label: service.label, status: "healthy" as const, message: `${service.unit} is running`, params: { unit: service.unit }, messageCode: "running" };
     }
@@ -135,7 +135,7 @@ export async function collectSystemHealthChecks(options: { projectRoot?: string;
       return { id: service.id, label: service.label, status: "critical" as const, message: `${service.unit} current state is ${state}`, params: { unit: service.unit, state }, messageCode: "state" };
     }
     return { id: service.id, label: service.label, status: "warning" as const, message: `${service.unit} status temporarily unreadable`, params: { unit: service.unit }, messageCode: "unreadable" };
-  });
+  }));
   checks.push(...serviceChecks);
 
   const envState = (() => {
@@ -186,8 +186,10 @@ export async function collectSystemHealthChecks(options: { projectRoot?: string;
     messageCode: configured.length > 0 ? "healthy" : "warning",
   });
 
-  const gitHead = safeExecFile("git", ["-C", projectRoot, "rev-parse", "--short", "HEAD"]);
-  const remoteLine = safeExecFile("git", ["-C", projectRoot, "ls-remote", "origin", "refs/heads/main"]);
+  const [gitHead, remoteLine] = await Promise.all([
+    safeExecFile("git", ["-C", projectRoot, "rev-parse", "--short", "HEAD"]),
+    safeExecFile("git", ["-C", projectRoot, "ls-remote", "origin", "refs/heads/main"]),
+  ]);
   const gitRemoteHead = remoteLine?.split(/\s+/)[0]?.slice(0, 7) || null;
   if (gitHead) {
     const gitHealthy = !gitRemoteHead || gitHead === gitRemoteHead;

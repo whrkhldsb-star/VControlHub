@@ -21,6 +21,22 @@ const logger = createLogger("ws:notification");
 /* ── Connection Registry ─────────────────────────────────── */
 const userConnections = new Map<string, Set<WebSocket>>();
 
+/** Hard cap on concurrent notification sockets. Mirrors the SSH proxy cap:
+ * one hub process serves a small team, so thousands of sockets can only mean
+ * a leak or a reconnect loop, never legitimate load. */
+const MAX_WS_CONNECTIONS = 200;
+
+/** Server-side liveness sweep interval. Client JSON pings alone cannot detect
+ * a silently-dead transport, and ws keeps queuing broadcast payloads into a
+ * dead-but-OPEN socket's send buffer without bound. */
+const HEARTBEAT_INTERVAL_MS = 30_000;
+/** bufferedAmount beyond this means the peer stopped draining — terminate
+ * instead of buffering every future broadcast in memory for it. */
+const MAX_BUFFERED_BYTES = 1_000_000;
+
+const heartbeatState = new WeakMap<WebSocket, boolean>();
+let heartbeatTimer: NodeJS.Timeout | null = null;
+
 function addConnection(userId: string, ws: WebSocket) {
 	if (!userConnections.has(userId)) userConnections.set(userId, new Set());
 	userConnections.get(userId)!.add(ws);
@@ -59,9 +75,14 @@ export function broadcastToUser(userId: string, message: WsMessage) {
 	if (!conns || conns.size === 0) return;
 	const payload = JSON.stringify(message);
 	for (const ws of conns) {
-		if (ws.readyState === WebSocket.OPEN) {
-			ws.send(payload);
+		if (ws.readyState !== WebSocket.OPEN) continue;
+		if (ws.bufferedAmount > MAX_BUFFERED_BYTES) {
+			// The peer stopped draining its socket — dead in practice. Drop it
+			// instead of letting ws keep buffering every broadcast for it.
+			ws.terminate();
+			continue;
 		}
+		ws.send(payload);
 	}
 }
 
@@ -74,6 +95,10 @@ export function getWsServer(): WebSocketServer | null {
 }
 
 export function closeWebSocketServer(): void {
+	if (heartbeatTimer) {
+		clearInterval(heartbeatTimer);
+		heartbeatTimer = null;
+	}
 	if (!wss) return;
 	detachUpgradeHandler?.();
 	detachUpgradeHandler = null;
@@ -188,6 +213,13 @@ export function setupWebSocketServer(
 			return;
 		}
 
+		if (instance.clients.size >= MAX_WS_CONNECTIONS) {
+			recordWsEvent("notification", "reject");
+			socket.write("HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\n\r\n");
+			socket.destroy();
+			return;
+		}
+
 		// Authenticate via HttpOnly session cookie (see resolveUpgradeSessionToken).
 		const token = resolveUpgradeSessionToken(request);
 		if (!token) {
@@ -222,6 +254,10 @@ export function setupWebSocketServer(
 	instance.on("connection", (ws: WebSocket, _req: IncomingMessage, session: SessionPayload) => {
 		const userId = session.userId;
 		addConnection(userId, ws);
+		heartbeatState.set(ws, true);
+		ws.on("pong", () => {
+			heartbeatState.set(ws, true);
+		});
 
 		// Send initial unread count
 		ws.send(JSON.stringify({ type: "connected", userId }));
@@ -245,6 +281,22 @@ export function setupWebSocketServer(
 			removeConnection(userId, ws);
 		});
 	});
+
+	// Server-side liveness sweep (same pattern as the SSH WS proxy): a peer
+	// that misses a pong window is terminated, so dead transports leave the
+	// per-user sets instead of accumulating forever.
+	heartbeatTimer = setInterval(() => {
+		for (const client of instance.clients) {
+			if (client.readyState !== WebSocket.OPEN) continue;
+			if (heartbeatState.get(client) === false) {
+				client.terminate();
+				continue;
+			}
+			heartbeatState.set(client, false);
+			client.ping();
+		}
+	}, HEARTBEAT_INTERVAL_MS);
+	heartbeatTimer.unref?.();
 
 	logger.info("WebSocket notification server initialized");
 }

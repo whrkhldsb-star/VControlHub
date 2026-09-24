@@ -9,11 +9,21 @@ import { auditUserAction } from "@/lib/audit/service";
 import { decrypt } from "@/lib/crypto/service";
 import { checkGuacd, consumeRdpTicket, getRdpServer, guacdPort, rdpEndpointHash, rdpOriginAllowed } from "./tickets";
 import { GuacParser, instruction, validateClientInstruction } from "./protocol";
+import { getRdpSessionRuntimeConfig } from "@/lib/runtime-settings/service";
+import { rdpAudioEnabled, rdpClipboardEnabled, RDP_AUDIO_MIMETYPES } from "./features";
 
 function cookie(req: IncomingMessage) {
  const raw = req.headers.cookie?.split(";").map(v => v.trim()).find(v => v.startsWith(`${getSessionCookieName()}=`));
  try { return raw ? decodeURIComponent(raw.slice(raw.indexOf("=") + 1)) : ""; } catch { return ""; }
 }
+/**
+ * A healthy browser tunnels a ping every 5 seconds, so ANY policy setting of
+ * "never idle" must still not outlive a crashed browser on a half-open TCP
+ * connection. This floor is independent of the configurable idle timeout.
+ */
+const DEAD_TRANSPORT_MS = 10 * 60_000;
+/** Bounds clipboard sync abuse: ~256 base64 chunks ≈ 1.5 MB of text per session. */
+const MAX_CLIPBOARD_BLOBS = 256;
 /** Shares the existing loopback SSH service, but never its protocol or credentials. */
 export function setupRdpWebSocket(server: HttpServer) {
  const wss = new WebSocketServer({ noServer: true, maxPayload: 16_384, perMessageDeflate: false,
@@ -40,6 +50,14 @@ export function setupRdpWebSocket(server: HttpServer) {
   let tunnelPaused = false;
   let lastInput = Date.now();
   const openedAt = Date.now();
+  // Session policy (runtime.sshIdleTimeoutSec-style settings, 0 = unlimited)
+  // plus channel feature flags, resolved per connection at authentication.
+  let idleTimeoutMs = 0;
+  let maxSessionMs = 0;
+  let clipboardAllowed = false;
+  let audioAllowed = false;
+  const clipboardStreams = new Set<number>();
+  let clipboardBlobs = 0;
   const audit = (event: string) => {
    if (userId && serverId) void auditUserAction(userId, event, { serverId }, undefined, teamId).catch(() => {});
   };
@@ -55,7 +73,11 @@ export function setupRdpWebSocket(server: HttpServer) {
     validating = true;
     void revalidate().catch(() => close("RDP session authorization expired", 1008)).finally(() => { validating = false; });
    }
-   if (Date.now() - lastInput > 30 * 60_000 || Date.now() - openedAt > 4 * 60 * 60_000) { close("RDP session limit reached", 1000); return; }
+   // The dead-transport floor always applies; the idle/absolute caps are the
+   // admin-configured session policy and default to "as long as the browser".
+   if (Date.now() - lastInput > DEAD_TRANSPORT_MS ||
+    (idleTimeoutMs > 0 && Date.now() - lastInput > idleTimeoutMs) ||
+    (maxSessionMs > 0 && Date.now() - openedAt > maxSessionMs)) { close("RDP session limit reached", 1000); return; }
    if (started) {
     // guacd drops clients that stay silent for ~20s, and background tabs get
     // their JS timers throttled, so the browser cannot always keep the
@@ -76,12 +98,21 @@ export function setupRdpWebSocket(server: HttpServer) {
   });
   const input = new GuacParser(row => {
    if (stopped) return;
-   if (!started || !validateClientInstruction(row)) { close("Unsupported RDP input", 1008); return; }
+   if (!started || !validateClientInstruction(row, { clipboard: clipboardAllowed })) { close("Unsupported RDP input", 1008); return; }
    // Any validated traffic — keep-alive nops and ping echoes included — proves
    // the browser is still there and resets the idle limit.
    lastInput = Date.now();
    if (row[0] === "") { if (ws.readyState === WebSocket.OPEN) ws.send(instruction(...row)); return; }
    if (row[0] === "disconnect") { ws.close(1000); tunnel?.destroy(); return; }
+   // Clipboard is the only client-created stream type; blobs and end must
+   // stay on an index a clipboard instruction allocated this session.
+   if (clipboardAllowed && (row[0] === "clipboard" || row[0] === "blob" || row[0] === "end")) {
+    const index = Number(row[1]);
+    if (row[0] === "clipboard") clipboardStreams.add(index);
+    else if (!clipboardStreams.has(index)) { close("Unsupported RDP input", 1008); return; }
+    if (row[0] === "blob" && ++clipboardBlobs > MAX_CLIPBOARD_BLOBS) { close("RDP clipboard limit reached", 1008); return; }
+    if (row[0] === "end") clipboardStreams.delete(index);
+   }
    if ((tunnel?.writableLength ?? 0) > 16_000_000) { close("RDP backpressure limit reached"); return; }
    // nop MUST reach guacd: swallowing it is what made guacd log "User is not
    // responding" and kill idle desktops ~20 seconds in.
@@ -102,6 +133,9 @@ export function setupRdpWebSocket(server: HttpServer) {
     if (session.mustChangePassword || !sessionHasPermission(session, "server:ssh") || (users.get(session.userId) ?? 0) >= 2) throw new Error("Denied");
     const target = await consumeRdpTicket(token, session, sessionCookie, req.headers.origin ?? "");
     await checkGuacd();
+    const { idleTimeoutMs: idleMs, maxSessionMs: maxMs } = await getRdpSessionRuntimeConfig();
+    idleTimeoutMs = idleMs; maxSessionMs = maxMs;
+    clipboardAllowed = rdpClipboardEnabled(); audioAllowed = rdpAudioEnabled();
     if (stopped || ws.readyState !== WebSocket.OPEN) return;
     const endpointHash = rdpEndpointHash(target);
     revalidate = async () => {
@@ -119,8 +153,10 @@ export function setupRdpWebSocket(server: HttpServer) {
      hostname: target.host, port: String(target.port), username: target.username,
      password: decrypt(target.rdpPassword!), domain: target.rdpDomain ?? "",
      security: "nla", ...rdpCertificateOptions(target),
-     "disable-copy": "true", "disable-paste": "true", "enable-drive": "false",
-     "enable-printing": "false", "enable-audio-input": "false", "disable-audio": "true",
+     ...(clipboardAllowed ? {} : { "disable-copy": "true", "disable-paste": "true" }),
+     "enable-drive": "false",
+     "enable-printing": "false", "enable-audio-input": "false",
+     ...(audioAllowed ? {} : { "disable-audio": "true" }),
      "resize-method": "display-update", "server-layout": "en-us-qwerty",
      "enable-wallpaper": "false", "enable-theming": "false",
     };
@@ -136,7 +172,7 @@ export function setupRdpWebSocket(server: HttpServer) {
       if (row[0] !== "args") throw new Error("Expected args");
       const args = row.slice(1);
       rdpCertificateOptions(target, args);
-      tunnel?.write(instruction("size", "1280", "800", "96") + instruction("audio") + instruction("video") + instruction("image", "image/png", "image/jpeg") +
+      tunnel?.write(instruction("size", "1280", "800", "96") + instruction("audio", ...(audioAllowed ? RDP_AUDIO_MIMETYPES : [])) + instruction("video") + instruction("image", "image/png", "image/jpeg") +
        instruction("connect", ...args.map(key => key.startsWith("VERSION_") ? "VERSION_1_5_0" : options[key] ?? "")));
       delete options.password;
       phase = "ready"; return;
@@ -148,7 +184,11 @@ export function setupRdpWebSocket(server: HttpServer) {
       // Internal Guacamole tunnel UUID handshake.
       ws.send(instruction("", row[1] ?? "")); return;
      }
-     if (["clipboard", "file", "pipe", "filesystem", "audio", "video"].includes(row[0] ?? "")) { close("Unsupported RDP stream", 1008); return; }
+     // Clipboard and audio streams pass through only when the deployment
+     // opted in; blobs/acks of allowed streams are forwarded below.
+     const op = row[0] ?? "";
+     const allowed = (op === "clipboard" && clipboardAllowed) || (op === "audio" && audioAllowed);
+     if (["clipboard", "file", "pipe", "filesystem", "audio", "video"].includes(op) && !allowed) { close("Unsupported RDP stream", 1008); return; }
      if (ws.bufferedAmount > 64_000_000) { close("RDP backpressure limit reached"); return; }
      if (ws.readyState === WebSocket.OPEN) ws.send(instruction(...row));
      // A slow browser pauses guacd reads instead of losing the session; the

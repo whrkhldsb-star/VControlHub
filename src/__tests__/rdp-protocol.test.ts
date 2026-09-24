@@ -18,6 +18,17 @@ describe("RDP protocol security", () => {
   for (const op of ["clipboard", "file", "pipe", "blob", "connect", "select", "audio"]) expect(validateClientInstruction([op,"0"])).toBe(false);
   expect(validateClientInstruction(["size", "999999", "1"])).toBe(false);
  });
+ it("allows clipboard stream instructions only when the channel is opted in", () => {
+  expect(validateClientInstruction(["clipboard", "2", "text/plain"], { clipboard: true })).toBe(true);
+  expect(validateClientInstruction(["clipboard", "2", "text/plain;charset=utf-8"], { clipboard: true })).toBe(true);
+  expect(validateClientInstruction(["blob", "2", "aGVsbG8="], { clipboard: true })).toBe(true);
+  expect(validateClientInstruction(["end", "2"], { clipboard: true })).toBe(true);
+  for (const row of [["clipboard", "2", "text/plain"], ["blob", "2", "aGVsbG8="], ["end", "2"]]) expect(validateClientInstruction(row)).toBe(false);
+  expect(validateClientInstruction(["clipboard", "2", "application/octet-stream"], { clipboard: true })).toBe(false);
+  expect(validateClientInstruction(["blob", "2", "not base64!"], { clipboard: true })).toBe(false);
+  expect(validateClientInstruction(["blob", "2", "A".repeat(6049)], { clipboard: true })).toBe(false);
+  expect(validateClientInstruction(["file", "2", "text/plain", "x"], { clipboard: true })).toBe(false);
+ });
  it("preserves passwords and accepts domain accounts", () => {
   expect(rdpProfileSchema.parse({name:"Win",host:"2.26.201.79",port:3389,username:"Administrator",password:" secret ",domain:"CORP"}).password).toBe(" secret ");
  });

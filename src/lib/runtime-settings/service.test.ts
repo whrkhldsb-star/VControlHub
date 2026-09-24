@@ -175,6 +175,7 @@ describe("runtime settings", () => {
 
     expect(commandTimeout).toMatchObject({ value: 180000, source: "environment", sourceLabel: "Environment variable", requiresRestart: false });
     expect(reconcile).toMatchObject({ value: 45000, source: "database", sourceLabel: "Database setting", requiresRestart: true });
-    expect(invalidIdle).toMatchObject({ value: 0, source: "invalid-database", sourceLabel: "Database value invalid, fell back", requiresRestart: true });
+    // sshIdleTimeoutSec now applies per terminal connection (no restart).
+    expect(invalidIdle).toMatchObject({ value: 0, source: "invalid-database", sourceLabel: "Database value invalid, fell back", requiresRestart: false });
   });
 });

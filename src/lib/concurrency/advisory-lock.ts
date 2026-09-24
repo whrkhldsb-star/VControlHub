@@ -92,6 +92,11 @@ function getLockPool() {
     connectionString: connectionStringForPg(),
     max: Math.max(2, Math.min(config.db.poolSize, 4)),
     idleTimeoutMillis: config.db.poolIdleTimeoutMs,
+    // The pg default is to wait forever for a pool slot. Each advisory lock
+    // pins a dedicated client for its whole critical section, so >max
+    // concurrent lock holders must fail fast instead of queueing without
+    // bound (request pile-up under a burst).
+    connectionTimeoutMillis: 10_000,
     allowExitOnIdle: true,
   });
   return globalState.__vcontrolhubAdvisoryLockPool;

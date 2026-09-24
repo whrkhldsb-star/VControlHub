@@ -14,6 +14,7 @@ import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { assertPublicBaseUrlResolvesPublic, normalizePublicBaseUrl } from "@/lib/storage/direct-access-url";
+import { fetchWithPinnedDns } from "@/lib/security/pinned-fetch";
 import { ForbiddenError, NotFoundError } from "@/lib/errors";
 import {
   normalizeRemoteTargetPath,
@@ -129,7 +130,9 @@ async function isDirectGatewayHealthy(publicBaseUrl: string) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), DIRECT_GATEWAY_HEALTH_TIMEOUT_MS);
   try {
-    const response = await fetch(healthUrl, {
+    // Pinned dispatch: connect to the address the assertion above verified —
+    // a plain fetch would re-resolve DNS and could be rebound to loopback.
+    const response = await fetchWithPinnedDns(healthUrl, {
       method: "GET",
       redirect: "manual",
       signal: controller.signal,

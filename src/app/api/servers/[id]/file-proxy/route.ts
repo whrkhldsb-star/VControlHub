@@ -84,6 +84,10 @@ async function sshExec(
       port: server.port,
       username: server.username,
       hostKeySha256: server.hostKeySha256,
+      // Fail closed on unpinned servers, matching the terminal and command
+      // channels: this path decrypts and sends the stored login credential,
+      // so a TOFU accept would leak it to an on-path impersonator.
+      enforceHostKeyPin: true,
       ...(server.sshKey?.privateKey
         ? { privateKey: decryptSshPrivateKey(server.sshKey.privateKey) }
         : server.password

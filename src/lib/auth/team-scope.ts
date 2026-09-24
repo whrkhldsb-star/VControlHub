@@ -133,6 +133,19 @@ export function imageTeamWhere(session: TeamSession): Record<string, unknown> {
 		: { id: "__unassigned_images_require_team_manage__" };
 }
 
+/** A storage node is a file-data security root: it carries the SFTP/WebDAV
+ * backing credentials and every byte the hub can read or write on it. A null
+ * teamId is quarantined legacy data — under the loose {@link teamWhere} any
+ * tenant's storage_manager (or their API token via WebDAV) could open, upload
+ * to, or share an unassigned node by id. Quarantine it to global managers,
+ * mirroring {@link serverTeamWhere} and the share-link service's node filter. */
+export function storageNodeTeamWhere(session: TeamSession): Record<string, unknown> {
+	if (isGlobalTeamManager(session)) return {};
+	return session.currentTeamId
+		? { teamId: session.currentTeamId }
+		: { id: "__unassigned_storage_nodes_require_team_manage__" };
+}
+
 /** A share link publishes a storage path on a node (and its access logs expose
  * downloader IPs/UAs). A null teamId is quarantined legacy data — under the
  * loose {@link teamWhere} every tenant's managers could list, read access

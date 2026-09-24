@@ -5,6 +5,11 @@ vi.mock("node:dns/promises", () => ({
   lookup: lookupMock,
   default: { lookup: lookupMock },
 }));
+// These tests drive a mocked global fetch; the pinned dispatcher underneath
+// the real helper is covered by pinned-fetch.test.ts.
+vi.mock("@/lib/security/pinned-fetch", () => ({
+  fetchWithPinnedDns: (url: string | URL, init?: RequestInit) => globalThis.fetch(url, init),
+}));
 
 import {
   fetchProviderModels,

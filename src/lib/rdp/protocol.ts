@@ -64,11 +64,19 @@ export class GuacParser {
   }
  }
 }
-export function validateClientInstruction(row: string[]) {
+export function validateClientInstruction(row: string[], options?: { clipboard?: boolean }) {
  const [op, ...args] = row;
  // Image streams need ACKs too; never permit client blob/file creation.
  if (op === "ack") return args.length === 3 && /^\d{1,10}$/.test(args[0]!) && Number(args[0]) <= 0x7fffffff && args[1]!.length <= 256 && /^\d{1,5}$/.test(args[2]!) && Number(args[2]) <= 0xffff;
  if (op === "") return args.length === 2 && args[0] === "ping" && /^\d{1,16}$/.test(args[1]!) && Number.isSafeInteger(Number(args[1]));
+ // Clipboard is the ONLY client-created stream type allowed, and only when the
+ // deployment opts in. Data flows as bounded base64 `blob` chunks on the same
+ // stream index the `clipboard` instruction allocated.
+ if (options?.clipboard) {
+  if (op === "clipboard") return args.length === 2 && /^\d{1,10}$/.test(args[0]!) && Number(args[0]) <= 0x7fffffff && /^text\/plain(;|$)/.test(args[1]!) && args[1]!.length <= 40;
+  if (op === "blob") return args.length === 2 && /^\d{1,10}$/.test(args[0]!) && Number(args[0]) <= 0x7fffffff && args[1]!.length <= 6048 && /^[A-Za-z0-9+/=]*$/.test(args[1]!);
+  if (op === "end") return args.length === 1 && /^\d{1,10}$/.test(args[0]!) && Number(args[0]) <= 0x7fffffff;
+ }
  if (!args.every(v => /^\d{1,16}$/.test(v) && Number.isSafeInteger(Number(v)))) return false;
  const nums = args.map(Number);
  switch (op) {

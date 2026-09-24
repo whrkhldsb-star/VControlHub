@@ -14,9 +14,11 @@ import {
 } from "@/lib/job/service";
 import {
   forceFailVpsBackupRecordIfRunning,
+  pruneOldVpsBackupRecords,
   runVpsBackupRecord,
   VPS_BACKUP_CREATE_JOB_TYPE,
 } from "./vps-backup-service";
+import { prisma } from "@/lib/db";
 import { config } from "@/lib/config/env";
 import { computeLeaseMs } from "@/lib/job/lease";
 import { LeaseLostError, runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
@@ -26,6 +28,22 @@ const POLL_INTERVAL_MS = 5000;
 const LEASE_MS = computeLeaseMs("vps-backup");
 const WORKER_ID = `${config.app.hostname || "localhost"}:vps-backup:${process.pid}`;
 const logger = createLogger("vps-backup-job-worker");
+
+/**
+ * Retention must also cover manually triggered backups: without this, records
+ * created through the "back up now" route are only ever pruned if a schedule
+ * happens to run later for the same server. Applies the server's schedule
+ * policy when one is configured; no schedule means the operator opted out of
+ * automatic pruning entirely.
+ */
+async function pruneAfterBackup(recordId: string): Promise<void> {
+  const record = await prisma.vpsBackupRecord.findUnique({ where: { id: recordId }, select: { serverId: true } });
+  if (!record) return;
+  const schedule = await prisma.vpsBackupSchedule.findFirst({ where: { serverId: record.serverId }, select: { retentionDays: true } });
+  if (schedule?.retentionDays && schedule.retentionDays > 0) {
+    await pruneOldVpsBackupRecords(record.serverId, schedule.retentionDays);
+  }
+}
 
 let interval: ReturnType<typeof setInterval> | null = null;
 let running = false;
@@ -81,6 +99,9 @@ export async function runVpsBackupJobWorkerOnce(): Promise<void> {
         fileSize: result.fileSize,
         checksumSha256: result.checksumSha256,
         localPath: result.localPath,
+      });
+      await pruneAfterBackup(payload.recordId!).catch((error) => {
+        logger.warn("Post-backup retention prune failed", { recordId: payload.recordId, error: error instanceof Error ? error.message : String(error) });
       });
     } else {
       // Terminal, not retryable. `runVpsBackupRecord` claims the record with a

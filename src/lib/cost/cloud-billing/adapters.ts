@@ -24,6 +24,7 @@ import {
   isUnsafePublicHttpHost,
   normalizePublicHttpUrl,
 } from "@/lib/storage/direct-access-url";
+import { fetchWithPinnedDns } from "@/lib/security/pinned-fetch";
 import {
   readResponseTextLimited,
   ResponseBodyTooLargeError,
@@ -287,7 +288,9 @@ async function fetchBillingCsvFromUrl(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 20_000);
   try {
-    const res = await fetch(safeUrl, {
+    // Pinned dispatch: connect to the address the public-resolution check
+    // above verified, not whatever DNS answers on a second lookup (rebind).
+    const res = await fetchWithPinnedDns(safeUrl, {
       method: "GET",
       redirect: "error",
       signal: controller.signal,

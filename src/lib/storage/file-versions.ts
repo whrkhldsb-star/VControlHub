@@ -219,6 +219,48 @@ export async function purgeAllFileVersionBlobs(fileEntryId: string): Promise<num
 }
 
 /**
+ * Remove version blobs for EVERY entry under a directory in ONE query plus
+ * bounded-concurrency unlinks, instead of one `purgeAllFileVersionBlobs`
+ * round trip per descendant — a large subtree otherwise costs 1 + D queries
+ * and a fully sequential unlink chain inside one server action. Covers
+ * `prefix/…` descendants only; the directory's own versions (if any) are the
+ * caller's business. Best-effort per blob; returns how many were removed.
+ */
+export async function purgeDirectoryFileVersionBlobs(input: {
+  storageNodeId: string;
+  /** Directory relativePath (no trailing slash). */
+  prefix: string;
+  concurrency?: number;
+}): Promise<number> {
+  const rows = await prisma.fileVersion.findMany({
+    where: {
+      fileEntry: {
+        storageNodeId: input.storageNodeId,
+        relativePath: { startsWith: `${input.prefix}/` },
+      },
+    },
+    select: { blobRelativePath: true },
+  });
+  let removed = 0;
+  const queue = [...rows];
+  const workerCount = Math.max(1, Math.min(input.concurrency ?? 8, queue.length));
+  const workers = Array.from({ length: workerCount }, async () => {
+    for (;;) {
+      const row = queue.shift();
+      if (!row) return;
+      try {
+        await rm(blobAbsolutePath(row.blobRelativePath), { force: true });
+        removed += 1;
+      } catch (err) {
+        logError("file-version:blob-purge-on-delete-failed", err);
+      }
+    }
+  });
+  await Promise.all(workers);
+  return removed;
+}
+
+/**
  * Snapshot the *current* on-disk body of a file entry before overwrite.
  * Best-effort: size over cap / missing file / read errors return null (caller continues).
  */

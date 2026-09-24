@@ -39,6 +39,12 @@ vi.mock("@/lib/auth/team-scope", () => ({
       ? { teamId: session.currentTeamId }
       : { id: "__unassigned_servers_require_team_manage__" };
   },
+  storageNodeTeamWhere: (session: { roles?: string[]; currentTeamId?: string | null }) => {
+    if (session.roles?.includes("admin")) return {};
+    return session.currentTeamId
+      ? { teamId: session.currentTeamId }
+      : { id: "__unassigned_storage_nodes_require_team_manage__" };
+  },
 }));
 
 const { prisma } = await import("@/lib/db");
@@ -69,6 +75,43 @@ describe("storage access control", () => {
       operation: "read",
     })).resolves.toMatchObject({ allowed: false });
     expect(prisma.userStorageAccess.findMany).not.toHaveBeenCalled();
+  });
+
+  it("quarantines unassigned storage nodes instead of sharing them across teams", async () => {
+    // Regression: the node lookup used the loose teamWhere, whose
+    // `{ teamId: null }` arm made every unassigned node reachable by any
+    // team's storage_manager. The scope must now quarantine them.
+    vi.mocked(prisma.userStorageAccess.findMany).mockResolvedValue([]);
+    await assertStorageAccess({
+      session: { ...baseSession, currentTeamId: "team-a", roles: ["operator"] },
+      storageNodeId: "legacy-node",
+      relativePath: "docs/a.txt",
+      operation: "read",
+    });
+    expect(vi.mocked(prisma.storageNode.findFirst).mock.calls.at(-1)![0]?.where).toEqual({
+      id: "legacy-node",
+      teamId: "team-a",
+    });
+
+    await assertStorageAccess({
+      session: baseSession,
+      storageNodeId: "legacy-node",
+      relativePath: "docs/a.txt",
+      operation: "read",
+    });
+    expect(vi.mocked(prisma.storageNode.findFirst).mock.calls.at(-1)![0]?.where).toEqual({
+      id: "__unassigned_storage_nodes_require_team_manage__",
+    });
+
+    await assertStorageAccess({
+      session: { ...baseSession, roles: ["admin"] },
+      storageNodeId: "legacy-node",
+      relativePath: "docs/a.txt",
+      operation: "read",
+    });
+    expect(vi.mocked(prisma.storageNode.findFirst).mock.calls.at(-1)![0]?.where).toEqual({
+      id: "legacy-node",
+    });
   });
 
   it("denies role-based storage access when no explicit grants exist", async () => {

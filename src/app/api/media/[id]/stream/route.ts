@@ -258,6 +258,10 @@ export async function GET(
           host: connectionCredentials.host,
           port: connectionCredentials.port,
           username: connectionCredentials.username,
+          hostKeySha256: connectionCredentials.hostKeySha256,
+          // Fail closed on unpinned SFTP nodes, matching the terminal and
+          // command channels — this path sends the stored credential.
+          enforceHostKeyPin: true,
           privateKey: connectionCredentials.privateKey,
           password: connectionCredentials.password,
           readyTimeout: 15000,

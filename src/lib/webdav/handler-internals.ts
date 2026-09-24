@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 
 import type { SessionPayload } from "@/lib/auth/session";
-import { teamWhere } from "@/lib/auth/team-scope";
+import { storageNodeTeamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import {
   BusinessError,
@@ -85,8 +85,11 @@ export async function loadNode(
   storageNodeId: string,
   session: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">,
 ): Promise<StorageFileNode & { name: string }> {
+  // Quarantine unassigned (teamId null) nodes to team:manage — a storage node
+  // is a security root, so WebDAV mounting must not reach another tenant's
+  // legacy node by id even before requireAccess runs.
   const node = await prisma.storageNode.findFirst({
-    where: { id: storageNodeId, ...teamWhere(session) },
+    where: { id: storageNodeId, ...storageNodeTeamWhere(session) },
     select: { ...storageFileNodeSelect, name: true },
   });
   if (!node || !["LOCAL", "SFTP", "WEBDAV"].includes(node.driver)) {

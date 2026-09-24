@@ -80,6 +80,7 @@ export async function createServerAction(
       rdpDomain: String(formData.get("rdpDomain") ?? ""),
       rdpIgnoreCertificate: formData.get("rdpIgnoreCertificate") === "on",
       rdpCertificateSha256: String(formData.get("rdpCertificateSha256") ?? ""),
+      costAutoSync, costMonthlyAmount, costCurrency, costProvider,
     } : {
       name,
       host,
@@ -163,6 +164,10 @@ export async function updateServerAction(
       rdpDomain: String(formData.get("rdpDomain") ?? ""),
       rdpIgnoreCertificate: formData.get("rdpIgnoreCertificate") === "on",
       rdpCertificateSha256: String(formData.get("rdpCertificateSha256") ?? ""),
+      costAutoSync: formData.get("costAutoSync") === "on",
+      costMonthlyAmount: String(formData.get("costMonthlyAmount") ?? ""),
+      costCurrency: String(formData.get("costCurrency") ?? "CNY") as "CNY" | "USD" | "EUR" | "JPY" | "HKD",
+      costProvider: String(formData.get("costProvider") ?? ""),
     } : {
       name: String(formData.get("name") ?? ""),
       host: String(formData.get("host") ?? ""),

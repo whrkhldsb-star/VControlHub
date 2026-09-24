@@ -17,6 +17,7 @@ import {
 	assertPublicBaseUrlResolvesPublic,
 	normalizePublicHttpUrl,
 } from "@/lib/storage/direct-access-url";
+import { fetchWithPinnedDns } from "@/lib/security/pinned-fetch";
 import {
 	readResponseTextLimited,
 	ResponseBodyTooLargeError,
@@ -34,7 +35,9 @@ function sourceSlug(value: string) {
 }
 
 async function fetchCatalogJson(url: string): Promise<unknown> {
-	const res = await fetch(url, {
+	// Pinned dispatch: callers validated the source URL resolves publicly;
+	// connect to the verified address instead of re-resolving (rebinding).
+	const res = await fetchWithPinnedDns(url, {
 		method: "GET",
 		redirect: "error",
 		signal: AbortSignal.timeout(APP_SOURCE_TIMEOUT_MS),

@@ -91,7 +91,25 @@ export const RUNTIME_SETTING_DEFINITIONS = {
     max: 7200,
     label: "SSH idle timeout",
     unit: "seconds",
-    applies: "Requires SSH WebSocket service restart to take effect; 0 means never (forced keepalive)",
+    applies: "Takes effect for newly opened terminals; 0 means never idle-disconnect (forced keepalive)",
+  },
+  "runtime.rdpIdleTimeoutSec": {
+    env: "RDP_IDLE_TIMEOUT_SEC",
+    defaultValue: 0,
+    min: 0,
+    max: 86400,
+    label: "RDP idle timeout",
+    unit: "seconds",
+    applies: "Takes effect for newly opened RDP sessions; 0 means never (dead browsers are still detected by the transport timeout)",
+  },
+  "runtime.rdpMaxSessionSec": {
+    env: "RDP_MAX_SESSION_SEC",
+    defaultValue: 0,
+    min: 0,
+    max: 86400,
+    label: "RDP maximum session duration",
+    unit: "seconds",
+    applies: "Takes effect for newly opened RDP sessions; 0 means no absolute cap",
   },
   "runtime.operationTaskListLimit": {
     env: "OPERATION_TASK_LIST_LIMIT",
@@ -354,11 +372,32 @@ export async function getSshTerminalRuntimeConfig() {
     wsHeartbeatIntervalMs,
     sshKeepaliveIntervalMs: SSH_KEEPALIVE_INTERVAL_MS,
     sshKeepaliveCountMax,
+    // Drives the live-but-idle terminal reaper in ssh-ws-proxy: 0 = never reap
+    // (the settings-page contract), > 0 = reap after this long without traffic
+    // in either direction.
+    sshIdleTimeoutMs: sshIdleTimeoutSec > 0 ? sshIdleTimeoutSec * 1000 : 0,
   };
 }
 
 export async function getOperationTaskListLimit(): Promise<number> {
   return getRuntimeSettingNumber("runtime.operationTaskListLimit");
+}
+
+/**
+ * RDP session limits, managed by the same runtime settings as SSH timeouts
+ * so both remote channels share one policy surface. Zero disables a limit —
+ * the default keeps a healthy RDP session alive as long as its browser,
+ * matching the SSH idle semantics.
+ */
+export async function getRdpSessionRuntimeConfig() {
+  const values = await getRuntimeSettingNumbers([
+    "runtime.rdpIdleTimeoutSec",
+    "runtime.rdpMaxSessionSec",
+  ]);
+  return {
+    idleTimeoutMs: values["runtime.rdpIdleTimeoutSec"] * 1000,
+    maxSessionMs: values["runtime.rdpMaxSessionSec"] * 1000,
+  };
 }
 
 export async function getAiProviderListLimit(): Promise<number> {

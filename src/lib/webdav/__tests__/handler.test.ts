@@ -42,7 +42,10 @@ vi.mock("@/lib/db", () => ({
     $transaction: mocks.transaction,
   },
 }));
-vi.mock("@/lib/auth/team-scope", () => ({ teamWhere: () => ({ teamId: "team_a" }) }));
+vi.mock("@/lib/auth/team-scope", () => ({
+  teamWhere: () => ({ teamId: "team_a" }),
+  storageNodeTeamWhere: () => ({ teamId: "team_a" }),
+}));
 vi.mock("@/lib/storage/access-control", () => ({
   assertStorageAccess: mocks.assertStorageAccess,
   releaseStorageQuotaGuard: mocks.releaseStorageQuotaGuard,

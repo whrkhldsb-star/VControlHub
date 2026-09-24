@@ -186,8 +186,12 @@ export default async function Page() {
     );
   }
 
-  const uptimeData = await getAllUptimeData(session);
-  const status = await getPublicStatus();
+  // The 90-day uptime scan and the status aggregation are independent —
+  // fetch concurrently so the page waits on the slower one, not both.
+  const [uptimeData, status] = await Promise.all([
+    getAllUptimeData(session),
+    getPublicStatus(),
+  ]);
 
   return (
     <PageShell maxW="max-w-5xl" navigation={Boolean(session)}>

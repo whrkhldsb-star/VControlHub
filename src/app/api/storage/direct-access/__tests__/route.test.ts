@@ -31,6 +31,12 @@ vi.mock("node:dns/promises", () => ({
 	default: { lookup: vi.fn().mockResolvedValue([{ address: "203.0.113.10", family: 4 }]) },
 }));
 
+// The AUTO health probe goes through the pinned dispatcher in production;
+// here it delegates to the stubbed global fetch like before.
+vi.mock("@/lib/security/pinned-fetch", () => ({
+	fetchWithPinnedDns: (url: string | URL, init?: RequestInit) => globalThis.fetch(url, init),
+}));
+
 import { DELETE, GET, POST } from "../route";
 
 function directNode(overrides: Record<string, unknown> = {}) {

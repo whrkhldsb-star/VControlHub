@@ -119,6 +119,9 @@ interface RedisExecResult {
 }
 interface RedisClientLike {
   readonly isOpen: boolean;
+  /** node-redis emits 'error' on connection loss/retry; attaching a listener
+   * keeps those events from becoming uncaughtExceptions. */
+  on(event: "error", listener: (error: unknown) => void): unknown;
   connect(): Promise<void>;
   get(key: string): Promise<string | null>;
   set(key: string, value: string, options?: { PX?: number }): Promise<unknown>;
@@ -134,11 +137,24 @@ interface RedisClientLike {
 class RedisRateLimitStore implements RateLimitStore {
   private prefix = "rl:";
   private _client: RedisClientLike | null = null;
+  private _connecting: Promise<RedisClientLike> | null = null;
 
   constructor(private _url: string) {}
 
   private async getClient(): Promise<RedisClientLike> {
     if (this._client && this._client.isOpen) return this._client;
+    // Share one in-flight connect: without this, concurrent first calls
+    // (e.g. a burst of login attempts) would each construct and connect
+    // their own client, leaking the losing sockets.
+    if (!this._connecting) {
+      this._connecting = this.connect().finally(() => {
+        this._connecting = null;
+      });
+    }
+    return this._connecting;
+  }
+
+  private async connect(): Promise<RedisClientLike> {
     // Dynamic require — redis is an optional peer dependency
     let redisModule;
     try {
@@ -151,6 +167,13 @@ class RedisRateLimitStore implements RateLimitStore {
         createClient: (opts: { url: string }) => RedisClientLike;
       }
     ).createClient({ url: this._url }) as RedisClientLike;
+    // An EventEmitter 'error' with no listener throws. A Redis outage must
+    // degrade rate limiting, not crash the web/worker process.
+    client.on("error", (error: unknown) => {
+      logger.warn("Redis rate-limit client error", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
     try {
       await client.connect();
     } catch (error) {
