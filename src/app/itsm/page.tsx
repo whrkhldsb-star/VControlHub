@@ -29,7 +29,7 @@ export default async function ItsmPage() {
 	const publicBaseUrl = config.app.baseUrl?.replace(/\/$/, "") || "";
 
 	return (
-		<PageShell maxW="max-w-5xl">
+		<PageShell>
 			<PageHeader
 				eyebrow={t("itsmPage.eyebrow", locale)}
 				title={t("itsmPage.title", locale)}

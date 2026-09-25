@@ -17,7 +17,7 @@ export default async function FilesRecycleBinPage({ searchParams }: {
   const { entries, pagination } = await getRecycleBinPage(session, recycleBinQuerySchema.parse((await searchParams) ?? {}));
 
   return (
-    <PageShell maxW="max-w-5xl">
+    <PageShell>
       <PageHeader
         eyebrow={t("filesPage.eyebrow", locale)}
         title={t("filesPage.subPage.recycleBin", locale)}

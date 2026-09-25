@@ -11,7 +11,7 @@ export default function FilesRecentDownloadsPage() {
   const router = useRouter();
 
   return (
-    <PageShell maxW="max-w-5xl">
+    <PageShell>
       <PageHeader
         eyebrow={t("filesPage.eyebrow")}
         title={t("filesPage.subPage.recentDownloads")}

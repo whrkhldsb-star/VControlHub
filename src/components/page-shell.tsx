@@ -207,19 +207,21 @@ export function StatCard({
 	accent,
 	accentColor,
 	detail,
+	className,
 }: {
 	label: string;
 	value: string | number;
 	accent?: boolean;
 	accentColor?: AccentColor;
 	detail?: string;
+	className?: string;
 }) {
 	const c = accent && accentColor ? ACCENT_COLORS[accentColor] : null;
 	return (
 		<article
 			data-card
 			data-stat-card
-			className="relative overflow-hidden bg-[var(--surface)]"
+			className={`relative overflow-hidden bg-[var(--surface)] ${className ?? ""}`}
 		>
 			<div className={`absolute inset-x-0 top-0 h-0.5 ${c ? c.bar : "bg-[var(--border)]"}`} aria-hidden="true" />
 			<div className="text-xs font-medium text-[var(--text-muted)]">{label}</div>

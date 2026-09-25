@@ -294,21 +294,16 @@ export default function TrafficPage() {
 
   return (
     <PageShell>
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <PageHeader eyebrow={t("trafficPage.eyebrow")} title={t("trafficPage.title")} description={t("trafficPage.desc")} />
-        </div>
-        <div className="flex items-center gap-2">
-          <ActionButton type="button" variant="ghost" onClick={() => fetchSummary()} className="text-xs">{t("trafficPage.refresh")}</ActionButton>
-          <button type="button" onClick={() => setAutoRefresh((v) => !v)} disabled={refreshIntervalSeconds <= 0} className={`rounded-lg px-3 py-1.5 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-50 ${autoRefresh ? "bg-[var(--success-bg)] text-[var(--success)]" : "bg-[var(--surface-hover)]/60 text-[var(--text-secondary)]"}`}>
-            {autoRefresh
-              ? t("trafficPage.autoRefreshOn", { label: refreshLabel })
-              : refreshIntervalSeconds <= 0
-                ? t("trafficPage.autoRefreshOff")
-                : t("trafficPage.autoRefreshPaused", { label: refreshLabel })}
-          </button>
-        </div>
-      </div>
+      <PageHeader eyebrow={t("trafficPage.eyebrow")} title={t("trafficPage.title")} description={t("trafficPage.desc")}>
+        <ActionButton type="button" variant="ghost" onClick={() => fetchSummary()} className="text-xs">{t("trafficPage.refresh")}</ActionButton>
+        <button type="button" onClick={() => setAutoRefresh((v) => !v)} disabled={refreshIntervalSeconds <= 0} className={`rounded-lg px-3 py-1.5 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-50 ${autoRefresh ? "bg-[var(--success-bg)] text-[var(--success)]" : "bg-[var(--surface-hover)]/60 text-[var(--text-secondary)]"}`}>
+          {autoRefresh
+            ? t("trafficPage.autoRefreshOn", { label: refreshLabel })
+            : refreshIntervalSeconds <= 0
+              ? t("trafficPage.autoRefreshOff")
+              : t("trafficPage.autoRefreshPaused", { label: refreshLabel })}
+        </button>
+      </PageHeader>
 
       {error && <Notice tone="danger">{error}</Notice>}
       {historyError && <Notice tone="danger">{historyError}</Notice>}

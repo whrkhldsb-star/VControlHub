@@ -102,7 +102,7 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 	const largeTextWarning = (resolvedIsText || resolvedIsMarkdown) && size > 512 * 1024;
 
 	return (
-		<PageShell maxW="max-w-6xl">
+		<PageShell>
         <PageHeader eyebrow={getStorageDriverLabel((key, vars) => t(key, locale, vars), driver)} title={name}>
           <a href="/files" data-action-button data-variant="secondary">
             {t("textPreview.preview.backToFiles", locale)}

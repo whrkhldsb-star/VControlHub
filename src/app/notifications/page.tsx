@@ -26,7 +26,7 @@ export default async function NotificationsPage() {
 	}));
 
 	return (
-		<PageShell maxW="max-w-3xl">
+		<PageShell>
 			<PageHeader
 				eyebrow={t("notificationsPage.eyebrow", locale)}
 				title={t("notificationsPage.title", locale)}

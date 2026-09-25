@@ -21,7 +21,7 @@ export default async function FilesWebDavPage() {
   const origin = host ? `${protocol === "https" ? "https" : "http"}://${host}` : "";
 
   return (
-    <PageShell maxW="max-w-5xl">
+    <PageShell>
       <PageHeader
         eyebrow={t("filesPage.eyebrow", locale)}
         title={t("filesPage.subPage.webdav", locale)}

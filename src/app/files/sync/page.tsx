@@ -18,7 +18,7 @@ export default async function FilesSyncPage() {
     : { servers: [], nodes: [] };
 
   return (
-    <PageShell maxW="max-w-5xl">
+    <PageShell>
       <PageHeader
         eyebrow={t("filesPage.eyebrow", locale)}
         title={t("filesPage.subPage.sync", locale)}

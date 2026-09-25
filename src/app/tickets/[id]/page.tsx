@@ -17,7 +17,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
 
   // Assignee dropdown: always team-scoped for ticket:manage unless the actor
   // also has team:manage (platform admin). Never fall through to an unscoped
-  // findMany when currentTeamId is missing — that enumerated every user.
+  // findMany when currentTeamId is missing 鈥?that enumerated every user.
   const canManageTeams = sessionHasPermission(session, "team:manage");
 
   // One ticket load + the (independent) assignee list, fetched concurrently.
@@ -63,7 +63,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
   };
 
   return (
-    <PageShell maxW="max-w-4xl">
+    <PageShell>
       <PageHeader eyebrow={t("ticketsDetail.eyebrow", locale)} title={t("ticketsDetail.title", locale)} description={t("ticketsDetail.desc", locale)} className="mb-6" />
       <TicketDetailClient initial={serialized} canManage={canManage} users={users} />
     </PageShell>

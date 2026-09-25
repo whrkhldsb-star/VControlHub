@@ -5,14 +5,13 @@
  * provider health checks) only renders when the user opens the
  * provider accordion section. Routing it through `next/dynamic`
  * defers that chunk's import graph (test-connection fetch helpers,
- * model discovery action) until that interaction. The stub matches
- * the panel's outer card so the page doesn't visibly shift when
- * the chunk arrives.
+ * model discovery action) until that interaction.
  *
  * `ssr: false` is correct: the panel is a pure client-side
- * interaction surface with no value in pre-rendering. Stub
- * preserves vertical space so a slow chunk doesn't make the page
- * look broken.
+ * interaction surface with no value in pre-rendering. The loading
+ * stub renders nothing: the real panel is a modal overlay, and an
+ * in-flow placeholder would sit inside the workspace flex row where
+ * a full-width block squeezes the chat column to zero width.
  *
  * Prop types via `ComponentProps<typeof import(...)>` — TS-only
  * construct that webpack does not follow, so the real component is
@@ -27,20 +26,11 @@ type AiProviderPanelProps = ComponentProps<
 	typeof import("./ai-provider-panel").AiProviderPanel
 >;
 
-function AiProviderPanelStub() {
-	return (
-		<div
-			aria-hidden
-			className="mt-2 h-40 w-full animate-pulse rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)]"
-		/>
-	);
-}
-
 export const AiProviderPanelLazy: ComponentType<AiProviderPanelProps> =
 	dynamic(
 		() =>
 			import("./ai-provider-panel").then((m) => m.AiProviderPanel),
-		{ ssr: false, loading: () => <AiProviderPanelStub /> },
+		{ ssr: false, loading: () => null },
 	);
 
 export type { AiProviderPanelProps };

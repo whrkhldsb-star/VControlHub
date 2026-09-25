@@ -19,14 +19,14 @@ export default async function AccountSecurityPage() {
   });
 
   return (
-    <PageShell maxW="max-w-4xl">
+    <PageShell>
       <PageHeader
         eyebrow={t("accountPasswordPage.eyebrow", locale)}
         title={t("auth.account-security", locale)}
         description={t("auth.account-security-description", locale)}
         className="mb-8"
       />
-      <div className="space-y-4">
+      <div className="max-w-3xl space-y-4">
         <TwoFactorSettings enabled={user?.twoFactorEnabled ?? false} />
         <SignOutAllDevices />
         <Link

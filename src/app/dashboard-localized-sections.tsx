@@ -125,10 +125,18 @@ export function DashboardStatsSection({ storage, queue }: { storage: DashboardSt
         </div>
       </SurfacePanel>
       <SurfacePanel title={queueTitle}>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+        {/* 2×2 on xl: the notification card spans the full row so both panels
+            end on the same row instead of leaving a hole under the left one. */}
+        <div className="grid gap-3 sm:grid-cols-2">
           <StatCard label={pending} value={String(queue.pendingApprovals)} accent={queue.pendingApprovals > 0} accentColor="amber" />
           <StatCard label={downloads} value={downloadValue} accent={queue.downloads.running > 0} accentColor="cyan" detail={downloadDetail} />
-          <StatCard label={notificationScheduled} value={`${queue.unreadNotifications} ${unread} / ${queue.activeScheduledTasks} ${active}`} accent={queue.unreadNotifications > 0 || queue.activeScheduledTasks > 0} accentColor={queue.unreadNotifications > 0 ? "amber" : "cyan"} />
+          <StatCard
+            label={notificationScheduled}
+            value={`${queue.unreadNotifications} ${unread} / ${queue.activeScheduledTasks} ${active}`}
+            accent={queue.unreadNotifications > 0 || queue.activeScheduledTasks > 0}
+            accentColor={queue.unreadNotifications > 0 ? "amber" : "cyan"}
+            className="sm:col-span-2"
+          />
         </div>
       </SurfacePanel>
     </section>

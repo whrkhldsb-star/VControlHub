@@ -27,7 +27,7 @@ export default async function AnnouncementsPage() {
 	}));
 
 	return (
-		<PageShell maxW="max-w-4xl">
+		<PageShell>
 			<PageHeader eyebrow={t("announcementsPage.eyebrow", locale)} title={t("announcementsPage.title", locale)} description={t("announcementsPage.desc", locale)} className="mb-6" />
 
 			{canManage && (

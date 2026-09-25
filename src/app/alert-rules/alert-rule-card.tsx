@@ -32,14 +32,11 @@ export function AlertRuleCard({
 
 	return (
 		<article
-			className={`rounded-xl border bg-[var(--surface-elevated)] transition-colors duration-150 ${
-				rule.enabled
-					? "border-[var(--border)] hover:bg-[var(--surface-elevated)]"
-					: "border-[var(--border)] opacity-60"
-			}`}
+			data-card
+			className={`transition-colors duration-150 ${rule.enabled ? "" : "opacity-60"}`}
 		>
-			<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-				<div>
+			<div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+				<div className="min-w-0">
 					<h2 className="text-lg font-semibold text-[var(--text-primary)]">
 						{rule.name}
 					</h2>
@@ -140,15 +137,17 @@ export function AlertRuleCard({
 					)}
 				</div>
 				{canManage && (
-					<div className="flex shrink-0 flex-col gap-2">
+					<div className="flex shrink-0 flex-wrap items-center gap-2">
 						<button
 							type="button"
 							onClick={() => toggleRule(rule.id)}
 							disabled={busyAction === `toggle:${rule.id}`}
-							className={`rounded-2xl border px-4 py-2 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-60 ${
+							data-action-button
+							data-variant={rule.enabled ? "warning" : "success"}
+							className={`text-xs disabled:cursor-not-allowed disabled:opacity-60 ${
 								rule.enabled
-									? "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)] hover:bg-[var(--warning-bg)]/60"
-									: "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)] hover:bg-[var(--success-bg)]/60"
+									? "hover:bg-[var(--warning-bg)]/60"
+									: "hover:bg-[var(--success-bg)]/60"
 							}`}
 						>
 							{busyAction === `toggle:${rule.id}`
