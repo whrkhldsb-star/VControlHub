@@ -13,6 +13,7 @@ import { IconButton } from "@/components/ui-primitives";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
 import { PaginatedList } from "@/components/paginated-list";
+import { EmptyState } from "@/components/page-shell";
 
 interface Announcement {
   id: string;
@@ -170,9 +171,10 @@ export function AnnouncementList({
 
       <div>
         {filtered.length === 0 ? (
-          <div data-card className="p-8 text-center text-sm text-[var(--text-muted)]">
-            {items.length === 0 ? t("announcementsPage.empty") : t("announcementsPage.emptyFiltered")}
-          </div>
+          <EmptyState
+            variant="boxed"
+            text={items.length === 0 ? t("announcementsPage.empty") : t("announcementsPage.emptyFiltered")}
+          />
         ) : (
           <PaginatedList pageSize={20} resetKey={`${search}\u0000${levelFilter}`} className="grid gap-4">
             {filtered.map((a) => (

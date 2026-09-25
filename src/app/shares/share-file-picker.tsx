@@ -13,6 +13,7 @@ import { getStorageDriverLabel } from "@/lib/i18n/domain-labels";
 
 import { ActionButton } from "@/components/action-button";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { describeKnownError } from "@/lib/ui/known-error-copy";
 interface StorageNode {
 	id: string;
 	name: string;
@@ -296,8 +297,8 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 				))}
 			</div>
 
-			{error ? <p data-tone="rose" className="mt-3 rounded-xl border border-[var(--danger-border)] px-3 py-2 text-sm text-[var(--danger)]">{error}</p> : null}
-			{data?.syncWarning ? <p data-tone="amber" className="mt-3 rounded-xl border border-[var(--warning-border)] px-3 py-2 text-sm text-[var(--warning)]">{data.syncWarning}</p> : null}
+			{error ? <KnownErrorNotice tone="rose" raw={error} /> : null}
+			{data?.syncWarning ? <KnownErrorNotice tone="amber" raw={data.syncWarning} /> : null}
 
 			<div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
 				<div className="min-w-0 border-y border-[var(--border)]">
@@ -399,5 +400,19 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 				</aside>
 			</div>
 		</section>
+	);
+}
+
+function KnownErrorNotice({ tone, raw }: { tone: 'rose' | 'amber'; raw: string }) {
+	const { t } = useI18n();
+	const { summary, detail } = describeKnownError(raw, t);
+	const styles = tone === 'rose'
+		? 'border-[var(--danger-border)] text-[var(--danger)]'
+		: 'border-[var(--warning-border)] text-[var(--warning)]';
+	return (
+		<p data-tone={tone} className={`mt-3 rounded-xl border px-3 py-2 text-sm ${styles}`}>
+			{summary}
+			<code className={`mt-1 block break-all font-mono text-xs opacity-80`}>{detail}</code>
+		</p>
 	);
 }

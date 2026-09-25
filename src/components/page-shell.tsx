@@ -9,6 +9,7 @@
 
 import type { ReactNode } from "react";
 import { LocalizedText } from "./localized-text";
+import { File as FileIcon } from "./icons";
 
 /* ── ToggleChip ────────────────────────────────────────────────────── */
 /**
@@ -142,6 +143,12 @@ export function Card({ children, className }: { children: ReactNode; className?:
 
 /* ── EmptyState ─────────────────────────────────────────────────────── */
 
+/**
+ * Shared empty-state visual language: an icon tile (default file glyph)
+ * above the copy, optional action. "simple" centers inside the existing
+ * panel chrome (ListPanel body etc.); "boxed" adds the dashed card for
+ * page-level blocks that have no panel of their own.
+ */
 export function EmptyState({
 	text,
 	children,
@@ -153,7 +160,7 @@ export function EmptyState({
 	text?: string;
 	/** Rich content (e.g. JSX expression). Takes precedence over `text`. */
 	children?: ReactNode;
-	/** "simple" = plain text; "boxed" = dashed-border card */
+	/** "simple" = plain centered block; "boxed" = dashed-border card */
 	variant?: "simple" | "boxed";
 	icon?: ReactNode;
 	action?: ReactNode;
@@ -161,14 +168,12 @@ export function EmptyState({
 	const body = children ?? text;
 	const content = (
 		<>
-			{icon ? (
-				<div
-					className="mb-3 flex h-10 w-10 items-center justify-center text-2xl text-[var(--text-muted)]"
-					aria-hidden="true"
-				>
-					{icon}
-				</div>
-			) : null}
+			<div
+				className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-muted)] [&>svg]:opacity-70"
+				aria-hidden="true"
+			>
+				{icon ?? <FileIcon size={22} />}
+			</div>
 			<div className="max-w-md text-sm leading-6 text-[var(--text-muted)]">{body}</div>
 			{action ? <div className="mt-4">{action}</div> : null}
 		</>

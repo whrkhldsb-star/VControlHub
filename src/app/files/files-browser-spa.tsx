@@ -24,6 +24,7 @@ import { Pagination } from "@/components/pagination";
 import { ChevronRight, Plus, RefreshCw, X } from "@/components/icons";
 import { IconButton } from "@/components/ui-primitives";
 import { StatCard, StatGrid, Toolbar } from "@/components/page-shell";
+import { describeKnownError } from "@/lib/ui/known-error-copy";
 import { useStorageUploads } from "@/components/storage/storage-upload-provider";
 import { readDroppedFiles } from "@/components/storage/storage-drop-files";
 import { getBrowserRelativePath, normalizeRelativePath } from "@/components/storage/file-upload-helpers";
@@ -388,14 +389,7 @@ export function FilesBrowserSpa({
           </Toolbar>
 
           {/* File list with batch operations */}
-          {listError ? (
-            <Notice tone={data.syncWarning === listError ? "warning" : "danger"} className="mt-4">
-              {data.syncWarning === listError
-                ? t("filesBrowserSpa.remoteSyncNotice")
-                : t("filesBrowserSpa.fileListRefreshFailed")}
-              : {listError}
-            </Notice>
-          ) : null}
+          {listError ? <KnownErrorNotice tone={data.syncWarning === listError ? "warning" : "danger"} raw={listError} className="mt-4" /> : null}
           <FileListClient
             selectionScopeSeed={`${selectionEpoch}\u0000${data.currentPath}\u0000${data.searchQuery}\u0000${data.searchScope}\u0000${data.nodeIdFilter ?? ""}`}
             selectionPage={data.pagination?.page}
@@ -461,4 +455,15 @@ export function FilesBrowserSpa({
     </section>
     </>
   );
+}
+
+function KnownErrorNotice({ tone, raw, className }: { tone: "warning" | "danger"; raw: string; className?: string }) {
+	const { t } = useI18n();
+	const { summary, detail } = describeKnownError(raw, t);
+	return (
+		<Notice tone={tone} className={className}>
+			{summary}
+			<code className="mt-1 block break-all font-mono text-xs opacity-80">{detail}</code>
+		</Notice>
+	);
 }

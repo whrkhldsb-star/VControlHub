@@ -54,6 +54,13 @@ export const zh: Record<string, string> = {
 	"common.validUntil": "有效期至",
 	"common.backupNote": "备份备注",
 
+	"commonError.pathMissing": "存储路径暂时无法读取：目录不存在或尚未同步。",
+	"commonError.accessDenied": "访问被拒绝：当前服务没有该路径或资源的访问权限。",
+	"commonError.connectionRefused": "无法连接到目标服务：请确认对应服务已启动。",
+	"commonError.timeout": "操作超时：目标响应过慢或网络不稳定。",
+	"commonError.connectionReset": "连接被中断：请稍后重试。",
+	"commonError.generic": "操作未能完成：发生意外错误。",
+
 	"common.backupNotePlaceholder": "例如：升级前备份",
 
 	"common.createAndExecute": "创建并执行",
@@ -157,6 +164,13 @@ export const en: Record<string, string> = {
 	"common.targetNode": "Target node",
 	"common.validUntil": "Valid until",
 	"common.backupNote": "Backup notes",
+
+	"commonError.pathMissing": "The storage path could not be read: it does not exist or has not been synced yet.",
+	"commonError.accessDenied": "Access denied: the service lacks permission for this path or resource.",
+	"commonError.connectionRefused": "Could not reach the target service: make sure it is running.",
+	"commonError.timeout": "The operation timed out: the target responded too slowly or the network is unstable.",
+	"commonError.connectionReset": "The connection was interrupted: please retry.",
+	"commonError.generic": "The operation did not complete: an unexpected error occurred.",
 
 	"common.backupNotePlaceholder": "e.g. Before upgrade backup",
 

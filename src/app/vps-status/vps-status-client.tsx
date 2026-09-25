@@ -10,6 +10,7 @@
 
 import { CapacityForecastPanel } from "@/app/health/capacity-forecast-panel";
 import { FleetResourceSummary, SummaryCard } from "@/app/health/health-dashboard-parts";
+import { EmptyState } from "@/components/page-shell";
 import { Notice } from "@/components/ui-primitives";
 
 import { useVpsStatusView } from "./use-vps-status-view";
@@ -123,9 +124,7 @@ export function VpsStatusClient({ serverCount }: Props) {
 					</div>
 				</div>
 			) : filteredServers.length === 0 ? (
-				<div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface)] p-10 text-center text-sm text-[var(--text-muted)]">
-					{t("vpsStatusPage.empty")}
-				</div>
+				<EmptyState variant="boxed" text={t("vpsStatusPage.empty")} />
 			) : viewMode === "table" ? (
 				<VpsStatusTable servers={filteredServers} browserLocale={browserLocale} t={t} />
 			) : (

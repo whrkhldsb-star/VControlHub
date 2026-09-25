@@ -10,6 +10,7 @@ import { UI_INPUT } from "@/lib/ui/classes";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
 import { Badge } from "@/components/ui-primitives";
 import { Pagination } from "@/components/pagination";
+import { EmptyState } from "@/components/page-shell";
 
 export type TicketWorkspaceTicket = {
   id: string;
@@ -208,7 +209,7 @@ export function TicketWorkspace({ initialTickets, canManage, now }: Props) {
       </div>
 
       {filteredTickets.length === 0 ? (
-        <div className="px-5 py-12 text-center text-sm text-[var(--text-muted)]">{t("ticketsPage.emptyFiltered")}</div>
+        <EmptyState text={t("ticketsPage.emptyFiltered")} />
       ) : view === "list" ? (
         <>
           <div className="divide-y divide-[var(--border-subtle)]">{pagedTickets.map((ticket) => <TicketCard key={ticket.id} ticket={ticket} nowMs={nowMs} />)}</div>
