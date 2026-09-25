@@ -6,6 +6,7 @@ import { sessionHasPermission } from "@/lib/auth/authorization";
 import { config } from "@/lib/config/env";
 import { buildQuickServiceAccessUrl } from "@/lib/quick-service/access-url";
 import { listQuickServices } from "@/lib/quick-service/service";
+import { getAppName, getPublicLabel } from "@/lib/branding";
 import { mainNavItems, systemNavItems } from "./nav-items";
 
 import { AppSidebar } from "@/components/app-sidebar";
@@ -53,6 +54,11 @@ export async function SidebarLoader() {
 			username={username}
 			quickServices={quickServices}
 			declaredPermissionsByHref={declaredPermissionsByHref}
+			// Resolved server-side: AppSidebar is a client component, and reading
+			// env-backed branding inside it renders the fallback on the client
+			// while SSR used APP_NAME — a hydration mismatch on every page.
+			appName={getAppName()}
+			publicLabel={getPublicLabel()}
 		/>
 	);
 }

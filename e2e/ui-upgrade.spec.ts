@@ -85,7 +85,7 @@ for (const locale of ["zh", "en"]) for (const theme of ["dark", "light"]) for (c
     const storageState = await context.storageState();
     const errors: string[] = [];
     for (const route of ["servers", "files", "settings", "monitoring"]) {
-      const routeContext = await browser.newContext({ storageState, serviceWorkers: "block", baseURL: testInfo.project.use.baseURL, viewport: { width, height: 900 } });
+      const routeContext = await browser.newContext({ storageState, serviceWorkers: "block", baseURL: testInfo.project.use.baseURL, viewport: { width, height: 900 }, reducedMotion: "reduce" });
       await routeContext.addInitScript(({ locale, theme }) => {
         Object.defineProperty(navigator, "serviceWorker", { configurable: true, value: undefined });
         localStorage.setItem("vps-locale", locale);
@@ -120,6 +120,9 @@ for (const locale of ["zh", "en"]) for (const theme of ["dark", "light"]) for (c
       }
       await expect.poll(() => pending.size === 0 && Date.now() - changedAt >= 500, { timeout: 30_000 }).toBe(true);
       await page.evaluate((theme) => document.documentElement.classList.toggle("light", theme === "light"), theme);
+      // Reduced motion collapses color transitions, but keep an explicit settle
+      // so axe never samples a mid-transition frame after the theme toggle.
+      await page.waitForTimeout(250);
       await page.addScriptTag({ path: nodeRequire.resolve("axe-core/axe.min.js") });
       const violations = await page.evaluate(async () => {
         const axe = (window as unknown as { axe: typeof import("axe-core") }).axe;

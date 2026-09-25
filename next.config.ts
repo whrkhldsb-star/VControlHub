@@ -5,6 +5,12 @@ const nextConfig: NextConfig = {
 	htmlLimitedBots: /.*/,
 	// Keep native SSH-related packages outside Next's server bundles.
 	serverExternalPackages: ["ssh2", "ppk-to-openssh"],
+	// The dev server binds the loopback interface, but browsers may address it
+	// as 127.0.0.1 or ::1 (e.g. DATABASE_URL-style URLs, bookmarked hosts).
+	// Without this allowlist Next 16 blocks the HMR websocket as a "cross-origin
+	// dev resource" request, which stalls client hydration: pages render their
+	// SSR HTML but never become interactive and client-side fetches never fire.
+	allowedDevOrigins: ["127.0.0.1", "localhost", "::1"],
 	// Per-package tree-shake hints (lucide-react removed — project uses inline SVG icons now).
 	// Image optimization configuration
 	images: {

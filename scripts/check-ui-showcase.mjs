@@ -10,11 +10,17 @@ const browser = await chromium.launch({ headless: true });
 let checks = 0;
 try {
   for (const width of [320, 768, 1440]) for (const theme of ["dark", "light"]) {
-    const page = await browser.newPage({ viewport: { width, height: 900 } });
+    // Evaluate a11y against the resting state, not a mid-transition frame:
+    // components transition colors for 150ms after the theme class flips, and
+    // axe sampling during that window reports failing contrast for colors
+    // that pass once settled (a CI-only race). Reduced motion collapses all
+    // transitions (globals.css prefers-reduced-motion) so axe is deterministic.
+    const page = await browser.newPage({ viewport: { width, height: 900 }, reducedMotion: "reduce" });
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
     await page.goto(pathToFileURL(path.join(output, "index.html")).href);
     await page.getByRole("combobox", { name: "Theme" }).selectOption(theme);
+    await page.waitForTimeout(250);
     await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
     for (const state of ["controls", "dialog", "states"]) {
       if (state === "dialog") await page.getByRole("button", { name: "Create node" }).click();

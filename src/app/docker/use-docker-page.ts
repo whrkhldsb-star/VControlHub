@@ -111,7 +111,9 @@ export function useDockerPage(
 			}
 			if (data.dockerAvailable === false) {
 				setContainers([]);
-				setError(typeof data.message === "string" ? data.message : t("dockerPage.error.fetch"));
+				// The API's unavailable message is English-only server copy; the
+				// localized "cannot connect" key covers exactly this state.
+				setError(t("dockerPage.error.fetch"));
 				return;
 			}
 			const nextContainers: Container[] | null = data.data && Array.isArray(data.data)

@@ -74,9 +74,12 @@ export default function DockerPage({
 
 	const refreshLabel = getRefreshIntervalLabel(refreshIntervalSeconds);
 	const defaultSocket = t("dockerPage.scope.defaultSocket");
-	const defaultWarning = t("dockerPage.scope.warning");
 	const socketPath = dockerScope?.socketPath ?? defaultSocket;
-	const scopeWarning = dockerScope?.warning ?? defaultWarning;
+	// The server's scope descriptor carries English-only copy; localize on the
+	// client by scope kind so the warning matches the UI language.
+	const scopeWarning = !dockerScope || dockerScope.scope === "hub-host"
+		? t("dockerPage.scope.warning")
+		: t("dockerPage.scope.remoteWarning", { name: dockerScope.serverName ?? "" });
 	const scopeSocketText = t("dockerPage.scope.socket", { path: socketPath });
 
 	return (

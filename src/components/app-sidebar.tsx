@@ -91,10 +91,15 @@ export function AppSidebar({
 	username,
 	quickServices = [],
 	declaredPermissionsByHref = {},
+	appName,
+	publicLabel,
 }: {
 	username?: string;
 	quickServices?: QuickServiceLink[];
 	declaredPermissionsByHref?: Record<string, readonly Permission[]>;
+	/** Server-resolved branding (env-backed) — see SidebarLoader; avoids a client/server hydration mismatch. */
+	appName?: string;
+	publicLabel?: string;
 }) {
 	const pathname = usePathname();
 	const { t } = useI18n();
@@ -216,8 +221,8 @@ export function AppSidebar({
 						</svg>
 					</div>
 					<div className="min-w-0 flex-1">
-						<div className="truncate text-sm font-semibold  text-[var(--text-primary)]">{getAppName()}</div>
-						<p className="mt-0.5 truncate text-xs leading-none text-[var(--text-muted)]">{getPublicLabel()}</p>
+						<div className="truncate text-sm font-semibold  text-[var(--text-primary)]">{appName ?? getAppName()}</div>
+						<p className="mt-0.5 truncate text-xs leading-none text-[var(--text-muted)]">{publicLabel ?? getPublicLabel()}</p>
 					</div>
 					<IconButton label={t("common.close")} onClick={() => setMobileOpen(false)} className="shrink-0 lg:hidden">
 						<X size={18} aria-hidden />
@@ -360,7 +365,7 @@ export function AppSidebar({
 					<path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
 				</svg>
 			</button>
-				<span className="min-w-0 truncate text-sm font-semibold text-[var(--text-primary)]">{getAppName()}</span>
+				<span className="min-w-0 truncate text-sm font-semibold text-[var(--text-primary)]">{appName ?? getAppName()}</span>
 			</div>
 
 			{mobileOpen && (
