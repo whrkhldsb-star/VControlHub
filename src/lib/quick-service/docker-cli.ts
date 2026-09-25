@@ -10,7 +10,7 @@ import { promisify } from "util";
 
 import { BusinessError } from "@/lib/errors";
 import { createLogger } from "@/lib/logging";
-import { t } from "@/lib/i18n/service-translations";
+import { serviceT } from "@/lib/i18n/service-locale";
 import { shellQuote } from "@/lib/shell-quote";
 import { isValidTcpPort } from "@/lib/runtime/listen-port";
 import { loadEnabledServerForSsh, type SshServerTarget } from "@/lib/ssh/server-target";
@@ -282,7 +282,10 @@ export type DockerEnvironmentStatus = {
 
 /** Local async status (route-facing preflight; used by tests + local install preflight). */
 export async function getDockerEnvironmentStatus(): Promise<DockerEnvironmentStatus> {
-  const dockerInstallHint = t("backend.quick-service.dockerInstallHintLocal");
+	// Locale-aware t: the static service dictionary defaults to zh, which
+	// leaked Chinese copy into EN-locale API responses.
+	const t = await serviceT();
+	const dockerInstallHint = t("backend.quick-service.dockerInstallHintLocal");
   try {
     const { stdout } = await runFile("docker", ["--version"], {
       timeout: 5_000,
@@ -314,12 +317,13 @@ export async function getDockerEnvironmentStatus(): Promise<DockerEnvironmentSta
 }
 
 export async function getDockerEnvironmentStatusFor(
-  target: DockerTarget,
+	target: DockerTarget,
 ): Promise<DockerEnvironmentStatus> {
-  if (target.kind === "local") {
-    return getDockerEnvironmentStatus();
-  }
-  const dockerInstallHint = t("backend.quick-service.dockerInstallHintRemote");
+	if (target.kind === "local") {
+		return getDockerEnvironmentStatus();
+	}
+	const t = await serviceT();
+	const dockerInstallHint = t("backend.quick-service.dockerInstallHintRemote");
   try {
     const { server } = await loadRemoteSshParams(target.serverId);
     const version = (await dockerExec(target, ["--version"], 10_000)).trim();
