@@ -54,23 +54,14 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
-const procNetDev = `Inter-|   Receive                                                |  Transmit
- face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed
-    lo: 10 1 0 0 0 0 0 0 20 1 0 0 0 0 0 0
-  eth0: 4096 1 0 0 0 0 0 0 8192 1 0 0 0 0 0 0
-`;
-
-vi.mock("node:fs", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("node:fs")>();
-  return {
-    ...actual,
-    readFileSync: vi.fn((path: string, ...args: unknown[]) => {
-      if (String(path).includes("proc/net/dev")) return procNetDev;
-      // @ts-expect-error passthrough
-      return actual.readFileSync(path, ...args);
-    }),
-  };
-});
+// Mock the sampler, not node:fs: on Windows the route reads adapter counters
+// through PowerShell (no /proc/net/dev), so a fs-level mock makes this suite
+// depend on the CI runner's real network adapters and process-spawn timing.
+vi.mock("@/lib/monitoring/local-network", () => ({
+  readLocalNetworkDeviceStats: vi.fn(() => [
+    { iface: "eth0", rxBytes: 4096, txBytes: 8192 },
+  ]),
+}));
 
 import { GET } from "../route";
 
