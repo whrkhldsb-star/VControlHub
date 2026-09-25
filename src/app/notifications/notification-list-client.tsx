@@ -239,7 +239,7 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 					<ActionButton variant="secondary"
 						onClick={() => void loadMore()}
 						disabled={loadingMore}
-					
+
 						className="!px-3 !py-1.5 !text-sm disabled:opacity-50"
 					>
 						{loadingMore ? t("notificationsPage.loadingMore") : t("notificationsPage.loadMore")}

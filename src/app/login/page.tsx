@@ -55,11 +55,11 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 				<div className="grid w-full gap-12 lg:grid-cols-[1fr_400px] lg:items-center">
 					{/* Left: Branding */}
 					<section className="max-w-xl">
-						<div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-1.5 text-xs font-bold uppercase  text-[var(--text-primary)] shadow-sm backdrop-blur">
+						<div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-1.5 text-xs font-bold uppercase text-[var(--text-primary)] shadow-sm backdrop-blur">
 							<div className="h-1.5 w-1.5 rounded-full bg-[var(--accent)] shadow-[0_0_8px_var(--accent-border)]" />
 							{publicLabel}
 						</div>
-						<h1 className="mt-6 text-5xl font-semibold  text-[var(--text-primary)] sm:text-6xl">
+						<h1 className="mt-6 text-5xl font-semibold text-[var(--text-primary)] sm:text-6xl">
 							{siteName}<span className="text-[var(--accent)]">.</span>
 						</h1>
 						<p className="mt-4 max-w-md text-base leading-7 text-[var(--text-secondary)]">
@@ -94,8 +94,8 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 					{/* Right: Login Form */}
 					<section className="rounded-3xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_96%,transparent)] p-6 shadow-[var(--shadow-lg)] backdrop-blur-xl sm:p-8 light:border-[var(--border)] light:bg-white light:shadow-[0_24px_60px_rgba(99,102,241,0.14)]">
 						<div className="mb-7">
-							<p className="text-xs font-bold uppercase  text-[var(--accent)]">{t("login.branding.signInTag", locale)}</p>
-							<h2 className="mt-2.5 text-2xl font-semibold  text-[var(--text-primary)]">{t("login.branding.welcome", locale)}</h2>
+							<p className="text-xs font-bold uppercase text-[var(--accent)]">{t("login.branding.signInTag", locale)}</p>
+							<h2 className="mt-2.5 text-2xl font-semibold text-[var(--text-primary)]">{t("login.branding.welcome", locale)}</h2>
 							<p className="mt-2 text-sm text-[var(--text-secondary)]">{t("login.branding.subtitle", locale)}</p>
 						</div>
 						<LoginForm nextPath={nextPath} error={error} locale={locale} />

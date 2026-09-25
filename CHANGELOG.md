@@ -43,6 +43,7 @@ All notable changes to VControlHub are documented here. Versions follow Semantic
 
 ### Changed
 
+- Codestyle normalization sweep: collapsed the recurring double-space typos inside tailwind class strings (80 spots — `uppercase  text-…`, `font-semibold  text-…`, etc.) and stripped trailing whitespace (83 lines) across src; no behavior change. Also localized the offline page's hard-coded English "Offline" eyebrow (new `pwa.offline.eyebrow` key) and fixed a stray column-0 `if` indentation in the 2FA form.
 - Empty states unified: the shared `EmptyState` always renders an icon tile (default file glyph; page-specific icons keep their tile), and the hand-rolled plain-text empty blocks on tickets, announcements and VPS status now ride the same component (announcements / VPS status use the boxed variant).
 - Raw system errors surfaced in the UI are localized before display: new `describeKnownError` maps Node fs/socket error codes (ENOENT/EACCES/ECONNREFUSED/ETIMEDOUT/ECONNRESET) to zh/en summaries (new `commonError.*` keys) while keeping the raw message as a monospace detail line — applied to the shares file picker's sync/load errors and the files browser list error (replacing the bespoke localized-prefix format).
 - Docker page copy is fully localized: the always-visible scope warning renders from the `dockerPage.scope.warning` / new `dockerPage.scope.remoteWarning` keys instead of the server descriptor's English string, and the Docker-unavailable error notice uses the localized `dockerPage.error.fetch` key instead of the raw API message.

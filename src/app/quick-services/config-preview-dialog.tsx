@@ -92,7 +92,7 @@ export function ConfigPreviewDialog({
 				<p className="text-sm leading-6 text-[var(--text-secondary)]">
 					{body}{suffix}
 				</p>
-				<div data-card className="mt-4 grid gap-2  p-3 text-xs text-[var(--text-secondary)]">
+				<div data-card className="mt-4 grid gap-2 p-3 text-xs text-[var(--text-secondary)]">
 					<div>
 						<span className="text-[var(--text-muted)]">{fieldService}</span>
 						{item.name} ({item.slug})

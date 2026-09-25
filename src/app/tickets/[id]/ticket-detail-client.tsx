@@ -200,7 +200,7 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
       <div data-card className="p-5 sm:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
-            <h1 className="text-xl font-semibold  text-[var(--text-primary)]">{ticket.title}</h1>
+            <h1 className="text-xl font-semibold text-[var(--text-primary)]">{ticket.title}</h1>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <StatusBadge tone={STATUS_TONE[ticket.status] ?? "neutral"} size="md">
                 {statusLabel(t, ticket.status)}

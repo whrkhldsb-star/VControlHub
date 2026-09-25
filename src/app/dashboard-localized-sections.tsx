@@ -74,7 +74,7 @@ export function DashboardServerHero({ summary }: { summary: DashboardServerSumma
     <section data-dashboard-widget="server-status" className="mb-6 min-w-0 border-b border-[var(--border)] pb-5">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase  text-[var(--accent)]">{eyebrow}</p>
+          <p className="text-xs font-semibold uppercase text-[var(--accent)]">{eyebrow}</p>
           <h2 className="mt-2 text-lg font-semibold text-[var(--text-primary)]">{summary.enabled} {onlineSuffix}</h2>
           <p className="mt-1 max-w-2xl text-sm leading-6 text-[var(--text-secondary)]">
             {managedPrefix} {summary.total} {managedSuffix}, {summary.sshKey} {sshSuffix}, {summary.directGateway} {gatewaySuffix}.

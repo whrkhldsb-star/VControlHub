@@ -36,7 +36,7 @@ export function DeploymentFilePreview({
       <div className="flex flex-wrap items-center gap-2">
         <label
           htmlFor="deploy-export-file-select"
-          className="text-xs font-semibold uppercase  text-[var(--text-secondary)]/70"
+          className="text-xs font-semibold uppercase text-[var(--text-secondary)]/70"
         >
           {t("deploymentsPage.export.rollbackFile")}
         </label>

@@ -14,8 +14,8 @@ export default async function NotFoundPage() {
 				<div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-elevated)] text-3xl" aria-hidden="true">
 					🔍
 				</div>
-				<p className="text-xs font-semibold uppercase  text-[var(--accent)]">404</p>
-				<h1 className="mt-2 text-3xl font-semibold  text-[var(--text-primary)]">{t("notFound.title", locale)}</h1>
+				<p className="text-xs font-semibold uppercase text-[var(--accent)]">404</p>
+				<h1 className="mt-2 text-3xl font-semibold text-[var(--text-primary)]">{t("notFound.title", locale)}</h1>
 				<p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">{t("notFound.description", locale)}</p>
 				<Link
 					href="/"

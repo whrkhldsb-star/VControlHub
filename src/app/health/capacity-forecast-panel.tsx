@@ -129,7 +129,7 @@ export function CapacityForecastPanel() {
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <p className="text-xs uppercase  text-[var(--text-muted)]">
+          <p className="text-xs uppercase text-[var(--text-muted)]">
             {t("healthPage.capacity.eyebrow")}
           </p>
           <h2 className="mt-1 text-lg font-semibold text-[var(--text-primary)]">
@@ -156,7 +156,7 @@ export function CapacityForecastPanel() {
           <ActionButton variant="secondary"
             onClick={() => void load(horizonDays)}
             disabled={loading}
-           
+
             className="!px-3 !py-1 !text-sm"
           >
             {loading ? t("healthPage.capacity.refreshing") : t("healthPage.capacity.refresh")}
@@ -185,7 +185,7 @@ export function CapacityForecastPanel() {
         <>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             <article className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-3">
-              <p className="text-xs uppercase  text-[var(--text-muted)]">
+              <p className="text-xs uppercase text-[var(--text-muted)]">
                 {t("healthPage.capacity.summary.nodes")}
               </p>
               <p className="mt-1 text-2xl font-semibold tabular-nums text-[var(--text-primary)]">
@@ -193,7 +193,7 @@ export function CapacityForecastPanel() {
               </p>
             </article>
             <article className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-3">
-              <p className="text-xs uppercase  text-[var(--text-muted)]">
+              <p className="text-xs uppercase text-[var(--text-muted)]">
                 {t("healthPage.capacity.summary.forecastable")}
               </p>
               <p className="mt-1 text-2xl font-semibold tabular-nums text-[var(--text-primary)]">
@@ -241,7 +241,7 @@ export function CapacityForecastPanel() {
           ) : (
             <div role="region" aria-label={t("healthPage.capacity.summary.nodes")} tabIndex={0} className="overflow-x-auto rounded-lg border border-[var(--border)]">
               <table className="min-w-full text-left text-sm">
-                <thead className="bg-[var(--surface-elevated)] text-xs uppercase  text-[var(--text-muted)]">
+                <thead className="bg-[var(--surface-elevated)] text-xs uppercase text-[var(--text-muted)]">
                   <tr>
                     <th className="px-3 py-2 font-medium">{t("healthPage.capacity.col.node")}</th>
                     <th className="px-3 py-2 font-medium">{t("healthPage.capacity.col.risk")}</th>

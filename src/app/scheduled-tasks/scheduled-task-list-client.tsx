@@ -236,7 +236,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, template
 									{canManage && (
 										<ActionButton type="button" variant="outline"
 											onClick={() => retryTask(task.id)} disabled={busyId !== null}
-										
+
 											className="!min-h-11 !rounded-2xl !px-4 !py-2 !text-sm"
 										>
 											{t("scheduledTasksPage.retry")}
@@ -245,7 +245,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, template
 									{canManage && (
 										<ActionButton type="button" variant={task.status === "ACTIVE" ? "outline" : "success"}
 											onClick={() => toggleTask(task.id)} disabled={busyId !== null}
-										
+
 											className="!min-h-11 !rounded-2xl !px-4 !py-2 !text-sm"
 										>
 											{task.status === "ACTIVE" ? t("scheduledTasks.pause") : t("scheduledTasks.resume")}
@@ -254,7 +254,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, template
 									{canManage && (
 										<ActionButton type="button" variant="danger"
 											onClick={() => setTaskPendingDelete(task)} disabled={busyId !== null}
-										
+
 											className="!min-h-11 !rounded-2xl !px-4 !py-2 !text-sm"
 										>
 											{t("scheduledTasksPage.delete")}

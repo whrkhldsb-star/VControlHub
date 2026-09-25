@@ -359,7 +359,7 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
       <div className="grid gap-4 lg:grid-cols-2">
         {" "}
         <div className="min-w-0">
-          <h3 className="mb-2 text-xs font-medium uppercase  text-[var(--text-muted)]">
+          <h3 className="mb-2 text-xs font-medium uppercase text-[var(--text-muted)]">
             {formatCopy(t("dockerResources.group.networks"), {
               count: networks.length,
             })}
@@ -367,7 +367,7 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
           {renderList("networks", networks)}
         </div>{" "}
         <div className="min-w-0">
-          <h3 className="mb-2 text-xs font-medium uppercase  text-[var(--text-muted)]">
+          <h3 className="mb-2 text-xs font-medium uppercase text-[var(--text-muted)]">
             {formatCopy(t("dockerResources.group.volumes"), {
               count: volumes.length,
             })}

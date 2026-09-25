@@ -155,7 +155,7 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
           </FormGrid>
 
           <div className="space-y-2">
-            <div className="text-xs font-medium  text-[var(--text-primary)]/70">{t("apiTokensPage.create.scopesLabel")}</div>
+            <div className="text-xs font-medium text-[var(--text-primary)]/70">{t("apiTokensPage.create.scopesLabel")}</div>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {allowedScopes.map((scope) => (
                 <CheckboxField key={scope} aria-label={scope} checked={selectedScopes.includes(scope)} onChange={() => toggleScope(scope)} label={<span className="font-mono text-xs">{scope}</span>} hint={scopeLabel(t, scope)} className={`rounded-xl border px-3 py-2 transition ${selectedScopes.includes(scope) ? "border-[var(--accent-border)] bg-[var(--accent-bg)]" : "border-[var(--border)] bg-[var(--surface-elevated)] hover:bg-[var(--surface-hover)]"}`} />

@@ -71,7 +71,7 @@ export function FileDetailPanel({
     >
         <div className="flex items-start justify-between gap-4 border-b border-[var(--border)] px-5 py-4">
           <div className="min-w-0">
-            <p className="text-xs font-medium uppercase  text-[var(--accent)]">
+            <p className="text-xs font-medium uppercase text-[var(--accent)]">
               {t("common.fileDetails")}
             </p>
             <h2

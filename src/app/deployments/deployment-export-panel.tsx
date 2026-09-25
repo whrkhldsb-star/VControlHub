@@ -131,7 +131,7 @@ export function DeploymentExportPanel() {
     <section data-card className="mb-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold uppercase  text-[var(--text-secondary)]/70">
+          <p className="text-xs font-semibold uppercase text-[var(--text-secondary)]/70">
             {t("deploymentsPage.export.eyebrow")}
           </p>
           <h2 className="mt-1 text-sm font-semibold text-[var(--text-primary)]">

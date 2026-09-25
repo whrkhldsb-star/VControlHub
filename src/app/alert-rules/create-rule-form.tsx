@@ -224,7 +224,7 @@ export function CreateRuleForm({
 					/>
 				</FormField>
 				<div className="space-y-1.5">
-					<label className="text-xs font-medium  text-[var(--text-primary)]/70">
+					<label className="text-xs font-medium text-[var(--text-primary)]/70">
 						{t("alertRulesPage.createForm.targetNodes")}
 					</label>
 					<div className="flex flex-wrap gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-2">
@@ -264,7 +264,7 @@ export function CreateRuleForm({
 			</div>
 
 			<div className="space-y-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-3">
-				<label className="text-xs font-medium  text-[var(--text-primary)]/70">
+				<label className="text-xs font-medium text-[var(--text-primary)]/70">
 					{t("alertRulesPage.createForm.playbooks")}
 				</label>
 				<p className="text-xs text-[var(--text-muted)]">
@@ -298,7 +298,7 @@ export function CreateRuleForm({
 			</div>
 
 			<div className="space-y-1.5">
-				<label className="text-xs font-medium  text-[var(--text-primary)]/70">
+				<label className="text-xs font-medium text-[var(--text-primary)]/70">
 					{t("alertRulesPage.createForm.channels")}
 				</label>
 				<div className="flex flex-wrap gap-2">
@@ -389,7 +389,7 @@ export function CreateRuleForm({
 				<ActionButton variant="primary"
 					type="submit"
 					disabled={submitting}
-				
+
 					className="px-5 text-sm"
 				>
 					{submitting

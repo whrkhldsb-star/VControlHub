@@ -235,7 +235,7 @@ export function PlaybookListClient({
                 {canManage && !showCreate && (
                   <ActionButton variant="primary"
                     onClick={() => setShowCreate(true)}
-                   
+
                     className="!mt-2 !min-h-9 !px-4 !py-2 !text-sm"
                   >
                     {t("playbooksPage.action.create")}

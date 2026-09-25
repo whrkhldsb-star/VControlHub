@@ -36,7 +36,7 @@ export function FileListEmptyState({
           <ActionButton variant="secondary"
             onClick={onGoUp}
             data-testid="files-empty-up-level"
-           
+
             className="mt-4 inline-flex items-center gap-1.5 !px-4 !py-2 !text-sm"
           >
             <span aria-hidden="true">↑</span>

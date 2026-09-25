@@ -261,7 +261,7 @@ export function AiOpsLogsSection({
 			) : (
 				<div className="overflow-x-auto overscroll-x-contain" tabIndex={0}>
 					<table className="w-full min-w-[860px] table-fixed text-left text-sm text-[var(--text-primary)]">
-						<thead className="text-xs uppercase  text-[var(--text-primary)]/70">
+						<thead className="text-xs uppercase text-[var(--text-primary)]/70">
 							<tr>
 								<th className="w-40 py-2">{t("aiOpsPage.table.time")}</th>
 								<th className="py-2">{t("aiOpsPage.table.mode")}</th>

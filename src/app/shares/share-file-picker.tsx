@@ -252,7 +252,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 		<section data-i18n-skip className="min-w-0 border-t border-[var(--border)] py-5">
 			<div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
 				<div>
-					<p className="text-xs font-semibold uppercase  text-[var(--color-action)]">{copyText.eyebrow}</p>
+					<p className="text-xs font-semibold uppercase text-[var(--color-action)]">{copyText.eyebrow}</p>
 					<h2 className="mt-1 text-xl font-semibold text-[var(--text-primary)]">{copyText.title}</h2>
 					<p className="mt-1 max-w-2xl text-sm text-[var(--text-muted)]">
 						{copyText.description}
@@ -279,7 +279,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 					</select>
 					<ActionButton variant="secondary"
 						onClick={() => void loadFiles(true)}
-					
+
 						className="!min-h-11 !inline-flex !items-center !gap-2 !px-3 !py-2 !text-sm"
 					>
 						<RefreshCw size={15} className={loading ? "animate-spin" : ""} /> {copyText.refresh}
@@ -302,7 +302,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 
 			<div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
 				<div className="min-w-0 border-y border-[var(--border)]">
-					<div className="grid grid-cols-[2rem_minmax(0,1fr)_4.5rem] gap-2 border-b border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs font-medium uppercase  text-[var(--text-muted)] sm:grid-cols-[2rem_minmax(0,1fr)_5rem_6rem]">
+					<div className="grid grid-cols-[2rem_minmax(0,1fr)_4.5rem] gap-2 border-b border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs font-medium uppercase text-[var(--text-muted)] sm:grid-cols-[2rem_minmax(0,1fr)_5rem_6rem]">
 						<span />
 						<span>{copyText.name}</span>
 						<span className="hidden sm:block">{copyText.type}</span>

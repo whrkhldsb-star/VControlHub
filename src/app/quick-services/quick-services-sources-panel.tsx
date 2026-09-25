@@ -106,7 +106,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 			<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-elevated)] p-4 space-y-4">
 				<div className="flex items-center justify-between gap-3">
 					<div>
-						<p className="text-xs uppercase  text-[var(--text-muted)]">{t("quickServicesPage.sources.header")}</p>
+						<p className="text-xs uppercase text-[var(--text-muted)]">{t("quickServicesPage.sources.header")}</p>
 						<p className="mt-1 text-sm text-[var(--text-muted)]">{t("quickServicesPage.sources.headerDesc")}</p>
 					</div>
 					<span className="rounded-lg border border-[var(--border)] px-2 py-1 text-xs text-[var(--text-muted)]">{t("quickServicesPage.sources.tapToFill")}</span>
@@ -122,7 +122,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 								className={`rounded-xl border p-3 text-left transition ${active ?"border-[var(--color-action-border)]/30 bg-[var(--color-action-bg)]/10 text-[var(--text-primary)]" :"border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] light:hover:bg-[var(--surface)]"}`}
 							>
 								<div className="flex items-center justify-between gap-2">
-									<span className="text-xs font-semibold uppercase  text-[var(--text-muted)]">{preset.badge}</span>
+									<span className="text-xs font-semibold uppercase text-[var(--text-muted)]">{preset.badge}</span>
 									<span className={`rounded-full border px-2 py-0.5 text-xs ${active ?"border-[var(--color-action-border)]/30 text-[var(--text-primary)]" :"border-[var(--border)] text-[var(--text-muted)]"}`}>{preset.type}</span>
 								</div>
 								<h4 className="mt-2 text-sm font-semibold text-[var(--text-primary)]">{preset.label}</h4>

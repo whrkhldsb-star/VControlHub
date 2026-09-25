@@ -213,7 +213,7 @@ export function TemplateListClient({
 									data-tone="emerald"
 									className="mt-2 line-clamp-2 rounded-lg border border-[var(--success-border)] px-3 py-2 font-mono text-xs text-[var(--success)] light:border-[var(--success-border)]"
 								>
-									<span className="mr-2 font-sans text-xs uppercase  text-[var(--success)]">
+									<span className="mr-2 font-sans text-xs uppercase text-[var(--success)]">
 										{t("templatesPage.badge.rollback")}
 									</span>
 									{tmpl.rollbackCommand}

@@ -9,6 +9,7 @@
 export const zh: Record<string, string> = {
 	"pwa.install.installed": "已添加到主屏幕",
 	"pwa.offline.description": "网络连接已断开。请等待网络恢复后重试。",
+	"pwa.offline.eyebrow": "离线模式",
 	"pwa.offline.retry": "重试连接",
 	"pwa.offline.retrying": "重连中…",
 	"pwa.offline.securityNotice": "为保护服务器、文件和账户信息，登录后的页面不会存储到离线缓存。",
@@ -27,6 +28,7 @@ export const zh: Record<string, string> = {
 export const en: Record<string, string> = {
 	"pwa.install.installed": "Added to home screen",
 	"pwa.offline.description": "The network is disconnected. Retry after the connection is restored.",
+	"pwa.offline.eyebrow": "Offline",
 	"pwa.offline.retry": "Retry connection",
 	"pwa.offline.retrying": "Retrying…",
 	"pwa.offline.securityNotice": "Authenticated pages are not stored offline, protecting server, file, and account data.",

@@ -206,7 +206,7 @@ describe("api guard", () => {
         body: JSON.stringify({ name: "world", count: 7 }),
       }),
       { bodySchema },
-       
+
       handler as any,
     );
 
@@ -298,7 +298,7 @@ describe("api guard", () => {
     const ok = await withApiRoute(
       new Request("https://example.test/api/demo?page=3&sort=desc"),
       { querySchema },
-       
+
       goodHandler as any,
     );
     expect(ok.status).toBe(200);

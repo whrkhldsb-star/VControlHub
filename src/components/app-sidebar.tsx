@@ -199,7 +199,7 @@ export function AppSidebar({
 				<button
 					type="button"
 					onClick={() => setOpenGroups((prev) => ({ ...prev, [group.id]: !open }))}
-					className="flex min-h-9 w-full items-center gap-1.5 rounded-md px-2.5 py-1.5 text-left text-xs font-semibold uppercase  text-[var(--text-muted)] transition hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-secondary)]"
+					className="flex min-h-9 w-full items-center gap-1.5 rounded-md px-2.5 py-1.5 text-left text-xs font-semibold uppercase text-[var(--text-muted)] transition hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-secondary)]"
 					aria-expanded={open}
 				>
 					<Chevron open={open} />
@@ -221,7 +221,7 @@ export function AppSidebar({
 						</svg>
 					</div>
 					<div className="min-w-0 flex-1">
-						<div className="truncate text-sm font-semibold  text-[var(--text-primary)]">{appName ?? getAppName()}</div>
+						<div className="truncate text-sm font-semibold text-[var(--text-primary)]">{appName ?? getAppName()}</div>
 						<p className="mt-0.5 truncate text-xs leading-none text-[var(--text-muted)]">{publicLabel ?? getPublicLabel()}</p>
 					</div>
 					<IconButton label={t("common.close")} onClick={() => setMobileOpen(false)} className="shrink-0 lg:hidden">
@@ -263,7 +263,7 @@ export function AppSidebar({
 						<button
 							type="button"
 							onClick={() => setOpenGroups((prev) => ({ ...prev, system: !open }))}
-							className="flex min-h-9 w-full items-center gap-1.5 rounded-md px-2.5 py-1.5 text-left text-xs font-semibold uppercase  text-[var(--text-muted)] transition hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-secondary)]"
+							className="flex min-h-9 w-full items-center gap-1.5 rounded-md px-2.5 py-1.5 text-left text-xs font-semibold uppercase text-[var(--text-muted)] transition hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-secondary)]"
 							aria-expanded={open}
 						>
 							<Chevron open={open} />
@@ -277,7 +277,7 @@ export function AppSidebar({
 
 				{filteredQuick.length > 0 && (
 					<div className="mb-1 mt-2">
-						<div className="px-2.5 pb-1 pt-1 text-xs font-semibold uppercase  text-[var(--text-muted)]">
+						<div className="px-2.5 pb-1 pt-1 text-xs font-semibold uppercase text-[var(--text-muted)]">
 							{t("nav.quickservice")}
 						</div>
 						<div className="space-y-0.5">

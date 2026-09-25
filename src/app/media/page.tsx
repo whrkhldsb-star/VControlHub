@@ -113,7 +113,7 @@ export default async function Page({
         <div className="min-w-0">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase  text-[var(--accent)]">
+              <p className="text-xs font-semibold uppercase text-[var(--accent)]">
                 {t("mediaPage.workspace.label", locale)}
               </p>
               <h2 className="mt-1 text-base font-semibold text-[var(--text-primary)]">

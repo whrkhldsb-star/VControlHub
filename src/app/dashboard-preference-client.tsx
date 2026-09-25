@@ -334,9 +334,9 @@ export function DashboardPreferenceClient({
 			>
 				{children}
 			</div>
-			
+
 			{/* Drag-and-drop wired via React useEffect using gridRef querySelectorAll. */}
-			
+
 			{isEditing ? (
 				<p className="mt-2 text-center text-xs text-[var(--text-muted)]">
 					{t("dashboard.customize-drag-tip")}

@@ -81,7 +81,7 @@ export function ServerCardDeleteForm({
             </SubmitButton>
             <ActionButton variant="secondary"
               onClick={() => router.refresh()}
-             
+
               className="flex-1"
             >
               {t("serverCardActions.delete.cancel")}

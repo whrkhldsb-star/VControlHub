@@ -120,7 +120,7 @@ export function ServerOverviewCard({
               }`}
               aria-hidden="true"
             />
-            <h2 className="truncate text-sm font-semibold  text-[var(--text-primary)]">
+            <h2 className="truncate text-sm font-semibold text-[var(--text-primary)]">
               {server.name}
             </h2>
           </div>
@@ -190,7 +190,7 @@ export function ServerOverviewCard({
           aria-expanded={expanded}
           aria-controls={detailsId}
           aria-haspopup="dialog"
-         
+
           className="!px-3 !py-1.5 !text-sm"
         >
           {expanded ? t("serverOverviewCard.collapseDetails") : t("serverOverviewCard.viewDetails")}
@@ -210,14 +210,14 @@ export function ServerOverviewCard({
             >
                 <div className="mb-3 flex items-center justify-between gap-3 border-b border-[var(--border)] pb-3">
                   <div className="min-w-0">
-                    <p className="text-xs uppercase  text-[var(--text-muted)]">{t("serverOverviewCard.eyebrow")}</p>
+                    <p className="text-xs uppercase text-[var(--text-muted)]">{t("serverOverviewCard.eyebrow")}</p>
                     <h3 id={`${detailsId}-title`} className="truncate text-base font-semibold text-[var(--text-primary)]">
                       {server.name}
                     </h3>
                   </div>
                   <ActionButton variant="secondary"
                     onClick={closeDialog}
-                   
+
                     className="shrink-0 !px-3 !py-1.5 !text-sm"
                   >
                     {t("serverOverviewCard.collapseDetails")}

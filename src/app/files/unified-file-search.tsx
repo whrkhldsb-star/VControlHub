@@ -221,7 +221,7 @@ export function UnifiedFileSearch({
 				</div>
 				<ActionButton variant="primary"
 					type="submit"
-				
+
 					className="px-5 py-2.5 text-sm"
 					disabled={!searchInput.trim() || contentLoading}
 				>

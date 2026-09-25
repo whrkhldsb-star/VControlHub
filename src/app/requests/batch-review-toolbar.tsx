@@ -182,7 +182,7 @@ export function BatchReviewToolbar({
 						name="decision"
 						value="approve"
 						disabled={isPending}
-					
+
 						className="px-4 py-2 text-sm"
 					>
 						{isPending ? t("requestsPage.batch.pending") : t("requestsPage.batch.approve", { count: selected.size })}
@@ -192,7 +192,7 @@ export function BatchReviewToolbar({
 						name="decision"
 						value="reject"
 						disabled={isPending}
-					
+
 						className="px-4 py-2 text-sm"
 					>
 						{isPending ? t("requestsPage.batch.pending") : t("requestsPage.batch.reject", { count: selected.size })}

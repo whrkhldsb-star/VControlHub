@@ -245,7 +245,7 @@ function InitiatorBadge({ assistant, label }: { assistant: boolean; label: strin
 function InfoSection({ title, children }: { title: string; children: ReactNode }) {
 	return (
 		<section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-4">
-			<h4 className="text-xs font-medium text-[var(--text-primary)]/70 uppercase  mb-3">{title}</h4>
+			<h4 className="text-xs font-medium text-[var(--text-primary)]/70 uppercase mb-3">{title}</h4>
 			{children}
 		</section>
 	);

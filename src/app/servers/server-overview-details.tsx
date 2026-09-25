@@ -250,7 +250,7 @@ export function ServerOverviewDetails({
 					{/* TR-043: VPS Remote Backup */}
 					{canManageServers ? (
 					<div className="mt-4">
-						<div className="mb-2 text-xs font-semibold uppercase  text-[var(--text-muted)]">
+						<div className="mb-2 text-xs font-semibold uppercase text-[var(--text-muted)]">
 							{t("vpsBackup.sectionTitle")}
 						</div>
 						<VpsBackupSection

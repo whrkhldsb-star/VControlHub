@@ -146,7 +146,7 @@ export function CostPageClient({
 				{summary ? (
 					<div className="grid grid-cols-1 gap-4 md:grid-cols-3">
 						<div>
-							<div className="text-xs uppercase  text-[var(--text-primary)]/70">{t("costPage.summary.total")}</div>
+							<div className="text-xs uppercase text-[var(--text-primary)]/70">{t("costPage.summary.total")}</div>
 							<div className="mt-1 text-3xl font-semibold text-[var(--text-primary)]">{formatAmount(summary.totalAmount, summary.currency, localeTag)}</div>
 							<div className="mt-1 text-xs text-[var(--text-primary)]/70">
 								{t("costPage.summary.range", { start: summary.rangeStart, end: summary.rangeEnd })}
@@ -162,11 +162,11 @@ export function CostPageClient({
 							) : null}
 						</div>
 						<div>
-							<div className="text-xs uppercase  text-[var(--text-primary)]/70">{t("costPage.summary.entryCount")}</div>
+							<div className="text-xs uppercase text-[var(--text-primary)]/70">{t("costPage.summary.entryCount")}</div>
 							<div className="mt-1 text-3xl font-semibold text-[var(--text-primary)]">{summary.entryCount}</div>
 						</div>
 						<div className="space-y-1">
-							<div className="text-xs uppercase  text-[var(--text-primary)]/70">{t("costPage.summary.title")}</div>
+							<div className="text-xs uppercase text-[var(--text-primary)]/70">{t("costPage.summary.title")}</div>
 							{CATEGORIES.map((c) => (
 								<div key={c} className="flex justify-between text-sm text-[var(--text-primary)]">
 									<span>{t(`costPage.category.${c}`)}</span>
@@ -241,7 +241,7 @@ export function CostPageClient({
 					<div className="overflow-x-auto">
 						<table className="w-full text-sm text-[var(--text-primary)]">
 							<thead>
-								<tr className="border-b border-[var(--border)] bg-[var(--surface-elevated)] text-left text-xs uppercase  text-[var(--text-muted)]">
+								<tr className="border-b border-[var(--border)] bg-[var(--surface-elevated)] text-left text-xs uppercase text-[var(--text-muted)]">
 									<th className="px-3 py-2">{t("costPage.list.column.date")}</th>
 									<th className="px-3 py-2">{t("costPage.list.column.category")}</th>
 									<th className="px-3 py-2">{t("costPage.list.column.provider")}</th>

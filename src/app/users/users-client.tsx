@@ -272,7 +272,7 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
                 </div>
               </ListRow>
             ))}
-      
+
           {!loading && !loadFailed && (
             <Pagination page={page} pageSize={USER_PAGE_SIZE} totalItems={total} loading={loading} onPageChange={setPage} />
           )}

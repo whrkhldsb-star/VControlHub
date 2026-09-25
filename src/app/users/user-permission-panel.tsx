@@ -256,7 +256,7 @@ return data as PermissionsPayload;
     >
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs uppercase  text-[var(--color-action)]/70">{t("usersPerm.title")}</p>
+            <p className="text-xs uppercase text-[var(--color-action)]/70">{t("usersPerm.title")}</p>
             <h3 className="mt-1 text-xl font-semibold text-[var(--text-primary)]">{payload?.user.displayName ?? username}</h3>
             <p className="mt-1 text-sm text-[var(--text-muted)]">{t("usersPerm.desc")}</p>
           </div>
@@ -303,7 +303,7 @@ return data as PermissionsPayload;
                   <ActionButton variant="secondary"
                     onClick={saveTemplate}
                     disabled={savingTemplate || !templateNameDraft.trim()}
-                   
+
                     className="!px-3 !py-2 !text-sm disabled:opacity-50"
                   >
                     {savingTemplate ? "…" : t("usersPerm.template.saveCurrent")}

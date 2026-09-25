@@ -55,9 +55,9 @@ export function buildLineDiff(before: string, after: string): DiffRow[] {
 export function highlightLine(line: string, lang: string): string {
 	if (lang === "text" || lang === "log") return escapeHtml(line);
 	if (lang === "json") return highlightJson(line);
-	
+
 	let escaped = escapeHtml(line);
-	
+
 	const rules = getRules(lang);
 	for (const rule of rules) {
 		escaped = escaped.replace(rule.regex, rule.replace);
@@ -70,33 +70,33 @@ export function getRules(lang: string): { regex: RegExp; replace: string }[] {
 		regex: new RegExp(`(${escapeRegex(escapeHtml(prefix))}.*)$`),
 		replace: '<span class="text-[var(--text-muted)] italic">$1</span>',
 	});
-	
+
 	const jsKeywords = "break|case|catch|class|const|continue|debugger|default|delete|do|else|export|extends|finally|for|from|function|if|import|in|instanceof|let|new|of|return|static|super|switch|this|throw|try|typeof|var|void|while|with|yield|async|await|interface|type|enum|implements|declare|namespace|module|as|readonly|abstract|override|private|protected|public";
 	const pyKeywords = "and|as|assert|async|await|break|class|continue|def|del|elif|else|except|finally|for|from|global|if|import|in|is|lambda|nonlocal|not|or|pass|raise|return|try|while|with|yield|True|False|None";
 	const shellKeywords = "if|then|else|elif|fi|for|while|do|done|case|esac|function|return|exit|export|source|local|readonly|set|unset|echo|cd|mkdir|rm|cp|mv|cat|grep|sed|awk|find|chmod|chown|sudo|apt|yum|npm|pip|git|docker|systemctl";
-	
+
 	const kw = (words: string) => ({
 		regex: new RegExp(`\\b(${words})\\b`, "g"),
 		replace: '<span class="text-[var(--color-action)] font-medium">$1</span>',
 	});
-	
+
 	const strRule = {
 		regex: /(&quot;[^&]*?&quot;|&#39;[^&]*?&#39;|`[^`]*?`)/g,
 		replace: '<span class="text-[var(--success)]">$1</span>',
 	};
-	
+
 	const numRule = {
 		regex: /\b(\d+\.?\d*)\b/g,
 		replace: '<span class="text-[var(--warning)]">$1</span>',
 	};
-	
+
 	const decoratorRule = {
 		regex: /(@\w+)/g,
 		replace: '<span class="text-[var(--accent)]">$1</span>',
 	};
-	
+
 	const common: { regex: RegExp; replace: string }[] = [strRule, numRule];
-	
+
 	switch (lang) {
 		case "javascript":
 		case "typescript":

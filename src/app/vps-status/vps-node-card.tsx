@@ -133,7 +133,7 @@ export function VpsNodeCard({
 							/>
 							<span className={`relative inline-flex h-2.5 w-2.5 rounded-full ${sc.dot}`} />
 						</span>
-						<h3 className="truncate text-sm font-semibold  text-[var(--text-primary)]">
+						<h3 className="truncate text-sm font-semibold text-[var(--text-primary)]">
 							{server.serverName}
 						</h3>
 					</div>

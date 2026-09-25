@@ -1,6 +1,6 @@
 /**
  * AI 托管服务 — 处理 AI 发起的 VPS 操作
- * 
+ *
  * 流程：
  * 1. AI 返回 tool_call → 解析工具名和参数
  * 2. 安全操作（autoApproved）→ 直接执行 → 返回结果给 AI

@@ -377,7 +377,7 @@ export function VpsBackupSection({
 							key={preset}
 							disabled={triggering !== null}
 							onClick={() => handleTrigger(preset)}
-						
+
 							className="!px-3 !py-1.5 !text-sm disabled:cursor-not-allowed disabled:opacity-50"
 						>
 							{triggering === preset ? (
@@ -401,7 +401,7 @@ export function VpsBackupSection({
 						<ActionButton variant="outline"
 							onClick={() => setShowCreate(!showCreate)}
 							aria-label={showCreate ? t("common.close") : t("vpsBackup.addSchedule")}
-						
+
 							className="!px-2.5 !py-1 !text-sm"
 						>
 							{showCreate ? <X size={16} aria-hidden /> : <Plus size={16} aria-hidden />}
@@ -499,7 +499,7 @@ export function VpsBackupSection({
 										});
 										setShowCreate(true);
 									}}
-								
+
 									className="!px-3 !py-1.5 !text-sm"
 								>
 									{t("vpsBackup.quick.nginx")}
@@ -515,14 +515,14 @@ export function VpsBackupSection({
 										});
 										setShowCreate(true);
 									}}
-								
+
 									className="!px-3 !py-1.5 !text-sm"
 								>
 									{t("vpsBackup.quick.website")}
 								</ActionButton>
 								<ActionButton variant="outline"
 									onClick={() => setShowCreate(true)}
-								
+
 									className="!px-3 !py-1.5 !text-sm"
 								>
 									{t("vpsBackup.addSchedule")}

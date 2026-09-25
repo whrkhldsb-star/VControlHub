@@ -50,7 +50,7 @@ export function FilesMoreNav() {
         aria-expanded={open}
         aria-controls={menuId}
         onClick={() => setOpen((value) => !value)}
-       
+
         className="!px-3 !py-1.5 !text-sm"
       >
         {t("filesPage.moreFeatures")}

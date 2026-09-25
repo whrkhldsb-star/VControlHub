@@ -124,7 +124,7 @@ export function CreateTemplateForm({ onClose }: { onClose: () => void }) {
 				<ActionButton variant="primary"
 					type="submit"
 					disabled={submitting}
-				
+
 					className="min-h-11 px-5 text-sm"
 				>
 					{submitting ? t("templatesPage.create.submitting") : t("templatesPage.create.submit")}

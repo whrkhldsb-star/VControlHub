@@ -270,7 +270,7 @@ export function AiSettingsPanel({
         <div className="flex items-end gap-2">
           <ActionButton type="button" variant="ghost"
             onClick={onSaveSettings}
-           
+
             className="h-7 px-3 text-xs"
           >
             {t("aiPage.saveSettings")}

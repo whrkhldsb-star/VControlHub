@@ -34,8 +34,8 @@ export default function OfflinePage() {
         </div>
 
         <div>
-          <p className="text-xs font-semibold uppercase  text-[var(--accent)]">Offline</p>
-          <h1 id="offline-title" className="mt-2 text-2xl font-semibold ">
+          <p className="text-xs font-semibold uppercase text-[var(--accent)]">{t("pwa.offline.eyebrow")}</p>
+          <h1 id="offline-title" className="mt-2 text-2xl font-semibold">
             {t("pwa.offline.title")}
           </h1>
           <p className="mt-3 text-sm leading-relaxed text-[var(--text-secondary)]">

@@ -268,7 +268,7 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
           servers.length === 0
         }
         onClick={() => void createJob()}
-       
+
         className="!px-3 !py-1.5 !text-sm disabled:opacity-50"
       >
         {busyId === "create" ? t("filesPage.syncJobs.creating") : t("filesPage.syncJobs.create")}

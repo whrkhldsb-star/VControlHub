@@ -69,13 +69,12 @@ export function Verify2faForm({ nextPath, error }: Verify2faFormProps) {
 		setErrorMsg(undefined);
 
 		try {
-
 			const data = await csrfFetch("/api/auth/2fa/verify-login", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ code }),
 			});
-if (data.success) {
+			if (data.success) {
 				router.push(safeRelativeRedirectPath(nextPath));
 				return;
 			}
@@ -155,7 +154,7 @@ if (data.success) {
 						onChange={(event) => setRecoveryCode(event.target.value.toUpperCase())}
 						placeholder="ABCD-EFGH-JKLM"
 						disabled={submitting}
-						className="h-12 w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 text-center font-mono text-sm font-semibold  text-[var(--text-primary)] outline-none transition-[box-shadow,border-color] focus:border-[var(--color-action-border)] focus:bg-[var(--input-bg)] focus:ring-[var(--color-action-ring)] disabled:opacity-50"
+						className="h-12 w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 text-center font-mono text-sm font-semibold text-[var(--text-primary)] outline-none transition-[box-shadow,border-color] focus:border-[var(--color-action-border)] focus:bg-[var(--input-bg)] focus:ring-[var(--color-action-ring)] disabled:opacity-50"
 					/>
 					<p className="text-xs text-[var(--text-muted)]">{t("login.verify2faRecoveryDescription")}</p>
 				</div>

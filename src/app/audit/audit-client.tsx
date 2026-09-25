@@ -229,7 +229,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
       <ListPanel title={t("audit.details")} count={data?.total ?? (loading ?"…" : 0)}>
         {/* Desktop */}
         <div className="hidden xl:block">
-          <div className="grid grid-cols-[140px_100px_120px_minmax(0,1.5fr)_minmax(0,2fr)_160px] gap-4 border-b border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-4 py-3 text-xs uppercase  text-[var(--text-muted)]">
+          <div className="grid grid-cols-[140px_100px_120px_minmax(0,1.5fr)_minmax(0,2fr)_160px] gap-4 border-b border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-4 py-3 text-xs uppercase text-[var(--text-muted)]">
             <div>{t("audit.header.time")}</div>
             <div>{t("audit.header.level")}</div>
             <div>{t("audit.header.type")}</div>

@@ -118,7 +118,7 @@ export function ServerCardActions({
 				<ActionButton variant="ghost"
 					onClick={handleOpenTerminal}
 					aria-label={t("serverCardActions.sshTerminalAria", { name: serverName })}
-				
+
 					data-tone="cyan"
 					className="flex w-full items-center justify-center gap-2"
 				>
@@ -134,7 +134,7 @@ export function ServerCardActions({
 			{canManageServers ? (
 				<ActionButton variant="secondary"
 					onClick={() => setShowEdit((value) => !value)}
-				
+
 					className="w-full"
 				>
 					{showEdit

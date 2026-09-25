@@ -16,7 +16,7 @@ export function LoginForm({ nextPath, error, locale }: LoginFormProps) {
 			<input type="hidden" name="next" value={nextPath} />
 
 			<div className="space-y-1.5">
-				<label className="text-xs font-semibold  text-[var(--text-primary)]" htmlFor="username">
+				<label className="text-xs font-semibold text-[var(--text-primary)]" htmlFor="username">
 					{t("login.form.username", locale)}
 				</label>
 				<Input id="username"
@@ -28,7 +28,7 @@ export function LoginForm({ nextPath, error, locale }: LoginFormProps) {
 			</div>
 
 			<div className="space-y-1.5">
-				<label className="text-xs font-semibold  text-[var(--text-primary)]" htmlFor="password">
+				<label className="text-xs font-semibold text-[var(--text-primary)]" htmlFor="password">
 					{t("login.form.password", locale)}
 				</label>
 				<Input id="password"

@@ -168,7 +168,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 				<section className="mb-5 rounded-2xl border border-[var(--success-border)] bg-[color-mix(in_srgb,var(--success-bg)_40%,var(--surface))] p-5 shadow-[var(--shadow-sm)]">
 					<div className="flex flex-wrap items-start justify-between gap-3">
 						<div>
-							<p className="text-xs font-semibold uppercase  text-[var(--success)]/70">{tr("deploymentsPage.page.latestDeploy.eyebrow")}</p>
+							<p className="text-xs font-semibold uppercase text-[var(--success)]/70">{tr("deploymentsPage.page.latestDeploy.eyebrow")}</p>
 							<h2 className="mt-1 text-sm font-semibold text-[var(--text-primary)]">{tr("deploymentsPage.page.latestDeploy.heading")}{latestRun.template.name}</h2>
 							<p className="mt-1 text-xs text-[var(--text-secondary)]">{trTpl("deploymentsPage.page.latestDeploy.meta", { count: String(latestRun.serverIds.length), date: latestRun.createdAt.toLocaleString(dateLocale), snapshot: latestRun.snapshotId || tr("deploymentsPage.page.latestDeploy.snapshotPending") })}</p>
 						</div>

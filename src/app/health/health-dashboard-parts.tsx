@@ -32,7 +32,7 @@ function FleetMetricBar({ label, value, unit }: { label: string; value: number; 
 	return (
 		<div className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-3">
 			<div className="flex items-baseline justify-between">
-				<p className="text-xs uppercase  text-[var(--text-muted)]">{label}</p>
+				<p className="text-xs uppercase text-[var(--text-muted)]">{label}</p>
 				<p className={`text-xl font-bold ${usageColor(value)}`}>
 					{value}
 					{unit}
@@ -95,7 +95,7 @@ export function FleetResourceSummary({
 		<section className="space-y-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
 			<div className="flex items-center justify-between">
 				<div>
-					<p className="text-xs uppercase  text-[var(--text-muted)]">
+					<p className="text-xs uppercase text-[var(--text-muted)]">
 						{t("healthPage.fleet.eyebrow")}
 					</p>
 					<h2 className="mt-1 text-lg font-semibold text-[var(--text-primary)]">
@@ -111,7 +111,7 @@ export function FleetResourceSummary({
 				<FleetMetricBar label={t("healthPage.fleet.avgMem")} value={avgMem} unit="%" />
 				<FleetMetricBar label={t("healthPage.fleet.avgDisk")} value={avgDisk} unit="%" />
 				<div className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-3">
-					<p className="text-xs uppercase  text-[var(--text-muted)]">
+					<p className="text-xs uppercase text-[var(--text-muted)]">
 						{t("healthPage.fleet.avgLoad")}
 					</p>
 					<p className="mt-1 text-xl font-bold text-[var(--text-primary)]">{avgLoad}</p>
@@ -129,7 +129,7 @@ export function FleetResourceSummary({
 			</div>
 			{top5.length > 0 && (
 				<div className="space-y-1.5">
-					<p className="text-xs uppercase  text-[var(--text-muted)]">
+					<p className="text-xs uppercase text-[var(--text-muted)]">
 						{t("healthPage.fleet.top5")}
 					</p>
 					{top5.map((s, i) => {

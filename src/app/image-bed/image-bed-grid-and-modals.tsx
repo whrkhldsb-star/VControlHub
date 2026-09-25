@@ -330,7 +330,7 @@ export function DeleteImageDialog({
   onClose: () => void;
   t: ImageBedT;
 }) {
-  
+
   return (
     <ConfirmDialog
       open

@@ -103,7 +103,7 @@ export function VpsStatusToolbar({
 					onClick={() => void fetchHealth()}
 					disabled={isRefreshing || loading}
 					aria-label={t("healthPage.ui.refreshAria")}
-				
+
 					className="inline-flex min-h-11 items-center !px-3 !text-sm disabled:cursor-not-allowed disabled:opacity-60"
 				>
 					{isRefreshing || loading ? t("healthPage.ui.refreshing") : t("healthPage.ui.refresh")}

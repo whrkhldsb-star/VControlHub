@@ -3,39 +3,39 @@
 import { getDirectGatewayRiskAssessment } from "@/lib/server/direct-gateway";
 
 export type DirectGatewayInput = {
-  
+
   directGateway: {
     enabled: boolean;
     statusLabel: string;
     publicUrl: string | null;
     port: number;
-    
+
     bindAddress?: string | null;
-    
+
     publicProtocol?: "http" | "https" | "unknown" | null;
   } | null | undefined;
-  
+
   serverEnabled: boolean;
-  
+
   hasStorageNode: boolean;
-  
+
   pendingCommandCount: number;
-  
+
   canManageServers: boolean;
 };
 
 export type DirectGatewayAdviceItem = {
-  
+
   title: string;
-  
+
   detail: string;
-  
+
   priority: "primary" | "secondary";
-  
+
   href: string | null;
-  
+
   hrefLabel?: string;
-  
+
   tone?: "emerald" | "amber" | "rose";
 };
 
@@ -81,14 +81,14 @@ export function getDirectGatewayRepairAdvice(
           hrefLabel: t("directGatewayAdvice.hrefLabel.nodeList"),
         });
       } else {
-        
-        
+
+
         const bindAddress = dg?.bindAddress ?? "127.0.0.1";
         const resolvedProtocol = dg?.publicProtocol ?? "unknown";
         const protocolForRisk =
           resolvedProtocol === "http" || resolvedProtocol === "https"
             ? resolvedProtocol
-            : "http"; 
+            : "http";
         const risk = getDirectGatewayRiskAssessment({
           bindAddress,
           publicProtocol: protocolForRisk,
@@ -111,7 +111,7 @@ export function getDirectGatewayRepairAdvice(
             tone: "amber",
           });
         } else {
-          
+
           result.push({
             title: t("directGatewayAdvice.transportDanger.title"),
             detail: t("directGatewayAdvice.transportDanger.detail", { reasons: risk.reasons.join("; "), recommendation: risk.recommendations[0] ?? t("directGatewayAdvice.transportDanger.fallbackRecommendation") }),
@@ -121,7 +121,7 @@ export function getDirectGatewayRepairAdvice(
             tone: "rose",
           });
         }
-        
+
         if (resolvedProtocol === "unknown") {
           result.push({
             title: t("directGatewayAdvice.protocolUnknown.title"),

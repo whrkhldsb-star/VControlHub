@@ -103,11 +103,11 @@ export function AiHostedApprovalCard({ action }: AiHostedApprovalCardProps) {
           <p className="mt-1 text-xs text-[var(--text-secondary)]">{t("aiHostedApproval.description")}</p>
           <div className="mt-3 grid gap-2 text-xs text-[var(--text-secondary)] sm:grid-cols-2">
             <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-3 py-2">
-              <div className="text-xs uppercase  text-[var(--text-muted)]">{t("aiHostedApproval.actionType")}</div>
+              <div className="text-xs uppercase text-[var(--text-muted)]">{t("aiHostedApproval.actionType")}</div>
               <div className="mt-1 font-mono text-[var(--text-primary)]">{action.actionType}</div>
             </div>
             <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-3 py-2">
-              <div className="text-xs uppercase  text-[var(--text-muted)]">{t("aiHostedApproval.targetVps")}</div>
+              <div className="text-xs uppercase text-[var(--text-muted)]">{t("aiHostedApproval.targetVps")}</div>
               <div className="mt-1 text-[var(--text-secondary)]">{action.server ? `${action.server.name} · ${action.server.host}` : t("aiHostedApproval.notSpecified")}</div>
             </div>
           </div>
@@ -132,7 +132,7 @@ export function AiHostedApprovalCard({ action }: AiHostedApprovalCardProps) {
           <ActionButton variant="success"
             disabled={disabled}
             onClick={() => void confirm()}
-           
+
             className="!px-3 !py-2 !text-sm disabled:opacity-60"
           >
             {status === "confirming"

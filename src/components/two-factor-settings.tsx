@@ -295,7 +295,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 					</div>
 					<div className="grid gap-2 sm:grid-cols-2">
 						{recoveryCodes.map((recoveryCode) => (
-							<code key={recoveryCode} className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-center text-sm font-semibold  text-[var(--text-primary)] select-all">
+							<code key={recoveryCode} className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-center text-sm font-semibold text-[var(--text-primary)] select-all">
 								{recoveryCode}
 							</code>
 						))}

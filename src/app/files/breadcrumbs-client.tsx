@@ -33,7 +33,7 @@ export function BreadcrumbsClient({
         <ActionButton variant="secondary"
           onClick={() => onNavigate(parentPath)}
           data-testid="files-up-level"
-         
+
           className="!inline-flex !items-center !gap-1.5 !px-3 !py-1.5 !text-sm !font-medium"
           title={t("filesBrowserSpa.upLevel")}
         >
@@ -43,7 +43,7 @@ export function BreadcrumbsClient({
       ) : null}
       <ActionButton variant="ghost"
         onClick={() => onNavigate("")}
-       
+
         className="!px-3 !py-1.5 !text-sm"
       >
         {t("filesBrowserSpa.allFiles")}
@@ -65,7 +65,7 @@ export function BreadcrumbsClient({
             ) : (
               <ActionButton variant="ghost"
                 onClick={() => onNavigate(nextPath)}
-               
+
                 className="!px-3 !py-1.5 !text-sm"
               >
                 {displaySegment}

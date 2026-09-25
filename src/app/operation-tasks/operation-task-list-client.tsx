@@ -85,7 +85,7 @@ const TaskRow = memo(function TaskRow({ task, t, locale, sourceLabels, onViewEve
         <p className="mt-1 text-xs text-[var(--text-muted)]">{formatDateTime(task.createdAt, locale)} {task.actor ? ` · ${task.actor}` : ""} {task.progress ? ` · ${task.progress}` : ""}</p>
         {task.logPreview && task.logPreview.length > 0 && (
           <div aria-label={`Recent logs: ${task.title}`} className="mt-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-3 py-2">
-            <div className="text-xs font-medium uppercase  text-[var(--text-muted)]">{t("operationTasksPage.logs.recent")}</div>
+            <div className="text-xs font-medium uppercase text-[var(--text-muted)]">{t("operationTasksPage.logs.recent")}</div>
             <ul className="mt-2 space-y-1 text-xs text-[var(--text-secondary)]">
               {task.logPreview.map((line, index) => <li key={`${task.id}-log-${index}`} className="break-words font-mono">{line}</li>)}
             </ul>

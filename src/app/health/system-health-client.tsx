@@ -94,7 +94,7 @@ export function SystemHealthClient({ initialSystemHealth }: Props) {
 					aria-busy="true"
 					aria-label={t("healthPage.ui.selfCheck")}
 				>
-					<p className="text-xs uppercase  text-[var(--text-muted)]">
+					<p className="text-xs uppercase text-[var(--text-muted)]">
 						{t("healthPage.ui.selfCheck")}
 					</p>
 					<div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -112,7 +112,7 @@ export function SystemHealthClient({ initialSystemHealth }: Props) {
 				<section className="space-y-4">
 					<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 						<div className="min-w-0">
-							<p className="text-xs uppercase  text-[var(--text-muted)]">
+							<p className="text-xs uppercase text-[var(--text-muted)]">
 								{t("healthPage.ui.selfCheck")}
 							</p>
 							<h2 className="mt-1 text-lg font-semibold text-[var(--text-primary)]">

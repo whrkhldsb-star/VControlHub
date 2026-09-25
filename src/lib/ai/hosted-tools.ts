@@ -1,6 +1,6 @@
 /**
  * AI 托管工具定义（Function Calling）
- * 
+ *
  * 安全操作（autoApproved=true）直接执行
  * 危险操作需要审批
  */

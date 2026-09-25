@@ -84,7 +84,7 @@ export function ResendDeployButton({ templateId, variables, serverIds, reason, l
 						setError(null);
 					}}
 					disabled={pending}
-				
+
 					className="!px-3 !py-1.5 !text-sm !font-medium disabled:cursor-not-allowed disabled:opacity-60"
 				>
 					{t("common.cancel")}

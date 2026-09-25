@@ -4,7 +4,7 @@ import { UI_INPUT } from "@/lib/ui/classes";
 export const CATEGORIES: CostCategory[] = ["vps", "bandwidth", "storage", "other"];
 
 export const cardClass = "rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)]";
-export const labelClass = "text-xs font-medium  text-[var(--text-secondary)]";
+export const labelClass = "text-xs font-medium text-[var(--text-secondary)]";
 export const inputClass = UI_INPUT;
 export const buttonPrimary =
 	"inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50 [data-action-button]:inline-flex";

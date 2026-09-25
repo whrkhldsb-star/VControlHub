@@ -74,7 +74,7 @@ export function FileListListView(props: FileListListViewProps) {
       {/* Desktop table view (md+) */}
       <div className="hidden overflow-x-auto rounded-b-2xl border-t border-[var(--border)] md:block" data-testid="file-table-scroll">
         <div className="min-w-[1040px]" data-testid="file-table-inner">
-          <div className="grid grid-cols-[36px_36px_minmax(240px,2.6fr)_90px_130px_130px_minmax(190px,auto)] items-center gap-2 bg-[var(--surface-subtle)] px-4 py-3 text-xs uppercase  text-[var(--text-muted)] font-medium">
+          <div className="grid grid-cols-[36px_36px_minmax(240px,2.6fr)_90px_130px_130px_minmax(190px,auto)] items-center gap-2 bg-[var(--surface-subtle)] px-4 py-3 text-xs uppercase text-[var(--text-muted)] font-medium">
             <div>
               <input
                 type="checkbox"

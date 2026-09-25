@@ -239,7 +239,7 @@ export function SshTerminalManager({
 							}}
 							aria-label={t("sshTerminalModal.ariaClose")}
 							title={t("sshTerminalModal.close")}
-						
+
 							className="min-h-9 min-w-9 !px-3 !py-1.5 !text-sm"
 						>
 							<X size={16} aria-hidden />

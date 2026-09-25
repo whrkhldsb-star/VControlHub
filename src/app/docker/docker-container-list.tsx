@@ -85,7 +85,7 @@ export function DockerContainerList({
 										key={action}
 										onClick={() => void handleProjectAction(group.project, action)}
 										disabled={projectActionLoading !== null}
-									
+
 										className="!min-h-11 !rounded-lg !px-2.5 !py-1 !text-sm !font-medium disabled:opacity-50"
 									>
 										{busy ? t("dockerPage.project.busy") : t(labelKey)}

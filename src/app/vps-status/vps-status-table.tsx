@@ -28,7 +28,7 @@ export function VpsStatusTable({
 	return (
 		<div className="overflow-x-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-[0_1px_0_rgba(255,255,255,0.03)_inset]">
 			<table className="min-w-full border-collapse text-left text-xs">
-				<thead className="bg-[var(--surface-elevated)] text-xs uppercase  text-[var(--text-muted)]">
+				<thead className="bg-[var(--surface-elevated)] text-xs uppercase text-[var(--text-muted)]">
 					<tr>
 						<th className="px-3 py-2.5 font-medium">{t("vpsStatusPage.table.name")}</th>
 						<th className="px-3 py-2.5 font-medium">{t("vpsStatusPage.table.status")}</th>

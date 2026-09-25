@@ -182,7 +182,7 @@ export function DirectGatewayAdviceList({
 							className={
 								item.priority === "primary"
 									? `rounded border px-1.5 py-0.5 text-xs uppercase  ${adviceBadgeClass(item.tone)}`
-									: "rounded border border-[var(--border)] bg-[var(--surface)] px-1.5 py-0.5 text-xs uppercase  text-[var(--text-secondary)] light:border-[var(--border)]"
+									: "rounded border border-[var(--border)] bg-[var(--surface)] px-1.5 py-0.5 text-xs uppercase text-[var(--text-secondary)] light:border-[var(--border)]"
 							}
 						>
 							{item.priority === "primary" ? t("serverOverviewDetails.recommendation") : t("serverOverviewDetails.reference")}

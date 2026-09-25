@@ -225,7 +225,7 @@ export default async function MediaPlayerPage({
 
             <dl className="space-y-3 text-sm">
               <div>
-                <dt className="text-xs uppercase  text-[var(--text-muted)]">
+                <dt className="text-xs uppercase text-[var(--text-muted)]">
                   {t("mediaPage.player.sizeLabel", locale)}
                 </dt>
                 <dd className="mt-1 text-[var(--text-secondary)]">
@@ -233,7 +233,7 @@ export default async function MediaPlayerPage({
                 </dd>
               </div>
               <div>
-                <dt className="text-xs uppercase  text-[var(--text-muted)]">
+                <dt className="text-xs uppercase text-[var(--text-muted)]">
                   {t("mediaPage.player.storageLabel", locale)}
                 </dt>
                 <dd className="mt-1 text-[var(--text-secondary)]">
@@ -243,7 +243,7 @@ export default async function MediaPlayerPage({
                 </dd>
               </div>
               <div>
-                <dt className="text-xs uppercase  text-[var(--text-muted)]">
+                <dt className="text-xs uppercase text-[var(--text-muted)]">
                   {t("mediaPage.player.pathLabel", locale)}
                 </dt>
                 <dd className="mt-1 break-all rounded-2xl bg-[var(--input-bg)] p-3 font-mono text-xs text-[var(--text-secondary)]">
@@ -254,7 +254,7 @@ export default async function MediaPlayerPage({
 
             {item.tags.length > 0 ? (
               <div className="mt-5">
-                <div className="mb-2 inline-flex items-center gap-1 text-xs uppercase  text-[var(--text-muted)]">
+                <div className="mb-2 inline-flex items-center gap-1 text-xs uppercase text-[var(--text-muted)]">
                   <Tag size={12} /> {t("mediaPage.player.tagsLabel", locale)}
                 </div>
                 <div className="flex flex-wrap gap-1.5">

@@ -206,7 +206,7 @@ export function AiSettingsModelSelector({
                     }
                   }}
                   className="px-2 py-1 text-xs"
-                 
+
                 >
                   {t("aiPage.apply")}
                 </ActionButton>
