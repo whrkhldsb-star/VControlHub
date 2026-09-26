@@ -503,6 +503,10 @@ jobs:
     name: Turbopack build probe (non-blocking)
     runs-on: ubuntu-24.04
     continue-on-error: true
+    env:
+      # prisma.config.ts requires DATABASE_URL to load even when nothing
+      # connects (prisma generate / next build config chain).
+      DATABASE_URL: postgresql://probe:probe@127.0.0.1:1/probe
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -520,8 +524,4 @@ jobs:
         run: npx prisma generate
 
       - name: Build with Turbopack
-        # The build itself never connects; prisma.config.ts merely requires
-        # DATABASE_URL to be present when loaded by Next's config chain.
-        env:
-          DATABASE_URL: postgresql://probe:probe@127.0.0.1:1/probe
         run: npm run build:turbopack
