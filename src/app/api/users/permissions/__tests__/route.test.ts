@@ -8,6 +8,7 @@ const { mocks } = vi.hoisted(() => ({
 		withAdminInvariantLock: vi.fn(),
     assertUserInActorScope: vi.fn(),
     isGlobalTeamManager: vi.fn(),
+    userHoldsTeamManage: vi.fn(),
     teamWhere: vi.fn(),
     getStorageAccessUsage: vi.fn(),
     parseNullableBigIntInput: vi.fn((v) => v ?? null),
@@ -56,6 +57,7 @@ vi.mock("@/lib/user/admin-invariant", () => ({
 vi.mock("@/lib/auth/team-scope", () => ({
   assertUserInActorScope: mocks.assertUserInActorScope,
   isGlobalTeamManager: mocks.isGlobalTeamManager,
+  userHoldsTeamManage: mocks.userHoldsTeamManage,
   teamWhere: mocks.teamWhere,
 }));
 vi.mock("@/lib/storage/access-control", () => ({
@@ -85,6 +87,7 @@ describe("/api/users/permissions", () => {
 		mocks.assertAdminAccessMayBeRemoved.mockResolvedValue(undefined);
 		mocks.withAdminInvariantLock.mockImplementation(async (operation) => operation());
     mocks.isGlobalTeamManager.mockReturnValue(false);
+    mocks.userHoldsTeamManage.mockResolvedValue(false);
     mocks.teamWhere.mockReturnValue({
       OR: [{ teamId: "team-a" }, { teamId: null }],
     });
@@ -176,6 +179,19 @@ describe("/api/users/permissions", () => {
     expect(res.status).toBe(400);
     expect(mocks.prisma.userRole.deleteMany).not.toHaveBeenCalled();
   });
+
+	it("PATCH blocks a delegated manager from editing a platform manager's grants", async () => {
+		mocks.userHoldsTeamManage.mockResolvedValue(true);
+		const response = await route.PATCH(new Request("http://local/api/users/permissions", {
+			method: "PATCH",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({ userId: "user1", roleKeys: ["viewer"] }),
+		}));
+
+		expect(response.status).toBe(403);
+		expect(mocks.userHoldsTeamManage).toHaveBeenCalledWith("user1");
+		expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+	});
 
 	it("PATCH checks the active-admin invariant before removing the admin role", async () => {
 		// The delegation check reads role.permissions, so the mock must carry it.

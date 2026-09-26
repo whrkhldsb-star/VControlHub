@@ -1,14 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 
-const { configMock } = vi.hoisted(() => ({
+const { configMock, createClientMock } = vi.hoisted(() => ({
 	configMock: { redis: { url: undefined as string | undefined } },
+	createClientMock: vi.fn(),
 }));
 
 vi.mock("@/lib/config/env", () => ({ config: configMock }));
 // Never let a test touch the real optional redis package.
-vi.mock("redis", () => {
-	throw new Error("tests must not import the real redis client");
-});
+vi.mock("redis", () => ({ createClient: createClientMock }));
 
 import {
 	getNotificationBus,
@@ -24,6 +23,7 @@ function makeFakeRedis() {
 	const listeners: Listener[] = [];
 	const publishes: Array<{ channel: string; message: string }> = [];
 	const client = {
+		connect: vi.fn(async () => {}),
 		publish: vi.fn(async (channel: string, message: string) => {
 			publishes.push({ channel, message });
 			// Simulate the broker fanning out to all subscribers (including self).
@@ -46,6 +46,8 @@ beforeEach(() => {
 	resetNotificationBusForTests();
 	collected.length = 0;
 	configMock.redis.url = undefined;
+	createClientMock.mockReset();
+	createClientMock.mockImplementation(() => { throw new Error("Redis unavailable in test"); });
 });
 
 afterEach(async () => {
@@ -73,6 +75,53 @@ describe("notification bus (local mode)", () => {
 });
 
 describe("notification bus (redis mode)", () => {
+	it("connects and publishes from a standalone worker without start()", async () => {
+		configMock.redis.url = "redis://127.0.0.1:6379";
+		const { client, publishes } = makeFakeRedis();
+		createClientMock.mockReturnValue(client);
+
+		getNotificationBus().publish("worker-user", { type: "unread_count", count: 2 });
+
+		await vi.waitFor(() => expect(publishes).toHaveLength(1));
+		expect(client.connect).toHaveBeenCalledTimes(1);
+		expect(createClientMock).toHaveBeenCalledTimes(1);
+		expect(JSON.parse(publishes[0]!.message)).toEqual({
+			userId: "worker-user",
+			message: { type: "unread_count", count: 2 },
+		});
+	});
+
+	it("publishes the first message after a WebSocket instance's Redis startup outage", async () => {
+		configMock.redis.url = "redis://127.0.0.1:6379";
+		const bus = getNotificationBus();
+		await bus.start(deliver);
+		const { client, publishes } = makeFakeRedis();
+		createClientMock.mockReturnValue(client);
+
+		bus.publish("u-first", { type: "unread_count", count: 1 });
+
+		expect(collected).toEqual([{ userId: "u-first", message: { type: "unread_count", count: 1 } }]);
+		await vi.waitFor(() => expect(publishes).toHaveLength(1));
+		expect(JSON.parse(publishes[0]!.message)).toEqual({
+			userId: "u-first",
+			message: { type: "unread_count", count: 1 },
+		});
+	});
+
+	it("keeps local delivery when the Redis subscription fails", async () => {
+		configMock.redis.url = "redis://127.0.0.1:6379";
+		const { client, publishes } = makeFakeRedis();
+		client.subscribe.mockRejectedValueOnce(new Error("subscription outage"));
+		setNotificationBusClientsForTests(client, client);
+
+		const bus = getNotificationBus();
+		await expect(bus.start(deliver)).resolves.toBeUndefined();
+		bus.publish("u-local", { type: "unread_count", count: 4 });
+
+		await vi.waitFor(() => expect(publishes).toHaveLength(1));
+		expect(collected).toEqual([{ userId: "u-local", message: { type: "unread_count", count: 4 } }]);
+	});
+
 	it("fans out publishes through the channel to the local handler", async () => {
 		configMock.redis.url = "redis://127.0.0.1:6379";
 		const bus = getNotificationBus();

@@ -4,7 +4,11 @@ import type { RoleKey } from "@/lib/auth/rbac";
 const { mocks } = vi.hoisted(() => ({
   mocks: {
     sessionHasPermission: vi.fn(),
+    resolveEffectivePermissions: vi.fn(),
     prisma: {
+		user: {
+			findUnique: vi.fn(),
+		},
       teamMember: {
         findUnique: vi.fn(),
       },
@@ -19,10 +23,14 @@ vi.mock("@/lib/auth/authorization", () => ({
 vi.mock("@/lib/db", () => ({
   prisma: mocks.prisma,
 }));
+vi.mock("@/lib/auth/effective-permissions", () => ({
+	resolveEffectivePermissions: mocks.resolveEffectivePermissions,
+}));
 
 const {
   assertUserInActorScope,
   isGlobalTeamManager,
+  userHoldsTeamManage,
   userDirectoryWhere,
 } = await import("@/lib/auth/team-scope");
 
@@ -43,6 +51,23 @@ describe("user directory team scope", () => {
     expect(isGlobalTeamManager(session)).toBe(true);
     expect(userDirectoryWhere(session)).toEqual({});
   });
+
+	it("protects a target whose custom role grants team:manage", async () => {
+		mocks.prisma.user.findUnique.mockResolvedValue({
+			roles: [
+				{ role: { key: "viewer" } },
+				{ role: { key: "user:target:custom" } },
+			],
+		});
+		mocks.resolveEffectivePermissions.mockResolvedValue(["user:read", "team:manage"]);
+
+		await expect(userHoldsTeamManage("target")).resolves.toBe(true);
+		expect(mocks.resolveEffectivePermissions).toHaveBeenCalledWith({
+			userId: "target",
+			roles: ["viewer"],
+			assignedRoleKeys: ["viewer", "user:target:custom"],
+		});
+	});
 
   it("scopes list to current team members + self", () => {
     mocks.sessionHasPermission.mockReturnValue(false);

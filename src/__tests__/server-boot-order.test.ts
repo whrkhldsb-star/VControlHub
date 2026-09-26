@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import http from "node:http";
 
 /**
  * Boot-order guard for the custom server (src/server.ts).
@@ -34,21 +35,6 @@ vi.mock("next", () => ({
 	}),
 }));
 
-vi.mock("node:http", async (importOriginal) => {
-	const actual = await importOriginal<typeof import("node:http")>();
-	return {
-		...actual,
-		// Never bind a real port in a unit test.
-		createServer: () => ({
-			listen: () => undefined,
-			close: () => undefined,
-			closeAllConnections: () => undefined,
-			on: () => undefined,
-			once: () => undefined,
-		}),
-	};
-});
-
 vi.mock("@/lib/ws/notification-ws", () => ({
 	setupWebSocketServer: () => undefined,
 	closeWebSocketServer: () => undefined,
@@ -56,13 +42,32 @@ vi.mock("@/lib/ws/notification-ws", () => ({
 
 describe("custom server boot order", () => {
 	it("reads Next's upgrade handler only after prepare()", async () => {
-		await import("../server");
+		// A Node built-in named import is not reliably replaced by vi.mock in
+		// every Vitest/Node combination. Intercept the actual listen method so
+		// this entrypoint test never binds the production port on a live host.
+		const listen = vi.spyOn(http.Server.prototype, "listen").mockImplementation(function (this: http.Server) {
+			return this;
+		});
+		// server.ts is a process entrypoint. Keep its lifecycle listeners from
+		// escaping this test and intercepting a later Vitest worker error.
+		const events = ["uncaughtException", "unhandledRejection", "SIGTERM", "SIGINT"] as const;
+		const before = events.map((event) => new Set(process.listeners(event)));
+		try {
+			await import("../server");
 
-		// main() is fire-and-forget; give its awaits a few ticks to settle.
-		for (let i = 0; i < 50 && calls.length < 2; i += 1) {
-			await new Promise((resolve) => setTimeout(resolve, 0));
+			// main() is fire-and-forget; give its awaits a few ticks to settle.
+			for (let i = 0; i < 50 && calls.length < 2; i += 1) {
+				await new Promise((resolve) => setTimeout(resolve, 0));
+			}
+
+			expect(calls).toEqual(["prepare", "getUpgradeHandler"]);
+		} finally {
+			listen.mockRestore();
+			for (const [index, event] of events.entries()) {
+				for (const listener of process.listeners(event)) {
+					if (!before[index]!.has(listener)) process.removeListener(event, listener);
+				}
+			}
 		}
-
-		expect(calls).toEqual(["prepare", "getUpgradeHandler"]);
 	});
 });

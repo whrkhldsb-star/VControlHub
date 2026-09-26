@@ -12,7 +12,8 @@ import { isCrossSiteFormPost } from "@/lib/http/request-origin";
 import { safeRelativeRedirectPath } from "@/lib/http/redirect-path";
 import {
 	MAX_NON_FILE_FORM_BYTES,
-	requestContentLengthExceeds,
+	readRequestBodyBuffer,
+	RequestBodyTooLargeError,
 } from "@/lib/http/request-body";
 import { t } from "@/lib/i18n/service-translations";
 import { normalizeUserPreferencesForSession } from "@/lib/preferences/user-preferences";
@@ -78,11 +79,22 @@ export async function POST(request: Request) {
 		if (!contentType.includes("multipart/form-data") && !contentType.includes("application/x-www-form-urlencoded")) {
 			return redirectWithRelativeLocation("/login?error=invalid");
 		}
-		if (requestContentLengthExceeds(request, MAX_NON_FILE_FORM_BYTES)) {
-			return new Response(t("backend.request.bodyTooLarge"), { status: 413 });
+		// formData() buffers the complete stream. Enforce the limit while reading
+		// too: chunked requests can omit Content-Length altogether.
+		let boundedBody: Buffer;
+		try {
+			boundedBody = await readRequestBodyBuffer(request, MAX_NON_FILE_FORM_BYTES);
+		} catch (error) {
+			if (error instanceof RequestBodyTooLargeError) {
+				return new Response(t("backend.request.bodyTooLarge"), { status: 413 });
+			}
+			throw error;
 		}
-
-		const formData = await request.formData();
+		const formData = await new Request(request.url, {
+			method: "POST",
+			headers: { "content-type": contentType },
+			body: new Uint8Array(boundedBody),
+		}).formData();
 		const formRaw = {
 			username: String(formData.get("username") ?? ""),
 			password: String(formData.get("password") ?? ""),

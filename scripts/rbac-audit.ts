@@ -495,6 +495,8 @@ export function buildUsage(
   const intentionallyPublic = new Set<string>([
     "/api/login",
     "/api/auth/signout",
+    // Authenticated self-service action; revokes only the caller's sessions.
+    "/api/auth/signout-all",
     "/api/auth/2fa/setup",
     "/api/auth/2fa/enable",
     "/api/auth/2fa/disable",

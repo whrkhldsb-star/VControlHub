@@ -11,8 +11,10 @@ import { parseSearchParams } from "@/lib/http/parse-search-params";
 import {
   assertUserInActorScope,
   isGlobalTeamManager,
+  userHoldsTeamManage,
 } from "@/lib/auth/team-scope";
-import { NotFoundError, ValidationError } from "@/lib/errors";
+import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
+import { t } from "@/lib/i18n/translations";
 import { getStorageAccessUsage } from "@/lib/storage/access-control";
 import { applyUserPermissionPatch } from "./route-patch";
 import { assertAdminAccessMayBeRemoved, withAdminInvariantLock } from "@/lib/user/admin-invariant";
@@ -223,6 +225,9 @@ export async function PATCH(request: Request) {
       if (!targetUser) {
         throw new NotFoundError(apiCopy("apiCopy.user.not.found.4a1793e9"));
       }
+		if (!isGlobalTeamManager(session) && await userHoldsTeamManage(parsedData.userId)) {
+			throw new ForbiddenError(t("backend.user.cannotModifyPlatformAdmin"));
+		}
 
       // Drop foreign/own auto custom role keys from assignable roleKeys; custom role is preserved below.
       const roleKeys = Array.isArray(parsedData.roleKeys)

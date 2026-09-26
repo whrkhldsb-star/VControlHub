@@ -1,6 +1,6 @@
 # VControlHub RBAC Audit Report
 
-> Generated: 2026-09-24T00:35:20.372Z | Permissions: 54 | Roles: 4 | API routes: 186 | Pages: 55 | Drift: 2
+> Generated: 2026-09-26T03:26:35.269Z | Permissions: 54 | Roles: 4 | API routes: 186 | Pages: 55 | Drift: 0
 
 This report cross-references four RBAC sources of truth:
 1. `src/lib/auth/rbac.ts` — `PERMISSIONS` tuple + `DEFAULT_ROLE_PERMISSIONS` map
@@ -15,8 +15,8 @@ This report cross-references four RBAC sources of truth:
 | `perm-not-in-list` | low | 0 |
 | `perm-without-role` | low | 0 |
 | `role-grants-unknown` | low | 0 |
-| `api-no-declared-perm` | low | 1 |
-| `api-decl-perm-unused` | medium | 1 |
+| `api-no-declared-perm` | low | 0 |
+| `api-decl-perm-unused` | low | 0 |
 | `api-route-missing` | low | 0 |
 | `page-button-perm-unused` | low | 0 |
 
@@ -66,7 +66,7 @@ This report cross-references four RBAC sources of truth:
 | `snippet:manage` | admin, operator, storage_manager | 0 | 0 | 8 |
 | `storage:delete` | admin, storage_manager | 2 | 2 | 7 |
 | `storage:manage-node` | admin, storage_manager | 3 | 3 | 11 |
-| `storage:read` | admin, operator, viewer, storage_manager | 2 | 1 | 59 |
+| `storage:read` | admin, operator, viewer, storage_manager | 2 | 1 | 57 |
 | `storage:write` | admin, operator, storage_manager | 3 | 4 | 48 |
 | `task:read` | admin, operator, viewer, storage_manager | 1 | 0 | 7 |
 | `team:create` | admin, operator | 1 | 0 | 3 |
@@ -79,29 +79,4 @@ This report cross-references four RBAC sources of truth:
 | `user:manage` | admin | 2 | 0 | 24 |
 | `user:read` | admin, operator, viewer, storage_manager | 1 | 0 | 7 |
 
-## Drift details
-
-### `api-no-declared-perm` (low)
-API route /api/auth/signout-all has no declaredPermissions (could be intentionally public)
-
-```json
-{
-  "path": "/api/auth/signout-all",
-  "file": "src/app/api/auth/signout-all/route.ts",
-  "methods": [
-    "POST"
-  ]
-}
-```
-
-### `api-decl-perm-unused` (medium)
-API route /api/users declares "team:manage" but the route handler doesn't enforce it via requirePermission("team:manage") or withApiRoute(..., { permission: "team:manage" }, ...)
-
-```json
-{
-  "path": "/api/users",
-  "declaredPermission": "team:manage",
-  "file": "src/app/api/users/route.ts"
-}
-```
-
+## ✅ No drift detected

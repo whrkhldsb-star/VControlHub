@@ -3,9 +3,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const { prismaMock } = vi.hoisted(() => ({
 	prismaMock: {
 		auditLog: {
-			deleteMany: vi.fn(
-				async (_args?: { where: { createdAt: { lt: Date } } }) => ({ count: 0 }),
-			),
+			findMany: vi.fn(async (_args?: {
+				where: { createdAt: { lt: Date } };
+				orderBy: Array<Record<string, string>>;
+				take: number;
+			}): Promise<Array<{ id: string }>> => []),
+			deleteMany: vi.fn(async (): Promise<{ count: number }> => ({ count: 0 })),
 		},
 	},
 }));
@@ -13,70 +16,75 @@ const { prismaMock } = vi.hoisted(() => ({
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 vi.mock("@/lib/config/env", () => ({
 	config: {
-		audit: {
-			retentionDays: 90,
-			pruneBatchSize: 1_000,
-		},
+		audit: { retentionDays: 90, pruneBatchSize: 1_000 },
 	},
 }));
 
 import { pruneAuditLogs } from "../retention";
 
+const ids = (prefix: string, count: number) =>
+	Array.from({ length: count }, (_, index) => ({ id: `${prefix}-${index}` }));
+
 describe("pruneAuditLogs", () => {
 	beforeEach(() => {
-		prismaMock.auditLog.deleteMany.mockClear();
+		prismaMock.auditLog.findMany.mockReset();
+		prismaMock.auditLog.deleteMany.mockReset();
+		prismaMock.auditLog.findMany.mockResolvedValue([]);
 		prismaMock.auditLog.deleteMany.mockResolvedValue({ count: 0 });
 	});
 
-	it("is a no-op when retention is disabled (0 days)", async () => {
-		const result = await pruneAuditLogs({ retentionDays: 0 });
-		expect(result).toEqual({ deleted: 0, retentionDays: 0, truncated: false });
+	it("does not query or delete when retention is disabled", async () => {
+		expect(await pruneAuditLogs({ retentionDays: 0 })).toEqual({ deleted: 0, retentionDays: 0, truncated: false });
+		expect(prismaMock.auditLog.findMany).not.toHaveBeenCalled();
 		expect(prismaMock.auditLog.deleteMany).not.toHaveBeenCalled();
 	});
 
-	it("deletes rows older than the retention cutoff in one pass when under the batch cap", async () => {
-		let calls = 0;
-		prismaMock.auditLog.deleteMany.mockImplementation(async (args?: { where: { createdAt: { lt: Date } } }) => {
-			calls++;
-			// Cutoff must be ~90 days ago.
-			const cutoff = args?.where.createdAt.lt;
-			expect(cutoff && Date.now() - cutoff.getTime()).toBeGreaterThan(89 * 24 * 60 * 60 * 1000);
-			return { count: 500 };
-		});
+	it("selects a bounded batch of old IDs and deletes only those rows", async () => {
+		prismaMock.auditLog.findMany.mockResolvedValueOnce(ids("old", 2));
+		prismaMock.auditLog.deleteMany.mockResolvedValueOnce({ count: 2 });
 
-		const result = await pruneAuditLogs({ retentionDays: 90, batchSize: 1_000 });
-		expect(result.deleted).toBe(500);
-		expect(result.truncated).toBe(false);
-		// A partial batch ends the sweep — no probe call needed.
-		expect(calls).toBe(1);
-	});
+		const result = await pruneAuditLogs({ retentionDays: 90, batchSize: 100 });
 
-	it("loops bounded batches until the backlog is drained", async () => {
-		let calls = 0;
-		prismaMock.auditLog.deleteMany.mockImplementation(async () => {
-			calls++;
-			// Two full batches, then a partial one.
-			return { count: calls <= 2 ? 1_000 : 120 };
-		});
-
-		const result = await pruneAuditLogs({ retentionDays: 90, batchSize: 1_000 });
-		expect(calls).toBe(3);
-		expect(result.deleted).toBe(2_120);
-		expect(result.truncated).toBe(false);
-	});
-
-	it("stops at the sweep batch cap and reports truncation", async () => {
-		prismaMock.auditLog.deleteMany.mockResolvedValue({ count: 1_000 });
-		// MAX_BATCHES_PER_SWEEP=40 with a full batch every time → truncated.
-		const result = await pruneAuditLogs({ retentionDays: 90, batchSize: 1_000 });
-		expect(result.truncated).toBe(true);
-		expect(result.deleted).toBe(40_000);
-	});
-
-	it("clamps an oversized batch size to the hard ceiling", async () => {
-		await pruneAuditLogs({ batchSize: 999_999 });
+		expect(result).toEqual({ deleted: 2, retentionDays: 90, truncated: false });
+		const selection = prismaMock.auditLog.findMany.mock.calls[0]![0]!;
+		expect(selection.take).toBe(100);
+		expect(selection.orderBy).toEqual([{ createdAt: "asc" }, { id: "asc" }]);
+		expect(Date.now() - selection.where.createdAt.lt.getTime()).toBeGreaterThan(89 * 24 * 60 * 60 * 1000);
 		expect(prismaMock.auditLog.deleteMany).toHaveBeenCalledWith({
-			where: { createdAt: expect.anything() },
+			where: { id: { in: ["old-0", "old-1"] } },
 		});
+	});
+
+	it("continues after full batches and stops on a short selection", async () => {
+		prismaMock.auditLog.findMany
+			.mockResolvedValueOnce(ids("first", 100))
+			.mockResolvedValueOnce(ids("second", 100))
+			.mockResolvedValueOnce(ids("last", 20));
+		prismaMock.auditLog.deleteMany
+			.mockResolvedValueOnce({ count: 100 })
+			.mockResolvedValueOnce({ count: 100 })
+			.mockResolvedValueOnce({ count: 20 });
+
+		const result = await pruneAuditLogs({ retentionDays: 90, batchSize: 100 });
+
+		expect(result).toEqual({ deleted: 220, retentionDays: 90, truncated: false });
+		expect(prismaMock.auditLog.findMany).toHaveBeenCalledTimes(3);
+		expect(prismaMock.auditLog.deleteMany).toHaveBeenCalledTimes(3);
+	});
+
+	it("caps a sweep at forty bounded delete statements", async () => {
+		prismaMock.auditLog.findMany.mockResolvedValue(ids("batch", 100));
+		prismaMock.auditLog.deleteMany.mockResolvedValue({ count: 100 });
+
+		const result = await pruneAuditLogs({ retentionDays: 90, batchSize: 100 });
+
+		expect(result).toEqual({ deleted: 4_000, retentionDays: 90, truncated: true });
+		expect(prismaMock.auditLog.findMany).toHaveBeenCalledTimes(40);
+		expect(prismaMock.auditLog.deleteMany).toHaveBeenCalledTimes(40);
+	});
+
+	it("clamps oversized batch sizes to twenty thousand IDs", async () => {
+		await pruneAuditLogs({ batchSize: 999_999 });
+		expect(prismaMock.auditLog.findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 20_000 }));
 	});
 });

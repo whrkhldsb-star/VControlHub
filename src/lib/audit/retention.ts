@@ -39,13 +39,21 @@ export async function pruneAuditLogs(options?: {
 	let deleted = 0;
 	let truncated = false;
 	for (let batch = 0; batch < MAX_BATCHES_PER_SWEEP; batch++) {
-		// deleteMany on the indexed createdAt column, ordered implicitly by the
-		// planner; the bounded repeat keeps each statement's lock footprint small.
-		const result = await prisma.auditLog.deleteMany({
+		// Prisma deleteMany has no LIMIT: filtering only by createdAt would
+		// delete the entire backlog in one statement. Select at most one batch
+		// of indexed IDs, then delete only those rows.
+		const rows = await prisma.auditLog.findMany({
 			where: { createdAt: { lt: olderThan } },
+			orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+			take: batchSize,
+			select: { id: true },
+		});
+		if (rows.length === 0) return { deleted, retentionDays, truncated: false };
+		const result = await prisma.auditLog.deleteMany({
+			where: { id: { in: rows.map((row) => row.id) } },
 		});
 		deleted += result.count;
-		if (result.count < batchSize) {
+		if (rows.length < batchSize) {
 			truncated = false;
 			return { deleted, retentionDays, truncated };
 		}

@@ -51,6 +51,7 @@ type BusState = {
 };
 
 const state: BusState = { deliver: null, publisher: null, subscriber: null, subscribed: false };
+let publisherConnecting: Promise<RedisClientLike | null> | null = null;
 
 function handleMessage(raw: string) {
 	if (!state.deliver) return;
@@ -82,6 +83,26 @@ async function connectRedisClient(url: string, purpose: string): Promise<RedisCl
 	return client;
 }
 
+function ensurePublisher(url: string): Promise<RedisClientLike | null> {
+	if (state.publisher) return Promise.resolve(state.publisher);
+	if (publisherConnecting) return publisherConnecting;
+	publisherConnecting = connectRedisClient(url, "publisher")
+		.then((client) => {
+			state.publisher = client;
+			return client;
+		})
+		.catch((error: unknown) => {
+			logger.warn("notification bus publisher unavailable", {
+				error: error instanceof Error ? error.message : String(error),
+			});
+			return null;
+		})
+		.finally(() => {
+			publisherConnecting = null;
+		});
+	return publisherConnecting;
+}
+
 /**
  * Builds the process-wide bus. Local mode is synchronous and always
  * available; Redis mode activates only when REDIS_URL is set and connects
@@ -109,44 +130,39 @@ export function getNotificationBus(): NotificationBus {
 	return {
 		mode,
 		publish(userId, message) {
-			// Prefer the Redis fan-out; if the publisher is not connected yet
-			// (or died), fall back to local delivery so single-instance
-			// behavior is preserved for the sockets this process holds.
-			const publisher = state.publisher;
-			if (!publisher) {
-				state.deliver?.(userId, message);
-				return;
-			}
-			void publisher
-				.publish(NOTIFICATION_BUS_CHANNEL, JSON.stringify({ userId, message }))
+			// The standalone worker has no WebSocket server and never calls
+			// start(). Connect on its first publish so its notifications still
+			// reach the web instances through Redis.
+			// When this process has no subscription, deliver to its own sockets
+			// immediately, then also publish for sockets on other instances.
+			const deliveredLocally = !state.subscribed;
+			if (deliveredLocally) state.deliver?.(userId, message);
+			void ensurePublisher(url)
+				.then((publisher) => {
+					if (!publisher) return;
+					return publisher.publish(NOTIFICATION_BUS_CHANNEL, JSON.stringify({ userId, message }));
+				})
 				.catch((error: unknown) => {
 					logger.warn("notification bus publish failed; delivering locally", {
 						error: error instanceof Error ? error.message : String(error),
 					});
-					state.deliver?.(userId, message);
+					if (!deliveredLocally) state.deliver?.(userId, message);
 				});
 		},
 		async start(deliver) {
 			state.deliver = deliver;
-			// Connect (once) and subscribe (once) are separate steps so a
-			// pre-connected client — or a start() retry after a failed connect —
-			// still wires the channel handler.
-			if (!state.publisher || !state.subscriber) {
+			// Publisher setup may already be in flight from a worker-style publish.
+			// Subscriber setup is independent so a publisher outage does not
+			// prevent this process from receiving other instances' messages.
+			await ensurePublisher(url);
+			if (!state.subscriber) {
 				try {
-					const [publisher, subscriber] = await Promise.all([
-						connectRedisClient(url, "publisher"),
-						connectRedisClient(url, "subscriber"),
-					]);
-					state.publisher = publisher;
-					state.subscriber = subscriber;
+					state.subscriber = await connectRedisClient(url, "subscriber");
 					logger.info("notification bus using Redis pub/sub", {
 						channel: NOTIFICATION_BUS_CHANNEL,
 					});
 				} catch (error) {
-					// Local delivery stays active; multi-instance fan-out resumes on
-					// the next start() attempt (e.g. process restart).
-					state.publisher = null;
-					state.subscriber = null;
+					// Local delivery stays active; a later start() can retry.
 					logger.warn("notification bus Redis setup failed; local delivery only", {
 						error: error instanceof Error ? error.message : String(error),
 					});
@@ -154,8 +170,14 @@ export function getNotificationBus(): NotificationBus {
 				}
 			}
 			if (!state.subscribed) {
-				await state.subscriber.subscribe(NOTIFICATION_BUS_CHANNEL, handleMessage);
-				state.subscribed = true;
+				try {
+					await state.subscriber.subscribe(NOTIFICATION_BUS_CHANNEL, handleMessage);
+					state.subscribed = true;
+				} catch (error) {
+					logger.warn("notification bus subscription failed; local delivery only", {
+						error: error instanceof Error ? error.message : String(error),
+					});
+				}
 			}
 		},
 		async stop() {
@@ -185,6 +207,7 @@ export function resetNotificationBusForTests() {
 	state.publisher = null;
 	state.subscriber = null;
 	state.subscribed = false;
+	publisherConnecting = null;
 }
 
 /** Test hook: inject a pre-connected publisher/subscriber pair. */

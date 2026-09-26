@@ -286,7 +286,7 @@ model SshKey {
 
 model Server {
   operatingSystem              String                 @default("LINUX")
-  rdpCertificateSha256          String?
+  rdpCertificateSha256         String?
   rdpDomain                    String?
   rdpPassword                  String?
   rdpIgnoreCertificate         Boolean                @default(false)
@@ -354,15 +354,16 @@ model Server {
 }
 
 model RdpTicket {
-  hash String @id
-  serverId String
-  userId String
-  teamId String?
-  sessionHash String
-  origin String
+  hash         String   @id
+  serverId     String
+  userId       String
+  teamId       String?
+  sessionHash  String
+  origin       String
   endpointHash String
-  expiresAt DateTime
-  server Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  expiresAt    DateTime
+  server       Server   @relation(fields: [serverId], references: [id], onDelete: Cascade)
+
   @@index([expiresAt])
   @@map("rdp_tickets")
 }

@@ -24,6 +24,8 @@ import { NotFoundError } from "@/lib/errors";
 
 import type { SessionPayload } from "./session";
 import { sessionHasPermission } from "./authorization";
+import { resolveEffectivePermissions } from "./effective-permissions";
+import { DEFAULT_ROLE_PERMISSIONS, type RoleKey } from "./rbac";
 import { t } from "@/lib/i18n/service-translations";
 
 export type TeamSession = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
@@ -34,6 +36,26 @@ export type TeamSession = Pick<SessionPayload, "userId" | "roles" | "currentTeam
  */
 export function isGlobalTeamManager(session: TeamSession): boolean {
 	return sessionHasPermission(session, "team:manage");
+}
+
+/**
+ * Check a target account's effective platform privileges before a delegated
+ * manager changes its credentials or status. Direct grants live on the
+ * account's custom role, so inspecting only built-in role defaults would
+ * leave a privileged target unprotected.
+ */
+export async function userHoldsTeamManage(userId: string): Promise<boolean> {
+	const user = await prisma.user.findUnique({
+		where: { id: userId },
+		select: { roles: { select: { role: { select: { key: true } } } } },
+	});
+	if (!user) return false;
+	const assignedRoleKeys = user.roles.map((entry) => entry.role.key);
+	const roles = assignedRoleKeys.filter(
+		(key): key is RoleKey => key in DEFAULT_ROLE_PERMISSIONS,
+	);
+	const permissions = await resolveEffectivePermissions({ userId, roles, assignedRoleKeys });
+	return permissions.includes("team:manage");
 }
 
 /**

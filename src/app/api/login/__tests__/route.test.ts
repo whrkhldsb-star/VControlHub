@@ -36,6 +36,7 @@ vi.mock("@/lib/auth/csrf", () => ({
 }));
 
 import { POST } from "../route";
+import { MAX_NON_FILE_FORM_BYTES } from "@/lib/http/request-body";
 
 function makeLoginRequest(body: Record<string, string>) {
   return new Request("https://console.example.test/api/login", {
@@ -162,5 +163,26 @@ describe("POST /api/login", () => {
     const cookies = response.headers.getSetCookie().join("\n");
     expect(cookies).toMatch(/test_session=session-token;[^\n]*Secure/i);
     expect(cookies).toMatch(/csrf_token=csrf-token;[^\n]*Secure/i);
+  });
+
+  it("rejects an oversized chunked login body before authentication", async () => {
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array(MAX_NON_FILE_FORM_BYTES + 1));
+        controller.close();
+      },
+    });
+    const request = new Request("https://console.example.test/api/login", {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body,
+      duplex: "half",
+    } as RequestInit & { duplex: "half" });
+    expect(request.headers.get("content-length")).toBeNull();
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(413);
+    expect(authenticateUserMock).not.toHaveBeenCalled();
   });
 });

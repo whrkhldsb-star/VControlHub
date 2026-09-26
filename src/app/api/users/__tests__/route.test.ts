@@ -10,6 +10,7 @@ const { mocks } = vi.hoisted(() => ({
     assertUserInActorScope: vi.fn(),
     userDirectoryWhere: vi.fn(),
     isGlobalTeamManager: vi.fn(),
+    userHoldsTeamManage: vi.fn(),
     prisma: {
       user: {
         findMany: vi.fn(),
@@ -56,6 +57,7 @@ vi.mock("@/lib/auth/team-scope", () => ({
   assertUserInActorScope: mocks.assertUserInActorScope,
   userDirectoryWhere: mocks.userDirectoryWhere,
   isGlobalTeamManager: mocks.isGlobalTeamManager,
+  userHoldsTeamManage: mocks.userHoldsTeamManage,
 }));
 vi.mock("@/lib/db", () => ({
   prisma: mocks.prisma,
@@ -82,6 +84,7 @@ describe("/api/users", () => {
     // these tests use an admin session, which a real isGlobalTeamManager call
     // would classify as global.
     mocks.isGlobalTeamManager.mockReturnValue(true);
+    mocks.userHoldsTeamManage.mockResolvedValue(false);
 		mocks.assertAdminAccessMayBeRemoved.mockResolvedValue(undefined);
 		mocks.withAdminInvariantLock.mockImplementation(async (operation) => operation());
     mocks.userDirectoryWhere.mockReturnValue({
@@ -177,6 +180,11 @@ describe("/api/users", () => {
     });
     expect(mocks.prisma.role.findMany).toHaveBeenCalledWith({
       where: { key: { in: ["viewer", "operator"] } },
+      select: {
+        id: true,
+        key: true,
+        permissions: { select: { permission: { select: { key: true } } } },
+      },
       take: 2,
     });
     expect(mocks.prisma.userRole.createMany).toHaveBeenCalledWith({
@@ -213,6 +221,40 @@ describe("/api/users", () => {
     expect(mocks.prisma.user.create).not.toHaveBeenCalled();
     expect(mocks.prisma.userRole.createMany).not.toHaveBeenCalled();
   });
+
+	it("does not let a delegated manager create an admin account", async () => {
+		mocks.isGlobalTeamManager.mockReturnValue(false);
+		mocks.prisma.role.findMany.mockResolvedValueOnce([{
+			id: "role-admin", key: "admin", permissions: [],
+		}]);
+		const response = await route.POST(new Request("http://local/api/users", {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({ username: "escalated", password: "Secret123", roleKeys: ["admin"] }),
+		}));
+
+		expect(response.status).toBe(403);
+		expect(mocks.prisma.user.create).not.toHaveBeenCalled();
+	});
+
+	it("does not let a delegated manager assign a role beyond their own permissions", async () => {
+		mocks.isGlobalTeamManager.mockReturnValue(false);
+		mocks.requireApiPermission.mockResolvedValue({
+			session: { ...session, permissions: ["user:manage", "user:read"] },
+		});
+		mocks.prisma.role.findMany.mockResolvedValueOnce([{
+			id: "role-operator", key: "operator",
+			permissions: [{ permission: { key: "server:manage" } }],
+		}]);
+		const response = await route.POST(new Request("http://local/api/users", {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({ username: "escalated", password: "Secret123", roleKeys: ["operator"] }),
+		}));
+
+		expect(response.status).toBe(403);
+		expect(mocks.prisma.user.create).not.toHaveBeenCalled();
+	});
 
   it("scopes PATCH target lookup via assertUserInActorScope", async () => {
     mocks.prisma.user.findUnique.mockResolvedValue({
@@ -252,6 +294,22 @@ describe("/api/users", () => {
     expect(mocks.prisma.user.findUnique).not.toHaveBeenCalled();
     expect(mocks.prisma.user.update).not.toHaveBeenCalled();
   });
+
+	it("blocks a delegated manager from resetting a globally privileged target", async () => {
+		mocks.isGlobalTeamManager.mockReturnValue(false);
+		mocks.userHoldsTeamManage.mockResolvedValue(true);
+		mocks.prisma.user.findUnique.mockResolvedValue({ id: "target", username: "privileged", status: "ACTIVE" });
+
+		const response = await route.PATCH(new Request("http://local/api/users", {
+			method: "PATCH",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({ userId: "target", action: "reset_password", newPassword: "Secret123" }),
+		}));
+
+		expect(response.status).toBe(403);
+		expect(mocks.userHoldsTeamManage).toHaveBeenCalledWith("target");
+		expect(mocks.prisma.user.update).not.toHaveBeenCalled();
+	});
 
 	it("rejects a PATCH that carries no action instead of reporting success", async () => {
 		mocks.prisma.user.findUnique.mockResolvedValue({ id: "user1", username: "alice", status: "ACTIVE" });

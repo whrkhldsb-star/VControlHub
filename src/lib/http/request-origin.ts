@@ -37,9 +37,9 @@ function isHostMismatch(request: Request, headerValue: string): boolean {
     if (!originHost || !expected) return false;
     return originHost !== expected;
   } catch {
-    // Unparseable Origin/Referer — treat as hostile only when we had a host
-    // to compare against; browsers always send well-formed values.
-    return false;
+    // A browser Origin/Referer should always be a URL. Fail closed when a
+    // host is available instead of treating malformed evidence as same-origin.
+    return Boolean(expectedRequestHost(request));
   }
 }
 
@@ -48,23 +48,23 @@ function isHostMismatch(request: Request, headerValue: string): boolean {
  * from a different site (browser navigation or fetch).
  *
  * Resolution order:
- *  1. `Sec-Fetch-Site` — modern browsers; `same-origin`/`same-site`/`none`
- *     pass, `cross-site` fails.
+ *  1. `Sec-Fetch-Site: cross-site` fails immediately.
  *  2. `Origin` — sent on all cross-origin and same-origin POSTs; compared
  *     against the request's own host.
  *  3. `Referer` — legacy fallback with the same host comparison.
+ * A `same-site` fetch can still come from an untrusted sibling subdomain,
+ * so its Origin must also pass the host check.
  *
  * Requests with none of these headers (non-browser clients) are not
  * considered cross-site: login CSRF requires a browser victim.
  */
 export function isCrossSiteFormPost(request: Request): boolean {
   const fetchSite = request.headers.get("sec-fetch-site")?.trim().toLowerCase();
-  if (fetchSite) {
-    return fetchSite === "cross-site";
-  }
+  if (fetchSite === "cross-site") return true;
 
   const origin = request.headers.get("origin");
-  if (origin && origin !== "null") {
+  if (origin === "null") return true;
+  if (origin) {
     return isHostMismatch(request, origin);
   }
 

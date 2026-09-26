@@ -6,6 +6,7 @@ import { validatePasswordPolicy } from "@/lib/auth/password-policy";
 import {
   assertUserInActorScope,
   isGlobalTeamManager,
+  userHoldsTeamManage,
   userDirectoryWhere,
 } from "@/lib/auth/team-scope";
 import { auditUserAction } from "@/lib/audit/service";
@@ -14,7 +15,6 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { paginationQuerySchema, parseSearchParams } from "@/lib/http/parse-search-params";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { createUserSchema, updateUserSchema } from "@/lib/user/schema";
-import { DEFAULT_ROLE_PERMISSIONS } from "@/lib/auth/rbac";
 
 import { NotFoundError, ValidationError, ForbiddenError } from "@/lib/errors";
 import { t } from "@/lib/i18n/translations";
@@ -31,19 +31,6 @@ const usersListQuerySchema = paginationQuerySchema
   .extend({
     pageSize: z.coerce.number().int().min(1).max(100).default(50),
   });
-
-/** True when the user effectively holds `team:manage` (platform admin tier). */
-async function userHoldsTeamManage(userId: string): Promise<boolean> {
-  const rows = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { roles: { select: { role: { select: { key: true } } } } },
-  });
-  if (!rows) return false;
-  return rows.roles.some((entry) => {
-    const perms = DEFAULT_ROLE_PERMISSIONS[entry.role.key as keyof typeof DEFAULT_ROLE_PERMISSIONS];
-    return perms?.includes("team:manage") ?? false;
-  });
-}
 
 /** GET: List users visible in the actor's team scope */
 export async function GET(request: Request) {
@@ -115,6 +102,11 @@ export async function POST(request: Request) {
 
         const roles = await tx.role.findMany({
           where: { key: { in: roleKeys } },
+          select: {
+            id: true,
+            key: true,
+            permissions: { select: { permission: { select: { key: true } } } },
+          },
           take: roleKeys.length,
         });
         const foundRoleKeys = new Set(roles.map((role) => role.key));
@@ -122,6 +114,20 @@ export async function POST(request: Request) {
         if (missingRoleKeys.length > 0) {
           throw new ValidationError(t("backend.user.roleNotFound", { roles: missingRoleKeys.join(", ") }));
         }
+		if (!isGlobalTeamManager(session)) {
+			if (roles.some((role) => role.key === "admin")) {
+				throw new ForbiddenError(t("backend.user.cannotGrantAdminRole"));
+			}
+			const actorPermissions = new Set<string>(session.permissions ?? []);
+			const beyondActor = roles.filter((role) =>
+				role.permissions.some((grant) => !actorPermissions.has(grant.permission.key)),
+			);
+			if (beyondActor.length > 0) {
+				throw new ForbiddenError(t("backend.user.cannotGrantBeyondOwnPermissions", {
+					roles: beyondActor.map((role) => role.key).join(", "),
+				}));
+			}
+		}
 
         const passwordHash = await hashPassword(body.password);
         const createdUser = await tx.user.create({
