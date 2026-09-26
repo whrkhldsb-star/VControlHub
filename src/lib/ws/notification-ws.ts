@@ -15,6 +15,7 @@ import type { SessionPayload } from "@/lib/auth/session";
 import { getSessionCookieName, verifySessionToken } from "@/lib/auth/session";
 import { createLogger } from "@/lib/logging";
 import { recordWsEvent, setWsActive } from "@/lib/monitoring/runtime-metrics";
+import { getNotificationBus } from "./notification-bus";
 
 const logger = createLogger("ws:notification");
 
@@ -99,6 +100,9 @@ export function closeWebSocketServer(): void {
 		clearInterval(heartbeatTimer);
 		heartbeatTimer = null;
 	}
+	// Drop the bus subscription (Redis pub/sub when multi-instance) before
+	// clearing the registry it delivers into.
+	void getNotificationBus().stop();
 	if (!wss) return;
 	detachUpgradeHandler?.();
 	detachUpgradeHandler = null;
@@ -298,24 +302,36 @@ export function setupWebSocketServer(
 	}, HEARTBEAT_INTERVAL_MS);
 	heartbeatTimer.unref?.();
 
+	// Multi-instance fan-out: pushes go through the bus, which delivers
+	// locally (single instance) or via Redis pub/sub so the instance holding
+	// the user's sockets sees every message regardless of origin process.
+	void getNotificationBus().start((userId, message) => {
+		broadcastToUser(userId, message as WsMessage);
+	});
+
 	logger.info("WebSocket notification server initialized");
 }
 
 /* ── Convenience: push notification to user ──────────────── */
+/** Push helpers fan out through the notification bus (see setupWebSocketServer). */
+function publishToUser(userId: string, message: WsMessage) {
+	getNotificationBus().publish(userId, message);
+}
+
 export function pushNotification(userId: string, data: {
 	id: string; title: string; message: string; actionUrl?: string | null; createdAt: string;
 }) {
-	broadcastToUser(userId, { type: "notification", data });
+	publishToUser(userId, { type: "notification", data });
 }
 
 export function pushUnreadCount(userId: string, count: number) {
-	broadcastToUser(userId, { type: "unread_count", count });
+	publishToUser(userId, { type: "unread_count", count });
 }
 
 export function pushDownloadProgress(userId: string, data: { taskId: string; progress: number; status: string }) {
-	broadcastToUser(userId, { type: "download_progress", data });
+	publishToUser(userId, { type: "download_progress", data });
 }
 
 export function pushServerAlert(userId: string, data: { serverId: string; serverName: string; message: string }) {
-	broadcastToUser(userId, { type: "server_alert", data });
+	publishToUser(userId, { type: "server_alert", data });
 }

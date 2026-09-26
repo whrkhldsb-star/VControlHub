@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { EmptyState, ListPanel, Toolbar } from "@/components/page-shell";
-import { CONTROL_CLASS, InlineLoading, Notice } from "@/components/ui-primitives";
+import { CONTROL_CLASS, Notice } from "@/components/ui-primitives";
+import { SkeletonList } from "@/components/skeleton";
 import { Pagination } from "@/components/pagination";
 import { formatDateTime, formatShortDate, formatShortTime } from "@/lib/datetime/format";
 import { getErrorMessage } from "@/lib/http/error-message";
@@ -78,6 +79,8 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
     severity: "",
     action: initialActionFilter || "",
     q: "",
+    sort: "time",
+    dir: "desc",
   });
   const page = Math.max(1, Number.parseInt(urlState.page || "1", 10) || 1);
   const setPage = (value: number) => setUrlField("page", String(Math.max(1, value)));
@@ -93,6 +96,19 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
   const setSearchQuery = (value: string) => {
     patchUrl({ q: value, page: "1" });
   };
+  type SortColumn = "time" | "actor" | "action";
+  const sortColumn: SortColumn =
+    urlState.sort === "actor" || urlState.sort === "action" ? urlState.sort : "time";
+  const sortDir = urlState.dir === "asc" ? "asc" : "desc";
+  const toggleSort = (column: SortColumn) => {
+    patchUrl({
+      sort: column,
+      // Same column flips direction; a new column starts descending (newest /
+      // Z-first is the natural default for audit review).
+      dir: column === sortColumn && sortDir === "desc" ? "asc" : "desc",
+      page: "1",
+    });
+  };
   // The input stays fully controlled; only the query the fetcher reads lags.
   const [debouncedSearch, setDebouncedSearch] = useState(searchQuery);
   useEffect(() => {
@@ -105,8 +121,10 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
     if (severityFilter) params.set("severity", severityFilter);
     if (actionFilter) params.set("action", actionFilter);
     if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
+    params.set("sort", sortColumn);
+    params.set("direction", sortDir);
     return (await csrfFetch(`/api/audit?${params}`)) as AuditListResponse;
-  }, [page, severityFilter, actionFilter, debouncedSearch]);
+  }, [page, severityFilter, actionFilter, debouncedSearch, sortColumn, sortDir]);
 
   const getAuditErrorMessage = useCallback(
     (error: unknown) => getErrorMessage(error, t("audit.loadFailed")),
@@ -230,16 +248,43 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
         {/* Desktop */}
         <div className="hidden xl:block">
           <div className="grid grid-cols-[140px_100px_120px_minmax(0,1.5fr)_minmax(0,2fr)_160px] gap-4 border-b border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-4 py-3 text-xs uppercase text-[var(--text-muted)]">
-            <div>{t("audit.header.time")}</div>
+            <button
+              type="button"
+              onClick={() => toggleSort("time")}
+              aria-label={t("audit.sort.time")}
+              className={`flex items-center gap-1 text-left font-medium transition hover:text-[var(--text-secondary)] ${sortColumn === "time" ? "text-[var(--text-secondary)]" : ""}`}
+            >
+              {t("audit.header.time")}
+              {sortColumn === "time" ? <span aria-hidden>{sortDir === "asc" ? "↑" : "↓"}</span> : null}
+            </button>
             <div>{t("audit.header.level")}</div>
-            <div>{t("audit.header.type")}</div>
-            <div>{t("audit.header.actor")}</div>
+            <button
+              type="button"
+              onClick={() => toggleSort("action")}
+              aria-label={t("audit.sort.action")}
+              className={`flex items-center gap-1 text-left font-medium transition hover:text-[var(--text-secondary)] ${sortColumn === "action" ? "text-[var(--text-secondary)]" : ""}`}
+            >
+              {t("audit.header.type")}
+              {sortColumn === "action" ? <span aria-hidden>{sortDir === "asc" ? "↑" : "↓"}</span> : null}
+            </button>
+            <button
+              type="button"
+              onClick={() => toggleSort("actor")}
+              aria-label={t("audit.sort.actor")}
+              className={`flex items-center gap-1 text-left font-medium transition hover:text-[var(--text-secondary)] ${sortColumn === "actor" ? "text-[var(--text-secondary)]" : ""}`}
+            >
+              {t("audit.header.actor")}
+              {sortColumn === "actor" ? <span aria-hidden>{sortDir === "asc" ? "↑" : "↓"}</span> : null}
+            </button>
             <div>{t("audit.details")}</div>
             <div>{t("audit.source")}</div>
           </div>
           <div className="divide-y divide-[var(--border-subtle)]">
             {loading ? (
-              <InlineLoading label={t("audit.loading")} />
+              <div className="p-4" aria-busy="true" aria-live="polite">
+                <span className="sr-only">{t("audit.loading")}</span>
+                <SkeletonList count={6} />
+              </div>
             ) : error && !data ? (
               <div className="px-4 py-10 text-sm text-[var(--danger)]">{t("audit.load-error")}</div>
             ) : !data || data.logs.length === 0 ? (
@@ -272,7 +317,10 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
         {/* Mobile */}
         <div className="divide-y divide-[var(--border-subtle)] xl:hidden">
           {loading ? (
-            <InlineLoading label={t("audit.loading")} />
+            <div className="p-4" aria-busy="true" aria-live="polite">
+              <span className="sr-only">{t("audit.loading")}</span>
+              <SkeletonList count={5} />
+            </div>
           ) : error && !data ? (
             <div className="px-4 py-10 text-sm text-[var(--danger)]">{t("audit.load-error")}</div>
           ) : !data || data.logs.length === 0 ? (

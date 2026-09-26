@@ -69,6 +69,36 @@ jobs:
           PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -d vcontrolhub_ci -v ON_ERROR_STOP=1 -c 'CREATE DATABASE vcontrolhub_migrate;'
           npx prisma migrate deploy
 
+      # Schema-vs-migrations drift guard. A schema.prisma edit without a
+      # matching migration previously only surfaced at `migrate deploy` time
+      # (the September incident needed a hand-written reconciliation
+      # migration). Gate on structural drift — added/removed tables, columns,
+      # enums, indexes. Constraint-name renames (Prisma 7 default names vs
+      # the historical migrations' names) and FK-constraint presence are
+      # filtered: they are semantic no-ops for migrate deploy today and would
+      # make this gate fire on every unrelated PR.
+      - name: Fail on schema/migration drift
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/vcontrolhub_migrate
+          SHADOW_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/vcontrolhub_migrate_shadow
+        run: |
+          PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -d vcontrolhub_ci -v ON_ERROR_STOP=1 -c 'CREATE DATABASE vcontrolhub_migrate_shadow;'
+          npx prisma migrate diff \
+            --from-migrations prisma/migrations \
+            --to-schema prisma/schema.prisma \
+            > drift-report.txt
+          # Keep only structural change lines for the gate.
+          grep -E '^\s*\[(\*|\+|-)\]' drift-report.txt \
+            | grep -v '^\s*\[\*\] Changed the' \
+            | grep -Ev 'Renamed the primary key|Renamed index|Renamed the foreign key|Renamed the unique|foreign key on columns' \
+            > drift-gate.txt || true
+          if [ -s drift-gate.txt ]; then
+            echo '::error::schema.prisma and prisma/migrations have drifted. Add a migration (npx prisma migrate dev) or revert the schema change.'
+            cat drift-gate.txt
+            exit 1
+          fi
+          echo 'No structural drift between schema and migrations.'
+
       - name: Typecheck
         run: npm run typecheck
 
@@ -464,3 +494,30 @@ jobs:
             .dast-output/
             /tmp/vch-dast-server.log
           if-no-files-found: ignore
+
+  # Turbopack build probe (non-blocking). Production builds run webpack
+  # (`npm run build`); this job keeps `build:turbopack` continuously verified
+  # so the switch can happen the day Turbopack is declared stable, instead of
+  # discovering a quarter's worth of incompatibilities at once.
+  turbopack-smoke:
+    name: Turbopack build probe (non-blocking)
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Build with Turbopack
+        run: npm run build:turbopack

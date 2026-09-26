@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ActionButton } from "@/components/action-button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ProgressBar } from "@/components/ui-primitives";
+import { EmptyState } from "@/components/page-shell";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useToast } from "@/components/toast-provider";
@@ -34,6 +35,7 @@ export function CostBudgetPanel({
   });
   const [busy, setBusy] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<CostBudgetRecord | null>(null);
+  const nameInputRef = useRef<HTMLInputElement | null>(null);
 
   const reload = async () => {
     const data = (await csrfFetch("/api/cost/budgets")) as { budgets?: CostBudgetRecord[] };
@@ -132,6 +134,7 @@ export function CostBudgetPanel({
       {canManage && (
         <div className="mt-4 grid gap-2 md:grid-cols-6">
           <input
+            ref={nameInputRef}
             className={inputClass}
             aria-label={t("costPage.budget.name")}
             value={form.name}
@@ -184,9 +187,22 @@ export function CostBudgetPanel({
       )}
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         {budgets.length === 0 ? (
-          <div className="space-y-1 md:col-span-2">
-            <p className="text-sm text-[var(--text-muted)]">{t("costPage.budget.empty")}</p>
-            <p className="text-xs text-[var(--text-muted)]">{t("costPage.budget.emptyHint")}</p>
+          <div className="md:col-span-2">
+            <EmptyState
+              text={`${t("costPage.budget.empty")} — ${t("costPage.budget.emptyHint")}`}
+              action={
+                canManage ? (
+                  <ActionButton
+                    type="button"
+                    variant="primary"
+                    onClick={() => nameInputRef.current?.focus()}
+                    className="text-sm"
+                  >
+                    {t("costPage.budget.create")}
+                  </ActionButton>
+                ) : undefined
+              }
+            />
           </div>
         ) : (
           budgets.map((budget) => (

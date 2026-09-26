@@ -1,8 +1,9 @@
-import { render, screen } from "@testing-library/react";
+﻿import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { AppSidebar } from "../app-sidebar";
+import { ToastProvider } from "../toast-provider";
 
 vi.mock("next/navigation", () => ({
 	usePathname: () => "/settings",
@@ -28,9 +29,22 @@ vi.mock("../language-toggle", () => ({
 	LanguageToggle: () => <button type="button" aria-label="语言" />,
 }));
 
+vi.mock("../team-switcher", () => ({
+	TeamSwitcher: () => null,
+}));
+
+/** The real sidebar tree always mounts inside a ToastProvider (TeamSwitcher). */
+function renderSidebar(props: React.ComponentProps<typeof AppSidebar>) {
+	return render(
+		<ToastProvider>
+			<AppSidebar {...props} />
+		</ToastProvider>,
+	);
+}
+
 describe("AppSidebar", () => {
 	it("exposes account security independently from administrator-only settings", () => {
-		render(<AppSidebar username="admin" />);
+		renderSidebar({ username: "admin" });
 
 		expect(screen.getAllByRole("link", { name: /^Settings$/ }).length).toBeGreaterThan(0);
 		expect(screen.getAllByRole("link", { name: "auth.account-security" })[0]).toHaveAttribute("href", "/account/security");
@@ -40,7 +54,7 @@ describe("AppSidebar", () => {
 	});
 
 	it("keeps long account names readable on a dedicated footer row", () => {
-		render(<AppSidebar username="qa_cron_1780249023419" />);
+		renderSidebar({ username: "qa_cron_1780249023419" });
 
 		const username = screen.getAllByText("qa_cron_1780249023419")[0];
 		expect(username).toHaveClass("truncate");
@@ -49,14 +63,14 @@ describe("AppSidebar", () => {
 	});
 
 	it("shows short usernames like admin without needing hover title only", () => {
-		render(<AppSidebar username="admin" />);
+		renderSidebar({ username: "admin" });
 		const username = screen.getAllByText("admin")[0];
 		expect(username).toBeVisible();
 		expect(username).toHaveClass("text-[var(--text-primary)]");
 	});
 
 	it("renders quick service links as external URLs without squeezing labels", () => {
-		render(<AppSidebar username="admin" quickServices={[{ slug: "alist", name: "AList 文件服务", icon: "☁️", path: "http://82.158.91.159:5244/" }]} />);
+		renderSidebar({ username: "admin", quickServices: [{ slug: "alist", name: "AList 文件服务", icon: "☁️", path: "http://82.158.91.159:5244/" }] });
 
 		const links = screen.getAllByRole("link", { name: /AList 文件服务/ });
 		expect(links).toHaveLength(2);
@@ -68,7 +82,7 @@ describe("AppSidebar", () => {
 	});
 
 	it("marks sidebar navigation as React-localized chrome", () => {
-		render(<AppSidebar username="admin" />);
+		renderSidebar({ username: "admin" });
 
 		expect(screen.getAllByRole("navigation")[0]).toHaveAttribute("data-i18n-skip");
 		expect(screen.getAllByRole("button", { name: "Switch to light mode" }).length).toBeGreaterThan(0);
@@ -78,7 +92,7 @@ describe("AppSidebar", () => {
 	it("exposes a visible search control that opens global search without relying on hidden shortcuts", async () => {
 		const dispatchSpy = vi.spyOn(window, "dispatchEvent");
 		const user = userEvent.setup();
-		render(<AppSidebar username="admin" />);
+		renderSidebar({ username: "admin" });
 
 		const searchButtons = screen.getAllByRole("button", { name: "search.dialog" });
 		expect(searchButtons[0]).toHaveAttribute("aria-keyshortcuts", "Control+K Meta+K");
@@ -89,7 +103,7 @@ describe("AppSidebar", () => {
 	});
 
 	it("does not render without an authenticated username", () => {
-		render(<AppSidebar />);
+		renderSidebar({});
 
 		expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
 		expect(screen.queryByRole("link", { name: /Dashboard/ })).not.toBeInTheDocument();

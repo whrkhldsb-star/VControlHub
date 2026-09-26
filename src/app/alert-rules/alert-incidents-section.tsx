@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { ActionButton } from "@/components/action-button";
+import { EmptyState } from "@/components/page-shell";
 import { StatusBadge } from "@/components/status-badge";
 import { useI18n } from "@/lib/i18n/use-locale";
 
@@ -42,7 +43,9 @@ export function AlertIncidentsSection({
 				</ActionButton>
 			</div>
 			{unresolved.length === 0 ? (
-				<p className="text-xs text-[var(--text-muted)]">{t("alertRulesPage.incidents.empty")} ({incidents.filter((i) => i.status === "RESOLVED").length} {t("alertRulesPage.incidents.resolved")})</p>
+				<EmptyState>
+					{t("alertRulesPage.incidents.empty")} ({incidents.filter((i) => i.status === "RESOLVED").length} {t("alertRulesPage.incidents.resolved")})
+				</EmptyState>
 			) : (
 				<div className="space-y-2">
 					{visible

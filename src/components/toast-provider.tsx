@@ -1,22 +1,32 @@
 "use client";
 
 import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from "react";
+import Link from "next/link";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { AlertTriangle, Bell, Check, X } from "./icons";
 import { IconButton } from "./ui-primitives";
 
 type ToastType = "success" | "error" | "info" | "warning";
 
+type ToastAction = { label: string; href: string };
+
 type Toast = {
   id: string;
   type: ToastType;
   message: string;
-  duration?: number;
+  duration: number;
+  action?: ToastAction;
 };
+
+/**
+ * The third argument stays backwards compatible: older call sites pass a
+ * plain duration number, newer ones pass `{ duration?, action? }`.
+ */
+type ToastOptions = number | { duration?: number; action?: ToastAction };
 
 type ToastContextValue = {
   toasts: Toast[];
-  addToast: (type: ToastType, message: string, duration?: number) => void;
+  addToast: (type: ToastType, message: string, options?: ToastOptions) => void;
   removeToast: (id: string) => void;
 };
 
@@ -80,13 +90,21 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addToast = useCallback(
-    (type: ToastType, message: string, duration = 4000) => {
+    (type: ToastType, message: string, options: ToastOptions = 4000) => {
       const id = `toast-${++toastCounter}`;
-      const toast: Toast = { id, type, message, duration };
+      const opts: { duration?: number; action?: ToastAction } =
+        typeof options === "number" ? { duration: options } : options;
+      const toast: Toast = {
+        id,
+        type,
+        message,
+        duration: opts.duration ?? 4000,
+        action: opts.action,
+      };
       setToasts((prev) => [...prev, toast]);
 
-      if (duration > 0) {
-        timers.current.set(id, setTimeout(() => removeToast(id), duration));
+      if (toast.duration > 0) {
+        timers.current.set(id, setTimeout(() => removeToast(id), toast.duration));
       }
     },
     [removeToast],
@@ -108,6 +126,15 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             >
               <Icon size={18} aria-hidden className={`shrink-0 ${style.icon}`} />
               <span className="min-w-0 flex-1 break-words text-[var(--text-primary)]">{toast.message}</span>
+              {toast.action ? (
+                <Link
+                  href={toast.action.href}
+                  onClick={() => removeToast(toast.id)}
+                  className="shrink-0 rounded-md border border-current px-2 py-1 text-xs font-medium transition hover:bg-[var(--surface-hover)]"
+                >
+                  {toast.action.label}
+                </Link>
+              ) : null}
               <IconButton
                 onClick={() => removeToast(toast.id)}
                 className="h-8 w-8 shrink-0"

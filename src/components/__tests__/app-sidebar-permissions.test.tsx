@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AppSidebar } from "../app-sidebar";
+import { ToastProvider } from "../toast-provider";
 import {
 	SessionGateProvider,
 	gateFromRoles,
@@ -38,6 +39,10 @@ vi.mock("../language-toggle", () => ({
 	LanguageToggle: () => <button type="button" aria-label="语言" />,
 }));
 
+vi.mock("../team-switcher", () => ({
+	TeamSwitcher: () => null,
+}));
+
 function renderWithGate(
 	gate: SessionGate,
 	declaredPermissionsByHref: Record<string, readonly Permission[]> = {},
@@ -45,7 +50,9 @@ function renderWithGate(
 	function Wrapper({ children }: { children: ReactNode }) {
 		return (
 			<I18nProvider initialLocale="zh">
-				<SessionGateProvider value={gate}>{children}</SessionGateProvider>
+				<ToastProvider>
+					<SessionGateProvider value={gate}>{children}</SessionGateProvider>
+				</ToastProvider>
 			</I18nProvider>
 		);
 	}

@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { SignOutButton } from "./sign-out-button";
 import { ChangePasswordModal } from "./change-password-modal";
 import { NotificationBell } from "./notification-bell";
+import { TeamSwitcher } from "./team-switcher";
 import { ThemeToggle } from "./theme-toggle";
 import { LanguageToggle } from "./language-toggle";
 import { getAppName, getPublicLabel } from "@/lib/branding";
@@ -320,6 +321,8 @@ export function AppSidebar({
 						</span>
 					</div>
 				</div>
+				{/* Team-workspace scope switcher (hidden when gate/API says nothing to switch) */}
+				<TeamSwitcher />
 				{/* Controls on their own row so they never crush the username */}
 				<div className="px-1.5 py-1">
 					<SidebarControls />

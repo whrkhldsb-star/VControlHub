@@ -52,6 +52,9 @@ type ListAuditLogsInput = {
 	severity?: string;
 	actorId?: string;
 	search?: string;
+	/** Sort column: time (default), actor name, or action type. */
+	sort?: "time" | "actor" | "action";
+	direction?: "asc" | "desc";
 	/** When provided, list is filtered with teamWhere (admin sees all). */
 	session?: SessionScope | null;
 };
@@ -135,6 +138,20 @@ function buildAuditWhere(input: {
 	return { AND: clauses };
 }
 
+/**
+ * Sort mapping for the audit list. Relation sorts (actor) need the nested
+ * orderBy form; secondary createdAt keeps pagination stable for ties.
+ */
+function auditOrderBy(
+	sort: ListAuditLogsInput["sort"],
+	direction: ListAuditLogsInput["direction"],
+): Prisma.AuditLogOrderByWithRelationInput[] {
+	const dir = direction === "asc" ? "asc" : "desc";
+	if (sort === "actor") return [{ actor: { username: dir } }, { createdAt: "desc" }];
+	if (sort === "action") return [{ action: dir }, { createdAt: "desc" }];
+	return [{ createdAt: dir }];
+}
+
 export async function listAuditLogs(
 	input: ListAuditLogsInput = {},
 ): Promise<AuditLogListResult> {
@@ -148,7 +165,7 @@ export async function listAuditLogs(
 			include: {
 				actor: { select: { username: true, displayName: true } },
 			},
-			orderBy: { createdAt: "desc" },
+			orderBy: auditOrderBy(input.sort, input.direction),
 			skip: (page - 1) * pageSize,
 			take: pageSize,
 		}),

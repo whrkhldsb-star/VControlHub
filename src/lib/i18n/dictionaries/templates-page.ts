@@ -45,6 +45,7 @@ export const zh: Record<string, string> = {
 	"templatesPage.toast.missingVar": "请填写变量 {name} 后再提交部署",
 	"templatesPage.toast.submitFailed": "提交失败",
 	"templatesPage.toast.submitted": "部署已提交，可在部署记录中查看进度",
+	"templatesPage.toast.viewRequests": "前往审批中心",
 	"templatesPage.variable": "变量 {name}",
 	"templatesPage.deployReason": "从模板中心下发：{name}",
 };
@@ -89,6 +90,7 @@ export const en: Record<string, string> = {
 	"templatesPage.toast.missingVar": "Please fill variable {name} before submitting the deployment",
 	"templatesPage.toast.submitFailed": "Submit failed",
 	"templatesPage.toast.submitted": "Deployment submitted — see progress in deployment history",
+	"templatesPage.toast.viewRequests": "Open approvals",
 	"templatesPage.variable": "Variable {name}",
 	"templatesPage.deployReason": "Launched from template center: {name}",
 };

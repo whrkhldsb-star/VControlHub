@@ -189,6 +189,19 @@ export const config = {
 		get thumbCacheDir(): string | undefined { return readOptionalString("MEDIA_THUMB_CACHE_DIR"); },
 	},
 
+	/** Audit log lifecycle. audit_logs is the fastest-growing table in the
+	 * schema (one row per login, command, file operation) and had no retention
+	 * path — without a bound it eventually dominates the shared instance. */
+	audit: {
+		/** Rows older than this many days are pruned by the job maintenance
+		 * worker. 0 disables pruning entirely (compliance setups that archive
+		 * externally and want everything retained). */
+		get retentionDays(): number { return readInt("AUDIT_RETENTION_DAYS", 365); },
+		/** Per-sweep delete cap so a very large backlog cannot monopolise the
+		 * table for minutes on the first run after enabling retention. */
+		get pruneBatchSize(): number { return readInt("AUDIT_PRUNE_BATCH_SIZE", 5_000); },
+	},
+
 	/** App identity / hosting. */
 	app: {
 		get appDir(): string | undefined { return readOptionalString("APP_DIR"); },

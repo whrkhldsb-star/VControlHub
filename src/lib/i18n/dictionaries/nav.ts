@@ -52,6 +52,10 @@ export const zh: Record<string, string> = {
 	"nav.tickets": "工单请求",
 	"nav.traffic": "流量中心",
 	"nav.users": "用户管理",
+	"nav.teamSwitchLabel": "团队空间",
+	"nav.teamSwitchFailed": "切换团队空间失败",
+	"nav.teamSwitchSuccess": "已切换团队空间",
+	"nav.teamCurrent": "当前",
 };
 
 export const en: Record<string, string> = {
@@ -101,4 +105,8 @@ export const en: Record<string, string> = {
 	"nav.tickets": "Tickets",
 	"nav.traffic": "Traffic",
 	"nav.users": "Users",
+	"nav.teamSwitchLabel": "Team workspace",
+	"nav.teamSwitchFailed": "Failed to switch team workspace",
+	"nav.teamSwitchSuccess": "Team workspace switched",
+	"nav.teamCurrent": "Current",
 };

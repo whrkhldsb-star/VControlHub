@@ -97,7 +97,12 @@ export function TemplateListClient({
 						reason: t("templatesPage.deployReason", { name: template.name }),
 					}),
 				});
-				addToast("success", t("templatesPage.toast.submitted"));
+				// Template deployments route through the approval chain — surface
+				// where to go instead of leaving the user to guess.
+				addToast("success", t("templatesPage.toast.submitted"), {
+					duration: 8000,
+					action: { label: t("templatesPage.toast.viewRequests"), href: "/deployments" },
+				});
 			} catch (err) {
 				addToast(
 					"error",

@@ -24,6 +24,7 @@ import {
   abandonStaleRunningVpsBackupRecords,
 } from "@/lib/backup/vps-backup-service";
 import { abandonStaleRunningBackupRecords } from "@/lib/backup/service";
+import { pruneAuditLogs } from "@/lib/audit/retention";
 import { reconcileStaleRunningDownloadTasks } from "@/lib/downloads/reconcile";
 import { sweepExpiredMediaUploadSessions } from "@/lib/upload/service";
 import { pruneThumbnailCache } from "@/lib/media/thumbnail-cache";
@@ -384,6 +385,22 @@ async function tick(reason: string) {
         logger.info("pruned high-frequency completed jobs", {
           workerId: WORKER_ID,
           deleted,
+        });
+      }
+    });
+
+    // audit_logs had no retention path at all — the fastest-growing table in
+    // the schema grew unbounded inside the shared app database. Bounded
+    // batches (see pruneAuditLogs) keep the first post-enable sweep from
+    // monopolising the table; AUDIT_RETENTION_DAYS=0 disables pruning.
+    await runStep("prune-audit-logs", async () => {
+      const pruned = await pruneAuditLogs();
+      if (pruned.deleted > 0 || pruned.truncated) {
+        logger.info("pruned audit logs", {
+          workerId: WORKER_ID,
+          deleted: pruned.deleted,
+          retentionDays: pruned.retentionDays,
+          truncated: pruned.truncated,
         });
       }
     });

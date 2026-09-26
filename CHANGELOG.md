@@ -4,6 +4,22 @@ All notable changes to VControlHub are documented here. Versions follow Semantic
 
 ## [Unreleased]
 
+### Added
+
+- SSH terminal availability in docker-compose / reverse-proxy-less deployments: the web server now forwards `/ssh` WebSocket upgrades to the SSH gateway (`ssh-ws-proxy`, port 3001) at the TCP level (`ssh-upgrade-forwarder`). Compose publishes 3000/3001 directly without a proxy container, so browser terminals previously hit the Next.js server, which does not own `/ssh` and destroyed the socket. Split-host deployments can opt out with `SSH_GATEWAY_FORWARD=0`; an unreachable gateway answers 502 instead of hanging. The systemd+Caddy topology keeps routing at the proxy as before.
+- Audit log retention: `AUDIT_RETENTION_DAYS` (default 365, `0` disables) — the job maintenance worker now prunes `audit_logs` rows older than the retention in bounded batches (`AUDIT_PRUNE_BATCH_SIZE`, default 5000, capped sweeps), closing the only unbounded-growth table in the schema. Rows are eligible for CSV/JSON export before aging out.
+- Multi-instance notification fan-out: with `REDIS_URL` configured, WebSocket notification pushes publish to a Redis pub/sub channel (`vch:notifications`) that every web instance subscribes to, so a notification created on instance A (or in the worker) reaches sockets held by instance B. Without Redis the bus is an in-process direct call — single-instance behavior is unchanged, and a Redis outage degrades to local delivery rather than crashing (mirrors the rate-limit store's optional-dependency pattern).
+- Sidebar team-workspace switcher: a compact select under the account row switches `currentTeamId` without the detour through Settings → 团队空间. Gated on `team:read` and hidden entirely for users with no memberships.
+- Audit log column sorting: time / action type / actor headers on the desktop table toggle asc/desc (URL-synced via `?sort=&dir=`, server-side orderBy with a stable secondary sort).
+- CI schema-drift guard: `prisma migrate diff` (migrations vs schema.prisma) fails the test job on structural drift — added/removed tables, columns, enums, indexes. Constraint-name renames and FK-constraint presence are filtered as known semantic no-ops so the gate starts green (verified locally: 33 cosmetic renames + 1 benign FK difference yield zero gated lines).
+- CI Turbopack build probe: a non-blocking (`continue-on-error`) job keeps `npm run build:turbopack` continuously verified so the production switch can happen the day Turbopack is declared stable.
+
+### Changed
+
+- Toasts support an optional action link (`addToast(type, message, { duration, action: { label, href } })`); template deployments now show "前往审批中心"-style follow-ups pointing at the deployment history instead of a bare "submitted".
+- Users and audit client-side loading states render skeleton lists (shared `SkeletonList`) instead of a centered spinner, so panel heights no longer jump when data lands.
+- Cost budgets and alert-incidents empty states ride the shared `EmptyState` chrome; the budget empty state gains a "create budget" action that focuses the inline form.
+
 ### Fixed
 
 - Quick-services Docker status messages now follow the request locale: `getDockerEnvironmentStatus*` used the static service dictionary (zh default) instead of the request-scoped `serviceT`, so EN users saw "尚未安装 Docker" and a Chinese install hint inside the otherwise-English warning. Verified across the full route × locale × theme matrix sweep (46 routes × 2 × 2: screenshots + programmatic overflow/clipping/console checks; the only remaining console noise is a dev-only React instrumentation `performance.measure` warning for the StoragePage component name, not an application error).

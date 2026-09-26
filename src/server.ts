@@ -19,6 +19,7 @@ import { createServer } from "node:http";
 import next from "next";
 
 import { closeWebSocketServer, setupWebSocketServer } from "@/lib/ws/notification-ws";
+import { forwardSshUpgrade } from "@/lib/ws/ssh-upgrade-forwarder";
 import { createLogger } from "@/lib/logging";
 import { parseTcpPort } from "@/lib/runtime/listen-port";
 
@@ -102,6 +103,11 @@ async function main() {
 	// rest — e.g. the dev HMR websocket — to Next's upgrade handler).
 	setupWebSocketServer(server, {
 		onForeignUpgrade: (req, socket, head) => {
+			// `/ssh` terminal upgrades belong to the standalone gateway (3001).
+			// Pipe them through so compose deployments without a reverse proxy
+			// get working terminals; systemd+Caddy deployments keep routing the
+			// same path at the proxy layer instead.
+			if (forwardSshUpgrade(req, socket, head)) return;
 			Promise.resolve(nextUpgrade(req, socket, head)).catch(() => {
 				if (!socket.destroyed) socket.destroy();
 			});
