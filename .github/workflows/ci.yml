@@ -520,4 +520,8 @@ jobs:
         run: npx prisma generate
 
       - name: Build with Turbopack
+        # The build itself never connects; prisma.config.ts merely requires
+        # DATABASE_URL to be present when loaded by Next's config chain.
+        env:
+          DATABASE_URL: postgresql://probe:probe@127.0.0.1:1/probe
         run: npm run build:turbopack
