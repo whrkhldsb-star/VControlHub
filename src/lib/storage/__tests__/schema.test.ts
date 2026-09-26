@@ -53,6 +53,15 @@ describe("storage schema", () => {
     ).toThrow(/at most 65535/i);
   });
 
+  it("requires a public URL for direct and automatic access", () => {
+    for (const directAccessMode of ["DIRECT", "AUTO"]) {
+      expect(createStorageNodeSchema.safeParse({
+        name: "Remote storage", driver: "SFTP", basePath: "/data/media",
+        host: "203.0.113.10", directAccessMode,
+      }).success).toBe(false);
+    }
+  });
+
   it("rejects private or credentialed direct-access base URLs before persistence", () => {
     for (const publicBaseUrl of [
       "http://127.0.0.1:31888/files",

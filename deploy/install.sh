@@ -343,7 +343,7 @@ install_packages() {
 
 	# Core tools that come from apt. iproute2 provides `ss` and interface
 	# inspection utilities used by the installer and traffic dashboard checks.
-	for pkg_cmd in "update-ca-certificates:ca-certificates" "curl:curl" "gpg:gnupg" "git:git" "ssh:openssh-client" "sshpass:sshpass" "rsync:rsync" "ss:iproute2" "aria2c:aria2" "make:build-essential"; do
+	for pkg_cmd in "update-ca-certificates:ca-certificates" "curl:curl" "gpg:gnupg" "git:git" "ssh:openssh-client" "sshpass:sshpass" "rsync:rsync" "ss:iproute2" "ip:iproute2" "aria2c:aria2" "make:build-essential" "gcc:build-essential" "python3:python3" "openssl:openssl" "sudo:sudo"; do
 		local cmd="${pkg_cmd%%:*}"
 		local pkg="${pkg_cmd##*:}"
 		if have_cmd "${cmd}"; then
@@ -364,7 +364,7 @@ install_packages() {
 	fi
 
 	# ── Phase 2: Node.js ─────────────────────────────────────────────
-	local node_major=0 node_path="" node_candidate="" node_real=""
+	local node_major=0 node_minor=0 node_version="" node_path="" node_candidate="" node_real=""
 	# Root automation environments often prepend a private Node shim under /root
 	# to PATH. Search system locations too, because systemd's ProtectHome=true
 	# prevents APP_USER from executing that shim even when /usr/bin/node is valid.
@@ -376,8 +376,10 @@ install_packages() {
 				/root/*:*|*:/root/*) continue ;;
 			esac
 		fi
-		node_major="$("${node_candidate}" -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)"
-		if [ "${node_major}" -ge "${NODE_VERSION_MAJOR}" ] 2>/dev/null; then
+		node_version="$("${node_candidate}" -p 'process.versions.node' 2>/dev/null || echo 0.0.0)"
+		node_major="${node_version%%.*}"
+		node_minor="${node_version#*.}"; node_minor="${node_minor%%.*}"
+		if { [ "${node_major}" -gt "${NODE_VERSION_MAJOR}" ] || { [ "${node_major}" -eq "${NODE_VERSION_MAJOR}" ] && { [ "${node_major}" -gt 22 ] || [ "${node_minor}" -ge 9 ]; }; }; } 2>/dev/null; then
 			node_path="${node_candidate}"
 			break
 		fi
@@ -446,7 +448,9 @@ prepare_app_user() {
     return
   fi
   if ! id "${APP_USER}" >/dev/null 2>&1; then
-    useradd --system --home "${APP_DIR}" --shell /usr/sbin/nologin "${APP_USER}"
+    local nologin_shell
+    nologin_shell="$(command -v nologin 2>/dev/null || printf '/bin/false')"
+    useradd --system --home "${APP_DIR}" --shell "${nologin_shell}" "${APP_USER}"
   fi
   mkdir -p "${APP_DIR}"
 }
@@ -566,7 +570,7 @@ validate_env() {
  # shellcheck disable=SC1090
  set -a; source "${ENV_FILE}"; set +a
  local required
- for required in DATABASE_URL AUTH_SESSION_SECRET ADMIN_INITIAL_PASSWORD SSH_WS_SECRET ENCRYPTION_KEY; do
+ for required in DATABASE_URL AUTH_SESSION_SECRET ADMIN_INITIAL_PASSWORD SSH_WS_SECRET STORAGE_DIRECT_ACCESS_SECRET ENCRYPTION_KEY; do
  [ -n "${!required:-}" ] || fail "${required} is required in ${ENV_FILE}."
  if is_placeholder_value "${!required:-}"; then
  fail "${required} still contains a placeholder in ${ENV_FILE}."
@@ -664,6 +668,16 @@ auto_generate_env_secrets() {
  set_env_var SSH_WS_SECRET "${ws_secret}"
  SSH_WS_SECRET="${ws_secret}"
  log "Auto-generated SSH_WS_SECRET"
+ changed=1
+ fi
+
+ # ── STORAGE_DIRECT_ACCESS_SECRET ────────────────────────────────
+ if is_placeholder_value "${STORAGE_DIRECT_ACCESS_SECRET:-}" || [ -z "${STORAGE_DIRECT_ACCESS_SECRET:-}" ]; then
+ local storage_secret
+ storage_secret="$(openssl rand -base64 48 | tr -dc 'a-zA-Z0-9' | head -c 48)"
+ set_env_var STORAGE_DIRECT_ACCESS_SECRET "${storage_secret}"
+ STORAGE_DIRECT_ACCESS_SECRET="${storage_secret}"
+ log "Auto-generated STORAGE_DIRECT_ACCESS_SECRET"
  changed=1
  fi
 
@@ -787,6 +801,16 @@ create_runtime_dirs() {
 setup_postgres() {
 	[ "${PG_AUTO_SETUP}" = "1" ] || { warn "Skipping PostgreSQL auto-setup"; return; }
 	[ "${SKIP_DB_SETUP}" = "1" ] && { warn "Skipping PostgreSQL setup (SKIP_DB_SETUP=1)"; return; }
+	# A preconfigured remote DATABASE_URL belongs to the operator. Rewriting it
+	# to 127.0.0.1 here would silently redirect upgrades to a different DB.
+	if [ -n "${DATABASE_URL:-}" ] && ! is_placeholder_value "${DATABASE_URL}"; then
+		local configured_db_host
+		configured_db_host="$(python3 -c 'import sys,urllib.parse; print(urllib.parse.urlparse(sys.argv[1]).hostname or "")' "${DATABASE_URL}" 2>/dev/null || true)"
+		case "${configured_db_host}" in
+			""|localhost|127.0.0.1|::1) ;;
+			*) warn "External DATABASE_URL detected; preserving it and skipping local PostgreSQL account setup"; return ;;
+		esac
+	fi
 	have_cmd psql || { warn "psql not found; skipping PostgreSQL auto-setup"; return; }
 
 	[[ "${PG_DB_NAME}" =~ ^[a-z_][a-z0-9_]*$ ]] || fail "PG_DB_NAME must be a safe unquoted PostgreSQL identifier: ${PG_DB_NAME}"
@@ -853,10 +877,14 @@ setup_postgres() {
 build_app() {
  log "Installing dependencies and building application"
  cd "${APP_DIR}"
- # Ensure native build tools are available (needed by npm ci / node-gyp)
- if ! have_cmd make || ! have_cmd gcc; then
- log "Installing build-essential (make, gcc, etc.) for native modules"
- apt-get install -y build-essential python3
+ # Native dependencies must be present before npm ci / node-gyp. On portable
+ # preinstalled hosts do not silently try apt after SKIP_PACKAGES=1.
+ if ! have_cmd make || ! have_cmd gcc || ! have_cmd python3; then
+   if [ "${SKIP_PACKAGES}" = "1" ]; then
+     fail "Build requires make, gcc and python3. Install them with your distribution package manager before using SKIP_PACKAGES=1."
+   fi
+   log "Installing build-essential and python3 for native modules"
+   apt-get install -y build-essential python3
  fi
  set -a
  # shellcheck disable=SC1090
@@ -926,7 +954,7 @@ import sys
 source = Path(sys.argv[1])
 dest = Path(sys.argv[2])
 skip = {"PORT", "NEXT_PORT", "SSH_WS_PORT", "HOSTNAME"}
-preserve = {"DATABASE_URL", "AUTH_SESSION_SECRET", "ENCRYPTION_KEY", "SSH_WS_SECRET", "ADMIN_INITIAL_PASSWORD"}
+preserve = {"DATABASE_URL", "AUTH_SESSION_SECRET", "ENCRYPTION_KEY", "SSH_WS_SECRET", "STORAGE_DIRECT_ACCESS_SECRET", "ADMIN_INITIAL_PASSWORD"}
 existing = {}
 if dest.exists():
     for line in dest.read_text().splitlines():

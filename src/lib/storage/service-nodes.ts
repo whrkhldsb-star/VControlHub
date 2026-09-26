@@ -9,7 +9,7 @@ import { serviceT } from "@/lib/i18n/service-locale";
 import { listRemoteDirectory } from "@/lib/ssh/client";
 import { normalizePublicBaseUrl } from "@/lib/storage/direct-access-url";
 import { normalizeRemotePath } from "@/lib/storage/remote-path";
-import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
+import { resolveStorageSshCredentials, resolveStorageSshPort } from "@/lib/storage/ssh-credentials";
 import { expandStorageBasePath } from "@/lib/storage/path-utils";
 import { decrypt, encrypt } from "@/lib/crypto/service";
 
@@ -75,6 +75,7 @@ const STORAGE_NODE_SERVER_INCLUDE = {
       name: true,
       host: true,
       port: true,
+      operatingSystem: true,
       username: true,
     },
   },
@@ -302,7 +303,7 @@ export async function createStorageNode(
       driver: storageNode.driver,
       basePath: storageNode.basePath,
       host: storageNode.host ?? storageNode.server?.host,
-      port: storageNode.port ?? storageNode.server?.port,
+      port: resolveStorageSshPort(storageNode),
       username: storageNode.username ?? storageNode.server?.username,
       serverName: storageNode.server?.name,
     }),
@@ -310,7 +311,7 @@ export async function createStorageNode(
       driver: storageNode.driver,
       nodeId: storageNode.id,
       host: storageNode.host ?? storageNode.server?.host,
-      port: storageNode.port ?? storageNode.server?.port,
+      port: resolveStorageSshPort(storageNode),
       directAccessMode: storageNode.directAccessMode,
       publicBaseUrl: storageNode.publicBaseUrl,
       directAccessExpiresSeconds: storageNode.directAccessExpiresSeconds,
@@ -370,6 +371,12 @@ export async function updateStorageNode(
   if (nextDriver === "SFTP" && !nextServerId && !nextHost) {
     throw new ValidationError(t("backend.storage.sftpNeedsHost"));
   }
+  const nextAccessMode = nextDriver === "WEBDAV" ? "PROXY" : payload.directAccessMode ?? (driverChanged ? "PROXY" : current.directAccessMode);
+  const nextPublicBaseUrl = nextDriver === "WEBDAV" || driverChanged ? null : payload.publicBaseUrl === undefined
+    ? current.publicBaseUrl : normalizePublicBaseUrl(payload.publicBaseUrl);
+  if (nextAccessMode !== "PROXY" && !nextPublicBaseUrl) {
+    throw new ValidationError(t("backend.storage.urlRequired"));
+  }
 
   if (payload.serverId) {
     await assertServerInTeamScope(payload.serverId, session);
@@ -387,11 +394,8 @@ export async function updateStorageNode(
       username: nextDriver === "SFTP" ? nextUsername : null,
       webdavConfigEncrypted,
       serverId: nextDriver === "WEBDAV" ? null : nextServerId ?? null,
-      directAccessMode: nextDriver === "WEBDAV" ? "PROXY" : payload.directAccessMode ?? (driverChanged ? "PROXY" : current.directAccessMode),
-      publicBaseUrl:
-        nextDriver === "WEBDAV" || driverChanged ? null : payload.publicBaseUrl === undefined
-          ? current.publicBaseUrl
-          : normalizePublicBaseUrl(payload.publicBaseUrl),
+      directAccessMode: nextAccessMode,
+      publicBaseUrl: nextPublicBaseUrl,
       directAccessExpiresSeconds:
         payload.directAccessExpiresSeconds ??
         current.directAccessExpiresSeconds,
@@ -488,7 +492,7 @@ export async function listStorageNodes(session?: TeamSession | null) {
       driver: node.driver,
       basePath: node.basePath,
       host: node.host ?? node.server?.host,
-      port: node.port ?? node.server?.port,
+      port: resolveStorageSshPort(node),
       username: node.username ?? node.server?.username,
       serverName: node.server?.name,
     }),
@@ -496,7 +500,7 @@ export async function listStorageNodes(session?: TeamSession | null) {
       driver: node.driver,
       nodeId: node.id,
       host: node.host ?? node.server?.host,
-      port: node.port ?? node.server?.port,
+      port: resolveStorageSshPort(node),
       directAccessMode: node.directAccessMode,
       publicBaseUrl: node.publicBaseUrl,
       directAccessExpiresSeconds: node.directAccessExpiresSeconds,

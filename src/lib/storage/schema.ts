@@ -71,6 +71,9 @@ export const createStorageNodeSchema = z.object({
 }).superRefine((value, ctx) => {
   validateWebdavBoundary(value, ctx);
   if (value.driver === "WEBDAV" && !value.webdavConfig) ctx.addIssue({ code: "custom", path: ["webdavConfig"], message: t("backend.webdav.configurationRequired") });
+  if (value.directAccessMode !== "PROXY" && !value.publicBaseUrl) {
+    ctx.addIssue({ code: "custom", path: ["publicBaseUrl"], message: t("backend.storage.urlRequired") });
+  }
 });
 
 export const updateStorageNodeSchema = z.object({

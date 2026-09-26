@@ -9,7 +9,7 @@ VControlHub 使用 Next.js、React、TypeScript、PostgreSQL 和 Prisma，生产
 | 模块 | 能力 |
 | --- | --- |
 | 服务器 | 多 VPS 纳管、浏览器 SSH 终端、SFTP 文件操作、批量命令和审批 |
-| Windows 节点 | 浏览器 RDP 远程桌面、Agent 接入（监控指标与命令执行，见 [Windows Agent 设计](docs/windows-agent.md)） |
+| Windows 节点 | 浏览器 RDP、Agent 监控与命令、可选 OpenSSH/SFTP 云盘及文件直连网关（见 [Windows 指南](docs/windows-development.md)） |
 | 云盘 | LOCAL / SFTP / WebDAV 存储节点、文件浏览与传输、分享链接和在线预览 |
 | 应用管理 | Quick Services 应用模板、Docker 与 Compose 项目管理 |
 | 监控 | 资源采样、历史趋势、告警规则和通知 |
@@ -24,7 +24,7 @@ VControlHub 使用 Next.js、React、TypeScript、PostgreSQL 和 Prisma，生产
 
 ### 环境要求
 
-- Debian / Ubuntu 系 Linux；自动安装脚本依赖 `apt`、root 权限与 systemd。Windows 开发与运行见 [Windows 指南](docs/windows-development.md)。
+- Debian / Ubuntu 系 Linux 可自动安装依赖；其他 systemd Linux 可预装依赖并使用 `SKIP_PACKAGES=1`。Windows 生产运行使用 PowerShell 入口，见 [Windows 指南](docs/windows-development.md)。
 - PostgreSQL；具体依赖安装和运行配置见 [部署文档](deploy/README.md)。
 - 推荐使用域名和 HTTPS，公开 Web 入口使用 80/443。
 - Web 与 SSH WebSocket 服务默认仅监听本机回环端口 3000/3001，不应直接暴露公网。
@@ -171,10 +171,10 @@ python3 scripts/webdav-http-smoke.py http://127.0.0.1:3000
 | API 路由文件        | 186                                              |
 | 数据模型            | 78                                               |
 | UI 组件           | 55                                               |
-| 代码行数            | ~300,521（src 扫描）                                 |
-| 测试              | 719 文件                                           |
+| 代码行数            | ~301,192（src 扫描）                                 |
+| 测试              | 720 文件                                           |
 | Docker 应用模板     | 44 (本地) + 社区源实时同步                                |
-| i18n            | 269 useI18n() 调用点，87 字典文件                        |
+| i18n            | 271 useI18n() 调用点，87 字典文件                        |
 <!-- README_METRICS_END -->
 
 通过 `npm run readme:metrics:write` 更新。

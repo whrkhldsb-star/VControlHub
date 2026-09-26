@@ -96,6 +96,7 @@ async function findDirectoryEntry(
               username: true,
               connectionType: true,
               managementMode: true,
+              operatingSystem: true,
               password: true,
               hostKeySha256: true,
               sshKey: { select: { privateKey: true } },

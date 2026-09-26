@@ -11,7 +11,7 @@ import { serviceT } from "@/lib/i18n/service-locale";
 import { t } from "@/lib/i18n/service-translations";
 import { listRemoteDirectory } from "@/lib/ssh/client";
 import { normalizeRemotePath } from "@/lib/storage/remote-path";
-import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
+import { resolveStorageSshCredentials, resolveStorageSshPort } from "@/lib/storage/ssh-credentials";
 import { resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
 import {
   EDITABLE_TEXT_EXTENSIONS,
@@ -94,7 +94,7 @@ type FileEntryListRow = Prisma.FileEntryGetPayload<{
         directAccessMode: true;
         publicBaseUrl: true;
         directAccessExpiresSeconds: true;
-        server: { select: { id: true; name: true; host: true; port: true } };
+        server: { select: { id: true; name: true; host: true; port: true; operatingSystem: true } };
       };
     };
   };
@@ -307,6 +307,7 @@ type DeletedFileEntryWithNode = Prisma.FileEntryGetPayload<{
             username: true;
             connectionType: true;
             managementMode: true;
+            operatingSystem: true;
             password: true;
             hostKeySha256: true;
             sshKey: { select: { privateKey: true } };
@@ -427,6 +428,7 @@ export async function restoreFileEntry(
               username: true,
               connectionType: true,
               managementMode: true,
+              operatingSystem: true,
               password: true,
               hostKeySha256: true,
               sshKey: { select: { privateKey: true } },
@@ -490,7 +492,7 @@ export async function listFileEntries(
           directAccessMode: true,
           publicBaseUrl: true,
           directAccessExpiresSeconds: true,
-          server: { select: { id: true, name: true, host: true, port: true } },
+          server: { select: { id: true, name: true, host: true, port: true, operatingSystem: true } },
         },
       },
     },
@@ -502,7 +504,7 @@ export async function listFileEntries(
       driver: entry.storageNode.driver,
       nodeId: entry.storageNode.id,
       host: entry.storageNode.host ?? entry.storageNode.server?.host,
-      port: entry.storageNode.port ?? entry.storageNode.server?.port,
+      port: resolveStorageSshPort(entry.storageNode),
       relativePath: entry.relativePath,
       directAccessMode: entry.storageNode.directAccessMode,
       publicBaseUrl: entry.storageNode.publicBaseUrl,

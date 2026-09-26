@@ -4,7 +4,7 @@
 
 ## 背景
 
-Windows 节点此前只有浏览器 RDP 通路（见 `docs/windows-remote-desktop.md`），没有监控指标、命令执行与文件能力。Windows 节点不保存 SSH 凭据，因此无法像 Linux 那样由平台通过 SSH 推送安装 Agent —— Windows Agent 采用**操作员手动执行一条 PowerShell 命令**的引导方式。
+Windows 节点最初只有浏览器 RDP 通路（见 `docs/windows-remote-desktop.md`），没有监控指标或命令执行能力。Agent 仍采用**操作员手动执行一条 PowerShell 命令**的引导方式。可选的 OpenSSH/SFTP 云盘凭据与 Agent 和 RDP 凭据独立；它用于文件浏览、传输和直连网关，不用于自动安装 Agent。
 
 ## 架构
 
@@ -65,6 +65,6 @@ Windows 机器                          Hub (VControlHub)
 
 `uninstallServerAgent` 对 Windows 节点：通过 Agent 派发自删除命令（`AGENT_WINDOWS_CLEANUP_COMMAND`，分离的隐藏 cmd 延迟 3s 后 `schtasks /end` + `schtasks /delete` + 删除目录，对应 Linux 的 nohup 自删除模式），随后**总是**吊销令牌。Agent 离线时仅吊销令牌并提示手动清理。
 
-## 仍然 Linux-only 的能力
+## 平台能力边界
 
-SSH 终端、SFTP 文件管理、Docker/Compose、快速服务、VPS 备份对 Windows 目标保持拒绝（见 `src/__tests__/windows-linux-operation-guards.test.ts`）；批量命令执行在 Windows 节点上走 Agent 通道。RDP 独立于 Agent 继续可用。
+服务器 SSH 终端、Docker/Compose、快速服务、VPS 备份对 Windows 目标保持拒绝（见 `src/__tests__/windows-linux-operation-guards.test.ts`）；批量命令执行走 Agent 通道。云盘 SFTP 是独立的存储节点通道，可用 Windows OpenSSH Server 接入，见 [Windows 指南](windows-development.md)。RDP 独立于 Agent 和 SFTP 继续可用。

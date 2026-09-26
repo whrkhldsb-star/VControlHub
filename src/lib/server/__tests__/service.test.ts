@@ -15,7 +15,7 @@ import {
 } from "@/lib/server/service";
 import { loadServerForDirectGateway } from "../service-direct-gateway";
 import { prisma } from "@/lib/db";
-import { createRemoteDirectory } from "@/lib/ssh/client";
+import { createRemoteDirectory, listRemoteDirectory, writeRemoteFile } from "@/lib/ssh/client";
 import { checkStorageNodeHealth } from "@/lib/storage/service-nodes";
 
 const { parseFromStringMock, execRemoteCommandMock } = vi.hoisted(() => ({
@@ -50,6 +50,8 @@ vi.mock("@/lib/ssh/client", () => ({
     hostKeySha256: server.hostKeySha256 ?? null,
   })),
   createRemoteDirectory: vi.fn(),
+  listRemoteDirectory: vi.fn(),
+  writeRemoteFile: vi.fn(),
   execRemoteCommand: execRemoteCommandMock,
 }));
 
@@ -179,6 +181,33 @@ describe("server service", () => {
     expect(execRemoteCommandMock).not.toHaveBeenCalled();
   });
 
+  it("creates a Windows SFTP storage node only after fingerprint and directory verification", async () => {
+    const { decryptServerPassword } = await import("@/lib/ssh/ssh-key-crypto");
+    vi.mocked(prisma.server.findFirst).mockResolvedValueOnce(null);
+    vi.mocked(listRemoteDirectory).mockResolvedValueOnce([]);
+    const created = {
+      id: "win-sftp", name: "Windows files", host: "8.8.8.8", port: 3389,
+      username: "Administrator", operatingSystem: "WINDOWS", managementMode: "DIRECT",
+      connectionType: "PASSWORD", enabled: true, tags: [], commandTargets: [],
+      createdAt: new Date(), updatedAt: new Date(), storageNode: null,
+    };
+    vi.mocked(prisma.server.create).mockResolvedValueOnce(created as any);
+    vi.mocked(prisma.storageNode.create).mockResolvedValueOnce({ id: "node-win" } as any);
+    vi.mocked(prisma.server.findUnique).mockResolvedValueOnce({ ...created, storageNode: { id: "node-win", name: "Windows files storage", driver: "SFTP", basePath: "/C:/VControlHub/Files", isDefault: false } } as any);
+    const result = await createServerProfile({
+      operatingSystem: "WINDOWS", name: "Windows files", host: "8.8.8.8", username: "Administrator", rdpPassword: "rdp-secret",
+      windowsSftpEnabled: true, windowsSftpPort: 2222, windowsSftpUsername: "storage-user", windowsSftpPassword: "sftp-secret",
+      windowsSftpPath: "/C:/VControlHub/Files", approvedHostKeySha256: "SHA256:verified",
+    });
+    const serverData = vi.mocked(prisma.server.create).mock.calls[0]![0].data;
+    expect(decryptServerPassword(serverData.password!)).toBe("sftp-secret");
+    expect(serverData.rdpPassword).not.toBe(serverData.password);
+    expect(listRemoteDirectory).toHaveBeenCalledWith(expect.objectContaining({ port: 2222, username: "storage-user", remotePath: "/C:/VControlHub/Files", hostKeySha256: "SHA256:verified" }));
+    expect(prisma.storageNode.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ serverId: "win-sftp", driver: "SFTP", port: 2222 }) }));
+    expect(result.storageNode?.id).toBe("node-win");
+    expect(result.password).not.toBe("sftp-secret");
+  });
+
   it("updates Windows domain while retaining encrypted password", async () => {
     const current = { id:"win", operatingSystem:"WINDOWS", host:"8.8.8.8", port:3389, name:"Windows", username:"Admin", rdpPassword:"ciphertext", rdpDomain:"OLD", rdpIgnoreCertificate:false, tags:[], teamId:null, commandTargets:[], createdAt:new Date(), updatedAt:new Date(), enabled:true };
     vi.mocked(prisma.server.findUnique).mockResolvedValueOnce(current as any);
@@ -188,6 +217,17 @@ describe("server service", () => {
     expect(prisma.server.update).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({rdpPassword:"ciphertext",rdpDomain:"NEW"})}));
     expect(result).not.toHaveProperty("rdpPassword");
     expect(execRemoteCommandMock).not.toHaveBeenCalled();
+  });
+
+  it("requires SFTP revalidation before changing a Windows storage host", async () => {
+    vi.mocked(prisma.server.findUnique).mockResolvedValueOnce({
+      id: "win", operatingSystem: "WINDOWS", host: "8.8.8.8", port: 3389,
+      name: "Windows", username: "Admin", rdpPassword: "ciphertext",
+      managementMode: "DIRECT", tags: [], teamId: null,
+      storageNode: { id: "storage", driver: "SFTP", basePath: "/C:/Files", port: 22, username: "files" },
+    } as any);
+    await expect(updateServerProfile("win", { host: "8.8.4.4" })).rejects.toThrow(/SFTP/i);
+    expect(prisma.server.update).not.toHaveBeenCalled();
   });
 
   it("creates an ssh key from manual public/private key input", async () => {
@@ -1607,6 +1647,34 @@ describe("server service", () => {
       }),
     );
     vi.unstubAllGlobals();
+  });
+
+  it("installs a Windows gateway through SFTP upload and the Windows task scheduler", async () => {
+    const { encryptServerPassword } = await import("@/lib/ssh/ssh-key-crypto");
+    execRemoteCommandMock.mockReset();
+    execRemoteCommandMock
+      .mockResolvedValueOnce({ stdout: "DIRECT_DIR=C:\\ProgramData\\VControlHub\\direct-gateway\r\n", stderr: "", exitCode: 0 })
+      .mockResolvedValueOnce({ stdout: "ready", stderr: "", exitCode: 0 });
+    vi.mocked(prisma.server.findUnique).mockResolvedValueOnce({
+      id: "win-direct", operatingSystem: "WINDOWS", host: "8.8.8.8", port: 3389,
+      username: "Administrator", password: encryptServerPassword("sftp-password"),
+      hostKeySha256: "SHA256:verified", connectionType: "PASSWORD", sshKeyId: null,
+      fileProxyPort: 0, publicUrl: null,
+      storageNode: { id: "win-node", driver: "SFTP", basePath: "/C:/VControlHub/Files", port: 2222, username: "storage-user", fileEntries: [], mediaItems: [] },
+    } as any);
+    vi.mocked(prisma.storageNode.updateMany).mockResolvedValue({ count: 1 } as any);
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("ok", { status: 200 })));
+
+    const result = await setServerDirectGatewayEnabled("win-direct", true, { publicProtocol: "http" });
+    expect(result.enabled).toBe(true);
+    expect(writeRemoteFile).toHaveBeenCalledWith(expect.objectContaining({
+      host: "8.8.8.8", port: 2222, username: "storage-user", password: "sftp-password",
+      remotePath: "/C:/ProgramData/VControlHub/direct-gateway/gateway.ps1",
+    }));
+    expect(execRemoteCommandMock).toHaveBeenCalledTimes(2);
+    const installCommand = execRemoteCommandMock.mock.calls[1]?.[0]?.command as string;
+    expect(Buffer.from(installCommand.split(" ").at(-1)!, "base64").toString("utf16le")).toContain("Register-ScheduledTask");
+    expect(prisma.storageNode.updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ directAccessMode: "AUTO" }) }));
   });
 
   it("does not mark direct gateway enabled when public health probe fails", async () => {

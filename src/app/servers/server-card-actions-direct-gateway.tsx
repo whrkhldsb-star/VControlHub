@@ -24,9 +24,11 @@ export type ServerCardDirectGateway = {
 export function ServerCardDirectGatewayForm({
   serverId,
   directGateway,
+  operatingSystem = "LINUX",
 }: {
   serverId: string;
   directGateway: ServerCardDirectGateway;
+  operatingSystem?: string;
 }) {
   const { t } = useI18n();
   const router = useRouter();
@@ -75,15 +77,15 @@ export function ServerCardDirectGatewayForm({
               <option value="http">
                 {t("serverCardActions.directGateway.protocolHttp")}
               </option>
-              <option value="https">
+              {operatingSystem !== "WINDOWS" ? <option value="https">
                 {t("serverCardActions.directGateway.protocolHttps")}
-              </option>
+              </option> : null}
             </select>
             <p className="text-xs leading-4 text-[var(--text-muted)]">
               {t("serverCardActions.directGateway.enableListenNote")}
             </p>
             <p className="text-xs leading-4 text-[var(--text-muted)]">
-              {t("serverCardActions.directGateway.protocolHttpsHint")}
+              {t(operatingSystem === "WINDOWS" ? "serversPage.windows.directGatewayHint" : "serverCardActions.directGateway.protocolHttpsHint")}
             </p>
           </div>
 

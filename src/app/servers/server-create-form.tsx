@@ -9,6 +9,7 @@ import { ServerCostFields } from "./server-cost-fields";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { RdpCredentialFields } from "./rdp-credential-fields";
+import { WindowsSftpFields } from "./windows-sftp-fields";
 import { Notice } from "@/components/ui-primitives";
 import { usePreservedActionForm } from "@/lib/forms/use-preserved-action-form";
 import { useUnsavedChangesGuard } from "@/lib/forms/use-unsaved-changes-guard";
@@ -67,7 +68,7 @@ export function ServerCreateForm({
         setDirty(true);
         const field = event.target;
         if (!(field instanceof HTMLInputElement || field instanceof HTMLSelectElement)) return;
-        if (["host", "port", "username", "connectionType", "sshKeyId", "password"].includes(field.name)) {
+        if (["host", "port", "username", "connectionType", "sshKeyId", "password", "windowsSftpPort", "windowsSftpUsername", "windowsSftpPassword"].includes(field.name)) {
           setObservedHostKeySha256("");
           setHostKeyConfirmed(false);
         }
@@ -177,6 +178,13 @@ export function ServerCreateForm({
       {windows ? <>
       <ServerManagementModeFields platform="WINDOWS" />
       <RdpCredentialFields idPrefix="create-rdp" />
+      <WindowsSftpFields />
+      {observedHostKeySha256 ? <div className="rounded-xl border border-[var(--warning-border)] bg-[var(--warning-bg)] p-4 text-xs text-[var(--text-secondary)]">
+        <p className="font-medium text-[var(--text-primary)]">{t("serversPage.create.hostKeyTrustTitle")}</p>
+        <code className="mt-2 block break-all">{observedHostKeySha256}</code>
+        <input type="hidden" name="approvedHostKeySha256" value={observedHostKeySha256} />
+        <label className="mt-2 flex items-start gap-2"><input type="checkbox" required checked={hostKeyConfirmed} onChange={(event) => setHostKeyConfirmed(event.currentTarget.checked)} />{t("serversPage.create.hostKeyConfirm")}</label>
+      </div> : null}
       </> : <>
       <ServerManagementModeFields />
       <ConnectionTypeFields sshKeys={sshKeys} />{" "}

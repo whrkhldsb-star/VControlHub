@@ -17,6 +17,11 @@ const storagePathSchema = z
   .refine((value) => !["/", "/proc", "/sys", "/dev"].includes(value.replace(/\/+$/, "") || "/"), "Storage path must not target a system root")
   .default("/root/drive");
 
+const windowsSftpPathSchema = z.string().trim().max(500)
+  .refine((value) => !value || /^\/[A-Za-z]:\//.test(value) && value.slice(4).split("/").filter(Boolean).length > 0 &&
+    value.slice(4).split("/").every((part, index, parts) => (part || index === parts.length - 1) && part !== "." && part !== ".." && !/[\\:*?"<>|\0]/.test(part)),
+    "Use a Windows OpenSSH path such as /C:/VControlHub/Files");
+
 const linuxServerSchema = z
   .object({
     operatingSystem: z.enum(["LINUX", "WINDOWS"]).default("LINUX"),
@@ -100,6 +105,11 @@ export const createServerSchema = z.union([
     rdpDomain: rdpProfileSchema.shape.domain,
     rdpIgnoreCertificate: rdpProfileSchema.shape.ignoreCertificate,
     rdpCertificateSha256: rdpProfileSchema.shape.certificateSha256,
+    windowsSftpEnabled: z.boolean().optional().default(false),
+    windowsSftpPort: z.coerce.number().int().min(1).max(65535).optional().default(22),
+    windowsSftpUsername: z.string().trim().min(1).max(64).optional(),
+    windowsSftpPassword: z.string().min(1).max(4096).optional(),
+    windowsSftpPath: windowsSftpPathSchema.optional(),
     // Windows nodes support Agent mode (installed manually via the PowerShell
     // bootstrap one-liner; there is no SSH channel to push it).
     managementMode: z.enum(["DIRECT", "AGENT"]).default("DIRECT"),
@@ -107,6 +117,13 @@ export const createServerSchema = z.union([
     connectionType: z.literal("PASSWORD").default("PASSWORD"),
     sshKeyId: z.never().optional(),
     password: z.never().optional(),
-  }).refine(data => !data.rdpCertificateSha256 || !data.rdpIgnoreCertificate, { message: "Certificate pinning cannot be combined with ignore certificate", path: ["rdpIgnoreCertificate"] }),
+  }).superRefine((data, ctx) => {
+    if (data.rdpCertificateSha256 && data.rdpIgnoreCertificate) ctx.addIssue({ code: "custom", message: "Certificate pinning cannot be combined with ignore certificate", path: ["rdpIgnoreCertificate"] });
+    if (data.windowsSftpEnabled) {
+      if (!data.windowsSftpUsername) ctx.addIssue({ code: "custom", message: "SFTP username is required", path: ["windowsSftpUsername"] });
+      if (!data.windowsSftpPassword) ctx.addIssue({ code: "custom", message: "SFTP password is required", path: ["windowsSftpPassword"] });
+      if (!data.windowsSftpPath) ctx.addIssue({ code: "custom", message: "SFTP root path is required", path: ["windowsSftpPath"] });
+    }
+  }),
 ]);
 export type CreateServerInput = z.input<typeof createServerSchema>;

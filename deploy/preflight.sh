@@ -87,8 +87,13 @@ for cmd in node npm bash; do
 done
 
 if have_cmd node; then
-  node_major="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)"
-  [ "${node_major}" -ge 20 ] || fail "Node.js 20+ is required; found major version ${node_major}"
+  node_version="$(node -p 'process.versions.node' 2>/dev/null || echo 0.0.0)"
+  node_major="${node_version%%.*}"
+  node_minor="${node_version#*.}"
+  node_minor="${node_minor%%.*}"
+  if [ "${node_major}" -lt 22 ] || { [ "${node_major}" -eq 22 ] && [ "${node_minor}" -lt 9 ]; }; then
+    fail "Node.js 22.9+ is required; found ${node_version}"
+  fi
 fi
 
 set -a
@@ -96,7 +101,7 @@ set -a
 source "${ENV_FILE}"
 set +a
 
-for required in DATABASE_URL AUTH_SESSION_SECRET ADMIN_INITIAL_PASSWORD SSH_WS_SECRET ENCRYPTION_KEY; do
+for required in DATABASE_URL AUTH_SESSION_SECRET ADMIN_INITIAL_PASSWORD SSH_WS_SECRET STORAGE_DIRECT_ACCESS_SECRET ENCRYPTION_KEY; do
 	validate_env_value "${required}"
 done
 

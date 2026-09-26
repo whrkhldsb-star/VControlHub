@@ -8,7 +8,7 @@
 
 适合 **Debian 12 / Ubuntu 22.04+ systemd** 主机（`apt-get` 包管理）。同一条命令会显示安装/重装、备份后更新、彻底卸载、健康检查、查看凭据和退出菜单；选择安装后再询问域名、应用名/slug、安装目录、服务前缀、端口、仓库和分支，一路回车采用默认值。
 
-> 系统兼容说明：一键安装**正式支持** Debian/Ubuntu + systemd。RHEL/CentOS/Rocky/Arch 等非 apt 系统不会自动装依赖；可先手动装好 Node.js 22+、PostgreSQL、git、curl、build tools、Caddy/Apache，再以 `SKIP_PACKAGES=1` 运行 `deploy/install.sh`。
+> 系统兼容说明：自动安装依赖支持 Debian/Ubuntu + systemd。RHEL、Rocky、AlmaLinux、Fedora、openSUSE、Arch 等其他 systemd Linux 可预装 Node.js 22.9+、PostgreSQL、git、curl、make、gcc、Python 3、OpenSSL 与 Caddy，再以 `SKIP_PACKAGES=1 SKIP_DOCKER=1 DOMAIN=your.example.com` 运行 `deploy/install.sh`。非 apt 的无域名 Apache 自动配置不适用；使用域名和已安装的 Caddy。Windows 生产部署见 [Windows 指南](../docs/windows-development.md) 和 `deploy/windows/install.ps1`。
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/whrkhldsb-star/VControlHub/main/deploy/bootstrap.sh | sudo DOMAIN=your.example.com bash
@@ -142,7 +142,7 @@ sudo DOMAIN=your.example.com APP_DIR=/opt/VControlHub deploy/install.sh
 | `ENV_TEMPLATE` | `$APP_DIR/deploy/env.production.example` | 首次创建 `.env.local` 使用的模板 |
 | `SOURCE_DIR` | 当前仓库根目录 | 无 `REPO_URL` 时从该目录 rsync 到 `APP_DIR` |
 | `REPO_URL` | 空 | 指定后从 Git 仓库 clone/pull |
-| `SKIP_PACKAGES` | `0` | 设为 `1` 跳过 apt/Node/Caddy 安装 |
+| `SKIP_PACKAGES` | `0` | 设为 `1` 使用已安装的系统依赖；构建仍检查 make、gcc、Python 3 |
 | `SKIP_CADDY` | `0` | 设为 `1` 跳过 Caddy 配置 |
 | `SKIP_DB_SETUP` | `0` | 设为 `1` 跳过 `prisma migrate deploy` |
 | `SKIP_RESTART` | `0` | 只安装/构建不重启服务 |
@@ -152,11 +152,11 @@ sudo DOMAIN=your.example.com APP_DIR=/opt/VControlHub deploy/install.sh
 
 > `APP_SLUG` 可包含短横线（如 `my-console`），用于目录、service、cookie 等标识；安装脚本为 PostgreSQL 默认库名/用户名会单独转换为安全标识符（如 `my_console`）。如果你显式设置 `PG_DB_NAME` / `PG_DB_USER`，脚本会按你的值使用。
 
-安装脚本会在全新 Debian/Ubuntu 主机上自动安装基础依赖：`ca-certificates`、`curl`、`gnupg`、`git`、`openssh-client`、`sshpass`、`rsync`、`iproute2`（提供 `ss`）、`aria2`（提供 `aria2c`）、`postgresql-client`、`build-essential`，并在缺少 Node 或 Node 主版本低于 `NODE_VERSION_MAJOR`（默认 22）时通过 NodeSource 安装 Node.js；未设置 `SKIP_CADDY=1` 且系统缺少 Caddy 时，也会自动安装 Caddy。脚本随后执行 `npm ci`、`npm run prisma:generate`、`npm run prisma:deploy`（除非 `SKIP_DB_SETUP=1`）、`npm run build`、`npm run build:runtime`（生成 `dist/server.js`、`dist/worker.js` 与 `dist/ssh-ws-proxy.js`），最后写入 systemd 并重启服务。
+安装脚本会在全新 Debian/Ubuntu 主机上自动安装基础依赖：`ca-certificates`、`curl`、`gnupg`、`git`、`openssh-client`、`sshpass`、`rsync`、`iproute2`、`aria2`、`build-essential`、Python 3、OpenSSL 和 `sudo`，并在 Node.js 低于 22.9 时通过 NodeSource 安装 Node.js；设置 `DOMAIN` 且未设置 `SKIP_CADDY=1` 时，系统缺少 Caddy 才会自动安装。脚本随后执行 `npm ci`、`npm run prisma:generate`、`npm run prisma:deploy`（除非 `SKIP_DB_SETUP=1`）、`npm run build`、`npm run build:runtime`（生成 `dist/server.js`、`dist/worker.js` 与 `dist/ssh-ws-proxy.js`），最后写入 systemd 并重启服务。已配置外部 `DATABASE_URL` 时，安装器保留该 URL 并跳过本地 PostgreSQL 账户创建，数据库迁移仍会运行。
 
 安装脚本会在生成 systemd unit 时自动探测当前可用的 `node`、`npm`、`npx` 绝对路径，并把这些目录写入 systemd `PATH`。这可以兼容 Node 安装在 `/root/.local/bin`、`/usr/local/bin`、NodeSource `/usr/bin` 等不同位置的服务器，避免 systemd 启动时报 `/usr/bin/env: node: No such file or directory`。
 
-首次部署时脚本会优先从 `deploy/env.production.example` 创建 `.env.local`，自动生成数据库密码、Session/SSH/加密密钥和管理员初始密码，并**继续完成**构建与启动（不会在创建 env 后中途退出）。生产使用前如需自定义外部数据库/端口，再编辑 `.env.local` 后重跑安装脚本。安装器会确保：
+首次部署时脚本会优先从 `deploy/env.production.example` 创建 `.env.local`，自动生成数据库密码、Session/SSH/云盘直连签名/加密密钥和管理员初始密码，并**继续完成**构建与启动（不会在创建 env 后中途退出）。生产使用前如需自定义外部数据库/端口，再编辑 `.env.local` 后重跑安装脚本。安装器会确保：
 
 - `DATABASE_URL`
 - `AUTH_SESSION_SECRET`

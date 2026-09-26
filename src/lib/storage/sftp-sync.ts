@@ -33,6 +33,7 @@ type SftpSyncNode = Prisma.StorageNodeGetPayload<{
         username: true;
         connectionType: true;
         managementMode: true;
+        operatingSystem: true;
         password: true;
         hostKeySha256: true;
         sshKey: { select: { privateKey: true } };
@@ -390,6 +391,7 @@ export async function getSftpSyncNode(
           username: true,
           connectionType: true,
           managementMode: true,
+          operatingSystem: true,
           password: true,
           hostKeySha256: true,
           sshKey: { select: { privateKey: true } },

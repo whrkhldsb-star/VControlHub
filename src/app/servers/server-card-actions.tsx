@@ -48,6 +48,8 @@ type ServerCardActionsProps = {
 	costLastSyncedAt?: string | null;
 	storagePath?: string | null;
 	storageNodeId?: string | null;
+	windowsSftpPort?: number;
+	windowsSftpUsername?: string;
 	canManageServers?: boolean;
 	canUseSshTerminal?: boolean;
 	onSshConnect?: () => void;
@@ -79,6 +81,8 @@ export function ServerCardActions({
 	costLastSyncedAt = null,
 	storagePath = null,
 	storageNodeId = null,
+	windowsSftpPort = 22,
+	windowsSftpUsername = "",
 	canManageServers = true,
 	canUseSshTerminal = false,
 	onSshConnect,
@@ -128,8 +132,8 @@ export function ServerCardActions({
 				</ActionButton>
 			) : null}
 
-			{operatingSystem !== "WINDOWS" && canManageServers && directGateway ? (
-				<ServerCardDirectGatewayForm serverId={serverId} directGateway={directGateway} />
+			{canManageServers && directGateway && (operatingSystem !== "WINDOWS" || storageNodeId) ? (
+				<ServerCardDirectGatewayForm serverId={serverId} directGateway={directGateway} operatingSystem={operatingSystem} />
 			) : null}
 
 			{canManageServers ? (
@@ -164,6 +168,8 @@ export function ServerCardActions({
 					costLastSyncedAt={costLastSyncedAt}
 					storagePath={storagePath}
 					storageNodeId={storageNodeId}
+					windowsSftpPort={windowsSftpPort}
+					windowsSftpUsername={windowsSftpUsername}
 					editAction={editAction}
 					editState={editState}
 				/>

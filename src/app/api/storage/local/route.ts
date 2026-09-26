@@ -143,6 +143,7 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
           username: true,
           connectionType: true,
           managementMode: true,
+          operatingSystem: true,
           password: true,
           hostKeySha256: true,
           sshKey: { select: { privateKey: true } },

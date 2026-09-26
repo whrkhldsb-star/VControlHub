@@ -107,8 +107,14 @@ ensure_git() {
   if have_cmd apt-get; then
     apt-get update
     apt-get install -y git ca-certificates curl
+  elif have_cmd dnf; then
+    dnf install -y git ca-certificates curl
+  elif have_cmd yum; then
+    yum install -y git ca-certificates curl
+  elif have_cmd zypper; then
+    zypper --non-interactive install git ca-certificates curl
   else
-    fail "git is required and apt-get is not available. Install git first or use an archive install."
+    fail "git is required. Install it with your distribution package manager or use an archive install."
   fi
 }
 

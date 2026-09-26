@@ -52,6 +52,7 @@ const SFTP_STALE_INVENTORY_NODE_SELECT = {
       username: true,
       connectionType: true,
       managementMode: true,
+      operatingSystem: true,
       password: true,
       hostKeySha256: true,
       sshKey: { select: { privateKey: true } },
@@ -77,6 +78,7 @@ type SftpSyncNode = Prisma.StorageNodeGetPayload<{
         username: true;
         connectionType: true;
         managementMode: true;
+        operatingSystem: true;
         password: true;
         hostKeySha256: true;
         sshKey: { select: { privateKey: true } };

@@ -67,6 +67,9 @@ export type ServerWithRelations = {
     driver: string;
     isDefault: boolean;
     basePath: string;
+    host?: string | null;
+    port?: number | null;
+    username?: string | null;
     directAccessMode?: string;
     publicBaseUrl?: string | null;
     healthStatus?: "UNKNOWN" | "HEALTHY" | "UNHEALTHY";

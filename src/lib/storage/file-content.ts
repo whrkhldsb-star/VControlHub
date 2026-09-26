@@ -42,6 +42,7 @@ export type StorageFileNode = {
   serverId?: string | null;
   server?: {
     id?: string;
+    operatingSystem?: string | null;
     host?: string | null;
     port?: number | null;
     username?: string | null;
@@ -70,6 +71,7 @@ export const storageFileNodeSelect = {
       username: true,
       connectionType: true,
       managementMode: true,
+      operatingSystem: true,
       password: true,
       hostKeySha256: true,
       sshKey: {

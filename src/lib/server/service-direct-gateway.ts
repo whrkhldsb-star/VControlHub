@@ -5,7 +5,8 @@ import { serverTeamWhere } from "@/lib/auth/team-scope";
 import { config } from "@/lib/config/env";
 import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
 import { serviceT } from "@/lib/i18n/service-locale";
-import { buildSshParamsFromServer, execRemoteCommand } from "@/lib/ssh/client";
+import { buildSshParamsFromServer, execRemoteCommand, writeRemoteFile } from "@/lib/ssh/client";
+import { decryptServerPassword } from "@/lib/ssh/ssh-key-crypto";
 import {
   buildDirectGatewayPublicBaseUrl,
   buildInstallDirectGatewayCommand,
@@ -13,6 +14,7 @@ import {
   DIRECT_GATEWAY_DEFAULT_PORT,
   DIRECT_GATEWAY_HTTPS_PUBLIC_PORT,
 } from "./direct-gateway";
+import { buildInstallWindowsDirectGatewayCommand, buildPrepareWindowsDirectGatewayCommand, buildUninstallWindowsDirectGatewayCommand, buildWindowsDirectGatewaySource, WINDOWS_GATEWAY_SCRIPT_NAME } from "./windows-direct-gateway";
 import { getErrorMessage, safeRevalidatePath } from "./service-internals";
 import { t } from "@/lib/i18n/service-translations";
 
@@ -149,6 +151,8 @@ export async function loadServerForDirectGateway(
         id: true,
         basePath: true,
         driver: true,
+        port: true,
+        username: true,
         fileEntries: { select: { id: true }, take: 1 },
         mediaItems: { select: { id: true }, take: 1 },
       },
@@ -270,10 +274,15 @@ export async function applyServerDirectGatewayState(input: {
   }
   const basePath = server.storageNode?.basePath || "/root";
   const publicProtocol = input.publicProtocol ?? "http";
+  const windows = server.operatingSystem === "WINDOWS";
+  if (windows && input.enabled && publicProtocol === "https") {
+    throw new ValidationError(t("backend.server.windowsGatewayHttpOnly"));
+  }
   // HTTPS product path: auto reverse-proxy on 443 + loopback gateway (no manual Caddy).
   const autoReverseProxy =
     input.enabled &&
     publicProtocol === "https" &&
+    !windows &&
     input.autoReverseProxy !== false;
   const publicDomain = normalizeDirectGatewayPublicDomain(input.publicDomain);
   // public URL host: optional domain for HTTPS, otherwise the VPS host/IP.
@@ -298,9 +307,22 @@ export async function applyServerDirectGatewayState(input: {
   let ssh: Awaited<ReturnType<typeof buildSshParamsFromServer>>;
   let command: string;
   try {
-    ssh = await buildSshParamsFromServer(server, server.sshKey);
-    command = input.enabled
-      ? buildInstallDirectGatewayCommand({
+    if (windows) {
+      if (!server.password || !server.storageNode?.username) throw new ValidationError(t("backend.server.windowsGatewayRequiresSftpCredentials"));
+      ssh = {
+        host: server.host,
+        port: server.storageNode.port ?? 22,
+        username: server.storageNode.username,
+        password: decryptServerPassword(server.password),
+        hostKeySha256: server.hostKeySha256,
+      };
+      command = input.enabled
+        ? buildInstallWindowsDirectGatewayCommand({ publicListen: bindAddress !== "127.0.0.1" })
+        : buildUninstallWindowsDirectGatewayCommand();
+    } else {
+      ssh = await buildSshParamsFromServer(server, server.sshKey);
+      command = input.enabled
+        ? buildInstallDirectGatewayCommand({
           rootPath: basePath,
           secret: getConfiguredDirectAccessSecret(),
           port: DIRECT_GATEWAY_DEFAULT_PORT,
@@ -311,7 +333,8 @@ export async function applyServerDirectGatewayState(input: {
             : undefined,
           tlsHost: publicHost,
         })
-      : buildUninstallDirectGatewayCommand();
+        : buildUninstallDirectGatewayCommand();
+    }
   } catch (error) {
     if (!input.bestEffort) throw error;
     return {
@@ -323,6 +346,19 @@ export async function applyServerDirectGatewayState(input: {
   }
   if (!isLocalHost) {
     try {
+      if (windows && input.enabled) {
+        const prepared = await execRemoteCommand({ ...ssh, command: buildPrepareWindowsDirectGatewayCommand(), timeout: 30_000 });
+        if (prepared.exitCode !== 0) throw new BusinessError(t("backend.server.windowsGatewayPrepareFailed", { details: (prepared.stderr || prepared.stdout).trim().slice(0, 500) }));
+        const nativeDir = /^DIRECT_DIR=([A-Za-z]:\\[^\r\n]+)$/m.exec(prepared.stdout)?.[1];
+        if (!nativeDir || nativeDir.includes("..") || !/\\VControlHub\\direct-gateway$/i.test(nativeDir)) {
+          throw new BusinessError(t("backend.server.windowsGatewayInvalidDir"));
+        }
+        const remoteScriptPath = `/${nativeDir.replaceAll("\\", "/")}/${WINDOWS_GATEWAY_SCRIPT_NAME}`;
+        const gatewaySource = buildWindowsDirectGatewaySource({
+          rootPath: basePath, secret: getConfiguredDirectAccessSecret(), publicListen: bindAddress !== "127.0.0.1",
+        });
+        await writeRemoteFile({ ...ssh, remotePath: remoteScriptPath, content: Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from(gatewaySource, "utf8")]) });
+      }
       const result = await execRemoteCommand({
         ...ssh,
         command,
@@ -337,6 +373,9 @@ export async function applyServerDirectGatewayState(input: {
         );
       }
     } catch (error) {
+      if (windows && input.enabled) {
+        try { await execRemoteCommand({ ...ssh, command: buildUninstallWindowsDirectGatewayCommand(), timeout: 30_000 }); } catch { /* best effort */ }
+      }
       if (!input.bestEffort) throw error;
       errorMessage = getErrorMessage(error);
       cleanupSkipped = true;
@@ -367,7 +406,7 @@ export async function applyServerDirectGatewayState(input: {
         try {
           await execRemoteCommand({
             ...ssh,
-            command: buildUninstallDirectGatewayCommand(),
+            command: windows ? buildUninstallWindowsDirectGatewayCommand() : buildUninstallDirectGatewayCommand(),
             timeout: 120_000,
           });
         } catch {

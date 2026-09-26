@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-26T03:26:35.269Z",
+  "generatedAt": "2026-09-26T14:05:10.515Z",
   "summary": {
     "permissionsInList": 54,
     "rolesDefined": 4,
@@ -2037,35 +2037,35 @@
         },
         {
           "path": "src/app/servers/actions.ts",
-          "line": 142
+          "line": 148
         },
         {
           "path": "src/app/servers/actions.ts",
-          "line": 231
+          "line": 243
         },
         {
           "path": "src/app/servers/actions.ts",
-          "line": 283
+          "line": 295
         },
         {
           "path": "src/app/servers/actions.ts",
-          "line": 323
+          "line": 335
         },
         {
           "path": "src/app/servers/actions.ts",
-          "line": 370
+          "line": 382
         },
         {
           "path": "src/app/servers/actions.ts",
-          "line": 421
+          "line": 433
         },
         {
           "path": "src/app/servers/actions.ts",
-          "line": 497
+          "line": 509
         },
         {
           "path": "src/app/servers/actions.ts",
-          "line": 536
+          "line": 548
         },
         {
           "path": "src/app/servers/page.tsx",
@@ -2463,11 +2463,11 @@
         },
         {
           "path": "src/app/api/storage/archive-download/route.ts",
-          "line": 112
+          "line": 113
         },
         {
           "path": "src/app/api/storage/archive-download/route.ts",
-          "line": 112
+          "line": 113
         },
         {
           "path": "src/app/api/storage/direct-access/route.ts",
@@ -2495,11 +2495,11 @@
         },
         {
           "path": "src/app/api/storage/local/route.ts",
-          "line": 393
+          "line": 394
         },
         {
           "path": "src/app/api/storage/local/route.ts",
-          "line": 393
+          "line": 394
         },
         {
           "path": "src/app/api/storage/nodes/route.ts",
@@ -2681,11 +2681,11 @@
         },
         {
           "path": "src/app/api/storage/local/route.ts",
-          "line": 405
+          "line": 406
         },
         {
           "path": "src/app/api/storage/local/route.ts",
-          "line": 405
+          "line": 406
         },
         {
           "path": "src/app/api/storage/sftp-ops/route.ts",

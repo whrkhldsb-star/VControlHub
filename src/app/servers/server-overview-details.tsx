@@ -58,7 +58,7 @@ export type ServerOverviewDetailsServer = {
 		targetStatus: string;
 	}>;
 	sshKey: { name: string; fingerprint?: string | null } | null;
-	storageNode?: { id: string; name: string; basePath: string } | null;
+	storageNode?: { id: string; name: string; basePath: string; host?: string | null; port?: number | null; username?: string | null } | null;
 	directGateway?: {
 		enabled: boolean;
 		statusLabel: string;

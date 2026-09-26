@@ -9,6 +9,7 @@ import { UI_INPUT } from "@/lib/ui/classes";
 import { usePreservedActionForm } from "@/lib/forms/use-preserved-action-form";
 import { ServerManagementModeFields } from "./server-management-mode-fields";
 import { RdpCredentialFields } from "./rdp-credential-fields";
+import { WindowsSftpFields } from "./windows-sftp-fields";
 type Props = {
   operatingSystem?: string; rdpDomain?: string; rdpIgnoreCertificate?: boolean; rdpCertificateSha256?: string;
   serverId: string;
@@ -28,6 +29,8 @@ type Props = {
   costLastSyncedAt: string | null | undefined;
   storagePath?: string | null;
   storageNodeId?: string | null;
+  windowsSftpPort?: number;
+  windowsSftpUsername?: string;
   // form action from useActionState
   editAction: (formData: FormData) => void | Promise<void>;
   editState: ServerActionState;
@@ -52,6 +55,8 @@ export function ServerCardEditForm({
   costLastSyncedAt,
   storagePath = null,
   storageNodeId = null,
+  windowsSftpPort = 22,
+  windowsSftpUsername = "",
   editAction,
   editState,
 }: Props) {
@@ -86,7 +91,7 @@ export function ServerCardEditForm({
       onChange={(event) => {
         const field = event.target;
         if (!(field instanceof HTMLInputElement || field instanceof HTMLSelectElement)) return;
-        if (["host", "port", "username", "password"].includes(field.name)) {
+        if (["host", "port", "username", "password", "windowsSftpPort", "windowsSftpUsername", "windowsSftpPassword"].includes(field.name)) {
           setObservedHostKeySha256("");
           setHostKeyConfirmed(false);
         }
@@ -149,7 +154,14 @@ export function ServerCardEditForm({
         defaultValue={username}
         className={UI_INPUT}
       />
-      {windows ? <RdpCredentialFields idPrefix={`edit-rdp-${serverId}`} editing certificateSha256={rdpCertificateSha256} domain={rdpDomain} ignoreCertificate={rdpIgnoreCertificate} /> : <>
+      {windows ? <><RdpCredentialFields idPrefix={`edit-rdp-${serverId}`} editing certificateSha256={rdpCertificateSha256} domain={rdpDomain} ignoreCertificate={rdpIgnoreCertificate} />
+      <WindowsSftpFields editing configured={Boolean(storageNodeId)} port={windowsSftpPort} username={windowsSftpUsername} basePath={storagePath ?? "/C:/VControlHub/Files"} />
+      {observedHostKeySha256 ? <div className="rounded-xl border border-[var(--warning-border)] bg-[var(--warning-bg)] p-3 text-xs text-[var(--text-secondary)]">
+        <p className="font-medium text-[var(--text-primary)]">{t("serverCardActions.edit.hostKeyTrustTitle")}</p>
+        <code className="mt-2 block break-all">{observedHostKeySha256}</code>
+        <input type="hidden" name="approvedHostKeySha256" value={observedHostKeySha256} />
+        <label className="mt-2 flex items-start gap-2"><input type="checkbox" required checked={hostKeyConfirmed} onChange={(event) => setHostKeyConfirmed(event.currentTarget.checked)} />{t("serverCardActions.edit.hostKeyConfirm")}</label>
+      </div> : null}</> : <>
       <div className="grid gap-2 rounded-xl border border-[var(--warning-border)] bg-[var(--warning-bg)] p-3 text-xs text-[var(--text-secondary)]">
         <span className="block font-medium text-[var(--text-primary)]">
           {t("serverCardActions.edit.hostKeyTrustTitle")}

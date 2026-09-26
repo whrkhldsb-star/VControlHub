@@ -98,6 +98,7 @@ async function writeValidEnv(envFile: string, extraLines: string[] = []) {
   const sessionSecretKey = "AUTH_SESSION_" + "SECRET";
   const initialPasswordKey = "ADMIN_INITIAL_" + "PASSWORD";
   const sshWsSecretKey = "SSH_WS_" + "SECRET";
+  const storageSecretKey = "STORAGE_DIRECT_ACCESS_" + "SECRET";
   const encryptionKey = "ENCRYPTION_" + "KEY";
   await writeFile(
     envFile,
@@ -106,6 +107,7 @@ async function writeValidEnv(envFile: string, extraLines: string[] = []) {
       `${sessionSecretKey}="0123456789abcdef0123456789abcdef"`,
       `${initialPasswordKey}="portable_initial_value"`,
       `${sshWsSecretKey}="0123456789abcdef0123456789abcdef"`,
+      `${storageSecretKey}="fedcba9876543210fedcba9876543210"`,
       `${encryptionKey}="abcdef0123456789abcdef0123456789"`,
       ...extraLines,
       "",
@@ -581,6 +583,7 @@ describeOrSkip("deploy/install.sh", () => {
         'AUTH_SESSION_SECRET="REPLACE_WITH_AUTH_SESSION_SECRET"',
         'ADMIN_INITIAL_PASSWORD="REPLACE_WITH_ADMIN_INITIAL_PASSWORD"',
         'SSH_WS_SECRET="REPLACE_WITH_SSH_WS_SECRET"',
+        'STORAGE_DIRECT_ACCESS_SECRET="REPLACE_WITH_STORAGE_DIRECT_ACCESS_SECRET"',
         'ARIA2_RPC_SECRET="REPLACE_WITH_ARIA2_RPC_SECRET"',
         'ENCRYPTION_KEY="REPLACE_WITH_ENCRYPTION_KEY"',
         'SSH_WS_ALLOWED_ORIGINS="REPLACE_WITH_ORIGINS"',
@@ -1026,7 +1029,7 @@ describeOrSkip("deploy/install.sh", () => {
     ]);
     await writeFile(
       envFile,
-      "PG_DB_PASSWORD=12345678901234567890123456789012\nDATABASE_URL=postgresql://u:pass@localhost:5432/db\nAUTH_SESSION_SECRET=12345678901234567890123456789012\nSSH_WS_SECRET=12345678901234567890123456789012\nSSH_WS_ALLOWED_ORIGINS=http://localhost\nENCRYPTION_KEY=12345678901234567890123456789012\nADMIN_INITIAL_PASSWORD=12345678901234567890123456789012\n",
+      "PG_DB_PASSWORD=12345678901234567890123456789012\nDATABASE_URL=postgresql://u:pass@localhost:5432/db\nAUTH_SESSION_SECRET=12345678901234567890123456789012\nSSH_WS_SECRET=12345678901234567890123456789012\nSTORAGE_DIRECT_ACCESS_SECRET=12345678901234567890123456789012\nSSH_WS_ALLOWED_ORIGINS=http://localhost\nENCRYPTION_KEY=12345678901234567890123456789012\nADMIN_INITIAL_PASSWORD=12345678901234567890123456789012\n",
     );
     await writeFile(
       path.join(appDir, "deploy/systemd/vcontrolhub-next.service.example"),

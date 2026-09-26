@@ -58,6 +58,9 @@ export function WindowsServerDetails({
 			<section className="rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-3">
 				<h3 className="mb-3 text-sm font-medium text-[var(--text-primary)]">{t("serverOverviewDetails.section.operationsResources")}</h3>
 				<p className="text-xs leading-5 text-[var(--text-muted)]">{t(agentMode ? "serversPage.windows.agentCapabilities" : "serversPage.windows.capabilities")}</p>
+				{server.storageNode ? <Link href={`/files?nodeId=${encodeURIComponent(server.storageNode.id)}`} className="mt-3 inline-flex rounded-lg border border-[var(--border)] px-3 py-2 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--surface-elevated)]">
+					{t("serversPage.windows.openCloudStorage")} · {server.storageNode.basePath}
+				</Link> : null}
 				{agentMode ? (
 					<WindowsAgentInstallPanel
 						serverId={server.id}
@@ -104,6 +107,11 @@ export function WindowsServerDetails({
 							costCurrency={server.costCurrency}
 							costProvider={server.costProvider}
 							costLastSyncedAt={server.costLastSyncedAt}
+							storagePath={server.storageNode?.basePath ?? null}
+							storageNodeId={server.storageNode?.id ?? null}
+							windowsSftpPort={server.storageNode?.port ?? 22}
+							windowsSftpUsername={server.storageNode?.username ?? ""}
+							directGateway={server.directGateway ?? undefined}
 						/>
 					</div>
 				) : null}

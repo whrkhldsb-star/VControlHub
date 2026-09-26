@@ -11,6 +11,13 @@
 
 export const zh: Record<string, string> = {
   "backend.server.linuxOnly": "此操作仅支持 Linux 节点",
+  "backend.server.windowsGatewayHttpOnly": "Windows 托管直连网关目前使用 HTTP。若需 HTTPS，请配置反向代理并在存储节点填写其公网地址。",
+  "backend.server.windowsGatewayRequiresSftpCredentials": "Windows 直连网关需要先配置 OpenSSH SFTP 凭据",
+  "backend.server.windowsGatewayPrepareFailed": "Windows 直连网关目录准备失败：{details}",
+  "backend.server.windowsGatewayInvalidDir": "Windows 直连网关返回了无效的安装目录",
+  "backend.server.windowsStorageRequiresSftp": "Windows 云盘需要绑定 SFTP 存储节点",
+  "backend.server.windowsDisableGatewayBeforeSftpEdit": "请先关闭直连网关，再修改 Windows 主机、SFTP 连接、密码或云盘根目录",
+  "backend.server.windowsSftpReverify": "修改 Windows 主机时，请启用并重新验证 SFTP 配置",
   "backend.server.osImmutable": "节点操作系统不可更改，请创建新节点",
   "backend.server.agentManualInstall": "Windows 节点请在节点卡片中获取 PowerShell 安装命令以接入 Agent",
   "backend.server.agentModeRequired": "请先将管理通道切换为节点 Agent 模式",
@@ -612,6 +619,13 @@ export const zh: Record<string, string> = {
 
 export const en: Record<string, string> = {
   "backend.server.linuxOnly": "This operation supports Linux nodes only",
+  "backend.server.windowsGatewayHttpOnly": "The managed Windows direct gateway currently uses HTTP. Configure an HTTPS reverse proxy and set its public URL on the storage node for HTTPS.",
+  "backend.server.windowsGatewayRequiresSftpCredentials": "Configure OpenSSH SFTP credentials before enabling the Windows direct gateway",
+  "backend.server.windowsGatewayPrepareFailed": "Windows direct gateway directory preparation failed: {details}",
+  "backend.server.windowsGatewayInvalidDir": "The Windows direct gateway returned an invalid installation directory",
+  "backend.server.windowsStorageRequiresSftp": "Windows cloud storage requires an SFTP storage node",
+  "backend.server.windowsDisableGatewayBeforeSftpEdit": "Disable the direct gateway before changing the Windows host, SFTP connection, password or storage root",
+  "backend.server.windowsSftpReverify": "Enable and reverify the SFTP configuration when changing the Windows host",
   "backend.server.agentManualInstall": "For Windows nodes, fetch the PowerShell install command from the node card to connect the Agent",
   "backend.server.agentModeRequired": "Switch the management channel to Node Agent mode first",
   "backend.server.agentInstallPending": "The Windows Agent is not installed yet: fetch the PowerShell install command from the node card and run it as Administrator on the machine",
