@@ -17,6 +17,7 @@ import { ServerCardDeleteForm } from "./server-card-delete-form";
 import { ServerCardEditForm } from "./server-card-edit-form";
 import { useSshTerminal } from "./ssh-terminal-context";
 import { ActionButton } from "@/components/action-button";
+import { Server } from "@/components/icons";
 
 const initialState: ServerActionState = {
 	error: undefined,
@@ -122,7 +123,7 @@ export function ServerCardActions({
 					data-tone="cyan"
 					className="flex w-full items-center justify-center gap-2"
 				>
-					<span aria-hidden="true">💻</span>
+					<Server size={16} aria-hidden="true" />
 					<span>{t("serverCardActions.sshTerminalButton")}</span>
 				</ActionButton>
 			) : null}

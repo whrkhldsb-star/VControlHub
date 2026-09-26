@@ -20,7 +20,7 @@ export function ConnectionTypeFields({
     "SSH_KEY",
   );
   return (
-    <div className="space-y-4">
+    <section className="space-y-4 rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-4">
       {" "}
       <fieldset className="space-y-1.5">
         {" "}
@@ -35,7 +35,7 @@ export function ConnectionTypeFields({
               type="button"
               aria-pressed={connectionType === type}
               onClick={() => setConnectionType(type)}
-              className={`flex-1 rounded-lg border px-3.5 py-2 text-sm transition ${connectionType === type ? "border-[var(--color-action-border)]/20 bg-[var(--color-action-bg)]/[0.10] text-[var(--text-primary)] font-medium" : "border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"}`}
+              className={`min-h-10 flex-1 rounded-lg border px-3.5 py-2 text-sm transition ${connectionType === type ? "border-[var(--color-action-border)] bg-[var(--color-action-bg)] text-[var(--text-primary)] font-medium" : "border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"}`}
             >
               {" "}
               {type === "SSH_KEY"
@@ -141,6 +141,6 @@ export function ConnectionTypeFields({
           </div>{" "}
         </div>
       )}{" "}
-    </div>
+    </section>
   );
 }

@@ -94,12 +94,13 @@ export function PageHeader({ eyebrow, title, description, children, className = 
 					{eyebrow ? (
 						<p
 							data-page-eyebrow
-							className="mb-2 text-xs font-medium text-[var(--accent)]"
+							className="mb-2.5 inline-flex items-center gap-2 text-xs font-semibold tracking-wide text-[var(--accent)]"
 						>
+							<span aria-hidden="true" className="h-px w-5 shrink-0 bg-[var(--color-action)]" />
 							{eyebrow}
 						</p>
 					) : null}
-					<h1 className="break-words text-2xl font-semibold leading-snug text-[var(--text-primary)]">
+					<h1 className="break-words text-2xl font-semibold leading-tight tracking-tight text-[var(--text-primary)] sm:text-3xl">
 						{title}
 					</h1>
 					{description ? (
@@ -112,7 +113,7 @@ export function PageHeader({ eyebrow, title, description, children, className = 
 					</div>
 				) : null}
 			</div>
-			<div className="mt-5 border-b border-[var(--border)]" aria-hidden="true" />
+				<div className="mt-5 h-px bg-gradient-to-r from-[var(--border-strong)] via-[var(--border)] to-transparent" aria-hidden="true" />
 		</header>
 	);
 }

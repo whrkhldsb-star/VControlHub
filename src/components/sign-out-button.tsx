@@ -5,6 +5,7 @@ import { useTransition } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 
 import { LocalizedText } from "./localized-text";
+import { LogOut } from "./icons";
 
 export function SignOutButton() {
 	const [pending, startTransition] = useTransition();
@@ -28,9 +29,9 @@ export function SignOutButton() {
 			type="button"
 			onClick={handleSignOut}
 			disabled={pending}
-			className="w-full flex items-center gap-3 rounded-lg px-3.5 py-2 text-sm text-[var(--danger)] transition hover:bg-[var(--danger-bg)] disabled:opacity-60"
+			className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-[var(--danger)] transition hover:bg-[var(--danger-bg)] disabled:opacity-60"
 		>
-			<span>🚪</span>
+			<LogOut size={18} aria-hidden="true" />
 			<span><LocalizedText textKey="auth.logout" fallback="Sign out" /></span>
 		</button>
 	);

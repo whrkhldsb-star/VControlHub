@@ -16,22 +16,24 @@ export function RdpCredentialFields({ idPrefix, editing = false, domain = "", ce
       <h3 className="text-sm font-medium text-[var(--text-primary)]">{t("serversPage.windows.credentialsTitle")}</h3>
       <p className="text-xs leading-5 text-[var(--text-muted)]">{t("serversPage.windows.hint")}</p>
     </div>
-    {!editing && <div className="space-y-1.5">
-      <label htmlFor={`${idPrefix}-username`} className={LABEL}>{t("serversPage.windows.username")}</label>
-      <input id={`${idPrefix}-username`} name="username" defaultValue="Administrator" required maxLength={128} className={UI_INPUT} autoComplete="off" />
-    </div>}
-    <div className="space-y-1.5">
-      <label htmlFor={`${idPrefix}-password`} className={LABEL}>{t(editing ? "serversPage.windows.passwordKeep" : "serversPage.windows.password")}</label>
-      <input id={`${idPrefix}-password`} name="rdpPassword" type="password" required={!editing} maxLength={1024} autoComplete="new-password" className={UI_INPUT} />
-    </div>
-    <div className="space-y-1.5">
-      <label htmlFor={`${idPrefix}-domain`} className={LABEL}>{t("serversPage.windows.domain")}</label>
-      <input id={`${idPrefix}-domain`} name="rdpDomain" defaultValue={domain} maxLength={128} className={UI_INPUT} />
-    </div>
-    <div className="space-y-1.5">
-      <label htmlFor={`${idPrefix}-certificate`} className={LABEL}>{t("serversPage.windows.certificate")}</label>
-      <input id={`${idPrefix}-certificate`} name="rdpCertificateSha256" defaultValue={certificateSha256} maxLength={95} pattern="([a-fA-F0-9]{64}|([a-fA-F0-9]{2}:){31}[a-fA-F0-9]{2})" className={UI_INPUT} aria-describedby={`${idPrefix}-certificate-help`} />
-      <p id={`${idPrefix}-certificate-help`} className="text-xs leading-5 text-[var(--text-muted)]">{t("serversPage.windows.certificateHelp")}</p>
+    <div className="grid gap-3 sm:grid-cols-2">
+      {!editing && <div className="space-y-1.5">
+        <label htmlFor={`${idPrefix}-username`} className={LABEL}>{t("serversPage.windows.username")}</label>
+        <input id={`${idPrefix}-username`} name="username" defaultValue="Administrator" required maxLength={128} className={UI_INPUT} autoComplete="off" />
+      </div>}
+      <div className="space-y-1.5">
+        <label htmlFor={`${idPrefix}-password`} className={LABEL}>{t(editing ? "serversPage.windows.passwordKeep" : "serversPage.windows.password")}</label>
+        <input id={`${idPrefix}-password`} name="rdpPassword" type="password" required={!editing} maxLength={1024} autoComplete="new-password" className={UI_INPUT} />
+      </div>
+      <div className="space-y-1.5">
+        <label htmlFor={`${idPrefix}-domain`} className={LABEL}>{t("serversPage.windows.domain")}</label>
+        <input id={`${idPrefix}-domain`} name="rdpDomain" defaultValue={domain} maxLength={128} className={UI_INPUT} />
+      </div>
+      <div className="space-y-1.5">
+        <label htmlFor={`${idPrefix}-certificate`} className={LABEL}>{t("serversPage.windows.certificate")}</label>
+        <input id={`${idPrefix}-certificate`} name="rdpCertificateSha256" defaultValue={certificateSha256} maxLength={95} pattern="([a-fA-F0-9]{64}|([a-fA-F0-9]{2}:){31}[a-fA-F0-9]{2})" className={UI_INPUT} aria-describedby={`${idPrefix}-certificate-help`} />
+        <p id={`${idPrefix}-certificate-help`} className="text-xs leading-5 text-[var(--text-muted)]">{t("serversPage.windows.certificateHelp")}</p>
+      </div>
     </div>
     <CheckboxField label={t("serversPage.windows.ignoreCertificate")} name="rdpIgnoreCertificate" defaultChecked={ignoreCertificate} className="pt-1" />
   </section>;

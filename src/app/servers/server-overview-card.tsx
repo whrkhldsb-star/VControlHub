@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { WindowsServerCard } from "./windows-server-card";
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
@@ -9,6 +9,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { ServerCardActions } from "./server-card-actions";
 import { useServerDiagnostics } from "./use-server-diagnostics";
 import { ActionButton } from "@/components/action-button";
+import { Server } from "@/components/icons";
 import { ModalShell } from "@/components/modal-shell";
 import type {
   ServerOverviewDetailsServer,
@@ -17,6 +18,13 @@ import type {
 // TR-036: defer ServerCardActions/form wiring until the details portal expands.
 const ServerOverviewDetails = dynamic(
   () => import("./server-overview-details").then((m) => m.ServerOverviewDetails),
+  {
+    ssr: false,
+    loading: () => <div className="min-h-[240px] rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)]" aria-hidden />,
+  },
+);
+const WindowsServerDetails = dynamic(
+  () => import("./windows-server-details").then((m) => m.WindowsServerDetails),
   {
     ssr: false,
     loading: () => <div className="min-h-[240px] rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)]" aria-hidden />,
@@ -51,6 +59,13 @@ export function ServerOverviewCard({
   );
   const directLabel = server.directGateway?.statusLabel ?? t("serverOverviewCard.websiteRelay");
   const detailsId = `server-details-${server.id}`;
+  const isWindows = server.operatingSystem === "WINDOWS";
+  const windowsAgentMode = isWindows && server.managementMode === "AGENT";
+  const windowsCertificate = server.rdpCertificateSha256
+    ? t("serversPage.windows.certificatePinned")
+    : server.rdpIgnoreCertificate
+      ? t("serversPage.windows.certificateIgnored")
+      : t("serversPage.windows.certificateDefault");
 
   useEffect(() => {
     setPortalReady(true);
@@ -87,14 +102,16 @@ export function ServerOverviewCard({
       "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)] light:border-[var(--danger-border)]";
     listHealthDescription = t("serverOverviewCard.lastProbeFailed", { message: diagnosticRun.message, checkedAt: diagnosticRun.checkedAt });
   } else {
-    listHealthLabel = t("serverOverviewCard.enabledPendingProbe");
-    listHealthToneClass =
-      "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)] light:border-[var(--warning-border)]";
-    listHealthDescription =
-      t("serverOverviewCard.enabledPendingProbeDescription");
+    listHealthLabel = isWindows
+      ? t(windowsAgentMode && server.agent?.online ? "serversPage.windows.agentConnected" : "serversPage.windows.ready")
+      : t("serverOverviewCard.enabledPendingProbe");
+    listHealthToneClass = isWindows && server.agent?.online
+      ? "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]"
+      : "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)] light:border-[var(--warning-border)]";
+    listHealthDescription = isWindows
+      ? t(windowsAgentMode ? "serversPage.windows.agentCapabilities" : "serversPage.windows.capabilities")
+      : t("serverOverviewCard.enabledPendingProbeDescription");
   }
-
-  if (server.operatingSystem === "WINDOWS") return <WindowsServerCard server={server} canManageServers={canManageServers} canUseSshTerminal={canUseSshTerminal} diagnosticRun={diagnosticRun} onRunDiagnostics={runRealtimeDiagnostics} />;
 
   return (
     <article
@@ -146,6 +163,12 @@ export function ServerOverviewCard({
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-xs text-[var(--text-muted)]">
+        {isWindows ? <>
+          <CompactField label={t("serversPage.windows.os")} value="Windows" />
+          <CompactField label={t("serversPage.windows.port")} value={String(server.port)} />
+          <CompactField label={t("serversPage.windows.domain")} value={server.rdpDomain || t("serverOverviewCard.notConfigured")} />
+          <CompactField label={t("serversPage.windows.certificate")} value={windowsCertificate} />
+        </> : <>
         <CompactField label={t("serverOverviewCard.connection")} value={server.connectionTypeLabel} />
         <CompactField
           label={t("serversPage.management.title")}
@@ -162,13 +185,20 @@ export function ServerOverviewCard({
           label={t("serverOverviewCard.pendingApproval")}
           value={`${server.pendingCommandCount} ${t("serverOverviewCard.itemsCount")}`}
         />
+        </>}
       </div>
       <p className="mt-4 flex-1 break-words text-xs leading-5 text-[var(--text-muted)]">
         {listHealthDescription}
       </p>
 
       <div className="mt-3 flex flex-wrap gap-2 border-t border-[var(--border-subtle)] pt-3">
-        {server.enabled && canUseSshTerminal && server.hasSshCredential !== false ? (
+        {isWindows && server.enabled && canUseSshTerminal ? (
+          <Link href={`/servers/${encodeURIComponent(server.id)}/remote-desktop`} data-action-button data-variant="ghost" data-tone="cyan" className="flex w-full items-center gap-2 !px-3 !py-1.5 !text-sm">
+            <Server size={16} aria-hidden="true" />
+            {t("serversPage.windows.remoteDesktop")}
+          </Link>
+        ) : null}
+        {!isWindows && server.enabled && canUseSshTerminal && server.hasSshCredential !== false ? (
           <ServerCardActions
             serverId={server.id}
             serverName={server.name}
@@ -224,15 +254,26 @@ export function ServerOverviewCard({
                   </ActionButton>
                 </div>
                 <div className="max-h-[78vh] overflow-y-auto pr-1">
-                  <ServerOverviewDetails
-                    server={server}
-                    canManageServers={canManageServers}
-                    canUseSshTerminal={canUseSshTerminal}
-                    directLabel={directLabel}
-                    detailsId={detailsId}
-                    diagnosticRun={diagnosticRun}
-                    onRunRealtimeDiagnostics={runRealtimeDiagnostics}
-                  />
+                  {isWindows ? (
+                    <WindowsServerDetails
+                      server={server}
+                      canManageServers={canManageServers}
+                      canUseSshTerminal={canUseSshTerminal}
+                      detailsId={detailsId}
+                      diagnosticRun={diagnosticRun}
+                      onRunRealtimeDiagnostics={runRealtimeDiagnostics}
+                    />
+                  ) : (
+                    <ServerOverviewDetails
+                      server={server}
+                      canManageServers={canManageServers}
+                      canUseSshTerminal={canUseSshTerminal}
+                      directLabel={directLabel}
+                      detailsId={detailsId}
+                      diagnosticRun={diagnosticRun}
+                      onRunRealtimeDiagnostics={runRealtimeDiagnostics}
+                    />
+                  )}
                 </div>
             </ModalShell>,
             document.body,

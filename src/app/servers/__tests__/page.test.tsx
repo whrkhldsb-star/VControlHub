@@ -153,6 +153,37 @@ function renderPage(ui: React.ReactElement) {
 }
 
 describe("ServersPage", () => {
+	it("uses the same card and details dialog structure for Windows nodes", async () => {
+		const user = userEvent.setup();
+		serviceMocks.listServerProfilesMock.mockResolvedValueOnce([{
+			...defaultServer,
+			id: "win_1",
+			name: "win-node",
+			operatingSystem: "WINDOWS",
+			port: 3389,
+			username: "Administrator",
+			connectionType: "PASSWORD",
+			managementMode: "DIRECT",
+			sshKey: null,
+			rdpDomain: "EXAMPLE",
+		}]);
+
+		renderPage(await ServersPage({}));
+		await waitForAutoProbePreferences();
+		const card = screen.getByRole("heading", { name: "win-node" }).closest("[data-server-card]");
+		expect(card).toBeInTheDocument();
+		expect(card).toHaveTextContent("Administrator@203.0.113.10:3389");
+		expect(card).toHaveTextContent("EXAMPLE");
+		expect(screen.queryByRole("button", { name: "编辑配置" })).not.toBeInTheDocument();
+		await user.click(screen.getByRole("button", { name: /查看详情/ }));
+		const dialog = await screen.findByRole("dialog", { name: "win-node" });
+		expect(await screen.findByRole("region", { name: "win-node VPS 详情" })).toBeInTheDocument();
+		expect(dialog).toHaveTextContent("连接状态");
+		expect(dialog).toHaveTextContent("RDP 直连");
+		expect(dialog).not.toHaveTextContent("SSH 直连");
+		expect(dialog).toHaveTextContent("操作资源");
+	});
+
   it("renders managed server cards and management form", async () => {
     serviceMocks.listServerProfilesMock.mockResolvedValueOnce([defaultServer]);
 

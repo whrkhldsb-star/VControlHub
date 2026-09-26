@@ -1,12 +1,11 @@
 "use client";
 
 import { useTransition } from "react";
-import { ActionButton } from "@/components/action-button";
 import { useRouter } from "next/navigation";
 import { Search, X } from "@/components/icons";
 import { EmptyState, Toolbar } from "@/components/page-shell";
 import { Pagination } from "@/components/pagination";
-import { IconButton } from "@/components/ui-primitives";
+import { IconButton, SegmentedTabs } from "@/components/ui-primitives";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { ServerOverviewCard } from "./server-overview-card";
@@ -30,9 +29,17 @@ export function ServerInventory({ inventory, canManageServers, canUseSshTerminal
     startTransition(() => router.push(`${url.pathname}${url.search}${url.hash}`, { scroll: false }));
   };
   return <div className="space-y-4" aria-busy={pending}>
-    <div role="tablist" aria-label={t("serversPage.windows.os")} className="flex gap-2">
-      {(["all", "LINUX", "WINDOWS"] as const).map((os) => <ActionButton key={os} role="tab" aria-selected={operatingSystem === os} disabled={pending} variant={operatingSystem === os ? "primary" : "secondary"} onClick={() => navigate({ operatingSystem: os, page: 1 })}>{os === "all" ? t("serversPage.windows.all") : os === "LINUX" ? "Linux" : "Windows"}</ActionButton>)}
-    </div>
+    <SegmentedTabs
+      ariaLabel={t("serversPage.windows.os")}
+      value={operatingSystem}
+      onChange={(os) => navigate({ operatingSystem: os as InventoryQuery["operatingSystem"], page: 1 })}
+      className="max-w-md"
+      items={(["all", "LINUX", "WINDOWS"] as const).map((os) => ({
+        id: os,
+        label: os === "all" ? t("serversPage.windows.all") : os === "LINUX" ? "Linux" : "Windows",
+        disabled: pending,
+      }))}
+    />
     {stats.total > 0 && <Toolbar className="!mb-0">
       <form key={query.query} className="flex min-w-0 flex-1 basis-64 gap-2" onSubmit={(event) => {
         event.preventDefault();
@@ -48,7 +55,7 @@ export function ServerInventory({ inventory, canManageServers, canUseSshTerminal
       </select>
       <select disabled={pending} aria-label={t("serversPage.management.title")} className={`${UI_INPUT} sm:!w-auto`} value={query.mode}
         onChange={(event) => navigate({ mode: event.target.value as InventoryQuery["mode"], page: 1 })}>
-        <option value="all">{t("serversPage.inventory.allModes")}</option><option value="DIRECT">{t("serversPage.management.direct")}</option><option value="AGENT">{t("serversPage.management.agent")}</option>
+        <option value="all">{t("serversPage.inventory.allModes")}</option><option value="DIRECT">{t("serversPage.management.directAny")}</option><option value="AGENT">{t("serversPage.management.agent")}</option>
       </select>
       {(query.query || query.status !== "all" || query.mode !== "all") && <IconButton disabled={pending} label={t("serversPage.inventory.clear")} onClick={() => navigate({ query: "", status: "all", mode: "all", page: 1 })}><X size={18} aria-hidden /></IconButton>}
     </Toolbar>}

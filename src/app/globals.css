@@ -59,8 +59,10 @@
 }
 
 @layer components {
-	[data-card] { min-width: 0; border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--surface); padding: var(--space-4); }
+	[data-card] { min-width: 0; border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--surface); padding: var(--space-4); box-shadow: var(--shadow-sm); }
 	[data-card].cursor-pointer:hover { border-color: var(--border-strong); }
+	[data-server-card] { transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease; }
+	[data-server-card]:hover { border-color: var(--border-strong); box-shadow: var(--shadow-md); transform: translateY(-1px); }
 	[data-stat-card] { min-height: 5.5rem; }
 	[data-list-panel] { min-width: 0; border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--surface); box-shadow: var(--shadow-sm); }
 	[data-list-panel-header] { background: var(--surface-subtle); border-radius: var(--radius-card) var(--radius-card) 0 0; }

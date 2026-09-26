@@ -16,7 +16,7 @@ import { type Permission } from "@/lib/auth/rbac";
 import { filterByHrefPermissions } from "@/lib/auth/filter-by-href-permissions";
 import { useGateRoute } from "@/lib/auth/use-gate-route";
 import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
-import { X } from "./icons";
+import { Shield, X } from "./icons";
 import { IconButton } from "./ui-primitives";
 import {
 	IconExternal,
@@ -332,7 +332,7 @@ export function AppSidebar({
 					onClick={() => setMobileOpen(false)}
 					className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-secondary)]"
 				>
-					<span aria-hidden="true">🛡️</span>
+					<Shield size={18} aria-hidden="true" />
 					<span>{t("auth.account-security")}</span>
 				</Link>
 				<button
@@ -346,9 +346,7 @@ export function AppSidebar({
 					<IconKey />
 					<span>{t("auth.change-password")}</span>
 				</button>
-				<div className="px-1 py-0.5">
-					<SignOutButton />
-				</div>
+				<SignOutButton />
 			</div>
 		</nav>
 	);

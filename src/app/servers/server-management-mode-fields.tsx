@@ -20,7 +20,7 @@ export function ServerManagementModeFields({
     {
       value: "DIRECT" as const,
       Icon: Server,
-      title: t("serversPage.management.direct"),
+      title: t(platform === "WINDOWS" ? "serversPage.management.directWindows" : "serversPage.management.direct"),
       detail: t(platform === "WINDOWS" ? "serversPage.management.directHintWindows" : "serversPage.management.directHint"),
     },
     {
@@ -46,7 +46,7 @@ export function ServerManagementModeFields({
                 setValue(option.value);
                 onChange?.(option.value);
               }}
-              className={`min-h-[76px] rounded-lg border p-3 text-left transition ${selected ? "border-[var(--color-action-border)] bg-[var(--color-action-bg)]/10" : "border-[var(--border)] bg-[var(--surface-elevated)] hover:bg-[var(--surface-hover)]"}`}
+              className={`min-h-[76px] rounded-lg border p-3 text-left transition ${selected ? "border-[var(--color-action-border)] bg-[var(--color-action-bg)]" : "border-[var(--border)] bg-[var(--surface-elevated)] hover:bg-[var(--surface-hover)]"}`}
             >
               <span className="flex items-center gap-2 text-sm font-medium text-[var(--text-primary)]"><option.Icon size={16} className="shrink-0 text-[var(--accent)]" aria-hidden="true" />{option.title}</span>
               <span className="mt-1 block text-xs leading-5 text-[var(--text-muted)]">{option.detail}</span>

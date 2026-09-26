@@ -92,10 +92,12 @@ export function ServerCreateForm({
           {state.success}{" "}
         </div>
       )}{" "}
-      <label htmlFor="serverOperatingSystem">{t("serversPage.windows.os")}</label>
-      <select id="serverOperatingSystem" name="operatingSystem" className={UI_INPUT} value={operatingSystem} onChange={(event) => { setOperatingSystem(event.target.value); setObservedHostKeySha256(""); setHostKeyConfirmed(false); }}>
-        <option value="LINUX">Linux</option><option value="WINDOWS">Windows</option>
-      </select>
+      <div className="space-y-1.5">
+        <label htmlFor="serverOperatingSystem" className="text-xs font-medium text-[var(--text-primary)]/70">{t("serversPage.windows.os")}</label>
+        <select id="serverOperatingSystem" name="operatingSystem" className={UI_INPUT} value={operatingSystem} onChange={(event) => { setOperatingSystem(event.target.value); setObservedHostKeySha256(""); setHostKeyConfirmed(false); }}>
+          <option value="LINUX">Linux</option><option value="WINDOWS">Windows</option>
+        </select>
+      </div>
       <div className="grid gap-3 sm:grid-cols-2">
         {" "}
         <div className="space-y-1.5">
@@ -171,12 +173,11 @@ export function ServerCreateForm({
           />{" "}
         </div>{" "}
       </div>{" "}
+      <ServerCostFields />
       {windows ? <>
       <ServerManagementModeFields platform="WINDOWS" />
       <RdpCredentialFields idPrefix="create-rdp" />
-      <ServerCostFields />
       </> : <>
-      <ServerCostFields />
       <ServerManagementModeFields />
       <ConnectionTypeFields sshKeys={sshKeys} />{" "}
       <div className="rounded-xl border border-[var(--warning-border)] bg-[var(--warning-bg)] p-4 text-sm text-[var(--text-secondary)]">

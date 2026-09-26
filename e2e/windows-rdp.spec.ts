@@ -4,7 +4,7 @@ import { expect, test } from "@playwright/test";
 import { installDirectSession } from "./helpers/direct-session";
 
 // Opt-in production canary: no real credentials, account changes or remote connections.
-test("Windows/Linux create controls and isolated inventory filters", async ({ page, context }) => {
+test("Windows/Linux create controls and isolated inventory filters", async ({ page, context }, testInfo) => {
   test.skip(process.env.E2E_RDP_CANARY !== "1", "Requires explicit local fixture permission");
   await installDirectSession(context);
   const url = new URL(process.env.DATABASE_URL!);
@@ -18,6 +18,16 @@ test("Windows/Linux create controls and isolated inventory filters", async ({ pa
     }
     await page.goto(`/servers?query=${prefix}`);
     await expect(page.locator("[data-server-card]")).toHaveCount(2);
+    const windowsCard = page.locator("[data-server-card]").filter({ hasText: prefix + "WINDOWS" });
+    const linuxCard = page.locator("[data-server-card]").filter({ hasText: prefix + "LINUX" });
+    await expect(windowsCard.getByRole("button", { name: /查看详情|View details/i })).toBeVisible();
+    await expect(linuxCard.getByRole("button", { name: /查看详情|View details/i })).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath("servers-windows-linux.png"), fullPage: true });
+    await windowsCard.getByRole("button", { name: /查看详情|View details/i }).click();
+    await expect(page.getByRole("dialog", { name: prefix + "WINDOWS" })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: prefix + "WINDOWS" })).toContainText(/RDP 直连|Direct RDP/);
+    await page.screenshot({ path: testInfo.outputPath("windows-details.png") });
+    await page.keyboard.press("Escape");
     await page.getByRole("tab", { name: "Windows", exact: true }).click();
     await expect(page).toHaveURL(/operatingSystem=WINDOWS/);
     await expect(page.locator("[data-server-card]")).toHaveCount(1);
@@ -32,11 +42,13 @@ test("Windows/Linux create controls and isolated inventory filters", async ({ pa
     await expect(os).toHaveValue("LINUX");
     await expect(page.locator("#serverPort")).toHaveValue("22");
     await os.selectOption("WINDOWS");
+    await expect(page.getByRole("button", { name: /RDP 直连|Direct RDP/ })).toBeVisible();
     await expect(page.locator("#serverPort")).toHaveValue("3389");
     await expect(page.locator('[name="rdpPassword"]')).toHaveAttribute("type", "password");
     await expect(page.locator('[name="rdpPassword"]')).toHaveAttribute("required", "");
     await expect(page.locator('[name="username"]')).toHaveValue("Administrator");
     await expect(page.locator('[name="connectionType"]')).toHaveCount(0);
+    await page.screenshot({ path: testInfo.outputPath("windows-create-form.png"), fullPage: true });
     await os.selectOption("LINUX");
     await expect(page.locator("#serverPort")).toHaveValue("22");
     await expect(page.locator('[name="rdpPassword"]')).toHaveCount(0);

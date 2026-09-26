@@ -441,11 +441,11 @@ export default function TrafficPage() {
                     <>
                       <div className="mt-3 grid grid-cols-2 gap-2">
                         <div className="rounded-lg bg-[var(--color-action)]/10 px-3 py-2 text-[var(--color-action)]">
-                          <div className="text-xs opacity-70">{t("trafficPage.rxShort")}</div>
+                          <div className="text-xs">{t("trafficPage.rxShort")}</div>
                           <div className="text-sm font-semibold tabular-nums">{node.primaryInterface.rxRateLabel}</div>
                         </div>
                         <div className="rounded-lg bg-[var(--success-bg)] px-3 py-2 text-[var(--success)]">
-                          <div className="text-xs opacity-70">{t("trafficPage.txShort")}</div>
+                          <div className="text-xs">{t("trafficPage.txShort")}</div>
                           <div className="text-sm font-semibold tabular-nums">{node.primaryInterface.txRateLabel}</div>
                         </div>
                       </div>

@@ -22,6 +22,9 @@ All notable changes to VControlHub are documented here. Versions follow Semantic
 
 ### Fixed
 
+- VPS inventory now uses one card and details-dialog layout for Linux and Windows nodes. Windows RDP, Agent, and edit controls keep their platform-specific behavior within the shared layout; OS filters and create-form fields follow the same visual system.
+- Shared page headers and cards have clearer hierarchy and consistent depth across the console. Sidebar account actions use the same SVG icon style as navigation. Deployment, request, and traffic pages no longer reduce text contrast with translucent labels or whole-card opacity.
+
 - Login and pending-2FA origin checks now reject posts from a sibling subdomain even when browsers label them `same-site`; login also caps the actual streamed form body at 1 MiB when `Content-Length` is absent or incorrect.
 - The standalone worker now connects to Redis on its first notification publish, so worker-created notifications reach browser sockets in multi-instance deployments. After a Redis startup outage, the first WebSocket-instance notification is also published across instances while local delivery stays active.
 - Audit retention now selects a bounded set of IDs before each delete. Previously `deleteMany` could remove the entire expired backlog in one statement despite the configured batch cap.
