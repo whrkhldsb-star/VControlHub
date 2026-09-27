@@ -52,21 +52,16 @@ describe("user directory team scope", () => {
     expect(userDirectoryWhere(session)).toEqual({});
   });
 
-	it("protects a target whose custom role grants team:manage", async () => {
+	it("reserves global team management for the built-in admin role", async () => {
 		mocks.prisma.user.findUnique.mockResolvedValue({
 			roles: [
 				{ role: { key: "viewer" } },
 				{ role: { key: "user:target:custom" } },
 			],
 		});
-		mocks.resolveEffectivePermissions.mockResolvedValue(["user:read", "team:manage"]);
-
+		await expect(userHoldsTeamManage("target")).resolves.toBe(false);
+		mocks.prisma.user.findUnique.mockResolvedValue({ roles: [{ role: { key: "admin" } }] });
 		await expect(userHoldsTeamManage("target")).resolves.toBe(true);
-		expect(mocks.resolveEffectivePermissions).toHaveBeenCalledWith({
-			userId: "target",
-			roles: ["viewer"],
-			assignedRoleKeys: ["viewer", "user:target:custom"],
-		});
 	});
 
   it("scopes list to current team members + self", () => {

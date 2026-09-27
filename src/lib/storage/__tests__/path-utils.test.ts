@@ -13,6 +13,8 @@ import {
   sanitizeArchiveEntries,
   resolveStoragePathWithinBase,
   expandStorageBasePath,
+  localBasePathBelongsToTenant,
+  tenantStorageBasePath,
 } from "../path-utils";
 
 describe("storage path utils", () => {
@@ -76,6 +78,22 @@ describe("storage path utils", () => {
       expect(
         resolveStoragePathWithinBase(storageRoot, "escape/new.txt").ok,
       ).toBe(false);
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("keeps tenant-managed local nodes inside their own directory", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "vch-tenant-storage-"));
+    const storageRoot = path.join(tempDir, "storage");
+    try {
+      const teamRoot = tenantStorageBasePath("team-a", storageRoot);
+      expect(localBasePathBelongsToTenant(path.join(teamRoot, "photos"), "team-a", storageRoot)).toBe(true);
+      expect(localBasePathBelongsToTenant(tenantStorageBasePath("team-b", storageRoot), "team-a", storageRoot)).toBe(false);
+      expect(localBasePathBelongsToTenant(path.join(teamRoot, "..", "team-b"), "team-a", storageRoot)).toBe(false);
+      await mkdir(teamRoot, { recursive: true });
+      await symlink(tempDir, path.join(teamRoot, "escape"));
+      expect(localBasePathBelongsToTenant(path.join(teamRoot, "escape", "secret"), "team-a", storageRoot)).toBe(false);
     } finally {
       await rm(tempDir, { recursive: true, force: true });
     }

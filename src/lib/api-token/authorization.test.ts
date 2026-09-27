@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SessionPayload } from "@/lib/auth/session";
 
-const { findUniqueMock } = vi.hoisted(() => ({ findUniqueMock: vi.fn() }));
+const { findUniqueMock, membershipMock } = vi.hoisted(() => ({ findUniqueMock: vi.fn(), membershipMock: vi.fn() }));
 
 vi.mock("@/lib/db", () => ({
-	prisma: { user: { findUnique: findUniqueMock } },
+	prisma: { user: { findUnique: findUniqueMock }, teamMember: { findUnique: membershipMock } },
 }));
 
 import {
@@ -72,6 +72,20 @@ describe("API token authorization", () => {
 		});
 		const arg = findUniqueMock.mock.calls[0]?.[0];
 		expect(arg.select.currentTeam.select.members.where).toEqual({ userId: "user-1" });
+	});
+
+	it("keeps a bearer credential bound to its issued workspace after the owner's preference changes", async () => {
+		membershipMock.mockResolvedValueOnce({ team: { slug: "ops" } });
+		findUniqueMock.mockResolvedValueOnce({
+			id: "user-1", username: "alice", status: "ACTIVE", mustChangePassword: false,
+			currentTeam: { id: "team-2", members: [{ userId: "user-1" }] },
+			roles: [{ role: { key: "viewer" } }],
+		});
+		await expect(loadApiTokenOwnerSession("user-1", "team-1")).resolves.toMatchObject({
+			currentTeamId: "team-1",
+		});
+		membershipMock.mockResolvedValueOnce(null);
+		await expect(loadApiTokenOwnerSession("user-1", "team-1")).resolves.toBeNull();
 	});
 
 	it.each([

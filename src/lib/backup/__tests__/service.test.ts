@@ -108,9 +108,9 @@ describe("backup service", () => {
     const session = { userId: "u1", roles: ["viewer"] as const, currentTeamId: "team-1" };
     mockPrisma.backupRecord.findFirst.mockResolvedValue({ id: "bak1" });
     await listBackupRecords(session as never);
-    expect(mockPrisma.backupRecord.findMany).toHaveBeenLastCalledWith(expect.objectContaining({ where: { OR: [{ teamId: "team-1" }, { teamId: null }] } }));
+    expect(mockPrisma.backupRecord.findMany).toHaveBeenLastCalledWith(expect.objectContaining({ where: { teamId: "team-1" } }));
     await getBackupRecord("bak1", session as never);
-    expect(mockPrisma.backupRecord.findFirst).toHaveBeenCalledWith({ where: { id: "bak1", OR: [{ teamId: "team-1" }, { teamId: null }] } });
+    expect(mockPrisma.backupRecord.findFirst).toHaveBeenCalledWith({ where: { id: "bak1", teamId: "team-1" } });
   });
 
   it("creates auditable backup records with portable relative paths", async () => {

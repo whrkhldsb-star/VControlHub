@@ -41,7 +41,7 @@ vi.mock("@/lib/auth/team-scope", () => ({
   teamWhere: (session: { roles?: string[]; currentTeamId?: string | null }) => {
     if (session.roles?.includes("admin")) return {};
     if (session.currentTeamId) {
-      return { OR: [{ teamId: session.currentTeamId }, { teamId: null }] };
+      return { teamId: session.currentTeamId };
     }
     return { teamId: null };
   },
@@ -162,7 +162,7 @@ describe("durable job service", () => {
       where: {
         id: "job1",
         status: { in: ["PENDING", "RUNNING"] },
-        OR: [{ teamId: "team-1" }, { teamId: null }],
+        teamId: "team-1",
       },
       data: expect.objectContaining({
         status: "CANCELLED",

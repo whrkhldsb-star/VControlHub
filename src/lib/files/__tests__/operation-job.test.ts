@@ -55,9 +55,9 @@ beforeEach(() => {
   });
   mocks.latest.mockResolvedValue({ status: "RUNNING", payload });
   mocks.membership.mockResolvedValue({ userId: "user" });
-  mocks.user.mockImplementation(async () => ({
+  mocks.user.mockImplementation(async (_userId, teamId) => ({
     userId: "user",
-    currentTeamId: "different-team",
+    currentTeamId: teamId,
     roles: ["operator"],
   }));
   mocks.permission.mockReturnValue(true);
@@ -127,7 +127,7 @@ describe("durable file operation worker", () => {
     expect(mocks.fail).toHaveBeenCalled();
   });
   it("stops when the original team membership is removed", async () => {
-    mocks.membership.mockResolvedValue(null);
+    mocks.user.mockResolvedValue(null);
     await runFileOperationWorkerOnce();
     expect(mocks.copy).not.toHaveBeenCalled();
     expect(mocks.fail).toHaveBeenCalled();

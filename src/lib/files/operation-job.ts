@@ -57,8 +57,9 @@ export async function runFileOperationWorkerOnce() {
                   select: { payload: true, status: true },
                 });
                 if (!latest || latest.status !== "RUNNING") return;
+                if (!job.teamId) throw new Error(apiCopy("apiCopy.files.op.membership"));
                 const session = job.createdBy
-                  ? await loadApiTokenOwnerSession(job.createdBy)
+                  ? await loadApiTokenOwnerSession(job.createdBy, job.teamId)
                   : null;
                 if (
                   !session ||
@@ -70,20 +71,6 @@ export async function runFileOperationWorkerOnce() {
                   )
                 )
                   throw new Error(apiCopy("apiCopy.files.op.revoked"));
-                if (job.teamId) {
-                  const membership = await prisma.teamMember.findUnique({
-                    where: {
-                      teamId_userId: {
-                        teamId: job.teamId,
-                        userId: session.userId,
-                      },
-                    },
-                    select: { userId: true },
-                  });
-                  if (!membership)
-                    throw new Error(apiCopy("apiCopy.files.op.membership"));
-                }
-                session.currentTeamId = job.teamId;
                 if (
                   (latest.payload as Record<string, unknown>).cancelRequested
                 ) {

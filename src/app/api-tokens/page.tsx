@@ -6,6 +6,7 @@ import { getServerLocale, t } from "@/lib/i18n/translations";
 import { ApiTokenManagerClient } from "./api-token-manager-client";
 import { PageShell, PageHeader, EmptyState } from "@/components/page-shell";
 import { Callout } from "@/components/ui-primitives";
+import { prisma } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,9 @@ export default async function Page() {
 		);
 	}
 	const tokens = await listApiTokens(session.userId, 200);
+	const workspace = session.currentTeamId
+		? await prisma.team.findUnique({ where: { id: session.currentTeamId }, select: { name: true } })
+		: null;
 	const allowedScopes = ALLOWED_API_TOKEN_SCOPES.filter((scope) =>
 		apiTokenScopeAllowedForSession(scope, session),
 	);
@@ -40,7 +44,7 @@ export default async function Page() {
 			<div className="mb-5">
 				<Callout tone="neutral" title={t("apiTokensPage.hint", locale)} />
 			</div>
-			<ApiTokenManagerClient initialTokens={tokens} allowedScopes={allowedScopes} />
+			<ApiTokenManagerClient initialTokens={tokens} allowedScopes={allowedScopes} currentWorkspaceName={workspace?.name ?? null} />
 		</PageShell>
 	);
 }

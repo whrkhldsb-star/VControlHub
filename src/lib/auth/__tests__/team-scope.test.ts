@@ -7,12 +7,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * module, so without this file nothing pins the semantics the whole isolation
  * model rests on.
  *
- * The distinction that matters: `teamWhere` treats `teamId: null` as SHARED,
- * while the security-root helpers (servers, command requests, sync jobs,
- * deployments, playbooks, images) treat it as QUARANTINED legacy data reachable
- * only by a global manager. Collapsing a strict helper back onto the loose shape
- * would hand every tenant the null-team rows — including runnable playbooks and
- * SSH-capable server records.
+ * All tenant query helpers quarantine null-team legacy rows. A public record
+ * must have its own explicit visibility rule rather than relying on null.
  */
 
 import type { TeamSession } from "../team-scope";
@@ -64,20 +60,18 @@ describe("isGlobalTeamManager", () => {
   });
 });
 
-describe("teamWhere (loose: null teamId is shared)", () => {
+describe("teamWhere (strict tenant ownership)", () => {
   it("applies no filter for a global manager", () => {
     expect(teamWhere(ADMIN)).toEqual({});
     expect(teamWhere(ADMIN_IN_TEAM)).toEqual({});
   });
 
-  it("admits the current team plus unassigned rows", () => {
-    expect(teamWhere(MEMBER)).toEqual({
-      OR: [{ teamId: "team_a" }, { teamId: null }],
-    });
+  it("admits only the selected workspace", () => {
+    expect(teamWhere(MEMBER)).toEqual({ teamId: "team_a" });
   });
 
-  it("admits only unassigned rows without a team context", () => {
-    expect(teamWhere(TEAMLESS)).toEqual({ teamId: null });
+  it("matches no rows without a team context", () => {
+    expect(teamWhere(TEAMLESS)).toEqual({ teamId: "__no_active_team__" });
   });
 
   it("never leaks another team's id into the fragment", () => {
@@ -183,10 +177,8 @@ describe("teamCreateData", () => {
     expect(teamCreateData({ currentTeamId: "team_a" })).toEqual({ teamId: "team_a" });
   });
 
-  it("omits teamId entirely without a team context", () => {
-    // Documented consequence: the row lands as teamId=null, which the loose
-    // filter treats as shared and every strict helper quarantines.
-    expect(teamCreateData({ currentTeamId: null })).toEqual({});
+  it("rejects tenant resource creation without a selected workspace", () => {
+    expect(() => teamCreateData({ currentTeamId: null })).toThrow("backend.team.activeTeamRequired");
   });
 });
 

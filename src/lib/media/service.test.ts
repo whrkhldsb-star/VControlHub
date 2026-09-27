@@ -292,7 +292,7 @@ describe("media service", () => {
       expect.objectContaining({
         where: expect.objectContaining({
           storageNode: {
-            OR: [{ teamId: "team_a" }, { teamId: null }],
+            teamId: "team_a",
           },
         }),
       }),
@@ -311,7 +311,7 @@ describe("media service", () => {
         where: expect.objectContaining({
           id: "m1",
           storageNode: {
-            OR: [{ teamId: "team_a" }, { teamId: null }],
+            teamId: "team_a",
           },
         }),
       }),

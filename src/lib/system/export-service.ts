@@ -66,18 +66,25 @@ export function resolveExportAuthorization(input: {
 }): { mode: ExportMode; scope: ExportScope; teamId: string | null } {
   const { session } = input;
   let { mode, scope } = input;
-  const teamId = input.teamId ?? session.currentTeamId ?? null;
+  const platformAdmin = isPlatformAdmin(session);
+  const teamId = platformAdmin
+    ? (input.teamId ?? session.currentTeamId ?? null)
+    : (session.currentTeamId ?? null);
 
-  if (mode === "full" && !isPlatformAdmin(session)) {
+  if (!platformAdmin && input.teamId && input.teamId !== teamId) {
+    throw new ForbiddenError(t("backend.system.globalExportRequiresPlatformAdmin"));
+  }
+
+  if (mode === "full" && !platformAdmin) {
     throw new ForbiddenError(t("backend.system.fullExportWithSecretsRequiresPlatformAdmin"));
   }
-  if (scope === "global" && !isPlatformAdmin(session)) {
+  if (scope === "global" && !platformAdmin) {
     throw new ForbiddenError(t("backend.system.globalExportRequiresPlatformAdmin"));
   }
   if (scope === "team" && !teamId) {
     throw new ValidationError(apiCopy("apiCopy.no.current.team.selected.for.team.export.a4844e53"), { field: "teamId" });
   }
-  if (!isPlatformAdmin(session)) {
+  if (!platformAdmin) {
     scope = "team";
     mode = "standard";
   }

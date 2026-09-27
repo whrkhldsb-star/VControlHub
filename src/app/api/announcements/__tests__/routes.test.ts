@@ -10,7 +10,7 @@ import { NotFoundError, ValidationError } from "@/lib/errors";
  * that matter instead:
  *
  * 1. GET is only `{ requireAuth: true }`, and the *handler* decides what the
- *    caller may see: an `announcement:manage` holder gets `listAnnouncements()`
+ *    caller may see: a platform administrator gets `listAnnouncements()`
  *    (every row, including unpublished drafts and expired notices), everyone
  *    else gets `listActiveAnnouncements()` (published + inside its window).
  *    Getting that branch backwards would leak unpublished drafts to every
@@ -102,6 +102,7 @@ describe("/api/announcements routes", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		mocks.guardCalls.length = 0;
+		session.roles = ["operator"];
 		session.permissions = ["announcement:manage"];
 		session.currentTeamId = "team_1";
 		mocks.listAnnouncements.mockReset();
@@ -140,11 +141,19 @@ describe("/api/announcements routes", () => {
 	});
 
 	describe("GET", () => {
-		it("returns every row, drafts included, to an announcement:manage holder", async () => {
+		it("returns every row, drafts included, to a platform administrator", async () => {
+			session.roles = ["admin"];
 			const res = await route.GET(req("GET"));
 			expect(res.status).toBe(200);
 			expect(mocks.listAnnouncements).toHaveBeenCalledTimes(1);
 			expect(mocks.listActiveAnnouncements).not.toHaveBeenCalled();
+		});
+
+		it("does not reveal drafts from a direct announcement:manage grant", async () => {
+			const res = await route.GET(req("GET"));
+			expect(res.status).toBe(200);
+			expect(mocks.listActiveAnnouncements).toHaveBeenCalledTimes(1);
+			expect(mocks.listAnnouncements).not.toHaveBeenCalled();
 		});
 
 		it("returns only the active set to a caller without announcement:manage", async () => {

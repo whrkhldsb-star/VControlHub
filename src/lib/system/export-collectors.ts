@@ -18,7 +18,7 @@ function dateToISO(d: Date | null | undefined): string | null {
 }
 
 function teamScopedWhere(teamId: string) {
-  return { OR: [{ teamId }, { teamId: null }] as const };
+  return { teamId };
 }
 
 const EXPORT_PAGE_SIZE = 500;

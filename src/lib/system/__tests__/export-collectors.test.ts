@@ -201,12 +201,11 @@ describe("team scope leaves platform-wide tables out entirely", () => {
     );
   });
 
-  it("includes legacy shared rows in a team export of an owned table", async () => {
-    // teamId: null is the project's legacy-shared marker, not another tenant.
+  it("excludes unassigned legacy rows from a team export of an owned table", async () => {
     await exportStorageNodes("team", "team_a");
 
     expect(model("storageNode").findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { OR: [{ teamId: "team_a" }, { teamId: null }] } }),
+      expect.objectContaining({ where: { teamId: "team_a" } }),
     );
   });
 });

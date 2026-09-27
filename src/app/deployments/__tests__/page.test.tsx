@@ -14,7 +14,7 @@ vi.mock("@/lib/auth/require-session", () => ({
   requireSession: vi.fn().mockResolvedValue({
     userId: "u1",
     username: "admin",
-    roles: ["admin"],
+    roles: ["viewer"],
     permissions: ["deploy:read", "deploy:run", "deploy:export"],
     currentTeamId: "team-a",
     mustChangePassword: false,

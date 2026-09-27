@@ -98,7 +98,7 @@ describe("operation task service", () => {
       { userId: "user-1", roles: ["viewer"], currentTeamId: "team-1" },
     );
 
-    const teamScope = { OR: [{ teamId: "team-1" }, { teamId: null }] };
+    const teamScope = { teamId: "team-1" };
     expect(mockPrisma.job.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { AND: [teamScope, { createdBy: "user-1" }] } }));
     expect(mockPrisma.commandRequest.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { AND: [teamScope, { requesterId: "user-1" }] } }));
     expect(mockPrisma.scheduledTask.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { AND: [teamScope, { createdById: "user-1" }] } }));

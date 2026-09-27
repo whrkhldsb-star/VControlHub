@@ -11,12 +11,15 @@ const { prismaMock, auditUserActionMock, releaseLockMock, acquireAdvisoryLockMoc
 				findUnique: vi.fn(),
 				create: vi.fn(),
 				upsert: vi.fn(),
+				update: vi.fn(),
+				updateMany: vi.fn(),
 				delete: vi.fn(),
 				deleteMany: vi.fn(),
 				count: vi.fn(),
 			},
 			user: { findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
 			server: { updateMany: vi.fn() },
+			storageNode: { create: vi.fn() },
 			$transaction: vi.fn(),
 		},
 		auditUserActionMock: vi.fn(),
@@ -33,6 +36,7 @@ vi.mock("@/lib/concurrency/advisory-lock", () => ({ acquireAdvisoryLock: acquire
 const {
 	createTeam,
 	switchCurrentTeam,
+	transferTeamOwnership,
 	addTeamMember,
 	removeTeamMember,
 	updateTeam,
@@ -46,7 +50,8 @@ const viewerSession: SessionPayload = { userId: "u_viewer", username: "viewer", 
 
 describe("team workspace service", () => {
 	beforeEach(() => {
-		vi.clearAllMocks();
+		vi.resetAllMocks();
+		acquireAdvisoryLockMock.mockResolvedValue(releaseLockMock);
 		prismaMock.$transaction.mockImplementation(async (fn: any) => fn(prismaMock));
 	});
 
@@ -58,6 +63,7 @@ describe("team workspace service", () => {
 
 		await expect(createTeam({ name: "Ops", slug: "ops", description: null }, adminSession)).resolves.toMatchObject({ id: "team_1", slug: "ops" });
 		expect(prismaMock.teamMember.create).toHaveBeenCalledWith({ data: { teamId: "team_1", userId: "u_admin", role: "owner" } });
+		expect(prismaMock.storageNode.create).toHaveBeenCalledWith({ data: expect.objectContaining({ teamId: "team_1", isDefault: true }) });
 		expect(prismaMock.user.update).toHaveBeenCalledWith({ where: { id: "u_admin" }, data: { currentTeamId: "team_1" } });
 		expect(auditUserActionMock).toHaveBeenCalledWith(
 			"u_admin",
@@ -72,6 +78,14 @@ describe("team workspace service", () => {
 		prismaMock.teamMember.findUnique.mockResolvedValueOnce(null);
 		await expect(switchCurrentTeam("team_2", viewerSession)).rejects.toThrow("只能切换到你所属的团队工作区");
 		expect(prismaMock.user.update).not.toHaveBeenCalled();
+	});
+
+	it("lets a platform administrator select a live workspace without membership", async () => {
+		prismaMock.teamMember.findUnique.mockResolvedValueOnce(null);
+		prismaMock.team.findUnique.mockResolvedValueOnce({ id: "team_2", slug: "dev", name: "Dev" });
+		prismaMock.user.update.mockResolvedValueOnce({});
+		await expect(switchCurrentTeam("team_2", adminSession)).resolves.toMatchObject({ id: "team_2" });
+		expect(prismaMock.user.update).toHaveBeenCalledWith({ where: { id: "u_admin" }, data: { currentTeamId: "team_2" } });
 	});
 
 	it("rejects a team slug that uses the reserved deleted-workspace prefix", async () => {
@@ -136,9 +150,7 @@ describe("team workspace service", () => {
 
 	it("keeps the current workspace when it is one of the listed teams", async () => {
 		prismaMock.team.findMany.mockResolvedValueOnce([{ id: "team_1" }, { id: "team_2" }]);
-		prismaMock.user.findUnique.mockResolvedValueOnce({ currentTeamId: "team_1" });
-
-		await expect(listTeamsForSession(viewerSession)).resolves.toMatchObject({ currentTeamId: "team_1" });
+		await expect(listTeamsForSession({ ...viewerSession, currentTeamId: "team_1" })).resolves.toMatchObject({ currentTeamId: "team_1" });
 	});
 
 	it("scopes a non-admin's team list to their own memberships", async () => {
@@ -194,6 +206,36 @@ describe("team workspace service", () => {
 		}));
 	});
 
+	describe("transferTeamOwnership", () => {
+		const ownerSession = { ...viewerSession, userId: "u_owner", currentTeamId: "team_1" };
+
+		it("moves ownership to an active member in one transaction", async () => {
+			prismaMock.team.findUnique.mockResolvedValue({ id: "team_1", slug: "ops", ownerId: "u_owner" });
+			prismaMock.teamMember.findUnique.mockResolvedValueOnce({ user: { id: "u_member", status: "ACTIVE", username: "alice" } });
+			prismaMock.team.update.mockResolvedValueOnce({});
+			await expect(transferTeamOwnership("team_1", { userId: "u_member" }, ownerSession)).resolves.toEqual({ teamId: "team_1", ownerId: "u_member", username: "alice" });
+			expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+			expect(prismaMock.teamMember.updateMany).toHaveBeenCalledWith({ where: { teamId: "team_1", role: "owner" }, data: { role: "admin" } });
+			expect(prismaMock.teamMember.update).toHaveBeenCalledWith({ where: { teamId_userId: { teamId: "team_1", userId: "u_member" } }, data: { role: "owner" } });
+			expect(prismaMock.team.update).toHaveBeenCalledWith({ where: { id: "team_1" }, data: { ownerId: "u_member" } });
+			expect(releaseLockMock).toHaveBeenCalled();
+		});
+
+		it("rejects a team administrator who is not the owner before taking the lock", async () => {
+			prismaMock.team.findUnique.mockResolvedValueOnce({ id: "team_1", slug: "ops", ownerId: "u_owner" });
+			await expect(transferTeamOwnership("team_1", { userId: "u_member" }, viewerSession)).rejects.toThrow(ForbiddenError);
+			expect(acquireAdvisoryLockMock).not.toHaveBeenCalled();
+		});
+
+		it("rejects a disabled or non-member target", async () => {
+			prismaMock.team.findUnique.mockResolvedValue({ id: "team_1", slug: "ops", ownerId: "u_owner" });
+			prismaMock.teamMember.findUnique.mockResolvedValueOnce({ user: { id: "u_member", status: "DISABLED", username: "alice" } });
+			await expect(transferTeamOwnership("team_1", { userId: "u_member" }, ownerSession)).rejects.toThrow(NotFoundError);
+			expect(prismaMock.$transaction).not.toHaveBeenCalled();
+			expect(releaseLockMock).toHaveBeenCalled();
+		});
+	});
+
 	describe("removeTeamMember", () => {
 		/** Distinct client so a statement run outside the transaction is visible. */
 		function stubTransaction() {
@@ -206,10 +248,8 @@ describe("team workspace service", () => {
 		}
 
 		it("drops the membership and the removed user's workspace pointer in one transaction", async () => {
-			// `verifySessionToken` re-reads `currentTeamId` from the database on every
-			// request, so clearing it *is* the revocation. If the delete committed and
-			// the clear did not, the removed member's next request would still carry
-			// this teamId and `teamWhere()` would still hand them the team's data.
+			// Membership removal revokes live access; the user pointer is cleared
+			// alongside it so a later login does not prefer the removed workspace.
 			prismaMock.team.findUnique.mockResolvedValueOnce({ id: "team_1", slug: "ops", ownerId: "u_owner" });
 			prismaMock.teamMember.findUnique.mockResolvedValueOnce({ role: "member" });
 			const tx = stubTransaction();

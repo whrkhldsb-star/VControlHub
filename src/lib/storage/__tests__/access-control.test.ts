@@ -29,7 +29,7 @@ vi.mock("@/lib/auth/team-scope", () => ({
   teamWhere: (session: { roles?: string[]; currentTeamId?: string | null }) => {
     if (session.roles?.includes("admin")) return {};
     if (session.currentTeamId) {
-      return { OR: [{ teamId: session.currentTeamId }, { teamId: null }] };
+      return { teamId: session.currentTeamId };
     }
     return { teamId: null };
   },

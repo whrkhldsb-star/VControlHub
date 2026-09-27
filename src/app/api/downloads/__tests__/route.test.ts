@@ -295,6 +295,7 @@ function serverFixture() {
 
 describe("/api/downloads", () => {
   beforeEach(() => {
+    session.roles = ["admin"];
     // vi.clearAllMocks() only resets call history, not implementations —
     // but to keep behaviour tight we explicitly reset the two mocks that
     // the suite flips per-test (enqueue + the downloadTask.create default).
@@ -621,6 +622,7 @@ describe("/api/downloads", () => {
   });
 
   it("prefilters download list with teamWhere for non-admin sessions", async () => {
+    session.roles = ["viewer"];
     sessionHasPermissionMock.mockImplementation((_sess, permission) => permission !== "team:manage");
     prismaMock.downloadTask.findMany.mockResolvedValueOnce([]);
 
@@ -628,7 +630,7 @@ describe("/api/downloads", () => {
     expect(response.status).toBe(200);
     expect(prismaMock.downloadTask.findMany).toHaveBeenCalledWith(expect.objectContaining({
       where: {
-        OR: [{ teamId: "team_1" }, { teamId: null }],
+        teamId: "team_1",
         serverId: "srv_1",
         category: "iso",
         status: "FAILED",
@@ -658,6 +660,7 @@ describe("/api/downloads", () => {
   });
 
   it("returns 404 for cross-team task control (teamAccessFilter)", async () => {
+    session.roles = ["viewer"];
     sessionHasPermissionMock.mockImplementation((_sess, permission) => permission !== "team:manage");
     prismaMock.downloadTask.findFirst.mockResolvedValueOnce(null);
 
@@ -669,7 +672,7 @@ describe("/api/downloads", () => {
     expect(prismaMock.downloadTask.findFirst).toHaveBeenCalledWith(expect.objectContaining({
       where: {
         id: "other_team_task",
-        OR: [{ teamId: "team_1" }, { teamId: null }],
+        teamId: "team_1",
       },
     }));
   });

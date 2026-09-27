@@ -42,6 +42,7 @@ describe("WebDAV authentication against real RBAC", () => {
     vi.clearAllMocks();
     mocks.verifyApiToken.mockResolvedValue({
       userId: "user-1",
+      teamId: "team_a",
       tokenId: "token-1",
       scopes: ["storage:write"],
     });

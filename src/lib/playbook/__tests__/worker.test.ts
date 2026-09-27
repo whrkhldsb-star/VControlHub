@@ -270,13 +270,14 @@ describe("processPlaybookRun command-step live authorization", () => {
 
   it("terminal-fails when the requester is no longer a member of the run's team", async () => {
     claimedCommandRun();
-    // Has command:execute but not team:manage, and membership row is gone.
+    // Account remains valid, but the target-workspace session cannot load.
     mocks.sessionHasPermission.mockImplementation((_s: unknown, perm: string) => perm !== "team:manage");
-    mocks.teamMemberFindUnique.mockResolvedValue(null);
+    mocks.loadApiTokenOwnerSession.mockResolvedValueOnce({ userId: "u1", roles: ["operator"] }).mockResolvedValueOnce(null);
 
     await expect(processPlaybookRun("run-c", "job-c")).rejects.toMatchObject({
       name: "PlaybookAuthorizationError",
     });
+    expect(mocks.loadApiTokenOwnerSession).toHaveBeenCalledWith("u1", "team1");
     expect(mocks.executePlaybookChain).not.toHaveBeenCalled();
   });
 

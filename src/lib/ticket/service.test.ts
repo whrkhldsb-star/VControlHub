@@ -55,7 +55,7 @@ describe("ticket service", () => {
       expect.objectContaining({
         where: {
           id: "srv-foreign",
-          OR: [{ teamId: "team-a" }, { teamId: null }],
+          teamId: "team-a",
         },
       }),
     );
@@ -250,7 +250,7 @@ describe("ticket service", () => {
       expect.objectContaining({
         where: {
           id: "tk1",
-          OR: [{ teamId: "team-a" }, { teamId: null }],
+          teamId: "team-a",
         },
       }),
     );
@@ -273,7 +273,7 @@ describe("ticket service", () => {
       expect.objectContaining({
         where: {
           id: "tk-other",
-          OR: [{ teamId: "team-a" }, { teamId: null }],
+          teamId: "team-a",
         },
       }),
     );
@@ -291,7 +291,7 @@ describe("ticket service", () => {
       where: {
         id: "tk1",
         status: "OPEN",
-        OR: [{ teamId: "team-a" }, { teamId: null }],
+        teamId: "team-a",
       },
       data: { status: "IN_PROGRESS", closedAt: null },
     });

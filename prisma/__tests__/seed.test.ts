@@ -20,6 +20,7 @@ const { mockPrisma } = vi.hoisted(() => ({
       findUnique: vi.fn(),
       findUniqueOrThrow: vi.fn(),
       upsert: vi.fn(),
+      updateMany: vi.fn(),
     },
     userRole: {
       upsert: vi.fn(),
@@ -30,7 +31,10 @@ const { mockPrisma } = vi.hoisted(() => ({
     storageNode: {
       findFirst: vi.fn(),
       upsert: vi.fn(),
+      updateMany: vi.fn(),
     },
+    team: { findMany: vi.fn(), create: vi.fn() },
+    teamMember: { upsert: vi.fn() },
     commandRequest: {
       upsert: vi.fn(),
     },
@@ -132,6 +136,11 @@ beforeEach(() => {
   mockPrisma.user.findUniqueOrThrow.mockResolvedValue({ id: "user_admin" });
   mockPrisma.user.upsert.mockResolvedValue({ id: "user_admin" });
   mockPrisma.userRole.upsert.mockResolvedValue({});
+  mockPrisma.team.findMany.mockResolvedValue([]);
+  mockPrisma.team.create.mockResolvedValue({ id: "team_default", slug: "default" });
+  mockPrisma.teamMember.upsert.mockResolvedValue({});
+  mockPrisma.user.updateMany.mockResolvedValue({ count: 1 });
+  mockPrisma.storageNode.updateMany.mockResolvedValue({ count: 1 });
   mockPrisma.server.upsert.mockResolvedValue({ id: "srv_demo" });
   mockPrisma.storageNode.findFirst.mockResolvedValue(null);
   mockPrisma.storageNode.upsert.mockResolvedValue({ id: "node_demo" });
@@ -152,6 +161,7 @@ describe("prisma seed", () => {
     expect(mockPrisma.role.upsert).toHaveBeenCalled();
     expect(mockPrisma.rolePermission.createMany).toHaveBeenCalled();
     expect(mockPrisma.user.upsert).toHaveBeenCalled();
+    expect(mockPrisma.team.create).toHaveBeenCalledWith({ data: expect.objectContaining({ slug: "default", ownerId: "user_admin" }) });
     expect(mockPrisma.server.upsert).not.toHaveBeenCalled();
     expect(mockPrisma.storageNode.upsert).toHaveBeenCalledWith({
       where: { id: "node_local_default" },
@@ -159,7 +169,6 @@ describe("prisma seed", () => {
         name: "本机默认存储",
         driver: "LOCAL",
         isDefault: true,
-        basePath: "storage",
         serverId: null,
         host: null,
         port: null,
@@ -173,7 +182,7 @@ describe("prisma seed", () => {
         name: "本机默认存储",
         driver: "LOCAL",
         isDefault: true,
-        basePath: "storage",
+        basePath: "storage/teams/team_default",
         serverId: null,
         host: null,
         port: null,

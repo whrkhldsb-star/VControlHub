@@ -151,6 +151,7 @@ model User {
   filePreferences            FilePreference[]
   ownedTeams                 Team[]                  @relation("TeamOwner")
   teamMemberships            TeamMember[]
+  // Login preference only. Active tenant is bound to each session or API token.
   currentTeamId              String?
   currentTeam                Team?                   @relation("UserCurrentTeam", fields: [currentTeamId], references: [id], onDelete: SetNull)
   twoFactorEnabled           Boolean                 @default(false)
@@ -199,18 +200,20 @@ model Team {
   metricSnapshots      MetricSnapshot[]      @relation("TeamMetricSnapshots")
   imageUploads         ImageUpload[]         @relation("TeamImageUploads")
   aiHostedActions      AiHostedAction[]      @relation("TeamAiHostedActions")
+  apiTokens            ApiToken[]            @relation("TeamApiTokens")
 
   @@index([ownerId])
   @@map("teams")
 }
 
 model TeamMember {
-  teamId   String
-  userId   String
-  role     String   @default("member") // owner|admin|member
-  joinedAt DateTime @default(now())
-  team     Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  teamId     String
+  userId     String
+  role       String   @default("member") // owner|admin|member
+  accessRole String   @default("inherit") // inherit|operator|viewer|storage_manager
+  joinedAt   DateTime @default(now())
+  team       Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([teamId, userId])
   @@index([userId])
@@ -1476,11 +1479,14 @@ model ApiToken {
   lastUsedAt  DateTime?
   revokedAt   DateTime?
   createdBy   String
+  teamId      String?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   creator     User      @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  team        Team?     @relation("TeamApiTokens", fields: [teamId], references: [id], onDelete: Restrict)
 
   @@index([createdBy, revokedAt])
+  @@index([teamId, revokedAt])
   @@map("api_tokens")
 }
 

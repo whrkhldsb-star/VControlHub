@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { NotFoundError, ValidationError } from "@/lib/errors";
+import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 
 const TOKEN_BYTES=32;
@@ -51,11 +51,21 @@ const API_TOKEN_SAFE_SELECT = {
   lastUsedAt: true,
   revokedAt: true,
   createdAt: true,
+  teamId: true,
+  team: { select: { name: true, slug: true } },
 } as const;
 
-export async function createApiToken(input: { userId: string; name: string; scopes?: string[]; expiresAt?: Date | null }) {
+export async function createApiToken(input: { userId: string; teamId: string; name: string; scopes?: string[]; expiresAt?: Date | null }) {
   const name = input.name.trim();
   if (!name) throw new ValidationError(t("backend.api-token.tokenNameIsRequired"));
+  if (!input.teamId) throw new ForbiddenError(t("backend.api-token.activeWorkspaceRequired"));
+  const membership = await prisma.teamMember.findUnique({
+    where: { teamId_userId: { teamId: input.teamId, userId: input.userId } },
+    select: { team: { select: { slug: true } } },
+  });
+  if (!membership || membership.team.slug.startsWith("__deleted__")) {
+    throw new ForbiddenError(t("backend.api-token.activeWorkspaceRequired"));
+  }
   const token = `${TOKEN_PREFIX}${randomBytes(TOKEN_BYTES).toString("base64url")}`;
   const tokenHash = hashApiToken(token);
   const record = await prisma.apiToken.create({
@@ -67,6 +77,7 @@ export async function createApiToken(input: { userId: string; name: string; scop
       scopes: normalizeScopes(input.scopes),
       expiresAt: input.expiresAt ?? null,
       createdBy: input.userId,
+      teamId: input.teamId,
     },
     select: API_TOKEN_SAFE_SELECT,
   });
@@ -111,12 +122,12 @@ export async function verifyApiToken(token: string) {
     where: { tokenHash },
     include: { creator: { select: { id: true, status: true } } },
   });
-  if (!record || record.revokedAt) return null;
+  if (!record || record.revokedAt || !record.teamId) return null;
   if (!record.creator || record.creator.status === "DISABLED") return null;
   if (record.expiresAt && record.expiresAt.getTime() <= Date.now()) return null;
   const lastUsedMs = record.lastUsedAt?.getTime() ?? 0;
   if (Date.now() - lastUsedMs >= LAST_USED_AT_TOUCH_MIN_MS) {
     await prisma.apiToken.update({ where: { id: record.id }, data: { lastUsedAt: new Date() } });
   }
-  return { userId: record.createdBy, scopes: record.scopes, tokenId: record.id };
+  return { userId: record.createdBy, teamId: record.teamId, scopes: record.scopes, tokenId: record.id };
 }

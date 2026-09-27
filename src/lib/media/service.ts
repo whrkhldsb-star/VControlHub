@@ -11,7 +11,7 @@ type TeamSession = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
 function mediaTeamWhere(session?: TeamSession | null) {
   if (!session) return {};
   const nodeScope = teamWhere(session);
-  // teamWhere: {} for team:manage; else { OR: [...] } or { teamId: null }
+  // teamWhere: platform admins may inspect all; members match only their team.
   if (Object.keys(nodeScope).length === 0) return {};
   return { storageNode: nodeScope };
 }

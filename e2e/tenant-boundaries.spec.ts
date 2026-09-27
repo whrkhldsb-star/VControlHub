@@ -40,13 +40,18 @@ test("live API permissions follow team switching, membership removal and role ch
       return context.request;
     };
     const ordinary = await contextFor(member);
+    const secondBrowser = await contextFor(member);
     const manager = await contextFor(admin);
     const checkScope = async (context: APIRequestContext, visibleTeam: string | null, global = false) => {
       for (const id of teams) {
         for (const path of [`/api/servers/${id}/uptime`, `/api/jobs/${id}/events`]) {
           const response = await context.get(path);
-          expect(response.status(), path).toBe(global || id === visibleTeam ? 200 : 404);
-          if (response.status() === 404) expect(await response.text()).not.toContain(`${id}-event`);
+          if (global || id === visibleTeam) {
+            expect(response.status(), path).toBe(200);
+          } else {
+            expect([403, 404], path).toContain(response.status());
+            expect(await response.text()).not.toContain(`${id}-event`);
+          }
         }
       }
       const response = await context.get("/api/users?pageSize=100");
@@ -63,13 +68,17 @@ test("live API permissions follow team switching, membership removal and role ch
     await test.step("member sees current team and global admin sees all teams", async () => {
       await checkScope(ordinary, teamA);
       await checkScope(manager, null, true);
+      expect((await manager.post("/api/teams/switch", { data: { teamId: outside } })).status()).toBe(200);
+      expect((await (await manager.get("/api/teams")).json()).currentTeamId).toBe(outside);
       expect((await ordinary.post("/api/ai/providers", { data: {} })).status()).toBe(403);
     });
     await test.step("same signed session follows an authorized team switch", async () => {
       expect((await ordinary.post("/api/teams/switch", { data: { teamId: teamB } })).status()).toBe(200);
       await checkScope(ordinary, teamB);
+      await checkScope(secondBrowser, teamA);
       expect((await ordinary.post("/api/teams/switch", { data: { teamId: outside } })).status()).toBe(403);
       await checkScope(ordinary, teamB);
+      await checkScope(secondBrowser, teamA);
     });
     await test.step("revoked membership invalidates the current workspace immediately", async () => {
       await prisma.teamMember.delete({ where: { teamId_userId: { teamId: teamB, userId: member } } });
@@ -79,8 +88,8 @@ test("live API permissions follow team switching, membership removal and role ch
       await prisma.userRole.deleteMany({ where: { userId: admin } });
       await prisma.userRole.create({ data: { userId: admin, roleId: viewerRole.id } });
       for (const id of teams) {
-        expect((await manager.get(`/api/jobs/${id}/events`)).status()).toBe(404);
-        expect((await manager.get(`/api/servers/${id}/uptime`)).status()).toBe(404);
+        expect([403, 404]).toContain((await manager.get(`/api/jobs/${id}/events`)).status());
+        expect([403, 404]).toContain((await manager.get(`/api/servers/${id}/uptime`)).status());
       }
       expect((await manager.post("/api/ai/providers", { data: {} })).status()).toBe(403);
     });

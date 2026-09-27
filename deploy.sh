@@ -132,8 +132,9 @@ sudo -u "$APP_USER" env bash -lc 'umask 022; npx prisma generate'
 sudo -u "$APP_USER" env VCONTROLHUB_DEPLOY_BUILD=1 NODE_OPTIONS="--max-old-space-size=4096" bash -lc 'umask 022; npm run build'
 sudo -u "$APP_USER" env bash -lc 'umask 022; npm run build:runtime'
 
-echo "==> [3/8] 应用 Prisma migration"
+echo "==> [3/8] 应用 Prisma migration 并同步内置角色权限"
 sudo -u "$APP_USER" npx prisma migrate deploy 2>&1 | tail -20
+sudo -u "$APP_USER" bash -lc 'set -e; set -a; source .env.local; set +a; npm run db:seed'
 
 echo "==> [4/8] 安装独立 Worker unit，并关闭 Next 进程内 Worker"
 NEXT_UNIT="/etc/systemd/system/${SERVICE_NAME}.service"

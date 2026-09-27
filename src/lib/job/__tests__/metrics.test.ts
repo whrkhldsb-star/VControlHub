@@ -75,7 +75,7 @@ describe("getJobBacklogMetrics", () => {
 
     const firstWhere = mockPrisma.job.count.mock.calls[0]?.[0]?.where;
     expect(firstWhere).toMatchObject({
-      OR: [{ teamId: "team_a" }, { teamId: null }],
+      teamId: "team_a",
       status: "PENDING",
     });
   });

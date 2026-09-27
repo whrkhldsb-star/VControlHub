@@ -122,6 +122,7 @@ describe("GET /api/images/list", () => {
   });
 
   it("scopes media managers showAll to current team (no cross-tenant leak)", async () => {
+    requireApiSessionMock.mockResolvedValueOnce({ ...session, roles: ["operator"] });
     sessionHasPermissionMock.mockImplementation(
       (_session, permission) =>
         permission === "image:read" || permission === "media:manage",

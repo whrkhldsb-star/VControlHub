@@ -270,7 +270,7 @@ describe("listSftpNodesForStaleInventory", () => {
         expect.objectContaining({
           where: expect.objectContaining({
             driver: "SFTP",
-            OR: [{ teamId: "team_a" }, { teamId: null }],
+            teamId: "team_a",
           }),
         }),
       );

@@ -36,6 +36,7 @@ const route = await import("../route");
 const session = {
   userId: "u1",
   username: "alice",
+  roles: ["admin"],
   permissions: ["docker:manage", "team:manage"],
   currentTeamId: "team-a",
 };

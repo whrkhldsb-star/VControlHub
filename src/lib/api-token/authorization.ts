@@ -6,6 +6,7 @@ import {
 	type RoleKey,
 } from "@/lib/auth/rbac";
 import { resolveEffectivePermissions } from "@/lib/auth/effective-permissions";
+import { scopePermissionsToWorkspace } from "@/lib/auth/tenant-permissions";
 import type { SessionPayload } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
 
@@ -40,7 +41,20 @@ export function apiTokenScopeAllowedForSession(
 
 export async function loadApiTokenOwnerSession(
 	userId: string,
+	boundTeamId?: string,
 ): Promise<SessionPayload | null> {
+	// Bearer/WebDAV credentials carry an immutable tenant. A removed membership
+	// immediately invalidates that credential, regardless of the user's login
+	// preference or another browser's selected workspace.
+	const boundMembership = boundTeamId
+		? await prisma.teamMember.findUnique({
+			where: { teamId_userId: { teamId: boundTeamId, userId } },
+			select: { role: true, accessRole: true, team: { select: { slug: true } } },
+		})
+		: null;
+	if (boundTeamId && (!boundMembership || boundMembership.team.slug.startsWith("__deleted__"))) {
+		return null;
+	}
 	const user = await prisma.user.findUnique({
 		where: { id: userId },
 		select: {
@@ -53,7 +67,7 @@ export async function loadApiTokenOwnerSession(
 					id: true,
 					members: {
 						where: { userId },
-						select: { userId: true },
+						select: { userId: true, role: true, accessRole: true },
 						take: 1,
 					},
 				},
@@ -70,10 +84,21 @@ export async function loadApiTokenOwnerSession(
 	);
 	// Same reason as the cookie-session path: a token owner whose permission
 	// comes from a direct grant must be able to mint and use that scope.
-	const permissions = await resolveEffectivePermissions({
+	const accountPermissions = await resolveEffectivePermissions({
 		userId: user.id,
 		roles,
 		assignedRoleKeys,
+	});
+	const currentTeamId = boundTeamId ?? (
+		user.currentTeam && user.currentTeam.members.length > 0
+			? user.currentTeam.id
+			: null
+	);
+	const member = boundTeamId ? boundMembership : user.currentTeam?.members[0];
+	const permissions = scopePermissionsToWorkspace({
+		roles,
+		accountPermissions,
+		membership: currentTeamId && member ? { role: member.role, accessRole: member.accessRole } : null,
 	});
 	return {
 		userId: user.id,
@@ -84,9 +109,6 @@ export async function loadApiTokenOwnerSession(
 		// Same rule as the cookie-session path in `verifySessionToken`: the tenant
 		// pointer is only honoured while the membership behind it is still live, so
 		// a token cannot keep reaching a workspace its owner was removed from.
-		currentTeamId:
-			user.currentTeam && user.currentTeam.members.length > 0
-				? user.currentTeam.id
-				: null,
+		currentTeamId,
 	};
 }

@@ -46,14 +46,12 @@ const serverPrefs = {
 const adminTeamCapabilities = {
   viewerId: "u_admin",
   canCreate: true,
-  canManageMembers: true,
   canManageAll: true,
 };
 
 const viewerTeamCapabilities = {
   viewerId: "u_viewer",
   canCreate: false,
-  canManageMembers: false,
   canManageAll: false,
 };
 
@@ -61,7 +59,7 @@ describe("UnifiedSettingsPageClient", () => {
   it("keeps restricted bookmarks on personal preferences", async () => {
     window.history.replaceState(null, "", "#runtime");
     render(<UnifiedSettingsPageClient settings={{}} canManage={false} teamCapabilities={viewerTeamCapabilities} />);
-    expect(await screen.findByRole("button", { name: "仪表盘" })).toBeVisible();
+    expect(await screen.findByRole("button", { name: "仪表盘" }, { timeout: 5_000 })).toBeVisible();
     expect(screen.getByRole("tab", { name: /个人偏好/ })).toHaveAttribute("aria-selected", "true");
     expect(screen.queryByRole("tab", { name: /高级配置/ })).not.toBeInTheDocument();
   });

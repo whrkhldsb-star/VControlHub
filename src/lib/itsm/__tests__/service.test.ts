@@ -286,7 +286,7 @@ describe("ITSM service", () => {
 				credentials: { webhookSecret: "abc" },
 				config: { webhookUrl: "https://hooks.example.com/x", createOnInbound: true },
 			},
-			{ userId: "user1", roles: ["admin"], currentTeamId: null },
+			{ userId: "user1", roles: ["admin"], currentTeamId: "team_ops" },
 		);
 		expect(created.name).toBe("Ops webhook");
 		expect(created.hasCredentials).toBe(true);
@@ -408,7 +408,7 @@ describe("ITSM service", () => {
 				credentials: { webhookSecret: "sec" },
 				config: { createOnInbound: true, defaultPriority: "HIGH" },
 			},
-			{ userId: "user1", roles: ["admin"], currentTeamId: null },
+			{ userId: "user1", roles: ["admin"], currentTeamId: "team_ops" },
 		);
 		const rawBody = JSON.stringify({
 			eventType: "ticket.create",
@@ -467,7 +467,7 @@ describe("ITSM service", () => {
 				credentials: { webhookSecret: "sec" },
 				config: { createOnInbound: true },
 			},
-			{ userId: "user1", roles: ["admin"], currentTeamId: null },
+			{ userId: "user1", roles: ["admin"], currentTeamId: "team_ops" },
 		);
 		await expect(
 			handleInboundWebhook({
@@ -488,7 +488,7 @@ describe("ITSM service", () => {
 				direction: "outbound",
 				config: { webhookUrl: "https://hooks.example.com/y" },
 			},
-			{ userId: "user1", roles: ["admin"], currentTeamId: null },
+			{ userId: "user1", roles: ["admin"], currentTeamId: "team_ops" },
 		);
 		const result = await testItsmConnection(conn.id, "ping");
 		expect(result.ok).toBe(true);

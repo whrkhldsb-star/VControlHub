@@ -50,6 +50,9 @@ export const zh: Record<string, string> = {
 	"apiTokensPage.status.active": "有效",
 	"apiTokensPage.status.expired": "已过期",
 	"apiTokensPage.status.revoked": "已撤销",
+	"apiTokensPage.workspace.active": "当前工作区：{name}。新 Token 只能访问该工作区。",
+	"apiTokensPage.workspace.bound": "工作区：{name}",
+	"apiTokensPage.workspace.none": "请先在设置中选择工作区，再创建 Token。",
 	"apiTokensPage.title": "个人 API Token",
 };
 
@@ -98,5 +101,8 @@ export const en: Record<string, string> = {
 	"apiTokensPage.status.active": "Active",
 	"apiTokensPage.status.expired": "Expired",
 	"apiTokensPage.status.revoked": "Revoked",
+	"apiTokensPage.workspace.active": "Current workspace: {name}. New tokens are limited to this workspace.",
+	"apiTokensPage.workspace.bound": "Workspace: {name}",
+	"apiTokensPage.workspace.none": "Select a workspace in Settings before creating a token.",
 	"apiTokensPage.title": "Personal API Token",
 };

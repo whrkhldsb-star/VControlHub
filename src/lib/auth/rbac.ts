@@ -71,13 +71,10 @@ export const ALL_PERMISSIONS = [...PERMISSIONS] satisfies Permission[];
 export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[]> = {
 	admin: ALL_PERMISSIONS,
 	operator: [
-		"announcement:manage",
 		"api-token:manage",
 		"audit:read",
 		"ai:chat",
 		"ai:manage",
-		"backup:create",
-		"backup:read",
 		"command:create",
 		"command:execute",
 		"command:read",
@@ -104,7 +101,6 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[]> = {
 		"task:read",
 		"team:create",
 		"team:read",
-		"team:member:manage",
 		"ticket:create",
 		"ticket:manage",
 		"ticket:read",
@@ -113,7 +109,6 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[]> = {
 	viewer: [
 		"ai:chat",
 		"audit:read",
-		"backup:read",
 		"command:read",
 		"cost:read",
 		"deploy:read",
@@ -130,7 +125,6 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[]> = {
 	storage_manager: [
 		"ai:chat",
 		"audit:read",
-		"backup:read",
 		"command:read",
 		"health:read",
 		"media:manage",

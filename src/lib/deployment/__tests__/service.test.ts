@@ -49,7 +49,7 @@ const teamSession: SessionScope = {
 describe("deployment service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockTeamWhere.mockReturnValue({ OR: [{ teamId: "team_a" }, { teamId: null }] });
+    mockTeamWhere.mockReturnValue({ teamId: "team_a" });
     mockDeploymentRunTeamWhere.mockReturnValue({ teamId: "team_a" });
     mockTeamCreateData.mockReturnValue({ teamId: "team_a" });
 		mockPrisma.$transaction.mockImplementation(async (callback: (tx: typeof mockPrisma) => unknown) => callback(mockPrisma));

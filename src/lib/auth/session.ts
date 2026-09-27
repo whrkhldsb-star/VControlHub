@@ -10,6 +10,7 @@ import { t } from "@/lib/i18n/service-translations";
 import type { Permission, RoleKey } from "./rbac";
 import { DEFAULT_ROLE_PERMISSIONS } from "./rbac";
 import { resolveEffectivePermissions } from "./effective-permissions";
+import { scopePermissionsToWorkspace } from "./tenant-permissions";
 import { decodeBase64Url, signHmacToken, verifyHmacTokenSignature } from "./hmac-token";
 
 const logger = createLogger("auth:session");
@@ -192,6 +193,19 @@ export async function createSessionToken(payload: SessionPayload, options: { rem
   return signHmacToken(envelope, getSessionSecret());
 }
 
+/** Change only this cookie's workspace while preserving its original expiry. */
+export async function reissueSessionForTeam(token: string, teamId: string): Promise<{ token: string; maxAge: number }> {
+  await verifySessionToken(token);
+  const [encodedPayload] = token.split(".");
+  if (!encodedPayload) throw new AuthError(apiCopy("apiCopy.invalid.session.token.format.ab35c21d"));
+  const envelope = JSON.parse(decodeBase64Url(encodedPayload)) as SessionTokenEnvelope;
+  const maxAge = Math.max(1, Math.ceil((envelope.exp - Date.now()) / 1000));
+  return {
+    token: signHmacToken({ ...envelope, currentTeamId: teamId }, getSessionSecret()),
+    maxAge,
+  };
+}
+
 export async function verifySessionToken(token: string) {
   const [encodedPayload, providedSignature] = token.split(".");
 
@@ -230,18 +244,12 @@ export async function verifySessionToken(token: string) {
      status: true,
      mustChangePassword: true,
      sessionEpoch: true,
-     // The tenant pointer is resolved through the relation rather than the raw
-     // `currentTeamId` column, so the membership check rides along in the same
-     // round trip — see where `currentTeamId` is computed below.
-     currentTeam: {
-       select: {
-         id: true,
-         members: {
-           where: { userId: payload.userId },
-           select: { userId: true },
-           take: 1,
-         },
-       },
+     // The cookie owns its workspace selection; validate its membership fresh
+     // on every request so removal revokes access across all devices.
+     teamMemberships: {
+       where: { teamId: payload.currentTeamId || "__no_active_team__" },
+       select: { teamId: true, role: true, accessRole: true, team: { select: { slug: true } } },
+       take: 1,
      },
      passwordHash: true,
      roles: { select: { role: { select: { key: true } } } },
@@ -276,24 +284,40 @@ export async function verifySessionToken(token: string) {
  );
  // Per-user grants live outside the static role map, so they have to be read
  // here — otherwise every guard silently falls back to role-only permissions.
- const permissions = await resolveEffectivePermissions({
+ const accountPermissions = await resolveEffectivePermissions({
    userId: user.id,
    roles,
    assignedRoleKeys,
  });
 
- // `currentTeamId` is the entire tenant scope — `teamWhere()` honours it on
- // every query — and it is read fresh from the database here rather than
- // carried in the token, so a row that outlives its membership keeps granting
- // access. Honour the pointer only while the membership backing it still
- // exists: a removed member, or a workspace tombstoned by `deleteTeam` (which
- // drops every membership), then falls back to no team instead of retaining
- // the old one. Both writers clear the column themselves; this is the
- // fail-closed backstop for a stale row they missed.
- const currentTeamId =
-   user.currentTeam && user.currentTeam.members.length > 0
-     ? user.currentTeam.id
+ // The cookie's workspace selection is per browser. Membership remains the
+ // source of truth and is checked on every request, including old cookies.
+ let currentTeamId =
+   user.teamMemberships?.[0]?.teamId === payload.currentTeamId &&
+   !user.teamMemberships[0].team.slug.startsWith("__deleted__")
+     ? payload.currentTeamId
      : null;
+
+ // Platform administrators may select any live workspace for creating
+ // resources, even when they do not hold a membership in that workspace.
+ if (!currentTeamId && roles.includes("admin") && payload.currentTeamId) {
+   const selectedTeam = await prisma.team.findUnique({
+     where: { id: payload.currentTeamId },
+     select: { id: true, slug: true },
+   });
+   if (selectedTeam && !selectedTeam.slug.startsWith("__deleted__")) {
+     currentTeamId = selectedTeam.id;
+   }
+ }
+
+ const membership = currentTeamId && user.teamMemberships?.[0]?.teamId === currentTeamId
+   ? user.teamMemberships[0]
+   : null;
+ const permissions = scopePermissionsToWorkspace({
+   roles,
+   accountPermissions,
+   membership: membership ? { role: membership.role, accessRole: membership.accessRole } : null,
+ });
 
  return {
  userId: user.id,

@@ -176,7 +176,7 @@ describe("searchFileContents", () => {
 
 	it("applies teamWhere when session is provided", async () => {
 		teamWhereMock.mockReturnValue({
-			OR: [{ teamId: "team-a" }, { teamId: null }],
+			teamId: "team-a",
 		});
 		await searchFileContents({
 			query: "secret",
@@ -190,7 +190,7 @@ describe("searchFileContents", () => {
 		expect(findManyMock).toHaveBeenCalledWith(
 			expect.objectContaining({
 				where: expect.objectContaining({
-					OR: [{ teamId: "team-a" }, { teamId: null }],
+					teamId: "team-a",
 				}),
 			}),
 		);

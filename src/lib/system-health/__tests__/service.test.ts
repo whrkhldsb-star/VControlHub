@@ -54,7 +54,7 @@ describe("system health service", () => {
     // pins servers to their team, teamWhere lets storage include shared (null).
     expect(mockPrisma.server.count).toHaveBeenCalledWith({ where: { teamId: "team-x" } });
     expect(mockPrisma.storageNode.count).toHaveBeenCalledWith({
-      where: { OR: [{ teamId: "team-x" }, { teamId: null }] },
+      where: { teamId: "team-x" },
     });
   });
 

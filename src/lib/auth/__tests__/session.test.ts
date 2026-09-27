@@ -5,12 +5,16 @@ import {
   createSessionToken,
   createPending2faToken,
   verifyPending2faToken,
+  reissueSessionForTeam,
 } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
 
 vi.mock("@/lib/db", () => ({
   prisma: {
     user: {
+      findUnique: vi.fn(),
+    },
+    team: {
       findUnique: vi.fn(),
     },
     rolePermission: {
@@ -115,7 +119,7 @@ describe("session auth helpers", () => {
       username: "alice",
       status: "ACTIVE",
       mustChangePassword: false,
-      currentTeamId: null,
+      teamMemberships: [{ teamId: "team_1", role: "member", accessRole: "inherit", team: { slug: "ops" } }],
       passwordHash: "$2b$10$originalhash",
       roles: [{ role: { key: "viewer" } }, { role: { key: "user:u_1:custom" } }],
     } as any);
@@ -127,7 +131,7 @@ describe("session auth helpers", () => {
       username: "alice",
       roles: ["viewer"],
       mustChangePassword: false,
-      currentTeamId: null,
+      currentTeamId: "team_1",
     });
 
     const session = await verifySessionToken(token);
@@ -262,7 +266,7 @@ describe("session auth helpers", () => {
       username: "alice",
       status: "ACTIVE",
       mustChangePassword: false,
-      currentTeam: { id: "team_1", members: [{ userId: "u_1" }] },
+      teamMemberships: [{ teamId: "team_1", team: { slug: "ops" } }],
       passwordHash: "$2b$10$originalhash",
       roles: [{ role: { key: "viewer" } }],
     } as any);
@@ -280,17 +284,13 @@ describe("session auth helpers", () => {
   });
 
   it("drops currentTeamId when the membership behind it is gone", async () => {
-    // `removeTeamMember` and `deleteTeam` clear the column themselves; this is
-    // the backstop for a row that outlived its membership anyway. It matters
-    // because the tenant pointer is re-read from the database on every request
-    // rather than carried in the token, so a stale value would keep granting
-    // that workspace's data through `teamWhere()`.
+    // The cookie retains its selection, but removal must revoke its access.
     vi.mocked(prisma.user.findUnique).mockResolvedValue({
       id: "u_1",
       username: "alice",
       status: "ACTIVE",
       mustChangePassword: false,
-      currentTeam: { id: "team_1", members: [] },
+      teamMemberships: [],
       passwordHash: "$2b$10$originalhash",
       roles: [{ role: { key: "viewer" } }],
     } as any);
@@ -307,13 +307,29 @@ describe("session auth helpers", () => {
     });
   });
 
+  it("lets a platform admin select a live workspace without becoming a member", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      id: "u_1", username: "admin", status: "ACTIVE", mustChangePassword: false,
+      teamMemberships: [], passwordHash: "$2b$10$originalhash",
+      roles: [{ role: { key: "admin" } }],
+    } as any);
+    vi.mocked(prisma.team.findUnique).mockResolvedValueOnce({ id: "team_1", slug: "ops" } as any);
+    const token = await createSessionToken({
+      userId: "u_1", username: "admin", roles: ["admin"], mustChangePassword: false, currentTeamId: "team_1",
+    });
+    await expect(verifySessionToken(token)).resolves.toMatchObject({ currentTeamId: "team_1" });
+
+    vi.mocked(prisma.team.findUnique).mockResolvedValueOnce({ id: "team_1", slug: "__deleted__ops" } as any);
+    await expect(verifySessionToken(token)).resolves.toMatchObject({ currentTeamId: null });
+  });
+
   it("scopes the membership probe to the session user in one round trip", async () => {
     vi.mocked(prisma.user.findUnique).mockResolvedValue({
       id: "u_1",
       username: "alice",
       status: "ACTIVE",
       mustChangePassword: false,
-      currentTeam: { id: "team_1", members: [{ userId: "u_1" }] },
+      teamMemberships: [{ teamId: "team_1", team: { slug: "ops" } }],
       passwordHash: "$2b$10$originalhash",
       roles: [{ role: { key: "viewer" } }],
     } as any);
@@ -331,15 +347,42 @@ describe("session auth helpers", () => {
 
     await verifySessionToken(token);
 
-    // The probe rides along in the user lookup: a separate membership query would
-    // double the session hot path, and dropping the `userId` filter would make any
-    // other member's row satisfy it for everyone in the team.
+    // The probe rides along in the user lookup and filters by the cookie's
+    // selected workspace; the parent user lookup supplies the userId.
     expect(prisma.user.findUnique).toHaveBeenCalledTimes(1);
     const arg = vi.mocked(prisma.user.findUnique).mock.calls[0]?.[0] as any;
-    expect(arg.select.currentTeam.select.members).toMatchObject({
-      where: { userId: "u_1" },
+    expect(arg.select.teamMemberships).toMatchObject({
+      where: { teamId: "team_1" },
       take: 1,
     });
+  });
+
+  it("keeps each browser's selected workspace independent of the login preference", async () => {
+    vi.mocked(prisma.user.findUnique).mockImplementation((async (args: any) => {
+      const requested = args.select?.teamMemberships?.where?.teamId;
+      return {
+        id: "u_1",
+        username: "alice",
+        status: "ACTIVE",
+        mustChangePassword: false,
+        passwordHash: "$2b$10$originalhash",
+        roles: [{ role: { key: "viewer" } }],
+        currentTeamId: "team_2",
+        teamMemberships: requested === "team_1" || requested === "team_2"
+          ? [{ teamId: requested, team: { slug: requested } }]
+          : [],
+      } as any;
+    }) as any);
+    const base = { userId: "u_1", username: "alice", roles: ["viewer"] as const, mustChangePassword: false };
+    const first = await createSessionToken({ ...base, roles: [...base.roles], currentTeamId: "team_1" });
+    const second = await createSessionToken({ ...base, roles: [...base.roles], currentTeamId: "team_2" });
+    expect((await verifySessionToken(first)).currentTeamId).toBe("team_1");
+    expect((await verifySessionToken(second)).currentTeamId).toBe("team_2");
+
+    const rotated = await reissueSessionForTeam(first, "team_2");
+    expect(rotated.maxAge).toBeGreaterThan(0);
+    expect((await verifySessionToken(rotated.token)).currentTeamId).toBe("team_2");
+    expect((await verifySessionToken(second)).currentTeamId).toBe("team_2");
   });
 
   it("round-trips a pending 2FA token and never accepts it as a full session", async () => {

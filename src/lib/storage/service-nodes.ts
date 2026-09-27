@@ -2,7 +2,7 @@ import { constants as fsConstants } from "node:fs";
 import { access, stat } from "node:fs/promises";
 
 import type { SessionPayload } from "@/lib/auth/session";
-import { serverTeamWhere, teamCreateData, teamWhere, teamScopeWhere } from "@/lib/auth/team-scope";
+import { isGlobalTeamManager, serverTeamWhere, teamCreateData, teamWhere, teamScopeWhere } from "@/lib/auth/team-scope";
 import { isUniqueViolation, prisma } from "@/lib/db";
 import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
 import { serviceT } from "@/lib/i18n/service-locale";
@@ -10,7 +10,7 @@ import { listRemoteDirectory } from "@/lib/ssh/client";
 import { normalizePublicBaseUrl } from "@/lib/storage/direct-access-url";
 import { normalizeRemotePath } from "@/lib/storage/remote-path";
 import { resolveStorageSshCredentials, resolveStorageSshPort } from "@/lib/storage/ssh-credentials";
-import { expandStorageBasePath } from "@/lib/storage/path-utils";
+import { expandStorageBasePath, localBasePathBelongsToTenant } from "@/lib/storage/path-utils";
 import { decrypt, encrypt } from "@/lib/crypto/service";
 
 import {
@@ -125,13 +125,13 @@ async function assertServerInTeamScope(
 
 export async function ensureDefaultNodeState(
   isDefault?: boolean,
-  session?: TeamSession | null,
+  teamId?: string | null,
   excludeId?: string,
 ) {
   if (isDefault) {
     await prisma.storageNode.updateMany({
       where: {
-        ...teamScopeWhere(session),
+        teamId: teamId ?? null,
         ...(excludeId ? { id: { not: excludeId } } : {}),
       },
       data: { isDefault: false },
@@ -249,6 +249,11 @@ export async function createStorageNode(
 ) {
   const payload = createStorageNodeSchema.parse(input);
 
+  if (session && !isGlobalTeamManager(session) && payload.driver === "LOCAL" &&
+      (!session.currentTeamId || !localBasePathBelongsToTenant(payload.basePath, session.currentTeamId))) {
+    throw new ValidationError(t("backend.storage.localPathOutsideWorkspace"));
+  }
+
   if (payload.driver === "SFTP" && !payload.serverId && !payload.host) {
     throw new ValidationError(t("backend.storage.sftpNeedsHost"));
   }
@@ -295,7 +300,7 @@ export async function createStorageNode(
 
   // Create the replacement first so a failed create can never leave the team
   // without a default node. The old default is retired only after success.
-  await ensureDefaultNodeState(payload.isDefault, session, storageNode.id);
+  await ensureDefaultNodeState(payload.isDefault, storageNode.teamId, storageNode.id);
 
   return {
     ...safeNodeDto(storageNode),
@@ -371,6 +376,11 @@ export async function updateStorageNode(
   if (nextDriver === "SFTP" && !nextServerId && !nextHost) {
     throw new ValidationError(t("backend.storage.sftpNeedsHost"));
   }
+  if (session && !isGlobalTeamManager(session) && nextDriver === "LOCAL" &&
+      (driverChanged || (payload.basePath !== undefined && payload.basePath !== current.basePath)) &&
+      (!session.currentTeamId || !localBasePathBelongsToTenant(payload.basePath ?? current.basePath, session.currentTeamId))) {
+    throw new ValidationError(t("backend.storage.localPathOutsideWorkspace"));
+  }
   const nextAccessMode = nextDriver === "WEBDAV" ? "PROXY" : payload.directAccessMode ?? (driverChanged ? "PROXY" : current.directAccessMode);
   const nextPublicBaseUrl = nextDriver === "WEBDAV" || driverChanged ? null : payload.publicBaseUrl === undefined
     ? current.publicBaseUrl : normalizePublicBaseUrl(payload.publicBaseUrl);
@@ -414,7 +424,7 @@ export async function updateStorageNode(
 
   // Promote first, then retire the previous default. This preserves a usable
   // default even if the second database operation is interrupted.
-  await ensureDefaultNodeState(payload.isDefault, session, payload.storageNodeId);
+  await ensureDefaultNodeState(payload.isDefault, updated.teamId, payload.storageNodeId);
   return safeNodeDto(updated);
 }
 

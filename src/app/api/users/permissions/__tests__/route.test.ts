@@ -89,7 +89,7 @@ describe("/api/users/permissions", () => {
     mocks.isGlobalTeamManager.mockReturnValue(false);
     mocks.userHoldsTeamManage.mockResolvedValue(false);
     mocks.teamWhere.mockReturnValue({
-      OR: [{ teamId: "team-a" }, { teamId: null }],
+      teamId: "team-a",
     });
     mocks.getStorageAccessUsage.mockResolvedValue(BigInt(0));
     mocks.prisma.$transaction.mockImplementation(async (callback) => callback(mocks.prisma));

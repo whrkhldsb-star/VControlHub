@@ -38,7 +38,7 @@ const session = {
   username: "alice",
   roles: ["admin"] as const,
   mustChangePassword: false,
-  currentTeamId: null,
+  currentTeamId: "team_1",
 };
 
 describe("/api/api-tokens", () => {
@@ -142,6 +142,7 @@ describe("/api/api-tokens", () => {
     expect(body.apiToken).not.toHaveProperty("tokenHash");
     expect(mocks.createApiToken).toHaveBeenCalledWith({
       userId: "u1",
+      teamId: "team_1",
       name: "cli",
       scopes: ["read", "health:read"],
       expiresAt: new Date(expiresAt),
@@ -153,7 +154,7 @@ describe("/api/api-tokens", () => {
         tokenId: "tok1",
         scopes: ["read", "health:read"],
       }),
-    undefined, null);
+    undefined, "team_1");
     expect(JSON.stringify(mocks.auditUserAction.mock.calls)).not.toContain(
       "whr_plain_once",
     );
@@ -179,6 +180,7 @@ describe("/api/api-tokens", () => {
     );
     expect(mocks.createApiToken).toHaveBeenCalledWith({
       userId: "u1",
+      teamId: "team_1",
       name: "mobile cli",
       scopes: ["read", "status:read"],
       expiresAt: null,
@@ -217,7 +219,7 @@ describe("/api/api-tokens", () => {
       "u1",
       "api_token.revoke",
       expect.objectContaining({ tokenId: "tok1" }),
-    undefined, null);
+    undefined, "team_1");
   });
 
   it("surfaces a 404 (not a 500) when revoking a nonexistent or non-owned token", async () => {

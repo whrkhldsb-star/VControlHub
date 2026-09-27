@@ -15,11 +15,15 @@ const { serviceMock, guardCalls } = vi.hoisted(() => ({
 		addTeamMember: vi.fn(),
 		removeTeamMember: vi.fn(),
 		switchCurrentTeam: vi.fn(),
+		transferTeamOwnership: vi.fn(),
 	},
 	guardCalls: [] as Record<string, unknown>[],
 }));
 
 vi.mock("@/lib/team/service", () => serviceMock);
+vi.mock("@/lib/auth/team-session-response", () => ({
+  teamSessionResponse: vi.fn(async (_request: Request, _teamId: string, body: unknown) => Response.json(body)),
+}));
 vi.mock("@/lib/http/api-guard", () => ({
 	withApiRoute: vi.fn(async (request: Request, options: any, handler: any) => {
 		guardCalls.push(options);
@@ -48,6 +52,7 @@ const { PATCH, DELETE: deleteTeamRoute } = await import("../[id]/route");
 const { POST: addMemberRoute } = await import("../[id]/members/route");
 const { DELETE: removeMemberRoute } = await import("../[id]/members/[userId]/route");
 const { POST: switchRoute } = await import("../switch/route");
+const { POST: transferOwnerRoute } = await import("../[id]/owner/route");
 
 function post(url: string, body: unknown) {
 	return new Request(url, {
@@ -74,7 +79,7 @@ describe("teams API routes", () => {
 
 		expect(response.status).toBe(200);
 		await expect(response.json()).resolves.toEqual({ teams: [], currentTeamId: null });
-		expect(guardCalls[0]).toMatchObject({ permission: "team:read" });
+		expect(guardCalls[0]).toMatchObject({ requireAuth: true });
 		expect(serviceMock.listTeamsForSession).toHaveBeenCalledWith(session);
 	});
 
@@ -85,8 +90,16 @@ describe("teams API routes", () => {
 
 		expect(response.status).toBe(200);
 		await expect(response.json()).resolves.toMatchObject({ success: true, team: { id: "team_1" } });
-		expect(guardCalls[0]).toMatchObject({ permission: "team:create" });
+		expect(guardCalls[0]).toMatchObject({ requireAuth: true });
 		expect(guardCalls[0]?.rateLimit).toBeDefined();
+	});
+
+	it("transfers ownership through a browser session and validated target", async () => {
+		serviceMock.transferTeamOwnership.mockResolvedValueOnce({ teamId: "team_1", ownerId: "u_2" });
+		const response = await transferOwnerRoute(post("https://app.example.test/api/teams/team_1/owner", { userId: "u_2" }), { params: Promise.resolve({ id: "team_1" }) });
+		expect(response.status).toBe(200);
+		expect(guardCalls[0]).toMatchObject({ requireAuth: true });
+		expect(serviceMock.transferTeamOwnership).toHaveBeenCalledWith("team_1", { userId: "u_2" }, session);
 	});
 
 	it("rejects a slug that could collide with the tombstone prefix at the boundary", async () => {
@@ -143,7 +156,7 @@ describe("teams API routes", () => {
 		expect(response.status).toBe(403);
 	});
 
-	it("adds a member behind team:member:manage and defaults the role", async () => {
+	it("adds a member after target-workspace authorization and defaults the role", async () => {
 		serviceMock.addTeamMember.mockResolvedValueOnce({ role: "member" });
 
 		const response = await addMemberRoute(post("https://app.example.test/api/teams/team_1/members", { username: "alice" }), {
@@ -151,7 +164,7 @@ describe("teams API routes", () => {
 		});
 
 		expect(response.status).toBe(200);
-		expect(guardCalls[0]).toMatchObject({ permission: "team:member:manage" });
+		expect(guardCalls[0]).toMatchObject({ requireAuth: true });
 		expect(serviceMock.addTeamMember).toHaveBeenCalledWith("team_1", { username: "alice", role: "member" }, session);
 	});
 
@@ -165,7 +178,7 @@ describe("teams API routes", () => {
 		expect(serviceMock.addTeamMember).not.toHaveBeenCalled();
 	});
 
-	it("removes a member behind team:member:manage with both path params", async () => {
+	it("removes a member after target-workspace authorization with both path params", async () => {
 		serviceMock.removeTeamMember.mockResolvedValueOnce({ removed: true });
 
 		const response = await removeMemberRoute(
@@ -174,7 +187,7 @@ describe("teams API routes", () => {
 		);
 
 		expect(response.status).toBe(200);
-		expect(guardCalls[0]).toMatchObject({ permission: "team:member:manage" });
+		expect(guardCalls[0]).toMatchObject({ requireAuth: true });
 		expect(serviceMock.removeTeamMember).toHaveBeenCalledWith("team_1", "u_member", session);
 	});
 

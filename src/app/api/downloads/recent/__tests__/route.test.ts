@@ -44,7 +44,7 @@ describe("GET /api/downloads/recent", () => {
     expect(prismaMock.downloadTask.findMany).toHaveBeenCalledWith(expect.objectContaining({
       where: {
         status: "COMPLETED",
-        OR: [{ teamId: "team_1" }, { teamId: null }],
+        teamId: "team_1",
         server: { storageNode: { isNot: null } },
       },
       orderBy: { updatedAt: "desc" },

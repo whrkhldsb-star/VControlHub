@@ -36,6 +36,7 @@ const route = await import("../route");
 const session = {
   userId: "u1",
   username: "alice",
+  roles: ["admin"],
   permissions: ["docker:manage", "team:manage"],
   currentTeamId: "team-a",
 };
@@ -43,6 +44,7 @@ const session = {
 const tenantSession = {
   userId: "u2",
   username: "bob",
+  roles: ["operator"],
   permissions: ["docker:manage"],
   currentTeamId: "team-a",
 };

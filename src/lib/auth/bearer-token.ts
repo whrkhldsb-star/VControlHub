@@ -47,7 +47,7 @@ export async function authenticateBearerForPermissions(
 		);
 	}
 
-	const ownerSession = await loadApiTokenOwnerSession(verified.userId);
+	const ownerSession = await loadApiTokenOwnerSession(verified.userId, verified.teamId);
 	if (!ownerSession) {
 		return Response.json(
 			{ error: t("api.auth.invalidToken") },

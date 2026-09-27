@@ -10,9 +10,14 @@ export const switchTeamSchema = z.object({
 	teamId: z.string().trim().min(1),
 });
 
+export const transferTeamOwnerSchema = z.object({
+	userId: z.string().trim().min(1),
+});
+
 export const addTeamMemberSchema = z.object({
 	username: z.string().trim().min(1),
 	role: z.enum(["admin", "member"]).default("member"),
+	accessRole: z.enum(["inherit", "viewer", "operator", "storage_manager"]).optional(),
 });
 
 export const updateTeamSchema = z.object({
@@ -22,5 +27,6 @@ export const updateTeamSchema = z.object({
 
 export type CreateTeamInput = z.infer<typeof createTeamSchema>;
 export type SwitchTeamInput = z.infer<typeof switchTeamSchema>;
+export type TransferTeamOwnerInput = z.infer<typeof transferTeamOwnerSchema>;
 export type AddTeamMemberInput = z.infer<typeof addTeamMemberSchema>;
 export type UpdateTeamInput = z.infer<typeof updateTeamSchema>;

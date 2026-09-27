@@ -13,7 +13,7 @@ vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
 vi.mock("@/lib/auth/team-scope", () => ({
   teamWhere: (session: { currentTeamId?: string | null }) =>
     session.currentTeamId
-      ? { OR: [{ teamId: session.currentTeamId }, { teamId: null }] }
+      ? { teamId: session.currentTeamId }
       : {},
   shareLinkTeamWhere: (session: { currentTeamId?: string | null }) =>
     session.currentTeamId

@@ -526,6 +526,8 @@ export function buildUsage(
     "/api/teams/[id]",
     "/api/teams/[id]/members",
     "/api/teams/[id]/members/[userId]",
+    // Browser session only; the service checks the current owner (or platform admin).
+    "/api/teams/[id]/owner",
     "/api/teams/switch",
     // Signature-verified inbound webhook (HMAC), not session RBAC.
     "/api/itsm/inbound/[connectionId]",

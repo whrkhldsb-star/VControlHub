@@ -24,7 +24,7 @@ describe("Team workspace member management", () => {
     });
   });
 
-  const renderTeam = () => renderWithI18n(<TeamWorkspaceSection capabilities={{ viewerId: "admin", canCreate: true, canManageMembers: true, canManageAll: true }} />, { locale: "en" });
+  const renderTeam = () => renderWithI18n(<TeamWorkspaceSection capabilities={{ viewerId: "admin", canCreate: true, canManageAll: true }} />, { locale: "en" });
 
   it("lets administrators reach members beyond the first ten", async () => {
     const user = userEvent.setup();
@@ -49,5 +49,29 @@ describe("Team workspace member management", () => {
     await waitFor(() => expect(screen.queryByDisplayValue("Original description")).not.toBeInTheDocument());
     expect(screen.getByRole("heading", { name: "Review team" })).toBeVisible();
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows member controls for a workspace administrator while another workspace is selected", async () => {
+    fetchMock.mockResolvedValueOnce({
+      currentTeamId: "team-b",
+      teams: [
+        {
+          id: "team-a", slug: "alpha", name: "Alpha", description: null, ownerId: "owner-a", createdAt: "2026-09-08",
+          members: [
+            { role: "admin", accessRole: "inherit", joinedAt: "2026-09-08", user: { id: "manager", username: "manager", displayName: null, status: "ACTIVE" } },
+            { role: "member", accessRole: "viewer", joinedAt: "2026-09-08", user: { id: "member-a", username: "alice", displayName: null, status: "ACTIVE" } },
+          ],
+        },
+        {
+          id: "team-b", slug: "beta", name: "Beta", description: null, ownerId: "owner-b", createdAt: "2026-09-08",
+          members: [{ role: "member", accessRole: "viewer", joinedAt: "2026-09-08", user: { id: "manager", username: "manager", displayName: null, status: "ACTIVE" } }],
+        },
+      ],
+    });
+    renderWithI18n(<TeamWorkspaceSection capabilities={{ viewerId: "manager", canCreate: false, canManageAll: false }} />, { locale: "en" });
+    expect(await screen.findByRole("heading", { name: "Add member" })).toBeVisible();
+    const target = screen.getByRole("combobox", { name: "Add member" });
+    expect(within(target).getByRole("option", { name: "Alpha" })).toBeInTheDocument();
+    expect(within(target).queryByRole("option", { name: "Beta" })).not.toBeInTheDocument();
   });
 });

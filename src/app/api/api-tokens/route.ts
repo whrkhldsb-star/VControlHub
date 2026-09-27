@@ -108,6 +108,7 @@ export async function POST(request: Request) {
       const expiresAt = parseExpiresAt(parsed.expiresAt);
       const result = await createApiToken({
         userId: session.userId,
+        teamId: session.currentTeamId ?? "",
         name: parsed.name,
         scopes,
         expiresAt,

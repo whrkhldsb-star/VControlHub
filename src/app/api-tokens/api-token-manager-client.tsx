@@ -22,11 +22,14 @@ export type SafeApiToken = {
   lastUsedAt: Date | string | null;
   revokedAt: Date | string | null;
   createdAt: Date | string;
+  teamId: string | null;
+  team: { name: string; slug: string } | null;
 };
 
 type Props = {
   initialTokens: SafeApiToken[];
   allowedScopes: readonly string[];
+  currentWorkspaceName: string | null;
 };
 
 function tokenStatus(t: (k: string, vars?: Record<string, string | number>) => string, token: SafeApiToken) {
@@ -42,7 +45,7 @@ function scopeLabel(t: (k: string, vars?: Record<string, string | number>) => st
   return translated === `apiTokensPage.scope.${scope}` ? scope : translated;
 }
 
-export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
+export function ApiTokenManagerClient({ initialTokens, allowedScopes, currentWorkspaceName }: Props) {
   const { t, locale } = useI18n();
   const [tokens, setTokens] = useState(initialTokens);
   const [name, setName] = useState("");
@@ -144,6 +147,9 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
       <section data-card className="p-5">
         <h2 className="text-lg font-semibold text-[var(--text-primary)]">{t("apiTokensPage.create.heading")}</h2>
         <p className="mt-1 text-sm text-[var(--text-muted)]">{t("apiTokensPage.create.note")}</p>
+		<p className="mt-2 text-sm text-[var(--text-secondary)]">{currentWorkspaceName
+			? t("apiTokensPage.workspace.active", { name: currentWorkspaceName })
+			: t("apiTokensPage.workspace.none")}</p>
         <form onSubmit={createToken} className="mt-5 grid gap-4">
           <FormGrid>
             <FormField label={t("apiTokensPage.create.nameLabel")} htmlFor="api-token-name">
@@ -164,7 +170,7 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
           </div>
 
           <div>
-            <ActionButton variant="primary" type="submit" disabled={submitting} className="px-5 py-2.5 text-sm">
+            <ActionButton variant="primary" type="submit" disabled={submitting || !currentWorkspaceName} className="px-5 py-2.5 text-sm">
               {submitting ? t("apiTokensPage.create.submitting") : t("apiTokensPage.create.submit")}
             </ActionButton>
           </div>
@@ -189,6 +195,7 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className="text-base font-semibold text-[var(--text-primary)]">{token.name}</h3>
                         <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
+						<span className="text-xs text-[var(--text-muted)]">{t("apiTokensPage.workspace.bound", { name: token.team?.name ?? "—" })}</span>
                       </div>
                       <p className="mt-2 font-mono text-xs text-[var(--text-secondary)]">{token.tokenPrefix}…{token.tokenSuffix}</p>
                       <div className="mt-3 flex flex-wrap gap-1.5">

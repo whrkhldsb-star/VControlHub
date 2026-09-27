@@ -30,10 +30,10 @@ function session(overrides: Partial<NonNullable<Session>> = {}): Session {
 }
 
 describe("assertAiOpsPlatformReader", () => {
-	it("allows a caller holding team:manage", () => {
+	it("refuses a direct team:manage grant without the platform admin role", () => {
 		expect(() =>
 			assertAiOpsPlatformReader(session({ permissions: ["team:manage"] } as never)),
-		).not.toThrow();
+		).toThrow(ForbiddenError);
 	});
 
 	it("allows an admin, who holds team:manage through their role", () => {

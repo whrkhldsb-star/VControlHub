@@ -50,11 +50,17 @@ async function authFromToken(
   const result = await verifyApiToken(token);
   if (!result) return null;
   if (!webDavTokenAllows(result.scopes, needed)) return null;
-  const session = await loadApiTokenOwnerSession(result.userId);
+  const session = await loadApiTokenOwnerSession(result.userId, result.teamId);
   if (!session) return null;
   const requiredPermission = `storage:${needed}` as Permission;
   if (!sessionHasPermission(session, requiredPermission)) return null;
-  return { session, tokenId: result.tokenId, scopes: result.scopes };
+  // WebDAV only needs the one storage permission. Carrying the owner's full
+  // platform role here would let an admin token bypass teamWhere entirely.
+  return {
+    session: { ...session, roles: [], permissions: [requiredPermission] },
+    tokenId: result.tokenId,
+    scopes: result.scopes,
+  };
 }
 
 /**

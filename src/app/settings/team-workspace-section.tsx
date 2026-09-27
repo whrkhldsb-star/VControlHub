@@ -13,6 +13,7 @@ import { X } from "@/components/icons";
 
 type TeamMemberDto = {
 	role: string;
+	accessRole: string;
 	joinedAt: string;
 	user: { id: string; username: string; displayName: string | null; status: string };
 };
@@ -29,6 +30,7 @@ type TeamDto = {
 
 type PendingConfirm =
 	| { kind: "removeMember"; teamId: string; userId: string; name: string }
+	| { kind: "transferOwner"; teamId: string; userId: string; name: string }
 	| { kind: "deleteTeam"; teamId: string; name: string }
 	| null;
 
@@ -45,12 +47,11 @@ function formatCopy(template: string, replacements: Record<string, string | numb
 export type TeamCapabilities = {
 	viewerId: string;
 	canCreate: boolean;
-	canManageMembers: boolean;
 	canManageAll: boolean;
 };
 
 export function TeamWorkspaceSection({ capabilities }: { capabilities: TeamCapabilities }) {
-	const { viewerId, canCreate, canManageMembers, canManageAll } = capabilities;
+	const { viewerId, canCreate, canManageAll } = capabilities;
 	const { t } = useI18n();
 	const router = useRouter();
 	const [teams, setTeams] = useState<TeamDto[]>([]);
@@ -59,6 +60,7 @@ export function TeamWorkspaceSection({ capabilities }: { capabilities: TeamCapab
 	const [slug, setSlug] = useState("");
 	const [memberUsername, setMemberUsername] = useState("");
 	const [memberRole, setMemberRole] = useState<"admin" | "member">("member");
+	const [memberAccessRole, setMemberAccessRole] = useState<"inherit" | "viewer" | "operator" | "storage_manager">("inherit");
 	const [targetTeamId, setTargetTeamId] = useState("");
 	const [loading, setLoading] = useState(true);
 	const [busy, setBusy] = useState(false);
@@ -121,6 +123,7 @@ export function TeamWorkspaceSection({ capabilities }: { capabilities: TeamCapab
 			setSlug("");
 			setMessage(t("settingsTeam.message.created"));
 			await refresh();
+			router.refresh();
 		} catch (err) {
 			setError(getErrorMessage(err, t("settingsTeam.error.create")));
 		} finally {
@@ -158,7 +161,7 @@ export function TeamWorkspaceSection({ capabilities }: { capabilities: TeamCapab
 			await csrfFetch(`/api/teams/${targetTeamId}/members`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ username: memberUsername, role: memberRole }),
+				body: JSON.stringify({ username: memberUsername, role: memberRole, accessRole: memberAccessRole }),
 			});
 			setMemberUsername("");
 			setMessage(t("settingsTeam.message.memberUpdated"));
@@ -172,6 +175,10 @@ export function TeamWorkspaceSection({ capabilities }: { capabilities: TeamCapab
 
 	function removeMember(teamId: string, userId: string, memberName: string) {
 		setPendingConfirm({ kind: "removeMember", teamId, userId, name: memberName });
+	}
+
+	function transferOwner(teamId: string, userId: string, memberName: string) {
+		setPendingConfirm({ kind: "transferOwner", teamId, userId, name: memberName });
 	}
 
 	function startEditTeam(team: TeamDto) {
@@ -213,6 +220,13 @@ export function TeamWorkspaceSection({ capabilities }: { capabilities: TeamCapab
 			if (pendingConfirm.kind === "removeMember") {
 				await csrfFetch(`/api/teams/${pendingConfirm.teamId}/members/${pendingConfirm.userId}`, { method: "DELETE" });
 				setMessage(t("settingsTeam.message.memberRemoved"));
+			} else if (pendingConfirm.kind === "transferOwner") {
+				await csrfFetch(`/api/teams/${pendingConfirm.teamId}/owner`, {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ userId: pendingConfirm.userId }),
+				});
+				setMessage(t("settingsTeam.message.ownerTransferred"));
 			} else {
 				await csrfFetch(`/api/teams/${pendingConfirm.teamId}`, { method: "DELETE" });
 				setMessage(t("settingsTeam.message.deleted"));
@@ -220,16 +234,16 @@ export function TeamWorkspaceSection({ capabilities }: { capabilities: TeamCapab
 			setPendingConfirm(null);
 			await refresh();
 		} catch (err) {
-			setError(getErrorMessage(err, t(pendingConfirm.kind === "removeMember" ? "settingsTeam.error.removeMember" : "settingsTeam.error.delete")));
+			setError(getErrorMessage(err, t(pendingConfirm.kind === "removeMember" ? "settingsTeam.error.removeMember" : pendingConfirm.kind === "transferOwner" ? "settingsTeam.error.transferOwner" : "settingsTeam.error.delete")));
 		} finally {
 			setBusy(false);
 		}
 	}
 
 	const manageableTeams = teams.filter((team) => canEditTeam(team));
-	const confirmTitle = pendingConfirm?.kind === "removeMember" ? t("settingsTeam.confirm.removeMember.title") : t("settingsTeam.confirm.deleteTeam.title");
+	const confirmTitle = pendingConfirm?.kind === "removeMember" ? t("settingsTeam.confirm.removeMember.title") : pendingConfirm?.kind === "transferOwner" ? t("settingsTeam.confirm.transferOwner.title") : t("settingsTeam.confirm.deleteTeam.title");
 	const confirmDesc = pendingConfirm
-		? formatCopy(t(pendingConfirm.kind === "removeMember" ? "settingsTeam.confirm.removeMember.desc" : "settingsTeam.confirm.deleteTeam.desc"), { name: pendingConfirm.name })
+		? formatCopy(t(pendingConfirm.kind === "removeMember" ? "settingsTeam.confirm.removeMember.desc" : pendingConfirm.kind === "transferOwner" ? "settingsTeam.confirm.transferOwner.desc" : "settingsTeam.confirm.deleteTeam.desc"), { name: pendingConfirm.name })
 		: "";
 
 	return (
@@ -292,8 +306,11 @@ export function TeamWorkspaceSection({ capabilities }: { capabilities: TeamCapab
 									<li key={member.user.id} className="flex items-center justify-between gap-2">
 										<span className="min-w-0 break-words">{member.user.displayName || member.user.username}</span>
 										<span className="flex items-center gap-2">
-											<span className="text-[var(--text-muted)]">{member.role}</span>
-											{canManageMembers && canEditTeam(team) && member.role !== "owner" && (
+											<span className="text-[var(--text-muted)]">{member.role} · {t(`settingsTeam.accessRole.${member.accessRole ?? "inherit"}`)}</span>
+											{canDeleteTeam(team) && member.role !== "owner" && member.user.status === "ACTIVE" && (
+												<ActionButton variant="ghost" disabled={busy} onClick={() => transferOwner(team.id, member.user.id, member.user.displayName || member.user.username)} className="!min-h-8 !px-2 !py-1 !text-xs">{t("settingsTeam.transferOwner")}</ActionButton>
+											)}
+											{canEditTeam(team) && member.role !== "owner" && (
 												<IconButton label={t("settingsTeam.confirm.removeMember.title")} tone="danger" disabled={busy} onClick={() => removeMember(team.id, member.user.id, member.user.displayName || member.user.username)}><X size={14} aria-hidden /></IconButton>
 											)}
 										</span>
@@ -308,7 +325,7 @@ export function TeamWorkspaceSection({ capabilities }: { capabilities: TeamCapab
 				</div>
 			)}
 
-			{(canCreate || (canManageMembers && manageableTeams.length > 0)) && (
+			{(canCreate || manageableTeams.length > 0) && (
 				<div className="grid gap-4 border-t border-[var(--border-subtle)] pt-4 md:grid-cols-2">
 					{canCreate && (
 					<div className="space-y-2">
@@ -318,7 +335,7 @@ export function TeamWorkspaceSection({ capabilities }: { capabilities: TeamCapab
 						<ActionButton variant="primary" disabled={busy || !name.trim()} onClick={createTeam} className="min-h-10 disabled:opacity-60">{t("settingsTeam.createButton")}</ActionButton>
 					</div>
 					)}
-					{canManageMembers && manageableTeams.length > 0 && (
+					{manageableTeams.length > 0 && (
 					<div className="space-y-2">
 						<h3 className="text-sm font-semibold text-[var(--text-primary)]">{t("settingsTeam.addMemberTitle")}</h3>
 						<select aria-label={t("settingsTeam.addMemberTitle")} value={targetTeamId} onChange={(e) => setTargetTeamId(e.target.value)} className={UI_INPUT}>
@@ -330,6 +347,13 @@ export function TeamWorkspaceSection({ capabilities }: { capabilities: TeamCapab
 							<option value="member">{t("settingsTeam.role.member")}</option>
 							<option value="admin">{t("settingsTeam.role.admin")}</option>
 						</select>
+						<select aria-label={t("settingsTeam.accessRoleAria")} value={memberAccessRole} onChange={(e) => setMemberAccessRole(e.target.value as typeof memberAccessRole)} className={UI_INPUT}>
+							<option value="inherit">{t("settingsTeam.accessRole.inherit")}</option>
+							<option value="viewer">{t("settingsTeam.accessRole.viewer")}</option>
+							<option value="operator">{t("settingsTeam.accessRole.operator")}</option>
+							<option value="storage_manager">{t("settingsTeam.accessRole.storage_manager")}</option>
+						</select>
+						<p className="text-xs text-[var(--text-muted)]">{t("settingsTeam.accessRoleHint")}</p>
 						<ActionButton variant="primary" disabled={busy || !targetTeamId || !memberUsername.trim()} onClick={addMember} className="min-h-10 disabled:opacity-60">{t("settingsTeam.addMemberButton")}</ActionButton>
 					</div>
 					)}

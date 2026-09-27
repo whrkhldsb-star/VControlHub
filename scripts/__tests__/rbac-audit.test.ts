@@ -109,7 +109,7 @@ describe("loadRbac — real rbac.ts fixture", () => {
   it("returns a non-empty operator role map", () => {
     const { roleMap } = loadRbac();
     expect(roleMap.operator.length).toBeGreaterThan(0);
-    expect(roleMap.operator).toContain("backup:create");
+    expect(roleMap.operator).not.toContain("backup:create");
     expect(roleMap.operator).toContain("command:execute");
     // operator should not have admin-only perms like `role:manage`
     expect(roleMap.operator).not.toContain("role:manage");

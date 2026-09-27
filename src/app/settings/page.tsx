@@ -54,7 +54,6 @@ export default async function SettingsPage() {
 	const teamCapabilities = {
 		viewerId: session.userId,
 		canCreate: sessionHasPermission(session, "team:create"),
-		canManageMembers: sessionHasPermission(session, "team:member:manage"),
 		canManageAll: sessionHasPermission(session, "team:manage"),
 	};
 	const defaultPageOptions = getAvailableDefaultPageOptions((permission) =>

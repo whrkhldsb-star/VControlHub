@@ -8,6 +8,7 @@ import {
   type RoleKey,
 } from "../src/lib/auth/rbac";
 import { hashPassword } from "../src/lib/auth/password";
+import { tenantStorageBasePath } from "../src/lib/storage/path-utils";
 
 function seedLog(message: string) {
   if (process.env.SEED_DEBUG === "1") {
@@ -203,8 +204,60 @@ async function seedAdmin() {
   seedLog("seedAdmin:done");
 }
 
-async function seedDefaultLocalStorageNode() {
-  const basePath = process.env.STORAGE_ROOT?.trim() || "storage";
+/** Fresh installations start inside one workspace, not an unscoped data pool. */
+async function seedDefaultWorkspace(): Promise<string | null> {
+  const teams = await prisma.team.findMany({
+    select: { id: true, slug: true },
+    take: 2,
+  });
+  const live = teams.filter((team) => !team.slug.startsWith("__deleted__"));
+  if (live.length > 0) {
+    if (teams.length !== 1) return null;
+    const teamId = live[0]!.id;
+    const admin = await prisma.user.findUniqueOrThrow({
+      where: { username: ADMIN_BOOTSTRAP.username },
+      select: { id: true },
+    });
+    await prisma.teamMember.upsert({
+      where: { teamId_userId: { teamId, userId: admin.id } },
+      update: {},
+      create: { teamId, userId: admin.id, role: "admin" },
+    });
+    await prisma.user.updateMany({
+      where: { id: admin.id, currentTeamId: null },
+      data: { currentTeamId: teamId },
+    });
+    return teamId;
+  }
+
+  const admin = await prisma.user.findUniqueOrThrow({
+    where: { username: ADMIN_BOOTSTRAP.username },
+    select: { id: true },
+  });
+  const team = await prisma.team.create({
+    data: {
+      slug: "default",
+      name: "Default workspace",
+      ownerId: admin.id,
+    },
+  });
+  await prisma.teamMember.upsert({
+    where: { teamId_userId: { teamId: team.id, userId: admin.id } },
+    update: { role: "owner" },
+    create: { teamId: team.id, userId: admin.id, role: "owner" },
+  });
+  await prisma.user.updateMany({
+    where: { id: admin.id, currentTeamId: null },
+    data: { currentTeamId: team.id },
+  });
+  return team.id;
+}
+
+async function seedDefaultLocalStorageNode(teamId: string | null) {
+  // An existing path may hold real legacy files. Preserve it on every re-seed;
+  // only a fresh install receives the isolated workspace namespace.
+  if (!teamId) return;
+  const basePath = tenantStorageBasePath(teamId);
   const existingDefaultNode = await prisma.storageNode.findFirst({
     where: { isDefault: true },
     select: { id: true },
@@ -217,7 +270,6 @@ async function seedDefaultLocalStorageNode() {
       name: "本机默认存储",
       driver: "LOCAL",
       isDefault: shouldBecomeDefault,
-      basePath,
       serverId: null,
       host: null,
       port: null,
@@ -239,8 +291,15 @@ async function seedDefaultLocalStorageNode() {
       directAccessMode: "PROXY",
       publicBaseUrl: null,
       directAccessExpiresSeconds: 300,
+      teamId,
     },
   });
+  if (teamId) {
+    await prisma.storageNode.updateMany({
+      where: { id: "node_local_default", teamId: null },
+      data: { teamId },
+    });
+  }
   seedLog("seedDefaultLocalStorageNode:done");
 }
 
@@ -248,7 +307,7 @@ function shouldSeedDemoData() {
   return process.env.SEED_DEMO_DATA === "true" || process.env.DEMO_MODE === "true";
 }
 
-async function seedDemoData() {
+async function seedDemoData(teamId: string | null) {
   const admin = await prisma.user.findUniqueOrThrow({ where: { username: ADMIN_BOOTSTRAP.username } });
 
   const server = await prisma.server.upsert({
@@ -262,6 +321,7 @@ async function seedDemoData() {
       tags: ["demo"],
       enabled: false,
       connectionType: "SSH_KEY",
+      teamId,
     },
     create: {
       id: "srv_demo_local",
@@ -273,6 +333,7 @@ async function seedDemoData() {
       tags: ["demo"],
       enabled: false,
       connectionType: "SSH_KEY",
+      teamId,
     },
   });
 
@@ -284,6 +345,7 @@ async function seedDemoData() {
       isDefault: false,
       basePath: "storage/demo",
       serverId: null,
+      teamId,
     },
     create: {
       id: "node_demo_local",
@@ -292,6 +354,7 @@ async function seedDemoData() {
       isDefault: false,
       basePath: "storage/demo",
       serverId: null,
+      teamId,
     },
   });
 
@@ -303,6 +366,7 @@ async function seedDemoData() {
       reason: "本地演示命令；生产 seed 默认不会创建。",
       initiatedByType: "USER",
       requesterId: admin.id,
+      teamId,
     },
     create: {
       id: "cmd_demo_check_disk",
@@ -311,6 +375,7 @@ async function seedDemoData() {
       reason: "本地演示命令；生产 seed 默认不会创建。",
       initiatedByType: "USER",
       requesterId: admin.id,
+      teamId,
       targets: {
         create: {
           serverId: server.id,
@@ -334,10 +399,11 @@ export async function seedDatabase() {
 	await seedPermissions();
   await seedRoles();
   await seedAdmin();
-  await seedDefaultLocalStorageNode();
+  const defaultTeamId = await seedDefaultWorkspace();
+  await seedDefaultLocalStorageNode(defaultTeamId);
   if (shouldSeedDemoData()) {
     seedLog("seedDemoData:start");
-    await seedDemoData();
+    await seedDemoData(defaultTeamId);
     seedLog("seedDemoData:done");
   }
   seedLog("seedDatabase:done");

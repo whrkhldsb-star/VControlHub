@@ -1,17 +1,12 @@
 /**
  * TR-030 multi-tenant: team-scoped data filtering utilities.
  *
- * Most list queries in the app run without any team boundary — every
- * authenticated user sees every record. This module provides a single
- * `teamWhere` helper that service层的 list 函数 can spread into their
- * Prisma `where` clause to narrow results to the caller's current team.
+ * Central Prisma filters for tenant-owned records. Callers spread `teamWhere`
+ * into their outermost `where` clause so a member only reaches the active team.
  *
- * Rules:
- * 1. If the session has `team:manage` (admin), no filter is applied —
- *    admins see everything.
- * 2. If `currentTeamId` is null, records with `teamId = null` are visible
- *    (shared/unassigned resources).
- * 3. If `currentTeamId` is set, records belonging to that team are visible.
+ * Rules: platform admins may inspect all rows; everyone else sees exactly
+ * their active workspace. A null teamId is quarantined legacy data, never an
+ * implicit share across unrelated workspaces.
  *
  * Usage in a service:
  * ```ts
@@ -20,12 +15,9 @@
  */
 
 import { prisma } from "@/lib/db";
-import { NotFoundError } from "@/lib/errors";
+import { ForbiddenError, NotFoundError } from "@/lib/errors";
 
 import type { SessionPayload } from "./session";
-import { sessionHasPermission } from "./authorization";
-import { resolveEffectivePermissions } from "./effective-permissions";
-import { DEFAULT_ROLE_PERMISSIONS, type RoleKey } from "./rbac";
 import { t } from "@/lib/i18n/service-translations";
 
 export type TeamSession = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
@@ -35,14 +27,12 @@ export type TeamSession = Pick<SessionPayload, "userId" | "roles" | "currentTeam
  * Used by user-directory scoping and other cross-user surfaces.
  */
 export function isGlobalTeamManager(session: TeamSession): boolean {
-	return sessionHasPermission(session, "team:manage");
+	return session.roles?.includes("admin") === true;
 }
 
 /**
- * Check a target account's effective platform privileges before a delegated
- * manager changes its credentials or status. Direct grants live on the
- * account's custom role, so inspecting only built-in role defaults would
- * leave a privileged target unprotected.
+ * Check whether a target has the built-in platform admin role before a
+ * delegated manager changes its credentials or status.
  */
 export async function userHoldsTeamManage(userId: string): Promise<boolean> {
 	const user = await prisma.user.findUnique({
@@ -51,11 +41,7 @@ export async function userHoldsTeamManage(userId: string): Promise<boolean> {
 	});
 	if (!user) return false;
 	const assignedRoleKeys = user.roles.map((entry) => entry.role.key);
-	const roles = assignedRoleKeys.filter(
-		(key): key is RoleKey => key in DEFAULT_ROLE_PERMISSIONS,
-	);
-	const permissions = await resolveEffectivePermissions({ userId, roles, assignedRoleKeys });
-	return permissions.includes("team:manage");
+	return assignedRoleKeys.includes("admin");
 }
 
 /**
@@ -68,20 +54,18 @@ export function teamWhere(session: TeamSession): Record<string, unknown> {
 		return {};
 	}
 
-	// Users with a current team: see their team's records + unassigned
-	// (null teamId = shared/legacy)
+	// Null-team rows are quarantined; genuinely shared templates use their own
+	// explicit isBuiltin/public predicate at the call site.
 	if (session.currentTeamId) {
-		return { OR: [{ teamId: session.currentTeamId }, { teamId: null }] };
+		return { teamId: session.currentTeamId };
 	}
 
-	// No team context: only unassigned records
-	return { teamId: null };
+	return { teamId: "__no_active_team__" };
 }
 
 /**
- * Optional-session wrapper around {@link teamWhere} (TR: scheduled-task and
- * storage/service-nodes used to carry identical local copies): a missing
- * session means "no team filter at all" ({}), not "unassigned only".
+ * Optional-session wrapper for trusted internal workers. HTTP callers must
+ * provide a session; a missing one deliberately means an unrestricted query.
  */
 export function teamScopeWhere(session?: TeamSession | null): Record<string, unknown> {
 	return session ? teamWhere(session) : {};
@@ -129,16 +113,8 @@ export function deploymentRunTeamWhere(session: TeamSession): Record<string, unk
 		: { id: "__unassigned_deployments_require_team_manage__" };
 }
 
-/** A playbook is a stored, replayable command channel: its `run_command` steps
- * freeze bare server ids, and `runPlaybook` queues those steps as-is without
- * re-checking them against the caller's scope (authoring-time
- * `assertPlaybookStepsInScope` is the only server check). Under the loose filter
- * a `teamId: null` playbook — legacy data, or one created by a session with no
- * current team, since `teamCreateData` omits teamId then — is readable, editable,
- * deletable and *runnable* by every tenant, so running it executes commands on
- * servers the caller cannot see. Quarantine it to global managers instead.
- * Mirrors {@link deploymentRunTeamWhere}; also covers PlaybookRun rows, which
- * inherit their playbook's teamId. */
+/** A playbook contains executable server references. Null-team legacy
+ * playbooks stay quarantined to platform administrators. */
 export function playbookTeamWhere(session: TeamSession): Record<string, unknown> {
 	if (isGlobalTeamManager(session)) return {};
 	return session.currentTeamId
@@ -228,15 +204,15 @@ export async function assertUserInActorScope(
 
 /**
  * When creating a record, use this to set the teamId on the new record.
- * If the user has a current team, the record is assigned to that team.
- * Admins can explicitly choose a team; otherwise it follows currentTeamId.
+ * An active workspace is required for every user-created tenant record.
  */
 export function teamCreateData(
 	session: Pick<SessionPayload, "currentTeamId">,
-): { teamId?: string | null } {
-	return session.currentTeamId
-		? { teamId: session.currentTeamId }
-		: {};
+): { teamId?: string } {
+	if (!session.currentTeamId) {
+		throw new ForbiddenError(t("backend.team.activeTeamRequired"));
+	}
+	return { teamId: session.currentTeamId };
 }
 
 /**
@@ -251,7 +227,7 @@ export function teamAccessFilter(
 		return undefined;
 	}
 	if (session.currentTeamId) {
-		return { OR: [{ teamId: session.currentTeamId }, { teamId: null }] };
+		return { teamId: session.currentTeamId };
 	}
-	return { teamId: null };
+	return { teamId: "__no_active_team__" };
 }

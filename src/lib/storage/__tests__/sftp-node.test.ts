@@ -88,7 +88,7 @@ describe("getSftpNodeConnection team scope", () => {
       expect.objectContaining({
         where: expect.objectContaining({
           id: "node_other_team",
-          OR: [{ teamId: "team_a" }, { teamId: null }],
+          teamId: "team_a",
         }),
       }),
     );

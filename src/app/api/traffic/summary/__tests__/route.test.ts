@@ -108,7 +108,7 @@ describe("traffic summary route", () => {
     expect(body.servers[0]).toMatchObject({ id: "srv", host: "127.0.0.1" });
   });
 
-  it("scopes servers strictly and storage nodes loosely", async () => {
+  it("quarantines servers and storage nodes without an active workspace", async () => {
     // A viewer with no current team must not reach null-team servers: they are
     // quarantined legacy data, and with `include=remote` this route would load
     // their SSH credentials and dial out.
@@ -125,7 +125,7 @@ describe("traffic summary route", () => {
       }),
     );
     expect(vi.mocked(prisma.storageNode.findMany)).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { teamId: null } }),
+      expect.objectContaining({ where: { teamId: "__no_active_team__" } }),
     );
   });
 });

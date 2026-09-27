@@ -128,7 +128,7 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
-import { buildExportFile } from "@/lib/system/export-service";
+import { buildExportFile, resolveExportAuthorization } from "@/lib/system/export-service";
 import type { SessionPayload } from "@/lib/auth/session";
 
 const ADMIN_SESSION: SessionPayload = {
@@ -216,6 +216,15 @@ describe("export-service sanitization", () => {
 });
 
 describe("export-service multi-tenant scope", () => {
+  it("rejects an operator exporting a different team's records", () => {
+    expect(() => resolveExportAuthorization({
+      session: { userId: "u1", username: "operator", roles: ["operator"], currentTeamId: "team_a" } as never,
+      mode: "standard",
+      scope: "team",
+      teamId: "team_b",
+    })).toThrow();
+  });
+
   it("team export only queries snippets created by current team members", async () => {
     const { prisma } = await import("@/lib/db");
     vi.mocked(prisma.teamMember.findMany).mockResolvedValueOnce([

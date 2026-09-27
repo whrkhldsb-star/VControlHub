@@ -24,7 +24,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { permission: "user:manage", rateLimit: GENERAL_WRITE_LIMIT },
+    { permissions: ["team:member:manage", "user:manage"], rateLimit: GENERAL_WRITE_LIMIT },
     async ({ session }) => {
       const url = new URL(request.url);
       const sourceDomain = url.host || "unknown";

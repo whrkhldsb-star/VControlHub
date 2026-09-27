@@ -15,7 +15,7 @@ import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
  *
  * `snippet:manage` alone must NOT set `canManageAll`; that flag is the override
  * that lets someone edit and delete other people's snippets, and it is gated on
- * the far narrower `role:manage`. Since `snippet:manage` is a default `operator`
+ * the built-in platform administrator role. Since `snippet:manage` is a default `operator`
  * permission, conflating the two would hand every operator write access to every
  * private snippet in the install.
  *
@@ -110,6 +110,7 @@ describe("/api/snippets routes", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		mocks.guardCalls.length = 0;
+		session.roles = ["operator"];
 		session.permissions = ["snippet:manage"];
 		session.currentTeamId = "team_1";
 		// `mockResolvedValue` is an implementation, not a call record — clearAllMocks
@@ -191,12 +192,14 @@ describe("/api/snippets routes", () => {
 			expect(mocks.listSnippets).not.toHaveBeenCalled();
 		});
 
-		it("does not grant canManageAll from snippet:manage alone", async () => {
+		it("does not grant canManageAll from a direct role:manage grant", async () => {
+			session.permissions = ["snippet:manage", "role:manage"];
 			await route.GET(req("GET", undefined, "https://a.test/api/snippets?id=sn_1"));
 			expect(mocks.getSnippet).toHaveBeenCalledWith("sn_1", { userId: "u_1", canManageAll: false });
 		});
 
-		it("grants canManageAll only to a role:manage holder", async () => {
+		it("grants canManageAll only to a platform administrator", async () => {
+			session.roles = ["admin"];
 			session.permissions = ["snippet:manage", "role:manage"];
 			await route.GET(req("GET", undefined, "https://a.test/api/snippets?id=sn_1"));
 			expect(mocks.getSnippet).toHaveBeenCalledWith("sn_1", { userId: "u_1", canManageAll: true });
@@ -299,7 +302,8 @@ describe("/api/snippets routes", () => {
 			);
 		});
 
-		it("promotes the actor to canManageAll for a role:manage holder", async () => {
+		it("promotes the actor to canManageAll for a platform administrator", async () => {
+			session.roles = ["admin"];
 			session.permissions = ["snippet:manage", "role:manage"];
 			await route.PATCH(req("PATCH", { id: "sn_1", title: "new" }));
 			expect(mocks.updateSnippet).toHaveBeenCalledWith(

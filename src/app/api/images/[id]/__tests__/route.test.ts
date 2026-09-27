@@ -42,7 +42,7 @@ vi.mock("@/lib/auth/authorization", () => ({
 }));
 vi.mock("@/lib/auth/team-scope", () => ({
   isGlobalTeamManager: () => false,
-  teamWhere: () => ({ OR: [{ teamId: "team_1" }, { teamId: null }] }),
+  teamWhere: () => ({ teamId: "team_1" }),
 }));
 vi.mock("node:fs/promises", () => ({
   default: { unlink: unlinkMock },

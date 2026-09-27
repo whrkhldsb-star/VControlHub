@@ -1,12 +1,15 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-const { mockPrisma } = vi.hoisted(() => ({ mockPrisma: { apiToken: { create: vi.fn(), findMany: vi.fn(), update: vi.fn(), findUnique: vi.fn() } } }));
+const { mockPrisma } = vi.hoisted(() => ({ mockPrisma: { apiToken: { create: vi.fn(), findMany: vi.fn(), update: vi.fn(), findUnique: vi.fn() }, teamMember: { findUnique: vi.fn() } } }));
 vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
 const { createApiToken, hashApiToken, listApiTokens, verifyApiToken } = await import("./service");
 describe("api token service", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockPrisma.teamMember.findUnique.mockResolvedValue({ team: { slug: "ops" } });
+  });
   it("returns plaintext token once and stores only hash plus prefix/suffix", async () => {
     mockPrisma.apiToken.create.mockImplementation(async ({ data, select }: any) => ({ id: "tok1", name: data.name, tokenPrefix: data.tokenPrefix, tokenSuffix: data.tokenSuffix, scopes: data.scopes, expiresAt: data.expiresAt, lastUsedAt: null, revokedAt: null, createdAt: new Date(), selectKeys: Object.keys(select) }));
-    const result = await createApiToken({ userId: "u1", name: "cli", scopes: [" read ", "read", "health:read"] });
+    const result = await createApiToken({ userId: "u1", teamId: "team_1", name: "cli", scopes: [" read ", "read", "health:read"] });
     expect(result.token).toMatch(/^whr_/);
     const data = mockPrisma.apiToken.create.mock.calls[0]![0]!.data;
     expect(data.tokenHash).toBe(hashApiToken(result.token));
@@ -15,13 +18,20 @@ describe("api token service", () => {
     expect(data.tokenPrefix).toBe(result.token.slice(0, 8));
     expect(data.tokenSuffix).toBe(result.token.slice(-6));
     expect(data.scopes).toEqual(["read", "health:read"]);
+    expect(data.teamId).toBe("team_1");
     expect(result.apiToken).not.toHaveProperty("tokenHash");
     expect(JSON.stringify(result.apiToken)).not.toContain(data.tokenHash);
   });
   // The message itself is localised (zh by default), so assert on the offending
   // scope rather than on one locale's wording.
   it("rejects unknown requested scopes instead of creating a misleading lower-privilege token", async () => {
-    await expect(createApiToken({ userId: "u1", name: "cli", scopes: ["read", "admin:everything"] })).rejects.toThrow(/admin:everything/);
+    await expect(createApiToken({ userId: "u1", teamId: "team_1", name: "cli", scopes: ["read", "admin:everything"] })).rejects.toThrow(/admin:everything/);
+    expect(mockPrisma.apiToken.create).not.toHaveBeenCalled();
+  });
+  it("requires a live membership and an explicit workspace", async () => {
+    await expect(createApiToken({ userId: "u1", teamId: "", name: "cli" })).rejects.toThrow();
+    mockPrisma.teamMember.findUnique.mockResolvedValueOnce(null);
+    await expect(createApiToken({ userId: "u1", teamId: "team_2", name: "cli" })).rejects.toThrow();
     expect(mockPrisma.apiToken.create).not.toHaveBeenCalled();
   });
   it("bounds token list hydration newest-first for growing token history", async () => {
@@ -48,6 +58,7 @@ describe("api token service", () => {
     mockPrisma.apiToken.findUnique.mockResolvedValueOnce({
       id: "t-recent",
       createdBy: "u1",
+      teamId: "team_1",
       scopes: ["read"],
       revokedAt: null,
       expiresAt: null,
@@ -58,12 +69,14 @@ describe("api token service", () => {
       userId: "u1",
       scopes: ["read"],
       tokenId: "t-recent",
+      teamId: "team_1",
     });
     expect(mockPrisma.apiToken.update).not.toHaveBeenCalled();
 
     mockPrisma.apiToken.findUnique.mockResolvedValueOnce({
       id: "t-stale",
       createdBy: "u1",
+      teamId: "team_1",
       scopes: ["read"],
       revokedAt: null,
       expiresAt: null,

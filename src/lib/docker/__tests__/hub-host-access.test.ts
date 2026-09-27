@@ -25,9 +25,9 @@ describe("assertHubHostDockerAccess", () => {
 		expect(assertHubHostDockerAccess(session({ roles: ["admin"] })).ok).toBe(true);
 	});
 
-	it("allows a session whose explicit permissions include team:manage", () => {
+	it("does not treat a direct team:manage grant as platform authority", () => {
 		const actor = session({ permissions: ["docker:manage", "team:manage"] } as never);
-		expect(assertHubHostDockerAccess(actor).ok).toBe(true);
+		expect(assertHubHostDockerAccess(actor).ok).toBe(false);
 	});
 
 	it("refuses an operator, even one holding docker:manage", () => {

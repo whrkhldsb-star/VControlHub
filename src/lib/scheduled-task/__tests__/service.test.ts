@@ -63,7 +63,7 @@ const teamSession: SessionScope = {
 describe("scheduled task service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockTeamWhere.mockReturnValue({ OR: [{ teamId: "team_a" }, { teamId: null }] });
+    mockTeamWhere.mockReturnValue({ teamId: "team_a" });
     mockTeamCreateData.mockReturnValue({ teamId: "team_a" });
 		mockPrisma.$transaction.mockImplementation(async (callback: (tx: typeof mockPrisma) => unknown) => callback(mockPrisma));
 		mockPrisma.scheduledTaskRun.findUnique.mockResolvedValue(null);
@@ -179,7 +179,7 @@ describe("scheduled task service", () => {
 
     expect(mockTeamWhere).toHaveBeenCalledWith(teamSession);
     expect(mockPrisma.scheduledTask.findMany).toHaveBeenCalledWith({
-      where: { OR: [{ teamId: "team_a" }, { teamId: null }] },
+      where: { teamId: "team_a" },
       orderBy: { createdAt: "desc" },
       take: 50,
       include: { creator: { select: { username: true, displayName: true } } },
@@ -351,7 +351,7 @@ describe("scheduled task service", () => {
 
     expect(mockTeamWhere).toHaveBeenCalledWith(teamSession);
 		expect(mockPrisma.scheduledTask.updateMany).toHaveBeenCalledWith({
-		  where: { id: "task1", OR: [{ teamId: "team_a" }, { teamId: null }] },
+		  where: { id: "task1", teamId: "team_a" },
 		  data: { status: "PAUSED", nextRunAt: null },
 		});
   });

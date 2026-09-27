@@ -7,6 +7,11 @@ function getAppSlugForPathExpansion() {
   return config.app.appSlug;
 }
 
+/** Default local filesystem namespace for a newly created workspace. */
+export function tenantStorageBasePath(teamId: string, storageRoot = process.env.STORAGE_ROOT?.trim() || "storage"): string {
+  return path.join(storageRoot, "teams", teamId);
+}
+
 /**
  * Expand the portable shell-style placeholders that deployment templates store in
  * default storage roots. systemd/dotenv do not expand `${APP_SLUG:-...}` inside
@@ -141,6 +146,19 @@ function resolveThroughExistingAncestor(absolutePath: string): string | null {
       current = parent;
     }
   }
+}
+
+/** Prevent tenant-managed local nodes from pointing outside their namespace. */
+export function localBasePathBelongsToTenant(basePath: string, teamId: string, storageRoot?: string): boolean {
+  const root = path.resolve(expandStorageBasePath(tenantStorageBasePath(teamId, storageRoot)));
+  const target = path.resolve(expandStorageBasePath(basePath));
+  const lexical = path.relative(root, target);
+  if (lexical === ".." || lexical.startsWith(`..${path.sep}`) || path.isAbsolute(lexical)) return false;
+  const realRoot = resolveThroughExistingAncestor(root);
+  const realTarget = resolveThroughExistingAncestor(target);
+  if (!realRoot || !realTarget) return false;
+  const relative = path.relative(realRoot, realTarget);
+  return relative !== ".." && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative);
 }
 
 export function resolveStoragePathWithinBase(basePath: string, relativePath: string | null | undefined): StoragePathResult {

@@ -119,7 +119,7 @@ describe("executeServerlessQuery", () => {
 			await call("list_backups");
 			expect(mocks.backupFindMany).toHaveBeenCalledWith(
 				expect.objectContaining({
-					where: expect.objectContaining({ OR: [{ teamId: "team_1" }, { teamId: null }] }),
+					where: expect.objectContaining({ teamId: "team_1" }),
 				}),
 			);
 		});

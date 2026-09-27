@@ -53,6 +53,9 @@ vi.mock("@/lib/db", () => ({
           if (where.teamId === null) {
             return rows.filter((r) => r.teamId == null);
           }
+          if (typeof where.teamId === "string") {
+            return rows.filter((r) => r.teamId === where.teamId);
+          }
           const or = where.OR as Array<Record<string, unknown>> | undefined;
           if (or) {
             const teamIds = or
@@ -78,6 +81,9 @@ vi.mock("@/lib/db", () => ({
           if (candidates.length === 0) return null;
           if (where.teamId === null) {
             return candidates.find((r) => r.teamId == null) ?? null;
+          }
+          if (typeof where.teamId === "string") {
+            return candidates.find((r) => r.teamId === where.teamId) ?? null;
           }
           const or = where.OR as Array<Record<string, unknown>> | undefined;
           if (or) {
@@ -416,11 +422,11 @@ describe("cloud billing service", () => {
         credentials: { accessKeyId: "AKIA", secretAccessKey: "secret" },
         config: { region: "us-east-1" },
       },
-      { userId: "user_1", roles: ["operator"], currentTeamId: null },
+      { userId: "user_1", roles: ["operator"], currentTeamId: "team_a" },
     );
     expect(account.name).toBe("prod-aws");
     expect(account.hasCredentials).toBe(true);
-    expect(account.teamId).toBeNull();
+    expect(account.teamId).toBe("team_a");
     expect(JSON.stringify(account)).not.toContain("secret");
     expect(JSON.stringify(account)).not.toContain("AKIA");
   });
@@ -527,7 +533,7 @@ describe("cloud billing service", () => {
 `,
         },
       },
-      { userId: "user_1", roles: ["operator"], currentTeamId: null },
+      { userId: "user_1", roles: ["operator"], currentTeamId: "team_a" },
     );
     const result = await syncCloudBillingAccount(account.id, "2026-07");
     expect(result.imported).toBe(2);

@@ -121,6 +121,15 @@ describe("api guard", () => {
     expect(requireApiSessionMock).toHaveBeenCalledTimes(1);
   });
 
+  it("rejects bearer tokens on browser-only workspace controls", async () => {
+    hasBearerAuthorizationMock.mockReturnValue(true);
+    const handler = vi.fn(async () => Response.json({ ok: true }));
+    const response = await withApiRoute(request(), { requireAuth: true }, handler);
+    expect(response.status).toBe(403);
+    expect(requireApiSessionMock).not.toHaveBeenCalled();
+    expect(handler).not.toHaveBeenCalled();
+  });
+
   it("returns api-session 401 responses for auth-only routes", async () => {
     requireApiSessionMock.mockResolvedValueOnce(Response.json({ error: "未登录或会话已过期" }, { status: 401 }));
     const handler = vi.fn(async () => Response.json({ ok: true }));

@@ -76,6 +76,7 @@ import {
   updateStorageNode,
 } from "@/lib/storage/service";
 import { prisma } from "@/lib/db";
+import { tenantStorageBasePath } from "@/lib/storage/path-utils";
 
 describe("storage service", () => {
   const storageSession = {
@@ -88,6 +89,15 @@ describe("storage service", () => {
     roles: ["operator"],
     currentTeamId: "team-1",
   } as any;
+  it("rejects tenant-managed local roots outside the workspace namespace", async () => {
+    vi.clearAllMocks();
+    await expect(createStorageNode({
+      name: "Other tenant",
+      driver: "LOCAL",
+      basePath: tenantStorageBasePath("team-2"),
+    }, teamStorageSession)).rejects.toThrow();
+    expect(prisma.storageNode.create).not.toHaveBeenCalled();
+  });
   it("creates a local default storage node", async () => {
     vi.clearAllMocks();
     vi.mocked(prisma.storageNode.updateMany).mockResolvedValue({ count: 0 });
@@ -117,13 +127,34 @@ describe("storage service", () => {
     });
 
     expect(prisma.storageNode.updateMany).toHaveBeenCalledWith({
-      where: { id: { not: "node_1" } },
+      where: { teamId: null, id: { not: "node_1" } },
       data: { isDefault: false },
     });
     expect(result.connectionSummary).toContain(
       "Local storage: /srv/whrkhldsb/storage",
     );
     expect(result.directAccess.mode).toBe("managed-download");
+  });
+
+  it("retires defaults only in the selected workspace for a platform administrator", async () => {
+    vi.clearAllMocks();
+    vi.mocked(prisma.storageNode.create).mockResolvedValueOnce({
+      id: "node_team_1", teamId: "team-1", name: "Team storage", driver: "SFTP",
+      isDefault: true, basePath: "/data/team-1", host: "203.0.113.12", port: 22,
+      username: "root", serverId: null, directAccessMode: "PROXY",
+      publicBaseUrl: null, directAccessExpiresSeconds: 300, server: null,
+      createdAt: new Date(), updatedAt: new Date(),
+    } as any);
+
+    await createStorageNode({
+      name: "Team storage", driver: "SFTP", basePath: "/data/team-1",
+      host: "203.0.113.12", isDefault: true,
+    }, { ...storageSession, currentTeamId: "team-1" });
+
+    expect(prisma.storageNode.updateMany).toHaveBeenCalledWith({
+      where: { teamId: "team-1", id: { not: "node_team_1" } },
+      data: { isDefault: false },
+    });
   });
 
   it("creates an sftp node with managed-download strategy", async () => {
@@ -496,6 +527,23 @@ describe("storage service", () => {
     );
   });
 
+  it("rejects switching a remote node to local storage outside its workspace", async () => {
+    vi.clearAllMocks();
+    vi.mocked(prisma.storageNode.findFirst).mockResolvedValueOnce({
+      id: "node_remote",
+      driver: "SFTP",
+      isDefault: false,
+      basePath: "/data/media",
+      server: null,
+    } as any);
+
+    await expect(updateStorageNode({
+      storageNodeId: "node_remote",
+      driver: "LOCAL",
+    }, teamStorageSession)).rejects.toThrow();
+    expect(prisma.storageNode.updateMany).not.toHaveBeenCalled();
+  });
+
   it("keeps the current default node until another node is promoted", async () => {
     vi.clearAllMocks();
     vi.mocked(prisma.storageNode.findUnique).mockResolvedValueOnce({
@@ -595,7 +643,7 @@ describe("storage service", () => {
     expect(prisma.storageNode.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
-          OR: [{ teamId: "team_ops" }, { teamId: null }],
+          teamId: "team_ops",
         },
       }),
     );
@@ -625,7 +673,7 @@ describe("storage service", () => {
       name: "team node",
       driver: "LOCAL",
       isDefault: false,
-      basePath: "/data/team",
+      basePath: tenantStorageBasePath("team_ops"),
       host: null,
       port: null,
       username: null,
@@ -642,7 +690,7 @@ describe("storage service", () => {
       {
         name: "team node",
         driver: "LOCAL",
-        basePath: "/data/team",
+        basePath: tenantStorageBasePath("team_ops"),
         isDefault: false,
       },
       {
@@ -1135,7 +1183,7 @@ describe("storage service", () => {
         expect.objectContaining({
           where: {
             id: "file_restore_local",
-            storageNode: { OR: [{ teamId: "team-1" }, { teamId: null }] },
+            storageNode: { teamId: "team-1" },
           },
         }),
       );

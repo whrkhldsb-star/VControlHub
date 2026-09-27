@@ -29,7 +29,7 @@ describe("GET /api/jobs/[id]/events ownership scope", () => {
       where: {
         AND: [
           { id: "job-1" },
-          { OR: [{ teamId: "team-1" }, { teamId: null }] },
+          { teamId: "team-1" },
           { createdBy: "user-1" },
         ],
       },

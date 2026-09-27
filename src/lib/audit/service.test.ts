@@ -69,7 +69,7 @@ describe("listAuditLogs", () => {
     const where = mockPrisma.auditLog.findMany.mock.calls[0]?.[0]?.where;
     expect(where).toEqual({
       AND: [
-        { OR: [{ teamId: "team_a" }, { teamId: null }] },
+        { teamId: "team_a" },
         {
           OR: [
             { action: { contains: "login", mode: "insensitive" } },
@@ -107,7 +107,7 @@ describe("exportAuditLogs", () => {
     await exportAuditLogs({ session: teamUser });
     expect(mockPrisma.auditLog.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { OR: [{ teamId: "team_a" }, { teamId: null }] },
+        where: { teamId: "team_a" },
       }),
     );
   });
@@ -123,11 +123,11 @@ describe("getAuditStats", () => {
   it("scopes stats queries with teamWhere for non-admin sessions", async () => {
     await getAuditStats(teamUser);
     expect(mockPrisma.auditLog.count).toHaveBeenCalledWith({
-      where: { OR: [{ teamId: "team_a" }, { teamId: null }] },
+      where: { teamId: "team_a" },
     });
     expect(mockPrisma.auditLog.groupBy).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { OR: [{ teamId: "team_a" }, { teamId: null }] },
+        where: { teamId: "team_a" },
       }),
     );
   });

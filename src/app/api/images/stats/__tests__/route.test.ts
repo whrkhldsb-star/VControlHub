@@ -103,7 +103,7 @@ describe("/api/images/stats", () => {
 
   it("allows team managers to read fleet-wide image stats", async () => {
     vi.clearAllMocks();
-    requireApiSessionMock.mockResolvedValueOnce(session);
+    requireApiSessionMock.mockResolvedValueOnce({ ...session, roles: ["admin"] });
     sessionHasPermissionMock.mockImplementation(
       (_session, permission) =>
         permission === "image:read" || permission === "team:manage",
@@ -144,11 +144,11 @@ describe("/api/images/stats", () => {
   it.each([
     { permission: "image:read", scope: { userId: "u_1" } },
     { permission: "media:manage", scope: { teamId: "team_a" } },
-    { permission: "team:manage", scope: {} },
+    { permission: "team:manage", scope: {}, roles: ["admin"] },
   ])("counts more than 5000 uploads without truncation in the $permission scope", async ({ permission, scope }) => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-09-08T12:00:00Z"));
-    requireApiSessionMock.mockResolvedValueOnce(session);
+    requireApiSessionMock.mockResolvedValueOnce({ ...session, roles: permission === "team:manage" ? ["admin"] : [] });
     sessionHasPermissionMock.mockImplementation((_session, required) => required === "image:read" || required === permission);
     imageCountMock.mockImplementation(({ where }) => {
       const { createdAt, ...actualScope } = where;

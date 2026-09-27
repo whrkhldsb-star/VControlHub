@@ -35,7 +35,7 @@ describe("getAllUptimeDataInternal team scope", () => {
       expect.objectContaining({
         where: expect.objectContaining({
           enabled: true,
-          OR: [{ teamId: "team_a" }, { teamId: null }],
+          teamId: "team_a",
         }),
       }),
     );

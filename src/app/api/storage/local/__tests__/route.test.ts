@@ -219,7 +219,7 @@ describe("/api/storage/local", () => {
           storageNodeId: "node_1",
           storageNode: expect.objectContaining({
             driver: "LOCAL",
-            OR: [{ teamId: "team_a" }, { teamId: null }],
+            teamId: "team_a",
           }),
         }),
       }),
