@@ -88,8 +88,7 @@ describe("resolveSshWsListenConfig", () => {
 	it("scopes SSH resolve by session team and never uses bare findUnique on server id", async () => {
 		const source = await readFile(path.resolve(__dirname, "../ssh-ws-proxy.ts"), "utf8");
 		expect(source).toContain("resolveServerConnection(serverId, session)");
-		expect(source).toContain("canBypassTeamScope");
-		expect(source).toContain("teamId: session.currentTeamId");
+		expect(source).toContain('serverTeamWhere(session, "connect")');
 		// Connection path must not reintroduce unscoped findUnique({ where: { id: serverId } })
 		expect(source).not.toMatch(/findUnique\(\{\s*where:\s*\{\s*id:\s*serverId/);
 	});
@@ -101,7 +100,7 @@ describe("resolveSshWsListenConfig", () => {
 		// holding `server:ssh` could open a root shell on a legacy VPS that the
 		// HTTP surface hides from them.
 		const source = await readFile(path.resolve(__dirname, "../ssh-ws-proxy.ts"), "utf8");
-		expect(source).toContain("__unassigned_servers_require_team_manage__");
+		expect(source).toContain('serverTeamWhere(session, "connect")');
 		expect(source).not.toMatch(/OR:\s*\[\{\s*teamId:\s*session\.currentTeamId\s*\}\s*,\s*\{\s*teamId:\s*null\s*\}\s*\]/);
 	});
 

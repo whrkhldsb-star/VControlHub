@@ -41,7 +41,7 @@ export async function POST(
   const session = guard as SessionPayload;
 
   const { id } = await params;
-  const teamAccess = await assertServerTeamAccess(session, id);
+  const teamAccess = await assertServerTeamAccess(session, id, "fileWrite");
   if (!teamAccess.ok) return teamAccess.response;
 
   // formData() buffers the whole multipart body before the per-file size

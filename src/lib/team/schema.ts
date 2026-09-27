@@ -18,6 +18,7 @@ export const addTeamMemberSchema = z.object({
 	username: z.string().trim().min(1),
 	role: z.enum(["admin", "member"]).default("member"),
 	accessRole: z.enum(["inherit", "viewer", "operator", "storage_manager"]).optional(),
+	permissionTemplateId: z.string().min(1).nullable().optional(),
 });
 
 export const updateTeamSchema = z.object({

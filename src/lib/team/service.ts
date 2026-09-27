@@ -93,6 +93,8 @@ export async function listTeamsForSession(session: SessionPayload) {
         select: {
           role: true,
           accessRole: true,
+          permissionTemplateId: true,
+          permissionTemplate: { select: { id: true, name: true } },
           joinedAt: true,
           user: {
             select: {
@@ -314,14 +316,29 @@ export async function addTeamMember(
       t("backend.team.cannotChangeOwnerRoleViaMemberApi"),
     );
   }
+  if (input.permissionTemplateId) {
+    const template = await prisma.roleTemplate.findFirst({
+      where: { id: input.permissionTemplateId, teamId, isBuiltin: false },
+      select: { id: true, dataScope: true },
+    });
+    if (!template) throw new ValidationError(t("backend.team.groupOutsideWorkspace"));
+    const scope = template.dataScope && typeof template.dataScope === "object" && !Array.isArray(template.dataScope)
+      ? template.dataScope as Record<string, unknown>
+      : {};
+    if ((Array.isArray(scope.serverAccess) && scope.serverAccess.length > 0)
+      || (Array.isArray(scope.storageAccess) && scope.storageAccess.length > 0)) {
+      throw new ValidationError(t("backend.team.resourceTemplateRequiresAccountAssignment"));
+    }
+  }
 
   const member = await prisma.teamMember.upsert({
     where: { teamId_userId: { teamId, userId: user.id } },
-    update: { role: input.role, ...(input.accessRole ? { accessRole: input.accessRole } : {}) },
-    create: { teamId, userId: user.id, role: input.role, accessRole: input.accessRole ?? "inherit" },
+    update: { role: input.role, ...(input.accessRole ? { accessRole: input.accessRole } : {}), ...(input.permissionTemplateId !== undefined ? { permissionTemplateId: input.permissionTemplateId } : {}) },
+    create: { teamId, userId: user.id, role: input.role, accessRole: input.accessRole ?? "inherit", permissionTemplateId: input.permissionTemplateId ?? null },
     select: {
       role: true,
       accessRole: true,
+      permissionTemplateId: true,
       user: {
         select: { id: true, username: true, displayName: true, status: true },
       },
@@ -330,7 +347,7 @@ export async function addTeamMember(
   await auditUserAction(
     session.userId,
     "team.member.upsert",
-    { teamId, teamSlug: team.slug, username: user.username, role: input.role, accessRole: input.accessRole ?? "inherit" },
+    { teamId, teamSlug: team.slug, username: user.username, role: input.role, accessRole: input.accessRole ?? "inherit", permissionTemplateId: input.permissionTemplateId ?? null },
     undefined,
     teamId,
   );

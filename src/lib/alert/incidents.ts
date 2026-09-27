@@ -10,7 +10,7 @@
  */
 import { prisma, isUniqueViolation } from "@/lib/db";
 import type { SessionPayload } from "@/lib/auth/session";
-import { teamWhere } from "@/lib/auth/team-scope";
+import { serverTeamWhere, teamWhere } from "@/lib/auth/team-scope";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { createLogger } from "@/lib/logging";
 import { createNotification, type NotificationType } from "@/lib/notification/service";
@@ -522,7 +522,7 @@ export async function acknowledgeAlertIncident(input: {
       // Server team (required when set, or when rule is legacy unscoped)
       if (incident.serverId) {
         const serverOk = await prisma.server.findFirst({
-          where: { id: incident.serverId, ...teamFilter },
+          where: { id: incident.serverId, ...serverTeamWhere(input.session) },
           select: { id: true },
         });
         if (!serverOk) throw new NotFoundError(t("backend.alert.alertIncidentNotFound"));
@@ -773,7 +773,7 @@ export async function listAlertIncidents(options?: {
     if (Object.keys(teamFilter).length > 0) {
       const [servers, rules] = await Promise.all([
         prisma.server.findMany({
-          where: teamFilter,
+          where: serverTeamWhere(options.session),
           select: { id: true },
           take: 5000,
         }),

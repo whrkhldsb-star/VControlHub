@@ -1339,7 +1339,7 @@ describe("command service execution flow", () => {
       expect.objectContaining({
         where: expect.objectContaining({
           id: { in: ["srv_in_scope", "srv_other_team"] },
-          teamId: "team_a",
+          AND: expect.arrayContaining([{ teamId: "team_a" }]),
         }),
       }),
     );

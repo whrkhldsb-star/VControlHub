@@ -28,7 +28,7 @@ export async function DELETE(
     },
     async ({ query, session }) => {
       const { id } = await params;
-      const teamAccess = await assertServerTeamAccess(session, id);
+      const teamAccess = await assertServerTeamAccess(session, id, "fileDelete");
       if (!teamAccess.ok) return teamAccess.response;
 			await assertSftpPathAccess({ session: session, serverId: id, paths: [query.path] });
       await deleteFile(id, query.path);

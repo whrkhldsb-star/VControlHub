@@ -139,7 +139,7 @@ export async function materializeAutomationProposal(
     const batch = await prisma.server.findMany({
       where: {
         enabled: true,
-	  ...serverTeamWhere(session),
+	  ...serverTeamWhere(session, "connect"),
         ...(input.targetScope === "selected" ? { id: { in: requestedIds } } : {}),
       },
       select: { id: true, name: true, host: true, teamId: true },

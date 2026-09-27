@@ -55,7 +55,10 @@ describe("ticket service", () => {
       expect.objectContaining({
         where: {
           id: "srv-foreign",
-          teamId: "team-a",
+          AND: [
+            { teamId: "team-a" },
+            expect.objectContaining({ OR: expect.any(Array) }),
+          ],
         },
       }),
     );

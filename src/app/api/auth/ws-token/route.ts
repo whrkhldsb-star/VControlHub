@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     },
     async ({ session, body }) => {
       // Multi-tenant: never mint a handshake for a server outside the caller's team.
-      const teamAccess = await assertServerTeamAccess(session, body.serverId);
+      const teamAccess = await assertServerTeamAccess(session, body.serverId, "connect");
       if (!teamAccess.ok) return teamAccess.response;
 
       const secret = config.ssh.wsSecret;

@@ -145,7 +145,10 @@ describe("DeploymentsPage deploy-export panel", () => {
     expect(serverFindManyMock).toHaveBeenCalledWith(expect.objectContaining({
       where: {
         enabled: true,
-        teamId: "team-a",
+        AND: [
+          { teamId: "team-a" },
+          expect.objectContaining({ OR: expect.any(Array) }),
+        ],
       },
       orderBy: { createdAt: "desc" },
       take: 200,

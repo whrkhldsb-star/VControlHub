@@ -18,6 +18,17 @@ type PermissionPatch = {
     quotaBytes?: string | number | null;
     maxFileBytes?: string | number | null;
   }>;
+  storageAccessScopeIds?: string[];
+  serverAccess?: Array<{
+    serverId: string;
+    canRead: boolean;
+    canConnect: boolean;
+    canManage: boolean;
+    canFileRead: boolean;
+    canFileWrite: boolean;
+    canFileDelete: boolean;
+  }>;
+  serverAccessScopeIds?: string[];
 };
 
 function normalizePathPrefix(value: unknown) {
@@ -36,8 +47,11 @@ export async function applyUserPermissionPatch(input: {
   roleKeys: string[] | undefined;
   permissionKeys: string[] | undefined;
   storageAccess: PermissionPatch["storageAccess"] | undefined;
+  storageAccessScopeIds: string[] | undefined;
+  serverAccess: PermissionPatch["serverAccess"] | undefined;
+  serverAccessScopeIds: string[] | undefined;
 }) {
-  const { session, parsedData, targetUsername, roleKeys, permissionKeys, storageAccess } = input;
+  const { session, parsedData, targetUsername, roleKeys, permissionKeys, storageAccess, storageAccessScopeIds, serverAccess, serverAccessScopeIds } = input;
   // Delegation rule: a non-global manager may only hand out what they already
   // hold. Without this, any delegated `user:manage` could mint an `admin`
   // (or any superset) for a colluding account — a full platform takeover.
@@ -152,22 +166,23 @@ export async function applyUserPermissionPatch(input: {
       const nodeScope = actorIsGlobalManager
         ? {}
         : { teamId: session.currentTeamId ?? "__no_team_no_grants__" };
+      const scopeIds = storageAccessScopeIds ?? [];
+      if (!storageAccessScopeIds || new Set(scopeIds).size !== scopeIds.length || storageAccess.some((grant) => !scopeIds.includes(grant.storageNodeId))) {
+        throw new ValidationError(t("backend.user.invalidStorageAccessScope"));
+      }
       const validNodeIds = new Set(
         (
           await tx.storageNode.findMany({
-            where: nodeScope,
+            where: { id: { in: scopeIds }, ...nodeScope },
             select: { id: true },
-            take: 500,
+            take: scopeIds.length || 1,
           })
         ).map((node) => node.id),
       );
-      if (isGlobalTeamManager(session)) {
-        await tx.userStorageAccess.deleteMany({ where: { userId: parsedData.userId } });
-      } else {
-        await tx.userStorageAccess.deleteMany({
-          where: { userId: parsedData.userId, storageNode: nodeScope },
-        });
-      }
+      if (validNodeIds.size !== scopeIds.length) throw new ValidationError(t("backend.user.unknownStorageNodeInWorkspace"));
+      await tx.userStorageAccess.deleteMany({
+        where: { userId: parsedData.userId, storageNodeId: { in: scopeIds } },
+      });
       const mapped = storageAccess.map((grant) => ({
         userId: parsedData.userId,
         storageNodeId: String(grant.storageNodeId ?? ""),
@@ -200,6 +215,33 @@ export async function applyUserPermissionPatch(input: {
       });
       if (uniqueRows.length > 0) {
         await tx.userStorageAccess.createMany({ data: uniqueRows, skipDuplicates: true });
+      }
+    }
+
+    if (serverAccess) {
+      const serverScope = actorIsGlobalManager
+        ? {}
+        : { teamId: session.currentTeamId ?? "__no_team_no_grants__" };
+      const ids = serverAccess.map((grant) => grant.serverId);
+      const scopeIds = serverAccessScopeIds ?? [];
+      if (!serverAccessScopeIds || new Set(ids).size !== ids.length || new Set(scopeIds).size !== scopeIds.length || ids.some((id) => !scopeIds.includes(id))) {
+        throw new ValidationError(t("backend.user.invalidServerAccessScope"));
+      }
+      const known = await tx.server.findMany({
+        where: { id: { in: scopeIds }, ...serverScope },
+        select: { id: true },
+        take: scopeIds.length || 1,
+      });
+      if (known.length !== scopeIds.length) {
+        throw new ValidationError(t("backend.user.unknownServerInWorkspace"));
+      }
+      await tx.userServerAccess.deleteMany({
+        where: { userId: parsedData.userId, serverId: { in: scopeIds } },
+      });
+      if (serverAccess.length > 0) {
+        await tx.userServerAccess.createMany({
+          data: serverAccess.map((grant) => ({ userId: parsedData.userId, ...grant })),
+        });
       }
     }
   });

@@ -83,7 +83,7 @@ export async function GET(req: NextRequest) {
       // Remote VPS Docker must stay inside the caller's team (same as SFTP/SSH);
       // the hub host belongs to no team, so it needs platform-manager rights.
       if (serverId) {
-        const teamAccess = await assertServerTeamAccess(session, serverId);
+        const teamAccess = await assertServerTeamAccess(session, serverId, "read");
         if (!teamAccess.ok) return teamAccess.response;
       } else {
         const hubAccess = assertHubHostDockerAccess(session);
@@ -176,7 +176,7 @@ export async function POST(req: NextRequest) {
       }
 
       if (serverId) {
-        const teamAccess = await assertServerTeamAccess(session, serverId);
+        const teamAccess = await assertServerTeamAccess(session, serverId, "manage");
         if (!teamAccess.ok) return teamAccess.response;
       } else {
         // stop/remove against the hub host hits the platform's own containers.

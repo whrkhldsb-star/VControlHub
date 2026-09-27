@@ -73,14 +73,20 @@ describe("/api/dashboard/analytics", () => {
     const response = await route.GET(new Request("http://local/api/dashboard/analytics?type=all"));
     expect(response.status).toBe(200);
 
-    // Metric snapshots follow their Server security root: strict team match, no
-    // implicit `teamId: null` sharing (serverTeamWhere, not teamWhere).
+    // Metric snapshots follow their Server security root, including its
+    // per-user access rule, rather than trusting the snapshot's teamId alone.
     expect(mocks.prisma.metricSnapshot.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ teamId: "team_a" }),
+        where: expect.objectContaining({
+          server: {
+            AND: [
+              { teamId: "team_a" },
+              expect.objectContaining({ OR: expect.any(Array) }),
+            ],
+          },
+        }),
       }),
     );
-    expect(mocks.prisma.metricSnapshot.findMany.mock.calls[0]?.[0].where).not.toHaveProperty("OR");
     expect(mocks.prisma.downloadTask.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ teamId: "team_a" }),

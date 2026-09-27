@@ -54,7 +54,7 @@ async function findServerProfileForSession(
 ) {
   if (session) {
     return prisma.server.findFirst({
-      where: { id: serverId, ...serverTeamWhere(session) },
+      where: { id: serverId, ...serverTeamWhere(session, "manage") },
       include,
     });
   }

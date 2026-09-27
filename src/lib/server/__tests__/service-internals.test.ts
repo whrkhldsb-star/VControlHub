@@ -61,7 +61,7 @@ describe("assertNoDuplicateServerHost", () => {
 		await assertNoDuplicateServerHost(normalized, { session: operator });
 		expect(mocks.findFirst).toHaveBeenCalledWith(
 			expect.objectContaining({
-				where: { host: "203.0.113.10", teamId: "team_1" },
+				where: expect.objectContaining({ host: "203.0.113.10", AND: expect.arrayContaining([{ teamId: "team_1" }]) }),
 			}),
 		);
 	});
@@ -117,7 +117,7 @@ describe("assertNoDuplicateServerHost", () => {
 		await assertNoDuplicateServerHost(normalized, { excludeId: "srv_self", session: operator });
 		expect(mocks.findFirst).toHaveBeenCalledWith(
 			expect.objectContaining({
-				where: { host: "203.0.113.10", teamId: "team_1", id: { not: "srv_self" } },
+				where: expect.objectContaining({ host: "203.0.113.10", id: { not: "srv_self" }, AND: expect.arrayContaining([{ teamId: "team_1" }]) }),
 			}),
 		);
 	});

@@ -42,7 +42,7 @@ export async function PATCH(
 		request,
 		{ permission: "server:write", rateLimit: GENERAL_WRITE_LIMIT, bodySchema: updateSchema },
 		async ({ session, body }) => {
-			const teamAccess = await assertServerTeamAccess(session, serverId);
+			const teamAccess = await assertServerTeamAccess(session, serverId, "manage");
 			if (!teamAccess.ok) return teamAccess.response;
 
 			// Service AppErrors (invalid cron → ValidationError) keep their own
@@ -71,7 +71,7 @@ export async function DELETE(
 		request,
 		{ permission: "server:write", rateLimit: GENERAL_WRITE_LIMIT },
 		async ({ session }) => {
-			const teamAccess = await assertServerTeamAccess(session, serverId);
+			const teamAccess = await assertServerTeamAccess(session, serverId, "manage");
 			if (!teamAccess.ok) return teamAccess.response;
 
 			const existing = await prisma.vpsBackupSchedule.findFirst({

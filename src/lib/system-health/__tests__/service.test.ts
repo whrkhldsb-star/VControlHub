@@ -52,7 +52,7 @@ describe("system health service", () => {
 
     // A team viewer must not see the platform-wide totals — serverTeamWhere
     // pins servers to their team, teamWhere lets storage include shared (null).
-    expect(mockPrisma.server.count).toHaveBeenCalledWith({ where: { teamId: "team-x" } });
+    expect(mockPrisma.server.count).toHaveBeenCalledWith({ where: expect.objectContaining({ AND: expect.arrayContaining([{ teamId: "team-x" }]) }) });
     expect(mockPrisma.storageNode.count).toHaveBeenCalledWith({
       where: { teamId: "team-x" },
     });

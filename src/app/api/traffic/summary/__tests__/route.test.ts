@@ -125,7 +125,7 @@ describe("traffic summary route", () => {
       }),
     );
     expect(vi.mocked(prisma.storageNode.findMany)).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { teamId: "__no_active_team__" } }),
+      expect.objectContaining({ where: { id: "__unassigned_storage_nodes_require_team_manage__" } }),
     );
   });
 });

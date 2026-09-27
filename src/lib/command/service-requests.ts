@@ -63,7 +63,7 @@ async function assertCommandTargetServersInScope(
 ): Promise<void> {
   let scope: Record<string, unknown>;
   if (session) {
-    scope = serverTeamWhere(session);
+    scope = serverTeamWhere(session, "connect");
   } else if (teamId) {
     // Concrete worker stamp has no admin bypass and must use strict server scope.
     scope = { teamId };

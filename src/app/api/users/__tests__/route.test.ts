@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const { mocks } = vi.hoisted(() => ({
   mocks: {
     requireApiPermission: vi.fn(),
+    requireApiSession: vi.fn(),
     hashPassword: vi.fn(),
     auditUserAction: vi.fn(),
 		assertAdminAccessMayBeRemoved: vi.fn(),
@@ -43,6 +44,7 @@ const { mocks } = vi.hoisted(() => ({
 vi.mock("@/lib/auth/require-api-permission", () => ({
   requireApiPermission: mocks.requireApiPermission,
 }));
+vi.mock("@/lib/auth/api-session", () => ({ requireApiSession: mocks.requireApiSession, isSessionPayload: (value: unknown) => !(value instanceof Response) }));
 vi.mock("@/lib/auth/password", () => ({
   hashPassword: mocks.hashPassword,
 }));
@@ -78,6 +80,7 @@ describe("/api/users", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.requireApiPermission.mockResolvedValue({ session });
+    mocks.requireApiSession.mockResolvedValue(session);
     mocks.hashPassword.mockResolvedValue("hashed-password");
     mocks.assertUserInActorScope.mockResolvedValue(undefined);
     // The route's platform-admin guard treats non-global managers specially;

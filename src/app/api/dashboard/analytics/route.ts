@@ -7,7 +7,7 @@ import { z } from "zod";
 
 import { withApiRoute } from "@/lib/http/api-guard";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { serverTeamWhere, teamWhere } from "@/lib/auth/team-scope";
+import { isGlobalTeamManager, serverTeamWhere, teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 
@@ -101,11 +101,13 @@ export async function GET(request: Request) {
     // quarantined legacy server that non-admins must not see, so it must NOT
     // fall under the loose "null is shared" teamWhere used for genuinely
     // team-owned resources below.
-    const metricTeamFilter = serverTeamWhere(session);
+    const metricTeamFilter = isGlobalTeamManager(session)
+      ? {}
+      : { server: serverTeamWhere(session) };
     const resourceTeamFilter = teamWhere(session);
 
-    // Server metrics trend (last 24h). Use denormalized teamId on metric_snapshots
-    // so we do not join Server for every snapshot row.
+    // Server metrics trend (last 24h). Filter through the Server security root
+    // so per-server grants also apply to its snapshots.
     if (shouldIncludeAnalytics(session, type, "servers")) {
       const twentyFourHoursAgo = new Date(Date.now() - 24 * HOUR_MS);
       const buckets = new Map<

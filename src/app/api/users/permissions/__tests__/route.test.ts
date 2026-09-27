@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const { mocks } = vi.hoisted(() => ({
   mocks: {
     requireApiPermission: vi.fn(),
+    requireApiSession: vi.fn(),
     auditUserAction: vi.fn(),
 		assertAdminAccessMayBeRemoved: vi.fn(),
 		withAdminInvariantLock: vi.fn(),
@@ -26,6 +27,8 @@ const { mocks } = vi.hoisted(() => ({
       storageNode: {
         findMany: vi.fn(),
       },
+      server: { findMany: vi.fn() },
+      userServerAccess: { deleteMany: vi.fn(), createMany: vi.fn() },
       userRole: {
         deleteMany: vi.fn(),
         createMany: vi.fn(),
@@ -47,6 +50,7 @@ const { mocks } = vi.hoisted(() => ({
 vi.mock("@/lib/auth/require-api-permission", () => ({
   requireApiPermission: mocks.requireApiPermission,
 }));
+vi.mock("@/lib/auth/api-session", () => ({ requireApiSession: mocks.requireApiSession, isSessionPayload: (value: unknown) => !(value instanceof Response) }));
 vi.mock("@/lib/audit/service", () => ({
   auditUserAction: mocks.auditUserAction,
 }));
@@ -75,6 +79,7 @@ const session = {
   userId: "admin1",
   username: "root",
   roles: ["operator"] as const,
+  permissions: ["user:read", "team:member:manage"] as const,
   mustChangePassword: false,
   currentTeamId: "team-a",
 };
@@ -83,6 +88,7 @@ describe("/api/users/permissions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.requireApiPermission.mockResolvedValue({ session });
+    mocks.requireApiSession.mockResolvedValue(session);
     mocks.assertUserInActorScope.mockResolvedValue(undefined);
 		mocks.assertAdminAccessMayBeRemoved.mockResolvedValue(undefined);
 		mocks.withAdminInvariantLock.mockImplementation(async (operation) => operation());
@@ -99,10 +105,12 @@ describe("/api/users/permissions", () => {
       displayName: "Alice",
       roles: [],
       storageAccess: [],
+      serverAccess: [],
     });
     mocks.prisma.role.findMany.mockResolvedValue([]);
     mocks.prisma.permission.findMany.mockResolvedValue([]);
     mocks.prisma.storageNode.findMany.mockResolvedValue([{ id: "node-a" }]);
+    mocks.prisma.server.findMany.mockResolvedValue([]);
   });
 
   it("GET asserts target user is in actor team scope", async () => {
@@ -151,6 +159,7 @@ describe("/api/users/permissions", () => {
               canDelete: false,
             },
           ],
+          storageAccessScopeIds: ["node-a"],
         }),
       }),
     );
@@ -159,13 +168,15 @@ describe("/api/users/permissions", () => {
     expect(mocks.prisma.userStorageAccess.deleteMany).toHaveBeenCalledWith({
       where: {
         userId: "user1",
-        storageNode: { teamId: "team-a" },
+        storageNodeId: { in: ["node-a"] },
       },
     });
     expect(mocks.prisma.userStorageAccess.createMany).toHaveBeenCalled();
   });
 
   it("PATCH rejects unknown role keys before replacing assignments", async () => {
+    mocks.isGlobalTeamManager.mockReturnValue(true);
+    mocks.requireApiSession.mockResolvedValue({ ...session, roles: ["admin"] });
     mocks.prisma.role.findMany.mockResolvedValueOnce([{ id: "r1", key: "viewer" }]);
 
     const res = await route.PATCH(
@@ -194,6 +205,8 @@ describe("/api/users/permissions", () => {
 	});
 
 	it("PATCH checks the active-admin invariant before removing the admin role", async () => {
+		mocks.isGlobalTeamManager.mockReturnValue(true);
+		mocks.requireApiSession.mockResolvedValue({ ...session, roles: ["admin"] });
 		// The delegation check reads role.permissions, so the mock must carry it.
 		mocks.prisma.role.findMany.mockResolvedValueOnce([{ id: "r1", key: "viewer", permissions: [] }]);
 		const res = await route.PATCH(new Request("http://local/api/users/permissions", {
@@ -207,6 +220,8 @@ describe("/api/users/permissions", () => {
 	});
 
   it("PATCH rejects unknown permission keys before replacing custom grants", async () => {
+    mocks.isGlobalTeamManager.mockReturnValue(true);
+    mocks.requireApiSession.mockResolvedValue({ ...session, roles: ["admin"] });
     mocks.prisma.role.upsert.mockResolvedValueOnce({ id: "custom-role" });
     mocks.prisma.permission.findMany.mockResolvedValueOnce([]);
 
@@ -220,5 +235,14 @@ describe("/api/users/permissions", () => {
 
     expect(res.status).toBe(400);
     expect(mocks.prisma.rolePermission.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it("prevents workspace managers from changing platform account roles", async () => {
+    const res = await route.PATCH(new Request("http://local/api/users/permissions", {
+      method: "PATCH", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ userId: "user1", roleKeys: ["admin"] }),
+    }));
+    expect(res.status).toBe(403);
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
   });
 });

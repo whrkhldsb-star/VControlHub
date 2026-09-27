@@ -10,10 +10,12 @@ import { ActionButton } from "@/components/action-button";
 import { IconButton, InlineLoading, Notice } from "@/components/ui-primitives";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { X } from "@/components/icons";
+import { PermissionGroupsSection } from "./permission-groups-section";
 
 type TeamMemberDto = {
 	role: string;
 	accessRole: string;
+	permissionTemplateId?: string | null;
 	joinedAt: string;
 	user: { id: string; username: string; displayName: string | null; status: string };
 };
@@ -358,6 +360,15 @@ export function TeamWorkspaceSection({ capabilities }: { capabilities: TeamCapab
 					</div>
 					)}
 				</div>
+			)}
+
+			{currentTeamId && teams.find((team) => team.id === currentTeamId) && (
+				<PermissionGroupsSection
+					teamId={currentTeamId}
+					members={teams.find((team) => team.id === currentTeamId)!.members}
+					canManage={canEditTeam(teams.find((team) => team.id === currentTeamId)!)}
+					onMemberChanged={refresh}
+				/>
 			)}
 
 			<ConfirmDialog open={pendingConfirm !== null} title={confirmTitle} description={confirmDesc} cancelLabel={t("settingsTeam.confirm.cancel")} confirmLabel={t("settingsTeam.confirm.submit")} onCancel={() => setPendingConfirm(null)} onConfirm={() => void confirmPendingAction()} busy={busy} closeOnBackdrop={false} />

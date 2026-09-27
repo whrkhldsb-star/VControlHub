@@ -34,7 +34,7 @@ export async function POST(
 		async ({ session }) => {
 			const locale = await getServerLocale();
 
-			const teamAccess = await assertServerTeamAccess(session, serverId);
+			const teamAccess = await assertServerTeamAccess(session, serverId, "manage");
 			if (!teamAccess.ok) return teamAccess.response;
 
 			const server = await prisma.server.findUnique({

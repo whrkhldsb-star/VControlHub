@@ -163,6 +163,15 @@ describe("/api/servers/[id]/file-proxy", () => {
     expect(serverFindUniqueMock).not.toHaveBeenCalled();
   });
 
+  it("does not expose a whole-node proxy token without node management permission", async () => {
+    sessionHasPermissionMock.mockImplementation((_session, permission) => permission !== "storage:manage-node");
+
+    const response = await GET(new Request("http://local/api/servers/srv_1/file-proxy"), params);
+
+    expect(response.status).toBe(403);
+    expect(serverFindUniqueMock).not.toHaveBeenCalled();
+  });
+
   it("keeps DELETE guard semantics and returns stopped when no proxy exists", async () => {
     const response = await DELETE(
       new Request("http://local/api/servers/srv_1/file-proxy", {
@@ -181,10 +190,9 @@ describe("/api/servers/[id]/file-proxy", () => {
   });
 
   it("requires a bound storage node before starting a file proxy", async () => {
-    serverFindUniqueMock.mockResolvedValueOnce({
-      id: "srv_1",
-      teamId: null,
-    });
+    for (let index = 0; index < 3; index += 1) {
+      serverFindUniqueMock.mockResolvedValueOnce({ id: "srv_1", teamId: null });
+    }
     serverFindUniqueMock.mockResolvedValueOnce({
       id: "srv_1",
       host: "127.0.0.1",

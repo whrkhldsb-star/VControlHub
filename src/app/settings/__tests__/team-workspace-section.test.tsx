@@ -48,7 +48,7 @@ describe("Team workspace member management", () => {
     await user.click(screen.getByRole("button", { name: "Cancel" }));
     await waitFor(() => expect(screen.queryByDisplayValue("Original description")).not.toBeInTheDocument());
     expect(screen.getByRole("heading", { name: "Review team" })).toBeVisible();
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls.filter(([url]) => url === "/api/teams")).toHaveLength(1);
   });
 
   it("shows member controls for a workspace administrator while another workspace is selected", async () => {

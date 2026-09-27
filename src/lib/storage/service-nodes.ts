@@ -114,7 +114,7 @@ async function assertServerInTeamScope(
 ) {
   if (!serverId || !session) return;
   const server = await prisma.server.findFirst({
-    where: { id: serverId, ...serverTeamWhere(session) },
+    where: { id: serverId, ...serverTeamWhere(session, "connect") },
     select: { id: true },
   });
   if (!server) {

@@ -27,7 +27,7 @@ export async function DELETE(
 		{ permission: "server:write", rateLimit: GENERAL_WRITE_LIMIT },
 		async ({ session }) => {
 			const locale = await getServerLocale();
-			const teamAccess = await assertServerTeamAccess(session, serverId);
+			const teamAccess = await assertServerTeamAccess(session, serverId, "manage");
 			if (!teamAccess.ok) return teamAccess.response;
 
 			const existing = await prisma.vpsBackupRecord.findFirst({

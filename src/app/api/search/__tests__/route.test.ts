@@ -57,7 +57,7 @@ describe("/api/search", () => {
     expect(mocks.prisma.quickService.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
-          OR: [{ serverId: null }, { server: { teamId: "team_a" } }],
+          OR: [{ serverId: null }, { server: expect.objectContaining({ AND: expect.arrayContaining([{ teamId: "team_a" }]) }) }],
         },
       }),
     );
@@ -78,6 +78,6 @@ describe("/api/search", () => {
     await route.GET(new Request("http://local/api/search?q=web"));
 
     const where = mocks.prisma.server.findMany.mock.calls[0]?.[0].where;
-    expect(where).toMatchObject({ teamId: "team_a" });
+    expect(where).toMatchObject({ AND: expect.arrayContaining([{ teamId: "team_a" }]) });
   });
 });

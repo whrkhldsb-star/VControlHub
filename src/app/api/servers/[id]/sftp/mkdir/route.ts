@@ -28,7 +28,7 @@ export async function POST(
     },
     async ({ body, session }) => {
       const { id } = await params;
-      const teamAccess = await assertServerTeamAccess(session, id);
+      const teamAccess = await assertServerTeamAccess(session, id, "fileWrite");
       if (!teamAccess.ok) return teamAccess.response;
       await assertSftpPathAccess({ session, serverId: id, paths: [body.path] });
       await makeDirectory(id, body.path);

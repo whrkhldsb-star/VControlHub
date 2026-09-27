@@ -4,7 +4,8 @@ import { z } from "zod";
 
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
-import { serverTeamWhere, teamWhere } from "@/lib/auth/team-scope";
+import { serverTeamWhere, storageNodeTeamWhere } from "@/lib/auth/team-scope";
+import { sessionHasPermission } from "@/lib/auth/authorization";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import {
   calculateTrafficRate,
@@ -187,14 +188,14 @@ export async function GET(req: NextRequest) {
         ? (interfaces.find((item) => item.iface === selectedIface) ?? selectPrimaryInterface(interfaces))
         : selectPrimaryInterface(interfaces);
 
-      const teamFilter = teamWhere(session);
       // Servers are security roots: this route hands back their host/port and,
       // with `include=remote`, loads their SSH credentials and dials out. A null
       // teamId is quarantined legacy data, never a shared VPS, so the strict
       // filter applies here even though storage nodes use the loose one.
       const serverFilter = serverTeamWhere(session);
-      const storageNodes = await prisma.storageNode.findMany({
-        where: teamFilter,
+      const storageNodes = sessionHasPermission(session, "storage:read")
+        ? await prisma.storageNode.findMany({
+        where: storageNodeTeamWhere(session),
         select: {
           id: true,
           name: true,
@@ -209,7 +210,7 @@ export async function GET(req: NextRequest) {
         },
         orderBy: [{ isDefault: "desc" }, { name: "asc" }],
         take: 100,
-      });
+      }) : [];
 
       // Only materialize SSH secrets when remote sampling is requested.
       // List/metadata polls return id/name/host/port only and must not load credentials.
@@ -273,6 +274,7 @@ export async function GET(req: NextRequest) {
         void persistLocalInterfaceSample(primarySummary.iface, primarySummary);
       }
 
+      const visibleServerIds = new Set(servers.map((server) => server.id));
       return NextResponse.json({
         timestamp: new Date().toISOString(),
         currentServer: {
@@ -283,13 +285,14 @@ export async function GET(req: NextRequest) {
           interfaces: summarizedInterfaces,
         },
         storageNodes: storageNodes.map((node) => {
-          const source = describeStorageTrafficSource(node);
+          const visibleNode = { ...node, server: node.server && visibleServerIds.has(node.server.id) ? node.server : null };
+          const source = describeStorageTrafficSource(visibleNode);
           return {
             id: node.id,
             name: node.name,
             driver: node.driver,
             serverId: node.serverId,
-            server: node.server,
+            server: visibleNode.server,
             host: node.host,
             port: node.port,
             healthStatus: node.healthStatus,

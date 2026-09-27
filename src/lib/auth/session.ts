@@ -248,7 +248,7 @@ export async function verifySessionToken(token: string) {
      // on every request so removal revokes access across all devices.
      teamMemberships: {
        where: { teamId: payload.currentTeamId || "__no_active_team__" },
-       select: { teamId: true, role: true, accessRole: true, team: { select: { slug: true } } },
+       select: { teamId: true, role: true, accessRole: true, team: { select: { slug: true } }, permissionTemplate: { select: { teamId: true, roleKeys: true, permissions: true } } },
        take: 1,
      },
      passwordHash: true,
@@ -316,7 +316,7 @@ export async function verifySessionToken(token: string) {
  const permissions = scopePermissionsToWorkspace({
    roles,
    accountPermissions,
-   membership: membership ? { role: membership.role, accessRole: membership.accessRole } : null,
+   membership: membership ? { role: membership.role, accessRole: membership.accessRole, permissionTemplate: membership.permissionTemplate?.teamId === currentTeamId ? membership.permissionTemplate : null } : null,
  });
 
  return {

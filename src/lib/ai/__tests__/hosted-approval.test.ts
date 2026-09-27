@@ -169,7 +169,10 @@ describe("AI hosted action approvals", () => {
 			},
 		});
 		expect(prismaMock.server.findMany).toHaveBeenCalledWith({
-			where: { teamId: "team_a" },
+			where: { AND: [{ teamId: "team_a" }, { OR: [
+				{ userAccess: { none: { userId: "operator_1" } } },
+				{ userAccess: { some: { userId: "operator_1", canRead: true } } },
+			] }] },
 			orderBy: [{ enabled: "desc" }, { name: "asc" }],
 			select: { id: true, name: true, host: true, port: true, username: true, enabled: true },
 			take: 500,
@@ -235,7 +238,10 @@ describe("AI hosted action approvals", () => {
 		expect(prismaMock.server.findFirst).toHaveBeenCalledWith({
 			where: {
 				AND: [
-					{ teamId: "team_a" }, {
+					{ AND: [{ teamId: "team_a" }, { OR: [
+						{ userAccess: { none: { userId: "user_1" } } },
+						{ userAccess: { some: { userId: "user_1", canRead: true } } },
+					] }] }, {
 						OR: [
 							{ id: "prod" },
 							{ name: { contains: "prod" } },

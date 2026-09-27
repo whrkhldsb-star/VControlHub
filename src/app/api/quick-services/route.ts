@@ -39,7 +39,7 @@ export async function GET(request: Request) {
 		const serverId = url.searchParams.get("serverId")?.trim() || "";
 		const instanceKey = serverId || HUB_HOST_INSTANCE_KEY;
 		if (serverId) {
-			const access = await assertServerTeamAccess(session, serverId);
+			const access = await assertServerTeamAccess(session, serverId, "read");
 			if (!access.ok) return access.response;
 		} else {
 			// No serverId means the hub host's own daemon — shared platform
@@ -105,7 +105,7 @@ export async function GET(request: Request) {
 			serverId ? getRemoteUsedPorts(serverId) : getUsedPorts(),
 			getDockerEnvironmentStatusFor(serverId ? { kind: "remote", serverId } : { kind: "local" }),
 			prisma.server.findMany({
-				where: { enabled: true, ...serverTeamWhere(session) },
+				where: { enabled: true, ...serverTeamWhere(session, "manage") },
 				orderBy: { name: "asc" },
 				take: 200,
 				select: { id: true, name: true, host: true },
@@ -187,7 +187,7 @@ export async function POST(request: Request) {
 			}
 		}
 		if (serverId) {
-			const access = await assertServerTeamAccess(session, serverId);
+			const access = await assertServerTeamAccess(session, serverId, "manage");
 			if (!access.ok) return access.response;
 			const server = await prisma.server.findUnique({ where: { id: serverId }, select: { id: true, enabled: true, name: true } });
 			if (!server || !server.enabled) throw new ValidationError(apiCopy("apiCopy.target.vps.not.found.or.disabled.398d5671"));

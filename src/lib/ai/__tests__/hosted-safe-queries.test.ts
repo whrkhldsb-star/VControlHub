@@ -80,7 +80,7 @@ describe("executeServerlessQuery", () => {
 		it("scopes to the caller's team", async () => {
 			await call("list_servers");
 			expect(mocks.serverFindMany).toHaveBeenCalledWith(
-				expect.objectContaining({ where: { teamId: "team_1" } }),
+				expect.objectContaining({ where: expect.objectContaining({ AND: expect.arrayContaining([{ teamId: "team_1" }]) }) }),
 			);
 		});
 
@@ -211,7 +211,7 @@ describe("executeServerlessQuery", () => {
 			mocks.serverFindMany.mockResolvedValue([{ id: "srv_1" }, { id: "srv_2" }]);
 			await call("query_traffic");
 			expect(mocks.serverFindMany).toHaveBeenCalledWith(
-				expect.objectContaining({ where: { teamId: "team_1" } }),
+				expect.objectContaining({ where: expect.objectContaining({ AND: expect.arrayContaining([{ teamId: "team_1" }]) }) }),
 			);
 			const where = mocks.trafficFindMany.mock.calls[0]![0].where as { OR: unknown[] };
 			expect(where.OR).toEqual([{ serverId: null }, { serverId: { in: ["srv_1", "srv_2"] } }]);

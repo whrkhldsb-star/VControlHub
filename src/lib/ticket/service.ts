@@ -1,6 +1,6 @@
 import { ValidationError, ConflictError, NotFoundError } from "@/lib/errors";
 import { prisma } from "@/lib/db";
-import { teamCreateData, teamWhere } from "@/lib/auth/team-scope";
+import { serverTeamWhere, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import type { RoleKey } from "@/lib/auth/rbac";
 import { t } from "@/lib/i18n/service-translations";
 
@@ -48,7 +48,7 @@ async function assertRelatedResourcesInTeamScope(
   const scope = teamWhere(session);
   if (input.relatedServerId) {
     const server = await prisma.server.findFirst({
-      where: { id: input.relatedServerId, ...scope },
+      where: { id: input.relatedServerId, ...serverTeamWhere(session) },
       select: { id: true },
     });
     if (!server) throw new ValidationError(t("backend.ticket.relatedServerNotFound"));

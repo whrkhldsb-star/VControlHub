@@ -29,7 +29,7 @@ export function rdpOriginAllowed(origin: string) {
 	);
 }
 export async function getRdpServer(serverId: string, session: TeamSession) {
- const server = await prisma.server.findFirst({ where: { AND: [{ id: serverId }, serverTeamWhere(session)] } });
+ const server = await prisma.server.findFirst({ where: { AND: [{ id: serverId }, serverTeamWhere(session, "connect")] } });
  if (!server) throw new NotFoundError();
  if (server.operatingSystem !== "WINDOWS" || !server.enabled || !server.rdpPassword) throw new BusinessError(t("backend.rdp.notEnabled"));
  rdpCertificateOptions(server);

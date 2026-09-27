@@ -42,7 +42,7 @@ export async function GET(request: Request) {
     async ({ session }) => {
       const { serverId } = parseSearchParams(request, listQuerySchema);
       if (serverId) {
-        const teamAccess = await assertServerTeamAccess(session, serverId);
+        const teamAccess = await assertServerTeamAccess(session, serverId, "read");
         if (!teamAccess.ok) return teamAccess.response;
       } else {
         // No serverId means the hub host's own daemon — shared platform
@@ -73,7 +73,7 @@ export async function POST(request: Request) {
     async ({ session, body }) => {
       const serverId = body.serverId?.trim() || undefined;
       if (serverId) {
-        const teamAccess = await assertServerTeamAccess(session, serverId);
+        const teamAccess = await assertServerTeamAccess(session, serverId, "manage");
         if (!teamAccess.ok) return teamAccess.response;
       } else {
         // `down` on a hub-host project can stop the platform itself.

@@ -67,7 +67,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 		listDeploymentTemplates(session),
 		// Strict server scope: this picker carries host/username/credential refs.
 		prisma.server.findMany({
-			where: { enabled: true, ...serverTeamWhere(session) },
+			where: { enabled: true, ...serverTeamWhere(session, "connect") },
 			orderBy: { createdAt: "desc" },
 			take: 200,
 			select: {

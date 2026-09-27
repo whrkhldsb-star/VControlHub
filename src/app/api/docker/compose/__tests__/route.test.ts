@@ -205,7 +205,7 @@ describe("/api/docker/compose", () => {
 			const res = await route.POST(post({ project: "app", action: "restart", serverId: "srv_1" }));
 
 			expect(res.status).toBe(200);
-			expect(mocks.teamAccess).toHaveBeenCalledWith(tenantOperator, "srv_1");
+			expect(mocks.teamAccess).toHaveBeenCalledWith(tenantOperator, "srv_1", "manage");
 			expect(mocks.runComposeProjectAction).toHaveBeenCalledWith({
 				project: "app",
 				action: "restart",
@@ -217,7 +217,7 @@ describe("/api/docker/compose", () => {
 		it("scopes the listing to the checked server", async () => {
 			currentSession = tenantOperator;
 			await route.GET(get("?serverId=srv_1"));
-			expect(mocks.teamAccess).toHaveBeenCalledWith(tenantOperator, "srv_1");
+			expect(mocks.teamAccess).toHaveBeenCalledWith(tenantOperator, "srv_1", "read");
 			expect(mocks.listComposeProjects).toHaveBeenCalledWith("srv_1");
 		});
 	});

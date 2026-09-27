@@ -83,7 +83,7 @@ export async function POST(
     async ({ session }) => {
       const locale = await getServerLocale();
 
-      const teamAccess = await assertServerTeamAccess(session, id);
+      const teamAccess = await assertServerTeamAccess(session, id, "connect");
       if (!teamAccess.ok) return teamAccess.response;
 
       const server = await loadServer(id);

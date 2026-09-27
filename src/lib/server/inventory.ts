@@ -18,11 +18,22 @@ export function normalizeInventoryQuery(input: Record<string, unknown> = {}): In
   };
 }
 
+function rawServerScope(session: TeamSession, field: "canRead" | "canConnect" | "canManage") {
+  if (isGlobalTeamManager(session)) return Prisma.sql`TRUE`;
+  if (!session.currentTeamId) return Prisma.sql`FALSE`;
+  const allowedColumn = field === "canRead" ? Prisma.sql`a."canRead"`
+    : field === "canConnect" ? Prisma.sql`a."canConnect"` : Prisma.sql`a."canManage"`;
+  // Match serverTeamWhere: no override inherits account access; a row narrows it.
+  return Prisma.sql`s."teamId" = ${session.currentTeamId} AND (
+    NOT EXISTS (SELECT 1 FROM user_server_access a WHERE a."serverId" = s.id AND a."userId" = ${session.userId})
+    OR EXISTS (SELECT 1 FROM user_server_access a WHERE a."serverId" = s.id AND a."userId" = ${session.userId} AND ${allowedColumn} = true)
+  )`;
+}
+
 /** Count and select from one snapshot; hydrate relations only for the visible page. */
 export async function getServerInventory(session: TeamSession, input: Record<string, unknown> = {}) {
   const query = normalizeInventoryQuery(input);
-  const scope = isGlobalTeamManager(session) ? Prisma.sql`TRUE`
-    : session.currentTeamId ? Prisma.sql`s."teamId" = ${session.currentTeamId}` : Prisma.sql`FALSE`;
+  const scope = rawServerScope(session, "canRead");
   const pattern = `%${query.query.replace(/[\\%_]/g, "\\$&")}%`;
   const search = query.query ? Prisma.sql`(s.name ILIKE ${pattern} OR s.host ILIKE ${pattern}
     OR EXISTS (SELECT 1 FROM unnest(s.tags) AS tag WHERE tag ILIKE ${pattern}))` : Prisma.sql`TRUE`;
@@ -53,8 +64,8 @@ export type ServerInventoryData = Awaited<ReturnType<typeof getServerInventory>>
 export async function getServerOperationTargets(session: TeamSession, kind: "command" | "batch", input: Record<string, unknown> = {}) {
   const query = normalizeInventoryQuery(input);
   const pageSize = 24;
-  const scope = isGlobalTeamManager(session) ? Prisma.sql`TRUE`
-    : session.currentTeamId ? Prisma.sql`s."teamId" = ${session.currentTeamId}` : Prisma.sql`FALSE`;
+  const capability = kind === "command" ? "connect" : "manage";
+  const scope = rawServerScope(session, capability === "connect" ? "canConnect" : "canManage");
   const pattern = `%${query.query.replace(/[\\%_]/g, "\\$&")}%`;
   const search = query.query ? Prisma.sql`(s.name ILIKE ${pattern} OR s.host ILIKE ${pattern}
     OR EXISTS (SELECT 1 FROM unnest(s.tags) AS tag WHERE tag ILIKE ${pattern}))` : Prisma.sql`TRUE`;
@@ -68,7 +79,7 @@ export async function getServerOperationTargets(session: TeamSession, kind: "com
     WHERE ${scope} AND ${search} AND ${enabled} ORDER BY s.name ASC, s.id ASC
     LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}`);
   const rows = ids.length ? await tx.server.findMany({
-    where: { AND: [serverTeamWhere(session), { id: { in: ids.map(({ id }) => id) } }] },
+    where: { AND: [serverTeamWhere(session, capability), { id: { in: ids.map(({ id }) => id) } }] },
     orderBy: [{ name: "asc" }, { id: "asc" }],
     select: { id: true, name: true, host: true, enabled: true, onboardingStatus: true,
       managementMode: true, agentLastSeenAt: true, connectionType: true, password: true,

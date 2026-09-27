@@ -80,7 +80,7 @@ async function loadDeploymentServersInScope(
   serverIds: string[],
   session: SessionScope,
 ) {
-  const scope = serverTeamWhere(session);
+  const scope = serverTeamWhere(session, "connect");
   const servers = await prisma.server.findMany({
     where: { id: { in: serverIds }, ...scope },
     select: {

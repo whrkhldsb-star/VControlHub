@@ -158,7 +158,7 @@ export async function executeSafeAction(
   const server = await prisma.server.findFirst({
     where: {
       id: action.serverId,
-      ...(scope ? serverTeamWhere(scope) : { teamId: null }),
+      ...(scope ? serverTeamWhere(scope, "connect") : { teamId: null }),
     },
     include: { sshKey: true },
   });

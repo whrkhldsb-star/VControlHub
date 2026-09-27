@@ -18,7 +18,7 @@ import { createVerifiedSshConfig } from "@/lib/ssh/client";
 
 import { type RoleKey } from "./lib/auth/rbac";
 import { canUseSshTerminal } from "./lib/auth/ssh-access";
-import { sessionHasPermission } from "./lib/auth/authorization";
+import { serverTeamWhere } from "./lib/auth/team-scope";
 import { getSessionCookieName, verifySessionToken } from "./lib/auth/session";
 import { createLogger } from "./lib/logging";
 import { t } from "./lib/i18n/service-translations";
@@ -103,10 +103,6 @@ type SessionPayload = {
  * grant counts here exactly as it does on the HTTP surface — the static role
  * map alone would silently deny a delegated platform manager a terminal.
  */
-function canBypassTeamScope(session: SessionPayload): boolean {
-  return sessionHasPermission(session, "team:manage");
-}
-
 async function resolveServerConnection(
   serverId: string,
   session: SessionPayload,
@@ -119,11 +115,7 @@ async function resolveServerConnection(
  const srv = await prisma.server.findFirst({
   where: {
    id: serverId,
-   ...(canBypassTeamScope(session)
-     ? {}
-     : session.currentTeamId
-       ? { teamId: session.currentTeamId }
-       : { id: "__unassigned_servers_require_team_manage__" }),
+   ...serverTeamWhere(session, "connect"),
   },
   select: {
    id: true,

@@ -20,7 +20,7 @@ export default async function DownloadsPage() {
 	const servers = await prisma.server.findMany({
 		where: {
 			AND: [
-				serverTeamWhere(session),
+				serverTeamWhere(session, "connect"),
 				{
 					enabled: true,
 					storageNode: { isNot: null },

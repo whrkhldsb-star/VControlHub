@@ -80,7 +80,10 @@ describe("sync job CRUD scoping", () => {
 		it("resolves both endpoints under the caller's server scope", async () => {
 			await createSyncJob({ ...baseInput, session: operator });
 			expect(mocks.prisma.server.findMany).toHaveBeenCalledWith({
-				where: { id: { in: ["srv_a", "srv_b"] }, teamId: "team_1" },
+				where: { id: { in: ["srv_a", "srv_b"] }, AND: [{ teamId: "team_1" }, { OR: [
+					{ userAccess: { none: { userId: "u_1" } } },
+					{ userAccess: { some: { userId: "u_1", canConnect: true } } },
+				] }] },
 				select: { id: true },
 			});
 		});

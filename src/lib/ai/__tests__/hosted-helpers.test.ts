@@ -144,7 +144,10 @@ describe("resolveServerId", () => {
 		mocks.serverFindFirst.mockResolvedValue({ id: "srv_1" });
 		await expect(resolveServerId({ serverId: " srv_1 " }, operator)).resolves.toBe("srv_1");
 		expect(mocks.serverFindFirst).toHaveBeenCalledWith({
-			where: { id: "srv_1", teamId: "team_1" },
+			where: { id: "srv_1", AND: [{ teamId: "team_1" }, { OR: [
+				{ userAccess: { none: { userId: operator.userId } } },
+				{ userAccess: { some: { userId: operator.userId, canRead: true } } },
+			] }] },
 			select: { id: true },
 		});
 	});
@@ -160,7 +163,7 @@ describe("resolveServerId", () => {
 		mocks.serverFindFirst.mockResolvedValue({ id: "srv_1", name: "web", host: "h" });
 		await resolveServerId({ serverQuery: "web" }, operator);
 		const where = mocks.serverFindFirst.mock.calls[0]![0].where as { AND: unknown[] };
-		expect(where.AND[0]).toEqual({ teamId: "team_1" });
+		expect(where.AND[0]).toMatchObject({ AND: [{ teamId: "team_1" }, expect.anything()] });
 		expect(where.AND[1]).toEqual({
 			OR: [{ id: "web" }, { name: { contains: "web" } }, { host: { contains: "web" } }],
 		});

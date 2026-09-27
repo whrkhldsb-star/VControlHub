@@ -15,6 +15,7 @@ const { mocks } = vi.hoisted(() => ({
     serverFindUnique: vi.fn(
       async (): Promise<{ id: string; teamId: string | null }> => ({ id: "srv1", teamId: null }),
     ),
+    userServerAccessFindUnique: vi.fn(async () => null),
   },
 }));
 
@@ -25,6 +26,7 @@ vi.mock("@/lib/auth/require-api-permission", () => ({
 vi.mock("@/lib/db", () => ({
   prisma: {
     server: { findUnique: mocks.serverFindUnique },
+    userServerAccess: { findUnique: mocks.userServerAccessFindUnique },
   },
 }));
 

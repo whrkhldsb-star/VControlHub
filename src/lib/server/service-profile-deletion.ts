@@ -21,7 +21,7 @@ export async function deleteServerProfile(
   try {
     const current = session
       ? await prisma.server.findFirst({
-          where: { id: serverId, ...serverTeamWhere(session) },
+          where: { id: serverId, ...serverTeamWhere(session, "manage") },
           include: { storageNode: { select: { id: true, driver: true } } },
         })
       : await prisma.server.findUnique({

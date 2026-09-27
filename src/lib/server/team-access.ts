@@ -21,6 +21,7 @@ import { prisma } from "@/lib/db";
 import type { SessionPayload } from "@/lib/auth/session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { NextResponse } from "next/server";
+import { SERVER_ACCESS_FIELDS, type ServerAccessCapability } from "./resource-access";
 
 export type ServerTeamAccessResult =
   | { ok: true; server: { id: string; teamId: string | null } }
@@ -44,6 +45,7 @@ export type ServerTeamAccessResult =
 export async function assertServerTeamAccess(
   session: SessionPayload | null,
   serverId: string,
+  capability: ServerAccessCapability = "read",
 ): Promise<ServerTeamAccessResult> {
   if (!session) {
     return {
@@ -71,7 +73,13 @@ export async function assertServerTeamAccess(
 
   // User's current team matches the server's team
   if (session.currentTeamId && server.teamId === session.currentTeamId) {
-    return { ok: true, server };
+    const override = await prisma.userServerAccess.findUnique({
+      where: { userId_serverId: { userId: session.userId, serverId } },
+      select: { [SERVER_ACCESS_FIELDS[capability]]: true },
+    });
+    if (!override || override[SERVER_ACCESS_FIELDS[capability]] === true) {
+      return { ok: true, server };
+    }
   }
 
   // Does not belong to caller's team — return 404 (not 403) to avoid

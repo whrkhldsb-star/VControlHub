@@ -49,7 +49,7 @@ export async function loadApiTokenOwnerSession(
 	const boundMembership = boundTeamId
 		? await prisma.teamMember.findUnique({
 			where: { teamId_userId: { teamId: boundTeamId, userId } },
-			select: { role: true, accessRole: true, team: { select: { slug: true } } },
+			select: { role: true, accessRole: true, team: { select: { slug: true } }, permissionTemplate: { select: { teamId: true, roleKeys: true, permissions: true } } },
 		})
 		: null;
 	if (boundTeamId && (!boundMembership || boundMembership.team.slug.startsWith("__deleted__"))) {
@@ -67,7 +67,7 @@ export async function loadApiTokenOwnerSession(
 					id: true,
 					members: {
 						where: { userId },
-						select: { userId: true, role: true, accessRole: true },
+						select: { userId: true, role: true, accessRole: true, permissionTemplate: { select: { teamId: true, roleKeys: true, permissions: true } } },
 						take: 1,
 					},
 				},
@@ -98,7 +98,7 @@ export async function loadApiTokenOwnerSession(
 	const permissions = scopePermissionsToWorkspace({
 		roles,
 		accountPermissions,
-		membership: currentTeamId && member ? { role: member.role, accessRole: member.accessRole } : null,
+		membership: currentTeamId && member ? { role: member.role, accessRole: member.accessRole, permissionTemplate: member.permissionTemplate?.teamId === currentTeamId ? member.permissionTemplate : null } : null,
 	});
 	return {
 		userId: user.id,

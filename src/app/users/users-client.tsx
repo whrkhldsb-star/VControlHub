@@ -36,7 +36,7 @@ type UserInfo = {
 /** Fixed page size for the users list (matches the API request below). */
 const USER_PAGE_SIZE = 50;
 
-export function UserManagementClient({ canManage = false, currentUserId = "" }: { canManage?: boolean; currentUserId?: string }) {
+export function UserManagementClient({ canManage = false, canManageResources = canManage, currentUserId = "" }: { canManage?: boolean; canManageResources?: boolean; currentUserId?: string }) {
   const { t, locale } = useI18n();
 	const { addToast } = useToast();
   const { state: urlState, setField: setUrlField } = useUrlQueryState({ page: "1" });
@@ -229,15 +229,13 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
                   </div>
                 </div>
                 <div className="flex gap-2 shrink-0">
+                  {canManageResources && user.id !== currentUserId && <ActionButton
+                    variant="outline"
+                    onClick={() => setEditingPermissionsUser(user)}
+                    className="!px-3 !py-1.5 !text-sm"
+                  >{t("usersPage.action.permissions")}</ActionButton>}
                   {canManage ? (
                     <>
-                      <ActionButton
-                        variant="outline"
-                        onClick={() => setEditingPermissionsUser(user)}
-                        className="!px-3 !py-1.5 !text-sm"
-                      >
-                        {t("usersPage.action.permissions")}
-                      </ActionButton>
                       <ActionButton
                         variant="warning"
                         onClick={() => { setResetPasswordUser(user); setResetPasswordValue(""); }}
@@ -269,9 +267,9 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
                         )
                       )}
                     </>
-                  ) : (
+                  ) : !canManageResources ? (
                     <span className="text-xs text-[var(--text-muted)]">{t("usersPage.action.readonly")}</span>
-                  )}
+                  ) : null}
                 </div>
               </ListRow>
             ))}
@@ -284,6 +282,7 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
         <UserPermissionPanel
           userId={editingPermissionsUser.id}
           username={editingPermissionsUser.username}
+          resourceOnly={!canManage}
           onClose={() => setEditingPermissionsUser(null)}
           onSaved={fetchUsers}
         />

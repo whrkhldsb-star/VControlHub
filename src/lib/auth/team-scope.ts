@@ -19,6 +19,7 @@ import { ForbiddenError, NotFoundError } from "@/lib/errors";
 
 import type { SessionPayload } from "./session";
 import { t } from "@/lib/i18n/service-translations";
+import { serverAccessWhere, type ServerAccessCapability } from "@/lib/server/resource-access";
 
 export type TeamSession = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
 
@@ -73,10 +74,10 @@ export function teamScopeWhere(session?: TeamSession | null): Record<string, unk
 
 /** Server records are security roots (SSH, SFTP, backups and file proxy).
  * A null teamId is quarantined legacy data, never an implicit shared VPS. */
-export function serverTeamWhere(session: TeamSession): Record<string, unknown> {
+export function serverTeamWhere(session: TeamSession, capability: ServerAccessCapability = "read"): Record<string, unknown> {
 	if (isGlobalTeamManager(session)) return {};
 	return session.currentTeamId
-		? { teamId: session.currentTeamId }
+		? { AND: [{ teamId: session.currentTeamId }, serverAccessWhere(session.userId, capability)] }
 		: { id: "__unassigned_servers_require_team_manage__" };
 }
 

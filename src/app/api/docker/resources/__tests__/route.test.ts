@@ -219,7 +219,7 @@ describe("/api/docker/resources", () => {
 
     expect(response.status).toBe(404);
     expect(httpRequestMock).not.toHaveBeenCalled();
-    expect(mocks.assertServerTeamAccess).toHaveBeenCalledWith(session, "srv-foreign");
+    expect(mocks.assertServerTeamAccess).toHaveBeenCalledWith(session, "srv-foreign", "manage");
   });
 
   it("returns 503 on resource create when Docker is unavailable", async () => {

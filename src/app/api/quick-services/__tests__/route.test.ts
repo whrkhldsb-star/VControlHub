@@ -20,6 +20,7 @@ const { mocks } = vi.hoisted(() => ({
     getRemoteApps: vi.fn(),
     serverFindMany: vi.fn(async () => [] as Array<{ id: string; name: string; host: string }>),
     serverFindUnique: vi.fn(async () => ({ id: "srv1", enabled: true, name: "vps-1" })),
+    userServerAccessFindUnique: vi.fn(async () => null),
   },
 }));
 
@@ -59,6 +60,7 @@ vi.mock("@/lib/db", () => ({
       findMany: mocks.serverFindMany,
       findUnique: mocks.serverFindUnique,
     },
+    userServerAccess: { findUnique: mocks.userServerAccessFindUnique },
   },
 }));
 vi.mock("@/lib/quick-service/app-source-sync", () => ({
@@ -294,7 +296,13 @@ describe("/api/quick-services routes", () => {
     expect(mocks.serverFindMany).toHaveBeenCalledWith({
       where: {
         enabled: true,
-        teamId: "team_a",
+        AND: [
+          { teamId: "team_a" },
+          { OR: [
+            { userAccess: { none: { userId: "u2" } } },
+            { userAccess: { some: { userId: "u2", canManage: true } } },
+          ] },
+        ],
       },
       orderBy: { name: "asc" },
       take: 200,

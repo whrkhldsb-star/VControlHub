@@ -1,13 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { serverFindUniqueMock, sessionHasPermissionMock } = vi.hoisted(() => ({
+const { serverFindUniqueMock, sessionHasPermissionMock, userServerAccessFindUniqueMock } = vi.hoisted(() => ({
   serverFindUniqueMock: vi.fn(),
   sessionHasPermissionMock: vi.fn(),
+  userServerAccessFindUniqueMock: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
   prisma: {
     server: { findUnique: serverFindUniqueMock },
+    userServerAccess: { findUnique: userServerAccessFindUniqueMock },
   },
 }));
 
@@ -21,6 +23,7 @@ describe("assertServerTeamAccess", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     sessionHasPermissionMock.mockReturnValue(false);
+    userServerAccessFindUniqueMock.mockResolvedValue(null);
   });
 
   it("does not expose an unassigned server to a non-manager", async () => {
@@ -60,5 +63,23 @@ describe("assertServerTeamAccess", () => {
       ok: true,
       server: { id: "server_legacy", teamId: null },
     });
+  });
+
+  it("denies a specific operation when a server override disables it", async () => {
+    serverFindUniqueMock.mockResolvedValue({ id: "server_1", teamId: "team_1" });
+    userServerAccessFindUniqueMock.mockResolvedValue({ canFileWrite: false });
+    const session = {
+      userId: "user_1", username: "operator", roles: ["operator" as const],
+      mustChangePassword: false, currentTeamId: "team_1",
+    };
+    const denied = await assertServerTeamAccess(session, "server_1", "fileWrite");
+    expect(denied.ok).toBe(false);
+    if (!denied.ok) expect(denied.response.status).toBe(404);
+    expect(userServerAccessFindUniqueMock).toHaveBeenCalledWith({
+      where: { userId_serverId: { userId: "user_1", serverId: "server_1" } },
+      select: { canFileWrite: true },
+    });
+    userServerAccessFindUniqueMock.mockResolvedValue({ canFileWrite: true });
+    expect((await assertServerTeamAccess(session, "server_1", "fileWrite")).ok).toBe(true);
   });
 });

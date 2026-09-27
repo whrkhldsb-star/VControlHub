@@ -29,6 +29,11 @@ describe("inventory operating-system filtering before pagination", () => {
     expect(count.sql).toMatch(/count\(\*\) FILTER \(WHERE [\s\S]*s\."operatingSystem"::text = \?\)::int AS matching/);
     expect(selection.sql).toMatch(/WHERE [\s\S]*s\."operatingSystem"::text = \?[\s\S]*ORDER BY[\s\S]*LIMIT \? OFFSET \?/);
     for (const sql of [count, selection]) expect(sql.values).toEqual(expect.arrayContaining([operatingSystem, "team-a", true, "DIRECT", "%fixture%"]));
+    for (const sql of [count, selection]) {
+      expect(sql.sql).toContain('user_server_access');
+      expect(sql.sql).toContain('a."canRead" = true');
+      expect(sql.values).toContain("user-a");
+    }
     expect(selection.values.slice(-2)).toEqual([12, 12]);
     expect(mocks.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { AND: [{ teamId: "team-a" }, { id: { in: ["last-matching-server"] } }] } }));
   });

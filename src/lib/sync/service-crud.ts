@@ -51,7 +51,7 @@ async function assertSyncServersInScope(
 	if (unique.length === 0) {
 		throw new ValidationError(t("backend.sync.sourceAndTargetServersAreRequired"));
 	}
-	const scope = session ? serverTeamWhere(session) : {};
+	const scope = session ? serverTeamWhere(session, "connect") : {};
 	const servers = await prisma.server.findMany({
 		where: { id: { in: unique }, ...scope },
 		select: { id: true },

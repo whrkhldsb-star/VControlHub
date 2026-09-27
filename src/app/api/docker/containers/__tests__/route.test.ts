@@ -201,7 +201,7 @@ describe("/api/docker/containers audit coverage", () => {
 
     expect(response.status).toBe(404);
     expect(body).toEqual({ error: "Server not found" });
-    expect(mocks.assertServerTeamAccess).toHaveBeenCalledWith(session, "srv-foreign");
+    expect(mocks.assertServerTeamAccess).toHaveBeenCalledWith(session, "srv-foreign", "read");
     expect(httpRequestMock).not.toHaveBeenCalled();
   });
 

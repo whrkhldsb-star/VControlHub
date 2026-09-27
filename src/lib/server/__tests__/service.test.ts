@@ -1558,7 +1558,7 @@ describe("server service", () => {
     expect(result).toBeNull();
     expect(prisma.server.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "srv_foreign", teamId: "team_1" },
+        where: expect.objectContaining({ id: "srv_foreign", AND: expect.arrayContaining([{ teamId: "team_1" }]) }),
       }),
     );
     expect(prisma.server.findUnique).not.toHaveBeenCalled();
@@ -2221,9 +2221,7 @@ describe("server service", () => {
 
     expect(prisma.server.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: {
-          teamId: "team_ops",
-        },
+        where: expect.objectContaining({ AND: expect.arrayContaining([{ teamId: "team_ops" }]) }),
       }),
     );
   });

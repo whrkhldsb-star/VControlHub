@@ -69,11 +69,11 @@ export async function GET(
 	const { id: serverId, recordId } = await params;
 	return withApiRoute(
 		request,
-		{ permission: "server:read", rateLimit: GENERAL_WRITE_LIMIT },
+		{ permission: "server:ssh", rateLimit: GENERAL_WRITE_LIMIT },
 		async ({ session }) => {
 			const locale = await getServerLocale();
 
-			const teamAccess = await assertServerTeamAccess(session, serverId);
+			const teamAccess = await assertServerTeamAccess(session, serverId, "fileRead");
 			if (!teamAccess.ok) return teamAccess.response;
 
 			const record = await prisma.vpsBackupRecord.findFirst({

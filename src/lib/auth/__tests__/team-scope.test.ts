@@ -89,7 +89,14 @@ describe("security-root helpers (strict: null teamId is quarantined)", () => {
       });
 
       it("pins the current team exactly, with no unassigned branch", () => {
-        expect(helper(MEMBER)).toEqual({ teamId: "team_a" });
+        if (name === "serverTeamWhere") {
+          expect(helper(MEMBER)).toMatchObject({ AND: [{ teamId: "team_a" }, { OR: [
+            { userAccess: { none: { userId: MEMBER.userId } } },
+            { userAccess: { some: { userId: MEMBER.userId, canRead: true } } },
+          ] }] });
+        } else {
+          expect(helper(MEMBER)).toEqual({ teamId: "team_a" });
+        }
       });
 
       it("matches nothing at all without a team context", () => {

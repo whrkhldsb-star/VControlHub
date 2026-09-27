@@ -32,7 +32,7 @@ export async function GET(request: Request) {
 	return withApiRoute(request, { permission: "docker:manage", errorStatus: 500, errorMessage: apiCopy("apiCopy.server.error.dfe0c2e8") }, async ({ session }) => {
 		const { action, port, preferred, serverId } = parseSearchParams(request, checkPortQuerySchema);
 		if (serverId) {
-			const access = await assertServerTeamAccess(session, serverId);
+			const access = await assertServerTeamAccess(session, serverId, "connect");
 			if (!access.ok) return access.response;
 		} else {
 			// The hub host's used-port list is a port scan of the control plane.

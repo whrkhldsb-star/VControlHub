@@ -34,7 +34,7 @@ const usersListQuerySchema = paginationQuerySchema
 
 /** GET: List users visible in the actor's team scope */
 export async function GET(request: Request) {
-  return withApiRoute(request, { permission: "user:read" }, async ({ session }) => {
+  return withApiRoute(request, { permissions: ["user:read", "team:member:manage"] }, async ({ session }) => {
     const { page, pageSize } = parseSearchParams(request, usersListQuerySchema);
     const skip = (page - 1) * pageSize;
     const where = userDirectoryWhere(session);

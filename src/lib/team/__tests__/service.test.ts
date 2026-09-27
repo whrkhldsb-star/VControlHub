@@ -20,6 +20,7 @@ const { prismaMock, auditUserActionMock, releaseLockMock, acquireAdvisoryLockMoc
 			user: { findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
 			server: { updateMany: vi.fn() },
 			storageNode: { create: vi.fn() },
+			roleTemplate: { findFirst: vi.fn() },
 			$transaction: vi.fn(),
 		},
 		auditUserActionMock: vi.fn(),
@@ -204,6 +205,21 @@ describe("team workspace service", () => {
 			where: { teamId_userId: { teamId: "team_1", userId: "u_member" } },
 			update: { role: "member" },
 		}));
+	});
+
+	it("rejects applying a resource snapshot as a live workspace permission group", async () => {
+		prismaMock.team.findUnique.mockResolvedValueOnce({ id: "team_1", slug: "ops", ownerId: "u_admin" });
+		prismaMock.user.findUnique.mockResolvedValueOnce({ id: "u_member", username: "alice" });
+		prismaMock.teamMember.findUnique.mockResolvedValueOnce(null);
+		prismaMock.roleTemplate.findFirst.mockResolvedValueOnce({
+			id: "template_1",
+			dataScope: { serverAccess: [{ serverId: "srv_1", canRead: true }] },
+		});
+
+		await expect(addTeamMember("team_1", {
+			username: "alice", role: "member", permissionTemplateId: "template_1",
+		}, adminSession)).rejects.toThrow(/账号权限设置/);
+		expect(prismaMock.teamMember.upsert).not.toHaveBeenCalled();
 	});
 
 	describe("transferTeamOwnership", () => {

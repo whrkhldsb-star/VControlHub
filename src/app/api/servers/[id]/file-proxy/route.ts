@@ -11,7 +11,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { randomUUID } from "crypto";
-import { AppError, NotFoundError } from "@/lib/errors";
+import { AppError, ForbiddenError, NotFoundError } from "@/lib/errors";
 import {
   UPLOAD_LIMIT,
   GENERAL_READ_LIMIT,
@@ -27,6 +27,7 @@ import {
 import { createVerifiedSshConfig } from "@/lib/ssh/client";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
+import { sessionHasPermission } from "@/lib/auth/authorization";
 import { auditUserAction } from "@/lib/audit/service";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
@@ -151,8 +152,16 @@ export async function GET(
     async ({ session }) => {
       const { id } = await params;
 
-      const teamAccess = await assertServerTeamAccess(session, id);
+      // The returned token serves the entire bound storage root. Path-scoped
+      // file grants cannot constrain it, so only node managers may receive it.
+      if (!sessionHasPermission(session, "storage:manage-node")) {
+        throw new ForbiddenError(t("backend.storageHardening.access.noPermission", locale));
+      }
+
+      const teamAccess = await assertServerTeamAccess(session, id, "connect");
       if (!teamAccess.ok) return teamAccess.response;
+      const fileAccess = await assertServerTeamAccess(session, id, "fileRead");
+      if (!fileAccess.ok) return fileAccess.response;
 
       const server = await prisma.server.findUnique({
         where: { id },
@@ -229,8 +238,15 @@ export async function POST(
     { permission: "server:ssh", rateLimit: UPLOAD_LIMIT, errorMessage: t("apiServersFileProxy.startErrorMessage", locale) },
     async ({ session }) => {
       const { id } = await params;
-      const teamAccessPost = await assertServerTeamAccess(session, id);
+      if (!sessionHasPermission(session, "storage:manage-node")) {
+        throw new ForbiddenError(t("backend.storageHardening.access.noPermission", locale));
+      }
+      const teamAccessPost = await assertServerTeamAccess(session, id, "manage");
       if (!teamAccessPost.ok) return teamAccessPost.response;
+      const connectAccess = await assertServerTeamAccess(session, id, "connect");
+      if (!connectAccess.ok) return connectAccess.response;
+      const fileAccess = await assertServerTeamAccess(session, id, "fileRead");
+      if (!fileAccess.ok) return fileAccess.response;
       let releaseStartLock: (() => Promise<void>) | null = null;
       let rollbackRemoteStart: (() => Promise<void>) | null = null;
       try {
@@ -443,8 +459,13 @@ export async function DELETE(
     { permission: "server:ssh", rateLimit: UPLOAD_LIMIT, errorMessage: t("apiServersFileProxy.stopErrorMessage", locale) },
     async ({ session }) => {
       const { id } = await params;
-      const teamAccessDelete = await assertServerTeamAccess(session, id);
+      if (!sessionHasPermission(session, "storage:manage-node")) {
+        throw new ForbiddenError(t("backend.storageHardening.access.noPermission", locale));
+      }
+      const teamAccessDelete = await assertServerTeamAccess(session, id, "manage");
       if (!teamAccessDelete.ok) return teamAccessDelete.response;
+      const connectAccess = await assertServerTeamAccess(session, id, "connect");
+      if (!connectAccess.ok) return connectAccess.response;
       try {
         const proxy = await prisma.serverFileProxy.findUnique({
           where: {

@@ -105,7 +105,7 @@ export async function POST(request: Request) {
         }
       }
 
-      const teamAccess = await assertServerTeamAccess(session, serverId);
+      const teamAccess = await assertServerTeamAccess(session, serverId, "connect");
       if (!teamAccess.ok) return teamAccess.response;
 
       const server = await prisma.server.findUnique({

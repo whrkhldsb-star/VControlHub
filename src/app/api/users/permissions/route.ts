@@ -32,11 +32,24 @@ const storageAccessItemSchema = z.object({
   maxFileBytes: z.union([z.string(), z.number(), z.null()]).optional(),
 });
 
+const serverAccessItemSchema = z.object({
+  serverId: z.string().min(1),
+  canRead: z.boolean(),
+  canConnect: z.boolean(),
+  canManage: z.boolean(),
+  canFileRead: z.boolean(),
+  canFileWrite: z.boolean(),
+  canFileDelete: z.boolean(),
+});
+
 const patchPermissionsSchema = z.object({
   userId: z.string().min(1),
   roleKeys: z.array(z.string()).optional(),
   permissionKeys: z.array(z.string()).optional(),
-  storageAccess: z.array(storageAccessItemSchema).optional(),
+  storageAccess: z.array(storageAccessItemSchema).max(5000).optional(),
+  storageAccessScopeIds: z.array(z.string().min(1)).max(5000).optional(),
+  serverAccess: z.array(serverAccessItemSchema).max(5000).optional(),
+  serverAccessScopeIds: z.array(z.string().min(1)).max(5000).optional(),
 });
 
 
@@ -87,7 +100,7 @@ async function serializeStorageAccessGrants(
 }
 
 export async function GET(request: Request) {
-  return withApiRoute(request, { permission: "user:read" }, async ({ session }) => {
+  return withApiRoute(request, { permissions: ["user:read", "team:member:manage"] }, async ({ session }) => {
     const { userId } = parseSearchParams(
       request,
       z.object({ userId: z.string().trim().min(1, "Missing userId Parameter") }),
@@ -100,7 +113,7 @@ export async function GET(request: Request) {
       ? {}
       : { teamId: session.currentTeamId ?? "__no_team_no_grants__" };
 
-    const [user, roles, permissions, storageNodes] = await Promise.all([
+    const [user, roles, permissions, storageNodes, servers] = await Promise.all([
       prisma.user.findUnique({
         where: { id: userId },
         select: {
@@ -123,6 +136,10 @@ export async function GET(request: Request) {
             },
             orderBy: [{ storageNode: { name: "asc" } }, { pathPrefix: "asc" }],
           },
+          serverAccess: {
+            where: { server: isGlobalTeamManager(session) ? {} : { teamId: session.currentTeamId ?? "__no_team__" } },
+            orderBy: { server: { name: "asc" } },
+          },
         },
       }),
       // Exclude per-user auto custom roles (user:{id}:custom) from the assignable roster.
@@ -136,7 +153,13 @@ export async function GET(request: Request) {
         where: nodeScope,
         select: { id: true, name: true, driver: true, basePath: true },
         orderBy: { name: "asc" },
-        take: 500,
+        take: 5000,
+      }),
+      prisma.server.findMany({
+        where: isGlobalTeamManager(session) ? {} : { teamId: session.currentTeamId ?? "__no_team__" },
+        select: { id: true, name: true, operatingSystem: true, teamId: true },
+        orderBy: { name: "asc" },
+        take: 5000,
       }),
     ]);
 
@@ -167,6 +190,8 @@ export async function GET(request: Request) {
           ),
       ),
     ).sort();
+    const visibleServerIds = new Set(servers.map((server) => server.id));
+    const visibleNodeIds = new Set(storageNodes.map((node) => node.id));
 
     return NextResponse.json({
       user: {
@@ -179,7 +204,8 @@ export async function GET(request: Request) {
         })),
         effectivePermissions,
         directPermissionKeys,
-        storageAccess: await serializeStorageAccessGrants(user.storageAccess),
+        storageAccess: await serializeStorageAccessGrants(user.storageAccess.filter((grant) => visibleNodeIds.has(grant.storageNodeId))),
+        serverAccess: user.serverAccess.filter((grant) => visibleServerIds.has(grant.serverId)),
       },
       roles: roles.map((role) => ({
         id: role.id,
@@ -194,6 +220,7 @@ export async function GET(request: Request) {
         description: permission.description,
       })),
       storageNodes,
+      servers,
     });
   });
 }
@@ -202,7 +229,7 @@ export async function PATCH(request: Request) {
   return withApiRoute(
     request,
     {
-      permission: "user:manage",
+      permissions: ["user:manage", "team:member:manage"],
       rateLimit: GENERAL_WRITE_LIMIT,
       errorMessage: apiCopy("apiCopy.operation.failed.4e1af7c7"),
       bodySchema: patchPermissionsSchema,
@@ -227,6 +254,9 @@ export async function PATCH(request: Request) {
       }
 		if (!isGlobalTeamManager(session) && await userHoldsTeamManage(parsedData.userId)) {
 			throw new ForbiddenError(t("backend.user.cannotModifyPlatformAdmin"));
+		}
+		if (!isGlobalTeamManager(session) && (parsedData.roleKeys !== undefined || parsedData.permissionKeys !== undefined)) {
+			throw new ForbiddenError(t("backend.user.accountPermissionsRequirePlatformAdmin"));
 		}
 
       // Drop foreign/own auto custom role keys from assignable roleKeys; custom role is preserved below.
@@ -255,6 +285,9 @@ export async function PATCH(request: Request) {
       const storageAccess = Array.isArray(parsedData.storageAccess)
         ? parsedData.storageAccess
         : undefined;
+      const storageAccessScopeIds = parsedData.storageAccessScopeIds;
+      const serverAccess = parsedData.serverAccess;
+      const serverAccessScopeIds = parsedData.serverAccessScopeIds;
 
 			const applyPatch = () => applyUserPermissionPatch({
 				session,
@@ -263,6 +296,9 @@ export async function PATCH(request: Request) {
 				roleKeys,
 				permissionKeys,
 				storageAccess,
+				storageAccessScopeIds,
+				serverAccess,
+				serverAccessScopeIds,
 			});
 			if (roleKeys && !roleKeys.includes("admin")) {
 				await withAdminInvariantLock(async () => {
@@ -281,6 +317,7 @@ export async function PATCH(request: Request) {
           roleKeys: roleKeys ?? null,
           permissionKeys: permissionKeys ?? null,
           storageAccessCount: storageAccess?.length ?? null,
+          serverAccessCount: serverAccess?.length ?? null,
         },
         "WARNING",
         session.currentTeamId,

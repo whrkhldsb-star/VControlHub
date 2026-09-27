@@ -64,7 +64,10 @@ describe("DownloadsPage", () => {
     expect(serverFindManyMock).toHaveBeenCalledWith(expect.objectContaining({
       where: {
         AND: [
-          { teamId: "team-a" },
+          { AND: [
+            { teamId: "team-a" },
+            expect.objectContaining({ OR: expect.any(Array) }),
+          ] },
           {
             enabled: true,
             storageNode: { isNot: null },

@@ -7,7 +7,7 @@
  */
 
 import { prisma } from "@/lib/db";
-import { teamWhere } from "@/lib/auth/team-scope";
+import { serverTeamWhere } from "@/lib/auth/team-scope";
 import type { SessionPayload } from "@/lib/auth/session";
 import {
   buildServerForecast,
@@ -55,7 +55,7 @@ export async function getCapacityForecast(
   const since = new Date(nowMs - windowHours * 3_600_000);
 
   const serverWhere = {
-    ...(options.session ? teamWhere(options.session) : {}),
+    ...(options.session ? serverTeamWhere(options.session) : {}),
     ...(options.serverId ? { id: options.serverId } : {}),
   };
 

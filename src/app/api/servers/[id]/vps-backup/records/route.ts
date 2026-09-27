@@ -40,7 +40,7 @@ export async function GET(
 		request,
 		{ permission: "server:read", rateLimit: GENERAL_WRITE_LIMIT },
 		async ({ session }) => {
-			const teamAccess = await assertServerTeamAccess(session, serverId);
+			const teamAccess = await assertServerTeamAccess(session, serverId, "read");
 			if (!teamAccess.ok) return teamAccess.response;
 
 			const server = await prisma.server.findUnique({
@@ -68,7 +68,7 @@ export async function POST(
 		async ({ session, body }) => {
 			const locale = await getServerLocale();
 
-			const teamAccess = await assertServerTeamAccess(session, serverId);
+			const teamAccess = await assertServerTeamAccess(session, serverId, "manage");
 			if (!teamAccess.ok) return teamAccess.response;
 
 			const server = await prisma.server.findUnique({

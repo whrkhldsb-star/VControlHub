@@ -14,6 +14,16 @@ import { getStorageDriverLabel } from "@/lib/i18n/domain-labels";
 type RoleInfo = { key: string; name: string; description?: string | null };
 type PermissionInfo = { key: string; name: string; description?: string | null };
 type StorageNodeInfo = { id: string; name: string; driver: string; basePath: string };
+type ServerInfo = { id: string; name: string; operatingSystem: string; teamId: string | null };
+type ServerGrant = {
+  serverId: string;
+  canRead: boolean;
+  canConnect: boolean;
+  canManage: boolean;
+  canFileRead: boolean;
+  canFileWrite: boolean;
+  canFileDelete: boolean;
+};
 type StorageGrant = {
   id?: string;
   storageNodeId: string;
@@ -37,10 +47,12 @@ type PermissionsPayload = {
     /** Fine-grained custom role only (not base role grants). */
     directPermissionKeys?: string[];
     storageAccess: StorageGrant[];
+    serverAccess?: ServerGrant[];
   };
   roles: RoleInfo[];
   permissions: PermissionInfo[];
   storageNodes: StorageNodeInfo[];
+  servers?: ServerInfo[];
 };
 
 type RoleTemplate = {
@@ -50,6 +62,7 @@ type RoleTemplate = {
   roleKeys: string[];
   permissions: string[];
   storageAccess: StorageGrant[];
+  serverAccess?: ServerGrant[];
   /** Built-in templates are read-only: the API refuses PATCH/DELETE on them. */
   isBuiltin: boolean;
 };
@@ -59,6 +72,7 @@ type Props = {
   username: string;
   onClose: () => void;
   onSaved: () => void;
+  resourceOnly?: boolean;
 };
 
 function formatBytes(value: string | null | undefined, t: (k: string, vars?: Record<string, string | number>) => string) {
@@ -81,7 +95,7 @@ function toBytes(value: string): { ok: true; value: string | null } | { ok: fals
   };
 }
 
-export function UserPermissionPanel({ userId, username, onClose, onSaved }: Props) {
+export function UserPermissionPanel({ userId, username, onClose, onSaved, resourceOnly = false }: Props) {
   const { t } = useI18n();
   // Reach the translator from the load effect without putting `t` in its deps:
   // a locale switch must not refetch and overwrite unsaved admin edits.
@@ -91,6 +105,7 @@ export function UserPermissionPanel({ userId, username, onClose, onSaved }: Prop
   const [roleKeys, setRoleKeys] = useState<string[]>([]);
   const [permissionKeys, setPermissionKeys] = useState<string[]>([]);
   const [grants, setGrants] = useState<StorageGrant[]>([]);
+  const [serverGrants, setServerGrants] = useState<ServerGrant[]>([]);
   const [templateNameDraft, setTemplateNameDraft] = useState("");
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -113,6 +128,7 @@ return data as PermissionsPayload;
         setRoleKeys(data.user.roles.map((role) => role.key).filter((key) => !key.startsWith("user:") || !key.endsWith(":custom")));
         setPermissionKeys(data.user.directPermissionKeys ?? []);
         setGrants(data.user.storageAccess.map((grant) => ({ ...grant })));
+        setServerGrants((data.user.serverAccess ?? []).map((grant) => ({ ...grant })));
       })
       .catch((error) => !cancelled && setMessage({ type: "error", text: getErrorMessage(error, tRef.current("usersPerm.error.loadFailed")) }))
       .finally(() => !cancelled && setLoading(false));
@@ -120,10 +136,11 @@ return data as PermissionsPayload;
   }, [userId]);
 
   useEffect(() => {
+    if (resourceOnly) return;
     csrfFetch("/api/role-templates")
       .then((data) => setTemplates((data as { templates?: RoleTemplate[] }).templates ?? []))
       .catch(() => setTemplates([]));
-  }, []);
+  }, [resourceOnly]);
 
   const storageNodeMap = useMemo(() => new Map(payload?.storageNodes.map((node) => [node.id, node]) ?? []), [payload]);
 
@@ -153,6 +170,7 @@ return data as PermissionsPayload;
     setRoleKeys([...template.roleKeys]);
     setPermissionKeys([...template.permissions]);
     setGrants(template.storageAccess.map((grant) => ({ ...grant })));
+    setServerGrants((template.serverAccess ?? []).map((grant) => ({ ...grant })));
     setMessage({ type: "success", text: t("usersPerm.template.applied") });
   };
 
@@ -184,12 +202,36 @@ return data as PermissionsPayload;
     try {
       const data = await csrfFetch("/api/role-templates", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, roleKeys, permissions: permissionKeys, storageAccess: grants }),
+        body: JSON.stringify({ name, roleKeys, permissions: permissionKeys, storageAccess: grants, serverAccess: serverGrants }),
       }) as { template: RoleTemplate };
       setTemplates((current) => [...current, data.template].sort((a, b) => a.name.localeCompare(b.name)));
       setSelectedTemplateId(data.template.id);
       setTemplateNameDraft("");
       setMessage({ type: "success", text: t("usersPerm.template.saved") });
+    } catch (error) {
+      setMessage({ type: "error", text: getErrorMessage(error, t("usersPerm.error.saveFailed")) });
+    } finally {
+      setSavingTemplate(false);
+    }
+  };
+
+  const updateSelectedTemplate = async () => {
+    if (!selectedTemplate || selectedTemplate.isBuiltin) return;
+    setSavingTemplate(true);
+    try {
+      const data = await csrfFetch(`/api/role-templates/${encodeURIComponent(selectedTemplate.id)}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: selectedTemplate.name,
+          description: selectedTemplate.description,
+          roleKeys,
+          permissions: permissionKeys,
+          storageAccess: grants,
+          serverAccess: serverGrants,
+        }),
+      }) as { template: RoleTemplate };
+      setTemplates((current) => current.map((item) => item.id === data.template.id ? data.template : item));
+      setMessage({ type: "success", text: t("usersPerm.template.updated") });
     } catch (error) {
       setMessage({ type: "error", text: getErrorMessage(error, t("usersPerm.error.saveFailed")) });
     } finally {
@@ -234,7 +276,7 @@ return data as PermissionsPayload;
       await csrfFetch("/api/users/permissions", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, roleKeys, permissionKeys, storageAccess: normalizedGrants }),
+        body: JSON.stringify({ userId, ...(resourceOnly ? {} : { roleKeys, permissionKeys }), storageAccess: normalizedGrants, storageAccessScopeIds: (payload?.storageNodes ?? []).map((node) => node.id), serverAccess: serverGrants, serverAccessScopeIds: (payload?.servers ?? []).map((server) => server.id) }),
       });
       setMessage({ type: "success", text: t("usersPerm.success.saved") });
       onSaved();
@@ -266,7 +308,7 @@ return data as PermissionsPayload;
         {message && <Notice tone={message.type === "success" ? "success" : "danger"} className="mb-4">{message.text}</Notice>}
         {loading || !payload ? <InlineLoading label={t("usersPerm.loading")} /> : (
           <div className="space-y-6">
-            <section className="rounded-2xl border border-[var(--accent-border)] bg-[var(--accent-bg)] p-4">
+            {!resourceOnly && <section className="rounded-2xl border border-[var(--accent-border)] bg-[var(--accent-bg)] p-4">
               <h4 className="font-medium text-[var(--text-primary)]">{t("usersPerm.template.title")}</h4>
               <p className="mt-1 text-xs text-[var(--text-muted)]">{t("usersPerm.template.desc")}</p>
               <div className="mt-3 flex flex-wrap gap-2">
@@ -275,6 +317,7 @@ return data as PermissionsPayload;
                   {templates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}
                 </select>
                 <ActionButton variant="outline" onClick={applyTemplate} disabled={!selectedTemplateId} className="!px-3 !py-2 !text-sm disabled:opacity-40">{t("usersPerm.template.apply")}</ActionButton>
+                {selectedTemplate && !selectedTemplate.isBuiltin && <ActionButton variant="secondary" onClick={updateSelectedTemplate} disabled={savingTemplate} className="!px-3 !py-2 !text-sm disabled:opacity-40">{t("usersPerm.template.update")}</ActionButton>}
                 {/* Custom templates were creatable but never removable from the UI;
                     built-ins stay read-only because the API refuses to delete them. */}
                 {selectedTemplate && !selectedTemplate.isBuiltin && (confirmingTemplateDelete ? (
@@ -310,21 +353,21 @@ return data as PermissionsPayload;
                   </ActionButton>
                 </div>
               </div>
-            </section>
-            <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
+            </section>}
+            {!resourceOnly && <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
               <h4 className="font-medium text-[var(--text-primary)]">{t("usersPerm.section.roles")}</h4>
               <div className="mt-3 flex flex-wrap gap-2">
                 {payload.roles.map((role) => (
                   <button key={role.key} type="button" onClick={() => setRoleKeys((current) => toggle(current, role.key))} data-tone={roleKeys.includes(role.key) ? "cyan" : undefined} className={`rounded-full border px-3 py-1.5 text-xs ${roleKeys.includes(role.key) ? "border-[var(--accent-border)] text-[var(--accent)]" : "border-[var(--border)] text-[var(--text-muted)] hover:bg-[var(--surface-elevated)]"}`}>{t(`usersPage.role.${role.key}`)}</button>
                 ))}
               </div>
-            </section>
+            </section>}
 
-            <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
+            {!resourceOnly && <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
               <h4 className="font-medium text-[var(--text-primary)]">{t("usersPerm.section.perms")}</h4>
               <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 <p className="mb-2 text-xs text-[var(--text-muted)]">
-                  Checkboxes edit the user custom permission overrides only. Base role grants still apply until the role is removed.
+                  {t("usersPerm.perms.directHint")}
                 </p>
                 {payload.permissions.map((permission) => {
                   const direct = permissionKeys.includes(permission.key);
@@ -333,10 +376,47 @@ return data as PermissionsPayload;
                   <label key={permission.key} className="flex items-center gap-2 rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-secondary)]">
                     <input type="checkbox" checked={direct} onChange={() => setPermissionKeys((current) => toggle(current, permission.key))} />
                     <span>{permission.name || permission.key}</span>
-                    <span className="text-xs text-[var(--text-muted)]">{permission.key}{effective && !direct ? " · via role" : ""}</span>
+                    <span className="text-xs text-[var(--text-muted)]">{permission.key}{effective && !direct ? ` · ${t("usersPerm.perms.viaRole")}` : ""}</span>
                   </label>
                   );
                 })}
+              </div>
+            </section>}
+
+            <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
+              <h4 className="font-medium text-[var(--text-primary)]">{t("usersPerm.section.servers")}</h4>
+              <p className="mt-1 text-xs text-[var(--text-muted)]">{t("usersPerm.servers.hint")}</p>
+              <div className="mt-3 space-y-3">
+                {(payload.servers ?? []).length === 0 ? <EmptyState>{t("usersPerm.servers.empty")}</EmptyState> :
+                  (payload.servers ?? []).map((server) => {
+                    const grant = serverGrants.find((item) => item.serverId === server.id);
+                    const capabilities = [
+                      ["canRead", "read"], ["canConnect", "connect"], ["canManage", "manage"],
+                      ["canFileRead", "fileRead"], ["canFileWrite", "fileWrite"], ["canFileDelete", "fileDelete"],
+                    ] as const;
+                    return <div key={server.id} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="font-medium text-[var(--text-primary)]">{server.name} <span className="text-xs text-[var(--text-muted)]">{server.operatingSystem}</span></span>
+                        <button type="button" className="rounded-lg border border-[var(--border)] px-3 py-1 text-xs text-[var(--text-secondary)]" onClick={() => setServerGrants((current) => grant
+                          ? current.filter((item) => item.serverId !== server.id)
+                          : [...current, {
+                            serverId: server.id,
+                            canRead: payload.user.effectivePermissions.includes("server:read"),
+                            canConnect: payload.user.effectivePermissions.includes("server:ssh"),
+                            canManage: payload.user.effectivePermissions.includes("server:write"),
+                            canFileRead: payload.user.effectivePermissions.includes("server:ssh"),
+                            canFileWrite: payload.user.effectivePermissions.includes("server:ssh"),
+                            canFileDelete: payload.user.effectivePermissions.includes("server:ssh"),
+                          }])}>{grant ? t("usersPerm.servers.inherit") : t("usersPerm.servers.override")}</button>
+                      </div>
+                      {grant ? <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                        {capabilities.map(([field, label]) => <label key={field} className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+                          <input type="checkbox" checked={grant[field]} onChange={(event) => setServerGrants((current) => current.map((item) => item.serverId === server.id ? { ...item, [field]: event.target.checked } : item))} />
+                          {t(`usersPerm.servers.${label}`)}
+                        </label>)}
+                      </div> : <p className="mt-1 text-xs text-[var(--text-muted)]">{t("usersPerm.servers.inherited")}</p>}
+                    </div>;
+                  })}
               </div>
             </section>
 

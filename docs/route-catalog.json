@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-27T10:02:16.769Z",
+  "generatedAt": "2026-09-27T15:51:08.137Z",
   "summary": {
     "sidebarMain": 30,
     "sidebarSystem": 5,
@@ -790,10 +790,12 @@
       "inSidebarMain": false,
       "inSidebarSystem": true,
       "declaredPermissions": [
+        "team:member:manage",
         "user:manage",
         "user:read"
       ],
       "navigationPermissions": [
+        "team:member:manage",
         "user:manage",
         "user:read"
       ]
@@ -2266,7 +2268,8 @@
       ],
       "guardMode": "withApiRoute",
       "declaredPermissions": [
-        "role:manage"
+        "role:manage",
+        "team:member:manage"
       ]
     },
     {
@@ -2279,6 +2282,7 @@
       "guardMode": "withApiRoute",
       "declaredPermissions": [
         "role:manage",
+        "team:member:manage",
         "user:read"
       ]
     },
@@ -2332,7 +2336,8 @@
       ],
       "guardMode": "withApiRoute",
       "declaredPermissions": [
-        "server:ssh"
+        "server:ssh",
+        "storage:manage-node"
       ]
     },
     {
@@ -2431,7 +2436,7 @@
       ],
       "guardMode": "withApiRoute",
       "declaredPermissions": [
-        "server:read"
+        "server:ssh"
       ]
     },
     {
@@ -2951,7 +2956,8 @@
       ],
       "guardMode": "withApiRoute",
       "declaredPermissions": [
-        "server:read"
+        "server:read",
+        "storage:read"
       ]
     },
     {
@@ -2963,6 +2969,7 @@
       ],
       "guardMode": "withApiRoute",
       "declaredPermissions": [
+        "team:member:manage",
         "user:manage",
         "user:read"
       ]
@@ -2977,6 +2984,7 @@
       ],
       "guardMode": "withApiRoute",
       "declaredPermissions": [
+        "team:member:manage",
         "user:manage",
         "user:read"
       ]

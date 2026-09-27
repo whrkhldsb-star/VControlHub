@@ -60,7 +60,7 @@ async function assertPlaybookCommandServersInScope(
   ];
   if (serverIds.length === 0) return;
 
-  const scope = session ? serverTeamWhere(session) : {};
+  const scope = session ? serverTeamWhere(session, "connect") : {};
   const servers = await prisma.server.findMany({
     where: { id: { in: serverIds }, ...scope },
     select: { id: true },

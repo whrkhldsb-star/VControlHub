@@ -27,7 +27,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ sl
 		const serverId = body.serverId?.trim() || "";
 		const instanceKey = serverId || HUB_HOST_INSTANCE_KEY;
 		if (serverId) {
-			const access = await assertServerTeamAccess(session, serverId);
+			const access = await assertServerTeamAccess(session, serverId, "manage");
 			if (!access.ok) return access.response;
 		} else {
 			// start/stop/update against the hub host acts on the platform's own
@@ -66,7 +66,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ s
 			if (!hubAccess.ok) return hubAccess.response;
 		}
 		if (serverId) {
-			const access = await assertServerTeamAccess(session, serverId);
+			const access = await assertServerTeamAccess(session, serverId, "manage");
 			if (!access.ok) return access.response;
 			if (deleteVolumes) {
 				return NextResponse.json({

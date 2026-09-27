@@ -114,7 +114,8 @@ describe("role-template routes", () => {
 
 		expect(res.status).toBe(200);
 		expect(await res.json()).toEqual({ templates: [templateView] });
-		expect(mocks.guardCalls[0]).toMatchObject({ permission: "user:read" });
+		expect(mocks.listRoleTemplates).toHaveBeenCalledWith("team_1");
+		expect(mocks.guardCalls[0]).toMatchObject({ permissions: ["user:read", "team:member:manage"] });
 		expect(mocks.guardCalls[0]?.rateLimit).toBeUndefined();
 	});
 
@@ -122,10 +123,10 @@ describe("role-template routes", () => {
 		["create", async () => collection.POST(req("POST", { name: "t" }))],
 		["patch", async () => item.PATCH(req("PATCH", { name: "t" }), idParams)],
 		["delete", async () => item.DELETE(req("DELETE"), idParams)],
-	])("%s requires role:manage behind a write limit", async (_label, call) => {
+	])("%s requires workspace membership management behind a write limit", async (_label, call) => {
 		await call();
 		expect(mocks.guardCalls[0]).toMatchObject({
-			permission: "role:manage",
+			permissions: ["role:manage", "team:member:manage"],
 			rateLimit: { maxRequests: 30, windowMs: 60_000 },
 		});
 	});
@@ -143,6 +144,7 @@ describe("role-template routes", () => {
 		expect(mocks.createRoleTemplate).toHaveBeenCalledWith(
 			expect.objectContaining({ name: "storage operator" }),
 			"u_1",
+			"team_1",
 		);
 		expect(mocks.auditUserAction).toHaveBeenCalledWith(
 			"u_1",
@@ -156,8 +158,9 @@ describe("role-template routes", () => {
 	it("defaults the three collections so a bare name is a valid template", async () => {
 		await collection.POST(req("POST", { name: "empty" }));
 		expect(mocks.createRoleTemplate).toHaveBeenCalledWith(
-			{ name: "empty", roleKeys: [], permissions: [], storageAccess: [] },
+			{ name: "empty", roleKeys: [], permissions: [], storageAccess: [], serverAccess: [] },
 			"u_1",
+			"team_1",
 		);
 	});
 
@@ -200,7 +203,7 @@ describe("role-template routes", () => {
 		const res = await item.DELETE(req("DELETE"), idParams);
 
 		expect(res.status).toBe(200);
-		expect(mocks.deleteRoleTemplate).toHaveBeenCalledWith("tpl_1");
+		expect(mocks.deleteRoleTemplate).toHaveBeenCalledWith("tpl_1", "team_1");
 		expect(mocks.auditUserAction).toHaveBeenCalledWith(
 			"u_1",
 			"role_template.delete",

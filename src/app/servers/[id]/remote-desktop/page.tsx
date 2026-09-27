@@ -15,7 +15,7 @@ export default async function RemoteDesktopPage({ params }: { params: Promise<{ 
     redirectTo: `/servers/${encodeURIComponent(id)}/remote-desktop`,
   });
   const server = await prisma.server.findFirst({
-    where: { AND: [{ id, operatingSystem: "WINDOWS", enabled: true }, serverTeamWhere(session)] },
+    where: { AND: [{ id, operatingSystem: "WINDOWS", enabled: true }, serverTeamWhere(session, "connect")] },
     select: { id: true, name: true },
   });
   if (!server) notFound();

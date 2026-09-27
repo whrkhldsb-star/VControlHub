@@ -106,7 +106,7 @@ async function assertScheduledTaskServersInScope(
 ): Promise<void> {
 	const ids = normalizeServerIds(serverIds);
 	if (ids.length === 0 || !session) return;
-	const scope = serverTeamWhere(session);
+	const scope = serverTeamWhere(session, "connect");
 	// team:manage → empty scope, still verify servers exist
 	const servers = await prisma.server.findMany({
 		where: { id: { in: ids }, ...scope },

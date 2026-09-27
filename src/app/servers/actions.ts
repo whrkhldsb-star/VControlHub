@@ -397,7 +397,7 @@ export async function batchToggleServerAction(
     const { serverTeamWhere } = await import("@/lib/auth/team-scope");
     // Strict scope: a batch disable must not reach quarantined null-team servers.
     const result = await prisma.server.updateMany({
-      where: { id: { in: serverIds }, ...serverTeamWhere(session) },
+      where: { id: { in: serverIds }, ...serverTeamWhere(session, "manage") },
       data: { enabled },
     });
     await auditUserAction(
@@ -442,7 +442,7 @@ export async function deleteServerAction(
     // Same scope as deleteServerProfile below, so the confirm prompt cannot
     // disclose the name of a server the delete would then refuse.
     const current = await prisma.server.findFirst({
-      where: { id: serverId, ...serverTeamWhere(session) },
+      where: { id: serverId, ...serverTeamWhere(session, "manage") },
       select: { name: true },
     });
     if (!current) {
@@ -516,7 +516,7 @@ export async function getWindowsAgentInstallCommandAction(
     // Scope the existence check the same way as edits, so the command cannot
     // be requested for a node outside the caller's team.
     const current = await prisma.server.findFirst({
-      where: { id: serverId, ...serverTeamWhere(session) },
+      where: { id: serverId, ...serverTeamWhere(session, "manage") },
       select: { operatingSystem: true, managementMode: true },
     });
     if (!current) {

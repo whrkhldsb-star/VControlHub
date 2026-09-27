@@ -100,7 +100,7 @@ describe("createSyncJob team scope", () => {
       expect.objectContaining({
         where: expect.objectContaining({
           id: { in: ["srv-a", "srv-b"] },
-          teamId: "team-1",
+          AND: expect.arrayContaining([{ teamId: "team-1" }]),
         }),
       }),
     );

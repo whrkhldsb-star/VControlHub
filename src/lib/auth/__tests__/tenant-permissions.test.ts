@@ -59,4 +59,30 @@ describe("workspace permission scope", () => {
     });
     expect(scoped).toEqual(["team:read"]);
   });
+
+  it("applies an assigned editable group as a live workspace ceiling", () => {
+    const scoped = scopePermissionsToWorkspace({
+      roles: ["operator"],
+      accountPermissions: ["server:read", "server:ssh", "server:write", "storage:read"],
+      membership: {
+        role: "member", accessRole: "inherit",
+        permissionTemplate: { teamId: "team_1", roleKeys: [], permissions: ["server:read", "server:ssh"] },
+      },
+    });
+    expect(scoped).toContain("server:read");
+    expect(scoped).toContain("server:ssh");
+    expect(scoped).not.toContain("server:write");
+    expect(scoped).not.toContain("storage:read");
+  });
+
+  it("never lets a group grant permissions the account lacks", () => {
+    const scoped = scopePermissionsToWorkspace({
+      roles: ["viewer"], accountPermissions: ["server:read"],
+      membership: {
+        role: "member", accessRole: "inherit",
+        permissionTemplate: { teamId: "team_1", roleKeys: ["operator"], permissions: ["server:ssh"] },
+      },
+    });
+    expect(scoped).toEqual(["server:read"]);
+  });
 });
