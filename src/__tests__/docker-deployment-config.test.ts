@@ -32,7 +32,9 @@ describe("Docker deployment configuration", () => {
     expect(compose).toContain("postgres:5432");
     expect(compose).not.toContain("localhost:5432");
     expect(compose).not.toContain("127.0.0.1:5432");
-    expect(compose).toContain("SSH_WS_HOST: 0.0.0.0");
+    // The SSH gateway stays loopback inside the container; /ssh rides the app
+    // port via the in-process upgrade forwarder.
+    expect(compose).toContain("SSH_WS_HOST: 127.0.0.1");
     expect(compose).toContain("NEXT_HOST: 0.0.0.0");
     expect(compose).toContain("SSH_WS_SECRET: ${SSH_WS_SECRET:?");
     expect(compose).toContain("AUTH_SESSION_SECRET: ${AUTH_SESSION_SECRET:?");
@@ -40,5 +42,7 @@ describe("Docker deployment configuration", () => {
     expect(compose).toContain("pg_isready");
     expect(compose).toContain("/api/status");
     expect(compose).toContain("/var/run/docker.sock:/var/run/docker.sock:ro");
+    // Only the app port is published; the gateway port must never be exposed.
+    expect(compose).not.toContain(":3001:3001");
   });
 });

@@ -4,6 +4,10 @@ All notable changes to VControlHub are documented here. Versions follow Semantic
 
 ## [Unreleased]
 
+### Changed
+
+- Docker Compose now publishes a single port: with the in-process `/ssh` upgrade forwarder in place, the SSH gateway no longer needs host exposure — it binds `127.0.0.1` inside the app container and browser terminals ride the app port (`APP_PORT`, default 3000). `validate-compose` now rejects accidentally publishing the gateway port or binding it beyond loopback (verified end-to-end: a `/ssh` upgrade against the app port is answered by the real gateway process).
+
 ### Added
 
 - SSH terminal availability in docker-compose / reverse-proxy-less deployments: the web server now forwards `/ssh` WebSocket upgrades to the SSH gateway (`ssh-ws-proxy`, port 3001) at the TCP level (`ssh-upgrade-forwarder`). Compose publishes 3000/3001 directly without a proxy container, so browser terminals previously hit the Next.js server, which does not own `/ssh` and destroyed the socket. Split-host deployments can opt out with `SSH_GATEWAY_FORWARD=0`; an unreachable gateway answers 502 instead of hanging. The systemd+Caddy topology keeps routing at the proxy as before.

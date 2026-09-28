@@ -26,7 +26,20 @@ const app = services.app;
 if (!app.build && !app.image) fail("app service requires build or image");
 if (app.depends_on?.postgres?.condition !== "service_healthy") fail("app must wait for healthy postgres");
 if (!app.healthcheck?.test) fail("app healthcheck is required");
-if (!Array.isArray(app.ports) || app.ports.length < 2) fail("app must publish web and SSH-WS ports");
+// Single published port: the SSH gateway stays loopback inside the container
+// and the web server forwards /ssh upgrades to it, so publishing only the app
+// port is the supported topology. Publishing the gateway port directly is
+// rejected as an accidental re-exposure.
+if (!Array.isArray(app.ports) || app.ports.length < 1) fail("app must publish its web port");
+for (const mapping of app.ports) {
+	const published = String(mapping).split(":")[0];
+	if (String(mapping).includes(":3001") || /3001$/.test(published)) {
+		fail("SSH gateway port must not be published; /ssh is forwarded by the web server");
+	}
+}
+if (app.environment?.SSH_WS_HOST && app.environment.SSH_WS_HOST !== "127.0.0.1") {
+	fail("SSH gateway must bind 127.0.0.1 inside the container (in-process /ssh forwarding covers it)");
+}
 
 const environment = app.environment;
 for (const key of ["DATABASE_URL", "AUTH_SESSION_SECRET", "ENCRYPTION_KEY", "SSH_WS_SECRET"]) {
