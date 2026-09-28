@@ -18,6 +18,16 @@ import {
 } from "../path-utils";
 
 describe("storage path utils", () => {
+  it("serializes tenant roots portably on Linux and Windows", () => {
+    expect(tenantStorageBasePath("team-a", "storage")).toBe("storage/teams/team-a");
+    expect(tenantStorageBasePath("team-a", "C:\\VControlHub\\storage")).toBe(
+      "C:/VControlHub/storage/teams/team-a",
+    );
+    expect(tenantStorageBasePath("team-a", "\\\\fileserver\\vcontrolhub")).toBe(
+      "//fileserver/vcontrolhub/teams/team-a",
+    );
+  });
+
   it("normalizes safe relative paths consistently", () => {
     expect(normalizeStorageRelativePath(" team-a//docs/报告.pdf ")).toEqual({ ok: true, path: "team-a/docs/报告.pdf" });
     expect(normalizeStorageRelativePath("team-a\\docs\\a.txt")).toEqual({ ok: true, path: "team-a/docs/a.txt" });

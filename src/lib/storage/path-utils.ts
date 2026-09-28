@@ -9,7 +9,15 @@ function getAppSlugForPathExpansion() {
 
 /** Default local filesystem namespace for a newly created workspace. */
 export function tenantStorageBasePath(teamId: string, storageRoot = process.env.STORAGE_ROOT?.trim() || "storage"): string {
-  return path.join(storageRoot, "teams", teamId);
+  // Persist local roots with forward slashes on every host. Node accepts this
+  // form on Windows, and a stable database value keeps seeds, exports and
+  // migrations portable between Linux and Windows installations.
+  const portableRoot = storageRoot.replace(/\\/g, "/");
+  const joined = path.posix.join(portableRoot, "teams", teamId);
+  // path.posix.join collapses the double leading slash of a Windows UNC root.
+  return portableRoot.startsWith("//") && !joined.startsWith("//")
+    ? `/${joined}`
+    : joined;
 }
 
 /**
