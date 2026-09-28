@@ -4,7 +4,11 @@ import { Prisma } from "@prisma/client";
 
 const mocks = vi.hoisted(() => ({ raw: vi.fn(), findMany: vi.fn(), transaction: vi.fn() }));
 vi.mock("@/lib/db", () => ({ prisma: { $transaction: mocks.transaction } }));
-vi.mock("@/lib/auth/team-scope", () => ({ isGlobalTeamManager: () => false, serverTeamWhere: () => ({ teamId: "team-a" }) }));
+vi.mock("@/lib/auth/team-scope", () => ({
+  isGlobalTeamManager: () => false,
+  isWorkspaceTeamManager: () => false,
+  serverTeamWhere: () => ({ teamId: "team-a" }),
+}));
 vi.mock("../service-internals", () => ({ enrichServer: (row: unknown) => row }));
 vi.mock("../service-profile-includes", () => ({ SERVER_PROFILE_INCLUDE: {} }));
 vi.mock("../availability", () => ({ getServerTargetAvailability: vi.fn() }));

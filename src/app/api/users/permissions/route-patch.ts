@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { ForbiddenError, ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/translations";
 import { parseNullableBigIntInput } from "@/lib/storage/access-control";
+import { normalizeStorageTargetDirectory } from "@/lib/storage/path-utils";
 
 type PermissionPatch = {
   userId: string;
@@ -32,12 +33,20 @@ type PermissionPatch = {
 };
 
 function normalizePathPrefix(value: unknown) {
-  return String(value ?? "")
-    .replace(/\\/g, "/")
-    .split("/")
-    .map((segment) => segment.trim())
-    .filter(Boolean)
-    .join("/");
+  const rawPath = String(value ?? "").replace(/\\/g, "/").replace(/^\/+/, "");
+  const normalized = normalizeStorageTargetDirectory(rawPath);
+  if (!normalized.ok) {
+    throw new ValidationError(t("backend.user.invalidStoragePath"));
+  }
+  return normalized.path;
+}
+
+function parseStorageLimit(value: unknown) {
+  const parsed = parseNullableBigIntInput(value);
+  if (value !== null && value !== undefined && String(value).trim() !== "" && parsed === null) {
+    throw new ValidationError(t("backend.user.invalidStorageLimit"));
+  }
+  return parsed;
 }
 
 export async function applyUserPermissionPatch(input: {
@@ -180,9 +189,6 @@ export async function applyUserPermissionPatch(input: {
         ).map((node) => node.id),
       );
       if (validNodeIds.size !== scopeIds.length) throw new ValidationError(t("backend.user.unknownStorageNodeInWorkspace"));
-      await tx.userStorageAccess.deleteMany({
-        where: { userId: parsedData.userId, storageNodeId: { in: scopeIds } },
-      });
       const mapped = storageAccess.map((grant) => ({
         userId: parsedData.userId,
         storageNodeId: String(grant.storageNodeId ?? ""),
@@ -191,8 +197,8 @@ export async function applyUserPermissionPatch(input: {
         canRead: grant.canRead ?? false,
         canWrite: grant.canWrite ?? false,
         canDelete: grant.canDelete ?? false,
-        quotaBytes: parseNullableBigIntInput(grant.quotaBytes),
-        maxFileBytes: parseNullableBigIntInput(grant.maxFileBytes),
+        quotaBytes: parseStorageLimit(grant.quotaBytes),
+        maxFileBytes: parseStorageLimit(grant.maxFileBytes),
       }));
       const outOfTeam = mapped
         .map((grant) => grant.storageNodeId)
@@ -200,21 +206,25 @@ export async function applyUserPermissionPatch(input: {
       if (outOfTeam.length > 0) {
         throw new ValidationError(t("backend.user.storageNodesOutsideCurrentTeamScope"));
       }
+      const seen = new Set<string>();
+      for (const grant of mapped) {
+        const key = `${grant.storageNodeId}\0${grant.pathPrefix}`;
+        if (seen.has(key)) {
+          throw new ValidationError(t("backend.user.duplicateStorageAccess"));
+        }
+        seen.add(key);
+      }
+      await tx.userStorageAccess.deleteMany({
+        where: { userId: parsedData.userId, storageNodeId: { in: scopeIds } },
+      });
       const rows = mapped.filter(
         (grant) =>
           grant.storageNodeId &&
           validNodeIds.has(grant.storageNodeId) &&
           (grant.canRead || grant.canWrite || grant.canDelete),
       );
-      const seen = new Set<string>();
-      const uniqueRows = rows.filter((grant) => {
-        const key = `${grant.storageNodeId}\0${grant.pathPrefix}`;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
-      if (uniqueRows.length > 0) {
-        await tx.userStorageAccess.createMany({ data: uniqueRows, skipDuplicates: true });
+      if (rows.length > 0) {
+        await tx.userStorageAccess.createMany({ data: rows, skipDuplicates: true });
       }
     }
 

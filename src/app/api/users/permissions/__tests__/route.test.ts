@@ -104,6 +104,7 @@ describe("/api/users/permissions", () => {
       username: "alice",
       displayName: "Alice",
       roles: [],
+      teamMemberships: [],
       storageAccess: [],
       serverAccess: [],
     });
@@ -141,6 +142,33 @@ describe("/api/users/permissions", () => {
     );
     expect(res.status).toBe(404);
     expect(mocks.prisma.user.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("GET reports permissions after the target member's workspace ceiling", async () => {
+    mocks.prisma.user.findUnique.mockResolvedValueOnce({
+      id: "user1",
+      username: "alice",
+      displayName: "Alice",
+      roles: [{
+        role: {
+          key: "operator",
+          name: "Operator",
+          permissions: [
+            { permission: { key: "server:read" } },
+            { permission: { key: "server:write" } },
+          ],
+        },
+      }],
+      teamMemberships: [{ role: "member", accessRole: "viewer", permissionTemplate: null }],
+      storageAccess: [],
+      serverAccess: [],
+    });
+    const res = await route.GET(new Request("http://local/api/users/permissions?userId=user1"));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.user.effectivePermissions).toContain("server:read");
+    expect(body.user.effectivePermissions).not.toContain("server:write");
+    expect(body.user.resourceAccessBypassed).toBe(false);
   });
 
   it("PATCH scopes storage grant delete to team nodes for non-global managers", async () => {
@@ -192,7 +220,12 @@ describe("/api/users/permissions", () => {
   });
 
 	it("PATCH blocks a delegated manager from editing a platform manager's grants", async () => {
-		mocks.userHoldsTeamManage.mockResolvedValue(true);
+		mocks.prisma.user.findUnique.mockResolvedValueOnce({
+			id: "user1",
+			username: "alice",
+			roles: [{ role: { key: "admin" } }],
+			teamMemberships: [],
+		});
 		const response = await route.PATCH(new Request("http://local/api/users/permissions", {
 			method: "PATCH",
 			headers: { "content-type": "application/json" },
@@ -200,7 +233,6 @@ describe("/api/users/permissions", () => {
 		}));
 
 		expect(response.status).toBe(403);
-		expect(mocks.userHoldsTeamManage).toHaveBeenCalledWith("user1");
 		expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
 	});
 
@@ -244,5 +276,59 @@ describe("/api/users/permissions", () => {
     }));
     expect(res.status).toBe(403);
     expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("rejects member-level resource restrictions for a workspace administrator", async () => {
+    mocks.prisma.user.findUnique.mockResolvedValueOnce({
+      id: "user1", username: "alice", roles: [], teamMemberships: [{ role: "admin" }],
+    });
+    const res = await route.PATCH(new Request("http://local/api/users/permissions", {
+      method: "PATCH", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ userId: "user1", serverAccess: [], serverAccessScopeIds: [] }),
+    }));
+    expect(res.status).toBe(400);
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("rejects malformed quotas before replacing any storage grants", async () => {
+    const res = await route.PATCH(new Request("http://local/api/users/permissions", {
+      method: "PATCH", headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        userId: "user1",
+        storageAccess: [{ storageNodeId: "node-a", pathPrefix: "docs", canRead: true, quotaBytes: "unlimited-ish" }],
+        storageAccessScopeIds: ["node-a"],
+      }),
+    }));
+    expect(res.status).toBe(400);
+    expect(mocks.prisma.userStorageAccess.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it("rejects duplicate normalized storage paths instead of silently dropping one", async () => {
+    const res = await route.PATCH(new Request("http://local/api/users/permissions", {
+      method: "PATCH", headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        userId: "user1",
+        storageAccess: [
+          { storageNodeId: "node-a", pathPrefix: "docs/", canRead: true },
+          { storageNodeId: "node-a", pathPrefix: "/docs", canRead: true },
+        ],
+        storageAccessScopeIds: ["node-a"],
+      }),
+    }));
+    expect(res.status).toBe(400);
+    expect(mocks.prisma.userStorageAccess.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it("rejects unsafe storage paths before replacing existing grants", async () => {
+    const res = await route.PATCH(new Request("http://local/api/users/permissions", {
+      method: "PATCH", headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        userId: "user1",
+        storageAccess: [{ storageNodeId: "node-a", pathPrefix: "../secret", canRead: true }],
+        storageAccessScopeIds: ["node-a"],
+      }),
+    }));
+    expect(res.status).toBe(400);
+    expect(mocks.prisma.userStorageAccess.deleteMany).not.toHaveBeenCalled();
   });
 });

@@ -2,7 +2,8 @@ import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { ALL_PERMISSIONS, type Permission } from "@/lib/auth/rbac";
+import { ALL_PERMISSIONS, DEFAULT_ROLE_PERMISSIONS, type Permission, type RoleKey } from "@/lib/auth/rbac";
+import { scopePermissionsToWorkspace } from "@/lib/auth/tenant-permissions";
 import { auditUserAction } from "@/lib/audit/service";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
@@ -11,7 +12,6 @@ import { parseSearchParams } from "@/lib/http/parse-search-params";
 import {
   assertUserInActorScope,
   isGlobalTeamManager,
-  userHoldsTeamManage,
 } from "@/lib/auth/team-scope";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/translations";
@@ -21,15 +21,29 @@ import { assertAdminAccessMayBeRemoved, withAdminInvariantLock } from "@/lib/use
 
 export const dynamic = "force-dynamic";
 
+const MAX_SIGNED_BIGINT = BigInt("9223372036854775807");
+const nullableBigIntInputSchema = z.union([z.string(), z.number(), z.null()]).optional().refine((value) => {
+  if (value === null || value === undefined) return true;
+  if (typeof value === "number") return Number.isSafeInteger(value) && value >= 0;
+  const trimmed = value.trim();
+  if (!trimmed) return true;
+  if (!/^\d+$/.test(trimmed)) return false;
+  try {
+    return BigInt(trimmed) <= MAX_SIGNED_BIGINT;
+  } catch {
+    return false;
+  }
+});
+
 const storageAccessItemSchema = z.object({
   id: z.string().optional(),
   storageNodeId: z.string().min(1),
-  pathPrefix: z.string().optional(),
+  pathPrefix: z.string().max(500).optional(),
   canRead: z.boolean().optional(),
   canWrite: z.boolean().optional(),
   canDelete: z.boolean().optional(),
-  quotaBytes: z.union([z.string(), z.number(), z.null()]).optional(),
-  maxFileBytes: z.union([z.string(), z.number(), z.null()]).optional(),
+  quotaBytes: nullableBigIntInputSchema,
+  maxFileBytes: nullableBigIntInputSchema,
 });
 
 const serverAccessItemSchema = z.object({
@@ -51,6 +65,8 @@ const patchPermissionsSchema = z.object({
   serverAccess: z.array(serverAccessItemSchema).max(5000).optional(),
   serverAccessScopeIds: z.array(z.string().min(1)).max(5000).optional(),
 });
+
+const PERMISSION_CONFIG_BODY_LIMIT = 4 * 1024 * 1024;
 
 
 function isPermissionKey(value: string): value is Permission {
@@ -127,6 +143,17 @@ export async function GET(request: Request) {
               },
             },
           },
+          teamMemberships: {
+            where: { teamId: session.currentTeamId ?? "__no_active_team__" },
+            select: {
+              role: true,
+              accessRole: true,
+              permissionTemplate: {
+                select: { teamId: true, kind: true, roleKeys: true, permissions: true },
+              },
+            },
+            take: 1,
+          },
           storageAccess: {
             where: { storageNode: nodeScope },
             include: {
@@ -168,7 +195,11 @@ export async function GET(request: Request) {
     }
 
     const customRoleKey = `user:${userId}:custom`;
-    const effectivePermissions = Array.from(
+    const assignedRoleKeys = user.roles.map((userRole) => userRole.role.key);
+    const baseRoles = assignedRoleKeys.filter(
+      (key): key is RoleKey => key in DEFAULT_ROLE_PERMISSIONS,
+    );
+    const accountEffectivePermissions = Array.from(
       new Set(
         user.roles.flatMap((userRole) =>
           userRole.role.permissions.map(
@@ -176,7 +207,23 @@ export async function GET(request: Request) {
           ),
         ),
       ),
-    ).sort();
+    ).filter(isPermissionKey).sort();
+    const membership = user.teamMemberships?.[0] ?? null;
+    const effectivePermissions = scopePermissionsToWorkspace({
+      roles: baseRoles,
+      accountPermissions: accountEffectivePermissions,
+      membership: membership ? {
+        role: membership.role,
+        accessRole: membership.accessRole,
+        permissionTemplate: membership.permissionTemplate?.teamId === session.currentTeamId
+          && membership.permissionTemplate.kind === "POLICY_GROUP"
+          ? membership.permissionTemplate
+          : null,
+      } : null,
+    }).sort();
+    const resourceAccessBypassed = baseRoles.includes("admin")
+      || membership?.role === "owner"
+      || membership?.role === "admin";
     // Direct overrides only (auto custom role) — UI should seed/save this set,
     // not the full effective union of base roles (would bake roles into custom).
     const directPermissionKeys = Array.from(
@@ -203,6 +250,7 @@ export async function GET(request: Request) {
           name: userRole.role.name,
         })),
         effectivePermissions,
+        resourceAccessBypassed,
         directPermissionKeys,
         storageAccess: await serializeStorageAccessGrants(user.storageAccess.filter((grant) => visibleNodeIds.has(grant.storageNodeId))),
         serverAccess: user.serverAccess.filter((grant) => visibleServerIds.has(grant.serverId)),
@@ -231,6 +279,7 @@ export async function PATCH(request: Request) {
     {
       permissions: ["user:manage", "team:member:manage"],
       rateLimit: GENERAL_WRITE_LIMIT,
+      maxBodyBytes: PERMISSION_CONFIG_BODY_LIMIT,
       errorMessage: apiCopy("apiCopy.operation.failed.4e1af7c7"),
       bodySchema: patchPermissionsSchema,
     },
@@ -247,12 +296,22 @@ export async function PATCH(request: Request) {
 
       const targetUser = await prisma.user.findUnique({
         where: { id: parsedData.userId },
-        select: { id: true, username: true },
+        select: {
+          id: true,
+          username: true,
+          roles: { select: { role: { select: { key: true } } } },
+          teamMemberships: {
+            where: { teamId: session.currentTeamId ?? "__no_active_team__" },
+            select: { role: true },
+            take: 1,
+          },
+        },
       });
       if (!targetUser) {
         throw new NotFoundError(apiCopy("apiCopy.user.not.found.4a1793e9"));
       }
-		if (!isGlobalTeamManager(session) && await userHoldsTeamManage(parsedData.userId)) {
+		const targetIsPlatformAdmin = targetUser.roles?.some((entry) => entry.role.key === "admin") ?? false;
+		if (!isGlobalTeamManager(session) && targetIsPlatformAdmin) {
 			throw new ForbiddenError(t("backend.user.cannotModifyPlatformAdmin"));
 		}
 		if (!isGlobalTeamManager(session) && (parsedData.roleKeys !== undefined || parsedData.permissionKeys !== undefined)) {
@@ -288,6 +347,14 @@ export async function PATCH(request: Request) {
       const storageAccessScopeIds = parsedData.storageAccessScopeIds;
       const serverAccess = parsedData.serverAccess;
       const serverAccessScopeIds = parsedData.serverAccessScopeIds;
+
+      const targetMembershipRole = targetUser.teamMemberships?.[0]?.role;
+      const resourceAccessBypassed = (roleKeys !== undefined ? roleKeys.includes("admin") : targetIsPlatformAdmin)
+        || targetMembershipRole === "owner"
+        || targetMembershipRole === "admin";
+      if (resourceAccessBypassed && (storageAccess !== undefined || serverAccess !== undefined)) {
+        throw new ValidationError(t("backend.user.adminResourceAccessIsRoleBased"));
+      }
 
 			const applyPatch = () => applyUserPermissionPatch({
 				session,

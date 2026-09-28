@@ -13,7 +13,28 @@ const WITHOUT_WORKSPACE = new Set<Permission>([
   "api-token:manage", // permits listing/revoking an old token after removal
 ]);
 
-/** Account permissions are the ceiling; membership can narrow them per team. */
+const PLATFORM_OR_ACCOUNT_ONLY = new Set<Permission>([
+  "announcement:manage",
+  "backup:create",
+  "backup:read",
+  "backup:restore",
+  "role:manage",
+  "team:create",
+  "team:manage",
+  "user:manage",
+]);
+
+/** Operations a workspace owner/admin receives inside the active workspace. */
+export const WORKSPACE_ADMIN_PERMISSIONS: Permission[] = ALL_PERMISSIONS.filter(
+  (permission) => !PLATFORM_OR_ACCOUNT_ONLY.has(permission),
+);
+
+/** Permissions that may be used as a live ceiling for an ordinary member. */
+export const WORKSPACE_POLICY_PERMISSIONS: Permission[] = WORKSPACE_ADMIN_PERMISSIONS.filter(
+  (permission) => permission !== "team:member:manage" && permission !== "api-token:manage",
+);
+
+/** Account permissions are the ceiling for members; workspace administrators receive their workspace role grant. */
 export function scopePermissionsToWorkspace(input: {
   roles: RoleKey[];
   accountPermissions: Permission[];
@@ -22,6 +43,16 @@ export function scopePermissionsToWorkspace(input: {
   const { roles, accountPermissions, membership } = input;
   if (roles.includes("admin")) return accountPermissions;
   if (!membership) return accountPermissions.filter((permission) => WITHOUT_WORKSPACE.has(permission));
+
+  // Workspace administrators own the resources in this workspace. Their
+  // account role, access role, policy group and per-resource rows must not
+  // leave them with an administrator label but member-level capabilities.
+  if (membership.role === "owner" || membership.role === "admin") {
+    return Array.from(new Set([
+      ...WORKSPACE_ADMIN_PERMISSIONS,
+      ...accountPermissions.filter((permission) => WITHOUT_WORKSPACE.has(permission)),
+    ]));
+  }
 
   const accessRole = membership.accessRole;
   const allowed = accessRole === "viewer" || accessRole === "operator" || accessRole === "storage_manager"
@@ -46,8 +77,5 @@ export function scopePermissionsToWorkspace(input: {
     (allowed === null || allowed.has(permission) || WITHOUT_WORKSPACE.has(permission)) &&
     (templateAllowed === null || templateAllowed.has(permission) || WITHOUT_WORKSPACE.has(permission)),
   ));
-  if (membership.role === "owner" || membership.role === "admin") {
-    scoped.add("team:member:manage");
-  }
   return Array.from(scoped);
 }

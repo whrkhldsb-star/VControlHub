@@ -345,11 +345,15 @@ export function TeamWorkspaceSection({ capabilities }: { capabilities: TeamCapab
 							{manageableTeams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
 						</select>
 						<input value={memberUsername} aria-label={t("settingsTeam.usernamePlaceholder")} onChange={(e) => setMemberUsername(e.target.value)} placeholder={t("settingsTeam.usernamePlaceholder")} className={UI_INPUT} />
-						<select aria-label={t("settingsTeam.roleAria")} value={memberRole} onChange={(e) => setMemberRole(e.target.value as "admin" | "member")} className={UI_INPUT}>
+						<select aria-label={t("settingsTeam.roleAria")} value={memberRole} onChange={(e) => {
+							const nextRole = e.target.value as "admin" | "member";
+							setMemberRole(nextRole);
+							if (nextRole === "admin") setMemberAccessRole("inherit");
+						}} className={UI_INPUT}>
 							<option value="member">{t("settingsTeam.role.member")}</option>
 							<option value="admin">{t("settingsTeam.role.admin")}</option>
 						</select>
-						<select aria-label={t("settingsTeam.accessRoleAria")} value={memberAccessRole} onChange={(e) => setMemberAccessRole(e.target.value as typeof memberAccessRole)} className={UI_INPUT}>
+						<select aria-label={t("settingsTeam.accessRoleAria")} disabled={memberRole === "admin"} value={memberAccessRole} onChange={(e) => setMemberAccessRole(e.target.value as typeof memberAccessRole)} className={`${UI_INPUT} disabled:cursor-not-allowed disabled:opacity-60`}>
 							<option value="inherit">{t("settingsTeam.accessRole.inherit")}</option>
 							<option value="viewer">{t("settingsTeam.accessRole.viewer")}</option>
 							<option value="operator">{t("settingsTeam.accessRole.operator")}</option>

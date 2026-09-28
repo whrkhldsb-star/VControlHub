@@ -17,6 +17,7 @@ const permissionsPayload = {
 		displayName: "Alice",
 		roles: [{ key: "viewer", name: "观察者" }],
 		effectivePermissions: ["storage:read"],
+		resourceAccessBypassed: false,
 		directPermissionKeys: [],
 		storageAccess: [],
 	},
@@ -33,6 +34,7 @@ function template(overrides: Record<string, unknown> = {}) {
 		roleKeys: ["viewer"],
 		permissions: ["storage:read"],
 		storageAccess: [],
+		kind: "ACCOUNT_TEMPLATE",
 		isBuiltin: false,
 		...overrides,
 	};
@@ -43,7 +45,7 @@ function mockLoad(templates: Array<Record<string, unknown>>) {
 	vi.mocked(csrfFetch).mockImplementation(async (input: RequestInfo | URL) => {
 		const url = String(input);
 		if (url.startsWith("/api/users/permissions")) return permissionsPayload;
-		if (url === "/api/role-templates") return { templates };
+		if (url === "/api/role-templates?kind=ACCOUNT_TEMPLATE") return { templates };
 		throw new Error(`unexpected request: ${url}`);
 	});
 }

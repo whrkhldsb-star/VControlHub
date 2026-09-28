@@ -9,11 +9,17 @@
 
 ## Membership permissions
 
-`TeamMember.role` controls membership administration (`owner`, `admin`, `member`). `TeamMember.accessRole` narrows resource permissions within that workspace (`inherit`, `operator`, `viewer`, `storage_manager`). Existing members start at `inherit`; owners and workspace admins can manage members. An access role never grants a permission absent from the account's upper bound. Platform administrators use the built-in `admin` account role and may inspect all workspaces.
+`TeamMember.role` controls membership administration (`owner`, `admin`, `member`). Owners and workspace administrators receive the complete operational permission set inside their active workspace, independently of member access roles, policy groups, or per-resource rows. Platform-only work such as account administration, global backup restore, announcements, and cross-workspace management still requires the built-in platform `admin` role.
+
+For ordinary members, `TeamMember.accessRole` narrows permissions inside the workspace (`inherit`, `operator`, `viewer`, `storage_manager`). An editable workspace policy group may narrow that set further. Neither mechanism grants a permission absent from the account's upper bound. Policy-group edits take effect on the next request because sessions and API-token authorization reload the assigned group from the database.
+
+Account assignment templates and live workspace policy groups are separate records. Account templates may snapshot roles and resource overrides and are maintained by platform administrators. Policy groups contain only live workspace operation permissions; workspace owners and administrators can create, rename, edit, assign, and delete unused groups. The three starter groups are normal editable rows rather than immutable built-ins.
 
 The current owner or a platform administrator can transfer ownership to another active workspace member. The previous owner remains a workspace administrator. Membership removal and ownership transfer share a workspace lock so the last owner cannot be removed during a transfer.
 
-Global credentials, account roles, role templates, platform announcements, and whole-platform database/file backups require the built-in platform administrator role. Workspace owners manage their own membership through the team API. Tenant resource creation requires an active workspace.
+Global credentials, account roles, account templates, platform announcements, and whole-platform database/file backups require the built-in platform administrator role. Workspace owners and administrators manage their own members and policy groups through the team API. Tenant resource creation requires an active workspace.
+
+Per-server rows are member overrides: no row inherits the member's effective operation permissions, while a row can independently restrict viewing, connection, management, and file read/write/delete. Per-storage grants are path allowlists with optional quota and maximum-file-size limits, so a new storage node is denied to an ordinary member until granted. Newly added servers and storage nodes are queried live by the permission editor. Owners and workspace administrators bypass member resource rows within their active workspace; bearer tokens still remain limited to their explicit operation scopes.
 
 ## Data boundary and migration
 

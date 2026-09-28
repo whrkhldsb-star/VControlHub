@@ -18,10 +18,14 @@ import { prisma } from "@/lib/db";
 import { ForbiddenError, NotFoundError } from "@/lib/errors";
 
 import type { SessionPayload } from "./session";
+import type { Permission } from "./rbac";
 import { t } from "@/lib/i18n/service-translations";
 import { serverAccessWhere, type ServerAccessCapability } from "@/lib/server/resource-access";
 
-export type TeamSession = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
+export type TeamSession = Pick<SessionPayload, "userId" | "roles" | "currentTeamId"> & {
+	permissions?: Permission[];
+	currentTeamRole?: string | null;
+};
 
 /**
  * True when the actor may see/manage all tenants (global team admin).
@@ -29,6 +33,17 @@ export type TeamSession = Pick<SessionPayload, "userId" | "roles" | "currentTeam
  */
 export function isGlobalTeamManager(session: TeamSession): boolean {
 	return session.roles?.includes("admin") === true;
+}
+
+/** True for a platform admin or an owner/admin of the active workspace. */
+export function isWorkspaceTeamManager(session: TeamSession): boolean {
+	return isGlobalTeamManager(session) || Boolean(
+		session.currentTeamId && (
+			session.currentTeamRole === "owner"
+			|| session.currentTeamRole === "admin"
+			|| session.permissions?.includes("team:member:manage")
+		),
+	);
 }
 
 /**
@@ -77,7 +92,9 @@ export function teamScopeWhere(session?: TeamSession | null): Record<string, unk
 export function serverTeamWhere(session: TeamSession, capability: ServerAccessCapability = "read"): Record<string, unknown> {
 	if (isGlobalTeamManager(session)) return {};
 	return session.currentTeamId
-		? { AND: [{ teamId: session.currentTeamId }, serverAccessWhere(session.userId, capability)] }
+		? isWorkspaceTeamManager(session)
+			? { teamId: session.currentTeamId }
+			: { AND: [{ teamId: session.currentTeamId }, serverAccessWhere(session.userId, capability)] }
 		: { id: "__unassigned_servers_require_team_manage__" };
 }
 

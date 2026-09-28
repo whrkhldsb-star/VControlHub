@@ -9,6 +9,10 @@ import {
 } from "../src/lib/auth/rbac";
 import { hashPassword } from "../src/lib/auth/password";
 import { tenantStorageBasePath } from "../src/lib/storage/path-utils";
+import {
+  DEFAULT_WORKSPACE_POLICY_GROUPS,
+  defaultWorkspacePolicyGroupId,
+} from "../src/lib/auth/role-template-service";
 
 function seedLog(message: string) {
   if (process.env.SEED_DEBUG === "1") {
@@ -303,6 +307,26 @@ async function seedDefaultLocalStorageNode(teamId: string | null) {
   seedLog("seedDefaultLocalStorageNode:done");
 }
 
+async function seedDefaultWorkspacePolicyGroups(teamId: string | null) {
+  if (!teamId) return;
+  const team = await prisma.team.findUnique({ where: { id: teamId }, select: { ownerId: true } });
+  await prisma.roleTemplate.createMany({
+    data: DEFAULT_WORKSPACE_POLICY_GROUPS.map((group) => ({
+      id: defaultWorkspacePolicyGroupId(teamId, group.key),
+      name: group.name,
+      description: group.description,
+      kind: "POLICY_GROUP",
+      roleKeys: group.roleKeys,
+      permissions: group.permissions,
+      dataScope: { storageAccess: [], serverAccess: [] },
+      isBuiltin: false,
+      createdBy: team?.ownerId ?? null,
+      teamId,
+    })),
+    skipDuplicates: true,
+  });
+}
+
 function shouldSeedDemoData() {
   return process.env.SEED_DEMO_DATA === "true" || process.env.DEMO_MODE === "true";
 }
@@ -400,6 +424,7 @@ export async function seedDatabase() {
   await seedRoles();
   await seedAdmin();
   const defaultTeamId = await seedDefaultWorkspace();
+  await seedDefaultWorkspacePolicyGroups(defaultTeamId);
   await seedDefaultLocalStorageNode(defaultTeamId);
   if (shouldSeedDemoData()) {
     seedLog("seedDemoData:start");

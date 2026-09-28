@@ -37,13 +37,13 @@ describe("API token authorization", () => {
 		expect(apiTokenScopeAllowedForSession("unknown:scope", viewerSession)).toBe(false);
 	});
 
-	it("builds a current owner session and drops unknown role keys", async () => {
+	it("builds a current owner session with full workspace access and drops unknown role keys", async () => {
 		findUniqueMock.mockResolvedValue({
 			id: "user-1",
 			username: "alice",
 			status: "ACTIVE",
 			mustChangePassword: false,
-			currentTeam: { id: "team-1", members: [{ userId: "user-1" }] },
+			currentTeam: { id: "team-1", members: [{ userId: "user-1", role: "owner", accessRole: "viewer", permissionTemplate: null }] },
 			roles: [{ role: { key: "viewer" } }, { role: { key: "removed-role" } }],
 		});
 
@@ -51,6 +51,8 @@ describe("API token authorization", () => {
 			userId: "user-1",
 			roles: ["viewer"],
 			currentTeamId: "team-1",
+			currentTeamRole: "owner",
+			permissions: expect.arrayContaining(["server:write", "team:member:manage"]),
 		});
 	});
 

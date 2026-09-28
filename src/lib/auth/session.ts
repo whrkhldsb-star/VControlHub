@@ -70,6 +70,8 @@ export type SessionPayload = {
   roles: RoleKey[];
   mustChangePassword: boolean;
   currentTeamId: string | null;
+  /** Fresh membership role for the active workspace; never trusted from the cookie. */
+  currentTeamRole?: string | null;
   /**
    * Effective permissions of the session. Resolved from the database on every
    * cookie-session verification (base roles ∪ the user's direct grants, see
@@ -248,7 +250,7 @@ export async function verifySessionToken(token: string) {
      // on every request so removal revokes access across all devices.
      teamMemberships: {
        where: { teamId: payload.currentTeamId || "__no_active_team__" },
-       select: { teamId: true, role: true, accessRole: true, team: { select: { slug: true } }, permissionTemplate: { select: { teamId: true, roleKeys: true, permissions: true } } },
+       select: { teamId: true, role: true, accessRole: true, team: { select: { slug: true } }, permissionTemplate: { select: { teamId: true, kind: true, roleKeys: true, permissions: true } } },
        take: 1,
      },
      passwordHash: true,
@@ -316,7 +318,13 @@ export async function verifySessionToken(token: string) {
  const permissions = scopePermissionsToWorkspace({
    roles,
    accountPermissions,
-   membership: membership ? { role: membership.role, accessRole: membership.accessRole, permissionTemplate: membership.permissionTemplate?.teamId === currentTeamId ? membership.permissionTemplate : null } : null,
+   membership: membership ? {
+     role: membership.role,
+     accessRole: membership.accessRole,
+     permissionTemplate: membership.permissionTemplate?.teamId === currentTeamId && membership.permissionTemplate.kind === "POLICY_GROUP"
+       ? membership.permissionTemplate
+       : null,
+   } : null,
  });
 
  return {
@@ -326,6 +334,7 @@ export async function verifySessionToken(token: string) {
  permissions,
  mustChangePassword: user.mustChangePassword,
  currentTeamId,
+ currentTeamRole: membership?.role ?? null,
  } satisfies SessionPayload;
 }
 

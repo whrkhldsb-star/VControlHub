@@ -19,7 +19,7 @@ import { apiCopy } from "@/lib/i18n/api-copy";
 
 import { prisma } from "@/lib/db";
 import type { SessionPayload } from "@/lib/auth/session";
-import { sessionHasPermission } from "@/lib/auth/authorization";
+import { isGlobalTeamManager, isWorkspaceTeamManager } from "@/lib/auth/team-scope";
 import { NextResponse } from "next/server";
 import { SERVER_ACCESS_FIELDS, type ServerAccessCapability } from "./resource-access";
 
@@ -29,9 +29,9 @@ export type ServerTeamAccessResult =
 
 /**
  * Verify that the caller's session can access the given server under
- * team-scope rules. Admins (`team:manage`) bypass the check. Non-admins
- * must share the server's teamId. Unassigned legacy servers are restricted
- * to platform team managers; `teamId = null` is not an implicit public share.
+ * team-scope rules. Platform admins may cross workspaces; workspace owners and
+ * admins bypass member ACL rows inside their active workspace. Unassigned
+ * legacy servers remain restricted to platform administrators.
  *
  * Returns a discriminated union so callers can early-return the 404
  * response without an extra conditional:
@@ -66,13 +66,18 @@ export async function assertServerTeamAccess(
     };
   }
 
-  // Admins / team managers see all servers
-  if (sessionHasPermission(session, "team:manage")) {
+  // Platform administrators see all workspaces.
+  if (isGlobalTeamManager(session)) {
     return { ok: true, server };
   }
 
   // User's current team matches the server's team
   if (session.currentTeamId && server.teamId === session.currentTeamId) {
+    // Workspace owners/admins always manage their workspace resources. Per-user
+    // server rows are member restrictions and do not narrow administrators.
+    if (isWorkspaceTeamManager(session)) {
+      return { ok: true, server };
+    }
     const override = await prisma.userServerAccess.findUnique({
       where: { userId_serverId: { userId: session.userId, serverId } },
       select: { [SERVER_ACCESS_FIELDS[capability]]: true },

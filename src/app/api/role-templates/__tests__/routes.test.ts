@@ -24,6 +24,7 @@ vi.mock("@/lib/auth/role-template-service", async (importOriginal) => {
 	// Keep the real zod schema — the array caps are part of this route's contract.
 	const actual = await importOriginal<typeof import("@/lib/auth/role-template-service")>();
 	return {
+		ROLE_TEMPLATE_KINDS: actual.ROLE_TEMPLATE_KINDS,
 		roleTemplateInputSchema: actual.roleTemplateInputSchema,
 		listRoleTemplates: mocks.listRoleTemplates,
 		createRoleTemplate: mocks.createRoleTemplate,
@@ -88,6 +89,8 @@ const templateView = {
 	roleKeys: ["operator"],
 	permissions: ["storage:read", "storage:write"],
 	storageAccess: [],
+	serverAccess: [],
+	kind: "ACCOUNT_TEMPLATE",
 	isBuiltin: false,
 };
 
@@ -114,7 +117,7 @@ describe("role-template routes", () => {
 
 		expect(res.status).toBe(200);
 		expect(await res.json()).toEqual({ templates: [templateView] });
-		expect(mocks.listRoleTemplates).toHaveBeenCalledWith("team_1");
+		expect(mocks.listRoleTemplates).toHaveBeenCalledWith("team_1", "ACCOUNT_TEMPLATE");
 		expect(mocks.guardCalls[0]).toMatchObject({ permissions: ["user:read", "team:member:manage"] });
 		expect(mocks.guardCalls[0]?.rateLimit).toBeUndefined();
 	});
@@ -145,11 +148,12 @@ describe("role-template routes", () => {
 			expect.objectContaining({ name: "storage operator" }),
 			"u_1",
 			"team_1",
+			true,
 		);
 		expect(mocks.auditUserAction).toHaveBeenCalledWith(
 			"u_1",
 			"role_template.create",
-			{ templateId: "tpl_1", name: "storage operator" },
+			{ templateId: "tpl_1", name: "storage operator", kind: "ACCOUNT_TEMPLATE" },
 			undefined,
 			"team_1",
 		);
@@ -161,6 +165,7 @@ describe("role-template routes", () => {
 			{ name: "empty", roleKeys: [], permissions: [], storageAccess: [], serverAccess: [] },
 			"u_1",
 			"team_1",
+			true,
 		);
 	});
 
@@ -169,9 +174,9 @@ describe("role-template routes", () => {
 		["a name over 120 chars", { name: "n".repeat(121) }],
 		["more than 20 roles", { name: "t", roleKeys: Array.from({ length: 21 }, (_v, i) => `r${i}`) }],
 		["more than 500 permissions", { name: "t", permissions: Array.from({ length: 501 }, (_v, i) => `p${i}`) }],
-		["more than 100 storage grants", {
+		["more than 5000 storage grants", {
 			name: "t",
-			storageAccess: Array.from({ length: 101 }, () => ({ storageNodeId: "n1" })),
+			storageAccess: Array.from({ length: 5001 }, () => ({ storageNodeId: "n1" })),
 		}],
 		["a storage grant with no node", { name: "t", storageAccess: [{ storageNodeId: "" }] }],
 	])("rejects %s", async (_label, body) => {
@@ -203,7 +208,7 @@ describe("role-template routes", () => {
 		const res = await item.DELETE(req("DELETE"), idParams);
 
 		expect(res.status).toBe(200);
-		expect(mocks.deleteRoleTemplate).toHaveBeenCalledWith("tpl_1", "team_1");
+		expect(mocks.deleteRoleTemplate).toHaveBeenCalledWith("tpl_1", "team_1", true);
 		expect(mocks.auditUserAction).toHaveBeenCalledWith(
 			"u_1",
 			"role_template.delete",

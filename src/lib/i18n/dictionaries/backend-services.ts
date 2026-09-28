@@ -631,6 +631,15 @@ export const zh: Record<string, string> = {
 	"backend.auth.duplicateServerAccess": "服务器授权不能重复",
 	"backend.auth.unknownServerInTemplate": "权限模板包含不存在的服务器",
 	"backend.auth.assignedGroupCannotBeDeleted": "此权限组仍分配给成员，请先重新分配成员",
+	"backend.auth.templateKindCannotChange": "权限模板与工作区权限组不能相互转换",
+	"backend.auth.invalidWorkspacePolicyGroup": "工作区权限组只能包含成员角色和工作区操作权限",
+	"backend.auth.policyGroupCannotContainResourceSnapshots": "工作区权限组不能包含单服务器或云盘路径快照",
+	"backend.auth.accountTemplatesRequirePlatformAdmin": "只有平台管理员可以管理账号权限模板",
+	"backend.auth.invalidTemplateKind": "权限模板类型无效",
+	"backend.user.adminResourceAccessIsRoleBased": "管理员的资源访问由管理员身份直接授予，无需设置单服务器或云盘限制",
+	"backend.user.invalidStorageLimit": "云盘容量或单文件限制必须是非负整数",
+	"backend.user.invalidStoragePath": "云盘授权路径无效，请使用不含 .、.. 或非法字符的相对路径",
+	"backend.user.duplicateStorageAccess": "同一云盘节点和路径不能重复授权",
 };
 
 
@@ -1278,4 +1287,13 @@ export const en: Record<string, string> = {
 	"backend.auth.duplicateServerAccess": "Duplicate server grants are not allowed",
 	"backend.auth.unknownServerInTemplate": "Permission template contains an unknown server",
 	"backend.auth.assignedGroupCannotBeDeleted": "This group is still assigned to members. Reassign them before deleting it",
+	"backend.auth.templateKindCannotChange": "Permission templates and workspace policy groups cannot be converted into each other",
+	"backend.auth.invalidWorkspacePolicyGroup": "Workspace policy groups may only contain member roles and workspace operation permissions",
+	"backend.auth.policyGroupCannotContainResourceSnapshots": "Workspace policy groups cannot contain individual server or storage path snapshots",
+	"backend.auth.accountTemplatesRequirePlatformAdmin": "Only platform administrators can manage account permission templates",
+	"backend.auth.invalidTemplateKind": "Invalid permission template kind",
+	"backend.user.adminResourceAccessIsRoleBased": "Administrator resource access is granted by the administrator role and does not use individual server or storage restrictions",
+	"backend.user.invalidStorageLimit": "Storage quota and maximum file size must be non-negative integers",
+	"backend.user.invalidStoragePath": "Storage grant path is invalid; use a relative path without . or .. segments or illegal characters",
+	"backend.user.duplicateStorageAccess": "The same storage node and path cannot be granted more than once",
 };

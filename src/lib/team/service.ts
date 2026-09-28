@@ -13,6 +13,10 @@ import type {
 import { t } from "@/lib/i18n/service-translations";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { tenantStorageBasePath } from "@/lib/storage/path-utils";
+import {
+  DEFAULT_WORKSPACE_POLICY_GROUPS,
+  defaultWorkspacePolicyGroupId,
+} from "@/lib/auth/role-template-service";
 
 export type TeamRole = "owner" | "admin" | "member";
 
@@ -151,6 +155,21 @@ export async function createTeam(
         await tx.teamMember.create({
           data: { teamId: created.id, userId: session.userId, role: "owner" },
         });
+        await tx.roleTemplate.createMany({
+          data: DEFAULT_WORKSPACE_POLICY_GROUPS.map((group) => ({
+            id: defaultWorkspacePolicyGroupId(created.id, group.key),
+            name: group.name,
+            description: group.description,
+            kind: "POLICY_GROUP",
+            roleKeys: group.roleKeys,
+            permissions: group.permissions,
+            dataScope: { storageAccess: [], serverAccess: [] },
+            isBuiltin: false,
+            createdBy: session.userId,
+            teamId: created.id,
+          })),
+          skipDuplicates: true,
+        });
         await tx.storageNode.create({
           data: {
             name: "Workspace storage",
@@ -268,12 +287,22 @@ export async function transferTeamOwnership(
       throw new NotFoundError(t("backend.team.transferTargetActiveMember"));
     }
     await prisma.$transaction(async (tx) => {
-      await tx.teamMember.updateMany({ where: { teamId, role: "owner" }, data: { role: "admin" } });
+      await tx.teamMember.updateMany({
+        where: { teamId, role: "owner" },
+        data: { role: "admin", accessRole: "inherit", permissionTemplateId: null },
+      });
       await tx.teamMember.update({
         where: { teamId_userId: { teamId, userId: input.userId } },
-        data: { role: "owner" },
+        data: { role: "owner", accessRole: "inherit", permissionTemplateId: null },
       });
       await tx.team.update({ where: { id: teamId }, data: { ownerId: input.userId } });
+      const administratorIds = [team.ownerId, input.userId].filter((id): id is string => Boolean(id));
+      await tx.userServerAccess.deleteMany({
+        where: { userId: { in: administratorIds }, server: { teamId } },
+      });
+      await tx.userStorageAccess.deleteMany({
+        where: { userId: { in: administratorIds }, storageNode: { teamId } },
+      });
     });
     await auditUserAction(session.userId, "team.owner.transfer", {
       teamId, previousOwnerId: team.ownerId, newOwnerId: input.userId,
@@ -316,38 +345,60 @@ export async function addTeamMember(
       t("backend.team.cannotChangeOwnerRoleViaMemberApi"),
     );
   }
-  if (input.permissionTemplateId) {
+  const administrativeRole = input.role === "admin";
+  if (!administrativeRole && input.permissionTemplateId) {
     const template = await prisma.roleTemplate.findFirst({
-      where: { id: input.permissionTemplateId, teamId, isBuiltin: false },
-      select: { id: true, dataScope: true },
+      where: { id: input.permissionTemplateId, teamId, kind: "POLICY_GROUP", isBuiltin: false },
+      select: { id: true },
     });
     if (!template) throw new ValidationError(t("backend.team.groupOutsideWorkspace"));
-    const scope = template.dataScope && typeof template.dataScope === "object" && !Array.isArray(template.dataScope)
-      ? template.dataScope as Record<string, unknown>
-      : {};
-    if ((Array.isArray(scope.serverAccess) && scope.serverAccess.length > 0)
-      || (Array.isArray(scope.storageAccess) && scope.storageAccess.length > 0)) {
-      throw new ValidationError(t("backend.team.resourceTemplateRequiresAccountAssignment"));
-    }
   }
 
-  const member = await prisma.teamMember.upsert({
-    where: { teamId_userId: { teamId, userId: user.id } },
-    update: { role: input.role, ...(input.accessRole ? { accessRole: input.accessRole } : {}), ...(input.permissionTemplateId !== undefined ? { permissionTemplateId: input.permissionTemplateId } : {}) },
-    create: { teamId, userId: user.id, role: input.role, accessRole: input.accessRole ?? "inherit", permissionTemplateId: input.permissionTemplateId ?? null },
-    select: {
-      role: true,
-      accessRole: true,
-      permissionTemplateId: true,
-      user: {
-        select: { id: true, username: true, displayName: true, status: true },
+  const member = await prisma.$transaction(async (tx) => {
+    const saved = await tx.teamMember.upsert({
+      where: { teamId_userId: { teamId, userId: user.id } },
+      update: administrativeRole
+        ? { role: "admin", accessRole: "inherit", permissionTemplateId: null }
+        : { role: "member", ...(input.accessRole ? { accessRole: input.accessRole } : {}), ...(input.permissionTemplateId !== undefined ? { permissionTemplateId: input.permissionTemplateId } : {}) },
+      create: {
+        teamId,
+        userId: user.id,
+        role: input.role,
+        accessRole: administrativeRole ? "inherit" : input.accessRole ?? "inherit",
+        permissionTemplateId: administrativeRole ? null : input.permissionTemplateId ?? null,
       },
-    },
+      select: {
+        role: true,
+        accessRole: true,
+        permissionTemplateId: true,
+        user: {
+          select: { id: true, username: true, displayName: true, status: true },
+        },
+      },
+    });
+    if (administrativeRole) {
+      // Administrator access is role-based. Remove member-only restrictions so
+      // a later demotion starts from inheritance rather than stale hidden rows.
+      await tx.userServerAccess.deleteMany({
+        where: { userId: user.id, server: { teamId } },
+      });
+      await tx.userStorageAccess.deleteMany({
+        where: { userId: user.id, storageNode: { teamId } },
+      });
+    }
+    return saved;
   });
   await auditUserAction(
     session.userId,
     "team.member.upsert",
-    { teamId, teamSlug: team.slug, username: user.username, role: input.role, accessRole: input.accessRole ?? "inherit", permissionTemplateId: input.permissionTemplateId ?? null },
+    {
+      teamId,
+      teamSlug: team.slug,
+      username: user.username,
+      role: input.role,
+      accessRole: administrativeRole ? "inherit" : input.accessRole ?? "inherit",
+      permissionTemplateId: administrativeRole ? null : input.permissionTemplateId ?? null,
+    },
     undefined,
     teamId,
   );

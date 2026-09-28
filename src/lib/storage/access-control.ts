@@ -3,7 +3,7 @@ import { Prisma } from "@prisma/client";
 import { config } from "@/lib/config/env";
 import type { SessionPayload } from "@/lib/auth/session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { storageNodeTeamWhere } from "@/lib/auth/team-scope";
+import { isWorkspaceTeamManager, storageNodeTeamWhere } from "@/lib/auth/team-scope";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { prisma } from "@/lib/db";
 import { normalizeStorageTargetDirectory } from "@/lib/storage/path-utils";
@@ -150,8 +150,13 @@ export async function assertStorageAccess(input: {
     return { allowed: false, reason: STORAGE_ACCESS_DENIED_REASONS.noAccess };
   }
 
-  // Storage managers retain full path access within their team scope (or all if team:manage).
-  if (sessionHasPermission(input.session, "storage:manage-node")) {
+  // Workspace owners/admins bypass member path grants even when a bearer token
+  // intentionally carries only the requested file operation. The permission
+  // check above still limits a token to read, write, or delete as scoped.
+  if (
+    isWorkspaceTeamManager(input.session)
+    || sessionHasPermission(input.session, "storage:manage-node")
+  ) {
     return { allowed: true };
   }
 
@@ -256,7 +261,8 @@ export async function getStorageAccessCapabilities(input: {
   const canRoleRead = sessionHasPermission(input.session, "storage:read");
   const canRoleWrite = sessionHasPermission(input.session, "storage:write");
   const canRoleDelete = sessionHasPermission(input.session, "storage:delete");
-  const canManageNodes = sessionHasPermission(input.session, "storage:manage-node");
+  const bypassMemberGrants = isWorkspaceTeamManager(input.session)
+    || sessionHasPermission(input.session, "storage:manage-node");
 
   const uniqueTargets = new Map<string, { storageNodeId: string; relativePath: string }>();
   for (const target of input.targets) {
@@ -289,10 +295,14 @@ export async function getStorageAccessCapabilities(input: {
     }
   }
 
-  if (canManageNodes) {
+  if (bypassMemberGrants) {
     for (const [key, target] of uniqueTargets) {
       if (visibleNodeIds.has(target.storageNodeId)) {
-        result.set(key, { canRead: true, canWrite: true, canDelete: true });
+        result.set(key, {
+          canRead: canRoleRead,
+          canWrite: canRoleWrite,
+          canDelete: canRoleDelete,
+        });
       }
     }
     return result;

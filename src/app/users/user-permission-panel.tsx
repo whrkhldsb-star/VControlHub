@@ -44,6 +44,7 @@ type PermissionsPayload = {
     displayName: string | null;
     roles: RoleInfo[];
     effectivePermissions: string[];
+    resourceAccessBypassed: boolean;
     /** Fine-grained custom role only (not base role grants). */
     directPermissionKeys?: string[];
     storageAccess: StorageGrant[];
@@ -63,6 +64,7 @@ type RoleTemplate = {
   permissions: string[];
   storageAccess: StorageGrant[];
   serverAccess?: ServerGrant[];
+  kind: "ACCOUNT_TEMPLATE";
   /** Built-in templates are read-only: the API refuses PATCH/DELETE on them. */
   isBuiltin: boolean;
 };
@@ -93,6 +95,33 @@ function toBytes(value: string): { ok: true; value: string | null } | { ok: fals
     ok: true,
     value: String(Math.floor(Number(match[1]!) * factor[match[2]!.toLowerCase()]!)),
   };
+}
+
+function normalizeStorageGrants(grants: StorageGrant[]) {
+  const normalized: Array<{
+    storageNodeId: string;
+    pathPrefix: string;
+    canRead: boolean;
+    canWrite: boolean;
+    canDelete: boolean;
+    quotaBytes: string | null;
+    maxFileBytes: string | null;
+  }> = [];
+  for (const grant of grants) {
+    const quota = toBytes(grant.quotaBytes ?? "");
+    const maxFile = toBytes(grant.maxFileBytes ?? "");
+    if (!quota.ok || !maxFile.ok) return null;
+    normalized.push({
+      storageNodeId: grant.storageNodeId,
+      pathPrefix: grant.pathPrefix,
+      canRead: grant.canRead,
+      canWrite: grant.canWrite,
+      canDelete: grant.canDelete,
+      quotaBytes: quota.value,
+      maxFileBytes: maxFile.value,
+    });
+  }
+  return normalized;
 }
 
 export function UserPermissionPanel({ userId, username, onClose, onSaved, resourceOnly = false }: Props) {
@@ -137,7 +166,7 @@ return data as PermissionsPayload;
 
   useEffect(() => {
     if (resourceOnly) return;
-    csrfFetch("/api/role-templates")
+    csrfFetch("/api/role-templates?kind=ACCOUNT_TEMPLATE")
       .then((data) => setTemplates((data as { templates?: RoleTemplate[] }).templates ?? []))
       .catch(() => setTemplates([]));
   }, [resourceOnly]);
@@ -200,9 +229,14 @@ return data as PermissionsPayload;
     }
     setSavingTemplate(true);
     try {
+      const normalizedGrants = normalizeStorageGrants(grants);
+      if (!normalizedGrants) {
+        setMessage({ type: "error", text: t("usersPerm.error.invalidQuota") });
+        return;
+      }
       const data = await csrfFetch("/api/role-templates", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, roleKeys, permissions: permissionKeys, storageAccess: grants, serverAccess: serverGrants }),
+        body: JSON.stringify({ kind: "ACCOUNT_TEMPLATE", name, roleKeys, permissions: permissionKeys, storageAccess: normalizedGrants, serverAccess: serverGrants }),
       }) as { template: RoleTemplate };
       setTemplates((current) => [...current, data.template].sort((a, b) => a.name.localeCompare(b.name)));
       setSelectedTemplateId(data.template.id);
@@ -219,14 +253,20 @@ return data as PermissionsPayload;
     if (!selectedTemplate || selectedTemplate.isBuiltin) return;
     setSavingTemplate(true);
     try {
+      const normalizedGrants = normalizeStorageGrants(grants);
+      if (!normalizedGrants) {
+        setMessage({ type: "error", text: t("usersPerm.error.invalidQuota") });
+        return;
+      }
       const data = await csrfFetch(`/api/role-templates/${encodeURIComponent(selectedTemplate.id)}`, {
         method: "PATCH", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          kind: "ACCOUNT_TEMPLATE",
           name: selectedTemplate.name,
           description: selectedTemplate.description,
           roleKeys,
           permissions: permissionKeys,
-          storageAccess: grants,
+          storageAccess: normalizedGrants,
           serverAccess: serverGrants,
         }),
       }) as { template: RoleTemplate };
@@ -243,40 +283,28 @@ return data as PermissionsPayload;
     setSaving(true);
     setMessage(null);
 
-    const normalizedGrants: Array<{
-      storageNodeId: string;
-      pathPrefix: string;
-      canRead: boolean;
-      canWrite: boolean;
-      canDelete: boolean;
-      quotaBytes: string | null;
-      maxFileBytes: string | null;
-    }> = [];
-
-    for (const grant of grants) {
-      const quota = toBytes(grant.quotaBytes ?? "");
-      const maxFile = toBytes(grant.maxFileBytes ?? "");
-      if (!quota.ok || !maxFile.ok) {
-        setMessage({ type: "error", text: t("usersPerm.error.invalidQuota") });
-        setSaving(false);
-        return;
-      }
-      normalizedGrants.push({
-        storageNodeId: grant.storageNodeId,
-        pathPrefix: grant.pathPrefix,
-        canRead: grant.canRead,
-        canWrite: grant.canWrite,
-        canDelete: grant.canDelete,
-        quotaBytes: quota.value,
-        maxFileBytes: maxFile.value,
-      });
+    const normalizedGrants = normalizeStorageGrants(grants);
+    if (!normalizedGrants) {
+      setMessage({ type: "error", text: t("usersPerm.error.invalidQuota") });
+      setSaving(false);
+      return;
     }
 
     try {
+      const includeResourceAccess = !payload?.user.resourceAccessBypassed && !roleKeys.includes("admin");
       await csrfFetch("/api/users/permissions", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, ...(resourceOnly ? {} : { roleKeys, permissionKeys }), storageAccess: normalizedGrants, storageAccessScopeIds: (payload?.storageNodes ?? []).map((node) => node.id), serverAccess: serverGrants, serverAccessScopeIds: (payload?.servers ?? []).map((server) => server.id) }),
+        body: JSON.stringify({
+          userId,
+          ...(resourceOnly ? {} : { roleKeys, permissionKeys }),
+          ...(includeResourceAccess ? {
+            storageAccess: normalizedGrants,
+            storageAccessScopeIds: (payload?.storageNodes ?? []).map((node) => node.id),
+            serverAccess: serverGrants,
+            serverAccessScopeIds: (payload?.servers ?? []).map((server) => server.id),
+          } : {}),
+        }),
       });
       setMessage({ type: "success", text: t("usersPerm.success.saved") });
       onSaved();
@@ -383,7 +411,9 @@ return data as PermissionsPayload;
               </div>
             </section>}
 
-            <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
+            {payload.user.resourceAccessBypassed && <Notice tone="info">{t("usersPerm.adminResourceAccess")}</Notice>}
+
+            {!payload.user.resourceAccessBypassed && <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
               <h4 className="font-medium text-[var(--text-primary)]">{t("usersPerm.section.servers")}</h4>
               <p className="mt-1 text-xs text-[var(--text-muted)]">{t("usersPerm.servers.hint")}</p>
               <div className="mt-3 space-y-3">
@@ -418,9 +448,9 @@ return data as PermissionsPayload;
                     </div>;
                   })}
               </div>
-            </section>
+            </section>}
 
-            <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
+            {!payload.user.resourceAccessBypassed && <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <h4 className="font-medium text-[var(--text-primary)]">{t("usersPerm.section.grants")}</h4>
@@ -457,11 +487,11 @@ return data as PermissionsPayload;
                   );
                 })}
               </div>
-            </section>
+            </section>}
 
             <div className="flex justify-end gap-3">
               <ActionButton variant="secondary" onClick={onClose} className="!px-5 !py-2 !text-sm">{t("usersPerm.action.cancel")}</ActionButton>
-              <ActionButton variant="outline" onClick={save} disabled={saving} className="!px-5 !py-2 !text-sm disabled:opacity-50">{saving ? t("usersPerm.action.saving") : t("usersPerm.action.save")}</ActionButton>
+              {(!resourceOnly || !payload.user.resourceAccessBypassed) && <ActionButton variant="outline" onClick={save} disabled={saving} className="!px-5 !py-2 !text-sm disabled:opacity-50">{saving ? t("usersPerm.action.saving") : t("usersPerm.action.save")}</ActionButton>}
             </div>
           </div>
         )}

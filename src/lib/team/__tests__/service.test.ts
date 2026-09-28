@@ -20,7 +20,9 @@ const { prismaMock, auditUserActionMock, releaseLockMock, acquireAdvisoryLockMoc
 			user: { findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
 			server: { updateMany: vi.fn() },
 			storageNode: { create: vi.fn() },
-			roleTemplate: { findFirst: vi.fn() },
+			roleTemplate: { findFirst: vi.fn(), createMany: vi.fn() },
+			userServerAccess: { deleteMany: vi.fn() },
+			userStorageAccess: { deleteMany: vi.fn() },
 			$transaction: vi.fn(),
 		},
 		auditUserActionMock: vi.fn(),
@@ -64,6 +66,9 @@ describe("team workspace service", () => {
 
 		await expect(createTeam({ name: "Ops", slug: "ops", description: null }, adminSession)).resolves.toMatchObject({ id: "team_1", slug: "ops" });
 		expect(prismaMock.teamMember.create).toHaveBeenCalledWith({ data: { teamId: "team_1", userId: "u_admin", role: "owner" } });
+		expect(prismaMock.roleTemplate.createMany).toHaveBeenCalledWith(expect.objectContaining({
+			data: expect.arrayContaining([expect.objectContaining({ teamId: "team_1", kind: "POLICY_GROUP", roleKeys: [], permissions: expect.arrayContaining(["server:read"]) })]),
+		}));
 		expect(prismaMock.storageNode.create).toHaveBeenCalledWith({ data: expect.objectContaining({ teamId: "team_1", isDefault: true }) });
 		expect(prismaMock.user.update).toHaveBeenCalledWith({ where: { id: "u_admin" }, data: { currentTeamId: "team_1" } });
 		expect(auditUserActionMock).toHaveBeenCalledWith(
@@ -207,18 +212,40 @@ describe("team workspace service", () => {
 		}));
 	});
 
-	it("rejects applying a resource snapshot as a live workspace permission group", async () => {
+	it("promotes an administrator without retaining member ceilings or resource overrides", async () => {
+		prismaMock.teamMember.findUnique
+			.mockResolvedValueOnce({ role: "admin" })
+			.mockResolvedValueOnce({ role: "member" });
+		prismaMock.team.findUnique.mockResolvedValueOnce({ id: "team_1", slug: "ops", ownerId: "u_owner" });
+		prismaMock.user.findUnique.mockResolvedValueOnce({ id: "u_member", username: "alice" });
+		prismaMock.teamMember.upsert.mockResolvedValueOnce({ role: "admin", accessRole: "inherit", permissionTemplateId: null, user: { id: "u_member", username: "alice" } });
+
+		await addTeamMember("team_1", {
+			username: "alice", role: "admin", accessRole: "viewer", permissionTemplateId: "ignored-template",
+		}, { ...viewerSession, currentTeamId: "team_1" });
+
+		expect(prismaMock.teamMember.upsert).toHaveBeenCalledWith(expect.objectContaining({
+			update: { role: "admin", accessRole: "inherit", permissionTemplateId: null },
+			create: expect.objectContaining({ role: "admin", accessRole: "inherit", permissionTemplateId: null }),
+		}));
+		expect(prismaMock.roleTemplate.findFirst).not.toHaveBeenCalled();
+		expect(prismaMock.userServerAccess.deleteMany).toHaveBeenCalledWith({ where: { userId: "u_member", server: { teamId: "team_1" } } });
+		expect(prismaMock.userStorageAccess.deleteMany).toHaveBeenCalledWith({ where: { userId: "u_member", storageNode: { teamId: "team_1" } } });
+	});
+
+	it("rejects applying an account template as a live workspace permission group", async () => {
 		prismaMock.team.findUnique.mockResolvedValueOnce({ id: "team_1", slug: "ops", ownerId: "u_admin" });
 		prismaMock.user.findUnique.mockResolvedValueOnce({ id: "u_member", username: "alice" });
 		prismaMock.teamMember.findUnique.mockResolvedValueOnce(null);
-		prismaMock.roleTemplate.findFirst.mockResolvedValueOnce({
-			id: "template_1",
-			dataScope: { serverAccess: [{ serverId: "srv_1", canRead: true }] },
-		});
+		prismaMock.roleTemplate.findFirst.mockResolvedValueOnce(null);
 
 		await expect(addTeamMember("team_1", {
 			username: "alice", role: "member", permissionTemplateId: "template_1",
-		}, adminSession)).rejects.toThrow(/账号权限设置/);
+		}, adminSession)).rejects.toThrow();
+		expect(prismaMock.roleTemplate.findFirst).toHaveBeenCalledWith({
+			where: { id: "template_1", teamId: "team_1", kind: "POLICY_GROUP", isBuiltin: false },
+			select: { id: true },
+		});
 		expect(prismaMock.teamMember.upsert).not.toHaveBeenCalled();
 	});
 
@@ -231,9 +258,11 @@ describe("team workspace service", () => {
 			prismaMock.team.update.mockResolvedValueOnce({});
 			await expect(transferTeamOwnership("team_1", { userId: "u_member" }, ownerSession)).resolves.toEqual({ teamId: "team_1", ownerId: "u_member", username: "alice" });
 			expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
-			expect(prismaMock.teamMember.updateMany).toHaveBeenCalledWith({ where: { teamId: "team_1", role: "owner" }, data: { role: "admin" } });
-			expect(prismaMock.teamMember.update).toHaveBeenCalledWith({ where: { teamId_userId: { teamId: "team_1", userId: "u_member" } }, data: { role: "owner" } });
+			expect(prismaMock.teamMember.updateMany).toHaveBeenCalledWith({ where: { teamId: "team_1", role: "owner" }, data: { role: "admin", accessRole: "inherit", permissionTemplateId: null } });
+			expect(prismaMock.teamMember.update).toHaveBeenCalledWith({ where: { teamId_userId: { teamId: "team_1", userId: "u_member" } }, data: { role: "owner", accessRole: "inherit", permissionTemplateId: null } });
 			expect(prismaMock.team.update).toHaveBeenCalledWith({ where: { id: "team_1" }, data: { ownerId: "u_member" } });
+			expect(prismaMock.userServerAccess.deleteMany).toHaveBeenCalled();
+			expect(prismaMock.userStorageAccess.deleteMany).toHaveBeenCalled();
 			expect(releaseLockMock).toHaveBeenCalled();
 		});
 

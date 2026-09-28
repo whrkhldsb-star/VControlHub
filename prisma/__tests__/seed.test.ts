@@ -33,8 +33,9 @@ const { mockPrisma } = vi.hoisted(() => ({
       upsert: vi.fn(),
       updateMany: vi.fn(),
     },
-    team: { findMany: vi.fn(), create: vi.fn() },
+    team: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn() },
     teamMember: { upsert: vi.fn() },
+    roleTemplate: { createMany: vi.fn() },
     commandRequest: {
       upsert: vi.fn(),
     },
@@ -137,8 +138,10 @@ beforeEach(() => {
   mockPrisma.user.upsert.mockResolvedValue({ id: "user_admin" });
   mockPrisma.userRole.upsert.mockResolvedValue({});
   mockPrisma.team.findMany.mockResolvedValue([]);
+  mockPrisma.team.findUnique.mockResolvedValue({ ownerId: "user_admin" });
   mockPrisma.team.create.mockResolvedValue({ id: "team_default", slug: "default" });
   mockPrisma.teamMember.upsert.mockResolvedValue({});
+  mockPrisma.roleTemplate.createMany.mockResolvedValue({ count: 3 });
   mockPrisma.user.updateMany.mockResolvedValue({ count: 1 });
   mockPrisma.storageNode.updateMany.mockResolvedValue({ count: 1 });
   mockPrisma.server.upsert.mockResolvedValue({ id: "srv_demo" });
@@ -162,6 +165,12 @@ describe("prisma seed", () => {
     expect(mockPrisma.rolePermission.createMany).toHaveBeenCalled();
     expect(mockPrisma.user.upsert).toHaveBeenCalled();
     expect(mockPrisma.team.create).toHaveBeenCalledWith({ data: expect.objectContaining({ slug: "default", ownerId: "user_admin" }) });
+    expect(mockPrisma.roleTemplate.createMany).toHaveBeenCalledWith({
+      data: expect.arrayContaining([
+        expect.objectContaining({ teamId: "team_default", kind: "POLICY_GROUP", isBuiltin: false }),
+      ]),
+      skipDuplicates: true,
+    });
     expect(mockPrisma.server.upsert).not.toHaveBeenCalled();
     expect(mockPrisma.storageNode.upsert).toHaveBeenCalledWith({
       where: { id: "node_local_default" },

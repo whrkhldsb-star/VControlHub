@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
-import { PERMISSIONS } from "@/lib/auth/rbac";
+import { WORKSPACE_POLICY_PERMISSIONS } from "@/lib/auth/tenant-permissions";
+import { DEFAULT_ROLE_PERMISSIONS, type RoleKey } from "@/lib/auth/rbac";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { ActionButton } from "@/components/action-button";
@@ -17,6 +18,7 @@ type Group = {
   permissions: string[];
   storageAccess: unknown[];
   serverAccess: unknown[];
+  kind: "POLICY_GROUP";
   isBuiltin: boolean;
 };
 
@@ -28,8 +30,6 @@ type Member = {
 };
 
 const GROUP_ROLE_KEYS = ["viewer", "operator", "storage_manager"] as const;
-const PLATFORM_ONLY = new Set(["team:manage", "user:manage", "role:manage", "backup:create", "backup:read", "backup:restore", "announcement:manage"]);
-
 export function PermissionGroupsSection({ teamId, members, canManage, onMemberChanged }: {
   teamId: string;
   members: Member[];
@@ -49,10 +49,8 @@ export function PermissionGroupsSection({ teamId, members, canManage, onMemberCh
 
   useEffect(() => {
     let cancelled = false;
-    csrfFetch<{ templates: Group[] }>("/api/role-templates")
-      .then((data) => { if (!cancelled) setGroups((data.templates ?? []).filter((group) =>
-        group.isBuiltin || ((group.serverAccess?.length ?? 0) === 0 && (group.storageAccess?.length ?? 0) === 0)
-      )); })
+    csrfFetch<{ templates: Group[] }>("/api/role-templates?kind=POLICY_GROUP")
+      .then((data) => { if (!cancelled) setGroups(data.templates ?? []); })
       .catch((cause) => { if (!cancelled) setError(getErrorMessage(cause, t("settingsTeam.groups.loadFailed"))); });
     return () => { cancelled = true; };
     // The selected workspace is the only fetch dependency; form edits must not be replaced.
@@ -60,6 +58,21 @@ export function PermissionGroupsSection({ teamId, members, canManage, onMemberCh
   }, [teamId]);
 
   const selected = groups.find((group) => group.id === selectedId);
+  const effectivePermissions = new Set([
+    ...permissions,
+    ...roleKeys.flatMap((key) => DEFAULT_ROLE_PERMISSIONS[key as RoleKey] ?? []),
+  ]);
+
+  function togglePermission(key: string) {
+    if (effectivePermissions.has(key)) {
+      // Detach presets into an exact list before removing a permission they
+      // contributed. The saved group then matches every visible checkbox.
+      setPermissions(Array.from(effectivePermissions).filter((permission) => permission !== key));
+      setRoleKeys([]);
+      return;
+    }
+    setPermissions((current) => [...current, key]);
+  }
   function chooseGroup(id: string) {
     const group = groups.find((item) => item.id === id);
     setSelectedId(id);
@@ -74,17 +87,17 @@ export function PermissionGroupsSection({ teamId, members, canManage, onMemberCh
     if (!name.trim() || !canManage) return;
     setBusy(true); setError(""); setSuccess("");
     try {
-      const updating = selected && !selected.isBuiltin;
-      const data = await csrfFetch<{ template: Group }>(updating ? `/api/role-templates/${encodeURIComponent(selected.id)}` : "/api/role-templates", {
-        method: updating ? "PATCH" : "POST",
+      const data = await csrfFetch<{ template: Group }>(selected ? `/api/role-templates/${encodeURIComponent(selected.id)}` : "/api/role-templates", {
+        method: selected ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          kind: "POLICY_GROUP",
           name: name.trim(), roleKeys, permissions,
-          storageAccess: updating ? selected.storageAccess : [],
-          serverAccess: updating ? selected.serverAccess : [],
+          storageAccess: [],
+          serverAccess: [],
         }),
       });
-      setGroups((current) => updating
+      setGroups((current) => selected
         ? current.map((item) => item.id === data.template.id ? data.template : item)
         : [...current, data.template]);
       setSelectedId(data.template.id);
@@ -98,7 +111,7 @@ export function PermissionGroupsSection({ teamId, members, canManage, onMemberCh
   }
 
   async function deleteGroup() {
-    if (!selected || selected.isBuiltin || !canManage || !window.confirm(t("settingsTeam.groups.confirmDelete"))) return;
+    if (!selected || !canManage || !window.confirm(t("settingsTeam.groups.confirmDelete"))) return;
     setBusy(true); setError(""); setSuccess("");
     try {
       await csrfFetch(`/api/role-templates/${encodeURIComponent(selected.id)}`, { method: "DELETE" });
@@ -112,7 +125,7 @@ export function PermissionGroupsSection({ teamId, members, canManage, onMemberCh
   }
 
   async function assignGroup(member: Member, groupId: string) {
-    if (!canManage || member.role === "owner") return;
+    if (!canManage || member.role !== "member") return;
     setBusy(true); setError(""); setSuccess("");
     try {
       await csrfFetch(`/api/teams/${encodeURIComponent(teamId)}/members`, {
@@ -150,26 +163,27 @@ export function PermissionGroupsSection({ teamId, members, canManage, onMemberCh
           {t(`settingsTeam.accessRole.${key}`)}
         </label>)}
       </div>
+      <p className="text-xs text-[var(--text-muted)]">{t("settingsTeam.groups.rolePresetHint")}</p>
       <div className="grid max-h-72 gap-2 overflow-y-auto rounded-xl border border-[var(--border)] p-3 sm:grid-cols-3">
-        {PERMISSIONS.filter((key) => !PLATFORM_ONLY.has(key)).map((key) => <label key={key} className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
-          <input type="checkbox" checked={permissions.includes(key)} onChange={() => setPermissions((current) => current.includes(key) ? current.filter((item) => item !== key) : [...current, key])} />
+        {WORKSPACE_POLICY_PERMISSIONS.map((key) => <label key={key} className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+          <input type="checkbox" checked={effectivePermissions.has(key)} onChange={() => togglePermission(key)} />
           <span>{key}</span>
         </label>)}
       </div>
       <div className="flex gap-2">
-        <ActionButton variant="primary" disabled={busy || !name.trim() || selected?.isBuiltin} onClick={saveGroup}>{selected && !selected.isBuiltin ? t("settingsTeam.groups.update") : t("settingsTeam.groups.create")}</ActionButton>
-        {selected && !selected.isBuiltin && <ActionButton variant="danger" disabled={busy} onClick={deleteGroup}>{t("settingsTeam.groups.delete")}</ActionButton>}
+        <ActionButton variant="primary" disabled={busy || !name.trim()} onClick={saveGroup}>{selected ? t("settingsTeam.groups.update") : t("settingsTeam.groups.create")}</ActionButton>
+        {selected && <ActionButton variant="danger" disabled={busy} onClick={deleteGroup}>{t("settingsTeam.groups.delete")}</ActionButton>}
       </div>
     </div>}
     <div className="mt-4 space-y-2">
-      {members.filter((member) => member.role !== "owner").slice(0, showAllMembers ? undefined : 10).map((member) => <div key={member.user.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+      {members.filter((member) => member.role === "member").slice(0, showAllMembers ? undefined : 10).map((member) => <div key={member.user.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
         <span className="text-[var(--text-secondary)]">@{member.user.username}</span>
         <select aria-label={`${member.user.username} ${t("settingsTeam.groups.select")}`} disabled={!canManage || busy} value={member.permissionTemplateId ?? ""} onChange={(event) => void assignGroup(member, event.target.value)} className={UI_INPUT}>
           <option value="">{t("settingsTeam.groups.noGroup")}</option>
-          {groups.filter((group) => !group.isBuiltin).map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
+          {groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
         </select>
       </div>)}
-      {members.filter((member) => member.role !== "owner").length > 10 && !showAllMembers && <button type="button" className="text-xs text-[var(--accent)]" onClick={() => setShowAllMembers(true)}>{t("settingsTeam.groups.showAll")}</button>}
+      {members.filter((member) => member.role === "member").length > 10 && !showAllMembers && <button type="button" className="text-xs text-[var(--accent)]" onClick={() => setShowAllMembers(true)}>{t("settingsTeam.groups.showAll")}</button>}
     </div>
   </section>;
 }

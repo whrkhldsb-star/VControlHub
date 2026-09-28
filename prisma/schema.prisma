@@ -2147,6 +2147,7 @@ model RoleTemplate {
   id          String       @id @default(cuid())
   name        String
   description String?
+  kind        String       @default("ACCOUNT_TEMPLATE") // ACCOUNT_TEMPLATE | POLICY_GROUP
   roleKeys    String[] // e.g. ["operator", "viewer"]
   permissions String[] // explicit permission overrides
   dataScope   Json? // storageAccess grants / future resource scope
@@ -2160,7 +2161,7 @@ model RoleTemplate {
   members     TeamMember[]
 
   @@index([name])
-  @@index([teamId, name])
+  @@index([teamId, kind, name])
   @@map("role_templates")
 }
 

@@ -39,6 +39,12 @@ const {
 const ADMIN: TeamSession = { userId: "u_admin", roles: ["admin"], currentTeamId: null };
 const ADMIN_IN_TEAM: TeamSession = { userId: "u_admin", roles: ["admin"], currentTeamId: "team_a" };
 const MEMBER: TeamSession = { userId: "u_member", roles: ["operator"], currentTeamId: "team_a" };
+const WORKSPACE_ADMIN: TeamSession = {
+  userId: "u_workspace_admin",
+  roles: ["viewer"],
+  currentTeamId: "team_a",
+  permissions: ["team:member:manage"],
+};
 const TEAMLESS: TeamSession = { userId: "u_free", roles: ["operator"], currentTeamId: null };
 
 const STRICT_HELPERS = [
@@ -116,6 +122,12 @@ describe("security-root helpers (strict: null teamId is quarantined)", () => {
       });
     });
   }
+});
+
+describe("workspace administrator resource access", () => {
+  it("keeps the workspace boundary while bypassing member server overrides", () => {
+    expect(serverTeamWhere(WORKSPACE_ADMIN, "manage")).toEqual({ teamId: "team_a" });
+  });
 });
 
 describe("userDirectoryWhere", () => {

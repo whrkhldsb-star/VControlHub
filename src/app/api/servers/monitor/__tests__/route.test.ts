@@ -58,7 +58,7 @@ describe("/api/servers/monitor", () => {
   it("collects metrics when the session has server read permission", async () => {
     vi.clearAllMocks();
     requireApiPermissionMock.mockResolvedValueOnce({
-      session: { userId: "u_1", username: "admin" },
+      session: { userId: "u_1", username: "admin", roles: ["admin"], permissions: ["server:read"] },
     });
     collectServerMetricsMock.mockResolvedValueOnce({
       ok: true,

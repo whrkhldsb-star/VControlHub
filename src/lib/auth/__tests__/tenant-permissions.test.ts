@@ -40,16 +40,36 @@ describe("workspace permission scope", () => {
     expect(scoped).toEqual(["team:read"]);
   });
 
-  it("grants owner membership management but no tenant resource access after removal", () => {
+  it("grants owners full workspace access regardless of their account base role", () => {
     const owner = scopePermissionsToWorkspace({
       roles: ["viewer"], accountPermissions: ["team:read", "server:read"],
       membership: { role: "owner", accessRole: "viewer" },
     });
     expect(owner).toContain("team:member:manage");
+    expect(owner).toContain("server:write");
+    expect(owner).toContain("storage:manage-node");
+    expect(owner).toContain("api-token:manage");
+    expect(owner).not.toContain("team:manage");
+    expect(owner).not.toContain("backup:restore");
     const removed = scopePermissionsToWorkspace({
       roles: ["viewer"], accountPermissions: ["team:read", "server:read"], membership: null,
     });
     expect(removed).not.toContain("server:read");
+  });
+
+  it("does not let an assigned group narrow a workspace administrator", () => {
+    const scoped = scopePermissionsToWorkspace({
+      roles: ["viewer"],
+      accountPermissions: ["team:read", "server:read"],
+      membership: {
+        role: "admin",
+        accessRole: "viewer",
+        permissionTemplate: { teamId: "team_1", roleKeys: ["viewer"], permissions: [] },
+      },
+    });
+    expect(scoped).toContain("server:ssh");
+    expect(scoped).toContain("server:write");
+    expect(scoped).toContain("team:member:manage");
   });
 
   it("does not let an ordinary member manage team membership through an account grant", () => {

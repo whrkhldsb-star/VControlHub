@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { isGlobalTeamManager, serverTeamWhere, type TeamSession } from "@/lib/auth/team-scope";
+import { isGlobalTeamManager, isWorkspaceTeamManager, serverTeamWhere, type TeamSession } from "@/lib/auth/team-scope";
 import { SERVER_PROFILE_INCLUDE } from "./service-profile-includes";
 import { enrichServer } from "./service-internals";
 import { getServerTargetAvailability } from "./availability";
@@ -21,6 +21,7 @@ export function normalizeInventoryQuery(input: Record<string, unknown> = {}): In
 function rawServerScope(session: TeamSession, field: "canRead" | "canConnect" | "canManage") {
   if (isGlobalTeamManager(session)) return Prisma.sql`TRUE`;
   if (!session.currentTeamId) return Prisma.sql`FALSE`;
+  if (isWorkspaceTeamManager(session)) return Prisma.sql`s."teamId" = ${session.currentTeamId}`;
   const allowedColumn = field === "canRead" ? Prisma.sql`a."canRead"`
     : field === "canConnect" ? Prisma.sql`a."canConnect"` : Prisma.sql`a."canManage"`;
   // Match serverTeamWhere: no override inherits account access; a row narrows it.
