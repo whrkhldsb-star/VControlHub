@@ -6,8 +6,9 @@ const { prismaMock, auditUserActionMock, releaseLockMock, acquireAdvisoryLockMoc
 	const releaseLockMock = vi.fn(async () => {});
 	return {
 		prismaMock: {
-			team: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() },
+			team: { findMany: vi.fn(), findFirst: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() },
 			teamMember: {
+				findMany: vi.fn(),
 				findUnique: vi.fn(),
 				create: vi.fn(),
 				upsert: vi.fn(),
@@ -17,7 +18,7 @@ const { prismaMock, auditUserActionMock, releaseLockMock, acquireAdvisoryLockMoc
 				deleteMany: vi.fn(),
 				count: vi.fn(),
 			},
-			user: { findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
+			user: { findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
 			server: { updateMany: vi.fn() },
 			storageNode: { create: vi.fn() },
 			roleTemplate: { findFirst: vi.fn(), createMany: vi.fn() },
@@ -56,6 +57,8 @@ describe("team workspace service", () => {
 		vi.resetAllMocks();
 		acquireAdvisoryLockMock.mockResolvedValue(releaseLockMock);
 		prismaMock.$transaction.mockImplementation(async (fn: any) => fn(prismaMock));
+		prismaMock.teamMember.findMany.mockResolvedValue([]);
+		prismaMock.user.findMany.mockResolvedValue([]);
 	});
 
 	it("creates a team, owner membership, and switches current team for the creator", async () => {
@@ -104,16 +107,17 @@ describe("team workspace service", () => {
 	it("tombstones a deleted workspace instead of dropping the row", async () => {
 		prismaMock.team.findUnique.mockResolvedValueOnce({ id: "team_1", slug: "ops", name: "Ops" });
 
-		await expect(deleteTeam("team_1", adminSession)).resolves.toEqual({ deleted: true });
+		prismaMock.team.findFirst.mockResolvedValueOnce(null);
+		await expect(deleteTeam("team_1", adminSession)).resolves.toEqual({ deleted: true, currentTeamId: null });
 
 		// Hard-deleting the row would SetNull every teamId on the workspace's data,
 		// and `teamWhere()` reads null as "shared with every tenant".
 		expect(prismaMock.team.delete).not.toHaveBeenCalled();
 		expect(prismaMock.server.updateMany).not.toHaveBeenCalled();
 		expect(prismaMock.teamMember.deleteMany).toHaveBeenCalledWith({ where: { teamId: "team_1" } });
-		expect(prismaMock.user.updateMany).toHaveBeenCalledWith({
+		expect(prismaMock.user.findMany).toHaveBeenCalledWith({
 			where: { currentTeamId: "team_1" },
-			data: { currentTeamId: null },
+			select: { id: true },
 		});
 		const update = prismaMock.team.update.mock.calls[0]?.[0];
 		expect(update.where).toEqual({ id: "team_1" });
@@ -121,6 +125,47 @@ describe("team workspace service", () => {
 		expect(isDeletedTeamSlug(update.data.slug)).toBe(true);
 		// The original slug is released for reuse.
 		expect(update.data.slug).not.toBe("ops");
+	});
+
+	it("moves every affected login preference and the caller session to a surviving workspace", async () => {
+		prismaMock.team.findUnique.mockResolvedValueOnce({ id: "team_1", slug: "ops", name: "Ops" });
+		prismaMock.user.findMany.mockResolvedValueOnce([{ id: "u_admin" }, { id: "u_member" }]);
+		prismaMock.teamMember.findMany
+			.mockResolvedValueOnce([
+				{ userId: "u_admin", teamId: "team_2", team: { slug: "dev" } },
+				{ userId: "u_member", teamId: "team_old", team: { slug: "__deleted__old" } },
+				{ userId: "u_member", teamId: "team_3", team: { slug: "qa" } },
+			]);
+
+		await expect(deleteTeam("team_1", { ...adminSession, currentTeamId: "team_1" })).resolves.toEqual({
+			deleted: true,
+			currentTeamId: "team_2",
+		});
+		expect(prismaMock.user.updateMany).toHaveBeenCalledWith({
+			where: { id: "u_admin", currentTeamId: "team_1" },
+			data: { currentTeamId: "team_2" },
+		});
+		expect(prismaMock.user.updateMany).toHaveBeenCalledWith({
+			where: { id: "u_member", currentTeamId: "team_1" },
+			data: { currentTeamId: "team_3" },
+		});
+		expect(prismaMock.teamMember.findMany).toHaveBeenCalledTimes(1);
+		expect(prismaMock.teamMember.findMany).toHaveBeenCalledWith(expect.objectContaining({
+			where: { userId: { in: ["u_admin", "u_member"] }, teamId: { not: "team_1" } },
+		}));
+	});
+
+	it("gives a platform administrator a live workspace fallback without membership", async () => {
+		prismaMock.team.findUnique.mockResolvedValueOnce({ id: "team_1", slug: "ops", name: "Ops" });
+		prismaMock.team.findFirst.mockResolvedValueOnce({ id: "team_2" });
+
+		await expect(deleteTeam("team_1", { ...adminSession, currentTeamId: "team_1" })).resolves.toEqual({
+			deleted: true,
+			currentTeamId: "team_2",
+		});
+		expect(prismaMock.team.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+			where: expect.objectContaining({ id: { not: "team_1" } }),
+		}));
 	});
 
 	it("treats an already-tombstoned workspace as missing", async () => {
@@ -283,21 +328,27 @@ describe("team workspace service", () => {
 
 	describe("removeTeamMember", () => {
 		/** Distinct client so a statement run outside the transaction is visible. */
-		function stubTransaction() {
+		function stubTransaction(fallbacks: Array<{ userId: string; teamId: string; team: { slug: string } }> = []) {
 			const tx = {
-				teamMember: { delete: vi.fn(async (_args: unknown) => ({})) },
+				teamMember: {
+					findMany: vi.fn(async (_args: unknown) => fallbacks),
+					delete: vi.fn(async (_args: unknown) => ({})),
+				},
 				user: { updateMany: vi.fn(async (_args: any) => ({ count: 1 })) },
 			};
 			prismaMock.$transaction.mockImplementationOnce(async (fn: any) => fn(tx));
 			return tx;
 		}
 
-		it("drops the membership and the removed user's workspace pointer in one transaction", async () => {
-			// Membership removal revokes live access; the user pointer is cleared
-			// alongside it so a later login does not prefer the removed workspace.
+		it("moves the removed user's workspace pointer to another live membership", async () => {
+			// Membership removal revokes live access; the user pointer moves in the
+			// same transaction so a later login does not prefer the removed workspace.
 			prismaMock.team.findUnique.mockResolvedValueOnce({ id: "team_1", slug: "ops", ownerId: "u_owner" });
 			prismaMock.teamMember.findUnique.mockResolvedValueOnce({ role: "member" });
-			const tx = stubTransaction();
+			const tx = stubTransaction([
+				{ userId: "u_member", teamId: "team_deleted", team: { slug: "__deleted__old" } },
+				{ userId: "u_member", teamId: "team_2", team: { slug: "dev" } },
+			]);
 
 			await expect(removeTeamMember("team_1", "u_member", adminSession)).resolves.toEqual({ removed: true });
 
@@ -306,7 +357,7 @@ describe("team workspace service", () => {
 			});
 			expect(tx.user.updateMany).toHaveBeenCalledWith({
 				where: { id: "u_member", currentTeamId: "team_1" },
-				data: { currentTeamId: null },
+				data: { currentTeamId: "team_2" },
 			});
 			expect(prismaMock.teamMember.delete).not.toHaveBeenCalled();
 			expect(prismaMock.user.updateMany).not.toHaveBeenCalled();

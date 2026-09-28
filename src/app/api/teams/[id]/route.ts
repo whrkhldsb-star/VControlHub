@@ -5,6 +5,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { updateTeamSchema } from "@/lib/team/schema";
 import { updateTeam, deleteTeam } from "@/lib/team/service";
+import { teamSessionResponse } from "@/lib/auth/team-session-response";
 
 export const dynamic = "force-dynamic";
 
@@ -31,9 +32,9 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 		{ requireAuth: true, rateLimit: GENERAL_WRITE_LIMIT, errorMessage: apiCopy("apiCopy.failed.to.delete.team.1e03bcc2") },
 		async ({ session }) => {
 			const { id } = await params;
-			await deleteTeam(id, session);
+			const result = await deleteTeam(id, session);
 			// Audit is recorded inside deleteTeam (includes slug/name).
-			return NextResponse.json({ success: true });
+			return teamSessionResponse(request, result.currentTeamId, { success: true });
 		},
 	);
 }

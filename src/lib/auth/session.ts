@@ -196,7 +196,7 @@ export async function createSessionToken(payload: SessionPayload, options: { rem
 }
 
 /** Change only this cookie's workspace while preserving its original expiry. */
-export async function reissueSessionForTeam(token: string, teamId: string): Promise<{ token: string; maxAge: number }> {
+export async function reissueSessionForTeam(token: string, teamId: string | null): Promise<{ token: string; maxAge: number }> {
   await verifySessionToken(token);
   const [encodedPayload] = token.split(".");
   if (!encodedPayload) throw new AuthError(apiCopy("apiCopy.invalid.session.token.format.ab35c21d"));

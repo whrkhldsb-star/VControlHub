@@ -409,19 +409,59 @@ test("server detail, OS detection and realtime diagnostics", async ({ page }) =>
 });
 
 test("team workspace create and delete lifecycle", async ({ page }) => {
+	test.setTimeout(60_000);
 	await login(page);
 	await page.goto("/settings");
 	const section = page.locator("#team-workspaces");
 	await expect(section).toBeVisible();
 	const marker = `QA Team ${Date.now()}`;
-	await section.getByLabel(/团队名称|Team name/i).last().fill(marker);
-	await section.getByLabel(/slug/i).fill(`qa-team-${Date.now()}`);
-	await section.getByRole("button", { name: /创建团队|Create team/i }).click();
-	const card = section.locator("article").filter({ hasText: marker });
-	await expect(card).toBeVisible();
-	await card.getByRole("button", { name: /删除|Delete/i }).click();
-	const dialog = page.getByRole("dialog", { name: /确认删除团队|Confirm delete team/i });
-	await expect(dialog).toContainText(marker);
-	await dialog.getByRole("button", { name: /确认|Confirm/i }).click();
-	await expect(card).toBeHidden();
+	let createdTeamId: string | null = null;
+	try {
+		await section.getByLabel(/团队名称|Team name/i).last().fill(marker);
+		await section.getByLabel(/slug/i).fill(`qa-team-${Date.now()}`);
+		const createdResponse = page.waitForResponse((response) =>
+			new URL(response.url()).pathname === "/api/teams" && response.request().method() === "POST",
+		);
+		await section.getByRole("button", { name: /创建团队|Create team/i }).click();
+		const created = await createdResponse;
+		const createdBody = await created.text();
+		expect(created.status(), `workspace create failed: ${createdBody}`).toBe(200);
+		createdTeamId = (JSON.parse(createdBody) as { team: { id: string } }).team.id;
+
+		const card = section.locator("article").filter({ hasText: marker });
+		await expect(card).toBeVisible();
+		// Creation rotates the session cookie and then refreshes the server layout.
+		// Wait for the global switcher to observe that refresh before opening a
+		// local dialog; otherwise the delayed refresh can remount this section and
+		// close the dialog between the visibility assertion and the click.
+		const workspaceSwitcher = page.getByRole("combobox", { name: /团队空间|Team workspace/i }).first();
+		await expect(workspaceSwitcher.locator("option:checked")).toContainText(marker);
+
+		const deletedResponse = page.waitForResponse((response) =>
+			new URL(response.url()).pathname === `/api/teams/${createdTeamId}` && response.request().method() === "DELETE",
+		);
+		await card.getByRole("button", { name: /删除|Delete/i }).click();
+		const dialog = page.getByRole("dialog", { name: /确认删除团队|Confirm delete team/i });
+		await expect(dialog).toContainText(marker);
+		await dialog.getByRole("button", { name: /^(确认|Confirm)$/i }).click();
+		const deleted = await deletedResponse;
+		expect(deleted.status(), `workspace delete failed: ${await deleted.text()}`).toBe(200);
+		const deletedTeamId = createdTeamId;
+		createdTeamId = null;
+		await expect(card).toBeHidden();
+		const workspaceState = await page.context().request.get("/api/teams");
+		expect(workspaceState.status()).toBe(200);
+		const { currentTeamId } = (await workspaceState.json()) as { currentTeamId: string | null };
+		expect(currentTeamId).toBeTruthy();
+		expect(currentTeamId).not.toBe(deletedTeamId);
+	} finally {
+		if (createdTeamId) {
+			const csrf = (await page.context().cookies()).find((cookie) => cookie.name === "csrf_token")?.value;
+			if (csrf) {
+				await page.context().request.delete(`/api/teams/${encodeURIComponent(createdTeamId)}`, {
+					headers: { "x-csrf-token": csrf },
+				}).catch(() => undefined);
+			}
+		}
+	}
 });

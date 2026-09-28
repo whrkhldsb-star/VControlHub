@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * pinning here is the guard configuration and the delegation, not the business
  * rules (those are covered in `src/lib/team/__tests__/service.test.ts`).
  */
-const { serviceMock, guardCalls } = vi.hoisted(() => ({
+const { serviceMock, guardCalls, teamSessionResponseMock } = vi.hoisted(() => ({
 	serviceMock: {
 		listTeamsForSession: vi.fn(),
 		createTeam: vi.fn(),
@@ -18,11 +18,12 @@ const { serviceMock, guardCalls } = vi.hoisted(() => ({
 		transferTeamOwnership: vi.fn(),
 	},
 	guardCalls: [] as Record<string, unknown>[],
+	teamSessionResponseMock: vi.fn(async (_request: Request, _teamId: string | null, body: unknown) => Response.json(body)),
 }));
 
 vi.mock("@/lib/team/service", () => serviceMock);
 vi.mock("@/lib/auth/team-session-response", () => ({
-  teamSessionResponse: vi.fn(async (_request: Request, _teamId: string, body: unknown) => Response.json(body)),
+	teamSessionResponse: teamSessionResponseMock,
 }));
 vi.mock("@/lib/http/api-guard", () => ({
 	withApiRoute: vi.fn(async (request: Request, options: any, handler: any) => {
@@ -69,6 +70,7 @@ describe("teams API routes", () => {
 		// test. Resetting the guard mock would wipe its implementation, so only the
 		// service stubs are reset.
 		for (const stub of Object.values(serviceMock)) stub.mockReset();
+		teamSessionResponseMock.mockClear();
 		guardCalls.length = 0;
 	});
 
@@ -125,7 +127,7 @@ describe("teams API routes", () => {
 		["DELETE", async () => deleteTeamRoute(new Request("https://app.example.test/api/teams/team_1", { method: "DELETE" }), { params: Promise.resolve({ id: "team_1" }) })],
 	])("gates %s on the session alone so a workspace owner keeps access", async (_method, call) => {
 		serviceMock.updateTeam.mockResolvedValueOnce({ id: "team_1" });
-		serviceMock.deleteTeam.mockResolvedValueOnce({ deleted: true });
+		serviceMock.deleteTeam.mockResolvedValueOnce({ deleted: true, currentTeamId: null });
 
 		await call();
 
@@ -154,6 +156,16 @@ describe("teams API routes", () => {
 		});
 
 		expect(response.status).toBe(403);
+	});
+
+	it("rotates the caller's cookie to the fallback workspace after deletion", async () => {
+		serviceMock.deleteTeam.mockResolvedValueOnce({ deleted: true, currentTeamId: "team_2" });
+		const request = new Request("https://app.example.test/api/teams/team_1", { method: "DELETE" });
+
+		const response = await deleteTeamRoute(request, { params: Promise.resolve({ id: "team_1" }) });
+
+		expect(response.status).toBe(200);
+		expect(teamSessionResponseMock).toHaveBeenCalledWith(request, "team_2", { success: true });
 	});
 
 	it("adds a member after target-workspace authorization and defaults the role", async () => {

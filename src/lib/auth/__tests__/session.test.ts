@@ -383,6 +383,9 @@ describe("session auth helpers", () => {
     expect(rotated.maxAge).toBeGreaterThan(0);
     expect((await verifySessionToken(rotated.token)).currentTeamId).toBe("team_2");
     expect((await verifySessionToken(second)).currentTeamId).toBe("team_2");
+
+    const cleared = await reissueSessionForTeam(rotated.token, null);
+    expect((await verifySessionToken(cleared.token)).currentTeamId).toBeNull();
   });
 
   it("round-trips a pending 2FA token and never accepts it as a full session", async () => {

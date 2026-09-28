@@ -1,3 +1,5 @@
+import type { Prisma } from "@prisma/client";
+
 import { prisma, isUniqueViolation } from "@/lib/db";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import type { SessionPayload } from "@/lib/auth/session";
@@ -44,6 +46,42 @@ function assertTeamAlive<T extends { slug: string }>(
   if (!team || isDeletedTeamSlug(team.slug)) {
     throw new NotFoundError(t("backend.team.teamWorkspaceNotFound"));
   }
+}
+
+/**
+ * Pick the oldest surviving workspace membership for a user.
+ *
+ * This keeps the stored login preference usable after the active membership or
+ * workspace disappears. Tombstoned teams remain in the database by design, so
+ * they must be filtered explicitly instead of relying on a foreign-key delete.
+ */
+async function fallbackMembershipTeamIds(
+  tx: Prisma.TransactionClient,
+  userIds: string[],
+  excludedTeamId: string,
+) {
+  const uniqueUserIds = [...new Set(userIds)];
+  const fallbacks = new Map<string, string>();
+  if (uniqueUserIds.length === 0) return fallbacks;
+  const memberships = await tx.teamMember.findMany({
+    where: { userId: { in: uniqueUserIds }, teamId: { not: excludedTeamId } },
+    orderBy: [{ joinedAt: "asc" }, { teamId: "asc" }],
+    select: { userId: true, teamId: true, team: { select: { slug: true } } },
+  });
+  for (const entry of memberships) {
+    if (!fallbacks.has(entry.userId) && !isDeletedTeamSlug(entry.team.slug)) {
+      fallbacks.set(entry.userId, entry.teamId);
+    }
+  }
+  return fallbacks;
+}
+
+async function fallbackMembershipTeamId(
+  tx: Prisma.TransactionClient,
+  userId: string,
+  excludedTeamId: string,
+) {
+  return (await fallbackMembershipTeamIds(tx, [userId], excludedTeamId)).get(userId) ?? null;
 }
 
 function slugifyTeamName(name: string) {
@@ -445,15 +483,16 @@ export async function removeTeamMember(
     }
 
     // Membership deletion revokes every cookie and bound token on the next
-    // request. Clear the login preference in the same transaction so the next
-    // login does not select a workspace the user no longer belongs to.
+    // request. Move the login preference to another live membership in the
+    // same transaction so the next login is still usable when one exists.
     await prisma.$transaction(async (tx) => {
+      const fallbackTeamId = await fallbackMembershipTeamId(tx, userId, teamId);
       await tx.teamMember.delete({
         where: { teamId_userId: { teamId, userId } },
       });
       await tx.user.updateMany({
         where: { id: userId, currentTeamId: teamId },
-        data: { currentTeamId: null },
+        data: { currentTeamId: fallbackTeamId },
       });
     });
 
@@ -531,12 +570,41 @@ export async function deleteTeam(teamId: string, session: SessionPayload) {
     0,
     120,
   );
-  await prisma.$transaction(async (tx) => {
-    // Clear currentTeamId for users pointing to this team
-    await tx.user.updateMany({
+  const nextCurrentTeamId = await prisma.$transaction(async (tx) => {
+    const affectedUsers = await tx.user.findMany({
       where: { currentTeamId: teamId },
-      data: { currentTeamId: null },
+      select: { id: true },
     });
+    const fallbackUserIds = affectedUsers.map((user) => user.id);
+    if (session.currentTeamId === teamId) fallbackUserIds.push(session.userId);
+    const affectedFallbacks = await fallbackMembershipTeamIds(tx, fallbackUserIds, teamId);
+
+    // A browser can select a workspace independently of the stored login
+    // preference, so compute the caller's fallback even when another browser
+    // has already changed the User.currentTeamId column.
+    let callerFallback = session.currentTeamId === teamId
+      ? affectedFallbacks.get(session.userId) ?? null
+      : session.currentTeamId;
+    if (session.currentTeamId === teamId && !callerFallback && isGlobalTeamManager(session)) {
+      callerFallback = (await tx.team.findFirst({
+        where: {
+          id: { not: teamId },
+          NOT: { slug: { startsWith: DELETED_TEAM_SLUG_PREFIX } },
+        },
+        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+        select: { id: true },
+      }))?.id ?? null;
+    }
+
+    for (const user of affectedUsers) {
+      const fallbackTeamId = user.id === session.userId && session.currentTeamId === teamId
+        ? callerFallback
+        : affectedFallbacks.get(user.id) ?? null;
+      await tx.user.updateMany({
+        where: { id: user.id, currentTeamId: teamId },
+        data: { currentTeamId: fallbackTeamId },
+      });
+    }
     // Drop every membership: this is what makes the workspace unreachable, and
     // it frees the original slug for reuse.
     await tx.teamMember.deleteMany({ where: { teamId } });
@@ -544,6 +612,7 @@ export async function deleteTeam(teamId: string, session: SessionPayload) {
       where: { id: teamId },
       data: { slug: tombstoneSlug, ownerId: null },
     });
+    return callerFallback ?? null;
   });
 
   // The tombstoned teamId keeps this row reachable only to `team:manage`
@@ -555,5 +624,5 @@ export async function deleteTeam(teamId: string, session: SessionPayload) {
     undefined,
     teamId,
   );
-  return { deleted: true };
+  return { deleted: true, currentTeamId: nextCurrentTeamId };
 }
