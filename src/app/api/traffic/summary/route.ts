@@ -183,7 +183,7 @@ export async function GET(req: NextRequest) {
       const includeRemote =
         (q.include ?? "").split(",").map((token) => token.trim()).includes("remote");
 
-      const interfaces = readLocalNetworkDeviceStats();
+      const interfaces = await readLocalNetworkDeviceStats();
       const primary = selectedIface
         ? (interfaces.find((item) => item.iface === selectedIface) ?? selectPrimaryInterface(interfaces))
         : selectPrimaryInterface(interfaces);

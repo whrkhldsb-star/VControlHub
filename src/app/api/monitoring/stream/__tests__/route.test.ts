@@ -11,32 +11,16 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const { collectMonitoringStatsMock } = vi.hoisted(() => ({
+  collectMonitoringStatsMock: vi.fn(),
+}));
+
 vi.mock("@/lib/http/api-guard", () => ({
   withApiRoute: vi.fn((_req, _opts, handler) => handler({ session: { userId: "test-user" } })),
 }));
 
-vi.mock("node:fs", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("node:fs")>();
-  return {
-    ...actual,
-    readFileSync: vi.fn(() => ""),
-    readdirSync: vi.fn(() => []),
-    statfsSync: vi.fn(() => ({ blocks: 100, bsize: 4096, bfree: 50 })),
-  };
-});
-
-vi.mock("os", () => ({
-  __esModule: true,
-  default: {
-    hostname: () => "test-host",
-    platform: () => "linux",
-    arch: () => "x64",
-    uptime: () => 86400,
-    cpus: () => [{ model: "Test CPU" }],
-    totalmem: () => 8 * 1024 ** 3,
-    freemem: () => 4 * 1024 ** 3,
-    loadavg: () => [0.5, 0.3, 0.1],
-  },
+vi.mock("@/lib/monitoring/collector", () => ({
+  collectMonitoringStats: collectMonitoringStatsMock,
 }));
 
 import { GET } from "../route";
@@ -48,7 +32,15 @@ function makeRequest(url = "http://localhost/api/monitoring/stream") {
 }
 
 describe("GET /api/monitoring/stream", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    collectMonitoringStatsMock.mockResolvedValue({
+      hostname: "test-host",
+      cpu: { usage: "1.0%" },
+      memory: { usagePercent: "50.0" },
+      timestamp: "2026-09-28T00:00:00.000Z",
+    });
+  });
   afterEach(() => vi.restoreAllMocks());
 
   it("returns Content-Type: text/event-stream", async () => {

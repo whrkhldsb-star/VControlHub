@@ -313,9 +313,9 @@ function diskInfo() {
 	} catch { return "N/A"; }
 }
 
-function networkInfo() {
+async function networkInfo() {
 	// Shared sampler: /proc/net/dev on POSIX, Get-NetAdapterStatistics on Windows.
-	return readLocalNetworkDeviceStats().map((stats) => ({
+	return (await readLocalNetworkDeviceStats()).map((stats) => ({
 		iface: stats.iface,
 		rx: formatBytes(stats.rxBytes),
 		tx: formatBytes(stats.txBytes),
@@ -327,9 +327,10 @@ export async function collectMonitoringStats() {
 	const totalMem = os.totalmem();
 	const freeMem = os.freemem();
 	const uptime = os.uptime();
-	const [topProcessRows, tcpConnections] = await Promise.all([
+	const [topProcessRows, tcpConnections, network] = await Promise.all([
 		topProcesses(),
 		tcpConnectionCount(),
+		networkInfo(),
 	]);
 	return {
 		hostname: os.hostname(),
@@ -344,7 +345,7 @@ export async function collectMonitoringStats() {
 			usagePercent: (((totalMem - freeMem) / totalMem) * 100).toFixed(1),
 		},
 		disk: diskInfo(),
-		network: networkInfo(),
+		network,
 		topProcesses: topProcessRows,
 		tcpConnections: String(tcpConnections),
 		timestamp: new Date().toISOString(),
