@@ -37,11 +37,25 @@ export async function createIsolatedE2eAccount() {
 	try {
 		const passwordHash = await bcrypt.hash(process.env.E2E_PASS ?? ISOLATED_E2E_PASSWORD, 10);
 		await client.query("BEGIN");
+		const workspace = await client.query<{ id: string }>(
+			`SELECT t.id
+			 FROM teams t
+			 LEFT JOIN "StorageNode" sn
+			   ON sn."teamId" = t.id AND sn.id = 'node_local_default'
+			 WHERE t.slug NOT LIKE '__deleted__%'
+			 ORDER BY (sn.id IS NOT NULL) DESC, t."createdAt" ASC
+			 LIMIT 1`,
+		);
+		const teamId = workspace.rows[0]?.id;
+		if (!teamId) {
+			throw new Error("Seeded workspace is required for isolated E2E accounts");
+		}
 		await client.query(
-			`INSERT INTO "User" (id, username, "displayName", "passwordHash", status, "mustChangePassword", "createdAt", "updatedAt")
-			 VALUES ('e2e-isolated-account', $1, 'Isolated E2E', $2, 'ACTIVE', false, NOW(), NOW())
-			 ON CONFLICT (username) DO UPDATE SET "passwordHash" = EXCLUDED."passwordHash", status = 'ACTIVE', "mustChangePassword" = false, "updatedAt" = NOW()`,
-			[ISOLATED_E2E_USERNAME, passwordHash],
+			`INSERT INTO "User" (id, username, "displayName", "passwordHash", status, "mustChangePassword", "currentTeamId", "createdAt", "updatedAt")
+			 VALUES ('e2e-isolated-account', $1, 'Isolated E2E', $2, 'ACTIVE', false, $3, NOW(), NOW())
+			 ON CONFLICT (username) DO UPDATE SET "passwordHash" = EXCLUDED."passwordHash", status = 'ACTIVE',
+			 "mustChangePassword" = false, "currentTeamId" = EXCLUDED."currentTeamId", "updatedAt" = NOW()`,
+			[ISOLATED_E2E_USERNAME, passwordHash, teamId],
 		);
 		await client.query(
 			`INSERT INTO "UserRole" ("userId", "roleId", "assignedAt")
@@ -51,19 +65,27 @@ export async function createIsolatedE2eAccount() {
 			[ISOLATED_E2E_USERNAME],
 		);
 		await client.query(
-			`INSERT INTO servers (id, name, host, port, username, password, tags, enabled, "connectionType", "createdAt", "updatedAt")
-			 VALUES ($1, 'E2E unreachable VPS', '192.0.2.1', 22, 'root', 'e2e-not-used', ARRAY['e2e']::text[], true, 'PASSWORD', NOW(), NOW())
-			 ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, host = EXCLUDED.host, port = EXCLUDED.port,
-			 username = EXCLUDED.username, password = EXCLUDED.password, "sshKeyId" = NULL,
-			 tags = EXCLUDED.tags, enabled = true, "connectionType" = EXCLUDED."connectionType", "updatedAt" = NOW()`,
-			[ISOLATED_E2E_SERVER_ID],
+			`INSERT INTO team_members ("teamId", "userId", role, "accessRole", "joinedAt")
+			 SELECT $2, u.id, 'admin', 'inherit', NOW() FROM "User" u WHERE u.username = $1
+			 ON CONFLICT ("teamId", "userId") DO UPDATE SET role = 'admin', "accessRole" = 'inherit', "permissionTemplateId" = NULL`,
+			[ISOLATED_E2E_USERNAME, teamId],
 		);
 		await client.query(
-			`INSERT INTO "StorageNode" (id, name, driver, "isDefault", "basePath", "serverId", "healthStatus", "createdAt", "updatedAt")
-			 VALUES ($1, 'E2E server storage', 'LOCAL', false, '/tmp/vcontrolhub-e2e-storage', $2, 'UNKNOWN', NOW(), NOW())
+			`INSERT INTO servers (id, name, host, port, username, password, tags, enabled, "connectionType", "teamId", "createdAt", "updatedAt")
+			 VALUES ($1, 'E2E unreachable VPS', '192.0.2.1', 22, 'root', 'e2e-not-used', ARRAY['e2e']::text[], true, 'PASSWORD', $2, NOW(), NOW())
+			 ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, host = EXCLUDED.host, port = EXCLUDED.port,
+			 username = EXCLUDED.username, password = EXCLUDED.password, "sshKeyId" = NULL,
+			 tags = EXCLUDED.tags, enabled = true, "connectionType" = EXCLUDED."connectionType",
+			 "teamId" = EXCLUDED."teamId", "updatedAt" = NOW()`,
+			[ISOLATED_E2E_SERVER_ID, teamId],
+		);
+		await client.query(
+			`INSERT INTO "StorageNode" (id, name, driver, "isDefault", "basePath", "serverId", "healthStatus", "teamId", "createdAt", "updatedAt")
+			 VALUES ($1, 'E2E server storage', 'LOCAL', false, '/tmp/vcontrolhub-e2e-storage', $2, 'UNKNOWN', $3, NOW(), NOW())
 			 ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, driver = EXCLUDED.driver,
-			 "basePath" = EXCLUDED."basePath", "serverId" = EXCLUDED."serverId", "updatedAt" = NOW()`,
-			[ISOLATED_E2E_STORAGE_ID, ISOLATED_E2E_SERVER_ID],
+			 "basePath" = EXCLUDED."basePath", "serverId" = EXCLUDED."serverId",
+			 "teamId" = EXCLUDED."teamId", "updatedAt" = NOW()`,
+			[ISOLATED_E2E_STORAGE_ID, ISOLATED_E2E_SERVER_ID, teamId],
 		);
 		await client.query("COMMIT");
 	} catch (error) {
