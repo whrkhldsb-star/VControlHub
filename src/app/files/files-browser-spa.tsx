@@ -463,7 +463,9 @@ function KnownErrorNotice({ tone, raw, className }: { tone: "warning" | "danger"
 	return (
 		<Notice tone={tone} className={className}>
 			{summary}
-			<code className="mt-1 block break-all font-mono text-xs opacity-80">{detail}</code>
+			{/* Full color (no opacity): axe measures the reduced-alpha variant below
+			    4.5:1 in the light theme. */}
+			<code className="mt-1 block break-all font-mono text-xs">{detail}</code>
 		</Notice>
 	);
 }

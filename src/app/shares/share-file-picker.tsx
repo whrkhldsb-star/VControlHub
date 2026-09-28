@@ -412,7 +412,9 @@ function KnownErrorNotice({ tone, raw }: { tone: 'rose' | 'amber'; raw: string }
 	return (
 		<p data-tone={tone} className={`mt-3 rounded-xl border px-3 py-2 text-sm ${styles}`}>
 			{summary}
-			<code className={`mt-1 block break-all font-mono text-xs opacity-80`}>{detail}</code>
+			{/* Full color (no opacity): axe measures the reduced-alpha variant below
+			    4.5:1 in the light theme. */}
+			<code className={`mt-1 block break-all font-mono text-xs`}>{detail}</code>
 		</p>
 	);
 }
