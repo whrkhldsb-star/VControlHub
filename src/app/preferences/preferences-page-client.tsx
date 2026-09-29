@@ -88,7 +88,8 @@ type PreferencesCategorySummaryId =
 	| "preferences-dashboard-widgets"
 	| "preferences-notifications"
 	| "preferences-auto-refresh"
-	| "preferences-auto-probe";
+	| "preferences-auto-probe"
+	| "preferences-rdp-probe";
 
 export type PreferencesCategorySummary = {
 	id: PreferencesCategorySummaryId;
@@ -400,6 +401,17 @@ export function PreferencesSettingsContent({
 					</div>
 					<p className="text-xs leading-5 text-[var(--text-muted)]">
 						{t("preferencesPage.hint.autoProbe")}
+					</p>
+				</Section>
+
+				<Section summaryId="preferences-rdp-probe">
+					<Toggle
+						label={t("preferencesPage.toggle.rdpProbe")}
+						checked={prefs.rdpAutoProbe}
+						onChange={(v) => save({ ...prefs, rdpAutoProbe: v })}
+					/>
+					<p className="text-xs leading-5 text-[var(--text-muted)]">
+						{t("preferencesPage.hint.rdpProbe")}
 					</p>
 				</Section>
 			</div>

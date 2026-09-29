@@ -119,7 +119,9 @@ export function ServerCardActions({
 
 	return (
 		<div className="space-y-3">
-			{operatingSystem !== "WINDOWS" && enabled && canUseSshTerminal ? (
+			{/* Windows terminals require the cloud-storage OpenSSH binding
+			    (storageNodeId present) — the proxy resolves the SFTP endpoint. */}
+			{enabled && canUseSshTerminal && (operatingSystem !== "WINDOWS" || Boolean(storageNodeId)) ? (
 				<ActionButton variant="ghost"
 					onClick={handleOpenTerminal}
 					aria-label={t("serverCardActions.sshTerminalAria", { name: serverName })}

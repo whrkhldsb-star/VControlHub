@@ -29,7 +29,10 @@ export function WindowsServerDetails({
 }) {
 	const { t } = useI18n();
 	const agentMode = server.managementMode === "AGENT";
-	const probeAvailable = agentMode && server.enabled;
+	// Direct-mode Windows nodes probe the RDP listener (the card binds "rdp"
+	// mode there); agent nodes keep metrics probing. Either way the manual
+	// button stays available.
+	const probeAvailable = server.enabled;
 	const certificate = server.rdpCertificateSha256
 		? t("serversPage.windows.certificatePinned")
 		: server.rdpIgnoreCertificate
@@ -101,7 +104,9 @@ export function WindowsServerDetails({
 							rdpIgnoreCertificate={server.rdpIgnoreCertificate}
 							managementMode={server.managementMode}
 							canManageServers={canManageServers}
-							canUseSshTerminal={false}
+							// The SSH terminal needs the OpenSSH binding (storageNode);
+							// the proxy resolves the SFTP endpoint for Windows shells.
+							canUseSshTerminal={canUseSshTerminal && Boolean(server.storageNode)}
 							costAutoSync={server.costAutoSync}
 							costMonthlyAmount={server.costMonthlyAmount}
 							costCurrency={server.costCurrency}

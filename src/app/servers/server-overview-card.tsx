@@ -51,11 +51,15 @@ export function ServerOverviewCard({
   const openDialog = useCallback(() => {
     setExpanded(true);
   }, []);
-  // Windows nodes have no SSH channel; realtime probing works for them only
-  // once the Agent (which reports metrics through the poll protocol) is active.
+  // Probe transport per node type: Linux uses SSH metrics, Windows+AGENT uses
+  // agent metrics (both via /monitor), and direct-mode Windows falls back to
+  // the RDP reachability check — no SSH channel exists there, but the RDP
+  // listener's TCP reachability is exactly what the status chip should show.
+  const isWindowsProbe = server.operatingSystem === "WINDOWS" && server.managementMode !== "AGENT";
   const { diagnosticRun, runRealtimeDiagnostics } = useServerDiagnostics(
     server.id,
-    server.enabled && (server.operatingSystem !== "WINDOWS" || server.managementMode === "AGENT"),
+    server.enabled && (server.operatingSystem !== "WINDOWS" || server.managementMode === "AGENT" || isWindowsProbe),
+    isWindowsProbe ? "rdp" : "monitor",
   );
   const directLabel = server.directGateway?.statusLabel ?? t("serverOverviewCard.websiteRelay");
   const detailsId = `server-details-${server.id}`;

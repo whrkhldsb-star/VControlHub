@@ -17,17 +17,21 @@ const metricsSchema = z.object({
 });
 type DiagnosticRun = ServerOverviewDetailsProps["diagnosticRun"];
 
-export function useServerDiagnostics(serverId: string, enabled: boolean) {
+/** Probe transport: "monitor" fetches SSH/agent metrics; "rdp" TCP-checks the
+ *  Windows RDP endpoint (direct-mode Windows nodes have no SSH metrics). */
+export function useServerDiagnostics(serverId: string, enabled: boolean, mode: "monitor" | "rdp" = "monitor") {
   const { locale, t } = useI18n();
   const [diagnosticRun, setDiagnosticRun] = useState<DiagnosticRun>({ status: "idle" });
-  const identity = `${serverId}:${enabled}`;
+  const identity = `${serverId}:${enabled}:${mode}`;
   const [stateIdentity, setStateIdentity] = useState(identity);
   if (stateIdentity !== identity) {
     setStateIdentity(identity);
     setDiagnosticRun({ status: "idle" });
   }
   const requestRef = useRef<AbortController | null>(null);
-  const { enabled: autoProbeEnabled, intervalSec, hydrated } = useAutoProbeSettings();
+  const { enabled: autoProbeEnabled, intervalSec, rdpEnabled, hydrated } = useAutoProbeSettings();
+  // RDP reachability has its own preference gate; the manual button always runs.
+  const autoProbeApplies = mode === "rdp" ? autoProbeEnabled && rdpEnabled : autoProbeEnabled;
 
   useEffect(() => {
     return () => {
@@ -51,6 +55,21 @@ export function useServerDiagnostics(serverId: string, enabled: boolean) {
     }, 20_000);
     controller.signal.addEventListener("abort", () => window.clearTimeout(timeout), { once: true });
     try {
+      if (mode === "rdp") {
+        const response = await api.get<Response>(`/api/servers/${encodeURIComponent(serverId)}/rdp-probe`, {
+          raw: true, cache: "no-store", signal: controller.signal,
+        });
+        const payload: unknown = await response.json().catch(() => null);
+        if (requestRef.current !== controller) return;
+        const remoteError = z.object({ error: z.string().min(1) }).safeParse(payload);
+        if (remoteError.success) throw new Error(remoteError.data.error);
+        if (!response.ok) throw new Error(t("serverOverviewCard.monitorStatusReturned", { status: response.status }));
+        const parsed = z.object({ reachable: z.boolean(), latencyMs: z.number().nullable() }).safeParse(payload);
+        if (!parsed.success) throw new Error(t("serverOverviewCard.invalidMonitorResponse"));
+        if (!parsed.data.reachable) throw new Error(t("serverOverviewCard.rdpUnreachable"));
+        setDiagnosticRun({ status: "success", checkedAt: checkedAt(), summary: t("serverOverviewCard.rdpReachableSummary", { latency: parsed.data.latencyMs ?? 0 }) });
+        return;
+      }
       const response = await api.get<Response>(`/api/servers/monitor?serverId=${encodeURIComponent(serverId)}`, {
         raw: true, cache: "no-store", signal: controller.signal,
       });
@@ -73,14 +92,14 @@ export function useServerDiagnostics(serverId: string, enabled: boolean) {
       window.clearTimeout(timeout);
       if (requestRef.current === controller) requestRef.current = null;
     }
-  }, [serverId, enabled, locale, t]);
+  }, [serverId, enabled, mode, locale, t]);
 
   const runRef = useRef(run);
   useEffect(() => { runRef.current = run; }, [run]);
   useEffect(() => {
-    if (hydrated && autoProbeEnabled && enabled && document.visibilityState !== "hidden") void runRef.current();
-  }, [hydrated, autoProbeEnabled, enabled, serverId]);
-  useVisibilityInterval(() => { void runRef.current(); }, hydrated && autoProbeEnabled && enabled ? Math.max(5, intervalSec) * 1000 : null);
+    if (hydrated && autoProbeApplies && enabled && document.visibilityState !== "hidden") void runRef.current();
+  }, [hydrated, autoProbeApplies, enabled, serverId]);
+  useVisibilityInterval(() => { void runRef.current(); }, hydrated && autoProbeApplies && enabled ? Math.max(5, intervalSec) * 1000 : null);
 
   return { diagnosticRun, runRealtimeDiagnostics: run };
 }

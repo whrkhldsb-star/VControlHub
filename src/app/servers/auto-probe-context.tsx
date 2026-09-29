@@ -38,6 +38,9 @@ type AutoProbeContextValue = {
 	intervalSec: number;
 	setEnabled: (next: boolean) => void;
 	setIntervalSec: (next: number) => void;
+	/** Windows 节点：RDP 连通性自动探测（手动按钮不受影响）。 */
+	rdpEnabled: boolean;
+	setRdpEnabled: (next: boolean) => void;
 	/** Hydrated=true 表示已从 /api/preferences 读到真值，可以开始触发自动探测。 */
 	hydrated: boolean;
 };
@@ -45,11 +48,13 @@ type AutoProbeContextValue = {
 const AutoProbeContext = createContext<AutoProbeContextValue | null>(null);
 
 const DEFAULT_ENABLED = true;
+const DEFAULT_RDP_ENABLED = true;
 
 export function AutoProbeProvider({ children }: { children: ReactNode }) {
 	// SSR / 首屏使用默认值，避免 hydration mismatch。
 	const [enabled, setEnabledState] = useState<boolean>(DEFAULT_ENABLED);
 	const [intervalSec, setIntervalSecState] = useState<number>(DEFAULT_AUTO_PROBE_INTERVAL_SEC);
+	const [rdpEnabled, setRdpEnabledState] = useState<boolean>(DEFAULT_RDP_ENABLED);
 	const [hydrated, setHydrated] = useState(false);
 	const { addToast } = useToast();
 	const { t } = useI18n();
@@ -69,6 +74,7 @@ export function AutoProbeProvider({ children }: { children: ReactNode }) {
 						DEFAULT_AUTO_PROBE_INTERVAL_SEC,
 					),
 				);
+				setRdpEnabledState(normalized.rdpAutoProbe);
 			} catch {
 				// 网络/权限失败时继续使用默认值，下一次切换 setEnabled/setIntervalSec
 				// 也会再次触发 PUT，把当前默认值推上去。
@@ -126,9 +132,30 @@ export function AutoProbeProvider({ children }: { children: ReactNode }) {
 		[addToast, t],
 	);
 
+	const setRdpEnabled = useCallback(
+		(next: boolean) => {
+			setRdpEnabledState((prev) => {
+				void (async () => {
+					try {
+						await csrfFetch("/api/preferences", {
+							method: "PUT",
+							headers: { "Content-Type": "application/json" },
+							body: JSON.stringify({ rdpAutoProbe: next }),
+						});
+					} catch {
+						setRdpEnabledState(prev);
+						addToast("error", t("serversPage.autoProbe.saveFailed"));
+					}
+				})();
+				return next;
+			});
+		},
+		[addToast, t],
+	);
+
 	const value = useMemo<AutoProbeContextValue>(
-		() => ({ enabled, intervalSec, setEnabled, setIntervalSec, hydrated }),
-		[enabled, intervalSec, setEnabled, setIntervalSec, hydrated],
+		() => ({ enabled, intervalSec, setEnabled, setIntervalSec, rdpEnabled, setRdpEnabled, hydrated }),
+		[enabled, intervalSec, setEnabled, setIntervalSec, rdpEnabled, setRdpEnabled, hydrated],
 	);
 
 	return <AutoProbeContext.Provider value={value}>{children}</AutoProbeContext.Provider>;
@@ -146,6 +173,8 @@ export function useAutoProbeSettings(): AutoProbeContextValue {
 		intervalSec: DEFAULT_AUTO_PROBE_INTERVAL_SEC,
 		setEnabled: () => undefined,
 		setIntervalSec: () => undefined,
+		rdpEnabled: false,
+		setRdpEnabled: () => undefined,
 		hydrated: false,
 	};
 }

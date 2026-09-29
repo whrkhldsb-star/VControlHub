@@ -103,7 +103,7 @@ type SessionPayload = {
  * grant counts here exactly as it does on the HTTP surface — the static role
  * map alone would silently deny a delegated platform manager a terminal.
  */
-async function resolveServerConnection(
+export async function resolveServerConnection(
   serverId: string,
   session: SessionPayload,
 ) {
@@ -132,7 +132,29 @@ async function resolveServerConnection(
    sshKey: { select: { privateKey: true, passphrase: true } },
   },
  });
- if (!srv || !srv.enabled || srv.operatingSystem === "WINDOWS") return null;
+ if (!srv || !srv.enabled) return null;
+
+ if (srv.operatingSystem === "WINDOWS") {
+  // Windows terminals ride the OpenSSH Server captured by the cloud-storage
+  // binding: the SFTP port/username/host-key live on the bound StorageNode
+  // (server.port is the RDP port), and the SFTP password on the server row.
+  // Without a binding there is no SSH endpoint to open a shell on.
+  const sftpNode = await prisma.storageNode.findUnique({
+   where: { serverId: srv.id },
+   select: { port: true, username: true, hostKeySha256: true },
+  });
+  if (!sftpNode || !srv.password || !sftpNode.username) return null;
+  return {
+   host: srv.host,
+   port: sftpNode.port ?? 22,
+   username: sftpNode.username,
+   connectionType: "PASSWORD",
+   hostKeySha256: sftpNode.hostKeySha256 ?? srv.hostKeySha256,
+   privateKey: undefined,
+   passphrase: undefined,
+   password: decryptServerPassword(srv.password ?? ""),
+  };
+ }
 
  if (srv.connectionType === "SSH_KEY" && !srv.sshKey?.privateKey) return null;
  if (srv.connectionType === "PASSWORD" && !srv.password) return null;

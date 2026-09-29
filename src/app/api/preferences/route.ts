@@ -25,6 +25,7 @@ const prefsSchema = z.object({
   autoRefreshInterval: z.number().optional(),
   autoProbeEnabled: z.boolean().optional(),
   autoProbeIntervalSec: z.number().optional(),
+  rdpAutoProbe: z.boolean().optional(),
 });
 
 const defaultPreferences = defaultUserPreferences;

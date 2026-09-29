@@ -4,6 +4,11 @@ All notable changes to VControlHub are documented here. Versions follow Semantic
 
 ## [Unreleased]
 
+### Added
+
+- Windows RDP reachability probing: direct-mode Windows nodes now show a real online/offline status chip driven by a new `/api/servers/[id]/rdp-probe` endpoint (plain TCP connect against the RDP port — verifies the listener answers, never claims logon works; browser clients cannot do cross-origin raw TCP themselves). Auto-probing follows the existing probe cadence and is governed by a dedicated 偏好设置 toggle (Windows RDP 连通性自动探测, default on, manual button unaffected); agent-mode Windows nodes keep agent-metrics probing.
+- SSH terminal for Windows nodes with the cloud-storage OpenSSH binding: the SSH-WS proxy previously rejected every Windows target. It now resolves the SFTP endpoint (port/username/host-key from the bound StorageNode, password from the server row) and opens a PowerShell/cmd shell over that verified OpenSSH connection — host-key pinning applies unchanged. Nodes without the binding stay rejected (no SSH endpoint exists). Linux-only toolchain operations (Docker/Compose, quick services, VPS backup) remain platform-gated; the Windows capabilities copy now states exactly what works.
+
 ### Fixed
 
 - Windows cloud-drive parity for the two shell-dependent operations: directory archive download on a Windows SFTP node now builds bsdtar-compatible argv (repeated `--exclude=` entries with the same 30k cap) instead of the GNU-only `--exclude-from=-` stdin list — the bundled System32 tar.exe has no such flag, so the download failed on the first excluded entry; and content search now skips Windows SFTP nodes explicitly instead of burning an SSH exec on a `grep` that cannot exist (filename search still covers them; the previous path logged an error per search attempt).

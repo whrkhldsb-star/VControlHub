@@ -13,6 +13,8 @@ export type UserPreferences = {
   autoRefreshInterval: number;
   autoProbeEnabled: boolean;
   autoProbeIntervalSec: number;
+  /** Windows nodes: auto RDP reachability probe on the server card (manual probe stays available). */
+  rdpAutoProbe: boolean;
 };
 
 export const DASHBOARD_WIDGET_IDS = ["server-status", "quick-links", "analytics", "audit-log"] as const;
@@ -54,6 +56,7 @@ export const defaultUserPreferences: UserPreferences = {
   autoRefreshInterval: DEFAULT_REFRESH_INTERVAL_SECONDS,
   autoProbeEnabled: true,
   autoProbeIntervalSec: DEFAULT_AUTO_PROBE_INTERVAL_SEC,
+  rdpAutoProbe: true,
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -83,6 +86,7 @@ export function normalizeUserPreferences(value: unknown): UserPreferences {
     autoRefreshInterval: normalizeRefreshIntervalSeconds(source.autoRefreshInterval, defaultUserPreferences.autoRefreshInterval),
     autoProbeEnabled: typeof source.autoProbeEnabled === "boolean" ? source.autoProbeEnabled : defaultUserPreferences.autoProbeEnabled,
     autoProbeIntervalSec: normalizeAutoProbeIntervalSec(source.autoProbeIntervalSec, defaultUserPreferences.autoProbeIntervalSec),
+    rdpAutoProbe: typeof source.rdpAutoProbe === "boolean" ? source.rdpAutoProbe : defaultUserPreferences.rdpAutoProbe,
   };
 }
 
