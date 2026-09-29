@@ -13,10 +13,8 @@ import { createLogger } from "@/lib/logging";
 import { getMediaItem } from "@/lib/media/service";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
-import {
-  normalizeStorageRelativePath,
-  resolveStoragePathWithinBase,
-} from "@/lib/storage/path-utils";
+import { resolveManagedLocalPath } from "@/lib/storage/managed-path";
+import { normalizeStorageRelativePath } from "@/lib/storage/path-utils";
 import {
   normalizeRemoteTargetPath,
   toClientStorageError,
@@ -30,7 +28,7 @@ import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_READ_LIMIT } from "@/lib/http/rate-limit-presets";
-import { ValidationError, isAppError } from "@/lib/errors";
+import { isAppError } from "@/lib/errors";
 
 import { apiError } from "@/lib/http/api-error";
 export const dynamic = "force-dynamic";
@@ -45,17 +43,6 @@ const logger = createLogger("api:media:stream");
  * and the download relay.
  */
 const STREAM_IDLE_TIMEOUT_MS = 120_000;
-
-function resolveManagedLocalPath(basePath: string, relativePath: string) {
-  const normalizedPath = normalizeStorageRelativePath(relativePath);
-  if (!normalizedPath.ok) throw new Error(normalizedPath.reason);
-  const resolved = resolveStoragePathWithinBase(basePath, normalizedPath.path);
-  if (!resolved.ok) throw new ValidationError(resolved.reason);
-  return {
-    normalizedRelativePath: normalizedPath.path,
-    absolutePath: resolved.path,
-  };
-}
 
 function openSftpStream(
   client: Client,

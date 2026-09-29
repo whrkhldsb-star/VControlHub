@@ -12,6 +12,7 @@ import {
   toStorageEntry,
   type FileProp,
 } from "@/app/files/file-entry-utils";
+import { containingFolderPath } from "@/app/media/media-item-helpers";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { formatBytes } from "@/lib/format/bytes";
 
@@ -26,12 +27,6 @@ type MediaPlayerItem = NonNullable<Awaited<ReturnType<typeof getMediaItem>>>;
 
 function formatSize(locale:"zh" |"en", bytes: bigint | number | null) {
   return formatBytes(bytes, { fallback: t("mediaPage.player.sizeUnknown", locale) });
-}
-
-function containingFolderPath(relativePath: string) {
-  const segments = relativePath.split("/").filter(Boolean);
-  segments.pop();
-  return segments.join("/");
 }
 
 function safeMediaReturnHref(from?: string) {

@@ -13,10 +13,8 @@ import { getMediaItem } from "@/lib/media/service";
 import { thumbnailCacheRoot } from "@/lib/media/thumbnail-cache";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
-import {
-  normalizeStorageRelativePath,
-  resolveStoragePathWithinBase,
-} from "@/lib/storage/path-utils";
+import { resolveManagedLocalPath } from "@/lib/storage/managed-path";
+import { normalizeStorageRelativePath } from "@/lib/storage/path-utils";
 import {
   normalizeRemoteTargetPath,
   toClientStorageError,
@@ -26,7 +24,6 @@ import { getServerLocale } from "@/lib/i18n/translations";
 
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_READ_LIMIT } from "@/lib/http/rate-limit-presets";
-import { ValidationError } from "@/lib/errors";
 
 import { apiError } from "@/lib/http/api-error";
 import { getErrorMessage } from "@/lib/http/error-message";
@@ -169,14 +166,6 @@ function runSingleFlight<T>(
   });
   map.set(key, promise);
   return promise;
-}
-
-function resolveManagedLocalPath(basePath: string, relativePath: string) {
-  const normalized = normalizeStorageRelativePath(relativePath);
-  if (!normalized.ok) throw new Error(normalized.reason);
-  const resolved = resolveStoragePathWithinBase(basePath, normalized.path);
-  if (!resolved.ok) throw new ValidationError(resolved.reason);
-  return resolved.path;
 }
 
 function readLocalIntoBuffer(
@@ -340,7 +329,7 @@ export async function GET(
             const absolutePath = resolveManagedLocalPath(
               node.basePath,
               normalizedRelative.path,
-            );
+            ).absolutePath;
             sourceBuffer = await readLocalIntoBuffer(
               absolutePath,
               MAX_SOURCE_BYTES,

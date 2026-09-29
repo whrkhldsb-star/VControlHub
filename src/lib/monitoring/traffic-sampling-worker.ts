@@ -35,6 +35,7 @@ import { createSingletonIntervalWorker } from "@/lib/workers/singleton-interval-
 import {
   calculateTrafficRate,
   parseNetworkDeviceStats,
+  persistTrafficSample,
   selectPrimaryInterface,
   type NetworkDeviceStats,
   type TrafficCounterSample,
@@ -87,28 +88,6 @@ function readProcNetDev() {
   } catch {
     return "";
   }
-}
-
-async function persistTrafficSample(input: {
-  source: string;
-  serverId: string | null;
-  iface: string;
-  rxBytes: number;
-  txBytes: number;
-  rxRateBps: number;
-  txRateBps: number;
-}) {
-  await prisma.trafficSnapshot.create({
-    data: {
-      source: input.source,
-      serverId: input.serverId,
-      iface: input.iface,
-      rxBytes: BigInt(Math.max(0, Math.trunc(input.rxBytes))),
-      txBytes: BigInt(Math.max(0, Math.trunc(input.txBytes))),
-      rxRateBps: Math.max(0, input.rxRateBps),
-      txRateBps: Math.max(0, input.txRateBps),
-    },
-  });
 }
 
 function summarizeLocalInterface(iface: string, sample: NetworkDeviceStats) {

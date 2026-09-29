@@ -12,10 +12,8 @@ import { assertStorageAccess, releaseStorageQuotaGuard } from "@/lib/storage/acc
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { logError } from "@/lib/logging";
 import { snapshotFileVersionBeforeOverwrite } from "@/lib/storage/file-versions";
-import {
-  normalizeStorageRelativePath,
-  resolveStoragePathWithinBase,
-} from "@/lib/storage/path-utils";
+import { resolveManagedLocalPath } from "@/lib/storage/managed-path";
+import { normalizeStorageRelativePath } from "@/lib/storage/path-utils";
 import {
   createRemoteDirectory,
   deleteRemoteFile,
@@ -52,18 +50,6 @@ function isUploadLike(value: unknown): value is UploadLike {
 
 export const dynamic = "force-dynamic";
 const MAX_MULTIPART_OVERHEAD_BYTES = 1024 * 1024;
-
-function resolveManagedLocalPath(basePath: string, relativePath: string) {
-  const resolved = resolveStoragePathWithinBase(basePath, relativePath);
-  if (!resolved.ok) throw new ValidationError(resolved.reason);
-  const normalizedPath = normalizeStorageRelativePath(relativePath);
-  if (!normalizedPath.ok) throw new ValidationError(normalizedPath.reason);
-
-  return {
-    normalizedRelativePath: normalizedPath.path,
-    absolutePath: resolved.path,
-  };
-}
 
 async function handlePost(request: Request, session: SessionPayload, locale: Locale) {
   // formData() buffers the whole body before the per-file size checks below,

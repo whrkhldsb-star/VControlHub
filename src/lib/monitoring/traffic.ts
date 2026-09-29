@@ -1,3 +1,5 @@
+import { prisma } from "@/lib/db";
+
 export type NetworkDeviceStats = {
 	iface: string;
 	rxBytes: number;
@@ -15,6 +17,36 @@ export type TrafficRate = {
 	txBytesPerSecond: number;
 	intervalSeconds: number;
 };
+
+export type PersistTrafficSampleInput = {
+	source: string;
+	serverId: string | null;
+	iface: string;
+	rxBytes: number;
+	txBytes: number;
+	rxRateBps: number;
+	txRateBps: number;
+};
+
+/**
+ * Append one traffic_snapshots row. Shared by the /api/traffic/summary route
+ * (best-effort: the live response must not fail on a history-write error)
+ * and the 5-minute sampling worker (errors propagate to the job result).
+ * Callers own that policy — this function only writes.
+ */
+export async function persistTrafficSample(input: PersistTrafficSampleInput): Promise<void> {
+	await prisma.trafficSnapshot.create({
+		data: {
+			source: input.source,
+			serverId: input.serverId,
+			iface: input.iface,
+			rxBytes: BigInt(Math.max(0, Math.trunc(input.rxBytes))),
+			txBytes: BigInt(Math.max(0, Math.trunc(input.txBytes))),
+			rxRateBps: Math.max(0, input.rxRateBps),
+			txRateBps: Math.max(0, input.txRateBps),
+		},
+	});
+}
 
 const VIRTUAL_INTERFACE_PREFIXES = ["docker", "br-", "veth", "virbr", "tun", "tap", "vEthernet", "Loopback"];
 

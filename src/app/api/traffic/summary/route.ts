@@ -11,8 +11,10 @@ import {
   calculateTrafficRate,
   formatBytes,
   formatBytesPerSecond,
+  persistTrafficSample,
   selectPrimaryInterface,
   type NetworkDeviceStats,
+  type PersistTrafficSampleInput,
 } from "@/lib/monitoring/traffic";
 import { readLocalNetworkDeviceStats } from "@/lib/monitoring/local-network";
 import { sampleRemoteServersTraffic } from "@/lib/monitoring/remote-traffic";
@@ -96,34 +98,16 @@ function summarizeInterface(targetKey: string, sample: NetworkDeviceStats) {
   };
 }
 
-async function persistTrafficSample(input: {
-  source: string;
-  serverId: string | null;
-  iface: string;
-  rxBytes: number;
-  txBytes: number;
-  rxRateBps: number;
-  txRateBps: number;
-}) {
+async function persistTrafficSampleBestEffort(input: PersistTrafficSampleInput) {
   try {
-    await prisma.trafficSnapshot.create({
-      data: {
-        source: input.source,
-        serverId: input.serverId,
-        iface: input.iface,
-        rxBytes: BigInt(Math.max(0, Math.trunc(input.rxBytes))),
-        txBytes: BigInt(Math.max(0, Math.trunc(input.txBytes))),
-        rxRateBps: Math.max(0, input.rxRateBps),
-        txRateBps: Math.max(0, input.txRateBps),
-      },
-    });
+    await persistTrafficSample(input);
   } catch {
     // Best-effort history only; live response must not fail because the DB write failed.
   }
 }
 
 async function persistLocalInterfaceSample(iface: string, sample: ReturnType<typeof summarizeInterface>) {
-  await persistTrafficSample({
+  await persistTrafficSampleBestEffort({
     source: "local",
     serverId: null,
     iface,
