@@ -9,11 +9,18 @@ import { AiClient } from "./ai-client";
 
 export const dynamic = "force-dynamic";
 
-export default async function AiPage() {
+export default async function AiPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
   // Match chat APIs: require ai:chat at the page boundary (not bare session).
   const session = await requirePagePermission("ai:chat", { redirectTo: "/ai" });
   const providers = await listProviders(session.userId);
   const conversations = await listConversations(session.userId);
+  // "Ask AI" deep links (server cards, alert pages…) prefill the composer via
+  // ?q=. Bounded like any user-supplied string rendered back into the page.
+  const draft = (await searchParams).q?.slice(0, 2000) ?? "";
 
   return (
     <AiClient
@@ -26,6 +33,7 @@ export default async function AiPage() {
         defaultModel: p.defaultModel ?? "",
       }))}
       initialConversations={conversations.map(serializeConversationListItem)}
+      initialDraft={draft}
     />
   );
 }

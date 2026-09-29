@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 import type { ConvItem } from "./ai-types";
 import { EmptyState } from "@/components/page-shell";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -27,6 +29,13 @@ export function AiSidebar({
   onToggleProviders,
 }: SidebarProps) {
 	const { t } = useI18n();
+	// Client-side title filter — conversation counts here are personal-scale,
+	// no server round-trip needed.
+	const [filter, setFilter] = useState("");
+	const filterNorm = filter.trim().toLowerCase();
+	const visibleConversations = filterNorm
+		? conversations.filter((conv) => conv.title.toLowerCase().includes(filterNorm))
+		: conversations;
 	return (
 		<>
       {/* Mobile sidebar backdrop */}
@@ -52,12 +61,29 @@ export function AiSidebar({
             </ActionButton>
           </div>
 
+          {/* Conversation search */}
+          <div className="border-b border-[var(--border-subtle)] px-2 py-2">
+            <div className="relative">
+              <svg className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--text-muted)]" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" />
+              </svg>
+              <input
+                type="search"
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                placeholder={t("aiPage.searchConversations")}
+                aria-label={t("aiPage.searchConversations")}
+                className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-subtle)] py-1.5 pl-8 pr-2.5 text-xs text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--input-border-focus)]"
+              />
+            </div>
+          </div>
+
           {/* Conversation list */}
           <div className="flex-1 space-y-0.5 overflow-y-auto px-2 py-2">
-            {conversations.length === 0 && (
-              <EmptyState>{t("aiPage.emptyConversations")}</EmptyState>
+            {visibleConversations.length === 0 && (
+              <EmptyState>{filterNorm ? t("aiPage.searchNoMatch") : t("aiPage.emptyConversations")}</EmptyState>
             )}
-            {conversations.map((conv) => (
+            {visibleConversations.map((conv) => (
               <div
                 key={conv.id}
                 className={`group flex items-center gap-2 rounded-xl px-3 py-2 transition ${

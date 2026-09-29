@@ -55,11 +55,14 @@ import { useUnsavedChangesGuard } from "@/lib/forms/use-unsaved-changes-guard";
 export function AiClient({
   initialProviders,
   initialConversations,
+  initialDraft = "",
 }: {
   /** Kept optional for older tests/call-sites; auth is session/API-backed. */
   userId?: string;
   initialProviders: Provider[];
   initialConversations: ConvItem[];
+  /** Prefilled composer text (e.g. ?q= "Ask AI" deep links from ops pages). */
+  initialDraft?: string;
 }) {
   const { t } = useI18n();
   const { addToast } = useToast();
@@ -74,7 +77,7 @@ export function AiClient({
     refreshConversations,
     autoTitle,
   } = useConversations({ initialConversations });
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState(initialDraft);
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [imageUrlInput, setImageUrlInput] = useState("");
   const [showProviders, setShowProviders] = useState(false);
@@ -142,6 +145,9 @@ export function AiClient({
 
   // FE/c3: composer draft is per-workspace UI state — reset when switching
   // conversations so text/attachments never leak into another chat.
+  // A pending prefill (example chip / ?q= deep link) is applied AFTER the
+  // clears so conversation creation can't wipe it.
+  const pendingDraftRef = useRef<string | null>(initialDraft || null);
   const prevConvIdRef = useRef<string | null | undefined>(undefined);
   useEffect(() => {
     if (prevConvIdRef.current === undefined) {
@@ -154,6 +160,11 @@ export function AiClient({
     setImageUrls([]);
     setImageUrlInput("");
     setFileAttachments([]);
+    if (pendingDraftRef.current) {
+      const draft = pendingDraftRef.current;
+      pendingDraftRef.current = null;
+      setInput(draft);
+    }
   }, [activeConvId, setFileAttachments]);
 
   // Auto-scroll
@@ -239,6 +250,54 @@ export function AiClient({
     openProviderPanel: () => setShowProviders(true),
     addToast,
   });
+
+  /** Re-send the latest user turn (regenerate / retry after an error bubble).
+   *  The server appends a fresh assistant reply; history stays intact. */
+  const handleRegenerate = useCallback(() => {
+    if (!activeConvId || streaming) return;
+    const lastUser = [...messages].reverse().find((m) => m.role === "user");
+    if (!lastUser) return;
+    let parsedUrls: string[] = [];
+    try {
+      parsedUrls = JSON.parse(lastUser.imageUrls || "[]");
+    } catch {
+      parsedUrls = [];
+    }
+    void sendMessage({
+      content: lastUser.content,
+      imageUrls: parsedUrls.filter((u) => typeof u === "string" && /^https?:\/\//.test(u)),
+      imageBase64: [],
+      fileAttachments: [],
+    });
+  }, [activeConvId, streaming, messages, sendMessage]);
+
+  /** One-step model switch from the chat header pill (PATCH + refresh). */
+  const handleQuickSwitchModel = useCallback(
+    async (model: string) => {
+      if (!activeConvId || !model || model === activeConv?.model) return;
+      try {
+        await csrfFetch(`/api/ai/conversations/${activeConvId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ model }),
+        });
+        await refreshConversations();
+        addToast("success", t("aiPage.modelSwitched", { model }));
+      } catch {
+        addToast("error", t("aiPage.saveFailed"));
+      }
+    },
+    [activeConvId, activeConv?.model, refreshConversations, addToast, t],
+  );
+
+  // A ?q= deep link with no open conversation: create one so the draft has
+  // somewhere to land (the conv-switch effect applies it after the clears).
+  const draftKickRef = useRef(Boolean(initialDraft));
+  useEffect(() => {
+    if (!draftKickRef.current || activeConvId || providers.length === 0) return;
+    draftKickRef.current = false;
+    void handleNewConv();
+  }, [activeConvId, providers.length, handleNewConv]);
 
   /* ── Per-conversation settings PATCH ───────────────────────── */
   const {
@@ -340,6 +399,8 @@ export function AiClient({
               activeConv={activeConv}
               activeProvider={activeProvider ?? null}
               currentModelCaps={currentModelCaps}
+              modelList={modelList}
+              onQuickSwitchModel={(model) => void handleQuickSwitchModel(model)}
               onToggleSidebar={() => setShowSidebar(true)}
               onToggleSettings={() => {
                 if (showSettings) requestCloseSettings();
@@ -379,6 +440,7 @@ export function AiClient({
               messagesEndRef={messagesEndRef}
               onDrop={handleDrop}
               onDragOver={handleDragOver}
+              onRegenerate={handleRegenerate}
             />
             <AiAttachmentsPreview
               enableVision={activeConv.enableVision}
@@ -419,6 +481,20 @@ export function AiClient({
             onOpenProviders={() => setShowProviders(true)}
             onNewConv={handleNewConv}
             onOpenSidebar={() => setShowSidebar(true)}
+            onExample={(prompt) => {
+              // Start a conversation (when none is open) and drop the prompt
+              // into the composer. The pendingDraft channel matters: the
+              // conv-switch effect clears the draft, so the prefill must be
+              // applied after the new conversation settles.
+              pendingDraftRef.current = prompt;
+              if (activeConvId) {
+                setInput(prompt);
+                pendingDraftRef.current = null;
+                textareaRef.current?.focus();
+              } else {
+                void handleNewConv();
+              }
+            }}
           />
         )}
       </div>

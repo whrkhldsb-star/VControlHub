@@ -11,10 +11,14 @@
  * reaches into toast notifications and the model-capability context
  * which would otherwise be a cross-cutting refactor.
  *
+ * Also owns the "/" slash-command palette: typing "/" as the first
+ * character opens a starter list; selecting one inserts its prompt.
+ *
  * TR-036 (ai-client.tsx 拆 input area 子组件, 1071 → 987 行)
  */
-import type { RefObject } from "react";
+import { type RefObject, useState } from "react";
 import type { ConvItem, ModelCapabilities } from "./ai-types";
+import { SLASH_COMMANDS } from "./ai-types";
 import type { UseFileAttachmentsReturn } from "./hooks/use-file-attachments";
 import { buildAcceptString, formatAllowedTypes } from "./ai-file-helpers";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -51,6 +55,7 @@ export function AiInputArea({
   handleStopGeneration,
 }: AiInputAreaProps) {
   const { t } = useI18n();
+  const [slashOpen, setSlashOpen] = useState(false);
   const {
     fileAttachments,
     fileRejectionMsg,
@@ -61,8 +66,43 @@ export function AiInputArea({
   const enableVision = activeConv?.enableVision ?? false;
   const allowedTypes = formatAllowedTypes(currentModelCaps, t);
 
+  const slashCommandLabel = (id: string) => {
+    const key = `aiPage.slash.${id}`;
+    const translated = t(key);
+    return translated === key ? id : translated;
+  };
+  const applySlashCommand = (prompt: string) => {
+    setInput(prompt);
+    setSlashOpen(false);
+    textareaRef.current?.focus();
+  };
+
   return (
-    <div className="border-t border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_94%,transparent)] px-4 py-3 backdrop-blur">
+    <div className="relative border-t border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_94%,transparent)] px-4 py-3 backdrop-blur">
+      {/* Slash-command palette */}
+      {slashOpen && !streaming && (
+        <div
+          role="listbox"
+          aria-label={t("aiPage.slashPaletteLabel")}
+          className="absolute bottom-full left-4 z-20 mb-2 w-full max-w-md overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)] py-1 shadow-[var(--shadow-lg)]"
+        >
+          {SLASH_COMMANDS.map((command) => (
+            <button
+              key={command.id}
+              type="button"
+              role="option"
+              aria-selected={false}
+              onClick={() => applySlashCommand(command.prompt)}
+              className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
+            >
+              <span className="rounded border border-[var(--accent-border)] bg-[var(--accent-bg)] px-1 py-0.5 font-mono text-[10px] text-[var(--accent)]">
+                /{command.id}
+              </span>
+              <span className="min-w-0 flex-1 truncate">{slashCommandLabel(command.id)}</span>
+            </button>
+          ))}
+        </div>
+      )}
       {/* File rejection toast */}
       {fileRejectionMsg && (
         <Notice tone="danger" compact className="mb-2 animate-notice-in">
@@ -101,12 +141,20 @@ export function AiInputArea({
         <textarea
           ref={textareaRef}
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={(e) => {
+            setInput(e.target.value);
+            // "/" alone (or "/" + a partial command id) opens the palette.
+            setSlashOpen(e.target.value.startsWith("/"));
+          }}
           aria-label={t("aiPage.inputAria")}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
+              if (slashOpen) return; // palette open: Enter closes without sending
               handleSend();
+            }
+            if (e.key === "Escape" && slashOpen) {
+              setSlashOpen(false);
             }
           }}
           onPaste={handlePaste}

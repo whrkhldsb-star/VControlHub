@@ -3,7 +3,7 @@
 import { CheckboxField, CONTROL_CLASS, FormField, Input } from "@/components/ui-primitives";
 import { useI18n } from "@/lib/i18n/use-locale";
 import type { ProviderFormState } from "./ai-provider-panel";
-import { COMMON_BASE_URLS, PROVIDER_TYPES } from "./ai-types";
+import { COMMON_BASE_URLS, PROVIDER_PRESETS, PROVIDER_TYPES } from "./ai-types";
 
 export function AiProviderFields({ form, onChange, editing = false, models = [] }: {
   form: ProviderFormState;
@@ -13,7 +13,68 @@ export function AiProviderFields({ form, onChange, editing = false, models = [] 
 }) {
   const { t } = useI18n();
   const prefix = editing ? "ai-provider-edit" : "ai-provider";
+
+  const applyPreset = (preset: (typeof PROVIDER_PRESETS)[number]) => {
+    onChange({
+      name: preset.name,
+      type: preset.type,
+      baseUrl: preset.baseUrl,
+      defaultModel: preset.models[0] ?? "",
+      availableModels: preset.models.join(","),
+    });
+  };
+
+  const presetLabel = (preset: (typeof PROVIDER_PRESETS)[number]) => {
+    const key = `aiPage.preset.${preset.id}`;
+    const translated = t(key);
+    return translated === key ? preset.name : translated;
+  };
+
   return <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    {!editing && (
+      <div className="sm:col-span-2">
+        <p className="mb-2 text-xs text-[var(--text-muted)]">{t("aiPage.presetHint")}</p>
+        <div className="flex flex-wrap gap-2">
+          {PROVIDER_PRESETS.map((preset) => {
+            const active = form.baseUrl === preset.baseUrl && form.type === preset.type;
+            return (
+              <button
+                key={preset.id}
+                type="button"
+                onClick={() => applyPreset(preset)}
+                aria-pressed={active}
+                className={`min-h-9 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                  active
+                    ? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]"
+                    : "border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+                }`}
+              >
+                {presetLabel(preset)}
+                {preset.local ? ` · ${t("aiPage.presetLocal")}` : ""}
+              </button>
+            );
+          })}
+        </div>
+        {(() => {
+          // Show the "get a key" deep link for the active cloud preset.
+          const preset = PROVIDER_PRESETS.find((p) => p.baseUrl === form.baseUrl && p.type === form.type && !p.local && p.apiKeyUrl);
+          if (!preset?.apiKeyUrl) return null;
+          return (
+            <a
+              href={preset.apiKeyUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-2 inline-flex items-center gap-1 text-xs text-[var(--accent)] hover:underline"
+            >
+              {t("aiPage.getPresetKey", { name: presetLabel(preset) })}
+              <svg className="h-3 w-3" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 17L17 7m0 0H8m9 0v9" />
+              </svg>
+            </a>
+          );
+        })()}
+      </div>
+    )}
     <FormField label={t("aiPage.nameLabel")} htmlFor={`${prefix}-name`}>
       <Input id={`${prefix}-name`} required value={form.name} onChange={(e) => onChange({ name: e.target.value })} placeholder={t("aiPage.providerNamePlaceholder")} />
     </FormField>

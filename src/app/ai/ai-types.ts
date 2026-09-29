@@ -93,6 +93,86 @@ export const COMMON_BASE_URLS: Record<string, string> = {
   GOOGLE: "https://generativelanguage.googleapis.com/v1beta",
 };
 
+/**
+ * Provider onboarding presets: one click fills type / base URL / name /
+ * recommended models so the user only has to paste an API key (or nothing at
+ * all for a local endpoint). Labels are translated via `aiPage.preset.<id>`.
+ */
+export const PROVIDER_PRESETS: Array<{
+  id: string;
+  type: keyof typeof PROVIDER_TYPES;
+  name: string;
+  baseUrl: string;
+  /** Pre-filled model candidates; replaced by the live probe when it works. */
+  models: string[];
+  /** Where the user creates an API key (omitted for local endpoints). */
+  apiKeyUrl?: string;
+  /** Local endpoints need no key — create is one click. */
+  local?: boolean;
+}> = [
+  {
+    id: "deepseek",
+    type: "OPENAI_COMPATIBLE",
+    name: "DeepSeek",
+    baseUrl: "https://api.deepseek.com/v1",
+    models: ["deepseek-chat", "deepseek-reasoner"],
+    apiKeyUrl: "https://platform.deepseek.com/api_keys",
+  },
+  {
+    id: "openai",
+    type: "OPENAI",
+    name: "OpenAI",
+    baseUrl: "https://api.openai.com/v1",
+    models: ["gpt-4o", "gpt-4o-mini", "o3-mini"],
+    apiKeyUrl: "https://platform.openai.com/api-keys",
+  },
+  {
+    id: "zhipu",
+    type: "OPENAI_COMPATIBLE",
+    name: "智谱 GLM",
+    baseUrl: "https://open.bigmodel.cn/api/paas/v4",
+    models: ["glm-4-plus", "glm-4-flash"],
+    apiKeyUrl: "https://open.bigmodel.cn/usercenter/apikeys",
+  },
+  {
+    id: "moonshot",
+    type: "OPENAI_COMPATIBLE",
+    name: "Kimi",
+    baseUrl: "https://api.moonshot.cn/v1",
+    models: ["moonshot-v1-8k", "moonshot-v1-32k"],
+    apiKeyUrl: "https://platform.moonshot.cn/console/api-keys",
+  },
+  {
+    id: "anthropic",
+    type: "ANTHROPIC",
+    name: "Anthropic",
+    baseUrl: "https://api.anthropic.com/v1",
+    models: ["claude-sonnet-4-5", "claude-opus-4-1"],
+    apiKeyUrl: "https://console.anthropic.com/settings/keys",
+  },
+  {
+    id: "ollama",
+    type: "OPENAI_COMPATIBLE",
+    name: "Ollama 本地",
+    baseUrl: "http://127.0.0.1:11434/v1",
+    models: ["qwen3:8b", "llama3.1:8b"],
+    local: true,
+  },
+];
+
+/**
+ * Slash-command starters for the composer. `prompt` is what gets inserted;
+ * labels resolve via `aiPage.slash.<id>`.
+ */
+export const SLASH_COMMANDS: Array<{ id: string; prompt: string }> = [
+  { id: "status", prompt: "查看所有服务器的当前状态，汇总 CPU / 内存 / 磁盘占用和告警。" },
+  { id: "logs", prompt: "帮我读取服务器 的最近日志，分析有没有异常。" },
+  { id: "traffic", prompt: "查询最近的流量数据，指出异常波动和可能的优化空间。" },
+  { id: "disk", prompt: "列出各服务器磁盘占用最高的目录，并给出清理建议。" },
+  { id: "cmd", prompt: "我想在服务器 上执行以下命令，请先评估风险再帮我执行：" },
+  { id: "playbook", prompt: "列出可用的 Playbook，并推荐一个适合日常巡检的。" },
+];
+
 export const DEFAULT_PROV_FORM = {
   name: "",
   type: "OPENAI_COMPATIBLE",

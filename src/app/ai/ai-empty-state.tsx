@@ -15,15 +15,33 @@ type Props = {
   onOpenProviders: () => void;
   onNewConv: () => void;
   onOpenSidebar: () => void;
+  /** Prefills the composer (creating a conversation first when needed). */
+  onExample?: (prompt: string) => void;
 };
+
+/** Example prompts shown once a provider exists — they double as the
+ *  capability advertisement (ops tools are this assistant's differentiator). */
+const EXAMPLES: Array<{ id: string; prompt: string }> = [
+  { id: "status", prompt: "查看所有服务器的当前状态，汇总 CPU / 内存 / 磁盘占用和告警。" },
+  { id: "logs", prompt: "帮我读取服务器 的最近日志，分析有没有异常。" },
+  { id: "disk", prompt: "列出各服务器磁盘占用最高的目录，并给出清理建议。" },
+  { id: "traffic", prompt: "查询最近的流量数据，指出异常波动和可能的优化空间。" },
+  { id: "cmd", prompt: "我想在服务器 上执行以下命令，请先评估风险再帮我执行：" },
+];
 
 export function AiEmptyState({
   hasProviders,
   onOpenProviders,
   onNewConv,
   onOpenSidebar,
+  onExample,
 }: Props) {
   const { t } = useI18n();
+  const exampleLabel = (id: string) => {
+    const key = `aiPage.slash.${id}`;
+    const translated = t(key);
+    return translated === key ? id : translated;
+  };
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-6 text-center text-[var(--text-muted)]">
       <div className="w-full max-w-lg rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-5 py-8 shadow-[var(--shadow-sm)] sm:p-8">
@@ -60,7 +78,22 @@ export function AiEmptyState({
           </>
         ) : (
           <>
-            <h1 className="mb-6 text-2xl font-semibold text-[var(--text-primary)]">{t("aiPage.emptySelectConv")}</h1>
+            <h1 className="mb-4 text-2xl font-semibold text-[var(--text-primary)]">{t("aiPage.emptySelectConv")}</h1>
+            <p className="mb-4 text-xs leading-5 text-[var(--text-muted)]">{t("aiPage.capabilityHint")}</p>
+            {onExample && (
+              <div className="mb-4 flex flex-wrap justify-center gap-2">
+                {EXAMPLES.map((example) => (
+                  <button
+                    key={example.id}
+                    type="button"
+                    onClick={() => onExample(example.prompt)}
+                    className="rounded-full border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1.5 text-xs text-[var(--text-secondary)] transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-bg)] hover:text-[var(--accent)]"
+                  >
+                    {exampleLabel(example.id)}
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="flex flex-col justify-center gap-2 sm:flex-row">
               <ActionButton variant="secondary" onClick={onOpenSidebar} className="min-h-11 px-4 text-sm">
                 {t("aiPage.openConversations")}

@@ -1,16 +1,22 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
+
 import { useI18n } from "@/lib/i18n/use-locale";
 
-import type { ConvItem, Provider, ModelCapabilities } from "./ai-types";
+import type { ConvItem, ModelInfo, Provider, ModelCapabilities } from "./ai-types";
 import { ActionButton } from "@/components/action-button";
 import { Download, Pencil, Settings, Trash2 } from "@/components/icons";
 
 interface ChatHeaderProps {
-	activeConv: ConvItem;
-	activeProvider: Provider | null;
-	currentModelCaps: ModelCapabilities;
-	onToggleSidebar: () => void;
+  activeConv: ConvItem;
+  activeProvider: Provider | null;
+  currentModelCaps: ModelCapabilities;
+  /** Live model list of the active provider (empty until probed). */
+  modelList?: ModelInfo[];
+  /** One-step model switch (PATCH + refresh). */
+  onQuickSwitchModel?: (model: string) => void;
+  onToggleSidebar: () => void;
   onToggleSettings: () => void;
   onClearMessages: () => void;
   onRenameConv: () => void;
@@ -19,8 +25,10 @@ interface ChatHeaderProps {
 
 export function AiChatHeader({
   activeConv,
-	activeProvider,
-	currentModelCaps,
+  activeProvider,
+  currentModelCaps,
+  modelList = [],
+  onQuickSwitchModel,
   onToggleSidebar,
   onToggleSettings,
   onClearMessages,
@@ -28,6 +36,26 @@ export function AiChatHeader({
   onExportConv,
 }: ChatHeaderProps) {
   const { t } = useI18n();
+  const [modelMenuOpen, setModelMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!modelMenuOpen) return;
+    const close = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setModelMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [modelMenuOpen]);
+
+  const switchableModels = modelList.length > 0
+    ? Array.from(new Set([activeConv.model, ...modelList.map((m) => m.id).filter(Boolean)])).filter(Boolean)
+    : activeConv.model
+      ? [activeConv.model]
+      : [];
+
   return (
     <header className="flex flex-wrap items-center gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-4 py-3">
       {/* Mobile sidebar toggle */}
@@ -43,8 +71,57 @@ export function AiChatHeader({
       </button>
       <div className="min-w-0 flex-1 basis-[calc(100%-3.5rem)] md:basis-64">
         <h1 className="line-clamp-2 break-words text-base font-semibold text-[var(--text-primary)]" title={activeConv.title}>{activeConv.title}</h1>
+        <div ref={menuRef} className="relative mt-0.5">
+          <button
+            type="button"
+            disabled={!onQuickSwitchModel || switchableModels.length === 0}
+            onClick={() => setModelMenuOpen((open) => !open)}
+            aria-expanded={modelMenuOpen}
+            aria-haspopup="listbox"
+            title={t("aiPage.quickSwitchModelTitle")}
+            className="flex max-w-full items-center gap-1 break-words text-xs text-[var(--text-muted)] transition enabled:hover:text-[var(--accent)] disabled:cursor-default"
+          >
+            <span className="truncate">
+              {t("aiPage.modelCaps", { provider: activeProvider?.name || t("aiPage.unknown"), model: activeConv.model })}
+            </span>
+            {onQuickSwitchModel && switchableModels.length > 0 && (
+              <svg className="h-3 w-3 shrink-0" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            )}
+          </button>
+          {modelMenuOpen && (
+            <div
+              role="listbox"
+              aria-label={t("aiPage.quickSwitchModelTitle")}
+              className="absolute left-0 top-full z-20 mt-1 max-h-64 w-72 max-w-[80vw] overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--surface)] py-1 shadow-[var(--shadow-lg)]"
+            >
+              {switchableModels.map((model) => (
+                <button
+                  key={model}
+                  type="button"
+                  role="option"
+                  aria-selected={model === activeConv.model}
+                  onClick={() => {
+                    setModelMenuOpen(false);
+                    if (model !== activeConv.model) onQuickSwitchModel?.(model);
+                  }}
+                  className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-xs transition hover:bg-[var(--surface-hover)] ${
+                    model === activeConv.model ? "font-semibold text-[var(--accent)]" : "text-[var(--text-secondary)]"
+                  }`}
+                >
+                  <span className="min-w-0 truncate font-mono">{model}</span>
+                  {model === activeConv.model && (
+                    <svg className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <p className="mt-0.5 break-words text-xs text-[var(--text-muted)]">
-          {t("aiPage.modelCaps", { provider: activeProvider?.name || t("aiPage.unknown"), model: activeConv.model })}
           {activeConv.enableVision && t("aiPage.vision")}
           {currentModelCaps.video && t("aiPage.videoCap")}
           {currentModelCaps.audio && t("aiPage.audioCap")}

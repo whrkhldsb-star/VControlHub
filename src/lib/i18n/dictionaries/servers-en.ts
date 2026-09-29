@@ -66,6 +66,8 @@ export const en: Record<string, string> = {
 	"serversPage.sshKeyCreate.publicKeyLabel": "Public key",
 	"serversPage.create.desc": "Check the SSH connection and review the host fingerprint first. The node is saved and enabled only after confirmation. Temporary network failures do not discard the form.",
 	"serversPage.create.connectionType": "Connection type",
+	"serversPage.askAi": "Ask AI",
+	"serversPage.askAiPrefill": "Please check the current status and recent logs of server \"{name}\" ({host}), and suggest fixes for anything unusual.",
 	"serversPage.management.title": "Management channel",
 	"serversPage.management.direct": "Direct SSH",
 	"serversPage.management.directWindows": "Direct RDP",

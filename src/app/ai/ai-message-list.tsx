@@ -61,6 +61,9 @@ type Props = {
   messagesEndRef: RefObject<HTMLDivElement | null>;
   onDrop: (event: DragEvent<HTMLDivElement>) => void;
   onDragOver: (event: DragEvent<HTMLDivElement>) => void;
+  /** Re-send the latest user turn — shown on the last assistant bubble and
+   *  labeled "重试" when that bubble is an error. */
+  onRegenerate?: () => void;
 };
 
 export function AiMessageList({
@@ -77,6 +80,7 @@ export function AiMessageList({
   messagesEndRef,
   onDrop,
   onDragOver,
+  onRegenerate,
 }: Props) {
   const { t } = useI18n();
   const actionDisplayName = (actionType: string, fallback: string) => {
@@ -120,11 +124,19 @@ export function AiMessageList({
         </div>
       )}
 
-      {messages.filter((msg) => msg.role !== "tool").map((msg) => {
+      {(() => {
+        // Compute the last actionable bubble once: regenerate/retry rides on it.
+        const visibleMsgs = messages.filter((msg) => msg.role !== "tool");
+        const lastIdx = visibleMsgs.length - 1;
+        return visibleMsgs.map((msg, idx) => {
         const hostedActions = msg.hostedActions ?? [];
         const hasToolOnlyContent =
           hostedActions.length > 0 &&
           (!msg.content.trim() || EMPTY_TOOL_CONTENT.has(msg.content.trim()));
+        // The stream hook writes error bubbles as "⚠ <message>".
+        const isErrorBubble = msg.role === "assistant" && (msg.content.startsWith("⚠") || msg.content.startsWith("? "));
+        const showRegenerate = Boolean(onRegenerate) && idx === lastIdx && msg.role === "assistant" && !streaming && !isErrorBubble;
+        const showRetry = Boolean(onRegenerate) && idx === lastIdx && isErrorBubble && !streaming;
         return (
           <div
           key={msg.id}
@@ -148,12 +160,14 @@ export function AiMessageList({
             </div>
           )}
           <div
-            className={`max-w-[88%] sm:max-w-[80%] rounded-2xl border px-3 py-2 text-sm leading-relaxed sm:px-4 sm:py-2.5 ${
-              msg.role === "user"
+          className={`max-w-[88%] sm:max-w-[80%] rounded-2xl border px-3 py-2 text-sm leading-relaxed sm:px-4 sm:py-2.5 ${
+            isErrorBubble
+              ? "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)]"
+              : msg.role === "user"
                 ? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--text-primary)]"
                 : "border-[var(--border-subtle)] bg-[var(--surface-elevated)] text-[var(--text-secondary)]"
-            }`}
-          >
+          }`}
+        >
             {msg.reasoningContent && (
               <details className="mb-2">
                 <summary className="text-xs text-[var(--text-muted)] cursor-pointer hover:text-[var(--text-muted)]">
@@ -268,6 +282,7 @@ export function AiMessageList({
                 </div>
               )}
             {!hasToolOnlyContent && (
+              <div className="mt-1.5 flex items-center gap-3">
               <button
               type="button"
               aria-label={t("aiPage.copyAria")}
@@ -278,7 +293,7 @@ export function AiMessageList({
                   setTimeout(() => setCopyFeedback(null), 2000);
                 }
               }}
-              className="mt-1.5 flex items-center gap-1 text-xs text-[var(--text-muted)] transition hover:text-[var(--accent)]"
+              className="flex items-center gap-1 text-xs text-[var(--text-muted)] transition hover:text-[var(--accent)]"
             >
               <svg
                 className="w-3 h-3"
@@ -296,7 +311,20 @@ export function AiMessageList({
               {copyFeedback === msg.id
                 ? t("aiPage.copyOrCopied")
                 : t("aiPage.copy")}
-              </button>
+            </button>
+              {(showRegenerate || showRetry) && (
+                <button
+                  type="button"
+                  onClick={onRegenerate}
+                  className="flex items-center gap-1 text-xs text-[var(--text-muted)] transition hover:text-[var(--accent)]"
+                >
+                  <svg className="h-3 w-3" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  {showRetry ? t("aiPage.retry") : t("aiPage.regenerate")}
+                </button>
+              )}
+              </div>
             )}
           </div>
           {msg.role === "user" && (
@@ -306,7 +334,8 @@ export function AiMessageList({
           )}
           </div>
         );
-      })}
+        });
+      })()}
 
       {streaming && streamContent && (
         <div className="flex gap-3">

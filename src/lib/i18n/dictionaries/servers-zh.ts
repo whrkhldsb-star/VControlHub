@@ -78,6 +78,8 @@ export const zh: Record<string, string> = {
 	"serversPage.sshKeyCreate.publicKeyLabel": "公钥",
 	"serversPage.create.desc": "先检测 SSH 连接并显示主机指纹；核对确认后才会保存并启用节点。网络暂不可用时不会丢失表单。",
 	"serversPage.create.connectionType": "连接方式",
+	"serversPage.askAi": "问 AI",
+	"serversPage.askAiPrefill": "请查看服务器「{name}」（{host}）的当前状态和最近日志，如有异常请给出分析和处理建议。",
 	"serversPage.management.title": "管理通道",
 	"serversPage.management.direct": "SSH 直连",
 	"serversPage.management.directWindows": "RDP 直连",

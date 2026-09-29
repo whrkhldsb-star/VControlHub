@@ -215,6 +215,14 @@ export function ServerOverviewCard({
             canUseSshTerminal={canUseSshTerminal}
           />
         ) : null}
+        <Link
+          href={`/ai?q=${encodeURIComponent(t("serversPage.askAiPrefill", { name: server.name, host: server.host }))}`}
+          data-action-button
+          data-variant="outline"
+          className="!px-3 !py-1.5 !text-sm"
+        >
+          {t("serversPage.askAi")}
+        </Link>
         <ActionButton variant="secondary"
           onClick={() => (expanded ? closeDialog() : openDialog())}
           aria-expanded={expanded}

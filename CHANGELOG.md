@@ -4,6 +4,16 @@ All notable changes to VControlHub are documented here. Versions follow Semantic
 
 ## [Unreleased]
 
+### Added
+
+- AI assistant usability round (both friction tiers from the UX audit):
+  - Provider onboarding presets — the create-provider form opens with one-click chips (DeepSeek / OpenAI / 智谱 GLM / Kimi / Anthropic / Ollama 本地) that auto-fill type, base URL and recommended models, plus a "get API key" deep link; local endpoints need no key at all.
+  - Model quick-switch — the provider·model line in the chat header is now a dropdown listing the live model catalog; one click PATCHes the conversation.
+  - Message actions — assistant replies gain 重新生成 (re-sends the latest user turn), and stream-error bubbles are visually distinct (danger styling) with a 重试 button.
+  - Conversation search — a client-side title filter at the top of the AI sidebar.
+  - Capability surfacing — the empty state advertises the ops tools with example-prompt chips (one click creates a conversation and prefills the composer); the composer placeholder mentions `/`; typing `/` opens a slash-command palette with six ops starters.
+  - "问 AI" context injection — server cards link to `/ai?q=<contextual prompt>` (prefill lands even with zero conversations via a pending-draft channel that survives the conversation-switch clear).
+
 ### Changed
 
 - Docker Compose now publishes a single port: with the in-process `/ssh` upgrade forwarder in place, the SSH gateway no longer needs host exposure — it binds `127.0.0.1` inside the app container and browser terminals ride the app port (`APP_PORT`, default 3000). `validate-compose` now rejects accidentally publishing the gateway port or binding it beyond loopback (verified end-to-end: a `/ssh` upgrade against the app port is answered by the real gateway process).
