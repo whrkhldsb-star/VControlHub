@@ -213,6 +213,15 @@ async function searchSftpNode(
 		return [];
 	}
 
+	// The search runs `grep` over SSH exec. Windows OpenSSH sessions default to
+	// cmd/PowerShell with no grep — attempting it burned an exec round-trip and
+	// logged an error per search. Skip explicitly until a PowerShell/Select-String
+	// backend exists; filename search (the files page) still covers these nodes.
+	if (node.server.operatingSystem === "WINDOWS") {
+		logger.info("SFTP content search skipped: Windows node has no grep", { nodeId });
+		return [];
+	}
+
 	const sshParams = await buildSshParamsFromServer(
 		{
 			...node.server,

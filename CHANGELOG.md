@@ -4,6 +4,10 @@ All notable changes to VControlHub are documented here. Versions follow Semantic
 
 ## [Unreleased]
 
+### Fixed
+
+- Windows cloud-drive parity for the two shell-dependent operations: directory archive download on a Windows SFTP node now builds bsdtar-compatible argv (repeated `--exclude=` entries with the same 30k cap) instead of the GNU-only `--exclude-from=-` stdin list — the bundled System32 tar.exe has no such flag, so the download failed on the first excluded entry; and content search now skips Windows SFTP nodes explicitly instead of burning an SSH exec on a `grep` that cannot exist (filename search still covers them; the previous path logged an error per search attempt).
+
 ### Changed
 
 - Cross-file logic dedup round (behavior-preserving except where noted; 605 affected-module tests green):

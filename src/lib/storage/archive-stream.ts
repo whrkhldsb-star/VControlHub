@@ -151,15 +151,39 @@ export function streamLocalTarGz(directoryPath: string, entryName: string, exclu
 }
 
 export function connectArchiveSsh(config: ConnectConfig | SshConnectionParams): Promise<Client> {
-	return connectSsh(config);
+  return connectSsh(config);
 }
 
-export function streamRemoteTarGz(client: Client, remoteDirectoryPath: string, excluded: string[] = []) {
-	const input = archiveExclusionInput(excluded);
+/**
+ * Remote Windows OpenSSH sessions resolve `tar` to the bundled bsdtar, which
+ * has no `--exclude-from=-` / `--no-wildcards` / `--anchored` (same constraint
+ * as the local Windows path above). `bsdtar: true` switches the exclusion list
+ * to repeated `--exclude` argv entries with the same length cap.
+ */
+export function streamRemoteTarGz(
+  client: Client,
+  remoteDirectoryPath: string,
+  excluded: string[] = [],
+  options: { bsdtar?: boolean } = {},
+) {
+	const input = options.bsdtar ? "" : archiveExclusionInput(excluded);
 	return new Promise<NodeJS.ReadableStream>((resolve, reject) => {
 		const parent = path.posix.dirname(remoteDirectoryPath);
 		const name = path.posix.basename(remoteDirectoryPath);
-		const command = `tar -czf - -C ${shellQuote(parent)}${input ? ` ${EXCLUDE_OPTIONS.join(" ")}` : ""} -- ${shellQuote(name)}`;
+		let excludeArgs: string[];
+		if (options.bsdtar && excluded.length) {
+			excludeArgs = [];
+			for (const pattern of excluded) {
+				const arg = `--exclude=${pattern}`;
+				if (excludeArgs.join(" ").length + arg.length > 30_000) {
+					return reject(new ValidationError(t("backend.storage.archiveExclusionTooLargeWindows")));
+				}
+				excludeArgs.push(arg);
+			}
+		} else {
+			excludeArgs = input ? EXCLUDE_OPTIONS : [];
+		}
+		const command = `tar -czf - -C ${shellQuote(parent)}${excludeArgs.length ? ` ${excludeArgs.join(" ")}` : ""} -- ${shellQuote(name)}`;
 		client.exec(command, (err, stream) => {
 			if (err) return reject(err);
 			stream.stderr.on("data", (chunk: Buffer) => {

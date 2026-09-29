@@ -56,6 +56,7 @@ type DirectoryEntry = {
       username: string;
       connectionType: string;
       managementMode: string;
+      operatingSystem: string | null;
       password: string | null;
       hostKeySha256: string | null;
       sshKey: { privateKey: string } | null;
@@ -206,7 +207,11 @@ export async function GET(request: Request) {
       const archiveClient = client;
       const stream = await openManagedArchive({
         storageNodeId: entry.storageNode.id, relativePath: entry.relativePath, signal: request.signal,
-        open: (excluded) => streamRemoteTarGz(archiveClient, remotePath, excluded),
+        // Remote Windows OpenSSH resolves tar to bsdtar — exclusions must ride
+        // argv, not the GNU-only --exclude-from=- stdin list.
+        open: (excluded) => streamRemoteTarGz(archiveClient, remotePath, excluded, {
+          bsdtar: entry.storageNode.server?.operatingSystem === "WINDOWS",
+        }),
       });
       closeSshClientOnStreamEnd(stream, client);
       client = null;
