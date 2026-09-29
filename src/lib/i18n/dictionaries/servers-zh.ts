@@ -82,6 +82,7 @@ export const zh: Record<string, string> = {
 	"serversPage.create.connectionType": "连接方式",
 	"serversPage.askAi": "问 AI",
 	"serversPage.askAiPrefill": "请查看服务器「{name}」（{host}）的当前状态和最近日志，如有异常请给出分析和处理建议。",
+	"serversPage.askAiFleetPrefill": "请查看所有服务器的当前状态，汇总 CPU / 内存 / 磁盘占用和告警，如有异常请给出分析和处理建议。",
 	"serversPage.management.title": "管理通道",
 	"serversPage.management.direct": "SSH 直连",
 	"serversPage.management.directWindows": "RDP 直连",

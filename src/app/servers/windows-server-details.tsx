@@ -73,12 +73,6 @@ export function WindowsServerDetails({
 					/>
 				) : null}
 				<div className="mt-3 flex flex-wrap gap-2">
-					{server.enabled && canUseSshTerminal ? (
-						<Link href={`/servers/${encodeURIComponent(server.id)}/remote-desktop`} data-action-button data-variant="ghost" data-tone="cyan" className="w-full">
-							<Server size={16} aria-hidden="true" />
-							{t("serversPage.windows.remoteDesktop")}
-						</Link>
-					) : null}
 					{probeAvailable ? (
 						<ActionButton variant="success" onClick={onRunRealtimeDiagnostics} disabled={diagnosticRun.status === "loading"}>
 							{diagnosticRun.status === "loading" ? t("serverOverviewDetails.diagnosing") : t("serverOverviewDetails.runRealtimeDiagnostics")}
@@ -89,6 +83,14 @@ export function WindowsServerDetails({
 				{diagnosticRun.status === "error" ? <Notice tone="danger" compact className="mt-3">{t("serverOverviewDetails.diagnosticFailure", { message: diagnosticRun.message, checkedAt: diagnosticRun.checkedAt })}</Notice> : null}
 				{canManageServers ? (
 					<div className="mt-4 border-t border-[var(--border)] pt-4">
+						{/* RDP sits in the bottom action block, mirroring where the
+						    Linux card puts its SSH-terminal button. */}
+						{server.enabled && canUseSshTerminal ? (
+							<Link href={`/servers/${encodeURIComponent(server.id)}/remote-desktop`} data-action-button data-variant="ghost" data-tone="cyan" className="mb-3 flex w-full items-center justify-center gap-2">
+								<Server size={16} aria-hidden="true" />
+								{t("serversPage.windows.remoteDesktop")}
+							</Link>
+						) : null}
 						<ServerCardActions
 							operatingSystem="WINDOWS"
 							serverId={server.id}

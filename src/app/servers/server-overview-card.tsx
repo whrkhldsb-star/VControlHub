@@ -197,7 +197,7 @@ export function ServerOverviewCard({
 
       <div className="mt-3 flex flex-wrap gap-2 border-t border-[var(--border-subtle)] pt-3">
         {isWindows && server.enabled && canUseSshTerminal ? (
-          <Link href={`/servers/${encodeURIComponent(server.id)}/remote-desktop`} data-action-button data-variant="ghost" data-tone="cyan" className="flex w-full items-center gap-2 !px-3 !py-1.5 !text-sm">
+          <Link href={`/servers/${encodeURIComponent(server.id)}/remote-desktop`} data-action-button data-variant="ghost" data-tone="cyan" className="flex items-center gap-2 !px-3 !py-1.5 !text-sm">
             <Server size={16} aria-hidden="true" />
             {t("serversPage.windows.remoteDesktop")}
           </Link>
@@ -219,14 +219,6 @@ export function ServerOverviewCard({
             canUseSshTerminal={canUseSshTerminal}
           />
         ) : null}
-        <Link
-          href={`/ai?q=${encodeURIComponent(t("serversPage.askAiPrefill", { name: server.name, host: server.host }))}`}
-          data-action-button
-          data-variant="outline"
-          className="!px-3 !py-1.5 !text-sm"
-        >
-          {t("serversPage.askAi")}
-        </Link>
         <ActionButton variant="secondary"
           onClick={() => (expanded ? closeDialog() : openDialog())}
           aria-expanded={expanded}

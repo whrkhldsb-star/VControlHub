@@ -27,6 +27,7 @@ export default async function ServersPage({ searchParams }: { searchParams?: Pro
 	const canApproveCommands = sessionHasPermission(session, "command:approve");
 	const canReadAudit = sessionHasPermission(session, "audit:read");
 	const canReadDeployments = sessionHasPermission(session, "deploy:read");
+	const canUseAi = sessionHasPermission(session, "ai:chat");
 	let inventory, formOptions;
 	try {
 		[inventory, formOptions] = await Promise.all([
@@ -56,6 +57,9 @@ export default async function ServersPage({ searchParams }: { searchParams?: Pro
 					</Link> : null}
 					{canReadDeployments ? <Link href="/deployments" data-action-button data-variant="secondary" className="px-3.5 py-2 text-sm">
 						{t("serversPage.link.deploy")}
+					</Link> : null}
+					{canUseAi ? <Link href={`/ai?q=${encodeURIComponent(t("serversPage.askAiFleetPrefill"))}`} data-action-button data-variant="outline" className="px-3.5 py-2 text-sm">
+						{t("serversPage.askAi")}
 					</Link> : null}
 				</div>
 			</PageHeader>

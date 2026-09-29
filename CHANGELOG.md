@@ -4,6 +4,10 @@ All notable changes to VControlHub are documented here. Versions follow Semantic
 
 ## [Unreleased]
 
+### Changed
+
+- VPS 管理页按钮布局归位：问 AI 从每张服务器卡片移到页面顶部操作区（前往部署旁，带 ai:chat 权限门控与舰队级预填提示）；Windows 卡片的远程桌面按钮不再独占一整行——折叠卡上改为与 查看详情 同排的紧凑按钮，详情弹窗中移到底部管理操作区（与 编辑/停用/删除 同区），与 Linux 卡片的 SSH 终端按钮位置一致。
+
 ### Added
 
 - Windows RDP reachability probing: direct-mode Windows nodes now show a real online/offline status chip driven by a new `/api/servers/[id]/rdp-probe` endpoint (plain TCP connect against the RDP port — verifies the listener answers, never claims logon works; browser clients cannot do cross-origin raw TCP themselves). Auto-probing follows the existing probe cadence and is governed by a dedicated 偏好设置 toggle (Windows RDP 连通性自动探测, default on, manual button unaffected); agent-mode Windows nodes keep agent-metrics probing.
