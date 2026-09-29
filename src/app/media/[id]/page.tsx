@@ -9,10 +9,11 @@ import { PageShell, PageHeader, PermissionDenied } from "@/components/page-shell
 import { MediaPreviewClient } from "@/app/files/preview/media-preview-client";
 import {
   buildSearchHref,
+  containingFolderPath,
   toStorageEntry,
   type FileProp,
 } from "@/app/files/file-entry-utils";
-import { containingFolderPath } from "@/app/media/media-item-helpers";
+
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { formatBytes } from "@/lib/format/bytes";
 

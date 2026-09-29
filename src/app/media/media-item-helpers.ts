@@ -4,6 +4,7 @@ import {
   appendDownloadFlag,
   buildProxyDownloadHref,
   buildSearchHref,
+  containingFolderPath,
   toStorageEntry,
   type FileProp,
 } from "@/app/files/file-entry-utils";
@@ -73,12 +74,6 @@ export function createStorageEntry(item: MediaItem, t: MediaTFn) {
     updatedAt: null,
   };
   return toStorageEntry(file);
-}
-
-export function containingFolderPath(relativePath: string) {
-  const segments = relativePath.split("/").filter(Boolean);
-  segments.pop();
-  return segments.join("/");
 }
 
 export { getErrorMessage } from "@/lib/http/error-message";

@@ -256,6 +256,13 @@ export function buildMediaLibraryHref(entry: StorageEntry): string {
   return `/media?${params.toString()}`;
 }
 
+/** Parent folder of a relative path ("a/b/c.png" → "a/b"; root → ""). */
+export function containingFolderPath(relativePath: string) {
+  const segments = relativePath.split("/").filter(Boolean);
+  segments.pop();
+  return segments.join("/");
+}
+
 export function toStorageEntry(file: FileProp): StorageEntry {
   return {
     id: file.id,
