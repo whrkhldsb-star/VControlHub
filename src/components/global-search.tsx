@@ -267,6 +267,9 @@ export function GlobalSearch({
 	}, [open, query, t]);
 
 	const handleKeyDown = (e: React.KeyboardEvent) => {
+		// IME composition: Enter confirms the candidate text and must not
+		// navigate to the highlighted result mid-composition.
+		if (e.nativeEvent.isComposing || e.keyCode === 229) return;
 		if (e.key === "ArrowDown") {
 			e.preventDefault();
 			// When filtered is empty, length-1 is -1; keep selection at 0 so aria-activedescendant stays valid.

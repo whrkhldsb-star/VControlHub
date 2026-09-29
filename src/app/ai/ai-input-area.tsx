@@ -148,6 +148,9 @@ export function AiInputArea({
           }}
           aria-label={t("aiPage.inputAria")}
           onKeyDown={(e) => {
+            // IME composition (Chinese/Japanese input): Enter confirms the
+            // candidate, it must not send the half-composed message.
+            if (e.nativeEvent.isComposing || e.keyCode === 229) return;
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
               if (slashOpen) return; // palette open: Enter closes without sending

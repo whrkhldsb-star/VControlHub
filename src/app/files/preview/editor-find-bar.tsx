@@ -41,6 +41,8 @@ export function EditorFindBar({ inputRef, find, onQueryChange, onMove, onClose }
 				aria-label={t("textPreview.editor.findPlaceholder")}
 				onChange={(event) => onQueryChange(event.currentTarget.value)}
 				onKeyDown={(event) => {
+					// IME composition Enter confirms candidates, not find-next.
+					if (event.nativeEvent.isComposing || event.keyCode === 229) return;
 					if (event.key === "Enter") {
 						event.preventDefault();
 						onMove(event.shiftKey ? -1 : 1);

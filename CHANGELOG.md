@@ -4,7 +4,14 @@ All notable changes to VControlHub are documented here. Versions follow Semantic
 
 ## [Unreleased]
 
+### Fixed
+
+- IME composition Enter no longer triggers the wrong action in five text inputs: the AI composer sent the half-composed message, global search (⌘K) navigated to the highlighted result mid-typing, the image-bed search re-fetched, the AI model picker confirmed, and the editor find-bar jumped — all now check `isComposing` / keyCode 229 before handling Enter (unit-tested for the composer; the guard pattern is identical in the other four).
+
 ### Added
+
+- Operation-tasks list gains a client-side needle filter (title / actor / task type) alongside the server status/type/sort filters, with a no-match empty state and filter-aware pagination reset.
+- Notifications page gains a 只看未读 (unread-only) toggle with the live unread count, so new items no longer hide under scrollback history.
 
 - AI assistant usability round (both friction tiers from the UX audit):
   - Provider onboarding presets — the create-provider form opens with one-click chips (DeepSeek / OpenAI / 智谱 GLM / Kimi / Anthropic / Ollama 本地) that auto-fill type, base URL and recommended models, plus a "get API key" deep link; local endpoints need no key at all.

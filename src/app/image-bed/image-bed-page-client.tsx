@@ -209,7 +209,11 @@ export default function ImageBedPage({ canWrite, canDelete, canListAll = false }
 						placeholder={t("imageBedPage.search.placeholder")}
 						value={search}
 						onChange={(e) => setSearch(e.target.value)}
-						onKeyDown={(e) => e.key === "Enter" && void refreshImages(1)}
+						onKeyDown={(e) => {
+							// IME composition Enter confirms candidates, not a search submit.
+							if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+							if (e.key === "Enter") void refreshImages(1);
+						}}
 						className={cn(UI_INPUT, "min-h-11 sm:w-72")}
 					/>
 				</label>

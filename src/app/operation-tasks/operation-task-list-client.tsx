@@ -137,11 +137,25 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [eventsJobId, setEventsJobId] = useState<string | null>(null);
+  // Client-side title/actor/type needle over the loaded slice — the server
+  // filters are coarse (status/type), this narrows "that one task" quickly.
+  const [needle, setNeedle] = useState("");
   // Bumped after every successful refresh so PaginatedList's resetKey changes
   // and the page snaps back to 1, matching the pre-PaginatedList behavior.
   const [refreshTick, setRefreshTick] = useState(0);
   const handleViewEvents = useCallback((sourceId: string) => setEventsJobId(sourceId), []);
   const taskTypeOptions = useMemo(() => Array.from(new Set(tasks.map((task) => task.taskType).filter((value): value is string => Boolean(value)))).sort(), [tasks]);
+  const needleNorm = needle.trim().toLowerCase();
+  const visibleTasks = useMemo(
+    () =>
+      needleNorm
+        ? tasks.filter((task) =>
+            task.title.toLowerCase().includes(needleNorm) ||
+            (task.actor ?? "").toLowerCase().includes(needleNorm) ||
+            (task.taskType ?? "").toLowerCase().includes(needleNorm))
+        : tasks,
+    [tasks, needleNorm],
+  );
   const refreshSequenceRef = useRef(0);
   const refreshAbortRef = useRef<AbortController | null>(null);
   const filterKey = `${statusFilter}:${taskTypeFilter}:${sort}`;
@@ -232,9 +246,20 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
     <ListPanel
       title={t("operationTasksPage.recentTasks")}
       description={t("operationTasksPage.recentTasksHint")}
-      count={tasks.length}
+      count={visibleTasks.length}
       actions={
         <Toolbar className="!mb-0 flex-col gap-2 border-0 bg-transparent p-0 shadow-none sm:flex-row sm:items-end">
+          <label className="text-xs font-medium text-[var(--text-muted)]">
+            <span className="mb-1 block">{t("operationTasksPage.filter.search")}</span>
+            <input
+              type="search"
+              value={needle}
+              onChange={(event) => setNeedle(event.target.value)}
+              placeholder={t("operationTasksPage.filter.searchPlaceholder")}
+              aria-label={t("operationTasksPage.filter.search")}
+              className={`${CONTROL_CLASS} min-w-44 sm:w-52`}
+            />
+          </label>
           <label className="text-xs font-medium text-[var(--text-muted)]">
             <span className="mb-1 block">{t("operationTasksPage.filter.status")}</span>
             <select data-input value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)} className={`${CONTROL_CLASS} !w-auto min-w-32`}>
@@ -258,10 +283,10 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
           <a href={getExportPath(statusFilter, taskTypeFilter, sort)} data-action-button data-variant="primary" className="px-3 py-2 text-xs">{t("operationTasksPage.export.csv")}</a>
         </Toolbar>
       }
-      empty={tasks.length === 0 ? <EmptyState text={t("operationTasks.tasks.empty")} /> : undefined}
+      empty={visibleTasks.length === 0 ? <EmptyState text={needleNorm ? t("operationTasksPage.filter.noMatch") : t("operationTasks.tasks.empty")} /> : undefined}
     >
-      <PaginatedList pageSize={TASKS_PER_PAGE} resetKey={`${filterKey}:${refreshTick}`}>
-        {tasks.map((task) => <TaskRow key={task.id} task={task} t={t} locale={locale} sourceLabels={sourceLabels} onViewEvents={handleViewEvents} />)}
+      <PaginatedList pageSize={TASKS_PER_PAGE} resetKey={`${filterKey}:${refreshTick}:${needleNorm}`}>
+        {visibleTasks.map((task) => <TaskRow key={task.id} task={task} t={t} locale={locale} sourceLabels={sourceLabels} onViewEvents={handleViewEvents} />)}
       </PaginatedList>
     </ListPanel>
     <JobEventsDialog jobId={eventsJobId} open={eventsJobId !== null} onClose={() => setEventsJobId(null)} />

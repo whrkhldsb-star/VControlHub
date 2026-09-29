@@ -182,6 +182,8 @@ export function AiSettingsModelSelector({
                   aria-label={t("aiPage.manualModelIdAria")}
                   onChange={(e) => setModelSearch(e.target.value)}
                   onKeyDown={(e) => {
+                    // IME composition Enter confirms candidates, not the field.
+                    if (e.nativeEvent.isComposing || e.keyCode === 229) return;
                     if (e.key === "Enter" && modelSearch.trim()) {
                       setSettingsForm((f) => ({
                         ...f,

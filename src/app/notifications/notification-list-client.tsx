@@ -4,7 +4,7 @@ import { useState, useCallback, memo, type ReactNode } from "react";
 import Link from "next/link";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { getSafeNotificationActionUrl } from "@/lib/notification/action-url";
-import { EmptyState } from "@/components/page-shell";
+import { EmptyState, ToggleChip } from "@/components/page-shell";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { toDateLocale } from "@/lib/i18n/locale-format";
 import type { Locale } from "@/lib/i18n/translations";
@@ -131,6 +131,9 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 	const [error, setError] = useState<string | null>(null);
 	const [hasMore, setHasMore] = useState(initialNotifications.length >= 50);
 	const [loadingMore, setLoadingMore] = useState(false);
+	// Unread-only view: with hundreds of read notifications, finding the new
+	// ones meant scrolling past all history.
+	const [unreadOnly, setUnreadOnly] = useState(false);
 
 	const messageFromError = (err: unknown, fallback: string) => (getErrorMessage(err, fallback));
 
@@ -216,14 +219,17 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 	return (
 		<div className="space-y-3">
 			{error && <Notice tone="danger" compact onDismiss={() => setError(null)} dismissLabel={t("common.close")}>{error}</Notice>}
-			{unreadCount > 0 && (
-				<div className="flex justify-end">
+			<div className="flex flex-wrap items-center justify-between gap-2">
+				<ToggleChip active={unreadOnly} onClick={() => setUnreadOnly((v) => !v)} ariaLabel={t("notificationsPage.action.unreadOnly")}>
+					{t("notificationsPage.action.unreadOnly")}{unreadCount > 0 ? ` (${unreadCount})` : ""}
+				</ToggleChip>
+				{unreadCount > 0 && (
 					<ActionButton variant="ghost" onClick={markAllRead} className="!px-2 !py-1 !text-sm">
 						{t("notificationsPage.action.markAll")}
 					</ActionButton>
-				</div>
-			)}
-			{notifications.map((n) => (
+				)}
+			</div>
+			{(unreadOnly ? notifications.filter((n) => !n.isRead) : notifications).map((n) => (
 				<NotificationRow
 					key={n.id}
 					notification={n}

@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import { renderWithI18n as render } from "@/lib/i18n/__tests__/test-helpers";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
@@ -130,6 +130,35 @@ describe("AiInputArea", () => {
 		expect(stopButton).toBeInTheDocument();
 		await user.click(stopButton);
 		expect(handleStop).toHaveBeenCalledTimes(1);
+	});
+
+	it("does not submit when Enter confirms an IME composition (Chinese input)", () => {
+		const handleSend = vi.fn();
+		render(
+			<AiInputArea
+				input="你好"
+				setInput={vi.fn()}
+				streaming={false}
+				activeConv={baseConv}
+				currentModelCaps={baseCaps}
+				textareaRef={createRef<HTMLTextAreaElement>()}
+				fileInputRef={createRef<HTMLInputElement>()}
+				fileAttachmentsState={makeFileAttachmentState()}
+				handleSend={handleSend}
+				handleStopGeneration={vi.fn()}
+			/>
+		);
+		const textarea = screen.getByRole("textbox", { name: "消息输入" });
+		// Browsers signal IME composition via isComposing (or legacy keyCode 229).
+		const composing = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true });
+		Object.defineProperty(composing, "isComposing", { value: true });
+		fireEvent(textarea, composing);
+		expect(handleSend).not.toHaveBeenCalled();
+
+		const legacy = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true });
+		Object.defineProperty(legacy, "keyCode", { value: 229 });
+		fireEvent(textarea, legacy);
+		expect(handleSend).not.toHaveBeenCalled();
 	});
 
 	it("gives icon-only controls accessible names", () => {
