@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { connect } from "node:net";
 
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { NotFoundError } from "@/lib/errors";
 import { serverTeamWhere } from "@/lib/auth/team-scope";
+import { probeTcpReachable } from "@/lib/net/tcp-reachable";
 import { apiCopy } from "@/lib/i18n/api-copy";
 
 export const dynamic = "force-dynamic";
@@ -35,22 +35,12 @@ export async function GET(
       throw new NotFoundError(apiCopy("apiCopy.server.not.found.b3aa1f7c"));
     }
 
-    const startedAt = Date.now();
-    const reachable = await new Promise<boolean>((resolve) => {
-      const socket = connect({ host: server.host, port: server.port });
-      const finish = (ok: boolean) => {
-        socket.removeAllListeners();
-        socket.destroy();
-        resolve(ok);
-      };
-      socket.setTimeout(PROBE_TIMEOUT_MS, () => finish(false));
-      socket.once("connect", () => finish(true));
-      socket.once("error", () => finish(false));
+    const { reachable, latencyMs } = await probeTcpReachable({
+      host: server.host,
+      port: server.port,
+      timeoutMs: PROBE_TIMEOUT_MS,
     });
 
-    return NextResponse.json({
-      reachable,
-      latencyMs: reachable ? Date.now() - startedAt : null,
-    });
+    return NextResponse.json({ reachable, latencyMs });
   });
 }
