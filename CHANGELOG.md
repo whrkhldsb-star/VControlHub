@@ -4,6 +4,14 @@ All notable changes to VControlHub are documented here. Versions follow Semantic
 
 ## [Unreleased]
 
+### Changed
+
+- Code-quality round (behavior-neutral, all 374 affected-module tests green):
+  - `KnownErrorNotice` extracted to a shared component — the files browser and share picker carried two hand-rolled copies of the same localized raw-error notice; one now serves both (accepts both tone vocabularies).
+  - `isImeComposition(event)` predicate in `lib/ui/keyboard` — the IME-composition guard was pasted in five Enter handlers; one tested helper replaces them and gives the next Enter-handling input a discoverable primitive.
+  - Archive preview's `formatSize` now delegates to the shared `formatBytes` (it was the last hand-rolled unit loop; the other formatSize/formatBytes call sites were already thin locale wrappers).
+  - AI message list filters tool-role rows through a top-level `useMemo` instead of re-filtering on every render (the transcript re-renders per streamed chunk).
+
 ### Fixed
 
 - IME composition Enter no longer triggers the wrong action in five text inputs: the AI composer sent the half-composed message, global search (⌘K) navigated to the highlighted result mid-typing, the image-bed search re-fetched, the AI model picker confirmed, and the editor find-bar jumped — all now check `isComposing` / keyCode 229 before handling Enter (unit-tested for the composer; the guard pattern is identical in the other four).

@@ -12,7 +12,7 @@
  * still drives streaming/approval state.
  */
 import Image from "next/image";
-import { type DragEvent, type RefObject } from "react";
+import { type DragEvent, type RefObject, useMemo } from "react";
 
 import { useI18n } from "@/lib/i18n/use-locale";
 import { copyToClipboard, renderContent } from "./ai-markdown-renderer";
@@ -93,6 +93,14 @@ export function AiMessageList({
     const translated = t(key);
     return translated === key ? riskLevel : translated;
   };
+  // Tool-role rows are never rendered; filter once per messages change —
+  // re-running this on every stream chunk was pure waste, and the index math
+  // below needs the filtered array anyway.
+  const visibleMsgs = useMemo(
+    () => messages.filter((msg) => msg.role !== "tool"),
+    [messages],
+  );
+  const lastIdx = visibleMsgs.length - 1;
   return (
     <div
       className="flex-1 overflow-y-auto px-3 py-3 sm:px-4 sm:py-4 space-y-4"
@@ -124,11 +132,7 @@ export function AiMessageList({
         </div>
       )}
 
-      {(() => {
-        // Compute the last actionable bubble once: regenerate/retry rides on it.
-        const visibleMsgs = messages.filter((msg) => msg.role !== "tool");
-        const lastIdx = visibleMsgs.length - 1;
-        return visibleMsgs.map((msg, idx) => {
+      {visibleMsgs.map((msg, idx) => {
         const hostedActions = msg.hostedActions ?? [];
         const hasToolOnlyContent =
           hostedActions.length > 0 &&
@@ -334,8 +338,7 @@ export function AiMessageList({
           )}
           </div>
         );
-        });
-      })()}
+      })}
 
       {streaming && streamContent && (
         <div className="flex gap-3">

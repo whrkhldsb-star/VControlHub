@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import Link from "next/link";
 import { ActionButton } from "@/components/action-button";
 import { UI_INPUT } from "@/lib/ui/classes";
+import { isImeComposition } from "@/lib/ui/keyboard";
 import { cn } from "@/lib/ui/cn";
 import { PageShell, PageHeader, StatGrid, StatCard, EmptyState, ToggleChip } from "@/components/page-shell";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -210,8 +211,8 @@ export default function ImageBedPage({ canWrite, canDelete, canListAll = false }
 						value={search}
 						onChange={(e) => setSearch(e.target.value)}
 						onKeyDown={(e) => {
-							// IME composition Enter confirms candidates, not a search submit.
-							if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+							
+							if (isImeComposition(e)) return;
 							if (e.key === "Enter") void refreshImages(1);
 						}}
 						className={cn(UI_INPUT, "min-h-11 sm:w-72")}

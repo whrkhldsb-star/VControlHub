@@ -25,6 +25,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { ActionButton } from "@/components/action-button";
 import { IconButton, Notice } from "@/components/ui-primitives";
 import { UI_INPUT } from "@/lib/ui/classes";
+import { isImeComposition } from "@/lib/ui/keyboard";
 
 export interface AiInputAreaProps {
   input: string;
@@ -148,9 +149,7 @@ export function AiInputArea({
           }}
           aria-label={t("aiPage.inputAria")}
           onKeyDown={(e) => {
-            // IME composition (Chinese/Japanese input): Enter confirms the
-            // candidate, it must not send the half-composed message.
-            if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+            if (isImeComposition(e)) return;
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
               if (slashOpen) return; // palette open: Enter closes without sending

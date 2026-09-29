@@ -4,6 +4,7 @@ import type { Dispatch, SetStateAction } from "react";
 
 import { Eye, Video, Music2, File } from "@/components/icons";
 import { UI_INPUT } from "@/lib/ui/classes";
+import { isImeComposition } from "@/lib/ui/keyboard";
 import { cn } from "@/lib/ui/cn";
 import { useI18n } from "@/lib/i18n/use-locale";
 
@@ -182,8 +183,8 @@ export function AiSettingsModelSelector({
                   aria-label={t("aiPage.manualModelIdAria")}
                   onChange={(e) => setModelSearch(e.target.value)}
                   onKeyDown={(e) => {
-                    // IME composition Enter confirms candidates, not the field.
-                    if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+                    
+                    if (isImeComposition(e)) return;
                     if (e.key === "Enter" && modelSearch.trim()) {
                       setSettingsForm((f) => ({
                         ...f,

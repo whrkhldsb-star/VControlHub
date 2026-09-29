@@ -6,6 +6,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import type { EditorFindState } from "./text-preview-types";
 
 import { UI_INPUT } from "@/lib/ui/classes";
+import { isImeComposition } from "@/lib/ui/keyboard";
 import { cn } from "@/lib/ui/cn";
 import { ActionButton } from "@/components/action-button";
 /**
@@ -41,8 +42,8 @@ export function EditorFindBar({ inputRef, find, onQueryChange, onMove, onClose }
 				aria-label={t("textPreview.editor.findPlaceholder")}
 				onChange={(event) => onQueryChange(event.currentTarget.value)}
 				onKeyDown={(event) => {
-					// IME composition Enter confirms candidates, not find-next.
-					if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+					
+					if (isImeComposition(event)) return;
 					if (event.key === "Enter") {
 						event.preventDefault();
 						onMove(event.shiftKey ? -1 : 1);

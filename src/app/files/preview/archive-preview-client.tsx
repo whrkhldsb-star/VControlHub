@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { formatBytes as formatBytesShared } from "@/lib/format/bytes";
 import { ActionButton } from "@/components/action-button";
 
 type ArchiveEntry = {
@@ -71,12 +72,7 @@ export function ArchivePreviewClient({
 	}
 
 	function formatSize(bytes: number) {
-		if (bytes === 0) return"-";
-		const units = ["B","KB","MB","GB"];
-		let i = 0;
-		let size = bytes;
-		while (size >= 1024 && i < units.length - 1) { size /= 1024; i++; }
-		return `${size.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+		return formatBytesShared(bytes, { zero: "-" });
 	}
 
 	return (

@@ -24,7 +24,7 @@ import { Pagination } from "@/components/pagination";
 import { ChevronRight, Plus, RefreshCw, X } from "@/components/icons";
 import { IconButton } from "@/components/ui-primitives";
 import { StatCard, StatGrid, Toolbar } from "@/components/page-shell";
-import { describeKnownError } from "@/lib/ui/known-error-copy";
+import { KnownErrorNotice } from "@/components/known-error-notice";
 import { useStorageUploads } from "@/components/storage/storage-upload-provider";
 import { readDroppedFiles } from "@/components/storage/storage-drop-files";
 import { getBrowserRelativePath, normalizeRelativePath } from "@/components/storage/file-upload-helpers";
@@ -455,17 +455,4 @@ export function FilesBrowserSpa({
     </section>
     </>
   );
-}
-
-function KnownErrorNotice({ tone, raw, className }: { tone: "warning" | "danger"; raw: string; className?: string }) {
-	const { t } = useI18n();
-	const { summary, detail } = describeKnownError(raw, t);
-	return (
-		<Notice tone={tone} className={className}>
-			{summary}
-			{/* Full color (no opacity): axe measures the reduced-alpha variant below
-			    4.5:1 in the light theme. */}
-			<code className="mt-1 block break-all font-mono text-xs">{detail}</code>
-		</Notice>
-	);
 }

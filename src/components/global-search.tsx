@@ -11,6 +11,7 @@ import { useGateRoute } from "@/lib/auth/use-gate-route";
 import { ModalShell } from "@/components/modal-shell";
 import { api } from "@/lib/http/api-client";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { isImeComposition } from "@/lib/ui/keyboard";
 import { Search, X } from "./icons";
 import { IconButton } from "./ui-primitives";
 
@@ -267,9 +268,7 @@ export function GlobalSearch({
 	}, [open, query, t]);
 
 	const handleKeyDown = (e: React.KeyboardEvent) => {
-		// IME composition: Enter confirms the candidate text and must not
-		// navigate to the highlighted result mid-composition.
-		if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+		if (isImeComposition(e)) return;
 		if (e.key === "ArrowDown") {
 			e.preventDefault();
 			// When filtered is empty, length-1 is -1; keep selection at 0 so aria-activedescendant stays valid.

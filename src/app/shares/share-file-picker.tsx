@@ -13,7 +13,7 @@ import { getStorageDriverLabel } from "@/lib/i18n/domain-labels";
 
 import { ActionButton } from "@/components/action-button";
 import { getErrorMessage } from "@/lib/http/error-message";
-import { describeKnownError } from "@/lib/ui/known-error-copy";
+import { KnownErrorNotice } from "@/components/known-error-notice";
 interface StorageNode {
 	id: string;
 	name: string;
@@ -400,21 +400,5 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 				</aside>
 			</div>
 		</section>
-	);
-}
-
-function KnownErrorNotice({ tone, raw }: { tone: 'rose' | 'amber'; raw: string }) {
-	const { t } = useI18n();
-	const { summary, detail } = describeKnownError(raw, t);
-	const styles = tone === 'rose'
-		? 'border-[var(--danger-border)] text-[var(--danger)]'
-		: 'border-[var(--warning-border)] text-[var(--warning)]';
-	return (
-		<p data-tone={tone} className={`mt-3 rounded-xl border px-3 py-2 text-sm ${styles}`}>
-			{summary}
-			{/* Full color (no opacity): axe measures the reduced-alpha variant below
-			    4.5:1 in the light theme. */}
-			<code className={`mt-1 block break-all font-mono text-xs`}>{detail}</code>
-		</p>
 	);
 }
