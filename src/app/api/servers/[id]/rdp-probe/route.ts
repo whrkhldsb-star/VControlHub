@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { NotFoundError } from "@/lib/errors";
 import { serverTeamWhere } from "@/lib/auth/team-scope";
-import { probeTcpReachable } from "@/lib/net/tcp-reachable";
+import { tcpProbe } from "@/lib/server/connectivity";
 import { apiCopy } from "@/lib/i18n/api-copy";
 
 export const dynamic = "force-dynamic";
@@ -15,11 +15,11 @@ const PROBE_TIMEOUT_MS = 5_000;
  * GET /api/servers/[id]/rdp-probe
  *
  * Windows RDP reachability check for the server card's realtime status chip:
- * a plain TCP connect against host:port (the RDP endpoint, 3389 by default).
- * No credentials are used and no RDP handshake is attempted — this verifies
- * "the RDP listener answers on the network", not "the logon works". The
- * browser client cannot do this itself (cross-origin raw TCP), so the hub
- * performs the one connect and reports latency.
+ * a plain TCP connect against host:port (the RDP endpoint, 3389 by default),
+ * reusing the health rollup's tcpProbe. No credentials are used and no RDP
+ * handshake is attempted — this verifies "the RDP listener answers on the
+ * network", not "the logon works". The browser client cannot do this itself
+ * (cross-origin raw TCP), so the hub performs the one connect.
  */
 export async function GET(
   request: Request,
@@ -35,12 +35,12 @@ export async function GET(
       throw new NotFoundError(apiCopy("apiCopy.server.not.found.b3aa1f7c"));
     }
 
-    const { reachable, latencyMs } = await probeTcpReachable({
-      host: server.host,
-      port: server.port,
-      timeoutMs: PROBE_TIMEOUT_MS,
-    });
+    const { ok: reachable, latencyMs } = await tcpProbe(
+      server.host,
+      server.port,
+      PROBE_TIMEOUT_MS,
+    );
 
-    return NextResponse.json({ reachable, latencyMs });
+    return NextResponse.json({ reachable, latencyMs: reachable ? latencyMs ?? null : null });
   });
 }

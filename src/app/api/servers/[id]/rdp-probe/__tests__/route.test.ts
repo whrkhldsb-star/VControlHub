@@ -5,9 +5,9 @@
  * against host:port (the RDP endpoint, 3389 by default) with no credentials
  * and no RDP handshake. Properties under test: the DB lookup stays team- and
  * enabled-scoped, non-Windows or invisible servers answer 404 (not a probe
- * result), and the transport outcome maps straight through the
- * probeTcpReachable seam (mocking node:net at module level proved unreliable
- * under vitest — the seam is the testable boundary).
+ * result), and the transport outcome maps straight through the shared
+ * tcpProbe seam (mocking node:net at module level proved unreliable under
+ * vitest — the seam is the testable boundary).
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -46,8 +46,8 @@ vi.mock("@/lib/i18n/api-copy", () => ({
   apiCopy: (key: string) => key,
 }));
 
-vi.mock("@/lib/net/tcp-reachable", () => ({
-  probeTcpReachable: probeMock,
+vi.mock("@/lib/server/connectivity", () => ({
+  tcpProbe: probeMock,
 }));
 
 import { GET } from "../route";
@@ -70,7 +70,7 @@ describe("GET /api/servers/[id]/rdp-probe", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     findFirstMock.mockResolvedValue(windowsServer);
-    probeMock.mockResolvedValue({ reachable: true, latencyMs: 12 });
+    probeMock.mockResolvedValue({ ok: true, latencyMs: 12 });
   });
 
   it("reports reachability with latency when the TCP connect succeeds", async () => {
@@ -80,11 +80,11 @@ describe("GET /api/servers/[id]/rdp-probe", () => {
 
     expect(res.status).toBe(200);
     expect(body).toEqual({ reachable: true, latencyMs: 12 });
-    expect(probeMock).toHaveBeenCalledWith({ host: "192.0.2.10", port: 3389, timeoutMs: 5_000 });
+    expect(probeMock).toHaveBeenCalledWith("192.0.2.10", 3389, 5_000);
   });
 
   it("passes an unreachable outcome through without inventing latency", async () => {
-    probeMock.mockResolvedValue({ reachable: false, latencyMs: null });
+    probeMock.mockResolvedValue({ ok: false, error: "ECONNREFUSED" });
     const { req, ctx } = request();
     const res = await GET(req, ctx);
     const body = await res.json();
@@ -94,7 +94,7 @@ describe("GET /api/servers/[id]/rdp-probe", () => {
   });
 
   it("surfaces a transport failure from the probe seam as unreachable", async () => {
-    probeMock.mockResolvedValue({ reachable: false, latencyMs: null });
+    probeMock.mockResolvedValue({ ok: false, error: "Connection timeout (5000ms)" });
     const { req, ctx } = request();
     const res = await GET(req, ctx);
 
