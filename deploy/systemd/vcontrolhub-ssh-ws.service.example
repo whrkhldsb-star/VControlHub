@@ -49,8 +49,10 @@ SystemCallErrorNumber=EPERM
 CapabilityBoundingSet=
 
 # Resource limits
-MemoryMax=256M
-MemoryHigh=192M
+# Prisma, SSH and RDP share this process. A 192 MiB soft limit caused
+# continuous reclaim and authorization timeouts with concurrent sessions.
+MemoryMax=512M
+MemoryHigh=384M
 TasksMax=128
 
 # Logging
