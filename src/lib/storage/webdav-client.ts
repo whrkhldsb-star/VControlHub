@@ -116,7 +116,7 @@ export function createWebDavClient(node: WebDavStorageNode, dependencies: { tran
   const transport = dependencies.transport ?? safeTransport;
   const authorization = config.authType === "basic" ? `Basic ${Buffer.from(`${config.username}:${config.password}`).toString("base64")}` : `Bearer ${config.token}`;
   const target = (path: string) => { const url = new URL(endpoint); url.pathname = rootPath + "/" + segments(path).map(encodeURIComponent).join("/"); return url; };
-  async function request(method: string, path: string, headers: Record<string, string> = {}, body?: Buffer | string) {
+  async function request(method: string, path: string, headers: Record<string, string> = {}, body?: Buffer | string | ReadableStream<Uint8Array>) {
     const url = target(path);
     let response: Response;
     // Deadline only for DNS/connection/response headers; a progressing download
@@ -126,7 +126,8 @@ export function createWebDavClient(node: WebDavStorageNode, dependencies: { tran
     const timer = setTimeout(() => controller.abort(), 120_000);
     timer.unref?.();
     try {
-      response = await transport(url, { method, headers: { Authorization: authorization, ...headers }, ...(body !== undefined ? { body: body as BodyInit } : {}), redirect: "manual", signal: controller.signal });
+      const init: RequestInit & { duplex?: "half" } = { method, headers: { Authorization: authorization, ...headers }, ...(body !== undefined ? { body: body as BodyInit } : {}), ...(body instanceof ReadableStream ? { duplex: "half" as const } : {}), redirect: "manual", signal: controller.signal };
+      response = await transport(url, init);
     } catch { throw new BusinessError(apiCopy("apiCopy.webdav.connection.dns.policy.or.tls.verification.failed.a9bf97a9")); }
     finally { clearTimeout(timer); }
     if (!response.ok) { await response.body?.cancel().catch(() => undefined); throw new WebDavHttpError(response.status); }
@@ -171,7 +172,7 @@ export function createWebDavClient(node: WebDavStorageNode, dependencies: { tran
     }
     return entries;
   }
-  async function mutate(method: string, path: string, headers?: Record<string, string>, body?: Buffer | string) {
+  async function mutate(method: string, path: string, headers?: Record<string, string>, body?: Buffer | string | ReadableStream<Uint8Array>) {
     if (!segments(path).length) throw new ValidationError(apiCopy("apiCopy.cannot.mutate.webdav.root.path.88a93cad"));
     const response = await request(method, path, headers, body);
     // DELETE/MOVE may report partial failure as 207: never claim success for it.
@@ -249,10 +250,14 @@ export function createWebDavClient(node: WebDavStorageNode, dependencies: { tran
       });
     },
     async write(path: string, content: string | Buffer): Promise<{ byteSize: number }> { const body = Buffer.isBuffer(content) ? content : Buffer.from(content); await mutate("PUT", path, { "Content-Type": "application/octet-stream" }, body); return { byteSize: body.length }; },
+    async writeStream(path: string, content: ReadableStream<Uint8Array>, size: number): Promise<void> {
+      if (!Number.isSafeInteger(size) || size < 0) throw new ValidationError(t("backend.storage.invalidUploadSize"));
+      await mutate("PUT", path, { "Content-Type": "application/octet-stream", "Content-Length": String(size) }, content);
+    },
     async mkdir(path: string): Promise<void> { await mutate("MKCOL", path); },
     async copy(oldPath: string, newPath: string): Promise<void> { if (!segments(newPath).length) throw new ValidationError(apiCopy("apiCopy.cannot.replace.webdav.root.path.eaa87e14")); await mutate("COPY", oldPath, { Destination: target(newPath).href.replace(/\/$/, ""), Overwrite: "F", Depth: "0" }); },
+    async rename(oldPath: string, newPath: string, overwrite = false): Promise<void> { if (!segments(newPath).length) throw new ValidationError(apiCopy("apiCopy.cannot.replace.webdav.root.path.eaa87e14")); await mutate("MOVE", oldPath, { Destination: target(newPath).href.replace(/\/$/, ""), Overwrite: overwrite ? "T" : "F" }); },
     async delete(path: string): Promise<void> { await mutate("DELETE", path); },
-    async rename(oldPath: string, newPath: string): Promise<void> { if (!segments(newPath).length) throw new ValidationError(apiCopy("apiCopy.cannot.replace.webdav.root.path.eaa87e14")); await mutate("MOVE", oldPath, { Destination: target(newPath).href.replace(/\/$/, ""), Overwrite: "F" }); },
   };
 }
 export type WebDavClient = ReturnType<typeof createWebDavClient>;

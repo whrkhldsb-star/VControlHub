@@ -113,6 +113,7 @@ async function executeCommandOverSshWithKey(input: {
   privateKey: string;
   command: string;
   targetId?: string;
+  signal?: AbortSignal;
   hostKeySha256?: string | null;
 }): Promise<SshExecutionResult> {
   return withSshTempDir("app-ssh-", async (tempDir) => {
@@ -134,6 +135,7 @@ async function executeCommandOverSshWithKey(input: {
       args,
       env: process.env,
       targetId: input.targetId,
+      signal: input.signal,
       runtimeConfig: await getCommandRuntimeConfigValues(),
     });
   });
@@ -146,6 +148,7 @@ async function executeCommandOverSshWithPassword(input: {
   password: string;
   command: string;
   targetId?: string;
+  signal?: AbortSignal;
   hostKeySha256?: string | null;
 }): Promise<SshExecutionResult> {
   if (shouldUseSsh2PasswordExecutor()) {
@@ -156,6 +159,7 @@ async function executeCommandOverSshWithPassword(input: {
       password: input.password,
       command: input.command,
       targetId: input.targetId,
+      signal: input.signal,
       hostKeySha256: input.hostKeySha256 ?? null,
       runtimeConfig: await getCommandRuntimeConfigValues(),
     });
@@ -181,6 +185,7 @@ async function executeCommandOverSshWithPassword(input: {
       args: ["-e", "ssh", ...args],
       env: { ...process.env, SSHPASS: input.password },
       targetId: input.targetId,
+      signal: input.signal,
       runtimeConfig: await getCommandRuntimeConfigValues(),
     });
   });
@@ -194,6 +199,7 @@ export async function executeCommandOverSsh(input: {
   password?: string;
   command: string;
   targetId?: string;
+  signal?: AbortSignal;
   hostKeySha256?: string | null;
 }): Promise<SshExecutionResult> {
   if (input.privateKey) {

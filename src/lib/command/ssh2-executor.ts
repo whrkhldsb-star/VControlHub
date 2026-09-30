@@ -30,6 +30,7 @@ export type Ssh2ExecutionInput = {
   password: string;
   command: string;
   targetId?: string;
+  signal?: AbortSignal;
   hostKeySha256?: string | null;
   runtimeConfig: { executionTimeoutMs: number; outputLimitBytes: number };
 };
@@ -53,6 +54,7 @@ function isSinglePasswordPrompt(
 }
 
 export function runSsh2Command(input: Ssh2ExecutionInput): Promise<SshExecutionResult> {
+  if (input.signal?.aborted) return Promise.resolve({ stdout: "", stderr: "Command cancelled before dispatch", exitCode: 130, cancelled: true });
   const { host, port, username, password, command, targetId, hostKeySha256 } = input;
   const timeoutMs = input.runtimeConfig.executionTimeoutMs;
   const outputLimitBytes = input.runtimeConfig.outputLimitBytes;
@@ -81,6 +83,7 @@ export function runSsh2Command(input: Ssh2ExecutionInput): Promise<SshExecutionR
       if (settled) return;
       settled = true;
       clearTimeout(timer);
+      input.signal?.removeEventListener("abort", cancelExecution);
       unregisterCancellableTarget(targetId, cancelExecution);
       try {
         client.end();
@@ -103,7 +106,8 @@ export function runSsh2Command(input: Ssh2ExecutionInput): Promise<SshExecutionR
       } catch {
         // Best-effort teardown.
       }
-      const cancelled = targetId ? consumeCommandTargetCancellation(targetId) : false;
+      const marked = targetId ? consumeCommandTargetCancellation(targetId) : false;
+      const cancelled = input.signal?.aborted || marked;
       if (cancelled) {
         stderrCollector.push("\nCommand has been cancelled; SSH subprocess terminated.");
         finish({
@@ -133,6 +137,7 @@ export function runSsh2Command(input: Ssh2ExecutionInput): Promise<SshExecutionR
     };
 
     registerCancellableTarget(targetId, cancelExecution);
+    input.signal?.addEventListener("abort", cancelExecution, { once: true });
 
     client.on("keyboard-interactive", (name: string, _instr: string, _lang: string, prompts: Array<{ prompt?: string; echo?: boolean }>, finishAnswers: (answers: string[]) => void) => {
       // Only answer with the stored password when the server asks for exactly
@@ -191,6 +196,8 @@ export function runSsh2Command(input: Ssh2ExecutionInput): Promise<SshExecutionR
     client.on("error", (error) => {
       if (settled) return;
       clearTimeout(timer);
+      input.signal?.removeEventListener("abort", cancelExecution);
+      settled = true;
       unregisterCancellableTarget(targetId, cancelExecution);
       reject(mapConnectError(error));
     });

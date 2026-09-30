@@ -274,7 +274,7 @@ export function findJsxRanges(
   //   return <tag>...</tag>   — unwrapped return
   //   => (...)                — wrapped arrow
   //   => <tag>...</tag>       — unwrapped arrow
-  const re = /(\breturn\b|=?>)\s*(?=\(|<)/g;
+  const re = /(\breturn\b|=>)\s*(?=\(|<)/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(text)) !== null) {
     // The JSX expression starts after the whitespace following
@@ -579,9 +579,11 @@ export function extractCandidates(
 
     // Now look for JSX text content after this tag. We grab the
     // chunk between this `>` and the next `<` (or end of file).
+    if (stripped[tagEnd - 1] === "/") continue;
     const afterClose = tagOpenEnd;
     const nextLt = stripped.indexOf("<", afterClose);
-    const contentEnd = nextLt < 0 ? stripped.length : nextLt;
+    const rangeEnd = jsxRanges.find((r) => m!.index >= r.start && m!.index < r.end)!.end;
+    const contentEnd = Math.min(nextLt < 0 ? stripped.length : nextLt, rangeEnd);
     let content = stripped.slice(afterClose, contentEnd);
     if (content.length === 0) continue;
     // Strip `{...}` JSX expression placeholders so we don't count

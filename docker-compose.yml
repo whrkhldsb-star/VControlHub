@@ -44,18 +44,24 @@ services:
       # rate-limit bucket per request. Put an explicit reverse proxy in front
       # and raise this to its hop count instead.
       TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-0}
+      # DOCKER_SOCKET_PATH may point to a rootless daemon on the host.
+      DOCKER_HOST: unix:///var/run/docker.sock
       NEXT_PUBLIC_APP_PUBLIC_LABEL: ${NEXT_PUBLIC_APP_PUBLIC_LABEL:-VControlHub}
       RUN_MIGRATIONS_ON_START: ${RUN_MIGRATIONS_ON_START:-true}
       SEED_ON_START: ${SEED_ON_START:-true}
     ports:
-      - "${APP_PORT:-3000}:3000"
+      - "${APP_BIND_HOST:-127.0.0.1}:${APP_PORT:-3000}:3000"
     volumes:
       - app_storage:/app/storage
       - app_uploads:/app/uploads
       - app_downloads:/app/downloads
       - app_backups:/app/backups
       - app_logs:/app/logs
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # :ro protects the socket file, not Docker API operations.
+      - type: bind
+        source: ${DOCKER_SOCKET_PATH:-/var/run/docker.sock}
+        target: /var/run/docker.sock
+        read_only: true
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:3000/api/status >/dev/null"]
       interval: 30s

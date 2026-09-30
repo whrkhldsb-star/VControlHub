@@ -2,13 +2,18 @@
 FROM node:22-slim AS deps
 WORKDIR /app
 COPY package.json package-lock.json* ./
-RUN npm ci --omit=dev && cp -R node_modules /prod_modules && npm ci
+COPY scripts/patch-minimatch-legacy.mjs ./scripts/patch-minimatch-legacy.mjs
+RUN npm ci --no-audit --no-fund && npm cache clean --force
 
 # ── Stage 2: Build ────────────────────────────────────────────────
 FROM deps AS builder
 WORKDIR /app
 COPY . .
-RUN npx prisma generate && npm run build && npm run build:runtime
+ENV DATABASE_URL=postgresql://build:build@127.0.0.1:1/vcontrolhub_build
+ENV VCONTROLHUB_DEPLOY_BUILD=1
+RUN npx prisma generate && npm run build && npm run build:runtime \
+    && npm prune --omit=dev --ignore-scripts --no-audit --no-fund \
+    && npm cache clean --force && rm -rf .next/cache
 
 # ── Stage 3: Production ───────────────────────────────────────────
 FROM node:22-slim AS runner
@@ -32,12 +37,11 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/dist ./dist
-COPY --from=deps /prod_modules ./node_modules
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
-COPY --from=builder /app/node_modules/tsx ./node_modules/tsx
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=builder /app/node_modules/.bin/prisma ./node_modules/.bin/prisma
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
+COPY --from=builder /app/dist/next.config.mjs ./next.config.mjs
+COPY --from=builder /app/docs/route-catalog.json ./docs/route-catalog.json
 COPY --from=builder /app/docker-entrypoint.sh ./docker-entrypoint.sh
 
 RUN chmod +x ./docker-entrypoint.sh && mkdir -p storage tmp uploads downloads backups logs

@@ -155,5 +155,7 @@ export function dockerEngineSocketPath(): string {
  * container side stays POSIX either way.
  */
 export function hubHostDockerSocketMount(): string {
-  return IS_WINDOWS ? "\\\\.\\pipe\\docker_engine" : "/var/run/docker.sock";
+  const endpoint = dockerEngineEndpoint();
+  if (endpoint.kind !== "socket") throw new Error("A TCP Docker endpoint cannot be bind-mounted as a local socket");
+  return endpoint.socketPath;
 }

@@ -1,0 +1,11 @@
+[Unit]
+Description={{SITE_NAME}} daily recovery backup schedule
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+RandomizedDelaySec=15min
+Persistent=true
+Unit={{SERVICE_PREFIX}}-backup.service
+
+[Install]
+WantedBy=timers.target

@@ -53,6 +53,16 @@ describe("isChineseLabel — character count threshold", () => {
 });
 
 describe("extractCandidates — JSX text content", () => {
+  it("does not scan code or comments after a self-closing loading component", () => {
+    const text = `const Card = dynamic(() => import("fixture"), {
+      loading: () => <div aria-label="加载中" />,
+    });
+    // 这些注释不属于界面文本。
+    function CardView() { return <div>{t("card.label")}</div>; }`;
+    const candidates = extractCandidates(text, findJsxRanges(text), []);
+    expect(candidates).toEqual([expect.objectContaining({ text: "加载中", kind: "aria-label" })]);
+  });
+
   it("extracts a single-line JSX text node", () => {
     const text = `
       function Foo() {
@@ -308,7 +318,7 @@ describe("extractCandidates — line numbers", () => {
 <!-- line 2 -->
 <h1>代码片段库</h1>
 `;
-    const candidates = extractCandidates(text, findJsxRanges(text), []);
+    const candidates = extractCandidates(text, [{ start: 0, end: text.length }], []);
     const textNodes = candidates.filter((c) => c.kind === "text");
     expect(textNodes).toHaveLength(1);
     expect(textNodes[0]!.line).toBe(3);

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import type { CommandRequestStatus } from "@prisma/client";
 import {
   COMMAND_WORKER_ID,
   enqueueApprovedCommandExecution,
@@ -13,6 +14,7 @@ const RECOVER_STALE_CONCURRENCY = 5;
 
 type StaleRequest = {
   id: string;
+  status?: CommandRequestStatus;
   workerId: string | null;
   workerHeartbeatAt: Date | null;
   targets: Array<{ id: string; status: string }>;
@@ -23,7 +25,7 @@ export async function recoverStaleRunningCommandRequests(now = new Date()) {
   const staleCutoff = new Date(now.getTime() - runtimeConfig.staleRunningAfterMs);
   const staleRequests = await prisma.commandRequest.findMany({
     where: {
-      status: "RUNNING",
+      status: { in: ["RUNNING", "CANCELLING"] },
       OR: [
         { workerHeartbeatAt: { lt: staleCutoff } },
         { workerHeartbeatAt: null, updatedAt: { lt: staleCutoff } },
@@ -31,6 +33,7 @@ export async function recoverStaleRunningCommandRequests(now = new Date()) {
     },
     select: {
       id: true,
+      status: true,
       workerId: true,
       workerHeartbeatAt: true,
       targets: { select: { id: true, status: true } },
@@ -55,13 +58,13 @@ export async function recoverStaleRunningCommandRequests(now = new Date()) {
 
 async function recoverOne(request: StaleRequest, now: Date): Promise<boolean> {
   const targetStatuses = request.targets.map((target) => target.status);
-  const hasRunningOrQueuedTarget = targetStatuses.some((status) => ["RUNNING", "APPROVED", "PENDING_APPROVAL"].includes(status));
+  const hasRunningOrQueuedTarget = targetStatuses.some((status) => ["RUNNING", "CANCELLING", "APPROVED", "PENDING_APPROVAL"].includes(status));
   if (hasRunningOrQueuedTarget) {
     // CAS request first: operator cancel can race this sweep. Mutating targets
     // before the claim left CANCELLED requests with FAILED targets when cancel
     // won on the request after recovery rewrote targets.
     const claimed = await prisma.commandRequest.updateMany({
-      where: { id: request.id, status: "RUNNING" },
+      where: { id: request.id, status: request.status ?? "RUNNING" },
       data: { status: "FAILED", workerId: null, workerHeartbeatAt: null },
     });
     if (claimed.count === 0) {
@@ -70,11 +73,11 @@ async function recoverOne(request: StaleRequest, now: Date): Promise<boolean> {
     await prisma.commandTarget.updateMany({
       where: {
         commandRequestId: request.id,
-        status: { in: ["RUNNING", "APPROVED", "PENDING_APPROVAL"] },
+        status: { in: ["RUNNING", "CANCELLING", "APPROVED", "PENDING_APPROVAL"] },
       },
       data: {
         status: "FAILED",
-        stderr: "The background SSH executor may have been interrupted by a service restart or process exit; it has been automatically marked as failed. Please resubmit or retry.",
+        stderr: "The background SSH executor may have been interrupted by a service restart or process exit; it has been automatically marked as failed. Cancellation could not be confirmed; check the remote process before retrying.",
         exitCode: 255,
         finishedAt: now,
       },
@@ -93,10 +96,10 @@ async function recoverOne(request: StaleRequest, now: Date): Promise<boolean> {
   }
 
   const allCompleted = targetStatuses.length > 0 && targetStatuses.every((status) => status === "COMPLETED");
-  const nextStatus = allCompleted ? "COMPLETED" : "FAILED";
+  const nextStatus = request.status === "CANCELLING" && !targetStatuses.includes("FAILED") ? "CANCELLED" : allCompleted ? "COMPLETED" : "FAILED";
   // Same CAS for archive path (targets already terminal, request still RUNNING).
   const claimed = await prisma.commandRequest.updateMany({
-    where: { id: request.id, status: "RUNNING" },
+    where: { id: request.id, status: request.status ?? "RUNNING" },
     data: { status: nextStatus, workerId: null, workerHeartbeatAt: null },
   });
   if (claimed.count === 0) {

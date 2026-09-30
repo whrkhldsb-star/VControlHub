@@ -307,6 +307,20 @@ describe("runAiOpsScanWorkerOnce", () => {
     );
     expect(jobMocks.failJob).not.toHaveBeenCalled();
   });
+  it("preserves deterministic findings and withholds autonomous actions when the provider rejects access", async () => {
+    getSettingMock.mockImplementation(async (key: string) => key === "ai.ops.provider" ? "provider-1" : "autonomous");
+    providerFindFirstMock.mockResolvedValue({ id: "provider-1", createdBy: "admin-1", defaultModel: "ops-model" });
+    sendChatRequestMock.mockRejectedValue(new Error("403 insufficient balance secret-upstream-text"));
+    backupFailureCountMock.mockResolvedValue(1);
+    await expect(runAiOpsScanWorkerOnce("manual")).resolves.toBe(true);
+    expect(jobMocks.failJob).not.toHaveBeenCalled();
+    expect(jobMocks.completeJob).toHaveBeenCalledWith(expect.any(String), expect.any(String), expect.objectContaining({ status: "warning" }));
+    const update = vi.mocked(prisma.aiOpsLog.update).mock.calls.at(-1)![0].data;
+    expect(update.findings).toEqual(expect.arrayContaining([expect.objectContaining({ source: "ai.provider" }), expect.objectContaining({ source: expect.stringContaining("backup") })]));
+    expect(JSON.stringify(update)).not.toContain("secret-upstream-text");
+    expect(update.actions).toEqual(expect.arrayContaining([expect.objectContaining({ executed: false })]));
+  });
+
 });
 
 describe("startAiOpsScanWorker / stopAiOpsScanWorkerForTests", () => {

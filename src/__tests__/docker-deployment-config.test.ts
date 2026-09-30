@@ -20,6 +20,7 @@ describe("Docker deployment configuration", () => {
     expect(dockerfile).not.toContain(".next/standalone");
     expect(entrypoint).toContain("node dist/server.js");
     expect(entrypoint).toContain("node dist/ssh-ws-proxy.js");
+    expect(entrypoint).toContain("node dist/worker.js");
     expect(entrypoint).toContain("./node_modules/.bin/prisma migrate deploy");
     expect(entrypoint).not.toContain("wait -n");
   });
@@ -41,7 +42,10 @@ describe("Docker deployment configuration", () => {
     expect(compose).toContain("POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?");
     expect(compose).toContain("pg_isready");
     expect(compose).toContain("/api/status");
-    expect(compose).toContain("/var/run/docker.sock:/var/run/docker.sock:ro");
+    expect(compose).toContain("source: ${DOCKER_SOCKET_PATH:-/var/run/docker.sock}");
+    expect(compose).toContain("target: /var/run/docker.sock");
+    expect(compose).toContain("read_only: true");
+    expect(compose).toContain("${APP_BIND_HOST:-127.0.0.1}:${APP_PORT:-3000}:3000");
     // Only the app port is published; the gateway port must never be exposed.
     expect(compose).not.toContain(":3001:3001");
   });

@@ -10,6 +10,17 @@
  */
 
 export const zh: Record<string, string> = {
+  "backend.quickService.requesterMissing": "Docker 任务缺少可核验的发起人",
+  "backend.quickService.requesterDisabled": "Docker 任务发起人已被禁用或失效",
+  "backend.quickService.permissionRevoked": "发起人已失去当前工作空间的 Docker 管理权限",
+  "backend.quickService.platformRequired": "本机 Docker 任务需要平台管理权限",
+  "backend.quickService.targetMismatch": "Docker 任务的目标标识不一致",
+  "backend.quickService.targetInaccessible": "Docker 任务目标已被禁用或不再可访问",
+  "backend.storage.finalizationBusy": "上传提交繁忙，请稍后重试",
+  "backend.storage.chunksMissing": "上传分块不完整",
+  "backend.storage.invalidUploadSize": "上传文件大小无效",
+  "backend.storage.assembledSizeChanged": "合并后的文件大小与上传声明不一致",
+  "backend.ai.providerUnavailable": "AI 提供商分析暂不可用，已保留基础巡检结果",
   "backend.server.linuxOnly": "此操作仅支持 Linux 节点",
   "backend.server.windowsGatewayHttpOnly": "Windows 托管直连网关目前使用 HTTP。若需 HTTPS，请配置反向代理并在存储节点填写其公网地址。",
   "backend.server.windowsGatewayRequiresSftpCredentials": "Windows 直连网关需要先配置 OpenSSH SFTP 凭据",
@@ -644,6 +655,17 @@ export const zh: Record<string, string> = {
 
 
 export const en: Record<string, string> = {
+  "backend.quickService.requesterMissing": "Docker task has no accountable requester",
+  "backend.quickService.requesterDisabled": "Docker task requester is disabled or no longer valid",
+  "backend.quickService.permissionRevoked": "Requester no longer has Docker access in this workspace",
+  "backend.quickService.platformRequired": "Hub Docker tasks require a platform manager",
+  "backend.quickService.targetMismatch": "Docker task target identifiers do not match",
+  "backend.quickService.targetInaccessible": "Docker task target is disabled or no longer accessible",
+  "backend.storage.finalizationBusy": "Upload finalization is busy; retry shortly",
+  "backend.storage.chunksMissing": "Upload has missing chunks",
+  "backend.storage.invalidUploadSize": "Invalid upload size",
+  "backend.storage.assembledSizeChanged": "Assembled upload size changed",
+  "backend.ai.providerUnavailable": "AI provider analysis unavailable; deterministic scan retained",
   "backend.server.linuxOnly": "This operation supports Linux nodes only",
   "backend.server.windowsGatewayHttpOnly": "The managed Windows direct gateway currently uses HTTP. Configure an HTTPS reverse proxy and set its public URL on the storage node for HTTPS.",
   "backend.server.windowsGatewayRequiresSftpCredentials": "Configure OpenSSH SFTP credentials before enabling the Windows direct gateway",

@@ -1,6 +1,6 @@
 # VControlHub i18n Coverage Report
 
-> Generated: 2026-09-16T02:48:53.372Z | Files: 434 | Strings: 1 | Coverage: **0%** (0/1)
+> Generated: 2026-09-30T04:41:40.253Z | Files: 441 | Strings: 0 | Coverage: **100%** (0/0)
 
 This report cross-references hardcoded Chinese strings in `src/app/**/*.tsx` and `src/components/**/*.tsx` against the values in `src/lib/i18n/translations.ts`. A string is **covered** when its exact value already exists in the `zh` translation map; **missing** strings are candidates for new translation keys.
 
@@ -10,7 +10,6 @@ Strings inside `data-i18n-skip` regions, in `<script>` tags, or in JSX expressio
 
 | Module | Strings | Covered | Missing | Coverage |
 |---|---|---|---|---|
-| `src/app/servers` | 1 | 0 | 1 | 0% |
 
 ## Top missing strings (frequency-sorted)
 
@@ -18,76 +17,7 @@ Each row is a Chinese string that appears in source but has no matching key in `
 
 | String | Count | First 3 occurrences |
 |---|---|---|
-| ,
-  },
-);
 
-type ServerOverviewCardProps =  ;
+## Files with missing translations
 
-export function ServerOverviewCard( : ServerOverviewCardProps)   = useI18n();
-  const [expanded, setExpanded] = useState(false);
-  const [portalReady, setPortalReady] = useState(false);
-  const closeDialog = useCallback(() =>  , []);
-  const openDialog = useCallback(() =>  , []);
-  const   = useServerDiagnostics(server.id, server.enabled);
-  const directLabel = server.directGateway?.statusLabel ?? t("serverOverviewCard.websiteRelay");
-  const detailsId = `server-details-$ `;
-
-  useEffect(() =>  , []);
-
-  // Status badge reflects the latest live probe outcome instead of the static
-  // "启用 · 待探测" placeholder. This is what the user expects after clicking
-  // "运行实时探测" — they want to see the chip change to 在线/离线/检测中.
-  let listHealthLabel: string;
-  let listHealthToneClass: string;
-  let listHealthDescription: string;
-  if (!server.enabled)   else if (diagnosticRun.status === "loading")   else if (diagnosticRun.status === "success")   · $ `.trim();
-    listHealthToneClass =
-      "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)] light:border-[var(--success-border)]";
-    listHealthDescription =
-      diagnosticRun.summary
-        ? t("serverOverviewCard.lastProbeSuccessWithSummary",  )
-        : t("serverOverviewCard.lastProbeSuccess",  );
-  } else if (diagnosticRun.status === "error")  );
-  } else  
-
-  return ( | 1 | `src/app/servers/server-overview-card.tsx:21` (text) |
-
-## Files with missing translations (most gaps first)
-
-### `src/app/servers/server-overview-card.tsx` — 1/1 missing (0%)
-
-- L21 text ",
-  },
-);
-
-type ServerOverviewCardProps =  ;
-
-export function ServerOverviewCard( : ServerOverviewCardProps)   = useI18n();
-  const [expanded, setExpanded] = useState(false);
-  const [portalReady, setPortalReady] = useState(false);
-  const closeDialog = useCallback(() =>  , []);
-  const openDialog = useCallback(() =>  , []);
-  const   = useServerDiagnostics(server.id, server.enabled);
-  const directLabel = server.directGateway?.statusLabel ?? t("serverOverviewCard.websiteRelay");
-  const detailsId = `server-details-$ `;
-
-  useEffect(() =>  , []);
-
-  // Status badge reflects the latest live probe outcome instead of the static
-  // "启用 · 待探测" placeholder. This is what the user expects after clicking
-  // "运行实时探测" — they want to see the chip change to 在线/离线/检测中.
-  let listHealthLabel: string;
-  let listHealthToneClass: string;
-  let listHealthDescription: string;
-  if (!server.enabled)   else if (diagnosticRun.status === "loading")   else if (diagnosticRun.status === "success")   · $ `.trim();
-    listHealthToneClass =
-      "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)] light:border-[var(--success-border)]";
-    listHealthDescription =
-      diagnosticRun.summary
-        ? t("serverOverviewCard.lastProbeSuccessWithSummary",  )
-        : t("serverOverviewCard.lastProbeSuccess",  );
-  } else if (diagnosticRun.status === "error")  );
-  } else  
-
-  return ("
+_None — every Chinese string in TSX is already covered by `translations.ts`._

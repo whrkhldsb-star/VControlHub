@@ -55,7 +55,7 @@ function toIso(value: Date | string | null | undefined) {
 }
 
 export function mapOperationStatus(status: string): OperationTaskStatus {
-  if (["RUNNING", "ACTIVE", "IN_PROGRESS", "APPROVED"].includes(status)) return "running";
+  if (["RUNNING", "CANCELLING", "ACTIVE", "IN_PROGRESS", "APPROVED"].includes(status)) return "running";
   if (["COMPLETED", "IDLE"].includes(status)) return "completed";
   if (["FAILED", "REJECTED", "EXPIRED"].includes(status)) return "failed";
   if (["CANCELLED", "DISABLED"].includes(status)) return "cancelled";

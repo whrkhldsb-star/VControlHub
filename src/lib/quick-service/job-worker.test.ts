@@ -42,6 +42,7 @@ vi.mock("./service", () => ({
 	uninstallService: vi.fn(),
 	updateService: vi.fn(),
 }));
+vi.mock("./execution-authorization", () => ({ assertQuickServiceExecutionAuthorized: vi.fn(async () => {}) }));
 
 const { enqueueQuickServiceJob, runQuickServiceJobWorkerOnce, QUICK_SERVICE_JOB_TYPE } = await import("./job-worker");
 const quickService = await import("./service");

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-30T01:02:37.621Z",
+  "generatedAt": "2026-09-30T04:31:25.634Z",
   "summary": {
     "permissionsInList": 54,
     "rolesDefined": 4,
@@ -1275,7 +1275,7 @@
         },
         {
           "path": "src/components/sidebar-loader.tsx",
-          "line": 27
+          "line": 28
         }
       ],
       "pages": [

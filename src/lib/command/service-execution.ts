@@ -9,11 +9,12 @@ import { decryptServerPassword, decryptSshPrivateKey } from "@/lib/ssh/ssh-key-c
 import {
   type SshExecutionResult,
   cancelRunningCommandChild,
-  markCommandTargetCancelled,
 } from "./ssh-executor";
 import { enqueueCommandExecutionJob } from "./execution-queue";
 import { executeCommandOverSsh, getCommandRuntimeConfigValues } from "./service-ssh";
 import { executeCommandWithAgent } from "@/lib/server/agent-service";
+import { assertRequesterMayExecuteCommand } from "@/lib/auth/command-execution-authz";
+import { monitorCommandCancellation } from "./cancellation";
 
 export { executeCommandOverSsh, getCommandRuntimeConfigValues, setPasswordExecutorMode, shouldUseSsh2PasswordExecutor } from "./service-ssh";
 
@@ -22,17 +23,6 @@ const cmdExecLogger = createLogger("command-execution");
 export const COMMAND_WORKER_ID = `${process.pid}-${randomUUID()}`;
 
 export function cancelActiveCommandChild(targetId: string) {
-  markCommandTargetCancelled(targetId);
-  void prisma.serverAgentJob.updateMany({
-    where: { commandTargetId: targetId, status: { in: ["PENDING", "CLAIMED"] } },
-    data: {
-      status: "CANCELLED",
-      stderr: "Agent job cancelled by operator",
-      exitCode: 130,
-      completedAt: new Date(),
-      leaseExpiresAt: null,
-    },
-  }).catch((error) => cmdExecLogger.warn("Failed to cancel pending Agent job", { targetId, error: error instanceof Error ? error.message : String(error) }));
   return cancelRunningCommandChild(targetId);
 }
 
@@ -81,7 +71,10 @@ async function failTarget(
   const failed = await prisma.commandTarget.updateMany({
     where: {
       id: target.id,
-      status: { in: ["RUNNING", "APPROVED", "PENDING_APPROVAL"] },
+      // Cancellation can arrive during authorization/credential validation.
+      // This path never dispatched a transport, so leave an explicit failure
+      // instead of an unacknowledged target below a terminal request.
+      status: { in: ["RUNNING", "CANCELLING", "APPROVED", "PENDING_APPROVAL"] },
     },
     data: {
       status: "FAILED",
@@ -126,7 +119,7 @@ export async function executeTarget(
     select: {
       id: true,
       status: true,
-      commandRequest: { select: { status: true } },
+      commandRequest: { select: { status: true, requesterId: true, teamId: true } },
     },
   });
   if (
@@ -144,6 +137,25 @@ export async function executeTarget(
     return false;
   }
 
+  if (live.status === "CANCELLING" || live.commandRequest.status === "CANCELLING") {
+    await prisma.commandTarget.updateMany({
+      where: { id: target.id, status: { in: ["RUNNING", "CANCELLING", "APPROVED", "PENDING_APPROVAL"] } },
+      data: { status: "CANCELLED", exitCode: 130, stderr: "Cancelled before dispatch", finishedAt: new Date() },
+    });
+    return false;
+  }
+
+  const authorization = await assertRequesterMayExecuteCommand(
+    live.commandRequest.requesterId, live.commandRequest.teamId, target.server.id,
+  );
+  if (!authorization.ok) {
+    return failTarget(commandRequestId, target, `Command dispatch denied: ${authorization.reason}`);
+  }
+
+  const controller = new AbortController();
+  const stopCancellationMonitor = await monitorCommandCancellation(target.id, controller);
+  try {
+
   const privateKey = target.server.sshKey?.privateKey
     ? decryptSshPrivateKey(target.server.sshKey.privateKey).trim()
     : undefined;
@@ -160,6 +172,11 @@ export async function executeTarget(
       commandTargetId: target.id,
       command: target.commandRequest.command,
       timeoutMs: runtime.executionTimeoutMs,
+      signal: controller.signal,
+    }).catch((error): SshExecutionResult => {
+      // Only an explicit Agent result can acknowledge remote cancellation.
+      // A rejected database/control-plane operation is never that proof.
+      return { stdout: "", stderr: error instanceof Error ? error.message : "Agent execution failed", exitCode: 255, cancelled: false };
     });
     await prisma.executionLog.create({
       data: {
@@ -211,10 +228,12 @@ export async function executeTarget(
     command: target.commandRequest.command,
     targetId: target.id,
     hostKeySha256: (target.server as { hostKeySha256?: string | null }).hostKeySha256,
+    signal: controller.signal,
   }).catch((error): SshExecutionResult => ({
     stdout: "",
     stderr: error instanceof Error ? error.message : "SSH execution failed",
-    exitCode: 255,
+    exitCode: controller.signal.aborted ? 130 : 255,
+    cancelled: controller.signal.aborted,
   }));
 
   // Operator cancel races with SSH close: cancelCommandRequest may already
@@ -228,7 +247,7 @@ export async function executeTarget(
       id: target.id,
       // Only advance non-terminal / still-running rows. CANCELLED (and other
       // finished statuses) must stick once cancel or recovery has claimed them.
-      status: { in: ["RUNNING", "APPROVED", "PENDING_APPROVAL"] },
+      status: { in: ["RUNNING", "CANCELLING", "APPROVED", "PENDING_APPROVAL"] },
     },
     data: {
       status: nextTargetStatus,
@@ -265,6 +284,9 @@ export async function executeTarget(
   });
 
   return succeeded;
+  } finally {
+    stopCancellationMonitor();
+  }
 }
 
 /** Bound concurrent SSH/target fan-out (aligned with RECOVER_*_CONCURRENCY). */
@@ -332,7 +354,7 @@ export async function executeTargets(commandRequestId: string) {
             : String(settled.reason);
         const summary = `Command executor threw on ${target.server.name} (${target.server.host}:${target.server.port}): ${reason}`;
         await prisma.commandTarget.updateMany({
-          where: { id: target.id, status: "RUNNING" },
+          where: { id: target.id, status: { in: ["RUNNING", "CANCELLING"] } },
           data: {
             status: "FAILED",
             stderr: summary.slice(0, 4000),
@@ -360,9 +382,8 @@ export async function executeTargets(commandRequestId: string) {
 export async function heartbeatRunningCommandRequest(commandRequestId: string) {
   const now = new Date();
   await prisma.commandRequest.updateMany({
-    where: { id: commandRequestId, status: "RUNNING" },
+    where: { id: commandRequestId, status: { in: ["RUNNING", "CANCELLING"] } },
     data: {
-      status: "RUNNING",
       updatedAt: now,
       workerId: COMMAND_WORKER_ID,
       workerHeartbeatAt: now,
@@ -414,14 +435,14 @@ export async function executeAndFinalizeCommand(commandRequestId: string) {
     const targetStatuses = latest.targets.map((t) => t.status);
     const allCancelled =
       targetStatuses.length > 0 && targetStatuses.every((s) => s === "CANCELLED");
-    if (allCancelled) {
+    if (allCancelled || (latest.status === "CANCELLING" && !targetStatuses.includes("FAILED"))) {
       const cancelledSummary =
         "Background SSH execution stopped because the operator cancelled the command request.";
       await prisma.executionLog.create({
         data: { commandRequestId, serverId: null, summary: cancelledSummary },
       });
       const updated = await prisma.commandRequest.updateMany({
-        where: { id: commandRequestId, status: { in: ["RUNNING", "APPROVED"] } },
+        where: { id: commandRequestId, status: { in: ["RUNNING", "CANCELLING", "APPROVED"] } },
         data: { status: "CANCELLED", workerId: null, workerHeartbeatAt: null },
       });
       if (updated.count === 0) {
@@ -478,10 +499,26 @@ export async function executeAndFinalizeCommand(commandRequestId: string) {
 
     // CAS: only finalize while still RUNNING/APPROVED so cancel wins races.
     const claimed = await prisma.commandRequest.updateMany({
-      where: { id: commandRequestId, status: { in: ["RUNNING", "APPROVED"] } },
+      where: { id: commandRequestId, status: { in: ["RUNNING", "APPROVED", ...(latest.status === "CANCELLING" ? ["CANCELLING" as const] : [])] } },
       data: { status: nextStatus, workerId: null, workerHeartbeatAt: null },
     });
     if (claimed.count === 0) {
+      // Cancellation can arrive after the final read while the result log is
+      // being written. All local transports have settled, so acknowledge that
+      // late request instead of leaving CANCELLING until stale recovery.
+      const status = targetStatuses.includes("FAILED") ? "FAILED" : "CANCELLED";
+      const acknowledged = await prisma.commandRequest.updateMany({
+        where: { id: commandRequestId, status: "CANCELLING" },
+        data: { status, workerId: null, workerHeartbeatAt: null },
+      });
+      if (acknowledged.count > 0) {
+        await auditSystemAction(status === "CANCELLED" ? "command.execute.cancelled" : "command.execute.failed", {
+          commandRequestId, title: request.title, status, requesterId: request.requesterId,
+          summary: "Cancellation acknowledged after execution transports settled; existing target results retained.",
+        }, status === "FAILED" ? "WARNING" : "INFO", request.teamId);
+        notifyCommandResult(request.requesterId, request.title, status === "CANCELLED" ? "cancelled" : "failed", request.teamId)
+          .catch((error) => cmdExecLogger.warn("notifyCommandResult failed", { error: error instanceof Error ? error.message : String(error), commandRequestId }));
+      }
       return prisma.commandRequest.findUniqueOrThrow({ where: { id: commandRequestId } });
     }
 
@@ -536,7 +573,7 @@ export async function markCommandExecutionFailed(
   // the claim left CANCELLED requests with FAILED targets when cancel won only
   // on the request row (or when claim lost and we still rewrote RUNNING targets).
   const claimed = await prisma.commandRequest.updateMany({
-    where: { id: commandRequestId, status: { in: ["RUNNING", "APPROVED"] } },
+    where: { id: commandRequestId, status: { in: ["RUNNING", "CANCELLING", "APPROVED"] } },
     data: { status: "FAILED", workerId: null, workerHeartbeatAt: null },
   });
   if (claimed.count === 0) {
@@ -546,7 +583,7 @@ export async function markCommandExecutionFailed(
   await prisma.commandTarget.updateMany({
     where: {
       commandRequestId,
-      status: { in: ["RUNNING", "APPROVED", "PENDING_APPROVAL"] },
+      status: { in: ["RUNNING", "CANCELLING", "APPROVED", "PENDING_APPROVAL"] },
     },
     data: {
       status: "FAILED",

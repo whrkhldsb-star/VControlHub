@@ -1,35 +1,15 @@
 {
-  "generatedAt": "2026-09-16T02:48:53.372Z",
+  "generatedAt": "2026-09-30T04:41:40.253Z",
   "summary": {
-    "files": 434,
-    "filesWithStrings": 1,
-    "totalStrings": 1,
+    "files": 441,
+    "filesWithStrings": 0,
+    "totalStrings": 0,
     "coveredStrings": 0,
-    "missingStrings": 1,
-    "coveragePercent": 0
+    "missingStrings": 0,
+    "coveragePercent": 100
   },
-  "perModule": [
-    {
-      "module": "src/app/servers",
-      "total": 1,
-      "covered": 0,
-      "missing": 1,
-      "coveragePercent": 0
-    }
-  ],
-  "missingByString": [
-    {
-      "text": ",\n  },\n);\n\ntype ServerOverviewCardProps =  ;\n\nexport function ServerOverviewCard( : ServerOverviewCardProps)   = useI18n();\n  const [expanded, setExpanded] = useState(false);\n  const [portalReady, setPortalReady] = useState(false);\n  const closeDialog = useCallback(() =>  , []);\n  const openDialog = useCallback(() =>  , []);\n  const   = useServerDiagnostics(server.id, server.enabled);\n  const directLabel = server.directGateway?.statusLabel ?? t(\"serverOverviewCard.websiteRelay\");\n  const detailsId = `server-details-$ `;\n\n  useEffect(() =>  , []);\n\n  // Status badge reflects the latest live probe outcome instead of the static\n  // \"启用 · 待探测\" placeholder. This is what the user expects after clicking\n  // \"运行实时探测\" — they want to see the chip change to 在线/离线/检测中.\n  let listHealthLabel: string;\n  let listHealthToneClass: string;\n  let listHealthDescription: string;\n  if (!server.enabled)   else if (diagnosticRun.status === \"loading\")   else if (diagnosticRun.status === \"success\")   · $ `.trim();\n    listHealthToneClass =\n      \"border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)] light:border-[var(--success-border)]\";\n    listHealthDescription =\n      diagnosticRun.summary\n        ? t(\"serverOverviewCard.lastProbeSuccessWithSummary\",  )\n        : t(\"serverOverviewCard.lastProbeSuccess\",  );\n  } else if (diagnosticRun.status === \"error\")  );\n  } else  \n\n  return (",
-      "count": 1,
-      "files": [
-        {
-          "path": "src/app/servers/server-overview-card.tsx",
-          "line": 21,
-          "kind": "text"
-        }
-      ]
-    }
-  ],
+  "perModule": [],
+  "missingByString": [],
   "reportsByFile": {
     "src/app/account/error.tsx": {
       "path": "src/app/account/error.tsx",
@@ -82,6 +62,13 @@
     },
     "src/app/account/security/page.tsx": {
       "path": "src/app/account/security/page.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/account/security/sign-out-all-devices.tsx": {
+      "path": "src/app/account/security/sign-out-all-devices.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -941,13 +928,6 @@
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/file-list-toasts.tsx": {
-      "path": "src/app/files/file-list-toasts.tsx",
-      "total": 0,
-      "covered": 0,
-      "missing": 0,
-      "candidates": []
-    },
     "src/app/files/file-list-toolbar.tsx": {
       "path": "src/app/files/file-list-toolbar.tsx",
       "total": 0,
@@ -1333,13 +1313,6 @@
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/use-file-toast.tsx": {
-      "path": "src/app/files/use-file-toast.tsx",
-      "total": 0,
-      "covered": 0,
-      "missing": 0,
-      "candidates": []
-    },
     "src/app/files/webdav/error.tsx": {
       "path": "src/app/files/webdav/error.tsx",
       "total": 0,
@@ -1433,13 +1406,6 @@
     },
     "src/app/image-bed/error.tsx": {
       "path": "src/app/image-bed/error.tsx",
-      "total": 0,
-      "covered": 0,
-      "missing": 0,
-      "candidates": []
-    },
-    "src/app/image-bed/floating-toast.tsx": {
-      "path": "src/app/image-bed/floating-toast.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -1949,13 +1915,6 @@
       "missing": 0,
       "candidates": []
     },
-    "src/app/quick-services/pending-source-delete-dialog.tsx": {
-      "path": "src/app/quick-services/pending-source-delete-dialog.tsx",
-      "total": 0,
-      "covered": 0,
-      "missing": 0,
-      "candidates": []
-    },
     "src/app/quick-services/pending-uninstall-dialog.tsx": {
       "path": "src/app/quick-services/pending-uninstall-dialog.tsx",
       "total": 0,
@@ -2068,6 +2027,13 @@
       "missing": 0,
       "candidates": []
     },
+    "src/app/servers/[id]/remote-desktop/page.tsx": {
+      "path": "src/app/servers/[id]/remote-desktop/page.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
     "src/app/servers/auto-probe-context.tsx": {
       "path": "src/app/servers/auto-probe-context.tsx",
       "total": 0,
@@ -2110,6 +2076,13 @@
       "missing": 0,
       "candidates": []
     },
+    "src/app/servers/rdp-credential-fields.tsx": {
+      "path": "src/app/servers/rdp-credential-fields.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
     "src/app/servers/server-card-actions-direct-gateway.tsx": {
       "path": "src/app/servers/server-card-actions-direct-gateway.tsx",
       "total": 0,
@@ -2145,6 +2118,13 @@
       "missing": 0,
       "candidates": []
     },
+    "src/app/servers/server-cost-fields.tsx": {
+      "path": "src/app/servers/server-cost-fields.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
     "src/app/servers/server-create-form.tsx": {
       "path": "src/app/servers/server-create-form.tsx",
       "total": 0,
@@ -2175,18 +2155,10 @@
     },
     "src/app/servers/server-overview-card.tsx": {
       "path": "src/app/servers/server-overview-card.tsx",
-      "total": 1,
+      "total": 0,
       "covered": 0,
-      "missing": 1,
-      "candidates": [
-        {
-          "text": ",\n  },\n);\n\ntype ServerOverviewCardProps =  ;\n\nexport function ServerOverviewCard( : ServerOverviewCardProps)   = useI18n();\n  const [expanded, setExpanded] = useState(false);\n  const [portalReady, setPortalReady] = useState(false);\n  const closeDialog = useCallback(() =>  , []);\n  const openDialog = useCallback(() =>  , []);\n  const   = useServerDiagnostics(server.id, server.enabled);\n  const directLabel = server.directGateway?.statusLabel ?? t(\"serverOverviewCard.websiteRelay\");\n  const detailsId = `server-details-$ `;\n\n  useEffect(() =>  , []);\n\n  // Status badge reflects the latest live probe outcome instead of the static\n  // \"启用 · 待探测\" placeholder. This is what the user expects after clicking\n  // \"运行实时探测\" — they want to see the chip change to 在线/离线/检测中.\n  let listHealthLabel: string;\n  let listHealthToneClass: string;\n  let listHealthDescription: string;\n  if (!server.enabled)   else if (diagnosticRun.status === \"loading\")   else if (diagnosticRun.status === \"success\")   · $ `.trim();\n    listHealthToneClass =\n      \"border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)] light:border-[var(--success-border)]\";\n    listHealthDescription =\n      diagnosticRun.summary\n        ? t(\"serverOverviewCard.lastProbeSuccessWithSummary\",  )\n        : t(\"serverOverviewCard.lastProbeSuccess\",  );\n  } else if (diagnosticRun.status === \"error\")  );\n  } else  \n\n  return (",
-          "line": 21,
-          "kind": "text",
-          "context": "<div className=\"min-h-[240px] rounded-xl border border-[var(--border-subtle)] bg",
-          "covered": false
-        }
-      ]
+      "missing": 0,
+      "candidates": []
     },
     "src/app/servers/server-overview-detail-sections.tsx": {
       "path": "src/app/servers/server-overview-detail-sections.tsx",
@@ -2237,6 +2209,27 @@
       "missing": 0,
       "candidates": []
     },
+    "src/app/servers/windows-agent-install-panel.tsx": {
+      "path": "src/app/servers/windows-agent-install-panel.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/servers/windows-server-details.tsx": {
+      "path": "src/app/servers/windows-server-details.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/servers/windows-sftp-fields.tsx": {
+      "path": "src/app/servers/windows-sftp-fields.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
     "src/app/settings/error.tsx": {
       "path": "src/app/settings/error.tsx",
       "total": 0,
@@ -2253,6 +2246,13 @@
     },
     "src/app/settings/page.tsx": {
       "path": "src/app/settings/page.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/settings/permission-groups-section.tsx": {
+      "path": "src/app/settings/permission-groups-section.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -2818,6 +2818,13 @@
       "missing": 0,
       "candidates": []
     },
+    "src/components/known-error-notice.tsx": {
+      "path": "src/components/known-error-notice.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
     "src/components/language-toggle.tsx": {
       "path": "src/components/language-toggle.tsx",
       "total": 0,
@@ -2897,6 +2904,13 @@
     },
     "src/components/pwa-register.tsx": {
       "path": "src/components/pwa-register.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/components/remote-desktop.tsx": {
+      "path": "src/components/remote-desktop.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -3037,6 +3051,13 @@
     },
     "src/components/submit-button.tsx": {
       "path": "src/components/submit-button.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/components/team-switcher.tsx": {
+      "path": "src/components/team-switcher.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,

@@ -22,6 +22,7 @@ import {
 	type UninstallServiceOptions,
 } from "./service";
 import { HUB_HOST_INSTANCE_KEY, type DockerTarget } from "./docker-cli";
+import { assertQuickServiceExecutionAuthorized } from "./execution-authorization";
 
 const logger = createLogger("quick-service-job-worker");
 
@@ -262,8 +263,9 @@ async function scrubQuickServiceJobPayloadSecrets(jobId: string) {
 	}
 }
 
-async function executeQuickServiceJob(job: { id: string; payload: Prisma.JsonValue }) {
+async function executeQuickServiceJob(job: { id: string; payload: Prisma.JsonValue; createdBy?: string | null; teamId?: string | null }) {
 	const payload = parseQuickServiceJobPayload(job.payload);
+	await assertQuickServiceExecutionAuthorized(job, payload);
 	await updateQuickServiceJobProgress(job.id, `Preparing to execute QuickService ${payload.action}: ${payload.slug}`);
 
 	if (payload.action === "install") {

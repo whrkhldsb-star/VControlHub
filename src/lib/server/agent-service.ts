@@ -8,8 +8,9 @@ import { t } from "@/lib/i18n/service-translations";
 import { shellQuote } from "@/lib/shell-quote";
 import { buildSshParamsFromServer, execRemoteCommand } from "@/lib/ssh/client";
 import { MONITOR_SCRIPT } from "./monitor";
+import { CommandCancellationUnconfirmedError } from "@/lib/command/cancellation-error";
 
-const AGENT_VERSION = "1.1.0";
+const AGENT_VERSION = "1.2.0";
 export const AGENT_FRESH_MS = 90_000;
 export const AGENT_JOB_HEARTBEAT_MS = 30_000;
 const AGENT_LEGACY_CLAIMED_STALE_MS = AGENT_FRESH_MS;
@@ -83,16 +84,24 @@ export async function completeServerAgentJob(input: {
   stderr?: string;
   exitCode?: number;
 }) {
+  const resultData = {
+    stdout: input.stdout?.slice(0, AGENT_OUTPUT_LIMIT) || null,
+    stderr: input.stderr?.slice(0, AGENT_OUTPUT_LIMIT) || null,
+    exitCode: Number.isInteger(input.exitCode) ? input.exitCode : 255,
+    completedAt: new Date(),
+    leaseExpiresAt: null,
+  };
   await prisma.serverAgentJob.updateMany({
     where: { id: input.jobId, serverId: input.serverId, status: "CLAIMED" },
     data: {
       status: input.exitCode === 0 ? "COMPLETED" : "FAILED",
-      stdout: input.stdout?.slice(0, AGENT_OUTPUT_LIMIT) || null,
-      stderr: input.stderr?.slice(0, AGENT_OUTPUT_LIMIT) || null,
-      exitCode: Number.isInteger(input.exitCode) ? input.exitCode : 255,
-      completedAt: new Date(),
-      leaseExpiresAt: null,
+      ...resultData,
     },
+  });
+  // CANCELLED + no completedAt is a request, not remote acknowledgement.
+  await prisma.serverAgentJob.updateMany({
+    where: { id: input.jobId, serverId: input.serverId, status: "CANCELLED", completedAt: null },
+    data: { status: input.exitCode === 130 ? "CANCELLED" : input.exitCode === 0 ? "COMPLETED" : "FAILED", ...resultData },
   });
 }
 
@@ -160,7 +169,8 @@ export async function executeCommandWithAgent(input: {
   timeoutMs: number;
   signal?: AbortSignal;
 }) {
-  input.signal?.throwIfAborted();
+  const cancelledBeforeDispatch = () => ({ stdout: "", stderr: "Cancelled before Agent dispatch", exitCode: 130, cancelled: true });
+  if (input.signal?.aborted) return cancelledBeforeDispatch();
   const server = await prisma.server.findUnique({
     where: { id: input.serverId },
     select: { operatingSystem: true, managementMode: true, agentLastSeenAt: true },
@@ -171,7 +181,7 @@ export async function executeCommandWithAgent(input: {
     Date.now() - server.agentLastSeenAt.getTime() > AGENT_FRESH_MS
   ) return null;
 
-  input.signal?.throwIfAborted();
+  if (input.signal?.aborted) return cancelledBeforeDispatch();
   const job = await prisma.serverAgentJob.create({
     data: { serverId: input.serverId, commandTargetId: input.commandTargetId, command: input.command, timeoutMs: input.timeoutMs },
   });
@@ -184,7 +194,7 @@ export async function executeCommandWithAgent(input: {
     if (current.status === "COMPLETED" || current.status === "FAILED") {
       return { stdout: current.stdout ?? "", stderr: current.stderr ?? "", exitCode: current.exitCode ?? 255 };
     }
-    if (current.status === "CANCELLED") return { stdout: "", stderr: "Agent job cancelled", exitCode: 130 };
+    if (current.status === "CANCELLED" && current.completedAt) return { stdout: "", stderr: current.stderr ?? "Agent job cancelled", exitCode: current.exitCode ?? 130, cancelled: current.exitCode === 130 };
     await delay(500, undefined, { signal: input.signal });
   }
   const current = await prisma.serverAgentJob.findUnique({ where: { id: job.id } });
@@ -192,8 +202,8 @@ export async function executeCommandWithAgent(input: {
   if (current.status === "COMPLETED" || current.status === "FAILED") {
     return { stdout: current.stdout ?? "", stderr: current.stderr ?? "", exitCode: current.exitCode ?? 255 };
   }
-  if (current.status === "CANCELLED") {
-    return { stdout: "", stderr: "Agent job cancelled", exitCode: 130 };
+  if (current.status === "CANCELLED" && current.completedAt) {
+    return { stdout: "", stderr: current.stderr ?? "Agent job cancelled", exitCode: current.exitCode ?? 130, cancelled: current.exitCode === 130 };
   }
   const cancelled = await prisma.serverAgentJob.updateMany({
     where: {
@@ -223,22 +233,46 @@ export async function executeCommandWithAgent(input: {
     stderr: "Agent command timed out after dispatch; SSH fallback was suppressed to avoid duplicate execution.",
     exitCode: 124,
   };
-  } finally {
-    if (input.signal?.aborted) {
-      // A claimed command may have external side effects. Stop waiting without
-      // pretending it was rolled back or replaying it through SSH.
-      await prisma.serverAgentJob.updateMany({
-        where: { id: job.id, serverId: input.serverId, status: "PENDING" },
-        data: { status: "CANCELLED", stderr: "Caller cancelled before dispatch", exitCode: 130, completedAt: new Date() },
-      });
+  } catch (error) {
+    if (!input.signal?.aborted) throw error;
+    try {
+    const pending = await withAgentCancellationDeadline(prisma.serverAgentJob.updateMany({
+      where: { id: job.id, serverId: input.serverId, status: "PENDING" },
+      data: { status: "CANCELLED", stderr: "Cancelled before Agent dispatch", exitCode: 130, completedAt: new Date(), leaseExpiresAt: null },
+    }));
+    if (pending.count > 0) return { stdout: "", stderr: "Cancelled before Agent dispatch", exitCode: 130, cancelled: true };
+    await withAgentCancellationDeadline(prisma.serverAgentJob.updateMany({
+      where: { id: job.id, serverId: input.serverId, status: "CLAIMED" },
+      data: { status: "CANCELLED", stderr: "Awaiting remote Agent cancellation acknowledgement", exitCode: 130, completedAt: null, leaseExpiresAt: null },
+    }));
+    // Agents heartbeat every 20 seconds and allow five seconds for shutdown.
+    const acknowledgementDeadline = Date.now() + 35_000;
+    while (Date.now() < acknowledgementDeadline) {
+      const current = await withAgentCancellationDeadline(prisma.serverAgentJob.findUnique({ where: { id: job.id } }));
+      if (!current) break;
+      if (current.completedAt && ["COMPLETED", "FAILED", "CANCELLED"].includes(current.status)) {
+        return { stdout: current.stdout ?? "", stderr: current.stderr ?? "", exitCode: current.exitCode ?? 255, cancelled: current.status === "CANCELLED" && current.exitCode === 130 };
+      }
+      await delay(500);
     }
+    } catch { /* Any control-plane failure leaves cancellation unconfirmed. */ }
+    throw new CommandCancellationUnconfirmedError();
   }
+}
+
+async function withAgentCancellationDeadline<T>(query: PromiseLike<T>): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    return await Promise.race([query, new Promise<never>((_resolve, reject) => {
+      timer = setTimeout(() => reject(new Error("Agent cancellation lookup deadline exceeded")), 5_000);
+    })]);
+  } finally { clearTimeout(timer); }
 }
 
 function buildAgentPython(hubUrl: string, token: string) {
   const endpoint = new URL("/api/agent/v1/poll", hubUrl).toString();
   return `#!/usr/bin/env python3
-import http.client, json, subprocess, time, urllib.parse
+import http.client, json, os, signal, subprocess, time, urllib.parse
 ENDPOINT=${JSON.stringify(endpoint)}
 TOKEN=${JSON.stringify(token)}
 MONITOR=${JSON.stringify(MONITOR_SCRIPT)}
@@ -263,11 +297,14 @@ def text(value):
     if value is None: return ""
     return value.decode(errors="replace") if isinstance(value, bytes) else value
 def terminate(proc):
-    if proc.poll() is None:
-        proc.terminate()
-        try: proc.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            proc.kill(); proc.wait()
+    # The shell may have exited while children still own its pipes.
+    try: os.killpg(proc.pid, signal.SIGTERM)
+    except ProcessLookupError: pass
+    try: proc.communicate(timeout=5)
+    except subprocess.TimeoutExpired:
+        try: os.killpg(proc.pid, signal.SIGKILL)
+        except ProcessLookupError: pass
+        proc.communicate(timeout=5)
 while True:
     try:
         now=time.time()
@@ -281,7 +318,7 @@ while True:
         job=message.get("job")
         if job:
             timeout_seconds=max(1,min(int(job.get("timeoutMs",60000))/1000,3600))
-            proc=subprocess.Popen(["/bin/sh","-c",job["command"]],stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+            proc=subprocess.Popen(["/bin/sh","-c",job["command"]],stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,start_new_session=True)
             deadline=time.time()+timeout_seconds
             while True:
                 remaining=max(0,deadline-time.time())

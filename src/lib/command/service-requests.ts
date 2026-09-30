@@ -298,6 +298,7 @@ export async function cancelCommandRequest(input: {
     }
   }
 
+  if (request.status === "CANCELLING") return request;
   if (!["PENDING_APPROVAL", "APPROVED", "RUNNING"].includes(request.status)) {
     throw new BusinessError(t("backend.command.cannotCancelEnded"));
   }
@@ -314,10 +315,12 @@ export async function cancelCommandRequest(input: {
   const claimed = await prisma.commandRequest.updateMany({
     where: {
       id: commandRequestId,
-      status: { in: ["PENDING_APPROVAL", "APPROVED", "RUNNING"] },
+      status: request.status,
       ...(input.session ? commandRequestTeamWhere(input.session) : {}),
     },
-    data: { status: "CANCELLED", workerId: null, workerHeartbeatAt: null },
+    data: request.status === "RUNNING"
+      ? { status: "CANCELLING" }
+      : { status: "CANCELLED", workerId: null, workerHeartbeatAt: null },
   });
   if (claimed.count === 0) {
     throw new BusinessError(t("backend.command.cannotCancelEnded"));
@@ -327,14 +330,12 @@ export async function cancelCommandRequest(input: {
     (count, targetId) => count + (cancelActiveCommandChild(targetId) ? 1 : 0),
     0,
   );
-  const stderr = killedCount > 0
-    ? `Command request cancelled; terminated ${killedCount} running SSH subprocesses.${reason ? ` Reason: ${reason}` : ""}`
-    : `Command request cancelled.${reason ? ` Reason: ${reason}` : ""}`;
+  const stderr = `Command cancellation requested.${reason ? ` Reason: ${reason}` : ""}`;
 
   await prisma.commandTarget.updateMany({
     where: {
       commandRequestId,
-      status: { in: ["PENDING_APPROVAL", "APPROVED", "RUNNING"] },
+      status: { in: ["PENDING_APPROVAL", "APPROVED"] },
     },
     data: {
       status: "CANCELLED",
@@ -343,11 +344,15 @@ export async function cancelCommandRequest(input: {
       finishedAt: now,
     },
   });
+  await prisma.commandTarget.updateMany({
+    where: { commandRequestId, status: "RUNNING" },
+    data: { status: "CANCELLING", stderr },
+  });
   await prisma.executionLog.create({
     data: {
       commandRequestId,
       serverId: null,
-      summary: `Command request cancelled by ${input.actorId}; ${killedCount > 0 ? `terminated ${killedCount} running SSH subprocesses.` : "no running SSH subprocesses found in the current process."}`,
+      summary: `Command cancellation requested by ${input.actorId}; signalled ${killedCount} local transports; awaiting executor acknowledgement for running targets.`,
     },
   });
 

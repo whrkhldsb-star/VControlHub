@@ -107,3 +107,14 @@ describe("WebDAV encrypted configuration", () => {
     expect(() => validateWebDavConfig({ ...config, endpoint })).toThrow();
   });
 });
+
+
+it("streams an upload with a fixed content length and atomically replaces an object", async () => {
+  const dav = client();
+  await dav.write("replacement.bin", "old content");
+  const content = new ReadableStream<Uint8Array>({ start(controller) { controller.enqueue(Buffer.from("new ")); controller.enqueue(Buffer.from("content")); controller.close(); } });
+  await dav.writeStream("replacement.tmp", content, 11);
+  await dav.rename("replacement.tmp", "replacement.bin", true);
+  expect((await dav.read("replacement.bin", 11)).toString()).toBe("new content");
+  expect(await dav.stat("replacement.tmp")).toBeNull();
+});

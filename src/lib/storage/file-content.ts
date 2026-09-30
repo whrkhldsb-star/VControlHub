@@ -17,7 +17,7 @@ import { Client } from "ssh2";
 
 import type { SessionPayload } from "@/lib/auth/session";
 import { teamWhere } from "@/lib/auth/team-scope";
-import { connectSsh, createRemoteDirectory, deleteRemoteFile, readRemoteFile, writeRemoteFile } from "@/lib/ssh/client";
+import { connectSsh, createRemoteDirectory, deleteRemoteFile, readRemoteFile, writeRemoteFile, renameRemoteFile } from "@/lib/ssh/client";
 import { prisma } from "@/lib/db";
 import { BusinessError, ValidationError } from "@/lib/errors";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
@@ -339,6 +339,71 @@ export async function writeStorageFileBuffer(
  * Best-effort delete of a previously written storage object (LOCAL or SFTP).
  * Used for compensating cleanup when DB indexing fails after a successful write.
  */
+export async function writeStorageFileFromLocalPath(node: StorageFileNode, relativePath: string, sourcePath: string) {
+  if (node.driver === "LOCAL") {
+    const resolved = resolveStoragePathWithinBase(node.basePath, relativePath);
+    if (!resolved.ok) throw new ValidationError(resolved.reason);
+    const temporaryPath = `${resolved.path}.vch-upload-${randomUUID()}.tmp`;
+    try {
+      await mkdir(path.dirname(resolved.path), { recursive: true });
+      await copyFile(sourcePath, temporaryPath);
+      await rename(temporaryPath, resolved.path);
+      return resolved.path;
+    } finally { await rm(temporaryPath, { force: true }).catch(() => undefined); }
+  }
+  const temporaryRelativePath = `${relativePath}.vch-upload-${randomUUID()}.tmp`;
+  if (node.driver === "WEBDAV") {
+    const client = createWebDavClient(node);
+    const parent = path.posix.dirname(relativePath);
+    if (parent !== ".") {
+      let directory = "";
+      for (const part of parent.split("/").filter(Boolean)) {
+        directory = directory ? `${directory}/${part}` : part;
+        const existing = await client.stat(directory);
+        if (existing && !existing.isDirectory) throw new ValidationError(t("backend.webdav.parentNotDirectory"));
+        if (!existing) await client.mkdir(directory);
+      }
+    }
+    let source: ReturnType<typeof createReadStream> | undefined;
+    try {
+      const { size } = await statFile(sourcePath);
+      source = createReadStream(sourcePath, { highWaterMark: 64 * 1024 });
+      await client.writeStream(temporaryRelativePath, Readable.toWeb(source) as ReadableStream<Uint8Array>, size);
+      await client.rename(temporaryRelativePath, relativePath, true);
+      return relativePath;
+    } catch (error) { await client.delete(temporaryRelativePath).catch(() => undefined); throw error; }
+    finally { source?.destroy(); }
+  }
+  if (node.driver === "SFTP") {
+    const credentials = resolveStorageSshCredentials(node);
+    const destination = normalizeRemoteTargetPath(node.basePath, relativePath);
+    const temporaryPath = normalizeRemoteTargetPath(node.basePath, temporaryRelativePath);
+    if (credentials.agentServerId && !credentials.privateKey && !credentials.password) {
+      // The Agent protocol embeds base64 in a bounded command payload.
+      if ((await statFile(sourcePath)).size > 6_000_000) throw new BusinessError(t("backend.server.agentWriteLimit"));
+      try {
+        await createRemoteDirectory({ ...credentials, remotePath: path.posix.dirname(destination), recursive: true });
+        await writeRemoteFile({ ...credentials, remotePath: temporaryPath, content: await readFile(sourcePath) });
+        await renameRemoteFile({ ...credentials, oldPath: temporaryPath, newPath: destination });
+        return destination;
+      } catch (error) { await deleteRemoteFile({ ...credentials, remotePath: temporaryPath }).catch(() => undefined); throw error; }
+    }
+    const client = await connectSsh({ ...credentials, enforceHostKeyPin: true, readyTimeout: 15000, timeout: 10000 });
+    try {
+      await sftpMkdir(client, path.posix.dirname(destination));
+      await new Promise<void>((resolve, reject) => client.sftp((error, sftp) => {
+        if (error) return reject(error);
+        pipeline(createReadStream(sourcePath, { highWaterMark: 64 * 1024 }), sftp.createWriteStream(temporaryPath, { flags: "wx", mode: 0o600 }))
+          .then(() => new Promise<void>((done, fail) => sftp.ext_openssh_rename(temporaryPath, destination, (renameError) => renameError ? fail(renameError) : done())))
+          .then(resolve, reject);
+      }));
+      return destination;
+    } catch (error) { await sftpUnlink(client, temporaryPath).catch(() => undefined); throw error; }
+    finally { client.end(); }
+  }
+  throw new BusinessError(t("backend.storage.unsupportedNodeType"));
+}
+
 export async function deleteStorageFileBuffer(
   node: StorageFileNode,
   relativePath: string,

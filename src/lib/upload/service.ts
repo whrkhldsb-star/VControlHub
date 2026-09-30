@@ -13,6 +13,9 @@ import { config } from "@/lib/config/env";
  * and `completeMediaUploadSession()` to flip status to COMPLETED.
  */
 import * as crypto from "node:crypto";
+import { createReadStream, createWriteStream } from "node:fs";
+import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import {
 	mkdir,
 	readdir,
@@ -389,20 +392,57 @@ export async function assembleMediaUploadChunks(
 	return assembled;
 }
 
+/** Storage finalizers claim ownership before streaming; no full-size Buffer. */
+export async function assembleMediaUploadToFile(sessionId: string, userId: string): Promise<{ path: string; size: number; checksum: string }> {
+	const row = await prisma.mediaUploadSession.findFirst({ where: { id: sessionId, userId, status: "FINALIZING" } });
+	if (!row || row.status !== "FINALIZING") throw new MediaUploadError("session_not_active", "Upload finalization is not owned by this caller");
+	const totalSize = Number(row.totalSize);
+	if (!Number.isSafeInteger(totalSize) || totalSize < 0 || totalSize > MAX_TOTAL_SIZE || !Number.isSafeInteger(row.chunkSize) || row.chunkSize < 1 || row.totalChunks !== Math.ceil(totalSize / row.chunkSize)) {
+		throw new MediaUploadError("total_size_too_large", "Invalid assembled upload size");
+	}
+	const received = new Set(row.receivedChunks);
+	const assembledPath = path.join(sessionDir(sessionId), `assembled-${crypto.randomUUID()}.tmp`);
+	const hash = crypto.createHash("sha256");
+	async function* chunks() {
+		for (let index = 0; index < row!.totalChunks; index++) {
+			if (!received.has(index)) throw new MediaUploadError("chunks_incomplete", "Upload has missing chunks");
+			const expected = Math.min(row!.chunkSize, totalSize - index * row!.chunkSize);
+			let bytes = 0;
+			for await (const chunk of createReadStream(chunkPath(sessionId, index), { highWaterMark: 64 * 1024 })) {
+				const buffer = chunk as Buffer;
+				bytes += buffer.length;
+				if (bytes > expected) throw new MediaUploadError("chunk_size_unexpected", `Invalid stored chunk ${index}`);
+				hash.update(buffer);
+				yield buffer;
+			}
+			if (bytes !== expected) throw new MediaUploadError("chunk_size_unexpected", `Invalid stored chunk ${index}`);
+		}
+	}
+	try {
+		await pipeline(Readable.from(chunks()), createWriteStream(assembledPath, { flags: "wx", mode: 0o600 }));
+		return { path: assembledPath, size: totalSize, checksum: hash.digest("hex") };
+	} catch (error) {
+		await rm(assembledPath, { force: true }).catch(() => undefined);
+		throw error;
+	}
+}
+
 /** Mark a session COMPLETED. Computes sha256 of the assembled buffer.
  *  Caller passes the buffer (already assembled) to avoid re-reading.
  *  Uses updateMany with userId in where for atomic ownership check. */
 export async function completeMediaUploadSession(params: {
 	sessionId: string;
 	userId: string;
-	buffer: Buffer;
+	buffer?: Buffer;
+	checksum?: string;
 	resultImageId?: string;
 	allowedStatuses?: Array<"PENDING" | "UPLOADING" | "FINALIZING">;
 	transaction?: Prisma.TransactionClient;
 }): Promise<MediaUploadSessionView> {
 	const { sessionId, userId, buffer, resultImageId } = params;
 	const allowedStatuses = params.allowedStatuses ?? ["PENDING", "UPLOADING"];
-	const checksum = crypto.createHash("sha256").update(buffer).digest("hex");
+	const checksum = buffer ? crypto.createHash("sha256").update(buffer).digest("hex") : params.checksum;
+	if (!checksum || !/^[a-f0-9]{64}$/.test(checksum)) throw new MediaUploadError("invalid_checksum", "A SHA-256 checksum is required");
 	const db = params.transaction ?? prisma;
 	// Only active or explicitly claimed sessions may complete.
 	const updateResult = await db.mediaUploadSession.updateMany({

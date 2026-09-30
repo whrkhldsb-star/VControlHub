@@ -34,6 +34,7 @@ export default async function RequestsPage() {
 		PENDING_APPROVAL: 0,
 		APPROVED: 1,
 		RUNNING: 1,
+		CANCELLING: 1,
 		COMPLETED: 2,
 		FAILED: 2,
 		CANCELLED: 3,
@@ -116,7 +117,7 @@ export default async function RequestsPage() {
 						>
 							<PaginatedList pageSize={20}>
 							{sortedRequests.map((request) => {
-								const isActionable = request.status === "PENDING_APPROVAL" || request.status === "APPROVED" || request.status === "RUNNING";
+								const isActionable = request.status === "PENDING_APPROVAL" || request.status === "APPROVED" || request.status === "RUNNING" || request.status === "CANCELLING";
 								return (
 								<article id={`command-${request.id}`} key={request.id} data-id={request.id} data-card className={`p-5 transition-colors duration-150 hover:bg-[var(--surface-elevated)] ${isActionable ? "" : "bg-[var(--surface-subtle)]"}`}>
 								<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -214,6 +215,8 @@ function getRequestStatusLabel(status: string, locale: Parameters<typeof t>[1]) 
 			return t("requestsPage.status.COMPLETED", locale);
 		case "FAILED":
 			return t("requestsPage.status.FAILED", locale);
+		case "CANCELLING":
+			return t("requestsPage.status.CANCELLING", locale);
 		case "CANCELLED":
 			return t("requestsPage.status.CANCELLED", locale);
 		default:
@@ -226,6 +229,7 @@ function ApprovalBadge({ status, label }: { status: string; label: string }) {
 		PENDING_APPROVAL: "warning",
 		APPROVED: "success",
 		RUNNING: "accent",
+		CANCELLING: "warning",
 		COMPLETED: "success",
 		REJECTED: "danger",
 		FAILED: "danger",

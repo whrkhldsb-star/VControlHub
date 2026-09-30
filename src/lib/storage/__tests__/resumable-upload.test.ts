@@ -25,7 +25,7 @@ const {
 }));
 
 vi.mock("@/lib/upload/service", () => ({
-  assembleMediaUploadChunks: assembleMock,
+  assembleMediaUploadToFile: assembleMock,
   completeMediaUploadSession: completeMock,
   cleanupMediaUploadTempDir: vi.fn(async () => undefined),
   MediaUploadError: class MediaUploadError extends Error {
@@ -45,11 +45,12 @@ vi.mock("@/lib/storage/access-control", () => ({
 
 vi.mock("@/lib/storage/file-content", () => ({
   getStorageFileNode: getNodeMock,
-  writeStorageFileBuffer: writeBufferMock,
+  writeStorageFileFromLocalPath: writeBufferMock,
 }));
 
 vi.mock("@/lib/db", () => ({
   prisma: {
+    $transaction: vi.fn(async (callback) => { const { prisma } = await import("@/lib/db"); return callback(prisma); }),
     mediaUploadSession: {
       findFirst: sessionFindFirstMock,
       updateMany: sessionUpdateManyMock,
@@ -59,6 +60,7 @@ vi.mock("@/lib/db", () => ({
       findUnique: vi.fn(async () => null),
       update: fileEntryUpdateMock,
       create: fileEntryCreateMock,
+      upsert: fileEntryUpdateMock,
     },
   },
 }));
@@ -68,13 +70,17 @@ import { completeStorageFileUpload } from "@/lib/storage/resumable-upload";
 describe("completeStorageFileUpload", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    assembleMock.mockResolvedValue(Buffer.from("hello-world"));
+    assembleMock.mockResolvedValue({ path: "/tmp/assembled-fixture", size: 11, checksum: "a".repeat(64) });
     sessionFindFirstMock.mockResolvedValue({
       filename: "report.bin",
       mimeType: "application/octet-stream",
       storageNodeId: "node_local",
       relativePath: "docs/report.bin",
       status: "UPLOADING",
+      totalSize: BigInt(11),
+      totalChunks: 1,
+      receivedChunks: [0],
+      expiresAt: new Date(Date.now() + 60_000),
     });
     sessionUpdateManyMock.mockResolvedValue({ count: 1 });
     assertAccessMock.mockResolvedValue({ allowed: true });
@@ -107,21 +113,22 @@ describe("completeStorageFileUpload", () => {
     expect(writeBufferMock).toHaveBeenCalledWith(
       expect.objectContaining({ id: "node_local" }),
       "docs/report.bin",
-      expect.any(Buffer),
+      "/tmp/assembled-fixture",
     );
-    expect(fileEntryCreateMock).toHaveBeenCalledWith({
-      data: expect.objectContaining({
+    expect(fileEntryUpdateMock).toHaveBeenCalledWith(expect.objectContaining({
+      create: expect.objectContaining({
         storageNodeId: "node_local",
         name: "report.bin",
         relativePath: "docs/report.bin",
         size: BigInt(11),
       }),
-    });
+    }));
     expect(completeMock).toHaveBeenCalledWith({
       sessionId: "sess_1",
       userId: "user_1",
-      buffer: expect.any(Buffer),
+      checksum: "a".repeat(64),
       allowedStatuses: ["FINALIZING"],
+      transaction: expect.any(Object),
     });
     expect(result).toEqual({
       session: expect.objectContaining({ id: "sess_1", status: "COMPLETED" }),
@@ -137,14 +144,13 @@ describe("completeStorageFileUpload", () => {
       sessionId: "sess_1",
       session: { userId: "user_1" } as never,
     });
-    expect(fileEntryUpdateMock).toHaveBeenCalledWith({
-      where: { id: "fe_existing" },
-      data: expect.objectContaining({
+    expect(fileEntryUpdateMock).toHaveBeenCalledWith(expect.objectContaining({
+      update: expect.objectContaining({
         name: "report.bin",
         isDeleted: false,
         size: BigInt(11),
       }),
-    });
+    }));
     expect(fileEntryCreateMock).not.toHaveBeenCalled();
   });
 
@@ -163,9 +169,8 @@ describe("completeStorageFileUpload", () => {
       },
       data: { status: "FINALIZING" },
     });
-    expect(sessionUpdateManyMock.mock.invocationCallOrder[0]).toBeLessThan(
-      writeBufferMock.mock.invocationCallOrder[0]!,
-    );
+    expect(sessionUpdateManyMock.mock.invocationCallOrder[0]).toBeLessThan(assembleMock.mock.invocationCallOrder[0]!);
+    expect(assembleMock.mock.invocationCallOrder[0]).toBeLessThan(writeBufferMock.mock.invocationCallOrder[0]!);
   });
 
   it("refuses duplicate completion before rewriting the storage object", async () => {
@@ -178,6 +183,7 @@ describe("completeStorageFileUpload", () => {
       }),
     ).rejects.toThrow(/active|正在处理|状态/i);
 
+    expect(assembleMock).not.toHaveBeenCalled();
     expect(writeBufferMock).not.toHaveBeenCalled();
     expect(fileEntryCreateMock).not.toHaveBeenCalled();
     expect(sessionUpdateManyMock).toHaveBeenCalledTimes(1);
@@ -205,5 +211,18 @@ describe("completeStorageFileUpload", () => {
       where: { id: "sess_1", userId: "user_1", status: "FINALIZING" },
       data: { status: "FAILED", errorMessage: "disk full" },
     });
+  });
+
+  it.each(["missing-session", "denied-access", "missing-chunks"])("does no chunk IO for %s", async (failure) => {
+    if (failure === "missing-session") sessionFindFirstMock.mockResolvedValueOnce(null);
+    if (failure === "denied-access") assertAccessMock.mockResolvedValueOnce({ allowed: false, reason: "permission" });
+    if (failure === "missing-chunks") {
+      const row = await sessionFindFirstMock();
+      sessionFindFirstMock.mockResolvedValueOnce({ ...row, receivedChunks: [] });
+    }
+    await expect(completeStorageFileUpload({ sessionId: "sess_1", session: { userId: "user_1" } as never })).rejects.toThrow();
+    expect(assembleMock).not.toHaveBeenCalled();
+    expect(writeBufferMock).not.toHaveBeenCalled();
+    expect(sessionUpdateManyMock).not.toHaveBeenCalled();
   });
 });

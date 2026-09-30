@@ -11,6 +11,7 @@
  * UPLOAD_TMP_DIR.
  */
 import * as fs from "node:fs/promises";
+import { createHash } from "node:crypto";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -202,6 +203,7 @@ import {
 	UPLOAD_TMP_DIR,
 	appendMediaUploadChunk,
 	assembleMediaUploadChunks,
+	assembleMediaUploadToFile,
 	cancelMediaUploadSession,
 	cleanupMediaUploadTempDir,
 	completeMediaUploadSession,
@@ -672,4 +674,38 @@ describe("cleanupMediaUploadTempDir", () => {
 	it("is idempotent on missing dir", async () => {
 		await expect(cleanupMediaUploadTempDir("does-not-exist")).resolves.toBeUndefined();
 	});
+});
+
+
+describe("streamed upload assembly", () => {
+  it("assembles and hashes real chunk files without allocating a whole-file Buffer", async () => {
+    const content = Buffer.alloc(196_609, 0x5a);
+    const view = await initMediaUploadSession({ userId: TEST_USER, filename: "a.png", mimeType: "image/png", totalSize: content.length, chunkSize: 98_304 });
+    for (let index = 0; index < view.totalChunks; index++) {
+      const buffer = content.subarray(index * view.chunkSize, (index + 1) * view.chunkSize);
+      await appendMediaUploadChunk({ sessionId: view.id, userId: TEST_USER, index, size: buffer.length, buffer });
+    }
+    store.sessions.get(view.id)!.status = "FINALIZING";
+    const assembled = await assembleMediaUploadToFile(view.id, TEST_USER);
+    expect(assembled.size).toBe(content.length);
+    expect(assembled.checksum).toBe(createHash("sha256").update(content).digest("hex"));
+    expect(await fs.readFile(assembled.path)).toEqual(content);
+    expect((await fs.stat(assembled.path)).mode & 0o777).toBe(0o600);
+    const completed = await completeMediaUploadSession({ sessionId: view.id, userId: TEST_USER, checksum: assembled.checksum, allowedStatuses: ["FINALIZING"] });
+    expect(completed.checksum).toBe(assembled.checksum);
+    expect(await readSessionTempDir(view.id)).toEqual([]);
+  });
+  it("requires finalization ownership before touching chunk files", async () => {
+    const view = await initMediaUploadSession({ userId: TEST_USER, filename: "a.png", mimeType: "image/png", totalSize: 10, chunkSize: 10 });
+    await expect(assembleMediaUploadToFile(view.id, TEST_USER)).rejects.toMatchObject({ code: "session_not_active" });
+    expect(await readSessionTempDir(view.id)).toEqual([]);
+  });
+  it("rejects a corrupt chunk and removes its incomplete assembled file", async () => {
+    const view = await initMediaUploadSession({ userId: TEST_USER, filename: "a.png", mimeType: "image/png", totalSize: 10, chunkSize: 10 });
+    await appendMediaUploadChunk({ sessionId: view.id, userId: TEST_USER, index: 0, size: 10, buffer: Buffer.alloc(10) });
+    store.sessions.get(view.id)!.status = "FINALIZING";
+    await fs.writeFile(`${UPLOAD_TMP_DIR}/${view.id}/chunk-0`, Buffer.alloc(11));
+    await expect(assembleMediaUploadToFile(view.id, TEST_USER)).rejects.toMatchObject({ code: "chunk_size_unexpected" });
+    expect(await readSessionTempDir(view.id)).toEqual(["chunk-0"]);
+  });
 });

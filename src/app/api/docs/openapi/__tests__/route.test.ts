@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import routeCatalog from "../../../../../../docs/route-catalog.json";
 
 const { requireApiSessionMock } = vi.hoisted(() => ({
   requireApiSessionMock: vi.fn(),
@@ -39,7 +40,14 @@ describe("GET /api/docs/openapi", () => {
     expect(body.paths["/images/upload"].post.security).toContainEqual({
       apiTokenAuth: [],
     });
-    expect(Object.keys(body.paths)).toHaveLength(187);
+    const expectedPaths = routeCatalog.apiRoutes.map((route) => route.path
+      .replace(/^\/api/, "")
+      .replace(/\[\[\.\.\.([^\]]+)\]\]/g, "{$1}")
+      .replace(/\[\.\.\.([^\]]+)\]/g, "{$1}")
+      .replace(/\[([^\]]+)\]/g, "{$1}") || "/");
+    expect(Object.keys(body.paths).sort()).toEqual([...new Set(expectedPaths)].sort());
+    expect(body.paths["/servers/{id}/rdp-probe"].get.security).toEqual([{ cookieAuth: [] }]);
+    expect(body.paths["/servers/{id}/rdp-probe"].get["x-vcontrolhub-permissions"]).toContain("server:read");
     // Machine protocol endpoints: agent bearer token, not session RBAC.
     expect(body.paths["/agent/v1/poll"]).toHaveProperty("post");
     expect(body.paths["/agent/v1/bootstrap"]).toHaveProperty("get");

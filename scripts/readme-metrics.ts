@@ -12,7 +12,7 @@ type Metric = { label: string; value: string };
 function walk(dir: string, predicate: (path: string) => boolean): string[] {
   const out: string[] = [];
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    if (["node_modules", ".next", ".git", "dist", "coverage"].includes(entry.name)) continue;
+    if ([".git", "coverage"].includes(entry.name) || /^(node_modules|\.next|dist)(\.|$)/.test(entry.name)) continue;
     const full = join(dir, entry.name);
     if (entry.isDirectory()) out.push(...walk(full, predicate));
     else if (predicate(full)) out.push(full);

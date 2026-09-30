@@ -36,6 +36,8 @@ vi.mock("../service-ssh", () => ({
   shouldUseSsh2PasswordExecutor: vi.fn(() => false),
 }));
 vi.mock("@/lib/server/agent-service", () => ({ executeCommandWithAgent: mocks.executeCommandWithAgent }));
+vi.mock("@/lib/auth/command-execution-authz", () => ({ assertRequesterMayExecuteCommand: vi.fn(async () => ({ ok: true })) }));
+vi.mock("../cancellation", () => ({ monitorCommandCancellation: vi.fn(async () => () => {}) }));
 vi.mock("../execution-queue", () => ({ enqueueCommandExecutionJob: mocks.enqueueCommandExecutionJob }));
 vi.mock("../ssh-executor", () => ({
   cancelRunningCommandChild: mocks.cancelRunningCommandChild,
@@ -51,6 +53,7 @@ vi.mock("@/lib/ssh/ssh-key-crypto", () => ({
 import {
   cancelActiveCommandChild,
   enqueueApprovedCommandExecution,
+  executeAndFinalizeCommand,
   executeTarget,
   executeTargets,
   heartbeatRunningCommandRequest,
@@ -59,6 +62,30 @@ import {
 } from "../service-execution";
 
 const RUNTIME = { executionTimeoutMs: 1000, outputLimitBytes: 1000, staleRunningAfterMs: 1000, executionHeartbeatMs: 100 };
+
+describe("executeAndFinalizeCommand", () => {
+  it("acknowledges cancellation arriving after the final status read", async () => {
+    const request = { id: "req-1", status: "RUNNING", title: "Check uptime", requesterId: "user-1", teamId: "team-1", targets: [{ status: "COMPLETED" }] };
+    mocks.prisma.commandRequest.findUnique.mockResolvedValue(request);
+    mocks.prisma.commandRequest.findUniqueOrThrow.mockResolvedValue({ ...request, status: "CANCELLED" });
+    mocks.prisma.commandTarget.findMany.mockResolvedValue([]);
+    mocks.prisma.executionLog.create.mockResolvedValue({});
+    mocks.prisma.commandRequest.updateMany
+      .mockResolvedValueOnce({ count: 1 }) // Heartbeat.
+      .mockResolvedValueOnce({ count: 0 }) // Concurrent cancel beats finalization.
+      .mockResolvedValueOnce({ count: 1 }); // Worker acknowledges transports settled.
+
+    const result = await executeAndFinalizeCommand("req-1");
+
+    expect(result.status).toBe("CANCELLED");
+    expect(mocks.prisma.commandRequest.updateMany).toHaveBeenLastCalledWith({
+      where: { id: "req-1", status: "CANCELLING" },
+      data: { status: "CANCELLED", workerId: null, workerHeartbeatAt: null },
+    });
+    expect(mocks.prisma.commandTarget.updateMany).not.toHaveBeenCalled();
+    expect(mocks.notifyCommandResult).toHaveBeenCalledWith("user-1", "Check uptime", "cancelled", "team-1");
+  });
+});
 
 function buildTarget(overrides: { server?: Record<string, unknown> } = {}) {
   return {
@@ -94,16 +121,12 @@ afterEach(() => {
 });
 
 describe("cancelActiveCommandChild", () => {
-  it("cancels the SSH child, pending Agent jobs, and stamps the cancel marker", () => {
+  it("signals the local SSH child without claiming remote Agent acknowledgement", () => {
     mocks.cancelRunningCommandChild.mockReturnValue(true);
     const result = cancelActiveCommandChild("target-1");
     expect(result).toBe(true);
-    expect(mocks.markCommandTargetCancelled).toHaveBeenCalledWith("target-1");
     expect(mocks.cancelRunningCommandChild).toHaveBeenCalledWith("target-1");
-    expect(mocks.prisma.serverAgentJob.updateMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: { commandTargetId: "target-1", status: { in: ["PENDING", "CLAIMED"] } },
-      data: expect.objectContaining({ status: "CANCELLED", exitCode: 130 }),
-    }));
+    expect(mocks.prisma.serverAgentJob.updateMany).not.toHaveBeenCalled();
   });
 });
 
@@ -351,7 +374,7 @@ describe("executeTargets", () => {
     expect(totalCount).toBe(1);
     expect(completedCount).toBe(0);
     const recoveryCall = mocks.prisma.commandTarget.updateMany.mock.calls.find(
-      ([args]) => args?.where?.status === "RUNNING" && args?.data?.exitCode === 255,
+      ([args]) => args?.where?.status?.in?.includes("RUNNING") && args?.data?.exitCode === 255,
     );
     expect(recoveryCall).toBeTruthy();
     expect(recoveryCall?.[0]?.data?.stderr).toContain("db exploded");
@@ -363,7 +386,7 @@ describe("heartbeatRunningCommandRequest", () => {
     mocks.prisma.commandRequest.updateMany.mockResolvedValue({ count: 1 });
     await heartbeatRunningCommandRequest("req-1");
     expect(mocks.prisma.commandRequest.updateMany).toHaveBeenCalledWith({
-      where: { id: "req-1", status: "RUNNING" },
+      where: { id: "req-1", status: { in: ["RUNNING", "CANCELLING"] } },
       data: expect.objectContaining({ workerId: expect.any(String), workerHeartbeatAt: expect.any(Date) }),
     });
   });
@@ -385,7 +408,7 @@ describe("markCommandExecutionFailed", () => {
     await markCommandExecutionFailed("req-1", new Error("worker crashed"));
 
     expect(mocks.prisma.commandRequest.updateMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: "req-1", status: { in: ["RUNNING", "APPROVED"] } },
+      where: { id: "req-1", status: { in: ["RUNNING", "CANCELLING", "APPROVED"] } },
       data: expect.objectContaining({ status: "FAILED" }),
     }));
     expect(mocks.prisma.commandTarget.updateMany).toHaveBeenCalledWith(expect.objectContaining({

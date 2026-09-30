@@ -21,6 +21,7 @@ export type SshCommandInput = {
   args: string[];
   env?: NodeJS.ProcessEnv;
   targetId?: string;
+  signal?: AbortSignal;
   runtimeConfig: SshRuntimeConfig;
 };
 
@@ -114,14 +115,18 @@ export function consumeCommandTargetCancellation(targetId: string): boolean {
 
 export function cancelRunningCommandChild(targetId: string): boolean {
   const child = activeCommandChildren.get(targetId);
-  if (child) return child.kill("SIGTERM");
   const cancel = cancellableCommandTargets.get(targetId);
   if (cancel) return cancel();
+  if (child) {
+    markCommandTargetCancelled(targetId);
+    return child.kill("SIGTERM");
+  }
   return false;
 }
 
 export function runSshCommandProcess(input: SshCommandInput): Promise<SshExecutionResult> {
-  const { command, args, env, targetId, runtimeConfig } = input;
+  const { command, args, env, targetId, runtimeConfig, signal } = input;
+  if (signal?.aborted) return Promise.resolve({ stdout: "", stderr: "Command cancelled before dispatch", exitCode: 130, cancelled: true });
   const timeoutMs = runtimeConfig.executionTimeoutMs;
   const outputLimitBytes = runtimeConfig.outputLimitBytes;
   // Grace window between SIGTERM and SIGKILL escalation on timeout.
@@ -137,31 +142,47 @@ export function runSshCommandProcess(input: SshCommandInput): Promise<SshExecuti
     const stdoutCollector = new BoundedOutputCollector(outputLimitBytes);
     const stderrCollector = new BoundedOutputCollector(outputLimitBytes);
     let timedOut = false;
+    let aborted = false;
     let closed = false;
     let killTimer: NodeJS.Timeout | null = null;
 
     const clearTimers = () => {
       clearTimeout(timeout);
+      signal?.removeEventListener("abort", cancelExecution);
+      unregisterCancellableTarget(targetId, cancelExecution);
       if (killTimer) {
         clearTimeout(killTimer);
         killTimer = null;
       }
     };
 
-    const timeout = setTimeout(() => {
-      timedOut = true;
-      stderrCollector.push(`\nCommand execution exceeded ${timeoutMs}ms, terminated.`);
+    const terminate = () => {
       child.kill("SIGTERM");
+      if (closed) return;
       // Escalate to SIGKILL when the child survives SIGTERM (or an orphaned
       // grandchild still holds the stdio pipes), so the promise always
       // settles and no child handle leaks.
-      killTimer = setTimeout(() => {
+      killTimer ??= setTimeout(() => {
         if (!closed && child.exitCode === null) {
           child.kill("SIGKILL");
         }
       }, SIGKILL_GRACE_MS);
       killTimer.unref?.();
+    };
+    const cancelExecution = () => {
+      if (closed) return false;
+      aborted = true;
+      terminate();
+      return true;
+    };
+    registerCancellableTarget(targetId, cancelExecution);
+    signal?.addEventListener("abort", cancelExecution, { once: true });
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      stderrCollector.push(`\nCommand execution exceeded ${timeoutMs}ms, terminated.`);
+      terminate();
     }, timeoutMs);
+    if (signal?.aborted) cancelExecution();
 
     child.stdout?.on("data", (chunk) => {
       stdoutCollector.push(chunk);
@@ -174,6 +195,7 @@ export function runSshCommandProcess(input: SshCommandInput): Promise<SshExecuti
       closed = true;
       clearTimers();
       unregisterCommandChild(targetId, child);
+      if (targetId) consumeCommandTargetCancellation(targetId);
       if (
         command === "sshpass" &&
         error &&
@@ -189,7 +211,8 @@ export function runSshCommandProcess(input: SshCommandInput): Promise<SshExecuti
       closed = true;
       clearTimers();
       unregisterCommandChild(targetId, child);
-      const cancelled = targetId ? consumeCommandTargetCancellation(targetId) : false;
+      const marked = targetId ? consumeCommandTargetCancellation(targetId) : false;
+      const cancelled = aborted || marked;
       if (cancelled) {
         stderrCollector.push("\nCommand has been cancelled; SSH subprocess terminated.");
       }

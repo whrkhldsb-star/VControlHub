@@ -1,0 +1,28 @@
+[Unit]
+Description={{SITE_NAME}} daily recovery backup
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User={{APP_USER}}
+Group={{APP_USER}}
+WorkingDirectory={{APP_DIR}}
+EnvironmentFile={{RUNTIME_ENV_FILE}}
+Environment=ENV_FILE={{RUNTIME_ENV_FILE}}
+Environment=BACKUP_DIR=/var/backups/{{APP_SLUG}}
+Environment=BACKUP_RETENTION_DAYS=30
+ExecStart={{NODE_BIN}} {{APP_DIR}}/scripts/backup.mjs --full
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+CapabilityBoundingSet=
+ReadWritePaths=/var/backups/{{APP_SLUG}}
+MemoryMax=512M
+TimeoutStartSec=30min

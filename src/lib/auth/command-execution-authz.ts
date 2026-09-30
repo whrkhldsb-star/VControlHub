@@ -1,5 +1,7 @@
 import { loadApiTokenOwnerSession } from "@/lib/api-token/authorization";
 import { sessionHasPermission } from "@/lib/auth/authorization";
+import { serverTeamWhere } from "@/lib/auth/team-scope";
+import { prisma } from "@/lib/db";
 
 /**
  * Shared live authorization re-check for background workers that execute
@@ -21,24 +23,28 @@ import { sessionHasPermission } from "@/lib/auth/authorization";
 export async function assertRequesterMayExecuteCommand(
   requesterId: string,
   teamId: string | null,
+  serverId?: string,
 ): Promise<{ ok: true } | { ok: false; reason: string }> {
   const accountSession = await loadApiTokenOwnerSession(requesterId);
   if (!accountSession) {
     return { ok: false, reason: "command requester is disabled or no longer valid" };
   }
-  if (sessionHasPermission(accountSession, "team:manage")) {
-    return sessionHasPermission(accountSession, "command:execute")
-      ? { ok: true }
-      : { ok: false, reason: "command requester lacks command:execute permission" };
-  }
-  if (!teamId) {
+  const platformAdmin = sessionHasPermission(accountSession, "team:manage");
+  if (!platformAdmin && !teamId) {
     return { ok: false, reason: "command target has no active workspace" };
   }
-  const teamSession = await loadApiTokenOwnerSession(requesterId, teamId);
+  const teamSession = platformAdmin ? accountSession : await loadApiTokenOwnerSession(requesterId, teamId!);
   if (!teamSession) {
     return { ok: false, reason: "command requester is no longer a member of the target team" };
   }
-  return sessionHasPermission(teamSession, "command:execute")
-    ? { ok: true }
-    : { ok: false, reason: "command requester lacks command:execute permission in the target team" };
+  if (!sessionHasPermission(teamSession, "command:execute")) {
+    return { ok: false, reason: platformAdmin ? "command requester lacks command:execute permission" : "command requester lacks command:execute permission in the target team" };
+  }
+  if (serverId && !await prisma.server.findFirst({
+    where: { AND: [{ id: serverId, enabled: true }, serverTeamWhere(teamSession, "connect")] },
+    select: { id: true },
+  })) {
+    return { ok: false, reason: "command target is disabled or no longer accessible to the requester" };
+  }
+  return { ok: true };
 }

@@ -32,18 +32,51 @@ import {
 } from "../agent-service";
 
 describe("server Agent authentication and routing", () => {
-  beforeEach(() => vi.clearAllMocks());
-  it.each(["PENDING", "CLAIMED"])("cancels waiting for a %s job without replaying claimed work", async (status) => {
+  beforeEach(() => vi.resetAllMocks());
+  it("does not enqueue work when cancellation precedes dispatch", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    await expect(executeCommandWithAgent({ serverId: "srv1", command: "fixture", timeoutMs: 1000, signal: controller.signal })).resolves.toMatchObject({ cancelled: true, exitCode: 130 });
+    expect(mocks.agentJobCreate).not.toHaveBeenCalled();
+  });
+  it("does not acknowledge cancellation if its database write fails", async () => {
+    const controller = new AbortController();
+    mocks.serverFindUnique.mockResolvedValueOnce({ managementMode: "AGENT", agentLastSeenAt: new Date() });
+    mocks.agentJobCreate.mockResolvedValueOnce({ id: "lost-control" });
+    mocks.agentJobFindUnique.mockImplementationOnce(async () => { controller.abort(); return { status: "CLAIMED" }; });
+    mocks.agentJobUpdateMany.mockRejectedValue(new Error("database unavailable"));
+    await expect(executeCommandWithAgent({ serverId: "srv1", command: "fixture", timeoutMs: 1000, signal: controller.signal })).rejects.toMatchObject({ name: "CommandCancellationUnconfirmedError" });
+  });
+  it.each(["PENDING", "CLAIMED"])("waits for %s cancellation confirmation without SSH replay", async (status) => {
     const controller = new AbortController();
     mocks.serverFindUnique.mockResolvedValueOnce({ managementMode: "AGENT", agentLastSeenAt: new Date() });
     mocks.agentJobCreate.mockResolvedValueOnce({ id: "cancel-job" });
     mocks.agentJobFindUnique.mockImplementationOnce(async () => { controller.abort(); return { status }; });
-    mocks.agentJobUpdateMany.mockResolvedValueOnce({ count: status === "PENDING" ? 1 : 0 });
-    await expect(executeCommandWithAgent({ serverId: "srv1", command: "read status", timeoutMs: 1000, signal: controller.signal })).rejects.toMatchObject({ name: "AbortError" });
-    expect(mocks.agentJobUpdateMany).toHaveBeenLastCalledWith(expect.objectContaining({
+    mocks.agentJobFindUnique.mockResolvedValueOnce({ status: "CANCELLED", completedAt: new Date(), exitCode: 130 });
+    mocks.agentJobUpdateMany.mockResolvedValue({ count: 1 }).mockResolvedValueOnce({ count: status === "PENDING" ? 1 : 0 });
+    await expect(executeCommandWithAgent({ serverId: "srv1", command: "read status", timeoutMs: 1000, signal: controller.signal })).resolves.toMatchObject({ exitCode: 130, cancelled: true });
+    expect(mocks.agentJobUpdateMany).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: "cancel-job", serverId: "srv1", status: "PENDING" },
       data: expect.objectContaining({ status: "CANCELLED", exitCode: 130 }),
     }));
+    if (status === "CLAIMED") expect(mocks.agentJobUpdateMany).toHaveBeenLastCalledWith(expect.objectContaining({
+      where: { id: "cancel-job", serverId: "srv1", status: "CLAIMED" }, data: expect.objectContaining({ completedAt: null }),
+    }));
+  });
+  it("reports an unconfirmed cancellation if a claimed Agent never acknowledges", async () => {
+    vi.useFakeTimers();
+    try {
+      const controller = new AbortController();
+      mocks.serverFindUnique.mockResolvedValueOnce({ managementMode: "AGENT", agentLastSeenAt: new Date() });
+      mocks.agentJobCreate.mockResolvedValueOnce({ id: "lost-agent" });
+      mocks.agentJobUpdateMany.mockResolvedValue({ count: 0 });
+      mocks.agentJobFindUnique.mockImplementationOnce(async () => { controller.abort(); return { status: "CLAIMED" }; });
+      mocks.agentJobFindUnique.mockResolvedValue({ status: "CANCELLED", completedAt: null });
+      const execution = executeCommandWithAgent({ serverId: "srv1", command: "fixture", timeoutMs: 1000, signal: controller.signal });
+      const rejected = expect(execution).rejects.toMatchObject({ name: "CommandCancellationUnconfirmedError" });
+      await vi.advanceTimersByTimeAsync(35_001);
+      await rejected;
+    } finally { vi.useRealTimers(); }
   });
 
   it("stores only a token digest and authenticates the issued bearer token", async () => {
@@ -90,7 +123,7 @@ describe("server Agent authentication and routing", () => {
     const call = mocks.agentJobUpdateMany.mock.calls.at(-1)?.[0];
     expect(call.data.stdout).toHaveLength(8 * 1_048_576);
     expect(call.data.stderr).toHaveLength(8 * 1_048_576);
-    expect(call.where).toEqual({ id: "job1", serverId: "srv1", status: "CLAIMED" });
+    expect(call.where).toEqual({ id: "job1", serverId: "srv1", status: "CANCELLED", completedAt: null });
   });
 
   it("falls back without enqueueing when the Agent heartbeat is stale", async () => {

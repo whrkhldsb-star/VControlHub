@@ -85,6 +85,7 @@ vi.mock("@/lib/db", () => ({
 vi.mock("@/lib/ssh/known-hosts", () => ({
   scanPinnedKnownHost: vi.fn(async () => "203.0.113.20 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA_test_pinned_line"),
 }));
+vi.mock("@/lib/auth/command-execution-authz", () => ({ assertRequesterMayExecuteCommand: vi.fn(async () => ({ ok: true })) }));
 
 // TR-001 (T11): the command execution path now goes through the durable
 // jobs table. In production the actual SSH dispatch is performed by
@@ -361,9 +362,8 @@ describe("command service execution flow", () => {
 
     expect(mockPrisma.commandRequest.updateMany.mock.calls.length).toBeGreaterThan(heartbeatCallsBeforeInterval);
     expect(mockPrisma.commandRequest.updateMany).toHaveBeenCalledWith({
-      where: { id: "req_heartbeat_1", status: "RUNNING" },
+      where: { id: "req_heartbeat_1", status: { in: ["RUNNING", "CANCELLING"] } },
       data: {
-        status: "RUNNING",
         updatedAt: expect.any(Date),
         workerId: expect.any(String),
         workerHeartbeatAt: expect.any(Date),
@@ -1012,14 +1012,14 @@ describe("command service execution flow", () => {
     expect(mockPrisma.commandRequest.updateMany).toHaveBeenCalledWith({
       where: {
         id: "req_cancel_1",
-        status: { in: ["PENDING_APPROVAL", "APPROVED", "RUNNING"] },
+        status: "RUNNING",
       },
-      data: { status: "CANCELLED", workerId: null, workerHeartbeatAt: null },
+      data: { status: "CANCELLING" },
     });
     expect(mockPrisma.commandTarget.updateMany).toHaveBeenCalledWith({
       where: {
         commandRequestId: "req_cancel_1",
-        status: { in: ["PENDING_APPROVAL", "APPROVED", "RUNNING"] },
+        status: { in: ["PENDING_APPROVAL", "APPROVED"] },
       },
       data: expect.objectContaining({
         status: "CANCELLED",
@@ -1561,7 +1561,7 @@ describe("command service execution flow", () => {
     expect(result).toEqual({ recovered: 1 });
     expect(mockPrisma.commandRequest.findMany).toHaveBeenCalledWith(expect.objectContaining({
       where: {
-        status: "RUNNING",
+        status: { in: ["RUNNING", "CANCELLING"] },
         OR: [
           { workerHeartbeatAt: { lt: new Date("2026-05-30T07:59:30Z") } },
           { workerHeartbeatAt: null, updatedAt: { lt: new Date("2026-05-30T07:59:30Z") } },
@@ -1576,7 +1576,7 @@ describe("command service execution flow", () => {
     expect(mockPrisma.commandTarget.updateMany).toHaveBeenCalledWith({
       where: {
         commandRequestId: "req_stale_1",
-        status: { in: ["RUNNING", "APPROVED", "PENDING_APPROVAL"] },
+        status: { in: ["RUNNING", "CANCELLING", "APPROVED", "PENDING_APPROVAL"] },
       },
       data: expect.objectContaining({
         status: "FAILED",
@@ -1679,7 +1679,7 @@ describe("command service execution flow", () => {
     await markCommandExecutionFailed("req_mark_fail_cancel_race", new Error("worker boom"));
 
     expect(mockPrisma.commandRequest.updateMany).toHaveBeenCalledWith({
-      where: { id: "req_mark_fail_cancel_race", status: { in: ["RUNNING", "APPROVED"] } },
+      where: { id: "req_mark_fail_cancel_race", status: { in: ["RUNNING", "CANCELLING", "APPROVED"] } },
       data: { status: "FAILED", workerId: null, workerHeartbeatAt: null },
     });
     expect(mockPrisma.commandTarget.updateMany).not.toHaveBeenCalled();
@@ -1709,7 +1709,7 @@ describe("command service execution flow", () => {
     expect(mockPrisma.commandTarget.updateMany).toHaveBeenCalledWith({
       where: {
         commandRequestId: "req_mark_fail_ok",
-        status: { in: ["RUNNING", "APPROVED", "PENDING_APPROVAL"] },
+        status: { in: ["RUNNING", "CANCELLING", "APPROVED", "PENDING_APPROVAL"] },
       },
       data: expect.objectContaining({
         status: "FAILED",

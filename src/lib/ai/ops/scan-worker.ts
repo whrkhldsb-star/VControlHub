@@ -32,6 +32,7 @@ import {
   pruneCompletedJobsByType,
 } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
+import { t } from "@/lib/i18n/service-translations";
 import { getSetting } from "@/lib/settings/service";
 import { sendChatRequest } from "@/lib/ai/service-runtime";
 import { getSingletonIntervalWorkerState, type SingletonIntervalWorkerState } from "@/lib/workers/singleton-interval-worker";
@@ -517,11 +518,20 @@ export async function runAiOpsScanWorkerOnce(
             actions: plannedActions,
             status,
           } = buildScan(mode, signals);
-          const providerAnalysis = provider
-            ? await requestProviderAnalysis(provider, signals)
-            : null;
+          let providerAnalysis: string | null = null;
+          let providerDegraded = false;
+          if (provider) {
+            try { providerAnalysis = await requestProviderAnalysis(provider, signals); }
+            catch (error) {
+              providerDegraded = true;
+              // Upstream responses can contain credentials or request text.
+              const httpStatus = error instanceof Error ? error.message.match(/\b[45]\d{2}\b/)?.[0] : undefined;
+              logger.warn("AI provider analysis unavailable; retaining deterministic scan", { providerId: provider.id, httpStatus });
+              findings.push({ id: "ai.provider-unavailable", severity: "warning", title: "AI provider unavailable", body: "Rule-based scan results were preserved. Check provider access and balance; autonomous actions were withheld.", source: "ai.provider" });
+            }
+          }
           const actions =
-            mode === "autonomous"
+            mode === "autonomous" && !providerDegraded
               ? await Promise.all(
                   (plannedActions as AiOpsExecutedAction[]).map((action) =>
                     executeAiOpsAction({
@@ -531,7 +541,9 @@ export async function runAiOpsScanWorkerOnce(
                     }),
                   ),
                 )
-              : plannedActions;
+              : providerDegraded && mode === "autonomous"
+                ? (plannedActions as AiOpsExecutedAction[]).map((action) => ({ ...action, executed: false, result: "Withheld because provider analysis is unavailable" }))
+                : plannedActions;
 
           const report = buildExplainableReport(mode, signals, actions);
           const completedNotes = operatorNotes
@@ -539,10 +551,11 @@ export async function runAiOpsScanWorkerOnce(
             : `ai.ops.scan reason=${payloadReason}\n${report}${providerAnalysis ? `\nproviderAnalysis:\n${providerAnalysis}` : ""}`;
           const completed = await completeScan({
             logId: log.id,
-            status,
+            status: providerDegraded ? "warning" : status,
             findings,
             actions,
             notes: completedNotes,
+            ...(providerDegraded ? { errorMessage: t("backend.ai.providerUnavailable") } : {}),
           });
           return { findings, actions, completed };
         },

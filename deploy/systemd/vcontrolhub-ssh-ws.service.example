@@ -15,14 +15,18 @@ Environment=PATH={{SYSTEMD_PATH}}
 ExecStart={{NODE_BIN}} {{APP_DIR}}/dist/ssh-ws-proxy.js
 Restart=always
 RestartSec=5
-User={{APP_USER}}
-Group={{APP_USER}}
+DynamicUser=true
+User={{APP_USER}}-gateway
+Group={{APP_USER}}-gateway
 
 # Security hardening
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=read-only
 ReadWritePaths=/tmp
+# The gateway needs neither the host Docker daemon nor on-disk secrets.
+# systemd reads EnvironmentFile before applying this filesystem sandbox.
+InaccessiblePaths=-/var/run/docker.sock -/run/docker.sock -/run/containerd/containerd.sock -{{APP_DIR}}/.env -{{APP_DIR}}/.env.local -{{RUNTIME_ENV_FILE}}
 PrivateDevices=true
 PrivateTmp=true
 ProtectKernelTunables=true
@@ -45,6 +49,7 @@ CapabilityBoundingSet=
 # Resource limits
 MemoryMax=256M
 MemoryHigh=192M
+TasksMax=128
 
 # Logging
 StandardOutput=journal

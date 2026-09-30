@@ -7,6 +7,7 @@ import {
   defaultDataRoot,
   dockerEngineEndpoint,
   dockerEngineSocketPath,
+  hubHostDockerSocketMount,
   relayTempDir,
 } from "@/lib/runtime/platform-paths";
 
@@ -69,6 +70,7 @@ describe("platform-paths", () => {
     it("honours DOCKER_HOST unix://, npipe:// and tcp:// forms", () => {
       process.env.DOCKER_HOST = "unix:///run/user/1000/docker.sock";
       expect(dockerEngineEndpoint()).toEqual({ kind: "socket", socketPath: "/run/user/1000/docker.sock" });
+      expect(hubHostDockerSocketMount()).toBe("/run/user/1000/docker.sock");
 
       process.env.DOCKER_HOST = "npipe:////./pipe/docker_engine";
       expect(dockerEngineEndpoint()).toEqual({ kind: "socket", socketPath: "\\\\.\\pipe\\docker_engine" });

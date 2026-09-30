@@ -22,3 +22,12 @@ _test_*.ts
 check_*.py
 make_*.py
 *.tsbuildinfo
+
+# Local audit/rollback trees are never runtime image inputs.
+dist.*
+.next.*
+node_modules.*
+.audit-*
+coverage
+playwright-report
+test-results

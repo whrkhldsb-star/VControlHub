@@ -3,24 +3,23 @@ import { apiCopy } from "@/lib/i18n/api-copy";
  * Storage-file resumable upload finalize.
  *
  * Reuses MediaUploadSession + chunk pipeline, then writes the assembled
- * buffer to LOCAL/SFTP storage and upserts the FileEntry index.
+ * file to LOCAL/SFTP/WebDAV storage and upserts the FileEntry index.
  */
 import path from "node:path";
 
-import { prisma, isUniqueViolation } from "@/lib/db";
-import { ForbiddenError, ValidationError } from "@/lib/errors";
+import { prisma } from "@/lib/db";
+import { ConflictError, ForbiddenError, ValidationError } from "@/lib/errors";
 import { assertStorageAccess, releaseStorageQuotaGuard } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import {
   getStorageFileNode,
-  writeStorageFileBuffer,
+  writeStorageFileFromLocalPath,
 } from "@/lib/storage/file-content";
 import { normalizeStorageRelativePath } from "@/lib/storage/path-utils";
 import {
-  assembleMediaUploadChunks,
+  assembleMediaUploadToFile,
   completeMediaUploadSession,
   cleanupMediaUploadTempDir,
-  MediaUploadError,
 } from "@/lib/upload/service";
 import { snapshotFileVersionBeforeOverwrite } from "@/lib/storage/file-versions";
 import type { MediaUploadSessionView } from "@/lib/upload/types";
@@ -35,23 +34,34 @@ export type CompleteStorageUploadResult = {
   storageNodeId: string;
 };
 
+
+// Bound disk and transport work per process; each stream uses a 64 KiB window.
+let activeFinalizations = 0;
+const finalizationsByUser = new Set<string>();
+const finalizationsByNode = new Map<string, number>();
+function acquireFinalizationSlot(userId: string, nodeId: string): () => void {
+  const nodeCount = finalizationsByNode.get(nodeId) ?? 0;
+  if (activeFinalizations >= 4 || finalizationsByUser.has(userId) || nodeCount >= 2) {
+    throw new ConflictError(t("backend.storage.finalizationBusy"));
+  }
+  activeFinalizations += 1;
+  finalizationsByUser.add(userId);
+  finalizationsByNode.set(nodeId, nodeCount + 1);
+  return () => {
+    activeFinalizations -= 1;
+    finalizationsByUser.delete(userId);
+    const count = (finalizationsByNode.get(nodeId) ?? 1) - 1;
+    if (count === 0) finalizationsByNode.delete(nodeId); else finalizationsByNode.set(nodeId, count);
+  };
+}
+
 export async function completeStorageFileUpload(params: {
   sessionId: string;
   session: SessionPayload;
 }): Promise<CompleteStorageUploadResult> {
   const { sessionId, session } = params;
 
-  let assembled: Buffer;
   let ownsFinalization = false;
-  try {
-    assembled = await assembleMediaUploadChunks(sessionId, session.userId);
-  } catch (err) {
-    if (err instanceof MediaUploadError) {
-      throw new ValidationError(err.message, { code: err.code });
-    }
-    throw err;
-  }
-
   const existing = await prisma.mediaUploadSession.findFirst({
     where: { id: sessionId, userId: session.userId },
     select: {
@@ -60,6 +70,10 @@ export async function completeStorageFileUpload(params: {
       storageNodeId: true,
       relativePath: true,
       status: true,
+      totalSize: true,
+      totalChunks: true,
+      receivedChunks: true,
+      expiresAt: true,
     },
   });
   if (!existing) {
@@ -73,6 +87,16 @@ export async function completeStorageFileUpload(params: {
     });
   }
 
+  if (!["PENDING", "UPLOADING"].includes(existing.status) || existing.expiresAt.getTime() <= Date.now()) {
+    throw new ValidationError(t("backend.storage.uploadSessionNotActive"), { code: "session_not_active" });
+  }
+  const byteSize = Number(existing.totalSize);
+  const received = new Set(existing.receivedChunks);
+  if (received.size !== existing.totalChunks || Array.from({ length: existing.totalChunks }, (_, i) => i).some((i) => !received.has(i))) {
+    throw new ValidationError(t("backend.storage.chunksMissing"), { code: "chunks_incomplete" });
+  }
+  if (!Number.isSafeInteger(byteSize) || byteSize < 0 || byteSize > 200 * 1024 * 1024) throw new ValidationError(t("backend.storage.invalidUploadSize"));
+
   const normalized = normalizeStorageRelativePath(existing.relativePath);
   if (normalized.ok !== true) {
     throw new ValidationError(normalized.reason);
@@ -84,18 +108,20 @@ export async function completeStorageFileUpload(params: {
     storageNodeId: existing.storageNodeId,
     relativePath: normalizedRelativePath,
     operation: "write",
-    writeBytes: assembled.byteLength,
+    writeBytes: byteSize,
   });
   if (!access.allowed) {
     throw new ForbiddenError(storageAccessDeniedCopy(access.reason));
   }
 
+  let releaseFinalization: (() => void) | undefined;
   try {
   const storageNode = await getStorageFileNode(existing.storageNodeId, session);
   if (!storageNode || !["LOCAL", "SFTP", "WEBDAV"].includes(storageNode.driver)) {
     throw new ValidationError(t("backend.storage.uploadNotSupported"));
   }
 
+  releaseFinalization = acquireFinalizationSlot(session.userId, existing.storageNodeId);
   const claimed = await prisma.mediaUploadSession.updateMany({
     where: { id: sessionId, userId: session.userId, status: { in: ["PENDING", "UPLOADING"] }, expiresAt: { gt: new Date() } },
     data: { status: "FINALIZING" },
@@ -106,6 +132,7 @@ export async function completeStorageFileUpload(params: {
     });
   }
   ownsFinalization = true;
+  const assembled = await assembleMediaUploadToFile(sessionId, session.userId);
 
   // Snapshot existing body before overwrite when index already exists.
   const existingEntry = await prisma.fileEntry.findFirst({
@@ -124,11 +151,11 @@ export async function completeStorageFileUpload(params: {
     });
   }
 
-  await writeStorageFileBuffer(storageNode, normalizedRelativePath, assembled);
+  await writeStorageFileFromLocalPath(storageNode, normalizedRelativePath, assembled.path);
 
   const fileName = path.posix.basename(normalizedRelativePath);
   const mimeType = existing.mimeType || null;
-  const byteSize = assembled.byteLength;
+  if (assembled.size !== byteSize) throw new ValidationError(t("backend.storage.assembledSizeChanged"));
 
   const indexData = {
     name: fileName,
@@ -139,46 +166,18 @@ export async function completeStorageFileUpload(params: {
     // The row leaves the recycle bin on this overwrite — clear the batch
     // marker so a later directory restore cannot revive a stale copy of it.
     deleteBatchId: null,
+    checksumSha256: assembled.checksum,
   };
 
-  if (existingEntry) {
-    await prisma.fileEntry.update({
-      where: { id: existingEntry.id },
-      data: indexData,
+  const view = await prisma.$transaction(async (tx) => {
+    await tx.fileEntry.upsert({
+      where: { storageNodeId_relativePath: { storageNodeId: existing.storageNodeId!, relativePath: normalizedRelativePath } },
+      create: { storageNodeId: existing.storageNodeId!, relativePath: normalizedRelativePath, ...indexData },
+      update: indexData,
     });
-  } else {
-    try {
-      await prisma.fileEntry.create({
-        data: {
-          storageNodeId: existing.storageNodeId,
-          relativePath: normalizedRelativePath,
-          ...indexData,
-        },
-      });
-    } catch (error) {
-      // Concurrent first-time completes both write the blob; the loser updates the winner's index.
-      if (!isUniqueViolation(error)) throw error;
-      const raced = await prisma.fileEntry.findFirst({
-        where: {
-          storageNodeId: existing.storageNodeId,
-          relativePath: normalizedRelativePath,
-        },
-        select: { id: true },
-      });
-      if (!raced) throw error;
-      await prisma.fileEntry.update({
-        where: { id: raced.id },
-        data: indexData,
-      });
-    }
-  }
-
-  const view = await completeMediaUploadSession({
-    sessionId,
-    userId: session.userId,
-    buffer: assembled,
-    allowedStatuses: ["FINALIZING"],
+    return completeMediaUploadSession({ sessionId, userId: session.userId, checksum: assembled.checksum, allowedStatuses: ["FINALIZING"], transaction: tx });
   });
+  await cleanupMediaUploadTempDir(sessionId).catch((error) => logError("storage-upload:cleanup-failed", error));
 
   return {
     session: view,
@@ -199,6 +198,7 @@ export async function completeStorageFileUpload(params: {
     }
     throw error;
   } finally {
+    releaseFinalization?.();
     await releaseStorageQuotaGuard(access);
   }
 }

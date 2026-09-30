@@ -36,6 +36,7 @@ In **Settings → Branches → Branch protection rules → main**:
    - `test`
    - `E2E public smoke (Chromium + Firefox + WebKit)`
    - `test-windows` (Windows compatibility: typecheck/lint/unit/build on windows-latest)
+   - `Docker fresh-install smoke` (image build, fresh migrations/seed and authenticated HTTP check)
 3. Optionally require `DAST baseline (optional surface probe)` on `main` only
    (it already only runs on push to main).
 4. Enable **Do not allow bypassing the above settings** for admins if the team
