@@ -21,8 +21,8 @@ vi.mock("@/lib/db", () => ({
   prisma: { server: { findFirst: findFirstMock } },
 }));
 
-// Mirrors the real guard's contract for this route: auth-only wrapper whose
-// typed errors (NotFoundError.status=404) surface as error responses.
+// Mirrors the real guard's contract for this route: server:read-gated wrapper
+// whose typed errors (NotFoundError.status=404) surface as error responses.
 vi.mock("@/lib/http/api-guard", () => ({
   withApiRoute: vi.fn(async (_request, _options, handler) => {
     try {

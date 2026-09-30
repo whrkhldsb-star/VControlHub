@@ -1,6 +1,6 @@
 # VControlHub RBAC Audit Report
 
-> Generated: 2026-09-27T15:51:51.613Z | Permissions: 54 | Roles: 4 | API routes: 187 | Pages: 55 | Drift: 0
+> Generated: 2026-09-30T01:02:37.621Z | Permissions: 54 | Roles: 4 | API routes: 188 | Pages: 55 | Drift: 0
 
 This report cross-references four RBAC sources of truth:
 1. `src/lib/auth/rbac.ts` — `PERMISSIONS` tuple + `DEFAULT_ROLE_PERMISSIONS` map
@@ -25,7 +25,7 @@ This report cross-references four RBAC sources of truth:
 | Permission | Granted to roles | Pages using | API routes using | Files |
 |---|---|---|---|---|
 | `ai:action:approve` | admin | 0 | 0 | 0 |
-| `ai:chat` | admin, operator, viewer, storage_manager | 1 | 0 | 25 |
+| `ai:chat` | admin, operator, viewer, storage_manager | 2 | 0 | 26 |
 | `ai:manage` | admin, operator | 1 | 1 | 16 |
 | `ai:ops:autonomous` | admin | 1 | 1 | 2 |
 | `ai:ops:manage` | admin | 1 | 0 | 9 |
@@ -56,7 +56,7 @@ This report cross-references four RBAC sources of truth:
 | `playbook:read` | admin, operator | 1 | 1 | 8 |
 | `playbook:run` | admin, operator | 1 | 0 | 5 |
 | `role:manage` | admin | 0 | 4 | 7 |
-| `server:read` | admin, operator, viewer, storage_manager | 0 | 3 | 17 |
+| `server:read` | admin, operator, viewer, storage_manager | 0 | 3 | 19 |
 | `server:sftp:unrestricted` | admin | 0 | 0 | 0 |
 | `server:ssh` | admin, operator | 1 | 1 | 29 |
 | `server:write` | admin, operator | 1 | 1 | 22 |

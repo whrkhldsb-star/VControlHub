@@ -6,7 +6,7 @@ All notable changes to VControlHub are documented here. Versions follow Semantic
 
 ### Changed
 
-- VPS 管理页按钮布局归位：问 AI 从每张服务器卡片移到页面顶部操作区（前往部署旁，带 ai:chat 权限门控与舰队级预填提示）；Windows 卡片的远程桌面按钮不再独占一整行——折叠卡上改为与 查看详情 同排的紧凑按钮，详情弹窗中移到底部管理操作区（与 编辑/停用/删除 同区），与 Linux 卡片的 SSH 终端按钮位置一致。
+- VPS 管理页按钮布局归位：问 AI 从每张服务器卡片移到页面顶部操作区（前往部署旁，带 ai:chat 权限门控与舰队级预填提示）；Windows 卡片的远程桌面按钮不再独占一整行——折叠卡上改为与 查看详情 同排的紧凑按钮，详情弹窗中移到底部管理操作区（与 编辑/停用/删除 同区），与 Linux 卡片的 SSH 终端按钮位置一致。详情弹窗底部区块沿用 Linux 弹窗的 `canManageServers || canUseSshTerminal` 门控：仅持 server:ssh 的用户在弹窗中同样保留远程桌面与 OpenSSH shell 入口（此前误挂 canManageServers，折叠卡可见而弹窗内消失）。
 - undici pinned to 8.11.2 — a batch of high-severity advisories against ≤8.10.1 (WebSocket decompression DoS, RetryHandler orphaned-body DoS, TLS validation bypass in BalancedPool, unsafe-method cache replay, and others) tripped the CI dependency-audit gate.
 
 ### Added
@@ -17,6 +17,7 @@ All notable changes to VControlHub are documented here. Versions follow Semantic
 
 ### Fixed
 
+- `/api/servers/[id]/rdp-probe` now declares `server:read` at the API guard (mirroring `/api/servers/monitor`) instead of auth-only — the RBAC audit flagged the route as an undeclared-permission drift, and an authenticated user without any server permission could otherwise TCP-probe team-visible hosts.
 - Windows cloud-drive parity for the two shell-dependent operations: directory archive download on a Windows SFTP node now builds bsdtar-compatible argv (repeated `--exclude=` entries with the same 30k cap) instead of the GNU-only `--exclude-from=-` stdin list — the bundled System32 tar.exe has no such flag, so the download failed on the first excluded entry; and content search now skips Windows SFTP nodes explicitly instead of burning an SSH exec on a `grep` that cannot exist (filename search still covers them; the previous path logged an error per search attempt).
 
 ### Changed

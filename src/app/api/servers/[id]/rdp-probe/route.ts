@@ -26,7 +26,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  return withApiRoute(request, { requireAuth: true }, async ({ session }) => {
+  return withApiRoute(request, { permission: "server:read" }, async ({ session }) => {
     const server = await prisma.server.findFirst({
       where: { AND: [{ id, enabled: true }, serverTeamWhere(session, "read")] },
       select: { id: true, host: true, port: true, operatingSystem: true },

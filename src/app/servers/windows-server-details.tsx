@@ -81,7 +81,11 @@ export function WindowsServerDetails({
 				</div>
 				{diagnosticRun.status === "success" ? <p role="status" className="mt-3 text-xs text-[var(--success)]">{t("serverOverviewDetails.diagnosticSuccess", { summary: diagnosticRun.summary, checkedAt: diagnosticRun.checkedAt })}</p> : null}
 				{diagnosticRun.status === "error" ? <Notice tone="danger" compact className="mt-3">{t("serverOverviewDetails.diagnosticFailure", { message: diagnosticRun.message, checkedAt: diagnosticRun.checkedAt })}</Notice> : null}
-				{canManageServers ? (
+				{/* Same gate as the Linux details dialog: terminal-only users
+				    (server:ssh without server:manage) keep the RDP link and the
+				    OpenSSH shell button; manage actions self-gate inside
+				    ServerCardActions. */}
+				{canManageServers || canUseSshTerminal ? (
 					<div className="mt-4 border-t border-[var(--border)] pt-4">
 						{/* RDP sits in the bottom action block, mirroring where the
 						    Linux card puts its SSH-terminal button. */}

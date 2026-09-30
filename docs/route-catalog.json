@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-09-27T15:51:08.137Z",
+  "generatedAt": "2026-09-30T01:02:35.666Z",
   "summary": {
     "sidebarMain": 30,
     "sidebarSystem": 5,
     "sidebarMobile": 5,
     "pages": 55,
-    "apiRoutes": 187,
+    "apiRoutes": 188,
     "permissionsDefined": 54
   },
   "sidebar": {
@@ -649,6 +649,7 @@
       "inSidebarMain": true,
       "inSidebarSystem": false,
       "declaredPermissions": [
+        "ai:chat",
         "audit:read",
         "command:approve",
         "command:create",
@@ -2338,6 +2339,17 @@
       "declaredPermissions": [
         "server:ssh",
         "storage:manage-node"
+      ]
+    },
+    {
+      "path": "/api/servers/[id]/rdp-probe",
+      "file": "src/app/api/servers/[id]/rdp-probe/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "server:read"
       ]
     },
     {
