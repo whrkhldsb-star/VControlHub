@@ -226,6 +226,7 @@ beforeEach(() => {
   providerFindFirstMock.mockReset();
   providerFindFirstMock.mockResolvedValue(null);
   sendChatRequestMock.mockReset();
+  vi.mocked(prisma.aiOpsLog.findFirst).mockReset().mockResolvedValue(null);
 });
 
 function playbackFailureCountMockResolveSafe(mock: ReturnType<typeof vi.fn>) {
@@ -319,6 +320,33 @@ describe("runAiOpsScanWorkerOnce", () => {
     expect(update.findings).toEqual(expect.arrayContaining([expect.objectContaining({ source: "ai.provider" }), expect.objectContaining({ source: expect.stringContaining("backup") })]));
     expect(JSON.stringify(update)).not.toContain("secret-upstream-text");
     expect(update.actions).toEqual(expect.arrayContaining([expect.objectContaining({ executed: false })]));
+  });
+
+  it("preserves deterministic findings when the configured provider is disabled or deleted", async () => {
+    getSettingMock.mockImplementation(async (key: string) => key === "ai.ops.provider" ? "missing-provider" : "autonomous");
+    backupFailureCountMock.mockResolvedValue(1);
+    await runAiOpsScanWorkerOnce("manual");
+    expect(sendChatRequestMock).not.toHaveBeenCalled();
+    expect(jobMocks.failJob).not.toHaveBeenCalled();
+    const data = vi.mocked(prisma.aiOpsLog.update).mock.calls.at(-1)![0].data;
+    expect(data.providerHealth).toMatchObject({ state: "unavailable", failureKind: "configuration" });
+    expect(data.findings).toEqual(expect.arrayContaining([expect.objectContaining({ source: "ai.provider" }), expect.objectContaining({ source: expect.stringContaining("backup") })]));
+    expect(data.actions).toEqual(expect.arrayContaining([expect.objectContaining({ executed: false })]));
+  });
+
+  it("honours persisted provider cooldowns for scheduled scans and allows a manual retry", async () => {
+    getSettingMock.mockImplementation(async (key: string) => key === "ai.ops.provider" ? "provider-1" : "recommendation");
+    providerFindFirstMock.mockResolvedValue({ id: "provider-1", createdBy: "admin-1", defaultModel: "ops-model" });
+    vi.mocked(prisma.aiOpsLog.findFirst).mockResolvedValue({ providerHealth: { state: "failed", configurationVersion: "legacy", consecutiveFailures: 2, failureKind: "quota", httpStatus: 403, retryAt: new Date(Date.now() + 86_400_000).toISOString() } } as never);
+    jobMocks.claimNextJob.mockResolvedValueOnce({ id: "scheduled-job", payload: { reason: "interval" } });
+    await runAiOpsScanWorkerOnce("interval");
+    expect(sendChatRequestMock).not.toHaveBeenCalled();
+    expect(vi.mocked(prisma.aiOpsLog.update).mock.calls.at(-1)![0].data.providerHealth).toMatchObject({ state: "cooldown", consecutiveFailures: 2 });
+    jobMocks.findFirst.mockResolvedValue(null);
+    sendChatRequestMock.mockResolvedValue({ providerType: "OPENAI_COMPATIBLE", response: { json: async () => ({ choices: [{ message: { content: "Recovered" } }] }) } });
+    await runAiOpsScanWorkerOnce("manual");
+    expect(sendChatRequestMock).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(prisma.aiOpsLog.update).mock.calls.at(-1)![0].data.providerHealth).toMatchObject({ state: "success", consecutiveFailures: 0, retryAt: null });
   });
 
 });

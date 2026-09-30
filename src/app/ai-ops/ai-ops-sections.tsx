@@ -57,6 +57,11 @@ export function AiOpsSummarySection({ summary, t }: { summary: AiOpsSummary; t: 
 	return (
 		<section aria-label="ai-ops-summary" className={cardClass}>
 			<h2 className="mb-4 text-base font-semibold text-[var(--text-primary)]">{t("aiOpsPage.summary.title")}</h2>
+			{summary.provider && <div className="mb-4 flex flex-wrap gap-x-6 gap-y-2 text-sm text-[var(--text-secondary)]">
+				<span>{t("aiOpsPage.summary.providerSuccessRate")}: {summary.provider.successRate === null ? t("aiOpsPage.summary.never") : `${Math.round(summary.provider.successRate * 100)}% (${summary.provider.successes}/${summary.provider.attempts})`}</span>
+				<span>{t("aiOpsPage.summary.providerLastSuccess")}: {formatAiOpsTime(summary.provider.lastSuccessAt, t("aiOpsPage.summary.never"), locale)}</span>
+				{summary.provider.retryAt && <span>{t("aiOpsPage.summary.providerRetryAt")}: {formatAiOpsTime(summary.provider.retryAt, t("aiOpsPage.summary.never"), locale)}</span>}
+			</div>}
 			<div className="grid grid-cols-1 gap-4 min-[400px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 [&>div]:min-w-0 [&>div]:break-words">
 				<div>
 					<div className={labelClass}>{t("aiOpsPage.summary.total")}</div>

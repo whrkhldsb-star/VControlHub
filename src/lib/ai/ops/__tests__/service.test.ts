@@ -22,6 +22,7 @@ type AiOpsLogRow = {
 	notes: string | null;
 	errorMessage: string | null;
 	providerId: string | null;
+	providerHealth?: unknown;
 	startedAt: Date | null;
 	completedAt: Date | null;
 	durationMs: number | null;
@@ -429,6 +430,16 @@ describe("executeRecommendation — mode-aware action gating", () => {
 });
 
 describe("summariseAiOps", () => {
+	it("counts provider attempts separately from cooldowns and exposes the latest successful analysis", async () => {
+		const health = { configurationVersion: "v1", consecutiveFailures: 0, failureKind: null, httpStatus: null, retryAt: null };
+		const success = await createAiOpsLog({ triggerType: "manual", mode: "recommendation" });
+		await completeScan({ logId: success.id, status: "ok", findings: [], actions: [], providerHealth: { ...health, state: "success" } });
+		const failed = await createAiOpsLog({ triggerType: "manual", mode: "recommendation" });
+		await completeScan({ logId: failed.id, status: "warning", findings: [], actions: [], providerHealth: { ...health, state: "failed", consecutiveFailures: 1, failureKind: "quota", httpStatus: 403, retryAt: "2026-10-01T00:00:00.000Z" } });
+		const cooldown = await createAiOpsLog({ triggerType: "scheduled", mode: "recommendation" });
+		await completeScan({ logId: cooldown.id, status: "warning", findings: [], actions: [], providerHealth: { ...health, state: "cooldown", consecutiveFailures: 1, failureKind: "quota", httpStatus: 403, retryAt: "2026-10-01T00:00:00.000Z" } });
+		expect((await summariseAiOps()).provider).toMatchObject({ attempts: 2, successes: 1, failures: 1, cooldowns: 1, successRate: 0.5, lastFailureKind: "quota", retryAt: "2026-10-01T00:00:00.000Z", lastSuccessAt: expect.any(String) });
+	});
 	it("returns total=0 with zeroed buckets when store is empty", async () => {
 		const s = await summariseAiOps();
 		expect(s.total).toBe(0);
@@ -478,6 +489,7 @@ describe("AiOpsLogRecord shape (read-only shape check)", () => {
 				"mode",
 				"notes",
 				"providerId",
+				"providerHealth",
 				"startedAt",
 				"status",
 				"triggeredById",

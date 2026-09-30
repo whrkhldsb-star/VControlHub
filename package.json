@@ -6,7 +6,7 @@
     "dev": "next dev",
     "prebuild": "npm run route:catalog",
     "build": "node scripts/guard-live-next-build.mjs && node scripts/run-with-build-memory.mjs next/dist/bin/next build --webpack",
-    "build:runtime": "esbuild src/server.ts src/worker.ts src/ssh-ws-proxy.ts prisma/seed.ts --bundle --platform=node --target=node22 --format=cjs --outdir=dist --entry-names=[name] --packages=external --tsconfig=tsconfig.json && esbuild next.config.ts --format=esm --outfile=dist/next.config.mjs",
+    "build:runtime": "esbuild src/server.ts src/worker.ts src/ssh-ws-proxy.ts prisma/seed.ts scripts/upload-recovery-backup.ts --bundle --platform=node --target=node22 --format=cjs --outdir=dist --entry-names=[name] --packages=external --tsconfig=tsconfig.json && esbuild next.config.ts --format=esm --outfile=dist/next.config.mjs",
     "postinstall": "node scripts/patch-minimatch-legacy.mjs",
     "start": "node dist/server.js",
     "start:ssh-ws": "node dist/ssh-ws-proxy.js",

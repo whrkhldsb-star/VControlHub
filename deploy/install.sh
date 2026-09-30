@@ -1214,6 +1214,9 @@ restart_services() {
  journalctl --no-pager --lines=30 -u "${SERVICE_PREFIX}-next.service" || true
  fail "Installation failed: Next.js service started but /login never became ready."
  fi
+ # An active unit or listening TCP port cannot prove that browser SSH works.
+ SSH_WS_HOST="${SSH_WS_HOST}" SSH_WS_PORT="${SSH_WS_PORT}" SSH_WS_ALLOWED_ORIGINS="${SSH_WS_ALLOWED_ORIGINS:-}" \
+   node "${APP_DIR}/scripts/check-ssh-gateway.mjs" || fail "Installation failed: SSH gateway protocol check failed."
  systemctl --no-pager --lines=20 status "${SERVICE_PREFIX}-next.service" "${SERVICE_PREFIX}-worker.service" "${SERVICE_PREFIX}-ssh-ws.service" || true
 }
 

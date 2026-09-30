@@ -1,6 +1,7 @@
 "use client";
 
-import { decodeBase64, encodeBase64 } from "@/components/ssh-terminal-codec";
+import { decodeBase64Bytes } from "@/components/ssh-terminal-codec";
+import { createSshTerminalInputSender } from "@/components/ssh-terminal-input";
 import { parseQuickKeyPresets, quickKeyPresetsToEntries, serializeQuickKeyPresets, type QuickKeyPreset } from "@/components/ssh-quick-keys";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -64,6 +65,7 @@ export function SshTerminalPanel({ serverId, serverName, host, visible, onClose,
 	useEffect(() => { tRef.current = t; }, [t]);
 	const termRef = useRef<HTMLDivElement>(null);
 	const wsRef = useRef<WebSocket | null>(null);
+	const inputSenderRef = useRef<ReturnType<typeof createSshTerminalInputSender> | null>(null);
 	const terminalRef = useRef<import("@xterm/xterm").Terminal | null>(null);
 	const fitAddonRef = useRef<import("@xterm/addon-fit").FitAddon | null>(null);
 	const searchAddonRef = useRef<import("@xterm/addon-search").SearchAddon | null>(null);
@@ -74,6 +76,7 @@ export function SshTerminalPanel({ serverId, serverName, host, visible, onClose,
 
 	const [status, setStatus] = useState<TerminalStatus>("connecting");
 	const [errorMsg, setErrorMsg] = useState<string>("");
+	const [inputError, setInputError] = useState<string>("");
 	const [reconnectKey, setReconnectKey] = useState(0);
 	const [showSidePanel, setShowSidePanel] = useState(false);
 	const [showFileManager, setShowFileManager] = useState(false);
@@ -116,6 +119,8 @@ export function SshTerminalPanel({ serverId, serverName, host, visible, onClose,
 
 	function disposeConnection() {
 		connectionNonceRef.current += 1;
+		inputSenderRef.current?.dispose();
+		inputSenderRef.current = null;
 		if (wsRef.current) {
 			try { wsRef.current.close(); } catch {}
 			wsRef.current = null;
@@ -287,6 +292,10 @@ export function SshTerminalPanel({ serverId, serverName, host, visible, onClose,
 			});
 			const ws = new WebSocket(finalWsUrl);
 			wsRef.current = ws;
+			const inputSender = createSshTerminalInputSender(ws, () => {
+				if (!disposed && nonce === connectionNonceRef.current) setInputError(tRef.current("sshTerminalModal.errInputTooLarge"));
+			});
+			inputSenderRef.current = inputSender;
 
 			ws.onopen = () => {
 				// The browser transport being open does not mean the proxy has
@@ -300,10 +309,13 @@ export function SshTerminalPanel({ serverId, serverName, host, visible, onClose,
 				try {
 					const msg = JSON.parse(event.data);
 					if (msg.type === "output" && msg.data) {
-						term.write(decodeBase64(msg.data));
+						term.write(decodeBase64Bytes(msg.data));
 					} else if (msg.type === "connected") {
+						inputSender.connected(msg.inputAck === true);
 						reconnectAttemptsRef.current = 0;
 						if (!disposed && nonce === connectionNonceRef.current) setStatus("connected");
+					} else if (msg.type === "input-ack") {
+						inputSender.acknowledge(msg.id);
 					} else if (msg.type === "error") {
 						if (!disposed && nonce === connectionNonceRef.current) {
 							setStatus("error");
@@ -319,6 +331,7 @@ export function SshTerminalPanel({ serverId, serverName, host, visible, onClose,
 			};
 
 			ws.onclose = () => {
+				inputSender.dispose();
 				if (!disposed && nonce === connectionNonceRef.current) {
 					setStatus("closed");
 					setErrorMsg(tRef.current("sshTerminalModal.errDisconnected"));
@@ -334,9 +347,8 @@ export function SshTerminalPanel({ serverId, serverName, host, visible, onClose,
 			};
 
 			term.onData((data: string) => {
-				if (ws.readyState === WebSocket.OPEN) {
-					ws.send(JSON.stringify({ type: "input", data: encodeBase64(data) }));
-				}
+				if (!inputSender.enqueue(data)) return;
+				setInputError("");
 				if (data === "\r" || data === "\n") {
 					const cmd = currentCommandRef.current.trim();
 					currentCommandRef.current = "";
@@ -370,6 +382,8 @@ export function SshTerminalPanel({ serverId, serverName, host, visible, onClose,
 
 		return () => {
 			disposed = true;
+			inputSenderRef.current?.dispose();
+			inputSenderRef.current = null;
 			if (removeResizeListener) removeResizeListener();
 			if (wsRef.current) { try { wsRef.current.close(); } catch {} wsRef.current = null; }
 			if (terminalRef.current) { try { terminalRef.current.dispose(); } catch {} terminalRef.current = null; }
@@ -407,16 +421,12 @@ export function SshTerminalPanel({ serverId, serverName, host, visible, onClose,
 	};
 
 	const sendCommand = (cmd: string) => {
-		if (wsRef.current?.readyState === WebSocket.OPEN) {
-			wsRef.current.send(JSON.stringify({ type: "input", data: encodeBase64(cmd + "\r") }));
-		}
+		if (inputSenderRef.current?.enqueue(cmd + "\r")) setInputError("");
 	};
 
 	/** Send raw key sequences (Ctrl+C, arrows, …) without appending Enter. */
 	const sendKeys = (data: string) => {
-		if (wsRef.current?.readyState === WebSocket.OPEN) {
-			wsRef.current.send(JSON.stringify({ type: "input", data: encodeBase64(data) }));
-		}
+		if (inputSenderRef.current?.enqueue(data)) setInputError("");
 		// Keys that rewrite or discard the pending input line invalidate the
 		// tracked current command; keep the panel's history accurate for them.
 		if (data === "\u0003" || data === "\u0015" || data === "\u001b[A" || data === "\u001b[B") {
@@ -445,6 +455,7 @@ export function SshTerminalPanel({ serverId, serverName, host, visible, onClose,
 		reconnectAttemptsRef.current = 0;
 		setStatus("connecting");
 		setErrorMsg("");
+		setInputError("");
 		setReconnectKey((prev) => prev + 1);
 	};
 
@@ -476,6 +487,7 @@ export function SshTerminalPanel({ serverId, serverName, host, visible, onClose,
 			)}
 
 			{/* Terminal + side panel */}
+			{inputError && <p role="alert" className="mx-4 mt-3 text-sm text-[var(--danger)]">{inputError}</p>}
 			<div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain p-3 lg:flex-row lg:overflow-hidden">
 				<div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
 					<SshTerminalSearchBar

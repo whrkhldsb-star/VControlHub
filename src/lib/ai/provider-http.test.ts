@@ -341,6 +341,7 @@ describe("ai provider-http adapter", () => {
       const fetchMock = vi.fn(async () => ({
         ok: false,
         status: 500,
+        headers: new Headers(),
         text: async () => {
           throw new Error("cannot read body");
         },

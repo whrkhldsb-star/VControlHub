@@ -14,6 +14,7 @@ Environment=VCONTROLHUB_RUNTIME_ENV_LOADED=true
 Environment=SSH_WS_PORT={{SSH_WS_PORT}}
 Environment=PATH={{SYSTEMD_PATH}}
 ExecStart={{NODE_BIN}} {{APP_DIR}}/dist/ssh-ws-proxy.js
+ExecStartPost={{NODE_BIN}} {{APP_DIR}}/scripts/check-ssh-gateway.mjs
 Restart=always
 RestartSec=5
 DynamicUser=true
