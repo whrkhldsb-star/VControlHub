@@ -35,6 +35,8 @@
 - **RDP 证书**：为实际 Windows 节点部署可信证书并核对名称；验证通过后关闭相应节点的“忽略证书”选项。不要在证书尚未准备好时批量切换。
 - **Docker 权限**：`:ro` 的 socket 挂载不限制 Docker API；访问 rootful daemon 仍可获得宿主机高权限。独立 SSH 网关身份降低了权限暴露范围；完整迁移需评估 [Docker rootless 模式](https://docs.docker.com/engine/security/rootless/)，验证网络、数据卷和现有应用后再切换 `DOCKER_HOST` / `DOCKER_SOCKET_PATH`。远程 TCP daemon 不作为宿主机 socket bind 挂载使用。
 - **备份计划**：渲染 `deploy/systemd/vcontrolhub-backup.service.example` 和 `vcontrolhub-backup.timer.example` 中的安装变量，创建并授权备份目录，再安装为 `<SERVICE_PREFIX>-backup.service` / `.timer`。先手动运行 service 并演练恢复，随后执行 `systemctl enable --now <SERVICE_PREFIX>-backup.timer`，用 `systemctl list-timers` 和日志核对结果。默认每天 03:30、随机延迟 15 分钟、保留 30 天；还需独立存储副本。本次提交不自动启用 timer。
+  使用 `scripts/backup.mjs --full` 时，通过 `BACKUP_EXTRA_PATHS_JSON` 明确加入项目外的本地数据目录，并核对数据库中 LOCAL 存储节点的实际路径；目录内容以去除文件系统根的相对路径存入包，`external-data.json` 记录对应关系。模板开启 `BACKUP_INCLUDE_ENV=true`，恢复包包含加密密钥等配置，输出权限为 `0600`，备份目录应为 `0700`。可配置 `BACKUP_MAX_BYTES` 限制自动命名备份的总容量，达到上限时先删除较旧版本；升级前快照和手动命名文件不参与此轮转。全量、文件和数据库备份均应用保留策略，子进程失败时不会发布完整文件。
+  恢复演练必须使用独立数据库和临时文件目录。先用 `scripts/restore-files.sh <包> <临时目录>` 检查并提取文件，按 `external-data.json` 核对项目外数据；自动恢复不会直接写入这些绝对路径。正式恢复时由管理员明确映射目标目录，再按原配置恢复密钥和数据库。检查压缩包可读不足以证明数据库可恢复。
 - **分支保护**：按 [CI 门槛](ci-gates.md) 要求必须通过的检查，包括新增的 Docker 测试。工作流文件本身不会修改 GitHub 仓库设置。
 
 ## 已知边界

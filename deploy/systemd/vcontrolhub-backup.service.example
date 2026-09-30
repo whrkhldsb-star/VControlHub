@@ -12,6 +12,7 @@ EnvironmentFile={{RUNTIME_ENV_FILE}}
 Environment=ENV_FILE={{RUNTIME_ENV_FILE}}
 Environment=BACKUP_DIR=/var/backups/{{APP_SLUG}}
 Environment=BACKUP_RETENTION_DAYS=30
+Environment=BACKUP_INCLUDE_ENV=true
 ExecStart={{NODE_BIN}} {{APP_DIR}}/scripts/backup.mjs --full
 UMask=0077
 NoNewPrivileges=true

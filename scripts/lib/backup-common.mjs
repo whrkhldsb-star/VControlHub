@@ -133,7 +133,22 @@ export function timestamp() {
  */
 export function pgConnection(env) {
   if (env.DATABASE_URL) {
-    return { connArgs: [env.DATABASE_URL], childEnv: env };
+    const childEnv = { ...env };
+    let url;
+    try {
+      url = new URL(env.DATABASE_URL);
+      if (!["postgres:", "postgresql:"].includes(url.protocol)) throw new Error();
+      if (url.password) childEnv.PGPASSWORD = decodeURIComponent(url.password);
+      if (url.searchParams.has("password")) {
+        childEnv.PGPASSWORD = url.searchParams.get("password");
+        url.searchParams.delete("password");
+      }
+      url.password = "";
+    } catch {
+      throw new Error("Invalid PostgreSQL connection URL");
+    }
+    // Credentials stay in the child environment, out of process argv and logs.
+    return { connArgs: [url.toString()], childEnv };
   }
   const childEnv = { ...env };
   if (env.DATABASE_PASSWORD) childEnv.PGPASSWORD = env.DATABASE_PASSWORD;
