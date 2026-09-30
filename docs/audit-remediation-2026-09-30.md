@@ -23,10 +23,10 @@
 
 1. 记录当前提交和配置，创建数据库与文件备份，先在独立数据库演练恢复。不要将测试或恢复脚本指向在线数据库。
 2. 停止接收新的执行任务，等待现有任务结束。升级采用仓库的 `deploy.sh` 或 `deploy/upgrade.sh`，同步安装依赖、生成 Prisma 客户端、执行迁移、构建页面与 runtime，并重启 Web、worker、SSH 网关三个进程。新增枚举迁移必须在新代码启动前完成。
-3. systemd 部署需重新渲染并安装 `deploy/systemd/vcontrolhub-ssh-ws.service.example`，执行 `systemctl daemon-reload` 后重启网关；只替换 JavaScript 文件不会应用身份隔离。使用自定义安装路径时，确认动态网关身份能够读取代码，数据库连接采用该身份可访问的地址。
+3. systemd 部署需重新渲染并安装 `deploy/systemd/vcontrolhub-ssh-ws.service.example`，执行 `systemctl daemon-reload` 后重启网关；只替换 JavaScript 文件不会应用身份隔离。模板通过 `EnvironmentFile` 注入配置，并设置 `VCONTROLHUB_RUNTIME_ENV_LOADED=true`，使网关不再读取沙箱中被隐藏的环境文件；必要配置缺失时启动失败并仅报告变量名。使用自定义安装路径时，确认动态网关身份能够读取代码，数据库连接采用该身份可访问的地址。
 4. 升级已安装的 Linux/Windows Agent 至 1.2.0，才会应用本次进程停止逻辑。滚动升级时，旧 Agent 的取消确认能力仍有限。
 5. Docker 部署先构建新镜像，再执行 `node scripts/docker-smoke.mjs <镜像名称>`；该命令创建并清理独立网络与数据库，不挂载宿主机 Docker socket。通过后按原部署的环境、卷和访问地址更新服务。若确需局域网访问，显式配置 `APP_BIND_HOST` 并核对防火墙。
-6. 核对登录、权限撤销后的终端关闭、队列取消最终状态、文件上传和 worker 心跳。新增 PostgreSQL 枚举值无需且不应在回滚时直接删除；按备份和维护窗口安排数据库恢复。
+6. 通过实际 HTTPS 入口验证终端取得握手令牌、建立 SSH 连接并执行只读命令，等待超过 30 秒的权限复核周期后再次验证输入和回显；服务处于 `active` 或端口监听不能代替这项检查。再核对登录、权限撤销后的终端关闭、队列取消最终状态、文件上传和 worker 心跳。新增 PostgreSQL 枚举值无需且不应在回滚时直接删除；按备份和维护窗口安排数据库恢复。
 
 ## 需要管理员完成的配置
 
@@ -34,6 +34,7 @@
 - **MFA**：管理员本人完成绑定并保存恢复码，确认可正常登录后，再启用组织要求。代码提交不会替管理员创建第二因素。
 - **RDP 证书**：为实际 Windows 节点部署可信证书并核对名称；验证通过后关闭相应节点的“忽略证书”选项。不要在证书尚未准备好时批量切换。
 - **Docker 权限**：`:ro` 的 socket 挂载不限制 Docker API；访问 rootful daemon 仍可获得宿主机高权限。独立 SSH 网关身份降低了权限暴露范围；完整迁移需评估 [Docker rootless 模式](https://docs.docker.com/engine/security/rootless/)，验证网络、数据卷和现有应用后再切换 `DOCKER_HOST` / `DOCKER_SOCKET_PATH`。远程 TCP daemon 不作为宿主机 socket bind 挂载使用。
+  使用 `/run/user/<应用用户 UID>/docker.sock` 时，Web 和 worker 默认的 `ProtectHome=true` 会隐藏 `/run/user`，造成 Docker API 返回 `EACCES`。为这两个 unit 安装 [rootless 访问 drop-in](../deploy/systemd/rootless-docker-access.conf.example)，替换数字 UID，使用 `ProtectHome=tmpfs` 并仅显露该用户的运行目录；绑定目录使 daemon 重建 socket 后仍可访问。此配置依据 [systemd 的 ProtectHome 与 bind mount 文档](https://raw.githubusercontent.com/systemd/systemd/v255/man/systemd.exec.xml)，需在实际沙箱内验证 Docker API，并经登录后的容器列表接口确认后再完成切换。
 - **备份计划**：渲染 `deploy/systemd/vcontrolhub-backup.service.example` 和 `vcontrolhub-backup.timer.example` 中的安装变量，创建并授权备份目录，再安装为 `<SERVICE_PREFIX>-backup.service` / `.timer`。先手动运行 service 并演练恢复，随后执行 `systemctl enable --now <SERVICE_PREFIX>-backup.timer`，用 `systemctl list-timers` 和日志核对结果。默认每天 03:30、随机延迟 15 分钟、保留 30 天；还需独立存储副本。本次提交不自动启用 timer。
   使用 `scripts/backup.mjs --full` 时，通过 `BACKUP_EXTRA_PATHS_JSON` 明确加入项目外的本地数据目录，并核对数据库中 LOCAL 存储节点的实际路径；目录内容以去除文件系统根的相对路径存入包，`external-data.json` 记录对应关系。模板开启 `BACKUP_INCLUDE_ENV=true`，恢复包包含加密密钥等配置，输出权限为 `0600`，备份目录应为 `0700`。可配置 `BACKUP_MAX_BYTES` 限制自动命名备份的总容量，达到上限时先删除较旧版本；升级前快照和手动命名文件不参与此轮转。全量、文件和数据库备份均应用保留策略，子进程失败时不会发布完整文件。
   恢复演练必须使用独立数据库和临时文件目录。先用 `scripts/restore-files.sh <包> <临时目录>` 检查并提取文件，按 `external-data.json` 核对项目外数据；自动恢复不会直接写入这些绝对路径。正式恢复时由管理员明确映射目标目录，再按原配置恢复密钥和数据库。检查压缩包可读不足以证明数据库可恢复。

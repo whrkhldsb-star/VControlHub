@@ -10,6 +10,7 @@ Type=simple
 WorkingDirectory={{APP_DIR}}
 EnvironmentFile={{RUNTIME_ENV_FILE}}
 Environment=NODE_ENV=production
+Environment=VCONTROLHUB_RUNTIME_ENV_LOADED=true
 Environment=SSH_WS_PORT={{SSH_WS_PORT}}
 Environment=PATH={{SYSTEMD_PATH}}
 ExecStart={{NODE_BIN}} {{APP_DIR}}/dist/ssh-ws-proxy.js

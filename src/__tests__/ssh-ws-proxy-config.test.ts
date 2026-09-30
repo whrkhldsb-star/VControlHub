@@ -1,7 +1,7 @@
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { loadSshWsRuntimeEnv, parseSshWsRequestPath, resolveSshWsListenConfig } from "../ssh-ws-proxy";
 
@@ -70,6 +70,40 @@ describe("resolveSshWsListenConfig", () => {
 			else process.env.SSH_WS_SECRET = previousSecret;
 			if (previousOrigins === undefined) delete process.env.SSH_WS_ALLOWED_ORIGINS;
 			else process.env.SSH_WS_ALLOWED_ORIGINS = previousOrigins;
+		}
+	});
+
+	it("starts with systemd-injected secrets without opening inaccessible env files", async () => {
+		const tempDir = await mkdtemp(path.join(os.tmpdir(), "ssh-ws-injected-env-"));
+		try {
+			// A directory at the env-file path makes any attempted read fail even
+			// when the test runner is root. systemd hides this path in production.
+			await mkdir(path.join(tempDir, ".env.runtime"));
+			vi.stubEnv("VCONTROLHUB_RUNTIME_ENV_LOADED", "true");
+			vi.stubEnv("DATABASE_URL", "postgresql://injected.example.test/app");
+			vi.stubEnv("AUTH_SESSION_SECRET", "injected-session-secret");
+			vi.stubEnv("ENCRYPTION_KEY", "injected-encryption-key");
+			vi.stubEnv("SSH_WS_SECRET", "injected-websocket-secret");
+			expect(() => loadSshWsRuntimeEnv(tempDir)).not.toThrow();
+			expect(process.env.SSH_WS_SECRET).toBe("injected-websocket-secret");
+		} finally {
+			vi.unstubAllEnvs();
+			await rm(tempDir, { force: true, recursive: true });
+		}
+	});
+
+	it("rejects incomplete injected configuration without exposing secret values", () => {
+		try {
+			vi.stubEnv("VCONTROLHUB_RUNTIME_ENV_LOADED", "true");
+			vi.stubEnv("DATABASE_URL", "postgresql://injected.example.test/app");
+			vi.stubEnv("AUTH_SESSION_SECRET", "must-not-appear-in-error");
+			vi.stubEnv("ENCRYPTION_KEY", "");
+			vi.stubEnv("SSH_WS_SECRET", " ");
+			expect(() => loadSshWsRuntimeEnv()).toThrow(
+				"Injected gateway environment is incomplete: ENCRYPTION_KEY, SSH_WS_SECRET",
+			);
+		} finally {
+			vi.unstubAllEnvs();
 		}
 	});
 

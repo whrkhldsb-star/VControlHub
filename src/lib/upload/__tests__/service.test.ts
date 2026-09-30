@@ -690,7 +690,11 @@ describe("streamed upload assembly", () => {
     expect(assembled.size).toBe(content.length);
     expect(assembled.checksum).toBe(createHash("sha256").update(content).digest("hex"));
     expect(await fs.readFile(assembled.path)).toEqual(content);
-    expect((await fs.stat(assembled.path)).mode & 0o777).toBe(0o600);
+    // Windows reports synthetic mode bits; NTFS permissions use ACLs rather
+    // than POSIX owner/group/other bits. Keep the privacy assertion on POSIX.
+    if (process.platform !== "win32") {
+      expect((await fs.stat(assembled.path)).mode & 0o777).toBe(0o600);
+    }
     const completed = await completeMediaUploadSession({ sessionId: view.id, userId: TEST_USER, checksum: assembled.checksum, allowedStatuses: ["FINALIZING"] });
     expect(completed.checksum).toBe(assembled.checksum);
     expect(await readSessionTempDir(view.id)).toEqual([]);

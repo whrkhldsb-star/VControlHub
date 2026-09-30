@@ -1,0 +1,10 @@
+# Install for the Web and worker units when DOCKER_HOST uses this app user's
+# rootless daemon. Replace APP_UID with the numeric result of id -u APP_USER.
+# Binding the directory keeps new socket inodes visible after daemon restarts.
+[Unit]
+Requires=user@{{APP_UID}}.service
+After=user@{{APP_UID}}.service
+
+[Service]
+ProtectHome=tmpfs
+BindReadOnlyPaths=/run/user/{{APP_UID}}

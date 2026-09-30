@@ -35,6 +35,12 @@ import {
 const logger = createLogger("ssh-ws-proxy");
 
 export function loadSshWsRuntimeEnv(cwd = process.cwd()) {
+	if (process.env.VCONTROLHUB_RUNTIME_ENV_LOADED === "true") {
+		const required = ["DATABASE_URL", "AUTH_SESSION_SECRET", "ENCRYPTION_KEY", "SSH_WS_SECRET"];
+		const missing = required.filter((key) => !process.env[key]?.trim());
+		if (missing.length) throw new Error(`Injected gateway environment is incomplete: ${missing.join(", ")}`);
+		return;
+	}
 	for (const filename of [".env.runtime", ".env.local", ".env"]) {
 		const filePath = resolve(cwd, filename);
 		if (!existsSync(filePath)) continue;
