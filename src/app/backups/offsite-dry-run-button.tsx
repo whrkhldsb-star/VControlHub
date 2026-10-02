@@ -10,6 +10,7 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
+import { Notice } from "@/components/ui-primitives";
 
 type DryRunState =
 	| { kind: "idle" }
@@ -70,13 +71,10 @@ export function OffsiteDryRunButton() {
 
 	return (
 		<div className="flex flex-col gap-2" data-component="offsite-dry-run">
-			<ActionButton variant="outline"
+			<ActionButton size="sm" variant="outline"
 				onClick={run}
 				disabled={isRunning}
-				data-action="offsite-dry-run"
-
-				className="!px-3 !py-1.5 !text-sm !font-medium disabled:cursor-not-allowed disabled:opacity-50"
-			>
+				data-action="offsite-dry-run">
 				{isRunning ? t("backupsPage.offsite.dryRunning") : t("backupsPage.offsite.dryRunButton")}
 			</ActionButton>
 			<StateView state={state} t={t} />
@@ -97,55 +95,39 @@ function StateView({
 	}
 	if (state.kind === "ok") {
 		return (
-			<p
-				data-tone="emerald"
-				className="rounded-lg border border-[var(--success-border)] px-2 py-1.5 text-xs text-[var(--success)]"
-			>
+			<Notice tone="success" compact>
 				{t("backupsPage.offsite.dryRunOk", { latencyMs: state.latencyMs })}
-			</p>
+			</Notice>
 		);
 	}
 	if (state.kind === "disabled") {
 		return (
-			<p
-				data-tone="amber"
-				className="rounded-lg border border-[var(--warning-border)] px-2 py-1.5 text-xs text-[var(--warning)]"
-			>
+			<Notice tone="warning" compact>
 				{t("backupsPage.offsite.dryRunDisabled")}
-			</p>
+			</Notice>
 		);
 	}
 	if (state.kind === "config_invalid") {
 		return (
-			<div
-				data-tone="amber"
-				className="rounded-lg border border-[var(--warning-border)] px-2 py-1.5 text-xs text-[var(--warning)]"
-			>
-				<p className="font-medium">{t("backupsPage.offsite.dryRunConfigInvalid")}</p>
-				<ul className="mt-1 list-disc pl-4">
+			<Notice tone="warning" compact title={t("backupsPage.offsite.dryRunConfigInvalid")}>
+				<ul className="list-disc pl-4">
 					{state.issues.map((issue) => (
 						<li key={issue}>{issue}</li>
 					))}
 				</ul>
-			</div>
+			</Notice>
 		);
 	}
 	if (state.kind === "s3_error") {
 		return (
-			<p
-				data-tone="rose"
-				className="rounded-lg border border-[var(--danger-border)] px-2 py-1.5 text-xs text-[var(--danger)]"
-			>
+			<Notice tone="danger" compact>
 				{t("backupsPage.offsite.dryRunFailed", { message: `[${state.code} / HTTP ${state.status}] ${state.message}` })}
-			</p>
+			</Notice>
 		);
 	}
 	return (
-		<p
-			data-tone="rose"
-			className="rounded-lg border border-[var(--danger-border)] px-2 py-1.5 text-xs text-[var(--danger)]"
-		>
+		<Notice tone="danger" compact>
 			{t("backupsPage.offsite.dryRunFailed", { message: state.message })}
-		</p>
+		</Notice>
 	);
 }

@@ -51,7 +51,7 @@ describe("SettingsClient", () => {
 				body: JSON.stringify({ "platform.name": "新平台名称", "platform.logo": "" }),
 			});
 		});
-		expect(await screen.findByText(/✓ 设置已保存/)).toBeInTheDocument();
+		expect(await screen.findByText(/设置已保存/)).toBeInTheDocument();
 		expect(screen.getByText(/平台信息已保存/)).toBeInTheDocument();
 	});
 
@@ -88,7 +88,7 @@ describe("SettingsClient", () => {
 		await user.click(screen.getAllByRole("button", { name: "保存" })[0]!);
 
 		expect(await screen.findByText("权限不足")).toBeInTheDocument();
-		expect(screen.queryByText(/✓ 设置已保存/)).not.toBeInTheDocument();
+		expect(screen.queryByText(/设置已保存/)).not.toBeInTheDocument();
 	});
 
   it("persists edited runtime settings through the settings API", async () => {

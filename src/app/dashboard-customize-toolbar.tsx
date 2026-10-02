@@ -52,9 +52,9 @@ export function DashboardCustomizeToolbar({
 	if (!isEditing) {
 		return (
 			<div className="mb-3 flex items-center justify-end gap-2">
-				<ActionButton variant="secondary"
+				<ActionButton size="sm" variant="secondary"
 					onClick={onEnterEdit}
-					aria-label={t("dashboard.customize-edit")} className="!px-3 !py-1.5 !text-sm">
+					aria-label={t("dashboard.customize-edit")}>
 					{t("dashboard.customize-edit")}
 				</ActionButton>
 			</div>
@@ -63,11 +63,11 @@ export function DashboardCustomizeToolbar({
 
 	return (
 		<div
-			className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-[var(--warning-border)] bg-[var(--warning-bg)] p-3 shadow-[var(--shadow-sm)]"
+			className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--accent-border)] bg-[var(--accent-soft)] p-3"
 			role="region"
 			aria-label={t("dashboard.customize")}
 		>
-			<p className="px-1 text-xs leading-5 text-[var(--warning)]">
+			<p className="px-1 text-[13px] leading-5 text-[var(--text-secondary)]">
 				{t("dashboard.customize-drag-tip")}
 			</p>
 			<div className="flex flex-wrap items-center gap-1.5">
@@ -93,15 +93,13 @@ export function DashboardCustomizeToolbar({
 				})}
 			</div>
 			<div className="flex items-center gap-2">
-				<ActionButton variant="secondary"
-					onClick={onReset} className="!px-3 !py-1.5 !text-sm"
-				>
+				<ActionButton size="sm" variant="secondary"
+					onClick={onReset}>
 					{t("dashboard.customize-reset")}
 				</ActionButton>
-				<ActionButton variant="primary"
+				<ActionButton size="sm" variant="primary"
 					onClick={onExitEdit}
-					data-testid="customize-done" className="px-3 py-1.5 text-xs"
-				>
+					data-testid="customize-done">
 					{t("dashboard.customize-done")}
 				</ActionButton>
 			</div>

@@ -27,7 +27,7 @@ export function SkeletonList({ count = 3 }: { count?: number }) {
 	return (
 		<div className="space-y-3">
 			{Array.from({ length: count }).map((_, i) => (
-				<div key={i} className="animate-pulse rounded-xl border border-[var(--border)] bg-[var(--surface-hover)]/10 p-4 space-y-2.5">
+				<div key={i} data-inset className="animate-pulse p-4 space-y-2.5">
 					<div className="h-4 w-2/3 rounded-lg bg-[var(--surface-hover)]/20" />
 					<div className="h-3 w-1/2 rounded-lg bg-[var(--surface-hover)]/10" />
 					<div className="h-3 w-1/3 rounded-lg bg-[var(--surface-hover)]/10" />
@@ -82,7 +82,7 @@ export function ServersPageSkeleton() {
 			{/* server cards */}
 			<div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
 				{Array.from({ length: 6 }).map((_, i) => (
-					<div key={i} className="animate-pulse rounded-2xl border border-[var(--border)] bg-[var(--surface-hover)]/10 p-4 space-y-3">
+					<div key={i} data-inset className="animate-pulse p-4 space-y-3">
 						<div className="flex items-center justify-between">
 							<div className="h-5 w-32 rounded-lg bg-[var(--surface-hover)]/20" />
 							<div className="h-5 w-16 rounded-full bg-[var(--surface-hover)]/20" />
@@ -118,7 +118,7 @@ export function HealthPageSkeleton() {
 			{/* stat cards row */}
 			<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
 				{Array.from({ length: 4 }).map((_, i) => (
-					<div key={i} className="animate-pulse rounded-xl border border-[var(--border)] bg-[var(--surface-hover)]/10 p-4 space-y-2">
+					<div key={i} data-inset className="animate-pulse p-4 space-y-2">
 						<div className="h-3 w-20 rounded-lg bg-[var(--surface-hover)]/20" />
 						<div className="h-8 w-12 rounded-lg bg-[var(--surface-hover)]/20" />
 					</div>
@@ -127,7 +127,7 @@ export function HealthPageSkeleton() {
 			{/* server health rows */}
 			<div className="space-y-3">
 				{Array.from({ length: 4 }).map((_, i) => (
-					<div key={i} className="animate-pulse rounded-2xl border border-[var(--border)] bg-[var(--surface-hover)]/10 p-4">
+					<div key={i} data-inset className="animate-pulse p-4">
 						<div className="flex items-center justify-between mb-3">
 							<div className="h-5 w-28 rounded-lg bg-[var(--surface-hover)]/20" />
 							<div className="h-5 w-16 rounded-full bg-[var(--surface-hover)]/20" />
@@ -155,7 +155,7 @@ export function FilesPageSkeleton() {
 	return (
 		<div className="mt-8 grid gap-8 xl:grid-cols-[280px_minmax(0,1fr)]" data-testid="files-skeleton">
 			{/* sidebar skeleton */}
-			<div className="hidden xl:block animate-pulse rounded-3xl border border-[var(--border)] bg-[var(--surface-hover)]/10 p-6 space-y-4">
+			<div data-inset className="hidden xl:block animate-pulse p-6 space-y-4">
 				<div className="h-5 w-24 rounded-lg bg-[var(--surface-hover)]/20" />
 				{Array.from({ length: 6 }).map((_, i) => (
 					<div key={i} className="flex items-center gap-2">
@@ -166,13 +166,13 @@ export function FilesPageSkeleton() {
 			</div>
 			{/* main area skeleton */}
 			<div className="space-y-4">
-				<div className="animate-pulse rounded-3xl border border-[var(--border)] bg-[var(--surface-hover)]/10 p-6 space-y-3">
+				<div data-inset className="animate-pulse p-6 space-y-3">
 					<div className="h-6 w-40 rounded-lg bg-[var(--surface-hover)]/20" />
 					<div className="h-9 w-full rounded-xl bg-[var(--surface-hover)]/20" />
 				</div>
 				<div className="grid gap-3 grid-cols-3 sm:grid-cols-4 lg:grid-cols-6">
 					{Array.from({ length: 12 }).map((_, i) => (
-						<div key={i} className="animate-pulse rounded-xl border border-[var(--border)] bg-[var(--surface-hover)]/10 p-3 space-y-2">
+						<div key={i} data-inset className="animate-pulse p-3 space-y-2">
 							<div className="h-10 w-full rounded-lg bg-[var(--surface-hover)]/20" />
 							<div className="h-3 w-full rounded-lg bg-[var(--surface-hover)]/20" />
 						</div>
@@ -198,7 +198,7 @@ export function DeploymentsPageSkeleton() {
 			{/* stat pills */}
 			<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
 				{Array.from({ length: 4 }).map((_, i) => (
-					<div key={i} className="animate-pulse rounded-xl border border-[var(--border)] bg-[var(--surface-hover)]/10 p-4 space-y-2">
+					<div key={i} data-inset className="animate-pulse p-4 space-y-2">
 						<div className="h-3 w-20 rounded-lg bg-[var(--surface-hover)]/20" />
 						<div className="h-8 w-16 rounded-lg bg-[var(--surface-hover)]/20" />
 					</div>
@@ -207,7 +207,7 @@ export function DeploymentsPageSkeleton() {
 			{/* deployment rows */}
 			<div className="space-y-3">
 				{Array.from({ length: 5 }).map((_, i) => (
-					<div key={i} className="animate-pulse rounded-2xl border border-[var(--border)] bg-[var(--surface-hover)]/10 p-4 space-y-3">
+					<div key={i} data-inset className="animate-pulse p-4 space-y-3">
 						<div className="flex items-center justify-between">
 							<div className="space-y-2">
 								<div className="h-5 w-48 rounded-lg bg-[var(--surface-hover)]/20" />
@@ -256,7 +256,7 @@ export function DownloadsPageSkeleton() {
 			{/* download cards */}
 			<div className="space-y-3">
 				{Array.from({ length: 6 }).map((_, i) => (
-					<div key={i} className="animate-pulse rounded-2xl border border-[var(--border)] bg-[var(--surface-hover)]/10 p-4 space-y-3">
+					<div key={i} data-inset className="animate-pulse p-4 space-y-3">
 						<div className="flex items-start justify-between gap-3">
 							<div className="flex-1 space-y-2 min-w-0">
 								<div className="h-4 w-3/4 rounded-lg bg-[var(--surface-hover)]/20" />
@@ -289,7 +289,7 @@ export function QuickServicesPageSkeleton() {
 			{/* three equal-width feature cards */}
 			<div className="grid gap-3 sm:grid-cols-3">
 				{Array.from({ length: 3 }).map((_, i) => (
-					<div key={i} className="animate-pulse rounded-2xl border border-[var(--border)] bg-[var(--surface-hover)]/10 p-5 space-y-3">
+					<div key={i} data-inset className="animate-pulse p-5 space-y-3">
 						<div className="flex items-center gap-3">
 							<div className="h-10 w-10 rounded-xl bg-[var(--surface-hover)]/20" />
 							<div className="h-4 w-24 rounded-lg bg-[var(--surface-hover)]/20" />
@@ -307,7 +307,7 @@ export function QuickServicesPageSkeleton() {
 					<div className="animate-pulse h-8 w-32 rounded-lg bg-[var(--surface-hover)]/20" />
 				</div>
 				{Array.from({ length: 4 }).map((_, i) => (
-					<div key={i} className="animate-pulse rounded-xl border border-[var(--border)] bg-[var(--surface-hover)]/10 p-4 flex items-center justify-between">
+					<div key={i} data-inset className="animate-pulse p-4 flex items-center justify-between">
 						<div className="flex items-center gap-3 min-w-0 flex-1">
 							<div className="h-8 w-8 rounded-lg bg-[var(--surface-hover)]/20 shrink-0" />
 							<div className="space-y-1.5 min-w-0 flex-1">

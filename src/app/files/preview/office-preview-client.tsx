@@ -22,8 +22,7 @@ export function OfficePreviewClient({
 				href={href.includes("?") ? `${href}&download=1` : `${href}?download=1`}
 				download
 				data-tone="cyan"
-				data-action-button data-variant="outline"
-			>
+				data-action-button data-variant="outline">
 				{t("officePreview.download")}
 			</a>
 			<p className="text-xs text-[var(--text-muted)]" title={name}>

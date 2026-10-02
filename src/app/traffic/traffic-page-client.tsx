@@ -295,7 +295,7 @@ export default function TrafficPage() {
   return (
     <PageShell>
       <PageHeader eyebrow={t("trafficPage.eyebrow")} title={t("trafficPage.title")} description={t("trafficPage.desc")}>
-        <ActionButton type="button" variant="ghost" onClick={() => fetchSummary()} className="text-xs">{t("trafficPage.refresh")}</ActionButton>
+        <ActionButton size="sm" type="button" variant="ghost" onClick={() => fetchSummary()}>{t("trafficPage.refresh")}</ActionButton>
         <button type="button" onClick={() => setAutoRefresh((v) => !v)} disabled={refreshIntervalSeconds <= 0} className={`rounded-lg px-3 py-1.5 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-50 ${autoRefresh ? "bg-[var(--success-bg)] text-[var(--success)]" : "bg-[var(--surface-hover)]/60 text-[var(--text-secondary)]"}`}>
           {autoRefresh
             ? t("trafficPage.autoRefreshOn", { label: refreshLabel })
@@ -440,12 +440,12 @@ export default function TrafficPage() {
                   ) : node.primaryInterface ? (
                     <>
                       <div className="mt-3 grid grid-cols-2 gap-2">
-                        <div className="rounded-lg bg-[var(--color-action)]/10 px-3 py-2 text-[var(--color-action)]">
-                          <div className="text-xs">{t("trafficPage.rxShort")}</div>
+                        <div className="rounded-lg bg-[var(--surface-elevated)] px-3 py-2 text-[var(--text-primary)]">
+                          <div className="text-xs text-[var(--text-muted)]">{t("trafficPage.rxShort")}</div>
                           <div className="text-sm font-semibold tabular-nums">{node.primaryInterface.rxRateLabel}</div>
                         </div>
-                        <div className="rounded-lg bg-[var(--success-bg)] px-3 py-2 text-[var(--success)]">
-                          <div className="text-xs">{t("trafficPage.txShort")}</div>
+                        <div className="rounded-lg bg-[var(--surface-elevated)] px-3 py-2 text-[var(--text-primary)]">
+                          <div className="text-xs text-[var(--text-muted)]">{t("trafficPage.txShort")}</div>
                           <div className="text-sm font-semibold tabular-nums">{node.primaryInterface.txRateLabel}</div>
                         </div>
                       </div>

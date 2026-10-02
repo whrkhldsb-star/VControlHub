@@ -41,12 +41,12 @@ export function getStatusLabel(t: (k: string, vars?: Record<string, string | num
 
 export function getCategories(t: (k: string, vars?: Record<string, string | number>) => string) {
 	return [
-		{ value: "", label: t("downloadsPage.form.category.uncategorized"), icon: "📦" },
-		{ value: "video", label: t("downloadsPage.form.category.video"), icon: "🎬" },
-		{ value: "music", label: t("downloadsPage.form.category.music"), icon: "🎵" },
-		{ value: "software", label: t("downloadsPage.form.category.software"), icon: "💿" },
-		{ value: "document", label: t("downloadsPage.form.category.document"), icon: "📄" },
-		{ value: "image", label: t("downloadsPage.form.category.image"), icon: "🖼️" },
+		{ value: "", label: t("downloadsPage.form.category.uncategorized") },
+		{ value: "video", label: t("downloadsPage.form.category.video") },
+		{ value: "music", label: t("downloadsPage.form.category.music") },
+		{ value: "software", label: t("downloadsPage.form.category.software") },
+		{ value: "document", label: t("downloadsPage.form.category.document") },
+		{ value: "image", label: t("downloadsPage.form.category.image") },
 	];
 }
 

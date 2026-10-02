@@ -282,22 +282,22 @@ export function TeamWorkspaceSection({ capabilities }: { capabilities: TeamCapab
 									)}
 								</div>
 								<div className="flex flex-col gap-1">
-									<ActionButton variant="secondary" disabled={busy || currentTeamId === team.id} onClick={() => switchTeam(team.id)} className="!min-h-9 !px-3 !py-1 !text-sm disabled:opacity-60">
+									<ActionButton size="sm" variant="secondary" disabled={busy || currentTeamId === team.id} onClick={() => switchTeam(team.id)}>
 										{currentTeamId === team.id ? t("settingsTeam.current") : t("settingsTeam.switch")}
 									</ActionButton>
 									{canEditTeam(team) && editingTeamId !== team.id && (
-										<ActionButton variant="secondary" disabled={busy} onClick={() => startEditTeam(team)} className="!min-h-9 !px-3 !py-1 !text-sm disabled:opacity-60">
+										<ActionButton size="sm" variant="secondary" disabled={busy} onClick={() => startEditTeam(team)}>
 											{t("settingsTeam.edit")}
 										</ActionButton>
 									)}
 									{canEditTeam(team) && editingTeamId === team.id && (
-										<ActionButton variant="success" disabled={busy || !editName.trim()} onClick={() => saveEditTeam(team.id)} className="!min-h-9 !px-3 !py-1 !text-sm disabled:opacity-60">
+										<ActionButton size="sm" variant="success" disabled={busy || !editName.trim()} onClick={() => saveEditTeam(team.id)}>
 											{t("settingsTeam.save")}
 										</ActionButton>
 									)}
 									{editingTeamId === team.id && <ActionButton variant="secondary" disabled={busy} onClick={() => setEditingTeamId(null)}>{t("settingsTeam.confirm.cancel")}</ActionButton>}
 									{canDeleteTeam(team) && (
-										<ActionButton variant="danger" disabled={busy} onClick={() => deleteTeamSpace(team.id, team.name)} className="!min-h-9 !px-3 !py-1 !text-sm disabled:opacity-60">
+										<ActionButton size="sm" variant="danger" disabled={busy} onClick={() => deleteTeamSpace(team.id, team.name)}>
 											{t("settingsTeam.delete")}
 										</ActionButton>
 									)}
@@ -310,7 +310,7 @@ export function TeamWorkspaceSection({ capabilities }: { capabilities: TeamCapab
 										<span className="flex items-center gap-2">
 											<span className="text-[var(--text-muted)]">{member.role} · {t(`settingsTeam.accessRole.${member.accessRole ?? "inherit"}`)}</span>
 											{canDeleteTeam(team) && member.role !== "owner" && member.user.status === "ACTIVE" && (
-												<ActionButton variant="ghost" disabled={busy} onClick={() => transferOwner(team.id, member.user.id, member.user.displayName || member.user.username)} className="!min-h-8 !px-2 !py-1 !text-xs">{t("settingsTeam.transferOwner")}</ActionButton>
+												<ActionButton size="xs" variant="ghost" disabled={busy} onClick={() => transferOwner(team.id, member.user.id, member.user.displayName || member.user.username)}>{t("settingsTeam.transferOwner")}</ActionButton>
 											)}
 											{canEditTeam(team) && member.role !== "owner" && (
 												<IconButton label={t("settingsTeam.confirm.removeMember.title")} tone="danger" disabled={busy} onClick={() => removeMember(team.id, member.user.id, member.user.displayName || member.user.username)}><X size={14} aria-hidden /></IconButton>
@@ -334,7 +334,7 @@ export function TeamWorkspaceSection({ capabilities }: { capabilities: TeamCapab
 						<h3 className="text-sm font-semibold text-[var(--text-primary)]">{t("settingsTeam.createTitle")}</h3>
 						<input value={name} aria-label={t("settingsTeam.namePlaceholder")} onChange={(e) => setName(e.target.value)} placeholder={t("settingsTeam.namePlaceholder")} className={UI_INPUT} />
 						<input value={slug} aria-label={t("settingsTeam.slugPlaceholder")} onChange={(e) => setSlug(e.target.value)} placeholder={t("settingsTeam.slugPlaceholder")} className={UI_INPUT} />
-						<ActionButton variant="primary" disabled={busy || !name.trim()} onClick={createTeam} className="min-h-10 disabled:opacity-60">{t("settingsTeam.createButton")}</ActionButton>
+						<ActionButton variant="primary" disabled={busy || !name.trim()} onClick={createTeam}>{t("settingsTeam.createButton")}</ActionButton>
 					</div>
 					)}
 					{manageableTeams.length > 0 && (
@@ -360,7 +360,7 @@ export function TeamWorkspaceSection({ capabilities }: { capabilities: TeamCapab
 							<option value="storage_manager">{t("settingsTeam.accessRole.storage_manager")}</option>
 						</select>
 						<p className="text-xs text-[var(--text-muted)]">{t("settingsTeam.accessRoleHint")}</p>
-						<ActionButton variant="primary" disabled={busy || !targetTeamId || !memberUsername.trim()} onClick={addMember} className="min-h-10 disabled:opacity-60">{t("settingsTeam.addMemberButton")}</ActionButton>
+						<ActionButton variant="primary" disabled={busy || !targetTeamId || !memberUsername.trim()} onClick={addMember}>{t("settingsTeam.addMemberButton")}</ActionButton>
 					</div>
 					)}
 				</div>

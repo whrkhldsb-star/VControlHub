@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { cn } from "@/lib/ui/cn";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { browserT } from "@/lib/i18n/browser-translations";
@@ -64,7 +66,7 @@ export function Badge({
 		<span
 			data-tone={TONE_BACKGROUND_ALIAS[tone] ?? tone}
 			className={cn(
-				"inline-flex max-w-full items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium",
+				"inline-flex max-w-full items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs font-medium leading-4",
 				TONE_STYLES[tone],
 				className,
 			)}
@@ -155,7 +157,7 @@ export function ProgressBar({
 	}[tone];
 	return (
 		<div
-			className={`${height === "sm" ? "h-1.5" : "h-2"} w-full overflow-hidden rounded-full bg-[var(--surface-elevated)] ${className ?? ""}`}
+			className={`${height === "sm" ? "h-1" : "h-1.5"} w-full overflow-hidden rounded-full bg-[var(--surface-elevated)] ${className ?? ""}`}
 			role="progressbar"
 			aria-label={label}
 			aria-valuenow={safeValue}
@@ -216,14 +218,14 @@ export function Switch({
 			aria-label={label}
 			disabled={disabled}
 			onClick={() => onCheckedChange(!checked)}
-			className={`relative h-5 w-10 shrink-0 rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50 ${
-				checked ? "bg-[var(--accent)]" : "bg-[var(--border-strong)]"
+			className={`relative h-5 w-9 shrink-0 rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50 ${
+				checked ? "bg-[var(--color-action)]" : "bg-[var(--border-strong)]"
 			} ${className ?? ""}`}
 		>
 			<span
 				aria-hidden
-				className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-[var(--surface)] shadow transition-transform ${
-					checked ? "translate-x-5" : ""
+				className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow-[0_1px_2px_#0000004d] transition-transform duration-150 ${
+					checked ? "translate-x-4" : ""
 				}`}
 			/>
 		</button>
@@ -263,7 +265,7 @@ export function Callout({
 	action?: ReactNode;
 }) {
 	const toneCls = {
-		accent: "border-[var(--accent-border)] bg-[color-mix(in_srgb,var(--accent-bg)_55%,var(--surface))]",
+		accent: "border-[var(--accent-border)] bg-[var(--accent-soft)]",
 		warning: "border-[var(--warning-border)] bg-[var(--warning-bg)]",
 		success: "border-[var(--success-border)] bg-[var(--success-bg)]",
 		danger: "border-[var(--danger-border)] bg-[var(--danger-bg)]",
@@ -272,7 +274,7 @@ export function Callout({
 	return (
 		<div
 			data-callout
-			className={`rounded-2xl border px-4 py-3.5 ${toneCls} ${className ?? ""}`}
+			className={`rounded-xl border px-4 py-3 ${toneCls} ${className ?? ""}`}
 		>
 			<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
 				<div className="min-w-0">
@@ -280,7 +282,7 @@ export function Callout({
 						<div className="text-sm font-semibold text-[var(--text-primary)]">{title}</div>
 					) : null}
 					{children ? (
-						<div className="mt-0.5 text-xs leading-5 text-[var(--text-muted)]">{children}</div>
+						<div className="mt-0.5 text-[13px] leading-5 text-[var(--text-secondary)]">{children}</div>
 					) : null}
 				</div>
 				{action ? <div className="shrink-0">{action}</div> : null}
@@ -301,26 +303,81 @@ export type SegmentedTabItem = {
 	tabId?: string;
 };
 
-/** Horizontal segmented control / tab strip — settings & list filters. */
+/**
+ * The look of one tab, shared by button tabs (SegmentedTabs) and link tabs
+ * (TabNav) so both stay identical when either changes.
+ */
+export function tabItemClass(active: boolean, variant: "underline" | "pills" = "underline") {
+	return cn(
+		"group relative flex min-w-0 shrink-0 items-center gap-2 whitespace-nowrap text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50",
+		variant === "pills"
+			? cn("min-h-8 rounded-md px-3", active
+				? "bg-[var(--surface)] text-[var(--text-primary)] shadow-[var(--shadow-sm)]"
+				: "text-[var(--text-muted)] hover:text-[var(--text-primary)]")
+			: cn("min-h-10 px-3 pb-2.5 pt-2", active
+				? "text-[var(--text-primary)] after:absolute after:inset-x-2 after:-bottom-px after:h-0.5 after:rounded-full after:bg-[var(--accent)]"
+				: "text-[var(--text-muted)] hover:text-[var(--text-primary)]"),
+	);
+}
+
+function tabListClass(variant: "underline" | "pills") {
+	return variant === "pills"
+		? "w-fit max-w-full gap-0.5 rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-0.5"
+		: "gap-1 border-b border-[var(--border)]";
+}
+
+/** Tabs that navigate between pages (links with aria-current), styled like SegmentedTabs. */
+export function TabNav({
+	items,
+	ariaLabel,
+	variant = "underline",
+	className,
+}: {
+	items: Array<{ href: string; label: ReactNode; active: boolean; badge?: ReactNode }>;
+	ariaLabel: string;
+	variant?: "underline" | "pills";
+	className?: string;
+}) {
+	return (
+		<nav aria-label={ariaLabel} data-tab-nav className={cn("flex min-w-0 overflow-x-auto", tabListClass(variant), className)}>
+			{items.map((item) => (
+				<Link key={item.href} href={item.href} aria-current={item.active ? "page" : undefined} className={tabItemClass(item.active, variant)}>
+					<span>{item.label}</span>
+					{item.badge != null ? (
+						<span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[var(--surface-elevated)] px-1.5 text-[11px] font-semibold tabular-nums text-[var(--text-muted)]">{item.badge}</span>
+					) : null}
+				</Link>
+			))}
+		</nav>
+	);
+}
+
+/**
+ * Tab strip. `underline` (default) for switching page sections; `pills` for a
+ * compact segmented filter (e.g. All / Linux / Windows).
+ */
 export function SegmentedTabs({
 	items,
 	value,
 	onChange,
 	ariaLabel,
 	className,
+	variant = "underline",
 }: {
 	items: SegmentedTabItem[];
 	value: string;
 	onChange: (id: string) => void;
 	ariaLabel: string;
 	className?: string;
+	variant?: "underline" | "pills";
 }) {
 	return (
 		<div
 			role="tablist"
 			aria-label={ariaLabel}
 			data-segmented-tabs
-			className={`flex min-w-0 gap-1 overflow-x-auto border-b border-[var(--border)] bg-[var(--background)] py-1 ${className ?? ""}`}
+			data-variant={variant}
+			className={cn("flex min-w-0 overflow-x-auto", tabListClass(variant), className)}
 			onKeyDown={(event) => {
 				const tabs = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]:not(:disabled)'));
 				const index = tabs.indexOf(event.target as HTMLButtonElement);
@@ -349,36 +406,21 @@ export function SegmentedTabs({
 						tabIndex={item.id === (items.find((tab) => tab.id === value && !tab.disabled)?.id ?? items.find((tab) => !tab.disabled)?.id) ? 0 : -1}
 						disabled={item.disabled}
 						onClick={() => onChange(item.id)}
-						className={`group relative flex min-h-11 min-w-0 shrink-0 items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-medium transition md:flex-1 ${
-							active
-								? "bg-[var(--accent-bg)] text-[var(--accent)]"
-								: "text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
-						} disabled:cursor-not-allowed disabled:opacity-50`}
+						title={typeof item.description === "string" ? item.description : undefined}
+						className={tabItemClass(active, variant)}
 					>
 						{item.icon ? (
-							<span className="text-base leading-none" aria-hidden>
+							<span className={cn("text-base leading-none [&>svg]:h-4 [&>svg]:w-4", active ? "text-[var(--accent)]" : "")} aria-hidden>
 								{item.icon}
 							</span>
 						) : null}
-						<span className="flex min-w-0 flex-1 flex-col items-start leading-tight">
-								<span className="whitespace-normal">{item.label}</span>
-							{item.description ? (
-								<span
-									className={`mt-0.5 hidden w-full truncate text-xs font-normal sm:block ${
-										active ? "text-[var(--accent)] opacity-75" : "text-[var(--text-muted)]"
-									}`}
-								>
-									{item.description}
-								</span>
-							) : null}
-						</span>
+						<span>{item.label}</span>
 						{item.badge != null ? (
 							<span
-								className={`ml-auto inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 text-xs font-semibold ${
-									active
-										? "bg-[var(--accent)] text-[var(--on-accent)]"
-										: "bg-[var(--surface-elevated)] text-[var(--text-muted)]"
-								}`}
+								className={cn(
+									"inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold tabular-nums",
+									active ? "bg-[var(--accent-bg)] text-[var(--accent)]" : "bg-[var(--surface-elevated)] text-[var(--text-muted)]",
+								)}
 							>
 								{item.badge}
 							</span>
@@ -408,7 +450,7 @@ export function SideNav({
 		<nav
 			aria-label={ariaLabel}
 			data-side-nav
-			className={`space-y-1 border-r border-[var(--border)] pr-3 ${className ?? ""}`}
+			className={`space-y-0.5 ${className ?? ""}`}
 		>
 			{items.map((item) => {
 				const active = item.id === activeId;
@@ -418,9 +460,9 @@ export function SideNav({
 						type="button"
 						onClick={() => onSelect(item.id)}
 						aria-current={active ? "location" : undefined}
-						className={`flex w-full items-start gap-2.5 rounded-md px-3 py-2.5 text-left transition ${
+						className={`relative flex w-full items-start gap-2.5 rounded-md px-3 py-2 text-left transition ${
 							active
-								? "bg-[var(--accent-bg)] text-[var(--accent)]"
+								? "bg-[var(--accent-soft)] text-[var(--text-primary)] before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-[var(--accent)]"
 								: "text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
 						}`}
 					>
@@ -433,9 +475,7 @@ export function SideNav({
 							<span className="block text-sm font-medium">{item.label}</span>
 							{item.description ? (
 								<span
-									className={`mt-0.5 block text-xs leading-4 ${
-										active ? "text-[var(--accent)]" : "text-[var(--text-muted)]"
-									}`}
+									className="mt-0.5 block text-xs leading-4 text-[var(--text-muted)]"
 								>
 									{item.description}
 								</span>
@@ -508,7 +548,7 @@ export function FormField({
 			<div className="flex items-center justify-between gap-2">
 				<label
 					htmlFor={htmlFor}
-					className="text-sm font-medium text-[var(--text-primary)]"
+					className="text-[13px] font-medium text-[var(--text-primary)]"
 				>
 					{label}
 				</label>
@@ -524,7 +564,7 @@ export function FormField({
 export type NoticeTone = "info" | "success" | "warning" | "danger" | "neutral";
 
 const NOTICE_STYLES: Record<NoticeTone, string> = {
-	info: "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]",
+	info: "border-[var(--info-border)] bg-[var(--info-bg)] text-[var(--info)]",
 	success: "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]",
 	warning: "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)]",
 	danger: "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)]",
@@ -532,7 +572,7 @@ const NOTICE_STYLES: Record<NoticeTone, string> = {
 };
 
 export function Notice({
-	tone = "info", title, children, action, onDismiss, dismissLabel, compact = false, className,
+	tone = "info", title, children, action, onDismiss, dismissLabel, compact = false, className, ...rest
 }: {
 	tone?: NoticeTone;
 	title?: ReactNode;
@@ -543,12 +583,12 @@ export function Notice({
 	dismissLabel?: string;
 	compact?: boolean;
 	className?: string;
-}) {
+} & Omit<HTMLAttributes<HTMLDivElement>, "title" | "children" | "className">) {
 	return (
-		<div role={tone === "danger" ? "alert" : "status"} data-notice-tone={tone} className={cn("flex items-start justify-between gap-3 rounded-xl border", compact ? "px-3 py-2 text-xs" : "px-4 py-3 text-sm", NOTICE_STYLES[tone], className)}>
+		<div role={tone === "danger" ? "alert" : "status"} data-notice-tone={tone} className={cn("flex items-start justify-between gap-3 rounded-lg border", compact ? "px-3 py-2 text-xs" : "px-3.5 py-2.5 text-[13.5px]", NOTICE_STYLES[tone], className)} {...rest}>
 			<div className="min-w-0 flex-1">
 				{title ? <div className="font-semibold text-current">{title}</div> : null}
-				{children ? <div className={title ? "mt-1 leading-5" : "leading-5"}>{children}</div> : null}
+				{children ? <div className={cn("leading-5", title ? "mt-0.5 text-[var(--text-secondary)]" : undefined)}>{children}</div> : null}
 			</div>
 			{action || onDismiss ? <div className="flex shrink-0 items-center gap-2">
 				{action ? <button type="button" onClick={action.onClick} disabled={action.disabled} className="font-semibold underline underline-offset-2 disabled:opacity-50">{action.label}</button> : null}
@@ -573,5 +613,5 @@ export function CheckboxField({ label, hint, className, ...inputProps }: { label
 
 export function IconButton({ label, tone = "neutral", children, className, ...rest }: { label: string; tone?: "neutral" | "danger" | "accent"; children: ReactNode } & Omit<ButtonHTMLAttributes<HTMLButtonElement>, "aria-label">) {
 	const toneClass = tone === "danger" ? "text-[var(--danger)] hover:bg-[var(--danger-bg)]" : tone === "accent" ? "text-[var(--accent)] hover:bg-[var(--accent-bg)]" : "text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]";
-	return <button type="button" aria-label={label} title={label} className={cn("inline-flex h-9 w-9 items-center justify-center rounded-lg transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50", toneClass, className)} {...rest}>{children}</button>;
+	return <button type="button" aria-label={label} title={label} className={cn("inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50", toneClass, className)} {...rest}>{children}</button>;
 }

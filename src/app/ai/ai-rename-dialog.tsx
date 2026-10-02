@@ -33,11 +33,10 @@ export function AiRenameDialog({
   const { t } = useI18n();
   return (
     <ModalShell
+      size="sm"
       open={open}
       onClose={onCancel}
       labelledBy="rename-conversation-title"
-      overlayClassName="fixed inset-0 z-[60] flex items-center justify-center bg-[var(--overlay)] px-4 backdrop-blur-sm"
-      panelClassName="w-full max-w-sm rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-5 shadow-2xl"
     >
         <h3
           id="rename-conversation-title"
@@ -65,10 +64,10 @@ export function AiRenameDialog({
           </p>
         )}
         <div className="mt-5 flex justify-end gap-2">
-          <ActionButton type="button" variant="secondary" disabled={busy} onClick={onCancel} className="text-xs">
+          <ActionButton size="sm" type="button" variant="secondary" disabled={busy} onClick={onCancel}>
             {t("aiPage.cancel")}
           </ActionButton>
-          <ActionButton type="button" variant="ghost" disabled={busy || !title.trim()} onClick={onConfirm} className="text-xs">
+          <ActionButton size="sm" type="button" variant="ghost" disabled={busy || !title.trim()} onClick={onConfirm}>
             {busy ? t("aiPage.savingLabel") : t("aiPage.saveTitleLabel")}
           </ActionButton>
         </div>

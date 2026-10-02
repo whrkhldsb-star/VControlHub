@@ -13,7 +13,7 @@ import type { CostCurrency } from "@/lib/cost/types";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useToast } from "@/components/toast-provider";
 
-import { cardClass, inputClass } from "./cost-page-shared";
+import { inputClass } from "./cost-page-shared";
 import { getErrorMessage } from "@/lib/http/error-message";
 
 const PROVIDERS: CloudBillingProvider[] = ["aws", "aliyun", "tencent", "generic_csv"];
@@ -139,7 +139,7 @@ export function CostCloudBillingPanel({
 	};
 
 	return (
-		<section className={cardClass}>
+		<section data-card className="p-5">
 			<ConfirmDialog
 				open={pendingDelete !== null}
 				title={t("costPage.billing.deleteTitle")}
@@ -223,7 +223,7 @@ export function CostCloudBillingPanel({
 						aria-label={t("costPage.billing.sampleCsv")}
 					/>
 					<div className="md:col-span-2 lg:col-span-3">
-						<ActionButton type="button" disabled={busy} onClick={() => void create()} className="px-3 py-2 text-sm">
+						<ActionButton type="button" disabled={busy} onClick={() => void create()}>
 							{t("costPage.billing.create")}
 						</ActionButton>
 					</div>
@@ -250,7 +250,7 @@ export function CostCloudBillingPanel({
 								{canManage ? (
 									<ActionButton variant="ghost"
 										onClick={() => setPendingDelete(account)}
-										className="!text-sm text-[var(--danger)]"
+										className="text-[var(--danger)]"
 										disabled={busy}
 									>
 										{t("costPage.billing.delete")}
@@ -266,7 +266,7 @@ export function CostCloudBillingPanel({
 								<p className="mt-1 text-xs text-[var(--danger)]">{account.lastSyncError}</p>
 							) : null}
 							{canManage ? (
-								<ActionButton variant="secondary" className="!mt-3 !px-3 !py-1.5 !text-sm"
+								<ActionButton size="sm" variant="secondary" className="!mt-3"
 									disabled={syncingId === account.id || !account.enabled}
 									onClick={() => void sync(account.id)}
 								>

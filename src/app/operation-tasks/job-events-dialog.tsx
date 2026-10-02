@@ -190,12 +190,11 @@ export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) 
 
   return (
     <ModalShell
+      size="2xl" padded={false} className="flex min-w-0 flex-col overflow-hidden"
       open={open}
       onClose={onClose}
       labelledBy="job-events-dialog-title"
       initialFocusRef={closeButtonRef}
-      overlayClassName="fixed inset-0 z-[60] flex items-center justify-center bg-[var(--overlay)] p-4 backdrop-blur-sm"
-      panelClassName="flex max-h-[calc(100dvh-2rem)] w-full min-w-0 max-w-3xl flex-col overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--modal-bg)] shadow-[var(--shadow-lg)]"
     >
         <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[var(--border)] px-4 py-3 sm:px-5">
           <div className="min-w-0">

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { PageShell, PageHeader, Toolbar } from "@/components/page-shell";
 import { getErrorMessage } from "@/lib/http/error-message";
-import { InlineLoading, Notice } from "@/components/ui-primitives";
+import { Badge, InlineLoading, Notice } from "@/components/ui-primitives";
 import { api } from "@/lib/http/api-client";
 
 type OpenApiOperation = {
@@ -143,7 +143,7 @@ export default function ApiDocsPage() {
 				{error ? <Notice tone="danger">{error}</Notice> : null}
 
 				{!spec && !error ? (
-					<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] p-8">
+					<div data-inset className="p-8">
 						<InlineLoading label={t("apiDocsPage.loading")} />
 					</div>
 				) : null}
@@ -158,9 +158,9 @@ export default function ApiDocsPage() {
 										<p className="mt-1 text-xs text-[var(--text-muted)]">{tagDescriptions.get(tag)}</p>
 									) : null}
 								</div>
-								<span className="rounded-lg border border-[var(--border)] bg-[var(--surface-hover)] px-2.5 py-1 text-xs text-[var(--text-muted)]">
+								<Badge>
 									{t("apiDocsPage.tagCount", { count: tagEntries.length })}
-								</span>
+								</Badge>
 							</div>
 						</div>
 						<div className="divide-y divide-[var(--border-subtle)]">

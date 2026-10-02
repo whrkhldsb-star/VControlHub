@@ -7,6 +7,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 
 import { reviewCommandAction, type ReviewActionState } from "./actions";
 import { UI_INPUT } from "@/lib/ui/classes";
+import { Notice } from "@/components/ui-primitives";
 
 const initialState: ReviewActionState = {};
 
@@ -15,22 +16,22 @@ export function ReviewCommandForm({ commandRequestId }: { commandRequestId: stri
   const [state, formAction] = useActionState(reviewCommandAction, initialState);
 
   return (
-    <form action={formAction} className="mt-4 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-4 text-sm text-[var(--text-secondary)]">
+    <form action={formAction} data-tile className="mt-4 p-4 text-sm text-[var(--text-secondary)]">
       <input type="hidden" name="commandRequestId" value={commandRequestId} />
       <label className="grid gap-2">
         <span className="text-[var(--text-secondary)]">{t("requestsPage.review.commentLabel")}</span>
         <textarea name="comment" rows={2} className={UI_INPUT} placeholder={t("requestsPage.review.commentPlaceholder")} />
       </label>
 
-      {state.error ? <div data-tone="rose" className="mt-3 rounded-2xl border border-[var(--danger-border)] px-4 py-3 text-[var(--danger)]">{state.error}</div> : null}
-      {state.success ? <div data-tone="emerald" className="mt-3 rounded-2xl border border-[var(--success-border)] px-4 py-3 text-[var(--success)]">{state.success}</div> : null}
+      {state.error ? <Notice tone="danger" className="mt-3">{state.error}</Notice> : null}
+      {state.success ? <Notice tone="success" className="mt-3">{state.success}</Notice> : null}
 
-      <div className="mt-4 flex flex-wrap gap-3">
+      <div className="mt-4 flex flex-wrap gap-2">
         <SubmitButton
           pendingLabel={t("requestsPage.review.pending")}
           name="decision"
           value="approve"
-          variant="success"
+          variant="primary"
         >
           <span>{t("requestsPage.review.approve")}</span>
         </SubmitButton>
@@ -38,7 +39,7 @@ export function ReviewCommandForm({ commandRequestId }: { commandRequestId: stri
           pendingLabel={t("requestsPage.review.pending")}
           name="decision"
           value="reject"
-          variant="secondary"
+          variant="danger"
         >
           <span>{t("requestsPage.review.reject")}</span>
         </SubmitButton>

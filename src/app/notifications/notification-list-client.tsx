@@ -70,10 +70,10 @@ const NotificationRow = memo(function NotificationRow({
 }) {
 	return (
 		<article
-			className={`group rounded-2xl border p-4 transition-colors duration-150 focus-within:ring-2 focus-within:ring-[var(--accent)]/40 ${
-				n.isRead
-					? "border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)]"
-					: "border-[var(--accent-border)] bg-[var(--accent-bg)] hover:bg-[color-mix(in_srgb,var(--accent-bg)_80%,var(--surface))]"
+			data-card
+			data-unread={n.isRead ? undefined : ""}
+			className={`group transition-colors duration-150 hover:bg-[var(--surface-hover)] focus-within:ring-2 focus-within:ring-[var(--accent)]/40 ${
+				n.isRead ? "" : "shadow-[inset_3px_0_0_var(--accent),var(--shadow-xs)]"
 			}`}
 		>
 			<div className="flex items-start gap-3">
@@ -224,7 +224,7 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 					{t("notificationsPage.action.unreadOnly")}{unreadCount > 0 ? ` (${unreadCount})` : ""}
 				</ToggleChip>
 				{unreadCount > 0 && (
-					<ActionButton variant="ghost" onClick={markAllRead} className="!px-2 !py-1 !text-sm">
+					<ActionButton size="sm" variant="ghost" onClick={markAllRead}>
 						{t("notificationsPage.action.markAll")}
 					</ActionButton>
 				)}
@@ -242,12 +242,9 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 			))}
 			{hasMore ? (
 				<div className="flex justify-center pt-2">
-					<ActionButton variant="secondary"
+					<ActionButton size="sm" variant="secondary"
 						onClick={() => void loadMore()}
-						disabled={loadingMore}
-
-						className="!px-3 !py-1.5 !text-sm disabled:opacity-50"
-					>
+						disabled={loadingMore}>
 						{loadingMore ? t("notificationsPage.loadingMore") : t("notificationsPage.loadMore")}
 					</ActionButton>
 				</div>

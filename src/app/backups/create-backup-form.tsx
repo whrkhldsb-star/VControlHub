@@ -42,7 +42,7 @@ export function CreateBackupForm() {
         <label htmlFor={backupNoteInputId} className="text-xs font-medium text-[var(--text-secondary)]">{t("common.backupNote")}</label>
         <input id={backupNoteInputId} name="note" maxLength={500} placeholder={t("common.backupNotePlaceholder")} className={UI_INPUT} />
       </div>
-      <ActionButton type="submit" variant="primary" disabled={pending} className="disabled:opacity-60">
+      <ActionButton type="submit" variant="primary" disabled={pending}>
         {pending ? t("common.executing") : t("common.createAndExecute")}
       </ActionButton>
       {state.error && <p className="md:col-span-3 text-xs text-[var(--danger)]">{state.error}</p>}

@@ -102,7 +102,7 @@ describe("DeploymentsPage deploy-export panel", () => {
     const user = userEvent.setup();
     wrap(await DeploymentsPage({ searchParams: Promise.resolve({}) }));
 
-		await user.click(screen.getByText("迁移部署导出（按需展开）"));
+		await user.click(screen.getByText("迁移部署导出"));
     expect(screen.getByText("迁移部署导出包")).toBeInTheDocument();
     await user.type(screen.getByLabelText("目标域名"), " Console.Example.Test ");
     await user.type(screen.getByLabelText("应用标识"), " VControlHub ");
@@ -191,7 +191,7 @@ describe("DeploymentsPage deploy-export panel", () => {
 
 		wrap(await DeploymentsPage({ searchParams: Promise.resolve({}) }));
 
-		expect(screen.getByText("💡 使用流程").closest("details")).not.toHaveAttribute("open");
+		expect(screen.getByText("使用流程").closest("details")).not.toHaveAttribute("open");
 		expect(screen.getAllByText("下一步：等待审批。")).toHaveLength(2);
 		for (const link of screen.getAllByRole("link", { name: "查看审批与执行记录" })) {
 			expect(link).toHaveAttribute("href", "/requests#command-req-1");

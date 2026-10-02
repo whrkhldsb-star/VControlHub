@@ -137,7 +137,7 @@ export function FileBatchToolbar({
               </span>
               <ActionButton variant="danger"
                 onClick={onConfirmDelete}
-                disabled={isPending} className="!px-4 !py-2 !text-sm disabled:opacity-50">
+                disabled={isPending}>
                 {copy.confirmDelete}
               </ActionButton>
               <button
@@ -211,9 +211,7 @@ export function FileBatchToolbar({
                 onClick={onSubmitMove}
                 disabled={
                   !moveTargetDir.trim() || isPending || moveProgress.done > 0
-                }
-                className="disabled:opacity-50"
-              >
+                }>
                 {copy.confirmMove}
               </ActionButton>
               <button
@@ -236,12 +234,12 @@ export function FileBatchToolbar({
                 {formatCopy(copy.selectedCount, { count: selectedCount })}
               </span>
               <ActionButton variant="secondary"
-                onClick={onClearSelection} className="!px-4 !py-2 !text-sm">
+                onClick={onClearSelection}>
                 {copy.clearSelection}
               </ActionButton>
               {selectedEntriesCanCompress ? (
                 <ActionButton variant="outline"
-                  onClick={onCompressSelected} className="!px-4 !py-2 !text-sm">
+                  onClick={onCompressSelected}>
                   {copy.compressSelected}
                 </ActionButton>
               ) : null}
@@ -260,9 +258,7 @@ export function FileBatchToolbar({
                     setMoveTargetDir("");
                     setMoveProgress({ done: 0, total: 0, errors: [] });
                     setBatchAction("moving");
-                  }}
-                  className="px-4 py-2 text-sm"
-                >
+                  }}>
                   {copy.moveSelected}
                 </ActionButton>
               ) : null}

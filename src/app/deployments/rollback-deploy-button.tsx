@@ -58,22 +58,19 @@ export function RollbackDeployButton({ runId, templateName, disabled = false }: 
           {t("deploymentsPage.rollback.confirmWarning")}
         </span>
       ) : null}
-      <ActionButton variant="success"
+      <ActionButton size="sm" variant="success"
         onClick={handleRollback}
         disabled={pending || disabled}
-        aria-describedby={confirming ? `rollback-deploy-${runId}-warning` : undefined} className="!px-3 !py-1.5 !text-sm disabled:cursor-not-allowed disabled:opacity-60">
+        aria-describedby={confirming ? `rollback-deploy-${runId}-warning` : undefined}>
         {pending ? t("deploymentsPage.rollback.submitting") : confirming ? t("deploymentsPage.rollback.confirmBtn") : t("deploymentsPage.rollback.triggerBtn")}
       </ActionButton>
       {confirming ? (
-        <ActionButton variant="secondary"
+        <ActionButton size="sm" variant="secondary"
           onClick={() => {
             setConfirming(false);
             setError(null);
           }}
-          disabled={pending}
-
-          className="!px-3 !py-1.5 !text-sm !font-medium disabled:cursor-not-allowed disabled:opacity-60"
-        >
+          disabled={pending}>
           {t("common.cancel")}
         </ActionButton>
       ) : null}

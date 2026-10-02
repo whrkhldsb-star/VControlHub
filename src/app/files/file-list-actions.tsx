@@ -11,7 +11,6 @@
  * Permission checks live in `file-list-model` / `file-entry-utils` — we
  * only render UI here.
  */
-import Link from "next/link";
 import { FilePreferenceButton, recordFileOpen } from "./file-preferences-client";
 import { CopyFileButton } from "./file-operation-controls";
 
@@ -30,6 +29,7 @@ import {
 } from "./file-entry-utils";
 import type { FolderProp } from "./file-list-model";
 import type { EntryGuard, ToastFn } from "./file-list-view-props";
+import { ButtonLink } from "@/components/action-button";
 
 /** Compact (icon-only) toggle for action buttons rendered in dense grids. */
 type CompactProp = { compact?: boolean };
@@ -50,11 +50,10 @@ export function DetailActionButton({
       title={t("fileListClient.detailTitle")}
       aria-label={`${t("fileListClient.detailTitle")} ${entry.name}`}
       onClick={() => { recordFileOpen(entry.id); onOpen(entry.id); }}
-      className={
-        compact
-          ?"inline-flex h-11 w-11 items-center justify-center rounded-lg border border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)] transition hover:bg-[var(--accent-bg)]"
-          :"inline-flex items-center gap-1.5 rounded-lg border border-[var(--accent-border)] bg-[var(--accent-bg)] px-2.5 py-1.5 text-xs text-[var(--accent)] transition hover:bg-[var(--accent-bg)]"
-      }
+      data-action-button=""
+      data-variant="secondary"
+      data-size="sm"
+      data-square={compact ? "" : undefined}
     >
       <svg
         width="15"
@@ -103,11 +102,10 @@ export function DownloadActionLink({
       download={downloadUrl.startsWith("/") ? true : undefined}
       target={downloadUrl.startsWith("/") ? undefined :"_blank"}
       rel={downloadUrl.startsWith("/") ? undefined :"noopener noreferrer"}
-      className={
-        compact
-          ?"inline-flex h-11 w-11 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] text-[var(--text-secondary)] transition hover:bg-[var(--surface-subtle)] hover:text-[var(--text-primary)]"
-          :"inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-2.5 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface-subtle)] hover:text-[var(--text-primary)]"
-      }
+      data-action-button=""
+      data-variant="secondary"
+      data-size="sm"
+      data-square={compact ? "" : undefined}
     >
       <DownloadIcon />
       {compact ? null : <span>{t("fileListClient.downloadTitle")}</span>}
@@ -141,11 +139,10 @@ export function FolderDownloadActionLink({
       title={t("fileListClient.downloadFolderArchiveTitle")}
       aria-label={t("fileListClient.downloadFolderArchiveAria", { name: folder.displayName ?? folder.name })}
       download
-      className={
-        compact
-          ?"inline-flex h-11 w-11 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] text-[var(--text-secondary)] transition hover:bg-[var(--surface-subtle)] hover:text-[var(--text-primary)]"
-          :"inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface-subtle)] hover:text-[var(--text-primary)]"
-      }
+      data-action-button=""
+      data-variant="secondary"
+      data-size="sm"
+      data-square={compact ? "" : undefined}
     >
       <DownloadIcon />
       {compact ? null : <span>{t("fileListClient.downloadTitle")}</span>}
@@ -252,16 +249,17 @@ export function FileRowActions({
       {entryCanRead(entry) && entryCanWrite(entry) ? <CopyFileButton ids={[entry.id]} nodeId={entry.storageNode.id} /> : null}
       <DetailActionButton entry={entry} onOpen={onOpenDetail} compact={compact} />
       {entry.previewable && entryCanRead(entry) ? (
-        <Link
+        <ButtonLink
           href={previewHref}
           onClick={() => recordFileOpen(entry.id)}
           title={previewAction.title}
           aria-label={previewAction.label}
-          data-tone="cyan"
-          className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-[var(--accent-border)] text-[var(--accent)] transition hover:bg-[var(--accent-bg)]"
+          variant="secondary"
+          size="sm"
+          square
         >
           <PreviewIcon />
-        </Link>
+        </ButtonLink>
       ) : null}
       <DownloadActionLink
         entry={entry}

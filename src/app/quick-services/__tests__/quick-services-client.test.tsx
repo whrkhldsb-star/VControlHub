@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { QuickServicesClient } from "../quick-services-client";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { renderWithI18n } from "@/lib/i18n/__tests__/test-helpers";
+import { expectBottomSheet, expectTouchTarget } from "@/test/ui-assertions";
 
 // wrap I18nProvider so `useI18n()` t() returns localized Chinese strings
 const render = (ui: ReactElement) => renderWithI18n(ui, { locale: "zh" });
@@ -271,7 +272,7 @@ describe("QuickServicesClient", () => {
 		render(<QuickServicesClient canManage canManageHubHost />);
 		await user.click(await screen.findByRole("tab", { name: /本地精选/ }));
 		await user.click(screen.getAllByRole("button", { name: "一键安装" })[0]!);
-		await waitFor(() => expect(screen.getByText("✓ 可用")).toBeInTheDocument());
+		await waitFor(() => expect(screen.getByText("可用")).toBeInTheDocument());
 		expect(screen.getByText("安装前配置预览")).toBeInTheDocument();
 		await user.click(screen.getByRole("button", { name: "确认安装" }));
 
@@ -295,7 +296,7 @@ describe("QuickServicesClient", () => {
 		render(<QuickServicesClient canManage canManageHubHost />);
 		await user.click(await screen.findByRole("tab", { name: /本地精选/ }));
 		await user.click(screen.getAllByRole("button", { name: "一键安装" })[0]!);
-		await waitFor(() => expect(screen.getByText("✓ 可用")).toBeInTheDocument());
+		await waitFor(() => expect(screen.getByText("可用")).toBeInTheDocument());
 		await user.click(screen.getByRole("button", { name: "确认安装" }));
 
 		const dialog = screen.getByRole("dialog", { name: "确认安装配置" });
@@ -320,7 +321,7 @@ describe("QuickServicesClient", () => {
 
 		render(<QuickServicesClient canManage canManageHubHost />);
 		await screen.findByText(/最近同步：LinuxServer/);
-		await user.click(screen.getByRole("tab", { name: /^⚙️ 应用源/ }));
+		await user.click(screen.getByRole("tab", { name: /^应用源/ }));
 		await user.click(screen.getByRole("button", { name: "删除" }));
 
 		expect(confirmSpy).not.toHaveBeenCalled();
@@ -342,7 +343,7 @@ describe("QuickServicesClient", () => {
 
 		render(<QuickServicesClient canManage canManageHubHost />);
 		await screen.findByText(/最近同步：LinuxServer/);
-		await user.click(screen.getByRole("tab", { name: /^⚙️ 应用源/ }));
+		await user.click(screen.getByRole("tab", { name: /^应用源/ }));
 		await user.click(screen.getByRole("button", { name: "删除" }));
 		await user.click(screen.getByRole("button", { name: "确认删除" }));
 
@@ -387,18 +388,11 @@ describe("QuickServicesClient", () => {
 		await user.click(screen.getByRole("button", { name: "卸载" }));
 
 		const dialog = await screen.findByRole("dialog", { name: "确认卸载快捷服务" });
-		const backdrop = dialog.parentElement as HTMLElement;
-		expect(backdrop.className).toMatch(/items-end/);
-		expect(backdrop.className).toMatch(/sm:items-center/);
-		expect(backdrop.className).toMatch(/overflow-y-auto/);
-		expect(dialog.className).toMatch(/mx-0/);
-		expect(dialog.className).toMatch(/sm:mx-4/);
-		expect(dialog.className).toMatch(/rounded-t-2xl/);
-		expect(dialog.className).toMatch(/sm:rounded-2xl/);
+		expectBottomSheet(dialog);
 		const cancelButton = screen.getByRole("button", { name: "取消" });
 		const confirmButton = screen.getByRole("button", { name: "确认卸载" });
-		expect(cancelButton.className).toContain("min-h-11");
-		expect(confirmButton.className).toContain("min-h-11");
+		expectTouchTarget(cancelButton);
+		expectTouchTarget(confirmButton);
 		const footer = cancelButton.parentElement as HTMLElement;
 		expect(footer.className).toMatch(/flex-col-reverse/);
 		expect(footer.className).toMatch(/sm:flex-row/);
@@ -413,18 +407,11 @@ describe("QuickServicesClient", () => {
 		await user.click(screen.getByRole("button", { name: "更新" }));
 
 		const dialog = await screen.findByRole("dialog", { name: "确认更新配置" });
-		const backdrop = dialog.parentElement as HTMLElement;
-		expect(backdrop.className).toMatch(/items-end/);
-		expect(backdrop.className).toMatch(/sm:items-center/);
-		expect(backdrop.className).toMatch(/overflow-y-auto/);
-		expect(dialog.className).toMatch(/mx-0/);
-		expect(dialog.className).toMatch(/sm:mx-4/);
-		expect(dialog.className).toMatch(/rounded-t-2xl/);
-		expect(dialog.className).toMatch(/sm:rounded-2xl/);
+		expectBottomSheet(dialog);
 		const cancelButton = within(dialog).getByRole("button", { name: "取消" });
 		const confirmButton = within(dialog).getByRole("button", { name: "确认更新" });
-		expect(cancelButton.className).toContain("min-h-11");
-		expect(confirmButton.className).toContain("min-h-11");
+		expectTouchTarget(cancelButton);
+		expectTouchTarget(confirmButton);
 		const footer = cancelButton.parentElement as HTMLElement;
 		expect(footer.className).toMatch(/flex-col-reverse/);
 		expect(footer.className).toMatch(/sm:flex-row/);
@@ -436,22 +423,15 @@ describe("QuickServicesClient", () => {
 
 		render(<QuickServicesClient canManage canManageHubHost />);
 		await screen.findByText(/最近同步：LinuxServer/);
-		await user.click(screen.getByRole("tab", { name: /^⚙️ 应用源/ }));
+		await user.click(screen.getByRole("tab", { name: /^应用源/ }));
 		await user.click(screen.getByRole("button", { name: "删除" }));
 
 		const dialog = await screen.findByRole("dialog", { name: "确认删除应用源" });
-		const backdrop = dialog.parentElement as HTMLElement;
-		expect(backdrop.className).toMatch(/items-end/);
-		expect(backdrop.className).toMatch(/sm:items-center/);
-		expect(backdrop.className).toMatch(/overflow-y-auto/);
-		expect(dialog.className).toMatch(/mx-0/);
-		expect(dialog.className).toMatch(/sm:mx-4/);
-		expect(dialog.className).toMatch(/rounded-t-2xl/);
-		expect(dialog.className).toMatch(/sm:rounded-2xl/);
+		expectBottomSheet(dialog);
 		const cancelButton = within(dialog).getByRole("button", { name: "取消" });
 		const confirmButton = within(dialog).getByRole("button", { name: "确认删除" });
-		expect(cancelButton.className).toContain("min-h-11");
-		expect(confirmButton.className).toContain("min-h-11");
+		expectTouchTarget(cancelButton);
+		expectTouchTarget(confirmButton);
 		const footer = cancelButton.parentElement as HTMLElement;
 		expect(footer.className).toMatch(/flex-col-reverse/);
 		expect(footer.className).toMatch(/sm:flex-row/);

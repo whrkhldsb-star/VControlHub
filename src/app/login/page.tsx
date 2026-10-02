@@ -1,4 +1,5 @@
 import { getPublicLabel, getSiteName } from "@/lib/branding";
+import { BrandTile } from "@/components/nav-icons";
 import { LoginForm } from "./login-form";
 import { getServerLocale, t, type Locale } from "@/lib/i18n/translations";
 
@@ -55,14 +56,14 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 				<div className="grid w-full gap-12 lg:grid-cols-[1fr_400px] lg:items-center">
 					{/* Left: Branding */}
 					<section className="max-w-xl">
-						<div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-1.5 text-xs font-bold uppercase text-[var(--text-primary)] shadow-sm backdrop-blur">
-							<div className="h-1.5 w-1.5 rounded-full bg-[var(--accent)] shadow-[0_0_8px_var(--accent-border)]" />
-							{publicLabel}
+						<div className="flex items-center gap-3">
+							<BrandTile size={36} />
+							<span className="text-[13px] font-medium uppercase tracking-wide text-[var(--text-muted)]">{publicLabel}</span>
 						</div>
-						<h1 className="mt-6 text-5xl font-semibold text-[var(--text-primary)] sm:text-6xl">
+						<h1 className="mt-6 text-balance text-5xl font-semibold text-[var(--text-primary)] sm:text-6xl">
 							{siteName}<span className="text-[var(--accent)]">.</span>
 						</h1>
-						<p className="mt-4 max-w-md text-base leading-7 text-[var(--text-secondary)]">
+						<p className="mt-4 max-w-md text-pretty text-base leading-7 text-[var(--text-secondary)]">
 							{publicLabel}{t("login.branding.tagline", locale)}
 						</p>
 

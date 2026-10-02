@@ -97,9 +97,10 @@ export function ShareFileButton({
         disabled={saving}
         title={shareUrl ? t("sharesPage.button.regenerate") : t("sharesPage.button.title")}
         aria-label={label}
+        data-menu-item={variant === "menu" ? "" : undefined}
         className={
           variant === "menu"
-            ? "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-[var(--success)] transition hover:bg-[var(--success-bg)] disabled:opacity-50"
+            ? undefined
             : compact
             ? "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)] transition hover:bg-[var(--success-bg)] disabled:opacity-50"
             : "inline-flex items-center gap-1.5 rounded-lg border border-[var(--success-border)] bg-[var(--success-bg)] px-2.5 py-1.5 text-xs text-[var(--success)] transition hover:bg-[var(--success-bg)] disabled:opacity-50"

@@ -8,6 +8,7 @@ import { countPendingSetupItems } from "@/lib/dashboard/setup-checklist";
 import { ActionButton } from "@/components/action-button";
 import { writeLocalStorageValue } from "@/lib/browser-storage";
 import { useBrowserStorageSnapshot } from "@/lib/hooks/use-browser-storage-snapshot";
+import { Check } from "@/components/icons";
 
 const DISMISS_KEY = "vch.setupChecklist.dismissed";
 
@@ -46,56 +47,60 @@ export function DashboardSetupChecklist({ items }: Props) {
 		writeLocalStorageValue(DISMISS_KEY, "1");
 	};
 
+	const done = items.length - pending;
 	return (
 		<section
 			aria-label={t("dashboard.setup.title")}
-			className="rounded-2xl border border-[var(--warning-border)] bg-[var(--warning-bg)]/40 p-4 shadow-sm"
+			data-card
+			className="mb-6 !p-0"
 		>
-			<div className="flex flex-wrap items-start justify-between gap-3">
+			<div className="flex flex-wrap items-start justify-between gap-3 px-4 pb-3 pt-4 sm:px-5">
 				<div className="min-w-0">
-					<p className="text-xs font-semibold uppercase text-[var(--warning)]">
+					<p className="text-xs font-medium text-[var(--accent)]">
 						{t("dashboard.setup.eyebrow")}
 					</p>
-					<h2 className="mt-0.5 text-sm font-semibold text-[var(--text-primary)]">
+					<h2 className="mt-0.5 text-[15px] font-semibold text-[var(--text-primary)]">
 						{t("dashboard.setup.title")}
 					</h2>
-					<p className="mt-1 text-xs text-[var(--text-muted)]">
+					<p className="mt-0.5 text-[13px] text-[var(--text-muted)]">
 						{t("dashboard.setup.description", { count: pending })}
 					</p>
 				</div>
-				<ActionButton variant="ghost"
-					onClick={dismiss}
-
-					className="!min-h-11 !px-3 !text-sm"
-				>
-					{t("dashboard.setup.dismiss")}
-				</ActionButton>
+				<div className="flex items-center gap-3">
+					<div className="hidden items-center gap-2 text-xs tabular-nums text-[var(--text-muted)] sm:flex" aria-hidden="true">
+						<span className="h-1.5 w-24 overflow-hidden rounded-full bg-[var(--surface-elevated)]">
+							<span className="block h-full rounded-full bg-[var(--color-action)]" style={{ width: `${Math.round((done / Math.max(items.length, 1)) * 100)}%` }} />
+						</span>
+						{done}/{items.length}
+					</div>
+					<ActionButton variant="ghost" onClick={dismiss}>
+						{t("dashboard.setup.dismiss")}
+					</ActionButton>
+				</div>
 			</div>
 
-			<ul className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+			<ul className="grid gap-px border-t border-[var(--border-subtle)] bg-[var(--border-subtle)] sm:grid-cols-2 lg:grid-cols-5">
 				{items.map((item) => (
-					<li key={item.id}>
+					<li key={item.id} className="bg-[var(--surface)] first:rounded-bl-[var(--radius-card)] last:rounded-br-[var(--radius-card)]">
 						<Link
 							href={item.href}
-							className={`flex min-h-11 items-start gap-2 rounded-xl border px-3 py-2.5 text-sm transition hover:border-[var(--border-strong,var(--border))] ${
-								item.done
-									? "border-[var(--success-border)] bg-[var(--success-bg)]/30 text-[var(--text-secondary)]"
-									: "border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)]"
-							}`}
+							className="group flex h-full items-start gap-2.5 px-4 py-3 text-sm transition hover:bg-[var(--surface-hover)]"
 						>
 							<span
-								className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+								className={`mt-0.5 flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full ${
 									item.done
-										? "bg-[var(--success-bg)] text-[var(--success)]"
-										: "bg-[var(--surface-elevated)] text-[var(--text-muted)]"
+										? "bg-[var(--color-success-action)] text-white"
+										: "border border-[var(--border-strong)] text-[var(--text-muted)]"
 								}`}
 								aria-hidden
 							>
-								{item.done ? "✓" : "·"}
+								{item.done ? <Check size={11} strokeWidth={3} /> : null}
 							</span>
 							<span className="min-w-0">
-								<span className="block font-medium">{t(ITEM_LABEL_KEY[item.id])}</span>
-								<span className="mt-0.5 block text-xs text-[var(--text-muted)]">
+								<span className={`block font-medium ${item.done ? "text-[var(--text-muted)] line-through decoration-[var(--border-strong)]" : "text-[var(--text-primary)]"}`}>
+									{t(ITEM_LABEL_KEY[item.id])}
+								</span>
+								<span className="mt-0.5 block text-xs leading-5 text-[var(--text-muted)]">
 									{t(ITEM_HINT_KEY[item.id])}
 								</span>
 							</span>

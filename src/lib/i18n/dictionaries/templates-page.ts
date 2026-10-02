@@ -7,7 +7,7 @@
 
 export const zh: Record<string, string> = {
 	"templatesPage.action.cancel": "取消",
-	"templatesPage.action.create": "+ 创建模板",
+	"templatesPage.action.create": "创建模板",
 	"templatesPage.action.deploy": "一键下发",
 	"templatesPage.action.submit": "提交部署",
 	"templatesPage.action.submitting": "提交中…",
@@ -52,7 +52,7 @@ export const zh: Record<string, string> = {
 
 export const en: Record<string, string> = {
 	"templatesPage.action.cancel": "Cancel",
-	"templatesPage.action.create": "+ Create template",
+	"templatesPage.action.create": "Create template",
 	"templatesPage.action.deploy": "Deploy",
 	"templatesPage.action.submit": "Submit deployment",
 	"templatesPage.action.submitting": "Submitting…",

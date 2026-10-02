@@ -12,15 +12,16 @@ export type RoleKey = (typeof ROLE_KEYS)[number];
 /** Subset of StatusBadge's StatusTone that the users page uses. */
 export type Tone ="accent" |"success" |"warning" |"danger" |"neutral";
 
-export const ROLE_COLORS: Record<RoleKey,"danger" |"warning" |"success" |"accent"> = {
-  admin:"danger",
-  operator:"warning",
-  storage_manager:"success",
-  viewer:"accent",
+/** Roles are labels, not states: only the administrator role stands out. */
+export const ROLE_COLORS: Record<RoleKey, "accent" | "neutral"> = {
+  admin: "accent",
+  operator: "neutral",
+  storage_manager: "neutral",
+  viewer: "neutral",
 };
 
-export function roleBadgeTone(key: string): Tone {
-  return (ROLE_COLORS as Record<string, Tone>)[key] ?? "accent";
+export function roleBadgeTone(key: string): "accent" | "neutral" {
+  return (ROLE_COLORS as Record<string, "accent" | "neutral">)[key] ?? "neutral";
 }
 
 export function statusTone(status: string): Tone {
@@ -126,9 +127,7 @@ export function UsersCreateForm({
       <ActionButton
         variant="primary"
         onClick={onSubmit}
-        disabled={creating || !createForm.username || !createForm.password}
-        className="!px-6 disabled:opacity-50"
-      >
+        disabled={creating || !createForm.username || !createForm.password}>
         {creating ? t("usersPage.action.creating") : t("usersPage.action.confirm")}
       </ActionButton>
     </SurfacePanel>
@@ -154,11 +153,10 @@ export function UsersResetPasswordDialog({
 }) {
   return (
     <ModalShell
+      size="md"
       open
       onClose={onCancel}
       labelledBy="reset-password-title"
-      overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] px-4 backdrop-blur-sm"
-      panelClassName="w-full max-w-md rounded-2xl border border-[var(--warning-border)] bg-[var(--modal-bg)] p-6 shadow-lg"
       as="section"
     >
         <h2 id="reset-password-title" className="text-lg font-semibold text-[var(--text-primary)]">
@@ -177,15 +175,13 @@ export function UsersResetPasswordDialog({
         />
         <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
           <ActionButton variant="secondary"
-            onClick={onCancel} className="!px-4 !py-2 !text-sm">
+            onClick={onCancel}>
             {t("usersPage.action.cancel")}
           </ActionButton>
           <ActionButton
             variant="warning"
             onClick={onConfirm}
-            disabled={resetting || !password}
-            className="disabled:opacity-50"
-          >
+            disabled={resetting || !password}>
             {resetting ? t("usersPage.action.resetting") : t("usersPage.action.confirmReset")}
           </ActionButton>
         </div>

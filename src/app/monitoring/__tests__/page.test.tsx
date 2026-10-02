@@ -7,7 +7,8 @@ import MonitoringPageClient from "../monitoring-page-client";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { renderWithI18n as render } from "@/lib/i18n/__tests__/test-helpers";
 
-vi.mock("@/components/page-shell", () => ({
+vi.mock("@/components/page-shell", async (importOriginal) => ({
+	...(await importOriginal<typeof import("@/components/page-shell")>()),
   PageShell: ({ children }: { children: React.ReactNode }) => <main>{children}</main>,
   PageHeader: ({ eyebrow, title, description, children }: { eyebrow?: React.ReactNode; title?: React.ReactNode; description?: React.ReactNode; children?: React.ReactNode }) => (
     <div>

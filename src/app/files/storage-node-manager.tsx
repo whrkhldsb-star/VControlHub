@@ -55,7 +55,7 @@ export function StorageNodeManager({
 					variant="outline"
 					onClick={() => setExpanded((prev) => !prev)}
 					aria-expanded={expanded}
-					className="shrink-0 px-3 py-2 text-sm"
+					className="shrink-0"
 				>
 					{expanded ? t("common.collapse") : t("common.expand")}
 				</ActionButton>

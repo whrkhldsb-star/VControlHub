@@ -10,6 +10,7 @@ import { ModalShell } from "@/components/modal-shell";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 import { getStorageDriverLabel } from "@/lib/i18n/domain-labels";
+import { Plus } from "@/components/icons";
 
 type RoleInfo = { key: string; name: string; description?: string | null };
 type PermissionInfo = { key: string; name: string; description?: string | null };
@@ -317,12 +318,11 @@ return data as PermissionsPayload;
 
   return (
     <ModalShell
+      size="full" placement="top"
       open
       onClose={onClose}
       label={t("usersPerm.title")}
       closeOnBackdrop={false}
-      overlayClassName="fixed inset-0 z-50 overflow-y-auto bg-[var(--overlay)] p-4 backdrop-blur"
-      panelClassName="mx-auto max-w-5xl rounded-3xl border border-[var(--border)] bg-[var(--modal-bg)] p-6 shadow-2xl shadow-[var(--color-action)]/40"
     >
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
@@ -330,13 +330,13 @@ return data as PermissionsPayload;
             <h3 className="mt-1 text-xl font-semibold text-[var(--text-primary)]">{payload?.user.displayName ?? username}</h3>
             <p className="mt-1 text-sm text-[var(--text-muted)]">{t("usersPerm.desc")}</p>
           </div>
-          <ActionButton variant="secondary" onClick={onClose} className="!px-3 !py-1.5 !text-sm">{t("usersPerm.action.close")}</ActionButton>
+          <ActionButton size="sm" variant="secondary" onClick={onClose}>{t("usersPerm.action.close")}</ActionButton>
         </div>
 
         {message && <Notice tone={message.type === "success" ? "success" : "danger"} className="mb-4">{message.text}</Notice>}
         {loading || !payload ? <InlineLoading label={t("usersPerm.loading")} /> : (
           <div className="space-y-6">
-            {!resourceOnly && <section className="rounded-2xl border border-[var(--accent-border)] bg-[var(--accent-bg)] p-4">
+            {!resourceOnly && <section data-inset className="p-4">
               <h4 className="font-medium text-[var(--text-primary)]">{t("usersPerm.template.title")}</h4>
               <p className="mt-1 text-xs text-[var(--text-muted)]">{t("usersPerm.template.desc")}</p>
               <div className="mt-3 flex flex-wrap gap-2">
@@ -344,21 +344,21 @@ return data as PermissionsPayload;
                   <option value="">{t("usersPerm.template.select")}</option>
                   {templates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}
                 </select>
-                <ActionButton variant="outline" onClick={applyTemplate} disabled={!selectedTemplateId} className="!px-3 !py-2 !text-sm disabled:opacity-40">{t("usersPerm.template.apply")}</ActionButton>
-                {selectedTemplate && !selectedTemplate.isBuiltin && <ActionButton variant="secondary" onClick={updateSelectedTemplate} disabled={savingTemplate} className="!px-3 !py-2 !text-sm disabled:opacity-40">{t("usersPerm.template.update")}</ActionButton>}
+                <ActionButton variant="outline" onClick={applyTemplate} disabled={!selectedTemplateId}>{t("usersPerm.template.apply")}</ActionButton>
+                {selectedTemplate && !selectedTemplate.isBuiltin && <ActionButton variant="secondary" onClick={updateSelectedTemplate} disabled={savingTemplate}>{t("usersPerm.template.update")}</ActionButton>}
                 {/* Custom templates were creatable but never removable from the UI;
                     built-ins stay read-only because the API refuses to delete them. */}
                 {selectedTemplate && !selectedTemplate.isBuiltin && (confirmingTemplateDelete ? (
                   <>
-                    <ActionButton variant="danger-solid" onClick={deleteSelectedTemplate} disabled={deletingTemplate} className="!px-3 !py-2 !text-sm disabled:opacity-50">
+                    <ActionButton variant="danger-solid" onClick={deleteSelectedTemplate} disabled={deletingTemplate}>
                       {deletingTemplate ? "…" : t("usersPerm.template.deleteConfirm")}
                     </ActionButton>
-                    <ActionButton variant="secondary" onClick={() => setConfirmingTemplateDelete(false)} disabled={deletingTemplate} className="!px-3 !py-2 !text-sm disabled:opacity-50">
+                    <ActionButton variant="secondary" onClick={() => setConfirmingTemplateDelete(false)} disabled={deletingTemplate}>
                       {t("usersPerm.action.cancel")}
                     </ActionButton>
                   </>
                 ) : (
-                  <ActionButton variant="danger" onClick={() => setConfirmingTemplateDelete(true)} className="!px-3 !py-2 !text-sm">
+                  <ActionButton variant="danger" onClick={() => setConfirmingTemplateDelete(true)}>
                     {t("usersPerm.template.delete")}
                   </ActionButton>
                 ))}
@@ -373,16 +373,13 @@ return data as PermissionsPayload;
                   />
                   <ActionButton variant="secondary"
                     onClick={saveTemplate}
-                    disabled={savingTemplate || !templateNameDraft.trim()}
-
-                    className="!px-3 !py-2 !text-sm disabled:opacity-50"
-                  >
+                    disabled={savingTemplate || !templateNameDraft.trim()}>
                     {savingTemplate ? "…" : t("usersPerm.template.saveCurrent")}
                   </ActionButton>
                 </div>
               </div>
             </section>}
-            {!resourceOnly && <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
+            {!resourceOnly && <section data-inset className="p-4">
               <h4 className="font-medium text-[var(--text-primary)]">{t("usersPerm.section.roles")}</h4>
               <div className="mt-3 flex flex-wrap gap-2">
                 {payload.roles.map((role) => (
@@ -391,7 +388,7 @@ return data as PermissionsPayload;
               </div>
             </section>}
 
-            {!resourceOnly && <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
+            {!resourceOnly && <section data-inset className="p-4">
               <h4 className="font-medium text-[var(--text-primary)]">{t("usersPerm.section.perms")}</h4>
               <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 <p className="mb-2 text-xs text-[var(--text-muted)]">
@@ -413,7 +410,7 @@ return data as PermissionsPayload;
 
             {payload.user.resourceAccessBypassed && <Notice tone="info">{t("usersPerm.adminResourceAccess")}</Notice>}
 
-            {!payload.user.resourceAccessBypassed && <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
+            {!payload.user.resourceAccessBypassed && <section data-inset className="p-4">
               <h4 className="font-medium text-[var(--text-primary)]">{t("usersPerm.section.servers")}</h4>
               <p className="mt-1 text-xs text-[var(--text-muted)]">{t("usersPerm.servers.hint")}</p>
               <div className="mt-3 space-y-3">
@@ -424,7 +421,7 @@ return data as PermissionsPayload;
                       ["canRead", "read"], ["canConnect", "connect"], ["canManage", "manage"],
                       ["canFileRead", "fileRead"], ["canFileWrite", "fileWrite"], ["canFileDelete", "fileDelete"],
                     ] as const;
-                    return <div key={server.id} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
+                    return <div key={server.id} data-card className="p-3">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <span className="font-medium text-[var(--text-primary)]">{server.name} <span className="text-xs text-[var(--text-muted)]">{server.operatingSystem}</span></span>
                         <button type="button" className="rounded-lg border border-[var(--border)] px-3 py-1 text-xs text-[var(--text-secondary)]" onClick={() => setServerGrants((current) => grant
@@ -450,19 +447,19 @@ return data as PermissionsPayload;
               </div>
             </section>}
 
-            {!payload.user.resourceAccessBypassed && <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
+            {!payload.user.resourceAccessBypassed && <section data-inset className="p-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <h4 className="font-medium text-[var(--text-primary)]">{t("usersPerm.section.grants")}</h4>
                   <p className="mt-1 text-xs text-[var(--text-muted)]">{t("usersPerm.grants.hint")}</p>
                 </div>
-                <ActionButton variant="success" onClick={addGrant} className="!px-3 !py-1.5 !text-sm">{t("usersPerm.action.addGrant")}</ActionButton>
+                <ActionButton icon={<Plus size={16} aria-hidden />} size="sm" variant="success" onClick={addGrant}>{t("usersPerm.action.addGrant")}</ActionButton>
               </div>
               <div className="mt-4 space-y-3">
                 {grants.length === 0 ? <EmptyState>{t("usersPerm.grants.empty")}</EmptyState> : grants.map((grant, index) => {
                   const node = storageNodeMap.get(grant.storageNodeId);
                   return (
-                    <div key={`${grant.storageNodeId}-${index}`} className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
+                    <div key={`${grant.storageNodeId}-${index}`} data-card className="p-4">
                       <div className="grid gap-3 lg:grid-cols-[1.2fr_1fr_1fr_1fr_auto]">
                         <label className="sr-only" htmlFor={`grantNode-${index}`}>{t("usersPerm.grants.node")}</label>
                         <select id={`grantNode-${index}`} value={grant.storageNodeId} onChange={(e) => updateGrant(index, { storageNodeId: e.target.value })} className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)]">
@@ -490,8 +487,8 @@ return data as PermissionsPayload;
             </section>}
 
             <div className="flex justify-end gap-3">
-              <ActionButton variant="secondary" onClick={onClose} className="!px-5 !py-2 !text-sm">{t("usersPerm.action.cancel")}</ActionButton>
-              {(!resourceOnly || !payload.user.resourceAccessBypassed) && <ActionButton variant="outline" onClick={save} disabled={saving} className="!px-5 !py-2 !text-sm disabled:opacity-50">{saving ? t("usersPerm.action.saving") : t("usersPerm.action.save")}</ActionButton>}
+              <ActionButton variant="secondary" onClick={onClose}>{t("usersPerm.action.cancel")}</ActionButton>
+              {(!resourceOnly || !payload.user.resourceAccessBypassed) && <ActionButton variant="outline" onClick={save} disabled={saving}>{saving ? t("usersPerm.action.saving") : t("usersPerm.action.save")}</ActionButton>}
             </div>
           </div>
         )}

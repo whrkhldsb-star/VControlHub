@@ -183,7 +183,7 @@ export function TicketWorkspace({ initialTickets, canManage, now }: Props) {
               {canManage ? t("ticketsPage.workspace.manageHint") : t("ticketsPage.workspace.personalHint")}
             </p>
           </div>
-          <div className="inline-flex w-fit rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-1">
+          <div data-tile className="inline-flex w-fit p-1">
             {(["list", "board"] as const).map((mode) => (
               <button type="button" data-action-button={view === mode ? "" : undefined} data-variant={view === mode ? "primary" : undefined} key={mode} onClick={() => setView(mode)} aria-pressed={view === mode} className={`rounded-lg px-3 py-2 text-xs font-semibold ${view === mode ? "" : "text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"}`}>
                 {t(mode === "list" ? "ticketsPage.kanban.list" : "ticketsPage.kanban.toggle")}
@@ -222,7 +222,7 @@ export function TicketWorkspace({ initialTickets, canManage, now }: Props) {
           {STATUSES.map((columnStatus) => {
             const columnTickets = filteredTickets.filter((ticket) => ticket.status === columnStatus);
             return (
-              <div key={columnStatus} data-testid={`ticket-column-${columnStatus}`} className="min-w-64 rounded-2xl border border-[var(--border)] bg-[var(--surface-elevated)] p-3">
+              <div key={columnStatus} data-testid={`ticket-column-${columnStatus}`} data-tile className="min-w-64 p-3">
                 <div className="mb-3 flex items-center justify-between text-xs font-semibold text-[var(--text-secondary)]">
                   <span>{label(t, "ticketsPage.status", columnStatus)}</span><span>{columnTickets.length}</span>
                 </div>

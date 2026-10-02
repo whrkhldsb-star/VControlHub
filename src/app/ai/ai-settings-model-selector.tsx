@@ -197,7 +197,7 @@ export function AiSettingsModelSelector({
                   placeholder={settingsForm.model || t("aiPage.manualModelIdPlaceholder")}
                   className="flex-1 bg-[var(--input-bg)] border border-[var(--border-subtle)] rounded-lg px-2 py-1 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none"
                 />
-                <ActionButton variant="ghost"
+                <ActionButton size="sm" variant="ghost"
                   onClick={() => {
                     if (modelSearch.trim()) {
                       setSettingsForm((f) => ({
@@ -207,10 +207,7 @@ export function AiSettingsModelSelector({
                       setModelDropdownOpen(false);
                       setModelSearch("");
                     }
-                  }}
-                  className="px-2 py-1 text-xs"
-
-                >
+                  }}>
                   {t("aiPage.apply")}
                 </ActionButton>
               </div>

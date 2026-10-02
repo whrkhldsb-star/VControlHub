@@ -10,11 +10,13 @@ import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 import { StatusBadge } from "@/components/status-badge";
 import { Notice } from "@/components/ui-primitives";
-import { UI_INPUT } from "@/lib/ui/classes";
+import { UI_INPUT, UI_LABEL } from "@/lib/ui/classes";
 import { PaginatedList } from "@/components/paginated-list";
 import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
 import { formatDateTime } from "@/lib/datetime/format";
 import { APP_TIME_ZONE, zonedDateTimeToIso } from "@/lib/datetime/time-zone";
+import { IconCalendarClock } from "@/components/nav-icons";
+import { Plus } from "@/components/icons";
 
 type Task = {
 	id: string; name: string; cronExpression: string; cronDescription: string;
@@ -65,7 +67,7 @@ function matchesTask(task: Task, query: string) {
 		.some((value) => String(value).toLowerCase().includes(needle));
 }
 
-const fieldLabelClass = "text-xs font-medium text-[var(--text-secondary)] ";
+const fieldLabelClass = UI_LABEL;
 const fieldInputClass = UI_INPUT;
 const monoFieldInputClass = `${UI_INPUT} font-mono`;
 
@@ -172,9 +174,8 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, template
 					/>
 				</div>
 				{canCreate && !showCreate && (
-					<ActionButton variant="primary"
+					<ActionButton icon={<Plus size={16} aria-hidden />} variant="primary"
 						onClick={() => setShowCreate(true)}
-						data-primary className="min-h-11 px-5 py-2.5 text-sm"
 					>
 						{t("scheduledTasksPage.create")}
 						</ActionButton>
@@ -190,7 +191,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, template
 			)}
 
 			{tasks.length === 0 && !showCreate ? (
-				<EmptyState icon="⏰" variant="boxed">
+				<EmptyState icon={<IconCalendarClock />} variant="boxed">
 					<div className="space-y-2">
 						<p>{t("scheduledTasks.empty.title")}</p>
 						<p className="text-xs text-[var(--text-muted)]">{t("scheduledTasks.empty.hint")}</p>
@@ -216,47 +217,38 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, template
 										<span>{task.approvalRequired ? t("scheduledTasks.approval.everyRun") : t("scheduledTasks.approval.once")}</span>
 										{task.runAt && <span>{t("scheduledTasks.runAt", { time: formatTime(task.runAt, locale) })}</span>}
 									</div>
-									<div className="mt-2.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-3 py-1.5 font-mono text-xs text-[var(--accent)]">
+									<div data-inset className="mt-2.5 px-3 py-1.5 font-mono text-xs text-[var(--accent)]">
 										{task.command}
 									</div>
 									{task.reason && <p className="mt-1.5 text-xs text-[var(--text-muted)]">{t("scheduledTasksPage.reason", { reason: task.reason })}</p>}
-									{task.plan && <details className="mt-2 rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-3 py-2 text-xs"><summary className="cursor-pointer font-medium text-[var(--text-secondary)]">{t("scheduledTasks.plan")}</summary><p className="mt-2 whitespace-pre-wrap break-words text-[var(--text-muted)]">{task.plan}</p>{task.verificationCommand && <p className="mt-2 font-mono text-[var(--text-muted)]">{t("scheduledTasks.verify")}: {task.verificationCommand}</p>}{task.rollbackCommand && <p className="mt-1 font-mono text-[var(--text-muted)]">{t("scheduledTasks.rollback")}: {task.rollbackCommand}</p>}</details>}
+									{task.plan && <details data-inset className="mt-2 px-3 py-2 text-xs"><summary className="cursor-pointer font-medium text-[var(--text-secondary)]">{t("scheduledTasks.plan")}</summary><p className="mt-2 whitespace-pre-wrap break-words text-[var(--text-muted)]">{task.plan}</p>{task.verificationCommand && <p className="mt-2 font-mono text-[var(--text-muted)]">{t("scheduledTasks.verify")}: {task.verificationCommand}</p>}{task.rollbackCommand && <p className="mt-1 font-mono text-[var(--text-muted)]">{t("scheduledTasks.rollback")}: {task.rollbackCommand}</p>}</details>}
 									<div className="mt-3 grid grid-cols-2 gap-2 text-xs text-[var(--text-muted)]">
 										<div>{t("scheduledTasksPage.targetNodes", { count: task.serverIds.length })}</div>
 										<div>{t("scheduledTasksPage.runCount", { count: task.runCount })}</div>
 										<div>{t("scheduledTasksPage.lastRun", { time: formatTime(task.lastRunAt, locale) })}</div>
 										<div>{t("scheduledTasksPage.nextRun", { time: formatTime(task.nextRunAt, locale) })}</div>
 									</div>
-									<div className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-3 py-2 text-xs text-[var(--text-muted)]">
+									<div data-inset className="mt-3 px-3 py-2 text-xs text-[var(--text-muted)]">
 										<div className="mb-1 font-medium text-[var(--text-secondary)]">{t("scheduledTasksPage.recentLogs")}</div>
 										<div className="whitespace-pre-wrap break-words">{task.lastResult || t("scheduledTasks.empty.lastResult")}</div>
 									</div>
 								</div>
 								<div className="flex flex-col gap-2 shrink-0">
 									{canManage && (
-										<ActionButton type="button" variant="outline"
-											onClick={() => retryTask(task.id)} disabled={busyId !== null}
-
-											className="!min-h-11 !rounded-2xl !px-4 !py-2 !text-sm"
-										>
+										<ActionButton size="sm" variant="secondary"
+											onClick={() => retryTask(task.id)} disabled={busyId !== null}>
 											{t("scheduledTasksPage.retry")}
 										</ActionButton>
 									)}
 									{canManage && (
-										<ActionButton type="button" variant={task.status === "ACTIVE" ? "outline" : "success"}
-											onClick={() => toggleTask(task.id)} disabled={busyId !== null}
-
-											className="!min-h-11 !rounded-2xl !px-4 !py-2 !text-sm"
-										>
+										<ActionButton size="sm" variant={task.status === "ACTIVE" ? "secondary" : "success"}
+											onClick={() => toggleTask(task.id)} disabled={busyId !== null}>
 											{task.status === "ACTIVE" ? t("scheduledTasks.pause") : t("scheduledTasks.resume")}
 										</ActionButton>
 									)}
 									{canManage && (
-										<ActionButton type="button" variant="danger"
-											onClick={() => setTaskPendingDelete(task)} disabled={busyId !== null}
-
-											className="!min-h-11 !rounded-2xl !px-4 !py-2 !text-sm"
-										>
+										<ActionButton size="sm" variant="danger"
+											onClick={() => setTaskPendingDelete(task)} disabled={busyId !== null}>
 											{t("scheduledTasksPage.delete")}
 										</ActionButton>
 									)}
@@ -362,7 +354,7 @@ function CreateTaskForm({ servers, templates, canApprove, onClose }: { servers: 
 			<h3 className="text-lg font-semibold text-[var(--text-primary)]">{t("scheduledTasksPage.createTitle")}</h3>
 			{error && <Notice tone="danger">{error}</Notice>}
 
-			<div className="grid grid-cols-2 gap-1 rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-1">
+			<div data-inset className="grid grid-cols-2 gap-1 p-1">
 				{(["CRON", "ONCE"] as const).map((mode) => <button key={mode} type="button" aria-pressed={scheduleType === mode} onClick={() => setScheduleType(mode)} className={`min-h-10 rounded-md px-3 text-xs font-medium ${scheduleType === mode ? "bg-[var(--surface-elevated)] text-[var(--text-primary)] shadow-sm" : "text-[var(--text-muted)]"}`}>{mode === "CRON" ? t("scheduledTasks.schedule.recurring") : t("scheduledTasks.schedule.once")}</button>)}
 			</div>
 
@@ -373,7 +365,7 @@ function CreateTaskForm({ servers, templates, canApprove, onClose }: { servers: 
 			{scheduleType === "CRON" ? <div className="space-y-1.5">
 				<label htmlFor="scheduled-task-cron" className={fieldLabelClass}>{t("scheduledTasksPage.cron")}</label>
 				<input id="scheduled-task-cron" value={cronExpression} onChange={(e) => setCron(e.target.value)} required placeholder="0 3 * * *" className={monoFieldInputClass} />
-				<p className="rounded-xl border border-[var(--accent-border)] bg-[var(--accent-bg)] px-3 py-2 text-xs text-[var(--text-primary)]">{t("scheduledTasksPage.preview.label", { value: cronPreview })}</p>
+				<Notice tone="info" compact>{t("scheduledTasksPage.preview.label", { value: cronPreview })}</Notice>
 				<p className="text-xs text-[var(--text-muted)]">{t("scheduledTasks.timezoneApp", { timezone: APP_TIME_ZONE })}</p>
 				<div className="flex flex-wrap gap-1.5">
 					{presetCrons.map((p) => (
@@ -427,10 +419,10 @@ function CreateTaskForm({ servers, templates, canApprove, onClose }: { servers: 
 			)}
 
 			<div className="flex gap-3 pt-2">
-				<ActionButton variant="primary" type="submit" disabled={submitting || enabledServers.length === 0} className="min-h-11 px-5 py-2.5 text-sm">
+				<ActionButton variant="primary" type="submit" disabled={submitting || enabledServers.length === 0}>
 					{submitting ? t("scheduledTasks.submit.creating") : t("scheduledTasks.submit.create")}
 				</ActionButton>
-				<ActionButton variant="secondary" onClick={onClose} className="min-h-11">
+				<ActionButton variant="secondary" onClick={onClose}>
 					{t("scheduledTasksPage.cancel")}
 				</ActionButton>
 			</div>

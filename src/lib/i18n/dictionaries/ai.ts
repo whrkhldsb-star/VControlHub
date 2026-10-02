@@ -5,7 +5,7 @@
 export const zh: Record<string, string> = {
 	// sidebar (ai-sidebar.tsx)
 	"aiPage.sidebarTitle": "AI 助手",
-	"aiPage.newConversation": "+ 新对话",
+	"aiPage.newConversation": "新对话",
 	"aiPage.emptyConversations": "暂无对话，点击新建开始",
 	"aiPage.providerManagement": "提供商管理",
 	"aiPage.collapseSidebar": "收起侧栏",
@@ -13,10 +13,10 @@ export const zh: Record<string, string> = {
 
 	// chat header (ai-chat-header.tsx)
 	"aiPage.unknown": "未知",
-	"aiPage.vision": " · 👁 多模态",
-	"aiPage.videoCap": " · 🎬 视频",
-	"aiPage.audioCap": " · 🎵 音频",
-	"aiPage.documentCap": " · 📑 文档",
+	"aiPage.vision": " · 多模态",
+	"aiPage.videoCap": " · 视频",
+	"aiPage.audioCap": " · 音频",
+	"aiPage.documentCap": " · 文档",
 	"aiPage.settings": "设置",
 	"aiPage.clearMessagesTitle": "清空对话消息",
 	"aiPage.clear": "清空",
@@ -104,11 +104,11 @@ export const zh: Record<string, string> = {
 	"aiPage.processing": "处理中...",
 
 	// client — message list
-	"aiPage.roleUser": "👤 用户",
-	"aiPage.roleAssistant": "🤖 助手",
+	"aiPage.roleUser": "用户",
+	"aiPage.roleAssistant": "助手",
 	"aiPage.roleSystem": "系统",
-	"aiPage.thinking": "💭 正在思考...",
-	"aiPage.thinkingProcess": "💭 思考过程",
+	"aiPage.thinking": "正在思考...",
+	"aiPage.thinkingProcess": "思考过程",
 	"aiPage.thinkingDetail": "正在思考...",
 	"aiPage.attachment": "附件 {index}",
 	"aiPage.copyCode": "复制",
@@ -178,9 +178,9 @@ export const zh: Record<string, string> = {
 	"aiPage.apply": "应用",
 	"aiPage.frequencyPenalty": "频率惩罚",
 	"aiPage.presencePenalty": "存在惩罚",
-	"aiPage.visionToggle": "👁 多模态 (视觉)",
+	"aiPage.visionToggle": "多模态 (视觉)",
 	"aiPage.recommended": "推荐",
-	"aiPage.hostedMode": "🤖 AI托管模式",
+	"aiPage.hostedMode": "AI托管模式",
 	"aiPage.hostedHint": "AI可操作VPS",
 	"aiPage.automationMode": "自动化工作方式",
 	"aiPage.automationAssisted": "协助执行",
@@ -235,7 +235,7 @@ export const zh: Record<string, string> = {
 	"aiPage.confirmAction": "确认执行",
 	"aiPage.rejected": "已拒绝操作",
 	"aiPage.userDenied": "用户拒绝",
-	"aiPage.pendingApprovalsTitle": "🔒 待审批操作 ({count})",
+	"aiPage.pendingApprovalsTitle": "待审批操作 ({count})",
 	"aiPage.riskLabel": "风险: ",
 	"aiPage.serverLabel": "服务器: {id}",
 
@@ -264,7 +264,7 @@ export const zh: Record<string, string> = {
 export const en: Record<string, string> = {
 	// sidebar
 	"aiPage.sidebarTitle": "AI Assistant",
-	"aiPage.newConversation": "+ New chat",
+	"aiPage.newConversation": "New chat",
 	"aiPage.emptyConversations": "No conversations yet — click to start a new one",
 	"aiPage.providerManagement": "Provider management",
 	"aiPage.collapseSidebar": "Collapse sidebar",
@@ -272,10 +272,10 @@ export const en: Record<string, string> = {
 
 	// chat header
 	"aiPage.unknown": "Unknown",
-	"aiPage.vision": " · 👁 Vision",
-	"aiPage.videoCap": " · 🎬 Video",
-	"aiPage.audioCap": " · 🎵 Audio",
-	"aiPage.documentCap": " · 📑 Document",
+	"aiPage.vision": " · Vision",
+	"aiPage.videoCap": " · Video",
+	"aiPage.audioCap": " · Audio",
+	"aiPage.documentCap": " · Document",
 	"aiPage.settings": "Settings",
 	"aiPage.clearMessagesTitle": "Clear conversation messages",
 	"aiPage.clear": "Clear",
@@ -363,11 +363,11 @@ export const en: Record<string, string> = {
 	"aiPage.processing": "Processing...",
 
 	// client — message list
-	"aiPage.roleUser": "👤 User",
-	"aiPage.roleAssistant": "🤖 Assistant",
+	"aiPage.roleUser": "User",
+	"aiPage.roleAssistant": "Assistant",
 	"aiPage.roleSystem": "System",
-	"aiPage.thinking": "💭 Thinking...",
-	"aiPage.thinkingProcess": "💭 Thinking process",
+	"aiPage.thinking": "Thinking...",
+	"aiPage.thinkingProcess": "Thinking process",
 	"aiPage.thinkingDetail": "Thinking...",
 	"aiPage.copyCode": "Copy",
 	"aiPage.attachment": "Attachment {index}",
@@ -437,9 +437,9 @@ export const en: Record<string, string> = {
 	"aiPage.apply": "Apply",
 	"aiPage.frequencyPenalty": "Frequency penalty",
 	"aiPage.presencePenalty": "Presence penalty",
-	"aiPage.visionToggle": "👁 Multimodal (vision)",
+	"aiPage.visionToggle": "Multimodal (vision)",
 	"aiPage.recommended": "Recommended",
-	"aiPage.hostedMode": "🤖 AI-hosted mode",
+	"aiPage.hostedMode": "AI-hosted mode",
 	"aiPage.hostedHint": "AI can act on the VPS",
 	"aiPage.automationMode": "Automation workflow",
 	"aiPage.automationAssisted": "Assisted execution",
@@ -494,7 +494,7 @@ export const en: Record<string, string> = {
 	"aiPage.confirmAction": "Confirm action",
 	"aiPage.rejected": "Operation rejected",
 	"aiPage.userDenied": "User denied",
-	"aiPage.pendingApprovalsTitle": "🔒 Pending approvals ({count})",
+	"aiPage.pendingApprovalsTitle": "Pending approvals ({count})",
 	"aiPage.riskLabel": "Risk: ",
 	"aiPage.serverLabel": "Server: {id}",
 

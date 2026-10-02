@@ -135,7 +135,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 	};
 
 	return (
-		<div id="2fa" className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-5">
+		<div id="2fa" data-inset className="p-5">
 			<div className="flex items-center justify-between mb-4">
 				<h3 className="text-sm font-medium text-[var(--text-primary)]">{t("auth.2fa-section-title")}</h3>
 				<StatusBadge tone={isEnabled ? "success" : "neutral"} size="sm">
@@ -152,7 +152,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 					<p className="text-xs text-[var(--text-secondary)] mb-3">
 						{t("auth.2fa-setup-description")}
 					</p>
-					<ActionButton type="button" variant="ghost" onClick={handleSetup} disabled={loading} className="text-xs">
+					<ActionButton size="sm" variant="primary" onClick={handleSetup} loading={loading}>
 						{loading ? t("auth.2fa-generating") : t("auth.2fa-enable")}
 					</ActionButton>
 				</div>
@@ -164,10 +164,10 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 						{t("auth.2fa-disable-description")}
 					</p>
 					<div className="flex flex-wrap gap-2">
-						<ActionButton type="button" variant="secondary" onClick={() => { setStep("regenerate"); setCode(""); setError(""); }} className="text-xs">
+						<ActionButton size="sm" type="button" variant="secondary" onClick={() => { setStep("regenerate"); setCode(""); setError(""); }}>
 							{t("auth.2fa-regenerate-recovery-codes")}
 						</ActionButton>
-						<ActionButton type="button" variant="danger" onClick={() => { setStep("disable"); setCode(""); setError(""); }} className="text-xs">
+						<ActionButton size="sm" type="button" variant="danger" onClick={() => { setStep("disable"); setCode(""); setError(""); }}>
 							{t("auth.2fa-disable")}
 						</ActionButton>
 					</div>
@@ -189,7 +189,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 							unoptimized
 						/>
 					) : null}
-					<div className="bg-[var(--surface-subtle)] rounded-lg p-3 border border-[var(--border)]">
+					<div data-inset className="p-3">
 						<p className="text-xs text-[var(--text-muted)] mb-1">{t("auth.2fa-secret-label")}</p>
 						<code className="text-xs text-[var(--color-action)] break-all select-all">{secret}</code>
 					</div>
@@ -209,7 +209,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 							placeholder="000000"
 							className={cn(UI_INPUT, "flex-1")}
 						/>
-						<ActionButton type="button" onClick={handleVerify} disabled={loading || code.length !== 6} className="text-xs">
+						<ActionButton size="sm" type="button" onClick={handleVerify} disabled={loading || code.length !== 6}>
 							{loading ? t("auth.2fa-verifying") : t("auth.2fa-confirm-enable")}
 						</ActionButton>
 					</div>
@@ -274,7 +274,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 							placeholder={t("auth.2fa-code-or-recovery-placeholder")}
 							className={cn(UI_INPUT, "flex-1")}
 						/>
-						<ActionButton type="button" onClick={handleRegenerateRecoveryCodes} disabled={loading || !secondFactorOk} className="text-xs">
+						<ActionButton size="sm" type="button" onClick={handleRegenerateRecoveryCodes} disabled={loading || !secondFactorOk}>
 							{loading ? t("auth.2fa-verifying") : t("auth.2fa-regenerate-recovery-codes")}
 						</ActionButton>
 					</div>
@@ -286,9 +286,9 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 
 			{step === "recovery" && (
 				<div className="space-y-4">
-					<div className="rounded-lg border border-[var(--warning-border)] bg-[var(--warning-bg)] px-3 py-2 text-xs text-[var(--text-secondary)]">
+					<Notice tone="warning" compact>
 						{t("auth.2fa-recovery-warning")}
-					</div>
+					</Notice>
 					<div>
 						<p className="text-xs font-medium text-[var(--text-primary)]">{t("auth.2fa-recovery-title")}</p>
 						<p className="mt-1 text-xs text-[var(--text-secondary)]">{t("auth.2fa-recovery-description")}</p>
@@ -301,15 +301,13 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 						))}
 					</div>
 					<div className="flex flex-wrap gap-2">
-						<ActionButton
+						<ActionButton size="sm"
 							type="button"
 							variant="secondary"
-							onClick={() => void navigator.clipboard?.writeText(recoveryCodes.join("\n"))}
-							className="text-xs"
-						>
+							onClick={() => void navigator.clipboard?.writeText(recoveryCodes.join("\n"))}>
 							{t("auth.2fa-recovery-copy")}
 						</ActionButton>
-						<ActionButton type="button" onClick={() => { setRecoveryCodes([]); setStep("idle"); }} className="text-xs">
+						<ActionButton size="sm" type="button" onClick={() => { setRecoveryCodes([]); setStep("idle"); }}>
 							{t("auth.2fa-recovery-saved")}
 						</ActionButton>
 					</div>

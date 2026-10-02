@@ -52,14 +52,12 @@ export function PermanentDeleteButton({
       <ActionButton variant="danger"
         type="submit"
         disabled={pending}
-        data-tone="rose"
-        className="disabled:cursor-not-allowed disabled:opacity-50"
-      >
+        data-tone="rose">
         {pending ? t("common.executing") : t("common.confirm")}
       </ActionButton>
       <ActionButton variant="secondary"
         onClick={handleCancel}
-        disabled={pending} className="!px-4 !py-2 !text-sm disabled:cursor-not-allowed disabled:opacity-50">
+        disabled={pending}>
         {t("common.cancel")}
       </ActionButton>
       {state.error ? (

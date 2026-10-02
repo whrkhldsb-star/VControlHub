@@ -11,6 +11,7 @@ import { StorageNodeEditForm } from "./storage-node-edit-form";
 import { StorageNodeDeleteButton } from "./storage-node-delete-button";
 import { getStorageDriverLabel } from "@/lib/i18n/domain-labels";
 import type { StorageNodeFieldValues } from "./storage-node-fields";
+import { Badge } from "@/components/ui-primitives";
 
 type StorageNodeItem = {
   webdavConfig?: StorageNodeFieldValues["webdavConfig"];
@@ -106,7 +107,7 @@ function StorageNodeCard({
 	}
 
 	return (
-		<article className="rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)]">
+		<article data-inset>
 			<div className="flex items-start justify-between gap-3">
 				<div>
 					<h3 className="text-lg font-medium text-[var(--text-primary)]">{node.name}</h3>
@@ -116,9 +117,9 @@ function StorageNodeCard({
 						<StatusBadge tone="neutral" className="!rounded-lg px-3 py-1 !text-sm">
 							{sourceLabel}
 						</StatusBadge>
-						<span data-tone="emerald" className="rounded-lg border border-[var(--success-border)] px-3 py-1 text-xs text-[var(--success)]">
+						<Badge tone="success">
 							{node.isDefault ? t("storagePage.list.defaultNode") : getStorageDriverLabel(t, node.driver)}
-					</span>
+					</Badge>
 					{canManageNodes ? (
 						<>
 							<button
@@ -145,7 +146,7 @@ function StorageNodeCard({
 					node.directAccess.description
 				)}
 			</p>
-			<div className="mt-4 rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4 text-sm text-[var(--text-secondary)]">
+			<div data-inset className="mt-4 p-4 text-sm text-[var(--text-secondary)]">
 				<div className="flex flex-wrap items-center justify-between gap-3">
 					<div className="flex flex-wrap items-center gap-2">
 						<StatusBadge tone={health.tone} size="sm">{health.label}</StatusBadge> <span>{t("storagePage.list.lastChecked")}{t("common.colon")}{formatHealthTime(node.lastHealthCheckAt, locale)}</span> {node.lastHealthLatencyMs != null ? <span>{t("storagePage.list.latencyMs", { latency: node.lastHealthLatencyMs })}</span> : null} </div> {canManageNodes ? ( <button type="button" onClick={handleHealthCheck} disabled={isPending} className="rounded-lg border border-[var(--info-border)] bg-[var(--info-bg)] px-3 py-1 text-xs font-medium text-[var(--accent)] transition hover:bg-[var(--info-bg)] disabled:cursor-not-allowed disabled:opacity-60" > {isPending ? t("storagePage.list.checking") : t("storagePage.list.checkNow")} </button> ) : null} </div> {node.lastHealthError ? <p className="mt-2 text-xs text-[var(--warning)]">{node.lastHealthError}</p> : null} {message ? <p className={`mt-2 text-xs ${message.ok ?"text-[var(--success)]" :"text-[var(--danger)]"}`}>{message.text}</p> : null}

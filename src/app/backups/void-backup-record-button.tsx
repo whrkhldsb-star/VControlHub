@@ -59,21 +59,21 @@ export function VoidBackupRecordButton({ backupId, status }: Props) {
         </p>
       ) : null}
       <div className="flex flex-wrap gap-2">
-        <ActionButton variant="outline"
+        <ActionButton size="sm" variant={confirming ? "warning" : "secondary"}
           disabled={disabled}
           onClick={handleVoid}
           aria-describedby={confirming ? `void-backup-${backupId}-warning` : undefined}
 
-          className="!w-fit !px-3 !py-1.5 !text-sm !font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+          className="!w-fit"
         >
           {pending ? t("backupsPage.void.pending") : confirming ? t("backupsPage.void.confirmSubmit") : t("backupsPage.void.submit")}
         </ActionButton>
         {confirming ? (
-          <ActionButton variant="secondary"
+          <ActionButton size="sm" variant="secondary"
             disabled={pending}
             onClick={() => setConfirming(false)}
 
-            className="!w-fit !px-3 !py-1.5 !text-sm !font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+            className="!w-fit"
           >
             {t("common.cancel")}
           </ActionButton>

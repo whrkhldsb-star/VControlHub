@@ -15,6 +15,7 @@ import { getServerLocale, t } from "@/lib/i18n/translations";
 import { toDateLocale } from "@/lib/i18n/locale-format";
 import { getDomainStatusLabel } from "@/lib/i18n/domain-labels";
 import { getServerTargetAvailability } from "@/lib/server/availability";
+import { Disclosure } from "@/components/ui/disclosure";
 
 export const dynamic = "force-dynamic";
 
@@ -92,9 +93,8 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 		<PageShell>
 			<PageHeader eyebrow={tr("deploymentsPage.page.eyebrow")} title={tr("deploymentsPage.page.title")} description={tr("deploymentsPage.page.description")} />
 
-			<details className="mb-5 border-y border-[var(--border)] py-4">
-				<summary className="cursor-pointer text-sm font-semibold text-[var(--text-primary)]">{tr("deploymentsPage.page.howItWorks.title")}</summary>
-				<div className="mt-3 grid gap-2 text-xs text-[var(--text-secondary)] md:grid-cols-5">
+			<Disclosure className="mb-5" title={tr("deploymentsPage.page.howItWorks.title")}>
+				<div className="grid gap-2 text-xs text-[var(--text-secondary)] md:grid-cols-5">
 					<div className="border-l-2 border-[var(--border)] px-3 py-2">
 						<div className="mb-2 text-xs font-semibold tabular-nums text-[var(--text-muted)]" aria-hidden>01</div>
 						<div className="font-medium text-[var(--text-primary)]">{tr("deploymentsPage.page.howItWorks.step1.title")}</div>
@@ -122,7 +122,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 					</div>
 				</div>
 				<p className="mt-3 text-xs text-[var(--text-muted)]">{tr("deploymentsPage.page.howItWorks.auditNote")}</p>
-			</details>
+			</Disclosure>
 			{formError && (
 				<Notice tone="danger" className="mb-6">{tr("deploymentsPage.page.submitFailed")}{formError}</Notice>
 			)}
@@ -159,16 +159,15 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 				</div>
 			)}
 			{canExport && (
-				<details className="mb-5 border-y border-[var(--border)] py-4">
-					<summary className="cursor-pointer text-sm font-semibold text-[var(--text-primary)]">{tr("deploymentsPage.page.exportSection")}</summary>
-					<div className="mt-4"><DeploymentExportPanel /></div>
-				</details>
+				<Disclosure className="mb-5" title={tr("deploymentsPage.page.exportSection")}>
+					<DeploymentExportPanel />
+				</Disclosure>
 			)}
 			{canRun && latestRun && (
-				<section className="mb-5 rounded-2xl border border-[var(--success-border)] bg-[color-mix(in_srgb,var(--success-bg)_40%,var(--surface))] p-5 shadow-[var(--shadow-sm)]">
+				<section data-card className="mb-5 p-5">
 					<div className="flex flex-wrap items-start justify-between gap-3">
 						<div>
-							<p className="text-xs font-semibold uppercase text-[var(--success)]">{tr("deploymentsPage.page.latestDeploy.eyebrow")}</p>
+							<p className="text-xs font-medium text-[var(--text-muted)]">{tr("deploymentsPage.page.latestDeploy.eyebrow")}</p>
 							<h2 className="mt-1 text-sm font-semibold text-[var(--text-primary)]">{tr("deploymentsPage.page.latestDeploy.heading")}{latestRun.template.name}</h2>
 							<p className="mt-1 text-xs text-[var(--text-secondary)]">{trTpl("deploymentsPage.page.latestDeploy.meta", { count: String(latestRun.serverIds.length), date: latestRun.createdAt.toLocaleString(dateLocale), snapshot: latestRun.snapshotId || tr("deploymentsPage.page.latestDeploy.snapshotPending") })}</p>
 						</div>
@@ -209,10 +208,10 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 								<StatusBadge tone={deploymentStatusTone(r.status)}>{getDomainStatusLabel(tr, r.status)}</StatusBadge>
 							</div>
 							<p className="mt-2 text-xs text-[var(--text-secondary)]">{deploymentNextStep(r.status, tr)}</p>
-							<code className="mt-3 block overflow-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-3 font-mono text-xs text-[var(--text-secondary)]">{r.renderedCommand}</code>
-							{r.snapshot?.rollbackCommand && <code data-tone="emerald" className="mt-2 block overflow-auto rounded-lg border border-[var(--success-border)] p-3 font-mono text-xs text-[var(--success)] light:border-[var(--success-border)]">{tr("deploymentsPage.page.runsSection.rollback")}{r.snapshot.rollbackCommand}</code>}
+							<code className="ui-mono mt-3 block overflow-auto rounded-md bg-[var(--surface-elevated)] p-3 text-xs text-[var(--text-secondary)]">{r.renderedCommand}</code>
+							{r.snapshot?.rollbackCommand && <code className="ui-mono mt-2 block overflow-auto rounded-md bg-[var(--surface-elevated)] p-3 text-xs text-[var(--text-secondary)]">{tr("deploymentsPage.page.runsSection.rollback")}{r.snapshot.rollbackCommand}</code>}
 							{r.rollbackAttempts?.length > 0 && (
-								<div data-tone="emerald" className="mt-2 rounded-lg border border-[var(--success-border)] px-3 py-2 text-xs text-[var(--success)]">
+								<div className="mt-2 text-xs text-[var(--text-muted)]">
 									{trTpl("deploymentsPage.page.runsSection.rollbackMeta", { status: getDomainStatusLabel(tr, r.rollbackAttempts[0]!.status), request: r.rollbackAttempts[0]!.commandRequestId || tr("deploymentsPage.page.runsSection.requestPending"), date: r.rollbackAttempts[0]!.createdAt.toLocaleString(dateLocale) })}
 								</div>
 							)}

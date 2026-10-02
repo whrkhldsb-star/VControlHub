@@ -212,10 +212,10 @@ export function StorageUploadProvider({
         {children}
       </OpenQueueContext.Provider>
       <ModalShell
+        size="xl"
         open={open}
         onClose={() => setOpen(false)}
         label={t("storageUpload.title")}
-        panelClassName="max-h-[85dvh] w-full max-w-xl overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--modal-bg)] p-4"
       >
         <div className="mb-3 flex items-center justify-between gap-3">
           <h2 className="font-semibold">{t("storageUpload.title")}</h2>

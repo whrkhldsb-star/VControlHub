@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useAbortableTextResource } from "@/lib/http/use-abortable-text-resource";
 import { AlertTriangle } from "@/components/icons";
-import { InlineLoading } from "@/components/ui-primitives";
+import { Badge, InlineLoading } from "@/components/ui-primitives";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { escapeHtml } from "@/lib/sanitize/escape-html";
 
@@ -328,12 +328,9 @@ export function MarkdownPreviewClient({ href }: { href: string }) {
     <div className="overflow-auto rounded-2xl bg-[var(--surface)] p-4">
       {/* Label */}
       <div className="mb-3 flex items-center gap-2">
-        <span
-          data-tone="cyan"
-          className="rounded-lg border border-[var(--color-action-border)]/30 px-3 py-1 text-xs text-[var(--color-action)]"
-        >
+        <Badge tone="accent">
           {t("markdownPreview.title")}
-        </span>
+        </Badge>
       </div>
 
       {/* Rendered markdown */}

@@ -19,7 +19,7 @@ export function WindowsSftpFields({
 }) {
   const { t } = useI18n();
   const [enabled, setEnabled] = useState(configured);
-  return <section className="rounded-xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4 space-y-3">
+  return <section data-inset className="p-4 space-y-3">
     <label className="flex items-center gap-2 text-sm font-medium text-[var(--text-primary)]">
       <input name="windowsSftpEnabled" type="checkbox" checked={enabled} onChange={(event) => setEnabled(event.currentTarget.checked)} className="h-4 w-4 accent-[var(--accent)]" />
       {t("serversPage.windows.sftpTitle")}

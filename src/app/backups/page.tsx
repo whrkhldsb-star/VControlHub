@@ -20,6 +20,8 @@ import { formatDateTime } from "@/lib/datetime/format";
 import { getBackupTypeLabel, getDomainStatusLabel } from "@/lib/i18n/domain-labels";
 import { PaginatedList } from "@/components/paginated-list";
 import { createLogger } from "@/lib/logging";
+import { Disclosure } from "@/components/ui/disclosure";
+import { ButtonLink } from "@/components/action-button";
 
 export const dynamic = "force-dynamic";
 
@@ -71,7 +73,7 @@ export default async function BackupsPage() {
 				>
 					<div className="grid gap-3 md:grid-cols-3">
 						{(["DATABASE", "FILES", "FULL"] as const).map((type) => (
-							<div key={type} className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-3">
+							<div key={type} data-inset className="p-3">
 								<p className="text-xs font-semibold text-[var(--text-secondary)]">{getBackupTypeLabel(t, type)}</p>
 								<p className="mt-1 text-sm text-[var(--text-primary)]">{t("backupsPage.overview.typeSummary", { count: summary.byType[type].count, size: formatBackupSize(summary.byType[type].sizeBytes) })}</p>
 							</div>
@@ -87,17 +89,17 @@ export default async function BackupsPage() {
 				actions={<span className="text-xs text-[var(--text-muted)]">{t("backupsPage.failures.count", { count: summary.failedRecords })}</span>}
 			>
 				{summary.failureSummary.length === 0 ? (
-					<p data-tone="emerald" className="mt-4 rounded-lg border border-[var(--success-border)] px-3 py-2 text-xs text-[var(--success)]">{t("backupsPage.failures.empty")}</p>
+					<Notice tone="success" compact>{t("backupsPage.failures.empty")}</Notice>
 				) : (
-					<div className="mt-4 grid gap-3 md:grid-cols-2">
+					<div className="grid gap-3 md:grid-cols-2">
 						{summary.failureSummary.map((item) => (
-							<div key={item.category} className="rounded-xl border border-[var(--danger-border)] bg-[color-mix(in_srgb,var(--danger-bg)_40%,var(--surface))] p-3">
+							<div key={item.category} data-inset className="p-3">
 								<div className="flex items-center justify-between gap-3">
 									<p className="text-xs font-semibold text-[var(--danger)]">{item.label}</p>
 									<StatusBadge tone="danger">{t("backupsPage.failures.itemCount", { count: item.count })}</StatusBadge>
 								</div>
 								{item.latestRecordPath && <p className="mt-2 text-xs text-[var(--text-muted)]">{t("backupsPage.failures.latestRecord", { path: item.latestRecordPath })}</p>}
-								<p className="mt-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface)] px-2 py-1.5 text-xs text-[var(--text-secondary)]">{t("backupsPage.failures.remediation", { remediation: item.remediation })}</p>
+								<p className="mt-2 text-xs leading-5 text-[var(--text-secondary)]">{t("backupsPage.failures.remediation", { remediation: item.remediation })}</p>
 								{item.latestMessage && <p className="mt-1 line-clamp-2 text-xs text-[var(--text-muted)]">{item.latestMessage}</p>}
 							</div>
 						))}
@@ -107,21 +109,13 @@ export default async function BackupsPage() {
 			</div>
 
 			{canCreate && (
-				<details className="mb-5 border-y border-[var(--border)] py-4">
-					<summary className="cursor-pointer text-sm font-semibold text-[var(--text-primary)]">{t("backupsPage.section.retention")}</summary>
-					<div className="mt-4">
-					<SurfacePanel title={t("backupsPage.retention.title")} description={t("backupsPage.retention.description")}>
+				<Disclosure className="mb-5" title={t("backupsPage.section.retention")} description={t("backupsPage.retention.description")}>
 						<RetentionButton olderThan30Days={summary.recordsOlderThan30Days} totalRecords={summary.totalRecords} />
-					</SurfacePanel>
-					</div>
-				</details>
+				</Disclosure>
 			)}
 
 			{canCreate && (
-				<details className="mb-5 border-y border-[var(--border)] py-4">
-					<summary className="cursor-pointer text-sm font-semibold text-[var(--text-primary)]">{t("backupsPage.section.migration")}</summary>
-					<div className="mt-4">
-					<SurfacePanel title={t("backupsPage.migration.title")} description={t("backupsPage.migration.description")}>
+				<Disclosure className="mb-5" title={t("backupsPage.section.migration")} description={t("backupsPage.migration.description")}>
 						<MigrationWizardPanel
 							canCreate={canCreate}
 							completedBackups={backups
@@ -133,31 +127,18 @@ export default async function BackupsPage() {
 									label: `${getBackupTypeLabel(t, b.type)} · ${b.filePath} · ${b.id.slice(0, 8)}`,
 								}))}
 						/>
-					</SurfacePanel>
-					</div>
-				</details>
+				</Disclosure>
 			)}
 
 			{canCreate && (
-				<details className="mb-5 border-y border-[var(--border)] py-4">
-					<summary className="cursor-pointer text-sm font-semibold text-[var(--text-primary)]">{t("backupsPage.section.offsite")}</summary>
-					<div className="mt-4">
-					<SurfacePanel
-						title={t("backupsPage.offsite.title")}
-						description={t("backupsPage.offsite.description")}
-						actions={
-							<a
-								href="/settings#offsite"
-								className="rounded-lg border border-[var(--border)] px-2 py-1 text-xs text-[var(--text-muted)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--text-secondary)]"
-							>
-								{t("backupsPage.offsite.openSettings")}
-							</a>
-						}
-					>
+				<Disclosure className="mb-5" title={t("backupsPage.section.offsite")} description={t("backupsPage.offsite.description")}>
+					<div className="mb-3 flex justify-end">
+						<ButtonLink href="/settings#offsite" size="sm" variant="secondary">{t("backupsPage.offsite.openSettings")}</ButtonLink>
+					</div>
 						{offsiteState.failed ? (
 							<Notice tone="danger" compact>{t("backupsPage.offsite.loadFailed")}</Notice>
 						) : offsite ? (
-						<div className="mt-4 grid gap-3 text-xs text-[var(--text-secondary)] md:grid-cols-2">
+						<div className="grid gap-3 text-xs text-[var(--text-secondary)] md:grid-cols-2">
 							<p>
 								<Badge tone={offsite.enabled ? "emerald" : "neutral"} className="mr-2">
 									{offsite.enabled ? t("backupsPage.offsite.status.enabled") : t("backupsPage.offsite.status.disabled")}
@@ -170,25 +151,18 @@ export default async function BackupsPage() {
 							<p>{t("backupsPage.offsite.retention", { days: offsite.retentionDays })}</p>
 						</div>
 					) : (
-						<p className="mt-4 text-xs text-[var(--text-muted)]">{t("backupsPage.offsite.dryRunNever")}</p>
+						<p className="text-xs text-[var(--text-muted)]">{t("backupsPage.offsite.dryRunNever")}</p>
 					)}
-					<div className="mt-2">
+					<div className="mt-3">
 						<OffsiteDryRunButton />
 					</div>
-					</SurfacePanel>
-					</div>
-				</details>
+				</Disclosure>
 			)}
 
 			{canCreate && (
-				<details className="mb-5 border-y border-[var(--border)] py-4">
-					<summary className="cursor-pointer text-sm font-semibold text-[var(--text-primary)]">{t("backupsPage.section.schedule")}</summary>
-					<div className="mt-4">
-					<SurfacePanel title={t("backupsPage.schedule.title")} description={t("backupsPage.schedule.description")}>
+				<Disclosure className="mb-5" title={t("backupsPage.section.schedule")} description={t("backupsPage.schedule.description")}>
 						<ScheduleBackupForm />
-					</SurfacePanel>
-					</div>
-				</details>
+				</Disclosure>
 			)}
 
 			<ListPanel
@@ -204,7 +178,7 @@ export default async function BackupsPage() {
 									<h3 className="text-sm font-medium text-[var(--text-primary)]">{t("backupsPage.records.typeStatus", { type: getBackupTypeLabel(t, b.type), status: getDomainStatusLabel(t, b.status) })}</h3>
 									<p className="mt-1 text-xs text-[var(--text-muted)]">{t("backupsPage.records.pathTime", { path: b.filePath, time: formatDateTime(b.createdAt, locale) })}</p>
 								</div>
-								<span className="rounded-lg border border-[var(--border)] px-2 py-1 text-xs text-[var(--text-muted)]">{b.creator?.displayName || b.creator?.username || t("backupsPage.records.creatorSystem")}</span>
+								<Badge>{b.creator?.displayName || b.creator?.username || t("backupsPage.records.creatorSystem")}</Badge>
 							</div>
 							<div className="mt-2 flex flex-wrap gap-3 text-xs text-[var(--text-muted)]">
 								<span>{t("backupsPage.records.size", { size: formatBackupSize(b.fileSize) })}</span>
@@ -212,30 +186,29 @@ export default async function BackupsPage() {
 								{b.errorMessage && <span className="text-[var(--danger)]">{t("backupsPage.records.error", { message: b.errorMessage })}</span>}
 							</div>
 							{b.note && <p className="mt-2 text-xs text-[var(--text-muted)]">{b.note}</p>}
-							{canRestore && (
-								<div className="mt-3 grid gap-2">
-						<details className="rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-3 py-2">
-							<summary className="cursor-pointer text-xs font-medium text-[var(--text-secondary)]">{t("backupsPage.records.showCommands")}</summary>
-							<div className="mt-2 grid gap-2">
-								<code className="block overflow-auto rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-3 font-mono text-xs text-[var(--text-secondary)]">{buildPortableBackupCommand({ projectRoot, outputPath: b.filePath, type: isBackupType(b.type) ? b.type : undefined })}</code>
-								<code className="block overflow-auto rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-3 font-mono text-xs text-[var(--text-secondary)]">{buildBackupRestoreCommand({ projectRoot, backupPath: b.filePath, type: isBackupType(b.type) ? b.type : undefined })}</code>
-							</div>
-						</details>
-									<RestoreBackupButton backupId={b.id} backupType={b.type} disabled={b.status !== "COMPLETED"} />
-									<BackupDrillButton backupId={b.id} disabled={b.status !== "COMPLETED"} />
-									{b.status !== "COMPLETED" && <p className="text-xs text-[var(--text-muted)]">{t("backupsPage.records.restoreHint")}</p>}
+							{canRestore || canCreate ? (
+								<div className="mt-3 flex flex-wrap items-start gap-2">
+									{canRestore ? <RestoreBackupButton backupId={b.id} backupType={b.type} disabled={b.status !== "COMPLETED"} /> : null}
+									{canRestore ? <BackupDrillButton backupId={b.id} disabled={b.status !== "COMPLETED"} /> : null}
+									{canCreate && b.status === "FAILED" ? <RetryBackupRecordButton backupId={b.id} status={b.status} /> : null}
+									{canCreate && b.status !== "COMPLETED" ? <VoidBackupRecordButton backupId={b.id} status={b.status} /> : null}
 								</div>
-							)}
-							{canCreate && b.status !== "COMPLETED" && (
-								<div className="mt-3 flex flex-wrap items-start gap-3">
-									{b.status === "FAILED" && <RetryBackupRecordButton backupId={b.id} status={b.status} />}
-									{b.status === "VOIDED" && (
-										<p className="mt-1 text-xs text-[var(--text-muted)]">{t("backupsPage.records.voidedLabel")}</p>
-									)}
-									<VoidBackupRecordButton backupId={b.id} status={b.status} />
-									<p className="mt-1 text-xs text-[var(--text-muted)]">{t("backupsPage.records.voidHint")}</p>
-								</div>
-							)}
+							) : null}
+							{b.status !== "COMPLETED" && (canRestore || canCreate) ? (
+								<p className="mt-2 flex flex-wrap gap-x-2 text-xs text-[var(--text-muted)]">
+									{b.status === "VOIDED" ? <span>{t("backupsPage.records.voidedLabel")}</span> : null}
+									{canRestore ? <span>{t("backupsPage.records.restoreHint")}</span> : null}
+									{canCreate ? <span>{t("backupsPage.records.voidHint")}</span> : null}
+								</p>
+							) : null}
+							{canRestore ? (
+								<Disclosure variant="inset" className="mt-3" title={t("backupsPage.records.showCommands")}>
+									<div className="grid gap-2">
+										<code className="ui-mono block overflow-auto rounded-md bg-[var(--surface-elevated)] p-3 text-xs text-[var(--text-secondary)]">{buildPortableBackupCommand({ projectRoot, outputPath: b.filePath, type: isBackupType(b.type) ? b.type : undefined })}</code>
+										<code className="ui-mono block overflow-auto rounded-md bg-[var(--surface-elevated)] p-3 text-xs text-[var(--text-secondary)]">{buildBackupRestoreCommand({ projectRoot, backupPath: b.filePath, type: isBackupType(b.type) ? b.type : undefined })}</code>
+									</div>
+								</Disclosure>
+							) : null}
 						</ListRow>
 					))}
 					</PaginatedList>

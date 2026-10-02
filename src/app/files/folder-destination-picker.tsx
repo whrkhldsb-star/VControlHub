@@ -22,8 +22,7 @@ export function FolderDestinationPicker({ nodeId, disabled, onSelect }: {
     <ActionButton type="button" variant="secondary" disabled={disabled} onClick={() => setOpen(true)}>
       <Folder size={16} aria-hidden />{t("filesPage.move.chooseFolder")}
     </ActionButton>
-    <ModalShell open={open} onClose={() => setOpen(false)} label={t("filesPage.move.chooseFolder")}
-      panelClassName="w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--modal-bg)] p-4 shadow-xl">
+    <ModalShell size="lg" open={open} onClose={() => setOpen(false)} label={t("filesPage.move.chooseFolder")}>
       {open ? <FolderDestinationBrowser key={nodeId} nodeId={nodeId} onClose={() => setOpen(false)} onSelect={(path) => {
         onSelect(path);
         setOpen(false);

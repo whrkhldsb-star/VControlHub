@@ -18,6 +18,7 @@ import { StatusBadge } from "@/components/status-badge";
 
 import { buildQuickServiceAccessDescriptor } from "@/lib/quick-service/access-url";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { Badge } from "@/components/ui-primitives";
 
 const statusLabelKeys: Record<string, string> = {
 	available: "qsPage.statusAvailable",
@@ -94,9 +95,9 @@ export function ServiceCard({
 				</div>
 				<div className="flex items-center gap-1.5">
 					{isRemote && (
-						<span className="rounded-lg border border-[var(--accent-border)] bg-[var(--accent-bg)] px-1.5 py-0.5 text-xs text-[var(--accent)]">
+						<Badge tone="accent">
 							{item.source}
-						</span>
+						</Badge>
 					)}
 					<StatusBadge tone={item.status === "running" ? "success" : item.status === "error" ? "danger" : item.status === "installing" ? "warning" : "neutral"} size="sm">
 						{(statusLabelKeys[item.status] && t(statusLabelKeys[item.status] as string)) || item.status}
@@ -123,7 +124,7 @@ export function ServiceCard({
 			{/* Actions */}
 			<div className="mt-auto flex min-h-9 flex-wrap items-center gap-2 pt-1">
 				{tab !== "installed" && item.status === "available" && (
-					<ActionButton type="button" onClick={onInstall} disabled={busy} className="px-3.5 py-1.5 text-xs">
+					<ActionButton size="sm" variant="outline" onClick={onInstall} disabled={busy}>
 						{busy ? t("qsPage.installingLabel") : t("qsPage.installNow")}
 					</ActionButton>
 				)}
@@ -136,20 +137,18 @@ export function ServiceCard({
 								rel="noreferrer"
 								aria-label={t("qsPage.accessAria", { name: item.name, label: access.label })}
 								title={access.description}
-								data-action-button
-								data-variant="success-solid"
-								className="!px-3 !py-1.5 !text-sm"
-							>
+								data-action-button data-size="sm"
+								data-variant="success-solid">
 								{t("qsPage.access")}
 							</a>
 						)}
 						{item.status === "running" && (
-							<ActionButton type="button" variant="secondary" onClick={onStop} disabled={busy} className="!px-3 !py-1.5 !text-sm disabled:opacity-50">
+							<ActionButton size="sm" type="button" variant="secondary" onClick={onStop} disabled={busy}>
 								{busy ? t("qsPage.busy") : t("qsPage.stop")}
 							</ActionButton>
 						)}
 						{item.status === "stopped" && (
-							<ActionButton type="button" variant="success-solid" onClick={onStart} disabled={busy} className="!px-3 !py-1.5 !text-sm disabled:opacity-50">
+							<ActionButton size="sm" variant="success" onClick={onStart} disabled={busy}>
 								{busy ? t("qsPage.busy") : t("qsPage.start")}
 							</ActionButton>
 						)}
@@ -157,16 +156,16 @@ export function ServiceCard({
 							<span className="text-xs text-[var(--warning)] animate-pulse">{t("qsPage.pullingImage")}</span>
 						)}
 						{item.status === "error" && (
-							<ActionButton type="button" variant="secondary" onClick={onSync} disabled={busy} className="!px-3 !py-1.5 !text-sm disabled:opacity-50">
+							<ActionButton size="sm" type="button" variant="secondary" onClick={onSync} disabled={busy}>
 								{t("qsPage.refreshStatus")}
 							</ActionButton>
 						)}
 						{(item.status === "running" || item.status === "stopped" || item.status === "error") && (
-							<ActionButton type="button" variant="outline" onClick={onUpdate} disabled={busy} className="!px-3 !py-1.5 !text-sm disabled:opacity-50">
+							<ActionButton size="sm" type="button" variant="outline" onClick={onUpdate} disabled={busy}>
 								{busy ? t("qsPage.busy") : t("qsPage.update")}
 							</ActionButton>
 						)}
-						<ActionButton type="button" variant="danger" onClick={onUninstall} disabled={busy} className="ml-auto !px-3 !py-1.5 !text-sm disabled:opacity-50">
+						<ActionButton size="sm" type="button" variant="danger" onClick={onUninstall} disabled={busy} className="ml-auto">
 							{t("qsPage.uninstall")}
 						</ActionButton>
 					</>

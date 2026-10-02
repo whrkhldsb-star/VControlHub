@@ -61,13 +61,11 @@ export function FileDetailPanel({
   const { t, locale } = useI18n();
   return (
     <ModalShell
+      size="xl" placement="drawer" padded={false} className="flex flex-col overflow-hidden"
       open
       onClose={onClose}
       labelledBy="file-detail-panel-title"
-      overlayClassName="fixed inset-0 z-50 flex justify-end bg-[var(--overlay)] p-3 backdrop-blur-sm"
-      panelClassName="flex h-full w-full max-w-xl flex-col overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--modal-bg)] text-[var(--text-primary)] shadow-2xl"
       as="aside"
-      panelProps={{ "data-motion": "drawer" }}
     >
         <div className="flex items-start justify-between gap-4 border-b border-[var(--border)] px-5 py-4">
           <div className="min-w-0">
@@ -84,13 +82,13 @@ export function FileDetailPanel({
               {detailEntry.relativePath}
             </p>
           </div>
-          <ActionButton variant="secondary"
-            onClick={onClose} className="!px-3 !py-1.5 !text-sm">
+          <ActionButton size="sm" variant="secondary"
+            onClick={onClose}>
             {t("fileDetailPanel.close")}
           </ActionButton>
         </div>
         <div className="flex-1 space-y-5 overflow-y-auto px-5 py-5">
-          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-elevated)] p-4">
+          <div data-tile className="p-4">
             <div className="grid gap-3 text-sm sm:grid-cols-2">
               <div>
                 <p className="text-xs text-[var(--text-muted)]">{t("fileDetailPanel.storageNode")}</p>
@@ -156,9 +154,7 @@ export function FileDetailPanel({
                 </Link>
               ) : null}
               {canShare && entryCanRead(detailEntry) ? (
-                <div data-tone="amber" className="rounded-2xl border border-[var(--warning-border)] p-2">
-                  <ShareFileButton entry={detailEntry} />
-                </div>
+                <ShareFileButton entry={detailEntry} />
               ) : null}
             </div>
           </div>

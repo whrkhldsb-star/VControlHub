@@ -242,7 +242,7 @@ export function AiSettingsPanel({
             <legend className="text-xs font-medium text-[var(--text-secondary)]">
               {t("aiPage.automationMode")}
             </legend>
-            <div className="grid min-h-10 grid-cols-2 rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-1">
+            <div data-inset className="grid min-h-10 grid-cols-2 p-1">
               {(["ASSISTED", "PLAN_ONLY"] as const).map((mode) => (
                 <button
                   key={mode}
@@ -268,11 +268,8 @@ export function AiSettingsPanel({
 
         {/* Save button */}
         <div className="flex items-end gap-2">
-          <ActionButton type="button" variant="ghost"
-            onClick={onSaveSettings}
-
-            className="h-7 px-3 text-xs"
-          >
+          <ActionButton size="sm" type="button" variant="ghost"
+            onClick={onSaveSettings}>
             {t("aiPage.saveSettings")}
           </ActionButton>
         </div>

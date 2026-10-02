@@ -12,7 +12,7 @@
 import { useEffect, useId, useRef } from "react";
 
 import { useI18n } from "@/lib/i18n/use-locale";
-import { CONTROL_CLASS, Switch } from "@/components/ui-primitives";
+import { CONTROL_CLASS, Notice, Switch } from "@/components/ui-primitives";
 import type { RuntimeSettingSummaryDto as RuntimeSettingSummary } from "@/lib/runtime-settings/dto";
 import type { FieldDef } from "./field-schema";
 import {
@@ -111,7 +111,7 @@ function RuntimeSummaryPanel({
   return (
     <div
       id={id}
-      className="rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-2.5 py-2 text-xs leading-5 text-[var(--text-secondary)]"
+      data-inset className="px-2.5 py-2 text-xs leading-5 text-[var(--text-secondary)]"
     >
       <p>
         {t("settingsClient.runtimeValueLabel")}
@@ -141,17 +141,14 @@ function RuntimeSummaryPanel({
 function HighRiskBlurWarning({ id }: { id: string }) {
   const { t } = useI18n();
   return (
-    <p
+    <Notice tone="danger" compact
       id={id}
-      role="alert"
-      data-testid="high-risk-blur-warning"
-      className="rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] px-2.5 py-1.5 text-xs leading-5 text-[var(--danger)]"
-    >
+      data-testid="high-risk-blur-warning">
       <span aria-hidden className="mr-1">
         ⚠
       </span>
       {t("settingsClient.highRiskWarning")}
-    </p>
+    </Notice>
   );
 }
 

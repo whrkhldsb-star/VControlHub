@@ -100,9 +100,7 @@ export function CreateFolderForm({
       <ActionButton
         variant="outline"
         onClick={handleToggle}
-        disabled={disabled}
-        className="px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
-      >
+        disabled={disabled}>
         {t("common.newFolder")}
       </ActionButton>
     );
@@ -152,13 +150,11 @@ export function CreateFolderForm({
       ) : null}
       <ActionButton variant="primary"
         type="submit"
-        disabled={disabled || !folderName.trim() || isPending || refreshing}
-        className="disabled:opacity-50"
-      >
+        disabled={disabled || !folderName.trim() || isPending || refreshing}>
         {isPending || refreshing ? t("common.submitting") : t("common.create")}
       </ActionButton>
       <ActionButton variant="secondary"
-        onClick={handleCancel} className="!px-4 !py-2 !text-sm">
+        onClick={handleCancel}>
         {t("common.cancel")}
       </ActionButton>
       {state.error ? (

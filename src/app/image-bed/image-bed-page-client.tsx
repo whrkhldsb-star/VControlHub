@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import Link from "next/link";
-import { ActionButton } from "@/components/action-button";
+import { ActionButton, ButtonLink } from "@/components/action-button";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { isImeComposition } from "@/lib/ui/keyboard";
 import { cn } from "@/lib/ui/cn";
@@ -95,7 +94,7 @@ export default function ImageBedPage({ canWrite, canDelete, canListAll = false }
 	return (
 		<PageShell>
 			<PageHeader eyebrow={t("imageBedPage.hero.eyebrow")} title={t("imageBedPage.hero.title")}>
-				<Link href="/media?type=image" data-action-button data-variant="secondary"><ImageIcon size={16} aria-hidden />{t("imageBedPage.hero.openMedia")}</Link>
+				<ButtonLink variant="secondary" href="/media?type=image"><ImageIcon size={16} aria-hidden />{t("imageBedPage.hero.openMedia")}</ButtonLink>
 				{canWrite && <ActionButton type="button" onClick={openPublishModal}><HardDrive size={16} aria-hidden />{t("imageBedPage.hero.publishFromStorage")}</ActionButton>}
 				{canWrite && <ActionButton type="button" variant="secondary" aria-expanded={showLegacyUpload} aria-controls="image-bed-upload" onClick={() => setShowLegacyUpload((value) => !value)}><Plus size={16} aria-hidden />{t("imageBedPage.legacy.title")}</ActionButton>}
 			</PageHeader>
@@ -111,7 +110,7 @@ export default function ImageBedPage({ canWrite, canDelete, canListAll = false }
 						<div>
 							<h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("imageBedPage.manage.title")}</h2>
 						</div>
-						<ActionButton variant="outline" onClick={fetchStats} className="!px-3 !py-1.5 !text-sm"><LayoutDashboard size={16} aria-hidden />{t("imageBedPage.manage.stats")}</ActionButton>
+						<ActionButton size="sm" variant="outline" onClick={fetchStats}><LayoutDashboard size={16} aria-hidden />{t("imageBedPage.manage.stats")}</ActionButton>
 					</div>
 					<div className="mt-3 flex flex-wrap gap-2 text-xs">
 						{canListAll && <ToggleChip active={showAll} onClick={() => { setShowAll(!showAll); }} ariaLabel={t("imageBedPage.toggle.toggleScope")}>
@@ -140,17 +139,17 @@ export default function ImageBedPage({ canWrite, canDelete, canListAll = false }
 					className="sticky bottom-16 z-30 -mx-4 mt-3 flex flex-wrap items-center gap-2 border-y border-[var(--border)] bg-[var(--modal-bg)] p-3 backdrop-blur-sm md:static md:bottom-auto md:z-auto md:mx-0 md:gap-3 md:rounded-xl md:border md:bg-[var(--surface)] md:p-3 md:backdrop-blur-0"
 					>
 					<span className="text-xs text-[var(--text-muted)]">{t("imageBedPage.batch.selected", { count: selectedIds.size })}</span>
-					<ActionButton type="button" variant="secondary" onClick={selectAll} className="!min-h-11 !px-3 !text-sm">
+					<ActionButton type="button" variant="secondary" onClick={selectAll}>
 						{selectedIds.size === images.length ? t("imageBedPage.batch.deselectAll") : t("imageBedPage.batch.selectAll")}
 					</ActionButton>
 					{canDelete && (
-						<ActionButton type="button" variant="danger" onClick={requestBatchDelete} disabled={batchBusy || selectedIds.size === 0} className="!min-h-11 !px-3 !text-sm disabled:opacity-30"><Trash2 size={16} aria-hidden />{t("imageBedPage.batch.delete")}</ActionButton>
+						<ActionButton type="button" variant="danger" onClick={requestBatchDelete} disabled={batchBusy || selectedIds.size === 0}><Trash2 size={16} aria-hidden />{t("imageBedPage.batch.delete")}</ActionButton>
 					)}
 					<div className="flex items-center gap-1">
 						<input type="text" value={batchAlbum} aria-label={t("imageBedPage.batch.albumLabel")} onChange={(e) => setBatchAlbum(e.target.value)} placeholder={t("imageBedPage.batch.albumPlaceholder")} disabled={batchBusy} className={cn(UI_INPUT, "min-h-11 w-28 px-2 py-1 text-xs")} />
-						<ActionButton type="button" variant="ghost" onClick={() => runBatchAction("moveAlbum")} disabled={batchBusy || selectedIds.size === 0 || !batchAlbum} className="min-h-11 px-3 text-xs"><Folder size={16} aria-hidden />{t("imageBedPage.batch.move")}</ActionButton>
+						<ActionButton size="sm" type="button" variant="ghost" onClick={() => runBatchAction("moveAlbum")} disabled={batchBusy || selectedIds.size === 0 || !batchAlbum}><Folder size={16} aria-hidden />{t("imageBedPage.batch.move")}</ActionButton>
 					</div>
-					<ActionButton type="button" variant="success" onClick={() => runBatchAction("togglePublic")} disabled={batchBusy || selectedIds.size === 0} className="!min-h-11 !px-3 !text-sm disabled:opacity-30"><Share2 size={16} aria-hidden />{t("imageBedPage.batch.togglePublic")}</ActionButton>
+					<ActionButton type="button" variant="success" onClick={() => runBatchAction("togglePublic")} disabled={batchBusy || selectedIds.size === 0}><Share2 size={16} aria-hidden />{t("imageBedPage.batch.togglePublic")}</ActionButton>
 				</div>
 			)}
 
@@ -218,8 +217,8 @@ export default function ImageBedPage({ canWrite, canDelete, canListAll = false }
 						className={cn(UI_INPUT, "min-h-11 sm:w-72")}
 					/>
 				</label>
-				<ActionButton type="button" variant="ghost" onClick={() => void refreshImages(1)} className="min-h-11 px-4 text-sm"><Search size={16} aria-hidden />{t("imageBedPage.search.submit")}</ActionButton>
-				<ActionButton type="button" variant="ghost" onClick={() => { setSearch(""); void refreshImages(1, ""); }} className="!min-h-11 !px-4 !py-2 !text-sm"><RefreshCw size={16} aria-hidden />{t("imageBedPage.search.reset")}</ActionButton>
+				<ActionButton type="button" variant="ghost" onClick={() => void refreshImages(1)}><Search size={16} aria-hidden />{t("imageBedPage.search.submit")}</ActionButton>
+				<ActionButton type="button" variant="ghost" onClick={() => { setSearch(""); void refreshImages(1, ""); }}><RefreshCw size={16} aria-hidden />{t("imageBedPage.search.reset")}</ActionButton>
 			</div>
 
 			{/* Image Grid */}

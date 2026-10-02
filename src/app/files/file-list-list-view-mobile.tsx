@@ -76,9 +76,9 @@ export function FileListListViewMobile(props: FileListListViewMobileProps) {
                 )}
               </div>
             </div>
-            <ActionButton variant="secondary"
+            <ActionButton size="sm" variant="secondary"
               onClick={() => navigateToFolder(folder.path)}
-              data-tone="cyan" className="shrink-0 !inline-flex !items-center !gap-1.5 !px-3 !py-1.5 !text-sm"
+              data-tone="cyan" className="shrink-0 !inline-flex !items-center !gap-1.5"
             >
               {t("fileListClient.open")}
             </ActionButton>

@@ -123,7 +123,7 @@ describe("AppSidebar permission-gated render", () => {
 		renderWithGate(ADMIN_GATE, SAMPLE_DECLARED);
 
 		expect(screen.getAllByRole("button", { name: /总览与监控/ })[0]).toHaveAttribute("aria-expanded", "true");
-		expect(screen.getAllByRole("link", { name: /仪表盘/ })[0]).toHaveAttribute("aria-current", "page");
+		expect(screen.getAllByRole("link", { name: "仪表盘" })[0]).toHaveAttribute("aria-current", "page");
 	});
 
 	it("hides main nav items whose declared permissions the session lacks", async () => {

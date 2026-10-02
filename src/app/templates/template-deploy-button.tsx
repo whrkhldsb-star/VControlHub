@@ -28,7 +28,7 @@ export function DeployButton({
 
 	if (!open) {
 		return (
-			<ActionButton type="button" onClick={() => setOpen(true)} className="min-h-11 px-3 text-xs">
+			<ActionButton size="sm" type="button" onClick={() => setOpen(true)}>
 				{t("templatesPage.action.deploy")}
 			</ActionButton>
 		);
@@ -87,20 +87,16 @@ export function DeployButton({
 				))}
 			</div>
 			<div className="flex gap-2">
-				<ActionButton
+				<ActionButton size="sm"
 					type="button"
 					onClick={() => onDeploy(template, [...selectedIds], vars)}
-					disabled={loading || selectedIds.size === 0}
-					className="min-h-11 px-3 text-xs"
-				>
+					disabled={loading || selectedIds.size === 0}>
 					{loading ? t("templatesPage.action.submitting") : t("templatesPage.action.submit")}
 				</ActionButton>
-				<ActionButton
+				<ActionButton size="sm"
 					type="button"
 					variant="secondary"
-					onClick={() => setOpen(false)}
-					className="min-h-11 px-3 text-xs"
-				>
+					onClick={() => setOpen(false)}>
 					{t("templatesPage.action.cancel")}
 				</ActionButton>
 			</div>

@@ -259,7 +259,7 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
           placeholder={t("filesPage.syncJobs.targetPath")}
         />
       </div>
-      <ActionButton variant="secondary"
+      <ActionButton size="sm" variant="secondary"
         disabled={
           !sourceServerId ||
           !targetServerId ||
@@ -267,10 +267,7 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
           busyId === "create" ||
           servers.length === 0
         }
-        onClick={() => void createJob()}
-
-        className="!px-3 !py-1.5 !text-sm disabled:opacity-50"
-      >
+        onClick={() => void createJob()}>
         {busyId === "create" ? t("filesPage.syncJobs.creating") : t("filesPage.syncJobs.create")}
       </ActionButton>
       {sameEndpoint ? (
@@ -289,7 +286,7 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
           jobs.map((job) => (
             <div
               key={job.id}
-              className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs"
+              data-card className="p-0 px-3 py-2 text-xs"
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
@@ -312,22 +309,19 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
                       </option>
                     ))}
                   </select>
-                  <ActionButton variant="secondary" className="!rounded-md !px-2 !py-1 !text-sm disabled:opacity-50"
+                  <ActionButton size="sm" variant="secondary" 
                     disabled={busyId === `rep-${job.id}`}
-                    onClick={() => void openReport(job.id)}
-                  >
+                    onClick={() => void openReport(job.id)}>
                     {t("filesPage.syncJobs.report")}
                   </ActionButton>
-                  <ActionButton variant="secondary" className="!rounded-md !px-2 !py-1 !text-sm disabled:opacity-50"
+                  <ActionButton size="sm" variant="secondary" 
                     disabled={busyId === job.id || job.status === "RUNNING"}
-                    onClick={() => void runJob(job.id)}
-                  >
+                    onClick={() => void runJob(job.id)}>
                     {t("filesPage.syncJobs.run")}
                   </ActionButton>
-                  <ActionButton variant="secondary" className="!rounded-md !px-2 !py-1 !text-sm disabled:opacity-50"
+                  <ActionButton size="sm" variant="secondary" 
                     disabled={busyId === job.id}
-                    onClick={() => setPendingDelete({ id: job.id, label: job.name?.trim() || job.id })}
-                  >
+                    onClick={() => setPendingDelete({ id: job.id, label: job.name?.trim() || job.id })}>
                     {t("filesPage.syncJobs.delete")}
                   </ActionButton>
                 </div>

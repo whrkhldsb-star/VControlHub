@@ -98,8 +98,7 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
     <div>
       {!open ? (
         <ActionButton type="button" variant="primary"
-          onClick={() => setOpen(true)} className="px-4 py-2.5 text-sm"
-        >
+          onClick={() => setOpen(true)}>
           <Plus aria-hidden="true" className="h-4 w-4" />
           {t("sharesPage.create.title")}
         </ActionButton>
@@ -180,28 +179,27 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
           {error && <p className="mt-2 text-xs text-[var(--danger)]">{error}</p>}
 
           {result && (
-            <div data-tone="emerald" className="mt-3 rounded-lg border border-[var(--success-border)] p-3">
-              <p className="flex items-center gap-1.5 text-xs font-medium text-[var(--success)]">
-                <Check aria-hidden="true" className="h-4 w-4" />
-                {t("sharesPage.create.success")}
-              </p>
-              <div className="mt-2 flex items-center gap-2">
-                <code className="block flex-1 break-all text-xs text-[var(--success)]">{shareUrl || `/share/${result.token}`}</code>
-                <ActionButton variant="success"
+            <Notice tone="success" className="mt-3" title={t("sharesPage.create.success")}>
+              <div className="mt-1 flex items-center gap-2">
+                <code className="ui-mono block flex-1 break-all text-xs text-[var(--text-primary)]">{shareUrl || `/share/${result.token}`}</code>
+                <ActionButton
+                  size="sm"
+                  variant="secondary"
                   onClick={handleCopy}
-                  data-tone="emerald" className="shrink-0 !px-3 !py-1.5 !text-sm"
+                  icon={copied ? <Check aria-hidden="true" className="h-4 w-4" /> : undefined}
+                  className="shrink-0"
                 >
-                  {copied ? <Check aria-hidden="true" className="h-4 w-4" /> : null}
                   {copied ? t("sharesPage.create.copied") : t("sharesPage.create.copy")}
                 </ActionButton>
               </div>
               <p className="mt-1 text-xs text-[var(--text-muted)]">{t("sharesPage.create.tokenWarning")}</p>
-            </div>
+            </Notice>
           )}
 
-          <ActionButton type="button" variant="primary"
+          <ActionButton
+            variant="primary"
             onClick={handleCreate}
-            disabled={saving || !nodeId || !path.trim()} className="mt-4 px-4 py-2.5 text-sm"
+            disabled={saving || !nodeId || !path.trim()} className="mt-4"
           >
             {saving ? t("sharesPage.create.submitting") : t("sharesPage.create.submit")}
           </ActionButton>

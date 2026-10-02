@@ -43,10 +43,12 @@ function renderSidebar(props: React.ComponentProps<typeof AppSidebar>) {
 }
 
 describe("AppSidebar", () => {
-	it("exposes account security independently from administrator-only settings", () => {
+	it("exposes account security independently from administrator-only settings", async () => {
+		const user = userEvent.setup();
 		renderSidebar({ username: "admin" });
 
 		expect(screen.getAllByRole("link", { name: /^Settings$/ }).length).toBeGreaterThan(0);
+		await user.click(screen.getAllByRole("button", { name: "shell.user.menu" })[0]!);
 		expect(screen.getAllByRole("link", { name: "auth.account-security" })[0]).toHaveAttribute("href", "/account/security");
 		expect(screen.queryByRole("link", { name: /系统设置/ })).not.toBeInTheDocument();
 		expect(screen.queryByRole("link", { name: /偏好设置/ })).not.toBeInTheDocument();
@@ -85,21 +87,19 @@ describe("AppSidebar", () => {
 		renderSidebar({ username: "admin" });
 
 		expect(screen.getAllByRole("navigation")[0]).toHaveAttribute("data-i18n-skip");
-		expect(screen.getAllByRole("button", { name: "Switch to light mode" }).length).toBeGreaterThan(0);
-		expect(screen.getAllByRole("button", { name: "通知" }).length).toBeGreaterThan(0);
 	});
 
-	it("exposes a visible search control that opens global search without relying on hidden shortcuts", async () => {
-		const dispatchSpy = vi.spyOn(window, "dispatchEvent");
+	it("lets people pin pages to the top of the sidebar", async () => {
 		const user = userEvent.setup();
+		localStorage.removeItem("vch:nav-pins");
 		renderSidebar({ username: "admin" });
 
-		const searchButtons = screen.getAllByRole("button", { name: "search.dialog" });
-		expect(searchButtons[0]).toHaveAttribute("aria-keyshortcuts", "Control+K Meta+K");
-		await user.click(searchButtons[0]!);
+		const pinButtons = screen.getAllByRole("button", { name: "shell.nav.pin" });
+		await user.click(pinButtons[0]!);
 
-		expect(dispatchSpy).toHaveBeenCalledWith(expect.objectContaining({ type: "vcontrolhub:open-global-search" }));
-		dispatchSpy.mockRestore();
+		expect(screen.getAllByRole("button", { name: "shell.nav.unpin" }).length).toBeGreaterThan(0);
+		expect(JSON.parse(localStorage.getItem("vch:nav-pins") ?? "[]")).toHaveLength(1);
+		localStorage.removeItem("vch:nav-pins");
 	});
 
 	it("does not render without an authenticated username", () => {

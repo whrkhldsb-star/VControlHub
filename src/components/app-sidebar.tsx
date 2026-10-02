@@ -1,28 +1,24 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { SignOutButton } from "./sign-out-button";
-import { ChangePasswordModal } from "./change-password-modal";
-import { NotificationBell } from "./notification-bell";
-import { TeamSwitcher } from "./team-switcher";
-import { ThemeToggle } from "./theme-toggle";
-import { LanguageToggle } from "./language-toggle";
-import { getAppName, getPublicLabel } from "@/lib/branding";
+import { getAppName } from "@/lib/branding";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { type Permission } from "@/lib/auth/rbac";
 import { filterByHrefPermissions } from "@/lib/auth/filter-by-href-permissions";
 import { useGateRoute } from "@/lib/auth/use-gate-route";
 import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
-import { Shield, X } from "./icons";
+import { useNavGroupState, useNavPins, useSidebarCollapsed } from "@/lib/ui/shell-preferences";
+import { cn } from "@/lib/ui/cn";
+import { UserMenu } from "./user-menu";
+import { BrandTile, IconChevronRight, IconExternalLink, IconStar } from "./nav-icons";
+import { X } from "./icons";
 import { IconButton } from "./ui-primitives";
 import {
-	IconExternal,
-	IconKey,
 	mainNavGroups,
-	systemNavItems,
+	systemNavGroup,
 	type AppNavGroup,
 	type AppNavItem,
 } from "./nav-items";
@@ -34,8 +30,8 @@ interface QuickServiceLink {
 	path: string;
 }
 
-/** Sidebar alias — shared contract lives in filter-by-href-permissions. */
-const filterByPermissions = filterByHrefPermissions;
+/** Event other chrome (top bar, mobile tab bar) uses to open the drawer. */
+export const OPEN_MOBILE_NAV_EVENT = "vcontrolhub:open-mobile-nav";
 
 function navLabel(
 	t: (key: string, vars?: Record<string, string | number>) => string,
@@ -45,46 +41,72 @@ function navLabel(
 	return translated === item.labelKey ? item.fallbackLabel : translated;
 }
 
-function SidebarControls() {
-	const { t } = useI18n();
-	const openGlobalSearch = () => {
-		window.dispatchEvent(new Event("vcontrolhub:open-global-search"));
-	};
-
-	return (
-		<div className="flex items-center justify-between gap-1">
-			<button
-				type="button"
-				onClick={openGlobalSearch}
-				className="flex h-9 w-9 items-center justify-center rounded-lg text-[var(--text-muted)] transition hover:bg-[var(--surface-elevated)] hover:text-[var(--text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
-				aria-label={t("search.dialog")}
-				aria-keyshortcuts="Control+K Meta+K"
-			>
-				<svg width="18" height="18" className="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-					<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-				</svg>
-			</button>
-			<div className="flex items-center gap-0.5">
-				<LanguageToggle compact />
-				<ThemeToggle compact />
-				<NotificationBell />
-			</div>
-		</div>
-	);
+function isActiveHref(pathname: string, href: string) {
+	if (href === "/dashboard" && pathname === "/") return true;
+	// Exact match, or a real nested route (/files/webdav), but not a sibling
+	// prefix collision like /ai vs /ai-ops.
+	return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-function Chevron({ open }: { open: boolean }) {
+function NavLink({
+	item,
+	label,
+	active,
+	collapsed,
+	pinned,
+	onNavigate,
+	onTogglePin,
+	pinLabel,
+}: {
+	item: AppNavItem;
+	label: string;
+	active: boolean;
+	collapsed: boolean;
+	pinned: boolean;
+	onNavigate: () => void;
+	onTogglePin?: () => void;
+	pinLabel?: string;
+}) {
 	return (
-		<svg
-			width="14"
-			height="14"
-			viewBox="0 0 20 20"
-			fill="none"
-			className={`shrink-0 text-[var(--text-disabled)] transition-transform duration-150 ${open ? "rotate-90" : ""}`}
-			aria-hidden="true"
-		>
-			<path d="M7 5l5 5-5 5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-		</svg>
+		<div className="group/item relative">
+			<Link
+				href={item.href}
+				onClick={onNavigate}
+				aria-current={active ? "page" : undefined}
+				aria-label={collapsed ? label : undefined}
+				title={collapsed ? label : undefined}
+				className={cn(
+					"relative flex min-h-8 min-w-0 items-center gap-2.5 rounded-md text-[13.5px] transition-colors duration-150",
+					collapsed ? "mx-auto h-9 w-9 justify-center" : "px-2.5 py-1.5 pr-8",
+					active
+						? "bg-[var(--sidebar-active)] font-medium text-[var(--sidebar-active-fg)]"
+						: "text-[var(--text-secondary)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-primary)]",
+				)}
+			>
+				{active && !collapsed ? (
+					<span aria-hidden="true" className="absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-[var(--accent)]" />
+				) : null}
+				<span className={cn("flex shrink-0 [&>svg]:h-[17px] [&>svg]:w-[17px]", active ? "text-[var(--accent)]" : "text-[var(--text-muted)] group-hover/item:text-[var(--text-secondary)]")}>
+					{item.icon}
+				</span>
+				{collapsed ? null : <span className="min-w-0 flex-1 truncate">{label}</span>}
+			</Link>
+			{!collapsed && onTogglePin ? (
+				<button
+					type="button"
+					onClick={onTogglePin}
+					aria-label={pinLabel}
+					aria-pressed={pinned}
+					title={pinLabel}
+					className={cn(
+						"absolute right-1 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded text-[var(--text-muted)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--warning)] focus-visible:opacity-100",
+						pinned ? "text-[var(--warning)] opacity-100" : "opacity-0 group-hover/item:opacity-100",
+					)}
+				>
+					<IconStar size={13} fill={pinned ? "currentColor" : "none"} />
+				</button>
+			) : null}
+		</div>
 	);
 }
 
@@ -93,7 +115,6 @@ export function AppSidebar({
 	quickServices = [],
 	declaredPermissionsByHref = {},
 	appName,
-	publicLabel,
 }: {
 	username?: string;
 	quickServices?: QuickServiceLink[];
@@ -102,276 +123,160 @@ export function AppSidebar({
 	appName?: string;
 	publicLabel?: string;
 }) {
-	const pathname = usePathname();
+	const pathname = usePathname() ?? "/";
 	const { t } = useI18n();
 	const gate = useGateRoute();
+	const collapsed = useSidebarCollapsed();
+	const { pins, toggle: togglePin } = useNavPins();
+	const { groups: storedGroups, setOpen: setGroupOpen } = useNavGroupState();
 	const [mobileOpen, setMobileOpen] = useState(false);
-	const [passwordModalOpen, setPasswordModalOpen] = useState(false);
-	const [filter, setFilter] = useState("");
 	const mobileDialogRef = useDialogFocus<HTMLElement>({
 		open: mobileOpen,
 		onClose: () => setMobileOpen(false),
 	});
+
 	useEffect(() => {
+		const open = () => setMobileOpen(true);
+		window.addEventListener(OPEN_MOBILE_NAV_EVENT, open);
 		const desktop = window.matchMedia?.("(min-width: 1024px)");
-		if (!desktop) return;
-		const closeOnDesktop = () => { if (desktop.matches) setMobileOpen(false); };
-		desktop.addEventListener("change", closeOnDesktop);
-		return () => desktop.removeEventListener("change", closeOnDesktop);
+		const closeOnDesktop = () => { if (desktop?.matches) setMobileOpen(false); };
+		desktop?.addEventListener("change", closeOnDesktop);
+		return () => {
+			window.removeEventListener(OPEN_MOBILE_NAV_EVENT, open);
+			desktop?.removeEventListener("change", closeOnDesktop);
+		};
 	}, []);
-	// Only the current workspace opens by default. Explicit user toggles win,
-	// while global search remains the complete cross-workspace catalog.
-	const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
-	const shouldRenderSidebar = Boolean(username);
-	const iconInitial = username?.trim().charAt(0).toUpperCase() ?? "";
 
 	const visibleGroups = useMemo(() => {
-		return mainNavGroups
+		return [...mainNavGroups, systemNavGroup]
 			.map((group) => ({
 				...group,
-				items: filterByPermissions(group.items, declaredPermissionsByHref, gate.canAny),
+				items: filterByHrefPermissions(group.items, declaredPermissionsByHref, gate.canAny),
 			}))
 			.filter((group) => group.items.length > 0);
 	}, [declaredPermissionsByHref, gate]);
 
-	const visibleSystemNav = useMemo(
-		() => filterByPermissions(systemNavItems, declaredPermissionsByHref, gate.canAny),
-		[declaredPermissionsByHref, gate],
+	const visibleItems = useMemo(() => visibleGroups.flatMap((group) => group.items), [visibleGroups]);
+	const pinnedItems = useMemo(
+		() => pins.map((href) => visibleItems.find((item) => item.href === href)).filter((item): item is AppNavItem => Boolean(item)),
+		[pins, visibleItems],
 	);
 
-	if (!shouldRenderSidebar) return null;
+	if (!username) return null;
 
-	const isActive = (href: string) => {
-		if (href === "/dashboard" && pathname === "/") return true;
-		if (href === "/") return pathname === "/";
-		// Exact match, or a real nested route (/files/webdav), but not a
-		// sibling prefix collision like /ai vs /ai-ops.
-		return pathname === href || pathname.startsWith(`${href}/`);
-	};
+	const activeGroupId = visibleGroups.find((group) => group.items.some((item) => isActiveHref(pathname, item.href)))?.id;
+	const isGroupOpen = (group: AppNavGroup) => storedGroups[group.id] ?? (group.id === activeGroupId || group.id === "overview");
 
-	const filterNorm = filter.trim().toLowerCase();
-	const matchesFilter = (item: AppNavItem) => {
-		if (!filterNorm) return true;
-		const label = navLabel(t, item).toLowerCase();
-		return label.includes(filterNorm) || item.href.toLowerCase().includes(filterNorm);
-	};
-
-	const filteredGroups: AppNavGroup[] = visibleGroups
-		.map((group) => ({ ...group, items: group.items.filter(matchesFilter) }))
-		.filter((group) => group.items.length > 0);
-
-	const filteredSystem = visibleSystemNav.filter(matchesFilter);
-	const filteredQuick = quickServices.filter(
-		(item) => !filterNorm || item.name.toLowerCase().includes(filterNorm),
-	);
-	const activeGroupId = visibleGroups.find((group) => group.items.some((item) => isActive(item.href)))?.id;
-	const systemActive = visibleSystemNav.some((item) => isActive(item.href));
-
-	const renderNavLink = (item: AppNavItem) => {
-		const active = isActive(item.href);
-		const label = navLabel(t, item);
-		return (
-			<Link
-				key={item.href}
-				href={item.href}
-				onClick={() => setMobileOpen(false)}
-				aria-current={active ? "page" : undefined}
-				className={`group relative flex min-w-0 items-center gap-2.5 rounded-xl px-2.5 py-2 text-sm transition-colors duration-150 ${
-					active
-						? "bg-[var(--sidebar-active)] font-semibold text-[var(--sidebar-active-fg)]"
-						: "text-[var(--text-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-secondary)]"
-				}`}
-			>
-				<span className={`shrink-0 ${active ? "text-[var(--accent)]" : "text-[var(--text-disabled)] group-hover:text-[var(--text-muted)]"}`}>
-					{item.icon}
-				</span>
-				<span className="min-w-0 flex-1 truncate" title={label}>
-					{label}
-				</span>
-			</Link>
-		);
-	};
-
-	const renderGroup = (group: AppNavGroup) => {
-		const open = filterNorm ? true : (openGroups[group.id] ?? group.id === activeGroupId);
-		const title = navLabel(t, group);
-		return (
-			<div key={group.id} className="mb-1">
-				<button
-					type="button"
-					onClick={() => setOpenGroups((prev) => ({ ...prev, [group.id]: !open }))}
-					className="flex min-h-9 w-full items-center gap-1.5 rounded-md px-2.5 py-1.5 text-left text-xs font-semibold uppercase text-[var(--text-muted)] transition hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-secondary)]"
-					aria-expanded={open}
-				>
-					<Chevron open={open} />
-					<span className="min-w-0 flex-1 truncate">{title}</span>
-					<span className="tabular-nums text-xs opacity-70">{group.items.length}</span>
-				</button>
-				{open ? <div className="mt-0.5 space-y-0.5 pl-0.5">{group.items.map(renderNavLink)}</div> : null}
-			</div>
-		);
-	};
-
-	const nav = (
-		<nav className="flex h-full w-full flex-col" data-i18n-skip>
-			<div className="border-b border-[var(--sidebar-border)] px-4 pb-3 pt-4">
-				<div className="flex items-center gap-2.5">
-					<div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]">
-						<svg width="18" height="18" className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-							<path d="M10.394 2.08a1 1 0 00-.788 0l-7 3a1 1 0 000 1.84L5.25 8.05 4.646 12.2a1 1 0 00.476 1.006l4.5 2.706a1 1 0 001.056 0l4.5-2.706a1 1 0 00.476-1.006L14.95 8.05l2.644-1.228a1 1 0 000-1.84l-7-3zM10 4.08l5.106 2.19L10 8.49 4.894 6.27 10 4.08z" />
-						</svg>
-					</div>
-					<div className="min-w-0 flex-1">
-						<div className="truncate text-sm font-semibold text-[var(--text-primary)]">{appName ?? getAppName()}</div>
-						<p className="mt-0.5 truncate text-xs leading-none text-[var(--text-muted)]">{publicLabel ?? getPublicLabel()}</p>
-					</div>
-					<IconButton label={t("common.close")} onClick={() => setMobileOpen(false)} className="shrink-0 lg:hidden">
-						<X size={18} aria-hidden />
-					</IconButton>
-				</div>
-				<label className="mt-3 block">
-					<span className="sr-only">{t("nav.filter") === "nav.filter" ? "Filter menu" : t("nav.filter")}</span>
-					<div className="relative">
-						<svg
-							width="14"
-							height="14"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--text-disabled)]"
-							aria-hidden="true"
-						>
-							<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-						</svg>
-						<input
-							type="search"
-							value={filter}
-							onChange={(e) => setFilter(e.target.value)}
-							placeholder={t("nav.filter") === "nav.filter" ? "Filter menu…" : t("nav.filter")}
-							className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-subtle)] py-2 pl-8 pr-2.5 text-xs text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-disabled)] focus:border-[var(--input-border-focus)] focus:bg-[var(--input-bg-focus)] focus:ring-2 focus:ring-[var(--input-ring)]"
-						/>
-					</div>
-				</label>
-			</div>
-
-			<div className="min-w-0 flex-1 space-y-2 overflow-y-auto overflow-x-hidden px-2.5 py-3">
-				{filteredGroups.map(renderGroup)}
-
-				{filteredSystem.length > 0 && (() => {
-					const open = filterNorm ? true : (openGroups.system ?? systemActive);
-					return (
-					<div className="mb-1 mt-2">
-						<button
-							type="button"
-							onClick={() => setOpenGroups((prev) => ({ ...prev, system: !open }))}
-							className="flex min-h-9 w-full items-center gap-1.5 rounded-md px-2.5 py-1.5 text-left text-xs font-semibold uppercase text-[var(--text-muted)] transition hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-secondary)]"
-							aria-expanded={open}
-						>
-							<Chevron open={open} />
-							<span className="min-w-0 flex-1 truncate">{t("nav.system")}</span>
-							<span className="tabular-nums text-xs opacity-70">{filteredSystem.length}</span>
-						</button>
-						{open ? <div className="mt-0.5 space-y-0.5 pl-0.5">{filteredSystem.map(renderNavLink)}</div> : null}
-					</div>
-					);
-				})()}
-
-				{filteredQuick.length > 0 && (
-					<div className="mb-1 mt-2">
-						<div className="px-2.5 pb-1 pt-1 text-xs font-semibold uppercase text-[var(--text-muted)]">
-							{t("nav.quickservice")}
-						</div>
-						<div className="space-y-0.5">
-							{filteredQuick.map((item) => (
-								<a
-									key={item.slug}
-									href={item.path}
-									target="_blank"
-									rel="noopener noreferrer"
-									onClick={() => setMobileOpen(false)}
-									className="flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-sm text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-secondary)]"
-								>
-									<span className="shrink-0 text-[16px] leading-none">{item.icon}</span>
-									<span className="min-w-0 flex-1 truncate" title={item.name}>
-										{item.name}
-									</span>
-									<IconExternal />
-								</a>
-							))}
-						</div>
-					</div>
+	const renderNav = (mode: "desktop" | "mobile") => {
+		const compact = mode === "desktop" && collapsed;
+		const close = () => setMobileOpen(false);
+		const link = (item: AppNavItem, inPinned = false) => {
+			const label = navLabel(t, item);
+			const pinned = pins.includes(item.href);
+			return (
+				<NavLink
+					key={`${inPinned ? "pin:" : ""}${item.href}`}
+					item={item}
+					label={label}
+					active={isActiveHref(pathname, item.href)}
+					collapsed={compact}
+					pinned={pinned}
+					onNavigate={close}
+					onTogglePin={() => togglePin(item.href)}
+					pinLabel={t(pinned ? "shell.nav.unpin" : "shell.nav.pin", { page: label })}
+				/>
+			);
+		};
+		const section = (key: string, title: ReactNode, body: ReactNode, toggle?: { open: boolean; onToggle: () => void; count: number }) => (
+			<div key={key} className={compact ? "border-t border-[var(--sidebar-border)] py-1.5 first:border-t-0" : "py-1"}>
+				{compact ? null : toggle ? (
+					<button
+						type="button"
+						onClick={toggle.onToggle}
+						aria-expanded={toggle.open}
+						aria-controls={`nav-group-${mode}-${key}`}
+						className="group/heading flex h-7 w-full items-center gap-1 rounded-md px-2.5 text-left text-xs font-medium text-[var(--text-muted)] transition hover:text-[var(--text-secondary)]"
+					>
+						<span className="min-w-0 flex-1 truncate">{title}</span>
+						<IconChevronRight size={13} className={cn("shrink-0 transition-transform duration-150", toggle.open && "rotate-90")} />
+					</button>
+				) : (
+					<div className="flex h-7 items-center px-2.5 text-xs font-medium text-[var(--text-muted)]">{title}</div>
 				)}
-
-				{filterNorm && filteredGroups.length === 0 && filteredSystem.length === 0 && filteredQuick.length === 0 ? (
-					<p className="px-3 py-6 text-center text-xs text-[var(--text-muted)]">
-						{t("nav.filterEmpty") === "nav.filterEmpty" ? "No matching pages" : t("nav.filterEmpty")}
-					</p>
+				{!toggle || toggle.open || compact ? (
+					<div id={`nav-group-${mode}-${key}`} className={cn("space-y-px", compact && "flex flex-col items-center gap-0.5")}>
+						{body}
+					</div>
 				) : null}
 			</div>
+		);
+		return (
+			<nav className="flex h-full w-full flex-col" data-i18n-skip aria-label={t("shell.sidebar.navigation")}>
+				<div className={cn("flex h-[var(--topbar-height)] shrink-0 items-center gap-2.5", compact ? "justify-center px-2" : "px-4")}>
+					<Link
+						href="/dashboard"
+						onClick={close}
+						aria-label={t("shell.nav.home")}
+						className="flex min-w-0 items-center gap-2.5 rounded-md outline-offset-4"
+					>
+						<BrandTile size={28} />
+						{compact ? null : <span className="truncate text-[15px] font-semibold tracking-tight text-[var(--text-primary)]">{appName ?? getAppName()}</span>}
+					</Link>
+					{mode === "mobile" ? (
+						<IconButton label={t("common.close")} onClick={close} className="ml-auto shrink-0">
+							<X size={18} aria-hidden />
+						</IconButton>
+					) : null}
+				</div>
 
-			<div className="space-y-1 border-t border-[var(--sidebar-border)] px-3 py-3">
-				{/* Account row: full-width username so "admin" / long names stay readable */}
-				<div className="flex min-w-0 items-center gap-2 px-2.5 py-2">
-					<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--accent-bg)] text-xs font-semibold uppercase text-[var(--accent)]">
-						{iconInitial}
-					</div>
-					<div className="min-w-0 flex-1">
-						<span className="block truncate text-sm font-semibold text-[var(--text-primary)]" title={username}>
-							{username}
-						</span>
-					</div>
+				<div data-nav-scroll className={cn("min-h-0 flex-1 overflow-y-auto overflow-x-hidden pb-3", compact ? "px-1.5" : "px-2.5")}>
+					{pinnedItems.length > 0
+						? section("pinned", t("shell.nav.pinned"), pinnedItems.map((item) => link(item, true)))
+						: null}
+					{visibleGroups.map((group) => {
+						const open = isGroupOpen(group);
+						return section(group.id, navLabel(t, group), group.items.map((item) => link(item)), {
+							open,
+							count: group.items.length,
+							onToggle: () => setGroupOpen(group.id, !open),
+						});
+					})}
+					{quickServices.length > 0 && !compact
+						? section(
+							"quick",
+							t("nav.quickservice"),
+							quickServices.map((service) => (
+								<a
+									key={service.slug}
+									href={service.path}
+									target="_blank"
+									rel="noopener noreferrer"
+									onClick={close}
+									className="flex min-h-8 items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13.5px] text-[var(--text-secondary)] transition-colors hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-primary)]"
+								>
+									<span className="w-[17px] shrink-0 text-center text-[15px] leading-none" aria-hidden="true">{service.icon}</span>
+									<span className="min-w-0 flex-1 truncate" title={service.name}>
+										{service.name}
+									</span>
+									<IconExternalLink size={12} className="shrink-0 text-[var(--text-muted)]" />
+								</a>
+							)),
+						)
+						: null}
 				</div>
-				{/* Team-workspace scope switcher (hidden when gate/API says nothing to switch) */}
-				<TeamSwitcher />
-				{/* Controls on their own row so they never crush the username */}
-				<div className="px-1.5 py-1">
-					<SidebarControls />
+
+				<div className={cn("shrink-0 border-t border-[var(--sidebar-border)] py-2", compact ? "px-1.5" : "px-2.5")}>
+					<UserMenu username={username} compact={compact} onNavigate={close} />
 				</div>
-				<Link
-					href="/account/security"
-					onClick={() => setMobileOpen(false)}
-					className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-secondary)]"
-				>
-					<Shield size={18} aria-hidden="true" />
-					<span>{t("auth.account-security")}</span>
-				</Link>
-				<button
-					type="button"
-					onClick={() => {
-						setPasswordModalOpen(true);
-						setMobileOpen(false);
-					}}
-					className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-secondary)]"
-				>
-					<IconKey />
-					<span>{t("auth.change-password")}</span>
-				</button>
-				<SignOutButton />
-			</div>
-		</nav>
-	);
+			</nav>
+		);
+	};
 
 	return (
 		<>
-			<div data-mobile-app-header className="fixed inset-x-0 top-0 z-30 flex h-16 min-w-0 items-center gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-4 lg:hidden">
-			<button
-				type="button"
-				onClick={() => setMobileOpen(true)}
-				className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-[var(--text-secondary)] transition hover:bg-[var(--surface-elevated)]"
-				aria-label={t("nav.openMenu")}
-				aria-expanded={mobileOpen}
-				aria-controls="mobile-app-navigation"
-			>
-				<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-					<path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-				</svg>
-			</button>
-				<span className="min-w-0 truncate text-sm font-semibold text-[var(--text-primary)]">{appName ?? getAppName()}</span>
-			</div>
-
 			{mobileOpen && (
 				<div
-					className="fixed inset-0 z-40 bg-[var(--overlay)] backdrop-blur-sm lg:hidden"
+					className="fixed inset-0 z-40 bg-[var(--overlay)] backdrop-blur-[2px] lg:hidden"
 					onClick={() => setMobileOpen(false)}
 				/>
 			)}
@@ -385,22 +290,23 @@ export function AppSidebar({
 				aria-label={t("nav.openMenu")}
 				tabIndex={-1}
 				inert={!mobileOpen}
-				className={`fixed inset-y-0 left-0 z-50 w-[min(17.5rem,88vw)] transform border-r border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] shadow-[var(--shadow-lg)] transition-transform duration-200 lg:hidden ${
-					mobileOpen ? "translate-x-0" : "-translate-x-full"
-				}`}
+				className={cn(
+					"fixed inset-y-0 left-0 z-50 w-[min(17rem,86vw)] transform border-r border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] shadow-[var(--shadow-lg)] transition-transform duration-200 lg:hidden",
+					mobileOpen ? "translate-x-0" : "-translate-x-full",
+				)}
 			>
-				{nav}
+				{renderNav("mobile")}
 			</aside>
 
-			{/* Desktop spacer + fixed rail */}
-			<div className="hidden w-[17.5rem] shrink-0 bg-[var(--sidebar-bg)] lg:block" aria-hidden="true" />
-			<aside data-app-sidebar className="hidden h-dvh w-[17.5rem] shrink-0 border-r border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] lg:fixed lg:inset-y-0 lg:left-0 lg:z-40 lg:flex">
-				{nav}
+			{/* Desktop spacer + fixed rail; width follows html[data-sidebar]. */}
+			<div className="hidden w-[var(--sidebar-current)] shrink-0 transition-[width] duration-200 lg:block" aria-hidden="true" />
+			<aside
+				data-app-sidebar
+				data-collapsed={collapsed || undefined}
+				className="hidden h-dvh w-[var(--sidebar-current)] shrink-0 border-r border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] transition-[width] duration-200 lg:fixed lg:inset-y-0 lg:left-0 lg:z-40 lg:flex"
+			>
+				{renderNav("desktop")}
 			</aside>
-
-			{passwordModalOpen ? (
-				<ChangePasswordModal open onClose={() => setPasswordModalOpen(false)} />
-			) : null}
 		</>
 	);
 }

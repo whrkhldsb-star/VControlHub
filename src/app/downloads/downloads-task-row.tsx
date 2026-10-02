@@ -10,7 +10,7 @@ import { ActionButton } from "@/components/action-button";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
 import { formatDateTime } from "@/lib/datetime/format";
 import type { Locale } from "@/lib/i18n/translations";
-import { ProgressBar } from "@/components/ui-primitives";
+import { Badge, Notice, ProgressBar } from "@/components/ui-primitives";
 import { File, Folder, HardDrive, ImageIcon, Music2, RefreshCw, Server, User, Video } from "@/components/icons";
 
 const statusBadge: Record<string, StatusTone> = {
@@ -70,9 +70,9 @@ export const DownloadTaskRow = memo(function DownloadTaskRow({
 					{getStatusLabel(t)[task.status] ?? task.status}
 				</StatusBadge>
 				<span className="text-xs text-[var(--text-muted)]">{urlTypeLabel(task.url, t)}</span>
-				{task.relayMode && <span data-tone="amber" className="rounded-lg border border-[var(--warning-border)] px-2 py-0.5 text-xs text-[var(--warning)]">{t("downloadsPage.badge.relay")}</span>}
+				{task.relayMode && <Badge tone="warning">{t("downloadsPage.badge.relay")}</Badge>}
 				{task.category && <span className="inline-flex items-center gap-1 text-xs text-[var(--text-muted)]"><CategoryIcon size={14} aria-hidden />{task.category}</span>}
-				{task.isBatch && <span data-tone="cyan" className="rounded-lg border border-[var(--color-action-border)]/20 px-2 py-0.5 text-xs text-[var(--text-primary)]">{t("downloadsPage.badge.batch")}</span>}
+				{task.isBatch && <Badge tone="accent">{t("downloadsPage.badge.batch")}</Badge>}
 			</div>
 
 			{/* URL */}
@@ -101,14 +101,13 @@ export const DownloadTaskRow = memo(function DownloadTaskRow({
 
 			{/* Error */}
 			{task.errorMessage && (
-				<div data-tone="rose" className="mt-2 rounded-lg border border-[var(--danger-border)] px-3 py-2 text-xs text-[var(--danger)]">{task.errorMessage}</div>
+				<Notice tone="danger" compact className="mt-2">{task.errorMessage}</Notice>
 			)}
 
 			{/* Actions */}
 			<div className="mt-3 flex gap-2">
 				{task.status === "RUNNING" && task.aria2Gid && canManage && (
-					<ActionButton variant="outline" onClick={() => onAction(task.id, "pause")} className="!px-3 !py-1.5 !text-sm"
-					>
+					<ActionButton size="sm" variant="outline" onClick={() => onAction(task.id, "pause")}>
 						{t("downloadsPage.action.pause")}
 					</ActionButton>
 				)}
@@ -123,29 +122,25 @@ export const DownloadTaskRow = memo(function DownloadTaskRow({
 					</span>
 				)}
 				{task.status === "PENDING" && task.aria2Gid && canManage && (
-					<ActionButton variant="success" onClick={() => onAction(task.id, "resume")} className="!px-3 !py-1.5 !text-sm"
-					>
+					<ActionButton size="sm" variant="success" onClick={() => onAction(task.id, "resume")}>
 						{t("downloadsPage.action.resume")}
 					</ActionButton>
 				)}
 				{(task.status === "RUNNING" || task.status === "PENDING") && canManage && (
-					<ActionButton variant="danger" onClick={() => onAction(task.id, "cancel")} className="!px-3 !py-1.5 !text-sm"
-					>
+					<ActionButton size="sm" variant="danger" onClick={() => onAction(task.id, "cancel")}>
 						{t("downloadsPage.action.cancel")}
 					</ActionButton>
 				)}
 				{canManage && (
-					<ActionButton variant="secondary" onClick={() => onAction(task.id, "refresh")} className="!px-3 !py-1.5 !text-sm"
-					>
+					<ActionButton size="sm" variant="secondary" onClick={() => onAction(task.id, "refresh")}>
 						{busyActions[`${task.id}:refresh`] ? t("downloadsPage.action.refreshing") : t("downloadsPage.action.refresh")}
 					</ActionButton>
 				)}
 				{task.downloadAccess && (
 					<a href={task.downloadAccess.href}
 						onClick={onDownloadClick(task.id)}
-						data-action-button data-variant="outline" className="!px-3 !py-1.5 !text-sm !font-medium"
-						title={task.downloadAccess.description}
-					>
+						data-action-button data-size="sm" data-variant="outline" 
+						title={task.downloadAccess.description}>
 						{downloadingIds[task.id] ? t("downloadsPage.action.downloading") : t("downloadsPage.action.downloadFile")}
 					</a>
 				)}
@@ -159,23 +154,20 @@ export const DownloadTaskRow = memo(function DownloadTaskRow({
 					const href = `/files?nodeId=${encodeURIComponent(node.id)}${rel ? `&path=${encodeURIComponent(rel)}` : ""}`;
 					return (
 						<a href={href}
-							data-action-button data-variant="success" className="!px-3 !py-1.5 !text-sm"
-							title={t("downloadsPage.action.openFolderTitle")}
-						>
+							data-action-button data-size="sm" data-variant="success" 
+							title={t("downloadsPage.action.openFolderTitle")}>
 							{t("downloadsPage.action.openFolder")}
 						</a>
 					);
 				})()}
 				{(task.status === "FAILED" || task.status === "CANCELLED") && canManage && (
-					<ActionButton variant="primary" onClick={() => onAction(task.id, "retry")} disabled={Boolean(busyActions[`${task.id}:retry`])} className="!px-3 !py-1.5 !text-sm"
-						title={t("downloadsPage.action.retryTitle")}
-					>
+					<ActionButton size="sm" variant="primary" onClick={() => onAction(task.id, "retry")} disabled={Boolean(busyActions[`${task.id}:retry`])} 
+						title={t("downloadsPage.action.retryTitle")}>
 						{busyActions[`${task.id}:retry`] ? t("downloadsPage.action.retrying") : t("downloadsPage.action.retry")}
 					</ActionButton>
 				)}
 				{(task.status === "COMPLETED" || task.status === "FAILED" || task.status === "CANCELLED") && canManage && (
-					<ActionButton variant="danger" onClick={() => onPendingPurge(task.id)} className="!px-3 !py-1.5 !text-sm"
-					>
+					<ActionButton size="sm" variant="danger" onClick={() => onPendingPurge(task.id)}>
 						{t("downloadsPage.action.delete")}
 					</ActionButton>
 				)}

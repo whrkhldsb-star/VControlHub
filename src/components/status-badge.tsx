@@ -57,13 +57,14 @@ export function StatusBadge({
       data-status-badge
       data-tone={STATUS_DATA_TONE[tone]}
       className={cn(
-        "inline-flex items-center rounded-full border font-medium",
+        "inline-flex max-w-full items-center gap-1.5 rounded-full border font-medium leading-4",
         size === "sm" ? "px-2 py-0.5 text-xs" : "px-2.5 py-1 text-xs",
         STATUS_TONE_CLASS[tone],
         className,
       )}
       {...props}
     >
+      {tone !== "neutral" ? <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-current" /> : null}
       {children}
     </span>
   );

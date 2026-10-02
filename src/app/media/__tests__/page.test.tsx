@@ -76,9 +76,9 @@ describe("MediaPage", () => {
     expect(screen.getByText("当前工作区")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "视频库" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /全部\s*17 项媒体/ })).toHaveAttribute("href", "/media?q=demo");
-    expect(screen.getByRole("link", { name: /🖼️ 图片\s*12\s*上传 \/ 发布外链/ })).toHaveAttribute("href", "/media?type=image&q=demo");
-    expect(screen.getByRole("link", { name: /🎬 视频\s*3\s*播放 \/ 下载\s*×/ })).toHaveAttribute("href", "/media?q=demo");
-    expect(screen.getByRole("link", { name: /🎧 音频\s*2\s*播放 \/ 收藏/ })).toHaveAttribute("href", "/media?type=audio&q=demo");
+    expect(screen.getByRole("link", { name: /图片\s*12\s*上传 \/ 发布外链/ })).toHaveAttribute("href", "/media?type=image&q=demo");
+    expect(screen.getByRole("link", { name: /视频\s*3\s*播放 \/ 下载\s*×/ })).toHaveAttribute("href", "/media?q=demo");
+    expect(screen.getByRole("link", { name: /音频\s*2\s*播放 \/ 收藏/ })).toHaveAttribute("href", "/media?type=audio&q=demo");
     expect(screen.getByText("当前视图 1 项")).toBeInTheDocument();
     const searchInput = screen.getByRole("searchbox", { name: "搜索媒体" });
     expect(searchInput).toHaveAttribute("name", "q");

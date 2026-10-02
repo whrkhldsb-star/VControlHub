@@ -74,9 +74,10 @@ export function RenameInlineForm({
         onClick={handleToggle}
         title={t("renameInlineForm.rename")}
         aria-label={`${t("renameInlineForm.rename")} ${currentName}`}
+        data-menu-item={variant === "menu" ? "" : undefined}
         className={
           variant === "menu"
-            ? "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-[var(--warning)] transition hover:bg-[var(--warning-bg)]"
+            ? undefined
             : "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)] transition hover:bg-[var(--warning-bg)]"
         }
       >
@@ -135,13 +136,11 @@ export function RenameInlineForm({
       ) : null}
       <ActionButton variant="primary"
         type="submit"
-        disabled={pending || !newName.trim() || newName === currentName}
-        className="disabled:opacity-50"
-      >
+        disabled={pending || !newName.trim() || newName === currentName}>
         {t("renameInlineForm.confirm")}
       </ActionButton>
       <ActionButton variant="secondary"
-        onClick={handleCancel} className="!px-4 !py-2 !text-sm">
+        onClick={handleCancel}>
         {t("renameInlineForm.cancel")}
       </ActionButton>
     </form>

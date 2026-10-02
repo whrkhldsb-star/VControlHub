@@ -7,6 +7,9 @@ import { ToastProvider } from "@/components/toast-provider";
 import { StorageUploadProvider, StorageUploadStatus } from "@/components/storage/storage-upload-provider";
 import { MobileNav } from "@/components/mobile-nav";
 import { GlobalSearch } from "@/components/global-search";
+import { AppTopbar } from "@/components/app-topbar";
+import { KeyboardShortcuts } from "@/components/keyboard-shortcuts";
+import { SkipLink } from "@/components/skip-link";
 import { mainNavItems, systemNavItems } from "@/components/nav-items";
 import { PwaRegister } from "@/components/pwa-register";
 import { SentryProvider } from "@/components/sentry-provider";
@@ -14,7 +17,7 @@ import { WebVitalsReporter } from "@/components/web-vitals-reporter";
 import { I18nProvider } from "@/lib/i18n/provider";
 import { ThemeProvider } from "@/lib/theme/provider";
 import { SshTerminalProvider } from "@/app/servers/ssh-terminal-context";
-import { getAppMetadataTitle, getAppDescription } from "@/lib/branding";
+import { getAppMetadataTitle, getAppDescription, getAppName } from "@/lib/branding";
 import { getSessionCookieName } from "@/lib/auth/session";
 import { EMPTY_GATE, gateFromRoles } from "@/lib/auth/session-gate";
 import { SessionGateProvider } from "@/lib/auth/session-context";
@@ -52,6 +55,7 @@ export default async function RootLayout({
 	const shouldRenderAuthenticatedChrome = hasSessionCookie && !isPublicAuthPage;
 	const localeCookie = cookieStore.get("vps-locale")?.value;
 	const themeCookie = cookieStore.get("vps-theme")?.value;
+	const sidebarCollapsed = cookieStore.get("vch-sidebar")?.value === "collapsed";
 	const initialLocale: Locale = localeCookie === "en" ? "en" : "zh";
 	const initialTheme: Theme = themeCookie === "light" ? "light" : "dark";
 
@@ -73,6 +77,7 @@ export default async function RootLayout({
 		<html
 			lang={initialLocale === "zh" ? "zh-CN" : "en"}
 			className={`${geistSans.variable} ${geistMono.variable} h-full antialiased ${initialTheme === "light" ? "light" : ""}`}
+			data-sidebar={sidebarCollapsed ? "collapsed" : "expanded"}
 			suppressHydrationWarning
 		>
 			<head>
@@ -85,7 +90,7 @@ export default async function RootLayout({
 					}}
 				/>
 			</head>
-			<body className="min-h-full flex flex-row">
+			<body className="min-h-full">
 				<ThemeProvider initialTheme={initialTheme}>
 					<I18nProvider initialLocale={initialLocale}>
 						<SentryProvider />
@@ -93,20 +98,31 @@ export default async function RootLayout({
 						<ToastProvider>
 							<StorageUploadProvider key={`${session?.userId ?? "anonymous"}:${session?.currentTeamId ?? "personal"}`} scope={`${session?.userId ?? "anonymous"}:${session?.currentTeamId ?? "personal"}`}>
 							<SshTerminalProvider>
-							{shouldRenderAuthenticatedChrome && (
-								<SessionGateProvider value={sessionGate}>
-									<SidebarLoader />
-								</SessionGateProvider>
-							)}
-							<PwaRegister />
-							<main className="min-h-screen min-w-0 flex-1 overflow-x-clip pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-0">
-								<StorageUploadStatus />
-								{children}
-							</main>
+							{shouldRenderAuthenticatedChrome ? <SkipLink /> : null}
+							<div className="flex min-h-dvh min-w-0">
+								{shouldRenderAuthenticatedChrome && (
+									<SessionGateProvider value={sessionGate}>
+										<SidebarLoader />
+									</SessionGateProvider>
+								)}
+								<div className="flex min-w-0 flex-1 flex-col">
+									{shouldRenderAuthenticatedChrome ? <AppTopbar appName={getAppName()} /> : null}
+									<PwaRegister />
+									<main
+										id="main-content"
+										tabIndex={-1}
+										className={`min-w-0 flex-1 overflow-x-clip outline-none ${shouldRenderAuthenticatedChrome ? "pb-[calc(4.25rem+env(safe-area-inset-bottom))] lg:pb-0" : ""}`}
+									>
+										<StorageUploadStatus />
+										{children}
+									</main>
+								</div>
+							</div>
 							{shouldRenderAuthenticatedChrome && (
 								<SessionGateProvider value={sessionGate}>
 									<MobileNav declaredPermissionsByHref={declaredPermissionsByHref} />
 									<GlobalSearch declaredPermissionsByHref={declaredPermissionsByHref} />
+									<KeyboardShortcuts />
 								</SessionGateProvider>
 							)}
 							</SshTerminalProvider>

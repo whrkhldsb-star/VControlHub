@@ -7,15 +7,14 @@
  * provides <main>, so PageShell uses a <div> instead).
  */
 
-import type { ReactNode } from "react";
+import type { HTMLAttributes, ReactNode } from "react";
 import { LocalizedText } from "./localized-text";
 import { File as FileIcon } from "./icons";
 
 /* ── ToggleChip ────────────────────────────────────────────────────── */
 /**
- * Two-state pill toggle used in toolbar rows (e.g. "仅自己/全部用户",
- * "批量模式 开/关").  Active = accent tint, inactive = muted surface.
- * Color tone: accent (cyan) or warn (amber).
+ * Two-state toggle used in toolbar rows (e.g. "仅自己/全部用户",
+ * "批量模式 开/关").  Active = accent tint, inactive = neutral surface.
  */
 type ToggleTone = "accent" | "warn";
 
@@ -37,14 +36,14 @@ export function ToggleChip({
 			? "bg-[var(--warning-bg)] text-[var(--warning)] border-[var(--warning-border)]"
 			: "bg-[var(--accent-bg)] text-[var(--accent)] border-[var(--accent-border)]";
 	const inactiveCls =
-		"bg-[var(--surface-elevated)] text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-secondary)] border-[var(--border)]";
+		"bg-[var(--surface)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] border-[var(--border)]";
 	return (
 		<button
 			type="button"
 			onClick={onClick}
 			aria-pressed={active}
 			aria-label={ariaLabel}
-			className={`inline-flex min-h-10 items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition ${active ? activeCls : inactiveCls}`}
+			className={`inline-flex min-h-[var(--control-height)] items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[13.5px] font-medium shadow-[var(--shadow-xs)] transition ${active ? activeCls : inactiveCls}`}
 		>
 			{children}
 		</button>
@@ -53,22 +52,25 @@ export function ToggleChip({
 
 /* ── PageShell ──────────────────────────────────────────────────────── */
 
+/** `max-w-7xl` is the historical default; it now means "full page width". */
+const WIDE = "max-w-[88rem]";
+
 export function PageShell({
 	children,
-	maxW = "max-w-7xl",
+	maxW = WIDE,
 	navigation = true,
 }: {
 	children: ReactNode;
-	/** Tailwind max-width class – defaults to "max-w-7xl" */
+	/** Tailwind max-width class – defaults to the full application width. */
 	maxW?: string;
-	/** Public pages have no fixed application navigation to clear. */
+	/** Public pages have no application chrome to sit inside. */
 	navigation?: boolean;
 }) {
+	const width = maxW === "max-w-7xl" ? WIDE : maxW;
 	return (
-		<div data-page-shell className="min-h-screen min-w-0 text-[var(--text-primary)]">
-			{/* The mobile navigation remains visible through tablet widths. */}
+		<div data-page-shell data-shell={navigation ? "app" : "public"} className="min-w-0 text-[var(--text-primary)]">
 			<div
-				className={`mx-auto min-w-0 ${maxW} px-4 sm:px-6 lg:px-8 ${navigation ? "pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-20 lg:py-8" : "py-10 sm:py-14"}`}
+				className={`mx-auto min-w-0 ${width} px-4 sm:px-6 lg:px-8 ${navigation ? "pb-10 pt-5 lg:pb-14 lg:pt-7" : "py-10 sm:py-14"}`}
 			>
 				{children}
 			</div>
@@ -86,46 +88,52 @@ type PageHeaderProps = {
 	className?: string;
 };
 
-export function PageHeader({ eyebrow, title, description, children, className = "mb-6 sm:mb-8" }: PageHeaderProps) {
+export function PageHeader({ eyebrow, title, description, children, className = "mb-6" }: PageHeaderProps) {
 	return (
 		<header className={`${className} relative overflow-visible`} data-page-header>
-			<div className="flex flex-col gap-4 sm:gap-5 lg:flex-row lg:items-end lg:justify-between">
+			<div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-start lg:justify-between">
 				<div className="min-w-0 max-w-3xl overflow-visible">
 					{eyebrow ? (
 						<p
 							data-page-eyebrow
-							className="mb-2.5 inline-flex items-center gap-2 text-xs font-semibold tracking-wide text-[var(--accent)]"
+							className="mb-2 text-xs font-medium text-[var(--accent)]"
 						>
-							<span aria-hidden="true" className="h-px w-5 shrink-0 bg-[var(--color-action)]" />
 							{eyebrow}
 						</p>
 					) : null}
-					<h1 className="break-words text-2xl font-semibold leading-tight tracking-tight text-[var(--text-primary)] sm:text-3xl">
+					<h1 className="break-words text-[22px] font-semibold leading-[1.3] tracking-tight text-[var(--text-primary)] sm:text-2xl">
 						{title}
 					</h1>
 					{description ? (
-						<p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--text-muted)]">{description}</p>
+						<p className="mt-1.5 max-w-3xl text-sm leading-6 text-[var(--text-muted)]">{description}</p>
 					) : null}
 				</div>
 				{children ? (
-					<div className="flex min-w-0 max-w-full flex-wrap items-center gap-2" data-page-actions>
+					<div className="flex min-w-0 max-w-full flex-wrap items-center gap-2 lg:shrink-0 lg:justify-end lg:pt-0.5" data-page-actions>
 						{children}
 					</div>
 				) : null}
 			</div>
-				<div className="mt-5 h-px bg-gradient-to-r from-[var(--border-strong)] via-[var(--border)] to-transparent" aria-hidden="true" />
 		</header>
 	);
 }
 
 /* ── Toolbar ────────────────────────────────────────────────────────── */
 
-/** Sticky action/filter row under page headers. */
+/**
+ * Layout blocks carry a default bottom margin unless the caller sets its own
+ * (`cn` does not resolve conflicting utilities, so both would otherwise ship).
+ */
+function withDefaultMargin(defaultMargin: string, className = "") {
+	return /(^|\s)!?(m|my|mb)-/.test(className) ? className : `${defaultMargin} ${className}`.trim();
+}
+
+/** Action/filter row under page headers. */
 export function Toolbar({ children, className = "" }: { children: ReactNode; className?: string }) {
 	return (
 		<div
 			data-toolbar
-			className={`mb-5 flex min-w-0 flex-wrap items-center gap-2 border-b border-[var(--border-subtle)] pb-3 ${className}`}
+			className={`flex min-w-0 flex-wrap items-center gap-2 ${withDefaultMargin("mb-4", className)}`}
 		>
 			{children}
 		</div>
@@ -134,11 +142,59 @@ export function Toolbar({ children, className = "" }: { children: ReactNode; cla
 
 /* ── Card ───────────────────────────────────────────────────────────── */
 
-export function Card({ children, className }: { children: ReactNode; className?: string }) {
+const CARD_PADDING = { none: "p-0", sm: "p-3", md: undefined, lg: "p-5 sm:p-6" } as const;
+/** Footers bleed to the card edge, so they cancel the card padding. */
+const CARD_FOOTER_BLEED = {
+	none: "px-4",
+	sm: "-mx-3 -mb-3 px-3",
+	md: "-mx-4 -mb-4 px-4",
+	lg: "-mx-5 -mb-5 px-5 sm:-mx-6 sm:-mb-6 sm:px-6",
+} as const;
+
+/**
+ * The standard content card. Chrome comes from `[data-card]` in globals.css;
+ * `title` / `description` / `actions` render the usual header row and
+ * `footer` a hairline-separated action strip.
+ */
+export function Card({
+	children,
+	className,
+	title,
+	description,
+	actions,
+	footer,
+	padding = "md",
+	as: Element = "div",
+	...rest
+}: {
+	children?: ReactNode;
+	className?: string;
+	title?: ReactNode;
+	description?: ReactNode;
+	actions?: ReactNode;
+	footer?: ReactNode;
+	padding?: keyof typeof CARD_PADDING;
+	as?: "div" | "section" | "article" | "li";
+} & Omit<HTMLAttributes<HTMLElement>, "title">) {
+	const hasHeader = title != null || description != null || actions != null;
 	return (
-		<div data-card className={className}>
+		<Element data-card className={[CARD_PADDING[padding], className].filter(Boolean).join(" ") || undefined} {...rest}>
+			{hasHeader ? (
+				<div data-card-header className="mb-3 flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+					<div className="min-w-0 flex-1">
+						{title != null ? <h2 className="text-[15px] font-semibold leading-6 text-[var(--text-primary)]">{title}</h2> : null}
+						{description != null ? <p className="mt-0.5 text-[13px] leading-5 text-[var(--text-muted)]">{description}</p> : null}
+					</div>
+					{actions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
+				</div>
+			) : null}
 			{children}
-		</div>
+			{footer ? (
+				<div data-card-footer className={`${CARD_FOOTER_BLEED[padding]} mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-[var(--border-subtle)] py-3`}>
+					{footer}
+				</div>
+			) : null}
+		</Element>
 	);
 }
 
@@ -170,10 +226,10 @@ export function EmptyState({
 	const content = (
 		<>
 			<div
-				className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-muted)] [&>svg]:opacity-70"
+				className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-muted)] shadow-[var(--shadow-xs)] [&>svg]:h-5 [&>svg]:w-5"
 				aria-hidden="true"
 			>
-				{icon ?? <FileIcon size={22} />}
+				{icon ?? <FileIcon size={20} />}
 			</div>
 			<div className="max-w-md text-sm leading-6 text-[var(--text-muted)]">{body}</div>
 			{action ? <div className="mt-4">{action}</div> : null}
@@ -190,7 +246,7 @@ export function EmptyState({
 		);
 	}
 	return (
-		<div data-empty-state className="flex flex-col items-center justify-center py-10 text-center">
+		<div data-empty-state className="flex flex-col items-center justify-center px-4 py-10 text-center">
 			{content}
 		</div>
 	);
@@ -199,10 +255,10 @@ export function EmptyState({
 /* ── StatCard ───────────────────────────────────────────────────────── */
 
 const ACCENT_COLORS = {
-	cyan: { value: "text-[var(--accent)]", bar: "bg-[var(--accent)]" },
-	amber: { value: "text-[var(--warning)]", bar: "bg-[var(--warning)]" },
-	rose: { value: "text-[var(--danger)]", bar: "bg-[var(--danger)]" },
-	emerald: { value: "text-[var(--success)]", bar: "bg-[var(--success)]" },
+	cyan: { value: "text-[var(--accent)]", dot: "bg-[var(--accent)]" },
+	amber: { value: "text-[var(--warning)]", dot: "bg-[var(--warning)]" },
+	rose: { value: "text-[var(--danger)]", dot: "bg-[var(--danger)]" },
+	emerald: { value: "text-[var(--success)]", dot: "bg-[var(--success)]" },
 } as const;
 
 type AccentColor = keyof typeof ACCENT_COLORS;
@@ -227,15 +283,90 @@ export function StatCard({
 		<article
 			data-card
 			data-stat-card
-			className={`relative overflow-hidden bg-[var(--surface)] ${className ?? ""}`}
+			className={`relative flex flex-col justify-between overflow-hidden bg-[var(--surface)] ${className ?? ""}`}
 		>
-			<div className={`absolute inset-x-0 top-0 h-0.5 ${c ? c.bar : "bg-[var(--border)]"}`} aria-hidden="true" />
-			<div className="text-xs font-medium text-[var(--text-muted)]">{label}</div>
-			<div className={`mt-2 break-words text-2xl font-semibold tabular-nums ${c ? c.value : "text-[var(--text-primary)]"}`}>
+			<div className="flex items-center gap-1.5 text-[12.5px] font-medium text-[var(--text-muted)]">
+				{c ? <span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${c.dot}`} /> : null}
+				<span className="min-w-0 truncate">{label}</span>
+			</div>
+			<div className={`mt-2 break-words text-2xl font-semibold leading-tight tracking-tight tabular-nums ${c ? c.value : "text-[var(--text-primary)]"}`}>
 				{value}
 			</div>
 			{detail ? <p className="mt-1 text-xs leading-4 text-[var(--text-muted)]">{detail}</p> : null}
 		</article>
+	);
+}
+
+/* ── MetricPanel ────────────────────────────────────────────────────── */
+
+export type Metric = {
+	label: string;
+	value: ReactNode;
+	/** Colour of the value and its dot; omit for neutral figures. */
+	tone?: AccentColor;
+	detail?: ReactNode;
+	href?: string;
+};
+
+/**
+ * A titled card of related figures separated by hairlines — one surface for
+ * a group of numbers instead of a card per number.
+ */
+export function MetricPanel({
+	title,
+	eyebrow,
+	description,
+	actions,
+	metrics,
+	columns = 4,
+	className = "",
+	...rest
+}: {
+	title?: ReactNode;
+	eyebrow?: ReactNode;
+	description?: ReactNode;
+	actions?: ReactNode;
+	metrics: Metric[];
+	/** Desktop column count. */
+	columns?: 2 | 3 | 4 | 6;
+	className?: string;
+} & Omit<HTMLAttributes<HTMLElement>, "title">) {
+	const colCls = columns === 2 ? "sm:grid-cols-2" : columns === 3 ? "sm:grid-cols-3" : columns === 6 ? "sm:grid-cols-3 xl:grid-cols-6" : "sm:grid-cols-2 lg:grid-cols-4";
+	return (
+		<section data-card data-metric-panel className={`!p-0 ${className}`} {...rest}>
+			{title != null || actions != null ? (
+				<div className="flex flex-wrap items-start justify-between gap-3 px-4 pb-3 pt-3.5 sm:px-5">
+					<div className="min-w-0">
+						{eyebrow ? <p className="text-xs font-medium text-[var(--accent)]">{eyebrow}</p> : null}
+						{title != null ? <h2 className="text-[15px] font-semibold text-[var(--text-primary)]">{title}</h2> : null}
+						{description ? <p className="mt-0.5 text-[13px] text-[var(--text-muted)]">{description}</p> : null}
+					</div>
+					{actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
+				</div>
+			) : null}
+			<div className={`grid grid-cols-2 gap-px overflow-hidden rounded-b-[var(--radius-card)] border-t border-[var(--border-subtle)] bg-[var(--border-subtle)] ${title == null && actions == null ? "rounded-t-[var(--radius-card)] border-t-0" : ""} ${colCls}`}>
+				{metrics.map((metric) => {
+					const c = metric.tone ? ACCENT_COLORS[metric.tone] : null;
+					const body = (
+						<>
+							<div className="flex items-center gap-1.5 text-[12.5px] font-medium text-[var(--text-muted)]">
+								{c ? <span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${c.dot}`} /> : null}
+								<span className="min-w-0 truncate">{metric.label}</span>
+							</div>
+							<div className={`mt-1.5 break-words text-[22px] font-semibold leading-tight tracking-tight tabular-nums ${c ? c.value : "text-[var(--text-primary)]"}`}>
+								{metric.value}
+							</div>
+							{metric.detail ? <div className="mt-0.5 text-xs text-[var(--text-muted)]">{metric.detail}</div> : null}
+						</>
+					);
+					return metric.href ? (
+						<a key={metric.label} href={metric.href} className="block bg-[var(--surface)] px-4 py-3.5 transition hover:bg-[var(--surface-hover)] sm:px-5">{body}</a>
+					) : (
+						<div key={metric.label} className="bg-[var(--surface)] px-4 py-3.5 sm:px-5">{body}</div>
+					);
+				})}
+			</div>
+		</section>
 	);
 }
 
@@ -259,8 +390,8 @@ export function Section({
 			{(title || actions) && (
 				<div className="flex flex-wrap items-end justify-between gap-3">
 					<div className="min-w-0">
-						{title ? <h2 className="text-base font-semibold text-[var(--text-primary)]">{title}</h2> : null}
-						{description ? <p className="mt-0.5 text-xs text-[var(--text-muted)]">{description}</p> : null}
+						{title ? <h2 className="text-[15px] font-semibold text-[var(--text-primary)]">{title}</h2> : null}
+						{description ? <p className="mt-0.5 text-[13px] text-[var(--text-muted)]">{description}</p> : null}
 					</div>
 					{actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
 				</div>
@@ -292,7 +423,7 @@ export function StatGrid({
 					? "sm:grid-cols-2 lg:grid-cols-5"
 					: "sm:grid-cols-2 lg:grid-cols-4";
 	return (
-		<section data-stat-grid className={`mb-5 grid grid-cols-2 gap-3 max-[340px]:grid-cols-1 ${colCls} ${className}`}>
+		<section data-stat-grid className={`grid grid-cols-2 gap-3 max-[340px]:grid-cols-1 ${colCls} ${withDefaultMargin("mb-6", className)}`}>
 			{children}
 		</section>
 	);
@@ -330,28 +461,28 @@ export function ListPanel({
 			{(title != null || description != null || count != null || actions != null) && (
 				<div
 					data-list-panel-header
-					className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-3.5 sm:px-5"
+					className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-4 py-3 sm:px-5"
 				>
 					<div className="min-w-0">
-						<div className="flex min-w-0 items-center gap-2.5">
+						<div className="flex min-w-0 items-center gap-2">
 							{title != null ? (
 								typeof title === "string" || typeof title === "number" ? (
-									<h2 className="text-base font-semibold text-[var(--text-primary)]">{title}</h2>
+									<h2 className="text-[15px] font-semibold text-[var(--text-primary)]">{title}</h2>
 								) : (
 									<div className="text-sm font-semibold text-[var(--text-primary)]">{title}</div>
 								)
 							) : null}
 							{count != null ? (
-								<span className="inline-flex min-w-6 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface-elevated)] px-2 py-0.5 text-xs font-medium tabular-nums text-[var(--text-secondary)]">
+								<span className="inline-flex min-w-6 items-center justify-center rounded-full bg-[var(--surface-elevated)] px-2 py-0.5 text-xs font-medium tabular-nums text-[var(--text-secondary)]">
 									{count}
 								</span>
 							) : null}
 						</div>
 						{description != null ? (
 							typeof description === "string" || typeof description === "number" ? (
-								<p className="mt-1 max-w-2xl text-xs text-[var(--text-muted)]">{description}</p>
+								<p className="mt-0.5 max-w-2xl text-[12.5px] text-[var(--text-muted)]">{description}</p>
 							) : (
-								<div className="mt-1 max-w-2xl text-xs text-[var(--text-muted)]">{description}</div>
+								<div className="mt-0.5 max-w-2xl text-[12.5px] text-[var(--text-muted)]">{description}</div>
 							)
 						) : null}
 					</div>
@@ -395,7 +526,7 @@ export function ListRow({
 						}
 					: undefined
 			}
-			className={`px-4 py-3.5 transition hover:bg-[var(--surface-hover)] sm:px-5 ${
+			className={`px-4 py-3 transition-colors hover:bg-[var(--surface-hover)] sm:px-5 ${
 				interactive ? "cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--accent)]" : ""
 			} ${className}`}
 		>
@@ -404,7 +535,10 @@ export function ListRow({
 	);
 }
 
-/** Soft surface panel for create forms / secondary blocks. */
+/**
+ * Titled card for create forms and secondary blocks: Card chrome with a
+ * 16px rhythm between its children.
+ */
 export function SurfacePanel({
 	children,
 	className = "",
@@ -419,15 +553,12 @@ export function SurfacePanel({
 	actions?: ReactNode;
 }) {
 	return (
-		<div
-			data-surface-panel
-			className={`space-y-4 py-4 ${className}`}
-		>
+		<div data-surface-panel data-card className={`space-y-4 p-5 ${className}`}>
 			{(title || actions) && (
-				<div className="flex flex-wrap items-start justify-between gap-3 border-b border-[var(--border-subtle)] pb-3">
+				<div className="flex flex-wrap items-start justify-between gap-3">
 					<div className="min-w-0">
-						{title ? <h2 className="text-base font-semibold text-[var(--text-primary)]">{title}</h2> : null}
-						{description ? <p className="mt-0.5 text-xs leading-5 text-[var(--text-muted)]">{description}</p> : null}
+						{title ? <h2 className="text-[15px] font-semibold leading-6 text-[var(--text-primary)]">{title}</h2> : null}
+						{description ? <p className="mt-0.5 text-[13px] leading-5 text-[var(--text-muted)]">{description}</p> : null}
 					</div>
 					{actions ? <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">{actions}</div> : null}
 				</div>
@@ -443,8 +574,11 @@ export function PermissionDenied() {
 	return (
 		<PageShell>
 			<div className="flex min-h-[50vh] flex-col items-center justify-center text-center">
-				<div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--surface)] text-2xl" aria-hidden="true">
-					🔒
+				<div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface)] text-[var(--text-muted)] shadow-[var(--shadow-xs)]" aria-hidden="true">
+					<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+						<rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+						<path d="M7 11V7a5 5 0 0 1 10 0v4" />
+					</svg>
 				</div>
 				<p className="text-sm text-[var(--text-muted)]">
 					<LocalizedText textKey="common.noPermission" fallback="Missing permission" />

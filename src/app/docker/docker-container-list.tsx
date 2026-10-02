@@ -57,10 +57,10 @@ export function DockerContainerList({
 	return (
 		<div className="space-y-4">
 			{grouped.map((group) => (
-				<section key={group.project} data-card className="p-4">
+				<section key={group.project} data-card>
 					<div className="mb-3 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
 						<div>
-							<h2 className="text-sm font-medium text-[var(--text-primary)]">{group.project}</h2>
+							<h2 className="text-[15px] font-semibold text-[var(--text-primary)]">{group.project}</h2>
 							<p className="text-xs text-[var(--text-muted)]">
 								{t("dockerPage.group.subtitle", { count: group.containers.length })}
 								{" ·"}
@@ -70,24 +70,21 @@ export function DockerContainerList({
 						<div className="flex flex-wrap items-center gap-2" aria-label={t("dockerPage.project.actions")}>
 							{(
 								[
-									["ps","dockerPage.project.ps","secondary"],
-									["up","dockerPage.project.up","success"],
-									["start","dockerPage.project.start","success"],
-									["stop","dockerPage.project.stop","outline"],
-									["restart","dockerPage.project.restart","primary"],
+									["ps","dockerPage.project.ps","ghost"],
+									["up","dockerPage.project.up","secondary"],
+									["start","dockerPage.project.start","secondary"],
+									["stop","dockerPage.project.stop","secondary"],
+									["restart","dockerPage.project.restart","secondary"],
 									["down","dockerPage.project.down","danger"],
 								] as const
 							).map(([action, labelKey, variant]) => {
 								const busyKey = `${group.project}:${action}`;
 								const busy = projectActionLoading === busyKey;
 								return (
-									<ActionButton variant={variant}
+									<ActionButton size="sm" variant={variant}
 										key={action}
 										onClick={() => void handleProjectAction(group.project, action)}
-										disabled={projectActionLoading !== null}
-
-										className="!min-h-11 !rounded-lg !px-2.5 !py-1 !text-sm !font-medium disabled:opacity-50"
-									>
+										disabled={projectActionLoading !== null}>
 										{busy ? t("dockerPage.project.busy") : t(labelKey)}
 									</ActionButton>
 								);
@@ -101,8 +98,8 @@ export function DockerContainerList({
 			))}
 
 			{ungrouped.length > 0 && (
-				<section data-card className="p-4">
-					<h2 className="text-sm font-medium text-[var(--text-primary)] mb-3">{t("dockerPage.ungrouped.title")}</h2>
+				<section data-card>
+					<h2 className="mb-3 text-[15px] font-semibold text-[var(--text-primary)]">{t("dockerPage.ungrouped.title")}</h2>
 					<div className="space-y-3">
 						{ungrouped.map((c) => renderContainerCard(c))}
 					</div>

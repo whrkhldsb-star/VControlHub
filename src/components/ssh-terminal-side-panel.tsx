@@ -63,7 +63,7 @@ export function SshTerminalSidePanel({
 }) {
 	return (
 		<div className="flex max-h-[50vh] w-full shrink-0 flex-col gap-3 overflow-y-auto lg:ml-3 lg:max-h-none lg:w-56">
-			<section className="rounded-xl border border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface-subtle)] light:bg-[var(--surface)] p-3">
+			<section data-inset className="light:border-[var(--border)] light:bg-[var(--surface)] p-3">
 				<h4 className="mb-2 text-xs font-medium text-[var(--text-muted)]/60 light:text-[var(--text-primary)]/60">
 					{t("sshTerminalModal.favoritesTitle")}
 				</h4>
@@ -114,7 +114,7 @@ export function SshTerminalSidePanel({
 					</div>
 				)}
 			</section>
-			<section className="rounded-xl border border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface-subtle)] light:bg-[var(--surface)] p-3">
+			<section data-inset className="light:border-[var(--border)] light:bg-[var(--surface)] p-3">
 				<h4 className="mb-2 text-xs font-medium text-[var(--text-muted)]/60 light:text-[var(--text-primary)]/60">
 					{t("sshTerminalModal.quickKeysTitle")}
 				</h4>
@@ -143,7 +143,7 @@ export function SshTerminalSidePanel({
 				)}
 				<QuickKeyBuilder t={t} onAdd={onAddQuickKey} />
 			</section>
-			<section className="rounded-xl border border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface-subtle)] light:bg-[var(--surface)] p-3">
+			<section data-inset className="light:border-[var(--border)] light:bg-[var(--surface)] p-3">
 				<h4 className="mb-2 text-xs font-medium text-[var(--text-muted)]/60 light:text-[var(--text-primary)]/60">
 					{t("sshTerminalModal.historyTitle")}
 				</h4>
@@ -165,7 +165,7 @@ export function SshTerminalSidePanel({
 					</div>
 				)}
 			</section>
-			<section className="rounded-xl border border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface-subtle)] light:bg-[var(--surface)] p-3">
+			<section data-inset className="light:border-[var(--border)] light:bg-[var(--surface)] p-3">
 				<h4 className="mb-2 text-xs font-medium text-[var(--text-muted)]/60 light:text-[var(--text-primary)]/60">
 					{t("sshTerminalModal.quickCommandsTitle")}
 				</h4>

@@ -37,6 +37,7 @@ import {
   getPendingChanges,
 } from "./settings-save-confirm";
 import { TwoFactorSettingsLazy } from "./two-factor-settings-lazy";
+import { Notice } from "@/components/ui-primitives";
 
 export function formatMetadataDate(
   value: Date | string | null,
@@ -154,11 +155,8 @@ export function AuditSummary({
 }) {
   const { t } = useI18n();
   return (
-    <div
-      data-tone="amber"
-      className="rounded-lg border border-[var(--warning-border)] bg-[var(--warning-bg)] px-3 py-2 text-xs text-[var(--warning)]"
-    >
-      <p className="font-semibold">{t("settingsClient.recentlyUpdated")}</p>
+    <div data-inset className="px-3 py-2 text-xs text-[var(--text-muted)]">
+      <p className="font-medium text-[var(--text-secondary)]">{t("settingsClient.recentlyUpdated")}</p>
       <p>
         {t("settingsClient.metadataTime")}
         {formatMetadataDate(metadata?.updatedAt ?? null, t)}
@@ -271,12 +269,9 @@ export function SchemaDrivenSection({
       ) : (
         <>
           {section.noticeBannerKey && (
-            <div
-              data-tone="cyan"
-              className="rounded-lg border border-[var(--accent-border)] bg-[var(--accent-bg)] px-3 py-2 text-xs text-[var(--accent)]"
-            >
+            <Notice tone="info" compact>
               {t(section.noticeBannerKey)}
-            </div>
+            </Notice>
           )}
           {(() => {
             const renderableFields = section.fields.filter(

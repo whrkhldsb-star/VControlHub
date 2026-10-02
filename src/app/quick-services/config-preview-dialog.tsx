@@ -4,7 +4,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 
 import { ActionButton } from "@/components/action-button";
 import { ModalShell } from "@/components/modal-shell";
-import { UI_OVERLAY_SHEET } from "@/components/ui-overlay-classes";
+import { Notice } from "@/components/ui-primitives";
 /**
  * `ConfigPreviewDialog` — final confirmation modal shown after the user
  * picks a port in the install dialog (or hits "更新" on an installed
@@ -82,11 +82,10 @@ export function ConfigPreviewDialog({
 
 	return (
 		<ModalShell
+			size="lg" placement="sheet"
 			open
 			onClose={onCancel}
 			label={title}
-			overlayClassName={UI_OVERLAY_SHEET}
-			panelClassName="mx-0 w-full max-w-lg rounded-t-2xl border border-[var(--color-action-border)]/20 bg-[var(--surface-root)] p-6 shadow-2xl sm:mx-4 sm:rounded-2xl"
 		>
 				<h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">{title}</h3>
 				<p className="text-sm leading-6 text-[var(--text-secondary)]">
@@ -126,14 +125,14 @@ export function ConfigPreviewDialog({
 							: noneLabel}
 					</div>
 				</div>
-				<div data-tone="amber" className="mt-4 rounded-xl border border-[var(--warning-border)] p-3 text-xs leading-5 text-[var(--warning)]">
+				<Notice tone="warning" compact className="mt-4">
 					{warning}
-				</div>
+				</Notice>
 				<div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-					<ActionButton type="button" variant="secondary" onClick={onCancel} className="min-h-11 text-xs">
+					<ActionButton size="sm" type="button" variant="secondary" onClick={onCancel}>
 						{cancelLabel}
 					</ActionButton>
-					<ActionButton type="button" onClick={onConfirm} className="min-h-11 text-xs">
+					<ActionButton size="sm" type="button" onClick={onConfirm}>
 						{confirmLabel}
 					</ActionButton>
 				</div>

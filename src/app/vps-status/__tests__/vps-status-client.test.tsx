@@ -6,6 +6,7 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { I18nProvider } from "@/lib/i18n/provider";
 import { VpsStatusClient } from "../vps-status-client";
 import { normalizeVpsStatusFilter } from "../use-vps-status-view";
+import { expectTouchTarget } from "@/test/ui-assertions";
 
 vi.mock("@/lib/auth/csrf-client", () => ({
 	csrfFetch: vi.fn(),
@@ -152,7 +153,7 @@ describe("VpsStatusClient (split fleet surface)", () => {
 		renderVps();
 		expect((await screen.findAllByText("HK Prod")).length).toBeGreaterThan(0);
 		const refresh = screen.getByRole("button", { name: "刷新健康状态" });
-		expect(refresh.className).toContain("min-h-11");
+		expectTouchTarget(refresh);
 	});
 
 	it("switches to the compact table view and persists the preference", async () => {

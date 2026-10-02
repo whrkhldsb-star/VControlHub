@@ -9,7 +9,7 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useToast } from "@/components/toast-provider";
 import type { CostBudgetRecord, CostCategory, CostCurrency } from "@/lib/cost/types";
-import { CATEGORIES, cardClass, inputClass } from "./cost-page-shared";
+import { CATEGORIES, inputClass } from "./cost-page-shared";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { UI_TONE } from "@/lib/ui/classes";
 
@@ -99,7 +99,7 @@ export function CostBudgetPanel({
   };
 
   return (
-    <section className={cardClass}>
+    <section data-card className="p-5">
       <ConfirmDialog
         open={pendingDelete !== null}
         title={t("costPage.budget.deleteTitle")}
@@ -180,7 +180,7 @@ export function CostBudgetPanel({
             <option value="quarterly">{t("costPage.budget.quarterly")}</option>
             <option value="yearly">{t("costPage.budget.yearly")}</option>
           </select>
-          <ActionButton type="button" disabled={busy} onClick={create} className="px-3 py-2 text-sm">
+          <ActionButton type="button" disabled={busy} onClick={create}>
             {t("costPage.budget.create")}
           </ActionButton>
         </div>
@@ -195,9 +195,7 @@ export function CostBudgetPanel({
                   <ActionButton
                     type="button"
                     variant="primary"
-                    onClick={() => nameInputRef.current?.focus()}
-                    className="text-sm"
-                  >
+                    onClick={() => nameInputRef.current?.focus()}>
                     {t("costPage.budget.create")}
                   </ActionButton>
                 ) : undefined

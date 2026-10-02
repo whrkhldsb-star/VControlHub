@@ -1,12 +1,10 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import { cn } from "@/lib/ui/cn";
-import {
-	UI_BTN_PRIMARY,
-	UI_BTN_SUCCESS,
-	UI_INPUT,
-	UI_TONE,
-} from "@/lib/ui/classes";
+import { UI_INPUT, UI_LABEL, UI_TONE } from "@/lib/ui/classes";
 
 describe("cn", () => {
 	it("joins truthy class names", () => {
@@ -27,15 +25,24 @@ describe("cn", () => {
 });
 
 describe("ui classes", () => {
+	it("defines field chrome once, in the components layer of globals.css", () => {
+		const css = readFileSync(join(process.cwd(), "src/app/globals.css"), "utf8");
+		const components = css.slice(css.indexOf("@layer components"));
+		const rule = /\.ui-control \{([^}]*)\}/.exec(components)?.[1] ?? "";
+		for (const token of ["var(--input-border)", "var(--input-bg)", "var(--control-height)", "var(--radius-control)"]) {
+			expect(rule).toContain(token);
+		}
+		expect(components).toContain(".ui-control::placeholder");
+		expect(components).toContain(".ui-control:focus");
+		expect(components).toContain(".ui-control:disabled");
+	});
+
 	it("uses design tokens instead of hard-coded white/black", () => {
-		expect(UI_BTN_PRIMARY).toContain("var(--color-action)");
-		expect(UI_BTN_PRIMARY).toContain("var(--color-action-fg)");
-		expect(UI_BTN_PRIMARY).not.toMatch(/text-white|border-white|bg-black/);
-  expect(UI_BTN_SUCCESS).toContain("var(--color-success-action)");
-  expect(UI_BTN_SUCCESS).toContain("var(--solid-action-fg)");
-		expect(UI_INPUT).toContain("var(--input-bg)");
-		expect(UI_INPUT).toContain("var(--input-border)");
-		expect(UI_INPUT).toContain("placeholder:text-[var(--text-muted)]");
+		for (const fragment of [UI_INPUT, UI_LABEL, ...Object.values(UI_TONE)]) {
+			expect(fragment).not.toMatch(/text-white|border-white|bg-black|bg-white/);
+		}
+		expect(UI_LABEL).toContain("var(--text-primary)");
+		expect(UI_INPUT).toBe("ui-control");
 		expect(UI_TONE.danger).toContain("var(--danger-bg)");
 	});
 });

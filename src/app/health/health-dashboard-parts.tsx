@@ -30,7 +30,7 @@ export function UsageCell({ value, label }: { value: number | undefined; label: 
 
 function FleetMetricBar({ label, value, unit }: { label: string; value: number; unit: string }) {
 	return (
-		<div className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-3">
+		<div data-tile className="p-3">
 			<div className="flex items-baseline justify-between">
 				<p className="text-xs uppercase text-[var(--text-muted)]">{label}</p>
 				<p className={`text-xl font-bold ${usageColor(value)}`}>
@@ -92,7 +92,7 @@ export function FleetResourceSummary({
 	};
 
 	return (
-		<section className="space-y-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
+		<section data-card className="space-y-3 p-4">
 			<div className="flex items-center justify-between">
 				<div>
 					<p className="text-xs uppercase text-[var(--text-muted)]">
@@ -110,7 +110,7 @@ export function FleetResourceSummary({
 				<FleetMetricBar label={t("healthPage.fleet.avgCpu")} value={avgCpu} unit="%" />
 				<FleetMetricBar label={t("healthPage.fleet.avgMem")} value={avgMem} unit="%" />
 				<FleetMetricBar label={t("healthPage.fleet.avgDisk")} value={avgDisk} unit="%" />
-				<div className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-3">
+				<div data-tile className="p-3">
 					<p className="text-xs uppercase text-[var(--text-muted)]">
 						{t("healthPage.fleet.avgLoad")}
 					</p>

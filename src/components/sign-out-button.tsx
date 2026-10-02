@@ -5,7 +5,7 @@ import { useTransition } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 
 import { LocalizedText } from "./localized-text";
-import { LogOut } from "./icons";
+import { IconLogOut } from "./nav-icons";
 import { useI18n } from "@/lib/i18n/use-locale";
 
 export function SignOutButton() {
@@ -32,9 +32,10 @@ export function SignOutButton() {
 			aria-label={t("auth.logout")}
 			onClick={handleSignOut}
 			disabled={pending}
-			className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-[var(--danger)] transition hover:bg-[var(--danger-bg)] disabled:opacity-60"
+			data-menu-item
+			data-danger
 		>
-			<LogOut size={18} aria-hidden="true" />
+			<IconLogOut size={16} />
 			<span><LocalizedText textKey="auth.logout" fallback="Sign out" /></span>
 		</button>
 	);

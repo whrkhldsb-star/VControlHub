@@ -37,7 +37,7 @@ export function FileListEmptyState({
             onClick={onGoUp}
             data-testid="files-empty-up-level"
 
-            className="mt-4 inline-flex items-center gap-1.5 !px-4 !py-2 !text-sm"
+            className="mt-4 inline-flex items-center gap-1.5"
           >
             <span aria-hidden="true">↑</span>
             {t("fileListClient.upLevel")}

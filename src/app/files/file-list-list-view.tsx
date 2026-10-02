@@ -171,9 +171,9 @@ export function FileListListView(props: FileListListViewProps) {
                 </div>
                 <div className="text-xs text-[var(--text-muted)]">—</div>
                 <div className="sticky right-0 z-10 flex flex-wrap gap-1 bg-[var(--surface)] pl-2 group-hover:bg-[var(--surface-elevated)]">
-                  <ActionButton variant="secondary"
+                  <ActionButton size="sm" variant="secondary"
                     onClick={() => navigateToFolder(folder.path)}
-                    data-tone="cyan" className="!inline-flex !items-center !gap-1.5 !px-3 !py-1.5 !text-sm"
+                    data-tone="cyan" className="!inline-flex !items-center !gap-1.5"
                   >
                     <svg
                       width="12"

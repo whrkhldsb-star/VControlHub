@@ -9,7 +9,6 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 import { ModalShell } from "@/components/modal-shell";
-import { UI_OVERLAY_SHEET_SURFACE } from "@/components/ui-overlay-classes";
 import { getBackupTypeLabel } from "@/lib/i18n/domain-labels";
 
 type Props = {
@@ -93,9 +92,9 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
 
   return (
     <div className="grid gap-1">
-      <ActionButton variant="danger"
+      <ActionButton size="sm" variant="danger"
         disabled={disabled || pending}
-        onClick={openConfirm} className="w-fit !px-3 !py-1.5 !text-sm disabled:cursor-not-allowed disabled:opacity-50">
+        onClick={openConfirm} className="w-fit">
         {pending ? t("backupsPage.restore.pending") : t("common.restore")}
       </ActionButton>
       {message && (
@@ -111,13 +110,12 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
       {error && <p className="text-xs text-[var(--danger)]">{error}</p>}
       {confirmOpen && (
         <ModalShell
+          size="md" placement="sheet"
           open
           onClose={() => setConfirmOpen(false)}
           labelledBy="restore-backup-title"
           describedBy="restore-backup-description"
           closeOnBackdrop={false}
-          overlayClassName={UI_OVERLAY_SHEET_SURFACE}
-          panelClassName="mx-0 w-full max-w-md rounded-t-2xl border border-[var(--danger-border)] bg-[var(--modal-bg)] p-5 shadow-2xl shadow-black/30 sm:mx-4 sm:rounded-2xl"
         >
             <h3 id="restore-backup-title" className="text-base font-semibold text-[var(--text-primary)]">{t("backupsPage.restore.confirmTitle")}</h3>
             <p id="restore-backup-description" className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
@@ -158,13 +156,12 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
                   setConfirmOpen(false);
                   setConfirmText("");
                   setError(null);
-                }} className="!min-h-11 !rounded-xl !px-4 !py-2 !text-sm disabled:opacity-50"
-              >
+                }}>
                 {t("common.cancel")}
               </ActionButton>
               <ActionButton variant="danger"
                 disabled={pending || confirmText !== CONFIRM_TEXT}
-                onClick={handleRestore} className="min-h-11 !px-4 !py-2 !text-sm disabled:cursor-not-allowed disabled:opacity-50">
+                onClick={handleRestore}>
                 {pending ? t("backupsPage.restore.pending") : t("backupsPage.restore.confirm")}
               </ActionButton>
             </div>

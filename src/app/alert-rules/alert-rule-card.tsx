@@ -1,6 +1,9 @@
 "use client";
 
 import { ActionButton } from "@/components/action-button";
+import { Card } from "@/components/page-shell";
+import { StatusBadge } from "@/components/status-badge";
+import { Badge } from "@/components/ui-primitives";
 import { toDateLocale } from "@/lib/i18n/locale-format";
 import { useI18n } from "@/lib/i18n/use-locale";
 
@@ -20,6 +23,8 @@ type Props = {
 	setRulePendingDelete: (rule: AlertRule | null) => void;
 };
 
+const PERCENT_METRICS = new Set(["cpu_usage", "mem_usage", "disk_usage", "swap_usage"]);
+
 export function AlertRuleCard({
 	rule,
 	canManage,
@@ -29,158 +34,108 @@ export function AlertRuleCard({
 	setRulePendingDelete,
 }: Props) {
 	const { t, locale } = useI18n();
+	const silenceWindows = rule.silenceWindows ?? [];
+	const playbookCount = rule.playbookIds?.length ?? 0;
 
 	return (
-		<article
-			data-card
-			className={`transition-colors duration-150 ${rule.enabled ? "" : "opacity-60"}`}
-		>
-			<div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-				<div className="min-w-0">
-					<h2 className="text-lg font-semibold text-[var(--text-primary)]">
-						{rule.name}
-					</h2>
-					<p className="mt-1 text-xs text-[var(--text-muted)]">
+		<Card as="article" className={rule.enabled ? undefined : "bg-[var(--surface-subtle)]"}>
+			<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+				<div className="min-w-0 flex-1">
+					<div className="flex flex-wrap items-center gap-2">
+						<h2 className="text-[15px] font-semibold text-[var(--text-primary)]">{rule.name}</h2>
+						<StatusBadge tone={rule.enabled ? "success" : "neutral"}>
+							{t(rule.enabled ? "alertRulesPage.state.enabled" : "alertRulesPage.state.paused")}
+						</StatusBadge>
+					</div>
+
+					<p className="mt-1.5 text-[13px] leading-6 text-[var(--text-secondary)]">
 						{t("alertRulesPage.condition.when")}{" "}
-						<span className="text-[var(--color-action)]">
-							{metricLabel(t, rule.metric)}
-						</span>{" "}
-						{rule.metric !== "server_offline" && (
+						<span className="font-medium text-[var(--text-primary)]">{metricLabel(t, rule.metric)}</span>
+						{rule.metric !== "server_offline" ? (
 							<>
-								<span className="text-[var(--text-primary)]/70">
-									{operatorLabel(t, rule.operator)}
-								</span>{" "}
-								<span className="font-mono text-[var(--warning)]">
+								{" "}
+								{operatorLabel(t, rule.operator)}{" "}
+								<code className="rounded bg-[var(--surface-elevated)] px-1.5 py-0.5 text-[12.5px] font-medium text-[var(--text-primary)]">
 									{rule.threshold}
-									{["cpu_usage", "mem_usage", "disk_usage", "swap_usage"].includes(
-										rule.metric,
-									)
-										? "%"
-										: ""}
-								</span>
+									{PERCENT_METRICS.has(rule.metric) ? "%" : ""}
+								</code>
 							</>
-						)}
-						{rule.durationSeconds > 0 && (
-							<span className="text-[var(--text-muted)]">
-								{t("alertRulesPage.condition.duration").replace(
-									"{seconds}",
-									String(rule.durationSeconds),
-								)}
-							</span>
-						)}
-						{rule.serverIds.length === 0
-							? t("alertRulesPage.condition.allNodes")
-							: t("alertRulesPage.condition.nodeCount").replace(
-									"{count}",
-									String(rule.serverIds.length),
-								)}
-					</p>
-					<div className="mt-2 flex flex-wrap gap-1.5">
-						{rule.notifyChannels.map((ch) => (
-							<span
-								key={ch}
-								className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-1.5 py-0.5 text-xs text-[var(--text-muted)]"
-							>
-								{channelLabel(t, ch)}
-							</span>
-						))}
-						{rule.webhookConfigured && (
-							<span
-								data-tone="emerald"
-								className="rounded-lg border border-[var(--success-border)] px-1.5 py-0.5 text-xs text-[var(--success)]"
-							>
-								{t("alertRulesPage.badge.webhookConfigured")}
-							</span>
-						)}
-						{rule.cooldownMinutes > 0 && (
-							<span className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-1.5 py-0.5 text-xs text-[var(--text-muted)]">
-								{t("alertRulesPage.badge.cooldown").replace(
-									"{minutes}",
-									String(rule.cooldownMinutes),
-								)}
-							</span>
-						)}
-						<span className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface)] px-2 py-0.5 text-xs text-[var(--text-muted)]">
-							{t("alertRulesPage.badge.escalation").replace(
-								"{minutes}",
-								String(rule.escalationMinutes ?? 30),
-							)}
+						) : null}
+						{rule.durationSeconds > 0
+							? t("alertRulesPage.condition.duration").replace("{seconds}", String(rule.durationSeconds))
+							: null}
+						<span className="text-[var(--text-muted)]">
+							{rule.serverIds.length === 0
+								? t("alertRulesPage.condition.allNodes")
+								: t("alertRulesPage.condition.nodeCount").replace("{count}", String(rule.serverIds.length))}
 						</span>
-						{(rule.silenceWindows?.length ?? 0) > 0 && (
-							<span className="rounded-lg border border-[var(--accent-border)] bg-[var(--accent-bg)] px-1.5 py-0.5 text-xs text-[var(--accent)]">
+					</p>
+
+					<div className="mt-2.5 flex flex-wrap gap-1.5">
+						{rule.notifyChannels.map((channel) => (
+							<Badge key={channel}>{channelLabel(t, channel)}</Badge>
+						))}
+						{rule.webhookConfigured ? <Badge tone="success">{t("alertRulesPage.badge.webhookConfigured")}</Badge> : null}
+						{rule.cooldownMinutes > 0 ? (
+							<Badge>{t("alertRulesPage.badge.cooldown").replace("{minutes}", String(rule.cooldownMinutes))}</Badge>
+						) : null}
+						<Badge>{t("alertRulesPage.badge.escalation").replace("{minutes}", String(rule.escalationMinutes ?? 30))}</Badge>
+						{silenceWindows.length > 0 ? (
+							<Badge tone="accent">
 								{t("alertRulesPage.badge.silence").replace(
 									"{windows}",
-									rule.silenceWindows?.join(
-										t("alertRulesPage.badge.silenceSeparator"),
-									) ?? "",
+									silenceWindows.join(t("alertRulesPage.badge.silenceSeparator")),
 								)}
-							</span>
-						)}
-						{(rule.playbookIds?.length ?? 0) > 0 && (
-							<span className="rounded-lg border border-[var(--color-action-border)]/20 bg-[var(--color-action-bg)]/10 px-1.5 py-0.5 text-xs text-[var(--color-action)]">
-								{t("alertRulesPage.badge.playbooks").replace(
-									"{count}",
-									String(rule.playbookIds?.length ?? 0),
-								)}
-							</span>
-						)}
+							</Badge>
+						) : null}
+						{playbookCount > 0 ? (
+							<Badge tone="accent">{t("alertRulesPage.badge.playbooks").replace("{count}", String(playbookCount))}</Badge>
+						) : null}
 					</div>
-					{rule.lastTriggeredAt && (
-						<p className="mt-1 text-xs text-[var(--text-muted)]">
+
+					{rule.lastTriggeredAt ? (
+						<p className="mt-2 text-xs text-[var(--text-muted)]">
 							{t("alertRulesPage.lastTriggered").replace(
 								"{date}",
-								new Date(rule.lastTriggeredAt).toLocaleString(
-									toDateLocale(locale),
-								),
+								new Date(rule.lastTriggeredAt).toLocaleString(toDateLocale(locale)),
 							)}
 						</p>
-					)}
+					) : null}
 				</div>
-				{canManage && (
+
+				{canManage ? (
 					<div className="flex shrink-0 flex-wrap items-center gap-2">
-						<button
-							type="button"
+						<ActionButton
+							size="sm"
+							variant="secondary"
+							onClick={() => testRule(rule)}
+							loading={busyAction === `test:${rule.id}`}
+						>
+							{busyAction === `test:${rule.id}` ? t("alertRulesPage.action.sending") : t("alertRulesPage.action.testSend")}
+						</ActionButton>
+						<ActionButton
+							size="sm"
+							variant="secondary"
 							onClick={() => toggleRule(rule.id)}
-							disabled={busyAction === `toggle:${rule.id}`}
-							data-action-button
-							data-variant={rule.enabled ? "warning" : "success"}
-							className={`text-xs disabled:cursor-not-allowed disabled:opacity-60 ${
-								rule.enabled
-									? "hover:bg-[var(--warning-bg)]/60"
-									: "hover:bg-[var(--success-bg)]/60"
-							}`}
+							loading={busyAction === `toggle:${rule.id}`}
 						>
 							{busyAction === `toggle:${rule.id}`
 								? t("alertRulesPage.action.processing")
 								: rule.enabled
 									? t("alertRulesPage.action.pause")
 									: t("alertRulesPage.action.enable")}
-						</button>
-						<ActionButton
-							type="button"
-							variant="outline"
-							onClick={() => testRule(rule)}
-							disabled={busyAction === `test:${rule.id}`}
-							className="text-xs"
-						>
-							{busyAction === `test:${rule.id}`
-								? t("alertRulesPage.action.sending")
-								: t("alertRulesPage.action.testSend")}
 						</ActionButton>
 						<ActionButton
-							type="button"
+							size="sm"
 							variant="danger"
 							onClick={() => setRulePendingDelete(rule)}
-							disabled={busyAction === `delete:${rule.id}`}
-							className="text-xs"
+							loading={busyAction === `delete:${rule.id}`}
 						>
-							{busyAction === `delete:${rule.id}`
-								? t("alertRulesPage.action.deleting")
-								: t("alertRulesPage.action.delete")}
+							{busyAction === `delete:${rule.id}` ? t("alertRulesPage.action.deleting") : t("alertRulesPage.action.delete")}
 						</ActionButton>
 					</div>
-				)}
+				) : null}
 			</div>
-		</article>
+		</Card>
 	);
 }

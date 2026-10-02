@@ -89,7 +89,7 @@ describe("alert rules client", () => {
 		render(wrap(<AlertRuleListClient rules={[]} servers={[]} canManage={true} />));
 
 		// Prefer toolbar create button when empty-state also has a CTA.
-		const createButtons = screen.getAllByRole("button", { name: "+ 创建告警规则" });
+		const createButtons = screen.getAllByRole("button", { name: "创建告警规则" });
 		await user.click(createButtons[0]!);
 		await user.type(screen.getByLabelText("规则名称"), "CPU 过载告警");
 		await user.clear(screen.getByLabelText("阈值"));
@@ -265,10 +265,10 @@ describe("alert rules client", () => {
 			throw new Error("检测任务启动失败");
 		});
 
-		await user.click(screen.getByRole("button", { name: "🔍 立即检测" }));
+		await user.click(screen.getByRole("button", { name: "立即检测" }));
 
 		expect(await screen.findByRole("alert")).toHaveTextContent("检测任务启动失败");
-		expect(screen.getByRole("button", { name: "🔍 立即检测" })).toBeEnabled();
+		expect(screen.getByRole("button", { name: "立即检测" })).toBeEnabled();
 	});
 
 	it("can send a test alert for a configured rule and display delivery results", async () => {

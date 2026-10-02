@@ -217,7 +217,7 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
           </div>
         </div>
 
-        <div className="mt-4 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-4">
+        <div data-inset className="mt-4 p-4">
           <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--text-secondary)]">{ticket.description}</p>
         </div>
 
@@ -252,7 +252,7 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
         <h3 className="mb-1 text-sm font-semibold text-[var(--text-primary)]">{t("ticketsDetail.relatedTitle")}</h3>
         <p className="mb-3 text-xs text-[var(--text-muted)]">{t("ticketsDetail.timelineDesc")}</p>
         <div className="grid gap-3 sm:grid-cols-2">
-          <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-3 text-xs">
+          <div data-inset className="p-3 text-xs">
             <div className="font-medium text-[var(--text-primary)]">{t("ticketsDetail.relatedCommand")}</div>
             {timeline?.related.command ? (
               <div className="mt-1 space-y-1 text-[var(--text-secondary)]">
@@ -274,22 +274,20 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
                   onChange={(e) => setCommandIdInput(e.target.value)}
                   placeholder={t("ticketsDetail.commandIdPlaceholder")}
                 />
-                <ActionButton variant="outline"
+                <ActionButton size="sm" variant="outline"
                   disabled={saving || !commandIdInput.trim()}
-                  onClick={() => void runLink({ action: "link_command", commandRequestId: commandIdInput.trim() })} className="!px-2 !py-1 !text-sm !font-semibold disabled:opacity-50"
-                >
+                  onClick={() => void runLink({ action: "link_command", commandRequestId: commandIdInput.trim() })}>
                   {t("ticketsDetail.linkCommand")}
                 </ActionButton>
-                <ActionButton variant="secondary"
+                <ActionButton size="sm" variant="secondary"
                   disabled={saving || !timeline?.related.command}
-                  onClick={() => void runLink({ action: "unlink_command" })} className="!px-2 !py-1 !text-sm disabled:opacity-50"
-                >
+                  onClick={() => void runLink({ action: "unlink_command" })}>
                   {t("ticketsDetail.unlinkCommand")}
                 </ActionButton>
               </div>
             )}
           </div>
-          <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-3 text-xs">
+          <div data-inset className="p-3 text-xs">
             <div className="font-medium text-[var(--text-primary)]">{t("ticketsDetail.relatedServer")}</div>
             {timeline?.related.server ? (
               <div className="mt-1 space-y-1 text-[var(--text-secondary)]">
@@ -310,16 +308,14 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
                   onChange={(e) => setServerIdInput(e.target.value)}
                   placeholder={t("ticketsDetail.serverIdPlaceholder")}
                 />
-                <ActionButton variant="outline"
+                <ActionButton size="sm" variant="outline"
                   disabled={saving || !serverIdInput.trim()}
-                  onClick={() => void runLink({ action: "link_server", serverId: serverIdInput.trim() })} className="!px-2 !py-1 !text-sm !font-semibold disabled:opacity-50"
-                >
+                  onClick={() => void runLink({ action: "link_server", serverId: serverIdInput.trim() })}>
                   {t("ticketsDetail.linkServer")}
                 </ActionButton>
-                <ActionButton variant="secondary"
+                <ActionButton size="sm" variant="secondary"
                   disabled={saving || !timeline?.related.server}
-                  onClick={() => void runLink({ action: "unlink_server" })} className="!px-2 !py-1 !text-sm disabled:opacity-50"
-                >
+                  onClick={() => void runLink({ action: "unlink_server" })}>
                   {t("ticketsDetail.unlinkServer")}
                 </ActionButton>
               </div>
@@ -376,7 +372,7 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
           <h3 className="mb-3 text-sm font-semibold text-[var(--text-primary)]">{t("ticketsDetail.transitionsTitle")}</h3>
           <div className="flex flex-wrap gap-2">
             {TRANSITIONS[ticket.status]!.map((s) => (
-              <ActionButton key={s} variant="secondary" onClick={() => void updateStatus(s)} disabled={saving} className="px-4 py-2 text-sm disabled:opacity-40">
+              <ActionButton key={s} variant="secondary" onClick={() => void updateStatus(s)} disabled={saving}>
                 {t("ticketsDetail.transitionTo", { status: statusLabel(t, s) })}
               </ActionButton>
             ))}
@@ -393,7 +389,7 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
         ) : (
           <div className="space-y-3">
             {ticket.comments.map((c) => (
-              <div key={c.id} className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-4">
+              <div key={c.id} data-inset className="p-4">
                 <div className="mb-2 flex items-center justify-between gap-3">
                   <span className="text-sm font-medium text-[var(--text-primary)]">{c.author.displayName || c.author.username}</span>
                   <span className="text-xs text-[var(--text-muted)]">{formatDateTime(c.createdAt, locale)}</span>
@@ -409,7 +405,7 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
           <textarea id="ticketComment" value={comment} onChange={(e) => setComment(e.target.value)} placeholder={t("ticketsDetail.commentPlaceholder")}
             rows={3}
             className={`${UI_INPUT} resize-none px-4 py-3`} />
-          <ActionButton type="button" variant="primary" onClick={addComment} disabled={saving || !comment.trim()} data-primary className="mt-2 px-4 py-2 text-sm">
+          <ActionButton type="button" variant="primary" onClick={addComment} disabled={saving || !comment.trim()} className="mt-2">
             {saving ? t("ticketsDetail.commentSubmitting") : t("ticketsDetail.commentSubmit")}
           </ActionButton>
         </div>

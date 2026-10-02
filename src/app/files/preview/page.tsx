@@ -121,13 +121,13 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 
 				{/* Large file warning */}
 				{largeTextWarning ? (
-					<div data-tone="amber" className="mb-4 rounded-2xl border border-[var(--warning-border)] px-4 py-3 text-sm text-[var(--warning)]">
+					<Notice tone="warning" className="mb-4">
 						{t("textPreview.preview.largeWarning", locale, { size: (size / 1024 / 1024).toFixed(1) })}
-					</div>
+					</Notice>
 				) : null}
 
 				{/* Preview content */}
-				<div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 sm:p-6">
+				<div data-card className="p-4 sm:p-6">
 					{isImage && href ? (
 						<div className="flex items-center justify-center">
 							{/* eslint-disable-next-line @next/next/no-img-element */}
@@ -173,9 +173,7 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 								<a
 									href={downloadUrl}
 									data-action-button
-									data-variant="outline"
-									className="px-4 py-2 text-sm"
-								>
+									data-variant="outline">
 									{t("textPreview.preview.downloadToView", locale)}
 								</a>
 							) : null}

@@ -3,7 +3,8 @@
 import { useState } from "react";
 
 import { ActionButton } from "@/components/action-button";
-import { EmptyState } from "@/components/page-shell";
+import { RefreshCw } from "@/components/icons";
+import { EmptyState, ListPanel, ListRow } from "@/components/page-shell";
 import { StatusBadge } from "@/components/status-badge";
 import { useI18n } from "@/lib/i18n/use-locale";
 
@@ -32,63 +33,70 @@ export function AlertIncidentsSection({
 	const unresolved = incidents.filter((i) => i.status !== "RESOLVED");
 	const visible = showAll ? unresolved : unresolved.slice(0, 20);
 
+	const resolvedCount = incidents.length - unresolved.length;
+
 	return (
-		<section className="mb-6 space-y-3" aria-label={t("alertRulesPage.incidents.title")}>
-			<div className="flex items-center justify-between gap-2">
-				<h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("alertRulesPage.incidents.title")}</h2>
-				<ActionButton variant="secondary"
-					onClick={() => void loadIncidents()} className="!min-h-11 !px-3 !text-sm"
-				>
-					{incidentsLoading ? "…" : t("alertRulesPage.incidents.refresh")}
-				</ActionButton>
-			</div>
-			{unresolved.length === 0 ? (
-				<EmptyState>
-					{t("alertRulesPage.incidents.empty")} ({incidents.filter((i) => i.status === "RESOLVED").length} {t("alertRulesPage.incidents.resolved")})
-				</EmptyState>
-			) : (
-				<div className="space-y-2">
-					{visible
-						.map((incident) => (
-							<div
-								key={incident.id}
-								className="flex flex-col gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-3 sm:flex-row sm:items-center sm:justify-between"
-							>
-								<div className="min-w-0">
-									<div className="flex flex-wrap items-center gap-2">
-										<StatusBadge tone="danger" size="sm">
-											{t("alertRulesPage.incidents.level", { level: incident.level })}
-										</StatusBadge>
-										<span className="text-sm font-medium text-[var(--text-primary)]">{incident.title}</span>
-										<span className="text-xs text-[var(--text-muted)]">
-											{incident.status === "ACKNOWLEDGED"
-												? t("alertRulesPage.incidents.acked")
-												: t("alertRulesPage.incidents.open")}
-										</span>
-									</div>
-									<p className="mt-1 truncate text-xs text-[var(--text-secondary)]">{incident.message}</p>
-								</div>
-								{incident.status === "OPEN" && (
-									<ActionButton variant="primary"
-										disabled={busyAction === `ack:${incident.id}`}
-										onClick={() => void ackIncident(incident.id)} className="!min-h-11 !px-3 !text-sm !font-semibold disabled:opacity-50"
-									>
-										{t("alertRulesPage.incidents.ack")}
-									</ActionButton>
-								)}
+		<section aria-label={t("alertRulesPage.incidents.title")}>
+			<ListPanel
+				title={t("alertRulesPage.incidents.title")}
+				count={unresolved.length > 0 ? unresolved.length : undefined}
+				actions={
+					<ActionButton
+						size="sm"
+						variant="ghost"
+						icon={<RefreshCw size={14} aria-hidden />}
+						loading={incidentsLoading}
+						onClick={() => void loadIncidents()}
+					>
+						{t("alertRulesPage.incidents.refresh")}
+					</ActionButton>
+				}
+				empty={
+					unresolved.length === 0 ? (
+						<EmptyState>
+							{t("alertRulesPage.incidents.empty")} ({resolvedCount} {t("alertRulesPage.incidents.resolved")})
+						</EmptyState>
+					) : undefined
+				}
+			>
+				{visible.map((incident) => (
+					<ListRow key={incident.id} className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+						<div className="min-w-0">
+							<div className="flex flex-wrap items-center gap-2">
+								<StatusBadge tone={incident.status === "ACKNOWLEDGED" ? "warning" : "danger"}>
+									{t("alertRulesPage.incidents.level", { level: incident.level })}
+								</StatusBadge>
+								<span className="text-sm font-medium text-[var(--text-primary)]">{incident.title}</span>
+								<span className="text-xs text-[var(--text-muted)]">
+									{incident.status === "ACKNOWLEDGED"
+										? t("alertRulesPage.incidents.acked")
+										: t("alertRulesPage.incidents.open")}
+								</span>
 							</div>
-						))}
-					{!showAll && unresolved.length > 20 && (
-						<button
-							type="button"
-							onClick={() => setShowAll(true)}
-							className="w-full rounded-lg border border-[var(--border-subtle)] px-3 py-2 text-xs font-medium text-[var(--text-muted)] transition hover:bg-[var(--surface-subtle)] hover:text-[var(--text-primary)]"
-						>
-							{t("alertRulesPage.incidents.showAll", { count: unresolved.length - 20 })}
-						</button>
-					)}
-				</div>
-			)}
+							<p className="mt-1 truncate text-xs text-[var(--text-secondary)]">{incident.message}</p>
+						</div>
+						{incident.status === "OPEN" ? (
+							<ActionButton
+								size="sm"
+								variant="secondary"
+								loading={busyAction === `ack:${incident.id}`}
+								onClick={() => void ackIncident(incident.id)}
+							>
+								{t("alertRulesPage.incidents.ack")}
+							</ActionButton>
+						) : null}
+					</ListRow>
+				))}
+				{!showAll && unresolved.length > 20 ? (
+					<button
+						type="button"
+						onClick={() => setShowAll(true)}
+						className="w-full px-4 py-2.5 text-center text-xs font-medium text-[var(--text-muted)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
+					>
+						{t("alertRulesPage.incidents.showAll", { count: unresolved.length - 20 })}
+					</button>
+				) : null}
+			</ListPanel>
 		</section>
 	);
 }
