@@ -4,6 +4,10 @@
 
 VControlHub 使用 Next.js、React、TypeScript、PostgreSQL 和 Prisma，生产环境由独立的 Web、后台 Worker 与 SSH WebSocket 进程组成。
 
+完整说明见 [《项目全景、功能详解与使用指南》](docs/project-overview-and-user-guide.zh-CN.md)：逐模块说明功能设计目标、用户操作、权限和能力边界，并包含架构图、数据模型、后台任务、全部页面／接口／Server Action 索引及功能覆盖复核结果。另有 [离线 HTML 阅读版](docs/project-overview-and-user-guide.zh-CN.html)，下载后可用浏览器打开、搜索和打印。
+
+后续功能升级可引用指南中的固定功能编号，按 [功能变更模板](docs/feature-change-template.zh-CN.md)记录现状、目标、兼容要求、验收条件及发布结果。
+
 ## 主要功能
 
 | 模块 | 能力 |
