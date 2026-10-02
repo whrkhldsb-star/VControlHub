@@ -31,7 +31,9 @@ it("stays completely disabled until explicitly enabled", async () => {
 it("streams a published full archive and writes a receipt only after read-back verification", async () => {
 	const result = await uploadRecoveryBackup({ directory, enabled: true });
 	expect(result.skipped).toBe(false);
-	expect(mocks.putFile).toHaveBeenCalledWith(expect.stringContaining("recovery/"), path.join(directory, name), "application/gzip");
+	// realpath may resolve the temp dir to a short 8.3 path on Windows
+	// (RUNNER~1), so compare by file name instead of the full local path.
+	expect(mocks.putFile).toHaveBeenCalledWith(expect.stringContaining("recovery/"), expect.stringContaining(name), "application/gzip");
 	const receipt = JSON.parse(await readFile(path.join(directory, `${name}.offsite.json`), "utf8"));
 	expect(receipt).toMatchObject({ bytes: bytes.length, sha256: expect.stringMatching(/^[a-f0-9]{64}$/) });
 	expect(JSON.stringify(receipt)).not.toContain("fixture-only");

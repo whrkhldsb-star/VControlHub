@@ -58,7 +58,8 @@ function openingTags(source: string, name: string): string[] {
 }
 
 const tsxFiles = collectFiles(SRC_ROOT, ".tsx").map((file) => ({
-	file: relative(SRC_ROOT, file),
+	// Normalize to forward slashes so allowlists match on both POSIX and Windows.
+	file: relative(SRC_ROOT, file).split(/[\\/]/).join("/"),
 	source: stripComments(readFileSync(file, "utf8")),
 }));
 
