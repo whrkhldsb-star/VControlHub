@@ -102,9 +102,11 @@ test("local file lifecycle: folder, upload, search, preview, share and delete", 
 	await page.waitForTimeout(250);
 	const mobileBox = await detailDialog.boundingBox();
 	expect(mobileBox).not.toBeNull();
-	expect(Math.round(mobileBox!.x)).toBe(12);
-	expect(Math.round(mobileBox!.width)).toBe(366);
-	expect(Math.round(mobileBox!.height)).toBe(820);
+	// Drawer overlays are edge-to-edge on phones (p-0, sm:p-3) since the
+	// design-system rebuild: the panel spans the full viewport width.
+	expect(Math.round(mobileBox!.x)).toBe(0);
+	expect(Math.round(mobileBox!.width)).toBe(390);
+	expect(Math.round(mobileBox!.height)).toBe(844);
 	await detailDialog.getByRole("button", { name: /关闭|Close/i }).click();
 	await page.setViewportSize({ width: 1280, height: 720 });
 
