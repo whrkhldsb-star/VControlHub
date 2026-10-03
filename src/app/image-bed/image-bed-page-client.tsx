@@ -174,7 +174,7 @@ export default function ImageBedPage({ canWrite, canDelete, canListAll = false }
 					    substring query — searching "cover" then dropping files created an
 					    album named "cover". It is its own field now. */}
 					<input id="imageBedUploadAlbum" type="text" value={publishForm.album} onChange={(e) => setPublishForm(pf => ({ ...pf, album: e.target.value }))} onClick={(e) => e.stopPropagation()} placeholder={t("imageBedPage.legacy.albumPlaceholder")} className={cn(UI_INPUT, "w-28 px-2 py-1 text-xs text-[var(--text-secondary)]")} />
-					{!storageNodes.length && <button type="button" onClick={(e) => { e.stopPropagation(); fetchStorageNodes(); }} className="text-[var(--color-action)] hover:underline">{t("imageBedPage.legacy.loadNodes")}</button>}
+					{!storageNodes.length && <button type="button" onClick={(e) => { e.stopPropagation(); fetchStorageNodes(); }} className="text-[var(--color-action-text)] hover:underline">{t("imageBedPage.legacy.loadNodes")}</button>}
 				</div>
 				<button
 					type="button"

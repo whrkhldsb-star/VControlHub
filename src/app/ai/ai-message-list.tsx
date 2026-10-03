@@ -103,7 +103,7 @@ export function AiMessageList({
   const lastIdx = visibleMsgs.length - 1;
   return (
     <div
-      className="flex-1 overflow-y-auto px-3 py-3 sm:px-4 sm:py-4 space-y-4"
+      className="flex-1 min-h-0 overflow-y-auto px-3 py-3 sm:px-4 sm:py-4 space-y-4"
       onDrop={onDrop}
       onDragOver={onDragOver}
     >
@@ -360,7 +360,7 @@ export function AiMessageList({
           <div data-tile className="max-w-[88%] px-3 py-2 text-sm leading-relaxed text-[var(--text-secondary)] sm:max-w-[80%] sm:px-4 sm:py-2.5">
             {streamReasoning && (
               <details open className="mb-2">
-                <summary className="text-xs text-[var(--color-action)]/60 cursor-pointer">
+                <summary className="text-xs text-[var(--color-action-text)]/60 cursor-pointer">
                   {t("aiPage.thinking")}
                 </summary>
                 <div className="mt-1 p-2 bg-[var(--input-bg)] rounded-lg text-xs text-[var(--text-muted)] whitespace-pre-wrap">

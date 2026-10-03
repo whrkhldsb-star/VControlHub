@@ -178,7 +178,7 @@ export default function ApiDocsPage() {
 													>
 														{entry.method}
 													</span>
-													<code className="break-all rounded-lg bg-[var(--surface-subtle)] px-2 py-1 font-mono text-sm text-[var(--color-action)]">
+													<code className="break-all rounded-lg bg-[var(--surface-subtle)] px-2 py-1 font-mono text-sm text-[var(--color-action-text)]">
 														/api{entry.path}
 													</code>
 												</div>

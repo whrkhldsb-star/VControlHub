@@ -220,7 +220,7 @@ export function FileListListView(props: FileListListViewProps) {
                         checked={effectiveSelectedIdSet.has(entry.id)}
                         aria-label={t("fileListClient.selectFileAria", { name: entry.name })}
                         onChange={() => toggleOne(entry.id)}
-                        className="h-4 w-4 rounded-lg border-[var(--border)] bg-[var(--surface)] text-[var(--color-action)] focus:ring-[var(--color-action-ring)]"
+                        className="h-4 w-4 rounded-lg border-[var(--border)] bg-[var(--surface)] text-[var(--color-action-text)] focus:ring-[var(--color-action-ring)]"
                       />
                     ) : null}
                   </div>

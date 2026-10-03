@@ -104,10 +104,10 @@ export function SshFileManagerHeader({
             ↑ {t("sshFileManager.upLevel")}
           </ActionButton>
         ) : null}
-        <button type="button" onClick={() => onNavigateToBreadcrumb(-1)} className="rounded px-1.5 py-0.5 text-[var(--text-muted)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--color-action)]">/</button>
+        <button type="button" onClick={() => onNavigateToBreadcrumb(-1)} className="rounded px-1.5 py-0.5 text-[var(--text-muted)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--color-action-text)]">/</button>
         {breadcrumbs.map((crumb, i) => (
           <span key={i} className="flex items-center gap-0.5">
-            <button type="button" onClick={() => onNavigateToBreadcrumb(i)} className="rounded px-1.5 py-0.5 text-[var(--text-muted)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--color-action)]">{crumb}</button>
+            <button type="button" onClick={() => onNavigateToBreadcrumb(i)} className="rounded px-1.5 py-0.5 text-[var(--text-muted)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--color-action-text)]">{crumb}</button>
             {i < breadcrumbs.length - 1 && <span className="text-[var(--text-muted)]">/</span>}
           </span>
         ))}

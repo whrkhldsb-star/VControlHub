@@ -86,7 +86,7 @@ export function QuickKeyBuilder({
 							key={mod.id}
 							onClick={() => toggleModifier(mod.id)}
 							aria-pressed={active}
-							className={`${UI_INPUT} !min-h-8 !rounded-md !px-1 !py-0 !text-[12px] ${active ? "!border-[var(--color-action)] !text-[var(--color-action)]" : "text-[var(--text-muted)]"}`}
+							className={`${UI_INPUT} !min-h-8 !rounded-md !px-1 !py-0 !text-[12px] ${active ? "!border-[var(--color-action)] !text-[var(--color-action-text)]" : "text-[var(--text-muted)]"}`}
 						>
 							{mod.label}
 						</button>

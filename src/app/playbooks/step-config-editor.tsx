@@ -61,7 +61,7 @@ export function StepConfigEditor({
 							<button
 								type="button"
 								onClick={selectAllEnabled}
-								className="text-xs text-[var(--color-action)] hover:underline"
+								className="text-xs text-[var(--color-action-text)] hover:underline"
 							>
 								{selected.length === enabledServers.length
 									? t("playbooksPage.step.deselectAllServers")

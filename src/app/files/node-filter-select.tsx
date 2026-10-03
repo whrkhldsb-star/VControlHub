@@ -56,7 +56,7 @@ export function NodeFilterSelect({
           <button
             type="button"
             onClick={() => onChange("")}
-            className="text-[var(--color-action)] hover:text-[var(--text-primary)] light:hover:text-[var(--accent)] light:hover:text-[var(--accent)]"
+            className="text-[var(--color-action-text)] hover:text-[var(--text-primary)] light:hover:text-[var(--accent)] light:hover:text-[var(--accent)]"
           >
             {t("filesBrowserSpa.clear")}
           </button>

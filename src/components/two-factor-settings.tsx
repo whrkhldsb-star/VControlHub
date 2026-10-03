@@ -191,7 +191,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 					) : null}
 					<div data-inset className="p-3">
 						<p className="text-xs text-[var(--text-muted)] mb-1">{t("auth.2fa-secret-label")}</p>
-						<code className="text-xs text-[var(--color-action)] break-all select-all">{secret}</code>
+						<code className="text-xs text-[var(--color-action-text)] break-all select-all">{secret}</code>
 					</div>
 					<p className="text-xs text-[var(--text-secondary)]">
 						{t("auth.2fa-enter-code-instruction")}

@@ -140,7 +140,7 @@ export function BatchReviewToolbar({
 					</span>
 				</label>
 				{someSelected && (
-					<span className="text-[var(--color-action)]">{t("requestsPage.batch.selectedCount", { count: selected.size })}</span>
+					<span className="text-[var(--color-action-text)]">{t("requestsPage.batch.selectedCount", { count: selected.size })}</span>
 				)}
 				{state.success && (
 					<span data-tone="emerald" className="text-[var(--success)]">

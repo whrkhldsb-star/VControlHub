@@ -218,7 +218,7 @@ export function InstallDialog({
 						<button
 							type="button"
 							onClick={handleAutoAllocate}
-							className="text-[var(--color-action)]/70 hover:text-[var(--color-action)] underline underline-offset-2"
+							className="text-[var(--color-action-text)]/70 hover:text-[var(--color-action-text)] underline underline-offset-2"
 						>
 							{t("qsPage.autoAssign")}
 						</button>

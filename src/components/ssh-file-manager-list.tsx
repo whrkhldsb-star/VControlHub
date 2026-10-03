@@ -89,7 +89,7 @@ export function SshFileList({
       onDrop={onDrop}
       style={{ minHeight:"200px" }}
     >
-      {dragOver && <div className="flex h-full items-center justify-center text-sm text-[var(--color-action)]">{t("sshFileManager.dropHere")}</div>}
+      {dragOver && <div className="flex h-full items-center justify-center text-sm text-[var(--color-action-text)]">{t("sshFileManager.dropHere")}</div>}
       {!dragOver && loading && <div className="flex h-full items-center justify-center text-xs text-[var(--text-muted)]">{t("sshFileManager.loading")}</div>}
       {!dragOver && !loading && entries.length === 0 && !error && (
         <div className="flex h-full flex-col items-center justify-center gap-3 px-3 text-center text-xs text-[var(--text-muted)]">
@@ -169,7 +169,7 @@ function RenameInlineEditor({ onRename, renameValue, setRenameTarget, setRenameV
   return (
     <div className="flex flex-1 items-center gap-1">
       <input value={renameValue} aria-label={t("sshFileManager.rename")} onChange={(e) => setRenameValue(e.target.value)} onKeyDown={(e) => { if (e.key ==="Enter") onRename(); if (e.key ==="Escape") { setRenameTarget(null); setRenameValue(""); } }} className="min-h-7 min-w-0 flex-1 rounded border border-[var(--color-action-border)]/30 bg-[var(--surface-hover)] px-2 text-xs text-[var(--text-primary)] outline-none" autoFocus onClick={(e) => e.stopPropagation()} />
-      <button type="button" onClick={(e) => { e.stopPropagation(); onRename(); }} aria-label={t("common.confirm")} className="text-[var(--color-action)] hover:text-[var(--color-action)]"><Check size={14} aria-hidden /></button>
+      <button type="button" onClick={(e) => { e.stopPropagation(); onRename(); }} aria-label={t("common.confirm")} className="text-[var(--color-action-text)] hover:text-[var(--color-action-text)]"><Check size={14} aria-hidden /></button>
       <button type="button" onClick={(e) => { e.stopPropagation(); setRenameTarget(null); setRenameValue(""); }} aria-label={t("common.cancel")} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)]"><X size={16} aria-hidden /></button>
     </div>
   );

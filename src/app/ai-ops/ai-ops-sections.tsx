@@ -357,7 +357,7 @@ export function AiOpsDetailSection({
 								const recommendation = isRecommendationAction(action) ? action : null;
 								const executed = isExecutedAction(action) ? action : null;
 								return (
-									<li key={action.id} data-tile className="flex items-start justify-between gap-3 p-3">
+									<li key={action.id} data-tile className="flex flex-wrap items-start justify-between gap-3 p-3">
 										<div>
 											<div className="font-medium text-[var(--text-primary)]">{action.action}</div>
 											<div className="text-xs text-[var(--text-primary)]/70">{t(`aiOpsPage.risk.${action.risk}`)}</div>
@@ -365,15 +365,15 @@ export function AiOpsDetailSection({
 											{executed && <div className="mt-1 text-xs text-[var(--text-primary)]/70">{executed.result ?? executed.errorMessage ?? "—"}</div>}
 										</div>
 										{recommendation && canManage && (
-											<div className="flex flex-col gap-1">
+											<div className="flex min-w-0 max-w-full flex-col gap-1">
 												{recommendation.requiresApproval && !recommendation.approved ? (
-													<ActionButton size="sm" variant="primary" disabled={executing === action.id} onClick={() => onApproveAction(selectedLog.id, action.id)}>{t("aiOpsPage.actions.approve")}</ActionButton>
+													<ActionButton className="w-full sm:w-auto" size="sm" variant="primary" disabled={executing === action.id} onClick={() => onApproveAction(selectedLog.id, action.id)}>{t("aiOpsPage.actions.approve")}</ActionButton>
 												) : recommendation.requiresApproval && recommendation.approved ? (
-													<ActionButton size="sm" variant="primary" disabled={executing === action.id} onClick={() => onExecuteAction(selectedLog.id, action.id, false)}>{t("aiOpsPage.actions.execute")}</ActionButton>
+													<ActionButton className="w-full sm:w-auto" size="sm" variant="primary" disabled={executing === action.id} onClick={() => onExecuteAction(selectedLog.id, action.id, false)}>{t("aiOpsPage.actions.execute")}</ActionButton>
 												) : (
-													<ActionButton size="sm" variant="secondary" disabled={executing === action.id} onClick={() => onExecuteAction(selectedLog.id, action.id, false)}>{t("aiOpsPage.actions.execute")}</ActionButton>
+													<ActionButton className="w-full sm:w-auto" size="sm" variant="secondary" disabled={executing === action.id} onClick={() => onExecuteAction(selectedLog.id, action.id, false)}>{t("aiOpsPage.actions.execute")}</ActionButton>
 												)}
-												{canAutonomous && <ActionButton variant="danger" size="sm" disabled={executing === action.id} onClick={() => onExecuteAction(selectedLog.id, action.id, true)}>{t("aiOpsPage.actions.forceAutonomous")}</ActionButton>}
+												{canAutonomous && <ActionButton className="w-full sm:w-auto" variant="danger" size="sm" disabled={executing === action.id} onClick={() => onExecuteAction(selectedLog.id, action.id, true)}>{t("aiOpsPage.actions.forceAutonomous")}</ActionButton>}
 											</div>
 										)}
 									</li>

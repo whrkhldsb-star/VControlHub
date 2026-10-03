@@ -339,7 +339,7 @@ export function FileCollections() {
                     {item.fileEntry.storageNode.name} /{" "}
                     {item.fileEntry.relativePath}
                   </p>
-                  <p className="break-words text-xs text-[var(--color-action)]">
+                  <p className="break-words text-xs text-[var(--color-action-text)]">
                     {item.tags.join(" · ")}
                   </p>
                 </Link>

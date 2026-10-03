@@ -157,7 +157,7 @@ export function UploadProgressPanel({
                   : item.status === "error" || item.status === "skipped"
                     ? "text-[var(--danger)]"
                     : item.status === "uploading"
-                      ? "text-[var(--color-action)]"
+                      ? "text-[var(--color-action-text)]"
                       : "text-[var(--text-muted)]"
               }
             >

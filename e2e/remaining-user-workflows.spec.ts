@@ -435,7 +435,11 @@ test("team workspace create and delete lifecycle", async ({ page }) => {
 		// read the switcher after the sidebar layout has refreshed.
 		await page.getByRole("button", { name: /账户菜单|Account menu/i }).first().click();
 		const workspaceSwitcher = page.getByRole("combobox", { name: /团队空间|Team workspace/i }).first();
-		await expect(workspaceSwitcher.locator("option:checked")).toContainText(marker);
+		// The switcher is a native <select>; assert by value (the team id we
+		// just created was made current), not by option text — Chromium CI
+		// intermittently fails to expose option:checked inside popovers.
+		await expect(workspaceSwitcher).toBeVisible();
+		await expect(workspaceSwitcher).toHaveValue(createdTeamId!);
 
 		const deletedResponse = page.waitForResponse((response) =>
 			new URL(response.url()).pathname === `/api/teams/${createdTeamId}` && response.request().method() === "DELETE",

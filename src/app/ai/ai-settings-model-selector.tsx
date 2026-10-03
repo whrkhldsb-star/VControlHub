@@ -63,7 +63,7 @@ export function AiSettingsModelSelector({
           <span className="truncate flex items-center gap-1.5">
             {settingsForm.model}
             {currentModelSupportsVision && (
-              <span className="text-xs text-[var(--color-action)] bg-[var(--color-action-bg)]/10 px-1 py-0.5 rounded-lg">
+              <span className="text-xs text-[var(--color-action-text)] bg-[var(--color-action-bg)]/10 px-1 py-0.5 rounded-lg">
                 <Eye size={10} aria-hidden="true" />
               </span>
             )}
@@ -132,7 +132,7 @@ export function AiSettingsModelSelector({
                   <span className="flex items-center gap-0.5 flex-shrink-0">
                     {(m.capabilities?.vision || m.vision) && (
                       <span
-                        className="text-xs text-[var(--color-action)]/60"
+                        className="text-xs text-[var(--color-action-text)]/60"
                         title={t("aiPage.visionCap")}
                       >
                         <Eye size={10} aria-hidden="true" />

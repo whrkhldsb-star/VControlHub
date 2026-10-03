@@ -36,6 +36,7 @@
 
 	/* Brand: commands (solid fills) */
 	--color-action: #5260e8;
+	--color-action-text: #8b96ff;
 	--color-action-hover: #4a57e0;
 	--color-action-strong: #4350d6;
 	--color-action-fg: #ffffff;
@@ -182,6 +183,7 @@ html.light {
 	--accent-soft: #f2f3fe;
 
 	--color-action: #4450dd;
+	--color-action-text: #4450dd;
 	--color-action-hover: #3a46cc;
 	--color-action-strong: #3540c2;
 	--color-action-fg: #ffffff;

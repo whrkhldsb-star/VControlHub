@@ -677,7 +677,7 @@ export function VpsBackupSection({
 										<a
 											href={`/api/servers/${serverId}/vps-backup/records/${r.id}/download`}
 											aria-label={t("vpsBackup.downloadRecord")}
-											className="rounded text-xs text-[var(--color-action)]/80 transition-colors hover:text-[var(--color-action)]"
+											className="rounded text-xs text-[var(--color-action-text)]/80 transition-colors hover:text-[var(--color-action-text)]"
 										>
 											⬇
 										</a>

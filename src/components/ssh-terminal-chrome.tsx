@@ -12,7 +12,7 @@ type TFn = (key: string, vars?: Record<string, string | number>) => string;
 
 const chipBase ="min-h-9 rounded-full border px-3 py-1 text-xs transition";
 const chipIdle ="border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface-subtle)] light:bg-[var(--surface)] text-[var(--text-secondary)] light:text-[var(--text-muted)] hover:bg-[var(--surface-elevated)] light:hover:bg-[var(--surface-hover)]/50";
-const chipActive ="border-[var(--color-action-border)] bg-[var(--color-action-bg)] text-[var(--color-action)]";
+const chipActive ="border-[var(--color-action-border)] bg-[var(--color-action-bg)] text-[var(--color-action-text)]";
 
 export function SshTerminalToolbar({
 	serverName,
