@@ -22,7 +22,6 @@ function eventLabel(t: (key: string) => string, prefix: string, value: string): 
 	return translated === key ? value : translated;
 }
 
-const cardClass = "rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 space-y-3";
 type Props = {
 	initialConnections: ItsmConnectionRecord[];
 	initialEvents: ItsmEventRecord[];
@@ -161,7 +160,7 @@ export function ItsmPageClient({
 	return (
 		<div className="space-y-6">
 			{canManage && (
-				<section className={cardClass}>
+				<section data-card className="space-y-3">
 					<h2 className="text-base font-semibold">{t("itsmPage.form.title")}</h2>
 					<p className="text-sm text-[var(--text-muted)]">{t("itsmPage.form.desc")}</p>
 					<div className="grid gap-3 md:grid-cols-2">
@@ -264,15 +263,13 @@ export function ItsmPageClient({
 				</section>
 			)}
 
-			<section className={cardClass}>
+			<section data-card className="space-y-3">
 				<div className="flex items-center justify-between gap-2">
 					<h2 className="text-base font-semibold">
 						{t("itsmPage.list.title")} ({connections.length})
 					</h2>
-					<ActionButton variant="ghost"
-						onClick={() => void reload()}
-						className="!px-2 !py-1 !text-sm"
-					>
+					<ActionButton size="sm" variant="ghost"
+						onClick={() => void reload()}>
 						{t("itsmPage.list.refresh")}
 					</ActionButton>
 				</div>
@@ -301,25 +298,21 @@ export function ItsmPageClient({
 									</div>
 									{canManage && (
 										<div className="flex flex-wrap gap-2">
-											<ActionButton variant="secondary" className="!rounded-md !px-2 !py-1 !text-sm"
+											<ActionButton size="sm" variant="secondary" 
 												disabled={busy}
-												onClick={() => void toggleEnabled(row)}
-											>
+												onClick={() => void toggleEnabled(row)}>
 												{row.enabled ? t("itsmPage.action.disable") : t("itsmPage.action.enable")}
 											</ActionButton>
-											<ActionButton variant="secondary" className="!rounded-md !px-2 !py-1 !text-sm"
+											<ActionButton size="sm" variant="secondary" 
 												disabled={testingId === row.id}
-												onClick={() => void test(row.id)}
-											>
+												onClick={() => void test(row.id)}>
 												{testingId === row.id
 													? t("itsmPage.action.testing")
 													: t("itsmPage.action.test")}
 											</ActionButton>
-											<ActionButton variant="danger"
+											<ActionButton size="sm" variant="danger"
 												disabled={busy}
-												onClick={() => setPendingDelete(row)}
-												className="!rounded-md !px-2 !py-1 !text-sm"
-											>
+												onClick={() => setPendingDelete(row)}>
 												{t("itsmPage.action.delete")}
 											</ActionButton>
 										</div>
@@ -341,7 +334,7 @@ export function ItsmPageClient({
 				)}
 			</section>
 
-			<section className={cardClass}>
+			<section data-card className="space-y-3">
 				<h2 className="text-base font-semibold">{t("itsmPage.events.title")}</h2>
 				{events.length === 0 ? (
 					<p className="text-sm text-[var(--text-muted)]">{t("itsmPage.events.empty")}</p>

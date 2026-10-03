@@ -5,7 +5,7 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useToast } from "@/components/toast-provider";
 import { EmptyState, Toolbar, SurfacePanel, ListPanel } from "@/components/page-shell";
-import { File as FileIcon } from "@/components/icons";
+import { File as FileIcon, Plus } from "@/components/icons";
 import { statusLabelFor, dryRunStepCounts } from "./playbook-types";
 import type { SerializedPlaybook, RunSummary, ServerOption } from "./playbook-types";
 import { CreatePlaybookForm } from "./create-playbook-form";
@@ -208,10 +208,9 @@ export function PlaybookListClient({
       )}
       <Toolbar className="justify-end">
         {canManage && !showCreate && (
-          <ActionButton variant="primary"
+          <ActionButton icon={<Plus size={16} aria-hidden />} size="lg" variant="primary"
             onClick={() => setShowCreate(true)}
-            data-primary className="min-h-11 px-5 py-2.5 text-sm"
-          >
+           >
             {t("playbooksPage.action.create")}
           </ActionButton>
         )}
@@ -228,15 +227,15 @@ export function PlaybookListClient({
         count={playbooks.length}
         empty={
           playbooks.length === 0 ? (
-            <EmptyState icon={<FileIcon size={32} className="text-[var(--text-muted)]" />} variant="boxed">
+            <EmptyState icon={<FileIcon size={24} className="text-[var(--text-muted)]" />}>
               <div className="space-y-2">
                 <p>{t("playbooksPage.empty")}</p>
                 <p className="text-xs text-[var(--text-muted)]">{t("playbooksPage.emptyHint")}</p>
                 {canManage && !showCreate && (
-                  <ActionButton variant="primary"
+                  <ActionButton size="sm" variant="primary"
                     onClick={() => setShowCreate(true)}
 
-                    className="!mt-2 !min-h-9 !px-4 !py-2 !text-sm"
+                    className="!mt-2"
                   >
                     {t("playbooksPage.action.create")}
                   </ActionButton>

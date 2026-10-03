@@ -20,6 +20,7 @@ import { createPortal } from "react-dom";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { StorageEntry } from "./file-entry-utils";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { IconMore } from "@/components/nav-icons";
 
 type FileMoreActionsProps = {
   entry: StorageEntry;
@@ -163,13 +164,12 @@ export function FileMoreActions({
         aria-label={`${t("fileMoreActions.more")} ${entry.name}`}
         aria-expanded={open}
         aria-haspopup="true"
-        className={
-          compact
-            ?"inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] text-[var(--text-secondary)] transition hover:bg-[var(--surface-subtle)] hover:text-[var(--text-primary)] light:hover:bg-[var(--surface)]"
-            :"inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-2.5 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface-subtle)] hover:text-[var(--text-primary)] light:hover:bg-[var(--surface)]"
-        }
+        data-action-button=""
+        data-variant="secondary"
+        data-size="sm"
+        data-square={compact ? "" : undefined}
       >
-        <span aria-hidden="true">⋯</span>
+        <IconMore size={16} aria-hidden />
         {compact ? null : <span>{t("fileMoreActions.more")}</span>}
       </button>
       {open && typeof document !== "undefined"
@@ -185,7 +185,8 @@ export function FileMoreActions({
           maxHeight: position ? `${position.maxHeight}px` : "calc(100vh - 16px)",
           visibility: position ? "visible" : "hidden",
         }}
-        className="z-[9999] flex min-w-44 max-w-[calc(100vw-1rem)] flex-col gap-1 overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-2 text-left shadow-2xl shadow-black/40 light:shadow-[var(--border)]/30"
+        data-popover
+        className="z-[9999] flex min-w-44 flex-col overflow-y-auto text-left"
       >
         {canShowShare ? (
           <ShareFileButton entry={entry} compact variant="menu" onNotify={onNotify} />

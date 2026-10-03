@@ -415,6 +415,7 @@ export const en: Record<string, string> = {
 	"vpsBackup.status.active": "Active",
 	"vpsBackup.status.paused": "Paused",
 	"vpsBackup.lastRun": "Last run: {time}",
+	"vpsBackup.offsiteShort": "offsite",
 	"vpsBackup.nextRun": "Next run: {time}",
 	"vpsBackup.noNextRun": "Not scheduled while paused",
 	"vpsBackup.timezone": "Schedule times use {timezone}",

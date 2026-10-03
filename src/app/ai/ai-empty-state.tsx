@@ -9,6 +9,7 @@
  */
 import { useI18n } from "@/lib/i18n/use-locale";
 import { ActionButton } from "@/components/action-button";
+import { Plus } from "@/components/icons";
 
 type Props = {
   hasProviders: boolean;
@@ -44,7 +45,7 @@ export function AiEmptyState({
   };
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-6 text-center text-[var(--text-muted)]">
-      <div className="w-full max-w-lg rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-5 py-8 shadow-[var(--shadow-sm)] sm:p-8">
+      <div data-card className="p-0 w-full max-w-lg px-5 py-8 sm:p-8">
         <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--accent)]">
           <svg
             className="h-7 w-7 opacity-80"
@@ -71,7 +72,7 @@ export function AiEmptyState({
             </p>
             <ActionButton variant="primary"
               onClick={onOpenProviders}
-              data-primary className="mt-5 h-9 px-4 text-sm"
+              className="mt-5"
             >
               {t("aiPage.configProviders")}
             </ActionButton>
@@ -95,10 +96,10 @@ export function AiEmptyState({
               </div>
             )}
             <div className="flex flex-col justify-center gap-2 sm:flex-row">
-              <ActionButton variant="secondary" onClick={onOpenSidebar} className="min-h-11 px-4 text-sm">
+              <ActionButton variant="secondary" onClick={onOpenSidebar}>
                 {t("aiPage.openConversations")}
               </ActionButton>
-              <ActionButton variant="primary" onClick={onNewConv} data-primary className="min-h-11 px-4 text-sm">
+              <ActionButton icon={<Plus size={16} aria-hidden />} variant="primary" onClick={onNewConv}>
                 {t("aiPage.newConversation")}
               </ActionButton>
             </div>

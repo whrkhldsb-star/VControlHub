@@ -19,6 +19,8 @@
 import { useI18n } from "@/lib/i18n/use-locale";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { ActionButton } from "@/components/action-button";
+import { Notice } from "@/components/ui-primitives";
+import { getCategories } from "./downloads-shared";
 
 export interface DownloadFormState {
 	url: string;
@@ -52,17 +54,6 @@ export interface CreateDownloadFormProps {
 	onFormChange: (next: DownloadFormState) => void;
 	onServerChange: (serverId: string) => void;
 	onSubmit: () => void;
-}
-
-function getCategories(t: (k: string, vars?: Record<string, string | number>) => string) {
-	return [
-		{ value: "", label: t("downloadsPage.form.category.uncategorized"), icon: "📦" },
-		{ value: "video", label: t("downloadsPage.form.category.video"), icon: "🎬" },
-		{ value: "music", label: t("downloadsPage.form.category.music"), icon: "🎵" },
-		{ value: "software", label: t("downloadsPage.form.category.software"), icon: "💿" },
-		{ value: "document", label: t("downloadsPage.form.category.document"), icon: "📄" },
-		{ value: "image", label: t("downloadsPage.form.category.image"), icon: "🖼️" },
-	];
 }
 
 function urlTypeLabel(url: string, t: (k: string, vars?: Record<string, string | number>) => string) {
@@ -233,17 +224,14 @@ export function CreateDownloadForm({
 			</div>
 
 			{form.url?.startsWith("magnet:") && (
-				<div
-					data-tone="amber"
-					className="rounded-xl border border-[var(--warning-border)] px-4 py-3 text-xs text-[var(--warning)]/70"
-				>
+				<Notice tone="warning" compact>
 					{t("downloadsPage.form.magnetNotice")}
-				</div>
+				</Notice>
 			)}
 
 			<div
 				data-tone="cyan"
-				className="rounded-xl border border-[var(--color-action-border)]/15 px-4 py-3 text-xs leading-5 text-[var(--text-primary)]"
+				data-inset className="px-4 py-3 text-xs leading-5 text-[var(--text-secondary)]"
 			>
 				<p className="font-medium">
 					{t("downloadsPage.form.postSubmit")}
@@ -261,8 +249,7 @@ export function CreateDownloadForm({
 						|| Boolean(batchModeError)
 						|| !form.serverId
 						|| (form.batchMode ? !form.batchText.trim() : !form.url.trim())
-					} className="px-5 text-sm disabled:opacity-60"
-				>
+					}>
 					{submitting ? t("downloadsPage.form.submitting") : t("downloadsPage.form.submit")}
 				</ActionButton>
 			</div>

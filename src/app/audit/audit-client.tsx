@@ -157,9 +157,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
               // Explicit search skips the debounce window.
               setDebouncedSearch(searchQuery);
               fetchLogs();
-            }}
-            className="!rounded-full"
-          >
+            }}>
             {t("audit.search")}
           </ActionButton>
           <button
@@ -204,9 +202,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
             <option value="download.create">{t("audit.action.download.create")}</option>
           </select>
           <ActionButton variant="secondary"
-            onClick={fetchLogs}
-            className="!rounded-full"
-          >
+            onClick={fetchLogs}>
             {t("audit.refresh")}
           </ActionButton>
           <button

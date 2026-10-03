@@ -9,11 +9,12 @@ import { AnnouncementEditModal } from "./announcement-edit-modal";
 import { Pencil, Trash2, Search } from "@/components/icons";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ConfirmDialog } from "@/components/confirm-dialog";
-import { IconButton } from "@/components/ui-primitives";
+import { Badge, IconButton } from "@/components/ui-primitives";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
 import { PaginatedList } from "@/components/paginated-list";
 import { EmptyState } from "@/components/page-shell";
+import { StatusBadge, type StatusTone } from "@/components/status-badge";
 
 interface Announcement {
   id: string;
@@ -25,10 +26,10 @@ interface Announcement {
   expiresAt: string | null;
 }
 
-const levelColors: Record<string, string> = {
-  info:"border-[var(--accent-border)] bg-[var(--accent-bg)]",
-  warning:"border-[var(--warning-border)] bg-[var(--warning-bg)]",
-  urgent:"border-[var(--danger-border)] bg-[var(--danger-bg)]",
+const levelTones: Record<string, StatusTone> = {
+  info: "info",
+  warning: "warning",
+  urgent: "danger",
 };
 
 function levelLabel(t: (k: string, vars?: Record<string, string | number>) => string, key: string): string {
@@ -46,14 +47,14 @@ type AnnouncementCardProps = {
 
 const AnnouncementCard = memo(function AnnouncementCard({ announcement: a, t, locale, canManage, onEdit, onDelete }: AnnouncementCardProps) {
   return (
-    <div className={`group relative rounded-xl border p-5 ${levelColors[a.level] ?? levelColors.info}`}>
+    <div data-card className="group relative p-5">
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
-            {a.pinned && <span className="text-xs text-[var(--warning)]">{t("common.pinned")}</span>}
-            <span className="text-xs text-[var(--text-muted)]">{levelLabel(t, a.level)}</span>
+            <StatusBadge tone={levelTones[a.level] ?? "info"}>{levelLabel(t, a.level)}</StatusBadge>
+            {a.pinned && <Badge tone="accent">{t("common.pinned")}</Badge>}
           </div>
-          <h2 className="mt-1 text-base font-semibold text-[var(--text-primary)]">{a.title}</h2>
+          <h2 className="mt-2 text-[15px] font-semibold text-[var(--text-primary)]">{a.title}</h2>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs text-[var(--text-muted)] whitespace-nowrap">{formatDate(a.startsAt, locale as"zh" |"en")}</span>
@@ -139,34 +140,38 @@ export function AnnouncementList({
   return (
     <>
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="relative flex-1">
+        <div className="flex-1">
           <label
             htmlFor="announcements-search"
             className="mb-1 block text-xs font-medium text-[var(--text-secondary)]"
           >
             {t("announcementsPage.search.label")}
           </label>
-          <Search size={14} className="absolute left-3 top-[2.35rem] text-[var(--text-muted)]" />
-          <input
-            id="announcements-search"
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={t("announcementsPage.search.placeholder")}
-            className={cn(UI_INPUT, "pl-9 pr-4")}
-          />
+          <div className="relative">
+            <Search size={14} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+            <input
+              id="announcements-search"
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={t("announcementsPage.search.placeholder")}
+              className={cn(UI_INPUT, "pl-9 pr-4")}
+            />
+          </div>
         </div>
-        <select
-          value={levelFilter}
-          onChange={(e) => setLevelFilter(e.target.value)}
-          aria-label={t("announcementsPage.filter.label")}
-          className={cn(UI_INPUT, "w-auto")}
-        >
-          {levels.map((l) => (
-            <option key={l} value={l}>{l ==="ALL" ? t("announcementsPage.filter.all") : levelLabel(t, l)}</option>
-          ))}
-        </select>
-        <span className="text-xs text-[var(--text-muted)]">{t("announcementsPage.count", { count: filtered.length })}</span>
+        <div className="sm:w-44 sm:self-end">
+          <select
+            value={levelFilter}
+            onChange={(e) => setLevelFilter(e.target.value)}
+            aria-label={t("announcementsPage.filter.label")}
+            className={UI_INPUT}
+          >
+            {levels.map((l) => (
+              <option key={l} value={l}>{l ==="ALL" ? t("announcementsPage.filter.all") : levelLabel(t, l)}</option>
+            ))}
+          </select>
+        </div>
+        <span className="shrink-0 whitespace-nowrap text-xs text-[var(--text-muted)] sm:self-end sm:pb-2.5">{t("announcementsPage.count", { count: filtered.length })}</span>
       </div>
 
       <div>

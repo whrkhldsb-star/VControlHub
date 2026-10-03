@@ -68,6 +68,7 @@ import { zh as usersZh, en as usersEn } from "./dictionaries/users";
 import { zh as usersPermZh, en as usersPermEn } from "./dictionaries/users-perm";
 import { zh as storagePageZh, en as storagePageEn } from "./dictionaries/storage-page";
 import { zh as systemConfigZh, en as systemConfigEn } from "./dictionaries/system-config";
+import { zh as shellZh, en as shellEn } from "./dictionaries/shell";
 import { interpolate, type Locale } from "./core";
 
 const zh: Record<string, string> = {
@@ -87,6 +88,7 @@ const zh: Record<string, string> = {
 	...templatesPageZh, ...textPreviewZh, ...themeZh, ...ticketsDetailZh, ...ticketsPageZh,
 	...itsmPageZh, ...trafficPageZh, ...usersZh, ...usersPermZh, ...storagePageZh,
 	...systemConfigZh,
+	...shellZh,
 };
 
 const en: Record<string, string> = {
@@ -106,6 +108,7 @@ const en: Record<string, string> = {
 	...templatesPageEn, ...textPreviewEn, ...themeEn, ...ticketsDetailEn, ...ticketsPageEn,
 	...itsmPageEn, ...trafficPageEn, ...usersEn, ...usersPermEn, ...storagePageEn,
 	...systemConfigEn,
+	...shellEn,
 };
 
 export const browserTranslations: Record<Locale, Record<string, string>> = { zh, en };

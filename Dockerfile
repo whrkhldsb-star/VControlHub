@@ -43,6 +43,7 @@ COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 COPY --from=builder /app/dist/next.config.mjs ./next.config.mjs
 COPY --from=builder /app/docs/route-catalog.json ./docs/route-catalog.json
 COPY --from=builder /app/docker-entrypoint.sh ./docker-entrypoint.sh
+COPY --from=builder /app/scripts/check-ssh-gateway.mjs ./scripts/check-ssh-gateway.mjs
 
 RUN chmod +x ./docker-entrypoint.sh && mkdir -p storage tmp uploads downloads backups logs
 

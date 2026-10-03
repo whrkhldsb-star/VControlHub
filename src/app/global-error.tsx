@@ -88,10 +88,10 @@ export default function GlobalError({
 							{c.digestLabel}: {error.digest}
 						</p>
 					)}
-					<ActionButton type="button" variant="primary"
+					<ActionButton size="lg" type="button" variant="primary"
 						onClick={reset}
 
-						className="px-7 py-2.5 text-sm"
+						
 						style={{
 							backgroundColor: "#22d3ee",
 							color: "#082f49",
@@ -99,8 +99,7 @@ export default function GlobalError({
 							borderRadius: "0.75rem",
 							cursor: "pointer",
 							fontWeight: 600,
-						}}
-					>
+						}}>
 						{c.retry}
 					</ActionButton>
 				</div>

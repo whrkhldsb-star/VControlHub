@@ -6,6 +6,7 @@ import type { ConvItem } from "./ai-types";
 import { EmptyState } from "@/components/page-shell";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { ActionButton } from "@/components/action-button";
+import { Plus } from "@/components/icons";
 
 interface SidebarProps {
   showSidebar: boolean;
@@ -53,10 +54,9 @@ export function AiSidebar({
               <p className="text-xs font-semibold uppercase text-[var(--accent)]">AI</p>
               <h2 className="text-base font-semibold text-[var(--text-primary)]">{t("aiPage.sidebarTitle")}</h2>
             </div>
-            <ActionButton variant="primary"
+            <ActionButton icon={<Plus size={16} aria-hidden />} size="sm" variant="primary"
               onClick={onNewConv}
-              data-primary className="h-8 px-3 text-xs"
-            >
+             >
               {t("aiPage.newConversation")}
             </ActionButton>
           </div>

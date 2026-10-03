@@ -10,6 +10,7 @@ import { UI_INPUT } from "@/lib/ui/classes";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 import { Notice } from "@/components/ui-primitives";
+import { Disclosure } from "@/components/ui/disclosure";
 
 type DeploymentTemplateOption = {
 	id: string;
@@ -135,7 +136,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 			{selectedTemplate?.description && <p className="text-xs text-[var(--text-muted)]">{selectedTemplate.description}</p>}
 
 			{variables.length > 0 ? (
-				<div data-tone="cyan" className="rounded-xl border border-[var(--color-action-border)]/20 p-4 light:border-[var(--color-action-border)] light:bg-[var(--color-action-bg)]">
+				<div data-inset className="p-4">
 					<div className="mb-3 flex items-center justify-between gap-3">
 						<h3 className="text-sm font-semibold text-[var(--text-primary)]">{t("deploymentsPage.launch.variablesTitle")}</h3>
 						<span className="text-xs text-[var(--text-muted)]">{t("deploymentsPage.launch.variablesHint")}</span>
@@ -168,13 +169,12 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 				</div>
 			</div>
 
-			<details className="rounded-xl border border-[var(--border)] bg-[var(--surface-subtle)] p-3">
-				<summary className="cursor-pointer text-xs font-medium text-[var(--text-secondary)]">{t("deploymentsPage.launch.previewCommand")}</summary>
-				<code className="mt-3 block max-h-40 overflow-auto whitespace-pre-wrap rounded-lg border border-[var(--border)] bg-[var(--surface)]/70 p-3 font-mono text-xs text-[var(--text-secondary)]">{previewCommand(selectedTemplate, variables, t)}</code>
-			</details>
+			<Disclosure variant="inset" title={t("deploymentsPage.launch.previewCommand")}>
+				<code className="ui-mono block max-h-40 overflow-auto whitespace-pre-wrap rounded-md bg-[var(--surface-elevated)] p-3 text-xs text-[var(--text-secondary)]">{previewCommand(selectedTemplate, variables, t)}</code>
+			</Disclosure>
 
 			{error && <Notice tone="danger" compact>{error}</Notice>}
-			<ActionButton type="submit" variant="primary" disabled={pending} className="w-fit disabled:opacity-60">{pending ? t("deploymentsPage.launch.submitting") : t("deploymentsPage.launch.submit")}</ActionButton>
+			<ActionButton type="submit" variant="primary" disabled={pending} className="w-fit">{pending ? t("deploymentsPage.launch.submitting") : t("deploymentsPage.launch.submit")}</ActionButton>
 		</form>
 	);
 }

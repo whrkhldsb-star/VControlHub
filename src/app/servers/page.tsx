@@ -12,7 +12,7 @@ import { SshKeyCreateForm } from "./ssh-key-create-form";
 import { ServerTabLayout } from "./server-tab-layout";
 import { ServerInventory } from "./server-inventory";
 import { AutoProbeProvider } from "./auto-probe-context";
-import Link from "next/link";
+import { ButtonLink } from "@/components/action-button";
 
 export const dynamic = "force-dynamic";
 
@@ -49,18 +49,18 @@ export default async function ServersPage({ searchParams }: { searchParams?: Pro
 				description={t("serversPage.desc")}
 			>
 				<div className="flex flex-wrap items-center gap-2">
-					{canApproveCommands ? <Link href="/requests" data-action-button data-variant="secondary" className="px-3.5 py-2 text-sm">
+					{canApproveCommands ? <ButtonLink variant="secondary" href="/requests">
 						{t("serversPage.link.request")}
-					</Link> : null}
-					{canReadAudit ? <Link href="/audit" data-action-button data-variant="secondary" className="px-3.5 py-2 text-sm">
+					</ButtonLink> : null}
+					{canReadAudit ? <ButtonLink variant="secondary" href="/audit">
 						{t("serversPage.link.audit")}
-					</Link> : null}
-					{canReadDeployments ? <Link href="/deployments" data-action-button data-variant="secondary" className="px-3.5 py-2 text-sm">
+					</ButtonLink> : null}
+					{canReadDeployments ? <ButtonLink variant="secondary" href="/deployments">
 						{t("serversPage.link.deploy")}
-					</Link> : null}
-					{canUseAi ? <Link href={`/ai?q=${encodeURIComponent(t("serversPage.askAiFleetPrefill"))}`} data-action-button data-variant="outline" className="px-3.5 py-2 text-sm">
+					</ButtonLink> : null}
+					{canUseAi ? <ButtonLink variant="outline" href={`/ai?q=${encodeURIComponent(t("serversPage.askAiFleetPrefill"))}`}>
 						{t("serversPage.askAi")}
-					</Link> : null}
+					</ButtonLink> : null}
 				</div>
 			</PageHeader>
 

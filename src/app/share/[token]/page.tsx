@@ -11,6 +11,7 @@ import { hashShareToken } from "@/lib/share-link/service";
 import { SharePasswordGate } from "./share-password-gate";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { checkRateLimitAsync } from "@/lib/rate-limit";
+import { Notice } from "@/components/ui-primitives";
 
 export const dynamic = "force-dynamic";
 
@@ -104,9 +105,9 @@ export default async function SharePage({
         </div>
 
         {errorMessage ? (
-          <div data-tone="rose" className="rounded-lg border border-[var(--danger-border)] px-4 py-3 text-center text-sm text-[var(--danger)]">
+          <Notice tone="danger" className="text-center">
             {errorMessage}
-          </div>
+          </Notice>
         ) : share ? (
           <div className="space-y-5">
             {isLocked && (
@@ -121,7 +122,7 @@ export default async function SharePage({
               />
             )}
 
-            <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-4">
+            <div data-tile className="p-4">
               <p className="break-all text-base font-medium text-[var(--text-primary)]">
                 {isLocked ? (share.name || t("sharePage.fileTitle", locale)) : (share.name || share.path)}
               </p>
@@ -168,16 +169,16 @@ export default async function SharePage({
 
             {!share.locked && share.entryType !== "DIRECTORY" && (
               isPreviewOnly ? (
-                <div data-tone="amber" className="rounded-lg border border-[var(--warning-border)] px-4 py-3 text-center text-sm text-[var(--warning)]">
+                <Notice tone="warning" className="text-center">
                   {t("sharePage.previewOnly", locale)}
-                </div>
+                </Notice>
               ) : (
    <div className="grid gap-2 sm:grid-cols-2">
-     <a href={`/api/share/${encodeURIComponent(token)}?inline=1`} target="_blank" rel="noreferrer" data-primary data-action-button data-variant="primary" className="flex items-center justify-center gap-2 px-4 py-3 text-center text-sm">
+     <a href={`/api/share/${encodeURIComponent(token)}?inline=1`} target="_blank" rel="noreferrer" data-action-button data-size="lg" data-variant="primary" className="flex items-center justify-center gap-2">
        <LinkIcon aria-hidden="true" className="h-4 w-4" />
        {t("sharePage.openFile", locale)}
      </a>
-     <a href={`/api/share/${encodeURIComponent(token)}`} download data-action-button data-variant="secondary" className="flex items-center justify-center gap-2 px-4 py-3 text-center text-sm">
+     <a href={`/api/share/${encodeURIComponent(token)}`} download data-action-button data-size="lg" data-variant="secondary" className="flex items-center justify-center gap-2">
        <Download aria-hidden="true" className="h-4 w-4" />
        {t("sharePage.downloadFile", locale)}
      </a>
@@ -204,14 +205,14 @@ export default async function SharePage({
                   )}
                 </div>
                 {isPreviewOnly && (
-                  <div data-tone="amber" className="mb-3 rounded-lg border border-[var(--warning-border)] px-4 py-2 text-center text-xs text-[var(--warning)]">
+                  <Notice tone="warning" compact className="mb-3 text-center">
                     {t("sharePage.previewOnly", locale)}
-                  </div>
+                  </Notice>
                 )}
                 {files.length === 0 ? (
-                  <div data-tone="amber" className="rounded-lg border border-[var(--warning-border)] px-4 py-3 text-center text-xs text-[var(--warning)]">
+                  <Notice tone="warning" compact className="text-center">
                     {t("sharePage.noFiles", locale)}
-                  </div>
+                  </Notice>
                 ) : (
                   <div className="divide-y divide-[var(--border)] light:divide-[var(--border)]">
                     {files.map((file) => (
@@ -222,11 +223,11 @@ export default async function SharePage({
                         </div>
                         {!share.locked && !isPreviewOnly && (
                           <div className="flex shrink-0 gap-2">
-                            <a href={`/api/share/${encodeURIComponent(token)}?path=${encodeURIComponent(file.relativePath)}&inline=1`} target="_blank" rel="noreferrer" data-action-button data-variant="secondary" className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs">
+                            <a href={`/api/share/${encodeURIComponent(token)}?path=${encodeURIComponent(file.relativePath)}&inline=1`} target="_blank" rel="noreferrer" data-action-button data-size="sm" data-variant="secondary" className="inline-flex items-center gap-1.5">
                               <LinkIcon aria-hidden="true" className="h-3.5 w-3.5" />
                               {t("sharePage.openFile", locale)}
                             </a>
-                            <a href={`/api/share/${encodeURIComponent(token)}?path=${encodeURIComponent(file.relativePath)}`} download data-action-button data-variant="primary" className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs">
+                            <a href={`/api/share/${encodeURIComponent(token)}?path=${encodeURIComponent(file.relativePath)}`} download data-action-button data-size="sm" data-variant="primary" className="inline-flex items-center gap-1.5">
                               <Download aria-hidden="true" className="h-3.5 w-3.5" />
                               {t("sharePage.download", locale)}
                             </a>

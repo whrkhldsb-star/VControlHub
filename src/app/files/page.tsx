@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { createHash } from "node:crypto";
 import { requirePagePermission } from "@/lib/auth/page-guard";
 import { sessionHasPermission } from "@/lib/auth/authorization";
@@ -59,30 +58,6 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
         description={t("filesPage.description", locale)}
       >
         <FilesMoreNav />
-        <Link
-          href="/audit"
-          data-action-button
-          data-variant="secondary"
-          className="!px-3 !text-sm"
-        >
-          {t("filesPage.linkAuditLog", locale)}
-        </Link>
-        <Link
-          href="/health"
-          data-action-button
-          data-variant="secondary"
-          className="!px-3 !text-sm"
-        >
-          {t("filesPage.linkHealthCheck", locale)}
-        </Link>
-        <Link
-          href="/servers"
-          data-action-button
-          data-variant="secondary"
-          className="!px-3 !text-sm"
-        >
-          {t("filesPage.linkServers", locale)}
-        </Link>
       </PageHeader>
       <FilesBrowserSpa key={browserSnapshotKey} initialData={initialData}>
         <StorageNodeManager

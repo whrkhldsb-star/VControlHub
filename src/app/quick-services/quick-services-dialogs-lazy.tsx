@@ -20,7 +20,7 @@ import dynamic from "next/dynamic";
 import type { ComponentProps, ComponentType } from "react";
 import { createPortal } from "react-dom";
 
-import { UI_OVERLAY_CENTER } from "@/components/ui-overlay-classes";
+import { dialogOverlayClass, dialogPanelClass } from "@/components/modal-shell";
 
 /* ── Stubs ──────────────────────────────────────────────────────── */
 
@@ -31,9 +31,9 @@ function DialogStub({ label }: { label: string }) {
 			aria-hidden
 			data-modal-overlay
 			data-testid={`quick-service-${label}-loading`}
-			className={UI_OVERLAY_CENTER}
+			className={dialogOverlayClass()}
 		>
-			<div className="h-48 w-full max-w-md animate-pulse rounded-2xl border border-[var(--border)] bg-[var(--surface-root)]" />
+			<div className={`${dialogPanelClass()} h-48 animate-pulse`} />
 		</div>,
 		document.body,
 	);

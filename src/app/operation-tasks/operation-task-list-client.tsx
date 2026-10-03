@@ -4,7 +4,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
 import Link from "next/link";
 import { EmptyState, ListPanel, ListRow, StatCard, StatGrid, SurfacePanel, Toolbar } from "@/components/page-shell";
-import { CONTROL_CLASS, Notice } from "@/components/ui-primitives";
+import { Badge, CONTROL_CLASS, Notice } from "@/components/ui-primitives";
 import { PaginatedList } from "@/components/paginated-list";
 import { formatDateTime } from "@/lib/datetime/format";
 import type { Locale } from "@/lib/i18n/core";
@@ -75,16 +75,16 @@ const TaskRow = memo(function TaskRow({ task, t, locale, sourceLabels, onViewEve
     <ListRow className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-2 py-1 text-xs text-[var(--text-muted)]">{sourceLabels[task.source] ?? task.source}</span>
+          <Badge>{sourceLabels[task.source] ?? task.source}</Badge>
           <StatusBadge tone={statusTone[task.status] ?? "neutral"}>{getDomainStatusLabel(t, task.status)}</StatusBadge>
-          {task.taskType && <span className="rounded-lg border border-[var(--border)] px-2 py-1 text-xs text-[var(--text-muted)]">{task.taskType}</span>}
-          {task.foldedCount && task.foldedCount > 1 && <span className="rounded-lg border border-[var(--accent-border)] bg-[var(--accent-bg)] px-2 py-1 text-xs text-[var(--accent)]">{t("operationTasksPage.folded", { count: task.foldedCount })}</span>}
+          {task.taskType && <Badge>{task.taskType}</Badge>}
+          {task.foldedCount && task.foldedCount > 1 && <Badge tone="accent">{t("operationTasksPage.folded", { count: task.foldedCount })}</Badge>}
           {task.workerId && <StatusBadge tone="info" title={task.workerHeartbeatAt ? t("operationTasksPage.worker.heartbeat", { time: formatDateTime(task.workerHeartbeatAt, locale) }) : t("operationTasksPage.worker.noHeartbeat")} className="!rounded-lg">worker {task.workerId}</StatusBadge>}
         </div>
         <h3 className="mt-2 truncate text-sm font-semibold text-[var(--text-primary)]">{task.title}</h3>
         <p className="mt-1 text-xs text-[var(--text-muted)]">{formatDateTime(task.createdAt, locale)} {task.actor ? ` · ${task.actor}` : ""} {task.progress ? ` · ${task.progress}` : ""}</p>
         {task.logPreview && task.logPreview.length > 0 && (
-          <div aria-label={`Recent logs: ${task.title}`} className="mt-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-3 py-2">
+          <div aria-label={`Recent logs: ${task.title}`} data-inset className="mt-3 px-3 py-2">
             <div className="text-xs font-medium uppercase text-[var(--text-muted)]">{t("operationTasksPage.logs.recent")}</div>
             <ul className="mt-2 space-y-1 text-xs text-[var(--text-secondary)]">
               {task.logPreview.map((line, index) => <li key={`${task.id}-log-${index}`} className="break-words font-mono">{line}</li>)}
@@ -206,7 +206,7 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
     refreshAbortRef.current?.abort();
   }, []);
   const counts = tasks.reduce<Record<OperationTaskStatus, number>>((acc, task) => { acc[task.status] = (acc[task.status] ?? 0) + 1; return acc; }, {} as Record<OperationTaskStatus, number>);
-  return <div className="space-y-5">
+  return <div className="flex flex-col gap-5">
     {error && <Notice tone="danger">{error}</Notice>}
     <StatGrid cols={4} className="mb-0">
       <StatCard label={t("operationTasks.filter.running")} value={String(counts.running ?? 0)} accent={(counts.running ?? 0) > 0} accentColor="cyan" />
@@ -221,7 +221,7 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
       actions={<span className="text-xs text-[var(--text-muted)]">{t("operationTasksPage.summary.totalCount", { count: tasks.length })}</span>}
     >
       {sourceSummary.length === 0 ? <p className="mt-3 text-sm text-[var(--text-muted)]">{t("operationTasks.summary.noSources")}</p> : <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {sourceSummary.map((item) => <div key={item.source} className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-3 py-3">
+        {sourceSummary.map((item) => <div key={item.source} data-inset className="px-3 py-3">
           <div className="flex items-center justify-between gap-3"><span className="text-sm font-medium text-[var(--text-primary)]">{sourceLabels[item.source] ?? item.source}</span><span className="text-xs text-[var(--text-muted)]">{t("operationTasksPage.summary.grandTotal", { count: item.total })}</span></div>
           <div className="mt-2 flex flex-wrap gap-2 text-xs text-[var(--text-secondary)]"><span>{t("operationTasksPage.summary.needProcess", { count: item.attention })}</span><span>{t("operationTasksPage.summary.failed", { count: item.failed })}</span><span>{t("operationTasksPage.summary.running", { count: item.running })}</span><span>{t("operationTasksPage.summary.pending", { count: item.pending })}</span></div>
         </div>)}
@@ -279,8 +279,8 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
               {sortOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </select>
           </label>
-          <ActionButton variant="secondary" onClick={refresh} disabled={refreshing} className="!px-3 !py-2 !text-sm disabled:opacity-50">{refreshing ? t("operationTasks.action.refreshing") : t("operationTasks.action.applyFilter")}</ActionButton>
-          <a href={getExportPath(statusFilter, taskTypeFilter, sort)} data-action-button data-variant="primary" className="px-3 py-2 text-xs">{t("operationTasksPage.export.csv")}</a>
+          <ActionButton variant="secondary" onClick={refresh} disabled={refreshing}>{refreshing ? t("operationTasks.action.refreshing") : t("operationTasks.action.applyFilter")}</ActionButton>
+          <a href={getExportPath(statusFilter, taskTypeFilter, sort)} data-action-button data-size="sm" data-variant="primary">{t("operationTasksPage.export.csv")}</a>
         </Toolbar>
       }
       empty={visibleTasks.length === 0 ? <EmptyState text={needleNorm ? t("operationTasksPage.filter.noMatch") : t("operationTasks.tasks.empty")} /> : undefined}

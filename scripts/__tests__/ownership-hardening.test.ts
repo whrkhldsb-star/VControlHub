@@ -14,18 +14,13 @@ function read(rel: string) {
 }
 
 describe("ownership / deploy lock hardening", () => {
-  it("deploy.sh forces umask 022 and cleans the flock lock file on EXIT", () => {
+  it("deploy.sh keeps the lock inode and copies recovery credentials privately into its stage", () => {
     const sh = read("deploy.sh");
     expect(sh).toMatch(/umask 022/);
     expect(sh).toMatch(/release_deploy_lock/);
-    expect(sh).toMatch(/rm -f "\$DEPLOY_LOCK"/);
+    expect(sh).not.toMatch(/rm -f "\$DEPLOY_LOCK"/);
     expect(sh).toMatch(/trap on_exit EXIT/);
-    // storage/ must be reclaimed — root agent probes write VPS archives there
-    expect(sh).toMatch(/"\$APP_DIR\/storage"/);
-    // source modes must be normalized (umask 077 leaves 600)
-    expect(sh).toMatch(/find "\$APP_DIR\/src" -type f -exec chmod 644/);
-    // secrets stay private
-    expect(sh).toMatch(/chmod 600 "\$APP_DIR\/\$secret"/);
+    expect(sh).toContain('install -m 600 "$APP_DIR/$secret" "$stage_dir/$secret"');
   });
 
   it("fix-ownership.sh is a root-run reclaim tool with dry-run + lock clear", () => {

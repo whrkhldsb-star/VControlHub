@@ -2,7 +2,7 @@
 
 import type { Dispatch, SetStateAction } from "react";
 import type { CostCategory, CostCurrency } from "@/lib/cost/types";
-import { CATEGORIES, buttonGhost, buttonPrimary, cardClass, inputClass, labelClass } from "./cost-page-shared";
+import { CATEGORIES, inputClass, labelClass } from "./cost-page-shared";
 import { ActionButton } from "@/components/action-button";
 import { ModalShell } from "@/components/modal-shell";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -13,11 +13,10 @@ type CostForm = { category: CostCategory; provider: string; amount: string; curr
 export function CostEntryFormModal({ open, editingId, form, availableCurrencies, saving, setForm, setShowForm, setEditingId, submitForm, t }: { open: boolean; editingId: string | null; form: CostForm; availableCurrencies: CostCurrency[]; saving: boolean; setForm: Dispatch<SetStateAction<CostForm>>; setShowForm: Dispatch<SetStateAction<boolean>>; setEditingId: Dispatch<SetStateAction<string | null>>; submitForm: () => void; t: T }) {
 	return (
 		<ModalShell
+			size="md" className="space-y-4"
 			open={open}
 			onClose={() => setShowForm(false)}
 			labelledBy="cost-entry-form-title"
-			overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] p-4"
-			panelClassName={`${cardClass} w-full max-w-md space-y-4`}
 			closeOnBackdrop={false}
 		>
 						<h3 id="cost-entry-form-title" className="text-base font-semibold text-[var(--text-primary)]">
@@ -109,7 +108,7 @@ export function CostEntryFormModal({ open, editingId, form, availableCurrencies,
 							/>
 						</div>
 						<div className="flex justify-end gap-2 pt-2">
-							<ActionButton variant="secondary" className={buttonGhost}
+							<ActionButton variant="secondary"
 								onClick={() => {
 									setShowForm(false);
 									setEditingId(null);
@@ -118,7 +117,7 @@ export function CostEntryFormModal({ open, editingId, form, availableCurrencies,
 							>
 								{t("costPage.form.cancel")}
 							</ActionButton>
-							<ActionButton variant="primary" className={buttonPrimary}
+							<ActionButton variant="primary"
 								onClick={submitForm}
 								disabled={saving}
 							>

@@ -22,6 +22,7 @@
 import dynamic from "next/dynamic";
 import type { ComponentProps, ComponentType } from "react";
 import { createPortal } from "react-dom";
+import { dialogOverlayClass, dialogPanelClass } from "@/components/modal-shell";
 
 type ImagePreviewModalProps = ComponentProps<
 	typeof import("./image-preview-modal").ImagePreviewModal
@@ -33,9 +34,9 @@ function ImagePreviewModalStub() {
 		<div
 			aria-hidden
 			data-modal-overlay
-			className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] p-4"
+			className={dialogOverlayClass("center", "strong")}
 		>
-			<div className="h-[min(44rem,calc(100dvh-2rem))] w-full max-w-4xl animate-pulse rounded-lg bg-[var(--modal-bg)]" />
+			<div className={`${dialogPanelClass({ size: "full" })} h-[min(44rem,calc(100dvh-2rem))] animate-pulse`} />
 		</div>,
 		document.body,
 	);

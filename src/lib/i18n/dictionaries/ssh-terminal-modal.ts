@@ -30,6 +30,7 @@ export const zh: Record<string, string> = {
 	"sshTerminalModal.errClosed": "连接已关闭",
 	"sshTerminalModal.errDisconnected": "WebSocket 连接已断开",
 	"sshTerminalModal.errConnectionFailed": "WebSocket 连接失败，请确认 SSH 代理服务正在运行",
+	"sshTerminalModal.errInputTooLarge": "待发送内容超过 4 MiB，本次输入未发送。请分段粘贴或通过文件管理器上传。",
 
 	// Terminal search
 	"sshTerminalModal.searchLabel": "搜索终端输出",
@@ -117,6 +118,7 @@ export const en: Record<string, string> = {
 	"sshTerminalModal.errClosed": "Connection closed",
 	"sshTerminalModal.errDisconnected": "WebSocket connection disconnected",
 	"sshTerminalModal.errConnectionFailed": "WebSocket connection failed. Please confirm the SSH proxy service is running.",
+	"sshTerminalModal.errInputTooLarge": "Pending input exceeds 4 MiB. This input was not sent. Paste smaller sections or upload through the file manager.",
 
 	// Terminal search
 	"sshTerminalModal.searchLabel": "Search terminal output",

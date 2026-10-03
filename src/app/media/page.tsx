@@ -29,6 +29,8 @@ import {
 } from "./media-filter-links";
 import { getServerLocale, t, type Locale } from "@/lib/i18n/translations";
 import { ActionButton } from "@/components/action-button";
+import { Badge } from "@/components/ui-primitives";
+import { ButtonLink } from "@/components/action-button";
 export const dynamic ="force-dynamic";
 type MediaSearchParams = {
   type?: string;
@@ -267,8 +269,7 @@ export default async function Page({
           />
         </div>
         <ActionButton variant="primary"
-          type="submit" className="px-4 py-2 text-sm"
-        >
+          type="submit">
           {t("mediaPage.search.submit", locale)}
         </ActionButton>
         {(q || tag || mediaType || favorite) && (
@@ -334,30 +335,19 @@ export default async function Page({
         </div>
       )}
       {canManageMedia && mediaType ==="image" && (
-        <section
-          data-tone="emerald"
-          className="mb-5 rounded-2xl border border-[var(--success-border)] p-4 light:bg-[var(--success-bg)]"
-        >
-
-          <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-
+        <section data-card className="mb-5 p-5">
+          <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
             <div>
-
-              <h2 className="text-sm font-semibold text-[var(--success)]">
+              <h2 className="text-[15px] font-semibold text-[var(--text-primary)]">
                 {t("mediaPage.upload.title", locale)}
               </h2>
-              <p className="mt-1 text-xs text-[var(--success)]">
+              <p className="mt-0.5 text-[13px] text-[var(--text-muted)]">
                 {t("mediaPage.upload.desc", locale)}
               </p>
             </div>
-            <Link
-              href="/image-bed"
-              data-tone="emerald"
-              className="inline-flex items-center justify-center rounded-xl border border-[var(--success-border)] px-3 py-2 text-xs font-medium text-[var(--success)] transition hover:bg-[var(--success-bg)] hover:text-[var(--success)]"
-            >
-
+            <ButtonLink href="/image-bed" size="sm" variant="secondary">
               {t("mediaPage.linkHub.open", locale)}
-            </Link>
+            </ButtonLink>
           </div>
           <MediaImageUploadPanel />
         </section>
@@ -378,9 +368,9 @@ export default async function Page({
             <h2 className="text-sm font-semibold text-[var(--text-primary)]">
               {serverName}
             </h2>
-            <span className="rounded-lg border border-[var(--border)] px-2 py-0.5 text-xs text-[var(--text-muted)]">
+            <Badge>
               {t("mediaPage.itemCount", locale, { count: items.length })}
-            </span>
+            </Badge>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
 

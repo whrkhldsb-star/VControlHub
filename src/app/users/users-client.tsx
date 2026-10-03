@@ -20,7 +20,9 @@ import {
 } from "./users-forms";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
+import { Plus } from "@/components/icons";
 import { StatusBadge } from "@/components/status-badge";
+import { Badge } from "@/components/ui-primitives";
 
 type RoleInfo = { key: string; name: string };
 type UserInfo = {
@@ -167,18 +169,17 @@ export function UserManagementClient({ canManage = false, canManageResources = c
 
   return (
     <div>
-      <Toolbar className="mb-5 justify-between">
-        <h2 className="px-1 text-sm font-semibold text-[var(--text-primary)] sm:text-base">{t("usersPage.title2")}</h2>
-        {canManage ? (
-          <ActionButton variant="primary"
+      {canManage ? (
+        <Toolbar className="justify-end">
+          <ActionButton
+            variant={showCreateForm ? "secondary" : "primary"}
+            icon={showCreateForm ? undefined : <Plus size={16} aria-hidden />}
             onClick={() => setShowCreateForm(!showCreateForm)}
-            data-primary
-            className="px-4 py-2 text-sm"
           >
             {showCreateForm ? t("usersPage.action.cancel") : t("usersPage.action.create")}
           </ActionButton>
-        ) : null}
-      </Toolbar>
+        </Toolbar>
+      ) : null}
       {showCreateForm && (
         <UsersCreateForm
           t={t}
@@ -200,7 +201,7 @@ export function UserManagementClient({ canManage = false, canManageResources = c
               <SkeletonList count={4} />
             </div>
           ) : loadFailed ? (
-            <EmptyState variant="boxed">{t("usersPage.loadFailedHint")}</EmptyState>
+            <EmptyState>{t("usersPage.loadFailedHint")}</EmptyState>
           ) : users.length === 0 ? (
             <EmptyState>{t("usersPage.empty")}</EmptyState>
           ) : undefined
@@ -222,46 +223,38 @@ export function UserManagementClient({ canManage = false, canManageResources = c
                   </div>
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {user.roles.map((role) => (
-                      <StatusBadge key={role.key} tone={roleBadgeTone(role.key)}>
+                      <Badge key={role.key} tone={roleBadgeTone(role.key)}>
                         {t(`usersPage.role.${role.key}`)}
-                      </StatusBadge>
+                      </Badge>
                     ))}
                   </div>
                 </div>
                 <div className="flex gap-2 shrink-0">
-                  {canManageResources && user.id !== currentUserId && <ActionButton
+                  {canManageResources && user.id !== currentUserId && <ActionButton size="sm"
                     variant="outline"
-                    onClick={() => setEditingPermissionsUser(user)}
-                    className="!px-3 !py-1.5 !text-sm"
-                  >{t("usersPage.action.permissions")}</ActionButton>}
+                    onClick={() => setEditingPermissionsUser(user)}>{t("usersPage.action.permissions")}</ActionButton>}
                   {canManage ? (
                     <>
-                      <ActionButton
+                      <ActionButton size="sm"
                         variant="warning"
-                        onClick={() => { setResetPasswordUser(user); setResetPasswordValue(""); }}
-                        className="!px-3 !py-1.5 !text-sm"
-                      >
+                        onClick={() => { setResetPasswordUser(user); setResetPasswordValue(""); }}>
                         {t("usersPage.action.resetPassword")}
                       </ActionButton>
                       {user.status !== "DISABLED" ? (
                         user.id !== currentUserId && (
-                          <ActionButton
+                          <ActionButton size="sm"
                             variant="danger"
                             onClick={() => handleToggleStatus(user.id, user.status, user.username)}
-                            disabled={togglingUserId !== null}
-                            className="!px-3 !py-1.5 !text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
+                            disabled={togglingUserId !== null}>
                             {t("usersPage.action.disable")}
                           </ActionButton>
                         )
                       ) : (
                         user.id !== currentUserId && (
-                          <ActionButton
+                          <ActionButton size="sm"
                             variant="success"
                             onClick={() => handleToggleStatus(user.id, user.status, user.username)}
-                            disabled={togglingUserId !== null}
-                            className="!px-3 !py-1.5 !text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
+                            disabled={togglingUserId !== null}>
                             {t("usersPage.action.enable")}
                           </ActionButton>
                         )

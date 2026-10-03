@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 
 import { useI18n } from "@/lib/i18n/use-locale";
 
 import type { ConvItem, ModelInfo, Provider, ModelCapabilities } from "./ai-types";
 import { ActionButton } from "@/components/action-button";
 import { Download, Pencil, Settings, Trash2 } from "@/components/icons";
+import { useDismiss } from "@/components/ui/menu";
 
 interface ChatHeaderProps {
   activeConv: ConvItem;
@@ -39,16 +40,7 @@ export function AiChatHeader({
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
-    if (!modelMenuOpen) return;
-    const close = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setModelMenuOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, [modelMenuOpen]);
+  useDismiss({ open: modelMenuOpen, refs: [menuRef], onDismiss: () => setModelMenuOpen(false) });
 
   const switchableModels = modelList.length > 0
     ? Array.from(new Set([activeConv.model, ...modelList.map((m) => m.id).filter(Boolean)])).filter(Boolean)
@@ -94,7 +86,8 @@ export function AiChatHeader({
             <div
               role="listbox"
               aria-label={t("aiPage.quickSwitchModelTitle")}
-              className="absolute left-0 top-full z-20 mt-1 max-h-64 w-72 max-w-[80vw] overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--surface)] py-1 shadow-[var(--shadow-lg)]"
+              data-popover
+              className="absolute left-0 top-full mt-1 max-h-64 w-72 overflow-y-auto"
             >
               {switchableModels.map((model) => (
                 <button
@@ -106,9 +99,8 @@ export function AiChatHeader({
                     setModelMenuOpen(false);
                     if (model !== activeConv.model) onQuickSwitchModel?.(model);
                   }}
-                  className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-xs transition hover:bg-[var(--surface-hover)] ${
-                    model === activeConv.model ? "font-semibold text-[var(--accent)]" : "text-[var(--text-secondary)]"
-                  }`}
+                  data-menu-item
+                  className={model === activeConv.model ? "font-medium !text-[var(--accent)]" : undefined}
                 >
                   <span className="min-w-0 truncate font-mono">{model}</span>
                   {model === activeConv.model && (

@@ -11,6 +11,8 @@ import { useRefreshInterval } from "@/lib/preferences/use-refresh-interval";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useVisibilityInterval } from "@/lib/hooks/use-visibility-interval";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { IconBell } from "./nav-icons";
+import { useDismiss } from "./ui/menu";
 
 /* ── Notification bell with real-time WebSocket push ──────── */
 
@@ -24,25 +26,27 @@ export function NotificationBell() {
 	const panelRef = useRef<HTMLDivElement>(null);
 	const buttonRef = useRef<HTMLButtonElement>(null);
 	const popoverRef = useRef<HTMLDivElement>(null);
-	const [popoverPos, setPopoverPos] = useState<{ left: number; bottom: number; maxHeight: number } | null>(null);
+	const [popoverPos, setPopoverPos] = useState<{ left: number; top?: number; bottom?: number; maxHeight: number } | null>(null);
 
-	// Position the portal popover relative to the bell button, clamped to viewport
+	// Position the portal popover next to the bell, clamped to the viewport:
+	// below it when the bell sits in the top half (top bar), above otherwise.
 	const updatePopoverPosition = useCallback(() => {
 		const btn = buttonRef.current;
 		if (!btn) return;
 		const rect = btn.getBoundingClientRect();
-		const width = 320; // w-80
+		const width = Math.min(352, window.innerWidth - 16);
 		const gap = 8;
 		const margin = 8;
-		// Prefer opening upward from the button (bell lives at sidebar bottom)
-		const bottom = window.innerHeight - rect.top + gap;
-		let left = rect.left;
-		if (left + width + margin > window.innerWidth) {
-			left = window.innerWidth - width - margin;
-		}
+		let left = rect.right - width;
+		if (left + width + margin > window.innerWidth) left = window.innerWidth - width - margin;
 		if (left < margin) left = margin;
-		const maxHeight = Math.max(160, rect.top - gap - margin);
-		setPopoverPos({ left, bottom, maxHeight });
+		if (rect.top < window.innerHeight / 2) {
+			const top = rect.bottom + gap;
+			setPopoverPos({ left, top, maxHeight: Math.max(200, window.innerHeight - top - margin) });
+		} else {
+			const bottom = window.innerHeight - rect.top + gap;
+			setPopoverPos({ left, bottom, maxHeight: Math.max(160, rect.top - gap - margin) });
+		}
 	}, []);
 
 	// WebSocket real-time updates
@@ -119,18 +123,14 @@ export function NotificationBell() {
 		// eslint-disable-next-line react-hooks/exhaustive-deps -- omit t to avoid duplicate rows on locale switch
 	}, [lastServerAlert]);
 
-	useEffect(() => {
-		const handleClick = (e: MouseEvent) => {
-			const target = e.target as Node;
-			const inTrigger = panelRef.current?.contains(target);
-			const inPopover = popoverRef.current?.contains(target);
-			if (!inTrigger && !inPopover) {
-				setIsOpen(false);
-			}
-		};
-		document.addEventListener("mousedown", handleClick);
-		return () => document.removeEventListener("mousedown", handleClick);
-	}, []);
+	useDismiss({
+		open: isOpen,
+		refs: [panelRef, popoverRef],
+		onDismiss: (reason) => {
+			setIsOpen(false);
+			if (reason === "escape") panelRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
+		},
+	});
 
 	// Recompute portal position when open, and on resize/scroll
 	useLayoutEffect(() => {
@@ -188,23 +188,21 @@ export function NotificationBell() {
 				ref={buttonRef}
 				type="button"
 				onClick={togglePanel}
-				className="relative flex h-9 w-9 items-center justify-center rounded-lg text-[var(--text-muted)] transition hover:bg-[var(--surface-elevated)] hover:text-[var(--text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
+				className="relative flex h-9 w-9 items-center justify-center rounded-md text-[var(--text-muted)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
 				aria-label={notificationLabel}
 				aria-haspopup="dialog"
 				aria-expanded={isOpen}
 				aria-controls="notification-popover"
 			>
-				<svg width="20" height="20" className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-					<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-				</svg>
+				<IconBell size={18} />
 				{effectiveUnread > 0 && (
-					<span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[16px] animate-pulse items-center justify-center rounded-full bg-[var(--danger)] px-1 text-[9px] font-bold text-[var(--on-accent)]">
+					<span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--color-danger-action)] px-1 text-[10px] font-semibold leading-none text-white ring-2 ring-[var(--background)]">
 						{effectiveUnread > 99 ? "99+" : effectiveUnread}
 					</span>
 				)}
 				{/* WS connection indicator */}
 				{wsConnected && (
-					<span className="absolute bottom-0 right-0 h-1.5 w-1.5 rounded-full bg-[var(--success)]" title={t("notificationBell.liveConnection")} />
+					<span className="absolute bottom-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-[var(--success)] ring-2 ring-[var(--background)]" title={t("notificationBell.liveConnection")} />
 				)}
 			</button>
 
@@ -218,11 +216,13 @@ export function NotificationBell() {
 					style={{
 						position: "fixed",
 						left: popoverPos ? `${popoverPos.left}px` : "0px",
-						bottom: popoverPos ? `${popoverPos.bottom}px` : "auto",
+						top: popoverPos?.top !== undefined ? `${popoverPos.top}px` : "auto",
+						bottom: popoverPos?.bottom !== undefined ? `${popoverPos.bottom}px` : "auto",
 						maxHeight: popoverPos ? `${popoverPos.maxHeight}px` : "60vh",
 						visibility: popoverPos ? "visible" : "hidden",
 					}}
-					className="z-[var(--z-popover)] w-80 overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] shadow-[var(--shadow-lg)] backdrop-blur-xl"
+					data-popover
+					className="w-[min(22rem,calc(100vw-1rem))] overflow-y-auto p-0"
 					>
 					<div className="sticky top-0 flex items-center justify-between border-b border-[var(--border)] bg-[color-mix(in_srgb,var(--modal-bg)_92%,transparent)] px-4 py-3 backdrop-blur">
 						<span id="notification-popover-title" className="text-sm font-semibold text-[var(--text-primary)]">{notificationLabel}</span>

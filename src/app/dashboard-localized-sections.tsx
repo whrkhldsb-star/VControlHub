@@ -2,9 +2,20 @@
 
 import Link from "next/link";
 
-import { PageHeader, EmptyState, StatCard, SurfacePanel, ListPanel, ListRow } from "@/components/page-shell";
+import { PageHeader, EmptyState, ListPanel, ListRow, MetricPanel } from "@/components/page-shell";
+import {
+  IconBadgeCheck,
+  IconBell,
+  IconCalendarClock,
+  IconChevronRight,
+  IconDownload,
+  IconFolder,
+  IconServer,
+} from "@/components/nav-icons";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { getDomainStatusLabel } from "@/lib/i18n/domain-labels";
+import { ButtonLink } from "@/components/action-button";
 
 const AUDIT_ACTOR_LABEL_KEYS: Record<string, string> = {
   USER: "dashboard.actor-user",
@@ -46,12 +57,12 @@ export function DashboardLocalizedHeader({ username }: { username: string }) {
   const currentUser = t("dashboard.current-user");
   return (
     <PageHeader eyebrow={t("nav.dashboard")} title={title} description={`${currentUser}: ${username}`}>
-          <Link href="/servers" data-action-button data-variant="primary">
+          <ButtonLink variant="primary" href="/servers">
             {t("dashboard.manage-vps-keys") === "dashboard.manage-vps-keys" ? "Manage VPS" : t("dashboard.manage-vps-keys")}
-          </Link>
-          <Link href="/operation-tasks" data-action-button data-variant="secondary">
+          </ButtonLink>
+          <ButtonLink variant="secondary" href="/operation-tasks">
             {t("nav.operation-tasks") === "nav.operation-tasks" ? "Tasks" : t("nav.operation-tasks")}
-          </Link>
+          </ButtonLink>
     </PageHeader>
   );
 }
@@ -64,33 +75,24 @@ export function DashboardServerHero({ summary }: { summary: DashboardServerSumma
   const managedSuffix = t("dashboard.managed-nodes-suffix");
   const sshSuffix = t("dashboard.ssh-bound-suffix");
   const gatewaySuffix = t("dashboard.direct-gateway");
-  const cta = t("dashboard.manage-vps-keys");
   const onlineLabel = t("dashboard.enabled-nodes");
   const disabledLabel = t("dashboard.disabled-nodes");
   const sshLabel = t("dashboard.ssh-key-bound");
   const gatewayLabel = t("dashboard.direct-gateway");
 
   return (
-    <section data-dashboard-widget="server-status" className="mb-6 min-w-0 border-b border-[var(--border)] pb-5">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase text-[var(--accent)]">{eyebrow}</p>
-          <h2 className="mt-2 text-lg font-semibold text-[var(--text-primary)]">{summary.enabled} {onlineSuffix}</h2>
-          <p className="mt-1 max-w-2xl text-sm leading-6 text-[var(--text-secondary)]">
-            {managedPrefix} {summary.total} {managedSuffix}, {summary.sshKey} {sshSuffix}, {summary.directGateway} {gatewaySuffix}.
-          </p>
-        </div>
-        <Link href="/servers" data-action-button data-variant="secondary">
-          {cta}
-        </Link>
-      </div>
-      <div className="mt-5 grid grid-cols-2 gap-3 max-[340px]:grid-cols-1 lg:grid-cols-4">
-        <StatCard label={onlineLabel} value={String(summary.enabled)} accent={summary.enabled > 0} accentColor="emerald" />
-        <StatCard label={disabledLabel} value={String(summary.disabled)} accent={summary.disabled > 0} accentColor="amber" />
-        <StatCard label={sshLabel} value={`${summary.sshKey}/${summary.total}`} accent={summary.sshKey > 0} accentColor="cyan" />
-        <StatCard label={gatewayLabel} value={String(summary.directGateway)} accent={summary.directGateway > 0} accentColor="cyan" />
-      </div>
-    </section>
+    <MetricPanel
+      data-dashboard-widget="server-status"
+      eyebrow={eyebrow}
+      title={`${summary.enabled} ${onlineSuffix}`}
+      description={`${managedPrefix} ${summary.total} ${managedSuffix}, ${summary.sshKey} ${sshSuffix}, ${summary.directGateway} ${gatewaySuffix}.`}
+      metrics={[
+        { label: onlineLabel, value: String(summary.enabled), tone: summary.enabled > 0 ? "emerald" : undefined },
+        { label: disabledLabel, value: String(summary.disabled), tone: summary.disabled > 0 ? "amber" : undefined },
+        { label: sshLabel, value: `${summary.sshKey}/${summary.total}` },
+        { label: gatewayLabel, value: String(summary.directGateway) },
+      ]}
+    />
   );
 }
 
@@ -115,30 +117,31 @@ export function DashboardStatsSection({ storage, queue }: { storage: DashboardSt
   const downloadDetail = queue.downloads.running > 0 ? `${queue.downloads.running} ${running} / ${queue.downloads.completed} ${completed} / ${queue.downloads.failed} ${failed}` : undefined;
 
   return (
-    <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)]">
-      <SurfacePanel title={coreTitle}>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-2">
-          <StatCard label={vpsNodes} value={String(storage.serverTotal)} accent={false} />
-          <StatCard label={enabledNodes} value={String(storage.serverEnabled)} accent={false} />
-          <StatCard label={storageNodes} value={String(storage.totalNodes)} accent={false} />
-          <StatCard label={fileEntries} value={String(storage.totalEntries)} accent={false} />
-        </div>
-      </SurfacePanel>
-      <SurfacePanel title={queueTitle}>
-        {/* 2×2 on xl: the notification card spans the full row so both panels
-            end on the same row instead of leaving a hole under the left one. */}
-        <div className="grid gap-3 sm:grid-cols-2">
-          <StatCard label={pending} value={String(queue.pendingApprovals)} accent={queue.pendingApprovals > 0} accentColor="amber" />
-          <StatCard label={downloads} value={downloadValue} accent={queue.downloads.running > 0} accentColor="cyan" detail={downloadDetail} />
-          <StatCard
-            label={notificationScheduled}
-            value={`${queue.unreadNotifications} ${unread} / ${queue.activeScheduledTasks} ${active}`}
-            accent={queue.unreadNotifications > 0 || queue.activeScheduledTasks > 0}
-            accentColor={queue.unreadNotifications > 0 ? "amber" : "cyan"}
-            className="sm:col-span-2"
-          />
-        </div>
-      </SurfacePanel>
+    <section className="mb-6 grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <MetricPanel
+        title={coreTitle}
+        columns={4}
+        metrics={[
+          { label: vpsNodes, value: String(storage.serverTotal), href: "/servers" },
+          { label: enabledNodes, value: String(storage.serverEnabled), href: "/servers" },
+          { label: storageNodes, value: String(storage.totalNodes), href: "/files" },
+          { label: fileEntries, value: String(storage.totalEntries), href: "/files" },
+        ]}
+      />
+      <MetricPanel
+        title={queueTitle}
+        columns={3}
+        metrics={[
+          { label: pending, value: String(queue.pendingApprovals), tone: queue.pendingApprovals > 0 ? "amber" : undefined, href: "/requests" },
+          { label: downloads, value: downloadValue, tone: queue.downloads.running > 0 ? "cyan" : undefined, detail: downloadDetail, href: "/downloads" },
+          {
+            label: notificationScheduled,
+            value: `${queue.unreadNotifications} ${unread} / ${queue.activeScheduledTasks} ${active}`,
+            tone: queue.unreadNotifications > 0 ? "amber" : undefined,
+            href: "/notifications",
+          },
+        ]}
+      />
     </section>
   );
 }
@@ -165,13 +168,13 @@ export function DashboardQuickLinks({ pendingApprovals, downloads, unreadNotific
   };
 
   return (
-    <section data-dashboard-widget="quick-links" className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-      <QuickLink href="/servers" title={labels.servers} desc={labels.serversDesc} icon={<ServerIcon />} />
-      <QuickLink href="/files" title={labels.files} desc={labels.filesDesc} icon={<FilesIcon />} />
-      <QuickLink href="/downloads" title={labels.downloads} desc={labels.downloadsDesc} icon={<DownloadsIcon />} badge={downloads.running > 0 ? `${downloads.running} ${labels.running}` : undefined} badgeColor="cyan" />
-      <QuickLink href="/requests" title={labels.approvals} desc={labels.approvalsDesc} icon={<ApprovalsIcon />} badge={pendingApprovals > 0 ? `${pendingApprovals} ${labels.pending}` : undefined} badgeColor="amber" />
-      <QuickLink href="/scheduled-tasks" title={labels.scheduled} desc={labels.scheduledDesc} icon={<ScheduledIcon />} badge={activeScheduledTasks > 0 ? `${activeScheduledTasks} ${labels.active}` : undefined} badgeColor="cyan" />
-      <QuickLink href="/notifications" title={labels.notifications} desc={labels.notificationsDesc} icon={<NotificationsIcon />} badge={unreadNotifications > 0 ? `${unreadNotifications} ${labels.unread}` : undefined} badgeColor="amber" />
+    <section data-dashboard-widget="quick-links" className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <QuickLink href="/servers" title={labels.servers} desc={labels.serversDesc} icon={<IconServer />} />
+      <QuickLink href="/files" title={labels.files} desc={labels.filesDesc} icon={<IconFolder />} />
+      <QuickLink href="/downloads" title={labels.downloads} desc={labels.downloadsDesc} icon={<IconDownload />} badge={downloads.running > 0 ? `${downloads.running} ${labels.running}` : undefined} badgeColor="cyan" />
+      <QuickLink href="/requests" title={labels.approvals} desc={labels.approvalsDesc} icon={<IconBadgeCheck />} badge={pendingApprovals > 0 ? `${pendingApprovals} ${labels.pending}` : undefined} badgeColor="amber" />
+      <QuickLink href="/scheduled-tasks" title={labels.scheduled} desc={labels.scheduledDesc} icon={<IconCalendarClock />} badge={activeScheduledTasks > 0 ? `${activeScheduledTasks} ${labels.active}` : undefined} badgeColor="cyan" />
+      <QuickLink href="/notifications" title={labels.notifications} desc={labels.notificationsDesc} icon={<IconBell />} badge={unreadNotifications > 0 ? `${unreadNotifications} ${labels.unread}` : undefined} badgeColor="amber" />
     </section>
   );
 }
@@ -215,10 +218,9 @@ export function DashboardRecentActivity({ recentRequests, recentAuditLogs }: { r
         title={approvalsTitle}
         count={recentRequests.length}
         empty={recentRequests.length === 0 ? <EmptyState text={noRequests} /> : undefined}
-        bodyClassName={recentRequests.length === 0 ? undefined : "!divide-y-0 space-y-0 bg-transparent p-2"}
       >
         {recentRequests.map((request) => (
-          <article key={request.id} className="mb-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] p-3.5 last:mb-0 hover:bg-[var(--surface-hover)]">
+          <article key={request.id} className="px-4 py-3 transition-colors hover:bg-[var(--surface-hover)] sm:px-5">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="min-w-0 flex-1">
                 <h3 className="truncate text-sm font-medium text-[var(--text-primary)]">{request.title}</h3>
@@ -228,18 +230,20 @@ export function DashboardRecentActivity({ recentRequests, recentAuditLogs }: { r
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-1.5">
-                <Badge color={request.status === "PENDING_APPROVAL" ? "amber" : request.status === "APPROVED" ? "emerald" : "slate"}>{request.approvalStateLabel}</Badge>
+                <Badge color={request.status === "PENDING_APPROVAL" ? "amber" : request.status === "APPROVED" || request.status === "COMPLETED" ? "emerald" : request.status === "FAILED" || request.status === "REJECTED" ? "rose" : "slate"}>
+                  {request.approvalStateLabel === request.status ? getDomainStatusLabel(t, request.status) : request.approvalStateLabel}
+                </Badge>
                 <Badge color="slate">{targetPrefix} {request.targetCount} {targetSuffix}</Badge>
               </div>
             </div>
-            <p className="mt-2.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-3 py-1.5 font-mono text-xs text-[var(--accent)]">{request.command}</p>
+            <p className="mt-2 truncate rounded-md bg-[var(--surface-subtle)] px-2.5 py-1.5 font-mono text-xs text-[var(--text-secondary)]">{request.command}</p>
           </article>
         ))}
       </ListPanel>
       <ListPanel
         title={auditTitle}
         count={recentAuditLogs.length}
-        actions={<Link href="/audit" className="text-xs font-medium text-[var(--accent)] transition hover:text-[var(--accent-hover)]">{viewAll}</Link>}
+        actions={<Link href="/audit" className="inline-flex items-center gap-0.5 text-[13px] font-medium text-[var(--accent)] transition hover:text-[var(--accent-hover)]">{viewAll}<IconChevronRight size={14} /></Link>}
         empty={recentAuditLogs.length === 0 ? <EmptyState text={noAudit} /> : undefined}
       >
         {recentAuditLogs.map((log) => (
@@ -261,14 +265,19 @@ function QuickLink({ href, title, desc, icon, badge, badgeColor }: { href: strin
     <Link
       data-card
       href={href}
-      className="group p-4 transition duration-150 hover:border-[var(--accent-border)] hover:bg-[color-mix(in_srgb,var(--accent-bg)_35%,var(--surface))]"
+      className="group flex items-start gap-3 !p-4 transition duration-150 hover:border-[var(--border-strong)] hover:bg-[var(--surface-hover)]"
     >
-      <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] transition group-hover:border-[var(--accent-border)] group-hover:text-[var(--accent)]">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-soft)] text-[var(--accent)] [&>svg]:h-[18px] [&>svg]:w-[18px]">
         {icon}
-      </div>
-      <div className="mt-3 text-sm font-semibold text-[var(--text-primary)]">{title}</div>
-      <p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">{desc}</p>
-      {badge ? <StatusBadge className="mt-2.5" tone={badgeColor === "cyan" ? "accent" : "warning"}>{badge}</StatusBadge> : null}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center gap-2">
+          <span className="text-sm font-semibold text-[var(--text-primary)]">{title}</span>
+          {badge ? <StatusBadge tone={badgeColor === "cyan" ? "accent" : "warning"}>{badge}</StatusBadge> : null}
+        </span>
+        <span className="mt-0.5 block text-[13px] leading-5 text-[var(--text-muted)]">{desc}</span>
+      </span>
+      <IconChevronRight size={16} className="mt-0.5 shrink-0 text-[var(--text-disabled)] transition group-hover:translate-x-0.5 group-hover:text-[var(--text-muted)]" />
     </Link>
   );
 }
@@ -279,9 +288,3 @@ function Badge({ color, children }: { color: "amber" | "emerald" | "rose" | "sla
   return <StatusBadge tone={tone}>{children}</StatusBadge>;
 }
 
-function ServerIcon() { return <svg className="w-6 h-6" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" /></svg>; }
-function FilesIcon() { return <svg className="w-6 h-6" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>; }
-function DownloadsIcon() { return <svg className="w-6 h-6" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>; }
-function ApprovalsIcon() { return <svg className="w-6 h-6" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>; }
-function ScheduledIcon() { return <svg className="w-6 h-6" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>; }
-function NotificationsIcon() { return <svg className="w-6 h-6" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>; }

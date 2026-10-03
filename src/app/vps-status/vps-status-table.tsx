@@ -26,7 +26,7 @@ export function VpsStatusTable({
 	t: (key: string, vars?: Record<string, string | number>) => string;
 }) {
 	return (
-		<div className="overflow-x-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-[0_1px_0_rgba(255,255,255,0.03)_inset]">
+		<div data-card className="p-0 overflow-x-auto">
 			<table className="min-w-full border-collapse text-left text-xs">
 				<thead className="bg-[var(--surface-elevated)] text-xs uppercase text-[var(--text-muted)]">
 					<tr>

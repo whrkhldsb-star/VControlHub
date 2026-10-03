@@ -16,6 +16,8 @@ import {
 
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { formatBytes } from "@/lib/format/bytes";
+import { ButtonLink } from "@/components/action-button";
+import { Badge } from "@/components/ui-primitives";
 
 export const dynamic ="force-dynamic";
 
@@ -124,15 +126,15 @@ export default async function MediaPlayerPage({
     <PageShell maxW="max-w-7xl">
       <div className="flex flex-col">
         <PageHeader eyebrow={t("mediaPage.player.eyebrow", locale)} title={item.name}>
-          <Link href={returnHref} data-action-button data-variant="secondary">
+          <ButtonLink variant="secondary" href={returnHref}>
             <ArrowLeft size={16} aria-hidden /> {t("mediaPage.player.backToLibrary", locale)}
-          </Link>
+          </ButtonLink>
           <a href={downloadHref} data-action-button data-variant="outline">
             <Download size={16} aria-hidden /> {t("mediaPage.player.download", locale)}
           </a>
-          <Link href={sourceHref} data-action-button data-variant="secondary">
+          <ButtonLink variant="secondary" href={sourceHref}>
             <FolderOpen size={16} aria-hidden /> {t("mediaPage.player.openSource", locale)}
-          </Link>
+          </ButtonLink>
         </PageHeader>
 
         <section className="grid flex-1 gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
@@ -195,7 +197,7 @@ export default async function MediaPlayerPage({
             </nav>
           </div>
 
-          <aside className="rounded-3xl border border-[var(--border)] bg-[var(--surface-elevated)] p-5">
+          <aside data-tile className="p-5">
             <div className="mb-4 flex items-center gap-2">
               {item.mediaType ==="image"
                   ? <ImageIcon size={28} className="text-[var(--accent)]" />
@@ -255,13 +257,10 @@ export default async function MediaPlayerPage({
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {item.tags.map((tag) => (
-                    <span
-                      key={tag}
-                      data-tone="cyan"
-                      className="rounded-lg border border-[var(--accent-border)] px-2.5 py-1 text-xs text-[var(--accent)]"
-                    >
+                    <Badge tone="accent" key={tag}
+                     >
                       {tag}
-                    </span>
+                    </Badge>
                   ))}
                 </div>
               </div>

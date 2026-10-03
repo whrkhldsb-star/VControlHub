@@ -44,6 +44,7 @@ import type {
 import { AI_OPS_SAFE_AUTONOMOUS_ACTIONS } from "./types";
 import { executeAiOpsAction } from "./action-executor";
 import { t } from "@/lib/i18n/service-translations";
+import { parseProviderHealth, type AiOpsProviderHealth } from "./provider-health";
 
 const DEFAULT_LIST_LIMIT = 50;
 const MAX_LIST_LIMIT = 200;
@@ -60,6 +61,7 @@ function toRecord(row: {
 	notes: string | null;
 	errorMessage: string | null;
 	providerId: string | null;
+	providerHealth?: Prisma.JsonValue;
 	startedAt: Date | null;
 	completedAt: Date | null;
 	durationMs: number | null;
@@ -79,6 +81,7 @@ function toRecord(row: {
 		notes: row.notes,
 		errorMessage: row.errorMessage,
 		providerId: row.providerId,
+		providerHealth: parseProviderHealth(row.providerHealth),
 		startedAt: row.startedAt ? row.startedAt.toISOString() : null,
 		completedAt: row.completedAt ? row.completedAt.toISOString() : null,
 		durationMs: row.durationMs,
@@ -201,6 +204,7 @@ export interface CompleteScanInput {
 	actions: AiOpsRecommendedAction[] | AiOpsExecutedAction[];
 	notes?: string | null;
 	errorMessage?: string | null;
+	providerHealth?: AiOpsProviderHealth | null;
 }
 
 export async function completeScan(input: CompleteScanInput): Promise<AiOpsLogRecord> {
@@ -221,6 +225,7 @@ export async function completeScan(input: CompleteScanInput): Promise<AiOpsLogRe
 			actions: input.actions as unknown as Prisma.InputJsonValue,
 			notes: input.notes ?? null,
 			errorMessage: input.errorMessage ?? null,
+			...(input.providerHealth ? { providerHealth: input.providerHealth as unknown as Prisma.InputJsonValue } : {}),
 			completedAt,
 			durationMs,
 		},
@@ -464,11 +469,12 @@ export interface AiOpsSummary {
 	byMode: Record<AiOpsMode, number>;
 	lastScanAt: string | null;
 	lastErrorAt: string | null;
+	provider?: { attempts: number; successes: number; failures: number; cooldowns: number; successRate: number | null; lastSuccessAt: string | null; lastFailureKind: string | null; retryAt: string | null };
 }
 
 export async function summariseAiOps(): Promise<AiOpsSummary> {
 	const rows = await prisma.aiOpsLog.findMany({
-		select: { status: true, mode: true, createdAt: true, errorMessage: true },
+		select: { status: true, mode: true, createdAt: true, errorMessage: true, providerHealth: true, completedAt: true },
 		orderBy: { createdAt: "desc" },
 		take: 200,
 	});
@@ -485,11 +491,24 @@ export async function summariseAiOps(): Promise<AiOpsSummary> {
 	};
 	let lastScanAt: string | null = null;
 	let lastErrorAt: string | null = null;
+	const provider: NonNullable<AiOpsSummary["provider"]> = { attempts: 0, successes: 0, failures: 0, cooldowns: 0, successRate: null, lastSuccessAt: null, lastFailureKind: null, retryAt: null };
+	let latestProviderSeen = false;
 	for (const r of rows) {
 		byStatus[r.status as AiOpsStatus] = (byStatus[r.status as AiOpsStatus] ?? 0) + 1;
 		byMode[r.mode as AiOpsMode] = (byMode[r.mode as AiOpsMode] ?? 0) + 1;
 		if (!lastScanAt) lastScanAt = r.createdAt.toISOString();
 		if (!lastErrorAt && r.errorMessage) lastErrorAt = r.createdAt.toISOString();
+		const health = parseProviderHealth(r.providerHealth);
+		if (!health) continue;
+		if (!latestProviderSeen) { provider.retryAt = health.retryAt; latestProviderSeen = true; }
+		if (health.state === "success") {
+			provider.successes++;
+			if (!provider.lastSuccessAt) provider.lastSuccessAt = (r.completedAt ?? r.createdAt).toISOString();
+		} else if (health.state === "failed") provider.failures++;
+		else if (health.state === "cooldown") provider.cooldowns++;
+		if (!provider.lastFailureKind && health.failureKind) provider.lastFailureKind = health.failureKind;
 	}
-	return { total: rows.length, byStatus, byMode, lastScanAt, lastErrorAt };
+	provider.attempts = provider.successes + provider.failures;
+	provider.successRate = provider.attempts ? provider.successes / provider.attempts : null;
+	return { total: rows.length, byStatus, byMode, lastScanAt, lastErrorAt, provider };
 }

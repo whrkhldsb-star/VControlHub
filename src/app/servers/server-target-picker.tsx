@@ -63,7 +63,7 @@ export function ServerTargetPicker({ kind, selected, onChange, onEnabledCount }:
       <p>{t("serversPage.inventory.loadFailed")}</p>
       <ActionButton variant="secondary" onClick={() => setRequest({ ...request, attempt: request.attempt + 1 })}>{t("common.retry")}</ActionButton>
     </div> : !rows.length ? <EmptyState text={t("serversPage.inventory.noResults")} /> : <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-      {rows.map((row) => <label key={row.id} className="flex min-w-0 items-start gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 text-sm">
+      {rows.map((row) => <label key={row.id} data-card className="flex min-w-0 items-start gap-3 p-3 text-sm">
         <input type="checkbox" checked={ids.has(row.id)} disabled={kind === "command" && !row.available}
           className="mt-1 h-4 w-4 shrink-0 accent-[var(--accent)]" onChange={(event) => onChange(event.target.checked
             ? [...selected.filter((item) => item.id !== row.id), row] : selected.filter((item) => item.id !== row.id))} />

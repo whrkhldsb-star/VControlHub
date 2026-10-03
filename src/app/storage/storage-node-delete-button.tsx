@@ -49,7 +49,7 @@ export function StorageNodeDeleteButton({
 				{t("common.confirm")}
 			</ActionButton>
 			<ActionButton variant="secondary"
-				onClick={handleCancel} className="!px-4 !py-2 !text-sm">
+				onClick={handleCancel}>
 				{t("common.cancel")}
 			</ActionButton>
 			{state.error ? (

@@ -3,7 +3,6 @@
 import { useRef, useState, type Dispatch, type SetStateAction } from "react";
 
 import { ModalShell } from "@/components/modal-shell";
-import { UI_OVERLAY_CENTER } from "@/components/ui-overlay-classes";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useToast } from "@/components/toast-provider";
@@ -111,12 +110,11 @@ export function SnippetModal({
 
 	return (
 		<ModalShell
+			size="lg"
 			open
 			onClose={requestClose}
 			labelledBy={`${prefix}-snippet-title`}
 			closeOnBackdrop={false}
-			overlayClassName={UI_OVERLAY_CENTER}
-			panelClassName="w-full max-w-lg rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-6 shadow-2xl"
 		>
 				<h3 id={`${prefix}-snippet-title`} className="text-lg font-semibold text-[var(--text-primary)]">
 					{t(`snippetsPage.modal.${prefix}Title`)}
@@ -147,10 +145,10 @@ export function SnippetModal({
 				</div>
 				{error && <p className="mt-2 text-xs text-[var(--danger)]">{error}</p>}
 				<div className="mt-5 flex justify-end gap-3">
-					<ActionButton type="button" variant="secondary" onClick={requestClose} disabled={saving} className="min-h-11 text-sm">
+					<ActionButton type="button" variant="secondary" onClick={requestClose} disabled={saving}>
 						{t("snippetsPage.modal.action.cancel")}
 					</ActionButton>
-					<ActionButton type="button" onClick={handleSave} disabled={saving || !title.trim() || !content.trim()} className="min-h-11 text-sm">
+					<ActionButton type="button" onClick={handleSave} disabled={saving || !title.trim() || !content.trim()}>
 						{t(`snippetsPage.modal.action.${saving ? (mode === "create" ? "creating" : "saving") : mode === "create" ? "create" : "save"}`)}
 					</ActionButton>
 				</div>

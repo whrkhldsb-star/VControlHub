@@ -65,12 +65,11 @@ export function ResendDeployButton({ templateId, variables, serverIds, reason, l
 					{t("deploymentsPage.resend.confirmWarning")}
 				</span>
 			) : null}
-			<ActionButton variant="outline"
+			<ActionButton size="sm" variant="outline"
 				onClick={handleResend}
 				disabled={pending}
 				aria-describedby={confirming ? `resend-deploy-${templateId}-warning` : undefined}
-				data-tone="cyan" className="!px-3 !py-1.5 !text-sm disabled:opacity-60"
-			>
+				data-tone="cyan">
 				{pending
 					? t("deploymentsPage.resend.submitting")
 					: confirming
@@ -78,15 +77,12 @@ export function ResendDeployButton({ templateId, variables, serverIds, reason, l
 						: (label || t("deploymentsPage.resend.triggerBtn"))}
 			</ActionButton>
 			{confirming ? (
-				<ActionButton variant="secondary"
+				<ActionButton size="sm" variant="secondary"
 					onClick={() => {
 						setConfirming(false);
 						setError(null);
 					}}
-					disabled={pending}
-
-					className="!px-3 !py-1.5 !text-sm !font-medium disabled:cursor-not-allowed disabled:opacity-60"
-				>
+					disabled={pending}>
 					{t("common.cancel")}
 				</ActionButton>
 			) : null}

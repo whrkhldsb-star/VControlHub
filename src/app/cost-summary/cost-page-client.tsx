@@ -8,10 +8,6 @@ import { CostBudgetPanel } from "./cost-budget-panel";
 import { CostCloudBillingPanel } from "./cost-cloud-billing-panel";
 import {
 	CATEGORIES,
-	buttonDanger,
-	buttonGhost,
-	buttonPrimary,
-	cardClass,
 	formatAmount,
 	inputClass,
 	labelClass,
@@ -28,6 +24,7 @@ import type {
 } from "@/lib/cost/types";
 import { ActionButton } from "@/components/action-button";
 import { UI_TONE } from "@/lib/ui/classes";
+import { Plus } from "@/components/icons";
 // csrfFetch kept in hook
 
 type Props = {
@@ -105,16 +102,8 @@ export function CostPageClient({
 	} = state;
 
 	return (
-		<div className="space-y-6">
-			<CostBudgetPanel initialBudgets={initialBudgets} canManage={canManage} currencies={availableCurrencies} />
-			<CostCloudBillingPanel
-				initialAccounts={initialBillingAccounts}
-				canManage={canManage}
-				currencies={availableCurrencies}
-				month={month}
-				onImported={() => void refreshAll()}
-			/>
-			<section className={cardClass}>
+		<div className="flex flex-col gap-6">
+			<section data-card className="p-5">
 				<div className="mb-4 flex flex-wrap items-center justify-between gap-3">
 					<h2 className="text-lg font-semibold text-[var(--text-primary)]">{t("costPage.summary.title")}</h2>
 					<div className="flex flex-wrap gap-2">
@@ -181,7 +170,7 @@ export function CostPageClient({
 			</section>
 
 			{trend.length > 1 ? (
-				<section className={cardClass}>
+				<section data-card className="p-5">
 					<h2 className="mb-3 text-base font-semibold text-[var(--text-primary)]">{t("costPage.snapshot.title")}</h2>
 					{trend.every((p) => p.total === 0) ? (
 						<div className="text-sm text-[var(--text-muted)]">{t("costPage.snapshot.noTrendData")}</div>
@@ -216,23 +205,23 @@ export function CostPageClient({
 				count={entries.length}
 				actions={
 					<div className="flex flex-wrap gap-2">
-						<ActionButton variant="secondary" className={buttonGhost} onClick={() => void refreshAll()}>{t("costPage.actions.refresh")}</ActionButton>
+						<ActionButton variant="secondary" onClick={() => void refreshAll()}>{t("costPage.actions.refresh")}</ActionButton>
 						{canManage ? (
-							<ActionButton variant="secondary" className={buttonGhost} onClick={() => void syncServerCosts()} disabled={syncingSources}>
+							<ActionButton variant="secondary" onClick={() => void syncServerCosts()} disabled={syncingSources}>
 								{syncingSources ? t("costPage.actions.syncingSources") : t("costPage.actions.syncSources")}
 							</ActionButton>
 						) : null}
 						{canManage ? (
-							<ActionButton variant="primary" className={buttonPrimary} onClick={openCreate}>{t("costPage.actions.newEntry")}</ActionButton>
+							<ActionButton icon={<Plus size={16} aria-hidden />} variant="primary" onClick={openCreate}>{t("costPage.actions.newEntry")}</ActionButton>
 						) : null}
 					</div>
 				}
 				empty={
 				entries.length === 0 ? (
-					<div className="space-y-1 py-1">
-						<p className="text-sm text-[var(--text-muted)]">{t("costPage.list.empty")}</p>
-						<p className="text-xs text-[var(--text-muted)]">{t("costPage.list.emptyHint")}</p>
-					</div>
+					<EmptyState>
+						<p>{t("costPage.list.empty")}</p>
+						<p className="mt-1 text-xs text-[var(--text-muted)]">{t("costPage.list.emptyHint")}</p>
+					</EmptyState>
 				) : undefined
 			}
 				bodyClassName={entries.length === 0 ? undefined : "!p-0"}
@@ -261,8 +250,8 @@ export function CostPageClient({
 										{canManage ? (
 											<td className="px-3 py-2 text-right">
 												<div className="flex justify-end gap-2">
-													<ActionButton variant="secondary" className={buttonGhost} onClick={() => openEdit(e)}>{t("costPage.actions.edit")}</ActionButton>
-													<ActionButton variant="danger" className={buttonDanger} onClick={() => requestDelete(e)} disabled={deletingId === e.id}>
+													<ActionButton size="sm" variant="secondary" onClick={() => openEdit(e)}>{t("costPage.actions.edit")}</ActionButton>
+													<ActionButton size="sm" variant="danger" onClick={() => requestDelete(e)} disabled={deletingId === e.id}>
 														{deletingId === e.id ? t("costPage.actions.deleting") : t("costPage.actions.delete")}
 													</ActionButton>
 												</div>
@@ -275,6 +264,15 @@ export function CostPageClient({
 					</div>
 				) : null}
 			</ListPanel>
+
+			<CostBudgetPanel initialBudgets={initialBudgets} canManage={canManage} currencies={availableCurrencies} />
+			<CostCloudBillingPanel
+				initialAccounts={initialBillingAccounts}
+				canManage={canManage}
+				currencies={availableCurrencies}
+				month={month}
+				onImported={() => void refreshAll()}
+			/>
 
 			<CostEntryFormModal
 				open={showForm && canManage}

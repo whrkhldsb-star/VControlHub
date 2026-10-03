@@ -78,27 +78,6 @@ export const repairSuggestions = (
 	];
 };
 
-export const repairToneClasses: Record<
-	SystemHealthStatus,
-	{ border: string; bg: string; badge: string }
-> = {
-	healthy: {
-		border: "border-[var(--success-border)]",
-		bg: "bg-[var(--success-bg)]",
-		badge: "border-[var(--success-border)] text-[var(--success)]",
-	},
-	warning: {
-		border: "border-[var(--warning-border)]",
-		bg: "bg-[var(--warning-bg)]",
-		badge: "border-[var(--warning-border)] text-[var(--warning)]",
-	},
-	critical: {
-		border: "border-[var(--danger-border)]",
-		bg: "bg-[var(--danger-bg)]",
-		badge: "border-[var(--danger-border)] text-[var(--danger)]",
-	},
-};
-
 export const statusToneClasses: Record<string, { bg: string; text: string; dot: string }> = {
 	healthy: {
 		bg: "border-[var(--success-border)] bg-[var(--success-bg)]",

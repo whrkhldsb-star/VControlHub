@@ -357,7 +357,7 @@ export function AiMessageList({
               />
             </svg>
           </div>
-          <div className="max-w-[88%] rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-3 py-2 text-sm leading-relaxed text-[var(--text-secondary)] sm:max-w-[80%] sm:px-4 sm:py-2.5">
+          <div data-tile className="max-w-[88%] px-3 py-2 text-sm leading-relaxed text-[var(--text-secondary)] sm:max-w-[80%] sm:px-4 sm:py-2.5">
             {streamReasoning && (
               <details open className="mb-2">
                 <summary className="text-xs text-[var(--color-action)]/60 cursor-pointer">
@@ -381,7 +381,7 @@ export function AiMessageList({
               <span className="h-1 w-1 animate-bounce rounded-full bg-[var(--accent)] [animation-delay:300ms]" />
             </div>
           </div>
-          <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-4 py-2.5 text-sm text-[var(--text-muted)]">
+          <div data-tile className="px-4 py-2.5 text-sm text-[var(--text-muted)]">
             {t("aiPage.thinkingDetail")}
           </div>
         </div>
@@ -446,7 +446,7 @@ export function AiMessageList({
                   )}
                 </div>
                 <div className="flex w-full gap-2 sm:ml-3 sm:w-auto">
-                  <ActionButton variant="danger-solid" className="flex-1 !px-3 !py-1 !text-sm disabled:opacity-50 sm:flex-none"
+                  <ActionButton size="sm" variant="danger-solid" className="flex-1 sm:flex-none"
                     disabled={approvalBusyById[approval.actionId]}
                     aria-busy={
                       approvalBusyById[approval.actionId] ? "true" : undefined
@@ -455,7 +455,7 @@ export function AiMessageList({
                   >
                     {t("aiPage.reject")}
                   </ActionButton>
-                  <ActionButton variant="success-solid" className="flex-1 !px-3 !py-1 !text-sm disabled:opacity-50 sm:flex-none"
+                  <ActionButton size="sm" variant="success-solid" className="flex-1 sm:flex-none"
                     disabled={approvalBusyById[approval.actionId]}
                     aria-busy={
                       approvalBusyById[approval.actionId] ? "true" : undefined

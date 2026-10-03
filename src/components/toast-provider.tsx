@@ -42,26 +42,10 @@ let toastCounter = 0;
 
 /** Toast styling — uses CSS variables for full dark/light theme support */
 const TOAST_STYLES: Record<ToastType, { container: string; icon: string }> = {
-  success: {
-    container:
-      "border-[var(--success-border)] bg-[var(--surface)] text-[var(--success)] shadow-lg",
-    icon: "text-[var(--success)]",
-  },
-  error: {
-    container:
-      "border-[var(--danger-border)] bg-[var(--surface)] text-[var(--danger)] shadow-lg",
-    icon: "text-[var(--danger)]",
-  },
-  warning: {
-    container:
-      "border-[var(--warning-border)] bg-[var(--surface)] text-[var(--warning)] shadow-lg",
-    icon: "text-[var(--warning)]",
-  },
-  info: {
-    container:
-      "border-[var(--accent-border)] bg-[var(--surface)] text-[var(--accent)] shadow-lg",
-    icon: "text-[var(--accent)]",
-  },
+  success: { container: "text-[var(--success)]", icon: "bg-[var(--success-bg)] text-[var(--success)]" },
+  error: { container: "text-[var(--danger)]", icon: "bg-[var(--danger-bg)] text-[var(--danger)]" },
+  warning: { container: "text-[var(--warning)]", icon: "bg-[var(--warning-bg)] text-[var(--warning)]" },
+  info: { container: "text-[var(--accent)]", icon: "bg-[var(--accent-bg)] text-[var(--accent)]" },
 };
 
 const TOAST_ICONS = {
@@ -114,7 +98,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={{ toasts, addToast, removeToast }}>
       {children}
       {/* Toast container */}
-      <div className="pointer-events-none fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-3 z-[var(--z-toast,60)] flex max-h-[calc(100dvh-6rem)] max-w-[min(24rem,calc(100vw-1.5rem))] flex-col gap-2 overflow-y-auto md:bottom-4 md:right-4">
+      <div className="pointer-events-none fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-3 z-[var(--z-toast,60)] flex max-h-[calc(100dvh-6rem)] w-[min(24rem,calc(100vw-1.5rem))] flex-col gap-2 overflow-y-auto lg:bottom-5 lg:right-5">
         {toasts.map((toast) => {
           const style = TOAST_STYLES[toast.type];
           const Icon = TOAST_ICONS[toast.type];
@@ -122,15 +106,17 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             <div
               key={toast.id}
               role={toast.type === "error" ? "alert" : "status"}
-              className={`pointer-events-auto flex shrink-0 items-center gap-3 rounded-lg border px-4 py-3 text-sm animate-toast-in ${style.container}`}
+              className={`pointer-events-auto flex shrink-0 items-center gap-3 rounded-[var(--radius-xl)] border border-[var(--border)] bg-[var(--modal-bg)] py-2.5 pl-3 pr-2 text-[13.5px] shadow-[var(--shadow-lg)] animate-toast-in ${style.container}`}
             >
-              <Icon size={18} aria-hidden className={`shrink-0 ${style.icon}`} />
-              <span className="min-w-0 flex-1 break-words text-[var(--text-primary)]">{toast.message}</span>
+              <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${style.icon}`}>
+                <Icon size={15} aria-hidden />
+              </span>
+              <span className="min-w-0 flex-1 break-words leading-5 text-[var(--text-primary)]">{toast.message}</span>
               {toast.action ? (
                 <Link
                   href={toast.action.href}
                   onClick={() => removeToast(toast.id)}
-                  className="shrink-0 rounded-md border border-current px-2 py-1 text-xs font-medium transition hover:bg-[var(--surface-hover)]"
+                  className="shrink-0 rounded-md bg-[var(--surface-elevated)] px-2 py-1 text-xs font-medium text-[var(--text-primary)] transition hover:bg-[var(--surface-hover)]"
                 >
                   {toast.action.label}
                 </Link>

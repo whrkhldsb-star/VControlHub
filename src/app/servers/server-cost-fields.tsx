@@ -7,7 +7,7 @@ import { UI_INPUT } from "@/lib/ui/classes";
 export function ServerCostFields() {
   const { t } = useI18n();
   return (
-    <details className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-4">
+    <details data-tile className="p-4">
       <summary className="cursor-pointer text-sm font-medium text-[var(--text-primary)]">
         {t("serversPage.create.costAdvancedTitle")}
       </summary>

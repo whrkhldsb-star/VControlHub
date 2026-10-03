@@ -63,9 +63,9 @@ export default function RootError({
 					</p>
 				)}
 				<div className="mt-5 flex justify-center gap-3">
-					<ActionButton type="button" variant="primary"
+					<ActionButton size="lg" type="button" variant="primary"
 						onClick={reset}
-						data-primary className="cursor-pointer border-none px-6 py-2.5 text-sm"
+					 className="cursor-pointer border-none"
 					>
 						{t("common.retry")}
 					</ActionButton>

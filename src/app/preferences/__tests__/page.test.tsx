@@ -5,7 +5,8 @@ import PreferencesPageClient, { PreferencesSettingsContent } from "../preference
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { I18nProvider } from "@/lib/i18n/provider";
 
-vi.mock("@/components/page-shell", () => ({
+vi.mock("@/components/page-shell", async (importOriginal) => ({
+	...(await importOriginal<typeof import("@/components/page-shell")>()),
 	PageShell: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 	PageHeader: ({ eyebrow, title, description, children }: { eyebrow?: React.ReactNode; title?: React.ReactNode; description?: React.ReactNode; children?: React.ReactNode }) => (
 		<div>

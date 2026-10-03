@@ -125,7 +125,7 @@ export function CreateTicketForm({ locale: _locale, servers = [] }: Props = {}) 
 			</label>
 			<ActionButton type="submit" variant="primary"
 				disabled={pending}
-				data-primary className="w-fit px-4 py-2.5 text-sm"
+			 className="w-fit"
 			>
 				{pending ? t("ticketsPage.form.submitting") : t("ticketsPage.form.submit")}
 			</ActionButton>

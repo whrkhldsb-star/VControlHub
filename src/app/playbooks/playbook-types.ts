@@ -1,5 +1,6 @@
 import { arrayMove } from "@dnd-kit/sortable";
 import { formatDateTime } from "@/lib/datetime/format";
+import { UI_INPUT, UI_LABEL } from "@/lib/ui/classes";
 
 export type TriggerType = "cron" | "metric";
 export type StepType = "run_command" | "send_notification" | "call_webhook";
@@ -60,9 +61,9 @@ export function dryRunStepCounts(run: Pick<RunSummary, "stepResults">): { ok: nu
 	};
 }
 
-export const fieldLabelClass = "text-xs font-medium text-[var(--text-secondary)] ";
-export const fieldInputClass = "w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--color-action-border)]/30";
-export const monoFieldInputClass = `${fieldInputClass} font-mono`;
+export const fieldLabelClass = UI_LABEL;
+export const fieldInputClass = UI_INPUT;
+export const monoFieldInputClass = `${UI_INPUT} font-mono`;
 
 export function stepTypeLabel(t: (k: string, vars?: Record<string, string | number>) => string, type: StepType): string {
 	return t(`playbooksPage.stepType.${type}`);

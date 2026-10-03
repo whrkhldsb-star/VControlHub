@@ -1,18 +1,10 @@
 import type { CostCategory, CostCurrency } from "@/lib/cost/types";
-import { UI_INPUT } from "@/lib/ui/classes";
+import { UI_INPUT, UI_LABEL } from "@/lib/ui/classes";
 
 export const CATEGORIES: CostCategory[] = ["vps", "bandwidth", "storage", "other"];
 
-export const cardClass = "rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)]";
-export const labelClass = "text-xs font-medium text-[var(--text-secondary)]";
+export const labelClass = UI_LABEL;
 export const inputClass = UI_INPUT;
-export const buttonPrimary =
-	"inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50 [data-action-button]:inline-flex";
-// Prefer data-action-button tokens for cost page chrome.
-export const buttonGhost =
-	"inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50";
-export const buttonDanger =
-	"inline-flex items-center justify-center rounded-lg px-3 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50";
 
 export function formatAmount(amount: string, currency: CostCurrency, locale: string): string {
 	const num = Number(amount);

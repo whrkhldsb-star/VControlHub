@@ -11,7 +11,7 @@ export function RdpCredentialFields({ idPrefix, editing = false, domain = "", ce
   idPrefix: string; editing?: boolean; domain?: string; ignoreCertificate?: boolean; certificateSha256?: string;
 }) {
   const { t } = useI18n();
-  return <section className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-4">
+  return <section data-tile className="space-y-3 p-4">
     <div className="space-y-1">
       <h3 className="text-sm font-medium text-[var(--text-primary)]">{t("serversPage.windows.credentialsTitle")}</h3>
       <p className="text-xs leading-5 text-[var(--text-muted)]">{t("serversPage.windows.hint")}</p>

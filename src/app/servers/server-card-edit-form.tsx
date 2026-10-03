@@ -87,7 +87,7 @@ export function ServerCardEditForm({
       action={editAction}
       onSubmit={captureBeforeSubmit}
       aria-label={t("serverCardActions.edit.formAria")}
-      className="space-y-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-elevated)] p-3"
+      data-tile className="space-y-3 p-3"
       onChange={(event) => {
         const field = event.target;
         if (!(field instanceof HTMLInputElement || field instanceof HTMLSelectElement)) return;
@@ -226,7 +226,7 @@ export function ServerCardEditForm({
         className={UI_INPUT}
       />
       {!windows && storageNodeId ? (
-        <div className="space-y-2 rounded-xl border border-[var(--border)] bg-[var(--surface-subtle)] p-3">
+        <div data-inset className="space-y-2 p-3">
           <label className="block text-xs text-[var(--text-muted)]" htmlFor={`edit-storage-path-${serverId}`}>
             {t("serverCardActions.edit.storagePath")}
           </label>
@@ -252,7 +252,7 @@ export function ServerCardEditForm({
           </label>
         </div>
       ) : null}
-      <div className="space-y-2 rounded-xl border border-[var(--border)] bg-[var(--surface-subtle)] p-3">
+      <div data-inset className="space-y-2 p-3">
         <label className="flex items-start gap-2 text-xs text-[var(--text-secondary)]">
           <input
             name="costAutoSync"

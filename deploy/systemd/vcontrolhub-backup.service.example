@@ -13,7 +13,9 @@ Environment=ENV_FILE={{RUNTIME_ENV_FILE}}
 Environment=BACKUP_DIR=/var/backups/{{APP_SLUG}}
 Environment=BACKUP_RETENTION_DAYS=30
 Environment=BACKUP_INCLUDE_ENV=true
+Environment=OFFSITE_RECOVERY_UPLOAD_ENABLED=false
 ExecStart={{NODE_BIN}} {{APP_DIR}}/scripts/backup.mjs --full
+ExecStartPost={{NODE_BIN}} {{APP_DIR}}/dist/upload-recovery-backup.js
 UMask=0077
 NoNewPrivileges=true
 ProtectSystem=strict

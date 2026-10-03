@@ -136,7 +136,7 @@ export function UnifiedFileSearch({
 			{/* Mode + scope selector row */}
 			<div className="flex flex-wrap items-center gap-2">
 				{/* Mode toggle: filename vs content */}
-				<div className="flex gap-1 rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-1">
+				<div data-inset className="flex gap-1 p-1">
 					<button
 						type="button"
 						onClick={() => changeMode("filename")}
@@ -165,7 +165,7 @@ export function UnifiedFileSearch({
 
 				{/* Scope toggle: only visible in filename mode */}
 				{mode === "filename" && (
-					<div className="flex gap-1 rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-1">
+					<div data-inset className="flex gap-1 p-1">
 						<button
 							type="button"
 							onClick={() => setScope("current")}
@@ -222,9 +222,8 @@ export function UnifiedFileSearch({
 				<ActionButton variant="primary"
 					type="submit"
 
-					className="px-5 py-2.5 text-sm"
-					disabled={!searchInput.trim() || contentLoading}
-				>
+					
+					disabled={!searchInput.trim() || contentLoading}>
 					{contentLoading && mode === "content"
 						? t("filesBrowserSpa.contentSearching")
 						: t("filesBrowserSpa.searchLabel")}
@@ -247,7 +246,7 @@ export function UnifiedFileSearch({
 					{contentResults.map((hit, idx) => (
 						<div
 							key={`${hit.nodeId}-${hit.relativePath}-${idx}`}
-							className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-3"
+						 data-inset className="p-3"
 						>
 							<div className="mb-1.5 flex items-center gap-2">
 								<StatusBadge size="sm" tone="neutral">

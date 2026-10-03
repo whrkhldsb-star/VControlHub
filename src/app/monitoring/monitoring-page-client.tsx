@@ -1,12 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { PageShell, PageHeader, SurfacePanel, Toolbar } from "@/components/page-shell";
+import { Card as SurfaceCard, PageShell, PageHeader, Toolbar } from "@/components/page-shell";
 import { z } from "zod";
 import { RefreshCw } from "@/components/icons";
 import { ActionButton } from "@/components/action-button";
-import { InlineLoading, Notice, ProgressBar } from "@/components/ui-primitives";
-import { StatusBadge } from "@/components/status-badge";
+import { Badge, InlineLoading, Notice, ProgressBar } from "@/components/ui-primitives";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
 import { useRefreshInterval } from "@/lib/preferences/use-refresh-interval";
@@ -27,9 +26,9 @@ type Stats = z.infer<typeof statsSchema>;
 /** Card wrapper — extracted to module top to avoid re-creation on every render */
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <SurfacePanel title={title} className="h-full">
+    <SurfaceCard title={title} className="h-full">
       {children}
-    </SurfacePanel>
+    </SurfaceCard>
   );
 }
 
@@ -224,19 +223,18 @@ export default function MonitoringPage() {
   if (!stats) {
     return (
       <PageShell>
-        <div className="rounded-2xl border border-[var(--danger-border)] bg-[var(--danger-bg)] p-5 text-sm text-[var(--danger)]">
-          <h1 className="mb-2 text-xl font-semibold text-[var(--danger)]">{t("monitoringPage.errorTitle")}</h1>
-          <p className="text-[var(--danger)]/80">{errorMessage ?? t("monitoringPage.errorUnavailable")}</p>
+        <Notice tone="danger" title={<h1 className="text-[15px] font-semibold">{t("monitoringPage.errorTitle")}</h1>}>
+          <p>{errorMessage ?? t("monitoringPage.errorUnavailable")}</p>
           <ActionButton
-            type="button"
             onClick={fetchStats}
             disabled={refreshing}
-            variant="danger-solid"
-            className="mt-4 !text-sm"
+            variant="secondary"
+            size="sm"
+            className="mt-3"
           >
             {refreshing ? t("monitoringPage.retrying") : t("monitoringPage.retry")}
           </ActionButton>
-        </div>
+        </Notice>
       </PageShell>
     );
   }
@@ -262,16 +260,16 @@ export default function MonitoringPage() {
       ) : null}
 
       <Toolbar>
-        <ActionButton variant="secondary"
-          type="button"
+        <ActionButton
+          variant="secondary"
           onClick={fetchStats}
           disabled={refreshing}
+          icon={<RefreshCw size={16} aria-hidden className={refreshing ? "animate-spin" : undefined} />}
         >
-          <RefreshCw size={16} aria-hidden className={refreshing ? "animate-spin" : undefined} />
           {refreshing ? t("monitoringPage.refreshing") : t("monitoringPage.refresh")}
         </ActionButton>
-        <ActionButton variant="secondary"
-          type="button"
+        <ActionButton
+          variant={autoRefreshActive ? "outline" : "secondary"}
           onClick={toggleAutoRefresh}
           disabled={refreshIntervalSeconds <= 0}
           aria-pressed={autoRefreshActive}
@@ -279,10 +277,10 @@ export default function MonitoringPage() {
           {autoRefreshLabel}
         </ActionButton>
         {sseConnected && autoRefreshActive && (
-          <StatusBadge tone="success" size="sm" className="gap-1">
-            <span className="h-1.5 w-1.5 rounded-full bg-[var(--success)] animate-pulse" />
+          <Badge tone="success" className="gap-1.5">
+            <span aria-hidden className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" />
             {t("monitoringPage.sseLabel")}
-          </StatusBadge>
+          </Badge>
         )}
       </Toolbar>
 

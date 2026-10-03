@@ -29,7 +29,7 @@ export function WindowsAgentInstallPanel({
   const [copied, setCopied] = useState(false);
 
   return (
-    <div className="mt-4 space-y-2 rounded-xl border border-[var(--border)] bg-[var(--surface-subtle)] p-3">
+    <div data-inset className="mt-4 space-y-2 p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-xs font-medium text-[var(--text-primary)]">{t("serversPage.windows.agentStatus")}</span>
         <span

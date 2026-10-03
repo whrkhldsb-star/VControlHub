@@ -43,12 +43,12 @@ export function RetryBackupRecordButton({ backupId, status }: Props) {
 
 	return (
 		<div className="grid gap-1">
-			<ActionButton
+			<ActionButton size="sm"
 				type="button"
-				variant="outline"
+				variant="secondary"
 				disabled={disabled}
 				onClick={handleRetry}
-				className="w-fit text-xs"
+				className="w-fit"
 			>
 				{pending ? t("backupsPage.retry.pending") : t("backupsPage.retry.submit")}
 			</ActionButton>

@@ -70,7 +70,7 @@ export function SshKeyCreateForm() {
       </div>{" "}
       <div
         data-tone="cyan"
-        className="rounded-lg border border-[var(--color-action-border)]/15 px-3.5 py-2.5 text-xs leading-relaxed text-[var(--text-primary)]"
+        data-inset className="px-3.5 py-2.5 text-xs leading-relaxed text-[var(--text-secondary)]"
       >
         {t("serversPage.sshKeyCreate.formatHint")}
       </div>{" "}
@@ -150,7 +150,7 @@ export function SshKeyCreateForm() {
         </label>{" "}
         <div className="flex items-center gap-3">
           {" "}
-          <label className="cursor-pointer rounded-lg border border-dashed border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-4 py-2.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--surface-elevated)] transition">
+          <label data-tile className="cursor-pointer border-dashed px-4 py-2.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--surface-elevated)] transition">
             {" "}
             {selectedPpkFileName ??
               t("serversPage.sshKeyCreate.fileLabel")}{" "}

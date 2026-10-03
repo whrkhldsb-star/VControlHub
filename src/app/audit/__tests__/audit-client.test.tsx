@@ -55,10 +55,10 @@ describe("AuditLogClient", () => {
     expect(screen.getAllByText("警告").length).toBeGreaterThan(1);
     expect(screen.getByText("用户")).toBeInTheDocument();
     expect(screen.queryByText("WARNING")).not.toBeInTheDocument();
-    await actor.click(screen.getByRole("button", { name: "↻ 刷新" }));
+    await actor.click(screen.getByRole("button", { name: "刷新" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("刷新审计日志失败");
     expect(screen.getAllByText("删除节点").length).toBeGreaterThan(1);
-    await waitFor(() => expect(screen.getByRole("button", { name: "↻ 刷新" })).toBeEnabled());
+    await waitFor(() => expect(screen.getByRole("button", { name: "刷新" })).toBeEnabled());
   });
 });

@@ -118,18 +118,12 @@ export const PlaybookCard = memo(function PlaybookCard({
             <>
               <ActionButton variant="outline"
                 onClick={() => onTrigger(playbook.id, "dry-run")}
-                disabled={isDryRunning || isRunning}
-
-                className="!min-h-11 !rounded-2xl !px-4 !py-2 !text-sm disabled:opacity-50"
-              >
+                disabled={isDryRunning || isRunning}>
                 {isDryRunning ? t("playbooksPage.action.dryRunRunning") : t("playbooksPage.action.dryRun")}
               </ActionButton>
               <ActionButton variant="primary"
                 onClick={() => onTrigger(playbook.id, "run")}
-                disabled={!playbook.enabled || isRunning || isDryRunning}
-
-                className="!min-h-11 !rounded-2xl !px-4 !py-2 !text-sm disabled:opacity-50"
-              >
+                disabled={!playbook.enabled || isRunning || isDryRunning}>
                 {isRunning ? t("playbooksPage.action.running") : t("playbooksPage.action.run")}
               </ActionButton>
             </>
@@ -137,20 +131,14 @@ export const PlaybookCard = memo(function PlaybookCard({
           {canManage && (
             <ActionButton variant="outline"
               onClick={() => onToggle(playbook)}
-              disabled={isToggling}
-
-              className="!min-h-11 !rounded-2xl !px-4 !py-2 !text-sm disabled:opacity-50"
-            >
+              disabled={isToggling}>
               {isToggling ? t("playbooksPage.action.toggling") : t("playbooksPage.action.toggle")}
             </ActionButton>
           )}
           {canManage && (
             <ActionButton variant="danger"
               onClick={() => onDelete(playbook)}
-              disabled={isDeleting}
-
-              className="!min-h-11 !rounded-2xl !px-4 !py-2 !text-sm disabled:opacity-50"
-            >
+              disabled={isDeleting}>
               {isDeleting ? t("playbooksPage.action.deleting") : t("playbooksPage.action.delete")}
             </ActionButton>
           )}

@@ -49,6 +49,7 @@ import {
 } from "./types";
 import { createAiOpsLog, completeScan } from "./service";
 import { executeAiOpsAction } from "./action-executor";
+import { failedProviderHealth, parseProviderHealth, type AiOpsProviderHealth } from "./provider-health";
 
 const logger = createLogger("ai-ops-scan-worker");
 
@@ -101,15 +102,12 @@ async function readModeFromSettings(): Promise<AiOpsMode> {
 
 async function readConfiguredProvider() {
   const providerId = (await getSetting("ai.ops.provider").catch(() => ""))?.trim();
-  if (!providerId) return null;
+  if (!providerId) return { providerId: null, provider: null };
   const provider = await prisma.aiProvider.findFirst({
     where: { id: providerId, enabled: true },
-    select: { id: true, createdBy: true, defaultModel: true },
+    select: { id: true, createdBy: true, defaultModel: true, updatedAt: true },
   });
-  if (!provider) {
-    throw new Error("The configured AI Ops provider does not exist or is disabled");
-  }
-  return provider;
+  return { providerId, provider };
 }
 
 async function requestProviderAnalysis(
@@ -496,10 +494,11 @@ export async function runAiOpsScanWorkerOnce(
           progress: "Running AI operations scan",
         }),
         run: async () => {
-          const [mode, provider] = await Promise.all([
+          const [mode, configured] = await Promise.all([
             readModeFromSettings(),
             readConfiguredProvider(),
           ]);
+          const { provider, providerId } = configured;
           const log = await createAiOpsLog({
             triggerType:
               payloadReason === "interval" || payloadReason === "startup"
@@ -507,7 +506,7 @@ export async function runAiOpsScanWorkerOnce(
                 : "manual",
             mode,
             triggeredById: null,
-            providerId: provider?.id ?? null,
+            providerId,
             notes: initialNotes,
           });
           aiOpsLogId = log.id;
@@ -520,16 +519,32 @@ export async function runAiOpsScanWorkerOnce(
           } = buildScan(mode, signals);
           let providerAnalysis: string | null = null;
           let providerDegraded = false;
+          let providerHealth: AiOpsProviderHealth | null = null;
+          if (providerId && !provider) {
+            providerDegraded = true;
+            providerHealth = { state: "unavailable", configurationVersion: "unavailable", consecutiveFailures: 0, failureKind: "configuration", httpStatus: null, retryAt: null };
+          }
           if (provider) {
-            try { providerAnalysis = await requestProviderAnalysis(provider, signals); }
-            catch (error) {
+            const configurationVersion = provider.updatedAt?.toISOString() ?? "legacy";
+            const latest = await prisma.aiOpsLog.findFirst({ where: { providerId: provider.id, completedAt: { not: null } }, orderBy: { completedAt: "desc" }, select: { providerHealth: true } });
+            const parsedPrevious = parseProviderHealth(latest?.providerHealth);
+            const previous = parsedPrevious?.configurationVersion === configurationVersion ? parsedPrevious : null;
+            const coolingDown = payloadReason !== "manual" && previous?.retryAt && Date.parse(previous.retryAt) > Date.now();
+            if (coolingDown) {
               providerDegraded = true;
-              // Upstream responses can contain credentials or request text.
-              const httpStatus = error instanceof Error ? error.message.match(/\b[45]\d{2}\b/)?.[0] : undefined;
-              logger.warn("AI provider analysis unavailable; retaining deterministic scan", { providerId: provider.id, httpStatus });
-              findings.push({ id: "ai.provider-unavailable", severity: "warning", title: "AI provider unavailable", body: "Rule-based scan results were preserved. Check provider access and balance; autonomous actions were withheld.", source: "ai.provider" });
+              providerHealth = { ...previous, state: "cooldown" };
+            } else {
+              try {
+                providerAnalysis = await requestProviderAnalysis(provider, signals);
+                providerHealth = { state: "success", configurationVersion, consecutiveFailures: 0, failureKind: null, httpStatus: null, retryAt: null };
+              } catch (error) {
+                providerDegraded = true;
+                providerHealth = failedProviderHealth(error, configurationVersion, previous);
+                logger.warn("AI provider analysis unavailable; retaining deterministic scan", { providerId: provider.id, httpStatus: providerHealth.httpStatus, failureKind: providerHealth.failureKind, retryAt: providerHealth.retryAt });
+              }
             }
           }
+          if (providerDegraded) findings.push({ id: "ai.provider-unavailable", severity: "warning", title: "AI provider unavailable", body: "Rule-based scan results were preserved. Check provider configuration, access and balance; autonomous actions were withheld.", source: "ai.provider" });
           const actions =
             mode === "autonomous" && !providerDegraded
               ? await Promise.all(
@@ -555,6 +570,7 @@ export async function runAiOpsScanWorkerOnce(
             findings,
             actions,
             notes: completedNotes,
+            providerHealth,
             ...(providerDegraded ? { errorMessage: t("backend.ai.providerUnavailable") } : {}),
           });
           return { findings, actions, completed };

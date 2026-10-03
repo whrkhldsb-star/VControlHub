@@ -47,7 +47,7 @@ export function ChangePasswordForm() {
 
 	return (
 		<div className="grid gap-3">
-		<form action={formAction} className="grid gap-4 rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6">
+		<form action={formAction} data-card className="grid gap-4 p-6">
 			<input type="text" name="username" autoComplete="username" className="hidden" tabIndex={-1} aria-hidden="true" />
 			<div>
 				<h2 className="text-xl font-semibold text-[var(--text-primary)]">{t("common.editPassword")}</h2>

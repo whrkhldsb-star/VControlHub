@@ -52,9 +52,8 @@ export default function OfflinePage() {
             href="/dashboard"
             onClick={() => setRetrying(true)}
             aria-busy={retrying}
-            data-primary
-            data-action-button data-variant="primary" className="inline-flex min-h-11 items-center justify-center px-5 text-sm"
-          >
+           
+            data-action-button data-size="lg" data-variant="primary" className="inline-flex items-center justify-center">
             {retrying ? t("pwa.offline.retrying") : t("pwa.offline.retry")}
           </a>
         </div>

@@ -91,6 +91,7 @@ export interface AiOpsLogRecord {
 	notes: string | null;
 	errorMessage: string | null;
 	providerId: string | null;
+	providerHealth?: import("./provider-health").AiOpsProviderHealth | null;
 	startedAt: string | null;
 	completedAt: string | null;
 	durationMs: number | null;

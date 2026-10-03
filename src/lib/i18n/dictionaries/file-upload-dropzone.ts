@@ -176,7 +176,7 @@ export const zh: Record<string, string> = {
   "filesBrowserSpa.contentSearchTruncated": "（结果已截断）",
   "filesBrowserSpa.contentSearchNoResults": '未在文件内容中找到 "{query}"',
   "filesBrowserSpa.itemCountWithSource": "项目数 {count} · 来源节点：{sources}",
-  "filesBrowserSpa.uploadFiles": "⬆ 上传文件",
+  "filesBrowserSpa.uploadFiles": "上传文件",
   "filesBrowserSpa.createFolder": "新建文件夹",
   "filesBrowserSpa.uploadToPath": "上传到当前目录 {path}",
 };
@@ -355,7 +355,7 @@ export const en: Record<string, string> = {
   "filesBrowserSpa.contentSearchNoResults": 'No files matching "{query}" in content',
   "filesBrowserSpa.itemCountWithSource":
     "{count} items · source nodes: {sources}",
-  "filesBrowserSpa.uploadFiles": "⬆ Upload files",
+  "filesBrowserSpa.uploadFiles": "Upload files",
   "filesBrowserSpa.createFolder": "New folder",
   "filesBrowserSpa.uploadToPath": "Upload to current directory {path}",
 };

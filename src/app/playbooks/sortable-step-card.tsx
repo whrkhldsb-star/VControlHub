@@ -41,11 +41,12 @@ export function SortableStepCard({
 			className={`p-3 space-y-2 ${isDragging ? "relative z-10 opacity-80 ring-2 ring-[var(--color-action-ring)]" : ""}`}
 		>
 			<div className="flex items-center gap-2">
-				<ActionButton variant="secondary"
+				<ActionButton size="sm" variant="secondary"
 					aria-label={t("playbooksPage.createForm.dragHandleAria", { index: index + 1 })}
 					{...attributes}
-					{...listeners} className="min-h-9 cursor-grab !px-2 !py-1 !text-sm">
-					☰ #{index + 1}
+					{...listeners} className="cursor-grab">
+					<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="5" r="1.6" /><circle cx="15" cy="5" r="1.6" /><circle cx="9" cy="12" r="1.6" /><circle cx="15" cy="12" r="1.6" /><circle cx="9" cy="19" r="1.6" /><circle cx="15" cy="19" r="1.6" /></svg>
+					#{index + 1}
 				</ActionButton>
 				<input
 					aria-label={t("playbooksPage.createForm.stepName")}
@@ -71,12 +72,10 @@ export function SortableStepCard({
 					))}
 				</select>
 				{stepCount > 1 && (
-					<ActionButton
+					<ActionButton size="sm"
 						variant="danger"
 						onClick={() => onRemove(step.id)}
-						aria-label={t("playbooksPage.action.delete")}
-						className="min-h-9 !px-2 !py-1 !text-sm"
-					>
+						aria-label={t("playbooksPage.action.delete")}>
 						×
 					</ActionButton>
 				)}

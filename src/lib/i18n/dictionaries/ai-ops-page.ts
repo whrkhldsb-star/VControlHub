@@ -24,6 +24,9 @@ export const zh: Record<string, string> = {
 	"aiOpsPage.summary.lastScanAt": "最近一次扫描",
 	"aiOpsPage.summary.lastErrorAt": "最近一次错误",
 	"aiOpsPage.summary.never": "暂无",
+	"aiOpsPage.summary.providerSuccessRate": "提供商成功率（最近 200 次扫描）",
+	"aiOpsPage.summary.providerLastSuccess": "最近成功分析",
+	"aiOpsPage.summary.providerRetryAt": "自动分析下次尝试",
 	// Toolbar
 	"aiOpsPage.actions.refresh": "刷新",
 	"aiOpsPage.actions.triggerScan": "立即扫描",
@@ -108,6 +111,9 @@ export const en: Record<string, string> = {
 	"aiOpsPage.summary.lastScanAt": "Last scan",
 	"aiOpsPage.summary.lastErrorAt": "Last error",
 	"aiOpsPage.summary.never": "Never",
+	"aiOpsPage.summary.providerSuccessRate": "Provider success rate (latest 200 scans)",
+	"aiOpsPage.summary.providerLastSuccess": "Last successful analysis",
+	"aiOpsPage.summary.providerRetryAt": "Next automatic analysis attempt",
 	// Toolbar
 	"aiOpsPage.actions.refresh": "Refresh",
 	"aiOpsPage.actions.triggerScan": "Trigger scan",

@@ -53,10 +53,9 @@ export function DeploymentFilePreview({
             </option>
           ))}
         </select>
-        <ActionButton variant="outline"
+        <ActionButton size="sm" variant="outline"
           data-testid="deploy-export-rollback"
-          onClick={() => onCopy(content, activePath)} className="!px-2 !py-1 !text-sm"
-        >
+          onClick={() => onCopy(content, activePath)}>
           {justCopied ? t("deploymentsPage.export.copied") : t("deploymentsPage.export.copyRollback")}
         </ActionButton>
         <button

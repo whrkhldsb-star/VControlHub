@@ -5,6 +5,7 @@ import { ToastProvider } from "@/components/toast-provider";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { TemplateListClient } from "../template-list-client";
 import { renderWithI18n as render } from "@/lib/i18n/__tests__/test-helpers";
+import { isTouchTarget } from "@/test/ui-assertions";
 
 vi.mock("@/lib/auth/csrf-client", () => ({
 	csrfFetch: vi.fn(),
@@ -116,7 +117,7 @@ describe("TemplateListClient", () => {
 
 		renderClient();
 
-		await user.click(screen.getByRole("button", { name: "+ 创建模板" }));
+		await user.click(screen.getByRole("button", { name: "创建模板" }));
 		await user.type(screen.getByLabelText("模板名称"), "重启 Web 服务");
 		await user.type(screen.getByLabelText("描述"), "滚动重启");
 		await user.type(screen.getByLabelText("命令内容"), "systemctl restart nginx");
@@ -171,17 +172,14 @@ describe("TemplateListClient", () => {
 
 	describe("touch targets (TR-022 R19 mobile)", () => {
 		function mockHeightsBySelector(measurements: Record<string, number>) {
-			// jsdom reports getBoundingClientRect as 0x0; install a minimal stub
-			// that returns the requested height for buttons whose className includes
-			// the test selector. Sufficient for asserting that min-h-11 produced
-			// at least 44px of computed height.
+			// jsdom reports getBoundingClientRect as 0x0. Control heights come from
+			// design tokens (--control-height is 44px on touch screens), so report the
+			// requested height for elements that are touch targets by construction.
+			const height = Math.max(...Object.values(measurements));
 			const original = Element.prototype.getBoundingClientRect;
 			Element.prototype.getBoundingClientRect = function () {
-				const className = (this.getAttribute("class") ?? "") as string;
-				for (const [selector, height] of Object.entries(measurements)) {
-					if (className.includes(selector)) {
-						return { x: 0, y: 0, top: 0, left: 0, right: 0, bottom: 0, width: 100, height, toJSON: () => ({}) } as DOMRect;
-					}
+				if (isTouchTarget(this)) {
+					return { x: 0, y: 0, top: 0, left: 0, right: height, bottom: height, width: height, height, toJSON: () => ({}) } as DOMRect;
 				}
 				return original.call(this);
 			};
@@ -207,7 +205,7 @@ describe("TemplateListClient", () => {
 			const restore = mockHeightsBySelector({ "min-h-11": 44 });
 			try {
 				renderClient();
-				const btn = screen.getByRole("button", { name: "+ 创建模板" });
+				const btn = screen.getByRole("button", { name: "创建模板" });
 				expect(btn.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
 			} finally {
 				restore();
@@ -232,7 +230,7 @@ describe("TemplateListClient", () => {
 			try {
 				const actor = userEvent.setup();
 				renderClient();
-				await actor.click(screen.getByRole("button", { name: "+ 创建模板" }));
+				await actor.click(screen.getByRole("button", { name: "创建模板" }));
 				expect(screen.getByRole("button", { name: "创建模板" }).getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
 				expect(screen.getByRole("button", { name: "取消" }).getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
 			} finally {

@@ -31,7 +31,7 @@ export function RestoreButton({
       <ActionButton variant="success"
         type="submit"
         disabled={isPending}
-        aria-busy={isPending || undefined} className="!px-4 !py-2 !text-sm disabled:cursor-not-allowed disabled:opacity-50">
+        aria-busy={isPending || undefined}>
         {isPending ? t("common.restoring") : t("common.restore")}
       </ActionButton>
       {state.error ? (

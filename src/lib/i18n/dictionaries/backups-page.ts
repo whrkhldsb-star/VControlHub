@@ -49,13 +49,13 @@ export const zh: Record<string, string> = {
 	"backupsPage.failures.remediation": "建议：{remediation}",
 
 	"backupsPage.retention.title": "保留策略自动清理",
-	"backupsPage.retention.description": "按保留天数和每类型保留最新 N 个参数，清理过期的 COMPLETED 备份记录和文件。可在任务中心追踪 <code>backup.retention</code> 任务的完成情况。",
+	"backupsPage.retention.description": "按保留天数和每类型保留最新 N 个参数，清理过期的 COMPLETED 备份记录和文件。可在任务中心追踪 backup.retention 任务的完成情况。",
 
 	"backupsPage.create.title": "创建并执行备份",
-	"backupsPage.section.retention": "保留策略清理（按需展开）",
-	"backupsPage.section.migration": "迁移工具（按需展开）",
-	"backupsPage.section.offsite": "异地备份（按需展开）",
-	"backupsPage.section.schedule": "定时备份（按需展开）",
+	"backupsPage.section.retention": "保留策略清理",
+	"backupsPage.section.migration": "迁移工具",
+	"backupsPage.section.offsite": "异地备份",
+	"backupsPage.section.schedule": "定时备份",
 	"backupsPage.migration.title": "跨环境迁移向导",
 	"backupsPage.migration.description": "把已完成备份导出为带清单的可移植包，在目标环境校验并登记后再走标准恢复流程。",
 	"backupsPage.migration.help": "步骤：1) 选择 COMPLETED 备份导出包（manifest.json + payload）；2) 把目录或 .tar.gz 拷到目标机 BACKUP_DIR；3) 校验 SHA-256；4) 导入登记为本地备份；5) 按需演练/恢复（仍需 RESTORE 确认）。",
@@ -284,13 +284,13 @@ export const en: Record<string, string> = {
 	"backupsPage.failures.remediation": "Suggestion: {remediation}",
 
 	"backupsPage.retention.title": "Automatic retention cleanup",
-	"backupsPage.retention.description": "Cleans up expired COMPLETED backup records and files by retention days and per-type keep-latest N parameters. Track the <code>backup.retention</code> job in the operation-tasks center.",
+	"backupsPage.retention.description": "Cleans up expired COMPLETED backup records and files by retention days and per-type keep-latest N parameters. Track the backup.retention job in the operation-tasks center.",
 
 	"backupsPage.create.title": "Create and execute backup",
-	"backupsPage.section.retention": "Retention cleanup (expand when needed)",
-	"backupsPage.section.migration": "Migration tools (expand when needed)",
-	"backupsPage.section.offsite": "Offsite backup (expand when needed)",
-	"backupsPage.section.schedule": "Scheduled backups (expand when needed)",
+	"backupsPage.section.retention": "Retention cleanup",
+	"backupsPage.section.migration": "Migration tools",
+	"backupsPage.section.offsite": "Offsite backup",
+	"backupsPage.section.schedule": "Scheduled backups",
 	"backupsPage.create.description": "Submitting creates an auditable backup record and queues it for background execution. Refresh the page to track waiting, running, completed, or failed status.",
 
 	"backupsPage.schedule.title": "Create scheduled backup",

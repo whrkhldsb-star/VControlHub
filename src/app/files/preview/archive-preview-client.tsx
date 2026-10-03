@@ -6,6 +6,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { formatBytes as formatBytesShared } from "@/lib/format/bytes";
 import { ActionButton } from "@/components/action-button";
+import { Notice } from "@/components/ui-primitives";
 
 type ArchiveEntry = {
 	name: string;
@@ -80,22 +81,22 @@ export function ArchivePreviewClient({
 			<div className="flex flex-wrap items-center gap-3">
 				<ActionButton variant="outline"
 					onClick={loadArchiveContents}
-					disabled={loading} className="!px-4 !py-2 !text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+					disabled={loading}>
 					{loading ? t("archivePreview.loading") : entries ? t("archivePreview.refreshList") : t("archivePreview.title")}
 				</ActionButton>
 				{entries && entries.length > 0 && driver ==="LOCAL" ? (
 					<ActionButton variant="success"
 						onClick={handleExtract}
-						disabled={extracting} className="!px-4 !py-2 !text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+						disabled={extracting}>
 						{extracting ? t("archivePreview.extracting") : t("archivePreview.extract")}
 					</ActionButton>
 				) : null}
 			</div>
 
 			{error ? (
-				<div data-tone="rose" className="rounded-2xl border border-[var(--danger-border)] px-4 py-3 text-sm text-[var(--danger)]">
+				<Notice tone="danger">
 					{error}
-				</div>
+				</Notice>
 			) : null}
 
 			{extractResult ? (

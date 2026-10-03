@@ -97,3 +97,25 @@ export function useTheme() {
   }
   return context;
 }
+
+/**
+ * Theme controls for chrome that may render outside ThemeProvider (isolated
+ * component tests, standalone previews): falls back to toggling the document
+ * class directly.
+ */
+const FALLBACK_THEME: ThemeContextValue = {
+  theme: "dark",
+  setTheme: (theme) => {
+    applyTheme(theme);
+    persistTheme(theme);
+  },
+  toggleTheme: () => {
+    const next: Theme = document.documentElement.classList.contains("light") ? "dark" : "light";
+    applyTheme(next);
+    persistTheme(next);
+  },
+};
+
+export function useOptionalTheme(): ThemeContextValue {
+  return useContext(ThemeContext) ?? FALLBACK_THEME;
+}

@@ -60,26 +60,24 @@ export function EditorFindBar({ inputRef, find, onQueryChange, onMove, onClose }
 						: t("textPreview.editor.findMatchCount", { current: find.current, total: find.total })}
 			</span>
 			<div className="flex-1" />
-			<ActionButton variant="secondary"
+			<ActionButton size="sm" variant="secondary"
 				onClick={() => onMove(-1)}
 				disabled={find.total === 0}
 				aria-label={t("textPreview.editor.findPrev")}
-				title={t("textPreview.editor.findPrev")} className="!px-2 !py-1 !text-sm disabled:opacity-40"
-			>
+				title={t("textPreview.editor.findPrev")}>
 				↑
 			</ActionButton>
-			<ActionButton variant="secondary"
+			<ActionButton size="sm" variant="secondary"
 				onClick={() => onMove(1)}
 				disabled={find.total === 0}
 				aria-label={t("textPreview.editor.findNext")}
-				title={t("textPreview.editor.findNext")} className="!px-2 !py-1 !text-sm disabled:opacity-40"
-			>
+				title={t("textPreview.editor.findNext")}>
 				↓
 			</ActionButton>
-			<ActionButton variant="secondary"
+			<ActionButton size="sm" variant="secondary"
 				onClick={onClose}
 				aria-label={t("textPreview.editor.findClose")}
-				title={t("textPreview.editor.findClose")} className="!px-2 !py-1 !text-sm">
+				title={t("textPreview.editor.findClose")}>
 				<X size={16} aria-hidden />
 			</ActionButton>
 		</div>

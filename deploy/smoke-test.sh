@@ -177,6 +177,7 @@ if run_systemd_checks; then
     echo "── 2. Port Binding ──"
     check "Next.js on 127.0.0.1:${NEXT_PORT}" "ss -tlnp | grep '127.0.0.1:${NEXT_PORT}'" 0
     check "SSH-WS on 127.0.0.1:${SSH_WS_PORT}" "ss -tlnp | grep '127.0.0.1:${SSH_WS_PORT}'" 0
+    check "SSH gateway WebSocket routing and authentication" "node \"${SMOKE_APP_DIR}/scripts/check-ssh-gateway.mjs\"" 0
     if run_http_checks; then
         check "${PROXY_LABEL} on *:80" "ss -tlnp | grep ':80 '" 0
     fi

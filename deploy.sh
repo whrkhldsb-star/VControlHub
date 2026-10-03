@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 # VControlHub 热部署脚本
-# - 跑 next build
-# - 修正 .next 目录 owner (systemd service User=vcontrolhub)
-# - 重启生产服务
-# - 跑 smoke test
+# - 在独立目录构建，在线服务持续运行
+# - 保留上一版本运行产物，再短暂切换服务
+# - 验证 SSH 协议和 smoke test，失败恢复上一版本产物
 #
 # 用法: sudo bash deploy.sh
 set -euo pipefail
@@ -12,47 +11,78 @@ set -euo pipefail
 # any root-touched helper files are not left world-unreadable.
 umask 022
 
-DEPLOY_LOCK="/run/lock/vcontrolhub-deploy.lock"
+DEPLOY_LOCK="${DEPLOY_LOCK:-/run/lock/vcontrolhub-deploy.lock}"
 mkdir -p "$(dirname "$DEPLOY_LOCK")"
 # Record PID so operators can tell a live lock from a leftover empty file.
 # flock still provides mutual exclusion; the PID file is diagnostic only.
-exec 9>"$DEPLOY_LOCK"
+exec 9>>"$DEPLOY_LOCK"
 if ! flock -n 9; then
 	holder="$(tr -d '\n' <"$DEPLOY_LOCK" 2>/dev/null || true)"
 	echo "ERROR: another VControlHub deployment/build is already running ($DEPLOY_LOCK holder_pid=${holder:-unknown})"
 	exit 75
 fi
+: >"$DEPLOY_LOCK"
 printf '%s\n' "$$" >&9
-# Keep FD 9 open for the flock lifetime. On EXIT, release + remove lock file
-# so the next operator is not misled by a zero-byte leftover.
+# Keep the lock inode: unlinking it lets later deploys lock a different file.
+# Clear the diagnostic PID while still holding the lock, then release it.
 release_deploy_lock() {
 	# best-effort: never fail the main trap path; idempotent
 	if [ "${DEPLOY_LOCK_RELEASED:-0}" = "1" ]; then
 		return 0
 	fi
 	DEPLOY_LOCK_RELEASED=1
+	: >"$DEPLOY_LOCK"
 	flock -u 9 2>/dev/null || true
-	rm -f "$DEPLOY_LOCK" 2>/dev/null || true
 }
 
-APP_USER="vcontrolhub"
-APP_DIR="/opt/VControlHub"
-SERVICE_NAME="vcontrolhub-next"
-WORKER_SERVICE_NAME="vcontrolhub-worker"
+APP_USER="${APP_USER:-vcontrolhub}"
+APP_DIR="${APP_DIR:-/opt/VControlHub}"
+SERVICE_NAME="${SERVICE_NAME:-vcontrolhub-next}"
+WORKER_SERVICE_NAME="${WORKER_SERVICE_NAME:-vcontrolhub-worker}"
+SSH_SERVICE_NAME="${SSH_SERVICE_NAME:-vcontrolhub-ssh-ws}"
+SYSTEMD_UNIT_DIR="${SYSTEMD_UNIT_DIR:-/etc/systemd/system}"
+stage_dir=""
+rollback_dir=""
+artifacts_promoted=0
+units_saved=0
+worker_was_present=0
 service_stopped=0
 DEPLOY_LOCK_RELEASED=0
 
 on_exit() {
 	status=$?
-	if [ "$status" -ne 0 ] && [ "$service_stopped" -eq 1 ]; then
-		echo "==> 部署失败，恢复启动 $SERVICE_NAME"
-		systemctl reset-failed "$SERVICE_NAME" 2>/dev/null || true
-		systemctl start "$SERVICE_NAME" || true
-		if systemctl list-unit-files "${WORKER_SERVICE_NAME}.service" >/dev/null 2>&1; then
-			systemctl reset-failed "$WORKER_SERVICE_NAME" 2>/dev/null || true
-			systemctl start "$WORKER_SERVICE_NAME" || true
-		fi
+	if [ "$status" -ne 0 ] && [ "$artifacts_promoted" -eq 1 ]; then
+		echo "==> 部署验证失败，恢复上一版本运行产物"
+		systemctl stop "$SERVICE_NAME" "$WORKER_SERVICE_NAME" "$SSH_SERVICE_NAME" || true
+		for artifact in .next dist node_modules; do
+			if [ -e "$rollback_dir/$artifact" ]; then
+				# Keep the rejected candidate for diagnosis; restore the complete
+				# previous artifact instead of restarting a partial build.
+				[ ! -e "$APP_DIR/$artifact" ] || mv "$APP_DIR/$artifact" "$stage_dir/rejected-${artifact#.}"
+				mv "$rollback_dir/$artifact" "$APP_DIR/$artifact"
+			fi
+		done
 	fi
+	if [ "$status" -ne 0 ] && [ "$units_saved" -eq 1 ]; then
+		for item in next.service worker.service workers.conf; do
+			case "$item" in
+				next.service) target="$SYSTEMD_UNIT_DIR/$SERVICE_NAME.service" ;;
+				worker.service) target="$SYSTEMD_UNIT_DIR/$WORKER_SERVICE_NAME.service" ;;
+				workers.conf) target="$SYSTEMD_UNIT_DIR/$SERVICE_NAME.service.d/10-workers.conf" ;;
+			esac
+			if [ -f "$rollback_dir/units/$item" ]; then cp -a "$rollback_dir/units/$item" "$target"; else rm -f "$target"; fi
+		done
+		[ ! -f "$rollback_dir/Caddyfile" ] || cp -a "$rollback_dir/Caddyfile" "$CADDY_FILE"
+		systemctl daemon-reload || true
+	fi
+	if [ "$status" -ne 0 ] && [ "$service_stopped" -eq 1 ]; then
+		systemctl reset-failed "$SERVICE_NAME" "$SSH_SERVICE_NAME" 2>/dev/null || true
+		systemctl start "$SERVICE_NAME" "$SSH_SERVICE_NAME" || true
+		if [ "$worker_was_present" -eq 1 ]; then systemctl reset-failed "$WORKER_SERVICE_NAME" 2>/dev/null || true; systemctl start "$WORKER_SERVICE_NAME" || true; fi
+		if [ -f "$rollback_dir/Caddyfile" ]; then systemctl reload caddy || true; fi
+		echo "==> 已恢复运行产物；数据库迁移未自动逆转，必要时按备份流程恢复"
+	fi
+	if [ "$status" -eq 0 ] || [ "$artifacts_promoted" -eq 0 ]; then [ -z "$stage_dir" ] || rm -rf "$stage_dir"; fi
 	release_deploy_lock
 	exit "$status"
 }
@@ -60,86 +90,52 @@ trap on_exit EXIT
 
 cd "$APP_DIR"
 
-echo "==> [1/8] 修正源文件 owner/mode (避免 root-owned / umask-077 阻塞 vcontrolhub 读)"
-# Cover every tree next build + runtime touch. `|| true` keeps deploy resilient
-# if an optional path is missing (next.config.* glob, vitest config, etc.).
-chown -R "$APP_USER:$APP_USER" \
-	"$APP_DIR/src" \
-	"$APP_DIR/public" \
-	"$APP_DIR/scripts" \
-	"$APP_DIR/prisma" \
-	"$APP_DIR/e2e" \
-	"$APP_DIR/deploy" \
-	"$APP_DIR/storage" \
-	"$APP_DIR/docs" \
-	"$APP_DIR/coverage" \
-	"$APP_DIR/package.json" \
-	"$APP_DIR/package-lock.json" \
-	"$APP_DIR"/next.config.* \
-	"$APP_DIR/tsconfig.json" \
-	"$APP_DIR/playwright.config.ts" \
-	"$APP_DIR/vitest.config.ts" \
-	"$APP_DIR/vitest.setup.ts" \
-	"$APP_DIR/deploy.sh" \
-	2>/dev/null || true
-# Source must be group/other-readable so tools (and future non-root helpers) work.
-# Secrets stay 600 via the explicit list below.
-if [ -d "$APP_DIR/src" ]; then
-	find "$APP_DIR/src" -type d -exec chmod 755 {} + 2>/dev/null || true
-	find "$APP_DIR/src" -type f -exec chmod 644 {} + 2>/dev/null || true
-fi
-# `docs` is writable output, not just source: `prebuild` (npm run route:catalog)
-# regenerates docs/route-catalog.json on every build, and `rbac:audit` writes
-# docs/rbac-audit.{json,md}. Running any of those as root once leaves a root-owned
-# file that the APP_USER build then cannot overwrite — the build dies with EACCES
-# in prebuild, before Next even starts. `coverage` is the same shape (vitest
-# --coverage run as root).
-for d in public scripts prisma e2e deploy storage docs coverage; do
-	if [ -d "$APP_DIR/$d" ]; then
-		find "$APP_DIR/$d" -type d -exec chmod 755 {} + 2>/dev/null || true
-		# Keep shell scripts / already-executable tools runnable.
-		find "$APP_DIR/$d" -type f \( -name '*.sh' -o -perm -111 \) -exec chmod 755 {} + 2>/dev/null || true
-		find "$APP_DIR/$d" -type f ! -name '*.sh' ! -perm -111 -exec chmod 644 {} + 2>/dev/null || true
-	fi
-done
-chmod 755 "$APP_DIR/deploy.sh" 2>/dev/null || true
+echo "==> [1/8] 在独立目录准备候选版本（在线服务继续运行）"
+stage_dir="$(mktemp -d "$(dirname "$APP_DIR")/.vcontrolhub-build.XXXXXX")"
+# Include current working-tree edits, while excluding data and generated trees.
+# Credentials are copied separately with private permissions.
+tar -C "$APP_DIR" --exclude='./.git' --exclude='./node_modules*' --exclude='./.next*' \
+	--exclude='./dist*' --exclude='./.env*' --exclude='./storage' --exclude='./uploads' \
+	--exclude='./downloads' --exclude='./backups' --exclude='./logs' --exclude='./tmp' \
+	--exclude='./coverage' --exclude='./test-results' --exclude='./playwright-report' -cf - . | tar -C "$stage_dir" -xf -
 for secret in .env .env.local .env.runtime .env.production; do
-	if [ -f "$APP_DIR/$secret" ]; then
-		chown "$APP_USER:$APP_USER" "$APP_DIR/$secret" 2>/dev/null || true
-		chmod 600 "$APP_DIR/$secret" 2>/dev/null || true
-	fi
+	if [ -f "$APP_DIR/$secret" ]; then install -m 600 "$APP_DIR/$secret" "$stage_dir/$secret"; fi
 done
-chown -R "$APP_USER:$APP_USER" "$APP_DIR/.next" 2>/dev/null || rm -rf "$APP_DIR/.next"
-# Local CI/test commands may create root-owned Vite/Vitest cache entries under
-# node_modules. npm ci runs as APP_USER and must be able to remove that tree.
-chown -R "$APP_USER:$APP_USER" "$APP_DIR/node_modules" 2>/dev/null || true
+chown -R "$APP_USER:$APP_USER" "$stage_dir"
+chmod 700 "$stage_dir"
+cd "$stage_dir"
 
-echo "==> [2/8] 停止 Next 服务后 build（禁止覆盖运行中进程的 Client Manifest）"
-systemctl stop "$SERVICE_NAME"
-if systemctl list-unit-files "${WORKER_SERVICE_NAME}.service" >/dev/null 2>&1; then
-	systemctl stop "$WORKER_SERVICE_NAME"
-fi
-service_stopped=1
-# install.sh / upgrade.sh 最后会 npm prune --omit=dev 来减少生产磁盘占用。
-# deploy.sh 是热部署脚本, 不走 install.sh 的 npm ci 路径, 所以必须在这里
-# 重装依赖(含 devDeps) 否则 esbuild/typescript/prisma 等 build 必需工具缺失,
-# npm run build 和 build:runtime 会直接失败。
-sudo -u "$APP_USER" env bash -lc 'umask 022; npm ci'
-# npm ci reinstalls node_modules from scratch, wiping the generated Prisma client.
-# Without this, next build's type check fails on @prisma/client exports.
-sudo -u "$APP_USER" env bash -lc 'umask 022; npx prisma generate'
-# Explicit umask for the app-user build too (in case login.defs is strict).
-sudo -u "$APP_USER" env VCONTROLHUB_DEPLOY_BUILD=1 NODE_OPTIONS="--max-old-space-size=4096" bash -lc 'umask 022; npm run build'
-sudo -u "$APP_USER" env bash -lc 'umask 022; npm run build:runtime'
+echo "==> [2/8] 安装依赖、生成客户端并构建候选运行产物"
+sudo -u "$APP_USER" env NODE_ENV=development bash -lc 'umask 022; npm ci'
+sudo -u "$APP_USER" bash -lc 'umask 022; npx prisma generate'
+sudo -u "$APP_USER" env NODE_OPTIONS="--max-old-space-size=4096" bash -lc 'umask 022; npm run build'
+sudo -u "$APP_USER" bash -lc 'umask 022; npm run build:runtime; npm run verify:deploy-assets'
+for artifact in .next/BUILD_ID dist/server.js dist/worker.js dist/ssh-ws-proxy.js dist/upload-recovery-backup.js; do
+	[ -f "$stage_dir/$artifact" ] || { echo "FAIL: 候选产物缺失: $artifact"; exit 1; }
+done
 
-echo "==> [3/8] 应用 Prisma migration 并同步内置角色权限"
-sudo -u "$APP_USER" npx prisma migrate deploy 2>&1 | tail -20
-sudo -u "$APP_USER" bash -lc 'set -e; set -a; source .env.local; set +a; npm run db:seed'
+echo "==> [3/8] 候选构建通过后应用迁移并同步角色权限"
+sudo -u "$APP_USER" npx prisma migrate deploy
+sudo -u "$APP_USER" bash -lc 'set -e; set -a; if [ -f .env.runtime ]; then source .env.runtime; else source .env.local; fi; set +a; node dist/seed.js'
+cd "$APP_DIR"
+rollback_dir="$(mktemp -d "$(dirname "$APP_DIR")/.vcontrolhub-rollback.XXXXXX")"
+chmod 700 "$rollback_dir"
+mkdir "$rollback_dir/units"
+NEXT_UNIT="$SYSTEMD_UNIT_DIR/$SERVICE_NAME.service"
+WORKER_UNIT="$SYSTEMD_UNIT_DIR/$WORKER_SERVICE_NAME.service"
+[ -f "$NEXT_UNIT" ] || { echo "找不到 $NEXT_UNIT"; exit 1; }
+cp -a "$NEXT_UNIT" "$rollback_dir/units/next.service"
+if [ -f "$WORKER_UNIT" ]; then worker_was_present=1; cp -a "$WORKER_UNIT" "$rollback_dir/units/worker.service"; fi
+if [ -f "$SYSTEMD_UNIT_DIR/$SERVICE_NAME.service.d/10-workers.conf" ]; then cp -a "$SYSTEMD_UNIT_DIR/$SERVICE_NAME.service.d/10-workers.conf" "$rollback_dir/units/workers.conf"; fi
+CADDY_FILE="${CADDY_FILE:-/etc/caddy/Caddyfile}"
+[ ! -f "$CADDY_FILE" ] || cp -a "$CADDY_FILE" "$rollback_dir/Caddyfile"
+units_saved=1
 
 echo "==> [4/8] 安装独立 Worker unit，并关闭 Next 进程内 Worker"
-NEXT_UNIT="/etc/systemd/system/${SERVICE_NAME}.service"
-WORKER_UNIT="/etc/systemd/system/${WORKER_SERVICE_NAME}.service"
+NEXT_UNIT="$SYSTEMD_UNIT_DIR/${SERVICE_NAME}.service"
+WORKER_UNIT="$SYSTEMD_UNIT_DIR/${WORKER_SERVICE_NAME}.service"
 [ -f "$NEXT_UNIT" ] || { echo "  FAIL: 找不到 $NEXT_UNIT"; exit 1; }
+if [ ! -f "$WORKER_UNIT" ]; then
 cp "$NEXT_UNIT" "$WORKER_UNIT"
 sed -i \
 	-e 's/^Description=.*/Description=VControlHub background worker/' \
@@ -148,15 +144,16 @@ sed -i \
 	-e 's|/dist/server\.js|/dist/worker.js|' \
 	-e 's/SyslogIdentifier=vcontrolhub-next/SyslogIdentifier=vcontrolhub-worker/' \
 	"$WORKER_UNIT"
-mkdir -p "/etc/systemd/system/${SERVICE_NAME}.service.d"
+fi
+mkdir -p "$SYSTEMD_UNIT_DIR/${SERVICE_NAME}.service.d"
 printf '[Service]\nEnvironment=VCONTROLHUB_WORKERS_DISABLED=true\n' \
-	> "/etc/systemd/system/${SERVICE_NAME}.service.d/10-workers.conf"
-chmod 0644 "$WORKER_UNIT" "/etc/systemd/system/${SERVICE_NAME}.service.d/10-workers.conf"
+	> "$SYSTEMD_UNIT_DIR/${SERVICE_NAME}.service.d/10-workers.conf"
+chmod 0644 "$WORKER_UNIT" "$SYSTEMD_UNIT_DIR/${SERVICE_NAME}.service.d/10-workers.conf"
 systemctl daemon-reload
 systemctl enable "$WORKER_SERVICE_NAME"
 
 echo "==> [5/8] 检测并更新 Caddy /direct 反代（写入前后校验 + 备份轮转）"
-CADDY_FILE="/etc/caddy/Caddyfile"
+CADDY_FILE="${CADDY_FILE:-/etc/caddy/Caddyfile}"
 if [ -f "$CADDY_FILE" ]; then
 	if ! grep -q 'reverse_proxy /direct' "$CADDY_FILE"; then
 		# R2: 多版本 backup 轮转 (保留最近 5 个 .bak.TS, 删旧的)
@@ -220,31 +217,31 @@ else
 	echo "  跳过 (服务未安装)"
 fi
 
-echo "==> [7/8] 修正构建产物权限并启动服务"
-chown -R "$APP_USER:$APP_USER" "$APP_DIR/.next" "$APP_DIR/.next/cache" 2>/dev/null || true
-
-systemctl reset-failed "$SERVICE_NAME" 2>/dev/null || true
-systemctl reset-failed "$WORKER_SERVICE_NAME" 2>/dev/null || true
-systemctl start "$SERVICE_NAME" "$WORKER_SERVICE_NAME"
-service_stopped=0
-systemctl restart vcontrolhub-ssh-ws caddy
-sleep 2
-
-echo "==> 验证服务 active"
-for svc in "$SERVICE_NAME" "$WORKER_SERVICE_NAME" vcontrolhub-ssh-ws caddy; do
-  if ! systemctl is-active --quiet "$svc"; then
-    echo "  FAIL: $svc 未 active"
-    systemctl status "$svc" --no-pager -l | tail -20
-    exit 1
-  fi
+echo "==> [7/8] 短暂停止服务，切换完整运行产物"
+service_stopped=1
+systemctl stop "$SERVICE_NAME" "$WORKER_SERVICE_NAME" "$SSH_SERVICE_NAME"
+artifacts_promoted=1
+for artifact in .next dist node_modules; do
+	[ ! -e "$APP_DIR/$artifact" ] || mv "$APP_DIR/$artifact" "$rollback_dir/$artifact"
+	mv "$stage_dir/$artifact" "$APP_DIR/$artifact"
 done
+systemctl reset-failed "$SERVICE_NAME" "$WORKER_SERVICE_NAME" "$SSH_SERVICE_NAME" 2>/dev/null || true
+systemctl start "$SERVICE_NAME" "$WORKER_SERVICE_NAME" "$SSH_SERVICE_NAME"
+if [ -f "$CADDY_FILE" ]; then systemctl reload caddy; fi
 
-echo "==> [8/8] 跑 smoke test"
-if [ -x "$APP_DIR/deploy/smoke-test.sh" ]; then
-  "$APP_DIR/deploy/smoke-test.sh"
-else
-  echo "  跳过 (deploy/smoke-test.sh 不存在或不可执行)"
-fi
+echo "==> [8/8] 验证服务及 SSH 协议，再执行 smoke test"
+for svc in "$SERVICE_NAME" "$WORKER_SERVICE_NAME" "$SSH_SERVICE_NAME"; do
+	if ! systemctl is-active --quiet "$svc"; then echo "FAIL: $svc 未 active"; exit 1; fi
+done
+# Run the candidate helper, even when a source-only deploy has not updated it
+# in the live tree yet. The environment is injected without reading sandboxed
+# files as the gateway's dynamic user.
+if [ -f "$APP_DIR/.env.runtime" ]; then probe_env="$APP_DIR/.env.runtime"; else probe_env="$APP_DIR/.env.local"; fi
+(set -a; source "$probe_env"; set +a; node "$APP_DIR/scripts/check-ssh-gateway.mjs")
+[ -f "$stage_dir/deploy/smoke-test.sh" ] || { echo "FAIL: smoke test 缺失"; exit 1; }
+APP_DIR="$APP_DIR" bash "$stage_dir/deploy/smoke-test.sh"
+service_stopped=0
+echo "==> 运行产物回滚目录: $rollback_dir"
 
 # 部署成功后清理 webpack 持久化缓存 (deploy 后留 429M+ 没用, 下次 build 重建)
 # 保留 swc cache (12K, 加快 next build 编译)

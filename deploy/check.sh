@@ -80,7 +80,7 @@ if [ "${SKIP_LIVE_CHECKS}" != "1" ]; then
   if have_cmd systemctl; then
     for svc in "${SERVICE_PREFIX}-next.service" "${SERVICE_PREFIX}-worker.service" "${SERVICE_PREFIX}-ssh-ws.service"; do
       if systemctl list-unit-files "$svc" >/dev/null 2>&1; then
-        systemctl is-active --quiet "$svc" && log "$svc active" || warn "$svc is not active"
+        systemctl is-active --quiet "$svc" && log "$svc active" || fail "$svc is not active"
       else
         warn "$svc is not installed"
       fi
@@ -92,22 +92,11 @@ if [ "${SKIP_LIVE_CHECKS}" != "1" ]; then
     [ "$code" = "200" ] || fail "Local /login returned HTTP ${code:-000}"
     log "Local /login HTTP 200"
 
-    if command -v python3 >/dev/null 2>&1; then
-      python3 - "${SSH_WS_HOST}" "${SSH_WS_PORT}" <<'PY'
-import socket
-import sys
-host, port = sys.argv[1], int(sys.argv[2])
-with socket.create_connection((host, port), timeout=5):
-    pass
-PY
-      log "SSH-WS port ${SSH_WS_HOST}:${SSH_WS_PORT} accepts TCP connections"
-    else
-      warn "python3 not found; skipping SSH-WS TCP check"
-    fi
+    node "${APP_DIR}/scripts/check-ssh-gateway.mjs" || fail "SSH gateway functional check failed"
 
     if [ -n "${CHECK_PUBLIC_URL}" ]; then
       code="$(curl -k -sS -o /dev/null -w '%{http_code}' --max-time 15 "${CHECK_PUBLIC_URL%/}/login" || true)"
-      [ "$code" = "200" ] || warn "Public /login returned HTTP ${code:-000}"
+      [ "$code" = "200" ] || fail "Public /login returned HTTP ${code:-000}"
       [ "$code" = "200" ] && log "Public /login HTTP 200"
     fi
   fi

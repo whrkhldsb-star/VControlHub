@@ -68,9 +68,11 @@ export function DeleteConfirmButton({
         onClick={() => setConfirmOpen(true)}
         title={t("common.delete")}
         aria-label={t("filesPage.actions.deleteAria", { name: entryName })}
+        data-menu-item={variant === "menu" ? "" : undefined}
+        data-danger={variant === "menu" ? "" : undefined}
         className={
           variant === "menu"
-            ? "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-[var(--danger)] transition hover:bg-[var(--danger-bg)]"
+            ? undefined
             : "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)] transition hover:bg-[var(--danger-bg)]"
         }
       >

@@ -117,14 +117,14 @@ export function ImageGrid({
                   <LinkIcon size={16} aria-hidden />
                 </ActionButton>
                 <ActionButton type="button" variant="success"
-                  onClick={() => copyMarkdown(img)} className="!min-h-11 !min-w-11 !px-2 !text-sm"
+                  onClick={() => copyMarkdown(img)} square
                   title={t("imageBedPage.copy.title.markdown")}
                   aria-label={t("imageBedPage.copy.title.markdown")}
                 >
                   M↓
                 </ActionButton>
                 <ActionButton type="button" variant="outline"
-                  onClick={() => copyHTML(img)} className="!min-h-11 !min-w-11 !px-2 !text-sm"
+                  onClick={() => copyHTML(img)} square
                   title={t("imageBedPage.copy.title.html")}
                   aria-label={t("imageBedPage.copy.title.html")}
                 >
@@ -132,7 +132,7 @@ export function ImageGrid({
                 </ActionButton>
                 {canDelete && (
                   <ActionButton type="button" variant="danger"
-                    onClick={() => requestDelete(img)} className="!min-h-11 !min-w-11 !px-2 !text-sm"
+                    onClick={() => requestDelete(img)} square
                     title={t("imageBedPage.image.delete.aria")}
                     aria-label={t("imageBedPage.image.delete.aria")}
                   >
@@ -198,12 +198,11 @@ export function PublishFromStorageModal({
 }) {
   return (
     <ModalShell
+      size="md"
       open
       onClose={onClose}
       busy={publishing}
       labelledBy="imageBedPublishTitle"
-      overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay-strong)] p-4"
-      panelClassName="w-full max-w-md rounded-xl border border-[var(--border)] bg-[var(--modal-bg)] p-6"
     >
         <h3 id="imageBedPublishTitle" className="mb-4 text-lg font-semibold text-[var(--text-primary)]">
           {t("imageBedPage.publishFromStorage.title")}
@@ -299,17 +298,14 @@ export function PublishFromStorageModal({
         <div className="mt-5 flex items-center justify-end gap-2">
           <ActionButton variant="ghost"
             onClick={onClose}
-            disabled={publishing} className="!text-sm"
-          >
+            disabled={publishing}>
             {t("imageBedPage.publishFromStorage.cancel")}
           </ActionButton>
           <ActionButton
             type="button"
             onClick={handlePublishFromStorage}
             disabled={publishing || !publishForm.storageNodeId || !publishForm.relativePath}
-            aria-busy={publishing}
-            className="px-4 py-2 text-sm"
-          >
+            aria-busy={publishing}>
             {t("imageBedPage.publishFromStorage.submit")}
           </ActionButton>
         </div>
