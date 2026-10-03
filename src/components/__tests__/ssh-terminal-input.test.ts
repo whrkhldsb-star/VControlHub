@@ -83,3 +83,27 @@ it("preserves split UTF-8 output bytes for xterm to decode as one stream", () =>
 	const rendered = chunks.map(chunk => decoder.decode(decodeBase64Bytes(btoa(String.fromCharCode(...chunk))), { stream: true })).join("") + decoder.decode();
 	expect(rendered).toBe("中文🙂");
 });
+
+it("recovers the send pipeline when an input-ack is lost", async () => {
+	vi.useFakeTimers();
+	const { socket, sender } = setup();
+	sender.connected(true);
+	sender.enqueue("ls\r");
+	expect(socket.send).toHaveBeenCalledTimes(1);
+	// No acknowledge() arrives — the ack is lost in transit.
+	sender.enqueue("pwd\r");
+	await vi.advanceTimersByTimeAsync(125);
+	expect(socket.send).toHaveBeenCalledTimes(1); // still wedged...
+	await vi.advanceTimersByTimeAsync(5_000);
+	// ...until the ack deadline releases the pipeline and the queued key goes out.
+	expect(socket.send).toHaveBeenCalledTimes(2);
+	const message = JSON.parse(socket.send.mock.calls[1]![0] as string);
+	expect(new TextDecoder().decode(decodeBase64Bytes(message.data))).toBe("pwd\r");
+	// A late ack for the first chunk is ignored, but the fresh chunk still acks.
+	sender.acknowledge(1);
+	sender.acknowledge(2);
+	sender.enqueue("echo ok\r");
+	await vi.advanceTimersByTimeAsync(125);
+	expect(socket.send).toHaveBeenCalledTimes(3);
+	sender.dispose();
+});
