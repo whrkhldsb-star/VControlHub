@@ -19,7 +19,7 @@
 import { useI18n } from "@/lib/i18n/use-locale";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { ActionButton } from "@/components/action-button";
-import { Notice } from "@/components/ui-primitives";
+import { Chip, Notice } from "@/components/ui-primitives";
 import { getCategories } from "./downloads-shared";
 
 export interface DownloadFormState {
@@ -81,21 +81,16 @@ export function CreateDownloadForm({
 
 	return (
 		<div data-card className="mb-6 space-y-4">
-			<h3 className="text-lg font-semibold text-[var(--text-primary)]">{t("downloadsPage.form.title")}</h3>
+			<h3 className="ui-title-section">{t("downloadsPage.form.title")}</h3>
 
 			{/* Batch mode toggle */}
 			<div className="flex items-center gap-3">
-				<button
-					type="button"
+				<Chip
+					selected={form.batchMode}
 					onClick={() => onFormChange({ ...form, batchMode: !form.batchMode })}
-					className={`rounded-lg border px-3 py-1.5 text-xs transition ${
-						form.batchMode
-							? "border-[var(--color-action-border)]/30 bg-[var(--color-action-bg)]/10 text-[var(--text-secondary)]"
-							: "border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-muted)] hover:bg-[var(--surface-hover)]"
-					}`}
 				>
 					{t("downloadsPage.form.batchMode")}
-				</button>
+				</Chip>
 				{form.batchMode && <span className="text-xs text-[var(--text-muted)]">{t("downloadsPage.form.batchHint")}</span>}
 			</div>
 
@@ -103,7 +98,7 @@ export function CreateDownloadForm({
 				<div className="space-y-1.5">
 					<label
 						htmlFor="download-batch-links"
-						className="text-xs font-medium text-[var(--text-primary)]/70 "
+						className="ui-label"
 					>
 						{t("downloadsPage.form.linkLabel.batch")}
 					</label>
@@ -124,7 +119,7 @@ export function CreateDownloadForm({
 				<div className="space-y-1.5">
 					<label
 						htmlFor="download-url"
-						className="text-xs font-medium text-[var(--text-primary)]/70 "
+						className="ui-label"
 					>
 						{t("downloadsPage.form.linkLabel.single")}
 					</label>
@@ -146,7 +141,7 @@ export function CreateDownloadForm({
 
 			<div className="grid gap-4 sm:grid-cols-2">
 				<div className="space-y-1.5">
-					<label className="text-xs font-medium text-[var(--text-primary)]/70 " htmlFor="downloadServer">{t("downloadsPage.form.targetVps")}</label>
+					<label className="ui-label" htmlFor="downloadServer">{t("downloadsPage.form.targetVps")}</label>
 					<select
 						id="downloadServer"
 						value={form.serverId}
@@ -173,7 +168,7 @@ export function CreateDownloadForm({
 					)}
 				</div>
 				<div className="space-y-1.5">
-					<label className="text-xs font-medium text-[var(--text-primary)]/70 " htmlFor="downloadTargetPath">{t("downloadsPage.form.savePath")}</label>
+					<label className="ui-label" htmlFor="downloadTargetPath">{t("downloadsPage.form.savePath")}</label>
 					<input
 						id="downloadTargetPath"
 						value={form.targetPath}
@@ -186,7 +181,7 @@ export function CreateDownloadForm({
 
 			<div className="grid gap-4 sm:grid-cols-3">
 				<div className="space-y-1.5">
-					<label className="text-xs font-medium text-[var(--text-primary)]/70 " htmlFor="downloadFileName">{t("common.filenameOptional")}</label>
+					<label className="ui-label" htmlFor="downloadFileName">{t("common.filenameOptional")}</label>
 					<input
 						id="downloadFileName"
 						value={form.fileName}
@@ -196,7 +191,7 @@ export function CreateDownloadForm({
 					/>
 				</div>
 				<div className="space-y-1.5">
-					<label className="text-xs font-medium text-[var(--text-primary)]/70 " htmlFor="downloadCategory">{t("downloadsPage.form.category")}</label>
+					<label className="ui-label" htmlFor="downloadCategory">{t("downloadsPage.form.category")}</label>
 					<select
 						id="downloadCategory"
 						value={form.category}
@@ -211,7 +206,7 @@ export function CreateDownloadForm({
 					</select>
 				</div>
 				<div className="space-y-1.5">
-					<label className="text-xs font-medium text-[var(--text-primary)]/70 " htmlFor="downloadMaxSpeed">{t("downloadsPage.form.speedLimit")}</label>
+					<label className="ui-label" htmlFor="downloadMaxSpeed">{t("downloadsPage.form.speedLimit")}</label>
 					<input
 						id="downloadMaxSpeed"
 						value={form.maxSpeedKb}

@@ -46,7 +46,7 @@ export function StorageNodeManager({
 		<section id="storage-nodes" className="scroll-mt-24 border-y border-[var(--border)] py-4">
 			<div className="flex items-center justify-between gap-3">
 				<div className="min-w-0">
-					<h2 className="text-base font-semibold text-[var(--text-primary)]">{t("storagePage.nodes.title")}</h2>
+					<h2 className="ui-title-section">{t("storagePage.nodes.title")}</h2>
 					<p className="mt-2 text-sm leading-7 text-[var(--text-secondary)]">
 						{t("storagePage.nodes.summary", { total: nodes.length, local: localCount, sftp: sftpCount })} · WebDAV: {nodes.filter((node) => node.driver === "WEBDAV").length}
 					</p>

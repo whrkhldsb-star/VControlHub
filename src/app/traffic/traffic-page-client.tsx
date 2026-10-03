@@ -13,8 +13,10 @@ import { TrafficSparkline, type TrafficSample } from "./traffic-sparkline";
 
 import { ActionButton } from "@/components/action-button";
 import { StatusBadge } from "@/components/status-badge";
-import { Notice, InlineLoading } from "@/components/ui-primitives";
+import { Chip, InlineLoading, Notice, SegmentedControl } from "@/components/ui-primitives";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { UI_INPUT } from "@/lib/ui/classes";
+import { cn } from "@/lib/ui/cn";
 const HISTORY_LIMIT = 60; // ≈ 30 min at 30s polling cadence
 
 type HistoryScope = "live" | "24h" | "7d";
@@ -107,12 +109,16 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
   );
 }
 
+/** Current rate tile; the dot and figure use the same colour as the chart series. */
 function RateBadge({ label, value, color }: { label: string; value: string; color: "cyan" | "emerald" }) {
-  const styles = color === "cyan" ? "border border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]" : "border border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]";
+  const series = color === "cyan" ? "var(--accent)" : "var(--success)";
   return (
-    <div className={`rounded-2xl px-4 py-3 ${styles}`}>
-      <div className="text-xs font-medium">{label}</div>
-      <div className="mt-1 text-lg font-semibold tabular-nums ">{value}</div>
+    <div data-tile className="px-4 py-3">
+      <div className="flex items-center gap-1.5 text-xs font-medium text-[var(--text-muted)]">
+        <span aria-hidden className="h-2 w-2 shrink-0 rounded-full" style={{ background: series }} />
+        {label}
+      </div>
+      <div className="mt-1 text-lg font-semibold tabular-nums" style={{ color: series }}>{value}</div>
     </div>
   );
 }
@@ -296,33 +302,29 @@ export default function TrafficPage() {
     <PageShell>
       <PageHeader eyebrow={t("trafficPage.eyebrow")} title={t("trafficPage.title")} description={t("trafficPage.desc")}>
         <ActionButton size="sm" type="button" variant="ghost" onClick={() => fetchSummary()}>{t("trafficPage.refresh")}</ActionButton>
-        <button type="button" onClick={() => setAutoRefresh((v) => !v)} disabled={refreshIntervalSeconds <= 0} className={`rounded-lg px-3 py-1.5 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-50 ${autoRefresh ? "bg-[var(--success-bg)] text-[var(--success)]" : "bg-[var(--surface-hover)]/60 text-[var(--text-secondary)]"}`}>
+        <Chip size="md" tone="success" selected={autoRefresh} onClick={() => setAutoRefresh((v) => !v)} disabled={refreshIntervalSeconds <= 0}>
           {autoRefresh
             ? t("trafficPage.autoRefreshOn", { label: refreshLabel })
             : refreshIntervalSeconds <= 0
               ? t("trafficPage.autoRefreshOff")
               : t("trafficPage.autoRefreshPaused", { label: refreshLabel })}
-        </button>
+        </Chip>
       </PageHeader>
 
       {error && <Notice tone="danger">{error}</Notice>}
       {historyError && <Notice tone="danger">{historyError}</Notice>}
 
       <div className="mb-5 flex flex-wrap items-center gap-2">
-        {SCOPE_BUTTONS.map(({ scope, label, labelKey }) => (
-          <button
-            key={scope}
-            type="button"
-            aria-pressed={historyScope === scope}
-            onClick={() => {
-              setHistoryScope(scope);
-              if (scope !== "live") void fetchHistory(scope);
-            }}
-            className={`rounded-lg px-3 py-1.5 text-xs font-medium ${historyScope === scope ? "bg-[var(--color-action)]/15 text-[var(--text-secondary)]" : "bg-[var(--surface-elevated)] text-[var(--text-secondary)]"}`}
-          >
-            {labelKey ? t(labelKey) : label}
-          </button>
-        ))}
+        <SegmentedControl
+          size="sm"
+          ariaLabel={t("trafficPage.historyScopeLabel")}
+          value={historyScope}
+          onChange={(scope) => {
+            setHistoryScope(scope);
+            if (scope !== "live") void fetchHistory(scope);
+          }}
+          options={SCOPE_BUTTONS.map(({ scope, label, labelKey }) => ({ value: scope, label: labelKey ? t(labelKey) : label }))}
+        />
         <span className="text-xs text-[var(--text-muted)]">{t(HISTORY_HINT_KEYS[historyScope])}</span>
       </div>
 
@@ -333,8 +335,8 @@ export default function TrafficPage() {
           ) : summary ? (
             <>
               <div className="mb-4 flex flex-wrap items-center gap-3">
-                <label className="text-xs text-[var(--text-muted)]" htmlFor="trafficIface">{t("trafficPage.iface.label")}</label>
-                <select id="trafficIface" value={selectedIface} onChange={(e) => setSelectedIface(e.target.value)} className="rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-1.5 text-xs text-[var(--text-secondary)]">
+                <label className="ui-label" htmlFor="trafficIface">{t("trafficPage.iface.label")}</label>
+                <select id="trafficIface" value={selectedIface} onChange={(e) => setSelectedIface(e.target.value)} className={cn(UI_INPUT, "w-auto text-xs")}>
                   <option value="">{t("trafficPage.iface.auto")}</option>
                   {summary.currentServer.interfaces.map((item) => <option key={item.iface} value={item.iface}>{item.iface}</option>)}
                 </select>
@@ -358,7 +360,7 @@ export default function TrafficPage() {
                         }}
                       />
                     ) : (
-                      <div className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] p-3">
+                      <div data-inset="" className="p-3">
                         {persistedTrend && persistedTrend.size > 0 ? (
                           <div className="space-y-4">
                             {Array.from(persistedTrend.entries()).map(([key, points]) => (
@@ -418,7 +420,7 @@ export default function TrafficPage() {
           ) : (
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               {(remoteServers ?? []).map((node) => (
-                <div key={node.serverId} className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] p-4">
+                <div data-inset="" key={node.serverId} className="p-4">
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <div className="text-sm font-medium text-[var(--text-primary)]">{node.serverName}</div>

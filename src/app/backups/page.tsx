@@ -175,7 +175,7 @@ export default async function BackupsPage() {
 						<ListRow key={b.id}>
 							<div className="flex items-center justify-between gap-3">
 								<div>
-									<h3 className="text-sm font-medium text-[var(--text-primary)]">{t("backupsPage.records.typeStatus", { type: getBackupTypeLabel(t, b.type), status: getDomainStatusLabel(t, b.status) })}</h3>
+									<h3 className="ui-title-group">{t("backupsPage.records.typeStatus", { type: getBackupTypeLabel(t, b.type), status: getDomainStatusLabel(t, b.status) })}</h3>
 									<p className="mt-1 text-xs text-[var(--text-muted)]">{t("backupsPage.records.pathTime", { path: b.filePath, time: formatDateTime(b.createdAt, locale) })}</p>
 								</div>
 								<Badge>{b.creator?.displayName || b.creator?.username || t("backupsPage.records.creatorSystem")}</Badge>

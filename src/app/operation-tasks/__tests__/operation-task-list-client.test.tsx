@@ -186,7 +186,7 @@ describe("OperationTaskListClient", () => {
     expect(screen.getByText("后台")).toBeInTheDocument();
     expect(screen.getAllByText("alert.evaluate").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("已折叠 18 次周期完成记录")).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "查看来源 →" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "查看来源" })).not.toBeInTheDocument();
   });
 
   it("renders long task histories in bounded pages instead of mounting every row", async () => {

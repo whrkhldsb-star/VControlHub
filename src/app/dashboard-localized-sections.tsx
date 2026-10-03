@@ -57,7 +57,7 @@ export function DashboardLocalizedHeader({ username }: { username: string }) {
   const currentUser = t("dashboard.current-user");
   return (
     <PageHeader eyebrow={t("nav.dashboard")} title={title} description={`${currentUser}: ${username}`}>
-          <ButtonLink variant="primary" href="/servers">
+          <ButtonLink variant="primary" href="/servers" iconRight={<IconChevronRight aria-hidden />}>
             {t("dashboard.manage-vps-keys") === "dashboard.manage-vps-keys" ? "Manage VPS" : t("dashboard.manage-vps-keys")}
           </ButtonLink>
           <ButtonLink variant="secondary" href="/operation-tasks">
@@ -223,7 +223,7 @@ export function DashboardRecentActivity({ recentRequests, recentAuditLogs }: { r
           <article key={request.id} className="px-4 py-3 transition-colors hover:bg-[var(--surface-hover)] sm:px-5">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="min-w-0 flex-1">
-                <h3 className="truncate text-sm font-medium text-[var(--text-primary)]">{request.title}</h3>
+                <h3 className="ui-title-group truncate">{request.title}</h3>
                 <p className="mt-0.5 text-xs text-[var(--text-muted)]">
                   {request.requester.displayName || request.requester.username}
                   {request.isAssistantInitiated ? ` · ${assistant}` : ` · ${user}`}

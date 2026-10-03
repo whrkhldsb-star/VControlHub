@@ -45,7 +45,7 @@ export default async function Page() {
   }));
 
   return (
-    <PageShell maxW="max-w-7xl">
+    <PageShell>
       <PageHeader eyebrow={t("ticketsPage.eyebrow", locale)} title={t("ticketsPage.title", locale)} description={t("ticketsPage.desc", locale)} className="mb-6" />
 
       <StatGrid cols={4}>

@@ -435,12 +435,11 @@ describe("ImageBedPage", () => {
     await user.click(screen.getByRole("button", { name: "切换批量模式" }));
 
     const bar = screen.getByRole("region", { name: "批量操作栏" });
-    expect(bar.className).toMatch(/flex-wrap/);
-    // Sticky bottom must compensate for the global mobile bottom nav
-    // (~64px tall) on small screens, and revert to inline at md+.
+    // The shared action bar (wraps its buttons); sticky above the mobile
+    // bottom nav (~64px tall) on small screens.
+    expect(bar).toHaveAttribute("data-action-bar");
     expect(bar.className).toMatch(/sticky/);
     expect(bar.className).toMatch(/bottom-16/);
-    expect(bar.className).toMatch(/md:static/);
 
     const barButtons = Array.from(bar.querySelectorAll("button"));
     expect(barButtons.length).toBeGreaterThan(0);

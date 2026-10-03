@@ -144,6 +144,7 @@ export const zh: Record<string, string> = {
   "fileListClient.source": "来源",
   "fileListClient.modified": "修改时间",
   "fileListClient.listView": "列表视图",
+  "fileListClient.viewMode": "视图方式",
   "fileListClient.iconView": "图标视图",
   "fileListClient.detailView": "详情视图",
   "fileListClient.actions": "操作",
@@ -168,6 +169,8 @@ export const zh: Record<string, string> = {
   "filesBrowserSpa.searchResults":
     '搜索 "{query}" - 在{scope}找到 {count} 个结果',
   "filesBrowserSpa.searchModeFilename": "文件名",
+  "filesBrowserSpa.searchModeLabel": "搜索方式",
+  "filesBrowserSpa.searchScopeLabel": "搜索范围",
   "filesBrowserSpa.searchModeContent": "内容",
   "filesBrowserSpa.contentSearchPlaceholder": "输入关键词搜索文件内容…",
   "filesBrowserSpa.contentSearching": "搜索中…",
@@ -322,6 +325,7 @@ export const en: Record<string, string> = {
   "fileListClient.source": "Source",
   "fileListClient.modified": "Modified",
   "fileListClient.listView": "List view",
+  "fileListClient.viewMode": "View",
   "fileListClient.iconView": "Icon view",
   "fileListClient.detailView": "Detail view",
   "fileListClient.actions": "Actions",
@@ -346,6 +350,8 @@ export const en: Record<string, string> = {
   "filesBrowserSpa.searchResults":
     'Searched "{query}" - found {count} results in {scope}',
   "filesBrowserSpa.searchModeFilename": "Filename",
+  "filesBrowserSpa.searchModeLabel": "Search by",
+  "filesBrowserSpa.searchScopeLabel": "Search scope",
   "filesBrowserSpa.searchModeContent": "Content",
   "filesBrowserSpa.contentSearchPlaceholder": "Search file contents…",
   "filesBrowserSpa.contentSearching": "Searching…",

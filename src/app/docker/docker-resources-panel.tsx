@@ -233,9 +233,9 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
           const itemName = resourceName(item);
           const key = `${type}:${itemName}`;
           return (
-            <div
+            <div data-inset=""
               key={key}
-              className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] p-3"
+              className="p-3"
             >
               {" "}
               <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
@@ -309,13 +309,13 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
       ) : null}
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="min-w-0">
-          <h3 className="mb-2 text-xs font-medium text-[var(--text-muted)]">
+          <h3 className="ui-title-caption mb-2">
             {formatCopy(t("dockerResources.group.networks"), { count: networks.length })}
           </h3>
           {renderList("networks", networks)}
         </div>
         <div className="min-w-0">
-          <h3 className="mb-2 text-xs font-medium text-[var(--text-muted)]">
+          <h3 className="ui-title-caption mb-2">
             {formatCopy(t("dockerResources.group.volumes"), { count: volumes.length })}
           </h3>
           {renderList("volumes", volumes)}
@@ -374,7 +374,7 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
       {detail ? (
         <div data-inset className="mt-4 p-3">
           <div className="mb-2 flex items-center justify-between gap-3">
-            <h3 className="text-sm font-medium text-[var(--text-primary)]">{detail.title}</h3>
+            <h3 className="ui-title-group">{detail.title}</h3>
             <IconButton label={t("dockerResources.close")} onClick={() => setDetail(null)} className="h-8 w-8">
               <X size={16} aria-hidden />
             </IconButton>

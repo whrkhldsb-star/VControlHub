@@ -7,6 +7,7 @@ import { DEFAULT_ROLE_PERMISSIONS, type RoleKey } from "@/lib/auth/rbac";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { ActionButton } from "@/components/action-button";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Notice } from "@/components/ui-primitives";
 import { UI_INPUT } from "@/lib/ui/classes";
 
@@ -46,6 +47,7 @@ export function PermissionGroupsSection({ teamId, members, canManage, onMemberCh
   const [showAllMembers, setShowAllMembers] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -111,7 +113,8 @@ export function PermissionGroupsSection({ teamId, members, canManage, onMemberCh
   }
 
   async function deleteGroup() {
-    if (!selected || !canManage || !window.confirm(t("settingsTeam.groups.confirmDelete"))) return;
+    setConfirmingDelete(false);
+    if (!selected || !canManage) return;
     setBusy(true); setError(""); setSuccess("");
     try {
       await csrfFetch(`/api/role-templates/${encodeURIComponent(selected.id)}`, { method: "DELETE" });
@@ -145,7 +148,7 @@ export function PermissionGroupsSection({ teamId, members, canManage, onMemberCh
   }
 
   return <section data-inset className="p-4">
-    <h3 className="font-semibold text-[var(--text-primary)]">{t("settingsTeam.groups.title")}</h3>
+    <h3 className="ui-title-group">{t("settingsTeam.groups.title")}</h3>
     <p className="mt-1 text-xs text-[var(--text-muted)]">{t("settingsTeam.groups.hint")}</p>
     {error && <Notice tone="danger" className="mt-3">{error}</Notice>}
     {success && <Notice tone="success" className="mt-3">{success}</Notice>}
@@ -172,7 +175,7 @@ export function PermissionGroupsSection({ teamId, members, canManage, onMemberCh
       </div>
       <div className="flex gap-2">
         <ActionButton variant="primary" disabled={busy || !name.trim()} onClick={saveGroup}>{selected ? t("settingsTeam.groups.update") : t("settingsTeam.groups.create")}</ActionButton>
-        {selected && <ActionButton variant="danger" disabled={busy} onClick={deleteGroup}>{t("settingsTeam.groups.delete")}</ActionButton>}
+        {selected && <ActionButton variant="danger" disabled={busy} onClick={() => setConfirmingDelete(true)}>{t("settingsTeam.groups.delete")}</ActionButton>}
       </div>
     </div>}
     <div className="mt-4 space-y-2">
@@ -183,7 +186,17 @@ export function PermissionGroupsSection({ teamId, members, canManage, onMemberCh
           {groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
         </select>
       </div>)}
-      {members.filter((member) => member.role === "member").length > 10 && !showAllMembers && <button type="button" className="text-xs text-[var(--accent)]" onClick={() => setShowAllMembers(true)}>{t("settingsTeam.groups.showAll")}</button>}
+      {members.filter((member) => member.role === "member").length > 10 && !showAllMembers && <ActionButton size="xs" variant="ghost" onClick={() => setShowAllMembers(true)}>{t("settingsTeam.groups.showAll")}</ActionButton>}
     </div>
+    <ConfirmDialog
+      open={confirmingDelete}
+      title={t("settingsTeam.groups.delete")}
+      description={t("settingsTeam.groups.confirmDelete")}
+      cancelLabel={t("common.cancel")}
+      confirmLabel={t("settingsTeam.groups.delete")}
+      busy={busy}
+      onCancel={() => setConfirmingDelete(false)}
+      onConfirm={() => void deleteGroup()}
+    />
   </section>;
 }

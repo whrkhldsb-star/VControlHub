@@ -56,7 +56,7 @@ export default async function RequestsPage() {
 	const completed = requests.filter((r) => r.status === "COMPLETED").length;
 
 	return (
-		<PageShell maxW="max-w-7xl">
+		<PageShell>
 			<PageHeader
 			eyebrow={t("requestsPage.eyebrow", locale)}
 			title={t("requestsPage.title", locale)}
@@ -123,14 +123,14 @@ export default async function RequestsPage() {
 								<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
 									<div className="min-w-0 flex-1">
 										<div className="flex flex-wrap items-center gap-2">
-											<h3 className="text-lg font-semibold text-[var(--text-primary)]">{request.title}</h3>
+											<h3 className="ui-title-section">{request.title}</h3>
 											<ApprovalBadge status={request.status} label={getRequestStatusLabel(request.status, locale)} />
 											<InitiatorBadge assistant={request.isAssistantInitiated} label={t(request.isAssistantInitiated ? "requestsPage.initiator.assistant" : "requestsPage.initiator.user", locale)} />
 										</div>
 										{canApprove ? (
-											<p className="mt-2.5 rounded-lg bg-[var(--surface-subtle)] px-3 py-2 font-mono text-xs text-[var(--text-primary)] border border-[var(--border)]">{request.command}</p>
+											<p data-inset="" className="mt-2.5 px-3 py-2 font-mono text-xs text-[var(--text-primary)]">{request.command}</p>
 										) : (
-											<p className="mt-2.5 rounded-lg bg-[var(--surface-subtle)] px-3 py-2 font-mono text-xs text-[var(--text-muted)] border border-[var(--border)]">{t("requestsPage.card.approvalOnly", locale)}</p>
+											<p data-inset="" className="mt-2.5 px-3 py-2 font-mono text-xs text-[var(--text-muted)]">{t("requestsPage.card.approvalOnly", locale)}</p>
 										)}
 										{request.reason && <p className="mt-2 text-sm text-[var(--text-secondary)]">{t("requestsPage.card.reason", locale)}{request.reason}</p>}
 										<p className="mt-1 text-xs text-[var(--text-muted)]">{t("requestsPage.card.requester", locale)}{request.requester.displayName || request.requester.username}</p>
@@ -249,7 +249,7 @@ function InitiatorBadge({ assistant, label }: { assistant: boolean; label: strin
 function InfoSection({ title, children }: { title: string; children: ReactNode }) {
 	return (
 		<section data-inset className="p-4">
-			<h4 className="text-xs font-medium text-[var(--text-primary)]/70 uppercase mb-3">{title}</h4>
+			<h4 className="ui-title-caption mb-3">{title}</h4>
 			{children}
 		</section>
 	);
@@ -257,7 +257,7 @@ function InfoSection({ title, children }: { title: string; children: ReactNode }
 
 function InfoItem({ children, className }: { children: ReactNode; className?: string }) {
 	return (
-		<div className={`rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] px-3 py-2 ${className ?? ""}`}>
+		<div data-inset="" className={`px-3 py-2 ${className ?? ""}`}>
 			{children}
 		</div>
 	);

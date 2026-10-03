@@ -16,7 +16,7 @@ import type { ServerOption, Template } from "./template-types";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
 import { StatusBadge } from "@/components/status-badge";
-import { Badge } from "@/components/ui-primitives";
+import { Badge, Chip } from "@/components/ui-primitives";
 import { Plus } from "@/components/icons";
 
 type Props = {
@@ -136,35 +136,25 @@ export function TemplateListClient({
 						<span className="text-xs text-[var(--text-muted)]">
 							{t("templatesPage.filter.label")}
 						</span>
-						<button
-							type="button"
+						<Chip
+							selected={!filterTag}
 							onClick={() => setFilterTag(null)}
-							className={`rounded-full border px-2.5 py-1 text-xs font-medium transition ${
-								!filterTag
-									? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]"
-									: "border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-muted)] hover:bg-[var(--surface-hover)]"
-							}`}
 						>
 							{t("templatesPage.filter.all")}
-						</button>
+						</Chip>
 						{allTags.map((tag) => (
-							<button
+							<Chip
 								key={tag}
-								type="button"
+								selected={filterTag === tag}
 								onClick={() => setFilterTag(filterTag === tag ? null : tag)}
-								className={`rounded-full border px-2.5 py-1 text-xs font-medium transition ${
-									filterTag === tag
-										? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]"
-										: "border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-muted)] hover:bg-[var(--surface-hover)]"
-								}`}
 							>
 								#{tag}
-							</button>
+							</Chip>
 						))}
 					</div>
 				)}
 				{canCreate && !showCreate && (
-					<ActionButton icon={<Plus size={16} aria-hidden />} size="lg" type="button" onClick={() => setShowCreate(true)}>
+					<ActionButton icon={<Plus size={16} aria-hidden />} type="button" className="ml-auto" onClick={() => setShowCreate(true)}>
 						{t("templatesPage.action.create")}
 					</ActionButton>
 				)}
@@ -197,7 +187,7 @@ export function TemplateListClient({
 						>
 							<div className="flex items-start justify-between gap-2">
 								<div>
-									<h3 className="text-sm font-semibold text-[var(--text-primary)]">
+									<h3 className="ui-title-group">
 										{tmpl.name}
 									</h3>
 									{tmpl.description && (

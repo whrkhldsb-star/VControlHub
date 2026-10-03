@@ -8,8 +8,8 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { ServerCardActions } from "./server-card-actions";
 import { useServerDiagnostics } from "./use-server-diagnostics";
 import { ActionButton } from "@/components/action-button";
+import { Dialog } from "@/components/ui/dialog";
 import { ServerConnectionAction } from "./server-connection-action";
-import { ModalShell } from "@/components/modal-shell";
 import type {
   ServerOverviewDetailsServer,
 } from "./server-overview-details";
@@ -140,7 +140,7 @@ export function ServerOverviewCard({
               }`}
               aria-hidden="true"
             />
-            <h2 className="truncate text-sm font-semibold text-[var(--text-primary)]">
+            <h2 className="ui-title-group truncate">
               {server.name}
             </h2>
           </div>
@@ -228,29 +228,17 @@ export function ServerOverviewCard({
 
       {portalReady && expanded
         ? createPortal(
-            <ModalShell
-              size="full" placement="top" backdrop="strong"
+            <Dialog
+              size="full"
+              placement="top"
+              backdrop="strong"
               open={expanded}
               onClose={closeDialog}
-              labelledBy={`${detailsId}-title`}
+              eyebrow={t("serverOverviewCard.eyebrow")}
+              title={server.name}
+              closeLabel={t("serverOverviewCard.collapseDetails")}
               panelProps={{ "data-server-details-modal": server.id }}
             >
-                <div className="mb-3 flex items-center justify-between gap-3 border-b border-[var(--border)] pb-3">
-                  <div className="min-w-0">
-                    <p className="text-xs uppercase text-[var(--text-muted)]">{t("serverOverviewCard.eyebrow")}</p>
-                    <h3 id={`${detailsId}-title`} className="truncate text-base font-semibold text-[var(--text-primary)]">
-                      {server.name}
-                    </h3>
-                  </div>
-                  <ActionButton size="sm" variant="secondary"
-                    onClick={closeDialog}
-
-                    className="shrink-0"
-                  >
-                    {t("serverOverviewCard.collapseDetails")}
-                  </ActionButton>
-                </div>
-                <div className="max-h-[78vh] overflow-y-auto pr-1">
                   {isWindows ? (
                     <WindowsServerDetails
                       server={server}
@@ -271,8 +259,7 @@ export function ServerOverviewCard({
                       onRunRealtimeDiagnostics={runRealtimeDiagnostics}
                     />
                   )}
-                </div>
-            </ModalShell>,
+            </Dialog>,
             document.body,
           )
         : null}

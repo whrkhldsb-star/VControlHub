@@ -68,7 +68,7 @@ export default async function SettingsPage() {
 		])
 		: [{}, [], {}];
 	return (
-		<PageShell maxW="max-w-7xl">
+		<PageShell>
 			<UnifiedSettingsPageClient
 				settings={settings}
 				runtimeSettings={runtimeSettings}

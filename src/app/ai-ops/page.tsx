@@ -64,7 +64,7 @@ export default async function AiOpsPage() {
 	]);
 
 	return (
-		<PageShell maxW="max-w-7xl">
+		<PageShell>
 			<PageHeader
 				eyebrow={t("aiOpsPage.eyebrow", locale)}
 				title={t("aiOpsPage.title", locale)}

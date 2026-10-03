@@ -3,7 +3,7 @@
 import { useI18n } from "@/lib/i18n/use-locale";
 
 import { ActionButton } from "@/components/action-button";
-import { ModalShell } from "@/components/modal-shell";
+import { Dialog } from "@/components/ui/dialog";
 import { Notice } from "@/components/ui-primitives";
 /**
  * `ConfigPreviewDialog` — final confirmation modal shown after the user
@@ -81,61 +81,59 @@ export function ConfigPreviewDialog({
 	const envCount = getEnvCount(item);
 
 	return (
-		<ModalShell
-			size="lg" placement="sheet"
+		<Dialog
+			size="lg"
+			placement="sheet"
 			open
 			onClose={onCancel}
-			label={title}
+			title={title}
+			description={<>{body}{suffix}</>}
+			footer={<>
+				<ActionButton type="button" variant="secondary" onClick={onCancel}>
+					{cancelLabel}
+				</ActionButton>
+				<ActionButton type="button" onClick={onConfirm}>
+					{confirmLabel}
+				</ActionButton>
+			</>}
 		>
-				<h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">{title}</h3>
-				<p className="text-sm leading-6 text-[var(--text-secondary)]">
-					{body}{suffix}
-				</p>
-				<div data-card className="mt-4 grid gap-2 p-3 text-xs text-[var(--text-secondary)]">
-					<div>
-						<span className="text-[var(--text-muted)]">{fieldService}</span>
-						{item.name} ({item.slug})
-					</div>
-					<div>
-						<span className="text-[var(--text-muted)]">{t("qsPage.targetNode")}{t("common.colon")}</span>
-						{configPreview.targetLabel ?? t("qsPage.targetHubHost")}
-					</div>
-					<div>
-						<span className="text-[var(--text-muted)]">{fieldImage}</span>
-						{item.image}
-					</div>
-					<div>
-						<span className="text-[var(--text-muted)]">{fieldPort}</span>
-						{portMapping.replace("{container}", String(getPrimaryContainerPort(item))).replace("{host}", String(port))}
-					</div>
-					<div>
-						<span className="text-[var(--text-muted)]">{fieldExtraPort}</span>
-						{(item.extraPorts ?? []).length > 0
-							? item.extraPorts!.map((p) => portEntryTpl.replace("{container}", String(p.container)).replace("{host}", String(p.host))).join(portSep)
-							: noneLabel}
-					</div>
-					<div>
-						<span className="text-[var(--text-muted)]">{fieldEnv}</span>
-						{envCountTpl.replace("{count}", String(envCount))}
-					</div>
-					<div>
-						<span className="text-[var(--text-muted)]">{fieldVolume}</span>
-						{volumeList.length > 0
-							? volumeList.map((v) => volumeEntryTpl.replace("{host}", v.host).replace("{container}", v.container)).join(volumeSep)
-							: noneLabel}
-					</div>
+			<div data-inset className="grid gap-2 p-3 text-xs text-[var(--text-secondary)]">
+				<div>
+					<span className="text-[var(--text-muted)]">{fieldService}</span>
+					{item.name} ({item.slug})
 				</div>
-				<Notice tone="warning" compact className="mt-4">
-					{warning}
-				</Notice>
-				<div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-					<ActionButton size="sm" type="button" variant="secondary" onClick={onCancel}>
-						{cancelLabel}
-					</ActionButton>
-					<ActionButton size="sm" type="button" onClick={onConfirm}>
-						{confirmLabel}
-					</ActionButton>
+				<div>
+					<span className="text-[var(--text-muted)]">{t("qsPage.targetNode")}{t("common.colon")}</span>
+					{configPreview.targetLabel ?? t("qsPage.targetHubHost")}
 				</div>
-		</ModalShell>
+				<div>
+					<span className="text-[var(--text-muted)]">{fieldImage}</span>
+					{item.image}
+				</div>
+				<div>
+					<span className="text-[var(--text-muted)]">{fieldPort}</span>
+					{portMapping.replace("{container}", String(getPrimaryContainerPort(item))).replace("{host}", String(port))}
+				</div>
+				<div>
+					<span className="text-[var(--text-muted)]">{fieldExtraPort}</span>
+					{(item.extraPorts ?? []).length > 0
+						? item.extraPorts!.map((p) => portEntryTpl.replace("{container}", String(p.container)).replace("{host}", String(p.host))).join(portSep)
+						: noneLabel}
+				</div>
+				<div>
+					<span className="text-[var(--text-muted)]">{fieldEnv}</span>
+					{envCountTpl.replace("{count}", String(envCount))}
+				</div>
+				<div>
+					<span className="text-[var(--text-muted)]">{fieldVolume}</span>
+					{volumeList.length > 0
+						? volumeList.map((v) => volumeEntryTpl.replace("{host}", v.host).replace("{container}", v.container)).join(volumeSep)
+						: noneLabel}
+				</div>
+			</div>
+			<Notice tone="warning" compact className="mt-4">
+				{warning}
+			</Notice>
+		</Dialog>
 	);
 }

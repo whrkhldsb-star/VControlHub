@@ -35,7 +35,7 @@ export function MediaCover({
     );
   const fallback = (
     <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.24),transparent_45%),linear-gradient(135deg,color-mix(in srgb, var(--surface) 92%, transparent),rgba(30,41,59,0.88))] text-[var(--text-primary)]">
-      <div className="rounded-2xl border border-[var(--border)]/10 bg-[var(--surface-subtle)] p-3 shadow-inner">
+      <div data-inset="" className="p-3">
         {icon}
       </div>
       <span className="text-xs font-medium">

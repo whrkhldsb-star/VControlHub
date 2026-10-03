@@ -42,7 +42,7 @@ export function DiffReviewDialog({
 		>
 			<div className="flex flex-wrap items-start justify-between gap-3">
 				<div>
-					<h3 id="diff-review-dialog-title" className="text-sm font-semibold text-[var(--warning)]">{t("textPreview.diffDialog.title")}</h3>
+					<h3 id="diff-review-dialog-title" className="ui-title-dialog text-[var(--warning)]">{t("textPreview.diffDialog.title")}</h3>
 					<p className="mt-1 text-xs text-[var(--warning)]/80">
 						{t("textPreview.diffDialog.summary", { added: diffSummary.added, removed: diffSummary.removed, changed: diffSummary.changed })}
 					</p>
@@ -51,25 +51,25 @@ export function DiffReviewDialog({
 					</p>
 				</div>
 				<div className="flex gap-2">
-					<button
-						type="button"
+					<ActionButton
+						size="sm"
+						variant="secondary"
 						onClick={onClose}
 						disabled={busy}
-						className="rounded-lg border border-[var(--border-strong)] bg-[var(--surface)]/70 px-3 py-1.5 text-xs text-[var(--text-primary)] disabled:opacity-50"
 					>
 						{t("textPreview.button.backToEdit")}
-					</button>
+					</ActionButton>
 					<ActionButton size="sm" variant="success"
 						onClick={onSave}
 						disabled={busy || diffRows.length === 0}>
 						{saveStatus === "saving" ? t("textPreview.button.saving") : t("textPreview.button.confirmSave")}
 					</ActionButton>
 					{canReloadAfterSave ? (
-						<button
-							type="button"
+						<ActionButton
+							size="sm"
+							variant="warning"
 							onClick={onSaveAndReload}
 							disabled={busy || diffRows.length === 0}
-							data-tone="amber" className="rounded-lg border border-[var(--warning-border)] px-3 py-1.5 text-xs font-medium text-[var(--warning)] disabled:opacity-50"
 							title={reloadKind === "systemd"
 								? t("textPreview.reloadHint.systemdConfirm", { unit: reloadUnit ?? "" })
 								: t("textPreview.reloadHint.dockerConfirm", { unit: reloadUnit ?? "" })}
@@ -79,11 +79,11 @@ export function DiffReviewDialog({
 								: saveStatus === "reloading"
 									? t("textPreview.button.reloading")
 									: t("textPreview.button.saveAndReload", { unit: reloadUnit ?? "" })}
-						</button>
+						</ActionButton>
 					) : null}
 				</div>
 			</div>
-			<div className="mt-3 max-h-72 overflow-auto rounded-xl border border-[var(--border)]/[0.10] bg-[var(--surface)]">
+			<div data-inset="" className="mt-3 max-h-72 overflow-auto">
 				{diffRows.length === 0 ? (
 					<p className="px-3 py-2 text-xs text-[var(--text-secondary)]">{t("textPreview.diffEmpty")}</p>
 				) : (

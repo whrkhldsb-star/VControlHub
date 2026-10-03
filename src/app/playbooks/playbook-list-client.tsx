@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useToast } from "@/components/toast-provider";
-import { EmptyState, Toolbar, SurfacePanel, ListPanel } from "@/components/page-shell";
+import { EmptyState, ListPanel, PageHeader, SurfacePanel } from "@/components/page-shell";
 import { File as FileIcon, Plus } from "@/components/icons";
 import { statusLabelFor, dryRunStepCounts } from "./playbook-types";
 import type { SerializedPlaybook, RunSummary, ServerOption } from "./playbook-types";
@@ -19,6 +19,8 @@ import { Notice } from "@/components/ui-primitives";
 const RUN_POLL_DELAYS_MS = [2_000, 5_000, 10_000, 20_000, 30_000, 45_000, 60_000, 90_000, 120_000, 180_000, 240_000, 300_000] as const;
 
 type Props = {
+  /** Page header; rendered here so the create command sits in its actions. */
+  header?: { eyebrow?: string; title: string; description?: string };
   playbooks: SerializedPlaybook[];
   runsByPlaybook: Record<string, RunSummary[]>;
   servers: ServerOption[];
@@ -27,6 +29,7 @@ type Props = {
 };
 
 export function PlaybookListClient({
+  header,
   playbooks: initial,
   runsByPlaybook: initialRuns,
   servers,
@@ -206,15 +209,15 @@ export function PlaybookListClient({
       {actionError && (
         <Notice tone="danger">{actionError}</Notice>
       )}
-      <Toolbar className="justify-end">
-        {canManage && !showCreate && (
-          <ActionButton icon={<Plus size={16} aria-hidden />} size="lg" variant="primary"
-            onClick={() => setShowCreate(true)}
-           >
-            {t("playbooksPage.action.create")}
-          </ActionButton>
-        )}
-      </Toolbar>
+      {header ? (
+        <PageHeader eyebrow={header.eyebrow} title={header.title} description={header.description} className="">
+          {canManage && !showCreate ? (
+            <ActionButton icon={<Plus size={16} aria-hidden />} onClick={() => setShowCreate(true)}>
+              {t("playbooksPage.action.create")}
+            </ActionButton>
+          ) : null}
+        </PageHeader>
+      ) : null}
 
       {showCreate && (
         <SurfacePanel title={t("playbooksPage.action.create")}>

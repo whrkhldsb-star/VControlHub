@@ -47,7 +47,7 @@ export function AiOpsSummarySection({ summary, t }: { summary: AiOpsSummary; t: 
 	const { locale } = useI18n();
 	return (
 		<section aria-label="ai-ops-summary" data-card className="p-5">
-			<h2 className="mb-4 text-base font-semibold text-[var(--text-primary)]">{t("aiOpsPage.summary.title")}</h2>
+			<h2 className="ui-title-section mb-4">{t("aiOpsPage.summary.title")}</h2>
 			{summary.provider && <div className="mb-4 flex flex-wrap gap-x-6 gap-y-2 text-sm text-[var(--text-secondary)]">
 				<span>{t("aiOpsPage.summary.providerSuccessRate")}: {summary.provider.successRate === null ? t("aiOpsPage.summary.never") : `${Math.round(summary.provider.successRate * 100)}% (${summary.provider.successes}/${summary.provider.attempts})`}</span>
 				<span>{t("aiOpsPage.summary.providerLastSuccess")}: {formatAiOpsTime(summary.provider.lastSuccessAt, t("aiOpsPage.summary.never"), locale)}</span>
@@ -171,7 +171,7 @@ export function AiOpsSettingsSection({
 }) {
 	return (
 		<section aria-label="ai-ops-settings" data-card className="p-5">
-			<h2 className="mb-4 text-base font-semibold text-[var(--text-primary)]">{t("aiOpsPage.settings.title")}</h2>
+			<h2 className="ui-title-section mb-4">{t("aiOpsPage.settings.title")}</h2>
 			<div className="grid gap-4 sm:grid-cols-2">
 				<label className="flex flex-col gap-2">
 					<span className={labelClass}>{t("aiOpsPage.settings.mode")}</span>
@@ -241,7 +241,7 @@ export function AiOpsLogsSection({
 	return (
 		<section aria-label="ai-ops-logs" data-card className="relative p-5" aria-busy={loading}>
 			<div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-				<h2 className="text-base font-semibold text-[var(--text-primary)]">{t("aiOpsPage.table.title")}</h2>
+				<h2 className="ui-title-section">{t("aiOpsPage.table.title")}</h2>
 				{logs.length > 0 ? (
 					<span className="text-xs text-[var(--text-muted)]">
 						{t("common.pagination.range", {
@@ -329,10 +329,10 @@ export function AiOpsDetailSection({
 }) {
 	return (
 		<section aria-label="ai-ops-detail" data-card className="p-5">
-			<h2 className="mb-4 text-base font-semibold text-[var(--text-primary)]">{t("aiOpsPage.detail.title")}</h2>
+			<h2 className="ui-title-section mb-4">{t("aiOpsPage.detail.title")}</h2>
 			<div className="grid gap-4 lg:grid-cols-2">
 				<div>
-					<h3 className={`${labelClass} mb-2`}>{t("aiOpsPage.detail.findings")}</h3>
+					<h3 className="ui-title-group mb-2">{t("aiOpsPage.detail.findings")}</h3>
 					{selectedLog.findings.length === 0 ? (
 						<div className="text-sm text-[var(--text-primary)]/70">{t("aiOpsPage.detail.findingsEmpty")}</div>
 					) : (
@@ -348,7 +348,7 @@ export function AiOpsDetailSection({
 					)}
 				</div>
 				<div>
-					<h3 className={`${labelClass} mb-2`}>{t("aiOpsPage.detail.recommendedActions")}</h3>
+					<h3 className="ui-title-group mb-2">{t("aiOpsPage.detail.recommendedActions")}</h3>
 					{selectedLog.actions.length === 0 ? (
 						<div className="text-sm text-[var(--text-primary)]/70">{t("aiOpsPage.detail.recommendedActionsEmpty")}</div>
 					) : (

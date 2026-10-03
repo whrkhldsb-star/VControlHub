@@ -45,7 +45,7 @@ export function AiSettingsModelSelector({
 
   return (
     <div className="col-span-2 md:col-span-2 relative">
-      <label className="text-xs text-[var(--text-muted)] uppercase ">
+      <label className="ui-label">
         {t("aiPage.model")}
         {modelsLoading && (
           <span className="ml-2 inline-flex items-center gap-2 align-middle text-[var(--text-muted)]">
@@ -58,7 +58,8 @@ export function AiSettingsModelSelector({
         <button
           type="button"
           onClick={() => setModelDropdownOpen(!modelDropdownOpen)}
-          className="flex w-full items-center justify-between rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-2.5 py-1.5 text-xs text-[var(--text-primary)] transition hover:border-[var(--accent-border)]"
+          aria-expanded={modelDropdownOpen}
+          className="ui-control flex items-center justify-between gap-2 text-left text-xs"
         >
           <span className="truncate flex items-center gap-1.5">
             {settingsForm.model}
@@ -85,7 +86,7 @@ export function AiSettingsModelSelector({
           </svg>
         </button>
         {modelDropdownOpen && (
-          <div className="absolute left-0 right-0 top-full z-50 mt-1 flex max-h-60 flex-col overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-lg)]">
+          <div data-popover="" className="absolute left-0 right-0 top-full z-50 mt-1 flex max-h-60 flex-col overflow-hidden">
             <div className="border-b border-[var(--border-subtle)] p-2">
               <input
                 value={modelSearch}
@@ -195,7 +196,7 @@ export function AiSettingsModelSelector({
                     }
                   }}
                   placeholder={settingsForm.model || t("aiPage.manualModelIdPlaceholder")}
-                  className="flex-1 bg-[var(--input-bg)] border border-[var(--border-subtle)] rounded-lg px-2 py-1 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none"
+                  className={cn(UI_INPUT, "flex-1 text-xs")}
                 />
                 <ActionButton size="sm" variant="ghost"
                   onClick={() => {

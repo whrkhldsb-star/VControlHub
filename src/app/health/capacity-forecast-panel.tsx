@@ -14,6 +14,8 @@ import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
 import { Notice } from "@/components/ui-primitives";
+import { UI_INPUT } from "@/lib/ui/classes";
+import { cn } from "@/lib/ui/cn";
 
 type CapacityRisk = "ok" | "watch" | "warning" | "critical" | "insufficient_data";
 
@@ -54,12 +56,13 @@ type CapacityPayload = {
   servers: ServerForecast[];
 };
 
-const RISK_TONE: Record<CapacityRisk, string> = {
-  ok: "border-[var(--success-border)] bg-[color-mix(in_srgb,var(--success-bg)_35%,var(--surface))] text-[var(--success)]",
-  watch: "border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-secondary)]",
-  warning: "border-[var(--warning-border)] bg-[color-mix(in_srgb,var(--warning-bg)_40%,var(--surface))] text-[var(--warning)]",
-  critical: "border-[var(--danger-border)] bg-[color-mix(in_srgb,var(--danger-bg)_40%,var(--surface))] text-[var(--danger)]",
-  insufficient_data: "border-[var(--border)] bg-[var(--surface)] text-[var(--text-muted)]",
+/** Risk colours the figure, never the tile (docs/ui-system.md: cards stay neutral). */
+const RISK_TEXT: Record<CapacityRisk, string> = {
+  ok: "text-[var(--success)]",
+  watch: "text-[var(--text-secondary)]",
+  warning: "text-[var(--warning)]",
+  critical: "text-[var(--danger)]",
+  insufficient_data: "text-[var(--text-muted)]",
 };
 
 const RISK_BADGE_TONE: Record<CapacityRisk, StatusTone> = {
@@ -130,10 +133,10 @@ export function CapacityForecastPanel() {
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <p className="text-xs uppercase text-[var(--text-muted)]">
+          <p className="text-xs text-[var(--text-muted)]">
             {t("healthPage.capacity.eyebrow")}
           </p>
-          <h2 className="mt-1 text-lg font-semibold text-[var(--text-primary)]">
+          <h2 className="ui-title-section mt-1">
             {t("healthPage.capacity.title")}
           </h2>
           <p className="mt-1 text-xs text-[var(--text-secondary)]">
@@ -141,10 +144,10 @@ export function CapacityForecastPanel() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <label className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+          <label className="flex items-center gap-2 whitespace-nowrap text-xs text-[var(--text-secondary)]">
             <span>{t("healthPage.capacity.horizon")}</span>
             <select
-              className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-2 py-1 text-xs text-[var(--text-primary)]"
+              className={cn(UI_INPUT, "w-auto text-xs")}
               value={horizonDays}
               onChange={(e) => setHorizonDays(Number(e.target.value))}
               aria-label={t("healthPage.capacity.horizon")}
@@ -183,7 +186,7 @@ export function CapacityForecastPanel() {
         <>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             <article data-tile className="p-3">
-              <p className="text-xs uppercase text-[var(--text-muted)]">
+              <p className="text-xs text-[var(--text-muted)]">
                 {t("healthPage.capacity.summary.nodes")}
               </p>
               <p className="mt-1 text-2xl font-semibold tabular-nums text-[var(--text-primary)]">
@@ -191,34 +194,34 @@ export function CapacityForecastPanel() {
               </p>
             </article>
             <article data-tile className="p-3">
-              <p className="text-xs uppercase text-[var(--text-muted)]">
+              <p className="text-xs text-[var(--text-muted)]">
                 {t("healthPage.capacity.summary.forecastable")}
               </p>
               <p className="mt-1 text-2xl font-semibold tabular-nums text-[var(--text-primary)]">
                 {data.summary.forecastable}
               </p>
             </article>
-            <article className={`rounded-xl border p-3 ${RISK_TONE.critical}`}>
-              <p className="text-xs">
+            <article data-tile className="p-3">
+              <p className="text-xs text-[var(--text-muted)]">
                 {t("healthPage.capacity.risk.critical")}
               </p>
-              <p className="mt-1 text-2xl font-semibold tabular-nums">
+              <p className={`mt-1 text-2xl font-semibold tabular-nums ${data.summary.byRisk.critical > 0 ? RISK_TEXT.critical : "text-[var(--text-primary)]"}`}>
                 {data.summary.byRisk.critical}
               </p>
             </article>
-            <article className={`rounded-xl border p-3 ${RISK_TONE.warning}`}>
-              <p className="text-xs">
+            <article data-tile className="p-3">
+              <p className="text-xs text-[var(--text-muted)]">
                 {t("healthPage.capacity.risk.warning")}
               </p>
-              <p className="mt-1 text-2xl font-semibold tabular-nums">
+              <p className={`mt-1 text-2xl font-semibold tabular-nums ${data.summary.byRisk.warning > 0 ? RISK_TEXT.warning : "text-[var(--text-primary)]"}`}>
                 {data.summary.byRisk.warning}
               </p>
             </article>
-            <article className={`rounded-xl border p-3 ${RISK_TONE[data.summary.worstRisk]}`}>
-              <p className="text-xs">
+            <article data-tile className="p-3">
+              <p className="text-xs text-[var(--text-muted)]">
                 {t("healthPage.capacity.summary.worst")}
               </p>
-              <p className="mt-1 text-lg font-semibold">
+              <p className={`mt-1 text-lg font-semibold ${RISK_TEXT[data.summary.worstRisk]}`}>
                 {riskLabel(data.summary.worstRisk, t)}
               </p>
             </article>

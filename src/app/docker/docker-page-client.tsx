@@ -84,7 +84,7 @@ export default function DockerPage({
 	const scopeSocketText = t("dockerPage.scope.socket", { path: socketPath });
 
 	return (
-		<PageShell maxW="max-w-7xl">
+		<PageShell>
 			<PageHeader eyebrow={t("dockerPage.eyebrow")} title={t("dockerPage.title")} description={t("dockerPage.desc")} />
 			<Notice tone="warning" className="mb-4" title={<span id="docker-scope-title" role="heading" aria-level={2}>{t("dockerPage.scope.title")}</span>}>
 				<p>{scopeWarning}</p>

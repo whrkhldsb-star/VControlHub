@@ -252,7 +252,7 @@ export function TeamWorkspaceSection({ capabilities }: { capabilities: TeamCapab
 		<section id="team-workspaces" className="min-w-0 space-y-4 border-t border-[var(--border)] py-5">
 			<div>
 				<p className="text-xs font-semibold uppercase text-[var(--color-action-text)]">{t("settingsTeam.eyebrow")}</p>
-				<h2 className="mt-1 text-xl font-semibold text-[var(--text-primary)]">{t("settingsTeam.title")}</h2>
+				<h2 className="ui-title-section mt-1">{t("settingsTeam.title")}</h2>
 			</div>
 
 			{error && <Notice tone="danger">{error}</Notice>}
@@ -275,7 +275,7 @@ export function TeamWorkspaceSection({ capabilities }: { capabilities: TeamCapab
 										</div>
 									) : (
 										<>
-											<h3 className="font-semibold text-[var(--text-primary)]">{team.name}</h3>
+											<h3 className="ui-title-group">{team.name}</h3>
 											<p className="text-xs text-[var(--text-muted)]">/{team.slug} · {formatCopy(t("settingsTeam.memberCount"), { count: team.members.length })}</p>
 											{team.description && <p className="mt-1 text-xs text-[var(--text-secondary)]">{team.description}</p>}
 										</>
@@ -331,7 +331,7 @@ export function TeamWorkspaceSection({ capabilities }: { capabilities: TeamCapab
 				<div className="grid gap-4 border-t border-[var(--border-subtle)] pt-4 md:grid-cols-2">
 					{canCreate && (
 					<div className="space-y-2">
-						<h3 className="text-sm font-semibold text-[var(--text-primary)]">{t("settingsTeam.createTitle")}</h3>
+						<h3 className="ui-title-group">{t("settingsTeam.createTitle")}</h3>
 						<input value={name} aria-label={t("settingsTeam.namePlaceholder")} onChange={(e) => setName(e.target.value)} placeholder={t("settingsTeam.namePlaceholder")} className={UI_INPUT} />
 						<input value={slug} aria-label={t("settingsTeam.slugPlaceholder")} onChange={(e) => setSlug(e.target.value)} placeholder={t("settingsTeam.slugPlaceholder")} className={UI_INPUT} />
 						<ActionButton variant="primary" disabled={busy || !name.trim()} onClick={createTeam}>{t("settingsTeam.createButton")}</ActionButton>
@@ -339,7 +339,7 @@ export function TeamWorkspaceSection({ capabilities }: { capabilities: TeamCapab
 					)}
 					{manageableTeams.length > 0 && (
 					<div className="space-y-2">
-						<h3 className="text-sm font-semibold text-[var(--text-primary)]">{t("settingsTeam.addMemberTitle")}</h3>
+						<h3 className="ui-title-group">{t("settingsTeam.addMemberTitle")}</h3>
 						<select aria-label={t("settingsTeam.addMemberTitle")} value={targetTeamId} onChange={(e) => setTargetTeamId(e.target.value)} className={UI_INPUT}>
 							{/* Only workspaces the viewer can actually manage — the API 403s otherwise. */}
 							{manageableTeams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}

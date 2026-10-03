@@ -9,6 +9,8 @@ import {
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useActionStateNotifications } from "./use-action-state-notifications";
 import { ActionButton } from "@/components/action-button";
+import { UI_INPUT } from "@/lib/ui/classes";
+import { cn } from "@/lib/ui/cn";
 
 const initialState: StorageActionState = {};
 
@@ -113,7 +115,7 @@ export function RenameInlineForm({
     >
       {" "}
       <input type="hidden" name="fileEntryId" value={fileEntryId} />{" "}
-      <label className="grid gap-1 text-sm text-[var(--text-secondary)]">
+      <label className="ui-label grid gap-1">
         {" "}
         <span className="sr-only">{t("renameInlineForm.newName")}</span>{" "}
         <input
@@ -126,7 +128,7 @@ export function RenameInlineForm({
           maxLength={255}
           pattern={String.raw`^[^\s/\\:*?"<>|]+$`}
           placeholder={t("renameInlineForm.inputPlaceholder")}
-          className="rounded-2xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
+          className={cn(UI_INPUT, "w-auto min-w-[14rem] text-sm")}
         />
       </label>
       {newName.trim() && newName !== currentName ? (

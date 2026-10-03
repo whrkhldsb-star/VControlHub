@@ -111,7 +111,7 @@ export async function DashboardContent({ sessionPath }: { sessionPath: "/" | "/d
 	});
 
 	return (
-		<PageShell maxW="max-w-7xl">
+		<PageShell>
 			<DashboardLocalizedHeader username={session.username} />
 			<DashboardSetupChecklist items={setupItems} />
 			<DashboardStatsSection

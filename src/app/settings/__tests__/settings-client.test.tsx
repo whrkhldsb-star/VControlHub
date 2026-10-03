@@ -132,8 +132,8 @@ describe("SettingsClient", () => {
 
     const commandTimeout = screen.getByLabelText("命令执行超时（毫秒）");
     const fieldCard = commandTimeout.parentElement;
-    expect(fieldCard).toHaveClass("rounded-xl");
-    expect(fieldCard).toHaveClass("border");
+    // Each field sits in its own well (the shared [data-inset] surface).
+    expect(fieldCard).toHaveAttribute("data-inset");
   });
 
   it("surfaces SSH terminal settings via the new idle-timeout dropdown in the admin Settings UX", () => {

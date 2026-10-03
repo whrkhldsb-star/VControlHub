@@ -1,5 +1,5 @@
 import { t, type Locale } from "@/lib/i18n/translations";
-import { Input, StateBox } from "@/components/ui-primitives";
+import { Input, Notice } from "@/components/ui-primitives";
 import { SubmitButton } from "@/components/submit-button";
 
 type LoginFormProps = {
@@ -16,7 +16,7 @@ export function LoginForm({ nextPath, error, locale }: LoginFormProps) {
 			<input type="hidden" name="next" value={nextPath} />
 
 			<div className="space-y-1.5">
-				<label className="text-xs font-semibold text-[var(--text-primary)]" htmlFor="username">
+				<label className="ui-label" htmlFor="username">
 					{t("login.form.username", locale)}
 				</label>
 				<Input id="username"
@@ -28,7 +28,7 @@ export function LoginForm({ nextPath, error, locale }: LoginFormProps) {
 			</div>
 
 			<div className="space-y-1.5">
-				<label className="text-xs font-semibold text-[var(--text-primary)]" htmlFor="password">
+				<label className="ui-label" htmlFor="password">
 					{t("login.form.password", locale)}
 				</label>
 				<Input id="password"
@@ -49,9 +49,7 @@ export function LoginForm({ nextPath, error, locale }: LoginFormProps) {
 			</label>
 
 			{error ? (
-				<StateBox tone="danger" role="alert" className="mb-4">
-					{error}
-				</StateBox>
+				<Notice tone="danger" className="mb-4">{error}</Notice>
 			) : null}
 
 			<SubmitButton pendingLabel={t("login.form.submitting", locale)} className="w-full py-2.5 text-sm font-semibold">

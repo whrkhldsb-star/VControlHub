@@ -2,7 +2,7 @@ import { requireSession } from "@/lib/auth/require-session";
 import { OFFICE_MIME_TYPES, ARCHIVE_MIME_TYPES, CSV_MIME_TYPES, MARKDOWN_MIME_TYPES, EXTENDED_TEXT_MIME_TYPES } from "@/lib/storage/mime-constants";
 import { PageHeader, PageShell } from "@/components/page-shell";
 import { Notice } from "@/components/ui-primitives";
-import { File as FileIcon } from "@/components/icons";
+import { ArrowLeft, File as FileIcon } from "@/components/icons";
 import { MediaPreviewClient } from "./media-preview-client";
 import { TextPreviewClient } from "./text-preview-client";
 import { MarkdownPreviewClient } from "./markdown-preview-client";
@@ -11,6 +11,7 @@ import { OfficePreviewClient } from "./office-preview-client";
 import { ArchivePreviewClient } from "./archive-preview-client";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { getStorageDriverLabel } from "@/lib/i18n/domain-labels";
+import { ButtonLink } from "@/components/action-button";
 
 export const dynamic ="force-dynamic";
 
@@ -105,9 +106,9 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 	return (
 		<PageShell>
         <PageHeader eyebrow={getStorageDriverLabel((key, vars) => t(key, locale, vars), driver)} title={name}>
-          <a href="/files" data-action-button data-variant="secondary">
+          <ButtonLink href="/files" variant="secondary" icon={<ArrowLeft aria-hidden />}>
             {t("textPreview.preview.backToFiles", locale)}
-          </a>
+          </ButtonLink>
           {downloadUrl ? <a href={downloadUrl} data-action-button data-variant="outline">
             {t("textPreview.preview.download", locale)}
           </a> : null}

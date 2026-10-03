@@ -67,7 +67,7 @@ function renderUptimeSection(
   const servers = uptimeData?.servers ?? [];
   return (
     <div className="mt-8">
-      <h2 className="text-lg font-medium">{t("statusPage.uptime.title", locale)}</h2>
+      <h2 className="ui-title-section">{t("statusPage.uptime.title", locale)}</h2>
       <p className="mt-1 text-xs text-[var(--text-muted)]">
         {t("statusPage.uptime.desc", locale)}
       </p>
@@ -108,7 +108,7 @@ function renderUptimeSection(
             return (
               <div key={server.id} data-card className="p-4">
                 <div className="mb-3 flex items-center justify-between">
-                  <h3 className="text-sm font-medium">
+                  <h3 className="ui-title-group">
                     {server.name || t("statusPage.uptime.defaultServerName", locale)}
                   </h3>
                   <div className="text-xs text-[var(--text-muted)]">
@@ -148,7 +148,7 @@ export default async function Page() {
   if (!session) {
     const status = await getPublicStatusSummary();
     return (
-      <PageShell maxW="max-w-5xl" navigation={Boolean(session)}>
+      <PageShell width="narrow" navigation={Boolean(session)}>
         <div>
           <PageHeader eyebrow={t("statusPage.eyebrow", locale)} title={t("statusPage.title", locale)} description={t("statusPage.desc", locale)} />
 
@@ -194,7 +194,7 @@ export default async function Page() {
   ]);
 
   return (
-    <PageShell maxW="max-w-5xl" navigation={Boolean(session)}>
+    <PageShell width="narrow" navigation={Boolean(session)}>
       <div>
         <PageHeader eyebrow={t("statusPage.eyebrow", locale)} title={t("statusPage.title", locale)} description={t("statusPage.desc", locale)} />
 

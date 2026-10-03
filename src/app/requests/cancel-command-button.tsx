@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
-import { ModalShell } from "@/components/modal-shell";
+import { Dialog } from "@/components/ui/dialog";
 import { FormField, Notice } from "@/components/ui-primitives";
 import { UI_INPUT } from "@/lib/ui/classes";
 
@@ -65,42 +65,37 @@ export function CancelCommandButton({ commandRequestId, commandTitle }: Props) {
       {message && <Notice tone="success" compact>{message}</Notice>}
       {error && <Notice tone="danger" compact>{error}</Notice>}
 
-      <ModalShell
-        size="md"
+      <Dialog
         open={open}
         onClose={handleClose}
-        labelledBy={`cancel-command-${commandRequestId}-title`}
+        busy={pending}
         closeOnBackdrop={false}
+        title={t("requestsPage.cancel.confirmTitle")}
+        description={t("requestsPage.cancel.confirmBody", { title: commandTitle })}
+        footer={<>
+          <ActionButton variant="secondary"
+            disabled={pending}
+            onClick={() => {
+              setOpen(false);
+              setError(null);
+            }}>
+            {t("requestsPage.cancel.keep")}
+          </ActionButton>
+          <ActionButton variant="danger-solid" loading={pending} onClick={submit}>
+            {pending ? t("requestsPage.cancel.pending") : t("requestsPage.cancel.confirm")}
+          </ActionButton>
+        </>}
       >
-            <h3 id={`cancel-command-${commandRequestId}-title`} className="text-lg font-semibold text-[var(--text-primary)]">{t("requestsPage.cancel.confirmTitle")}</h3>
-            <p className="mt-2 text-sm text-[var(--text-secondary)]">
-              {t("requestsPage.cancel.confirmBody", { title: commandTitle })}
-            </p>
-            <FormField label={t("requestsPage.cancel.reasonLabel")} htmlFor={`cancel-command-${commandRequestId}-reason`} className="mt-4">
-            <textarea
-              id={`cancel-command-${commandRequestId}-reason`}
-              value={reason}
-              onChange={(event) => setReason(event.target.value)}
-              className={`${UI_INPUT} min-h-20`}
-              placeholder={t("requestsPage.cancel.reasonPlaceholder")}
-            />
-            </FormField>
-            <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">
-              <ActionButton variant="secondary"
-                disabled={pending}
-                onClick={() => {
-                  setOpen(false);
-                  setError(null);
-                }}>
-                {t("requestsPage.cancel.keep")}
-              </ActionButton>
-              <ActionButton variant="danger-solid"
-                disabled={pending}
-                onClick={submit}>
-                {pending ? t("requestsPage.cancel.pending") : t("requestsPage.cancel.confirm")}
-              </ActionButton>
-            </div>
-      </ModalShell>
+        <FormField label={t("requestsPage.cancel.reasonLabel")} htmlFor={`cancel-command-${commandRequestId}-reason`}>
+          <textarea
+            id={`cancel-command-${commandRequestId}-reason`}
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            className={`${UI_INPUT} min-h-20`}
+            placeholder={t("requestsPage.cancel.reasonPlaceholder")}
+          />
+        </FormField>
+      </Dialog>
     </div>
   );
 }

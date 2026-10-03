@@ -32,7 +32,7 @@ export function ServerManagementModeFields({
   ];
   return (
     <fieldset className="space-y-2">
-      <legend className="text-xs font-medium text-[var(--text-primary)]/70">{t("serversPage.management.title")}</legend>
+      <legend className="ui-label">{t("serversPage.management.title")}</legend>
       <input type="hidden" name="managementMode" value={value} />
       <div className="grid gap-2 sm:grid-cols-2">
         {options.map((option) => {
@@ -41,12 +41,13 @@ export function ServerManagementModeFields({
             <button
               key={option.value}
               type="button"
+              data-tile=""
               aria-pressed={selected}
               onClick={() => {
                 setValue(option.value);
                 onChange?.(option.value);
               }}
-              className={`min-h-[76px] rounded-lg border p-3 text-left transition ${selected ? "border-[var(--color-action-border)] bg-[var(--color-action-bg)]" : "border-[var(--border)] bg-[var(--surface-elevated)] hover:bg-[var(--surface-hover)]"}`}
+              className="min-h-[76px] p-3 text-left transition"
             >
               <span className="flex items-center gap-2 text-sm font-medium text-[var(--text-primary)]"><option.Icon size={16} className="shrink-0 text-[var(--accent)]" aria-hidden="true" />{option.title}</span>
               <span className="mt-1 block text-xs leading-5 text-[var(--text-muted)]">{option.detail}</span>

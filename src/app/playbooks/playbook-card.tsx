@@ -88,7 +88,7 @@ export const PlaybookCard = memo(function PlaybookCard({
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2.5">
-            <h2 className="text-lg font-semibold text-[var(--text-primary)]">{playbook.name}</h2>
+            <h2 className="ui-title-section">{playbook.name}</h2>
             <StatusBadge tone={playbook.enabled ? "success" : "neutral"} size="sm">
               {playbook.enabled ? t("playbooksPage.status.enabled") : t("playbooksPage.status.disabled")}
             </StatusBadge>

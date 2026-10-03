@@ -144,10 +144,10 @@ export function MigrationWizardPanel({ completedBackups, canCreate }: Props) {
 
       <div className="grid gap-4 md:grid-cols-2">
         <div data-inset className="space-y-3 p-3">
-          <h3 className="text-xs font-semibold text-[var(--text-primary)]">
+          <h3 className="ui-title-group">
             {t("backupsPage.migration.exportTitle")}
           </h3>
-          <label className="block text-xs text-[var(--text-muted)]">
+          <label className="ui-label block">
             {t("backupsPage.migration.selectBackup")}
             <select
               value={backupId}
@@ -165,7 +165,7 @@ export function MigrationWizardPanel({ completedBackups, canCreate }: Props) {
               )}
             </select>
           </label>
-          <label className="block text-xs text-[var(--text-muted)]">
+          <label className="ui-label block">
             {t("backupsPage.migration.note")}
             <input
               value={note}
@@ -187,10 +187,10 @@ export function MigrationWizardPanel({ completedBackups, canCreate }: Props) {
         </div>
 
         <div data-inset className="space-y-3 p-3">
-          <h3 className="text-xs font-semibold text-[var(--text-primary)]">
+          <h3 className="ui-title-group">
             {t("backupsPage.migration.importTitle")}
           </h3>
-          <label className="block text-xs text-[var(--text-muted)]">
+          <label className="ui-label block">
             {t("backupsPage.migration.packageRef")}
             <input
               value={packageRef}

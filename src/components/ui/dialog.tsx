@@ -15,7 +15,7 @@ import { useId, type ReactNode, type RefObject } from "react";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { cn } from "@/lib/ui/cn";
 import { X } from "../icons";
-import { ModalShell, type DialogPlacement, type DialogSize } from "../modal-shell";
+import { ModalShell, type DialogBackdrop, type DialogPlacement, type DialogSize } from "../modal-shell";
 import { IconButton } from "../ui-primitives";
 
 export type DialogProps = {
@@ -27,8 +27,15 @@ export type DialogProps = {
 	/** Action buttons, right-aligned on desktop and stacked on phones. */
 	footer?: ReactNode;
 	size?: DialogSize;
-	/** center (default) or sheet (bottom sheet on phones). */
-	placement?: Extract<DialogPlacement, "center" | "sheet" | "top">;
+	/** center (default), top (tall content), sheet (bottom sheet on phones) or drawer (right-hand panel). */
+	placement?: DialogPlacement;
+	/** Small label above the title ("文件详情"). */
+	eyebrow?: ReactNode;
+	/** Extra header controls, placed before the close button. */
+	headerActions?: ReactNode;
+	backdrop?: DialogBackdrop;
+	/** Extra attributes on the panel (data-testid…). */
+	panelProps?: Record<string, string>;
 	/** While true, Escape/backdrop/close are disabled (request in flight). */
 	busy?: boolean;
 	closeOnBackdrop?: boolean;
@@ -39,6 +46,8 @@ export type DialogProps = {
 	bodyClassName?: string;
 	/** Accessible name of the close button (defaults to "Close"). */
 	closeLabel?: string;
+	/** Ref to the close button, e.g. to focus it first in a read-only dialog. */
+	closeButtonRef?: RefObject<HTMLButtonElement | null>;
 };
 
 export function Dialog({
@@ -57,6 +66,11 @@ export function Dialog({
 	icon,
 	bodyClassName,
 	closeLabel,
+	closeButtonRef,
+	eyebrow,
+	headerActions,
+	backdrop,
+	panelProps,
 }: DialogProps) {
 	const { t } = useI18n();
 	const titleId = useId();
@@ -73,20 +87,24 @@ export function Dialog({
 			role={role}
 			size={size}
 			placement={placement}
+			backdrop={backdrop}
+			panelProps={panelProps}
 			padded={false}
-			className="flex flex-col overflow-hidden"
+			className={cn("flex flex-col overflow-hidden", placement === "drawer" && "max-h-none")}
 		>
-			<header className="flex items-start gap-3 px-5 pb-3 pt-4">
+			<header className={cn("flex shrink-0 items-start gap-3 px-5 pt-4", placement === "drawer" ? "border-b border-[var(--border-subtle)] pb-4" : "pb-3")}>
 				{icon ? <span aria-hidden="true" className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--surface-elevated)] text-[var(--text-secondary)] [&>svg]:h-4 [&>svg]:w-4">{icon}</span> : null}
 				<div className="min-w-0 flex-1">
-					<h2 id={titleId} className="text-base font-semibold leading-6 text-[var(--text-primary)]">{title}</h2>
+					{eyebrow ? <p className="ui-eyebrow mb-0.5">{eyebrow}</p> : null}
+					<h2 id={titleId} className="ui-title-dialog break-words">{title}</h2>
 					{description ? <p id={descriptionId} className="mt-0.5 text-[13px] leading-5 text-[var(--text-muted)]">{description}</p> : null}
 				</div>
-				<IconButton label={closeLabel ?? t("common.close")} onClick={onClose} disabled={busy} className="-mr-1.5 -mt-0.5 h-8 w-8">
+				{headerActions ? <div className="flex shrink-0 items-center gap-1">{headerActions}</div> : null}
+				<IconButton ref={closeButtonRef} label={closeLabel ?? t("common.close")} onClick={onClose} disabled={busy} className="-mr-1.5 -mt-0.5 h-8 w-8">
 					<X size={16} aria-hidden />
 				</IconButton>
 			</header>
-			<div className={cn("min-h-0 flex-1 overflow-y-auto px-5 pb-5", bodyClassName)}>{children}</div>
+			<div className={cn("min-h-0 flex-1 overflow-y-auto px-5 pb-5", placement === "drawer" && "pt-4", bodyClassName)}>{children}</div>
 			{footer ? (
 				<footer className="flex shrink-0 flex-col-reverse gap-2 border-t border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-5 py-3 max-sm:pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:flex-row sm:justify-end">
 					{footer}

@@ -46,7 +46,7 @@ describe("AnnouncementEditModal (R10G drive-by: edit title i18n)", () => {
       />,
       { locale: "zh" },
     );
-    expect(screen.getByRole("heading", { name: "编辑公告", level: 3 })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "编辑公告", level: 2 })).toBeInTheDocument();
   });
 
   it("renders the i18n title 'Edit announcement' in en locale", () => {
@@ -58,7 +58,7 @@ describe("AnnouncementEditModal (R10G drive-by: edit title i18n)", () => {
       />,
       { locale: "en" },
     );
-    expect(screen.getByRole("heading", { name: "Edit announcement", level: 3 })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Edit announcement", level: 2 })).toBeInTheDocument();
   });
 
   it("PATCHes /api/announcements with the merged payload on save", async () => {

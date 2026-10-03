@@ -83,7 +83,7 @@ export function SortableStepCard({
 			<StepConfigEditor step={step} servers={servers} onConfigChange={(p) => onConfigChange(step.id, p)} />
 			<div className="grid gap-2 md:grid-cols-2">
 				<div className="space-y-1">
-					<label className="text-xs text-[var(--text-secondary)]">{t("playbooksPage.createForm.retry")}</label>
+					<label className="ui-label">{t("playbooksPage.createForm.retry")}</label>
 					<input
 						type="number"
 						min={0}
@@ -95,7 +95,7 @@ export function SortableStepCard({
 					/>
 				</div>
 				<div className="space-y-1">
-					<label className="text-xs text-[var(--text-secondary)]">{t("playbooksPage.createForm.timeoutSec")}</label>
+					<label className="ui-label">{t("playbooksPage.createForm.timeoutSec")}</label>
 					<input
 						type="number"
 						min={1}

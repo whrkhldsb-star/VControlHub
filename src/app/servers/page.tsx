@@ -42,7 +42,7 @@ export default async function ServersPage({ searchParams }: { searchParams?: Pro
 	const { stats } = inventory;
 
 	return (
-		<PageShell maxW="max-w-7xl">
+		<PageShell>
 			<PageHeader
 				eyebrow={t("serversPage.eyebrow")}
 				title={t("serversPage.title")}

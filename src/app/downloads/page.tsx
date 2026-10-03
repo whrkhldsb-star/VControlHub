@@ -73,7 +73,7 @@ export default async function DownloadsPage() {
 	});
 
 	return (
-		<PageShell maxW="max-w-7xl">
+		<PageShell>
 			<PageHeader
 				eyebrow={t("downloadsPage.header.eyebrow", locale)}
 				title={t("downloadsPage.header.title", locale)}

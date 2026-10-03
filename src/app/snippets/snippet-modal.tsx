@@ -2,7 +2,10 @@
 
 import { useRef, useState, type Dispatch, type SetStateAction } from "react";
 
-import { ModalShell } from "@/components/modal-shell";
+import { Dialog } from "@/components/ui/dialog";
+import { CheckboxField, FormField, Notice } from "@/components/ui-primitives";
+import { UI_INPUT } from "@/lib/ui/classes";
+import { cn } from "@/lib/ui/cn";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useToast } from "@/components/toast-provider";
@@ -109,49 +112,41 @@ export function SnippetModal({
 	];
 
 	return (
-		<ModalShell
+		<Dialog
 			size="lg"
 			open
 			onClose={requestClose}
-			labelledBy={`${prefix}-snippet-title`}
 			closeOnBackdrop={false}
+			busy={saving}
+			title={t(`snippetsPage.modal.${prefix}Title`)}
+			footer={<>
+				<ActionButton type="button" variant="secondary" onClick={requestClose} disabled={saving}>
+					{t("snippetsPage.modal.action.cancel")}
+				</ActionButton>
+				<ActionButton type="button" onClick={handleSave} loading={saving} disabled={!title.trim() || !content.trim()}>
+					{t(`snippetsPage.modal.action.${saving ? (mode === "create" ? "creating" : "saving") : mode === "create" ? "create" : "save"}`)}
+				</ActionButton>
+			</>}
 		>
-				<h3 id={`${prefix}-snippet-title`} className="text-lg font-semibold text-[var(--text-primary)]">
-					{t(`snippetsPage.modal.${prefix}Title`)}
-				</h3>
-				<div className="mt-4 space-y-3">
-					{fields.map((field) => (
-						<div key={field.name}>
-							<label htmlFor={fieldId(field.name)} className="block text-xs text-[var(--text-muted)]">{t(field.label)}</label>
-							<input
-								id={fieldId(field.name)}
-								value={field.value}
-								onChange={(event) => field.setValue(event.target.value)}
-								placeholder={field.hint ? t(field.hint) : undefined}
-								autoFocus={field.autoFocus}
-								data-input
-								className="mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none"
-							/>
-						</div>
-					))}
-					<div>
-						<label htmlFor={fieldId("content")} className="block text-xs text-[var(--text-muted)]">{t("snippetsPage.modal.field.content")}</label>
-						<textarea id={fieldId("content")} value={content} onChange={(event) => setContent(event.target.value)} rows={10} data-input className="mt-1 w-full rounded-lg border px-3 py-2 font-mono text-xs outline-none" />
-					</div>
-					<label className="flex items-center gap-2 text-sm text-[var(--text-muted)]">
-						<input type="checkbox" checked={isPrivate} onChange={(event) => setIsPrivate(event.target.checked)} className="rounded-lg border-[var(--border)]" />
-						{t("snippetsPage.modal.field.private")}
-					</label>
-				</div>
-				{error && <p className="mt-2 text-xs text-[var(--danger)]">{error}</p>}
-				<div className="mt-5 flex justify-end gap-3">
-					<ActionButton type="button" variant="secondary" onClick={requestClose} disabled={saving}>
-						{t("snippetsPage.modal.action.cancel")}
-					</ActionButton>
-					<ActionButton type="button" onClick={handleSave} disabled={saving || !title.trim() || !content.trim()}>
-						{t(`snippetsPage.modal.action.${saving ? (mode === "create" ? "creating" : "saving") : mode === "create" ? "create" : "save"}`)}
-					</ActionButton>
-				</div>
-		</ModalShell>
+			<div className="space-y-4">
+				{error ? <Notice tone="danger" compact>{error}</Notice> : null}
+				{fields.map((field) => (
+					<FormField key={field.name} label={t(field.label)} htmlFor={fieldId(field.name)}>
+						<input
+							id={fieldId(field.name)}
+							value={field.value}
+							onChange={(event) => field.setValue(event.target.value)}
+							placeholder={field.hint ? t(field.hint) : undefined}
+							autoFocus={field.autoFocus}
+							className={UI_INPUT}
+						/>
+					</FormField>
+				))}
+				<FormField label={t("snippetsPage.modal.field.content")} htmlFor={fieldId("content")}>
+					<textarea id={fieldId("content")} value={content} onChange={(event) => setContent(event.target.value)} rows={10} className={cn(UI_INPUT, "font-mono text-xs")} />
+				</FormField>
+				<CheckboxField label={t("snippetsPage.modal.field.private")} checked={isPrivate} onChange={(event) => setIsPrivate(event.target.checked)} />
+			</div>
+		</Dialog>
 	);
 }

@@ -4,7 +4,7 @@ import { listPlaybooks, listRecentPlaybookRunsForPlaybooks } from "@/lib/playboo
 import { listServerProfiles } from "@/lib/server/service";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 
-import { PageShell, PageHeader } from "@/components/page-shell";
+import { PageShell } from "@/components/page-shell";
 import { PlaybookListClient } from "./playbook-list-client";
 
 export const dynamic = "force-dynamic";
@@ -73,13 +73,13 @@ export default async function PlaybooksPage() {
 	}));
 
 	return (
-		<PageShell maxW="max-w-7xl">
-			<PageHeader
-				eyebrow={t("playbooksPage.eyebrow", locale)}
-				title={t("playbooksPage.title", locale)}
-				description={t("playbooksPage.desc", locale)}
-			/>
+		<PageShell>
 			<PlaybookListClient
+				header={{
+					eyebrow: t("playbooksPage.eyebrow", locale),
+					title: t("playbooksPage.title", locale),
+					description: t("playbooksPage.desc", locale),
+				}}
 				playbooks={serialized}
 				runsByPlaybook={runsByPlaybook}
 				servers={serverOptions}

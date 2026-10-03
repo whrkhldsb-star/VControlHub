@@ -122,7 +122,8 @@ export function FileBatchToolbar({
           role="region"
           aria-labelledby={batchToolbarTitleId}
           aria-describedby={batchToolbarDescriptionId}
-          className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex max-h-[70dvh] w-max max-w-[calc(100vw-2rem)] flex-wrap items-center justify-center gap-3 overflow-y-auto bg-[var(--modal-bg)] backdrop-blur border border-[var(--border)] rounded-lg shadow-2xl px-5 py-3"
+          data-action-bar=""
+          className="fixed bottom-4 left-1/2 z-40 max-h-[70dvh] w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 justify-center overflow-y-auto"
         >
           <span id={batchToolbarTitleId} className="sr-only">
             {copy.regionTitle}
@@ -140,14 +141,13 @@ export function FileBatchToolbar({
                 disabled={isPending}>
                 {copy.confirmDelete}
               </ActionButton>
-              <button
-                type="button"
+              <ActionButton
+                variant="secondary"
                 onClick={() => setBatchAction("none")}
                 disabled={isPending}
-                className="rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface-subtle)] disabled:opacity-50"
               >
                 {copy.cancel}
-              </button>
+              </ActionButton>
             </>
           ) : batchAction ==="deleting" ? (
             <>
@@ -214,18 +214,17 @@ export function FileBatchToolbar({
                 }>
                 {copy.confirmMove}
               </ActionButton>
-              <button
-                type="button"
+              <ActionButton
+                variant="secondary"
                 onClick={() => {
                   setBatchAction("none");
                   setMoveTargetDir("");
                   setMoveProgress({ done: 0, total: 0, errors: [] });
                 }}
                 disabled={isPending}
-                className="rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface-subtle)] disabled:opacity-50"
               >
                 {copy.cancel}
-              </button>
+              </ActionButton>
             </>
           ) : (
             <>

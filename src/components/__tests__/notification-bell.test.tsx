@@ -172,6 +172,6 @@ describe("NotificationBell", () => {
     await user.click(screen.getByRole("button", { name: "Notifications" }));
 
     expect(await screen.findByRole("link", { name: /Internal notification link/ })).toHaveAttribute("href", "/servers");
-    expect(screen.getByRole("link", { name: "View all notifications →" })).toHaveAttribute("href", "/notifications");
+    expect(screen.getByRole("link", { name: "View all notifications" })).toHaveAttribute("href", "/notifications");
   });
 });

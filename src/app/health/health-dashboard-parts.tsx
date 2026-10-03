@@ -98,7 +98,7 @@ export function FleetResourceSummary({
 					<p className="text-xs uppercase text-[var(--text-muted)]">
 						{t("healthPage.fleet.eyebrow")}
 					</p>
-					<h2 className="mt-1 text-lg font-semibold text-[var(--text-primary)]">
+					<h2 className="ui-title-section mt-1">
 						{t("healthPage.fleet.title")}
 					</h2>
 				</div>

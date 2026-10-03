@@ -139,11 +139,14 @@
 	--topbar-height: 3.25rem;
 	--content-max: 88rem;
 
-	/* Type scale */
+	/* Type scale — headings use the .ui-title-* classes in globals.css. */
 	--font-label: 12px;
 	--font-body: 14px;
+	--font-group: 14px;
 	--font-section: 15px;
+	--font-dialog-title: 16px;
 	--font-page-title: 22px;
+	--font-page-title-lg: 24px;
 	--z-toast: 120;
 	--z-popover: 70;
 	--z-modal: 100;

@@ -87,7 +87,7 @@ describe("DashboardCustomizeToolbar", () => {
 		expect(onToggleVisibility).toHaveBeenCalledWith("analytics");
 	});
 
-	it("marks hidden widgets with aria-pressed=true and line-through", () => {
+	it("presses the chips of visible widgets and strikes through hidden ones", () => {
 		render(
 			<DashboardCustomizeToolbar
 				isEditing={true}
@@ -99,12 +99,12 @@ describe("DashboardCustomizeToolbar", () => {
 			/>,
 		);
 		const toggle = screen.getByTestId("toggle-widget-analytics");
-		expect(toggle).toHaveAttribute("aria-pressed", "true");
+		expect(toggle).toHaveAttribute("aria-pressed", "false");
 		expect(toggle.className).toContain("line-through");
-		// Non-hidden widget stays unpressed.
+		// A visible widget's chip is pressed.
 		expect(screen.getByTestId("toggle-widget-server-status")).toHaveAttribute(
 			"aria-pressed",
-			"false",
+			"true",
 		);
 	});
 

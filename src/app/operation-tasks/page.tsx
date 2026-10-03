@@ -21,7 +21,7 @@ export default async function OperationTasksPage({
 	const locale = await getServerLocale();
 	const tr = (key: string, vars?: Record<string, string | number>) => t(key, locale, vars);
 	if (!sessionHasPermission(session, "task:read")) {
-		return <PageShell maxW="max-w-7xl"><EmptyState text={tr("operationTasksPage.noPermission")} variant="boxed" /></PageShell>;
+		return <PageShell><EmptyState text={tr("operationTasksPage.noPermission")} variant="boxed" /></PageShell>;
 	}
 	const resolved = (await searchParams) ?? {};
 	const statusRaw = firstParam(resolved.status) ?? "all";
@@ -44,7 +44,7 @@ export default async function OperationTasksPage({
 		session,
 	);
 	return (
-		<PageShell maxW="max-w-7xl">
+		<PageShell>
 			<PageHeader eyebrow={t("operationTasksPage.eyebrow", locale)} title={tr("operationTasksPage.header.title")} description={tr("operationTasksPage.header.description")} />
 			<OperationTaskListClient initialTasks={tasks} initialSourceSummary={sourceSummary} initialFailureSummary={failureSummary} />
 		</PageShell>

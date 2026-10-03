@@ -118,7 +118,7 @@ export function KeyboardShortcuts() {
 		>
 			<div className="grid gap-6 pt-1 sm:grid-cols-2">
 				<section>
-					<h3 className="mb-2 text-xs font-medium text-[var(--text-muted)]">{t("shell.shortcuts.general")}</h3>
+					<h3 className="ui-title-caption mb-2">{t("shell.shortcuts.general")}</h3>
 					<ul className="space-y-2">
 						{general.map((entry) => (
 							<li key={entry.label} className="flex items-center justify-between gap-3 text-[13px] text-[var(--text-secondary)]">
@@ -129,7 +129,7 @@ export function KeyboardShortcuts() {
 					</ul>
 				</section>
 				<section>
-					<h3 className="mb-2 text-xs font-medium text-[var(--text-muted)]">{t("shell.shortcuts.navigation")}</h3>
+					<h3 className="ui-title-caption mb-2">{t("shell.shortcuts.navigation")}</h3>
 					<ul className="space-y-2">
 						{GO_TO_SHORTCUTS.map((entry) => (
 							<li key={entry.href} className="flex items-center justify-between gap-3 text-[13px] text-[var(--text-secondary)]">

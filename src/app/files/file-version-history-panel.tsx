@@ -10,6 +10,9 @@ import { formatBytes } from "@/lib/format/bytes";
 import { ActionButton } from "@/components/action-button";
 import { InlineLoading } from "@/components/ui-primitives";
 
+import { RefreshCw } from "@/components/icons";
+import { UI_INPUT } from "@/lib/ui/classes";
+import { cn } from "@/lib/ui/cn";
 type VersionItem = {
   id: string;
   versionNumber: number;
@@ -151,16 +154,17 @@ export function FileVersionHistoryPanel({
       />
 
       <div className="flex items-center justify-between gap-3">
-        <h3 className="text-sm font-semibold text-[var(--text-secondary)]">
+        <h3 className="ui-title-group">
           {t("fileVersionHistory.title")}
         </h3>
-        <button
-          type="button"
+        <ActionButton
+          size="xs"
+          variant="secondary"
+          icon={<RefreshCw aria-hidden />}
           onClick={() => void load()}
-          className="rounded-lg border border-[var(--border)] px-2.5 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
         >
           {t("fileVersionHistory.refresh")}
-        </button>
+        </ActionButton>
       </div>
       <p className="mt-1 text-xs text-[var(--text-muted)]">
         {t("fileVersionHistory.description")}
@@ -173,7 +177,7 @@ export function FileVersionHistoryPanel({
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder={t("fileVersionHistory.notePlaceholder")}
-            className="min-w-0 flex-1 rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-xs text-[var(--text-primary)]"
+            className={cn(UI_INPUT, "min-w-0 flex-1 text-xs")}
           />
           <ActionButton variant="outline"
             disabled={busyId === "manual"}
@@ -220,21 +224,23 @@ export function FileVersionHistoryPanel({
                 <div className="flex flex-wrap gap-1.5">
                   <a
                     href={`/api/files/${encodeURIComponent(fileEntryId)}/versions/${encodeURIComponent(v.id)}/download`}
-                    className="rounded-lg border border-[var(--border)] px-2.5 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
+                    data-action-button=""
+                    data-variant="secondary"
+                    data-size="xs"
                   >
                     {t("fileVersionHistory.download")}
                   </a>
                   {canWrite ? (
-                    <button
-                      type="button"
-                      disabled={busyId === v.id}
+                    <ActionButton
+                      size="xs"
+                      variant="warning"
+                      loading={busyId === v.id}
                       onClick={() => requestRestore(v.id, v.versionNumber)}
-                      className="rounded-lg border border-[var(--warning-border)] px-2.5 py-1 text-xs text-[var(--warning)] hover:bg-[var(--warning-bg)] disabled:opacity-50"
                     >
                       {busyId === v.id
                         ? t("fileVersionHistory.restorePending")
                         : t("fileVersionHistory.restore")}
-                    </button>
+                    </ActionButton>
                   ) : null}
                 </div>
               </div>

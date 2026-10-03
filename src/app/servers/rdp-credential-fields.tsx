@@ -13,7 +13,7 @@ export function RdpCredentialFields({ idPrefix, editing = false, domain = "", ce
   const { t } = useI18n();
   return <section data-tile className="space-y-3 p-4">
     <div className="space-y-1">
-      <h3 className="text-sm font-medium text-[var(--text-primary)]">{t("serversPage.windows.credentialsTitle")}</h3>
+      <h3 className="ui-title-group">{t("serversPage.windows.credentialsTitle")}</h3>
       <p className="text-xs leading-5 text-[var(--text-muted)]">{t("serversPage.windows.hint")}</p>
     </div>
     <div className="grid gap-3 sm:grid-cols-2">

@@ -10,6 +10,7 @@ import {
 } from "@/lib/preferences/user-preferences";
 import { ActionButton } from "@/components/action-button";
 
+import { Chip } from "@/components/ui-primitives";
 /**
  * TR-020 dashboard customize toolbar.
  *
@@ -74,21 +75,17 @@ export function DashboardCustomizeToolbar({
 				{DASHBOARD_WIDGET_IDS.map((id) => {
 					const hidden = hiddenIds.has(id);
 					return (
-						<button
+						<Chip
 							key={id}
-							type="button"
+							selected={!hidden}
+							tone="success"
 							onClick={handleToggle(id)}
-							aria-pressed={hidden}
 							data-testid={`toggle-widget-${id}`}
-							className={`rounded-lg border px-2.5 py-1 text-xs transition ${
-								hidden
-									? "border-[var(--border)] bg-[var(--surface-hover)] text-[var(--text-muted)] line-through"
-									: "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]"
-							}`}
+							title={hidden ? t("dashboard.customize-show") : t("dashboard.customize-hide")}
+							className={hidden ? "line-through" : undefined}
 						>
-							{t(DASHBOARD_WIDGET_LABELS[id])} ·{" "}
-							{hidden ? t("dashboard.customize-show") : t("dashboard.customize-hide")}
-						</button>
+							{t(DASHBOARD_WIDGET_LABELS[id])}
+						</Chip>
 					);
 				})}
 			</div>

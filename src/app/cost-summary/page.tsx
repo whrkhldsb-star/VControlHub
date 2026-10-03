@@ -45,7 +45,7 @@ export default async function CostSummaryPage() {
 	]);
 
 	return (
-		<PageShell maxW="max-w-7xl">
+		<PageShell>
 			<PageHeader
 				eyebrow={t("costPage.eyebrow", locale)}
 				title={t("costPage.title", locale)}

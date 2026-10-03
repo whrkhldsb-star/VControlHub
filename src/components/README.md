@@ -36,7 +36,7 @@ rejects pasted button sizes, hand-rolled overlays and button-styled `<Link>`s.
 ## Status, forms and data (`ui-primitives.tsx`, `status-badge.tsx`, `ui/key-value.tsx`)
 
 - `StatusBadge` — state of a thing (pill with dot). `Badge` — tag or label.
-- `Notice` — inline message (`tone`, `title`, `action`, dismiss). `Callout`, `StateBox` for legacy surfaces.
+- `Notice` — inline message (`tone`, `title`, `action`, dismiss) — the only tinted message box.
 - `FormField`, `FormGrid`, `CheckboxField`, `Switch`, `SegmentedTabs` (`underline` | `pills`), `TabNav` (link tabs), `SideNav`, `SplitPane`.
 - `Spinner`, `InlineLoading`, `ProgressBar`; skeletons in `skeleton.tsx`.
 - `KeyValueList` — label/value pairs (`columns`, `layout`, `mono`, `wide`).

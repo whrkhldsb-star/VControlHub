@@ -11,9 +11,9 @@
  * sub-imports) until the user actually opens the panel. The wrapping
  * `FileDetailPanelLazy` uses `next/dynamic` to defer the chunk.
  */
-import Link from "next/link";
 import { useI18n } from "@/lib/i18n/use-locale";
-import { ModalShell } from "@/components/modal-shell";
+import { Dialog } from "@/components/ui/dialog";
+import { KeyValueList } from "@/components/ui/key-value";
 
 import {
   DeleteConfirmButton,
@@ -29,7 +29,8 @@ import {
   type StorageEntry,
 } from "./file-entry-utils";
 import { FileVersionHistoryPanel } from "./file-version-history-panel";
-import { ActionButton } from "@/components/action-button";
+import { ButtonLink } from "@/components/action-button";
+import { Download, Eye, ImageIcon } from "@/components/icons";
 import { getStorageDriverLabel } from "@/lib/i18n/domain-labels";
 
 export type FileDetailPanelProps = {
@@ -60,98 +61,47 @@ export function FileDetailPanel({
 }: FileDetailPanelProps) {
   const { t, locale } = useI18n();
   return (
-    <ModalShell
-      size="xl" placement="drawer" padded={false} className="flex flex-col overflow-hidden"
+    <Dialog
+      size="xl"
+      placement="drawer"
       open
       onClose={onClose}
-      labelledBy="file-detail-panel-title"
-      as="aside"
+      eyebrow={t("common.fileDetails")}
+      title={detailEntry.name}
+      description={<span className="ui-mono break-all">{detailEntry.relativePath}</span>}
+      closeLabel={t("fileDetailPanel.close")}
     >
-        <div className="flex items-start justify-between gap-4 border-b border-[var(--border)] px-5 py-4">
-          <div className="min-w-0">
-            <p className="text-xs font-medium uppercase text-[var(--accent)]">
-              {t("common.fileDetails")}
-            </p>
-            <h2
-              id="file-detail-panel-title"
-              className="mt-1 truncate text-lg font-semibold"
-            >
-              {detailEntry.name}
-            </h2>
-            <p className="mt-1 truncate text-xs text-[var(--text-muted)]">
-              {detailEntry.relativePath}
-            </p>
-          </div>
-          <ActionButton size="sm" variant="secondary"
-            onClick={onClose}>
-            {t("fileDetailPanel.close")}
-          </ActionButton>
-        </div>
-        <div className="flex-1 space-y-5 overflow-y-auto px-5 py-5">
-          <div data-tile className="p-4">
-            <div className="grid gap-3 text-sm sm:grid-cols-2">
-              <div>
-                <p className="text-xs text-[var(--text-muted)]">{t("fileDetailPanel.storageNode")}</p>
-                <p className="mt-1 font-medium">
-                  {detailEntry.storageNode.name}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-[var(--text-muted)]">{t("fileDetailPanel.driver")}</p>
-                <p className="mt-1 font-medium">
-                  {getStorageDriverLabel(t, detailEntry.storageNode.driver)}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-[var(--text-muted)]">{t("fileDetailPanel.size")}</p>
-                <p className="mt-1 font-medium">{detailEntry.sizeLabel}</p>
-              </div>
-              <div>
-                <p className="text-xs text-[var(--text-muted)]">{t("fileDetailPanel.modified")}</p>
-                <p className="mt-1 font-medium">
-                  {detailEntry.updatedAt
-                    ? formatDate(detailEntry.updatedAt, locale)
-                    :"—"}
-                </p>
-              </div>
-              <div className="sm:col-span-2">
-                <p className="text-xs text-[var(--text-muted)]">{t("fileDetailPanel.accessMode")}</p>
-                <p className="mt-1 font-medium">
-                  {detailEntry.directAccess.description}
-                </p>
-              </div>
-            </div>
-          </div>
+        <div className="space-y-5">
+          <KeyValueList
+            columns={2}
+            items={[
+              { label: t("fileDetailPanel.storageNode"), value: detailEntry.storageNode.name },
+              { label: t("fileDetailPanel.driver"), value: getStorageDriverLabel(t, detailEntry.storageNode.driver) },
+              { label: t("fileDetailPanel.size"), value: detailEntry.sizeLabel },
+              { label: t("fileDetailPanel.modified"), value: detailEntry.updatedAt ? formatDate(detailEntry.updatedAt, locale) : null },
+              { label: t("fileDetailPanel.accessMode"), value: detailEntry.directAccess.description, wide: true },
+            ]}
+          />
 
           <div>
-            <h3 className="text-sm font-semibold text-[var(--text-secondary)]">
+            <h3 className="ui-title-caption">
               {t("fileDetailPanel.quickActions")}
             </h3>
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
               {detailEntry.previewable && entryCanRead(detailEntry) ? (
-                <Link
-                  href={getPreviewHref(detailEntry)}
-                  data-tone="cyan" className="rounded-2xl border border-[var(--accent-border)] px-4 py-3 text-sm font-medium text-[var(--accent)] transition hover:bg-[var(--accent-bg)]"
-                >
+                <ButtonLink href={getPreviewHref(detailEntry)} variant="outline" icon={<Eye aria-hidden />}>
                   {t("fileDetailPanel.preview")}
-                </Link>
+                </ButtonLink>
               ) : null}
               {entryCanRead(detailEntry) ? (
-                <Link
-                  href={buildForcedDownloadHref(detailEntry)}
-                  download
-                  className="rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] px-4 py-3 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface-subtle)]"
-                >
+                <ButtonLink href={buildForcedDownloadHref(detailEntry)} download icon={<Download aria-hidden />}>
                   {t("fileDetailPanel.download")}
-                </Link>
+                </ButtonLink>
               ) : null}
               {entryCanRead(detailEntry) ? (
-                <Link
-                  href={buildMediaLibraryHref(detailEntry)}
-                  data-tone="emerald" className="rounded-2xl border border-[var(--success-border)] px-4 py-3 text-sm font-medium text-[var(--success)] transition hover:bg-[var(--success-bg)]"
-                >
+                <ButtonLink href={buildMediaLibraryHref(detailEntry)} icon={<ImageIcon aria-hidden />}>
                   {t("fileDetailPanel.findInMedia")}
-                </Link>
+                </ButtonLink>
               ) : null}
               {canShare && entryCanRead(detailEntry) ? (
                 <ShareFileButton entry={detailEntry} />
@@ -172,7 +122,7 @@ export function FileDetailPanel({
           ) : null}
 
           <div>
-            <h3 className="text-sm font-semibold text-[var(--text-secondary)]">
+            <h3 className="ui-title-caption">
               {t("fileDetailPanel.managementActions")}
             </h3>
             <div className="mt-3 flex flex-wrap gap-2">
@@ -207,6 +157,6 @@ export function FileDetailPanel({
             </div>
           </div>
         </div>
-    </ModalShell>
+    </Dialog>
   );
 }

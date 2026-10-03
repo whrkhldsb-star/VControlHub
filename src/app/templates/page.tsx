@@ -31,7 +31,7 @@ export default async function CommandTemplatesPage() {
 	const serverOptions = servers.map((s) => ({ id: s.id, name: s.name, enabled: s.enabled }));
 
 	return (
-		<PageShell maxW="max-w-7xl">
+		<PageShell>
 			<PageHeader
 				eyebrow={t("templatesPage.eyebrow", locale)}
 				title={t("templatesPage.title", locale)}

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { EmptyState, ListPanel, Toolbar } from "@/components/page-shell";
-import { CONTROL_CLASS, Notice } from "@/components/ui-primitives";
+import { Chip, CONTROL_CLASS, Notice } from "@/components/ui-primitives";
 import { SkeletonList } from "@/components/skeleton";
 import { Pagination } from "@/components/pagination";
 import { formatDateTime, formatShortDate, formatShortTime } from "@/lib/datetime/format";
@@ -15,6 +15,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { ActionButton } from "@/components/action-button";
 import { StatusBadge } from "@/components/status-badge";
 
+import { Download } from "@/components/icons";
 type AuditLog = {
   id: string;
   actorType: string;
@@ -160,15 +161,14 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
             }}>
             {t("audit.search")}
           </ActionButton>
-          <button
-            type="button"
+          <ActionButton
+            variant="secondary"
             onClick={() => {
               setSearchQuery("");
             }}
-            className="rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface-subtle)]"
           >
             {t("common.clear")}
-          </button>
+          </ActionButton>
         </div>
         <div className="flex flex-wrap gap-3">
           <select
@@ -205,8 +205,9 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
             onClick={fetchLogs}>
             {t("audit.refresh")}
           </ActionButton>
-          <button
-            type="button"
+          <ActionButton
+            variant="secondary"
+            icon={<Download aria-hidden />}
             onClick={() => {
               const params = new URLSearchParams();
               if (severityFilter) params.set("severity", severityFilter);
@@ -214,24 +215,21 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
               if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
               window.open(`/api/audit/export?${params.toString()}`,"_self");
             }}
-            className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface-subtle)]"
           >
             {t("audit.exportCsv")}
-          </button>
+          </ActionButton>
         </div>
         <div className="flex flex-wrap gap-2">
           {["auth.login","command.execute","storage.file_delete","server.delete","api_token.create"].map((action) => (
-            <button
+            <Chip
               key={action}
-              type="button"
+              selected={actionFilter === action}
               onClick={() => {
                 setActionFilter(action);
               }}
-              aria-pressed={actionFilter === action}
-              className={`rounded-full border px-3 py-1 text-xs transition ${actionFilter === action ? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]" : "border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"}`}
             >
               {formatAction(action, t)}
-            </button>
+            </Chip>
           ))}
         </div>
       </Toolbar>

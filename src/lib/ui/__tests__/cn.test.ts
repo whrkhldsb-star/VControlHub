@@ -35,13 +35,15 @@ describe("ui classes", () => {
 		expect(components).toContain(".ui-control::placeholder");
 		expect(components).toContain(".ui-control:focus");
 		expect(components).toContain(".ui-control:disabled");
+		const label = /\.ui-label \{([^}]*)\}/.exec(components)?.[1] ?? "";
+		expect(label).toContain("var(--text-primary)");
 	});
 
 	it("uses design tokens instead of hard-coded white/black", () => {
 		for (const fragment of [UI_INPUT, UI_LABEL, ...Object.values(UI_TONE)]) {
 			expect(fragment).not.toMatch(/text-white|border-white|bg-black|bg-white/);
 		}
-		expect(UI_LABEL).toContain("var(--text-primary)");
+		expect(UI_LABEL).toBe("ui-label");
 		expect(UI_INPUT).toBe("ui-control");
 		expect(UI_TONE.danger).toContain("var(--danger-bg)");
 	});

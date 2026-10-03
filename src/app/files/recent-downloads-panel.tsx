@@ -36,10 +36,10 @@ export function RecentDownloadsPanel({
   const downloads = data ?? [];
 
   return (
-    <section data-card aria-labelledby="recent-downloads-title" className="rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow-sm)] sm:p-5">
+    <section data-card aria-labelledby="recent-downloads-title" className="p-4 sm:p-5">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 id="recent-downloads-title" className="text-base font-semibold text-[var(--text-primary)]">
+          <h2 id="recent-downloads-title" className="ui-title-section">
             {t("filesPage.recentDownloads.title")}
           </h2>
           <p className="mt-1 text-sm text-[var(--text-secondary)]">{t("filesPage.recentDownloads.description")}</p>
@@ -69,8 +69,9 @@ export function RecentDownloadsPanel({
             <li key={download.id}>
               <button
                 type="button"
+                data-inset=""
                 onClick={() => onNavigate(download.path, download.storageNode.id)}
-                className="w-full rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-4 py-3 text-left transition hover:border-[var(--accent-border)] hover:bg-[var(--surface-hover)]"
+                className="w-full px-4 py-3 text-left transition"
               >
                 <span className="block truncate text-sm font-medium text-[var(--text-primary)]">{download.fileName}</span>
                 <span className="mt-1 block truncate text-xs text-[var(--text-muted)]">

@@ -48,7 +48,7 @@ export function Disclosure({
 				{compact ? (
 					<span className="col-start-1 text-xs font-medium text-[var(--text-primary)]">{title}</span>
 				) : (
-					<h2 className="col-start-1 text-sm font-semibold text-[var(--text-primary)]">{title}</h2>
+					<h2 className="ui-title-section col-start-1">{title}</h2>
 				)}
 				{description ? <span className="col-start-1 mt-0.5 text-xs leading-5 text-[var(--text-muted)]">{description}</span> : null}
 				<IconChevronDown

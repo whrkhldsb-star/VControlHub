@@ -73,7 +73,7 @@ export default async function AuditPage({ searchParams }: AuditPageProps) {
 	const criticalRatio = stats && stats.total > 0 ? Math.round(((stats.bySeverity["CRITICAL"] ?? 0) / stats.total) * 100) : 0;
 
 	return (
-		<PageShell maxW="max-w-7xl">
+		<PageShell>
 			<PageHeader eyebrow={t("auditPage.eyebrow", locale)} title={copy.title} description={copy.description} />
 
 			{!canRead ? (

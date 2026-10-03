@@ -64,7 +64,7 @@ export function BatchServerActionPanel({
     <section data-card className="mb-8">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h2 className="text-sm font-medium text-[var(--text-primary)]">
+          <h2 className="ui-title-section">
             {t("serversPage.batchPanel.title")}
           </h2>
           <p className="mt-1 text-xs text-[var(--text-muted)]">
@@ -135,14 +135,13 @@ export function BatchServerActionPanel({
         ))}
         <input type="hidden" name="enabled" value="false" />
         {!disableConfirming ? (
-          <button
-            type="button"
+          <ActionButton
+            variant="warning"
             disabled={selectedIds.length === 0}
             onClick={() => setDisableConfirming(true)}
-            className="rounded-lg border border-[var(--warning-border)] px-4 py-2 text-sm font-medium text-[var(--warning)] disabled:opacity-50"
           >
             {t("serverCardActions.toggle.disable")}
-          </button>
+          </ActionButton>
         ) : (
           <SubmitButton
             pendingLabel={t("serversPage.batchPanel.processing")}

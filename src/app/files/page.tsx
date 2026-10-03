@@ -51,7 +51,7 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
     .digest("base64url");
 
   return (
-    <PageShell maxW="max-w-7xl">
+    <PageShell>
       <PageHeader
         eyebrow={t("filesPage.eyebrow", locale)}
         title={t("filesPage.title", locale)}

@@ -15,7 +15,7 @@ export function SshKeyCreateForm() {
   const [hasFile, setHasFile] = useState(false);
   return (
     <form action={formAction} data-card className="grid gap-4" onReset={() => setHasFile(false)}>
-      <h2 className="text-lg font-semibold text-[var(--text-primary)]">{t("serversPage.sshKeyCreate.title")}</h2>
+      <h2 className="ui-title-section">{t("serversPage.sshKeyCreate.title")}</h2>
       {state.error && <Notice tone="danger">{state.error}</Notice>}
       {state.success && <Notice tone="success">{state.success}</Notice>}
       <div className="space-y-1.5">

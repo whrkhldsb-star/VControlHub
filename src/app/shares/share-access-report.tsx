@@ -6,6 +6,8 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { formatDateTime } from "@/lib/datetime/format";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { InlineLoading } from "@/components/ui-primitives";
+import { UI_INPUT } from "@/lib/ui/classes";
+import { cn } from "@/lib/ui/cn";
 
 type Report = {
   range: { days: number; action: string };
@@ -53,12 +55,12 @@ export function ShareAccessReport() {
   const exportHref = `/api/shares/access-report?days=${encodeURIComponent(days)}&action=${encodeURIComponent(action)}&limit=500&format=csv`;
   return <section className="mb-6 min-w-0">
     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] py-4">
-      <h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("sharesPage.report.title")}</h2>
+      <h2 className="ui-title-section">{t("sharesPage.report.title")}</h2>
       <div className="flex flex-wrap gap-2">
-        <select aria-label={t("sharesPage.report.range")} value={days} onChange={(e) => { setDays(e.target.value); void load(e.target.value, action); }} className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-xs">
+        <select aria-label={t("sharesPage.report.range")} value={days} onChange={(e) => { setDays(e.target.value); void load(e.target.value, action); }} className={cn(UI_INPUT, "w-auto text-xs")}>
           <option value="7">{t("sharesPage.report.days7")}</option><option value="30">{t("sharesPage.report.days30")}</option><option value="90">{t("sharesPage.report.days90")}</option>
         </select>
-        <select aria-label={t("sharesPage.report.action")} value={action} onChange={(e) => { setAction(e.target.value); void load(days, e.target.value); }} className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-xs">
+        <select aria-label={t("sharesPage.report.action")} value={action} onChange={(e) => { setAction(e.target.value); void load(days, e.target.value); }} className={cn(UI_INPUT, "w-auto text-xs")}>
           <option value="all">{t("sharesPage.report.all")}</option><option value="view">{t("sharesPage.accessLogs.action.view")}</option><option value="download">{t("sharesPage.accessLogs.action.download")}</option><option value="password_attempt">{t("sharesPage.accessLogs.action.password_attempt")}</option>
         </select>
         <a href={exportHref} data-action-button data-variant="outline">{t("sharesPage.report.export")}</a>
@@ -69,7 +71,7 @@ export function ShareAccessReport() {
         {([ ["total", report.totals.total], ["view", report.totals.view], ["download", report.totals.download], ["passwordAttempt", report.totals.passwordAttempt], ["uniqueIps", report.totals.uniqueIps] ] as const).map(([key, value]) => <div key={key} className="min-w-0 border-l border-[var(--border)] pl-3"><p className="text-xs text-[var(--text-muted)]">{t(`sharesPage.report.${key}`)}</p><p className="mt-1 text-xl font-semibold tabular-nums">{value}</p></div>)}
       </div>
       <div role="region" aria-label={t("sharesPage.report.share")} tabIndex={0} className="mt-5 overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-[var(--border)] text-left text-xs text-[var(--text-muted)]"><th className="pb-2">{t("sharesPage.report.share")}</th><th>{t("sharesPage.report.total")}</th><th>{t("sharesPage.report.view")}</th><th>{t("sharesPage.report.download")}</th><th>{t("sharesPage.report.passwordAttempt")}</th></tr></thead><tbody>{report.byShare.slice(0, 20).map((row) => <tr key={row.shareId} className="border-b border-[var(--border-subtle)]"><td className="py-2 pr-4"><span className="font-medium">{row.name}</span><span className="ml-2 text-xs text-[var(--text-muted)]">/{row.path}</span></td><td>{row.total}</td><td>{row.view}</td><td>{row.download}</td><td>{row.passwordAttempt}</td></tr>)}</tbody></table>{report.byShare.length === 0 && <p className="py-4 text-sm text-[var(--text-muted)]">{t("sharesPage.report.empty")}</p>}</div>
-      {report.logs.length > 0 ? <div role="region" aria-label={t("sharesPage.report.recent")} tabIndex={0} className="mt-6 overflow-x-auto"><h3 className="mb-2 text-sm font-semibold">{t("sharesPage.report.recent")}</h3><table className="w-full text-xs"><thead><tr className="border-b border-[var(--border)] text-left text-[var(--text-muted)]"><th className="pb-2">{t("sharesPage.accessLogs.time")}</th><th>{t("sharesPage.report.share")}</th><th>{t("sharesPage.accessLogs.action")}</th><th>{t("sharesPage.accessLogs.ip")}</th><th>{t("sharesPage.report.userAgent")}</th></tr></thead><tbody>{report.logs.slice(0, 50).map((log) => <tr key={log.id} className="border-b border-[var(--border-subtle)]"><td className="py-2 pr-3 whitespace-nowrap">{formatDateTime(log.accessedAt, locale)}</td><td className="pr-3">{log.share.name || log.share.path}</td><td className="pr-3">{t(`sharesPage.accessLogs.action.${log.action}`)}</td><td className="pr-3">{log.ip || "-"}</td><td className="max-w-72 truncate" title={log.userAgent || ""}>{log.userAgent || "-"}</td></tr>)}</tbody></table></div> : null}
+      {report.logs.length > 0 ? <div role="region" aria-label={t("sharesPage.report.recent")} tabIndex={0} className="mt-6 overflow-x-auto"><h3 className="ui-title-group mb-2">{t("sharesPage.report.recent")}</h3><table className="w-full text-xs"><thead><tr className="border-b border-[var(--border)] text-left text-[var(--text-muted)]"><th className="pb-2">{t("sharesPage.accessLogs.time")}</th><th>{t("sharesPage.report.share")}</th><th>{t("sharesPage.accessLogs.action")}</th><th>{t("sharesPage.accessLogs.ip")}</th><th>{t("sharesPage.report.userAgent")}</th></tr></thead><tbody>{report.logs.slice(0, 50).map((log) => <tr key={log.id} className="border-b border-[var(--border-subtle)]"><td className="py-2 pr-3 whitespace-nowrap">{formatDateTime(log.accessedAt, locale)}</td><td className="pr-3">{log.share.name || log.share.path}</td><td className="pr-3">{t(`sharesPage.accessLogs.action.${log.action}`)}</td><td className="pr-3">{log.ip || "-"}</td><td className="max-w-72 truncate" title={log.userAgent || ""}>{log.userAgent || "-"}</td></tr>)}</tbody></table></div> : null}
     </div> : null}
   </section>;
 }

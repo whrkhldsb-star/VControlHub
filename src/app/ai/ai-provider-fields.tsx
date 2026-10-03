@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckboxField, CONTROL_CLASS, FormField, Input } from "@/components/ui-primitives";
+import { CheckboxField, Chip, CONTROL_CLASS, FormField, Input } from "@/components/ui-primitives";
 import { useI18n } from "@/lib/i18n/use-locale";
 import type { ProviderFormState } from "./ai-provider-panel";
 import { COMMON_BASE_URLS, PROVIDER_PRESETS, PROVIDER_TYPES } from "./ai-types";
@@ -38,20 +38,14 @@ export function AiProviderFields({ form, onChange, editing = false, models = [] 
           {PROVIDER_PRESETS.map((preset) => {
             const active = form.baseUrl === preset.baseUrl && form.type === preset.type;
             return (
-              <button
+              <Chip
                 key={preset.id}
-                type="button"
+                selected={active}
                 onClick={() => applyPreset(preset)}
-                aria-pressed={active}
-                className={`min-h-9 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
-                  active
-                    ? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]"
-                    : "border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
-                }`}
               >
                 {presetLabel(preset)}
                 {preset.local ? ` · ${t("aiPage.presetLocal")}` : ""}
-              </button>
+              </Chip>
             );
           })}
         </div>

@@ -13,6 +13,8 @@ import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { Video, Music2, File } from "@/components/icons";
 import type { FileAttachment } from "./ai-types";
+import { UI_INPUT } from "@/lib/ui/classes";
+import { cn } from "@/lib/ui/cn";
 
 type Props = {
   enableVision: boolean;
@@ -155,7 +157,7 @@ export function AiAttachmentsPreview({
               aria-label={t("aiPage.imageUrlAria")}
               onChange={(e) => setImageUrlInput(e.target.value)}
               placeholder={t("aiPage.imageUrlPlaceholder")}
-              className="flex-1 bg-[var(--input-bg)] border border-[var(--border)]/10 rounded-lg px-3 py-1.5 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
+              className={cn(UI_INPUT, "flex-1 text-xs")}
               onKeyDown={(e) => {
                 if (e.key !== "Enter") return;
                 const raw = imageUrlInput.trim();

@@ -13,6 +13,7 @@ import { WindowsSftpFields } from "./windows-sftp-fields";
 import { Notice } from "@/components/ui-primitives";
 import { usePreservedActionForm } from "@/lib/forms/use-preserved-action-form";
 import { useUnsavedChangesGuard } from "@/lib/forms/use-unsaved-changes-guard";
+import { cn } from "@/lib/ui/cn";
 const initialState: ServerActionState = {
   error: undefined,
   success: undefined,
@@ -77,7 +78,7 @@ export function ServerCreateForm({
       {" "}
       <div>
         {" "}
-        <h2 className="text-lg font-semibold text-[var(--text-primary)]">
+        <h2 className="ui-title-section">
           {t("serversPage.create.title")}
         </h2>{" "}
         <p className="mt-1 text-xs text-[var(--text-muted)]">
@@ -94,7 +95,7 @@ export function ServerCreateForm({
         </Notice>
       )}{" "}
       <div className="space-y-1.5">
-        <label htmlFor="serverOperatingSystem" className="text-xs font-medium text-[var(--text-primary)]/70">{t("serversPage.windows.os")}</label>
+        <label htmlFor="serverOperatingSystem" className="ui-label">{t("serversPage.windows.os")}</label>
         <select id="serverOperatingSystem" name="operatingSystem" className={UI_INPUT} value={operatingSystem} onChange={(event) => { setOperatingSystem(event.target.value); setObservedHostKeySha256(""); setHostKeyConfirmed(false); }}>
           <option value="LINUX">Linux</option><option value="WINDOWS">Windows</option>
         </select>
@@ -104,7 +105,7 @@ export function ServerCreateForm({
         <div className="space-y-1.5">
           {" "}
           <label
-            className="text-xs font-medium text-[var(--text-primary)]/70 "
+            className="ui-label"
             htmlFor="serverName"
           >
             {t("serversPage.create.name")}
@@ -121,7 +122,7 @@ export function ServerCreateForm({
         <div className="space-y-1.5">
           {" "}
           <label
-            className="text-xs font-medium text-[var(--text-primary)]/70 "
+            className="ui-label"
             htmlFor="serverDesc"
           >
             {t("serversPage.create.description")}
@@ -140,7 +141,7 @@ export function ServerCreateForm({
         <div className="space-y-1.5">
           {" "}
           <label
-            className="text-xs font-medium text-[var(--text-primary)]/70 "
+            className="ui-label"
             htmlFor="serverHost"
           >
             {t("serversPage.create.host")}
@@ -157,7 +158,7 @@ export function ServerCreateForm({
         <div className="space-y-1.5">
           {" "}
           <label
-            className="text-xs font-medium text-[var(--text-primary)]/70 "
+            className="ui-label"
             htmlFor="serverPort"
           >
             {t(windows ? "serversPage.windows.port" : "serversPage.create.port")}
@@ -179,16 +180,16 @@ export function ServerCreateForm({
       <ServerManagementModeFields platform="WINDOWS" />
       <RdpCredentialFields idPrefix="create-rdp" />
       <WindowsSftpFields />
-      {observedHostKeySha256 ? <div className="rounded-xl border border-[var(--warning-border)] bg-[var(--warning-bg)] p-4 text-xs text-[var(--text-secondary)]">
+      {observedHostKeySha256 ? <Notice tone="warning" role="group" compact>
         <p className="font-medium text-[var(--text-primary)]">{t("serversPage.create.hostKeyTrustTitle")}</p>
         <code className="mt-2 block break-all">{observedHostKeySha256}</code>
         <input type="hidden" name="approvedHostKeySha256" value={observedHostKeySha256} />
         <label className="mt-2 flex items-start gap-2"><input type="checkbox" required checked={hostKeyConfirmed} onChange={(event) => setHostKeyConfirmed(event.currentTarget.checked)} />{t("serversPage.create.hostKeyConfirm")}</label>
-      </div> : null}
+      </Notice> : null}
       </> : <>
       <ServerManagementModeFields />
       <ConnectionTypeFields sshKeys={sshKeys} />{" "}
-      <div className="rounded-xl border border-[var(--warning-border)] bg-[var(--warning-bg)] p-4 text-sm text-[var(--text-secondary)]">
+      <Notice tone="warning" role="group">
         <div className="space-y-2">
           <span className="block font-medium text-[var(--text-primary)]">
             {t("serversPage.create.hostKeyTrustTitle")}
@@ -201,7 +202,7 @@ export function ServerCreateForm({
               <span className="block text-xs font-medium text-[var(--warning)]">
                 {t("serversPage.create.hostKeyObserved")}
               </span>
-              <code className="block break-all rounded-lg border border-[var(--warning-border)] bg-[var(--input-bg)] px-3 py-2 text-xs text-[var(--text-primary)]">
+              <code data-inset="" className="block break-all border-[var(--warning-border)] px-3 py-2 text-xs text-[var(--text-primary)]">
                 {observedHostKeySha256}
               </code>
               <input type="hidden" name="approvedHostKeySha256" value={observedHostKeySha256} />
@@ -221,7 +222,7 @@ export function ServerCreateForm({
             {t("serversPage.create.hostKeyTrustHint")}
           </span>
         </div>
-      </div>{" "}
+      </Notice>{" "}
       <details data-tile className="p-4">
         <summary className="cursor-pointer text-sm font-medium text-[var(--text-primary)]">
           {t("serversPage.create.advancedTitle")}
@@ -230,7 +231,7 @@ export function ServerCreateForm({
       <div className="space-y-1.5">
         {" "}
         <label
-          className="text-xs font-medium text-[var(--text-primary)]/70 "
+          className="ui-label"
           htmlFor="serverStoragePath"
         >
           {t("serversPage.create.storagePath")}
@@ -253,7 +254,7 @@ export function ServerCreateForm({
       </div>{" "}
       <label
         data-tone="cyan"
-        data-inset className="p-4 text-sm text-[var(--text-secondary)]"
+        data-inset className="ui-label p-4"
       >
         {" "}
         <div className="flex items-start gap-3">
@@ -276,7 +277,7 @@ export function ServerCreateForm({
               {t("serversPage.create.directGateway.note")}{" "}
             </p>{" "}
             <label
-              className="mt-3 block text-xs font-medium text-[var(--text-primary)]/70"
+              className="ui-label mt-3 block"
               htmlFor="directGatewayProtocol"
             >
               {" "}
@@ -286,7 +287,7 @@ export function ServerCreateForm({
               id="directGatewayProtocol"
               name="directGatewayProtocol"
               defaultValue="http"
-              className="mt-1 w-full rounded-lg border border-[var(--color-action-border)]/20 bg-[var(--surface-subtle)] px-3 py-2 text-xs text-[var(--text-primary)]"
+              className={cn(UI_INPUT, "mt-1 w-full text-xs")}
             >
               {" "}
               <option value="http">
@@ -303,7 +304,7 @@ export function ServerCreateForm({
               {t("serversPage.create.directGateway.protocolHttpsHint")}
             </p>
             <label
-              className="mt-3 block text-xs font-medium text-[var(--text-primary)]/70"
+              className="ui-label mt-3 block"
               htmlFor="directGatewayDomain"
             >
               {t("serversPage.create.directGateway.publicDomain")}
@@ -315,7 +316,7 @@ export function ServerCreateForm({
               inputMode="url"
               autoComplete="off"
               placeholder={t("serversPage.create.directGateway.publicDomainPlaceholder")}
-              className="mt-1 w-full rounded-lg border border-[var(--color-action-border)]/20 bg-[var(--surface-subtle)] px-3 py-2 text-xs text-[var(--text-primary)]"
+              className={cn(UI_INPUT, "mt-1 w-full text-xs")}
             />
             <p className="mt-1 text-xs leading-4 text-[var(--text-muted)]">
               {t("serversPage.create.directGateway.publicDomainHint")}
@@ -344,7 +345,7 @@ export function ServerCreateForm({
       <div className="space-y-1.5">
         {" "}
         <label
-          className="text-xs font-medium text-[var(--text-primary)]/70 "
+          className="ui-label"
           htmlFor="serverTags"
         >
           {t("serversPage.create.tags")}

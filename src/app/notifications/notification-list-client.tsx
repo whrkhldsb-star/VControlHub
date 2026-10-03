@@ -8,10 +8,11 @@ import { EmptyState, ToggleChip } from "@/components/page-shell";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { toDateLocale } from "@/lib/i18n/locale-format";
 import type { Locale } from "@/lib/i18n/translations";
-import { Check, X, AlertTriangle, ClipboardList, Download, Server, Bell } from "@/components/icons";
+import { AlertTriangle, Bell, Check, ChevronRight, ClipboardList, Download, Server, X } from "@/components/icons";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 import { Notice } from "@/components/ui-primitives";
+import { cn } from "@/lib/ui/cn";
 
 type NotificationItem = {
 	id: string;
@@ -80,7 +81,7 @@ const NotificationRow = memo(function NotificationRow({
 				<span className="text-lg mt-0.5 shrink-0" aria-hidden="true">{typeIcon[n.type] ?? <Bell size={18} aria-hidden="true" />}</span>
 				<div className="flex-1 min-w-0">
 					<div className="flex items-center gap-2 min-w-0">
-						<h3 className={`text-sm font-medium truncate ${n.isRead ? "text-[var(--text-muted)]" : "text-[var(--text-primary)]"}`} title={n.title}>{n.title}</h3>
+						<h3 className={cn("ui-title-group truncate", n.isRead && "font-medium text-[var(--text-muted)]")} title={n.title}>{n.title}</h3>
 						{!n.isRead && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" aria-hidden="true" />}
 					</div>
 					<p className="mt-1 text-xs text-[var(--text-muted)] leading-relaxed">{n.message}</p>
@@ -89,6 +90,7 @@ const NotificationRow = memo(function NotificationRow({
 						{n.actionUrl && (
 							<Link href={getSafeNotificationActionUrl(n.actionUrl)} className="rounded-lg px-1 py-0.5 font-medium text-[var(--accent)] transition hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40">
 								{t("notificationsPage.action.view")}
+								<ChevronRight size={12} aria-hidden className="ml-0.5 inline" />
 							</Link>
 						)}
 						{!n.isRead && (
@@ -96,9 +98,9 @@ const NotificationRow = memo(function NotificationRow({
 								{t("notificationsPage.action.markOne")}
 							</button>
 						)}
-						<button type="button" onClick={() => onDelete(n.id)} className="rounded-lg px-1 py-0.5 text-[var(--text-muted)] transition hover:text-[var(--danger)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--danger-border)] light:hover:text-[var(--danger)]" aria-label={t("notificationsPage.action.delete")}>
+						<ActionButton size="xs" variant="ghost" onClick={() => onDelete(n.id)} className="hover:text-[var(--danger)]">
 							{t("notificationsPage.action.delete")}
-						</button>
+						</ActionButton>
 					</div>
 				</div>
 			</div>

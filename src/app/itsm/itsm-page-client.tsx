@@ -161,10 +161,10 @@ export function ItsmPageClient({
 		<div className="space-y-6">
 			{canManage && (
 				<section data-card className="space-y-3">
-					<h2 className="text-base font-semibold">{t("itsmPage.form.title")}</h2>
+					<h2 className="ui-title-section">{t("itsmPage.form.title")}</h2>
 					<p className="text-sm text-[var(--text-muted)]">{t("itsmPage.form.desc")}</p>
 					<div className="grid gap-3 md:grid-cols-2">
-						<label className="space-y-1 text-sm">
+						<label className="ui-label space-y-1">
 							<span>{t("itsmPage.field.name")}</span>
 							<input
 								className={UI_INPUT}
@@ -173,7 +173,7 @@ export function ItsmPageClient({
 								placeholder={t("itsmPage.field.namePlaceholder")}
 							/>
 						</label>
-						<label className="space-y-1 text-sm">
+						<label className="ui-label space-y-1">
 							<span>{t("itsmPage.field.provider")}</span>
 							<select
 								className={UI_INPUT}
@@ -189,7 +189,7 @@ export function ItsmPageClient({
 								))}
 							</select>
 						</label>
-						<label className="space-y-1 text-sm">
+						<label className="ui-label space-y-1">
 							<span>{t("itsmPage.field.direction")}</span>
 							<select
 								className={UI_INPUT}
@@ -205,7 +205,7 @@ export function ItsmPageClient({
 								))}
 							</select>
 						</label>
-						<label className="space-y-1 text-sm">
+						<label className="ui-label space-y-1">
 							<span>{t("itsmPage.field.workspace")}</span>
 							<input
 								className={UI_INPUT}
@@ -214,7 +214,7 @@ export function ItsmPageClient({
 							/>
 						</label>
 						{form.provider !== "telegram" && (
-							<label className="space-y-1 text-sm md:col-span-2">
+							<label className="ui-label space-y-1 md:col-span-2">
 								<span>{t("itsmPage.field.webhookUrl")}</span>
 								<input
 									className={UI_INPUT}
@@ -226,7 +226,7 @@ export function ItsmPageClient({
 						)}
 						{form.provider === "telegram" && (
 							<>
-								<label className="space-y-1 text-sm">
+								<label className="ui-label space-y-1">
 									<span>{t("itsmPage.field.botToken")}</span>
 									<input
 										className={UI_INPUT}
@@ -234,7 +234,7 @@ export function ItsmPageClient({
 										onChange={(e) => setForm((c) => ({ ...c, botToken: e.target.value }))}
 									/>
 								</label>
-								<label className="space-y-1 text-sm">
+								<label className="ui-label space-y-1">
 									<span>{t("itsmPage.field.chatId")}</span>
 									<input
 										className={UI_INPUT}
@@ -244,7 +244,7 @@ export function ItsmPageClient({
 								</label>
 							</>
 						)}
-						<label className="space-y-1 text-sm md:col-span-2">
+						<label className="ui-label space-y-1 md:col-span-2">
 							<span>{t("itsmPage.field.webhookSecret")}</span>
 							<input
 								className={UI_INPUT}
@@ -265,7 +265,7 @@ export function ItsmPageClient({
 
 			<section data-card className="space-y-3">
 				<div className="flex items-center justify-between gap-2">
-					<h2 className="text-base font-semibold">
+					<h2 className="ui-title-section">
 						{t("itsmPage.list.title")} ({connections.length})
 					</h2>
 					<ActionButton size="sm" variant="ghost"
@@ -335,7 +335,7 @@ export function ItsmPageClient({
 			</section>
 
 			<section data-card className="space-y-3">
-				<h2 className="text-base font-semibold">{t("itsmPage.events.title")}</h2>
+				<h2 className="ui-title-section">{t("itsmPage.events.title")}</h2>
 				{events.length === 0 ? (
 					<p className="text-sm text-[var(--text-muted)]">{t("itsmPage.events.empty")}</p>
 				) : (

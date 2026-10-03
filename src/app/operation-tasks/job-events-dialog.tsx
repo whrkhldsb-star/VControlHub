@@ -8,9 +8,9 @@ import { formatDateTime } from "@/lib/datetime/format";
 import type { Locale } from "@/lib/i18n/translations";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
-import { IconButton, InlineLoading, Notice } from "@/components/ui-primitives";
-import { RefreshCw, X } from "@/components/icons";
-import { ModalShell } from "@/components/modal-shell";
+import { InlineLoading, Notice } from "@/components/ui-primitives";
+import { RefreshCw } from "@/components/icons";
+import { Dialog } from "@/components/ui/dialog";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
 
 type JobEventLevel = "info" | "warn" | "error";
@@ -189,31 +189,30 @@ export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) 
   if (!open || !jobId) return null;
 
   return (
-    <ModalShell
-      size="2xl" padded={false} className="flex min-w-0 flex-col overflow-hidden"
+    <Dialog
+      size="2xl"
       open={open}
       onClose={onClose}
-      labelledBy="job-events-dialog-title"
+      title={t("jobEventsDialog.title")}
+      description={<span className="break-words">{t("jobEventsDialog.subtitle", { id: jobId })}</span>}
+      closeLabel={t("jobEventsDialog.closeAria")}
+      closeButtonRef={closeButtonRef}
       initialFocusRef={closeButtonRef}
-    >
-        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[var(--border)] px-4 py-3 sm:px-5">
-          <div className="min-w-0">
-            <h2 id="job-events-dialog-title" className="text-sm font-semibold text-[var(--text-primary)]">
-              {t("jobEventsDialog.title")}
-            </h2>
-            <p className="mt-1 break-words text-xs text-[var(--text-muted)]">
-              {t("jobEventsDialog.subtitle", { id: jobId })}
-            </p>
-          </div>
-          <ActionButton variant="ghost"
-            ref={closeButtonRef}
-            onClick={onClose}
-            aria-label={t("jobEventsDialog.closeAria")} title={t("jobEventsDialog.closeAria")} className="h-10 w-10 shrink-0 !p-2"
-          >
-            <X size={18} aria-hidden />
+      footer={<>
+        <span className="text-xs text-[var(--text-muted)] sm:mr-auto sm:self-center">
+          {t("jobEventsDialog.totalCount", { count: events.length, more: hasMore ? t("jobEventsDialog.moreSuffix") : "" })}
+        </span>
+        <ActionButton variant="secondary" icon={<RefreshCw aria-hidden />} onClick={() => void load(false)} disabled={loading}>
+          {t("jobEventsDialog.refresh")}
+        </ActionButton>
+        {hasMore ? (
+          <ActionButton variant="secondary" onClick={() => void load(true)} disabled={loading}>
+            {t("jobEventsDialog.loadMore")}
           </ActionButton>
-        </div>
-        <div className="min-h-0 overflow-y-auto overscroll-contain px-4 py-3 sm:px-5" aria-busy={loading}>
+        ) : null}
+      </>}
+    >
+        <div aria-busy={loading}>
           {error ? <Notice tone="danger" compact>{error}</Notice> : null}
           {loading && events.length === 0 ? (
             <InlineLoading label={t("jobEventsDialog.loading")} />
@@ -222,7 +221,7 @@ export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) 
             <p className="text-sm text-[var(--text-muted)]">{t("jobEventsDialog.empty")}</p>
           ) : null}
           {events.length > 0 ? (
-            <ol className="divide-y divide-[var(--border)]">
+            <ol className="divide-y divide-[var(--border-subtle)]">
               {events.map((event) => {
                 const tone = levelTone(event.level);
                 const typeLabel = typeLabels[event.type] ?? event.type;
@@ -244,7 +243,7 @@ export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) 
                     </div>
                     <p className="mt-1 break-words text-[var(--text-secondary)]">{displayEventMessage(event, t)}</p>
                     {summary ? (
-                      <pre tabIndex={0} aria-label={typeLabel} className="mt-2 max-h-32 overflow-auto rounded-md bg-[var(--surface-subtle)] px-3 py-2 text-xs text-[var(--text-secondary)]">
+                      <pre tabIndex={0} aria-label={typeLabel} data-inset className="mt-2 max-h-32 overflow-auto px-3 py-2 font-mono text-xs text-[var(--text-secondary)]">
                         {summary}
                       </pre>
                     ) : null}
@@ -254,26 +253,6 @@ export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) 
             </ol>
           ) : null}
         </div>
-        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-[var(--border)] px-4 py-3 text-xs text-[var(--text-muted)] sm:px-5">
-          <span>{t("jobEventsDialog.totalCount", { count: events.length, more: hasMore ? t("jobEventsDialog.moreSuffix") : "" })}</span>
-          <div className="flex gap-2">
-            <IconButton label={t("jobEventsDialog.refresh")}
-              onClick={() => void load(false)}
-              disabled={loading}
-              className="h-10 w-10"
-            >
-              <RefreshCw size={16} aria-hidden />
-            </IconButton>
-            {hasMore ? (
-              <ActionButton variant="secondary"
-                onClick={() => void load(true)}
-                disabled={loading}
-              >
-                {t("jobEventsDialog.loadMore")}
-              </ActionButton>
-            ) : null}
-          </div>
-        </div>
-    </ModalShell>
+    </Dialog>
   );
 }

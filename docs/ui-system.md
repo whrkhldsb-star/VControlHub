@@ -92,10 +92,31 @@ checks the token file; `npm run ui:check` runs axe on every component state.
   works in server components; no "(click to expand)" in labels — the chevron
   says it.
 
+### Type scale
+
+Headings never size themselves: `ui-title-page` (h1, via `PageHeader`),
+`ui-title-section` (card and section titles), `ui-title-dialog`,
+`ui-title-group` (sub-sections, list item titles), `ui-title-caption` (small
+muted group labels), plus `ui-eyebrow`. Sizes are tokens in `tokens.css`.
+Field labels use `UI_LABEL` (= `ui-label`).
+
+### Choices
+
+- **`Chip`** — filter pills, multi-select toggles, suggestions (`selected`,
+  `tone`, `size`, `dashed`); `ToggleChip` is a control-height chip.
+- **`SegmentedControl`** — one value out of a few (toggle-button group with
+  the pills look; `block`, `compactLabels`, per-option `tone`).
+- **Selectable tiles** — `data-tile` (or `data-inset`) with `aria-pressed`,
+  `aria-checked` or `data-selected`; `CheckboxField variant="tile"`.
+- **Drop zones** — `data-dropzone` (+ `data-drag-over`).
+- **Batch action bars** — `data-action-bar`; position it at the call site.
+
 ### Status and feedback
 
 - **`StatusBadge`** — the state of a thing (online, failed, paused): pill
   with a dot. **`Badge`** — a label or tag (channel, category, count).
+- **`StatusScreen`** — whole-area message (404, offline, error boundary,
+  missing permission).
 - **`Notice`** — inline message with `tone` (`info`, `success`, `warning`,
   `danger`, `neutral`), optional `title`, `action` and dismiss. Use it instead
   of tinted boxes; whole cards are never coloured by state — put a
@@ -106,7 +127,8 @@ checks the token file; `npm run ui:check` runs axe on every component state.
 ### Dialogs
 
 - **`Dialog`** — content dialog: `title`, `description`, scrollable body,
-  `footer` for actions, `size`, `busy` (locks Escape/backdrop while a request
+  `footer` for actions (submit a form in the body with `form={id}`),
+  `eyebrow`, `headerActions`, `closeLabel`/`closeButtonRef`, `size`, `busy` (locks Escape/backdrop while a request
   runs), `placement="sheet"` for a bottom sheet on phones.
 - **`ConfirmDialog`** — destructive or important confirmations.
 - **`ModalShell`** — the primitive underneath, for custom layouts:
@@ -144,7 +166,8 @@ checks the token file; `npm run ui:check` runs axe on every component state.
 
 ### Page layout
 
-`PageShell` (width and gutters) → `PageHeader` (title, description, page
+`PageShell` (one frame for every page; `width="narrow"` caps reading-width
+pages but keeps them left-aligned) → `PageHeader` (title, description, page
 actions; link to another page only when it is the next step of this page's
 workflow — general navigation belongs to the sidebar and ⌘K) →
 `Toolbar` (filters and commands) → content. Inside the application shell the
@@ -192,7 +215,12 @@ breadcrumb names the area, so page eyebrows are hidden.
 - passes `overlayClassName` / `panelClassName` to `ModalShell` outside the
   allowlist, or hand-rolls a `fixed inset-0` overlay;
 - uses the legacy `data-primary` attribute;
-- starts a translated label with `+ `.
+- starts a translated label with `+ ` or an arrow (`→`, `←`);
+- sizes a heading without a `ui-title-*` class;
+- draws fields, buttons, button-styled links or surfaces with pasted
+  border + background + radius instead of `UI_INPUT`, the button components
+  or `data-card` / `data-inset` / `data-tile` / `data-popover`;
+- uses `ModalShell` directly for a content dialog, or `window.confirm`.
 
 `src/components/__tests__/data-tone-vocabulary.test.ts` keeps `data-tone` to
 the hue names that `globals.css` defines. Test helpers in

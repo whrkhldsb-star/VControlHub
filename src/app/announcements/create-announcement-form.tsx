@@ -58,16 +58,16 @@ export function CreateAnnouncementForm() {
 
 	return (
 		<form onSubmit={handleSubmit} data-card className="space-y-4">
-			<h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("announcementsPage.create.title")}</h2>
+			<h2 className="ui-title-section">{t("announcementsPage.create.title")}</h2>
 			{error && <p className="text-xs text-[var(--danger)] dark:text-[var(--danger)]">{error}</p>}
 			<div className="grid gap-3 md:grid-cols-2">
 				<div className="grid gap-1.5">
-					<label htmlFor={titleId} className="text-xs font-medium text-[var(--text-secondary)]">{t("announcementsPage.create.titleLabel")}</label>
+					<label htmlFor={titleId} className="ui-label">{t("announcementsPage.create.titleLabel")}</label>
 					<input id={titleId} name="title" required aria-describedby={`${titleId}-hint`} className={UI_INPUT} />
 					<p id={`${titleId}-hint`} className="text-xs text-[var(--text-muted)]">{t("announcementsPage.create.titleHint")}</p>
 				</div>
 				<div className="grid gap-1.5">
-					<label htmlFor={typeId} className="text-xs font-medium text-[var(--text-secondary)]">{t("announcementsPage.create.typeLabel")}</label>
+					<label htmlFor={typeId} className="ui-label">{t("announcementsPage.create.typeLabel")}</label>
 					<select id={typeId} name="type" defaultValue="info" className={UI_INPUT}>
 						<option value="info">{t("announcementsPage.level.info")}</option>
 						<option value="warning">{t("announcementsPage.level.warning")}</option>
@@ -77,18 +77,18 @@ export function CreateAnnouncementForm() {
 				</div>
 			</div>
 			<div className="grid gap-1.5">
-				<label htmlFor={contentId} className="text-xs font-medium text-[var(--text-secondary)]">{t("announcementsPage.create.contentLabel")}</label>
+				<label htmlFor={contentId} className="ui-label">{t("announcementsPage.create.contentLabel")}</label>
 				<textarea id={contentId} name="content" required rows={3} aria-describedby={`${contentId}-hint`} className={cn(UI_INPUT, "resize-y")} />
 				<p id={`${contentId}-hint`} className="text-xs text-[var(--text-muted)]">{t("announcementsPage.create.contentHint")}</p>
 			</div>
 			<div className="grid gap-3 md:grid-cols-2">
 				<div className="grid gap-1.5">
-					<label htmlFor={startsAtId} className="text-xs font-medium text-[var(--text-secondary)]">{t("announcementsPage.create.startsAtLabel")}</label>
+					<label htmlFor={startsAtId} className="ui-label">{t("announcementsPage.create.startsAtLabel")}</label>
 					<input id={startsAtId} type="datetime-local" name="startsAt" aria-describedby={`${startsAtId}-hint`} className={UI_INPUT} />
 					<p id={`${startsAtId}-hint`} className="text-xs text-[var(--text-muted)]">{t("announcementsPage.create.startsAtHint")}</p>
 				</div>
 				<div className="grid gap-1.5">
-					<label htmlFor={expiresAtId} className="text-xs font-medium text-[var(--text-secondary)]">{t("common.expiration")}</label>
+					<label htmlFor={expiresAtId} className="ui-label">{t("common.expiration")}</label>
 					<input id={expiresAtId} type="datetime-local" name="expiresAt" aria-describedby={`${expiresAtId}-hint`} className={UI_INPUT} />
 					<p id={`${expiresAtId}-hint`} className="text-xs text-[var(--text-muted)]">{t("announcementsPage.create.expiresAtHint")}</p>
 				</div>

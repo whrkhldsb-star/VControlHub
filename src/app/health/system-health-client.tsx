@@ -18,7 +18,7 @@ import { useHealthData } from "./use-health-data";
 import { Badge, Notice } from "@/components/ui-primitives";
 import { Toolbar, StatCard, StatGrid } from "@/components/page-shell";
 import { ActionButton, ButtonLink } from "@/components/action-button";
-import { RefreshCw } from "@/components/icons";
+import { ChevronRight, RefreshCw } from "@/components/icons";
 
 type Props = { initialSystemHealth?: SystemHealthReport | null };
 
@@ -68,7 +68,7 @@ export function SystemHealthClient({ initialSystemHealth }: Props) {
 						<RefreshCw size={16} aria-hidden className={isRefreshing ? "animate-spin" : undefined} />
 						{t("common.refresh")}
 					</ActionButton>
-					<ButtonLink variant="outline"
+					<ButtonLink variant="outline" iconRight={<ChevronRight aria-hidden />}
 						href="/vps-status">
 						{t("healthPage.ui.gotoVpsStatus")}
 					</ButtonLink>
@@ -108,7 +108,7 @@ export function SystemHealthClient({ initialSystemHealth }: Props) {
 							<p className="text-xs text-[var(--text-muted)]">
 								{t("healthPage.ui.selfCheck")}
 							</p>
-							<h2 className="mt-1 text-[15px] font-semibold text-[var(--text-primary)]">
+							<h2 className="ui-title-section mt-1">
 								{t("healthPage.ui.repairSuggestions")}
 							</h2>
 							<p className="mt-1 text-xs text-[var(--text-secondary)]">
@@ -124,7 +124,7 @@ export function SystemHealthClient({ initialSystemHealth }: Props) {
 							return (
 								<article key={item.id} data-card>
 									<div className="flex items-center justify-between gap-3">
-										<h3 className="text-sm font-semibold text-[var(--text-primary)]">
+										<h3 className="ui-title-group">
 											{item.label}
 										</h3>
 										<Badge tone={healthStatusBadgeTone(item.status)}>

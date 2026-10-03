@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
+import { UI_INPUT } from "@/lib/ui/classes";
+import { cn } from "@/lib/ui/cn";
 
 interface SharePasswordGateProps {
   token: string;
@@ -65,7 +67,7 @@ export function SharePasswordGate({ token, label, placeholder, submitLabel, fail
 
   return (
     <form className="space-y-3" onSubmit={handleSubmit}>
-      <label className="block text-xs text-[var(--text-secondary)]" htmlFor="share-access-password">
+      <label className="ui-label block" htmlFor="share-access-password">
         {label}
       </label>
       <div className="flex gap-2">
@@ -77,8 +79,7 @@ export function SharePasswordGate({ token, label, placeholder, submitLabel, fail
           value={pw}
           onChange={(e) => setPw(e.target.value)}
           placeholder={placeholder}
-          data-input
-          className="flex-1 rounded-lg border px-3 py-2 text-sm outline-none"
+          className={cn(UI_INPUT, "flex-1 text-sm")}
         />
         <ActionButton variant="primary"
           type="submit"

@@ -3,6 +3,8 @@
 import { useI18n } from "@/lib/i18n/use-locale";
 import { ArrowLeft, ChevronRight } from "./icons";
 import { IconButton } from "./ui-primitives";
+import { UI_INPUT } from "@/lib/ui/classes";
+import { cn } from "@/lib/ui/cn";
 
 export function Pagination({
   page,
@@ -39,7 +41,7 @@ export function Pagination({
             value={pageSize}
             disabled={loading}
             onChange={(event) => onPageSizeChange(Number(event.target.value))}
-            className="h-9 rounded-md border border-[var(--input-border)] bg-[var(--input-bg)] px-2"
+            className={cn(UI_INPUT, "h-9 w-auto")}
           >
             {[25, 50, 100, 200].map((size) => (
               <option key={size} value={size}>
@@ -79,7 +81,7 @@ export function Pagination({
             defaultValue={page}
             disabled={loading}
             aria-label={t("common.pagination.page")}
-            className="h-9 w-16 rounded-md border border-[var(--input-border)] bg-[var(--input-bg)] px-2 text-center tabular-nums"
+            className={cn(UI_INPUT, "h-9 w-16 text-center tabular-nums")}
           />
           <span className="tabular-nums">/ {pages}</span>
           <IconButton
