@@ -210,13 +210,16 @@ async function seedAdmin() {
 
 /** Fresh installations start inside one workspace, not an unscoped data pool. */
 async function seedDefaultWorkspace(): Promise<string | null> {
+  // Sample the whole table (not findMany take:2): soft-deleted teams
+  // (__deleted__ slug) from e2e runs made the take-2 sample all-deleted,
+  // sending the flow into the create branch, which then tripped P2002 on
+  // the existing "default" slug and aborted deploys.
   const teams = await prisma.team.findMany({
     select: { id: true, slug: true },
-    take: 2,
   });
   const live = teams.filter((team) => !team.slug.startsWith("__deleted__"));
   if (live.length > 0) {
-    if (teams.length !== 1) return null;
+    if (live.length !== 1) return null;
     const teamId = live[0]!.id;
     const admin = await prisma.user.findUniqueOrThrow({
       where: { username: ADMIN_BOOTSTRAP.username },
