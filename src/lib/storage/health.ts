@@ -67,6 +67,8 @@ export async function probeAllStaleStorageNodes(): Promise<{
 	const candidates = await prisma.storageNode.findMany({
 		select: { id: true },
 		where: {
+			// Tombstoned workspaces retain data but no longer have live storage.
+			team: { isNot: { slug: { startsWith: "__deleted__" } } },
 			OR: [
 				{ lastHealthCheckAt: null },
 				{ lastHealthCheckAt: { lt: cutoff } },

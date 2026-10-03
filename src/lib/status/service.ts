@@ -48,7 +48,13 @@ export async function getPublicStatus() {
 	}
 	const [serverCount, storageNodes] = await Promise.all([
 		prisma.server.count({ where: { enabled: true } }).catch(() => 0),
-		prisma.storageNode.findMany({ select: { healthStatus: true, lastHealthCheckAt: true }, take: 500 }).catch(() => []),  // P2: storage node 总数有限
+		prisma.storageNode.findMany({
+			// Deleted workspaces retain their records for ownership history.
+			// Their retired storage must not affect the live service's status.
+			where: { team: { isNot: { slug: { startsWith: "__deleted__" } } } },
+			select: { healthStatus: true, lastHealthCheckAt: true },
+			take: 500,
+		}).catch(() => []),  // P2: storage node 总数有限
 	]);
 	checks.push({
 		id: "servers",
@@ -94,7 +100,10 @@ export async function getPublicStatusSummary() {
 	try {
 		await prisma.$queryRaw`SELECT 1`;
 		const unhealthyStorage = await prisma.storageNode.count({
-			where: { healthStatus: "UNHEALTHY" },
+			where: {
+				healthStatus: "UNHEALTHY",
+				team: { isNot: { slug: { startsWith: "__deleted__" } } },
+			},
 		});
 		if (unhealthyStorage > 0) overall = "warning";
 	} catch {
