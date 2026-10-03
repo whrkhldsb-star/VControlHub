@@ -205,7 +205,9 @@ test("user create, password reset, disable and enable", async ({ page }) => {
 
 test("backup schedule create, pause and delete without running backup", async ({ page }) => {
 	await page.goto("/backups");
-	await page.getByText(/定时备份|Scheduled backups/i).click();
+	// Section titles are <h2> inside <summary>; a bare getByText regex also
+	// matches the card description paragraph ("...辅助规划定时备份...").
+	await page.getByRole("heading", { name: /定时备份|Scheduled backups/i }).click();
 	await page.locator("#schedule-backup-name").fill(marker);
 	await page.locator("#schedule-backup-cron").fill("0 0 31 12 *");
 	await page.locator("#schedule-backup-retention").fill("1");
