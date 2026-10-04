@@ -68,7 +68,7 @@ export async function probeAllStaleStorageNodes(): Promise<{
 		select: { id: true },
 		where: {
 			// Tombstoned workspaces retain data but no longer have live storage.
-			team: { isNot: { slug: { startsWith: "__deleted__" } } },
+			team: { isNot: { slug: { startsWith: "\\_\\_deleted\\_\\_" } } },
 			OR: [
 				{ lastHealthCheckAt: null },
 				{ lastHealthCheckAt: { lt: cutoff } },

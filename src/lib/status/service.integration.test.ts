@@ -28,7 +28,8 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("retired wor
 			throw new Error("Storage health regression requires an isolated database");
 		}
 		await prisma.team.createMany({ data: [
-			{ id: activeTeam, name: prefix, slug: activeTeam },
+			// LIKE treats underscores as wildcards; this is a live, valid slug.
+			{ id: activeTeam, name: prefix, slug: `abdeletedcd-${prefix}` },
 			{ id: deletedTeam, name: prefix, slug: `__deleted__${prefix}` },
 		] });
 		await prisma.storageNode.createMany({ data: [
