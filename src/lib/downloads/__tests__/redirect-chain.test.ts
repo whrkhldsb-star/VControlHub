@@ -4,6 +4,7 @@ const dns = vi.hoisted(() => ({ lookup: vi.fn() }));
 vi.mock("node:dns/promises", () => ({ lookup: dns.lookup, default: { lookup: dns.lookup } }));
 
 import { resolveDownloadRedirects } from "../redirect-chain";
+import type { DownloadSourceResolution } from "../source-url";
 
 const PUBLIC: Record<string, string> = {
 	"downloads.example.com": "203.0.113.10",
@@ -22,7 +23,7 @@ beforeEach(() => {
 
 describe("resolveDownloadRedirects", () => {
 	it("follows a public redirect chain hop by hop, pinning each validated address", async () => {
-		const probe = vi.fn(async (url: string) => (url.includes("downloads.example.com") ? "https://cdn.example.net/file.iso" : null));
+		const probe = vi.fn(async (url: string, _resolution: DownloadSourceResolution) => (url.includes("downloads.example.com") ? "https://cdn.example.net/file.iso" : null));
 		await expect(resolveDownloadRedirects("https://downloads.example.com/latest", { probe })).resolves.toEqual({ ok: true, url: "https://cdn.example.net/file.iso" });
 		expect(probe.mock.calls.map(([, resolution]) => resolution.address)).toEqual(["203.0.113.10", "203.0.113.20"]);
 	});
