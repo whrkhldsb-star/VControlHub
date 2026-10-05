@@ -118,19 +118,19 @@ describe("share link service", () => {
 
   it("rejects password-protected shares when no password provided", async () => {
     const { hashSharePassword } = await import("../service");
-    mockPrisma.shareLink.findUnique.mockResolvedValue({ id: "share1", tokenHash: "x", expiresAt: null, revokedAt: null, maxDownloads: null, accessCount: 0, passwordHash: hashSharePassword("s3cret") });
+    mockPrisma.shareLink.findUnique.mockResolvedValue({ id: "share1", tokenHash: "x", expiresAt: null, revokedAt: null, maxDownloads: null, accessCount: 0, passwordHash: await hashSharePassword("s3cret") });
     await expect(resolveShareToken("abc")).rejects.toThrow();
   });
 
   it("rejects password-protected shares with wrong password", async () => {
     const { hashSharePassword } = await import("../service");
-    mockPrisma.shareLink.findUnique.mockResolvedValue({ id: "share1", tokenHash: "x", expiresAt: null, revokedAt: null, maxDownloads: null, accessCount: 0, passwordHash: hashSharePassword("s3cret") });
+    mockPrisma.shareLink.findUnique.mockResolvedValue({ id: "share1", tokenHash: "x", expiresAt: null, revokedAt: null, maxDownloads: null, accessCount: 0, passwordHash: await hashSharePassword("s3cret") });
     await expect(resolveShareToken("abc", "wrong")).rejects.toThrow();
   });
 
   it("allows password-protected shares with correct password", async () => {
     const { hashSharePassword } = await import("../service");
-    mockPrisma.shareLink.findUnique.mockResolvedValue({ id: "share1", tokenHash: "x", expiresAt: null, revokedAt: null, maxDownloads: null, accessCount: 0, passwordHash: hashSharePassword("s3cret") });
+    mockPrisma.shareLink.findUnique.mockResolvedValue({ id: "share1", tokenHash: "x", expiresAt: null, revokedAt: null, maxDownloads: null, accessCount: 0, passwordHash: await hashSharePassword("s3cret") });
     mockPrisma.shareLink.update.mockResolvedValue({ id: "share1" });
     mockPrisma.shareAccessLog.create.mockResolvedValue({ id: "log1" });
     const result = await resolveShareToken("abc", "s3cret");
@@ -223,7 +223,7 @@ describe("share link service", () => {
       tokenHash: "x",
       expiresAt: null,
       revokedAt: null,
-      passwordHash: hashSharePassword("s3cret"),
+      passwordHash: await hashSharePassword("s3cret"),
       permissionLevel: "download",
       entryType: "DIRECTORY",
       name: "Secret folder",
