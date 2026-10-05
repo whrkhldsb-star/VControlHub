@@ -88,6 +88,9 @@ vi.mock("@/lib/storage/access-control", () => ({ assertStorageAccess: assertStor
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 vi.mock("@/lib/logging", () => ({ logError: logErrorMock, createLogger: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) }));
 vi.mock("@/lib/audit/service", () => ({ auditUserAction: auditUserActionMock }));
+vi.mock("@/lib/downloads/redirect-chain", () => ({
+	resolveDownloadRedirects: vi.fn(async (url: string) => ({ ok: true, url })),
+}));
 vi.mock("@/lib/aria2/service", () => ({
   ensureAria2Daemon: ensureAria2DaemonMock,
   addUri: addUriMock,
