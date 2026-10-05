@@ -11,6 +11,11 @@ export function withApiCopyLocale<T>(locale: Locale, callback: () => T): T {
   return localeStore.run(locale, callback);
 }
 
+/** The locale of the API request being handled, or undefined outside one (workers, gateways). */
+export function currentApiRequestLocale(): Locale | undefined {
+  return localeStore.getStore();
+}
+
 export function apiCopy(key: keyof typeof en | string, vars?: Record<string, string | number>): string {
   const locale = localeStore.getStore() ?? "en";
   const value = (locale === "zh" ? (zh as Record<string, string>)[key] : (en as Record<string, string>)[key]) ?? key;
