@@ -181,6 +181,15 @@ export const config = {
 		get imageUploadDir(): string | undefined { return readOptionalString("IMAGE_UPLOAD_DIR"); },
 		/** Local storage root for hub-side paths (VPS backup cache, etc.). */
 		get root(): string | undefined { return readOptionalString("VCH_STORAGE_ROOT"); },
+		/**
+		 * Largest file a chunked storage upload may carry (default 2 GiB).
+		 * Chunks stream to disk and are assembled by streaming, so this bounds
+		 * disk use, not memory; uploads also need free space on the upload temp
+		 * directory (see assertUploadDiskHeadroom).
+		 */
+		get uploadMaxBytes(): number {
+			return Math.min(Math.max(readInt("STORAGE_UPLOAD_MAX_BYTES", 2 * 1024 ** 3), 1024 ** 2), 1024 ** 4);
+		},
 	},
 
 	/** Media (image-bed thumbnails, transcodes). */

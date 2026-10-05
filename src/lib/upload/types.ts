@@ -18,7 +18,8 @@ export const DEFAULT_CHUNK_SIZE = 5 * 1024 * 1024;
 
 /** Hard cap on total upload size: 200 MiB. Above this we require the
  *  admin to use direct storage node upload instead. */
-export const MAX_TOTAL_SIZE = 200 * 1024 * 1024;
+/** Default storage upload cap; the server reads STORAGE_UPLOAD_MAX_BYTES (getStorageUploadMaxBytes). */
+export const MAX_TOTAL_SIZE = 2 * 1024 * 1024 * 1024;
 
 /** Image decoding and variant generation happen in memory, so image uploads
  *  have a lower cap than ordinary resumable storage uploads. */

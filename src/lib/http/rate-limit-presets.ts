@@ -40,6 +40,13 @@ export const GENERAL_READ_LIMIT: RateLimitConfig = { maxRequests: 120, windowMs:
 /** General API write: 30 per minute per IP */
 export const GENERAL_WRITE_LIMIT: RateLimitConfig = { maxRequests: 30, windowMs: 60_000 };
 
+/**
+ * Chunk PUTs of a resumable upload. Each chunk is up to 5 MiB by default, so
+ * GENERAL_WRITE_LIMIT (30/min) capped one user's upload at ~2.5 MiB/s; 240/min
+ * sustains ~20 MiB/s while still bounding request floods.
+ */
+export const UPLOAD_CHUNK_LIMIT: RateLimitConfig = { maxRequests: 240, windowMs: 60_000 };
+
 /** Browser telemetry: allow several samples per navigation, including shared-NAT clients. */
 export const WEB_VITALS_WRITE_LIMIT: RateLimitConfig = { maxRequests: 1_000, windowMs: 60_000 };
 

@@ -73,4 +73,23 @@ describe("upload init schemas relativePath guards", () => {
 			}).success,
 		).toBe(true);
 	});
+
+	it("caps storage uploads at STORAGE_UPLOAD_MAX_BYTES", () => {
+		const previous = process.env.STORAGE_UPLOAD_MAX_BYTES;
+		process.env.STORAGE_UPLOAD_MAX_BYTES = String(5 * 1024 * 1024);
+		try {
+			const input = (totalSize: number) => ({
+				filename: "big.bin",
+				mimeType: "application/octet-stream",
+				totalSize,
+				storageNodeId: "node_1",
+				relativePath: "big.bin",
+			});
+			expect(initStorageUploadSchema.safeParse(input(5 * 1024 * 1024)).success).toBe(true);
+			expect(initStorageUploadSchema.safeParse(input(5 * 1024 * 1024 + 1)).success).toBe(false);
+		} finally {
+			if (previous === undefined) delete process.env.STORAGE_UPLOAD_MAX_BYTES;
+			else process.env.STORAGE_UPLOAD_MAX_BYTES = previous;
+		}
+	});
 });

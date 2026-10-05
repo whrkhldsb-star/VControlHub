@@ -16,6 +16,7 @@ import * as crypto from "node:crypto";
 import { createReadStream, createWriteStream } from "node:fs";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
+import { freeBytesOn, getStorageUploadMaxBytes, requiredUploadHeadroom } from "./limits";
 import {
 	mkdir,
 	readdir,
@@ -37,7 +38,7 @@ import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import {
 	DEFAULT_CHUNK_SIZE,
 	DEFAULT_SESSION_TTL_MS,
-	MAX_TOTAL_SIZE,
+	MAX_IMAGE_UPLOAD_BYTES,
 	type InitMediaUploadInput,
 	type MediaUploadSessionView,
 } from "./types";
@@ -138,10 +139,21 @@ export async function initMediaUploadSession(
 	input: InitMediaUploadInput,
 ): Promise<MediaUploadSessionView> {
 	const chunkSize = input.chunkSize ?? DEFAULT_CHUNK_SIZE;
-	if (input.totalSize > MAX_TOTAL_SIZE) {
+	const maxBytes = getStorageUploadMaxBytes();
+	if (input.totalSize > maxBytes) {
 		throw new MediaUploadError(
 			"total_size_too_large",
-			`totalSize ${input.totalSize} exceeds limit ${MAX_TOTAL_SIZE}`,
+			`totalSize ${input.totalSize} exceeds limit ${maxBytes}`,
+		);
+	}
+	// Admission: refuse an upload the temp volume cannot hold instead of
+	// failing it hours later with ENOSPC (and filling the disk on the way).
+	await mkdir(UPLOAD_TMP_DIR, { recursive: true }).catch(() => undefined);
+	const freeBytes = await freeBytesOn(UPLOAD_TMP_DIR);
+	if (freeBytes !== null && freeBytes < requiredUploadHeadroom(input.totalSize)) {
+		throw new MediaUploadError(
+			"insufficient_storage",
+			`Not enough free disk space for this upload (${freeBytes} bytes free)`,
 		);
 	}
 	const totalChunks = Math.max(1, Math.ceil(input.totalSize / chunkSize));
@@ -334,7 +346,9 @@ export async function assembleMediaUploadChunks(
 	}
 
 	const totalSize = Number(row.totalSize);
-	if (!Number.isSafeInteger(totalSize) || totalSize < 0 || totalSize > MAX_TOTAL_SIZE) {
+	// In-memory assembly is for images only; storage uploads stream to a file
+	// (assembleMediaUploadToFile) and may be far larger.
+	if (!Number.isSafeInteger(totalSize) || totalSize < 0 || totalSize > MAX_IMAGE_UPLOAD_BYTES) {
 		throw new MediaUploadError("total_size_too_large", "Invalid assembled upload size");
 	}
 	// Keep one output buffer plus the current chunk, instead of two full copies.
@@ -360,7 +374,7 @@ export async function assembleMediaUploadToFile(sessionId: string, userId: strin
 	const row = await prisma.mediaUploadSession.findFirst({ where: { id: sessionId, userId, status: "FINALIZING" } });
 	if (!row || row.status !== "FINALIZING") throw new MediaUploadError("session_not_active", "Upload finalization is not owned by this caller");
 	const totalSize = Number(row.totalSize);
-	if (!Number.isSafeInteger(totalSize) || totalSize < 0 || totalSize > MAX_TOTAL_SIZE || !Number.isSafeInteger(row.chunkSize) || row.chunkSize < 1 || row.totalChunks !== Math.ceil(totalSize / row.chunkSize)) {
+	if (!Number.isSafeInteger(totalSize) || totalSize < 0 || totalSize > getStorageUploadMaxBytes() || !Number.isSafeInteger(row.chunkSize) || row.chunkSize < 1 || row.totalChunks !== Math.ceil(totalSize / row.chunkSize)) {
 		throw new MediaUploadError("total_size_too_large", "Invalid assembled upload size");
 	}
 	const received = new Set(row.receivedChunks);

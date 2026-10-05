@@ -16,10 +16,10 @@ import {
 	DEFAULT_CHUNK_SIZE,
 	MAX_CHUNK_SIZE,
 	MAX_IMAGE_UPLOAD_BYTES,
-	MAX_TOTAL_SIZE,
 	MIN_CHUNK_SIZE,
 	STORAGE_ALLOWED_MIME_PATTERN,
 } from "./types";
+import { getStorageUploadMaxBytes } from "./limits";
 
 /** Media init stores a target *directory* (filename is joined later). */
 const mediaRelativePathSchema = z
@@ -88,8 +88,10 @@ const mediaTotalSizeSchema = baseTotalSizeSchema.max(
 	`totalSize cannot exceed ${MAX_IMAGE_UPLOAD_BYTES} bytes`,
 );
 
-const storageTotalSizeSchema = baseTotalSizeSchema
-	.max(MAX_TOTAL_SIZE, `totalSize cannot exceed ${MAX_TOTAL_SIZE} bytes`);
+const storageTotalSizeSchema = baseTotalSizeSchema.superRefine((value, ctx) => {
+	const max = getStorageUploadMaxBytes();
+	if (value > max) ctx.addIssue({ code: "custom", message: `totalSize cannot exceed ${max} bytes` });
+});
 
 const chunkSizeSchema = z
 	.number()
