@@ -25,6 +25,7 @@ import {
 } from "@/lib/backup/vps-backup-service";
 import { abandonStaleRunningBackupRecords } from "@/lib/backup/service";
 import { pruneAuditLogs } from "@/lib/audit/retention";
+import { pruneLogTables } from "@/lib/data-retention/log-retention";
 import { reconcileStaleRunningDownloadTasks } from "@/lib/downloads/reconcile";
 import { recoverInterruptedFinalizations } from "@/lib/upload/finalization-lease";
 import { sweepExpiredMediaUploadSessions } from "@/lib/upload/service";
@@ -287,6 +288,18 @@ async function tick(reason: string) {
     // job-worker's own sweep only clears stale PENDING, and a worker killed
     // mid-run (OOM/SIGKILL) strands the record RUNNING forever — un-voidable and
     // un-retryable. Reap them here alongside the VPS RUNNING reaper.
+    // Append-only history tables (agent jobs, playbook runs, sync logs, share
+    // access logs, ITSM events, finished upload sessions, billing sync runs)
+    // had no cleanup path at all; prune their terminal rows past retention.
+    await runStep("prune-log-tables", async () => {
+      const pruned = await pruneLogTables();
+      if (Object.keys(pruned.deleted).length > 0 || pruned.truncated.length > 0) {
+        logger.info("pruned history tables", { workerId: WORKER_ID, ...pruned });
+      }
+      const failed = Object.keys(pruned.failed);
+      if (failed.length > 0) throw new Error(`history prune failed for ${failed.join(", ")}`);
+    });
+
     await runStep("abandon-stale-running-backups", async () => {
       const abandoned = await abandonStaleRunningBackupRecords();
       if (abandoned.abandoned > 0) {

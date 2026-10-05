@@ -198,6 +198,20 @@ export const config = {
 		get thumbCacheDir(): string | undefined { return readOptionalString("MEDIA_THUMB_CACHE_DIR"); },
 	},
 
+	/** History-table retention (src/lib/data-retention/log-retention.ts). */
+	retention: {
+		/**
+		 * LOG_RETENTION_DAYS overrides every history table's default retention
+		 * (30–180 days by table); 0 disables pruning. Unset = per-table defaults.
+		 */
+		get logRetentionDays(): number | null {
+			const raw = readOptionalString("LOG_RETENTION_DAYS");
+			if (raw === undefined) return null;
+			const days = Number(raw);
+			return Number.isSafeInteger(days) && days >= 0 ? days : null;
+		},
+	},
+
 	/** Audit log lifecycle. audit_logs is the fastest-growing table in the
 	 * schema (one row per login, command, file operation) and had no retention
 	 * path — without a bound it eventually dominates the shared instance. */
