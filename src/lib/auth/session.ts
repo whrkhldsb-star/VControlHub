@@ -148,6 +148,40 @@ function credentialFingerprint(passwordHash: string): string {
     .slice(0, 22);
 }
 
+/** The credential state actually proved by a login, before asynchronous work. */
+export type SessionCredentialBinding = { fingerprint: string; epoch: number };
+
+// Keep the credential proof server-side and out of serialized session props.
+// The same session object flows from the API guard to its handler.
+const verifiedSessionBindings = new WeakMap<SessionPayload, SessionCredentialBinding>();
+
+export function assertSessionCredentialBinding(
+  session: SessionPayload,
+  user: { passwordHash: string; sessionEpoch: number },
+): void {
+  const binding = verifiedSessionBindings.get(session);
+  if (!binding || binding.fingerprint !== credentialFingerprint(user.passwordHash)
+    || binding.epoch !== user.sessionEpoch) {
+    throw new AuthError(t("backend.auth.sessionCredentialsChanged"));
+  }
+}
+
+export function captureSessionCredentialBinding(user: {
+  passwordHash: string;
+  sessionEpoch: number;
+}): SessionCredentialBinding {
+  return { fingerprint: credentialFingerprint(user.passwordHash), epoch: user.sessionEpoch ?? 0 };
+}
+
+function credentialBindingMatches(
+  binding: SessionCredentialBinding,
+  user: { passwordHash: string; sessionEpoch: number; status: string } | null,
+): boolean {
+  return Boolean(user && user.status !== "DISABLED"
+    && binding.fingerprint === credentialFingerprint(user.passwordHash)
+    && binding.epoch === (user.sessionEpoch ?? 0));
+}
+
 export function getSessionCookieName() {
   return config.auth.sessionCookieName || `${getAppSlug()}_session`;
 }
@@ -172,7 +206,10 @@ function getSessionIdentity() {
   return { issuer, audience };
 }
 
-export async function createSessionToken(payload: SessionPayload, options: { remember?: boolean } = {}) {
+export async function createSessionToken(payload: SessionPayload, options: {
+  remember?: boolean;
+  credentialBinding?: SessionCredentialBinding;
+} = {}) {
   const now = Date.now();
   const ttlMs = (await getConfiguredSessionTtlSeconds(options.remember === true)) * 1000;
   const { issuer, audience } = getSessionIdentity();
@@ -180,8 +217,13 @@ export async function createSessionToken(payload: SessionPayload, options: { rem
   // keeps working unchanged. This runs once per login, not per request.
   const credentialOwner = await prisma.user.findUnique({
     where: { id: payload.userId },
-    select: { passwordHash: true, sessionEpoch: true },
+    select: { passwordHash: true, sessionEpoch: true, status: true },
   });
+  // Never turn proof of an old password/second factor into a session bound to
+  // newer credentials when a reset or revocation races this login.
+  if (options.credentialBinding && !credentialBindingMatches(options.credentialBinding, credentialOwner)) {
+    throw new AuthError(t("backend.auth.sessionCredentialsChanged"));
+  }
   const envelope: SessionTokenEnvelope = {
     ...payload,
     iss: issuer,
@@ -327,7 +369,7 @@ export async function verifySessionToken(token: string) {
    } : null,
  });
 
- return {
+ const session = {
  userId: user.id,
  username: user.username,
  roles,
@@ -336,6 +378,8 @@ export async function verifySessionToken(token: string) {
  currentTeamId,
  currentTeamRole: membership?.role ?? null,
  } satisfies SessionPayload;
+ verifiedSessionBindings.set(session, captureSessionCredentialBinding(user));
+ return session;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -355,13 +399,26 @@ export type Pending2faSessionPayload = SessionPayload & {
 type Pending2faPayload = Pending2faSessionPayload & {
  pending2fa: true;
  nonce: string;
+ cfp: string;
+ sep: number;
 };
 
 export function getPending2faCookieName() {
 	return `${getAppSlug()}_pending_2fa`;
 }
 
-export async function createPending2faToken(payload: Pending2faSessionPayload): Promise<string> {
+export async function createPending2faToken(payload: Pending2faSessionPayload, options: {
+  credentialBinding?: SessionCredentialBinding;
+} = {}): Promise<string> {
+	const user = await prisma.user.findUnique({
+		where: { id: payload.userId },
+		select: { passwordHash: true, sessionEpoch: true, status: true },
+	});
+	if (!user || user.status === "DISABLED"
+		|| (options.credentialBinding && !credentialBindingMatches(options.credentialBinding, user))) {
+		throw new AuthError(t("backend.auth.sessionCredentialsChanged"));
+	}
+	const binding = captureSessionCredentialBinding(user);
 	const now = Date.now();
 	const nonce = randomBytes(16).toString("hex");
 	const { issuer, audience } = getSessionIdentity();
@@ -369,6 +426,8 @@ export async function createPending2faToken(payload: Pending2faSessionPayload): 
 		...payload,
 		pending2fa: true,
 		nonce,
+		cfp: binding.fingerprint,
+		sep: binding.epoch,
 		iss: issuer,
 		aud: `${audience}-pending-2fa`,
 		iat: now,
@@ -377,7 +436,9 @@ export async function createPending2faToken(payload: Pending2faSessionPayload): 
 	return signHmacToken(envelope, getSessionSecret());
 }
 
-export async function verifyPending2faToken(token: string): Promise<Pending2faSessionPayload | null> {
+export async function verifyPending2faToken(token: string): Promise<(Pending2faSessionPayload & {
+	credentialBinding: SessionCredentialBinding;
+}) | null> {
 	try {
 		const [encodedPayload, providedSignature] = token.split(".");
 		if (!encodedPayload || !providedSignature) return null;
@@ -388,8 +449,17 @@ export async function verifyPending2faToken(token: string): Promise<Pending2faSe
 
 		const { issuer, audience } = getSessionIdentity();
 		if (payload.iss !== issuer || payload.aud !== `${audience}-pending-2fa`) return null;
-		if (payload.exp <= Date.now()) return null;
+		if (!Number.isFinite(payload.exp) || payload.exp <= Date.now()) return null;
 		if (!payload.pending2fa) return null;
+		// Pre-binding pending cookies expire within five minutes. Fail closed so
+		// a password reset or "sign out everywhere" also retires that login stage.
+		if (typeof payload.cfp !== "string" || !Number.isSafeInteger(payload.sep)) return null;
+		const credentialBinding = { fingerprint: payload.cfp, epoch: payload.sep };
+		const user = await prisma.user.findUnique({
+			where: { id: payload.userId },
+			select: { passwordHash: true, sessionEpoch: true, status: true },
+		});
+		if (!credentialBindingMatches(credentialBinding, user)) return null;
 
 		return {
 			userId: payload.userId,
@@ -398,6 +468,7 @@ export async function verifyPending2faToken(token: string): Promise<Pending2faSe
 			mustChangePassword: payload.mustChangePassword,
 			currentTeamId: payload.currentTeamId ?? null,
 			remember: payload.remember === true,
+			credentialBinding,
 		};
 	} catch {
 		return null;

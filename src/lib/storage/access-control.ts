@@ -1,3 +1,4 @@
+import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { Prisma } from "@prisma/client";
 
 import { config } from "@/lib/config/env";
@@ -110,7 +111,7 @@ async function getGrantUsageBytes(input: { storageNodeId: string; pathPrefix: st
         ? {
             OR: [
               { relativePath: normalizedPrefix },
-              { relativePath: { startsWith: `${normalizedPrefix}/` } },
+              { relativePath: { startsWith: escapeLikeLiteral(`${normalizedPrefix}/`) } },
             ],
           }
         : {}),

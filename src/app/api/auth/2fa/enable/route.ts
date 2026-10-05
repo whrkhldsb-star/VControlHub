@@ -15,7 +15,7 @@ import { verify as verifyTOTP } from "otplib";
 import { openTwoFactorEnrollmentToken } from "@/lib/auth/two-factor-enrollment";
 import { sealTwoFactorSecret } from "@/lib/auth/two-factor-secret";
 import { createTwoFactorRecoveryCodes } from "@/lib/auth/two-factor-recovery";
-import { bumpUserSessionEpoch } from "@/lib/auth/session";
+import { updateTwoFactorCredentials } from "@/lib/auth/two-factor-settings";
 import { refreshedSessionResponse } from "@/lib/auth/refreshed-session-response";
 import { auditUserAction } from "@/lib/audit/service";
 import { prisma } from "@/lib/db";
@@ -23,7 +23,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 
-import { ValidationError } from "@/lib/errors";
+import { AuthError, ValidationError } from "@/lib/errors";
 const enableSchema = z.object({
   code: z.string().min(1),
   enrollmentToken: z.string().min(1),
@@ -47,8 +47,9 @@ export async function POST(request: Request) {
       // silently replace the authenticator seed.
       const existing = await prisma.user.findUnique({
         where: { id: session.userId },
-        select: { twoFactorEnabled: true, twoFactorSecret: true },
+        select: { twoFactorEnabled: true, twoFactorSecret: true, passwordHash: true, sessionEpoch: true },
       });
+      if (!existing) throw new AuthError(t("backend.auth.sessionCredentialsChanged", locale));
       if (existing?.twoFactorEnabled && existing.twoFactorSecret) {
         return NextResponse.json(
           {
@@ -76,19 +77,15 @@ export async function POST(request: Request) {
       const recovery = createTwoFactorRecoveryCodes();
 
       // Encrypt at rest — DB dumps / backups must not yield usable TOTP seeds.
-      await prisma.user.update({
-        where: { id: session.userId },
-        data: {
+      const credentialBinding = await updateTwoFactorCredentials(session, existing, {
           twoFactorEnabled: true,
           twoFactorSecret: sealTwoFactorSecret(secret),
           twoFactorRecoveryCodes: recovery.hashes,
-        },
       });
 
       // Sessions minted before this upgrade never passed a second factor.
-      // Advancing the epoch retires them all; a replacement cookie minted
+      // The atomic epoch increment retires them all; a replacement cookie minted
       // against the new epoch keeps *this* browser logged in.
-      await bumpUserSessionEpoch(session.userId);
 
       await auditUserAction(
         session.userId,
@@ -103,7 +100,7 @@ export async function POST(request: Request) {
       return refreshedSessionResponse(session, request, {
         success: true,
         recoveryCodes: recovery.codes,
-      });
+      }, credentialBinding);
     },
   );
 }

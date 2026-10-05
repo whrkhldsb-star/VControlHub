@@ -36,6 +36,7 @@ const MAX_RDP_SESSIONS = 20;
  * ticket TTL — a healthy browser connects immediately after minting).
  */
 const PRE_AUTH_WINDOW_MS = 10_000;
+const AUTHORIZATION_TIMEOUT_MS = 5_000;
 /** Shares the existing loopback SSH service, but never its protocol or credentials. */
 export function setupRdpWebSocket(server: HttpServer) {
  const wss = new WebSocketServer({ noServer: true, maxPayload: 16_384, perMessageDeflate: false,
@@ -61,6 +62,7 @@ export function setupRdpWebSocket(server: HttpServer) {
   let stopped = false;
   let revalidate: (() => Promise<void>) | undefined;
   let validating = false;
+  let authorizationDeadline = 0;
   let started = false;
   let tunnelPaused = false;
   let lastInput = Date.now();
@@ -85,8 +87,12 @@ export function setupRdpWebSocket(server: HttpServer) {
   const timer = setInterval(() => {
    if (stopped) return;
    if (!authenticated && Date.now() - openedAt > PRE_AUTH_WINDOW_MS) { close("RDP authentication timed out", 1008); return; }
+   // A stalled database query must not suspend revocation checks forever.
+   // This watchdog runs independently of the pending authorization promise.
+   if (validating && Date.now() >= authorizationDeadline) { close("RDP session authorization expired", 1008); return; }
    if (revalidate && !validating) {
     validating = true;
+    authorizationDeadline = Date.now() + AUTHORIZATION_TIMEOUT_MS;
     void revalidate().catch(() => close("RDP session authorization expired", 1008)).finally(() => { validating = false; });
    }
    // The dead-transport floor always applies; the idle/absolute caps are the

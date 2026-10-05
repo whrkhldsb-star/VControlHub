@@ -1,3 +1,4 @@
+import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { Prisma } from "@prisma/client";
 
 import type { SessionPayload } from "@/lib/auth/session";
@@ -215,7 +216,7 @@ async function pruneStaleEntries(
         storageNodeId: nodeId,
         isDeleted: false,
         ...(relativeDir
-          ? { relativePath: { startsWith: `${relativeDir}/` } }
+          ? { relativePath: { startsWith: escapeLikeLiteral(`${relativeDir}/`) } }
           : {}),
       },
       select: { id: true, relativePath: true },

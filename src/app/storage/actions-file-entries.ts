@@ -1,5 +1,6 @@
 "use server";
 
+import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { auditUserAction } from "@/lib/audit/service";
 import { requirePermission } from "@/lib/auth/authorization";
 import { teamWhere } from "@/lib/auth/team-scope";
@@ -218,7 +219,7 @@ export async function permanentDeleteFileEntryAction(
         prisma.fileEntry.deleteMany({
           where: {
             storageNodeId: entry.storageNodeId,
-            relativePath: { startsWith: prefix },
+            relativePath: { startsWith: escapeLikeLiteral(prefix) },
           },
         }),
         prisma.fileEntry.delete({

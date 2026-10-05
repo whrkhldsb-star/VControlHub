@@ -389,6 +389,7 @@ describe("POST /api/images/upload/[id]/complete", () => {
 		const { prisma } = await import("@/lib/db");
 		vi.mocked(prisma.mediaUploadSession.findFirst).mockResolvedValueOnce({
 			filename, mimeType: "image/png", totalSize: BigInt(15),
+			status: "UPLOADING", expiresAt: new Date(Date.now() + 60_000), totalChunks: 1, receivedChunks: [0],
 			storageNodeId: linked ? "node_1" : null,
 			relativePath: linked ? "gallery" : null,
 		} as never);
@@ -397,6 +398,7 @@ describe("POST /api/images/upload/[id]/complete", () => {
 		const { prisma } = await import("@/lib/db");
 		vi.mocked(prisma.mediaUploadSession.findFirst).mockResolvedValue({
 			filename: "photo.png",
+			status: "UPLOADING", expiresAt: new Date(Date.now() + 60_000), totalChunks: 1, receivedChunks: [0],
 			mimeType: "image/png",
 			totalSize: BigInt(Buffer.byteLength("assembled-bytes")),
 			storageNodeId: null,
@@ -416,7 +418,9 @@ describe("POST /api/images/upload/[id]/complete", () => {
 		expect(mocks.assembleMediaUploadChunks).toHaveBeenCalledWith(
 			"sess_1",
 			"u-admin",
+			{ requireFinalizing: true },
 		);
+		expect(mocks.sessionUpdateMany.mock.invocationCallOrder[0]).toBeLessThan(mocks.assembleMediaUploadChunks.mock.invocationCallOrder[0]!);
 		expect(mocks.imageCreate).toHaveBeenCalledWith(
 			expect.objectContaining({
 				data: expect.objectContaining({
@@ -445,6 +449,13 @@ describe("POST /api/images/upload/[id]/complete", () => {
 		const body = await res.json();
 		expect(body.session.status).toBe("COMPLETED");
 		expect(body.image.publicUrl).toBe("/api/images/img_1/file");
+	});
+
+	it("does not read or decode chunks when another finalizer already claimed the upload", async () => {
+		mocks.sessionUpdateMany.mockResolvedValueOnce({ count: 0 });
+		expect((await complete()).status).toBe(400);
+		expect(mocks.assembleMediaUploadChunks).not.toHaveBeenCalled();
+		expect(mocks.completeMediaUploadSession).not.toHaveBeenCalled();
 	});
 
 	it.each(["photo.webp", "photo.avif"])("keeps assembled PNG bytes when the filename is %s", async (filename) => {

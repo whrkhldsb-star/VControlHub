@@ -61,17 +61,20 @@ describe.skipIf(process.platform === "win32")("backup runner recovery guarantees
     expect((await stat(output)).mode & 0o777).toBe(0o600);
   });
 
-  it("never publishes a dump whose process fails after writing stdout", async () => {
+  it.each(["node", "database wrapper", "full wrapper"])("%s never publishes a dump whose process fails after writing stdout", async (entrypoint) => {
     await fakeDump("process.stdout.write('partial SQL'); setTimeout(() => process.exit(7), 30);");
     const output = path.join(backups, "failed.sql.gz");
-    await expect(runFile(process.execPath, [runner, output], { env })).rejects.toMatchObject({ stderr: expect.stringContaining("pg_dump exited with code 7") });
+    const file = entrypoint === "node" ? process.execPath : "bash";
+    const args = entrypoint === "node" ? [runner, output] : entrypoint === "database wrapper"
+      ? [path.resolve("scripts/backup-db.sh"), output] : [path.resolve("deploy/backup.sh"), "--full", output];
+    await expect(runFile(file, args, { env })).rejects.toThrow();
     expect(await readdir(backups)).toEqual([]);
   });
 
-  it("preserves an existing archive and removes temporary artifacts", async () => {
+  it.each(["node", "full wrapper"])("%s preserves an existing archive and removes temporary artifacts", async (entrypoint) => {
     const output = path.join(backups, "existing.tar.gz");
     await writeFile(output, "keep existing backup");
-    await expect(runFile(process.execPath, [runner, "--full", output], { env })).rejects.toThrow();
+    await expect(runFile(entrypoint === "node" ? process.execPath : "bash", [entrypoint === "node" ? runner : path.resolve("deploy/backup.sh"), "--full", output], { env })).rejects.toThrow();
     expect(await readFile(output, "utf8")).toBe("keep existing backup");
     expect(await readdir(backups)).toEqual(["existing.tar.gz"]);
   });

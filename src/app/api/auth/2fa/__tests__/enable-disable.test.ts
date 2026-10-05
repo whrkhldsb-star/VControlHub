@@ -65,6 +65,20 @@ vi.mock("@/lib/http/rate-limit-presets", () => ({
 
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 
+// This suite stubs the guard. Real verified-session provenance and revocation
+// between guard and handler are checked by the PostgreSQL concurrency suite.
+vi.mock("@/lib/auth/session", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/lib/auth/session")>(),
+  assertSessionCredentialBinding: vi.fn(),
+}));
+
+// Real credential binding and refreshed-cookie behavior are exercised against
+// PostgreSQL by two-factor-concurrency.integration.test.ts.
+vi.mock("@/lib/auth/refreshed-session-response", () => ({
+  refreshedSessionResponse: async (_session: unknown, _request: Request, body: unknown) =>
+    Response.json(body),
+}));
+
 vi.mock("otplib", () => ({
   verify: (...args: unknown[]) => verifyTotpMock(...args),
 }));
@@ -110,6 +124,7 @@ describe("POST /api/auth/2fa/enable", () => {
     prismaMock.user.findUnique.mockReset();
     requireSessionMock.mockReturnValue({ userId: "u1" });
     prismaMock.user.findUnique.mockResolvedValue({
+      passwordHash: "verified-hash", sessionEpoch: 4,
       twoFactorEnabled: false,
       twoFactorSecret: null,
     });
@@ -142,11 +157,12 @@ describe("POST /api/auth/2fa/enable", () => {
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.error).toMatch(/验证码无效|Invalid verification code/);
-    expect(prismaMock.user.update).not.toHaveBeenCalled();
+    expect(prismaMock.user.updateMany).not.toHaveBeenCalled();
   });
 
   it("refuses to overwrite an already-enabled 2FA secret", async () => {
     prismaMock.user.findUnique.mockResolvedValueOnce({
+      passwordHash: "verified-hash", sessionEpoch: 4,
       twoFactorEnabled: true,
       twoFactorSecret: "EXISTING_SECRET",
     });
@@ -158,12 +174,12 @@ describe("POST /api/auth/2fa/enable", () => {
     const body = await res.json();
     expect(body.error).toMatch(/已启用|already enabled/i);
     expect(verifyTotpMock).not.toHaveBeenCalled();
-    expect(prismaMock.user.update).not.toHaveBeenCalled();
+    expect(prismaMock.user.updateMany).not.toHaveBeenCalled();
   });
 
   it("persists the seed carried by the enrollment ticket, sealed", async () => {
     verifyTotpMock.mockReturnValueOnce({ valid: true });
-    prismaMock.user.update.mockResolvedValueOnce({});
+    prismaMock.user.updateMany.mockResolvedValue({ count: 1 });
     const res = await enableRoute.POST(
       jsonRequest({ code: "123456", enrollmentToken: "ticket:u1:JBSWY3DPEHPK3PXP" }),
     );
@@ -172,8 +188,8 @@ describe("POST /api/auth/2fa/enable", () => {
     expect(body.success).toBe(true);
     expect(body.recoveryCodes).toHaveLength(10);
     expect(body.recoveryCodes.every((code: unknown) => typeof code === "string" && /^[A-Z2-9]{4}(?:-[A-Z2-9]{4}){2}$/.test(code))).toBe(true);
-    expect(prismaMock.user.update).toHaveBeenCalledWith({
-      where: { id: "u1" },
+    expect(prismaMock.user.updateMany).toHaveBeenCalledWith({
+      where: expect.objectContaining({ id: "u1", passwordHash: "verified-hash", sessionEpoch: 4, status: { not: "DISABLED" } }),
       data: expect.objectContaining({
         twoFactorEnabled: true,
         twoFactorSecret: "sealed:JBSWY3DPEHPK3PXP",
@@ -195,7 +211,7 @@ describe("POST /api/auth/2fa/enable", () => {
     // Schema no longer has a `secret` field, so this is a 400 before any work.
     expect(res.status).toBe(400);
     expect(verifyTotpMock).not.toHaveBeenCalled();
-    expect(prismaMock.user.update).not.toHaveBeenCalled();
+    expect(prismaMock.user.updateMany).not.toHaveBeenCalled();
   });
 
   it("refuses a ticket minted for another account", async () => {
@@ -206,7 +222,7 @@ describe("POST /api/auth/2fa/enable", () => {
     expect(res.status).toBe(400);
     // Rejected before the TOTP check: there is no seed to check against.
     expect(verifyTotpMock).not.toHaveBeenCalled();
-    expect(prismaMock.user.update).not.toHaveBeenCalled();
+    expect(prismaMock.user.updateMany).not.toHaveBeenCalled();
   });
 
   it("refuses a forged or expired ticket", async () => {
@@ -215,7 +231,7 @@ describe("POST /api/auth/2fa/enable", () => {
       jsonRequest({ code: "123456", enrollmentToken: "not-a-ticket" }),
     );
     expect(res.status).toBe(400);
-    expect(prismaMock.user.update).not.toHaveBeenCalled();
+    expect(prismaMock.user.updateMany).not.toHaveBeenCalled();
   });
 });
 
@@ -243,6 +259,7 @@ describe("POST /api/auth/2fa/disable", () => {
 
   it("rejects when 2FA is not enabled with 400", async () => {
     prismaMock.user.findUnique.mockResolvedValueOnce({
+      passwordHash: "verified-hash", sessionEpoch: 4,
       twoFactorEnabled: false,
       twoFactorSecret: null,
     });
@@ -254,29 +271,31 @@ describe("POST /api/auth/2fa/disable", () => {
 
   it("rejects invalid TOTP code with 400", async () => {
     prismaMock.user.findUnique.mockResolvedValueOnce({
+      passwordHash: "verified-hash", sessionEpoch: 4,
       twoFactorEnabled: true,
       twoFactorSecret: "EXISTING_SECRET",
     });
     verifyTotpMock.mockReturnValueOnce({ valid: false });
     const res = await disableRoute.POST(jsonRequest({ code: "000000" }));
     expect(res.status).toBe(400);
-    expect(prismaMock.user.update).not.toHaveBeenCalled();
+    expect(prismaMock.user.updateMany).not.toHaveBeenCalled();
   });
 
   it("clears 2FA fields on valid code (opens sealed or legacy secret)", async () => {
     prismaMock.user.findUnique.mockResolvedValueOnce({
+      passwordHash: "verified-hash", sessionEpoch: 4,
       twoFactorEnabled: true,
       twoFactorSecret: "sealed:EXISTING_SECRET",
     });
     verifyTotpMock.mockReturnValueOnce({ valid: true });
-    prismaMock.user.update.mockResolvedValueOnce({});
+    prismaMock.user.updateMany.mockResolvedValue({ count: 1 });
     const res = await disableRoute.POST(jsonRequest({ code: "654321" }));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toEqual({ success: true });
     expect(verifyTotpMock).toHaveBeenCalledWith({ token: "654321", secret: "EXISTING_SECRET" });
-    expect(prismaMock.user.update).toHaveBeenCalledWith({
-      where: { id: "u1" },
+    expect(prismaMock.user.updateMany).toHaveBeenCalledWith({
+      where: expect.objectContaining({ id: "u1", passwordHash: "verified-hash", sessionEpoch: 4, status: { not: "DISABLED" } }),
       data: expect.objectContaining({
         twoFactorEnabled: false,
         twoFactorSecret: null,
@@ -288,13 +307,14 @@ describe("POST /api/auth/2fa/disable", () => {
   it("accepts a recovery code so a lost authenticator is not a permanent lockout", async () => {
     const generated = createTwoFactorRecoveryCodes(3);
     prismaMock.user.findUnique.mockResolvedValueOnce({
+      passwordHash: "verified-hash", sessionEpoch: 4,
       twoFactorEnabled: true,
       twoFactorSecret: "sealed:EXISTING_SECRET",
       twoFactorRecoveryCodes: generated.hashes,
     });
     verifyTotpMock.mockReturnValue({ valid: false });
     prismaMock.user.updateMany.mockResolvedValueOnce({ count: 1 });
-    prismaMock.user.update.mockResolvedValueOnce({});
+    prismaMock.user.updateMany.mockResolvedValue({ count: 1 });
 
     const res = await disableRoute.POST(jsonRequest({ code: generated.codes[0]! }));
 
@@ -304,14 +324,14 @@ describe("POST /api/auth/2fa/disable", () => {
       where: { id: "u1", twoFactorRecoveryCodes: { equals: generated.hashes } },
       data: { twoFactorRecoveryCodes: [generated.hashes[1], generated.hashes[2]] },
     });
-    expect(prismaMock.user.update).toHaveBeenCalled();
+    expect(prismaMock.user.updateMany).toHaveBeenCalled();
   });
 
   it("rejects input that is neither factor before reading the user row", async () => {
     const res = await disableRoute.POST(jsonRequest({ code: "12345" }));
     expect(res.status).toBe(400);
     expect(prismaMock.user.findUnique).not.toHaveBeenCalled();
-    expect(prismaMock.user.update).not.toHaveBeenCalled();
+    expect(prismaMock.user.updateMany).not.toHaveBeenCalled();
   });
 });
 
@@ -324,6 +344,7 @@ describe("POST /api/auth/2fa/recovery-codes", () => {
     prismaMock.user.updateMany.mockReset();
     requireSessionMock.mockReturnValue({ userId: "u1" });
     prismaMock.user.findUnique.mockResolvedValue({
+      passwordHash: "verified-hash", sessionEpoch: 4,
       twoFactorEnabled: true,
       twoFactorSecret: "sealed:EXISTING_SECRET",
     });
@@ -331,7 +352,7 @@ describe("POST /api/auth/2fa/recovery-codes", () => {
 
   it("requires a current authenticator code before replacing recovery codes", async () => {
     verifyTotpMock.mockReturnValueOnce({ valid: true });
-    prismaMock.user.update.mockResolvedValueOnce({});
+    prismaMock.user.updateMany.mockResolvedValue({ count: 1 });
 
     const response = await recoveryCodesRoute.POST(jsonRequest({ code: "123456" }));
 
@@ -339,9 +360,9 @@ describe("POST /api/auth/2fa/recovery-codes", () => {
     const body = await response.json();
     expect(body.recoveryCodes).toHaveLength(10);
     expect(verifyTotpMock).toHaveBeenCalledWith({ token: "123456", secret: "EXISTING_SECRET" });
-    expect(prismaMock.user.update).toHaveBeenCalledWith({
-      where: { id: "u1" },
-      data: { twoFactorRecoveryCodes: expect.any(Array) },
+    expect(prismaMock.user.updateMany).toHaveBeenCalledWith({
+      where: expect.objectContaining({ id: "u1", passwordHash: "verified-hash", sessionEpoch: 4, status: { not: "DISABLED" } }),
+      data: { twoFactorRecoveryCodes: expect.any(Array), sessionEpoch: { increment: 1 } },
     });
   });
 
@@ -351,19 +372,20 @@ describe("POST /api/auth/2fa/recovery-codes", () => {
     const response = await recoveryCodesRoute.POST(jsonRequest({ code: "000000" }));
 
     expect(response.status).toBe(400);
-    expect(prismaMock.user.update).not.toHaveBeenCalled();
+    expect(prismaMock.user.updateMany).not.toHaveBeenCalled();
   });
 
   it("also accepts one of the current recovery codes", async () => {
     const generated = createTwoFactorRecoveryCodes(2);
     prismaMock.user.findUnique.mockResolvedValueOnce({
+      passwordHash: "verified-hash", sessionEpoch: 4,
       twoFactorEnabled: true,
       twoFactorSecret: "sealed:EXISTING_SECRET",
       twoFactorRecoveryCodes: generated.hashes,
     });
     verifyTotpMock.mockReturnValue({ valid: false });
     prismaMock.user.updateMany.mockResolvedValueOnce({ count: 1 });
-    prismaMock.user.update.mockResolvedValueOnce({});
+    prismaMock.user.updateMany.mockResolvedValue({ count: 1 });
 
     const response = await recoveryCodesRoute.POST(
       jsonRequest({ code: generated.codes[1]! }),
@@ -372,17 +394,18 @@ describe("POST /api/auth/2fa/recovery-codes", () => {
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body.recoveryCodes).toHaveLength(10);
-    // The consumed code is irrelevant afterwards — `update` replaces the whole set.
+    // The consumed code is irrelevant afterwards — the guarded mutation replaces the set.
     expect(prismaMock.user.updateMany).toHaveBeenCalled();
-    expect(prismaMock.user.update).toHaveBeenCalledWith({
-      where: { id: "u1" },
-      data: { twoFactorRecoveryCodes: expect.any(Array) },
+    expect(prismaMock.user.updateMany).toHaveBeenCalledWith({
+      where: expect.objectContaining({ id: "u1", passwordHash: "verified-hash", sessionEpoch: 4, status: { not: "DISABLED" } }),
+      data: { twoFactorRecoveryCodes: expect.any(Array), sessionEpoch: { increment: 1 } },
     });
   });
 
   it("rejects a recovery code that is not one of the stored ones", async () => {
     const generated = createTwoFactorRecoveryCodes(2);
     prismaMock.user.findUnique.mockResolvedValueOnce({
+      passwordHash: "verified-hash", sessionEpoch: 4,
       twoFactorEnabled: true,
       twoFactorSecret: "sealed:EXISTING_SECRET",
       twoFactorRecoveryCodes: generated.hashes,
@@ -395,6 +418,6 @@ describe("POST /api/auth/2fa/recovery-codes", () => {
 
     expect(response.status).toBe(400);
     expect(prismaMock.user.updateMany).not.toHaveBeenCalled();
-    expect(prismaMock.user.update).not.toHaveBeenCalled();
+    expect(prismaMock.user.updateMany).not.toHaveBeenCalled();
   });
 });

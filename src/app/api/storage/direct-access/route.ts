@@ -137,7 +137,13 @@ async function isDirectGatewayHealthy(publicBaseUrl: string) {
       redirect: "manual",
       signal: controller.signal,
     });
-    return response.status === 200;
+    // Only the status is needed. Cancelling releases the pinned dispatcher
+    // even when the gateway sends a body that never finishes.
+    try {
+      return response.status === 200;
+    } finally {
+      await response.body?.cancel().catch(() => undefined);
+    }
   } catch {
     return false;
   } finally {

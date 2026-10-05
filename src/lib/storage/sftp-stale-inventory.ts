@@ -12,6 +12,7 @@
  * 复用 `sftp-sync.ts` 的 SSH 凭据解析 + `listRemoteDirectory` + 目录超时
  * 工具函数, 跟现有同步行为兼容, 失败模式 (凭据错 / 网络断) 一致。
  */
+import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { Prisma } from "@prisma/client";
 
 import type { SessionPayload } from "@/lib/auth/session";
@@ -223,7 +224,7 @@ export async function detectAndPruneSftpStaleInventory(input: {
           storageNodeId: node.id,
           isDeleted: false,
           ...(baseRelative
-            ? { relativePath: { startsWith: `${baseRelative}/` } }
+            ? { relativePath: { startsWith: escapeLikeLiteral(`${baseRelative}/`) } }
             : {}),
         },
         select: { id: true, relativePath: true },

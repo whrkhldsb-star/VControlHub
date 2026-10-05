@@ -1,3 +1,4 @@
+import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { createHash, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import type { Dirent } from "node:fs";
 import { readdir, stat } from "node:fs/promises";
@@ -571,7 +572,7 @@ export async function listShareDirectoryFiles(share: DirectoryShareForList) {
       entryType: "FILE",
       isDeleted: false,
       OR: [
-        { relativePath: { startsWith: `${prefix}/` } },
+        { relativePath: { startsWith: escapeLikeLiteral(`${prefix}/`) } },
         { relativePath: prefix },
       ],
     },

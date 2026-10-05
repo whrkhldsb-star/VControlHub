@@ -1,3 +1,4 @@
+import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import type { Prisma } from "@prisma/client";
 
 import { prisma, isUniqueViolation } from "@/lib/db";
@@ -116,7 +117,7 @@ export async function listTeamsForSession(session: SessionPayload) {
     where: {
       // Tombstoned workspaces stay in the table to keep their data scoped, but
       // they are not real workspaces any more — hide them from everyone.
-      NOT: { slug: { startsWith: DELETED_TEAM_SLUG_PREFIX } },
+      NOT: { slug: { startsWith: escapeLikeLiteral(DELETED_TEAM_SLUG_PREFIX) } },
       ...(canManageAll
         ? {}
         : { members: { some: { userId: session.userId } } }),
@@ -589,7 +590,7 @@ export async function deleteTeam(teamId: string, session: SessionPayload) {
       callerFallback = (await tx.team.findFirst({
         where: {
           id: { not: teamId },
-          NOT: { slug: { startsWith: DELETED_TEAM_SLUG_PREFIX } },
+          NOT: { slug: { startsWith: escapeLikeLiteral(DELETED_TEAM_SLUG_PREFIX) } },
         },
         orderBy: [{ createdAt: "asc" }, { id: "asc" }],
         select: { id: true },

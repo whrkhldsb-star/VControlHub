@@ -68,6 +68,21 @@ function ttlExpiry(ttlMs: number): Date {
 	return new Date(Date.now() + ttlMs);
 }
 
+function assertSessionAcceptsChunks(row: { status: string; expiresAt: Date }): void {
+	if (row.status === "COMPLETED") {
+		throw new MediaUploadError("session_completed", "Session already completed, cannot append");
+	}
+	if (row.status === "FINALIZING") {
+		throw new MediaUploadError("session_not_active", "Session is being finalized");
+	}
+	if (row.status === "CANCELLED" || row.status === "FAILED") {
+		throw new MediaUploadError(`session_${row.status.toLowerCase()}`, `Session already ${row.status}`);
+	}
+	if (row.expiresAt.getTime() <= Date.now()) {
+		throw new MediaUploadError("session_expired", "Session has expired");
+	}
+}
+
 /** Convert a Prisma row to the public view shape, computing missingChunks. */
 function toView(row: {
 	id: string;
@@ -221,21 +236,7 @@ export async function appendMediaUploadChunk(params: {
 	if (!existing) {
 		throw new MediaUploadError("session_not_found", "Upload session not found");
 	}
-	if (existing.status === "COMPLETED") {
-		throw new MediaUploadError("session_completed", "Session already completed, cannot append");
-	}
-	if (existing.status === "FINALIZING") {
-		throw new MediaUploadError("session_not_active", "Session is being finalized");
-	}
-	if (existing.status === "CANCELLED" || existing.status === "FAILED") {
-		throw new MediaUploadError(
-			`session_${existing.status.toLowerCase()}`,
-			`Session already ${existing.status}`,
-		);
-	}
-	if (existing.expiresAt.getTime() < Date.now()) {
-		throw new MediaUploadError("session_expired", "Session has expired");
-	}
+	assertSessionAcceptsChunks(existing);
 	if (index >= existing.totalChunks) {
 		throw new MediaUploadError(
 			"chunk_index_out_of_range",
@@ -257,86 +258,45 @@ export async function appendMediaUploadChunk(params: {
 		);
 	}
 
-	// Write chunk file (overwrites if duplicate). Disk write is idempotent
-	// per index; the race we care about is the receivedChunks array merge.
-	await mkdir(sessionDir(sessionId), { recursive: true });
+	// Stage the body before acquiring a database lock. Only the atomic rename
+	// and metadata update run under the session row lock, which is also taken
+	// by finalization/cancellation updates on every Web process.
+	await mkdir(sessionDir(sessionId), { recursive: true, mode: 0o700 });
 	const temporaryPath = `${chunkPath(sessionId, index)}.${crypto.randomUUID()}.tmp`;
 	try {
-		await writeFile(temporaryPath, buffer, { flag: "wx" });
-		await rename(temporaryPath, chunkPath(sessionId, index));
+		await writeFile(temporaryPath, buffer, { flag: "wx", mode: 0o600 });
+		return await prisma.$transaction(async (tx) => {
+			await tx.$queryRaw`
+				SELECT id FROM media_upload_sessions
+				WHERE id = ${sessionId} AND "userId" = ${userId}
+				FOR UPDATE
+			`;
+			const snapshot = await tx.mediaUploadSession.findFirst({ where: { id: sessionId, userId } });
+			if (!snapshot) throw new MediaUploadError("session_not_found", "Upload session not found");
+			assertSessionAcceptsChunks(snapshot);
+			const nextReceived = Array.from(new Set([...snapshot.receivedChunks, index])).sort((a, b) => a - b);
+			const updated = await tx.mediaUploadSession.updateMany({
+				where: {
+					id: sessionId, userId,
+					status: { in: ["PENDING", "UPLOADING"] },
+					expiresAt: { gt: new Date() },
+				},
+				data: { receivedChunks: nextReceived, status: "UPLOADING" },
+			});
+			if (updated.count !== 1) {
+				const current = await tx.mediaUploadSession.findFirst({ where: { id: sessionId, userId } });
+				if (!current) throw new MediaUploadError("session_not_found", "Upload session not found");
+				assertSessionAcceptsChunks(current);
+				throw new MediaUploadError("chunk_append_conflict", "Upload session changed; please retry");
+			}
+			// A finalizer cannot claim FINALIZING between this validation and
+			// rename. Duplicate indices must take the same lock as new chunks.
+			await rename(temporaryPath, chunkPath(sessionId, index));
+			return toView(await tx.mediaUploadSession.findUniqueOrThrow({ where: { id: sessionId } }));
+		});
 	} finally {
 		await rm(temporaryPath, { force: true });
 	}
-
-	// CAS merge: re-read + updateMany with expected receivedChunks snapshot so
-	// concurrent appends of different indices cannot clobber each other.
-	const maxAttempts = 8;
-	let snapshot = existing;
-	for (let attempt = 0; attempt < maxAttempts; attempt++) {
-		if (snapshot.status === "FINALIZING") {
-			throw new MediaUploadError("session_not_active", "Session is being finalized");
-		}
-		if (snapshot.status === "COMPLETED") {
-			throw new MediaUploadError("session_completed", "Session already completed, cannot append");
-		}
-		if (snapshot.status === "CANCELLED" || snapshot.status === "FAILED") {
-			throw new MediaUploadError(
-				`session_${snapshot.status.toLowerCase()}`,
-				`Session already ${snapshot.status}`,
-			);
-		}
-		if (snapshot.expiresAt.getTime() < Date.now()) {
-			throw new MediaUploadError("session_expired", "Session has expired");
-		}
-
-		const expectedChunks = [...snapshot.receivedChunks].sort((a, b) => a - b);
-		const nextReceived = Array.from(new Set([...expectedChunks, index])).sort(
-			(a, b) => a - b,
-		);
-		// Idempotent re-upload of the same index with no other concurrent changes.
-		if (
-			nextReceived.length === expectedChunks.length &&
-			nextReceived.every((v, i) => v === expectedChunks[i])
-		) {
-			return toView(snapshot);
-		}
-
-		const cas = await prisma.mediaUploadSession.updateMany({
-			where: {
-				id: sessionId,
-				userId,
-				status: { in: ["PENDING", "UPLOADING"] },
-				expiresAt: { gt: new Date() },
-				receivedChunks: { equals: expectedChunks },
-			},
-			data: {
-				receivedChunks: nextReceived,
-				status: snapshot.status === "PENDING" ? "UPLOADING" : snapshot.status,
-			},
-		});
-		if (cas.count === 1) {
-			const row = await prisma.mediaUploadSession.findFirst({
-				where: { id: sessionId, userId },
-			});
-			if (!row) {
-				throw new MediaUploadError("session_not_found", "Upload session not found");
-			}
-			return toView(row);
-		}
-
-		const refreshed = await prisma.mediaUploadSession.findFirst({
-			where: { id: sessionId, userId },
-		});
-		if (!refreshed) {
-			throw new MediaUploadError("session_not_found", "Upload session not found");
-		}
-		snapshot = refreshed;
-	}
-
-	throw new MediaUploadError(
-		"chunk_append_conflict",
-		"Concurrent chunk append could not be merged; please retry",
-	);
 }
 
 /** Assemble chunks into a single Buffer. Reads chunk-0..chunk-(N-1) in
@@ -345,6 +305,7 @@ export async function appendMediaUploadChunk(params: {
 export async function assembleMediaUploadChunks(
 	sessionId: string,
 	userId: string,
+	options: { requireFinalizing?: boolean } = {},
 ): Promise<Buffer> {
 	const row = await prisma.mediaUploadSession.findFirst({
 		where: { id: sessionId, userId },
@@ -352,7 +313,7 @@ export async function assembleMediaUploadChunks(
 	if (!row) {
 		throw new MediaUploadError("session_not_found", "Upload session not found");
 	}
-	if (!["PENDING", "UPLOADING"].includes(row.status)) {
+	if (!(options.requireFinalizing ? row.status === "FINALIZING" : ["PENDING", "UPLOADING"].includes(row.status))) {
 		throw new MediaUploadError("session_not_active", "Session is not active");
 	}
 	if (row.expiresAt.getTime() < Date.now()) {

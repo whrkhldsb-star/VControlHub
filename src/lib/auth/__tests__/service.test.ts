@@ -9,6 +9,7 @@ vi.mock("@/lib/db", () => ({
  user: {
  findUnique: vi.fn(),
  update: vi.fn(),
+ updateMany: vi.fn(),
  },
  setting: {
  findUnique: vi.fn(),
@@ -88,16 +89,7 @@ describe("changePassword", () => {
  id: "u_1",
  passwordHash: currentHash,
  } as any);
- vi.mocked(prisma.user.update).mockResolvedValueOnce({
- id: "u_1",
- username: "admin",
- displayName: null,
- passwordHash: await hashPassword("Newpass123"),
- mustChangePassword: false,
- status: "ACTIVE",
- createdAt: new Date(),
- updatedAt: new Date(),
- } as any);
+ vi.mocked(prisma.user.updateMany).mockResolvedValueOnce({ count: 1 });
 
  const result = await changePassword({
  userId: "u_1",
@@ -107,19 +99,20 @@ describe("changePassword", () => {
  });
 
  expect(result.success).toBe(true);
- expect(prisma.user.update).toHaveBeenCalledWith(
+ expect(prisma.user.updateMany).toHaveBeenCalledWith(
  expect.objectContaining({
- where: { id: "u_1" },
+ where: { id: "u_1", passwordHash: currentHash, sessionEpoch: 0, status: { not: "DISABLED" } },
  data: expect.objectContaining({
  mustChangePassword: false,
  status: "ACTIVE",
  }),
  }),
  );
- const updateCall = vi.mocked(prisma.user.update).mock.calls[0]?.[0];
+ const updateCall = vi.mocked(prisma.user.updateMany).mock.calls[0]?.[0];
  const newHash = updateCall?.data?.passwordHash as string;
  expect(typeof newHash).toBe("string");
  expect(await verifyPassword("Newpass123", newHash)).toBe(true);
+ expect(result.success && result.credentialBinding.epoch).toBe(1);
  }, 15_000);
 
  it("rejects password change when current password is invalid", async () => {
@@ -139,6 +132,6 @@ describe("changePassword", () => {
  }),
  ).resolves.toEqual({ success: false, error: "Current password is incorrect" });
  expect(prisma.user.update).not.toHaveBeenCalled();
+ expect(prisma.user.updateMany).not.toHaveBeenCalled();
  }, 15_000);
 });
-
