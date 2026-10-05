@@ -15,6 +15,7 @@ import {
 import { getErrorMessage } from "./media-item-helpers";
 import { ActionButton } from "@/components/action-button";
 import { getStorageDriverLabel } from "@/lib/i18n/domain-labels";
+import { Badge } from "@/components/ui-primitives";
 
 type StorageNodeOption = {
 	id: string;
@@ -237,17 +238,17 @@ export function MediaImageUploadPanel() {
 	}
 
 	return (
-		<section data-tone="emerald" className="mb-5 rounded-2xl border border-[var(--success-border)] p-4 light:border-[var(--success-border)]">
+		<section data-inset className="p-4">
 			<div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
 				<div>
-					<h2 className="text-base font-semibold text-[var(--success)]">{t("mediaUploadPanel.heading")}</h2>
-					<p className="mt-1 text-xs text-[var(--success)]/70">{t("mediaUploadPanel.subheading")}</p>
+					<h3 className="text-sm font-semibold text-[var(--text-primary)]">{t("mediaUploadPanel.heading")}</h3>
+					<p className="mt-0.5 text-xs text-[var(--text-muted)]">{t("mediaUploadPanel.subheading")}</p>
 				</div>
 				<div className="flex flex-wrap items-center gap-2 text-xs">
-					<ActionButton variant="success" onClick={loadNodes} disabled={loadingNodes} className="!px-3 !py-2 disabled:opacity-60">
+					<ActionButton size="sm" variant="secondary" onClick={loadNodes} disabled={loadingNodes}>
 						{loadingNodes ? t("mediaUploadPanel.loadingNodes") : nodesLoaded ? t("mediaUploadPanel.refreshNodes") : t("mediaUploadPanel.loadNodes")}
 					</ActionButton>
-					<ActionButton variant="success-solid" onClick={() => fileInputRef.current?.click()} disabled={uploading} className="!px-4 !py-2 disabled:opacity-60">
+					<ActionButton variant="success-solid" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
 						{uploading ? t("mediaUploadPanel.uploading") : t("mediaUploadPanel.chooseFiles")}
 					</ActionButton>
 				</div>
@@ -292,7 +293,7 @@ export function MediaImageUploadPanel() {
 									<span className="truncate">{item.name} · {showChunkedDetail
 										? t("mediaUploadPanel.chunkedProgress", { current: chunkedProgress.receivedChunks.length, total: chunkedProgress.totalChunks, pct: chunkedProgress.percent })
 										: item.message}
-										{isChunked ? <span data-tone="emerald" className="ml-2 inline-block rounded border border-[var(--success-border)] px-1.5 py-0.5 text-xs text-[var(--success)]">{t("mediaUploadPanel.chunkedBadge")}</span> : null}
+										{isChunked ? <Badge tone="success" className="ml-2 inline-block">{t("mediaUploadPanel.chunkedBadge")}</Badge> : null}
 									</span>
 									<span>{statusBadgeLabel(t, item.status)}</span>
 								</div>
@@ -300,7 +301,7 @@ export function MediaImageUploadPanel() {
 						})}
 					</div>
 					{chunked.progress && chunked.progress.resumed && chunked.progress.skipped > 0 ? (
-						<p className="mt-2 text-xs text-[var(--success)]/80">{t("mediaUploadPanel.chunkedResumeNotice", { skipped: chunked.progress.skipped })}</p>
+						<p className="mt-2 text-xs text-[var(--text-muted)]">{t("mediaUploadPanel.chunkedResumeNotice", { skipped: chunked.progress.skipped })}</p>
 					) : null}
 				</div>
 			) : null}

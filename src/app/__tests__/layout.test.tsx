@@ -38,6 +38,14 @@ vi.mock("@/components/global-search", () => ({
 	GlobalSearch: () => <div data-testid="global-search" />,
 }));
 
+vi.mock("@/components/app-topbar", () => ({
+	AppTopbar: () => <header data-testid="app-topbar" />,
+}));
+
+vi.mock("@/components/keyboard-shortcuts", () => ({
+	KeyboardShortcuts: () => <div data-testid="keyboard-shortcuts" />,
+}));
+
 vi.mock("@/components/web-vitals-reporter", () => ({
 	WebVitalsReporter: () => <div data-testid="web-vitals-reporter" />,
 }));
@@ -100,6 +108,10 @@ describe("RootLayout", () => {
 		await renderLayoutBody(<div>仪表盘</div>);
 
 		expect(screen.getByTestId("sidebar-loader")).toBeInTheDocument();
+		expect(screen.getByTestId("app-topbar")).toBeInTheDocument();
+		expect(screen.getByTestId("keyboard-shortcuts")).toBeInTheDocument();
+		expect(document.querySelector('a[href="#main-content"]')).not.toBeNull();
+		expect(screen.getByRole("main")).toHaveAttribute("id", "main-content");
 		expect(screen.getByRole("navigation", { name: "移动端底部导航" })).toBeInTheDocument();
 		expect(screen.getByTestId("global-search")).toBeInTheDocument();
 		expect(screen.getByTestId("web-vitals-reporter")).toBeInTheDocument();
@@ -114,6 +126,7 @@ describe("RootLayout", () => {
 		await renderLayoutBody(<div>欢迎回来</div>);
 
 		expect(screen.queryByTestId("sidebar-loader")).not.toBeInTheDocument();
+		expect(screen.queryByTestId("app-topbar")).not.toBeInTheDocument();
 		expect(screen.queryByRole("navigation", { name: "移动端底部导航" })).not.toBeInTheDocument();
 		expect(screen.queryByTestId("global-search")).not.toBeInTheDocument();
 		expect(screen.queryByTestId("web-vitals-reporter")).not.toBeInTheDocument();

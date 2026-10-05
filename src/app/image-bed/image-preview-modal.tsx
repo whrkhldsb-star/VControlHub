@@ -50,11 +50,10 @@ export function ImagePreviewModal({
 
 	return (
 		<ModalShell
+			size="full" backdrop="strong" className="flex h-[min(44rem,calc(100dvh-2rem))] min-w-0 flex-col gap-4"
 			open
 			onClose={onClose}
 			labelledBy="image-preview-title"
-			overlayClassName="fixed inset-0 z-50 bg-[var(--overlay-strong)] flex items-center justify-center p-4"
-			panelClassName="flex h-[min(44rem,calc(100dvh-2rem))] w-full max-w-4xl min-w-0 flex-col gap-4 rounded-lg border border-[var(--border)] bg-[var(--modal-bg)] p-4 shadow-[var(--shadow-lg)] sm:p-5"
 		>
 			<div className="flex min-w-0 shrink-0 items-start gap-3">
 				<div className="min-w-0 flex-1">
@@ -77,29 +76,21 @@ export function ImagePreviewModal({
 				/>
 			</div>
 			<div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-[var(--border)] pt-3">
-				<ActionButton type="button" variant="secondary"
-					onClick={() => onCopyLink(image.publicUrl)}
-					className="!min-h-11 !px-3 !py-1.5 !text-sm"
-				>
+				<ActionButton size="sm" type="button" variant="secondary"
+					onClick={() => onCopyLink(image.publicUrl)}>
 					<LinkIcon size={16} aria-hidden />{t("imageBed.preview.copyLink")}
 				</ActionButton>
-				<ActionButton type="button" variant="secondary"
-					onClick={() => onCopyMarkdown(image)}
-					className="!min-h-11 !px-3 !py-1.5 !text-sm"
-				>
+				<ActionButton size="sm" type="button" variant="secondary"
+					onClick={() => onCopyMarkdown(image)}>
 					<Copy size={16} aria-hidden />Markdown
 				</ActionButton>
-				<ActionButton type="button" variant="secondary"
-					onClick={() => onCopyHTML(image)}
-					className="!min-h-11 !px-3 !py-1.5 !text-sm"
-				>
+				<ActionButton size="sm" type="button" variant="secondary"
+					onClick={() => onCopyHTML(image)}>
 					<Copy size={16} aria-hidden />HTML
 				</ActionButton>
 				{canDelete && (
-					<ActionButton type="button" variant="danger"
-						onClick={() => onRequestDelete(image)}
-						className="!min-h-11 !px-3 !py-1.5 !text-sm"
-					>
+					<ActionButton size="sm" type="button" variant="danger"
+						onClick={() => onRequestDelete(image)}>
 						<Trash2 size={16} aria-hidden />{t("common.delete")}
 					</ActionButton>
 				)}

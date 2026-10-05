@@ -135,7 +135,7 @@ export default async function RequestsPage() {
 										{request.reason && <p className="mt-2 text-sm text-[var(--text-secondary)]">{t("requestsPage.card.reason", locale)}{request.reason}</p>}
 										<p className="mt-1 text-xs text-[var(--text-muted)]">{t("requestsPage.card.requester", locale)}{request.requester.displayName || request.requester.username}</p>
 										</div>
-										<div className="shrink-0 rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2 text-xs text-[var(--text-secondary)]">
+										<div data-tile className="shrink-0 px-3 py-2 text-xs text-[var(--text-secondary)]">
 										{t("requestsPage.card.targetCount", locale, { count: request.targets.length })}
 										</div>
 								</div>
@@ -248,7 +248,7 @@ function InitiatorBadge({ assistant, label }: { assistant: boolean; label: strin
 
 function InfoSection({ title, children }: { title: string; children: ReactNode }) {
 	return (
-		<section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-4">
+		<section data-inset className="p-4">
 			<h4 className="text-xs font-medium text-[var(--text-primary)]/70 uppercase mb-3">{title}</h4>
 			{children}
 		</section>

@@ -7,6 +7,7 @@ import type { EditorFindState, PreviewMetaState } from "./text-preview-types";
 import { langLabel } from "./text-preview-helpers";
 import { ActionButton } from "@/components/action-button";
 import { Search } from "@/components/icons";
+import { Badge } from "@/components/ui-primitives";
 
 type T = (key: string, vars?: Record<string, string | number>) => string;
 
@@ -40,17 +41,17 @@ export function TextPreviewToolbar(props: ToolbarProps) {
 	const busy = saveStatus === "saving" || saveStatus === "reloading";
 	return (
 		<div className="flex flex-wrap items-center gap-2">
-			<span className="rounded-full border border-[var(--color-action-border)]/30 bg-[var(--color-action-bg)] px-3 py-1 text-xs font-medium text-[var(--color-action)]">{langLabel(t, lang)}</span>
+			<Badge tone="accent">{langLabel(t, lang)}</Badge>
 			<span className="text-xs text-[var(--text-muted)]">{t("textPreview.linesCount", { count: totalLines })}</span>
-			{canEdit ? <span data-tone="emerald" className="rounded-lg border border-[var(--success-border)] px-3 py-1 text-xs text-[var(--success)]">{t("textPreview.editHint")}</span> : null}
+			{canEdit ? <Badge tone="success">{t("textPreview.editHint")}</Badge> : null}
 			{saveMessage ? <span role={saveStatus === "error" ? "alert" : "status"} className={`text-xs ${saveStatus === "error" ? "text-[var(--danger)]" : "text-[var(--success)]"}`}>{saveMessage}{reloadMessage ? <span className="ml-2 text-[var(--text-secondary)]">· {reloadMessage}</span> : null}</span> : null}
 			<div className="flex-1" />
 			{canEdit ? <div className="flex items-center gap-1">{editMode ? <>
-				<ActionButton variant="success" onClick={onPreviewSave} disabled={busy || !hasUnsavedChanges} className="!px-3 !py-1.5 !text-sm disabled:opacity-50">{saveStatus === "saving" ? t("textPreview.button.saving") : t("textPreview.button.previewSave")}</ActionButton>
+				<ActionButton size="sm" variant="success" onClick={onPreviewSave} disabled={busy || !hasUnsavedChanges}>{saveStatus === "saving" ? t("textPreview.button.saving") : t("textPreview.button.previewSave")}</ActionButton>
 				{canReloadAfterSave ? <button type="button" onClick={onSaveAndReload} disabled={busy || !hasUnsavedChanges} data-tone="amber" className="rounded-lg border border-[var(--warning-border)] px-3 py-1.5 text-xs text-[var(--warning)] hover:bg-[var(--warning-bg)] disabled:opacity-50" title={reloadKind === "systemd" ? t("textPreview.reloadHint.systemd", { unit: reloadUnit ?? "" }) : t("textPreview.reloadHint.docker", { unit: reloadUnit ?? "" })}>{saveStatus === "saving" ? t("textPreview.button.saving") : saveStatus === "reloading" ? t("textPreview.button.reloading") : t("textPreview.button.saveAndReload", { unit: reloadUnit ?? "" })}</button> : null}
-				<ActionButton variant="secondary" onClick={onCancelEdit} disabled={busy} className="!px-3 !py-1.5 !text-sm disabled:opacity-50">{t("textPreview.button.cancel")}</ActionButton>
-				<ActionButton variant="secondary" onClick={onOpenEditorFind} aria-label={t("textPreview.editor.findToggle")} title={t("textPreview.editor.findToggle")} className="!px-3 !py-1.5 !text-sm"><Search size={14} aria-hidden="true" /></ActionButton>
-			</> : <ActionButton variant="outline" onClick={onEnterEditMode} className="!px-3 !py-1.5 !text-sm">{t("textPreview.button.edit")}</ActionButton>}</div> : null}
+				<ActionButton size="sm" variant="secondary" onClick={onCancelEdit} disabled={busy}>{t("textPreview.button.cancel")}</ActionButton>
+				<ActionButton size="sm" variant="secondary" onClick={onOpenEditorFind} aria-label={t("textPreview.editor.findToggle")} title={t("textPreview.editor.findToggle")}><Search size={14} aria-hidden="true" /></ActionButton>
+			</> : <ActionButton size="sm" variant="outline" onClick={onEnterEditMode}>{t("textPreview.button.edit")}</ActionButton>}</div> : null}
 			{!editMode ? <FindBarLazy searchQuery={searchQuery} onSearchQueryChange={setSearchQuery} jumpLine={jumpLine} onJumpLineChange={setJumpLine} onJumpToLine={onJumpToLine} /> : null}
 		</div>
 	);

@@ -61,7 +61,7 @@ export function StepConfigEditor({
 							<button
 								type="button"
 								onClick={selectAllEnabled}
-								className="text-xs text-[var(--color-action)] hover:underline"
+								className="text-xs text-[var(--color-action-text)] hover:underline"
 							>
 								{selected.length === enabledServers.length
 									? t("playbooksPage.step.deselectAllServers")
@@ -77,7 +77,7 @@ export function StepConfigEditor({
 						<div
 							role="group"
 							aria-labelledby={`${fieldId}-servers-label`}
-							className="max-h-40 space-y-1 overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--surface)] p-2"
+						 data-card className="max-h-40 space-y-1 overflow-y-auto p-2"
 						>
 							{servers.map((server) => {
 								const checked = selected.includes(server.id);

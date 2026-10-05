@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requirePagePermission } from "@/lib/auth/page-guard";
 import { serverTeamWhere } from "@/lib/auth/team-scope";
@@ -6,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { PageShell, PageHeader } from "@/components/page-shell";
 import { RemoteDesktop } from "@/components/remote-desktop";
+import { ButtonLink } from "@/components/action-button";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +22,7 @@ export default async function RemoteDesktopPage({ params }: { params: Promise<{ 
   const locale = await getServerLocale();
   return <PageShell maxW="max-w-7xl">
     <PageHeader eyebrow="Windows · RDP" title={t("rdp.title", locale)} description={server.name}>
-      <Link href="/servers" data-action-button data-variant="secondary">{t("rdp.back", locale)}</Link>
+      <ButtonLink variant="secondary" href="/servers">{t("rdp.back", locale)}</ButtonLink>
     </PageHeader>
     <RemoteDesktop serverId={server.id} />
   </PageShell>;

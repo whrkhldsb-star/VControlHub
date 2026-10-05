@@ -76,9 +76,9 @@ export function FileListListViewMobile(props: FileListListViewMobileProps) {
                 )}
               </div>
             </div>
-            <ActionButton variant="secondary"
+            <ActionButton size="sm" variant="secondary"
               onClick={() => navigateToFolder(folder.path)}
-              data-tone="cyan" className="shrink-0 !inline-flex !items-center !gap-1.5 !px-3 !py-1.5 !text-sm"
+              data-tone="cyan" className="shrink-0 !inline-flex !items-center !gap-1.5"
             >
               {t("fileListClient.open")}
             </ActionButton>
@@ -119,7 +119,7 @@ export function FileListListViewMobile(props: FileListListViewMobileProps) {
                   checked={effectiveSelectedIdSet.has(entry.id)}
                   aria-label={t("fileListClient.selectFileAria", { name: entry.name })}
                   onChange={() => toggleOne(entry.id)}
-                  className="mt-2 h-4 w-4 rounded-lg border-[var(--border)] bg-[var(--surface)] text-[var(--color-action)] focus:ring-[var(--color-action-ring)]"
+                  className="mt-2 h-4 w-4 rounded-lg border-[var(--border)] bg-[var(--surface)] text-[var(--color-action-text)] focus:ring-[var(--color-action-ring)]"
                 />
               ) : null}
               <div className="shrink-0 mt-0.5 rounded-lg bg-[var(--surface-elevated)] p-1">

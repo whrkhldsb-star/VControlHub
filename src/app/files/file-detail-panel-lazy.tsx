@@ -24,6 +24,7 @@ import type { ComponentProps, ComponentType } from "react";
 import { createPortal } from "react-dom";
 import { Spinner } from "@/components/ui-primitives";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { dialogOverlayClass, dialogPanelClass } from "@/components/modal-shell";
 
 type FileDetailPanelProps = ComponentProps<
   typeof import("./file-detail-panel").FileDetailPanel
@@ -34,9 +35,11 @@ function FileDetailPanelLoading() {
   const label = t("filesBrowserSpa.loading");
   if (typeof document === "undefined") return null;
   return createPortal(
-    <div data-modal-overlay className="fixed inset-0 z-50 flex justify-end bg-[var(--overlay)] p-3 backdrop-blur-sm" role="presentation">
+    <div data-modal-overlay className={dialogOverlayClass("drawer")} role="presentation">
       <aside
-        className="flex h-full w-full max-w-xl items-center justify-center overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--modal-bg)] shadow-2xl"
+        data-modal-panel
+        data-motion="drawer"
+        className={`${dialogPanelClass({ size: "xl", placement: "drawer", padded: false })} flex items-center justify-center overflow-hidden`}
         aria-live="polite"
       >
         <Spinner label={label} />

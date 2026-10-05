@@ -10,7 +10,8 @@
  *   - docker-dialogs.tsx        → removal confirm dialog + logs dialog
  */
 
-import { PageShell, PageHeader } from "@/components/page-shell";
+import { RefreshCw } from "@/components/icons";
+import { PageShell, PageHeader, Toolbar } from "@/components/page-shell";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -85,81 +86,75 @@ export default function DockerPage({
 	return (
 		<PageShell maxW="max-w-7xl">
 			<PageHeader eyebrow={t("dockerPage.eyebrow")} title={t("dockerPage.title")} description={t("dockerPage.desc")} />
-			{/* FEAT-P0-2: Server selector for remote Docker management */}
-			{serverList.length > 0 && (
-				<div className="mb-4 flex flex-wrap items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3">
-					<FormField label={t("dockerPage.scope.serverSelect")} htmlFor="docker-server-select" className="min-w-64">
-					<select
-						id="docker-server-select"
-						value={selectedServerId}
-						onChange={(e) => setSelectedServerId(e.target.value)}
-						className={UI_INPUT}
-					>
-						{/* The hub host's daemon runs the shared platform; the API refuses
-						    it to anyone without platform-manager rights, so do not offer it. */}
-						{canManageHubHost && <option value="">{t("dockerPage.scope.hubHost")}</option>}
-						{serverList.map((s) => (
-							<option key={s.id} value={s.id}>{s.name} ({s.host})</option>
-						))}
-					</select>
-					</FormField>
-					{selectedServerId && (
-						<StatusBadge tone="accent">
-							{t("dockerPage.scope.remoteActive")}
-						</StatusBadge>
+			<Notice tone="warning" className="mb-4" title={<span id="docker-scope-title" role="heading" aria-level={2}>{t("dockerPage.scope.title")}</span>}>
+				<p>{scopeWarning}</p>
+				<p className="mt-1 text-xs text-[var(--text-muted)]">{scopeSocketText}</p>
+			</Notice>
+
+			{/* FEAT-P0-2: target selector (remote Docker management) and list controls share one row. */}
+			<Toolbar className="items-end justify-between gap-3">
+				<div className="flex min-w-0 flex-wrap items-end gap-3">
+					{serverList.length > 0 && (
+						<FormField label={t("dockerPage.scope.serverSelect")} htmlFor="docker-server-select" className="min-w-64">
+							<select
+								id="docker-server-select"
+								value={selectedServerId}
+								onChange={(e) => setSelectedServerId(e.target.value)}
+								className={UI_INPUT}
+							>
+								{/* The hub host's daemon runs the shared platform; the API refuses
+								    it to anyone without platform-manager rights, so do not offer it. */}
+								{canManageHubHost && <option value="">{t("dockerPage.scope.hubHost")}</option>}
+								{serverList.map((s) => (
+									<option key={s.id} value={s.id}>{s.name} ({s.host})</option>
+								))}
+							</select>
+						</FormField>
 					)}
+					{selectedServerId && <StatusBadge tone="accent">{t("dockerPage.scope.remoteActive")}</StatusBadge>}
+					<p className="pb-2 text-xs text-[var(--text-muted)]">
+						{t("dockerPage.toolbar.groupCount", { count: projectCount })} · {t("dockerPage.toolbar.ungroupedCount", { count: ungrouped.length })}
+					</p>
 				</div>
-			)}
-			<section
-				aria-labelledby="docker-scope-title"
-				className="mb-4 rounded-2xl border border-[var(--warning-border)] bg-[color-mix(in_srgb,var(--warning-bg)_45%,var(--surface))] p-4 text-sm text-[var(--warning)]"
-			>
-				<h2 id="docker-scope-title" className="text-sm font-semibold">{t("dockerPage.scope.title")}</h2>
-				<p className="mt-1 leading-relaxed">
-					{scopeWarning}
-				</p>
-				<p className="mt-2 text-xs text-[var(--warning)]">
-					{scopeSocketText}
-				</p>
-			</section>
-			<div data-toolbar className="mb-4 flex flex-wrap items-center gap-2 p-2.5 text-xs text-[var(--text-muted)]">
-				<StatusBadge tone="neutral" size="md">{t("dockerPage.toolbar.compose")}</StatusBadge>
-				<span className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface)] px-2.5 py-1">{t("dockerPage.toolbar.groupCount", { count: projectCount })}</span>
-				<span className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface)] px-2.5 py-1">{t("dockerPage.toolbar.ungroupedCount", { count: ungrouped.length })}</span>
-			</div>
-			<div className="mb-6 flex flex-wrap items-center gap-2">
-				<ActionButton type="button" variant="primary"
-					onClick={() => {
-						setLoading(true);
-						void fetchContainers();
-					}} className="!min-h-11 !rounded-xl !px-3 !py-1.5 !text-sm !font-semibold"
-				>
-					{t("dockerPage.refresh.list")}
-				</ActionButton>
-				<ActionButton type="button" variant="secondary"
-					onClick={() => {
-						for (const container of runningContainers) void fetchStats(container.Id);
-					}} className="!min-h-11 !rounded-xl !px-3 !py-1.5 !text-sm !font-medium"
-				>
-					{t("dockerPage.refresh.stats")}
-				</ActionButton>
-				<ActionButton type="button" variant={statsAutoRefresh ? "success" : "secondary"}
-					onClick={() => setStatsAutoRefresh((v) => !v)}
-					disabled={refreshIntervalSeconds <= 0 || runningContainers.length === 0}
-					className="!min-h-11 !rounded-xl !px-3 !py-1.5 !text-sm !font-medium disabled:cursor-not-allowed disabled:opacity-50"
-				>
-					{statsAutoRefresh
-						? t("dockerPage.autoRefreshOn", { label: refreshLabel })
-						: refreshIntervalSeconds <= 0
-							? t("dockerPage.autoRefreshOff")
-							: t("dockerPage.autoRefreshPaused", { label: refreshLabel })}
-				</ActionButton>
-			</div>
+				<div className="flex flex-wrap items-center gap-2">
+					<ActionButton
+						size="sm"
+						variant={statsAutoRefresh ? "outline" : "ghost"}
+						aria-pressed={statsAutoRefresh}
+						onClick={() => setStatsAutoRefresh((v) => !v)}
+						disabled={refreshIntervalSeconds <= 0 || runningContainers.length === 0}
+					>
+						{statsAutoRefresh
+							? t("dockerPage.autoRefreshOn", { label: refreshLabel })
+							: refreshIntervalSeconds <= 0
+								? t("dockerPage.autoRefreshOff")
+								: t("dockerPage.autoRefreshPaused", { label: refreshLabel })}
+					</ActionButton>
+					<ActionButton
+						size="sm"
+						variant="secondary"
+						onClick={() => {
+							for (const container of runningContainers) void fetchStats(container.Id);
+						}}
+					>
+						{t("dockerPage.refresh.stats")}
+					</ActionButton>
+					<ActionButton
+						size="sm"
+						variant="secondary"
+						icon={<RefreshCw size={14} aria-hidden />}
+						onClick={() => {
+							setLoading(true);
+							void fetchContainers();
+						}}
+					>
+						{t("dockerPage.refresh.list")}
+					</ActionButton>
+				</div>
+			</Toolbar>
 
 			{error && <Notice tone="danger" className="mb-4" onDismiss={clearError} dismissLabel={t("common.close")}>{error}</Notice>}
 			{projectMessage && <Notice tone="success" className="mb-4" onDismiss={clearProjectMessage} dismissLabel={t("common.close")}>{projectMessage}</Notice>}
-
-			<DockerResourcesPanel serverId={selectedServerId} />
 
 			<DockerContainerList
 				loading={loading}
@@ -175,6 +170,10 @@ export default function DockerPage({
 				fetchLogs={fetchLogs}
 				requestRemoval={requestRemoval}
 			/>
+
+			<div className="mt-6">
+				<DockerResourcesPanel serverId={selectedServerId} />
+			</div>
 
 			<DockerRemovalDialog
 				pendingRemoval={pendingRemoval}

@@ -9,7 +9,7 @@ import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
-import { CheckboxField, FormField, FormGrid, Notice } from "@/components/ui-primitives";
+import { Badge, CheckboxField, FormField, FormGrid, Notice } from "@/components/ui-primitives";
 import { UI_INPUT } from "@/lib/ui/classes";
 
 export type SafeApiToken = {
@@ -130,10 +130,10 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes, currentWor
               <p className="mt-1 text-sm text-[var(--warning)]/75">{t("apiTokensPage.plaintext.copyHint")}</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <ActionButton variant="outline" onClick={() => navigator.clipboard?.writeText(createdPlaintext)} className="!px-3 !py-2 !text-sm !font-medium">
+              <ActionButton variant="outline" onClick={() => navigator.clipboard?.writeText(createdPlaintext)}>
                 {t("apiTokensPage.plaintext.copy")}
               </ActionButton>
-              <ActionButton variant="secondary" onClick={() => setCreatedPlaintext(null)} className="!px-3 !py-2 !text-sm !font-medium">
+              <ActionButton variant="secondary" onClick={() => setCreatedPlaintext(null)}>
                 {t("apiTokensPage.plaintext.dismiss")}
               </ActionButton>
             </div>
@@ -170,7 +170,7 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes, currentWor
           </div>
 
           <div>
-            <ActionButton variant="primary" type="submit" disabled={submitting || !currentWorkspaceName} className="px-5 py-2.5 text-sm">
+            <ActionButton variant="primary" type="submit" disabled={submitting || !currentWorkspaceName}>
               {submitting ? t("apiTokensPage.create.submitting") : t("apiTokensPage.create.submit")}
             </ActionButton>
           </div>
@@ -199,7 +199,7 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes, currentWor
                       </div>
                       <p className="mt-2 font-mono text-xs text-[var(--text-secondary)]">{token.tokenPrefix}…{token.tokenSuffix}</p>
                       <div className="mt-3 flex flex-wrap gap-1.5">
-                        {token.scopes.map((scope) => <span key={scope} className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-2 py-0.5 font-mono text-xs text-[var(--text-secondary)]">{scope}</span>)}
+                        {token.scopes.map((scope) => <Badge className="font-mono" key={scope}>{scope}</Badge>)}
                       </div>
                       <dl className="mt-3 grid gap-2 text-xs text-[var(--text-muted)] sm:grid-cols-3">
                         <div><dt className="text-[var(--text-muted)]">{t("apiTokensPage.list.createdAt")}</dt><dd>{formatDateTime(token.createdAt, locale)}</dd></div>
@@ -208,7 +208,7 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes, currentWor
                       </dl>
                     </div>
                     {!token.revokedAt && (
-                      <ActionButton variant="danger" aria-label={t("apiTokensPage.revoke.aria", { name: token.name })} disabled={revokingId === token.id} onClick={() => setTokenPendingRevoke(token)} className="!px-4 !py-2 !text-sm !font-medium disabled:opacity-60">
+                      <ActionButton variant="danger" aria-label={t("apiTokensPage.revoke.aria", { name: token.name })} disabled={revokingId === token.id} onClick={() => setTokenPendingRevoke(token)}>
                         {revokingId === token.id ? t("apiTokensPage.revoke.revoking") : t("apiTokensPage.revoke.button")}
                       </ActionButton>
                     )}

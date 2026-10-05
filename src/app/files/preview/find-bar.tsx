@@ -66,8 +66,8 @@ export function FindBar({
 						className={cn(UI_INPUT, "px-2 py-1 text-sm text-[var(--text-secondary)]")}
 					/>
 				</div>
-				<ActionButton variant="secondary"
-					onClick={onJumpToLine} className="shrink-0 whitespace-nowrap !px-3 !py-1 !text-sm">
+				<ActionButton size="sm" variant="secondary"
+					onClick={onJumpToLine} className="shrink-0 whitespace-nowrap">
 					{t("textPreview.find.jumpButton")}
 				</ActionButton>
 			</div>

@@ -8,7 +8,7 @@
  */
 
 export const zh: Record<string, string> = {
-	"playbooksPage.action.create": "+ 新建 Playbook",
+	"playbooksPage.action.create": "新建 Playbook",
 	"playbooksPage.action.dryRun": "Dry-run 演练",
 	"playbooksPage.action.dryRunRunning": "演练中…",
 	"playbooksPage.action.delete": "删除",
@@ -17,7 +17,7 @@ export const zh: Record<string, string> = {
 	"playbooksPage.action.running": "运行中…",
 	"playbooksPage.action.toggle": "启用 / 停用",
 	"playbooksPage.action.toggling": "切换中…",
-	"playbooksPage.createForm.addStep": "+ 添加步骤",
+	"playbooksPage.createForm.addStep": "添加步骤",
 	"playbooksPage.createForm.cancel": "取消",
 	"playbooksPage.createForm.chainRetry": "整链失败重试次数",
 	"playbooksPage.createForm.cronHint": "使用五字段 Cron，按北京时间（Asia/Shanghai）执行。",
@@ -110,7 +110,7 @@ export const zh: Record<string, string> = {
 };
 
 export const en: Record<string, string> = {
-	"playbooksPage.action.create": "+ New Playbook",
+	"playbooksPage.action.create": "New Playbook",
 	"playbooksPage.action.dryRun": "Dry-run",
 	"playbooksPage.action.dryRunRunning": "Dry-running…",
 	"playbooksPage.action.delete": "Delete",
@@ -119,7 +119,7 @@ export const en: Record<string, string> = {
 	"playbooksPage.action.running": "Running…",
 	"playbooksPage.action.toggle": "Enable / Disable",
 	"playbooksPage.action.toggling": "Toggling…",
-	"playbooksPage.createForm.addStep": "+ Add Step",
+	"playbooksPage.createForm.addStep": "Add Step",
 	"playbooksPage.createForm.cancel": "Cancel",
 	"playbooksPage.createForm.chainRetry": "Chain Retry Count",
 	"playbooksPage.createForm.cronHint": "Use a five-field Cron expression. Schedules run in Asia/Shanghai.",

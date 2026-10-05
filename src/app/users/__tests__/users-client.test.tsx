@@ -70,7 +70,7 @@ describe("UserManagementClient", () => {
     render(<UserManagementClient canManage={false} />);
     expect(await screen.findByText("Alice")).toBeInTheDocument();
 
-    expect(screen.queryByRole("button", { name: "+ 创建用户" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "创建用户" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "禁用" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "权限配置" })).not.toBeInTheDocument();
     expect(screen.getByText("只读")).toBeInTheDocument();

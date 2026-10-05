@@ -123,13 +123,10 @@ export function CreateTemplateForm({ onClose }: { onClose: () => void }) {
 			<div className="flex gap-3 pt-2">
 				<ActionButton variant="primary"
 					type="submit"
-					disabled={submitting}
-
-					className="min-h-11 px-5 text-sm"
-				>
+					disabled={submitting}>
 					{submitting ? t("templatesPage.create.submitting") : t("templatesPage.create.submit")}
 				</ActionButton>
-				<ActionButton type="button" variant="secondary" onClick={onClose} className="min-h-11 px-5 text-sm">
+				<ActionButton type="button" variant="secondary" onClick={onClose}>
 					{t("templatesPage.action.cancel")}
 				</ActionButton>
 			</div>

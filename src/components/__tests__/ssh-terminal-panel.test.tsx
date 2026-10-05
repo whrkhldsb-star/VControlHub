@@ -224,6 +224,7 @@ describe("SshTerminalPanel", () => {
 		const send = vi.spyOn(socket, "send");
 		act(() => {
 			socket.readyState = MockWebSocket.OPEN;
+			socket.onmessage?.({ data: JSON.stringify({ type: "connected" }) });
 		});
 
 		await user.click(screen.getByRole("button", { name: "Ctrl+C" }));
@@ -264,6 +265,7 @@ describe("SshTerminalPanel", () => {
 		const send = vi.spyOn(socket, "send");
 		act(() => {
 			socket.readyState = MockWebSocket.OPEN;
+			socket.onmessage?.({ data: JSON.stringify({ type: "connected" }) });
 		});
 		await user.click(screen.getByRole("button", { name: "Shift+Tab" }));
 		expect(send).toHaveBeenCalledWith(JSON.stringify({ type: "input", data: encodeBase64("\u001b[Z") }));

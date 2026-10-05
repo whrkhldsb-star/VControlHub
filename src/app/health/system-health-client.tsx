@@ -9,18 +9,15 @@ import { ActiveIncidentsBanner } from "./active-incidents-banner";
 import {
 	healthStatusBadgeTone,
 	repairSuggestions,
-	repairToneClasses,
 	statusLabelKey,
-	statusToneClasses,
 	tt as applyTemplate,
-	unknownTone,
 } from "./health-dashboard-helpers";
 import { getDomainStatusLabel } from "@/lib/i18n/domain-labels";
 import type { SystemHealthReport } from "./health-types";
 import { useHealthData } from "./use-health-data";
 import { Badge, Notice } from "@/components/ui-primitives";
 import { Toolbar, StatCard, StatGrid } from "@/components/page-shell";
-import { ActionButton } from "@/components/action-button";
+import { ActionButton, ButtonLink } from "@/components/action-button";
 import { RefreshCw } from "@/components/icons";
 
 type Props = { initialSystemHealth?: SystemHealthReport | null };
@@ -71,14 +68,10 @@ export function SystemHealthClient({ initialSystemHealth }: Props) {
 						<RefreshCw size={16} aria-hidden className={isRefreshing ? "animate-spin" : undefined} />
 						{t("common.refresh")}
 					</ActionButton>
-					<Link
-						href="/vps-status"
-						data-action-button
-						data-variant="outline"
-						className="!px-3 !text-sm"
-					>
+					<ButtonLink variant="outline"
+						href="/vps-status">
 						{t("healthPage.ui.gotoVpsStatus")}
-					</Link>
+					</ButtonLink>
 				</div>
 			</Toolbar>
 
@@ -90,7 +83,7 @@ export function SystemHealthClient({ initialSystemHealth }: Props) {
 
 			{loading ? (
 				<section
-					className="space-y-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4"
+				 data-card className="space-y-3 p-4"
 					aria-busy="true"
 					aria-label={t("healthPage.ui.selfCheck")}
 				>
@@ -101,7 +94,7 @@ export function SystemHealthClient({ initialSystemHealth }: Props) {
 						{[1, 2, 3].map((i) => (
 							<div
 								key={i}
-								className="h-24 animate-pulse rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4"
+							 data-card className="h-24 animate-pulse p-4"
 							/>
 						))}
 					</div>
@@ -112,43 +105,24 @@ export function SystemHealthClient({ initialSystemHealth }: Props) {
 				<section className="space-y-4">
 					<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 						<div className="min-w-0">
-							<p className="text-xs uppercase text-[var(--text-muted)]">
+							<p className="text-xs text-[var(--text-muted)]">
 								{t("healthPage.ui.selfCheck")}
 							</p>
-							<h2 className="mt-1 text-lg font-semibold text-[var(--text-primary)]">
+							<h2 className="mt-1 text-[15px] font-semibold text-[var(--text-primary)]">
 								{t("healthPage.ui.repairSuggestions")}
 							</h2>
 							<p className="mt-1 text-xs text-[var(--text-secondary)]">
 								{tt("healthPage.ui.checksSummary", systemHealth.summary)}
 							</p>
 						</div>
-						<div className="flex flex-wrap gap-2 text-xs text-[var(--text-secondary)]">
-							<Link
-								href="/audit"
-								data-action-button
-								data-variant="secondary"
-								className="!px-3 !py-1.5 !text-sm"
-							>
-								{t("healthPage.ui.auditLog")}
-							</Link>
-							<Link
-								href="/"
-								data-action-button
-								data-variant="secondary"
-								className="!px-3 !py-1.5 !text-sm"
-							>
-								{t("healthPage.ui.home")}
-							</Link>
-						</div>
+						<ButtonLink variant="ghost" size="sm" href="/audit">
+							{t("healthPage.ui.auditLog")}
+						</ButtonLink>
 					</div>
 					<div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
 						{repairSuggestions(systemHealth.summary, t).map((item) => {
-							const tone = repairToneClasses[item.status];
 							return (
-								<article
-									key={item.id}
-									className={`rounded-xl border bg-[var(--surface)] p-4 ${tone.border}`}
-								>
+								<article key={item.id} data-card>
 									<div className="flex items-center justify-between gap-3">
 										<h3 className="text-sm font-semibold text-[var(--text-primary)]">
 											{item.label}
@@ -179,9 +153,8 @@ export function SystemHealthClient({ initialSystemHealth }: Props) {
 					</div>
 					<div className="grid gap-2 md:grid-cols-2">
 						{systemHealth.checks.map((check) => {
-							const sc = statusToneClasses[check.status] ?? unknownTone;
 							return (
-								<div key={check.id} className={`rounded-xl border p-3 ${sc.bg}`}>
+								<div key={check.id} data-inset className="p-3">
 									<div className="flex items-center justify-between gap-3">
 										<div className="text-sm font-medium text-[var(--text-primary)]">
 											{tt(

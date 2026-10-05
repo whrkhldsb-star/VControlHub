@@ -40,13 +40,24 @@ test("AI conversation controls and drafts remain usable across layouts", async (
         await expect(view.getByRole("heading", { level: 1, name: title })).toBeVisible();
         const input = view.locator("textarea").last();
         await input.fill("Unsaved incident review draft");
-        await view.getByRole("button", { name: /^设置$|^Settings$/ }).click();
-        await view.getByRole("button", { name: /^设置$|^Settings$/ }).click();
+        const settingsBtn = view.locator("[data-action-button][aria-label='设置'], [data-action-button][aria-label='Settings']");
+        await settingsBtn.click();
+        await settingsBtn.click();
         await expect(input).toHaveValue("Unsaved incident review draft");
-        expect(await input.evaluate((element) => {
+        const diag = await input.evaluate((element) => {
           const rect = element.getBoundingClientRect();
-          return rect.x >= 0 && rect.right <= innerWidth && rect.y >= 64 && rect.bottom <= innerHeight - (innerWidth < 1024 ? 56 : 0);
-        })).toBe(true);
+          // The composer docks flush ABOVE the fixed bottom nav (z-30, hidden
+          // on lg); flush adjacency is correct — only flag if it actually
+          // slides UNDER the nav or off any edge. A display:none nav reports
+          // rect 0, so ignore non-visible navs.
+          const nav = Array.from(document.querySelectorAll<HTMLElement>("nav.fixed.bottom-0"))
+            .find((n) => n.offsetParent !== null);
+          const navTop = nav ? nav.getBoundingClientRect().top : innerHeight;
+          const ok = rect.x >= 0 && rect.right <= innerWidth && rect.y >= 64 && rect.bottom <= Math.min(innerHeight, navTop) + 1;
+          return ok ? null : { x: rect.x, right: rect.right, y: rect.y, bottom: rect.bottom, iw: innerWidth, ih: innerHeight, navTop };
+        });
+        if (diag) console.log("RECT_FAIL " + JSON.stringify(diag));
+        expect(diag).toBeNull();
         await view.evaluate(axe.source);
         const violations = await view.evaluate(async () => (await (window as unknown as { axe: typeof axe }).axe.run(document, {
           runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21aa"] },

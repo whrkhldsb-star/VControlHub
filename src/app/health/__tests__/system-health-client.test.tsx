@@ -101,7 +101,7 @@ describe("SystemHealthClient (split health surface)", () => {
 		renderSystem();
 		expect(await screen.findByText("GitHub 同步状态")).toBeInTheDocument();
 		const auditLink = screen.getByRole("link", { name: /审计|Audit/i });
-		const headerRow = auditLink.parentElement?.parentElement as HTMLElement;
+		const headerRow = auditLink.parentElement as HTMLElement;
 		const headerTokens = headerRow.className.split(/\s+/);
 		expect(headerTokens).toContain("flex-col");
 		expect(headerTokens).toContain("sm:flex-row");

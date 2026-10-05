@@ -84,10 +84,9 @@ export function RetentionButton({ olderThan30Days, totalRecords }: Props) {
             disabled={pending}
           />
         </label>
-        <ActionButton variant="outline"
+        <ActionButton size="sm" variant="outline"
           type="submit"
-          disabled={disabled} className="!px-3 !py-1.5 !text-sm !font-semibold disabled:cursor-not-allowed disabled:opacity-50"
-        >
+          disabled={disabled}>
           {pending ? t("backupsPage.retention.pending") : t("backupsPage.retention.submit")}
         </ActionButton>
       </div>

@@ -1,8 +1,8 @@
 "use client";
-import { useActionState, useEffect, useId, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { ActionButton } from "@/components/action-button";
 import { SubmitButton } from "@/components/submit-button";
-import { ModalShell } from "@/components/modal-shell";
+import { Dialog } from "@/components/ui/dialog";
 import { PasswordField } from "@/components/password-field";
 import {
   changePasswordAction,
@@ -23,8 +23,6 @@ export function ChangePasswordModal({
     changePasswordAction,
     initialState,
   );
-  const titleId = useId();
-  const descriptionId = useId();
   const { t } = useI18n();
   const [formKey, setFormKey] = useState(0);
 
@@ -38,53 +36,14 @@ export function ChangePasswordModal({
     return () => clearTimeout(timer);
   }, [open, state.success, onClose]);
 
-  const closeModalLabel = t("common.closeChangePasswordModal");
-  const changePasswordDescription = t("common.changePasswordDescription");
-  const titleText = t("common.editPassword");
   return (
-    <ModalShell
+    <Dialog
       open={open}
       onClose={onClose}
-      labelledBy={titleId}
-      describedBy={descriptionId}
-      overlayClassName="fixed inset-0 z-[100] flex items-center justify-center bg-[var(--overlay)] backdrop-blur-sm"
-      panelClassName="relative z-10 w-full max-w-md mx-4 rounded-3xl border border-[var(--border)] bg-[var(--modal-bg)] p-6 shadow-2xl"
+      title={t("common.editPassword")}
+      description={t("common.changePasswordDescription")}
+      closeLabel={t("common.closeChangePasswordModal")}
     >
-        <div className="flex items-center justify-between mb-4">
-          <h2
-            id={titleId}
-            className="text-xl font-semibold text-[var(--text-primary)]"
-          >
-            {titleText}
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-xl p-2 text-[var(--text-secondary)] hover:bg-[var(--surface-elevated)] hover:text-[var(--text-primary)] transition"
-            aria-label={closeModalLabel}
-          >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 18 18"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                d="M4 4l10 10M14 4L4 14"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-              />
-            </svg>
-          </button>
-        </div>
-        <p
-          id={descriptionId}
-          className="mb-4 text-sm text-[var(--text-secondary)]"
-        >
-          {changePasswordDescription}
-        </p>
         <form key={formKey} action={formAction} className="grid gap-4">
           <input
             type="text"
@@ -119,13 +78,11 @@ export function ChangePasswordModal({
             <Notice tone="danger">{state.error}</Notice>
           ) : null}
           {state.success ? <Notice tone="success">{state.success}</Notice> : null}
-          <div className="flex justify-end gap-3 pt-2">
+          <div className="flex justify-end gap-2 pt-1">
             <ActionButton
               type="button"
               variant="secondary"
-              onClick={onClose}
-              className="!px-5 !py-2.5 !text-sm"
-            >
+              onClick={onClose}>
               {t("common.cancel")}
             </ActionButton>
             <SubmitButton pendingLabel={t("changePassword.saving")}>
@@ -133,7 +90,7 @@ export function ChangePasswordModal({
             </SubmitButton>
           </div>
         </form>
-    </ModalShell>
+    </Dialog>
   );
 }
 

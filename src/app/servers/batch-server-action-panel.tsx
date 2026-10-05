@@ -7,6 +7,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { batchToggleServerAction, type ServerActionState } from "./actions";
 import { ActionButton } from "@/components/action-button";
 import { ServerTargetPicker, type ServerTarget } from "./server-target-picker";
+import { Notice } from "@/components/ui-primitives";
 
 const initialState: ServerActionState = {};
 
@@ -76,23 +77,23 @@ export function BatchServerActionPanel({
       </div>
 
       {state.error ? (
-        <div data-tone="rose" className="mt-4 rounded-lg border border-[var(--danger-border)] px-3.5 py-2.5 text-sm text-[var(--danger)]">
+        <Notice tone="danger" className="mt-4">
           {state.error}
-        </div>
+        </Notice>
       ) : null}
       {state.success ? (
-        <div data-tone="emerald" className="mt-4 rounded-lg border border-[var(--success-border)] px-3.5 py-2.5 text-sm text-[var(--success)]">
+        <Notice tone="success" className="mt-4">
           {state.success}
-        </div>
+        </Notice>
       ) : null}
 
       {remoteTargets ? <div className="mt-4"><ServerTargetPicker kind="batch" onEnabledCount={setRemoteEnabledCount}
         selected={remoteSelection.filter((row) => selectedIds.includes(row.id))}
         onChange={(rows) => { setRemoteSelection(rows); setSelectedIds(rows.map((row) => row.id)); setDisableConfirming(false); }} /></div> : <>
       <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-[var(--text-muted)]">
-        <ActionButton variant="secondary"
+        <ActionButton size="sm" variant="secondary"
           onClick={toggleAll}
-          aria-pressed={allSelected} className="!px-3 !py-1.5">
+          aria-pressed={allSelected}>
           {allSelected ? t("serversPage.batchPanel.clear") : t("serversPage.batchPanel.selectAll")}
         </ActionButton>
         {someSelected ? <span aria-hidden="true">·</span> : null}
@@ -106,7 +107,7 @@ export function BatchServerActionPanel({
           return (
             <label
               key={server.id}
-              className="flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2 text-sm text-[var(--text-secondary)]"
+              data-tile className="flex items-center gap-3 px-3 py-2 text-sm text-[var(--text-secondary)]"
             >
               <input
                 type="checkbox"
@@ -124,9 +125,9 @@ export function BatchServerActionPanel({
       </div>
 
       </>}
-      <p className="mt-4 rounded-xl border border-[var(--info-border)] bg-[var(--info-bg)] px-3 py-2 text-xs text-[var(--text-secondary)]">
+      <Notice tone="info" compact className="mt-4">
         {t("serversPage.batchPanel.enableIndividual")}
-      </p>
+      </Notice>
 
       <form action={formAction} className="mt-3 flex flex-wrap gap-2">
         {selectedIds.map((id) => (

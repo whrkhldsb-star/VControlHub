@@ -26,7 +26,7 @@ import { getDirectGatewayRepairAdvice } from "./direct-gateway-advice";
 import { DirectGatewayAdviceList, DirectGatewayHealthyDetail, InfoRow, OsDialectSection } from "./server-overview-detail-sections";
 import { ActionButton } from "@/components/action-button";
 import { StatusBadge } from "@/components/status-badge";
-import { Notice } from "@/components/ui-primitives";
+import { Badge, Notice } from "@/components/ui-primitives";
 
 export type ServerOverviewDetailsServer = {
 	operatingSystem?: string;
@@ -183,7 +183,7 @@ export function ServerOverviewDetails({
 			aria-label={`${server.name} ${t("serverOverviewDetails.vpsDetails")}`}
 			className="space-y-3"
 		>
-			<section className="rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-3">
+			<section data-inset className="p-3">
 				<h3 className="mb-3 text-sm font-medium text-[var(--text-primary)]">{t("serverOverviewDetails.section.connectionStatus")}</h3>
 				<div className="grid gap-2 text-sm">
 					<InfoRow label={t("serverOverviewDetails.connectionType")} value={server.connectionTypeLabel} />
@@ -197,7 +197,7 @@ export function ServerOverviewDetails({
 				</div>
 				<p
 					data-tone="cyan"
-					className="mt-3 rounded-lg border border-[var(--color-action-border)]/10 p-2 text-xs leading-5 text-[var(--text-muted)] light:border-[var(--color-action-border)]/15 light:bg-[var(--color-action-bg)]"
+					data-inset className="mt-3 p-2 text-xs leading-5 text-[var(--text-muted)]"
 				>
 					{t("serverOverviewDetails.banner.description")}
 				</p>
@@ -209,18 +209,15 @@ export function ServerOverviewDetails({
 				{(server.tags ?? []).length > 0 ? (
 					<div className="mt-3 flex flex-wrap gap-1.5">
 						{(server.tags ?? []).map((tag) => (
-							<span
-								key={tag}
-								className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-2 py-0.5 text-xs text-[var(--text-muted)]"
-							>
+							<Badge key={tag}>
 								#{tag}
-							</span>
+							</Badge>
 						))}
 					</div>
 				) : null}
 			</section>
 
-			<section className="rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-3">
+			<section data-inset className="p-3">
 				<h3 className="mb-3 text-sm font-medium text-[var(--text-primary)]">{t("serverOverviewDetails.section.operationsResources")}</h3>
 				<div className="space-y-2 text-sm">
 					<InfoRow
@@ -288,7 +285,7 @@ export function ServerOverviewDetails({
 				) : null}
 			</section>
 
-			<section className="rounded-lg border border-[var(--color-action-border)]/10 bg-[var(--color-action-bg)]/[0.035] p-3 light:border-[var(--color-action-border)]/15 light:bg-[var(--color-action-bg)]">
+			<section data-inset className="p-3">
 				<div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
 					<div>
 						<h3 className="text-sm font-medium text-[var(--text-primary)]">{t("serverOverviewDetails.diagnosticsNext")}</h3>
@@ -303,7 +300,7 @@ export function ServerOverviewDetails({
 						{t("serverOverviewDetails.viewMonitorJson")}
 					</Link>
 				</div>
-				<div className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-3">
+				<div data-inset className="mt-3 p-3">
 					<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
 						<div>
 							<div className="text-xs font-medium text-[var(--text-primary)]">{t("serverOverviewDetails.realtimeProbe")}</div>
@@ -311,20 +308,16 @@ export function ServerOverviewDetails({
 								{t("serverOverviewDetails.realtimeProbeDescription")}
 							</p>
 						</div>
-						<ActionButton variant="success"
+						<ActionButton size="sm" variant="success"
 							onClick={onRunRealtimeDiagnostics}
-							disabled={diagnosticRun.status === "loading" || !server.enabled} className="inline-flex shrink-0 items-center justify-center !px-3 !py-1.5 !text-sm disabled:cursor-not-allowed disabled:opacity-60">
+							disabled={diagnosticRun.status === "loading" || !server.enabled} className="inline-flex shrink-0 items-center justify-center">
 							{diagnosticRun.status === "loading" ? t("serverOverviewDetails.diagnosing") : t("serverOverviewDetails.runRealtimeDiagnostics")}
 						</ActionButton>
 					</div>
 					{diagnosticRun.status === "success" ? (
-						<div
-							role="status"
-							data-tone="emerald"
-							className="mt-3 rounded-lg border border-[var(--success-border)] p-2 text-xs leading-5 text-[var(--success)] light:border-[var(--success-border)]"
-						>
+						<Notice tone="success" compact className="mt-3">
 							{t("serverOverviewDetails.diagnosticSuccess", { summary: diagnosticRun.summary, checkedAt: diagnosticRun.checkedAt })}
-						</div>
+						</Notice>
 					) : null}
 					{diagnosticRun.status === "error" ? (
 						<Notice tone="danger" compact>
@@ -336,7 +329,7 @@ export function ServerOverviewDetails({
 					{diagnosticItems.map((item) => (
 						<div
 							key={item.label}
-							className="rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-3"
+						 data-inset className="p-3"
 						>
 							<div className="flex items-center justify-between gap-2">
 								<span className="text-xs font-medium text-[var(--text-primary)]">{item.label}</span>
@@ -360,7 +353,7 @@ export function ServerOverviewDetails({
 				</div>
 			</section>
 
-			<section className="rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-3">
+			<section data-inset className="p-3">
 				<h3 className="mb-3 text-sm font-medium text-[var(--text-primary)]">{t("serverOverviewDetails.latestCommands")}</h3>
 				{server.latestCommands.length === 0 ? (
 					<p className="text-xs text-[var(--text-muted)]">{t("serverOverviewDetails.noCommandRecords")}</p>
@@ -369,7 +362,7 @@ export function ServerOverviewDetails({
 						{server.latestCommands.map((command) => (
 							<div
 								key={command.id}
-								className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-3"
+							 data-tile className="p-3"
 							>
 								<div className="flex items-center justify-between gap-2">
 									<span className="truncate text-sm font-medium text-[var(--text-primary)]">

@@ -88,16 +88,16 @@ export function TeamSwitcher() {
 	if (teams.length === 0) return null;
 
 	return (
-		<div className="px-2.5 py-1">
-			<label className="flex min-w-0 items-center gap-2 rounded-lg px-1 py-1.5 text-xs text-[var(--text-muted)]">
-				<span className="shrink-0 font-medium">{t("nav.teamSwitchLabel")}</span>
-				<span className="relative inline-flex min-w-0 flex-1 items-center">
+		<div className="px-2.5 pb-1.5">
+			<label className="block">
+				<span className="mb-1 block text-[11px] text-[var(--text-muted)]">{t("nav.teamSwitchLabel")}</span>
+				<span className="relative flex min-w-0 items-center">
 					<select
 						value={currentTeamId ?? ""}
 						disabled={switching}
 						aria-label={t("nav.teamSwitchLabel")}
 						onChange={(event) => void handleSwitch(event.target.value)}
-						className="min-h-8 w-full min-w-0 cursor-pointer truncate rounded-md border border-[var(--border-subtle)] bg-[var(--surface-subtle)] py-1 pl-2 pr-6 text-xs text-[var(--text-primary)] outline-none transition focus:border-[var(--input-border-focus)] disabled:opacity-60"
+						className="ui-control h-8 w-full min-w-0 cursor-pointer truncate rounded-md border border-[var(--input-border)] bg-[var(--input-bg)] py-1 pl-2.5 text-[13px] text-[var(--text-primary)] outline-none transition hover:border-[var(--input-border-hover)] focus:border-[var(--input-border-focus)] focus:shadow-[0_0_0_3px_var(--input-ring)] disabled:opacity-60"
 					>
 						{teams.map((team) => (
 							<option key={team.id} value={team.id}>
@@ -107,7 +107,7 @@ export function TeamSwitcher() {
 						))}
 					</select>
 					{switching ? (
-						<Loader2 size={12} className="absolute right-2 animate-spin text-[var(--text-muted)]" aria-hidden />
+						<Loader2 size={12} className="absolute right-7 animate-spin text-[var(--text-muted)]" aria-hidden />
 					) : null}
 				</span>
 			</label>

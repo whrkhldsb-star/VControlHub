@@ -1,9 +1,9 @@
 {
-  "generatedAt": "2026-09-30T01:02:35.666Z",
+  "generatedAt": "2026-10-03T04:54:38.275Z",
   "summary": {
-    "sidebarMain": 30,
+    "sidebarMain": 31,
     "sidebarSystem": 5,
-    "sidebarMobile": 5,
+    "sidebarMobile": 4,
     "pages": 55,
     "apiRoutes": 188,
     "permissionsDefined": 54
@@ -77,6 +77,10 @@
       {
         "href": "/quick-services",
         "fallbackLabel": "Quick Services"
+      },
+      {
+        "href": "/docker",
+        "fallbackLabel": "Docker"
       },
       {
         "href": "/snippets",
@@ -157,8 +161,7 @@
       "/dashboard",
       "/servers",
       "/operation-tasks",
-      "/files",
-      "/settings"
+      "/files"
     ]
   },
   "pages": [
@@ -325,7 +328,7 @@
     {
       "path": "/docker",
       "file": "src/app/docker/page.tsx",
-      "inSidebarMain": false,
+      "inSidebarMain": true,
       "inSidebarSystem": false,
       "declaredPermissions": [
         "docker:manage"

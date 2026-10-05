@@ -178,8 +178,7 @@ export function FileVersionHistoryPanel({
           <ActionButton variant="outline"
             disabled={busyId === "manual"}
             onClick={() => void createManual()}
-            data-tone="cyan" className="!px-3 !py-2 !text-sm disabled:opacity-50"
-          >
+            data-tone="cyan">
             {busyId === "manual"
               ? t("fileVersionHistory.snapshotPending")
               : t("fileVersionHistory.snapshotNow")}
@@ -198,7 +197,7 @@ export function FileVersionHistoryPanel({
           versions.map((v) => (
             <div
               key={v.id}
-              className="rounded-2xl border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-3"
+              data-tile className="px-3 py-3"
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0">

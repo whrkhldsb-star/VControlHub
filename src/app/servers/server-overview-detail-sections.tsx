@@ -6,6 +6,7 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { getDirectGatewayHealthyNote } from "./direct-gateway-advice";
 import { ActionButton } from "@/components/action-button";
+import { Badge } from "@/components/ui-primitives";
 
 export function InfoRow({ label, value }: { label: string; value: string }) {
 	return (
@@ -65,7 +66,7 @@ export function OsDialectSection({
 	const sm = displayDialect?.serviceManager ?? parsedDialect?.serviceManager;
 
 	return (
-		<div className="mt-2 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-2.5">
+		<div data-tile className="mt-2 p-2.5">
 			<div className="flex items-center justify-between gap-2">
 				<div className="min-w-0 flex-1">
 					<span className="text-xs text-[var(--text-muted)]">{t("serverOverviewDetails.osDialect")}</span>
@@ -73,9 +74,9 @@ export function OsDialectSection({
 						{displayInfo || t("serverOverviewDetails.osNotDetected")}
 					</p>
 				</div>
-				<ActionButton variant="outline"
+				<ActionButton size="sm" variant="outline"
 					onClick={handleDetect}
-					disabled={detecting} className="shrink-0 !px-2.5 !py-1 !text-sm disabled:opacity-50">
+					disabled={detecting} className="shrink-0">
 					{detecting ? t("serverOverviewDetails.detecting") : t("serverOverviewDetails.detectOs")}
 				</ActionButton>
 			</div>
@@ -85,14 +86,14 @@ export function OsDialectSection({
 			{hasDialect && (pm || sm) ? (
 				<div className="mt-1.5 flex flex-wrap gap-1.5">
 					{pm ? (
-						<span className="rounded border border-[var(--border)] bg-[var(--surface-elevated)] px-1.5 py-0.5 text-xs text-[var(--text-muted)]">
+						<Badge>
 							{t("serverOverviewDetails.packageManager")}: {pm}
-						</span>
+						</Badge>
 					) : null}
 					{sm ? (
-						<span className="rounded border border-[var(--border)] bg-[var(--surface-elevated)] px-1.5 py-0.5 text-xs text-[var(--text-muted)]">
+						<Badge>
 							{t("serverOverviewDetails.serviceManager")}: {sm}
-						</span>
+						</Badge>
 					) : null}
 				</div>
 			) : null}

@@ -47,7 +47,7 @@ export function AiSettingsPanel({
             className="text-xs text-[var(--text-muted)] uppercase "
           >
             Temperature{" "}
-            <span className="text-[var(--color-action)]/70">
+            <span className="text-[var(--color-action-text)]/70">
               {settingsForm.temperature.toFixed(2)}
             </span>
           </label>
@@ -106,7 +106,7 @@ export function AiSettingsPanel({
             className="text-xs text-[var(--text-muted)] uppercase "
           >
             Top P{" "}
-            <span className="text-[var(--color-action)]/70">
+            <span className="text-[var(--color-action-text)]/70">
               {settingsForm.topP.toFixed(2)}
             </span>
           </label>
@@ -136,7 +136,7 @@ export function AiSettingsPanel({
             className="text-xs text-[var(--text-muted)] uppercase "
           >
             {t("aiPage.frequencyPenalty")}{" "}
-            <span className="text-[var(--color-action)]/70">
+            <span className="text-[var(--color-action-text)]/70">
               {settingsForm.frequencyPenalty.toFixed(2)}
             </span>
           </label>
@@ -166,7 +166,7 @@ export function AiSettingsPanel({
             className="text-xs text-[var(--text-muted)] uppercase "
           >
             {t("aiPage.presencePenalty")}{" "}
-            <span className="text-[var(--color-action)]/70">
+            <span className="text-[var(--color-action-text)]/70">
               {settingsForm.presencePenalty.toFixed(2)}
             </span>
           </label>
@@ -201,12 +201,12 @@ export function AiSettingsPanel({
                   enableVision: e.target.checked,
                 }))
               }
-              className="rounded-lg border-[var(--border)] bg-[var(--input-bg)] text-[var(--color-action)] focus:ring-[var(--color-action-ring)]"
+              className="rounded-lg border-[var(--border)] bg-[var(--input-bg)] text-[var(--color-action-text)] focus:ring-[var(--color-action-ring)]"
             />
             <span className="text-xs text-[var(--text-secondary)]">
               {t("aiPage.visionToggle")}
               {currentModelSupportsVision && (
-                <span className="text-xs text-[var(--color-action)]/60 ml-1">
+                <span className="text-xs text-[var(--color-action-text)]/60 ml-1">
                   {t("aiPage.recommended")}
                 </span>
               )}
@@ -242,7 +242,7 @@ export function AiSettingsPanel({
             <legend className="text-xs font-medium text-[var(--text-secondary)]">
               {t("aiPage.automationMode")}
             </legend>
-            <div className="grid min-h-10 grid-cols-2 rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-1">
+            <div data-inset className="grid min-h-10 grid-cols-2 p-1">
               {(["ASSISTED", "PLAN_ONLY"] as const).map((mode) => (
                 <button
                   key={mode}
@@ -268,11 +268,8 @@ export function AiSettingsPanel({
 
         {/* Save button */}
         <div className="flex items-end gap-2">
-          <ActionButton type="button" variant="ghost"
-            onClick={onSaveSettings}
-
-            className="h-7 px-3 text-xs"
-          >
+          <ActionButton size="sm" type="button" variant="ghost"
+            onClick={onSaveSettings}>
             {t("aiPage.saveSettings")}
           </ActionButton>
         </div>

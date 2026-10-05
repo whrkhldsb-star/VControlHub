@@ -82,7 +82,7 @@ export function SharePasswordGate({ token, label, placeholder, submitLabel, fail
         />
         <ActionButton variant="primary"
           type="submit"
-          disabled={!pw || busy} className="shrink-0 px-4 py-2 text-sm"
+          disabled={!pw || busy} className="shrink-0"
         >
           {submitLabel}
         </ActionButton>

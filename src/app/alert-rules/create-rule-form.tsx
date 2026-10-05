@@ -13,7 +13,7 @@ import type { PlaybookOption, ServerOption } from "./alert-rule-types";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { useUnsavedChangesGuard } from "@/lib/forms/use-unsaved-changes-guard";
 
-const selectClass = cn(UI_INPUT, "py-2.5");
+const selectClass = UI_INPUT;
 const chipActive =
 	"border-[var(--color-action-border)]/30 bg-[var(--color-action-bg)]/10 text-[var(--text-secondary)]";
 const chipIdle =
@@ -227,7 +227,7 @@ export function CreateRuleForm({
 					<label className="text-xs font-medium text-[var(--text-primary)]/70">
 						{t("alertRulesPage.createForm.targetNodes")}
 					</label>
-					<div className="flex flex-wrap gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-2">
+					<div data-tile className="flex flex-wrap gap-1.5 p-2">
 						{servers.length === 0 ? (
 							<span className="text-xs text-[var(--text-muted)]">
 								{t("alertRulesPage.createForm.noNodes")}
@@ -263,7 +263,7 @@ export function CreateRuleForm({
 				</div>
 			</div>
 
-			<div className="space-y-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-3">
+			<div data-tile className="space-y-1.5 p-3">
 				<label className="text-xs font-medium text-[var(--text-primary)]/70">
 					{t("alertRulesPage.createForm.playbooks")}
 				</label>
@@ -388,15 +388,12 @@ export function CreateRuleForm({
 			<div className="flex gap-3 pt-2">
 				<ActionButton variant="primary"
 					type="submit"
-					disabled={submitting}
-
-					className="px-5 text-sm"
-				>
+					disabled={submitting}>
 					{submitting
 						? t("alertRulesPage.createForm.submitting")
 						: t("alertRulesPage.createForm.submit")}
 				</ActionButton>
-				<ActionButton type="button" variant="secondary" onClick={requestDiscard} className="px-5 text-sm">
+				<ActionButton type="button" variant="secondary" onClick={requestDiscard}>
 					{t("alertRulesPage.createForm.cancel")}
 				</ActionButton>
 			</div>

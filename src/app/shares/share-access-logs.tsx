@@ -47,13 +47,12 @@ export function ShareAccessLogsButton({ shareId }: { shareId: string }) {
 
   return (
     <div>
-      <ActionButton variant="secondary"
-        onClick={toggle} className="!px-2.5 !py-1 !text-sm"
-      >
+      <ActionButton size="sm" variant="secondary"
+        onClick={toggle}>
         {t("sharesPage.accessLogs.view")}
       </ActionButton>
       {open && (
-        <div className="mt-2 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-3">
+        <div data-tile className="mt-2 p-3">
           {loading ? (
             <InlineLoading label={t("sharesPage.accessLogs.loading")} />
           ) : error ? (

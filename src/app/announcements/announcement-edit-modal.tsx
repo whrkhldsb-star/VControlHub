@@ -6,7 +6,6 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 import { ModalShell } from "@/components/modal-shell";
-import { UI_OVERLAY_CENTER } from "@/components/ui-overlay-classes";
 import { useUnsavedChangesGuard } from "@/lib/forms/use-unsaved-changes-guard";
 
 interface Announcement {
@@ -70,12 +69,11 @@ export function AnnouncementEditModal({
 
   return (
     <ModalShell
+      size="lg"
       open
       onClose={requestDiscard}
       labelledBy="announcement-edit-title"
       closeOnBackdrop={false}
-      overlayClassName={UI_OVERLAY_CENTER}
-      panelClassName="w-full max-w-lg rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-6 shadow-2xl"
     >
         <h3 id="announcement-edit-title" className="text-lg font-semibold text-[var(--text-primary)]">{t("announcementsPage.edit.title")}</h3>
 
@@ -130,13 +128,12 @@ export function AnnouncementEditModal({
 
         <div className="mt-5 flex justify-end gap-3">
           <ActionButton type="button" variant="secondary"
-            onClick={requestDiscard} className="!px-4 !py-2 !text-sm">
+            onClick={requestDiscard}>
             {t("common.cancel")}
           </ActionButton>
           <ActionButton type="button" variant="primary"
             onClick={handleSave}
-            disabled={saving || !title.trim() || !content.trim()} className="px-4 py-2 text-sm"
-          >
+            disabled={saving || !title.trim() || !content.trim()}>
             {saving ? t("announcementsPage.edit.saving") : t("announcementsPage.edit.submit")}
           </ActionButton>
         </div>

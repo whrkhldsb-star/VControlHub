@@ -164,8 +164,7 @@ export function DeploymentExportPanel() {
           />
         </label>
         <ActionButton type="submit" variant="primary"
-          disabled={pending} className="disabled:opacity-60"
-        >
+          disabled={pending}>
           {pending ? t("deploymentsPage.export.generating") : t("deploymentsPage.export.generate")}
         </ActionButton>
       </form>
@@ -179,7 +178,7 @@ export function DeploymentExportPanel() {
       {result && (
         <div
           data-tone="cyan"
-          className="mt-4 rounded-xl border border-[var(--color-action-border)]/20 p-4 light:bg-[var(--color-action-bg)]"
+          data-inset className="mt-4 p-4"
         >
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -190,11 +189,10 @@ export function DeploymentExportPanel() {
                 {t("deploymentsPage.export.summary", { domain: result.manifest?.domain ?? "example.com", count: fileCount, size: (totalSize / 1024).toFixed(1) })}
               </p>
             </div>
-            <ActionButton variant="outline"
+            <ActionButton size="sm" variant="outline"
               onClick={() => void handleZipDownload()}
               disabled={zipPending || !result.id}
-              data-testid="deploy-export-zip" className="!px-3 !py-1.5 !text-sm disabled:opacity-60"
-            >
+              data-testid="deploy-export-zip">
               {zipPending ? t("deploymentsPage.export.packaging") : t("deploymentsPage.export.downloadZip")}
             </ActionButton>
           </div>

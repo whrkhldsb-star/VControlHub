@@ -12,6 +12,8 @@ const bundle = await build({
   entryPoints: ["scripts/design-system/showcase.tsx"], bundle: true, write: false,
   platform: "browser", format: "iife", jsx: "automatic", minify: true,
   define: { "process.env.NODE_ENV": '"production"' },
+  // next/link (used by ButtonLink and Menu items) reads other process.env flags.
+  banner: { js: "var process = globalThis.process || { env: { NODE_ENV: \"production\" } };" },
 });
 // Next supplies these font variables in the application layout. The standalone
 // reference uses local system fonts so it remains usable without network access.

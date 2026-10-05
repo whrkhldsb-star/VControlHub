@@ -252,7 +252,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 		<section data-i18n-skip className="min-w-0 border-t border-[var(--border)] py-5">
 			<div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
 				<div>
-					<p className="text-xs font-semibold uppercase text-[var(--color-action)]">{copyText.eyebrow}</p>
+					<p className="text-xs font-semibold uppercase text-[var(--color-action-text)]">{copyText.eyebrow}</p>
 					<h2 className="mt-1 text-xl font-semibold text-[var(--text-primary)]">{copyText.title}</h2>
 					<p className="mt-1 max-w-2xl text-sm text-[var(--text-muted)]">
 						{copyText.description}
@@ -280,7 +280,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 					<ActionButton variant="secondary"
 						onClick={() => void loadFiles(true)}
 
-						className="!min-h-11 !inline-flex !items-center !gap-2 !px-3 !py-2 !text-sm"
+						className="!inline-flex !items-center !gap-2"
 					>
 						<RefreshCw size={15} className={loading ? "animate-spin" : ""} /> {copyText.refresh}
 					</ActionButton>
@@ -288,11 +288,11 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 			</div>
 
 			<div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-[var(--text-muted)]">
-				<ActionButton variant="ghost" disabled={creating} onClick={() => { setPath("");setPage(1); }} className="!min-h-11 !px-2.5 !py-1 !text-sm">{copyText.root}</ActionButton>
+				<ActionButton size="sm" variant="ghost" disabled={creating} onClick={() => { setPath("");setPage(1); }}>{copyText.root}</ActionButton>
 				{breadcrumb.map((segment, index) => (
 					<span key={`${segment}-${index}`} className="inline-flex items-center gap-2">
 						<ChevronRight size={12} />
-						<ActionButton variant="ghost" disabled={creating} onClick={() => jumpToCrumb(index)} className="!min-h-11 !px-2.5 !py-1 !text-sm">{segment}</ActionButton>
+						<ActionButton size="sm" variant="ghost" disabled={creating} onClick={() => jumpToCrumb(index)}>{segment}</ActionButton>
 					</span>
 				))}
 			</div>
@@ -324,7 +324,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 									<div key={item.key} className="grid grid-cols-[2rem_minmax(0,1fr)_4.5rem] items-center gap-2 px-3 py-2.5 text-sm hover:bg-[var(--surface)] light:hover:bg-[var(--surface)] sm:grid-cols-[2rem_minmax(0,1fr)_5rem_6rem]">
 										<input type="checkbox" disabled={creating} checked={Boolean(selected[item.key])} aria-label={`${copyText.selectFolder} ${folder.name}`} onChange={() => toggleSelection(item)} className="h-4 w-4 accent-[var(--color-action)]" />
 										<ActionButton variant="ghost" disabled={creating} onClick={() => openFolder(folder)} className="!min-h-11 !flex !min-w-0 !items-center !gap-2 !justify-start !px-2 !text-left !text-sm">
-											<Folder size={17} className="shrink-0 text-[var(--color-action)]" />
+											<Folder size={17} className="shrink-0 text-[var(--color-action-text)]" />
 											<span className="truncate">{folder.name}</span>
 										</ActionButton>
 										<span className="hidden text-xs text-[var(--text-muted)] sm:block">{copyText.folder}</span>
@@ -363,7 +363,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 							<h3 className="text-sm font-semibold text-[var(--text-primary)]">{copyText.selectedPrefix} {selectedItems.length} {copyText.selectedSuffix}</h3>
 							<p className="mt-1 text-xs text-[var(--text-muted)]">{copyText.selectedHint}</p>
 						</div>
-						<ActionButton variant="ghost" disabled={creating} onClick={() => setSelected({})} className="!min-h-11 shrink-0 whitespace-nowrap !px-2 !text-sm">{copyText.clear}</ActionButton>
+						<ActionButton variant="ghost" disabled={creating} onClick={() => setSelected({})} className="shrink-0 whitespace-nowrap">{copyText.clear}</ActionButton>
 					</div>
 					<div className="mt-3 max-h-48 space-y-2 overflow-auto pr-1">
 						{selectedItems.length ? selectedItems.map((item) => (
@@ -377,7 +377,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 						type="button"
 						onClick={() => void createShares()}
 						disabled={creating || selectedItems.length === 0}
-						className="mt-4 min-h-11 w-full gap-2 text-sm"
+						className="mt-4 w-full gap-2"
 					>
 						{creating ? <Spinner size="sm" label={copyText.creating} /> : <Share2 size={16} />}
 						{creating ? copyText.creating : copyText.create}
@@ -387,11 +387,11 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 						<div className="mt-4 space-y-2">
 							<p className="text-xs font-medium text-[var(--success)]">{copyText.created}</p>
 							{results.map((item) => (
-								<div key={item.key} className="rounded-lg border border-[var(--success-border)] bg-[var(--success-bg)] p-2 text-xs">
-									<div className="truncate text-[var(--success)]">{item.name}</div>
+								<div key={item.key} data-inset className="p-2 text-xs">
+									<div className="truncate font-medium text-[var(--text-primary)]">{item.name}</div>
 									<div className="mt-1 flex items-center gap-2">
-										<code className="min-w-0 flex-1 truncate text-[var(--success)]/80">{item.url}</code>
-										<ActionButton variant="success" onClick={() => void copy(item)} className="!min-h-9 !inline-flex !items-center !gap-1 !px-2 !py-1 !text-sm"><Copy size={12} />{copiedKey === item.key ? copyText.copied : copyText.copy}</ActionButton>
+										<code className="ui-mono min-w-0 flex-1 truncate text-[var(--text-muted)]">{item.url}</code>
+										<ActionButton size="sm" variant="secondary" onClick={() => void copy(item)} icon={<Copy size={14} aria-hidden />}>{copiedKey === item.key ? copyText.copied : copyText.copy}</ActionButton>
 									</div>
 								</div>
 							))}

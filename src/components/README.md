@@ -1,41 +1,59 @@
 # Components
 
-Shared UI primitives live here. Prefer these exports before adding one-off Tailwind class strings in route components.
+Shared UI primitives live here. The design rules, the token map and "how do I
+change X everywhere" live in [`docs/ui-system.md`](../../docs/ui-system.md);
+`npm run ui:showcase` renders every component on one page. Prefer these
+exports to one-off Tailwind strings — `__tests__/ui-conventions.test.ts`
+rejects pasted button sizes, hand-rolled overlays and button-styled `<Link>`s.
 
-## Layout primitives
+## Layout and surfaces (`page-shell.tsx`)
 
-- `PageShell` (`page-shell.tsx`) — dashboard page wrapper. It intentionally renders a `div`, not a nested `main`, because the root app layout already owns the page `<main>`.
-  - Props: `children`, optional `maxW` Tailwind max-width class.
-- `PageHeader` (`page-shell.tsx`) — standard page title block with eyebrow, title, optional description, and optional right-side actions.
-  - Props: `eyebrow`, `title`, optional `description`, optional `children`, optional `className`.
-  - Use `description` instead of a sibling paragraph so audits can verify header completeness mechanically.
-- `Card` (`page-shell.tsx`) — thin `[data-card]` wrapper for card surfaces.
-- `EmptyState` (`page-shell.tsx`) — empty-list placeholder.
-  - Props: optional `text`, optional rich `children`, `variant="simple" | "boxed"`, optional `icon`.
-  - Use rich `children` when the empty state needs a hint / CTA line.
-- `StatCard` (`page-shell.tsx`) — compact metric card with optional accent color.
-- `PermissionDenied` (`page-shell.tsx`) — shared permission-denied page surface.
+- `PageShell` — page wrapper (renders a `div`; the root layout owns `<main>`). `maxW` optional.
+- `PageHeader` — title, `description`, page actions as children. Use `description` instead of a sibling paragraph so audits can verify header completeness mechanically.
+- `Toolbar` — filter/command row; default bottom margin unless you pass one.
+- `Card` — standard container: `title`, `description`, `actions`, `footer`, `padding`, `as`.
+- `SurfacePanel` — titled card with a 16px rhythm for create forms and secondary blocks.
+- `ListPanel` / `ListRow` — titled list with count, actions, hairline rows and `empty`.
+- `MetricPanel`, `StatGrid` / `StatCard` — grouped figures and headline numbers.
+- `Section` — titled group without chrome; `EmptyState` (`simple` | `boxed`); `PermissionDenied`.
+- Surface attributes for any element: `data-card`, `data-inset` (well), `data-tile` (raised tile).
 
-## Actions and forms
+## Commands (`action-button.tsx`)
 
-- `ActionButton` (`action-button.tsx`) — canonical token-backed button (`primary` | `outline` | `ghost` | `success` | `danger` | `secondary`).
-- `SubmitButton` — same token variants + pending label for forms; use `className` for layout only (`w-full`).
-  - Props: native button props plus `variant="primary" | "outline" | "ghost"`.
-  - Use this instead of hand-written `bg-cyan-*` classes for new action buttons.
-- `SubmitButton` (`submit-button.tsx`) — form-action submit button wired to `useFormStatus()`.
-  - Props: `pendingLabel`, `children`, optional `className`, `name`, `value`, `disabled`.
-  - With no `className`, it uses the same `[data-action-button]` token styling as `ActionButton`.
-- `Input` / `StateBox` (`ui-primitives.tsx`) — server-safe form and feedback primitives used by authentication surfaces.
-- `Badge` / `Card` / `Spinner` / `ProgressBar` (`ui-primitives.tsx`) — server-safe presentation primitives. Keep this module free of hooks and browser APIs so importing it does not create a client boundary.
+- `ActionButton` (alias `Button`) — `variant` primary · secondary · outline · ghost · success · warning · danger · success-solid · danger-solid; `size` xs · sm · md · lg; `icon`, `iconRight`, `loading`, `square`, `block`. `className` is for layout only.
+- `ButtonLink` — the same look on a link (`external` for new-tab `<a>`).
+- `SubmitButton` (`submit-button.tsx`) — form submit wired to `useFormStatus()` with a pending label.
+- `IconButton` (`ui-primitives.tsx`) — borderless icon control with a required `label`.
+
+## Dialogs and menus
+
+- `Dialog` (`ui/dialog.tsx`) — header, scrollable body, `footer`; `size`, `busy`, `placement="sheet"`.
+- `ConfirmDialog` (`confirm-dialog.tsx`) — confirmations; never use `window.confirm`.
+- `ModalShell` (`modal-shell.tsx`) — the primitive: `size`, `placement` (center · top · sheet · drawer), `backdrop`, `padded`, `className`. Also exports `dialogOverlayClass()` / `dialogPanelClass()` for lazy-loading placeholders.
+- `Disclosure` (`ui/disclosure.tsx`) — folded section (`card` | `inset`), server-safe native `<details>`.
+- `Menu`, `MenuItem`, `MenuSeparator`, `MenuLabel`, `useDismiss` (`ui/menu.tsx`) — dropdown menus and outside-click/Escape handling; style custom popovers with `data-popover` / `data-menu-item`.
+
+## Status, forms and data (`ui-primitives.tsx`, `status-badge.tsx`, `ui/key-value.tsx`)
+
+- `StatusBadge` — state of a thing (pill with dot). `Badge` — tag or label.
+- `Notice` — inline message (`tone`, `title`, `action`, dismiss). `Callout`, `StateBox` for legacy surfaces.
+- `FormField`, `FormGrid`, `CheckboxField`, `Switch`, `SegmentedTabs` (`underline` | `pills`), `TabNav` (link tabs), `SideNav`, `SplitPane`.
+- `Spinner`, `InlineLoading`, `ProgressBar`; skeletons in `skeleton.tsx`.
+- `KeyValueList` — label/value pairs (`columns`, `layout`, `mono`, `wide`).
+- Field chrome: the `.ui-control` rule in `globals.css`; `UI_INPUT` (= `"ui-control"`) / `UI_LABEL` from `src/lib/ui/classes.ts` (`CONTROL_CLASS` re-exports `UI_INPUT`).
+- Keep `ui-primitives.tsx` free of hooks and browser APIs so importing it does not create a client boundary.
 
 ## Navigation and shell
 
-- `AppSidebar` / `MobileNav` — responsive app navigation surfaces using the shared `nav-items.tsx` catalog.
-- `GlobalSearch` — command-palette style navigation search over the same route catalog.
-- `NotificationBell` — notification popover trigger and list.
-- `LanguageToggle` / `ThemeToggle` — global locale and theme controls.
-- `SidebarLoader` — skeleton for lazy sidebar states.
-- `SshTerminalPanel` — canonical multi-tab SSH terminal implementation; keep terminal connection behavior here instead of adding a second modal implementation.
+- `nav-items.tsx` — the navigation catalogue: groups, icons, mobile tabs, `findNavLocation()` for breadcrumbs.
+- `nav-icons.tsx` — the outline icon set used by the shell, plus `BrandMark` / `BrandTile`.
+- `AppSidebar` — collapsible groups, pins, quick services, collapsed rail, mobile drawer, `UserMenu` at the foot.
+- `AppTopbar` — breadcrumb, search, notifications, theme and language; names the tab and records recent pages.
+- `GlobalSearch` — command palette (⌘K / `/`): recent pages, actions, pages, resources.
+- `KeyboardShortcuts` — `?` help, `G`+letter navigation, `[` sidebar. `SkipLink` — first focusable element.
+- `MobileNav` — four tabs and "More" (opens the sidebar drawer).
+- `NotificationBell`, `LanguageToggle`, `ThemeToggle`, `TeamSwitcher`, `SignOutButton`, `SidebarLoader`.
+- `SshTerminalPanel` — canonical multi-tab SSH terminal implementation; keep terminal connection behaviour here instead of adding a second modal implementation.
 
 ## Feedback and system surfaces
 
@@ -63,9 +81,9 @@ Shared UI primitives live here. Prefer these exports before adding one-off Tailw
 
 ## Shared class utilities (`src/lib/ui/`)
 
-- `cn` — tiny className combiner (no clsx dependency).
-- `classes` — reusable token-backed Tailwind fragments (`UI_BTN_PRIMARY`, `UI_INPUT`, …).
-- Prefer `ActionButton` / `page-shell` / `ui-primitives` components over copying fragment strings when a full control fits.
+- `cn` — tiny className combiner (no clsx/tailwind-merge: it does not resolve conflicting utilities, so size and colour belong in component props).
+- `classes` — `UI_INPUT`, `UI_LABEL` and the `UI_TONE` map; everything else has a component or data attribute.
+- `shell-preferences` — sidebar collapse, pins, open groups and recent pages (localStorage + the `vch-sidebar` cookie).
 
 ## UI System Reference
 

@@ -20,6 +20,7 @@ import {
   type MediaItem,
 } from "./media-item-helpers";
 import { MediaCover } from "./media-item-cover";
+import { Badge, Notice } from "@/components/ui-primitives";
 
 export type { MediaItem } from "./media-item-helpers";
 
@@ -227,10 +228,7 @@ export function MediaItemCard({
         ) : null}
       </div>
       {imageBedUrl ? (
-        <div
-          data-tone="emerald"
-          className="mt-2 rounded-lg border border-[var(--success-border)] px-2 py-1.5 text-xs text-[var(--success)]"
-        >
+        <Notice tone="success" compact className="mt-2">
           {t("mediaItemCard.imageBedUrlGenerated")}:
           <a
             href={imageBedUrl}
@@ -240,7 +238,7 @@ export function MediaItemCard({
           >
             {imageBedUrl}
           </a>
-        </div>
+        </Notice>
       ) : null}
       {publishError ? (
         <p role="alert" className="mt-2 text-xs text-[var(--danger)]">
@@ -255,11 +253,8 @@ export function MediaItemCard({
       {canManage && (
         <div className="mt-2 flex flex-wrap items-center gap-1">
           {tags.map((tag) => (
-            <span
-              key={tag}
-              data-tone="cyan"
-              className="inline-flex items-center gap-1 rounded-lg border border-[var(--accent-border)] px-2 py-0.5 text-xs text-[var(--accent)]"
-            >
+            <Badge tone="accent" className="inline-flex items-center gap-1" key={tag}
+             >
               <Link
                 href={`/media?tag=${encodeURIComponent(tag)}`}
                 className="hover:underline"
@@ -274,7 +269,7 @@ export function MediaItemCard({
               >
                 ×
               </button>
-            </span>
+            </Badge>
           ))}
           {showTagInput ? (
             <input
@@ -298,7 +293,7 @@ export function MediaItemCard({
               type="button"
               onClick={() => setShowTagInput(true)}
               aria-label={t("mediaItemCard.addTag")}
-              className="inline-flex items-center gap-0.5 rounded-lg border border-dashed border-[var(--border)] px-2 py-0.5 text-xs text-[var(--text-muted)] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition hover:border-[var(--color-action-border)]/30 hover:text-[var(--color-action)]"
+              className="inline-flex items-center gap-0.5 rounded-lg border border-dashed border-[var(--border)] px-2 py-0.5 text-xs text-[var(--text-muted)] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition hover:border-[var(--color-action-border)]/30 hover:text-[var(--color-action-text)]"
             >
               <Tag size={10} /> {t("mediaItemCard.addTag")}
             </button>

@@ -12,6 +12,7 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { renderWithI18n } from "@/lib/i18n/__tests__/test-helpers";
 import { ToastProvider } from "@/components/toast-provider";
 import type { ReactElement } from "react";
+import { expectTouchTarget } from "@/test/ui-assertions";
 
 /** Wrap in the real ToastProvider: page feedback now rides the global toast. */
 function render(ui: ReactElement) {
@@ -353,7 +354,7 @@ describe("ImageBedPage", () => {
     expect(gridClass).not.toContain("xl:grid-cols-5");
 
     const search = screen.getByRole("searchbox", { name: "图片搜索" });
-    expect(search.className).toContain("w-full");
+    expect(search.className).toContain("ui-control"); // full width by default, sm:w-72 from sm up
   });
 
   it("keeps the image card action overlay visible to touch users and uses 44px touch targets", async () => {
@@ -399,7 +400,7 @@ describe("ImageBedPage", () => {
     const overlayButtons = overlay.querySelectorAll("button");
     expect(overlayButtons.length).toBeGreaterThan(0);
     for (const btn of Array.from(overlayButtons)) {
-      expect(btn.className).toContain("min-h-11");
+      expectTouchTarget(btn);
     }
   });
 
@@ -444,7 +445,7 @@ describe("ImageBedPage", () => {
     const barButtons = Array.from(bar.querySelectorAll("button"));
     expect(barButtons.length).toBeGreaterThan(0);
     for (const btn of barButtons) {
-      expect(btn.className).toContain("min-h-11");
+      expectTouchTarget(btn);
     }
   });
 

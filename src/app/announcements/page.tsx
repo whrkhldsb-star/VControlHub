@@ -1,7 +1,7 @@
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { listActiveAnnouncements, listAnnouncements } from "@/lib/announcement/service";
-import { PageShell, PageHeader, SurfacePanel } from "@/components/page-shell";
+import { PageShell, PageHeader } from "@/components/page-shell";
 import { CreateAnnouncementForm } from "./create-announcement-form";
 import { AnnouncementList } from "./announcement-list-client";
 import { getServerLocale, t } from "@/lib/i18n/translations";
@@ -32,9 +32,7 @@ export default async function AnnouncementsPage() {
 
 			{canManage && (
 				<div className="mb-5">
-					<SurfacePanel title={t("announcementsPage.title", locale)}>
-						<CreateAnnouncementForm />
-					</SurfacePanel>
+					<CreateAnnouncementForm />
 				</div>
 			)}
 

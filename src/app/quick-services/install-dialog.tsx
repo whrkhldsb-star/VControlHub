@@ -3,7 +3,6 @@
 import { ActionButton } from "@/components/action-button";
 import { Notice, Spinner } from "@/components/ui-primitives";
 import { ModalShell } from "@/components/modal-shell";
-import { UI_OVERLAY_CENTER } from "@/components/ui-overlay-classes";
 /**
  * `InstallDialog` — port-picker modal shown when the user clicks
  * "一键安装" on a Quick Service card. Lets the user override the
@@ -151,17 +150,16 @@ export function InstallDialog({
 
 	return (
 		<ModalShell
+			size="md"
 			open
 			onClose={onClose}
 			label={t("qsPage.installTitle", { name: open.name })}
-			overlayClassName={UI_OVERLAY_CENTER}
-			panelClassName="w-full max-w-md mx-4 rounded-2xl border border-[var(--border)] bg-[var(--surface-root)] p-6 shadow-2xl"
 		>
 				<h3 className="text-lg font-semibold text-[var(--text-primary)] mb-1">{t("qsPage.installTitle", { name: open.name })}</h3>
 				<p className="text-xs text-[var(--text-muted)] mb-4">{t("qsPage.installSubtitle")}</p>
-				<div data-tone="cyan" className="mb-4 rounded-lg border border-[var(--accent-border)] bg-[var(--accent-bg)] px-3 py-2 text-xs text-[var(--text-secondary)]">
+				<Notice tone="info" compact className="mb-4">
 					<span className="font-semibold text-[var(--text-primary)]">{t("qsPage.targetNode")}</span>{t("common.colon")}{targetLabel}
-				</div>
+				</Notice>
 
 				<div className="space-y-3">
 					<label className="block">
@@ -203,7 +201,7 @@ export function InstallDialog({
 						<Notice tone="danger" compact>{t("qsPage.portInUseDetail", { usedBy: portCheck.usedBy })}</Notice>
 					)}
 
-					<div data-tone="cyan" className="rounded-xl border border-[var(--color-action-border)]/15 p-3 text-xs text-[var(--text-primary)]">
+					<div data-tone="cyan" data-inset className="p-3 text-xs text-[var(--text-secondary)]">
 						<div className="font-semibold">{t("qsPage.configPreviewTitle")}</div>
 						<div className="mt-2 grid gap-1.5 text-[var(--text-primary)]">
 							<span>{t("qsPage.imageLabel", { image: open.image ?? t("qsPage.imagePending") })}</span>
@@ -220,7 +218,7 @@ export function InstallDialog({
 						<button
 							type="button"
 							onClick={handleAutoAllocate}
-							className="text-[var(--color-action)]/70 hover:text-[var(--color-action)] underline underline-offset-2"
+							className="text-[var(--color-action-text)]/70 hover:text-[var(--color-action-text)] underline underline-offset-2"
 						>
 							{t("qsPage.autoAssign")}
 						</button>
@@ -228,10 +226,10 @@ export function InstallDialog({
 				</div>
 
 				<div className="flex items-center justify-end gap-3 mt-6">
-					<ActionButton type="button" variant="secondary" onClick={onClose} className="text-xs">
+					<ActionButton size="sm" type="button" variant="secondary" onClick={onClose}>
 						{t("qsPage.cancel")}
 					</ActionButton>
-					<ActionButton type="button" onClick={handleAdvance} disabled={advanceDisabled} className="text-xs">
+					<ActionButton size="sm" type="button" onClick={handleAdvance} disabled={advanceDisabled}>
 						{t("qsPage.confirmInstall")}
 					</ActionButton>
 				</div>

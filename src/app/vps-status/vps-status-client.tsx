@@ -105,7 +105,7 @@ export function VpsStatusClient({ serverCount }: Props) {
 					<div
 						role="status"
 						aria-live="polite"
-						className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] px-4 py-3"
+					 data-tile className="px-4 py-3"
 					>
 						<div className="text-sm font-medium text-[var(--text-primary)]">
 							{t("vpsStatusPage.loading.title")}
@@ -118,7 +118,7 @@ export function VpsStatusClient({ serverCount }: Props) {
 						{Array.from({ length: Math.min(Math.max(serverCount, 1), 8) }).map((_, i) => (
 							<div
 								key={i}
-								className="h-64 animate-pulse rounded-2xl border border-[var(--border)] bg-[var(--surface)]"
+							 data-card className="p-0 h-64 animate-pulse"
 							/>
 						))}
 					</div>

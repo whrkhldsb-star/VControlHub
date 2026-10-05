@@ -69,7 +69,8 @@ try {
     if (!processes.includes(`node ${entry}`)) throw new Error(`Missing container process: ${entry}`);
   }
   await docker("exec", app, "node", "-e", "require('prisma/config'); require('dotenv'); if(require('node:fs').existsSync('node_modules/tsx')) process.exit(1);");
-  console.log("docker-smoke-ok: fresh migrations, bundled seed, login, authenticated OpenAPI, web/worker/gateway processes and production-only dependencies");
+  await docker("exec", app, "node", "scripts/check-ssh-gateway.mjs");
+  console.log("docker-smoke-ok: fresh migrations, bundled seed, login, authenticated OpenAPI, web/worker/gateway processes, SSH protocol and production-only dependencies");
 } catch (error) {
   console.error(error instanceof Error ? error.message : "Docker smoke failed");
   try {

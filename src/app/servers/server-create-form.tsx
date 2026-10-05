@@ -88,10 +88,10 @@ export function ServerCreateForm({
         <Notice tone="danger">{state.error}</Notice>
       )}{" "}
       {state.success && (
-        <div role="status" className="rounded-lg bg-[var(--success-bg)] border border-[var(--success-border)] px-3.5 py-2.5 text-sm text-[var(--success)]">
+        <Notice tone="success">
           {" "}
           {state.success}{" "}
-        </div>
+        </Notice>
       )}{" "}
       <div className="space-y-1.5">
         <label htmlFor="serverOperatingSystem" className="text-xs font-medium text-[var(--text-primary)]/70">{t("serversPage.windows.os")}</label>
@@ -222,7 +222,7 @@ export function ServerCreateForm({
           </span>
         </div>
       </div>{" "}
-      <details className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-4">
+      <details data-tile className="p-4">
         <summary className="cursor-pointer text-sm font-medium text-[var(--text-primary)]">
           {t("serversPage.create.advancedTitle")}
         </summary>
@@ -253,7 +253,7 @@ export function ServerCreateForm({
       </div>{" "}
       <label
         data-tone="cyan"
-        className="rounded-xl border border-[var(--color-action-border)]/20 p-4 text-sm text-[var(--text-secondary)]"
+        data-inset className="p-4 text-sm text-[var(--text-secondary)]"
       >
         {" "}
         <div className="flex items-start gap-3">

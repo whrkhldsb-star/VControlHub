@@ -135,10 +135,7 @@ export function SaveButtonWithDiff({
         <ActionButton variant={highCount > 0 ? "danger" : "primary"}
           onClick={onClick}
           disabled={saving}
-          data-component="save-button"
-
-          className="px-5 text-sm"
-        >
+          data-component="save-button">
           {saving ? t("settingsClient.saving") : t("settingsClient.save")}
         </ActionButton>
       </div>
@@ -262,13 +259,13 @@ export function HighRiskConfirmModal({
           ))}
         </ul>
         <div className="mt-4 flex justify-end gap-2">
-          <ActionButton variant="secondary"
+          <ActionButton size="sm" variant="secondary"
             onClick={onCancel}
             disabled={busy}
-            data-action="cancel" className="!px-4 !py-1.5 !text-sm disabled:opacity-50">
+            data-action="cancel">
             {t("settingsClient.confirmCancel")}
           </ActionButton>
-          <ActionButton variant="danger-solid"
+          <ActionButton size="sm" variant="danger-solid"
             onClick={async () => {
               setBusy(true);
               try {
@@ -278,10 +275,7 @@ export function HighRiskConfirmModal({
               }
             }}
             disabled={busy}
-            data-action="confirm"
-
-            className="!px-4 !py-1.5 !text-sm disabled:opacity-50"
-          >
+            data-action="confirm">
             {busy ? t("settingsClient.saving") : t("settingsClient.confirmSaveAction")}
           </ActionButton>
         </div>

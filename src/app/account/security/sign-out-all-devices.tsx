@@ -41,7 +41,7 @@ export function SignOutAllDevices() {
 	};
 
 	return (
-		<div className="rounded-2xl border border-[var(--warning-border)] bg-[var(--warning-bg)] p-4">
+		<div data-inset className="p-4">
 			<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 				<div>
 					<h3 className="text-sm font-semibold text-[var(--text-primary)]">

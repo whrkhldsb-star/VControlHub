@@ -1,5 +1,5 @@
 "use client";
-import { Plus, Trash2, X } from "@/components/icons";
+import { Loader2, Pencil, Play, Plus, Trash2, X } from "@/components/icons";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -345,7 +345,7 @@ export function VpsBackupSection({
 
 	if (loading) {
 		return (
-			<div className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-3">
+			<div data-tile className="p-3">
 				<InlineLoading label={t("vpsBackup.loading")} />
 			</div>
 		);
@@ -357,7 +357,7 @@ export function VpsBackupSection({
 
 			{/* A read-only user may inspect records and schedules, but must not be
 			    offered a trigger that the server will reject. */}
-			{canManage ? <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-3">
+			{canManage ? <div data-tile className="p-3">
 				<div className="mb-2 text-sm font-medium text-[var(--text-secondary)]">
 					{t("vpsBackup.manualTrigger")}
 				</div>
@@ -373,37 +373,28 @@ export function VpsBackupSection({
 				</div>
 				<div className="flex flex-wrap gap-2">
 					{PRESET_OPTIONS.map((preset) => (
-						<ActionButton variant="secondary"
+						<ActionButton size="sm" variant="secondary"
 							key={preset}
 							disabled={triggering !== null}
-							onClick={() => handleTrigger(preset)}
-
-							className="!px-3 !py-1.5 !text-sm disabled:cursor-not-allowed disabled:opacity-50"
-						>
-							{triggering === preset ? (
-								<span className="animate-pulse">⏳ {presetLabel(preset)}</span>
-							) : (
-								`▶ ${presetLabel(preset)}`
-							)}
+							onClick={() => handleTrigger(preset)}>
+							{triggering === preset ? <Loader2 size={14} className="animate-spin" aria-hidden /> : <Play size={12} aria-hidden />}
+							{presetLabel(preset)}
 						</ActionButton>
 					))}
 				</div>
 			</div> : null}
 
 			{/* Schedules */}
-			<div className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-3">
+			<div data-tile className="p-3">
 				<div className="mb-2 flex items-center justify-between">
 					<div className="text-sm font-medium text-[var(--text-secondary)]">
 						{t("vpsBackup.schedules")}
 						<span className="ml-1.5 text-xs text-[var(--text-muted)]">({schedules.length})</span>
 					</div>
 					{canManage ? (
-						<ActionButton variant="outline"
+						<ActionButton size="sm" variant="outline"
 							onClick={() => setShowCreate(!showCreate)}
-							aria-label={showCreate ? t("common.close") : t("vpsBackup.addSchedule")}
-
-							className="!px-2.5 !py-1 !text-sm"
-						>
+							aria-label={showCreate ? t("common.close") : t("vpsBackup.addSchedule")}>
 							{showCreate ? <X size={16} aria-hidden /> : <Plus size={16} aria-hidden />}
 							{showCreate ? t("common.cancel") : t("vpsBackup.addSchedule")}
 						</ActionButton>
@@ -411,7 +402,7 @@ export function VpsBackupSection({
 				</div>
 
 				{showCreate ? (
-					<div className="mb-3 space-y-2 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-3">
+					<div data-tile className="mb-3 space-y-2 p-3">
 						<input
 							type="text"
 							placeholder={t("vpsBackup.scheduleName")}
@@ -466,12 +457,10 @@ export function VpsBackupSection({
 								onChange={(e) => setCreateForm({ ...createForm, retentionDays: e.target.value })}
 								data-input className={`w-24 ${UI_INPUT}`}
 							/>
-							<ActionButton
+							<ActionButton size="sm"
 								type="button"
 								onClick={handleCreate}
-								disabled={!createForm.name.trim() || creating}
-								className="px-4 py-1.5 text-sm"
-							>
+								disabled={!createForm.name.trim() || creating}>
 								{creating ? t("common.submitting") : t("vpsBackup.create")}
 							</ActionButton>
 						</div>
@@ -488,7 +477,7 @@ export function VpsBackupSection({
 						</p>
 						{canManage ? (
 							<div className="flex flex-wrap gap-2">
-								<ActionButton variant="primary"
+								<ActionButton size="sm" variant="primary"
 									onClick={() => {
 										setCreateForm({
 											name: t("vpsBackup.quick.nginxName"),
@@ -498,13 +487,10 @@ export function VpsBackupSection({
 											retentionDays: "7",
 										});
 										setShowCreate(true);
-									}}
-
-									className="!px-3 !py-1.5 !text-sm"
-								>
+									}}>
 									{t("vpsBackup.quick.nginx")}
 								</ActionButton>
-								<ActionButton variant="secondary"
+								<ActionButton size="sm" variant="secondary"
 									onClick={() => {
 										setCreateForm({
 											name: t("vpsBackup.quick.websiteName"),
@@ -514,17 +500,11 @@ export function VpsBackupSection({
 											retentionDays: "7",
 										});
 										setShowCreate(true);
-									}}
-
-									className="!px-3 !py-1.5 !text-sm"
-								>
+									}}>
 									{t("vpsBackup.quick.website")}
 								</ActionButton>
-								<ActionButton variant="outline"
-									onClick={() => setShowCreate(true)}
-
-									className="!px-3 !py-1.5 !text-sm"
-								>
+								<ActionButton size="sm" variant="outline"
+									onClick={() => setShowCreate(true)}>
 									{t("vpsBackup.addSchedule")}
 								</ActionButton>
 							</div>
@@ -536,7 +516,7 @@ export function VpsBackupSection({
 							const isEditing = editingScheduleId === s.id;
 							const isSaving = savingScheduleId === s.id;
 							return (
-								<div key={s.id} className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2">
+								<div key={s.id} data-tile className="px-3 py-2">
 									{isEditing ? (
 										<div className="space-y-2">
 											<div className="flex items-center justify-between gap-2">
@@ -597,12 +577,10 @@ export function VpsBackupSection({
 													data-input
 													className={`w-32 ${UI_INPUT}`}
 												/>
-												<ActionButton
+												<ActionButton size="sm"
 													type="button"
 													onClick={() => void saveScheduleEdit()}
-													disabled={!editForm.name.trim() || isSaving}
-													className="px-3 py-1.5 text-xs"
-												>
+													disabled={!editForm.name.trim() || isSaving}>
 													{isSaving ? t("common.submitting") : t("vpsBackup.save")}
 												</ActionButton>
 											</div>
@@ -626,14 +604,12 @@ export function VpsBackupSection({
 														label={t("vpsBackup.editSchedule", { name: s.name })}
 														onClick={() => { setEditForm(scheduleFormFrom(s)); setEditingScheduleId(s.id); }}
 														className="h-8 w-8 text-xs"
-													>✎</IconButton>
-													<ActionButton
+													><Pencil size={14} aria-hidden /></IconButton>
+													<ActionButton size="sm"
 														type="button"
 														variant={s.status === "ACTIVE" ? "outline" : "success"}
 														onClick={() => void toggleScheduleStatus(s)}
-														disabled={isSaving}
-														className="!min-h-8 !px-2 !py-1 !text-sm"
-													>
+														disabled={isSaving}>
 														{s.status === "ACTIVE" ? t("vpsBackup.pause") : t("vpsBackup.resume")}
 													</ActionButton>
 													<IconButton label={t("vpsBackup.deleteSchedule", { name: s.name })} tone="danger" onClick={() => setDeleteTarget({ kind: "schedule", id: s.id, name: s.name })} className="h-8 w-8 text-xs"><Trash2 size={16} aria-hidden /></IconButton>
@@ -649,7 +625,7 @@ export function VpsBackupSection({
 			</div>
 
 			{/* Records */}
-			<div className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-3">
+			<div data-tile className="p-3">
 				<div className="mb-2 text-sm font-medium text-[var(--text-secondary)]">
 					{t("vpsBackup.records")}
 					<span className="ml-1.5 text-xs text-[var(--text-muted)]">({records.length})</span>
@@ -663,7 +639,7 @@ export function VpsBackupSection({
 						{records.map((r) => (
 							<div
 								key={r.id}
-								className="flex items-start justify-between rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2"
+							 data-tile className="flex items-start justify-between px-3 py-2"
 							>
 								<div className="min-w-0 flex-1">
 									<div className="flex items-center gap-2">
@@ -688,7 +664,7 @@ export function VpsBackupSection({
 										{formatBytes(r.fileSize)}
 										{" · "}
 										{formatDuration(r.durationMs)}
-										{r.offsiteKey ? " · ☁️" : ""}
+										{r.offsiteKey ? ` · ${t("vpsBackup.offsiteShort")}` : ""}
 									</div>
 									{r.errorMessage ? (
 										<div className="mt-1 truncate text-xs text-[var(--danger)]/80">
@@ -701,7 +677,7 @@ export function VpsBackupSection({
 										<a
 											href={`/api/servers/${serverId}/vps-backup/records/${r.id}/download`}
 											aria-label={t("vpsBackup.downloadRecord")}
-											className="rounded text-xs text-[var(--color-action)]/80 transition-colors hover:text-[var(--color-action)]"
+											className="rounded text-xs text-[var(--color-action-text)]/80 transition-colors hover:text-[var(--color-action-text)]"
 										>
 											⬇
 										</a>

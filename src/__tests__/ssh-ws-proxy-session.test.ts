@@ -70,7 +70,7 @@ async function connect(expectConnected = true) {
   socket.ping.mockImplementation(() => socket.emit("pong"));
   state.clients.add(socket);
   await state.connection(socket, { url: "/ssh?serverId=audit-server&handshake=fixture", headers: { origin: "http://127.0.0.1:15430", cookie: "audit_session=fixture-cookie" } });
-  if (expectConnected) expect(socket.send).toHaveBeenCalledWith(JSON.stringify({ type: "connected" }));
+  if (expectConnected) expect(socket.send).toHaveBeenCalledWith(JSON.stringify({ type: "connected", inputAck: true }));
   return socket;
 }
 
@@ -115,6 +115,27 @@ it("accepts valid input while the account and node remain authorized", async () 
   await vi.advanceTimersByTimeAsync(0);
   expect(state.stream.write).toHaveBeenCalledWith(Buffer.from("audit"));
   expect(socket.close).not.toHaveBeenCalled();
+});
+
+it("acknowledges sequenced input only after the SSH writer accepts it", async () => {
+  const socket = await connect();
+  socket.emit("message", Buffer.from(JSON.stringify({ type: "input", data: "YXVkaXQ=", id: 1 })), false);
+  await vi.advanceTimersByTimeAsync(0);
+  expect(state.stream.write).toHaveBeenCalledWith(Buffer.from("audit"), expect.any(Function));
+  const accepted = state.stream.write.mock.calls[0]![1] as (error?: Error) => void;
+  expect(socket.send).not.toHaveBeenCalledWith(JSON.stringify({ type: "input-ack", id: 1 }));
+  accepted();
+  await vi.advanceTimersByTimeAsync(0);
+  expect(socket.send).toHaveBeenCalledWith(JSON.stringify({ type: "input-ack", id: 1 }));
+});
+
+it("closes on an SSH write failure without falsely acknowledging the command", async () => {
+  const socket = await connect();
+  state.stream.write.mockImplementation((_bytes: Buffer, callback: (error: Error) => void) => callback(new Error("Closed")));
+  socket.emit("message", Buffer.from(JSON.stringify({ type: "input", data: "YXVkaXQ=", id: 1 })), false);
+  await vi.advanceTimersByTimeAsync(0);
+  expect(socket.close).toHaveBeenCalled();
+  expect(socket.send).not.toHaveBeenCalledWith(JSON.stringify({ type: "input-ack", id: 1 }));
 });
 
 it.each(["binary", "oversized", "invalid-base64"])("rejects %s input before SSH writes", async (kind) => {

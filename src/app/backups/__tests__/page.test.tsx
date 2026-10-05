@@ -121,10 +121,10 @@ describe("BackupsPage", () => {
     expect(screen.getAllByLabelText("备份类型")[0]).toHaveValue("DATABASE");
     expect(screen.getByLabelText("备份备注")).toHaveAttribute("placeholder", "例如：升级前备份");
     expect(screen.getByRole("button", { name: "创建并执行" })).toBeInTheDocument();
-		expect(screen.getByText("保留策略清理（按需展开）").closest("details")).not.toHaveAttribute("open");
-		expect(screen.getByText("迁移工具（按需展开）").closest("details")).not.toHaveAttribute("open");
-		expect(screen.getByText("异地备份（按需展开）").closest("details")).not.toHaveAttribute("open");
-		expect(screen.getByText("定时备份（按需展开）").closest("details")).not.toHaveAttribute("open");
+		expect(screen.getByText("保留策略清理").closest("details")).not.toHaveAttribute("open");
+		expect(screen.getByText("迁移工具").closest("details")).not.toHaveAttribute("open");
+		expect(screen.getByText("异地备份").closest("details")).not.toHaveAttribute("open");
+		expect(screen.getByText("定时备份").closest("details")).not.toHaveAttribute("open");
 
     expect(screen.getByText("备份策略概览")).toBeInTheDocument();
     expect(screen.getByText("已用备份空间")).toBeInTheDocument();
@@ -142,7 +142,7 @@ describe("BackupsPage", () => {
     expect(screen.getByText("最新记录：backups/failed.sql.gz")).toBeInTheDocument();
     expect(screen.getByText(/Verify that BACKUP_DIR or \/var\/backups\/<slug> is a writable directory/)).toBeInTheDocument();
     expect(screen.getByText("readonly path")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "创建定时备份" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "定时备份" })).toBeInTheDocument();
     expect(screen.getByText(/选择备份类型与 Cron 表达式后/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "创建备份计划" })).toBeInTheDocument();
 

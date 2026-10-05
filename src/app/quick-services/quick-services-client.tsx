@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useState, useMemo } from "react";
 import { buildQuickServiceAccessDescriptor } from "@/lib/quick-service/access-url";
 import { EmptyState, Toolbar, StatCard, StatGrid } from "@/components/page-shell";
-import { CONTROL_CLASS, InlineLoading, Notice, SegmentedTabs } from "@/components/ui-primitives";
+import { Badge, CONTROL_CLASS, InlineLoading, Notice, SegmentedTabs } from "@/components/ui-primitives";
 import { useI18n } from "@/lib/i18n/use-locale";
 import {
   useQuickServiceActions,
@@ -23,6 +23,7 @@ import { CATEGORY_ORDER, buildCategoryLabels, buildQuickServiceViewModel, getEnv
 import { useQuickServiceCatalog } from "./use-quick-service-catalog";
 import { ActionButton } from "@/components/action-button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { IconBadgeCheck, IconBlocks, IconShield } from "@/components/nav-icons";
 
 /* ── Main Component ─────────────────────────────────────────────── */
 
@@ -158,7 +159,7 @@ export function QuickServicesClient({
 	if (error) return <Notice tone="danger" action={{ label: t("common.retry"), onClick: () => void fetchCatalog() }}>{error}</Notice>;
 
 	if (!canManage) {
-		return <EmptyState text={t("qsPage.permissionDenied")} variant="boxed" icon="🔒" />;
+		return <EmptyState text={t("qsPage.permissionDenied")} variant="boxed" icon={<IconShield />} />;
 	}
 
 	const quickServiceAccess = (item: CatalogItem) => buildQuickServiceAccessDescriptor({
@@ -200,23 +201,22 @@ export function QuickServicesClient({
 		<div className="space-y-6">
 			{sourcesError ? <Notice tone="danger" action={{ label: t("common.retry"), onClick: () => void fetchSources() }}>{sourcesError}</Notice> : null}
 			{dockerStatus && !dockerStatus.available ? (
-				<div data-tone="amber" className="rounded-2xl border border-[var(--warning-border)] p-4 text-sm text-[var(--warning)]">
-					<div className="font-medium">{t("qsPage.dockerNotReadyTitle")}</div>
-					<p className="mt-1 text-xs text-[var(--warning)]/75">{dockerStatus.message}</p>
-					{dockerStatus.installHint ? <p data-code-surface="true" className="mt-2 rounded-lg border border-[var(--warning-border)] bg-[var(--surface-subtle)] px-3 py-2 font-mono text-xs text-[var(--warning)]">{dockerStatus.installHint}</p> : null}
-				</div>
+				<Notice tone="warning" title={t("qsPage.dockerNotReadyTitle")}>
+					<p>{dockerStatus.message}</p>
+					{dockerStatus.installHint ? <p data-code-surface="true" className="ui-mono mt-2 rounded-md bg-[var(--surface-subtle)] px-3 py-2 text-xs text-[var(--text-primary)]">{dockerStatus.installHint}</p> : null}
+				</Notice>
 			) : null}
 
 			{/* Message */}
 			{actions.message && (
-				<div role={actions.message.type ==="ok" ?"status" :"alert"} className={`rounded-lg px-4 py-3 text-sm ${actions.message.type ==="ok" ?"bg-[var(--success-bg)] border border-[var(--success-border)] text-[var(--success)]" :"bg-[var(--danger-bg)] border border-[var(--danger-border)] text-[var(--danger)]"}`}>
+				<Notice tone={actions.message.type === "ok" ? "success" : "danger"}>
 					<span>{actions.message.text}</span>
 					{actions.message.taskId ? (
-						<Link href="/operation-tasks" className="ml-3 inline-flex rounded-lg border border-current/30 px-2 py-1 text-xs font-semibold hover:bg-[var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current">
+						<Link href="/operation-tasks" className="ml-3 font-semibold underline underline-offset-2">
 							{t("qsPage.viewTaskCenter")}
 						</Link>
 					) : null}
-				</div>
+				</Notice>
 			)}
 
 			<StatGrid cols={4}>
@@ -226,9 +226,9 @@ export function QuickServicesClient({
 				<StatCard label={t("qsPage.summaryAvailable")} value={String(summary.available)} accent={summary.available > 0} accentColor="cyan" />
 			</StatGrid>
 
-			<div className="flex flex-col gap-2 rounded-2xl border border-[var(--accent-border)] bg-[var(--accent-bg)] p-4 sm:flex-row sm:items-center sm:justify-between">
+			<div data-card className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 				<div>
-					<p className="text-xs font-medium uppercase text-[var(--accent)]">{t("qsPage.targetNode")}</p>
+					<p className="text-xs font-medium text-[var(--text-muted)]">{t("qsPage.targetNode")}</p>
 					<p className="mt-1 text-sm text-[var(--text-primary)]">{selectedTargetLabel}</p>
 					<p className="mt-1 text-xs text-[var(--text-secondary)]">
 						{selectedServerId ? t("qsPage.targetNodeRemoteHint") : t("qsPage.targetNodeHubHint")}
@@ -237,7 +237,7 @@ export function QuickServicesClient({
 				<select
 					value={selectedServerId}
 					onChange={(e) => setSelectedServerId(e.target.value)}
-					className={`${CONTROL_CLASS} min-w-[16rem] bg-[var(--surface)]`}
+					className={`${CONTROL_CLASS} sm:max-w-sm`}
 					aria-label={t("qsPage.targetNode")}
 				>
 					{canManageHubHost && <option value="">{t("qsPage.targetHubHost")}</option>}
@@ -250,18 +250,19 @@ export function QuickServicesClient({
 			</div>
 
 			<section className="grid gap-3 lg:grid-cols-3">
-				<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-elevated)] p-4">
+				<div data-tile className="p-4">
 					<div className="flex items-start justify-between gap-3">
 						<div>
-							<p className="text-xs uppercase text-[var(--text-muted)]">{t("qsPage.runningOverview")}</p>
+							<p className="text-xs text-[var(--text-muted)]">{t("qsPage.runningOverview")}</p>
 							<h2 className="mt-1 text-base font-semibold text-[var(--text-primary)]">{runningItems.length > 0 ? t("qsPage.runningOnlineCount", { count: runningItems.length }) : t("qsPage.noRunningServicesYet")}</h2>
 							</div>
-							<button type="button" onClick={() => selectTab(nextAction.tab)}
-							data-tone={nextAction.tone ==="rose" ?"rose" : nextAction.tone ==="emerald" ?"emerald" :"cyan"}
-							className={`rounded-full border px-3 py-1.5 text-xs transition ${nextAction.tone ==="rose" ?"border-[var(--danger-border)] text-[var(--danger)] hover:bg-[var(--danger-bg)]" : nextAction.tone ==="emerald" ?"border-[var(--success-border)] text-[var(--success)] hover:bg-[var(--success-bg)]" :"border-[var(--accent-border)] text-[var(--accent)] hover:bg-[var(--accent-bg)]"}`}
-						>
-							{nextAction.label}
-						</button>
+							<ActionButton
+								size="sm"
+								variant={nextAction.tone === "rose" ? "danger" : "secondary"}
+								onClick={() => selectTab(nextAction.tab)}
+							>
+								{nextAction.label}
+							</ActionButton>
 					</div>
 					<div className="mt-4 grid gap-2 sm:grid-cols-2">
 						{runningItems.slice(0, 4).map((item) => {
@@ -270,21 +271,21 @@ export function QuickServicesClient({
 								<>
 									<div className="flex items-center justify-between gap-2">
 										<span className="truncate text-sm font-medium text-[var(--text-primary)]">{item.icon} {item.name}</span>
-										<span className="text-xs text-[var(--success)]">:{item.port ?? item.defaultPort}</span>
+										<span className="ui-mono text-xs text-[var(--text-muted)]">:{item.port ?? item.defaultPort}</span>
 									</div>
 									<p className="mt-1 truncate text-xs text-[var(--text-muted)]">{access?.url ?? `${accessHostLabel}:${item.port ?? item.defaultPort}`}</p>
-									{access ? <p className="mt-2 text-xs font-medium text-[var(--warning)]">{access.label}</p> : <p className="mt-2 text-xs font-medium text-[var(--text-muted)]">{t("qsPage.accessEntryUnconfigured", { name: item.name })}</p>}
+									{access ? <p className="mt-2 text-xs font-medium text-[var(--accent)]">{access.label}</p> : <p className="mt-2 text-xs font-medium text-[var(--text-muted)]">{t("qsPage.accessEntryUnconfigured", { name: item.name })}</p>}
 								</>
 							);
 							if (!access) {
 								return (
-									<div key={item.slug} aria-label={t("qsPage.accessEntryUnconfigured", { name: item.name })} className="rounded-xl border border-[var(--border)] bg-[var(--surface-subtle)] p-3 opacity-80">
+									<div key={item.slug} aria-label={t("qsPage.accessEntryUnconfigured", { name: item.name })} data-inset className="p-3 opacity-80">
 										{cardBody}
 									</div>
 								);
 							}
 							return (
-								<a key={item.slug} href={access.url} target="_blank" rel="noreferrer" aria-label={t("qsPage.accessEntry", { name: item.name, label: access.label })} data-tone="emerald" className="rounded-xl border border-[var(--success-border)] p-3 transition hover:bg-[var(--success-bg)] hover:text-[var(--success)]/[0.1]">
+								<a key={item.slug} href={access.url} target="_blank" rel="noreferrer" aria-label={t("qsPage.accessEntry", { name: item.name, label: access.label })} data-inset className="p-3 transition hover:bg-[var(--surface-hover)]">
 									{cardBody}
 								</a>
 							);
@@ -292,19 +293,19 @@ export function QuickServicesClient({
 						{runningItems.length === 0 && <p className="text-sm text-[var(--text-muted)]">{t("qsPage.recommendedHint")}</p>}
 					</div>
 				</div>
-				<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-elevated)] p-4">
-					<p className="text-xs uppercase text-[var(--text-muted)]">{t("qsPage.portsLabel")}</p>
+				<div data-tile className="p-4">
+					<p className="text-xs text-[var(--text-muted)]">{t("qsPage.portsLabel")}</p>
 					<h3 className="mt-1 text-base font-semibold text-[var(--text-primary)]">{t("qsPage.listeningPortsCount", { count: usedPorts.length })}</h3>
 					<p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{t("qsPage.portsHint")}</p>
 					<div className="mt-3 flex flex-wrap gap-1.5">
-						{usedPorts.slice(0, 8).map((port) => <span key={port} className="rounded-lg border border-[var(--border)] px-2 py-0.5 text-xs text-[var(--text-muted)]">{port}</span>)}
+						{usedPorts.slice(0, 8).map((port) => <Badge key={port}>{port}</Badge>)}
 					</div>
 				</div>
-				<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-elevated)] p-4">
-					<p className="text-xs uppercase text-[var(--text-muted)]">{t("qsPage.sourcesLabel")}</p>
+				<div data-tile className="p-4">
+					<p className="text-xs text-[var(--text-muted)]">{t("qsPage.sourcesLabel")}</p>
 					<h3 className="mt-1 text-base font-semibold text-[var(--text-primary)]">{t("qsPage.sourcesEnabledCount", { enabled: sources.filter((s) => s.enabled).length, total: sources.length })}</h3>
 					<p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{lastSyncedSource ? t("qsPage.lastSynced", { name: lastSyncedSource.displayName }) : t("qsPage.noSyncRecord")}</p>
-					<ActionButton variant={staleSources.length > 0 ? "outline" : "secondary"} onClick={() => selectTab("sources")} className="!mt-3 !px-3 !py-1.5 !text-sm">
+					<ActionButton size="sm" variant={staleSources.length > 0 ? "outline" : "secondary"} onClick={() => selectTab("sources")} className="!mt-3">
 						{staleSources.length > 0 ? t("qsPage.handleStaleSources", { count: staleSources.length }) : t("qsPage.manageSources")}
 					</ActionButton>
 				</div>
@@ -346,13 +347,13 @@ export function QuickServicesClient({
 			</Toolbar>
 
 			{tab ==="store" && !search && recommendedItems.length > 0 && (
-				<section data-tone="cyan" className="space-y-3 rounded-2xl border border-[var(--color-action-border)]/20 p-4">
+				<section className="space-y-3">
 					<div className="flex items-center justify-between gap-3">
 						<div>
 							<h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("qsPage.recommendedHeader")}</h2>
 							<p className="mt-1 text-xs text-[var(--text-muted)]">{t("qsPage.recommendedSubheader")}</p>
 						</div>
-						<span className="rounded-lg border border-[var(--color-action-border)]/20 px-2 py-1 text-xs text-[var(--text-secondary)]">{t("qsPage.mvpPriority")}</span>
+						<Badge>{t("qsPage.mvpPriority")}</Badge>
 					</div>
 					<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 							{recommendedItems.map((item) => renderServiceCard(item, "store", "recommended-"))}
@@ -401,12 +402,12 @@ export function QuickServicesClient({
 			})}
 
 			{tab ==="installed" && installed.length === 0 && (
-				<EmptyState icon="📦" variant="boxed">
+				<EmptyState icon={<IconBlocks />} variant="boxed">
 					{t("qsPage.emptyInstalled")}
 				</EmptyState>
 			)}
 			{tab ==="store" && localAvailable.length === 0 && (
-				<EmptyState icon="✅" variant="boxed">
+				<EmptyState icon={<IconBadgeCheck />} variant="boxed">
 					{t("qsPage.emptyStore")}
 				</EmptyState>
 			)}

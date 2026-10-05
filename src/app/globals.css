@@ -7,30 +7,55 @@
 @theme inline {
 	--color-background: var(--background);
 	--color-foreground: var(--foreground);
-	--font-sans: var(--font-geist-sans);
-	--font-mono: var(--font-geist-mono);
+	--font-sans: var(--app-font-sans);
+	--font-mono: var(--app-font-mono);
+	/* One geometry for the whole app: controls 8px, cards 12px, dialogs 14px.
+	   Legacy rounded-2xl/3xl utilities resolve to the card radius. */
+	--radius-sm: 4px;
+	--radius-md: 6px;
 	--radius-lg: 8px;
-	--radius-xl: 12px;
-	--radius-2xl: 16px;
-	--radius-3xl: 16px;
+	--radius-xl: 10px;
+	--radius-2xl: 12px;
+	--radius-3xl: 14px;
 }
 
 @theme {
-	/* Entrance animations. These replace the former `animate-in fade-in
-	   slide-in-from-*` utility classes, which silently did nothing because
-	   tailwindcss-animate was never installed (Tailwind 4 has no built-in
-	   animate-in utilities). */
-	--animate-toast-in: toast-in 0.3s ease-out both;
-	--animate-notice-in: notice-in 0.3s ease-out both;
+	/* Entrance animations (Tailwind 4 has no built-in animate-in utilities). */
+	--animate-toast-in: toast-in 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
+	--animate-notice-in: notice-in 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
+	--animate-pop-in: pop-in 0.16s cubic-bezier(0.16, 1, 0.3, 1) both;
+	--animate-fade-in: fade-in 0.16s ease-out both;
+	--animate-sheet-in: sheet-in 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
+	--animate-drawer-in: drawer-in 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
 
 	@keyframes toast-in {
-		from { opacity: 0; transform: translateX(100%); }
-		to { opacity: 1; transform: translateX(0); }
+		from { opacity: 0; transform: translateY(0.5rem) scale(0.98); }
+		to { opacity: 1; transform: translateY(0) scale(1); }
 	}
 
 	@keyframes notice-in {
-		from { opacity: 0; transform: translateY(0.5rem); }
+		from { opacity: 0; transform: translateY(0.375rem); }
 		to { opacity: 1; transform: translateY(0); }
+	}
+
+	@keyframes pop-in {
+		from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+		to { opacity: 1; transform: translateY(0) scale(1); }
+	}
+
+	@keyframes fade-in {
+		from { opacity: 0; }
+		to { opacity: 1; }
+	}
+
+	@keyframes sheet-in {
+		from { opacity: 0; transform: translateY(1.5rem); }
+		to { opacity: 1; transform: translateY(0); }
+	}
+
+	@keyframes drawer-in {
+		from { opacity: 0; transform: translateX(1.5rem); }
+		to { opacity: 1; transform: translateX(0); }
 	}
 }
 
@@ -39,86 +64,213 @@
 		min-height: 100%;
 		background: var(--background);
 		color: var(--foreground);
-		font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-		font-feature-settings: "cv11", "ss01";
+		font-family: var(--app-font-sans);
+		font-feature-settings: "cv11", "ss01", "ss03";
 		-webkit-font-smoothing: antialiased;
 		-moz-osx-font-smoothing: grayscale;
+		text-rendering: optimizeLegibility;
 	}
+	body { font-size: var(--font-body); line-height: 1.55; }
 	*, ::before, ::after { letter-spacing: 0; }
+	h1, h2, h3, h4 { color: var(--text-primary); letter-spacing: -0.01em; }
+	code, kbd, samp, pre { font-family: var(--app-font-mono); font-feature-settings: normal; }
 	:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 	::selection { background: var(--selection-bg); color: var(--selection-fg); }
 	button:not(:disabled), [role="button"]:not([aria-disabled="true"]) { cursor: pointer; }
 	button, input, select, textarea { font: inherit; }
 	input, select, textarea { min-width: 0; }
 	option { background: var(--surface); color: var(--text-primary); }
-	input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); }
+	input[type="checkbox"], input[type="radio"] { accent-color: var(--color-action); }
+	input::placeholder, textarea::placeholder { color: var(--text-muted); opacity: 1; }
+	hr { border-color: var(--border); }
+	* { scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb) transparent; }
 	::-webkit-scrollbar { width: 10px; height: 10px; }
 	::-webkit-scrollbar-track { background: transparent; }
-	::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border: 2px solid transparent; border-radius: 6px; background-clip: padding-box; }
+	::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border: 3px solid transparent; border-radius: 8px; background-clip: padding-box; }
 	::-webkit-scrollbar-thumb:hover { background-color: var(--scrollbar-thumb-hover); }
+	/* Tabular figures wherever numbers line up. */
+	table, [data-stat-card], [data-tabular] { font-variant-numeric: tabular-nums; }
 }
 
 @layer components {
-	[data-card] { min-width: 0; border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--surface); padding: var(--space-4); box-shadow: var(--shadow-sm); }
+	/* ── Surfaces ─────────────────────────────────────────────────────── */
+	[data-card] {
+		min-width: 0;
+		border: 1px solid var(--border);
+		border-radius: var(--radius-card);
+		background: var(--surface);
+		padding: var(--space-4);
+		box-shadow: var(--shadow-xs);
+	}
 	[data-card].cursor-pointer:hover { border-color: var(--border-strong); }
+	/* A well nested inside a card (grouped fields, previews, sub-sections). */
+	[data-inset] {
+		min-width: 0;
+		border: 1px solid var(--border-subtle);
+		border-radius: calc(var(--radius-card) - 2px);
+		background: var(--surface-subtle);
+	}
+	/* A raised tile inside a card (metric cells, selectable options). */
+	[data-tile] {
+		min-width: 0;
+		border: 1px solid var(--border);
+		border-radius: calc(var(--radius-card) - 2px);
+		background: var(--surface-elevated);
+	}
+	:where([data-inset], [data-tile]).cursor-pointer:hover,
+	:where(a, button):where([data-inset], [data-tile]):hover { border-color: var(--border-strong); }
 	[data-server-card] { transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease; }
-	[data-server-card]:hover { border-color: var(--border-strong); box-shadow: var(--shadow-md); transform: translateY(-1px); }
-	[data-stat-card] { min-height: 5.5rem; }
-	[data-list-panel] { min-width: 0; border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--surface); box-shadow: var(--shadow-sm); }
-	[data-list-panel-header] { background: var(--surface-subtle); border-radius: var(--radius-card) var(--radius-card) 0 0; }
-	[data-list-panel-body] { background: var(--surface); border-radius: 0 0 var(--radius-card) var(--radius-card); }
+	[data-server-card]:hover { border-color: var(--border-strong); box-shadow: var(--shadow-md); }
+	[data-stat-card] { min-height: 5.25rem; }
+	[data-list-panel] {
+		min-width: 0;
+		border: 1px solid var(--border);
+		border-radius: var(--radius-card);
+		background: var(--surface);
+		box-shadow: var(--shadow-xs);
+	}
+	[data-list-panel-header] { background: transparent; border-radius: var(--radius-card) var(--radius-card) 0 0; }
+	[data-list-panel-body] { background: transparent; border-radius: 0 0 var(--radius-card) var(--radius-card); }
 	[data-list-row]:hover { background: var(--surface-hover); }
 	[data-surface-panel] { min-width: 0; }
 	[data-page-header] h1 { text-wrap: balance; }
 	[data-page-header] p, [data-empty-state] { text-wrap: pretty; }
 	[data-page-actions] > *, [data-toolbar] > * { max-width: 100%; }
-	[data-modal-panel] { overscroll-behavior: contain; scrollbar-gutter: stable; }
-	[data-modal-panel] :where(h2, h3) { overflow-wrap: anywhere; }
 	[data-empty-state] { border-radius: var(--radius-card); }
-	[data-page-shell] :where(table) { width: 100%; border-collapse: collapse; text-align: left; font-size: var(--font-body); }
-	[data-page-shell] :where(th) { background: var(--surface-subtle); color: var(--text-muted); font-weight: 500; font-size: var(--font-label); }
-	[data-page-shell] :where(th, td) { padding: 0.75rem 1rem; border-bottom: 1px solid var(--border-subtle); }
+
+	/* Inside the application shell the breadcrumb names the area, so page
+	   eyebrows only appear on public pages that have no shell. */
+	[data-page-shell][data-shell="app"] [data-page-eyebrow] { display: none; }
+
+	/* ── Tables ───────────────────────────────────────────────────────── */
+	[data-page-shell] :where(table) { width: 100%; border-collapse: separate; border-spacing: 0; text-align: left; font-size: 13.5px; }
+	[data-page-shell] :where(th) {
+		background: var(--surface-subtle);
+		color: var(--text-muted);
+		font-weight: 500;
+		font-size: var(--font-label);
+		white-space: nowrap;
+	}
+	[data-page-shell] :where(th, td) { padding: 0.65rem 1rem; border-bottom: 1px solid var(--border-subtle); }
 	[data-page-shell] :where(tbody tr:last-child td) { border-bottom: 0; }
+	[data-page-shell] :where(tbody tr) { transition: background-color 120ms ease; }
 	[data-page-shell] :where(tbody tr:hover) { background: var(--surface-hover); }
+
+	/* ── Commands ─────────────────────────────────────────────────────── */
 	[data-action-button], [data-primary], [data-secondary], [data-ghost] {
+		position: relative;
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		gap: 0.5rem;
+		gap: 0.375rem;
 		min-height: var(--control-height);
 		max-width: 100%;
 		border: 1px solid transparent;
 		border-radius: var(--radius-control);
-		padding: 0.5rem 0.875rem;
-		font-size: var(--font-body);
-		font-weight: 600;
+		padding: 0.375rem 0.8rem;
+		font-size: 13.5px;
+		font-weight: 500;
 		line-height: 1.25rem;
 		text-align: center;
+		white-space: nowrap;
 		overflow-wrap: anywhere;
-		transition: background-color 150ms, border-color 150ms, color 150ms;
+		user-select: none;
+		transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, box-shadow 140ms ease;
 	}
-	[data-action-button]:disabled, [data-primary]:disabled { cursor: not-allowed; opacity: 0.5; }
-	[data-action-button][data-variant="primary"], [data-action-button]:not([data-variant]), [data-primary] { background: var(--color-action); color: var(--color-action-fg); }
+	:where([data-action-button], [data-primary], [data-secondary], [data-ghost]) > svg { flex-shrink: 0; width: 1rem; height: 1rem; }
+	[data-action-button]:active:not(:disabled), [data-primary]:active:not(:disabled) { transform: translateY(0.5px); }
+	[data-action-button]:disabled, [data-primary]:disabled, [data-secondary]:disabled, [data-ghost]:disabled { cursor: not-allowed; opacity: 0.5; }
+	[data-action-button][aria-busy="true"] { cursor: progress; opacity: 0.75; }
+	/* Sizes: md is the default (no attribute). */
+	[data-action-button][data-size="xs"] { min-height: var(--control-height-xs); gap: 0.25rem; padding: 0.125rem 0.5rem; font-size: 12px; border-radius: var(--radius-sm); }
+	[data-action-button][data-size="xs"] > svg { width: 0.8125rem; height: 0.8125rem; }
+	[data-action-button][data-size="sm"] { min-height: var(--control-height-sm); gap: 0.3125rem; padding: 0.25rem 0.625rem; font-size: 13px; }
+	[data-action-button][data-size="sm"] > svg { width: 0.875rem; height: 0.875rem; }
+	[data-action-button][data-size="lg"] { min-height: 2.5rem; padding: 0.5rem 1.125rem; font-size: 14px; }
+	[data-action-button][data-block] { display: flex; width: 100%; }
+	[data-action-button][data-square] { padding: 0; min-width: var(--control-height); }
+	[data-action-button][data-square][data-size="xs"] { min-width: var(--control-height-xs); }
+	[data-action-button][data-square][data-size="sm"] { min-width: var(--control-height-sm); }
+	[data-action-button][data-square][data-size="lg"] { min-width: 2.5rem; }
+
+	[data-action-button][data-variant="primary"], [data-action-button]:not([data-variant]), [data-primary] {
+		background: var(--color-action);
+		color: var(--color-action-fg);
+		box-shadow: var(--highlight-inset), var(--shadow-xs);
+	}
 	[data-action-button][data-variant="primary"]:hover:not(:disabled), [data-action-button]:not([data-variant]):hover:not(:disabled), [data-primary]:hover:not(:disabled) { background: var(--color-action-hover); }
-	[data-action-button][data-variant="outline"] { border-color: var(--color-action-border); color: var(--color-action); }
-	[data-action-button][data-variant="outline"]:hover:not(:disabled) { background: var(--color-action-bg); }
-	[data-action-button][data-variant="ghost"], [data-ghost] { color: var(--text-secondary); }
-	[data-action-button][data-variant="ghost"]:hover:not(:disabled), [data-ghost]:hover:not(:disabled) { background: var(--surface-hover); }
-	[data-action-button][data-variant="secondary"], [data-secondary] { background: var(--surface); border-color: var(--border); color: var(--text-secondary); }
+
+	[data-action-button][data-variant="secondary"], [data-secondary] {
+		background: var(--surface);
+		border-color: var(--border);
+		color: var(--text-primary);
+		box-shadow: var(--shadow-xs);
+	}
 	[data-action-button][data-variant="secondary"]:hover:not(:disabled), [data-secondary]:hover:not(:disabled) { background: var(--surface-hover); border-color: var(--border-strong); }
-	[data-action-button][data-variant="success"] { background: var(--success-bg); color: var(--success); border-color: var(--success-border); }
-	[data-action-button][data-variant="danger"] { color: var(--danger); border-color: var(--danger-border); }
-	[data-action-button][data-variant="danger"]:hover:not(:disabled) { background: var(--danger-bg); }
-	[data-action-button][data-variant="warning"] { color: var(--warning); border-color: var(--warning-border); }
-	[data-action-button][data-variant="warning"]:hover:not(:disabled) { background: var(--warning-bg); }
-	[data-action-button][data-variant="success-solid"] { background: var(--color-success-action); color: #ffffff; }
+
+	/* Brand-tinted, borderless: for prominent but secondary commands. */
+	[data-action-button][data-variant="outline"] { background: var(--color-action-bg); color: var(--accent); }
+	[data-action-button][data-variant="outline"]:hover:not(:disabled) { background: var(--color-action-bg-hover); }
+
+	[data-action-button][data-variant="ghost"], [data-ghost] { color: var(--text-secondary); }
+	[data-action-button][data-variant="ghost"]:hover:not(:disabled), [data-ghost]:hover:not(:disabled) { background: var(--surface-hover); color: var(--text-primary); }
+
+	/* Semantic commands stay neutral at rest and only colour their text, so a
+	   list of rows does not turn into a rainbow of outlined buttons. */
+	[data-action-button][data-variant="success"] { background: var(--surface); border-color: var(--border); color: var(--success); box-shadow: var(--shadow-xs); }
+	[data-action-button][data-variant="success"]:hover:not(:disabled) { background: var(--success-bg); border-color: var(--success-border); }
+	[data-action-button][data-variant="danger"] { background: var(--surface); border-color: var(--border); color: var(--danger); box-shadow: var(--shadow-xs); }
+	[data-action-button][data-variant="danger"]:hover:not(:disabled) { background: var(--danger-bg); border-color: var(--danger-border); }
+	[data-action-button][data-variant="warning"] { background: var(--surface); border-color: var(--border); color: var(--warning); box-shadow: var(--shadow-xs); }
+	[data-action-button][data-variant="warning"]:hover:not(:disabled) { background: var(--warning-bg); border-color: var(--warning-border); }
+	[data-action-button][data-variant="success-solid"] { background: var(--color-success-action); color: var(--solid-action-fg); box-shadow: var(--highlight-inset), var(--shadow-xs); }
 	[data-action-button][data-variant="success-solid"]:hover:not(:disabled) { background: var(--color-success-hover); }
-	[data-action-button][data-variant="danger-solid"] { background: var(--color-danger-action); color: #ffffff; }
+	[data-action-button][data-variant="danger-solid"] { background: var(--color-danger-action); color: var(--solid-action-fg); box-shadow: var(--highlight-inset), var(--shadow-xs); }
 	[data-action-button][data-variant="danger-solid"]:hover:not(:disabled) { background: var(--color-danger-hover); }
+
+	/* ── Fields ───────────────────────────────────────────────────────── */
+	/* One definition for inputs, selects and textareas (UI_INPUT = "ui-control").
+	   It lives in the components layer, so a utility on the element (w-40,
+	   px-2, text-xs, min-h-11) always overrides it. */
+	.ui-control {
+		width: 100%;
+		min-width: 0;
+		min-height: var(--control-height);
+		border: 1px solid var(--input-border);
+		border-radius: var(--radius-control);
+		background-color: var(--input-bg);
+		padding: 0.375rem 0.75rem;
+		font-size: 0.875rem;
+		line-height: 1.25rem;
+		color: var(--text-primary);
+		box-shadow: var(--shadow-xs);
+		outline: none;
+		transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+	}
+	.ui-control::placeholder { color: var(--text-muted); opacity: 1; }
+	.ui-control:hover:not(:disabled) { border-color: var(--input-border-hover); }
+	.ui-control:focus { border-color: var(--input-border-focus); background-color: var(--input-bg-focus); box-shadow: 0 0 0 3px var(--input-ring); }
+	.ui-control:disabled { cursor: not-allowed; border-color: var(--border); background-color: var(--surface-subtle); color: var(--text-muted); }
 	[data-input] { min-height: var(--control-height); }
-	[data-input][data-error="true"] { border-color: var(--danger); }
+	[data-input][data-error="true"], [data-input][data-error="true"]:hover { border-color: var(--danger); }
 	[data-input][data-error="true"]:focus { border-color: var(--danger); box-shadow: 0 0 0 3px var(--input-ring-danger); }
-	[data-state-box] { border-radius: var(--radius-lg); padding: 1rem; border: 1px solid var(--border); background: var(--surface-subtle); }
+	/* Native selects get one chevron in both themes. */
+	select.ui-control:not([multiple]):not([size]) {
+		appearance: none;
+		-webkit-appearance: none;
+		padding-right: 2rem;
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238a93a0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+		background-repeat: no-repeat;
+		background-position: right 0.6rem center;
+		background-size: 1rem;
+	}
+	html.light select.ui-control:not([multiple]):not([size]) {
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%235d6572' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+	}
+	textarea.ui-control { line-height: 1.55; }
+
+	/* ── Feedback ─────────────────────────────────────────────────────── */
+	[data-state-box] { border-radius: var(--radius-lg); padding: 0.875rem 1rem; border: 1px solid var(--border); background: var(--surface-subtle); }
 	[data-state="accent"], [data-state-box="accent"] { background: var(--accent-bg); border-color: var(--accent-border); }
 	[data-state="danger"], [data-state-box="danger"] { background: var(--danger-bg); border-color: var(--danger-border); }
 	[data-state="warning"], [data-state-box="warning"] { background: var(--warning-bg); border-color: var(--warning-border); }
@@ -131,14 +283,86 @@
 	[data-tone="violet"] { --tone-bg: var(--purple-bg); }
 	[data-tone="neutral"] { --tone-bg: var(--surface-elevated); }
 	[data-tone] { background-color: var(--tone-bg); }
-	[data-modal-panel] { max-height: calc(100dvh - 2rem); overflow-y: auto; }
-	[data-modal-panel][data-motion="drawer"] { max-height: 100dvh; }
-	[data-app-sidebar] nav .overflow-y-auto { scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb) transparent; }
+
+	/* ── Overlays ─────────────────────────────────────────────────────── */
+	[data-modal-overlay] { animation: var(--animate-fade-in); }
+	[data-modal-panel] { max-height: calc(100dvh - 2rem); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; animation: var(--animate-pop-in); }
+	[data-modal-panel][data-motion="drawer"] { max-height: 100dvh; animation: var(--animate-drawer-in); }
+	@media (max-width: 39.99rem) {
+		[data-modal-panel][data-motion="sheet"] { max-height: 92dvh; animation: var(--animate-sheet-in); }
+	}
+	[data-modal-panel] :where(h2, h3) { overflow-wrap: anywhere; }
+
+	/* ── Popovers and menus ───────────────────────────────────────────── */
+	[data-popover] {
+		z-index: var(--z-popover);
+		min-width: 12rem;
+		max-width: calc(100vw - 1rem);
+		border: 1px solid var(--border);
+		border-radius: calc(var(--radius-card) - 2px);
+		background: var(--modal-bg);
+		padding: 0.25rem;
+		box-shadow: var(--shadow-lg);
+		animation: var(--animate-pop-in);
+	}
+	[data-menu-item] {
+		display: flex;
+		width: 100%;
+		align-items: center;
+		gap: 0.625rem;
+		border-radius: calc(var(--radius-control) - 2px);
+		padding: 0.375rem 0.625rem;
+		text-align: left;
+		font-size: 13px;
+		line-height: 1.25rem;
+		color: var(--text-secondary);
+		transition: background-color 120ms ease, color 120ms ease;
+	}
+	[data-menu-item]:hover, [data-menu-item]:focus-visible { background: var(--surface-hover); color: var(--text-primary); outline: none; }
+	[data-menu-item] > svg { flex-shrink: 0; width: 1rem; height: 1rem; color: var(--text-muted); }
+	[data-menu-item][data-danger] { color: var(--danger); }
+	[data-menu-item][data-danger]:hover, [data-menu-item][data-danger]:focus-visible { background: var(--danger-bg); color: var(--danger); }
+	[data-menu-item][data-danger] > svg { color: currentColor; }
+	[data-menu-item][aria-disabled="true"] { opacity: 0.5; pointer-events: none; }
+	[data-menu-description] { margin-top: 0.125rem; font-size: 12px; line-height: 1.125rem; color: var(--text-muted); white-space: normal; }
+	[data-menu-separator] { height: 1px; margin: 0.25rem -0.25rem; background: var(--border-subtle); }
+	[data-menu-label] { padding: 0.375rem 0.625rem 0.25rem; font-size: 11px; font-weight: 500; color: var(--text-muted); }
+
+	/* ── Shell ────────────────────────────────────────────────────────── */
+	[data-app-sidebar] [data-nav-scroll] { scrollbar-width: none; }
+	[data-app-sidebar] [data-nav-scroll]:hover { scrollbar-width: thin; }
 	[data-ai-workspace] { background: var(--background); }
+
+	/* Keyboard hint chip (⌘K, Esc, ↵). */
+	.ui-kbd {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-width: 1.25rem;
+		height: 1.25rem;
+		padding: 0 0.3rem;
+		border: 1px solid var(--border);
+		border-bottom-width: 2px;
+		border-radius: 5px;
+		background: var(--surface-elevated);
+		color: var(--text-muted);
+		font-family: var(--app-font-sans);
+		font-size: 11px;
+		font-weight: 500;
+		line-height: 1;
+	}
+
+	/* Monospace data (hosts, paths, ids) sits a step smaller than prose. */
+	.ui-mono { font-family: var(--app-font-mono); font-size: 0.92em; }
 }
 
-/* Dialog geometry is shared even when callers retain legacy radius utilities. */
-[data-modal-panel]:not([data-motion="drawer"]) { border-radius: var(--radius-dialog); }
+/* Dialog geometry is shared even when callers retain legacy radius utilities:
+   bottom sheets lose their lower corners and drawers go edge to edge on phones. */
+[data-modal-panel] { border-radius: var(--radius-dialog); }
+@media (max-width: 39.99rem) {
+	[data-modal-panel][data-motion="sheet"] { border-bottom-left-radius: 0; border-bottom-right-radius: 0; border-bottom-width: 0; }
+	[data-modal-panel][data-motion="drawer"] { border-radius: 0; border-width: 0 0 0 1px; }
+}
 
 @media (prefers-reduced-motion: reduce) {
 	*, ::before, ::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }

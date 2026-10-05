@@ -105,7 +105,7 @@ export function DashboardAnalyticsPanel() {
     <section data-surface-panel data-card className="mt-6 space-y-4 p-4 sm:p-5" aria-labelledby="dashboard-analytics-title">
       <div className="flex flex-col gap-2 border-b border-[var(--border-subtle)] pb-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 id="dashboard-analytics-title" className="text-base font-semibold text-[var(--text-primary)] sm:text-lg">{t("dashboard.data-trends")}</h2>
+          <h2 id="dashboard-analytics-title" className="text-[15px] font-semibold text-[var(--text-primary)]">{t("dashboard.data-trends")}</h2>
           <p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">{t("dashboard.analytics.description")}</p>
         </div>
         {loading ? <span className="text-xs font-medium text-[var(--accent)]">{t("dashboard.analytics.loading")}</span> : null}
@@ -117,7 +117,7 @@ export function DashboardAnalyticsPanel() {
 
       {!loading && !error && data ? (
         <div className="mt-4 grid gap-4 xl:grid-cols-2">
-          <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-elevated)] p-4">
+          <div data-inset className="p-4">
             <div className="flex items-center justify-between gap-3">
               <h3 className="text-sm font-medium text-[var(--text-primary)]">{t("dashboard.analytics.server-trend")}</h3>
               {latestServerMetric ? <span className="text-xs text-[var(--text-muted)]">{t("dashboard.analytics.recent")} {formatShortTime(latestServerMetric.time, locale)}</span> : null}
@@ -137,7 +137,7 @@ export function DashboardAnalyticsPanel() {
             )}
           </div>
 
-          <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-elevated)] p-4">
+          <div data-inset className="p-4">
             <h3 className="text-sm font-medium text-[var(--text-primary)]">{t("dashboard.analytics.download-trend")}</h3>
             {data.downloads?.length ? (
               <div className="mt-4" data-testid="download-analytics-chart">
@@ -154,7 +154,7 @@ export function DashboardAnalyticsPanel() {
             )}
           </div>
 
-          <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-elevated)] p-4">
+          <div data-inset className="p-4">
             <h3 className="text-sm font-medium text-[var(--text-primary)]">{t("dashboard.analytics.audit-activity")}</h3>
             {data.audit?.length ? (
               <SparkBars points={data.audit.map((point) => ({ label: formatShortDate(point.date), value: point.total }))} color="violet" />
@@ -163,7 +163,7 @@ export function DashboardAnalyticsPanel() {
             )}
           </div>
 
-          <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-elevated)] p-4">
+          <div data-inset className="p-4">
             <h3 className="text-sm font-medium text-[var(--text-primary)]">{t("dashboard.analytics.image-bed")}</h3>
             {data.imageBed?.length ? (
               <div className="mt-4">
@@ -184,9 +184,9 @@ export function DashboardAnalyticsPanel() {
 
 function MetricLine({ label, value, color }: { label: string; value: number; color: "emerald" | "blue" | "amber" }) {
   const colors = {
-    emerald: "bg-[var(--success)]",
-    blue: "bg-[var(--info)]",
-    amber: "bg-[var(--warning)]",
+    emerald: "bg-[var(--chart-2)]",
+    blue: "bg-[var(--chart-4)]",
+    amber: "bg-[var(--chart-3)]",
   };
   return (
     <div>
@@ -194,7 +194,7 @@ function MetricLine({ label, value, color }: { label: string; value: number; col
         <span>{label}</span>
         <span>{value}%</span>
       </div>
-      <div className="h-2 rounded-full bg-[var(--surface-hover)]">
+      <div className="h-1.5 rounded-full bg-[var(--surface-elevated)]">
         <div className={`h-full rounded-full ${colors[color]}`} style={{ width: `${value}%` }} />
       </div>
     </div>
@@ -206,29 +206,53 @@ function labelInterval(pointCount: number) {
   return Math.ceil(pointCount / 7);
 }
 
+/** Axis labels centred under their bars; only every few are shown. */
+function AxisLabels({ labels }: { labels: string[] }) {
+  const interval = labelInterval(labels.length);
+  const last = labels.length - 1;
+  // The final label is worth showing only when it does not collide with the
+  // previous tick (e.g. 11:00 and 12:00 side by side).
+  const showLast = last % interval === 0 || last % interval >= Math.ceil(interval * 0.6);
+  return (
+    <div className="relative mt-1.5 h-4" aria-hidden="true">
+      {labels.map((label, index) => {
+        if (!(index % interval === 0 || (index === last && showLast))) return null;
+        const left = ((index + 0.5) / labels.length) * 100;
+        return (
+          <span
+            key={`${label}-${index}`}
+            className="absolute top-0 -translate-x-1/2 whitespace-nowrap text-[11px] tabular-nums text-[var(--text-muted)]"
+            style={{ left: `${left}%` }}
+          >
+            {label}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
 function SparkBars({ points, color }: { points: Array<{ label: string; value: number }>; color: "cyan" | "violet" | "pink" }) {
   const { t } = useI18n();
   const max = Math.max(1, ...points.map((point) => point.value));
   const colors = {
-    cyan: "bg-[var(--color-action-bg)]/70",
-    violet: "bg-[var(--accent)]/70",
-    pink: "bg-[var(--accent)]/70",
+    cyan: "bg-[var(--chart-1)]",
+    violet: "bg-[var(--chart-5)]",
+    pink: "bg-[var(--chart-4)]",
   };
   return (
-    <div className="mt-4 flex h-24 items-end gap-1" aria-label={t("dashboardAnalytics.trendChart")}>
-      {points.map((point, index) => {
-        const showLabel = index % labelInterval(points.length) === 0 || index === points.length - 1;
-        return (
-        <div key={`${point.label}-${index}`} className="flex min-w-0 flex-1 flex-col items-center gap-1">
+    <div className="mt-4" aria-label={t("dashboardAnalytics.trendChart")}>
+      <div className="flex h-20 items-end gap-[3px] border-b border-[var(--chart-grid)]">
+        {points.map((point, index) => (
           <div
-            className={`w-full rounded-t ${colors[color]}`}
-            style={{ height: `${Math.max(6, (point.value / max) * 88)}px` }}
+            key={`${point.label}-${index}`}
+            className={`min-w-0 flex-1 rounded-t-sm opacity-85 transition-opacity hover:opacity-100 ${colors[color]}`}
+            style={{ height: `${Math.max(4, (point.value / max) * 100)}%` }}
             title={`${point.label}: ${point.value}`}
           />
-          <span className="whitespace-nowrap text-xs text-[var(--text-muted)]">{showLabel ? point.label : ""}</span>
-        </div>
-        );
-      })}
+        ))}
+      </div>
+      <AxisLabels labels={points.map((point) => point.label)} />
     </div>
   );
 }
@@ -240,23 +264,26 @@ function StackedDownloadBars({ points }: { points: DownloadTrendPoint[] }) {
     ...points.map((point) => point.completed + point.failed + point.running + point.pending),
   );
   return (
-    <div className="mt-4 flex h-24 items-end gap-1" aria-label={t("dashboardAnalytics.downloadTrend")}>
-      {points.map((point, index) => {
-        const total = point.completed + point.failed + point.running + point.pending;
-        const height = Math.max(6, (total / max) * 88);
-        const showLabel = index % labelInterval(points.length) === 0 || index === points.length - 1;
-        return (
-          <div key={point.date} className="flex min-w-0 flex-1 flex-col items-center gap-1">
-            <div className="flex w-full flex-col justify-end overflow-hidden rounded-t bg-[var(--surface-hover)]" style={{ height: `${height}px` }} title={`${point.date}: ${total}`}>
-              <Segment value={point.failed} total={total} className="bg-[var(--danger-bg)]" />
-              <Segment value={point.running} total={total} className="bg-[var(--accent-bg)]" />
-              <Segment value={point.pending} total={total} className="bg-[var(--warning-bg)]" />
-              <Segment value={point.completed} total={total} className="bg-[var(--success-bg)]" />
+    <div className="mt-4" aria-label={t("dashboardAnalytics.downloadTrend")}>
+      <div className="flex h-20 items-end gap-[3px] border-b border-[var(--chart-grid)]">
+        {points.map((point) => {
+          const total = point.completed + point.failed + point.running + point.pending;
+          return (
+            <div
+              key={point.date}
+              className="flex min-w-0 flex-1 flex-col justify-end overflow-hidden rounded-t-sm bg-[var(--surface-hover)]"
+              style={{ height: `${Math.max(4, (total / max) * 100)}%` }}
+              title={`${point.date}: ${total}`}
+            >
+              <Segment value={point.failed} total={total} className="bg-[var(--chart-6)]" />
+              <Segment value={point.running} total={total} className="bg-[var(--chart-1)]" />
+              <Segment value={point.pending} total={total} className="bg-[var(--chart-3)]" />
+              <Segment value={point.completed} total={total} className="bg-[var(--chart-2)]" />
             </div>
-            <span className="whitespace-nowrap text-xs text-[var(--text-muted)]">{showLabel ? formatShortDate(point.date) : ""}</span>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
+      <AxisLabels labels={points.map((point) => formatShortDate(point.date))} />
     </div>
   );
 }
@@ -270,7 +297,7 @@ function MiniStat({ label, value, color }: { label: string; value: number; color
   const colors = {
     emerald: "text-[var(--success)] border-[var(--success-border)] bg-[var(--success-bg)]",
     rose: "text-[var(--danger)] border-[var(--danger-border)] bg-[var(--danger-bg)]",
-    cyan: "text-[var(--text-secondary)] border-[var(--color-action-border)]/20 bg-[var(--color-action-bg)]/10",
+    cyan: "text-[var(--accent)] border-[var(--accent-border)] bg-[var(--accent-bg)]",
     amber: "text-[var(--warning)] border-[var(--warning-border)] bg-[var(--warning-bg)]",
   };
   return (

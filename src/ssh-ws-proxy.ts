@@ -2,7 +2,7 @@
  * WebSocket-to-SSH proxy server
  * Runs on port 3001 alongside the Next.js app on port 3000.
  * Clients connect with: ws://host:3001/ssh?serverId=xxx&handshake=xxx
- * Session auth prefers the HttpOnly cookie; query token is legacy fallback only.
+ * Session auth uses the HttpOnly cookie; only the short-lived handshake is in the URL.
  */
 
 import { setupRdpWebSocket } from "@/lib/rdp/ws";
@@ -590,7 +590,7 @@ wss.on("connection", async (ws, req) => {
         return;
       }
       sshStream = stream;
-      ws.send(JSON.stringify({ type: "connected" }));
+      ws.send(JSON.stringify({ type: "connected", inputAck: true }));
       resetIdle();
 
       stream.on("data", (data: Buffer) => {
@@ -636,18 +636,27 @@ wss.on("connection", async (ws, req) => {
       if (!msg || typeof msg !== "object") throw new Error("Invalid message");
       if (msg.type === "input") {
         if (typeof msg.data !== "string" || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(msg.data)) throw new Error("Invalid input");
+        if (msg.id !== undefined && (!Number.isSafeInteger(msg.id) || msg.id < 1)) throw new Error("Invalid input sequence");
       } else if (msg.type === "resize") {
         if (!Number.isSafeInteger(msg.rows) || msg.rows < 1 || msg.rows > 500 || !Number.isSafeInteger(msg.cols) || msg.cols < 1 || msg.cols > 1000) throw new Error("Invalid resize");
       } else throw new Error("Invalid message type");
       pendingInputBytes += messageBytes;
       pendingSshInputBytes += messageBytes;
       pendingInputMessages++;
-      void ensureAuthorized().then((allowed) => {
+      void ensureAuthorized().then(async (allowed) => {
         if (!allowed || stopped || !sshStream) return;
         resetIdle();
         if (msg.type === "input") {
           if (sshStream.writableLength > 1024 * 1024) { stopTerminal(t("backend.sshTerminal.connectionClosed"), 1013); return; }
-          sshStream.write(Buffer.from(msg.data, "base64"));
+          if (msg.id === undefined) {
+            // Existing clients retain their original wire protocol.
+            sshStream.write(Buffer.from(msg.data, "base64"));
+          } else {
+            await new Promise<void>((resolve, reject) => {
+              sshStream!.write(Buffer.from(msg.data, "base64"), (error?: Error | null) => error ? reject(error) : resolve());
+            });
+            if (!stopped && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "input-ack", id: msg.id }));
+          }
         } else sshStream.setWindow(msg.rows, msg.cols, 0, 0);
       }).catch(() => stopTerminal(t("backend.sshTerminal.connectionClosed"))).finally(() => {
         pendingInputBytes -= messageBytes;

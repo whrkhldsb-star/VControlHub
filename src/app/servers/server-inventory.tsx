@@ -33,14 +33,14 @@ export function ServerInventory({ inventory, canManageServers, canUseSshTerminal
       ariaLabel={t("serversPage.windows.os")}
       value={operatingSystem}
       onChange={(os) => navigate({ operatingSystem: os as InventoryQuery["operatingSystem"], page: 1 })}
-      className="max-w-md"
+      variant="pills"
       items={(["all", "LINUX", "WINDOWS"] as const).map((os) => ({
         id: os,
         label: os === "all" ? t("serversPage.windows.all") : os === "LINUX" ? "Linux" : "Windows",
         disabled: pending,
       }))}
     />
-    {stats.total > 0 && <Toolbar className="!mb-0">
+    {stats.total > 0 && <Toolbar>
       <form key={query.query} className="flex min-w-0 flex-1 basis-64 gap-2" onSubmit={(event) => {
         event.preventDefault();
         navigate({ query: String(new FormData(event.currentTarget).get("query") ?? "").trim(), page: 1 });

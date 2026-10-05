@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ShareFilePicker } from "../share-file-picker";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { isTouchTarget } from "@/test/ui-assertions";
 
 const refresh = vi.fn();
 
@@ -175,17 +176,14 @@ describe("ShareFilePicker", () => {
 
 	describe("touch targets (TR-022 R19.B mobile)", () => {
 		function mockHeightsBySelector(measurements: Record<string, number>) {
-			// jsdom reports getBoundingClientRect as 0x0; install a minimal stub
-			// that returns the requested height for buttons whose className includes
-			// the test selector. Sufficient for asserting that min-h-11 produced
-			// at least 44px of computed height. Same pattern as R17/R18/R19.A.
+			// jsdom reports getBoundingClientRect as 0x0. Control heights come from
+			// design tokens (--control-height is 44px on touch screens), so report the
+			// requested height for elements that are touch targets by construction.
+			const height = Math.max(...Object.values(measurements));
 			const original = Element.prototype.getBoundingClientRect;
 			Element.prototype.getBoundingClientRect = function () {
-				const className = (this.getAttribute("class") ?? "") as string;
-				for (const [selector, height] of Object.entries(measurements)) {
-					if (className.includes(selector)) {
-						return { x: 0, y: 0, top: 0, left: 0, right: 0, bottom: 0, width: 100, height, toJSON: () => ({}) } as DOMRect;
-					}
+				if (isTouchTarget(this)) {
+					return { x: 0, y: 0, top: 0, left: 0, right: height, bottom: height, width: height, height, toJSON: () => ({}) } as DOMRect;
 				}
 				return original.call(this);
 			};

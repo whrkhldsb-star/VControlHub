@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback, useMemo } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { mainNavItems, systemNavItems } from "./nav-items";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -12,13 +12,18 @@ import { ModalShell } from "@/components/modal-shell";
 import { api } from "@/lib/http/api-client";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { isImeComposition } from "@/lib/ui/keyboard";
-import { Search, X } from "./icons";
+import { useOptionalTheme } from "@/lib/theme/use-theme";
+import { toggleSidebarCollapsed, useRecentPages } from "@/lib/ui/shell-preferences";
+import { cn } from "@/lib/ui/cn";
+import { X } from "./icons";
+import { IconHistory, IconKeyboard, IconLanguages, IconMoon, IconPanelLeft, IconSearch, IconSun } from "./nav-icons";
 import { IconButton } from "./ui-primitives";
+import { OPEN_SHORTCUTS_EVENT } from "./user-menu";
 
 const navigationIcons = new Map([...mainNavItems, ...systemNavItems].map((item) => [item.href, item.icon]));
 function searchIcon(href: string) {
 	const pathname = href.split(/[?#]/)[0] ?? "/";
-	return navigationIcons.get(pathname) ?? navigationIcons.get(`/${pathname.split("/")[1]}`) ?? <Search size={18} />;
+	return navigationIcons.get(pathname) ?? navigationIcons.get(`/${pathname.split("/")[1]}`) ?? <IconSearch size={17} />;
 }
 
 export interface SearchItem {
@@ -48,6 +53,7 @@ const searchItemMetadata: Record<string, SearchMetadata> = {
 	"/templates": { keywordsKey: "search.keywords.templates" },
 	"/deployments": { keywordsKey: "search.keywords.deployments" },
 	"/quick-services": { keywordsKey: "search.keywords.quickServices" },
+	"/docker": { keywordsKey: "search.keywords.docker" },
 	"/snippets": { keywordsKey: "search.keywords.snippets" },
 	"/media": { keywordsKey: "search.keywords.media" },
 	"/image-bed": { keywordsKey: "search.keywords.imageBed" },
@@ -130,6 +136,16 @@ export function getSearchItems(locale: Locale = "zh"): SearchItem[] {
 /** Search alias — shared contract lives in filter-by-href-permissions. */
 const filterItemsByPermissions = filterByHrefPermissions;
 
+type PaletteEntry =
+	| { kind: "link"; key: string; label: string; detail: string; icon: ReactNode; item: SearchItem }
+	| { kind: "action"; key: string; label: string; detail: string; icon: ReactNode; run: () => void; keywords: string[] };
+
+type PaletteSection = { id: string; title: string; entries: PaletteEntry[] };
+
+function matches(query: string, ...values: Array<string | undefined>) {
+	return values.some((value) => value?.toLowerCase().includes(query));
+}
+
 export function GlobalSearch({
 	externalOpenSignal = 0,
 	declaredPermissionsByHref = {},
@@ -145,7 +161,9 @@ export function GlobalSearch({
 	const inputRef = useRef<HTMLInputElement>(null);
 	const returnFocusRef = useRef<HTMLElement | null>(null);
 	const router = useRouter();
-	const { locale, t } = useI18n();
+	const { locale, t, setLocale } = useI18n();
+	const { theme, toggleTheme } = useOptionalTheme();
+	const recentHrefs = useRecentPages();
 	const { can, canAny } = useGateRoute();
 	const searchItems = useMemo(() => {
 		const routeVisible = filterItemsByPermissions(
@@ -158,20 +176,6 @@ export function GlobalSearch({
 		);
 	}, [locale, declaredPermissionsByHref, can, canAny]);
 
-	const filteredLocal = query
-		? searchItems.filter(
-				(item) => {
-					const normalizedQuery = query.toLowerCase();
-					return (
-						item.label.toLowerCase().includes(normalizedQuery) ||
-						item.category.toLowerCase().includes(normalizedQuery) ||
-						(item.keywords ?? []).some((keyword) => keyword.toLowerCase().includes(normalizedQuery))
-					);
-				}
-			)
-		: searchItems;
-	const filtered = query ? [...filteredLocal, ...(dynamicResults.query === query.trim() ? dynamicResults.items : [])] : filteredLocal;
-
 	const closeSearch = useCallback(() => {
 		setOpen(false);
 		setQuery("");
@@ -179,7 +183,6 @@ export function GlobalSearch({
 		returnFocusRef.current = null;
 		setTimeout(() => returnTarget?.focus(), 0);
 	}, []);
-
 
 	const openSearch = useCallback(() => {
 		const activeElement = document.activeElement;
@@ -194,8 +197,60 @@ export function GlobalSearch({
 			returnFocusRef.current = null;
 			router.push(item.href);
 		},
-		[router]
+		[router],
 	);
+
+	const sections = useMemo<PaletteSection[]>(() => {
+		const normalized = query.trim().toLowerCase();
+		const toLink = (item: SearchItem, prefix: string): PaletteEntry => ({
+			kind: "link",
+			key: `${prefix}:${item.href}:${item.label}`,
+			label: item.label,
+			detail: item.category,
+			icon: searchIcon(item.href),
+			item,
+		});
+		const actionCategory = t("search.category.action") === "search.category.action" ? "Action" : t("search.category.action");
+		const actions: PaletteEntry[] = [
+			{ kind: "action", key: "action:theme", label: t("shell.action.toggleTheme"), detail: actionCategory, icon: theme === "dark" ? <IconSun size={17} /> : <IconMoon size={17} />, run: toggleTheme, keywords: ["theme", "dark", "light", "主题", "深色", "浅色"] },
+			{ kind: "action", key: "action:language", label: t("shell.action.toggleLanguage"), detail: actionCategory, icon: <IconLanguages size={17} />, run: () => setLocale(locale === "zh" ? "en" : "zh"), keywords: ["language", "english", "中文", "语言"] },
+			{ kind: "action", key: "action:sidebar", label: t("shell.action.toggleSidebar"), detail: actionCategory, icon: <IconPanelLeft size={17} />, run: toggleSidebarCollapsed, keywords: ["sidebar", "侧边栏", "导航"] },
+			{ kind: "action", key: "action:shortcuts", label: t("shell.action.shortcuts"), detail: actionCategory, icon: <IconKeyboard size={17} />, run: () => window.dispatchEvent(new Event(OPEN_SHORTCUTS_EVENT)), keywords: ["keyboard", "shortcut", "快捷键", "键盘"] },
+		];
+		if (!normalized) {
+			const recent = recentHrefs
+				.map((href) => searchItems.find((item) => item.href === href))
+				.filter((item): item is LocalSearchItem => Boolean(item))
+				.map((item) => ({ ...toLink(item, "recent"), icon: <IconHistory size={17} /> }));
+			return [
+				{ id: "recent", title: t("shell.palette.recent"), entries: recent },
+				{ id: "actions", title: t("shell.palette.actions"), entries: actions },
+				{ id: "pages", title: t("shell.palette.pages"), entries: searchItems.map((item) => toLink(item, "page")) },
+			].filter((section) => section.entries.length > 0);
+		}
+		const pages = searchItems
+			.filter((item) => matches(normalized, item.label, item.category, ...(item.keywords ?? [])))
+			.map((item) => toLink(item, "page"));
+		const matchedActions = actions.filter((entry) => entry.kind === "action" && matches(normalized, entry.label, ...entry.keywords));
+		const remote = dynamicResults.query === query.trim() ? dynamicResults.items.map((item) => toLink(item, "remote")) : [];
+		return [
+			{ id: "pages", title: t("shell.palette.pages"), entries: pages },
+			{ id: "actions", title: t("shell.palette.actions"), entries: matchedActions },
+			{ id: "resources", title: t("shell.palette.resources"), entries: remote },
+		].filter((section) => section.entries.length > 0);
+	}, [query, searchItems, recentHrefs, dynamicResults, t, theme, toggleTheme, setLocale, locale]);
+
+	const flat = useMemo(() => sections.flatMap((section) => section.entries), [sections]);
+
+	const activate = useCallback((entry: PaletteEntry | undefined) => {
+		if (!entry) return;
+		if (entry.kind === "link") {
+			navigate(entry.item);
+			return;
+		}
+		closeSearch();
+		entry.run();
+	}, [navigate, closeSearch]);
 
 	useEffect(() => {
 		if (externalOpenSignal > 0) {
@@ -236,8 +291,6 @@ export function GlobalSearch({
 		if (open) document.getElementById(`global-search-result-${selectedIndex}`)?.scrollIntoView?.({ block: "nearest" });
 	}, [open, selectedIndex]);
 
-
-
 	useEffect(() => {
 		setSelectedIndex(0);
 	}, [query]);
@@ -271,86 +324,102 @@ export function GlobalSearch({
 		if (isImeComposition(e)) return;
 		if (e.key === "ArrowDown") {
 			e.preventDefault();
-			// When filtered is empty, length-1 is -1; keep selection at 0 so aria-activedescendant stays valid.
-			setSelectedIndex((i) =>
-				filtered.length === 0 ? 0 : Math.min(i + 1, filtered.length - 1),
-			);
+			// When the list is empty, length-1 is -1; keep selection at 0 so aria-activedescendant stays valid.
+			setSelectedIndex((i) => (flat.length === 0 ? 0 : Math.min(i + 1, flat.length - 1)));
 		} else if (e.key === "ArrowUp") {
 			e.preventDefault();
 			setSelectedIndex((i) => Math.max(i - 1, 0));
-		} else if (e.key === "Enter" && filtered[selectedIndex]) {
-			navigate(filtered[selectedIndex]);
+		} else if (e.key === "Enter" && flat[selectedIndex]) {
+			e.preventDefault();
+			activate(flat[selectedIndex]);
 		}
 	};
+
+	let optionIndex = -1;
 
 	return (
 		<ModalShell
 			open={open}
 			onClose={closeSearch}
 			label={t("search.dialog")}
-			overlayClassName="fixed inset-0 z-[var(--z-popover)] flex items-start justify-center bg-[var(--overlay)] p-4 pt-[min(12dvh,4rem)]"
-			panelClassName="flex max-h-[calc(88dvh-1rem)] w-full max-w-lg flex-col overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--modal-bg)] shadow-[var(--shadow-lg)]"
+			overlayClassName="fixed inset-0 z-[var(--z-popover)] flex items-start justify-center bg-[var(--overlay)] p-3 pt-[min(14dvh,6rem)] backdrop-blur-[2px]"
+			panelClassName="flex max-h-[min(36rem,calc(86dvh-1rem))] w-full max-w-[40rem] flex-col overflow-hidden border border-[var(--border)] bg-[var(--modal-bg)] shadow-[var(--shadow-lg)]"
 			initialFocusRef={inputRef}
 		>
-				<div className="flex shrink-0 items-center gap-2 border-b border-[var(--border)] px-4">
-					<Search size={16} aria-hidden className="shrink-0 text-[var(--text-muted)]" />
-					<input
-						ref={inputRef}
-						type="text"
-						role="combobox"
-						aria-label={t("search.input-label")}
-						aria-expanded={filtered.length > 0}
-						aria-controls="global-search-results"
-						aria-activedescendant={
-							filtered[selectedIndex] ? `global-search-result-${selectedIndex}` : undefined
-						}
-						aria-autocomplete="list"
-						value={query}
-						onChange={(e) => setQuery(e.target.value)}
-						onKeyDown={handleKeyDown}
-						placeholder={t("search.placeholder")}
-						className="min-w-0 flex-1 bg-transparent py-3.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none"
-					/>
-					<IconButton label={t("common.close")} onClick={closeSearch}><X size={16} aria-hidden /></IconButton>
-				</div>
-				{searchError && <p role="alert" className="shrink-0 break-words px-4 py-2 text-sm text-[var(--danger)]">{searchError}</p>}
-				{filtered.length === 0 && (
-					<p role="status" className="px-4 py-8 text-center text-sm text-[var(--text-muted)]">{t("search.no-results")}</p>
-				)}
-				<ul id="global-search-results" role="listbox" hidden={filtered.length === 0} className="min-h-0 max-h-72 overflow-y-auto py-1.5">
-					{filtered.map((item, i) => (
-						<li
-							key={item.href + item.label}
-							role="presentation"
-						>
-							<button
-								type="button"
-								id={`global-search-result-${i}`}
-								role="option"
-								aria-selected={i === selectedIndex}
-								tabIndex={-1}
-								onMouseDown={(event) => event.preventDefault()}
-								onClick={() => navigate(item)}
-								className={`flex w-full items-center gap-3 px-4 py-2.5 text-sm transition ${
-									i === selectedIndex
-										? "bg-[var(--accent-bg)] text-[var(--text-primary)]"
-										: "text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
-								}`}
-							>
-								<span
-									className="flex h-8 w-8 shrink-0 items-center justify-center text-[var(--text-muted)]"
-									aria-hidden="true"
-								>
-									{searchIcon(item.href)}
-								</span>
-								<span className="min-w-0 flex-1 truncate text-left font-medium">{item.label}</span>
-								<span className="max-w-[30%] shrink-0 truncate text-xs text-[var(--text-muted)]">
-									{item.category}
-								</span>
-							</button>
-						</li>
-					))}
-				</ul>
+			<div className="flex shrink-0 items-center gap-2.5 border-b border-[var(--border-subtle)] px-4">
+				<IconSearch size={17} className="shrink-0 text-[var(--text-muted)]" />
+				<input
+					ref={inputRef}
+					type="text"
+					role="combobox"
+					aria-label={t("search.input-label")}
+					aria-expanded={flat.length > 0}
+					aria-controls="global-search-results"
+					aria-activedescendant={flat[selectedIndex] ? `global-search-result-${selectedIndex}` : undefined}
+					aria-autocomplete="list"
+					value={query}
+					onChange={(e) => setQuery(e.target.value)}
+					onKeyDown={handleKeyDown}
+					placeholder={t("search.placeholder")}
+					className="min-w-0 flex-1 bg-transparent py-3.5 text-[15px] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none"
+				/>
+				<IconButton label={t("common.close")} onClick={closeSearch} className="h-8 w-8"><X size={16} aria-hidden /></IconButton>
+			</div>
+			{searchError && <p role="alert" className="shrink-0 break-words px-4 py-2 text-sm text-[var(--danger)]">{searchError}</p>}
+			{flat.length === 0 && (
+				<p role="status" className="px-4 py-10 text-center text-sm text-[var(--text-muted)]">{t("search.no-results")}</p>
+			)}
+			<ul id="global-search-results" role="listbox" hidden={flat.length === 0} className="min-h-0 flex-1 overflow-y-auto p-1.5">
+				{sections.map((section) => (
+					<li key={section.id} role="presentation" className="pb-1">
+						<div aria-hidden="true" className="px-2.5 pb-1 pt-2 text-[11px] font-medium text-[var(--text-muted)]">
+							{section.title}
+						</div>
+						<ul role="presentation">
+							{section.entries.map((entry) => {
+								optionIndex += 1;
+								const index = optionIndex;
+								const selected = index === selectedIndex;
+								return (
+									<li key={entry.key} role="presentation">
+										<button
+											type="button"
+											id={`global-search-result-${index}`}
+											role="option"
+											aria-selected={selected}
+											tabIndex={-1}
+											onMouseDown={(event) => event.preventDefault()}
+											onMouseMove={() => { if (!selected) setSelectedIndex(index); }}
+											onClick={() => activate(entry)}
+											className={cn(
+												"flex w-full items-center gap-3 rounded-md px-2.5 py-2 text-left text-sm transition-colors",
+												selected ? "bg-[var(--accent-soft)] text-[var(--text-primary)]" : "text-[var(--text-secondary)]",
+											)}
+										>
+											<span
+												className={cn(
+													"flex h-7 w-7 shrink-0 items-center justify-center rounded-md border [&>svg]:h-4 [&>svg]:w-4",
+													selected ? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]" : "border-[var(--border-subtle)] bg-[var(--surface-subtle)] text-[var(--text-muted)]",
+												)}
+												aria-hidden="true"
+											>
+												{entry.icon}
+											</span>
+											<span className="min-w-0 flex-1 truncate font-medium">{entry.label}</span>
+											<span className="max-w-[35%] shrink-0 truncate text-xs text-[var(--text-muted)]">{entry.detail}</span>
+										</button>
+									</li>
+								);
+							})}
+						</ul>
+					</li>
+				))}
+			</ul>
+			<div aria-hidden="true" className="flex shrink-0 items-center gap-4 border-t border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-4 py-2 text-[11px] text-[var(--text-muted)]">
+				<span className="flex items-center gap-1"><span className="ui-kbd">↑</span><span className="ui-kbd">↓</span>{t("shell.palette.navigate")}</span>
+				<span className="flex items-center gap-1"><span className="ui-kbd">↵</span>{t("shell.palette.open")}</span>
+				<span className="flex items-center gap-1"><span className="ui-kbd">Esc</span>{t("shell.palette.dismiss")}</span>
+			</div>
 		</ModalShell>
 	);
 }

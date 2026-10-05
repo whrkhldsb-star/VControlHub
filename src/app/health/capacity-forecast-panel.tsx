@@ -13,6 +13,7 @@ import { tt as applyTemplate } from "./health-dashboard-helpers";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
+import { Notice } from "@/components/ui-primitives";
 
 type CapacityRisk = "ok" | "watch" | "warning" | "critical" | "insufficient_data";
 
@@ -124,7 +125,7 @@ export function CapacityForecastPanel() {
 
   return (
     <section
-      className="space-y-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4"
+      data-card className="space-y-4 p-4"
       aria-label={t("healthPage.capacity.title")}
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -153,21 +154,18 @@ export function CapacityForecastPanel() {
               <option value={30}>30d</option>
             </select>
           </label>
-          <ActionButton variant="secondary"
+          <ActionButton size="sm" variant="secondary"
             onClick={() => void load(horizonDays)}
-            disabled={loading}
-
-            className="!px-3 !py-1 !text-sm"
-          >
+            disabled={loading}>
             {loading ? t("healthPage.capacity.refreshing") : t("healthPage.capacity.refresh")}
           </ActionButton>
         </div>
       </div>
 
       {error ? (
-        <div className="rounded-xl border border-[var(--danger-border)] bg-[color-mix(in_srgb,var(--danger-bg)_35%,var(--surface))] p-3 text-sm text-[var(--danger)]">
+        <Notice tone="danger">
           {error}
-        </div>
+        </Notice>
       ) : null}
 
       {loading && !data ? (
@@ -175,7 +173,7 @@ export function CapacityForecastPanel() {
           {[1, 2, 3, 4].map((i) => (
             <div
               key={i}
-              className="h-20 animate-pulse rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)]"
+              data-tile className="h-20 animate-pulse"
             />
           ))}
         </div>
@@ -184,7 +182,7 @@ export function CapacityForecastPanel() {
       {data ? (
         <>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            <article className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-3">
+            <article data-tile className="p-3">
               <p className="text-xs uppercase text-[var(--text-muted)]">
                 {t("healthPage.capacity.summary.nodes")}
               </p>
@@ -192,7 +190,7 @@ export function CapacityForecastPanel() {
                 {data.summary.serverCount}
               </p>
             </article>
-            <article className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-3">
+            <article data-tile className="p-3">
               <p className="text-xs uppercase text-[var(--text-muted)]">
                 {t("healthPage.capacity.summary.forecastable")}
               </p>

@@ -112,7 +112,7 @@ export function CommandLaunchForm({ servers, allowDirectExecution, remoteTargets
 			</div>
 			<fieldset className="space-y-2">
 				<legend className="text-sm font-medium text-[var(--text-secondary)]">{t("serversPage.command.modeLabel")}</legend>
-				<div className="inline-flex max-w-full rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-1">
+				<div data-inset className="inline-flex max-w-full p-1">
 					<button
 						type="button"
 						onClick={() => setApprovalRequired(true)}
@@ -180,11 +180,9 @@ export function CommandLaunchForm({ servers, allowDirectExecution, remoteTargets
 				onChange={(rows) => { setRemoteSelection(rows); setSelectedIds(new Set(rows.map((row) => row.id))); }} /> : <fieldset className="space-y-3">
 				<div className="flex flex-wrap items-center justify-between gap-3">
 					<legend className="text-sm font-medium text-[var(--text-secondary)]">{t("serversPage.command.targetNodes")}</legend>
-					<ActionButton
+					<ActionButton size="sm"
 						variant="secondary"
-						onClick={() => setSelectedIds(allSelected ? new Set() : new Set(availableServers.map((server) => server.id)))}
-						className="!px-3 !py-1.5 !text-sm"
-					>
+						onClick={() => setSelectedIds(allSelected ? new Set() : new Set(availableServers.map((server) => server.id)))}>
 						{t(allSelected ? "serversPage.command.deselectAll" : "serversPage.command.selectAllEnabled")}
 					</ActionButton>
 				</div>

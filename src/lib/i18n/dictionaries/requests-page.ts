@@ -35,7 +35,7 @@ export const zh: Record<string, string> = {
 	"requestsPage.workflowNote.title": "当前支持两条审批链路",
 
 	// page.tsx request card details (RSC)
-	"requestsPage.card.approvalOnly": "🔒 仅审批人可查看命令内容",
+	"requestsPage.card.approvalOnly": "仅审批人可查看命令内容",
 	"requestsPage.card.reason": "原因：",
 	"requestsPage.card.requester": "申请人：",
 	"requestsPage.card.targetCount": "目标 {count} 台",
@@ -137,7 +137,7 @@ export const en: Record<string, string> = {
 	"requestsPage.workflowNote.title": "Two approval flows are supported",
 
 	// page.tsx request card details
-	"requestsPage.card.approvalOnly": "🔒 Only approvers can view the command content",
+	"requestsPage.card.approvalOnly": "Only approvers can view the command content",
 	"requestsPage.card.reason": "Reason: ",
 	"requestsPage.card.requester": "Requester: ",
 	"requestsPage.card.targetCount": "{count} target server(s)",

@@ -135,6 +135,12 @@ export const PREFERENCES_CATEGORY_SUMMARIES: PreferencesCategorySummary[] = [
 		title: "preferencesPage.category.autoProbe.title",
 		subtitle: "preferencesPage.category.autoProbe.subtitle",
 	},
+	{
+		id: "preferences-rdp-probe",
+		icon: <Radio size={18} />,
+		title: "preferencesPage.category.rdpProbe.title",
+		subtitle: "preferencesPage.category.rdpProbe.subtitle",
+	},
 ];
 
 /** Toggle switch — extracted to module top to avoid re-creation on every render */

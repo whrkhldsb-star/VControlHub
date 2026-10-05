@@ -16,6 +16,8 @@ import type { ServerOption, Template } from "./template-types";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
 import { StatusBadge } from "@/components/status-badge";
+import { Badge } from "@/components/ui-primitives";
+import { Plus } from "@/components/icons";
 
 type Props = {
 	templates: Template[];
@@ -162,7 +164,7 @@ export function TemplateListClient({
 					</div>
 				)}
 				{canCreate && !showCreate && (
-					<ActionButton type="button" onClick={() => setShowCreate(true)} className="min-h-11 px-5">
+					<ActionButton icon={<Plus size={16} aria-hidden />} size="lg" type="button" onClick={() => setShowCreate(true)}>
 						{t("templatesPage.action.create")}
 					</ActionButton>
 				)}
@@ -210,13 +212,12 @@ export function TemplateListClient({
 									</StatusBadge>
 								)}
 							</div>
-							<div className="mt-2.5 line-clamp-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-3 py-2 font-mono text-xs text-[var(--text-secondary)]">
+							<div data-inset className="mt-2.5 line-clamp-2 px-3 py-2 font-mono text-xs text-[var(--text-secondary)]">
 								{tmpl.command}
 							</div>
 							{tmpl.rollbackCommand && (
 								<div
-									data-tone="emerald"
-									className="mt-2 line-clamp-2 rounded-lg border border-[var(--success-border)] px-3 py-2 font-mono text-xs text-[var(--success)] light:border-[var(--success-border)]"
+									className="ui-mono mt-2 line-clamp-2 rounded-md bg-[var(--surface-elevated)] px-3 py-2 text-xs text-[var(--text-secondary)]"
 								>
 									<span className="mr-2 font-sans text-xs uppercase text-[var(--success)]">
 										{t("templatesPage.badge.rollback")}
@@ -240,12 +241,9 @@ export function TemplateListClient({
 							{tmpl.tags.length > 0 && (
 								<div className="mt-2 flex flex-wrap gap-1">
 									{tmpl.tags.map((tag) => (
-										<span
-											key={tag}
-											className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-1.5 py-0.5 text-xs text-[var(--text-muted)]"
-										>
+										<Badge key={tag}>
 											#{tag}
-										</span>
+										</Badge>
 									))}
 								</div>
 							)}
@@ -259,9 +257,7 @@ export function TemplateListClient({
 									/>
 								)}
 								{canCreate && !tmpl.isBuiltin && (
-									<ActionButton variant="ghost"
-										onClick={() => setTemplatePendingDelete(tmpl)} className="!min-h-11 !min-w-11 !text-sm text-[var(--danger)]"
-									>
+									<ActionButton size="sm" variant="danger" onClick={() => setTemplatePendingDelete(tmpl)}>
 										{t("templatesPage.delete.action")}
 									</ActionButton>
 								)}

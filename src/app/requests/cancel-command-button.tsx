@@ -57,22 +57,20 @@ export function CancelCommandButton({ commandRequestId, commandTitle }: Props) {
 
   return (
     <div className="mt-3 space-y-2">
-      <ActionButton variant="danger"
-        onClick={() => setOpen(true)} className="!px-3 !py-1.5 !text-sm !font-medium"
-        aria-label={`${t("requestsPage.cancel.ariaLabel")}: ${commandTitle}`}
-      >
+      <ActionButton size="sm" variant="danger"
+        onClick={() => setOpen(true)} 
+        aria-label={`${t("requestsPage.cancel.ariaLabel")}: ${commandTitle}`}>
         {t("requestsPage.cancel.title")}
       </ActionButton>
       {message && <Notice tone="success" compact>{message}</Notice>}
       {error && <Notice tone="danger" compact>{error}</Notice>}
 
       <ModalShell
+        size="md"
         open={open}
         onClose={handleClose}
         labelledBy={`cancel-command-${commandRequestId}-title`}
         closeOnBackdrop={false}
-        overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]/70 px-4 py-6"
-        panelClassName="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-5 shadow-2xl"
       >
             <h3 id={`cancel-command-${commandRequestId}-title`} className="text-lg font-semibold text-[var(--text-primary)]">{t("requestsPage.cancel.confirmTitle")}</h3>
             <p className="mt-2 text-sm text-[var(--text-secondary)]">
@@ -93,15 +91,12 @@ export function CancelCommandButton({ commandRequestId, commandTitle }: Props) {
                 onClick={() => {
                   setOpen(false);
                   setError(null);
-                }}
-                className="!px-4 !py-2 !text-sm disabled:opacity-50"
-              >
+                }}>
                 {t("requestsPage.cancel.keep")}
               </ActionButton>
               <ActionButton variant="danger-solid"
                 disabled={pending}
-                onClick={submit} className="!px-4 !py-2 !text-sm disabled:opacity-50"
-              >
+                onClick={submit}>
                 {pending ? t("requestsPage.cancel.pending") : t("requestsPage.cancel.confirm")}
               </ActionButton>
             </div>

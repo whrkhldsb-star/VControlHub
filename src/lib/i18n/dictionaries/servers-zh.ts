@@ -426,6 +426,7 @@ export const zh: Record<string, string> = {
 	"vpsBackup.status.active": "已启用",
 	"vpsBackup.status.paused": "已暂停",
 	"vpsBackup.lastRun": "上次执行：{time}",
+	"vpsBackup.offsiteShort": "已异地",
 	"vpsBackup.nextRun": "下次执行：{time}",
 	"vpsBackup.noNextRun": "暂停后不安排执行",
 	"vpsBackup.timezone": "计划时间按 {timezone} 计算",

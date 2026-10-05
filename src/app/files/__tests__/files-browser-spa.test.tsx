@@ -192,7 +192,7 @@ describe("FilesBrowserSpa", () => {
 
     expect(screen.getByText("before.jpg")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "⬆ 上传文件" }));
+    fireEvent.click(screen.getByRole("button", { name: "上传文件" }));
     fireEvent.click(await screen.findByRole("button", { name: "模拟上传完成" }));
 
     await waitFor(() =>
@@ -219,7 +219,7 @@ describe("FilesBrowserSpa", () => {
     );
     expect(screen.getByText("before.jpg")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "⬆ 上传文件" }));
+    fireEvent.click(screen.getByRole("button", { name: "上传文件" }));
     fireEvent.click(await screen.findByRole("button", { name: "模拟上传完成" }));
 
     await waitFor(() =>
@@ -266,7 +266,7 @@ describe("FilesBrowserSpa", () => {
       "data-initial-node-id",
       "node_sftp_1",
     );
-    fireEvent.click(screen.getByRole("button", { name: "⬆ 上传文件" }));
+    fireEvent.click(screen.getByRole("button", { name: "上传文件" }));
     expect(await screen.findByRole("button", { name: "模拟上传完成" })).toHaveAttribute(
       "data-initial-node-id",
       "node_sftp_1",
@@ -346,7 +346,7 @@ describe("FilesBrowserSpa", () => {
     });
 
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "⬆ 上传文件" })).toBeDisabled(),
+      expect(screen.getByRole("button", { name: "上传文件" })).toBeDisabled(),
     );
     expect(screen.getByRole("button", { name: "新建文件夹" })).toBeDisabled();
 
@@ -364,7 +364,7 @@ describe("FilesBrowserSpa", () => {
     } as Response);
 
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "⬆ 上传文件" })).toBeEnabled(),
+      expect(screen.getByRole("button", { name: "上传文件" })).toBeEnabled(),
     );
     expect(screen.getByRole("button", { name: "新建文件夹" })).toBeEnabled();
   });

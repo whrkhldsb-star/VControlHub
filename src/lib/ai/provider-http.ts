@@ -20,6 +20,7 @@ import {
 import { fetchWithPinnedDns } from "@/lib/security/pinned-fetch";
 import { t } from "@/lib/i18n/service-translations";
 import { readResponseTextLimited } from "@/lib/http/response-body";
+import { AiProviderHttpError } from "./provider-errors";
 
 export interface ProviderModelRow {
 	id: string;
@@ -163,7 +164,7 @@ export async function fetchProviderModels(
 			response,
 			AI_PROVIDER_ERROR_MAX_BYTES,
 		).catch(() => "");
-		throw new Error(aiHttpErrorMessage(response.status, errText, "models"));
+		throw new AiProviderHttpError(aiHttpErrorMessage(response.status, errText, "models"), response.status, errText, response.headers.get("retry-after"));
 	}
 	const rawBody = await readResponseTextLimited(
 		response,
@@ -251,7 +252,7 @@ export async function postProviderChat(input: ProviderChatRequest): Promise<Resp
 				response,
 				AI_PROVIDER_ERROR_MAX_BYTES,
 			).catch(() => "");
-			throw new Error(aiHttpErrorMessage(response.status, errText, "chat"));
+			throw new AiProviderHttpError(aiHttpErrorMessage(response.status, errText, "chat"), response.status, errText, response.headers.get("retry-after"));
 		}
 		return response;
 	} finally {

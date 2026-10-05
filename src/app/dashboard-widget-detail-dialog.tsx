@@ -67,10 +67,10 @@ export function DashboardWidgetDetailDialog({
 
 	return (
 		<ModalShell
+			size="2xl" className="relative"
 			open={openId !== null}
 			onClose={onClose}
 			labelledBy="dashboard-widget-detail-title"
-			panelClassName="relative max-h-[88vh] w-full max-w-3xl overflow-auto rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-5 shadow-[var(--shadow-lg)] sm:p-6"
 			initialFocusRef={closeRef}
 			panelProps={{ "data-testid": "dashboard-widget-detail-dialog" }}
 		>
@@ -81,11 +81,10 @@ export function DashboardWidgetDetailDialog({
 					>
 						{t(DASHBOARD_WIDGET_LABELS[openId])}
 					</h2>
-					<ActionButton variant="secondary"
+					<ActionButton size="sm" variant="secondary"
 						ref={closeRef}
 						onClick={onClose}
-						aria-label={t("dashboard.widget-detail-close")} className="!px-3 !py-1.5 !text-sm"
-					>
+						aria-label={t("dashboard.widget-detail-close")}>
 						{t("dashboard.widget-detail-close")}
 					</ActionButton>
 				</div>

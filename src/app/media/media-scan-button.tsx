@@ -46,7 +46,7 @@ export function MediaScanButton() {
       {" "}
       <ActionButton variant="outline"
         onClick={handleScan}
-        disabled={disabled} className="!px-4 !py-2 !text-sm disabled:cursor-not-allowed disabled:opacity-60">
+        disabled={disabled}>
         {" "}
         {isScanning
           ? t("mediaScanButton.scanning")

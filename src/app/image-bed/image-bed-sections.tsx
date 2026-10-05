@@ -26,7 +26,7 @@ export function ImageBedStatsPanel({
 }) {
   const maxCount = Math.max(...stats.uploadTrend.map((x) => x.count), 1);
   return (
-    <div className="mt-3 rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-4">
+    <div data-tile className="mt-3 p-4">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-sm font-semibold text-[var(--text-primary)]">
           {t("imageBedPage.stats.title")}
@@ -121,7 +121,7 @@ export function UploadProgressPanel({
     <div
       role="status"
       aria-label={t("imageBedPage.progress.region")}
-      className="mt-3 rounded-xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4 text-sm text-[var(--text-secondary)]"
+      data-inset className="mt-3 p-4 text-sm text-[var(--text-secondary)]"
     >
       <div className="flex items-center justify-between gap-3">
         <span>
@@ -157,7 +157,7 @@ export function UploadProgressPanel({
                   : item.status === "error" || item.status === "skipped"
                     ? "text-[var(--danger)]"
                     : item.status === "uploading"
-                      ? "text-[var(--color-action)]"
+                      ? "text-[var(--color-action-text)]"
                       : "text-[var(--text-muted)]"
               }
             >

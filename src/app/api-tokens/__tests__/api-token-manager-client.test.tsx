@@ -62,7 +62,7 @@ describe("ApiTokenManagerClient", () => {
 
 		const dialog = await screen.findByRole("dialog", { name: "Confirm revoke API Token" });
 		expect(confirmSpy).not.toHaveBeenCalled();
-		expect(within(dialog).getByText((_, el) => el !== null && el.tagName === "DIV" && (el.textContent ?? "").includes("CLI"))).toBeInTheDocument();
+		expect(dialog).toHaveTextContent("CLI");
 		expect(fetchMock).not.toHaveBeenCalled();
 
 		fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));

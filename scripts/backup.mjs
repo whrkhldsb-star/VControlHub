@@ -121,6 +121,7 @@ async function pruneOldBackups(currentOutput) {
       const info = await fs.lstat(full).catch(() => null);
       if (info?.isFile() && info.mtimeMs < cutoff) {
         await fs.rm(full, { force: true });
+        await fs.rm(`${full}.offsite.json`, { force: true });
         deleted += 1;
       } else if (info?.isFile()) {
         retained.push({ full, size: info.size, mtimeMs: info.mtimeMs });
@@ -136,6 +137,7 @@ async function pruneOldBackups(currentOutput) {
       if (total <= MAX_BYTES) break;
       if (path.resolve(item.full) === path.resolve(currentOutput)) continue;
       await fs.rm(item.full);
+      await fs.rm(`${item.full}.offsite.json`, { force: true });
       total -= item.size;
       log(`Removed old managed backup to enforce BACKUP_MAX_BYTES: ${item.full}`);
     }

@@ -93,7 +93,7 @@ export function CreateAnnouncementForm() {
 					<p id={`${expiresAtId}-hint`} className="text-xs text-[var(--text-muted)]">{t("announcementsPage.create.expiresAtHint")}</p>
 				</div>
 			</div>
-			<ActionButton type="submit" variant="primary" disabled={loading} className="w-fit disabled:opacity-60">
+			<ActionButton type="submit" variant="primary" disabled={loading} className="w-fit">
 				{loading ? t("announcementsPage.create.submitting") : t("announcementsPage.create.submit")}
 			</ActionButton>
 		</form>

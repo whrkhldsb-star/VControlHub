@@ -38,7 +38,7 @@ export function WebDavSetupPanel({ nodes, origin }: { nodes: NodeOption[]; origi
           ))}
         </select>
       </label>
-      <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-3 font-mono text-xs break-all">
+      <div data-inset className="p-3 font-mono text-xs break-all">
         {url || t("filesPage.webdav.pickNode")}
       </div>
       <ul className="list-disc space-y-1 pl-4 text-xs text-[var(--text-muted)]">

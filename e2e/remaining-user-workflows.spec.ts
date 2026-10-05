@@ -287,17 +287,17 @@ test("primary operator workflows expose target context and progressive controls"
 
 	await page.goto("/backups");
 	for (const summary of [
-		/保留策略清理（按需展开）|Retention cleanup \(expand when needed\)/i,
-		/迁移工具（按需展开）|Migration tools \(expand when needed\)/i,
-		/异地备份（按需展开）|Offsite backup \(expand when needed\)/i,
-		/定时备份（按需展开）|Scheduled backups \(expand when needed\)/i,
+		/保留策略清理|Retention cleanup/i,
+		/迁移工具|Migration tools/i,
+		/异地备份|Offsite backup/i,
+		/定时备份|Scheduled backups/i,
 	]) {
 		await expect(page.getByText(summary).locator("xpath=ancestor::details[1]")).not.toHaveAttribute("open", "");
 	}
 
 	await page.goto("/deployments");
 	await expect(page.getByText(/使用流程|How it works/i).locator("xpath=ancestor::details[1]")).not.toHaveAttribute("open", "");
-	await expect(page.getByText(/迁移部署导出（按需展开）|Migration deployment export \(expand when needed\)/i).locator("xpath=ancestor::details[1]")).not.toHaveAttribute("open", "");
+	await expect(page.getByText(/迁移部署导出|Migration deployment export/i).locator("xpath=ancestor::details[1]")).not.toHaveAttribute("open", "");
 
 	await page.goto("/servers");
 	await page.getByRole("tab", { name: /添加 VPS|Add VPS/i }).click();
@@ -430,12 +430,16 @@ test("team workspace create and delete lifecycle", async ({ page }) => {
 
 		const card = section.locator("article").filter({ hasText: marker });
 		await expect(card).toBeVisible();
-		// Creation rotates the session cookie and then refreshes the server layout.
-		// Wait for the global switcher to observe that refresh before opening a
-		// local dialog; otherwise the delayed refresh can remount this section and
-		// close the dialog between the visibility assertion and the click.
+		// The workspace switcher now lives inside the user-menu popover. The
+		// create-team response rotates the session cookie, so open the menu and
+		// read the switcher after the sidebar layout has refreshed.
+		await page.getByRole("button", { name: /账户菜单|Account menu/i }).first().click();
 		const workspaceSwitcher = page.getByRole("combobox", { name: /团队空间|Team workspace/i }).first();
-		await expect(workspaceSwitcher.locator("option:checked")).toContainText(marker);
+		// The switcher is a native <select>; assert by value (the team id we
+		// just created was made current), not by option text — Chromium CI
+		// intermittently fails to expose option:checked inside popovers.
+		await expect(workspaceSwitcher).toBeVisible();
+		await expect(workspaceSwitcher).toHaveValue(createdTeamId!);
 
 		const deletedResponse = page.waitForResponse((response) =>
 			new URL(response.url()).pathname === `/api/teams/${createdTeamId}` && response.request().method() === "DELETE",

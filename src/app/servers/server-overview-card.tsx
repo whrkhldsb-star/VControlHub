@@ -1,14 +1,13 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { useI18n } from "@/lib/i18n/use-locale";
 import { ServerCardActions } from "./server-card-actions";
 import { useServerDiagnostics } from "./use-server-diagnostics";
-import { ActionButton } from "@/components/action-button";
+import { ActionButton, ButtonLink } from "@/components/action-button";
 import { Server } from "@/components/icons";
 import { ModalShell } from "@/components/modal-shell";
 import type {
@@ -20,14 +19,14 @@ const ServerOverviewDetails = dynamic(
   () => import("./server-overview-details").then((m) => m.ServerOverviewDetails),
   {
     ssr: false,
-    loading: () => <div className="min-h-[240px] rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)]" aria-hidden />,
+    loading: () => <div data-inset className="min-h-[240px]" aria-hidden />,
   },
 );
 const WindowsServerDetails = dynamic(
   () => import("./windows-server-details").then((m) => m.WindowsServerDetails),
   {
     ssr: false,
-    loading: () => <div className="min-h-[240px] rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)]" aria-hidden />,
+    loading: () => <div data-inset className="min-h-[240px]" aria-hidden />,
   },
 );
 
@@ -197,10 +196,10 @@ export function ServerOverviewCard({
 
       <div className="mt-3 flex flex-wrap gap-2 border-t border-[var(--border-subtle)] pt-3">
         {isWindows && server.enabled && canUseSshTerminal ? (
-          <Link href={`/servers/${encodeURIComponent(server.id)}/remote-desktop`} data-action-button data-variant="ghost" data-tone="cyan" className="flex items-center gap-2 !px-3 !py-1.5 !text-sm">
+          <ButtonLink variant="ghost" size="sm" href={`/servers/${encodeURIComponent(server.id)}/remote-desktop`} data-tone="cyan" className="flex items-center gap-2">
             <Server size={16} aria-hidden="true" />
             {t("serversPage.windows.remoteDesktop")}
-          </Link>
+          </ButtonLink>
         ) : null}
         {!isWindows && server.enabled && canUseSshTerminal && server.hasSshCredential !== false ? (
           <ServerCardActions
@@ -219,14 +218,11 @@ export function ServerOverviewCard({
             canUseSshTerminal={canUseSshTerminal}
           />
         ) : null}
-        <ActionButton variant="secondary"
+        <ActionButton size="sm" variant="secondary"
           onClick={() => (expanded ? closeDialog() : openDialog())}
           aria-expanded={expanded}
           aria-controls={detailsId}
-          aria-haspopup="dialog"
-
-          className="!px-3 !py-1.5 !text-sm"
-        >
+          aria-haspopup="dialog">
           {expanded ? t("serverOverviewCard.collapseDetails") : t("serverOverviewCard.viewDetails")}
         </ActionButton>
       </div>
@@ -235,11 +231,10 @@ export function ServerOverviewCard({
       {portalReady && expanded
         ? createPortal(
             <ModalShell
+              size="full" placement="top" backdrop="strong"
               open={expanded}
               onClose={closeDialog}
               labelledBy={`${detailsId}-title`}
-              overlayClassName="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto bg-[var(--overlay-strong)] px-3 py-6 backdrop-blur-md sm:px-6"
-              panelClassName="w-full max-w-5xl rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-4 text-[var(--text-primary)] shadow-2xl sm:p-5"
               panelProps={{ "data-server-details-modal": server.id }}
             >
                 <div className="mb-3 flex items-center justify-between gap-3 border-b border-[var(--border)] pb-3">
@@ -249,10 +244,10 @@ export function ServerOverviewCard({
                       {server.name}
                     </h3>
                   </div>
-                  <ActionButton variant="secondary"
+                  <ActionButton size="sm" variant="secondary"
                     onClick={closeDialog}
 
-                    className="shrink-0 !px-3 !py-1.5 !text-sm"
+                    className="shrink-0"
                   >
                     {t("serverOverviewCard.collapseDetails")}
                   </ActionButton>

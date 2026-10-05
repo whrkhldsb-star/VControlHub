@@ -143,7 +143,7 @@ export function MigrationWizardPanel({ completedBackups, canCreate }: Props) {
       </p>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <div className="space-y-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-3">
+        <div data-inset className="space-y-3 p-3">
           <h3 className="text-xs font-semibold text-[var(--text-primary)]">
             {t("backupsPage.migration.exportTitle")}
           </h3>
@@ -176,8 +176,7 @@ export function MigrationWizardPanel({ completedBackups, canCreate }: Props) {
           </label>
           <ActionButton variant="outline"
             disabled={!backupId || busy !== null}
-            onClick={() => void run("export")} className="!min-h-11 !px-3 !text-sm !font-semibold disabled:opacity-50"
-          >
+            onClick={() => void run("export")}>
             {busy === "export" ? t("backupsPage.migration.working") : t("backupsPage.migration.export")}
           </ActionButton>
           {lastExport && (
@@ -187,7 +186,7 @@ export function MigrationWizardPanel({ completedBackups, canCreate }: Props) {
           )}
         </div>
 
-        <div className="space-y-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-3">
+        <div data-inset className="space-y-3 p-3">
           <h3 className="text-xs font-semibold text-[var(--text-primary)]">
             {t("backupsPage.migration.importTitle")}
           </h3>
@@ -203,20 +202,17 @@ export function MigrationWizardPanel({ completedBackups, canCreate }: Props) {
           <div className="flex flex-wrap gap-2">
             <ActionButton variant="secondary"
               disabled={!packageRef.trim() || busy !== null}
-              onClick={() => void run("validate")} className="!min-h-11 !px-3 !text-sm !font-medium disabled:opacity-50"
-            >
+              onClick={() => void run("validate")}>
               {busy === "validate" ? t("backupsPage.migration.working") : t("backupsPage.migration.validate")}
             </ActionButton>
             <ActionButton variant="success"
               disabled={!packageRef.trim() || busy !== null}
-              onClick={() => void run("import")} className="!min-h-11 !px-3 !text-sm !font-semibold disabled:opacity-50"
-            >
+              onClick={() => void run("import")}>
               {busy === "import" ? t("backupsPage.migration.working") : t("backupsPage.migration.import")}
             </ActionButton>
             <ActionButton variant="ghost"
               disabled={busy !== null}
-              onClick={() => void run("list")} className="!min-h-11 !px-3 !text-sm disabled:opacity-50"
-            >
+              onClick={() => void run("list")}>
               {busy === "list" ? t("backupsPage.migration.working") : t("backupsPage.migration.list")}
             </ActionButton>
           </div>

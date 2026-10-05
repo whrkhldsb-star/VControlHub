@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef, type MouseEvent } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { EmptyState, ListPanel, SurfacePanel, Toolbar } from "@/components/page-shell";
-import { Download } from "@/components/icons";
+import { Download, Plus } from "@/components/icons";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useToast } from "@/components/toast-provider";
 import { useWsNotifications } from "@/lib/ws/use-ws-notifications";
@@ -408,13 +408,15 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 								categoryFilter === c.value ? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--text-primary)]" : "border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-muted)] hover:bg-[var(--surface-hover)]"
 							}`}
 						>
-							{c.icon} {c.label}
+							{c.label}
 						</button>
 					))}
 				</div>
 				{canManage && servers.length > 0 ? (
-					<ActionButton variant="primary" onClick={() => setShowForm(!showForm)}
-						data-primary className="px-5 py-2 text-sm"
+					<ActionButton
+						variant={showForm ? "secondary" : "primary"}
+						icon={showForm ? undefined : <Plus size={16} aria-hidden />}
+						onClick={() => setShowForm(!showForm)}
 					>
 						{showForm ? t("downloadsPage.form.cancelLabel") : t("downloadsPage.form.createLabel")}
 					</ActionButton>
@@ -443,7 +445,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 					loading ? (
 						<InlineLoading label={t("downloadsPage.loading")} />
 					) : filteredTasks.length === 0 && !loadFailed ? (
-						<EmptyState variant="boxed" icon={<Download size={32} className="text-[var(--text-muted)]" />}>
+						<EmptyState icon={<Download size={24} className="text-[var(--text-muted)]" />}>
 							{filter === "ALL"
 								? t("downloadsPage.empty")
 								: t("downloadsPage.emptyFilter", { status: getStatusLabel(t)[filter] ?? "" })}
@@ -473,9 +475,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
               type="button"
               variant="secondary"
               disabled={loadingMore}
-              onClick={() => void fetchTasks(true)}
-              className="!px-4 !py-2 !text-sm disabled:opacity-60"
-            >
+              onClick={() => void fetchTasks(true)}>
               {loadingMore
                 ? t("downloadsPage.loadingMore")
                 : t("downloadsPage.loadMore")}

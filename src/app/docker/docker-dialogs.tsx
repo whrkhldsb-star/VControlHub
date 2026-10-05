@@ -3,7 +3,6 @@
 import type { RefObject } from "react";
 import { ActionButton } from "@/components/action-button";
 import { ModalShell } from "@/components/modal-shell";
-import { UI_OVERLAY_SHEET } from "@/components/ui-overlay-classes";
 import { type Container, getContainerName } from "./docker-helpers";
 
 export function DockerRemovalDialog({
@@ -24,11 +23,10 @@ export function DockerRemovalDialog({
 	if (!pendingRemoval) return null;
 	return (
 		<ModalShell
+			size="md" placement="sheet"
 			open
 			onClose={closeRemovalDialog}
 			labelledBy="docker-remove-confirm-title"
-			overlayClassName={UI_OVERLAY_SHEET}
-			panelClassName="w-full max-w-md mx-0 rounded-t-2xl border border-[var(--danger-border)] bg-[var(--modal-bg)] p-5 shadow-2xl sm:mx-4 sm:rounded-2xl"
 			initialFocusRef={removeCancelButtonRef}
 		>
 			<h3 id="docker-remove-confirm-title" className="text-base font-semibold text-[var(--text-primary)]">{t("dockerPage.removeDialog.title")}</h3>
@@ -36,15 +34,14 @@ export function DockerRemovalDialog({
 				{t("dockerPage.removeDialog.confirm", { name: getContainerName(t, pendingRemoval) })}
 			</p>
 			<div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-				<ActionButton variant="secondary"
+				<ActionButton size="sm" variant="secondary"
 					ref={removeCancelButtonRef}
-					onClick={closeRemovalDialog} className="min-h-11 !px-3 !py-1.5 !text-sm">
+					onClick={closeRemovalDialog}>
 					{t("dockerPage.removeDialog.cancel")}
 				</ActionButton>
-				<ActionButton variant="danger-solid"
+				<ActionButton size="sm" variant="danger-solid"
 					onClick={() => void confirmRemoval()}
-					disabled={actionLoading === pendingRemoval.Id} className="!min-h-11 !px-3 !py-1.5 !text-sm !font-medium disabled:cursor-not-allowed disabled:opacity-50"
-				>
+					disabled={actionLoading === pendingRemoval.Id}>
 					{t("dockerPage.removeDialog.confirmBtn")}
 				</ActionButton>
 			</div>
@@ -68,11 +65,10 @@ export function DockerLogsDialog({
 	if (!logsId) return null;
 	return (
 		<ModalShell
+			size="xl" placement="sheet" className="flex flex-col sm:max-h-[80vh]"
 			open
 			onClose={closeLogsDialog}
 			labelledBy="docker-logs-dialog-title"
-			overlayClassName={UI_OVERLAY_SHEET}
-			panelClassName="flex w-full max-w-2xl mx-0 max-h-[92vh] flex-col rounded-t-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-5 shadow-2xl sm:mx-4 sm:max-h-[80vh] sm:rounded-2xl"
 			initialFocusRef={logsCloseButtonRef}
 		>
 			<div className="flex items-center justify-between mb-3">
@@ -80,7 +76,7 @@ export function DockerLogsDialog({
 				<ActionButton variant="ghost"
 					ref={logsCloseButtonRef}
 					onClick={closeLogsDialog}
-					aria-label={t("dockerPage.logsDialog.closeAria")} className="!min-h-11 !min-w-11 !p-1"
+					aria-label={t("dockerPage.logsDialog.closeAria")} square
 				>
 					<svg className="w-5 h-5" aria-hidden="true" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
 				</ActionButton>

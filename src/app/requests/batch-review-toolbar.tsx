@@ -126,7 +126,7 @@ export function BatchReviewToolbar({
 
 	return (
 		<div className="space-y-3" data-batch-review>
-			<div className="flex flex-wrap items-center gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2 text-sm">
+			<div data-tile className="flex flex-wrap items-center gap-3 px-3 py-2 text-sm">
 				<label className="inline-flex items-center gap-2 cursor-pointer">
 					<input
 						type="checkbox"
@@ -140,7 +140,7 @@ export function BatchReviewToolbar({
 					</span>
 				</label>
 				{someSelected && (
-					<span className="text-[var(--color-action)]">{t("requestsPage.batch.selectedCount", { count: selected.size })}</span>
+					<span className="text-[var(--color-action-text)]">{t("requestsPage.batch.selectedCount", { count: selected.size })}</span>
 				)}
 				{state.success && (
 					<span data-tone="emerald" className="text-[var(--success)]">
@@ -159,7 +159,7 @@ export function BatchReviewToolbar({
 			{someSelected && (
 				<form
 					action={formAction}
-					className="sticky bottom-3 z-20 flex flex-col gap-2 rounded-xl border border-[var(--color-action-border)]/30 bg-[var(--modal-bg)] p-3 shadow-2xl backdrop-blur sm:flex-row sm:items-center sm:gap-3"
+					className="sticky bottom-3 z-20 flex flex-col gap-2 rounded-xl border border-[var(--border)] bg-[var(--modal-bg)] p-3 shadow-2xl backdrop-blur sm:flex-row sm:items-center sm:gap-3"
 					aria-label={t("requestsPage.batch.toolbarAria")}
 				>
 					{Array.from(selected).map((id) => (
@@ -181,20 +181,14 @@ export function BatchReviewToolbar({
 						type="submit"
 						name="decision"
 						value="approve"
-						disabled={isPending}
-
-						className="px-4 py-2 text-sm"
-					>
+						disabled={isPending}>
 						{isPending ? t("requestsPage.batch.pending") : t("requestsPage.batch.approve", { count: selected.size })}
 					</ActionButton>
 					<ActionButton variant="danger"
 						type="submit"
 						name="decision"
 						value="reject"
-						disabled={isPending}
-
-						className="px-4 py-2 text-sm"
-					>
+						disabled={isPending}>
 						{isPending ? t("requestsPage.batch.pending") : t("requestsPage.batch.reject", { count: selected.size })}
 					</ActionButton>
 				</form>

@@ -216,7 +216,7 @@ export function VpsNodeCard({
 					{historyError ? (
 						<Notice tone="danger" compact>{historyError}</Notice>
 					) : history ? (
-						<div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] p-2">
+						<div data-card className="p-2">
 							<SparklineChartLazy data={history} locale={locale} />
 						</div>
 					) : (

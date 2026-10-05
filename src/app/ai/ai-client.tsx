@@ -339,7 +339,7 @@ export function AiClient({
   return (
     <div
       data-ai-workspace
-      className="flex h-[calc(100dvh-5.5rem-env(safe-area-inset-bottom))] min-h-80 overflow-hidden bg-[var(--page-bg)] pt-16 lg:h-screen lg:pt-0"
+      className="flex h-[calc(100dvh-5.5rem-env(safe-area-inset-bottom))] min-h-80 overflow-hidden bg-[var(--page-bg)] pt-16 lg:h-[calc(100dvh-var(--topbar-height))] lg:pt-0"
     >
       {confirm.copy && (
         <AiConfirmDialog
@@ -376,6 +376,9 @@ export function AiClient({
           requestSettingsAction(() => {
             setShowSettings(false);
             setActiveConvId(id);
+            // On phones the sidebar overlays the conversation; selecting a
+            // conversation must dismiss it or the composer stays hidden.
+            if (!window.matchMedia("(min-width: 768px)").matches) setShowSidebar(false);
           })
         }
         onDeleteConv={(id) => {

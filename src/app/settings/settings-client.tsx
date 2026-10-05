@@ -381,7 +381,7 @@ export function SettingsClient({
 
   if (!canManage) {
     return (
-      <div className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface-elevated)] p-12 text-center">
+      <div data-tile className="border-dashed p-12 text-center">
         <div className="text-4xl mb-3">🔒</div>
         <p className="text-sm text-[var(--text-muted)]">
           {t("settingsClient.noPermission")}
@@ -416,12 +416,12 @@ export function SettingsClient({
               </p>
             </div>
             <div className="flex gap-2">
-              <ActionButton variant="secondary"
-                onClick={expandAll} className="!px-3 !py-1.5 !text-sm">
+              <ActionButton size="sm" variant="secondary"
+                onClick={expandAll}>
                 {t("settingsClient.expandAll")}
               </ActionButton>
-              <ActionButton variant="secondary"
-                onClick={collapseAll} className="!px-3 !py-1.5 !text-sm">
+              <ActionButton size="sm" variant="secondary"
+                onClick={collapseAll}>
                 {t("settingsClient.collapseAll")}
               </ActionButton>
             </div>

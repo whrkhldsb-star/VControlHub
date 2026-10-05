@@ -296,15 +296,14 @@ export function SystemConfigSection({
         )}
 
         {exportMode === "full" && (
-          <div className="rounded-lg border border-[var(--warning-border)] bg-[var(--warning)]/[0.08] px-3.5 py-2.5 text-xs text-[var(--warning)] light:text-[var(--warning)]">
+          <Notice tone="warning" compact>
             ⚠ {t("systemConfig.export.fullWarning")}
-          </div>
+          </Notice>
         )}
 
         <ActionButton type="button" variant="primary"
           onClick={handleExport}
-          disabled={exporting} className="disabled:opacity-50"
-        >
+          disabled={exporting}>
           {exporting ? t("systemConfig.export.exporting") : t("systemConfig.export.button")}
         </ActionButton>
         {exportError && (
@@ -369,7 +368,7 @@ export function SystemConfigSection({
             {/* Preview button */}
             <ActionButton type="button" variant="secondary"
               onClick={handlePreview}
-              disabled={previewing || executing} className="!px-4 !py-2 !text-sm disabled:opacity-50">
+              disabled={previewing || executing}>
               {previewing ? t("systemConfig.import.previewing") : t("systemConfig.import.previewButton")}
             </ActionButton>
           </div>
@@ -377,7 +376,7 @@ export function SystemConfigSection({
 
         {/* Preview result */}
         {preview && (
-          <div className="space-y-2 p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)]">
+          <div data-tile className="space-y-2 p-3">
             <h5 className="text-sm font-medium text-[var(--text-primary)]">{t("systemConfig.import.preview.title")}</h5>
             <p className="text-sm text-[var(--text-secondary)]">
               {t("systemConfig.import.preview.totalRecords", { count: preview.totalRecords })}
@@ -410,7 +409,7 @@ export function SystemConfigSection({
             {/* Confirm import button */}
             <ActionButton type="button" variant="primary"
               onClick={handleExecute}
-              disabled={executing || preview.totalRecords === 0} className="mt-2 disabled:opacity-50"
+              disabled={executing || preview.totalRecords === 0} className="mt-2"
             >
               {executing ? t("systemConfig.import.executing") : t("systemConfig.import.executeButton")}
             </ActionButton>

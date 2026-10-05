@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 
-import { ActionButton } from "@/components/action-button";
+import { ActionButton, ButtonLink } from "@/components/action-button";
 import { Server } from "@/components/icons";
-import { Notice } from "@/components/ui-primitives";
+import { Badge, Notice } from "@/components/ui-primitives";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { ServerCardActions } from "./server-card-actions";
 import type { ServerOverviewDetailsProps, ServerOverviewDetailsServer } from "./server-overview-details";
@@ -41,7 +41,7 @@ export function WindowsServerDetails({
 
 	return (
 		<div id={detailsId} role="region" aria-label={`${server.name} ${t("serverOverviewDetails.vpsDetails")}`} className="space-y-3">
-			<section className="rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-3">
+			<section data-inset className="p-3">
 				<h3 className="mb-3 text-sm font-medium text-[var(--text-primary)]">{t("serverOverviewDetails.section.connectionStatus")}</h3>
 				<dl className="grid gap-3 text-sm sm:grid-cols-2">
 					<DetailField label={t("serversPage.windows.os")} value="Windows" />
@@ -53,12 +53,12 @@ export function WindowsServerDetails({
 				</dl>
 				{(server.tags ?? []).length > 0 ? (
 					<div className="mt-3 flex flex-wrap gap-1.5">
-						{server.tags?.map((tag) => <span key={tag} className="rounded-md border border-[var(--border)] bg-[var(--surface-elevated)] px-2 py-0.5 text-xs text-[var(--text-muted)]">#{tag}</span>)}
+						{server.tags?.map((tag) => <Badge key={tag}>#{tag}</Badge>)}
 					</div>
 				) : null}
 			</section>
 
-			<section className="rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-3">
+			<section data-inset className="p-3">
 				<h3 className="mb-3 text-sm font-medium text-[var(--text-primary)]">{t("serverOverviewDetails.section.operationsResources")}</h3>
 				<p className="text-xs leading-5 text-[var(--text-muted)]">{t(agentMode ? "serversPage.windows.agentCapabilities" : "serversPage.windows.capabilities")}</p>
 				{server.storageNode ? <Link href={`/files?nodeId=${encodeURIComponent(server.storageNode.id)}`} className="mt-3 inline-flex rounded-lg border border-[var(--border)] px-3 py-2 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--surface-elevated)]">
@@ -90,10 +90,10 @@ export function WindowsServerDetails({
 						{/* RDP sits in the bottom action block, mirroring where the
 						    Linux card puts its SSH-terminal button. */}
 						{server.enabled && canUseSshTerminal ? (
-							<Link href={`/servers/${encodeURIComponent(server.id)}/remote-desktop`} data-action-button data-variant="ghost" data-tone="cyan" className="mb-3 flex w-full items-center justify-center gap-2">
+							<ButtonLink variant="ghost" href={`/servers/${encodeURIComponent(server.id)}/remote-desktop`} data-tone="cyan" className="mb-3 flex w-full items-center justify-center gap-2">
 								<Server size={16} aria-hidden="true" />
 								{t("serversPage.windows.remoteDesktop")}
-							</Link>
+							</ButtonLink>
 						) : null}
 						<ServerCardActions
 							operatingSystem="WINDOWS"

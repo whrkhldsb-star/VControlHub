@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { isGlobalTeamManager } from "@/lib/auth/team-scope";
@@ -15,13 +14,7 @@ export default async function QuickServicesPage() {
 
 	return (
 		<PageShell>
-			<PageHeader eyebrow={t("qsPage.eyebrow", locale)} title={t("qsPage.title", locale)} description={t("qsPage.description", locale)}>
-				<div className="flex flex-wrap gap-2 text-xs text-[var(--text-secondary)]">
-					<Link href="/deployments" data-action-button data-variant="secondary" className="rounded-xl px-3 py-1.5">{t("qsPage.deployPanelLink", locale)}</Link>
-					<Link href="/docker" data-action-button data-variant="secondary" className="rounded-xl px-3 py-1.5">{t("qsPage.dockerLink", locale)}</Link>
-					<Link href="/files" data-action-button data-variant="secondary" className="rounded-xl px-3 py-1.5">{t("qsPage.filesLink", locale)}</Link>
-				</div>
-			</PageHeader>
+			<PageHeader eyebrow={t("qsPage.eyebrow", locale)} title={t("qsPage.title", locale)} description={t("qsPage.description", locale)} />
 			<QuickServicesClient canManage={canManage} canManageHubHost={isGlobalTeamManager(session)} />
 		</PageShell>
 	);

@@ -144,7 +144,7 @@ export function PermissionGroupsSection({ teamId, members, canManage, onMemberCh
     } finally { setBusy(false); }
   }
 
-  return <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
+  return <section data-inset className="p-4">
     <h3 className="font-semibold text-[var(--text-primary)]">{t("settingsTeam.groups.title")}</h3>
     <p className="mt-1 text-xs text-[var(--text-muted)]">{t("settingsTeam.groups.hint")}</p>
     {error && <Notice tone="danger" className="mt-3">{error}</Notice>}

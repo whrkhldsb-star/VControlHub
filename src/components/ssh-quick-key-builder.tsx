@@ -56,7 +56,7 @@ export function QuickKeyBuilder({
 
 	if (!open) {
 		return (
-			<ActionButton variant="ghost" onClick={() => setOpen(true)} className="mt-1 !min-h-9 !w-full !justify-center !rounded-lg !text-[12px] text-[var(--text-muted)]">
+			<ActionButton size="sm" variant="ghost" onClick={() => setOpen(true)} className="mt-1 !w-full !justify-center text-[var(--text-muted)]">
 				+ {t("sshTerminalModal.quickKeysCustomize")}
 			</ActionButton>
 		);
@@ -86,7 +86,7 @@ export function QuickKeyBuilder({
 							key={mod.id}
 							onClick={() => toggleModifier(mod.id)}
 							aria-pressed={active}
-							className={`${UI_INPUT} !min-h-8 !rounded-md !px-1 !py-0 !text-[12px] ${active ? "!border-[var(--color-action)] !text-[var(--color-action)]" : "text-[var(--text-muted)]"}`}
+							className={`${UI_INPUT} !min-h-8 !rounded-md !px-1 !py-0 !text-[12px] ${active ? "!border-[var(--color-action)] !text-[var(--color-action-text)]" : "text-[var(--text-muted)]"}`}
 						>
 							{mod.label}
 						</button>
@@ -109,12 +109,10 @@ export function QuickKeyBuilder({
 				<span className="flex-1 truncate rounded bg-[var(--surface)] px-2 py-1 text-center font-mono text-[12px] text-[var(--text-primary)] light:text-[var(--text-primary)]" data-testid="quick-key-preview">
 					{preset ? preset.label : "—"}
 				</span>
-				<ActionButton
+				<ActionButton size="xs"
 					variant="primary"
 					onClick={add}
-					disabled={!preset}
-					className="!min-h-8 !rounded-md !px-2 !py-0 !text-[12px]"
-				>
+					disabled={!preset}>
 					{t("sshTerminalModal.quickKeysAdd")}
 				</ActionButton>
 			</div>

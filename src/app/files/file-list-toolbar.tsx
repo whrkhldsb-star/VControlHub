@@ -71,10 +71,10 @@ export function FileListToolbar({
         <FileCollections />
         <FileOperationTasks />
         {onGoUp ? (
-          <ActionButton variant="secondary"
+          <ActionButton size="sm" variant="secondary"
             onClick={onGoUp}
             data-testid="files-list-up-level"
-            title={t("fileListClient.upLevel")} className="inline-flex items-center gap-1.5 !px-2.5 !py-1 !text-sm">
+            title={t("fileListClient.upLevel")} className="inline-flex items-center gap-1.5">
             <span aria-hidden="true">↑</span>
             {t("fileListClient.upLevel")}
           </ActionButton>

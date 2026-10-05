@@ -167,17 +167,22 @@ gain tests, not by hoping CI will green on aspiration alone.
 
 ## Public status overall=warning (not a CI failure)
 
-`/api/status` unauthenticated returns only `{ summary: { overall } }`. On this
-deploy the authenticated payload currently shows:
+`/api/status` unauthenticated returns only `{ summary: { overall } }`. The
+authenticated payload separates these checks:
 
 | check | status | meaning |
 |---|---|---|
 | database | healthy | DB reachable |
 | servers | healthy | enabled VPS inventory present (no live SSH probe) |
-| storage | **warning** | one or more storage nodes `UNHEALTHY` (e.g. SFTP auth failed / remote path missing) |
+| storage | healthy / warning | warning when active storage is `UNHEALTHY` (e.g. SFTP auth failed / remote path missing), or no node has been checked |
 
-So `overall: warning` is **expected** while any storage node stays unhealthy —
+So `overall: warning` is **expected** while any active storage node stays unhealthy —
 fix the node credentials/path, do not treat the public summary alone as "app down".
+
+Storage belonging to deleted workspaces (`__deleted__` slug prefix) is excluded
+from both status summaries and lazy health probes. Those records are retained
+for ownership history, so missing retired directories must not cause live-service
+warnings. Legacy storage with a null `teamId` still participates in health checks.
 
 ## Agent management boundary
 

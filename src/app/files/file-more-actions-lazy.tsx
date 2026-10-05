@@ -22,6 +22,7 @@
 
 import dynamic from "next/dynamic";
 import type { ComponentProps, ComponentType } from "react";
+import { IconMore } from "@/components/nav-icons";
 
 type FileMoreActionsProps = ComponentProps<
   typeof import("./file-more-actions").FileMoreActions
@@ -31,13 +32,12 @@ function FileMoreActionsStub({ compact = false }: { compact?: boolean }) {
   return (
     <span
       aria-hidden
-      className={
-        compact
-          ?"inline-flex h-11 w-11 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] text-[var(--text-muted)]"
-          :"inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-2.5 py-1.5 text-xs text-[var(--text-muted)]"
-      }
+      data-action-button=""
+      data-variant="secondary"
+      data-size="sm"
+      data-square={compact ? "" : undefined}
     >
-      ⋯
+      <IconMore size={16} />
     </span>
   );
 }

@@ -5,9 +5,8 @@
  * fleet status page. Extracted 1:1 from `vps-status-client.tsx`.
  */
 
-import Link from "next/link";
 
-import { ActionButton } from "@/components/action-button";
+import { ActionButton, ButtonLink } from "@/components/action-button";
 import { Toolbar, ToggleChip } from "@/components/page-shell";
 import { StatusBadge } from "@/components/status-badge";
 
@@ -59,7 +58,7 @@ export function VpsStatusToolbar({
 				<span className="ml-1 text-xs text-[var(--text-muted)]">
 					{tt("vpsStatusPage.showing", { count: filteredCount })}
 				</span>
-				<div className="ml-2 inline-flex rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-0.5">
+				<div data-tile className="ml-2 inline-flex p-0.5">
 					{(
 						[
 							["cards", t("vpsStatusPage.view.cards")],
@@ -91,20 +90,16 @@ export function VpsStatusToolbar({
 						? t("vpsStatusPage.refresh.off")
 						: tt("vpsStatusPage.refresh.every", { label: intervalLabel })}
 				</StatusBadge>
-				<Link
-					href="/health"
-					data-action-button
-					data-variant="outline"
-					className="!px-3 !text-sm"
-				>
+				<ButtonLink variant="outline"
+					href="/health">
 					{t("vpsStatusPage.gotoSystemHealth")}
-				</Link>
+				</ButtonLink>
 				<ActionButton variant="secondary"
 					onClick={() => void fetchHealth()}
 					disabled={isRefreshing || loading}
 					aria-label={t("healthPage.ui.refreshAria")}
 
-					className="inline-flex min-h-11 items-center !px-3 !text-sm disabled:cursor-not-allowed disabled:opacity-60"
+					className="inline-flex items-center"
 				>
 					{isRefreshing || loading ? t("healthPage.ui.refreshing") : t("healthPage.ui.refresh")}
 				</ActionButton>

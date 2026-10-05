@@ -59,9 +59,9 @@ export function DiffReviewDialog({
 					>
 						{t("textPreview.button.backToEdit")}
 					</button>
-					<ActionButton variant="success"
+					<ActionButton size="sm" variant="success"
 						onClick={onSave}
-						disabled={busy || diffRows.length === 0} className="!px-3 !py-1.5 !text-sm disabled:opacity-50">
+						disabled={busy || diffRows.length === 0}>
 						{saveStatus === "saving" ? t("textPreview.button.saving") : t("textPreview.button.confirmSave")}
 					</ActionButton>
 					{canReloadAfterSave ? (

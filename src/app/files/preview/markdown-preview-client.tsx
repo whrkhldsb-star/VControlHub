@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useAbortableTextResource } from "@/lib/http/use-abortable-text-resource";
 import { AlertTriangle } from "@/components/icons";
-import { InlineLoading } from "@/components/ui-primitives";
+import { Badge, InlineLoading } from "@/components/ui-primitives";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { escapeHtml } from "@/lib/sanitize/escape-html";
 
@@ -258,9 +258,9 @@ function parseTableAligns(line: string): string[] {
 
 const MARKDOWN_PROSE_CLASS = [
   "prose prose-invert max-w-none text-sm leading-relaxed",
-  "[&_a]:text-[var(--color-action)] [&_a]:underline [&_a:hover]:text-[var(--color-action)]",
+  "[&_a]:text-[var(--color-action-text)] [&_a]:underline [&_a:hover]:text-[var(--color-action-text)]",
   "[&_blockquote]:border-l-4 [&_blockquote]:border-[var(--border)] [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-[var(--text-secondary)]",
-  "[&_code]:rounded [&_code]:bg-[var(--surface)] [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:text-[var(--color-action)]",
+  "[&_code]:rounded [&_code]:bg-[var(--surface)] [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:text-[var(--color-action-text)]",
   "[&_h1]:mt-6 [&_h1]:mb-3 [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:text-[var(--text-primary)]",
   "[&_h2]:mt-5 [&_h2]:mb-2 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:text-[var(--text-primary)]",
   "[&_h3]:mt-4 [&_h3]:mb-2 [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:text-[var(--text-primary)]",
@@ -328,12 +328,9 @@ export function MarkdownPreviewClient({ href }: { href: string }) {
     <div className="overflow-auto rounded-2xl bg-[var(--surface)] p-4">
       {/* Label */}
       <div className="mb-3 flex items-center gap-2">
-        <span
-          data-tone="cyan"
-          className="rounded-lg border border-[var(--color-action-border)]/30 px-3 py-1 text-xs text-[var(--color-action)]"
-        >
+        <Badge tone="accent">
           {t("markdownPreview.title")}
-        </span>
+        </Badge>
       </div>
 
       {/* Rendered markdown */}

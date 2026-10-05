@@ -231,10 +231,10 @@ export function FileOperationTasks() {
         {t("fileOperations.tasks")}
       </ActionButton>
       <ModalShell
+        size="xl"
         open={open}
         onClose={() => setOpen(false)}
         label={t("fileOperations.tasks")}
-        panelClassName="max-h-[85dvh] w-full max-w-2xl overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--modal-bg)] p-4"
       >
         <div className="flex items-center justify-between">
           <h2 className="font-semibold">{t("fileOperations.tasks")}</h2>

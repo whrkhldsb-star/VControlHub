@@ -96,7 +96,7 @@ describe("DownloadsClient", () => {
     render(<DownloadsClient servers={servers} canManage canManageNode />);
 
     expect(await screen.findByText("https://example.com/a.iso")).toBeInTheDocument();
-    await actor.click(screen.getByRole("button", { name: "✕ 取消" }));
+    await actor.click(screen.getByRole("button", { name: "取消" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("取消下载失败");
     expect(screen.getByText("https://example.com/a.iso")).toBeInTheDocument();
@@ -126,12 +126,12 @@ describe("DownloadsClient", () => {
 
     expect(await screen.findByText("https://example.com/a.iso")).toBeInTheDocument();
     expect(screen.getAllByText("下载中").length).toBeGreaterThan(0);
-    await actor.click(screen.getByRole("button", { name: "🔄 刷新" }));
+    await actor.click(screen.getByRole("button", { name: "刷新" }));
 
     await screen.findAllByText("已完成");
     expect(screen.getByText("2.0 KB")).toBeInTheDocument();
     expect(screen.getByText("当前：直连")).toBeInTheDocument();
-    const downloadLink = screen.getByRole("link", { name: "⬇ 下载文件" });
+    const downloadLink = screen.getByRole("link", { name: "下载文件" });
     expect(downloadLink).toHaveAttribute("href", "/api/storage/direct-access?nodeId=store_1&path=downloads%2Fa.iso&download=1");
     expect(screen.queryByText("0.1% ·")).not.toBeInTheDocument();
     expect(vi.mocked(csrfFetch)).toHaveBeenCalledTimes(2);
@@ -145,7 +145,7 @@ describe("DownloadsClient", () => {
 
     render(<DownloadsClient servers={servers} canManage canManageNode />);
 
-    await actor.click(await screen.findByRole("button", { name: "+ 新建下载" }));
+    await actor.click(await screen.findByRole("button", { name: "新建下载" }));
     await actor.type(screen.getByRole("textbox", { name: "下载链接" }), "https://example.com/a.iso");
     await actor.click(screen.getByRole("button", { name: "开始下载" }));
 
@@ -162,7 +162,7 @@ describe("DownloadsClient", () => {
     render(<DownloadsClient servers={[]} canManage canManageNode />);
 
     expect(await screen.findByText("暂无可用下载目标：请先在 VPS 管理中为节点绑定存储并配置 SSH。")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "+ 新建下载" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "新建下载" })).not.toBeInTheDocument();
   });
 
   it("requires confirmation before purging completed task files", async () => {
@@ -181,7 +181,7 @@ describe("DownloadsClient", () => {
     render(<DownloadsClient servers={servers} canManage canManageNode />);
 
     expect(await screen.findByText("https://example.com/a.iso")).toBeInTheDocument();
-    await actor.click(screen.getByRole("button", { name: "🗑 删除记录" }));
+    await actor.click(screen.getByRole("button", { name: "删除记录" }));
 
     expect(confirmSpy).not.toHaveBeenCalled();
     const dialog = await screen.findByRole("dialog", { name: "确认删除" });
@@ -214,7 +214,7 @@ describe("DownloadsClient", () => {
     render(<DownloadsClient servers={servers} canManage canManageNode />);
 
     expect(await screen.findByText("https://example.com/a.iso")).toBeInTheDocument();
-    await actor.click(screen.getByRole("button", { name: "🗑 删除记录" }));
+    await actor.click(screen.getByRole("button", { name: "删除记录" }));
     expect(confirmSpy).not.toHaveBeenCalled();
     await actor.click(within(await screen.findByRole("dialog", { name: "确认删除" })).getByRole("button", { name: "确认删除" }));
 
@@ -239,7 +239,7 @@ describe("DownloadsClient", () => {
     render(<DownloadsClient servers={servers} canManage canManageNode />);
 
     expect(await screen.findByText("https://example.com/a.iso")).toBeInTheDocument();
-    const retryButton = screen.getByRole("button", { name: "↻ 重试" });
+    const retryButton = screen.getByRole("button", { name: "重试" });
     await actor.click(retryButton);
     expect(await screen.findByRole("button", { name: "重试中…" })).toBeDisabled();
     await actor.click(screen.getByRole("button", { name: "重试中…" }));
@@ -268,7 +268,7 @@ describe("DownloadsClient", () => {
 
     render(<DownloadsClient servers={servers} canManage canManageNode />);
 
-    const downloadLink = await screen.findByRole("link", { name: "⬇ 下载文件" });
+    const downloadLink = await screen.findByRole("link", { name: "下载文件" });
     const firstClick = await actor.click(downloadLink);
     void firstClick;
     expect(screen.getByRole("link", { name: "正在下载…" })).toBeInTheDocument();
@@ -280,8 +280,8 @@ describe("DownloadsClient", () => {
 
     render(<DownloadsClient servers={servers} canManage canManageNode />);
 
-    await actor.click(await screen.findByRole("button", { name: "+ 新建下载" }));
-    await actor.click(screen.getByRole("button", { name: "📋 批量模式" }));
+    await actor.click(await screen.findByRole("button", { name: "新建下载" }));
+    await actor.click(screen.getByRole("button", { name: "批量模式" }));
     await actor.type(
       screen.getByRole("textbox", { name: "下载链接（每行一个）" }),
       "https://example.com/a.zip\nmagnet:?xt=urn:btih:abcdef",

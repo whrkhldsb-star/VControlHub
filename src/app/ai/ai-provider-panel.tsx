@@ -172,11 +172,11 @@ export function AiProviderPanel({
 
   return (
     <ModalShell
+      size="xl" padded={false} className="flex min-w-0 flex-col overflow-hidden"
       open={show}
       onClose={onClose}
       labelledBy="ai-provider-panel-title"
       busy={busy}
-      panelClassName="flex max-h-[calc(100dvh-2rem)] w-full min-w-0 max-w-xl flex-col overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--modal-bg)] shadow-[var(--shadow-lg)]"
     >
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-3 sm:px-5">
           <h3 id="ai-provider-panel-title" className="text-sm font-semibold text-[var(--text-primary)]">{t("aiPage.providerPanelTitle")}</h3>

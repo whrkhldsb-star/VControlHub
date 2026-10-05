@@ -22,7 +22,12 @@ test("phone and tablet menus preserve focus, navigation and scroll after desktop
 		await expect(menu).toBeHidden();
 		await expect(trigger).toBeFocused();
 		await trigger.click();
-		await menu.getByRole("button", { name: /文件与传输|Files & transfer/i }).click();
+		// Nav group collapse state persists in localStorage across the loop's
+		// viewport iterations. Toggle only when folded: clicking blindly would
+		// COLLAPSE the group on the second iteration and hide the /files link.
+		const groupToggle = menu.getByRole("button", { name: /文件与传输|Files & transfer/i });
+		if ((await groupToggle.getAttribute("aria-expanded")) !== "true") await groupToggle.click();
+		await expect(groupToggle).toHaveAttribute("aria-expanded", "true");
 		await menu.locator('a[href="/files"]').click();
 		await expect(page).toHaveURL(/\/files$/);
 		await expect(menu).toBeHidden();

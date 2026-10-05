@@ -70,9 +70,10 @@ export function MoveInlineForm({
         onClick={handleToggle}
         title={t("common.move")}
         aria-label={t("filesPage.actions.moveAria", { name })}
+        data-menu-item={variant === "menu" ? "" : undefined}
         className={
           variant === "menu"
-            ? "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-[var(--success)] transition hover:bg-[var(--success-bg)]"
+            ? undefined
             : "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)] transition hover:bg-[var(--success-bg)]"
         }
       >
@@ -117,15 +118,15 @@ export function MoveInlineForm({
       <span className="text-xs text-[var(--text-secondary)]">
         → /{previewPath}
       </span>
-      <ActionButton variant="outline"
+      <ActionButton size="sm" variant="outline"
         type="submit"
-        disabled={pending || state.needsReconcile || !targetDir.trim() || targetDir.trim() === currentDir} className="!px-3 !py-1.5 !text-sm disabled:cursor-not-allowed disabled:opacity-50">
+        disabled={pending || state.needsReconcile || !targetDir.trim() || targetDir.trim() === currentDir}>
         {pending ? t("common.executing") : t("common.confirm")}
       </ActionButton>
       {state.needsReconcile ? <p role="alert" className="w-full text-xs text-[var(--danger)]">{state.error}</p> : null}
-      <ActionButton variant="secondary"
+      <ActionButton size="sm" variant="secondary"
         onClick={handleCancel}
-        disabled={pending} className="!px-3 !py-1.5 !text-sm disabled:cursor-not-allowed disabled:opacity-50">
+        disabled={pending}>
         {t("common.cancel")}
       </ActionButton>
     </form>

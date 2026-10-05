@@ -12,7 +12,7 @@ type TFn = (key: string, vars?: Record<string, string | number>) => string;
 
 const chipBase ="min-h-9 rounded-full border px-3 py-1 text-xs transition";
 const chipIdle ="border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface-subtle)] light:bg-[var(--surface)] text-[var(--text-secondary)] light:text-[var(--text-muted)] hover:bg-[var(--surface-elevated)] light:hover:bg-[var(--surface-hover)]/50";
-const chipActive ="border-[var(--color-action-border)] bg-[var(--color-action-bg)] text-[var(--color-action)]";
+const chipActive ="border-[var(--color-action-border)] bg-[var(--color-action-bg)] text-[var(--color-action-text)]";
 
 export function SshTerminalToolbar({
 	serverName,
@@ -84,10 +84,9 @@ export function SshTerminalToolbar({
 					{t("sshFileManager.toggle")}
 				</button>
 				{(status ==="error" || status ==="closed") && (
-					<ActionButton variant="outline"
+					<ActionButton size="sm" variant="outline"
 						onClick={onReconnect}
-						data-tone="cyan" className="min-h-9 !rounded-full !px-3 !py-1 !text-sm"
-					>
+						data-tone="cyan">
 						{t("sshTerminalModal.reconnect")}
 					</ActionButton>
 				)}
@@ -120,7 +119,7 @@ export function SshTerminalSearchBar({
 	onClear: () => void;
 }) {
 	return (
-		<div className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface-subtle)] light:bg-[var(--surface)] p-2">
+		<div data-inset className="flex flex-wrap items-center gap-2 light:border-[var(--border)] light:bg-[var(--surface)] p-2">
 			<label htmlFor={`ssh-terminal-search-${serverId}`} className="sr-only">
 				{t("sshTerminalModal.searchLabel")}
 			</label>
@@ -146,12 +145,11 @@ export function SshTerminalSearchBar({
 			</button>
 			<ActionButton variant="outline"
 				onClick={() => onSearch("next")}
-				data-tone="cyan" className="min-h-10 !px-3 !text-sm"
-			>
+				data-tone="cyan">
 				{t("sshTerminalModal.searchNext")}
 			</ActionButton>
 			<ActionButton variant="secondary"
-				onClick={onClear} className="min-h-10 !px-3 !text-sm">
+				onClick={onClear}>
 				{t("sshTerminalModal.searchClear")}
 			</ActionButton>
 		</div>

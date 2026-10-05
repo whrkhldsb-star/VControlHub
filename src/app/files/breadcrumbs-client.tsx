@@ -30,22 +30,19 @@ export function BreadcrumbsClient({
       className="flex flex-wrap items-center gap-2 text-sm text-[var(--text-secondary)]"
     >
       {parentPath !== null ? (
-        <ActionButton variant="secondary"
+        <ActionButton size="sm" variant="secondary"
           onClick={() => onNavigate(parentPath)}
           data-testid="files-up-level"
 
-          className="!inline-flex !items-center !gap-1.5 !px-3 !py-1.5 !text-sm !font-medium"
+          className="!inline-flex !items-center !gap-1.5"
           title={t("filesBrowserSpa.upLevel")}
         >
           <span aria-hidden="true">↑</span>
           {t("filesBrowserSpa.upLevel")}
         </ActionButton>
       ) : null}
-      <ActionButton variant="ghost"
-        onClick={() => onNavigate("")}
-
-        className="!px-3 !py-1.5 !text-sm"
-      >
+      <ActionButton size="sm" variant="ghost"
+        onClick={() => onNavigate("")}>
         {t("filesBrowserSpa.allFiles")}
       </ActionButton>
       {segments.map((segment, index) => {
@@ -63,11 +60,8 @@ export function BreadcrumbsClient({
                 {displaySegment}
               </span>
             ) : (
-              <ActionButton variant="ghost"
-                onClick={() => onNavigate(nextPath)}
-
-                className="!px-3 !py-1.5 !text-sm"
-              >
+              <ActionButton size="sm" variant="ghost"
+                onClick={() => onNavigate(nextPath)}>
                 {displaySegment}
               </ActionButton>
             )}

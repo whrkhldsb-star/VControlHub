@@ -235,8 +235,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
               </FormField>
               <ActionButton variant="outline"
                 disabled={!name.trim() || busy !== null}
-                onClick={() => void createBase()} className="!min-h-11 !px-3 !text-sm !font-semibold disabled:opacity-50"
-              >
+                onClick={() => void createBase()}>
                 {busy === "create" ? t("knowledgePage.working") : t("knowledgePage.create")}
               </ActionButton>
             </div>}
@@ -272,9 +271,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
                         variant="danger"
                         aria-label={t("knowledgePage.deleteBaseAria", { name: b.name })}
                         disabled={busy !== null}
-                        onClick={() => setBasePendingDelete(b)}
-                        className="!px-3 !text-sm"
-                      >
+                        onClick={() => setBasePendingDelete(b)}>
                         {t("knowledgePage.delete")}
                       </ActionButton>
                     )}
@@ -308,8 +305,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
             />}
             {canManage && <ActionButton variant="success"
               disabled={!selectedId || !docTitle.trim() || !docContent.trim() || busy !== null}
-              onClick={() => void ingest()} className="!min-h-11 !px-3 !text-sm !font-semibold disabled:opacity-50"
-            >
+              onClick={() => void ingest()}>
               {busy === "ingest" ? t("knowledgePage.working") : t("knowledgePage.ingest")}
             </ActionButton>}
             <div className="max-h-48 space-y-2 overflow-auto">
@@ -325,10 +321,9 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
                     </div>
                   </div>
                   {canManage && (
-                    <ActionButton variant="danger" className="!px-2 !py-1 !text-sm"
+                    <ActionButton size="sm" variant="danger" 
                       disabled={busy !== null}
-                      onClick={() => setDocumentPendingDelete(d)}
-                    >
+                      onClick={() => setDocumentPendingDelete(d)}>
                       {t("knowledgePage.delete")}
                     </ActionButton>
                   )}
@@ -350,8 +345,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
           />
           <ActionButton variant="outline"
             disabled={!query.trim() || busy !== null}
-            onClick={() => void search()} className="!min-h-11 !px-3 !text-sm !font-semibold disabled:opacity-50"
-          >
+            onClick={() => void search()}>
             {busy === "search" ? t("knowledgePage.working") : t("knowledgePage.search")}
           </ActionButton>
         </div>
@@ -359,7 +353,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
           {hits.map((hit, idx) => (
             <article
               key={`${hit.documentTitle}-${hit.chunkIndex}-${idx}`}
-              className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-3 text-xs"
+              data-inset className="p-3 text-xs"
             >
               <div className="font-semibold text-[var(--text-primary)]">
                 [{idx + 1}] {hit.knowledgeBaseName} / {hit.documentTitle}#{hit.chunkIndex}

@@ -10,7 +10,7 @@ export const zh: Record<string, string> = {
 	// List view
 	"snippetsPage.search": "搜索代码片段",
 	"snippetsPage.new": "新建片段",
-	"snippetsPage.private": "🔒 私有",
+	"snippetsPage.private": "私有",
 	"snippetsPage.filter.allLanguages": "全部语言",
 	"snippetsPage.filter.placeholder": "按语言过滤",
 	"snippetsPage.titlePlaceholder": "标题、内容、标签…",
@@ -59,7 +59,7 @@ export const zh: Record<string, string> = {
 export const en: Record<string, string> = {
 	"snippetsPage.search": "Search snippets",
 	"snippetsPage.new": "New snippet",
-	"snippetsPage.private": "🔒 Private",
+	"snippetsPage.private": "Private",
 	"snippetsPage.filter.allLanguages": "All languages",
 	"snippetsPage.filter.placeholder": "Filter by language",
 	"snippetsPage.titlePlaceholder": "Title, content, tags…",

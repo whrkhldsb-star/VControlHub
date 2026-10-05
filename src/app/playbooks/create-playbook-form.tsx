@@ -25,6 +25,7 @@ import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 import { Notice } from "@/components/ui-primitives";
 import { useUnsavedChangesGuard } from "@/lib/forms/use-unsaved-changes-guard";
+import { Plus } from "@/components/icons";
 
 export function CreatePlaybookForm({
 	onClose,
@@ -280,11 +281,9 @@ export function CreatePlaybookForm({
 			<div className="space-y-2">
 				<div className="flex items-center justify-between">
 					<div className={fieldLabelClass}>{t("playbooksPage.createForm.stepsTitle")}</div>
-					<ActionButton
+					<ActionButton icon={<Plus size={16} aria-hidden />} size="sm"
 						variant="outline"
-						onClick={addStep}
-						className="min-h-9 !px-3 !py-1 !text-sm"
-					>
+						onClick={addStep}>
 						{t("playbooksPage.createForm.addStep")}
 					</ActionButton>
 				</div>
@@ -321,13 +320,12 @@ export function CreatePlaybookForm({
 			<div className="flex gap-3 pt-2">
 				<ActionButton variant="primary"
 					type="submit"
-					disabled={submitting} className="min-h-11 px-5 py-2 text-sm"
-				>
+					disabled={submitting}>
 					{submitting ? t("playbooksPage.createForm.submitting") : t("playbooksPage.createForm.submit")}
 				</ActionButton>
 				<ActionButton
           type="button" variant="secondary"
-					onClick={requestDiscard} className="min-h-11 !px-5 !py-2 !text-sm">
+					onClick={requestDiscard}>
 					{t("playbooksPage.createForm.cancel")}
 				</ActionButton>
 			</div>

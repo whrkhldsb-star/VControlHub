@@ -47,7 +47,7 @@ export function ServerCardDirectGatewayForm({
       action={directAction}
       aria-label={t("serverCardActions.directGateway.formAria")}
       data-tone="cyan"
-      className="space-y-3 rounded-2xl border border-[var(--color-action-border)]/20 p-3 light:border-[var(--color-action-border)]/20 light:bg-[var(--color-action-bg)]/80"
+      data-inset className="space-y-3 p-3"
     >
       <input type="hidden" name="serverId" value={serverId} />
       <input
@@ -139,7 +139,7 @@ export function ServerCardDirectGatewayForm({
         )}
       </div>
 
-      <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-subtle)] p-3 text-xs leading-5 text-[var(--text-muted)] light:border-[var(--color-action-border)]/15">
+      <div data-inset className="p-3 text-xs leading-5 text-[var(--text-muted)] light:border-[var(--color-action-border)]/15">
         {directGateway.enabled ? (
           <>
             <p className="font-medium text-[var(--text-primary)]">

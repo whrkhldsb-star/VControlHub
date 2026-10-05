@@ -5,7 +5,7 @@ import { getErrorMessage } from "@/lib/http/error-message";
 import { useAbortableTextResource } from "@/lib/http/use-abortable-text-resource";
 import { AlertTriangle, File } from "@/components/icons";
 import { StatusBadge } from "@/components/status-badge";
-import { InlineLoading } from "@/components/ui-primitives";
+import { InlineLoading, Notice } from "@/components/ui-primitives";
 
 
 function parseCsv(text: string): string[][] {
@@ -127,7 +127,7 @@ export function CsvPreviewClient({ href }: { href: string }) {
 						<tr className="bg-[var(--surface)] light:bg-[var(--surface)]/80">
 							<th className="px-3 py-2 text-left text-xs font-medium text-[var(--text-secondary)] border-b border-[var(--border)] w-12">#</th>
 							{header.map((col, i) => (
-								<th key={i} className="px-3 py-2 text-left text-xs font-medium text-[var(--color-action)] border-b border-[var(--border)] whitespace-nowrap">{col || t("csvPreview.colIndex", { index: i + 1 })}</th>
+								<th key={i} className="px-3 py-2 text-left text-xs font-medium text-[var(--color-action-text)] border-b border-[var(--border)] whitespace-nowrap">{col || t("csvPreview.colIndex", { index: i + 1 })}</th>
 							))}
 						</tr>
 					</thead>
@@ -144,9 +144,9 @@ export function CsvPreviewClient({ href }: { href: string }) {
 				</table>
 			</div>
 			{truncated ? (
-				<div data-tone="amber" className="rounded-2xl border border-[var(--warning-border)] px-4 py-3 text-sm text-[var(--warning)]">
+				<Notice tone="warning">
 					{t("csvPreview.largeWarning", { max: maxRows, total: dataRows.length })}
-				</div>
+				</Notice>
 			) : null}
 		</div>
 	);

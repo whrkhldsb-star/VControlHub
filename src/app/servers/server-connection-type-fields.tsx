@@ -20,7 +20,7 @@ export function ConnectionTypeFields({
     "SSH_KEY",
   );
   return (
-    <section className="space-y-4 rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-4">
+    <section data-tile className="space-y-4 p-4">
       {" "}
       <fieldset className="space-y-1.5">
         {" "}

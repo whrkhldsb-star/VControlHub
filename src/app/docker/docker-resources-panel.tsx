@@ -4,7 +4,9 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ActionButton } from "@/components/action-button";
-import { FormField, FormGrid, IconButton, Notice } from "@/components/ui-primitives";
+import { Plus, RefreshCw, X } from "@/components/icons";
+import { Card } from "@/components/page-shell";
+import { FormField, IconButton, Notice } from "@/components/ui-primitives";
 import { cn } from "@/lib/ui/cn";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { getErrorMessage } from "@/lib/http/error-message";
@@ -249,7 +251,7 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
                 </div>{" "}
                 <div className="flex min-w-0 shrink-0 flex-wrap items-center justify-end gap-2">
                   {" "}
-                  <ActionButton
+                  <ActionButton size="sm"
                     type="button"
                     variant="ghost"
                     aria-label={formatCopy(t("dockerResources.inspectAria"), {
@@ -257,12 +259,10 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
                       name: itemName,
                     })}
                     onClick={() => inspectResource(type, itemName)}
-                    disabled={busyKey === `inspect:${key}`}
-                    className="min-h-10 px-3 text-xs"
-                  >
+                    disabled={busyKey === `inspect:${key}`}>
                     {t("dockerResources.inspect")}
                   </ActionButton>{" "}
-                  <ActionButton
+                  <ActionButton size="sm"
                     type="button"
                     variant="danger"
                     aria-label={formatCopy(t("dockerResources.deleteAria"), {
@@ -270,9 +270,7 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
                       name: itemName,
                     })}
                     onClick={() => setPendingDelete({ type, name: itemName })}
-                    disabled={busyKey === `delete:${key}`}
-                    className="min-h-10 px-3 text-xs"
-                  >
+                    disabled={busyKey === `delete:${key}`}>
                     {t("dockerResources.delete")}
                   </ActionButton>{" "}
                 </div>{" "}
@@ -284,28 +282,22 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
     );
   }
   return (
-    <section data-card className="mb-6 p-4">
-      {" "}
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        {" "}
-        <div>
-          {" "}
-          <h2 className="text-sm font-semibold text-[var(--text-primary)]">
-            {t("dockerResources.title")}
-          </h2>{" "}
-          <p className="mt-1 text-xs text-[var(--text-muted)]">
-            {t("dockerResources.desc")}
-          </p>{" "}
-        </div>{" "}
-        <ActionButton variant="secondary"
+    <Card
+      as="section"
+      title={t("dockerResources.title")}
+      description={t("dockerResources.desc")}
+      actions={
+        <ActionButton
+          size="sm"
+          variant="ghost"
+          icon={<RefreshCw size={14} aria-hidden />}
           onClick={() => void fetchResources()}
-          disabled={loading} className="!min-h-11 !px-3 !py-1.5 !text-sm disabled:opacity-50"
+          loading={loading}
         >
-          {loading
-            ? t("dockerResources.refreshBusy")
-            : t("dockerResources.refresh")}
-        </ActionButton>{" "}
-      </div>{" "}
+          {loading ? t("dockerResources.refreshBusy") : t("dockerResources.refresh")}
+        </ActionButton>
+      }
+    >
       {error ? (
         <Notice
           tone="danger"
@@ -314,16 +306,28 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
         >
           {error}
         </Notice>
-      ) : null}{" "}
-      <FormGrid columns={3} className="mb-4 items-end">
+      ) : null}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="min-w-0">
+          <h3 className="mb-2 text-xs font-medium text-[var(--text-muted)]">
+            {formatCopy(t("dockerResources.group.networks"), { count: networks.length })}
+          </h3>
+          {renderList("networks", networks)}
+        </div>
+        <div className="min-w-0">
+          <h3 className="mb-2 text-xs font-medium text-[var(--text-muted)]">
+            {formatCopy(t("dockerResources.group.volumes"), { count: volumes.length })}
+          </h3>
+          {renderList("volumes", volumes)}
+        </div>
+      </div>
+      <div className="mt-4 grid gap-3 border-t border-[var(--border-subtle)] pt-4 sm:grid-cols-[10rem_minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end">
         <FormField label={t("dockerResources.title")} htmlFor="docker-resource-type">
           <select
             id="docker-resource-type"
             aria-label={t("dockerResources.title")}
             value={activeType}
-            onChange={(event) =>
-              setActiveType(event.currentTarget.value as ResourceType)
-            }
+            onChange={(event) => setActiveType(event.currentTarget.value as ResourceType)}
             className={UI_INPUT}
           >
             <option value="networks">{t("dockerResources.kind.network")}</option>
@@ -348,33 +352,15 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
             className={cn(UI_INPUT, "font-mono")}
           />
         </FormField>
-        <ActionButton variant="primary"
+        <ActionButton
+          variant="secondary"
+          icon={<Plus size={16} aria-hidden />}
           onClick={() => void createResource()}
           disabled={!name.trim() || Boolean(busyKey)}
-          className="!min-h-11 !px-4 !py-2 !text-sm disabled:opacity-50 md:col-start-3"
         >
           {t("dockerResources.create")}
         </ActionButton>
-      </FormGrid>{" "}
-      <div className="grid gap-4 lg:grid-cols-2">
-        {" "}
-        <div className="min-w-0">
-          <h3 className="mb-2 text-xs font-medium uppercase text-[var(--text-muted)]">
-            {formatCopy(t("dockerResources.group.networks"), {
-              count: networks.length,
-            })}
-          </h3>
-          {renderList("networks", networks)}
-        </div>{" "}
-        <div className="min-w-0">
-          <h3 className="mb-2 text-xs font-medium uppercase text-[var(--text-muted)]">
-            {formatCopy(t("dockerResources.group.volumes"), {
-              count: volumes.length,
-            })}
-          </h3>
-          {renderList("volumes", volumes)}
-        </div>{" "}
-      </div>{" "}
+      </div>
       <ConfirmDialog
         open={pendingDelete !== null}
         title={pendingDelete ? formatCopy(t("dockerResources.confirm.delete"), { kind: resourceKind(pendingDelete.type), name: pendingDelete.name }) : ""}
@@ -386,24 +372,16 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
         closeOnBackdrop={false}
       />
       {detail ? (
-        <div className="mt-4 rounded-xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--surface-subtle)_85%,#000)] p-3">
+        <div data-inset className="mt-4 p-3">
           <div className="mb-2 flex items-center justify-between gap-3">
-            <h3 className="text-sm font-medium text-[var(--text-primary)]">
-              {detail.title}
-            </h3>
-            <IconButton
-              label={t("dockerResources.close")}
-              onClick={() => setDetail(null)}
-              className="h-8 w-8 text-base"
-            >
-              ×
+            <h3 className="text-sm font-medium text-[var(--text-primary)]">{detail.title}</h3>
+            <IconButton label={t("dockerResources.close")} onClick={() => setDetail(null)} className="h-8 w-8">
+              <X size={16} aria-hidden />
             </IconButton>
           </div>
-          <pre className="max-h-72 overflow-auto whitespace-pre-wrap text-xs text-[var(--text-secondary)]">
-            {detail.json}
-          </pre>
+          <pre className="max-h-72 overflow-auto whitespace-pre-wrap text-xs text-[var(--text-secondary)]">{detail.json}</pre>
         </div>
-      ) : null}{" "}
-    </section>
+      ) : null}
+    </Card>
   );
 }

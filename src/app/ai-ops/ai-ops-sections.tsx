@@ -11,7 +11,7 @@ import type {
 	AiOpsTriggerType,
 } from "@/lib/ai/ops/types";
 import type { AiOpsSummary } from "@/lib/ai/ops/service";
-import { UI_INPUT } from "@/lib/ui/classes";
+import { UI_INPUT, UI_LABEL } from "@/lib/ui/classes";
 import { ActionButton } from "@/components/action-button";
 import { Notice } from "@/components/ui-primitives";
 
@@ -21,17 +21,8 @@ export type AiOpsSettings = {
 	scanScheduleHour: number;
 };
 
-const cardClass =
-	"rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5";
-const labelClass =
-	"text-xs font-medium text-[var(--text-secondary)] ";
+const labelClass = UI_LABEL;
 const selectClass = UI_INPUT;
-const buttonPrimary =
-	"text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50";
-const buttonGhost =
-	"text-sm";
-const buttonDanger =
-	"text-xs";
 
 export function formatAiOpsTime(iso: string | null, fallback: string, locale: "zh" | "en"): string {
 	if (!iso) return fallback;
@@ -55,8 +46,13 @@ type T = (key: string, vars?: Record<string, string | number>) => string;
 export function AiOpsSummarySection({ summary, t }: { summary: AiOpsSummary; t: T }) {
 	const { locale } = useI18n();
 	return (
-		<section aria-label="ai-ops-summary" className={cardClass}>
+		<section aria-label="ai-ops-summary" data-card className="p-5">
 			<h2 className="mb-4 text-base font-semibold text-[var(--text-primary)]">{t("aiOpsPage.summary.title")}</h2>
+			{summary.provider && <div className="mb-4 flex flex-wrap gap-x-6 gap-y-2 text-sm text-[var(--text-secondary)]">
+				<span>{t("aiOpsPage.summary.providerSuccessRate")}: {summary.provider.successRate === null ? t("aiOpsPage.summary.never") : `${Math.round(summary.provider.successRate * 100)}% (${summary.provider.successes}/${summary.provider.attempts})`}</span>
+				<span>{t("aiOpsPage.summary.providerLastSuccess")}: {formatAiOpsTime(summary.provider.lastSuccessAt, t("aiOpsPage.summary.never"), locale)}</span>
+				{summary.provider.retryAt && <span>{t("aiOpsPage.summary.providerRetryAt")}: {formatAiOpsTime(summary.provider.retryAt, t("aiOpsPage.summary.never"), locale)}</span>}
+			</div>}
 			<div className="grid grid-cols-1 gap-4 min-[400px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 [&>div]:min-w-0 [&>div]:break-words">
 				<div>
 					<div className={labelClass}>{t("aiOpsPage.summary.total")}</div>
@@ -113,13 +109,13 @@ export function AiOpsActionsToolbar({
 	t: T;
 }) {
 	return (
-		<section aria-label="ai-ops-actions" className={`${cardClass} flex flex-wrap items-center gap-3`}>
+		<section aria-label="ai-ops-actions" data-card className="flex flex-wrap items-end gap-3 p-5">
 			{canManage && (
-				<ActionButton variant="primary" className={buttonPrimary} disabled={scanning} onClick={onTriggerScan}>
+				<ActionButton variant="primary" disabled={scanning} onClick={onTriggerScan}>
 					{scanning ? t("aiOpsPage.actions.scanning") : t("aiOpsPage.actions.triggerScan")}
 				</ActionButton>
 			)}
-			<ActionButton variant="secondary" className={buttonGhost} onClick={onReload}>{t("aiOpsPage.actions.refresh")}</ActionButton>
+			<ActionButton variant="secondary" onClick={onReload}>{t("aiOpsPage.actions.refresh")}</ActionButton>
 			<label className={`${labelClass} flex min-w-0 flex-col items-start gap-2`}>
 				<span>{t("aiOpsPage.filter.mode")}</span>
 				<select className={selectClass} value={modeFilter} onChange={(e) => setModeFilter(e.target.value as "all" | AiOpsMode)}>
@@ -174,7 +170,7 @@ export function AiOpsSettingsSection({
 	t: T;
 }) {
 	return (
-		<section aria-label="ai-ops-settings" className={cardClass}>
+		<section aria-label="ai-ops-settings" data-card className="p-5">
 			<h2 className="mb-4 text-base font-semibold text-[var(--text-primary)]">{t("aiOpsPage.settings.title")}</h2>
 			<div className="grid gap-4 sm:grid-cols-2">
 				<label className="flex flex-col gap-2">
@@ -209,7 +205,7 @@ export function AiOpsSettingsSection({
 			</div>
 			{canManage && (
 				<div className="mt-4 flex justify-end">
-					<ActionButton variant="primary" className={buttonPrimary} disabled={savingSettings} onClick={onSaveSettings}>
+					<ActionButton variant="primary" disabled={savingSettings} onClick={onSaveSettings}>
 						{savingSettings ? t("aiOpsPage.actions.saving") : t("aiOpsPage.settings.save")}
 					</ActionButton>
 				</div>
@@ -243,7 +239,7 @@ export function AiOpsLogsSection({
 }) {
 	const { locale } = useI18n();
 	return (
-		<section aria-label="ai-ops-logs" className={`${cardClass} relative`} aria-busy={loading}>
+		<section aria-label="ai-ops-logs" data-card className="relative p-5" aria-busy={loading}>
 			<div className="mb-4 flex flex-wrap items-center justify-between gap-3">
 				<h2 className="text-base font-semibold text-[var(--text-primary)]">{t("aiOpsPage.table.title")}</h2>
 				{logs.length > 0 ? (
@@ -283,7 +279,7 @@ export function AiOpsLogsSection({
 									<td className="py-2 pr-3">{log.findings.length}</td>
 									<td className="py-2 pr-3">{log.actions.length}</td>
 									<td className="py-2 pr-3 font-mono text-xs">{log.durationMs !== null ? t("aiOpsPage.detail.durationMs", { ms: log.durationMs }) : "—"}</td>
-									<td className="py-2"><ActionButton variant="secondary" className={buttonGhost} onClick={() => setSelectedLogId(log.id)}>{t("aiOpsPage.table.viewDetail")}</ActionButton></td>
+									<td className="py-2"><ActionButton size="sm" variant="secondary" onClick={() => setSelectedLogId(log.id)}>{t("aiOpsPage.table.viewDetail")}</ActionButton></td>
 								</tr>
 							))}
 						</tbody>
@@ -294,7 +290,7 @@ export function AiOpsLogsSection({
 				<div className="mt-4 flex items-center justify-end gap-2 border-t border-[var(--border)] pt-4">
 					<ActionButton
 						variant="secondary"
-						className={buttonGhost}
+						size="sm"
 						disabled={loading || page === 0}
 						onClick={onPrevious}
 					>
@@ -302,7 +298,7 @@ export function AiOpsLogsSection({
 					</ActionButton>
 					<ActionButton
 						variant="secondary"
-						className={buttonGhost}
+						size="sm"
 						disabled={loading || !hasMore}
 						onClick={onNext}
 					>
@@ -332,7 +328,7 @@ export function AiOpsDetailSection({
 	t: T;
 }) {
 	return (
-		<section aria-label="ai-ops-detail" className={cardClass}>
+		<section aria-label="ai-ops-detail" data-card className="p-5">
 			<h2 className="mb-4 text-base font-semibold text-[var(--text-primary)]">{t("aiOpsPage.detail.title")}</h2>
 			<div className="grid gap-4 lg:grid-cols-2">
 				<div>
@@ -342,7 +338,7 @@ export function AiOpsDetailSection({
 					) : (
 						<ul className="space-y-2 text-sm text-[var(--text-primary)]">
 							{selectedLog.findings.map((f) => (
-								<li key={f.id} className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-3">
+								<li key={f.id} data-tile className="p-3">
 									<div className="font-medium text-[var(--text-primary)]">{f.title}</div>
 									<div className="text-xs text-[var(--text-primary)]/70">{t(`aiOpsPage.severity.${f.severity}`)}</div>
 									<div className="mt-1 text-xs text-[var(--text-primary)]/70">{f.body}</div>
@@ -361,7 +357,7 @@ export function AiOpsDetailSection({
 								const recommendation = isRecommendationAction(action) ? action : null;
 								const executed = isExecutedAction(action) ? action : null;
 								return (
-									<li key={action.id} className="flex items-start justify-between gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-3">
+									<li key={action.id} data-tile className="flex flex-wrap items-start justify-between gap-3 p-3">
 										<div>
 											<div className="font-medium text-[var(--text-primary)]">{action.action}</div>
 											<div className="text-xs text-[var(--text-primary)]/70">{t(`aiOpsPage.risk.${action.risk}`)}</div>
@@ -369,15 +365,15 @@ export function AiOpsDetailSection({
 											{executed && <div className="mt-1 text-xs text-[var(--text-primary)]/70">{executed.result ?? executed.errorMessage ?? "—"}</div>}
 										</div>
 										{recommendation && canManage && (
-											<div className="flex flex-col gap-1">
+											<div className="flex min-w-0 max-w-full flex-col gap-1">
 												{recommendation.requiresApproval && !recommendation.approved ? (
-													<ActionButton variant="primary" className={buttonPrimary} disabled={executing === action.id} onClick={() => onApproveAction(selectedLog.id, action.id)}>{t("aiOpsPage.actions.approve")}</ActionButton>
+													<ActionButton className="w-full sm:w-auto" size="sm" variant="primary" disabled={executing === action.id} onClick={() => onApproveAction(selectedLog.id, action.id)}>{t("aiOpsPage.actions.approve")}</ActionButton>
 												) : recommendation.requiresApproval && recommendation.approved ? (
-													<ActionButton variant="primary" className={buttonPrimary} disabled={executing === action.id} onClick={() => onExecuteAction(selectedLog.id, action.id, false)}>{t("aiOpsPage.actions.execute")}</ActionButton>
+													<ActionButton className="w-full sm:w-auto" size="sm" variant="primary" disabled={executing === action.id} onClick={() => onExecuteAction(selectedLog.id, action.id, false)}>{t("aiOpsPage.actions.execute")}</ActionButton>
 												) : (
-													<ActionButton variant="secondary" className={buttonGhost} disabled={executing === action.id} onClick={() => onExecuteAction(selectedLog.id, action.id, false)}>{t("aiOpsPage.actions.execute")}</ActionButton>
+													<ActionButton className="w-full sm:w-auto" size="sm" variant="secondary" disabled={executing === action.id} onClick={() => onExecuteAction(selectedLog.id, action.id, false)}>{t("aiOpsPage.actions.execute")}</ActionButton>
 												)}
-												{canAutonomous && <ActionButton variant="danger" className={buttonDanger} disabled={executing === action.id} onClick={() => onExecuteAction(selectedLog.id, action.id, true)}>{t("aiOpsPage.actions.forceAutonomous")}</ActionButton>}
+												{canAutonomous && <ActionButton className="w-full sm:w-auto" variant="danger" size="sm" disabled={executing === action.id} onClick={() => onExecuteAction(selectedLog.id, action.id, true)}>{t("aiOpsPage.actions.forceAutonomous")}</ActionButton>}
 											</div>
 										)}
 									</li>
