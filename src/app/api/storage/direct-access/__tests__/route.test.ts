@@ -300,7 +300,8 @@ describe("/api/storage/direct-access", () => {
 
   it("redirects GET requests to the generated storage-server URL for file-list links when AUTO health is healthy", async () => {
     vi.clearAllMocks();
-    const fetchMock = vi.fn().mockResolvedValue(new Response("ok", { status: 200 }));
+    const cancel = vi.fn();
+    const fetchMock = vi.fn().mockResolvedValue(new Response(new ReadableStream({ cancel }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
     requireApiPermissionMock.mockResolvedValueOnce({
       session: { userId: "u_1", username: "admin", roles: ["admin"], currentTeamId: null },
@@ -340,11 +341,13 @@ describe("/api/storage/direct-access", () => {
       .digest("hex");
     expect(redirectedUrl.searchParams.get("signature")).toBe(expectedSignature);
     expect(fetchMock).toHaveBeenCalledWith(new URL("https://cdn.example.com/__vch_health"), expect.objectContaining({ method: "GET" }));
+    expect(cancel).toHaveBeenCalledTimes(1);
   });
 
   it("falls back to managed SFTP when AUTO direct gateway health is unavailable", async () => {
     vi.clearAllMocks();
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("nope", { status: 503 })));
+    const cancel = vi.fn();
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(new ReadableStream({ cancel }), { status: 503 })));
     requireApiPermissionMock.mockResolvedValueOnce({
       session: { userId: "u_1", username: "admin", roles: ["admin"], currentTeamId: null },
     });
@@ -374,6 +377,7 @@ describe("/api/storage/direct-access", () => {
     expect(response.headers.get("location")).toBe(
       "/api/storage/sftp-download?nodeId=node_1&path=movies%2Fdemo.mp4",
     );
+    expect(cancel).toHaveBeenCalledTimes(1);
   });
 
   it("redirects GET requests to the managed SFTP fallback when direct access is unavailable", async () => {

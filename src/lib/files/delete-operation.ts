@@ -1,3 +1,4 @@
+import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { auditUserAction } from "@/lib/audit/service";
 import crypto from "node:crypto";
 import type { SessionPayload } from "@/lib/auth/session";
@@ -29,7 +30,7 @@ export async function findAffectedShareIds(input: {
       OR: [
         { path: input.relativePath },
         ...(input.isDirectory
-          ? [{ path: { startsWith: `${input.relativePath}/` } }]
+          ? [{ path: { startsWith: escapeLikeLiteral(`${input.relativePath}/`) } }]
           : []),
         { entryType: "DIRECTORY" },
       ],
@@ -125,7 +126,7 @@ export async function executeDeleteFile(
     }
 
     if (entry.entryType === "DIRECTORY") {
-      const descendants = await prisma.fileEntry.findMany({ where: { storageNodeId: entry.storageNodeId, relativePath: { startsWith: `${entry.relativePath}/` }, isDeleted: false }, select: { relativePath: true }, take: 10001 });
+      const descendants = await prisma.fileEntry.findMany({ where: { storageNodeId: entry.storageNodeId, relativePath: { startsWith: escapeLikeLiteral(`${entry.relativePath}/`) }, isDeleted: false }, select: { relativePath: true }, take: 10001 });
       if (descendants.length > 10000) {
         throw new BusinessError(t("backend.storageHardening.files.tooManyChildren"));
       }
@@ -176,7 +177,7 @@ export async function executeDeleteFile(
         prisma.fileEntry.updateMany({
           where: {
             storageNodeId: entry.storageNodeId,
-            relativePath: { startsWith: prefix },
+            relativePath: { startsWith: escapeLikeLiteral(prefix) },
             isDeleted: false,
           },
           data: { isDeleted: true, deleteBatchId },

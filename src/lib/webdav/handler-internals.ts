@@ -1,3 +1,4 @@
+import { escapeLikeLiteral as escapeLikePrefix } from "@/lib/db/like-pattern";
 import { createHash } from "node:crypto";
 
 import type { SessionPayload } from "@/lib/auth/session";
@@ -172,9 +173,7 @@ export function toPropFindItem(
 export const MAX_PROPFIND_CHILDREN = 5000;
 
 /** Escape the LIKE metacharacters in a literal path prefix. */
-export function escapeLikePrefix(prefix: string): string {
-  return prefix.replace(/[\\%_]/g, (char) => `\\${char}`);
-}
+export { escapeLikePrefix };
 
 type DirectChildRow = {
   id: string;

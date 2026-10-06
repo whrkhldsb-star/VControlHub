@@ -1,12 +1,9 @@
 /**
  * Re-mint the caller's session cookie after a security-posture change.
  *
- * 2FA enable/disable retires every session of the account via
- * `bumpUserSessionEpoch` (a downgrade must also kill possibly stolen
- * cookies). The routes then rebuild *this* browser's cookie from the
- * still-valid in-memory session so the operator is not bounced to the
- * login screen by their own action. Both routes used to carry this
- * ~20-line block verbatim.
+ * 2FA changes retire every session atomically with the credential mutation.
+ * Refresh this browser only against the state installed by that mutation;
+ * another revocation between the write and this response must still win.
  */
 import { NextResponse } from "next/server";
 
@@ -15,6 +12,7 @@ import {
   getConfiguredSessionTtlSeconds,
   getSessionCookieName,
   type SessionPayload,
+  type SessionCredentialBinding,
 } from "@/lib/auth/session";
 import { isRequestHttps } from "@/lib/http/request-https";
 
@@ -22,6 +20,7 @@ export async function refreshedSessionResponse(
   session: SessionPayload,
   request: Request,
   body: Record<string, unknown>,
+  credentialBinding: SessionCredentialBinding,
 ): Promise<NextResponse> {
   const refreshedToken = await createSessionToken({
     userId: session.userId,
@@ -29,7 +28,7 @@ export async function refreshedSessionResponse(
     roles: session.roles,
     mustChangePassword: session.mustChangePassword,
     currentTeamId: session.currentTeamId,
-  });
+  }, { credentialBinding });
   const response = NextResponse.json(body);
   response.cookies.set(getSessionCookieName(), refreshedToken, {
     httpOnly: true,

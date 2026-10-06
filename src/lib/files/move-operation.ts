@@ -1,3 +1,4 @@
+import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import type { SessionPayload } from "@/lib/auth/session";
 import { tryAcquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { apiCopy } from "@/lib/i18n/api-copy";
@@ -168,7 +169,7 @@ export async function executeMoveFile(
       return { error: tr("filesPage.move.errorTargetExists", { path: `/${newRelativePath}` }) };
     }
     const descendants = entry.entryType === "DIRECTORY" ? await prisma.fileEntry.findMany({
-      where: { storageNodeId: entry.storageNodeId, relativePath: { startsWith: `${entry.relativePath}/` } },
+      where: { storageNodeId: entry.storageNodeId, relativePath: { startsWith: escapeLikeLiteral(`${entry.relativePath}/`) } },
       select: { id: true, relativePath: true }, take: 10001,
     }) : [];
     if (descendants.length > 10000) {
@@ -222,7 +223,7 @@ export async function executeMoveFile(
             OR: [
               { path: entry.relativePath },
               ...(entry.entryType === "DIRECTORY"
-                ? [{ path: { startsWith: oldSharePrefix } }]
+                ? [{ path: { startsWith: escapeLikeLiteral(oldSharePrefix) } }]
                 : []),
             ],
           },
@@ -252,7 +253,7 @@ export async function executeMoveFile(
           const children = await tx.fileEntry.findMany({
             where: {
               storageNodeId: entry.storageNodeId,
-              relativePath: { startsWith: oldPrefix },
+              relativePath: { startsWith: escapeLikeLiteral(oldPrefix) },
             },
             select: { id: true, relativePath: true },
             take: CHILD_CAP + 1,

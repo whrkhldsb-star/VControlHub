@@ -56,7 +56,7 @@ export async function changePasswordAction(
       // pre-change one, or a forced-reset user would be sent back to this page.
       mustChangePassword: false,
       currentTeamId: session.currentTeamId,
-    });
+    }, { credentialBinding: result.credentialBinding });
     // Same Secure decision the login route makes. Server actions have no Request
     // object, so hand isRequestHttps the incoming headers plus the configured
     // public origin — that keeps proxy handling (x-forwarded-proto) in one place
@@ -89,4 +89,3 @@ export async function changePasswordAction(
     } satisfies AccountPasswordActionState;
   }
 }
-

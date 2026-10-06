@@ -40,26 +40,56 @@ export async function runWithLeaseHeartbeat<T>(input: {
   let stopped = false;
   let heartbeatInFlight = false;
   let leaseLost: LeaseLostError | null = null;
+  let leaseDeadline = Date.now() + input.leaseMs;
+  let expiryTimer: ReturnType<typeof setTimeout> | undefined;
   const controller = new AbortController();
   const markLeaseLost = (error: unknown) => {
-    if (leaseLost) return;
+    if (stopped || leaseLost) return;
     leaseLost =
       error instanceof LeaseLostError ? error : new LeaseLostError(input.jobId);
-    logger.warn("Lease heartbeat failed", error, { jobId: input.jobId });
-    input.onHeartbeatFailure?.(leaseLost);
     // Cancel in-flight work: without this, run() would keep going until it
     // resolves on its own and only THEN see the thrown LeaseLostError, leaving
     // a window where a reclaiming worker runs the same job concurrently.
     controller.abort(leaseLost);
+    logger.warn("Lease heartbeat failed", error, { jobId: input.jobId });
+    // Reporting a failure must never prevent the operation from being aborted.
+    try {
+      void Promise.resolve(input.onHeartbeatFailure?.(leaseLost)).catch((callbackError: unknown) => {
+        logger.warn("Lease failure callback failed", callbackError, { jobId: input.jobId });
+      });
+    } catch (callbackError) {
+      logger.warn("Lease failure callback failed", callbackError, { jobId: input.jobId });
+    }
   };
+  const armExpiry = () => {
+    clearTimeout(expiryTimer);
+    expiryTimer = setTimeout(() => markLeaseLost(new LeaseLostError(input.jobId)), Math.max(0, leaseDeadline - Date.now()));
+    expiryTimer.unref?.();
+  };
+  // A pending database promise is not evidence that we still own the lease.
+  // Keep an independent deadline so a hung heartbeat cannot suspend renewal
+  // checks indefinitely while another process reclaims this task.
+  armExpiry();
   const timer = setInterval(() => {
     if (stopped || heartbeatInFlight || leaseLost) return;
+    if (Date.now() >= leaseDeadline) {
+      markLeaseLost(new LeaseLostError(input.jobId));
+      return;
+    }
     heartbeatInFlight = true;
-    void input
-      .heartbeat()
+    const renewalStartedAt = Date.now();
+    void Promise.resolve()
+      .then(input.heartbeat)
       .then((result) => {
-        if (isLeaseLostResult(result)) {
+        if (stopped || leaseLost) return;
+        if (isLeaseLostResult(result) || Date.now() >= leaseDeadline) {
           markLeaseLost(new LeaseLostError(input.jobId));
+        } else {
+          // heartbeatJob computes leaseExpiresAt when the call starts, not
+          // when its database response arrives. Do not add network latency
+          // to the lifetime acknowledged by the database.
+          leaseDeadline = renewalStartedAt + input.leaseMs;
+          armExpiry();
         }
       })
       .catch((error) => {
@@ -77,5 +107,6 @@ export async function runWithLeaseHeartbeat<T>(input: {
   } finally {
     stopped = true;
     clearInterval(timer);
+    clearTimeout(expiryTimer);
   }
 }

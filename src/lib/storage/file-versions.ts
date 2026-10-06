@@ -1,3 +1,4 @@
+import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { config } from "@/lib/config/env";
 
 /**
@@ -237,7 +238,7 @@ export async function purgeDirectoryFileVersionBlobs(input: {
     where: {
       fileEntry: {
         storageNodeId: input.storageNodeId,
-        relativePath: { startsWith: `${input.prefix}/` },
+        relativePath: { startsWith: escapeLikeLiteral(`${input.prefix}/`) },
       },
     },
     select: { blobRelativePath: true },

@@ -7,6 +7,7 @@
  * Supported methods: OPTIONS, PROPFIND, GET, HEAD, PUT, DELETE, MKCOL, MOVE, COPY
  * Auth: Bearer API token or Basic (password = API token) with storage scopes.
  */
+import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/db";
 import { createLogger } from "@/lib/logging";
@@ -439,7 +440,7 @@ export async function handleWebDavDelete(
         await tx.fileEntry.updateMany({
           where: {
             storageNodeId: ctx.storageNodeId,
-            relativePath: { startsWith: `${entry.relativePath}/` },
+            relativePath: { startsWith: escapeLikeLiteral(`${entry.relativePath}/`) },
             isDeleted: false,
           },
           data: { isDeleted: true, deleteBatchId },
@@ -609,7 +610,7 @@ export async function handleWebDavMove(
             storageNodeId: ctx.storageNodeId,
             OR: [
               { id: existingDest.id },
-              { relativePath: { startsWith: `${destPath}/` } },
+              { relativePath: { startsWith: escapeLikeLiteral(`${destPath}/`) } },
             ],
           },
           data: { isDeleted: true },

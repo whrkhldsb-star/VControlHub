@@ -72,7 +72,8 @@ function makeRow(data: Partial<SessionRow> & { id: string; userId: string }): Se
 }
 
 function makePrismaMock() {
-	return {
+	const db = {
+		$queryRaw: vi.fn(async () => []),
 		mediaUploadSession: {
 			create: vi.fn(
 				async ({ data }: { data: Omit<SessionRow, "id" | "createdAt" | "updatedAt" | "receivedChunks"> & { receivedChunks?: number[] } }) => {
@@ -194,6 +195,10 @@ function makePrismaMock() {
 				},
 			),
 		},
+	};
+	return {
+		...db,
+		$transaction: vi.fn(async (callback: (tx: typeof db) => Promise<unknown>) => callback(db)),
 	};
 }
 
@@ -446,6 +451,25 @@ describe("assembleMediaUploadChunks", () => {
 		await appendMediaUploadChunk({ sessionId: view.id, userId: TEST_USER, index: 0, size: 10, buffer: Buffer.alloc(10, 1) });
 		store.sessions.get(view.id)!.status = "FINALIZING";
 		await expect(appendMediaUploadChunk({ sessionId: view.id, userId: TEST_USER, index: 0, size: 10, buffer: Buffer.alloc(10, 2) })).rejects.toMatchObject({ code: "session_not_active" });
+		expect(await fs.readFile(`${UPLOAD_TMP_DIR}/${view.id}/chunk-0`)).toEqual(Buffer.alloc(10, 1));
+	});
+
+	it("does not replace an existing chunk when finalization wins after the initial state read", async () => {
+		const view = await initMediaUploadSession({
+			userId: TEST_USER, filename: "a.png", mimeType: "image/png", totalSize: 10, chunkSize: 10,
+		});
+		await appendMediaUploadChunk({ sessionId: view.id, userId: TEST_USER, index: 0, size: 10, buffer: Buffer.alloc(10, 1) });
+		const { prisma } = await import("@/lib/db");
+		const find = vi.mocked(prisma.mediaUploadSession.findFirst);
+		const original = find.getMockImplementation()!;
+		find.mockImplementationOnce((async (...args) => {
+			const snapshot = await original(...args);
+			store.sessions.set(view.id, { ...store.sessions.get(view.id)!, status: "FINALIZING" });
+			return snapshot;
+		}) as typeof original);
+
+		const retry = appendMediaUploadChunk({ sessionId: view.id, userId: TEST_USER, index: 0, size: 10, buffer: Buffer.alloc(10, 2) });
+		await expect(retry).rejects.toMatchObject({ code: "session_not_active" });
 		expect(await fs.readFile(`${UPLOAD_TMP_DIR}/${view.id}/chunk-0`)).toEqual(Buffer.alloc(10, 1));
 	});
 

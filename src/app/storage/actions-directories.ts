@@ -1,5 +1,6 @@
 "use server";
 
+import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { auditUserAction } from "@/lib/audit/service";
 import { requirePermission } from "@/lib/auth/authorization";
 import { teamWhere } from "@/lib/auth/team-scope";
@@ -380,7 +381,7 @@ export async function renameFileEntryAction(
       directoryChildren = await prisma.fileEntry.findMany({
         where: {
           storageNodeId: entry.storageNodeId,
-          relativePath: { startsWith: oldPrefix },
+          relativePath: { startsWith: escapeLikeLiteral(oldPrefix) },
         },
         select: { id: true, relativePath: true },
         take: DIRECTORY_CHILD_REWRITE_LIMIT + 1,

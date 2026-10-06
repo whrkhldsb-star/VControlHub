@@ -5,6 +5,8 @@ import {
   createSessionToken,
   createPending2faToken,
   verifyPending2faToken,
+  captureSessionCredentialBinding,
+  assertSessionCredentialBinding,
   reissueSessionForTeam,
 } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
@@ -111,6 +113,25 @@ describe("session auth helpers", () => {
       mustChangePassword: false,
       currentTeamId: null,
     });
+  });
+
+  it("retains the verified credential proof without exposing it in serialized session data", async () => {
+    const row = {
+      id: "u_1", username: "alice", status: "ACTIVE", mustChangePassword: false,
+      passwordHash: "original-credential", sessionEpoch: 4, roles: [],
+    };
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(row as any);
+    const token = await createSessionToken({
+      userId: row.id, username: row.username, roles: [], mustChangePassword: false, currentTeamId: null,
+    });
+    const session = await verifySessionToken(token);
+    expect(() => assertSessionCredentialBinding(session, row)).not.toThrow();
+    expect(() => assertSessionCredentialBinding(session, { ...row, sessionEpoch: 5 })).toThrow();
+    expect(() => assertSessionCredentialBinding(session, { ...row, passwordHash: "reset" })).toThrow();
+    const serialized = JSON.stringify(session);
+    expect(serialized).not.toContain(captureSessionCredentialBinding(row).fingerprint);
+    expect(serialized).not.toContain(row.passwordHash);
+    expect(() => assertSessionCredentialBinding(JSON.parse(serialized), row)).toThrow();
   });
 
   it("resolves the direct grants of a custom role into session.permissions", async () => {
@@ -389,6 +410,11 @@ describe("session auth helpers", () => {
   });
 
   it("round-trips a pending 2FA token and never accepts it as a full session", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      passwordHash: "$2b$10$originalhash",
+      sessionEpoch: 0,
+      status: "ACTIVE",
+    } as any);
     const pending = await createPending2faToken({
       userId: "u_1",
       username: "admin",
@@ -408,7 +434,62 @@ describe("session auth helpers", () => {
     });
 
     // Cookie-swap attack: present pending-2FA token under the session cookie name.
+    vi.mocked(prisma.user.findUnique).mockClear();
     await expect(verifySessionToken(pending)).rejects.toThrow(/audience|Pending 2FA/i);
     expect(prisma.user.findUnique).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["password reset", { passwordHash: "$2b$10$replacementhash", sessionEpoch: 4, status: "ACTIVE" }],
+    ["sign out everywhere", { passwordHash: "$2b$10$originalhash", sessionEpoch: 5, status: "ACTIVE" }],
+    ["account disable", { passwordHash: "$2b$10$originalhash", sessionEpoch: 4, status: "DISABLED" }],
+    ["account deletion", null],
+  ])("rejects an outstanding second-factor login after %s", async (_reason, updatedUser) => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      passwordHash: "$2b$10$originalhash",
+      sessionEpoch: 4,
+      status: "ACTIVE",
+    } as any);
+    const pending = await createPending2faToken({
+      userId: "u_1",
+      username: "alice",
+      roles: ["viewer"],
+      mustChangePassword: false,
+      currentTeamId: "team_1",
+    });
+
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(updatedUser as any);
+
+    await expect(verifyPending2faToken(pending)).resolves.toBeNull();
+  });
+
+  it.each(["password", "epoch"])("does not mint either login token when the proved %s changes during login", async (changed) => {
+    const original = { passwordHash: "$2b$10$originalhash", sessionEpoch: 4, status: "ACTIVE" };
+    const credentialBinding = captureSessionCredentialBinding(original);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      ...original,
+      ...(changed === "password" ? { passwordHash: "$2b$10$newhash" } : { sessionEpoch: 5 }),
+    } as any);
+    const payload = { userId: "u_1", username: "alice", roles: ["viewer"] as ["viewer"], mustChangePassword: false, currentTeamId: null };
+
+    await expect(createSessionToken(payload, { credentialBinding })).rejects.toThrow();
+    await expect(createPending2faToken(payload, { credentialBinding })).rejects.toThrow();
+  });
+
+  it("retains the original credential proof when completing the second factor", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      passwordHash: "$2b$10$originalhash", sessionEpoch: 2, status: "ACTIVE",
+    } as any);
+    const payload = { userId: "u_1", username: "alice", roles: ["viewer"] as ["viewer"], mustChangePassword: false, currentTeamId: null };
+    const pending = await createPending2faToken(payload);
+    const verified = await verifyPending2faToken(pending);
+    expect(verified).not.toBeNull();
+
+    // A revocation while the second factor is being checked must not be
+    // undone by reading the new epoch when minting the full session.
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      passwordHash: "$2b$10$originalhash", sessionEpoch: 3, status: "ACTIVE",
+    } as any);
+    await expect(createSessionToken(payload, { credentialBinding: verified!.credentialBinding })).rejects.toThrow();
   });
 });

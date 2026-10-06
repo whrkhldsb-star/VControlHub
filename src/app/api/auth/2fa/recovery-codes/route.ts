@@ -6,13 +6,14 @@
  * authenticator is gone could never top the set back up, and would be locked
  * out for good once the last code was spent.
  */
-import { NextResponse } from "next/server";
 import { z } from "zod";
 import {
   isAcceptableTwoFactorCodeShape,
   verifyTwoFactorChallenge,
 } from "@/lib/auth/two-factor-challenge";
 import { createTwoFactorRecoveryCodes } from "@/lib/auth/two-factor-recovery";
+import { updateTwoFactorCredentials } from "@/lib/auth/two-factor-settings";
+import { refreshedSessionResponse } from "@/lib/auth/refreshed-session-response";
 import { auditUserAction } from "@/lib/audit/service";
 import { prisma } from "@/lib/db";
 import { ValidationError } from "@/lib/errors";
@@ -46,6 +47,8 @@ export async function POST(request: Request) {
           twoFactorEnabled: true,
           twoFactorSecret: true,
           twoFactorRecoveryCodes: true,
+          passwordHash: true,
+          sessionEpoch: true,
         },
       });
       if (!user?.twoFactorEnabled || !user.twoFactorSecret) {
@@ -62,9 +65,8 @@ export async function POST(request: Request) {
       }
 
       const recovery = createTwoFactorRecoveryCodes();
-      await prisma.user.update({
-        where: { id: session.userId },
-        data: { twoFactorRecoveryCodes: recovery.hashes },
+      const credentialBinding = await updateTwoFactorCredentials(session, user, {
+        twoFactorRecoveryCodes: recovery.hashes,
       });
       await auditUserAction(
         session.userId,
@@ -74,7 +76,7 @@ export async function POST(request: Request) {
         session.currentTeamId,
       );
 
-      return NextResponse.json({ success: true, recoveryCodes: recovery.codes });
+      return refreshedSessionResponse(session, request, { success: true, recoveryCodes: recovery.codes }, credentialBinding);
     },
   );
 }

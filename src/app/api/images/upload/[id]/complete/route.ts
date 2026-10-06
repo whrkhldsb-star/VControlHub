@@ -83,6 +83,10 @@ export async function POST(
           totalSize: true,
           storageNodeId: true,
           relativePath: true,
+          status: true,
+          expiresAt: true,
+          totalChunks: true,
+          receivedChunks: true,
         },
       });
       if (!existing) {
@@ -97,9 +101,31 @@ export async function POST(
         );
       }
 
+      if (!["PENDING", "UPLOADING"].includes(existing.status) || existing.expiresAt.getTime() <= Date.now()) {
+        throw new ValidationError(t("backend.storage.uploadSessionNotActive", locale), { code: "session_not_active" });
+      }
+      const received = new Set(existing.receivedChunks);
+      if (received.size !== existing.totalChunks || Array.from({ length: existing.totalChunks }, (_, index) => index).some((index) => !received.has(index))) {
+        throw new ValidationError(t("backend.storage.chunksMissing", locale), { code: "chunks_incomplete" });
+      }
+      // Freeze the chunks before reading or decoding them. This update and a
+      // concurrent chunk replacement acquire the same PostgreSQL row lock.
+      const claimed = await prisma.mediaUploadSession.updateMany({
+        where: {
+          id: sessionId, userId: session.userId,
+          status: { in: ["PENDING", "UPLOADING"] },
+          expiresAt: { gt: new Date() },
+        },
+        data: { status: "FINALIZING" },
+      });
+      if (claimed.count === 0) {
+        throw new ValidationError(t("backend.storage.uploadSessionNotActive", locale), { code: "session_not_active" });
+      }
+
+      try {
       let assembled: Buffer;
       try {
-        assembled = await assembleMediaUploadChunks(sessionId, session.userId);
+        assembled = await assembleMediaUploadChunks(sessionId, session.userId, { requireFinalizing: true });
       } catch (err) {
         if (err instanceof MediaUploadError) {
           throw new ValidationError(err.message, { code: err.code });
@@ -142,22 +168,6 @@ export async function POST(
 				if (err instanceof ValidationError) throw err;
 				throw new ValidationError(t("api.image.invalidImage", locale));
       }
-
-      const claimed = await prisma.mediaUploadSession.updateMany({
-        where: {
-          id: sessionId, userId: session.userId,
-          status: { in: ["PENDING", "UPLOADING"] },
-          expiresAt: { gt: new Date() },
-        },
-        data: { status: "FINALIZING" },
-      });
-      if (claimed.count === 0) {
-        throw new ValidationError(t("backend.storage.uploadSessionNotActive", locale), {
-          code: "session_not_active",
-        });
-      }
-
-      try {
 
       // Match the direct upload path: variants must never overwrite the original.
       const storageKey = `${crypto.randomUUID()}.${detectedFormat}`;

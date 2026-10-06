@@ -48,6 +48,7 @@ function makeLoginRequest(body: Record<string, string>) {
 
 describe("POST /api/login", () => {
   const oldEnv = { ...process.env };
+  const credentialBinding = { fingerprint: "proved-password", epoch: 3 };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -60,6 +61,7 @@ describe("POST /api/login", () => {
       preferences: { defaultPage: "/", dashboardWidgets: ["server-status", "quick-links", "analytics", "audit-log"], notificationsEnabled: true, notificationSound: true, autoRefreshInterval: 30 },
       twoFactorEnabled: false,
       hasTwoFactorSecret: false,
+      credentialBinding,
     });
   });
 
@@ -74,7 +76,7 @@ describe("POST /api/login", () => {
 
     expect(response.status).toBe(303);
     expect(response.headers.get("location")).toBe("/servers");
-    expect(createSessionTokenMock).toHaveBeenCalledWith(expect.objectContaining({ userId: "u_1" }), { remember: false });
+    expect(createSessionTokenMock).toHaveBeenCalledWith(expect.objectContaining({ userId: "u_1" }), { remember: false, credentialBinding });
     expect(response.headers.getSetCookie().join("\n")).toContain("Max-Age=1234");
   });
 
@@ -83,7 +85,7 @@ describe("POST /api/login", () => {
 
     const response = await POST(makeLoginRequest({ username: "admin", password: "secret", remember: "on" }));
 
-    expect(createSessionTokenMock).toHaveBeenCalledWith(expect.objectContaining({ userId: "u_1" }), { remember: true });
+    expect(createSessionTokenMock).toHaveBeenCalledWith(expect.objectContaining({ userId: "u_1" }), { remember: true, credentialBinding });
     const cookies = response.headers.getSetCookie().join("\n");
     expect(cookies).toContain("test_session=session-token");
     expect(cookies).toContain("csrf_token=csrf-token");
@@ -134,6 +136,7 @@ describe("POST /api/login", () => {
       twoFactorEnabled: true,
       hasTwoFactorSecret: true,
       currentTeamId: null,
+      credentialBinding,
     });
 
     const response = await POST(makeLoginRequest({ username: "admin", password: "secret", remember: "on" }));
@@ -143,7 +146,7 @@ describe("POST /api/login", () => {
     expect(createPending2faTokenMock).toHaveBeenCalledWith(expect.objectContaining({
       userId: "u_1",
       remember: true,
-    }));
+    }), { credentialBinding });
     expect(response.headers.getSetCookie().join("\n")).toContain("test_pending_2fa=pending-token");
   });
 

@@ -7,6 +7,8 @@ import { changePasswordSchema, loginSchema, type ChangePasswordInput, type Login
 import { DEFAULT_ROLE_PERMISSIONS, type Permission, type RoleKey } from "./rbac";
 import { normalizeUserPreferencesForSession, type UserPreferences } from "@/lib/preferences/user-preferences";
 import { resolveEffectivePermissions } from "./effective-permissions";
+import { captureSessionCredentialBinding, type SessionCredentialBinding } from "./session";
+import { t } from "@/lib/i18n/service-translations";
 
 export type AuthenticatedUser = {
  id: string;
@@ -21,12 +23,13 @@ export type AuthenticatedUser = {
  permissions: Permission[];
  preferences: UserPreferences;
  currentTeamId: string | null;
+ /** Server-only proof; never return this authentication result as an API DTO. */
+ credentialBinding: SessionCredentialBinding;
 };
 
-export type ChangePasswordResult = {
-  success: boolean;
-  error?: string;
-};
+export type ChangePasswordResult =
+  | { success: true; credentialBinding: SessionCredentialBinding }
+  | { success: false; error: string };
 
 // `skipPasswordChange` was removed deliberately: every writer of
 // `mustChangePassword = true` (bootstrap admin, admin-provisioned accounts,
@@ -102,6 +105,7 @@ export async function authenticateUser(input: LoginInput): Promise<Authenticated
    permissions,
  }),
  currentTeamId: user.currentTeamId,
+ credentialBinding: captureSessionCredentialBinding(user),
  };
 }
 
@@ -117,6 +121,7 @@ export async function changePassword(input: ChangePasswordInput & { userId: stri
     select: {
       id: true,
       passwordHash: true,
+      sessionEpoch: true,
     },
   });
 
@@ -136,17 +141,32 @@ export async function changePassword(input: ChangePasswordInput & { userId: stri
 
   const nextPasswordHash = await hashPassword(payload.newPassword);
 
-	await prisma.user.update({
-		where: { id: input.userId },
+	const updated = await prisma.user.updateMany({
+		where: {
+			id: input.userId,
+			passwordHash: user.passwordHash,
+			sessionEpoch: user.sessionEpoch ?? 0,
+			status: { not: "DISABLED" },
+		},
 		data: {
 			passwordHash: nextPasswordHash,
 			mustChangePassword: false,
 			status: "ACTIVE",
+			sessionEpoch: { increment: 1 },
 		},
 	});
+	if (updated.count !== 1) {
+		return { success: false, error: t("backend.auth.sessionCredentialsChanged") };
+	}
 
 	// Account-level, deliberately unstamped — see auth.password_change_skipped.
 	await auditUserAction(input.userId, "auth.password_change", { userId: input.userId });
 
-	return { success: true };
+	return {
+		success: true,
+		credentialBinding: captureSessionCredentialBinding({
+			passwordHash: nextPasswordHash,
+			sessionEpoch: (user.sessionEpoch ?? 0) + 1,
+		}),
+	};
 }

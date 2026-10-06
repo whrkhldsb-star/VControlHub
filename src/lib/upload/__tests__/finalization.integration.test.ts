@@ -1,10 +1,10 @@
 // @vitest-environment node
 import { randomUUID } from "node:crypto";
-import { mkdir, readdir, rm } from "node:fs/promises";
+import { mkdir, readFile, readdir, rm } from "node:fs/promises";
 import sharp from "sharp";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/db";
-import { appendMediaUploadChunk, cleanupMediaUploadTempDir, initMediaUploadSession, readSessionTempDir } from "../service";
+import { appendMediaUploadChunk, assembleMediaUploadChunks, cleanupMediaUploadTempDir, initMediaUploadSession, readSessionTempDir, UPLOAD_TMP_DIR } from "../service";
 import { POST } from "@/app/api/images/upload/[id]/complete/route";
 
 const fixture = vi.hoisted(() => ({
@@ -75,6 +75,48 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("image final
     return session.id;
   };
   const complete = (sessionId: string) => POST(new Request(`http://local/api/images/upload/${sessionId}/complete`, { method: "POST" }), { params: Promise.resolve({ id: sessionId }) });
+
+  it("keeps chunks immutable when a database finalizer wins against an in-flight duplicate", async () => {
+    const sessionId = await upload();
+    const chunkPath = `${UPLOAD_TMP_DIR}/${sessionId}/chunk-0`;
+    const original = await readFile(chunkPath);
+    let locked!: () => void;
+    let release!: () => void;
+    const acquired = new Promise<void>((resolve) => { locked = resolve; });
+    const released = new Promise<void>((resolve) => { release = resolve; });
+    const finalizer = prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM media_upload_sessions WHERE id = ${sessionId} FOR UPDATE`;
+      await tx.mediaUploadSession.update({ where: { id: sessionId }, data: { status: "FINALIZING" } });
+      locked();
+      await released;
+    }, { timeout: 10_000 });
+    await acquired;
+    let settled = false;
+    const retry = appendMediaUploadChunk({ sessionId, userId: id, index: 0, size: original.length, buffer: Buffer.alloc(original.length, 2) })
+      .then((value) => ({ value, error: null }), (error: unknown) => ({ value: null, error }))
+      .finally(() => { settled = true; });
+    try {
+      await vi.waitFor(async () => {
+        expect((await readSessionTempDir(sessionId)).some((name) => name.endsWith(".tmp"))).toBe(true);
+      }, { timeout: 3_000 });
+      expect(settled).toBe(false);
+      expect(await readFile(chunkPath)).toEqual(original);
+    } finally {
+      release();
+      await finalizer;
+    }
+    expect((await retry).error).toMatchObject({ code: "session_not_active" });
+    expect(await readFile(chunkPath)).toEqual(original);
+    expect(await readSessionTempDir(sessionId)).toEqual(["chunk-0"]);
+  });
+
+  it("retains every index under sixteen parallel chunk writes", async () => {
+    const session = await initMediaUploadSession({ userId: id, filename: "parallel.bin", mimeType: "application/octet-stream", totalSize: 64, chunkSize: 4 });
+    sessions.push(session.id);
+    const buffers = Array.from({ length: 16 }, (_, index) => Buffer.alloc(4, index));
+    await Promise.all(buffers.map((buffer, index) => appendMediaUploadChunk({ sessionId: session.id, userId: id, index, size: buffer.length, buffer })));
+    expect(await assembleMediaUploadChunks(session.id, id)).toEqual(Buffer.concat(buffers));
+  });
 
   it("commits one image and one linked index under eight competing finalizers", async () => {
     const sessionId = await upload();

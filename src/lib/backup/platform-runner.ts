@@ -1,8 +1,9 @@
 /**
  * Backup/restore command dispatch per platform.
  *
- * POSIX keeps the battle-tested bash scripts (deploy/backup.sh +
- * scripts/restore-*.sh). Windows — where the deployment has no bash and no
+ * POSIX keeps its bash entrypoints (deploy/backup.sh + scripts/restore-*.sh);
+ * backup and database/full restore wrappers share the Node implementations.
+ * Windows — where the deployment has no bash and no
  * GNU toolchain guarantee — runs the Node implementations (scripts/backup.mjs
  * + scripts/restore.mjs) through the current Node executable, so services
  * never depend on `node` being on PATH.

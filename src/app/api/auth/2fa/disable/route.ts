@@ -13,7 +13,7 @@ import {
   isAcceptableTwoFactorCodeShape,
   verifyTwoFactorChallenge,
 } from "@/lib/auth/two-factor-challenge";
-import { bumpUserSessionEpoch } from "@/lib/auth/session";
+import { updateTwoFactorCredentials } from "@/lib/auth/two-factor-settings";
 import { refreshedSessionResponse } from "@/lib/auth/refreshed-session-response";
 import { auditUserAction } from "@/lib/audit/service";
 import { prisma } from "@/lib/db";
@@ -47,6 +47,8 @@ export async function POST(request: Request) {
           twoFactorEnabled: true,
           twoFactorSecret: true,
           twoFactorRecoveryCodes: true,
+          passwordHash: true,
+          sessionEpoch: true,
         },
       });
 
@@ -64,15 +66,13 @@ export async function POST(request: Request) {
         throw new ValidationError(t("api.auth.twoFactor.invalidCode", locale));
       }
 
-      await prisma.user.update({
-        where: { id: session.userId },
-        data: { twoFactorEnabled: false, twoFactorSecret: null, twoFactorRecoveryCodes: Prisma.DbNull },
+      const credentialBinding = await updateTwoFactorCredentials(session, user, {
+        twoFactorEnabled: false, twoFactorSecret: null, twoFactorRecoveryCodes: Prisma.DbNull,
       });
 
       // A security posture downgrade: retire every session of the account
       // (including possibly stolen cookies), then re-mint this browser's so
       // the operator is not bounced to the login screen by their own action.
-      await bumpUserSessionEpoch(session.userId);
 
       await auditUserAction(
         session.userId,
@@ -82,7 +82,7 @@ export async function POST(request: Request) {
         session.currentTeamId,
       );
 
-      return refreshedSessionResponse(session, request, { success: true });
+      return refreshedSessionResponse(session, request, { success: true }, credentialBinding);
     },
   );
 }

@@ -1,3 +1,4 @@
+import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { randomUUID } from "node:crypto";
 import { readdir, link, unlink, lstat, rmdir } from "node:fs/promises";
@@ -236,7 +237,7 @@ export async function copyFileEntry(input: {
       where: {
         storageNodeId: node.id,
         isDeleted: true,
-        relativePath: { startsWith: `${source.path}/` },
+        relativePath: { startsWith: escapeLikeLiteral(`${source.path}/`) },
       },
       select: { relativePath: true },
       take: 10001,

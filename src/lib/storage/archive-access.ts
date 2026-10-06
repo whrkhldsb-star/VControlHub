@@ -1,3 +1,4 @@
+import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import type { Readable } from "node:stream";
 import path from "node:path";
 import { prisma } from "@/lib/db";
@@ -39,7 +40,7 @@ export async function openManagedArchive(input: {
         isDeleted: true,
         OR: [
           { relativePath: { in: ancestors } },
-          { relativePath: { startsWith: `${input.relativePath}/` } },
+          { relativePath: { startsWith: escapeLikeLiteral(`${input.relativePath}/`) } },
         ],
       },
       select: { relativePath: true },

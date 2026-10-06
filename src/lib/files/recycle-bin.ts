@@ -1,3 +1,4 @@
+import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { z } from "zod";
 import type { SessionPayload } from "@/lib/auth/session";
 import { teamWhere } from "@/lib/auth/team-scope";
@@ -86,7 +87,7 @@ function scopeWhere(
             storageNodeId: rule.storageNodeId,
             OR: [
               { relativePath: rule.pathPrefix },
-              { relativePath: { startsWith: `${rule.pathPrefix}/` } },
+              { relativePath: { startsWith: escapeLikeLiteral(`${rule.pathPrefix}/`) } },
             ],
           }
         : { storageNodeId: rule.storageNodeId },

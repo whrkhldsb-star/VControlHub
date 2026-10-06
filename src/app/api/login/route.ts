@@ -163,7 +163,7 @@ export async function POST(request: Request) {
 				mustChangePassword: user.mustChangePassword,
 				currentTeamId: user.currentTeamId,
 				remember: rememberSession,
-			});
+			}, { credentialBinding: user.credentialBinding });
 			const cookieSecure = isRequestHttps(request);
 			const params = new URLSearchParams({ next: nextPath });
 			const response = redirectWithRelativeLocation(`/login/verify-2fa?${params.toString()}`);
@@ -188,7 +188,7 @@ export async function POST(request: Request) {
 			roles: user.roles,
 			mustChangePassword: user.mustChangePassword,
 			currentTeamId: user.currentTeamId,
-		}, { remember: rememberSession });
+		}, { remember: rememberSession, credentialBinding: user.credentialBinding });
 
 		const cookieSecure = isRequestHttps(request);
 		const response = redirectWithRelativeLocation(nextPath);

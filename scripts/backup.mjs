@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * Cross-platform backup runner (Node implementation of deploy/backup.sh +
- * scripts/backup-db.sh) used on Windows hosts where bash/pg toolchain shell
- * wrappers are unavailable. POSIX deployments keep the original bash scripts.
+ * Cross-platform backup runner, also used by the Linux compatibility wrappers
+ * deploy/backup.sh and scripts/backup-db.sh. All entrypoints share atomic
+ * publication, retention and PostgreSQL credential handling.
  *
  * Modes:
  *   node scripts/backup.mjs [output.sql.gz]            — database backup

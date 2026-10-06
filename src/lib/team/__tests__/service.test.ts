@@ -186,7 +186,7 @@ describe("team workspace service", () => {
 		await listTeamsForSession(adminSession);
 
 		const where = prismaMock.team.findMany.mock.calls[0]?.[0].where;
-		expect(where).toMatchObject({ NOT: { slug: { startsWith: "__deleted__" } } });
+		expect(where).toMatchObject({ NOT: { slug: { startsWith: "\\_\\_deleted\\_\\_" } } });
 	});
 
 	it("reports no current workspace when the stored pointer is not in the list", async () => {

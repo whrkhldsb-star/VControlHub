@@ -68,7 +68,7 @@ describe("changePasswordAction", () => {
       mustChangePassword: true,
       currentTeamId: "team_a",
     });
-    mocks.changePassword.mockResolvedValue({ success: true });
+    mocks.changePassword.mockResolvedValue({ success: true, credentialBinding: { fingerprint: "new-password-proof", epoch: 2 } });
     mocks.createSessionToken.mockResolvedValue("fresh.token");
     mocks.getConfiguredSessionTtlSeconds.mockResolvedValue(604_800);
     mocks.headerGet.mockReturnValue("https");
@@ -97,6 +97,7 @@ describe("changePasswordAction", () => {
         mustChangePassword: false,
         currentTeamId: "team_a",
       }),
+      { credentialBinding: { fingerprint: "new-password-proof", epoch: 2 } },
     );
   });
 

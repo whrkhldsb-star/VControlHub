@@ -198,7 +198,7 @@ export async function POST(request: Request) {
 				mustChangePassword: user.mustChangePassword,
 				currentTeamId: user.currentTeamId,
 			},
-			{ remember: rememberSession },
+			{ remember: rememberSession, credentialBinding: sessionPayload.credentialBinding },
 		);
 		const csrfToken = generateCsrfToken();
 		const cookieSecure = isRequestHttps(request);

@@ -66,6 +66,7 @@ const sessionPayload = {
 	roles: ["admin"],
 	mustChangePassword: false,
 	currentTeamId: null,
+	credentialBinding: { fingerprint: "proved-password", epoch: 3 },
 };
 
 describe("POST /api/auth/2fa/verify-login", () => {
@@ -111,7 +112,7 @@ describe("POST /api/auth/2fa/verify-login", () => {
 				mustChangePassword: false,
 				currentTeamId: null,
 			},
-			{ remember: false },
+			{ remember: false, credentialBinding: sessionPayload.credentialBinding },
 		);
 		expect(getConfiguredSessionTtlSecondsMock).toHaveBeenCalledWith(false);
 		const setCookies = response.headers.getSetCookie();
@@ -159,7 +160,7 @@ describe("POST /api/auth/2fa/verify-login", () => {
 				mustChangePassword: false,
 				currentTeamId: "team_1",
 			},
-			{ remember: false },
+			{ remember: false, credentialBinding: sessionPayload.credentialBinding },
 		);
 	});
 
@@ -203,7 +204,7 @@ describe("POST /api/auth/2fa/verify-login", () => {
 				mustChangePassword: false,
 				currentTeamId: null,
 			},
-			{ remember: true },
+			{ remember: true, credentialBinding: sessionPayload.credentialBinding },
 		);
 		expect(getConfiguredSessionTtlSecondsMock).toHaveBeenCalledWith(true);
 		const cookies = response.headers.getSetCookie().join("\n");

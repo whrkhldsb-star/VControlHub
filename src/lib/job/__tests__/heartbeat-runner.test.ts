@@ -1,8 +1,72 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { LeaseLostError, runWithLeaseHeartbeat } from "../heartbeat-runner";
 
 describe("runWithLeaseHeartbeat", () => {
+  afterEach(() => { vi.useRealTimers(); });
+
+  it("aborts at lease expiry even when the database heartbeat never returns", async () => {
+    vi.useFakeTimers();
+    let signal!: AbortSignal;
+    let release!: () => void;
+    const operation = new Promise<string>((resolve) => { release = () => resolve("done"); });
+    const heartbeat = vi.fn(() => new Promise<never>(() => undefined));
+    const result = runWithLeaseHeartbeat({
+      jobId: "stalled-database", leaseMs: 30_000, heartbeat,
+      run: (value) => { signal = value; return operation; },
+    }).catch((error: unknown) => error);
+    await vi.advanceTimersByTimeAsync(30_001);
+    const abortedAtExpiry = signal.aborted;
+    release();
+    const outcome = await result;
+    expect(abortedAtExpiry).toBe(true);
+    expect(outcome).toBeInstanceOf(LeaseLostError);
+    expect(heartbeat).toHaveBeenCalledTimes(1);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("still aborts the operation when a failure callback throws", async () => {
+    vi.useFakeTimers();
+    let signal!: AbortSignal;
+    let release!: () => void;
+    const operation = new Promise<string>((resolve) => { release = () => resolve("done"); });
+    const result = runWithLeaseHeartbeat({
+      jobId: "callback-failure", leaseMs: 30_000,
+      heartbeat: async () => ({ count: 0 }),
+      onHeartbeatFailure: () => { throw new Error("callback failed"); },
+      run: (value) => { signal = value; return operation; },
+    }).catch((error: unknown) => error);
+    await vi.advanceTimersByTimeAsync(10_000);
+    const aborted = signal.aborted;
+    release();
+    expect(await result).toBeInstanceOf(LeaseLostError);
+    expect(aborted).toBe(true);
+  });
+
+  it("does not extend a renewed lease by the database response latency", async () => {
+    vi.useFakeTimers();
+    let signal!: AbortSignal;
+    let release!: () => void;
+    let acknowledge!: (result: { count: number }) => void;
+    const heartbeat = vi.fn(() => new Promise<{ count: number }>((resolve) => { acknowledge = resolve; }));
+    const result = runWithLeaseHeartbeat({
+      jobId: "slow-renewal", leaseMs: 30_000, heartbeat,
+      run: (value) => { signal = value; return new Promise<string>((resolve) => { release = () => resolve("done"); }); },
+    }).catch((error: unknown) => error);
+    await vi.advanceTimersByTimeAsync(29_000);
+    acknowledge({ count: 1 }); // Renewal started at 10s, so its lease ends at 40s.
+    await vi.advanceTimersByTimeAsync(0);
+    expect(signal.aborted).toBe(false);
+    await vi.advanceTimersByTimeAsync(11_001);
+    expect(signal.aborted).toBe(true);
+    acknowledge({ count: 1 }); // A late response must not resurrect ownership.
+    await vi.advanceTimersByTimeAsync(0);
+    release();
+    expect(await result).toBeInstanceOf(LeaseLostError);
+    expect(heartbeat).toHaveBeenCalledTimes(2);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   it("treats heartbeat count=0 as lease loss after the run settles", async () => {
     vi.useFakeTimers();
     const heartbeat = vi.fn().mockResolvedValue({ count: 0 });

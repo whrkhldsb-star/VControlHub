@@ -1,3 +1,4 @@
+import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { sessionHasPermission } from "@/lib/auth/authorization";
@@ -83,7 +84,7 @@ async function softDeleteSftpIndex(storageNodeId: string, relativePath: string, 
         storageNodeId,
         OR: [
           { relativePath },
-          { relativePath: { startsWith: normalizedPrefix } },
+          { relativePath: { startsWith: escapeLikeLiteral(normalizedPrefix) } },
         ],
       },
     });
@@ -99,7 +100,7 @@ async function softDeleteSftpIndex(storageNodeId: string, relativePath: string, 
           storageNodeId,
           OR: [
             { relativePath },
-            { relativePath: { startsWith: normalizedPrefix } },
+            { relativePath: { startsWith: escapeLikeLiteral(normalizedPrefix) } },
           ],
         }
       : { storageNodeId, relativePath },
@@ -148,7 +149,7 @@ async function renameSftpIndex(storageNodeId: string, oldRelativePath: string, n
     const children = await prisma.fileEntry.findMany({
       where: {
         storageNodeId,
-        relativePath: { startsWith: oldPrefix },
+        relativePath: { startsWith: escapeLikeLiteral(oldPrefix) },
         isDeleted: false,
       },
       select: { id: true, relativePath: true },
