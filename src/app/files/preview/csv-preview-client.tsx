@@ -2,96 +2,43 @@
 
 import { useI18n } from "@/lib/i18n/use-locale";
 import { getErrorMessage } from "@/lib/http/error-message";
-import { useAbortableTextResource } from "@/lib/http/use-abortable-text-resource";
+import { apiRequest } from "@/lib/http/api-client";
+import { useEffect, useState } from "react";
+import { readDelimitedPreview, tableDelimiter } from "@/lib/storage/delimited-preview";
 import { AlertTriangle, File } from "@/components/icons";
 import { StatusBadge } from "@/components/status-badge";
 import { InlineLoading, Notice } from "@/components/ui-primitives";
 
 
-function parseCsv(text: string): string[][] {
-	const rows: string[][] = [];
-	let current = 0;
-	const len = text.length;
-
-	function parseField(): string {
-		if (current >= len) return "";
-		if (text[current] === '"') {
-			current++; // skip opening quote
-			let field = "";
-			while (current < len) {
-				if (text[current] === '"') {
-					if (current + 1 < len && text[current + 1] === '"') {
-						field += '"';
-						current += 2;
-					} else {
-						current++; // skip closing quote
-						break;
-					}
-				} else {
-					field += text[current];
-					current++;
-				}
-			}
-			return field;
-		} else {
-			let field = "";
-			while (current < len && text[current] !== "," && text[current] !== "\n" && text[current] !== "\r") {
-				field += text[current];
-				current++;
-			}
-			return field.trim();
-		}
-	}
-
-	function parseRow(): string[] {
-		const fields: string[] = [];
-		while (current < len) {
-			fields.push(parseField());
-			if (current < len && text[current] === ",") {
-				current++;
-			} else {
-				break;
-			}
-		}
-		// skip newline
-		if (current < len && text[current] === "\r") current++;
-		if (current < len && text[current] === "\n") current++;
-		return fields;
-	}
-
-	while (current < len) {
-		const row = parseRow();
-		if (row.length > 0 && !(row.length === 1 && row[0] === "")) {
-			rows.push(row);
-		}
-	}
-	return rows;
-}
-
-export function CsvPreviewClient({ href }: { href: string }) {
+export function CsvPreviewClient({ href, name = "", mimeType = "" }: { href: string; name?: string; mimeType?: string }) {
 	const { t } = useI18n();
-	const resource = useAbortableTextResource({
-		href,
-		errorMessage: (status) => t("csvPreview.loadFailedWithStatus", { status }),
-		getErrorMessage: (error) => getErrorMessage(error, t("csvPreview.loadFailed")),
-	});
-	let rows: string[][] | null = null;
-	let parseError: string | null = null;
-	if (resource.content !== null) {
-		try {
-			rows = parseCsv(resource.content);
-		} catch (error) {
-			parseError = getErrorMessage(error, t("csvPreview.parseFailed"));
-		}
-	}
-	const state = { loading: resource.loading, rows, error: resource.error ?? parseError };
-
-	const maxRows = 500;
-	const header = state.loading ? [] : (state.rows?.[0] ?? []);
-	const dataRows = state.loading ? [] : (state.rows?.slice(1) ?? []);
-	const displayRows = dataRows.slice(0, maxRows);
-	const truncated = dataRows.length > maxRows;
-	const colCount = header.length || (displayRows[0]?.length ?? 0);
+	const delimiter = tableDelimiter(name, mimeType);
+	const [state, setState] = useState<{ loading: boolean; rows: string[][]; truncated: boolean; error: string | null }>({ loading: true, rows: [], truncated: false, error: null });
+	useEffect(() => {
+		const controller = new AbortController();
+		const timer = window.setTimeout(() => {
+			setState({ loading: true, rows: [], truncated: false, error: null });
+			void (async () => {
+				try {
+					const response = await apiRequest<Response>(href, { signal: controller.signal, raw: true });
+					if (!response.ok) { await response.body?.cancel(); throw new Error(t("csvPreview.loadFailedWithStatus", { status: response.status })); }
+					const preview = await readDelimitedPreview(response, delimiter, controller.signal);
+					if (!controller.signal.aborted) setState({ loading: false, ...preview, error: null });
+				} catch (error) {
+					if (!controller.signal.aborted) {
+						const message = getErrorMessage(error, t("csvPreview.parseFailed"));
+						setState({ loading: false, rows: [], truncated: false, error: message.startsWith("csvPreview.") ? t(message) : message });
+					}
+				}
+			})();
+		}, 0);
+		return () => { window.clearTimeout(timer); controller.abort(); };
+	}, [href, delimiter, t]);
+	const colCount = Math.max(0, ...state.rows.map((row) => row.length));
+	const header = Array.from({ length: colCount }, (_, index) => state.rows[0]?.[index] ?? "");
+	const dataRows = state.rows.slice(1);
+	const displayRows = dataRows;
+	const truncated = state.truncated;
 
 	if (state.loading) {
 		return <InlineLoading label={t("csvPreview.loading")} className="py-16" />;
@@ -106,7 +53,7 @@ export function CsvPreviewClient({ href }: { href: string }) {
 		);
 	}
 
-	if (!state.rows || state.rows.length === 0) {
+	if (state.rows.length === 0 && !truncated) {
 		return (
 			<div className="flex flex-col items-center gap-3 py-16 text-[var(--text-secondary)]">
 				<File size={32} aria-hidden="true" />
@@ -145,7 +92,7 @@ export function CsvPreviewClient({ href }: { href: string }) {
 			</div>
 			{truncated ? (
 				<Notice tone="warning">
-					{t("csvPreview.largeWarning", { max: maxRows, total: dataRows.length })}
+					{t("csvPreview.boundedWarning")}
 				</Notice>
 			) : null}
 		</div>

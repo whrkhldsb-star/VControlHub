@@ -26,6 +26,7 @@ import {
 import { abandonStaleRunningBackupRecords } from "@/lib/backup/service";
 import { pruneAuditLogs } from "@/lib/audit/retention";
 import { reconcileStaleRunningDownloadTasks } from "@/lib/downloads/reconcile";
+import { recoverInterruptedFinalizations } from "@/lib/upload/finalization-lease";
 import { sweepExpiredMediaUploadSessions } from "@/lib/upload/service";
 import { pruneThumbnailCache } from "@/lib/media/thumbnail-cache";
 import { createSingletonIntervalWorker } from "@/lib/workers/singleton-interval-worker";
@@ -319,6 +320,10 @@ async function tick(reason: string) {
     // Reclaim temp chunks + session rows from uploads abandoned mid-flight (tab
     // closed / network dropped). The sweep function existed but was never
     // scheduled, so /tmp and mediaUploadSession grew unbounded.
+    await runStep("recover-interrupted-upload-finalizations", async () => {
+      const recovered = await recoverInterruptedFinalizations();
+      if (recovered > 0) logger.warn("upload finalizations require review; retained all data", { workerId: WORKER_ID, recovered });
+    });
     await runStep("sweep-expired-upload-sessions", async () => {
       const swept = await sweepExpiredMediaUploadSessions();
       if (swept > 0) {

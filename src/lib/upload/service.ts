@@ -98,6 +98,7 @@ function toView(row: {
 	resultImageId: string | null;
 	checksum: string | null;
 	errorMessage: string | null;
+	recoveryRequired?: boolean;
 	expiresAt: Date;
 	completedAt: Date | null;
 	createdAt: Date;
@@ -124,6 +125,7 @@ function toView(row: {
 		resultImageId: row.resultImageId,
 		checksum: row.checksum,
 		errorMessage: row.errorMessage,
+		recoveryRequired: row.recoveryRequired ?? false,
 		completedAt: row.completedAt ? row.completedAt.toISOString() : null,
 		expiresAt: row.expiresAt.toISOString(),
 		createdAt: row.createdAt.toISOString(),
@@ -399,6 +401,7 @@ export async function completeMediaUploadSession(params: {
 	resultImageId?: string;
 	allowedStatuses?: Array<"PENDING" | "UPLOADING" | "FINALIZING">;
 	transaction?: Prisma.TransactionClient;
+	finalizationToken?: string;
 }): Promise<MediaUploadSessionView> {
 	const { sessionId, userId, buffer, resultImageId } = params;
 	const allowedStatuses = params.allowedStatuses ?? ["PENDING", "UPLOADING"];
@@ -411,6 +414,7 @@ export async function completeMediaUploadSession(params: {
 			id: sessionId,
 			userId,
 			status: { in: allowedStatuses },
+			...(params.finalizationToken ? { finalizationToken: params.finalizationToken, finalizationLeaseUntil: { gt: new Date() } } : {}),
 		},
 		data: {
 			status: "COMPLETED",

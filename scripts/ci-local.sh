@@ -45,6 +45,9 @@ npm run audit:high
 step "prisma generate"
 npx prisma generate >/dev/null
 
+step "project documentation"
+npm run docs:check
+
 step "typecheck (CI gate #1)"
 npm run typecheck
 

@@ -2091,24 +2091,29 @@ model AppSourceApp {
 // handed off to the existing image pipeline; on CANCELLED/expired, the temp
 // dir is removed.
 model MediaUploadSession {
-  id             String                   @id @default(cuid())
-  userId         String
-  filename       String
-  mimeType       String
-  totalSize      BigInt
-  chunkSize      Int
-  totalChunks    Int
-  receivedChunks Int[]                    @default([])
-  storageNodeId  String?
-  relativePath   String?
-  status         MediaUploadSessionStatus @default(PENDING)
-  resultImageId  String? // populated when status = COMPLETED
-  checksum       String? // sha256 of assembled file
-  errorMessage   String?
-  expiresAt      DateTime
-  completedAt    DateTime? // populated when status = COMPLETED
-  createdAt      DateTime                 @default(now())
-  updatedAt      DateTime                 @updatedAt
+  id                     String                   @id @default(cuid())
+  userId                 String
+  filename               String
+  mimeType               String
+  totalSize              BigInt
+  chunkSize              Int
+  totalChunks            Int
+  receivedChunks         Int[]                    @default([])
+  storageNodeId          String?
+  relativePath           String?
+  status                 MediaUploadSessionStatus @default(PENDING)
+  // A fenced finalizer owns the write until its renewable lease expires.
+  finalizationToken      String?
+  finalizationLeaseUntil DateTime?
+  recoveryRequired       Boolean                  @default(false)
+  recoveryMetadata       Json?
+  resultImageId          String? // populated when status = COMPLETED
+  checksum               String? // sha256 of assembled file
+  errorMessage           String?
+  expiresAt              DateTime
+  completedAt            DateTime? // populated when status = COMPLETED
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime                 @updatedAt
 
   user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   storageNode StorageNode? @relation(fields: [storageNodeId], references: [id], onDelete: SetNull)
@@ -2116,6 +2121,7 @@ model MediaUploadSession {
 
   @@index([userId, createdAt])
   @@index([status, expiresAt])
+  @@index([status, finalizationLeaseUntil])
   @@map("media_upload_sessions")
 }
 

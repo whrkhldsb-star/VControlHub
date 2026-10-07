@@ -16,7 +16,7 @@ import { apiCopy } from "@/lib/i18n/api-copy";
  * Permission: storage:write (session-based, owner-scoped via service).
  */
 import * as crypto from "node:crypto";
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import * as path from "node:path";
 
 import { NextResponse } from "next/server";
@@ -43,13 +43,13 @@ import {
   MediaUploadError,
 } from "@/lib/upload/service";
 import { auditUserAction } from "@/lib/audit/service";
-import { ForbiddenError, ValidationError } from "@/lib/errors";
+import { beginUploadFinalization, recordFinalizationFailure } from "@/lib/upload/finalization-lease";
+import { UploadOutcomeUnknownError, ForbiddenError, ValidationError } from "@/lib/errors";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { MAX_IMAGE_UPLOAD_BYTES } from "@/lib/upload/types";
 import { assertStorageAccess, releaseStorageQuotaGuard } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import {
-  deleteStorageFileBuffer,
   storageFileNodeSelect,
   writeStorageFileBuffer,
   type StorageFileNode,
@@ -110,17 +110,7 @@ export async function POST(
       }
       // Freeze the chunks before reading or decoding them. This update and a
       // concurrent chunk replacement acquire the same PostgreSQL row lock.
-      const claimed = await prisma.mediaUploadSession.updateMany({
-        where: {
-          id: sessionId, userId: session.userId,
-          status: { in: ["PENDING", "UPLOADING"] },
-          expiresAt: { gt: new Date() },
-        },
-        data: { status: "FINALIZING" },
-      });
-      if (claimed.count === 0) {
-        throw new ValidationError(t("backend.storage.uploadSessionNotActive", locale), { code: "session_not_active" });
-      }
+      const lease = await beginUploadFinalization(sessionId, session.userId);
 
       try {
       let assembled: Buffer;
@@ -179,21 +169,26 @@ export async function POST(
       const webpPath = path.join(UPLOAD_DIR, `${base}.webp`);
       const avifPath = path.join(UPLOAD_DIR, `${base}.avif`);
 
-      await mkdir(UPLOAD_DIR, { recursive: true });
-
-      const writtenPaths: string[] = [];
       let linkedStorageRelativePath: string | null = null;
       let linkedStorageNode: StorageFileNode | null = null;
-      try {
+      if (existing.storageNodeId && existing.relativePath) {
+        storageAccess = await assertStorageAccess({ session, storageNodeId: existing.storageNodeId, relativePath: existing.relativePath, operation: "write", writeBytes: assembled.byteLength });
+        if (!storageAccess.allowed) throw new ForbiddenError(storageAccessDeniedCopy(storageAccess.reason));
+        const node = await prisma.storageNode.findFirst({ where: { id: existing.storageNodeId, ...teamWhere(session) }, select: storageFileNodeSelect });
+        if (!node || (node.driver !== "LOCAL" && node.driver !== "SFTP")) throw new ValidationError(apiCopy("apiCopy.storage.node.does.not.support.media.uploads.0d4e9d55"));
+        linkedStorageNode = node;
+        linkedStorageRelativePath = `${existing.relativePath.replace(/\/$/, "")}/${storageKey}`;
+      }
+      await lease.beforeWrite({ kind: "image", storageKey, checksum, paths: [originalPath, thumbPath, webpPath, avifPath], storageNodeId: existing.storageNodeId, relativePath: linkedStorageRelativePath });
+      await mkdir(UPLOAD_DIR, { recursive: true });
+
+      {
         const [originalResult] = await Promise.allSettled([
-          writeFile(originalPath, assembled).then(() => {
-            writtenPaths.push(originalPath);
-          }),
+          writeFile(originalPath, assembled),
           (async () => {
             try {
               const thumb = await generateThumbnail(assembled);
               await writeFile(thumbPath, thumb);
-              writtenPaths.push(thumbPath);
             } catch (err) {
               logError("media-upload:thumbnail-failed", err);
             }
@@ -203,7 +198,6 @@ export async function POST(
               if (!detectedMime.includes("webp")) {
                 const webp = await convertToWebP(assembled);
                 await writeFile(webpPath, webp);
-                writtenPaths.push(webpPath);
               }
             } catch (err) {
               logError("media-upload:webp-failed", err);
@@ -214,7 +208,6 @@ export async function POST(
               if (!detectedMime.includes("avif")) {
                 const avif = await convertToAVIF(assembled);
                 await writeFile(avifPath, avif);
-                writtenPaths.push(avifPath);
               }
             } catch (err) {
               logError("media-upload:avif-failed", err);
@@ -222,55 +215,15 @@ export async function POST(
           })(),
         ]);
         if (originalResult.status === "rejected") throw originalResult.reason;
-      } catch (err) {
-        await Promise.allSettled(
-          writtenPaths.map((filePath) => rm(filePath, { force: true })),
-        );
-        throw err;
       }
 
-      if (existing.storageNodeId && existing.relativePath) {
-        try {
-          storageAccess = await assertStorageAccess({
-            session,
-            storageNodeId: existing.storageNodeId,
-            relativePath: existing.relativePath,
-            operation: "write",
-            writeBytes: assembled.byteLength,
-          });
-          if (!storageAccess.allowed) {
-            throw new ForbiddenError(storageAccessDeniedCopy(storageAccess.reason));
-          }
-          const storageNode = await prisma.storageNode.findFirst({
-            where: { id: existing.storageNodeId, ...teamWhere(session) },
-            select: storageFileNodeSelect,
-          });
-          if (!storageNode || (storageNode.driver !== "LOCAL" && storageNode.driver !== "SFTP")) {
-            throw new ValidationError(apiCopy("apiCopy.storage.node.does.not.support.media.uploads.0d4e9d55"));
-          }
-          linkedStorageRelativePath = `${existing.relativePath.replace(/\/$/, "")}/${storageKey}`;
-          linkedStorageNode = storageNode;
-          await writeStorageFileBuffer(storageNode, linkedStorageRelativePath, assembled);
-        } catch (err) {
-          // The local original + variants are already on disk but no DB row
-          // points at them yet — remove them, and roll back any partial linked
-          // write, so a storage failure here leaves nothing orphaned.
-          logError("media-upload:linked-storage-failed", err);
-          await Promise.allSettled([
-            ...writtenPaths.map((filePath) => rm(filePath, { force: true })),
-            linkedStorageNode && linkedStorageRelativePath
-              ? deleteStorageFileBuffer(linkedStorageNode, linkedStorageRelativePath).catch((cleanupErr) => {
-                  logError("media-upload:linked-storage-rollback-failed", cleanupErr);
-                })
-              : Promise.resolve(),
-          ]);
-          throw err;
-        }
+      if (linkedStorageNode && linkedStorageRelativePath) {
+        await lease.assertActive();
+        await writeStorageFileBuffer(linkedStorageNode, linkedStorageRelativePath, assembled);
       }
 
-      let result;
-      try {
-        result = await prisma.$transaction(async (tx) => {
+      await lease.assertActive();
+      const result = await prisma.$transaction(async (tx) => {
         const image = await tx.imageUpload.create({
           data: {
             filename,
@@ -304,20 +257,10 @@ export async function POST(
           resultImageId: image.id,
           allowedStatuses: ["FINALIZING"],
           transaction: tx,
+          finalizationToken: lease.token,
         });
         return { image, view };
         });
-      } catch (err) {
-        await Promise.allSettled([
-          ...writtenPaths.map((filePath) => rm(filePath, { force: true })),
-          linkedStorageNode && linkedStorageRelativePath
-            ? deleteStorageFileBuffer(linkedStorageNode, linkedStorageRelativePath).catch((cleanupErr) => {
-                logError("media-upload:linked-storage-rollback-failed", cleanupErr);
-              })
-            : Promise.resolve(),
-        ]);
-        throw err;
-      }
 
       const { image, view } = result;
       await cleanupMediaUploadTempDir(sessionId).catch((error) => {
@@ -346,15 +289,12 @@ export async function POST(
         },
       });
       } catch (error) {
-        await prisma.mediaUploadSession.updateMany({
-          where: { id: sessionId, userId: session.userId, status: "FINALIZING" },
-          data: {
-            status: "FAILED",
-            errorMessage: error instanceof Error ? error.message.slice(0, 1000) : "Image upload finalization failed",
-          },
-        }).catch((failure) => logError("media-upload:failure-status-update-failed", failure));
-        await cleanupMediaUploadTempDir(sessionId).catch((failure) => logError("media-upload:cleanup-failed", failure));
+        const failure = await recordFinalizationFailure(lease);
+        if (failure.changed && !failure.review) await cleanupMediaUploadTempDir(sessionId).catch((err) => logError("media-upload:cleanup-failed", err));
+        if (failure.review) throw new UploadOutcomeUnknownError(t("backend.storage.uploadOutcomeUnknown"));
         throw error;
+      } finally {
+        lease.stop();
       }
     },
   ).finally(() => releaseStorageQuotaGuard(storageAccess));

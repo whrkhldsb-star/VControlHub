@@ -69,6 +69,9 @@ jobs:
       - name: Verify high-severity dependency audit
         run: npm run audit:high
 
+      - name: Verify project documentation
+        run: npm run docs:check
+
       - name: Generate Prisma client
         run: npx prisma generate
 

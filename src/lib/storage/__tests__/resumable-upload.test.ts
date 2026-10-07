@@ -50,6 +50,7 @@ vi.mock("@/lib/storage/file-content", () => ({
 
 vi.mock("@/lib/db", () => ({
   prisma: {
+    $executeRaw: vi.fn(async () => 1),
     $transaction: vi.fn(async (callback) => { const { prisma } = await import("@/lib/db"); return callback(prisma); }),
     mediaUploadSession: {
       findFirst: sessionFindFirstMock,
@@ -127,6 +128,7 @@ describe("completeStorageFileUpload", () => {
       sessionId: "sess_1",
       userId: "user_1",
       checksum: "a".repeat(64),
+      finalizationToken: expect.any(String),
       allowedStatuses: ["FINALIZING"],
       transaction: expect.any(Object),
     });
@@ -167,7 +169,7 @@ describe("completeStorageFileUpload", () => {
         status: { in: ["PENDING", "UPLOADING"] },
         expiresAt: { gt: expect.any(Date) },
       },
-      data: { status: "FINALIZING" },
+      data: expect.objectContaining({ status: "FINALIZING", finalizationToken: expect.any(String) }),
     });
     expect(sessionUpdateManyMock.mock.invocationCallOrder[0]).toBeLessThan(assembleMock.mock.invocationCallOrder[0]!);
     expect(assembleMock.mock.invocationCallOrder[0]).toBeLessThan(writeBufferMock.mock.invocationCallOrder[0]!);
@@ -181,7 +183,7 @@ describe("completeStorageFileUpload", () => {
         sessionId: "sess_1",
         session: { userId: "user_1" } as never,
       }),
-    ).rejects.toThrow(/active|正在处理|状态/i);
+    ).rejects.toThrow(/active|正在处理|状态|finalizing/i);
 
     expect(assembleMock).not.toHaveBeenCalled();
     expect(writeBufferMock).not.toHaveBeenCalled();
@@ -205,11 +207,11 @@ describe("completeStorageFileUpload", () => {
         sessionId: "sess_1",
         session: { userId: "user_1" } as never,
       }),
-    ).rejects.toThrow("disk full");
+    ).rejects.toMatchObject({ code: "UPLOAD_OUTCOME_UNKNOWN" });
 
     expect(sessionUpdateManyMock).toHaveBeenLastCalledWith({
-      where: { id: "sess_1", userId: "user_1", status: "FINALIZING" },
-      data: { status: "FAILED", errorMessage: "disk full" },
+      where: expect.objectContaining({ id: "sess_1", userId: "user_1", status: "FINALIZING", finalizationToken: expect.any(String) }),
+      data: expect.objectContaining({ status: "FAILED", recoveryRequired: true }),
     });
   });
 

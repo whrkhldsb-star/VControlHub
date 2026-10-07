@@ -6,6 +6,7 @@
  * which keeps parallel edits off the shared service-translations.ts barrel.
  */
 export const zh: Record<string, string> = {
+  "backend.storage.uploadOutcomeUnknown": "上传结果未确认，请由管理员核对目标及保留的上传数据后再重传。",
 	// Access-denial copy for assertStorageAccess decision codes (see
 	// src/lib/storage/access-denied.ts for the code → key mapping).
 	"backend.storageHardening.access.noPermission":
@@ -42,6 +43,7 @@ export const zh: Record<string, string> = {
 };
 
 export const en: Record<string, string> = {
+  "backend.storage.uploadOutcomeUnknown": "Upload result is unconfirmed. Ask an administrator to inspect the target and retained upload data before retrying.",
 	"backend.storageHardening.access.noPermission":
 		"Missing the storage permission required for this operation",
 	"backend.storageHardening.access.noAccess":

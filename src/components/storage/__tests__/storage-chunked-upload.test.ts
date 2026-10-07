@@ -15,6 +15,20 @@ describe("storage chunk transport", () => {
     localStorage.clear();
     document.cookie = "csrf_token=; path=/; max-age=0";
   });
+  it("does not create a new session when a previous finalizer requires review", async () => {
+    const file = new File(["proof"], "proof.txt", { lastModified: 123 });
+    const session = { id: "review", storageNodeId: "node", relativePath: file.name, totalSize: 5, totalChunks: 1, chunkSize: 5, receivedChunks: [0], status: "UPLOADING" };
+    const fetcher = vi.fn(async (url: RequestInfo | URL) => {
+      if (String(url).endsWith("/complete")) throw new Error("response lost");
+      return new Response(JSON.stringify({ session: String(url).includes("/images/") ? { ...session, status: "FAILED", recoveryRequired: true } : session }));
+    });
+    vi.stubGlobal("fetch", fetcher);
+    const params = { file, storageNodeId: "node", relativePath: file.name };
+    await expect(uploadStorageFileChunked(params)).rejects.toThrow("response lost");
+    await expect(uploadStorageFileChunked(params)).rejects.toThrow("storageUpload.unknown");
+    expect(fetcher.mock.calls.map(([url]) => String(url))).toEqual(["/api/storage/upload/init", "/api/storage/upload/review/complete", "/api/images/upload/review"]);
+  });
+
   it("waits for Retry-After on rate limiting and can pause during that wait", async () => {
     vi.useFakeTimers();
     const file = new File(["a"], "limited.txt");

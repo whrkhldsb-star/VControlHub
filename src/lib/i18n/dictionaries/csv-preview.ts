@@ -2,7 +2,10 @@
  * i18n dictionary: `csvPreview.*` (8 keys).
  */
 export const zh: Record<string, string> = {
-	"csvPreview.tableBadge": "CSV 表格预览",
+  "csvPreview.boundedWarning": "仅预览前 500 行及最多 2 MiB 内的完整记录，内容已截断。请下载原文件查看全部数据。",
+  "csvPreview.tooManyColumns": "列数超过预览上限（200 列），请下载原文件查看。",
+  "csvPreview.invalidQuotes": "表格引号格式不完整，请下载原文件核对。",
+	"csvPreview.tableBadge": "表格预览",
 	"csvPreview.loading": "正在加载…",
 	"csvPreview.empty": "CSV 文件为空",
 	"csvPreview.colIndex": "列{index}",
@@ -14,7 +17,10 @@ export const zh: Record<string, string> = {
 };
 
 export const en: Record<string, string> = {
-	"csvPreview.tableBadge": "CSV table preview",
+  "csvPreview.boundedWarning": "Partial preview: at most 500 data rows and complete records within 2 MiB. Download the original for all data.",
+  "csvPreview.tooManyColumns": "The table exceeds the 200-column preview limit. Download the original file.",
+  "csvPreview.invalidQuotes": "Invalid or incomplete quoted field. Download the original file to inspect it.",
+	"csvPreview.tableBadge": "Table preview",
 	"csvPreview.loading": "Loading…",
 	"csvPreview.empty": "CSV file is empty",
 	"csvPreview.colIndex": "Col {index}",
