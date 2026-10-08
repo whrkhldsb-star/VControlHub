@@ -40,7 +40,7 @@ describe("SSH key import", () => {
     expect(manual.fingerprint).toBe(file.fingerprint);
   });
   it("imports password-protected modern OpenSSH without stripping password spaces", async () => {
-    const generated = utils.generateKeyPairSync("ed25519", { passphrase: password, cipher: "aes256-cbc" });
+    const generated = utils.generateKeyPairSync("ed25519", { passphrase: password, cipher: "aes256-cbc", rounds: 4 });
     const imported = await normalizeImportedSshKey({ privateKey: generated.private, passphrase: password });
     const expected = utils.parseKey(generated.public);
     if (expected instanceof Error) throw expected;
