@@ -73,6 +73,7 @@ vi.mock("@/lib/audit/service", () => ({
 
 vi.mock("@/lib/db", () => {
 	const prisma = {
+    $executeRaw: vi.fn(async () => 1),
 		mediaUploadSession: { findFirst: vi.fn(), updateMany: mocks.sessionUpdateMany },
 		imageUpload: { create: mocks.imageCreate, delete: mocks.imageDelete },
 		storageNode: { findFirst: mocks.storageFindFirst },
@@ -453,7 +454,7 @@ describe("POST /api/images/upload/[id]/complete", () => {
 
 	it("does not read or decode chunks when another finalizer already claimed the upload", async () => {
 		mocks.sessionUpdateMany.mockResolvedValueOnce({ count: 0 });
-		expect((await complete()).status).toBe(400);
+		expect((await complete()).status).toBe(409);
 		expect(mocks.assembleMediaUploadChunks).not.toHaveBeenCalled();
 		expect(mocks.completeMediaUploadSession).not.toHaveBeenCalled();
 	});
@@ -467,24 +468,24 @@ describe("POST /api/images/upload/[id]/complete", () => {
 
 	it("rejects a competing finalizer before creating files or image rows", async () => {
 		mocks.sessionUpdateMany.mockResolvedValueOnce({ count: 0 });
-		expect((await complete()).status).toBe(400);
+		expect((await complete()).status).toBe(409);
 		expect(mocks.imageCreate).not.toHaveBeenCalled();
 		expect(mocks.generateThumbnail).not.toHaveBeenCalled();
 		expect(mocks.sessionUpdateMany).toHaveBeenCalledTimes(1);
 	});
 
-	it("rolls back image artifacts when committing upload completion fails", async () => {
+	it("retains recovery artifacts when completion outcome is uncertain", async () => {
 		mocks.completeMediaUploadSession.mockRejectedValueOnce(new Error("completion failed"));
-		expect((await complete()).status).toBe(500);
-		expect(await readdir(TMP_UPLOAD)).toEqual([]);
+		expect((await complete()).status).toBe(409);
+		expect((await readdir(TMP_UPLOAD)).length).toBeGreaterThan(0);
 		expect(mocks.auditUserAction).not.toHaveBeenCalled();
 		expect(mocks.sessionUpdateMany).toHaveBeenLastCalledWith(expect.objectContaining({
-			where: { id: "sess_1", userId: "u-admin", status: "FINALIZING" },
+			where: expect.objectContaining({ id: "sess_1", userId: "u-admin", status: "FINALIZING", finalizationToken: expect.any(String) }),
 			data: expect.objectContaining({ status: "FAILED" }),
 		}));
 	});
 
-	it("waits for delayed variants before cleaning up a failed original write", async () => {
+	it("waits for delayed variants and retains artifacts after a failed original write", async () => {
 		// An existing directory makes the original write fail on the real filesystem.
 		mocks.randomUUID.mockReturnValue("blocked-original");
 		await mkdir(path.join(TMP_UPLOAD, "blocked-original.png"), { recursive: true });
@@ -494,9 +495,9 @@ describe("POST /api/images/upload/[id]/complete", () => {
 		});
 		mocks.generateThumbnail.mockReturnValueOnce(thumbnail);
 		try {
-			expect((await complete()).status).toBe(500);
+			expect((await complete()).status).toBe(409);
 			expect(thumbnailFinished).toBe(true);
-			expect(await readdir(TMP_UPLOAD)).toEqual(["blocked-original.png"]);
+			expect(await readdir(TMP_UPLOAD)).toContain("blocked-original.png");
 			expect(mocks.imageCreate).not.toHaveBeenCalled();
 		} finally {
 			await thumbnail;
@@ -504,12 +505,12 @@ describe("POST /api/images/upload/[id]/complete", () => {
 		}
 	});
 
-	it.each(["denied", "throws"])("cleans original and variants when storage authorization %s", async (failure) => {
+	it.each(["denied", "throws"])("does not write original or variants when storage authorization %s", async (failure) => {
 		await setStoredFile("photo.png", true);
 		if (failure === "denied") mocks.assertStorageAccess.mockResolvedValueOnce({ allowed: false });
 		else mocks.assertStorageAccess.mockRejectedValueOnce(new Error("storage lookup failed"));
 		expect((await complete()).status).toBe(failure === "denied" ? 403 : 500);
-		expect(await readdir(TMP_UPLOAD)).toEqual([]);
+		await expect(readdir(TMP_UPLOAD)).rejects.toMatchObject({ code: "ENOENT" });
 		expect(mocks.imageCreate).not.toHaveBeenCalled();
 		expect(mocks.completeMediaUploadSession).not.toHaveBeenCalled();
 	});

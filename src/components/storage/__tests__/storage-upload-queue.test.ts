@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { StorageUploadQueue } from "../storage-upload-queue";
 import { uploadStorageFileChunked, cancelStorageFileUpload } from "../storage-chunked-upload";
+import { ApiError } from "@/lib/http/api-client-error";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 
 vi.mock("../storage-chunked-upload", () => ({ STORAGE_CHUNKED_THRESHOLD_BYTES: 5, uploadStorageFileChunked: vi.fn(), cancelStorageFileUpload: vi.fn() }));
@@ -12,6 +13,21 @@ const done = { relativePath: "docs/a", size: 6 } as Awaited<ReturnType<typeof up
 beforeEach(() => { vi.resetAllMocks(); cancel.mockResolvedValue(undefined); });
 
 describe("StorageUploadQueue", () => {
+  it("preserves unknown chunked results in production without relying on debug details", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    try {
+      const error = new ApiError(409, { code: "UPLOAD_OUTCOME_UNKNOWN", message: "Check the file before retrying", details: { recoveryRequired: true } });
+      expect(error.details).toBeUndefined();
+      upload.mockRejectedValue(error);
+      const queue = new StorageUploadQueue();
+      const [id] = queue.enqueue([file("a")], "node");
+      await vi.waitFor(() => expect(queue.getSnapshot()[0]?.state).toBe("unknown"));
+      queue.resume(id!);
+      expect(upload).toHaveBeenCalledTimes(1);
+      queue.dispose();
+    } finally { vi.unstubAllEnvs(); }
+  });
+
   it("limits concurrency and retains the captured node and path", async () => {
     const pending: Array<(value: typeof done) => void> = [];
     upload.mockImplementation(() => new Promise((resolve) => pending.push(resolve)));

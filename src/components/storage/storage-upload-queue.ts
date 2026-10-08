@@ -241,7 +241,8 @@ export class StorageUploadQueue {
       this.records.delete(item.id);
     } catch (error) {
       if (!controller.signal.aborted) {
-        const uncertain =
+        const uncertain = (error instanceof Error && error.message === "storageUpload.unknown") ||
+          (error instanceof ApiError && error.code === "UPLOAD_OUTCOME_UNKNOWN") ||
           record.file.size < STORAGE_CHUNKED_THRESHOLD_BYTES &&
           (!(error instanceof ApiError) || error.status >= 500);
         this.update(item.id, {

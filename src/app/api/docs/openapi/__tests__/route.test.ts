@@ -23,6 +23,14 @@ describe("GET /api/docs/openapi", () => {
     });
   });
 
+  it("follows configured cookie names", async () => {
+    vi.stubEnv("AUTH_SESSION_COOKIE_NAME", "custom_session_cookie");
+    try {
+      const body = await (await GET(new Request("http://local/api/docs/openapi"))).json();
+      expect(body.components.securitySchemes.cookieAuth.name).toBe("custom_session_cookie");
+    } finally { vi.unstubAllEnvs(); }
+  });
+
   it("serves the authenticated OpenAPI spec at the route used by the API docs page", async () => {
     const response = await GET(new Request("http://local/api/docs/openapi"));
     expect(response.status).toBe(200);
@@ -49,6 +57,14 @@ describe("GET /api/docs/openapi", () => {
     expect(body.paths["/servers/{id}/rdp-probe"].get.security).toEqual([{ cookieAuth: [] }]);
     expect(body.paths["/servers/{id}/rdp-probe"].get["x-vcontrolhub-permissions"]).toContain("server:read");
     // Machine protocol endpoints: agent bearer token, not session RBAC.
+    expect(body.paths["/agent/v1/poll"].post.security).toEqual([{ agentTokenAuth: [] }]);
+    expect(body.paths["/agent/v1/bootstrap"].get.security).toEqual([{ agentTokenAuth: [] }]);
+    expect(body.paths["/agent/v1/poll"].post.requestBody.content["application/json"].schema.properties.result.required).toEqual(["jobId", "exitCode"]);
+    expect(body.paths["/images/list"].get.parameters.find((p: { name: string }) => p.name === "limit").schema.maximum).toBe(100);
+    expect(body.paths["/images/list"].get["x-vcontrolhub-contract"]).toBe("documented");
+    expect(body.paths["/files/preferences"].patch["x-vcontrolhub-contract"]).toBe("catalog");
+    const { getSessionCookieName } = await import("@/lib/auth/session");
+    expect(body.components.securitySchemes.cookieAuth.name).toBe(getSessionCookieName());
     expect(body.paths["/agent/v1/poll"]).toHaveProperty("post");
     expect(body.paths["/agent/v1/bootstrap"]).toHaveProperty("get");
     expect(body.paths["/auth/rdp-ticket"]).toHaveProperty("post");

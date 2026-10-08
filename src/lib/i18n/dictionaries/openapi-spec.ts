@@ -4,8 +4,11 @@
  */
 
 export const zh: Record<string, string> = {
+  "openapiSpec.generated.agentAuth": "使用节点专用 Agent Bearer Token；不接受普通用户 API Token 代替。",
+  "openapiSpec.generated.catalog": "路由目录：参数和响应结构尚未完整描述，请核对接口实现后集成。",
+  "openapiSpec.generated.documented": "已提供参数、响应及认证合约。",
 	"openapiSpec.info.title": 'VPS 统一管控平台 API',
-	"openapiSpec.info.description": 'VPS管理平台的完整RESTful API文档，包含认证、服务器、文件、Docker、监控等模块。',
+	"openapiSpec.info.description": '平台 API 路由目录及已补充合约的接口。目录条目可能缺少参数或响应结构，请勿将路由覆盖等同于完整集成合约。',
 	"openapiSpec.info.contact.name": 'VPS管控平台',
 	"openapiSpec.info.serverDescription": '当前服务器',
 	"openapiSpec.generated.permissions": '所需权限：{permissions}',
@@ -118,8 +121,11 @@ export const zh: Record<string, string> = {
 };
 
 export const en: Record<string, string> = {
+  "openapiSpec.generated.agentAuth": "Requires the node's Agent Bearer Token, not a personal API token.",
+  "openapiSpec.generated.catalog": "Route index only: parameters and response schemas are incomplete. Check the implementation before integrating.",
+  "openapiSpec.generated.documented": "Parameters, response schemas and authentication are documented.",
 	"openapiSpec.info.title": 'VControlHub Unified Management Platform API',
-	"openapiSpec.info.description": 'Complete RESTful API documentation for VControlHub, including authentication, servers, files, Docker, monitoring, and more.',
+	"openapiSpec.info.description": 'API route index and selected documented contracts. Route coverage does not imply complete parameter or response schemas.',
 	"openapiSpec.info.contact.name": 'VControlHub',
 	"openapiSpec.info.serverDescription": 'Current server',
 	"openapiSpec.generated.permissions": 'Required permissions: {permissions}',

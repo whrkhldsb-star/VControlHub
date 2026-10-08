@@ -130,16 +130,16 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("image final
     expect(await readSessionTempDir(sessionId)).toEqual([]);
   });
 
-  it("rolls back all three database records and cleans artifacts after a post-update failure", async () => {
+  it("rolls back database records but retains recovery artifacts after an uncertain commit", async () => {
     const sessionId = await upload();
     fixture.failAfterCompletion = true;
     expect((await complete(sessionId)).ok).toBe(false);
     expect(await prisma.imageUpload.count({ where: { userId: id } })).toBe(0);
     expect(await prisma.fileEntry.count({ where: { storageNodeId: id } })).toBe(0);
     const session = await prisma.mediaUploadSession.findUniqueOrThrow({ where: { id: sessionId } });
-    expect(session).toMatchObject({ status: "FAILED", resultImageId: null, checksum: null });
-    expect(await readSessionTempDir(sessionId)).toEqual([]);
-    expect(await readdir(fixture.directory)).toEqual(["linked"]);
-    expect(await readdir(`${fixture.directory}/linked/gallery`)).toEqual([]);
+    expect(session).toMatchObject({ status: "FAILED", resultImageId: null, checksum: null, recoveryRequired: true });
+    expect(await readSessionTempDir(sessionId)).toContain("chunk-0");
+    expect((await readdir(fixture.directory)).length).toBeGreaterThan(1);
+    expect((await readdir(`${fixture.directory}/linked/gallery`)).length).toBeGreaterThan(0);
   });
 });

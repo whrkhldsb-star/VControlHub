@@ -8,7 +8,7 @@ import { apiCopy } from "@/lib/i18n/api-copy";
 import path from "node:path";
 
 import { prisma } from "@/lib/db";
-import { ConflictError, ForbiddenError, ValidationError } from "@/lib/errors";
+import { UploadOutcomeUnknownError, ConflictError, ForbiddenError, ValidationError } from "@/lib/errors";
 import { assertStorageAccess, releaseStorageQuotaGuard } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import {
@@ -25,6 +25,7 @@ import { snapshotFileVersionBeforeOverwrite } from "@/lib/storage/file-versions"
 import type { MediaUploadSessionView } from "@/lib/upload/types";
 import type { SessionPayload } from "@/lib/auth/session";
 import { t } from "@/lib/i18n/service-translations";
+import { beginUploadFinalization, recordFinalizationFailure, type FinalizationLease } from "@/lib/upload/finalization-lease";
 import { logError } from "@/lib/logging";
 
 export type CompleteStorageUploadResult = {
@@ -61,7 +62,7 @@ export async function completeStorageFileUpload(params: {
 }): Promise<CompleteStorageUploadResult> {
   const { sessionId, session } = params;
 
-  let ownsFinalization = false;
+  let lease: FinalizationLease | undefined;
   const existing = await prisma.mediaUploadSession.findFirst({
     where: { id: sessionId, userId: session.userId },
     select: {
@@ -122,16 +123,7 @@ export async function completeStorageFileUpload(params: {
   }
 
   releaseFinalization = acquireFinalizationSlot(session.userId, existing.storageNodeId);
-  const claimed = await prisma.mediaUploadSession.updateMany({
-    where: { id: sessionId, userId: session.userId, status: { in: ["PENDING", "UPLOADING"] }, expiresAt: { gt: new Date() } },
-    data: { status: "FINALIZING" },
-  });
-  if (claimed.count === 0) {
-    throw new ValidationError(t("backend.storage.uploadSessionNotActive"), {
-      code: "session_not_active",
-    });
-  }
-  ownsFinalization = true;
+  lease = await beginUploadFinalization(sessionId, session.userId);
   const assembled = await assembleMediaUploadToFile(sessionId, session.userId);
 
   // Snapshot existing body before overwrite when index already exists.
@@ -151,6 +143,7 @@ export async function completeStorageFileUpload(params: {
     });
   }
 
+  await lease.beforeWrite({ kind: "storage", storageNodeId: existing.storageNodeId, relativePath: normalizedRelativePath, checksum: assembled.checksum, size: assembled.size });
   await writeStorageFileFromLocalPath(storageNode, normalizedRelativePath, assembled.path);
 
   const fileName = path.posix.basename(normalizedRelativePath);
@@ -169,13 +162,15 @@ export async function completeStorageFileUpload(params: {
     checksumSha256: assembled.checksum,
   };
 
+  await lease.assertActive();
+  const finalizationToken = lease.token;
   const view = await prisma.$transaction(async (tx) => {
     await tx.fileEntry.upsert({
       where: { storageNodeId_relativePath: { storageNodeId: existing.storageNodeId!, relativePath: normalizedRelativePath } },
       create: { storageNodeId: existing.storageNodeId!, relativePath: normalizedRelativePath, ...indexData },
       update: indexData,
     });
-    return completeMediaUploadSession({ sessionId, userId: session.userId, checksum: assembled.checksum, allowedStatuses: ["FINALIZING"], transaction: tx });
+    return completeMediaUploadSession({ sessionId, userId: session.userId, checksum: assembled.checksum, allowedStatuses: ["FINALIZING"], finalizationToken, transaction: tx });
   });
   await cleanupMediaUploadTempDir(sessionId).catch((error) => logError("storage-upload:cleanup-failed", error));
 
@@ -186,18 +181,14 @@ export async function completeStorageFileUpload(params: {
     storageNodeId: existing.storageNodeId,
   };
   } catch (error) {
-    if (ownsFinalization) {
-    await prisma.mediaUploadSession.updateMany({
-      where: { id: sessionId, userId: session.userId, status: "FINALIZING" },
-      data: {
-        status: "FAILED",
-        errorMessage: error instanceof Error ? error.message.slice(0, 1000) : "Storage upload finalization failed",
-      },
-    }).catch((failure) => logError("storage-upload:failure-status-update-failed", failure));
-    await cleanupMediaUploadTempDir(sessionId).catch((failure) => logError("storage-upload:cleanup-failed", failure));
+    if (lease) {
+      const failure = await recordFinalizationFailure(lease);
+      if (failure.changed && !failure.review) await cleanupMediaUploadTempDir(sessionId).catch((err) => logError("storage-upload:cleanup-failed", err));
+      if (failure.review) throw new UploadOutcomeUnknownError(t("backend.storage.uploadOutcomeUnknown"));
     }
     throw error;
   } finally {
+    lease?.stop();
     releaseFinalization?.();
     await releaseStorageQuotaGuard(access);
   }

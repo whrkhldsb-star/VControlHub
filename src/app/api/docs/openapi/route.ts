@@ -2,6 +2,8 @@
  * OpenAPI/Swagger spec generator — produces locale-aware spec.
  * GET /api/docs/openapi
  */
+import { getSessionCookieName } from "@/lib/auth/session";
+import { machineContracts } from "@/lib/openapi/contracts";
 import { NextResponse } from "next/server";
 
 import { withApiRoute } from "@/lib/http/api-guard";
@@ -44,14 +46,18 @@ function generatedOperation(
   tr: TFunction,
 ): OpenApiOperation {
   const permissions = route.declaredPermissions;
-  const security = path.startsWith("/webdav/")
+  const security = path.startsWith("/agent/v1/")
+    ? [{ agentTokenAuth: [] }]
+    : path.startsWith("/webdav/")
     ? [{ basicAuth: [] }]
     : path.startsWith("/itsm/inbound/")
       ? [{ webhookSignature: [] }]
       : route.guardMode === "public" || route.guardMode === "login"
         ? []
         : [{ cookieAuth: [] }];
-  const authDescription = path.startsWith("/webdav/")
+  const authDescription = path.startsWith("/agent/v1/")
+    ? tr("openapiSpec.generated.agentAuth")
+    : path.startsWith("/webdav/")
     ? tr("openapiSpec.generated.basicAuth")
     : path.startsWith("/itsm/inbound/")
       ? tr("openapiSpec.generated.webhookSignature")
@@ -92,7 +98,13 @@ function buildCatalogPaths(
     const item: OpenApiPathItem = {};
     for (const method of route.methods) {
       const key = method.toLowerCase();
-      item[key] = detailedPaths[path]?.[key] ?? generatedOperation(route, method, path, tr);
+      const base = detailedPaths[path]?.[key] ?? generatedOperation(route, method, path, tr);
+      const contract = machineContracts[path]?.[key];
+      item[key] = {
+        ...base, ...contract,
+        "x-vcontrolhub-contract": contract ? "documented" : "catalog",
+        description: [base.description, tr(contract ? "openapiSpec.generated.documented" : "openapiSpec.generated.catalog")].filter(Boolean).join(" "),
+      };
     }
     paths[path] = item;
   }
@@ -469,7 +481,8 @@ function buildOpenApiSpec(t: TFunction) {
     }, t),
     components: {
       securitySchemes: {
-        cookieAuth: { type: "apiKey", in: "cookie", name: "session" },
+        cookieAuth: { type: "apiKey", in: "cookie", name: getSessionCookieName() },
+        agentTokenAuth: { type: "http", scheme: "bearer", bearerFormat: "VControlHub Agent Token", description: t("openapiSpec.generated.agentAuth") },
         basicAuth: { type: "http", scheme: "basic" },
         webhookSignature: {
           type: "apiKey",

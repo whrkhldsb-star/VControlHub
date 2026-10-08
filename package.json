@@ -55,7 +55,7 @@
     "share:password-audit:strict": "tsx --env-file-if-exists=.env scripts/audit-share-password-hashes.ts --strict",
     "readme:metrics": "tsx --env-file-if-exists=.env scripts/readme-metrics.ts",
     "readme:metrics:write": "tsx --env-file-if-exists=.env scripts/readme-metrics.ts --write",
-    "docs:check": "npm run readme:metrics",
+    "docs:check": "npm run readme:metrics && npm run guide:check",
     "version:check": "node scripts/verify-release-version.mjs",
     "release:package": "npm run version:check && deploy/package.sh",
     "verify": "npm run toolchain:security && npm run audit:high && npm run prisma:generate && npx prisma format --check && npm run typecheck && npm run lint && npm run i18n:key-check && npm run api-copy:audit && npm test && npm run build && npm run build:runtime && npm run verify:deploy-assets && npm run docs:check",
@@ -63,7 +63,10 @@
     "build:webpack": "node scripts/guard-live-next-build.mjs && node scripts/run-with-build-memory.mjs next/dist/bin/next build --webpack",
     "test:e2e:auth": "E2E_DIRECT_SESSION=1 E2E_TRUST_LOCAL_DB_SESSION=1 E2E_ISOLATED_ACCOUNT=1 E2E_USER=vcontrolhub_e2e E2E_PASS=VControlHub-E2E-2026! E2E_DIRECT_USER=vcontrolhub_e2e playwright test e2e/authenticated-flow.spec.ts --project=chromium --workers=1",
     "backup": "node scripts/backup.mjs",
-    "restore": "node scripts/restore.mjs"
+    "restore": "node scripts/restore.mjs",
+    "guide:build": "node scripts/project-guide.mjs --write",
+    "guide:check": "node scripts/project-guide.mjs",
+    "upload:recovery": "tsx --env-file-if-exists=.env scripts/upload-recovery.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -122,6 +125,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "js-yaml": "5.4.2",
     "jsdom": "^30.0.1",
+    "markdown-it": "15.0.2",
     "minimatch": "3.1.5",
     "postcss": "^8.5.26",
     "tailwindcss": "^4",

@@ -95,8 +95,9 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 
 	// Extension fallback when MIME is empty or generic
 	const ext = detectByExtension(name);
-	const resolvedIsMarkdown = isMarkdown || (!mimeType && ext.isMarkdown);
-	const resolvedIsCsv = isCsv || (!mimeType && ext.isCsv) || (mimeType ==="text/plain" && ext.isCsv);
+	const genericMime = !mimeType || mimeType === "application/octet-stream" || mimeType === "text/plain";
+	const resolvedIsMarkdown = isMarkdown || (genericMime && ext.isMarkdown);
+	const resolvedIsCsv = isCsv || (genericMime && ext.isCsv);
 	const resolvedIsText = isText || ext.isText || isSvg;
 
 	const largeTextWarning = (resolvedIsText || resolvedIsMarkdown) && size > 512 * 1024;
@@ -153,7 +154,7 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 					) : resolvedIsMarkdown && href ? (
 						<MarkdownPreviewClient href={href} />
 					) : resolvedIsCsv && href ? (
-						<CsvPreviewClient href={href} />
+						<CsvPreviewClient href={href} name={name} mimeType={mimeType} />
 					) : resolvedIsText && href ? (
 							<TextPreviewClient href={href} name={name} fileEntryId={fileEntryId} editable={editable} driver={driver} nodeId={nodeId} relativePath={relativePath} serverId={serverId || undefined} reloadUnit={reloadUnit || undefined} reloadKind={reloadKind} />
 					) : isOffice && href ? (

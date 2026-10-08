@@ -2,9 +2,9 @@
  * TR-009 55c: Media resumable upload — types.
  *
  * Lifecycle of a MediaUploadSession:
- *   PENDING (init) → UPLOADING (first chunk) → COMPLETED (assemble ok)
- *   any state      → CANCELLED (client / server TTL)
- *   any state      → FAILED (assembly error)
+ *   PENDING (init) → UPLOADING (first chunk) → FINALIZING → COMPLETED
+ *   PENDING/UPLOADING → CANCELLED (client / server TTL)
+ *   FINALIZING → FAILED (pre-write failure or retained outcome requiring review)
  *
  * Chunk storage lives in /tmp under UPLOAD_TMP_DIR/<sessionId>/chunk-N.
  * On COMPLETED, chunks are concatenated into the final image buffer and
@@ -69,6 +69,8 @@ export interface MediaUploadSessionView {
 	resultImageId: string | null;
 	checksum: string | null;
 	errorMessage: string | null;
+	/** Target may already contain bytes; do not automatically retry. */
+	recoveryRequired?: boolean;
 	completedAt: string | null;
 	expiresAt: string; // ISO 8601
 	createdAt: string;

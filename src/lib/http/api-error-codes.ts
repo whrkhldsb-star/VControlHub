@@ -36,6 +36,7 @@ export type ApiErrorCode =
   | "NOT_FOUND"
   | "ROUTE_NOT_FOUND"
   // 409 — state conflict
+  | "UPLOAD_OUTCOME_UNKNOWN"
   | "CONFLICT"
   | "DUPLICATE"
   | "VERSION_MISMATCH"
@@ -77,6 +78,7 @@ export const ApiErrorCodeValues: ReadonlyArray<ApiErrorCode> = Object.freeze(
     "TWO_FACTOR_INVALID_CODE",
     "NOT_FOUND",
     "ROUTE_NOT_FOUND",
+    "UPLOAD_OUTCOME_UNKNOWN",
     "CONFLICT",
     "DUPLICATE",
     "VERSION_MISMATCH",
@@ -139,6 +141,7 @@ const CODE_CATEGORY: Readonly<Record<ApiErrorCode, ApiErrorCategory>> = Object.f
   TWO_FACTOR_INVALID_CODE: "validation",
   NOT_FOUND: "notfound",
   ROUTE_NOT_FOUND: "notfound",
+  UPLOAD_OUTCOME_UNKNOWN: "conflict",
   CONFLICT: "conflict",
   DUPLICATE: "conflict",
   VERSION_MISMATCH: "conflict",

@@ -58,6 +58,8 @@ vi.mock("@/lib/backup/service", () => ({
   abandonStaleRunningBackupRecords: vi.fn(async () => ({ abandoned: 0, ids: [] })),
 }));
 
+vi.mock("@/lib/upload/finalization-lease", () => ({ recoverInterruptedFinalizations: vi.fn(async () => 0) }));
+
 vi.mock("@/lib/upload/service", () => ({
   sweepExpiredMediaUploadSessions: vi.fn(async () => 0),
 }));

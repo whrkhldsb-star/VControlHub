@@ -213,6 +213,7 @@ async function initOrResumeSession(params: {
         { signal },
       );
       const existing = view.session;
+      if (existing?.recoveryRequired) throw new Error("storageUpload.unknown");
       if (existing?.status === "FINALIZING") {
         // A previous completion request may still own the write. Preserve its
         // fingerprint so retry checks that same session instead of overwriting.

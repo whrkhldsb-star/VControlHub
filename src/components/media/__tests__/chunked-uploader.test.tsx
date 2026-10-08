@@ -94,6 +94,25 @@ describe("useChunkedMediaUpload", () => {
 		localStorage.clear();
 	});
 
+	it.each(["FINALIZING", "REVIEW", "NETWORK", "COMPLETED"])("does not replay image finalization after %s", async (status) => {
+    const file = buildFile("retained.png", 10);
+    const key = `vcMediaUploadSession:${file.name}:${file.size}:${file.lastModified}`;
+    localStorage.setItem(key, JSON.stringify({ sessionId: "retained", filename: file.name, size: file.size, lastModified: file.lastModified }));
+    const session = { ...buildSession({ id: "retained", totalSize: 10, chunkSize: 10, received: [0], status: "UPLOADING" }), status: status === "REVIEW" ? "FAILED" : status, recoveryRequired: status === "REVIEW", resultImageId: status === "COMPLETED" ? "existing-image" : null };
+    const fetcher = vi.fn(async () => {
+      if (status === "NETWORK") throw new Error("connection lost");
+      return new Response(JSON.stringify({ session }));
+    });
+    vi.stubGlobal("fetch", fetcher);
+    const { result } = renderHook(() => useChunkedMediaUpload());
+    await act(async () => {
+      if (status === "COMPLETED") await expect(result.current.upload(file)).resolves.toMatchObject({ image: { id: "existing-image" } });
+      else await expect(result.current.upload(file)).rejects.toThrow();
+    });
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(localStorage.getItem(key) === null).toBe(status === "COMPLETED");
+  });
+
 	it("routes files below the threshold through the existing single-shot path (not used here, threshold is the route boundary)", () => {
 		// Document the threshold so future refactors don't accidentally change it.
 		expect(CHUNKED_THRESHOLD_BYTES).toBe(5 * 1024 * 1024);

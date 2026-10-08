@@ -9,15 +9,14 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 @media print{@page{size:A4;margin:17mm 14mm}html{scroll-padding:0}body{background:white;color:#111;font-size:10pt;line-height:1.65}.topbar,.sidebar,.mobile-toc,.back-top,.diagram-source,.footer{display:none!important}.layout{display:block;max-width:none;padding:0}main{border:0;box-shadow:none;border-radius:0;padding:0}h1{font-size:25pt}h2{font-size:17pt;margin-top:27pt;break-after:avoid;scroll-margin:0}h3{font-size:12pt;break-after:avoid;scroll-margin:0}p,li{orphans:3;widows:3}.stats b{font-size:17pt}.table-scroll{overflow:visible;border-radius:0}table{font-size:8pt;table-layout:auto}th,td{padding:5pt 6pt;min-width:0;overflow-wrap:anywhere}tr{break-inside:avoid}thead{display:table-header-group}pre{white-space:pre-wrap;overflow:visible;font-size:8pt;background:#f0f3f6;color:#162634}pre code{white-space:pre-wrap;overflow-wrap:anywhere}.diagram{break-inside:avoid}.diagram-scroll{overflow:visible}.diagram svg{min-width:0}a{color:#15567f;text-decoration:none}blockquote{font-size:9pt;break-inside:avoid}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 </style></head>
 <body id="top"><header class="topbar"><div class="brand">VControlHub <small>项目全景 · 功能详解 · 使用指南</small></div><div class="toolbar"><span class="search-tip">Ctrl / ⌘ + F 搜索全文</span><a href="project-overview-and-user-guide.zh-CN.md" download>Markdown 原稿</a><button id="print" type="button">打印 / 保存 PDF</button></div></header>
-<div class="layout"><aside class="sidebar" aria-label="文档章节"><strong>目录 · 24 章</strong><input id="chapter-filter" type="search" placeholder="筛选章节名称" aria-label="筛选章节名称"><ol><li><a href="#project">项目定位、整体能力与功能设计目标</a></li><li><a href="#getting-started">核心概念与首次使用</a></li><li><a href="#workspace">全站交互与个人工作台</a></li><li><a href="#servers">服务器纳管与节点管理</a></li><li><a href="#remote-access">浏览器 SSH、文件面板与 Windows 远程桌面</a></li><li><a href="#files">存储节点与文件管理</a></li><li><a href="#sharing-sync">文件分享、WebDAV 与跨节点同步</a></li><li><a href="#media-downloads">远程下载、媒体库与图片外链</a></li><li><a href="#deployment">命令模板、应用部署与 Docker</a></li><li><a href="#quick-services">快捷服务与应用目录</a></li><li><a href="#automation">审批、定时任务、Playbook 与统一任务中心</a></li><li><a href="#observability">监控、健康检查、流量与告警</a></li><li><a href="#backup">平台备份、VPS 备份、恢复与迁移</a></li><li><a href="#ai">AI 助手、知识库与 AI 运维</a></li><li><a href="#collaboration">工单、ITSM、通知、公告与代码片段</a></li><li><a href="#cost">成本、账单与预算</a></li><li><a href="#permissions">账号、角色、团队与资源授权</a></li><li><a href="#settings-api">系统设置、配置导入导出与开放 API</a></li><li><a href="#architecture">系统设计与运行架构</a></li><li><a href="#data-workers">数据模型与后台任务设计</a></li><li><a href="#operations">部署、升级、运行维护与测试体系</a></li><li><a href="#workflows">典型完整使用流程</a></li><li><a href="#boundaries">功能边界与常见问题</a></li><li><a href="#reference">完整页面、权限、接口与源码索引</a></li></ol><p id="nav-empty" class="nav-empty" hidden>没有匹配的章节；全文搜索请按 Ctrl / ⌘ + F。</p></aside><main><details class="mobile-toc"><summary>查看全部 24 章目录</summary><ol><li><a href="#project">项目定位、整体能力与功能设计目标</a></li><li><a href="#getting-started">核心概念与首次使用</a></li><li><a href="#workspace">全站交互与个人工作台</a></li><li><a href="#servers">服务器纳管与节点管理</a></li><li><a href="#remote-access">浏览器 SSH、文件面板与 Windows 远程桌面</a></li><li><a href="#files">存储节点与文件管理</a></li><li><a href="#sharing-sync">文件分享、WebDAV 与跨节点同步</a></li><li><a href="#media-downloads">远程下载、媒体库与图片外链</a></li><li><a href="#deployment">命令模板、应用部署与 Docker</a></li><li><a href="#quick-services">快捷服务与应用目录</a></li><li><a href="#automation">审批、定时任务、Playbook 与统一任务中心</a></li><li><a href="#observability">监控、健康检查、流量与告警</a></li><li><a href="#backup">平台备份、VPS 备份、恢复与迁移</a></li><li><a href="#ai">AI 助手、知识库与 AI 运维</a></li><li><a href="#collaboration">工单、ITSM、通知、公告与代码片段</a></li><li><a href="#cost">成本、账单与预算</a></li><li><a href="#permissions">账号、角色、团队与资源授权</a></li><li><a href="#settings-api">系统设置、配置导入导出与开放 API</a></li><li><a href="#architecture">系统设计与运行架构</a></li><li><a href="#data-workers">数据模型与后台任务设计</a></li><li><a href="#operations">部署、升级、运行维护与测试体系</a></li><li><a href="#workflows">典型完整使用流程</a></li><li><a href="#boundaries">功能边界与常见问题</a></li><li><a href="#reference">完整页面、权限、接口与源码索引</a></li></ol></details><h1>VControlHub 项目全景、功能详解与使用指南</h1><div class="stats"><span><b>24</b> 章</span><span><b>55</b> 页面入口</span><span><b>188</b> API 路由</span><span><b>79</b> 数据模型</span></div>
+<div class="layout"><aside class="sidebar" aria-label="文档章节"><strong>目录 · 24 章</strong><input id="chapter-filter" type="search" placeholder="筛选章节名称" aria-label="筛选章节名称"><ol><li><a href="#project">项目定位、整体能力与功能设计目标</a></li><li><a href="#getting-started">核心概念与首次使用</a></li><li><a href="#workspace">全站交互与个人工作台</a></li><li><a href="#servers">服务器纳管与节点管理</a></li><li><a href="#remote-access">浏览器 SSH、文件面板与 Windows 远程桌面</a></li><li><a href="#files">存储节点与文件管理</a></li><li><a href="#sharing-sync">文件分享、WebDAV 与跨节点同步</a></li><li><a href="#media-downloads">远程下载、媒体库与图片外链</a></li><li><a href="#deployment">命令模板、应用部署与 Docker</a></li><li><a href="#quick-services">快捷服务与应用目录</a></li><li><a href="#automation">审批、定时任务、Playbook 与统一任务中心</a></li><li><a href="#observability">监控、健康检查、流量与告警</a></li><li><a href="#backup">平台备份、VPS 备份、恢复与迁移</a></li><li><a href="#ai">AI 助手、知识库与 AI 运维</a></li><li><a href="#collaboration">工单、ITSM、通知、公告与代码片段</a></li><li><a href="#cost">成本、账单与预算</a></li><li><a href="#permissions">账号、角色、团队与资源授权</a></li><li><a href="#settings-api">系统设置、配置导入导出与开放 API</a></li><li><a href="#architecture">系统设计与运行架构</a></li><li><a href="#data-workers">数据模型与后台任务设计</a></li><li><a href="#operations">部署、升级、运行维护与测试体系</a></li><li><a href="#workflows">典型完整使用流程</a></li><li><a href="#boundaries">功能边界与常见问题</a></li><li><a href="#reference">完整页面、权限、接口与源码索引</a></li></ol><p id="nav-empty" class="nav-empty" hidden>没有匹配的章节；全文搜索请按 Ctrl / ⌘ + F。</p></aside><main><details class="mobile-toc"><summary>查看全部 24 章目录</summary><ol><li><a href="#project">项目定位、整体能力与功能设计目标</a></li><li><a href="#getting-started">核心概念与首次使用</a></li><li><a href="#workspace">全站交互与个人工作台</a></li><li><a href="#servers">服务器纳管与节点管理</a></li><li><a href="#remote-access">浏览器 SSH、文件面板与 Windows 远程桌面</a></li><li><a href="#files">存储节点与文件管理</a></li><li><a href="#sharing-sync">文件分享、WebDAV 与跨节点同步</a></li><li><a href="#media-downloads">远程下载、媒体库与图片外链</a></li><li><a href="#deployment">命令模板、应用部署与 Docker</a></li><li><a href="#quick-services">快捷服务与应用目录</a></li><li><a href="#automation">审批、定时任务、Playbook 与统一任务中心</a></li><li><a href="#observability">监控、健康检查、流量与告警</a></li><li><a href="#backup">平台备份、VPS 备份、恢复与迁移</a></li><li><a href="#ai">AI 助手、知识库与 AI 运维</a></li><li><a href="#collaboration">工单、ITSM、通知、公告与代码片段</a></li><li><a href="#cost">成本、账单与预算</a></li><li><a href="#permissions">账号、角色、团队与资源授权</a></li><li><a href="#settings-api">系统设置、配置导入导出与开放 API</a></li><li><a href="#architecture">系统设计与运行架构</a></li><li><a href="#data-workers">数据模型与后台任务设计</a></li><li><a href="#operations">部署、升级、运行维护与测试体系</a></li><li><a href="#workflows">典型完整使用流程</a></li><li><a href="#boundaries">功能边界与常见问题</a></li><li><a href="#reference">完整页面、权限、接口与源码索引</a></li></ol></details><h1>VControlHub 项目全景、功能详解与使用指南</h1>
 <blockquote>
 <p>文档日期：2026-09-30。依据本地代码提交 <code>302eed94f4e3093411055f76cc76418a4420e6f4</code> 编写。
-功能设计目标与覆盖复核更新：2026-10-01。
+功能设计目标与覆盖复核更新：2026-10-07。最新实现复核基于 <code>a12f14f6a7c2c2a5a25623b8db427d7b630a1f50</code> 及本次指南缺口修复；原始日期保留作历史记录。源码完成、提交和实例部署应分别核对。
 适用对象：项目使用者、平台管理员、运维人员、项目介绍与交接文档的读者、后续开发维护者。
 这是一份当前实现说明。功能是否能在某个安装实例中使用，还取决于账号权限、团队、目标操作系统、外部服务及部署配置。本地代码版本与 GitHub 分支是否同步，应另行核对。</p>
 </blockquote>
 <p>重点阅读：<a href="#functional-goals">功能设计目标</a> · <a href="#coverage-review">功能覆盖复核结果</a> · <a href="#reference">完整功能索引</a> · <a href="#feature-upgrades">用文档指导功能升级</a>。</p>
-
 <h2 id="project">1. 项目定位、整体能力与功能设计目标</h2>
 <h3 id="section-1-1">1.1 项目是什么</h3>
 <p>VControlHub 是面向个人和小团队的自托管服务器管理与运维平台。用户部署自己的控制台后，可以在同一个 Web 界面中管理多台 Linux／Windows 服务器、远程终端、文件、容器应用、监控、命令审批、自动化任务、备份和团队协作。</p>
@@ -887,6 +886,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <p>上传支持选择多个文件、拖放文件、文件夹模式及保留浏览器提供的相对目录结构。用户选择目标节点和目录后，可查看每个任务的状态、进度、失败原因，按可用操作暂停、继续、重试或取消。</p>
 <p>分片上传流程会先建立会话，记录已收到的分片，再合并并写入目标存储，最后更新文件索引。普通存储文件的分片接口当前总大小上限为 200 MiB，默认分片为 5 MiB；图片处理接口上限更低，为 20 MiB。旧单次上传入口、直连入口和不同后端还各有请求限制，不能把某一个上限套用到所有入口。</p>
 <p>恢复上传依赖尚未过期的上传会话和可重新访问的源文件。浏览器刷新后不保证仍持有本地文件句柄；“可继续上传”不等于关闭浏览器后无需重新选择文件。配额、单文件大小限制、临时磁盘和目标容量也会影响上传。</p>
+<p>最终提交使用执行者标识和可续租的 120 秒租约，后台检查进程失联后的会话。正常慢上传持续续租，不按最初会话到期时间直接清理。租约失效的上传转为失败并标记“结果待核对”，保留分片和恢复信息；不会自动重放远端写入，也不会删除可能已经写入的文件。管理员确认旧写入已停止、核对目标后，才允许用户明确重传。历史版本产生的无租约 <code>FINALIZING</code> 会话不会自动回收，需同样人工核对。管理命令和步骤见<a href="upload-recovery.md">上传恢复说明</a>。</p>
 <p>暂停和取消还受任务阶段约束：单次上传请求提交后、分片上传合并写入阶段不会继续提供普通暂停／取消操作。单次写入后若连接中断而无法判断服务端是否成功，队列可显示“结果未知”；应先检查目标文件，再决定是否重新提交，避免重复覆盖。</p>
 <h3 id="section-6-4">6.4 下载、直连与中转</h3>
 <p>普通文件提供受控下载，兼容单区间 HTTP Range；支持的媒体可拖动进度读取部分内容。</p>
@@ -930,11 +930,11 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 </tr>
 <tr>
 <td>CSV</td>
-<td>第一行作为表头，显示行列数及最多 500 行数据，超出时提示截断</td>
+<td>第一行作为表头，按逗号解析，支持引号、转义引号、换行及空单元格；最多显示 500 行数据</td>
 </tr>
 <tr>
 <td>TSV／TAB</td>
-<td>可识别并进入表格入口，但当前解析器按逗号分隔，不能保证制表符数据正确分列</td>
+<td>按制表符分列，单元格内的逗号保留；支持与 CSV 相同的引号规则</td>
 </tr>
 <tr>
 <td>SVG、HTML 等主动内容</td>
@@ -950,6 +950,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 </tr>
 </tbody>
 </table></div>
+<p>表格预览实际最多读取 2 MiB、保留表头和 500 行数据、最多 200 列；达到读取或行数上限会停止流并提示部分预览，不再展示未验证的全文件总行数。字节上限处不完整的记录不展示；引号格式错误或列数超限时提示下载原文件。缺失或通用 MIME 会按扩展名识别 CSV／TSV／Markdown。</p>
 <p>支持识别某个 MIME 类型不代表平台包含转码器。不能在浏览器解码的视频和音频仍需下载或使用其他播放器。</p>
 <h3 id="section-6-6">6.6 在线编辑与配置重载</h3>
 <p>当前在线编辑支持 <code>LOCAL</code> 和 <code>SFTP</code> 节点中的文本文件，保存内容上限为 512 KiB。本地编辑读取时同样限制为 512 KiB；SFTP 文本读取接口上限为 1 MiB，能够读取不代表超出 512 KiB 的内容也能保存。二进制文件不能按普通文本编辑。</p>
@@ -1667,7 +1668,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <p>密码最小长度、是否要求大写／数字／特殊字符由平台设置约束，作用于新建、重置和改密。登录限流与账号锁定状态用于限制持续错误尝试，配置 Redis 后可在多实例间共享相关状态。</p>
 <h3 id="section-17-2">17.2 双因素认证</h3>
 <p>用户在账户安全中发起设置，使用自己的认证器扫描二维码或手工录入密钥，输入当前验证码完成启用。</p>
-<p>启用后提供恢复码，用于无法使用认证器时登录；恢复码应由本人保存，重新生成会更新可用恢复凭据。关闭 MFA 需要按界面要求完成身份验证。</p>
+<p>启用后提供恢复码，用于无法使用认证器时登录；恢复码应由本人保存，重新生成需要再次验证当前 TOTP 或有效恢复码，并使旧恢复码失效。启用、关闭 MFA 或重新生成恢复码会原子撤销旧会话，正常情况下刷新当前浏览器会话，其他设备需重新登录。密码变更、全端退出等凭据撤销也会使旧的待二次验证登录失效；发生并发凭据变更时，当前浏览器可能需要重新登录。关闭 MFA 需要按界面要求完成身份验证。</p>
 <p>“部署支持 MFA”与“每个账号已绑定 MFA”是两个状态；管理员不能仅通过安装平台替每位用户完成认证器绑定。</p>
 <h3 id="section-17-3">17.3 用户管理</h3>
 <p>入口：<code>/users</code>。</p>
@@ -1873,7 +1874,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <p>Token 创建时绑定一个有效成员工作区，后续不跟随浏览器切换团队。使用时同时检查 Token 状态、用户状态、团队成员关系、scopes 和业务资源授权。API Token 不是把管理员浏览器全部权限复制给脚本的通用凭据，也不能假定所有内部 API 都接受它执行写操作。</p>
 <h3 id="section-18-4">18.4 API 文档与接口</h3>
 <p>入口：<code>/api-docs</code>；OpenAPI 输出有 <code>/api/docs/openapi</code> 和 <code>/api/docs/openapi.json</code>。</p>
-<p>可查看接口路径、方法、认证和输入输出说明，用于监控、受支持脚本及外部系统集成。Web 界面还使用 Server Actions，因此仅数 HTTP 路由不能完整解释所有页面操作。</p>
+<p>可查看接口路径、方法和认证说明。当前 OpenAPI 区分 <code>catalog</code> 路由目录与 <code>documented</code> 已补充合约的接口，页面描述也标出差异；目录覆盖不表示每个请求参数和响应结构均已完整描述。Agent 安装／轮询和图片分页列表提供明确参数及响应结构，其余接口需核对实现。Agent 使用节点专用 Bearer Token，与用户 API Token 分开；会话 Cookie 名跟随当前部署配置。Web 界面还使用 Server Actions，因此仅数 HTTP 路由不能完整解释所有页面操作。</p>
 <p>内部浏览器请求使用统一 API 客户端处理错误、认证与 CSRF；WebDAV、Agent、分享和集成回调使用各自明确的认证协议。集成时应选对应接口，避免模拟页面内部动作来代替稳定的 API 合约。</p>
 <p>依据：<a href="../src/app/settings/field-schema.ts">设置结构</a>、<a href="../src/lib/system/">配置迁移业务</a>、<a href="../src/lib/api-token/service.ts">Token 服务</a>、<a href="../src/lib/api-token/authorization.ts">Token 授权</a>、<a href="../src/app/api-docs/page.tsx">API 页面</a>。</p>
 <h3 id="section-18-5">18.5 系统设置表单的全部 42 个配置项</h3>
@@ -2160,7 +2161,8 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
     GUACD --&gt;|RDP| WINDOWS[Windows 节点]
     AGENT[Linux / Windows Agent] --&gt;|主动 HTTPS 轮询| WEB
     B -. 短时文件链接 .-&gt; DIRECT[目标机文件网关]
-</code></pre></details></figure><p>单机生产部署通常由 Web、Worker、WebSocket 三个应用进程组成，PostgreSQL提供共享状态。guacd、aria2、Redis及外部服务根据启用功能增加。代码按业务模块组织，不能把每个 Worker 类型理解为需要独立部署的一套微服务。</p>
+</code></pre></details></figure>
+<p>单机生产部署通常由 Web、Worker、WebSocket 三个应用进程组成，PostgreSQL提供共享状态。guacd、aria2、Redis及外部服务根据启用功能增加。代码按业务模块组织，不能把每个 Worker 类型理解为需要独立部署的一套微服务。</p>
 <h3 id="section-19-3">19.3 Web 与业务分层</h3>
 <p>典型调用链为：</p>
 <p><code>页面／组件 → API 或 Server Action → 会话与权限守卫 → 输入验证 → 业务服务 → 数据库／文件后端／远端适配 → 结果、任务、通知和审计</code>。</p>
@@ -2256,7 +2258,8 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
     U-&gt;&gt;W: 查看审批或任务中心
     W-&gt;&gt;D: 读取持久化结果
     W--&gt;&gt;U: 展示完成、失败或待处理原因
-</code></pre></details></figure><p>持久化任务支持重试、租约恢复和去重，但平台没有对任意远端命令承诺“恰好执行一次”。网络中断后无法确认副作用的操作可能要求人工核对，而不是直接再执行一遍。</p>
+</code></pre></details></figure>
+<p>持久化任务支持重试、租约恢复和去重，但平台没有对任意远端命令承诺“恰好执行一次”。网络中断后无法确认副作用的操作可能要求人工核对，而不是直接再执行一遍。</p>
 <h3 id="section-19-5">19.5 SSH／RDP 与站内通知实时链路</h3>
 <p>SSH：浏览器获取短期连接凭据 → 连接 <code>/ssh</code> → 网关校验来源、登录、服务器访问与状态 → 解密必要的服务器凭据 → 建立 SSH PTY → 双向转发字节、尺寸及心跳。</p>
 <p>RDP：浏览器领取单次票据 → 连接 <code>/rdp</code> → 校验票据、用户、工作区和服务器 → 网关连接本机 guacd → guacd 使用服务端凭据连接 Windows → 返回画面与交互指令。</p>
@@ -2705,7 +2708,8 @@ npm run rbac:audit
 npm run i18n:key-check
 npm run api-copy:audit
 npm run docs:check
-</code></pre><p>完整本地检查通过 <code>npm run ci:local:full</code>；部署相关检查涵盖 Next／运行时构建、部署资产与 smoke。浏览器测试覆盖 Chromium、Firefox、WebKit，产品工作流包含登录导航、文件、媒体、团队边界、权限撤销及服务器清单等。</p>
+</code></pre>
+<p>完整本地检查通过 <code>npm run ci:local:full</code>；部署相关检查涵盖 Next／运行时构建、部署资产与 smoke。浏览器测试覆盖 Chromium、Firefox、WebKit，产品工作流包含登录导航、文件、媒体、团队边界、权限撤销及服务器清单等。</p>
 <p>CI 还包含 Windows 工具链检查及 Docker 全新安装验证。测试使用专用隔离账号和临时数据库；不能将为隔离测试编写的初始化／清理流程直接指向生产库。</p>
 <p>测试通过说明相应场景得到验证，不等于第三方云账单、每家 WebDAV 厂商、所有快捷服务和每种 Windows 安装环境都完成了实机认证。</p>
 <p>依据：<a href="../deploy/README.md">部署说明</a>、<a href="../deploy.sh">部署脚本</a>、<a href="windows-development.md">Windows 开发运行</a>、<a href="ci-gates.md">CI 门禁</a>、<a href="../package.json">package scripts</a>。</p>
@@ -4269,14 +4273,15 @@ npm run docs:check
 </tbody>
 </table></div>
 <h3 id="section-24-5">24.5 文档维护约定</h3>
-<p>新增或修改页面、API、Server Action、设置项、个人偏好、权限、Worker、数据模型、AI 工具或应用模板时，除更新代码及专项说明，也应更新对应功能目标、用户操作章节和本章清单，并同步离线 HTML 阅读版。记录基准提交和日期，明确区分已实现、需配置、后端限制与尚未提供的能力。功能名称与行为冲突时，先核对实际界面及 API／业务实现，再修订用户说明。</p>
+<p>新增或修改页面、API、Server Action、设置项、个人偏好、权限、Worker、数据模型、AI 工具或应用模板时，除更新代码及专项说明，也应更新对应功能目标、用户操作章节和本章清单，并同步离线 HTML 阅读版。记录基准提交和日期，明确区分已实现、需配置、后端限制与尚未提供的能力。Markdown 是正文唯一来源；修改后运行 <code>npm run guide:build</code> 生成 HTML，<code>npm run docs:check</code> 检查统计、页面／API／模型清单、链接、HTML 锚点和生成物一致性。离线架构图及阅读布局由 <code>scripts/project-guide/</code> 管理，图源变化时需同步更新相应 SVG。功能名称与行为冲突时，先核对实际界面及 API／业务实现，再修订用户说明。</p>
 <p>需求变化使用固定功能编号及<a href="feature-change-template.zh-CN.md">功能变更模板</a>记录；需求状态、当前实现状态和实际部署状态分别注明。具体流程见<a href="#feature-upgrades">第 24.9 节</a>。</p>
 <!-- GENERATED_REFERENCE_END -->
 <!-- FUNCTION_COVERAGE_START -->
 <p><a id="coverage-review"></a></p>
 <h3 id="section-24-6">24.6 功能覆盖复核范围与结果</h3>
 <p>本轮复核以文首指定提交为基准，将页面、HTTP 路由、Server Actions、工具和配置清单逐项映射到文档；同时复查界面实际操作，补充批量审批、命令取消、文件任务取消、端口分配、AI 消息复制／重新生成、模型探测、工单关联和临时文件代理等细节。</p>
-<p>2026-10-01 补充只读核对：本机部署源码与文档基准同为 <code>302eed94f4e3093411055f76cc76418a4420e6f4</code>，部署源码的已跟踪文件无额外变更。该记录确认源码版本；运行中的构建产物、环境开关、账号配置和第三方依赖仍需相应部署验收。</p>
+<p>2026-10-07 补充：页面、路由和模型数量维持下表口径，新增上传租约恢复、表格预览边界、OpenAPI 合约区分和文档生成检查。自动清单检查不替代行为回归与发布验收。</p>
+<p>历史记录（2026-10-01）：本机部署源码与文档基准同为 <code>302eed94f4e3093411055f76cc76418a4420e6f4</code>，部署源码的已跟踪文件无额外变更。该记录确认源码版本；运行中的构建产物、环境开关、账号配置和第三方依赖仍需相应部署验收。</p>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
 <tr>
@@ -5677,17 +5682,15 @@ npm run docs:check
 <li><strong>发布并回填文档。</strong> 按需要完成备份、迁移、部署及原有链路验证，记录实际提交和结果。兑现的目标进入当前指南，尚未完成的部分继续保留状态和限制；同步更新功能清单、数量及 HTML。</li>
 </ol>
 <p>修改文档不会自动升级程序。可以把变更说明交给开发者或编码助手，要求其按相应编号实现，并逐条报告验收与回归结果。实现中发现矛盾或额外影响时，先把差异写清，再按明确后的需求处理；不能为了让实现看起来完成而降低原来约定的验收标准。</p>
-<h4>示例：以后希望完善 TSV 预览</h4>
-<p>下面只演示怎样表达未来需求，未把它列入本次已实现功能或发布计划。</p>
+<h4>示例：TSV 预览变更已落实后的验收记录</h4>
 <ul>
-<li>关联功能：<code>F-13</code> 文件预览与文本编辑，第 6.5 节。</li>
-<li>当前行为：TSV／TAB 可进入表格预览，但解析器按逗号分隔，制表符数据不能保证正确分列；见<a href="../src/app/files/preview/csv-preview-client.tsx">表格预览实现</a>。</li>
-<li>目标行为：明确要求 TSV／TAB 采用制表符分列，CSV 保留逗号分列；同时约定引号、空单元格、换行和文件类型识别规则。</li>
-<li>可验收条件示例：给定两列 TSV，预览显示两列且内容中的逗号保留；已有带引号及逗号的 CSV 样例按约定解析；超过现有行数限制时仍有截断提示；无读取权限时不能取得正文。</li>
-<li>回归范围：原有 CSV 预览、文件读取权限、预览错误提示和下载入口。</li>
-<li>完成后回填：更新第 6.5 节、第 23 章相关限制及实现提交；实现前保持现状说明。</li>
+<li>关联功能：<code>F-13</code>，第 6.5 节。</li>
+<li>原行为：TSV／TAB 进入表格入口后仍按逗号分隔。</li>
+<li>当前行为：TSV／TAB 按制表符解析，CSV 保留逗号解析；支持引号、空字段、CRLF 和分块 UTF-8；达到行数或字节上限停止读取，不把已截取记录数当作全文件总数。</li>
+<li>验收：两列 TSV 正确分列，内容中的逗号保留；带引号 CSV、尾部空列和多行字段正确；超大或不停返回数据的响应被截断并取消；权限校验和下载入口保持原有约束。</li>
+<li>依据：<a href="../src/lib/storage/delimited-preview.ts">表格解析与限制</a>、<a href="../src/lib/storage/__tests__/delimited-preview.test.ts">回归测试</a>。</li>
 </ul>
-<p>这样的描述足以让后续实现围绕明确的用户结果展开，也能在升级后检查新行为是否达成、原有行为是否继续可用。</p>
+<p>新的需求仍按上面的流程记录现状、目标、验收和发布证据，不因补齐了一项功能就移除其他尚存边界。</p>
 <footer class="footer">本文件为同目录 Markdown 原稿的离线阅读版。目录、正文、表格和图示均内嵌，无需联网；源码引用使用仓库相对路径，查看源码时请保留仓库目录结构。内容基准：2026-09-30 / 302eed94；功能覆盖复核：2026-10-01。</footer></main></div><a class="back-top" href="#top">返回顶部 ↑</a><script>
 document.getElementById('print').addEventListener('click',()=>window.print());
 const nav=document.querySelector('.sidebar');
