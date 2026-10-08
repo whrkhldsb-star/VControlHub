@@ -14,8 +14,8 @@ const MAX_RECONNECT_ATTEMPTS = 8;
 const KEYSYM_CTRL = 0xffe3, KEYSYM_ALT = 0xffe9, KEYSYM_DELETE = 0xffff;
 /** Base64 chunk size for outbound clipboard text (must stay well under the WS frame cap). */
 const CLIPBOARD_CHUNK = 3072;
-/** Drop oversized remote clipboards instead of exhausting the local clipboard API. */
-const MAX_INBOUND_CLIPBOARD_CHARS = 262_144;
+/** Text limit shared by both clipboard directions. */
+const MAX_CLIPBOARD_CHARS = 262_144;
 
 function formatElapsed(seconds: number) {
  const h = Math.floor(seconds / 3600), m = Math.floor((seconds % 3600) / 60), s = seconds % 60;
@@ -35,6 +35,7 @@ export function RemoteDesktop({ serverId }: { serverId: string }) {
  const [status, setStatus] = useState("rdp.status.idle");
  const [reconnectAttempt, setReconnectAttempt] = useState(0);
  const [error, setError] = useState<string | null>(null);
+ const [clipboardError, setClipboardError] = useState<string | null>(null);
  const [viewMode, setViewMode] = useState<ViewMode>("fit");
  const viewModeRef = useRef<ViewMode>(viewMode);
  const [fullscreen, setFullscreen] = useState(false);
@@ -88,50 +89,92 @@ export function RemoteDesktop({ serverId }: { serverId: string }) {
     surface.tabIndex = 0;
     surface.setAttribute("role", "application");
     surface.setAttribute("aria-label", host.getAttribute("aria-label") ?? "");
-    surface.className = "outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]";
+    surface.className = "relative outline-none focus-within:ring-2 focus-within:ring-[var(--accent)]";
     surface.appendChild(display.getElement());
+    // An editable focus target gives native paste and IME events to the browser.
+    // The remote display itself must never become an editable DOM subtree.
+    const input = document.createElement("textarea");
+    input.tabIndex = -1;
+    input.setAttribute("aria-label", host.dataset.inputLabel!);
+    input.autocomplete = "off";
+    input.spellcheck = false;
+    input.className = "absolute left-0 top-0 h-px w-px resize-none opacity-0";
+    surface.appendChild(input);
     host.replaceChildren(surface);
     const keyboard = new G.Keyboard(surface);
     const mouse = new G.Mouse(display.getElement());
-    keyboard.onkeydown = key => { client.sendKeyEvent(1, key); return false; };
-    keyboard.onkeyup = key => client.sendKeyEvent(0, key);
+    const pasteKeys = new Set<number>();
+    // Mac Command shortcuts use the Windows Control modifier.
+    const remoteKeysym = (key: number) => key === 0xffe7 || key === 0xffe8 ? KEYSYM_CTRL : key;
+    keyboard.onkeydown = key => {
+     const modifiers = keyboard.modifiers;
+     const nativePaste = !modifiers.alt && (
+      ((modifiers.ctrl || modifiers.meta) && (key === 0x76 || key === 0x56)) ||
+      (modifiers.shift && key === 0xff63)
+     );
+     if (nativePaste) { pasteKeys.add(key); return true; }
+     client.sendKeyEvent(1, remoteKeysym(key));
+     return false;
+    };
+    keyboard.onkeyup = key => { if (!pasteKeys.delete(key)) client.sendKeyEvent(0, remoteKeysym(key)); };
     const mouseEvents = ["mousedown", "mouseup", "mousemove"];
     const sendMouse = (event: import("guacamole-common-js").Event) => {
      if (event instanceof G.Mouse.Event) client.sendMouseState(event.state, true);
     };
     mouse.onEach(mouseEvents, sendMouse);
-    // Clipboard sync, both directions, text only. Inbound plays into the local
-    // clipboard when the browser grants write access; outbound is sent on paste
-    // while the desktop surface holds focus. The gateway may still disable the
-    // channel per deployment (RDP_ENABLE_CLIPBOARD) — it then rejects the stream.
     client.onclipboard = (stream, mimetype) => {
-     if (String(mimetype).split(";")[0] !== "text/plain") { stream.sendAck("Text only", G.Status.Code.UNSUPPORTED); return; }
+     if (mimetype.split(";")[0] !== "text/plain") { stream.sendAck("Text only", G.Status.Code.UNSUPPORTED); return; }
      const reader = new G.StringReader(stream);
-     let text = "";
-     reader.ontext = chunk => { if (text.length <= MAX_INBOUND_CLIPBOARD_CHARS) text += chunk; };
-     reader.onend = () => {
+     let text: string | null = "";
+     reader.ontext = chunk => {
+      if (text === null) return;
+      if (text.length + chunk.length > MAX_CLIPBOARD_CHARS) {
+       text = null;
+       setClipboardError("rdp.error.clipboardSize");
+       stream.sendAck("Clipboard too large", G.Status.Code.CLIENT_OVERRUN);
+       return;
+      }
+      text += chunk;
+      // guacd waits for each blob ACK before sending the next clipboard chunk.
       stream.sendAck("OK", G.Status.Code.SUCCESS);
-      if (text && document.hasFocus() && navigator.clipboard) void navigator.clipboard.writeText(text.slice(0, MAX_INBOUND_CLIPBOARD_CHARS)).catch(() => {});
+     };
+     reader.onend = () => {
+      if (text === null || !document.hasFocus()) return;
+      if (!navigator.clipboard) { setClipboardError("rdp.error.clipboardWrite"); return; }
+      void navigator.clipboard.writeText(text).then(
+       () => setClipboardError(null),
+       () => setClipboardError("rdp.error.clipboardWrite"),
+      );
      };
     };
-    const sendClipboardText = (text: string) => {
+    const paste = (event: ClipboardEvent) => {
+     event.preventDefault();
+     // WebKit can provide plain text while reporting an empty types list.
+     const text = event.clipboardData?.getData("text/plain");
+     if (!text) return;
+     if (text.length > MAX_CLIPBOARD_CHARS) { setClipboardError("rdp.error.clipboardSize"); return; }
+     setClipboardError(null);
      const stream = client.createClipboardStream("text/plain");
-     const bytes = new TextEncoder().encode(text.slice(0, MAX_INBOUND_CLIPBOARD_CHARS));
+     const bytes = new TextEncoder().encode(text);
      for (let i = 0; i < bytes.length; i += CLIPBOARD_CHUNK) {
       let binary = "";
-      const chunk = bytes.subarray(i, i + CLIPBOARD_CHUNK);
-      for (let j = 0; j < chunk.length; j++) binary += String.fromCharCode(chunk[j]!);
+      for (const byte of bytes.subarray(i, i + CLIPBOARD_CHUNK)) binary += String.fromCharCode(byte);
       stream.sendBlob(btoa(binary));
      }
      stream.sendEnd();
+     // Clipboard data must precede the remote paste shortcut. Temporarily
+     // release physical modifiers, then restore them until their real keyup.
+     const modifiers = Object.keys(keyboard.pressed).map(Number).filter(key => key >= 0xffe1 && key <= 0xffee);
+     for (const key of modifiers) client.sendKeyEvent(0, remoteKeysym(key));
+     client.sendKeyEvent(1, KEYSYM_CTRL);
+     client.sendKeyEvent(1, 0x76);
+     client.sendKeyEvent(0, 0x76);
+     client.sendKeyEvent(0, KEYSYM_CTRL);
+     for (const key of modifiers) client.sendKeyEvent(1, remoteKeysym(key));
     };
-    const paste = (event: ClipboardEvent) => {
-     const text = event.clipboardData?.getData("text/plain");
-     if (text) { event.preventDefault(); sendClipboardText(text); }
-    };
-    surface.addEventListener("paste", paste as EventListener);
+    surface.addEventListener("paste", paste);
+    input.addEventListener("input", () => { input.value = ""; });
     sendCtrlAltDel.current = () => {
-     if (!client) return;
      client.sendKeyEvent(1, KEYSYM_CTRL);
      client.sendKeyEvent(1, KEYSYM_ALT);
      client.sendKeyEvent(1, KEYSYM_DELETE);
@@ -139,10 +182,11 @@ export function RemoteDesktop({ serverId }: { serverId: string }) {
      client.sendKeyEvent(0, KEYSYM_ALT);
      client.sendKeyEvent(0, KEYSYM_CTRL);
     };
-    const focus = () => surface.focus({ preventScroll: true });
+    const focus = () => input.focus({ preventScroll: true });
     const reset = () => { keyboard.reset(); mouse.reset(); };
     surface.addEventListener("mousedown", focus);
-    surface.addEventListener("blur", reset);
+    surface.addEventListener("focus", focus);
+    input.addEventListener("blur", reset);
     window.addEventListener("blur", reset);
     const visibility = () => { if (document.hidden) reset(); };
     document.addEventListener("visibilitychange", visibility);
@@ -170,9 +214,10 @@ export function RemoteDesktop({ serverId }: { serverId: string }) {
      reset();
      keyboard.onkeydown = keyboard.onkeyup = null;
      mouse.offEach(mouseEvents, sendMouse);
-     surface.removeEventListener("paste", paste as EventListener);
+     surface.removeEventListener("paste", paste);
      surface.removeEventListener("mousedown", focus);
-     surface.removeEventListener("blur", reset);
+     surface.removeEventListener("focus", focus);
+     input.removeEventListener("blur", reset);
      window.removeEventListener("blur", reset);
      document.removeEventListener("visibilitychange", visibility);
      observer.disconnect(); clearTimeout(resizeTimer);
@@ -258,7 +303,7 @@ export function RemoteDesktop({ serverId }: { serverId: string }) {
 
  return <section className="space-y-3">
   <div className="flex flex-wrap items-center gap-3">
-   <ActionButton disabled={active} onClick={() => { setError(null); setStatus("rdp.status.connecting"); setAttempt(value => value + 1); }}>{t("rdp.connect")}</ActionButton>
+   <ActionButton disabled={active} onClick={() => { setError(null); setClipboardError(null); setStatus("rdp.status.connecting"); setAttempt(value => value + 1); }}>{t("rdp.connect")}</ActionButton>
    <ActionButton variant="danger" disabled={!active} onClick={() => stop.current()}>{t("rdp.disconnect")}</ActionButton>
    <ActionButton variant="secondary" disabled={!connected} onClick={() => sendCtrlAltDel.current()}>Ctrl+Alt+Del</ActionButton>
    <ActionButton variant="secondary" disabled={!connected} onClick={() => setViewMode(mode => mode === "fit" ? "actual" : "fit")}>
@@ -274,6 +319,7 @@ export function RemoteDesktop({ serverId }: { serverId: string }) {
   </div>
   <p className="text-sm text-[var(--text-muted)]">{t("rdp.help")}</p>
   {error && <Notice tone="danger">{t(error)}</Notice>}
-  <div ref={container} aria-label={t("rdp.display")} className="h-[65vh] min-h-64 w-full overflow-hidden rounded-lg border border-[var(--border)] bg-black" />
+  {clipboardError && <Notice tone="warning">{t(clipboardError)}</Notice>}
+  <div ref={container} data-input-label={t("rdp.input")} aria-label={t("rdp.display")} className="h-[65vh] min-h-64 w-full overflow-hidden rounded-lg border border-[var(--border)] bg-black" />
  </section>;
 }

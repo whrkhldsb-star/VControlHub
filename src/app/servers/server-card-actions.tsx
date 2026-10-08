@@ -16,8 +16,8 @@ import { ServerCardDirectGatewayForm } from "./server-card-actions-direct-gatewa
 import { ServerCardDeleteForm } from "./server-card-delete-form";
 import { ServerCardEditForm } from "./server-card-edit-form";
 import { useSshTerminal } from "./ssh-terminal-context";
-import { ActionButton } from "@/components/action-button";
-import { Server } from "@/components/icons";
+import { ActionButton, type ButtonSize } from "@/components/action-button";
+import { ServerConnectionAction } from "./server-connection-action";
 
 const initialState: ServerActionState = {
 	error: undefined,
@@ -26,6 +26,8 @@ const initialState: ServerActionState = {
 };
 
 type ServerCardActionsProps = {
+	terminalSize?: ButtonSize;
+	terminalBlock?: boolean;
 	operatingSystem?: string;
 	rdpDomain?: string;
 	rdpIgnoreCertificate?: boolean;
@@ -62,6 +64,7 @@ type ServerCardActionsProps = {
 };
 
 export function ServerCardActions({
+	terminalSize = "md", terminalBlock = true,
 	operatingSystem = "LINUX", rdpDomain, rdpIgnoreCertificate, rdpCertificateSha256,
 	serverId,
 	serverName,
@@ -122,16 +125,8 @@ export function ServerCardActions({
 			{/* Windows terminals require the cloud-storage OpenSSH binding
 			    (storageNodeId present) — the proxy resolves the SFTP endpoint. */}
 			{enabled && canUseSshTerminal && (operatingSystem !== "WINDOWS" || Boolean(storageNodeId)) ? (
-				<ActionButton variant="ghost"
-					onClick={handleOpenTerminal}
-					aria-label={t("serverCardActions.sshTerminalAria", { name: serverName })}
-
-					data-tone="cyan"
-					className="flex w-full items-center justify-center gap-2"
-				>
-					<Server size={16} aria-hidden="true" />
-					<span>{t("serverCardActions.sshTerminalButton")}</span>
-				</ActionButton>
+				<ServerConnectionAction protocol="ssh" serverId={serverId} serverName={serverName}
+          size={terminalSize} block={terminalBlock} onClick={handleOpenTerminal} />
 			) : null}
 
 			{canManageServers && directGateway && (operatingSystem !== "WINDOWS" || storageNodeId) ? (

@@ -7,8 +7,8 @@ import { createPortal } from "react-dom";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { ServerCardActions } from "./server-card-actions";
 import { useServerDiagnostics } from "./use-server-diagnostics";
-import { ActionButton, ButtonLink } from "@/components/action-button";
-import { Server } from "@/components/icons";
+import { ActionButton } from "@/components/action-button";
+import { ServerConnectionAction } from "./server-connection-action";
 import { ModalShell } from "@/components/modal-shell";
 import type {
   ServerOverviewDetailsServer,
@@ -196,13 +196,11 @@ export function ServerOverviewCard({
 
       <div className="mt-3 flex flex-wrap gap-2 border-t border-[var(--border-subtle)] pt-3">
         {isWindows && server.enabled && canUseSshTerminal ? (
-          <ButtonLink variant="ghost" size="sm" href={`/servers/${encodeURIComponent(server.id)}/remote-desktop`} data-tone="cyan" className="flex items-center gap-2">
-            <Server size={16} aria-hidden="true" />
-            {t("serversPage.windows.remoteDesktop")}
-          </ButtonLink>
+          <ServerConnectionAction protocol="rdp" serverId={server.id} serverName={server.name} size="sm" block={false} />
         ) : null}
         {!isWindows && server.enabled && canUseSshTerminal && server.hasSshCredential !== false ? (
           <ServerCardActions
+            terminalSize="sm" terminalBlock={false}
             serverId={server.id}
             serverName={server.name}
             host={server.host}

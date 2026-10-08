@@ -12,7 +12,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <div class="layout"><aside class="sidebar" aria-label="文档章节"><strong>目录 · 24 章</strong><input id="chapter-filter" type="search" placeholder="筛选章节名称" aria-label="筛选章节名称"><ol><li><a href="#project">项目定位、整体能力与功能设计目标</a></li><li><a href="#getting-started">核心概念与首次使用</a></li><li><a href="#workspace">全站交互与个人工作台</a></li><li><a href="#servers">服务器纳管与节点管理</a></li><li><a href="#remote-access">浏览器 SSH、文件面板与 Windows 远程桌面</a></li><li><a href="#files">存储节点与文件管理</a></li><li><a href="#sharing-sync">文件分享、WebDAV 与跨节点同步</a></li><li><a href="#media-downloads">远程下载、媒体库与图片外链</a></li><li><a href="#deployment">命令模板、应用部署与 Docker</a></li><li><a href="#quick-services">快捷服务与应用目录</a></li><li><a href="#automation">审批、定时任务、Playbook 与统一任务中心</a></li><li><a href="#observability">监控、健康检查、流量与告警</a></li><li><a href="#backup">平台备份、VPS 备份、恢复与迁移</a></li><li><a href="#ai">AI 助手、知识库与 AI 运维</a></li><li><a href="#collaboration">工单、ITSM、通知、公告与代码片段</a></li><li><a href="#cost">成本、账单与预算</a></li><li><a href="#permissions">账号、角色、团队与资源授权</a></li><li><a href="#settings-api">系统设置、配置导入导出与开放 API</a></li><li><a href="#architecture">系统设计与运行架构</a></li><li><a href="#data-workers">数据模型与后台任务设计</a></li><li><a href="#operations">部署、升级、运行维护与测试体系</a></li><li><a href="#workflows">典型完整使用流程</a></li><li><a href="#boundaries">功能边界与常见问题</a></li><li><a href="#reference">完整页面、权限、接口与源码索引</a></li></ol><p id="nav-empty" class="nav-empty" hidden>没有匹配的章节；全文搜索请按 Ctrl / ⌘ + F。</p></aside><main><details class="mobile-toc"><summary>查看全部 24 章目录</summary><ol><li><a href="#project">项目定位、整体能力与功能设计目标</a></li><li><a href="#getting-started">核心概念与首次使用</a></li><li><a href="#workspace">全站交互与个人工作台</a></li><li><a href="#servers">服务器纳管与节点管理</a></li><li><a href="#remote-access">浏览器 SSH、文件面板与 Windows 远程桌面</a></li><li><a href="#files">存储节点与文件管理</a></li><li><a href="#sharing-sync">文件分享、WebDAV 与跨节点同步</a></li><li><a href="#media-downloads">远程下载、媒体库与图片外链</a></li><li><a href="#deployment">命令模板、应用部署与 Docker</a></li><li><a href="#quick-services">快捷服务与应用目录</a></li><li><a href="#automation">审批、定时任务、Playbook 与统一任务中心</a></li><li><a href="#observability">监控、健康检查、流量与告警</a></li><li><a href="#backup">平台备份、VPS 备份、恢复与迁移</a></li><li><a href="#ai">AI 助手、知识库与 AI 运维</a></li><li><a href="#collaboration">工单、ITSM、通知、公告与代码片段</a></li><li><a href="#cost">成本、账单与预算</a></li><li><a href="#permissions">账号、角色、团队与资源授权</a></li><li><a href="#settings-api">系统设置、配置导入导出与开放 API</a></li><li><a href="#architecture">系统设计与运行架构</a></li><li><a href="#data-workers">数据模型与后台任务设计</a></li><li><a href="#operations">部署、升级、运行维护与测试体系</a></li><li><a href="#workflows">典型完整使用流程</a></li><li><a href="#boundaries">功能边界与常见问题</a></li><li><a href="#reference">完整页面、权限、接口与源码索引</a></li></ol></details><h1>VControlHub 项目全景、功能详解与使用指南</h1>
 <blockquote>
 <p>文档日期：2026-09-30。依据本地代码提交 <code>302eed94f4e3093411055f76cc76418a4420e6f4</code> 编写。
-功能设计目标与覆盖复核更新：2026-10-07。最新实现复核基于 <code>a12f14f6a7c2c2a5a25623b8db427d7b630a1f50</code> 及本次指南缺口修复；原始日期保留作历史记录。源码完成、提交和实例部署应分别核对。
+功能设计目标与覆盖复核更新：2026-10-08。最新实现复核基于 <code>cf206008b389617e4b2e5f04cb7e5ee572f690b2</code> 及本次远程桌面剪贴板和连接控件修复；原始日期保留作历史记录。源码完成、提交和实例部署应分别核对。
 适用对象：项目使用者、平台管理员、运维人员、项目介绍与交接文档的读者、后续开发维护者。
 这是一份当前实现说明。功能是否能在某个安装实例中使用，还取决于账号权限、团队、目标操作系统、外部服务及部署配置。本地代码版本与 GitHub 分支是否同步，应另行核对。</p>
 </blockquote>
@@ -743,8 +743,9 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <p>编辑节点时可以修改连接信息、更新密码、调整存储路径、标签和月费。密码留空按表单约定保留原值。修改连接目标后要重新完成连接和身份核验。</p>
 <h3 id="section-4-3">4.3 SSH 密钥管理</h3>
 <ul>
-<li>添加具名密钥，粘贴私钥或上传密钥文件。</li>
-<li>支持加密私钥的口令字段及 PPK 转 OpenSSH 的相关处理。</li>
+<li>添加密钥时填写名称、公钥（可选）、私钥或上传文件；没有上传文件时必须粘贴私钥。公钥留空会自动提取，手填时必须与私钥匹配。</li>
+<li>文件按内容识别，不限制扩展名：支持 OpenSSH、PEM（PKCS#1、PKCS#8、SEC1）、DER 和 PPK v2/v3，包含 RSA、ECDSA、Ed25519 及传统 DSA SSH 密钥。<code>.key</code> 和无扩展名文件适用相同规则；扩展名本身不决定格式。</li>
+<li>加密密钥展开“解密密码”后填写密码；导入时转换为 SSH 可用格式，再按平台凭据加密机制保存。不会保留导入密码。不支持仅含公钥的文件、硬件令牌引用或未知专有容器。</li>
 <li>公钥信息可用于确认密钥用途。</li>
 <li>密钥可供有权管理的节点引用；平台侧保存的私钥及口令按凭据加密逻辑处理。</li>
 <li>可在节点编辑中更换绑定的密钥。当前常规界面以新增、查看和复用密钥为主，没有独立的通用密钥编辑／删除管理页；移除某节点的 SSH 回退凭据是另一项操作。</li>
@@ -828,7 +829,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <h3 id="section-5-3">5.3 Windows 浏览器远程桌面</h3>
 <p>入口：<code>/servers/[id]/remote-desktop</code>。</p>
 <p>用户可连接、手动断开、重新连接、使用键盘和鼠标、切换适应窗口／原始尺寸、进入／退出全屏、发送 Ctrl+Alt+Del，并查看连接时长。已建立的连接意外断开后有退避重连；首次连接失败会显示具体错误。</p>
-<p>纯文本剪贴板支持本地到远程及远程到本地，受浏览器授权、HTTPS 和网关设置影响。当前网关禁止驱动器／文件传输、打印和任意管道；音频需要单独启用。需要传文件时使用已配置的云盘或 SFTP。</p>
+<p>纯文本剪贴板支持双向同步。点击远程桌面后，使用 Ctrl+V（Mac 为 ⌘V）或 Shift+Insert 粘贴本地文字；文本先传输，随后在远端执行粘贴。远端复制回本地需要浏览器剪贴板写入权限。单次文本上限为 262,144 个字符，超过时提示分段复制，不截断后粘贴；每次传输独立计数，连续粘贴不会耗尽整场连接额度。使用 HTTPS，且网关必须启用剪贴板。当前网关禁止驱动器／文件传输、打印和任意管道；音频需要单独启用。需要传文件时使用已配置的云盘或 SFTP。</p>
 <h3 id="section-5-4">5.4 RDP 证书和连接依赖</h3>
 <p>浏览器通过平台认证的 WebSocket 与 RDP 网关通信，Windows 凭据保留在服务端。管理员需要部署并启用 guacd，设置 RDP 开关，配置 WebSocket 反向代理及允许的网页来源。</p>
 <p>证书策略包括默认验证、明确选择忽略验证，以及固定整张证书的 SHA-256。证书固定需要支持该校验的加固网关；固定指纹与忽略验证不能同时启用。指纹应由管理员在 Windows 本机或独立可信渠道核对，证书更换后要更新。</p>

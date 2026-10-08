@@ -22,7 +22,7 @@ function cookie(req: IncomingMessage) {
  * connection. This floor is independent of the configurable idle timeout.
  */
 const DEAD_TRANSPORT_MS = 10 * 60_000;
-/** Bounds clipboard sync abuse: ~256 base64 chunks ≈ 1.5 MB of text per session. */
+/** Bounds clipboard sync abuse: ~256 base64 chunks per clipboard transfer. */
 const MAX_CLIPBOARD_BLOBS = 256;
 /** Concurrently open client→guacd clipboard streams; the protocol uses one. */
 const MAX_CLIPBOARD_STREAMS = 16;
@@ -73,8 +73,7 @@ export function setupRdpWebSocket(server: HttpServer) {
   let maxSessionMs = 0;
   let clipboardAllowed = false;
   let audioAllowed = false;
-  const clipboardStreams = new Set<number>();
-  let clipboardBlobs = 0;
+  const clipboardStreams = new Map<number, number>();
   const audit = (event: string) => {
    if (userId && serverId) void auditUserAction(userId, event, { serverId }, undefined, teamId).catch(() => {});
   };
@@ -134,11 +133,15 @@ export function setupRdpWebSocket(server: HttpServer) {
      // A client may only keep a handful of clipboard streams open at once;
      // without the cap each instruction could allocate an arbitrary index and
      // grow the set (and guacd state) without bound.
-     if (clipboardStreams.size >= MAX_CLIPBOARD_STREAMS) { close("RDP clipboard limit reached", 1008); return; }
-     clipboardStreams.add(index);
+     if (clipboardStreams.has(index) || clipboardStreams.size >= MAX_CLIPBOARD_STREAMS) { close("RDP clipboard limit reached", 1008); return; }
+     clipboardStreams.set(index, 0);
     }
     else if (!clipboardStreams.has(index)) { close("Unsupported RDP input", 1008); return; }
-    if (row[0] === "blob" && ++clipboardBlobs > MAX_CLIPBOARD_BLOBS) { close("RDP clipboard limit reached", 1008); return; }
+    if (row[0] === "blob") {
+     const blobs = clipboardStreams.get(index)! + 1;
+     if (blobs > MAX_CLIPBOARD_BLOBS) { close("RDP clipboard limit reached", 1008); return; }
+     clipboardStreams.set(index, blobs);
+    }
     if (row[0] === "end") clipboardStreams.delete(index);
    }
    if ((tunnel?.writableLength ?? 0) > 16_000_000) { close("RDP backpressure limit reached"); return; }
