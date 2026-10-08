@@ -24,6 +24,21 @@ test("RDP native text paste and Linux/Windows connection control dimensions", as
     }
     await db.query(`INSERT INTO "StorageNode" (id,name,driver,"basePath","serverId","teamId","createdAt","updatedAt") VALUES ($1,$1,'LOCAL','/tmp/rdp-input-unused',$2,$3,NOW(),NOW())`, [prefix, prefix + "WINDOWS", teamId]);
     await installDirectSession(context);
+    // Real xterm + browser event pipeline; the transport records input only.
+    // Two mobile keyCode-229 punctuation events in one task used to schedule
+    // overlapping textarea diffs and replay old command text.
+    await page.route("**/api/auth/ws-token", route => route.fulfill({ json: { token: "fixture-token" } }));
+    const terminalInput: string[] = [];
+    await page.routeWebSocket(/\/ssh\?/, ws => {
+      ws.send(JSON.stringify({ type: "connected", inputAck: true }));
+      ws.onMessage(raw => {
+        const message = JSON.parse(String(raw));
+        if (message.type === "input") {
+          terminalInput.push(Buffer.from(message.data, "base64").toString("utf8"));
+          ws.send(JSON.stringify({ type: "input-ack", id: message.id }));
+        }
+      });
+    });
     await page.goto(`/servers?query=${prefix}`, { waitUntil: "networkidle" });
     const cards = page.locator("[data-server-card]");
     await expect(cards).toHaveCount(2);
@@ -50,21 +65,6 @@ test("RDP native text paste and Linux/Windows connection control dimensions", as
     expect(a!.width).toBe(b!.width);
     await page.keyboard.press("Escape");
 
-    // Real xterm + browser event pipeline; the transport records input only.
-    // Two mobile keyCode-229 punctuation events in one task used to schedule
-    // overlapping textarea diffs and replay old command text.
-    await page.route("**/api/auth/ws-token", route => route.fulfill({ json: { token: "fixture-token" } }));
-    const terminalInput: string[] = [];
-    await page.routeWebSocket(/\/ssh\?/, ws => {
-      ws.send(JSON.stringify({ type: "connected", inputAck: true }));
-      ws.onMessage(raw => {
-        const message = JSON.parse(String(raw));
-        if (message.type === "input") {
-          terminalInput.push(Buffer.from(message.data, "base64").toString("utf8"));
-          ws.send(JSON.stringify({ type: "input-ack", id: message.id }));
-        }
-      });
-    });
     await cards.filter({ hasText: prefix + "LINUX" }).locator('[data-server-connection="ssh"]').click();
     const terminal = page.locator(".xterm-helper-textarea");
     await expect(terminal).toBeAttached();

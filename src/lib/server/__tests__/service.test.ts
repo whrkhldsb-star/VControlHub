@@ -238,7 +238,7 @@ describe("server service", () => {
     const publicKey = parsePrivateKey(privateKey).toPublic().toString("ssh");
     await createSshKey({ name: " manual-key ", privateKey, publicKey, createdById: "u_1" });
     const saved = vi.mocked(prisma.sshKey.create).mock.calls.at(-1)![0].data;
-    expect(saved).toMatchObject({ name: "manual-key", publicKey, createdById: "u_1", passphrase: null });
+    expect(saved).toMatchObject({ name: "manual-key", publicKey: publicKey.trim().split(/\s+/).slice(0, 2).join(" "), createdById: "u_1", passphrase: null });
     expect(saved.privateKey).not.toContain("PRIVATE KEY");
     expect(saved.fingerprint).toMatch(/^SHA256:/);
   });
