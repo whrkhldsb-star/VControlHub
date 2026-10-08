@@ -4,7 +4,7 @@ import type { Server } from "node:http";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { instruction } from "@/lib/rdp/protocol";
 
-const mocks = vi.hoisted(() => ({ verify: vi.fn(), getServer: vi.fn(), tunnel: vi.fn(), webSocketServer: vi.fn() }));
+const mocks = vi.hoisted(() => ({ verify: vi.fn(), getServer: vi.fn(), tunnel: vi.fn(), webSocketServer: vi.fn(), clipboard: vi.fn() }));
 vi.mock("ws", () => ({
   WebSocket: { OPEN: 1 },
   WebSocketServer: class { constructor() { return mocks.webSocketServer(); } },
@@ -20,7 +20,7 @@ vi.mock("@/lib/rdp/tickets", () => ({
   guacdPort: () => 4822, rdpEndpointHash: () => "endpoint", rdpOriginAllowed: () => true,
 }));
 vi.mock("@/lib/runtime-settings/service", () => ({ getRdpSessionRuntimeConfig: async () => ({ idleTimeoutMs: 0, maxSessionMs: 0 }) }));
-vi.mock("@/lib/rdp/features", () => ({ rdpAudioEnabled: () => false, rdpClipboardEnabled: () => false, RDP_AUDIO_MIMETYPES: [] }));
+vi.mock("@/lib/rdp/features", () => ({ rdpAudioEnabled: () => false, rdpClipboardEnabled: mocks.clipboard, RDP_AUDIO_MIMETYPES: [] }));
 
 import { setupRdpWebSocket } from "@/lib/rdp/ws";
 
@@ -29,6 +29,7 @@ describe("established RDP authorization", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
+    mocks.clipboard.mockReturnValue(false);
     mocks.verify.mockResolvedValue({ userId: "u", roles: ["admin"], currentTeamId: "t", mustChangePassword: false });
     mocks.getServer.mockResolvedValue({ id: "s", teamId: "t", host: "192.0.2.1", port: 3389, username: "test", rdpPassword: "sealed" });
   });
@@ -52,6 +53,26 @@ describe("established RDP authorization", () => {
     expect(ws.close).not.toHaveBeenCalled();
     return { ws, tunnel };
   }
+
+  it("resets the clipboard transfer budget for each completed paste", async () => {
+    mocks.clipboard.mockReturnValue(true);
+    const { ws, tunnel } = await connect();
+    for (let paste = 0; paste < 300; paste++) {
+      ws.emit("message", Buffer.from(instruction("clipboard", "0", "text/plain") + instruction("blob", "0", "YQ==") + instruction("end", "0")), false);
+    }
+    expect(ws.close).not.toHaveBeenCalled();
+    expect(tunnel.write).toHaveBeenCalledWith(instruction("end", "0"));
+  });
+  it("still rejects a single oversized transfer and duplicate open stream IDs", async () => {
+    mocks.clipboard.mockReturnValue(true);
+    const { ws } = await connect();
+    ws.emit("message", Buffer.from(instruction("clipboard", "0", "text/plain")), false);
+    for (let chunk = 0; chunk < 257; chunk++) ws.emit("message", Buffer.from(instruction("blob", "0", "YQ==")), false);
+    expect(ws.close).toHaveBeenCalledWith(1008);
+    const other = await connect();
+    other.ws.emit("message", Buffer.from(instruction("clipboard", "0", "text/plain").repeat(2)), false);
+    expect(other.ws.close).toHaveBeenCalledWith(1008);
+  });
 
   it("closes the tunnel when an authorization lookup stalls, even with unlimited idle policy", async () => {
     const { ws, tunnel } = await connect();

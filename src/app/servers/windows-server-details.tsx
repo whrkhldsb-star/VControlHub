@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 
-import { ActionButton, ButtonLink } from "@/components/action-button";
-import { Server } from "@/components/icons";
+import { ActionButton } from "@/components/action-button";
+import { ServerConnectionAction } from "./server-connection-action";
 import { Badge, Notice } from "@/components/ui-primitives";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { ServerCardActions } from "./server-card-actions";
@@ -90,10 +90,9 @@ export function WindowsServerDetails({
 						{/* RDP sits in the bottom action block, mirroring where the
 						    Linux card puts its SSH-terminal button. */}
 						{server.enabled && canUseSshTerminal ? (
-							<ButtonLink variant="ghost" href={`/servers/${encodeURIComponent(server.id)}/remote-desktop`} data-tone="cyan" className="mb-3 flex w-full items-center justify-center gap-2">
-								<Server size={16} aria-hidden="true" />
-								{t("serversPage.windows.remoteDesktop")}
-							</ButtonLink>
+              <div className="mb-3">
+                <ServerConnectionAction protocol="rdp" serverId={server.id} serverName={server.name} size="md" block />
+              </div>
 						) : null}
 						<ServerCardActions
 							operatingSystem="WINDOWS"

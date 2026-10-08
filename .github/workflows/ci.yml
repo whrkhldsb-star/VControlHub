@@ -333,7 +333,7 @@ jobs:
         run: |
           set -euo pipefail
           curl -fsS http://127.0.0.1:3000/login >/dev/null
-          npx playwright test e2e/authenticated-flow.spec.ts \
+          npx playwright test e2e/authenticated-flow.spec.ts e2e/rdp-clipboard.spec.ts \
             --project=chromium --project=firefox --project=webkit \
             --workers=1 --retries=1
 
