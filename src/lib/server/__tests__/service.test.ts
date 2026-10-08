@@ -1,3 +1,5 @@
+import { generateKeyPairSync } from "node:crypto";
+import { parsePrivateKey } from "sshpk";
 vi.mock("@/lib/concurrency/advisory-lock", () => ({
   acquireAdvisoryLock: vi.fn(async () => async () => undefined),
 }));
@@ -230,111 +232,21 @@ describe("server service", () => {
     expect(prisma.server.update).not.toHaveBeenCalled();
   });
 
-  it("creates an ssh key from manual public/private key input", async () => {
-    vi.mocked(prisma.sshKey.create).mockResolvedValueOnce({
-      id: "key_2",
-      name: "manual-key",
-      fingerprint: "SHA256:manual",
-      description: null,
-    } as any);
-
-    await createSshKey({
-      name: " manual-key ",
-      publicKey:
-        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE+T8dQJ1mM8AJy6K1xMAsYbwsOQJk2R4x9sQ3K9A0mE user@test",
-      privateKey: " [REDACTED PRIVATE KEY] ",
-      createdById: "u_1",
-    });
-
-    expect(parseFromStringMock).not.toHaveBeenCalled();
-    expect(prisma.sshKey.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          name: "manual-key",
-          publicKey:
-            "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE+T8dQJ1mM8AJy6K1xMAsYbwsOQJk2R4x9sQ3K9A0mE user@test",
-          privateKey: expect.any(String),
-          createdById: "u_1",
-        }),
-      }),
-    );
+  it("stores a validated private key encrypted and derives its public identity", async () => {
+    const generated = generateKeyPairSync("ed25519");
+    const privateKey = generated.privateKey.export({ format: "pem", type: "pkcs8" }).toString();
+    const publicKey = parsePrivateKey(privateKey).toPublic().toString("ssh");
+    await createSshKey({ name: " manual-key ", privateKey, publicKey, createdById: "u_1" });
+    const saved = vi.mocked(prisma.sshKey.create).mock.calls.at(-1)![0].data;
+    expect(saved).toMatchObject({ name: "manual-key", publicKey, createdById: "u_1", passphrase: null });
+    expect(saved.privateKey).not.toContain("PRIVATE KEY");
+    expect(saved.fingerprint).toMatch(/^SHA256:/);
   });
 
-  it("creates an ssh key from uploaded ppk and keeps it unencrypted when requested", async () => {
-    parseFromStringMock.mockResolvedValueOnce({
-      publicKey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBPPKConverted user@test",
-      privateKey: "[REDACTED PRIVATE KEY]",
-      fingerprint: "SHA256:converted",
-    });
-    vi.mocked(prisma.sshKey.create).mockResolvedValueOnce({
-      id: "key_3",
-      name: "ppk-key",
-      fingerprint: "SHA256:converted",
-      description: null,
-    } as any);
-
-    await createSshKey({
-      name: "ppk-key",
-      ppkContent: "PuTTY-User-Key-File-3: ssh-ed25519\n...",
-      ppkPassphrase: "source-secret",
-      privateKeyEncryptionMode: "none",
-    });
-
-    expect(parseFromStringMock).toHaveBeenCalledWith(
-      "PuTTY-User-Key-File-3: ssh-ed25519\n...",
-      "source-secret",
-    );
-    expect(prisma.sshKey.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          publicKey:
-            "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBPPKConverted user@test",
-          privateKey: expect.any(String),
-          fingerprint: "SHA256:converted",
-        }),
-      }),
-    );
-  });
-
-  it("passes a custom output passphrase when re-encrypting imported ppk", async () => {
-    parseFromStringMock.mockResolvedValueOnce({
-      publicKey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICustomPass user@test",
-      privateKey: "[REDACTED PRIVATE KEY]",
-      fingerprint: "SHA256:custom-pass",
-    });
-    vi.mocked(prisma.sshKey.create).mockResolvedValueOnce({
-      id: "key_4",
-      name: "custom-pass-key",
-      fingerprint: "SHA256:custom-pass",
-      description: null,
-    } as any);
-
-    await createSshKey({
-      name: "custom-pass-key",
-      ppkContent: "PuTTY-User-Key-File-3: ssh-ed25519\n...",
-      ppkPassphrase: "source-secret",
-      privateKeyEncryptionMode: "custom",
-      privateKeyOutputPassphrase: "target-secret",
-    });
-
-    expect(parseFromStringMock).toHaveBeenCalledWith(
-      "PuTTY-User-Key-File-3: ssh-ed25519\n...",
-      "source-secret",
-      {
-        encrypt: true,
-        outputPassphrase: "target-secret",
-      },
-    );
-  });
-
-  it("rejects custom re-encryption without a new output passphrase", async () => {
-    await expect(
-      createSshKey({
-        name: "invalid-key",
-        ppkContent: "PuTTY-User-Key-File-3: ssh-ed25519\n...",
-        privateKeyEncryptionMode: "custom",
-      }),
-    ).rejects.toThrow("选择自定义加密格式时必须提供新的私钥口令");
+  it("rejects public-only records and malformed private keys without saving", async () => {
+    await expect(createSshKey({ name: "key", publicKey: "ssh-rsa AAAA" })).rejects.toThrow("请粘贴私钥");
+    await expect(createSshKey({ name: "key", privateKey: "-----BEGIN PRIVATE KEY-----\nA\n-----END PRIVATE KEY-----" })).rejects.toThrow("无法解析私钥");
+    expect(prisma.sshKey.create).not.toHaveBeenCalled();
   });
 
   it("rejects adding the same host for a different port before creating records", async () => {

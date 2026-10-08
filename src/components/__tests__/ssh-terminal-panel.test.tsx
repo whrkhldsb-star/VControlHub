@@ -37,7 +37,10 @@ vi.mock("@xterm/xterm", () => ({
 		};
 		scrollLines = vi.fn();
 		loadAddon() {}
-		open() {}
+		textarea = document.createElement("textarea");
+		open(parent: HTMLElement) { parent.appendChild(this.textarea); }
+		input() {}
+		attachCustomKeyEventHandler() {}
 		write() {}
 		onData() {}
 		dispose() {}

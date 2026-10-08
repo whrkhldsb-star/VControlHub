@@ -244,25 +244,16 @@ export async function createSshKeyAction(
   const tr = await serverActionTranslator();
 
   try {
-    const uploadedFile = formData.get("ppkFile");
-    const ppkContent =
-      uploadedFile instanceof File && uploadedFile.size > 0
-        ? await uploadedFile.text()
-        : null;
+    const uploadedFile = formData.get("keyFile");
+    const keyFile = uploadedFile instanceof File && uploadedFile.size > 0
+      ? Buffer.from(await uploadedFile.arrayBuffer()) : null;
 
     await createSshKey({
       name: String(formData.get("name") ?? ""),
       publicKey: String(formData.get("publicKey") ?? ""),
       privateKey: String(formData.get("privateKey") ?? "") || null,
-      ppkContent,
-      ppkPassphrase: String(formData.get("ppkPassphrase") ?? "") || null,
+      keyFile,
       passphrase: String(formData.get("passphrase") ?? "") || null,
-      privateKeyEncryptionMode: (String(
-        formData.get("privateKeyEncryptionMode") ?? "none",
-      ) || "none") as "none" | "same-as-ppk" | "custom",
-      privateKeyOutputPassphrase:
-        String(formData.get("privateKeyOutputPassphrase") ?? "") || null,
-      description: String(formData.get("description") ?? "") || null,
       createdById: session.userId,
       session,
     });

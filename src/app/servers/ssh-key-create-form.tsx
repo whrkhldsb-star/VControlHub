@@ -6,178 +6,39 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { Notice } from "@/components/ui-primitives";
 import { cn } from "@/lib/ui/cn";
-const initialState: ServerActionState = {
-  error: undefined,
-  success: undefined,
-  relatedStorageCount: undefined,
-};
+
+const initialState: ServerActionState = {};
+
 export function SshKeyCreateForm() {
   const { t } = useI18n();
   const [state, formAction] = useActionState(createSshKeyAction, initialState);
-  const [selectedPpkFileName, setSelectedPpkFileName] = useState<string | null>(
-    null,
-  );
+  const [hasFile, setHasFile] = useState(false);
   return (
-    <form action={formAction} data-card className="grid gap-4 ">
-      {" "}
-      <div>
-        {" "}
-        <h2 className="text-lg font-semibold text-[var(--text-primary)]">
-          {t("serversPage.sshKeyCreate.title")}
-        </h2>{" "}
-        <p className="mt-1 text-xs text-[var(--text-muted)]">
-          {t("serversPage.sshKeyCreate.desc")}
-        </p>{" "}
-      </div>{" "}
-      {state.error && (
-        <Notice tone="danger">{state.error}</Notice>
-      )}{" "}
-      {state.success && (
-        <Notice tone="success">{state.success}</Notice>
-      )}{" "}
+    <form action={formAction} data-card className="grid gap-4" onReset={() => setHasFile(false)}>
+      <h2 className="text-lg font-semibold text-[var(--text-primary)]">{t("serversPage.sshKeyCreate.title")}</h2>
+      {state.error && <Notice tone="danger">{state.error}</Notice>}
+      {state.success && <Notice tone="success">{state.success}</Notice>}
       <div className="space-y-1.5">
-        {" "}
-        <label
-          className="text-xs font-medium text-[var(--text-primary)]/70 "
-          htmlFor="sshKeyName"
-        >
-          {t("common.name")}
-        </label>{" "}
-        <input
-          id="sshKeyName"
-          name="name"
-          type="text"
-          required
-          placeholder={t("serversPage.sshKeyCreate.namePlaceholder")}
-          className={UI_INPUT}
-        />{" "}
-      </div>{" "}
+        <label htmlFor="sshKeyName">{t("common.name")}</label>
+        <input id="sshKeyName" name="name" required className={UI_INPUT} />
+      </div>
       <div className="space-y-1.5">
-        {" "}
-        <label
-          className="text-xs font-medium text-[var(--text-primary)]/70 "
-          htmlFor="sshKeyDesc"
-        >
-          {t("serversPage.create.description")}
-        </label>{" "}
-        <input
-          id="sshKeyDesc"
-          name="description"
-          type="text"
-          placeholder={t("common.optional")}
-          className={UI_INPUT}
-        />{" "}
-      </div>{" "}
-      <div
-        data-tone="cyan"
-        data-inset className="px-3.5 py-2.5 text-xs leading-relaxed text-[var(--text-secondary)]"
-      >
-        {t("serversPage.sshKeyCreate.formatHint")}
-      </div>{" "}
+        <label htmlFor="publicKey">{t("serversPage.sshKeyCreate.publicKeyLabel")}</label>
+        <textarea id="publicKey" name="publicKey" rows={2} placeholder={t("serversPage.sshKeyCreate.publicKeyPlaceholder")} className={cn(UI_INPUT, "resize-y font-mono")} />
+      </div>
       <div className="space-y-1.5">
-        {" "}
-        <label
-          className="text-xs font-medium text-[var(--text-primary)]/70 "
-          htmlFor="privateKey"
-        >
-          {t("serversPage.sshKeyCreate.privateKeyLabel")}
-        </label>{" "}
-        <textarea
-          id="privateKey"
-          name="privateKey"
-          rows={4}
-          placeholder={t("serversPage.sshKeyCreate.privateKeyPlaceholder")}
-          className={cn(UI_INPUT, "resize-y font-mono")}
-        />{" "}
-      </div>{" "}
+        <label htmlFor="privateKey">{t("serversPage.sshKeyCreate.privateKeyLabel")}</label>
+        <textarea id="privateKey" name="privateKey" rows={4} required={!hasFile} placeholder={t("serversPage.sshKeyCreate.privateKeyPlaceholder")} className={cn(UI_INPUT, "resize-y font-mono")} />
+      </div>
       <div className="space-y-1.5">
-        {" "}
-        <label
-          className="text-xs font-medium text-[var(--text-primary)]/70 "
-          htmlFor="publicKey"
-        >
-          {t("serversPage.sshKeyCreate.publicKeyLabel")}
-        </label>{" "}
-        <textarea
-          id="publicKey"
-          name="publicKey"
-          rows={2}
-          placeholder="ssh-rsa AAAA..."
-          className={cn(UI_INPUT, "resize-y font-mono")}
-        />{" "}
-      </div>{" "}
-      <div className="space-y-1.5">
-        {" "}
-        <label
-          className="text-xs font-medium text-[var(--text-primary)]/70 "
-          htmlFor="passphrase"
-        >
-          {t("serversPage.sshKeyCreate.passphraseLabel")}
-        </label>{" "}
-        <input
-          id="passphrase"
-          name="passphrase"
-          type="password"
-          autoComplete="new-password"
-          placeholder={t("serversPage.sshKeyCreate.passphrasePlaceholder")}
-          className={UI_INPUT}
-        />{" "}
-        <p className="text-xs text-[var(--text-muted)]">
-          {t("serversPage.sshKeyCreate.passphraseHint")}
-        </p>{" "}
-      </div>{" "}
-      <div className="space-y-1.5">
-        {" "}
-        <label
-          className="text-xs font-medium text-[var(--text-primary)]/70 "
-          htmlFor="ppkPassphrase"
-        >
-          {t("serversPage.sshKeyCreate.ppkPassphraseLabel")}
-        </label>{" "}
-        <input
-          id="ppkPassphrase"
-          name="ppkPassphrase"
-          type="password"
-          autoComplete="new-password"
-          placeholder={t("serversPage.sshKeyCreate.ppkPassphrasePlaceholder")}
-          className={UI_INPUT}
-        />{" "}
-      </div>{" "}
-      <div className="space-y-1.5">
-        {" "}
-        <label className="text-xs font-medium text-[var(--text-primary)]/70 ">
-          {t("serversPage.sshKeyCreate.fileUploadLabel")}
-        </label>{" "}
-        <div className="flex items-center gap-3">
-          {" "}
-          <label data-tile className="cursor-pointer border-dashed px-4 py-2.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--surface-elevated)] transition">
-            {" "}
-            {selectedPpkFileName ??
-              t("serversPage.sshKeyCreate.fileLabel")}{" "}
-            <input
-              type="file"
-              name="ppkFile"
-              accept=".ppk,.pem,.key,.id_rsa,.id_ed25519,.id_ecdsa,.id_dsa,.openssh"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                setSelectedPpkFileName(file?.name ?? null);
-              }}
-            />{" "}
-          </label>{" "}
-          {selectedPpkFileName && (
-            <span className="text-xs text-[var(--text-muted)]">
-              {t("serversPage.sshKeyCreate.selectedFile").replace(
-                "{name}",
-                selectedPpkFileName,
-              )}
-            </span>
-          )}{" "}
-        </div>{" "}
-      </div>{" "}
-      <SubmitButton pendingLabel={t("serversPage.sshKeyCreate.submitting")}>
-        {t("serversPage.sshKeyCreate.title")}
-      </SubmitButton>{" "}
+        <label htmlFor="sshKeyFile">{t("serversPage.sshKeyCreate.fileUploadLabel")}</label>
+        <input id="sshKeyFile" type="file" name="keyFile" className={UI_INPUT} onChange={event => setHasFile(Boolean(event.target.files?.[0]?.size))} />
+      </div>
+      <details className="text-sm">
+        <summary className="cursor-pointer">{t("serversPage.sshKeyCreate.passphraseLabel")}</summary>
+        <input aria-label={t("serversPage.sshKeyCreate.passphraseLabel")} name="passphrase" type="password" autoComplete="new-password" placeholder={t("serversPage.sshKeyCreate.passphrasePlaceholder")} className={cn(UI_INPUT, "mt-2")} />
+      </details>
+      <SubmitButton pendingLabel={t("serversPage.sshKeyCreate.submitting")}>{t("serversPage.sshKeyCreate.title")}</SubmitButton>
     </form>
   );
 }

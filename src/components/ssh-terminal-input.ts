@@ -17,13 +17,8 @@ export function createSshTerminalInputSender(
 	const schedule = () => {
 		if (!timer && !disposed) timer = setTimeout(() => { timer = undefined; flush(); }, 125);
 	};
-	// An in-flight chunk whose ack never arrives (proxy hiccup, mobile network
-	// switch) used to wedge `awaiting` forever: every later keystroke queued up
-	// but was never sent, so the terminal looked alive but ignored input. A
-	// missing ack now recovers by re-flushing after the deadline instead of
-	// dead-locking the pipe. The wire write may duplicate a chunk the server
-	// already received; terminals tolerate this (typed keystrokes are
-	// idempotent-ish) far better than permanent input loss.
+	// The sent chunk is removed immediately. A missing ACK releases only
+	// subsequent input; terminal keystrokes must never be replayed.
 	const ACK_TIMEOUT_MS = 5_000;
 	let ackTimer: ReturnType<typeof setTimeout> | undefined;
 	const clearAckTimer = () => {
@@ -61,6 +56,7 @@ export function createSshTerminalInputSender(
 	const dispose = () => {
 		disposed = true;
 		clearTimeout(timer);
+		clearAckTimer();
 		queue.length = 0;
 		pendingBytes = 0;
 		awaiting = null;
@@ -85,13 +81,6 @@ export function createSshTerminalInputSender(
 			clearAckTimer();
 			flush();
 		},
-		dispose() {
-			disposed = true;
-			clearTimeout(timer);
-			clearAckTimer();
-			queue.length = 0;
-			pendingBytes = 0;
-			awaiting = null;
-		},
+		dispose,
 	};
 }

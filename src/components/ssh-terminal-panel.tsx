@@ -2,6 +2,7 @@
 
 import { decodeBase64Bytes } from "@/components/ssh-terminal-codec";
 import { createSshTerminalInputSender } from "@/components/ssh-terminal-input";
+import { installSshTerminalIme } from "@/components/ssh-terminal-ime";
 import { parseQuickKeyPresets, quickKeyPresetsToEntries, serializeQuickKeyPresets, type QuickKeyPreset } from "@/components/ssh-quick-keys";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -235,6 +236,7 @@ export function SshTerminalPanel({ serverId, serverName, host, visible, onClose,
 			term.loadAddon(fitAddon);
 			term.loadAddon(searchAddon);
 			term.open(termRef.current);
+			const removeIme = installSshTerminalIme(term);
 			fitAddon.fit();
 
 			terminalRef.current = term;
@@ -371,6 +373,7 @@ export function SshTerminalPanel({ serverId, serverName, host, visible, onClose,
 
 			window.addEventListener("resize", handleResize);
 			return () => {
+				removeIme();
 				window.removeEventListener("resize", handleResize);
 				surface.removeEventListener("touchstart", onTouchStart);
 				surface.removeEventListener("touchmove", onTouchMove);

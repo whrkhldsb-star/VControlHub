@@ -50,6 +50,39 @@ test("RDP native text paste and Linux/Windows connection control dimensions", as
     expect(a!.width).toBe(b!.width);
     await page.keyboard.press("Escape");
 
+    // Real xterm + browser event pipeline; the transport records input only.
+    // Two mobile keyCode-229 punctuation events in one task used to schedule
+    // overlapping textarea diffs and replay old command text.
+    await page.route("**/api/auth/ws-token", route => route.fulfill({ json: { token: "fixture-token" } }));
+    const terminalInput: string[] = [];
+    await page.routeWebSocket(/\/ssh\?/, ws => {
+      ws.send(JSON.stringify({ type: "connected", inputAck: true }));
+      ws.onMessage(raw => {
+        const message = JSON.parse(String(raw));
+        if (message.type === "input") {
+          terminalInput.push(Buffer.from(message.data, "base64").toString("utf8"));
+          ws.send(JSON.stringify({ type: "input-ack", id: message.id }));
+        }
+      });
+    });
+    await cards.filter({ hasText: prefix + "LINUX" }).locator('[data-server-connection="ssh"]').click();
+    const terminal = page.locator(".xterm-helper-textarea");
+    await expect(terminal).toBeAttached();
+    await terminal.focus();
+    await page.keyboard.type("echo ");
+    await terminal.evaluate(textarea => {
+      const target = textarea as HTMLTextAreaElement;
+      target.value = "previous command";
+      for (const data of ["（", "）", "[", "]", "，", " "]) {
+        target.dispatchEvent(new KeyboardEvent("keydown", { key: "Process", keyCode: 229, bubbles: true }));
+        target.value = "previous command" + data;
+        target.dispatchEvent(new InputEvent("input", { inputType: "insertText", data, bubbles: true, composed: true }));
+      }
+    });
+    await page.keyboard.type("done");
+    await expect.poll(() => terminalInput.join("")).toBe("echo （）[]， done");
+    await page.goto(`/servers?query=${prefix}`, { waitUntil: "networkidle" });
+
     // Exercise the real browser keyboard, clipboard event and Guacamole client;
     // substitute only the remote transport, so no test types into a real desktop.
     await page.route("**/api/auth/rdp-ticket", route => route.fulfill({ json: { token: "fixture-ticket", path: "/rdp" } }));
