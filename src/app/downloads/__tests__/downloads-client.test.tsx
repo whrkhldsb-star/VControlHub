@@ -54,37 +54,35 @@ describe("DownloadsClient", () => {
     expect(screen.queryByText("暂无下载任务")).not.toBeInTheDocument();
   });
 
-  it("keeps the deep-pagination cursor when the first page is refreshed", async () => {
+  it("refreshes every loaded page and keeps paging from the last cursor", async () => {
     const actor = userEvent.setup();
-    const secondTask = {
-      ...runningTask,
-      id: "dl_2",
-      url: "https://example.com/b.iso",
-    };
-    const thirdTask = {
-      ...runningTask,
-      id: "dl_3",
-      url: "https://example.com/c.iso",
-    };
+    const secondTask = { ...runningTask, id: "dl_2", url: "https://example.com/b.iso" };
+    const secondTaskDone = { ...secondTask, status: "COMPLETED" };
+    const thirdTask = { ...runningTask, id: "dl_3", url: "https://example.com/c.iso" };
     vi.mocked(csrfFetch)
       .mockResolvedValueOnce({ tasks: [runningTask], globalStat: null, nextCursor: "cursor_1" })
       .mockResolvedValueOnce({ tasks: [secondTask], globalStat: null, nextCursor: "cursor_2" })
+      // Refresh re-reads both loaded pages, so a change on page 2 is not lost.
       .mockResolvedValueOnce({ tasks: [runningTask], globalStat: null, nextCursor: "cursor_1" })
+      .mockResolvedValueOnce({ tasks: [secondTaskDone], globalStat: null, nextCursor: "cursor_2" })
       .mockResolvedValueOnce({ tasks: [thirdTask], globalStat: null, nextCursor: null });
+    const listCall = (url: string) => [url, expect.objectContaining({ signal: expect.any(AbortSignal) })];
 
     render(<DownloadsClient servers={servers} canManage canManageNode />);
 
     await screen.findByText("https://example.com/a.iso");
     await actor.click(screen.getByRole("button", { name: "加载更多" }));
     await screen.findByText("https://example.com/b.iso");
-    expect(csrfFetch).toHaveBeenNthCalledWith(2, "/api/downloads?cursor=cursor_1");
+    expect(csrfFetch).toHaveBeenNthCalledWith(2, ...listCall("/api/downloads?cursor=cursor_1"));
 
     act(() => document.dispatchEvent(new Event("visibilitychange")));
-    await vi.waitFor(() => expect(csrfFetch).toHaveBeenCalledTimes(3));
+    await vi.waitFor(() => expect(csrfFetch).toHaveBeenCalledTimes(4));
+    expect(csrfFetch).toHaveBeenNthCalledWith(3, ...listCall("/api/downloads"));
+    expect(csrfFetch).toHaveBeenNthCalledWith(4, ...listCall("/api/downloads?cursor=cursor_1"));
 
     await actor.click(screen.getByRole("button", { name: "加载更多" }));
     await screen.findByText("https://example.com/c.iso");
-    expect(csrfFetch).toHaveBeenNthCalledWith(4, "/api/downloads?cursor=cursor_2");
+    expect(csrfFetch).toHaveBeenNthCalledWith(5, ...listCall("/api/downloads?cursor=cursor_2"));
   });
 
   it("surfaces download action failures and keeps the task visible", async () => {

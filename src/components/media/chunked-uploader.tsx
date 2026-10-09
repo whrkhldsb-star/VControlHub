@@ -360,7 +360,10 @@ export function useChunkedMediaUpload(
 							if (failed) return;
 							if (cancelledRef.current) throw new Error("cancelled");
 							const view = await putChunk(session.id, idx, buf.byteLength, buf);
-							if (!failed && !cancelledRef.current) updateProgress(view);
+							// The server accepted this chunk, so it counts even after a cancel
+							// or a sibling failure. The error state is emitted only after every
+							// worker settles, so this cannot overwrite it.
+							updateProgress(view);
 						}
 					} catch (error) {
 						failed = true;

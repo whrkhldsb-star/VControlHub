@@ -77,10 +77,10 @@ describe("assertSftpPathAccess", () => {
 		).rejects.toThrow("outside the allowed home directory");
 	});
 
-	it("allows relative paths that resolve under the home root", async () => {
+	it("rejects relative paths, whose base is the remote login directory rather than the allowed root", async () => {
 		await expect(
 			assertSftpPathAccess({ session, serverId: "s1", paths: ["files/a.txt"] }),
-		).resolves.toBeUndefined();
+		).rejects.toThrow("outside the allowed home directory");
 	});
 
 	it("rejects a lexically-valid path whose symlink resolves outside home", async () => {

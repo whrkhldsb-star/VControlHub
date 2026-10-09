@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  findUnique: vi.fn(), update: vi.fn(), createJob: vi.fn(),
+  findUnique: vi.fn(), update: vi.fn(), createJob: vi.fn(), storageNodeFindUnique: vi.fn(),
   jobFindUnique: vi.fn(), jobUpdateMany: vi.fn(),
   exec: vi.fn(), realpath: vi.fn(), dockerRequest: vi.fn(),
 }));
 vi.mock("@/lib/db", () => ({ prisma: {
   server: { findUnique: mocks.findUnique, update: mocks.update },
+  storageNode: { findUnique: mocks.storageNodeFindUnique },
   serverAgentJob: { create: mocks.createJob, findUnique: mocks.jobFindUnique, updateMany: mocks.jobUpdateMany },
 } }));
 vi.mock("@/lib/ssh/client", async (importOriginal) => ({
@@ -50,9 +51,10 @@ describe("Windows rejects Linux-only operations before side effects", () => {
     expect(mocks.exec).not.toHaveBeenCalled();
   });
 
-  it("rejects SFTP before resolving remote paths", async () => {
+  it("rejects SFTP without a bound OpenSSH storage node before resolving remote paths", async () => {
+    mocks.storageNodeFindUnique.mockResolvedValue(null);
     await expect(assertSftpPathAccess({ session: {} as SessionPayload, serverId: "win", paths: ["/home/Administrator"] }))
-      .rejects.toThrow(/Linux/);
+      .rejects.toThrow(/SFTP/);
     expect(mocks.realpath).not.toHaveBeenCalled();
     expect(mocks.findUnique).toHaveBeenCalledWith(expect.objectContaining({ select: expect.objectContaining({ operatingSystem: true }) }));
   });

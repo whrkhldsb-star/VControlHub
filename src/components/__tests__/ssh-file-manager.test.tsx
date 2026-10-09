@@ -167,10 +167,10 @@ describe("SshFileManager", () => {
 		});
 	});
 
-	it("falls back to / when /root list fails on first open", async () => {
+	it("falls back to / when the account's start directory cannot be listed", async () => {
 		mocks.csrfFetch.mockImplementation(async (_url: string, init?: { body?: string }) => {
 			const body = init?.body ? JSON.parse(init.body) as { path?: string } : {};
-			if (body.path === "/root") {
+			if (body.path === undefined) {
 				throw new Error("Permission denied");
 			}
 			if (body.path === "/") {
@@ -191,7 +191,8 @@ describe("SshFileManager", () => {
 				const init = call[1] as { body?: string } | undefined;
 				return init?.body ? (JSON.parse(init.body) as { path?: string }).path : undefined;
 			});
-		expect(listBodies).toEqual(expect.arrayContaining(["/root", "/"]));
+		// First open lets the server choose the start directory, then retries /.
+		expect(listBodies.slice(0, 2)).toEqual([undefined, "/"]);
 		// Fallback succeeded — no sticky permission error banner.
 		expect(screen.queryByText("Permission denied")).not.toBeInTheDocument();
 	});

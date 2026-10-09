@@ -1073,6 +1073,51 @@ describe("/api/downloads", () => {
     expect(execRemoteCommandMock).not.toHaveBeenCalled();
   });
 
+  it("refuses to cancel a task that already finished and keeps its result", async () => {
+    prismaMock.downloadTask.findFirst.mockResolvedValueOnce({
+      id: "task_done", createdBy: "u_1", targetPath: "/srv/cloud/downloads/file.iso",
+      url: "https://example.com/file.iso", status: "COMPLETED", pid: 12345, aria2Gid: null,
+      relayMode: false, server: serverFixture(),
+    });
+
+    const response = await DELETE(new Request("https://example.com/api/downloads?taskId=task_done", { method: "DELETE" }));
+
+    expect(response.status).toBe(409);
+    expect(execRemoteCommandMock).not.toHaveBeenCalled();
+    expect(prismaMock.downloadTask.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("treats a repeated cancel as done without stopping anything again", async () => {
+    prismaMock.downloadTask.findFirst.mockResolvedValueOnce({
+      id: "task_cancelled", createdBy: "u_1", targetPath: "/srv/cloud/downloads/file.iso",
+      url: "magnet:?xt=urn:btih:abcdef", status: "CANCELLED", pid: null, aria2Gid: "gid_1",
+      relayMode: true, server: serverFixture(),
+    });
+
+    const response = await DELETE(new Request("https://example.com/api/downloads?taskId=task_cancelled", { method: "DELETE" }));
+
+    expect(response.status).toBe(200);
+    expect(removeDownloadMock).not.toHaveBeenCalled();
+    expect(prismaMock.downloadTask.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("keeps a result that landed while the cancel was stopping the process", async () => {
+    prismaMock.downloadTask.findFirst.mockResolvedValueOnce({
+      id: "task_race", createdBy: "u_1", targetPath: "/srv/cloud/downloads/file.iso",
+      url: "https://example.com/file.iso", status: "RUNNING", pid: 12345, aria2Gid: null,
+      relayMode: false, server: serverFixture(),
+    });
+    execRemoteCommandMock.mockResolvedValueOnce({ stdout: "", stderr: "", code: 0 });
+    prismaMock.downloadTask.updateMany.mockResolvedValueOnce({ count: 0 });
+
+    const response = await DELETE(new Request("https://example.com/api/downloads?taskId=task_race", { method: "DELETE" }));
+
+    expect(response.status).toBe(409);
+    expect(prismaMock.downloadTask.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "task_race", status: { in: ["PENDING", "RUNNING"] } },
+    }));
+  });
+
   it("cleans the relay temp directory when cancelling a relay task even if pid is missing", async () => {
     prismaMock.downloadTask.findFirst.mockResolvedValueOnce({
       id: "task_relay",
@@ -1086,13 +1131,14 @@ describe("/api/downloads", () => {
       server: serverFixture(),
     });
 
+    prismaMock.downloadTask.updateMany.mockResolvedValueOnce({ count: 1 });
     const response = await DELETE(new Request("https://example.com/api/downloads?taskId=task_relay", { method: "DELETE" }));
 
     expect(response.status).toBe(200);
     expect(removeDownloadMock).toHaveBeenCalledWith("gid_1", true);
     expect(rmMock).toHaveBeenCalledWith(expect.stringContaining(relayTempDir("task_relay")), { recursive: true, force: true });
-    expect(prismaMock.downloadTask.update).toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: "task_relay" },
+    expect(prismaMock.downloadTask.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "task_relay", status: { in: ["PENDING", "RUNNING"] } },
       data: expect.objectContaining({ status: "CANCELLED" }),
     }));
   });

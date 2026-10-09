@@ -14,7 +14,10 @@ vi.mock("@/lib/db", () => ({
     userStorageAccess: { findMany: mocks.grantFindMany },
   },
 }));
-vi.mock("@/lib/auth/team-scope", () => ({ teamWhere: () => ({ teamId: "team-a" }) }));
+vi.mock("@/lib/auth/team-scope", () => ({
+  isWorkspaceTeamManager: () => false,
+  storageNodeTeamWhere: () => ({ teamId: "team-a" }),
+}));
 vi.mock("@/lib/auth/authorization", () => ({ sessionHasPermission: mocks.hasPermission }));
 vi.mock("@/lib/storage/path-utils", () => ({
   normalizeStorageTargetDirectory: (value: string) => ({ ok: true, path: value }),

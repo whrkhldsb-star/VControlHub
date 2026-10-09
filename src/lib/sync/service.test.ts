@@ -140,7 +140,7 @@ describe("createSyncJob team scope", () => {
         sourcePath: "/data/share/",
         targetPath: "/data/share",
       }),
-    ).rejects.toThrow(/同一路径|same server path/i);
+    ).rejects.toThrow(/不能相同|must differ/i);
     expect(prismaMock.server.findMany).not.toHaveBeenCalled();
     expect(prismaMock.syncJob.create).not.toHaveBeenCalled();
   });

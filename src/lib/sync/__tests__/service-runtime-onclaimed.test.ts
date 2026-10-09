@@ -39,7 +39,7 @@ const getSyncJobForExecution = vi.fn(async () => ({
   deleteOrphans: false,
   compress: false,
 }));
-vi.mock("../service-crud", () => ({ getSyncJobForExecution }));
+vi.mock("../service-crud", () => ({ getSyncJobForExecution, assertDisjointSyncEndpoints: vi.fn() }));
 
 // First external call inside runOneWayRsync — throw here so the job fails
 // fast right after onClaimed, without touching the real SSH/rsync layer.

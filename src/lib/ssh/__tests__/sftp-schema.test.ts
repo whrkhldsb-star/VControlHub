@@ -23,7 +23,9 @@ describe.each(Object.entries(pathSchemas))("%s", (_name, schema) => {
 
 	it("rejects an empty path so it cannot be read as the base directory", () => {
 		expect(schema.safeParse({ path: "" }).success).toBe(false);
-		expect(schema.safeParse({}).success).toBe(false);
+		// Only a directory listing may omit the path: the server then lists the
+		// account's start directory instead of guessing one in the browser.
+		expect(schema.safeParse({}).success).toBe(schema === listDirSchema);
 	});
 
 	it("rejects a path over 4096 characters", () => {
