@@ -19,7 +19,6 @@ function t(key: string, vars?: Record<string, string | number>): string {
 const baseInput = {
   directGateway: null as null | {
     enabled: boolean;
-    statusLabel: string;
     publicUrl: string | null;
     port: number;
   },
@@ -41,7 +40,7 @@ describe("getDirectGatewayRepairAdvice", () => {
   it("2. flags missing SFTP node as primary advice when direct gateway is enabled", () => {
     const advice = getDirectGatewayRepairAdvice(t, {
       ...baseInput,
-      directGateway: { enabled: true, statusLabel: "目标直连", publicUrl: "http://1.2.3.4:31888", port: 31888 },
+      directGateway: { enabled: true, publicUrl: "http://1.2.3.4:31888", port: 31888 },
       hasStorageNode: false,
     });
     expect(advice[0]!.title).toBe("直连已启用但缺少 SFTP 节点");
@@ -51,7 +50,7 @@ describe("getDirectGatewayRepairAdvice", () => {
   it("3. flags inconsistent direct-gateway state when port<=0 or publicUrl is missing", () => {
     const advice = getDirectGatewayRepairAdvice(t, {
       ...baseInput,
-      directGateway: { enabled: true, statusLabel: "目标直连", publicUrl: null, port: 0 },
+      directGateway: { enabled: true, publicUrl: null, port: 0 },
     });
     expect(advice[0]!.title).toBe("直连状态不一致");
     expect(advice[0]!.detail).toContain("切回网站中转");
@@ -60,7 +59,7 @@ describe("getDirectGatewayRepairAdvice", () => {
   it("4. suggests enabling direct gateway when not enabled and SFTP is bound", () => {
     const advice = getDirectGatewayRepairAdvice(t, {
       ...baseInput,
-      directGateway: { enabled: false, statusLabel: "网站中转", publicUrl: null, port: 0 },
+      directGateway: { enabled: false, publicUrl: null, port: 0 },
     });
     expect(advice[0]!.title).toBe("可启用目标直连");
     expect(advice[0]!.priority).toBe("primary");
@@ -69,7 +68,7 @@ describe("getDirectGatewayRepairAdvice", () => {
   it("5. suggests binding SFTP first when not enabled and no SFTP is bound", () => {
     const advice = getDirectGatewayRepairAdvice(t, {
       ...baseInput,
-      directGateway: { enabled: false, statusLabel: "网站中转", publicUrl: null, port: 0 },
+      directGateway: { enabled: false, publicUrl: null, port: 0 },
       hasStorageNode: false,
     });
     expect(advice[0]!.title).toBe("先绑定 SFTP 存储节点");
@@ -78,7 +77,7 @@ describe("getDirectGatewayRepairAdvice", () => {
   it("6. adds a secondary 'pending commands' note when command backlog > 0", () => {
     const advice = getDirectGatewayRepairAdvice(t, {
       ...baseInput,
-      directGateway: { enabled: false, statusLabel: "网站中转", publicUrl: null, port: 0 },
+      directGateway: { enabled: false, publicUrl: null, port: 0 },
       pendingCommandCount: 3,
     });
     expect(advice).toHaveLength(2);
@@ -94,7 +93,6 @@ describe("getDirectGatewayRepairAdvice", () => {
       ...baseInput,
       directGateway: {
         enabled: true,
-        statusLabel: "目标直连",
         publicUrl: "http://1.2.3.4:31888",
         port: 31888,
         bindAddress: "127.0.0.1",
@@ -113,7 +111,6 @@ describe("getDirectGatewayRepairAdvice", () => {
       ...baseInput,
       directGateway: {
         enabled: true,
-        statusLabel: "目标直连",
         publicUrl: "http://1.2.3.4:31888",
         port: 31888,
         bindAddress: "127.0.0.1",
@@ -165,7 +162,6 @@ describe("TR-002 R3 risk banner", () => {
       ...enabledInput,
       directGateway: {
         enabled: true,
-        statusLabel: "目标直连",
         publicUrl: "http://203.0.113.10:31888",
         port: 31888,
         bindAddress: "127.0.0.1",
@@ -184,7 +180,6 @@ describe("TR-002 R3 risk banner", () => {
       ...enabledInput,
       directGateway: {
         enabled: true,
-        statusLabel: "目标直连",
         publicUrl: "https://direct.example.com:31888",
         port: 31888,
         bindAddress: "0.0.0.0",
@@ -202,7 +197,6 @@ describe("TR-002 R3 risk banner", () => {
       ...enabledInput,
       directGateway: {
         enabled: true,
-        statusLabel: "目标直连",
         publicUrl: "http://203.0.113.10:31888",
         port: 31888,
         bindAddress: "0.0.0.0",
@@ -221,7 +215,6 @@ describe("TR-002 R3 risk banner", () => {
       ...enabledInput,
       directGateway: {
         enabled: true,
-        statusLabel: "目标直连",
         publicUrl: "garbage://something",
         port: 31888,
         bindAddress: "0.0.0.0",
@@ -239,7 +232,6 @@ describe("TR-002 R3 risk banner", () => {
       ...enabledInput,
       directGateway: {
         enabled: false,
-        statusLabel: "网站中转",
         publicUrl: null,
         port: 0,
         bindAddress: "0.0.0.0",
@@ -254,7 +246,6 @@ describe("TR-002 R3 risk banner", () => {
       ...enabledInput,
       directGateway: {
         enabled: true,
-        statusLabel: "目标直连",
         publicUrl: "http://203.0.113.10:31888",
         port: 31888,
         // bindAddress omitted on purpose

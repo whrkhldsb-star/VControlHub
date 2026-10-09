@@ -10,6 +10,7 @@ import { useServerDiagnostics } from "./use-server-diagnostics";
 import { ActionButton } from "@/components/action-button";
 import { Dialog } from "@/components/ui/dialog";
 import { ServerConnectionAction } from "./server-connection-action";
+import { directGatewayModeLabel, serverConnectionLabel } from "./server-labels";
 import type {
   ServerOverviewDetailsServer,
 } from "./server-overview-details";
@@ -60,7 +61,7 @@ export function ServerOverviewCard({
     server.enabled && (server.operatingSystem !== "WINDOWS" || server.managementMode === "AGENT" || isWindowsProbe),
     isWindowsProbe ? "rdp" : "monitor",
   );
-  const directLabel = server.directGateway?.statusLabel ?? t("serverOverviewCard.websiteRelay");
+  const directLabel = directGatewayModeLabel(server.directGateway?.enabled, t);
   const detailsId = `server-details-${server.id}`;
   const isWindows = server.operatingSystem === "WINDOWS";
   const windowsAgentMode = isWindows && server.managementMode === "AGENT";
@@ -172,7 +173,7 @@ export function ServerOverviewCard({
           <CompactField label={t("serversPage.windows.domain")} value={server.rdpDomain || t("serverOverviewCard.notConfigured")} />
           <CompactField label={t("serversPage.windows.certificate")} value={windowsCertificate} />
         </> : <>
-        <CompactField label={t("serverOverviewCard.connection")} value={server.connectionTypeLabel} />
+        <CompactField label={t("serverOverviewCard.connection")} value={serverConnectionLabel(server, t)} />
         <CompactField
           label={t("serversPage.management.title")}
           value={server.managementMode === "AGENT"

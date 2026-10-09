@@ -89,7 +89,6 @@ describe("server direct gateway controls", () => {
         canManageServers
         directGateway={{
           enabled: false,
-          statusLabel: "网站中转",
           publicUrl: null,
           port: 0,
         }}
@@ -116,14 +115,13 @@ describe("server direct gateway controls", () => {
         canManageServers
         directGateway={{
           enabled: true,
-          statusLabel: "目标直连",
           publicUrl: "http://203.0.113.10:31888",
           port: 31888,
         }}
       />,
     );
 
-    expect(screen.getByText("直连状态：目标直连")).toBeInTheDocument();
+    expect(screen.getByText("直连状态：目标机直连")).toBeInTheDocument();
     expect(screen.getByText("http://203.0.113.10:31888")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "切回网站中转" }),
@@ -144,7 +142,6 @@ describe("server direct gateway controls", () => {
         canManageServers
         directGateway={{
           enabled: false,
-          statusLabel: "网站中转",
           publicUrl: null,
           port: 0,
         }}
@@ -170,14 +167,13 @@ describe("server direct gateway controls", () => {
         canManageServers
         directGateway={{
           enabled: true,
-          statusLabel: "目标直连",
           publicUrl: "http://203.0.113.10:31888",
           port: 31888,
         }}
       />,
     );
 
-    expect(screen.getByRole("status")).toHaveTextContent("直连状态：目标直连");
+    expect(screen.getByRole("status")).toHaveTextContent("直连状态：目标机直连");
     expect(
       screen.getByRole("link", { name: "http://203.0.113.10:31888" }),
     ).toHaveAttribute("href", "http://203.0.113.10:31888");
@@ -206,7 +202,6 @@ describe("server direct gateway controls", () => {
         canManageServers
         directGateway={{
           enabled: false,
-          statusLabel: "网站中转",
           publicUrl: null,
           port: 0,
         }}

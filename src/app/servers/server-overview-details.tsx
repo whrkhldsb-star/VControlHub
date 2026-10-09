@@ -27,6 +27,7 @@ import { DirectGatewayAdviceList, DirectGatewayHealthyDetail, InfoRow, OsDialect
 import { ActionButton, ButtonLink } from "@/components/action-button";
 import { StatusBadge } from "@/components/status-badge";
 import { Badge, Notice } from "@/components/ui-primitives";
+import { serverConnectionLabel, serverConnectionSummary, serverEnabledLabel } from "./server-labels";
 
 export type ServerOverviewDetailsServer = {
 	operatingSystem?: string;
@@ -45,9 +46,6 @@ export type ServerOverviewDetailsServer = {
 	managementMode: "DIRECT" | "AGENT";
 	hasSshCredential?: boolean;
 	agent?: { online: boolean; lastSeenAt: string | null; metricsAt: string | null; version: string | null; capabilities: string[]; lastError: string | null };
-	connectionSummary: string;
-	connectionTypeLabel: string;
-	statusLabel: string;
 	pendingCommandCount: number;
 	targetCount: number;
 	latestCommands: Array<{
@@ -61,7 +59,6 @@ export type ServerOverviewDetailsServer = {
 	storageNode?: { id: string; name: string; basePath: string; host?: string | null; port?: number | null; username?: string | null } | null;
 	directGateway?: {
 		enabled: boolean;
-		statusLabel: string;
 		publicUrl: string | null;
 		port: number;
 		// TR-002 R3: 节点监听地址 + 解析的传输协议，UI 用作 risk banner 输入
@@ -153,7 +150,7 @@ export function ServerOverviewDetails({
 			detail: directGatewayHealthy ? (
 				<DirectGatewayHealthyDetail
 					t={t}
-					statusLabel={server.directGateway?.statusLabel ?? t("serverOverviewDetails.websiteRelay")}
+					statusLabel={directLabel}
 					publicUrl={server.directGateway?.publicUrl ?? null}
 				/>
 			) : (
@@ -186,10 +183,10 @@ export function ServerOverviewDetails({
 			<section data-inset className="p-3">
 				<h3 className="ui-title-group mb-3">{t("serverOverviewDetails.section.connectionStatus")}</h3>
 				<div className="grid gap-2 text-sm">
-					<InfoRow label={t("serverOverviewDetails.connectionType")} value={server.connectionTypeLabel} />
+					<InfoRow label={t("serverOverviewDetails.connectionType")} value={serverConnectionLabel(server, t)} />
 					<InfoRow label={t("serverOverviewDetails.username")} value={server.username} />
 					<InfoRow label={t("serverOverviewDetails.address")} value={`${server.host}:${server.port}`} />
-					<InfoRow label={t("serverOverviewDetails.nodeStatus")} value={server.statusLabel} />
+					<InfoRow label={t("serverOverviewDetails.nodeStatus")} value={serverEnabledLabel(server.enabled, t)} />
 					<InfoRow
 						label={t("serverOverviewDetails.sshKey")}
 						value={server.sshKey ? server.sshKey.name : t("serverOverviewDetails.notConfigured")}
@@ -230,7 +227,7 @@ export function ServerOverviewDetails({
 					/>
 					<InfoRow label={t("serverOverviewDetails.directMode")} value={directLabel} />
 					<InfoRow label={t("serverOverviewDetails.totalCommandTargets")} value={String(server.targetCount)} />
-					<InfoRow label={t("serverOverviewDetails.connectionSummary")} value={server.connectionSummary} />
+					<InfoRow label={t("serverOverviewDetails.connectionSummary")} value={serverConnectionSummary(server, t)} />
 					<InfoRow
 						label={t("serversPage.management.title")}
 						value={server.managementMode === "AGENT"

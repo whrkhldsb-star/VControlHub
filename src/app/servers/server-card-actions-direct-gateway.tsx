@@ -9,6 +9,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { toggleDirectGatewayAction, type ServerActionState } from "./actions";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
+import { directGatewayModeLabel } from "./server-labels";
 
 const initialState: ServerActionState = {
   error: undefined,
@@ -18,7 +19,6 @@ const initialState: ServerActionState = {
 
 export type ServerCardDirectGateway = {
   enabled: boolean;
-  statusLabel: string;
   publicUrl: string | null;
   port: number;
 };
@@ -120,10 +120,7 @@ export function ServerCardDirectGatewayForm({
 
       <div className="space-y-1" role="status" aria-live="polite">
         <div className="text-xs font-medium text-[var(--text-secondary)]">
-          {t("serverCardActions.directGateway.statusPrefix").replace(
-            "{status}",
-            directGateway.statusLabel,
-          )}
+          {t("serverCardActions.directGateway.statusPrefix", { status: directGatewayModeLabel(directGateway.enabled, t) })}
         </div>
         {directGateway.publicUrl ? (
           <a
