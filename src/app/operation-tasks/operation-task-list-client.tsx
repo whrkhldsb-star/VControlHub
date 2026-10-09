@@ -280,7 +280,7 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
             </select>
           </label>
           <ActionButton variant="secondary" onClick={refresh} disabled={refreshing}>{refreshing ? t("operationTasks.action.refreshing") : t("operationTasks.action.applyFilter")}</ActionButton>
-          <a href={getExportPath(statusFilter, taskTypeFilter, sort)} data-action-button data-size="sm" data-variant="primary">{t("operationTasksPage.export.csv")}</a>
+          <a href={getExportPath(statusFilter, taskTypeFilter, sort)} data-action-button data-size="sm" data-variant="ghost">{t("operationTasksPage.export.csv")}</a>
         </Toolbar>
       }
       empty={visibleTasks.length === 0 ? <EmptyState text={needleNorm ? t("operationTasksPage.filter.noMatch") : t("operationTasks.tasks.empty")} /> : undefined}

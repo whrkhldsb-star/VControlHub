@@ -90,7 +90,14 @@ export const zh: Record<string, string> = {
 	"backend.operationTask.failure.notification": "通知发送失败",
 	"backend.operationTask.failure.backupOrRestore": "备份或恢复失败",
 	"backend.operationTask.failure.taskTypeFailed": "{taskType} 失败",
-	"backend.operationTask.failure.sourceFailed": "{source} 失败",
+	"backend.operationTask.failure.sourceFailed": "{source}失败",
+	"backend.operationTask.source.job": "后台作业",
+	"backend.operationTask.source.command": "命令",
+	"backend.operationTask.source.scheduled": "定时任务",
+	"backend.operationTask.source.download": "下载",
+	"backend.operationTask.source.sync": "同步",
+	"backend.operationTask.source.backup": "备份",
+	"backend.operationTask.source.deployment": "部署",
 
 	// server/service-profiles.ts, server/service-direct-gateway.ts
 	"backend.server.nodeNotFound": "VPS 节点不存在或已删除",
@@ -722,6 +729,13 @@ export const en: Record<string, string> = {
 	"backend.operationTask.failure.backupOrRestore": "Backup or restore failed",
 	"backend.operationTask.failure.taskTypeFailed": "{taskType} failed",
 	"backend.operationTask.failure.sourceFailed": "{source} failed",
+	"backend.operationTask.source.job": "Background job",
+	"backend.operationTask.source.command": "Command",
+	"backend.operationTask.source.scheduled": "Scheduled task",
+	"backend.operationTask.source.download": "Download",
+	"backend.operationTask.source.sync": "Sync",
+	"backend.operationTask.source.backup": "Backup",
+	"backend.operationTask.source.deployment": "Deployment",
 
 	// server/service-profiles.ts, server/service-direct-gateway.ts
 	"backend.server.nodeNotFound": "VPS node not found or has been deleted",

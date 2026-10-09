@@ -6,7 +6,7 @@
  */
 
 export const zh: Record<string, string> = {
-	"operationTasks.action.applyFilter": "应用筛选",
+	"operationTasks.action.applyFilter": "刷新",
 	"operationTasks.action.refreshing": "刷新中...",
 	"operationTasks.filter.all": "全部",
 	"operationTasks.filter.attention": "需处理",
@@ -45,7 +45,7 @@ export const zh: Record<string, string> = {
 	"operationTasksPage.failures.itemCount": "{count} 条",
 	"operationTasksPage.failures.sourceAndLatest": "来源：{sources} · 最新：{title}",
 	"operationTasksPage.recentTasks": "最近任务",
-	"operationTasksPage.recentTasksHint": "可优先查看失败/运行中任务，并按 durable job 类型缩小排查范围。",
+	"operationTasksPage.recentTasksHint": "先看失败和运行中的任务；筛选条件修改后立即生效，可按后台作业类型缩小排查范围。",
 	"operationTasksPage.filter.search": "搜索任务",
 	"operationTasksPage.filter.searchPlaceholder": "标题 / 操作者 / 类型…",
 	"operationTasksPage.filter.noMatch": "没有匹配的任务",
@@ -92,7 +92,7 @@ export const zh: Record<string, string> = {
 };
 
 export const en: Record<string, string> = {
-	"operationTasks.action.applyFilter": "Apply filter",
+	"operationTasks.action.applyFilter": "Refresh",
 	"operationTasks.action.refreshing": "Refreshing...",
 	"operationTasks.filter.all": "All",
 	"operationTasks.filter.attention": "Needs attention",
@@ -131,7 +131,7 @@ export const en: Record<string, string> = {
 	"operationTasksPage.failures.itemCount": "{count} items",
 	"operationTasksPage.failures.sourceAndLatest": "Sources: {sources} · Latest: {title}",
 	"operationTasksPage.recentTasks": "Recent tasks",
-	"operationTasksPage.recentTasksHint": "Inspect failed/running tasks first; narrow down by durable job type.",
+	"operationTasksPage.recentTasksHint": "Start with failed and running tasks. Filters apply as you change them; narrow down by background job type.",
 	"operationTasksPage.filter.search": "Search tasks",
 	"operationTasksPage.filter.searchPlaceholder": "Title / actor / type…",
 	"operationTasksPage.filter.noMatch": "No matching tasks",

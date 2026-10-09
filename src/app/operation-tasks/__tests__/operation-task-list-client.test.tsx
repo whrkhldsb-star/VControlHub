@@ -61,11 +61,11 @@ describe("OperationTaskListClient", () => {
     expect(screen.getByText("重启服务")).toBeInTheDocument();
     expect(screen.getByText("worker worker-1")).toBeInTheDocument();
     expect(screen.getByText(/后台执行器 worker-1/)).toBeInTheDocument();
-    await actor.click(screen.getByRole("button", { name: "应用筛选" }));
+    await actor.click(screen.getByRole("button", { name: "刷新" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("任务中心刷新失败");
     expect(screen.getByText("重启服务")).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByRole("button", { name: "应用筛选" })).toBeEnabled());
+    await waitFor(() => expect(screen.getByRole("button", { name: "刷新" })).toBeEnabled());
   });
 
   it("refreshes with status and task type filters", async () => {
@@ -97,7 +97,7 @@ describe("OperationTaskListClient", () => {
     await actor.selectOptions(screen.getByLabelText("状态筛选"), "failed");
     await actor.selectOptions(screen.getByLabelText("任务类型"), "alert.evaluate");
     await actor.selectOptions(screen.getByLabelText("排序偏好"), "attention");
-    await actor.click(screen.getByRole("button", { name: "应用筛选" }));
+    await actor.click(screen.getByRole("button", { name: "刷新" }));
 
     expect(csrfFetch).toHaveBeenCalledWith(
       "/api/operation-tasks?status=failed&taskType=alert.evaluate&sort=attention",
