@@ -41,8 +41,6 @@ type BackupFailureCategory =
 
 export type BackupFailureSummaryItem = {
 	category: BackupFailureCategory;
-	label: string;
-	remediation: string;
 	count: number;
 	latestMessage: string | null;
 	latestRecordPath: string | null;
