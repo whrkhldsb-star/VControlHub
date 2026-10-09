@@ -10,6 +10,12 @@
  */
 
 export const zh: Record<string, string> = {
+	"backend.roleTemplate.preset.viewer.name": "只读观察员",
+	"backend.roleTemplate.preset.viewer.description": "查看服务器、云盘和审计信息",
+	"backend.roleTemplate.preset.operator.name": "日常运维",
+	"backend.roleTemplate.preset.operator.description": "服务器连接、执行任务和文件维护",
+	"backend.roleTemplate.preset.storage_manager.name": "云盘管理员",
+	"backend.roleTemplate.preset.storage_manager.description": "管理云盘节点、文件与分享",
   "backend.quickService.requesterMissing": "Docker 任务缺少可核验的发起人",
   "backend.quickService.requesterDisabled": "Docker 任务发起人已被禁用或失效",
   "backend.quickService.permissionRevoked": "发起人已失去当前工作空间的 Docker 管理权限",
@@ -648,6 +654,12 @@ export const zh: Record<string, string> = {
 
 
 export const en: Record<string, string> = {
+	"backend.roleTemplate.preset.viewer.name": "Read-only viewer",
+	"backend.roleTemplate.preset.viewer.description": "View servers, cloud storage and the audit log",
+	"backend.roleTemplate.preset.operator.name": "Day-to-day operations",
+	"backend.roleTemplate.preset.operator.description": "Connect to servers, run tasks and maintain files",
+	"backend.roleTemplate.preset.storage_manager.name": "Storage manager",
+	"backend.roleTemplate.preset.storage_manager.description": "Manage storage nodes, files and shares",
   "backend.quickService.requesterMissing": "Docker task has no accountable requester",
   "backend.quickService.requesterDisabled": "Docker task requester is disabled or no longer valid",
   "backend.quickService.permissionRevoked": "Requester no longer has Docker access in this workspace",

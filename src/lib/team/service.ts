@@ -17,7 +17,7 @@ import { t } from "@/lib/i18n/service-translations";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { tenantStorageBasePath } from "@/lib/storage/path-utils";
 import {
-  DEFAULT_WORKSPACE_POLICY_GROUPS,
+  defaultWorkspacePolicyGroups,
   defaultWorkspacePolicyGroupId,
 } from "@/lib/auth/role-template-service";
 
@@ -193,7 +193,7 @@ export async function createTeam(
           data: { teamId: created.id, userId: session.userId, role: "owner" },
         });
         await tx.roleTemplate.createMany({
-          data: DEFAULT_WORKSPACE_POLICY_GROUPS.map((group) => ({
+          data: defaultWorkspacePolicyGroups().map((group) => ({
             id: defaultWorkspacePolicyGroupId(created.id, group.key),
             name: group.name,
             description: group.description,
