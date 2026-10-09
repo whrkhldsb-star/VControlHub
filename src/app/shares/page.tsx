@@ -38,16 +38,9 @@ export default async function SharesPage() {
 				title={t("shares.title")}
 				description={t("shares.desc")}
 			/>
-			{canManage ? <div className="mb-5"><ShareAccessReport /></div> : null}
-
-			{canCreate ? (
-				<div className="mb-5 space-y-4">
-					<ShareFilePicker nodes={nodes.map((n) => ({ id: n.id, name: n.name, driver: n.driver }))} />
-					<CreateShareForm nodes={nodes.map((n) => ({ id: n.id, name: `${n.name} · ${getStorageDriverLabel(t, n.driver)}` }))} />
-				</div>
-			) : null}
-
+			{/* Manage what is already shared first; creating and auditing follow. */}
 			<ListPanel
+				className="mb-5"
 				title={t("shares.records")}
 				count={shares.length}
 				empty={
@@ -102,6 +95,13 @@ export default async function SharesPage() {
 					</ListRow>
 				))}
 			</ListPanel>
+			{canCreate ? (
+				<div className="mb-5 space-y-4">
+					<ShareFilePicker nodes={nodes.map((n) => ({ id: n.id, name: n.name, driver: n.driver }))} />
+					<CreateShareForm nodes={nodes.map((n) => ({ id: n.id, name: `${n.name} · ${getStorageDriverLabel(t, n.driver)}` }))} />
+				</div>
+			) : null}
+			{canManage ? <ShareAccessReport /> : null}
 		</PageShell>
 	);
 }
