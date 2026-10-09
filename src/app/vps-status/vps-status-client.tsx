@@ -82,8 +82,6 @@ export function VpsStatusClient({ serverCount }: Props) {
 				<FleetResourceSummary overview={overview} t={t} tt={tt} />
 			) : null}
 
-			<CapacityForecastPanel />
-
 			<VpsStatusToolbar
 				t={t}
 				tt={tt}
@@ -143,6 +141,9 @@ export function VpsStatusClient({ serverCount }: Props) {
 					))}
 				</div>
 			)}
+
+			{/* Forecasts answer "when will this fill up"; live status comes first. */}
+			<CapacityForecastPanel />
 		</div>
 	);
 }

@@ -41,3 +41,12 @@ describe("repairSuggestions", () => {
 		expect(advice.map((item) => [item.id, item.status])).toEqual([["services", "critical"], ["git", "warning"]]);
 	});
 });
+
+describe("formatProjectedPercent", () => {
+	it("caps projections at full instead of printing impossible usage", async () => {
+		const { formatProjectedPercent } = await import("../capacity-forecast-panel");
+		expect(formatProjectedPercent(79.84)).toBe("79.8%");
+		expect(formatProjectedPercent(100)).toBe("≥100%");
+		expect(formatProjectedPercent(150)).toBe("≥100%");
+	});
+});
