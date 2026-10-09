@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { auditUserAction } from "@/lib/audit/service";
-import { withApiRoute } from "@/lib/http/api-guard";
+import { requestLocale, withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { idQuerySchema, parseSearchParams } from "@/lib/http/parse-search-params";
 import { ValidationError } from "@/lib/errors";
@@ -11,12 +11,12 @@ import { getServerLocale, t } from "@/lib/i18n/translations";
 import {
   createScheduledTask,
   deleteScheduledTask,
-  describeCron,
   listScheduledTasks,
   retryScheduledTask,
   toggleScheduledTask,
   updateScheduledTask,
 } from "@/lib/scheduled-task/service";
+import { describeCron } from "@/lib/scheduled-task/describe-cron";
 
 const scheduledTaskPostSchema = z.object({
   name: z.string().min(1),
@@ -94,12 +94,15 @@ export async function GET(request: Request) {
       errorMessage: t("api.serverError", "zh"),
     },
     async ({ session }) => {
+      const locale = requestLocale(request);
       const tasks = await listScheduledTasks(200, session);
       const serialized = tasks.map((task) => ({
         id: task.id,
         name: task.name,
         cronExpression: task.cronExpression,
-		cronDescription: task.scheduleType === "ONCE" ? "One-time execution" : describeCron(task.cronExpression),
+		cronDescription: task.scheduleType === "ONCE"
+			? t("scheduledTasks.schedule.once", locale)
+			: describeCron(task.cronExpression, (key, vars) => t(key, locale, vars)) ?? task.cronExpression,
 		scheduleType: task.scheduleType,
 		runAt: task.runAt?.toISOString() ?? null,
         command: task.command,

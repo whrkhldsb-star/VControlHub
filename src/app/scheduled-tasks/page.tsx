@@ -1,6 +1,6 @@
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { listScheduledTasks, describeCron } from "@/lib/scheduled-task/service";
+import { listScheduledTasks } from "@/lib/scheduled-task/service";
 import { listServerProfiles } from "@/lib/server/service";
 import { listTemplates } from "@/lib/command-template/service";
 
@@ -28,7 +28,6 @@ export default async function ScheduledTasksPage() {
 		id: t.id,
 		name: t.name,
 		cronExpression: t.cronExpression,
-		cronDescription: t.scheduleType === "ONCE" ? tr("scheduledTasks.schedule.once") : describeCron(t.cronExpression),
 		scheduleType: t.scheduleType,
 		runAt: t.runAt?.toISOString() ?? null,
 		command: t.command,
