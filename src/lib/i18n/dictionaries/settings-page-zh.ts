@@ -313,6 +313,7 @@ export const zh: Record<string, string> = {
 	"settingsTeam.addMemberButton": "添加/更新成员",
 	"settingsTeam.roleAria": "团队角色",
 	"settingsTeam.role.member": "成员",
+	"settingsTeam.role.owner": "所有者",
 	"settingsTeam.role.admin": "管理员",
 	"settingsTeam.accessRoleAria": "工作区权限角色",
 	"settingsTeam.accessRoleHint": "所有者和管理员自动拥有当前工作区完整操作权；访问角色与权限组用于细分普通成员权限。",

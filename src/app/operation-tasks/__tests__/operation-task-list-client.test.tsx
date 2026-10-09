@@ -48,8 +48,8 @@ describe("OperationTaskListClient", () => {
     expect(failure).toHaveTextContent("执行超时");
     expect(failure).toHaveTextContent("最新：重启服务");
     expect(screen.getByLabelText("排序偏好")).toHaveValue("recent");
-    expect(screen.getByLabelText("Recent logs: 重启服务")).toHaveTextContent("systemctl restart app");
-    expect(screen.getByLabelText("Recent logs: 重启服务")).toHaveTextContent("service restarted");
+    expect(screen.getByLabelText("重启服务 的最近日志")).toHaveTextContent("systemctl restart app");
+    expect(screen.getByLabelText("重启服务 的最近日志")).toHaveTextContent("service restarted");
   });
 
   it("surfaces refresh failures and keeps the existing task list visible", async () => {
@@ -59,7 +59,7 @@ describe("OperationTaskListClient", () => {
     render(<OperationTaskListClient initialTasks={initialTasks} initialSourceSummary={initialSourceSummary} initialFailureSummary={initialFailureSummary} />);
 
     expect(screen.getByText("重启服务")).toBeInTheDocument();
-    expect(screen.getByText("worker worker-1")).toBeInTheDocument();
+    expect(screen.getByText("执行器 worker-1")).toBeInTheDocument();
     expect(screen.getByText(/后台执行器 worker-1/)).toBeInTheDocument();
     await actor.click(screen.getByRole("button", { name: "刷新" }));
 

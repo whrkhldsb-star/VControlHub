@@ -290,6 +290,7 @@ export const en: Record<string, string> = {
 	"settingsTeam.addMemberButton": "Add / update member",
 	"settingsTeam.roleAria": "Team role",
 	"settingsTeam.role.member": "Member",
+	"settingsTeam.role.owner": "Owner",
 	"settingsTeam.role.admin": "Admin",
 	"settingsTeam.accessRoleAria": "Workspace access role",
 	"settingsTeam.accessRoleHint": "Owners and admins automatically receive full workspace access. Access roles and permission groups refine ordinary member access.",

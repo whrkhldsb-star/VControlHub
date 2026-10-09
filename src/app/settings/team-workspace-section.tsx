@@ -305,7 +305,7 @@ export function TeamWorkspaceSection({ capabilities }: { capabilities: TeamCapab
 									<li key={member.user.id} className="flex items-center justify-between gap-2">
 										<span className="min-w-0 break-words">{member.user.displayName || member.user.username}</span>
 										<span className="flex items-center gap-2">
-											<span className="text-[var(--text-muted)]">{member.role} · {t(`settingsTeam.accessRole.${member.accessRole ?? "inherit"}`)}</span>
+											<span className="text-[var(--text-muted)]">{t(`settingsTeam.role.${member.role}`)} · {t(`settingsTeam.accessRole.${member.accessRole ?? "inherit"}`)}</span>
 											{canDeleteTeam(team) && member.role !== "owner" && member.user.status === "ACTIVE" && (
 												<ActionButton size="xs" variant="ghost" disabled={busy} onClick={() => transferOwner(team.id, member.user.id, member.user.displayName || member.user.username)}>{t("settingsTeam.transferOwner")}</ActionButton>
 											)}
