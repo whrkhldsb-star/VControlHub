@@ -412,6 +412,8 @@ test("team workspace create and delete lifecycle", async ({ page }) => {
 	test.setTimeout(60_000);
 	await login(page);
 	await page.goto("/settings");
+	// Workspaces live on their own settings tab, as a user reaches them.
+	await page.getByRole("tab", { name: /团队与权限|Teams & permissions/i }).click();
 	const section = page.locator("#team-workspaces");
 	await expect(section).toBeVisible();
 	const marker = `QA Team ${Date.now()}`;
