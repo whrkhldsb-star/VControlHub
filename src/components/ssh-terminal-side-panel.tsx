@@ -3,6 +3,7 @@
 import { X } from "@/components/icons";
 
 import { UI_INPUT } from "@/lib/ui/classes";
+import { isImeComposition } from "@/lib/ui/keyboard";
 import { cn } from "@/lib/ui/cn";
 import { ActionButton } from "@/components/action-button";
 import { QuickKeyBuilder } from "@/components/ssh-quick-key-builder";
@@ -75,7 +76,16 @@ export function SshTerminalSidePanel({
 						id={`ssh-fav-${serverId}`}
 						value={newFavorite}
 						onChange={(e) => setNewFavorite(e.target.value)}
-						onKeyDown={(e) => e.key ==="Enter" && addFavorite()}
+						onKeyDown={(e) => {
+							if (isImeComposition(e)) return;
+							if (e.key === "Enter") {
+								e.preventDefault();
+								addFavorite();
+							}
+						}}
+						autoCapitalize="none"
+						autoCorrect="off"
+						spellCheck={false}
 						placeholder={t("sshTerminalModal.favoritesPlaceholder")}
 						className={cn(
 							UI_INPUT,"min-h-11 min-w-0 flex-1 py-1 font-mono text-[13px] placeholder:text-[var(--text-muted)]/20",

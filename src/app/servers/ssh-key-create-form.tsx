@@ -24,11 +24,11 @@ export function SshKeyCreateForm() {
       </div>
       <div className="space-y-1.5">
         <label htmlFor="publicKey">{t("serversPage.sshKeyCreate.publicKeyLabel")}</label>
-        <textarea id="publicKey" name="publicKey" rows={2} placeholder={t("serversPage.sshKeyCreate.publicKeyPlaceholder")} className={cn(UI_INPUT, "resize-y font-mono")} />
+        <textarea id="publicKey" name="publicKey" rows={2} autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder={t("serversPage.sshKeyCreate.publicKeyPlaceholder")} className={cn(UI_INPUT, "resize-y font-mono")} />
       </div>
       <div className="space-y-1.5">
         <label htmlFor="privateKey">{t("serversPage.sshKeyCreate.privateKeyLabel")}</label>
-        <textarea id="privateKey" name="privateKey" rows={4} required={!hasFile} placeholder={t("serversPage.sshKeyCreate.privateKeyPlaceholder")} className={cn(UI_INPUT, "resize-y font-mono")} />
+        <textarea id="privateKey" name="privateKey" rows={4} required={!hasFile} autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder={t("serversPage.sshKeyCreate.privateKeyPlaceholder")} className={cn(UI_INPUT, "resize-y font-mono")} />
       </div>
       <div className="space-y-1.5">
         <label htmlFor="sshKeyFile">{t("serversPage.sshKeyCreate.fileUploadLabel")}</label>

@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/page-shell";
 import { InlineLoading } from "@/components/ui-primitives";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { UI_INPUT } from "@/lib/ui/classes";
+import { isImeComposition } from "@/lib/ui/keyboard";
 import { loadServerOperationTargets } from "./inventory-actions";
 
 type Result = Awaited<ReturnType<typeof loadServerOperationTargets>>;
@@ -45,7 +46,8 @@ export function ServerTargetPicker({ kind, selected, onChange, onEnabledCount }:
     <div className="flex gap-2">
       <input id={id} type="search" maxLength={200} className={UI_INPUT} value={draft}
         onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => {
-          if (event.key === "Enter" && !event.nativeEvent.isComposing) { event.preventDefault(); search(); }
+          if (isImeComposition(event)) return;
+          if (event.key === "Enter") { event.preventDefault(); search(); }
         }} />
       <ActionButton variant="secondary" onClick={search}>{t("serversPage.targets.search")}</ActionButton>
     </div>

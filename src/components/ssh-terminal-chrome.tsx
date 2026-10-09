@@ -1,6 +1,7 @@
 "use client";
 
 import { UI_INPUT } from "@/lib/ui/classes";
+import { isImeComposition } from "@/lib/ui/keyboard";
 import { cn } from "@/lib/ui/cn";
 
 import type { TerminalStatus } from "@/components/ssh-terminal-types";
@@ -128,21 +129,28 @@ export function SshTerminalSearchBar({
 				value={terminalSearch}
 				onChange={(e) => onSearchChange(e.target.value)}
 				onKeyDown={(e) => {
-					if (e.key ==="Enter") onSearch(e.shiftKey ?"previous" :"next");
-					if (e.key ==="Escape") onClear();
+					if (isImeComposition(e)) return;
+					if (e.key === "Enter") {
+						e.preventDefault();
+						onSearch(e.shiftKey ? "previous" : "next");
+					}
+					if (e.key === "Escape") {
+						e.preventDefault();
+						e.stopPropagation();
+						onClear();
+					}
 				}}
 				placeholder={t("sshTerminalModal.searchPlaceholder")}
 				className={cn(
 					UI_INPUT,"min-h-10 min-w-[180px] flex-1 placeholder:text-[var(--text-muted)]/20",
 				)}
 			/>
-			<button
-				type="button"
+			<ActionButton variant="outline"
 				onClick={() => onSearch("previous")}
-				className="min-h-10 rounded-xl border border-[var(--border-subtle)] light:border-[var(--border)] px-3 text-xs text-[var(--text-secondary)] light:text-[var(--text-primary)] hover:bg-[var(--surface-subtle)] light:hover:bg-[var(--surface)]"
+				data-tone="cyan"
 			>
 				{t("sshTerminalModal.searchPrevious")}
-			</button>
+			</ActionButton>
 			<ActionButton variant="outline"
 				onClick={() => onSearch("next")}
 				data-tone="cyan">

@@ -11,12 +11,12 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <body id="top"><header class="topbar"><div class="brand">VControlHub <small>项目全景 · 功能详解 · 使用指南</small></div><div class="toolbar"><span class="search-tip">Ctrl / ⌘ + F 搜索全文</span><a href="project-overview-and-user-guide.zh-CN.md" download>Markdown 原稿</a><button id="print" type="button">打印 / 保存 PDF</button></div></header>
 <div class="layout"><aside class="sidebar" aria-label="文档章节"><strong>目录 · 24 章</strong><input id="chapter-filter" type="search" placeholder="筛选章节名称" aria-label="筛选章节名称"><ol><li><a href="#project">项目定位、整体能力与功能设计目标</a></li><li><a href="#getting-started">核心概念与首次使用</a></li><li><a href="#workspace">全站交互与个人工作台</a></li><li><a href="#servers">服务器纳管与节点管理</a></li><li><a href="#remote-access">浏览器 SSH、文件面板与 Windows 远程桌面</a></li><li><a href="#files">存储节点与文件管理</a></li><li><a href="#sharing-sync">文件分享、WebDAV 与跨节点同步</a></li><li><a href="#media-downloads">远程下载、媒体库与图片外链</a></li><li><a href="#deployment">命令模板、应用部署与 Docker</a></li><li><a href="#quick-services">快捷服务与应用目录</a></li><li><a href="#automation">审批、定时任务、Playbook 与统一任务中心</a></li><li><a href="#observability">监控、健康检查、流量与告警</a></li><li><a href="#backup">平台备份、VPS 备份、恢复与迁移</a></li><li><a href="#ai">AI 助手、知识库与 AI 运维</a></li><li><a href="#collaboration">工单、ITSM、通知、公告与代码片段</a></li><li><a href="#cost">成本、账单与预算</a></li><li><a href="#permissions">账号、角色、团队与资源授权</a></li><li><a href="#settings-api">系统设置、配置导入导出与开放 API</a></li><li><a href="#architecture">系统设计与运行架构</a></li><li><a href="#data-workers">数据模型与后台任务设计</a></li><li><a href="#operations">部署、升级、运行维护与测试体系</a></li><li><a href="#workflows">典型完整使用流程</a></li><li><a href="#boundaries">功能边界与常见问题</a></li><li><a href="#reference">完整页面、权限、接口与源码索引</a></li></ol><p id="nav-empty" class="nav-empty" hidden>没有匹配的章节；全文搜索请按 Ctrl / ⌘ + F。</p></aside><main><details class="mobile-toc"><summary>查看全部 24 章目录</summary><ol><li><a href="#project">项目定位、整体能力与功能设计目标</a></li><li><a href="#getting-started">核心概念与首次使用</a></li><li><a href="#workspace">全站交互与个人工作台</a></li><li><a href="#servers">服务器纳管与节点管理</a></li><li><a href="#remote-access">浏览器 SSH、文件面板与 Windows 远程桌面</a></li><li><a href="#files">存储节点与文件管理</a></li><li><a href="#sharing-sync">文件分享、WebDAV 与跨节点同步</a></li><li><a href="#media-downloads">远程下载、媒体库与图片外链</a></li><li><a href="#deployment">命令模板、应用部署与 Docker</a></li><li><a href="#quick-services">快捷服务与应用目录</a></li><li><a href="#automation">审批、定时任务、Playbook 与统一任务中心</a></li><li><a href="#observability">监控、健康检查、流量与告警</a></li><li><a href="#backup">平台备份、VPS 备份、恢复与迁移</a></li><li><a href="#ai">AI 助手、知识库与 AI 运维</a></li><li><a href="#collaboration">工单、ITSM、通知、公告与代码片段</a></li><li><a href="#cost">成本、账单与预算</a></li><li><a href="#permissions">账号、角色、团队与资源授权</a></li><li><a href="#settings-api">系统设置、配置导入导出与开放 API</a></li><li><a href="#architecture">系统设计与运行架构</a></li><li><a href="#data-workers">数据模型与后台任务设计</a></li><li><a href="#operations">部署、升级、运行维护与测试体系</a></li><li><a href="#workflows">典型完整使用流程</a></li><li><a href="#boundaries">功能边界与常见问题</a></li><li><a href="#reference">完整页面、权限、接口与源码索引</a></li></ol></details><h1>VControlHub 项目全景、功能详解与使用指南</h1>
 <blockquote>
-<p>文档日期：2026-09-30。依据本地代码提交 <code>302eed94f4e3093411055f76cc76418a4420e6f4</code> 编写。
-功能设计目标与覆盖复核更新：2026-10-08。最新实现复核基于 <code>cf206008b389617e4b2e5f04cb7e5ee572f690b2</code> 及本次远程桌面剪贴板和连接控件修复；原始日期保留作历史记录。源码完成、提交和实例部署应分别核对。
+<p>本指南按仓库中的实际功能组织，说明功能入口、配置条件、操作流程、权限、运行架构及能力边界。适用于使用者、管理员和项目维护者。
+具体实例能否使用某项功能，取决于部署配置、当前工作区、账号授权和目标主机条件；各模块的配置要求见对应章节。
 适用对象：项目使用者、平台管理员、运维人员、项目介绍与交接文档的读者、后续开发维护者。
 这是一份当前实现说明。功能是否能在某个安装实例中使用，还取决于账号权限、团队、目标操作系统、外部服务及部署配置。本地代码版本与 GitHub 分支是否同步，应另行核对。</p>
 </blockquote>
-<p>重点阅读：<a href="#functional-goals">功能设计目标</a> · <a href="#coverage-review">功能覆盖复核结果</a> · <a href="#reference">完整功能索引</a> · <a href="#feature-upgrades">用文档指导功能升级</a>。</p>
+<p>重点阅读：<a href="#functional-goals">功能设计目标</a> · <a href="#coverage-review">功能范围与实现索引</a> · <a href="#reference">完整功能索引</a> · <a href="#feature-upgrades">指南使用方式</a>。</p>
 <h2 id="project">1. 项目定位、整体能力与功能设计目标</h2>
 <h3 id="section-1-1">1.1 项目是什么</h3>
 <p>VControlHub 是面向个人和小团队的自托管服务器管理与运维平台。用户部署自己的控制台后，可以在同一个 Web 界面中管理多台 Linux／Windows 服务器、远程终端、文件、容器应用、监控、命令审批、自动化任务、备份和团队协作。</p>
@@ -108,8 +108,8 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 </tbody>
 </table></div>
 <h3 id="section-1-3">1.3 当前代码规模与口径</h3>
-<p>本次直接扫描代码得到：55 个 <code>page.tsx</code> 页面文件、188 个 API 路由文件、79 个 Prisma 数据模型、54 个业务权限项、4 个内置账号角色、24 类后台 Worker，以及 44 个本地快捷服务模板。</p>
-<p>补充复核还覆盖 9 个模块中的 25 个 Server Action 运行时导出、42 个系统设置表单字段、8 个持久化个人偏好字段和 21 个 AI 托管工具；逐项对应关系见第 24 章。</p>
+<p>项目包含：55 个 <code>page.tsx</code> 页面文件、188 个 API 路由文件、79 个 Prisma 数据模型、54 个业务权限项、4 个内置账号角色、24 类后台 Worker，以及 44 个本地快捷服务模板。</p>
+<p>配置与调用入口包括 9 个模块中的 25 个 Server Action 运行时导出、42 个系统设置表单字段、8 个持久化个人偏好字段和 21 个 AI 托管工具；逐项对应关系见第 24 章。</p>
 <p>这里的“页面”包含详情页、登录页和兼容跳转入口；“API 路由文件”可能同时处理多个 HTTP 方法；“应用模板”表示存在安装定义，不代表所有第三方应用在所有硬件和网络环境中都已逐项验收。</p>
 <p>依据：<a href="../README.md">README</a>、<a href="route-catalog.json">页面与接口目录</a>、<a href="../prisma/schema.prisma">数据模型</a>、<a href="../src/lib/workers/registry.ts">Worker 注册表</a>。</p>
 <p><a id="functional-goals"></a></p>
@@ -473,7 +473,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 </tbody>
 </table></div>
 <h3 id="section-1-6">1.6 从用户结果判断目标是否达到</h3>
-<p>功能验收应覆盖下列结果，而不仅检查页面或按钮是否存在。这些是产品使用的核对口径；本文的源码覆盖复核不等于已经在每个安装实例重跑所有业务验收。</p>
+<p>功能验收应覆盖下列结果，而不仅检查页面或按钮是否存在。下表帮助使用者判断操作是否达到目的；具体实例的执行结果应在相应任务和业务页面查看。</p>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
 <tr>
@@ -525,7 +525,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 </tbody>
 </table></div>
 <h3 id="section-1-7">1.7 设计目标与当前实现的对应口径</h3>
-<p>第 1.4、1.5 节是从现有项目归纳的功能目标；具体已经提供哪些操作，以对应功能章节及第 23 章的能力边界为准。第 1.6 节给出用户验收方向，不能把其中的预期结果当成本次已经全部执行的测试报告。</p>
+<p>第 1.4、1.5 节是从现有项目归纳的功能目标；具体已经提供哪些操作，以对应功能章节及第 23 章的能力边界为准。第 1.6 节说明完成操作后应查看的结果，实际结果由所用实例产生。</p>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
 <tr>
@@ -555,14 +555,9 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <td>指定环境、账号权限、输入及输出下的执行证据</td>
 <td>需要相应集成测试或实机验收，源码映射和文档链接检查不能代替</td>
 </tr>
-<tr>
-<td>下一版本目标</td>
-<td>单独的功能变更说明与验收条件</td>
-<td>表示要实现的要求；实现、验证及发布后再更新本文的当前行为说明</td>
-</tr>
 </tbody>
 </table></div>
-<p>需要升级时，可先修改或补充需求文档，明确用户希望的行为变化。修改文字本身不会改变应用，也不会自动生成完整实现。具体维护方式见<a href="#feature-upgrades">功能升级约定</a>与<a href="feature-change-template.zh-CN.md">功能变更模板</a>。</p>
+<p>查阅时先按第 1.5 节的功能编号定位章节，再结合操作条件与限制使用；需要定位实现时，查阅第 24 章的页面、接口和业务源码索引。</p>
 <h2 id="getting-started">2. 核心概念与首次使用</h2>
 <h3 id="section-2-1">2.1 先理解这些对象</h3>
 <div class="table-scroll" tabindex="0"><table>
@@ -657,6 +652,107 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <p>仪表盘会提供首次设置清单，提示服务器、告警、外发通知、备份计划和节点月费等尚未配置的项目。清单可以暂时关闭；关闭提示不会替代相应配置。</p>
 <h3 id="section-2-3">2.3 权限对界面的影响</h3>
 <p>导航、按钮、列表数据和 API 都会受到权限约束。同一个工作区中，普通观察者、运维人员和存储管理员看到的操作按钮不完全一致。若某个功能不存在于当前页面，应先核对账号角色、工作区身份、资源授权和功能依赖，而不是直接认为功能未实现。</p>
+<h3 id="section-2-4">2.4 先确定要使用的连接通道</h3>
+<div class="table-scroll" tabindex="0"><table>
+<thead>
+<tr>
+<th>使用目的</th>
+<th>主要通道或依赖</th>
+<th>独立配置要点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>登录和管理资产</td>
+<td>Web、数据库、有效会话</td>
+<td>Web 可用并不能证明远程连接代理可用</td>
+</tr>
+<tr>
+<td>Linux 交互终端</td>
+<td>Hub → SSH</td>
+<td>SSH 端口、用户名、密码或密钥、主机指纹及连接权限</td>
+</tr>
+<tr>
+<td>Windows 交互终端</td>
+<td>Hub → Windows OpenSSH</td>
+<td>节点绑定的 SFTP 存储及其独立凭据；与 RDP 配置分开</td>
+</tr>
+<tr>
+<td>Windows 图形桌面</td>
+<td>浏览器 → RDP 网关 → Windows</td>
+<td>平台 RDP 开关、guacd、WebSocket 代理、RDP 凭据和证书策略</td>
+</tr>
+<tr>
+<td>Agent 监控与命令</td>
+<td>目标 Agent → Hub HTTPS</td>
+<td>Agent 注册、心跳、能力、平台任务领取；不提供交互式 SSH shell</td>
+</tr>
+<tr>
+<td>云盘与文件访问</td>
+<td>本地、SFTP 或外部 WebDAV</td>
+<td>存储根路径、驱动配置、路径授权及读写权限</td>
+</tr>
+<tr>
+<td>文件直连</td>
+<td>浏览器与节点文件网关</td>
+<td>已配置并可达的网关、授权票据及对应操作支持；与 Agent 心跳独立</td>
+</tr>
+<tr>
+<td>异步任务</td>
+<td>数据库队列、相应 Worker、目标资源</td>
+<td>已提交后继续查看审批、排队、执行和结果状态</td>
+</tr>
+</tbody>
+</table></div>
+<p>选择通道时先按目的配置，避免用“节点在线”替代每项功能的连接条件。例如，Windows 的 RDP 正常不会自动开启 OpenSSH 或提供 CPU 指标，Linux Agent 在线也不会自动恢复已移除的 SSH 凭据。</p>
+<h3 id="section-2-5">2.5 操作反馈与结果怎样区分</h3>
+<div class="table-scroll" tabindex="0"><table>
+<thead>
+<tr>
+<th>页面反馈</th>
+<th>表示什么</th>
+<th>接下来查看什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>保存成功</td>
+<td>配置记录已保存</td>
+<td>对应连接检查、启用状态和实际操作条件</td>
+</tr>
+<tr>
+<td>请求已提交／待审批</td>
+<td>平台收到请求，可能仍需审批</td>
+<td>请求详情、审批意见和目标范围</td>
+</tr>
+<tr>
+<td>已排队／等待执行</td>
+<td>已有后台任务等待调度</td>
+<td>Worker 心跳、任务队列和资源依赖</td>
+</tr>
+<tr>
+<td>执行中</td>
+<td>任务已开始处理</td>
+<td>进度、日志、步骤结果及失败目标</td>
+</tr>
+<tr>
+<td>已完成</td>
+<td>此任务定义的处理步骤结束</td>
+<td>产物、文件位置、应用状态或实际输出</td>
+</tr>
+<tr>
+<td>失败／已取消</td>
+<td>任务未按正常流程完成，或停止后续处理</td>
+<td>错误、已执行步骤、已产生的数据和是否允许重试</td>
+</tr>
+<tr>
+<td>连接已断开</td>
+<td>当前交互通道失效</td>
+<td>连接诊断与目标侧进程；不能直接判断此前操作已回滚</td>
+</tr>
+</tbody>
+</table></div>
+<p>不同业务的状态名称及可取消阶段不同，以对应任务详情为准。取消通常不撤销已经产生的远端变更，重试也不等于从失败位置无副作用地续跑。需要回退时，应使用对应业务的版本、备份或明确的恢复操作。</p>
 <h2 id="workspace">3. 全站交互与个人工作台</h2>
 <h3 id="section-3-1">3.1 导航、搜索与响应式使用</h3>
 <ul>
@@ -742,15 +838,88 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <p>网络失败时会保留表单；确需稍后完善的节点可选择连接失败时保存为草稿。草稿或未完成初始化的节点不会等同于已可执行操作的节点。</p>
 <p>编辑节点时可以修改连接信息、更新密码、调整存储路径、标签和月费。密码留空按表单约定保留原值。修改连接目标后要重新完成连接和身份核验。</p>
 <h3 id="section-4-3">4.3 SSH 密钥管理</h3>
-<ul>
-<li>添加密钥时填写名称、公钥（可选）、私钥或上传文件；没有上传文件时必须粘贴私钥。公钥留空会自动提取，手填时必须与私钥匹配。</li>
-<li>文件按内容识别，不限制扩展名：支持 OpenSSH、PEM（PKCS#1、PKCS#8、SEC1）、DER 和 PPK v2/v3，包含 RSA、ECDSA、Ed25519 及传统 DSA SSH 密钥。<code>.key</code> 和无扩展名文件适用相同规则；扩展名本身不决定格式。</li>
-<li>加密密钥展开“解密密码”后填写密码；导入时转换为 SSH 可用格式，再按平台凭据加密机制保存。不会保留导入密码。不支持仅含公钥的文件、硬件令牌引用或未知专有容器。</li>
-<li>公钥信息可用于确认密钥用途。</li>
-<li>密钥可供有权管理的节点引用；平台侧保存的私钥及口令按凭据加密逻辑处理。</li>
-<li>可在节点编辑中更换绑定的密钥。当前常规界面以新增、查看和复用密钥为主，没有独立的通用密钥编辑／删除管理页；移除某节点的 SSH 回退凭据是另一项操作。</li>
-</ul>
-<p>不要把“平台可保存密钥”理解为“浏览器可以读取已保存的私钥明文”；普通界面展示的是管理信息和关联关系。</p>
+<p>在 VPS 管理的密钥区域添加可复用的 SSH 登录密钥，然后在节点配置中选择它。平台保存密钥不会自动把公钥安装到目标服务器；目标账号必须已经允许对应公钥登录。</p>
+<h4>表单与导入顺序</h4>
+<div class="table-scroll" tabindex="0"><table>
+<thead>
+<tr>
+<th>字段</th>
+<th>填写规则</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>名称</td>
+<td>必填，用来在节点选择器中识别用途</td>
+</tr>
+<tr>
+<td>公钥</td>
+<td>可选；留空时从私钥提取，填写时必须与私钥匹配</td>
+</tr>
+<tr>
+<td>私钥</td>
+<td>没有上传有效文件时必填，粘贴完整内容及头尾标记</td>
+</tr>
+<tr>
+<td>文件上传</td>
+<td>选择私钥文件；非空上传文件优先于手动私钥文本，文件扩展名不受限制</td>
+</tr>
+<tr>
+<td>解密密码</td>
+<td>默认折叠的可选区域；私钥受密码保护时展开填写，密码中的空格也是密码的一部分</td>
+</tr>
+</tbody>
+</table></div>
+<ol>
+<li>填写名称，选择文件或粘贴私钥。DER 是二进制容器，应通过文件上传。</li>
+<li>如私钥加密，展开“解密密码”并输入该私钥的密码。</li>
+<li>公钥一般可留空；已有公钥需要核对配对关系时，可一并填写。</li>
+<li>提交后查看结果。格式不支持、密码错误或公私钥不匹配时，按具体提示处理。</li>
+<li>在有权管理的节点中选择该密钥，填写对应 SSH 用户名，并核对目标主机指纹。</li>
+</ol>
+<h4>文件内容与格式</h4>
+<div class="table-scroll" tabindex="0"><table>
+<thead>
+<tr>
+<th>格式</th>
+<th>可导入的内容</th>
+<th>使用说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>OpenSSH</td>
+<td>OpenSSH 私钥</td>
+<td>包括常见的 <code>id_rsa</code>、<code>id_ed25519</code> 等无扩展名文件</td>
+</tr>
+<tr>
+<td>PEM</td>
+<td>PKCS#1、PKCS#8、SEC1 私钥</td>
+<td>包括这些容器支持的加密私钥；保留完整头尾标记</td>
+</tr>
+<tr>
+<td>DER</td>
+<td>PKCS#8、PKCS#1、SEC1 二进制私钥</td>
+<td>上传原始文件，不要先用文本编辑器转码</td>
+</tr>
+<tr>
+<td>PuTTY PPK</td>
+<td>PPK v2、v3 私钥</td>
+<td>可输入解密密码，导入时转换为 SSH 可用格式</td>
+</tr>
+<tr>
+<td><code>.key</code> 等其他文件名</td>
+<td>文件内部属于上述受支持格式的私钥</td>
+<td>按内容识别；<code>.key</code> 不是独立的加密格式</td>
+</tr>
+</tbody>
+</table></div>
+<p>支持的 SSH 密钥类型包括 RSA、ECDSA、Ed25519 和传统 DSA；导入成功还需满足目标 SSH 服务的算法策略。公钥文件 <code>.pub</code>、证书、硬件令牌引用和未知专有容器不能替代可用的私钥。</p>
+<h4>保存、识别与复用</h4>
+<p>导入过程提取公钥，以公钥内容计算 SHA-256 指纹，并将私钥统一转换为 SSH 可用格式后按平台凭据加密机制保存。新导入记录不保留导入时的解密密码。列表提供名称、指纹等管理信息，不提供已保存私钥的明文回显。</p>
+<p>登录密钥指纹标识的是这对登录密钥；节点连接检查显示的 SSH 主机指纹标识的是目标服务器。两者用途不同，不需要相同。密钥与节点的引用受到工作区范围约束；在节点编辑中可以更换绑定密钥。</p>
+<p>当前常规界面以新增、查看和复用密钥为主，没有独立的通用密钥编辑／删除管理页。移除某节点的 SSH 回退凭据是另一项节点操作，并不等同于删除密钥记录。</p>
+<p>依据：<a href="../src/app/servers/ssh-key-create-form.tsx">密钥表单</a>、<a href="../src/lib/server/ssh-keys.ts">密钥导入和保存</a>。</p>
 <h3 id="section-4-4">4.4 节点详情与连接诊断</h3>
 <p>详情包含连接地址、登录账号、操作系统、包管理器／服务管理器探测结果、关联存储、直连状态、最近命令和待审批队列。</p>
 <p>用户可以手动进行实时探测、重新探测操作系统、查看实时监控结果、进入 SSH 验证交互连接、进入云盘验证文件访问。诊断会区分未配置、未启用、缺少权限、无法连通、Agent 离线、文件网关异常等原因。</p>
@@ -810,28 +979,107 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 <p>依据：<a href="../src/lib/server/service.ts">服务器业务层</a>、<a href="../src/lib/server/schema.ts">服务器输入模型</a>、<a href="../src/lib/server/agent-service.ts">Agent 实现</a>、<a href="../src/app/api/servers/%5Bid%5D/file-proxy/route.ts">临时文件代理</a>、<a href="windows-development.md">Windows 指南</a>。</p>
 <h2 id="remote-access">5. 浏览器 SSH、文件面板与 Windows 远程桌面</h2>
 <h3 id="section-5-1">5.1 浏览器 SSH 终端</h3>
-<p>入口：服务器卡片或详情中的“SSH 终端”。</p>
-<p>终端具备：</p>
-<ul>
-<li>浏览器交互式 shell、键盘输入、复制粘贴、终端尺寸调整。</li>
-<li>多标签会话、切换节点、最小化／展开、拖动调整高度、单独关闭与关闭全部。</li>
-<li>连接中、已连接、连接失败和已断开等状态提示，以及重新连接入口。</li>
-<li>终端输出搜索、上一个／下一个匹配和清除搜索。</li>
-<li>常用命令收藏、命令历史、快捷命令面板。</li>
-<li>快捷按键与自定义组合键，便于移动端或特殊终端操作。</li>
-<li>内嵌远程文件面板。</li>
-</ul>
-<p>大段粘贴按顺序分片发送，在新协议中等待远端写入确认后继续；中文和其他 UTF-8 输出按字节流交给终端解码。待发送队列超过 4 MiB 时，本次输入会被明确拒绝，用户应分段粘贴或改用文件上传。</p>
-<p>保活不保证网络故障、目标 SSH 重启或主动关闭后原会话能够恢复。重新连接会建立新连接，不自动重放上一条待发送命令。需要长期运行的业务任务，应使用合适的后台任务或目标机进程管理方式。</p>
+<p>入口：服务器卡片或详情中的“SSH 终端”。需要 <code>server:ssh</code> 权限、相应节点访问授权、已启用的节点和可用的 SSH 凭据。Linux 纯 Agent 节点没有 SSH 凭据时不能打开交互式 SSH；Windows 终端使用已绑定 SFTP 存储中的独立 SSH 配置，实际 shell 由目标 Windows OpenSSH 决定。</p>
+<h4>建立连接与管理会话</h4>
+<ol>
+<li>在 VPS 卡片或详情选择目标节点，打开 SSH 终端。</li>
+<li>等待状态由“连接中”变为“已连接”；浏览器与代理建立 WebSocket 并不等于目标 SSH 已认证成功。</li>
+<li>点击终端输入区，按目标 shell 的语法输入命令。终端提供键盘输入、复制粘贴、输出滚动和尺寸调整。</li>
+<li>可以打开多个节点标签、切换标签、最小化工作台，或拖动调整高度。最小化保留当前会话和连接。</li>
+<li>单独关闭标签会结束对应连接；“关闭全部”需确认。离开或刷新承载终端的页面不能作为保留会话的办法。</li>
+</ol>
+<p>页面能接收到快捷键时，Ctrl／⌘+Tab 切换标签，配合 Shift 反向切换，Ctrl／⌘+M 最小化。终端展开且焦点不在输入区时，Escape 可关闭当前标签；焦点在终端时 Escape 交给远端程序，在其他编辑输入区则按该输入区行为处理。</p>
+<h4>输出搜索、命令与快捷按键</h4>
+<div class="table-scroll" tabindex="0"><table>
+<thead>
+<tr>
+<th>工具</th>
+<th>行为</th>
+<th>数据范围</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>输出搜索</td>
+<td>在终端缓冲区定位上一个／下一个匹配，可清除搜索</td>
+<td>当前终端已接收的输出，不是远端文件内容搜索</td>
+</tr>
+<tr>
+<td>收藏命令</td>
+<td>添加、删除、点击发送</td>
+<td>保存在当前浏览器本地，不随平台账号同步到其他浏览器</td>
+</tr>
+<tr>
+<td>命令历史</td>
+<td>显示最近输入的命令，可点击再次发送</td>
+<td>当前面板内的输入记录，最多 50 条，不是服务器审计日志</td>
+</tr>
+<tr>
+<td>常用命令</td>
+<td>一键发送面板提供的命令</td>
+<td>应按目标操作系统和 shell 选择适用命令</td>
+</tr>
+<tr>
+<td>快捷按键</td>
+<td>Ctrl+C、Ctrl+D、Tab、Esc、方向键及常用行编辑按键</td>
+<td>发送原始按键序列，不额外添加回车</td>
+</tr>
+<tr>
+<td>自定义组合键</td>
+<td>组合 Ctrl、Alt、Shift 与可选按键，支持恢复默认</td>
+<td>保存在当前浏览器本地</td>
+</tr>
+</tbody>
+</table></div>
+<p>点击收藏、历史或常用命令会附带回车，直接提交给远端 shell，并非只填入待编辑文本。正在输入的半行命令也会影响远端解释结果。交互式 SSH 的命令直接进入远端会话，不自动创建平台命令请求或进入审批队列；需要审批、执行结果记录和批量追踪时，使用第 11 章的命令请求、定时任务或 Playbook。</p>
+<p>在收藏命令和输出搜索输入框中，中文输入法确认候选词只完成文字输入；完成组词后再按回车执行该输入框的操作。搜索框中 Enter 查找下一个匹配，Shift+Enter 查找上一个匹配，Escape 清除搜索。</p>
+<h4>手机输入与大段粘贴</h4>
+<p>手机中文输入法的组词由终端输入法流程处理，非组词输入按本次输入的增量发送。文字和标点按原内容传输；中文全角括号 <code>（）</code> 不会自动变成 shell 语法中的英文 <code>()</code>。输入命令时应使用目标 shell 所需的字符，方向键、Tab 和控制组合键可使用侧面板按钮。</p>
+<p>大段粘贴按顺序分片发送；支持输入确认的连接在远端确认写入后继续，确认超时不会重发已发送片段。中文和其他 UTF-8 输出按字节流交给终端解码。待发送队列超过 4 MiB 时，该次输入会被明确拒绝，应分段粘贴或改用文件上传。</p>
+<h4>断开与重新连接</h4>
+<p>网络或目标服务断开时显示错误，并提供重新连接。自动重连采用退避，最多尝试 5 次；仍失败时需处理原因后手动重连。新连接不会恢复原来的 shell，也不会自动重放上一条待发送命令。</p>
+<p>保活与最小化不能保证目标 SSH 重启、网络故障或主动关闭后远端进程仍然运行。需要长期执行的任务，应使用平台后台任务或目标机的进程管理方式，结果在相应任务页面或目标日志中查看。</p>
 <h3 id="section-5-2">5.2 SSH 内嵌文件管理器</h3>
 <p>可浏览目录、返回上级、新建目录、上传文件、拖放上传、下载、重命名和删除。</p>
+<p>新建和重命名支持输入中文名称，输入法候选确认不会直接提交。重命名可用回车确认、Escape 取消，或点击相应按钮。双击文件行可进入目录或下载文件；编辑框及行内按钮的双击不触发行本身的打开操作。</p>
 <p>这个面板按服务器及文件授权校验。普通成员受到允许目录及读／写／删除授权约束；完整服务器文件系统访问需要相应的额外权限。面板与云盘共用底层远程访问能力，但入口和授权目的不同。</p>
 <h3 id="section-5-3">5.3 Windows 浏览器远程桌面</h3>
-<p>入口：<code>/servers/[id]/remote-desktop</code>。</p>
-<p>用户可连接、手动断开、重新连接、使用键盘和鼠标、切换适应窗口／原始尺寸、进入／退出全屏、发送 Ctrl+Alt+Del，并查看连接时长。已建立的连接意外断开后有退避重连；首次连接失败会显示具体错误。</p>
-<p>纯文本剪贴板支持双向同步。点击远程桌面后，使用 Ctrl+V（Mac 为 ⌘V）或 Shift+Insert 粘贴本地文字；文本先传输，随后在远端执行粘贴。远端复制回本地需要浏览器剪贴板写入权限。单次文本上限为 262,144 个字符，超过时提示分段复制，不截断后粘贴；每次传输独立计数，连续粘贴不会耗尽整场连接额度。使用 HTTPS，且网关必须启用剪贴板。当前网关禁止驱动器／文件传输、打印和任意管道；音频需要单独启用。需要传文件时使用已配置的云盘或 SFTP。</p>
+<p>入口：Windows 服务器卡片或详情中的远程桌面，页面为 <code>/servers/[id]/remote-desktop</code>。需要节点已启用、相应连接权限、RDP 账号密码，以及平台侧启用的 RDP 网关。SSH 与远程桌面是独立连接入口，Linux 节点不提供 Windows 桌面。</p>
+<h4>连接与操作</h4>
+<ol>
+<li>打开目标 Windows 的远程桌面页面，确认节点信息后连接。</li>
+<li>连接成功后点击远程画面，把键盘输入交给桌面；使用鼠标和键盘操作目标系统。</li>
+<li>按显示需要切换“适应窗口”或“原始尺寸”，进入或退出全屏。</li>
+<li>需要目标系统的安全操作界面时，使用发送 Ctrl+Alt+Del 功能。</li>
+<li>页面显示连接时长，并提供手动断开与重新连接。</li>
+</ol>
+<p>首次连接失败会显示具体错误。曾经连接成功的会话意外断开时，自动重连最多尝试 8 次，等待间隔从 3 秒递增至最多 60 秒；手动断开会停止重连。重新建立 RDP 连接后能否恢复 Windows 中的原会话，取决于目标系统的会话策略。</p>
+<h4>文字剪贴板</h4>
+<div class="table-scroll" tabindex="0"><table>
+<thead>
+<tr>
+<th>方向</th>
+<th>操作</th>
+<th>条件和结果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>本地 → 远端</td>
+<td>本地复制文字，点击远程桌面，再按 Ctrl+V、Mac ⌘V 或 Shift+Insert</td>
+<td>先传输文字，再在远端触发粘贴；目标程序必须能够接收粘贴</td>
+</tr>
+<tr>
+<td>远端 → 本地</td>
+<td>在远端程序复制文字，再在本地目标中粘贴</td>
+<td>浏览器需要允许写入系统剪贴板；失败时页面给出提示</td>
+</tr>
+</tbody>
+</table></div>
+<p>通过 HTTPS 使用，并确认网关允许剪贴板。单次上限为 262,144 个 JavaScript 字符单位，部分 Unicode 字符会占两个单位；超过上限时提示分段复制，不会截断后静默粘贴。每次传输独立计数。远端发送空文字剪贴板时，本地旧文字也会清空。</p>
+<p>此功能传输纯文本，不承诺图片、富文本或文件剪贴板传输。需要传文件时使用已配置的云盘或 SFTP。网关禁止驱动器／文件传输、打印和任意管道；音频需要单独启用及兼容的网关支持。</p>
 <h3 id="section-5-4">5.4 RDP 证书和连接依赖</h3>
-<p>浏览器通过平台认证的 WebSocket 与 RDP 网关通信，Windows 凭据保留在服务端。管理员需要部署并启用 guacd，设置 RDP 开关，配置 WebSocket 反向代理及允许的网页来源。</p>
+<p>浏览器通过平台认证的 WebSocket 与 RDP 网关通信，Windows 凭据保留在服务端。管理员需要部署并启用 guacd，设置 <code>RDP_ENABLED=true</code>，配置 WebSocket 反向代理及允许的网页来源。guacd 使用配置的地址和端口，常见本机端口为 4822。<code>RDP_ENABLE_CLIPBOARD</code> 默认为启用，设为 <code>false</code> 可关闭；音频仅在 <code>RDP_AUDIO_ENABLED=true</code> 时启用。目标地址仍需满足平台的 RDP 主机访问限制，不能把平台当作任意内网地址的透传入口。</p>
 <p>证书策略包括默认验证、明确选择忽略验证，以及固定整张证书的 SHA-256。证书固定需要支持该校验的加固网关；固定指纹与忽略验证不能同时启用。指纹应由管理员在 Windows 本机或独立可信渠道核对，证书更换后要更新。</p>
 <p>依据：<a href="../src/components/ssh-terminal-manager.tsx">SSH 终端管理器</a>、<a href="../src/components/ssh-terminal-input.ts">终端输入队列</a>、<a href="../src/components/remote-desktop.tsx">远程桌面组件</a>、<a href="../src/lib/rdp/features.ts">RDP 功能开关</a>、<a href="rdp-certificate-pinning.md">证书固定说明</a>。</p>
 <h2 id="files">6. 存储节点与文件管理</h2>
@@ -3001,6 +3249,38 @@ npm run docs:check
 <td>启用是管理状态，继续检查对应连接、指纹、网络和 Agent 心跳</td>
 </tr>
 <tr>
+<td>手机中文括号不能作为 shell 语法使用</td>
+<td>文本按原字符发送；需要英文括号时切换英文符号，中文全角括号不会自动转换</td>
+</tr>
+<tr>
+<td>SSH 最小化后是否继续连接</td>
+<td>最小化保留会话；关闭标签、刷新页面与最小化不同</td>
+</tr>
+<tr>
+<td>SSH 收藏命令为什么立即执行</td>
+<td>点击命令会附带回车，需要先确认当前 shell 输入状态和目标节点</td>
+</tr>
+<tr>
+<td><code>.key</code> 文件提示无法导入</td>
+<td>核对文件实际容器、是否包含私钥及是否需要解密密码；改扩展名不会改变格式</td>
+</tr>
+<tr>
+<td>上传文件后手动私钥没有被使用</td>
+<td>非空上传文件优先；要使用文本时先清除所选文件</td>
+</tr>
+<tr>
+<td>提示公私钥不匹配</td>
+<td>公钥必须来自同一私钥；可留空让平台提取，不要填目标 SSH 主机指纹</td>
+</tr>
+<tr>
+<td>Windows 无法粘贴文字</td>
+<td>点击远程画面，确认 HTTPS、网关剪贴板开关和文本上限；远端到本地还需浏览器剪贴板写入权限</td>
+</tr>
+<tr>
+<td>RDP 能登录但 Windows SSH 不可用</td>
+<td>SSH 需独立的 OpenSSH 服务和绑定 SFTP 配置，RDP 凭据不能代替</td>
+</tr>
+<tr>
 <td>Windows RDP 在线但没有 CPU 信息</td>
 <td>RDP 端口探测不采集资源，需要接入 Agent</td>
 </tr>
@@ -3079,7 +3359,7 @@ npm run docs:check
 <li>Cron 计划、Playbook 和 AI 日常扫描使用项目应用时区 <code>Asia/Shanghai</code>；S3 每日上传窗口按 UTC；系统级 timer 以其部署配置为准。</li>
 <li>表单“启用”表示允许使用，健康探测“可达”表示某条链路通过，任务“完成”表示该任务定义的步骤结束，应分别阅读。</li>
 <li>可配置字段、代码中存在的适配、实际部署启用及第三方实机验收是不同层次。</li>
-<li>本文以指定提交的源代码为准。较早专项文档可能保留历史方案或待办；遇到冲突应核对本文引用的当前服务与接口。</li>
+<li>本文与所在仓库版本的源代码配套使用。较早专项文档可能保留历史方案或待办；遇到冲突应核对本文引用的当前服务与接口。</li>
 <li>当前仓库没有独立 LICENSE 文件；公开代码的使用和分发授权应向维护者确认，本文不另行授予授权。</li>
 </ul>
 <h2 id="reference">24. 完整页面、权限、接口与源码索引</h2>
@@ -4274,22 +4554,19 @@ npm run docs:check
 </tbody>
 </table></div>
 <h3 id="section-24-5">24.5 文档维护约定</h3>
-<p>新增或修改页面、API、Server Action、设置项、个人偏好、权限、Worker、数据模型、AI 工具或应用模板时，除更新代码及专项说明，也应更新对应功能目标、用户操作章节和本章清单，并同步离线 HTML 阅读版。记录基准提交和日期，明确区分已实现、需配置、后端限制与尚未提供的能力。Markdown 是正文唯一来源；修改后运行 <code>npm run guide:build</code> 生成 HTML，<code>npm run docs:check</code> 检查统计、页面／API／模型清单、链接、HTML 锚点和生成物一致性。离线架构图及阅读布局由 <code>scripts/project-guide/</code> 管理，图源变化时需同步更新相应 SVG。功能名称与行为冲突时，先核对实际界面及 API／业务实现，再修订用户说明。</p>
+<p>新增或修改页面、API、Server Action、设置项、个人偏好、权限、Worker、数据模型、AI 工具或应用模板时，除更新代码及专项说明，也应更新对应功能目标、用户操作章节和本章清单，并同步离线 HTML 阅读版。明确区分已实现、需配置、后端限制与尚未提供的能力；部署采用的提交和日期另记在发布记录中。Markdown 是正文唯一来源；修改后运行 <code>npm run guide:build</code> 生成 HTML，<code>npm run docs:check</code> 检查统计、页面／API／模型清单、链接、HTML 锚点和生成物一致性。离线架构图及阅读布局由 <code>scripts/project-guide/</code> 管理，图源变化时需同步更新相应 SVG。功能名称与行为冲突时，先核对实际界面及 API／业务实现，再修订用户说明。</p>
 <p>需求变化使用固定功能编号及<a href="feature-change-template.zh-CN.md">功能变更模板</a>记录；需求状态、当前实现状态和实际部署状态分别注明。具体流程见<a href="#feature-upgrades">第 24.9 节</a>。</p>
 <!-- GENERATED_REFERENCE_END -->
 <!-- FUNCTION_COVERAGE_START -->
 <p><a id="coverage-review"></a></p>
-<h3 id="section-24-6">24.6 功能覆盖复核范围与结果</h3>
-<p>本轮复核以文首指定提交为基准，将页面、HTTP 路由、Server Actions、工具和配置清单逐项映射到文档；同时复查界面实际操作，补充批量审批、命令取消、文件任务取消、端口分配、AI 消息复制／重新生成、模型探测、工单关联和临时文件代理等细节。</p>
-<p>2026-10-07 补充：页面、路由和模型数量维持下表口径，新增上传租约恢复、表格预览边界、OpenAPI 合约区分和文档生成检查。自动清单检查不替代行为回归与发布验收。</p>
-<p>历史记录（2026-10-01）：本机部署源码与文档基准同为 <code>302eed94f4e3093411055f76cc76418a4420e6f4</code>，部署源码的已跟踪文件无额外变更。该记录确认源码版本；运行中的构建产物、环境开关、账号配置和第三方依赖仍需相应部署验收。</p>
+<h3 id="section-24-6">24.6 功能范围与实现索引</h3>
+<p>以下清单按实现入口组织，便于从用户功能定位到页面、配置、接口、数据与后台处理。一个功能通常跨越多种入口，同一个接口也可能服务多个页面。</p>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
 <tr>
-<th>核对对象</th>
-<th style="text-align:right">源码数量</th>
-<th>文档对应</th>
-<th style="text-align:right">清单中未映射项</th>
+<th>实现对象</th>
+<th style="text-align:right">数量</th>
+<th>文档位置</th>
 </tr>
 </thead>
 <tbody>
@@ -4297,66 +4574,56 @@ npm run docs:check
 <td>页面文件</td>
 <td style="text-align:right">55</td>
 <td>第 24.1 节及对应功能章节</td>
-<td style="text-align:right">0</td>
 </tr>
 <tr>
 <td>API 路由文件</td>
 <td style="text-align:right">188</td>
 <td>第 24.3 节分组及第 24.7 节逐项索引</td>
-<td style="text-align:right">0</td>
 </tr>
 <tr>
 <td>Server Action 运行时导出</td>
 <td style="text-align:right">25，分布在 9 个模块</td>
-<td>第 24.8 节，包含表单选项／目标查询辅助入口</td>
-<td style="text-align:right">0</td>
+<td>第 24.8 节，包含表单选项／目标查询入口</td>
 </tr>
 <tr>
 <td>系统设置表单字段</td>
 <td style="text-align:right">42</td>
 <td>第 18.5 节</td>
-<td style="text-align:right">0</td>
 </tr>
 <tr>
 <td>持久化个人偏好字段</td>
 <td style="text-align:right">8</td>
 <td>第 3.3 节</td>
-<td style="text-align:right">0</td>
 </tr>
 <tr>
 <td>内置账号角色／业务权限</td>
 <td style="text-align:right">4／54</td>
 <td>第 17 章及第 24.2 节</td>
-<td style="text-align:right">0</td>
 </tr>
 <tr>
 <td>本地快捷服务模板</td>
 <td style="text-align:right">44</td>
 <td>第 10.4 节</td>
-<td style="text-align:right">0</td>
 </tr>
 <tr>
 <td>AI 托管工具</td>
 <td style="text-align:right">21</td>
 <td>第 14.4 节</td>
-<td style="text-align:right">0</td>
 </tr>
 <tr>
 <td>Worker 类型</td>
 <td style="text-align:right">24</td>
 <td>第 20.4 节</td>
-<td style="text-align:right">0</td>
 </tr>
 <tr>
 <td>Prisma 数据模型</td>
 <td style="text-align:right">79</td>
 <td>第 20.1 节</td>
-<td style="text-align:right">0</td>
 </tr>
 </tbody>
 </table></div>
-<p>页面之外还核对了通知 <code>/ws</code>、SSH <code>/ssh</code>、RDP <code>/rdp</code>、自定义 WebDAV 方法、Agent 轮询、系统恢复归档及部署入口。它们分别纳入实时链路、文件接入、服务器管理、备份和运行维护章节。</p>
-<p>“未映射项为 0”表示上述源码清单都有明确文档位置，既包括普通界面功能，也包括仅接口或兼容入口。它不是所有第三方环境已验收、所有按钮在所有权限组合下都运行成功的声明；本次复核执行的是文档与源码覆盖检查，实际业务验收采用第 1.6、21.5 和 22 章的相应流程。</p>
+<p>通知 <code>/ws</code>、SSH <code>/ssh</code>、RDP <code>/rdp</code>、自定义 WebDAV 方法、Agent 轮询、系统恢复归档及部署入口，分别在实时链路、文件接入、服务器管理、备份和运行维护章节说明。</p>
+<p>查阅某个功能时，先确认业务页面，再沿接口或 Server Action 定位服务实现；涉及耗时操作时继续查看 Worker 与任务模型。这里的入口数量不是业务成功率或第三方兼容性承诺，具体驱动和操作系统的能力对照见第 23 章。</p>
 <h3 id="section-24-7">24.7 全部 188 个 API 路由的功能索引</h3>
 <p>HTTP 方法列来自实际源码导出，包括转导出的下载及 OpenAPI 路由。方法声明用于定位接口；具体操作仍由输入、权限和处理器决定。WebDAV 的 PROPFIND、MKCOL、COPY、MOVE 等扩展方法经自定义 Web 入口派发，见第 7 章。</p>
 <div class="table-scroll" tabindex="0"><table>
@@ -5639,60 +5906,49 @@ npm run docs:check
 </table></div>
 <!-- FUNCTION_COVERAGE_END -->
 <p><a id="feature-upgrades"></a></p>
-<h3 id="section-24-9">24.9 用文档指导后续功能升级</h3>
-<p>可以把这份文档作为功能基线，再用明确的变更说明指导开发、测试和发布。当前指南回答“这个版本能做什么、怎样使用”；下一版本变更说明回答“准备改成什么、哪些既有行为要保留、如何证明改对了”。两者通过第 1.5 节的固定功能编号和基准提交关联。</p>
-<h4>文档怎样修改</h4>
-<p>推荐复制<a href="feature-change-template.zh-CN.md">功能变更模板</a>，为一次明确的需求建立变更编号，例如 <code>CR-YYYYMMDD-NNN</code>，保存当前行为、目标行为及验收条件。也可以先在本指南对应章节追加标明编号和状态的“拟议变更”，待需求清楚后整理成独立说明。</p>
-<p>尚未实现的目标应标记为草稿或待实现，原有“当前行为”和能力限制继续保留。代码完成并通过相应验收后，再将已经兑现的行为写入主文，并更新基准提交和 HTML 阅读版。涉及实际上线时，还应单独记录部署版本、时间、配置及发布后验证结果。</p>
+<h3 id="section-24-9">24.9 指南使用方式</h3>
+<p>本指南描述项目实际提供的功能。第 1 章的 <code>F-01</code> 至 <code>F-47</code> 是稳定功能编号，用于在产品目标、使用章节和源码之间建立联系；第 24 章提供页面、接口、权限和后台处理入口。</p>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
 <tr>
-<th>信息</th>
-<th>维护位置与作用</th>
+<th>读者要解决的问题</th>
+<th>建议阅读顺序</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>稳定功能编号</td>
-<td><code>F-01</code> 至 <code>F-47</code>；用来关联需求、实现和回归，后续新增编号不挪用旧编号</td>
+<td>首次使用平台</td>
+<td>第 2 章概念和配置顺序 → 第 3 章工作台 → 第 22 章对应完整流程</td>
 </tr>
 <tr>
-<td>当前功能基线</td>
-<td>本文的目标、操作流程、权限、限制及源码索引</td>
+<td>接入服务器、使用终端或桌面</td>
+<td>第 4 章节点与凭据 → 第 5 章远程连接 → 第 23 章通道和操作系统边界</td>
 </tr>
 <tr>
-<td>目标变更</td>
-<td>独立变更说明中的现状／目标对照、范围、状态和可判定的验收条件</td>
+<td>管理文件、分享和同步</td>
+<td>第 6 章存储 → 第 7 章分发与同步 → 第 17 章路径权限</td>
 </tr>
 <tr>
-<td>开发与验证证据</td>
-<td>对应提交／PR、测试用例、执行结果及未完成事项</td>
+<td>部署应用、编排操作</td>
+<td>第 9、10 章部署 → 第 11 章审批和自动化 → 第 20 章任务运行方式</td>
 </tr>
 <tr>
-<td>部署结果</td>
-<td>实际实例采用的提交、配置或迁移结果、相关链路验证及回退记录</td>
+<td>维护平台与处理异常</td>
+<td>第 12 章观测 → 第 13 章备份恢复 → 第 21 章运行维护</td>
+</tr>
+<tr>
+<td>管理团队或集成外部系统</td>
+<td>第 15、17、18 章 → 第 24 章权限及接口索引</td>
+</tr>
+<tr>
+<td>定位实现并规划改进</td>
+<td>第 1.5 节功能清单 → 对应业务章节 → 第 19、20、24 章实现索引</td>
 </tr>
 </tbody>
 </table></div>
-<h4>一次升级的完整流程</h4>
-<ol>
-<li><strong>写清用户结果。</strong> 指定功能编号、使用者、入口及触发条件，用“现在怎样 → 希望怎样”描述变化；把不打算改变的相关旧行为列为兼容要求。</li>
-<li><strong>核对影响。</strong> 沿本章源码索引确认页面、接口、权限、数据、Worker、实时通道和部署依赖。一个界面开关可能影响多个调用入口，需要按真实调用关系分析。</li>
-<li><strong>先明确验收条件。</strong> 为主要成功、拒绝、失败及兼容场景写出输入、动作、可观察结果。状态应区分已提交、已批准、执行中、已完成、已取消和结果未知等实际含义。</li>
-<li><strong>按差异实现与验证。</strong> 在相应分支修改代码，运行受影响用例和项目规定的检查。回归范围依据影响确定；修改会话或 WebSocket 时应验证原有 SSH，修改存储授权时应检查共用的文件、分享及 WebDAV 入口。</li>
-<li><strong>发布并回填文档。</strong> 按需要完成备份、迁移、部署及原有链路验证，记录实际提交和结果。兑现的目标进入当前指南，尚未完成的部分继续保留状态和限制；同步更新功能清单、数量及 HTML。</li>
-</ol>
-<p>修改文档不会自动升级程序。可以把变更说明交给开发者或编码助手，要求其按相应编号实现，并逐条报告验收与回归结果。实现中发现矛盾或额外影响时，先把差异写清，再按明确后的需求处理；不能为了让实现看起来完成而降低原来约定的验收标准。</p>
-<h4>示例：TSV 预览变更已落实后的验收记录</h4>
-<ul>
-<li>关联功能：<code>F-13</code>，第 6.5 节。</li>
-<li>原行为：TSV／TAB 进入表格入口后仍按逗号分隔。</li>
-<li>当前行为：TSV／TAB 按制表符解析，CSV 保留逗号解析；支持引号、空字段、CRLF 和分块 UTF-8；达到行数或字节上限停止读取，不把已截取记录数当作全文件总数。</li>
-<li>验收：两列 TSV 正确分列，内容中的逗号保留；带引号 CSV、尾部空列和多行字段正确；超大或不停返回数据的响应被截断并取消；权限校验和下载入口保持原有约束。</li>
-<li>依据：<a href="../src/lib/storage/delimited-preview.ts">表格解析与限制</a>、<a href="../src/lib/storage/__tests__/delimited-preview.test.ts">回归测试</a>。</li>
-</ul>
-<p>新的需求仍按上面的流程记录现状、目标、验收和发布证据，不因补齐了一项功能就移除其他尚存边界。</p>
-<footer class="footer">本文件为同目录 Markdown 原稿的离线阅读版。目录、正文、表格和图示均内嵌，无需联网；源码引用使用仓库相对路径，查看源码时请保留仓库目录结构。内容基准：2026-09-30 / 302eed94；功能覆盖复核：2026-10-01。</footer></main></div><a class="back-top" href="#top">返回顶部 ↑</a><script>
+<p>Markdown 是正文来源，HTML 是包含目录、表格和架构图的离线阅读版，可搜索、打印或保存 PDF。HTML 的源码链接仍指向仓库相对位置，查看这些文件时需要保留仓库目录结构。第 24.5 节说明两种格式的维护方法。</p>
+<p>功能说明应包含入口、使用条件、操作、结果与限制。规划中的需求、开发进度、测试结果和实例发布记录另行维护；可使用<a href="feature-change-template.zh-CN.md">功能变更模板</a>记录拟议需求，使用<a href="path-walkthrough-checklist.md">路径验收清单</a>组织真实账号操作。它们不替代本文的实际功能描述，也不表示对应实例已完成验证。</p>
+<footer class="footer">本文件为同目录 Markdown 原稿的离线阅读版。目录、正文、表格和图示均内嵌，无需联网；源码引用使用仓库相对路径，查看源码时请保留仓库目录结构。功能说明与所在仓库版本配套使用；实例可用性取决于部署配置、权限和目标环境。</footer></main></div><a class="back-top" href="#top">返回顶部 ↑</a><script>
 document.getElementById('print').addEventListener('click',()=>window.print());
 const nav=document.querySelector('.sidebar');
 const links=[...nav.querySelectorAll('li')];
