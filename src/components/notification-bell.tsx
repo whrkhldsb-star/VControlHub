@@ -50,7 +50,7 @@ export function NotificationBell() {
 	}, []);
 
 	// WebSocket real-time updates
-	const { connected: wsConnected, lastNotification, unreadCount, lastServerAlert } = useWsNotifications();
+	const { connected: wsConnected, lastNotification, unreadCount } = useWsNotifications();
 
 	// Fallback: poll if WS not connected
 	const [polledUnread, setPolledUnread] = useState(0);
@@ -106,22 +106,6 @@ export function NotificationBell() {
 		}
 	}, [lastNotification]);
 
-	// Toast for server alerts — depend only on lastServerAlert so locale (t)
-	// identity changes do not re-prepend a synthetic row.
-	useEffect(() => {
-		if (!lastServerAlert) return;
-		const createdAt = new Date().toISOString();
-		setNotifications((prev) => [{
-			id: `alert-${lastServerAlert.serverId}-${createdAt}`,
-			type: "server_alert",
-			title: t("notificationBell.serverAlertTitle", { name: lastServerAlert.serverName }),
-			message: lastServerAlert.message,
-			isRead: false,
-			actionUrl: "/servers",
-			createdAt,
-		}, ...prev].slice(0, 50));
-		// eslint-disable-next-line react-hooks/exhaustive-deps -- omit t to avoid duplicate rows on locale switch
-	}, [lastServerAlert]);
 
 	useDismiss({
 		open: isOpen,

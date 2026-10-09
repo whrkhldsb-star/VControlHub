@@ -67,8 +67,6 @@ describe("useWsNotifications", () => {
     expect(result.current.connected).toBe(false);
     expect(result.current.lastNotification).toBeNull();
     expect(result.current.unreadCount).toBe(0);
-    expect(result.current.lastDownloadProgress).toBeNull();
-    expect(result.current.lastServerAlert).toBeNull();
   });
 
   it("opens a same-origin ws:// connection without putting the session token in the query string", () => {
@@ -87,7 +85,7 @@ describe("useWsNotifications", () => {
     expect(result.current.connected).toBe(false);
   });
 
-  it("parses notification / unread_count / download_progress / server_alert messages", () => {
+  it("parses notification and unread_count messages", () => {
     const { result } = renderHook(() => useWsNotifications());
     const ws = FakeWebSocket.instances.at(-1)!;
     act(() => ws.fakeOpen());
@@ -110,25 +108,6 @@ describe("useWsNotifications", () => {
     act(() => ws.fakeMessage(JSON.stringify({ type: "unread_count", count: 7 })));
     expect(result.current.unreadCount).toBe(7);
 
-    act(() =>
-      ws.fakeMessage(
-        JSON.stringify({
-          type: "download_progress",
-          data: { taskId: "task-1", progress: 50, status: "running" },
-        }),
-      ),
-    );
-    expect(result.current.lastDownloadProgress?.taskId).toBe("task-1");
-
-    act(() =>
-      ws.fakeMessage(
-        JSON.stringify({
-          type: "server_alert",
-          data: { serverId: "s-1", serverName: "S1", message: "down" },
-        }),
-      ),
-    );
-    expect(result.current.lastServerAlert?.serverId).toBe("s-1");
   });
 
   it("ignores non-JSON messages without throwing", () => {

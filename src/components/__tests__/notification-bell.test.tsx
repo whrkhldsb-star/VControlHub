@@ -12,7 +12,6 @@ const wsState = vi.hoisted(() => ({
   connected: false,
   lastNotification: null,
   unreadCount: 0,
-  lastServerAlert: null,
 }));
 
 vi.mock("@/lib/ws/use-ws-notifications", () => ({
@@ -37,7 +36,6 @@ describe("NotificationBell", () => {
     wsState.connected = false;
     wsState.lastNotification = null;
     wsState.unreadCount = 0;
-    wsState.lastServerAlert = null;
     vi.mocked(csrfFetch).mockResolvedValue({ unreadCount: 1, notifications: [] });
   });
 
