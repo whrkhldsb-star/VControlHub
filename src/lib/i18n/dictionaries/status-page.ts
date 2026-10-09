@@ -6,6 +6,15 @@
  */
 
 export const zh: Record<string, string> = {
+	"statusPage.check.database.label": "数据库",
+	"statusPage.check.database.available": "可用",
+	"statusPage.check.database.unavailable": "不可用",
+	"statusPage.check.servers.label": "VPS 管理",
+	"statusPage.check.servers.enabled": "已启用 {count} 台 VPS（状态页不做实时 SSH 或网络探测）",
+	"statusPage.check.servers.awaiting": "等待配置",
+	"statusPage.check.storage.label": "云盘服务",
+	"statusPage.check.storage.summary": "已配置 {total} 个存储节点：{healthy} 个最近探测正常，{unhealthy} 个异常，{unknown} 个待探测。状态页不显示 SFTP／直连网关的主机、端口或路径。",
+	"statusPage.check.storage.awaiting": "等待配置",
 	"statusPage.desc": "公开安全摘要，不展示主机名、端口、连接串或内部凭据。",
 	"statusPage.overallLabel": "总体：",
 	"statusPage.eyebrow": "状态",
@@ -25,6 +34,15 @@ export const zh: Record<string, string> = {
 };
 
 export const en: Record<string, string> = {
+	"statusPage.check.database.label": "Database",
+	"statusPage.check.database.available": "Available",
+	"statusPage.check.database.unavailable": "Unavailable",
+	"statusPage.check.servers.label": "VPS management",
+	"statusPage.check.servers.enabled": "{count} VPS instances enabled (no live SSH or network probing on this page)",
+	"statusPage.check.servers.awaiting": "Awaiting configuration",
+	"statusPage.check.storage.label": "Cloud drive",
+	"statusPage.check.storage.summary": "{total} storage nodes configured: {healthy} healthy at the last probe, {unhealthy} unhealthy, {unknown} not probed yet. This page never shows SFTP or direct-gateway hosts, ports or paths.",
+	"statusPage.check.storage.awaiting": "Awaiting configuration",
 	"statusPage.desc": "Public safety summary. Hostnames, ports, connection strings, and internal credentials are not exposed.",
 	"statusPage.overallLabel": "Overall: ",
 	"statusPage.eyebrow": "Status",

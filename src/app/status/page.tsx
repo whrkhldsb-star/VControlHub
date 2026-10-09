@@ -138,6 +138,12 @@ function renderUptimeSection(
   );
 }
 
+/** The translated text, or the service's own wording when no entry exists. */
+function translatedOr(key: string, fallback: string, locale: Parameters<typeof t>[1], vars?: Record<string, string | number>) {
+  const text = t(key, locale, vars);
+  return text === key ? fallback : text;
+}
+
 export default async function Page() {
   // Public status page:
   // - anonymous: overall summary only
@@ -234,7 +240,7 @@ export default async function Page() {
                           : "bg-[var(--danger)]"
                     }`}
                   />
-                  <b className="text-sm text-[var(--text-primary)]">{c.label}</b>
+                  <b className="text-sm text-[var(--text-primary)]">{translatedOr(`statusPage.check.${c.id}.label`, c.label, locale)}</b>
                 </div>
                 <span
                   className={`text-xs ${
@@ -248,7 +254,7 @@ export default async function Page() {
                   {getHealthLabel(c.status, locale)}
                 </span>
               </div>
-              <p className="mt-1.5 text-sm text-[var(--text-secondary)]">{c.message}</p>
+              <p className="mt-1.5 text-sm text-[var(--text-secondary)]">{c.messageCode ? translatedOr(`statusPage.check.${c.id}.${c.messageCode}`, c.message, locale, c.params) : c.message}</p>
             </div>
           ))}
         </div>
