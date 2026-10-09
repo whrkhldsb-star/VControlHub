@@ -37,7 +37,7 @@ export const zh: Record<string, string> = {
 	"nav.operation-tasks": "任务中心",
 	"nav.playbooks": "Playbook 自动化",
 	"nav.quickservice": "快捷服务",
-	"nav.requests": "命令审批",
+	"nav.requests": "审批中心",
 	"nav.scheduled-tasks": "定时任务",
 	"nav.servers": "VPS 管理",
 	"nav.settings": "设置",
