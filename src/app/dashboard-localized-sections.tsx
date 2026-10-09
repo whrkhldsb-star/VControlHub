@@ -185,7 +185,6 @@ type DashboardCommandRequest = {
   title: string;
   command: string;
   status: string;
-  approvalStateLabel: string;
   isAssistantInitiated: boolean;
   requester: { username: string; displayName: string | null };
   targetCount: number;
@@ -222,7 +221,7 @@ export function DashboardRecentActivity({ recentRequests, recentAuditLogs }: { r
               </div>
               <div className="flex shrink-0 items-center gap-1.5">
                 <Badge color={request.status === "PENDING_APPROVAL" ? "amber" : request.status === "APPROVED" || request.status === "COMPLETED" ? "emerald" : request.status === "FAILED" || request.status === "REJECTED" ? "rose" : "slate"}>
-                  {request.approvalStateLabel === request.status ? getDomainStatusLabel(t, request.status) : request.approvalStateLabel}
+                  {getDomainStatusLabel(t, request.status)}
                 </Badge>
                 <Badge color="slate">{targetPrefix} {request.targetCount} {targetSuffix}</Badge>
               </div>

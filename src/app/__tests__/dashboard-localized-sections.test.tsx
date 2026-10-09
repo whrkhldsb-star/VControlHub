@@ -65,7 +65,6 @@ describe("localized dashboard sections", () => {
             title: "Restart service",
             command: "systemctl restart demo",
             status: "PENDING_APPROVAL",
-            approvalStateLabel: "Pending",
             isAssistantInitiated: true,
             requester: { username: "alice", displayName: null },
             targetCount: 2,

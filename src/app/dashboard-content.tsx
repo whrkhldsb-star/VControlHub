@@ -97,7 +97,6 @@ export async function DashboardContent({ sessionPath }: { sessionPath: "/" | "/d
 		title: request.title,
 		command: request.command,
 		status: request.status,
-		approvalStateLabel: request.approvalStateLabel,
 		isAssistantInitiated: request.isAssistantInitiated,
 		requester: request.requester,
 		targetCount: request.targets.length,
