@@ -12,7 +12,7 @@ import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
 import { CreateDownloadFormLazy } from "./create-download-form-lazy";
 import { DownloadTaskRow } from "./downloads-task-row";
 import { getCategories, getErrorMessage, getStatusLabel, formatSpeed, type DownloadTask, type GlobalStat, type ServerOption } from "./downloads-shared";
-import { ActionButton } from "@/components/action-button";
+import { ActionButton, ButtonLink } from "@/components/action-button";
 import { Chip, InlineLoading, Notice } from "@/components/ui-primitives";
 export type { ServerOption } from "./downloads-shared";
 const UNCATEGORIZED_FILTER = "__uncategorized";
@@ -418,7 +418,12 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 						{showForm ? t("downloadsPage.form.cancelLabel") : t("downloadsPage.form.createLabel")}
 					</ActionButton>
 				) : canManage ? (
-					<Notice tone="warning" compact>{t("downloadsPage.form.noTarget")}</Notice>
+					<Notice tone="warning" compact>
+						<span className="flex flex-wrap items-center gap-2">
+							{t("downloadsPage.form.noTarget")}
+							<ButtonLink href="/servers" size="xs" variant="secondary">{t("downloadsPage.form.noTargetAction")}</ButtonLink>
+						</span>
+					</Notice>
 				) : null}
 			</Toolbar>
 
