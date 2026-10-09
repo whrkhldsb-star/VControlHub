@@ -48,7 +48,7 @@ describe("localized dashboard sections", () => {
     expect(screen.getByRole("heading", { name: "Dashboard" })).toBeInTheDocument();
     expect(screen.getByText((_, element) => element?.tagName === "P" && element.textContent === "Current user: alice")).toBeInTheDocument();
     expect(screen.getByText("VPS Status Overview")).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: "Manage VPS & keys" })[0]).toHaveAttribute("href", "/servers");
+    expect(screen.getAllByRole("link", { name: "Servers" })[0]).toHaveAttribute("href", "/servers");
     expect(screen.getByText("Operations Queue")).toBeInTheDocument();
     expect(screen.getByText("1 running / 7 completed / 2 failed")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Downloads/ })).toHaveAttribute("href", "/downloads");
