@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef, useId, type ReactNode } from "react";
 import { Bell, Settings, User } from "@/components/icons";
+import { IconUsers } from "@/components/nav-icons";
 import { IconKey } from "@/components/nav-items";
 import { PageHeader } from "@/components/page-shell";
 import { SegmentedTabs, SideNav, SplitPane } from "@/components/ui-primitives";
@@ -28,9 +29,15 @@ type Props = {
 	defaultPageOptions?: readonly DefaultPageOption[];
 };
 
-type SettingsTab = "personal" | "security" | "notifications" | "advanced";
+type SettingsTab = "personal" | "team" | "security" | "notifications" | "advanced";
+/** Platform tabs render SettingsClient sections; personal and team tabs render their own panels. */
+type PlatformTab = Exclude<SettingsTab, "personal" | "team">;
+const isPlatformTab = (tab: SettingsTab): tab is PlatformTab => tab !== "personal" && tab !== "team";
+/** Tabs every signed-in user may open; the team panel itself gates what each person can change. */
+const SELF_SERVICE_TABS: SettingsTab[] = ["personal", "team"];
+const TEAM_SECTION_ID = "team-workspaces";
 
-const TAB_SECTION_IDS: Record<Exclude<SettingsTab, "personal">, string[]> = {
+const TAB_SECTION_IDS: Record<PlatformTab, string[]> = {
   security: ["platform", "password"],
   notifications: ["smtp", "telegram"],
   advanced: ["runtime", "dashboard", "offsite", "aiOps"],
@@ -52,6 +59,7 @@ const SECTION_TO_TAB: Record<string, SettingsTab> = {
   "preferences-notifications": "personal",
   "preferences-auto-refresh": "personal",
   "preferences-auto-probe": "personal",
+  [TEAM_SECTION_ID]: "team",
   security: "security",
   "system-config": "advanced",
   ...Object.fromEntries(
@@ -68,6 +76,7 @@ const TAB_META: {
   descKey: string;
 }[] = [
   { id: "personal", icon: <User size={18} aria-hidden />, labelKey: "settingsPage.tab.personal", descKey: "settingsPage.tab.personal.desc" },
+  { id: "team", icon: <IconUsers size={18} aria-hidden />, labelKey: "settingsPage.tab.team", descKey: "settingsPage.tab.team.desc" },
   { id: "security", icon: <IconKey />, labelKey: "settingsPage.tab.security", descKey: "settingsPage.tab.security.desc" },
   { id: "notifications", icon: <Bell size={18} aria-hidden />, labelKey: "settingsPage.tab.notifications", descKey: "settingsPage.tab.notifications.desc" },
   { id: "advanced", icon: <Settings size={18} aria-hidden />, labelKey: "settingsPage.tab.advanced", descKey: "settingsPage.tab.advanced.desc" },
@@ -84,7 +93,7 @@ export function UnifiedSettingsPageClient({
 }: Props) {
   const { t } = useI18n();
   const [selectedTab, setActiveTab] = useState<SettingsTab>("personal");
-  const activeTab = canManage ? selectedTab : "personal";
+  const activeTab = canManage || SELF_SERVICE_TABS.includes(selectedTab) ? selectedTab : "personal";
   const panelId = useId();
   const [activeSection, setActiveSection] = useState<string>("preferences-default-page");
   const navigationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -109,7 +118,7 @@ export function UnifiedSettingsPageClient({
     if (!id) return null;
     const tab = SECTION_TO_TAB[id];
     if (!tab) return null;
-    if (!canManage && tab !== "personal") return { tab: "personal", sectionId: "preferences-default-page" };
+    if (!canManage && !SELF_SERVICE_TABS.includes(tab)) return { tab: "personal", sectionId: "preferences-default-page" };
     return { tab, sectionId: id };
   }, [canManage]);
 
@@ -145,7 +154,7 @@ export function UnifiedSettingsPageClient({
     cancelNavigation();
     setActiveTab(tab);
     const firstSection =
-      tab === "personal" ? "preferences-default-page" : TAB_SECTION_IDS[tab]?.[0] ?? "";
+      tab === "personal" ? "preferences-default-page" : tab === "team" ? TEAM_SECTION_ID : TAB_SECTION_IDS[tab]?.[0] ?? "";
     if (firstSection && typeof window !== "undefined") {
       setActiveSection(firstSection);
       window.history.replaceState(window.history.state, "", `#${firstSection}`);
@@ -163,18 +172,19 @@ export function UnifiedSettingsPageClient({
     [activeTab, revealSection],
   );
 
-  const tabs = canManage ? TAB_META : TAB_META.filter((tab) => tab.id === "personal");
+  const tabs = canManage ? TAB_META : TAB_META.filter((tab) => SELF_SERVICE_TABS.includes(tab.id));
 
   const tabCounts = useMemo(() => {
     return {
       personal: PERSONAL_SECTION_IDS.length,
+      team: 1,
       security: TAB_SECTION_IDS.security.length,
       notifications: TAB_SECTION_IDS.notifications.length,
       advanced: TAB_SECTION_IDS.advanced.length + (canManage ? 1 : 0),
     } as Record<SettingsTab, number>;
   }, [canManage]);
 
-  const systemTab = activeTab !== "personal" ? activeTab : null;
+  const systemTab = isPlatformTab(activeTab) ? activeTab : null;
   const visibleSectionIds = systemTab ? TAB_SECTION_IDS[systemTab] : TAB_SECTION_IDS.security;
 
   const sideItems = useMemo(() => {
@@ -186,6 +196,9 @@ export function UnifiedSettingsPageClient({
           description: t(s.subtitle),
         }),
       );
+    }
+    if (activeTab === "team") {
+      return [{ id: TEAM_SECTION_ID, label: t("settingsTeam.title"), description: t("settingsPage.tab.team.desc") }];
     }
     const ids = [...TAB_SECTION_IDS[activeTab], ...(activeTab === "advanced" ? ["system-config"] : [])];
     return ids.map((id) => {
@@ -258,10 +271,13 @@ export function UnifiedSettingsPageClient({
               wrapInShell={false}
               defaultPageOptions={defaultPageOptions}
             />
+          </div>
+
+          <div className={activeTab === "team" ? "space-y-5" : "hidden"}>
             <TeamWorkspaceSection capabilities={teamCapabilities} />
           </div>
 
-        <div className={activeTab === "personal" ? "hidden" : "space-y-5"}>
+        <div className={systemTab ? "space-y-5" : "hidden"}>
           <SettingsClient
             settings={settings}
             runtimeSettings={runtimeSettings}

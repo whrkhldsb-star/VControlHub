@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { WORKSPACE_POLICY_PERMISSIONS } from "@/lib/auth/tenant-permissions";
+import { groupPermissionsByDomain, permissionLabelKey } from "@/lib/auth/permission-labels";
 import { DEFAULT_ROLE_PERMISSIONS, type RoleKey } from "@/lib/auth/rbac";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -31,6 +32,8 @@ type Member = {
 };
 
 const GROUP_ROLE_KEYS = ["viewer", "operator", "storage_manager"] as const;
+const PERMISSION_DOMAINS = groupPermissionsByDomain(WORKSPACE_POLICY_PERMISSIONS);
+
 export function PermissionGroupsSection({ teamId, members, canManage, onMemberChanged }: {
   teamId: string;
   members: Member[];
@@ -167,11 +170,19 @@ export function PermissionGroupsSection({ teamId, members, canManage, onMemberCh
         </label>)}
       </div>
       <p className="text-xs text-[var(--text-muted)]">{t("settingsTeam.groups.rolePresetHint")}</p>
-      <div className="grid max-h-72 gap-2 overflow-y-auto rounded-xl border border-[var(--border)] p-3 sm:grid-cols-3">
-        {WORKSPACE_POLICY_PERMISSIONS.map((key) => <label key={key} className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
-          <input type="checkbox" checked={effectivePermissions.has(key)} onChange={() => togglePermission(key)} />
-          <span>{key}</span>
-        </label>)}
+      <div data-inset className="max-h-96 space-y-3 overflow-y-auto p-3">
+        {PERMISSION_DOMAINS.map((group) => <fieldset key={group.domain} className="min-w-0">
+          <legend className="ui-title-caption mb-1.5">{t(group.labelKey)}</legend>
+          <div className="grid gap-x-4 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-3">
+            {group.permissions.map((key) => <label key={key} className="flex items-start gap-2 text-sm text-[var(--text-secondary)]" title={key}>
+              <input type="checkbox" className="mt-1" checked={effectivePermissions.has(key)} onChange={() => togglePermission(key)} />
+              <span className="min-w-0">
+                {t(permissionLabelKey(key))}
+                <span className="block font-mono text-[11px] text-[var(--text-muted)]">{key}</span>
+              </span>
+            </label>)}
+          </div>
+        </fieldset>)}
       </div>
       <div className="flex gap-2">
         <ActionButton variant="primary" disabled={busy || !name.trim()} onClick={saveGroup}>{selected ? t("settingsTeam.groups.update") : t("settingsTeam.groups.create")}</ActionButton>
