@@ -30,7 +30,7 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
   const [entries, setEntries] = useState<DirEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [uploads, setUploads] = useState<UploadProgress[]>([]);
+  const [uploads, setUploads] = useState<Array<UploadProgress & { id: string }>>([]);
   const [dragOver, setDragOver] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<string | null>(null);
   const [showMkdir, setShowMkdir] = useState(false);
@@ -40,10 +40,25 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
   const [pendingDeleteEntry, setPendingDeleteEntry] = useState<DirEntry | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const listAbortRef = useRef<AbortController | null>(null);
+  const requestedPathRef = useRef("");
+  const displayedPathRef = useRef("");
+  useEffect(() => () => {
+    requestedPathRef.current = "";
+    listAbortRef.current?.abort();
+  }, []);
 
   const loadDir = useCallback(
-    async (path: string, options?: { throwOnError?: boolean }) => {
+    async (path?: string, options?: { throwOnError?: boolean }) => {
       if (listAbortRef.current) listAbortRef.current.abort();
+      if (requestedPathRef.current !== path) {
+        setSelectedEntry(null);
+        setRenameTarget(null);
+        setRenameValue("");
+        setShowMkdir(false);
+        setMkdirName("");
+        setPendingDeleteEntry(null);
+      }
+      requestedPathRef.current = path ?? "";
       const ac = new AbortController();
       listAbortRef.current = ac;
 
@@ -56,10 +71,14 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
           signal: ac.signal,
         });
 
+        if (ac.signal.aborted) return;
+        requestedPathRef.current = data.path;
+        displayedPathRef.current = data.path;
         setCurrentPath(data.path);
         setEntries(data.entries || []);
       } catch (err) {
         if (ac.signal.aborted) return;
+        requestedPathRef.current = displayedPathRef.current;
         if (options?.throwOnError) throw err;
         setError(
           err instanceof Error
@@ -77,10 +96,10 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
     if (!visible || currentPath) return;
     const init = async () => {
       try {
-        // Probe /root first; rethrow so inaccessible homes fall back to /.
-        await loadDir("/root", { throwOnError: true });
+        // Let the server select the configured account's initial directory.
+        await loadDir(undefined, { throwOnError: true });
       } catch {
-        // /root not accessible — fall back to the filesystem root.
+        // An unrestricted account can still browse / if its home is unavailable.
         await loadDir("/");
       }
     };
@@ -114,18 +133,24 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
 
   const handleUpload = useCallback(
     async (files: FileList) => {
-      const dir = currentPath.replace(/\/$/, "");
-      const newUploads: UploadProgress[] = Array.from(files).map((f) => ({ fileName: f.name, percent: 0, status: "uploading" }));
+      if (loading || !currentPath) return;
+      const dir = currentPath;
+      const batch = Array.from(files);
+      const newUploads = batch.map((file) => ({ id: crypto.randomUUID(), fileName: file.name, percent: 0, status: "uploading" as const }));
+      const batchIds = new Set(newUploads.map((item) => item.id));
       setUploads((prev) => [...prev, ...newUploads]);
 
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i]!;
+      for (let i = 0; i < batch.length; i++) {
+        const file = batch[i]!;
+        const uploadId = newUploads[i]!.id;
         const formData = new FormData();
         formData.append("file", file);
         formData.append("path", dir);
 
         try {
-          await uploadViaXhr(serverId, formData, files.length, i, setUploads, {
+          await uploadViaXhr(serverId, formData, (update) => {
+            setUploads((prev) => prev.map((item) => item.id === uploadId ? { ...item, ...update } : item));
+          }, {
             uploadFailed: (status) => t("sshFileManager.uploadFailed", { status }),
             networkError: t("sshFileManager.networkError"),
           });
@@ -134,13 +159,14 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
         }
       }
 
-      loadDir(currentPath);
+      // Finishing an upload must not navigate back after the user changed folders.
+      if (requestedPathRef.current === currentPath) void loadDir(currentPath);
       // Keep failed rows past the auto-clear window — success rows are
       // noise once the refresh lands, but an error the user glanced away
       // from must stay visible (this list is the only error surface).
-      setTimeout(() => setUploads((prev) => prev.filter((u) => u.status === "uploading" || u.status === "error")), 3000);
+      setTimeout(() => setUploads((prev) => prev.filter((u) => !batchIds.has(u.id) || u.status !== "done")), 3000);
     },
-    [currentPath, serverId, loadDir, t],
+    [currentPath, loading, serverId, loadDir, t],
   );
 
   function handleDownload(entry: DirEntry) {
@@ -158,10 +184,11 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
     const filePath = currentPath.replace(/\/$/, "") + "/" + entry.name;
     try {
       await csrfFetch(`/api/servers/${serverId}/sftp/delete?path=${encodeURIComponent(filePath)}`, { method: "DELETE" });
+      if (requestedPathRef.current !== currentPath) return;
       setPendingDeleteEntry(null);
       loadDir(currentPath);
     } catch (err) {
-      setError(getErrorMessage(err, t("sshFileManager.deleteFailed")));
+      if (requestedPathRef.current === currentPath) setError(getErrorMessage(err, t("sshFileManager.deleteFailed")));
     }
   }
 
@@ -171,11 +198,12 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
     const newPath = currentPath.replace(/\/$/, "") + "/" + name;
     try {
       await csrfFetch(`/api/servers/${serverId}/sftp/mkdir`, { method: "POST", body: JSON.stringify({ path: newPath }) });
+      if (requestedPathRef.current !== currentPath) return;
       setShowMkdir(false);
       setMkdirName("");
       loadDir(currentPath);
     } catch (err) {
-      setError(getErrorMessage(err, t("sshFileManager.mkdirFailed")));
+      if (requestedPathRef.current === currentPath) setError(getErrorMessage(err, t("sshFileManager.mkdirFailed")));
     }
   }
 
@@ -185,11 +213,12 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
     const newPath = currentPath.replace(/\/$/, "") + "/" + renameValue.trim();
     try {
       await csrfFetch(`/api/servers/${serverId}/sftp/rename`, { method: "POST", body: JSON.stringify({ oldPath, newPath }) });
+      if (requestedPathRef.current !== currentPath) return;
       setRenameTarget(null);
       setRenameValue("");
       loadDir(currentPath);
     } catch (err) {
-      setError(getErrorMessage(err, t("sshFileManager.renameFailed")));
+      if (requestedPathRef.current === currentPath) setError(getErrorMessage(err, t("sshFileManager.renameFailed")));
     }
   }
 
@@ -228,9 +257,7 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
 function uploadViaXhr(
   serverId: string,
   formData: FormData,
-  fileCount: number,
-  fileIndex: number,
-  setUploads: React.Dispatch<React.SetStateAction<UploadProgress[]>>,
+  onUpdate: (update: Partial<UploadProgress>) => void,
   errorMsgs: { uploadFailed: (status: number) => string; networkError: string },
 ) {
   return new Promise<void>((resolve, reject) => {
@@ -241,23 +268,23 @@ function uploadViaXhr(
     xhr.upload.onprogress = (e) => {
       if (!e.lengthComputable) return;
       const percent = Math.round((e.loaded / e.total) * 100);
-      setUploads((prev) => updateUploadAt(prev, fileCount, fileIndex, { percent }));
+      onUpdate({ percent });
     };
 
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) {
-        setUploads((prev) => updateUploadAt(prev, fileCount, fileIndex, { status: "done", percent: 100 }));
+        onUpdate({ status: "done", percent: 100 });
         resolve();
         return;
       }
       const msg = errorMsgs.uploadFailed(xhr.status);
-      setUploads((prev) => updateUploadAt(prev, fileCount, fileIndex, { status: "error", error: msg }));
+      onUpdate({ status: "error", error: msg });
       reject(new Error(msg));
     };
 
     xhr.onerror = () => {
       const msg = errorMsgs.networkError;
-      setUploads((prev) => updateUploadAt(prev, fileCount, fileIndex, { status: "error", error: msg }));
+      onUpdate({ status: "error", error: msg });
       reject(new Error(msg));
     };
 
@@ -265,6 +292,3 @@ function uploadViaXhr(
   });
 }
 
-function updateUploadAt(prev: UploadProgress[], fileCount: number, fileIndex: number, update: Partial<UploadProgress>) {
-  return prev.map((u, idx) => (idx === prev.length - fileCount + fileIndex ? { ...u, ...update } : u));
-}

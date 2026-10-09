@@ -354,34 +354,36 @@ export async function resolveRemoteRealPath(
     return result.stdout.trim() || target;
   }
 
-  return withReusableSshClient(input, async (client) =>
-    withSftpChannel(client, (sftp) => new Promise<string>((resolve) => {
-      const realpathOf = (p: string) =>
-        new Promise<string | null>((res) => {
-          sftp.realpath(p, (err, resolved) => res(err ? null : resolved));
-        });
-
-      // Walk from the full path upward to the deepest ancestor that resolves.
-      (async () => {
-        const segments = target.split("/").filter(Boolean);
-        const trailing: string[] = [];
-        for (let i = segments.length; i >= 0; i -= 1) {
-          const candidate = "/" + segments.slice(0, i).join("/");
-          const resolved = await realpathOf(candidate === "/" ? "/" : candidate);
-          if (resolved !== null) {
-            resolve(
-              trailing.length > 0
-                ? posix.join(resolved, ...trailing.reverse())
-                : resolved,
-            );
-            return;
-          }
-          if (i > 0) trailing.push(segments[i - 1]!);
+  return withReusableSshClient(input, (client) =>
+    withSftpChannel(client, async (sftp) => {
+      const segments = target.split("/").filter(Boolean);
+      const trailing: string[] = [];
+      for (let i = segments.length; i >= 0; i -= 1) {
+        const candidate = "/" + segments.slice(0, i).join("/");
+        try {
+          const resolved = await new Promise<string>((resolve, reject) => {
+            sftp.realpath(candidate, (error, value) => error ? reject(error) : resolve(value));
+          });
+          return trailing.length > 0 ? posix.join(resolved, ...trailing.reverse()) : resolved;
+        } catch (error) {
+          // Only a missing path permits walking up. Permission/transport errors
+          // cannot establish containment and must reach the access-control caller.
+          if ((error as { code?: number }).code !== 2) throw error;
+          const isSymlink = await new Promise<boolean>((resolve, reject) => {
+            sftp.lstat(candidate, (statError, stats) => {
+              if (!statError) return resolve(stats.isSymbolicLink());
+              if ((statError as { code?: number }).code === 2) return resolve(false);
+              reject(statError);
+            });
+          });
+          // A dangling link is not a missing filename: writing through it can
+          // create its target elsewhere, outside the permitted root.
+          if (isSymlink) throw error;
         }
-        // Nothing resolved (unusual) — fall back to the lexical path.
-        resolve(target);
-      })();
-    })),
+        if (i > 0) trailing.push(segments[i - 1]!);
+      }
+      throw new Error("Unable to resolve remote path");
+    }),
   );
 }
 
