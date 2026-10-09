@@ -269,7 +269,6 @@ export const en: Record<string, string> = {
 	"settingsTeam.error.update": "Failed to update team",
 	"settingsTeam.message.deleted": "Team deleted",
 	"settingsTeam.error.delete": "Failed to delete team",
-	"settingsTeam.eyebrow": "Team Spaces",
 	"settingsTeam.title": "Team spaces",
 	"settingsTeam.loading": "Loading team spaces…",
 	"settingsTeam.empty": "No team spaces yet.",

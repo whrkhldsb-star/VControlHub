@@ -292,7 +292,6 @@ export const zh: Record<string, string> = {
 	"settingsTeam.error.update": "更新团队失败",
 	"settingsTeam.message.deleted": "团队已删除",
 	"settingsTeam.error.delete": "删除团队失败",
-	"settingsTeam.eyebrow": "团队空间",
 	"settingsTeam.title": "团队空间",
 	"settingsTeam.loading": "加载团队空间中…",
 	"settingsTeam.empty": "暂无团队空间。",

@@ -249,11 +249,8 @@ export function TeamWorkspaceSection({ capabilities }: { capabilities: TeamCapab
 		: "";
 
 	return (
-		<section id="team-workspaces" className="min-w-0 space-y-4 border-t border-[var(--border)] py-5">
-			<div>
-				<p className="text-xs font-semibold uppercase text-[var(--color-action-text)]">{t("settingsTeam.eyebrow")}</p>
-				<h2 className="ui-title-section mt-1">{t("settingsTeam.title")}</h2>
-			</div>
+		<section id="team-workspaces" className="min-w-0 scroll-mt-24 space-y-4">
+			<h2 className="ui-title-section">{t("settingsTeam.title")}</h2>
 
 			{error && <Notice tone="danger">{error}</Notice>}
 			{message && <Notice tone="success">{message}</Notice>}
