@@ -47,6 +47,7 @@ vi.mock("@/lib/storage/fs-backend", () => ({
 
 vi.mock("@/lib/logging", () => ({
   logError: vi.fn(),
+  createLogger: () => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }),
 }));
 
 vi.mock("@/lib/db", () => ({

@@ -4,6 +4,7 @@ import { teamWhere } from "@/lib/auth/team-scope";
 import { NotFoundError } from "@/lib/errors";
 import { classifyMediaKind } from "@/lib/storage/mime-constants";
 import { t } from "@/lib/i18n/service-translations";
+import { SSH_KEY_CREDENTIAL_SELECT } from "@/lib/ssh/ssh-key-crypto";
 
 type TeamSession = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
 
@@ -122,7 +123,7 @@ const mediaStreamItemSelect = {
           // every connection — resolveStorageSshCredentials can only forward
           // what this select returns.
           hostKeySha256: true,
-          sshKey: { select: { privateKey: true } },
+          sshKey: { select: SSH_KEY_CREDENTIAL_SELECT },
         },
       },
     },

@@ -31,6 +31,7 @@ import { downloadFile } from "@/lib/ssh/sftp-service";
 import { createLogger } from "@/lib/logging";
 import { config } from "@/lib/config/env";
 import { sendOffsiteFailureAlert } from "./offsite-uploader";
+import { SSH_KEY_CREDENTIAL_SELECT } from "@/lib/ssh/ssh-key-crypto";
 
 const vpsBackupLogger = createLogger("vps-backup");
 
@@ -245,7 +246,7 @@ export async function runVpsBackupRecord(
           username: true,
           sshKeyId: true,
           password: true,
-          sshKey: { select: { privateKey: true } },
+          sshKey: { select: SSH_KEY_CREDENTIAL_SELECT },
           enabled: true,
         },
       },

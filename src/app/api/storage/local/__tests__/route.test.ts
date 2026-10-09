@@ -89,7 +89,7 @@ vi.mock("@/lib/ssh/client", () => ({
   deleteRemoteFile: deleteRemoteFileMock,
 }));
 
-vi.mock("@/lib/ssh/ssh-key-crypto", () => ({
+vi.mock("@/lib/ssh/ssh-key-crypto", async () => (await import("@/test/ssh-key-crypto-mock")).withStoredKeyHelpers({
   decryptServerPassword: (value: string) => value,
   decryptSshPrivateKey: (value: string) => value,
 }));

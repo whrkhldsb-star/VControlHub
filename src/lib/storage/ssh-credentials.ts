@@ -1,4 +1,4 @@
-import { decryptServerPassword, decryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
+import { decryptServerPassword, decryptStoredSshKey, type StoredSshKey } from "@/lib/ssh/ssh-key-crypto";
 import { ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 
@@ -16,7 +16,7 @@ export type StorageSshCredentialNode = {
     username?: string | null;
     connectionType?: "SSH_KEY" | "PASSWORD" | string | null;
     password?: string | null;
-    sshKey?: { privateKey?: string | null } | null;
+    sshKey?: StoredSshKey | null;
     hostKeySha256?: string | null;
   } | null;
 };
@@ -27,6 +27,8 @@ export type ResolvedStorageSshCredentials = {
   username: string;
   connectionType: "SSH_KEY" | "PASSWORD";
   privateKey?: string;
+  /** Only when a legacy key format could not be unlocked in-process. */
+  passphrase?: string;
   password?: string;
   hostKeySha256?: string | null;
   agentServerId?: string;
@@ -42,9 +44,8 @@ export function resolveStorageSshCredentials(node: StorageSshCredentialNode): Re
   const username = (node.username ?? node.server?.username)?.trim() || "";
   const rawConnectionType = node.server?.connectionType ?? (node.server?.password ? "PASSWORD" : "SSH_KEY");
   const connectionType = rawConnectionType === "PASSWORD" ? "PASSWORD" : "SSH_KEY";
-  const privateKey = connectionType === "SSH_KEY" && node.server?.sshKey?.privateKey
-    ? decryptSshPrivateKey(node.server.sshKey.privateKey)
-    : undefined;
+  const key = connectionType === "SSH_KEY" ? decryptStoredSshKey(node.server?.sshKey) : null;
+  const privateKey = key?.privateKey;
   const password = connectionType === "PASSWORD" && node.server?.password
     ? decryptServerPassword(node.server.password)
     : undefined;
@@ -66,5 +67,5 @@ export function resolveStorageSshCredentials(node: StorageSshCredentialNode): Re
     throw new ValidationError(t("backend.storage.missingPassword"));
   }
 
-  return { host, port, username, connectionType, privateKey, password, hostKeySha256: node.hostKeySha256 ?? node.server?.hostKeySha256 ?? null, ...(agentServerId ? { agentServerId } : {}) };
+  return { host, port, username, connectionType, privateKey, ...(key?.passphrase ? { passphrase: key.passphrase } : {}), password, hostKeySha256: node.hostKeySha256 ?? node.server?.hostKeySha256 ?? null, ...(agentServerId ? { agentServerId } : {}) };
 }

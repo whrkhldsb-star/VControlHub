@@ -17,6 +17,7 @@ import {
 import { buildInstallWindowsDirectGatewayCommand, buildPrepareWindowsDirectGatewayCommand, buildUninstallWindowsDirectGatewayCommand, buildWindowsDirectGatewaySource, WINDOWS_GATEWAY_SCRIPT_NAME } from "./windows-direct-gateway";
 import { getErrorMessage, safeRevalidatePath } from "./service-internals";
 import { t } from "@/lib/i18n/service-translations";
+import { SSH_KEY_CREDENTIAL_SELECT } from "@/lib/ssh/ssh-key-crypto";
 
 const PUBLIC_HEALTH_TIMEOUT_MS = config.test.isVitest ? 400 : 8_000;
 const PUBLIC_HEALTH_ATTEMPTS = config.test.isVitest ? 1 : 4;
@@ -145,7 +146,7 @@ export async function loadServerForDirectGateway(
   session?: DirectGatewaySession | null,
 ) {
   const include = {
-    sshKey: { select: { privateKey: true } },
+    sshKey: { select: SSH_KEY_CREDENTIAL_SELECT },
     storageNode: {
       select: {
         id: true,

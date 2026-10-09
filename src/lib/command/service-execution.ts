@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
 import { t } from "@/lib/i18n/service-translations";
 import { createLogger } from "@/lib/logging";
 import { notifyCommandResult } from "@/lib/notification/service";
-import { decryptServerPassword, decryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
+import { decryptServerPassword, decryptStoredSshKey, SSH_KEY_CREDENTIAL_SELECT } from "@/lib/ssh/ssh-key-crypto";
 import {
   type SshExecutionResult,
   cancelRunningCommandChild,
@@ -106,7 +106,7 @@ export async function executeTarget(
       operatingSystem?: string;
       agentLastSeenAt: Date | null;
       password: string | null;
-      sshKey: { id: string; name: string; privateKey: string | null } | null;
+      sshKey: { id: string; name: string; privateKey: string | null; passphrase: string | null } | null;
     };
     commandRequest: { command: string; title: string };
   },
@@ -156,9 +156,7 @@ export async function executeTarget(
   const stopCancellationMonitor = await monitorCommandCancellation(target.id, controller);
   try {
 
-  const privateKey = target.server.sshKey?.privateKey
-    ? decryptSshPrivateKey(target.server.sshKey.privateKey).trim()
-    : undefined;
+  const privateKey = decryptStoredSshKey(target.server.sshKey)?.privateKey.trim();
   const password = target.server.password
     ? decryptServerPassword(target.server.password).trim()
     : undefined;
@@ -313,7 +311,7 @@ export async function executeTargets(commandRequestId: string) {
             select: {
               id: true,
               name: true,
-              privateKey: true,
+              ...SSH_KEY_CREDENTIAL_SELECT,
             },
           },
         },

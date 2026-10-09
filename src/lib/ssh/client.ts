@@ -7,7 +7,7 @@ import { config as appConfig } from "@/lib/config/env";
 import { shellQuote } from "@/lib/shell-quote";
 import { t } from "@/lib/i18n/service-translations";
 
-import { decryptServerPassword, decryptSshPrivateKey, decryptSshKeyPassphrase } from "@/lib/ssh/ssh-key-crypto";
+import { decryptServerPassword, decryptStoredSshKey, type StoredSshKey } from "@/lib/ssh/ssh-key-crypto";
 
 export type SshConnectionParams = {
   host: string;
@@ -749,7 +749,7 @@ export async function buildSshParamsFromServer(server: {
   hostKeySha256?: string | null;
   id?: string;
   managementMode?: string;
-}, sshKey?: { privateKey: string | null; passphrase?: string | null } | null): Promise<SshConnectionParams> {
+}, sshKey?: StoredSshKey | null): Promise<SshConnectionParams> {
   if (server.operatingSystem === "WINDOWS") throw new BusinessError(t("backend.server.linuxOnly"));
   const base = {
     host: server.host,
@@ -762,13 +762,7 @@ export async function buildSshParamsFromServer(server: {
   // key id only for compatibility. Persisted Server rows always provide it.
   const connectionType = server.connectionType ?? (server.sshKeyId ? "SSH_KEY" : "PASSWORD");
   if (connectionType === "SSH_KEY") {
-    return {
-      ...base,
-      ...(sshKey?.privateKey ? {
-      privateKey: decryptSshPrivateKey(sshKey.privateKey),
-      ...(sshKey.passphrase ? { passphrase: decryptSshKeyPassphrase(sshKey.passphrase) } : {}),
-      } : {}),
-    };
+    return { ...base, ...decryptStoredSshKey(sshKey) };
   }
   if (connectionType === "PASSWORD") {
     return {

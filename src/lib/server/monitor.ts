@@ -2,6 +2,7 @@ import { execRemoteCommand, buildSshParamsFromServer } from "@/lib/ssh/client";
 import { prisma } from "@/lib/db";
 import { getServerLocale } from "@/lib/i18n/server-locale-cookie";
 import { t } from "@/lib/i18n/service-translations";
+import { SSH_KEY_CREDENTIAL_SELECT } from "@/lib/ssh/ssh-key-crypto";
 
 /* ── Types ────────────────────────────────────────────────── */
 
@@ -150,7 +151,7 @@ export async function collectServerMetrics(serverId: string, signal?: AbortSigna
 	try {
 		const server = await prisma.server.findUnique({
 			where: { id: serverId },
-			include: { sshKey: { select: { privateKey: true } } },
+			include: { sshKey: { select: SSH_KEY_CREDENTIAL_SELECT } },
 		});
 
 		if (!server) return { error: tr("backend.server.monitor.notFound"), serverId };

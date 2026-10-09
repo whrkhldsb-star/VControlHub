@@ -17,6 +17,7 @@ import { apiCopy } from "@/lib/i18n/api-copy";
 import type { StorageActionState, StorageDeleteActionState } from "./actions-helpers";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { executeDeleteFile, findAffectedShareIds } from "@/lib/files/delete-operation";
+import { SSH_KEY_CREDENTIAL_SELECT } from "@/lib/ssh/ssh-key-crypto";
 
 export async function deleteFileEntryAction(_prev: StorageDeleteActionState | null, formData: FormData): Promise<StorageDeleteActionState> {
   return executeDeleteFile(await requirePermission("storage:delete"), formData);
@@ -154,7 +155,7 @@ export async function permanentDeleteFileEntryAction(
                 connectionType: true,
                 password: true,
                 hostKeySha256: true,
-                sshKey: { select: { privateKey: true } },
+                sshKey: { select: SSH_KEY_CREDENTIAL_SELECT },
               },
             },
           },

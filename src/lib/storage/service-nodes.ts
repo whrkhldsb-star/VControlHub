@@ -27,6 +27,7 @@ import {
   buildStorageConnectionSummary,
   type StorageNodeListRow,
 } from "./service-direct-access";
+import { SSH_KEY_CREDENTIAL_SELECT } from "@/lib/ssh/ssh-key-crypto";
 
 function readWebdavConfig(ciphertext?: string | null) {
   if (!ciphertext) return undefined;
@@ -155,7 +156,7 @@ export async function checkStorageNodeHealth(
               password: true,
               sshKeyId: true,
               hostKeySha256: true,
-              sshKey: { select: { privateKey: true } },
+              sshKey: { select: SSH_KEY_CREDENTIAL_SELECT },
             },
           },
         },
@@ -171,7 +172,7 @@ export async function checkStorageNodeHealth(
               password: true,
               sshKeyId: true,
               hostKeySha256: true,
-              sshKey: { select: { privateKey: true } },
+              sshKey: { select: SSH_KEY_CREDENTIAL_SELECT },
             },
           },
         },
