@@ -103,33 +103,31 @@ export const zh: Record<string, string> = {
 
 	// Repair: db
 	"healthPage.repair.db.label": "检查数据库连接",
-	"healthPage.repair.db.description": "数据库状态正常，可继续关注业务层告警。",
 	"healthPage.repair.db.descriptionCritical": "优先确认数据库与环境变量是否正常，必要时重载服务并检查日志。",
 	"healthPage.repair.db.action": "验证 DATABASE_URL、数据库进程和 Prisma 连接",
 
 	// Repair: runtime
 	"healthPage.repair.runtime.label": "确认运行目录",
-	"healthPage.repair.runtime.description": "运行目录基线已就绪。",
 	"healthPage.repair.runtime.descriptionWarning": "部署目录或缓存目录可能缺失，建议补齐并复查权限。",
 	"healthPage.repair.runtime.action": "检查 storage / uploads / downloads / backups / logs / tmp",
 
 	// Repair: services
 	"healthPage.repair.services.label": "核对核心服务",
-	"healthPage.repair.services.description": "核心服务在线，可继续检查业务功能。",
 	"healthPage.repair.services.descriptionCritical": "优先确认 Next.js、SSH WS 与 Caddy 是否都在运行。",
 	"healthPage.repair.services.action": "验证 vcontrolhub-next.service / vcontrolhub-worker.service / vcontrolhub-ssh-ws.service / caddy.service",
 
 	// Repair: git
+	"healthPage.repair.inventory.label": "纳管资源",
+	"healthPage.repair.inventory.description": "还没有可用的 VPS 或存储节点，或读取它们时出错；纳管后才能使用终端、文件和监控。",
+	"healthPage.repair.inventory.action": "在 VPS 管理中添加节点，在文件管理中添加存储节点",
+	"healthPage.repair.notifications.label": "配置通知渠道",
+	"healthPage.repair.notifications.description": "尚未配置邮件、Telegram 或 Webhook，告警与任务失败不会通知到任何人。",
+	"healthPage.repair.notifications.action": "在设置 → 通知与集成中启用至少一个渠道",
+	"healthPage.repair.allHealthy": "所有自检项均正常，无需处理。",
 	"healthPage.repair.git.label": "核对 GitHub 同步",
-	"healthPage.repair.git.description": "本地提交与 origin/main 保持一致。",
 	"healthPage.repair.git.descriptionWarning": "本地与远端可能不同步，建议确认最近推送是否完成。",
 	"healthPage.repair.git.action": "比对本地 HEAD 与 origin/main",
 
-	// Repair: audit
-	"healthPage.repair.audit.label": "复查审计高风险动作",
-	"healthPage.repair.audit.description": "可快速查看最近的命令执行、删除、权限和令牌操作。",
-	"healthPage.repair.audit.descriptionCritical": "系统已经出现严重告警，建议结合审计页先锁定最近的高风险操作。",
-	"healthPage.repair.audit.action": "查看 command.execute / storage.file_delete / api_token.create",
 
 	// System health check labels (rendered via healthPage.check.{id}.label)
 	"healthPage.check.database.label": "数据库连接",
@@ -279,33 +277,32 @@ export const en: Record<string, string> = {
 
 	// Repair: db
 	"healthPage.repair.db.label": "Check database connection",
-	"healthPage.repair.db.description": "Database checks are healthy; continue watching business-level alerts.",
 	"healthPage.repair.db.descriptionCritical": "First confirm the database and environment variables, then reload services and inspect logs if needed.",
 	"healthPage.repair.db.action": "Verify DATABASE_URL, database process, and Prisma connectivity",
 
 	// Repair: runtime
 	"healthPage.repair.runtime.label": "Confirm runtime directories",
-	"healthPage.repair.runtime.description": "Runtime directory baseline is ready.",
 	"healthPage.repair.runtime.descriptionWarning": "Deployment or cache directories may be missing; create them and recheck ownership.",
 	"healthPage.repair.runtime.action": "Check storage / uploads / downloads / backups / logs / tmp",
 
 	// Repair: services
 	"healthPage.repair.services.label": "Verify core services",
-	"healthPage.repair.services.description": "Core services are online; continue checking product workflows.",
 	"healthPage.repair.services.descriptionCritical": "First confirm Next.js, SSH WS, and Caddy are all running.",
 	"healthPage.repair.services.action": "Verify vcontrolhub-next.service / vcontrolhub-worker.service / vcontrolhub-ssh-ws.service / caddy.service",
 
 	// Repair: git
+	"healthPage.repair.inventory.label": "Add resources",
+	"healthPage.repair.inventory.description": "No servers or storage nodes are available yet, or they could not be read. Terminals, files and monitoring need them.",
+	"healthPage.repair.inventory.action": "Add a server under Servers and a storage node under Files",
+	"healthPage.repair.notifications.label": "Set up a notification channel",
+	"healthPage.repair.notifications.description": "No email, Telegram or webhook channel is configured, so alerts and failed tasks reach nobody.",
+	"healthPage.repair.notifications.action": "Enable at least one channel under Settings → Notifications & integrations",
+	"healthPage.repair.allHealthy": "Every self-check passes. Nothing to fix.",
 	"healthPage.repair.git.label": "Check GitHub sync",
-	"healthPage.repair.git.description": "Local commits match origin/main.",
 	"healthPage.repair.git.descriptionWarning": "Local and remote refs may differ; confirm the latest push completed.",
 	"healthPage.repair.git.action": "Compare local HEAD with origin/main",
 
 	// Repair: audit
-	"healthPage.repair.audit.label": "Review high-risk audit actions",
-	"healthPage.repair.audit.description": "Quickly inspect recent command execution, deletion, permission, and token actions.",
-	"healthPage.repair.audit.descriptionCritical": "Critical alerts are present; use the audit page to identify recent high-risk operations first.",
-	"healthPage.repair.audit.action": "Open command.execute / storage.file_delete / api_token.create",
 
 	// System health check labels
 	"healthPage.check.database.label": "Database Connection",
