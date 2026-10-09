@@ -1,7 +1,7 @@
 "use client";
 
 
-import { ActionButton } from "@/components/action-button";
+import { ActionButton, ButtonLink } from "@/components/action-button";
 import { ServerConnectionAction } from "./server-connection-action";
 import { Badge, Notice } from "@/components/ui-primitives";
 import { useI18n } from "@/lib/i18n/use-locale";
