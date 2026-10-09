@@ -18,6 +18,7 @@ import { getServerTargetAvailability } from "@/lib/server/availability";
 import { Disclosure } from "@/components/ui/disclosure";
 
 import { ButtonLink } from "@/components/action-button";
+import { localizeBuiltinTemplate } from "@/lib/command-template/builtin-labels";
 export const dynamic = "force-dynamic";
 
 /** One mapping for every deployment/rollback status pill on this page. */
@@ -66,7 +67,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
       skip: (page - 1) * RUNS_PAGE_SIZE,
       take: RUNS_PAGE_SIZE + 1,
     }),
-		listDeploymentTemplates(session),
+		listDeploymentTemplates(session).then((rows) => rows.map((row) => localizeBuiltinTemplate(row, (key) => t(key, locale)))),
 		// Strict server scope: this picker carries host/username/credential refs.
 		prisma.server.findMany({
 			where: { enabled: true, ...serverTeamWhere(session, "connect") },
