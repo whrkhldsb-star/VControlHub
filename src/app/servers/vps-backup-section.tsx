@@ -13,6 +13,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { IconButton, InlineLoading, Notice } from "@/components/ui-primitives";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { useVisibilityInterval } from "@/lib/hooks/use-visibility-interval";
 import { getDomainStatusLabel } from "@/lib/i18n/domain-labels";
 type BackupSchedule = {
 	id: string;
@@ -93,6 +94,88 @@ function formatDuration(ms: string | null): string {
 	return `${(n / 60_000).toFixed(1)}min`;
 }
 
+/** Fields shared by the create and edit schedule forms. */
+function ScheduleFormFields({
+	form,
+	onChange,
+	presetLabel,
+	submitLabel,
+	submitting,
+	onSubmit,
+}: {
+	form: ScheduleForm;
+	onChange: (form: ScheduleForm) => void;
+	presetLabel: (type: string) => string;
+	submitLabel: string;
+	submitting: boolean;
+	onSubmit: () => void;
+}) {
+	const { t } = useI18n();
+	const set = (field: keyof ScheduleForm) =>
+		(event: { target: { value: string } }) => onChange({ ...form, [field]: event.target.value });
+	return (
+		<>
+			<input
+				type="text"
+				placeholder={t("vpsBackup.scheduleName")}
+				aria-label={t("vpsBackup.scheduleName")}
+				value={form.name}
+				onChange={set("name")}
+				data-input
+				className={UI_INPUT}
+			/>
+			<div className="grid grid-cols-2 gap-2">
+				<select
+					value={form.backupType}
+					aria-label={t("vpsBackup.backupType")}
+					onChange={set("backupType")}
+					data-input
+					className={UI_INPUT}
+				>
+					{PRESET_OPTIONS.map((preset) => <option key={preset} value={preset}>{presetLabel(preset)}</option>)}
+				</select>
+				<input
+					type="text"
+					placeholder="0 3 * * *"
+					aria-label={t("vpsBackup.cronExpression")}
+					value={form.cronExpression}
+					onChange={set("cronExpression")}
+					data-input
+					className={UI_INPUT}
+				/>
+			</div>
+			<p className="text-xs text-[var(--text-muted)]">{t("vpsBackup.timezone", { timezone: APP_TIME_ZONE })}</p>
+			{form.backupType === "custom" ? (
+				<textarea
+					placeholder={t("vpsBackup.pathsPlaceholder")}
+					aria-label={t("vpsBackup.pathsPlaceholder")}
+					value={form.paths}
+					onChange={set("paths")}
+					rows={2}
+					data-input
+					className={UI_INPUT}
+				/>
+			) : null}
+			<div className="flex flex-wrap items-center gap-2">
+				<input
+					type="number"
+					min={1}
+					max={365}
+					placeholder={t("vpsBackup.retentionDays")}
+					aria-label={t("vpsBackup.retentionDays")}
+					value={form.retentionDays}
+					onChange={set("retentionDays")}
+					data-input
+					className={`w-32 ${UI_INPUT}`}
+				/>
+				<ActionButton size="sm" type="button" onClick={onSubmit} disabled={!form.name.trim() || submitting}>
+					{submitting ? t("common.submitting") : submitLabel}
+				</ActionButton>
+			</div>
+		</>
+	);
+}
+
 export function VpsBackupSection({
 	serverId,
 	canManage,
@@ -156,13 +239,7 @@ export function VpsBackupSection({
 	const hasInFlight = records.some(
 		(r) => r.status === "PENDING" || r.status === "RUNNING",
 	);
-	useEffect(() => {
-		if (!hasInFlight) return;
-		const timer = setInterval(() => {
-			void fetchAll();
-		}, 5000);
-		return () => clearInterval(timer);
-	}, [hasInFlight, fetchAll]);
+	useVisibilityInterval(() => { void fetchAll(); }, hasInFlight ? 5000 : null);
 
 	const handleTrigger = async (backupType: string) => {
 		setTriggering(backupType);
@@ -403,67 +480,14 @@ export function VpsBackupSection({
 
 				{showCreate ? (
 					<div data-tile className="mb-3 space-y-2 p-3">
-						<input
-							type="text"
-							placeholder={t("vpsBackup.scheduleName")}
-							aria-label={t("vpsBackup.scheduleName")}
-							value={createForm.name}
-							onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
-							data-input
-							className={UI_INPUT}
+						<ScheduleFormFields
+							form={createForm}
+							onChange={setCreateForm}
+							presetLabel={presetLabel}
+							submitLabel={t("vpsBackup.create")}
+							submitting={creating}
+							onSubmit={handleCreate}
 						/>
-						<div className="grid grid-cols-2 gap-2">
-							<select
-								value={createForm.backupType}
-								aria-label={t("vpsBackup.backupType")}
-								onChange={(e) => setCreateForm({ ...createForm, backupType: e.target.value })}
-								data-input
-								className={UI_INPUT}
-							>
-								{PRESET_OPTIONS.map((p) => (
-									<option key={p} value={p}>{presetLabel(p)}</option>
-								))}
-							</select>
-							<input
-								type="text"
-								placeholder="0 3 * * *"
-								aria-label={t("vpsBackup.cronExpression")}
-								value={createForm.cronExpression}
-								onChange={(e) => setCreateForm({ ...createForm, cronExpression: e.target.value })}
-								data-input
-								className={UI_INPUT}
-							/>
-						</div>
-						<p className="text-xs text-[var(--text-muted)]">
-							{t("vpsBackup.timezone", { timezone: APP_TIME_ZONE })}
-						</p>
-						{createForm.backupType === "custom" ? <textarea
-							placeholder={t("vpsBackup.pathsPlaceholder")}
-							aria-label={t("vpsBackup.pathsPlaceholder")}
-							value={createForm.paths}
-							onChange={(e) => setCreateForm({ ...createForm, paths: e.target.value })}
-							rows={2}
-							data-input
-							className={UI_INPUT}
-						/> : null}
-						<div className="flex items-center gap-2">
-							<input
-								type="number"
-								min={1}
-								max={365}
-								placeholder={t("vpsBackup.retentionDays")}
-								aria-label={t("vpsBackup.retentionDays")}
-								value={createForm.retentionDays}
-								onChange={(e) => setCreateForm({ ...createForm, retentionDays: e.target.value })}
-								data-input className={`w-24 ${UI_INPUT}`}
-							/>
-							<ActionButton size="sm"
-								type="button"
-								onClick={handleCreate}
-								disabled={!createForm.name.trim() || creating}>
-								{creating ? t("common.submitting") : t("vpsBackup.create")}
-							</ActionButton>
-						</div>
 					</div>
 				) : null}
 
@@ -521,70 +545,18 @@ export function VpsBackupSection({
 										<div className="space-y-2">
 											<div className="flex items-center justify-between gap-2">
 												<span className="text-sm font-medium text-[var(--text-primary)]">{t("vpsBackup.editSchedule", { name: s.name })}</span>
-												<button
-													type="button"
-													onClick={() => setEditingScheduleId(null)}
-													className="text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-												>
+												<ActionButton size="xs" variant="ghost" type="button" onClick={() => setEditingScheduleId(null)}>
 													{t("common.cancel")}
-												</button>
-											</div>
-											<input
-												type="text"
-												aria-label={t("vpsBackup.scheduleName")}
-												value={editForm.name}
-												onChange={(event) => setEditForm({ ...editForm, name: event.target.value })}
-												data-input
-												className={UI_INPUT}
-											/>
-											<div className="grid grid-cols-2 gap-2">
-												<select
-													value={editForm.backupType}
-													aria-label={t("vpsBackup.backupType")}
-													onChange={(event) => setEditForm({ ...editForm, backupType: event.target.value })}
-													data-input
-													className={UI_INPUT}
-												>
-													{PRESET_OPTIONS.map((preset) => <option key={preset} value={preset}>{presetLabel(preset)}</option>)}
-												</select>
-												<input
-													type="text"
-													aria-label={t("vpsBackup.cronExpression")}
-													value={editForm.cronExpression}
-													onChange={(event) => setEditForm({ ...editForm, cronExpression: event.target.value })}
-													data-input
-													className={UI_INPUT}
-												/>
-											</div>
-											{editForm.backupType === "custom" ? <textarea
-												placeholder={t("vpsBackup.pathsPlaceholder")}
-												aria-label={t("vpsBackup.pathsPlaceholder")}
-												value={editForm.paths}
-												onChange={(event) => setEditForm({ ...editForm, paths: event.target.value })}
-												rows={2}
-												data-input
-												className={UI_INPUT}
-											/> : null}
-											<div className="flex flex-wrap items-center gap-2">
-												<input
-													type="number"
-													min={1}
-													max={365}
-													placeholder={t("vpsBackup.retentionDays")}
-													aria-label={t("vpsBackup.retentionDays")}
-													value={editForm.retentionDays}
-													onChange={(event) => setEditForm({ ...editForm, retentionDays: event.target.value })}
-													data-input
-													className={`w-32 ${UI_INPUT}`}
-												/>
-												<ActionButton size="sm"
-													type="button"
-													onClick={() => void saveScheduleEdit()}
-													disabled={!editForm.name.trim() || isSaving}>
-													{isSaving ? t("common.submitting") : t("vpsBackup.save")}
 												</ActionButton>
 											</div>
-											<p className="text-xs text-[var(--text-muted)]">{t("vpsBackup.timezone", { timezone: APP_TIME_ZONE })}</p>
+											<ScheduleFormFields
+												form={editForm}
+												onChange={setEditForm}
+												presetLabel={presetLabel}
+												submitLabel={t("vpsBackup.save")}
+												submitting={isSaving}
+												onSubmit={() => void saveScheduleEdit()}
+											/>
 										</div>
 									) : (
 										<div className="flex items-start justify-between gap-3">

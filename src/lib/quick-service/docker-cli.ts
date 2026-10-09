@@ -13,7 +13,7 @@ import { createLogger } from "@/lib/logging";
 import { serviceT } from "@/lib/i18n/service-locale";
 import { shellQuote } from "@/lib/shell-quote";
 import { isValidTcpPort } from "@/lib/runtime/listen-port";
-import { loadEnabledServerForSsh, type SshServerTarget } from "@/lib/ssh/server-target";
+import { loadEnabledServerForSsh } from "@/lib/ssh/server-target";
 import { execRemoteCommand } from "@/lib/ssh/client";
 
 const runFile = promisify(execFile);
@@ -43,11 +43,6 @@ function buildDockerCommand(args: string[]): string {
   return ["docker", ...args.map(shellQuote)].join(" ");
 }
 
-async function loadRemoteSshParams(serverId: string): Promise<SshServerTarget> {
-  // Unified loader: typed not-found/disabled errors, one decryption path.
-  return loadEnabledServerForSsh(serverId);
-}
-
 /** Local-only sync helper (historical API, used by unit tests). */
 export function dockerExecSync(args: string[], timeout = 30_000): string {
   return execFileSync("docker", args, {
@@ -66,7 +61,7 @@ export async function dockerExec(
   if (target.kind === "local") {
     return dockerExecSync(args, timeoutMs);
   }
-  const { server, ssh } = await loadRemoteSshParams(target.serverId);
+  const { server, ssh } = await loadEnabledServerForSsh(target.serverId);
   const command = buildDockerCommand(args);
   logger.debug("remote docker exec", {
     serverId: server.id,
@@ -74,10 +69,10 @@ export async function dockerExec(
     args: args.slice(0, 6),
   });
   const result = await execRemoteCommand({
-    ...(ssh as object),
+    ...ssh,
     command,
     timeout: timeoutMs,
-  } as Parameters<typeof execRemoteCommand>[0]);
+  });
   if (result.exitCode !== 0 && result.exitCode !== null) {
     const msg = (result.stderr || result.stdout || `exit ${result.exitCode}`).trim();
     throw new BusinessError(msg || `Remote docker failed on ${server.name}`);
@@ -97,12 +92,12 @@ export async function dockerRun(
     });
     return { stdout: String(stdout), stderr: String(stderr) };
   }
-  const { server, ssh } = await loadRemoteSshParams(target.serverId);
+  const { server, ssh } = await loadEnabledServerForSsh(target.serverId);
   const result = await execRemoteCommand({
-    ...(ssh as object),
+    ...ssh,
     command: buildDockerCommand(args),
     timeout: timeoutMs,
-  } as Parameters<typeof execRemoteCommand>[0]);
+  });
   if (result.exitCode !== 0 && result.exitCode !== null) {
     const msg = (result.stderr || result.stdout || `exit ${result.exitCode}`).trim();
     throw new BusinessError(msg || `Remote docker run failed on ${server.name}`);
@@ -125,7 +120,7 @@ export function dockerErrorMessage(error: unknown): string {
 /** Probe whether a TCP port is free on a remote VPS (ss via SSH). */
 export async function isRemotePortAvailable(serverId: string, port: number): Promise<boolean> {
   if (!isValidTcpPort(port)) return false;
-  const { server, ssh } = await loadRemoteSshParams(serverId);
+  const { server, ssh } = await loadEnabledServerForSsh(serverId);
   const command =
     `PORT=${port}; ` +
     `if command -v ss >/dev/null 2>&1; then ` +
@@ -134,10 +129,10 @@ export async function isRemotePortAvailable(serverId: string, port: number): Pro
     `bash -c "echo >/dev/tcp/127.0.0.1/$PORT" >/dev/null 2>&1 && exit 1 || exit 0; ` +
     `else exit 0; fi`;
   const result = await execRemoteCommand({
-    ...(ssh as object),
+    ...ssh,
     command,
     timeout: 10_000,
-  } as Parameters<typeof execRemoteCommand>[0]);
+  });
   // exit 0 = free, exit 1 = in use
   if (result.exitCode === 1) return false;
   if (result.exitCode === 0) return true;
@@ -162,7 +157,7 @@ export function parseRemoteListeningPorts(output: string): number[] {
 
 /** List TCP listen ports on a remote VPS with one SSH round-trip. */
 export async function getRemoteUsedPorts(serverId: string): Promise<number[]> {
-  const { server, ssh } = await loadRemoteSshParams(serverId);
+  const { server, ssh } = await loadEnabledServerForSsh(serverId);
   const command =
     `if command -v ss >/dev/null 2>&1; then ` +
     `ss -tlnH 2>/dev/null | awk '{print $4}'; ` +
@@ -170,10 +165,10 @@ export async function getRemoteUsedPorts(serverId: string): Promise<number[]> {
     `netstat -tln 2>/dev/null | awk 'NR > 2 {print $4}'; ` +
     `fi`;
   const result = await execRemoteCommand({
-    ...(ssh as object),
+    ...ssh,
     command,
     timeout: 10_000,
-  } as Parameters<typeof execRemoteCommand>[0]);
+  });
   if (result.exitCode !== 0 && result.exitCode !== null) {
     logger.warn("remote listening-port inventory failed", {
       serverId: server.id,
@@ -253,13 +248,13 @@ export async function getContainerLogTailFor(
       return getContainerLogTail(containerName, timeoutMs);
     }
     // Remote path: dockerExec only returns stdout; append 2>&1 so stderr is captured.
-    const { ssh } = await loadRemoteSshParams(target.serverId);
+    const { ssh } = await loadEnabledServerForSsh(target.serverId);
     const command = `${buildDockerCommand(["logs", "--tail", "20", containerName])} 2>&1`;
     const result = await execRemoteCommand({
-      ...(ssh as object),
+      ...ssh,
       command,
       timeout: timeoutMs,
-    } as Parameters<typeof execRemoteCommand>[0]);
+    });
     // logs may exit non-zero when container missing; still return any captured text
     const logs = (result.stdout || result.stderr || "").trim();
     if (!logs) return null;
@@ -325,7 +320,7 @@ export async function getDockerEnvironmentStatusFor(
 	const t = await serviceT();
 	const dockerInstallHint = t("backend.quick-service.dockerInstallHintRemote");
   try {
-    const { server } = await loadRemoteSshParams(target.serverId);
+    const { server } = await loadEnabledServerForSsh(target.serverId);
     const version = (await dockerExec(target, ["--version"], 10_000)).trim();
     await dockerExec(target, ["info"], 20_000);
     return {
