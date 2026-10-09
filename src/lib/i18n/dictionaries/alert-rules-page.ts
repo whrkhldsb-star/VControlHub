@@ -124,7 +124,7 @@ export const zh: Record<string, string> = {
 	"alertRulesPage.operator.lt": "小于",
 	"alertRulesPage.operator.lte": "小于等于",
 	"alertRulesPage.testResult": "测试发送结果：{ruleName}",
-	"alertRulesPage.title": "智能告警",
+	"alertRulesPage.title": "告警规则",
 	"alertRulesPage.toast.testPartial": "测试发送完成，部分渠道失败",
 	"alertRulesPage.toast.testSucceeded": "测试发送完成",
 	"alertRulesPage.toast.triggered": "告警检测已触发",

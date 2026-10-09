@@ -110,11 +110,13 @@ describe("AppSidebar permission-gated render", () => {
 		navigationMocks.pathname = "/dashboard";
 	});
 
-	it("opens only the current workspace by default", () => {
+	it("opens the daily core groups and keeps the rest collapsed by default", () => {
 		renderWithGate(ADMIN_GATE, SAMPLE_DECLARED);
 
-		expect(screen.getAllByRole("button", { name: /总览与监控/ })[0]).toHaveAttribute("aria-expanded", "true");
-		expect(screen.getAllByRole("button", { name: /文件与传输/ })[0]).toHaveAttribute("aria-expanded", "false");
+		expect(screen.getAllByRole("button", { name: /^总览/ })[0]).toHaveAttribute("aria-expanded", "true");
+		expect(screen.getAllByRole("button", { name: /^服务器/ })[0]).toHaveAttribute("aria-expanded", "true");
+		expect(screen.getAllByRole("button", { name: /文件与传输/ })[0]).toHaveAttribute("aria-expanded", "true");
+		expect(screen.getAllByRole("button", { name: /^自动化/ })[0]).toHaveAttribute("aria-expanded", "false");
 		expect(screen.getAllByRole("button", { name: /系统管理/ })[0]).toHaveAttribute("aria-expanded", "false");
 	});
 
@@ -122,7 +124,7 @@ describe("AppSidebar permission-gated render", () => {
 		navigationMocks.pathname = "/";
 		renderWithGate(ADMIN_GATE, SAMPLE_DECLARED);
 
-		expect(screen.getAllByRole("button", { name: /总览与监控/ })[0]).toHaveAttribute("aria-expanded", "true");
+		expect(screen.getAllByRole("button", { name: /^总览/ })[0]).toHaveAttribute("aria-expanded", "true");
 		expect(screen.getAllByRole("link", { name: "仪表盘" })[0]).toHaveAttribute("aria-current", "page");
 	});
 
@@ -161,7 +163,7 @@ describe("AppSidebar permission-gated render", () => {
 
 		// Non-current workspaces stay collapsed; expand the groups under test.
 		await expandNavGroup(/文件与传输/);
-		await expandNavGroup(/运维自动化/);
+		await expandNavGroup(/^自动化/);
 		await expandNavGroup(/系统管理/);
 
 		expect(screen.getAllByRole("link", { name: /仪表盘/ }).length).toBeGreaterThan(0);

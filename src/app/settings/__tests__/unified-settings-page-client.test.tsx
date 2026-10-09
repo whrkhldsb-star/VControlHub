@@ -138,7 +138,7 @@ describe("UnifiedSettingsPageClient", () => {
     expect(screen.getByRole("tab", { name: /高级配置/ })).toBeInTheDocument();
 
     // Personal preferences content is visible by default
-    expect(await screen.findByRole("button", { name: "服务器管理" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "VPS 管理" })).toBeInTheDocument();
     expect(screen.getByRole("switch", { name: "启用通知" })).toBeInTheDocument();
   });
 
@@ -153,7 +153,7 @@ describe("UnifiedSettingsPageClient", () => {
     );
 
     // ── Tab 1: Personal preferences ──
-    await user.click(await screen.findByRole("button", { name: "服务器管理" }));
+    await user.click(await screen.findByRole("button", { name: "VPS 管理" }));
     expect(await screen.findByRole("status")).toHaveTextContent("设置已保存");
     expect(csrfFetch).toHaveBeenCalledWith("/api/preferences", expect.objectContaining({
       method: "PUT",

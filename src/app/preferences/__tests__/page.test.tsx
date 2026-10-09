@@ -91,7 +91,7 @@ describe("PreferencesPage", () => {
 		render(wrap(<PreferencesSettingsContent defaultPageOptions={["/", "/servers"]} />));
 
 		expect(await screen.findByRole("button", { name: "仪表盘" })).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: "服务器管理" })).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "VPS 管理" })).toBeInTheDocument();
 		expect(screen.queryByRole("button", { name: "文件管理" })).not.toBeInTheDocument();
 		expect(screen.queryByRole("button", { name: "Docker 管理" })).not.toBeInTheDocument();
 	});
@@ -105,8 +105,8 @@ describe("PreferencesPage", () => {
 
 		render(wrap(<PreferencesPageClient />));
 
-		expect(await screen.findByRole("button", { name: "服务器管理" })).toBeInTheDocument();
-		await user.click(screen.getByRole("button", { name: "服务器管理" }));
+		expect(await screen.findByRole("button", { name: "VPS 管理" })).toBeInTheDocument();
+		await user.click(screen.getByRole("button", { name: "VPS 管理" }));
 
 		expect(await screen.findByRole("alert")).toHaveTextContent("偏好设置保存失败");
 		expect(JSON.parse(localStorage.getItem("vps-preferences") || "{}").defaultPage).toBe("/");
@@ -138,12 +138,12 @@ describe("PreferencesPage", () => {
 		render(wrap(<PreferencesPageClient />));
 
 		expect(screen.getByRole("button", { name: "文件管理" })).toHaveAttribute("aria-pressed", "true");
-		await user.click(screen.getByRole("button", { name: "服务器管理" }));
+		await user.click(screen.getByRole("button", { name: "VPS 管理" }));
 		expect(await screen.findByRole("status")).toHaveTextContent("设置已保存");
 
 		resolveInitialLoad?.(serverPrefs);
 		await waitFor(() => {
-			expect(screen.getByRole("button", { name: "服务器管理" })).toHaveAttribute("aria-pressed", "true");
+			expect(screen.getByRole("button", { name: "VPS 管理" })).toHaveAttribute("aria-pressed", "true");
 		});
 		expect(screen.getByRole("button", { name: "仪表盘" })).toHaveAttribute("aria-pressed", "false");
 		expect(JSON.parse(localStorage.getItem("vps-preferences") || "{}").defaultPage).toBe("/servers");
@@ -159,8 +159,8 @@ describe("PreferencesPage", () => {
 
 		render(wrap(<PreferencesPageClient />));
 
-		expect(await screen.findByRole("button", { name: "服务器管理" })).toBeInTheDocument();
-		await user.click(screen.getByRole("button", { name: "服务器管理" }));
+		expect(await screen.findByRole("button", { name: "VPS 管理" })).toBeInTheDocument();
+		await user.click(screen.getByRole("button", { name: "VPS 管理" }));
 
 		expect(await screen.findByRole("status")).toHaveTextContent("设置已保存");
 		expect(JSON.parse(localStorage.getItem("vps-preferences") || "{}").defaultPage).toBe("/servers");

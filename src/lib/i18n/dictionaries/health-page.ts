@@ -9,9 +9,9 @@
  * with ~92 hardcoded strings. Those have been extracted here.
  */
 export const zh: Record<string, string> = {
-	"healthPage.systemTitle": "系统健康",
-	"healthPage.systemDescription": "平台自检、修复建议与活动告警；各 VPS 节点状态请前往「VPS 状态」。",
-	"healthPage.ui.gotoVpsStatus": "查看 VPS 状态",
+	"healthPage.systemTitle": "平台健康",
+	"healthPage.systemDescription": "VControlHub 自身的运行自检、修复建议与活动告警；纳管节点的状态请前往「节点状态」。",
+	"healthPage.ui.gotoVpsStatus": "查看节点状态",
 
 	"healthPage.noPermission": "缺少健康监控权限",
 	"healthPage.noPermissionHint": "需要 health:read 权限后才能查看节点健康详情和历史指标。",
@@ -185,9 +185,9 @@ export const zh: Record<string, string> = {
 };
 
 export const en: Record<string, string> = {
-	"healthPage.systemTitle": "System Health",
-	"healthPage.systemDescription": "Platform self-checks, repair tips, and active incidents. Per-VPS status lives on VPS Status.",
-	"healthPage.ui.gotoVpsStatus": "Open VPS Status",
+	"healthPage.systemTitle": "Platform Health",
+	"healthPage.systemDescription": "Self-checks, repair tips and active incidents for VControlHub itself. Managed nodes are on Node Status.",
+	"healthPage.ui.gotoVpsStatus": "Open Node Status",
 
 	"healthPage.noPermission": "Missing health monitoring permission",
 	"healthPage.noPermissionHint": "You need the health:read permission to view node health details and historical metrics.",

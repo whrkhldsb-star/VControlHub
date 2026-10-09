@@ -45,10 +45,10 @@ async function ensureAuthenticated(
 
 async function navigateThroughApp(page: Page, href: string) {
 	const groupByRoute: Record<string, RegExp> = {
-		"/dashboard": /总览与监控|Overview(?: and monitoring)?/i,
-		"/servers": /总览与监控|Overview(?: and monitoring)?/i,
-		"/files": /文件与传输|Files(?: and transfer)?/i,
-		"/settings": /配置|Configuration|Settings/i,
+		"/dashboard": /^(总览|Overview)$/i,
+		"/servers": /^(服务器|Servers)$/i,
+		"/files": /文件与传输|Files(?: & transfer)?/i,
+		"/settings": /系统管理|System/i,
 	};
 	const link = page.locator(`a[href="${href}"]:visible`).first();
 	if (await link.count() === 0) {
