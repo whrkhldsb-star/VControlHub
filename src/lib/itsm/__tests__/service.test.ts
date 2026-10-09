@@ -256,6 +256,30 @@ describe("ITSM adapters", () => {
 		expect(verifyInboundSignature({ rawBody: raw, headerSignature: secret, secret }).ok).toBe(false);
 	});
 
+	it("bounds every inbound field before it reaches a ticket", () => {
+		const n = normalizeInboundTicket({
+			eventType: "x".repeat(500),
+			externalId: "e".repeat(1_000),
+			ticket: { title: "t".repeat(5_000), description: "d".repeat(50_000), status: "s".repeat(100), id: "i".repeat(100) },
+			comment: { body: "c".repeat(50_000) },
+		});
+		expect(n.eventType).toHaveLength(64);
+		expect(n.externalId).toHaveLength(256);
+		expect(n.title).toHaveLength(256);
+		expect(n.description).toHaveLength(10_000);
+		expect(n.status).toHaveLength(32);
+		expect(n.ticketId).toHaveLength(64);
+		expect(n.commentBody).toHaveLength(10_000);
+	});
+
+	it("falls back to chat text for title and description and ignores blank fields", () => {
+		const n = normalizeInboundTicket({ title: "   ", text: "  disk full on web-1  ", message: { nested: true } });
+		expect(n.title).toBe("disk full on web-1");
+		expect(n.description).toBe("disk full on web-1");
+		expect(n.eventType).toBe("ticket.update");
+		expect(n.externalId).toBeNull();
+	});
+
 	it("normalizes inbound ticket payloads", () => {
 		const n = normalizeInboundTicket({
 			eventType: "ticket.create",

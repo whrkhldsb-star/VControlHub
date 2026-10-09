@@ -239,6 +239,24 @@ export function verifyInboundSignature(input: {
 	return { ok: false, error: "Invalid webhook signature" };
 }
 
+/** First non-empty trimmed string among the candidates, cut to `max` characters. */
+function firstText(max: number, ...values: unknown[]): string | null {
+	for (const value of values) {
+		if (typeof value === "string" && value.trim()) return value.trim().slice(0, max);
+	}
+	return null;
+}
+
+function objectField(raw: Record<string, unknown>, key: string): Record<string, unknown> {
+	const value = raw[key];
+	return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+/**
+ * Map the loosely shaped payloads ITSM/IM providers send onto ticket fields.
+ * The signature proves who sent the body, not that its fields are sane, so
+ * every field is bounded before it reaches a ticket or the event log.
+ */
 export function normalizeInboundTicket(raw: Record<string, unknown>): {
 	eventType: string;
 	externalId: string | null;
@@ -250,61 +268,19 @@ export function normalizeInboundTicket(raw: Record<string, unknown>): {
 	ticketId: string | null;
 	commentBody: string | null;
 } {
-	const ticket =
-		raw.ticket && typeof raw.ticket === "object" && !Array.isArray(raw.ticket)
-			? (raw.ticket as Record<string, unknown>)
-			: {};
-	const comment =
-		raw.comment && typeof raw.comment === "object" && !Array.isArray(raw.comment)
-			? (raw.comment as Record<string, unknown>)
-			: {};
-	const text =
-		typeof raw.text === "string"
-			? raw.text
-			: typeof raw.message === "string"
-				? raw.message
-				: null;
-
-	const title =
-		(typeof ticket.title === "string" && ticket.title.trim()) ||
-		(typeof raw.title === "string" && raw.title.trim()) ||
-		(text ? text.slice(0, 120) : null);
-	const description =
-		(typeof ticket.description === "string" && ticket.description.trim()) ||
-		(typeof raw.description === "string" && raw.description.trim()) ||
-		text;
-
+	const ticket = objectField(raw, "ticket");
+	const comment = objectField(raw, "comment");
+	const text = firstText(10_000, raw.text, raw.message);
 	return {
-		eventType:
-			(typeof raw.eventType === "string" && raw.eventType.trim()) ||
-			(typeof raw.type === "string" && raw.type.trim()) ||
-			"ticket.update",
-		externalId:
-			(typeof raw.externalId === "string" && raw.externalId.trim()) ||
-			(typeof raw.id === "string" && raw.id.trim()) ||
-			null,
-		title,
-		description,
-		status:
-			(typeof ticket.status === "string" && ticket.status.trim()) ||
-			(typeof raw.status === "string" && raw.status.trim()) ||
-			null,
-		priority:
-			(typeof ticket.priority === "string" && ticket.priority.trim()) ||
-			(typeof raw.priority === "string" && raw.priority.trim()) ||
-			null,
-		category:
-			(typeof ticket.category === "string" && ticket.category.trim()) ||
-			(typeof raw.category === "string" && raw.category.trim()) ||
-			null,
-		ticketId:
-			(typeof ticket.id === "string" && ticket.id.trim()) ||
-			(typeof raw.ticketId === "string" && raw.ticketId.trim()) ||
-			null,
-		commentBody:
-			(typeof comment.body === "string" && comment.body.trim()) ||
-			(typeof raw.commentBody === "string" && raw.commentBody.trim()) ||
-			null,
+		eventType: firstText(64, raw.eventType, raw.type) ?? "ticket.update",
+		externalId: firstText(256, raw.externalId, raw.id),
+		title: firstText(256, ticket.title, raw.title) ?? (text ? text.slice(0, 120) : null),
+		description: firstText(10_000, ticket.description, raw.description) ?? text,
+		status: firstText(32, ticket.status, raw.status),
+		priority: firstText(32, ticket.priority, raw.priority),
+		category: firstText(64, ticket.category, raw.category),
+		ticketId: firstText(64, ticket.id, raw.ticketId),
+		commentBody: firstText(10_000, comment.body, raw.commentBody),
 	};
 }
 
