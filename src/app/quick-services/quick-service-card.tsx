@@ -135,8 +135,8 @@ export function ServiceCard({
 								href={access.url}
 								target="_blank"
 								rel="noreferrer"
-								aria-label={t("qsPage.accessAria", { name: item.name, label: access.label })}
-								title={access.description}
+								aria-label={t("qsPage.accessAria", { name: item.name, label: t(`qsPage.access.${access.mode}.label`) })}
+								title={t(`qsPage.access.${access.mode}.description`)}
 								data-action-button data-size="sm"
 								data-variant="success-solid">
 								{t("qsPage.access")}

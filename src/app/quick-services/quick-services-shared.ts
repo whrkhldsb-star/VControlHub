@@ -129,3 +129,19 @@ export function buildQuickServiceViewModel(catalog: CatalogItem[], remoteCatalog
 		},
 	};
 }
+
+/**
+ * Name and description of a built-in template in the viewer's language,
+ * keyed by slug. Items without an entry (third-party sources) are unchanged.
+ */
+export function localizeCatalogItem<T extends { slug: string; name: string; description: string }>(
+	item: T,
+	t: (key: string, vars?: Record<string, string | number>) => string,
+): T {
+	const nameKey = `qsCatalog.${item.slug}.name`;
+	const name = t(nameKey);
+	if (name === nameKey) return item;
+	const descriptionKey = `qsCatalog.${item.slug}.description`;
+	const description = t(descriptionKey);
+	return { ...item, name, description: description === descriptionKey ? item.description : description };
+}
