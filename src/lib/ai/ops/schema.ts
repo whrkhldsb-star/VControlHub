@@ -11,7 +11,6 @@ import { z } from "zod";
 import {
 	AI_OPS_FINDING_SEVERITY_VALUES,
 	AI_OPS_MODE_VALUES,
-	AI_OPS_SAFE_AUTONOMOUS_ACTIONS,
 	AI_OPS_STATUS_VALUES,
 	AI_OPS_TRIGGER_VALUES,
 } from "./types";
@@ -82,5 +81,3 @@ export const aiOpsModeSettingSchema = z.object({
 	providerId: z.string().max(64).optional(),
 });
 
-/** Whitelist for autonomous safe actions. */
-export const aiOpsSafeAutonomousActionSchema = z.enum(AI_OPS_SAFE_AUTONOMOUS_ACTIONS);

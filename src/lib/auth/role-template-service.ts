@@ -57,8 +57,6 @@ export const roleTemplateInputSchema = z.object({
   serverAccess: z.array(roleTemplateServerGrantSchema).max(5000).default([]),
 });
 
-export type RoleTemplateInput = z.infer<typeof roleTemplateInputSchema>;
-
 function serialize(row: {
   id: string;
   name: string;

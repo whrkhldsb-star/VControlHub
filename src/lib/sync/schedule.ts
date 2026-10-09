@@ -9,14 +9,6 @@
 import { CronExpressionParser } from "cron-parser";
 import { APP_TIME_ZONE } from "@/lib/datetime/time-zone";
 
-export const SYNC_SCHEDULE_PRESETS = [
-  { value: "manual", labelKey: "filesPage.syncJobs.schedule.manual" },
-  { value: "every:15m", labelKey: "filesPage.syncJobs.schedule.every15m" },
-  { value: "every:1h", labelKey: "filesPage.syncJobs.schedule.every1h" },
-  { value: "every:6h", labelKey: "filesPage.syncJobs.schedule.every6h" },
-  { value: "every:24h", labelKey: "filesPage.syncJobs.schedule.every24h" },
-] as const;
-
 const INTERVAL_MS: Record<string, number> = {
   "every:15m": 15 * 60_000,
   "every:1h": 60 * 60_000,
@@ -28,13 +20,6 @@ export function normalizeSyncSchedule(raw: string | null | undefined): string | 
   const s = (raw ?? "").trim();
   if (!s || s === "manual") return null;
   return s;
-}
-
-export function intervalMsForSchedule(schedule: string | null | undefined): number | null {
-  const s = normalizeSyncSchedule(schedule);
-  if (!s) return null;
-  if (INTERVAL_MS[s] != null) return INTERVAL_MS[s]!;
-  return null;
 }
 
 export function isValidSyncSchedule(raw: string | null | undefined): boolean {

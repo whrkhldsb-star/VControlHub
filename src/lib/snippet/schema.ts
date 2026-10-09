@@ -8,7 +8,6 @@ export const listSnippetsQuerySchema = z.object({
   q: z.string().trim().min(1).optional(),
   language: z.string().trim().min(1).optional(),
 });
-export type ListSnippetsQuery = z.infer<typeof listSnippetsQuerySchema>;
 
 /* ── POST /api/snippets ───────────────────────────────────────────────── */
 
@@ -20,7 +19,6 @@ export const createSnippetSchema = z.object({
   tags: z.array(z.string()).max(20, "At most 20 tags are allowed").optional(),
   isPrivate: z.boolean().optional(),
 });
-export type CreateSnippetInput = z.infer<typeof createSnippetSchema>;
 
 /* ── PATCH /api/snippets ──────────────────────────────────────────────── */
 
@@ -44,9 +42,7 @@ export const updateSnippetSchema = z
       data.isPrivate !== undefined,
     { message: "At least one update field must be provided", path: [] },
   );
-export type UpdateSnippetInput = z.infer<typeof updateSnippetSchema>;
 
 /* ── DELETE /api/snippets ─────────────────────────────────────────────── */
 
 export const deleteSnippetQuerySchema = idQuerySchema;
-export type DeleteSnippetQuery = z.infer<typeof deleteSnippetQuerySchema>;

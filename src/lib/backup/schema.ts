@@ -27,7 +27,6 @@
 import { z } from "zod";
 
 export const BACKUP_TYPE_VALUES = ["DATABASE", "FILES", "FULL"] as const;
-export type BackupTypeValue = (typeof BACKUP_TYPE_VALUES)[number];
 
 export const backupTypeSchema = z.enum(BACKUP_TYPE_VALUES, {
   message: "Invalid backup type",
@@ -45,16 +44,10 @@ export const createBackupSchema = z.object({
   note: trimmedNote,
 });
 
-export type CreateBackupInput = z.input<typeof createBackupSchema>;
-export type CreateBackupOutput = z.output<typeof createBackupSchema>;
-
 export const restoreBackupSchema = z.object({
   confirm: z.enum(["RESTORE"], { message: "Restore confirmation text does not match" }),
   component: z.enum(["database", "files", "all"]).optional().default("all"),
 });
-
-export type RestoreBackupInput = z.input<typeof restoreBackupSchema>;
-export type RestoreBackupOutput = z.output<typeof restoreBackupSchema>;
 
 export const voidBackupSchema = z.object({
   reason: z
@@ -64,16 +57,10 @@ export const voidBackupSchema = z.object({
     .max(500, "Void reason must be at most 500 characters"),
 });
 
-export type VoidBackupInput = z.input<typeof voidBackupSchema>;
-export type VoidBackupOutput = z.output<typeof voidBackupSchema>;
-
 export const backupRetentionInputSchema = z.object({
   olderThanDays: z.number().int().positive().max(3650).optional(),
   keepLatestPerType: z.number().int().min(0).max(1000).optional(),
 });
-
-export type BackupRetentionInput = z.input<typeof backupRetentionInputSchema>;
-export type BackupRetentionOutput = z.output<typeof backupRetentionInputSchema>;
 
 export const backupMigrationBodySchema = z.discriminatedUnion("action", [
   z.object({

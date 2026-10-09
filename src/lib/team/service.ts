@@ -21,8 +21,6 @@ import {
   defaultWorkspacePolicyGroupId,
 } from "@/lib/auth/role-template-service";
 
-export type TeamRole = "owner" | "admin" | "member";
-
 /**
  * Reserved slug prefix that marks a workspace as deleted.
  *

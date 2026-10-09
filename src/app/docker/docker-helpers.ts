@@ -10,11 +10,6 @@ export interface Container {
 	Labels?: Record<string, string>;
 }
 
-export type ComposeGroup = {
-	project: string;
-	containers: Container[];
-};
-
 /**
  * Stats shape served by the docker stats API (`parseDockerStats` in
  * lib/docker/stats) — one source of truth for both the API and the UI.
@@ -68,12 +63,3 @@ export function stateLabel(t: (key: string, vars?: Record<string, string | numbe
 	return state;
 }
 
-export const stateColors: Record<string, string> = {
-	running: "bg-[var(--success-bg)] text-[var(--success)]",
-	exited: "bg-[var(--surface-hover)]/50 text-[var(--text-muted)]",
-	paused: "bg-[var(--warning-bg)] text-[var(--warning)]",
-	created: "bg-[var(--accent-bg)] text-[var(--accent)]",
-	restarting: "bg-[var(--warning-bg)] text-[var(--warning)]",
-	dead: "bg-[var(--danger-bg)] text-[var(--danger)]",
-	removing: "bg-[var(--danger-bg)] text-[var(--danger)]",
-};

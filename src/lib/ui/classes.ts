@@ -36,4 +36,3 @@ export const UI_TONE = {
 	neutral: "border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-muted)]",
 } as const;
 
-export type UiTone = keyof typeof UI_TONE;

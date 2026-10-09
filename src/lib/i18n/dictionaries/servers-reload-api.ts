@@ -3,7 +3,6 @@
  */
 export const zh: Record<string, string> = {
 	"apiServersReload.errorMessage": "服务重载失败",
-	"apiServersReload.unauthorized": "未登录或会话已过期",
 	"apiServersReload.serverNotFound": "服务器不存在",
 	"apiServersReload.remoteExecutionFailed": "远端执行失败",
 	"apiServersReload.reloadFailedWithMessage": "重载失败：{message}",
@@ -13,7 +12,6 @@ export const zh: Record<string, string> = {
 
 export const en: Record<string, string> = {
 	"apiServersReload.errorMessage": "Service reload failed",
-	"apiServersReload.unauthorized": "Not signed in or session expired",
 	"apiServersReload.serverNotFound": "Server not found",
 	"apiServersReload.remoteExecutionFailed": "Remote execution failed",
 	"apiServersReload.reloadFailedWithMessage": "Reload failed: {message}",

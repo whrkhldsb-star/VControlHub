@@ -93,16 +93,6 @@ export type SftpDirEntry = {
   group: number;
 };
 
-export type SftpStat = {
-  mode: number;
-  size: number;
-  isDirectory: boolean;
-  isFile: boolean;
-  isSymlink: boolean;
-  modifyTime: number;
-  accessTime: number;
-};
-
 type ResolvedConnection = {
   host: string;
   port: number;
@@ -298,24 +288,6 @@ export async function listDirectory(
       return a.name.localeCompare(b.name);
   });
   return result;
-}
-
-export async function statEntry(
-  serverId: string,
-  remotePath: string,
-): Promise<SftpStat> {
-  const path = sanitizeRemotePath(remotePath);
-  const conn = await resolveServerConnection(serverId);
-  const stats = await statRemoteEntry({ ...toConnectionParams(conn), remotePath: path });
-  return {
-    mode: stats.mode,
-    size: stats.size,
-    isDirectory: stats.type === "directory",
-    isFile: stats.type === "file",
-    isSymlink: stats.type === "other",
-    modifyTime: Math.floor(stats.modifyTime / 1000),
-    accessTime: Math.floor(stats.accessTime / 1000),
-  };
 }
 
 /**

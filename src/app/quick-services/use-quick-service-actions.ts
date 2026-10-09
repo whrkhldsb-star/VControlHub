@@ -23,14 +23,6 @@ export type QuickServiceActionResult = {
   logTail?: string | null;
 };
 
-export type QuickServiceCatalogItem = {
-  slug: string;
-  name: string;
-  defaultPort: number;
-  port: number | null;
-  status: string;
-};
-
 export type ConfigPreviewAction = "install" | "update";
 
 export type ConfigPreviewItem = {

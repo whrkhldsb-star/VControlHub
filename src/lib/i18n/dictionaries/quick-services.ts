@@ -94,7 +94,6 @@ export const zh: Record<string, string> = {
 	"quickServicesPage.sources.disable": "禁用",
 	"quickServicesPage.sources.enable": "启用",
 	"quickServicesPage.sources.linuxserverDesc": "LinuxServer 团队精选，覆盖文件、媒体、自动化等场景。",
-	"quickServicesPage.sources.githubDesc": "从 GitHub 仓库同步社区维护的应用列表。",
 	"quickServicesPage.sources.customLabel": "自定义 JSON",
 	"quickServicesPage.sources.customDesc": "填写你自己托管的 JSON catalog 地址。",
 
@@ -308,7 +307,6 @@ export const en: Record<string, string> = {
 	"quickServicesPage.sources.disable": "Disable",
 	"quickServicesPage.sources.enable": "Enable",
 	"quickServicesPage.sources.linuxserverDesc": "Curated by the LinuxServer team, covering file/media/automation scenarios.",
-	"quickServicesPage.sources.githubDesc": "Sync community-maintained app lists from GitHub repositories.",
 	"quickServicesPage.sources.customLabel": "Custom JSON",
 	"quickServicesPage.sources.customDesc": "Provide your own hosted JSON catalog URL.",
 

@@ -80,5 +80,3 @@ export const updateCommandTemplateSchema = z.object({
 
 export type CreateCommandInput = z.infer<typeof createCommandSchema>;
 export type ReviewCommandInput = z.infer<typeof reviewCommandSchema>;
-export type CreateCommandTemplateInput = z.infer<typeof createCommandTemplateSchema>;
-export type UpdateCommandTemplateInput = z.infer<typeof updateCommandTemplateSchema>;

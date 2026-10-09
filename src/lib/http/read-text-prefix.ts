@@ -43,4 +43,3 @@ function dropPartialLine(text: string): string {
 
 /** Preview budgets: text and Markdown show the first 1 MiB, tables the first 2 MiB. */
 export const TEXT_PREVIEW_MAX_BYTES = 1024 * 1024;
-export const TABLE_PREVIEW_MAX_BYTES = 2 * 1024 * 1024;

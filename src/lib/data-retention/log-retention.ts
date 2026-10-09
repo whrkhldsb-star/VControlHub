@@ -99,10 +99,6 @@ export type LogRetentionResult = {
 	failed: Partial<Record<LogRetentionTable, string>>;
 };
 
-export function retentionDaysFor(table: LogRetentionTable, override = config.retention.logRetentionDays): number {
-	return override ?? LOG_RETENTION_TABLES[table].days;
-}
-
 export async function pruneLogTables(options: { now?: Date; overrideDays?: number | null } = {}): Promise<LogRetentionResult> {
 	const now = options.now ?? new Date();
 	const override = options.overrideDays === undefined ? config.retention.logRetentionDays : options.overrideDays;

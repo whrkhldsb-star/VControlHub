@@ -37,7 +37,6 @@ export const zh: Record<string, string> = {
 	"notificationBell.recentList": "最近通知",
 	"notificationBell.viewAll": "查看全部通知",
 	"notificationBell.liveConnection": "实时连接",
-	"notificationBell.serverAlertTitle": "服务器告警：{name}",
 
 };
 
@@ -73,6 +72,5 @@ export const en: Record<string, string> = {
 	"notificationBell.recentList": "Recent notifications",
 	"notificationBell.viewAll": "View all notifications",
 	"notificationBell.liveConnection": "Live connection",
-	"notificationBell.serverAlertTitle": "Server alert: {name}",
 
 };

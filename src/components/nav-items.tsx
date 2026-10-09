@@ -13,7 +13,6 @@ import {
 	IconContainer,
 	IconDashboard,
 	IconDownload,
-	IconExternalLink,
 	IconFileCode,
 	IconFilm,
 	IconFolder,
@@ -59,7 +58,6 @@ export interface AppNavGroup {
 export const IconKey = () => <IconKeyGlyph size={18} />;
 export const IconCode = () => <IconBraces size={18} />;
 export const IconServer = () => <IconServerGlyph size={18} />;
-export const IconExternal = () => <IconExternalLink size={12} className="ml-auto shrink-0 text-[var(--text-muted)]" />;
 
 /** Grouped primary navigation; every page has its own glyph. */
 export const mainNavGroups: AppNavGroup[] = [

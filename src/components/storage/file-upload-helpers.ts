@@ -60,10 +60,6 @@ export function getBrowserRelativePath(file: File) {
   return browserFile.webkitRelativePath?.trim() || file.name;
 }
 
-export function getUploadDisplayPath(file: File) {
-  return getBrowserRelativePath(file);
-}
-
 export function formatUploadMessage(
   template: string,
   values: Record<string, string | number>,

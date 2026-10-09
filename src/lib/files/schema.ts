@@ -32,8 +32,6 @@ export const archiveListQuerySchema = z.object({
   name: z.string().trim().min(1).default("archive"),
 });
 
-export type ArchiveListQuery = z.infer<typeof archiveListQuerySchema>;
-
 /**
  * GET /api/files/list
  *
@@ -77,8 +75,6 @@ export const compressFilesBodySchema = z.object({
   targetDir: z.string().trim().optional(),
 });
 
-export type CompressFilesBody = z.infer<typeof compressFilesBodySchema>;
-
 /**
  * PUT /api/files/editable/[id]
  *
@@ -98,8 +94,6 @@ export const saveEditableFileBodySchema = z.object({
     .optional()
     .nullable(),
 });
-
-export type SaveEditableFileBody = z.infer<typeof saveEditableFileBodySchema>;
 
 export const createFileVersionBodySchema = z.object({
   note: z.string().max(500).optional().nullable(),

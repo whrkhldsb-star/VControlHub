@@ -16,18 +16,6 @@ export function SummaryCard({
   return <StatCard label={label} value={value} accent={Boolean(accentColor)} accentColor={accentColor} />;
 }
 
-export function UsageCell({ value, label }: { value: number | undefined; label: string }) {
-	if (value === undefined) return <span className="text-xs text-[var(--text-muted)]">—</span>;
-	return (
-		<div className="flex min-w-[100px] items-center gap-2">
-			<ProgressBar label={label} value={value} height="sm" tone={usageBarTone(value)} className="flex-1" />
-			<span className={`w-12 text-right font-mono text-xs tabular-nums ${usageColor(value)}`}>
-				{value.toFixed(1)}%
-			</span>
-		</div>
-	);
-}
-
 function FleetMetricBar({ label, value, unit }: { label: string; value: number; unit: string }) {
 	return (
 		<div data-tile className="p-3">

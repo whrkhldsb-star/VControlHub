@@ -104,7 +104,6 @@ export const createFileEntrySchema = z.object({
   parentId: z.string().trim().optional(),
 });
 
-
 export const fileEntryMutationSchema = z.object({
   fileEntryId: z.string().trim().min(1, "File entry is required"),
 });
@@ -223,9 +222,4 @@ export const directAccessDownloadQuerySchema = z.object({
 });
 
 export type SftpOpsBody = z.infer<typeof sftpOpsBodySchema>;
-export type SftpOpsAction = z.infer<typeof sftpOpsActionSchema>;
 export type SftpStaleInventoryBody = z.infer<typeof sftpStaleInventoryBodySchema>;
-export type SftpSyncBody = z.infer<typeof sftpSyncBodySchema>;
-export type SftpWaitQuery = z.infer<typeof sftpWaitQuerySchema>;
-export type DirectAccessInput = z.infer<typeof directAccessInputSchema>;
-export type DirectAccessDownloadQuery = z.infer<typeof directAccessDownloadQuerySchema>;

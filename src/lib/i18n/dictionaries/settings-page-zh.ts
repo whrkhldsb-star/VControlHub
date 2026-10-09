@@ -20,8 +20,6 @@ export const zh: Record<string, string> = {
 	"settingsPage.unified.description": "个人使用习惯、界面行为、账户安全与平台级参数集中在一个入口中管理。",
 	"settingsPage.unified.eyebrow": "个性化设置",
 	"settingsPage.unified.title": "设置",
-	"settingsPage.layout.tipTitle": "怎么更快找到配置？",
-	"settingsPage.layout.tipBody": "上方切换大类，左侧（或顶部芯片）跳到具体分区；系统设置分区可折叠，改完后在分区内保存。个人偏好会自动保存。",
 
 	"settingsClient.saveSuccess": "设置已保存。",
 	"settingsClient.saveFailed": "保存失败",
@@ -294,7 +292,6 @@ export const zh: Record<string, string> = {
 	"settingsTeam.error.delete": "删除团队失败",
 	"settingsTeam.eyebrow": "团队空间",
 	"settingsTeam.title": "团队空间",
-	"settingsTeam.desc": "多租户资源隔离：创建团队、切换当前团队，维护成员并管理服务器归属。切换团队后服务器列表按团队过滤。",
 	"settingsTeam.loading": "加载团队空间中…",
 	"settingsTeam.empty": "暂无团队空间。",
 	"settingsTeam.descriptionPlaceholder": "描述（可选）",
