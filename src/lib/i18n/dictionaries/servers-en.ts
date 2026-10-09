@@ -120,8 +120,6 @@ export const en: Record<string, string> = {
 	"serversPage.delete.confirmTitle": "Delete \"{name}\"?",
 	"serversPage.delete.confirmNameInput": "Type VPS name \"{name}\" to confirm delete",
 	"serversPage.desc": "Manage Linux and Windows nodes, connection credentials, and remote access in one place. Command approvals and deliveries remain in the approval center.",
-	"serversPage.link.audit": "View audit log",
-	"serversPage.link.deploy": "Open deployment panel",
 	"serversPage.link.request": "Approvals and run history",
 	"serversPage.overview.aria": "VPS status overview",
 	"serversPage.overview.empty": "No managed VPS yet. Use \"Add VPS\" above to register SSH key, IP, and port.",

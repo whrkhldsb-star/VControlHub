@@ -132,8 +132,6 @@ export const zh: Record<string, string> = {
 	"serversPage.delete.confirmTitle": "确认删除「{name}」？",
 	"serversPage.delete.confirmNameInput": "输入 VPS 名称「{name}」确认删除",
 	"serversPage.desc": "统一管理 Linux 与 Windows 节点、连接凭据和远程访问；命令审批与投递记录统一进入审批中心。",
-	"serversPage.link.audit": "查看审计日志",
-	"serversPage.link.deploy": "去部署面板",
 	"serversPage.link.request": "审批与执行记录",
 	"serversPage.overview.aria": "VPS 状态总览",
 	"serversPage.overview.empty": "暂无已纳管 VPS。使用上方“添加 VPS”录入 SSH 密钥、IP 与端口完成纳管。",

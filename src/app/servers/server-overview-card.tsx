@@ -185,10 +185,12 @@ export function ServerOverviewCard({
           value={server.sshKey ? server.sshKey.name : t("serverOverviewCard.notConfigured")}
         />
         <CompactField label={t("serverOverviewCard.direct")} value={directLabel} />
-        <CompactField
-          label={t("serverOverviewCard.pendingApproval")}
-          value={`${server.pendingCommandCount} ${t("serverOverviewCard.itemsCount")}`}
-        />
+        {server.pendingCommandCount > 0 ? (
+          <CompactField
+            label={t("serverOverviewCard.pendingApproval")}
+            value={`${server.pendingCommandCount} ${t("serverOverviewCard.itemsCount")}`}
+          />
+        ) : null}
         </>}
       </div>
       <p className="mt-4 flex-1 break-words text-xs leading-5 text-[var(--text-muted)]">
