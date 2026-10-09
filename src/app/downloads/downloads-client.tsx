@@ -66,69 +66,101 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 	const nextCursorRef = useRef<string | null>(null);
 	const loadedFilterKeyRef = useRef("");
 	const currentFilterKeyRef = useRef("");
-	const hasLoadedAdditionalPagesRef = useRef(false);
-	const refreshSequenceRef = useRef(0);
+	const loadedPageCountRef = useRef(1);
+	const requestInFlightRef = useRef<"refresh" | "more" | null>(null);
+	const pendingRefreshRef = useRef(false);
+	const pendingPageFilterRef = useRef<string | null>(null);
+	const listControllerRef = useRef<AbortController | null>(null);
+	const mountedRef = useRef(true);
+	useEffect(() => {
+		mountedRef.current = true;
+		return () => {
+			mountedRef.current = false;
+			listControllerRef.current?.abort();
+		};
+	}, []);
 	const filterKey = `${filter}:${categoryFilter ?? "all"}`;
 	useEffect(() => {
+		if (currentFilterKeyRef.current !== filterKey) {
+			pendingPageFilterRef.current = null;
+			listControllerRef.current?.abort();
+		}
 		currentFilterKeyRef.current = filterKey;
 	}, [filterKey]);
 
-	const fetchTasks = useCallback(async (loadMore = false) => {
-		if (loadMore && !nextCursorRef.current) return;
+	const fetchTasks = useCallback(async (loadMore = false): Promise<void> => {
+		// Serialize paging and polling so a slow page cannot overwrite a refresh.
+		if (requestInFlightRef.current) {
+			if (!loadMore) pendingRefreshRef.current = true;
+			else if (requestInFlightRef.current === "refresh" && loadedFilterKeyRef.current === filterKey) {
+				pendingPageFilterRef.current = filterKey;
+			}
+			return;
+		}
+		if (loadMore && (!nextCursorRef.current || loadedFilterKeyRef.current !== filterKey)) return;
+		requestInFlightRef.current = loadMore ? "more" : "refresh";
+		if (!loadMore) pendingRefreshRef.current = false;
+		const controller = new AbortController();
+		listControllerRef.current = controller;
 		const requestFilterKey = filterKey;
-		const refreshSequence = loadMore ? null : ++refreshSequenceRef.current;
+		const isCurrent = () => mountedRef.current && requestFilterKey === currentFilterKeyRef.current;
 		if (!loadMore && loadedFilterKeyRef.current !== filterKey) {
-			hasLoadedAdditionalPagesRef.current = false;
+			loadedPageCountRef.current = 1;
 			nextCursorRef.current = null;
 			setNextCursor(null);
+			setLoading(true);
 		}
 		setLoadFailed(false);
 		if (loadMore) setLoadingMore(true);
 		try {
-			const params = new URLSearchParams();
-			if (filter !== "ALL") params.set("status", filter);
-			if (categoryFilter !== null) {
-				params.set("category", categoryFilter || "__uncategorized");
+			const incoming = new Map<string, DownloadTask>();
+			let cursor = loadMore ? nextCursorRef.current : null;
+			const pagesToFetch = loadMore ? 1 : loadedPageCountRef.current;
+			let pagesFetched = 0;
+			let latestGlobalStat: GlobalStat = null;
+			for (let page = 0; page < pagesToFetch; page++) {
+				const params = new URLSearchParams();
+				if (filter !== "ALL") params.set("status", filter);
+				if (categoryFilter !== null) params.set("category", categoryFilter || UNCATEGORIZED_FILTER);
+				if (cursor) params.set("cursor", cursor);
+				const query = params.toString();
+				const data = await csrfFetch<{ tasks: DownloadTask[]; nextCursor: string | null; globalStat: GlobalStat }>(
+					`/api/downloads${query ? `?${query}` : ""}`, { signal: controller.signal },
+				);
+				if (!isCurrent()) return;
+				for (const task of data.tasks) incoming.set(task.id, task);
+				cursor = data.nextCursor ?? null;
+				latestGlobalStat = data.globalStat ?? null;
+				pagesFetched++;
+				if (!cursor) break;
 			}
-			if (loadMore && nextCursorRef.current) {
-				params.set("cursor", nextCursorRef.current);
-			}
-			const query = params.toString();
-			const data = await csrfFetch(`/api/downloads${query ? `?${query}` : ""}`);
-			if (
-				requestFilterKey !== currentFilterKeyRef.current ||
-				(refreshSequence !== null && refreshSequence !== refreshSequenceRef.current)
-			) {
-				return;
-			}
-			const incoming = (data.tasks ?? data) as DownloadTask[];
 			setTasks((current) => {
-				if (loadMore) {
-					const seen = new Set(current.map((task) => task.id));
-					return [...current, ...incoming.filter((task) => !seen.has(task.id))];
-				}
-				if (
-					loadedFilterKeyRef.current !== filterKey ||
-					!hasLoadedAdditionalPagesRef.current
-				) {
-					return incoming;
-				}
-				const freshIds = new Set(incoming.map((task) => task.id));
-				return [...incoming, ...current.filter((task) => !freshIds.has(task.id))];
+				if (!loadMore) return [...incoming.values()];
+				const merged = new Map(current.map((task) => [task.id, task]));
+				for (const [id, task] of incoming) merged.set(id, task);
+				return [...merged.values()];
 			});
 			loadedFilterKeyRef.current = filterKey;
-			if (loadMore) hasLoadedAdditionalPagesRef.current = true;
-			if (loadMore || !hasLoadedAdditionalPagesRef.current) {
-				nextCursorRef.current = data.nextCursor ?? null;
-				setNextCursor(nextCursorRef.current);
-			}
-			setGlobalStat(data.globalStat ?? null);
+			loadedPageCountRef.current = loadMore ? loadedPageCountRef.current + pagesFetched : pagesFetched;
+			nextCursorRef.current = cursor;
+			if (!cursor) pendingPageFilterRef.current = null;
+			setNextCursor(cursor);
+			setGlobalStat(latestGlobalStat);
 		} catch (error) {
-			setLoadFailed(true);
-			addToast("error", getErrorMessage(error, t("downloadsPage.error.loadList")));
+			if (isCurrent() && !controller.signal.aborted) {
+				setLoadFailed(true);
+				addToast("error", getErrorMessage(error, t("downloadsPage.error.loadList")));
+			}
 		} finally {
-			setLoading(false);
-			setLoadingMore(false);
+			requestInFlightRef.current = null;
+			if (isCurrent()) {
+				setLoading(false);
+				setLoadingMore(false);
+			}
+			if (mountedRef.current && pendingPageFilterRef.current === currentFilterKeyRef.current) {
+				pendingPageFilterRef.current = null;
+				void fetchTasksRef.current(true);
+			} else if (mountedRef.current && pendingRefreshRef.current) void fetchTasksRef.current();
 		}
 	}, [t, addToast, categoryFilter, filter, filterKey]);
 
@@ -251,6 +283,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 				setTasks((current) => current.filter((task) => task.id !== taskId));
 				setPendingPurgeTaskId(null);
 				addToast("success", t("downloadsPage.success.deleted") );
+				void fetchTasks();
 			} else if (action === "retry") {
 				const task = tasks.find((t) => t.id === taskId);
 				if (!task) {
@@ -343,7 +376,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 
 	const filteredTasks = tasks
 		.filter((t) => filter === "ALL" || t.status === filter)
-		.filter((t) => !categoryFilter || (t.category ?? "") === categoryFilter);
+		.filter((t) => categoryFilter === null || (t.category ?? "") === categoryFilter);
 
 	const runningCount = tasks.filter((t) => t.status === "RUNNING").length;
 	const pendingCount = tasks.filter((t) => t.status === "PENDING").length;

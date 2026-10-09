@@ -10,7 +10,7 @@ import { prisma } from "@/lib/db";
 import { serverTeamWhere, syncJobTeamWhere, teamCreateData } from "@/lib/auth/team-scope";
 import type { SessionPayload } from "@/lib/auth/session";
 import { NotFoundError, ValidationError } from "@/lib/errors";
-import { effectiveDeleteOrphans, normalizeSyncEndpointPath } from "./bidirectional";
+import { effectiveDeleteOrphans, syncEndpointsOverlap } from "./bidirectional";
 import { t } from "@/lib/i18n/service-translations";
 
 export type SyncSessionScope = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
@@ -29,11 +29,8 @@ export type SyncJobInput = {
 	session?: SyncSessionScope;
 };
 
-function assertDistinctSyncEndpoints(input: Pick<SyncJobInput, "sourceServerId" | "targetServerId" | "sourcePath" | "targetPath">) {
-	if (
-		input.sourceServerId === input.targetServerId &&
-		normalizeSyncEndpointPath(input.sourcePath) === normalizeSyncEndpointPath(input.targetPath)
-	) {
+export function assertDisjointSyncEndpoints(input: Pick<SyncJobInput, "sourceServerId" | "targetServerId" | "sourcePath" | "targetPath">) {
+	if (syncEndpointsOverlap(input)) {
 		throw new ValidationError(t("backend.sync.sourceAndTargetEndpointsMustDiffer"));
 	}
 }
@@ -64,7 +61,7 @@ async function assertSyncServersInScope(
 }
 
 export async function createSyncJob(input: SyncJobInput) {
-	assertDistinctSyncEndpoints(input);
+	assertDisjointSyncEndpoints(input);
 	await assertSyncServersInScope(
 		[input.sourceServerId, input.targetServerId],
 		input.session ?? null,
@@ -185,7 +182,7 @@ export async function updateSyncJob(
 	// server with the same path and deleteOrphans, the tar fallback pipes
 	// `tar cf - -C <path> .` into a remote `find ... -exec rm -rf` on that very
 	// path — it would wipe the directory while still reading from it.
-	assertDistinctSyncEndpoints({
+	assertDisjointSyncEndpoints({
 		sourceServerId: existing.sourceServerId,
 		targetServerId: existing.targetServerId,
 		sourcePath: data.sourcePath ?? existing.sourcePath,

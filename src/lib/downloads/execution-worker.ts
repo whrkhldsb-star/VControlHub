@@ -361,10 +361,21 @@ async function handleClaimedJob(
       },
     });
 
+    // Executors persist business failures and may resolve normally. The durable
+    // dispatch result must reflect that outcome instead of unconditionally succeeding.
+    const outcome = await loadTaskRow(payload.taskId);
+    if (!outcome || outcome.status === "FAILED" || outcome.status === "CANCELLED") {
+      await failJobTerminal(
+        job.id,
+        DOWNLOAD_EXECUTION_WORKER_ID,
+        (outcome?.errorMessage ?? `Download task ${outcome?.status ?? "no longer exists"}`).slice(0, 2000),
+      );
+      return true;
+    }
     await completeJob(job.id, DOWNLOAD_EXECUTION_WORKER_ID, {
       taskId: payload.taskId,
       mode: payload.mode,
-      status: "dispatched",
+      status: outcome.status === "COMPLETED" ? "completed" : "dispatched",
     });
     return true;
   } catch (error) {

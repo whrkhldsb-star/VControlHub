@@ -25,7 +25,7 @@ import {
   rsyncFlagsForJob,
   type OneWaySyncStats,
 } from "./bidirectional";
-import { getSyncJobForExecution } from "./service-crud";
+import { assertDisjointSyncEndpoints, getSyncJobForExecution } from "./service-crud";
 
 /* ── remote command result ─────────────────────────────────── */
 
@@ -307,6 +307,8 @@ export async function executeSyncJob(
 		// cross-process mutual-exclusion lock is now redundant and must not pin a
 		// scarce advisory-lock connection for the full (possibly hours-long) rsync.
 		if (options?.onClaimed) await options.onClaimed();
+		// Existing jobs must obey the same directory policy as newly saved jobs.
+		assertDisjointSyncEndpoints(job);
 
 		const bidirectional = isBidirectionalSyncType(job.syncType);
 		const deleteOrphans = effectiveDeleteOrphans(job.syncType, job.deleteOrphans);

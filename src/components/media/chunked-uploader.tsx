@@ -324,8 +324,11 @@ export function useChunkedMediaUpload(
 
 				// Worker pool: up to MAX_CONCURRENT_CHUNKS PUTs in flight at once.
 				let cursor = 0;
+				let failed = false;
 				const updateProgress = (view: MediaUploadSessionView) => {
-					const received = view.receivedChunks;
+					// Parallel responses can arrive with older server snapshots.
+					for (const index of view.receivedChunks) receivedSet.add(index);
+					const received = [...receivedSet].sort((a, b) => a - b);
 					const bytes = received.reduce(
 						(acc, idx) => acc + Math.min(chunkSize, Math.max(0, totalBytes - idx * chunkSize)),
 						0,
@@ -346,22 +349,33 @@ export function useChunkedMediaUpload(
 				};
 
 				const runWorker = async (): Promise<void> => {
-					while (cursor < todo.length) {
-						if (cancelledRef.current) throw new Error("cancelled");
-						const idx = todo[cursor++]!;
-						const start = idx * chunkSize;
-						const end = Math.min(start + chunkSize, file.size);
-						const slice = file.slice(start, end);
-						const buf = await slice.arrayBuffer();
-						const view = await putChunk(session.id, idx, buf.byteLength, buf);
-						updateProgress(view);
+					try {
+						while (!failed && cursor < todo.length) {
+							if (cancelledRef.current) throw new Error("cancelled");
+							const idx = todo[cursor++]!;
+							const start = idx * chunkSize;
+							const end = Math.min(start + chunkSize, file.size);
+							const slice = file.slice(start, end);
+							const buf = await slice.arrayBuffer();
+							if (failed) return;
+							if (cancelledRef.current) throw new Error("cancelled");
+							const view = await putChunk(session.id, idx, buf.byteLength, buf);
+							if (!failed && !cancelledRef.current) updateProgress(view);
+						}
+					} catch (error) {
+						failed = true;
+						throw error;
 					}
 				};
 
 				const workerCount = Math.min(MAX_CONCURRENT_CHUNKS, todo.length);
 				const workers: Promise<void>[] = [];
 				for (let w = 0; w < workerCount; w++) workers.push(runWorker());
-				await Promise.all(workers);
+				// Keep retry unavailable until every old worker has settled. Otherwise
+				// a late response can overwrite the next attempt's progress or error.
+				const outcomes = await Promise.allSettled(workers);
+				const failure = outcomes.find((outcome) => outcome.status === "rejected");
+				if (failure?.status === "rejected") throw failure.reason;
 
 				if (cancelledRef.current) throw new Error("cancelled");
 

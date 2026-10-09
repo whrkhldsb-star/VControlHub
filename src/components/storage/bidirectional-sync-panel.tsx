@@ -4,7 +4,7 @@ import { useCallback, useState } from "react";
 
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useI18n } from "@/lib/i18n/use-locale";
-import { normalizeSyncEndpointPath } from "@/lib/sync/bidirectional";
+import { syncEndpointsOverlap } from "@/lib/sync/bidirectional";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
@@ -101,8 +101,7 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
 
   const sameEndpoint =
     Boolean(sourceServerId) &&
-    sourceServerId === targetServerId &&
-    normalizeSyncEndpointPath(sourcePath) === normalizeSyncEndpointPath(targetPath);
+    syncEndpointsOverlap({ sourceServerId, targetServerId, sourcePath, targetPath });
 
   const createJob = async () => {
     setActionError(null);

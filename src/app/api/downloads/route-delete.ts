@@ -67,6 +67,16 @@ export async function DELETE(request: Request) {
         return NextResponse.json({ success: true, purged: true });
       }
 
+      if (task.status === "CANCELLED") {
+        return NextResponse.json({ success: true });
+      }
+      if (task.status !== "PENDING" && task.status !== "RUNNING") {
+        return NextResponse.json(
+          { error: t("apiDownloads.taskNoLongerActive", locale) },
+          { status: 409 },
+        );
+      }
+
       if (task.aria2Gid) {
         try {
           await removeDownload(task.aria2Gid, true);
@@ -114,10 +124,16 @@ export async function DELETE(request: Request) {
         }
       }
 
-      await prisma.downloadTask.update({
-        where: { id: taskId },
+      const cancelled = await prisma.downloadTask.updateMany({
+        where: { id: taskId, status: { in: ["PENDING", "RUNNING"] } },
         data: { status: "CANCELLED", errorMessage: t("apiDownloads.userCancelled", locale) },
       });
+      if (cancelled.count === 0) {
+        return NextResponse.json(
+          { error: t("apiDownloads.taskNoLongerActive", locale) },
+          { status: 409 },
+        );
+      }
 
       await auditUserAction(session.userId, "download.cancel", {
         taskId,
