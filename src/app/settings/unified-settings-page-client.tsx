@@ -9,6 +9,7 @@ import { SegmentedTabs, SideNav, SplitPane } from "@/components/ui-primitives";
 import type { RuntimeSettingSummaryDto as RuntimeSettingSummary } from "@/lib/runtime-settings/dto";
 import type { SettingUpdateMetadata } from "@/lib/settings/service";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { replaceBrowserUrl } from "@/lib/browser-history";
 import { PreferencesSettingsContent, PREFERENCES_CATEGORY_SUMMARIES } from "../preferences/preferences-page-client";
 import { SettingsClient } from "./settings-client";
 import { SystemConfigSection } from "./system-config-section";
@@ -157,7 +158,7 @@ export function UnifiedSettingsPageClient({
       tab === "personal" ? "preferences-default-page" : tab === "team" ? TEAM_SECTION_ID : TAB_SECTION_IDS[tab]?.[0] ?? "";
     if (firstSection && typeof window !== "undefined") {
       setActiveSection(firstSection);
-      window.history.replaceState(window.history.state, "", `#${firstSection}`);
+      replaceBrowserUrl(`#${firstSection}`);
     }
   }, [cancelNavigation]);
 
@@ -165,7 +166,7 @@ export function UnifiedSettingsPageClient({
     (sectionId: string) => {
       setActiveSection(sectionId);
       if (typeof window !== "undefined") {
-        window.history.replaceState(window.history.state, "", `#${sectionId}`);
+        replaceBrowserUrl(`#${sectionId}`);
       }
       revealSection(sectionId, activeTab);
     },
